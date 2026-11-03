@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Yggdrasil</title>
+    <link rel="icon" href="data:," />
+    <style>
+      html, body { margin: 0; height: 100%; overflow: hidden; background: #bfe3f2; }
+      body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; color: #fff; user-select: none; }
+      #game { position: fixed; inset: 0; display: block; width: 100%; height: 100%; }
+      .hud-text { text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7); }
+      #stats { position: fixed; top: 10px; left: 12px; font-size: 12px; opacity: 0.85; }
+      #hint {
+        position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%);
+        display: flex; gap: 14px; align-items: center; font-size: 13px; white-space: nowrap;
+        background: rgba(20, 30, 40, 0.45); padding: 7px 14px; border-radius: 999px;
+      }
+      #hint .key {
+        display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px;
+        padding: 0 5px; margin-right: 5px; border-radius: 4px; background: rgba(255, 255, 255, 0.92);
+        color: #1d2733; font-weight: 700; font-size: 11px; text-shadow: none;
+      }
+      #hint .pad { border-radius: 50%; padding: 0; width: 18px; color: #fff; }
+      #hint .pad-a { background: #5cb85c; }
+      #hint .pad-b { background: #d9534f; }
+      #hint .pad-x { background: #337ab7; }
+      #hint .pad-y { background: #f0ad4e; }
+      #hint .stick { background: #2b3440; color: #fff; }
+      #dummy-hp { position: fixed; width: 90px; height: 8px; margin-left: -45px; pointer-events: none;
+        background: rgba(0, 0, 0, 0.45); border-radius: 4px; overflow: hidden; }
+      #dummy-hp .fill { height: 100%; width: 100%; background: linear-gradient(#ff6b6b, #d63031); transition: width 80ms; }
+      #player-hp { position: fixed; left: 50%; margin-left: -110px; bottom: 116px; width: 220px; height: 16px; display: none;
+        background: rgba(0, 0, 0, 0.45); border-radius: 8px; overflow: hidden; }
+      #player-hp .fill { height: 100%; width: 100%; background: linear-gradient(#7bed9f, #2ed573); transition: width 120ms; }
+      #player-hp .label { position: absolute; inset: 0; text-align: center; font-size: 11px; line-height: 16px; font-weight: 700; }
+      #player-hp.hurt .fill { background: linear-gradient(#ff7675, #d63031); }
+      .dmg { position: fixed; pointer-events: none; font-weight: 900; font-size: 22px; color: #fff;
+        transform: translate(-50%, -50%);
+        text-shadow: 0 2px 0 #1d2733, 2px 0 0 #1d2733, -2px 0 0 #1d2733, 0 -2px 0 #1d2733; }
+      .dmg.big { font-size: 34px; color: #ffd166; }
+
+      /* Ability bar: weapon, two ability slots, skills button */
+      #abilities { position: fixed; bottom: 52px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px;
+        align-items: flex-end; pointer-events: none; }
+      #abilities .weapon { display: flex; flex-direction: column; align-items: center; gap: 2px; margin-right: 6px; }
+      #abilities .weapon .icon { font-size: 26px; line-height: 1; }
+      #abilities .weapon .name { font-size: 11px; font-weight: 700; text-transform: capitalize; }
+      #abilities .slot { position: relative; width: 52px; height: 52px; border-radius: 10px; overflow: hidden;
+        background: rgba(20, 30, 40, 0.6); border: 2px solid rgba(255, 255, 255, 0.35); display: grid; place-items: center; }
+      #abilities .slot .icon { font-size: 28px; line-height: 1; }
+      #abilities .slot.empty { opacity: 0.45; border-style: dashed; }
+      #abilities .slot.ready:not(.empty) { border-color: rgba(255, 255, 255, 0.85); }
+      #abilities .slot.casting { border-color: #ffd166; box-shadow: 0 0 12px #ffd166; }
+      #abilities .slot .cd { position: absolute; inset: 0; }
+      #abilities .slot .secs { position: absolute; inset: 0; display: grid; place-items: center; font-weight: 900; font-size: 17px; }
+      #abilities .bind { position: absolute; right: 2px; bottom: 1px; font-size: 10px; font-weight: 800; padding: 0 3px;
+        border-radius: 3px; background: rgba(255, 255, 255, 0.9); color: #1d2733; text-shadow: none; }
+      #abilities .skills-btn { position: relative; pointer-events: auto; cursor: pointer; margin-left: 6px; padding: 8px 12px 8px 10px;
+        border-radius: 10px; background: rgba(20, 30, 40, 0.6); border: 2px solid rgba(255, 255, 255, 0.35); font-weight: 800; font-size: 13px; }
+      #abilities .skills-btn .bind { position: static; margin-right: 6px; }
+      #abilities .skills-btn.unspent { border-color: #ffd166; animation: glow 1.4s ease-in-out infinite; }
+      #abilities .skills-btn b { color: #ffd166; }
+      @keyframes glow { 50% { box-shadow: 0 0 14px rgba(255, 209, 102, 0.8); } }
+
+      /* Cast bar */
+      #castbar { position: fixed; left: 50%; top: 66%; width: 240px; height: 14px; margin-left: -120px; display: none;
+        background: rgba(0, 0, 0, 0.5); border-radius: 7px; overflow: hidden; pointer-events: none; }
+      #castbar.show { display: block; }
+      #castbar .fill { height: 100%; width: 0; background: linear-gradient(#ffe29a, #ffb627); }
+      #castbar .label { position: absolute; inset: 0; text-align: center; font-size: 11px; line-height: 14px; font-weight: 800; }
+      #castbar.done .fill { background: linear-gradient(#b8ffcf, #2ed573); }
+      #castbar.interrupted .fill { width: 100% !important; background: linear-gradient(#ff8a80, #d63031); }
+      #castbar.cancelled { opacity: 0.6; }
+
+      /* Skill trees */
+      #skills { position: fixed; inset: 0; display: grid; place-items: center; background: rgba(8, 14, 22, 0.55); }
+      #skills[hidden] { display: none; }
+      #skills .panel { width: min(980px, 94vw); max-height: 92vh; overflow: auto; padding: 18px 22px 14px; border-radius: 16px;
+        background: rgba(22, 32, 44, 0.96); box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5); border: 1px solid rgba(255, 255, 255, 0.12); }
+      #skills header { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
+      #skills h2 { margin: 0; font-size: 22px; letter-spacing: 0.5px; }
+      #skills .points { flex: 1; font-size: 14px; opacity: 0.9; }
+      #skills .points b { font-size: 18px; color: #ffd166; }
+      #skills button { font: inherit; color: inherit; cursor: pointer; }
+      #skills .hbtn { background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.25); border-radius: 8px; padding: 6px 12px; font-weight: 700; font-size: 13px; }
+      #skills .hbtn:hover { background: rgba(255, 255, 255, 0.2); }
+      #skills .trees { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+      #skills .tree { border-radius: 12px; padding: 10px; background: rgba(255, 255, 255, 0.04); border-top: 4px solid var(--c); }
+      #skills .tree h3 { margin: 0 0 10px; font-size: 14px; color: var(--c); text-transform: uppercase; letter-spacing: 1px; }
+      #skills .node { display: flex; gap: 10px; align-items: flex-start; width: 100%; text-align: left; padding: 9px; border-radius: 10px;
+        background: rgba(0, 0, 0, 0.25); border: 2px solid rgba(255, 255, 255, 0.12); }
+      #skills .node .icon { font-size: 24px; line-height: 1; filter: grayscale(1); opacity: 0.6; }
+      #skills .node b { display: block; font-size: 13px; margin-bottom: 2px; }
+      #skills .node small { display: block; font-size: 11px; opacity: 0.75; line-height: 1.35; }
+      #skills .node.available { border-color: rgba(255, 255, 255, 0.4); }
+      #skills .node.available:hover { background: rgba(255, 255, 255, 0.08); }
+      #skills .node.available .icon { filter: none; opacity: 0.85; }
+      #skills .node.learned { border-color: var(--c); background: color-mix(in srgb, var(--c) 22%, transparent); }
+      #skills .node.learned .icon { filter: none; opacity: 1; }
+      #skills .node.locked { opacity: 0.5; }
+      #skills .link { width: 4px; height: 12px; margin: 0 auto; background: rgba(255, 255, 255, 0.15); }
+      #skills .link.on { background: var(--c); }
+      #skills .focus { outline: 3px solid #fff; outline-offset: 2px; }
+      #skills .loadout { display: flex; gap: 28px; margin-top: 14px; padding-top: 12px; border-top: 1px solid rgba(255, 255, 255, 0.12); flex-wrap: wrap; }
+      #skills .loadout h4 { margin: 0 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; opacity: 0.75; }
+      #skills .choices { display: flex; gap: 8px; }
+      #skills .choice { display: flex; align-items: center; gap: 6px; padding: 7px 11px; border-radius: 9px; font-weight: 700; font-size: 13px;
+        background: rgba(0, 0, 0, 0.25); border: 2px solid rgba(255, 255, 255, 0.15); text-transform: capitalize; }
+      #skills .choice.on { border-color: #ffd166; background: rgba(255, 209, 102, 0.15); }
+      #skills .choice.off { opacity: 0.35; }
+      #skills .choice .k { font-size: 10px; padding: 0 4px; border-radius: 3px; background: rgba(255, 255, 255, 0.9); color: #1d2733; }
+      #skills footer { margin-top: 12px; font-size: 12px; opacity: 0.8; min-height: 16px; }
+      #skills footer .note { color: #ffd166; font-weight: 700; }
+    </style>
+  </head>
+  <body>
+    <canvas id="game"></canvas>
+    <div id="stats" class="hud-text"></div>
+    <div id="hint" class="hud-text"></div>
+    <div id="dummy-hp"><div class="fill"></div></div>
+    <div id="player-hp" class="hud-text"><div class="fill"></div><span class="label"></span></div>
+    <div id="abilities" class="hud-text"></div>
+    <div id="castbar" class="hud-text"><div class="fill"></div><span class="label"></span></div>
+    <div id="skills" class="hud-text" hidden></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

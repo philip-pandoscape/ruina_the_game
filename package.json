@@ -1,0 +1,26 @@
+{
+  "name": "yggdrasil",
+  "version": "1.0.0",
+  "description": "Browser 3D third-person action MMORPG prototype",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit",
+    "test": "playwright test",
+    "server": "cargo run --release --manifest-path server/Cargo.toml --bin yggdrasil-server -- --bots 10000",
+    "server:stress": "cargo run --release --manifest-path server/Cargo.toml --bin yggdrasil-server -- --bots 10000 --virtual-clients 10000",
+    "loadtest": "cargo run --release --manifest-path server/Cargo.toml --bin loadtest -- --clients 1000 --seconds 15"
+  },
+  "type": "module",
+  "dependencies": {
+    "three": "^0.187.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.64.1",
+    "@types/node": "^26.6.6",
+    "@types/three": "^0.187.0",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.5"
+  },
+  "private": true
+}

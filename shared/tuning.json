@@ -1,0 +1,306 @@
+{
+  "simHz": 60,
+  "move": {
+    "walkSpeed": 3.2,
+    "runSpeed": 7.5,
+    "runThreshold": 0.55,
+    "groundAccel": 70,
+    "groundDecel": 55,
+    "airAccel": 22,
+    "airDrag": 6,
+    "turnSpeed": 20,
+    "playerRadius": 0.35
+  },
+  "jump": {
+    "velocity": 9.2,
+    "doubleJumpVelocity": 8.6,
+    "gravityUp": 26,
+    "gravityDown": 42,
+    "maxFall": 28,
+    "shortHopCut": 0.45,
+    "coyoteFrames": 6,
+    "bufferFrames": 6,
+    "doubleJumpSteer": 1,
+    "flipFrames": 23
+  },
+  "slide": {
+    "speed": 15,
+    "endSpeed": 7,
+    "frames": 26,
+    "cooldownFrames": 12,
+    "steer": 2.5,
+    "jumpCarry": 0.85,
+    "bufferFrames": 5
+  },
+  "attack": {
+    "bufferFrames": 8,
+    "autoAimRange": 3.2,
+    "autoAimDeg": 70,
+    "airGravityScale": 0.35
+  },
+  "special": {
+    "bufferFrames": 6,
+    "cancelCooldownFrames": 30,
+    "interruptCooldownFrames": 60
+  },
+  "weapons": [
+    {
+      "name": "sword",
+      "combo": [
+        {
+          "startup": 4,
+          "active": 5,
+          "recovery": 12,
+          "damage": 12,
+          "lunge": 3.2,
+          "reach": 2,
+          "arcDeg": 170,
+          "hitstop": 4,
+          "knock": 2.5,
+          "playerKnock": 3,
+          "shake": 0.25,
+          "cancelAfter": 5
+        },
+        {
+          "startup": 4,
+          "active": 5,
+          "recovery": 12,
+          "damage": 14,
+          "lunge": 3.2,
+          "reach": 2,
+          "arcDeg": 170,
+          "hitstop": 4,
+          "knock": 3,
+          "playerKnock": 3.5,
+          "shake": 0.3,
+          "cancelAfter": 5
+        },
+        {
+          "startup": 7,
+          "active": 6,
+          "recovery": 20,
+          "damage": 26,
+          "lunge": 6,
+          "reach": 2.1,
+          "arcDeg": 80,
+          "hitstop": 8,
+          "knock": 6,
+          "playerKnock": 7,
+          "shake": 0.6,
+          "cancelAfter": 10
+        }
+      ],
+      "whirlwind": {
+        "startup": 6,
+        "active": 8,
+        "recovery": 18,
+        "damage": 28,
+        "lunge": 1.5,
+        "reach": 2.5,
+        "arcDeg": 360,
+        "hitstop": 8,
+        "knock": 6,
+        "playerKnock": 7,
+        "shake": 0.6,
+        "cancelAfter": 10
+      }
+    },
+    {
+      "name": "club",
+      "combo": [
+        {
+          "startup": 5,
+          "active": 4,
+          "recovery": 14,
+          "damage": 9,
+          "lunge": 2.5,
+          "reach": 1.8,
+          "arcDeg": 110,
+          "hitstop": 4,
+          "knock": 2.5,
+          "playerKnock": 2.5,
+          "shake": 0.2,
+          "cancelAfter": 6
+        },
+        {
+          "startup": 7,
+          "active": 5,
+          "recovery": 20,
+          "damage": 16,
+          "lunge": 4,
+          "reach": 1.9,
+          "arcDeg": 110,
+          "hitstop": 6,
+          "knock": 5,
+          "playerKnock": 5,
+          "shake": 0.4,
+          "cancelAfter": 10
+        }
+      ]
+    },
+    {
+      "name": "staff",
+      "combo": [
+        {
+          "startup": 5,
+          "active": 4,
+          "recovery": 16,
+          "damage": 8,
+          "lunge": 2,
+          "reach": 1.9,
+          "arcDeg": 100,
+          "hitstop": 3,
+          "knock": 2.5,
+          "playerKnock": 3,
+          "shake": 0.2,
+          "cancelAfter": 8
+        }
+      ]
+    },
+    {
+      "name": "bow",
+      "combo": [
+        {
+          "startup": 9,
+          "active": 1,
+          "recovery": 9,
+          "damage": 12,
+          "lunge": 0,
+          "reach": 0,
+          "arcDeg": 0,
+          "hitstop": 0,
+          "knock": 1.5,
+          "playerKnock": 2,
+          "shake": 0.1,
+          "cancelAfter": 4,
+          "projectileSpeed": 38,
+          "projectileRange": 42
+        }
+      ],
+      "rapidFireStartup": 6
+    }
+  ],
+  "abilities": [
+    {
+      "name": "Healing Circle",
+      "kind": "heal",
+      "castFrames": 24,
+      "fastCastFrames": 14,
+      "cooldownFrames": 240,
+      "amount": 25,
+      "radius": 6
+    },
+    {
+      "name": "Meteor",
+      "kind": "meteor",
+      "castFrames": 72,
+      "fastCastFrames": 50,
+      "cooldownFrames": 150,
+      "range": 9,
+      "maxRange": 16,
+      "fallFrames": 30,
+      "radius": 3.5,
+      "damage": 35,
+      "knock": 6
+    }
+  ],
+  "skills": {
+    "points": 6,
+    "cleaveTargets": 6,
+    "pierceTargets": 3,
+    "trees": [
+      {
+        "name": "Swordsmanship",
+        "nodes": [
+          {
+            "id": "sword",
+            "name": "Sword Training",
+            "desc": "Wield a sword: a fast three-hit combo.",
+            "weapon": 0
+          },
+          {
+            "id": "cleave",
+            "name": "Cleave",
+            "desc": "Your sword swings hit up to 6 enemies at once."
+          },
+          {
+            "id": "whirlwind",
+            "name": "Whirlwind",
+            "desc": "Your third sword hit becomes a spin that hits everyone around you."
+          }
+        ]
+      },
+      {
+        "name": "Restoration",
+        "nodes": [
+          {
+            "id": "club",
+            "name": "Club Training",
+            "desc": "Wield a club: a heavy two-hit combo.",
+            "weapon": 1
+          },
+          {
+            "id": "heal",
+            "name": "Healing Circle",
+            "desc": "Ability: heal yourself and allies within 6 m for 25.",
+            "ability": 0
+          },
+          {
+            "id": "swiftMending",
+            "name": "Swift Mending",
+            "desc": "Healing Circle casts 40% faster."
+          }
+        ]
+      },
+      {
+        "name": "Pyromancy",
+        "nodes": [
+          {
+            "id": "staff",
+            "name": "Staff Training",
+            "desc": "Wield a staff: a quick jab.",
+            "weapon": 2
+          },
+          {
+            "id": "meteor",
+            "name": "Meteor",
+            "desc": "Ability: call a fireball down from the sky. Getting hit while casting interrupts it.",
+            "ability": 1
+          },
+          {
+            "id": "quickIncantation",
+            "name": "Quick Incantation",
+            "desc": "Meteor casts 30% faster."
+          }
+        ]
+      },
+      {
+        "name": "Archery",
+        "nodes": [
+          {
+            "id": "bow",
+            "name": "Bow Training",
+            "desc": "Wield a bow: shoot arrows.",
+            "weapon": 3
+          },
+          {
+            "id": "rapidFire",
+            "name": "Rapid Fire",
+            "desc": "Draw your bow a third faster."
+          },
+          {
+            "id": "piercing",
+            "name": "Piercing Arrows",
+            "desc": "Your arrows go through up to 3 enemies."
+          }
+        ]
+      }
+    ]
+  },
+  "combat": {
+    "maxHp": 100,
+    "stunFrames": 14,
+    "knockUp": 3,
+    "downFrames": 180
+  }
+}
