@@ -1372,6 +1372,8 @@ if (testMode ? params.has('bugs') : params.get('bugs') !== '0') {
     speech: params.get('bugspeech') !== '0',
     lang: params.get('buglang') || navigator.language || 'en-US',
   });
+  // Mouse readings thrown away as impossible, so a report can show whether one caused a camera jump.
+  input.mouse.onDrop = (dx, dy, why) => bugs?.note('mouse', { type: why, dx, dy, raw: input.rawMouse });
   if (lifeUI) {
     lifeUI.onBugReport = () => bugs?.toggle();
     lifeUI.bugKey = () => bugs?.key ?? '\\';

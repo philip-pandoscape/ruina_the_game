@@ -1,5 +1,6 @@
 import type { Actions } from '../sim/types';
 import { CAMERA, GAMEPAD } from '../tuning';
+import { MouseFilter } from './mouseFilter';
 
 export type Device = 'keyboard' | 'gamepad';
 
@@ -110,8 +111,10 @@ export class Input {
   onDeviceChange: ((d: Device) => void) | null = null;
   private down = new Set<string>();
   private pressed = new Set<string>(); // presses since the last pollActions()
-  private mouseDX = 0;
-  private mouseDY = 0;
+  /** Mouse movement for the camera, with the browser's occasional bogus readings taken out. */
+  readonly mouse = new MouseFilter();
+  /** Whether the browser agreed to raw mouse movement for the current pointer lock. */
+  rawMouse = false;
   private wheel = 0;
   private padPrev: boolean[] = [];
   private menuPresses: MenuPress[] = [];
@@ -141,11 +144,7 @@ export class Input {
       this.setDevice('keyboard');
       if (document.pointerLockElement !== canvas) {
         // First click captures the mouse for camera control.
-        try {
-          void Promise.resolve(canvas.requestPointerLock()).catch(() => {});
-        } catch {
-          /* pointer lock not available */
-        }
+        this.lockPointer(canvas);
         return;
       }
       if (e.button === 0) {
@@ -163,11 +162,40 @@ export class Input {
     });
     document.addEventListener('mousemove', (e) => {
       if (document.pointerLockElement !== canvas) return;
-      this.mouseDX += e.movementX;
-      this.mouseDY += e.movementY;
+      this.mouse.move(e.movementX, e.movementY, e.timeStamp);
     });
+    document.addEventListener('pointerlockchange', () => this.mouse.reset());
     canvas.addEventListener('wheel', (e) => (this.wheel += e.deltaY), { passive: true });
     canvas.addEventListener('contextmenu', (e) => e.preventDefault()); // right-click is an ability
+  }
+
+  // Asks for raw mouse movement, which skips the cursor re-centring the bogus readings come from
+  // (and Windows' mouse acceleration with it). Chrome refuses it where it can't do it, so ask again
+  // plainly; Firefox and Safari just ignore the option.
+  private lockPointer(canvas: HTMLCanvasElement): void {
+    const plain = () => {
+      this.rawMouse = false;
+      try {
+        void Promise.resolve(canvas.requestPointerLock()).catch(() => {});
+      } catch {
+        /* pointer lock not available */
+      }
+    };
+    try {
+      const asked = canvas.requestPointerLock({ unadjustedMovement: true });
+      if (!asked) {
+        this.rawMouse = false; // no promise: an older browser that ignored the option
+        return;
+      }
+      asked.then(
+        () => (this.rawMouse = true),
+        (err: unknown) => {
+          if (err instanceof DOMException && err.name === 'NotSupportedError') plain();
+        },
+      );
+    } catch {
+      plain();
+    }
   }
 
   private setDevice(d: Device): void {
@@ -192,11 +220,10 @@ export class Input {
 
   // Camera rotation and zoom since the last call. Called every rendered frame.
   pollCamera(dt: number): { dYaw: number; dPitch: number; dZoom: number } {
-    let dYaw = -this.mouseDX * CAMERA.mouseSensitivity;
-    let dPitch = this.mouseDY * CAMERA.mouseSensitivity;
+    const m = this.mouse.take(performance.now());
+    let dYaw = -m.dx * CAMERA.mouseSensitivity;
+    let dPitch = m.dy * CAMERA.mouseSensitivity;
     let dZoom = this.wheel * 0.0015;
-    this.mouseDX = 0;
-    this.mouseDY = 0;
     this.wheel = 0;
 
     if (this.down.has('ArrowLeft')) dYaw += CAMERA.keySpeed * dt;
