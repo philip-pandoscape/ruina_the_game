@@ -205,6 +205,8 @@ test('island: the tree spends points earned from quests, and the sword levels up
   expect((await skillsNow()).left).toBe(0);
   expect(await page.evaluate(() => (window as any).__game.learnNode('club'))).toBe(false);
   await expect(page.locator('#skills .st-note')).toContainText('needs 1 point');
+  // A whole build is held to the same points: the server would turn this one down.
+  expect(await page.evaluate((b) => (window as any).__game.setBuild(b), build(['sword', 'cleave', 'club'], 0))).toBe(false);
   // Finishing Landfall earns another.
   await page.evaluate(() => (window as any).__game.skillPanel(false));
   const hollis = (await page.evaluate(() => (window as any).__game.zone())).npcs.find((n: { id: string }) => n.id === 'hollis');
@@ -248,6 +250,28 @@ test('island: the tree spends points earned from quests, and the sword levels up
   // The book shows it, and the sword hits harder for it.
   await page.evaluate(() => (window as any).__game.selectBook('sword'));
   await expect(page.locator('#skills .sd-lv')).toHaveText(/Level 2/i);
+  expect(errors).toEqual([]);
+});
+
+test('island: a kept build the island has not earned the points for falls back to Sword Training', async ({ page }) => {
+  test.setTimeout(180_000);
+  const errors = watchErrors(page);
+  // A build tried out in the training yard, kept in this browser.
+  const tried = build(['sword', 'cleave', 'whirlwind', 'club'], 1);
+  await page.goto('/?yard');
+  await page.waitForFunction(() => (window as any).__game?.ready === true);
+  expect(await page.evaluate((b) => (window as any).__game.setBuild(b), tried)).toBe(true);
+  // A new island starts with START_POINTS, not enough for it, as the server would say on joining.
+  await page.goto('/?world&test');
+  await page.waitForFunction(() => (window as any).__game?.ready === true, null, { timeout: 90_000 });
+  const island = await page.evaluate(() => (window as any).__game.build());
+  expect(island.chosen.skills).toEqual(skills('sword'));
+  expect(island.using.weapon).toBe(0);
+  expect((await page.evaluate(() => (window as any).__game.skills())).left).toBe(START_POINTS - 1);
+  // The yard still has it.
+  await page.goto('/?yard');
+  await page.waitForFunction(() => (window as any).__game?.ready === true);
+  expect((await game(page)).chosen.skills).toEqual(tried.skills);
   expect(errors).toEqual([]);
 });
 

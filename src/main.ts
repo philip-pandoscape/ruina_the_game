@@ -107,7 +107,9 @@ const serverRules = !!serverUrl || !!online;
 const sim = new Sim(world, { training: !serverRules });
 // Your skills and loadout, kept between visits: with your character on the game server in the open
 // world, in this browser elsewhere. On the battlefield, the server checks it and sends it back.
-let build: Build = online ? (parseBuild(online.welcome.build) ?? defaultBuild()) : loadBuild();
+// The welcome's is the build the server applied, already held to the points your island has earned
+// (which this page doesn't know until the island arrives), so it's only checked for shape here.
+let build: Build = online ? (parseBuild(online.welcome.build, Infinity) ?? defaultBuild()) : loadBuild();
 sim.setBuild(build);
 const range = serverRules ? null : new TrainingRange(sim);
 const models = openWorld ? await loadModels() : {};
@@ -257,6 +259,13 @@ if (life && online) {
   life.remote = (c) => online.link.command((prediction?.seq ?? 0) + 1, c);
 }
 if (life && testMode && params.has('load')) loadLife(life, sim);
+// The island's skill points hold your build to what you've earned, as the server does on joining:
+// a build they can't cover falls back to Sword Training. Online the welcome already says what the
+// server chose, except when ?fresh has just started the island, and its points, over.
+if (life && (!online || params.has('fresh')) && !validBuild(build, skillBudget(life.state))) {
+  build = defaultBuild();
+  sim.setBuild(build);
+}
 
 /** Moves you somewhere (the dev panel and tests), off whatever you were riding. */
 function teleport(x: number, z: number, facing = sim.player.facing): void {
@@ -1353,7 +1362,8 @@ const api = {
     return { chosen: { ...build }, using: { skills: [...p.skills], weapon: p.weapon, abilities: [...p.abilities], movement: [...p.movement] } };
   },
   setBuild(b: Build): boolean {
-    if (!validBuild(b)) return false;
+    // Only what your points allow: on the island, what its quests and milestones have earned.
+    if (!validBuild(b, skillPoints())) return false;
     panel.setBuild(b);
     applyBuild(b);
     return true;
