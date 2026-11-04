@@ -544,6 +544,9 @@ function clampAim(maxRange: number): void {
 // what the camera would have done; while the circle is up, that input moves the circle instead,
 // so the view stays put and you can see where the spell is going.
 let combat = input.pollCombat();
+// Escape while placing a circle, kept until a rules step has seen it: a fast screen draws frames
+// that run no step at all, and a press read in one of those would otherwise be lost.
+let cancelWaiting = false;
 function updateCombatAim(cam: { dYaw: number; dPitch: number }, dt: number): boolean {
   combat = input.pollCombat();
   for (let i = 0; i < combat.nextTarget; i++) cycleTarget(1);
@@ -551,6 +554,8 @@ function updateCombatAim(cam: { dYaw: number; dPitch: number }, dt: number): boo
   if (combat.cancel > 0 && aimingSlot === 0) {
     // Escape with nothing being aimed drops the target instead.
     lockOn.clear();
+  } else if (combat.cancel > 0) {
+    cancelWaiting = true;
   }
   updateTarget();
 
@@ -581,6 +586,9 @@ function updateCombatAim(cam: { dYaw: number; dPitch: number }, dt: number): boo
 // Turns the raw buttons into the actions the rules see: holding a ground-aimed ability arms it
 // instead of casting, releasing it casts at the circle, and the marked enemy supplies the aim.
 function targeting(a: Actions): Actions {
+  // The first step after an Escape takes it, whatever happens next.
+  const cancel = cancelWaiting;
+  cancelWaiting = false;
   if (net && !playing) return a;
   // An action that already carries an aim was aimed by whoever made it (the test hooks, and
   // autoAim): it casts straight away rather than arming the circle, matching aimAssist().
@@ -598,7 +606,7 @@ function targeting(a: Actions): Actions {
   }
   if (aimingSlot !== 0) {
     // Escape, or B on a pad (which would otherwise slide), backs out without casting.
-    if (combat.cancel > 0 || out.slidePressed) {
+    if (cancel || out.slidePressed) {
       aimingSlot = 0;
       return { ...out, slidePressed: false, abilitySlot: 0 };
     }
@@ -1002,6 +1010,10 @@ function frame(now: number): void {
       if (panel.isOpen) panel.menu(m);
       else if (m === 'toggle' && (!net || playing)) panel.open();
     }
+    // Just closed (B, say): whatever closed it is still held, and mustn't count as a press in the
+    // game once the menu is gone - B would slide. Reading the controls now uses those presses up,
+    // even on a frame that runs no rules step to read them.
+    if (menuOpen && !panel.isOpen && !lifeUI?.modal) input.pollActions(follow.yaw);
     const cam = input.pollCamera(dt);
     syncNet();
     const placing = !menuOpen && updateCombatAim(cam, dt);
