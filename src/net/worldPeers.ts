@@ -13,28 +13,18 @@ import type { ZoneData } from '../sim/zone/world';
 import { blankState } from './netPlayer';
 import type { Estate, EstateEntry, PeerEntry, WorldLink } from './worldLink';
 
-// Everyone else in your channel of Emberholm, drawn from what the server relays
-// (server/src/channels.rs): each player as they move (their presence, about 20 times a second,
-// drawn a few frames behind so there is always a next one to blend toward), with their glider,
-// pack, vehicles and mounts; and everything every resident has built, their houses and farms,
-// which stay standing while they're away. Houses and farm posts are solid, as yours are.
+// Everyone else in your channel of Emberholm, as the server plays them (server/src/world_game.rs):
+// each player as they move (about 20 times a second, drawn a few frames behind so there is always
+// a next one to blend toward), with their glider, pack, vehicles and mounts; and everything every
+// resident has built, their houses and farms, which stay standing while they're away. Houses and
+// farm posts are solid, as yours are.
 
-/** The player fields other people need to draw you (src/render/character.ts and the life view). */
+/** The player fields drawing someone needs (src/render/character.ts and the life view); the server sends these. */
 const SHOWN = [
   'facing', 'mode', 'grounded', 'attackIndex', 'attackFrame', 'flipFrame', 'landFrame', 'landImpact', 'takeoffFrame', 'runPhase',
   'stun', 'downFrame', 'weapon', 'comboVariants', 'actionId', 'actionFrame', 'castAbility', 'castFrame', 'bank', 'pack', 'vehicle',
   'seat', 'glider', 'airspeed', 'sprinting', 'crouching', 'crouchFrame', 'hp',
 ] as const;
-
-/** What everyone else sees of you right now. */
-export function presenceOf(sim: Sim, life: Life): Record<string, unknown> {
-  const p = sim.player;
-  const out: Record<string, unknown> = { fr: sim.frame, pos: p.pos, vel: p.vel };
-  for (const k of SHOWN) out[k] = p[k];
-  out.vehicles = life.state.vehicles;
-  out.packs = life.state.packs;
-  return out;
-}
 
 /** Frames behind the newest presence that others are drawn at (100 ms). */
 const DELAY = 6;
