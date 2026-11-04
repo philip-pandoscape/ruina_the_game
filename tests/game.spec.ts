@@ -1,5 +1,8 @@
 import { expect, test, type Page } from '@playwright/test';
-import { WEAPONS } from '../src/tuning';
+import { SLIDE_SKILL, WEAPONS } from '../src/tuning';
+
+// Sliding is an action state now, not a mode of its own.
+const sliding = (p: { mode: string; actionId: number }) => p.mode === 'action' && p.actionId === SLIDE_SKILL;
 
 // These tests drive the real game in a browser through window.__game (see the end of src/main.ts).
 // Screenshots land in screenshots/ so they can be reviewed by eye.
@@ -104,7 +107,7 @@ test('slide is faster and goes further than running', async ({ page }) => {
   await advance(page, 1, { moveX: 1, slidePressed: true });
   await advance(page, 5, { moveX: 1 });
   const mid = await state(page);
-  expect(mid.player.mode).toBe('slide');
+  expect(sliding(mid.player)).toBe(true);
   expect(Math.hypot(mid.player.vel.x, mid.player.vel.z)).toBeGreaterThan(9);
   await page.screenshot({ path: `${SHOTS}/03-slide.png` });
   await advance(page, 20, { moveX: 1 });
@@ -200,7 +203,7 @@ test('Xbox controller: sticks and A/B/X work, rumble fires on hit', async ({ pag
   // B = slide (stick still held forward)
   await tap(1);
   s = await state(page);
-  expect(s.player.mode).toBe('slide');
+  expect(sliding(s.player)).toBe(true);
   await setAxis(1, 0);
   await advanceLive(page, 40);
 

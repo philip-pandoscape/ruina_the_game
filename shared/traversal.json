@@ -1,0 +1,55 @@
+{
+  "comment": "How you get around an open world on foot, in water and in the air. Read by src/content/traversal.ts. Slopes are rise over run (1.0 = 45 degrees). Speeds m/s, heights m, times in sim frames unless named Seconds. storm: in rain, water deeper than fromDepth gets rough (full at fullDepth); hullDamage is [boat length up to, hit points a second at full storm]; a boat that breaks up is back after repairSeconds.",
+  "ground": {
+    "maxSlope": 1.05,
+    "stepUp": 0.45,
+    "snapDown": 0.3,
+    "wadeDepth": 0.55,
+    "wadeSpeed": 0.72
+  },
+  "swim": {
+    "depth": 1.35,
+    "float": 1.2,
+    "speed": 3.6,
+    "sprintSpeed": 5.4,
+    "accel": 9,
+    "turnSpeed": 7,
+    "climbOut": 7.5,
+    "splashSpeed": 4
+  },
+  "glide": {
+    "verticalEase": 2.6,
+    "turnEase": 5,
+    "maxBank": 0.75,
+    "crashSpeed": 9,
+    "landKeep": 0.55,
+    "openFrames": 14
+  },
+  "camera": {
+    "rideDistance": 9,
+    "boatDistance": 14,
+    "glideDistance": 8.5,
+    "autoFollow": 2.2,
+    "autoDelay": 1.0
+  },
+  "storm": {
+    "fromDepth": 5,
+    "fullDepth": 14,
+    "hullDamage": [
+      [
+        6,
+        9
+      ],
+      [
+        12,
+        5
+      ],
+      [
+        99,
+        2.5
+      ]
+    ],
+    "buffet": 5,
+    "repairSeconds": 90
+  }
+}

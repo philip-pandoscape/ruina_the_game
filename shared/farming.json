@@ -1,0 +1,286 @@
+{
+  "comment": "Crops, trees and the weather that grows them. Read by src/content/farming.ts. Times are real seconds of world time (the world clock keeps running while you are away, at the offline rate in trade.json's clock section). A plant passes through `stages` looks; the last is ripe. Growth runs faster in its own climate and slower elsewhere, faster still when watered or rained on. `gathering` is what each resource node in a zone gives, for how much labor, and how long it takes to come back. `animals` are raised in plot cells like crops: fed instead of watered (they only grow and produce while fed), and collected again and again once grown.",
+  "cell": 2,
+  "scarecrowCells": 4,
+  "maxScarecrows": 3,
+  "climates": {
+    "temperate": {
+      "name": "Temperate",
+      "icon": "🌤️"
+    },
+    "warm": {
+      "name": "Warm",
+      "icon": "☀️"
+    },
+    "arid": {
+      "name": "Arid",
+      "icon": "🏜️"
+    },
+    "frost": {
+      "name": "Frost",
+      "icon": "❄️"
+    }
+  },
+  "climateMatch": 1.0,
+  "climateMismatch": 0.7,
+  "water": {
+    "boost": 1.25,
+    "labor": 1
+  },
+  "rain": {
+    "boost": 1.25,
+    "firstAfter": 240,
+    "gapSeconds": [
+      420,
+      780
+    ],
+    "lastsSeconds": [
+      80,
+      150
+    ]
+  },
+  "witherAfterRipe": 0,
+  "crops": [
+    {
+      "id": "sunroot",
+      "name": "Sunroot",
+      "kind": "crop",
+      "climate": "temperate",
+      "icon": "🥔",
+      "growSeconds": 150,
+      "stages": 4,
+      "seed": "seed.sunroot",
+      "produce": "sunroot",
+      "yield": [
+        3,
+        5
+      ],
+      "seedChance": 0.35,
+      "harvestLabor": 2,
+      "plantLabor": 0,
+      "look": "Potato-like plant. Seed: small dirt mound with a marker twig. Sprout: two round leaves. Young: bushy dark-green leaves. Ripe: fuller bush with small yellow star flowers and two golden tubers showing at the soil."
+    },
+    {
+      "id": "barley",
+      "name": "Barley",
+      "kind": "crop",
+      "climate": "temperate",
+      "icon": "🌾",
+      "growSeconds": 200,
+      "stages": 4,
+      "seed": "seed.barley",
+      "produce": "barley",
+      "yield": [
+        4,
+        6
+      ],
+      "seedChance": 0.35,
+      "harvestLabor": 2,
+      "plantLabor": 0,
+      "look": "Grain clump. Sprout: a few thin green blades. Young: knee-high green stalks. Ripe: waist-high golden stalks with drooping bearded ears."
+    },
+    {
+      "id": "flax",
+      "name": "Flax",
+      "kind": "crop",
+      "climate": "temperate",
+      "icon": "💠",
+      "growSeconds": 220,
+      "stages": 4,
+      "seed": "seed.flax",
+      "produce": "flax",
+      "yield": [
+        3,
+        5
+      ],
+      "seedChance": 0.3,
+      "harvestLabor": 2,
+      "plantLabor": 0,
+      "look": "Slender upright stems. Ripe: many pale-blue five-petal flowers on top."
+    },
+    {
+      "id": "emberberry",
+      "name": "Emberberry",
+      "kind": "crop",
+      "climate": "warm",
+      "icon": "🍒",
+      "growSeconds": 260,
+      "stages": 4,
+      "seed": "seed.emberberry",
+      "produce": "emberberry",
+      "yield": [
+        4,
+        7
+      ],
+      "seedChance": 0.25,
+      "harvestLabor": 3,
+      "plantLabor": 0,
+      "look": "Low round bush with glossy leaves. Ripe: clusters of glowing orange-red berries (slightly emissive)."
+    },
+    {
+      "id": "apple",
+      "name": "Redcap Apple Tree",
+      "kind": "tree",
+      "climate": "temperate",
+      "icon": "🍎",
+      "growSeconds": 600,
+      "stages": 4,
+      "regrowSeconds": 240,
+      "seed": "sapling.apple",
+      "produce": "apple",
+      "yield": [
+        4,
+        6
+      ],
+      "seedChance": 0.0,
+      "harvestLabor": 3,
+      "plantLabor": 0,
+      "chop": {
+        "item": "lumber",
+        "yield": [
+          4,
+          6
+        ],
+        "labor": 8
+      },
+      "look": "Tree. Sapling: thin stick with a few leaves. Young: small tree 2 m. Grown: full round-canopy tree 4.5 m. Ripe: same tree with bright red apples dotted through the canopy."
+    },
+    {
+      "id": "pine",
+      "name": "Highland Pine",
+      "kind": "tree",
+      "climate": "frost",
+      "icon": "🌲",
+      "growSeconds": 480,
+      "stages": 4,
+      "regrowSeconds": 0,
+      "seed": "sapling.pine",
+      "produce": null,
+      "yield": [
+        0,
+        0
+      ],
+      "seedChance": 0.0,
+      "harvestLabor": 0,
+      "plantLabor": 0,
+      "chop": {
+        "item": "lumber",
+        "yield": [
+          7,
+          10
+        ],
+        "labor": 8
+      },
+      "look": "Conifer. Sapling: tiny cone of needles. Young: 2 m pine. Grown: 5 m pine. Ripe: same 6 m pine with cones (the 'ready to fell' look)."
+    }
+  ],
+  "gathering": {
+    "timberNode": {
+      "item": "lumber",
+      "n": [
+        3,
+        5
+      ],
+      "labor": 8,
+      "verb": "Chop timber",
+      "respawn": 60,
+      "kind": "timber",
+      "rare": {
+        "item": "thunderLog",
+        "chance": 0.04
+      }
+    },
+    "stoneNode": {
+      "item": "stone",
+      "n": [
+        3,
+        5
+      ],
+      "labor": 8,
+      "verb": "Quarry stone",
+      "respawn": 60,
+      "kind": "stone"
+    },
+    "oreNode": {
+      "item": "ironOre",
+      "n": [
+        2,
+        3
+      ],
+      "labor": 10,
+      "verb": "Mine iron ore",
+      "respawn": 90,
+      "kind": "ore"
+    },
+    "herbNode": {
+      "item": "herbs",
+      "n": [
+        2,
+        4
+      ],
+      "labor": 4,
+      "verb": "Pick herbs",
+      "respawn": 75,
+      "kind": "herbs"
+    }
+  },
+  "animals": [
+    {
+      "id": "chicken",
+      "name": "Chicken",
+      "icon": "🐔",
+      "young": "Chick",
+      "item": "animal.chick",
+      "growSeconds": 150,
+      "feed": "barley",
+      "feedN": 2,
+      "feedSeconds": 300,
+      "produce": "egg",
+      "yield": [
+        2,
+        3
+      ],
+      "produceSeconds": 120,
+      "collectLabor": 1,
+      "verb": "Collect eggs"
+    },
+    {
+      "id": "sheep",
+      "name": "Sheep",
+      "icon": "🐑",
+      "young": "Lamb",
+      "item": "animal.lamb",
+      "growSeconds": 240,
+      "feed": "barley",
+      "feedN": 3,
+      "feedSeconds": 360,
+      "produce": "wool",
+      "yield": [
+        2,
+        4
+      ],
+      "produceSeconds": 200,
+      "collectLabor": 2,
+      "verb": "Shear wool"
+    },
+    {
+      "id": "cow",
+      "name": "Cow",
+      "icon": "🐄",
+      "young": "Calf",
+      "item": "animal.calf",
+      "growSeconds": 330,
+      "feed": "barley",
+      "feedN": 4,
+      "feedSeconds": 360,
+      "produce": "milk",
+      "yield": [
+        2,
+        3
+      ],
+      "produceSeconds": 220,
+      "collectLabor": 2,
+      "verb": "Milk the cow"
+    }
+  ]
+}

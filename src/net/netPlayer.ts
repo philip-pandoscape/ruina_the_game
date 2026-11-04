@@ -1,30 +1,38 @@
 import * as THREE from 'three';
 import { Hero } from '../render/character';
 import type { Sim } from '../sim/sim';
-import type { Actions, PlayerState } from '../sim/types';
-import { comboFor } from '../tuning';
-import type { NetCrowd, RemoteRecord } from './netCrowd';
+import { ON_FOOT, type Actions, type PlayerState } from '../sim/types';
+import { comboShape } from '../tuning';
+import { emptySkills } from '../skills';
+import { MODE_DOWN, MODES } from './netCrowd';
+import { HOTBAR_SLOTS, MOVEMENT_SKILL_CAP, MOVEMENT_SLOTS, NO_ABILITY, NO_MOVEMENT } from '../tuning';
+import type { NetCrowd, RawInput, RemoteRecord } from './netCrowd';
 
 // ---------- Your own fighter: predict instantly, correct when the server answers ----------
 
 // Inputs travel to the server as small integers. Your own prediction uses exactly the same
 // rounded values, so the browser and the server run identical inputs. Aim is in quarter metres.
-export function quantize(a: Actions): { actions: Actions; raw: [number, number, number, number, number] } {
+export function quantize(a: Actions): { actions: Actions; raw: RawInput } {
   const clamp = (v: number) => Math.max(-127, Math.min(127, Math.round(v)));
   const qx = clamp(a.moveX * 127);
   const qz = clamp(a.moveZ * 127);
   const ax = clamp(a.aimX * 4);
   const az = clamp(a.aimZ * 4);
+  const slot = a.abilitySlot >= 1 && a.abilitySlot <= HOTBAR_SLOTS ? a.abilitySlot : 0;
+  // One byte carries both: hotbar slots first, then the movement slots after them.
+  const move = a.movementSlot >= 1 && a.movementSlot <= MOVEMENT_SLOTS ? a.movementSlot : 0;
+  const packed = move ? HOTBAR_SLOTS + move : slot;
+  const held = a.movementHeld >= 1 && a.movementHeld <= MOVEMENT_SLOTS ? a.movementHeld : 0;
   const buttons =
     (a.jumpPressed ? 1 : 0) |
     (a.jumpHeld ? 2 : 0) |
     (a.attackPressed ? 4 : 0) |
     (a.slidePressed ? 8 : 0) |
-    (a.ability1Pressed ? 16 : 0) |
-    (a.ability2Pressed ? 32 : 0);
+    (a.sprintHeld ? 16 : 0) |
+    (a.crouchHeld ? 32 : 0);
   return {
-    actions: { ...a, moveX: qx / 127, moveZ: qz / 127, aimX: ax / 4, aimZ: az / 4 },
-    raw: [qx & 255, qz & 255, buttons, ax & 255, az & 255],
+    actions: { ...a, moveX: qx / 127, moveZ: qz / 127, aimX: ax / 4, aimZ: az / 4, abilitySlot: slot, movementSlot: move, movementHeld: held },
+    raw: [qx & 255, qz & 255, buttons, ax & 255, az & 255, packed, held],
   };
 }
 
@@ -129,11 +137,8 @@ function blankState(): PlayerState {
     coyote: 0,
     jumpBuffer: 0,
     attackBuffer: 0,
-    slideBuffer: 0,
-    slideFrame: 0,
-    slideDirX: 0,
-    slideDirZ: 1,
-    slideCooldown: 0,
+    actionBuffer: 0,
+    actionBufferId: NO_MOVEMENT,
     attackIndex: 0,
     attackFrame: 0,
     attackQueued: false,
@@ -148,19 +153,29 @@ function blankState(): PlayerState {
     downFrame: -1,
     team: 0,
     weapon: 0,
-    perks: 0,
-    ability1: 255,
-    ability2: 255,
-    abilityBuffer1: 0,
-    abilityBuffer2: 0,
-    cooldown1: 0,
-    cooldown2: 0,
-    castKind: 0,
+    skills: emptySkills(),
+    comboVariants: 0,
+    abilities: new Array<number>(HOTBAR_SLOTS).fill(NO_ABILITY),
+    cooldowns: new Array<number>(HOTBAR_SLOTS).fill(0),
+    movement: new Array<number>(MOVEMENT_SLOTS).fill(NO_MOVEMENT),
+    movementCooldowns: new Array<number>(MOVEMENT_SKILL_CAP).fill(0),
+    actionId: NO_MOVEMENT,
+    actionFrame: 0,
+    actionDirX: 0,
+    actionDirZ: 1,
+    actionSlot: 0,
+    abilityBuffer: 0,
+    abilityBufferSlot: 0,
+    sprinting: false,
+    crouching: false,
+    crouchFrame: 0,
+    castAbility: 255,
     castSlot: 0,
     castFrame: 0,
     castTargetX: 0,
     castTargetZ: 0,
-    firedCast: 0,
+    firedAbility: 255,
+    ...ON_FOOT,
   };
 }
 
@@ -241,21 +256,22 @@ export class RemotePlayers {
       shown.team = rec.team;
       shown.hp = rec.hp;
       shown.stun = rec.stun;
-      shown.downFrame = rec.mode === 4 ? 1 : -1;
-      shown.mode = rec.mode === 1 ? 'slide' : rec.mode === 2 ? 'attack' : rec.mode === 3 ? 'cast' : 'normal';
+      shown.downFrame = rec.mode === MODE_DOWN ? 1 : -1;
+      shown.mode = MODES[rec.mode] ?? 'normal';
       shown.weapon = rec.weapon;
-      shown.perks = rec.perks;
-      shown.castKind = rec.castKind;
+      shown.comboVariants = rec.comboVariants;
+      shown.actionId = rec.actionId;
+      shown.actionFrame = rec.actionFrame;
+      shown.castAbility = rec.castAbility;
       shown.castFrame = rec.castFrame;
       shown.castTargetX = rec.castTargetX;
       shown.castTargetZ = rec.castTargetZ;
       // Animation counters advance smoothly between updates.
       const ahead = Math.max(0, Math.floor((at - a.tick) * framesPerTick));
-      const combo = comboFor(rec.weapon, rec.perks);
+      const combo = comboShape(rec.weapon, rec.comboVariants);
       const step = combo[rec.attackIndex] ?? combo[0];
       shown.attackIndex = rec.attackIndex;
       shown.attackFrame = Math.min(rec.attackFrame + ahead, step.startup + step.active + step.recovery);
-      shown.slideFrame = rec.slideFrame + ahead;
       shown.flipFrame = rec.flipFrame >= 0 ? rec.flipFrame + ahead : -1;
       shown.landFrame = Math.min(999, rec.landFrame + ahead);
       if (shown.mode === 'normal' && shown.grounded) r.runPhase += Math.hypot(rec.vx, rec.vz) * dt;

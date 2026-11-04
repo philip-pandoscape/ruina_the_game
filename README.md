@@ -5,10 +5,28 @@ An original browser MMORPG prototype: third-person 3D action combat with platfor
 built for 10,000-player PvP raids. The code still uses the working name *yggdrasil* (package name,
 server binary, page title).
 
+The open world starts on **Emberholm**, a starter isle with ArcheAge-style life systems: gliders,
+carts, a roadster, boats that sail on the wind, mounts, trade packs you carry to faraway trading
+posts, scarecrow farms, and houses you build from hauled materials.
+
+**Design bible:** `design/index.html` is the root design document: every system, live numbers from
+the game's data, an interactive map, and the implementation tracker (`design/status.json`). Open it
+from the dev server at http://localhost:5173/design/ or straight from disk. After changing
+`shared/*.json` or the tracker, run `npm run design` to rebuild it.
+
 - `src/`: browser client (Three.js + TypeScript, built with Vite)
+- `src/skills.ts` and `server/src/skills.rs`: the skill tree and its modifiers, mirrored in both
+  languages. Skills are data in `shared/tuning.json`; adding one should not mean writing code.
+  An ability is targeting plus a list of *effects*, and a movement skill is an *action state* with
+  a startup / active / recovery timeline. Those two vocabularies are the only things that cost
+  code, and then in both languages at once.
 - `server/`: Rust battle server (tokio WebSockets): decides all hits, runs bots, sends each player
   only what's near them, rewinds time for lag compensation
 - `shared/tuning.json`: gameplay numbers, read by both the browser and the server
+- `shared/zones/`, `shared/{vehicles,trade,farming,housing,items,quests,structures,traversal}.json`:
+  the open world's content. `src/sim/zone/` grows the island from a zone recipe, `src/sim/life/`
+  runs trade, farming, housing, vehicles and quests, `src/render/open/` and `src/render/models/`
+  draw it (preview every model at http://localhost:5173/models.html), `src/ui/life/` is its HUD
 - `tests/`: Playwright tests that play the real game in a browser, plus checks that the TypeScript and
   Rust rules agree frame by frame
 
@@ -24,7 +42,9 @@ server binary, page title).
 
 - Battle server: `npm run server` (10,000 bots on ws://localhost:7777)
 - Game: `npm run dev`, then open
-  - http://localhost:5173/ for the training yard (no server needed)
+  - http://localhost:5173/ for the open world, Emberholm (no server needed; your island saves in the
+    browser, and `?fresh` starts it over)
+  - http://localhost:5173/?yard for the training yard
   - http://localhost:5173/?server=ws://localhost:7777 to join the battle (add `&team=0` or `&team=1` to pick a side)
   - http://localhost:5173/?raid=10000 for the rendering stress test
 
@@ -36,13 +56,41 @@ anything in `server/` or the network messages, or the game stops responding.
 | | Keyboard and mouse | Xbox controller |
 |---|---|---|
 | Move / camera | WASD / mouse (click to capture) | Left / right stick |
+| Sprint | Hold Shift | Click left stick |
+| Crouch | Ctrl | Click right stick |
 | Jump (twice for a double jump) | Space | A |
 | Attack | Left click or J | X |
-| Slide | Shift | B |
-| Abilities | E (or right click), Q | Y, RB |
+| Slide | C | B |
+| Hotbar (hold to aim a ground cast) | 1 – 8 | LT or RT + A/B/X/Y |
+| Movement skills (dodge, backstep, block) | Q, E | LB, RB |
+| Next target | Tab (Shift-Tab goes back) | D-pad right / left |
 | Skill trees | T | View |
+
+In the open world:
+
+| | Keyboard and mouse | Xbox controller |
+|---|---|---|
+| Interact (talk, plant, harvest, load, drive, build) | F | Y |
+| Open the glider (in the air, after the double jump) / fold it | Space again, or G | A |
+| Glider: dive / flare | Shift / Ctrl | Click left / right stick |
+| Drive: throttle, steer, handbrake, boost | W S, A D, Space, Shift | Left stick, A |
+| Sail: raise / lower the sail | W / S | Left stick |
+| Call or dismiss your mount | R | D-pad down |
+| Drop the pack on your back | X | |
+| Change the seed you plant | Z | |
+| Bag, map, vehicles, quest log | I, M, V, L | Menu, D-pad up |
+| Developer tools (give items, skip time, teleport) | ` | |
 
 ## Tests
 
-`npm test` runs everything. Tests that need a server start their own on ports 7791–7793, so they never
-join a game you're playing. `npm run typecheck` checks types.
+`npm test` runs everything. Tests that need a server start their own on ports 7791–7794, so they never
+join a game you're playing. `npm run typecheck` checks types. `tests/world.spec.ts` plays the open
+world (`/?world&test`) and `tests/models.spec.ts` checks every procedural model.
+
+## Balance
+
+`npm run balance` runs the builds in `balance.json` against each other under the server's own hit
+resolution and prints a win-rate, time-to-kill and damage table (JSON on stdout for diffing, the
+table on stderr to read). Both fighters are driven by the same plain policy — walk in and swing —
+so it measures the paper matchup, not the played one: anything that wants to kite or space will
+read worse there than it plays. Use it to catch regressions and outliers, not to settle design.

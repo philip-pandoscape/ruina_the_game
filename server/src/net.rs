@@ -11,13 +11,16 @@ use tokio::sync::mpsc;
 use tokio_tungstenite::accept_async;
 use tokio_tungstenite::tungstenite::{Bytes, Message};
 
+use crate::player::Build;
 use crate::protocol::{MSG_ATTACH, MSG_BUILD, MSG_INPUT, MSG_JOIN, MSG_LAG, MSG_VIEW};
+use crate::skills::{SKILL_WORDS, EMPTY_SKILLS};
+use crate::tuning::{HOTBAR_SLOTS, MOVEMENT_SLOTS, NO_ABILITY, NO_MOVEMENT};
 
 pub const QUEUE: usize = 32;
 
 // One input as it arrived: when, its sequence number, the server tick × 16 the player was seeing,
-// and the raw move_x, move_z, buttons, aim_x, aim_z bytes.
-pub type RawInput = (Instant, u32, u32, [u8; 5]);
+// and the raw move_x, move_z, buttons, aim_x, aim_z, hotbar slot bytes.
+pub type RawInput = (Instant, u32, u32, [u8; 7]);
 
 pub struct ClientHandle {
     pub id: u32,
@@ -25,7 +28,9 @@ pub struct ClientHandle {
     pub view: Arc<AtomicU64>,   // packed (x, z) as two f32
     pub attach: Arc<AtomicU32>, // bot id + 1, or 0 to use `view`
     pub join: Arc<AtomicU8>,    // 0 = spectating, 1 = team 0, 2 = team 1, 3 = either
-    pub build: Arc<AtomicU64>,  // requested build: skills (16 bits), weapon, ability1, ability2 (see pack_build)
+    // Requested build. Eight hotbar slots no longer fit in an atomic word, and a build changes
+    // only when someone edits their skills, so a short lock costs nothing.
+    pub build: Arc<Mutex<Build>>,
     pub build_seq: Arc<AtomicU32>, // counts up each time the browser sends a new build
     pub lag_ms: Arc<AtomicU32>, // testing only: extra delay each way
     pub inputs: Arc<Mutex<Vec<RawInput>>>,
@@ -41,13 +46,24 @@ pub fn unpack_view(v: u64) -> (f32, f32) {
     (f32::from_bits((v >> 32) as u32), f32::from_bits(v as u32))
 }
 
-pub fn pack_build(skills: u32, weapon: u8, ability1: u8, ability2: u8) -> u64 {
-    (skills as u64 & 0xFFFF) | (weapon as u64) << 16 | (ability1 as u64) << 24 | (ability2 as u64) << 32
-}
-
-/// (skills, weapon, ability1, ability2)
-pub fn unpack_build(v: u64) -> (u32, u8, u8, u8) {
-    ((v & 0xFFFF) as u32, (v >> 16) as u8, (v >> 24) as u8, (v >> 32) as u8)
+/// Reads a BUILD message body: weapon u8, the learned set as SKILL_WORDS little-endian u32s,
+/// then one ability per hotbar slot.
+pub fn read_build(b: &[u8]) -> Option<Build> {
+    let base = 2 + SKILL_WORDS * 4;
+    let want = base + HOTBAR_SLOTS + MOVEMENT_SLOTS;
+    if b.len() < want {
+        return None;
+    }
+    let mut skills = EMPTY_SKILLS;
+    for (w, slot) in skills.iter_mut().enumerate() {
+        let o = 2 + w * 4;
+        *slot = u32::from_le_bytes([b[o], b[o + 1], b[o + 2], b[o + 3]]);
+    }
+    let mut abilities = [NO_ABILITY; HOTBAR_SLOTS];
+    abilities.copy_from_slice(&b[base..base + HOTBAR_SLOTS]);
+    let mut movement = [NO_MOVEMENT; MOVEMENT_SLOTS];
+    movement.copy_from_slice(&b[base + HOTBAR_SLOTS..want]);
+    Some(Build { skills, weapon: b[1], abilities, movement })
 }
 
 pub async fn serve(port: u16, registry: Registry, welcome: Bytes) -> std::io::Result<()> {
@@ -76,7 +92,7 @@ async fn handle(stream: TcpStream, id: u32, registry: Registry, welcome: Bytes) 
     let view = Arc::new(AtomicU64::new(pack_view(0.0, -100.0)));
     let attach = Arc::new(AtomicU32::new(0));
     let join = Arc::new(AtomicU8::new(0));
-    let build = Arc::new(AtomicU64::new(0));
+    let build = Arc::new(Mutex::new(Build::default()));
     let build_seq = Arc::new(AtomicU32::new(0));
     let lag_ms = Arc::new(AtomicU32::new(0));
     let inputs = Arc::new(Mutex::new(Vec::new()));
@@ -118,23 +134,24 @@ async fn handle(stream: TcpStream, id: u32, registry: Registry, welcome: Bytes) 
                 let now = Instant::now();
                 let mut q = inputs.lock().unwrap();
                 for k in 0..count {
-                    let o = 2 + k * 13;
-                    if b.len() < o + 13 {
+                    let o = 2 + k * 15;
+                    if b.len() < o + 15 {
                         break;
                     }
                     let seq = u32::from_le_bytes([b[o], b[o + 1], b[o + 2], b[o + 3]]);
                     let view = u32::from_le_bytes([b[o + 4], b[o + 5], b[o + 6], b[o + 7]]);
-                    q.push((now, seq, view, [b[o + 8], b[o + 9], b[o + 10], b[o + 11], b[o + 12]]));
+                    q.push((now, seq, view, [b[o + 8], b[o + 9], b[o + 10], b[o + 11], b[o + 12], b[o + 13], b[o + 14]]));
                 }
             }
             MSG_JOIN if b.len() >= 2 => {
                 let team = if b[1] < 2 { b[1] + 1 } else { 3 };
                 join.store(team, Ordering::Relaxed);
             }
-            MSG_BUILD if b.len() >= 6 => {
-                let skills = u16::from_le_bytes([b[1], b[2]]) as u32;
-                build.store(pack_build(skills, b[3], b[4], b[5]), Ordering::Relaxed);
-                build_seq.fetch_add(1, Ordering::Relaxed);
+            MSG_BUILD => {
+                if let Some(parsed) = read_build(&b) {
+                    *build.lock().unwrap() = parsed;
+                    build_seq.fetch_add(1, Ordering::Relaxed);
+                }
             }
             MSG_LAG if b.len() >= 3 => {
                 lag_ms.store(u16::from_le_bytes([b[1], b[2]]) as u32, Ordering::Relaxed);

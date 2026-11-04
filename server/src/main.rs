@@ -14,12 +14,16 @@ use std::time::{Duration, Instant};
 use rayon::prelude::*;
 use tokio::sync::mpsc::Sender;
 use tokio_tungstenite::tungstenite::Bytes;
+use yggdrasil_server::actors::Actors;
 use yggdrasil_server::game::Players;
 use yggdrasil_server::interest::{build_snapshot, InterestGrid, Records, Scratch, MID_EVERY};
-use yggdrasil_server::net::{self, unpack_build, unpack_view, Registry};
-use yggdrasil_server::player::Build;
+use yggdrasil_server::net::{self, unpack_view, Registry};
 use yggdrasil_server::protocol::{self, StatsMsg};
 use yggdrasil_server::sim::{Battle, BotHit, FIELD};
+
+// How anything that rocks when hit settles back upright; matches LEAN in src/tuning.ts.
+const LEAN_SPRING: f64 = 140.0;
+const LEAN_DAMPING: f64 = 7.0;
 use yggdrasil_server::world::{battlefield, SEED};
 
 struct Args {
@@ -27,10 +31,13 @@ struct Args {
     virtual_clients: usize,
     port: u16,
     hz: u32,
+    /// Monsters to scatter around the players' end of the field. Off unless asked for:
+    /// putting them in by default would change every world anybody already runs.
+    slimes: usize,
 }
 
 fn parse_args() -> Args {
-    let mut a = Args { bots: 10_000, virtual_clients: 0, port: 7777, hz: 20 };
+    let mut a = Args { bots: 10_000, virtual_clients: 0, port: 7777, hz: 20, slimes: 0 };
     let argv: Vec<String> = std::env::args().collect();
     let mut i = 1;
     while i + 1 < argv.len() {
@@ -40,6 +47,7 @@ fn parse_args() -> Args {
             "--virtual-clients" => a.virtual_clients = v.parse().expect("--virtual-clients needs a number"),
             "--port" => a.port = v.parse().expect("--port needs a number"),
             "--hz" => a.hz = v.parse().expect("--hz needs a number"),
+            "--slimes" => a.slimes = v.parse().expect("--slimes needs a number"),
             other => panic!("unknown argument {other}"),
         }
         i += 2;
@@ -54,18 +62,19 @@ fn main() {
     let registry: Registry = Arc::new(Mutex::new(Vec::new()));
     let welcome = Bytes::from(protocol::welcome(args.bots, args.hz, FIELD));
     println!(
-        "bots {} | virtual players {} | {} ticks/s | {} CPU threads",
+        "bots {} | slimes {} | virtual players {} | {} ticks/s | {} CPU threads",
         args.bots,
+        args.slimes,
         args.virtual_clients,
         args.hz,
         rayon::current_num_threads()
     );
     {
         let registry = registry.clone();
-        let (bots, virt, hz) = (args.bots, args.virtual_clients, args.hz);
+        let (bots, virt, hz, slimes) = (args.bots, args.virtual_clients, args.hz, args.slimes);
         std::thread::Builder::new()
             .name("sim".into())
-            .spawn(move || run(bots, virt, hz, registry))
+            .spawn(move || run(bots, virt, hz, slimes, registry))
             .expect("start sim thread");
     }
     let rt = tokio::runtime::Builder::new_multi_thread().enable_all().build().expect("start tokio");
@@ -88,13 +97,26 @@ struct Window {
     real_client_ticks: u64,
 }
 
-fn run(bots: usize, virtual_clients: usize, hz: u32, registry: Registry) {
+fn run(bots: usize, virtual_clients: usize, hz: u32, slimes: usize, registry: Registry) {
     let world = battlefield(SEED);
     let mut battle = Battle::new(bots);
     let mut players = Players::new(bots, 1000.0 / hz as f64);
     let mut bot_hits: Vec<BotHit> = Vec::new();
     let mut grid = InterestGrid::new(bots);
     let mut records = Records::new(bots);
+    // Monsters live near where players come in, so they are something you meet rather than
+    // something you have to go looking for.
+    let mut actors = Actors::new();
+    for i in 0..slimes {
+        let angle = (i as f64 / slimes.max(1) as f64) * std::f64::consts::PI * 2.0 + 0.4;
+        let r = 6.0 + (i % 5) as f64 * 2.5;
+        actors.spawn(
+            "slime",
+            world.team_spawns[0].x + angle.sin() * r,
+            world.team_spawns[0].z + 6.0 + angle.cos() * r,
+            (SEED ^ 0x51e0).wrapping_add((i as u32).wrapping_mul(0x9e37_79b1)),
+        );
+    }
     let dt = 1.0 / hz as f32;
     let period = Duration::from_secs_f64(1.0 / hz as f64);
     let mut next = Instant::now() + period;
@@ -119,8 +141,8 @@ fn run(bots: usize, virtual_clients: usize, hz: u32, registry: Registry) {
                 }
                 let build_seq = c.build_seq.load(Ordering::Relaxed);
                 if build_seq > 0 {
-                    let (perks, weapon, ability1, ability2) = unpack_build(c.build.load(Ordering::Relaxed));
-                    players.sync_build(c.id, build_seq, Build { perks, weapon, ability1, ability2 });
+                    let build = *c.build.lock().unwrap();
+                    players.sync_build(c.id, build_seq, build);
                 }
                 let lag = Duration::from_millis(c.lag_ms.load(Ordering::Relaxed) as u64);
                 let mut q = c.inputs.lock().unwrap();
@@ -137,17 +159,21 @@ fn run(bots: usize, virtual_clients: usize, hz: u32, registry: Registry) {
 
         // Players move and fight first, then the bots.
         let tick_now = battle.tick + 1;
-        players.step(&mut battle, &world, tick_now);
+        players.step(&mut battle, &mut actors, &world, tick_now);
         let targets = players.bot_targets();
         bot_hits.clear();
         battle.step(dt, &targets, &mut bot_hits);
         players.apply_bot_hits(&bot_hits);
-        players.step_effects(&mut battle);
+        players.step_effects(&mut battle, &mut actors);
+        // Monsters move after the players, on the same tick, reading where everyone ended up.
+        let seen: Vec<(f64, f64)> = players.live_positions();
+        actors.step(&seen, LEAN_SPRING, LEAN_DAMPING, dt as f64);
         players.record_history(battle.tick);
         let t1 = Instant::now();
         grid.rebuild(&battle);
         records.rebuild(&battle);
         players.pack();
+        players.pack_actors(&actors);
         let tick = battle.tick;
 
         // Where each client is looking from: their own fighter, a bot they follow, or a spot they chose.

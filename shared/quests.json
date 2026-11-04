@@ -1,0 +1,480 @@
+{
+  "comment": "The starter questline on Emberholm. Read by src/content/quests.ts. Each quest is offered by `giver` once everything in `after` is done, has steps of objectives counted from events the life systems raise, and is handed in to `turnIn` (the giver unless named). Objective types: talk, reach, plant, harvest, gather, craftPack, deliver, glide, summon, ride, load, placeScarecrow, placeHouse, buildStage, sell, buy.",
+  "quests": [
+    {
+      "id": "landfall",
+      "name": "Landfall",
+      "giver": "hollis",
+      "after": [],
+      "auto": true,
+      "intro": "Welcome to Emberholm, traveller. You came on the morning boat with nothing but your boots, I see. Lanternwick looks after its own - come and speak with me by the well.",
+      "steps": [
+        {
+          "text": "Speak with Reeve Hollis by the well in Lanternwick",
+          "objectives": [
+            {
+              "type": "talk",
+              "npc": "hollis"
+            }
+          ]
+        }
+      ],
+      "outro": "Good. Every Emberholmer starts with a patch of earth. Here's a scarecrow to mark yours, and seeds to put in it.",
+      "rewards": {
+        "coins": 50,
+        "items": [
+          {
+            "item": "scarecrow",
+            "n": 1
+          },
+          {
+            "item": "seed.sunroot",
+            "n": 8
+          },
+          {
+            "item": "seed.barley",
+            "n": 6
+          }
+        ]
+      }
+    },
+    {
+      "id": "patch",
+      "name": "A Patch of Earth",
+      "giver": "hollis",
+      "after": [
+        "landfall"
+      ],
+      "intro": "Out east past the stables are Barleybrook Fields - open, level ground. Set your scarecrow anywhere the soil is flat and free, and get those seeds in the ground. They'll grow whether you watch them or not.",
+      "steps": [
+        {
+          "text": "Place your scarecrow on open, level ground (Barleybrook Fields is ideal)",
+          "objectives": [
+            {
+              "type": "placeScarecrow",
+              "n": 1
+            }
+          ]
+        },
+        {
+          "text": "Plant seeds in your plot",
+          "objectives": [
+            {
+              "type": "plant",
+              "n": 8
+            }
+          ]
+        }
+      ],
+      "outro": "Now they grow. Sunroot's quick; barley takes its time. Water them if you like - it hurries them along - and pray for rain.",
+      "rewards": {
+        "coins": 40,
+        "items": [
+          {
+            "item": "seed.flax",
+            "n": 6
+          }
+        ],
+        "labor": 100
+      }
+    },
+    {
+      "id": "wings",
+      "name": "Wings over the Windspire",
+      "giver": "hollis",
+      "after": [
+        "landfall"
+      ],
+      "intro": "While your crops grow: see that crag to the north? The Windspire. A path climbs its face to the top, where Ysolde Windward makes wings. Tell her Hollis sent you.",
+      "steps": [
+        {
+          "text": "Climb the ledge path to the top of the Windspire",
+          "objectives": [
+            {
+              "type": "reach",
+              "place": "windspire",
+              "r": 30,
+              "minY": 115
+            }
+          ]
+        },
+        {
+          "text": "Speak with Ysolde Windward at the glider launch",
+          "objectives": [
+            {
+              "type": "talk",
+              "npc": "ysolde"
+            }
+          ]
+        }
+      ],
+      "turnIn": "ysolde",
+      "outro": "Hollis sent you? Then take this - a Wayfarer, my own make. Run off the deck, jump, jump again in the air, then once more to open it. Sprint to dive, crouch to flare. Ride the warm air at the cliff's foot to climb.",
+      "rewards": {
+        "items": [
+          {
+            "item": "glider.wayfarer",
+            "n": 1
+          }
+        ],
+        "equipGlider": "wayfarer"
+      }
+    },
+    {
+      "id": "firstFlight",
+      "name": "First Flight",
+      "giver": "ysolde",
+      "after": [
+        "wings"
+      ],
+      "intro": "Off you go. Glide all the way down to Lanternwick - stay up as long as you can.",
+      "steps": [
+        {
+          "text": "Glide for 20 seconds",
+          "objectives": [
+            {
+              "type": "glide",
+              "seconds": 20
+            }
+          ]
+        },
+        {
+          "text": "Land in Lanternwick and report to Reeve Hollis",
+          "objectives": [
+            {
+              "type": "talk",
+              "npc": "hollis"
+            }
+          ]
+        }
+      ],
+      "turnIn": "hollis",
+      "outro": "Ha! I saw you come over the rooftops. Ysolde will be insufferable. Here - a Charter Seal for your trouble. Seals are what the Registry trades land for.",
+      "rewards": {
+        "coins": 60,
+        "seals": 1
+      }
+    },
+    {
+      "id": "harvest",
+      "name": "First Harvest",
+      "giver": "hollis",
+      "after": [
+        "patch"
+      ],
+      "intro": "When your crops are ripe, bring them in. Harvesting takes labor - your stamina for honest work - which comes back with time and rest.",
+      "steps": [
+        {
+          "text": "Harvest ripe crops from your plot",
+          "objectives": [
+            {
+              "type": "harvest",
+              "n": 8
+            }
+          ]
+        }
+      ],
+      "outro": "A fine first harvest. Now, produce alone sells for pennies. Tamsin at the workbench can show you how to turn it into real coin.",
+      "rewards": {
+        "coins": 40
+      }
+    },
+    {
+      "id": "packwright",
+      "name": "The Packwright's Trade",
+      "giver": "tamsin",
+      "after": [
+        "harvest"
+      ],
+      "intro": "Produce is worth a few coppers here and a great deal somewhere it doesn't grow. Bring six sunroot and four barley to my bench and I'll show you how to pack a Harvest Crate. Mind - you'll carry it on your back, and it's heavy.",
+      "steps": [
+        {
+          "text": "Craft a Lanternwick Harvest Crate at the Specialty Workbench",
+          "objectives": [
+            {
+              "type": "craftPack",
+              "pack": "harvestCrate",
+              "n": 1
+            }
+          ]
+        }
+      ],
+      "outro": "There. Feel that weight? No sprinting, no second jump, no gliding with it. Now take it somewhere that wants it.",
+      "rewards": {
+        "coins": 20
+      }
+    },
+    {
+      "id": "westward",
+      "name": "Westward Bound",
+      "giver": "tamsin",
+      "after": [
+        "packwright"
+      ],
+      "intro": "Westwatch Trading Post sits on the western headland - follow the west road past Hearthside Rise and up the cliffs. Dunmore pays well for Lanternwick goods. Every crate you sell there drops his price a little, so watch the demand.",
+      "steps": [
+        {
+          "text": "Deliver a trade pack to Dunmore Vell at Westwatch",
+          "objectives": [
+            {
+              "type": "deliver",
+              "outpost": "westwatch",
+              "n": 1
+            }
+          ]
+        }
+      ],
+      "turnIn": "dunmore",
+      "outro": "Lanternwick sunroot! The cooks will weep. If you mean to make a habit of this, old Bertram in the village builds carts - four crates at a time beats one on your back.",
+      "rewards": {
+        "coins": 60,
+        "items": [
+          {
+            "item": "deed.farmCart",
+            "n": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "wheels",
+      "name": "Wheels of Commerce",
+      "giver": "bertram",
+      "after": [
+        "westward"
+      ],
+      "intro": "Dunmore sent word you'd be by - and paid for the cart up front, the old softie. Open your bag (I) and summon it, or press V. Carry packs to the bed to load them, and unload at the other end. Two crates to Westwatch, if you please.",
+      "steps": [
+        {
+          "text": "Summon your farm cart",
+          "objectives": [
+            {
+              "type": "summon",
+              "vehicle": "farmCart"
+            }
+          ]
+        },
+        {
+          "text": "Load trade packs into the cart",
+          "objectives": [
+            {
+              "type": "load",
+              "n": 2
+            }
+          ]
+        },
+        {
+          "text": "Deliver two trade packs to Westwatch",
+          "objectives": [
+            {
+              "type": "deliver",
+              "outpost": "westwatch",
+              "n": 2
+            }
+          ]
+        }
+      ],
+      "outro": "Now you're a trader. Sela at the stables can sell you a donkey for the hills, and Captain Ilsa down at the docks has something for the sea.",
+      "rewards": {
+        "coins": 150,
+        "seals": 1
+      }
+    },
+    {
+      "id": "saltSail",
+      "name": "Salt and Sail",
+      "giver": "ilsa",
+      "after": [
+        "westward"
+      ],
+      "intro": "Gullrock's an islet off the south-east coast - Factor Pell there pays half again what Westwatch does, and in Charter Seals besides. No road goes there. Take this rowboat deed; summon it at the water's edge. Two packs fit in her stern.",
+      "steps": [
+        {
+          "text": "Summon your rowboat at the shore",
+          "objectives": [
+            {
+              "type": "summon",
+              "vehicle": "rowboat"
+            }
+          ]
+        },
+        {
+          "text": "Deliver a trade pack to Factor Pell on Gullrock",
+          "objectives": [
+            {
+              "type": "deliver",
+              "outpost": "gullrock",
+              "n": 1
+            }
+          ]
+        }
+      ],
+      "startItems": [
+        {
+          "item": "deed.rowboat",
+          "n": 1
+        }
+      ],
+      "turnIn": "pell",
+      "outro": "Rowed it yourself? Respect. Come back with a proper sloop and the sea will make you rich.",
+      "rewards": {
+        "coins": 120,
+        "seals": 2
+      }
+    },
+    {
+      "id": "home",
+      "name": "A Place to Call Home",
+      "giver": "quill",
+      "after": [
+        "firstFlight",
+        "westward"
+      ],
+      "intro": "Land on Emberholm is granted by blueprint. A Cottage Blueprint costs three silver and three Charter Seals; place it on any empty plot at Hearthside Rise. Then you build it - stone blocks from the quarry, lumber bundles from Thornwood, an iron crate for the fittings. Haul them to the site on your back or by cart.",
+      "steps": [
+        {
+          "text": "Place a Cottage Blueprint on a plot at Hearthside Rise",
+          "objectives": [
+            {
+              "type": "placeHouse",
+              "n": 1
+            }
+          ]
+        },
+        {
+          "text": "Finish all four building stages",
+          "objectives": [
+            {
+              "type": "buildStage",
+              "n": 4
+            }
+          ]
+        }
+      ],
+      "outro": "Signed, sealed, and yours - so long as the taxes are paid. Welcome home, neighbour.",
+      "rewards": {
+        "coins": 300,
+        "items": [
+          {
+            "item": "tonic.labor",
+            "n": 2
+          }
+        ]
+      }
+    },
+    {
+      "id": "shipwright",
+      "name": "A Ship of Your Own",
+      "giver": "ilsa",
+      "after": [
+        "saltSail"
+      ],
+      "intro": "A rowboat's a fine thing for a bay. For the open sea you want a cog: sixteen packs in her hold and a square sail. I'll sell you the design - ten silver and six Charter Seals - and you build her on the slipway beside my shed. Lumber bundles from Hob, iron crates from Brenna, sailcloth from flax at the Lanternwick bench.",
+      "steps": [
+        {
+          "text": "Lay a Merchant Cog Design on the Lanternwick slipway",
+          "objectives": [
+            {
+              "type": "layKeel",
+              "n": 1
+            }
+          ]
+        },
+        {
+          "text": "Build all four stages of the cog",
+          "objectives": [
+            {
+              "type": "shipStage",
+              "n": 4
+            }
+          ]
+        },
+        {
+          "text": "Launch her",
+          "objectives": [
+            {
+              "type": "launch",
+              "n": 1
+            }
+          ]
+        }
+      ],
+      "outro": "Look at her sit in the water! Fill that hold, mind the wind, and Gullrock will make you rich.",
+      "rewards": {
+        "coins": 500,
+        "seals": 3
+      }
+    },
+    {
+      "id": "livestock",
+      "name": "Feathers and Fleece",
+      "giver": "sela",
+      "after": [
+        "patch"
+      ],
+      "intro": "Crops are all very well, but a farm wants animals. Here's a chick - raise her in a cell of your plot, keep her fed on barley, and she'll lay for you. Bring in her first eggs and I'll find you a lamb.",
+      "startItems": [
+        {
+          "item": "animal.chick",
+          "n": 1
+        }
+      ],
+      "steps": [
+        {
+          "text": "Raise the chick in your plot (Z picks what F plants)",
+          "objectives": [
+            {
+              "type": "raise",
+              "n": 1
+            }
+          ]
+        },
+        {
+          "text": "Keep her fed with barley and collect her eggs",
+          "objectives": [
+            {
+              "type": "harvest",
+              "crop": "chicken",
+              "n": 1
+            }
+          ]
+        }
+      ],
+      "outro": "Fresh eggs! Mara will buy them, or pack them in a Farmhouse Hamper and they'll fetch far more abroad. Take this lamb - the same rules apply.",
+      "rewards": {
+        "coins": 60,
+        "items": [
+          {
+            "item": "animal.lamb",
+            "n": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "contracts",
+      "name": "Under Contract",
+      "giver": "dunmore",
+      "after": [
+        "westward"
+      ],
+      "intro": "Selling whatever you happen to carry is fine. Selling what I need is better. I post contracts on my board - so many packs of a kind, by a deadline, with a bonus in seals. Take one and fill it.",
+      "steps": [
+        {
+          "text": "Take a trade contract at a trading post and fill it",
+          "objectives": [
+            {
+              "type": "contract",
+              "n": 1
+            }
+          ]
+        }
+      ],
+      "outro": "That's how the big traders do it: they know what's wanted before they pack it. Check the boards here and at Gullrock.",
+      "rewards": {
+        "coins": 100,
+        "seals": 2
+      }
+    }
+  ]
+}

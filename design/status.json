@@ -1,0 +1,657 @@
+{
+  "comment": "Implementation tracker for the design bible (design/index.html). Edit this file, then run `npm run design` to rebuild the page. Status is one of: done, building, planned, idea. Keep `files` to the main places a feature lives so a future session can jump straight there.",
+  "updated": "2026-11-03",
+  "systems": [
+    {
+      "id": "world",
+      "name": "World & terrain"
+    },
+    {
+      "id": "traversal",
+      "name": "Getting around"
+    },
+    {
+      "id": "vehicles",
+      "name": "Vehicles & mounts"
+    },
+    {
+      "id": "trade",
+      "name": "Trade & pack running"
+    },
+    {
+      "id": "farming",
+      "name": "Farming & gathering"
+    },
+    {
+      "id": "housing",
+      "name": "Housing"
+    },
+    {
+      "id": "economy",
+      "name": "Economy & labor"
+    },
+    {
+      "id": "quests",
+      "name": "Quests & onboarding"
+    },
+    {
+      "id": "ui",
+      "name": "HUD & panels"
+    },
+    {
+      "id": "combat",
+      "name": "Combat & skills"
+    },
+    {
+      "id": "tech",
+      "name": "Architecture & tests"
+    }
+  ],
+  "features": [
+    {
+      "system": "world",
+      "status": "done",
+      "title": "Zone recipes generate the island",
+      "notes": "Coastline, bays, sea cliffs, rolling hills, the Windspire with a ledge path cut along its contour lines, a quarry pit, flattened town ground, graded roads, surfaces. Same seed, same island.",
+      "files": [
+        "shared/zones/emberholm.json",
+        "src/sim/zone/generate.ts",
+        "src/sim/terrain.ts"
+      ]
+    },
+    {
+      "system": "world",
+      "status": "done",
+      "title": "Emberholm, the starter isle",
+      "notes": "Lanternwick and its docks, Barleybrook Fields, Hearthside Rise, Windspire, Westwatch (land route), Gullrock (sea route), Thornwood, Stonebreak Quarry, Slime Meadow, Sunscale Strand; 12 townsfolk.",
+      "files": [
+        "shared/zones/emberholm.json"
+      ]
+    },
+    {
+      "system": "world",
+      "status": "done",
+      "title": "Open-world renderer",
+      "notes": "Chunked terrain drawn from the physics grid (same triangle split, so feet sit on the drawn ground), depth-tinted sea with shoreline foam, sky dome and clouds, chunk-culled trees, a grass ring that follows you, the world tree on the horizon.",
+      "files": [
+        "src/render/open/stage.ts",
+        "src/render/open/terrain.ts",
+        "src/render/open/water.ts",
+        "src/render/open/sky.ts",
+        "src/render/open/foliage.ts"
+      ]
+    },
+    {
+      "system": "world",
+      "status": "done",
+      "title": "Buildings, props and colliders from data",
+      "notes": "Footprints, colliders (box, walls with a doorway, posts) and walkable decks (piers, the glider launch) come from shared/structures.json.",
+      "files": [
+        "shared/structures.json",
+        "src/render/open/dressing.ts",
+        "src/sim/zone/colliders.ts"
+      ]
+    },
+    {
+      "system": "world",
+      "status": "done",
+      "title": "Procedural models for every building, vehicle, crop and prop",
+      "notes": "Low-poly toon models built in code to the data's exact footprints and anchors: 20 structures (the cottage in 5 build stages), 6 vehicles, 2 mounts, 2 gliders, 9 packs, 6 crops in 4 stages, 3 kinds of livestock (young and grown), 12 villagers and 8 props. Merged per model for few draw calls; tests check wheels, waterlines, seat heights and the cottage doorway.",
+      "files": [
+        "src/render/models/",
+        "models.html",
+        "tests/models.spec.ts"
+      ]
+    },
+    {
+      "system": "world",
+      "status": "done",
+      "title": "Day and night",
+      "notes": "A 30-minute day: the sun rises in the east, crosses the south and sets in the west; gold at dawn and dusk; moonlit blue nights with stars and lit windows; the sea and fog follow. The HUD shows the hour.",
+      "files": [
+        "src/render/open/stage.ts",
+        "src/render/open/sky.ts",
+        "shared/zones/emberholm.json"
+      ]
+    },
+    {
+      "system": "world",
+      "status": "planned",
+      "title": "More zones and a sea between continents",
+      "notes": "Zone streaming, a second continent, a contested open sea and an island outpost that pays best and is hardest to reach."
+    },
+    {
+      "system": "world",
+      "status": "idea",
+      "title": "Terrain level of detail",
+      "notes": "Coarser chunks in the distance if draw cost grows with more zones."
+    },
+    {
+      "system": "traversal",
+      "status": "done",
+      "title": "Walking over terrain",
+      "notes": "Feet follow the ground; slopes steeper than 46 degrees and ledges over 0.45 m block you; walking off a ledge drops you; standing on a cliff face slides you off. The Windspire ledge path is tested to be climbable on foot, bottom to top.",
+      "files": [
+        "src/sim/player/traverse.ts",
+        "shared/traversal.json"
+      ]
+    },
+    {
+      "system": "traversal",
+      "status": "done",
+      "title": "Wading and swimming",
+      "notes": "Shallow water slows you; deep water swims you at the surface (sprint to swim faster); walk out where it shallows, or jump at a dock edge to haul yourself out.",
+      "files": [
+        "src/sim/player/traverse.ts"
+      ]
+    },
+    {
+      "system": "traversal",
+      "status": "done",
+      "title": "Gliders",
+      "notes": "Jump, double jump, jump again to open; steer toward the stick; sprint to dive, crouch to flare (speed shed in a flare comes back as height). Wayfarer and Swiftwing. Cannot open with a pack on.",
+      "files": [
+        "src/sim/player/traverse.ts",
+        "shared/vehicles.json"
+      ]
+    },
+    {
+      "system": "traversal",
+      "status": "done",
+      "title": "Rising air",
+      "notes": "Updraft columns lift an open glider; visible as spiralling wisps at the Windspire's foot.",
+      "files": [
+        "shared/zones/emberholm.json",
+        "src/render/open/life.ts"
+      ]
+    },
+    {
+      "system": "traversal",
+      "status": "done",
+      "title": "Glider gusts",
+      "notes": "F in flight gives a burst of speed and lift on a cooldown (Wayfarer 30 s, Swiftwing 16 s), so you can claw back height or stretch a glide. Being knocked out of the air when hit is still to come.",
+      "files": [
+        "src/sim/player/traverse.ts",
+        "shared/vehicles.json"
+      ]
+    },
+    {
+      "system": "traversal",
+      "status": "planned",
+      "title": "Traversal on the server",
+      "notes": "Mirror terrain sampling, swimming and gliding in Rust with conformance tests, like the combat rules already are."
+    },
+    {
+      "system": "vehicles",
+      "status": "done",
+      "title": "Wheeled driving model",
+      "notes": "Each vehicle keeps its own world velocity and only grips sideways, so handbrake turns slide; road vs offroad caps, sand drag, slopes pull, can leave the ground and land; trees, rocks and walls stop you.",
+      "files": [
+        "src/sim/life/vehicles.ts"
+      ]
+    },
+    {
+      "system": "vehicles",
+      "status": "done",
+      "title": "Farm Cart, Roadster, Hauler",
+      "notes": "4, 1 and 8 pack slots. The roadster boosts with Shift and drifts with Space.",
+      "files": [
+        "shared/vehicles.json"
+      ]
+    },
+    {
+      "system": "vehicles",
+      "status": "done",
+      "title": "Rowboat and Sloop",
+      "notes": "Boats run aground in water shallower than their draft. The sloop's W/S trims the sail; speed follows the angle to the wind.",
+      "files": [
+        "src/sim/life/vehicles.ts"
+      ]
+    },
+    {
+      "system": "vehicles",
+      "status": "done",
+      "title": "Donkey and Horse",
+      "notes": "R calls and rides your mount. Only the donkey carries a pack (at pack pace); the horse gallops with Shift.",
+      "files": [
+        "src/sim/life/vehicles.ts"
+      ]
+    },
+    {
+      "system": "vehicles",
+      "status": "done",
+      "title": "Summon, board, cargo",
+      "notes": "Deeds summon vehicles (boats at the nearest deep water). Walk to the seat to drive, to the bed to load or unload. Loaded vehicles cannot be sent home.",
+      "files": [
+        "src/sim/life/vehicles.ts",
+        "src/sim/life/interact.ts"
+      ]
+    },
+    {
+      "system": "vehicles",
+      "status": "done",
+      "title": "Shipyards and the Merchant Cog",
+      "notes": "Captain Ilsa sells the Merchant Cog Design (10s + 6 seals). Lay its keel on the Lanternwick slipway, then haul lumber bundles, iron crates and sailcloth (woven from flax at the Lanternwick bench) through four stages: keel, hull, deck, rigging. The hull visibly rises inside scaffolding; launching hands you the deed. 16 pack slots and a square sail.",
+      "files": [
+        "shared/shipyard.json",
+        "src/sim/life/shipyard.ts",
+        "src/render/open/life.ts"
+      ]
+    },
+    {
+      "system": "vehicles",
+      "status": "planned",
+      "title": "Damage, repair and theft",
+      "notes": "Boats now take hull damage in storms and break up (cargo floats, 90 s repair). Carts and cars still only take damage from hard landings; an owner’s mark, theft and salvage are still to come."
+    },
+    {
+      "system": "vehicles",
+      "status": "planned",
+      "title": "Passengers and walkable decks",
+      "notes": "Other players in the extra seats; walking the deck of a moving ship."
+    },
+    {
+      "system": "trade",
+      "status": "done",
+      "title": "Trade packs and material packs",
+      "notes": "Four trade packs from the Lanternwick workbench; lumber bundles at Hob's sawhorse; stone blocks and iron crates at the stonecutter.",
+      "files": [
+        "shared/trade.json",
+        "src/sim/life/trade.ts"
+      ]
+    },
+    {
+      "system": "trade",
+      "status": "done",
+      "title": "Carrying a pack",
+      "notes": "On your back: 55% speed, no sprint, no double jump, no glider, lower jump. X drops it; F picks it up. Packs keep where they are in saves.",
+      "files": [
+        "src/sim/player/locomotion.ts",
+        "src/sim/life/trade.ts"
+      ]
+    },
+    {
+      "system": "trade",
+      "status": "done",
+      "title": "Trading posts, routes and prices",
+      "notes": "Westwatch (land, ×1.0, 1 seal) and Gullrock (sea, ×1.5, 3 seals). Price = base × route × demand × freshness.",
+      "files": [
+        "src/sim/life/trade.ts"
+      ]
+    },
+    {
+      "system": "trade",
+      "status": "done",
+      "title": "Demand and freshness",
+      "notes": "Each sale drops that post's demand for that pack by 5% (floor 70%); it recovers 2% a minute up to 130%. Fresh packs earn +15% for 10 minutes, falling to -12% at 45.",
+      "files": [
+        "shared/trade.json"
+      ]
+    },
+    {
+      "system": "trade",
+      "status": "planned",
+      "title": "Piracy",
+      "notes": "Packs drop on death for anyone to take; a fence for stolen goods; the crafter keeps a cut when someone else delivers their pack."
+    },
+    {
+      "system": "trade",
+      "status": "idea",
+      "title": "Delayed payment with interest",
+      "notes": "ArcheAge paid hours later with interest. Probably not worth the confusion; listed so the decision is explicit."
+    },
+    {
+      "system": "farming",
+      "status": "done",
+      "title": "Scarecrow plots",
+      "notes": "8 × 8 m on open, level, grassy ground clear of roads, buildings and trees; up to three.",
+      "files": [
+        "src/sim/life/farming.ts"
+      ]
+    },
+    {
+      "system": "farming",
+      "status": "done",
+      "title": "Crops and trees",
+      "notes": "Sunroot, barley, flax, emberberry; apple trees fruit again and again; pines are felled for lumber.",
+      "files": [
+        "shared/farming.json"
+      ]
+    },
+    {
+      "system": "farming",
+      "status": "done",
+      "title": "Climate, watering and rain",
+      "notes": "Out-of-climate crops grow at 70%; watering or rain speeds a stage by 25%.",
+      "files": [
+        "src/sim/life/farming.ts",
+        "src/sim/life/weather.ts"
+      ]
+    },
+    {
+      "system": "farming",
+      "status": "done",
+      "title": "Growth while you are away",
+      "notes": "The world clock catches up on load (up to 12 hours), so crops ripen with the tab closed.",
+      "files": [
+        "src/app/save.ts"
+      ]
+    },
+    {
+      "system": "farming",
+      "status": "done",
+      "title": "Gathering nodes",
+      "notes": "Deadfall timber, stone, iron ore and wild herbs, each with a respawn; timber can turn up a thunderstruck log.",
+      "files": [
+        "src/sim/life/interact.ts",
+        "shared/zones/emberholm.json"
+      ]
+    },
+    {
+      "system": "farming",
+      "status": "done",
+      "title": "Livestock",
+      "notes": "Chicks, lambs and calves from Sela, raised in plot cells: they grow up and then lay eggs, grow wool or give milk again and again, but only while fed on barley. Nothing dies of neglect; a hungry animal just waits. Eggs and milk go into a Farmhouse Hamper, wool into a Fleece Bale.",
+      "files": [
+        "shared/farming.json",
+        "src/sim/life/livestock.ts"
+      ]
+    },
+    {
+      "system": "farming",
+      "status": "planned",
+      "title": "Larceny",
+      "notes": "Crops on unprotected land can be taken; footprints, reports and a crime score."
+    },
+    {
+      "system": "housing",
+      "status": "done",
+      "title": "Plots and blueprints",
+      "notes": "Eight plots at Hearthside Rise; a Cottage Blueprint (3s + 3 seals) claims one. One house per settler for now.",
+      "files": [
+        "src/sim/life/housing.ts",
+        "shared/housing.json"
+      ]
+    },
+    {
+      "system": "housing",
+      "status": "done",
+      "title": "Building in stages from hauled packs",
+      "notes": "Foundation, frame, walls, roof: each needs its material packs delivered to the site and labor to finish.",
+      "files": [
+        "src/sim/life/housing.ts"
+      ]
+    },
+    {
+      "system": "housing",
+      "status": "done",
+      "title": "A home that does something",
+      "notes": "Solid walls and a doorway, a floor you stand on, a bed (labor ×3 while resting), a storage chest, property tax paid at the plot.",
+      "files": [
+        "src/sim/life/housing.ts",
+        "src/ui/life/lifeUI.ts"
+      ]
+    },
+    {
+      "system": "housing",
+      "status": "planned",
+      "title": "Neglect and plot recycling",
+      "notes": "Unpaid tax leads to demolition after a grace period; freed plots go out by lottery, not to the fastest clicker."
+    },
+    {
+      "system": "housing",
+      "status": "planned",
+      "title": "More houses, furniture, friends helping",
+      "notes": "Farmhouse, manor, aquafarm; placeable furniture; other players delivering packs to your site."
+    },
+    {
+      "system": "economy",
+      "status": "done",
+      "title": "Coins, Charter Seals and labor",
+      "notes": "Copper/silver/gold, seals from trade routes for land; labor regenerates 12 a minute online (6 offline), cap 1,000.",
+      "files": [
+        "shared/trade.json",
+        "src/sim/life/life.ts"
+      ]
+    },
+    {
+      "system": "economy",
+      "status": "done",
+      "title": "Vendors and crafters",
+      "notes": "Mara (seeds, buys produce), Hob and Brenna (materials), Sela (mounts), Quill (land), Ysolde (gliders); Bertram and Ilsa build vehicles and boats from materials.",
+      "files": [
+        "shared/items.json"
+      ]
+    },
+    {
+      "system": "economy",
+      "status": "planned",
+      "title": "Player market and mail",
+      "notes": "An auction house per region, mail with attachments."
+    },
+    {
+      "system": "economy",
+      "status": "planned",
+      "title": "Proficiencies",
+      "notes": "Using labor in a trade levels it: lower labor costs, better yields, new recipes."
+    },
+    {
+      "system": "quests",
+      "status": "done",
+      "title": "Starter questline",
+      "notes": "Thirteen quests that teach farming, livestock, gliding, packing, contracts, carts, boats, building a house and building a ship, advanced by what you actually do. Anything you already did before taking a quest (a plot placed, a house raised, a ship launched) counts the moment you accept it.",
+      "files": [
+        "shared/quests.json",
+        "src/sim/life/quests.ts"
+      ]
+    },
+    {
+      "system": "quests",
+      "status": "done",
+      "title": "Trade contracts",
+      "notes": "Each trading post keeps two contracts on its board: so many packs of a kind within 25 minutes, for bonus seals and coin. Hold two at once; lapsed ones are replaced every ten minutes.",
+      "files": [
+        "src/sim/life/contracts.ts",
+        "shared/trade.json"
+      ]
+    },
+    {
+      "system": "ui",
+      "status": "done",
+      "title": "Open-world HUD",
+      "notes": "Wallet and labor, weather and wind, compass with the quest waypoint, quest tracker, interaction prompt, toasts, place banners, name plates with quest marks, vehicle and glider readouts, context hints.",
+      "files": [
+        "src/ui/life/lifeUI.ts",
+        "src/ui/life/style.ts"
+      ]
+    },
+    {
+      "system": "ui",
+      "status": "done",
+      "title": "Panels",
+      "notes": "NPC dialog, shop, workbench, bag, storage, map, vehicles, quest log and a developer panel (backquote).",
+      "files": [
+        "src/ui/life/lifeUI.ts"
+      ]
+    },
+    {
+      "system": "ui",
+      "status": "done",
+      "title": "Controller navigation in panels",
+      "notes": "With a panel open, the D-pad or stick (or the arrow keys) moves a highlight over its buttons, A (Enter) presses the highlighted one and B (Escape) closes. Panels opened from a controller start on the first button.",
+      "files": [
+        "src/ui/life/lifeUI.ts"
+      ]
+    },
+    {
+      "system": "combat",
+      "status": "done",
+      "title": "Platform-fighter movement and weapons",
+      "notes": "Run, sprint, crouch, slide, double jump; sword, club, staff, bow combos. Built before this session.",
+      "files": [
+        "src/sim/player/",
+        "shared/tuning.json"
+      ]
+    },
+    {
+      "system": "combat",
+      "status": "done",
+      "title": "Classless skill trees and hotbar",
+      "notes": "Skills as data, abilities as effects, movement skills as action states. Built before this session.",
+      "files": [
+        "src/skills.ts",
+        "src/ui/skillTree.ts"
+      ]
+    },
+    {
+      "system": "combat",
+      "status": "done",
+      "title": "Battle server",
+      "notes": "Rust server with 10,000 bots, prediction and lag compensation, conformance-tested against the browser rules. Built before this session.",
+      "files": [
+        "server/"
+      ]
+    },
+    {
+      "system": "combat",
+      "status": "done",
+      "title": "Combat on terrain",
+      "notes": "Arrows, meteors, damage numbers and hit sparks use the ground height under each creature, so the slimes on the hillside meadow can be fought with every weapon.",
+      "files": [
+        "src/sim/sim.ts",
+        "src/sim/combat/deal.ts",
+        "src/render/vfx.ts"
+      ]
+    },
+    {
+      "system": "tech",
+      "status": "done",
+      "title": "Life systems as a deterministic command model",
+      "notes": "All open-world changes happen inside a sim step from queued commands (interact, buy, craft, summon...), which is the shape server requests will take.",
+      "files": [
+        "src/sim/life/life.ts",
+        "src/sim/life/interact.ts"
+      ]
+    },
+    {
+      "system": "tech",
+      "status": "done",
+      "title": "Saving in the browser",
+      "notes": "The whole island saves to localStorage every 5 seconds and on leaving; ?fresh starts over.",
+      "files": [
+        "src/app/save.ts"
+      ]
+    },
+    {
+      "system": "tech",
+      "status": "done",
+      "title": "Open-world tests",
+      "notes": "24 Playwright tests drive terrain, swimming, gliding, gusts and updrafts, farming, livestock, packs, contracts, carts, cars, boats, storms, mounts, housing, the shipyard, quests, panels, saving and combat on the hills.",
+      "files": [
+        "tests/world.spec.ts"
+      ]
+    },
+    {
+      "system": "tech",
+      "status": "planned",
+      "title": "A world server",
+      "notes": "Persistent, authoritative life systems: the same commands sent as requests, state in a database, interest management for other players' carts and ships."
+    },
+    {
+      "system": "ui",
+      "status": "done",
+      "title": "A camera that respects walls",
+      "notes": "The camera pulls in instead of looking through buildings, which also makes walking into your cottage work.",
+      "files": [
+        "src/render/camera.ts",
+        "src/main.ts"
+      ]
+    },
+    {
+      "system": "housing",
+      "status": "done",
+      "title": "Walls-down view indoors",
+      "notes": "Step inside a finished house and its walls are cut to waist height, like a dollhouse, so you can see yourself, the bed, the chest and the hearth; the camera stops pulling in.",
+      "files": [
+        "src/render/open/life.ts",
+        "src/main.ts"
+      ]
+    },
+    {
+      "system": "world",
+      "status": "done",
+      "title": "Weather and wind",
+      "notes": "Rain showers every 7 to 13 minutes water every field; the wind wanders round the compass and drives the sloop.",
+      "files": [
+        "src/sim/life/weather.ts"
+      ]
+    },
+    {
+      "system": "vehicles",
+      "status": "done",
+      "title": "Storms at sea",
+      "notes": "In the rain, open water deeper than 5 m turns rough: the swell shoves boats about and wears down the hull (a rowboat in under a minute of full storm, a cog hardly at all). A boat that breaks up spills its cargo, which floats where she sank for you to swim out and recover; she is back after a 90-second repair.",
+      "files": [
+        "src/sim/life/vehicles.ts",
+        "src/sim/life/weather.ts",
+        "shared/traversal.json"
+      ]
+    },
+    {
+      "system": "world",
+      "status": "done",
+      "title": "Townsfolk with their own looks",
+      "notes": "All twelve villagers have their own model and outfit that says their trade at a glance (the elder's robe and staff, Mara's basket, Ilsa's tricorn, Pell's top hat...). They breathe and look around, turn to face you when you come close, and gesture while you talk.",
+      "files": [
+        "src/render/models/villagers.ts",
+        "src/render/open/life.ts"
+      ]
+    }
+  ],
+  "next": [
+    "Decide the open questions below, then design the world server (persistence and other players' carts and ships)."
+  ],
+  "questions": [
+    {
+      "q": "Should the open world stay the default page?",
+      "context": "/ now opens Emberholm; the old training yard is at /?yard, and the existing tests still use it through ?test."
+    },
+    {
+      "q": "Keep labor as a resource?",
+      "context": "It paces gathering, crafting and building like ArcheAge, but it was ArcheAge's most resented system. Ours is generous (12 a minute, 1,000 cap). Alternatives: no labor, or labor only for crafting."
+    },
+    {
+      "q": "Open-world plots or instanced neighbourhoods?",
+      "context": "Limited open-world land creates land rushes; instanced or phased neighbourhoods remove scarcity but also some of the pride of place."
+    },
+    {
+      "q": "How much piracy, and where?",
+      "context": "Pack theft is what made ArcheAge's trade runs exciting. Options: sea only, flagged zones only, or opt-in."
+    },
+    {
+      "q": "How long should crops really take?",
+      "context": "Prototype timings are minutes. ArcheAge used 10 minutes to days. Longer timers suit a persistent world; shorter suit sessions."
+    },
+    {
+      "q": "Are the names right?",
+      "context": "Emberholm, Lanternwick, the Windspire, Charter Seals and the rest are placeholders in the spirit of the world tree theme."
+    }
+  ],
+  "sessions": [
+    {
+      "date": "2026-11-03",
+      "title": "Life on Emberholm",
+      "summary": "Researched ArcheAge's vehicles, gliders, boats, pack running, farming and housing, then built them into a new open-world starter isle with its own terrain, sea, day and night, weather, quests, HUD and saving. The combat prototype and battle server were left as they were; all 132 of their tests still pass alongside 39 new ones (171 in all).",
+      "points": [
+        "New default page: the open world, Emberholm. The training yard moved to /?yard (the old specs now open it there).",
+        "Gliders with dive, flare, gusts and updrafts; carts, a drifting roadster, a hauler; a rowboat, a wind-driven sloop and a Merchant Cog built on a slipway; donkey and horse.",
+        "Trade packs with routes, demand, freshness and contracts; storms that sink small boats and leave their cargo floating.",
+        "Scarecrow farms with crops, trees and livestock; gathering; cottages raised from hauled material packs, with a walls-down view inside.",
+        "Thirteen starter quests, an open-world HUD and panels, a developer panel (backquote), saving with time passing while away.",
+        "Life systems run as commands inside the deterministic sim, ready to move to a server.",
+        "Design bible and this tracker created (design/index.html, design/status.json); ArcheAge research notes in design/research/.",
+        "A code review of the night's work found nine bugs, all fixed: boats left with the sail up no longer sail off alone; a second whistle brings back the same donkey; the cog design is on sale at Ilsa's; you no longer wade on a pier above deep water; a ride that a storm broke up is cleared; saving while riding puts you back on solid ground; saves from older versions load; quests count work you did before taking them; and a full bag refuses gathering, harvests and rewards instead of destroying them. Five of these (sail, donkey, cog design, quests, full bag) now have regression tests."
+      ]
+    }
+  ]
+}

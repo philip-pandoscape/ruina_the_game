@@ -1,0 +1,88 @@
+import type { Life } from '../sim/life/life';
+import type { Sim } from '../sim/sim';
+import { LIFE_VERSION, type LifeState } from '../sim/life/state';
+import { CLOCK } from '../content/trade';
+import { growFor, addScarecrowCollider } from '../sim/life/farming';
+import { recoverDemand } from '../sim/life/trade';
+import { addHouseColliders } from '../sim/life/housing';
+import { groundAt } from '../sim/zone/colliders';
+import { shortTime } from '../sim/life/interact';
+import { exitSpot, ridden } from '../sim/life/vehicles';
+
+// Your island, kept in this browser between visits: money, bag, farms, house, vehicles, quests,
+// and where you were standing. The world clock keeps running while you are away (up to a cap), so
+// crops ripen and labor refills while the tab is closed - the way it would on a server.
+
+const KEY = 'ruina.emberholm.v1';
+
+interface Saved {
+  savedAt: number;
+  state: LifeState;
+  player: { x: number; y: number; z: number; facing: number };
+}
+
+export function saveLife(life: Life, sim: Sim): void {
+  const p = sim.player;
+  // Riding is not saved: you will be standing beside it next time.
+  const v = p.mode === 'ride' ? ridden(life, sim) : undefined;
+  const at = v ? exitSpot(sim, v) : p.pos;
+  const data: Saved = { savedAt: Date.now(), state: life.state, player: { x: at.x, y: at.y, z: at.z, facing: p.facing } };
+  try {
+    localStorage.setItem(KEY, JSON.stringify(data));
+  } catch {
+    /* storage full or blocked: carry on unsaved */
+  }
+}
+
+export function clearLife(): void {
+  try {
+    localStorage.removeItem(KEY);
+  } catch {
+    /* nothing to clear */
+  }
+}
+
+/** Restores a save into a fresh Life and Sim. Returns false (and changes nothing) if there is none. */
+export function loadLife(life: Life, sim: Sim): boolean {
+  let data: Saved;
+  try {
+    const raw = localStorage.getItem(KEY);
+    if (!raw) return false;
+    data = JSON.parse(raw) as Saved;
+  } catch {
+    return false;
+  }
+  // Older saves are migrated forward; only a save from a newer game than this one is refused.
+  if (!data?.state || (data.state.version ?? 0) > LIFE_VERSION) return false;
+  data.state.version = LIFE_VERSION;
+  life.load(data.state);
+  const s = life.state;
+  for (const v of s.vehicles) v.ridden = false;
+  for (const sc of s.scarecrows) addScarecrowCollider(sim, sc);
+  for (const h of s.houses) addHouseColliders(life, sim, h);
+
+  // Time away.
+  const away = Math.max(0, Math.min(CLOCK.maxOfflineSeconds, (Date.now() - data.savedAt) / 1000)) * CLOCK.offlineFactor;
+  if (away > 1) {
+    s.clock += away;
+    growFor(life, away);
+    recoverDemand(life, away);
+    life.regenLabor(away, false, true);
+    if (away > 60) life.toast(`Welcome back - ${shortTime(away)} passed on Emberholm while you were away`, 'info');
+  }
+
+  // Where you were.
+  const p = sim.player;
+  const hf = sim.world.terrain!;
+  const { x, z, facing } = data.player;
+  if (hf.inside(x, z, 10)) {
+    const y = groundAt(hf, sim.world.index, x, z, Math.max(data.player.y, hf.height(x, z)) + 0.5, 1);
+    p.pos = { x, y, z };
+    p.prevPos = { x, y, z };
+    p.facing = facing;
+    p.prevFacing = facing;
+    p.grounded = true;
+  }
+  life.afterReset(sim);
+  return true;
+}

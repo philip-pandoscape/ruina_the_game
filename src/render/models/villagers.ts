@@ -1,0 +1,637 @@
+import * as THREE from 'three';
+import { PAL, Parts, bev, box, cone, cyl, extrude, glowMaterial, ico, mesh, mix, octa, pivot, rod, sph, tor, type Rgb, type V3 } from './kit';
+
+// The townsfolk of Emberholm, built like the hero (src/content/creatures/hero.ts): chunky
+// rounded blocks, a big head, ~1.7-1.9 m tall, facing +Z with the origin at the feet. Each is
+// five merged meshes on pivots - legs, torso, head and two arms - so animate() can breathe, look
+// around and gesture (more when `talking`) for about ten draw calls. Outfits, hair, hats and a
+// prop in hand say each one's job at a glance; unknown ids get a plain villager.
+
+export interface VillagerAnim {
+  /** Seconds. */
+  time: number;
+  talking: boolean;
+}
+
+export interface VillagerModel {
+  root: THREE.Group;
+  animate(dt: number, s: VillagerAnim): void;
+}
+
+export const VILLAGER_IDS = ['hollis', 'mara', 'tamsin', 'bertram', 'sela', 'ilsa', 'quill', 'ysolde', 'dunmore', 'pell', 'hob', 'brenna'];
+
+const OUTLINE = 0.018;
+const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
+const ease = (a: number, b: number, v: number) => {
+  const t = clamp((v - a) / (b - a), 0, 1);
+  return t * t * (3 - 2 * t);
+};
+const inside = (p: number, a: number, b: number, e: number) => ease(a - e, a, p) * (1 - ease(b, b + e, p));
+
+type Hair = 'short' | 'long' | 'braid' | 'ponytail' | 'bun' | 'bald' | 'none';
+
+interface Look {
+  skin: Rgb;
+  /** Build: shoulder width, depth, torso height, arm thickness, leg length (1 = the hero). */
+  w?: number;
+  d?: number;
+  h?: number;
+  arm?: number;
+  leg?: number;
+  /** Forward stoop of the upper body (radians). */
+  hunch?: number;
+  shirt: Rgb;
+  sleeve?: Rgb;
+  rolled?: boolean;
+  gloves?: Rgb;
+  pants: Rgb;
+  boots: Rgb;
+  tallBoots?: boolean;
+  /** A robe or dress down to the ankles, in place of trousers. */
+  skirt?: Rgb;
+  trim?: Rgb;
+  /** Long coat tails behind the legs. */
+  tails?: Rgb;
+  belt?: Rgb | null;
+  hair: Rgb;
+  style: Hair;
+  beard?: { c: Rgb; kind: 'bushy' | 'long' | 'stubble' | 'moustache' };
+  blush?: boolean;
+  /** Arm rest poses (Euler XYZ, radians) and which arms are free to gesture. */
+  rest?: { l?: V3; r?: V3 };
+  free?: Array<'l' | 'r'>;
+}
+
+interface Kit {
+  look: Look;
+  legs: Parts;
+  torso: Parts;
+  head: Parts;
+  armL: Parts;
+  armR: Parts;
+  glow: Parts;
+  /** Torso width/depth/height factors and the shoulder's height above the ground. */
+  w: number;
+  d: number;
+  h: number;
+  shoulderY: number;
+  /** Builds a prop in the shoulder's upright frame around the resting hand, then hangs it on the arm. */
+  held(side: 'l' | 'r', build: (p: Parts, hand: THREE.Vector3, ground: number) => void): void;
+}
+
+type Extra = (k: Kit, root: THREE.Group, body: THREE.Group) => ((t: number, talk: number) => void) | void;
+
+function soft(p: Parts, w: number, h: number, d: number, c: Rgb, at: V3, r?: V3, round = 0.06): void {
+  p.add(bev(w, h, d, Math.min(round, w / 2, h / 2, d / 2), 1), c, at, r, undefined, { smooth: true });
+}
+
+let born = 0;
+
+function villager(id: string, look: Look, extra?: Extra): VillagerModel {
+  const root = new THREE.Group();
+  root.name = `villager:${id}`;
+  const off = (born++ * 3.77) % 23;
+  const w = look.w ?? 1;
+  const d = look.d ?? 1;
+  const h = look.h ?? 1;
+  const aw = look.arm ?? 1;
+  const hips = 0.64 * (look.leg ?? 1);
+  const shoulderY = hips + 0.46 * h;
+  const restL = new THREE.Euler(...(look.rest?.l ?? [0, 0, 0.08]));
+  const restR = new THREE.Euler(...(look.rest?.r ?? [0, 0, -0.08]));
+  const k: Kit = {
+    look,
+    legs: new Parts(),
+    torso: new Parts(),
+    head: new Parts(),
+    armL: new Parts(),
+    armR: new Parts(),
+    glow: new Parts(),
+    w,
+    d,
+    h,
+    shoulderY,
+    held(side, build) {
+      // The arm hangs from a body that may stoop, so undo both turns to build the prop upright.
+      const rest = side === 'l' ? restL : restR;
+      const total = new THREE.Matrix4().makeRotationFromEuler(new THREE.Euler(look.hunch ?? 0, 0, 0)).multiply(new THREE.Matrix4().makeRotationFromEuler(rest));
+      const p = new Parts();
+      build(p, new THREE.Vector3(0, -0.45, 0).applyMatrix4(total), -(hips + 0.46 * h * Math.cos(look.hunch ?? 0)));
+      const inv = total.clone().invert();
+      for (const g of p.list) (side === 'l' ? k.armL : k.armR).list.push(g.applyMatrix4(inv));
+    },
+  };
+  const { legs, torso, head, armL, armR } = k;
+
+  // Legs and feet, or a robe to the ankles.
+  if (look.skirt !== undefined) {
+    legs.add(cyl(0.25 * w, 0.34 * w, hips + 0.1, 10), look.skirt, [0, (hips + 0.1) / 2 + 0.05, 0], undefined, [1, 1, 0.8]);
+    if (look.trim !== undefined) legs.add(cyl(0.345 * w, 0.35 * w, 0.06, 10), look.trim, [0, 0.09, 0], undefined, [1, 1, 0.8]);
+    for (const sx of [-1, 1]) legs.add(box(0.17, 0.1, 0.24), look.boots, [sx * 0.1, 0.05, 0.08]);
+  } else {
+    for (const sx of [-1, 1]) {
+      soft(legs, 0.15 * Math.max(1, w * 0.9), hips - 0.08, 0.17 * Math.max(1, d * 0.9), look.pants, [sx * 0.12 * w, (hips + 0.12) / 2, 0], undefined, 0.05);
+      const bh = look.tallBoots ? hips * 0.62 : 0.13;
+      legs.add(box(0.19 * Math.max(1, w * 0.9), bh, look.tallBoots ? 0.22 : 0.27), look.boots, [sx * 0.12 * w, bh / 2, look.tallBoots ? 0.01 : 0.04]);
+      if (look.tallBoots) legs.add(box(0.19, 0.12, 0.27), look.boots, [sx * 0.12 * w, 0.06, 0.04]);
+    }
+  }
+
+  // Torso (in the body pivot at the hips).
+  const body = pivot(root, 0, hips, 0, 'body');
+  if (look.skirt === undefined) torso.add(box(0.4 * w, 0.16, 0.26 * d), look.pants, [0, 0, 0]);
+  soft(torso, 0.46 * w, 0.44 * h, 0.3 * d, look.shirt, [0, 0.29 * h, 0], undefined, 0.08);
+  if (look.belt !== null) torso.add(box(0.48 * w, 0.07, 0.32 * d), look.belt ?? PAL.leather, [0, 0.1, 0]);
+  if (look.tails !== undefined) {
+    torso.add(box(0.46 * w, 0.52, 0.05), look.tails, [0, -0.2, -0.14 * d], [-0.06, 0, 0]);
+    for (const sx of [-1, 1]) torso.add(box(0.05, 0.52, 0.24 * d), look.tails, [sx * 0.235 * w, -0.2, -0.02]);
+  }
+
+  // Arms: sleeves (rolled up to the elbow for workers), hands or gloves.
+  for (const arm of [armL, armR]) {
+    const sleeve = look.sleeve ?? look.shirt;
+    if (look.rolled) {
+      soft(arm, 0.15 * aw, 0.24, 0.16 * aw, sleeve, [0, -0.11, 0], undefined, 0.05);
+      arm.add(box(0.165 * aw, 0.06, 0.175 * aw), mix(sleeve, PAL.white, 0.25), [0, -0.23, 0]);
+      soft(arm, 0.12 * aw, 0.22, 0.13 * aw, look.skin, [0, -0.33, 0], undefined, 0.05);
+    } else soft(arm, 0.14 * aw, 0.42, 0.15 * aw, sleeve, [0, -0.21, 0], undefined, 0.05);
+    arm.add(sph(0.075 * Math.max(1, aw * 0.9), 6, 4), look.gloves ?? look.skin, [0, -0.45, 0], undefined, undefined, { smooth: true });
+  }
+
+  // Head: face, eyes, hair, beard.
+  const hp = head;
+  soft(hp, 0.5, 0.46, 0.46, look.skin, [0, 0.23, 0], undefined, 0.12);
+  for (const sx of [-1, 1]) hp.add(box(0.07, 0.11, 0.02), PAL.dark, [sx * 0.11, 0.23, 0.235]);
+  if (look.blush) for (const sx of [-1, 1]) hp.add(box(0.08, 0.04, 0.012), 0xf09a8a, [sx * 0.16, 0.14, 0.232]);
+  hair(hp, look);
+  if (look.beard) beard(hp, look.beard.c, look.beard.kind);
+
+  const anim = extra?.(k, root, body);
+  mesh(root, legs.build(), { outline: OUTLINE, name: 'legs' });
+  mesh(body, torso.build(), { outline: OUTLINE, name: 'torso' });
+  const headPivot = pivot(body, 0, 0.53 * h, 0, 'head');
+  mesh(headPivot, head.build(), { outline: OUTLINE, name: 'head' });
+  if (!k.glow.empty) mesh(headPivot, k.glow.build(), { mat: glowMaterial(), shadow: false, name: 'glow' });
+  const left = pivot(body, 0.31 * w, 0.46 * h, 0, 'armL');
+  const right = pivot(body, -0.31 * w, 0.46 * h, 0, 'armR');
+  left.rotation.copy(restL);
+  right.rotation.copy(restR);
+  mesh(left, armL.build(), { outline: OUTLINE, name: 'armL' });
+  mesh(right, armR.build(), { outline: OUTLINE, name: 'armR' });
+
+  const free = new Set(look.free ?? ['l', 'r']);
+  const hunch = look.hunch ?? 0;
+  let talk = 0;
+  return {
+    root,
+    animate(dt, s) {
+      const t = s.time + off;
+      talk += ((s.talking ? 1 : 0) - talk) * Math.min(1, dt * 3);
+      body.scale.y = 1 + 0.012 * Math.sin(t * 1.7);
+      body.rotation.x = hunch + talk * 0.03 * Math.sin(t * 1.3);
+      body.rotation.z = Math.sin(t * 0.45) * 0.012 + talk * Math.sin(t * 1.9) * 0.025;
+      headPivot.rotation.y = (Math.sin(t * 0.31) * 0.42 + Math.sin(t * 0.73) * 0.14) * (1 - talk * 0.75);
+      headPivot.rotation.x = -hunch * 0.6 + Math.sin(t * 0.9) * 0.025 + talk * (0.07 * Math.sin(t * 6.3) - 0.04);
+      headPivot.rotation.z = Math.sin(t * 0.53) * 0.04 * (1 - talk) + talk * 0.05 * Math.sin(t * 1.1);
+      const idle = inside(t % 9, 6.2, 7.4, 0.5);
+      for (const [arm, rest, side, phase] of [[left, restL, 1, 0], [right, restR, -1, 2.1]] as const) {
+        if (!free.has(side > 0 ? 'l' : 'r')) {
+          arm.rotation.set(rest.x + Math.sin(t * 1.7) * 0.015, rest.y, rest.z);
+          continue;
+        }
+        const lift = idle * (side > 0 ? 0.3 : 0.4) + talk * (0.5 + 0.35 * Math.sin(t * 2.3 + phase));
+        arm.rotation.set(rest.x - lift, rest.y, rest.z + side * (0.08 * idle + talk * (0.18 + 0.14 * Math.sin(t * 1.7 + phase))));
+      }
+      anim?.(t, talk);
+    },
+  };
+}
+
+function hair(p: Parts, look: Look): void {
+  const c = look.hair;
+  if (look.style === 'none') return;
+  if (look.style === 'bald') {
+    for (const sx of [-1, 1]) soft(p, 0.08, 0.2, 0.32, c, [sx * 0.255, 0.28, -0.05], undefined, 0.03);
+    soft(p, 0.5, 0.18, 0.08, c, [0, 0.26, -0.22], undefined, 0.03);
+    for (const sx of [-1, 1]) p.add(box(0.12, 0.04, 0.03), c, [sx * 0.11, 0.33, 0.235]);
+    return;
+  }
+  soft(p, 0.55, 0.17, 0.5, c, [0, 0.43, -0.01], undefined, 0.07);
+  if (look.style === 'long') {
+    p.add(box(0.55, 0.58, 0.15), c, [0, 0.17, -0.19]);
+    for (const sx of [-1, 1]) p.add(box(0.07, 0.42, 0.28), c, [sx * 0.265, 0.2, -0.05]);
+    return;
+  }
+  p.add(box(0.55, 0.36, 0.15), c, [0, 0.28, -0.19]);
+  if (look.style === 'braid') {
+    for (let i = 0; i < 4; i++) p.add(box(0.12 - i * 0.012, 0.13, 0.12 - i * 0.01), c, [0, 0.12 - i * 0.12, -0.27 - i * 0.015], [0.1, 0, i % 2 ? 0.2 : -0.2]);
+    p.add(box(0.08, 0.04, 0.08), PAL.green, [0, -0.33, -0.31]);
+  } else if (look.style === 'ponytail') {
+    soft(p, 0.13, 0.36, 0.12, c, [0, 0.12, -0.31], [0.25, 0, 0], 0.05);
+    p.add(box(0.15, 0.05, 0.14), PAL.red, [0, 0.27, -0.28]);
+  } else if (look.style === 'bun') {
+    soft(p, 0.2, 0.18, 0.18, c, [0, 0.45, -0.26], undefined, 0.07);
+  }
+}
+
+function beard(p: Parts, c: Rgb, kind: 'bushy' | 'long' | 'stubble' | 'moustache'): void {
+  if (kind === 'long') {
+    soft(p, 0.4, 0.52, 0.16, c, [0, 0.0, 0.18], [0.15, 0, 0], 0.07);
+    p.add(box(0.32, 0.07, 0.06), c, [0, 0.15, 0.245]);
+  } else if (kind === 'bushy') {
+    soft(p, 0.52, 0.3, 0.22, c, [0, 0.07, 0.15], undefined, 0.09);
+    p.add(box(0.3, 0.07, 0.05), c, [0, 0.16, 0.25]);
+  } else if (kind === 'stubble') {
+    p.add(box(0.44, 0.16, 0.03), c, [0, 0.08, 0.228]);
+  } else {
+    p.add(box(0.26, 0.05, 0.05), c, [0, 0.14, 0.245]);
+    for (const sx of [-1, 1]) p.add(box(0.05, 0.08, 0.05), c, [sx * 0.13, 0.11, 0.245]);
+  }
+}
+
+// ---------- the townsfolk ----------
+
+const SKIN = [0xf1c27d, 0xe0ac69, 0xc68642, 0x8d5524, 0xffdbac];
+
+const hollis = () =>
+  villager(
+    'hollis',
+    {
+      skin: SKIN[4],
+      hunch: 0.12,
+      shirt: 0x6a4a9a,
+      pants: 0x6a4a9a,
+      boots: 0x4a3426,
+      skirt: 0x6a4a9a,
+      trim: PAL.gold,
+      belt: PAL.gold,
+      hair: 0xf2f2ee,
+      style: 'bald',
+      beard: { c: 0xf2f2ee, kind: 'long' },
+      rest: { r: [-0.3, 0, -0.12] },
+      free: ['l'],
+    },
+    (k) => {
+      // A gold-trimmed collar and a gnarled staff with a little green shoot.
+      k.torso.add(box(0.5, 0.08, 0.34), PAL.gold, [0, 0.49, 0]);
+      k.torso.add(box(0.06, 0.4, 0.02), PAL.gold, [0, 0.28, 0.157]);
+      k.held('r', (p, hand, ground) => {
+        p.add(rod([hand.x, ground, hand.z], [hand.x + 0.02, hand.y + 0.75, hand.z], 0.035, 6, 0.03), PAL.woodDark);
+        p.add(ico(0.07, 0), PAL.woodDark, [hand.x + 0.02, hand.y + 0.8, hand.z], undefined, [1, 1.2, 1]);
+        p.add(octa(0.045), PAL.leaf, [hand.x + 0.07, hand.y + 0.85, hand.z], undefined, [0.6, 1.2, 0.3]);
+      });
+    },
+  );
+
+const mara = () =>
+  villager(
+    'mara',
+    {
+      skin: SKIN[0],
+      shirt: 0x4f8f4a,
+      sleeve: 0x4f8f4a,
+      pants: 0x4f8f4a,
+      boots: 0x5a3a28,
+      skirt: 0x4f8f4a,
+      belt: null,
+      hair: 0x8a4a2a,
+      style: 'bun',
+      blush: true,
+      rest: { l: [-0.35, 0, 0.18] },
+      free: ['r'],
+    },
+    (k) => {
+      // A white apron over the dress, a red headscarf, a basket of produce on her arm.
+      k.torso.add(box(0.34, 0.34, 0.03), PAL.cream, [0, 0.24, 0.158]);
+      k.legs.add(box(0.44, 0.52, 0.03), PAL.cream, [0, 0.42, 0.245], [-0.12, 0, 0]);
+      k.legs.add(box(0.2, 0.12, 0.035), 0xe8dcbc, [0.07, 0.48, 0.255], [-0.12, 0, 0]);
+      k.torso.add(box(0.48, 0.05, 0.33), PAL.cream, [0, 0.1, 0]);
+      soft(k.head, 0.57, 0.24, 0.53, PAL.red, [0, 0.43, -0.02], undefined, 0.09);
+      for (const sx of [-1, 1]) k.head.add(box(0.09, 0.12, 0.05), PAL.red, [sx * 0.05, 0.28, -0.28], [0, 0, sx * 0.4]);
+      for (const [x, z] of [[-0.15, 0.1], [0.12, 0.15], [0.0, -0.12], [0.18, -0.08]] as const) k.head.add(box(0.04, 0.04, 0.012), PAL.white, [x, 0.5, z + 0.12], [-1.2, 0, 0]);
+      k.held('l', (p, hand) => {
+        const b = hand.clone().add(new THREE.Vector3(0.05, -0.2, 0.06));
+        p.add(cyl(0.17, 0.13, 0.15, 8), 0xb98a55, [b.x, b.y, b.z]);
+        p.add(tor(0.15, 0.015, 3, 8, Math.PI), 0x9a6a3c, [b.x, b.y + 0.07, b.z], [0, Math.PI / 2, 0]);
+        const fruit: Array<[number, number, Rgb]> = [[-0.06, 0.03, PAL.red], [0.06, 0.04, 0xd9a441], [0.0, -0.06, 0x6fbf4a], [0.07, -0.05, PAL.red]];
+        for (const [x, z, c] of fruit) p.add(ico(0.06, 0), c, [b.x + x, b.y + 0.09, b.z + z]);
+      });
+    },
+  );
+
+const tamsin = () =>
+  villager(
+    'tamsin',
+    { skin: SKIN[1], shirt: 0xeedfc0, rolled: true, pants: 0x6b4a32, boots: 0x3d2a1e, hair: 0xa0522d, style: 'ponytail' },
+    (k) => {
+      // Leather apron, a pack strap over one shoulder and the crate it holds on her back.
+      k.torso.add(box(0.38, 0.62, 0.03), 0x7a4a2a, [0, 0.12, 0.16]);
+      for (const sx of [-1, 1]) k.torso.add(box(0.03, 0.2, 0.03), 0x5a341d, [sx * 0.14, 0.42, 0.16]);
+      k.torso.add(box(0.08, 0.04, 0.035), PAL.brass, [0.1, 0.0, 0.18]);
+      k.torso.add(box(0.06, 0.62, 0.035), PAL.leatherDark, [0.02, 0.28, 0.165], [0, 0, 0.62]);
+      k.torso.add(box(0.06, 0.5, 0.035), PAL.leatherDark, [0.08, 0.3, -0.165], [0, 0, -0.5]);
+      k.torso.add(box(0.3, 0.36, 0.2), PAL.crate, [-0.06, 0.36, -0.27], [0.1, 0, -0.12]);
+      k.torso.add(box(0.32, 0.05, 0.22), PAL.woodDark, [-0.07, 0.5, -0.27], [0.1, 0, -0.12]);
+    },
+  );
+
+const bertram = () =>
+  villager(
+    'bertram',
+    {
+      skin: SKIN[0],
+      w: 1.32,
+      d: 1.3,
+      arm: 1.3,
+      shirt: 0x5a7aa0,
+      rolled: true,
+      pants: 0x4a3f36,
+      boots: 0x3a2a20,
+      hair: 0x6b4226,
+      style: 'short',
+      beard: { c: 0x6b4226, kind: 'bushy' },
+    },
+    (k) => {
+      // Brown work apron and a hammer hanging at the belt.
+      k.torso.add(box(0.5, 0.68, 0.03), 0x7d5a3a, [0, 0.12, 0.21]);
+      for (const sx of [-1, 1]) k.torso.add(box(0.035, 0.2, 0.03), 0x5a3a24, [sx * 0.18, 0.44, 0.205]);
+      k.torso.add(box(0.05, 0.3, 0.05), PAL.woodLight, [-0.33, -0.05, 0.06]);
+      k.torso.add(box(0.16, 0.08, 0.08), PAL.iron, [-0.33, -0.2, 0.06]);
+    },
+  );
+
+const sela = () =>
+  villager(
+    'sela',
+    {
+      skin: SKIN[4],
+      shirt: 0x2f6f5f,
+      gloves: PAL.leather,
+      pants: 0xc8a878,
+      boots: 0x3a2618,
+      tallBoots: true,
+      hair: 0xc0502a,
+      style: 'braid',
+    },
+    (k) => {
+      // Riding jacket buttons and a coil of rope over her shoulder.
+      for (let i = 0; i < 3; i++) k.torso.add(box(0.04, 0.04, 0.02), PAL.brass, [0, 0.42 - i * 0.12, 0.158]);
+      k.torso.add(box(0.48, 0.06, 0.32), PAL.leatherDark, [0, 0.1, 0]);
+      k.torso.add(tor(0.2, 0.045, 4, 12), PAL.rope, [0.18, 0.36, 0.0], [0, Math.PI / 2, 0.75]);
+      k.torso.add(tor(0.17, 0.04, 4, 10), 0xc2a676, [0.2, 0.36, 0.0], [0, Math.PI / 2, 0.75]);
+    },
+  );
+
+const ilsa = () =>
+  villager(
+    'ilsa',
+    {
+      skin: SKIN[1],
+      shirt: 0x2a3a6a,
+      pants: 0x2a2f3a,
+      boots: 0x1f1c1c,
+      tallBoots: true,
+      tails: 0x2a3a6a,
+      belt: 0x1f1c1c,
+      hair: 0x2b1d14,
+      style: 'ponytail',
+      rest: { r: [-0.7, 0, -0.1] },
+      free: ['l'],
+    },
+    (k) => {
+      // Long navy coat with gold buttons and a white cravat; a tricorn; a brass spyglass.
+      for (let i = 0; i < 4; i++) for (const sx of [-1, 1]) k.torso.add(box(0.035, 0.035, 0.02), PAL.gold, [sx * 0.1, 0.42 - i * 0.1, 0.158]);
+      k.torso.add(box(0.12, 0.14, 0.03), PAL.white, [0, 0.43, 0.16]);
+      for (const arm of [k.armL, k.armR]) arm.add(box(0.15, 0.06, 0.16), PAL.gold, [0, -0.37, 0]);
+      const hat = new Parts();
+      hat.add(extrude([[0, -0.4], [0.4, 0.24], [-0.4, 0.24]], 0.07), 0x1f2430, [0, 0.52, 0], [-Math.PI / 2, 0, 0]);
+      hat.add(extrude([[0, -0.43], [0.43, 0.26], [-0.43, 0.26]], 0.03), PAL.gold, [0, 0.5, 0], [-Math.PI / 2, 0, 0]);
+      hat.add(cyl(0.2, 0.24, 0.16, 8), 0x1f2430, [0, 0.62, -0.02]);
+      k.head.take(hat);
+      k.held('r', (p, hand) => {
+        p.add(rod([hand.x, hand.y - 0.03, hand.z - 0.12], [hand.x, hand.y + 0.06, hand.z + 0.36], 0.035, 8, 0.05), PAL.brass);
+        p.add(cyl(0.056, 0.056, 0.05, 8), 0x8a5a34, [hand.x, hand.y + 0.03, hand.z + 0.18], [Math.PI / 2 - 0.18, 0, 0]);
+      });
+    },
+  );
+
+const quill = () =>
+  villager(
+    'quill',
+    {
+      skin: SKIN[4],
+      h: 1.08,
+      leg: 1.08,
+      w: 0.92,
+      shirt: 0x2f3340,
+      pants: 0x2a2d36,
+      boots: 0x1c1c22,
+      tails: 0x2f3340,
+      belt: null,
+      hair: 0x9aa0a8,
+      style: 'short',
+      rest: { l: [0, 0, 0.02] },
+      free: ['r'],
+    },
+    (k) => {
+      // A tall dark coat, a white collar, spectacles, a quill behind the ear, a ledger under the arm.
+      k.torso.add(box(0.14, 0.12, 0.03), PAL.white, [0, 0.46, 0.15]);
+      for (let i = 0; i < 4; i++) k.torso.add(box(0.035, 0.035, 0.02), PAL.steel, [0, 0.36 - i * 0.1, 0.143]);
+      k.torso.add(box(0.06, 0.32, 0.26), 0x8a2f2a, [0.26, 0.24, 0.02]);
+      k.torso.add(box(0.065, 0.3, 0.02), PAL.cream, [0.262, 0.24, 0.15]);
+      for (const sx of [-1, 1]) k.head.add(tor(0.055, 0.01, 3, 10), PAL.gold, [sx * 0.11, 0.23, 0.25]);
+      k.head.add(box(0.06, 0.012, 0.012), PAL.gold, [0, 0.24, 0.25]);
+      k.head.add(cone(0.025, 0.28, 4), PAL.white, [0.27, 0.42, -0.05], [0.4, 0, -0.3], [1, 1, 0.3]);
+    },
+  );
+
+const ysolde = () =>
+  villager(
+    'ysolde',
+    { skin: SKIN[0], shirt: 0x8a5a34, pants: 0x7a7458, boots: 0x3a2618, tallBoots: true, belt: 0x3a2618, hair: 0xe8c46a, style: 'short' },
+    (k, _root, body) => {
+      // Flight jacket with a fleece collar, goggles pushed up, a red scarf whose end streams out.
+      k.torso.add(box(0.5, 0.1, 0.34), 0xf1e6cc, [0, 0.46, 0]);
+      k.torso.add(box(0.03, 0.4, 0.02), PAL.iron, [0.05, 0.26, 0.157]);
+      k.torso.add(box(0.5, 0.09, 0.35), PAL.red, [0, 0.5, 0]);
+      k.head.add(box(0.53, 0.07, 0.49), 0x3a2a20, [0, 0.39, 0]);
+      for (const sx of [-1, 1]) {
+        k.head.add(cyl(0.075, 0.075, 0.05, 8), PAL.brass, [sx * 0.11, 0.4, 0.25], [Math.PI / 2, 0, 0]);
+        k.head.add(cyl(0.058, 0.058, 0.02, 8), 0x7fd3c8, [sx * 0.11, 0.4, 0.28], [Math.PI / 2, 0, 0]);
+      }
+      const scarf = pivot(body, 0.08, 0.5 * k.h, -0.16, 'scarf');
+      mesh(scarf, new Parts().add(box(0.12, 0.42, 0.04), PAL.red, [0, -0.2, -0.02]).add(box(0.13, 0.06, 0.05), 0xf2c84b, [0, -0.39, -0.02]).build(), { outline: OUTLINE });
+      return (t, talk) => {
+        scarf.rotation.x = 0.35 + Math.sin(t * 2.6) * 0.12 + talk * 0.1;
+        scarf.rotation.z = Math.sin(t * 1.9) * 0.15;
+      };
+    },
+  );
+
+const dunmore = () =>
+  villager(
+    'dunmore',
+    {
+      skin: SKIN[2],
+      w: 1.12,
+      d: 1.22,
+      shirt: PAL.cream,
+      pants: 0x5a4030,
+      boots: 0x2e2018,
+      hair: 0x3a2a1e,
+      style: 'short',
+      beard: { c: 0x3a2a1e, kind: 'moustache' },
+      rest: { l: [-0.55, 0, 0.1] },
+      free: ['r'],
+    },
+    (k) => {
+      // Maroon merchant vest, brass buttons, a fat coin purse, a flat cap and a ledger in hand.
+      const v = 0x8a2f3a;
+      for (const sx of [-1, 1]) k.torso.add(box(0.19 * k.w, 0.4, 0.03), v, [sx * 0.135 * k.w, 0.29, 0.18]);
+      k.torso.add(box(0.48 * k.w, 0.4, 0.03), v, [0, 0.29, -0.18]);
+      for (let i = 0; i < 3; i++) k.torso.add(box(0.035, 0.035, 0.02), PAL.brass, [0.06, 0.4 - i * 0.1, 0.2]);
+      k.torso.add(bev(0.16, 0.18, 0.1, 0.04), PAL.leather, [0.2, -0.04, 0.17]);
+      k.torso.add(box(0.12, 0.03, 0.06), PAL.gold, [0.2, 0.06, 0.17]);
+      soft(k.head, 0.54, 0.1, 0.52, 0x6b5a48, [0, 0.47, -0.02], undefined, 0.04);
+      k.head.add(box(0.42, 0.03, 0.16), 0x5a4a3a, [0, 0.45, 0.27], [-0.15, 0, 0]);
+      k.held('l', (p, hand) => {
+        p.add(box(0.06, 0.3, 0.22), 0x2f5a3a, [hand.x + 0.02, hand.y + 0.05, hand.z + 0.03], [0.3, 0, 0]);
+        p.add(box(0.065, 0.28, 0.02), PAL.cream, [hand.x + 0.02, hand.y + 0.05, hand.z + 0.14], [0.3, 0, 0]);
+      });
+    },
+  );
+
+const pell = () =>
+  villager(
+    'pell',
+    {
+      skin: SKIN[4],
+      w: 0.9,
+      h: 1.04,
+      shirt: 0x3a2a4a,
+      pants: 0x2a2433,
+      boots: 0x16141a,
+      tails: 0x3a2a4a,
+      belt: null,
+      hair: 0x1f1a16,
+      style: 'short',
+      rest: { r: [-0.25, 0, -0.18] },
+      free: ['l'],
+    },
+    (k) => {
+      // A gold brocade waistcoat with a watch chain, a cravat, a monocle, a top hat and a cane.
+      for (const sx of [-1, 1]) k.torso.add(box(0.12, 0.34, 0.03), sx > 0 ? 0xd9a73a : 0xc9932a, [sx * 0.07, 0.26, 0.158]);
+      for (let i = 0; i < 3; i++) k.torso.add(box(0.03, 0.03, 0.02), PAL.white, [0.0, 0.36 - i * 0.09, 0.176]);
+      k.torso.add(beamish(0.06, 0.2, -0.1, 0.12), PAL.gold);
+      k.torso.add(box(0.12, 0.12, 0.04), PAL.white, [0, 0.45, 0.16]);
+      k.head.add(tor(0.055, 0.012, 3, 10), PAL.gold, [-0.11, 0.23, 0.25]);
+      k.head.add(cyl(0.32, 0.32, 0.03, 10), 0x16141a, [0, 0.5, 0]);
+      k.head.add(cyl(0.2, 0.21, 0.4, 10), 0x16141a, [0, 0.71, 0]);
+      k.head.add(cyl(0.212, 0.212, 0.07, 10), 0x6a3a8a, [0, 0.56, 0]);
+      k.held('r', (p, hand, ground) => {
+        p.add(rod([hand.x, ground, hand.z + 0.06], [hand.x, hand.y + 0.04, hand.z], 0.02, 5), 0x16141a);
+        p.add(sph(0.045, 6, 4), PAL.gold, [hand.x, hand.y + 0.07, hand.z]);
+      });
+    },
+  );
+
+/** A short slanted strip (the waistcoat's watch chain). */
+function beamish(x: number, y: number, x2: number, y2: number): THREE.BufferGeometry {
+  return rod([x, y, 0.177], [x2, y2, 0.177], 0.01, 3);
+}
+
+const hob = () =>
+  villager(
+    'hob',
+    {
+      skin: SKIN[1],
+      w: 1.12,
+      shirt: 0xb83a30,
+      rolled: true,
+      sleeve: 0xb83a30,
+      pants: 0x4a4a38,
+      boots: 0x3a2a1e,
+      hair: 0x5a3a24,
+      style: 'short',
+      beard: { c: 0x5a3a24, kind: 'stubble' },
+      rest: { r: [-0.9, 0, -0.15] },
+      free: ['l'],
+    },
+    (k) => {
+      // Plaid: dark bands across the red shirt; a green knit cap; an axe over the shoulder.
+      for (const y of [0.15, 0.3, 0.45]) k.torso.add(box(0.47 * k.w, 0.035, 0.31), 0x2a1c1c, [0, y, 0]);
+      for (const x of [-0.12, 0.12]) k.torso.add(box(0.035, 0.44, 0.31), 0x2a1c1c, [x * k.w, 0.29, 0]);
+      for (const y of [-0.07, -0.16]) k.armL.add(box(0.155, 0.03, 0.165), 0x2a1c1c, [0, y, 0]);
+      for (const y of [-0.07, -0.16]) k.armR.add(box(0.155, 0.03, 0.165), 0x2a1c1c, [0, y, 0]);
+      soft(k.head, 0.55, 0.22, 0.51, 0x4f7a3a, [0, 0.44, -0.01], undefined, 0.08);
+      k.head.add(box(0.57, 0.07, 0.53), 0x3f6a2e, [0, 0.36, -0.01]);
+      k.head.add(ico(0.07, 0), 0x3f6a2e, [0, 0.58, -0.02]);
+      k.held('r', (p, hand) => {
+        // The haft runs from the hand up over the shoulder; the head rides just above and behind it.
+        const top = new THREE.Vector3(hand.x - 0.1, 0.36, -0.12);
+        p.add(rod([hand.x, hand.y - 0.06, hand.z + 0.05], [top.x, top.y, top.z], 0.032, 6), PAL.woodLight);
+        p.add(box(0.06, 0.1, 0.3), PAL.iron, [top.x, top.y - 0.02, top.z - 0.08], [0.35, 0, 0]);
+        p.add(box(0.05, 0.22, 0.06), PAL.steel, [top.x, top.y - 0.05, top.z - 0.24], [0.35, 0, 0]);
+      });
+    },
+  );
+
+const brenna = () =>
+  villager(
+    'brenna',
+    {
+      skin: SKIN[3],
+      w: 1.18,
+      d: 1.15,
+      arm: 1.15,
+      shirt: 0x8a8070,
+      rolled: true,
+      pants: 0x5a564e,
+      boots: 0x2e2a26,
+      hair: 0x2b1d14,
+      style: 'bun',
+      rest: { r: [-0.45, 0, -0.1] },
+      free: ['l'],
+    },
+    (k) => {
+      // A leather vest, a dented brass miner's helmet with a little lamp, a pickaxe planted.
+      for (const sx of [-1, 1]) k.torso.add(box(0.2 * k.w, 0.42, 0.03), PAL.leatherDark, [sx * 0.13 * k.w, 0.29, 0.18]);
+      k.torso.add(box(0.48 * k.w, 0.42, 0.03), PAL.leatherDark, [0, 0.29, -0.18]);
+      k.head.add(cyl(0.27, 0.3, 0.17, 10), 0xb8913f, [0, 0.52, -0.01]);
+      k.head.add(cyl(0.34, 0.34, 0.03, 10), 0x9a7a35, [0, 0.45, -0.01]);
+      k.head.add(box(0.1, 0.1, 0.06), PAL.iron, [0, 0.53, 0.3]);
+      k.glow.add(box(0.07, 0.07, 0.02), PAL.glow, [0, 0.53, 0.335]);
+      k.held('r', (p, hand, ground) => {
+        const foot = new THREE.Vector3(hand.x - 0.05, ground + 0.05, hand.z + 0.32);
+        p.add(rod([hand.x, hand.y + 0.06, hand.z], [foot.x, foot.y + 0.14, foot.z], 0.03, 6), PAL.woodLight);
+        p.add(beam3([foot.x, foot.y + 0.1, foot.z - 0.26], [foot.x, foot.y + 0.1, foot.z + 0.26]), PAL.ironLight);
+        p.add(cone(0.035, 0.12, 4), PAL.ironLight, [foot.x, foot.y + 0.05, foot.z + 0.3], [Math.PI / 2 + 0.6, 0, 0]);
+      });
+    },
+  );
+
+function beam3(a: V3, b: V3): THREE.BufferGeometry {
+  return rod(a, b, 0.035, 4, 0.025);
+}
+
+const generic = (id: string) => {
+  let h = 0;
+  for (const ch of id) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  const pick = <T,>(xs: T[], salt: number) => xs[(h >>> salt) % xs.length];
+  return villager(id, {
+    skin: pick(SKIN, 1),
+    shirt: pick([0x3a6ea5, 0x8a4a2a, 0x4f8f4a, 0xb8913f, 0x7a4a7a, 0xc0503a], 3),
+    pants: pick([0x2f3e46, 0x5a4030, 0x4a4a38], 5),
+    boots: 0x3a2a20,
+    hair: pick([0x2b1d14, 0x5b3a29, 0xa0522d, 0xe8c46a, 0x9aa0a8], 7),
+    style: pick<Hair>(['short', 'long', 'ponytail', 'bun'], 9),
+  });
+};
+
+const BUILD: Record<string, () => VillagerModel> = { hollis, mara, tamsin, bertram, sela, ilsa, quill, ysolde, dunmore, pell, hob, brenna };
+
+/** Builds one of Emberholm's townsfolk by NPC id; unknown ids get a plain villager. */
+export function buildVillager(id: string): VillagerModel {
+  return (BUILD[id] ?? (() => generic(id)))();
+}
+

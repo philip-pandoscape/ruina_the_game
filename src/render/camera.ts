@@ -9,8 +9,21 @@ export class FollowCamera {
   distance = CAMERA.distance;
   private focus = new THREE.Vector3();
   private placed = false;
+  private aim = 0; // 0..1: how far into the raised ground-targeting view
+  private aimWanted = 0;
+  private lead = new THREE.Vector3(); // where the circle is, to lean the view toward it
+  private hasLead = false;
+  private look = new THREE.Vector3(); // focus, leaned toward the circle; never written back
   private trauma = 0;
   private shakeTime = 0;
+  /** Lowest the eye may go at a point (terrain and sea in an open world); null on flat ground. */
+  groundAt: ((x: number, z: number) => number) | null = null;
+  /**
+   * How far along the line from the player to the camera it can go before something solid is in
+   * the way, 0..1 (buildings in an open world); null when nothing ever blocks it.
+   */
+  blocker: ((fx: number, fy: number, fz: number, cx: number, cy: number, cz: number) => number) | null = null;
+  private reach = 1; // eased: snaps in when blocked, drifts back out when clear
 
   constructor(aspect: number, far = 320, private maxDistance = 14) {
     this.camera = new THREE.PerspectiveCamera(CAMERA.fov, aspect, 0.1, far);
@@ -30,6 +43,22 @@ export class FollowCamera {
     this.trauma = Math.min(1, this.trauma + amount);
   }
 
+  // Placing a ground-aimed cast: lift the view and lean it toward the circle. Call this every
+  // frame while aiming, then stopAiming() once the cast goes off or is cancelled.
+  aimAt(x: number, z: number): void {
+    this.aimWanted = 1;
+    this.lead.set(x, 0, z);
+    this.hasLead = true;
+  }
+
+  stopAiming(): void {
+    this.aimWanted = 0;
+  }
+
+  get aiming(): number {
+    return this.aim;
+  }
+
   reset(yaw: number): void {
     this.yaw = yaw;
     this.pitch = CAMERA.startPitch;
@@ -37,6 +66,9 @@ export class FollowCamera {
     this.placed = false;
     this.trauma = 0;
     this.shakeTime = 0;
+    this.aim = 0;
+    this.aimWanted = 0;
+    this.hasLead = false;
   }
 
   // Follows the target smoothly. Vertical follow is looser so jumps don't jerk the view.
@@ -55,14 +87,36 @@ export class FollowCamera {
       this.focus.z += (gz - this.focus.z) * kxz;
     }
 
-    const flat = this.distance * Math.cos(this.pitch);
+    // Ease in and out of the targeting view rather than snapping to it.
+    this.aim += (this.aimWanted - this.aim) * (1 - Math.exp(-CAMERA.aimEase * dt));
+    if (this.aim < 0.001) {
+      this.aim = 0;
+      this.hasLead = false;
+    }
+    // The player's own pitch and zoom are left alone; only what's used this frame is blended.
+    const pitch = this.pitch + (CAMERA.aimPitch - this.pitch) * this.aim;
+    const distance = this.distance * (1 + (CAMERA.aimZoom - 1) * this.aim);
+    // Leaning must not write back into the smoothed follow position, or it would drift toward
+    // the circle and stay there.
+    const look = this.look.copy(this.focus);
+    if (this.aim > 0 && this.hasLead) {
+      const k = CAMERA.aimLead * this.aim;
+      look.x += (this.lead.x - look.x) * k;
+      look.z += (this.lead.z - look.z) * k;
+    }
+
+    const flat = distance * Math.cos(pitch);
     const cam = this.camera;
-    cam.position.set(
-      this.focus.x - Math.sin(this.yaw) * flat,
-      Math.max(0.4, this.focus.y + this.distance * Math.sin(this.pitch)),
-      this.focus.z - Math.cos(this.yaw) * flat,
-    );
-    cam.lookAt(this.focus);
+    const cx = look.x - Math.sin(this.yaw) * flat;
+    const cz = look.z - Math.cos(this.yaw) * flat;
+    const floor = this.groundAt ? this.groundAt(cx, cz) : 0.4;
+    cam.position.set(cx, Math.max(floor, look.y + distance * Math.sin(pitch)), cz);
+    if (this.blocker) {
+      const free = this.blocker(look.x, look.y, look.z, cam.position.x, cam.position.y, cam.position.z);
+      this.reach = free < this.reach ? free : this.reach + (free - this.reach) * (1 - Math.exp(-4 * dt));
+      if (this.reach < 0.999) cam.position.lerpVectors(look, cam.position, this.reach);
+    }
+    cam.lookAt(look);
 
     this.shakeTime += dt;
     this.trauma = Math.max(0, this.trauma - 2.2 * dt);

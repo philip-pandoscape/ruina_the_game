@@ -4,6 +4,8 @@ use std::sync::OnceLock;
 
 use serde::Deserialize;
 
+use crate::skills::{stat_base, stat_index, Channel, ResolvedSkills, MAX_NODES};
+
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Tuning {
@@ -18,6 +20,10 @@ pub struct Tuning {
     pub abilities: Vec<Ability>,
     pub skills: Skills,
     pub combat: Combat,
+    pub hotbar: Hotbar,
+    pub stats: Vec<StatDef>,
+    pub movement_skills: Vec<MovementSkill>,
+    pub movement_slots: usize,
 }
 
 #[derive(Deserialize)]
@@ -32,7 +38,22 @@ pub struct Move {
     pub air_drag: f64,
     pub turn_speed: f64,
     pub player_radius: f64,
+    pub sprint_speed: f64,
+    pub sprint_accel: f64,
+    pub crouch_speed: f64,
+    pub crouch_height: f64,
+    pub crouch_enter_frames: i32,
 }
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Hotbar {
+    pub slots: usize,
+}
+
+/// Hotbar size as a compile-time constant, so builds and loadouts are fixed-size arrays and the
+/// wire format has a fixed length. Checked against shared/tuning.json when the tuning is loaded.
+pub const HOTBAR_SLOTS: usize = 8;
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -52,13 +73,9 @@ pub struct Jump {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Slide {
-    pub speed: f64,
-    pub end_speed: f64,
+    /// Only what the browser still reads for the sliding pose; the rules live in the
+    /// "slide" movement skill.
     pub frames: i32,
-    pub cooldown_frames: i32,
-    pub steer: f64,
-    pub jump_carry: f64,
-    pub buffer_frames: i32,
 }
 
 #[derive(Deserialize)]
@@ -76,7 +93,7 @@ pub struct SpecialSettings {
     pub interrupt_cooldown_frames: i32,
 }
 
-#[derive(Deserialize, Clone)]
+#[derive(Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct AttackStep {
     pub startup: i32,
@@ -92,6 +109,9 @@ pub struct AttackStep {
     pub projectile_speed: f64, // arrows only
     #[serde(default)]
     pub projectile_range: f64,
+    /// Names an animation for the browser; the rules never look at it.
+    #[serde(default)]
+    pub pose: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -106,66 +126,214 @@ pub struct Combat {
 static TUNING: OnceLock<Tuning> = OnceLock::new();
 
 pub fn tuning() -> &'static Tuning {
-    TUNING.get_or_init(|| serde_json::from_str(include_str!("../../shared/tuning.json")).expect("shared/tuning.json is valid"))
+    TUNING.get_or_init(|| {
+        let t: Tuning = serde_json::from_str(include_str!("../../shared/tuning.json")).expect("shared/tuning.json is valid");
+        assert_eq!(t.hotbar.slots, HOTBAR_SLOTS, "hotbar.slots in shared/tuning.json must match HOTBAR_SLOTS");
+        assert_eq!(t.skills.max_nodes, MAX_NODES, "skills.maxNodes in shared/tuning.json must match SKILL_WORDS");
+        assert_eq!(t.movement_slots, MOVEMENT_SLOTS, "movementSlots in shared/tuning.json must match MOVEMENT_SLOTS");
+        assert!(
+            t.movement_skills.len() <= MOVEMENT_SKILL_CAP,
+            "more movement skills than MOVEMENT_SKILL_CAP: raise it here and in src/tuning.ts together"
+        );
+        assert!(
+            t.skills.nodes.len() <= MAX_NODES,
+            "the skill tree has outgrown SKILL_WORDS: raise it here and in src/skills.ts together"
+        );
+        t
+    })
 }
 
 #[derive(Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Weapon {
     pub name: String,
+    #[serde(default)]
+    pub tags: Vec<String>,
     pub combo: Vec<AttackStep>,
+    /// Structural alternatives a skill can unlock. Anything that is only a number is a modifier.
     #[serde(default)]
-    pub whirlwind: Option<AttackStep>,
-    #[serde(default)]
-    pub rapid_fire_startup: Option<i32>,
+    pub variants: Vec<ComboVariant>,
+}
+
+#[derive(Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ComboVariant {
+    pub id: String,
+    pub replace: usize,
+    pub step: AttackStep,
 }
 
 /// Healing Circle or Meteor.
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Ability {
+    pub id: String,
     pub name: String,
-    pub kind: String,
-    pub cast_frames: i32,
-    pub fast_cast_frames: i32,
-    pub cooldown_frames: i32,
-    pub radius: f64,
     #[serde(default)]
-    pub amount: f64,
+    pub tags: Vec<String>,
+    /// Where it goes off: "self" or "ground".
+    pub target: String,
+    pub cast_frames: i32,
+    pub cooldown_frames: i32,
     #[serde(default)]
     pub range: f64,
     #[serde(default)]
     pub max_range: Option<f64>,
+    /// What it actually does. The kinds are the vocabulary that costs code (see game.rs); an
+    /// ability built out of them is only data.
+    pub effects: Vec<Effect>,
+}
+
+#[derive(Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct Effect {
+    pub kind: String,
+    pub radius: f64,
     #[serde(default)]
-    pub fall_frames: i32,
+    pub amount: f64, // healArea
     #[serde(default)]
-    pub damage: f64,
+    pub damage: f64, // delayedArea
     #[serde(default)]
     pub knock: f64,
+    #[serde(default)]
+    pub delay_frames: i32, // delayedArea
 }
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Skills {
     pub points: u32,
-    pub cleave_targets: usize,
-    pub pierce_targets: usize,
+    pub max_nodes: usize,
     pub trees: Vec<SkillTree>,
+    pub nodes: Vec<SkillNode>,
+}
+
+/// One node of the tree. `requires` makes the tree a graph rather than four columns.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SkillNode {
+    pub id: String,
+    pub name: String,
+    pub requires: Vec<String>,
+    #[serde(default)]
+    pub grants: Option<SkillGrants>,
+    #[serde(default)]
+    pub mods: Vec<SkillMod>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SkillGrants {
+    #[serde(default)]
+    pub weapon: Option<u8>,
+    #[serde(default)]
+    pub ability: Option<u8>,
+    #[serde(default)]
+    pub combo: Option<String>,
+}
+
+/// One modifier. Everything named must match for it to count; anything absent is a wildcard.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SkillMod {
+    pub stat: String,
+    pub op: String, // flat | inc | more
+    pub value: f64,
+    #[serde(default)]
+    pub tags: Vec<String>,
+    #[serde(default)]
+    pub weapon: Option<u8>,
+    #[serde(default)]
+    pub skill: Option<String>,
+}
+
+/// A movement skill: an action state with a timeline and a few things that can happen in it.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MovementSkill {
+    pub id: String,
+    pub name: String,
+    #[serde(default)]
+    pub tags: Vec<String>,
+    /// Built-in moves everyone has (the slide). No tree node grants them, so they never reach a
+    /// Q / E slot, but they run through the same action machine as the rest.
+    #[serde(default)]
+    pub builtin: bool,
+    pub cooldown_frames: i32,
+    pub action: ActionDef,
+}
+
+#[derive(Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct ActionDef {
+    pub startup: i32,
+    pub active: i32,
+    pub recovery: i32,
+    pub speed: f64,
+    /// Eases from `speed` to this across the active frames.
+    #[serde(default)]
+    pub end_speed: Option<f64>,
+    pub direction: String, // input | facing | backward
+    /// Radians per second it can be turned; absent means it's committed.
+    #[serde(default)]
+    pub steer: Option<f64>,
+    #[serde(default)]
+    pub hold: bool,
+    /// Jumping out ends it early and keeps this much of the speed.
+    #[serde(default)]
+    pub jump_carry: Option<f64>,
+    /// A press this many frames early still counts.
+    #[serde(default)]
+    pub buffer_frames: Option<i32>,
+    /// Leaving the ground ends it.
+    #[serde(default)]
+    pub ground_only: bool,
+    #[serde(default)]
+    pub invuln_from: Option<i32>,
+    #[serde(default)]
+    pub invuln_to: Option<i32>,
+    #[serde(default)]
+    pub damage_taken: Option<f64>,
+}
+
+pub const NO_MOVEMENT: u8 = 255;
+/// Must match movementSlots in shared/tuning.json (checked when the tuning is loaded).
+pub const MOVEMENT_SLOTS: usize = 2;
+/// Room for this many movement skills, so the wire size doesn't move every time one is added.
+/// Raise it here and in src/tuning.ts together when the data outgrows it.
+pub const MOVEMENT_SKILL_CAP: usize = 16;
+
+pub fn movement_action(m: u8) -> Option<&'static ActionDef> {
+    tuning().movement_skills.get(m as usize).map(|s| &s.action)
+}
+
+pub fn movement_cooldown(m: u8) -> i32 {
+    tuning().movement_skills.get(m as usize).map_or(0, |s| s.cooldown_frames)
+}
+
+/// The slide everyone has. Looked up by id so reordering the data can't silently rebind it.
+pub fn slide_skill() -> u8 {
+    static I: OnceLock<u8> = OnceLock::new();
+    *I.get_or_init(|| {
+        tuning()
+            .movement_skills
+            .iter()
+            .position(|m| m.id == "slide")
+            .expect("shared/tuning.json needs a movement skill with id \"slide\"") as u8
+    })
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StatDef {
+    pub id: String,
+    #[serde(default)]
+    pub base: f64,
 }
 
 #[derive(Deserialize)]
 pub struct SkillTree {
     pub name: String,
-    pub nodes: Vec<SkillNode>,
-}
-
-#[derive(Deserialize)]
-pub struct SkillNode {
-    pub id: String,
-    #[serde(default)]
-    pub weapon: Option<u8>,
-    #[serde(default)]
-    pub ability: Option<u8>,
 }
 
 pub const NO_ABILITY: u8 = 255;
@@ -174,109 +342,86 @@ pub const CAST_METEOR: u8 = 2;
 
 /// Every skill is one bit: tree t, skill n gives bit t * 3 + n, in the order of shared/tuning.json
 /// (the same numbering as skillBit in src/tuning.ts).
-pub fn skill_bit(id: &str) -> u32 {
-    let mut bit = 0;
-    for tree in &tuning().skills.trees {
-        for node in &tree.nodes {
-            if node.id == id {
-                return bit;
-            }
-            bit += 1;
-        }
-    }
-    panic!("unknown skill {id}");
+/// The combo for a weapon under this build. Resolved when the build changed, not now.
+pub fn combo_for(weapon: u8, r: &ResolvedSkills) -> &[AttackStep] {
+    r.combo.get(weapon as usize).map_or(&[][..], |v| v.as_slice())
 }
 
-pub struct Perks {
-    pub cleave: u32,
-    pub whirlwind: u32,
-    pub rapid_fire: u32,
-    pub piercing: u32,
-    pub swift_mending: u32,
-    pub quick_incantation: u32,
+fn cached_stat(slot: &'static OnceLock<usize>, id: &'static str) -> usize {
+    *slot.get_or_init(|| stat_index(id))
+}
+fn stat_cast_frames() -> usize {
+    static I: OnceLock<usize> = OnceLock::new();
+    cached_stat(&I, "cast.frames")
+}
+fn stat_melee_targets() -> usize {
+    static I: OnceLock<usize> = OnceLock::new();
+    cached_stat(&I, "melee.maxTargets")
+}
+fn stat_pierce() -> usize {
+    static I: OnceLock<usize> = OnceLock::new();
+    cached_stat(&I, "projectile.pierce")
 }
 
-static PERKS: OnceLock<Perks> = OnceLock::new();
-
-pub fn perks() -> &'static Perks {
-    PERKS.get_or_init(|| Perks {
-        cleave: 1 << skill_bit("cleave"),
-        whirlwind: 1 << skill_bit("whirlwind"),
-        rapid_fire: 1 << skill_bit("rapidFire"),
-        piercing: 1 << skill_bit("piercing"),
-        swift_mending: 1 << skill_bit("swiftMending"),
-        quick_incantation: 1 << skill_bit("quickIncantation"),
-    })
+/// Effect numbers, resolved through the build. Modifiers reach abilities the same way they reach
+/// swings, so a passive that says "area damage" lands here without anything knowing its name.
+pub fn effect_radius(a: u8, e: &Effect, r: &ResolvedSkills) -> f64 {
+    channel(r.ability.get(a as usize), stat_ability_radius()).apply(e.radius)
 }
 
-struct Combos {
-    sword_whirlwind: Vec<AttackStep>,
-    bow_rapid_fire: Vec<AttackStep>,
+pub fn effect_damage(a: u8, e: &Effect, r: &ResolvedSkills) -> f64 {
+    channel(r.ability.get(a as usize), stat_ability_damage()).apply(e.damage)
 }
 
-static COMBOS: OnceLock<Combos> = OnceLock::new();
+pub fn effect_amount(a: u8, e: &Effect, r: &ResolvedSkills) -> f64 {
+    channel(r.ability.get(a as usize), stat_ability_amount()).apply(e.amount)
+}
 
-/// The combo for a weapon, with any skills that change its timing applied.
-pub fn combo_for(weapon: u8, perk_bits: u32) -> &'static [AttackStep] {
-    let w = &tuning().weapons;
-    let c = COMBOS.get_or_init(|| {
-        let mut sword_whirlwind = w[0].combo[..2].to_vec();
-        sword_whirlwind.push(w[0].whirlwind.clone().expect("sword has a whirlwind hit"));
-        let mut bow_rapid_fire = w[3].combo.clone();
-        for s in bow_rapid_fire.iter_mut() {
-            s.startup = w[3].rapid_fire_startup.expect("bow has a rapid fire draw time");
-        }
-        Combos { sword_whirlwind, bow_rapid_fire }
-    });
-    if weapon == 0 && perk_bits & perks().whirlwind != 0 {
-        return &c.sword_whirlwind;
-    }
-    if weapon == 3 && perk_bits & perks().rapid_fire != 0 {
-        return &c.bow_rapid_fire;
-    }
-    &w.get(weapon as usize).unwrap_or(&w[0]).combo
+/// An ability's cooldown after the build's modifiers.
+pub fn ability_cooldown(a: u8, r: &ResolvedSkills) -> i32 {
+    channel(r.ability.get(a as usize), stat_ability_cooldown()).frames(ability(a).cooldown_frames).max(0)
+}
+
+fn stat_ability_radius() -> usize {
+    static I: OnceLock<usize> = OnceLock::new();
+    cached_stat(&I, "ability.radius")
+}
+fn stat_ability_damage() -> usize {
+    static I: OnceLock<usize> = OnceLock::new();
+    cached_stat(&I, "ability.damage")
+}
+fn stat_ability_amount() -> usize {
+    static I: OnceLock<usize> = OnceLock::new();
+    cached_stat(&I, "ability.amount")
+}
+fn stat_ability_cooldown() -> usize {
+    static I: OnceLock<usize> = OnceLock::new();
+    cached_stat(&I, "ability.cooldown")
+}
+
+/// How many enemies one swing of this weapon reaches.
+pub fn melee_targets(weapon: u8, r: &ResolvedSkills) -> usize {
+    channel(r.weapon.get(weapon as usize), stat_melee_targets())
+        .apply(stat_base(stat_melee_targets()))
+        .round()
+        .max(1.0) as usize
+}
+
+/// How many enemies an arrow from this weapon goes through.
+pub fn pierce_targets(weapon: u8, r: &ResolvedSkills) -> usize {
+    channel(r.weapon.get(weapon as usize), stat_pierce()).apply(stat_base(stat_pierce())).round().max(1.0) as usize
+}
+
+fn channel(list: Option<&Vec<Channel>>, stat: usize) -> Channel {
+    list.and_then(|c| c.get(stat)).copied().unwrap_or_default()
 }
 
 pub fn ability(a: u8) -> &'static Ability {
     &tuning().abilities[a as usize]
 }
 
-pub fn cast_kind_of(a: u8) -> u8 {
-    if ability(a).kind == "heal" { CAST_HEAL } else { CAST_METEOR }
-}
-
-pub fn cast_frames_for(a: u8, perk_bits: u32) -> i32 {
+pub fn cast_frames_for(a: u8, r: &ResolvedSkills) -> i32 {
     let ab = ability(a);
-    let fast = if ab.kind == "heal" { perks().swift_mending } else { perks().quick_incantation };
-    if perk_bits & fast != 0 { ab.fast_cast_frames } else { ab.cast_frames }
+    channel(r.ability.get(a as usize), stat_cast_frames()).frames(ab.cast_frames).max(1)
 }
 
-/// Checks a build the browser asked for: no more than the allowed skill points, skills learned
-/// top to bottom in each tree, a weapon you've trained, and abilities you've learned.
-pub fn valid_build(perk_bits: u32, weapon: u8, ability1: u8, ability2: u8) -> bool {
-    let s = &tuning().skills;
-    let total: usize = s.trees.iter().map(|t| t.nodes.len()).sum();
-    if perk_bits >> total != 0 || perk_bits.count_ones() > s.points {
-        return false;
-    }
-    let mut bit = 0;
-    let mut weapon_ok = false;
-    let mut learned_abilities = Vec::new();
-    for tree in &s.trees {
-        for (n, node) in tree.nodes.iter().enumerate() {
-            let learned = perk_bits & (1 << bit) != 0;
-            if learned && n > 0 && perk_bits & (1 << (bit - 1)) == 0 {
-                return false; // skipped a skill above it
-            }
-            if learned && node.weapon == Some(weapon) {
-                weapon_ok = true;
-            }
-            if let (true, Some(a)) = (learned, node.ability) {
-                learned_abilities.push(a);
-            }
-            bit += 1;
-        }
-    }
-    let slot_ok = |a: u8| a == NO_ABILITY || learned_abilities.contains(&a);
-    weapon_ok && slot_ok(ability1) && slot_ok(ability2) && (ability1 != ability2 || ability1 == NO_ABILITY)
-}

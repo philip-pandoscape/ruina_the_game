@@ -16,6 +16,10 @@ export const CIRCLE = {
   enemy: 0xff3b2f,
   ally: 0xffa53a,
   heal: 0x4dff9a,
+  // Placing a cast is a UI state, not an incoming attack, so it gets a colour no spell uses.
+  // Cyan also stays legible on both the grass and the dirt; the old gold vanished on sand.
+  aim: 0x35e0ff, // where a ground-targeted cast will land while you're still aiming it
+  range: 0xbfe9ff, // how far that cast can reach
 };
 
 // A part of the arrow model, coloured per vertex so the whole arrow is one instanced mesh.

@@ -1,5 +1,10 @@
 import type { CrowdSource } from '../crowd/crowdView';
-import type { Mode, PlayerState } from '../sim/types';
+import { ON_FOOT, type Mode, type PlayerState } from '../sim/types';
+import { resolveSkills, SKILL_WORDS } from '../skills';
+import { HOTBAR_SLOTS, MOVEMENT_SKILL_CAP, MOVEMENT_SLOTS, NO_ABILITY, NO_MOVEMENT, variantBits } from '../tuning';
+
+// The raw per-input bytes: move_x, move_z, buttons, aim_x, aim_z, hotbar slot.
+export type RawInput = [number, number, number, number, number, number, number];
 
 // Receives the battle from the Rust server (server/src/protocol.rs describes the bytes) and
 // smoothly moves each fighter between updates. Nearby fighters arrive 20 times a second,
@@ -17,11 +22,20 @@ const SEND_LAG = 5;
 const SEND_BUILD = 6;
 
 const PLAYER_ENTRY = 31;
-const YOU_ENTRY = 171;
+// Must match YOU_ENTRY in server/src/protocol.rs: id + ack + 14 f64 + (16 + slots) i16
+// + perks + (14 + slots) u8.
+// Must match YOU_ENTRY in server/src/protocol.rs.
+const YOU_I16S = 15 + HOTBAR_SLOTS + MOVEMENT_SKILL_CAP;
+const YOU_U8S = 17 + HOTBAR_SLOTS + MOVEMENT_SLOTS;
+const YOU_ENTRY = 2 + 4 + 14 * 8 + YOU_I16S * 2 + SKILL_WORDS * 4 + YOU_U8S;
 const ARROW_ENTRY = 15;
-const METEOR_ENTRY = 9;
+const METEOR_ENTRY = 10;
+// Must match ACTOR_ENTRY in server/src/protocol.rs.
+const ACTOR_ENTRY = 17;
 const EVENT_ENTRY = 8;
-const MODES: Mode[] = ['normal', 'slide', 'attack', 'cast'];
+// Order must match Mode in server/src/player.rs; MODE_DOWN sits one past the last of these.
+export const MODES: Mode[] = ['normal', 'attack', 'cast', 'action'];
+export const MODE_DOWN = 4;
 
 // Another real player near you, as of the latest update.
 export interface RemoteRecord {
@@ -37,14 +51,15 @@ export interface RemoteRecord {
   grounded: boolean;
   attackIndex: number;
   attackFrame: number;
-  slideFrame: number;
   flipFrame: number;
   hp: number;
   stun: number;
   landFrame: number;
   weapon: number;
-  perks: number;
-  castKind: number;
+  comboVariants: number;
+  actionId: number;
+  actionFrame: number;
+  castAbility: number;
   castFrame: number;
   castTargetX: number;
   castTargetZ: number;
@@ -68,9 +83,28 @@ export interface MeteorRecord {
   ticksLeft: number;
   fallTicks: number;
   team: number;
+  radius: number; // the effect's own radius, so any delayedArea draws at its real size
 }
 
 // Something that just happened, for effects: 1 heal, 2 explosion, 3 arrow hit.
+/** One actor as the server sees it. The browser knows the rest from shared/actors.json. */
+export interface NetActor {
+  id: number;
+  /** Index into the kinds in shared/actors.json. */
+  kind: number;
+  x: number;
+  y: number;
+  z: number;
+  facing: number;
+  /** Which behaviour state it is in, and how far through it. */
+  state: number;
+  progress: number;
+  /** 0..1 of its maximum. */
+  hp: number;
+  /** -1 while alive, otherwise frames since it went down. */
+  deadFrame: number;
+}
+
 export interface EffectEvent {
   kind: number;
   x: number;
@@ -80,9 +114,13 @@ export interface EffectEvent {
 }
 
 function readYou(v: DataView, o: number): { id: number; ack: number; player: PlayerState } {
+  const I16S = o + 6 + 14 * 8; // after the f64 block
+  const SKILLS_AT = I16S + YOU_I16S * 2;
+  const U8S = SKILLS_AT + SKILL_WORDS * 4;
+  const skills = Array.from({ length: SKILL_WORDS }, (_, k) => v.getUint32(SKILLS_AT + k * 4, true));
   const f = (k: number) => v.getFloat64(o + 6 + k * 8, true);
-  const i = (k: number) => v.getInt16(o + 118 + k * 2, true);
-  const b = (k: number) => v.getUint8(o + 158 + k);
+  const i = (k: number) => v.getInt16(I16S + k * 2, true);
+  const b = (k: number) => v.getUint8(U8S + k);
   const pos = { x: f(0), y: f(1), z: f(2) };
   return {
     id: v.getUint16(o, true),
@@ -93,8 +131,8 @@ function readYou(v: DataView, o: number): { id: number; ack: number; player: Pla
       vel: { x: f(3), y: f(4), z: f(5) },
       facing: f(6),
       prevFacing: f(6),
-      slideDirX: f(7),
-      slideDirZ: f(8),
+      actionDirX: f(7),
+      actionDirZ: f(8),
       landImpact: f(9),
       runPhase: f(10),
       hp: f(11),
@@ -104,21 +142,21 @@ function readYou(v: DataView, o: number): { id: number; ack: number; player: Pla
       coyote: i(1),
       jumpBuffer: i(2),
       attackBuffer: i(3),
-      slideBuffer: i(4),
-      slideFrame: i(5),
-      slideCooldown: i(6),
-      attackFrame: i(7),
-      flipFrame: i(8),
-      landFrame: i(9),
-      takeoffFrame: i(10),
-      stun: i(11),
-      downFrame: i(12),
-      abilityBuffer1: i(13),
-      abilityBuffer2: i(14),
-      cooldown1: i(15),
-      cooldown2: i(16),
-      castFrame: i(17),
-      perks: v.getUint32(o + 154, true),
+      actionBuffer: i(4),
+      attackFrame: i(5),
+      flipFrame: i(6),
+      landFrame: i(7),
+      takeoffFrame: i(8),
+      stun: i(9),
+      downFrame: i(10),
+      abilityBuffer: i(11),
+      castFrame: i(12),
+      crouchFrame: i(13),
+      actionFrame: i(14),
+      cooldowns: Array.from({ length: HOTBAR_SLOTS }, (_, k) => i(15 + k)),
+      movementCooldowns: Array.from({ length: MOVEMENT_SKILL_CAP }, (_, k) => i(15 + HOTBAR_SLOTS + k)),
+      skills,
+      comboVariants: variantBits(resolveSkills(skills)),
       mode: MODES[b(0)] ?? 'normal',
       grounded: b(1) === 1,
       jumpCutDone: b(2) === 1,
@@ -127,11 +165,18 @@ function readYou(v: DataView, o: number): { id: number; ack: number; player: Pla
       attackHit: b(5) === 1,
       team: b(6),
       weapon: b(7),
-      ability1: b(8),
-      ability2: b(9),
-      castKind: b(10),
-      castSlot: b(11),
-      firedCast: b(12),
+      castAbility: b(8),
+      castSlot: b(9),
+      firedAbility: b(10),
+      abilityBufferSlot: b(11),
+      sprinting: b(12) === 1,
+      crouching: b(13) === 1,
+      actionId: b(14),
+      actionSlot: b(15),
+      ...ON_FOOT,
+      actionBufferId: b(16),
+      abilities: Array.from({ length: HOTBAR_SLOTS }, (_, k) => b(17 + k)),
+      movement: Array.from({ length: MOVEMENT_SLOTS }, (_, k) => b(17 + HOTBAR_SLOTS + k)),
     },
   };
 }
@@ -182,6 +227,7 @@ export class NetCrowd implements CrowdSource {
   down = new Uint8Array(0);
   known = new Uint8Array(0);
   swings = new Uint8Array(0);
+  hp = new Uint8Array(0); // 0..255 of full health; only fighters in the near set keep this current
   team = new Uint8Array(0);
   teleported = new Uint8Array(0); // set when a fighter jumps (respawns); the renderer clears it
 
@@ -199,6 +245,8 @@ export class NetCrowd implements CrowdSource {
   arrowsTick = 0;
   meteors: MeteorRecord[] = [];
   events: EffectEvent[] = []; // effects to show; the game takes them out as it shows them
+  /** Monsters, NPCs and props near you, as the server last described them. */
+  actors: NetActor[] = [];
   snapshots = 0; // counts up with every update, so the game can tell when new data has arrived
   lastTick = 0; // server tick of the newest update
   private tickMs = 50;
@@ -256,8 +304,8 @@ export class NetCrowd implements CrowdSource {
 
   // One frame of input: sequence number, the server tick on screen (× 16, for rewinding hits),
   // and the rounded stick, buttons and aim bytes.
-  sendInput(seq: number, view: number, raw: [number, number, number, number, number]): void {
-    const msg = new DataView(new ArrayBuffer(15));
+  sendInput(seq: number, view: number, raw: RawInput): void {
+    const msg = new DataView(new ArrayBuffer(2 + 8 + raw.length));
     msg.setUint8(0, SEND_INPUT);
     msg.setUint8(1, 1);
     msg.setUint32(2, seq, true);
@@ -266,9 +314,17 @@ export class NetCrowd implements CrowdSource {
     this.send(new Uint8Array(msg.buffer));
   }
 
-  // Your skills and loadout. The server checks the build before using it.
-  sendBuild(perks: number, weapon: number, ability1: number, ability2: number): void {
-    this.send(new Uint8Array([SEND_BUILD, perks & 255, (perks >> 8) & 255, weapon, ability1, ability2]));
+  // Your skills and loadout, one ability per hotbar slot. The server checks it before using it.
+  sendBuild(skills: number[], weapon: number, abilities: number[], movement: number[]): void {
+    const base = 2 + SKILL_WORDS * 4;
+    const out = new Uint8Array(base + HOTBAR_SLOTS + MOVEMENT_SLOTS);
+    const v = new DataView(out.buffer);
+    out[0] = SEND_BUILD;
+    out[1] = weapon;
+    for (let k = 0; k < SKILL_WORDS; k++) v.setUint32(2 + k * 4, skills[k] ?? 0, true);
+    for (let k = 0; k < HOTBAR_SLOTS; k++) out[base + k] = abilities[k] ?? NO_ABILITY;
+    for (let k = 0; k < MOVEMENT_SLOTS; k++) out[base + HOTBAR_SLOTS + k] = movement[k] ?? NO_MOVEMENT;
+    this.send(out);
   }
 
   // Keeps a running estimate of how server ticks line up with this browser's clock.
@@ -317,6 +373,7 @@ export class NetCrowd implements CrowdSource {
     this.lastFine = new Float64Array(n).fill(-1e9);
     this.down = new Uint8Array(n);
     this.known = new Uint8Array(n);
+    this.hp = new Uint8Array(n).fill(255);
     this.swings = new Uint8Array(n);
     this.team = new Uint8Array(n);
     this.teleported = new Uint8Array(n);
@@ -372,6 +429,7 @@ export class NetCrowd implements CrowdSource {
         const yaw = (v.getUint8(o + 6) / 256) * TAU;
         this.moveTo(id, v.getInt16(o + 2, true) / 100, v.getInt16(o + 4, true) / 100, yaw, v.getUint8(o + 7), now, NEAR_MS);
         this.swings[id] = v.getUint8(o + 8);
+        this.hp[id] = v.getUint8(o + 9);
         this.lastFine[id] = now;
       }
       const mid = v.getUint16(o, true);
@@ -402,17 +460,18 @@ export class NetCrowd implements CrowdSource {
             grounded: (flags & 2) !== 0,
             attackIndex: v.getUint8(o + 15),
             attackFrame: v.getUint8(o + 16),
-            slideFrame: v.getUint8(o + 17),
-            flipFrame: v.getInt8(o + 18),
-            hp: v.getUint8(o + 19),
-            stun: v.getUint8(o + 20),
-            landFrame: v.getUint8(o + 21),
-            weapon: v.getUint8(o + 22),
-            perks: v.getUint16(o + 23, true),
-            castKind: v.getUint8(o + 25),
-            castFrame: v.getUint8(o + 26),
-            castTargetX: v.getInt16(o + 27, true) / 100,
-            castTargetZ: v.getInt16(o + 29, true) / 100,
+            flipFrame: v.getInt8(o + 17),
+            hp: v.getUint8(o + 18),
+            stun: v.getUint8(o + 19),
+            landFrame: v.getUint8(o + 20),
+            weapon: v.getUint8(o + 21),
+            comboVariants: v.getUint8(o + 22),
+            castAbility: v.getUint8(o + 23),
+            castFrame: v.getUint8(o + 24),
+            castTargetX: v.getInt16(o + 25, true) / 100,
+            castTargetZ: v.getInt16(o + 27, true) / 100,
+            actionId: v.getUint8(o + 29),
+            actionFrame: v.getUint8(o + 30),
           });
         }
         this.players = list;
@@ -444,6 +503,7 @@ export class NetCrowd implements CrowdSource {
             ticksLeft: v.getUint8(o + 6),
             fallTicks: v.getUint8(o + 7),
             team: v.getUint8(o + 8),
+            radius: v.getUint8(o + 9) / 10,
           });
         }
         for (let k = v.getUint8(o++); k > 0; k--, o += EVENT_ENTRY) {
@@ -455,6 +515,24 @@ export class NetCrowd implements CrowdSource {
             size: v.getUint8(o + 7),
           });
         }
+        const actors: NetActor[] = [];
+        for (let k = v.getUint8(o++); k > 0; k--, o += ACTOR_ENTRY) {
+          const dead = v.getUint8(o + 16);
+          actors.push({
+            id: v.getUint16(o, true),
+            kind: v.getUint8(o + 2),
+            x: v.getFloat32(o + 3, true),
+            z: v.getFloat32(o + 7, true),
+            y: v.getUint8(o + 11) / 50,
+            facing: (v.getUint8(o + 12) / 255) * TAU,
+            state: v.getUint8(o + 13),
+            progress: v.getUint8(o + 14) / 255,
+            hp: v.getUint8(o + 15) / 255,
+            // 0 means alive; otherwise how many frames it has been down, capped on the wire.
+            deadFrame: dead === 0 ? -1 : dead - 1,
+          });
+        }
+        this.actors = actors;
         this.arrows = arrows;
         this.meteors = meteors;
         this.arrowsTick = this.lastTick;

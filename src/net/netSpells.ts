@@ -1,6 +1,7 @@
 import type { SpellView } from '../render/spells';
 import type { GameEvent } from '../sim/types';
-import { abilityOfKind, ABILITIES, CAST } from '../tuning';
+import { ABILITIES, effectRadius } from '../tuning';
+import type { ResolvedSkills } from '../skills';
 import type { ArrowRecord, EffectEvent, MeteorRecord, NetCrowd } from './netCrowd';
 
 // Arrows, meteors and spell effects online, timed to match the rest of the screen: other players'
@@ -12,8 +13,13 @@ const ARROW_RADIUS = 0.55; // server/src/game.rs
 const EVENT_HEAL = 1;
 const EVENT_EXPLOSION = 2;
 const EVENT_ARROW_HIT = 3;
-const METEOR = ABILITIES[abilityOfKind(CAST.meteor)];
-const HEAL = ABILITIES[abilityOfKind(CAST.heal)];
+// Sent only to the player they're about, so no local prediction can duplicate them.
+const EVENT_YOU_HIT = 4;
+const EVENT_YOU_HURT = 5;
+const EVENT_YOU_HEAL = 6;
+
+export type MarkerKind = 'hit' | 'hurt' | 'heal';
+const MARKERS: Record<number, MarkerKind> = { [EVENT_YOU_HIT]: 'hit', [EVENT_YOU_HURT]: 'hurt', [EVENT_YOU_HEAL]: 'heal' };
 
 interface Tracked<T> {
   rec: T;
@@ -36,6 +42,8 @@ interface LocalMeteor {
   x: number;
   z: number;
   frame: number;
+  fallFrames: number;
+  radius: number;
 }
 
 // Effects already shown from your own moves, so the server's copies can be skipped.
@@ -52,20 +60,38 @@ export class NetSpells {
   private localArrows: LocalArrow[] = [];
   private localMeteors: LocalMeteor[] = [];
   private queued: Array<{ tick: number; e: EffectEvent }> = [];
+  // Damage you dealt, damage you took, healing you gave: position is the one it happened to.
+  onMarker: ((kind: MarkerKind, x: number, y: number, z: number, amount: number, cause: number) => void) | null = null;
   private shown: Shown[] = [];
+  // Your own resolved build, so a predicted effect is sized the way the server will size it.
+  stats: ResolvedSkills;
   private latest = 0;
 
-  constructor(private net: NetCrowd) {}
+  constructor(
+    private net: NetCrowd,
+    stats: ResolvedSkills,
+  ) {
+    this.stats = stats;
+  }
 
   // Your own shots and finished casts, straight from your predicted moves. Returns effects to show now.
   local(e: GameEvent): GameEvent[] {
     if (e.type === 'shoot') {
       this.localArrows.push({ x: e.x, y: e.y, z: e.z, dirX: e.dirX, dirZ: e.dirZ, speed: e.speed, left: e.range, pierceLeft: e.pierce });
-    } else if (e.type === 'cast' && e.kind === CAST.meteor) {
-      this.localMeteors.push({ x: e.x, z: e.z, frame: 0 });
-    } else if (e.type === 'cast' && e.kind === CAST.heal) {
-      this.shown.push({ kind: EVENT_HEAL, x: e.casterX, z: e.casterZ, until: performance.now() + 2000 });
-      return [{ type: 'heal', frame: e.frame, x: e.casterX, y: 0, z: e.casterZ, radius: HEAL.radius }];
+    } else if (e.type === 'cast') {
+      // Show each of the ability's effects straight away, before the server has even heard. The
+      // server's own copy takes over when it arrives (see receive()).
+      const out: GameEvent[] = [];
+      for (const fx of ABILITIES[e.ability]?.effects ?? []) {
+        const radius = effectRadius(e.ability, fx, this.stats);
+        if (fx.kind === 'delayedArea') {
+          this.localMeteors.push({ x: e.x, z: e.z, frame: 0, fallFrames: fx.delayFrames ?? 30, radius });
+        } else if (fx.kind === 'healArea') {
+          this.shown.push({ kind: EVENT_HEAL, x: e.casterX, z: e.casterZ, until: performance.now() + 2000 });
+          out.push({ type: 'heal', frame: e.frame, x: e.casterX, y: 0, z: e.casterZ, radius });
+        }
+      }
+      return out;
     }
     return [];
   }
@@ -87,12 +113,12 @@ export class NetSpells {
     this.localArrows = this.localArrows.filter((a) => a.left > 0 && a.pierceLeft > 0);
     for (const m of this.localMeteors) {
       m.frame++;
-      if (m.frame === METEOR.fallFrames) {
+      if (m.frame === m.fallFrames) {
         this.shown.push({ kind: EVENT_EXPLOSION, x: m.x, z: m.z, until: performance.now() + 3000 });
-        out.push({ type: 'explosion', frame, x: m.x, y: 0, z: m.z, radius: METEOR.radius });
+        out.push({ type: 'explosion', frame, x: m.x, y: 0, z: m.z, radius: m.radius });
       }
     }
-    this.localMeteors = this.localMeteors.filter((m) => m.frame < (METEOR.fallFrames ?? 30));
+    this.localMeteors = this.localMeteors.filter((m) => m.frame < m.fallFrames);
     return out;
   }
 
@@ -149,14 +175,24 @@ export class NetSpells {
     const out: GameEvent[] = [];
     while (this.queued.length && this.queued[0].tick - 0.5 <= renderTick) {
       const { e } = this.queued.shift()!;
-      const dupe = this.shown.findIndex((s) => s.kind === e.kind && Math.hypot(s.x - e.x, s.z - e.z) < 1.5);
+      // The top 4 bits say what caused it; world effects leave them zero.
+      const kind = e.kind & 15;
+      const cause = e.kind >> 4;
+      // Damage and healing meant for you: a floating number, not a world effect, and never deduped
+      // against a local guess because the server is the only thing that knows the amount.
+      const marker = MARKERS[kind];
+      if (marker) {
+        this.onMarker?.(marker, e.x, e.y, e.z, e.size, cause);
+        continue;
+      }
+      const dupe = this.shown.findIndex((s) => s.kind === kind && Math.hypot(s.x - e.x, s.z - e.z) < 1.5);
       if (dupe >= 0) {
         this.shown.splice(dupe, 1);
         continue;
       }
-      if (e.kind === EVENT_HEAL) out.push({ type: 'heal', frame, x: e.x, y: 0, z: e.z, radius: e.size / 10 });
-      else if (e.kind === EVENT_EXPLOSION) out.push({ type: 'explosion', frame, x: e.x, y: 0, z: e.z, radius: e.size / 10 });
-      else if (e.kind === EVENT_ARROW_HIT) out.push({ type: 'arrowHit', frame, x: e.x, y: e.y, z: e.z });
+      if (kind === EVENT_HEAL) out.push({ type: 'heal', frame, x: e.x, y: 0, z: e.z, radius: e.size / 10 });
+      else if (kind === EVENT_EXPLOSION) out.push({ type: 'explosion', frame, x: e.x, y: 0, z: e.z, radius: e.size / 10 });
+      else if (kind === EVENT_ARROW_HIT) out.push({ type: 'arrowHit', frame, x: e.x, y: e.y, z: e.z });
     }
     return out;
   }
@@ -182,7 +218,6 @@ export class NetSpells {
     }
     for (const a of this.localArrows) view.arrow(a.x, a.y, a.z, a.dirX, a.dirZ);
 
-    const fallFrames = METEOR.fallFrames ?? 30;
     for (const [id, t] of this.meteors) {
       const m = t.rec;
       if (t.last !== this.latest && renderTick > t.last + 1) {
@@ -193,9 +228,9 @@ export class NetSpells {
       if (this.localMeteors.some((l) => Math.abs(l.x - m.x) < 0.1 && Math.abs(l.z - m.z) < 0.1)) continue;
       if (renderTick < t.first - 1) continue;
       const fall = (m.fallTicks - m.ticksLeft + (renderTick - t.last)) / m.fallTicks;
-      if (fall < 1) view.meteor(m.x, m.z, fall, METEOR.radius, m.team !== myTeam);
+      if (fall < 1) view.meteor(m.x, m.z, fall, m.radius, m.team !== myTeam);
     }
-    for (const m of this.localMeteors) view.meteor(m.x, m.z, m.frame / fallFrames, METEOR.radius, false);
+    for (const m of this.localMeteors) view.meteor(m.x, m.z, m.frame / m.fallFrames, m.radius, false);
   }
 
   get counts(): { arrows: number; localArrows: number; meteors: number; localMeteors: number } {

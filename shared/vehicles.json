@@ -1,0 +1,677 @@
+{
+  "comment": "Everything you can ride: land vehicles, boats, mounts and gliders. Read by src/content/vehicles.ts (and the server, later). Local frame: the vehicle faces +Z, +Y is up, and its right-hand side is -X (the same way the hero faces +Z). Distances in metres, speeds in m/s, rates per second. seats/cargo/wheels are anchor points the 3D models are built around, so moving one here moves it in both the rules and the art.",
+  "vehicles": [
+    {
+      "id": "farmCart",
+      "name": "Farm Cart",
+      "class": "wheeled",
+      "icon": "🛒",
+      "desc": "A sturdy two-seat cart with a four-pack bed. Slow, forgiving, and the backbone of every trade run.",
+      "length": 3.6,
+      "width": 1.9,
+      "height": 1.9,
+      "radius": 1.25,
+      "hp": 600,
+      "maxSpeed": 8.5,
+      "reverseSpeed": 3.0,
+      "offroad": 0.8,
+      "accel": 4.5,
+      "brake": 10.0,
+      "drag": 0.35,
+      "rolling": 0.6,
+      "turnRate": 1.5,
+      "grip": 9.0,
+      "driftGrip": 3.0,
+      "climb": 0.62,
+      "boostSpeed": 0,
+      "seats": [
+        {
+          "x": 0.42,
+          "y": 1.05,
+          "z": 0.95,
+          "pose": "drive"
+        },
+        {
+          "x": -0.42,
+          "y": 1.05,
+          "z": 0.95,
+          "pose": "sit"
+        }
+      ],
+      "cargo": [
+        {
+          "x": 0.43,
+          "y": 0.92,
+          "z": -0.25
+        },
+        {
+          "x": -0.43,
+          "y": 0.92,
+          "z": -0.25
+        },
+        {
+          "x": 0.43,
+          "y": 0.92,
+          "z": -1.05
+        },
+        {
+          "x": -0.43,
+          "y": 0.92,
+          "z": -1.05
+        }
+      ],
+      "wheels": [
+        {
+          "x": 0.98,
+          "z": 1.05,
+          "r": 0.5,
+          "steer": true
+        },
+        {
+          "x": -0.98,
+          "z": 1.05,
+          "r": 0.5,
+          "steer": true
+        },
+        {
+          "x": 0.98,
+          "z": -1.1,
+          "r": 0.5,
+          "steer": false
+        },
+        {
+          "x": -0.98,
+          "z": -1.1,
+          "r": 0.5,
+          "steer": false
+        }
+      ]
+    },
+    {
+      "id": "roadster",
+      "name": "Roadster",
+      "class": "wheeled",
+      "icon": "🏎️",
+      "desc": "A low, loud two-seater with one pack rack. Fastest thing on the roads; slides beautifully with the handbrake.",
+      "length": 3.9,
+      "width": 1.8,
+      "height": 1.25,
+      "radius": 1.2,
+      "hp": 800,
+      "maxSpeed": 23.0,
+      "reverseSpeed": 6.0,
+      "offroad": 0.6,
+      "accel": 10.0,
+      "brake": 18.0,
+      "drag": 0.18,
+      "rolling": 0.5,
+      "turnRate": 2.1,
+      "grip": 7.0,
+      "driftGrip": 1.2,
+      "climb": 0.7,
+      "boostSpeed": 29.0,
+      "seats": [
+        {
+          "x": 0.38,
+          "y": 0.55,
+          "z": -0.15,
+          "pose": "drive"
+        },
+        {
+          "x": -0.38,
+          "y": 0.55,
+          "z": -0.15,
+          "pose": "sit"
+        }
+      ],
+      "cargo": [
+        {
+          "x": 0.0,
+          "y": 0.86,
+          "z": -1.55
+        }
+      ],
+      "wheels": [
+        {
+          "x": 0.8,
+          "z": 1.25,
+          "r": 0.36,
+          "steer": true
+        },
+        {
+          "x": -0.8,
+          "z": 1.25,
+          "r": 0.36,
+          "steer": true
+        },
+        {
+          "x": 0.8,
+          "z": -1.25,
+          "r": 0.38,
+          "steer": false
+        },
+        {
+          "x": -0.8,
+          "z": -1.25,
+          "r": 0.38,
+          "steer": false
+        }
+      ]
+    },
+    {
+      "id": "hauler",
+      "name": "Hauler",
+      "class": "wheeled",
+      "icon": "🚚",
+      "desc": "A slow steam-truck with an eight-pack bed. A guild convoy's centrepiece.",
+      "length": 6.0,
+      "width": 2.4,
+      "height": 2.7,
+      "radius": 1.7,
+      "hp": 2000,
+      "maxSpeed": 11.0,
+      "reverseSpeed": 3.5,
+      "offroad": 0.75,
+      "accel": 3.2,
+      "brake": 9.0,
+      "drag": 0.3,
+      "rolling": 0.7,
+      "turnRate": 1.1,
+      "grip": 10.0,
+      "driftGrip": 4.0,
+      "climb": 0.55,
+      "boostSpeed": 0,
+      "seats": [
+        {
+          "x": 0.48,
+          "y": 1.6,
+          "z": 1.95,
+          "pose": "drive"
+        },
+        {
+          "x": -0.48,
+          "y": 1.6,
+          "z": 1.95,
+          "pose": "sit"
+        }
+      ],
+      "cargo": [
+        {
+          "x": 0.5,
+          "y": 1.32,
+          "z": 0.55
+        },
+        {
+          "x": -0.5,
+          "y": 1.32,
+          "z": 0.55
+        },
+        {
+          "x": 0.5,
+          "y": 1.32,
+          "z": -0.25
+        },
+        {
+          "x": -0.5,
+          "y": 1.32,
+          "z": -0.25
+        },
+        {
+          "x": 0.5,
+          "y": 1.32,
+          "z": -1.05
+        },
+        {
+          "x": -0.5,
+          "y": 1.32,
+          "z": -1.05
+        },
+        {
+          "x": 0.5,
+          "y": 1.32,
+          "z": -1.85
+        },
+        {
+          "x": -0.5,
+          "y": 1.32,
+          "z": -1.85
+        }
+      ],
+      "wheels": [
+        {
+          "x": 1.08,
+          "z": 1.9,
+          "r": 0.62,
+          "steer": true
+        },
+        {
+          "x": -1.08,
+          "z": 1.9,
+          "r": 0.62,
+          "steer": true
+        },
+        {
+          "x": 1.08,
+          "z": -1.7,
+          "r": 0.62,
+          "steer": false
+        },
+        {
+          "x": -1.08,
+          "z": -1.7,
+          "r": 0.62,
+          "steer": false
+        }
+      ]
+    },
+    {
+      "id": "rowboat",
+      "name": "Rowboat",
+      "class": "boat",
+      "icon": "🚣",
+      "desc": "Two seats, two packs, and your own two arms. Hugs the coast; turns on a coin.",
+      "length": 3.6,
+      "width": 1.45,
+      "height": 0.9,
+      "radius": 1.3,
+      "hp": 400,
+      "draft": 0.35,
+      "maxSpeed": 6.5,
+      "reverseSpeed": 2.5,
+      "accel": 2.6,
+      "brake": 3.0,
+      "drag": 0.5,
+      "rolling": 0.3,
+      "turnRate": 1.4,
+      "turnAtRest": 0.8,
+      "grip": 3.0,
+      "sail": 0,
+      "seats": [
+        {
+          "x": 0.0,
+          "y": 0.38,
+          "z": 0.05,
+          "pose": "row"
+        },
+        {
+          "x": 0.0,
+          "y": 0.38,
+          "z": 1.1,
+          "pose": "sit"
+        }
+      ],
+      "cargo": [
+        {
+          "x": 0.0,
+          "y": 0.3,
+          "z": -0.85
+        },
+        {
+          "x": 0.0,
+          "y": 0.3,
+          "z": -1.35
+        }
+      ],
+      "oars": [
+        {
+          "x": 0.7,
+          "y": 0.58,
+          "z": 0.05
+        },
+        {
+          "x": -0.7,
+          "y": 0.58,
+          "z": 0.05
+        }
+      ]
+    },
+    {
+      "id": "sloop",
+      "name": "Sloop",
+      "class": "boat",
+      "icon": "⛵",
+      "desc": "A single-masted sailer with a six-pack hold. Fast with the wind behind her, stubborn against it.",
+      "length": 9.0,
+      "width": 3.2,
+      "height": 10.5,
+      "radius": 3.2,
+      "hp": 1500,
+      "draft": 1.1,
+      "maxSpeed": 15.0,
+      "reverseSpeed": 1.5,
+      "accel": 2.2,
+      "brake": 1.6,
+      "drag": 0.25,
+      "rolling": 0.2,
+      "turnRate": 0.75,
+      "turnAtRest": 0.25,
+      "grip": 2.2,
+      "sail": 1,
+      "mast": {
+        "x": 0.0,
+        "z": 1.2,
+        "height": 9.0
+      },
+      "seats": [
+        {
+          "x": 0.0,
+          "y": 1.25,
+          "z": -3.6,
+          "pose": "helm"
+        },
+        {
+          "x": 0.8,
+          "y": 1.15,
+          "z": 2.4,
+          "pose": "sit"
+        },
+        {
+          "x": -0.8,
+          "y": 1.15,
+          "z": 2.4,
+          "pose": "sit"
+        },
+        {
+          "x": 0.0,
+          "y": 1.15,
+          "z": 3.3,
+          "pose": "sit"
+        }
+      ],
+      "cargo": [
+        {
+          "x": 0.55,
+          "y": 1.05,
+          "z": -0.6
+        },
+        {
+          "x": -0.55,
+          "y": 1.05,
+          "z": -0.6
+        },
+        {
+          "x": 0.55,
+          "y": 1.05,
+          "z": -1.4
+        },
+        {
+          "x": -0.55,
+          "y": 1.05,
+          "z": -1.4
+        },
+        {
+          "x": 0.55,
+          "y": 1.05,
+          "z": -2.2
+        },
+        {
+          "x": -0.55,
+          "y": 1.05,
+          "z": -2.2
+        }
+      ]
+    },
+    {
+      "id": "cog",
+      "name": "Merchant Cog",
+      "class": "boat",
+      "icon": "🚢",
+      "desc": "A broad-beamed trader with a sixteen-pack hold and a square sail. Built at a shipyard, crewed by friends, hunted by pirates.",
+      "length": 16.0,
+      "width": 5.4,
+      "height": 15.0,
+      "radius": 5.5,
+      "hp": 6000,
+      "draft": 2.0,
+      "maxSpeed": 10.5,
+      "reverseSpeed": 1.0,
+      "accel": 1.1,
+      "brake": 0.9,
+      "drag": 0.2,
+      "rolling": 0.15,
+      "turnRate": 0.42,
+      "turnAtRest": 0.12,
+      "grip": 1.8,
+      "sail": 1,
+      "mast": {
+        "x": 0.0,
+        "z": 1.0,
+        "height": 13.5
+      },
+      "seats": [
+        {
+          "x": 0.0,
+          "y": 3.45,
+          "z": -6.0,
+          "pose": "helm"
+        },
+        {
+          "x": 1.9,
+          "y": 2.3,
+          "z": 3.0,
+          "pose": "sit"
+        },
+        {
+          "x": -1.9,
+          "y": 2.3,
+          "z": 3.0,
+          "pose": "sit"
+        },
+        {
+          "x": 1.9,
+          "y": 2.3,
+          "z": 4.4,
+          "pose": "sit"
+        },
+        {
+          "x": -1.9,
+          "y": 2.3,
+          "z": 4.4,
+          "pose": "sit"
+        },
+        {
+          "x": 0.0,
+          "y": 2.3,
+          "z": 5.6,
+          "pose": "sit"
+        }
+      ],
+      "cargo": [
+        {
+          "x": 0.6,
+          "y": 2.25,
+          "z": -0.4
+        },
+        {
+          "x": -0.6,
+          "y": 2.25,
+          "z": -0.4
+        },
+        {
+          "x": 1.8,
+          "y": 2.25,
+          "z": -0.4
+        },
+        {
+          "x": -1.8,
+          "y": 2.25,
+          "z": -0.4
+        },
+        {
+          "x": 0.6,
+          "y": 2.25,
+          "z": -1.6
+        },
+        {
+          "x": -0.6,
+          "y": 2.25,
+          "z": -1.6
+        },
+        {
+          "x": 1.8,
+          "y": 2.25,
+          "z": -1.6
+        },
+        {
+          "x": -1.8,
+          "y": 2.25,
+          "z": -1.6
+        },
+        {
+          "x": 0.6,
+          "y": 2.25,
+          "z": -2.8
+        },
+        {
+          "x": -0.6,
+          "y": 2.25,
+          "z": -2.8
+        },
+        {
+          "x": 1.8,
+          "y": 2.25,
+          "z": -2.8
+        },
+        {
+          "x": -1.8,
+          "y": 2.25,
+          "z": -2.8
+        },
+        {
+          "x": 0.6,
+          "y": 2.25,
+          "z": -4.0
+        },
+        {
+          "x": -0.6,
+          "y": 2.25,
+          "z": -4.0
+        },
+        {
+          "x": 1.8,
+          "y": 2.25,
+          "z": -4.0
+        },
+        {
+          "x": -1.8,
+          "y": 2.25,
+          "z": -4.0
+        }
+      ]
+    }
+  ],
+  "mounts": [
+    {
+      "id": "donkey",
+      "name": "Donkey",
+      "class": "mount",
+      "icon": "🫏",
+      "desc": "Stubborn, steady, and the only mount that will carry a trade pack without complaint.",
+      "length": 1.7,
+      "width": 0.6,
+      "height": 1.3,
+      "radius": 0.55,
+      "hp": 300,
+      "walkSpeed": 3.0,
+      "runSpeed": 8.5,
+      "gallopSpeed": 10.0,
+      "packSpeed": 7.5,
+      "accel": 14.0,
+      "turnRate": 4.5,
+      "jump": 6.5,
+      "canCarryPack": true,
+      "seats": [
+        {
+          "x": 0.0,
+          "y": 1.18,
+          "z": 0.08,
+          "pose": "ride"
+        }
+      ],
+      "cargo": [
+        {
+          "x": 0.0,
+          "y": 1.32,
+          "z": -0.52
+        }
+      ]
+    },
+    {
+      "id": "horse",
+      "name": "Horse",
+      "class": "mount",
+      "icon": "🐎",
+      "desc": "Fast and proud. Will not carry a trade pack; gallops when you ask it to.",
+      "length": 2.3,
+      "width": 0.7,
+      "height": 1.75,
+      "radius": 0.7,
+      "hp": 450,
+      "walkSpeed": 3.4,
+      "runSpeed": 12.5,
+      "gallopSpeed": 16.5,
+      "packSpeed": 0,
+      "accel": 16.0,
+      "turnRate": 4.0,
+      "jump": 8.0,
+      "canCarryPack": false,
+      "seats": [
+        {
+          "x": 0.0,
+          "y": 1.6,
+          "z": 0.05,
+          "pose": "ride"
+        }
+      ],
+      "cargo": []
+    }
+  ],
+  "gliders": [
+    {
+      "id": "wayfarer",
+      "name": "Wayfarer Glider",
+      "icon": "🪁",
+      "desc": "Canvas on an ash frame. Forgiving, slow to sink, and enough to get you off any cliff in one piece.",
+      "span": 5.2,
+      "cruiseSpeed": 13.0,
+      "diveSpeed": 21.0,
+      "flareSpeed": 8.5,
+      "sink": 2.3,
+      "diveSink": 7.5,
+      "flareSink": 1.1,
+      "stallSpeed": 6.5,
+      "turnRate": 1.6,
+      "speedEase": 1.4,
+      "zoomLift": 0.55,
+      "minHeight": 2.5,
+      "gust": {
+        "speed": 3.5,
+        "lift": 4.5,
+        "cooldownSeconds": 30
+      }
+    },
+    {
+      "id": "swiftwing",
+      "name": "Swiftwing Glider",
+      "icon": "🦅",
+      "desc": "Lacquered ribs and oiled silk. Faster and twitchier, and it banks like a swallow.",
+      "span": 4.6,
+      "cruiseSpeed": 17.5,
+      "diveSpeed": 27.0,
+      "flareSpeed": 10.0,
+      "sink": 2.6,
+      "diveSink": 8.5,
+      "flareSink": 1.4,
+      "stallSpeed": 8.0,
+      "turnRate": 2.2,
+      "speedEase": 1.8,
+      "zoomLift": 0.6,
+      "minHeight": 2.5,
+      "gust": {
+        "speed": 7,
+        "lift": 6.5,
+        "cooldownSeconds": 16
+      }
+    }
+  ]
+}

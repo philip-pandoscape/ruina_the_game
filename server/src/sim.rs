@@ -85,7 +85,9 @@ fn cell_coord(v: f32) -> i32 {
 impl Battle {
     pub fn new(n: usize) -> Self {
         let per_team = n.div_ceil(2);
-        let cols = ((per_team * 2) as f32).sqrt().ceil() as usize; // twice as wide as deep
+        // A battle with no bots is legitimate (duels, and the test servers), so the grid maths
+        // must not divide by a zero column count.
+        let cols = (((per_team * 2) as f32).sqrt().ceil() as usize).max(1); // twice as wide as deep
         let rows = per_team.div_ceil(cols);
         let mut b = Battle {
             n,

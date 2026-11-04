@@ -1,0 +1,692 @@
+{
+  "comment": "Things that live in your bag, who sells them, and what workbenches make. Read by src/content/items.ts. Prices are copper (100c = 1s, 100s = 1g). Trade and material packs are not items: they ride on your back or in a vehicle (shared/trade.json).",
+  "bagSlots": 30,
+  "items": [
+    {
+      "id": "seed.sunroot",
+      "name": "Sunroot Seeds",
+      "icon": "🌱",
+      "cat": "seed",
+      "stack": 99,
+      "plants": "sunroot",
+      "value": 4,
+      "desc": "Plant in a farm plot. Ripens fast; the backbone of a Harvest Crate."
+    },
+    {
+      "id": "seed.barley",
+      "name": "Barley Seeds",
+      "icon": "🌱",
+      "cat": "seed",
+      "stack": 99,
+      "plants": "barley",
+      "value": 4,
+      "desc": "Golden grain for crates and cider."
+    },
+    {
+      "id": "seed.flax",
+      "name": "Flax Seeds",
+      "icon": "🌱",
+      "cat": "seed",
+      "stack": 99,
+      "plants": "flax",
+      "value": 6,
+      "desc": "Fibre for bales and sailcloth."
+    },
+    {
+      "id": "seed.emberberry",
+      "name": "Emberberry Seeds",
+      "icon": "🌱",
+      "cat": "seed",
+      "stack": 99,
+      "plants": "emberberry",
+      "value": 10,
+      "desc": "A warm-climate bush. Slow on Emberholm, but its preserves sell dear."
+    },
+    {
+      "id": "sapling.apple",
+      "name": "Redcap Apple Sapling",
+      "icon": "🌳",
+      "cat": "seed",
+      "stack": 20,
+      "plants": "apple",
+      "value": 35,
+      "desc": "Grows into a tree that fruits again and again. Fell it for lumber when you are done."
+    },
+    {
+      "id": "sapling.pine",
+      "name": "Highland Pine Sapling",
+      "icon": "🌲",
+      "cat": "seed",
+      "stack": 20,
+      "plants": "pine",
+      "value": 25,
+      "desc": "A timber tree. Fell it when grown for a pile of lumber."
+    },
+    {
+      "id": "sunroot",
+      "name": "Sunroot",
+      "icon": "🥔",
+      "cat": "produce",
+      "stack": 200,
+      "value": 2,
+      "desc": "Earthy golden tubers."
+    },
+    {
+      "id": "barley",
+      "name": "Barley",
+      "icon": "🌾",
+      "cat": "produce",
+      "stack": 200,
+      "value": 2,
+      "desc": "Bearded grain."
+    },
+    {
+      "id": "flax",
+      "name": "Flax",
+      "icon": "💠",
+      "cat": "produce",
+      "stack": 200,
+      "value": 3,
+      "desc": "Pale fibre stalks."
+    },
+    {
+      "id": "emberberry",
+      "name": "Emberberry",
+      "icon": "🍒",
+      "cat": "produce",
+      "stack": 200,
+      "value": 4,
+      "desc": "Faintly warm to the touch."
+    },
+    {
+      "id": "apple",
+      "name": "Redcap Apple",
+      "icon": "🍎",
+      "cat": "produce",
+      "stack": 200,
+      "value": 5,
+      "desc": "Crisp and tart."
+    },
+    {
+      "id": "lumber",
+      "name": "Lumber",
+      "icon": "🪵",
+      "cat": "material",
+      "stack": 200,
+      "value": 6,
+      "desc": "Rough-sawn timber. Bundle ten at a sawhorse to haul to a building site."
+    },
+    {
+      "id": "stone",
+      "name": "Stone",
+      "icon": "🪨",
+      "cat": "material",
+      "stack": 200,
+      "value": 6,
+      "desc": "Quarried stone. Ten make a building block at the stonecutter."
+    },
+    {
+      "id": "ironOre",
+      "name": "Iron Ore",
+      "icon": "⛓️",
+      "cat": "material",
+      "stack": 200,
+      "value": 15,
+      "desc": "Rusty ore for nails, fittings and axles."
+    },
+    {
+      "id": "herbs",
+      "name": "Wild Herbs",
+      "icon": "🌿",
+      "cat": "material",
+      "stack": 200,
+      "value": 5,
+      "desc": "Bitter leaves the grocer brews into tonics."
+    },
+    {
+      "id": "thunderLog",
+      "name": "Thunderstruck Log",
+      "icon": "⚡",
+      "cat": "material",
+      "stack": 50,
+      "value": 400,
+      "desc": "Timber split by lightning, still humming. Rare, and worth a small fortune to the right buyer."
+    },
+    {
+      "id": "tonic.labor",
+      "name": "Hearty Tonic",
+      "icon": "🧪",
+      "cat": "consumable",
+      "stack": 20,
+      "value": 30,
+      "use": {
+        "labor": 250
+      },
+      "desc": "Restores 250 labor."
+    },
+    {
+      "id": "scarecrow",
+      "name": "Scarecrow",
+      "icon": "🧑‍🌾",
+      "cat": "placeable",
+      "stack": 5,
+      "value": 40,
+      "places": "scarecrow",
+      "desc": "Claims an 8×8 m farm plot wherever the ground is open and level. Up to three."
+    },
+    {
+      "id": "blueprint.cottage",
+      "name": "Cottage Blueprint",
+      "icon": "📜",
+      "cat": "placeable",
+      "stack": 1,
+      "value": 300,
+      "places": "cottage",
+      "desc": "Claims an empty plot at Hearthside Rise. Build it in four stages by hauling materials to the site."
+    },
+    {
+      "id": "glider.wayfarer",
+      "name": "Wayfarer Glider",
+      "icon": "🪁",
+      "cat": "glider",
+      "stack": 1,
+      "value": 0,
+      "glider": "wayfarer",
+      "desc": "Jump, double jump, then jump again to open it."
+    },
+    {
+      "id": "glider.swiftwing",
+      "name": "Swiftwing Glider",
+      "icon": "🦅",
+      "cat": "glider",
+      "stack": 1,
+      "value": 0,
+      "glider": "swiftwing",
+      "desc": "Faster and twitchier than the Wayfarer."
+    },
+    {
+      "id": "deed.farmCart",
+      "name": "Farm Cart Deed",
+      "icon": "🛒",
+      "cat": "deed",
+      "stack": 1,
+      "value": 0,
+      "vehicle": "farmCart",
+      "desc": "Summon your farm cart. 4 pack slots, 2 seats."
+    },
+    {
+      "id": "deed.roadster",
+      "name": "Roadster Deed",
+      "icon": "🏎️",
+      "cat": "deed",
+      "stack": 1,
+      "value": 0,
+      "vehicle": "roadster",
+      "desc": "Summon your roadster. Fast; 1 pack slot. Handbrake to drift, Shift to boost."
+    },
+    {
+      "id": "deed.hauler",
+      "name": "Hauler Deed",
+      "icon": "🚚",
+      "cat": "deed",
+      "stack": 1,
+      "value": 0,
+      "vehicle": "hauler",
+      "desc": "Summon your hauler. 8 pack slots."
+    },
+    {
+      "id": "deed.rowboat",
+      "name": "Rowboat Deed",
+      "icon": "🚣",
+      "cat": "deed",
+      "stack": 1,
+      "value": 0,
+      "vehicle": "rowboat",
+      "desc": "Summon your rowboat at the water's edge. 2 pack slots."
+    },
+    {
+      "id": "deed.sloop",
+      "name": "Sloop Deed",
+      "icon": "⛵",
+      "cat": "deed",
+      "stack": 1,
+      "value": 0,
+      "vehicle": "sloop",
+      "desc": "Summon your sloop at the water's edge. 6 pack slots; sails with the wind."
+    },
+    {
+      "id": "whistle.donkey",
+      "name": "Donkey Whistle",
+      "icon": "🫏",
+      "cat": "mount",
+      "stack": 1,
+      "value": 0,
+      "mount": "donkey",
+      "desc": "Press R to call your donkey. It carries your trade pack for you."
+    },
+    {
+      "id": "whistle.horse",
+      "name": "Horse Whistle",
+      "icon": "🐎",
+      "cat": "mount",
+      "stack": 1,
+      "value": 0,
+      "mount": "horse",
+      "desc": "Press R to call your horse. Fast, but no packs."
+    },
+    {
+      "id": "design.cog",
+      "name": "Merchant Cog Design",
+      "icon": "📐",
+      "cat": "placeable",
+      "stack": 1,
+      "value": 0,
+      "places": "cog",
+      "desc": "Lay down at the Lanternwick slipway, then build her in four stages from hauled lumber, iron and sailcloth packs."
+    },
+    {
+      "id": "deed.cog",
+      "name": "Merchant Cog Deed",
+      "icon": "🚢",
+      "cat": "deed",
+      "stack": 1,
+      "value": 0,
+      "vehicle": "cog",
+      "desc": "Summon your cog at deep water. 16 pack slots; a square sail that loves a following wind."
+    },
+    {
+      "id": "animal.chick",
+      "name": "Chick",
+      "icon": "🐣",
+      "cat": "seed",
+      "stack": 10,
+      "raises": "chicken",
+      "value": 30,
+      "desc": "Raise it in a plot cell. Feed it barley; it grows into a hen that lays eggs."
+    },
+    {
+      "id": "animal.lamb",
+      "name": "Lamb",
+      "icon": "🐑",
+      "cat": "seed",
+      "stack": 5,
+      "raises": "sheep",
+      "value": 80,
+      "desc": "Raise it in a plot cell. Feed it barley; shear the grown sheep for wool."
+    },
+    {
+      "id": "animal.calf",
+      "name": "Calf",
+      "icon": "🐮",
+      "cat": "seed",
+      "stack": 5,
+      "raises": "cow",
+      "value": 150,
+      "desc": "Raise it in a plot cell. Feed it barley; milk the grown cow."
+    },
+    {
+      "id": "egg",
+      "name": "Egg",
+      "icon": "🥚",
+      "cat": "produce",
+      "stack": 200,
+      "value": 4,
+      "desc": "Fresh from the coop."
+    },
+    {
+      "id": "wool",
+      "name": "Wool",
+      "icon": "🧶",
+      "cat": "produce",
+      "stack": 200,
+      "value": 6,
+      "desc": "Soft fleece, ready to bale."
+    },
+    {
+      "id": "milk",
+      "name": "Milk",
+      "icon": "🥛",
+      "cat": "produce",
+      "stack": 200,
+      "value": 5,
+      "desc": "Creamy, and best sold far away in a hamper."
+    }
+  ],
+  "vendors": [
+    {
+      "npc": "mara",
+      "name": "Mara's Stall",
+      "sells": [
+        {
+          "item": "seed.sunroot",
+          "price": 4
+        },
+        {
+          "item": "seed.barley",
+          "price": 4
+        },
+        {
+          "item": "seed.flax",
+          "price": 6
+        },
+        {
+          "item": "seed.emberberry",
+          "price": 10
+        },
+        {
+          "item": "sapling.apple",
+          "price": 35
+        },
+        {
+          "item": "sapling.pine",
+          "price": 25
+        }
+      ],
+      "buys": [
+        "sunroot",
+        "barley",
+        "flax",
+        "emberberry",
+        "apple",
+        "herbs",
+        "egg",
+        "wool",
+        "milk"
+      ],
+      "buyRate": 0.6
+    },
+    {
+      "npc": "hob",
+      "name": "Hob's Woodpile",
+      "sells": [
+        {
+          "item": "lumber",
+          "price": 9
+        }
+      ],
+      "buys": [
+        "lumber",
+        "thunderLog"
+      ],
+      "buyRate": 0.6
+    },
+    {
+      "npc": "brenna",
+      "name": "Quarry Stores",
+      "sells": [
+        {
+          "item": "stone",
+          "price": 9
+        },
+        {
+          "item": "ironOre",
+          "price": 22
+        }
+      ],
+      "buys": [
+        "stone",
+        "ironOre"
+      ],
+      "buyRate": 0.6
+    },
+    {
+      "npc": "quill",
+      "name": "Land Registry",
+      "sells": [
+        {
+          "item": "scarecrow",
+          "price": 40
+        },
+        {
+          "item": "blueprint.cottage",
+          "price": 300,
+          "seals": 3
+        }
+      ],
+      "buys": [],
+      "buyRate": 0
+    },
+    {
+      "npc": "sela",
+      "name": "Brightmane Stables",
+      "sells": [
+        {
+          "item": "whistle.donkey",
+          "price": 120
+        },
+        {
+          "item": "whistle.horse",
+          "price": 600
+        },
+        {
+          "item": "animal.chick",
+          "price": 30
+        },
+        {
+          "item": "animal.lamb",
+          "price": 80
+        },
+        {
+          "item": "animal.calf",
+          "price": 150
+        }
+      ],
+      "buys": [],
+      "buyRate": 0
+    },
+    {
+      "npc": "ysolde",
+      "name": "Windward Wings",
+      "sells": [
+        {
+          "item": "glider.swiftwing",
+          "price": 900,
+          "seals": 5
+        }
+      ],
+      "buys": [],
+      "buyRate": 0
+    },
+    {
+      "npc": "ilsa",
+      "name": "Marrow's Shipyard",
+      "sells": [
+        {
+          "item": "design.cog",
+          "price": 1000,
+          "seals": 6
+        }
+      ],
+      "buys": [],
+      "buyRate": 0
+    }
+  ],
+  "recipes": [
+    {
+      "id": "pack.harvestCrate",
+      "bench": "lanternwickBench",
+      "makes": {
+        "pack": "harvestCrate"
+      }
+    },
+    {
+      "id": "pack.flaxBale",
+      "bench": "lanternwickBench",
+      "makes": {
+        "pack": "flaxBale"
+      }
+    },
+    {
+      "id": "pack.emberPreserves",
+      "bench": "lanternwickBench",
+      "makes": {
+        "pack": "emberPreserves"
+      }
+    },
+    {
+      "id": "pack.ciderCask",
+      "bench": "lanternwickBench",
+      "makes": {
+        "pack": "ciderCask"
+      }
+    },
+    {
+      "id": "pack.hamper",
+      "bench": "lanternwickBench",
+      "makes": {
+        "pack": "hamper"
+      }
+    },
+    {
+      "id": "pack.fleeceBale",
+      "bench": "lanternwickBench",
+      "makes": {
+        "pack": "fleeceBale"
+      }
+    },
+    {
+      "id": "pack.sailcloth",
+      "bench": "lanternwickBench",
+      "makes": {
+        "pack": "sailcloth"
+      }
+    },
+    {
+      "id": "pack.lumberBundle",
+      "bench": "sawhorse",
+      "makes": {
+        "pack": "lumberBundle"
+      }
+    },
+    {
+      "id": "pack.stoneBlock",
+      "bench": "stonecutter",
+      "makes": {
+        "pack": "stoneBlock"
+      }
+    },
+    {
+      "id": "pack.ironCrate",
+      "bench": "stonecutter",
+      "makes": {
+        "pack": "ironCrate"
+      }
+    },
+    {
+      "id": "craft.tonic",
+      "bench": "mara",
+      "inputs": [
+        {
+          "item": "herbs",
+          "n": 5
+        }
+      ],
+      "coins": 20,
+      "labor": 5,
+      "makes": {
+        "item": "tonic.labor",
+        "n": 1
+      }
+    },
+    {
+      "id": "craft.farmCart",
+      "bench": "bertram",
+      "inputs": [
+        {
+          "item": "lumber",
+          "n": 12
+        },
+        {
+          "item": "ironOre",
+          "n": 4
+        }
+      ],
+      "coins": 100,
+      "labor": 30,
+      "makes": {
+        "item": "deed.farmCart",
+        "n": 1
+      }
+    },
+    {
+      "id": "craft.roadster",
+      "bench": "bertram",
+      "inputs": [
+        {
+          "item": "lumber",
+          "n": 10
+        },
+        {
+          "item": "ironOre",
+          "n": 12
+        }
+      ],
+      "coins": 1200,
+      "labor": 40,
+      "makes": {
+        "item": "deed.roadster",
+        "n": 1
+      }
+    },
+    {
+      "id": "craft.hauler",
+      "bench": "bertram",
+      "inputs": [
+        {
+          "item": "lumber",
+          "n": 30
+        },
+        {
+          "item": "ironOre",
+          "n": 20
+        }
+      ],
+      "coins": 2500,
+      "labor": 60,
+      "makes": {
+        "item": "deed.hauler",
+        "n": 1
+      }
+    },
+    {
+      "id": "craft.rowboat",
+      "bench": "ilsa",
+      "inputs": [
+        {
+          "item": "lumber",
+          "n": 8
+        }
+      ],
+      "coins": 40,
+      "labor": 20,
+      "makes": {
+        "item": "deed.rowboat",
+        "n": 1
+      }
+    },
+    {
+      "id": "craft.sloop",
+      "bench": "ilsa",
+      "inputs": [
+        {
+          "item": "lumber",
+          "n": 30
+        },
+        {
+          "item": "flax",
+          "n": 10
+        },
+        {
+          "item": "ironOre",
+          "n": 6
+        }
+      ],
+      "coins": 800,
+      "labor": 60,
+      "makes": {
+        "item": "deed.sloop",
+        "n": 1
+      }
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 import { makeRng, range } from '../rng';
-import { WORLD } from '../tuning';
-import type { Obstacle, World } from './types';
+import { SLIME, WORLD } from '../tuning';
+import type { ActorSpawnPoint, Obstacle, World } from './types';
 
 // Builds the same layout every time for a given seed. The renderer and the rules both read it.
 export function makeWorld(seed = WORLD.seed): World {
@@ -62,7 +62,14 @@ export function makeWorld(seed = WORLD.seed): World {
     rocks++;
   }
 
-  return { seed, radius: WORLD.radius, obstacles, dummy, spawn, teamSpawns: [spawn, spawn] };
+  // Who is standing here when you arrive. Adding a monster to the yard is a line in this list.
+  const spawns: ActorSpawnPoint[] = [{ kind: 'dummy', x: dummy.x, z: dummy.z }];
+  for (let i = 0; i < SLIME.count; i++) {
+    const angle = (i / SLIME.count) * Math.PI * 2 + 0.4;
+    const r = 5 + (i % 3);
+    spawns.push({ kind: 'slime', x: Math.sin(angle) * r, z: 4 + Math.cos(angle) * r, seed: (seed ^ 0x51e0) + i * 0x9e3779b1 });
+  }
+  return { seed, radius: WORLD.radius, obstacles, dummy, spawn, teamSpawns: [spawn, spawn], spawns };
 }
 
 // A big open plain for raid battles: rocks around the edge, forest on the hills beyond.
@@ -109,5 +116,6 @@ export function makeBattlefield(seed = WORLD.seed): World {
       { x: -2.5, z: -100, facing: Math.PI / 2 },
       { x: 2.5, z: -100, facing: -Math.PI / 2 },
     ],
+    spawns: [], // the battlefield's fighters come from the crowd sim, not the actor list
   };
 }

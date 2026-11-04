@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { makeRng, range } from '../rng';
 import type { GameEvent } from '../sim/types';
+import { MOVEMENT_SKILLS } from '../tuning';
 import { toon } from './toon';
 
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
@@ -341,6 +342,12 @@ export class Vfx {
   private rng = makeRng(99);
   private v = new THREE.Vector3();
   private w = new THREE.Vector3();
+  /** Ground height in an open world, so effects that hug the ground sit on hills too. */
+  ground: ((x: number, z: number) => number) | null = null;
+
+  private gy(x: number, z: number): number {
+    return this.ground ? this.ground(x, z) : 0;
+  }
 
   constructor(scene: THREE.Scene) {
     this.dust = new ParticlePool(new THREE.IcosahedronGeometry(0.5, 0), toon(0xffffff), 260, false);
@@ -395,20 +402,29 @@ export class Vfx {
         this.rings.spawn(this.v.set(e.x, e.y + 0.1, e.z), 1.0, 0.3, 0xffffff);
         break;
       case 'land':
-        this.puff(e.x, 0, e.z, 6 + Math.round(e.impact * 6), 2 + e.impact * 2.5, 0.22 + e.impact * 0.12);
+        this.puff(e.x, e.y, e.z, 6 + Math.round(e.impact * 6), 2 + e.impact * 2.5, 0.22 + e.impact * 0.12);
         break;
-      case 'slide':
-        this.puff(e.x, 0, e.z, 6, 2.2, 0.26);
+      case 'action': {
+        // Kick up dust for a movement skill that actually carries you along the ground; a guard
+        // stands still and shouldn't.
+        const def = MOVEMENT_SKILLS[e.id]?.action;
+        if (def && def.speed > 0) this.puff(e.x, this.gy(e.x, e.z), e.z, 6, 2.2, 0.26);
         break;
+      }
       case 'hit': {
         const big = e.index === 2;
         const color = big ? new THREE.Color(0xffd166) : new THREE.Color(0xfff6c8);
         this.burst(e.x, e.y, e.z, e.dirX, e.dirZ, big ? 22 : 12, big ? 9 : 6.5, color);
         this.puff(e.x, e.y - 0.3, e.z, big ? 6 : 3, 1.4, 0.16, STRAW);
-        this.rings.spawn(this.v.set(e.x, 0.03, e.z), big ? 1.8 : 1.0, big ? 0.35 : 0.22, big ? 0xffd166 : 0xffffff);
+        this.rings.spawn(this.v.set(e.x, this.gy(e.x, e.z) + 0.03, e.z), big ? 1.8 : 1.0, big ? 0.35 : 0.22, big ? 0xffd166 : 0xffffff);
         break;
       }
-      case 'dummyBreak':
+      case 'actorDie':
+        // Straw for a dummy; anything else bursts in its own colour once content says so.
+        if (e.kind !== 'dummy') {
+          this.puff(e.x, Math.max(0.2, e.y), e.z, 10, 2.2, 0.26);
+          break;
+        }
         this.puff(e.x, 0.6, e.z, 16, 3.5, 0.3, STRAW);
         this.burst(e.x, 1.1, e.z, 1, 0, 14, 7, STRAW);
         this.burst(e.x, 1.1, e.z, -1, 0, 14, 7, STRAW);
@@ -435,12 +451,13 @@ export class Vfx {
 
   // Healing Circle: a green ring sweeps out and sparkles drift up across the whole area.
   private healBloom(x: number, z: number, radius: number): void {
-    this.rings.spawn(this.v.set(x, 0.05, z), radius, 0.7, 0x4dff9a);
-    this.rings.spawn(this.v.set(x, 0.06, z), radius * 0.55, 0.45, 0xd8ffe6);
+    const g = this.gy(x, z);
+    this.rings.spawn(this.v.set(x, g + 0.05, z), radius, 0.7, 0x4dff9a);
+    this.rings.spawn(this.v.set(x, g + 0.06, z), radius * 0.55, 0.45, 0xd8ffe6);
     for (let i = 0; i < 40; i++) {
       const a = this.rng() * Math.PI * 2;
       const r = Math.sqrt(this.rng()) * radius;
-      this.v.set(x + Math.cos(a) * r, range(this.rng, 0.1, 1.2), z + Math.sin(a) * r);
+      this.v.set(x + Math.cos(a) * r, g + range(this.rng, 0.1, 1.2), z + Math.sin(a) * r);
       this.w.set(0, range(this.rng, 1.5, 3.2), 0);
       this.sparks.spawn(this.v, this.w, range(this.rng, 0.6, 1.1), range(this.rng, 0.06, 0.11), -1.5, 1.5, HEAL[i % HEAL.length]);
     }
@@ -448,18 +465,19 @@ export class Vfx {
 
   // Meteor impact: a flash, a fireball of sparks, smoke and shockwave rings.
   private explosion(x: number, z: number, radius: number): void {
-    this.flashes.spawn(this.v.set(x, 0.8, z), radius * 0.9, 0.35, 0xffb347);
-    this.rings.spawn(this.v.set(x, 0.05, z), radius * 1.15, 0.5, 0xff7a1a);
-    this.rings.spawn(this.v.set(x, 0.06, z), radius * 0.7, 0.28, 0xfff1c1);
+    const g = this.gy(x, z);
+    this.flashes.spawn(this.v.set(x, g + 0.8, z), radius * 0.9, 0.35, 0xffb347);
+    this.rings.spawn(this.v.set(x, g + 0.05, z), radius * 1.15, 0.5, 0xff7a1a);
+    this.rings.spawn(this.v.set(x, g + 0.06, z), radius * 0.7, 0.28, 0xfff1c1);
     for (let i = 0; i < 46; i++) {
       const a = this.rng() * Math.PI * 2;
       const s = range(this.rng, 5, 13);
-      this.v.set(x + Math.cos(a) * 0.4, range(this.rng, 0.2, 1.0), z + Math.sin(a) * 0.4);
+      this.v.set(x + Math.cos(a) * 0.4, g + range(this.rng, 0.2, 1.0), z + Math.sin(a) * 0.4);
       this.w.set(Math.cos(a) * s, range(this.rng, 2, 9), Math.sin(a) * s);
       this.sparks.spawn(this.v, this.w, range(this.rng, 0.3, 0.6), range(this.rng, 0.08, 0.15), 14, 2, FIRE[i % FIRE.length]);
     }
-    this.puff(x, 0.2, z, 14, radius * 1.1, 0.5, SMOKE);
-    this.puff(x, 0.1, z, 10, radius * 1.6, 0.35, DUST);
+    this.puff(x, g + 0.2, z, 14, radius * 1.1, 0.5, SMOKE);
+    this.puff(x, g + 0.1, z, 10, radius * 1.6, 0.35, DUST);
   }
 
   // Embers and smoke streaming off a falling meteor. Called every drawn frame.
@@ -480,9 +498,82 @@ export class Vfx {
 
   // A small dust kick every few frames while sliding.
   slideDust(x: number, z: number, dirX: number, dirZ: number): void {
-    this.v.set(x - dirX * 0.3 + range(this.rng, -0.15, 0.15), 0.06, z - dirZ * 0.3 + range(this.rng, -0.15, 0.15));
+    this.v.set(x - dirX * 0.3 + range(this.rng, -0.15, 0.15), this.gy(x, z) + 0.06, z - dirZ * 0.3 + range(this.rng, -0.15, 0.15));
     this.w.set(-dirX * 1.5 + range(this.rng, -0.6, 0.6), range(this.rng, 0.5, 1.3), -dirZ * 1.5 + range(this.rng, -0.6, 0.6));
     this.dust.spawn(this.v, this.w, range(this.rng, 0.3, 0.45), range(this.rng, 0.16, 0.26), -1, 3, DUST);
+  }
+
+  /** Open-world happenings: a harvest, a felled tree, a building stage, a sale, a splash. */
+  lifeEffect(kind: string, x: number, y: number, z: number): void {
+    const LEAF = new THREE.Color(0x6abf4b);
+    const WOOD = new THREE.Color(0xc8995f);
+    const STONE = new THREE.Color(0xbcb6aa);
+    const GOLD = new THREE.Color(0xffd166);
+    const WATER = new THREE.Color(0xe8fbff);
+    switch (kind) {
+      case 'harvest':
+        this.burst(x, y + 0.5, z, 1, 0, 8, 3, LEAF);
+        this.burst(x, y + 0.5, z, -1, 0, 8, 3, STRAW);
+        this.puff(x, y, z, 5, 1.2, 0.2, DUST);
+        break;
+      case 'timber':
+        this.burst(x, y + 0.8, z, 1, 0, 10, 4, WOOD);
+        this.burst(x, y + 0.8, z, -1, 0, 10, 4, WOOD);
+        break;
+      case 'stone':
+      case 'ore':
+        this.burst(x, y + 0.8, z, 1, 0, 10, 4, STONE);
+        this.puff(x, y + 0.2, z, 8, 2, 0.3, DUST);
+        break;
+      case 'herbs':
+        this.burst(x, y + 0.4, z, 0, 1, 10, 2.5, LEAF);
+        break;
+      case 'build':
+        this.rings.spawn(this.v.set(x, y + 0.08, z), 7, 0.6, 0xffd166);
+        this.puff(x, y + 0.2, z, 22, 5, 0.6, DUST);
+        for (let i = 0; i < 30; i++) {
+          this.v.set(x + range(this.rng, -4, 4), y + range(this.rng, 0.5, 4), z + range(this.rng, -4, 4));
+          this.w.set(0, range(this.rng, 1, 3), 0);
+          this.sparks.spawn(this.v, this.w, range(this.rng, 0.5, 1), range(this.rng, 0.06, 0.12), -1, 1, GOLD);
+        }
+        break;
+      case 'coins':
+        for (let i = 0; i < 26; i++) {
+          const a = this.rng() * Math.PI * 2;
+          this.v.set(x, y + 1.4, z);
+          this.w.set(Math.cos(a) * range(this.rng, 1, 3), range(this.rng, 3, 6), Math.sin(a) * range(this.rng, 1, 3));
+          this.sparks.spawn(this.v, this.w, range(this.rng, 0.5, 0.9), range(this.rng, 0.08, 0.14), 9, 1, GOLD);
+        }
+        this.rings.spawn(this.v.set(x, y + 0.05, z), 1.6, 0.4, 0xffd166);
+        break;
+      case 'splash':
+        this.rings.spawn(this.v.set(x, y + 0.04, z), 2.2, 0.6, 0xffffff);
+        for (let i = 0; i < 24; i++) {
+          const a = this.rng() * Math.PI * 2;
+          this.v.set(x, y + 0.1, z);
+          this.w.set(Math.cos(a) * range(this.rng, 1, 3), range(this.rng, 3, 6.5), Math.sin(a) * range(this.rng, 1, 3));
+          this.sparks.spawn(this.v, this.w, range(this.rng, 0.4, 0.7), range(this.rng, 0.07, 0.12), 14, 1, WATER);
+        }
+        break;
+      case 'thunder':
+        this.flashes.spawn(this.v.set(x, y + 1.5, z), 3, 0.3, 0xfff6a0);
+        this.burst(x, y + 1, z, 1, 0, 16, 6, GOLD);
+        this.burst(x, y + 1, z, -1, 0, 16, 6, GOLD);
+        break;
+      case 'glide':
+        this.rings.spawn(this.v.set(x, y + 2.4, z), 2.6, 0.35, 0xffffff);
+        break;
+      case 'wake':
+        this.v.set(x + range(this.rng, -0.4, 0.4), y + 0.05, z + range(this.rng, -0.4, 0.4));
+        this.w.set(range(this.rng, -1, 1), range(this.rng, 0.6, 1.6), range(this.rng, -1, 1));
+        this.sparks.spawn(this.v, this.w, range(this.rng, 0.3, 0.5), range(this.rng, 0.06, 0.1), 9, 2, WATER);
+        break;
+      case 'wheels':
+        this.v.set(x + range(this.rng, -0.3, 0.3), y + 0.08, z + range(this.rng, -0.3, 0.3));
+        this.w.set(range(this.rng, -0.8, 0.8), range(this.rng, 0.4, 1.2), range(this.rng, -0.8, 0.8));
+        this.dust.spawn(this.v, this.w, range(this.rng, 0.35, 0.55), range(this.rng, 0.18, 0.3), -1, 3, DUST);
+        break;
+    }
   }
 
   step(dt: number): void {

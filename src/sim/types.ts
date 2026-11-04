@@ -1,3 +1,7 @@
+import type { SkillSet } from '../skills';
+import type { Heightfield } from './terrain';
+import type { ColliderIndex } from './zone/colliders';
+import type { ZoneData } from './zone/world';
 // Game rules use plain data only (no Three.js), so the same code can later run on the server.
 
 export interface Vec3 {
@@ -14,10 +18,20 @@ export interface Actions {
   jumpHeld: boolean;
   attackPressed: boolean;
   slidePressed: boolean;
-  ability1Pressed: boolean; // ability slot 1 (Y / E)
-  ability2Pressed: boolean; // ability slot 2 (RB / Q)
+  // Hotbar slot pressed this frame: 0 for none, otherwise 1..HOTBAR_SLOTS. One number rather
+  // than a flag per slot, because only one can be used per frame anyway.
+  abilitySlot: number;
+  // Movement slot pressed this frame: 0 for none, otherwise 1..MOVEMENT_SLOTS (Q / E, LB / RB).
+  movementSlot: number;
+  movementHeld: number; // the slot still held down, for actions that stay up while you hold them
+  sprintHeld: boolean;
+  crouchHeld: boolean;
   aimX: number; // optional target offset from the player in metres (0, 0 = aim straight ahead)
   aimZ: number;
+  // The raw stick (or WASD), before it is turned into a world direction: x is right, y is forward.
+  // Vehicles steer with it (tank controls); everything on foot uses moveX / moveZ.
+  stickX: number;
+  stickY: number;
 }
 
 export const NO_ACTIONS: Actions = {
@@ -27,13 +41,20 @@ export const NO_ACTIONS: Actions = {
   jumpHeld: false,
   attackPressed: false,
   slidePressed: false,
-  ability1Pressed: false,
-  ability2Pressed: false,
+  abilitySlot: 0,
+  movementSlot: 0,
+  movementHeld: 0,
+  sprintHeld: false,
+  crouchHeld: false,
   aimX: 0,
   aimZ: 0,
+  stickX: 0,
+  stickY: 0,
 };
 
-export type Mode = 'normal' | 'slide' | 'attack' | 'cast';
+// 'action' is a data-driven movement skill: a dodge, a guard, or the slide everyone has.
+// 'swim', 'glide' and 'ride' only happen in open worlds (see src/sim/player/traverse.ts).
+export type Mode = 'normal' | 'attack' | 'cast' | 'action' | 'swim' | 'glide' | 'ride';
 
 export interface PlayerState {
   pos: Vec3;
@@ -48,11 +69,9 @@ export interface PlayerState {
   coyote: number;
   jumpBuffer: number;
   attackBuffer: number;
-  slideBuffer: number;
-  slideFrame: number;
-  slideDirX: number;
-  slideDirZ: number;
-  slideCooldown: number;
+  // A buffered action press, so a slide asked for a few frames early still happens.
+  actionBuffer: number;
+  actionBufferId: number; // which movement skill, 255 when nothing is buffered
   attackIndex: number;
   attackFrame: number;
   attackQueued: boolean;
@@ -68,53 +87,90 @@ export interface PlayerState {
   team: number; // 0 or 1
   // Build (skills and loadout), set by the server.
   weapon: number; // 0 sword, 1 club, 2 staff, 3 bow
-  perks: number; // one bit per learned skill (skillBit in tuning.ts)
-  ability1: number; // ability in each slot (index into ABILITIES, 255 = empty)
-  ability2: number;
-  abilityBuffer1: number;
-  abilityBuffer2: number;
-  cooldown1: number; // frames until each slot can be used again
-  cooldown2: number;
-  castKind: number; // what's being cast right now (CAST in tuning.ts), 0 when not casting
-  castSlot: number; // which slot it came from (1 or 2)
+  skills: SkillSet; // which skills are learned (src/skills.ts)
+  // Which combo variants this build unlocked. Derived from `skills` for your own fighter, and the
+  // only part of someone else's tree that reaches you, since it changes how they are drawn.
+  comboVariants: number;
+  abilities: number[]; // one per hotbar slot (index into ABILITIES, 255 = empty)
+  cooldowns: number[]; // frames until each slot can be used again
+  abilityBuffer: number; // frames left to still act on the slot you pressed
+  abilityBufferSlot: number; // which slot that was, 1..HOTBAR_SLOTS (0 = nothing buffered)
+  movement: number[]; // one movement skill per slot, 255 where empty
+  // Cooldowns are per skill rather than per slot, so moving one between Q and E doesn't reset it
+  // and the built-in slide has somewhere to live.
+  movementCooldowns: number[];
+  actionId: number; // the movement skill running right now, 255 when none
+  actionFrame: number;
+  actionDirX: number; // the direction it committed to when it started
+  actionDirZ: number;
+  actionSlot: number; // which slot it came from, 1..MOVEMENT_SLOTS
+  sprinting: boolean;
+  crouching: boolean;
+  crouchFrame: number; // eases the body down and back up, 0..crouchEnterFrames
+  castAbility: number; // the ability being cast right now, 255 when not casting
+  castSlot: number; // which hotbar slot it came from, 1..HOTBAR_SLOTS
   castFrame: number;
   castTargetX: number; // where a meteor will land
   castTargetZ: number;
-  firedCast: number; // the cast that finished this frame (the server acts on it), else 0
+  firedAbility: number; // the ability whose cast finished this frame (the server acts on it), else 255
+  // ---- Open-world traversal. Offline worlds only for now: the server's mirror has none of it. ----
+  /** The trade pack on your back (an id in the life systems), 0 for none. */
+  pack: number;
+  /** What you are riding (a vehicle id in the life systems), 0 on foot; and which seat. */
+  vehicle: number;
+  seat: number;
+  /** The glider you have equipped ('' for none), and its airspeed while open. */
+  glider: string;
+  airspeed: number;
+  /** Lean into a turn, -1..1, for the glider and the body. */
+  bank: number;
+  /** Frames since the current traversal mode began (glider opening, swim strokes). */
+  modeFrame: number;
+  /** Frames until the glider's gust can be used again. */
+  gustFrames: number;
 }
 
-export interface DummyState {
-  x: number;
-  z: number;
-  hp: number;
-  tiltX: number; // wobble lean, radians
-  tiltZ: number;
-  tiltVX: number;
-  tiltVZ: number;
-  flashFrame: number; // frames since last hit
-  brokenFrame: number; // -1 unless the dummy just broke
-}
+/** The traversal fields of someone simply on foot, for code that builds a PlayerState by hand. */
+export const ON_FOOT = { pack: 0, vehicle: 0, seat: 0, glider: '', airspeed: 0, bank: 0, modeFrame: 0, gustFrames: 0 };
 
 export type GameEvent =
   | { type: 'jump'; frame: number; x: number; y: number; z: number }
   | { type: 'doubleJump'; frame: number; x: number; y: number; z: number }
   | { type: 'land'; frame: number; x: number; y: number; z: number; impact: number }
-  | { type: 'slide'; frame: number; x: number; y: number; z: number }
+  // A movement skill started: `id` indexes MOVEMENT_SKILLS.
+  | { type: 'action'; frame: number; id: number; x: number; y: number; z: number }
   | { type: 'attack'; frame: number; index: number }
   | { type: 'hit'; frame: number; index: number; damage: number; x: number; y: number; z: number; dirX: number; dirZ: number }
-  | { type: 'dummyBreak'; frame: number; x: number; y: number; z: number }
+  // Anything in the world died. `kind` says what it was, so the effects can differ without the
+  // rules needing an event type per creature.
+  | { type: 'actorDie'; frame: number; id: number; kind: string; x: number; y: number; z: number }
   | { type: 'respawn'; frame: number; x: number; y: number; z: number }
   // A bow loosed an arrow (the server flies it; the browser draws it straight away).
   | { type: 'shoot'; frame: number; x: number; y: number; z: number; dirX: number; dirZ: number; speed: number; range: number; damage: number; pierce: number }
-  // A cast finished: kind is CAST.heal or CAST.meteor, (x, z) the target, (casterX, casterZ) the caster.
-  | { type: 'cast'; frame: number; kind: number; x: number; z: number; casterX: number; casterZ: number }
+  // A cast finished: `ability` indexes ABILITIES, (x, z) is the target and (casterX, casterZ) the caster.
+  | { type: 'cast'; frame: number; ability: number; x: number; z: number; casterX: number; casterZ: number }
   // Spell effects, from the server online or the training range offline.
   | { type: 'heal'; frame: number; x: number; y: number; z: number; radius: number }
   | { type: 'explosion'; frame: number; x: number; y: number; z: number; radius: number }
-  | { type: 'arrowHit'; frame: number; x: number; y: number; z: number };
+  | { type: 'arrowHit'; frame: number; x: number; y: number; z: number }
+  // Open-world traversal.
+  | { type: 'glideOpen'; frame: number; x: number; y: number; z: number }
+  | { type: 'glideClose'; frame: number; x: number; y: number; z: number }
+  | { type: 'splash'; frame: number; x: number; y: number; z: number; speed: number };
+
+/** Something the world starts with standing in it. */
+export interface ActorSpawnPoint {
+  kind: string;
+  x: number;
+  z: number;
+  facing?: number;
+  seed?: number;
+}
 
 export interface Obstacle {
-  kind: 'tree' | 'rock' | 'crate' | 'hay';
+  // 'post' is anything round and solid the world was built with (a well, a lamp, a scarecrow):
+  // it blocks like the rest but the stage does not draw it, its own model does.
+  kind: 'tree' | 'rock' | 'crate' | 'hay' | 'post';
   x: number;
   z: number;
   r: number; // collision radius
@@ -130,9 +186,19 @@ export interface Spawn {
 
 export interface World {
   seed: number;
+  /** What lives here when the world is built. */
+  spawns: ActorSpawnPoint[];
   radius: number;
   obstacles: Obstacle[];
   dummy: { x: number; z: number };
   spawn: Spawn;
   teamSpawns: [Spawn, Spawn]; // where each team respawns after being knocked down
+  // Open worlds only. The training yard and the battlefield are flat at y = 0 and leave these
+  // out, which keeps their rules exactly as the server runs them (tests/conformance.spec.ts).
+  /** Ground heights, surfaces and sea level. */
+  terrain?: Heightfield;
+  /** Obstacles, building colliders and walkable decks, bucketed for fast queries. */
+  index?: ColliderIndex;
+  /** The recipe and everything generated from it. */
+  zone?: ZoneData;
 }

@@ -1,0 +1,53 @@
+{
+  "comment": "Shipyards: big ships are not bought, they are built. A design claims a slipway; each stage is finished by hauling its material packs to the slip and putting in the labor; the last stage launches the ship and hands you its deed. `reveal` is how far up the hull (metres above the waterline) is drawn once that stage is done. Read by src/content/shipyard.ts.",
+  "designs": [
+    {
+      "id": "cog",
+      "name": "Merchant Cog",
+      "vehicle": "cog",
+      "deed": "deed.cog",
+      "design": "design.cog",
+      "stages": [
+        {
+          "name": "Keel",
+          "needs": {
+            "lumberBundle": 3
+          },
+          "labor": 40,
+          "desc": "Lay the keel and the stem.",
+          "reveal": -0.6
+        },
+        {
+          "name": "Hull",
+          "needs": {
+            "lumberBundle": 3,
+            "ironCrate": 2
+          },
+          "labor": 50,
+          "desc": "Plank the hull and fit the iron.",
+          "reveal": 1.8
+        },
+        {
+          "name": "Deck",
+          "needs": {
+            "lumberBundle": 2,
+            "ironCrate": 1
+          },
+          "labor": 40,
+          "desc": "Lay the deck and raise the castle.",
+          "reveal": 4.2
+        },
+        {
+          "name": "Rigging",
+          "needs": {
+            "sailcloth": 3,
+            "lumberBundle": 1
+          },
+          "labor": 50,
+          "desc": "Step the mast and bend on the sail.",
+          "reveal": 99
+        }
+      ]
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
-import type { DummyState } from '../sim/types';
+import { isAlive, type Actor } from '../sim/actor';
 import { DUMMY } from '../tuning';
 import { part, toon } from './toon';
 
@@ -47,18 +47,18 @@ export class TrainingDummy {
     part(p, disc(0.05), red, 0, 1.02, 0.21, { outline: false, castShadow: false });
   }
 
-  update(d: DummyState): void {
+  update(d: Actor): void {
     // Lean toward the direction it was hit.
-    this.pivot.rotation.set(d.tiltZ, 0, -d.tiltX);
+    this.pivot.rotation.set(d.leanZ, 0, -d.leanX);
 
     const flash = Math.max(0, 1 - d.flashFrame / 8);
     for (const m of this.flashMats) m.emissive.setScalar(flash * 0.65);
     const squish = 1 - 0.1 * flash;
     this.parts.scale.set(1 + 0.06 * flash, squish, 1 + 0.06 * flash);
 
-    if (d.brokenFrame >= 0) {
+    if (!isAlive(d)) {
       // Broken: gone for a moment, then springs back up.
-      const back = Math.max(0, (d.brokenFrame - (DUMMY.resetFrames - 12)) / 12);
+      const back = Math.max(0, (d.deadFrame - (DUMMY.resetFrames - 12)) / 12);
       const s = back * back * (3 - 2 * back);
       this.parts.scale.set(s, s, s);
     }

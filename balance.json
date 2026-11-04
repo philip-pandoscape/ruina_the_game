@@ -1,0 +1,18 @@
+{
+  "duels": 16,
+  "seed": 7,
+  "maxSeconds": 30,
+  "startDistance": 8,
+  "builds": [
+    { "name": "sword",   "skills": ["sword"],                            "weapon": 0, "abilities": [] },
+    { "name": "cleaver", "skills": ["sword", "cleave"],                  "weapon": 0, "abilities": [] },
+    { "name": "whirl",   "skills": ["sword", "cleave", "whirlwind"],     "weapon": 0, "abilities": [] },
+    { "name": "archer",  "skills": ["bow"],                              "weapon": 3, "abilities": [] },
+    { "name": "rapid",   "skills": ["bow", "rapidFire"],                 "weapon": 3, "abilities": [] },
+    { "name": "piercer", "skills": ["bow", "rapidFire", "piercing"],     "weapon": 3, "abilities": [] },
+    { "name": "mage",    "skills": ["staff", "meteor"],                  "weapon": 2, "abilities": ["meteor"] },
+    { "name": "quick",   "skills": ["staff", "meteor", "quickIncantation"], "weapon": 2, "abilities": ["meteor"] },
+    { "name": "healer",  "skills": ["club", "heal"],                     "weapon": 1, "abilities": ["heal"] },
+    { "name": "mender",  "skills": ["club", "heal", "swiftMending"],     "weapon": 1, "abilities": ["heal"] }
+  ]
+}

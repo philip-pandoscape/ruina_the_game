@@ -1,0 +1,20 @@
+{
+  "comment": "Houses: what a blueprint builds, in which stages, from which material packs. Read by src/content/housing.ts. Each stage is finished by hauling its material packs to the site (on your back or in a cart) and paying its labor. Tax is copper per real day of world time, paid at the Land Registry.",
+  "blueprints": [
+    {
+      "id": "cottage",
+      "name": "Cottage",
+      "structure": "cottage",
+      "plot": 16,
+      "taxPerDay": 50,
+      "graceDays": 7,
+      "stages": [
+        { "name": "Foundation", "needs": { "stoneBlock": 2 }, "labor": 20, "desc": "Lay a stone foundation." },
+        { "name": "Frame", "needs": { "lumberBundle": 2 }, "labor": 20, "desc": "Raise the timber frame." },
+        { "name": "Walls", "needs": { "lumberBundle": 2, "stoneBlock": 1 }, "labor": 30, "desc": "Fill the walls and set the door." },
+        { "name": "Roof", "needs": { "lumberBundle": 1, "ironCrate": 1 }, "labor": 30, "desc": "Thatch the roof and fit the chimney." }
+      ],
+      "perks": { "storageSlots": 40, "restLaborMultiplier": 3 }
+    }
+  ]
+}

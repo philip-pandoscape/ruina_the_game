@@ -5,26 +5,60 @@ import { makeRng } from '../src/rng';
 import { Sim } from '../src/sim/sim';
 import { NO_ACTIONS, type Actions } from '../src/sim/types';
 import { makeBattlefield } from '../src/sim/world';
-import { NO_ABILITY, skillBit, type Build } from '../src/tuning';
+import { ABILITIES, castFramesFor, comboFor, HOTBAR_SLOTS, meleeTargets, MOVEMENT_SKILL_CAP, MOVEMENT_SLOTS, NO_ABILITY, NO_MOVEMENT, pierceTargets, type Build, WEAPONS } from '../src/tuning';
+import { resolveSkills, skillsFrom } from '../src/skills';
 
 // The browser predicts your moves with src/sim/sim.ts; the server decides with server/src/player.rs.
 // If they ever disagree, your character would visibly jump back. This runs the same inputs through
 // both, for several different builds, and checks they end up in the same place frame by frame.
 
 const SIMCHECK = `server/target/release/simcheck${process.platform === 'win32' ? '.exe' : ''}`;
-const MODES = { normal: 0, slide: 1, attack: 2, cast: 3 } as const;
+const MODES = { normal: 0, attack: 1, cast: 2, action: 3 } as const;
 
-const skills = (...ids: string[]) => ids.reduce((bits, id) => bits | (1 << skillBit(id)), 0);
+// One recorded frame, in the order both sides write it (see Out in server/src/bin/simcheck.rs).
+// Named rather than numbered, because getting these out of step silently weakens the whole check.
+const F = {
+  x: 0, y: 1, z: 2, vx: 3, vy: 4, vz: 5, facing: 6, hp: 7,
+  mode: 8, castFrame: 9, firedAbility: 10, castTargetX: 11, castTargetZ: 12,
+  sprinting: 13, crouching: 14, crouchFrame: 15, actionId: 16, actionFrame: 17,
+  cooldowns: 18, movementCooldowns: 18 + HOTBAR_SLOTS,
+} as const;
+// Continuous values, compared with a tolerance.
+const NEAR = [F.x, F.y, F.z, F.vx, F.vy, F.vz, F.facing, F.hp, F.castTargetX, F.castTargetZ];
+// Whole numbers and flags, which must match exactly.
+const EXACT = [F.mode, F.castFrame, F.firedAbility, F.sprinting, F.crouching, F.crouchFrame, F.actionId, F.actionFrame,
+  ...Array.from({ length: HOTBAR_SLOTS }, (_, i) => F.cooldowns + i),
+  ...Array.from({ length: MOVEMENT_SKILL_CAP }, (_, i) => F.movementCooldowns + i)];
+
+const skills = (...ids: string[]) => skillsFrom(...ids);
 const HEAL = 0;
 const METEOR = 1;
+const DODGE = 0;
+const BLOCK = 2;
+
+// Abilities listed in slot order; the rest of the bar is empty.
+const bar = (...a: number[]): number[] => {
+  const out = new Array<number>(HOTBAR_SLOTS).fill(NO_ABILITY);
+  a.forEach((v, i) => (out[i] = v));
+  return out;
+};
+const moves = (...m: number[]): number[] => {
+  const out = new Array<number>(MOVEMENT_SLOTS).fill(NO_MOVEMENT);
+  m.forEach((v, i) => (out[i] = v));
+  return out;
+};
 
 const BUILDS: Record<string, Build> = {
-  'plain sword': { perks: skills('sword'), weapon: 0, ability1: NO_ABILITY, ability2: NO_ABILITY },
-  'sword master': { perks: skills('sword', 'cleave', 'whirlwind'), weapon: 0, ability1: NO_ABILITY, ability2: NO_ABILITY },
-  healer: { perks: skills('club', 'heal', 'swiftMending'), weapon: 1, ability1: HEAL, ability2: NO_ABILITY },
-  'meteor caster': { perks: skills('staff', 'meteor', 'quickIncantation'), weapon: 2, ability1: METEOR, ability2: NO_ABILITY },
-  archer: { perks: skills('bow', 'rapidFire', 'piercing'), weapon: 3, ability1: NO_ABILITY, ability2: NO_ABILITY },
-  'archer with meteors': { perks: skills('bow', 'rapidFire', 'staff', 'meteor'), weapon: 3, ability1: NO_ABILITY, ability2: METEOR },
+  'plain sword': { skills: skills('sword'), weapon: 0, abilities: bar(), movement: moves() },
+  'sword master': { skills: skills('sword', 'cleave', 'whirlwind'), weapon: 0, abilities: bar(), movement: moves() },
+  healer: { skills: skills('club', 'heal', 'swiftMending'), weapon: 1, abilities: bar(HEAL), movement: moves() },
+  'meteor caster': { skills: skills('staff', 'meteor', 'quickIncantation'), weapon: 2, abilities: bar(METEOR), movement: moves() },
+  archer: { skills: skills('bow', 'rapidFire', 'piercing'), weapon: 3, abilities: bar(), movement: moves() },
+  // Meteor parked in slot 2, to exercise a slot other than the first.
+  'archer with meteors': { skills: skills('bow', 'rapidFire', 'staff', 'meteor'), weapon: 3, abilities: bar(NO_ABILITY, METEOR), movement: moves() },
+  // Movement skills bound, so the action state machine is compared too: a dodge that commits to
+  // a direction and a guard that stays up while it's held.
+  duelist: { skills: skills('sword', 'dodgeRoll', 'club', 'block'), weapon: 0, abilities: bar(), movement: moves(DODGE, BLOCK) },
 };
 
 interface Hit {
@@ -60,15 +94,15 @@ function buildScript() {
   add(40, {});
   add(1, { attackPressed: true, aimX: 3, aimZ: -4 }); // aimed attack
   add(30, {});
-  add(1, { ability1Pressed: true }); // cast straight ahead
+  add(1, { abilitySlot: 1 }); // cast straight ahead
   add(90, {});
-  add(1, { ability2Pressed: true, aimX: -6, aimZ: 7.5 }); // aimed cast from slot 2
+  add(1, { abilitySlot: 2, aimX: -6, aimZ: 7.5 }); // aimed cast from slot 2
   add(90, {});
-  add(1, { ability1Pressed: true, aimX: 20, aimZ: 20 }); // aimed past max range
+  add(1, { abilitySlot: 1, aimX: 20, aimZ: 20 }); // aimed past max range
   add(10, {});
   add(1, { jumpPressed: true, jumpHeld: true }); // cancel the cast by jumping
   add(40, {});
-  add(1, { ability1Pressed: true }); // this cast gets interrupted by the hit at frame 520
+  add(1, { abilitySlot: 1 }); // this cast gets interrupted by the hit at frame 520
   add(60, {});
   add(1, { jumpPressed: true, jumpHeld: true }); // short hop
   add(40, {});
@@ -92,10 +126,18 @@ function buildScript() {
       jumpHeld: rng() < 0.6,
       attackPressed: rng() < 0.04,
       slidePressed: rng() < 0.02,
-      ability1Pressed: rng() < 0.02,
-      ability2Pressed: rng() < 0.02,
+      // A random hotbar slot now and then, plus sprinting and crouching, so both rules agree
+      // on all of it.
+      abilitySlot: rng() < 0.04 ? 1 + Math.floor(rng() * HOTBAR_SLOTS) : 0,
+      // Movement skills too, with a slot held often enough to exercise a guard being released.
+      movementSlot: rng() < 0.05 ? 1 + Math.floor(rng() * MOVEMENT_SLOTS) : 0,
+      movementHeld: rng() < 0.2 ? 1 + Math.floor(rng() * MOVEMENT_SLOTS) : 0,
+      sprintHeld: rng() < 0.35,
+      crouchHeld: rng() < 0.12,
       aimX: rng() < 0.5 ? 0 : Math.round((rng() * 30 - 15) * 4) / 4,
       aimZ: rng() < 0.5 ? 0 : Math.round((rng() * 30 - 15) * 4) / 4,
+      stickX: 0, // vehicles only; on foot the rules read moveX / moveZ
+      stickY: 0,
     });
   }
   const hits: Hit[] = [
@@ -120,10 +162,13 @@ for (const [name, build] of Object.entries(BUILDS)) {
       for (const h of s.hits) if (h.frame === i) sim.takeHit(h.damage, h.dirX, h.dirZ, h.knock);
       sim.step(a);
       const p = sim.player;
-      if (p.firedCast) casts++;
+      if (p.firedAbility !== NO_ABILITY) casts++;
       ts.push([
-        p.pos.x, p.pos.y, p.pos.z, p.vel.x, p.vel.y, p.vel.z, p.facing, p.hp, MODES[p.mode],
-        p.castFrame, p.cooldown1, p.cooldown2, p.firedCast, p.castTargetX, p.castTargetZ,
+        p.pos.x, p.pos.y, p.pos.z, p.vel.x, p.vel.y, p.vel.z, p.facing, p.hp, MODES[p.mode as keyof typeof MODES],
+        p.castFrame, p.firedAbility, p.castTargetX, p.castTargetZ,
+        p.sprinting ? 1 : 0, p.crouching ? 1 : 0, p.crouchFrame, p.actionId, p.actionFrame,
+        ...p.cooldowns,
+        ...Array.from({ length: MOVEMENT_SKILL_CAP }, (_, i) => p.movementCooldowns[i] ?? 0),
       ]);
     });
 
@@ -132,7 +177,27 @@ for (const [name, build] of Object.entries(BUILDS)) {
     const rust = JSON.parse(execFileSync(SIMCHECK, { input, maxBuffer: 64 * 1024 * 1024 }).toString()) as {
       frames: number[][];
       obstacles: number[][];
+      stats: {
+        melee_targets: number[];
+        pierce_targets: number[];
+        cast_frames: number[];
+        combo_startup: number[][];
+        combo_damage: number[][];
+      };
     };
+
+    // The skill tree resolved to the same numbers on both sides. Checked directly rather than
+    // only through behaviour, so a modifier folded in a different order is a failed assertion
+    // here instead of a drift that only shows up in a particular fight.
+    const r = resolveSkills(build.skills);
+    const weapons = WEAPONS.map((_, w) => w);
+    expect(weapons.map((w) => meleeTargets(w, r))).toEqual(rust.stats.melee_targets);
+    expect(weapons.map((w) => pierceTargets(w, r))).toEqual(rust.stats.pierce_targets);
+    expect(ABILITIES.map((_, a) => castFramesFor(a, r))).toEqual(rust.stats.cast_frames);
+    expect(weapons.map((w) => comboFor(w, r).map((s) => s.startup))).toEqual(rust.stats.combo_startup);
+    weapons.forEach((w) => {
+      comboFor(w, r).forEach((step, i) => expect(step.damage).toBeCloseTo(rust.stats.combo_damage[w][i], 12));
+    });
 
     // Same battlefield layout.
     expect(rust.obstacles.length).toBe(s.world.obstacles.length);
@@ -143,17 +208,24 @@ for (const [name, build] of Object.entries(BUILDS)) {
 
     // Same movement, casting and cooldowns every frame.
     expect(rust.frames.length).toBe(ts.length);
+    expect(rust.frames[0].length).toBe(ts[0].length); // the two sides record the same columns
     let posDiff = 0;
     let worstFrame = 0;
     let stateMismatch = 0;
     ts.forEach((f, i) => {
       const r = rust.frames[i];
-      const d = Math.max(...[0, 1, 2, 3, 4, 5, 6, 7, 13, 14].map((k) => Math.abs(f[k] - r[k])));
+      const d = Math.max(...NEAR.map((k) => Math.abs(f[k] - r[k])));
       if (d > posDiff) {
         posDiff = d;
         worstFrame = i;
       }
-      if ([8, 9, 10, 11, 12].some((k) => f[k] !== r[k])) stateMismatch++;
+      if (EXACT.some((k) => f[k] !== r[k])) {
+        if (stateMismatch === 0) {
+          const names = Object.entries(F).filter(([, k]) => EXACT.includes(k) && f[k] !== r[k]).map(([n]) => n);
+          console.log(`${name}: first mismatch at frame ${i} in ${names.join(', ') || 'a cooldown'}: ts=${f.join()} rust=${r.join()}`);
+        }
+        stateMismatch++;
+      }
     });
     console.log(
       `${name}: ${ts.length} frames | ${casts} casts finished | largest difference ${posDiff.toExponential(2)} (frame ${worstFrame}) | ` +

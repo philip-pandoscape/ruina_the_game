@@ -1,15 +1,25 @@
 import { expect, test, type Browser, type BrowserContext, type Page } from '@playwright/test';
-import { ABILITIES, NO_ABILITY, skillBit, WEAPONS, type Build } from '../src/tuning';
+import { ABILITIES, comboFor, emptyMovement, HOTBAR_SLOTS, NO_ABILITY, SLIDE_SKILL, type Build, WEAPONS } from '../src/tuning';
+import { resolveSkills, SKILL_POINTS, skillsFrom } from '../src/skills';
 import { serverBuilt, TestServer } from './testServer';
 
 // The classless skill system: the skill panel, every weapon and ability in the training yard, and
 // the same things online, where the server decides what hits.
 
 const SHOTS = 'screenshots';
-const skills = (...ids: string[]) => ids.reduce((bits, id) => bits | (1 << skillBit(id)), 0);
+const skills = (...ids: string[]) => skillsFrom(...ids);
 const HEAL = 0;
 const METEOR = 1;
-const build = (ids: string[], weapon: number, ability1 = NO_ABILITY, ability2 = NO_ABILITY): Build => ({ perks: skills(...ids), weapon, ability1, ability2 });
+// Abilities land in hotbar slots 1 and 2; the rest of the bar stays empty.
+const build = (ids: string[], weapon: number, ability1 = NO_ABILITY, ability2 = NO_ABILITY, ...move: number[]): Build => {
+  const abilities = new Array<number>(HOTBAR_SLOTS).fill(NO_ABILITY);
+  abilities[0] = ability1;
+  abilities[1] = ability2;
+  const movement = emptyMovement();
+  move.forEach((m, i) => (movement[i] = m));
+  return { skills: skills(...ids), weapon, abilities, movement };
+};
+const DODGE = 0; // index into MOVEMENT_SKILLS
 
 const SWORD = build(['sword'], 0);
 const CLEAVER = build(['sword', 'cleave'], 0);
@@ -20,8 +30,8 @@ const HEALER = build(['club', 'heal'], 1, HEAL);
 
 const arrowDamage = WEAPONS[3].combo[0].damage;
 const swordDamage = WEAPONS[0].combo[0].damage;
-const meteorDamage = ABILITIES[METEOR].damage!;
-const healAmount = ABILITIES[HEAL].amount!;
+const meteorDamage = ABILITIES[METEOR].effects[0].damage!;
+const healAmount = ABILITIES[HEAL].effects[0].amount!;
 
 function watchErrors(page: Page): string[] {
   const errors: string[] = [];
@@ -38,7 +48,7 @@ const game = (page: Page) => page.evaluate(() => (window as any).__game.build())
 
 test('skill panel: learn and unlearn down the trees, equip, and the build is remembered', async ({ page }) => {
   const errors = watchErrors(page);
-  await page.goto('/');
+  await page.goto('/?yard');
   await page.waitForFunction(() => (window as any).__game?.ready === true);
   const panel = page.locator('#skills');
   const points = page.locator('#skills .points b');
@@ -46,11 +56,11 @@ test('skill panel: learn and unlearn down the trees, equip, and the build is rem
 
   await page.keyboard.press('KeyT');
   await expect(panel).toBeVisible();
-  await expect(points).toHaveText('5'); // everyone starts with Sword Training
+  await expect(points).toHaveText(String(SKILL_POINTS - 1)); // everyone starts with Sword Training
 
   await page.click('[data-skill="cleave"]');
   await page.click('[data-skill="whirlwind"]');
-  await expect(points).toHaveText('3');
+  await expect(points).toHaveText(String(SKILL_POINTS - 3));
   // Skills are learned top to bottom.
   await page.click('[data-skill="heal"]');
   await expect(note).toContainText('Club Training first');
@@ -61,15 +71,20 @@ test('skill panel: learn and unlearn down the trees, equip, and the build is rem
   expect((await game(page)).using).toEqual(build(['sword', 'cleave', 'whirlwind', 'club', 'heal'], 1, HEAL));
 
   await page.click('[data-skill="swiftMending"]');
-  await expect(points).toHaveText('0');
+  await expect(points).toHaveText(String(SKILL_POINTS - 6));
+  // Spend the rest, then the next one is refused. Dodge Roll goes straight to a movement slot.
   await page.click('[data-skill="staff"]');
+  await page.click('[data-skill="dodgeRoll"]');
+  await expect(points).toHaveText('0');
+  await page.click('[data-skill="meteor"]');
   await expect(note).toContainText('No skill points left');
 
   // Unlearning a skill drops the ones below it, and anything that needed them.
   await page.click('[data-skill="club"]');
-  await expect(points).toHaveText('3');
-  expect((await game(page)).using).toEqual(build(['sword', 'cleave', 'whirlwind'], 0));
-  // You always keep a weapon.
+  await expect(points).toHaveText(String(SKILL_POINTS - 5)); // sword, cleave, whirlwind, staff, dodgeRoll
+  expect((await game(page)).using).toEqual(build(['sword', 'cleave', 'whirlwind', 'staff', 'dodgeRoll'], 0, NO_ABILITY, NO_ABILITY, DODGE));
+  // You always keep a weapon: with the staff gone, the sword is the last one and can't go.
+  await page.click('[data-skill="staff"]');
   await page.click('[data-skill="sword"]');
   await expect(note).toContainText('Keep at least one weapon skill');
 
@@ -77,7 +92,7 @@ test('skill panel: learn and unlearn down the trees, equip, and the build is rem
   await expect(panel).toBeHidden();
   await page.reload();
   await page.waitForFunction(() => (window as any).__game?.ready === true);
-  expect((await game(page)).using).toEqual(build(['sword', 'cleave', 'whirlwind'], 0));
+  expect((await game(page)).using).toEqual(build(['sword', 'cleave', 'whirlwind', 'dodgeRoll'], 0, NO_ABILITY, NO_ABILITY, DODGE));
   expect(errors).toEqual([]);
 });
 
@@ -89,7 +104,7 @@ test('skill panel works with a controller: View opens it, D-pad and A choose, B 
     Object.defineProperty(navigator, 'getGamepads', { value: () => [pad, null, null, null], configurable: true });
   });
   const errors = watchErrors(page);
-  await page.goto('/');
+  await page.goto('/?yard');
   await page.waitForFunction(() => (window as any).__game?.ready === true);
   const tap = async (button: number) => {
     await page.evaluate((i) => Object.assign((window as any).__pad.buttons[i], { pressed: true, value: 1 }), button);
@@ -105,15 +120,16 @@ test('skill panel works with a controller: View opens it, D-pad and A choose, B 
   await tap(A);
   await tap(DOWN); // Healing Circle
   await tap(A);
-  await tap(DOWN);
-  await tap(DOWN); // loadout row: the club
+  // Walk down to the weapon row. How far that is depends on how deep the trees are, so step
+  // until the cursor is actually on a weapon rather than counting presses.
+  for (let i = 0; i < 8 && !(await page.locator('#skills .focus[data-weapon]').count()); i++) await tap(DOWN);
   await tap(A);
   await expect(page.locator('#skills .focus')).toHaveAttribute('data-weapon', '1');
   await tap(B);
   await expect(page.locator('#skills')).toBeHidden();
   expect((await game(page)).using).toEqual(build(['sword', 'club', 'heal'], 1, HEAL));
   // Closing with B didn't make the fighter slide.
-  expect(await page.evaluate(() => (window as any).__game.state().player.mode)).not.toBe('slide');
+  expect(await page.evaluate(() => (window as any).__game.state().player.actionId)).not.toBe(SLIDE_SKILL);
   expect(errors).toEqual([]);
 });
 
@@ -158,17 +174,17 @@ test('training yard: arrows, Meteor, Healing Circle and Whirlwind against the du
 
       // Meteor at 9 m: cast, fall, blast.
       standOff(builds.mage, 9);
-      g.advance(1, { ability1Pressed: true });
+      g.advance(1, { abilitySlot: 1 });
       g.advance(30);
       const casting = { mode: g.state().player.mode, circles: g.spells().circlesDrawn };
       g.advance(60);
       const falling = g.spells().training.meteors;
       g.advance(30);
-      out.meteor = { casting, falling, hp: g.state().dummy.hp, cooldown: g.state().player.cooldown1, explosions: g.events().filter((e: any) => e.type === 'explosion').length };
+      out.meteor = { casting, falling, hp: g.state().dummy.hp, cooldown: g.state().player.cooldowns[0], explosions: g.events().filter((e: any) => e.type === 'explosion').length };
 
       // Healing Circle.
       standOff(builds.healer, 6);
-      g.advance(1, { ability1Pressed: true });
+      g.advance(1, { abilitySlot: 1 });
       g.advance(40);
       out.heal = g.events().filter((e: any) => e.type === 'heal').length;
 
@@ -193,7 +209,7 @@ test('training yard: arrows, Meteor, Healing Circle and Whirlwind against the du
   expect(bow.shotFrame).toBe(WEAPONS[3].combo[0].startup + 1);
   expect(bow.hitFrame).toBeGreaterThan(bow.shotFrame + 10); // 12 m at 38 m/s
   expect(bow.hp).toBe(100 - arrowDamage);
-  expect(result.rapidFire).toBe(WEAPONS[3].rapidFireStartup! + 1);
+  expect(result.rapidFire).toBe(comboFor(3, resolveSkills(skills('bow', 'rapidFire')))[0].startup + 1);
   const meteor = result.meteor as { casting: { mode: string; circles: number }; falling: number; hp: number; cooldown: number; explosions: number };
   expect(meteor.casting).toEqual({ mode: 'cast', circles: 1 });
   expect(meteor.falling).toBe(1);
@@ -201,7 +217,8 @@ test('training yard: arrows, Meteor, Healing Circle and Whirlwind against the du
   expect(meteor.hp).toBe(100 - meteorDamage);
   expect(meteor.cooldown).toBeGreaterThan(0);
   expect(result.heal).toBe(1);
-  expect(result.whirlwind).toEqual([WEAPONS[0].combo[0].damage, WEAPONS[0].combo[1].damage, WEAPONS[0].whirlwind!.damage]);
+  const spin = comboFor(0, resolveSkills(skills('sword', 'cleave', 'whirlwind')));
+  expect(result.whirlwind).toEqual([spin[0].damage, spin[1].damage, spin[2].damage]);
   expect(errors).toEqual([]);
 });
 
@@ -240,7 +257,7 @@ test.describe('online', () => {
     page.waitForFunction(
       (b) => {
         const n = (window as any).__game.net();
-        return n.perks === b.perks && n.weapon === b.weapon && n.ability1 === b.ability1 && n.ability2 === b.ability2;
+        return String(n.skills) === String(b.skills) && n.weapon === b.weapon && String(n.abilities) === String(b.abilities);
       },
       b,
       { timeout: 5000 },
@@ -259,7 +276,8 @@ test.describe('online', () => {
   test('the server takes valid builds and turns down invalid ones', async ({ browser }) => {
     const blue = await joinAs(browser, 0, PIERCER);
     const invalid: Array<[string, Build]> = [
-      ['seven skills', build(['sword', 'cleave', 'whirlwind', 'club', 'heal', 'swiftMending', 'staff'], 0)],
+      // One more skill than the budget allows, whatever the budget currently is.
+      ['more skills than points', build(['sword', 'cleave', 'whirlwind', 'dodgeRoll', 'club', 'heal', 'swiftMending', 'block', 'staff'], 0)],
       ['skipping a skill', build(['sword', 'whirlwind'], 0)],
       ['a weapon you never trained', build(['sword'], 3)],
       ['an ability you never learned', build(['sword'], 0, METEOR)],
@@ -269,7 +287,7 @@ test.describe('online', () => {
       await blue.page.evaluate((b) => (window as any).__game.sendRawBuild(b), b);
       await blue.page.waitForTimeout(300);
       const n = await net(blue.page);
-      expect({ why, perks: n.perks, weapon: n.weapon }).toEqual({ why, perks: PIERCER.perks, weapon: PIERCER.weapon });
+      expect({ why, skills: String(n.skills), weapon: n.weapon }).toEqual({ why, skills: String(PIERCER.skills), weapon: PIERCER.weapon });
     }
     await useBuild(blue.page, MAGE);
     expect(blue.errors).toEqual([]);
@@ -337,7 +355,7 @@ test.describe('online', () => {
     for (const p of [blue.page, red.page]) await p.evaluate(() => (window as any).__game.setCamera({ distance: 11, pitch: 0.45 }));
     await blue.page.evaluate(() => (window as any).__game.setCamera({ yaw: Math.PI / 2 }));
     await red.page.evaluate(() => (window as any).__game.setCamera({ yaw: -Math.PI / 2 }));
-    await script(blue.page, [[1, { ability1Pressed: true, aimX: 5, aimZ: 0 }], [150, {}]]);
+    await script(blue.page, [[1, { abilitySlot: 1, aimX: 5, aimZ: 0 }], [150, {}]]);
     const [blueCircle, redCircle] = await Promise.all([
       sometime(blue.page, 'window.__game.spells().circlesDrawn > 0'),
       sometime(red.page, 'window.__game.spells().circlesDrawn > 0'),
@@ -350,10 +368,10 @@ test.describe('online', () => {
     await red.page.screenshot({ path: `${SHOTS}/43-meteor-falling-enemy-view.png` });
     await red.page.waitForFunction(() => (window as any).__game.net().hp < 100, null, { timeout: 4000 });
     const after = { red: await net(red.page), blue: await net(blue.page) };
-    console.log('meteor', JSON.stringify({ blueCircle, redCircle, blueMeteor, redMeteor, redHp: after.red.hp, blueCooldown: after.blue.cooldown1 }));
+    console.log('meteor', JSON.stringify({ blueCircle, redCircle, blueMeteor, redMeteor, redHp: after.red.hp, blueCooldown: after.blue.cooldowns[0] }));
     expect([blueCircle, redCircle, blueMeteor, redMeteor]).toEqual([true, true, true, true]);
     expect(after.red.hp).toBe(100 - meteorDamage);
-    expect(after.blue.cooldown1).toBeGreaterThan(0);
+    expect(after.blue.cooldowns[0]).toBeGreaterThan(0);
     expect([...blue.errors, ...red.errors]).toEqual([]);
   });
 
@@ -362,7 +380,7 @@ test.describe('online', () => {
     const red = await joinAs(browser, 1, SWORD);
     await seesPlayers(red.page, 1);
     // Blue starts a Meteor on red; red charges in and hits blue before the cast finishes.
-    await script(blue.page, [[1, { ability1Pressed: true, aimX: 5, aimZ: 0 }], [120, {}]]);
+    await script(blue.page, [[1, { abilitySlot: 1, aimX: 5, aimZ: 0 }], [120, {}]]);
     await script(red.page, [[24, { moveX: -1 }], [1, { attackPressed: true, aimX: -3, aimZ: 0 }], [30, {}]]);
     const interrupted = await sometime(blue.page, "document.querySelector('#castbar .label')?.textContent === 'Interrupted!'");
     await blue.page.screenshot({ path: `${SHOTS}/44-interrupted.png` });
@@ -385,7 +403,7 @@ test.describe('online', () => {
     await red.page.waitForFunction(() => (window as any).__game.net().scriptLeft === 0);
     await healer.page.waitForTimeout(600);
     const before = { healer: (await net(healer.page)).hp, ally: (await net(ally.page)).hp };
-    await script(healer.page, [[1, { ability1Pressed: true }], [40, {}]]);
+    await script(healer.page, [[1, { abilitySlot: 1 }], [40, {}]]);
     await healer.page.waitForTimeout(1200);
     const after = { healer: (await net(healer.page)).hp, ally: (await net(ally.page)).hp };
     console.log('heal', JSON.stringify({ before, after }));
