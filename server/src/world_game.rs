@@ -837,8 +837,8 @@ mod tests {
             stand_on_ground(p, &ch.open);
         }
         let mut seq = 0u32;
-        let mut play = |ch: &mut ChannelGame, first: [u8; 9], frames: u32| {
-            let inputs: Vec<(u32, [u8; 9])> = (0..frames).map(|k| (seq + 1 + k, if k == 0 { first } else { [0; 9] })).collect();
+        let mut play = |ch: &mut ChannelGame, first: [u8; OPEN_INPUT], frames: u32| {
+            let inputs: Vec<(u32, [u8; OPEN_INPUT])> = (0..frames).map(|k| (seq + 1 + k, if k == 0 { first } else { [0; OPEN_INPUT] })).collect();
             seq += frames;
             ch.inputs(7, inputs.into_iter());
             ch.players.inputs_per_tick = 12.0;
@@ -847,8 +847,8 @@ mod tests {
             }
         };
         let xp = |ch: &ChannelGame, id: &str| ch.players.open_view(client(7)).unwrap().2.unwrap().state.skill_xp.get(id).copied().unwrap_or(0.0);
-        const ATTACK: [u8; 9] = [0, 0, 4, 0, 0, 0, 0, 0, 0];
-        const SLIDE: [u8; 9] = [0, 0, 8, 0, 0, 0, 0, 0, 0];
+        const ATTACK: [u8; OPEN_INPUT] = [0, 0, 4, 0, 0, 0, 0, 0, 0, 0];
+        const SLIDE: [u8; OPEN_INPUT] = [0, 0, 8, 0, 0, 0, 0, 0, 0, 0];
         // One swing lands once, however many frames it is live for, and trains the sword.
         play(&mut ch, ATTACK, 48);
         assert_eq!(ch.actors.list[0].hp, ch.actors.list[0].max_hp - tuning_damage());
@@ -876,7 +876,7 @@ mod tests {
         let mut healer = Build { skills: crate::skills::skills_from(&["club", "heal"]), weapon: 1, ..Build::default() };
         healer.abilities[0] = 0;
         assert!(ch.set_build(7, &build_json(&healer)));
-        play(&mut ch, [0, 0, 0, 0, 0, 1, 0, 0, 0], 150);
+        play(&mut ch, [0, 0, 0, 0, 0, 1, 0, 0, 0, 0], 150);
         assert_eq!(xp(&ch, "heal"), 1.0);
         assert_eq!(xp(&ch, "club"), 0.0);
     }
