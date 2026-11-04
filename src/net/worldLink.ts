@@ -13,7 +13,7 @@ import type { ArrowRecord, EffectEvent, MeteorRecord, NetActor } from './netCrow
 // meantime (src/net/netPlayer.ts) and corrected to what arrives here. Only one window plays a
 // character at a time.
 //
-//   server → browser  (text) welcome {character, account, build, now, channel, dev, estates, claims}
+//   server → browser  (text) welcome {protocol, character, account, build, now, channel, dev, estates, claims}
 //                     tick {tick, you, peers, actors, arrows, meteors, events, lifeEvents?, life?}
 //                     estate {id, name, estate} | claims {claims} | left {id} | saved {at}
 //                     | reset | kicked | error {text}
@@ -92,6 +92,9 @@ export interface WorldTick {
 export type LinkStatus = 'online' | 'reconnecting' | 'kicked' | 'signed-out';
 
 const RETRY_MS = [500, 1000, 2000, 4000, 8000];
+/** What this page speaks; the server says what it speaks in its welcome (server/src/world_socket.rs). */
+const WORLD_PROTOCOL = 2;
+const RELOADED = 'ruina.reloaded-for-server';
 const SEND_INPUTS = 7;
 
 export class WorldLink {
@@ -277,6 +280,18 @@ function connect(): Promise<{ ws: WebSocket; welcome: Welcome }> {
       clearTimeout(timer);
       ws.onmessage = null;
       ws.onclose = null;
+      // The server was updated since this page loaded: load the new game (once; if that didn't
+      // help, say so rather than reloading forever).
+      if ((msg as { protocol?: number }).protocol !== WORLD_PROTOCOL) {
+        ws.close();
+        if (!sessionStorage.getItem(RELOADED)) {
+          sessionStorage.setItem(RELOADED, '1');
+          location.reload();
+        }
+        reject(new ServerDown('The game was updated. Reload the page to play.'));
+        return;
+      }
+      sessionStorage.removeItem(RELOADED);
       resolve({ ws, welcome: msg });
     };
     ws.onclose = () => {

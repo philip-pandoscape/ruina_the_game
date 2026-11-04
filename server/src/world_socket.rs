@@ -6,7 +6,7 @@
 //! back, 20 times a second, where it really is, what its island holds, and everyone else in the
 //! channel. Islands are kept in Postgres, written by the server from its own copy.
 //!
-//!   server -> browser  (text) welcome {character, account, build, now, channel, dev, estates, claims}
+//!   server -> browser  (text) welcome {protocol, character, account, build, now, channel, dev, estates, claims}
 //!                      tick {tick, you, peers, actors, arrows, meteors, events, lifeEvents?, life?}
 //!                      estate {id, name, estate} | claims {claims} | left {id} | saved {at}
 //!                      | reset | kicked | error {text}
@@ -50,6 +50,9 @@ const IDLE: Duration = Duration::from_secs(60);
 /// Inputs in one binary message, at most.
 const MAX_BATCH: usize = 32;
 const SEND_INPUTS: u8 = 7;
+/// What this server speaks. A page that speaks something else is out of date: it reloads
+/// (src/net/worldLink.ts WORLD_PROTOCOL).
+pub const WORLD_PROTOCOL: u32 = 2;
 
 /// Which connection is playing each character (so a second window takes over from the first),
 /// and the channels.
@@ -300,6 +303,7 @@ async fn play(socket: WebSocket, app: &App, db: &PgPool, account: &Account, sess
         &mut tx,
         json!({
             "t": "welcome",
+            "protocol": WORLD_PROTOCOL,
             "character": { "id": character, "name": name },
             "account": account.username,
             "build": build_json,
