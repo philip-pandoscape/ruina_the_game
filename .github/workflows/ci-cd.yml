@@ -143,25 +143,33 @@ jobs:
       group: deploy-${{ github.ref_name }}
       cancel-in-progress: false
     steps:
+      # Until the environment has its key, deploying is skipped (with a warning) rather than failed.
       - name: Check the Railway key
+        id: key
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
         run: |
           if [ -z "$RAILWAY_TOKEN" ]; then
-            echo "::error::RAILWAY_TOKEN is not set for the ${{ github.ref_name }} environment (Settings > Environments > ${{ github.ref_name }} > Environment secrets): that Railway environment's project token."
-            exit 1
+            echo "::warning::Not deployed: RAILWAY_TOKEN is not set for the ${{ github.ref_name }} environment (Settings > Environments > ${{ github.ref_name }} > Environment secrets: that Railway environment's project token)."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
           fi
       - uses: actions/checkout@v7
+        if: steps.key.outputs.ready == 'true'
       - uses: actions/setup-node@v7
+        if: steps.key.outputs.ready == 'true'
         with:
           node-version: 24
       - name: Upload and build on Railway
+        if: steps.key.outputs.ready == 'true'
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
         run: |
           echo "since=$(date -u +%s)" >> "$GITHUB_ENV"
           npx --yes @railway/cli@5 up --ci --service ruina_the_game --environment ${{ github.ref_name }}
       - name: Wait until it's live
+        if: steps.key.outputs.ready == 'true'
         id: live
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}

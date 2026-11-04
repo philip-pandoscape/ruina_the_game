@@ -127,7 +127,7 @@ async function play(page: Page, ms: number, a: Record<string, unknown>): Promise
 
 const cli = (...args: string[]) => execFileSync('node', ['tools/bugs.mjs', '--dir', REPORTS, ...args], { encoding: 'utf8' });
 
-test('a bug report keeps the moments before the key, records the voice, and saves everything', async ({ page }) => {
+test('a bug report keeps the moments before the key, records the voice, and saves everything', { tag: '@gpu' }, async ({ page }) => {
   test.setTimeout(90_000);
   const errors = await open(page);
   // Walk north for a while: that is the history the report should start with.
@@ -235,7 +235,7 @@ test('a bug report keeps the moments before the key, records the voice, and save
   expect(errors).toEqual([]);
 });
 
-test('backspace twice throws a report away, and nothing is saved', async ({ page }) => {
+test('backspace twice throws a report away, and nothing is saved', { tag: '@gpu' }, async ({ page }) => {
   const errors = await open(page);
   const count = () => (existsSync(REPORTS) ? readdirSync(REPORTS).filter((f) => f !== 'closed').length : 0);
   const before = count();

@@ -33,6 +33,8 @@ cargo test --release --manifest-path server/Cargo.toml   # needs Rust; CI runs i
   conformance tests compare them frame by frame.
 - Keep `src/sim/` deterministic: its own seeded RNG, never `Math.random` or `Date.now`.
 - When a feature lands, update `design/status.json` (feature status, next steps, session log).
+- Tag a test `@gpu` if it needs a real GPU to keep up (several game windows, frame rates, screen
+  capture). CI renders in software and skips them; run them locally before pushing such changes.
 - Never commit `.env` (Railway keys). Commit messages carry no AI attribution.
 
 ## Branches and deploys

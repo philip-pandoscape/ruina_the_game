@@ -30,7 +30,7 @@ async function sideView(page: Page, distance: number, pitch: number): Promise<vo
   );
 }
 
-test('10,000 fighters: armies clash, fighters fall, frame rate holds', async ({ page }) => {
+test('10,000 fighters: armies clash, fighters fall, frame rate holds', { tag: '@gpu' }, async ({ page }) => {
   const errors = await openRaid(page, 'raid=10000');
   await sideView(page, 55, 0.42);
   await page.waitForTimeout(1500);

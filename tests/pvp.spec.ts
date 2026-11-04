@@ -119,7 +119,7 @@ test('at 300 ms ping your own moves still respond instantly and agree with the s
   expect(blue.errors).toEqual([]);
 });
 
-test('lag compensation: at 300 ms ping, hits on your screen count on the server', async ({ browser }) => {
+test('lag compensation: at 300 ms ping, hits on your screen count on the server', { tag: '@gpu' }, async ({ browser }) => {
   const blue = await joinAs(browser, 0, '&lag=150');
   const red = await joinAs(browser, 1);
   await blue.page.waitForFunction(() => (window as any).__game.net().remotes.length > 0);
@@ -153,7 +153,7 @@ test('lag compensation: at 300 ms ping, hits on your screen count on the server'
   expect([...blue.errors, ...red.errors]).toEqual([]);
 });
 
-test('bots fight real players: run into the enemy army and they turn on you', async ({ browser }) => {
+test('bots fight real players: run into the enemy army and they turn on you', { tag: '@gpu' }, async ({ browser }) => {
   const red = await joinAs(browser, 1);
   await red.page.waitForFunction(() => (window as any).__game.net().server !== null, null, { timeout: 5000 });
   const before = (await net(red.page)).server;

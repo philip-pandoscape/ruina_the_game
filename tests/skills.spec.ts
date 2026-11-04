@@ -334,7 +334,7 @@ test.describe('online', () => {
     ['a sword swing hits one enemy', SWORD, 1],
     ['Cleave hits both enemies with one swing', CLEAVER, 2],
   ] as const) {
-    test(`melee: ${name}`, async ({ browser }) => {
+    test(`melee: ${name}`, { tag: '@gpu' }, async ({ browser }) => {
       const blue = await joinAs(browser, 0, sword);
       const reds = [await joinAs(browser, 1, SWORD), await joinAs(browser, 1, SWORD)];
       await seesPlayers(blue.page, 2);
@@ -348,7 +348,7 @@ test.describe('online', () => {
     });
   }
 
-  test('Meteor: both sides see the warning circle, then the blast lands', async ({ browser }) => {
+  test('Meteor: both sides see the warning circle, then the blast lands', { tag: '@gpu' }, async ({ browser }) => {
     const blue = await joinAs(browser, 0, MAGE);
     const red = await joinAs(browser, 1, SWORD);
     await seesPlayers(red.page, 1);
@@ -393,7 +393,7 @@ test.describe('online', () => {
     expect([...blue.errors, ...red.errors]).toEqual([]);
   });
 
-  test('Healing Circle heals you and allies nearby', async ({ browser }) => {
+  test('Healing Circle heals you and allies nearby', { tag: '@gpu' }, async ({ browser }) => {
     const healer = await joinAs(browser, 0, HEALER);
     const ally = await joinAs(browser, 0, SWORD);
     const red = await joinAs(browser, 1, CLEAVER);

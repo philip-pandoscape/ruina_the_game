@@ -243,7 +243,7 @@ test('Escape backs out of placing a circle without casting', async ({ page }) =>
 
 // ---------- Online: the server says who hit whom ----------
 
-test.describe('online', () => {
+test.describe('online', { tag: '@gpu' }, () => {
   test.skip(!serverBuilt, 'build the server first: cargo build --release --manifest-path server/Cargo.toml');
   const server = new TestServer(7794, ['--bots', '0']);
   test.beforeAll(async () => server.start());

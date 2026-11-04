@@ -15,7 +15,7 @@ test.afterAll(() => server.stop());
 const crowd = (page: Page) => page.evaluate(() => (window as any).__game.crowd());
 const perf = (page: Page) => page.evaluate(() => (window as any).__game.perf());
 
-test('browser draws the battle streamed from the Rust server', async ({ page }) => {
+test('browser draws the battle streamed from the Rust server', { tag: '@gpu' }, async ({ page }) => {
   const errors: string[] = [];
   page.on('console', (m) => {
     if (m.type() === 'error') errors.push(m.text());
@@ -55,7 +55,7 @@ test('browser draws the battle streamed from the Rust server', async ({ page }) 
   expect(errors).toEqual([]);
 });
 
-test('fallen fighters sink away before respawning: nobody visibly slides across the field', async ({ page }) => {
+test('fallen fighters sink away before respawning: nobody visibly slides across the field', { tag: '@gpu' }, async ({ page }) => {
   await page.goto(`/?server=${encodeURIComponent(SERVER)}&play=0`);
   await page.waitForFunction(
     () => {
