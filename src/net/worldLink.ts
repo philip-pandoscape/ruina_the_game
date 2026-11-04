@@ -115,8 +115,9 @@ export class WorldLink {
   lastSaved = 0;
   /** Ticks heard since connecting (tests wait on this). */
   ticks = 0;
-  /** The newest tick, for anything that arrives before the game is listening. */
+  /** The newest tick, and the newest whole island, for whatever arrives before the game is listening. */
   latest: WorldTick | null = null;
+  latestLife: WorldTick['life'] | null = null;
 
   private constructor(
     private ws: WebSocket,
@@ -202,11 +203,16 @@ export class WorldLink {
       const t = msg as WorldTick;
       this.ticks++;
       this.latest = t;
+      if (t.life) this.latestLife = t.life;
       for (const e of t.peers ?? []) this.peers.set(e.id, e);
       this.onPeers?.(t.peers ?? []);
       this.onTick?.(t);
     } else if (msg.t === 'saved') this.lastSaved = msg.at ?? Date.now();
-    else if (msg.t === 'reset') for (const done of this.resetDone.splice(0)) done();
+    else if (msg.t === 'reset') {
+      // Anything heard before this was the island that's gone.
+      this.latestLife = null;
+      for (const done of this.resetDone.splice(0)) done();
+    }
     else if (msg.t === 'kicked') this.setStatus('kicked');
     else if (msg.t === 'error') this.onError?.(msg.text ?? 'The server had a problem.');
     else if (msg.t === 'estate' && msg.estate) {

@@ -203,7 +203,8 @@ if (peers && lifeUI) lifeUI.others = () => peers.list();
 // over. Automated tests run the island here instead, starting fresh every time unless they ask for
 // the one kept in this browser (?world&test&load, which is how bug reports are replayed).
 if (life && online) {
-  if (params.has('fresh')) void online.link.reset();
+  // Starting over: the old island must be gone before this page shows one.
+  if (params.has('fresh')) await online.link.reset();
   life.remote = (c) => online.link.command((prediction?.seq ?? 0) + 1, c);
 }
 if (life && testMode && params.has('load')) loadLife(life, sim);
@@ -1389,6 +1390,7 @@ const api = {
           claims: online.link.claims,
           status: online.link.status,
           ticks: online.link.ticks,
+          lifeLoaded: online.lifeLoaded?.() ?? false,
           lastSaved: online.link.lastSaved,
           ack: prediction?.lastAck ?? 0,
           seq: prediction?.seq ?? 0,
@@ -1532,6 +1534,7 @@ if (online) {
   // Your island as the server has it, and the parts that move with you as of each update.
   let you: YouState | null = null;
   let lastRev = -1;
+  let lifeLoaded = false;
   const solidScarecrows = new Set<number>();
   if (prediction && life) {
     prediction.beforeReplay = () => {
@@ -1547,6 +1550,7 @@ if (online) {
   }
   const onTick = (t: WorldTick) => {
     if (life && t.life) {
+      lifeLoaded = true;
       life.state = t.life.state;
       life.placing = t.life.placing;
       life.resting = t.life.resting;
@@ -1568,6 +1572,9 @@ if (online) {
     if (life) for (const e of t.lifeEvents ?? []) life.fromServer(e);
   };
   link.onTick = onTick;
-  if (link.latest) onTick(link.latest);
+  // Whatever came while the page was still loading: the newest island, then the newest tick.
+  if (link.latestLife && link.latest && !link.latest.life) onTick({ ...link.latest, life: link.latestLife });
+  else if (link.latest) onTick(link.latest);
+  online.lifeLoaded = () => lifeLoaded;
   stopIf(link.status);
 }

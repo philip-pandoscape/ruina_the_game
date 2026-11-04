@@ -29,7 +29,7 @@ const game = <T>(page: Page, fn: (g: any) => T) => page.evaluate(`(${fn.toString
 async function waitOnline(page: Page): Promise<void> {
   await page.waitForFunction(() => {
     const o = (window as any).__game?.online?.();
-    return (window as any).__game?.ready === true && o?.status === 'online' && o.ticks > 3;
+    return (window as any).__game?.ready === true && o?.status === 'online' && o.ticks > 3 && o.lifeLoaded;
   }, null, { timeout: 60_000 });
 }
 
