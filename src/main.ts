@@ -859,7 +859,7 @@ function draw(alpha: number, cameraDt: number, animDt: number): void {
     }
   }
   if (!net || playing) drawAbilityBar();
-  hud.setPlayerHp(prediction && net?.you ? sim.player.hp : null, COMBAT.maxHp, sim.player.team);
+  hud.setPlayerHp(prediction && net?.you ? sim.player.hp : null, COMBAT.maxHp, serverUrl ? sim.player.team : null);
   const pos = hero.root.position;
   if (cameraDt > 0) follow.update(pos, cameraDt);
   stage.follow(pos.x, pos.z, pos.y);
