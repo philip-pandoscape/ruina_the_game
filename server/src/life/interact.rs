@@ -589,11 +589,17 @@ pub fn run_command(life: &mut Life, sim: &mut Sim, c: &Command) {
             recover_demand(life, seconds);
             life.regen_labor(seconds, false, false);
         }
+        // The channel moves you itself (server/src/world_game.rs); it never reaches an island.
+        Command::Teleport { .. } => {}
     }
 }
 
 /// Puts things from your bag into a finished house's chest (store), or back (take).
 fn store_or_take(life: &mut Life, store: bool, house: i64, item: &str, n: i64) {
+    // Only a real count moves anything: a negative one would make items out of nothing.
+    if n <= 0 {
+        return;
+    }
     let Some(hi) = house_index(life, house) else { return };
     if !is_complete(&life.state.houses[hi]) {
         return;
