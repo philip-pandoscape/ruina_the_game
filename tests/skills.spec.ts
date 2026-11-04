@@ -308,7 +308,7 @@ test.describe('online', () => {
     ['an arrow hits the first enemy in its path', ARCHER, 1],
     ['Piercing Arrows go through both enemies', PIERCER, 2],
   ] as const) {
-    test(`arrows: ${name}`, async ({ browser }) => {
+    test(`arrows: ${name}`, { tag: '@gpu' }, async ({ browser }) => {
       const blue = await joinAs(browser, 0, archer);
       const reds = [await joinAs(browser, 1, SWORD), await joinAs(browser, 1, SWORD)];
       await seesPlayers(blue.page, 2);
