@@ -3,6 +3,7 @@
 //! moves, so the two must stay identical. tests/conformance.spec.ts runs both and compares them.
 //! Open worlds reuse these pieces from crate::open::step_player (tests/world-conformance.spec.ts).
 
+use crate::jsmath::JsMath;
 use crate::life::content::carry;
 use crate::skills::{resolve_skills, set_skill, ResolvedSkills, SkillSet, EMPTY_SKILLS};
 use crate::tuning::{
@@ -148,7 +149,7 @@ pub fn angle_diff(a: f64, b: f64) -> f64 {
 pub(crate) fn turn_toward(current: f64, target: f64, max_step: f64) -> f64 {
     let d = angle_diff(current, target);
     let next = current + d.clamp(-max_step, max_step);
-    next.sin().atan2(next.cos())
+    next.js_sin().js_atan2(next.js_cos())
 }
 
 /// A character's skills and loadout.
@@ -285,13 +286,13 @@ impl Player {
         if def.direction == "input" && mag > 0.05 {
             self.action_dir_x = dx;
             self.action_dir_z = dz;
-            self.facing = dx.atan2(dz);
+            self.facing = dx.js_atan2(dz);
         } else if def.direction == "backward" {
-            self.action_dir_x = -self.facing.sin();
-            self.action_dir_z = -self.facing.cos();
+            self.action_dir_x = -self.facing.js_sin();
+            self.action_dir_z = -self.facing.js_cos();
         } else {
-            self.action_dir_x = self.facing.sin();
-            self.action_dir_z = self.facing.cos();
+            self.action_dir_x = self.facing.js_sin();
+            self.action_dir_z = self.facing.js_cos();
         }
     }
 
@@ -313,11 +314,11 @@ impl Player {
         if let Some(rate) = steer {
             let (dx, dz, mag) = Self::input(a);
             if mag > 0.0 {
-                let heading = turn_toward(self.action_dir_x.atan2(self.action_dir_z), dx.atan2(dz), rate * step_len());
-                self.action_dir_x = heading.sin();
-                self.action_dir_z = heading.cos();
+                let heading = turn_toward(self.action_dir_x.js_atan2(self.action_dir_z), dx.js_atan2(dz), rate * step_len());
+                self.action_dir_x = heading.js_sin();
+                self.action_dir_z = heading.js_cos();
             }
-            self.facing = self.action_dir_x.atan2(self.action_dir_z);
+            self.facing = self.action_dir_x.js_atan2(self.action_dir_z);
         }
 
         if f <= startup {
@@ -566,7 +567,7 @@ impl Player {
                 let s = t.jump.double_jump_steer * t.movement.run_speed * mag;
                 self.vel.x = dx * s;
                 self.vel.z = dz * s;
-                self.facing = dx.atan2(dz);
+                self.facing = dx.js_atan2(dz);
             }
             return true;
         }
@@ -597,7 +598,7 @@ impl Player {
         }
         let (dx, dz, mag) = Self::input(a);
         if mag > 0.0 {
-            self.facing = turn_toward(self.facing, dx.atan2(dz), t.movement.turn_speed * step_len());
+            self.facing = turn_toward(self.facing, dx.js_atan2(dz), t.movement.turn_speed * step_len());
         }
         // Crouch wins over sprint if you somehow hold both, and neither applies in the air. Nobody
         // sprints with a trade pack on their back.
@@ -646,10 +647,10 @@ impl Player {
         let m = &tuning().movement;
         let hs = len(self.vel.x, self.vel.z);
         if mag > 0.0 && hs > m.run_speed + 0.01 {
-            let heading = turn_toward(self.vel.x.atan2(self.vel.z), dx.atan2(dz), 3.0 * step_len());
+            let heading = turn_toward(self.vel.x.js_atan2(self.vel.z), dx.js_atan2(dz), 3.0 * step_len());
             let s = m.run_speed.max(hs - m.air_drag * step_len());
-            self.vel.x = heading.sin() * s;
-            self.vel.z = heading.cos() * s;
+            self.vel.x = heading.js_sin() * s;
+            self.vel.z = heading.js_cos() * s;
         } else if mag > 0.0 {
             self.accelerate_toward(dx * m.run_speed * mag, dz * m.run_speed * mag, m.air_accel);
         } else if hs > 0.0 {
@@ -668,10 +669,10 @@ impl Player {
         self.attack_buffer = 0;
         let (dx, dz, mag) = Self::input(a);
         if mag > 0.0 {
-            self.facing = dx.atan2(dz);
+            self.facing = dx.js_atan2(dz);
         }
         if len(a.aim_x, a.aim_z) > 0.01 {
-            self.facing = a.aim_x.atan2(a.aim_z);
+            self.facing = a.aim_x.js_atan2(a.aim_z);
         }
     }
 
@@ -718,7 +719,7 @@ impl Player {
         let (mut ax, mut az) = (a.aim_x, a.aim_z);
         let aim = len(ax, az);
         if aim > 0.01 {
-            self.facing = ax.atan2(az);
+            self.facing = ax.js_atan2(az);
             let max = s.max_range.unwrap_or(aim);
             if aim > max {
                 ax *= max / aim;
@@ -727,10 +728,10 @@ impl Player {
         } else {
             let (dx, dz, mag) = Self::input(a);
             if mag > 0.0 {
-                self.facing = dx.atan2(dz);
+                self.facing = dx.js_atan2(dz);
             }
-            ax = self.facing.sin() * s.range;
-            az = self.facing.cos() * s.range;
+            ax = self.facing.js_sin() * s.range;
+            az = self.facing.js_cos() * s.range;
         }
         self.cast_target_x = self.pos.x + ax;
         self.cast_target_z = self.pos.z + az;
@@ -807,8 +808,8 @@ impl Player {
         if self.grounded {
             if f <= active_end {
                 let push = if f <= active_start { step.lunge * 0.5 } else { step.lunge };
-                self.vel.x = self.facing.sin() * push;
-                self.vel.z = self.facing.cos() * push;
+                self.vel.x = self.facing.js_sin() * push;
+                self.vel.z = self.facing.js_cos() * push;
             } else {
                 self.accelerate_toward(0.0, 0.0, t.movement.ground_decel);
             }

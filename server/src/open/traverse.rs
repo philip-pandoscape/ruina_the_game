@@ -4,6 +4,8 @@
 //! The TypeScript's events (landing, splashes, the glider opening) are for the screen; the server
 //! has none, so they are left out.
 
+use crate::jsmath::JsMath;
+use crate::life::content::js_hypot;
 use super::colliders::{ground_at, push_out_of_box};
 use super::zone::Updraft;
 use super::Sim;
@@ -85,7 +87,7 @@ pub fn integrate_open(sim: &mut Sim) {
 /// Would moving from (ox, oz) to (nx, nz) walk into a cliff, a wall of rock, or a ledge too high?
 fn blocked(sim: &Sim, ox: f64, oz: f64, nx: f64, nz: f64) -> bool {
     let p = &*sim.player;
-    let run = (nx - ox).hypot(nz - oz);
+    let run = js_hypot(nx - ox, nz - oz);
     if run < 1e-7 {
         return false;
     }
@@ -143,7 +145,7 @@ pub fn collide_open(sim: &mut Sim) {
         let Some((px, pz)) = push_out_of_box(b, p.pos.x, p.pos.z, r) else { return };
         p.pos.x += px;
         p.pos.z += pz;
-        let h = px.hypot(pz);
+        let h = js_hypot(px, pz);
         let l = if h == 0.0 { 1.0 } else { h };
         let nx = px / l;
         let nz = pz / l;
@@ -249,7 +251,7 @@ pub fn update_swim(sim: &mut Sim, a: &Actions) {
     }
     p.sprinting = a.sprint_held && mag > 0.5;
     if mag > 0.05 {
-        p.facing = turn_toward(p.facing, dx.atan2(dz), sw.turn_speed * dt);
+        p.facing = turn_toward(p.facing, dx.js_atan2(dz), sw.turn_speed * dt);
     }
     let tx = dx * speed;
     let tz = dz * speed;
@@ -265,7 +267,7 @@ pub fn update_swim(sim: &mut Sim, a: &Actions) {
         p.vel.z += (ez / err) * step;
     }
     p.vel.y = 0.0;
-    p.pos.y = hf.water - sw.float + (p.mode_frame as f64 * 0.09).sin() * 0.04;
+    p.pos.y = hf.water - sw.float + (p.mode_frame as f64 * 0.09).js_sin() * 0.04;
 
     // Shallow enough to stand: walk out.
     let under = ground_at(hf, idx, p.pos.x, p.pos.z, p.pos.y, ground().step_up);
@@ -277,8 +279,8 @@ pub fn update_swim(sim: &mut Sim, a: &Actions) {
     }
     // Jump at an edge (a dock, a steep bank) to haul yourself out.
     if p.jump_buffer > 0 {
-        let ax = p.pos.x + p.facing.sin() * 1.2;
-        let az = p.pos.z + p.facing.cos() * 1.2;
+        let ax = p.pos.x + p.facing.js_sin() * 1.2;
+        let az = p.pos.z + p.facing.js_cos() * 1.2;
         let ahead = ground_at(hf, idx, ax, az, hf.water + 2.2, 2.2);
         if ahead > hf.water - 0.6 && ahead < hf.water + 2.2 {
             p.jump_buffer = 0;
@@ -286,8 +288,8 @@ pub fn update_swim(sim: &mut Sim, a: &Actions) {
             p.grounded = false;
             p.jumps_used = 1;
             p.vel.y = sw.climb_out;
-            p.vel.x = p.facing.sin() * 3.0;
-            p.vel.z = p.facing.cos() * 3.0;
+            p.vel.x = p.facing.js_sin() * 3.0;
+            p.vel.z = p.facing.js_cos() * 3.0;
         }
     }
 }
@@ -338,7 +340,7 @@ pub fn open_glider(sim: &mut Sim) -> bool {
     p.airspeed = len(p.vel.x, p.vel.z).max(g.flare_speed);
     let hs = len(p.vel.x, p.vel.z);
     if hs > 0.5 {
-        p.facing = p.vel.x.atan2(p.vel.z);
+        p.facing = p.vel.x.js_atan2(p.vel.z);
     }
     true
 }
@@ -362,7 +364,7 @@ pub fn close_glider(sim: &mut Sim, _why: &str) {
 pub fn updraft_lift(updrafts: &[Updraft], x: f64, y: f64, z: f64) -> f64 {
     let mut lift = 0.0;
     for u in updrafts {
-        let d = (x - u.x).hypot(z - u.z);
+        let d = js_hypot(x - u.x, z - u.z);
         if d >= u.r || y >= u.top {
             continue;
         }
@@ -412,7 +414,7 @@ pub fn update_glide(sim: &mut Sim, a: &Actions) {
     let mag = len(a.move_x, a.move_z).min(1.0);
     let mut turn = 0.0;
     if mag > 0.15 {
-        let want = a.move_x.atan2(a.move_z);
+        let want = a.move_x.js_atan2(a.move_z);
         let diff = angle_diff(p.facing, want);
         turn = (-g.turn_rate).max(g.turn_rate.min(diff * gl.turn_ease)) * mag;
     }
@@ -424,10 +426,10 @@ pub fn update_glide(sim: &mut Sim, a: &Actions) {
         p.facing += TAU;
     }
     let bank_want = (turn / g.turn_rate) * gl.max_bank;
-    p.bank += (bank_want - p.bank) * (1.0 - (-6.0 * dt).exp());
+    p.bank += (bank_want - p.bank) * (1.0 - (-6.0 * dt).js_exp());
 
     let prev = p.airspeed;
-    p.airspeed += (target_speed - p.airspeed) * (1.0 - (-g.speed_ease * dt).exp());
+    p.airspeed += (target_speed - p.airspeed) * (1.0 - (-g.speed_ease * dt).js_exp());
     let mut vy = -target_sink;
     // Speed shed by a flare comes back as height, the way a swallow pulls up out of a dive.
     let shed = prev - p.airspeed;
@@ -438,9 +440,9 @@ pub fn update_glide(sim: &mut Sim, a: &Actions) {
         vy -= (g.stall_speed - p.airspeed) * 2.0;
     }
     vy += updraft_lift(updrafts, p.pos.x, p.pos.y, p.pos.z);
-    p.vel.y += (vy - p.vel.y) * (1.0 - (-gl.vertical_ease * dt).exp());
-    p.vel.x = p.facing.sin() * p.airspeed;
-    p.vel.z = p.facing.cos() * p.airspeed;
+    p.vel.y += (vy - p.vel.y) * (1.0 - (-gl.vertical_ease * dt).js_exp());
+    p.vel.x = p.facing.js_sin() * p.airspeed;
+    p.vel.z = p.facing.js_cos() * p.airspeed;
 }
 
 // The frame-by-frame match with the TypeScript is tests/world-conformance.spec.ts; these only check

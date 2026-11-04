@@ -8,6 +8,8 @@ import { generateZone } from '../src/sim/zone/generate';
 import { ColliderIndex, groundAt } from '../src/sim/zone/colliders';
 import { Life, type Command } from '../src/sim/life/life';
 import { dismount } from '../src/sim/life/vehicles';
+import { toWorld } from '../src/sim/zone/generate';
+import type { Vehicle } from '../src/sim/life/state';
 import { applySave, islandData, type Island } from '../src/app/save';
 
 // Online, the game server runs your island (server/src/life, server/src/open) and the browser shows
@@ -146,6 +148,13 @@ const PLAYER_KEYS = ['pos', 'vel', 'facing', 'mode', 'grounded', 'jumpsUsed', 'h
 function compare(name: string, script: Script): void {
   const ts = runTs(script);
   const rs = runRust(script);
+  if (process.env.LIFE_SUMMARY) {
+    const last = ts[ts.length - 1].life as Record<string, any>;
+    const modes = [...new Set(ts.map((c) => c.player.mode))];
+    const toasts = ts.flatMap((c) => c.events.filter((e) => e.t === 'toast').map((e) => e.text));
+    console.log(`== ${name}: modes ${modes.join(',')} | coins ${last.coins} | bag ${JSON.stringify(last.bag)} | packs ${JSON.stringify(last.packs.map((p: any) => p.def + '@' + p.at))} | vehicles ${last.vehicles.map((v: any) => v.def).join(',')} | scarecrows ${last.scarecrows.length} cells ${JSON.stringify(last.scarecrows.map((s: any) => s.cells.filter(Boolean).map((c: any) => c.crop + ':' + c.growth.toFixed(2))))} | houses ${JSON.stringify(last.houses.map((h: any) => h.plot + ' stage ' + h.stage + ' ' + JSON.stringify(h.delivered)))} | quests ${JSON.stringify(last.quests)}
+   toasts: ${toasts.join(' | ')}`);
+  }
   expect(rs.length, `${name}: checkpoints`).toBe(ts.length);
   for (let i = 0; i < ts.length; i++) {
     const out: string[] = [];
@@ -169,6 +178,21 @@ function facingFrom(x: number, z: number, d: number, angle: number): { x: number
   return { x: px, z: pz, facing: Math.atan2(x - px, z - pz) };
 }
 const idle = (frames: number, cmds?: Command[]): Segment => ({ frames, cmds });
+
+/** The vehicle of a kind as it stands at the end of a script, in the browser's rules. */
+function vehicleAfter(script: Script, def: string): Vehicle {
+  const v = playTs(script).life.state.vehicles.find((x) => x.def === def);
+  if (!v) throw new Error(`no ${def} after the script`);
+  return JSON.parse(JSON.stringify(v)) as Vehicle;
+}
+
+/** A spot in a vehicle's own frame (x to its left, z ahead), facing the vehicle. */
+function besideVehicle(v: Vehicle, lx: number, lz: number): { x: number; z: number; facing: number } {
+  const [ox, oz] = toWorld(lx, lz, v.heading);
+  const x = v.x + ox;
+  const z = v.z + oz;
+  return { x, z, facing: Math.atan2(v.x - x, v.z - z) };
+}
 
 test.describe('the island on the server matches the browser', () => {
   test.skip(!existsSync(LIFECHECK), 'build the server first: cargo build --release --manifest-path server/Cargo.toml');
@@ -207,33 +231,112 @@ test.describe('the island on the server matches the browser', () => {
   test('a trade pack crafted, carried, dropped, picked up, carted and sold', () => {
     const b = bench('lanternwickBench');
     const dunmore = npc('dunmore');
-    compare('pack run', {
+    const before: Segment[] = [
+      idle(5, [{ t: 'grant', item: 'sunroot', n: 12 }, { t: 'grant', item: 'barley', n: 8 }, { t: 'grant', item: 'deed.farmCart', n: 1 }]),
+      { frames: 20, tp: facingFrom(b.x, b.z, 1.5, Math.PI / 2), cmds: [{ t: 'craft', recipe: 'pack.harvestCrate' }] },
+      // Heavy: slow, and no second jump.
+      { frames: 60, a: { moveX: 1 } },
+      { frames: 1, a: { moveX: 1, jumpPressed: true, jumpHeld: true } },
+      { frames: 30, a: { moveX: 1, jumpHeld: true } },
+      { frames: 1, a: { moveX: 1, jumpPressed: true, jumpHeld: true } },
+      { frames: 40, a: { moveX: 1 } },
+      idle(20, [{ t: 'drop' }]),
+      idle(20, [{ t: 'interact' }]),
+      // The cart, summoned beside you.
+      idle(30, [{ t: 'summon', item: 'deed.farmCart' }]),
+    ];
+    const cart = vehicleAfter({ coins: 5000, every: 1000, segments: before }, 'farmCart');
+    const script: Script = {
       coins: 5000,
       every: 30,
       segments: [
-        idle(5, [{ t: 'grant', item: 'sunroot', n: 12 }, { t: 'grant', item: 'barley', n: 8 }, { t: 'grant', item: 'deed.farmCart', n: 1 }]),
-        { frames: 20, tp: facingFrom(b.x, b.z, 1.5, Math.PI / 2), cmds: [{ t: 'craft', recipe: 'pack.harvestCrate' }] },
-        // Heavy: slow, and no second jump.
-        { frames: 60, a: { moveX: 1 } },
-        { frames: 1, a: { moveX: 1, jumpPressed: true, jumpHeld: true } },
-        { frames: 30, a: { moveX: 1, jumpHeld: true } },
-        { frames: 1, a: { moveX: 1, jumpPressed: true, jumpHeld: true } },
-        { frames: 40, a: { moveX: 1 } },
-        idle(20, [{ t: 'drop' }]),
-        idle(20, [{ t: 'interact' }]),
-        // The cart: summoned beside you, loaded, driven, unloaded.
-        idle(30, [{ t: 'summon', item: 'deed.farmCart' }]),
-        { frames: 50, a: { moveZ: 1 } },
-        idle(20, [{ t: 'interact' }]),
-        idle(20, [{ t: 'interact' }]),
+        ...before,
+        // Up to its bed with the pack on your back: load it. Round to the driver's side: drive.
+        { frames: 20, tp: besideVehicle(cart, 0, -2.6), cmds: [{ t: 'interact' }] },
+        { frames: 20, tp: besideVehicle(cart, 1.7, 0.95), cmds: [{ t: 'interact' }] },
         { frames: 120, a: { stickY: 1 } },
         { frames: 60, a: { stickY: 1, stickX: 0.6 } },
         { frames: 30, a: { stickY: 1, stickX: -1, jumpHeld: true } },
         { frames: 60, a: { stickY: -1 } },
         idle(30, [{ t: 'exit' }]),
-        idle(20, [{ t: 'interact' }]),
-        // Sold at Westwatch.
-        { frames: 20, tp: facingFrom(dunmore.x, dunmore.z, 1.6, Math.PI), cmds: [{ t: 'interact' }] },
+      ],
+    };
+    // Wherever the drive ended, the pack comes back off the bed and goes to Westwatch.
+    const parked = vehicleAfter(script, 'farmCart');
+    script.segments.push(
+      { frames: 20, tp: besideVehicle(parked, 0, -2.6), cmds: [{ t: 'interact' }] },
+      { frames: 20, tp: facingFrom(dunmore.x, dunmore.z, 1.6, Math.PI), cmds: [{ t: 'interact' }] },
+      idle(30),
+    );
+    const modes = runTs(script).map((c) => c.player.mode);
+    expect(modes, 'the cart was driven').toContain('ride');
+    compare('pack run', script);
+  });
+
+  test('a rowboat summoned at the docks, rowed and left', () => {
+    const docks = R.places.find((p) => p.id === 'docks')!;
+    const before: Segment[] = [
+      idle(5, [{ t: 'grant', item: 'deed.rowboat', n: 1 }]),
+      { frames: 30, tp: { x: docks.x, z: docks.z, facing: Math.PI }, cmds: [{ t: 'summon', item: 'deed.rowboat' }] },
+    ];
+    const boat = vehicleAfter({ every: 1000, segments: before }, 'rowboat');
+    const script: Script = {
+      every: 30,
+      segments: [
+        ...before,
+        { frames: 20, tp: besideVehicle(boat, 1.6, 0.05), cmds: [{ t: 'interact' }] },
+        { frames: 180, a: { stickY: 1 } },
+        { frames: 90, a: { stickY: 1, stickX: 1 } },
+        { frames: 90, a: { stickY: -0.5, stickX: -0.5 } },
+        idle(30, [{ t: 'exit' }]),
+        { frames: 120, a: { moveZ: 1 } },
+      ],
+    };
+    expect(runTs(script).map((c) => c.player.mode), 'the boat was rowed').toContain('ride');
+    compare('rowboat', script);
+  });
+
+  test('timber, a chick raised and its eggs, and a contract taken at a trading post', () => {
+    const node = R.nodes.find((n) => n.kind === 'timberNode')!;
+    const farm = R.farmland;
+    const dunmore = npc('dunmore');
+    const before: Segment[] = [
+      idle(5, [{ t: 'grant', item: 'scarecrow', n: 1 }, { t: 'grant', item: 'animal.chick', n: 1 }, { t: 'grant', item: 'barley', n: 10 }]),
+      // A timber node, worked twice (the second time it's picked clean).
+      { frames: 20, tp: facingFrom(node.x, node.z, 1.4, 0), cmds: [{ t: 'interact' }] },
+      idle(20, [{ t: 'interact' }]),
+      // A plot, a chick in it, fed and grown, eggs collected.
+      { frames: 20, tp: { x: farm.x, z: farm.z - 7, facing: 0 }, cmds: [{ t: 'use', item: 'scarecrow' }] },
+      idle(20, [{ t: 'interact' }]),
+      { frames: 20, tp: { x: farm.x, z: farm.z - 3, facing: 0 }, cmds: [{ t: 'interact' }] },
+      idle(20, [{ t: 'warp', seconds: 200 }]),
+      idle(20, [{ t: 'interact' }]),
+      idle(20, [{ t: 'warp', seconds: 200 }]),
+      idle(20, [{ t: 'interact' }]),
+      idle(20, [{ t: 'interact' }]),
+      // The trading post's board.
+      { frames: 20, tp: facingFrom(dunmore.x, dunmore.z, 1.6, Math.PI) },
+    ];
+    const first = playTs({ every: 1000, segments: before }).life.state;
+    expect(first.bag.find((b) => b.item === 'egg')?.n ?? 0, 'eggs collected').toBeGreaterThan(0);
+    const offered = first.contracts?.offered ?? [];
+    const k = offered.find((c) => c.outpost === 'westwatch');
+    expect(k, 'Westwatch posted a contract').toBeTruthy();
+    const script: Script = { every: 30, segments: [...before, idle(30, [{ t: 'contract', id: k!.id }]), idle(30, [{ t: 'warp', seconds: 2000 }])] };
+    compare('gathering, livestock and contracts', script);
+  });
+
+  test('a cog laid down on the slipway', () => {
+    const slip = R.shipyards[0];
+    const saw = bench('sawhorse');
+    compare('shipyard', {
+      labor: 1000,
+      every: 30,
+      segments: [
+        idle(5, [{ t: 'grant', item: 'design.cog', n: 1 }, { t: 'grant', item: 'lumber', n: 40 }]),
+        { frames: 20, tp: facingFrom(slip.x, slip.z, 4, 0), cmds: [{ t: 'interact' }] },
+        { frames: 20, tp: facingFrom(saw.x, saw.z, 1.5, 0), cmds: [{ t: 'craft', recipe: 'pack.lumberBundle' }] },
+        { frames: 20, tp: facingFrom(slip.x, slip.z, 4, 0), cmds: [{ t: 'interact' }] },
         idle(30),
       ],
     });
@@ -307,19 +410,20 @@ test.describe('the island on the server matches the browser', () => {
       { frames: 20, tp: facingFrom(cutter.x, cutter.z, 1.5, 0), cmds: [{ t: 'craft', recipe: 'pack.stoneBlock' }] },
       { frames: 20, tp: site, cmds: [{ t: 'interact' }] },
     ];
+    const before: Segment[] = [
+      idle(5, [{ t: 'grant', item: 'blueprint.cottage', n: 1 }, { t: 'grant', item: 'stone', n: 60 }, { t: 'grant', item: 'lumber', n: 60 }, { t: 'grant', item: 'ironOre', n: 20 }]),
+      { frames: 20, tp: site, cmds: [{ t: 'interact' }] },
+      ...haul(),
+      ...haul(),
+      idle(20, [{ t: 'interact' }]),
+    ];
+    const built = playTs({ coins: 20000, labor: 1000, every: 1000, segments: before }).life.state.houses;
+    expect(built.map((h) => h.stage), 'the foundation is down').toEqual([1]);
     compare('housing', {
       coins: 20000,
       labor: 1000,
       every: 30,
-      segments: [
-        idle(5, [{ t: 'grant', item: 'blueprint.cottage', n: 1 }, { t: 'grant', item: 'stone', n: 60 }, { t: 'grant', item: 'lumber', n: 60 }, { t: 'grant', item: 'ironOre', n: 20 }]),
-        { frames: 20, tp: site, cmds: [{ t: 'interact' }] },
-        ...haul(),
-        ...haul(),
-        idle(20, [{ t: 'interact' }]),
-        idle(20, [{ t: 'payTax', house: 0 }]),
-        { frames: 120, a: { moveZ: -1 } },
-      ],
+      segments: [...before, idle(20, [{ t: 'payTax', house: built[0].id }]), { frames: 120, a: { moveZ: -1 } }],
     });
   });
 });
