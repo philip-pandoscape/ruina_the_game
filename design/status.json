@@ -466,7 +466,7 @@
       "system": "ui",
       "status": "done",
       "title": "Open-world HUD",
-      "notes": "In the Parchment & Timber look: your portrait and name, health and labor bars with the purse, a round minimap with zoom and quest marks, the clock and wind, a compass, the quest scroll with progress bars, menu buttons with their keys, the interaction prompt, toasts, place banners and name plates.",
+      "notes": "In the Parchment & Timber look: your portrait and name, health and labor bars with the purse, a round minimap with zoom and quest marks, the clock and wind, a compass, the quest scroll with progress bars, menu buttons with their keys, the interaction prompt, toasts (small, at the bottom right under the quest tracker, clear of the bag and the ride readout), place banners and name plates.",
       "files": [
         "src/ui/life/lifeUI.ts",
         "src/ui/theme/hud.css",
@@ -477,12 +477,14 @@
       "system": "ui",
       "status": "done",
       "title": "Panels",
-      "notes": "MMO windows docked at the sides, open while you walk (walking away from whoever you are talking to closes theirs): talking lists their quests and what they offer; quests have offer, progress and hand-in pages with objectives and rewards; the merchant has Buy and Sell tabs beside your bag; workbench, storage, vehicles; a character window (P) with gear slots around a live picture of you; a two-pane quest log with milestones; the map; settings (UI size, credits); the developer panel (backquote). Portraits come from the live scene; items, slots and rewards have tooltips.",
+      "notes": "MMO windows docked at the sides, open while you walk (walking away from whoever you are talking to closes theirs): talking lists their quests and what they offer; quests have offer, progress and hand-in pages with objectives and rewards; the merchant has Buy, Sell and Buyback tabs beside your bag; workbench, storage, vehicles; a character window (P) with gear slots around a live picture of you, your combo damage and the skill points you have left; a two-pane quest log with milestones, where a quest can be abandoned or taken off the tracker; the map; settings (UI size, credits); the developer panel (backquote). Portraits come from the live scene; items, slots and rewards have tooltips.",
       "files": [
         "src/ui/life/lifeUI.ts",
         "src/ui/theme/windows.css",
         "src/ui/theme/tooltip.ts",
-        "src/render/portrait.ts"
+        "src/render/portrait.ts",
+        "src/sim/life/quests.ts",
+        "src/sim/life/trade.ts"
       ]
     },
     {
@@ -785,7 +787,7 @@
       "system": "combat",
       "status": "done",
       "title": "Skill points from quests and milestones",
-      "notes": "No character levels: you start with 2 points (skills.startPoints) and every quest and milestone you finish gives more (rewards.skillPoints: 21 from the thirteen quests, 8 from the milestones). They are counted from the quests you have done rather than kept, so islands saved before they existed have theirs too. The server checks every build against them, and so does the browser; the training yard and the battlefield allow skills.points.",
+      "notes": "No character levels: you start with 2 points (skills.startPoints) and every quest and milestone you finish gives more (rewards.skillPoints: 21 from the thirteen quests, 8 from the milestones). They are counted from the quests you have done rather than kept, so islands saved before they existed have theirs too. The server checks every build against them, and so does the browser; the training yard and the battlefield allow skills.points. The amounts stay as they are for now (decided 2026-11-04), to be retuned once the island has been played through.",
       "files": [
         "shared/quests.json",
         "src/sim/life/progress.ts",
@@ -813,13 +815,36 @@
         "shared/quests.json",
         "src/sim/life/quests.ts"
       ]
+    },
+    {
+      "system": "quests",
+      "status": "done",
+      "title": "Abandoning a quest",
+      "notes": "The quest log's Abandon (asked once more) takes a quest off your list with its progress, and its giver offers it again. Milestones and the quests that start by themselves can't be abandoned; one that handed you something to start with takes it back, and can't be abandoned once you've used it. Both rules (abandon, quests.rs).",
+      "files": [
+        "src/sim/life/quests.ts",
+        "server/src/life/quests.rs",
+        "src/ui/life/lifeUI.ts"
+      ]
+    },
+    {
+      "system": "economy",
+      "status": "done",
+      "title": "Buyback",
+      "notes": "A merchant holds what you sold them, at what they paid (the last twelve sales), and sells it back from the stall's Buyback tab until you walk 12 m off. Both rules (state.buyback, trade.rs).",
+      "files": [
+        "src/sim/life/trade.ts",
+        "server/src/life/trade.rs",
+        "src/ui/life/lifeUI.ts"
+      ]
     }
   ],
   "next": [
     "Animation, next: drawing and sheathing the weapon (it moves between the hand and the back in one frame today); give the townsfolk (src/render/models/villagers.ts) the hero's gait.",
     "Shared world, next: trading-post demand, weather and gathering nodes shared by a channel (today each island has its own); choosing a channel (to join a friend in another one); others' parked vehicles while they're away.",
     "World server, next: islands in proper tables rather than one document each, if querying them (trading-post history, guild storage) needs it; bandwidth: send other players less often when they are far away.",
-    "Skills, next: balance the tree (its numbers are first guesses: a keystone is 8 to 13 points from nothing, Emberholm gives 31 in all); notables and keystones that do new things, not only bigger numbers; life skills (farming, crafting, sailing) that level by use the same way."
+    "Skills, next: balance the tree (its numbers are first guesses: a keystone is 8 to 13 points from nothing, Emberholm gives 31 in all); notables and keystones that do new things, not only bigger numbers; life skills (farming, crafting, sailing) that level by use the same way.",
+    "Quests, next: Share (the quest log's third button in the prototype) once there are parties to share with."
   ],
   "questions": [
     {
@@ -845,10 +870,6 @@
     {
       "q": "Are the names right?",
       "context": "Emberholm, Lanternwick, the Windspire, Charter Seals and the rest are placeholders in the spirit of the world tree theme."
-    },
-    {
-      "q": "Which quests and milestones should give skill points, and how many?",
-      "context": "Picked for now: every quest 1 to 3 (the long ones, Home and Shipwright, 3), every milestone 1, and 2 to start: 31 points on Emberholm for a 226-node tree. Fewer makes each choice weigh more; more lets a player try two disciplines on the starter isle."
     }
   ],
   "sessions": [
@@ -985,7 +1006,8 @@
         "shared/skilltree.json (laid out by tools/skilltree/gen.mjs): 226 nodes in four disciplines, learned outward through their links; the old skills kept their places and costs.",
         "Skill points are startPoints plus the skillPoints of finished quests and milestones; experience lives with the island, counted by the server online; levels feed the same modifier fold as the tree, in TypeScript and Rust together.",
         "Input: an open window has the controller, the press that closes a window is not also a game press, and the skill book (T, View) and tree (N, a bumper) have their own cursor.",
-        "The browser and the server agree on getting better: a place reached counts for each quest by its own reach and height (both rules); a hit trains the weapon that landed it, so an arrow trains its bow and a blast nothing; only a kill is a defeat, not a piece dissolving; a build is held to the points the island has earned."
+        "The browser and the server agree on getting better: a place reached counts for each quest by its own reach and height (both rules); a hit trains the weapon that landed it, so an arrow trains its bow and a blast nothing; only a kill is a defeat, not a piece dissolving; a build is held to the points the island has earned.",
+        "After the review: the portrait shows your shoulders and the character window all of you again; toasts at the bottom right, smaller; the character window's combo damage and skill points left; the quest log's Abandon and Track on Screen; the merchant's Buyback (Abandon and Buyback in both rules). The skill point amounts stay as they are for now."
       ]
     }
   ]
