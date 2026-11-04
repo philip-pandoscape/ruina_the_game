@@ -18,6 +18,9 @@ import { isComplete, stillNeeds, housePose } from '../../sim/life/housing';
 import { shortTime } from '../../sim/life/interact';
 import { raining, hourOfDay, stormAt } from '../../sim/life/weather';
 import { WEAPON_ICONS, WEAPON_NAMES } from '../icons';
+import { comboDamage } from '../skills/describe';
+import { pointsLeft } from '../../build';
+import { skillBudget } from '../../sim/life/progress';
 import { iconHtml, iconUrl, money } from '../theme/icons';
 import { GOLD_STAR, pixelIcon } from '../theme/pixelIcons';
 import { setUserScale, uiRoot, userScale, UI_SCALE_MAX, UI_SCALE_MIN } from '../theme/scale';
@@ -419,7 +422,7 @@ export class LifeUI {
 
   private signature(): string {
     const s = this.life.state;
-    return [s.coins, s.seals, Math.floor(s.labor / 5), this.life.revision, s.bag.map((b) => `${b.item}${b.n}`).join(), s.quests.active.map((q) => `${q.id}${q.step}${q.counts}`).join(), s.quests.done.length, this.sel, this.logSel, this.d.sim.player.pack, this.d.sim.player.weapon, s.vehicles.length, s.glider, s.seed, s.contracts?.active.length, s.contracts?.offered.length, Math.round(this.hp)].join('|');
+    return [s.coins, s.seals, Math.floor(s.labor / 5), this.life.revision, s.bag.map((b) => `${b.item}${b.n}`).join(), s.quests.active.map((q) => `${q.id}${q.step}${q.counts}`).join(), s.quests.done.length, this.sel, this.logSel, this.d.sim.player.pack, this.d.sim.player.weapon, this.d.sim.player.skills.join(), s.vehicles.length, s.glider, s.seed, s.contracts?.active.length, s.contracts?.offered.length, Math.round(this.hp)].join('|');
   }
 
   /** Portraits arrive a frame or two after a window opens and are retaken now and then: show the latest. */
@@ -1366,6 +1369,8 @@ export class LifeUI {
           ${this.maxHp ? `<div class="r"><span>Health</span><b>${Math.round(this.hp)} / ${this.maxHp}</b></div>` : ''}
           <div class="r"><span>Labor</span><b>${Math.floor(life.state.labor)} / ${LABOR.max}</b></div>
           <div class="r"><span>Weapon</span><b>${esc(WEAPON_NAMES[weapon] ?? '')}</b></div>
+          <div class="r"><span>Combo damage</span><b>${comboDamage(weapon, this.d.sim.stats)}</b></div>
+          <div class="r"><span>Skill points</span><b>${pointsLeft(p.skills, skillBudget(life.state))} left</b></div>
           <div class="r"><span>Glider</span><b>${life.state.glider ? esc(gliderDef(life.state.glider).name) : 'None'}</b></div>
           <div class="r"><span>Money</span>${money(life.state.coins, 12)}</div>
           <div class="r"><span>Seals</span><b>${life.state.seals}</b></div>

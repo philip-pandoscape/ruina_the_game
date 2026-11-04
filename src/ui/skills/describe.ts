@@ -115,13 +115,19 @@ export const xpUnit = (b: BookSkill) => (b.kind === 'weapon' ? 'hits' : b.kind =
 const secs = (frames: number) => `${(frames / 60).toFixed(frames % 60 === 0 ? 0 : frames < 60 ? 2 : 1)} s`;
 const num = (v: number) => (Math.abs(v - Math.round(v)) < 0.05 ? String(Math.round(v)) : v.toFixed(1));
 
+/** A weapon's damage hit by hit through its combo, "12.4 · 14.4 · 26.8". */
+export const comboDamage = (weapon: number, r: ResolvedSkills): string =>
+  comboFor(weapon, r)
+    .map((s) => num(s.damage))
+    .join(' · ');
+
 /** A skill's numbers as it stands: [label, value] pairs. */
 export function bookStats(b: BookSkill, r: ResolvedSkills): Array<[string, string]> {
   if (b.kind === 'weapon') {
     const steps = comboFor(b.index, r);
     const w = WEAPONS[b.index];
     const out: Array<[string, string]> = [
-      ['Damage', steps.map((s) => num(s.damage)).join(' · ')],
+      ['Damage', comboDamage(b.index, r)],
       ['Combo', `${steps.length} ${steps.length === 1 ? 'hit' : 'hits'}`],
       [w.tags.includes('ranged') ? 'Draw' : 'Wind-up', secs(steps[0]?.startup ?? 0)],
     ];
