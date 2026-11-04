@@ -6,6 +6,7 @@ import { HERO_BOW, HERO_TRAIL_EDGES, HERO_WEAPONS } from '../../content/creature
 import { GLIDERS, MOUNTS, VEHICLES } from '../../content/vehicles';
 import { buildGlider, buildMount, buildVehicle } from '../models';
 import { gliderGrip } from '../models/gliders';
+import type { Holds } from '../models/vehicles';
 import { SCENARIOS, scenario, type Moment, type Scenario } from './scenarios';
 
 // The hero's animations, one at a time, for looking at and for tests to measure.
@@ -108,6 +109,9 @@ interface Prop {
   root: THREE.Object3D;
   animate(dt: number, m: Moment, input: PoseInput): void;
   water?: number;
+  /** What the first seat's hands hold and feet rest on, and which seat pose that is. */
+  holds?: Holds;
+  driver?: string;
 }
 
 function makeProp(kind: Scenario['prop'], hero: Hero): Prop | null {
@@ -125,7 +129,7 @@ function makeProp(kind: Scenario['prop'], hero: Hero): Prop | null {
     const def = MOUNTS.find((x) => x.id === 'horse')!;
     const h = buildMount(def);
     hero.root.add(h.root);
-    return { root: h.root, animate: (dt, m) => h.animate(dt, { speed: m.speed, grounded: true }) };
+    return { root: h.root, animate: (dt, m) => h.animate(dt, { speed: m.speed, grounded: true }), holds: h.holds, driver: 'ride' };
   }
   const id = kind === 'cart' ? 'farmCart' : kind;
   const def = VEHICLES.find((x) => x.id === id)!;
@@ -136,6 +140,8 @@ function makeProp(kind: Scenario['prop'], hero: Hero): Prop | null {
   return {
     root: v.root,
     water: boat ? 0 : undefined,
+    holds: v.holds,
+    driver: def.seats[0].pose,
     animate: (dt, m, input) => {
       t += dt;
       v.animate(dt, { speed: m.speed, steer: input.bank, throttle: input.effort, sail: 0.8, boom: 0.3, time: t });
@@ -189,8 +195,10 @@ class Take {
     const seat = this.prop ? seatProp(this.prop, this.s.prop, input) : 0;
     this.hero.root.position.set(this.travelled[0], (m.lift ?? 0) + seat, this.travelled[1]);
     this.hero.root.rotation.y = this.facing;
-    this.fb = this.hero.drive(input, this.distance, STEP);
+    // The vehicle moves first (its wheel turns, its oars sweep), then the hero takes hold of it.
     this.prop?.animate(STEP, m, input);
+    this.hero.seatHolds = this.prop?.holds && input.travel === this.prop.driver ? this.prop.holds : null;
+    this.fb = this.hero.drive(input, this.distance, STEP);
     this.last = m;
     this.input = input;
     this.frame++;
@@ -656,6 +664,64 @@ const api = {
     }
     t.dispose();
     return +worst.toFixed(4);
+  },
+
+  /**
+   * Seated in a vehicle's first seat: how far each hand gets, at worst, from what the vehicle gives
+   * it to hold (its wheel's rim, its oars' handles) over the film, and where the feet are against
+   * the footrest (null when the vehicle has none).
+   */
+  holdGap(id: string) {
+    const t = new Take(scenario(id), 0);
+    const rig = t.hero.detail;
+    let hands = 0;
+    let feet: number | null = null;
+    const a = new THREE.Vector3();
+    const b = new THREE.Vector3();
+    for (let f = 0; f < t.s.frames; f++) {
+      t.step();
+      const h = t.prop?.holds;
+      if (!h || (!h.hands && !h.feet) || t.input.travel !== t.prop?.driver) continue;
+      t.hero.root.updateMatrixWorld(true);
+      h.hands?.forEach((o, i) => {
+        rig.joint(i === 0 ? 'handL' : 'handR').getWorldPosition(a);
+        hands = Math.max(hands, a.distanceTo(o.getWorldPosition(b)));
+      });
+      if (h.feet) {
+        // How far the soles are above the footrest (each foot's own, a pair like stirrups): 0
+        // resting on it, more hanging over it.
+        for (const [i, n] of ['footL', 'footR'].entries()) {
+          const rest = Array.isArray(h.feet) ? h.feet[i] : h.feet;
+          rest.getWorldPosition(b);
+          rig.joint(n).getWorldPosition(a);
+          feet = Math.max(feet ?? 0, a.y - 0.08 - b.y);
+        }
+      }
+    }
+    t.dispose();
+    return { hands: +hands.toFixed(4), feet: feet === null ? null : +feet.toFixed(3) };
+  },
+
+  /**
+   * The weapon's far end (a blade's tip, the staff's orb, the bow's top) frame by frame, in the
+   * world, the stow on that frame, and whether the weapon hangs from a hand: for drawing and
+   * sheathing, which must never make it jump.
+   */
+  weaponTrack(id: string, weapon = 0) {
+    const t = new Take(scenario(id), weapon);
+    const rig = t.hero.detail;
+    const name = HERO_WEAPONS[weapon];
+    const far: Record<string, [number, number, number]> = { sword: [0, -1.1, 0], club: [0, -0.6, 0], staff: [0, -1.2, 0], bow: [0, 0.275, 0.476] };
+    const g = rig.attachment(name);
+    const out: Array<{ frame: number; stow: number; inHand: boolean; tip: number[] }> = [];
+    for (let f = 0; f < t.s.frames; f++) {
+      t.step();
+      t.hero.root.updateMatrixWorld(true);
+      const p = new THREE.Vector3(...far[name]).applyMatrix4(g.matrixWorld);
+      out.push({ frame: f, stow: t.input.stow, inHand: g.parent === rig.joint('handR') || g.parent === rig.joint('handL'), tip: [p.x, p.y, p.z] });
+    }
+    t.dispose();
+    return out;
   },
 
   /** What posing one hero costs, microseconds a frame, once it's built and warmed up. */

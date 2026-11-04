@@ -6,6 +6,7 @@ import { Body, SIDES, bump, clamp, clamp01, easeIn, easeInOut, easeOut, lerp, sm
 import { directional, dutyFactor, planFoot, runGait, sprintGait, type FootPlan, type GaitShape } from './gait';
 import { READY, swingFor, type SwingDef, type SwingKey } from './swings';
 import { gliderGrip } from '../models/gliders';
+import { DRAWING_HAND, stowedFor } from './stow';
 
 // How a humanoid moves. Every playable race and humanoid NPC shares this - they differ in how
 // they are built (src/content/creatures), not in how they walk. Poses only ever touch named
@@ -47,7 +48,6 @@ const _feet: Record<Side, Foot> = { L: foot(), R: foot() };
 const ALL = { L: 1, R: 1 };
 /** How planted each foot ended up in the pose being built (see PoseFeedback.plant). */
 const _planted: Record<Side, number> = { L: 0, R: 0 };
-const NONE = { L: 0, R: 0 };
 /** The furthest a stance lets the body sink to keep planted feet under it. */
 const MAX_SINK = 0.16;
 
@@ -350,20 +350,76 @@ function locomotion(b: Body, p: PoseInput, sink = 0): Gait {
 
 // ---------- what the hands carry ----------
 
-/** The weapon held at rest or on the move. Runs after locomotion has swung the arms. */
+const WEAPON_NAMES = ['sword', 'club', 'staff', 'bow'];
+const _up = new THREE.Vector3(0, 1, 0);
+const _drawDir = new THREE.Vector3();
+const _hilt = new THREE.Vector3();
+const _stowFace = new THREE.Vector3();
+const _qHeld = new THREE.Quaternion();
+const _qMid = new THREE.Quaternion();
+const _qStow = new THREE.Quaternion();
+const _qTurn = new THREE.Quaternion();
+
+/**
+ * The weapon held at rest or on the move, or put away, or on its way between (p.stow): the hand
+ * that draws it reaches to where it's stowed (stow.ts) and is there at halfway, where the weapon
+ * changes over from the hand to its place, lying exactly as the held one does then; the blade swings
+ * up over the top between held and stowed so it never sweeps the ground. Put away, the arms hang
+ * and swing free. Runs after locomotion has swung the arms.
+ */
 function holdWeapon(b: Body, p: PoseInput, g: Gait): void {
+  const u = clamp01(p.stow);
+  if (u <= 0) return holdArmed(b, p, g);
+  const name = WEAPON_NAMES[p.weapon] ?? 'sword';
+  const st = stowedFor('')[name];
+  const s = DRAWING_HAND[name] ?? 'R';
+  const free = b.save(b.buf(6));
+  holdArmed(b, p, g);
+  const heldDir = bladeDir(b, _drawDir, s);
+  b.quaternionOf(b.arm[s].end, _qHeld);
+  const held = b.save(b.buf(7));
+  // The arms: as held, giving way to hanging free once the weapon has been let go.
+  b.mix(held, free, smooth((u - 0.5) / 0.4));
+  if (!st) return;
+  // The hand at the hilt for a moment either side of halfway, so the change-over can't show.
+  const reach = 1 - smooth((Math.abs(u - 0.5) - 0.06) / 0.36);
+  if (reach > 0) {
+    const hand = b.positionOf(b.arm[s].end, _e);
+    torsoPoint(b, st.at[0], st.at[1], st.at[2], _hilt);
+    b.handTo(s, _f.lerpVectors(hand, _hilt, reach), torsoDir(b, _pole.set(k(s) * 0.8, -0.4, -0.45)));
+  }
+  if (u >= 0.5) return;
+  // Still in the hand: the whole hand turning, evenly over the half-move, from how it held the
+  // weapon, by way of the blade straight up, to exactly how the weapon lies put away.
+  const stowed = torsoDir(b, _g.set(st.along[0], st.along[1], st.along[2])).normalize();
+  b.frameHand(s, stowed, torsoDir(b, _stowFace.set(st.face[0], st.face[1], st.face[2])));
+  b.quaternionOf(b.arm[s].end, _qStow);
+  _qMid.setFromUnitVectors(heldDir, _up).multiply(_qHeld);
+  // Shared out by how far each leg of the turn goes, so it turns at an even pace (a staff held
+  // upright is nearly at the top already).
+  const q = smooth(u / 0.44);
+  const first = _qHeld.angleTo(_qMid);
+  const split = first / Math.max(1e-6, first + _qMid.angleTo(_qStow));
+  if (q < split) _qTurn.slerpQuaternions(_qHeld, _qMid, q / split);
+  else _qTurn.slerpQuaternions(_qMid, _qStow, (q - split) / Math.max(1e-6, 1 - split));
+  b.orient(b.arm[s].end, _qTurn);
+}
+
+/** The weapon held at rest or on the move. Runs after locomotion has swung the arms. */
+function holdArmed(b: Body, p: PoseInput, g: Gait): void {
   const move = g.moving;
   const t = p.time;
   if (p.weapon === 0) {
-    // Sword: low and forward at rest, trailing back and out running ahead, held up in front on
-    // guard while strafing or backing off.
+    // Sword: low and forward at rest; running ahead, carried ready - elbow bent, hand at the waist,
+    // the blade up and forward, bobbing with the stride; held up in front on guard while strafing
+    // or backing off.
     const swing = Math.cos(TAU * g.cycle);
     const ahead = Math.max(0, Math.cos(p.heading));
     const at = move * g.run * smooth((ahead - 0.5) / 0.4);
     const guard = move * (1 - smooth((ahead - 0.5) / 0.4));
-    b.setArmOut('R', 0.2 + 0.08 * move, lerp(lerp(-0.28, -0.25 * swing * move + 0.3, at), -0.75, guard), 0, -lerp(lerp(0.5, 0.75, move), 0.95, guard));
-    const az = lerp(lerp(0.38, -2.55, at), 0.3, guard);
-    const el = lerp(lerp(-0.45, -0.22, at), 0.25, guard) + 0.02 * Math.sin(t * 2.2);
+    b.setArmOut('R', 0.2 + 0.06 * move, lerp(lerp(-0.28, -0.5 - 0.12 * swing, at), -0.75, guard), 0, -lerp(lerp(0.5, 1.25, at), 0.95, guard));
+    const az = lerp(lerp(0.38, -0.3, at), 0.3, guard);
+    const el = lerp(lerp(-0.45, 0.62 + 0.05 * swing, at), 0.25, guard) + 0.02 * Math.sin(t * 2.2);
     b.aimHand('R', torsoDir(b, dir(az, el, _a)));
   } else if (p.weapon === 1) {
     // Club: carried on the shoulder.
@@ -757,14 +813,18 @@ function bowShot(b: Body, p: PoseInput, step: AttackStep, out: PoseFeedback): vo
   b.setArmOut('R', 0.12, -0.1, 0, -0.3);
   const restL = b.positionOf(b.arm.L.end, _e);
   const restR = b.positionOf(b.arm.R.end, _f);
-  // Bow arm out straight along the line of the shot; the bow stands upright, canted a touch.
+  // Bow arm out straight along the line of the shot; the bow stands upright, canted a touch. The
+  // line runs at the chin and in front of the chest, not along the shoulders: the bow reaches a
+  // little across and the draw hand anchors under the jaw, so the arrow never passes through the
+  // body (the head reaches 0.23 in front of the neck, the chest 0.15).
   const aim = _d.set(0, 0.04, 1).normalize();
-  const grip = b.positionOf(b.shoulder.L, _g).addScaledVector(aim, 0.42).add(_pole.set(-0.03, 0.03, 0));
+  const front = torsoDir(b, _front.set(0, 0, 1)).multiplyScalar(0.26 * on);
+  const grip = b.positionOf(b.shoulder.L, _g).addScaledVector(aim, 0.42).add(_pole.set(-0.03, 0.03 + 0.06 * on, 0)).add(front);
   b.handTo('L', _a.lerpVectors(grip, restL, 1 - on), _pole.set(0.6, -0.5, -0.2));
   b.frameHand('L', _a.copy(aim).lerp(_b.set(0.1, -0.45, 1).normalize(), 1 - on), _c.set(-0.15, 1, 0));
-  // Draw hand: to the string, back to the cheek, and away on the release.
+  // Draw hand: to the string, back to the chin, and away on the release.
   const nock = b.toModel(b.arm.L.end, _a.set(0, 0.275, 0), _a);
-  const anchor = _b.copy(grip).addScaledVector(aim, -0.66).add(_pole.set(0, 0.04, 0));
+  const anchor = _b.copy(grip).addScaledVector(aim, -0.66).add(_pole.set(0, 0.02, 0));
   const hand = _c.lerpVectors(nock, anchor, pull);
   if (loosed) hand.copy(anchor).addScaledVector(aim, -0.13 * after).add(_pole.set(-0.08 * after, 0.04 * after, 0));
   hand.lerp(restR, Math.max(1 - on * smooth(f / (S * 0.35)), relax));
@@ -987,7 +1047,7 @@ function hurt(b: Body, p: PoseInput): void {
   const aft = Math.max(0, -Math.cos(h)); // shoved back: hit from the front
   const side = Math.sin(h); // + shoved to the left: hit from the right
   const pose = b.save(b.buf(2));
-  const held = p.weapon !== 3 && REACH[p.weapon] ? bladeDir(b, _held) : null;
+  const held = p.weapon !== 3 && REACH[p.weapon] && p.stow < 0.5 ? bladeDir(b, _held) : null;
   b.torso.rotation.x += 0.45 * fore - 0.5 * aft;
   b.torso.rotation.y += 0.35 * side;
   b.torso.rotation.z -= 0.4 * side;
@@ -1020,12 +1080,13 @@ function hurt(b: Body, p: PoseInput): void {
 }
 
 const _held = new THREE.Vector3();
+const _front = new THREE.Vector3();
 const _aim = new THREE.Vector3();
 
-/** Which way the weapon in the right hand points, in model space. */
-function bladeDir(b: Body, out: THREE.Vector3): THREE.Vector3 {
-  const hand = b.positionOf(b.arm.R.end, _b);
-  return b.toModel(b.arm.R.end, out.set(0, -1, 0), out).sub(hand).normalize();
+/** Which way the weapon in a hand (the right, unless told) points, in model space. */
+function bladeDir(b: Body, out: THREE.Vector3, s: Side = 'R'): THREE.Vector3 {
+  const hand = b.positionOf(b.arm[s].end, _b);
+  return b.toModel(b.arm[s].end, out.set(0, -1, 0), out).sub(hand).normalize();
 }
 
 /** Part way round the great circle from one direction to another (they're unit vectors). */
@@ -1083,29 +1144,26 @@ function travelPose(b: Body, p: PoseInput): void {
   if (p.travel === 'glide') return glide(b, p);
   if (p.travel === 'ride') return ride(b, p);
   if (p.travel === 'helm') return helmsman(b, p);
-  // Seated: hips on the seat (the origin), feet on the floor ahead.
-  b.body.position.set(0, 0.22, 0);
+  // Seated: well forward on the seat (the origin), so the thighs reach out over its front edge.
+  b.body.position.set(0, 0.22, 0.08);
   b.hips.rotation.set(-0.12, 0, 0);
-  for (const s of SIDES) {
-    const ft = _feet[s];
-    ft.x = k(s) * 0.15;
-    ft.z = 0.42;
-    ft.lift = -0.5;
-    ft.pitch = -0.2;
-    ft.yaw = k(s) * 0.1;
-  }
   if (p.travel === 'row') return row(b, p);
   if (p.travel === 'drive') {
-    // Both hands on the wheel, turning it.
-    b.torso.rotation.set(0.12, 0, -p.bank * 0.06);
+    // Both hands on the wheel, turning it, the shoulders turning a little with it.
+    b.torso.rotation.set(0.12, -p.bank * 0.14, -p.bank * 0.06);
     b.neck.rotation.set(-0.1, p.bank * 0.15, 0);
-    plant(b, _feet, 0.05, NONE);
+    seatedLegs(b, p, 0.04);
     const turn = clamp(p.bank, -1, 1) * 1.2;
     for (const s of SIDES) {
-      const a = Math.PI / 2 - k(s) * 1.05 + turn;
-      // The wheel sits ~0.3 up and 0.41 ahead of the seat, tipped back toward the driver
-      // (src/render/models/vehicles.ts).
-      _a.set(Math.cos(a) * 0.17, Math.sin(a) * 0.17, 0).applyAxisAngle(_b.set(1, 0, 0), -0.85).add(_c.set(0, 0.3, 0.41));
+      if (p.grips) {
+        // The wheel's own rim, as it turns (vehicles.ts steeringWheel).
+        const i = s === 'L' ? 0 : 3;
+        _a.set(p.grips[i], p.grips[i + 1], p.grips[i + 2]);
+      } else {
+        // No vehicle to ask: a wheel ~0.3 up and 0.41 ahead of the seat, tipped back.
+        const a = Math.PI / 2 - k(s) * 1.05 - turn;
+        _a.set(Math.cos(a) * 0.17, Math.sin(a) * 0.17, 0).applyAxisAngle(_b.set(1, 0, 0), -0.85).add(_c.set(0, 0.3, 0.41));
+      }
       b.handTo(s, _a, torsoDir(b, _pole.set(k(s) * 0.8, -0.7, -0.3)));
     }
     cape(b, 0.1, 0.05);
@@ -1115,7 +1173,7 @@ function travelPose(b: Body, p: PoseInput): void {
   const sway = 0.03 * Math.sin(t * 2.1) * (0.3 + p.effort);
   b.torso.rotation.set(-0.04 + sway, 0, sway * 0.5);
   b.neck.rotation.set(0.05, 0.25 * noise(t * 0.2), 0);
-  plant(b, _feet, 0.05, NONE);
+  seatedLegs(b, p, 0.02);
   for (const s of SIDES) {
     const knee = b.positionOf(b.leg[s].mid, _a).add(_b.set(0, 0.09, 0.02));
     b.handTo(s, knee, torsoDir(b, _pole.set(k(s) * 0.7, -0.3, -0.6)));
@@ -1170,7 +1228,11 @@ function glide(b: Body, p: PoseInput): void {
   // The wing's own tilt, as src/render/open/life.ts animates it.
   const bank = clamp(p.bank * 0.6, -0.9, 0.9);
   const pitch = clamp((p.rise * JUMP.velocity) / 12, -0.35, 0.3);
-  b.body.position.set(p.bank * 0.07, 1.4, 0.04);
+  // Hanging just behind the bar, which is out in front of the chin (gliders.ts), arms reaching to it,
+  // and swinging with it as the wing tilts: the pilot hangs from the wing.
+  const bar = gliderGrip(0, bank, pitch, _b);
+  const rest = gliderGrip(0, 0, 0, _c);
+  b.body.position.set(p.bank * 0.07 + (bar.x - rest.x) * 0.85, 1.4 + (bar.y - rest.y) * 0.85, bar.z - 0.47);
   b.body.rotation.set(0.42, 0, -bank * 0.45);
   b.torso.rotation.set(0.05, 0, 0);
   b.neck.rotation.set(-0.42, 0, bank * 0.2);
@@ -1187,21 +1249,23 @@ function ride(b: Body, p: PoseInput): void {
   const e = clamp01(p.effort);
   const t = p.time;
   const stride = t * (6 + 6 * e);
-  const post = Math.abs(Math.sin(stride)) * 0.05 * e;
-  b.body.position.set(0, 0.27 + post, -0.03);
+  const post = Math.abs(Math.sin(stride)) * 0.035 * e;
+  // Down in the saddle, the hips' joints just above the seat, rising a little to the trot.
+  b.body.position.set(0, 0.22 + post, -0.03);
   b.body.rotation.set(0, 0, -p.bank * 0.12);
   b.hips.rotation.set(-0.12, 0, 0);
   b.torso.rotation.set(0.1 + 0.22 * e + 0.03 * Math.sin(stride * 2) * e, 0, p.bank * 0.05);
   b.neck.rotation.set(-0.1 - 0.2 * e, 0, 0);
+  // Legs round the barrel: knees out over its sides, the balls of the feet on the stirrup irons
+  // (the mount's own, as it moves, when it gave them; mounts.ts saddle()), heels down.
   for (const s of SIDES) {
-    const ft = _feet[s];
-    ft.x = k(s) * 0.34;
-    ft.z = 0.12;
-    ft.lift = -0.56;
-    ft.pitch = -0.25;
-    ft.yaw = k(s) * 0.12;
+    const i = s === 'L' ? 0 : 3;
+    const ankle =
+      p.footrest && p.footrest.length >= 6
+        ? _f.set(p.footrest[i], p.footrest[i + 1] + b.ankleHeight, p.footrest[i + 2] - 0.08)
+        : _f.set(k(s) * 0.33, -0.4, -0.02);
+    b.footTo(s, ankle, -0.25, k(s) * 0.12, 0.9);
   }
-  plant(b, _feet, 0.75, NONE);
   for (const s of SIDES) {
     const pump = 0.03 * Math.sin(stride * 2) * e;
     b.handTo(s, _a.set(k(s) * 0.11, 0.5 + pump, 0.42 + pump), torsoDir(b, _pole.set(k(s) * 0.7, -0.7, -0.3)));
@@ -1209,47 +1273,71 @@ function ride(b: Body, p: PoseInput): void {
   cape(b, 0.2 + 0.85 * e + 0.08 * Math.sin(stride * 2) * e, 0.1 + 0.3 * e);
 }
 
-/** Rowing: reach forward to the catch, drive back with the legs and the back, hands to the chest. */
+/**
+ * Sitting: thighs out along the seat and over its front edge, knees bent, the shins down to where
+ * the vehicle has its footrest if the feet reach it with the knees still bent (`reach`, metres from
+ * the hip; a rower braces with the legs nearly straight), otherwise hanging just past the edge.
+ */
+function seatedLegs(b: Body, p: PoseInput, spread: number, reach = 0.5): void {
+  for (const s of SIDES) {
+    const hip = b.positionOf(b.leg[s].root, _e);
+    const ankle = _f.set(hip.x + k(s) * spread, hip.y - 0.31, hip.z + 0.33);
+    if (p.footrest) {
+      const rest = _g.set(p.footrest[0] + k(s) * (0.11 + spread), p.footrest[1] + b.ankleHeight, p.footrest[2]);
+      const far = hip.distanceTo(rest);
+      if (far <= reach) ankle.copy(rest);
+      // A little out of reach: lean the feet toward it rather than leave them hanging short.
+      else if (far <= reach + 0.12) ankle.lerp(rest, 1 - (far - reach) / 0.12);
+    }
+    b.footTo(s, ankle, -0.2, k(s) * 0.12, 0.08);
+  }
+}
+
+/** Where a hand is to go, seated: the vehicle's grip for it (p.grips) if it gave one, else `fallback`. */
+function gripFor(p: PoseInput, s: Side, fallback: THREE.Vector3): THREE.Vector3 {
+  if (!p.grips) return fallback;
+  const i = s === 'L' ? 0 : 3;
+  return fallback.set(p.grips[i], p.grips[i + 1], p.grips[i + 2]);
+}
+
+/**
+ * Rowing: the hands on the oars' handles wherever the boat's stroke has them, the body swinging
+ * with them - leaning in to the catch, back at the finish - and the legs braced against the floor.
+ */
 function row(b: Body, p: PoseInput): void {
   const e = clamp01(p.effort);
   const t = p.time;
-  // The oars sweep at 0.35 + 0.6 x throttle strokes a second (vehicles.ts oars()).
+  // How far forward the handles are: from the boat's own oars when it gave them, otherwise a stroke
+  // at 0.35 + 0.6 x throttle a second (vehicles.ts oars()).
   const ph = (((t * (0.35 + 0.6 * e)) % 1) + 1) % 1;
   const drive = ph < 0.55 ? easeInOut(ph / 0.55) : 1 - smooth((ph - 0.55) / 0.45);
-  b.torso.rotation.set(lerp(0.42, -0.2, drive * e) + 0.1 * (1 - e), 0, 0);
-  b.neck.rotation.set(lerp(-0.3, 0.12, drive * e), 0, 0);
-  _feet.L.z = _feet.R.z = 0.46;
-  _feet.L.lift = _feet.R.lift = -0.3;
-  plant(b, _feet, 0.15, NONE);
+  const reachOut = p.grips ? clamp01(((p.grips[2] + p.grips[5]) / 2 - 0.22) / 0.42) : 1 - drive * e;
+  b.torso.rotation.set(lerp(-0.2, 0.42, reachOut), 0, 0);
+  b.neck.rotation.set(lerp(0.12, -0.3, reachOut), 0, 0);
+  seatedLegs(b, p, 0.06, 0.53);
   for (const s of SIDES) {
     const z = lerp(0.48, 0.08, drive * e) + 0.05;
     const y = 0.38 + 0.05 * Math.sin(TAU * ph) * e;
-    b.handTo(s, _a.set(k(s) * 0.12, y, z), torsoDir(b, _pole.set(k(s) * 0.6, -0.5, -0.7)));
+    b.handTo(s, gripFor(p, s, _a.set(k(s) * 0.12, y, z)), torsoDir(b, _pole.set(k(s) * 0.6, -0.5, -0.7)));
   }
-  cape(b, 0.12 + 0.1 * drive, 0.05);
+  cape(b, 0.12 + 0.1 * (1 - reachOut), 0.05);
 }
 
 /** At the ship's wheel: sitting to it, both hands on the rim, swaying with the swell. */
 function helmsman(b: Body, p: PoseInput): void {
   const t = p.time;
-  b.body.position.set(0, 0.22, 0);
+  b.body.position.set(0, 0.22, 0.1);
   b.hips.rotation.set(-0.1, 0, 0);
-  b.torso.rotation.set(0.32 + 0.03 * Math.sin(t * 1.3), 0, 0.03 * Math.sin(t * 0.9));
+  b.torso.rotation.set(0.36 + 0.03 * Math.sin(t * 1.3), clamp(p.bank, -1, 1) * 0.14, 0.03 * Math.sin(t * 0.9));
   b.neck.rotation.set(-0.3, 0.1 * noise(t * 0.25), 0);
-  for (const s of SIDES) {
-    const ft = _feet[s];
-    ft.x = k(s) * 0.17;
-    ft.z = 0.36;
-    ft.lift = -0.45;
-    ft.pitch = -0.1;
-    ft.yaw = k(s) * 0.15;
-  }
-  plant(b, _feet, 0.1, NONE);
-  // A ship's wheel 0.42 up and 0.55 ahead of the seat, radius 0.32 (vehicles.ts helm()).
+  seatedLegs(b, p, 0.05);
+  // A ship's wheel 0.42 up and 0.55 ahead of the seat, radius 0.32 (vehicles.ts helm()): its own
+  // rim if the boat gave it, else where it would be. Steering left turns its top left.
   const turn = clamp(p.bank, -1, 1) * 1.1;
   for (const s of SIDES) {
-    const a = Math.PI / 2 - k(s) * 0.9 + turn;
-    b.handTo(s, _a.set(Math.cos(a) * 0.3, 0.42 + Math.sin(a) * 0.3, 0.5), torsoDir(b, _pole.set(k(s) * 0.8, -0.6, -0.3)));
+    const a = Math.PI / 2 - k(s) * 0.9 - turn;
+    const at = gripFor(p, s, _a.set(Math.cos(a) * 0.3, 0.42 + Math.sin(a) * 0.3, 0.5));
+    b.handTo(s, at, torsoDir(b, _pole.set(k(s) * 0.8, -0.6, -0.3)));
   }
   cape(b, 0.15, 0.05);
 }

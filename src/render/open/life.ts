@@ -16,6 +16,7 @@ import { stormAt } from '../../sim/life/weather';
 import { angleDiff } from '../../sim/math';
 import { toon } from '../toon';
 import { tryBuild, type Models, type VehicleAnim } from './models';
+import type { Holds } from '../models/vehicles';
 import { toWorld } from '../../sim/zone/generate';
 import { shipDesign } from '../../content/shipyard';
 
@@ -27,6 +28,8 @@ interface Shown {
   root: THREE.Object3D;
   animate?: (dt: number, s: VehicleAnim) => void;
   mount?: (dt: number, s: { speed: number; grounded: boolean }) => void;
+  /** What the rider's hands hold and feet rest on (vehicles.ts Holds). */
+  holds?: Holds;
   def: RideableDef;
   cargo: THREE.Object3D[];
 }
@@ -443,18 +446,23 @@ export class LifeView {
     let root: THREE.Object3D;
     let animate: Shown['animate'];
     let mount: Shown['mount'];
+    let holds: Shown['holds'];
     if (isMount(def)) {
       const m = tryBuild(this.models.buildMount ? () => this.models.buildMount!(def) : null);
       root = m && m.root.children.length ? m.root : standInVehicle(def);
-      if (m && m.root.children.length) mount = m.animate.bind(m);
+      if (m && m.root.children.length) {
+        mount = m.animate.bind(m);
+        holds = m.holds;
+      }
     } else {
       const m = tryBuild(this.models.buildVehicle ? () => this.models.buildVehicle!(def) : null);
       root = m?.root ?? standInVehicle(def);
       if (m) animate = m.animate.bind(m);
+      holds = m?.holds;
     }
     root.rotation.order = 'YXZ';
     this.group.add(root);
-    s = { root, animate, mount, def, cargo: [] };
+    s = { root, animate, mount, holds, def, cargo: [] };
     this.vehicles.set(v.id, s);
     return s;
   }
@@ -534,6 +542,7 @@ export class LifeView {
         z = hp.z - oz;
         y = hp.y - (anchorWorld(v, seat).y - v.y);
         this.hero.seatPose = seat.pose;
+        this.hero.seatHolds = s.holds ?? null;
       }
       let pitch = v.pitch;
       let roll = v.roll;
@@ -565,7 +574,10 @@ export class LifeView {
       this.group.remove(s.root);
       this.vehicles.delete(id);
     }
-    if (!p.vehicle) this.hero.seatPose = '';
+    if (!p.vehicle) {
+      this.hero.seatPose = '';
+      this.hero.seatHolds = null;
+    }
 
     // Packs: on your back, in a vehicle's slot, or on the ground.
     const seen = new Set<number>();

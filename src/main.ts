@@ -430,13 +430,14 @@ function enemyAt(x: number, z: number, r: number): boolean {
 // see to that). Swimming, gliding and riding ignore it.
 const STANCE_LINGER = 90; // frames the stance holds after your last swing or cast
 let lastFight = -Infinity;
+/** In a fight: an enemy marked, or a swing or cast just made. The hero's weapon is out for it. */
+const inAFight = (): boolean => lockOn.mark() !== null || sim.frame - lastFight < STANCE_LINGER;
 function combatStance(a: Actions): Actions {
   if (a.faceX !== 0 || a.faceZ !== 0) return a; // already given (tests)
   if (net && !playing) return a;
   const p = sim.player;
   if (p.mode === 'attack' || p.mode === 'cast') lastFight = sim.frame;
-  const fighting = lockOn.mark() !== null || sim.frame - lastFight < STANCE_LINGER;
-  if (!fighting || p.mode === 'ride' || p.mode === 'swim' || p.mode === 'glide') return a;
+  if (!inAFight() || p.mode === 'ride' || p.mode === 'swim' || p.mode === 'glide') return a;
   return { ...a, faceX: Math.sin(follow.yaw), faceZ: Math.cos(follow.yaw) };
 }
 
@@ -858,6 +859,8 @@ function followSim(dt: number): void {
 }
 
 function draw(alpha: number, cameraDt: number, animDt: number): void {
+  // Weapon out in a fight, put away a little after one (the battlefield is all fight).
+  hero.armed = battlefield || inAFight();
   hero.update(sim.player, alpha, sim.frame);
   if (prediction) {
     prediction.ease(animDt);
@@ -1167,6 +1170,10 @@ const api = {
   // doesn't change while aiming, so it can't be used to see this.
   cameraHeight(): number {
     return follow.camera.position.y;
+  },
+  /** Where the hero's weapon is drawn: 'hand' when held, 'away' when put away (hip, back, lap). */
+  heroWeapon(): 'hand' | 'away' {
+    return hero.weaponInHand ? 'hand' : 'away';
   },
   // Targeting, the ground-aim circle, and the floating numbers currently on screen.
   combat() {

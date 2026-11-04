@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import type { PlayerState } from '../sim/types';
 import { angleDiff } from '../sim/math';
-import { ABILITIES, COMBAT, comboShape, JUMP, MOVE, NO_ABILITY, STEP } from '../tuning';
+import { ABILITIES, COMBAT, comboShape, JUMP, MOVE, MOVEMENT_SKILLS, NO_ABILITY, STEP } from '../tuning';
 import { DetailRig } from './detail/rig';
 import { Body, SIDES, type Side } from './detail/body';
 import { Inertia } from './detail/blend';
@@ -11,6 +11,8 @@ import { SlashArc } from './vfx';
 import { poseHumanoid, settle } from './detail/humanoid';
 import { swingFor } from './detail/swings';
 import { pose, type PoseFeedback, type PoseInput } from '../content/pose';
+import type { Holds } from './models/vehicles';
+import { stowedFor, stowedTurn } from './detail/stow';
 
 const TAU = Math.PI * 2;
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
@@ -155,6 +157,14 @@ const SETTLE_STEP = 0.16;
  */
 const TWIST_AT = 0.55;
 const TWIST_MAX = 1.0;
+/**
+ * Drawing the weapon and putting it away (seconds), and how long after a fight it stays out: yours
+ * (main.ts says when you're in one), and other players' (judged by what they were doing).
+ */
+const DRAW_TIME = 0.45;
+const SHEATHE_TIME = 0.6;
+const LINGER = 2.5;
+const OTHERS_LINGER = 4;
 
 /** A foot held where it was planted. */
 interface FootHold {
@@ -172,43 +182,6 @@ interface FootHold {
   yawFrom: number;
 }
 const footHold = (): FootHold => ({ last: null, ball: false, fix: new THREE.Vector3(), yaw: 0, stepping: 0, from: new THREE.Vector3(), yawFrom: 0 });
-/**
- * Travelling (swimming, gliding, riding, at the oars or the wheel), the weapon is put away: the
- * sword and the club at the hips, clear of the cape, and the staff and the bow across the back, low
- * enough to clear the head and high enough to clear a seat. Lying out flat (swimming, gliding) the
- * sword and club lie along the body toward the feet; sitting, they point back and out, past whatever
- * you're sitting on. In the torso's frame: where the grip goes, the way the weapon points from it
- * (the hand's -y), and the way its flat faces (the hand's z).
- */
-type Vec3 = readonly [number, number, number];
-interface Slung {
-  at: Vec3;
-  along: Vec3;
-  face: Vec3;
-}
-const ACROSS_BACK: Record<string, Slung> = {
-  staff: { at: [-0.33, 0.53, -0.24], along: [0.82, -0.57, 0], face: [0, 0, -1] },
-  bow: { at: [-0.08, 0.17, -0.24], along: [-0.6, -0.8, 0], face: [0.8, -0.6, 0] },
-};
-const SLUNG_FLAT: Record<string, Slung> = {
-  sword: { at: [0.26, 0.1, 0.03], along: [0.06, -0.97, -0.2], face: [1, 0, 0] },
-  club: { at: [-0.26, 0.1, 0.03], along: [-0.06, -0.97, -0.2], face: [-1, 0, 0] },
-  ...ACROSS_BACK,
-};
-const SLUNG_SEATED: Record<string, Slung> = {
-  sword: { at: [0.26, 0.12, 0], along: [0.3, -0.3, -0.9], face: [1, 0, 0] },
-  club: { at: [-0.26, 0.12, 0], along: [-0.3, -0.3, -0.9], face: [-1, 0, 0] },
-  ...ACROSS_BACK,
-};
-const slungFor = (travel: string): Record<string, Slung> => (travel === 'swim' || travel === 'glide' ? SLUNG_FLAT : SLUNG_SEATED);
-/** The turn that puts a weapon, as held in the hand, the way a Slung says. */
-function slungTurn(s: Slung, out: THREE.Quaternion): THREE.Quaternion {
-  const y = new THREE.Vector3(...s.along).normalize().negate();
-  const z = new THREE.Vector3(...s.face);
-  z.addScaledVector(y, -z.dot(y)).normalize();
-  const x = new THREE.Vector3().crossVectors(y, z);
-  return out.setFromRotationMatrix(new THREE.Matrix4().makeBasis(x, y, z));
-}
 
 /** How badly a held foot wants to step back under you, out of place and turned: 1 is the point it does. */
 const strain = (h: FootHold): number => Math.hypot(Math.hypot(h.fix.x, h.fix.z) / SETTLE_AT, h.yaw / TWIST_AT);
@@ -248,13 +221,30 @@ export class Hero {
   /** Which way the hit that stunned you shoved you, kept from the moment it landed (NaN: not hit). */
   private hitFrom = NaN;
   private lastStunFrame = Infinity;
-  /** The way of travelling the weapon is put away for, or '' in the hand (see SLUNG_FLAT). */
-  private slung = '';
+  /**
+   * Where the weapon's model hangs: null in the hand, '' put away on foot, otherwise put away for
+   * that way of travelling (stow.ts).
+   */
+  private stowedAs: string | null = null;
+  /** 0 the weapon in hand .. 1 put away (PoseInput.stow), and when you last fought (seconds). */
+  private stow = 0;
+  private lastFight = -Infinity;
+  /**
+   * Whether you are in a fight, set by whoever knows (main.ts, for the player: an enemy marked or a
+   * swing just made); left undefined, the hero judges by what the rules have it doing. In a fight
+   * the weapon comes out; a few seconds after, it goes away.
+   */
+  armed: boolean | undefined = undefined;
   /** Feet held where they were planted (see holdFeet), and the facing they were last held at. */
   private holds: Record<Side, FootHold> = { L: footHold(), R: footHold() };
   private holdFacing = NaN;
   /** How to sit while riding (the vehicle's seat pose), set by whoever draws the vehicle. */
   seatPose = '';
+  /**
+   * What the hands hold and the feet rest on in that seat, as the vehicle model moves them (its
+   * wheel's rim, its oars' handles), set by whoever draws the vehicle; null for none.
+   */
+  seatHolds: Holds | null = null;
   /** Where a pack on your back hangs from. */
   get torsoJoint(): THREE.Object3D {
     return this.torso;
@@ -284,23 +274,56 @@ export class Hero {
     this.rig.showAttachment(HERO_WEAPONS[weapon] ?? null);
   }
 
-  /** Puts the weapons away for a way of travelling (see SLUNG_FLAT), or back in the hand (''). */
-  private sling(travel: string): void {
-    this.slung = travel;
-    const table = slungFor(travel);
+  /** Where the vehicle's holds are this frame, in the body's model space, for the seated poses. */
+  private reachForHolds(input: PoseInput, h: Holds): void {
+    this.root.updateWorldMatrix(true, false);
+    this.rig.root.updateMatrix();
+    const toModel = _mInv.multiplyMatrices(this.root.matrixWorld, this.rig.root.matrix).invert();
+    const at = (o: THREE.Object3D) => {
+      o.updateWorldMatrix(true, false);
+      return o.getWorldPosition(_v).applyMatrix4(toModel);
+    };
+    if (h.hands) {
+      const l = at(h.hands[0]);
+      const grips = [l.x, l.y, l.z];
+      const r = at(h.hands[1]);
+      grips.push(r.x, r.y, r.z);
+      input.grips = grips;
+    }
+    if (Array.isArray(h.feet)) {
+      const l = at(h.feet[0]);
+      const rest = [l.x, l.y, l.z];
+      const r = at(h.feet[1]);
+      rest.push(r.x, r.y, r.z);
+      input.footrest = rest;
+    } else if (h.feet) {
+      const f = at(h.feet);
+      input.footrest = [f.x, f.y, f.z];
+    }
+  }
+
+  /** Hangs the weapons where they are put away (null: in the hand; '' on foot, or a way of travelling). */
+  private place(as: string | null): void {
+    this.stowedAs = as;
+    const table = as === null ? null : stowedFor(as);
     for (const name of HERO_WEAPONS) {
       const g = this.rig.attachment(name);
-      const s = table[name];
-      if (travel && s) {
-        this.torso.add(g);
+      const s = table?.[name];
+      if (s) {
+        (s.parent === 'hips' ? this.rig.joint('hips') : this.torso).add(g);
         g.position.set(...s.at);
-        slungTurn(s, g.quaternion);
+        stowedTurn(s, g.quaternion);
       } else {
         this.rig.joint(HERO_RIG.attachments?.[name]?.joint ?? 'handR').add(g);
         g.position.set(0, 0, 0);
         g.quaternion.identity();
       }
     }
+  }
+
+  /** Whether the weapon is in a hand right now, rather than put away. */
+  get weaponInHand(): boolean {
+    return this.stowedAs === null;
   }
 
   /** The body itself, for benches and tests that measure it. */
@@ -315,7 +338,29 @@ export class Hero {
     // How far you have run, drawn part way between steps like everything else.
     const running = p.mode === 'normal' && p.grounded;
     const back = running ? Math.hypot(p.vel.x, p.vel.z) * STEP * (1 - alpha) : 0;
-    this.drive(inputFromPlayer(p, frame, this.seatPose, alpha), p.runPhase - back);
+    const input = inputFromPlayer(p, frame, this.seatPose, alpha);
+    input.stow = this.drawOrSheathe(p, input);
+    this.drive(input, p.runPhase - back);
+  }
+
+  /**
+   * The weapon comes out for a fight and goes away after one: drawn over DRAW_TIME when a fight
+   * starts, put away over SHEATHE_TIME once it has been over a while, and in the hand at once
+   * whenever you swing, shoot, cast or guard (the swing's own wind-up covers the draw). A pack on
+   * your back keeps it in hand, over the shoulder; travelling puts it away whatever.
+   */
+  private drawOrSheathe(p: PlayerState, input: PoseInput): number {
+    const now = input.time;
+    const step = Number.isFinite(this.lastTime) ? Math.min(0.1, Math.max(0, now - this.lastTime)) : 0;
+    const guarding = p.mode === 'action' && MOVEMENT_SKILLS[p.actionId]?.action.pose === 'block';
+    const striking = p.mode === 'attack' || (p.mode === 'cast' && p.castAbility !== NO_ABILITY) || guarding;
+    const fighting = striking || p.stun > 0 || this.armed === true;
+    if (fighting) this.lastFight = now;
+    const linger = this.armed === undefined ? OTHERS_LINGER : LINGER;
+    if (striking || input.carry) this.stow = 0;
+    else if (fighting || now - this.lastFight < linger) this.stow = Math.max(0, this.stow - step / DRAW_TIME);
+    else this.stow = Math.min(1, this.stow + step / SHEATHE_TIME);
+    return this.stow;
   }
 
   /**
@@ -371,10 +416,12 @@ export class Hero {
     if (input.stunned) input.hit = this.hitFrom;
 
     if (input.weapon !== this.weaponShown) this.setWeapon(input.weapon);
-    // Travelling, the hands are busy (or swimming): the weapon goes on the back or at the hip. With
-    // a pack on the back it stays over the shoulder, in the hand.
-    const sling = input.carry ? '' : input.travel;
-    if (sling !== this.slung) this.sling(sling);
+    // Where the weapon hangs: travelling, put away for it (stow.ts); on foot, in the hand until the
+    // hand putting it away lets go of it, halfway through (and back in it halfway through drawing).
+    // A pack on the back keeps it in hand, over the shoulder.
+    const as = input.carry ? null : input.travel ? input.travel : input.stow >= 0.5 ? '' : null;
+    if (as !== this.stowedAs) this.place(as);
+    if (input.travel && this.seatHolds) this.reachForHolds(input, this.seatHolds);
     const fb = poseHumanoid(this.rig, input);
 
     // Ease over a change of state rather than snapping into the new pose.

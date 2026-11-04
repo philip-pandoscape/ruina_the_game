@@ -85,6 +85,27 @@ test('Escape drops the mark, and it comes back on its own', async ({ page }) => 
   expect((await combat(page)).locked).toBe(false);
 });
 
+test('the weapon comes out for a fight and goes away after it', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto('/?yard');
+  await page.waitForFunction(() => (window as any).__game?.ready === true);
+  const weapon = () => page.evaluate(() => (window as any).__game.heroWeapon());
+  // The dummy is marked as you arrive: an enemy in front of you, weapon in hand.
+  await expect.poll(weapon, { timeout: 3000 }).toBe('hand');
+  // Turned away from it, with nothing marked, it's put away a few seconds later.
+  await page.evaluate(() => {
+    const g = (window as any).__game;
+    const away = g.state().player.facing + Math.PI;
+    g.reset({ facing: away, camYaw: away });
+  });
+  await expect.poll(() => page.evaluate(() => (window as any).__game.combat().target), { timeout: 3000 }).toBeNull();
+  await expect.poll(weapon, { timeout: 8000 }).toBe('away');
+  // A swing has it in hand at once.
+  await page.evaluate(() => (window as any).__game.advance(2, { attackPressed: true }));
+  await expect.poll(weapon, { timeout: 1000 }).toBe('hand');
+  expect(errors).toEqual([]);
+});
+
 // A standard (Xbox) controller, so the left stick can place the ground-aim circle.
 async function withPad(page: Page): Promise<{
   setAxis: (i: number, v: number) => Promise<void>;

@@ -87,6 +87,18 @@ const move = (frames: number, speed: number, extra: Partial<PoseInput> = {}): Se
   at: () => ({ input: { run: speed / RUN, speed: speed / RUN, ...extra }, speed }),
 });
 
+/**
+ * Putting the weapon away (`to` 1) or drawing it (`to` 0) at the close-up hero's pace
+ * (character.ts: 0.6 s and 0.45 s), standing or moving at `speed` m/s.
+ */
+function stowing(from: number, to: number, speed = 0): Segment {
+  const frames = Math.round((to > from ? 0.6 : 0.45) * HZ);
+  return {
+    frames,
+    at: (f) => ({ input: { run: speed / RUN, speed: speed / RUN, stow: from + ((to - from) * f) / (frames - 1) }, speed }),
+  };
+}
+
 /** Speeding up or slowing down at the rules' acceleration. */
 const ramp = (from: number, to: number, accel: number, extra: Partial<PoseInput> = {}): Segment => {
   const frames = Math.max(1, Math.ceil((Math.abs(to - from) / accel) * HZ));
@@ -278,9 +290,11 @@ const EIGHT = [0, 45, 90, 135, 180, -135, -90, -45];
 export const SCENARIOS: Scenario[] = [
   // ---- Moving ----
   { id: 'idle', group: 'Moving', label: 'Idle', ...sequence([stand(360)]) },
+  { id: 'idleAway', group: 'Moving', label: 'Idle, weapon put away', ...sequence([stand(360, { stow: 1 })]) },
   { id: 'walk', group: 'Moving', label: 'Walk', ...sequence([move(240, 1.4)]) },
   { id: 'jog', group: 'Moving', label: 'Jog (walk speed)', ...sequence([move(240, WALK)]) },
   { id: 'run', group: 'Moving', label: 'Run', ...sequence([move(240, RUN)]) },
+  { id: 'runAway', group: 'Moving', label: 'Run, weapon put away', ...sequence([move(240, RUN, { stow: 1 })]) },
   { id: 'sprint', group: 'Moving', label: 'Sprint', ...sequence([move(240, MOVE.sprintSpeed)]) },
   {
     id: 'startStop',
@@ -329,6 +343,13 @@ export const SCENARIOS: Scenario[] = [
   { id: 'heal', group: 'Fighting', label: 'Cast: Healing Circle', weapon: 2, ...sequence([stand(30, { weapon: 2 }), cast(ABILITIES.findIndex((a) => a.id === 'heal')), stand(40, { weapon: 2 })]) },
   { id: 'meteor', group: 'Fighting', label: 'Cast: Meteor', weapon: 2, ...sequence([stand(30, { weapon: 2 }), cast(ABILITIES.findIndex((a) => a.id === 'meteor')), stand(40, { weapon: 2 })]) },
   { id: 'block', group: 'Fighting', label: 'Block', ...sequence([stand(30), action('block'), stand(40)]) },
+  { id: 'sheathe', group: 'Fighting', label: 'Put away and draw', ...sequence([stand(30), stowing(0, 1), stand(40, { stow: 1 }), stowing(1, 0), stand(30)]) },
+  {
+    id: 'sheatheRun',
+    group: 'Fighting',
+    label: 'Put away and draw, running',
+    ...sequence([move(40, RUN), stowing(0, 1, RUN), move(50, RUN, { stow: 1 }), stowing(1, 0, RUN), move(40, RUN)]),
+  },
   { id: 'roll', group: 'Fighting', label: 'Dodge roll', ...sequence([move(30, RUN), action('dodgeRoll', RUN), move(40, RUN)]) },
   { id: 'backstep', group: 'Fighting', label: 'Backstep', ...sequence([stand(30), action('backstep'), stand(40)]) },
   { id: 'slide', group: 'Fighting', label: 'Slide', ...sequence([move(40, RUN), action('slide', RUN), move(40, RUN)]) },

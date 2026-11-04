@@ -262,6 +262,8 @@ export class RemotePlayers {
       if (!r) {
         const hero = new Hero();
         hero.setTeam(rec.team);
+        // The battlefield is all fight: weapons stay out.
+        hero.armed = true;
         this.scene.add(hero.root);
         const shown = blankState();
         shown.pos = { x: rec.x, y: rec.y, z: rec.z };
