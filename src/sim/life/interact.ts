@@ -10,10 +10,10 @@ import { rideable, isMount } from '../../content/vehicles';
 import { toLocal } from '../zone/generate';
 import { closeGlider, gliderBlocked, gust, openGlider } from '../player/traverse';
 import { addScarecrow, cellAt, cellCentre, fell, harvest, isRipe, plant, plotProblem, secondsToRipe, stageOf, water, growFor } from './farming';
-import { buy, carried, dropPack, pickUp, quote, recoverDemand, runRecipe, sell, loadPack, unloadPack, sellPack } from './trade';
+import { buy, buyBack, carried, dropPack, pickUp, quote, recoverDemand, runRecipe, sell, loadPack, unloadPack, sellPack } from './trade';
 import { board, dismount, distanceTo, mountCommand, nearestAnchor, recall, ridden, summon } from './vehicles';
 import { buildStage, deliverMaterial, houseOn, housePose, interiorPoint, isComplete, payTax, placeHouse, stageReady, stillNeeds, taxDue, DAY } from './housing';
-import { accept, complete, questsAt } from './quests';
+import { abandon, accept, complete, questsAt } from './quests';
 import { acceptContract } from './contracts';
 import { buildShipStage, deliverShipMaterial, designItemsInBag, launch, layKeel, shipFinished, shipNeeds, shipOn, shipStageReady } from './shipyard';
 import { shipDesign, designForItem } from '../../content/shipyard';
@@ -343,6 +343,9 @@ export function runCommand(life: Life, sim: Sim, c: Command): void {
     case 'sell':
       if (nearNpc(life, sim, c.npc)) sell(life, c.npc, c.item, c.n);
       return;
+    case 'buyback':
+      if (nearNpc(life, sim, c.npc)) buyBack(life, c.npc, c.item, c.n);
+      return;
     case 'craft': {
       // You have to be at the bench, or with the crafter, to use their recipes.
       const r = recipeById(c.recipe);
@@ -367,6 +370,9 @@ export function runCommand(life: Life, sim: Sim, c: Command): void {
     }
     case 'complete':
       complete(life, c.quest);
+      return;
+    case 'abandon':
+      abandon(life, c.quest);
       return;
     case 'summon':
       summon(life, sim, c.item);

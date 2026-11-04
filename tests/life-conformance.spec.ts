@@ -457,6 +457,46 @@ test.describe('the island on the server matches the browser', () => {
     compare('levels and milestones', script);
   });
 
+  test('a quest given up and taken again, and selling, buying back and walking off', () => {
+    const hollis = npc('hollis');
+    const mara = npc('mara');
+    const script: Script = {
+      coins: 100,
+      every: 30,
+      segments: [
+        idle(5, [{ t: 'grant', item: 'sunroot', n: 10 }]),
+        // Landfall handed in and Patch taken; Patch given up (a milestone and Landfall can't be),
+        // then taken again.
+        { frames: 10, tp: facingFrom(hollis.x, hollis.z, 1.6, Math.PI) },
+        idle(20, [{ t: 'interact' }]),
+        idle(20, [{ t: 'complete', quest: 'landfall' }, { t: 'accept', quest: 'patch' }]),
+        idle(20, [{ t: 'abandon', quest: 'patch' }, { t: 'abandon', quest: 'wayfarer' }, { t: 'abandon', quest: 'landfall' }]),
+        idle(20, [{ t: 'accept', quest: 'patch' }]),
+        // At Mara's stall: sell, buy some back (and something never sold), sell again.
+        { frames: 20, tp: facingFrom(mara.x, mara.z, 1.6, 0), cmds: [{ t: 'sell', npc: 'mara', item: 'sunroot', n: 6 }] },
+        idle(20, [{ t: 'buyback', npc: 'mara', item: 'sunroot', n: 2 }, { t: 'buyback', npc: 'mara', item: 'barley', n: 1 }]),
+        idle(20, [{ t: 'sell', npc: 'mara', item: 'sunroot', n: 1 }]),
+        // Walk off, and she lets go of the rest; come back and there's nothing to buy back.
+        { frames: 30, tp: facingFrom(mara.x, mara.z, 20, 0) },
+        { frames: 20, tp: facingFrom(mara.x, mara.z, 1.6, 0), cmds: [{ t: 'buyback', npc: 'mara', item: 'sunroot', n: 5 }] },
+      ],
+    };
+    type State = { buyback?: Array<{ npc: string; item: string; n: number }>; bag: Array<{ item: string; n: number }>; quests: { active: Array<{ id: string; step: number }>; done: string[] } };
+    const ts = runTs(script);
+    const at = (frame: number) => ts.find((c) => c.frame === frame)!.life as unknown as State;
+    const sunroot = (s: State) => s.bag.filter((b) => b.item === 'sunroot').reduce((n, b) => n + b.n, 0);
+    // Frame 150: 6 sold, 2 bought back, 1 more sold.
+    expect(at(150).buyback, 'held at her stall').toEqual([{ npc: 'mara', item: 'sunroot', n: 5, price: 1 }]);
+    expect(at(180).buyback, 'let go of once you walked off').toEqual([]);
+    const end = ts.at(-1)!.life as unknown as State;
+    expect(sunroot(end)).toBe(10 - 6 + 2 - 1);
+    expect(end.quests.active.map((q) => q.id), 'Patch taken again; the milestone kept').toEqual(expect.arrayContaining(['patch', 'wayfarer']));
+    expect(end.quests.active.find((q) => q.id === 'patch')!.step).toBe(0);
+    const said = ts.flatMap((c) => c.events.filter((e) => e.t === 'toast').map((e) => e.text));
+    expect(said).toContain('Quest abandoned: A Patch of Earth');
+    compare('abandoning and buying back', script);
+  });
+
   test('a place reached counts for each quest by its own reach and height', () => {
     const hollis = npc('hollis');
     const spire = R.places.find((p) => p.id === 'windspire')!;

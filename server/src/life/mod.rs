@@ -50,9 +50,11 @@ pub enum Command {
     Use { item: String },
     Buy { npc: String, item: String, n: i64 },
     Sell { npc: String, item: String, n: i64 },
+    Buyback { npc: String, item: String, n: i64 },
     Craft { recipe: String },
     Accept { quest: String },
     Complete { quest: String },
+    Abandon { quest: String },
     Summon { item: String },
     Recall { vehicle: i64 },
     CancelPlace,
@@ -288,6 +290,7 @@ impl Life {
         vehicles::step_vehicles(self, sim, a);
         housing::step_housing(self);
         quests::step_quests(self, sim);
+        trade::step_buyback(self, sim);
         if sim.player.mode == Mode::Glide {
             self.state.stats.glide_seconds += dt;
         }
@@ -479,6 +482,11 @@ mod tests {
         assert_eq!(c, Command::Buy { npc: "mara".into(), item: "seed.sunroot".into(), n: 3 });
         let c: Command = serde_json::from_str(r#"{"t":"cycleSeed"}"#).unwrap();
         assert_eq!(c, Command::CycleSeed);
+        let c: Command = serde_json::from_str(r#"{"t":"buyback","npc":"mara","item":"sunroot","n":2}"#).unwrap();
+        assert_eq!(c, Command::Buyback { npc: "mara".into(), item: "sunroot".into(), n: 2 });
+        let c: Command = serde_json::from_str(r#"{"t":"abandon","quest":"patch"}"#).unwrap();
+        assert_eq!(c, Command::Abandon { quest: "patch".into() });
+        assert!(!c.is_dev());
         assert!(serde_json::from_str::<Command>(r#"{"t":"buy","npc":"mara","item":"x","n":1.5}"#).is_err());
         let c: Command = serde_json::from_str(r#"{"t":"grant","coins":500}"#).unwrap();
         assert!(c.is_dev());

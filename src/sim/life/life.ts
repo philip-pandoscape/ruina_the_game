@@ -8,7 +8,7 @@ import { FARM } from '../../content/farming';
 import { migrateLifeState, newLifeState, type LifeState, type Stack } from './state';
 import { stepWeather, stepWind } from './weather';
 import { stepFarms } from './farming';
-import { stepTrade } from './trade';
+import { stepBuyback, stepTrade } from './trade';
 import { stepVehicles, rideVehicle } from './vehicles';
 import { startQuests, stepQuests, type QuestEvent, notifyQuests } from './quests';
 import { findFocus, keepResting, runCommand, type Focus, type Placement } from './interact';
@@ -32,9 +32,11 @@ export type Command =
   | { t: 'use'; item: string }
   | { t: 'buy'; npc: string; item: string; n: number }
   | { t: 'sell'; npc: string; item: string; n: number }
+  | { t: 'buyback'; npc: string; item: string; n: number }
   | { t: 'craft'; recipe: string }
   | { t: 'accept'; quest: string }
   | { t: 'complete'; quest: string }
+  | { t: 'abandon'; quest: string }
   | { t: 'summon'; item: string }
   | { t: 'recall'; vehicle: number }
   | { t: 'cancelPlace' }
@@ -54,7 +56,7 @@ export type LifeEvent =
   | { t: 'harvest'; x: number; y: number; z: number }
   | { t: 'build'; house: number; stage: number; x: number; z: number }
   | { t: 'gather'; x: number; y: number; z: number; kind: string }
-  | { t: 'quest'; id: string; what: 'accepted' | 'step' | 'ready' | 'done' }
+  | { t: 'quest'; id: string; what: 'accepted' | 'step' | 'ready' | 'done' | 'abandoned' }
   | { t: 'thunder'; x: number; y: number; z: number };
 
 export interface LifeOptions {
@@ -192,6 +194,7 @@ export class Life implements LifeHooks {
     stepVehicles(this, sim, a);
     stepHousing(this);
     stepQuests(this, sim);
+    stepBuyback(this, sim);
     if (sim.player.mode === 'glide') s.stats.glideSeconds += STEP;
     this.focus = findFocus(this, sim);
   }

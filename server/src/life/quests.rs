@@ -204,6 +204,32 @@ pub fn complete(life: &mut Life, id: &str) -> bool {
     true
 }
 
+/// Gives up a quest you took: it leaves your list with its progress, and its giver offers it again.
+/// Milestones and the quests that start by themselves can't be given up. One that handed you
+/// something to start with takes it back, so taking it again can't hand out another; once you've
+/// used that, it can't be given up.
+pub fn abandon(life: &mut Life, id: &str) -> bool {
+    if !has_quest(id) {
+        return false;
+    }
+    let q = quest_def(id);
+    if is_milestone(q) || q.auto == Some(true) || quest_active(life, id).is_none() {
+        return false;
+    }
+    let start = q.start_items.as_deref().unwrap_or(&[]);
+    if let Some(used) = start.iter().find(|s| life.count(&s.item) < s.n) {
+        life.toast(format!("You've used the {} it gave you, so it can't be given up", item_def(&used.item).name), "bad");
+        return false;
+    }
+    for s in start {
+        life.take(&s.item, s.n);
+    }
+    life.state.quests.active.retain(|p| p.id != id);
+    life.emit(LifeEvent::Quest { id: id.to_string(), what: "abandoned".into() });
+    life.toast(format!("Quest abandoned: {}", q.name), "info");
+    true
+}
+
 fn matches(o: &Objective, e: &QuestEvent) -> bool {
     // Each detail the objective names has to be the event's.
     let named = |want: &Option<String>, got: &Option<String>| given(want).is_none_or(|w| got.as_deref() == Some(w));
@@ -590,6 +616,48 @@ mod tests {
         for id in ["wayfarer", "slimeHunter", "practisedHand", "skyLegs", "packMule"] {
             assert!(quest_active(&life, id).is_some(), "{id}");
         }
+    }
+
+    #[test]
+    fn a_quest_given_up_goes_with_its_progress_and_its_giver_offers_it_again() {
+        let (mut life, _, _) = island(0.0);
+        // Not one that starts by itself, a milestone, or one you haven't taken.
+        assert!(!abandon(&mut life, "landfall"), "Landfall starts by itself");
+        talk(&mut life, "hollis");
+        assert!(complete(&mut life, "landfall"));
+        assert!(!abandon(&mut life, "wayfarer"), "a milestone");
+        assert!(!abandon(&mut life, "wings"), "not taken");
+        assert!(!abandon(&mut life, "no-such-quest"));
+        // Patch, part done, given up: gone with its progress, and Hollis offers it again.
+        assert!(accept(&mut life, "patch"));
+        life.notify(QuestEvent::new("placeScarecrow"));
+        life.notify(QuestEvent::new("plant"));
+        assert_eq!(step(&life, "patch"), 1);
+        life.drain_events();
+        assert!(abandon(&mut life, "patch"));
+        assert!(quest_active(&life, "patch").is_none() && !quest_done(&life, "patch"));
+        let events = life.drain_events();
+        assert_eq!(
+            events,
+            [LifeEvent::Quest { id: "patch".into(), what: "abandoned".into() }, LifeEvent::Toast { text: "Quest abandoned: A Patch of Earth".into(), kind: "info".into() }]
+        );
+        assert!(ids(&quests_at(&life, "hollis").0).contains(&"patch".to_string()));
+        assert!(accept(&mut life, "patch"));
+        let p = &life.state.quests.active[quest_active(&life, "patch").unwrap()];
+        assert_eq!((p.step, p.counts.as_slice()), (0, [0.0].as_slice()));
+        // One that handed you something takes it back; once you've used that, it can't be given up.
+        life.state.quests.active.retain(|q| q.id != "patch");
+        life.state.quests.done.push("patch".into());
+        assert!(accept(&mut life, "livestock"));
+        assert_eq!(life.count("animal.chick"), 1);
+        assert!(abandon(&mut life, "livestock"));
+        assert_eq!(life.count("animal.chick"), 0);
+        assert!(accept(&mut life, "livestock"));
+        life.take("animal.chick", 1);
+        toasts(&mut life);
+        assert!(!abandon(&mut life, "livestock"));
+        assert_eq!(toasts(&mut life), ["You've used the Chick it gave you, so it can't be given up"]);
+        assert!(quest_active(&life, "livestock").is_some());
     }
 
     #[test]

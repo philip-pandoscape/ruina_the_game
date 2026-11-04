@@ -6,9 +6,9 @@
 //! that pack, which recovers with time; a fresh pack earns a bonus that sours the longer it sits.
 
 use crate::jsmath::JsMath;
-use super::content::{self, format_coins, item_def, js_max, js_min, js_round, pack_def, place_name, recipe, route, vendor_for, RecipeDef};
+use super::content::{self, format_coins, item_def, js_hypot, js_max, js_min, js_round, pack_def, place_name, recipe, route, vendor_for, RecipeDef};
 use super::contracts::contract_delivered;
-use super::state::Pack;
+use super::state::{Buyback, Pack};
 use super::vehicles::vehicle_index;
 use super::{Life, LifeEvent, QuestEvent};
 use crate::open::colliders::ground_at;
@@ -331,9 +331,70 @@ pub fn sell(life: &mut Life, npc: &str, item: &str, n: i64) -> bool {
     let price = js_max(1.0, js_round(item_def(item).value * v.buy_rate));
     life.take(item, amount);
     life.state.coins += price * amount as f64;
+    remember(life, npc, item, amount, price);
     life.toast(format!("Sold {} {} for {}", amount, item_def(item).name, format_coins(price * amount as f64)), "coin");
     life.notify(QuestEvent { item: Some(item.to_string()), ..QuestEvent::new("sell") });
     true
+}
+
+// ---------- Buyback ----------
+// A merchant holds what you sold them, at what they paid, until you walk off: sell the wrong stack
+// and you can have it back, but a stall is no place to keep things.
+
+/// How far from a merchant you can go before they stop holding what you sold them.
+pub const BUYBACK_RANGE: f64 = 12.0;
+/// Sales held at once, across every merchant; the oldest go first.
+const BUYBACK_MAX: usize = 12;
+
+fn remember(life: &mut Life, npc: &str, item: &str, n: i64, price: f64) {
+    let list = life.state.buyback.get_or_insert_with(Vec::new);
+    if let Some(same) = list.iter_mut().find(|b| b.npc == npc && b.item == item && b.price == price) {
+        same.n += n;
+    } else {
+        list.push(Buyback { npc: npc.to_string(), item: item.to_string(), n, price });
+    }
+    while list.len() > BUYBACK_MAX {
+        list.remove(0);
+    }
+}
+
+/// Buys back up to n of something you sold this merchant, at what they paid you for it.
+pub fn buy_back(life: &mut Life, npc: &str, item: &str, n: i64) -> bool {
+    let Some(k) = life.state.buyback.as_ref().and_then(|list| list.iter().position(|b| b.npc == npc && b.item == item)) else { return false };
+    if n <= 0 {
+        return false;
+    }
+    let (held, price) = life.state.buyback.as_ref().map_or((0, 0.0), |list| (list[k].n, list[k].price));
+    let amount = n.min(held);
+    if !life.has_room(item, amount) {
+        life.toast("Your bag is full", "bad");
+        return false;
+    }
+    if !life.afford(price * amount as f64, 0.0, 0.0, &format!("buy back {}", item_def(item).name)) {
+        return false;
+    }
+    if let Some(list) = life.state.buyback.as_mut() {
+        list[k].n -= amount;
+        if list[k].n <= 0 {
+            list.remove(k);
+        }
+    }
+    life.give(item, amount, false);
+    true
+}
+
+/// Walk off from a merchant and they let go of what you sold them.
+pub fn step_buyback(life: &mut Life, sim: &Sim) {
+    let Some(list) = life.state.buyback.as_ref() else { return };
+    if list.is_empty() {
+        return;
+    }
+    let (x, z) = (sim.player.pos.x, sim.player.pos.z);
+    let zone = life.zone;
+    let kept: Vec<Buyback> = list.iter().filter(|b| zone.recipe.npcs.iter().find(|n| n.id == b.npc).is_some_and(|n| js_hypot(n.x - x, n.z - z) <= BUYBACK_RANGE)).cloned().collect();
+    if kept.len() != list.len() {
+        life.state.buyback = Some(kept);
+    }
 }
 
 /// A fresh island to try the rules on, shared by the life modules' tests.
@@ -382,6 +443,51 @@ mod tests {
                 assert!(content::has_item_def(&i.item), "{} needs {}", p.id, i.item);
             }
         }
+    }
+
+    #[test]
+    fn a_merchant_sells_back_what_you_sold_them_until_you_walk_off() {
+        let (mut life, mut world, mut p) = island(10.0);
+        life.give("sunroot", 10, true);
+        let price = js_max(1.0, js_round(item_def("sunroot").value * vendor_for("mara").unwrap().buy_rate));
+        let held = |life: &Life| life.state.buyback.clone().unwrap_or_default();
+        assert!(held(&life).is_empty());
+        // Two sales of the same thing make one stack.
+        assert!(sell(&mut life, "mara", "sunroot", 6));
+        assert!(sell(&mut life, "mara", "sunroot", 1));
+        assert_eq!(held(&life), [Buyback { npc: "mara".into(), item: "sunroot".into(), n: 7, price }]);
+        // Some of it back, at what she paid.
+        let coins = life.state.coins;
+        assert!(buy_back(&mut life, "mara", "sunroot", 3));
+        assert_eq!((life.count("sunroot"), life.state.coins, held(&life)[0].n), (6, coins - 3.0 * price, 4));
+        // Only what you sold her, and only with the coin for it.
+        assert!(!buy_back(&mut life, "mara", "barley", 1));
+        assert!(!buy_back(&mut life, "tamsin", "sunroot", 1));
+        assert!(!buy_back(&mut life, "mara", "sunroot", 0));
+        life.state.coins = 0.0;
+        toasts(&mut life);
+        assert!(!buy_back(&mut life, "mara", "sunroot", 1));
+        assert_eq!(toasts(&mut life), ["Not enough coin to buy back Sunroot"]);
+        // Asking for more than she holds buys what there is.
+        life.state.coins = 100.0;
+        assert!(buy_back(&mut life, "mara", "sunroot", 50));
+        assert_eq!(life.count("sunroot"), 10);
+        assert!(held(&life).is_empty());
+        // Walk off and she lets go of it.
+        assert!(sell(&mut life, "mara", "sunroot", 2));
+        let mara = life.zone.recipe.npcs.iter().find(|n| n.id == "mara").unwrap().clone();
+        let sim = Sim { player: &mut p, world: &mut world, owner: 1 };
+        (sim.player.pos.x, sim.player.pos.z) = (mara.x + BUYBACK_RANGE - 1.0, mara.z);
+        step_buyback(&mut life, &sim);
+        assert_eq!(held(&life).len(), 1, "still at her stall");
+        sim.player.pos.x = mara.x + BUYBACK_RANGE + 1.0;
+        step_buyback(&mut life, &sim);
+        assert!(held(&life).is_empty());
+        // The last twelve sales are held, the oldest going first.
+        life.state.buyback = Some((0..12).map(|i| Buyback { npc: "mara".into(), item: format!("old{i}"), n: 1, price: 1.0 }).collect());
+        assert!(sell(&mut life, "mara", "sunroot", 1));
+        let list = held(&life);
+        assert_eq!((list.len(), list[0].item.as_str(), list[11].item.as_str()), (12, "old1", "sunroot"));
     }
 
     #[test]

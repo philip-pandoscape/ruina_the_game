@@ -195,6 +195,17 @@ pub struct ContractState {
     pub next_refresh: f64,
 }
 
+/// Something you sold, which that merchant sells you back at what they paid until you walk off.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
+#[serde(default)]
+pub struct Buyback {
+    pub npc: String,
+    pub item: String,
+    pub n: i64,
+    /// Coins each, what the merchant paid.
+    pub price: f64,
+}
+
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Default)]
 #[serde(default)]
 pub struct Home {
@@ -228,6 +239,9 @@ pub struct LifeState {
     pub repairs: Option<BTreeMap<String, f64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub contracts: Option<ContractState>,
+    /// What you sold to merchants and can still buy back from them, oldest first (crate::life::trade).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub buyback: Option<Vec<Buyback>>,
     /// Demand multiplier per "outpost:pack".
     pub demand: BTreeMap<String, f64>,
     /// Gathering nodes on cooldown: node index -> world clock when it is back.
@@ -264,6 +278,7 @@ pub fn new_life_state(coins: f64, labor: f64, seed: u32) -> LifeState {
         ships: Vec::new(),
         repairs: None,
         contracts: None,
+        buyback: None,
         demand: BTreeMap::new(),
         nodes: BTreeMap::new(),
         quests: Quests::default(),

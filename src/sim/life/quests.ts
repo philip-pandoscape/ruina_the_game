@@ -151,6 +151,28 @@ export function complete(life: Life, id: string): boolean {
   return true;
 }
 
+/**
+ * Gives up a quest you took: it leaves your list with its progress, and its giver offers it again.
+ * Milestones and the quests that start by themselves can't be given up. One that handed you
+ * something to start with takes it back, so taking it again can't hand out another; once you've
+ * used that, it can't be given up.
+ */
+export function abandon(life: Life, id: string): boolean {
+  const q = QUESTS.find((x) => x.id === id);
+  if (!q || q.milestone || q.auto || !questActive(life, id)) return false;
+  const start = q.startItems ?? [];
+  const used = start.find((s) => life.count(s.item) < s.n);
+  if (used) {
+    life.toast(`You've used the ${itemDef(used.item).name} it gave you, so it can't be given up`, 'bad');
+    return false;
+  }
+  for (const s of start) life.take(s.item, s.n);
+  life.state.quests.active = life.state.quests.active.filter((p) => p.id !== id);
+  life.emit({ t: 'quest', id, what: 'abandoned' });
+  life.toast(`Quest abandoned: ${q.name}`, 'info');
+  return true;
+}
+
 function matches(o: { type: string; npc?: string; crop?: string; pack?: string; outpost?: string; vehicle?: string; place?: string; kind?: string }, e: QuestEvent): boolean {
   if (o.type !== e.type) return false;
   if (o.kind && o.kind !== e.kind) return false;

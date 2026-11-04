@@ -14,10 +14,10 @@ use super::contracts::accept_contract;
 use super::farming::{add_scarecrow, cell_at, cell_centre, fell, grow_for, harvest, is_ripe, plant, plant_at, plot_problem, scarecrow_index, seconds_to_ripe, stage_of, water};
 use super::housing::{build_stage, deliver_material, house_on, house_pose, interior_point, is_complete, pay_tax, place_house, stage_ready, still_needs, tax_due, Need, DAY};
 use super::livestock::{collect, feed, grown_up, hungry, produce_ready, raise};
-use super::quests::{accept, complete, quests_at};
+use super::quests::{abandon, accept, complete, quests_at};
 use super::shipyard::{build_ship_stage, deliver_ship_material, design_items_in_bag, launch, lay_keel, ship_finished, ship_needs, ship_on, ship_stage_ready};
 use super::state::{Home, Stack};
-use super::trade::{buy, carried, drop_pack, load_pack, pack_index, pick_up, quote, recover_demand, run_recipe, sell, sell_pack, unload_pack};
+use super::trade::{buy, buy_back, carried, drop_pack, load_pack, pack_index, pick_up, quote, recover_demand, run_recipe, sell, sell_pack, unload_pack};
 use super::vehicles::{board, dismount, distance_to, mount_command, nearest_anchor, recall, ridden, summon, vehicle_index};
 use super::{Command, Focus, Life, LifeEvent, Placement, QuestEvent};
 use crate::open::traverse::{close_glider, glider_blocked, gust, open_glider};
@@ -524,6 +524,11 @@ pub fn run_command(life: &mut Life, sim: &mut Sim, c: &Command) {
                 sell(life, npc, item, *n);
             }
         }
+        Command::Buyback { npc, item, n } => {
+            if near_npc(life, sim, npc, 6.0) {
+                buy_back(life, npc, item, *n);
+            }
+        }
         Command::Craft { recipe } => {
             // You have to be at the bench, or with the crafter, to use their recipes.
             let Some(r) = recipe_by_id(recipe) else { return };
@@ -551,6 +556,9 @@ pub fn run_command(life: &mut Life, sim: &mut Sim, c: &Command) {
         }
         Command::Complete { quest } => {
             complete(life, quest);
+        }
+        Command::Abandon { quest } => {
+            abandon(life, quest);
         }
         Command::Summon { item } => {
             summon(life, sim, item);

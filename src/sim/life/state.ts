@@ -109,6 +109,15 @@ export interface QuestProgress {
   counts: number[];
 }
 
+/** Something you sold, which that merchant sells you back at what they paid until you walk off. */
+export interface Buyback {
+  npc: string;
+  item: string;
+  n: number;
+  /** Coins each, what the merchant paid. */
+  price: number;
+}
+
 export interface Weather {
   rainUntil: number;
   nextRain: number;
@@ -138,6 +147,8 @@ export interface LifeState {
   repairs?: Record<string, number>;
   /** Trade contracts offered at the posts and taken on. */
   contracts?: ContractState;
+  /** What you sold to merchants and can still buy back from them, oldest first (src/sim/life/trade.ts). */
+  buyback?: Buyback[];
   /** Demand multiplier per `${outpost}:${pack}`. */
   demand: Record<string, number>;
   /** Gathering nodes on cooldown: node index -> world clock when it is back. */

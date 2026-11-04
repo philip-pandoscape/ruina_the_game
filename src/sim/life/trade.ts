@@ -260,7 +260,54 @@ export function sell(life: Life, npc: string, item: string, n: number): boolean 
   const price = Math.max(1, Math.round(itemDef(item).value * v.buyRate));
   life.take(item, amount);
   life.state.coins += price * amount;
+  remember(life, npc, item, amount, price);
   life.toast(`Sold ${amount} ${itemDef(item).name} for ${formatCoins(price * amount)}`, 'coin');
   life.notify({ type: 'sell', item });
   return true;
+}
+
+// ---------- Buyback ----------
+// A merchant holds what you sold them, at what they paid, until you walk off: sell the wrong stack
+// and you can have it back, but a stall is no place to keep things.
+
+/** How far from a merchant you can go before they stop holding what you sold them. */
+export const BUYBACK_RANGE = 12;
+/** Sales held at once, across every merchant; the oldest go first. */
+const BUYBACK_MAX = 12;
+
+function remember(life: Life, npc: string, item: string, n: number, price: number): void {
+  const list = (life.state.buyback ??= []);
+  const same = list.find((b) => b.npc === npc && b.item === item && b.price === price);
+  if (same) same.n += n;
+  else list.push({ npc, item, n, price });
+  while (list.length > BUYBACK_MAX) list.shift();
+}
+
+/** Buys back up to n of something you sold this merchant, at what they paid you for it. */
+export function buyBack(life: Life, npc: string, item: string, n: number): boolean {
+  const list = life.state.buyback ?? [];
+  const b = list.find((x) => x.npc === npc && x.item === item);
+  if (!b || n <= 0) return false;
+  const amount = Math.min(n, b.n);
+  if (!life.hasRoom(item, amount)) {
+    life.toast('Your bag is full', 'bad');
+    return false;
+  }
+  if (!life.afford({ coins: b.price * amount }, `buy back ${itemDef(item).name}`)) return false;
+  b.n -= amount;
+  if (b.n <= 0) life.state.buyback = list.filter((x) => x !== b);
+  life.give(item, amount);
+  return true;
+}
+
+/** Walk off from a merchant and they let go of what you sold them. */
+export function stepBuyback(life: Life, sim: Sim): void {
+  const list = life.state.buyback;
+  if (!list?.length) return;
+  const p = sim.player.pos;
+  const kept = list.filter((b) => {
+    const n = life.zone.recipe.npcs.find((x) => x.id === b.npc);
+    return !!n && Math.hypot(n.x - p.x, n.z - p.z) <= BUYBACK_RANGE;
+  });
+  if (kept.length !== list.length) life.state.buyback = kept;
 }
