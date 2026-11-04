@@ -41,6 +41,10 @@ struct ActionsIn {
     aim_z: f64,
     stick_x: f64,
     stick_y: f64,
+    #[serde(default)]
+    face_x: f64,
+    #[serde(default)]
+    face_z: f64,
 }
 
 #[derive(Deserialize)]
@@ -120,6 +124,8 @@ fn main() {
             aim_z: seg.a.aim_z,
             stick_x: seg.a.stick_x,
             stick_y: seg.a.stick_y,
+            face_x: seg.a.face_x,
+            face_z: seg.a.face_z,
         };
         for f in 0..seg.frames {
             if f == 0 {

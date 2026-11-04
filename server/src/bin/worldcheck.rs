@@ -63,6 +63,10 @@ struct StepIn {
     stick_x: f64,
     #[serde(default)]
     stick_y: f64,
+    #[serde(default)]
+    face_x: f64,
+    #[serde(default)]
+    face_z: f64,
 }
 
 // Per frame, in the order of F in tests/world-conformance.spec.ts: x, y, z, vx, vy, vz, facing,
@@ -118,6 +122,8 @@ fn main() {
             aim_z: s.aim_z,
             stick_x: s.stick_x,
             stick_y: s.stick_y,
+            face_x: s.face_x,
+            face_z: s.face_z,
         };
         step_player(&mut p, &a, &mut world, None, 0);
         let frame = vec![

@@ -111,6 +111,13 @@ const sim = new Sim(world, { training: !serverRules });
 // (which this page doesn't know until the island arrives), so it's only checked for shape here.
 let build: Build = online ? (parseBuild(online.welcome.build, Infinity) ?? defaultBuild()) : loadBuild();
 sim.setBuild(build);
+if (terrain && !serverRules) {
+  // Offline on the island, start standing on the ground at the spawn rather than inside the hill
+  // (online the server puts you there, the same way).
+  const p = sim.player;
+  p.pos.y = groundAt(terrain, world.index, p.pos.x, p.pos.z, terrain.height(p.pos.x, p.pos.z) + 1.2, 1.2);
+  p.prevPos = { ...p.pos };
+}
 const range = serverRules ? null : new TrainingRange(sim);
 const models = openWorld ? await loadModels() : {};
 const openStage = openWorld ? new OpenStage(canvas, world, models) : null;
@@ -512,6 +519,22 @@ function enemyAt(x: number, z: number, r: number): boolean {
   return hit;
 }
 
+// Combat stance: with an enemy marked, or for a moment after you swing or cast, you keep facing
+// where the camera looks, so the stick strafes and backs off, and dodges and double jumps go any of
+// eight ways. Out of a fight you turn and run the way you push; sprinting always does (the rules
+// see to that). Swimming, gliding and riding ignore it.
+const STANCE_LINGER = 90; // frames the stance holds after your last swing or cast
+let lastFight = -Infinity;
+function combatStance(a: Actions): Actions {
+  if (a.faceX !== 0 || a.faceZ !== 0) return a; // already given (tests)
+  if (net && !playing) return a;
+  const p = sim.player;
+  if (p.mode === 'attack' || p.mode === 'cast') lastFight = sim.frame;
+  const fighting = lockOn.mark() !== null || sim.frame - lastFight < STANCE_LINGER;
+  if (!fighting || p.mode === 'ride' || p.mode === 'swim' || p.mode === 'glide') return a;
+  return { ...a, faceX: Math.sin(follow.yaw), faceZ: Math.cos(follow.yaw) };
+}
+
 // Aim assist: attacks and Meteor go toward the enemy you most likely mean, the nearest one close
 // to the direction you're pushing (or facing; the bow and Meteor use the camera's direction when you
 // stand still). With nothing to aim at, the bow and Meteor still go where the camera looks. The rules
@@ -623,16 +646,18 @@ function clampAim(maxRange: number): void {
 // what the camera would have done; while the circle is up, that input moves the circle instead,
 // so the view stays put and you can see where the spell is going.
 let combat = input.pollCombat();
+// Escape while placing a circle, kept until a rules step has seen it: a fast screen draws frames
+// that run no step at all, and a press read in one of those would otherwise be lost.
+let cancelWaiting = false;
 function updateCombatAim(cam: { dYaw: number; dPitch: number }, dt: number): boolean {
   combat = input.pollCombat();
   for (let i = 0; i < combat.nextTarget; i++) cycleTarget(1);
   for (let i = 0; i < combat.prevTarget; i++) cycleTarget(-1);
-  if (combat.cancel > 0) {
-    // Escape backs out of a circle being placed, here rather than in a step: a frame can run no
-    // step at all, and the press would be gone by the next. With nothing being aimed it drops the
-    // target instead.
-    if (aimingSlot !== 0) aimingSlot = 0;
-    else lockOn.clear();
+  if (combat.cancel > 0 && aimingSlot === 0) {
+    // Escape with nothing being aimed drops the target instead.
+    lockOn.clear();
+  } else if (combat.cancel > 0) {
+    cancelWaiting = true;
   }
   updateTarget();
 
@@ -663,6 +688,9 @@ function updateCombatAim(cam: { dYaw: number; dPitch: number }, dt: number): boo
 // Turns the raw buttons into the actions the rules see: holding a ground-aimed ability arms it
 // instead of casting, releasing it casts at the circle, and the marked enemy supplies the aim.
 function targeting(a: Actions): Actions {
+  // The first step after an Escape takes it, whatever happens next.
+  const cancel = cancelWaiting;
+  cancelWaiting = false;
   if (net && !playing) return a;
   // An action that already carries an aim was aimed by whoever made it (the test hooks, and
   // autoAim): it casts straight away rather than arming the circle, matching aimAssist().
@@ -680,7 +708,7 @@ function targeting(a: Actions): Actions {
   }
   if (aimingSlot !== 0) {
     // Escape, or B on a pad (which would otherwise slide), backs out without casting.
-    if (combat.cancel > 0 || out.slidePressed) {
+    if (cancel || out.slidePressed) {
       aimingSlot = 0;
       return { ...out, slidePressed: false, abilitySlot: 0 };
     }
@@ -1067,6 +1095,8 @@ let last = performance.now();
 let lastStats = 0;
 
 function frame(now: number): void {
+  // Asked for first, so one frame that throws can't stop the game.
+  requestAnimationFrame(frame);
   const dt = Math.min(0.1, (now - last) / 1000);
   last = now;
   frameTimes.push(dt * 1000);
@@ -1102,7 +1132,11 @@ function frame(now: number): void {
       else if (m === 'tree' && (!net || playing)) panel.open('tree');
     }
     panel.tick();
-    if (menuOpen && !panel.isOpen && !lifeUI?.modal && !(lifeUI?.takesPad && input.lastDevice === 'gamepad')) input.swallowHeld();
+    // Just closed (B, say): whatever closed it is still held, and mustn't count as a press in the
+    // game once the menu is gone - B would slide. Reading the controls now uses those presses up,
+    // even on a frame that runs no rules step to read them. A docked window that still has the
+    // controller hasn't closed.
+    if (menuOpen && !panel.isOpen && !lifeUI?.modal && !(lifeUI?.takesPad && input.lastDevice === 'gamepad')) input.pollActions(follow.yaw);
     const cam = input.pollCamera(dt);
     syncNet();
     const placing = !menuOpen && updateCombatAim(cam, dt);
@@ -1124,8 +1158,8 @@ function frame(now: number): void {
       if (menuOpen && pad.abilitySlot >= 1 && panel.isAssigning) panel.assignToSlot(pad.abilitySlot);
       const a = scripted.length ? scripted.shift()! : menuOpen ? NO_ACTIONS : pad;
       // targeting() supplies an aim when it has a mark or a placed circle; aimAssist() only
-      // fills in the gaps it leaves.
-      stepOnce(aimAssist(targeting(autoAttack ? autoAim(a) : a)));
+      // fills in the gaps it leaves; combatStance() keeps you facing the fight.
+      stepOnce(combatStance(aimAssist(targeting(autoAttack ? autoAim(a) : a))));
       acc -= STEP;
       steps++;
     }
@@ -1170,7 +1204,6 @@ function frame(now: number): void {
       hud.setStats(base);
     }
   }
-  requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
 

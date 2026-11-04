@@ -57,6 +57,8 @@ short version of this file for coding agents.
      kept on the server. `?as=name` signs straight in as `name` (development only, a new account if
      it's new), so you can play several characters in different windows. `?fresh` starts your island over.
    - http://localhost:5173/?yard for the training yard (offline)
+   - http://localhost:5173/animations.html for the hero's animations, each played with the game's
+     own timing: slow motion, any camera, and a floor to judge the feet by (`src/render/detail/`)
    - http://localhost:5173/?raid=10000 for the rendering stress test (offline)
    - http://localhost:5173/?server=ws://localhost:7777 to join the battle (add `&team=0` or `&team=1`
      to pick a side). The battlefield needs the server started with bots: `npm run server` (Rust),
@@ -123,6 +125,11 @@ in `.env` (git-ignored) as `RAILWAY_BETA_API_KEY` and `RAILWAY_PRODUCTION_API_KE
 | Next target | Tab (Shift-Tab goes back) | D-pad right / left |
 | Skill trees | T | View |
 | Report a bug (press again to save it) | \ (Backspace twice throws it away) | Click both sticks |
+
+**Fighting** (an enemy marked, or for a moment after you swing or cast) you keep facing where the
+camera looks: the stick strafes and backs off, a little slower than running ahead, and dodges and
+double jumps go whichever way you push without turning you. Sprint to turn and run. Out of a
+fight you turn and run the way you push.
 
 In the open world:
 

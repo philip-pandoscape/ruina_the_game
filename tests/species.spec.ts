@@ -262,19 +262,20 @@ test.describe('hero', () => {
   test('its crowd body is the close-up body, boxed', async ({ page }) => {
     await harness(page);
     const hero = await load(page, 'hero');
-    // 18 worn parts plus the five pieces of the sword it is baked holding.
-    expect(hero.boxes).toBe(23);
-    expect(hero.triangles).toBe(23 * 12);
-    expect(hero.joints).toBe(16);
+    // 23 worn parts plus the five pieces of the sword it is baked holding, on 23 joints.
+    expect(hero.boxes).toBe(28);
+    expect(hero.triangles).toBe(28 * 12);
+    expect(hero.joints).toBe(23);
     expect(hero.height).toBeGreaterThan(1.5);
     expect(hero.height).toBeLessThan(1.9);
     expect(hero.clips.map((c) => c.name)).toContain('run');
+    expect(hero.clips.map((c) => c.name)).toContain('sprint');
     expect(hero.clips.find((c) => c.name === 'down')!.loop).toBe(false);
   });
 
   // The whole point of baking: a hero in a battle is running the same animation as the hero
   // standing in front of you. If these ever disagree, the crowd has drifted from the game.
-  for (const [clip, frame] of [['run', 7], ['run', 19], ['idle', 30], ['attack1', 9], ['down', 0]] as const) {
+  for (const [clip, frame] of [['run', 7], ['run', 19], ['sprint', 11], ['idle', 30], ['attack1', 9], ['attack3', 14], ['cast', 30], ['down', 0]] as const) {
     test(`the baked ${clip} clip matches the live pose on frame ${frame}`, async ({ page }) => {
       await harness(page);
       await load(page, 'hero');

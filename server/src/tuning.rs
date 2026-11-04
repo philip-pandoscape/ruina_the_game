@@ -45,6 +45,9 @@ pub struct Move {
     pub crouch_speed: f64,
     pub crouch_height: f64,
     pub crouch_enter_frames: i32,
+    /// Share of full speed strafing and backing away in combat stance (Actions::face_x / face_z).
+    pub strafe_speed: f64,
+    pub back_speed: f64,
 }
 
 #[derive(Deserialize)]

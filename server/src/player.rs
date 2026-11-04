@@ -36,6 +36,10 @@ pub struct Actions {
     /// forward. Vehicles steer with it (tank controls); everything on foot uses move_x / move_z.
     pub stick_x: f64,
     pub stick_y: f64,
+    /// Combat stance: the world direction to keep facing while moving (unit length), so the stick
+    /// strafes and backs off instead of turning you. 0, 0 faces the way you move.
+    pub face_x: f64,
+    pub face_z: f64,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -295,7 +299,10 @@ impl Player {
         if def.direction == "input" && mag > 0.05 {
             self.action_dir_x = dx;
             self.action_dir_z = dz;
-            self.facing = dx.js_atan2(dz);
+            // Fighting, you dodge any way you push without turning from the fight.
+            if self.stance(a).is_none() {
+                self.facing = dx.js_atan2(dz);
+            }
         } else if def.direction == "backward" {
             self.action_dir_x = -self.facing.js_sin();
             self.action_dir_z = -self.facing.js_cos();
@@ -551,6 +558,28 @@ impl Player {
         (a.move_x / l, a.move_z / l, mag)
     }
 
+    /// Combat stance: the heading to keep facing while fighting, so the stick strafes, backs off
+    /// and dodges in any direction instead of turning you; None to face the way you move.
+    /// Sprinting always runs free.
+    fn stance(&self, a: &Actions) -> Option<f64> {
+        if self.sprinting || len(a.face_x, a.face_z) < 0.5 {
+            return None;
+        }
+        Some(a.face_x.js_atan2(a.face_z))
+    }
+
+    /// Share of full speed when moving along (dx, dz) while facing `facing`: all of it straight
+    /// ahead, strafe_speed sideways, back_speed backing away, blended in between.
+    fn stance_speed(facing: f64, dx: f64, dz: f64) -> f64 {
+        let m = &tuning().movement;
+        let ahead = dx * facing.js_sin() + dz * facing.js_cos();
+        if ahead >= 0.0 {
+            m.strafe_speed + (1.0 - m.strafe_speed) * ahead
+        } else {
+            m.strafe_speed + (m.back_speed - m.strafe_speed) * -ahead
+        }
+    }
+
     fn try_jump(&mut self, a: &Actions) -> bool {
         let t = tuning();
         if self.jump_buffer <= 0 {
@@ -579,7 +608,10 @@ impl Player {
                 let s = t.jump.double_jump_steer * t.movement.run_speed * mag;
                 self.vel.x = dx * s;
                 self.vel.z = dz * s;
-                self.facing = dx.js_atan2(dz);
+                // Fighting, you keep facing the fight and flip whichever way you jumped.
+                if self.stance(a).is_none() {
+                    self.facing = dx.js_atan2(dz);
+                }
             }
             return true;
         }
@@ -609,13 +641,18 @@ impl Player {
             return;
         }
         let (dx, dz, mag) = Self::input(a);
-        if mag > 0.0 {
-            self.facing = turn_toward(self.facing, dx.js_atan2(dz), t.movement.turn_speed * step_len());
-        }
         // Crouch wins over sprint if you somehow hold both, and neither applies in the air. Nobody
         // sprints with a trade pack on their back.
         self.crouching = a.crouch_held && self.grounded;
         self.sprinting = !self.crouching && a.sprint_held && self.grounded && mag >= t.movement.run_threshold && self.pack == 0;
+
+        // Fighting, you keep facing the fight and strafe; otherwise you turn the way you go.
+        let face = self.stance(a);
+        if let Some(f) = face {
+            self.facing = turn_toward(self.facing, f, t.movement.turn_speed * step_len());
+        } else if mag > 0.0 {
+            self.facing = turn_toward(self.facing, dx.js_atan2(dz), t.movement.turn_speed * step_len());
+        }
 
         if self.grounded {
             let m = &t.movement;
@@ -628,6 +665,9 @@ impl Player {
             };
             if self.pack != 0 {
                 speed *= carry().speed_factor;
+            }
+            if face.is_some() && mag > 0.0 {
+                speed *= Self::stance_speed(self.facing, dx, dz);
             }
             let rate = if speed <= 0.01 {
                 m.ground_decel
@@ -679,8 +719,11 @@ impl Player {
         self.attack_queued = false;
         self.attack_hit = false;
         self.attack_buffer = 0;
+        // Swing at what you aimed at; else ahead, into the fight if you're facing one, or the way you push.
         let (dx, dz, mag) = Self::input(a);
-        if mag > 0.0 {
+        if let Some(f) = self.stance(a) {
+            self.facing = f;
+        } else if mag > 0.0 {
             self.facing = dx.js_atan2(dz);
         }
         if len(a.aim_x, a.aim_z) > 0.01 {
@@ -738,8 +781,11 @@ impl Player {
                 az *= max / aim;
             }
         } else {
+            // Unaimed, it goes off ahead: of the fight when you're facing one, else the way you push.
             let (dx, dz, mag) = Self::input(a);
-            if mag > 0.0 {
+            if let Some(f) = self.stance(a) {
+                self.facing = f;
+            } else if mag > 0.0 {
                 self.facing = dx.js_atan2(dz);
             }
             ax = self.facing.js_sin() * s.range;

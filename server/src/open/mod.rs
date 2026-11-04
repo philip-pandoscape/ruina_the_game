@@ -83,6 +83,10 @@ pub fn step_player(p: &mut Player, a: &Actions, world: &mut OpenWorld, mut life:
         // Knocked down: lie still, then get back up at the island's spawn.
         if sim.player.update_down() {
             sim.player.respawn(Spawn { x: s.x, z: s.z, facing: s.facing });
+            // On your feet on the ground there, not inside the hill (respawn() is the battlefield's,
+            // flat at 0): the TypeScript's respawn does the same with the island's terrain.
+            let hf = sim.terrain();
+            sim.player.pos.y = colliders::ground_at(hf, &sim.world.index, s.x, s.z, hf.height(s.x, s.z) + 1.2, 1.2);
         }
     } else if sim.player.stun > 0 {
         sim.player.update_stun();

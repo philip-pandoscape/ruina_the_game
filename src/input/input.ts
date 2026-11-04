@@ -357,6 +357,8 @@ export class Input {
       crouchHeld,
       aimX: 0, // aim assist (main.ts) fills these in when you attack or cast
       aimZ: 0,
+      faceX: 0, // and these in combat, to strafe rather than turn
+      faceZ: 0,
       stickX: sx,
       stickY: sy,
     };
@@ -396,19 +398,6 @@ export class Input {
       this.combatPadPrev = held;
     }
     return out;
-  }
-
-  /**
-   * Call when a window that had the controller closes. The game's step may not run on every frame,
-   * so without this the button that closed it would still be new to the game on the next step: the
-   * B that closes a panel would also slide. A button held now counts again once it's let go.
-   */
-  swallowHeld(): void {
-    const pad = this.pad();
-    if (!pad) return;
-    const held = pad.buttons.map((b) => b.pressed || b.value > 0.5);
-    this.padPrev = held;
-    this.combatPadPrev = held;
   }
 
   /**

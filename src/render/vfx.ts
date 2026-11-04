@@ -4,46 +4,37 @@ import type { GameEvent } from '../sim/types';
 import { MOVEMENT_SKILLS } from '../tuning';
 import { toon } from './toon';
 
-const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
-
 // ---------- Slash trail ----------
 
-export interface SlashDef {
-  a0: number;
-  a1: number;
-  p0: number;
-  p1: number;
+export interface SlashColours {
   color: number;
   core: number;
 }
 
-// Direction of an arm with yaw a and pitch p (see SLASHES in character.ts).
-function armDir(a: number, p: number, out: THREE.Vector3): THREE.Vector3 {
-  return out.set(-Math.sin(p) * Math.sin(a), -Math.cos(p), -Math.sin(p) * Math.cos(a));
-}
-
-// A glowing ribbon along the sword's swing path. Head and tail (0..1 along the swing) animate it.
+/**
+ * A glowing ribbon along a weapon's swing path. `edges` are where the blade was through the
+ * swing, near the grip and at the tip, one pair per moment, evenly spaced in time; head and tail
+ * (0..1 through those moments) animate it.
+ */
 export class SlashArc {
   readonly mesh: THREE.Mesh;
   private uniforms: Record<string, THREE.IUniform>;
 
-  constructor(def: SlashDef, rIn: number, rOut: number, segments = 32) {
+  constructor(def: SlashColours, edges: Array<readonly [THREE.Vector3, THREE.Vector3]>) {
     const positions: number[] = [];
     const ts: number[] = [];
     const rs: number[] = [];
     const indices: number[] = [];
-    const v = new THREE.Vector3();
-    for (let i = 0; i <= segments; i++) {
-      const t = i / segments;
-      armDir(lerp(def.a0, def.a1, t), lerp(def.p0, def.p1, t), v);
-      positions.push(v.x * rIn, v.y * rIn, v.z * rIn, v.x * rOut, v.y * rOut, v.z * rOut);
-      ts.push(t, t);
+    const segments = Math.max(1, edges.length - 1);
+    edges.forEach(([inner, outer], i) => {
+      positions.push(inner.x, inner.y, inner.z, outer.x, outer.y, outer.z);
+      ts.push(i / segments, i / segments);
       rs.push(0, 1);
       if (i < segments) {
         const k = i * 2;
         indices.push(k, k + 1, k + 2, k + 1, k + 3, k + 2);
       }
-    }
+    });
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
     geo.setAttribute('aT', new THREE.Float32BufferAttribute(ts, 1));

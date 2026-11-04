@@ -28,6 +28,10 @@ export interface Actions {
   crouchHeld: boolean;
   aimX: number; // optional target offset from the player in metres (0, 0 = aim straight ahead)
   aimZ: number;
+  // Combat stance: the world direction to keep facing while moving (unit length), so the stick
+  // strafes and backs off instead of turning you. 0, 0 faces the way you move. Sprinting ignores it.
+  faceX: number;
+  faceZ: number;
   // The raw stick (or WASD), before it is turned into a world direction: x is right, y is forward.
   // Vehicles steer with it (tank controls); everything on foot uses moveX / moveZ.
   stickX: number;
@@ -48,6 +52,8 @@ export const NO_ACTIONS: Actions = {
   crouchHeld: false,
   aimX: 0,
   aimZ: 0,
+  faceX: 0,
+  faceZ: 0,
   stickX: 0,
   stickY: 0,
 };

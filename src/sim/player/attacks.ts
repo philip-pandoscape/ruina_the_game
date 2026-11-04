@@ -7,9 +7,10 @@ import type { AttackStep } from '../../tuning';
 import { DEG, angleDiff, len } from '../math';
 import { coneHits, nearest } from '../combat/hit';
 import type { Actions } from '../types';
-import { accelerateToward, airControl, input, tryJump } from './locomotion';
+import { accelerateToward, airControl, input, stance, tryJump } from './locomotion';
 import { endAction, incomingScale, readyBufferedAction, setCooldown, startAction } from './abilities';
 import { heightAboveGround } from './traverse';
+import { groundAt } from '../zone/colliders';
 
 export function startAttack(sim: Sim, index: number, a: Actions) : void {
   const p = sim.player;
@@ -19,8 +20,11 @@ export function startAttack(sim: Sim, index: number, a: Actions) : void {
   p.attackQueued = false;
   p.attackHit = false;
   p.attackBuffer = 0;
+  // Swing at what you aimed at; else ahead, into the fight if you're facing one, or the way you push.
   const { dx, dz, mag } = input(sim, a);
-  if (mag > 0) p.facing = Math.atan2(dx, dz);
+  const face = stance(sim, a);
+  if (face !== null) p.facing = face;
+  else if (mag > 0) p.facing = Math.atan2(dx, dz);
   if (len(a.aimX, a.aimZ) > 0.01) p.facing = Math.atan2(a.aimX, a.aimZ);
   // Gentle auto-aim toward whatever is nearest and roughly in front (training only for now).
   if (sim.opts.training) {
@@ -172,7 +176,11 @@ export function takeHit(sim: Sim, damage: number, dirX: number, dirZ: number, kn
 export function respawn(sim: Sim) : void {
   const p = sim.player;
   const s = sim.world.teamSpawns[p.team] ?? sim.world.spawn;
-  p.pos = { x: s.x, y: 0, z: s.z };
+  // Back on your feet on the ground there: on the island that's the terrain (or a roof) under the
+  // spawn, as when you first arrive; the training grounds and the battlefield are flat at 0.
+  const hf = sim.world.terrain;
+  const y = hf ? groundAt(hf, sim.world.index, s.x, s.z, hf.height(s.x, s.z) + 1.2, 1.2) : 0;
+  p.pos = { x: s.x, y, z: s.z };
   p.vel = { x: 0, y: 0, z: 0 };
   p.facing = s.facing;
   p.grounded = true;
@@ -185,5 +193,5 @@ export function respawn(sim: Sim) : void {
   p.castSlot = 0;
   p.castFrame = 0;
   p.cooldowns.fill(0);
-  sim.emit({ type: 'respawn', frame: sim.frame, x: s.x, y: 0, z: s.z });
+  sim.emit({ type: 'respawn', frame: sim.frame, x: s.x, y, z: s.z });
 }

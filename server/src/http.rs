@@ -75,11 +75,7 @@ pub async fn serve(port: u16, state: AppState, static_dir: Option<PathBuf>) -> s
     let saver = app.clone();
     let router = router.with_state(app);
 
-    // Both IPv6 and IPv4 where the machine has IPv6 (Railway's private network is IPv6 only).
-    let listener = match TcpListener::bind(("::", port)).await {
-        Ok(l) => l,
-        Err(_) => TcpListener::bind(("0.0.0.0", port)).await?,
-    };
+    let listener = listen_everywhere(port)?;
     println!("listening on http://localhost:{port}");
     // Small, frequent battle updates: don't let the network stack hold them back to batch them.
     let listener = listener.tap_io(|tcp| {
@@ -94,6 +90,29 @@ pub async fn serve(port: u16, state: AppState, static_dir: Option<PathBuf>) -> s
             world_socket::save_everyone(&saver).await;
         })
         .await
+}
+
+/// Listens on `port` at every address: IPv6 and IPv4 alike where the machine has IPv6 (Railway's
+/// private network is IPv6 only), IPv4 where it doesn't. Linux opens an IPv6 socket to IPv4 too
+/// unless told otherwise; Windows is the other way round, so it's asked for.
+fn listen_everywhere(port: u16) -> std::io::Result<TcpListener> {
+    use socket2::{Domain, Protocol, Socket, Type};
+    let dual = || -> std::io::Result<std::net::TcpListener> {
+        let s = Socket::new(Domain::IPV6, Type::STREAM, Some(Protocol::TCP))?;
+        s.set_only_v6(false)?;
+        // As TcpListener::bind does on Unix: a restarted server can take its port straight back.
+        #[cfg(unix)]
+        s.set_reuse_address(true)?;
+        s.bind(&std::net::SocketAddr::from((std::net::Ipv6Addr::UNSPECIFIED, port)).into())?;
+        s.listen(1024)?;
+        Ok(s.into())
+    };
+    let std = match dual() {
+        Ok(l) => l,
+        Err(_) => std::net::TcpListener::bind(("0.0.0.0", port))?,
+    };
+    std.set_nonblocking(true)?;
+    TcpListener::from_std(std)
 }
 
 /// Resolves when the server is asked to stop (Ctrl-C, or SIGTERM from Docker and Railway).

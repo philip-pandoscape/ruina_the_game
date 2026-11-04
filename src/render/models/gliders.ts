@@ -22,6 +22,16 @@ export interface GliderModel {
 const HANG = 2.45;
 const BAR = 2.0;
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
+
+/**
+ * Where a hand holds the control bar (side +1 left, -1 right), in the glider's frame (the pilot's
+ * feet), with the wing tilted as animate() tilts it. The pilot's pose reaches for this.
+ */
+export function gliderGrip(side: number, bank: number, pitch: number, out: THREE.Vector3): THREE.Vector3 {
+  out.set(side * 0.28, BAR - HANG, 0.32);
+  out.applyEuler(new THREE.Euler(-clamp(pitch, -0.6, 0.6), 0, -clamp(bank, -0.9, 0.9)));
+  return out.setY(out.y + HANG);
+}
 const lerp3 = (a: V3, b: V3, t: number): V3 => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
 
 interface Look {

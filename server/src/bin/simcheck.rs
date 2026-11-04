@@ -66,6 +66,10 @@ struct StepIn {
     aim_x: f64,
     #[serde(default)]
     aim_z: f64,
+    #[serde(default)]
+    face_x: f64,
+    #[serde(default)]
+    face_z: f64,
 }
 
 #[derive(Deserialize)]
@@ -146,6 +150,8 @@ fn main() {
             crouch_held: s.crouch_held,
             aim_x: s.aim_x,
             aim_z: s.aim_z,
+            face_x: s.face_x,
+            face_z: s.face_z,
             ..Default::default()
         };
         p.step(&a, &world);
