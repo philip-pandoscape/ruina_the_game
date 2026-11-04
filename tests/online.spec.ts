@@ -171,7 +171,9 @@ test('players in the same channel see each other, wherever they go', async ({ br
   await expect.poll(async () => (await seen(a, nameB))?.online, { timeout: 30_000 }).toBe(true);
 
   // Ann heads up to Hearthside Rise; Bea watches her arrive.
+  await a.bringToFront();
   await a.evaluate(() => (window as any).__game.teleport(142, -200));
+  await b.bringToFront();
   await expect.poll(async () => {
     const p = await seen(b, nameA);
     return p ? Math.hypot(p.x - 142, p.z + 200) : Infinity;
@@ -190,7 +192,8 @@ test("a neighbour's house is drawn on your island, and their plot can't be taken
   test.skip(!plot, 'every plot in this channel is taken (a long-lived development database)');
   const site = [plot.x, plot.z + 5, plot.rot + Math.PI];
 
-  // Ann claims the plot.
+  // Ann claims the plot. (A window has to be in front for its game to run at full speed.)
+  await a.bringToFront();
   await a.evaluate(() => (window as any).__game.lifeCommand({ t: 'grant', item: 'blueprint.cottage', n: 1 }));
   await a.evaluate(([x, z, f]) => (window as any).__game.teleport(x, z, f), site);
   await expect.poll(() => game(a, (g) => g.life().focus?.action), { timeout: 15_000 }).toBe('claim');
@@ -198,6 +201,7 @@ test("a neighbour's house is drawn on your island, and their plot can't be taken
   await expect.poll(() => game(a, (g) => g.life().houses.length), { timeout: 15_000 }).toBe(1);
 
   // Bea sees the building site, and the plot is Ann's.
+  await b.bringToFront();
   await expect.poll(async () => (await seen(b, nameA))?.houses, { timeout: 30_000 }).toBe(1);
   await expect.poll(() => b.evaluate((id) => (window as any).__game.online().claims[id], plot.id), { timeout: 30_000 }).toBe(nameA);
   await b.evaluate(() => (window as any).__game.lifeCommand({ t: 'grant', item: 'blueprint.cottage', n: 1 }));

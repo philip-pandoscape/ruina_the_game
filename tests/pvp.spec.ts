@@ -37,7 +37,7 @@ const script = (page: Page, segments: Array<[number, Record<string, unknown>]>) 
   page.evaluate((s) => (window as any).__game.scriptInput(s), segments);
 const scriptDone = (page: Page) => page.waitForFunction(() => (window as any).__game.net().scriptLeft === 0);
 
-test('two players: blue attacks red, the server lands the hits, both screens agree', async ({ browser }) => {
+test('two players: blue attacks red, the server lands the hits, both screens agree', { tag: '@gpu' }, async ({ browser }) => {
   const blue = await joinAs(browser, 0);
   const red = await joinAs(browser, 1);
   await blue.page.waitForFunction(() => (window as any).__game.net().remotes.length > 0);
