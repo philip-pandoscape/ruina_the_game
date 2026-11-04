@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { SpeciesCrowd } from '../species/crowd';
 import { getSpecies } from '../species/registry';
 import { actorKind } from '../content/actors';
-import { actorKindAt } from '../content/actors';
+import { actorKindAt, LADDERS } from '../content/actors';
 import { isAlive, type Actor } from '../sim/actor';
 import { behaviour, stateName, stateProgress } from '../sim/ai/brain';
 import type { NetActor } from '../net/netCrowd';
@@ -32,6 +32,18 @@ interface Shown {
   flash: number;
   /** Taken out of the world (absorbed, merged): not drawn at all. */
   gone: boolean;
+  /** 0..1 of extra white, for a burst piece whose fuse is burning down. */
+  glow: number;
+}
+
+// A burst piece pulses white, faster and brighter as its group's fuse runs out, so you can see
+// which ones are about to come back together.
+function fuseGlow(a: Actor): number {
+  const total = LADDERS[a.ladder]?.fuse ?? 0;
+  if (a.group === 0 || a.fuse < 0 || total <= 0) return 0;
+  const k = 1 - a.fuse / total;
+  const beat = 0.5 + 0.5 * Math.sin((total - a.fuse) * (0.12 + 0.4 * k));
+  return beat * (0.15 + 0.55 * k);
 }
 
 interface Pack {
@@ -94,6 +106,7 @@ export class ActorView {
           deadFrame: Math.max(0, a.deadFrame),
           flash: 999,
           gone: false,
+          glow: 0,
         };
       }),
     );
@@ -113,6 +126,7 @@ export class ActorView {
         deadFrame: Math.max(0, a.deadFrame),
         flash: a.flashFrame,
         gone: a.gone,
+        glow: fuseGlow(a),
       })),
     );
   }
@@ -143,7 +157,7 @@ export class ActorView {
       // the actor on the ground here keeps the two from drifting apart.
       pack.crowd.place(slot, a.x, this.ground ? this.ground(a.x, a.z) : 0, a.z, a.facing);
       pack.crowd.animate(slot, clip, dead ? a.deadFrame / 60 : a.progress * seconds);
-      if (pack.crowd.flash) pack.crowd.flash[slot] = Math.max(0, 1 - a.flash / 7);
+      if (pack.crowd.flash) pack.crowd.flash[slot] = Math.max(0, 1 - a.flash / 7, a.glow);
     }
 
     for (const p of this.packs.values()) {

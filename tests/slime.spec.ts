@@ -81,7 +81,7 @@ test('a slime hops toward you when you are close enough to be interesting', asyn
   expect(is).toBeGreaterThan(SLIME.keepAway - 1); // but it does not climb into your lap
 });
 
-test('a sword kills a slime, which flashes, dies and comes back', async ({ page }) => {
+test('a sword kills a slime, which flashes, dies, bursts, and comes back once the pieces are gone', async ({ page }) => {
   const errors = await open(page, SWORD);
   const me = (await page.evaluate(() => (window as any).__game.state())).player;
   const put = () => place(page, 0, me.pos.x, me.pos.z + swordReach * 0.6);
@@ -103,9 +103,13 @@ test('a sword kills a slime, which flashes, dies and comes back', async ({ page 
   expect(hits.length).toBeGreaterThan(0);
   expect(hits.some((m) => m.amount === swordDamage)).toBe(true);
 
-  // Down, then back on its feet with full health where it fell.
+  // Down, in pieces (tests/slime-pack.spec.ts covers those); clear them away and it comes back
+  // on its feet with full health where it fell.
   await advance(page, 10);
   expect((await slimes(page))[0].alive).toBe(false);
+  const bits = await page.evaluate(() => ((window as any).__game.actors('slimelet') as Actor[]).filter((a) => a.alive));
+  expect(bits.length).toBeGreaterThan(0);
+  for (const b of bits) await page.evaluate((id) => (window as any).__game.hurtActor(id, 9999), b.id);
   await advance(page, SLIME.respawnFrames + 4);
   const back = (await slimes(page))[0];
   expect(back.alive).toBe(true);

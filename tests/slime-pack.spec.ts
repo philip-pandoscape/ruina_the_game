@@ -116,3 +116,119 @@ test('hitting one angers the pack around it, but not slimes far away', async ({ 
   expect(now[1].angry).toBeGreaterThan(0);
   for (let i = 2; i < SLIME.count; i++) expect(now[i].angry).toBe(0);
 });
+
+// ---------- bursting and reforming ----------
+
+const LADDER = { fuse: 360, alone: 1200 }; // shared/actors.json ladders[0]
+const kill = (page: Page, id: number) => hurt(page, id, 9999);
+const pieces = async (page: Page) => (await all(page, 'slimelet')).filter((s) => s.alive && !s.gone);
+const spawn = (page: Page, kind: string, x: number, z: number) =>
+  page.evaluate(([k, a, b]) => (window as any).__game.spawnActor(k, a, b) as number, [kind, x, z] as const);
+
+test('a slime you kill bursts into three slimelets on a fuse', async ({ page }) => {
+  const errors = await open(page);
+  const { slime } = await alone(page, 3);
+  await kill(page, slime.id);
+  await advance(page, 1);
+  const bits = await pieces(page);
+  expect(bits).toHaveLength(actorKind('slime').burst!.count);
+  expect(new Set(bits.map((b) => b.group)).size).toBe(1);
+  expect(bits[0].group).toBeGreaterThan(0);
+  for (const b of bits) {
+    expect(b.transient).toBe(true);
+    expect(b.fuse).toBeGreaterThan(LADDER.fuse - 5);
+  }
+  // They scatter.
+  await advance(page, 30);
+  const spread = await pieces(page);
+  const far = spread.filter((b) => Math.hypot(b.x - slime.x, b.z - slime.z) > 1.5);
+  expect(far.length).toBe(spread.length);
+  expect(errors).toEqual([]);
+});
+
+test('kill every piece before the fuse runs out and nothing comes back; then the slime respawns', async ({ page }) => {
+  await open(page);
+  const { slime } = await alone(page, 3);
+  await kill(page, slime.id);
+  await advance(page, 1);
+  for (const b of await pieces(page)) await kill(page, b.id);
+  await advance(page, LADDER.fuse + 30);
+  expect(await all(page, 'great-slime')).toHaveLength(0);
+  expect(await pieces(page)).toHaveLength(0);
+  // With its pieces gone there's room for it again, and it comes back as it was.
+  await advance(page, SLIME.respawnFrames);
+  const back = await byId(page, slime.id);
+  expect(back?.alive).toBe(true);
+  expect(back?.kind).toBe('slime');
+});
+
+test('leave two pieces and they come back together as a great slime', async ({ page }) => {
+  const errors = await open(page);
+  const { slime } = await alone(page, 3);
+  await kill(page, slime.id);
+  await advance(page, 1);
+  const bits = await pieces(page);
+  await kill(page, bits[0].id);
+  // They head back to each other near the end.
+  await advance(page, LADDER.fuse - 60);
+  const late = await pieces(page);
+  expect(late.every((b) => b.state === 'regroup')).toBe(true);
+  await advance(page, 70);
+  const big = await all(page, 'great-slime');
+  expect(big).toHaveLength(1);
+  expect(big[0].hp).toBe(actorKind('great-slime').maxHp);
+  expect(big[0].angry).toBeGreaterThan(0);
+  expect(await pieces(page)).toHaveLength(0);
+  expect((await page.evaluate(() => (window as any).__game.events() as Array<{ type: string }>)).some((e) => e.type === 'actorGrow')).toBe(true);
+  expect(errors).toEqual([]);
+});
+
+test('a lone survivor does not reform; it dissolves a while later', async ({ page }) => {
+  await open(page);
+  const { slime } = await alone(page, 3);
+  await kill(page, slime.id);
+  await advance(page, 1);
+  const bits = await pieces(page);
+  await kill(page, bits[0].id);
+  await kill(page, bits[1].id);
+  await advance(page, LADDER.fuse + 10);
+  expect(await all(page, 'great-slime')).toHaveLength(0);
+  const left = await pieces(page);
+  expect(left).toHaveLength(1);
+  expect(left[0].group).toBe(0);
+  await advance(page, LADDER.alone + 70);
+  expect(await all(page, 'slimelet')).toHaveLength(0);
+});
+
+test('the home slime waits to respawn while its pieces are still about', async ({ page }) => {
+  await open(page);
+  const { slime } = await alone(page, 3);
+  await kill(page, slime.id);
+  await advance(page, SLIME.respawnFrames + 20);
+  // Its three pieces are alive (or reformed into something bigger), so the yard is full.
+  expect((await byId(page, slime.id))?.alive).toBe(false);
+});
+
+test('a slime monarch bursts into seven, and comes back a monarch', async ({ page }) => {
+  await open(page);
+  const p = await me(page);
+  for (let i = 0; i < SLIME.count; i++) await place(page, i, 60 + i * 30, 60);
+  const id = await spawn(page, 'slime-monarch', p.pos.x, p.pos.z + 5);
+  await kill(page, id);
+  await advance(page, 1);
+  expect(await pieces(page)).toHaveLength(actorKind('slime-monarch').burst!.count);
+  await advance(page, LADDER.fuse + 10);
+  const back = (await all(page, 'slime-monarch')).filter((s) => s.alive);
+  expect(back).toHaveLength(1);
+});
+
+test('a burst never takes the creature past its cap', async ({ page }) => {
+  await open(page);
+  for (let i = 0; i < SLIME.count; i++) await place(page, i, 60 + i * 30, 60);
+  // Five slimes plus 34 pieces is 39 of the 40 allowed; kill one slime and there's room for two.
+  for (let i = 0; i < 34; i++) await spawn(page, 'slimelet', -20 + (i % 6) * 2, -20 - Math.floor(i / 6) * 2);
+  const before = (await all(page, 'slimelet')).length;
+  await kill(page, (await slimes(page))[0].id);
+  await advance(page, 1);
+  expect((await all(page, 'slimelet')).length - before).toBe(2);
+});

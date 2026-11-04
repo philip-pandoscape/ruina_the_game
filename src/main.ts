@@ -12,7 +12,7 @@ import { TrainingDummy } from './render/dummy';
 import { ActorView } from './render/actors';
 import { actorKindAt, actorKindIds, findKind } from './content/actors';
 import { isAlive, type Actor } from './sim/actor';
-import { behaviour, stateName, stateProgress } from './sim/ai/brain';
+import { behaviour, startBrain, stateName, stateProgress } from './sim/ai/brain';
 import { targetOf } from './sim/combat/hit';
 import { createTargeting } from './app/targeting';
 import { Hud } from './render/hud';
@@ -1254,6 +1254,13 @@ const api = {
   setActor(id: number, fields: Partial<Actor>): void {
     const a = sim.actors.get(id);
     if (a) Object.assign(a, fields);
+  },
+  // Testing: puts a new actor of a kind in the world, as if a fight had made it (it won't respawn).
+  spawnActor(kind: string, x: number, z: number): number {
+    const a = sim.actors.spawn({ kind, x, z, seed: (sim.frame * 2654435761 + sim.actors.all().length * 40503) >>> 0 });
+    a.transient = true;
+    startBrain(a, sim.sighting());
+    return a.id;
   },
   // Testing: monsters that never get angry, for tests about something else that hit them.
   calmMonsters(on = true): void {

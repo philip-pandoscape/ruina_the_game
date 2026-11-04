@@ -45,6 +45,10 @@
         "radius": 1.2,
         "damage": 8,
         "knock": 5
+      },
+      "burst": {
+        "into": "slimelet",
+        "count": 3
       }
     },
     {
@@ -127,12 +131,15 @@
       "id": "slimelet",
       "faction": 1,
       "solid": false,
-      "brain": "skittish-hopper",
+      "brain": "slimelet",
       "respawnFrames": -1,
       "species": "slime",
       "clips": {
         "idle": "idle",
         "move": "hop",
+        "scatter": "hop",
+        "flee": "hop",
+        "regroup": "hop",
         "dead": "die"
       },
       "maxHp": 10,
@@ -177,6 +184,10 @@
         "radius": 2,
         "damage": 16,
         "knock": 6.5
+      },
+      "burst": {
+        "into": "slimelet",
+        "count": 5
       }
     },
     {
@@ -210,6 +221,10 @@
         "radius": 3,
         "damage": 28,
         "knock": 8
+      },
+      "burst": {
+        "into": "slimelet",
+        "count": 7
       }
     }
   ],

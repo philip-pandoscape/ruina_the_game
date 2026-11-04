@@ -433,6 +433,24 @@ export class Vfx {
         this.burst(e.x, g + 1.1, e.z, -1, 0, 14, 7, STRAW);
         break;
       }
+      case 'actorBurst': {
+        // Dying into pieces: a wet splash outward, more of it for a bigger one.
+        const n = 6 + e.count * 3;
+        this.puff(e.x, e.y, e.z, n, 2.6 + e.count * 0.3, 0.24, SLIME_GREEN);
+        for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) this.burst(e.x, e.y, e.z, dx, dz, 5, 5.5, SLIME_GREEN);
+        break;
+      }
+      case 'actorGrow': {
+        // Grown a size (or a group come back together): a bright ring and a gulp of slime.
+        const g = this.gy(e.x, e.z);
+        this.rings.spawn(this.v.set(e.x, g + 0.05, e.z), 3.2, 0.55, 0xb8ff9a);
+        this.rings.spawn(this.v.set(e.x, g + 0.08, e.z), 1.8, 0.35, 0xffffff);
+        this.puff(e.x, g + 0.5, e.z, 18, 3.2, 0.3, SLIME_GREEN);
+        break;
+      }
+      case 'actorAbsorbed':
+        this.puff(e.x, e.y, e.z, 6, 1.6, 0.2, SLIME_GREEN);
+        break;
       case 'slam': {
         // A monster landing hard: a dust ring the size of what it hit, and a splash of slime.
         const g = this.gy(e.x, e.z);

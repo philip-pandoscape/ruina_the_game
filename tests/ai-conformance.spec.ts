@@ -1,9 +1,9 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
-import { BEHAVIOURS, startBrain, stepBrain, type Sighting } from '../src/sim/ai/brain';
+import { BEHAVIOURS, behaviour, startBrain, stepBrain, type Sighting } from '../src/sim/ai/brain';
 import { Actors, isAlive, type Actor } from '../src/sim/actor';
-import { actorKind, actorKindIndex } from '../src/content/actors';
+import { actorKind, actorKindAt, actorKindIndex } from '../src/content/actors';
 import { stepActors } from '../src/sim/actors/step';
 import { hurtActor } from '../src/sim/combat/deal';
 import { len } from '../src/sim/math';
@@ -82,7 +82,13 @@ test.describe('TypeScript and Rust run the same behaviours', () => {
 
 interface Spawn { kind: string; x: number; z: number; seed: number }
 interface Hit { frame: number; x: number; z: number; damage: number }
-interface Pack { pack: Spawn[]; frames: number; hits: Hit[] }
+interface Pack {
+  pack: Spawn[];
+  frames: number;
+  hits: Hit[];
+  /** What the fight has to have got up to, so a pass proves something: kinds seen, states entered, slams. */
+  expect: { kinds: string[]; states: string[]; slams: boolean };
+}
 interface PackRun { frames: number[][][]; slams: number[][][] }
 
 const ROW = ['id', 'kind', 'x', 'y', 'z', 'facing', 'state', 'stateFrame', 'wait', 'hp', 'mass', 'deadFrame',
@@ -173,11 +179,13 @@ const PACKS: Record<string, Pack> = {
     pack: ring('slime', 6, 0, 3, 4, 0x51e0),
     frames: 2400,
     hits: hitsAt(0, 3, 30, 420, 18, 12),
+    expect: { kinds: ['slime', 'slimelet'], states: ['chase', 'windup', 'leap', 'scatter', 'flee', 'regroup'], slams: true },
   },
   'mixed sizes, hit hard': {
     pack: [...ring('slime', 4, 0, 2, 5, 0x77aa), ...ring('great-slime', 1, 0, 2, 0.5, 0x1234), ...ring('slimelet', 3, 2, -1, 2, 0x99)],
     frames: 2400,
     hits: [...hitsAt(0, 2, 20, 300, 12, 26), ...hitsAt(3, 3, 900, 1100, 15, 14)],
+    expect: { kinds: ['slime', 'great-slime', 'slimelet'], states: ['chase', 'windup', 'leap', 'scatter', 'regroup'], slams: true },
   },
 };
 
@@ -185,7 +193,22 @@ test.describe('TypeScript and Rust run the same packs', () => {
   for (const [name, s] of Object.entries(PACKS)) {
     test(name, () => {
       test.skip(!existsSync(AICHECK), 'build it first: cargo build --release --manifest-path server/Cargo.toml --bin aicheck');
-      comparePacks(name, runPackTs(s), rust<PackRun>(s));
+      const ts = runPackTs(s);
+      const { expect: want, ...scenario } = s;
+      comparePacks(name, ts, rust<PackRun>(scenario));
+      const kinds = new Set<number>();
+      const states = new Set<string>();
+      for (const frame of ts.frames) {
+        for (const r of frame) {
+          kinds.add(r[1]);
+          const k = actorKindAt(r[1]);
+          const st = k?.brain ? behaviour(k.brain)?.states[r[6]]?.name : undefined;
+          if (st) states.add(st);
+        }
+      }
+      for (const k of want.kinds) expect(kinds, `${name} never had a ${k}`).toContain(actorKindIndex(k));
+      for (const st of want.states) expect(states, `${name} never went into ${st}`).toContain(st);
+      if (want.slams) expect(ts.slams.some((f) => f.length > 0), `${name} never slammed`).toBe(true);
     });
   }
 });
