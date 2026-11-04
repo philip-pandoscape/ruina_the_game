@@ -63,6 +63,7 @@ jobs:
             server/target/release/aicheck
             server/target/release/balance
             server/target/release/terraincheck
+            server/target/release/worldcheck
 
   # The suite plays the real game in a browser that draws in software here, so it's split across
   # four runners (about 10 minutes instead of 40). "Game tests" below is the one check to require.
