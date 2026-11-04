@@ -99,10 +99,16 @@ test('the weapon comes out for a fight and goes away after it', async ({ page })
     g.reset({ facing: away, camYaw: away });
   });
   await expect.poll(() => page.evaluate(() => (window as any).__game.combat().target), { timeout: 3000 }).toBeNull();
-  await expect.poll(weapon, { timeout: 8000 }).toBe('away');
+  // Played forward on the game's own clock, half a second a frame drawn, so a slow screen (CI draws
+  // in software) waits no longer: it stays out 2.5 s after the fight, then goes away over 0.6 s.
+  await page.evaluate(() => {
+    const g = (window as any).__game;
+    for (let i = 0; i < 16; i++) g.advance(30);
+  });
+  expect(await weapon()).toBe('away');
   // A swing has it in hand at once.
   await page.evaluate(() => (window as any).__game.advance(2, { attackPressed: true }));
-  await expect.poll(weapon, { timeout: 1000 }).toBe('hand');
+  expect(await weapon()).toBe('hand');
   expect(errors).toEqual([]);
 });
 
