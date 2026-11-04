@@ -15,5 +15,5 @@
     "noEmit": true,
     "allowImportingTsExtensions": true
   },
-  "include": ["src", "tests", "shared", "tools", "playwright.config.ts", "vite.config.ts"]
+  "include": ["src", "tests", "shared", "tools", "design", "playwright.config.ts", "vite.config.ts"]
 }

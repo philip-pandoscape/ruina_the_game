@@ -65,7 +65,7 @@ node tools/bugs.mjs close <id> fixed "what was wrong, what changed (files), whic
 
 The other outcomes are `duplicate`, `not-a-bug`, `cant-reproduce` and `wontfix`. A closed report moves to `bugs/closed/`. If you need an answer from the user first, leave the report open and ask.
 
-Then follow the project's tracker routine: record the fixes in this session's entry in `design/status.json`, update a feature's notes if its behaviour changed, and run `npm run design`.
+Then follow the project's tracker routine: record the fixes in this session's entry in `design/status.json` and update a feature's notes if its behaviour changed. The design bible at `/design/` reads the tracker live, so there is nothing to rebuild.
 
 ## 6. Report back
 

@@ -1,5 +1,5 @@
 {
-  "comment": "Implementation tracker for the design bible (design/index.html). Edit this file, then run `npm run design` to rebuild the page. Status is one of: done, building, planned, idea. Keep `files` to the main places a feature lives so a future session can jump straight there.",
+  "comment": "Implementation tracker for the design bible (design/index.html). Edit this file and the page follows: it reads the tracker live (npm run dev, then /design/). Status is one of: done, building, planned, idea. Keep `files` to the main places a feature lives so a future session can jump straight there.",
   "updated": "2026-11-03",
   "systems": [
     {
@@ -567,6 +567,18 @@
     },
     {
       "system": "tech",
+      "status": "done",
+      "title": "Design bible drawn from the game's own modules",
+      "notes": "design/index.html is the prose; design/bible.ts draws every table, chart, calculator and the map from the content modules, the rules' formulas (freshness, climate) and the terrain generator, and the tracker from this file. The dev server serves it at /design/. Nothing is generated or copied, so it is always current. tests/design.spec.ts checks it draws without errors.",
+      "files": [
+        "design/index.html",
+        "design/bible.ts",
+        "design/status.json",
+        "tests/design.spec.ts"
+      ]
+    },
+    {
+      "system": "tech",
       "status": "planned",
       "title": "A world server",
       "notes": "Persistent, authoritative life systems: the same commands sent as requests, state in a database, interest management for other players' carts and ships."
@@ -689,6 +701,17 @@
         "On hills a swing also only reaches targets whose feet are within 2 m of yours, the same rule the server uses between fighters, so you cannot hit a slime down a cliff.",
         "The practice dummy's straw burst, when you knock it down, was drawn at a fixed height above the sea, inside the hill under the meadow. It now bursts from the ground under the dummy (src/render/vfx.ts).",
         "New test in tests/world.spec.ts: sword, club and staff swings hurt a slime on the meadow, the sword hurts the dummy, and a slime 3 m down a rock edge is out of reach."
+      ]
+    },
+    {
+      "date": "2026-11-03",
+      "title": "The design bible lives in the source",
+      "summary": "The design bible is now a page of the game's source, served by the dev server at /design/, instead of a self-contained snapshot published to claude.ai.",
+      "points": [
+        "design/bible.ts draws everything that comes from data by importing the modules the game runs on: src/content/ (shared/*.json), the tuning, the rules' freshness and climate formulas, and the zone recipe grown by the real generator. The map's relief is shaded in the browser.",
+        "Gone: design/build.mjs, design/map.ts and npm run design, and the 400 KB of copied JSON and base64 map they wrote into design/index.html. Change the data or the tracker and the page reloads with it.",
+        "design/index.html is now a proper document (without a doctype the dev server showed it in quirks mode) and design/ is type-checked with the rest.",
+        "tests/design.spec.ts: every part draws without a console error, the ledger, vehicles, quests and log match the data, the tracker filters work, and the map is the generated island."
       ]
     }
   ]

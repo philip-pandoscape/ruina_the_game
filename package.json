@@ -10,8 +10,7 @@
     "server": "cargo run --release --manifest-path server/Cargo.toml --bin yggdrasil-server -- --bots 10000 --slimes 24",
     "server:stress": "cargo run --release --manifest-path server/Cargo.toml --bin yggdrasil-server -- --bots 10000 --virtual-clients 10000",
     "loadtest": "cargo run --release --manifest-path server/Cargo.toml --bin loadtest -- --clients 1000 --seconds 15",
-    "balance": "cargo run --release --manifest-path server/Cargo.toml --bin balance < balance.json",
-    "design": "node design/build.mjs"
+    "balance": "cargo run --release --manifest-path server/Cargo.toml --bin balance < balance.json"
   },
   "type": "module",
   "dependencies": {

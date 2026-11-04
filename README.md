@@ -9,10 +9,11 @@ The open world starts on **Emberholm**, a starter isle with ArcheAge-style life 
 carts, a roadster, boats that sail on the wind, mounts, trade packs you carry to faraway trading
 posts, scarecrow farms, and houses you build from hauled materials.
 
-**Design bible:** `design/index.html` is the root design document: every system, live numbers from
-the game's data, an interactive map, and the implementation tracker (`design/status.json`). Open it
-from the dev server at http://localhost:5173/design/ or straight from disk. After changing
-`shared/*.json` or the tracker, run `npm run design` to rebuild it.
+**Design bible:** the root design document lives in `design/`: every system, live numbers from the
+game's data, an interactive map, and the implementation tracker (`design/status.json`). Run
+`npm run dev` and open http://localhost:5173/design/. The prose is `design/index.html`; everything
+else is drawn by `design/bible.ts` from the game's own modules (the content in `shared/*.json`, the
+rules' formulas and the terrain generator), so it is always current and there is nothing to rebuild.
 
 - `src/`: browser client (Three.js + TypeScript, built with Vite)
 - `src/skills.ts` and `server/src/skills.rs`: the skill tree and its modifiers, mirrored in both
