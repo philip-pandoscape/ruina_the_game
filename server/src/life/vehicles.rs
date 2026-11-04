@@ -11,7 +11,7 @@ use std::cmp::Ordering;
 use std::collections::BTreeMap;
 use std::f64::consts::PI;
 
-use super::content::{self, item_def, js_sign, rideable, Anchor, ItemDef, RideableDef};
+use super::content::{self, item_def, js_sign, rideable, Anchor, ItemDef, RideableDef, js_hypot as hypot};
 use super::state::Vehicle;
 use super::weather::storm_at;
 use super::{step_seconds, Life, QuestEvent};
@@ -68,31 +68,6 @@ fn turn_toward(current: f64, target: f64, max_step: f64) -> f64 {
     let d = angle_diff(current, target);
     let next = current + (-max_step).max(max_step.min(d));
     next.sin().atan2(next.cos())
-}
-
-/// Math.hypot as V8 (Chrome, Node) works it out: both scaled by the larger, squared and summed,
-/// rooted, scaled back. f64::hypot is the C library's, which often differs in the last bit, and
-/// these distances decide things (did it move, is the mount within earshot).
-fn hypot(a: f64, b: f64) -> f64 {
-    let (a, b) = (a.abs(), b.abs());
-    let mut max = 0.0;
-    if a > max {
-        max = a;
-    }
-    if b > max {
-        max = b;
-    }
-    if max == f64::INFINITY {
-        return f64::INFINITY;
-    }
-    if a.is_nan() || b.is_nan() {
-        return f64::NAN;
-    }
-    if max == 0.0 {
-        return 0.0;
-    }
-    let (x, y) = (a / max, b / max);
-    (x * x + y * y).sqrt() * max
 }
 
 /// Index of the vehicle with this id in life.state.vehicles (TS vehicleById).
