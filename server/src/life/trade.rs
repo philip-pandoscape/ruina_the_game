@@ -5,6 +5,7 @@
 //! trading post somewhere else. Farther routes pay more; each sale lowers that post's demand for
 //! that pack, which recovers with time; a fresh pack earns a bonus that sours the longer it sits.
 
+use crate::jsmath::JsMath;
 use super::content::{self, format_coins, item_def, js_max, js_min, js_round, pack_def, place_name, recipe, route, vendor_for, RecipeDef};
 use super::contracts::contract_delivered;
 use super::state::Pack;
@@ -176,8 +177,8 @@ pub fn drop_pack(life: &mut Life, sim: &mut Sim) -> bool {
         return false;
     }
     let hf = sim.terrain();
-    let x = p.pos.x + p.facing.sin() * 0.9;
-    let z = p.pos.z + p.facing.cos() * 0.9;
+    let x = p.pos.x + p.facing.js_sin() * 0.9;
+    let z = p.pos.z + p.facing.js_cos() * 0.9;
     let y = ground_at(hf, &sim.world.index, x, z, p.pos.y + 0.3, 0.6);
     let rot = p.facing;
     let pack = &mut life.state.packs[i];

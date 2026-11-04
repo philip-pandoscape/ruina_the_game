@@ -7,6 +7,7 @@
 //! same steps in the same order, with the arithmetic written the same way. The TypeScript hands
 //! vehicles around as objects; here they stay inside life.state and are named by id (or index).
 
+use crate::jsmath::JsMath;
 use std::cmp::Ordering;
 use std::collections::BTreeMap;
 use std::f64::consts::PI;
@@ -67,7 +68,7 @@ fn len(x: f64, z: f64) -> f64 {
 fn turn_toward(current: f64, target: f64, max_step: f64) -> f64 {
     let d = angle_diff(current, target);
     let next = current + (-max_step).max(max_step.min(d));
-    next.sin().atan2(next.cos())
+    next.js_sin().js_atan2(next.js_cos())
 }
 
 /// Index of the vehicle with this id in life.state.vehicles (TS vehicleById).
@@ -83,7 +84,7 @@ pub fn ridden(life: &Life, sim: &Sim) -> Option<usize> {
 /// A point given in the vehicle's own frame, out in the world.
 pub fn anchor_world(v: &Vehicle, a: &Anchor) -> (f64, f64, f64) {
     let (ox, oz) = to_world(a.x, a.z, v.heading);
-    (v.x + ox, v.y + a.y - a.z * v.pitch.sin() + a.x * v.roll.sin(), v.z + oz)
+    (v.x + ox, v.y + a.y - a.z * v.pitch.js_sin() + a.x * v.roll.js_sin(), v.z + oz)
 }
 
 // ---------- Summoning ----------
@@ -118,8 +119,8 @@ fn land_spot(sim: &Sim, def: &RideableDef) -> Option<Spot> {
     for dist in [3.5, 5.0, 7.0, 9.0] {
         for k in 0..12 {
             let a = p.facing + (if k % 2 != 0 { 1.0 } else { -1.0 }) * (k as f64 / 2.0).ceil() * (PI / 6.0);
-            let x = p.pos.x + a.sin() * (dist + def.radius);
-            let z = p.pos.z + a.cos() * (dist + def.radius);
+            let x = p.pos.x + a.js_sin() * (dist + def.radius);
+            let z = p.pos.z + a.js_cos() * (dist + def.radius);
             if !hf.inside(x, z, 10.0) {
                 continue;
             }
@@ -152,8 +153,8 @@ fn water_spot(sim: &Sim, def: &RideableDef) -> Option<Spot> {
         let mut best_depth = 0.0;
         for k in 0..24 {
             let a = (k as f64 / 24.0) * TAU;
-            let x = p.pos.x + a.sin() * (dist + def.radius);
-            let z = p.pos.z + a.cos() * (dist + def.radius);
+            let x = p.pos.x + a.js_sin() * (dist + def.radius);
+            let z = p.pos.z + a.js_cos() * (dist + def.radius);
             if !hf.inside(x, z, 20.0) {
                 continue;
             }
@@ -163,9 +164,9 @@ fn water_spot(sim: &Sim, def: &RideableDef) -> Option<Spot> {
             }
             // The whole hull must float: check bow and stern too.
             let (gx, gz) = hf.gradient(x, z);
-            let heading = (-gx).atan2(-gz); // downhill = out to sea
-            let bow = hf.water - hf.height(x + heading.sin() * def.length * 0.5, z + heading.cos() * def.length * 0.5);
-            let stern = hf.water - hf.height(x - heading.sin() * def.length * 0.5, z - heading.cos() * def.length * 0.5);
+            let heading = (-gx).js_atan2(-gz); // downhill = out to sea
+            let bow = hf.water - hf.height(x + heading.js_sin() * def.length * 0.5, z + heading.js_cos() * def.length * 0.5);
+            let stern = hf.water - hf.height(x - heading.js_sin() * def.length * 0.5, z - heading.js_cos() * def.length * 0.5);
             if bow < def.draft || stern < def.draft {
                 continue;
             }
@@ -547,8 +548,8 @@ fn circles(v: &Vehicle, def: &RideableDef) -> ([Circle; 3], usize) {
     }
     let r = def.width / 2.0 + 0.1;
     let off = def.length / 2.0 - r;
-    let fx = v.heading.sin();
-    let fz = v.heading.cos();
+    let fx = v.heading.js_sin();
+    let fz = v.heading.js_cos();
     (
         [
             Circle { x: v.x + fx * off, z: v.z + fz * off, r },
@@ -621,17 +622,17 @@ fn collide(sim: &Sim, v: &mut Vehicle, def: &RideableDef, solid_decks: bool) -> 
 
 /// Visual tilt from the ground under the wheels or hooves.
 fn settle_tilt(hf: &Heightfield, v: &mut Vehicle, def: &RideableDef, dt: f64) {
-    let fx = v.heading.sin();
-    let fz = v.heading.cos();
+    let fx = v.heading.js_sin();
+    let fz = v.heading.js_cos();
     let hl = def.length * 0.4;
     let hw = def.width * 0.45;
     let front = hf.height(v.x + fx * hl, v.z + fz * hl);
     let back = hf.height(v.x - fx * hl, v.z - fz * hl);
     let left = hf.height(v.x + fz * hw, v.z - fx * hw);
     let right = hf.height(v.x - fz * hw, v.z + fx * hw);
-    let pitch = if v.grounded { (front - back).atan2(hl * 2.0) } else { v.pitch };
-    let roll = if v.grounded { (left - right).atan2(hw * 2.0) } else { v.roll };
-    let k = 1.0 - (-10.0 * dt).exp();
+    let pitch = if v.grounded { (front - back).js_atan2(hl * 2.0) } else { v.pitch };
+    let roll = if v.grounded { (left - right).js_atan2(hw * 2.0) } else { v.roll };
+    let k = 1.0 - (-10.0 * dt).js_exp();
     v.pitch += (clamp(pitch, -0.6, 0.6) - v.pitch) * k;
     v.roll += (clamp(roll, -0.5, 0.5) - v.roll) * k;
 }
@@ -641,8 +642,8 @@ fn step_wheeled(sim: &Sim, v: &mut Vehicle, d: &RideableDef, inp: &DriveInput) {
     let hf = sim.terrain();
     v.throttle += (inp.throttle - v.throttle) * 1f64.min(9.0 * dt);
     v.steer += (inp.steer - v.steer) * 1f64.min(7.0 * dt);
-    let fx = v.heading.sin();
-    let fz = v.heading.cos();
+    let fx = v.heading.js_sin();
+    let fz = v.heading.js_cos();
     let rx = -fz;
     let rz = fx;
     let mut vf = v.vx * fx + v.vz * fz;
@@ -679,7 +680,7 @@ fn step_wheeled(sim: &Sim, v: &mut Vehicle, d: &RideableDef, inp: &DriveInput) {
         let sf = clamp(vf.abs() / 3.0, 0.0, 1.0) * (1.0 - 0.4 * clamp(vf.abs() / 1f64.max(d.max_speed), 0.0, 1.0));
         let yaw = v.steer * d.turn_rate * sf * (if vf >= 0.0 { 1.0 } else { -1.0 }) * (if inp.handbrake { 1.35 } else { 1.0 });
         let grip = (if inp.handbrake { d.drift_grip } else { d.grip }) * (if paved { 1.0 } else { 0.75 });
-        vs *= (-grip * dt).exp();
+        vs *= (-grip * dt).js_exp();
         v.vx = fx * vf + rx * vs;
         v.vz = fz * vf + rz * vs;
         v.heading = wrap(v.heading + yaw * dt);
@@ -788,8 +789,8 @@ fn step_boat(life: &mut Life, sim: &Sim, v: &mut Vehicle, d: &RideableDef, inp: 
         target = if v.throttle >= 0.0 { v.throttle * d.max_speed } else { v.throttle * d.reverse_speed };
     }
     v.steer += (inp.steer - v.steer) * 1f64.min(5.0 * dt);
-    let fx = v.heading.sin();
-    let fz = v.heading.cos();
+    let fx = v.heading.js_sin();
+    let fz = v.heading.js_cos();
     let rx = -fz;
     let rz = fx;
     let mut vf = v.vx * fx + v.vz * fz;
@@ -802,7 +803,7 @@ fn step_boat(life: &mut Life, sim: &Sim, v: &mut Vehicle, d: &RideableDef, inp: 
     let flow = clamp(vf.abs() / (0.4 * d.max_speed), 0.0, 1.0);
     let turn = d.turn_at_rest + (d.turn_rate - d.turn_at_rest) * flow;
     v.heading = wrap(v.heading + v.steer * turn * dt * (if vf < -0.2 { -1.0 } else { 1.0 }));
-    vs *= (-d.grip * dt).exp();
+    vs *= (-d.grip * dt).js_exp();
     v.vx = fx * vf + rx * vs;
     v.vz = fz * vf + rz * vs;
     v.speed = vf;
@@ -850,9 +851,9 @@ fn step_boat(life: &mut Life, sim: &Sim, v: &mut Vehicle, d: &RideableDef, inp: 
         v.storm_warned = Some(false);
     }
     // Heel with the wind in the sail and into the turn; the renderer adds the swell.
-    let heel = (if truthy(d.sail) { rel.sin() * 0.12 * v.sail } else { 0.0 }) - v.steer * flow * 0.08;
-    v.roll += (heel - v.roll) * (1.0 - (-3.0 * dt).exp());
-    v.pitch += (-clamp(vf / 1f64.max(d.max_speed), -1.0, 1.0) * 0.04 - v.pitch) * (1.0 - (-3.0 * dt).exp());
+    let heel = (if truthy(d.sail) { rel.js_sin() * 0.12 * v.sail } else { 0.0 }) - v.steer * flow * 0.08;
+    v.roll += (heel - v.roll) * (1.0 - (-3.0 * dt).js_exp());
+    v.pitch += (-clamp(vf / 1f64.max(d.max_speed), -1.0, 1.0) * 0.04 - v.pitch) * (1.0 - (-3.0 * dt).js_exp());
     false
 }
 
@@ -869,8 +870,8 @@ fn break_up(life: &mut Life, sim: &mut Sim, id: i64) {
         }
         let Some(j) = life.state.packs.iter().position(|p| p.id == pack) else { continue };
         let a = (k as f64 / 1f64.max(cargo.len() as f64)) * PI * 2.0 + life.rand();
-        let x = vx + a.cos() * (1.5 + life.rand() * 2.5);
-        let z = vz + a.sin() * (1.5 + life.rand() * 2.5);
+        let x = vx + a.js_cos() * (1.5 + life.rand() * 2.5);
+        let z = vz + a.js_sin() * (1.5 + life.rand() * 2.5);
         let pk = &mut life.state.packs[j];
         pk.at = "ground".to_string();
         pk.vehicle = 0;
@@ -893,7 +894,7 @@ fn break_up(life: &mut Life, sim: &mut Sim, id: i64) {
 
 /// How much of the wind a sail can use at this angle off it (0 = wind straight behind).
 pub fn sail_efficiency(rel: f64) -> f64 {
-    0.25 + 0.75 * (0.5 + 0.5 * rel.cos()).powf(0.6)
+    0.25 + 0.75 * (0.5 + 0.5 * rel.js_cos()).powf(0.6)
 }
 
 fn step_mount(sim: &Sim, v: &mut Vehicle, d: &RideableDef, a: &Actions, carrying: bool) {
@@ -920,19 +921,19 @@ fn step_mount(sim: &Sim, v: &mut Vehicle, d: &RideableDef, a: &Actions, carrying
         top *= 0.45;
     }
     if mag > 0.05 {
-        v.heading = turn_toward(v.heading, a.move_x.atan2(a.move_z), d.turn_rate * dt);
+        v.heading = turn_toward(v.heading, a.move_x.js_atan2(a.move_z), d.turn_rate * dt);
     }
     // Animals turn their whole body: speed builds along the heading, not the stick.
-    let align = if mag > 0.05 { 0.25f64.max(angle_diff(v.heading, a.move_x.atan2(a.move_z)).cos()) } else { 1.0 };
+    let align = if mag > 0.05 { 0.25f64.max(angle_diff(v.heading, a.move_x.js_atan2(a.move_z)).js_cos()) } else { 1.0 };
     let want = top * align;
     if v.speed < want {
         v.speed = want.min(v.speed + d.accel * dt);
     } else {
         v.speed = want.max(v.speed - d.accel * 1.4 * dt);
     }
-    v.vx = v.heading.sin() * v.speed;
-    v.vz = v.heading.cos() * v.speed;
-    v.steer = clamp(angle_diff(v.heading, or(a.move_x, 1e-6).atan2(a.move_z)) * (if mag > 0.05 { 1.0 } else { 0.0 }), -1.0, 1.0);
+    v.vx = v.heading.js_sin() * v.speed;
+    v.vz = v.heading.js_cos() * v.speed;
+    v.steer = clamp(angle_diff(v.heading, or(a.move_x, 1e-6).js_atan2(a.move_z)) * (if mag > 0.05 { 1.0 } else { 0.0 }), -1.0, 1.0);
     if a.jump_pressed && v.grounded && !v.swimming {
         v.vy = d.jump;
         v.grounded = false;
@@ -1134,7 +1135,7 @@ mod tests {
 
     /// How fast a vehicle is sliding sideways.
     fn slip(v: &Vehicle) -> f64 {
-        (v.vx * -v.heading.cos() + v.vz * v.heading.sin()).abs()
+        (v.vx * -v.heading.js_cos() + v.vz * v.heading.js_sin()).abs()
     }
 
     #[test]
@@ -1218,10 +1219,10 @@ mod tests {
         assert_eq!(v.y, hf.water);
         // Afloat from bow to stern, pointing out to sea.
         for k in [-0.5, 0.0, 0.5] {
-            let (x, z) = (v.x + v.heading.sin() * def.length * k, v.z + v.heading.cos() * def.length * k);
+            let (x, z) = (v.x + v.heading.js_sin() * def.length * k, v.z + v.heading.js_cos() * def.length * k);
             assert!(hf.water - hf.height(x, z) >= def.draft, "afloat at {k}");
         }
-        let ahead = (v.x + v.heading.sin() * 10.0, v.z + v.heading.cos() * 10.0);
+        let ahead = (v.x + v.heading.js_sin() * 10.0, v.z + v.heading.js_cos() * 10.0);
         assert!(hf.height(ahead.0, ahead.1) < hf.height(v.x, v.z), "deeper ahead");
     }
 
@@ -1376,7 +1377,7 @@ mod tests {
         assert!(w.v(id).z > z + 5.0 && w.v(id).z < shore, "in the shallows, short of the beach");
         // At speed, on the second: the shout.
         let v = w.v(id).clone();
-        let (fx, fz) = (v.heading.sin(), v.heading.cos());
+        let (fx, fz) = (v.heading.js_sin(), v.heading.js_cos());
         let i = vehicle_index(&w.life, id).unwrap();
         w.life.state.vehicles[i].vx = fx * 5.0;
         w.life.state.vehicles[i].vz = fz * 5.0;
@@ -1598,7 +1599,7 @@ mod tests {
         let id = w.summon("deed.farmCart").unwrap();
         w.frames(30, Actions::default());
         let v = w.v(id).clone();
-        let (rx, rz) = (-v.heading.cos(), v.heading.sin());
+        let (rx, rz) = (-v.heading.js_cos(), v.heading.js_sin());
         w.p.pos = V3 { x: v.x + rx * 0.6, y: v.y, z: v.z + rz * 0.6 };
         w.frames(1, Actions::default());
         let parked = w.v(id);
@@ -1631,7 +1632,7 @@ mod tests {
         // Pitch and roll lift the seat with the floor.
         let tilted = Vehicle { pitch: 0.1, roll: -0.2, ..v };
         let (_, y, _) = anchor_world(&tilted, &rideable("farmCart").seats[0]);
-        assert!((y - (1.05 - 0.95 * 0.1f64.sin() + 0.42 * (-0.2f64).sin())).abs() < 1e-12);
+        assert!((y - (1.05 - 0.95 * 0.1f64.js_sin() + 0.42 * (-0.2f64).js_sin())).abs() < 1e-12);
     }
 
     #[test]

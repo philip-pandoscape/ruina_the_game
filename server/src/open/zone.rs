@@ -4,6 +4,7 @@
 //! runs in the browser; tests/terrain.spec.ts bakes its output into server/data/emberholm.zone and
 //! checks the copy is current, so both sides play on exactly the same island.
 
+use crate::jsmath::JsMath;
 use std::sync::OnceLock;
 
 use serde::Deserialize;
@@ -140,18 +141,18 @@ pub type Deck = BoxCollider;
 
 /// A rectangle facing `rot`, as the generator builds them (src/sim/zone/generate.ts rect()).
 pub fn rect(x: f64, z: f64, hw: f64, hd: f64, rot: f64, top: f64) -> BoxCollider {
-    BoxCollider { x, z, hw, hd, rot, cos: rot.cos(), sin: rot.sin(), top }
+    BoxCollider { x, z, hw, hd, rot, cos: rot.js_cos(), sin: rot.js_sin(), top }
 }
 
 /// A world offset into a structure's own frame (src/sim/zone/generate.ts toLocal()).
 pub fn to_local(dx: f64, dz: f64, rot: f64) -> (f64, f64) {
-    let (c, s) = (rot.cos(), rot.sin());
+    let (c, s) = (rot.js_cos(), rot.js_sin());
     (dx * c - dz * s, dx * s + dz * c)
 }
 
 /// A structure-local point back out into the world (src/sim/zone/generate.ts toWorld()).
 pub fn to_world(lx: f64, lz: f64, rot: f64) -> (f64, f64) {
-    let (c, s) = (rot.cos(), rot.sin());
+    let (c, s) = (rot.js_cos(), rot.js_sin());
     (lx * c + lz * s, -lx * s + lz * c)
 }
 

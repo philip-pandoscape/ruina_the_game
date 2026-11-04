@@ -1,6 +1,7 @@
 //! Rain showers that water every crop on the isle, and a wind that wanders round the compass and
 //! fills (or empties) your sails (src/sim/life/weather.ts).
 
+use crate::jsmath::JsMath;
 use super::content::{farm, storm};
 use super::Life;
 
@@ -22,8 +23,8 @@ pub fn step_weather(life: &mut Life, _dt: f64) {
     }
     // Smooth and deterministic: the same clock always has the same wind.
     let w = &mut life.state.weather;
-    w.wind_dir = 0.9 + 0.75 * (c / 190.0).sin() + 0.3 * (c / 57.0 + 1.3).sin();
-    w.wind_speed = 0.72 + 0.22 * (c / 97.0 + 0.4).sin();
+    w.wind_dir = 0.9 + 0.75 * (c / 190.0).js_sin() + 0.3 * (c / 57.0 + 1.3).js_sin();
+    w.wind_speed = 0.72 + 0.22 * (c / 97.0 + 0.4).js_sin();
 }
 
 /// Hour of the day, 0..24, from the world clock.

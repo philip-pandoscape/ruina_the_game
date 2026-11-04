@@ -13,6 +13,8 @@ axum = { version = "0.8.9", features = ["ws"] }
 tower-http = { version = "0.7.1", features = ["fs", "compression-gzip"] }
 futures-util = "0.3.34"
 rayon = "1.12.0"
+# The browser's exp and atan2 (fdlibm, as V8's are), so the rules both sides run agree to the bit.
+libm = "0.2"
 serde = { version = "1.0.229", features = ["derive"] }
 # float_roundtrip: numbers read exactly as JavaScript wrote them (islands, content), not a last bit off.
 serde_json = { version = "1.0.154", features = ["float_roundtrip"] }

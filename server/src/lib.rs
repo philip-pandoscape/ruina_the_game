@@ -13,6 +13,7 @@ pub mod db;
 pub mod game;
 pub mod http;
 pub mod interest;
+pub mod jsmath;
 pub mod life;
 pub mod net;
 pub mod open;

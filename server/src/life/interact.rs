@@ -2,6 +2,7 @@
 //! (src/sim/life/interact.ts). The focus is worked out from what is near you and in front of you,
 //! so the prompt on screen is always exactly what the next press will do.
 
+use crate::jsmath::JsMath;
 use std::collections::HashSet;
 use std::f64::consts::PI;
 
@@ -133,8 +134,8 @@ pub fn find_focus(life: &mut Life, sim: &Sim) -> Option<Focus> {
     }
     if life.placing.is_some() {
         let ahead = 7.0;
-        let x = p.pos.x + p.facing.sin() * ahead;
-        let z = p.pos.z + p.facing.cos() * ahead;
+        let x = p.pos.x + p.facing.js_sin() * ahead;
+        let z = p.pos.z + p.facing.js_cos() * ahead;
         let rot = js_round(p.facing / (PI / 12.0)) * (PI / 12.0);
         let problem = plot_problem(life, sim, x, z, rot);
         if let Some(pl) = life.placing.as_mut() {
@@ -163,8 +164,8 @@ pub fn find_focus(life: &mut Life, sim: &Sim) -> Option<Focus> {
     let life: &Life = life;
     let zone: &'static Zone = life.zone;
     let (px, pz) = (p.pos.x, p.pos.z);
-    let fx = p.facing.sin();
-    let fz = p.facing.cos();
+    let fx = p.facing.js_sin();
+    let fz = p.facing.js_cos();
     let mut pick = Pick { x: px, z: pz, fx, fz, best: None, score: f64::INFINITY };
     let back = carried(life, sim).map(|i| &life.state.packs[i]);
 
