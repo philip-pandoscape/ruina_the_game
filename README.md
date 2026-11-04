@@ -17,8 +17,10 @@ else is drawn by `design/bible.ts` from the game's own modules (the content in `
 rules' formulas and the terrain generator), so it is always current and there is nothing to rebuild.
 
 - `src/`: browser client (Three.js + TypeScript, built with Vite)
-- `src/skills.ts` and `server/src/skills.rs`: the skill tree and its modifiers, mirrored in both
-  languages. Skills are data in `shared/tuning.json`; adding one should not mean writing code.
+- `src/skills.ts` and `server/src/skills.rs`: the skill tree, the levels skills gain by use, and the
+  modifiers both apply, mirrored in both languages. The tree is data in `shared/skilltree.json`
+  (laid out by `tools/skilltree/gen.mjs`), points and levels in `shared/tuning.json`; adding a
+  skill should not mean writing code.
   An ability is targeting plus a list of *effects*, and a movement skill is an *action state* with
   a startup / active / recovery timeline. Those two vocabularies are the only things that cost
   code, and then in both languages at once.
@@ -32,6 +34,7 @@ rules' formulas and the terrain generator), so it is always current and there is
   the open world's content. `src/sim/zone/` grows the island from a zone recipe, `src/sim/life/`
   runs trade, farming, housing, vehicles and quests, `src/render/open/` and `src/render/models/`
   draw it (preview every model at http://localhost:5173/models.html), `src/ui/life/` is its HUD
+  and windows, in the look `src/ui/theme/` gives the whole UI
 - `tests/`: Playwright tests that play the real game in a browser, plus checks that the TypeScript and
   Rust rules agree frame by frame
 
@@ -123,7 +126,8 @@ in `.env` (git-ignored) as `RAILWAY_BETA_API_KEY` and `RAILWAY_PRODUCTION_API_KE
 | Hotbar (hold to aim a ground cast) | 1 – 8 | LT or RT + A/B/X/Y |
 | Movement skills (dodge, backstep, block) | Q, E | LB, RB |
 | Next target | Tab (Shift-Tab goes back) | D-pad right / left |
-| Skill trees | T | View |
+| Skill book (your skills, their levels, the hotbar) | T | View |
+| Skill tree (learning) | N | A bumper, from the skill book |
 | Report a bug (press again to save it) | \ (Backspace twice throws it away) | Click both sticks |
 
 **Fighting** (an enemy marked, or for a moment after you swing or cast) you keep facing where the
@@ -144,6 +148,7 @@ In the open world:
 | Drop the pack on your back | X | |
 | Change the seed you plant | Z | |
 | Bag, map, vehicles, quest log | I, M, V, L | Menu, D-pad up |
+| Character (your gear) | P | |
 | Developer tools (give items, skip time, teleport) | ` | |
 
 ## Bug reports

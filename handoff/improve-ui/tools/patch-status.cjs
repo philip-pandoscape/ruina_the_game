@@ -97,6 +97,7 @@ s.sessions = [
       'shared/skilltree.json (laid out by tools/skilltree/gen.mjs): 226 nodes in four disciplines, learned outward through their links; the old skills kept their places and costs.',
       'Skill points are startPoints plus the skillPoints of finished quests and milestones; experience lives with the island, counted by the server online; levels feed the same modifier fold as the tree, in TypeScript and Rust together.',
       'Input: an open window has the controller, the press that closes a window is not also a game press, and the skill book (T, View) and tree (N, a bumper) have their own cursor.',
+      'The browser and the server agree on getting better: a place reached counts for each quest by its own reach and height (both rules); a hit trains the weapon that landed it, so an arrow trains its bow and a blast nothing; only a kill is a defeat, not a piece dissolving; a build is held to the points the island has earned.',
     ],
   },
 ];
