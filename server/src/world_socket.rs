@@ -1,17 +1,21 @@
 //! The open world's connection: one per player on Emberholm. src/net/worldLink.ts is the other
 //! end.
 //!
-//! Phase 1 of moving online: the browser still runs the island's rules and reports the whole
-//! island every few seconds; the server keeps it in Postgres and hands it back next time. Later
-//! phases send inputs and commands over this connection instead, and the server decides.
+//! Each character lives in a channel of Emberholm (server/src/channels.rs). Their browser still
+//! runs the island's rules and reports the island every few seconds, which the server keeps in
+//! Postgres and hands back next time. It also reports where the player is about 20 times a second;
+//! the server checks it against the island's ground (server/src/terrain.rs) and relays it to
+//! everyone else in the channel, with what each resident has built and who holds which plot.
 //!
 //! JSON text messages:
-//!   server -> browser  welcome {character, account, island, build, savedAt, now}
-//!                      saved {at} | reset | kicked | error {text}
-//!   browser -> server  save {save, build?} | build {build} | reset
+//!   server -> browser  welcome {character, account, island, build, savedAt, now, channel, dev,
+//!                              estates, claims}
+//!                      peers {list: [{id, name, p}]} | estate {id, name, estate} | claims {claims}
+//!                      left {id} | correct {x, y, z} | saved {at} | reset | kicked | error {text}
+//!   browser -> server  presence {p} | save {save, build?} | build {build} | reset
 
 use std::collections::HashMap;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use argon2::password_hash::rand_core::{OsRng, RngCore};
@@ -29,21 +33,29 @@ use sqlx::PgPool;
 use tokio::sync::mpsc;
 
 use crate::accounts::{signed_in, Account};
+use crate::channels::{estate_of, Channel, Peer, CHANNEL_CAP};
 use crate::http::{same_origin, App};
+use crate::terrain::{self, Terrain};
 
 /// The biggest message a browser may send (a whole island, with room to grow).
 const MAX_MESSAGE: usize = 2 << 20;
+/// The biggest presence (a player, their vehicles and packs).
+const MAX_PRESENCE: usize = 64 << 10;
 /// Saves are written at most this often; one arriving sooner waits, and a newer one replaces it.
 const MIN_SAVE_GAP: Duration = Duration::from_secs(1);
 /// The server pings this often. Browsers answer pings by themselves, even from a background tab
 /// whose timers are throttled, so a connection this quiet for IDLE has gone without saying so.
 const PING: Duration = Duration::from_secs(20);
 const IDLE: Duration = Duration::from_secs(60);
+/// How often everyone hears where everyone else is.
+const RELAY: Duration = Duration::from_millis(50);
 
-/// Which connection is playing each character, so a second window takes over from the first.
+/// Which connection is playing each character (so a second window takes over from the first),
+/// and the channels.
 #[derive(Default)]
 pub struct Hub {
     live: Mutex<HashMap<i64, (i64, mpsc::Sender<()>)>>,
+    channels: Mutex<HashMap<i32, Channel>>,
 }
 
 impl Hub {
@@ -64,6 +76,27 @@ impl Hub {
     pub fn count(&self) -> usize {
         self.live.lock().unwrap().len()
     }
+
+    fn with_channel<T>(&self, id: i32, f: impl FnOnce(&mut Channel) -> T) -> T {
+        f(self.channels.lock().unwrap().entry(id).or_default())
+    }
+}
+
+/// Relays everyone's latest presence to their channel, 20 times a second.
+pub fn spawn_relay(app: App) {
+    tokio::spawn(async move {
+        let mut every = tokio::time::interval(RELAY);
+        every.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+        loop {
+            every.tick().await;
+            let mut channels = app.world.channels.lock().unwrap();
+            for ch in channels.values_mut() {
+                if let Some(msg) = ch.take_changed() {
+                    ch.send_all(&msg, None);
+                }
+            }
+        }
+    });
 }
 
 pub async fn upgrade(State(app): State<App>, headers: HeaderMap, ws: WebSocketUpgrade) -> Response {
@@ -86,7 +119,7 @@ pub async fn upgrade(State(app): State<App>, headers: HeaderMap, ws: WebSocketUp
         let session = (OsRng.next_u64() >> 1) as i64;
         let (kick, kicked) = mpsc::channel(1);
         app.world.claim(character, session, kick);
-        if let Err(e) = play(socket, &db, &account, session, kicked).await {
+        if let Err(e) = play(socket, &app, &db, &account, session, kicked).await {
             eprintln!("world connection for {} ended: {e}", account.username);
         }
         app.world.release(character, session);
@@ -96,6 +129,9 @@ pub async fn upgrade(State(app): State<App>, headers: HeaderMap, ws: WebSocketUp
 #[derive(Deserialize)]
 #[serde(tag = "t", rename_all = "camelCase")]
 enum FromBrowser {
+    Presence {
+        p: Value,
+    },
     Save {
         save: Value,
         #[serde(default)]
@@ -109,9 +145,101 @@ enum FromBrowser {
 
 type Tx = SplitSink<WebSocket, Message>;
 
-async fn play(socket: WebSocket, db: &PgPool, account: &Account, session: i64, mut kicked: mpsc::Receiver<()>) -> Result<(), String> {
+/// Leaves the channel however the connection ends, unless a newer window already took the seat.
+struct Seat<'a> {
+    app: &'a App,
+    channel: i32,
+    character: i64,
+    session: i64,
+}
+
+impl Drop for Seat<'_> {
+    fn drop(&mut self) {
+        self.app.world.with_channel(self.channel, |ch| {
+            if ch.peers.get(&self.character).is_some_and(|p| p.session == self.session) {
+                ch.peers.remove(&self.character);
+                ch.send_all(&json!({ "t": "left", "id": self.character }).to_string(), None);
+            }
+        });
+    }
+}
+
+/// The character's home channel: the one they were given the first time, or the first with room.
+async fn home_channel(db: &PgPool, character: i64) -> Result<i32, sqlx::Error> {
+    sqlx::query_scalar(
+        "UPDATE characters SET home_channel = COALESCE(home_channel, \
+           (SELECT c FROM generate_series(1, 100000) AS c \
+            WHERE (SELECT count(*) FROM characters WHERE home_channel = c) < $2 ORDER BY c LIMIT 1)) \
+         WHERE id = $1 RETURNING home_channel",
+    )
+    .bind(character)
+    .bind(CHANNEL_CAP)
+    .fetch_one(db)
+    .await
+}
+
+/// Reads what everyone who lives in a channel has built, the first time anyone arrives there.
+async fn load_channel(app: &App, db: &PgPool, channel: i32) -> Result<(), sqlx::Error> {
+    if app.world.with_channel(channel, |ch| ch.loaded) {
+        return Ok(());
+    }
+    let rows: Vec<(i64, String, Option<Json<Value>>)> =
+        sqlx::query_as("SELECT id, name, island->'state' FROM characters WHERE home_channel = $1 AND island IS NOT NULL").bind(channel).fetch_all(db).await?;
+    app.world.with_channel(channel, |ch| {
+        if ch.loaded {
+            return;
+        }
+        for (id, name, state) in rows {
+            if let Some(Json(state)) = state {
+                ch.set_estate(id, &name, estate_of(&state));
+            }
+        }
+        ch.loaded = true;
+    });
+    Ok(())
+}
+
+/// Tells the channel what changed about this character's estate (and so who holds which plot).
+fn publish_estate(app: &App, channel: i32, character: i64, name: &str, state: Option<&Value>) {
+    let estate = state.map(estate_of).unwrap_or_else(|| estate_of(&Value::Null));
+    app.world.with_channel(channel, |ch| {
+        if ch.set_estate(character, name, estate) {
+            if let Some(msg) = ch.estate_message(character) {
+                ch.send_all(&msg, Some(character));
+            }
+            ch.send_all(&ch.claims_message(), None);
+        }
+    });
+}
+
+/// Checks a presence and stores it for the relay. Returns where to put the player back if their
+/// position can't be right.
+fn take_presence(app: &App, channel: i32, character: i64, p: &Value) -> Result<Option<(f64, f64, f64)>, &'static str> {
+    let text = p.to_string();
+    if !p.is_object() || text.len() > MAX_PRESENCE {
+        return Err("That presence is malformed.");
+    }
+    let pos = &p["pos"];
+    let (x, y, z) = (pos["x"].as_f64().unwrap_or(f64::NAN), pos["y"].as_f64().unwrap_or(f64::NAN), pos["z"].as_f64().unwrap_or(f64::NAN));
+    let fix = terrain::correction(Terrain::emberholm(), x, y, z, terrain::spawn());
+    if fix.is_none() {
+        app.world.with_channel(channel, |ch| {
+            if let Some(peer) = ch.peers.get_mut(&character) {
+                peer.presence = Some(Arc::from(text));
+                peer.dirty = true;
+            }
+        });
+    }
+    Ok(fix)
+}
+
+async fn play(socket: WebSocket, app: &App, db: &PgPool, account: &Account, session: i64, mut kicked: mpsc::Receiver<()>) -> Result<(), String> {
     let character = account.character_id;
+    let name = account.character.clone();
     let (mut tx, mut rx) = socket.split();
+
+    let channel = home_channel(db, character).await.map_err(|e| e.to_string())?;
+    load_channel(app, db, channel).await.map_err(|e| e.to_string())?;
 
     // Taking the character over: from here on only this connection's saves are written, so a
     // window it replaced can't write over it.
@@ -124,19 +252,34 @@ async fn play(socket: WebSocket, db: &PgPool, account: &Account, session: i64, m
     .fetch_one(db)
     .await
     .map_err(|e| e.to_string())?;
+    let island = island.map(|j| j.0);
+
+    // Into the channel.
+    let (out, mut outbox) = mpsc::channel::<String>(64);
+    let _seat = Seat { app, channel, character, session };
+    let (estates, claims, peers) = app.world.with_channel(channel, |ch| {
+        ch.peers.insert(character, Peer { session, name: name.clone(), out, presence: None, dirty: false });
+        (ch.estates_json(character), ch.claims_json(), ch.presences(character))
+    });
+    publish_estate(app, channel, character, &name, island.as_ref().and_then(|i| i.get("state")));
     send(
         &mut tx,
         json!({
             "t": "welcome",
-            "character": { "id": character, "name": account.character },
+            "character": { "id": character, "name": name },
             "account": account.username,
-            "island": island.map(|j| j.0),
+            "island": island,
             "build": build.map(|j| j.0),
             "savedAt": saved_at,
             "now": now_ms(),
+            "channel": channel,
+            "dev": app.dev_tools,
+            "estates": estates,
+            "claims": claims,
         }),
     )
     .await?;
+    tx.send(Message::Text(peers.into())).await.map_err(|e| e.to_string())?;
 
     let mut pending: Option<(Value, Option<Value>)> = None;
     let mut last_write = Instant::now() - MIN_SAVE_GAP;
@@ -157,11 +300,18 @@ async fn play(socket: WebSocket, db: &PgPool, account: &Account, session: i64, m
                 };
                 last_heard = Instant::now();
                 match serde_json::from_str::<FromBrowser>(text.as_str()) {
+                    Ok(FromBrowser::Presence { p }) => match take_presence(app, channel, character, &p) {
+                        Ok(None) => {}
+                        Ok(Some((x, y, z))) => send(&mut tx, json!({ "t": "correct", "x": x, "y": y, "z": z })).await?,
+                        Err(why) => send(&mut tx, json!({ "t": "error", "text": why })).await?,
+                    },
                     Ok(FromBrowser::Save { save, build }) => {
                         if !valid_island(&save) {
                             send(&mut tx, json!({ "t": "error", "text": "That save is malformed." })).await?;
                             continue;
                         }
+                        // Everyone else sees what was built straight away (a claimed plot most of all).
+                        publish_estate(app, channel, character, &name, save.get("state"));
                         // A build waiting with an older save still counts.
                         let build = build.or_else(|| pending.take().and_then(|(_, b)| b));
                         pending = Some((save, build));
@@ -185,7 +335,10 @@ async fn play(socket: WebSocket, db: &PgPool, account: &Account, session: i64, m
                             .execute(db)
                             .await;
                         match outcome(result, &mut tx).await? {
-                            Wrote::Yes => send(&mut tx, json!({ "t": "reset" })).await?,
+                            Wrote::Yes => {
+                                publish_estate(app, channel, character, &name, None);
+                                send(&mut tx, json!({ "t": "reset" })).await?
+                            }
                             Wrote::Replaced => return replaced(&mut tx).await,
                             Wrote::Failed => {}
                         }
@@ -193,6 +346,7 @@ async fn play(socket: WebSocket, db: &PgPool, account: &Account, session: i64, m
                     Err(_) => send(&mut tx, json!({ "t": "error", "text": "The server didn't understand that message." })).await?,
                 }
             }
+            Some(text) = outbox.recv() => tx.send(Message::Text(text.into())).await.map_err(|e| e.to_string())?,
             _ = kicked.recv() => return replaced(&mut tx).await,
             _ = tick.tick() => {
                 if last_heard.elapsed() > IDLE {

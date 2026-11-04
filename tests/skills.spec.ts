@@ -375,7 +375,7 @@ test.describe('online', () => {
     expect([...blue.errors, ...red.errors]).toEqual([]);
   });
 
-  test('getting hit while casting interrupts the spell', async ({ browser }) => {
+  test('getting hit while casting interrupts the spell', { tag: '@gpu' }, async ({ browser }) => {
     const blue = await joinAs(browser, 0, MAGE);
     const red = await joinAs(browser, 1, SWORD);
     await seesPlayers(red.page, 1);

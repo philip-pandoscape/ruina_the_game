@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Browser, type Page } from '@playwright/test';
 
 // Emberholm on the game server: signing in, your island kept in Postgres between visits, starting
 // over, and one window per character. These play the real game against the real server, so they
@@ -140,4 +140,74 @@ test('the open world needs a signed-in player', async ({ page }) => {
       }),
   );
   expect(outcome).toBe('refused');
+});
+
+// ---------- Sharing Emberholm ----------
+
+/** Two new players who share a channel (new names until they do, should one channel fill up). */
+async function pair(browser: Browser): Promise<{ a: Page; b: Page; nameA: string; nameB: string }> {
+  const a = await (await browser.newContext()).newPage();
+  const nameA = fresh('ann');
+  await a.goto(`/?as=${nameA}&bugs=0`);
+  await waitOnline(a);
+  const channel = await game(a, (g) => g.online().channel);
+  for (let tries = 0; tries < 3; tries++) {
+    const b = await (await browser.newContext()).newPage();
+    const nameB = fresh('bea');
+    await b.goto(`/?as=${nameB}&bugs=0`);
+    await waitOnline(b);
+    if ((await game(b, (g) => g.online().channel)) === channel) return { a, b, nameA, nameB };
+    await b.context().close();
+  }
+  throw new Error('could not get two players into one channel');
+}
+
+const seen = (page: Page, name: string) =>
+  page.evaluate((n) => (window as any).__game.peers().find((p: { name: string }) => p.name === n) ?? null, name);
+
+test('players in the same channel see each other, wherever they go', async ({ browser }) => {
+  const { a, b, nameA, nameB } = await pair(browser);
+  await expect.poll(async () => (await seen(b, nameA))?.online, { timeout: 30_000 }).toBe(true);
+  await expect.poll(async () => (await seen(a, nameB))?.online, { timeout: 30_000 }).toBe(true);
+
+  // Ann heads up to Hearthside Rise; Bea watches her arrive.
+  await a.evaluate(() => (window as any).__game.teleport(142, -200));
+  await expect.poll(async () => {
+    const p = await seen(b, nameA);
+    return p ? Math.hypot(p.x - 142, p.z + 200) : Infinity;
+  }, { timeout: 30_000 }).toBeLessThan(3);
+
+  // When she leaves, she's gone from Bea's island too.
+  await a.context().close();
+  await expect.poll(async () => (await seen(b, nameA))?.online, { timeout: 30_000 }).toBe(false);
+});
+
+test("a neighbour's house is drawn on your island, and their plot can't be taken", async ({ browser }) => {
+  const { a, b, nameA } = await pair(browser);
+  const claims = await game(a, (g) => g.online().claims);
+  const zone = await game(a, (g) => g.zone());
+  const plot = zone.housePlots.find((p: { id: string }) => !claims[p.id]);
+  test.skip(!plot, 'every plot in this channel is taken (a long-lived development database)');
+  const site = [plot.x, plot.z + 5, plot.rot + Math.PI];
+
+  // Ann claims the plot.
+  await a.evaluate(() => (window as any).__game.lifeCommand({ t: 'grant', item: 'blueprint.cottage', n: 1 }));
+  await a.evaluate(([x, z, f]) => (window as any).__game.teleport(x, z, f), site);
+  await expect.poll(() => game(a, (g) => g.life().focus?.action), { timeout: 15_000 }).toBe('claim');
+  await a.evaluate(() => (window as any).__game.lifeCommand({ t: 'interact' }));
+  await expect.poll(() => game(a, (g) => g.life().houses.length), { timeout: 15_000 }).toBe(1);
+
+  // Bea sees the building site, and the plot is Ann's.
+  await expect.poll(async () => (await seen(b, nameA))?.houses, { timeout: 30_000 }).toBe(1);
+  await expect.poll(() => b.evaluate((id) => (window as any).__game.online().claims[id], plot.id), { timeout: 30_000 }).toBe(nameA);
+  await b.evaluate(() => (window as any).__game.lifeCommand({ t: 'grant', item: 'blueprint.cottage', n: 1 }));
+  await b.evaluate(([x, z, f]) => (window as any).__game.teleport(x, z, f), site);
+  await expect.poll(() => game(b, (g) => g.life().focus?.label), { timeout: 15_000 }).toBe(`${nameA}'s plot`);
+});
+
+test('the developer panel is up to the server', async ({ page }) => {
+  await page.goto(`/?as=${fresh('dev')}&bugs=0`);
+  await waitOnline(page);
+  // The development server (DEV_LOGIN=1) offers it; Railway's production server doesn't.
+  expect(await game(page, (g) => g.online().dev)).toBe(true);
 });

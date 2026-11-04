@@ -165,7 +165,7 @@ export class LifeUI {
       case 'quests':
         return this.toggle({ kind: 'log' });
       case 'dev':
-        return this.toggle({ kind: 'dev' });
+        return this.devTools ? this.toggle({ kind: 'dev' }) : undefined;
     }
   }
 
@@ -963,6 +963,8 @@ export class LifeUI {
   /** Set by the app: move the player somewhere (dev panel). */
   onTeleport: ((x: number, z: number) => void) | null = null;
   onReset: (() => void) | null = null;
+  /** Whether the developer panel opens (online, the server decides: development and beta only). */
+  devTools = true;
   /** Set by the app when bug reports are on: start (or finish) one. */
   onBugReport: (() => void) | null = null;
   /** How this keyboard labels the bug report key. */

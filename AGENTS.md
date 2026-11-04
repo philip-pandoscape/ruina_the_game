@@ -11,8 +11,8 @@ The open world is **Emberholm**, a starter isle with ArcheAge-style life systems
 | `src/sim/` | Game rules: fixed 60 Hz steps, deterministic, no DOM. `src/sim/life/` (trade, farming, housing, vehicles, quests) changes only through queued commands |
 | `src/render/`, `src/ui/` | Presentation. Reads the rules' state, never changes it |
 | `src/main.ts` | Wires it all up; URL options at the top; `window.__game` is the test API |
-| `src/app/online.ts`, `src/net/` | Sign-in, the world connection, the battlefield client |
-| `server/` | Rust server: accounts and islands in Postgres (`server/migrations/`, applied on start), the PvP battlefield. `player.rs`/`skills.rs` mirror the TS rules |
+| `src/app/online.ts`, `src/net/` | Sign-in, the world connection (`worldLink.ts`), everyone else in your channel (`worldPeers.ts`), the battlefield client |
+| `server/` | Rust server: accounts and islands in Postgres (`server/migrations/`, applied on start), Emberholm's channels (`channels.rs`, `world_socket.rs`), its ground (`terrain.rs`, baked by `tests/terrain.spec.ts`), the PvP battlefield. `player.rs`/`skills.rs` mirror the TS rules |
 | `shared/*.json` | Content and tuning, read by both sides. New content is data, not code |
 | `tests/` | Playwright tests that play the real game, plus TS/Rust conformance |
 | `design/` | Design bible (`/design/` on the dev server); `design/status.json` is the tracker and session log |
@@ -44,5 +44,7 @@ cargo test --release --manifest-path server/Cargo.toml   # needs Rust; CI runs i
 - `production`: pull requests only (from `beta`), CI must pass; merging deploys to
   https://ruinathegame-production.up.railway.app.
 - Railway project `intuitive-enthusiasm`: environments `beta` and `production`, each with its own
-  Postgres. The game service gets `DATABASE_URL` (a reference to that environment's database) and `PORT=8080`.
-- The online work is phase 1 of 5 (see the README and the "A world server" entry in `design/status.json`).
+  Postgres. The game service gets `DATABASE_URL` (a reference to that environment's database) and `PORT=8080`;
+  beta also `DEV_TOOLS=1` (the in-game developer panel, off in production).
+- Online: accounts, saves, the shared world (channels) and Railway are done; the server deciding
+  movement and the life rules is in progress ("A world server" in `design/status.json`).

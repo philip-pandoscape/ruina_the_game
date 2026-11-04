@@ -34,6 +34,7 @@ import { applySave, clearLife, islandData, loadLife, saveData, saveLife } from '
 import { goOnline } from './app/online';
 import { signOut } from './net/account';
 import { OnlineBadge, showStopped } from './ui/signIn';
+import { presenceOf, WorldPeers } from './net/worldPeers';
 import { BugReporter } from './app/bugs/reporter';
 import { installLogCapture } from './app/bugs/logs';
 import { dismount, ridden } from './sim/life/vehicles';
@@ -179,6 +180,18 @@ if (terrain) vfx.ground = groundY;
 const lifeView = life ? new LifeView(stage.scene, life, models, hero) : null;
 if (lifeView && openStage) lifeView.onGroundChanged = () => openStage.foliage.invalidate();
 const lifeUI = life ? new LifeUI({ life, sim, world, camera: () => follow.camera, yaw: () => follow.yaw, device: () => input.lastDevice }) : null;
+// Online: everyone else in your channel of Emberholm, the plots they hold, and whether this server
+// offers the developer panel.
+const peers = online && life && world.zone ? new WorldPeers(stage.scene, world.zone, models, sim, life, online.welcome.character.id, online.link) : null;
+if (peers && openStage) peers.onGroundChanged = () => openStage.foliage.invalidate();
+if (online && life) {
+  const me = online.welcome.character.name;
+  life.plotOwner = (plot) => {
+    const holder = online.link.claims[plot];
+    return holder && holder !== me ? holder : null;
+  };
+}
+if (online && lifeUI) lifeUI.devTools = online.welcome.dev;
 // Your island is kept on the game server: sent every few seconds and whenever you leave the tab.
 // ?fresh starts it over. Automated tests start a fresh island every time, unless they ask for the
 // one kept in this browser (?world&test&load, which is how bug reports are replayed).
@@ -192,6 +205,9 @@ if (life && online) {
 }
 if (life && testMode && params.has('load')) loadLife(life, sim);
 let lastSave = performance.now();
+let lastPresence = 0;
+// What you have built, as last told to the server (null until the first look).
+let lastBuilt: string | null = null;
 /** Sends the island to the game server (online play only). */
 function saveIsland(): void {
   if (life && online && !resetting) online.link.save(islandData(life, sim));
@@ -823,6 +839,7 @@ function draw(alpha: number, cameraDt: number, animDt: number): void {
   if (net) remotes?.frame(net.renderTick(performance.now()), animDt, sim.frame, 60 / net.ticksPerSecond);
   if (crowdView && crowdSource) crowdView.update(crowdSource, animDt);
   drawSpells(alpha, animDt);
+  peers?.frame(animDt, sim.frame, follow.camera.position);
   if (life && lifeView) {
     lifeView.update(sim, animDt, follow.camera.position);
     lifeUI?.update(animDt);
@@ -972,6 +989,17 @@ function frame(now: number): void {
       if (cam.dYaw !== 0 || cam.dPitch !== 0) lastCameraTouch = now;
     }
     if (life) rideCamera(dt, now);
+    // Where you are, 20 times a second, for everyone else in the channel; and the moment you build
+    // something (a claimed plot most of all), the server hears about it.
+    if (online && life && now - lastPresence >= 50) {
+      lastPresence = now;
+      online.link.presence(presenceOf(sim, life));
+      const built = life.state.houses.map((h) => `${h.plot}:${h.stage}`).join() + '|' + life.state.scarecrows.length + '|' + (life.state.ships ?? []).map((b) => b.stage).join();
+      if (built !== lastBuilt) {
+        if (lastBuilt !== null) saveIsland();
+        lastBuilt = built;
+      }
+    }
     if (saving && now - lastSave > 5000) {
       lastSave = now;
       saveIsland();
@@ -1357,8 +1385,12 @@ const api = {
     else clearLife();
   },
   /** Online play: who you are and the connection (null offline). */
+  /** Online: everyone else in your channel, as drawn. */
+  peers() {
+    return peers?.list() ?? [];
+  },
   online() {
-    return online ? { account: online.account.username, character: online.welcome.character, status: online.link.status, lastSaved: online.link.lastSaved } : null;
+    return online ? { account: online.account.username, character: online.welcome.character, channel: online.welcome.channel, dev: online.welcome.dev, claims: online.link.claims, status: online.link.status, lastSaved: online.link.lastSaved } : null;
   },
   /** Which life panel is open, if any. */
   lifePanel(): string | null {
@@ -1476,7 +1508,7 @@ if (testMode ? params.has('bugs') : params.get('bugs') !== '0') {
 
 if (online) {
   const { link } = online;
-  const badge = new OnlineBadge(online.account.username, async () => {
+  const badge = new OnlineBadge(`${online.account.username} · Emberholm ${online.welcome.channel}`, async () => {
     saveIsland();
     resetting = true;
     await signOut();
@@ -1491,7 +1523,9 @@ if (online) {
     }
   };
   link.onStatus = stopIf;
-  link.onReconnect = saveIsland;
+  link.onReconnect = () => saveIsland();
+  // The server says where you are can't be right (under the ground, off the island).
+  link.onCorrect = (x, _y, z) => teleport(x, z);
   link.onError = (text) => life?.toast(text, 'bad');
   stopIf(link.status);
 }

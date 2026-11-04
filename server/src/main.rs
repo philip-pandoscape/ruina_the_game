@@ -10,7 +10,8 @@
 //! players, without sending it anywhere. That measures the server cost of a full raid.
 //!
 //! Environment: PORT (Railway sets it; --port wins), DATABASE_URL, STATIC_DIR, DEV_LOGIN=1 (sign in
-//! by name alone, for development; ignored on Railway), COOKIE_SECURE=1 (https without Railway).
+//! by name alone, for development; ignored on Railway), DEV_TOOLS=1 (the in-game developer panel;
+//! on with DEV_LOGIN), COOKIE_SECURE=1 (https without Railway).
 
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
@@ -80,6 +81,7 @@ fn main() {
     let on_railway = std::env::var_os("RAILWAY_PROJECT_ID").is_some();
     let dev_login = std::env::var("DEV_LOGIN").is_ok_and(|v| v == "1") && !on_railway;
     let secure_cookies = on_railway || std::env::var("COOKIE_SECURE").is_ok_and(|v| v == "1");
+    let dev_tools = dev_login || std::env::var("DEV_TOOLS").is_ok_and(|v| v == "1");
 
     let battle = if args.battle {
         let registry: Registry = Arc::new(Mutex::new(Vec::new()));
@@ -123,6 +125,7 @@ fn main() {
             battle,
             world: world_socket::Hub::default(),
             dev_login,
+            dev_tools,
             secure_cookies,
             failed_logins: Mutex::new(HashMap::new()),
         };

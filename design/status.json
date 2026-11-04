@@ -177,9 +177,14 @@
     },
     {
       "system": "traversal",
-      "status": "planned",
+      "status": "building",
       "title": "Traversal on the server",
-      "notes": "Mirror terrain sampling, swimming and gliding in Rust with conformance tests, like the combat rules already are."
+      "notes": "Started: the server stands on the same ground as the browser. tests/terrain.spec.ts bakes the generator's height grid into server/data/emberholm.terrain (checking the copy is current) and compares 2,000 heights from both sides; server/src/terrain.rs samples it on the same triangles, and the server moves anyone it hears is under the ground or off the island back. Still to come: swimming, gliding and colliders in Rust, so the server decides where you are and the browser only predicts.",
+      "files": [
+        "server/src/terrain.rs",
+        "server/data/emberholm.terrain",
+        "tests/terrain.spec.ts"
+      ]
     },
     {
       "system": "vehicles",
@@ -622,10 +627,26 @@
       "system": "tech",
       "status": "building",
       "title": "A world server",
-      "notes": "Persistent, authoritative life systems in the Rust server: the same commands sent as requests, state in Postgres, interest management for other players' carts and ships. Five phases, each leaving the game playable: (1) accounts and islands kept on the server, done; (2) movement on the server: terrain, island colliders, swimming and gliding ported to Rust with conformance tests, the browser predicting and correcting; (3) life on the server: trade, farming, housing, vehicles and quests decided by the server, which stops trusting the browser; (4) one shared Emberholm, in channels with a player cap: the save split into the character's own things and the world's, everything placed having an owner, other players streamed by distance; (5) live on Railway.",
+      "notes": "Persistent, authoritative life systems in the Rust server. Phases: (1) accounts and islands kept on the server, done; (2) movement on the server: started (the island's ground, and putting back anyone under it or off the map); still to come: swimming, gliding, vehicles and colliders in Rust, with the browser only predicting; (3) life on the server: started (plot claims and the developer panel are the server's call); still to come: trade, farming, housing, vehicles and quests decided by the server, so nothing trusts the browser; (4) one shared Emberholm in channels, done; (5) live on Railway, done.",
       "files": [
         "server/src/world_socket.rs",
+        "server/src/channels.rs",
+        "server/src/terrain.rs",
         "server/src/http.rs"
+      ]
+    },
+    {
+      "system": "tech",
+      "status": "done",
+      "title": "One shared Emberholm, in channels",
+      "notes": "Channels are copies of the island, each home to up to 24 characters, who keep the one they were first given. Everyone in a channel sees everyone else (position, animation, glider, pack, vehicles and mounts, relayed about 20 times a second and drawn 100 ms behind with names over their heads) and everything each resident has built (houses, farms, ships on the slipway), which stays when they log off and is solid. A house plot belongs to whoever built on it first; the server keeps the claims. The developer panel is on in development and beta, off in production.",
+      "files": [
+        "server/src/channels.rs",
+        "server/src/world_socket.rs",
+        "src/net/worldPeers.ts",
+        "src/net/worldLink.ts",
+        "src/render/open/life.ts",
+        "tests/online.spec.ts"
       ]
     },
     {
@@ -697,9 +718,9 @@
     }
   ],
   "next": [
-    "World server phase 2: port terrain sampling, the island's colliders, swimming and gliding to Rust with conformance tests, so the server decides where you are on Emberholm.",
-    "World server phase 3: move the life commands onto the server (buy, sell, craft, plant, build, summon...) and keep their state in Postgres tables, so nothing trusts the browser.",
-    "Before phase 4: decide the land rule for a shared Emberholm (channels capped at the plot count, instanced plots, or per-account caps; see design/research/land.md)."
+    "World server phase 2, the rest: swimming, gliding, vehicles and colliders in Rust with conformance tests, so the server decides where you are and the browser predicts.",
+    "World server phase 3, the rest: trade, farming, housing, vehicles and quests decided by the server (the same Life commands as requests), state in Postgres tables, so nothing trusts the browser.",
+    "Shared world, next: trading-post demand, weather and gathering nodes shared by a channel; choosing a channel (to join a friend in another one); others' parked vehicles while they're away."
   ],
   "questions": [
     {
@@ -813,6 +834,18 @@
         "The server now steps monsters 60 times a second whatever its tick rate, as the browser does (they ran at a third of the speed on a 20 Hz server), and lands their slams on players with the usual dodge and guard rules.",
         "Tuning: burst pieces only run while you are within 5 m and huddle otherwise, so a group that survives comes back where its pieces are instead of fanning out across the field.",
         "ai-conformance now runs whole packs through both sides (bursts, reforms, a gather, a broken gather) and each has to prove it reached the states it covers; tests/slime-pack.spec.ts plays the fight in the yard, paused so only the test steps it."
+      ]
+    },
+    {
+      "date": "2026-11-04",
+      "title": "Playing together",
+      "summary": "Emberholm is shared: friends in the same channel see each other and what each has built, the server owns plot claims and knows the island's ground, and the game is live on Railway in beta and production.",
+      "points": [
+        "server/src/channels.rs: channels with a cap, each character's home channel stored; presences relayed 20 times a second; estates (houses, farms, ships) shared and kept while their owner is away; plot claims, first come.",
+        "src/net/worldPeers.ts draws everyone else with the same hero and the life view in a new others mode (their farms, house, vehicles, packs and glider, but not the island's townsfolk, nodes or weather a second time). Their houses and farm posts are solid. A plot someone else holds says so and can't be claimed.",
+        "server/src/terrain.rs reads the island's height grid baked from the TypeScript generator (tests/terrain.spec.ts keeps it current and compares the two), and the server puts back anyone reported under the ground or off the map.",
+        "The developer panel is the server's call: DEV_TOOLS=1 (and development servers) offer it; production doesn't.",
+        "CI: tests that need a real GPU (several game windows at once, frame rates, screen capture) are tagged @gpu and run on dev machines, not on GitHub's software-rendering runners; all 17 online battlefield tests pass against the new server with a GPU. --battle off now turns the battlefield off; --bots keeps its meaning."
       ]
     }
   ]

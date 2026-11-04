@@ -63,11 +63,16 @@ Vite serves the game and forwards `/api` and `/ws` to the server, so the browser
 as it does in production. A character plays in one window at a time: opening it in a second window
 stops the first.
 
-**Online, so far (phase 1 of the plan in the design bible):** the browser still runs Emberholm's
-rules and reports your island to the server every few seconds and when you leave; the server keeps
-it and hands it back next time. Moving the rules themselves onto the server, then sharing one
-Emberholm between players, are the next phases. Automated tests (`?test`) stay offline and never
-touch the server, except `tests/online.spec.ts`, which needs `npm run up`.
+**Playing together:** Emberholm runs as channels, copies of the island each home to up to 24
+characters (the badge in the corner says which). Everyone in your channel sees everyone else move,
+glide, sail and ride, with a name over their head, and sees what every resident has built: houses
+and farms stay standing while their owner is away, their walls are solid, and a house plot belongs to
+whoever claimed it first. The server keeps your island in Postgres, owns the plot claims, checks
+every reported position against the island's ground (moving anyone under it or off the map back), and
+decides whether the developer panel exists (on in development and beta, off in production).
+The browser still runs the island's rules and reports the results; moving those rules onto the server
+is what's left (see "A world server" in the design bible). Automated tests (`?test`) stay offline,
+except `tests/online.spec.ts`, which needs `npm run up`.
 
 ## Branches, CI and deploys
 

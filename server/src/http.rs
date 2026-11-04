@@ -46,6 +46,8 @@ pub struct AppState {
     pub world: world_socket::Hub,
     /// Sign in by name alone (?as=name in the browser). Never on Railway.
     pub dev_login: bool,
+    /// The developer panel in the game (grants, warping time, teleports): development and beta only.
+    pub dev_tools: bool,
     /// Mark the cookie Secure (served over https).
     pub secure_cookies: bool,
     /// Wrong passwords per name lately, to slow down guessing.
@@ -68,7 +70,9 @@ pub async fn serve(port: u16, state: AppState, static_dir: Option<PathBuf>) -> s
         println!("serving the game from {}", dir.display());
         router = router.fallback_service(Compression::new(ServeDir::new(dir)));
     }
-    let router = router.with_state(Arc::new(state));
+    let app = Arc::new(state);
+    world_socket::spawn_relay(app.clone());
+    let router = router.with_state(app);
 
     // Both IPv6 and IPv4 where the machine has IPv6 (Railway's private network is IPv6 only).
     let listener = match TcpListener::bind(("::", port)).await {

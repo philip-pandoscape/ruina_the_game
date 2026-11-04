@@ -161,6 +161,12 @@ export class Life implements LifeHooks {
   /** True for the moment you are resting in your own bed. */
   resting = false;
 
+  /**
+   * Who else holds a house plot, if anyone (set online from the server's claims; null offline).
+   * A plot someone else holds can't be claimed.
+   */
+  plotOwner: ((plot: string) => string | null) | null = null;
+
   regenLabor(seconds: number, resting = false, offline = false): void {
     const s = this.state;
     const perMin = offline ? LABOR.offlinePerMinute : LABOR.perMinute * (resting ? LABOR.restMultiplier : 1);
