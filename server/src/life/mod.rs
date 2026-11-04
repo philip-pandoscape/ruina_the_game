@@ -330,7 +330,8 @@ impl Life {
                 used += 1;
             }
         }
-        used + ((have + n) as f64 / def.stack.max(1) as f64).ceil() as i64
+        // Saturating: n can come straight from a browser (buy), and an absurd one just doesn't fit.
+        used.saturating_add((have.saturating_add(n) as f64 / def.stack.max(1) as f64).ceil() as i64)
     }
 
     pub fn has_room(&self, item: &str, n: i64) -> bool {
