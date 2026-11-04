@@ -31,7 +31,7 @@ const YOU_ENTRY = 2 + 4 + 14 * 8 + YOU_I16S * 2 + SKILL_WORDS * 4 + YOU_U8S;
 const ARROW_ENTRY = 15;
 const METEOR_ENTRY = 10;
 // Must match ACTOR_ENTRY in server/src/protocol.rs.
-const ACTOR_ENTRY = 17;
+const ACTOR_ENTRY = 19;
 const EVENT_ENTRY = 8;
 // Order must match Mode in server/src/player.rs; MODE_DOWN sits one past the last of these.
 export const MODES: Mode[] = ['normal', 'attack', 'cast', 'action'];
@@ -103,6 +103,9 @@ export interface NetActor {
   hp: number;
   /** -1 while alive, otherwise frames since it went down. */
   deadFrame: number;
+  /** Where a slam it is winding up will land. */
+  targetX: number;
+  targetZ: number;
 }
 
 export interface EffectEvent {
@@ -522,11 +525,13 @@ export class NetCrowd implements CrowdSource {
         const actors: NetActor[] = [];
         for (let k = v.getUint8(o++); k > 0; k--, o += ACTOR_ENTRY) {
           const dead = v.getUint8(o + 16);
+          const x = v.getFloat32(o + 3, true);
+          const z = v.getFloat32(o + 7, true);
           actors.push({
             id: v.getUint16(o, true),
             kind: v.getUint8(o + 2),
-            x: v.getFloat32(o + 3, true),
-            z: v.getFloat32(o + 7, true),
+            x,
+            z,
             y: v.getUint8(o + 11) / 50,
             facing: (v.getUint8(o + 12) / 255) * TAU,
             state: v.getUint8(o + 13),
@@ -534,6 +539,8 @@ export class NetCrowd implements CrowdSource {
             hp: v.getUint8(o + 15) / 255,
             // 0 means alive; otherwise how many frames it has been down, capped on the wire.
             deadFrame: dead === 0 ? -1 : dead - 1,
+            targetX: x + v.getInt8(o + 17) / 10,
+            targetZ: z + v.getInt8(o + 18) / 10,
           });
         }
         this.actors = actors;

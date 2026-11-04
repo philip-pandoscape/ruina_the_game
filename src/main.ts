@@ -10,9 +10,10 @@ import { FollowCamera } from './render/camera';
 import { Hero } from './render/character';
 import { TrainingDummy } from './render/dummy';
 import { ActorView } from './render/actors';
-import { actorKindIds } from './content/actors';
-import { isAlive } from './sim/actor';
-import { stateName } from './sim/ai/brain';
+import { actorKindAt, actorKindIds, findKind } from './content/actors';
+import { isAlive, type Actor } from './sim/actor';
+import { behaviour, stateName, stateProgress } from './sim/ai/brain';
+import { targetOf } from './sim/combat/hit';
 import { createTargeting } from './app/targeting';
 import { Hud } from './render/hud';
 import { BATTLEFIELD_STAGE, Stage, TRAINING_STAGE } from './render/scene';
@@ -667,6 +668,14 @@ function showEvent(e: GameEvent): void {
     follow.shake(0.15);
   } else if (e.type === 'actorDie' && e.kind === 'dummy') {
     follow.shake(0.5);
+  } else if (e.type === 'hurt') {
+    // A monster got you. Online the server's own attributed event draws the number instead.
+    hud.marker('hurt', e.x, e.y, e.z, e.damage, causeIcon(8));
+    follow.shake(0.55);
+    input.rumble(0.9, 0.8, 180);
+  } else if (e.type === 'slam') {
+    const d = Math.hypot(e.x - sim.player.pos.x, e.z - sim.player.pos.z);
+    if (d < 10) follow.shake(0.3 * (1 - d / 10) * Math.min(2, e.radius));
   } else if (e.type === 'explosion') {
     const d = Math.hypot(e.x - sim.player.pos.x, e.z - sim.player.pos.z);
     if (d < 16) {
@@ -701,6 +710,29 @@ function castCircle(p: PlayerState, x: number, z: number, hostile: boolean, mine
   }
 }
 
+// Monsters about to do something to you: where a slam will land, from the moment one picks the
+// spot until it comes down. Read off the behaviour's acts, so a new monster's slam warns the same way.
+function monsterWarning(kind: string, state: number, progress: number, tx: number, tz: number): void {
+  const k = findKind(kind);
+  const act = k?.brain ? behaviour(k.brain)?.states[state]?.act : undefined;
+  if (!k?.slam || (act !== 'windup' && act !== 'leap')) return;
+  spells.circle(tx, tz, k.slam.radius, act === 'windup' ? progress : 1, CIRCLE.enemy, 0.9);
+}
+
+function monsterWarnings(): void {
+  if (net) {
+    for (const a of net.actors) {
+      if (a.deadFrame >= 0) continue;
+      const k = actorKindAt(a.kind);
+      if (k) monsterWarning(k.id, a.state, a.progress, a.targetX, a.targetZ);
+    }
+    return;
+  }
+  for (const a of sim.actors.all()) {
+    if (isAlive(a) && !a.gone) monsterWarning(a.kind, a.state, stateProgress(a), a.targetX, a.targetZ);
+  }
+}
+
 // Arrows, meteors and cast warnings, drawn every frame.
 function drawSpells(alpha: number, dt: number): void {
   spells.begin(dt, follow.yaw);
@@ -720,6 +752,7 @@ function drawSpells(alpha: number, dt: number): void {
     for (const r of remotes?.shown() ?? []) castCircle(r, r.pos.x, r.pos.z, r.team !== sim.player.team, null);
   }
   if (!net || playing) castCircle(sim.player, hero.root.position.x, hero.root.position.z, false, sim.stats);
+  monsterWarnings();
   if (aimingSlot !== 0) {
     spells.circle(sim.player.pos.x, sim.player.pos.z, reticle.range, 0, CIRCLE.range, 0.35);
     spells.circle(reticle.x, reticle.z, reticle.radius, 1, CIRCLE.aim, 0.95);
@@ -1193,11 +1226,39 @@ const api = {
         y: +a.y.toFixed(3),
         z: +a.z.toFixed(3),
         hp: a.hp,
+        maxHp: a.maxHp,
         alive: isAlive(a),
         state: stateName(a),
         deadFrame: a.deadFrame,
         flash: a.flashFrame,
+        mass: a.mass,
+        gone: a.gone,
+        transient: a.transient,
+        angry: a.angry,
+        rallyTo: a.rallyTo,
+        calling: a.calling,
+        fuse: a.fuse,
+        group: a.group,
+        slamCd: a.slamCd,
+        gatherCd: a.gatherCd,
+        targetX: +a.targetX.toFixed(3),
+        targetZ: +a.targetZ.toFixed(3),
       }));
+  },
+  // Testing: a blow from you to one actor, by id, as if a weapon had landed it.
+  hurtActor(id: number, amount: number): void {
+    const a = sim.actors.get(id);
+    if (a && isAlive(a)) sim.damage(targetOf(a), amount);
+  },
+  // Testing: sets fields on an actor by id (a cooldown, a fuse), to set up a moment directly.
+  setActor(id: number, fields: Partial<Actor>): void {
+    const a = sim.actors.get(id);
+    if (a) Object.assign(a, fields);
+  },
+  // Testing: monsters that never get angry, for tests about something else that hit them.
+  calmMonsters(on = true): void {
+    sim.actors.calm = on;
+    if (on) for (const a of sim.actors.all()) a.angry = 0;
   },
   skillPanel(open?: boolean): boolean {
     if (open === true && !panel.isOpen) panel.open();

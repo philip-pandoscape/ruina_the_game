@@ -312,9 +312,10 @@ export const LEAN = {
   damping: 7,
 };
 
-// Slimes in the training yard: something that moves and dies, to practise against. They do not
-// fight back - a monster with its own intentions belongs on the server, not in the browser's
-// local stand-in for one.
+// Slimes in the training yard and on the meadow. They leave you alone until you hit one; then
+// the pack fights back. What they do is data (shared/actors.json, shared/behaviours.json) that
+// the browser and the server both run (src/sim/actors/step.ts, server/src/actors.rs). These are
+// the numbers the yard and its tests are laid out with.
 export const SLIME = {
   count: 5,
   hp: 40,

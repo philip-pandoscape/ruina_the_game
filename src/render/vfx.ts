@@ -329,6 +329,7 @@ class FlashPool {
 
 const DUST = new THREE.Color(0xefe4d0);
 const STRAW = new THREE.Color(0xe2c158);
+const SLIME_GREEN = new THREE.Color(0x7fd36a);
 const SMOKE = new THREE.Color(0x4a4440);
 const FIRE = [new THREE.Color(0xffd166), new THREE.Color(0xff9f1c), new THREE.Color(0xff5a14)];
 const HEAL = [new THREE.Color(0x7dffb0), new THREE.Color(0xd8ffe6), new THREE.Color(0x3ddc84)];
@@ -430,6 +431,15 @@ export class Vfx {
         this.puff(e.x, g + 0.6, e.z, 16, 3.5, 0.3, STRAW);
         this.burst(e.x, g + 1.1, e.z, 1, 0, 14, 7, STRAW);
         this.burst(e.x, g + 1.1, e.z, -1, 0, 14, 7, STRAW);
+        break;
+      }
+      case 'slam': {
+        // A monster landing hard: a dust ring the size of what it hit, and a splash of slime.
+        const g = this.gy(e.x, e.z);
+        this.rings.spawn(this.v.set(e.x, g + 0.04, e.z), e.radius * 1.1, 0.4, 0xff6b5b);
+        this.puff(e.x, g + 0.1, e.z, 8 + Math.round(e.radius * 6), 2 + e.radius * 1.5, 0.22 + e.radius * 0.08);
+        this.burst(e.x, g + 0.3, e.z, 1, 0, 8, 4 + e.radius * 2, SLIME_GREEN);
+        this.burst(e.x, g + 0.3, e.z, -1, 0, 8, 4 + e.radius * 2, SLIME_GREEN);
         break;
       }
       case 'shoot':

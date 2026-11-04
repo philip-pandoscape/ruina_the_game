@@ -69,5 +69,35 @@ export function slimeSpecies(): SpeciesDef {
     return undefined;
   });
 
-  return { id: 'slime', height: rig.height, joints, proxy: rig.proxy, clips: [idle, hop, die] };
+  // Gathering itself to jump: it sinks and spreads, and shivers harder the closer it gets.
+  // Stretched over the whole windup, so the shiver is the warning you have to step away.
+  const windup = bakeAuthored(joints, { name: 'windup', frames: 18, fps: 30, loop: false }, (j, f) => {
+    const t = f / 17;
+    const sink = Math.min(1, t * 1.4);
+    const shiver = Math.sin(f * 2.6) * 0.05 * t;
+    const squash = sink * 0.45 + shiver;
+    if (j === rig.root) return { pos: [shiver * 0.3, 0, 0] };
+    if (j === rig.core) return { scale: [...blob(squash)] as [number, number, number] };
+    if (j === rig.top) return { pos: [0, 0.26 - sink * 0.08, 0] };
+    if (j === rig.budL) return { pos: [0.26 + squash * 0.14, 0.09 - sink * 0.04, 0] };
+    if (j === rig.budR) return { pos: [-0.26 - squash * 0.14, 0.09 - sink * 0.04, 0] };
+    return undefined;
+  });
+
+  // The slam: a high arc, long and thin on the way up, and a hard splat where it lands. Its rise
+  // matches the leap's gait in shared/behaviours.json (apex 0.9 m, off the ground 5%..95%).
+  const leap = bakeAuthored(joints, { name: 'leap', frames: 30, fps: 30, loop: false }, (j, f) => {
+    const t = f / 29;
+    const air = Math.max(0, Math.min(1, (t - 0.05) / 0.9));
+    const rise = Math.sin(air * Math.PI);
+    const splat = Math.max(0, 1 - Math.abs(t - 0.97) / 0.06);
+    const squash = splat * 0.55 - (air > 0 && air < 0.5 ? 0.28 * Math.sin(air * 2 * Math.PI) : 0);
+    if (j === rig.root) return { pos: [0, rise * 0.9, 0] };
+    if (j === rig.core) return { scale: [...blob(squash)] as [number, number, number] };
+    if (j === rig.budL) return { pos: [0.26 + squash * 0.16, 0.09, 0] };
+    if (j === rig.budR) return { pos: [-0.26 - squash * 0.16, 0.09, 0] };
+    return undefined;
+  });
+
+  return { id: 'slime', height: rig.height, joints, proxy: rig.proxy, clips: [idle, hop, die, windup, leap] };
 }

@@ -115,3 +115,40 @@ test('a player can kill one, and everyone sees it go down', async ({ page }) => 
   });
   expect(killed).toBe(true);
 });
+
+test('hit one and it fights back: the server lands its slam on you', async ({ page }) => {
+  await join(page);
+  await seeActors(page);
+
+  // Walk up to the nearest one, hit it once, then stand there and let it come for you.
+  const hurt = await page.evaluate(async () => {
+    const g = (window as any).__game;
+    const near = () => {
+      const list = (g.netActors?.() ?? []) as Array<{ id: number; x: number; z: number; deadFrame: number }>;
+      const me = g.state().player.pos;
+      return list
+        .filter((a) => a.deadFrame < 0)
+        .sort((a, b) => Math.hypot(a.x - me.x, a.z - me.z) - Math.hypot(b.x - me.x, b.z - me.z))[0];
+    };
+    const full = g.net().hp;
+    let swung = false;
+    for (let i = 0; i < 400; i++) {
+      if (g.net().hp < full) return true;
+      const t = near();
+      if (!t) break;
+      const me = g.state().player.pos;
+      const dx = t.x - me.x;
+      const dz = t.z - me.z;
+      const d = Math.hypot(dx, dz);
+      if (!swung && d < 1.3) {
+        g.scriptInput([[1, { attackPressed: true }]]);
+        swung = true;
+      } else if (!swung) {
+        g.scriptInput([[1, { moveX: dx / d, moveZ: dz / d }]]);
+      }
+      await new Promise((r) => setTimeout(r, 50));
+    }
+    return g.net().hp < full;
+  });
+  expect(hurt).toBe(true);
+});

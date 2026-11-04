@@ -809,7 +809,10 @@ impl Players {
                 a.state as u8,
                 progress.clamp(0.0, 1.0),
                 if a.max_hp > 0.0 { a.hp / a.max_hp } else { 0.0 },
-                a.dead_frame,
+                // Taken out of the world (absorbed): sent as long dead, which a browser doesn't draw.
+                if a.gone { 254 } else { a.dead_frame },
+                a.target_x - a.x,
+                a.target_z - a.z,
             );
             self.packed_actors.push((a.x, a.z, e));
         }

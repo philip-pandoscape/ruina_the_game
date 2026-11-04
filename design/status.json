@@ -1,6 +1,6 @@
 {
   "comment": "Implementation tracker for the design bible (design/index.html). Edit this file and the page follows: it reads the tracker live (npm run dev, then /design/). Status is one of: done, building, planned, idea. Keep `files` to the main places a feature lives so a future session can jump straight there.",
-  "updated": "2026-11-03",
+  "updated": "2026-11-04",
   "systems": [
     {
       "id": "world",
@@ -677,6 +677,21 @@
         "src/render/models/villagers.ts",
         "src/render/open/life.ts"
       ]
+    },
+    {
+      "system": "combat",
+      "status": "building",
+      "title": "Slime pack fight",
+      "notes": "Slimes come in four sizes on a ladder (slimelet, slime, great slime, slime monarch), each its own kind with its own mass, health and scale. They leave you alone until you hit one; then it and every slime within 14 m are angry for 15 s, and an angry slime in range winds up for 0.6 s (a red ring shows where you stood), leaps, and slams the ring. Walk out or dodge through it. Brains in shared/behaviours.json now choose their next state by condition and can be interrupted; whatever reaches another actor is asked for and done by the world, the same in src/sim/actors/step.ts and server/src/actors.rs, and ai-conformance compares whole packs frame by frame. Still to come: bursting into slimelets that reform one size up, and the rally and gather.",
+      "files": [
+        "shared/actors.json",
+        "shared/behaviours.json",
+        "src/sim/ai/brain.ts",
+        "src/sim/actors/step.ts",
+        "server/src/ai.rs",
+        "server/src/actors.rs",
+        "tests/slime-pack.spec.ts"
+      ]
     }
   ],
   "next": [
@@ -782,6 +797,17 @@
         "Railway: each environment has the game and its own Postgres 18; Railway's own deploy-on-push from main is gone, so only CI deploys. Local development and CI use Postgres 18 too.",
         "CI plays the whole Playwright suite on Linux against a real server and database, so the battlefield and TS/Rust conformance tests, which need the Rust binaries, run there.",
         "AGENTS.md is the short guide for coding agents (CLAUDE.md points to it). The model gallery and harness pages got a favicon, and the bug-report test reads Windows paths."
+      ]
+    },
+    {
+      "date": "2026-11-04",
+      "title": "Slimes fight back",
+      "summary": "The first two steps of the slime pack fight: the groundwork for packs, on both sides, and the slam.",
+      "points": [
+        "Brains can choose their next state by condition, be cut short by interrupts, and wind up, leap and channel; anything that reaches another actor (calling, pulling, absorbing, slamming) is a request the world carries out after every brain has stepped.",
+        "Actors can be spawned and cleared mid-fight, grow into another kind in place, and home actors only respawn within their ladder's mass budget. Ids wrap at 16 bits, skipping ones in use.",
+        "Hit a slime and the pack within 14 m gets angry; an angry slime in range winds up, leaps and slams the spot you stood on. The ring is drawn offline and online (the actor wire entry carries the slam target).",
+        "The server now steps monsters 60 times a second whatever its tick rate, as the browser does; they used to run at a third of the speed on a 20 Hz server."
       ]
     }
   ]
