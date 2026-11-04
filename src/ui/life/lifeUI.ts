@@ -883,6 +883,24 @@ export class LifeUI {
       g.font = '14px system-ui';
       g.fillText(rideable(v.def).icon, px, py + 5);
     }
+    // Everyone else in your channel, so friends can find each other.
+    for (const o of this.others()) {
+      if (!o.online) continue;
+      const [ox, oy] = toPx(o.x, o.z);
+      g.fillStyle = '#5cc8ff';
+      g.strokeStyle = '#fff';
+      g.lineWidth = 2;
+      g.beginPath();
+      g.arc(ox, oy, 6, 0, Math.PI * 2);
+      g.fill();
+      g.stroke();
+      g.font = 'bold 12px system-ui';
+      g.lineWidth = 3;
+      g.strokeStyle = 'rgba(0,0,0,0.75)';
+      g.strokeText(o.name, ox, oy - 10);
+      g.fillStyle = '#fff';
+      g.fillText(o.name, ox, oy - 10);
+    }
     const goal = this.goal();
     if (goal) {
       const [px, py] = toPx(goal.x, goal.z);
@@ -965,6 +983,8 @@ export class LifeUI {
   onReset: (() => void) | null = null;
   /** Whether the developer panel opens (online, the server decides: development and beta only). */
   devTools = true;
+  /** Online: everyone else in your channel, for the map. */
+  others: () => Array<{ name: string; online: boolean; x: number; z: number }> = () => [];
   /** Set by the app when bug reports are on: start (or finish) one. */
   onBugReport: (() => void) | null = null;
   /** How this keyboard labels the bug report key. */

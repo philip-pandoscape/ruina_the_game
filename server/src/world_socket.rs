@@ -49,6 +49,9 @@ const PING: Duration = Duration::from_secs(20);
 const IDLE: Duration = Duration::from_secs(60);
 /// How often everyone hears where everyone else is.
 const RELAY: Duration = Duration::from_millis(50);
+/// Reports in a row that must be impossible before the server moves someone (a single odd one is
+/// usually a moment in between, like the first frame before a new character lands).
+const BAD_STREAK: u32 = 3;
 
 /// Which connection is playing each character (so a second window takes over from the first),
 /// and the channels.
@@ -285,6 +288,7 @@ async fn play(socket: WebSocket, app: &App, db: &PgPool, account: &Account, sess
     let mut last_write = Instant::now() - MIN_SAVE_GAP;
     let mut last_heard = Instant::now();
     let mut last_ping = Instant::now();
+    let mut bad = 0u32;
     let mut tick = tokio::time::interval(Duration::from_millis(500));
     loop {
         tokio::select! {
@@ -301,8 +305,14 @@ async fn play(socket: WebSocket, app: &App, db: &PgPool, account: &Account, sess
                 last_heard = Instant::now();
                 match serde_json::from_str::<FromBrowser>(text.as_str()) {
                     Ok(FromBrowser::Presence { p }) => match take_presence(app, channel, character, &p) {
-                        Ok(None) => {}
-                        Ok(Some((x, y, z))) => send(&mut tx, json!({ "t": "correct", "x": x, "y": y, "z": z })).await?,
+                        Ok(None) => bad = 0,
+                        Ok(Some((x, y, z))) => {
+                            bad += 1;
+                            if bad >= BAD_STREAK {
+                                bad = 0;
+                                send(&mut tx, json!({ "t": "correct", "x": x, "y": y, "z": z })).await?;
+                            }
+                        }
                         Err(why) => send(&mut tx, json!({ "t": "error", "text": why })).await?,
                     },
                     Ok(FromBrowser::Save { save, build }) => {

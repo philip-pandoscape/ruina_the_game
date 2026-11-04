@@ -192,6 +192,7 @@ if (online && life) {
   };
 }
 if (online && lifeUI) lifeUI.devTools = online.welcome.dev;
+if (peers && lifeUI) lifeUI.others = () => peers.list();
 // Your island is kept on the game server: sent every few seconds and whenever you leave the tab.
 // ?fresh starts it over. Automated tests start a fresh island every time, unless they ask for the
 // one kept in this browser (?world&test&load, which is how bug reports are replayed).
@@ -989,17 +990,6 @@ function frame(now: number): void {
       if (cam.dYaw !== 0 || cam.dPitch !== 0) lastCameraTouch = now;
     }
     if (life) rideCamera(dt, now);
-    // Where you are, 20 times a second, for everyone else in the channel; and the moment you build
-    // something (a claimed plot most of all), the server hears about it.
-    if (online && life && now - lastPresence >= 50) {
-      lastPresence = now;
-      online.link.presence(presenceOf(sim, life));
-      const built = life.state.houses.map((h) => `${h.plot}:${h.stage}`).join() + '|' + life.state.scarecrows.length + '|' + (life.state.ships ?? []).map((b) => b.stage).join();
-      if (built !== lastBuilt) {
-        if (lastBuilt !== null) saveIsland();
-        lastBuilt = built;
-      }
-    }
     if (saving && now - lastSave > 5000) {
       lastSave = now;
       saveIsland();
@@ -1019,6 +1009,18 @@ function frame(now: number): void {
       steps++;
     }
     if (steps === 5) acc = 0; // don't spiral if the tab was in the background
+    // Where you are, 20 times a second, for everyone else in the channel; and the moment you build
+    // something (a claimed plot most of all), the server hears about it.
+    // (Only once the rules have stepped: a new character starts below the ground until they land.)
+    if (online && life && sim.frame > 0 && now - lastPresence >= 50) {
+      lastPresence = now;
+      online.link.presence(presenceOf(sim, life));
+      const built = life.state.houses.map((h) => `${h.plot}:${h.stage}`).join() + '|' + life.state.scarecrows.length + '|' + (life.state.ships ?? []).map((b) => b.stage).join();
+      if (built !== lastBuilt) {
+        if (lastBuilt !== null) saveIsland();
+        lastBuilt = built;
+      }
+    }
     if (net && !playing && now - lastViewSent > 100) {
       lastViewSent = now;
       net.sendView(sim.player.pos.x, sim.player.pos.z);
@@ -1525,7 +1527,12 @@ if (online) {
   link.onStatus = stopIf;
   link.onReconnect = () => saveIsland();
   // The server says where you are can't be right (under the ground, off the island).
-  link.onCorrect = (x, _y, z) => teleport(x, z);
+  link.onCorrect = (x, _y, z) => {
+    // Only if it still holds by our own ground: a correction can arrive after you have moved on.
+    const p = sim.player.pos;
+    const lost = !terrain || !terrain.inside(p.x, p.z, 0) || p.y < terrain.height(p.x, p.z) - 3;
+    if (lost) teleport(x, z);
+  };
   link.onError = (text) => life?.toast(text, 'bad');
   stopIf(link.status);
 }

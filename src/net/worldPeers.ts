@@ -57,7 +57,12 @@ interface Peer {
   label: THREE.Sprite;
   estateKey: string;
   solid: Set<string>;
+  /** When we last heard from them (ms, performance.now()). */
+  heard: number;
 }
+
+/** Everyone reports 20 times a second, even standing still; this long without a word, they've gone. */
+const SILENT_MS = 5000;
 
 export class WorldPeers {
   private peers = new Map<number, Peer>();
@@ -109,7 +114,7 @@ export class WorldPeers {
     const label = nameTag(name);
     label.position.set(0, 2.45, 0);
     hero.root.add(label);
-    p = { id, name, hero, life, view, shown: blankState(), samples: [], clock: -1, online: false, label, estateKey: '', solid: new Set() };
+    p = { id, name, hero, life, view, shown: blankState(), samples: [], clock: -1, online: false, label, estateKey: '', solid: new Set(), heard: 0 };
     this.peers.set(id, p);
     return p;
   }
@@ -124,6 +129,7 @@ export class WorldPeers {
       // A newer page (they reloaded) starts its frames again from zero.
       if (p.samples.length && fr <= p.samples[p.samples.length - 1].fr - 600) p.samples = [];
       if (p.samples.length && fr <= p.samples[p.samples.length - 1].fr) continue;
+      p.heard = performance.now();
       p.samples.push({ fr, p: s });
       if (p.samples.length > 30) p.samples.shift();
       if (!p.online) {
@@ -178,7 +184,9 @@ export class WorldPeers {
 
   /** Poses everyone for this frame. */
   frame(dt: number, frame: number, cameraPos: THREE.Vector3): void {
+    const now = performance.now();
     for (const p of this.peers.values()) {
+      if (p.online && now - p.heard > SILENT_MS) this.left(p.id);
       const s = p.life.state;
       s.clock = this.mine.state.clock;
       s.weather = this.mine.state.weather;
