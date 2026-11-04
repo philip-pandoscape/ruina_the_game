@@ -64,6 +64,9 @@ pub struct Member {
     last_save: Instant,
     /// Their island's revision when their estate was last worked out.
     estate_rev: u64,
+    /// Their saved island couldn't be read: it's left as it is in the database, and nothing from
+    /// this visit is written over it.
+    pub keep_saved: bool,
 }
 
 /// What a character brings into a channel.
@@ -152,6 +155,7 @@ impl ChannelGame {
     /// channel parts: everyone else's estates and the claims.
     pub fn join(&mut self, a: Arrival) -> (Value, Value) {
         let c = client(a.character);
+        let mut keep_saved = false;
         self.lingering.retain(|_, (when, _, _)| when.elapsed() < LINGER);
         if self.players.open_view(c).is_some() {
             self.players.restart_inputs(c);
@@ -163,7 +167,11 @@ impl ChannelGame {
             let mut player = Player::new(Spawn { x: zone.recipe.spawn.x, z: zone.recipe.spawn.z, facing: zone.recipe.spawn.facing }, 0, a.build);
             stand_on_ground(&mut player, &self.open);
             if let Some(island) = &a.island {
-                load_island(&mut life, &mut player, &mut self.open, a.character, island, a.saved_at.unwrap_or(a.now), a.now);
+                if let Err(e) = load_island(&mut life, &mut player, &mut self.open, island, a.saved_at.unwrap_or(a.now), a.now) {
+                    eprintln!("character {}: the saved island can't be read ({e}); it is kept as it is, and this visit isn't saved", a.character);
+                    life.toast("Your island couldn't be loaded. It's kept safe on the server, but nothing from this visit will be saved.", "bad");
+                    keep_saved = true;
+                }
             }
             life.after_reset(&mut player);
             make_solid(&mut self.open, a.character, &life.state);
@@ -182,6 +190,7 @@ impl ChannelGame {
                 last_rev: u64::MAX,
                 last_save: now,
                 estate_rev: u64::MAX,
+                keep_saved,
             },
         );
         self.refresh_estate(a.character);
@@ -199,12 +208,15 @@ impl ChannelGame {
         if !self.members.get(&character).is_some_and(|m| m.session == session) {
             return None;
         }
-        self.members.remove(&character);
+        let keep_saved = self.members.remove(&character).is_some_and(|m| m.keep_saved);
         let (player, life) = self.players.leave(client(character))?;
         let mut life = life?;
         let island = island_of(&player, &mut life, &mut self.open, character);
-        self.lingering.insert(character, (Instant::now(), player, life));
         self.send_all(&json!({ "t": "left", "id": character }).to_string(), None);
+        if keep_saved {
+            return None;
+        }
+        self.lingering.insert(character, (Instant::now(), player, life));
         Some(island)
     }
 
@@ -389,7 +401,7 @@ impl ChannelGame {
             let m = self.members.get_mut(&id).unwrap();
             let send_life = m.life_due > 0 || rev != m.last_rev || now - m.last_life >= LIFE_EVERY;
             let life_json = send_life.then(|| life_view(life));
-            let save_due = now - m.last_save >= SAVE_EVERY;
+            let save_due = now - m.last_save >= SAVE_EVERY && !m.keep_saved;
             m.life_due = m.life_due.saturating_sub(1);
             if send_life {
                 m.last_rev = rev;
@@ -473,8 +485,9 @@ fn short_time(s: f64) -> String {
 
 /// Restores a saved island into a fresh Life and player (src/app/save.ts applySave): its state,
 /// the time that passed while its owner was away, and where they stood.
-pub fn load_island(life: &mut Life, p: &mut Player, world: &mut OpenWorld, owner: i64, island: &Value, saved_at: i64, now: i64) {
-    let Some(state) = island.get("state").and_then(|s| serde_json::from_value::<LifeState>(s.clone()).ok()) else { return };
+pub fn load_island(life: &mut Life, p: &mut Player, world: &mut OpenWorld, island: &Value, saved_at: i64, now: i64) -> Result<(), String> {
+    let state = island.get("state").ok_or("no state")?;
+    let state = serde_json::from_value::<LifeState>(state.clone()).map_err(|e| e.to_string())?;
     life.load(state);
     for v in &mut life.state.vehicles {
         v.ridden = false;
@@ -497,7 +510,6 @@ pub fn load_island(life: &mut Life, p: &mut Player, world: &mut OpenWorld, owner
     let num = |k: &str| at.get(k).and_then(Value::as_f64).filter(|v| v.is_finite());
     if let (Some(x), Some(z), Some(y), Some(facing)) = (num("x"), num("z"), num("y"), num("facing")) {
         if hf.inside(x, z, 10.0) {
-            let _ = owner;
             p.pos.x = x;
             p.pos.z = z;
             p.pos.y = ground_at(hf, &world.index, x, z, y.max(hf.height(x, z)) + 0.5, 1.0);
@@ -505,6 +517,7 @@ pub fn load_island(life: &mut Life, p: &mut Player, world: &mut OpenWorld, owner
             p.grounded = true;
         }
     }
+    Ok(())
 }
 
 /// The island as it would be saved right now (src/app/save.ts islandData): riding isn't saved, so
