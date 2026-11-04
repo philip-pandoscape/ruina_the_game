@@ -44,11 +44,12 @@ export interface LifeUIDeps {
 
 type Panel =
   | { kind: 'dialog'; id: string; quest?: string; trade?: boolean }
-  | { kind: 'shop'; id: string; tab: 'buy' | 'sell' }
+  | { kind: 'shop'; id: string; tab: ShopTab }
   | { kind: 'craft'; id: string }
   | { kind: 'storage'; id: string }
   | { kind: 'map' | 'garage' | 'dev' | 'log' | 'character' | 'settings' };
 
+type ShopTab = 'buy' | 'sell' | 'buyback';
 type Handler = (arg: string, e: MouseEvent | null) => void;
 type View = { title: string; sub?: string; portrait?: string; body: string; foot?: string; cls?: string; w: number; h?: number; handlers?: Record<string, Handler> };
 
@@ -122,6 +123,10 @@ export class LifeUI {
   private bagSig = '';
   private sel = -1;
   private logSel = '';
+  /** The quest whose Abandon was pressed once: the log asks before giving it up. */
+  private abandonAsk = '';
+  private untrackedFor = '';
+  private untrackedSet = new Set<string>();
   private handlers: Record<string, Handler> = {};
   private bagHandlers: Record<string, Handler> = {};
   private toastList: Array<{ e: HTMLDivElement; age: number }> = [];
@@ -422,7 +427,7 @@ export class LifeUI {
 
   private signature(): string {
     const s = this.life.state;
-    return [s.coins, s.seals, Math.floor(s.labor / 5), this.life.revision, s.bag.map((b) => `${b.item}${b.n}`).join(), s.quests.active.map((q) => `${q.id}${q.step}${q.counts}`).join(), s.quests.done.length, this.sel, this.logSel, this.d.sim.player.pack, this.d.sim.player.weapon, this.d.sim.player.skills.join(), s.vehicles.length, s.glider, s.seed, s.contracts?.active.length, s.contracts?.offered.length, Math.round(this.hp)].join('|');
+    return [s.coins, s.seals, Math.floor(s.labor / 5), this.life.revision, s.bag.map((b) => `${b.item}${b.n}`).join(), s.quests.active.map((q) => `${q.id}${q.step}${q.counts}`).join(), s.quests.done.length, this.sel, this.logSel, this.d.sim.player.pack, this.d.sim.player.weapon, this.d.sim.player.skills.join(), s.vehicles.length, s.glider, s.seed, s.contracts?.active.length, s.contracts?.offered.length, s.buyback?.map((b) => `${b.npc}${b.item}${b.n}`).join(), Math.round(this.hp)].join('|');
   }
 
   /** Portraits arrive a frame or two after a window opens and are retaken now and then: show the latest. */
@@ -707,12 +712,42 @@ export class LifeUI {
     this.prompt.innerHTML = `${f.ok ? `<span class="key">${key}</span>` : ''}<span>${withIcons(f.label)}</span>${f.detail ? `<span class="detail">${withIcons(f.detail)}</span>` : ''}`;
   }
 
+  /** Quests you've taken off the tracker, kept in this browser for each name you play under. */
+  private untracked(): Set<string> {
+    if (this.untrackedFor !== this.playerName) {
+      this.untrackedFor = this.playerName;
+      try {
+        this.untrackedSet = new Set(JSON.parse(localStorage.getItem(`yggdrasil.untracked.${this.playerName}`) ?? '[]') as string[]);
+      } catch {
+        this.untrackedSet = new Set();
+      }
+    }
+    return this.untrackedSet;
+  }
+
+  private setTracked(id: string, on: boolean): void {
+    const u = this.untracked();
+    if (on) u.delete(id);
+    else u.add(id);
+    try {
+      localStorage.setItem(`yggdrasil.untracked.${this.playerName}`, JSON.stringify([...u]));
+    } catch {
+      /* storage unavailable */
+    }
+  }
+
   private updateQuests(): void {
     const life = this.life;
     const parts: string[] = [];
+    const hidden = this.untracked();
+    let untracked = 0;
     for (const qp of life.state.quests.active) {
       const q = questDef(qp.id);
       if (q.milestone) continue; // the log keeps those
+      if (hidden.has(qp.id)) {
+        untracked++;
+        continue;
+      }
       if (qp.step >= q.steps.length) {
         const who = life.zone.recipe.npcs.find((n) => n.id === (q.turnIn ?? q.giver))?.name ?? '';
         parts.push(`<div class="q ready"><div class="qt"><i></i>${esc(q.name)}</div><div class="step">Return to ${esc(who)}</div></div>`);
@@ -734,6 +769,7 @@ export class LifeUI {
     for (const k of life.state.contracts?.active ?? []) {
       parts.push(`<div class="q"><div class="qt"><i></i>Contract · ${esc(placeName(k.outpost))}</div><div class="step">${k.count} × ${esc(packDef(k.pack).name)} <span class="count">${k.delivered}/${k.count}</span> · ${shortTime(k.expires - life.state.clock)} left</div><div class="q-bar"><i style="width:${(k.delivered / k.count) * 100}%"></i></div></div>`);
     }
+    if (untracked) parts.push(`<div class="hint">${untracked} more in your quest log (L)</div>`);
     const offers = QUESTS.filter((q) => !q.auto && questsAt(life, q.giver).offer.includes(q)).length;
     if (offers) parts.push(`<div class="hint">${offers} quest${offers > 1 ? 's' : ''} on offer: look for ${pixelIcon('excl', 12)}</div>`);
     if (!parts.length) parts.push(`<div class="hint">Nothing under way. Look for ${pixelIcon('excl', 12)} over people's heads.</div>`);
@@ -1107,7 +1143,7 @@ export class LifeUI {
     };
   }
 
-  private shopView(npcId: string, tab: 'buy' | 'sell'): View {
+  private shopView(npcId: string, tab: ShopTab): View {
     const life = this.life;
     const v = vendorFor(npcId)!;
     const n = life.zone.recipe.npcs.find((x) => x.id === npcId)!;
@@ -1121,7 +1157,7 @@ export class LifeUI {
           return `<div class="m-item${can ? '' : ' cant'}" data-act="buy" data-arg="${o.item}" data-tip="item:${o.item}"${can ? '' : ' disabled'}><div class="ib">${iconHtml(it.icon, o.item)}</div><div><div class="nm">${esc(it.name)}</div><div class="pr">${money(o.price, 12)}${o.seals ? ` + ${o.seals} ${pixelIcon('seal', 12)}` : ''}</div></div></div>`;
         })
         .join('');
-    } else {
+    } else if (tab === 'sell') {
       const have = v.buys.filter((i) => life.count(i) > 0);
       grid = have
         .map((i) => {
@@ -1131,7 +1167,19 @@ export class LifeUI {
         })
         .join('');
       if (!have.length) grid = `<div class="m-empty" style="grid-column:1/-1">Nothing ${esc(n.name.split(' ')[0])} wants in your bag.</div>`;
+    } else {
+      // What you sold here, held at what it fetched until you walk off (src/sim/life/trade.ts).
+      const held = (s.buyback ?? []).filter((b) => b.npc === npcId);
+      grid = held
+        .map((b) => {
+          const it = itemDef(b.item);
+          const can = s.coins >= b.price;
+          return `<div class="m-item${can ? '' : ' cant'}" data-act="buyback" data-arg="${b.item}" data-tip="item:${b.item}"${can ? '' : ' disabled'}><div class="ib">${iconHtml(it.icon, b.item)}<span class="n">${b.n}</span></div><div><div class="nm">${esc(it.name)}</div><div class="pr">${money(b.price, 12)} each</div></div></div>`;
+        })
+        .join('');
+      if (!held.length) grid = `<div class="m-empty" style="grid-column:1/-1">Nothing to buy back. ${esc(n.name.split(' ')[0])} holds what you sell here until you walk off.</div>`;
     }
+    const how = { buy: 'Click to buy one, shift-click for five.', sell: 'Click to sell one, shift-click to sell them all.', buyback: 'Click to buy one back, shift-click for all of it.' }[tab];
     const buys = v.buys.map((id) => itemDef(id)?.name).filter(Boolean).join(', ');
     return {
       title: v.name,
@@ -1139,14 +1187,15 @@ export class LifeUI {
       portrait: this.face(npcId),
       w: 440,
       h: 500,
-      body: `<div class="m-tabs"><span class="m-tab${tab === 'buy' ? ' on' : ''}" data-act="tab" data-arg="buy">Buy</span><span class="m-tab${tab === 'sell' ? ' on' : ''}" data-act="tab" data-arg="sell">Sell</span></div>
+      body: `<div class="m-tabs">${(['buy', 'sell', 'buyback'] as const).map((t) => `<span class="m-tab${tab === t ? ' on' : ''}" data-act="tab" data-arg="${t}">${{ buy: 'Buy', sell: 'Sell', buyback: 'Buyback' }[t]}</span>`).join('')}</div>
         <div class="m-grid${tab === 'sell' ? ' m-sell' : ''}">${grid}</div>
-        <div class="m-buys"><b>${esc(n.name.split(' ')[0])} buys:</b> ${esc(buys)}. ${tab === 'buy' ? 'Click to buy one, shift-click for five.' : 'Click to sell one, shift-click to sell them all.'}</div>`,
+        <div class="m-buys"><b>${esc(n.name.split(' ')[0])} buys:</b> ${esc(buys)}. ${how}</div>`,
       foot: `<span>${money(s.coins)}&nbsp; ${pixelIcon('seal', 16)} <b>${s.seals}</b></span><span style="display:flex;gap:12px"><button class="lui-btn small" data-act="sellall">Sell all produce</button><button class="lui-btn small" data-act="back">Back</button></span>`,
       handlers: {
-        tab: (t) => this.open({ kind: 'shop', id: npcId, tab: t as 'buy' | 'sell' }),
+        tab: (t) => this.open({ kind: 'shop', id: npcId, tab: t as ShopTab }),
         buy: (item, e) => life.command({ t: 'buy', npc: npcId, item, n: e?.shiftKey && itemDef(item).stack > 1 ? 5 : 1 }),
         sell: (item, e) => life.command({ t: 'sell', npc: npcId, item, n: e?.shiftKey ? 9999 : 1 }),
+        buyback: (item, e) => life.command({ t: 'buyback', npc: npcId, item, n: e?.shiftKey ? 9999 : 1 }),
         sellall: () => {
           for (const i of v.buys) if (life.count(i) > 0 && itemDef(i).cat === 'produce') life.command({ t: 'sell', npc: npcId, item: i, n: 9999 });
         },
@@ -1327,6 +1376,20 @@ export class LifeUI {
     }
     const quests = QUESTS.filter((q) => !q.milestone);
     const doneQuests = done.filter((id) => !questDef(id).milestone).length;
+    // A quest under way can come off the tracker, and be given up (asked once more first); a
+    // milestone can't be either, and the quests that start by themselves can't be given up.
+    let foot: string | undefined;
+    const sel = qp ? questDef(qp.id) : null;
+    if (sel && !sel.milestone) {
+      const tracked = !this.untracked().has(sel.id);
+      const track = `<button class="lui-btn gold small" data-act="track" data-arg="${sel.id}">${tracked ? 'Untrack' : 'Track on Screen'}</button>`;
+      const give = sel.auto
+        ? '<span></span>'
+        : this.abandonAsk === sel.id
+          ? `<span style="display:flex;gap:10px;align-items:center"><span class="muted">Give it up?</span><button class="lui-btn small" data-act="abandon" data-arg="${sel.id}">Abandon</button><button class="lui-btn small" data-act="keep">Keep</button></span>`
+          : `<button class="lui-btn small" data-act="ask" data-arg="${sel.id}">Abandon</button>`;
+      foot = give + track;
+    }
     return {
       title: 'Quest Log',
       sub: `${doneQuests} of ${quests.length} quests · ${done.length - doneQuests} of ${QUESTS.length - quests.length} milestones`,
@@ -1334,9 +1397,28 @@ export class LifeUI {
       w: 700,
       h: 520,
       body: `<div class="ql"><div class="ql-list">${list}</div><div>${page}</div></div>`,
+      foot,
       handlers: {
         logsel: (id) => {
           this.logSel = id;
+          this.abandonAsk = '';
+          this.renderPanel(false);
+        },
+        ask: (id) => {
+          this.abandonAsk = id;
+          this.renderPanel(false);
+        },
+        keep: () => {
+          this.abandonAsk = '';
+          this.renderPanel(false);
+        },
+        abandon: (id) => {
+          this.abandonAsk = '';
+          this.life.command({ t: 'abandon', quest: id });
+          this.renderPanel(false);
+        },
+        track: (id) => {
+          this.setTracked(id, this.untracked().has(id));
           this.renderPanel(false);
         },
       },

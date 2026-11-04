@@ -582,6 +582,84 @@ test('quests: the starter chain advances from what you do', async ({ page }) => 
   expect(q.step).toBe(1);
 });
 
+test('quest log: take a quest off the tracker and back, and give one up', async ({ page }) => {
+  const errors = await open(page);
+  const w = g(page);
+  await faceNpc(page, 'hollis');
+  await w.cmd({ t: 'interact' });
+  await w.advance(2);
+  await w.cmd({ t: 'complete', quest: 'landfall' });
+  await w.cmd({ t: 'accept', quest: 'patch' });
+  await w.advance(2);
+  await page.evaluate(() => (window as any).__game.closeLifePanel());
+  const tracker = page.locator('#lui-quests');
+  await expect(tracker).toContainText('A Patch of Earth');
+  await page.evaluate(() => (window as any).__game.pressLife('quests'));
+  await w.advance(1);
+  const card = page.locator('.lui-card');
+  const track = card.locator('[data-act="track"]');
+  await expect(track).toHaveText('Untrack');
+  await track.click();
+  await w.advance(1);
+  await expect(tracker).not.toContainText('A Patch of Earth');
+  await expect(tracker).toContainText('1 more in your quest log');
+  await expect(track).toHaveText('Track on Screen');
+  await track.click();
+  await w.advance(1);
+  await expect(tracker).toContainText('A Patch of Earth');
+  // Abandon asks once more; Keep leaves it be.
+  await card.locator('[data-act="ask"]').click();
+  await expect(card).toContainText('Give it up?');
+  await card.locator('[data-act="keep"]').click();
+  await w.advance(1);
+  expect((await w.life()).quests.active.map((x: { id: string }) => x.id)).toContain('patch');
+  await card.locator('[data-act="ask"]').click();
+  await card.locator('[data-act="abandon"]').click();
+  await w.advance(2);
+  expect((await w.life()).quests.active.map((x: { id: string }) => x.id)).not.toContain('patch');
+  await expect(page.locator('#lui-toasts')).toContainText('Quest abandoned: A Patch of Earth');
+  await expect(tracker).not.toContainText('A Patch of Earth');
+  // A milestone has neither button.
+  await card.locator('[data-act="logsel"][data-arg="wayfarer"]').click();
+  await w.advance(1);
+  await expect(card.locator('[data-act="ask"], [data-act="track"]')).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
+test('merchant: buy back what you sold, until you walk off', async ({ page }) => {
+  const errors = await open(page);
+  const w = g(page);
+  await grant(page, [['sunroot', 5]], { coins: 100 });
+  const sunroot = async () => ((await w.life()).bag as Array<{ item: string; n: number }>).filter((s) => s.item === 'sunroot').reduce((n, s) => n + s.n, 0);
+  const shop = async (tab: string) => {
+    await faceNpc(page, 'mara');
+    await w.cmd({ t: 'interact' });
+    await w.advance(2);
+    await page.locator('.lui-card [data-act="shop"]').click();
+    await page.locator(`.lui-card [data-act="tab"][data-arg="${tab}"]`).click();
+  };
+  await shop('sell');
+  await page.locator('.lui-card [data-act="sell"][data-arg="sunroot"]').click({ modifiers: ['Shift'] });
+  await w.advance(2);
+  expect(await sunroot()).toBe(0);
+  await page.locator('.lui-card [data-act="tab"][data-arg="buyback"]').click();
+  const held = page.locator('.lui-card [data-act="buyback"][data-arg="sunroot"]');
+  await expect(held.locator('.n')).toHaveText('5');
+  await held.click();
+  await w.advance(2);
+  await expect(held.locator('.n')).toHaveText('4');
+  expect(await sunroot()).toBe(1);
+  // Walk off and come back: she has let go of the rest.
+  await page.evaluate(() => (window as any).__game.closeLifePanel());
+  const mara = (await w.zone()).npcs.find((n: { id: string }) => n.id === 'mara');
+  await w.teleport(mara.x + 20, mara.z, 0);
+  await w.advance(2);
+  await shop('buyback');
+  await expect(page.locator('.lui-card')).toContainText('Nothing to buy back');
+  expect((await w.life()).buyback).toEqual([]);
+  expect(errors).toEqual([]);
+});
+
 test('panels: bag, map, vehicles, quest log, shop and workbench open without errors', async ({ page }) => {
   const errors = await open(page);
   const w = g(page);
