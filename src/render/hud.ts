@@ -163,7 +163,8 @@ export class Hud {
   }
 
   // Your own health bar (networked play). Pass null to hide it.
-  setPlayerHp(hp: number | null, max: number, team = 0): void {
+  /** `team` is the battlefield's side; null where there are no sides (the open world). */
+  setPlayerHp(hp: number | null, max: number, team: number | null = 0): void {
     const bar = document.getElementById('player-hp') as HTMLDivElement;
     if (hp === null) {
       bar.style.display = 'none';
@@ -173,7 +174,7 @@ export class Hud {
     bar.classList.toggle('hurt', hp < max * 0.35);
     (bar.querySelector('.fill') as HTMLDivElement).style.width = `${Math.round((hp / max) * 100)}%`;
     (bar.querySelector('.label') as HTMLSpanElement).textContent =
-      hp > 0 ? `${team === 0 ? 'Blue' : 'Red'} team · ${Math.round(hp)} / ${max}` : 'Knocked down…';
+      hp <= 0 ? 'Knocked down…' : team === null ? `${Math.round(hp)} / ${max}` : `${team === 0 ? 'Blue' : 'Red'} team · ${Math.round(hp)} / ${max}`;
   }
 
   // The ability bar: weapon, two ability slots with cooldowns, and the skills button.

@@ -1,21 +1,21 @@
 //! The open world's connection: one per player on Emberholm. src/net/worldLink.ts is the other
 //! end.
 //!
-//! Each character lives in a channel of Emberholm (server/src/channels.rs). Their browser still
-//! runs the island's rules and reports the island every few seconds, which the server keeps in
-//! Postgres and hands back next time. It also reports where the player is about 20 times a second;
-//! the server checks it against the island's ground (server/src/terrain.rs) and relays it to
-//! everyone else in the channel, with what each resident has built and who holds which plot.
+//! Each character lives in a channel of Emberholm, and the server plays it (server/src/world_game.rs):
+//! the browser sends only what its player presses and what they ask their island to do, and hears
+//! back, 20 times a second, where it really is, what its island holds, and everyone else in the
+//! channel. Islands are kept in Postgres, written by the server from its own copy.
 //!
-//! JSON text messages:
-//!   server -> browser  welcome {character, account, island, build, savedAt, now, channel, dev,
-//!                              estates, claims}
-//!                      peers {list: [{id, name, p}]} | estate {id, name, estate} | claims {claims}
-//!                      left {id} | correct {x, y, z} | saved {at} | reset | kicked | error {text}
-//!   browser -> server  presence {p} | save {save, build?} | build {build} | reset
+//!   server -> browser  (text) welcome {protocol, character, account, build, now, channel, dev, estates, claims}
+//!                      tick {tick, you, peers, actors, arrows, meteors, events, lifeEvents?, life?}
+//!                      estate {id, name, estate} | claims {claims} | left {id} | saved {at}
+//!                      | reset | kicked | error {text}
+//!   browser -> server  (binary) inputs: 7, count, then per input a u32 sequence number and 9 bytes
+//!                      (src/net/netPlayer.ts quantize)
+//!                      (text) cmd {s, c} | build {build} | reset
 
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
+use std::sync::Mutex;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use argon2::password_hash::rand_core::{OsRng, RngCore};
@@ -33,32 +33,33 @@ use sqlx::PgPool;
 use tokio::sync::mpsc;
 
 use crate::accounts::{signed_in, Account};
-use crate::channels::{estate_of, Channel, Peer, CHANNEL_CAP};
+use crate::channels::CHANNEL_CAP;
 use crate::http::{same_origin, App};
-use crate::terrain::{self, Terrain};
+use crate::life::Command;
+use crate::player::Build;
+use crate::skills::{valid_build, SKILL_WORDS};
+use crate::tuning::{HOTBAR_SLOTS, MOVEMENT_SLOTS, NO_ABILITY, NO_MOVEMENT};
+use crate::world_game::{Arrival, ChannelGame, Save, TICK_HZ};
 
-/// The biggest message a browser may send (a whole island, with room to grow).
-const MAX_MESSAGE: usize = 2 << 20;
-/// The biggest presence (a player, their vehicles and packs).
-const MAX_PRESENCE: usize = 64 << 10;
-/// Saves are written at most this often; one arriving sooner waits, and a newer one replaces it.
-const MIN_SAVE_GAP: Duration = Duration::from_secs(1);
+/// The biggest message a browser may send.
+const MAX_MESSAGE: usize = 64 << 10;
 /// The server pings this often. Browsers answer pings by themselves, even from a background tab
 /// whose timers are throttled, so a connection this quiet for IDLE has gone without saying so.
 const PING: Duration = Duration::from_secs(20);
 const IDLE: Duration = Duration::from_secs(60);
-/// How often everyone hears where everyone else is.
-const RELAY: Duration = Duration::from_millis(50);
-/// Reports in a row that must be impossible before the server moves someone (a single odd one is
-/// usually a moment in between, like the first frame before a new character lands).
-const BAD_STREAK: u32 = 3;
+/// Inputs in one binary message, at most.
+const MAX_BATCH: usize = 32;
+const SEND_INPUTS: u8 = 7;
+/// What this server speaks. A page that speaks something else is out of date: it reloads
+/// (src/net/worldLink.ts WORLD_PROTOCOL).
+pub const WORLD_PROTOCOL: u32 = 2;
 
 /// Which connection is playing each character (so a second window takes over from the first),
 /// and the channels.
 #[derive(Default)]
 pub struct Hub {
     live: Mutex<HashMap<i64, (i64, mpsc::Sender<()>)>>,
-    channels: Mutex<HashMap<i32, Channel>>,
+    channels: Mutex<HashMap<i32, ChannelGame>>,
 }
 
 impl Hub {
@@ -80,26 +81,83 @@ impl Hub {
         self.live.lock().unwrap().len()
     }
 
-    fn with_channel<T>(&self, id: i32, f: impl FnOnce(&mut Channel) -> T) -> T {
-        f(self.channels.lock().unwrap().entry(id).or_default())
+    fn with_channel<T>(&self, id: i32, f: impl FnOnce(&mut ChannelGame) -> T) -> T {
+        // A connection that failed halfway through a change mustn't stop everyone else's.
+        let mut channels = self.channels.lock().unwrap_or_else(|e| e.into_inner());
+        f(channels.entry(id).or_insert_with(|| ChannelGame::new(id)))
     }
 }
 
-/// Relays everyone's latest presence to their channel, 20 times a second.
-pub fn spawn_relay(app: App) {
-    tokio::spawn(async move {
-        let mut every = tokio::time::interval(RELAY);
-        every.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
-        loop {
-            every.tick().await;
-            let mut channels = app.world.channels.lock().unwrap();
-            for ch in channels.values_mut() {
-                if let Some(msg) = ch.take_changed() {
-                    ch.send_all(&msg, None);
+/// Plays every channel with anyone in it, TICK_HZ times a second, on a thread of its own; and
+/// writes the islands that are due a save.
+pub fn spawn_world(app: App) {
+    let (saves_tx, mut saves_rx) = mpsc::unbounded_channel::<Save>();
+    if let Some(db) = app.db.clone() {
+        tokio::spawn(async move {
+            while let Some(s) = saves_rx.recv().await {
+                match write_island(&db, s.character, s.session, s.island).await {
+                    Ok(r) if r.rows_affected() == 1 => {
+                        if let Some(out) = s.out {
+                            let _ = out.try_send(json!({ "t": "saved", "at": now_ms() }).to_string());
+                        }
+                    }
+                    Ok(_) => {}
+                    Err(e) => eprintln!("could not save character {}: {e}", s.character),
                 }
             }
+        });
+    }
+    let hub = app.clone();
+    std::thread::Builder::new()
+        .name("world".into())
+        .spawn(move || {
+            let period = Duration::from_secs_f64(1.0 / TICK_HZ as f64);
+            let mut next = Instant::now() + period;
+            let mut saves = Vec::new();
+            loop {
+                {
+                    let mut channels = hub.world.channels.lock().unwrap_or_else(|e| e.into_inner());
+                    for ch in channels.values_mut() {
+                        if ch.has_players() {
+                            // One channel's bad moment mustn't stop all the others.
+                            let id = ch.id;
+                            if std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| ch.step(&mut saves))).is_err() {
+                                eprintln!("channel {id} failed a tick");
+                            }
+                        }
+                    }
+                }
+                for s in saves.drain(..) {
+                    let _ = saves_tx.send(s);
+                }
+                let now = Instant::now();
+                if next > now {
+                    std::thread::sleep(next - now);
+                    next += period;
+                } else {
+                    next = now + period;
+                }
+            }
+        })
+        .expect("start the world thread");
+}
+
+/// Writes the island of everyone playing right now (the server is stopping).
+pub async fn save_everyone(app: &App) {
+    let Some(db) = app.db.clone() else { return };
+    let saves: Vec<Save> = {
+        let mut channels = app.world.channels.lock().unwrap_or_else(|e| e.into_inner());
+        channels.values_mut().flat_map(|ch| ch.islands_now()).collect()
+    };
+    let mut written = 0;
+    for s in saves {
+        match write_island(&db, s.character, s.session, s.island).await {
+            Ok(r) if r.rows_affected() == 1 => written += 1,
+            Ok(_) => {}
+            Err(e) => eprintln!("could not save character {} while stopping: {e}", s.character),
         }
-    });
+    }
+    println!("saved {written} islands");
 }
 
 pub async fn upgrade(State(app): State<App>, headers: HeaderMap, ws: WebSocketUpgrade) -> Response {
@@ -132,38 +190,34 @@ pub async fn upgrade(State(app): State<App>, headers: HeaderMap, ws: WebSocketUp
 #[derive(Deserialize)]
 #[serde(tag = "t", rename_all = "camelCase")]
 enum FromBrowser {
-    Presence {
-        p: Value,
-    },
-    Save {
-        save: Value,
-        #[serde(default)]
-        build: Option<Value>,
-    },
-    Build {
-        build: Value,
-    },
+    Cmd { s: u32, c: Value },
+    Build { build: Value },
     Reset,
 }
 
 type Tx = SplitSink<WebSocket, Message>;
 
-/// Leaves the channel however the connection ends, unless a newer window already took the seat.
-struct Seat<'a> {
-    app: &'a App,
+/// Takes the player out of the channel however the connection ends (unless a newer window has
+/// taken their seat), and saves the island they leave behind.
+struct Seat {
+    app: App,
+    db: PgPool,
     channel: i32,
     character: i64,
     session: i64,
 }
 
-impl Drop for Seat<'_> {
+impl Drop for Seat {
     fn drop(&mut self) {
-        self.app.world.with_channel(self.channel, |ch| {
-            if ch.peers.get(&self.character).is_some_and(|p| p.session == self.session) {
-                ch.peers.remove(&self.character);
-                ch.send_all(&json!({ "t": "left", "id": self.character }).to_string(), None);
-            }
-        });
+        let island = self.app.world.with_channel(self.channel, |ch| ch.leave(self.character, self.session));
+        if let Some(island) = island {
+            let (db, character, session) = (self.db.clone(), self.character, self.session);
+            tokio::spawn(async move {
+                if let Err(e) = write_island(&db, character, session, island).await {
+                    eprintln!("could not save character {character} on leaving: {e}");
+                }
+            });
+        }
     }
 }
 
@@ -183,57 +237,47 @@ async fn home_channel(db: &PgPool, character: i64) -> Result<i32, sqlx::Error> {
 
 /// Reads what everyone who lives in a channel has built, the first time anyone arrives there.
 async fn load_channel(app: &App, db: &PgPool, channel: i32) -> Result<(), sqlx::Error> {
-    if app.world.with_channel(channel, |ch| ch.loaded) {
+    if app.world.with_channel(channel, |ch| ch.estates.loaded) {
         return Ok(());
     }
     let rows: Vec<(i64, String, Option<Json<Value>>)> =
         sqlx::query_as("SELECT id, name, island->'state' FROM characters WHERE home_channel = $1 AND island IS NOT NULL").bind(channel).fetch_all(db).await?;
     app.world.with_channel(channel, |ch| {
-        if ch.loaded {
+        if ch.estates.loaded {
             return;
         }
         for (id, name, state) in rows {
             if let Some(Json(state)) = state {
-                ch.set_estate(id, &name, estate_of(&state));
+                ch.add_resident(id, &name, &state);
             }
         }
-        ch.loaded = true;
+        ch.estates.loaded = true;
     });
     Ok(())
 }
 
-/// Tells the channel what changed about this character's estate (and so who holds which plot).
-fn publish_estate(app: &App, channel: i32, character: i64, name: &str, state: Option<&Value>) {
-    let estate = state.map(estate_of).unwrap_or_else(|| estate_of(&Value::Null));
-    app.world.with_channel(channel, |ch| {
-        if ch.set_estate(character, name, estate) {
-            if let Some(msg) = ch.estate_message(character) {
-                ch.send_all(&msg, Some(character));
+/// A build as the browser keeps it (src/build.ts): the learned skills, weapon, hotbar and
+/// movement slots. None if it isn't one, or isn't allowed.
+pub fn parse_build(v: &Value) -> Option<Build> {
+    let mut b = Build::default();
+    b.weapon = u8::try_from(v.get("weapon")?.as_u64()?).ok()?;
+    let mut skills = [0u32; SKILL_WORDS];
+    for (k, w) in v.get("skills")?.as_array()?.iter().take(SKILL_WORDS).enumerate() {
+        skills[k] = u32::try_from(w.as_u64()?).ok()?;
+    }
+    b.skills = skills;
+    let slots = |key: &str, n: usize, empty: u8| -> Option<Vec<u8>> {
+        let mut out = vec![empty; n];
+        if let Some(list) = v.get(key).and_then(Value::as_array) {
+            for (k, a) in list.iter().take(n).enumerate() {
+                out[k] = u8::try_from(a.as_u64()?).ok()?;
             }
-            ch.send_all(&ch.claims_message(), None);
         }
-    });
-}
-
-/// Checks a presence and stores it for the relay. Returns where to put the player back if their
-/// position can't be right.
-fn take_presence(app: &App, channel: i32, character: i64, p: &Value) -> Result<Option<(f64, f64, f64)>, &'static str> {
-    let text = p.to_string();
-    if !p.is_object() || text.len() > MAX_PRESENCE {
-        return Err("That presence is malformed.");
-    }
-    let pos = &p["pos"];
-    let (x, y, z) = (pos["x"].as_f64().unwrap_or(f64::NAN), pos["y"].as_f64().unwrap_or(f64::NAN), pos["z"].as_f64().unwrap_or(f64::NAN));
-    let fix = terrain::correction(Terrain::emberholm(), x, y, z, terrain::spawn());
-    if fix.is_none() {
-        app.world.with_channel(channel, |ch| {
-            if let Some(peer) = ch.peers.get_mut(&character) {
-                peer.presence = Some(Arc::from(text));
-                peer.dirty = true;
-            }
-        });
-    }
-    Ok(fix)
+        Some(out)
+    };
+    b.abilities.copy_from_slice(&slots("abilities", HOTBAR_SLOTS, NO_ABILITY)?);
+    b.movement.copy_from_slice(&slots("movement", MOVEMENT_SLOTS, NO_MOVEMENT)?);
+    valid_build(&b.skills, b.weapon, &b.abilities).then_some(b)
 }
 
 async fn play(socket: WebSocket, app: &App, db: &PgPool, account: &Account, session: i64, mut kicked: mpsc::Receiver<()>) -> Result<(), String> {
@@ -255,26 +299,33 @@ async fn play(socket: WebSocket, app: &App, db: &PgPool, account: &Account, sess
     .fetch_one(db)
     .await
     .map_err(|e| e.to_string())?;
-    let island = island.map(|j| j.0);
+    let build_json = build.map(|j| j.0);
+    let now = now_ms();
 
-    // Into the channel.
-    let (out, mut outbox) = mpsc::channel::<String>(64);
-    let _seat = Seat { app, channel, character, session };
-    let (estates, claims, peers) = app.world.with_channel(channel, |ch| {
-        ch.peers.insert(character, Peer { session, name: name.clone(), out, presence: None, dirty: false });
-        (ch.estates_json(character), ch.claims_json(), ch.presences(character))
-    });
-    publish_estate(app, channel, character, &name, island.as_ref().and_then(|i| i.get("state")));
+    // Into the channel's game.
+    let (out, mut outbox) = mpsc::channel::<String>(256);
+    let arrival = Arrival {
+        character,
+        session,
+        name: name.clone(),
+        out,
+        dev: app.dev_tools,
+        island: island.map(|j| j.0),
+        saved_at,
+        now,
+        build: build_json.as_ref().and_then(parse_build).unwrap_or_default(),
+    };
+    let (estates, claims) = app.world.with_channel(channel, |ch| ch.join(arrival));
+    let _seat = Seat { app: app.clone(), db: db.clone(), channel, character, session };
     send(
         &mut tx,
         json!({
             "t": "welcome",
+            "protocol": WORLD_PROTOCOL,
             "character": { "id": character, "name": name },
             "account": account.username,
-            "island": island,
-            "build": build.map(|j| j.0),
-            "savedAt": saved_at,
-            "now": now_ms(),
+            "build": build_json,
+            "now": now,
             "channel": channel,
             "dev": app.dev_tools,
             "estates": estates,
@@ -282,78 +333,58 @@ async fn play(socket: WebSocket, app: &App, db: &PgPool, account: &Account, sess
         }),
     )
     .await?;
-    tx.send(Message::Text(peers.into())).await.map_err(|e| e.to_string())?;
 
-    let mut pending: Option<(Value, Option<Value>)> = None;
-    let mut last_write = Instant::now() - MIN_SAVE_GAP;
     let mut last_heard = Instant::now();
     let mut last_ping = Instant::now();
-    let mut bad = 0u32;
     let mut tick = tokio::time::interval(Duration::from_millis(500));
     loop {
         tokio::select! {
             msg = rx.next() => {
-                let text = match msg {
-                    Some(Ok(Message::Text(t))) => t,
-                    Some(Ok(Message::Close(_))) | None => break,
-                    Some(Ok(_)) => {
-                        last_heard = Instant::now();
-                        continue;
-                    }
-                    Some(Err(e)) => return Err(e.to_string()),
-                };
                 last_heard = Instant::now();
-                match serde_json::from_str::<FromBrowser>(text.as_str()) {
-                    Ok(FromBrowser::Presence { p }) => match take_presence(app, channel, character, &p) {
-                        Ok(None) => bad = 0,
-                        Ok(Some((x, y, z))) => {
-                            bad += 1;
-                            if bad >= BAD_STREAK {
-                                bad = 0;
-                                send(&mut tx, json!({ "t": "correct", "x": x, "y": y, "z": z })).await?;
+                match msg {
+                    Some(Ok(Message::Binary(b))) => {
+                        if let Some(list) = read_inputs(&b) {
+                            app.world.with_channel(channel, |ch| ch.inputs(character, list.into_iter()));
+                        }
+                    }
+                    Some(Ok(Message::Text(text))) => match serde_json::from_str::<FromBrowser>(text.as_str()) {
+                        Ok(FromBrowser::Cmd { s, c }) => match serde_json::from_value::<Command>(c) {
+                            Ok(c) => {
+                                if !app.world.with_channel(channel, |ch| ch.command(character, s, c)) {
+                                    send(&mut tx, json!({ "t": "error", "text": "That isn't allowed here." })).await?;
+                                }
+                            }
+                            Err(_) => send(&mut tx, json!({ "t": "error", "text": "The server didn't understand that command." })).await?,
+                        },
+                        Ok(FromBrowser::Build { build }) => {
+                            let Some(b) = parse_build(&build) else {
+                                send(&mut tx, json!({ "t": "error", "text": "That build isn't allowed." })).await?;
+                                continue;
+                            };
+                            app.world.with_channel(channel, |ch| ch.set_build(character, b));
+                            let result = sqlx::query("UPDATE characters SET build = $3 WHERE id = $1 AND live_session = $2")
+                                .bind(character)
+                                .bind(session)
+                                .bind(Json(build))
+                                .execute(db)
+                                .await;
+                            if let Wrote::Replaced = outcome(result, &mut tx).await? {
+                                return replaced(&mut tx).await;
                             }
                         }
-                        Err(why) => send(&mut tx, json!({ "t": "error", "text": why })).await?,
+                        Ok(FromBrowser::Reset) => {
+                            let Some(fresh) = app.world.with_channel(channel, |ch| ch.reset(character)) else { continue };
+                            match outcome(write_island(db, character, session, fresh).await, &mut tx).await? {
+                                Wrote::Yes => send(&mut tx, json!({ "t": "reset" })).await?,
+                                Wrote::Replaced => return replaced(&mut tx).await,
+                                Wrote::Failed => {}
+                            }
+                        }
+                        Err(_) => send(&mut tx, json!({ "t": "error", "text": "The server didn't understand that message." })).await?,
                     },
-                    Ok(FromBrowser::Save { save, build }) => {
-                        if !valid_island(&save) {
-                            send(&mut tx, json!({ "t": "error", "text": "That save is malformed." })).await?;
-                            continue;
-                        }
-                        // Everyone else sees what was built straight away (a claimed plot most of all).
-                        publish_estate(app, channel, character, &name, save.get("state"));
-                        // A build waiting with an older save still counts.
-                        let build = build.or_else(|| pending.take().and_then(|(_, b)| b));
-                        pending = Some((save, build));
-                    }
-                    Ok(FromBrowser::Build { build }) => {
-                        let result = sqlx::query("UPDATE characters SET build = $3 WHERE id = $1 AND live_session = $2")
-                            .bind(character)
-                            .bind(session)
-                            .bind(Json(build))
-                            .execute(db)
-                            .await;
-                        if let Wrote::Replaced = outcome(result, &mut tx).await? {
-                            return replaced(&mut tx).await;
-                        }
-                    }
-                    Ok(FromBrowser::Reset) => {
-                        pending = None;
-                        let result = sqlx::query("UPDATE characters SET island = NULL, saved_at = now() WHERE id = $1 AND live_session = $2")
-                            .bind(character)
-                            .bind(session)
-                            .execute(db)
-                            .await;
-                        match outcome(result, &mut tx).await? {
-                            Wrote::Yes => {
-                                publish_estate(app, channel, character, &name, None);
-                                send(&mut tx, json!({ "t": "reset" })).await?
-                            }
-                            Wrote::Replaced => return replaced(&mut tx).await,
-                            Wrote::Failed => {}
-                        }
-                    }
-                    Err(_) => send(&mut tx, json!({ "t": "error", "text": "The server didn't understand that message." })).await?,
+                    Some(Ok(Message::Close(_))) | None => break,
+                    Some(Ok(_)) => {}
+                    Some(Err(e)) => return Err(e.to_string()),
                 }
             }
             Some(text) = outbox.recv() => tx.send(Message::Text(text.into())).await.map_err(|e| e.to_string())?,
@@ -368,31 +399,38 @@ async fn play(socket: WebSocket, app: &App, db: &PgPool, account: &Account, sess
                 }
             }
         }
-
-        // The newest save, at most once a second.
-        if pending.is_some() && last_write.elapsed() >= MIN_SAVE_GAP {
-            let (save, build) = pending.take().unwrap();
-            last_write = Instant::now();
-            match outcome(write_island(db, character, session, save, build).await, &mut tx).await? {
-                Wrote::Yes => send(&mut tx, json!({ "t": "saved", "at": now_ms() })).await?,
-                Wrote::Replaced => return replaced(&mut tx).await,
-                Wrote::Failed => {}
-            }
-        }
-    }
-    // Gone: keep whatever was still waiting to be written.
-    if let Some((save, build)) = pending.take() {
-        let _ = write_island(db, character, session, save, build).await;
     }
     Ok(())
 }
 
-async fn write_island(db: &PgPool, character: i64, session: i64, island: Value, build: Option<Value>) -> Result<sqlx::postgres::PgQueryResult, sqlx::Error> {
-    sqlx::query("UPDATE characters SET island = $3, build = COALESCE($4, build), saved_at = now() WHERE id = $1 AND live_session = $2")
+/// A batch of inputs: 7, the count, then per input a u32 sequence number (little-endian) and its
+/// 9 bytes. None if it isn't one.
+fn read_inputs(b: &[u8]) -> Option<Vec<(u32, [u8; 9])>> {
+    if b.len() < 2 || b[0] != SEND_INPUTS {
+        return None;
+    }
+    let n = b[1] as usize;
+    if n == 0 || n > MAX_BATCH || b.len() != 2 + n * 13 {
+        return None;
+    }
+    Some(
+        (0..n)
+            .map(|k| {
+                let at = 2 + k * 13;
+                let seq = u32::from_le_bytes(b[at..at + 4].try_into().unwrap());
+                let mut raw = [0u8; 9];
+                raw.copy_from_slice(&b[at + 4..at + 13]);
+                (seq, raw)
+            })
+            .collect(),
+    )
+}
+
+async fn write_island(db: &PgPool, character: i64, session: i64, island: Value) -> Result<sqlx::postgres::PgQueryResult, sqlx::Error> {
+    sqlx::query("UPDATE characters SET island = $3, saved_at = now() WHERE id = $1 AND live_session = $2")
         .bind(character)
         .bind(session)
         .bind(Json(island))
-        .bind(build.map(Json))
         .execute(db)
         .await
 }
@@ -401,7 +439,7 @@ enum Wrote {
     Yes,
     /// Another connection has taken the character over.
     Replaced,
-    /// The database refused. The browser is told and keeps playing; its next save tries again.
+    /// The database refused. The browser is told and keeps playing; the next save tries again.
     Failed,
 }
 
@@ -424,12 +462,6 @@ async fn replaced(tx: &mut Tx) -> Result<(), String> {
     Ok(())
 }
 
-/// The minimum a save needs before it's worth keeping: the island's state and where you stood.
-fn valid_island(v: &Value) -> bool {
-    let finite = |p: &Value, k: &str| p.get(k).and_then(Value::as_f64).is_some_and(f64::is_finite);
-    v.get("state").is_some_and(Value::is_object) && v.get("player").is_some_and(|p| ["x", "y", "z", "facing"].iter().all(|k| finite(p, k)))
-}
-
 async fn send(tx: &mut Tx, v: Value) -> Result<(), String> {
     tx.send(Message::Text(v.to_string().into())).await.map_err(|e| e.to_string())
 }
@@ -443,10 +475,27 @@ mod tests {
     use super::*;
 
     #[test]
-    fn a_save_needs_the_island_and_where_you_stood() {
-        assert!(valid_island(&json!({ "state": { "version": 3 }, "player": { "x": 1.0, "y": 2.0, "z": -3.5, "facing": 0.2 } })));
-        assert!(!valid_island(&json!({ "player": { "x": 1.0, "y": 2.0, "z": -3.5, "facing": 0.2 } })));
-        assert!(!valid_island(&json!({ "state": { "version": 3 }, "player": { "x": 1.0, "y": 2.0, "z": "far" } })));
-        assert!(!valid_island(&json!("an island")));
+    fn inputs_arrive_in_batches() {
+        let mut b = vec![SEND_INPUTS, 2];
+        for seq in [5u32, 6] {
+            b.extend(seq.to_le_bytes());
+            b.extend([127u8, 0, 1, 0, 0, 0, 0, 0, 127]);
+        }
+        let list = read_inputs(&b).unwrap();
+        assert_eq!(list.len(), 2);
+        assert_eq!(list[1].0, 6);
+        assert_eq!(list[0].1[8], 127);
+        assert!(read_inputs(&b[..b.len() - 1]).is_none());
+        assert!(read_inputs(&[SEND_INPUTS, 0]).is_none());
+    }
+
+    #[test]
+    fn builds_are_read_and_checked() {
+        let d = Build::default();
+        let ok = json!({ "skills": d.skills, "weapon": d.weapon, "abilities": d.abilities, "movement": d.movement });
+        let b = parse_build(&ok).expect("the default build");
+        assert_eq!(b.skills, d.skills);
+        assert!(parse_build(&json!({ "weapon": "sword" })).is_none());
+        assert!(parse_build(&json!("nonsense")).is_none());
     }
 }

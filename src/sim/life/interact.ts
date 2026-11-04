@@ -379,6 +379,8 @@ export function runCommand(life: Life, sim: Sim, c: Command): void {
       return;
     case 'store':
     case 'take': {
+      // Only a real count moves anything: a negative one would make items out of nothing.
+      if (!(c.n > 0)) return;
       const h = life.state.houses.find((x) => x.id === c.house);
       if (!h || !isComplete(h)) return;
       const bp = blueprintDef(h.blueprint);

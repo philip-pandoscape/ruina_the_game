@@ -1,7 +1,10 @@
 //! Player movement and combat rules: a port of src/sim/sim.ts in networked mode (no training
 //! dummy, no hit pause, no auto-aim). The browser runs the TypeScript version to predict your own
 //! moves, so the two must stay identical. tests/conformance.spec.ts runs both and compares them.
+//! Open worlds reuse these pieces from crate::open::step_player (tests/world-conformance.spec.ts).
 
+use crate::jsmath::JsMath;
+use crate::life::content::carry;
 use crate::skills::{resolve_skills, set_skill, ResolvedSkills, SkillSet, EMPTY_SKILLS};
 use crate::tuning::{
     ability, ability_cooldown, cast_frames_for, combo_for, movement_action, movement_cooldown, slide_skill, tuning, AttackStep, HOTBAR_SLOTS,
@@ -29,6 +32,10 @@ pub struct Actions {
     pub crouch_held: bool,
     pub aim_x: f64, // optional target offset in metres (0, 0 = straight ahead)
     pub aim_z: f64,
+    /// The raw stick (or WASD), before it is turned into a world direction: x is right, y is
+    /// forward. Vehicles steer with it (tank controls); everything on foot uses move_x / move_z.
+    pub stick_x: f64,
+    pub stick_y: f64,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -37,8 +44,12 @@ pub enum Mode {
     Attack = 1,
     Cast = 2,
     /// A data-driven movement skill: a dodge, a guard, or the slide everyone has.
-    /// Keep MODE_DOWN in protocol.rs one past the last of these.
     Action = 3,
+    /// Open worlds only (src/sim/player/traverse.ts and src/sim/life/vehicles.ts).
+    Swim = 4,
+    Glide = 5,
+    Ride = 6,
+    // Keep MODE_DOWN in protocol.rs one past the last of these.
 }
 
 #[derive(Clone, Copy, Default, Debug)]
@@ -103,9 +114,24 @@ pub struct Player {
     pub cast_target_x: f64,
     pub cast_target_z: f64,
     pub fired_ability: u8, // the ability whose cast finished this frame, else NO_ABILITY
+    // ---- Open-world traversal (src/sim/types.ts). Always at rest on the battlefield. ----
+    /// The trade pack on your back (an id in the life systems), 0 for none.
+    pub pack: i64,
+    /// What you are riding (a vehicle id in the life systems), 0 on foot; and which seat.
+    pub vehicle: i64,
+    pub seat: u8,
+    /// The glider you have equipped ("" for none), and its airspeed while open.
+    pub glider: String,
+    pub airspeed: f64,
+    /// Lean into a turn, -1..1, for the glider and the body.
+    pub bank: f64,
+    /// Frames since the current traversal mode began (glider opening, swim strokes).
+    pub mode_frame: i32,
+    /// Frames until the glider's gust can be used again.
+    pub gust_frames: i32,
 }
 
-fn len(x: f64, z: f64) -> f64 {
+pub(crate) fn len(x: f64, z: f64) -> f64 {
     (x * x + z * z).sqrt()
 }
 
@@ -120,10 +146,10 @@ pub fn angle_diff(a: f64, b: f64) -> f64 {
     d
 }
 
-fn turn_toward(current: f64, target: f64, max_step: f64) -> f64 {
+pub(crate) fn turn_toward(current: f64, target: f64, max_step: f64) -> f64 {
     let d = angle_diff(current, target);
     let next = current + d.clamp(-max_step, max_step);
-    next.sin().atan2(next.cos())
+    next.js_sin().js_atan2(next.js_cos())
 }
 
 /// A character's skills and loadout.
@@ -145,7 +171,7 @@ impl Default for Build {
     }
 }
 
-fn step_len() -> f64 {
+pub(crate) fn step_len() -> f64 {
     1.0 / tuning().sim_hz
 }
 
@@ -200,6 +226,14 @@ impl Player {
             cast_target_x: 0.0,
             cast_target_z: 0.0,
             fired_ability: NO_ABILITY,
+            pack: 0,
+            vehicle: 0,
+            seat: 0,
+            glider: String::new(),
+            airspeed: 0.0,
+            bank: 0.0,
+            mode_frame: 0,
+            gust_frames: 0,
         }
     }
 
@@ -252,17 +286,17 @@ impl Player {
         if def.direction == "input" && mag > 0.05 {
             self.action_dir_x = dx;
             self.action_dir_z = dz;
-            self.facing = dx.atan2(dz);
+            self.facing = dx.js_atan2(dz);
         } else if def.direction == "backward" {
-            self.action_dir_x = -self.facing.sin();
-            self.action_dir_z = -self.facing.cos();
+            self.action_dir_x = -self.facing.js_sin();
+            self.action_dir_z = -self.facing.js_cos();
         } else {
-            self.action_dir_x = self.facing.sin();
-            self.action_dir_z = self.facing.cos();
+            self.action_dir_x = self.facing.js_sin();
+            self.action_dir_z = self.facing.js_cos();
         }
     }
 
-    fn update_action(&mut self, a: &Actions) {
+    pub(crate) fn update_action(&mut self, a: &Actions) {
         let Some(def) = movement_action(self.action_id) else {
             self.end_action();
             return;
@@ -280,11 +314,11 @@ impl Player {
         if let Some(rate) = steer {
             let (dx, dz, mag) = Self::input(a);
             if mag > 0.0 {
-                let heading = turn_toward(self.action_dir_x.atan2(self.action_dir_z), dx.atan2(dz), rate * step_len());
-                self.action_dir_x = heading.sin();
-                self.action_dir_z = heading.cos();
+                let heading = turn_toward(self.action_dir_x.js_atan2(self.action_dir_z), dx.js_atan2(dz), rate * step_len());
+                self.action_dir_x = heading.js_sin();
+                self.action_dir_z = heading.js_cos();
             }
-            self.facing = self.action_dir_x.atan2(self.action_dir_z);
+            self.facing = self.action_dir_x.js_atan2(self.action_dir_z);
         }
 
         if f <= startup {
@@ -368,7 +402,35 @@ impl Player {
         (self.attack_frame > s.startup && self.attack_frame <= s.startup + s.active).then(|| s.clone())
     }
 
+    /// One step of the rules on the flat battlefield (src/sim/sim.ts step() in networked mode).
+    /// Open worlds step through crate::open::step_player, which shares every piece of this but the
+    /// modes only they have and the ground.
     pub fn step(&mut self, a: &Actions, world: &World) {
+        self.begin_step(a);
+        if self.down_frame >= 0 {
+            if self.update_down() {
+                self.respawn(world.team_spawns[self.team as usize & 1]);
+            }
+        } else if self.stun > 0 {
+            self.update_stun();
+        } else {
+            match self.mode {
+                Mode::Action => self.update_action(a),
+                Mode::Cast => self.update_cast(a),
+                Mode::Attack => self.update_attack(a),
+                Mode::Normal => self.update_normal(a),
+                // Only open worlds have these, and they step through crate::open::traverse.
+                Mode::Swim | Mode::Glide | Mode::Ride => self.update_normal(a),
+            }
+        }
+        self.update_crouch_frame();
+        self.integrate(world);
+        self.end_step();
+    }
+
+    /// The start of every step: remember presses, count down timers, cut a short hop, and drop
+    /// sprinting and crouching (only normal control sets them again).
+    pub(crate) fn begin_step(&mut self, a: &Actions) {
         let t = tuning();
         self.fired_ability = NO_ABILITY;
         if a.jump_pressed {
@@ -412,41 +474,42 @@ impl Player {
         // (stunned, sliding, attacking, casting, knocked down) drops them.
         self.sprinting = false;
         self.crouching = false;
+    }
 
-        if self.down_frame >= 0 {
-            self.mode = Mode::Normal;
-            self.down_frame += 1;
-            if self.grounded {
-                self.accelerate_toward(0.0, 0.0, t.movement.ground_decel);
-            }
-            if self.down_frame >= t.combat.down_frames {
-                self.respawn(world);
-            }
-        } else if self.stun > 0 {
-            self.stun -= 1;
-            self.mode = Mode::Normal;
-            if self.grounded {
-                self.accelerate_toward(0.0, 0.0, t.movement.ground_decel);
-            } else {
-                self.air_control(0.0, 0.0, 0.0);
-            }
-        } else {
-            match self.mode {
-                Mode::Action => self.update_action(a),
-                Mode::Cast => self.update_cast(a),
-                Mode::Attack => self.update_attack(a),
-                Mode::Normal => self.update_normal(a),
-            }
+    /// Knocked down: lie still. True on the frame it is time to get back up; where depends on the
+    /// world (a team's spawn on the battlefield, the island's own in an open world).
+    pub(crate) fn update_down(&mut self) -> bool {
+        let t = tuning();
+        self.mode = Mode::Normal;
+        self.down_frame += 1;
+        if self.grounded {
+            self.accelerate_toward(0.0, 0.0, t.movement.ground_decel);
         }
+        self.down_frame >= t.combat.down_frames
+    }
 
+    /// Stunned after a hit: no control until it wears off.
+    pub(crate) fn update_stun(&mut self) {
+        self.stun -= 1;
+        self.mode = Mode::Normal;
+        if self.grounded {
+            self.accelerate_toward(0.0, 0.0, tuning().movement.ground_decel);
+        } else {
+            self.air_control(0.0, 0.0, 0.0);
+        }
+    }
+
+    /// Eases the body down into a crouch and back up.
+    pub(crate) fn update_crouch_frame(&mut self) {
         self.crouch_frame = if self.crouching {
-            (self.crouch_frame + 1).min(t.movement.crouch_enter_frames)
+            (self.crouch_frame + 1).min(tuning().movement.crouch_enter_frames)
         } else {
             (self.crouch_frame - 1).max(0)
         };
+    }
 
-        self.integrate(world);
-
+    /// The end of every step: buffered presses that were not used run out.
+    pub(crate) fn end_step(&mut self) {
         if self.jump_buffer > 0 {
             self.jump_buffer -= 1;
         }
@@ -482,7 +545,8 @@ impl Player {
             return false;
         }
         if self.grounded || self.coyote > 0 {
-            self.vel.y = t.jump.velocity;
+            // A trade pack on your back (open worlds only) weighs the jump down.
+            self.vel.y = if self.pack != 0 { t.jump.velocity * carry().jump_factor } else { t.jump.velocity };
             self.grounded = false;
             self.coyote = 0;
             self.jumps_used = 1;
@@ -491,7 +555,8 @@ impl Player {
             self.takeoff_frame = 0;
             return true;
         }
-        if self.jumps_used < 2 {
+        // A trade pack on your back is too heavy for the second jump.
+        if self.jumps_used < 2 && self.pack == 0 {
             self.vel.y = t.jump.double_jump_velocity;
             self.jumps_used = 2;
             self.jump_cut_done = true;
@@ -502,14 +567,14 @@ impl Player {
                 let s = t.jump.double_jump_steer * t.movement.run_speed * mag;
                 self.vel.x = dx * s;
                 self.vel.z = dz * s;
-                self.facing = dx.atan2(dz);
+                self.facing = dx.js_atan2(dz);
             }
             return true;
         }
         false
     }
 
-    fn update_normal(&mut self, a: &Actions) {
+    pub(crate) fn update_normal(&mut self, a: &Actions) {
         let t = tuning();
         let move_slot = self.ready_movement(a);
         if move_slot > 0 {
@@ -533,21 +598,25 @@ impl Player {
         }
         let (dx, dz, mag) = Self::input(a);
         if mag > 0.0 {
-            self.facing = turn_toward(self.facing, dx.atan2(dz), t.movement.turn_speed * step_len());
+            self.facing = turn_toward(self.facing, dx.js_atan2(dz), t.movement.turn_speed * step_len());
         }
-        // Crouch wins over sprint if you somehow hold both, and neither applies in the air.
+        // Crouch wins over sprint if you somehow hold both, and neither applies in the air. Nobody
+        // sprints with a trade pack on their back.
         self.crouching = a.crouch_held && self.grounded;
-        self.sprinting = !self.crouching && a.sprint_held && self.grounded && mag >= t.movement.run_threshold;
+        self.sprinting = !self.crouching && a.sprint_held && self.grounded && mag >= t.movement.run_threshold && self.pack == 0;
 
         if self.grounded {
             let m = &t.movement;
-            let speed = if self.crouching {
+            let mut speed = if self.crouching {
                 m.crouch_speed * (mag / m.run_threshold).min(1.0)
             } else if mag >= m.run_threshold {
                 if self.sprinting { m.sprint_speed } else { m.run_speed }
             } else {
                 m.walk_speed * (mag / m.run_threshold)
             };
+            if self.pack != 0 {
+                speed *= carry().speed_factor;
+            }
             let rate = if speed <= 0.01 {
                 m.ground_decel
             } else if self.sprinting {
@@ -578,10 +647,10 @@ impl Player {
         let m = &tuning().movement;
         let hs = len(self.vel.x, self.vel.z);
         if mag > 0.0 && hs > m.run_speed + 0.01 {
-            let heading = turn_toward(self.vel.x.atan2(self.vel.z), dx.atan2(dz), 3.0 * step_len());
+            let heading = turn_toward(self.vel.x.js_atan2(self.vel.z), dx.js_atan2(dz), 3.0 * step_len());
             let s = m.run_speed.max(hs - m.air_drag * step_len());
-            self.vel.x = heading.sin() * s;
-            self.vel.z = heading.cos() * s;
+            self.vel.x = heading.js_sin() * s;
+            self.vel.z = heading.js_cos() * s;
         } else if mag > 0.0 {
             self.accelerate_toward(dx * m.run_speed * mag, dz * m.run_speed * mag, m.air_accel);
         } else if hs > 0.0 {
@@ -600,10 +669,10 @@ impl Player {
         self.attack_buffer = 0;
         let (dx, dz, mag) = Self::input(a);
         if mag > 0.0 {
-            self.facing = dx.atan2(dz);
+            self.facing = dx.js_atan2(dz);
         }
         if len(a.aim_x, a.aim_z) > 0.01 {
-            self.facing = a.aim_x.atan2(a.aim_z);
+            self.facing = a.aim_x.js_atan2(a.aim_z);
         }
     }
 
@@ -650,7 +719,7 @@ impl Player {
         let (mut ax, mut az) = (a.aim_x, a.aim_z);
         let aim = len(ax, az);
         if aim > 0.01 {
-            self.facing = ax.atan2(az);
+            self.facing = ax.js_atan2(az);
             let max = s.max_range.unwrap_or(aim);
             if aim > max {
                 ax *= max / aim;
@@ -659,16 +728,16 @@ impl Player {
         } else {
             let (dx, dz, mag) = Self::input(a);
             if mag > 0.0 {
-                self.facing = dx.atan2(dz);
+                self.facing = dx.js_atan2(dz);
             }
-            ax = self.facing.sin() * s.range;
-            az = self.facing.cos() * s.range;
+            ax = self.facing.js_sin() * s.range;
+            az = self.facing.js_cos() * s.range;
         }
         self.cast_target_x = self.pos.x + ax;
         self.cast_target_z = self.pos.z + az;
     }
 
-    fn update_cast(&mut self, a: &Actions) {
+    pub(crate) fn update_cast(&mut self, a: &Actions) {
         let t = tuning();
         let ab = self.slot_ability(self.cast_slot);
         self.cast_frame += 1;
@@ -719,7 +788,7 @@ impl Player {
         self.cast_frame = 0;
     }
 
-    fn update_attack(&mut self, a: &Actions) {
+    pub(crate) fn update_attack(&mut self, a: &Actions) {
         let t = tuning();
         // Copied out: the rest of this borrows self mutably.
         let combo_len = combo_for(self.weapon, &self.resolved).len();
@@ -739,8 +808,8 @@ impl Player {
         if self.grounded {
             if f <= active_end {
                 let push = if f <= active_start { step.lunge * 0.5 } else { step.lunge };
-                self.vel.x = self.facing.sin() * push;
-                self.vel.z = self.facing.cos() * push;
+                self.vel.x = self.facing.js_sin() * push;
+                self.vel.z = self.facing.js_cos() * push;
             } else {
                 self.accelerate_toward(0.0, 0.0, t.movement.ground_decel);
             }
@@ -815,8 +884,8 @@ impl Player {
         }
     }
 
-    fn respawn(&mut self, world: &World) {
-        let s = world.team_spawns[self.team as usize & 1];
+    /// Back on your feet at `s`, at full health.
+    pub(crate) fn respawn(&mut self, s: Spawn) {
         self.pos = V3 { x: s.x, y: 0.0, z: s.z };
         self.vel = V3::default();
         self.facing = s.facing;

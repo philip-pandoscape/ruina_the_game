@@ -6,7 +6,7 @@ import { BAG_SLOTS, itemDef } from '../../content/items';
 import { LABOR } from '../../content/trade';
 import { FARM } from '../../content/farming';
 import { migrateLifeState, newLifeState, type LifeState, type Stack } from './state';
-import { stepWeather } from './weather';
+import { stepWeather, stepWind } from './weather';
 import { stepFarms } from './farming';
 import { stepTrade } from './trade';
 import { stepVehicles, rideVehicle } from './vehicles';
@@ -69,6 +69,13 @@ export class Life implements LifeHooks {
   revision = 0;
   private queue: Command[] = [];
   private events: LifeEvent[] = [];
+  /**
+   * Online, the game server runs the island (server/src/life): commands go to it instead of running
+   * here, what it says happened arrives through fromServer(), and step() only keeps moving what
+   * moves with you (the clock, your labor, your vehicles) between its updates.
+   */
+  remote: ((c: Command) => void) | null = null;
+  private relaying = false;
   /** Set during step(), for helpers that need the player. */
   sim!: Sim;
 
@@ -106,6 +113,10 @@ export class Life implements LifeHooks {
   }
 
   command(c: Command): void {
+    if (this.remote) {
+      this.remote(c);
+      return;
+    }
     if (this.queue.length < 64) this.queue.push(c);
   }
 
@@ -115,7 +126,16 @@ export class Life implements LifeHooks {
     return out;
   }
 
+  /** Something the server's island did (a toast, a panel to open), to show here. */
+  fromServer(e: LifeEvent): void {
+    this.relaying = true;
+    this.emit(e);
+    this.relaying = false;
+  }
+
   emit(e: LifeEvent): void {
+    // Online only the server's island speaks: what this copy predicts would say everything twice.
+    if (this.remote && !this.relaying) return;
     this.events.push(e);
     if (this.events.length > 200) this.events.shift();
   }
@@ -141,6 +161,15 @@ export class Life implements LifeHooks {
     const s = this.state;
     // Keep the glider you own on your back.
     if (sim.player.glider !== s.glider) sim.player.glider = s.glider;
+
+    if (this.remote) {
+      s.clock += STEP;
+      this.regenLabor(STEP, this.resting);
+      stepWind(this);
+      stepVehicles(this, sim, a);
+      this.focus = findFocus(this, sim);
+      return;
+    }
 
     for (const c of this.queue.splice(0)) runCommand(this, sim, c);
 

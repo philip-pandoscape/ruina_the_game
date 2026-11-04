@@ -22,7 +22,7 @@ use std::time::{Duration, Instant};
 use axum::body::Bytes;
 use rayon::prelude::*;
 use tokio::sync::mpsc::Sender;
-use yggdrasil_server::actors::Actors;
+use yggdrasil_server::actors::{Actors, LEAN_DAMPING, LEAN_SPRING};
 use yggdrasil_server::game::Players;
 use yggdrasil_server::http::{self, AppState};
 use yggdrasil_server::interest::{build_snapshot, InterestGrid, Records, Scratch, MID_EVERY};
@@ -31,9 +31,6 @@ use yggdrasil_server::protocol::{self, StatsMsg};
 use yggdrasil_server::sim::{Battle, BotHit, FIELD};
 use yggdrasil_server::{db, world_socket};
 
-// How anything that rocks when hit settles back upright; matches LEAN in src/tuning.ts.
-const LEAN_SPRING: f64 = 140.0;
-const LEAN_DAMPING: f64 = 7.0;
 use yggdrasil_server::world::{battlefield, SEED};
 
 struct Args {

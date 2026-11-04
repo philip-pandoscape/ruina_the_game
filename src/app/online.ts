@@ -13,6 +13,8 @@ export interface Online {
   account: Account;
   link: WorldLink;
   welcome: Welcome;
+  /** Whether the server's island has arrived yet (set up by the game once it's listening). */
+  lifeLoaded?: () => boolean;
 }
 
 export async function goOnline(params: URLSearchParams): Promise<Online> {

@@ -9,6 +9,9 @@
 use std::collections::{HashMap, VecDeque};
 
 use crate::actors::{Actors, Slam};
+use crate::life::{Command, Life};
+use crate::open::zone::Heightfield;
+use crate::open::OpenWorld;
 use crate::player::{angle_diff, Actions, Build, Player};
 use crate::protocol::{
     aim_axis, cm16, input_axis, put_player, put_you, ARROW_ENTRY, EVENT_ARROW_HIT, EVENT_ENTRY, EVENT_EXPLOSION, EVENT_HEAL,
@@ -56,7 +59,18 @@ pub fn actions_from(raw: [u8; 7]) -> Actions {
         movement_held: raw[6],
         aim_x: aim_axis(raw[3] as i8),
         aim_z: aim_axis(raw[4] as i8),
+        stick_x: 0.0,
+        stick_y: 0.0,
     }
+}
+
+/// Open worlds: the 9 bytes a browser packs per input: the battlefield's 7, plus the raw stick
+/// (vehicles steer with it).
+pub fn open_actions_from(raw: [u8; 9]) -> Actions {
+    let mut a = actions_from([raw[0], raw[1], raw[2], raw[3], raw[4], raw[5], raw[6]]);
+    a.stick_x = input_axis(raw[7] as i8);
+    a.stick_y = input_axis(raw[8] as i8);
+    a
 }
 
 struct Slot {
@@ -66,6 +80,16 @@ struct Slot {
     build_seq: u32,
     queue: VecDeque<(u32, f64, Actions)>,     // (seq, view tick, input)
     history: VecDeque<(u64, f64, f64, f64)>, // (tick, x, y, z) at the end of each tick
+    // ---- Open worlds: the character's island, and what they asked it to do ----
+    /// The character (whose houses and farms these are).
+    owner: i64,
+    life: Option<Box<Life>>,
+    /// Commands, each with the input it was given on: it runs on that step (or the next one, if
+    /// it arrives after that input has run).
+    commands: VecDeque<(u32, Command)>,
+    /// Inputs this player may still run: refilled at 60 a second, so a browser can catch up after
+    /// a hiccup but can't run faster than the game.
+    budget: f64,
 }
 
 // Where `slot` stood at (fractional) tick `view`, from its history.
@@ -146,6 +170,11 @@ struct Event {
 }
 
 pub struct Players {
+    /// Open worlds: the ground, so heights can be measured from it (the battlefield is flat at 0).
+    pub ground: Option<&'static Heightfield>,
+    /// Open worlds: refill each player's input budget by this many inputs per tick. 0 (the
+    /// battlefield) runs whatever arrives, up to MAX_INPUTS_PER_TICK.
+    pub inputs_per_tick: f64,
     slots: Vec<Option<Slot>>,
     by_client: HashMap<u32, usize>,
     entity_base: usize, // player ids come after the bots'
@@ -180,6 +209,8 @@ impl Players {
     pub fn new(entity_base: usize, tick_ms: f64) -> Self {
         let max = MAX_PLAYERS.min(65_535 - entity_base);
         Players {
+            ground: None,
+            inputs_per_tick: 0.0,
             slots: (0..max).map(|_| None).collect(),
             by_client: HashMap::new(),
             entity_base,
@@ -280,8 +311,117 @@ impl Players {
             }
         };
         let player = Player::new(world.team_spawns[team as usize], team, Build::default());
-        self.slots[free] = Some(Slot { client_id, player, last_seq: 0, build_seq: 0, queue: VecDeque::new(), history: VecDeque::new() });
+        self.slots[free] = Some(Slot {
+            client_id,
+            player,
+            last_seq: 0,
+            build_seq: 0,
+            queue: VecDeque::new(),
+            history: VecDeque::new(),
+            owner: 0,
+            life: None,
+            commands: VecDeque::new(),
+            budget: 0.0,
+        });
         self.by_client.insert(client_id, free);
+    }
+
+    /// Open worlds: a character arrives, as `player` (already placed), carrying their island.
+    /// Returns false if they're already here or there's no room.
+    pub fn join_open(&mut self, client_id: u32, owner: i64, player: Player, life: Box<Life>) -> bool {
+        if self.by_client.contains_key(&client_id) {
+            return false;
+        }
+        let Some(free) = self.slots.iter().position(|s| s.is_none()) else { return false };
+        self.slots[free] = Some(Slot {
+            client_id,
+            player,
+            last_seq: 0,
+            build_seq: 0,
+            queue: VecDeque::new(),
+            history: VecDeque::new(),
+            owner,
+            life: Some(life),
+            commands: VecDeque::new(),
+            budget: 0.0,
+        });
+        self.by_client.insert(client_id, free);
+        true
+    }
+
+    /// Open worlds: takes a player out (they left), with their island.
+    pub fn leave(&mut self, client_id: u32) -> Option<(Player, Option<Box<Life>>)> {
+        let s = self.by_client.remove(&client_id)?;
+        let slot = self.slots[s].take()?;
+        Some((slot.player, slot.life))
+    }
+
+    /// Open worlds: inputs as (seq, actions). There's no view tick: monsters aren't rewound.
+    pub fn queue_actions(&mut self, client_id: u32, inputs: impl Iterator<Item = (u32, Actions)>) {
+        let Some(&s) = self.by_client.get(&client_id) else { return };
+        if let Some(slot) = &mut self.slots[s] {
+            for (seq, a) in inputs {
+                slot.queue.push_back((seq, 0.0, a));
+            }
+        }
+    }
+
+    /// Open worlds: a new window (or a reconnect) counts its inputs from 1 again.
+    pub fn restart_inputs(&mut self, client_id: u32) {
+        let Some(&s) = self.by_client.get(&client_id) else { return };
+        if let Some(slot) = &mut self.slots[s] {
+            slot.last_seq = 0;
+            slot.queue.clear();
+            slot.commands.clear();
+            slot.budget = 0.0;
+        }
+    }
+
+    /// Open worlds: a command for the island, given on input `seq`.
+    pub fn queue_command(&mut self, client_id: u32, seq: u32, c: Command) {
+        let Some(&s) = self.by_client.get(&client_id) else { return };
+        if let Some(slot) = &mut self.slots[s] {
+            if slot.commands.len() < 64 {
+                slot.commands.push_back((seq, c));
+            }
+        }
+    }
+
+    /// Open worlds: a player, the last input they've had run, and their island.
+    pub fn open_view(&self, client_id: u32) -> Option<(&Player, u32, Option<&Life>)> {
+        let &s = self.by_client.get(&client_id)?;
+        let slot = self.slots[s].as_ref()?;
+        Some((&slot.player, slot.last_seq, slot.life.as_deref()))
+    }
+
+    /// Open worlds: a player and their island, to change (a new build, an island started over).
+    pub fn open_mut(&mut self, client_id: u32) -> Option<(&mut Player, Option<&mut Life>)> {
+        let &s = self.by_client.get(&client_id)?;
+        let slot = self.slots[s].as_mut()?;
+        Some((&mut slot.player, slot.life.as_deref_mut()))
+    }
+
+    /// Open worlds: everyone here, as (client id, character, player, island).
+    pub fn each_open(&self) -> impl Iterator<Item = (u32, i64, &Player, Option<&Life>)> {
+        self.slots.iter().flatten().map(|s| (s.client_id, s.owner, &s.player, s.life.as_deref()))
+    }
+
+    /// Open worlds: everyone's island, to change between steps (who holds which plot).
+    pub fn each_life_mut(&mut self) -> impl Iterator<Item = (i64, &mut Life)> {
+        self.slots.iter_mut().flatten().filter_map(|s| {
+            let owner = s.owner;
+            s.life.as_deref_mut().map(|l| (owner, l))
+        })
+    }
+
+    /// The slot a client plays in (open worlds address its effects by slot).
+    pub fn slot_index(&self, client_id: u32) -> Option<usize> {
+        self.by_client.get(&client_id).copied()
+    }
+
+    /// Height of the ground under a point: the open world's terrain, or 0 on the battlefield.
+    fn ground_at(&self, x: f64, z: f64) -> f64 {
+        self.ground.map_or(0.0, |g| g.height(x, z))
     }
 
     /// Applies the build a player asked for, if it's new and allowed (enough skill points, skills
@@ -323,6 +463,11 @@ impl Players {
     /// Runs each player's waiting inputs in order: weapon swings land, arrows fly off, and finished
     /// casts heal or call down meteors. `tick` is the tick being worked out now.
     pub fn step(&mut self, battle: &mut Battle, actors: &mut Actors, world: &World, tick: u64) {
+        self.step_in(battle, actors, world, tick, None);
+    }
+
+    /// The same, in an open world: each player moves over its ground and their island steps along.
+    pub fn step_in(&mut self, battle: &mut Battle, actors: &mut Actors, world: &World, tick: u64, mut open: Option<&mut OpenWorld>) {
         self.events.clear();
         for list in &mut self.my_events {
             list.clear();
@@ -333,13 +478,35 @@ impl Players {
             // Take the player out while it moves, so it can't hit itself and the others can be read.
             let Some(mut slot) = self.slots[s].take() else { continue };
             let mut used = 0;
-            while used < MAX_INPUTS_PER_TICK {
+            // In an open world each player runs at most the game's own speed, with a little slack.
+            let limit = if self.inputs_per_tick > 0.0 {
+                slot.budget = (slot.budget + self.inputs_per_tick).min(self.inputs_per_tick * 4.0);
+                (slot.budget.floor() as usize).min(MAX_INPUTS_PER_TICK)
+            } else {
+                MAX_INPUTS_PER_TICK
+            };
+            while used < limit {
                 let Some((seq, view, a)) = slot.queue.pop_front() else { break };
                 if seq <= slot.last_seq {
                     continue; // repeated or out of date
                 }
-                slot.player.step(&a, world);
+                match open.as_deref_mut() {
+                    Some(ow) => {
+                        // The island's commands given on or before this input run with it.
+                        if let Some(life) = slot.life.as_deref_mut() {
+                            while slot.commands.front().is_some_and(|(cs, _)| *cs <= seq) {
+                                let (_, c) = slot.commands.pop_front().unwrap();
+                                life.command(c);
+                            }
+                        }
+                        crate::open::step_player(&mut slot.player, &a, ow, slot.life.as_deref_mut(), slot.owner);
+                    }
+                    None => slot.player.step(&a, world),
+                }
                 slot.last_seq = seq;
+                if self.inputs_per_tick > 0.0 {
+                    slot.budget -= 1.0;
+                }
                 used += 1;
                 if let Some(swing) = slot.player.active_swing() {
                     if swing.projectile_speed > 0.0 {
@@ -355,11 +522,20 @@ impl Players {
                             slot.player.attack_hit = true;
                         }
                         // Monsters are in the arc too, and a swing that only catches one still
-                        // counts as a hit.
-                        let before = self.events.len();
-                        self.swing_actors(actors, s, px, pz, facing, &swing, max_targets, weapon);
-                        if self.events.len() > before {
-                            slot.player.attack_hit = true;
+                        // counts as a hit. On hills (src/sim/player/attacks.ts checkHit) nothing is
+                        // in reach from more than 2 m up, and only feet within 2 m of yours.
+                        let feet = open.as_deref().map(|ow| {
+                            let hf = ow.terrain();
+                            let p = &slot.player;
+                            let under = hf.water.max(crate::open::colliders::ground_at(hf, &ow.index, p.pos.x, p.pos.z, p.pos.y, 0.0));
+                            (p.pos.y - under, p.pos.y)
+                        });
+                        if feet.is_none_or(|(above, _)| above <= 2.0) {
+                            let before = self.events.len();
+                            self.swing_actors(actors, s, px, pz, facing, &swing, max_targets, weapon, feet.map(|f| f.1));
+                            if self.events.len() > before {
+                                slot.player.attack_hit = true;
+                            }
                         }
                     }
                 }
@@ -420,18 +596,25 @@ impl Players {
     /// attacker saw them (tick `view`); bots where they are now. Returns true if anything was hit.
     #[allow(clippy::too_many_arguments)]
     /// Everything a swing catches among the actors, on top of whatever bots and players it hit.
-    fn swing_actors(&mut self, actors: &mut Actors, slot: usize, x: f64, z: f64, facing: f64, step: &AttackStep, max: usize, weapon: u8) {
-        for id in actors.cone_hits(x, z, facing, step.reach, step.arc_deg, max) {
+    #[allow(clippy::too_many_arguments)]
+    fn swing_actors(&mut self, actors: &mut Actors, slot: usize, x: f64, z: f64, facing: f64, step: &AttackStep, max: usize, weapon: u8, feet: Option<f64>) {
+        let hits = match (self.ground, feet) {
+            (Some(g), Some(y)) => actors.cone_hits_where(x, z, facing, step.reach, step.arc_deg, max, |a| (a.y + g.height(a.x, a.z) - y).abs() <= 2.0),
+            _ => actors.cone_hits(x, z, facing, step.reach, step.arc_deg, max),
+        };
+        for id in hits {
             let (ax, az) = match actors.get_mut(id) {
                 Some(a) => (a.x, a.z),
                 None => continue,
             };
             let (dx, dz) = (ax - x, az - z);
             let d = (dx * dx + dz * dz).sqrt().max(0.0001);
+            let ground = self.ground_at(ax, az);
             if let Some(died) = actors.damage(id, step.damage, dx / d, dz / d, step.player_knock) {
-                self.note(slot, EVENT_YOU_HIT, CAUSE_WEAPON + weapon, died.x, died.y, died.z, step.damage);
+                self.note(slot, EVENT_YOU_HIT, CAUSE_WEAPON + weapon, died.x, died.y + ground, died.z, step.damage);
             } else if let Some(a) = actors.get_mut(id) {
-                self.note(slot, EVENT_YOU_HIT, CAUSE_WEAPON + weapon, a.x, a.y + a.hit_height, a.z, step.damage);
+                let (hx, hy, hz) = (a.x, a.y + a.hit_height + ground, a.z);
+                self.note(slot, EVENT_YOU_HIT, CAUSE_WEAPON + weapon, hx, hy, hz, step.damage);
             }
         }
     }
@@ -617,10 +800,11 @@ impl Players {
             a.x += a.dx * hop;
             a.z += a.dz * hop;
             a.left -= hop;
-            if let Some(id) = actors.point_hit(a.x, a.y, a.z, ARROW_RADIUS) {
+            let ground = self.ground_at(a.x, a.z);
+            if let Some(id) = actors.point_hit(a.x, a.y - ground, a.z, ARROW_RADIUS) {
                 let key = 1u32 << 30 | id;
                 if !a.hit.contains(&key) {
-                    let hit = actors.get_mut(id).map(|t| (t.x, t.y + t.hit_height, t.z));
+                    let hit = actors.get_mut(id).map(|t| (t.x, t.y + t.hit_height + ground, t.z));
                     actors.damage(id, a.damage, a.dx, a.dz, a.knock);
                     a.hit.push(key);
                     if let Some((hx, hy, hz)) = hit {
@@ -716,11 +900,13 @@ impl Players {
             let Some(a) = actors.get_mut(id) else { continue };
             let (dx, dz) = (a.x - m.x, a.z - m.z);
             let d = (dx * dx + dz * dz).sqrt().max(1e-3);
-            let (ax, ay, az) = (a.x, a.y + a.hit_height, a.z);
+            let (ax, az) = (a.x, a.z);
+            let ay = a.y + a.hit_height + self.ground.map_or(0.0, |g| g.height(ax, az));
             actors.damage(id, m.damage, dx / d, dz / d, m.knock);
             self.note(m.owner_slot, EVENT_YOU_HIT, CAUSE_METEOR, ax, ay, az, m.damage);
         }
-        self.events.push(Event { kind: EVENT_EXPLOSION, x: m.x, y: 0.0, z: m.z, size: (m.radius * 10.0) as u8 });
+        let ground = self.ground_at(m.x, m.z);
+        self.events.push(Event { kind: EVENT_EXPLOSION, x: m.x, y: ground, z: m.z, size: (m.radius * 10.0) as u8 });
         self.meteors_landed += 1;
     }
 
@@ -761,7 +947,8 @@ impl Players {
             for (i, slot) in self.slots.iter_mut().enumerate() {
                 let Some(slot) = slot else { continue };
                 let p = &mut slot.player;
-                if p.down_frame >= 0 || p.pos.y > SLAM_LIFT {
+                let ground = self.ground.map_or(0.0, |g| g.height(p.pos.x, p.pos.z));
+                if p.down_frame >= 0 || p.pos.y - ground > SLAM_LIFT {
                     continue;
                 }
                 let (dx, dz) = (p.pos.x - s.x, p.pos.z - s.z);
@@ -899,6 +1086,35 @@ impl Players {
                 packed.push(e);
             }
         }
+    }
+
+    /// Open worlds: the arrows in flight, meteors falling and effects near (vx, vz), plus the
+    /// effects addressed to the player in `viewer`, as JSON in the shapes src/net/netCrowd.ts reads
+    /// (ArrowRecord, MeteorRecord, EffectEvent).
+    pub fn effects_json(&self, viewer: Option<usize>, vx: f64, vz: f64) -> (serde_json::Value, serde_json::Value, serde_json::Value) {
+        use serde_json::json;
+        let near = |x: f64, z: f64| (x - vx) * (x - vx) + (z - vz) * (z - vz) <= EFFECT_RADIUS * EFFECT_RADIUS;
+        let r2 = |v: f64| (v * 100.0).round() / 100.0;
+        let arrows: Vec<_> = self
+            .arrows
+            .iter()
+            .filter(|a| near(a.x, a.z))
+            .take(64)
+            .map(|a| json!({ "id": a.id, "owner": a.owner, "x": r2(a.x), "y": r2(a.y), "z": r2(a.z), "vx": r2(a.dx * a.speed), "vz": r2(a.dz * a.speed), "team": a.team }))
+            .collect();
+        let meteors: Vec<_> = self
+            .meteors
+            .iter()
+            .filter(|m| near(m.x, m.z))
+            .take(16)
+            .map(|m| json!({ "id": m.id, "x": r2(m.x), "z": r2(m.z), "ticksLeft": m.ticks_left, "fallTicks": m.fall_ticks, "team": m.team, "radius": r2(m.radius) }))
+            .collect();
+        let event = |e: &Event| json!({ "kind": e.kind, "x": r2(e.x), "y": r2(e.y), "z": r2(e.z), "size": e.size });
+        let mut events: Vec<_> = self.events.iter().filter(|e| near(e.x, e.z)).take(48).map(event).collect();
+        if let Some(list) = viewer.and_then(|s| self.my_events.get(s)) {
+            events.extend(list.iter().map(event));
+        }
+        (serde_json::Value::Array(arrows), serde_json::Value::Array(meteors), serde_json::Value::Array(events))
     }
 
     /// Appends the nearby-players section, your own exact state (if you're playing), and the

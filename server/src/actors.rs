@@ -67,6 +67,10 @@ fn take_out(o: &mut Actor) {
     o.fuse = -1;
 }
 
+/// How anything that rocks when hit settles back upright; matches LEAN in src/tuning.ts.
+pub const LEAN_SPRING: f64 = 140.0;
+pub const LEAN_DAMPING: f64 = 7.0;
+
 pub struct Actors {
     pub list: Vec<Actor>,
     next_id: u32,
@@ -471,10 +475,16 @@ impl Actors {
 
     /// A melee swing: everything in the arc and in reach, nearest first, capped at `max`.
     pub fn cone_hits(&self, x: f64, z: f64, facing: f64, reach: f64, arc_deg: f64, max: usize) -> Vec<u32> {
+        self.cone_hits_where(x, z, facing, reach, arc_deg, max, |_| true)
+    }
+
+    /// The same, among only the actors `keep` allows (on hills: those whose feet are near yours).
+    #[allow(clippy::too_many_arguments)]
+    pub fn cone_hits_where(&self, x: f64, z: f64, facing: f64, reach: f64, arc_deg: f64, max: usize, keep: impl Fn(&Actor) -> bool) -> Vec<u32> {
         let mut hits: Vec<(f64, u32)> = self
             .list
             .iter()
-            .filter(|a| a.is_alive())
+            .filter(|a| a.is_alive() && keep(a))
             .filter_map(|a| {
                 let (dx, dz) = (a.x - x, a.z - z);
                 let dist = len(dx, dz);

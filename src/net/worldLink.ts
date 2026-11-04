@@ -1,27 +1,30 @@
-import type { Island } from '../app/save';
+import type { Command, LifeEvent } from '../sim/life/life';
+import type { Placement } from '../sim/life/interact';
+import type { LifeState, Vehicle, Weather } from '../sim/life/state';
 import type { Build } from '../tuning';
 import { currentAccount, ServerDown } from './account';
+import type { ArrowRecord, EffectEvent, MeteorRecord, NetActor } from './netCrowd';
 
-// Your island's connection to the game server (server/src/world_socket.rs). The browser still runs
-// Emberholm's rules; the server keeps the island in Postgres, hands it back when you arrive, lets
-// only one window play a character at a time, and shares your channel of Emberholm: where everyone
-// is (presences, about 20 a second), what each resident has built (estates) and who holds which
-// house plot (claims).
+// Your connection to the game server (server/src/world_socket.rs), which plays Emberholm: your
+// browser sends what you press (about 60 inputs a second) and what you ask your island to do
+// (commands), and the server runs them through the island's rules, keeps the island in Postgres,
+// and answers 20 times a second with where you really are, what your island holds, and what
+// everyone else in your channel is doing. Your own player is predicted with the same rules in the
+// meantime (src/net/netPlayer.ts) and corrected to what arrives here. Only one window plays a
+// character at a time.
 //
-// JSON text messages:
-//   server → browser  welcome {character, account, island, build, savedAt, now, channel, dev, estates, claims}
-//                     peers {list} | estate {id, name, estate} | claims {claims} | left {id}
-//                     correct {x, y, z} | saved {at} | reset | kicked | error {text}
-//   browser → server  presence {p} | save {save, build?} | build {build} | reset
+//   server → browser  (text) welcome {protocol, character, account, build, now, channel, dev, estates, claims}
+//                     tick {tick, you, peers, actors, arrows, meteors, events, lifeEvents?, life?}
+//                     estate {id, name, estate} | claims {claims} | left {id} | saved {at}
+//                     | reset | kicked | error {text}
+//   browser → server  (binary) inputs: 7, count, then per input a u32 sequence number and 9 bytes
+//                     (text) cmd {s, c} | build {build} | reset
 
 export interface Welcome {
   character: { id: number; name: string };
   account: string;
-  /** Null for a new character, or after starting over. */
-  island: Island | null;
   build: unknown;
-  /** The server's clock (ms) at the last save and now, so time away is measured on one clock. */
-  savedAt: number | null;
+  /** The server's clock (ms). */
   now: number;
   /** Which copy of Emberholm this character lives in. */
   channel: number;
@@ -46,41 +49,78 @@ export interface EstateEntry {
   estate: Estate;
 }
 
-/** Another player right now: what they look like they're doing, and the vehicles and packs they own. */
+/** Another player right now: what they're doing, and the vehicles and packs they own. */
 export interface PeerEntry {
   id: number;
   name: string;
   p: Record<string, unknown>;
 }
 
+/** Your own player as the server has it after input `ack`, with the parts of your island that move with you. */
+export interface YouState {
+  /** Your slot, which arrows and effects you caused are marked with. */
+  id: number;
+  ack: number;
+  p: Record<string, unknown>;
+  clock: number;
+  labor: number;
+  resting: boolean;
+  vehicles: Vehicle[];
+  weather: Weather;
+  placing: Placement | null;
+}
+
+/** One of the server's ticks, as it reaches you. */
+export interface WorldTick {
+  tick: number;
+  you: YouState;
+  peers: PeerEntry[];
+  actors: NetActor[];
+  arrows: ArrowRecord[];
+  meteors: MeteorRecord[];
+  events: EffectEvent[];
+  /** Toasts, panels to open and the like, from your island since the last tick. */
+  lifeEvents?: LifeEvent[];
+  /** Your whole island, when it changed (and every couple of seconds anyway). */
+  life?: { rev: number; state: LifeState; placing: Placement | null; resting: boolean };
+}
+
 /**
- * online: connected. reconnecting: the connection dropped; play goes on, unsaved, until it's back.
+ * online: connected. reconnecting: the connection dropped; the world waits until it's back.
  * kicked: another window took this character over. signed-out: the sign-in ended meanwhile.
  */
 export type LinkStatus = 'online' | 'reconnecting' | 'kicked' | 'signed-out';
 
 const RETRY_MS = [500, 1000, 2000, 4000, 8000];
+/** What this page speaks; the server says what it speaks in its welcome (server/src/world_socket.rs). */
+const WORLD_PROTOCOL = 2;
+const RELOADED = 'ruina.reloaded-for-server';
+const SEND_INPUTS = 7;
 
 export class WorldLink {
   status: LinkStatus = 'online';
-  /** The server's clock at the last save it confirmed. */
-  lastSaved = 0;
   onStatus: ((s: LinkStatus) => void) | null = null;
-  /** The connection came back: send the island straight away. */
+  /** The connection came back (the server may have restarted, or another window let go). */
   onReconnect: ((welcome: Welcome) => void) | null = null;
   /** Something the server wants the player to know (a save it couldn't write, say). */
   onError: ((text: string) => void) | null = null;
+  onTick: ((t: WorldTick) => void) | null = null;
   onPeers: ((list: PeerEntry[]) => void) | null = null;
   onEstate: ((e: EstateEntry) => void) | null = null;
   onClaims: ((claims: Record<string, string>) => void) | null = null;
   onLeft: ((id: number) => void) | null = null;
-  /** The server says where you are can't be right (under the ground, off the island). */
-  onCorrect: ((x: number, y: number, z: number) => void) | null = null;
   private resetDone: Array<() => void> = [];
   /** The channel as last heard, kept here so nothing is missed before the game is ready to draw it. */
   readonly peers = new Map<number, PeerEntry>();
   readonly estates = new Map<number, EstateEntry>();
   claims: Record<string, string> = {};
+  /** The server's clock when it last wrote your island to the database. */
+  lastSaved = 0;
+  /** Ticks heard since connecting (tests wait on this). */
+  ticks = 0;
+  /** The newest tick, and the newest whole island, for whatever arrives before the game is listening. */
+  latest: WorldTick | null = null;
+  latestLife: WorldTick['life'] | null = null;
 
   private constructor(
     private ws: WebSocket,
@@ -103,21 +143,32 @@ export class WorldLink {
     return { link: new WorldLink(ws, welcome), welcome };
   }
 
-  /** Sends the island. False (nothing sent) while the connection is down. */
-  save(island: Island, build?: Build): boolean {
-    return this.send({ t: 'save', save: island, build });
+  get open(): boolean {
+    return this.status === 'online' && this.ws.readyState === WebSocket.OPEN;
   }
 
-  /** Where you are and what you're doing, for everyone else in the channel. */
-  presence(p: Record<string, unknown>): boolean {
-    return this.send({ t: 'presence', p });
+  /** One frame of what you pressed: its sequence number and the 9 bytes netPlayer.ts packs. */
+  sendInput(seq: number, raw: readonly number[]): boolean {
+    if (!this.open) return false;
+    const msg = new DataView(new ArrayBuffer(2 + 13));
+    msg.setUint8(0, SEND_INPUTS);
+    msg.setUint8(1, 1);
+    msg.setUint32(2, seq, true);
+    for (let k = 0; k < 9; k++) msg.setUint8(6 + k, (raw[k] ?? 0) & 255);
+    this.ws.send(msg.buffer);
+    return true;
+  }
+
+  /** Asks your island to do something, on the input with sequence number `seq`. */
+  command(seq: number, c: Command): boolean {
+    return this.send({ t: 'cmd', s: seq, c });
   }
 
   saveBuild(build: Build): boolean {
     return this.send({ t: 'build', build });
   }
 
-  /** Throws the island away on the server, to start over. Resolves once it's gone (or after 3 s). */
+  /** Starts the island over on the server. Resolves once it's done (or after 3 s). */
   reset(): Promise<void> {
     return new Promise((resolve) => {
       this.resetDone.push(resolve);
@@ -127,12 +178,13 @@ export class WorldLink {
   }
 
   private send(msg: object): boolean {
-    if (this.status !== 'online' || this.ws.readyState !== WebSocket.OPEN) return false;
+    if (!this.open) return false;
     this.ws.send(JSON.stringify(msg));
     return true;
   }
 
   private attach(ws: WebSocket): void {
+    ws.binaryType = 'arraybuffer';
     // Only the current connection speaks for the link; a replaced one is ignored.
     ws.onmessage = (e) => {
       if (ws === this.ws) this.receive(e.data);
@@ -144,21 +196,29 @@ export class WorldLink {
 
   private receive(data: unknown): void {
     if (typeof data !== 'string') return;
-    let msg: { t?: string; at?: number; text?: string; list?: PeerEntry[]; id?: number; name?: string; estate?: Estate; claims?: Record<string, string>; x?: number; y?: number; z?: number };
+    let msg: { t?: string; text?: string; id?: number; name?: string; estate?: Estate; claims?: Record<string, string>; at?: number } & Partial<WorldTick>;
     try {
       msg = JSON.parse(data);
     } catch {
       return;
     }
-    if (msg.t === 'saved') this.lastSaved = msg.at ?? Date.now();
-    else if (msg.t === 'reset') for (const done of this.resetDone.splice(0)) done();
+    if (msg.t === 'tick' && msg.you) {
+      const t = msg as WorldTick;
+      this.ticks++;
+      this.latest = t;
+      if (t.life) this.latestLife = t.life;
+      for (const e of t.peers ?? []) this.peers.set(e.id, e);
+      this.onPeers?.(t.peers ?? []);
+      this.onTick?.(t);
+    } else if (msg.t === 'saved') this.lastSaved = msg.at ?? Date.now();
+    else if (msg.t === 'reset') {
+      // Anything heard before this was the island that's gone.
+      this.latestLife = null;
+      for (const done of this.resetDone.splice(0)) done();
+    }
     else if (msg.t === 'kicked') this.setStatus('kicked');
     else if (msg.t === 'error') this.onError?.(msg.text ?? 'The server had a problem.');
-    else if (msg.t === 'peers') {
-      const list = msg.list ?? [];
-      for (const e of list) this.peers.set(e.id, e);
-      this.onPeers?.(list);
-    } else if (msg.t === 'estate' && msg.estate) {
+    else if (msg.t === 'estate' && msg.estate) {
       const e = { id: msg.id ?? 0, name: msg.name ?? '', estate: msg.estate };
       this.estates.set(e.id, e);
       this.onEstate?.(e);
@@ -169,7 +229,6 @@ export class WorldLink {
       this.peers.delete(msg.id ?? 0);
       this.onLeft?.(msg.id ?? 0);
     }
-    else if (msg.t === 'correct') this.onCorrect?.(msg.x ?? 0, msg.y ?? 0, msg.z ?? 0);
   }
 
   private async lost(): Promise<void> {
@@ -210,9 +269,10 @@ function connect(): Promise<{ ws: WebSocket; welcome: Welcome }> {
       reject(new ServerDown("The game server didn't answer."));
     }, 10_000);
     ws.onmessage = (e) => {
+      if (typeof e.data !== 'string') return;
       let msg: Welcome & { t?: string };
       try {
-        msg = JSON.parse(e.data as string);
+        msg = JSON.parse(e.data);
       } catch {
         return;
       }
@@ -220,6 +280,18 @@ function connect(): Promise<{ ws: WebSocket; welcome: Welcome }> {
       clearTimeout(timer);
       ws.onmessage = null;
       ws.onclose = null;
+      // The server was updated since this page loaded: load the new game (once; if that didn't
+      // help, say so rather than reloading forever).
+      if ((msg as { protocol?: number }).protocol !== WORLD_PROTOCOL) {
+        ws.close();
+        if (!sessionStorage.getItem(RELOADED)) {
+          sessionStorage.setItem(RELOADED, '1');
+          location.reload();
+        }
+        reject(new ServerDown('The game was updated. Reload the page to play.'));
+        return;
+      }
+      sessionStorage.removeItem(RELOADED);
       resolve({ ws, welcome: msg });
     };
     ws.onclose = () => {

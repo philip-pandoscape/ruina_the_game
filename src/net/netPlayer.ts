@@ -12,12 +12,15 @@ import type { NetCrowd, RawInput, RemoteRecord } from './netCrowd';
 
 // Inputs travel to the server as small integers. Your own prediction uses exactly the same
 // rounded values, so the browser and the server run identical inputs. Aim is in quarter metres.
-export function quantize(a: Actions): { actions: Actions; raw: RawInput } {
+// The raw stick (vehicles steer with it) only goes to open worlds, as two more bytes.
+export function quantize(a: Actions): { actions: Actions; raw: RawInput; stick: [number, number] } {
   const clamp = (v: number) => Math.max(-127, Math.min(127, Math.round(v)));
   const qx = clamp(a.moveX * 127);
   const qz = clamp(a.moveZ * 127);
   const ax = clamp(a.aimX * 4);
   const az = clamp(a.aimZ * 4);
+  const sx = clamp(a.stickX * 127);
+  const sy = clamp(a.stickY * 127);
   const slot = a.abilitySlot >= 1 && a.abilitySlot <= HOTBAR_SLOTS ? a.abilitySlot : 0;
   // One byte carries both: hotbar slots first, then the movement slots after them.
   const move = a.movementSlot >= 1 && a.movementSlot <= MOVEMENT_SLOTS ? a.movementSlot : 0;
@@ -31,8 +34,9 @@ export function quantize(a: Actions): { actions: Actions; raw: RawInput } {
     (a.sprintHeld ? 16 : 0) |
     (a.crouchHeld ? 32 : 0);
   return {
-    actions: { ...a, moveX: qx / 127, moveZ: qz / 127, aimX: ax / 4, aimZ: az / 4, abilitySlot: slot, movementSlot: move, movementHeld: held },
+    actions: { ...a, moveX: qx / 127, moveZ: qz / 127, aimX: ax / 4, aimZ: az / 4, stickX: sx / 127, stickY: sy / 127, abilitySlot: slot, movementSlot: move, movementHeld: held },
     raw: [qx & 255, qz & 255, buttons, ax & 255, az & 255, packed, held],
+    stick: [sx & 255, sy & 255],
   };
 }
 
@@ -49,6 +53,11 @@ export class Prediction {
   readonly offset = new THREE.Vector3(); // eases corrections in instead of snapping
   private pending: Array<{ seq: number; actions: Actions }> = [];
   private synced = false;
+  /**
+   * Open worlds: puts back the parts of the island that move with you (your vehicles, the clock),
+   * as of the same server update, before your unconfirmed inputs are run again on top of it.
+   */
+  beforeReplay: (() => void) | null = null;
 
   constructor(
     private sim: Sim,
@@ -62,12 +71,12 @@ export class Prediction {
   // Runs one frame of your input immediately and sends it to the server, along with which server
   // tick the other players are drawn at, so the server can check your swings against what you saw.
   step(a: Actions): void {
-    const { actions, raw } = quantize(a);
+    const { actions, raw, stick } = quantize(a);
     this.seq++;
     this.pending.push({ seq: this.seq, actions });
     if (this.pending.length > 600) this.pending.shift();
     const view = Math.max(0, Math.round(this.net.renderTick(performance.now()) * 16));
-    this.net.sendInput(this.seq, view, raw);
+    this.net.sendInput(this.seq, view, raw, stick);
     this.sim.step(actions);
   }
 
@@ -79,11 +88,13 @@ export class Prediction {
       // First update after joining: just take the server's spawn position.
       this.synced = true;
       this.sim.player = clonePlayer(server);
+      this.beforeReplay?.();
       return;
     }
     const before = { ...this.sim.player.pos };
     const prevPos = { ...this.sim.player.prevPos };
     this.sim.player = clonePlayer(server);
+    this.beforeReplay?.();
     for (const p of this.pending) this.sim.step(p.actions);
     this.sim.drainEvents(); // replays shouldn't repeat dust puffs and other effects
     if (this.pending.length === 0) this.sim.player.prevPos = prevPos;
@@ -106,6 +117,26 @@ export class Prediction {
   ease(dt: number): void {
     this.offset.multiplyScalar(Math.exp(-dt * 12));
   }
+
+  /** Starts over from the server's next word (a new connection: it counts inputs from scratch). */
+  resync(): void {
+    this.synced = false;
+    this.pending = [];
+    this.offset.set(0, 0, 0);
+  }
+}
+
+/**
+ * A player's state as the open world's server sends it (server/src/world_game.rs
+ * player_state_json): the same fields as PlayerState, so only what JSON can't carry is filled in.
+ */
+export function stateFromServer(p: Record<string, unknown>): PlayerState {
+  const s = { ...blankState(), ...(p as Partial<PlayerState>) } as PlayerState;
+  s.pos = { ...(s.pos ?? { x: 0, y: 0, z: 0 }) };
+  s.vel = { ...(s.vel ?? { x: 0, y: 0, z: 0 }) };
+  s.prevPos = { ...s.pos };
+  s.prevFacing = s.facing;
+  return s;
 }
 
 // ---------- Other players: drawn with the full character, a fixed moment in the past ----------
