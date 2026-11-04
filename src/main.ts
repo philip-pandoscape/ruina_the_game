@@ -237,8 +237,10 @@ function portraitOf(who: string): string | null {
         const at = hero.root.position;
         const f = sim.player.facing;
         const fwd = new THREE.Vector3(Math.sin(f), 0, Math.cos(f));
-        if (who === 'player') portraits.request(who, up(at, HEAD + 0.05).addScaledVector(fwd, 1.3), up(at, HEAD), 128, 128, 1);
-        else portraits.request(who, up(at, 1.0).addScaledVector(fwd, 4.2), up(at, 0.92), 214, 300, 1);
+        // Your face with your shoulders and the top of your chest; or all of you, hair to boots,
+        // with a little room round you.
+        if (who === 'player') portraits.request(who, up(at, 1.42).addScaledVector(fwd, 1.9), up(at, 1.34), 128, 128, 1);
+        else portraits.request(who, up(at, 0.95).addScaledVector(fwd, 4.6), up(at, 0.85), 214, 300, 1);
       } else {
         const n = zone?.recipe.npcs.find((x) => x.id === who);
         if (n) {
