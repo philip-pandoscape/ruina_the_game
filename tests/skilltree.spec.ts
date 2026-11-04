@@ -4,14 +4,23 @@ import { expect, test } from '@playwright/test';
 import {
   applyChannel,
   applyFrames,
+  bookIndex,
   dependents,
   emptySkills,
   gather,
   hasSkill,
+  LEVEL_MODS,
+  LEVEL_XP,
+  levelOf,
+  levelsFrom,
+  LINKS,
+  MAX_LEVEL,
   MAX_NODES,
   NODES,
-  requirementsMet,
+  pathTo,
+  reachable,
   resolveSkills,
+  ROOTS,
   SKILL_WORDS,
   skillCount,
   skillIndex,
@@ -22,7 +31,8 @@ import {
   withSkill,
   type SkillMod,
 } from '../src/skills';
-import { castFramesFor, comboFor, meleeTargets, pierceTargets, WEAPONS } from '../src/tuning';
+import { learnBlock, learnPath, NODE_INFO, validBuild } from '../src/build';
+import { castFramesFor, comboFor, emptyHotbar, emptyMovement, meleeTargets, movementCooldownFor, MOVEMENT_SKILLS, pierceTargets, WEAPONS, type Build } from '../src/tuning';
 
 const BALANCE = `server/target/release/balance${process.platform === 'win32' ? '.exe' : ''}`;
 
@@ -65,29 +75,111 @@ test('a set saved as one number still loads', () => {
 
 // ---------- The graph ----------
 
-test('every node in the data names requirements that exist', () => {
-  for (const n of NODES) {
-    for (const id of n.requires) expect(() => skillIndex(id), `${n.id} requires ${id}`).not.toThrow();
+const cost = (from: string[], to: string) => pathTo(skillsFrom(...from), skillIndex(to)).map((i) => NODES[i].id);
+
+test('every link joins two nodes that exist, and everything can be reached from a root', () => {
+  const ids = new Set(NODES.map((n) => n.id));
+  expect(ids.size).toBe(NODES.length);
+  for (const l of LINKS) expect(l.a !== l.b && NODES[l.a] && NODES[l.b]).toBeTruthy();
+  // Learn outward from every root at once: the whole tree is one piece.
+  let s = emptySkills();
+  for (const r of ROOTS) s = withSkill(s, r, true);
+  for (let grew = true; grew; ) {
+    grew = false;
+    NODES.forEach((_, i) => {
+      if (!hasSkill(s, i) && reachable(s, i)) {
+        s = withSkill(s, i, true);
+        grew = true;
+      }
+    });
   }
+  expect(skillCount(s)).toBe(NODES.length);
+  expect(soundTree(s)).toBe(true);
 });
 
-test('a node needs all of its requirements, not just one', () => {
-  const whirlwind = skillIndex('whirlwind'); // requires cleave, which requires sword
-  expect(requirementsMet(skillsFrom('sword'), whirlwind)).toBe(false);
-  expect(requirementsMet(skillsFrom('sword', 'cleave'), whirlwind)).toBe(true);
+test('the fifteen skills keep their old places, so saved builds still mean the same', () => {
+  const OLD = ['sword', 'cleave', 'whirlwind', 'club', 'heal', 'swiftMending', 'staff', 'meteor', 'quickIncantation', 'bow', 'rapidFire', 'piercing', 'dodgeRoll', 'backstep', 'block'];
+  expect(NODES.slice(0, 15).map((n) => n.id)).toEqual(OLD);
+  expect(ROOTS.map((i) => NODES[i].id).sort()).toEqual(['bow', 'club', 'staff', 'sword']);
 });
 
-test('unlearning takes everything that stood on it', () => {
-  const s = skillsFrom('sword', 'cleave', 'whirlwind', 'club');
-  const dropped = dependents(s, skillIndex('cleave')).map((i) => NODES[i].id);
-  expect(dropped.sort()).toEqual(['cleave', 'whirlwind']); // not sword, not the other tree
-  expect(dependents(s, skillIndex('club')).map((i) => NODES[i].id)).toEqual(['club']);
+test('a node is open when it is a root or touches something learned', () => {
+  expect(reachable(emptySkills(), skillIndex('club'))).toBe(true);
+  expect(reachable(emptySkills(), skillIndex('cleave'))).toBe(false);
+  expect(reachable(skillsFrom('sword'), skillIndex('cleave'))).toBe(true);
+  expect(reachable(skillsFrom('sword'), skillIndex('whirlwind'))).toBe(false);
 });
 
-test('a set with a missing requirement is not sound', () => {
+test('each skill costs what it did before the tree grew', () => {
+  expect(cost([], 'sword')).toEqual(['sword']);
+  expect(cost([], 'whirlwind')).toEqual(['sword', 'cleave', 'whirlwind']);
+  expect(cost(['sword'], 'dodgeRoll')).toEqual(['dodgeRoll']);
+  expect(cost(['sword'], 'heal')).toEqual(['club', 'heal']);
+  expect(cost(['bow', 'rapidFire'], 'piercing')).toEqual(['piercing']);
+  expect(cost(['sword'], 'sword')).toEqual([]);
+});
+
+test('unlearning takes everything that would be cut off, and nothing else', () => {
+  const s = skillsFrom('sword', 'cleave', 'whirlwind', 'club', 'heal');
+  expect(dependents(s, skillIndex('cleave')).map((i) => NODES[i].id).sort()).toEqual(['cleave', 'whirlwind']);
+  expect(dependents(s, skillIndex('club')).map((i) => NODES[i].id).sort()).toEqual(['club', 'heal']);
+  expect(dependents(s, skillIndex('whirlwind')).map((i) => NODES[i].id)).toEqual(['whirlwind']);
+});
+
+test('a set that does not hang together back to a root is not sound', () => {
   expect(soundTree(skillsFrom('sword', 'cleave'))).toBe(true);
-  const broken = withSkill(emptySkills(), skillIndex('cleave'), true); // cleave without sword
-  expect(soundTree(broken)).toBe(false);
+  expect(soundTree(withSkill(emptySkills(), skillIndex('cleave'), true))).toBe(false); // cleave without sword
+  expect(soundTree(withSkill(skillsFrom('sword'), NODES.length, true))).toBe(false); // past the end of the tree
+});
+
+test('builds are checked against the points allowed where you are', () => {
+  const b: Build = { skills: skillsFrom('sword', 'cleave', 'whirlwind'), weapon: 0, abilities: emptyHotbar(), movement: emptyMovement() };
+  expect(validBuild(b)).toBe(true); // the training yard's budget
+  expect(validBuild(b, 3)).toBe(true);
+  expect(validBuild(b, 2)).toBe(false);
+  expect(learnBlock(b, NODE_INFO[skillIndex('dodgeRoll')], 3)).toBe('No skill points left');
+  expect(learnBlock(b, NODE_INFO[skillIndex('heal')], 10)).toBe('Learn Club Training first');
+  expect(learnPath(b, pathTo(b.skills, skillIndex('heal')), 5)?.skills).toEqual(skillsFrom('sword', 'cleave', 'whirlwind', 'club', 'heal'));
+  expect(learnPath(b, pathTo(b.skills, skillIndex('heal')), 4)).toBeNull();
+});
+
+// ---------- Levels ----------
+
+test('levels follow the experience curve and stop at the top', () => {
+  expect(levelOf(0)).toBe(1);
+  expect(levelOf(LEVEL_XP[1] - 1)).toBe(1);
+  expect(levelOf(LEVEL_XP[1])).toBe(2);
+  expect(levelOf(LEVEL_XP[MAX_LEVEL - 1])).toBe(MAX_LEVEL);
+  expect(levelOf(LEVEL_XP[MAX_LEVEL - 1] * 10)).toBe(MAX_LEVEL);
+  const lv = levelsFrom({ sword: LEVEL_XP[3], heal: LEVEL_XP[1] });
+  expect(lv[bookIndex('sword')]).toBe(4);
+  expect(lv[bookIndex('heal')]).toBe(2);
+  expect(lv[bookIndex('meteor')]).toBe(1);
+});
+
+test('a level adds to its own skill only', () => {
+  const s = skillsFrom('sword', 'club', 'heal');
+  const lv = levelsFrom({ sword: LEVEL_XP[2] }); // sword level 3
+  const plain = resolveSkills(s);
+  const trained = resolveSkills(s, lv);
+  const per = LEVEL_MODS.sword[0].value;
+  expect(comboFor(0, trained)[0].damage).toBeCloseTo(comboFor(0, plain)[0].damage * (1 + 2 * per), 6);
+  expect(comboFor(1, trained)[0].damage).toBe(comboFor(1, plain)[0].damage); // the club is untouched
+  expect(trained.ability).toEqual(plain.ability);
+});
+
+test('movement skills recover faster through the tree and with their level', () => {
+  const dodge = MOVEMENT_SKILLS.findIndex((m) => m.id === 'dodgeRoll');
+  const base = MOVEMENT_SKILLS[dodge].cooldownFrames;
+  expect(movementCooldownFor(dodge, resolveSkills(skillsFrom('sword', 'dodgeRoll')))).toBe(base);
+  const levelled = resolveSkills(skillsFrom('sword', 'dodgeRoll'), levelsFrom({ dodgeRoll: LEVEL_XP[4] })); // level 5
+  expect(movementCooldownFor(dodge, levelled)).toBe(Math.round(base * (1 + 4 * LEVEL_MODS.dodgeRoll[0].value)));
+  // A Footwork passive in the tree, wherever it is, shortens it too.
+  const footwork = NODES.findIndex((n) => n.mods?.some((m) => m.stat === 'movement.cooldown' && m.skill === 'dodgeRoll'));
+  const path = pathTo(skillsFrom('sword', 'dodgeRoll'), footwork);
+  let s = skillsFrom('sword', 'dodgeRoll');
+  for (const i of path) s = withSkill(s, i, true);
+  expect(movementCooldownFor(dodge, resolveSkills(s))).toBeLessThan(base);
 });
 
 // ---------- The modifier fold ----------

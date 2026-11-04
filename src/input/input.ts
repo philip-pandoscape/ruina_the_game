@@ -5,7 +5,8 @@ import { MouseFilter } from './mouseFilter';
 export type Device = 'keyboard' | 'gamepad';
 
 // Menu presses: opening the skill panel, moving its cursor, choosing, closing, starting over.
-export type MenuPress = 'toggle' | 'up' | 'down' | 'left' | 'right' | 'select' | 'back' | 'reset';
+// toggle opens and shuts the skill book; tree opens the skill tree (N); tab switches between the two.
+export type MenuPress = 'toggle' | 'up' | 'down' | 'left' | 'right' | 'select' | 'back' | 'reset' | 'tab' | 'tree';
 
 // Xbox button numbers in the browser's standard gamepad layout.
 export const PAD = {
@@ -57,6 +58,7 @@ export interface CombatInput {
 
 const MENU_KEYS: Record<string, MenuPress> = {
   KeyT: 'toggle',
+  KeyN: 'tree',
   Escape: 'back',
   ArrowUp: 'up',
   ArrowDown: 'down',
@@ -75,6 +77,8 @@ const MENU_PAD: Array<[number, MenuPress]> = [
   [PAD.A, 'select'],
   [PAD.B, 'back'],
   [PAD.Y, 'reset'],
+  [PAD.LB, 'tab'],
+  [PAD.RB, 'tab'],
 ];
 
 // Open-world keys: interact, drop a pack, mount, glider, change seed, and the panels.

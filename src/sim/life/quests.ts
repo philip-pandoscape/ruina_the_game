@@ -40,7 +40,7 @@ export const isReady = (life: Life, id: string): boolean => {
 export function questsAt(life: Life, npc: string): { offer: QuestDef[]; turnIn: QuestDef[] } {
   return {
     offer: QUESTS.filter((q) => q.giver === npc && available(life, q) && !q.auto),
-    turnIn: QUESTS.filter((q) => (q.turnIn ?? q.giver) === npc && isReady(life, q.id)),
+    turnIn: QUESTS.filter((q) => !q.milestone && (q.turnIn ?? q.giver) === npc && isReady(life, q.id)),
   };
 }
 
@@ -115,7 +115,8 @@ export function accept(life: Life, id: string): boolean {
   life.state.quests.active.push(p);
   for (const s of q.startItems ?? []) life.give(s.item, s.n);
   life.emit({ t: 'quest', id, what: 'accepted' });
-  life.toast(`New quest: ${q.name}`, 'quest');
+  // Milestones are always there to work toward; they only speak up when they're done.
+  if (!q.milestone) life.toast(`New quest: ${q.name}`, 'quest');
   startStep(life, p);
   return true;
 }
@@ -136,16 +137,23 @@ export function complete(life: Life, id: string): boolean {
   if (r.labor) s.labor = Math.min(LABOR.max, s.labor + r.labor);
   for (const it of r.items ?? []) life.give(it.item, it.n);
   if (r.equipGlider) s.glider = r.equipGlider;
-  const bits = [r.coins ? formatCoins(r.coins) : '', r.seals ? `${r.seals} seal${r.seals > 1 ? 's' : ''}` : '', ...(r.items ?? []).map((i) => `${i.n > 1 ? `${i.n} ` : ''}${itemDef(i.item).name}`)].filter(Boolean);
-  life.toast(`✔ ${q.name} complete${bits.length ? ` - ${bits.join(', ')}` : ''}`, 'quest');
+  // Skill points aren't kept: they're counted from the quests you've done (progress.ts).
+  const bits = [
+    r.skillPoints ? `${r.skillPoints} skill point${r.skillPoints > 1 ? 's' : ''}` : '',
+    r.coins ? formatCoins(r.coins) : '',
+    r.seals ? `${r.seals} seal${r.seals > 1 ? 's' : ''}` : '',
+    ...(r.items ?? []).map((i) => `${i.n > 1 ? `${i.n} ` : ''}${itemDef(i.item).name}`),
+  ].filter(Boolean);
+  life.toast(`✔ ${q.milestone ? `Milestone: ${q.name}` : `${q.name} complete`}${bits.length ? ` - ${bits.join(', ')}` : ''}`, 'quest');
   life.emit({ t: 'quest', id, what: 'done' });
   // Anything that just became available and starts by itself.
   startQuests(life);
   return true;
 }
 
-function matches(o: { type: string; npc?: string; crop?: string; pack?: string; outpost?: string; vehicle?: string; place?: string }, e: QuestEvent): boolean {
+function matches(o: { type: string; npc?: string; crop?: string; pack?: string; outpost?: string; vehicle?: string; place?: string; kind?: string }, e: QuestEvent): boolean {
   if (o.type !== e.type) return false;
+  if (o.kind && o.kind !== e.kind) return false;
   if (o.place && o.place !== e.place) return false;
   if (o.npc && o.npc !== e.npc) return false;
   if (o.crop && o.crop !== e.crop) return false;
@@ -178,6 +186,8 @@ function advance(life: Life, id: string): void {
   p.step++;
   if (p.step >= q.steps.length) {
     p.counts = [];
+    // A milestone has nobody to hand it to: it's done the moment its steps are.
+    if (q.milestone && complete(life, id)) return;
     life.emit({ t: 'quest', id, what: 'ready' });
     life.toast(`${q.name}: return to ${q.turnIn ?? q.giver}`, 'quest');
     return;

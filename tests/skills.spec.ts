@@ -1,6 +1,6 @@
 import { expect, test, type Browser, type BrowserContext, type Page } from '@playwright/test';
 import { ABILITIES, comboFor, emptyMovement, HOTBAR_SLOTS, NO_ABILITY, SLIDE_SKILL, type Build, WEAPONS } from '../src/tuning';
-import { resolveSkills, SKILL_POINTS, skillsFrom } from '../src/skills';
+import { LEVEL_XP, resolveSkills, SKILL_POINTS, skillIndex, skillsFrom, START_POINTS } from '../src/skills';
 import { serverBuilt, TestServer } from './testServer';
 
 // The classless skill system: the skill panel, every weapon and ability in the training yard, and
@@ -20,6 +20,7 @@ const build = (ids: string[], weapon: number, ability1 = NO_ABILITY, ability2 = 
   return { skills: skills(...ids), weapon, abilities, movement };
 };
 const DODGE = 0; // index into MOVEMENT_SKILLS
+const NO_MOVEMENT_SLOT = 255;
 
 const SWORD = build(['sword'], 0);
 const CLEAVER = build(['sword', 'cleave'], 0);
@@ -44,59 +45,99 @@ function watchErrors(page: Page): string[] {
 
 const game = (page: Page) => page.evaluate(() => (window as any).__game.build());
 
-// ---------- The skill panel ----------
+// ---------- The skill tree and the skill book ----------
 
-test('skill panel: learn and unlearn down the trees, equip, and the build is remembered', async ({ page }) => {
+const panelState = (page: Page) => page.evaluate(() => (window as any).__game.panel());
+
+test('skill tree: plan the way to a skill, learn it, give it back, and the build is remembered', async ({ page }) => {
   const errors = watchErrors(page);
   await page.goto('/?yard');
   await page.waitForFunction(() => (window as any).__game?.ready === true);
-  const panel = page.locator('#skills');
-  const points = page.locator('#skills .points b');
-  const note = page.locator('#skills footer');
+  const left = page.locator('#skills .st-chip b').first();
+  const note = page.locator('#skills .st-note');
+  const learn = page.locator('#skills [data-act="learn"]');
+  const node = (id: string) => page.locator(`#skills [data-n="${skillIndex(id)}"]`);
 
-  await page.keyboard.press('KeyT');
-  await expect(panel).toBeVisible();
-  await expect(points).toHaveText(String(SKILL_POINTS - 1)); // everyone starts with Sword Training
+  await page.keyboard.press('KeyN');
+  await expect(page.locator('#skills .st')).toBeVisible();
+  await expect(left).toHaveText(String(SKILL_POINTS - 1)); // everyone starts with Sword Training
+  // Whirlwind is two steps out: one click plans the way there, Learn spends the points.
+  await node('whirlwind').click();
+  expect((await panelState(page)).plan).toEqual(['cleave', 'whirlwind']);
+  await learn.click();
+  await expect(left).toHaveText(String(SKILL_POINTS - 3));
+  // Healing Circle hangs off Club Training: planning it plans both, and it goes straight onto the bar.
+  await node('heal').click();
+  await learn.click();
+  await expect(left).toHaveText(String(SKILL_POINTS - 5));
+  await page.screenshot({ path: `${SHOTS}/40-skill-tree.png` });
+  expect((await game(page)).using).toEqual(build(['sword', 'cleave', 'whirlwind', 'club', 'heal'], 0, HEAL));
+  // Clicking a planned node takes it back out of the plan.
+  await node('swiftMending').click();
+  expect((await panelState(page)).plan).toEqual(['swiftMending']);
+  await node('swiftMending').click();
+  expect((await panelState(page)).plan).toEqual([]);
 
-  await page.click('[data-skill="cleave"]');
-  await page.click('[data-skill="whirlwind"]');
-  await expect(points).toHaveText(String(SKILL_POINTS - 3));
-  // Skills are learned top to bottom.
-  await page.click('[data-skill="heal"]');
-  await expect(note).toContainText('Club Training first');
-  await page.click('[data-skill="club"]');
-  await page.click('[data-skill="heal"]'); // goes straight into the empty ability slot
-  await page.click('[data-weapon="1"]');
-  await page.screenshot({ path: `${SHOTS}/40-skill-panel.png` });
-  expect((await game(page)).using).toEqual(build(['sword', 'cleave', 'whirlwind', 'club', 'heal'], 1, HEAL));
-
-  await page.click('[data-skill="swiftMending"]');
-  await expect(points).toHaveText(String(SKILL_POINTS - 6));
-  // Spend the rest, then the next one is refused. Dodge Roll goes straight to a movement slot.
-  await page.click('[data-skill="staff"]');
-  await page.click('[data-skill="dodgeRoll"]');
-  await expect(points).toHaveText('0');
-  await page.click('[data-skill="meteor"]');
-  await expect(note).toContainText('No skill points left');
-
-  // Unlearning a skill drops the ones below it, and anything that needed them.
-  await page.click('[data-skill="club"]');
-  await expect(points).toHaveText(String(SKILL_POINTS - 5)); // sword, cleave, whirlwind, staff, dodgeRoll
-  expect((await game(page)).using).toEqual(build(['sword', 'cleave', 'whirlwind', 'staff', 'dodgeRoll'], 0, NO_ABILITY, NO_ABILITY, DODGE));
-  // You always keep a weapon: with the staff gone, the sword is the last one and can't go.
-  await page.click('[data-skill="staff"]');
-  await page.click('[data-skill="sword"]');
+  // Giving Club Training back takes Healing Circle with it, and you always keep a weapon.
+  await node('club').click({ button: 'right' });
+  await expect(left).toHaveText(String(SKILL_POINTS - 3));
+  expect((await game(page)).using).toEqual(build(['sword', 'cleave', 'whirlwind'], 0));
+  await node('sword').click({ button: 'right' });
   await expect(note).toContainText('Keep at least one weapon skill');
 
+  // Opened with N, Escape closes it; the build survives a reload.
   await page.keyboard.press('Escape');
-  await expect(panel).toBeHidden();
+  await expect(page.locator('#skills')).toBeHidden();
   await page.reload();
   await page.waitForFunction(() => (window as any).__game?.ready === true);
-  expect((await game(page)).using).toEqual(build(['sword', 'cleave', 'whirlwind', 'dodgeRoll'], 0, NO_ABILITY, NO_ABILITY, DODGE));
+  expect((await game(page)).using).toEqual(build(['sword', 'cleave', 'whirlwind'], 0));
   expect(errors).toEqual([]);
 });
 
-test('skill panel works with a controller: View opens it, D-pad and A choose, B closes', async ({ page }) => {
+test('skill book: every skill with its level, equip a weapon, put an ability on the bar', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto('/?yard');
+  await page.waitForFunction(() => (window as any).__game?.ready === true);
+  await page.evaluate((b) => (window as any).__game.setBuild(b), build(['sword', 'club', 'heal', 'dodgeRoll'], 0));
+  await page.keyboard.press('KeyT');
+  const book = page.locator('#skills .sb');
+  await expect(book).toBeVisible();
+  // Everything you can use is in it; what you haven't learned is locked.
+  await expect(page.locator('#skills .sk')).toHaveCount(10);
+  await expect(page.locator('#skills .sk.locked')).toHaveCount(5); // staff, bow, meteor, backstep, block
+  await expect(page.locator('#skills .sk .lv')).toHaveCount(5); // sword, club, heal, dodge roll, slide
+
+  // A weapon: equip it from its page.
+  await page.locator('#skills .sk', { hasText: 'Club' }).click();
+  await expect(page.locator('#skills .sd-name')).toHaveText('Club');
+  await page.click('#skills [data-act="equip"]');
+  expect((await game(page)).using.weapon).toBe(1);
+  // An ability: onto the bar, then dragged to another slot.
+  await page.locator('#skills .sk', { hasText: 'Healing Circle' }).click();
+  await expect(page.locator('#skills .sd-stats')).toContainText('Heals');
+  await page.click('#skills [data-act="slot"]');
+  expect((await game(page)).using.abilities[0]).toBe(HEAL);
+  await page.dragAndDrop('#skills [data-slot="0"]', '#skills [data-slot="3"]');
+  expect((await game(page)).using.abilities.slice(0, 4)).toEqual([NO_ABILITY, NO_ABILITY, NO_ABILITY, HEAL]);
+  // A movement skill: bound to E.
+  await page.locator('#skills .sk', { hasText: 'Dodge Roll' }).click();
+  await page.click('#skills [data-act="bind1"]');
+  expect((await game(page)).using.movement).toEqual([NO_MOVEMENT_SLOT, DODGE]);
+  // A locked skill sends you to the tree, focused on it.
+  await page.locator('#skills .sk', { hasText: 'Meteor' }).click();
+  await page.click('#skills [data-act="find"]');
+  await expect(page.locator('#skills .st')).toBeVisible();
+  expect((await panelState(page)).focus).toBe('meteor');
+  await page.screenshot({ path: `${SHOTS}/41-skill-book-to-tree.png` });
+  // Back to the book from the tree, then shut it.
+  await page.click('#skills [data-act="book"]');
+  await expect(book).toBeVisible();
+  await page.keyboard.press('KeyT');
+  await expect(page.locator('#skills')).toBeHidden();
+  expect(errors).toEqual([]);
+});
+
+test('skill book and tree with a controller: View opens the book, A equips, a bumper turns to the tree, B backs out', async ({ page }) => {
   await page.addInitScript(() => {
     const buttons = Array.from({ length: 17 }, () => ({ pressed: false, touched: false, value: 0 }));
     const pad = { id: 'Xbox Wireless Controller (STANDARD GAMEPAD)', index: 0, connected: true, mapping: 'standard', axes: [0, 0, 0, 0], buttons, timestamp: 0 };
@@ -106,35 +147,107 @@ test('skill panel works with a controller: View opens it, D-pad and A choose, B 
   const errors = watchErrors(page);
   await page.goto('/?yard');
   await page.waitForFunction(() => (window as any).__game?.ready === true);
+  await page.evaluate((b) => (window as any).__game.setBuild(b), build(['sword', 'club'], 0));
   // A press lasts at least 60 ms and two frames, so a slow frame (the first time a panel is drawn,
   // in a software-drawn browser) can't swallow it.
   const frames = (n: number) => page.evaluate((n) => new Promise<void>((done) => { const f = () => (--n <= 0 ? done() : requestAnimationFrame(f)); requestAnimationFrame(f); }), n);
+  const set = (i: number, on: boolean) => page.evaluate(([i, on]) => Object.assign((window as any).__pad.buttons[i as number], { pressed: on, value: on ? 1 : 0 }), [i, on] as const);
   const tap = async (button: number) => {
-    await page.evaluate((i) => Object.assign((window as any).__pad.buttons[i], { pressed: true, value: 1 }), button);
+    await set(button, true);
     await page.waitForTimeout(60);
     await frames(2);
-    await page.evaluate((i) => Object.assign((window as any).__pad.buttons[i], { pressed: false, value: 0 }), button);
+    await set(button, false);
     await page.waitForTimeout(60);
     await frames(2);
   };
-  const [A, B, VIEW, DOWN, RIGHT] = [0, 1, 8, 13, 15];
+  const [A, B, Y, RB, VIEW, RIGHT] = [0, 1, 3, 5, 8, 15];
 
   await tap(VIEW);
-  await expect(page.locator('#skills')).toBeVisible();
-  await tap(RIGHT); // Club Training
+  await expect(page.locator('#skills .sb')).toBeVisible();
+  // The cursor starts on the weapon in your hands; right is Club, and A equips it.
+  await tap(RIGHT);
+  expect((await panelState(page)).selected).toBe('club');
   await tap(A);
-  await tap(DOWN); // Healing Circle
+  expect((await game(page)).using.weapon).toBe(1);
+  // A bumper turns to the tree. A plans the way to the focused node, Y learns it.
+  await tap(RB);
+  await expect(page.locator('#skills .st')).toBeVisible();
+  await page.evaluate(() => (window as any).__game.panelFocus({ node: 'heal' }));
   await tap(A);
-  // Walk down to the weapon row. How far that is depends on how deep the trees are, so step
-  // until the cursor is actually on a weapon rather than counting presses.
-  for (let i = 0; i < 8 && !(await page.locator('#skills .focus[data-weapon]').count()); i++) await tap(DOWN);
-  await tap(A);
-  await expect(page.locator('#skills .focus')).toHaveAttribute('data-weapon', '1');
+  expect((await panelState(page)).plan).toEqual(['heal']);
+  await tap(Y);
+  expect((await game(page)).using).toEqual(build(['sword', 'club', 'heal'], 1, HEAL));
+  // B goes back to the book (the tree was opened from it), and B again closes it.
+  await tap(B);
+  await expect(page.locator('#skills .sb')).toBeVisible();
   await tap(B);
   await expect(page.locator('#skills')).toBeHidden();
-  expect((await game(page)).using).toEqual(build(['sword', 'club', 'heal'], 1, HEAL));
   // Closing with B didn't make the fighter slide.
   expect(await page.evaluate(() => (window as any).__game.state().player.actionId)).not.toBe(SLIDE_SKILL);
+  expect(errors).toEqual([]);
+});
+
+// ---------- The island: points from quests, levels from use ----------
+
+test('island: the tree spends points earned from quests, and the sword levels up on slimes', async ({ page }) => {
+  test.setTimeout(180_000);
+  const errors = watchErrors(page);
+  await page.goto('/?world&test');
+  await page.waitForFunction(() => (window as any).__game?.ready === true, null, { timeout: 90_000 });
+  await page.evaluate(() => (window as any).__game.reset());
+  const skillsNow = () => page.evaluate(() => (window as any).__game.skills());
+  const cmd = (c: Record<string, unknown>) => page.evaluate((x) => (window as any).__game.lifeCommand(x), c);
+  const advance = (n: number, a: Record<string, unknown> = {}) => page.evaluate(([k, x]) => (window as any).__game.advance(k, x), [n, a] as const);
+
+  // A new character has Sword Training and one point to spend.
+  expect((await skillsNow()).budget).toBe(START_POINTS);
+  expect(await page.evaluate(() => (window as any).__game.learnNode('cleave'))).toBe(true);
+  expect((await skillsNow()).left).toBe(0);
+  expect(await page.evaluate(() => (window as any).__game.learnNode('club'))).toBe(false);
+  await expect(page.locator('#skills .st-note')).toContainText('needs 1 point');
+  // Finishing Landfall earns another.
+  await page.evaluate(() => (window as any).__game.skillPanel(false));
+  const hollis = (await page.evaluate(() => (window as any).__game.zone())).npcs.find((n: { id: string }) => n.id === 'hollis');
+  await page.evaluate(([x, z, f]) => (window as any).__game.teleport(x, z, f), [hollis.x + Math.sin(hollis.facing) * 2.2, hollis.z + Math.cos(hollis.facing) * 2.2, hollis.facing + Math.PI] as const);
+  await advance(2);
+  await cmd({ t: 'interact' });
+  await advance(2);
+  await cmd({ t: 'complete', quest: 'landfall' });
+  await advance(2);
+  expect((await skillsNow()).budget).toBe(START_POINTS + 1);
+  await page.evaluate(() => (window as any).__game.closeLifePanel());
+  expect(await page.evaluate(() => (window as any).__game.learnNode('club'))).toBe(true);
+  await page.evaluate(() => (window as any).__game.skillPanel(false));
+
+  // On the meadow, every hit the sword lands trains it, until it reaches level 2.
+  const meadow = (await page.evaluate(() => (window as any).__game.zone())).places.find((p: { id: string }) => p.id === 'meadow');
+  await page.evaluate(([x, z]) => (window as any).__game.teleport(x, z, 0), [meadow.x, meadow.z] as const);
+  await page.evaluate((b) => (window as any).__game.setBuild(b), build(['sword', 'cleave', 'club'], 0));
+  await advance(30);
+  for (let round = 0; round < 150 && ((await skillsNow()).xp.sword ?? 0) < LEVEL_XP[1]; round++) {
+    await page.evaluate(() => {
+      const g = (window as any).__game;
+      const p = g.state().player.pos;
+      const slimes = g.actors().filter((a: { alive: boolean; kind: string }) => a.alive && /slime/.test(a.kind));
+      slimes.sort((a: { x: number; z: number }, b: { x: number; z: number }) => Math.hypot(a.x - p.x, a.z - p.z) - Math.hypot(b.x - p.x, b.z - p.z));
+      const s = slimes[0];
+      if (!s) return g.advance(30, {});
+      if (Math.hypot(s.x - p.x, s.z - p.z) > 1.6) {
+        const f = Math.atan2(s.x - p.x, s.z - p.z);
+        g.teleport(s.x - Math.sin(f) * 1.2, s.z - Math.cos(f) * 1.2, f);
+        g.advance(2, {});
+      }
+      g.advance(1, { attackPressed: true });
+      g.advance(14, {});
+    });
+  }
+  const after = await skillsNow();
+  expect(after.levels.sword).toBe(2);
+  expect(after.levels.club).toBe(1);
+  await expect(page.locator('#lui-toasts')).toContainText('Sword reached level 2');
+  // The book shows it, and the sword hits harder for it.
+  await page.evaluate(() => (window as any).__game.selectBook('sword'));
+  await expect(page.locator('#skills .sd-lv')).toHaveText(/Level 2/i);
   expect(errors).toEqual([]);
 });
 

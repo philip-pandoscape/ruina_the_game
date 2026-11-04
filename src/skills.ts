@@ -1,6 +1,8 @@
 import shared from '../shared/tuning.json' with { type: 'json' };
+import treeData from '../shared/skilltree.json' with { type: 'json' };
 
-// Skills, the tree they live in, and the modifiers they apply.
+// Skills, the tree they live in, the levels the ones you use gain, and the modifiers all of that
+// applies.
 //
 // Everything here is mirrored by server/src/skills.rs, and the two must agree exactly: the browser
 // predicts with these numbers and the server decides with them. That is why the fold order below
@@ -25,13 +27,19 @@ export interface SkillGrants {
   combo?: string; // a combo variant on the weapon that owns it
 }
 
+/** skill: one of the skills you use or that changes one. The rest are the tree's passives. */
+export type NodeKind = 'skill' | 'small' | 'notable' | 'keystone';
+
 export interface SkillNode {
   id: string;
+  kind: NodeKind;
   name: string;
-  desc: string;
-  icon: string;
-  tree: number;
-  requires: string[];
+  desc?: string;
+  icon?: string;
+  tree: number; // the discipline, or -1 where two meet
+  root?: boolean; // learnable with nothing else learned
+  o: number; // orbit
+  a: number; // degrees clockwise from up
   tags?: string[];
   grants?: SkillGrants;
   mods?: SkillMod[];
@@ -39,14 +47,20 @@ export interface SkillNode {
 
 const raw = shared.skills as unknown as {
   points: number;
+  startPoints: number;
   maxNodes: number;
-  trees: Array<{ name: string }>;
-  nodes: SkillNode[];
+  trees: Array<{ name: string; color: string }>;
+  levels: { xp: number[]; per: Record<string, SkillMod[]> };
 };
+const tree = treeData as unknown as { radii: number[]; nodes: SkillNode[]; links: Array<[string, string, number?]> };
 
+/** What the training yard and the battlefield may spend. */
 export const SKILL_POINTS = raw.points;
+/** What every character starts with in the open world, before quests and milestones add more. */
+export const START_POINTS = raw.startPoints;
 export const TREES = raw.trees;
-export const NODES: readonly SkillNode[] = raw.nodes;
+export const NODES: readonly SkillNode[] = tree.nodes;
+export const ORBITS: readonly number[] = tree.radii;
 export const MAX_NODES = raw.maxNodes;
 // A learned set travels as this many 32-bit words, so the wire size never depends on the tree.
 export const SKILL_WORDS = MAX_NODES / 32;
@@ -60,6 +74,19 @@ export const skillIndex = (id: string): number => {
   return i;
 };
 export const nodeAt = (i: number): SkillNode | undefined => NODES[i];
+
+/** The lines between nodes, as index pairs; arc means it is drawn along its orbit. */
+export const LINKS: ReadonlyArray<{ a: number; b: number; arc: boolean }> = tree.links.map(([a, b, arc]) => ({ a: skillIndex(a), b: skillIndex(b), arc: !!arc }));
+/** Each node's neighbours, in ascending order (both languages walk them the same way). */
+export const ADJACENT: readonly number[][] = NODES.map((_, i) => {
+  const out: number[] = [];
+  for (const l of LINKS) {
+    if (l.a === i) out.push(l.b);
+    if (l.b === i) out.push(l.a);
+  }
+  return out.sort((x, y) => x - y);
+});
+export const ROOTS: readonly number[] = NODES.flatMap((n, i) => (n.root ? [i] : []));
 
 // ---------- The learned set ----------
 //
@@ -97,7 +124,7 @@ export function skillCount(s: SkillSet): number {
   return n;
 }
 
-// Builds a set from skill ids, for tests and for seeding a default build.
+// Builds a set from node ids, for tests and for seeding a default build.
 export function skillsFrom(...ids: string[]): SkillSet {
   let out = emptySkills();
   for (const id of ids) out = withSkill(out, skillIndex(id), true);
@@ -118,37 +145,81 @@ export function toSkillSet(v: unknown): SkillSet {
   return out;
 }
 
-// ---------- Prerequisites ----------
+// ---------- Where you can go ----------
 //
-// A node needs every skill it lists. Requirements are a graph, not a column, so a node can sit
-// behind two branches at once and trees can merge later without changing any of this.
+// You learn outward from where the tree starts: a node is open to you when it is a root or touches
+// one you've learned, and what you've learned must always hang together back to a root.
 
-export function requirementsMet(s: SkillSet, index: number): boolean {
+/** The learned nodes a root reaches through learned nodes, leaving out `without`. */
+function reached(s: SkillSet, without = -1): boolean[] {
+  const seen = NODES.map(() => false);
+  const queue: number[] = [];
+  for (const r of ROOTS) {
+    if (r !== without && hasSkill(s, r)) {
+      seen[r] = true;
+      queue.push(r);
+    }
+  }
+  for (let q = 0; q < queue.length; q++) {
+    for (const n of ADJACENT[queue[q]]) {
+      if (seen[n] || n === without || !hasSkill(s, n)) continue;
+      seen[n] = true;
+      queue.push(n);
+    }
+  }
+  return seen;
+}
+
+/** Whether a node is open to learn: a root, or next to something learned. */
+export function reachable(s: SkillSet, index: number): boolean {
   const n = NODES[index];
   if (!n) return false;
-  return n.requires.every((id) => hasSkill(s, skillIndex(id)));
+  return !!n.root || ADJACENT[index].some((j) => hasSkill(s, j));
 }
 
-// Everything that would be stranded if `index` were unlearned, including itself.
+// Everything that would be cut off if `index` were unlearned, including itself.
 export function dependents(s: SkillSet, index: number): number[] {
-  const doomed = new Set<number>([index]);
-  // Repeat until nothing new falls: a node drops once any requirement of it has dropped.
-  for (let pass = 0; pass < NODES.length; pass++) {
-    let grew = false;
-    NODES.forEach((n, i) => {
-      if (doomed.has(i) || !hasSkill(s, i)) return;
-      if (n.requires.some((id) => doomed.has(skillIndex(id)))) {
-        doomed.add(i);
-        grew = true;
-      }
-    });
-    if (!grew) break;
-  }
-  return [...doomed].filter((i) => hasSkill(s, i)).sort((a, b) => a - b);
+  if (!hasSkill(s, index)) return [];
+  const still = reached(s, index);
+  return NODES.flatMap((_, i) => (hasSkill(s, i) && (i === index || !still[i]) ? [i] : []));
 }
 
-// A set is sound when every learned node's requirements are also learned.
-export const soundTree = (s: SkillSet): boolean => NODES.every((_, i) => !hasSkill(s, i) || requirementsMet(s, i));
+// A set is sound when everything learned hangs together back to a root.
+export function soundTree(s: SkillSet): boolean {
+  for (let i = NODES.length; i < MAX_NODES; i++) if (hasSkill(s, i)) return false;
+  const seen = reached(s);
+  return NODES.every((_, i) => !hasSkill(s, i) || seen[i]);
+}
+
+/**
+ * The cheapest way to `index` from what you've learned: the nodes to learn, nearest first, ending
+ * with it. Empty if it is already learned. Ties go to the lower index, the same on every machine.
+ */
+export function pathTo(s: SkillSet, index: number): number[] {
+  if (index < 0 || index >= NODES.length || hasSkill(s, index)) return [];
+  const prev = new Map<number, number>();
+  const queue: number[] = [];
+  // Start from every open node: one step away from what you have.
+  for (let i = 0; i < NODES.length; i++) {
+    if (!hasSkill(s, i) && reachable(s, i)) {
+      prev.set(i, -1);
+      queue.push(i);
+    }
+  }
+  for (let q = 0; q < queue.length; q++) {
+    const at = queue[q];
+    if (at === index) break;
+    for (const n of ADJACENT[at]) {
+      if (prev.has(n) || hasSkill(s, n)) continue;
+      prev.set(n, at);
+      queue.push(n);
+    }
+  }
+  if (!prev.has(index)) return [];
+  const out: number[] = [];
+  for (let at = index; at >= 0; at = prev.get(at)!) out.push(at);
+  return out.reverse();
+}
 
 // ---------- Modifiers ----------
 //
@@ -185,6 +256,8 @@ const applies = (m: SkillMod, c: ModContext): boolean => {
   if (m.tags && !m.tags.every((t) => c.tags?.includes(t))) return false;
   return true;
 };
+/** Whether a modifier reaches a skill or swing (the skill book lists what changes each skill). */
+export const modApplies = applies;
 
 // The three accumulated stages for one stat, ready to apply to any base.
 export interface Channel {
@@ -195,7 +268,7 @@ export interface Channel {
 
 const IDENTITY: Channel = { flat: 0, inc: 0, more: 1 };
 
-export function gather(s: SkillSet, ctx: ModContext): Channel[] {
+export function gather(s: SkillSet, ctx: ModContext, levels?: Levels): Channel[] {
   const out: Channel[] = STATS.map(() => ({ flat: 0, inc: 0, more: 1 }));
   // Node order, so the product below is the same sequence on both sides.
   for (let i = 0; i < NODES.length; i++) {
@@ -206,6 +279,20 @@ export function gather(s: SkillSet, ctx: ModContext): Channel[] {
       if (m.op === 'flat') c.flat += m.value;
       else if (m.op === 'inc') c.inc += m.value;
       else c.more *= 1 + m.value;
+    }
+  }
+  // Then what each skill's levels add, once per level past the first. Sums only, so the order
+  // they come in doesn't matter.
+  if (levels) {
+    for (let b = 0; b < BOOK.length; b++) {
+      const extra = (levels[b] ?? 1) - 1;
+      if (extra <= 0) continue;
+      for (const m of LEVEL_MODS[BOOK[b].id] ?? []) {
+        if (!applies(m, ctx)) continue;
+        const c = out[statIndex(m.stat)];
+        if (m.op === 'flat') c.flat += m.value * extra;
+        else c.inc += m.value * extra;
+      }
     }
   }
   return out;
@@ -219,29 +306,77 @@ export const applyChannel = (c: Channel | undefined, base: number): number => {
 // Frame counts are whole numbers; both languages round the same way.
 export const applyFrames = (c: Channel | undefined, base: number): number => Math.max(0, Math.round(applyChannel(c, base)));
 
+// ---------- The skill book: what levels up ----------
+//
+// Every weapon, ability and movement skill gains experience as you use it (a weapon for each hit it
+// lands, an ability for each cast, a movement skill each time you use it) and a level at each step
+// of the curve. What a level adds is data too: tuning.json skills.levels.
+
+export type BookKind = 'weapon' | 'ability' | 'movement';
+export interface BookSkill {
+  id: string; // the tree node that grants the weapon, or the ability / movement skill's id
+  kind: BookKind;
+  index: number; // weapon, ability or movement skill index
+}
+
+const ABILITY_IDS = (shared.abilities as unknown as Array<{ id: string; tags?: string[] }>).map((a) => ({
+  id: a.id,
+  tags: a.tags ?? [],
+}));
+const MOVEMENT_DEFS = (shared.movementSkills as unknown as Array<{ id: string; tags?: string[] }>).map((m) => ({ id: m.id, tags: m.tags ?? [] }));
+const WEAPON_TAGS = (shared.weapons as unknown as Array<{ tags?: string[] }>).map((w) => w.tags ?? []);
+
+/** Weapons in weapon order, then abilities, then movement skills: the order levels are kept in. */
+export const BOOK: readonly BookSkill[] = [
+  ...WEAPON_TAGS.map((_, w) => ({ id: NODES.find((n) => n.grants?.weapon === w)?.id ?? `weapon${w}`, kind: 'weapon' as const, index: w })),
+  ...ABILITY_IDS.map((a, i) => ({ id: a.id, kind: 'ability' as const, index: i })),
+  ...MOVEMENT_DEFS.map((m, i) => ({ id: m.id, kind: 'movement' as const, index: i })),
+];
+export const bookIndex = (id: string): number => BOOK.findIndex((b) => b.id === id);
+
+/** Total experience each level needs: LEVEL_XP[0] for level 1 (always 0), and so on up. */
+export const LEVEL_XP: readonly number[] = raw.levels.xp;
+export const MAX_LEVEL = LEVEL_XP.length;
+export const LEVEL_MODS: Readonly<Record<string, SkillMod[]>> = raw.levels.per;
+for (const [id, mods] of Object.entries(LEVEL_MODS)) {
+  if (bookIndex(id) < 0) throw new Error(`skills.levels.per names "${id}", which isn't in the skill book`);
+  if (mods.some((m) => m.op === 'more')) throw new Error(`skills.levels.per.${id}: levels add flat or inc, never more`);
+}
+
+/** A level per BOOK entry, 1..MAX_LEVEL. */
+export type Levels = number[];
+
+export function levelOf(xp: number): number {
+  let level = 1;
+  while (level < MAX_LEVEL && xp >= LEVEL_XP[level]) level++;
+  return level;
+}
+
+/** Levels from experience kept by skill id (the island's skillXp). */
+export const levelsFrom = (xp: Readonly<Record<string, number>> | undefined): Levels => BOOK.map((b) => levelOf(xp?.[b.id] ?? 0));
+
+export const sameLevels = (a: Levels | undefined, b: Levels | undefined): boolean => {
+  for (let i = 0; i < BOOK.length; i++) if ((a?.[i] ?? 1) !== (b?.[i] ?? 1)) return false;
+  return true;
+};
+
 // ---------- Resolved per build ----------
 //
-// Gathering walks the whole tree, so it happens once when a build changes and never in a frame.
-// The result is two sets of channels: one per weapon, for swings, and one per ability, for casts.
+// Gathering walks the whole tree, so it happens once when a build or a level changes and never in
+// a frame. The result is a set of channels per weapon, for swings; per ability, for casts; and per
+// movement skill, for its cooldown.
 
 export interface ResolvedSkills {
   weapon: Channel[][]; // [weapon][stat]
   ability: Channel[][]; // [ability][stat]
+  move: Channel[][]; // [movement skill][stat]
   combos: Set<string>; // combo variants this build has unlocked
   weapons: number[]; // weapons it can use
   abilities: number[]; // abilities it has learned
   movement: number[]; // movement skills it has learned
 }
 
-// Identity comes straight out of the same file, so this stays free of any import cycle with
-// the tables that describe what an ability or a weapon actually does.
-const ABILITY_IDS = (shared.abilities as unknown as Array<{ id: string; tags?: string[] }>).map((a) => ({
-  id: a.id,
-  tags: a.tags ?? [],
-}));
-const WEAPON_TAGS = (shared.weapons as unknown as Array<{ tags?: string[] }>).map((w) => w.tags ?? []);
-
-export function resolveSkills(s: SkillSet): ResolvedSkills {
+export function resolveSkills(s: SkillSet, levels?: Levels): ResolvedSkills {
   const combos = new Set<string>();
   const weapons: number[] = [];
   const abilities: number[] = [];
@@ -255,10 +390,18 @@ export function resolveSkills(s: SkillSet): ResolvedSkills {
     if (g.ability !== undefined) abilities.push(g.ability);
     if (g.movement !== undefined) movement.push(g.movement);
   }
-  const weapon = WEAPON_TAGS.map((tags, w) => gather(s, { weapon: w, tags }));
-  const ability = ABILITY_IDS.map((a) => gather(s, { skill: a.id, tags: a.tags }));
-  return { weapon, ability, combos, weapons, abilities, movement };
+  const weapon = WEAPON_TAGS.map((tags, w) => gather(s, { weapon: w, tags }, levels));
+  const ability = ABILITY_IDS.map((a) => gather(s, { skill: a.id, tags: a.tags }, levels));
+  const move = MOVEMENT_DEFS.map((m) => gather(s, { skill: m.id, tags: m.tags }, levels));
+  return { weapon, ability, move, combos, weapons, abilities, movement };
 }
 
 export const abilityTags = (a: number): readonly string[] => ABILITY_IDS[a]?.tags ?? [];
+
+/** What a book entry is, to ask which modifiers reach it. */
+export function bookContext(b: BookSkill): ModContext {
+  if (b.kind === 'weapon') return { weapon: b.index, tags: WEAPON_TAGS[b.index] ?? [] };
+  if (b.kind === 'ability') return { skill: ABILITY_IDS[b.index]?.id, tags: ABILITY_IDS[b.index]?.tags ?? [] };
+  return { skill: MOVEMENT_DEFS[b.index]?.id, tags: MOVEMENT_DEFS[b.index]?.tags ?? [] };
+}
 export const abilityId = (a: number): string => ABILITY_IDS[a]?.id ?? '';

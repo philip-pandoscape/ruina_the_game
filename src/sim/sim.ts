@@ -13,7 +13,7 @@ import {
   SPECIAL,
   type Build,
 } from '../tuning';
-import { emptySkills, resolveSkills, type ResolvedSkills, type SkillSet } from '../skills';
+import { BOOK, emptySkills, resolveSkills, sameLevels, type Levels, type ResolvedSkills, type SkillSet } from '../skills';
 import { Actors, type Actor } from './actor';
 import { actorKind } from '../content/actors';
 import { startBrain, type Sighting } from './ai/brain';
@@ -32,6 +32,8 @@ export interface LifeHooks {
   ride(sim: Sim, a: Actions): void;
   /** Everything else in the world, once per step, after you have moved. */
   step(sim: Sim, a: Actions): void;
+  /** Something you did (a hit landed, a cast, a roll): the skill behind it gains experience. */
+  observe(sim: Sim, e: GameEvent): void;
 }
 
 export interface SimOptions {
@@ -186,6 +188,7 @@ export class Sim {
     this.pending.push(e);
     this.log.push(e);
     if (this.log.length > 500) this.log.shift();
+    this.life?.observe(this, e);
   }
 
   step(a: Actions): void {
@@ -265,18 +268,26 @@ export class Sim {
     if (p.abilityBuffer > 0 && --p.abilityBuffer === 0) p.abilityBufferSlot = 0;
   }
 
-  // The build's resolved modifiers. Recomputed only when the learned set actually changes, so
-  // a frame costs a handful of integer comparisons rather than a walk of the whole tree.
+  /**
+   * The level of each skill in the skill book (src/skills.ts BOOK), which adds to what it does.
+   * The island keeps the experience behind them and sets this; the training yard keeps its own.
+   */
+  levels: Levels = BOOK.map(() => 1);
+
+  // The build's resolved modifiers. Recomputed only when the learned set or a level actually
+  // changes, so a frame costs a handful of integer comparisons rather than a walk of the tree.
   private resolvedFor: SkillSet = [];
+  private resolvedLevels: Levels = BOOK.map(() => 1);
   private resolved: ResolvedSkills = resolveSkills(emptySkills());
 
   get stats(): ResolvedSkills {
     const s = this.player.skills;
-    let same = this.resolvedFor.length === s.length;
+    let same = this.resolvedFor.length === s.length && sameLevels(this.resolvedLevels, this.levels);
     for (let i = 0; same && i < s.length; i++) same = this.resolvedFor[i] === s[i];
     if (!same) {
       this.resolvedFor = [...s];
-      this.resolved = resolveSkills(s);
+      this.resolvedLevels = [...this.levels];
+      this.resolved = resolveSkills(s, this.levels);
     }
     return this.resolved;
   }

@@ -2,7 +2,7 @@
 // button press and an effect going off.
 
 import type { Sim } from '../sim';
-import { ABILITIES, HOTBAR_SLOTS, MOVE, MOVEMENT_SKILLS, MOVEMENT_SLOTS, NO_ABILITY, NO_MOVEMENT, SPECIAL, STEP, abilityCooldown, castFramesFor, movementAction } from '../../tuning';
+import { ABILITIES, HOTBAR_SLOTS, MOVE, MOVEMENT_SLOTS, NO_ABILITY, NO_MOVEMENT, SPECIAL, STEP, abilityCooldown, castFramesFor, movementAction, movementCooldownFor } from '../../tuning';
 import { len, turnToward } from '../math';
 import type { Actions } from '../types';
 import { accelerateToward, input, tryJump } from './locomotion';
@@ -122,7 +122,7 @@ export function endAction(sim: Sim) : void {
   const p = sim.player;
   const id = p.actionId;
   // Cooldowns are per skill, so one moved between Q and E keeps its timer.
-  if (id !== NO_MOVEMENT) p.movementCooldowns[id] = MOVEMENT_SKILLS[id]?.cooldownFrames ?? 0;
+  if (id !== NO_MOVEMENT) p.movementCooldowns[id] = movementCooldownFor(id, sim.stats);
   p.mode = 'normal';
   p.actionId = NO_MOVEMENT;
   p.actionFrame = 0;

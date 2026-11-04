@@ -14,6 +14,8 @@ export interface Objective {
   outpost?: string;
   vehicle?: string;
   seconds?: number;
+  /** defeat: what kind of creature. */
+  kind?: string;
 }
 
 export interface QuestStep {
@@ -27,6 +29,8 @@ export interface QuestRewards {
   labor?: number;
   items?: Array<{ item: string; n: number }>;
   equipGlider?: string;
+  /** Points to spend in the skill tree. */
+  skillPoints?: number;
 }
 
 export interface QuestDef {
@@ -36,6 +40,11 @@ export interface QuestDef {
   after: string[];
   /** Starts by itself as soon as it is available, without talking to anyone. */
   auto?: boolean;
+  /**
+   * A milestone: starts by itself and is done the moment its steps are, with nobody to hand it to.
+   * Kept with the quests so it can count anything a quest can.
+   */
+  milestone?: boolean;
   intro: string;
   steps: QuestStep[];
   turnIn?: string;

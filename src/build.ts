@@ -1,14 +1,16 @@
 import {
+  ADJACENT,
   dependents,
   emptySkills,
   hasSkill,
   learnedIds,
   NODES,
-  requirementsMet,
+  pathTo,
+  reachable,
   resolveSkills,
+  ROOTS,
   SKILL_POINTS,
   skillCount,
-  skillIndex,
   soundTree,
   toSkillSet,
   withSkill,
@@ -18,8 +20,10 @@ import {
 } from './skills';
 import { ABILITIES, DEFAULT_BUILD, emptyHotbar, emptyMovement, HOTBAR_SLOTS, MOVEMENT_SKILLS, MOVEMENT_SLOTS, NO_ABILITY, NO_MOVEMENT, type Build } from './tuning';
 
-// Picking a build: learning skills down the tree, and filling the hotbar from what you've learned.
-// server/src/skills.rs checks the same rules, so a build that passes here is accepted there.
+// Picking a build: learning outward through the tree, and filling the hotbar from what you've
+// learned. server/src/skills.rs checks the same rules, so a build that passes here is accepted
+// there. How many points you may spend depends on where you are: the training yard and the
+// battlefield allow SKILL_POINTS; the open world allows what you've earned (src/sim/life/quests.ts).
 
 export interface NodeInfo {
   index: number;
@@ -30,24 +34,39 @@ export interface NodeInfo {
 
 export const NODE_INFO: NodeInfo[] = NODES.map((node, index) => ({ index, tree: node.tree, id: node.id, node }));
 
-// Where each node sits in its tree's column, for laying the panel out.
-export const rowOf = (info: NodeInfo): number => NODE_INFO.filter((n) => n.tree === info.tree && n.index < info.index).length;
-
 export const has = (b: Build, index: number): boolean => hasSkill(b.skills, index);
 export const pointsUsed = (s: SkillSet): number => skillCount(s);
-export const pointsLeft = (s: SkillSet): number => SKILL_POINTS - skillCount(s);
+export const pointsLeft = (s: SkillSet, budget = SKILL_POINTS): number => budget - skillCount(s);
 
 export const resolve = (b: Build): ResolvedSkills => resolveSkills(b.skills);
 export const weaponsOf = (s: SkillSet): number[] => resolveSkills(s).weapons;
 export const abilitiesOf = (s: SkillSet): number[] => resolveSkills(s).abilities;
 
 // Why a skill can't be learned right now, or null if it can.
-export function learnBlock(b: Build, info: NodeInfo): string | null {
+export function learnBlock(b: Build, info: NodeInfo, budget = SKILL_POINTS): string | null {
   if (has(b, info.index)) return 'Already learned';
-  const missing = info.node.requires.filter((id) => !hasSkill(b.skills, skillIndex(id)));
-  if (missing.length) return `Learn ${missing.map((id) => NODES[skillIndex(id)].name).join(' and ')} first`;
-  if (pointsLeft(b.skills) <= 0) return 'No skill points left';
+  if (!reachable(b.skills, info.index)) {
+    // Name the skills next to it that you could learn now.
+    const next = ADJACENT[info.index].filter((j) => NODES[j].kind === 'skill' && reachable(b.skills, j)).map((j) => NODES[j].name);
+    return next.length ? `Learn ${next.join(' or ')} first` : 'Learn a skill next to it first';
+  }
+  if (pointsLeft(b.skills, budget) <= 0) return 'No skill points left';
   return null;
+}
+
+/** The nodes it takes to get to this one from what you've learned, and what they'd cost. */
+export function planTo(b: Build, info: NodeInfo): number[] {
+  return pathTo(b.skills, info.index);
+}
+
+/** Learns a whole planned path, nearest first; null if any step isn't allowed. */
+export function learnPath(b: Build, path: readonly number[], budget = SKILL_POINTS): Build | null {
+  let out = b;
+  for (const i of path) {
+    if (learnBlock(out, NODE_INFO[i], budget)) return null;
+    out = learn(out, NODE_INFO[i]);
+  }
+  return out;
 }
 
 // Why a skill can't be unlearned, or null if it can. Unlearning also drops anything that needed it.
@@ -133,9 +152,9 @@ export function fixLoadout(b: Build): Build {
   return out;
 }
 
-export function validBuild(b: Build): boolean {
+export function validBuild(b: Build, budget = SKILL_POINTS): boolean {
   if (!Array.isArray(b.skills) || !soundTree(b.skills)) return false;
-  if (pointsUsed(b.skills) > SKILL_POINTS) return false;
+  if (pointsUsed(b.skills) > budget) return false;
   if (!Array.isArray(b.abilities) || b.abilities.length !== HOTBAR_SLOTS) return false;
   if (!Array.isArray(b.movement) || b.movement.length !== MOVEMENT_SLOTS) return false;
   const r = resolveSkills(b.skills);
@@ -175,11 +194,11 @@ export function defaultBuild(): Build {
 }
 
 /** A build as stored (here or on the server), carried forward from older shapes; null if it no longer holds together. */
-export function parseBuild(raw: unknown): Build | null {
+export function parseBuild(raw: unknown, budget = SKILL_POINTS): Build | null {
   if (!raw || typeof raw !== 'object') return null;
   try {
     const b = migrate(raw as Record<string, unknown>);
-    return b && validBuild(b) ? b : null;
+    return b && validBuild(b, budget) ? b : null;
   } catch {
     return null;
   }
@@ -205,11 +224,17 @@ function migrate(raw: Record<string, unknown>): Build | null {
     if (typeof raw.ability1 === 'number') abilities[0] = raw.ability1;
     if (typeof raw.ability2 === 'number') abilities[1] = raw.ability2;
   }
-  // An old set may name skills that have since moved or gone; keep only what still hangs together.
+  // An old set may name skills that have since moved or gone; keep only what still hangs together
+  // back to where the tree starts.
   let kept = emptySkills();
-  for (const info of NODE_INFO) {
-    if (!hasSkill(skills, info.index)) continue;
-    if (requirementsMet(kept, info.index)) kept = withSkill(kept, info.index, true);
+  const queue = ROOTS.filter((r) => hasSkill(skills, r));
+  for (const r of queue) kept = withSkill(kept, r, true);
+  for (let q = 0; q < queue.length; q++) {
+    for (const n of ADJACENT[queue[q]]) {
+      if (hasSkill(kept, n) || !hasSkill(skills, n)) continue;
+      kept = withSkill(kept, n, true);
+      queue.push(n);
+    }
   }
   const movement = Array.isArray(raw.movement) ? [...(raw.movement as number[])] : emptyMovement();
   return fixLoadout({ skills: kept, weapon: raw.weapon, abilities, movement });

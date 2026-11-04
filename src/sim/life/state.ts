@@ -143,6 +143,8 @@ export interface LifeState {
   /** Gathering nodes on cooldown: node index -> world clock when it is back. */
   nodes: Record<string, number>;
   quests: { active: QuestProgress[]; done: string[] };
+  /** Experience of each skill in the skill book, by its id (src/sim/life/progress.ts). */
+  skillXp: Record<string, number>;
   weather: Weather;
   stats: { delivered: number; earned: number; harvested: number; glideSeconds: number; built: number };
   /** Where you wake after a rest; null for the zone's spawn. */
@@ -171,6 +173,7 @@ export function newLifeState(start: { coins: number; labor: number; seed: number
     demand: {},
     nodes: {},
     quests: { active: [], done: [] },
+    skillXp: {},
     weather: { rainUntil: 0, nextRain: 240, windDir: 0.9, windSpeed: 0.8 },
     stats: { delivered: 0, earned: 0, harvested: 0, glideSeconds: 0, built: 0 },
     home: null,
@@ -182,6 +185,7 @@ export function newLifeState(start: { coins: number; labor: number; seed: number
 /** Fills in anything an older save is missing, so saves survive the systems growing. */
 export function migrateLifeState(s: LifeState): LifeState {
   s.ships ??= [];
+  s.skillXp ??= {};
   s.stats ??= { delivered: 0, earned: 0, harvested: 0, glideSeconds: 0, built: 0 };
   return s;
 }

@@ -1,5 +1,5 @@
 {
-  "comment": "The starter questline on Emberholm. Read by src/content/quests.ts. Each quest is offered by `giver` once everything in `after` is done, has steps of objectives counted from events the life systems raise, and is handed in to `turnIn` (the giver unless named). Objective types: talk, reach, plant, harvest, gather, craftPack, deliver, glide, summon, ride, load, placeScarecrow, placeHouse, buildStage, sell, buy.",
+  "comment": "The starter questline on Emberholm, and its milestones. Read by src/content/quests.ts and server/src/life. Each quest is offered by `giver` once everything in `after` is done, has steps of objectives counted from events the life systems raise, and is handed in to `turnIn` (the giver unless named). A milestone starts by itself and is done the moment its steps are. Objective types: talk, reach, plant, harvest, gather, craftPack, deliver, glide, summon, ride, load, placeScarecrow, placeHouse, buildStage, sell, buy, defeat (kind), skillLevel. rewards.skillPoints are points for the skill tree: you have skills.startPoints (tuning.json) plus those of everything you have finished.",
   "quests": [
     {
       "id": "landfall",
@@ -21,6 +21,7 @@
       ],
       "outro": "Good. Every Emberholmer starts with a patch of earth. Here's a scarecrow to mark yours, and seeds to put in it.",
       "rewards": {
+        "skillPoints": 1,
         "coins": 50,
         "items": [
           {
@@ -68,6 +69,7 @@
       ],
       "outro": "Now they grow. Sunroot's quick; barley takes its time. Water them if you like - it hurries them along - and pray for rain.",
       "rewards": {
+        "skillPoints": 1,
         "coins": 40,
         "items": [
           {
@@ -111,6 +113,7 @@
       "turnIn": "ysolde",
       "outro": "Hollis sent you? Then take this - a Wayfarer, my own make. Run off the deck, jump, jump again in the air, then once more to open it. Sprint to dive, crouch to flare. Ride the warm air at the cliff's foot to climb.",
       "rewards": {
+        "skillPoints": 1,
         "items": [
           {
             "item": "glider.wayfarer",
@@ -151,6 +154,7 @@
       "turnIn": "hollis",
       "outro": "Ha! I saw you come over the rooftops. Ysolde will be insufferable. Here - a Charter Seal for your trouble. Seals are what the Registry trades land for.",
       "rewards": {
+        "skillPoints": 1,
         "coins": 60,
         "seals": 1
       }
@@ -176,6 +180,7 @@
       ],
       "outro": "A fine first harvest. Now, produce alone sells for pennies. Tamsin at the workbench can show you how to turn it into real coin.",
       "rewards": {
+        "skillPoints": 1,
         "coins": 40
       }
     },
@@ -201,6 +206,7 @@
       ],
       "outro": "There. Feel that weight? No sprinting, no second jump, no gliding with it. Now take it somewhere that wants it.",
       "rewards": {
+        "skillPoints": 1,
         "coins": 20
       }
     },
@@ -227,6 +233,7 @@
       "turnIn": "dunmore",
       "outro": "Lanternwick sunroot! The cooks will weep. If you mean to make a habit of this, old Bertram in the village builds carts - four crates at a time beats one on your back.",
       "rewards": {
+        "skillPoints": 2,
         "coins": 60,
         "items": [
           {
@@ -276,6 +283,7 @@
       ],
       "outro": "Now you're a trader. Sela at the stables can sell you a donkey for the hills, and Captain Ilsa down at the docks has something for the sea.",
       "rewards": {
+        "skillPoints": 2,
         "coins": 150,
         "seals": 1
       }
@@ -318,6 +326,7 @@
       "turnIn": "pell",
       "outro": "Rowed it yourself? Respect. Come back with a proper sloop and the sea will make you rich.",
       "rewards": {
+        "skillPoints": 2,
         "coins": 120,
         "seals": 2
       }
@@ -353,6 +362,7 @@
       ],
       "outro": "Signed, sealed, and yours - so long as the taxes are paid. Welcome home, neighbour.",
       "rewards": {
+        "skillPoints": 3,
         "coins": 300,
         "items": [
           {
@@ -401,6 +411,7 @@
       ],
       "outro": "Look at her sit in the water! Fill that hold, mind the wind, and Gullrock will make you rich.",
       "rewards": {
+        "skillPoints": 3,
         "coins": 500,
         "seals": 3
       }
@@ -442,6 +453,7 @@
       ],
       "outro": "Fresh eggs! Mara will buy them, or pack them in a Farmhouse Hamper and they'll fetch far more abroad. Take this lamb - the same rules apply.",
       "rewards": {
+        "skillPoints": 1,
         "coins": 60,
         "items": [
           {
@@ -472,8 +484,249 @@
       ],
       "outro": "That's how the big traders do it: they know what's wanted before they pack it. Check the boards here and at Gullrock.",
       "rewards": {
+        "skillPoints": 2,
         "coins": 100,
         "seals": 2
+      }
+    },
+    {
+      "id": "greenThumb",
+      "name": "Green Thumb",
+      "giver": "",
+      "after": [
+        "harvest"
+      ],
+      "auto": true,
+      "milestone": true,
+      "intro": "Anyone can bring in one harvest. Keep at it.",
+      "steps": [
+        {
+          "text": "Harvest 30 crops",
+          "objectives": [
+            {
+              "type": "harvest",
+              "n": 30
+            }
+          ]
+        }
+      ],
+      "outro": "The fields know your hands now.",
+      "rewards": {
+        "skillPoints": 1
+      }
+    },
+    {
+      "id": "skyLegs",
+      "name": "Sky Legs",
+      "giver": "",
+      "after": [
+        "firstFlight"
+      ],
+      "auto": true,
+      "milestone": true,
+      "intro": "Ysolde says the wind only trusts you once you have given it some time.",
+      "steps": [
+        {
+          "text": "Glide for two minutes in all",
+          "objectives": [
+            {
+              "type": "glide",
+              "seconds": 120
+            }
+          ]
+        }
+      ],
+      "outro": "You read the air like a gull.",
+      "rewards": {
+        "skillPoints": 1
+      }
+    },
+    {
+      "id": "packMule",
+      "name": "Pack Mule",
+      "giver": "",
+      "after": [
+        "westward"
+      ],
+      "auto": true,
+      "milestone": true,
+      "intro": "One delivery is luck. Five is a trade.",
+      "steps": [
+        {
+          "text": "Deliver 5 trade packs",
+          "objectives": [
+            {
+              "type": "deliver",
+              "n": 5
+            }
+          ]
+        }
+      ],
+      "outro": "The posts know your face.",
+      "rewards": {
+        "skillPoints": 1
+      }
+    },
+    {
+      "id": "rancher",
+      "name": "Rancher",
+      "giver": "",
+      "after": [
+        "livestock"
+      ],
+      "auto": true,
+      "milestone": true,
+      "intro": "A lamb is a start. A flock is a farm.",
+      "steps": [
+        {
+          "text": "Raise 3 animals",
+          "objectives": [
+            {
+              "type": "raise",
+              "n": 3
+            }
+          ]
+        }
+      ],
+      "outro": "Your pens are never quiet now.",
+      "rewards": {
+        "skillPoints": 1
+      }
+    },
+    {
+      "id": "contractHand",
+      "name": "Contract Hand",
+      "giver": "",
+      "after": [
+        "contracts"
+      ],
+      "auto": true,
+      "milestone": true,
+      "intro": "Dunmore keeps a ledger of who delivers what they promise.",
+      "steps": [
+        {
+          "text": "Complete 5 trade contracts",
+          "objectives": [
+            {
+              "type": "contract",
+              "n": 5
+            }
+          ]
+        }
+      ],
+      "outro": "Your name is good on any ledger.",
+      "rewards": {
+        "skillPoints": 1
+      }
+    },
+    {
+      "id": "wayfarer",
+      "name": "Wayfarer",
+      "giver": "",
+      "after": [
+        "landfall"
+      ],
+      "auto": true,
+      "milestone": true,
+      "intro": "Fields, rise, spire, forest, quarry, strand and the far post: see them all.",
+      "steps": [
+        {
+          "text": "Set foot in every corner of Emberholm",
+          "objectives": [
+            {
+              "type": "reach",
+              "place": "barleybrook",
+              "r": 40
+            },
+            {
+              "type": "reach",
+              "place": "hearthside",
+              "r": 40
+            },
+            {
+              "type": "reach",
+              "place": "windspire",
+              "r": 40
+            },
+            {
+              "type": "reach",
+              "place": "thornwood",
+              "r": 50
+            },
+            {
+              "type": "reach",
+              "place": "quarry",
+              "r": 40
+            },
+            {
+              "type": "reach",
+              "place": "strand",
+              "r": 40
+            },
+            {
+              "type": "reach",
+              "place": "westwatch",
+              "r": 40
+            }
+          ]
+        }
+      ],
+      "outro": "There is no corner of the island you have not walked.",
+      "rewards": {
+        "skillPoints": 1
+      }
+    },
+    {
+      "id": "slimeHunter",
+      "name": "Slime Hunter",
+      "giver": "",
+      "after": [
+        "landfall"
+      ],
+      "auto": true,
+      "milestone": true,
+      "intro": "The meadow slimes leave you be until you start something. Start something.",
+      "steps": [
+        {
+          "text": "Defeat 15 slimes",
+          "objectives": [
+            {
+              "type": "defeat",
+              "kind": "slime",
+              "n": 15
+            }
+          ]
+        }
+      ],
+      "outro": "The meadow is a little quieter.",
+      "rewards": {
+        "skillPoints": 1
+      }
+    },
+    {
+      "id": "practisedHand",
+      "name": "Practised Hand",
+      "giver": "",
+      "after": [
+        "landfall"
+      ],
+      "auto": true,
+      "milestone": true,
+      "intro": "Every skill you use gets better with use. Use them.",
+      "steps": [
+        {
+          "text": "Gain 5 skill levels",
+          "objectives": [
+            {
+              "type": "skillLevel",
+              "n": 5
+            }
+          ]
+        }
+      ],
+      "outro": "Practice made you better.",
+      "rewards": {
+        "skillPoints": 1
       }
     }
   ]

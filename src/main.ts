@@ -47,8 +47,9 @@ import { angleDiff } from './sim/math';
 import { hourOfDay } from './sim/life/weather';
 import { ABILITY_ICONS, WEAPON_ICONS, WEAPON_NAMES } from './ui/icons';
 import type { MarkerKind } from './render/hud';
-import { resolveSkills, type ResolvedSkills } from './skills';
-import { SkillTreePanel } from './ui/skillTree';
+import { BOOK, levelOf, levelsFrom, resolveSkills, sameLevels, SKILL_POINTS, type ResolvedSkills } from './skills';
+import { SkillsPanel } from './ui/skills/panel';
+import { skillBudget, trainedBy } from './sim/life/progress';
 import { ABILITIES, abilityRadius, AIM, MOVEMENT_SKILLS, CAMERA, castFramesFor, comboFor, COMBAT, DUMMY, groundRange, isGroundTargeted, NO_ABILITY, STEP, type Build } from './tuning';
 import './ui/theme/theme.css';
 import './ui/theme/hud.css';
@@ -212,9 +213,10 @@ if (online && lifeUI) lifeUI.playerName = online.account.username;
 // and all of you in the character window. Kept a few seconds, then taken again.
 const portraits = new Portraits(stage.renderer, stage.scene);
 const HEAD = 1.45;
-if (lifeUI && world.zone) {
-  const zone = world.zone;
-  lifeUI.portraitOf = (who) => {
+const zone = world.zone;
+/** A picture from the live scene: 'player' (your face), 'body' (all of you) or an NPC's id. */
+function portraitOf(who: string): string | null {
+  {
     const shot = portraits.get(who);
     const fresh = who === 'player' ? 4000 : who === 'body' ? 800 : 1500;
     if (!shot || shot.age > fresh) {
@@ -229,7 +231,7 @@ if (lifeUI && world.zone) {
         if (who === 'player') portraits.request(who, up(at, HEAD + 0.05).addScaledVector(fwd, 1.3), up(at, HEAD), 128, 128, 1);
         else portraits.request(who, up(at, 1.0).addScaledVector(fwd, 4.2), up(at, 0.92), 214, 300, 1);
       } else {
-        const n = zone.recipe.npcs.find((x) => x.id === who);
+        const n = zone?.recipe.npcs.find((x) => x.id === who);
         if (n) {
           const ground = terrain ? terrain.height(n.x, n.z) : 0;
           const head = new THREE.Vector3(n.x, ground + HEAD, n.z);
@@ -241,8 +243,9 @@ if (lifeUI && world.zone) {
       }
     }
     return shot?.url ?? null;
-  };
+  }
 }
+if (lifeUI) lifeUI.portraitOf = portraitOf;
 if (peers && lifeUI) lifeUI.others = () => peers.list();
 // Online the game server runs your island and keeps it (server/src/world_game.rs): your commands go
 // to it, and what it says your island holds replaces this copy as it arrives. ?fresh starts it
@@ -308,9 +311,46 @@ function rideCamera(dt: number, now: number): void {
   }
 }
 input.onDeviceChange = (d) => hud.setDevice(d);
-const panel = new SkillTreePanel(build);
+// The training yard keeps the experience of its skills in this browser; the open world keeps it
+// with your island (src/sim/life/progress.ts).
+const YARD_XP = 'yggdrasil.skillxp';
+const yardXp: Record<string, number> = (() => {
+  try {
+    const v = JSON.parse(localStorage.getItem(YARD_XP) ?? '{}');
+    return v && typeof v === 'object' ? v : {};
+  } catch {
+    return {};
+  }
+})();
+let yardSaved = 0;
+function yardTrain(e: GameEvent): void {
+  const b = trainedBy(e, sim.player.weapon);
+  if (b < 0) return;
+  const id = BOOK[b].id;
+  const before = levelOf(yardXp[id] ?? 0);
+  yardXp[id] = (yardXp[id] ?? 0) + 1;
+  if (levelOf(yardXp[id]) > before || performance.now() - yardSaved > 3000) {
+    yardSaved = performance.now();
+    try {
+      localStorage.setItem(YARD_XP, JSON.stringify(yardXp));
+    } catch {
+      /* storage unavailable */
+    }
+  }
+}
+if (!life) sim.levels = levelsFrom(yardXp);
+/** Points you may have in the tree: earned on the island, a training budget elsewhere. */
+const skillPoints = () => (life ? skillBudget(life.state) : SKILL_POINTS);
+const panel = new SkillsPanel(build, {
+  budget: skillPoints,
+  budgetNote: () => (life ? 'Earned from quests and milestones' : 'Training yard: points to try builds with'),
+  xp: () => (life ? life.state.skillXp ?? {} : yardXp),
+  levels: () => sim.levels,
+  portrait: () => portraitOf('player'),
+  device: () => input.lastDevice,
+});
 panel.onChange = applyBuild;
-hud.onSkillsClick = () => panel.toggle();
+hud.onSkillsClick = () => panel.toggle('book');
 // Rearranging the bar in play, without opening the panel.
 hud.onSwapSlots = (from, to) => applyBuild(swapSlots(build, from, to));
 const DEG = Math.PI / 180;
@@ -715,6 +755,11 @@ function stepOnce(actions: Actions): void {
     events = events.concat(local, netSpells.step(STEP, sim.frame, enemyAt));
   }
   for (const e of events) showEvent(e);
+  if (!life && !net) {
+    for (const e of events) yardTrain(e);
+    const lv = levelsFrom(yardXp);
+    if (!sameLevels(lv, sim.levels)) sim.levels = lv;
+  }
   const le = life ? life.drainEvents() : [];
   bugs?.step(sim.frame, actions, events, le);
   if (life) {
@@ -861,7 +906,7 @@ function drawAbilityBar(): void {
       downFrame: p.downFrame,
     },
     input.lastDevice,
-    pointsLeft(build.skills),
+    pointsLeft(build.skills, skillPoints()),
     {
       weapon: [WEAPON_ICONS[p.weapon] ?? '', WEAPON_NAMES[p.weapon] ?? ''],
       ability: (a) => (a === NO_ABILITY || !ABILITIES[a] ? null : [ABILITY_ICONS[a], ABILITIES[a].name]),
@@ -1024,22 +1069,30 @@ function frame(now: number): void {
     // stand still. With a keyboard and mouse you can walk with a window open (walking away from
     // whoever you're talking to closes it). The skill panel and the map take every device.
     const padToMenu = panel.isOpen || (!!lifeUI?.takesPad && input.lastDevice === 'gamepad');
-    // Open-world keys first, so a panel they open takes this frame's input.
+    // Open-world keys first, so a panel they open takes this frame's input. The skill book and
+    // tree sit over everything while they're open, so the world's keys wait.
     if (lifeUI) {
-      for (const k of input.pollLife(padToMenu)) {
-        bugs?.note('key', { type: k });
-        lifeUI.press(k);
+      const keys = input.pollLife(padToMenu);
+      if (!panel.isOpen) {
+        for (const k of keys) {
+          bugs?.note('key', { type: k });
+          lifeUI.press(k);
+        }
       }
     }
-    // The skill panel takes the controller while it's open (the world carries on around you).
     const menuOpen = padToMenu || !!lifeUI?.modal;
     for (const m of input.pollMenu()) {
       bugs?.note('menu', { type: m });
-      // An open life panel (dialog, shop, bag...) takes the D-pad and A / B first.
+      if (panel.isOpen) {
+        panel.menu(m);
+        continue;
+      }
+      // An open life panel (dialog, shop, bag...) takes the D-pad and A / B next.
       if (lifeUI?.menu(m)) continue;
-      if (panel.isOpen) panel.menu(m);
-      else if (m === 'toggle' && (!net || playing)) panel.open();
+      if (m === 'toggle' && (!net || playing)) panel.open('book');
+      else if (m === 'tree' && (!net || playing)) panel.open('tree');
     }
+    panel.tick();
     if (menuOpen && !panel.isOpen && !lifeUI?.modal && !(lifeUI?.takesPad && input.lastDevice === 'gamepad')) input.swallowHeld();
     const cam = input.pollCamera(dt);
     syncNet();
@@ -1215,13 +1268,30 @@ const api = {
   },
   // The skill panel: whether it's open and whether it's waiting for a hotbar slot.
   panel() {
-    return { open: panel.isOpen, assigning: panel.isAssigning, abilities: [...build.abilities] };
+    return { ...panel.state(), abilities: [...build.abilities] };
   },
-  panelFocus(row: number, col: number): void {
-    panel.setFocus(row, col);
+  /** Puts the skill book's cursor on a skill (by id) or a slot, or the tree's on a node. */
+  panelFocus(where: { book?: string; slot?: number; move?: number; node?: string }): void {
+    panel.setFocus(where);
   },
-  openPanel(): void {
-    panel.open();
+  openPanel(view: 'book' | 'tree' = 'book'): void {
+    panel.open(view);
+  },
+  /** Plans the way to a tree node and learns it, as clicking it and Learn would. */
+  learnNode(id: string): boolean {
+    return panel.learnNode(id);
+  },
+  selectBook(id: string): void {
+    panel.selectBook(id);
+  },
+  /** Skill points, levels and experience, as the book shows them. */
+  skills() {
+    return {
+      budget: skillPoints(),
+      left: pointsLeft(build.skills, skillPoints()),
+      levels: Object.fromEntries(BOOK.map((b, i) => [b.id, sim.levels[i] ?? 1])),
+      xp: { ...(life ? (life.state.skillXp ?? {}) : yardXp) },
+    };
   },
   // What a drag between two hotbar slots ends up doing.
   swapSlots(a: number, b: number): void {
@@ -1360,7 +1430,7 @@ const api = {
     if (on) for (const a of sim.actors.all()) a.angry = 0;
   },
   skillPanel(open?: boolean): boolean {
-    if (open === true && !panel.isOpen) panel.open();
+    if (open === true && !panel.isOpen) panel.open('book');
     if (open === false && panel.isOpen) panel.close();
     return panel.isOpen;
   },
@@ -1501,7 +1571,7 @@ function bugSnapshot(): Record<string, unknown> {
     device: input.lastDevice,
     player: p,
     camera: { yaw: r3(follow.yaw), pitch: r3(follow.pitch), distance: r2(follow.distance), eye: [r2(eye.x), r2(eye.y), r2(eye.z)] },
-    panels: { life: api.lifePanel(), skillTree: panel.isOpen, aimingSlot },
+    panels: { life: api.lifePanel(), skills: panel.isOpen ? panel.view : null, aimingSlot },
     target: mark ? { name: mark.name, hp: mark.hp, x: r2(mark.x), z: r2(mark.z), locked: lockOn.locked } : null,
     riding: life && p.mode === 'ride' ? (ridden(life, sim) ?? null) : null,
     nearby: sim.actors
@@ -1543,7 +1613,7 @@ function bugSample(): Record<string, unknown> {
   }
   const lp = api.lifePanel();
   if (lp) s.panel = lp;
-  else if (panel.isOpen) s.panel = 'skill tree';
+  else if (panel.isOpen) s.panel = panel.view === 'tree' ? 'skill tree' : 'skill book';
   return s;
 }
 

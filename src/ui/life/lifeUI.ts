@@ -273,8 +273,10 @@ export class LifeUI {
    * Menu presses (D-pad, stick, A / B, arrow keys) while a window is open: move the highlight over
    * its buttons, press the highlighted one, or close. Returns false when no window took it.
    */
-  menu(m: 'toggle' | 'up' | 'down' | 'left' | 'right' | 'select' | 'back' | 'reset'): boolean {
+  menu(m: 'toggle' | 'up' | 'down' | 'left' | 'right' | 'select' | 'back' | 'reset' | 'tab' | 'tree'): boolean {
     if (!this.panel && !this.bagOpen) return false;
+    // The skill book and tree have their own keys, open window or not.
+    if (m === 'tab' || m === 'tree' || m === 'toggle') return false;
     if (m === 'back') {
       if (this.panel) this.close();
       else this.closeBag();
@@ -626,6 +628,7 @@ export class LifeUI {
     const place = (id: string) => r.places.find((pl) => pl.id === id);
     for (const qp of life.state.quests.active) {
       const q = questDef(qp.id);
+      if (q.milestone) continue; // something to work toward, not somewhere to go
       if (qp.step >= q.steps.length) {
         const n = npc(q.turnIn ?? q.giver);
         if (n) return { x: n.x, z: n.z, label: n.name };
@@ -705,6 +708,7 @@ export class LifeUI {
     const parts: string[] = [];
     for (const qp of life.state.quests.active) {
       const q = questDef(qp.id);
+      if (q.milestone) continue; // the log keeps those
       if (qp.step >= q.steps.length) {
         const who = life.zone.recipe.npcs.find((n) => n.id === (q.turnIn ?? q.giver))?.name ?? '';
         parts.push(`<div class="q ready"><div class="qt"><i></i>${esc(q.name)}</div><div class="step">Return to ${esc(who)}</div></div>`);
@@ -989,9 +993,12 @@ export class LifeUI {
   private objectives(q: QuestDef, qp?: { step: number; counts: number[] }): string {
     return `<ul class="q-objs">${q.steps
       .map((s, i) => {
+        // One objective counts up; several (places to see) count how many are done.
+        const many = s.objectives.length > 1;
         const o = s.objectives[0];
-        const t = o ? objectiveTarget(o) : 1;
-        const have = qp ? (i < qp.step ? t : i === qp.step ? Math.floor(qp.counts[0] ?? 0) : 0) : 0;
+        const t = many ? s.objectives.length : o ? objectiveTarget(o) : 1;
+        const now = many && qp && i === qp.step ? s.objectives.filter((x, k) => (qp.counts[k] ?? 0) >= objectiveTarget(x)).length : Math.floor(qp?.counts[0] ?? 0);
+        const have = qp ? (i < qp.step ? t : i === qp.step ? now : 0) : 0;
         const done = !!qp && i < qp.step;
         const count = t > 1 ? ` <b>${have}/${t}</b>${qp && i === qp.step ? `<div class="q-bar"><i style="width:${Math.min(100, (have / t) * 100)}%"></i></div>` : ''}` : '';
         return `<li class="${done ? 'done' : ''}">${esc(s.text)}${count}</li>`;
@@ -1286,23 +1293,32 @@ export class LifeUI {
 
   private logView(): View {
     const life = this.life;
-    const active = life.state.quests.active;
-    if (!this.logSel || !active.some((q) => q.id === this.logSel)) this.logSel = active[0]?.id ?? '';
+    const all = life.state.quests.active;
+    const active = all.filter((qp) => !questDef(qp.id).milestone);
+    const milestones = all.filter((qp) => questDef(qp.id).milestone);
+    if (!this.logSel || !all.some((q) => q.id === this.logSel)) this.logSel = active[0]?.id ?? milestones[0]?.id ?? '';
+    const row = (qp: { id: string }) =>
+      `<div class="ql-q${qp.id === this.logSel ? ' sel' : ''}${isReady(life, qp.id) ? ' ready' : ''}" data-act="logsel" data-arg="${qp.id}"><i class="dot"></i>${esc(questDef(qp.id).name)}</div>`;
+    const done = life.state.quests.done;
     const list =
       `<div class="ql-zone"><span>${esc(life.zone.recipe.name)}</span><span>${active.length}</span></div>` +
-      active.map((qp) => `<div class="ql-q${qp.id === this.logSel ? ' sel' : ''}${isReady(life, qp.id) ? ' ready' : ''}" data-act="logsel" data-arg="${qp.id}"><i class="dot"></i>${esc(questDef(qp.id).name)}</div>`).join('') +
-      `<div class="ql-zone" style="margin-top:14px"><span>Completed</span><span>${life.state.quests.done.length}</span></div>` +
-      life.state.quests.done.map((id) => `<div class="ql-q done"><i class="dot done"></i>${esc(questDef(id).name)}<small>✓ done</small></div>`).join('');
+      active.map(row).join('') +
+      (milestones.length ? `<div class="ql-zone" style="margin-top:14px"><span>Milestones</span><span>${milestones.length}</span></div>` + milestones.map(row).join('') : '') +
+      `<div class="ql-zone" style="margin-top:14px"><span>Completed</span><span>${done.length}</span></div>` +
+      done.map((id) => `<div class="ql-q done"><i class="dot done"></i>${esc(questDef(id).name)}<small>✓ ${questDef(id).milestone ? 'milestone' : 'done'}</small></div>`).join('');
     let page = '<p class="muted">No quests under way. Look for people with a gold mark over their heads.</p>';
-    const qp = active.find((x) => x.id === this.logSel);
+    const qp = all.find((x) => x.id === this.logSel);
     if (qp) {
       const q = questDef(qp.id);
       const who = life.zone.recipe.npcs.find((n) => n.id === (q.turnIn ?? q.giver))?.name ?? '';
-      page = `<h2 class="q-title">${esc(q.name)}</h2><p class="q-story">${dropcap(q.intro)}</p><div class="h">Objectives</div>${this.objectives(q, qp)}${isReady(life, q.id) ? `<p style="margin-top:6px;color:var(--good);font-weight:700">Ready: return to ${esc(who)}.</p>` : ''}${this.rewards(q)}`;
+      const kind = q.milestone ? '<div class="sd-type">Milestone · done the moment you get there</div>' : '';
+      page = `<h2 class="q-title">${esc(q.name)}</h2>${kind}<p class="q-story">${dropcap(q.intro)}</p><div class="h">Objectives</div>${this.objectives(q, qp)}${isReady(life, q.id) ? `<p style="margin-top:6px;color:var(--good);font-weight:700">Ready: return to ${esc(who)}.</p>` : ''}${this.rewards(q)}`;
     }
+    const quests = QUESTS.filter((q) => !q.milestone);
+    const doneQuests = done.filter((id) => !questDef(id).milestone).length;
     return {
       title: 'Quest Log',
-      sub: `${life.state.quests.done.length} of ${QUESTS.length} complete`,
+      sub: `${doneQuests} of ${quests.length} quests · ${done.length - doneQuests} of ${QUESTS.length - quests.length} milestones`,
       portrait: `<span class="emoji">${pixelIcon('scroll', 40)}</span>`,
       w: 700,
       h: 520,

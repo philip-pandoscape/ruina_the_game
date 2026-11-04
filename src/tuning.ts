@@ -258,6 +258,12 @@ const STAT_ABILITY_AMOUNT = statIndex('ability.amount');
 const STAT_ABILITY_COOLDOWN = statIndex('ability.cooldown');
 const STAT_MELEE_TARGETS = statIndex('melee.maxTargets');
 const STAT_PIERCE = statIndex('projectile.pierce');
+const STAT_MOVE_COOLDOWN = statIndex('movement.cooldown');
+
+/** Frames before a movement skill can be used again: its own, as the tree and its level change it. */
+export function movementCooldownFor(id: number, r: ResolvedSkills): number {
+  return applyFrames(r.move[id]?.[STAT_MOVE_COOLDOWN], MOVEMENT_SKILLS[id]?.cooldownFrames ?? 0);
+}
 
 export function castFramesFor(ability: number, r: ResolvedSkills): number {
   const a = ABILITIES[ability];

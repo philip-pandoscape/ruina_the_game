@@ -13,6 +13,8 @@ import { stepVehicles, rideVehicle } from './vehicles';
 import { startQuests, stepQuests, type QuestEvent, notifyQuests } from './quests';
 import { findFocus, keepResting, runCommand, type Focus, type Placement } from './interact';
 import { stepHousing } from './housing';
+import { observe, syncLevels } from './progress';
+import type { GameEvent } from '../types';
 import { stepContracts } from './contracts';
 
 // The open-world systems as one thing the Sim carries: trade, farming, housing, vehicles,
@@ -156,9 +158,16 @@ export class Life implements LifeHooks {
     rideVehicle(this, sim, a);
   }
 
+  observe(sim: Sim, e: GameEvent): void {
+    // Online the server counts what you do; this copy only shows what it says.
+    if (this.remote) return;
+    observe(this, sim, e);
+  }
+
   step(sim: Sim, a: Actions): void {
     this.sim = sim;
     const s = this.state;
+    syncLevels(this, sim);
     // Keep the glider you own on your back.
     if (sim.player.glider !== s.glider) sim.player.glider = s.glider;
 

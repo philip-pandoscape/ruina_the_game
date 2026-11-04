@@ -226,7 +226,7 @@ test('the controller assigns with Y then a trigger and a face button, and B back
   await ready(page);
   await page.evaluate((b) => (window as any).__game.setBuild(b), CASTER);
 
-  // View opens the panel, then move the cursor onto a learned ability and press Y.
+  // View opens the skill book, then move the cursor onto a learned ability and press Y.
   await pad.tap(PAD.VIEW);
   await page.waitForFunction(() => (window as any).__game.panel().open === true, null, { timeout: 4000, polling: 'raf' });
 
@@ -239,10 +239,10 @@ test('the controller assigns with Y then a trigger and a face button, and B back
     throw new Error('assignment never started');
   };
 
-  // Focus starts on the first tree's top skill; walk down to Meteor in the staff tree.
+  // Put the book's cursor on Meteor.
   await page.evaluate(() => {
     const g = (window as any).__game;
-    g.panelFocus(1, 2); // row 1 (Meteor), col 2 (staff tree)
+    g.panelFocus({ book: 'meteor' });
   });
   await startAssigning();
 
