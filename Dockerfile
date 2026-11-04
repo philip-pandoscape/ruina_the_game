@@ -36,8 +36,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates
 COPY --from=build /app/server/target/release/yggdrasil-server /usr/local/bin/yggdrasil-server
 ENV PORT=7777
 EXPOSE 7777
-# No battlefield by default: it simulates thousands of fighters around the clock. --bots 10000 for one.
-CMD ["yggdrasil-server", "--bots", "0"]
+# No battlefield by default: it simulates thousands of fighters around the clock. Drop --battle off for one.
+CMD ["yggdrasil-server", "--battle", "off"]
 
 # ---------- What Railway runs: the server plus the built game ----------
 FROM server AS app

@@ -89,7 +89,7 @@ async fn health(State(app): State<App>) -> Json<serde_json::Value> {
 
 async fn battle(State(app): State<App>, ws: WebSocketUpgrade) -> Response {
     let Some(b) = &app.battle else {
-        return (StatusCode::NOT_FOUND, "this server runs no battlefield (start it with --bots)").into_response();
+        return (StatusCode::NOT_FOUND, "this server runs no battlefield (it was started with --battle off)").into_response();
     };
     let (registry, welcome) = (b.registry.clone(), b.welcome.clone());
     ws.on_upgrade(move |socket| net::handle(socket, registry, welcome))

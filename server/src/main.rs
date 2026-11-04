@@ -1,7 +1,7 @@
 //! The game server. On one port (server/src/http.rs):
 //!   - accounts and the open world, Emberholm, kept in Postgres (when DATABASE_URL is set)
 //!   - the PvP battlefield: thousands of fighters simulated at a fixed tick rate, each connected
-//!     player streamed a personal update (when --bots is above 0)
+//!     player streamed a personal update (unless started with --battle off)
 //!   - the game's built files (with --static or STATIC_DIR; in development Vite serves them)
 //!
 //!   cargo run --release -- --bots 10000 --virtual-clients 10000 --port 7777 --hz 20
@@ -36,7 +36,9 @@ const LEAN_DAMPING: f64 = 7.0;
 use yggdrasil_server::world::{battlefield, SEED};
 
 struct Args {
-    /// Fighters on the battlefield; 0 runs no battlefield at all.
+    /// Run the battlefield at all (--battle off for a server that only hosts the open world).
+    battle: bool,
+    /// Fighters on the battlefield (at least 2).
     bots: usize,
     virtual_clients: usize,
     port: u16,
@@ -51,12 +53,13 @@ struct Args {
 fn parse_args() -> Args {
     let env_port = std::env::var("PORT").ok().and_then(|p| p.parse().ok());
     let static_dir = std::env::var_os("STATIC_DIR").filter(|d| !d.is_empty()).map(PathBuf::from);
-    let mut a = Args { bots: 10_000, virtual_clients: 0, port: env_port.unwrap_or(7777), hz: 20, slimes: 0, static_dir };
+    let mut a = Args { battle: true, bots: 10_000, virtual_clients: 0, port: env_port.unwrap_or(7777), hz: 20, slimes: 0, static_dir };
     let argv: Vec<String> = std::env::args().collect();
     let mut i = 1;
     while i + 1 < argv.len() {
         let v = &argv[i + 1];
         match argv[i].as_str() {
+            "--battle" => a.battle = v != "off",
             "--bots" => a.bots = v.parse().expect("--bots needs a number"),
             "--virtual-clients" => a.virtual_clients = v.parse().expect("--virtual-clients needs a number"),
             "--port" => a.port = v.parse().expect("--port needs a number"),
@@ -67,9 +70,7 @@ fn parse_args() -> Args {
         }
         i += 2;
     }
-    if a.bots > 0 {
-        a.bots = a.bots.clamp(2, 65_535);
-    }
+    a.bots = a.bots.clamp(2, 65_535);
     a.hz = a.hz.clamp(1, 60);
     a
 }
@@ -80,7 +81,7 @@ fn main() {
     let dev_login = std::env::var("DEV_LOGIN").is_ok_and(|v| v == "1") && !on_railway;
     let secure_cookies = on_railway || std::env::var("COOKIE_SECURE").is_ok_and(|v| v == "1");
 
-    let battle = if args.bots > 0 {
+    let battle = if args.battle {
         let registry: Registry = Arc::new(Mutex::new(Vec::new()));
         let welcome = Bytes::from(protocol::welcome(args.bots, args.hz, FIELD));
         println!(
@@ -99,7 +100,7 @@ fn main() {
             .expect("start sim thread");
         Some(http::Battle { registry, welcome })
     } else {
-        println!("battlefield: off (--bots 0)");
+        println!("battlefield: off (--battle off)");
         None
     };
 
