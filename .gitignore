@@ -6,3 +6,6 @@ screenshots/
 server/target/
 scratch/
 /bugs/
+# Local secrets (Railway keys and the like): never committed.
+.env
+.env.*

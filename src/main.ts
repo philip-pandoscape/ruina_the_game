@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { loadBuild, pointsLeft, saveBuild, swapSlots, validBuild } from './build';
+import { defaultBuild, loadBuild, parseBuild, pointsLeft, saveBuild, swapSlots, validBuild } from './build';
 import { CROWD_TICK, CrowdSim } from './crowd/crowdSim';
 import { CrowdView, type CrowdSource } from './crowd/crowdView';
 import { Input } from './input/input';
@@ -29,7 +29,10 @@ import { groundAt } from './sim/zone/colliders';
 import { Life } from './sim/life/life';
 import { LifeView } from './render/open/life';
 import { LifeUI } from './ui/life/lifeUI';
-import { clearLife, loadLife, saveData, saveLife } from './app/save';
+import { applySave, clearLife, islandData, loadLife, saveData, saveLife } from './app/save';
+import { goOnline } from './app/online';
+import { signOut } from './net/account';
+import { OnlineBadge, showStopped } from './ui/signIn';
 import { BugReporter } from './app/bugs/reporter';
 import { installLogCapture } from './app/bugs/logs';
 import { dismount, ridden } from './sim/life/vehicles';
@@ -47,14 +50,18 @@ import { ABILITIES, abilityRadius, AIM, MOVEMENT_SKILLS, CAMERA, castFramesFor, 
 //   ?test          start paused so automated tests can step the game frame by frame
 //   ?raid=10000    raid stress test: two armies of fighters on a big battlefield
 //   &outline=0     raid without character outlines (to compare speed)
-//   ?server=ws://localhost:7777   play on the Rust battle server (server/)
+//   ?server=ws://localhost:7777   play on the Rust battle server's battlefield (server/)
 //     &team=0|1    which side to join (default: whichever the server picks)
 //     &play=0      just watch instead of joining
 //     &lag=150     testing: ask the server to delay this connection by 150 ms each way
 //   &softlock=0    turn off the automatic target pick; Tab still works
-//   (none)         the open world: Emberholm, the starter isle
-//   ?yard          the old training yard (also what ?test opens, unless ?world is given too)
-//   ?world&test    the open world, paused for automated tests
+//   (none)         the open world: Emberholm, the starter isle, played on the game server: sign in
+//                  first, and your island is kept there (src/app/online.ts)
+//     &as=name     development servers: sign straight in as name (a new account if it's new)
+//     &fresh       start your island over
+//   ?yard          the old training yard, offline (also what ?test opens, unless ?world is given too)
+//   ?world&test    the open world, offline and paused for automated tests (&load: the island
+//                  kept in this browser, for bug-report replays)
 //   ?bugs=0        no bug reporter (\ records a bug report; tests turn it on with &bugs)
 //   &bugspeech=0   bug reports without live transcription; &buglang=en-GB to change its language
 // Console output and errors are kept from here on, for bug reports.
@@ -69,6 +76,10 @@ const openWorld = !battlefield && !yardMode;
 const team = params.has('team') ? Number(params.get('team')) & 1 : 255;
 const lagMs = Math.max(0, Math.min(2000, Number(params.get('lag')) || 0));
 
+// Emberholm is played on the game server: sign in, and it hands over your island and build, and
+// keeps them from then on. Automated tests and the training yard stay offline.
+const online = openWorld && !testMode ? await goOnline(params) : null;
+
 const canvas = document.getElementById('game') as HTMLCanvasElement;
 const world = battlefield ? makeBattlefield() : openWorld ? makeZoneWorld() : makeWorld();
 const terrain = world.terrain ?? null;
@@ -76,8 +87,9 @@ const terrain = world.terrain ?? null;
 const groundY = (x: number, z: number): number => (terrain ? terrain.height(x, z) : 0);
 // Online, the server decides hits, so the local rules run without the training dummy and hit pause.
 const sim = new Sim(world, { training: !serverUrl });
-// Your skills and loadout, kept between visits. Online, the server checks it and sends it back.
-let build: Build = loadBuild();
+// Your skills and loadout, kept between visits: with your character on the game server in the open
+// world, in this browser elsewhere. On the battlefield, the server checks it and sends it back.
+let build: Build = online ? (parseBuild(online.welcome.build) ?? defaultBuild()) : loadBuild();
 sim.setBuild(build);
 const range = serverUrl ? null : new TrainingRange(sim);
 const models = openWorld ? await loadModels() : {};
@@ -166,17 +178,27 @@ if (terrain) vfx.ground = groundY;
 const lifeView = life ? new LifeView(stage.scene, life, models, hero) : null;
 if (lifeView && openStage) lifeView.onGroundChanged = () => openStage.foliage.invalidate();
 const lifeUI = life ? new LifeUI({ life, sim, world, camera: () => follow.camera, yaw: () => follow.yaw, device: () => input.lastDevice }) : null;
-// Your island is kept in this browser between visits (never in automated tests). ?fresh starts over.
-const saving = !!life && !testMode;
+// Your island is kept on the game server: sent every few seconds and whenever you leave the tab.
+// ?fresh starts it over. Automated tests start a fresh island every time, unless they ask for the
+// one kept in this browser (?world&test&load, which is how bug reports are replayed).
+const saving = !!life && !!online;
+// True once saving must stop: starting over, signed out, or another window took the character.
 let resetting = false;
-if (life && saving) {
-  if (params.has('fresh')) clearLife();
-  else loadLife(life, sim);
+if (life && online) {
+  const w = online.welcome;
+  if (params.has('fresh')) void online.link.reset();
+  else if (w.island) applySave(life, sim, { ...w.island, savedAt: w.savedAt ?? w.now }, w.now);
 }
-// Tests can ask for the saved island explicitly (?world&test&load).
 if (life && testMode && params.has('load')) loadLife(life, sim);
 let lastSave = performance.now();
-if (saving) addEventListener('pagehide', () => resetting || saveLife(life!, sim));
+/** Sends the island to the game server (online play only). */
+function saveIsland(): void {
+  if (life && online && !resetting) online.link.save(islandData(life, sim));
+}
+if (saving) {
+  addEventListener('pagehide', saveIsland);
+  document.addEventListener('visibilitychange', () => document.hidden && saveIsland());
+}
 
 /** Moves you somewhere (the dev panel and tests), off whatever you were riding. */
 function teleport(x: number, z: number, facing = sim.player.facing): void {
@@ -195,9 +217,10 @@ function teleport(x: number, z: number, facing = sim.player.facing): void {
 }
 if (lifeUI) {
   lifeUI.onTeleport = (x, z) => teleport(x, z);
-  lifeUI.onReset = () => {
+  lifeUI.onReset = async () => {
     resetting = true;
-    clearLife();
+    if (online) await online.link.reset();
+    else clearLife();
     location.replace(location.pathname);
   };
 }
@@ -276,7 +299,8 @@ if (net && !playing) hud.hideAbilities();
 // A new build from the skill panel: save it, and use it (online, the server switches you over).
 function applyBuild(b: Build): void {
   build = b;
-  saveBuild(b);
+  if (online) online.link.saveBuild(b);
+  else saveBuild(b);
   if (net) net.sendBuild(b.skills, b.weapon, b.abilities, b.movement);
   if (netSpells) netSpells.stats = resolveSkills(b.skills);
   else sim.setBuild(b);
@@ -893,9 +917,9 @@ function frame(now: number): void {
       if (cam.dYaw !== 0 || cam.dPitch !== 0) lastCameraTouch = now;
     }
     if (life) rideCamera(dt, now);
-    if (saving && !resetting && now - lastSave > 5000) {
+    if (saving && now - lastSave > 5000) {
       lastSave = now;
-      saveLife(life!, sim);
+      saveIsland();
     }
     acc += dt;
     let steps = 0;
@@ -1233,12 +1257,18 @@ const api = {
     });
     return out;
   },
-  /** Writes the save now (tests; normal play saves every few seconds). */
+  /** Writes the save now (tests; normal play saves every few seconds): to the server online, to this browser in tests. */
   saveNow(): void {
-    if (life) saveLife(life, sim);
+    if (online) saveIsland();
+    else if (life) saveLife(life, sim);
   },
   clearSave(): void {
-    clearLife();
+    if (online) void online.link.reset();
+    else clearLife();
+  },
+  /** Online play: who you are and the connection (null offline). */
+  online() {
+    return online ? { account: online.account.username, character: online.welcome.character, status: online.link.status, lastSaved: online.link.lastSaved } : null;
   },
   /** Which life panel is open, if any. */
   lifePanel(): string | null {
@@ -1346,4 +1376,30 @@ if (testMode ? params.has('bugs') : params.get('bugs') !== '0') {
     lifeUI.onBugReport = () => bugs?.toggle();
     lifeUI.bugKey = () => bugs?.key ?? '\\';
   }
+}
+
+// ---------- The game server ----------
+// Set up last, once everything it touches exists. The badge shows who you are and whether the
+// server is there; play stops if another window takes this character or the sign-in ends.
+
+if (online) {
+  const { link } = online;
+  const badge = new OnlineBadge(online.account.username, async () => {
+    saveIsland();
+    resetting = true;
+    await signOut();
+    location.replace(location.pathname);
+  });
+  const stopIf = (s: typeof link.status) => {
+    badge.set(s);
+    if (s === 'kicked' || s === 'signed-out') {
+      resetting = true;
+      paused = true;
+      showStopped(s);
+    }
+  };
+  link.onStatus = stopIf;
+  link.onReconnect = saveIsland;
+  link.onError = (text) => life?.toast(text, 'bad');
+  stopIf(link.status);
 }

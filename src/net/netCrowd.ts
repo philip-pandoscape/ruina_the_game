@@ -266,8 +266,12 @@ export class NetCrowd implements CrowdSource {
   private messages = 0;
   private rateStart = performance.now();
 
-  constructor(private url: string) {
-    this.ws = new WebSocket(url);
+  private url: string;
+
+  constructor(url: string) {
+    // The battlefield lives at /ws/battle on the game server; a bare ws://host:port means it.
+    this.url = /^wss?:\/\/[^/]+\/?$/.test(url) ? `${url.replace(/\/$/, '')}/ws/battle` : url;
+    this.ws = new WebSocket(this.url);
     this.ws.binaryType = 'arraybuffer';
     this.ws.onopen = () => (this.connected = this.everConnected = true);
     this.ws.onclose = () => {

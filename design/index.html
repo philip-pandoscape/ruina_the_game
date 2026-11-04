@@ -430,7 +430,7 @@ kbd { font: 600 0.74rem/1 var(--mono); padding: 3px 6px; border-radius: 5px; bor
         <div class="box"><b>Content</b><small>Every number and placement: vehicles, crops, packs, quests, zones, structures.</small><code>shared/*.json</code></div>
         <div class="box"><b>Rules</b><small>Fixed 60 Hz steps. Movement and combat in the Sim; trade, farms, houses and vehicles in Life, changed only by queued commands.</small><code>src/sim/ · src/sim/life/</code></div>
         <div class="box"><b>Presentation</b><small>Three.js scene, procedural toon models, DOM HUD and panels. Reads the rules' state; never changes it.</small><code>src/render/ · src/ui/</code></div>
-        <div class="box future"><b>World server</b><small>Planned: the same Life commands as requests, state in a database, other players' carts and ships streamed by interest.</small><code>server/ (battle server today)</code></div>
+        <div class="box future"><b>World server</b><small>Building: accounts and your island kept in Postgres (phase 1, done); next the same rules and Life commands decided on the server, then one shared island with other players' carts and ships streamed by interest.</small><code>server/</code></div>
       </div>
       <div class="table-wrap"><table id="fileTable"></table></div>
       <div class="next" data-next="tech"></div>

@@ -1,8 +1,8 @@
 # ruina_the_game
 
 An original browser MMORPG prototype: third-person 3D action combat with platform-fighter movement
-(run, slide, double jump), classless skill trees, Xbox controller support, and a Rust battle server
-built for 10,000-player PvP raids. The code still uses the working name *yggdrasil* (package name,
+(run, slide, double jump), classless skill trees, Xbox controller support, and a Rust game server
+that keeps players' accounts and islands in Postgres and is built for 10,000-player PvP raids. The code still uses the working name *yggdrasil* (package name,
 server binary, page title).
 
 The open world starts on **Emberholm**, a starter isle with ArcheAge-style life systems: gliders,
@@ -21,8 +21,9 @@ rules' formulas and the terrain generator), so it is always current and there is
   An ability is targeting plus a list of *effects*, and a movement skill is an *action state* with
   a startup / active / recovery timeline. Those two vocabularies are the only things that cost
   code, and then in both languages at once.
-- `server/`: Rust battle server (tokio WebSockets): decides all hits, runs bots, sends each player
-  only what's near them, rewinds time for lag compensation
+- `server/`: the Rust game server, one port for everything (axum): accounts, and players' islands
+  kept in Postgres (`server/migrations/`); and the PvP battlefield, which decides all hits, runs
+  bots, sends each player only what's near them, and rewinds time for lag compensation
 - `shared/tuning.json`: gameplay numbers, read by both the browser and the server
 - `shared/zones/`, `shared/{vehicles,trade,farming,housing,items,quests,structures,traversal}.json`:
   the open world's content. `src/sim/zone/` grows the island from a zone recipe, `src/sim/life/`
@@ -31,26 +32,67 @@ rules' formulas and the terrain generator), so it is always current and there is
 - `tests/`: Playwright tests that play the real game in a browser, plus checks that the TypeScript and
   Rust rules agree frame by frame
 
-## Setup (macOS)
+## Setup
 
-1. Xcode command line tools (`xcode-select --install`), Node.js 22.12 or newer (`brew install node`),
-   and Rust (`curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`)
+1. [Docker](https://www.docker.com/products/docker-desktop/) and Node.js 22.12 or newer
 2. `npm install`
-3. `npx playwright install chromium` (the browser the tests use)
-4. `cargo build --release --manifest-path server/Cargo.toml`
+3. `npx playwright install chromium` (the browser the tests use; on Windows they use Edge instead)
+
+Work on `beta`; see [Branches, CI and deploys](#branches-ci-and-deploys). `AGENTS.md` is the
+short version of this file for coding agents.
+4. Optional, for the battlefield and the tests that compare the TypeScript and Rust rules: Rust
+   (`curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`), then
+   `cargo build --release --manifest-path server/Cargo.toml`
 
 ## Run
 
-- Battle server: `npm run server` (10,000 bots on ws://localhost:7777)
-- Game: `npm run dev`, then open
-  - http://localhost:5173/ for the open world, Emberholm (no server needed; your island saves in the
-    browser, and `?fresh` starts it over)
-  - http://localhost:5173/?yard for the training yard
-  - http://localhost:5173/?server=ws://localhost:7777 to join the battle (add `&team=0` or `&team=1` to pick a side)
-  - http://localhost:5173/?raid=10000 for the rendering stress test
+1. `npm run up` starts Postgres and the game server in Docker (`docker-compose.yml`), building the
+   server first if its code changed. Run it again after changing anything in `server/`.
+   `npm run logs` follows the server's output, `npm run psql` opens the database, `npm run down` stops both.
+2. `npm run dev`, then open
+   - http://localhost:5173/ for the open world, Emberholm. Sign in or make an account; your island is
+     kept on the server. `?as=name` signs straight in as `name` (development only, a new account if
+     it's new), so you can play several characters in different windows. `?fresh` starts your island over.
+   - http://localhost:5173/?yard for the training yard (offline)
+   - http://localhost:5173/?raid=10000 for the rendering stress test (offline)
+   - http://localhost:5173/?server=ws://localhost:7777 to join the battle (add `&team=0` or `&team=1`
+     to pick a side). The battlefield needs the server started with bots: `npm run server` (Rust),
+     which runs 10,000 of them.
 
-The browser reloads itself when the server restarts. Rebuild and restart the server after changing
-anything in `server/` or the network messages, or the game stops responding.
+Vite serves the game and forwards `/api` and `/ws` to the server, so the browser sees one address,
+as it does in production. A character plays in one window at a time: opening it in a second window
+stops the first.
+
+**Online, so far (phase 1 of the plan in the design bible):** the browser still runs Emberholm's
+rules and reports your island to the server every few seconds and when you leave; the server keeps
+it and hands it back next time. Moving the rules themselves onto the server, then sharing one
+Emberholm between players, are the next phases. Automated tests (`?test`) stay offline and never
+touch the server, except `tests/online.spec.ts`, which needs `npm run up`.
+
+## Branches, CI and deploys
+
+| Branch | How changes get in | Deploys to |
+|---|---|---|
+| `beta` (default) | Push directly | https://ruinathegame-beta.up.railway.app |
+| `production` | Pull request (usually from `beta`), with CI passing | https://ruinathegame-production.up.railway.app |
+
+Both branches are protected against force-pushes and deletion. `.github/workflows/ci-cd.yml` runs
+on every push and pull request to them: the client typechecks and builds, the Rust server's tests
+pass, and the whole Playwright suite plays the game against a real server and Postgres (with the
+battlefield and the TypeScript/Rust conformance tests, which need the Rust binaries). A push that
+passes is uploaded to the Railway environment of the same name with `railway up`, and the job
+waits until `/api/health` answers from the new deployment.
+
+**Railway** (project `intuitive-enthusiasm`): environments `beta` and `production`, each with the
+game service and its own Postgres. The game's `DATABASE_URL` refers to that environment's
+database, and `PORT` is 8080. The `Dockerfile`'s last stage is the whole game (the server serving
+the built client, the account API and both WebSockets); `railway.json` tells Railway to build it
+and health-check `/api/health`. The server applies database migrations itself when it starts, and
+developer sign-in (`?as=`) is always off on Railway.
+
+**Keys:** each GitHub environment (`beta`, `production`) holds `RAILWAY_TOKEN`, that Railway
+environment's project token, and accepts deployments only from its own branch. Local copies live
+in `.env` (git-ignored) as `RAILWAY_BETA_API_KEY` and `RAILWAY_PRODUCTION_API_KEY`.
 
 ## Controls
 

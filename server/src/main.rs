@@ -1,25 +1,34 @@
-//! Raid stress-test server: simulates thousands of fighters at a fixed tick rate and streams each
-//! connected player a personal update over WebSockets.
+//! The game server. On one port (server/src/http.rs):
+//!   - accounts and the open world, Emberholm, kept in Postgres (when DATABASE_URL is set)
+//!   - the PvP battlefield: thousands of fighters simulated at a fixed tick rate, each connected
+//!     player streamed a personal update (when --bots is above 0)
+//!   - the game's built files (with --static or STATIC_DIR; in development Vite serves them)
 //!
 //!   cargo run --release -- --bots 10000 --virtual-clients 10000 --port 7777 --hz 20
 //!
 //! --virtual-clients N builds a personal update for N bots every tick as if they were connected
 //! players, without sending it anywhere. That measures the server cost of a full raid.
+//!
+//! Environment: PORT (Railway sets it; --port wins), DATABASE_URL, STATIC_DIR, DEV_LOGIN=1 (sign in
+//! by name alone, for development; ignored on Railway), COOKIE_SECURE=1 (https without Railway).
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
+use axum::body::Bytes;
 use rayon::prelude::*;
 use tokio::sync::mpsc::Sender;
-use tokio_tungstenite::tungstenite::Bytes;
 use yggdrasil_server::actors::Actors;
 use yggdrasil_server::game::Players;
+use yggdrasil_server::http::{self, AppState};
 use yggdrasil_server::interest::{build_snapshot, InterestGrid, Records, Scratch, MID_EVERY};
-use yggdrasil_server::net::{self, unpack_view, Registry};
+use yggdrasil_server::net::{unpack_view, Registry};
 use yggdrasil_server::protocol::{self, StatsMsg};
 use yggdrasil_server::sim::{Battle, BotHit, FIELD};
+use yggdrasil_server::{db, world_socket};
 
 // How anything that rocks when hit settles back upright; matches LEAN in src/tuning.ts.
 const LEAN_SPRING: f64 = 140.0;
@@ -27,6 +36,7 @@ const LEAN_DAMPING: f64 = 7.0;
 use yggdrasil_server::world::{battlefield, SEED};
 
 struct Args {
+    /// Fighters on the battlefield; 0 runs no battlefield at all.
     bots: usize,
     virtual_clients: usize,
     port: u16,
@@ -34,10 +44,14 @@ struct Args {
     /// Monsters to scatter around the players' end of the field. Off unless asked for:
     /// putting them in by default would change every world anybody already runs.
     slimes: usize,
+    /// The built game (dist/) to serve, if any.
+    static_dir: Option<PathBuf>,
 }
 
 fn parse_args() -> Args {
-    let mut a = Args { bots: 10_000, virtual_clients: 0, port: 7777, hz: 20, slimes: 0 };
+    let env_port = std::env::var("PORT").ok().and_then(|p| p.parse().ok());
+    let static_dir = std::env::var_os("STATIC_DIR").filter(|d| !d.is_empty()).map(PathBuf::from);
+    let mut a = Args { bots: 10_000, virtual_clients: 0, port: env_port.unwrap_or(7777), hz: 20, slimes: 0, static_dir };
     let argv: Vec<String> = std::env::args().collect();
     let mut i = 1;
     while i + 1 < argv.len() {
@@ -48,37 +62,72 @@ fn parse_args() -> Args {
             "--port" => a.port = v.parse().expect("--port needs a number"),
             "--hz" => a.hz = v.parse().expect("--hz needs a number"),
             "--slimes" => a.slimes = v.parse().expect("--slimes needs a number"),
+            "--static" => a.static_dir = Some(PathBuf::from(v)),
             other => panic!("unknown argument {other}"),
         }
         i += 2;
     }
-    a.bots = a.bots.clamp(2, 65_535);
+    if a.bots > 0 {
+        a.bots = a.bots.clamp(2, 65_535);
+    }
     a.hz = a.hz.clamp(1, 60);
     a
 }
 
 fn main() {
     let args = parse_args();
-    let registry: Registry = Arc::new(Mutex::new(Vec::new()));
-    let welcome = Bytes::from(protocol::welcome(args.bots, args.hz, FIELD));
-    println!(
-        "bots {} | slimes {} | virtual players {} | {} ticks/s | {} CPU threads",
-        args.bots,
-        args.slimes,
-        args.virtual_clients,
-        args.hz,
-        rayon::current_num_threads()
-    );
-    {
-        let registry = registry.clone();
+    let on_railway = std::env::var_os("RAILWAY_PROJECT_ID").is_some();
+    let dev_login = std::env::var("DEV_LOGIN").is_ok_and(|v| v == "1") && !on_railway;
+    let secure_cookies = on_railway || std::env::var("COOKIE_SECURE").is_ok_and(|v| v == "1");
+
+    let battle = if args.bots > 0 {
+        let registry: Registry = Arc::new(Mutex::new(Vec::new()));
+        let welcome = Bytes::from(protocol::welcome(args.bots, args.hz, FIELD));
+        println!(
+            "battlefield: bots {} | slimes {} | virtual players {} | {} ticks/s | {} CPU threads",
+            args.bots,
+            args.slimes,
+            args.virtual_clients,
+            args.hz,
+            rayon::current_num_threads()
+        );
+        let sim_registry = registry.clone();
         let (bots, virt, hz, slimes) = (args.bots, args.virtual_clients, args.hz, args.slimes);
         std::thread::Builder::new()
             .name("sim".into())
-            .spawn(move || run(bots, virt, hz, slimes, registry))
+            .spawn(move || run(bots, virt, hz, slimes, sim_registry))
             .expect("start sim thread");
-    }
+        Some(http::Battle { registry, welcome })
+    } else {
+        println!("battlefield: off (--bots 0)");
+        None
+    };
+
     let rt = tokio::runtime::Builder::new_multi_thread().enable_all().build().expect("start tokio");
-    if let Err(e) = rt.block_on(net::serve(args.port, registry, welcome)) {
+    let result = rt.block_on(async move {
+        let db = match std::env::var("DATABASE_URL") {
+            Ok(url) if !url.is_empty() => {
+                let pool = db::connect(&url).await.map_err(std::io::Error::other)?;
+                db::spawn_housekeeping(pool.clone());
+                println!("database: connected{}", if dev_login { " | developer sign-in on (?as=name)" } else { "" });
+                Some(pool)
+            }
+            _ => {
+                println!("database: none (DATABASE_URL is not set), so accounts and the open world are off");
+                None
+            }
+        };
+        let state = AppState {
+            db,
+            battle,
+            world: world_socket::Hub::default(),
+            dev_login,
+            secure_cookies,
+            failed_logins: Mutex::new(HashMap::new()),
+        };
+        http::serve(args.port, state, args.static_dir).await
+    });
+    if let Err(e) = result {
         eprintln!("server error: {e}");
         std::process::exit(1);
     }

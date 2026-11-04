@@ -1,15 +1,15 @@
-//! WebSocket connections. Each player gets a small outgoing queue; the simulation thread drops
-//! updates for players who can't keep up instead of letting the queue grow.
+//! The battlefield's WebSocket connections (/ws/battle, routed by server/src/http.rs). Each player
+//! gets a small outgoing queue; the simulation thread drops updates for players who can't keep up
+//! instead of letting the queue grow.
 
 use std::sync::atomic::{AtomicU32, AtomicU64, AtomicU8, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
+use axum::body::Bytes;
+use axum::extract::ws::{Message, WebSocket};
 use futures_util::{SinkExt, StreamExt};
-use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::mpsc;
-use tokio_tungstenite::accept_async;
-use tokio_tungstenite::tungstenite::{Bytes, Message};
 
 use crate::player::Build;
 use crate::protocol::{MSG_ATTACH, MSG_BUILD, MSG_INPUT, MSG_JOIN, MSG_LAG, MSG_VIEW};
@@ -66,25 +66,16 @@ pub fn read_build(b: &[u8]) -> Option<Build> {
     Some(Build { skills, weapon: b[1], abilities, movement })
 }
 
-pub async fn serve(port: u16, registry: Registry, welcome: Bytes) -> std::io::Result<()> {
-    let listener = TcpListener::bind(("0.0.0.0", port)).await?;
-    println!("listening on ws://localhost:{port}");
-    let mut next_id = 1u32;
-    loop {
-        let (stream, _) = listener.accept().await?;
-        let _ = stream.set_nodelay(true);
-        let id = next_id;
-        next_id += 1;
-        let (registry, welcome) = (registry.clone(), welcome.clone());
-        tokio::spawn(async move {
-            let _ = handle(stream, id, registry.clone(), welcome).await;
-            registry.lock().unwrap().retain(|c| c.id != id);
-        });
-    }
+static NEXT_ID: AtomicU32 = AtomicU32::new(1);
+
+/// One battlefield connection, from the welcome to the moment it closes.
+pub async fn handle(ws: WebSocket, registry: Registry, welcome: Bytes) {
+    let id = NEXT_ID.fetch_add(1, Ordering::Relaxed);
+    let _ = run(ws, id, registry.clone(), welcome).await;
+    registry.lock().unwrap().retain(|c| c.id != id);
 }
 
-async fn handle(stream: TcpStream, id: u32, registry: Registry, welcome: Bytes) -> Result<(), tokio_tungstenite::tungstenite::Error> {
-    let ws = accept_async(stream).await?;
+async fn run(ws: WebSocket, id: u32, registry: Registry, welcome: Bytes) -> Result<(), axum::Error> {
     let (mut write, mut read) = ws.split();
     write.send(Message::Binary(welcome)).await?;
 
