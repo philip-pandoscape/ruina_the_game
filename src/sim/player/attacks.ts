@@ -9,6 +9,7 @@ import { coneHits, nearest } from '../combat/hit';
 import type { Actions } from '../types';
 import { accelerateToward, airControl, input, tryJump } from './locomotion';
 import { endAction, incomingScale, readyBufferedAction, setCooldown, startAction } from './abilities';
+import { heightAboveGround } from './traverse';
 
 export function startAttack(sim: Sim, index: number, a: Actions) : void {
   const p = sim.player;
@@ -82,8 +83,15 @@ export function updateAttack(sim: Sim, a: Actions) : void {
 
 export function checkHit(sim: Sim, step: AttackStep) : void {
   const p = sim.player;
-  if (p.pos.y > 2.0) return;
-  const hits = coneHits(sim.targets(), p.pos.x, p.pos.z, p.facing, step.reach, step.arcDeg, meleeTargets(p.weapon, sim.stats));
+  // Too far up in the air to reach anything. Height is measured from the ground under you: on
+  // flat ground that is just pos.y (as on the server, game.rs swing), but on hills pos.y is
+  // height above the sea, so testing it directly would rule out every swing on the high ground.
+  if (heightAboveGround(sim) > 2.0) return;
+  let targets = sim.targets();
+  // On hills a target can stand well above or below you (a cliff, a pier over the beach). As
+  // with the server's rule for fighters, a swing only reaches feet within 2 m of your own.
+  if (sim.world.terrain) targets = targets.filter((t) => Math.abs(t.y - p.pos.y) <= 2.0);
+  const hits = coneHits(targets, p.pos.x, p.pos.z, p.facing, step.reach, step.arcDeg, meleeTargets(p.weapon, sim.stats));
   if (!hits.length) return;
   p.attackHit = true;
   sim.hitstop = step.hitstop;

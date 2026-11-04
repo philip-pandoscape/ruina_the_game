@@ -419,16 +419,19 @@ export class Vfx {
         this.rings.spawn(this.v.set(e.x, this.gy(e.x, e.z) + 0.03, e.z), big ? 1.8 : 1.0, big ? 0.35 : 0.22, big ? 0xffd166 : 0xffffff);
         break;
       }
-      case 'actorDie':
+      case 'actorDie': {
         // Straw for a dummy; anything else bursts in its own colour once content says so.
         if (e.kind !== 'dummy') {
           this.puff(e.x, Math.max(0.2, e.y), e.z, 10, 2.2, 0.26);
           break;
         }
-        this.puff(e.x, 0.6, e.z, 16, 3.5, 0.3, STRAW);
-        this.burst(e.x, 1.1, e.z, 1, 0, 14, 7, STRAW);
-        this.burst(e.x, 1.1, e.z, -1, 0, 14, 7, STRAW);
+        // From the ground under it, so a dummy up on the hills bursts where it stands.
+        const g = this.gy(e.x, e.z);
+        this.puff(e.x, g + 0.6, e.z, 16, 3.5, 0.3, STRAW);
+        this.burst(e.x, g + 1.1, e.z, 1, 0, 14, 7, STRAW);
+        this.burst(e.x, g + 1.1, e.z, -1, 0, 14, 7, STRAW);
         break;
+      }
       case 'shoot':
         // Bow release: a little snap of light off the string.
         this.burst(e.x, e.y, e.z, e.dirX, e.dirZ, 5, 5, new THREE.Color(0xfff6c8));

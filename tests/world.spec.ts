@@ -624,6 +624,65 @@ test('combat on the hills: an arrow finds a slime standing well above sea level'
   expect(after[0].hp).toBeLessThan(slimes[0].hp);
 });
 
+test('combat on the hills: sword, club and staff swings land on a slime and on the dummy', async ({ page }) => {
+  await open(page);
+  const w = g(page);
+  const game = {
+    actors: (kind: string) => page.evaluate((k) => (window as any).__game.actors(k), kind),
+    place: (kind: string, i: number, x: number, z: number) =>
+      page.evaluate(([k, n, a, b]) => (window as any).__game.placeActor(k, n, a, b), [kind, i, x, z] as const),
+    wield: (weapon: number, skill: string) =>
+      page.evaluate(
+        (b) => (window as any).__game.setBuild(b),
+        { skills: skillsFrom(skill), weapon, abilities: new Array(HOTBAR_SLOTS).fill(NO_ABILITY), movement: emptyMovement() },
+      ),
+  };
+  const z = await w.zone();
+  const meadow = z.places.find((p: { id: string }) => p.id === 'meadow');
+  const slimes = await game.actors('slime');
+  for (let i = 0; i < slimes.length; i++) await game.place('slime', i, 60 + i * 3, 40);
+
+  // A fresh slime for each weapon, a step in front of you, high on the meadow's hillside.
+  const weapons = [[0, 'sword'], [1, 'club'], [2, 'staff']] as const;
+  for (const [k, [weapon, skill]] of weapons.entries()) {
+    expect(await game.wield(weapon, skill)).toBe(true);
+    await w.teleport(meadow.x, meadow.z - 6, 0);
+    const me = await w.player();
+    expect(me.pos.y).toBeGreaterThan(8);
+    await game.place('slime', k, me.pos.x, me.pos.z + 1.2);
+    await w.advance(1, { attackPressed: true });
+    await w.advance(40);
+    const hp = (await game.actors('slime'))[k].hp;
+    expect(hp, `a ${skill} swing on the hillside`).toBeLessThan(slimes[k].hp);
+    await game.place('slime', k, 60 + k * 3, 40);
+  }
+
+  // The practice dummy at the meadow's edge: stand in front of it and swing the sword.
+  expect(await game.wield(0, 'sword')).toBe(true);
+  const [dummy] = await game.actors('dummy');
+  await w.teleport(dummy.x, dummy.z - 1.3, 0);
+  const me = await w.player();
+  expect(me.pos.y).toBeGreaterThan(2);
+  await w.advance(1, { attackPressed: true });
+  await w.advance(40);
+  const [hit] = await game.actors('dummy');
+  expect(hit.hp, 'a sword swing at the dummy').toBeLessThan(dummy.hp);
+
+  // ...but a swing does not reach down a cliff: from a rock edge on the Windspire's lower slopes,
+  // a slime a step away but 3 m below your feet is out of reach.
+  const edge = { x: -8, z: 202, facing: 4.32 };
+  const below = { x: edge.x + Math.sin(edge.facing) * 1.3, z: edge.z + Math.cos(edge.facing) * 1.3 };
+  await w.teleport(edge.x, edge.z, edge.facing);
+  await w.advance(2);
+  const top = await w.player();
+  expect(top.grounded).toBe(true);
+  expect(top.pos.y - (await w.ground(below.x, below.z)), 'the drop off the edge').toBeGreaterThan(2.5);
+  await game.place('slime', 3, below.x, below.z);
+  await w.advance(1, { attackPressed: true });
+  await w.advance(20);
+  expect((await game.actors('slime'))[3].hp, 'a slime 3 m down the cliff').toBe(slimes[3].hp);
+});
+
 test('the ledge path really climbs the Windspire on foot', async ({ page }) => {
   await open(page);
   const w = g(page);

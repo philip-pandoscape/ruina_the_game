@@ -516,9 +516,10 @@
       "system": "combat",
       "status": "done",
       "title": "Combat on terrain",
-      "notes": "Arrows, meteors, damage numbers and hit sparks use the ground height under each creature, so the slimes on the hillside meadow can be fought with every weapon.",
+      "notes": "Arrows, meteors, damage numbers and hit sparks use the ground height under each creature. Swings measure how high you are from the ground under you (in the flat yard that is still just your height, as on the server), and on hills they only reach things whose feet are within 2 m of yours, so a slime down a cliff is out of reach. The slimes and the practice dummy on the hillside meadow (18 m up) can be fought with every weapon.",
       "files": [
         "src/sim/sim.ts",
+        "src/sim/player/attacks.ts",
         "src/sim/combat/deal.ts",
         "src/render/vfx.ts"
       ]
@@ -546,7 +547,7 @@
       "system": "tech",
       "status": "done",
       "title": "Open-world tests",
-      "notes": "24 Playwright tests drive terrain, swimming, gliding, gusts and updrafts, farming, livestock, packs, contracts, carts, cars, boats, storms, mounts, housing, the shipyard, quests, panels, saving and combat on the hills.",
+      "notes": "25 Playwright tests drive terrain, swimming, gliding, gusts and updrafts, farming, livestock, packs, contracts, carts, cars, boats, storms, mounts, housing, the shipyard, quests, panels, saving and combat on the hills (arrows, and sword, club and staff swings at slimes and the dummy).",
       "files": [
         "tests/world.spec.ts"
       ]
@@ -651,6 +652,18 @@
         "Life systems run as commands inside the deterministic sim, ready to move to a server.",
         "Design bible and this tracker created (design/index.html, design/status.json); ArcheAge research notes in design/research/.",
         "A code review of the night's work found nine bugs, all fixed: boats left with the sail up no longer sail off alone; a second whistle brings back the same donkey; the cog design is on sale at Ilsa's; you no longer wade on a pier above deep water; a ride that a storm broke up is cleared; saving while riding puts you back on solid ground; saves from older versions load; quests count work you did before taking them; and a full bag refuses gathering, harvests and rewards instead of destroying them. Five of these (sail, donkey, cog design, quests, full bag) now have regression tests."
+      ]
+    },
+    {
+      "date": "2026-11-03",
+      "title": "Swings land on the hills",
+      "summary": "Melee swings did nothing in the open world: the sword, club and staff never hurt the slimes or the practice dummy. Arrows worked.",
+      "points": [
+        "Cause: the swing check skipped any swing with the player more than 2 m up, meant as \"in the air\". On Emberholm height is measured from the sea, and the meadow and the dummy are 18 m up, so every swing there was skipped.",
+        "Fix (src/sim/player/attacks.ts): the check uses your height above the ground under you. In the flat yard that is still just your height, so the rules the Rust server mirrors are unchanged.",
+        "On hills a swing also only reaches targets whose feet are within 2 m of yours, the same rule the server uses between fighters, so you cannot hit a slime down a cliff.",
+        "The practice dummy's straw burst, when you knock it down, was drawn at a fixed height above the sea, inside the hill under the meadow. It now bursts from the ground under the dummy (src/render/vfx.ts).",
+        "New test in tests/world.spec.ts: sword, club and staff swings hurt a slime on the meadow, the sword hurts the dummy, and a slime 3 m down a rock edge is out of reach."
       ]
     }
   ]
