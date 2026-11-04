@@ -142,6 +142,24 @@ pub fn spawn_world(app: App) {
         .expect("start the world thread");
 }
 
+/// Writes the island of everyone playing right now (the server is stopping).
+pub async fn save_everyone(app: &App) {
+    let Some(db) = app.db.clone() else { return };
+    let saves: Vec<Save> = {
+        let mut channels = app.world.channels.lock().unwrap_or_else(|e| e.into_inner());
+        channels.values_mut().flat_map(|ch| ch.islands_now()).collect()
+    };
+    let mut written = 0;
+    for s in saves {
+        match write_island(&db, s.character, s.session, s.island).await {
+            Ok(r) if r.rows_affected() == 1 => written += 1,
+            Ok(_) => {}
+            Err(e) => eprintln!("could not save character {} while stopping: {e}", s.character),
+        }
+    }
+    println!("saved {written} islands");
+}
+
 pub async fn upgrade(State(app): State<App>, headers: HeaderMap, ws: WebSocketUpgrade) -> Response {
     let Some(db) = app.db.clone() else {
         return (StatusCode::SERVICE_UNAVAILABLE, "this server has no database").into_response();

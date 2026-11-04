@@ -247,6 +247,22 @@ impl ChannelGame {
         p.grounded = true;
     }
 
+    /// Everyone's island as it is this moment, to save (the server is stopping).
+    pub fn islands_now(&mut self) -> Vec<Save> {
+        let ids: Vec<(i64, i64, bool)> = self.members.iter().map(|(id, m)| (*id, m.session, m.keep_saved)).collect();
+        let mut out = Vec::new();
+        for (id, session, keep_saved) in ids {
+            if keep_saved {
+                continue;
+            }
+            if let Some((p, Some(life))) = self.players.open_mut(client(id)) {
+                let island = island_of(p, life, &mut self.open, id);
+                out.push(Save { character: id, session, island, out: None });
+            }
+        }
+        out
+    }
+
     pub fn has_players(&self) -> bool {
         !self.members.is_empty()
     }

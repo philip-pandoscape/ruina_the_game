@@ -72,6 +72,7 @@ pub async fn serve(port: u16, state: AppState, static_dir: Option<PathBuf>) -> s
     }
     let app = Arc::new(state);
     world_socket::spawn_world(app.clone());
+    let saver = app.clone();
     let router = router.with_state(app);
 
     // Both IPv6 and IPv4 where the machine has IPv6 (Railway's private network is IPv6 only).
@@ -84,7 +85,34 @@ pub async fn serve(port: u16, state: AppState, static_dir: Option<PathBuf>) -> s
     let listener = listener.tap_io(|tcp| {
         let _ = tcp.set_nodelay(true);
     });
-    axum::serve(listener, router).await
+    // Stopped (Railway stops the old server when a new one is up): everyone's island is written
+    // first, so nothing since its last save is lost.
+    axum::serve(listener, router)
+        .with_graceful_shutdown(async move {
+            stopped().await;
+            println!("stopping: saving everyone's island");
+            world_socket::save_everyone(&saver).await;
+        })
+        .await
+}
+
+/// Resolves when the server is asked to stop (Ctrl-C, or SIGTERM from Docker and Railway).
+async fn stopped() {
+    let ctrl_c = async {
+        let _ = tokio::signal::ctrl_c().await;
+    };
+    #[cfg(unix)]
+    let term = async {
+        if let Ok(mut s) = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()) {
+            s.recv().await;
+        }
+    };
+    #[cfg(not(unix))]
+    let term = std::future::pending::<()>();
+    tokio::select! {
+        _ = ctrl_c => {}
+        _ = term => {}
+    }
 }
 
 async fn health(State(app): State<App>) -> Json<serde_json::Value> {
