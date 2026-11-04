@@ -1,0 +1,134 @@
+/* Docked windows: quest giver, quest pages, merchant, bag, workbench, storage, vehicles, quest log,
+   character, map, settings and the developer panel. Sizes are in the UI's virtual pixels. */
+
+.mw { position: fixed; z-index: 15; display: flex; flex-direction: column; color: var(--ink); font-family: var(--font); pointer-events: auto;
+  border: 5px solid transparent; border-radius: 10px;
+  background: var(--rivets), var(--grain) padding-box, var(--parchment) padding-box, var(--wood) border-box; box-shadow: var(--panel-shadow); }
+.mw[hidden] { display: none; }
+.mw.left { left: 18px; top: 154px; }
+.mw.right { right: 18px; top: 430px; }
+.mw.center { left: 50%; top: 50%; transform: translate(-50%, -50%); }
+.mw-bar { position: relative; flex: none; height: 34px; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 0 40px; line-height: 1;
+  background: var(--strip); border-bottom: 2px solid #2b1a0e; border-radius: 5px 5px 0 0; box-shadow: inset 0 1px 0 rgba(255, 220, 170, 0.18);
+  font: 700 17px var(--font-title); letter-spacing: 0.05em; color: #fbe7c2; text-shadow: 0 1px 0 #24140a; white-space: nowrap; }
+.mw-bar small { font: 600 13.5px var(--font); color: #e8cf9f; letter-spacing: 0; transform: translateY(1px); }
+.mw.has-portrait .mw-bar { justify-content: flex-start; padding-left: 64px; }
+.mw-portrait { position: absolute; left: -16px; top: -18px; z-index: 3; width: 70px; height: 70px; border-radius: 50%; overflow: hidden; border: 4px solid transparent;
+  background: radial-gradient(circle at 50% 30%, #fff3d6, #e0bf86 80%) padding-box, var(--brass) border-box; box-shadow: 0 0 0 2px #2b1a0e, inset 0 0 0 2px #2b1a0e, 0 4px 10px rgba(0, 0, 0, 0.35); }
+.mw-portrait img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.mw-portrait.icon img { padding: 12px; object-fit: contain; image-rendering: pixelated; }
+.mw-portrait .emoji { display: grid; place-items: center; width: 100%; height: 100%; font-size: 32px; }
+.mw-x { position: absolute; right: 6px; top: 4px; width: 25px; height: 25px; display: grid; place-items: center; cursor: pointer;
+  font: 700 13px/1 var(--font); color: #fff0d4; background: var(--btn); border: 1px solid #2b0d10; border-radius: 4px; box-shadow: 0 0 0 1.5px #d4a04c, 0 0 0 2.5px #2b1a0e; }
+.mw-body { position: relative; flex: 1; min-height: 0; overflow-x: hidden; overflow-y: auto; padding: 14px 26px 10px 18px; scrollbar-width: none; }
+.mw-body::-webkit-scrollbar { display: none; }
+.mw-foot { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 16px 13px;
+  border-top: 1px solid rgba(110, 70, 30, 0.3); background: linear-gradient(180deg, rgba(140, 95, 45, 0.08), transparent); }
+.mw-foot > span { display: inline-flex; align-items: center; gap: 4px; }
+.mw-foot .lui-btn { min-width: 110px; }
+.mw-foot .lui-btn.small { min-width: 0; }
+.mw-track { position: absolute; right: 8px; width: 9px; z-index: 2; border-radius: 5px; background: rgba(110, 70, 30, 0.16); box-shadow: inset 0 0 0 1px rgba(110, 70, 30, 0.32); pointer-events: none; }
+.mw-track i { position: absolute; left: 1px; right: 1px; border-radius: 4px; background: linear-gradient(90deg, #c49a62, #8a5a32); box-shadow: inset 0 0 0 1px #3a2412; }
+.mw-fade { position: absolute; left: 6px; right: 24px; height: 46px; z-index: 1; pointer-events: none; background: linear-gradient(180deg, rgba(240, 222, 182, 0), #eedab0 88%); }
+.mw-fade.up { height: 28px; background: linear-gradient(0deg, rgba(240, 222, 182, 0), #f4e4c1 92%); }
+.mw h3, .mw .h { display: flex; align-items: center; gap: 8px; margin: 10px 0 6px; font: 700 15px var(--font-title); color: var(--title); letter-spacing: 0.05em; }
+.mw h3::after, .mw .h::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, rgba(110, 70, 30, 0.5), transparent); }
+.mw p { margin: 0 0 10px; font-size: 14px; line-height: 1.5; }
+.mw .muted { color: var(--ink-2); }
+.mw .note { font-size: 12.5px; color: var(--ink-2); line-height: 1.4; }
+
+/* ---------- Quest giver and quest pages ---------- */
+.g-say { margin: 0 0 12px; font-size: 15px; line-height: 1.55; color: var(--ink-strong); font-style: italic; }
+.g-opts { list-style: none; margin: 0 0 6px; padding: 0; display: flex; flex-direction: column; gap: 3px; }
+.g-opts li { display: flex; align-items: center; gap: 10px; min-height: 30px; padding: 5px 8px; border-radius: 5px; cursor: pointer; font-size: 15px; font-weight: 700; color: var(--title); }
+.g-opts li:hover, .g-opts li.lui-focus { background: rgba(255, 250, 236, 0.75); box-shadow: inset 0 0 0 1px rgba(122, 31, 38, 0.4); outline: none !important; }
+.g-opts li.prog { color: var(--ink-2); }
+.g-opts li.talk { color: var(--ink-strong); font-weight: 600; }
+.g-opts li small { margin-left: auto; font-size: 11.5px; font-weight: 600; color: var(--ink-2); }
+.q-title { margin: 0 0 8px; font: 700 22px/1.15 var(--font-title); color: var(--title); text-shadow: var(--title-shadow); }
+.q-story { margin: 0 0 8px; font-size: 14px; line-height: 1.5; color: var(--ink-strong); }
+.q-story .dropcap { float: left; font: 700 44px/0.82 var(--font-title); color: var(--title); margin: 5px 6px 0 0; }
+.q-objs { list-style: none; margin: 0; padding: 0; }
+.q-objs li { position: relative; padding-left: 18px; margin: 3px 0; font-size: 13.5px; line-height: 1.38; }
+.q-objs li::before { content: ''; position: absolute; left: 3px; top: 6px; width: 7px; height: 7px; transform: rotate(45deg); background: #c98a2c; box-shadow: 0 0 0 1px #5a3720; }
+.q-objs li.done { color: var(--ink-2); text-decoration: line-through; }
+.q-objs li b { color: var(--good); margin-left: 4px; white-space: nowrap; }
+.q-rewards { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 7px; }
+.rw { display: flex; align-items: center; gap: 8px; min-height: 50px; padding: 3px 6px 3px 3px; border-radius: 6px; background: var(--inset); border: 1px solid var(--inset-line); }
+.rw .nm { display: flex; align-items: center; font-size: 12.5px; font-weight: 700; line-height: 1.15; color: var(--ink-strong); }
+.rw .nm .mny { font-size: 13px; flex-wrap: wrap; }
+.q-trade { display: flex; flex-direction: column; gap: 6px; }
+
+/* ---------- Rows: craft, storage, vehicles, contracts ---------- */
+.lui-list { display: flex; flex-direction: column; gap: 7px; }
+.lui-row { display: flex; align-items: center; gap: 10px; padding: 6px 8px 6px 6px; border-radius: 6px; background: var(--inset); border: 1px solid var(--inset-line); }
+.lui-row:hover { border-color: var(--inset-hover); }
+.lui-row .body { flex: 1; min-width: 0; }
+.lui-row .body b { display: block; font-size: 14px; color: var(--ink-strong); }
+.lui-row .body small { display: block; font-size: 12px; line-height: 1.35; color: var(--ink-2); }
+.lui-row .price { font-weight: 700; white-space: nowrap; font-size: 13.5px; color: var(--price); }
+.lui-row .have { color: var(--good); } .lui-row .lack { color: var(--bad); }
+.lui-row .lui-btn { flex: none; }
+.lui-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+
+/* ---------- Merchant and bag ---------- */
+.m-tabs { display: flex; gap: 4px; margin: -4px 0 10px; border-bottom: 1px solid rgba(110, 70, 30, 0.35); }
+.m-tab { padding: 4px 16px 3px; border-radius: 6px 6px 0 0; cursor: pointer; font: 700 14px var(--font-title); color: var(--ink-2);
+  background: rgba(140, 95, 45, 0.12); border: 1px solid rgba(110, 70, 30, 0.3); border-bottom: 0; margin-bottom: -1px; }
+.m-tab.on { color: var(--title); background: #f6e7c6; }
+.m-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 10px; }
+.m-item { display: flex; align-items: center; gap: 8px; min-height: 52px; padding: 4px; border-radius: 6px; cursor: pointer; background: var(--inset); border: 1px solid var(--inset-line); }
+.m-item:hover, .m-item.lui-focus { border-color: rgba(122, 31, 38, 0.55); background: rgba(255, 250, 236, 0.85); outline: none !important; }
+.m-item .nm { font-size: 13px; font-weight: 700; line-height: 1.15; color: var(--ink-strong); }
+.m-item .pr { margin-top: 3px; font-size: 12.5px; color: var(--price); }
+.m-item.cant { cursor: default; } .m-item.cant .nm { color: #9a3a2a; }
+.m-item.cant .pr { opacity: 0.6; }
+.m-sell .m-item .pr { color: var(--good); }
+.m-page { display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 10px; font-size: 12.5px; color: var(--ink-2); }
+.m-buys { margin-top: 10px; font-size: 12px; line-height: 1.4; color: var(--ink-2); }
+.m-empty { padding: 18px 6px; text-align: center; font-size: 13px; color: var(--ink-2); }
+.bag-grid { display: grid; grid-template-columns: repeat(10, 38px); gap: 4px; }
+.bag-grid .ib { cursor: pointer; }
+.bag-grid .ib.empty { cursor: default; }
+.bag-detail { margin-top: 10px; padding: 8px 10px; min-height: 56px; border-radius: 6px; background: var(--inset); border: 1px solid var(--inset-line); font-size: 13px; }
+.bag-detail b { color: var(--ink-strong); }
+.bag-detail .lui-btn { margin-top: 6px; }
+.stats-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; font-size: 13px; }
+.stats-row > span { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 999px; background: var(--inset); border: 1px solid var(--inset-line); }
+
+/* ---------- Character ---------- */
+.ch { display: grid; grid-template-columns: 56px 214px 56px 1fr; gap: 12px; height: 100%; }
+.ch-col { display: flex; flex-direction: column; gap: 13px; padding-top: 4px; }
+.ch-slot { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.ch-slot span { font-size: 12px; font-weight: 700; color: var(--ink-2); letter-spacing: 0.02em; margin-top: 1px; white-space: nowrap; }
+.ch-mid { display: flex; flex-direction: column; gap: 10px; }
+.ch-model { position: relative; height: 300px; border-radius: 8px; overflow: hidden; border: 2px solid #6e4a2a; box-shadow: 0 0 0 1px #2b1a0e, inset 0 0 0 1px #2b1a0e; background: #c9dfe8; }
+.ch-model img, .ch-model canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 40%; }
+.ch-model::after { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 42%, transparent 52%, rgba(40, 24, 10, 0.55) 100%); }
+.ch-weap { display: flex; justify-content: center; gap: 12px; }
+.ch-stats { padding: 4px 0 0 4px; }
+.ch-stats h4 { margin: 0 0 6px; font: 700 14px var(--font-title); color: var(--title); letter-spacing: 0.06em; }
+.ch-stats .r { display: flex; justify-content: space-between; align-items: center; gap: 6px; padding: 3px 0; border-bottom: 1px dashed rgba(110, 70, 30, 0.25); font-size: 13px; }
+.ch-stats .r b { color: var(--ink-strong); }
+.ch-stats .note { margin-top: 10px; }
+
+/* ---------- Quest log ---------- */
+.ql { display: grid; grid-template-columns: 205px 1fr; gap: 16px; min-height: 100%; }
+.ql-list { border-right: 1px solid rgba(110, 70, 30, 0.3); padding-right: 12px; }
+.ql-zone { display: flex; justify-content: space-between; margin: 0 0 6px; font: 700 13px var(--font-title); color: var(--ink-2); letter-spacing: 0.1em; }
+.ql-zone span:last-child { font: 12px var(--font); letter-spacing: 0; }
+.ql-q { display: flex; align-items: center; gap: 7px; padding: 5px 7px; border-radius: 5px; cursor: pointer; font-size: 13.5px; font-weight: 700; color: var(--ink-strong); }
+.ql-q.sel { background: rgba(255, 250, 236, 0.8); box-shadow: inset 0 0 0 1px rgba(122, 31, 38, 0.45); color: var(--title); }
+.ql-q.done { color: var(--ink-2); font-weight: 600; cursor: default; }
+.ql-q small { margin-left: auto; font-size: 11px; font-weight: 700; color: var(--good); white-space: nowrap; }
+.ql-q .dot { flex: none; width: 8px; height: 8px; margin: 0 5px 0 3px; transform: rotate(45deg); background: #c98a2c; box-shadow: 0 0 0 1px #5a3720; }
+.ql-q .dot.done { background: #4fae3a; }
+.ql-q.ready .dot { background: #4fae3a; }
+
+/* ---------- Map, settings, developer panel ---------- */
+.mw.map .mw-body { padding: 10px; overflow: hidden; }
+.mw.map canvas { width: 660px; height: 660px; display: block; border-radius: 6px; box-shadow: 0 0 0 2px #6e4a2a, 0 0 0 3px #2b1a0e; }
+.set-row { display: flex; align-items: center; gap: 12px; margin: 6px 0 12px; font-size: 14px; }
+.set-row input[type='range'] { flex: 1; accent-color: #7a1f26; }
+.set-row b { min-width: 46px; text-align: right; color: var(--ink-strong); }
+.lui-dev .lui-btn { margin: 0 6px 8px 0; }

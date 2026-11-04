@@ -78,7 +78,7 @@ const MENU_PAD: Array<[number, MenuPress]> = [
 ];
 
 // Open-world keys: interact, drop a pack, mount, glider, change seed, and the panels.
-export type LifeKey = 'interact' | 'drop' | 'mount' | 'glider' | 'seed' | 'bag' | 'map' | 'garage' | 'quests' | 'escape' | 'dev';
+export type LifeKey = 'interact' | 'drop' | 'mount' | 'glider' | 'seed' | 'bag' | 'map' | 'garage' | 'quests' | 'character' | 'escape' | 'dev';
 const LIFE_KEYS: Record<string, LifeKey> = {
   KeyF: 'interact',
   KeyX: 'drop',
@@ -90,6 +90,7 @@ const LIFE_KEYS: Record<string, LifeKey> = {
   KeyM: 'map',
   KeyV: 'garage',
   KeyL: 'quests',
+  KeyP: 'character',
   Escape: 'escape',
   Backquote: 'dev',
 };
@@ -393,8 +394,25 @@ export class Input {
     return out;
   }
 
-  /** Open-world presses since the last call: keys, plus Y / Menu / D-pad on a controller. */
-  pollLife(): LifeKey[] {
+  /**
+   * Call on every frame a window has the controller (its D-pad, stick and buttons drive the window).
+   * The game's step may not run on a frame at all, so without this a button that closes a window
+   * would still be new to the game on the next step: the B that closes a panel would also slide.
+   * A button held now counts for the game again once it's let go and pressed again.
+   */
+  padToMenu(): void {
+    const pad = this.pad();
+    if (!pad) return;
+    const held = pad.buttons.map((b) => b.pressed || b.value > 0.5);
+    this.padPrev = held;
+    this.combatPadPrev = held;
+  }
+
+  /**
+   * Open-world presses since the last call: keys, plus Y / Menu / D-pad on a controller. While a
+   * window has the controller, its Y and D-pad are the window's; Menu still opens and shuts the bag.
+   */
+  pollLife(padToMenu = false): LifeKey[] {
     const out = this.lifePresses;
     this.lifePresses = [];
     const pad = this.pad();
@@ -402,10 +420,12 @@ export class Input {
       const held = pad.buttons.map((b) => b.pressed || b.value > 0.5);
       const edge = (i: number) => !!held[i] && !this.lifePadPrev[i];
       const trigger = !!held[PAD.LT] || !!held[PAD.RT];
-      if (edge(PAD.Y) && !trigger) out.push('interact');
       if (edge(PAD.MENU)) out.push('bag');
-      if (this.worldMode && edge(PAD.DOWN)) out.push('mount');
-      if (this.worldMode && edge(PAD.UP)) out.push('map');
+      if (!padToMenu) {
+        if (edge(PAD.Y) && !trigger) out.push('interact');
+        if (this.worldMode && edge(PAD.DOWN)) out.push('mount');
+        if (this.worldMode && edge(PAD.UP)) out.push('map');
+      }
       this.lifePadPrev = held;
     }
     return out;

@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import type { Device } from '../input/input';
+import { iconHtml } from '../ui/theme/icons';
 
 const key = (label: string, cls = '') => `<span class="key ${cls}">${label}</span>`;
 const item = (keys: string, action: string) => `<span>${keys}${action}</span>`;
@@ -195,10 +196,10 @@ export class Hud {
         const info = look.ability(a);
         const title = info ? info[1] : 'Empty slot: drag an ability here from the skill trees';
         return `<div class="slot${info ? '' : ' empty'}" data-slot="${i + 1}" draggable="${info ? 'true' : 'false'}" title="${title}">
-          <span class="icon">${info ? info[0] : ''}</span><span class="cd"></span><span class="secs"></span><span class="bind">${binds[i]}</span></div>`;
+          <span class="icon">${info ? iconHtml(info[0], undefined, 36) : ''}</span><span class="cd"></span><span class="secs"></span><span class="bind">${binds[i]}</span></div>`;
       };
       this.bar.innerHTML =
-        `<div class="weapon" title="${look.weapon[1]}"><span class="icon">${look.weapon[0]}</span><span class="name">${look.weapon[1]}</span></div>` +
+        `<div class="weapon" title="${look.weapon[1]}"><span class="icon">${iconHtml(look.weapon[0], undefined, 40)}</span><span class="name">${look.weapon[1]}</span></div>` +
         slots.map(slot).join('') +
         `<div class="skills-btn${pointsLeft > 0 ? ' unspent' : ''}"><span class="bind">${skillsBind}</span>Skills${pointsLeft > 0 ? ` <b>${pointsLeft}</b>` : ''}</div>`;
     }
@@ -260,7 +261,7 @@ export class Hud {
     const el = this.free.pop() ?? document.body.appendChild(document.createElement('div'));
     el.className = `dmg ${kind}${crit ? ' big' : ''}`;
     el.innerHTML = icon ? `<span class="icon"></span><span class="n"></span>` : `<span class="n"></span>`;
-    if (icon) (el.querySelector('.icon') as HTMLSpanElement).textContent = icon;
+    if (icon) (el.querySelector('.icon') as HTMLSpanElement).innerHTML = iconHtml(icon, undefined, 16);
     (el.querySelector('.n') as HTMLSpanElement).textContent = `${kind === 'heal' ? '+' : ''}${value}`;
     el.style.display = 'block';
     // Restart the pop so a recycled element animates again.

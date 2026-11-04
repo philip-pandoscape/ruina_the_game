@@ -106,11 +106,16 @@ test('skill panel works with a controller: View opens it, D-pad and A choose, B 
   const errors = watchErrors(page);
   await page.goto('/?yard');
   await page.waitForFunction(() => (window as any).__game?.ready === true);
+  // A press lasts at least 60 ms and two frames, so a slow frame (the first time a panel is drawn,
+  // in a software-drawn browser) can't swallow it.
+  const frames = (n: number) => page.evaluate((n) => new Promise<void>((done) => { const f = () => (--n <= 0 ? done() : requestAnimationFrame(f)); requestAnimationFrame(f); }), n);
   const tap = async (button: number) => {
     await page.evaluate((i) => Object.assign((window as any).__pad.buttons[i], { pressed: true, value: 1 }), button);
     await page.waitForTimeout(60);
+    await frames(2);
     await page.evaluate((i) => Object.assign((window as any).__pad.buttons[i], { pressed: false, value: 0 }), button);
     await page.waitForTimeout(60);
+    await frames(2);
   };
   const [A, B, VIEW, DOWN, RIGHT] = [0, 1, 8, 13, 15];
 

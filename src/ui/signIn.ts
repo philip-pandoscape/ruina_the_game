@@ -1,54 +1,12 @@
 import { register, signIn, Refused, type Account } from '../net/account';
 import type { LinkStatus } from '../net/worldLink';
+import { uiRoot } from './theme/scale';
 
 // What you see of the game server: the sign-in screen before Emberholm loads, the badge in the
 // corner while you play (who you are, whether the server is there, Sign out), and the screen that
 // stops play when another window takes your character or your sign-in ends.
 
-const CSS = `
-#ruina-online { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center;
-  background: linear-gradient(180deg, #8fcbe6 0%, #bfe3f2 55%, #eadcb6 100%); }
-#ruina-online.over-game { background: rgba(8, 14, 22, 0.6); }
-#ruina-online .ro-card { width: min(380px, 92vw); padding: 26px 28px 22px; border-radius: 16px; box-sizing: border-box;
-  background: rgba(22, 32, 44, 0.95); box-shadow: 0 10px 40px rgba(0, 0, 0, 0.35); border: 1px solid rgba(255, 255, 255, 0.12); }
-#ruina-online h1 { margin: 0; font-size: 34px; letter-spacing: 1px; }
-#ruina-online h2 { margin: 0 0 8px; font-size: 21px; }
-#ruina-online .ro-sub { margin: 2px 0 18px; opacity: 0.75; font-size: 14px; }
-#ruina-online p { margin: 0 0 16px; line-height: 1.45; font-size: 14px; opacity: 0.9; }
-#ruina-online label { display: block; margin: 0 0 12px; font-size: 13px; font-weight: 600; opacity: 0.9; }
-#ruina-online input { display: block; width: 100%; box-sizing: border-box; margin-top: 5px; padding: 9px 11px; border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.25); background: rgba(255, 255, 255, 0.08); color: #fff; font: inherit; font-size: 15px;
-  user-select: text; outline: none; }
-#ruina-online input:focus { border-color: #ffd166; background: rgba(255, 255, 255, 0.12); }
-#ruina-online .ro-error { min-height: 18px; margin: 2px 0 10px; color: #ff8a80; font-size: 13px; }
-#ruina-online button { font: inherit; cursor: pointer; }
-#ruina-online .ro-primary { width: 100%; padding: 10px; border-radius: 9px; border: 0; background: #ffd166; color: #1d2733;
-  font-weight: 800; font-size: 15px; }
-#ruina-online .ro-primary:disabled { opacity: 0.6; cursor: default; }
-#ruina-online .ro-link { display: block; margin: 12px auto 0; border: 0; background: none; color: #fff; opacity: 0.8;
-  font-size: 13px; text-decoration: underline; }
-#ruina-online .ro-wait { display: flex; align-items: center; gap: 12px; font-size: 15px; }
-#ruina-online .ro-spin { width: 18px; height: 18px; border-radius: 50%; border: 3px solid rgba(255, 255, 255, 0.25);
-  border-top-color: #ffd166; animation: ro-spin 0.8s linear infinite; }
-@keyframes ro-spin { to { transform: rotate(360deg); } }
-#ruina-badge { position: fixed; top: 30px; left: 12px; z-index: 5; display: flex; align-items: center; gap: 7px;
-  padding: 4px 6px 4px 10px; border-radius: 999px; background: rgba(20, 30, 40, 0.45); font-size: 12px;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6); }
-#ruina-badge .dot { width: 8px; height: 8px; border-radius: 50%; background: #5cd65c; }
-#ruina-badge.reconnecting .dot { background: #f0ad4e; }
-#ruina-badge.stopped .dot { background: #d9534f; }
-#ruina-badge button { font: inherit; font-size: 11px; color: #fff; cursor: pointer; padding: 2px 8px; border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.35); background: rgba(255, 255, 255, 0.1); }
-`;
-
-let styled = false;
-function style(): void {
-  if (styled) return;
-  styled = true;
-  const el = document.createElement('style');
-  el.textContent = CSS;
-  document.head.appendChild(el);
-}
+// The look is in src/ui/theme/theme.css; these mount inside the scaled UI root.
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, props: Partial<HTMLElementTagNameMap[K]> = {}, ...children: Array<Node | string>): HTMLElementTagNameMap[K] {
   const e = Object.assign(document.createElement(tag), props);
@@ -62,9 +20,8 @@ export class SignInScreen {
   private card = el('div', { className: 'ro-card' });
 
   constructor() {
-    style();
     this.root.append(this.card);
-    document.body.append(this.root);
+    uiRoot().append(this.root);
   }
 
   /** Waiting on the server: a spinner and a line saying what for. */
@@ -145,11 +102,10 @@ export class OnlineBadge {
     private name: string,
     onSignOut: () => void,
   ) {
-    style();
     const out = el('button', { type: 'button', textContent: 'Sign out', title: 'Sign out of this account' });
     out.onclick = onSignOut;
     this.root.append(el('span', { className: 'dot' }), this.label, out);
-    document.body.append(this.root);
+    uiRoot().append(this.root);
     this.set('online');
   }
 
@@ -162,7 +118,6 @@ export class OnlineBadge {
 
 /** Play has stopped: another window took this character, or the sign-in ended. */
 export function showStopped(why: 'kicked' | 'signed-out'): void {
-  style();
   const root = el('div', { id: 'ruina-online', className: 'over-game' });
   const go = el('button', { className: 'ro-primary', type: 'button', textContent: why === 'kicked' ? 'Play here' : 'Sign in' });
   go.onclick = () => location.reload();
@@ -171,6 +126,6 @@ export function showStopped(why: 'kicked' | 'signed-out'): void {
       ? ['Playing in another window', 'This character is now playing somewhere else. A character plays in one window at a time; your island was saved there.']
       : ['Signed out', 'Your sign-in has ended. Sign in again to carry on.'];
   root.append(el('div', { className: 'ro-card' }, el('h2', { textContent: title }), el('p', { textContent: text }), go));
-  document.body.append(root);
+  uiRoot().append(root);
   if (document.pointerLockElement) document.exitPointerLock();
 }

@@ -73,7 +73,9 @@ test('the open world loads: island, sea, townsfolk and HUD, without errors', asy
   // Spawn is on the village square, not under it or floating over it.
   expect(Math.abs(p.pos.y - (await w.ground(p.pos.x, p.pos.z)))).toBeLessThan(0.05);
   // The HUD is up and the first quest started by itself.
-  await expect(page.locator('#lui-wallet')).toBeVisible();
+  // Money, labor and health sit beside your portrait; the minimap and the quest scroll on the right.
+  await expect(page.locator('#hud-vitals')).toContainText('1000');
+  await expect(page.locator('#hud-minimap canvas')).toBeVisible();
   await expect(page.locator('#lui-quests')).toContainText('Landfall');
   const perf = await page.evaluate(() => (window as any).__game.perf());
   console.log('world render', { drawCalls: perf.drawCalls, triangles: perf.triangles });

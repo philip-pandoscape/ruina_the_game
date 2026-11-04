@@ -50,6 +50,16 @@ import type { MarkerKind } from './render/hud';
 import { resolveSkills, type ResolvedSkills } from './skills';
 import { SkillTreePanel } from './ui/skillTree';
 import { ABILITIES, abilityRadius, AIM, MOVEMENT_SKILLS, CAMERA, castFramesFor, comboFor, COMBAT, DUMMY, groundRange, isGroundTargeted, NO_ABILITY, STEP, type Build } from './tuning';
+import './ui/theme/theme.css';
+import './ui/theme/hud.css';
+import './ui/theme/windows.css';
+import './ui/theme/skills.css';
+import { initUiScale } from './ui/theme/scale';
+import { Portraits } from './render/portrait';
+
+// The UI is laid out on a virtual screen and scaled to the window; start that before anything
+// builds UI.
+initUiScale(document.getElementById('ui') as HTMLElement);
 
 // URL options:
 //   ?test          start paused so automated tests can step the game frame by frame
@@ -197,6 +207,42 @@ if (online && life) {
   };
 }
 if (online && lifeUI) lifeUI.devTools = online.welcome.dev;
+if (online && lifeUI) lifeUI.playerName = online.account.username;
+// Faces for the UI, taken from the scene: yours beside your health, the person you're talking to,
+// and all of you in the character window. Kept a few seconds, then taken again.
+const portraits = new Portraits(stage.renderer, stage.scene);
+const HEAD = 1.45;
+if (lifeUI && world.zone) {
+  const zone = world.zone;
+  lifeUI.portraitOf = (who) => {
+    const shot = portraits.get(who);
+    const fresh = who === 'player' ? 4000 : who === 'body' ? 800 : 1500;
+    if (!shot || shot.age > fresh) {
+      const up = (v: THREE.Vector3, y: number) => v.clone().setY(v.y + y);
+      if (who === 'player' || who === 'body') {
+        // Just you, on layer 1 with the scene's lights, so nothing stands in front of the camera.
+        hero.root.traverse((o) => o.layers.enable(1));
+        stage.scene.traverse((o) => (o as THREE.Light).isLight && o.layers.enable(1));
+        const at = hero.root.position;
+        const f = sim.player.facing;
+        const fwd = new THREE.Vector3(Math.sin(f), 0, Math.cos(f));
+        if (who === 'player') portraits.request(who, up(at, HEAD + 0.05).addScaledVector(fwd, 1.3), up(at, HEAD), 128, 128, 1);
+        else portraits.request(who, up(at, 1.0).addScaledVector(fwd, 4.2), up(at, 0.92), 214, 300, 1);
+      } else {
+        const n = zone.recipe.npcs.find((x) => x.id === who);
+        if (n) {
+          const ground = terrain ? terrain.height(n.x, n.z) : 0;
+          const head = new THREE.Vector3(n.x, ground + HEAD, n.z);
+          // They turn to face you while you talk, so look from where you stand.
+          const toYou = new THREE.Vector3(sim.player.pos.x - n.x, 0, sim.player.pos.z - n.z);
+          const fwd = toYou.lengthSq() > 0.01 ? toYou.normalize() : new THREE.Vector3(Math.sin(n.facing), 0, Math.cos(n.facing));
+          portraits.request(who, head.clone().addScaledVector(fwd, 1.25).setY(head.y + 0.05), head, 128, 128);
+        }
+      }
+    }
+    return shot?.url ?? null;
+  };
+}
 if (peers && lifeUI) lifeUI.others = () => peers.list();
 // Online the game server runs your island and keeps it (server/src/world_game.rs): your commands go
 // to it, and what it says your island holds replaces this copy as it arrives. ?fresh starts it
@@ -859,7 +905,9 @@ function draw(alpha: number, cameraDt: number, animDt: number): void {
     }
   }
   if (!net || playing) drawAbilityBar();
-  hud.setPlayerHp(prediction && net?.you ? sim.player.hp : null, COMBAT.maxHp, serverUrl ? sim.player.team : null);
+  // In the open world your health sits with your portrait; the bar over the hotbar is the battlefield's.
+  hud.setPlayerHp(!lifeUI && prediction && net?.you ? sim.player.hp : null, COMBAT.maxHp, serverUrl ? sim.player.team : null);
+  lifeUI?.setHealth(sim.player.hp, COMBAT.maxHp);
   const pos = hero.root.position;
   if (cameraDt > 0) follow.update(pos, cameraDt);
   stage.follow(pos.x, pos.z, pos.y);
@@ -877,6 +925,7 @@ function draw(alpha: number, cameraDt: number, animDt: number): void {
   blobMat.opacity = 0.22 * lift;
 
   const timing = gpuTimerBegin();
+  portraits.flush();
   stage.renderer.render(stage.scene, follow.camera);
   if (timing) gpuTimerEnd();
   bugs?.afterRender();
@@ -968,15 +1017,20 @@ function frame(now: number): void {
   const cpuStart = performance.now();
 
   if (!paused) {
+    // A window open on a controller has the pad: its stick and buttons drive the window, so you
+    // stand still. With a keyboard and mouse you can walk with a window open (walking away from
+    // whoever you're talking to closes it). The skill panel and the map take every device.
+    const padToMenu = panel.isOpen || (!!lifeUI?.takesPad && input.lastDevice === 'gamepad');
+    if (padToMenu || lifeUI?.modal) input.padToMenu();
     // Open-world keys first, so a panel they open takes this frame's input.
     if (lifeUI) {
-      for (const k of input.pollLife()) {
+      for (const k of input.pollLife(padToMenu)) {
         bugs?.note('key', { type: k });
         lifeUI.press(k);
       }
     }
     // The skill panel takes the controller while it's open (the world carries on around you).
-    const menuOpen = panel.isOpen || !!lifeUI?.modal;
+    const menuOpen = padToMenu || !!lifeUI?.modal;
     for (const m of input.pollMenu()) {
       bugs?.note('menu', { type: m });
       // An open life panel (dialog, shop, bag...) takes the D-pad and A / B first.
@@ -1401,10 +1455,10 @@ const api = {
   },
   /** Which life panel is open, if any. */
   lifePanel(): string | null {
-    return lifeUI?.modal ? ((lifeUI as unknown as { panel: { kind: string } }).panel?.kind ?? null) : null;
+    return lifeUI?.openPanel ?? null;
   },
   closeLifePanel(): void {
-    lifeUI?.close();
+    lifeUI?.closeAll();
   },
   pressLife(k: Parameters<LifeUI['press']>[0]): void {
     lifeUI?.press(k);
