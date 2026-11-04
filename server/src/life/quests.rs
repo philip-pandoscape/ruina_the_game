@@ -2,7 +2,7 @@
 //! done, advanced by events the other systems report (planted, harvested, delivered...), handed
 //! in for rewards.
 
-use super::content::{format_coins, has_quest, item_def, js_max, js_min, labor, objective_target, quest_def, quests, ship_designs, ItemCount, Objective, QuestDef, QuestStep};
+use super::content::{js_hypot, format_coins, has_quest, item_def, js_max, js_min, labor, objective_target, quest_def, quests, ship_designs, ItemCount, Objective, QuestDef, QuestStep};
 use super::state::{Plant, QuestProgress};
 use super::{step_seconds, Life, LifeEvent, QuestEvent};
 use crate::open::Sim;
@@ -238,31 +238,6 @@ fn advance(life: &mut Life, id: &str) {
     life.emit(LifeEvent::Quest { id: id.to_string(), what: "step".into() });
     life.toast(format!("{}: {}", q.name, step_of(q, step).map_or("", |s| s.text.as_str())), "quest");
     start_step(life, i);
-}
-
-/// Math.hypot as V8 works it out (scaled by the larger side, the squares Kahan-summed), so a
-/// distance right at the edge of a radius comes out the same as in the browser.
-fn js_hypot(a: f64, b: f64) -> f64 {
-    if a.is_infinite() || b.is_infinite() {
-        return f64::INFINITY;
-    }
-    if a.is_nan() || b.is_nan() {
-        return f64::NAN;
-    }
-    let (a, b) = (a.abs(), b.abs());
-    let max = if b > a { b } else { a };
-    if max == 0.0 {
-        return 0.0;
-    }
-    let (mut sum, mut compensation) = (0.0f64, 0.0f64);
-    for v in [a, b] {
-        let n = v / max;
-        let summand = n * n - compensation;
-        let preliminary = sum + summand;
-        compensation = (preliminary - sum) - summand;
-        sum = preliminary;
-    }
-    sum.sqrt() * max
 }
 
 /// Objectives measured rather than reported: getting somewhere, time in the air.

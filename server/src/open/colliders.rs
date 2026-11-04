@@ -4,6 +4,7 @@
 use std::collections::{HashMap, HashSet};
 
 use super::zone::{BoxCollider, Deck, Heightfield, Obstacle};
+use crate::life::content::js_hypot;
 
 const BUCKET: f64 = 16.0;
 
@@ -68,11 +69,11 @@ impl ColliderIndex {
         }
         for i in 0..idx.boxes.len() {
             let b = idx.boxes[i];
-            insert(&mut idx.box_cells, b.x, b.z, b.hw.hypot(b.hd), i);
+            insert(&mut idx.box_cells, b.x, b.z, js_hypot(b.hw, b.hd), i);
         }
         for i in 0..idx.decks.len() {
             let d = idx.decks[i];
-            insert(&mut idx.deck_cells, d.x, d.z, d.hw.hypot(d.hd), i);
+            insert(&mut idx.deck_cells, d.x, d.z, js_hypot(d.hw, d.hd), i);
         }
         idx
     }
@@ -81,14 +82,14 @@ impl ColliderIndex {
     pub fn add_box(&mut self, b: BoxCollider) -> usize {
         self.boxes.push(b);
         let i = self.boxes.len() - 1;
-        insert(&mut self.box_cells, b.x, b.z, b.hw.hypot(b.hd), i);
+        insert(&mut self.box_cells, b.x, b.z, js_hypot(b.hw, b.hd), i);
         i
     }
 
     pub fn add_deck(&mut self, d: Deck) -> usize {
         self.decks.push(d);
         let i = self.decks.len() - 1;
-        insert(&mut self.deck_cells, d.x, d.z, d.hw.hypot(d.hd), i);
+        insert(&mut self.deck_cells, d.x, d.z, js_hypot(d.hw, d.hd), i);
         i
     }
 

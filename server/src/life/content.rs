@@ -926,6 +926,32 @@ pub fn js_round(x: f64) -> f64 {
     (x + 0.5).floor()
 }
 
+/// Math.hypot of two numbers, exactly as V8 works it out (scaled by the larger, with compensated
+/// summation). f64::hypot rounds differently in about a third of cases, and the rules compare
+/// these distances against thresholds, so a different last bit can be a different decision.
+pub fn js_hypot(a: f64, b: f64) -> f64 {
+    if a.is_infinite() || b.is_infinite() {
+        return f64::INFINITY;
+    }
+    if a.is_nan() || b.is_nan() {
+        return f64::NAN;
+    }
+    let (a, b) = (a.abs(), b.abs());
+    let max = if b > a { b } else { a };
+    if max == 0.0 {
+        return 0.0;
+    }
+    let (mut sum, mut compensation) = (0.0f64, 0.0f64);
+    for v in [a, b] {
+        let n = v / max;
+        let summand = n * n - compensation;
+        let preliminary = sum + summand;
+        compensation = (preliminary - sum) - summand;
+        sum = preliminary;
+    }
+    sum.sqrt() * max
+}
+
 /// Math.sign: 0 for 0 (f64::signum gives 1 for +0).
 pub fn js_sign(x: f64) -> f64 {
     if x > 0.0 {
