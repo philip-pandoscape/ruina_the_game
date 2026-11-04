@@ -56,6 +56,8 @@ pub fn actions_from(raw: [u8; 7]) -> Actions {
         movement_held: raw[6],
         aim_x: aim_axis(raw[3] as i8),
         aim_z: aim_axis(raw[4] as i8),
+        stick_x: 0.0,
+        stick_y: 0.0,
     }
 }
 

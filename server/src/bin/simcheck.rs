@@ -136,6 +136,7 @@ fn main() {
             crouch_held: s.crouch_held,
             aim_x: s.aim_x,
             aim_z: s.aim_z,
+            ..Default::default()
         };
         p.step(&a, &world);
         let mut frame = Vec::with_capacity(FRAME_LEN);

@@ -29,6 +29,10 @@ pub struct Actions {
     pub crouch_held: bool,
     pub aim_x: f64, // optional target offset in metres (0, 0 = straight ahead)
     pub aim_z: f64,
+    /// The raw stick (or WASD), before it is turned into a world direction: x is right, y is
+    /// forward. Vehicles steer with it (tank controls); everything on foot uses move_x / move_z.
+    pub stick_x: f64,
+    pub stick_y: f64,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -37,8 +41,12 @@ pub enum Mode {
     Attack = 1,
     Cast = 2,
     /// A data-driven movement skill: a dodge, a guard, or the slide everyone has.
-    /// Keep MODE_DOWN in protocol.rs one past the last of these.
     Action = 3,
+    /// Open worlds only (src/sim/player/traverse.ts and src/sim/life/vehicles.ts).
+    Swim = 4,
+    Glide = 5,
+    Ride = 6,
+    // Keep MODE_DOWN in protocol.rs one past the last of these.
 }
 
 #[derive(Clone, Copy, Default, Debug)]
@@ -103,6 +111,21 @@ pub struct Player {
     pub cast_target_x: f64,
     pub cast_target_z: f64,
     pub fired_ability: u8, // the ability whose cast finished this frame, else NO_ABILITY
+    // ---- Open-world traversal (src/sim/types.ts). Always at rest on the battlefield. ----
+    /// The trade pack on your back (an id in the life systems), 0 for none.
+    pub pack: i64,
+    /// What you are riding (a vehicle id in the life systems), 0 on foot; and which seat.
+    pub vehicle: i64,
+    pub seat: u8,
+    /// The glider you have equipped ("" for none), and its airspeed while open.
+    pub glider: String,
+    pub airspeed: f64,
+    /// Lean into a turn, -1..1, for the glider and the body.
+    pub bank: f64,
+    /// Frames since the current traversal mode began (glider opening, swim strokes).
+    pub mode_frame: i32,
+    /// Frames until the glider's gust can be used again.
+    pub gust_frames: i32,
 }
 
 fn len(x: f64, z: f64) -> f64 {
@@ -200,6 +223,14 @@ impl Player {
             cast_target_x: 0.0,
             cast_target_z: 0.0,
             fired_ability: NO_ABILITY,
+            pack: 0,
+            vehicle: 0,
+            seat: 0,
+            glider: String::new(),
+            airspeed: 0.0,
+            bank: 0.0,
+            mode_frame: 0,
+            gust_frames: 0,
         }
     }
 
@@ -436,6 +467,8 @@ impl Player {
                 Mode::Cast => self.update_cast(a),
                 Mode::Attack => self.update_attack(a),
                 Mode::Normal => self.update_normal(a),
+                // Only open worlds have these, and they step through crate::open::traverse.
+                Mode::Swim | Mode::Glide | Mode::Ride => self.update_normal(a),
             }
         }
 

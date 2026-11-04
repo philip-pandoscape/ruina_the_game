@@ -34,8 +34,8 @@ const METEOR_ENTRY = 10;
 const ACTOR_ENTRY = 19;
 const EVENT_ENTRY = 8;
 // Order must match Mode in server/src/player.rs; MODE_DOWN sits one past the last of these.
-export const MODES: Mode[] = ['normal', 'attack', 'cast', 'action'];
-export const MODE_DOWN = 4;
+export const MODES: Mode[] = ['normal', 'attack', 'cast', 'action', 'swim', 'glide', 'ride'];
+export const MODE_DOWN = 7;
 
 // Another real player near you, as of the latest update.
 export interface RemoteRecord {

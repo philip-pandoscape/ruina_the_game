@@ -71,7 +71,7 @@ pub const MSG_BUILD: u8 = 6;
 
 /// Sent in the mode byte instead of a mode when someone is knocked down. One past the last
 /// Mode, so adding a mode without moving this would make the two indistinguishable.
-pub const MODE_DOWN: u8 = 4;
+pub const MODE_DOWN: u8 = 7;
 pub const PLAYER_ENTRY: usize = 31;
 // id + ack + 14 f64 + (16 fixed + one cooldown per slot) i16 + perks + (16 fixed + one ability
 // per slot) u8. Kept as arithmetic so changing HOTBAR_SLOTS can't silently desync the wire format.
