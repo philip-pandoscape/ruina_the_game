@@ -12,7 +12,8 @@
     "isolatedModules": true,
     "resolveJsonModule": true,
     "skipLibCheck": true,
-    "noEmit": true
+    "noEmit": true,
+    "allowImportingTsExtensions": true
   },
-  "include": ["src", "tests", "shared", "playwright.config.ts"]
+  "include": ["src", "tests", "shared", "tools", "playwright.config.ts", "vite.config.ts"]
 }

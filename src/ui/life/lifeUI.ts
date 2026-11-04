@@ -930,7 +930,8 @@ export class LifeUI {
       <button class="lui-btn small" data-act="warp" data-arg="600">+10 minutes</button>
       <button class="lui-btn small" data-act="warp" data-arg="3600">+1 hour</button>
       <h3>Teleport</h3>${places}
-      <h3>Save</h3><button class="lui-btn small" data-act="reset">Start Emberholm over</button></div>`;
+      <h3>Save</h3><button class="lui-btn small" data-act="reset">Start Emberholm over</button>
+      ${this.onBugReport ? `<h3>Bug report</h3><button class="lui-btn small" data-act="bug">🐞 Record a bug report</button><div style="font-size:12px;opacity:0.75">Or press <b>${this.bugKey().replace(/[&<>"]/g, (c) => `&#${c.charCodeAt(0)};`)}</b> any time (click both sticks on a controller). It keeps the last 30 seconds of play, then records your voice and the screen until you press it again.</div>` : ''}</div>`;
     this.wire({
       grant: (what) => {
         const g = (item: string, n = 1) => life.command({ t: 'grant', item, n });
@@ -951,12 +952,21 @@ export class LifeUI {
         this.close();
       },
       reset: () => this.onReset?.(),
+      bug: () => {
+        // Close first, so the report's screenshot shows the game rather than this panel.
+        this.close();
+        this.onBugReport?.();
+      },
     });
   }
 
   /** Set by the app: move the player somewhere (dev panel). */
   onTeleport: ((x: number, z: number) => void) | null = null;
   onReset: (() => void) | null = null;
+  /** Set by the app when bug reports are on: start (or finish) one. */
+  onBugReport: (() => void) | null = null;
+  /** How this keyboard labels the bug report key. */
+  bugKey: () => string = () => '\\';
 
   /** Stand-in for the old stage name; kept so callers can check how much of a site is left. */
   siteSummary(houseId: number): string {

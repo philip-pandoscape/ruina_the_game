@@ -13,20 +13,27 @@ import { exitSpot, ridden } from '../sim/life/vehicles';
 // and where you were standing. The world clock keeps running while you are away (up to a cap), so
 // crops ripen and labor refills while the tab is closed - the way it would on a server.
 
-const KEY = 'ruina.emberholm.v1';
+/** Where the island is kept in localStorage (bug reports carry a copy, to load the same island). */
+export const SAVE_KEY = 'ruina.emberholm.v1';
+const KEY = SAVE_KEY;
 
-interface Saved {
+export interface Saved {
   savedAt: number;
   state: LifeState;
   player: { x: number; y: number; z: number; facing: number };
 }
 
-export function saveLife(life: Life, sim: Sim): void {
+/** The island as it would be saved right now. */
+export function saveData(life: Life, sim: Sim): Saved {
   const p = sim.player;
   // Riding is not saved: you will be standing beside it next time.
   const v = p.mode === 'ride' ? ridden(life, sim) : undefined;
   const at = v ? exitSpot(sim, v) : p.pos;
-  const data: Saved = { savedAt: Date.now(), state: life.state, player: { x: at.x, y: at.y, z: at.z, facing: p.facing } };
+  return { savedAt: Date.now(), state: life.state, player: { x: at.x, y: at.y, z: at.z, facing: p.facing } };
+}
+
+export function saveLife(life: Life, sim: Sim): void {
+  const data = saveData(life, sim);
   try {
     localStorage.setItem(KEY, JSON.stringify(data));
   } catch {

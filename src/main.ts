@@ -29,7 +29,9 @@ import { groundAt } from './sim/zone/colliders';
 import { Life } from './sim/life/life';
 import { LifeView } from './render/open/life';
 import { LifeUI } from './ui/life/lifeUI';
-import { clearLife, loadLife, saveLife } from './app/save';
+import { clearLife, loadLife, saveData, saveLife } from './app/save';
+import { BugReporter } from './app/bugs/reporter';
+import { installLogCapture } from './app/bugs/logs';
 import { dismount, ridden } from './sim/life/vehicles';
 import { RIDE_CAMERA } from './content/traversal';
 import { rideable, isBoat } from './content/vehicles';
@@ -53,6 +55,10 @@ import { ABILITIES, abilityRadius, AIM, MOVEMENT_SKILLS, CAMERA, castFramesFor, 
 //   (none)         the open world: Emberholm, the starter isle
 //   ?yard          the old training yard (also what ?test opens, unless ?world is given too)
 //   ?world&test    the open world, paused for automated tests
+//   ?bugs=0        no bug reporter (\ records a bug report; tests turn it on with &bugs)
+//   &bugspeech=0   bug reports without live transcription; &buglang=en-GB to change its language
+// Console output and errors are kept from here on, for bug reports.
+installLogCapture();
 const params = new URLSearchParams(location.search);
 const testMode = params.has('test');
 const serverUrl = params.get('server');
@@ -140,9 +146,21 @@ const input = new Input(canvas);
 const hud = new Hud();
 hud.setDevice(input.lastDevice);
 
+// Records bug reports (\ or both sticks); set up at the end of this file, once everything exists.
+let bugs: BugReporter | null = null;
+
 // ---------- The open world's life systems: trade, farming, housing, vehicles, quests ----------
 const life = openWorld && world.zone ? new Life(world.zone) : null;
 if (life) sim.life = life;
+if (life) {
+  // Every command the island is given goes into a bug report's event log.
+  const command = life.command.bind(life);
+  life.command = (c) => {
+    const { t, ...rest } = c;
+    bugs?.note('command', { type: t, ...rest });
+    command(c);
+  };
+}
 input.worldMode = !!life;
 if (terrain) vfx.ground = groundY;
 const lifeView = life ? new LifeView(stage.scene, life, models, hero) : null;
@@ -584,8 +602,9 @@ function stepOnce(actions: Actions): void {
     events = events.concat(local, netSpells.step(STEP, sim.frame, enemyAt));
   }
   for (const e of events) showEvent(e);
+  const le = life ? life.drainEvents() : [];
+  bugs?.step(sim.frame, actions, events, le);
   if (life) {
-    const le = life.drainEvents();
     lifeUI?.onEvents(le);
     for (const e of le) {
       if (e.t === 'harvest') vfx.lifeEffect('harvest', e.x, e.y, e.z);
@@ -760,6 +779,7 @@ function draw(alpha: number, cameraDt: number, animDt: number): void {
   const timing = gpuTimerBegin();
   stage.renderer.render(stage.scene, follow.camera);
   if (timing) gpuTimerEnd();
+  bugs?.afterRender();
   const dAct = dummyActor();
   const markNow = lockOn.mark();
   dummyTop.set(dAct?.x ?? 0, 2.05 + groundY(dAct?.x ?? 0, dAct?.z ?? 0), dAct?.z ?? 0);
@@ -849,10 +869,16 @@ function frame(now: number): void {
 
   if (!paused) {
     // Open-world keys first, so a panel they open takes this frame's input.
-    if (lifeUI) for (const k of input.pollLife()) lifeUI.press(k);
+    if (lifeUI) {
+      for (const k of input.pollLife()) {
+        bugs?.note('key', { type: k });
+        lifeUI.press(k);
+      }
+    }
     // The skill panel takes the controller while it's open (the world carries on around you).
     const menuOpen = panel.isOpen || !!lifeUI?.modal;
     for (const m of input.pollMenu()) {
+      bugs?.note('menu', { type: m });
       // An open life panel (dialog, shop, bag...) takes the D-pad and A / B first.
       if (lifeUI?.menu(m)) continue;
       if (panel.isOpen) panel.menu(m);
@@ -1219,6 +1245,97 @@ const api = {
   setLag(ms: number): void {
     net?.setLag(ms);
   },
+  /** The bug reporter: what it is doing and the last report it saved (null when it is off). */
+  bugs() {
+    return bugs?.status() ?? null;
+  },
+  /** Same as pressing \ (toggle) or Backspace twice (discard). */
+  bugReport(action: 'toggle' | 'discard' = 'toggle'): void {
+    if (action === 'discard') bugs?.discard();
+    else bugs?.toggle();
+  },
 };
 
 (window as unknown as { __game: typeof api }).__game = api;
+
+// ---------- Bug reports ----------
+// \ (or clicking both sticks) records one: see src/app/bugs/reporter.ts. The dev server saves it
+// to bugs/, and /fix-bugs in Claude Code works through them. Off in automated tests unless asked for.
+
+const r2 = (v: number) => Math.round(v * 100) / 100;
+const r3 = (v: number) => Math.round(v * 1000) / 1000;
+
+/** Everything a bug report wants to know about the game at one moment. */
+function bugSnapshot(): Record<string, unknown> {
+  const p = sim.player;
+  const mark = lockOn.mark();
+  const eye = follow.camera.position;
+  return {
+    mode: openWorld ? 'open world (Emberholm)' : serverUrl ? 'online battle' : raidCount ? 'raid stress test' : 'training yard',
+    frame: sim.frame,
+    paused,
+    device: input.lastDevice,
+    player: p,
+    camera: { yaw: r3(follow.yaw), pitch: r3(follow.pitch), distance: r2(follow.distance), eye: [r2(eye.x), r2(eye.y), r2(eye.z)] },
+    panels: { life: api.lifePanel(), skillTree: panel.isOpen, aimingSlot },
+    target: mark ? { name: mark.name, hp: mark.hp, x: r2(mark.x), z: r2(mark.z), locked: lockOn.locked } : null,
+    riding: life && p.mode === 'ride' ? (ridden(life, sim) ?? null) : null,
+    nearby: sim.actors
+      .all()
+      .map((a) => ({ id: a.id, kind: a.kind, x: r2(a.x), y: r2(a.y), z: r2(a.z), hp: a.hp, alive: isAlive(a), state: stateName(a), dist: r2(Math.hypot(a.x - p.pos.x, a.z - p.pos.z)) }))
+      .filter((a) => a.dist < 40)
+      .sort((a, b) => a.dist - b.dist)
+      .slice(0, 24),
+    life: life ? { ...life.state, focus: life.focus, placing: life.placing, resting: life.resting } : null,
+    build,
+    net: api.net(),
+    perf: perf(),
+  };
+}
+
+/** The player in a few numbers, ten times a second, for a report's timeline. */
+function bugSample(): Record<string, unknown> {
+  const p = sim.player;
+  const s: Record<string, unknown> = {
+    f: sim.frame,
+    x: r2(p.pos.x),
+    y: r2(p.pos.y),
+    z: r2(p.pos.z),
+    vx: r2(p.vel.x),
+    vy: r2(p.vel.y),
+    vz: r2(p.vel.z),
+    mode: p.mode,
+    grounded: p.grounded,
+    facing: r3(p.facing),
+  };
+  if (p.hp !== COMBAT.maxHp) s.hp = p.hp;
+  if (p.sprinting) s.sprinting = true;
+  if (p.crouching) s.crouching = true;
+  if (life) {
+    const v = p.mode === 'ride' ? ridden(life, sim) : undefined;
+    if (v) s.ride = { id: v.id, def: v.def, x: r2(v.x), y: r2(v.y), z: r2(v.z), speed: r2(v.speed), heading: r3(v.heading) };
+    if (life.focus) s.focus = `${life.focus.action}: ${life.focus.label}${life.focus.ok ? '' : ' (not now)'}`;
+    if (life.placing) s.placing = true;
+  }
+  const lp = api.lifePanel();
+  if (lp) s.panel = lp;
+  else if (panel.isOpen) s.panel = 'skill tree';
+  return s;
+}
+
+if (testMode ? params.has('bugs') : params.get('bugs') !== '0') {
+  bugs = new BugReporter({
+    canvas,
+    snapshot: bugSnapshot,
+    save: () => (life ? saveData(life, sim) : null),
+    sample: bugSample,
+    device: () => input.lastDevice,
+    test: testMode,
+    speech: params.get('bugspeech') !== '0',
+    lang: params.get('buglang') || navigator.language || 'en-US',
+  });
+  if (lifeUI) {
+    lifeUI.onBugReport = () => bugs?.toggle();
+    lifeUI.bugKey = () => bugs?.key ?? '\\';
+  }
+}

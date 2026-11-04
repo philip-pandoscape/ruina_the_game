@@ -5,3 +5,4 @@ playwright-report/
 screenshots/
 server/target/
 scratch/
+/bugs/

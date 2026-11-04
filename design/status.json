@@ -554,6 +554,19 @@
     },
     {
       "system": "tech",
+      "status": "done",
+      "title": "Bug reports recorded in play, fixed with /fix-bugs",
+      "notes": "Press \\ (or click both sticks) when something goes wrong: the game keeps the last 30 s (frames 4 a second, the player 10 times a second, every input, events, console and errors), takes a screenshot with the HUD, then records your voice (live transcript), the screen and the state until you press it again. The dev server saves it to bugs/; /fix-bugs in Claude Code reads it with tools/bugs.mjs, reproduces the bug on the saved island, fixes it and closes the report. Frames are encoded in a worker, so it costs no frame time.",
+      "files": [
+        "src/app/bugs/",
+        "tools/bugReports.ts",
+        "tools/bugs.mjs",
+        ".claude/skills/fix-bugs/SKILL.md",
+        "tests/bugreport.spec.ts"
+      ]
+    },
+    {
+      "system": "tech",
       "status": "planned",
       "title": "A world server",
       "notes": "Persistent, authoritative life systems: the same commands sent as requests, state in a database, interest management for other players' carts and ships."
@@ -652,6 +665,18 @@
         "Life systems run as commands inside the deterministic sim, ready to move to a server.",
         "Design bible and this tracker created (design/index.html, design/status.json); ArcheAge research notes in design/research/.",
         "A code review of the night's work found nine bugs, all fixed: boats left with the sail up no longer sail off alone; a second whistle brings back the same donkey; the cog design is on sale at Ilsa's; you no longer wade on a pier above deep water; a ride that a storm broke up is cleared; saving while riding puts you back on solid ground; saves from older versions load; quests count work you did before taking them; and a full bag refuses gathering, harvests and rewards instead of destroying them. Five of these (sail, donkey, cog design, quests, full bag) now have regression tests."
+      ]
+    },
+    {
+      "date": "2026-11-03",
+      "title": "Bug reports from inside the game",
+      "summary": "Added a way to report bugs while playing: one key records what just happened and what you say about it, and /fix-bugs in Claude Code works through the reports.",
+      "points": [
+        "\\ (or both sticks) starts a report with the last 30 seconds already in it; \\ again saves it; Backspace twice throws it away. The developer panel has a button too.",
+        "A report holds a transcript, voice.wav (whisper-ready), a video, a screenshot with the HUD, frames, console output and errors, game events and commands, the player timeline and inputs, the full state at the press and at the end, and the island save.",
+        "The dev server (vite.config.ts, tools/bugReports.ts) writes reports to bugs/ (git-ignored) and only accepts them from the game on this machine.",
+        "tools/bugs.mjs lists, summarizes, transcribes (whisper.cpp, if installed) and closes reports; .claude/skills/fix-bugs/SKILL.md is the /fix-bugs routine.",
+        "tests/bugreport.spec.ts records a full report with a stand-in microphone and speech recognizer, checks every file, the discard path and the server refusing writes from elsewhere."
       ]
     },
     {

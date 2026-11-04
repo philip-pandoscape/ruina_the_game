@@ -65,6 +65,7 @@ anything in `server/` or the network messages, or the game stops responding.
 | Movement skills (dodge, backstep, block) | Q, E | LB, RB |
 | Next target | Tab (Shift-Tab goes back) | D-pad right / left |
 | Skill trees | T | View |
+| Report a bug (press again to save it) | \ (Backspace twice throws it away) | Click both sticks |
 
 In the open world:
 
@@ -80,6 +81,27 @@ In the open world:
 | Change the seed you plant | Z | |
 | Bag, map, vehicles, quest log | I, M, V, L | Menu, D-pad up |
 | Developer tools (give items, skip time, teleport) | ` | |
+
+## Bug reports
+
+Press `\` (the key next to Return; or click both sticks) the moment something goes wrong. The game
+keeps the last 30 seconds of play, then records your voice and the screen while you say what
+happened and show it. Press `\` again to save it. The dev server writes the report to
+`bugs/<when>-<what>/` (git-ignored). Type `/fix-bugs` in Claude Code and it works through the open
+reports: it reads the transcript, looks at the frames, reproduces the bug, fixes it, adds a test,
+and moves the report to `bugs/closed/`.
+
+A report holds: the transcript, `voice.wav`, a video, a screenshot with the HUD, frames from 30 s
+before the press, console output and errors, game events, the player's path and inputs, the full
+game state, and the island save (so the bug can be replayed on the same island).
+`node tools/bugs.mjs` lists and summarizes them from the terminal.
+
+- Live transcription uses the browser's speech recognition (Chrome runs it on Google's servers).
+  `?bugspeech=0` turns it off; `node tools/bugs.mjs transcribe <id>` transcribes `voice.wav`
+  locally with whisper.cpp instead (`brew install whisper-cpp` plus a model).
+- `?bugs=0` turns the reporter off. It's off in automated tests unless the URL asks for `&bugs`.
+- Saving needs the dev server (`npm run dev`). A server started before `vite.config.ts` existed
+  has to be restarted once.
 
 ## Tests
 
