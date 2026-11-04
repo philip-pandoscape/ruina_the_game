@@ -63,11 +63,17 @@ jobs:
             server/target/release/aicheck
             server/target/release/balance
 
+  # The suite plays the real game in a browser that draws in software here, so it's split across
+  # four runners (about 10 minutes instead of 40). "Game tests" below is the one check to require.
   game:
-    name: Game tests
+    name: Game tests (${{ matrix.shard }}/4)
     needs: server
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
     services:
       postgres:
         image: postgres:18
@@ -104,20 +110,29 @@ jobs:
           cat server.log
           exit 1
       - name: Play the game
-        run: npx playwright test
+        run: npx playwright test --shard=${{ matrix.shard }}/4
       - name: Server log
         if: failure()
         run: cat server.log
       - uses: actions/upload-artifact@v7
         if: failure()
         with:
-          name: test-results
+          name: test-results-${{ matrix.shard }}
           path: test-results/
           retention-days: 7
 
+  game-result:
+    name: Game tests
+    needs: game
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Every part passed
+        run: test "${{ needs.game.result }}" = success
+
   deploy:
     name: Deploy
-    needs: [client, server, game]
+    needs: [client, server, game-result]
     if: github.event_name != 'pull_request' && (github.ref_name == 'beta' || github.ref_name == 'production')
     runs-on: ubuntu-latest
     environment:

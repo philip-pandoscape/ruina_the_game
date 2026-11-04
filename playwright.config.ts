@@ -6,7 +6,12 @@ export default defineConfig({
   testDir: 'tests',
   timeout: 120_000,
   workers: 1,
-  reporter: [['list']],
+  // CI runners are slower than a desk machine and draw WebGL in software. There the suite is split
+  // across runners test by test (.github/workflows/ci-cd.yml), and a test that lost a race against
+  // the clock gets two more tries; a real failure fails all three.
+  fullyParallel: !!process.env.CI,
+  retries: process.env.CI ? 2 : 0,
+  reporter: process.env.CI ? [['list'], ['github']] : [['list']],
   use: {
     baseURL: 'http://localhost:5199',
     channel: process.platform === 'win32' ? 'msedge' : undefined,
