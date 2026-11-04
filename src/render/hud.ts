@@ -79,6 +79,8 @@ export interface TargetInfo {
   hp: number; // 0..1
   name: string;
   locked: boolean; // true once you picked it with Tab rather than it being chosen for you
+  /** A cast it is in the middle of: interrupt it before the bar fills. */
+  cast?: { label: string; progress: number } | null;
 }
 
 // On-screen text: controls hint, stats, the dummy's health bar and floating damage numbers.
@@ -94,6 +96,9 @@ export class Hud {
   private plate = document.getElementById('target-plate') as HTMLDivElement;
   private plateFill = this.plate.querySelector('.fill') as HTMLDivElement;
   private plateName = this.plate.querySelector('.name') as HTMLSpanElement;
+  private plateCast = this.plate.querySelector('.cast') as HTMLDivElement;
+  private plateCastFill = this.plate.querySelector('.cast .fill') as HTMLDivElement;
+  private plateCastLabel = this.plate.querySelector('.cast .label') as HTMLSpanElement;
   private target: TargetInfo | null = null;
   private v = new THREE.Vector3();
   private bar = document.getElementById('abilities') as HTMLDivElement;
@@ -351,5 +356,10 @@ export class Hud {
     this.plate.classList.toggle('locked', t.locked);
     this.plateFill.style.width = `${Math.round(Math.max(0, Math.min(1, t.hp)) * 100)}%`;
     this.plateName.textContent = t.name;
+    this.plateCast.style.display = t.cast ? 'block' : 'none';
+    if (t.cast) {
+      this.plateCastFill.style.width = `${Math.round(Math.max(0, Math.min(1, t.cast.progress)) * 100)}%`;
+      this.plateCastLabel.textContent = t.cast.label;
+    }
   }
 }

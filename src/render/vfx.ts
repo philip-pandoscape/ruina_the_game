@@ -448,6 +448,24 @@ export class Vfx {
         this.puff(e.x, g + 0.5, e.z, 18, 3.2, 0.3, SLIME_GREEN);
         break;
       }
+      case 'actorCall': {
+        // Calling the pack: a green ripple spreading out from it.
+        const g = this.gy(e.x, e.z);
+        this.rings.spawn(this.v.set(e.x, g + 0.05, e.z), 5, 0.7, 0x9dff5c);
+        this.rings.spawn(this.v.set(e.x, g + 0.06, e.z), 2.5, 0.45, 0xd8ffc0);
+        break;
+      }
+      case 'gatherStart': {
+        const g = this.gy(e.x, e.z);
+        this.rings.spawn(this.v.set(e.x, g + 0.05, e.z), e.radius, 0.6, 0x9dff5c);
+        break;
+      }
+      case 'gatherBroken':
+        // Broken: a pop of white, and it slumps.
+        this.burst(e.x, e.y, e.z, 1, 0, 10, 6, new THREE.Color(0xffffff));
+        this.burst(e.x, e.y, e.z, -1, 0, 10, 6, new THREE.Color(0xffffff));
+        this.rings.spawn(this.v.set(e.x, this.gy(e.x, e.z) + 0.05, e.z), 2, 0.3, 0xffffff);
+        break;
       case 'actorAbsorbed':
         this.puff(e.x, e.y, e.z, 6, 1.6, 0.2, SLIME_GREEN);
         break;

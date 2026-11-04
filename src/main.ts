@@ -257,6 +257,18 @@ hud.onSkillsClick = () => panel.toggle();
 hud.onSwapSlots = (from, to) => applyBuild(swapSlots(build, from, to));
 const DEG = Math.PI / 180;
 
+// What the target plate's cast bar calls a monster's cast, by the behaviour state casting it.
+const CASTS: Record<string, string> = { gather: 'Gathering' };
+
+/** The cast a marked actor is in the middle of, for the bar under its health. */
+function castOf(key: string): { label: string; progress: number } | null {
+  if (serverUrl || !key.startsWith('actor:')) return null;
+  const a = sim.actors.get(Number(key.slice(6)));
+  const s = a?.brain ? behaviour(a.brain)?.states[a.state] : undefined;
+  if (!a || !isAlive(a) || s?.act !== 'channel') return null;
+  return { label: CASTS[s.name] ?? s.name, progress: stateProgress(a) };
+}
+
 // What the target plate calls each kind. Content, not rules, so it lives next to the UI.
 const NAMES: Record<string, string> = {
   dummy: 'Training dummy',
@@ -712,9 +724,12 @@ function castCircle(p: PlayerState, x: number, z: number, hostile: boolean, mine
 
 // Monsters about to do something to you: where a slam will land, from the moment one picks the
 // spot until it comes down. Read off the behaviour's acts, so a new monster's slam warns the same way.
-function monsterWarning(kind: string, state: number, progress: number, tx: number, tz: number): void {
+// A gather shows the reach of its pull, filling as the cast goes on.
+function monsterWarning(kind: string, state: number, progress: number, x: number, z: number, tx: number, tz: number): void {
   const k = findKind(kind);
-  const act = k?.brain ? behaviour(k.brain)?.states[state]?.act : undefined;
+  const b = k?.brain ? behaviour(k.brain) : undefined;
+  const act = b?.states[state]?.act;
+  if (act === 'channel' && b?.gather) spells.circle(x, z, b.gather.radius, progress, CIRCLE.gather, 0.55);
   if (!k?.slam || (act !== 'windup' && act !== 'leap')) return;
   spells.circle(tx, tz, k.slam.radius, act === 'windup' ? progress : 1, CIRCLE.enemy, 0.9);
 }
@@ -724,12 +739,12 @@ function monsterWarnings(): void {
     for (const a of net.actors) {
       if (a.deadFrame >= 0) continue;
       const k = actorKindAt(a.kind);
-      if (k) monsterWarning(k.id, a.state, a.progress, a.targetX, a.targetZ);
+      if (k) monsterWarning(k.id, a.state, a.progress, a.x, a.z, a.targetX, a.targetZ);
     }
     return;
   }
   for (const a of sim.actors.all()) {
-    if (isAlive(a) && !a.gone) monsterWarning(a.kind, a.state, stateProgress(a), a.targetX, a.targetZ);
+    if (isAlive(a) && !a.gone) monsterWarning(a.kind, a.state, stateProgress(a), a.x, a.z, a.targetX, a.targetZ);
   }
 }
 
@@ -848,7 +863,7 @@ function draw(alpha: number, cameraDt: number, animDt: number): void {
   const markNow = lockOn.mark();
   dummyTop.set(dAct?.x ?? 0, 2.05 + groundY(dAct?.x ?? 0, dAct?.z ?? 0), dAct?.z ?? 0);
   hud.setTarget(
-    markNow ? { pos: markPos.set(markNow.x, markNow.y + 2.15 + groundY(markNow.x, markNow.z), markNow.z), hp: markNow.hp, name: markNow.name, locked: lockOn.locked } : null,
+    markNow ? { pos: markPos.set(markNow.x, markNow.y + 2.15 + groundY(markNow.x, markNow.z), markNow.z), hp: markNow.hp, name: markNow.name, locked: lockOn.locked, cast: castOf(markNow.key) } : null,
   );
   // The dummy has its own health bar in the training yard; hide it when the target plate is
   // already showing the same thing, or they stack on top of each other.

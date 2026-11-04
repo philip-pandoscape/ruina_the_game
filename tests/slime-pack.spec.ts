@@ -24,9 +24,10 @@ function watchErrors(page: Page): string[] {
   return errors;
 }
 
-const open = async (page: Page) => {
+const open = async (page: Page, live = false) => {
   const errors = watchErrors(page);
-  await page.goto('/?yard');
+  // Paused, so only the test steps the game; `live` lets it run, for what only the frame loop does.
+  await page.goto(live ? '/?yard' : '/?yard&test');
   await page.waitForFunction(() => (window as any).__game?.ready === true);
   await page.evaluate((v) => (window as any).__game.setBuild(v), SWORD);
   return errors;
@@ -231,4 +232,141 @@ test('a burst never takes the creature past its cap', async ({ page }) => {
   await kill(page, (await slimes(page))[0].id);
   await advance(page, 1);
   expect((await all(page, 'slimelet')).length - before).toBe(2);
+});
+
+// ---------- the rally and the gather ----------
+
+const GATHER = { radius: 8, castFrames: 150, breakAt: 0.25 }; // shared/behaviours.json "slime"
+
+/**
+ * Slime 0 a few metres in front of you; three more about 10 m from it, close enough to hear it
+ * call; the last 20 m off, too far to.
+ */
+async function pack(page: Page) {
+  const p = await me(page);
+  const cx = p.pos.x;
+  const cz = p.pos.z + 4;
+  await place(page, 0, cx, cz);
+  await place(page, 1, cx + 10, cz);
+  await place(page, 2, cx - 10, cz);
+  await place(page, 3, cx, cz + 10);
+  await place(page, 4, cx + 20, cz + 4);
+  return { p, list: await slimes(page) };
+}
+
+test('hit a slime and the pack rushes to it, and it starts gathering them', async ({ page }) => {
+  const errors = await open(page);
+  const { list } = await pack(page);
+  const caller = list[0];
+  await hurt(page, caller.id, 1);
+  expect(await until(page, caller.id, 'call', 60)).toBeDefined();
+  const heard = await slimes(page);
+  for (const i of [1, 2, 3]) expect(heard[i].rallyTo).toBe(caller.id);
+  expect(heard[4].rallyTo).toBe(0); // too far off to hear it
+  expect(await events(page, 'actorCall')).not.toHaveLength(0);
+
+  // They close on it, not on you.
+  const before = heard.slice(1, 4).map((s) => Math.hypot(s.x - caller.x, s.z - caller.z));
+  await advance(page, 60);
+  const now = await slimes(page);
+  const c = await byId(page, caller.id);
+  for (const [k, i] of [1, 2, 3].entries()) expect(Math.hypot(now[i].x - c!.x, now[i].z - c!.z)).toBeLessThan(before[k] - 1);
+
+  expect(await until(page, caller.id, 'gather', 300)).toBeDefined();
+  expect(await events(page, 'gatherStart')).toHaveLength(1);
+  expect(errors).toEqual([]);
+});
+
+test('a gather that runs its course takes them in, and the caller grows into a great slime', async ({ page }) => {
+  await open(page);
+  const { list } = await pack(page);
+  const caller = list[0];
+  await hurt(page, caller.id, 1);
+  expect(await until(page, caller.id, 'gather', 400)).toBeDefined();
+  await advance(page, GATHER.castFrames + 5);
+  const grown = await byId(page, caller.id);
+  expect(grown?.kind).toBe('great-slime');
+  expect(grown?.hp).toBe(actorKind('great-slime').maxHp);
+  expect(grown!.mass).toBeGreaterThanOrEqual(actorKind('great-slime').mass!);
+  const taken = (await slimes(page)).filter((s) => s.gone);
+  expect(taken.length).toBeGreaterThanOrEqual(2);
+  expect((await byId(page, list[4].id))?.gone).toBe(false); // the one out of earshot was left alone
+});
+
+test('hitting the caster for a quarter of its health breaks the gather, and it is dazed', async ({ page }) => {
+  await open(page);
+  const { list } = await pack(page);
+  const caller = list[0];
+  await hurt(page, caller.id, 1);
+  expect(await until(page, caller.id, 'gather', 400)).toBeDefined();
+  await advance(page, 20);
+  await hurt(page, caller.id, Math.ceil(actorKind('slime').maxHp * GATHER.breakAt));
+  await advance(page, 1);
+  expect((await byId(page, caller.id))?.state).toBe('dazed');
+  expect(await events(page, 'gatherBroken')).toHaveLength(1);
+  await advance(page, GATHER.castFrames);
+  expect((await byId(page, caller.id))?.kind).toBe('slime');
+  expect((await slimes(page)).filter((s) => s.gone)).toHaveLength(0);
+});
+
+test('a slime whose gather is on cooldown does not call; its neighbours just come for you', async ({ page }) => {
+  await open(page);
+  const { list } = await pack(page);
+  const caller = list[0];
+  await page.evaluate((id) => (window as any).__game.setActor(id, { gatherCd: 900 }), caller.id);
+  await hurt(page, caller.id, 1);
+  await advance(page, 60);
+  const now = await slimes(page);
+  expect(now[0].calling).toBe(-1);
+  for (const i of [1, 2, 3]) {
+    expect(now[i].rallyTo).toBe(0);
+    expect(now[i].angry).toBeGreaterThan(0);
+  }
+});
+
+test('kill the caller and the nearest one rallying to it takes the call over', async ({ page }) => {
+  await open(page);
+  const { list } = await pack(page);
+  const caller = list[0];
+  await hurt(page, caller.id, 1);
+  expect(await until(page, caller.id, 'call', 60)).toBeDefined();
+  await advance(page, 20);
+  const at = await byId(page, caller.id);
+  const rallying = (await slimes(page)).filter((s) => s.rallyTo === caller.id);
+  const nearest = rallying.sort((a, b) => Math.hypot(a.x - at!.x, a.z - at!.z) - Math.hypot(b.x - at!.x, b.z - at!.z))[0];
+  await kill(page, caller.id);
+  await advance(page, 2);
+  const heir = await byId(page, nearest.id);
+  expect(heir?.state).toBe('call');
+  expect(heir!.calling).toBeGreaterThanOrEqual(0);
+  for (const s of await slimes(page)) if (s.id !== nearest.id && rallying.some((r) => r.id === s.id)) expect(s.rallyTo).toBe(nearest.id);
+});
+
+test('the target plate shows the gather filling', async ({ page }) => {
+  // The game picks its soft-lock mark once per rendered frame, so this one runs live; the cast
+  // lasts 2.5 s, plenty of slack for the frames that pass between the test's own steps.
+  await open(page, true);
+  const p = await me(page);
+  // The caster straight ahead, two of its pack further off behind it, so it's the one the game
+  // marks for you.
+  await place(page, 0, p.pos.x, p.pos.z + 4);
+  await place(page, 1, p.pos.x + 2, p.pos.z + 10);
+  await place(page, 2, p.pos.x - 2, p.pos.z + 10);
+  for (let i = 3; i < SLIME.count; i++) await place(page, i, 60 + i * 30, 60);
+  // The training dummy stands straight ahead too; move it out of the way.
+  await page.evaluate(() => (window as any).__game.placeActor('dummy', 0, -40, -40));
+  const caster = (await slimes(page))[0];
+  await hurt(page, caster.id, 1);
+  expect(await until(page, caster.id, 'gather', 300)).toBeDefined();
+  await advance(page, 40);
+  expect((await page.evaluate(() => (window as any).__game.combat())).target?.key).toBe(`actor:${caster.id}`);
+  const plate = await page.evaluate(() => {
+    const el = document.querySelector('#target-plate') as HTMLElement;
+    const cast = el.querySelector('.cast') as HTMLElement;
+    return { name: el.querySelector('.name')!.textContent, shown: cast.style.display, label: cast.querySelector('.label')!.textContent, width: (cast.querySelector('.fill') as HTMLElement).style.width };
+  });
+  expect(plate.name).toBe('Slime');
+  expect(plate.shown).toBe('block');
+  expect(plate.label).toBe('Gathering');
+  expect(parseInt(plate.width, 10)).toBeGreaterThan(10);
 });
