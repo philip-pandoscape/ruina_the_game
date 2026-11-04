@@ -1256,15 +1256,16 @@ function ride(b: Body, p: PoseInput): void {
   b.hips.rotation.set(-0.12, 0, 0);
   b.torso.rotation.set(0.1 + 0.22 * e + 0.03 * Math.sin(stride * 2) * e, 0, p.bank * 0.05);
   b.neck.rotation.set(-0.1 - 0.2 * e, 0, 0);
-  // Legs round the barrel: knees out over its sides, the balls of the feet on the stirrup irons
-  // (the mount's own, as it moves, when it gave them; mounts.ts saddle()), heels down.
+  // Legs round the barrel: the thighs out over its top, the knees out past its sides and the shins
+  // back in against them, the balls of the feet on the stirrup irons (the mount's own, as it moves,
+  // when it gave them; mounts.ts saddle()), heels down. The irons hang short, so the knees bend.
   for (const s of SIDES) {
     const i = s === 'L' ? 0 : 3;
     const ankle =
       p.footrest && p.footrest.length >= 6
         ? _f.set(p.footrest[i], p.footrest[i + 1] + b.ankleHeight, p.footrest[i + 2] - 0.08)
-        : _f.set(k(s) * 0.33, -0.4, -0.02);
-    b.footTo(s, ankle, -0.25, k(s) * 0.12, 0.9);
+        : _f.set(k(s) * 0.31, -0.34, -0.02);
+    b.footTo(s, ankle, -0.25, k(s) * 0.12, 1.25);
   }
   for (const s of SIDES) {
     const pump = 0.03 * Math.sin(stride * 2) * e;

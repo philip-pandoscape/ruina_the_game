@@ -312,13 +312,25 @@ test('seated, the hands hold what the vehicle gives them and the feet find its f
   await open(page);
   const gaps = await page.evaluate(() => {
     const a = (window as any).__anims;
-    return Object.fromEntries(['drive', 'row', 'helm', 'ride'].map((id) => [id, a.holdGap(id)]));
+    return Object.fromEntries(['drive', 'driveRoadster', 'driveHauler', 'row', 'helm', 'ride'].map((id) => [id, a.holdGap(id)]));
   });
-  // The cart's turning wheel, the oars mid-stroke and the ship's wheel: within a few centimetres.
-  for (const id of ['drive', 'row', 'helm']) expect(gaps[id].hands, `${id}: a hand is off what it holds`).toBeLessThan(0.03);
+  // The cart's, the roadster's and the hauler's turning wheels, the oars mid-stroke and the ship's
+  // wheel: within a few centimetres.
+  for (const id of ['drive', 'driveRoadster', 'driveHauler', 'row', 'helm']) expect(gaps[id].hands, `${id}: a hand is off what it holds`).toBeLessThan(0.03);
   // On a horse the feet are in the stirrups; elsewhere they rest on the footrest or hang just above it.
   expect(gaps.ride.feet).toBeLessThan(0.03);
-  for (const id of ['drive', 'row', 'helm']) expect(gaps[id].feet, `${id}: the feet hang far off the floor`).toBeLessThan(0.15);
+  for (const id of ['drive', 'driveRoadster', 'row', 'helm']) expect(gaps[id].feet, `${id}: the feet hang far off the floor`).toBeLessThan(0.15);
+});
+
+test('a steering wheel faces its driver, square on its column', async ({ page }) => {
+  await open(page);
+  const facing = await page.evaluate(() => {
+    const a = (window as any).__anims;
+    return Object.fromEntries(['drive', 'driveRoadster', 'driveHauler'].map((id) => [id, a.wheelFacing(id)]));
+  });
+  // Its face looks back up the column at the driver (within 45 degrees of the way to them), not up
+  // and away over the bonnet as a wheel tipped the wrong way does (about -0.1).
+  for (const [id, cos] of Object.entries(facing)) expect(cos, `${id}: the wheel faces away from the driver`).toBeGreaterThan(0.7);
 });
 
 test('a hit throws the body the way the blow shoves it', async ({ page }) => {

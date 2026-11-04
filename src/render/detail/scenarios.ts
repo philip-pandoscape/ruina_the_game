@@ -25,7 +25,7 @@ export interface Scenario {
   frames: number;
   weapon?: number;
   /** A model to show with it: what is ridden, flown or sat in. */
-  prop?: 'glider' | 'horse' | 'cart' | 'rowboat' | 'sloop';
+  prop?: 'glider' | 'horse' | 'cart' | 'roadster' | 'hauler' | 'rowboat' | 'sloop';
   at(frame: number): Moment;
 }
 
@@ -372,6 +372,8 @@ export const SCENARIOS: Scenario[] = [
   { id: 'glide', group: 'Travel', label: 'Glide', prop: 'glider', ...sequence([travel(360, 'glide', (t) => ({ bank: Math.sin(t * 1.2) * 0.9, rise: -0.15 }), 12)]) },
   { id: 'ride', group: 'Travel', label: 'Ride', prop: 'horse', ...sequence([travel(240, 'ride', (t) => ({ effort: 0.5 + 0.5 * Math.sin(t * 0.8), bank: Math.sin(t * 0.6) * 0.5 }), 6)]) },
   { id: 'drive', group: 'Travel', label: 'Drive', prop: 'cart', ...sequence([travel(240, 'drive', (t) => ({ bank: Math.sin(t * 1.1), effort: 0.6 }), 6)]) },
+  { id: 'driveRoadster', group: 'Travel', label: 'Drive the roadster', prop: 'roadster', ...sequence([travel(240, 'drive', (t) => ({ bank: Math.sin(t * 1.1), effort: 0.6 }), 9)]) },
+  { id: 'driveHauler', group: 'Travel', label: 'Drive the hauler', prop: 'hauler', ...sequence([travel(240, 'drive', (t) => ({ bank: Math.sin(t * 1.1), effort: 0.6 }), 5)]) },
   { id: 'row', group: 'Travel', label: 'Row', prop: 'rowboat', ...sequence([travel(240, 'row', () => ({ effort: 1 }), 3)]) },
   { id: 'helm', group: 'Travel', label: 'At the helm', prop: 'sloop', ...sequence([travel(240, 'helm', (t) => ({ bank: Math.sin(t * 0.9) * 0.8, effort: 0.5 }), 5)]) },
   { id: 'sit', group: 'Travel', label: 'Passenger', prop: 'cart', ...sequence([travel(240, 'sit', () => ({ effort: 0.3 }), 6)]) },

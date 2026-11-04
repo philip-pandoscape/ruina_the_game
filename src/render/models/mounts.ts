@@ -216,22 +216,25 @@ function body(def: MountDef, b: Build, extra: (body: Parts, root: THREE.Group, t
 
 /**
  * Saddle: blanket, seat (its top on the seat anchor), cantle, pommel, flaps, stirrups, girth. The
- * stirrups hang as low as the hero's legs reach with the knees bent round the barrel, and their
- * irons are returned as holds for the feet.
+ * stirrups hang short and close in to the barrel, so the hero's legs (short ones) bend at the knee
+ * to reach them: the thighs out over the top of the barrel, the knees past its sides, the shins back
+ * in against them. Their irons are returned as holds for the feet.
  */
 function saddle(p: Parts, torso: THREE.Group, def: MountDef, back: number, bw: number, blanket: Rgb, trim: Rgb, leather: Rgb): Holds {
   const seat = def.seats[0];
   const z = seat.z;
   const len = bw * 1.25;
+  // Where the stirrup leathers end and the irons hang, just off the barrel's sides.
+  const sy = back - 0.22;
+  const ix = bw / 2 + 0.06;
   p.add(box(bw + 0.06, 0.03, len), blanket, [0, back + 0.015, z]);
   for (const sx of [-1, 1]) {
     p.add(box(0.025, 0.3, len), blanket, [sx * (bw / 2 + 0.035), back - 0.14, z]);
     p.add(box(0.03, 0.035, len + 0.01), trim, [sx * (bw / 2 + 0.04), back - 0.29, z]);
     p.add(bev(0.03, 0.26, len * 0.6, 0.012), leather, [sx * (bw / 2 + 0.055), back - 0.1, z + 0.02]);
     // Stirrup leather and iron.
-    const sy = back - 0.3;
-    p.add(box(0.012, back - sy, 0.04), PAL.leatherDark, [sx * (bw / 2 + 0.08), (back + sy) / 2, z + 0.06]);
-    p.add(tor(0.05, 0.012, 4, 8), PAL.iron, [sx * (bw / 2 + 0.08), sy - 0.03, z + 0.06], [0, Math.PI / 2, 0]);
+    p.add(box(0.012, back - sy, 0.04), PAL.leatherDark, [sx * ix, (back + sy) / 2, z + 0.06]);
+    p.add(tor(0.05, 0.012, 4, 8), PAL.iron, [sx * ix, sy - 0.03, z + 0.06], [0, Math.PI / 2, 0]);
   }
   p.add(bev(bw * 0.78, seat.y - back - 0.03, len * 0.7, 0.03), leather, [0, (seat.y + back + 0.03) / 2, z]);
   p.add(bev(bw * 0.72, 0.13, 0.07, 0.025), leather, [0, seat.y + 0.035, z - len * 0.4]);
@@ -242,7 +245,7 @@ function saddle(p: Parts, torso: THREE.Group, def: MountDef, back: number, bw: n
   // The feet rest on the irons' bottom bars, left then right (+X is the rider's left).
   const iron = (sx: number) => {
     const o = new THREE.Object3D();
-    o.position.set(sx * (bw / 2 + 0.08), back - 0.3 - 0.08, z + 0.06);
+    o.position.set(sx * ix, sy - 0.08, z + 0.06);
     torso.add(o);
     return o;
   };

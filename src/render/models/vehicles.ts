@@ -115,20 +115,32 @@ function finish(b: Build): VehicleModel {
 }
 
 /**
- * A steering wheel at `at`, tipped back toward the driver by `tilt`, that turns with the steering
- * (steering left turns its top to the left), with the driver's grips at ten to two on the rim.
+ * A steering wheel at `at` on its column, which runs ahead and down to `foot` (the dashboard, the
+ * floor): square on the column, so the rim's top leans away from the driver and its face looks up
+ * at them, as a wheel's does. It turns with the steering (steering left turns its top to the
+ * left), with the driver's grips at ten to two on the rim.
  */
-function steeringWheel(b: Build, at: V3, r: number, tilt: number, look: { rim: Rgb; spoke: Rgb; spokes: number; from?: number; tube: number }): void {
-  const mount = pivot(b.root, at[0], at[1], at[2], 'wheel');
-  mount.rotation.x = tilt;
+function steeringWheel(
+  b: Build,
+  at: V3,
+  foot: V3,
+  r: number,
+  look: { rim: Rgb; spoke: Rgb; spokes: number; from?: number; tube: number; segs: [number, number]; column: Rgb; shaft: number },
+): void {
+  b.trim.add(rod(foot, at, look.shaft, 6), look.column);
+  const mount = pivot(b.root, at[0], at[1], at[2], 'steeringWheel');
+  // Tipped back by the column's rake: the wheel's axis runs down the column.
+  mount.rotation.x = Math.atan2(at[1] - foot[1], foot[2] - at[2]);
   const spin = pivot(mount, 0, 0, 0);
-  const p = new Parts();
-  p.add(tor(r, look.tube, 5, 12), look.rim);
+  // The rim outlined like the body and the spokes plain like the trim, as when the wheel was part
+  // of them: the same triangles as the fixed wheel, which keeps the hauler inside its budget.
+  mesh(spin, new Parts().add(tor(r, look.tube, ...look.segs), look.rim).build(), { outline: b.outline * 0.7 });
+  const spokes = new Parts();
   for (let k = 0; k < look.spokes; k++) {
     const a = (k / look.spokes) * TAU + (look.from ?? 0);
-    p.add(beam([0, 0, 0], [Math.cos(a) * r, Math.sin(a) * r, 0], look.tube * 0.8), look.spoke);
+    spokes.add(beam([0, 0, 0], [Math.cos(a) * r, Math.sin(a) * r, 0], look.tube * 0.8), look.spoke);
   }
-  mesh(spin, p.build(), { outline: b.outline * 0.7 });
+  mesh(spin, spokes.build());
   // +X is the driver's left: the left hand at ten to, the right at two.
   b.holds.hands = [hold(spin, Math.cos(Math.PI / 2 - 1.05) * r, Math.sin(Math.PI / 2 - 1.05) * r, 0), hold(spin, Math.cos(Math.PI / 2 + 1.05) * r, Math.sin(Math.PI / 2 + 1.05) * r, 0)];
   b.anims.push((_dt, s) => (spin.rotation.z = -clamp(s.steer, -1, 1) * 1.1));
@@ -505,9 +517,17 @@ function farmCart(def: WheeledDef): VehicleModel {
   trim.add(box(1.31, 0.03, 0.065), cream, [0, seat.y - 0.13, zFront - 0.002], [0.12, 0, 0]);
   // Steering wheel for the driver.
   const drv = def.seats.find((s) => s.pose === 'drive') ?? seat;
-  const top: V3 = [drv.x, seat.y + 0.25, sz + 0.38];
-  trim.add(rod([drv.x, seat.y - 0.4, zFront - 0.05], top, 0.025, 6), PAL.iron);
-  steeringWheel(b, top, 0.16, -0.95, { rim: PAL.woodDark, spoke: PAL.woodDark, spokes: 3, tube: 0.022 });
+  // The column comes up out of the top of the front board.
+  const top: V3 = [drv.x, seat.y + 0.24, sz + 0.27];
+  steeringWheel(b, top, [drv.x, seat.y - 0.12, zFront - 0.04], 0.2, {
+    rim: PAL.woodDark,
+    spoke: PAL.woodDark,
+    spokes: 3,
+    tube: 0.022,
+    segs: [5, 12],
+    column: PAL.iron,
+    shaft: 0.025,
+  });
   // The driver's feet on the footboard.
   b.holds.feet = hold(b.root, drv.x, seat.y - 0.42, sz + 0.5);
   // Lantern on a crooked post at the front corner.
@@ -629,11 +649,19 @@ function roadster(def: WheeledDef): VehicleModel {
   b.root.add(glass);
   // Steering wheel.
   const drv = def.seats.find((s) => s.pose === 'drive') ?? seat;
-  const sw: V3 = [drv.x, seat.y + 0.33, zSeat + 0.42];
-  steeringWheel(b, sw, 0.17, -0.9, { rim: PAL.black, spoke: chrome, spokes: 3, from: Math.PI / 2, tube: 0.02 });
+  const sw: V3 = [drv.x, seat.y + 0.3, zSeat + 0.34];
+  steeringWheel(b, sw, [drv.x, 0.75, zSeat + 0.72], 0.17, {
+    rim: PAL.black,
+    spoke: chrome,
+    spokes: 3,
+    from: Math.PI / 2,
+    tube: 0.02,
+    segs: [5, 14],
+    column: PAL.black,
+    shaft: 0.02,
+  });
   // The driver's feet on the floor pan.
   b.holds.feet = hold(b.root, drv.x, 0.3, zSeat + 0.5);
-  trim.add(rod(sw, [drv.x, 0.75, zSeat + 0.72], 0.02, 6), PAL.black);
   // Side exhausts: three pipes out of the bonnet into one along the running board.
   for (let k = 0; k < 3; k++) {
     const z = zb0 + 0.3 + k * 0.18;
@@ -1005,9 +1033,17 @@ function hauler(def: WheeledDef): VehicleModel {
   body.add(cyl(0.09, 0.09, 0.04, 10), PAL.cream, [-0.28, by + br - 0.02, bz0 + 0.02], [Math.PI / 2 + 0.6, 0, 0]);
   // Steering wheel for the driver.
   const drv = def.seats.find((s) => s.pose === 'drive') ?? seat;
-  const sw: V3 = [drv.x, seat.y + 0.32, seat.z + 0.42];
-  steeringWheel(b, sw, 0.2, -0.7, { rim: PAL.black, spoke: PAL.brass, spokes: 4, tube: 0.025 });
-  trim.add(rod(sw, [drv.x, 0.98, seat.z + 0.75], 0.03, 6), PAL.iron);
+  const sw: V3 = [drv.x, seat.y + 0.32, seat.z + 0.26];
+  // The column runs down into the top of the boiler.
+  steeringWheel(b, sw, [drv.x, seat.y - 0.02, seat.z + 0.7], 0.2, {
+    rim: PAL.black,
+    spoke: PAL.brass,
+    spokes: 4,
+    tube: 0.025,
+    segs: [4, 10],
+    column: PAL.iron,
+    shaft: 0.03,
+  });
   // Bumper, brass headlamps, mudguards.
   body.add(box(2.1, 0.16, 0.14), PAL.black, [0, 0.82, L - 0.07]);
   for (const sx of [-1, 1]) {

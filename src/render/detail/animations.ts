@@ -703,6 +703,32 @@ const api = {
   },
 
   /**
+   * How squarely a vehicle's steering wheel faces the driver over a film, at worst: the cosine
+   * between the way its face looks (back up its column) and the way from it to the driver's neck.
+   * 1 is straight at them; null when the vehicle has no wheel.
+   */
+  wheelFacing(id: string) {
+    const t = new Take(scenario(id), 0);
+    let worst: number | null = null;
+    const at = new THREE.Vector3();
+    const to = new THREE.Vector3();
+    const face = new THREE.Vector3();
+    for (let f = 0; f < t.s.frames; f++) {
+      t.step();
+      const wheel = t.prop?.root.getObjectByName('steeringWheel');
+      if (!wheel) break;
+      t.hero.root.updateMatrixWorld(true);
+      wheel.getWorldPosition(at);
+      t.hero.detail.joint('neck').getWorldPosition(to);
+      // The wheel's +Z runs down its column, away from the driver (vehicles.ts steeringWheel()).
+      face.set(0, 0, -1).transformDirection(wheel.matrixWorld);
+      worst = Math.min(worst ?? 1, face.dot(to.sub(at).normalize()));
+    }
+    t.dispose();
+    return worst === null ? null : +worst.toFixed(3);
+  },
+
+  /**
    * The weapon's far end (a blade's tip, the staff's orb, the bow's top) frame by frame, in the
    * world, the stow on that frame, and whether the weapon hangs from a hand: for drawing and
    * sheathing, which must never make it jump.
