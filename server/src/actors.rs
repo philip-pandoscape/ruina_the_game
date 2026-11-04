@@ -67,6 +67,10 @@ fn take_out(o: &mut Actor) {
     o.fuse = -1;
 }
 
+/// How anything that rocks when hit settles back upright; matches LEAN in src/tuning.ts.
+pub const LEAN_SPRING: f64 = 140.0;
+pub const LEAN_DAMPING: f64 = 7.0;
+
 pub struct Actors {
     pub list: Vec<Actor>,
     next_id: u32,

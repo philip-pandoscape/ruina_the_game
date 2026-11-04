@@ -71,7 +71,7 @@ pub async fn serve(port: u16, state: AppState, static_dir: Option<PathBuf>) -> s
         router = router.fallback_service(Compression::new(ServeDir::new(dir)));
     }
     let app = Arc::new(state);
-    world_socket::spawn_relay(app.clone());
+    world_socket::spawn_world(app.clone());
     let router = router.with_state(app);
 
     // Both IPv6 and IPv4 where the machine has IPv6 (Railway's private network is IPv6 only).

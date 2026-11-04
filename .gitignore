@@ -9,3 +9,6 @@ scratch/
 # Local secrets (Railway keys and the like): never committed.
 .env
 .env.*
+
+# Helpers working copies
+.claude/worktrees/
