@@ -349,8 +349,9 @@ impl ChannelGame {
         let elapsed = (now - self.last_tick).as_secs_f64().min(1.0);
         self.last_tick = now;
         self.tick += 1;
-        // Each player may run as many inputs as real time allows, no more.
-        self.players.inputs_per_tick = elapsed * 60.0;
+        // Each player may run as many inputs as real time allows (a hair more, so a browser whose
+        // clock runs a little fast never builds up a queue), and no more.
+        self.players.inputs_per_tick = elapsed * 61.0;
         self.players.step_in(&mut self.battle, &mut self.actors, &self.world, self.tick, Some(&mut self.open));
         self.players.step_effects(&mut self.battle, &mut self.actors);
         let seen = self.players.live_positions();

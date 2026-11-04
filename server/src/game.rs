@@ -522,11 +522,20 @@ impl Players {
                             slot.player.attack_hit = true;
                         }
                         // Monsters are in the arc too, and a swing that only catches one still
-                        // counts as a hit.
-                        let before = self.events.len();
-                        self.swing_actors(actors, s, px, pz, facing, &swing, max_targets, weapon);
-                        if self.events.len() > before {
-                            slot.player.attack_hit = true;
+                        // counts as a hit. On hills (src/sim/player/attacks.ts checkHit) nothing is
+                        // in reach from more than 2 m up, and only feet within 2 m of yours.
+                        let feet = open.as_deref().map(|ow| {
+                            let hf = ow.terrain();
+                            let p = &slot.player;
+                            let under = hf.water.max(crate::open::colliders::ground_at(hf, &ow.index, p.pos.x, p.pos.z, p.pos.y, 0.0));
+                            (p.pos.y - under, p.pos.y)
+                        });
+                        if feet.is_none_or(|(above, _)| above <= 2.0) {
+                            let before = self.events.len();
+                            self.swing_actors(actors, s, px, pz, facing, &swing, max_targets, weapon, feet.map(|f| f.1));
+                            if self.events.len() > before {
+                                slot.player.attack_hit = true;
+                            }
                         }
                     }
                 }
@@ -587,8 +596,13 @@ impl Players {
     /// attacker saw them (tick `view`); bots where they are now. Returns true if anything was hit.
     #[allow(clippy::too_many_arguments)]
     /// Everything a swing catches among the actors, on top of whatever bots and players it hit.
-    fn swing_actors(&mut self, actors: &mut Actors, slot: usize, x: f64, z: f64, facing: f64, step: &AttackStep, max: usize, weapon: u8) {
-        for id in actors.cone_hits(x, z, facing, step.reach, step.arc_deg, max) {
+    #[allow(clippy::too_many_arguments)]
+    fn swing_actors(&mut self, actors: &mut Actors, slot: usize, x: f64, z: f64, facing: f64, step: &AttackStep, max: usize, weapon: u8, feet: Option<f64>) {
+        let hits = match (self.ground, feet) {
+            (Some(g), Some(y)) => actors.cone_hits_where(x, z, facing, step.reach, step.arc_deg, max, |a| (a.y + g.height(a.x, a.z) - y).abs() <= 2.0),
+            _ => actors.cone_hits(x, z, facing, step.reach, step.arc_deg, max),
+        };
+        for id in hits {
             let (ax, az) = match actors.get_mut(id) {
                 Some(a) => (a.x, a.z),
                 None => continue,
