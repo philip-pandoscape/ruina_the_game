@@ -79,7 +79,9 @@ impl Hub {
     }
 
     fn with_channel<T>(&self, id: i32, f: impl FnOnce(&mut ChannelGame) -> T) -> T {
-        f(self.channels.lock().unwrap().entry(id).or_insert_with(|| ChannelGame::new(id)))
+        // A connection that failed halfway through a change mustn't stop everyone else's.
+        let mut channels = self.channels.lock().unwrap_or_else(|e| e.into_inner());
+        f(channels.entry(id).or_insert_with(|| ChannelGame::new(id)))
     }
 }
 
@@ -111,7 +113,7 @@ pub fn spawn_world(app: App) {
             let mut saves = Vec::new();
             loop {
                 {
-                    let mut channels = hub.world.channels.lock().unwrap();
+                    let mut channels = hub.world.channels.lock().unwrap_or_else(|e| e.into_inner());
                     for ch in channels.values_mut() {
                         if ch.has_players() {
                             // One channel's bad moment mustn't stop all the others.

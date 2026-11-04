@@ -2,7 +2,8 @@
 
 An original browser MMORPG prototype: third-person 3D action combat with platform-fighter movement
 (run, slide, double jump), classless skill trees, Xbox controller support, and a Rust game server
-that keeps players' accounts and islands in Postgres and is built for 10,000-player PvP raids. The code still uses the working name *yggdrasil* (package name,
+that plays the open world itself (every rule, from movement to trade, runs there), keeps players'
+accounts and islands in Postgres, and is built for 10,000-player PvP raids. The code still uses the working name *yggdrasil* (package name,
 server binary, page title).
 
 The open world starts on **Emberholm**, a starter isle with ArcheAge-style life systems: gliders,
@@ -21,9 +22,11 @@ rules' formulas and the terrain generator), so it is always current and there is
   An ability is targeting plus a list of *effects*, and a movement skill is an *action state* with
   a startup / active / recovery timeline. Those two vocabularies are the only things that cost
   code, and then in both languages at once.
-- `server/`: the Rust game server, one port for everything (axum): accounts, and players' islands
-  kept in Postgres (`server/migrations/`); and the PvP battlefield, which decides all hits, runs
-  bots, sends each player only what's near them, and rewinds time for lag compensation
+- `server/`: the Rust game server, one port for everything (axum): accounts; Emberholm, which it
+  plays (`server/src/world_game.rs`: each channel's players from their key presses, the island's
+  rules in `server/src/open` and `server/src/life`, the slimes and the fighting), keeping islands
+  in Postgres (`server/migrations/`); and the PvP battlefield, which decides all hits, runs bots,
+  sends each player only what's near them, and rewinds time for lag compensation
 - `shared/tuning.json`: gameplay numbers, read by both the browser and the server
 - `shared/zones/`, `shared/{vehicles,trade,farming,housing,items,quests,structures,traversal}.json`:
   the open world's content. `src/sim/zone/` grows the island from a zone recipe, `src/sim/life/`
@@ -65,14 +68,20 @@ stops the first.
 
 **Playing together:** Emberholm runs as channels, copies of the island each home to up to 24
 characters (the badge in the corner says which). Everyone in your channel sees everyone else move,
-glide, sail and ride, with a name over their head, and sees what every resident has built: houses
-and farms stay standing while their owner is away, their walls are solid, and a house plot belongs to
-whoever claimed it first. The server keeps your island in Postgres, owns the plot claims, checks
-every reported position against the island's ground (moving anyone under it or off the map back), and
-decides whether the developer panel exists (on in development and beta, off in production).
-The browser still runs the island's rules and reports the results; moving those rules onto the server
-is what's left (see "A world server" in the design bible). Automated tests (`?test`) stay offline,
-except `tests/online.spec.ts`, which needs `npm run up`.
+glide, sail and ride, with a name over their head, fights the same slimes, and sees what every
+resident has built: houses and farms stay standing while their owner is away, their walls are solid,
+and a house plot belongs to whoever claimed it first.
+
+**The server decides:** your browser sends only what you press (about 60 times a second) and what
+you ask your island to do (talk, plant, buy, craft, drive...). The server runs every rule on its own
+copy: where you are (hills, cliffs, walls, water, gliders, vehicles), every hit, and everything on
+your island (bag, coins, labor, farms, houses, packs, quests), and keeps the island in Postgres
+from that copy. It answers 20 times a second; meanwhile your browser predicts your own moves with
+the same rules (in TypeScript) and corrects itself to the answer, so play feels instant.
+`tests/world-conformance.spec.ts` and `tests/life-conformance.spec.ts` check the two sets of rules
+agree. The developer panel (give items, skip time, teleport) exists only where the server allows it
+(development and beta, not production). Automated tests (`?test`) run the island offline, in the
+browser, except `tests/online.spec.ts`, which needs `npm run up`.
 
 ## Branches, CI and deploys
 

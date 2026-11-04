@@ -185,6 +185,11 @@ impl ChannelGame {
             },
         );
         self.refresh_estate(a.character);
+        // Whatever happened to the claims, this island knows whose plots are whose.
+        let held = self.estates.held_by_others(a.character);
+        if let Some((_, Some(life))) = self.players.open_mut(c) {
+            life.plot_owners = held;
+        }
         (self.estates.estates_json(a.character), self.estates.claims_json())
     }
 
