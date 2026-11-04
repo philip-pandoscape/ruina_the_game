@@ -264,24 +264,51 @@ export class NetCrowd implements CrowdSource {
   private start = new Float64Array(0);
   private dur = new Float32Array(0);
   private lastFine = new Float64Array(0);
-  private ws: WebSocket;
+  private ws: WebSocket | null = null;
+  /** Open worlds: where inputs go instead of a battlefield socket (src/net/worldLink.ts). */
+  private sender: ((seq: number, raw: RawInput, stick: [number, number]) => void) | null = null;
   private bytes = 0;
   private messages = 0;
   private rateStart = performance.now();
 
-  private url: string;
+  private url = '';
 
-  constructor(url: string) {
+  constructor(url: string | null) {
+    if (url === null) return;
     // The battlefield lives at /ws/battle on the game server; a bare ws://host:port means it.
     this.url = /^wss?:\/\/[^/]+\/?$/.test(url) ? `${url.replace(/\/$/, '')}/ws/battle` : url;
-    this.ws = new WebSocket(this.url);
-    this.ws.binaryType = 'arraybuffer';
-    this.ws.onopen = () => (this.connected = this.everConnected = true);
-    this.ws.onclose = () => {
+    const ws = (this.ws = new WebSocket(this.url));
+    ws.binaryType = 'arraybuffer';
+    ws.onopen = () => (this.connected = this.everConnected = true);
+    ws.onclose = () => {
       this.connected = false;
       if (this.everConnected) this.waitForServer();
     };
-    this.ws.onmessage = (e) => this.receive(e.data as ArrayBuffer);
+    ws.onmessage = (e) => this.receive(e.data as ArrayBuffer);
+  }
+
+  /**
+   * For an open world, which the server plays over its own connection (src/net/worldLink.ts):
+   * inputs go to `send`, and what the server says arrives through applyWorld(). Everything that
+   * reads a NetCrowd (prediction, other players' spells, the monsters) works the same.
+   */
+  static detached(send: (seq: number, raw: RawInput, stick: [number, number]) => void): NetCrowd {
+    const n = new NetCrowd(null);
+    n.sender = send;
+    n.connected = n.everConnected = true;
+    return n;
+  }
+
+  /** Open worlds: one tick from the server (already turned into the battlefield's shapes). */
+  applyWorld(tick: number, you: { id: number; ack: number; player: PlayerState }, arrows: ArrowRecord[], meteors: MeteorRecord[], events: EffectEvent[], actors: NetActor[]): void {
+    this.noteTick(tick, performance.now());
+    this.you = you;
+    this.arrows = arrows;
+    this.meteors = meteors;
+    this.events.push(...events);
+    this.actors = actors;
+    this.arrowsTick = this.lastTick;
+    this.snapshots++;
   }
 
   // The server went away (usually restarted with new code): reload the page once it's back, so
@@ -296,7 +323,7 @@ export class NetCrowd implements CrowdSource {
   }
 
   private send(bytes: Uint8Array<ArrayBuffer>): void {
-    if (this.ws.readyState === WebSocket.OPEN) this.ws.send(bytes);
+    if (this.ws?.readyState === WebSocket.OPEN) this.ws.send(bytes);
   }
 
   // Ask to play as a fighter (team 0 or 1, or 255 for either).
@@ -311,7 +338,11 @@ export class NetCrowd implements CrowdSource {
 
   // One frame of input: sequence number, the server tick on screen (× 16, for rewinding hits),
   // and the rounded stick, buttons and aim bytes.
-  sendInput(seq: number, view: number, raw: RawInput): void {
+  sendInput(seq: number, view: number, raw: RawInput, stick: [number, number] = [0, 0]): void {
+    if (this.sender) {
+      this.sender(seq, raw, stick);
+      return;
+    }
     const msg = new DataView(new ArrayBuffer(2 + 8 + raw.length));
     msg.setUint8(0, SEND_INPUT);
     msg.setUint8(1, 1);
@@ -354,7 +385,7 @@ export class NetCrowd implements CrowdSource {
 
   // Tells the server where the player is, so it knows which fighters count as nearby.
   sendView(x: number, z: number): void {
-    if (this.ws.readyState !== WebSocket.OPEN) return;
+    if (this.ws?.readyState !== WebSocket.OPEN) return;
     const msg = new DataView(new ArrayBuffer(9));
     msg.setUint8(0, SEND_VIEW);
     msg.setFloat32(1, x, true);

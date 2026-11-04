@@ -17,7 +17,13 @@ export function stepWeather(life: Life, _dt: number): void {
     w.nextRain = w.rainUntil + glo + life.rand() * (ghi - glo);
     life.toast('🌧️ Rain sweeps in from the sea - every field drinks it in', 'info');
   }
-  // Smooth and deterministic: the same clock always has the same wind.
+  stepWind(life);
+}
+
+/** Smooth and deterministic: the same clock always has the same wind. */
+export function stepWind(life: Life): void {
+  const w = life.state.weather;
+  const c = life.state.clock;
   w.windDir = 0.9 + 0.75 * Math.sin(c / 190) + 0.3 * Math.sin(c / 57 + 1.3);
   w.windSpeed = 0.72 + 0.22 * Math.sin(c / 97 + 0.4);
 }

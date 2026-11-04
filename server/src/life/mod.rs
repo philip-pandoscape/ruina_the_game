@@ -74,12 +74,15 @@ pub enum Command {
         labor: Option<f64>,
     },
     Warp { seconds: f64 },
+    /// The developer panel's teleport. Not an island command in the TypeScript (the browser just
+    /// moves you there); online only the server can, so the channel handles it before the island.
+    Teleport { x: f64, z: f64 },
 }
 
 impl Command {
-    /// The developer panel's commands: giving yourself things and skipping time.
+    /// The developer panel's commands: giving yourself things, skipping time, teleporting.
     pub fn is_dev(&self) -> bool {
-        matches!(self, Command::Grant { .. } | Command::Warp { .. })
+        matches!(self, Command::Grant { .. } | Command::Warp { .. } | Command::Teleport { .. })
     }
 }
 

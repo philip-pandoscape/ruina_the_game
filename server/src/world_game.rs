@@ -37,6 +37,8 @@ const LIFE_EVERY: Duration = Duration::from_secs(2);
 /// Monsters and other actors further than this aren't sent.
 const ACTOR_RADIUS: f64 = 70.0;
 const ACTOR_CAP: usize = 48;
+/// How long someone who left is remembered as they were (see ChannelGame::lingering).
+const LINGER: Duration = Duration::from_secs(60);
 
 /// An island to write to Postgres: (character, session, island JSON).
 pub struct Save {
@@ -80,6 +82,9 @@ pub struct Arrival {
 
 pub struct ChannelGame {
     pub id: i32,
+    /// Who left in the last minute, with their island as they left it: newer than any save that
+    /// might still be on its way to the database, so a quick reload picks up exactly there.
+    lingering: HashMap<i64, (Instant, Player, Box<Life>)>,
     /// Everyone's estates and who holds which plot, online or not.
     pub estates: Channel,
     pub members: HashMap<i64, Member>,
@@ -117,6 +122,7 @@ impl ChannelGame {
         actors.spawn("dummy", r.dummy.x, r.dummy.z, 1);
         ChannelGame {
             id,
+            lingering: HashMap::new(),
             estates: Channel::default(),
             members: HashMap::new(),
             world,
@@ -145,8 +151,11 @@ impl ChannelGame {
     /// channel parts: everyone else's estates and the claims.
     pub fn join(&mut self, a: Arrival) -> (Value, Value) {
         let c = client(a.character);
+        self.lingering.retain(|_, (when, _, _)| when.elapsed() < LINGER);
         if self.players.open_view(c).is_some() {
             self.players.restart_inputs(c);
+        } else if let Some((_, player, life)) = self.lingering.remove(&a.character) {
+            self.players.join_open(c, a.character, player, life);
         } else {
             let zone = self.open.zone;
             let mut life = Life::new(zone, None, None);
@@ -188,8 +197,33 @@ impl ChannelGame {
         let (player, life) = self.players.leave(client(character))?;
         let mut life = life?;
         let island = island_of(&player, &mut life, &mut self.open, character);
+        self.lingering.insert(character, (Instant::now(), player, life));
         self.send_all(&json!({ "t": "left", "id": character }).to_string(), None);
         Some(island)
+    }
+
+    /// The developer panel's teleport: off whatever you were riding, onto the ground there.
+    fn teleport(&mut self, character: i64, x: f64, z: f64) {
+        let Some((p, life)) = self.players.open_mut(client(character)) else { return };
+        let hf = self.open.terrain();
+        if !x.is_finite() || !z.is_finite() || !hf.inside(x, z, 0.0) {
+            return;
+        }
+        if p.mode == Mode::Ride {
+            if let Some(life) = life {
+                let mut sim = Sim { player: p, world: &mut self.open, owner: character };
+                vehicles::dismount(life, &mut sim);
+            }
+        }
+        let y = ground_at(hf, &self.open.index, x, z, hf.height(x, z) + 1.2, 1.2);
+        p.pos.x = x;
+        p.pos.y = y;
+        p.pos.z = z;
+        p.vel = Default::default();
+        if p.mode == Mode::Glide || p.mode == Mode::Swim {
+            p.mode = Mode::Normal;
+        }
+        p.grounded = true;
     }
 
     pub fn has_players(&self) -> bool {
@@ -209,6 +243,10 @@ impl ChannelGame {
             return false;
         }
         m.life_due = 3;
+        if let Command::Teleport { x, z } = c {
+            self.teleport(character, x, z);
+            return true;
+        }
         self.players.queue_command(client(character), seq, c);
         true
     }
