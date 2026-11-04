@@ -407,6 +407,7 @@ export class LifeUI {
     this.updatePrompt();
     this.updateQuests();
     this.updateRide(dt);
+    this.placeToasts();
     this.updatePlates();
     this.updateHints();
     this.walkAway();
@@ -787,6 +788,13 @@ export class LifeUI {
     const back = carried(life, sim);
     const load = isMount(def) ? (back ? `<div style="margin-top:4px">${withIcons(`${packDef(back.def).icon} ${packDef(back.def).name}`)}</div>` : '') : def.cargo.length ? `<div class="slots">${slots.join('')}</div>` : '';
     this.rideBox.innerHTML = `<div style="color:var(--ink-2)">${withIcons(`${def.icon} ${def.name}`)} ${road}</div><div class="big">${Math.round(Math.abs(v.speed) * 3.6)}<small>km/h</small></div>${load}${extra}`;
+  }
+
+  /** Toasts sit at the bottom right above the menu buttons, and above the ride readout while it's up. */
+  private placeToasts(): void {
+    const r = this.rideBox;
+    const bottom = r.classList.contains('show') ? `${parseFloat(getComputedStyle(r).bottom) + r.offsetHeight + 8}px` : '';
+    if (this.toasts.style.bottom !== bottom) this.toasts.style.bottom = bottom;
   }
 
   private updatePlates(): void {
