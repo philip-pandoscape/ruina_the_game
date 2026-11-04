@@ -167,6 +167,7 @@ fn run(bots: usize, virtual_clients: usize, hz: u32, slimes: usize, registry: Re
         );
     }
     let dt = 1.0 / hz as f32;
+    let monster_steps = (60 / hz.max(1)).max(1);
     let period = Duration::from_secs_f64(1.0 / hz as f64);
     let mut next = Instant::now() + period;
     let mut window = Window::default();
@@ -215,8 +216,14 @@ fn run(bots: usize, virtual_clients: usize, hz: u32, slimes: usize, registry: Re
         players.apply_bot_hits(&bot_hits);
         players.step_effects(&mut battle, &mut actors);
         // Monsters move after the players, on the same tick, reading where everyone ended up.
+        // Their brains count 60ths of a second, as in the browser, so a tick runs as many of
+        // those as it lasts; then their slams land on whoever is standing in them.
         let seen: Vec<(f64, f64)> = players.live_positions();
-        actors.step(&seen, LEAN_SPRING, LEAN_DAMPING, dt as f64);
+        let mut slams = Vec::new();
+        for _ in 0..monster_steps {
+            slams.extend(actors.step(&seen, LEAN_SPRING, LEAN_DAMPING, 1.0 / 60.0));
+        }
+        players.apply_slams(&slams);
         players.record_history(battle.tick);
         let t1 = Instant::now();
         grid.rebuild(&battle);

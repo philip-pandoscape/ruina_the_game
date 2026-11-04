@@ -5,7 +5,8 @@ import type { Sim } from '../sim';
 import { len } from '../math';
 import { circleHits } from './hit';
 import type { Target } from './hit';
-import { isAlive } from '../actor';
+import { isAlive, type Actor, type Actors } from '../actor';
+import { provoke } from '../actors/step';
 
 export function damage(sim: Sim, t: Target, amount: number, knock = 0, index = 0) : void {
   const a = sim.actors.get(t.id);
@@ -18,15 +19,27 @@ export function damage(sim: Sim, t: Target, amount: number, knock = 0, index = 0
   damageFrom(sim, t, amount, nx, nz, knock, index);
 }
 
+/**
+ * What a blow does to an actor, whoever dealt it: it loses health, flashes, angers its pack and
+ * rocks. Returns whether that killed it. server/src/actors.rs Actors::damage does the same.
+ */
+export function hurtActor(actors: Actors, a: Actor, amount: number, nx: number, nz: number, knock: number): boolean {
+  a.hp = Math.max(0, a.hp - amount);
+  a.flashFrame = 0;
+  provoke(actors, a, amount);
+  a.leanVX += nx * knock;
+  a.leanVZ += nz * knock;
+  if (a.hp > 0) return false;
+  a.deadFrame = 0;
+  return true;
+}
+
 /** As damage(), but the blow travels along a direction you already know. */
 
 export function damageFrom(sim: Sim, t: Target, amount: number, nx: number, nz: number, knock = 0, index = 0) : void {
   const a = sim.actors.get(t.id);
   if (!a || !isAlive(a)) return;
-  a.hp = Math.max(0, a.hp - amount);
-  a.flashFrame = 0;
-  a.leanVX += nx * knock;
-  a.leanVZ += nz * knock;
+  const died = hurtActor(sim.actors, a, amount, nx, nz, knock);
   // Open worlds stand actors on terrain; their own heights are off that patch of ground.
   const ground = sim.world.terrain ? sim.world.terrain.height(a.x, a.z) : 0;
   sim.emit({
@@ -40,10 +53,7 @@ export function damageFrom(sim: Sim, t: Target, amount: number, nx: number, nz: 
     dirX: nx,
     dirZ: nz,
   });
-  if (a.hp <= 0) {
-    a.deadFrame = 0;
-    sim.emit({ type: 'actorDie', frame: sim.frame, id: a.id, kind: a.kind, x: a.x, y: a.hitHeight + ground, z: a.z });
-  }
+  if (died) sim.emit({ type: 'actorDie', frame: sim.frame, id: a.id, kind: a.kind, x: a.x, y: a.hitHeight + ground, z: a.z });
 }
 
 /** A blast: everything standing inside the circle takes it. */

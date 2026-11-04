@@ -105,6 +105,7 @@ pub const CAUSE_WEAPON: u8 = 1; // plus the weapon index: 1 sword, 2 club, 3 sta
 pub const CAUSE_METEOR: u8 = 5;
 pub const CAUSE_HEAL: u8 = 6;
 pub const CAUSE_BOT: u8 = 7;
+pub const CAUSE_MONSTER: u8 = 8;
 
 // Inputs travel as small integers; the browser applies the same rounding to its own prediction.
 pub fn input_axis(v: i8) -> f64 {

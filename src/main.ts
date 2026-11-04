@@ -257,7 +257,13 @@ hud.onSwapSlots = (from, to) => applyBuild(swapSlots(build, from, to));
 const DEG = Math.PI / 180;
 
 // What the target plate calls each kind. Content, not rules, so it lives next to the UI.
-const NAMES: Record<string, string> = { dummy: 'Training dummy', slime: 'Slime' };
+const NAMES: Record<string, string> = {
+  dummy: 'Training dummy',
+  slimelet: 'Slimelet',
+  slime: 'Slime',
+  'great-slime': 'Great Slime',
+  'slime-monarch': 'Slime Monarch',
+};
 
 // The raid's fighters come either from a local sim (?raid) or from the battle server (?server).
 const crowd = raidCount ? new CrowdSim(raidCount) : null;
@@ -319,6 +325,7 @@ function causeIcon(cause: number): string {
   if (cause === 5) return ABILITY_ICONS[1]; // meteor
   if (cause === 6) return ABILITY_ICONS[0]; // heal
   if (cause === 7) return '\u{1f43a}'; // a bot got you
+  if (cause === 8) return '\u{1f7e2}'; // a monster's slam
   return '';
 }
 if (netSpells) {

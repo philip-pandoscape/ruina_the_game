@@ -13,8 +13,10 @@ import type { NetActor } from '../net/netCrowd';
 
 const HIDDEN_Y = -1000; // where an actor waits out its respawn
 
-const packKey = (k: { species: string | null; palette?: { teamA: number; teamB: number } }): string =>
-  k.palette ? `${k.species}:${k.palette.teamA}:${k.palette.teamB}` : `${k.species}`;
+// One crowd per body, colouring and size: villagers in different clothes share the body, not the
+// paint, and a creature's sizes share the body but not the scale.
+const packKey = (k: { species: string | null; palette?: { teamA: number; teamB: number }; scale?: number }): string =>
+  `${k.species}:${k.palette ? `${k.palette.teamA}:${k.palette.teamB}` : ''}:${k.scale ?? 1}`;
 
 /** The neutral shape both the local rules and the server's snapshots are turned into. */
 interface Shown {
@@ -28,6 +30,8 @@ interface Shown {
   alive: boolean;
   deadFrame: number;
   flash: number;
+  /** Taken out of the world (absorbed, merged): not drawn at all. */
+  gone: boolean;
 }
 
 interface Pack {
@@ -48,13 +52,13 @@ export class ActorView {
   constructor(kinds: readonly string[], private capacity = 64, private ground: ((x: number, z: number) => number) | null = null) {
     for (const id of kinds) {
       const kind = actorKind(id);
-      // One crowd per body and colouring: villagers in different clothes share the body, not the paint.
       if (!kind.species || this.packs.has(packKey(kind))) continue;
       const species = getSpecies(kind.species);
       const crowd = new SpeciesCrowd(species, capacity, {
         tint: true,
         outlineThickness: 0.015,
         palette: kind.palette,
+        scale: kind.scale,
       });
       crowd.setCount(capacity);
       this.group.add(crowd.group);
@@ -89,6 +93,7 @@ export class ActorView {
           alive: a.deadFrame < 0,
           deadFrame: Math.max(0, a.deadFrame),
           flash: 999,
+          gone: false,
         };
       }),
     );
@@ -107,6 +112,7 @@ export class ActorView {
         alive: isAlive(a),
         deadFrame: Math.max(0, a.deadFrame),
         flash: a.flashFrame,
+        gone: a.gone,
       })),
     );
   }
@@ -115,7 +121,7 @@ export class ActorView {
     for (const p of this.packs.values()) p.used = 0;
 
     for (const a of actors) {
-      if (!a.kindId) continue;
+      if (!a.kindId || a.gone) continue;
       const kind = actorKind(a.kindId);
       if (!kind.species) continue;
       const pack = this.packs.get(packKey(kind));

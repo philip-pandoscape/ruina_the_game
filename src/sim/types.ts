@@ -144,6 +144,18 @@ export type GameEvent =
   // Anything in the world died. `kind` says what it was, so the effects can differ without the
   // rules needing an event type per creature.
   | { type: 'actorDie'; frame: number; id: number; kind: string; x: number; y: number; z: number }
+  // A pack at work (src/sim/actors/step.ts). A dying one burst into `count` pieces; one called its
+  // kin to it; one started gathering them in, or had the cast broken; one was taken in; one grew a
+  // size (gathering, or a burst group that reformed).
+  | { type: 'actorBurst'; frame: number; kind: string; count: number; x: number; y: number; z: number }
+  | { type: 'actorCall'; frame: number; id: number; x: number; y: number; z: number; radius: number }
+  | { type: 'gatherStart'; frame: number; id: number; x: number; y: number; z: number; radius: number }
+  | { type: 'gatherBroken'; frame: number; id: number; x: number; y: number; z: number }
+  | { type: 'actorAbsorbed'; frame: number; x: number; y: number; z: number; toX: number; toZ: number }
+  | { type: 'actorGrow'; frame: number; id: number; kind: string; x: number; y: number; z: number }
+  // A monster's slam landed, and whether it caught you.
+  | { type: 'slam'; frame: number; x: number; y: number; z: number; radius: number }
+  | { type: 'hurt'; frame: number; damage: number; x: number; y: number; z: number }
   | { type: 'respawn'; frame: number; x: number; y: number; z: number }
   // A bow loosed an arrow (the server flies it; the browser draws it straight away).
   | { type: 'shoot'; frame: number; x: number; y: number; z: number; dirX: number; dirZ: number; speed: number; range: number; damage: number; pierce: number }

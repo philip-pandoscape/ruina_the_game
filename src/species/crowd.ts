@@ -26,6 +26,8 @@ export interface SpeciesCrowdOptions {
   /** Adds a per-instance hit flash. Off by default, so a crowd that never flashes pays nothing. */
   tint?: boolean;
   palette?: CrowdPalette;
+  /** Draws every instance this many times its authored size: one body for a creature's sizes. */
+  scale?: number;
 }
 
 // aRoot = (x, y, z, yaw); aPose = (row, nextRow, mix, team 0/1).
@@ -39,6 +41,7 @@ attribute float aMat;
 #endif
 uniform sampler2D uPose;
 uniform vec2 uPoseSize;
+uniform float uScale;
 
 mat4 speciesRow(float joint, float row) {
   vec2 inv = 1.0 / uPoseSize;
@@ -72,7 +75,7 @@ mat3 speciesYaw(float a) {
   return mat3(c, 0.0, -s, 0.0, 1.0, 0.0, s, 0.0, c);
 }
 vec3 speciesTransform(vec3 p, mat4 pose) {
-  return speciesYaw(aRoot.w) * (pose * vec4(p, 1.0)).xyz + aRoot.xyz;
+  return speciesYaw(aRoot.w) * ((pose * vec4(p, 1.0)).xyz * uScale) + aRoot.xyz;
 }
 vec3 speciesNormal(vec3 n, mat4 pose) {
   return speciesYaw(aRoot.w) * normalize(mat3(pose) * n);
@@ -143,6 +146,7 @@ export class SpeciesCrowd {
     const uniforms = {
       uPose: { value: texture },
       uPoseSize: { value: new THREE.Vector2(width, height) },
+      uScale: { value: opts.scale ?? 1 },
       uTeamA: { value: new THREE.Color(p.teamA ?? 0x3a6ea5) },
       uTeamB: { value: new THREE.Color(p.teamB ?? 0xb33a3a) },
       uHairA: { value: new THREE.Color(p.hairA ?? 0x2b1a10) },
@@ -214,6 +218,7 @@ export class SpeciesCrowd {
       // The pose uniforms are shared objects, so both materials move together.
       outline.uniforms.uPose = uniforms.uPose;
       outline.uniforms.uPoseSize = uniforms.uPoseSize;
+      outline.uniforms.uScale = uniforms.uScale;
       const hulls = new THREE.Mesh(geo, outline);
       hulls.frustumCulled = false;
       this.group.add(hulls);
