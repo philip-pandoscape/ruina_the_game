@@ -158,10 +158,10 @@ export class Life implements LifeHooks {
     rideVehicle(this, sim, a);
   }
 
-  observe(sim: Sim, e: GameEvent): void {
+  observe(e: GameEvent): void {
     // Online the server counts what you do; this copy only shows what it says.
     if (this.remote) return;
-    observe(this, sim, e);
+    observe(this, e);
   }
 
   step(sim: Sim, a: Actions): void {

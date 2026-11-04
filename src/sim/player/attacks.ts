@@ -95,7 +95,7 @@ export function checkHit(sim: Sim, step: AttackStep) : void {
   if (!hits.length) return;
   p.attackHit = true;
   sim.hitstop = step.hitstop;
-  for (const t of hits) damage(sim, t, step.damage, step.knock, p.attackIndex);
+  for (const t of hits) damage(sim, t, step.damage, step.knock, p.attackIndex, p.weapon);
 }
 
 /**
@@ -122,6 +122,7 @@ export function checkShot(sim: Sim) : void {
     range: step.projectileRange ?? 0,
     damage: step.damage,
     pierce: pierceTargets(p.weapon, sim.stats),
+    weapon: p.weapon,
   });
 }
 

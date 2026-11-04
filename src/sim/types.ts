@@ -140,7 +140,9 @@ export type GameEvent =
   // A movement skill started: `id` indexes MOVEMENT_SKILLS.
   | { type: 'action'; frame: number; id: number; x: number; y: number; z: number }
   | { type: 'attack'; frame: number; index: number }
-  | { type: 'hit'; frame: number; index: number; damage: number; x: number; y: number; z: number; dirX: number; dirZ: number }
+  // A blow landed. `weapon` (an index into WEAPONS) is what dealt it: a swing, or the bow that
+  // loosed the arrow. A blast has none.
+  | { type: 'hit'; frame: number; index: number; damage: number; x: number; y: number; z: number; dirX: number; dirZ: number; weapon?: number }
   // Anything in the world died. `kind` says what it was, so the effects can differ without the
   // rules needing an event type per creature.
   | { type: 'actorDie'; frame: number; id: number; kind: string; x: number; y: number; z: number }
@@ -157,8 +159,9 @@ export type GameEvent =
   | { type: 'slam'; frame: number; x: number; y: number; z: number; radius: number }
   | { type: 'hurt'; frame: number; damage: number; x: number; y: number; z: number }
   | { type: 'respawn'; frame: number; x: number; y: number; z: number }
-  // A bow loosed an arrow (the server flies it; the browser draws it straight away).
-  | { type: 'shoot'; frame: number; x: number; y: number; z: number; dirX: number; dirZ: number; speed: number; range: number; damage: number; pierce: number }
+  // A bow loosed an arrow (the server flies it; the browser draws it straight away). `weapon` is
+  // the one that loosed it.
+  | { type: 'shoot'; frame: number; x: number; y: number; z: number; dirX: number; dirZ: number; speed: number; range: number; damage: number; pierce: number; weapon: number }
   // A cast finished: `ability` indexes ABILITIES, (x, z) is the target and (casterX, casterZ) the caster.
   | { type: 'cast'; frame: number; ability: number; x: number; z: number; casterX: number; casterZ: number }
   // Spell effects, from the server online or the training range offline.

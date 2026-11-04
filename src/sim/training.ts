@@ -19,6 +19,7 @@ export interface ArrowFlight {
   speed: number;
   left: number; // metres of range left
   damage: number;
+  weapon: number; // which weapon loosed it (what it hits trains that one)
   spent: boolean; // it hit something and is done
 }
 
@@ -47,7 +48,7 @@ export class TrainingRange {
   step(events: GameEvent[]): void {
     for (const e of events) {
       if (e.type === 'shoot') {
-        this.arrows.push({ x: e.x, y: e.y, z: e.z, dirX: e.dirX, dirZ: e.dirZ, speed: e.speed, left: e.range, damage: e.damage, spent: false });
+        this.arrows.push({ x: e.x, y: e.y, z: e.z, dirX: e.dirX, dirZ: e.dirZ, speed: e.speed, left: e.range, damage: e.damage, weapon: e.weapon, spent: false });
       } else if (e.type === 'cast') {
         // Whatever the ability is made of, run each of its effects. The dummy is the only thing
         // out here to hit, so this is the server's rules narrowed to one target.
@@ -79,7 +80,7 @@ export class TrainingRange {
         const hit = pointHit(this.sim.targets(), a.x, a.y, a.z, ARROW_PAD);
         if (hit) {
           a.spent = true;
-          this.sim.damageFrom(hit, a.damage, a.dirX, a.dirZ, ARROW_KNOCK, 0);
+          this.sim.damageFrom(hit, a.damage, a.dirX, a.dirZ, ARROW_KNOCK, 0, a.weapon);
         }
       }
       a.left -= travel;

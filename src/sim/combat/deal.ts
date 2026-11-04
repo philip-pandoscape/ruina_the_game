@@ -8,7 +8,7 @@ import type { Target } from './hit';
 import { isAlive, type Actor, type Actors } from '../actor';
 import { provoke } from '../actors/step';
 
-export function damage(sim: Sim, t: Target, amount: number, knock = 0, index = 0) : void {
+export function damage(sim: Sim, t: Target, amount: number, knock = 0, index = 0, weapon?: number) : void {
   const a = sim.actors.get(t.id);
   if (!a || !isAlive(a)) return;
   const dx = a.x - sim.player.pos.x;
@@ -16,7 +16,7 @@ export function damage(sim: Sim, t: Target, amount: number, knock = 0, index = 0
   const dist = len(dx, dz);
   const nx = dist > 0.01 ? dx / dist : Math.sin(sim.player.facing);
   const nz = dist > 0.01 ? dz / dist : Math.cos(sim.player.facing);
-  damageFrom(sim, t, amount, nx, nz, knock, index);
+  damageFrom(sim, t, amount, nx, nz, knock, index, weapon);
 }
 
 /**
@@ -34,9 +34,12 @@ export function hurtActor(actors: Actors, a: Actor, amount: number, nx: number, 
   return true;
 }
 
-/** As damage(), but the blow travels along a direction you already know. */
+/**
+ * As damage(), but the blow travels along a direction you already know. `weapon` is the one that
+ * dealt it, if a weapon did: the hit trains that one (src/sim/life/progress.ts).
+ */
 
-export function damageFrom(sim: Sim, t: Target, amount: number, nx: number, nz: number, knock = 0, index = 0) : void {
+export function damageFrom(sim: Sim, t: Target, amount: number, nx: number, nz: number, knock = 0, index = 0, weapon?: number) : void {
   const a = sim.actors.get(t.id);
   if (!a || !isAlive(a)) return;
   const died = hurtActor(sim.actors, a, amount, nx, nz, knock);
@@ -52,6 +55,7 @@ export function damageFrom(sim: Sim, t: Target, amount: number, nx: number, nz: 
     z: a.z - nz * a.radius,
     dirX: nx,
     dirZ: nz,
+    weapon,
   });
   if (died) sim.emit({ type: 'actorDie', frame: sim.frame, id: a.id, kind: a.kind, x: a.x, y: a.hitHeight + ground, z: a.z });
 }

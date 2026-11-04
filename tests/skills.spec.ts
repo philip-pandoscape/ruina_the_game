@@ -267,18 +267,26 @@ test('training yard: arrows, Meteor, Healing Circle and Whirlwind against the du
         g.setBuild(b);
         g.reset({ x: d.x, z: d.z - dist, facing: 0, camYaw: 0 });
       };
+      // What each skill learned since `from`.
+      const xp = () => g.skills().xp as Record<string, number>;
+      const learned = (from: Record<string, number>, ...ids: string[]) => Object.fromEntries(ids.map((id) => [id, (xp()[id] ?? 0) - (from[id] ?? 0)]));
 
-      // Bow from 12 m away: the arrow takes a moment to arrive.
+      // Bow from 12 m away: the arrow takes a moment to arrive. The sword is out by the time it
+      // lands, but the bow that loosed it is what learns from the hit.
       standOff(builds.archer, 12);
+      const beforeShot = xp();
       g.advance(1, { attackPressed: true });
       let shotFrame = -1;
       let hitFrame = -1;
       for (let f = 1; f < 60 && hitFrame < 0; f++) {
         g.advance(1);
-        if (shotFrame < 0 && g.spells().training.arrows > 0) shotFrame = f;
+        if (shotFrame < 0 && g.spells().training.arrows > 0) {
+          shotFrame = f;
+          g.setBuild(builds.archerSword);
+        }
         if (g.state().dummy.hp < 100) hitFrame = f;
       }
-      out.bow = { shotFrame, hitFrame, hp: g.state().dummy.hp };
+      out.bow = { shotFrame, hitFrame, hp: g.state().dummy.hp, learned: learned(beforeShot, 'bow', 'sword') };
 
       // Rapid Fire draws faster.
       standOff(builds.piercer, 12);
@@ -290,15 +298,23 @@ test('training yard: arrows, Meteor, Healing Circle and Whirlwind against the du
       }
       out.rapidFire = fastShot;
 
-      // Meteor at 9 m: cast, fall, blast.
+      // Meteor at 9 m: cast, fall, blast. The cast trains Meteor; the blast trains no weapon.
       standOff(builds.mage, 9);
+      const beforeCast = xp();
       g.advance(1, { abilitySlot: 1 });
       g.advance(30);
       const casting = { mode: g.state().player.mode, circles: g.spells().circlesDrawn };
       g.advance(60);
       const falling = g.spells().training.meteors;
       g.advance(30);
-      out.meteor = { casting, falling, hp: g.state().dummy.hp, cooldown: g.state().player.cooldowns[0], explosions: g.events().filter((e: any) => e.type === 'explosion').length };
+      out.meteor = {
+        casting,
+        falling,
+        hp: g.state().dummy.hp,
+        cooldown: g.state().player.cooldowns[0],
+        explosions: g.events().filter((e: any) => e.type === 'explosion').length,
+        learned: learned(beforeCast, 'meteor', 'staff'),
+      };
 
       // Healing Circle.
       standOff(builds.healer, 6);
@@ -315,6 +331,7 @@ test('training yard: arrows, Meteor, Healing Circle and Whirlwind against the du
     {
       builds: {
         archer: ARCHER,
+        archerSword: build(['bow', 'sword'], 0),
         piercer: PIERCER,
         mage: MAGE,
         healer: HEALER,
@@ -323,17 +340,19 @@ test('training yard: arrows, Meteor, Healing Circle and Whirlwind against the du
     },
   );
   console.log('training', JSON.stringify(result));
-  const bow = result.bow as { shotFrame: number; hitFrame: number; hp: number };
+  const bow = result.bow as { shotFrame: number; hitFrame: number; hp: number; learned: Record<string, number> };
   expect(bow.shotFrame).toBe(WEAPONS[3].combo[0].startup + 1);
   expect(bow.hitFrame).toBeGreaterThan(bow.shotFrame + 10); // 12 m at 38 m/s
   expect(bow.hp).toBe(100 - arrowDamage);
+  expect(bow.learned).toEqual({ bow: 1, sword: 0 });
   expect(result.rapidFire).toBe(comboFor(3, resolveSkills(skills('bow', 'rapidFire')))[0].startup + 1);
-  const meteor = result.meteor as { casting: { mode: string; circles: number }; falling: number; hp: number; cooldown: number; explosions: number };
+  const meteor = result.meteor as { casting: { mode: string; circles: number }; falling: number; hp: number; cooldown: number; explosions: number; learned: Record<string, number> };
   expect(meteor.casting).toEqual({ mode: 'cast', circles: 1 });
   expect(meteor.falling).toBe(1);
   expect(meteor.explosions).toBe(1);
   expect(meteor.hp).toBe(100 - meteorDamage);
   expect(meteor.cooldown).toBeGreaterThan(0);
+  expect(meteor.learned).toEqual({ meteor: 1, staff: 0 });
   expect(result.heal).toBe(1);
   const spin = comboFor(0, resolveSkills(skills('sword', 'cleave', 'whirlwind')));
   expect(result.whirlwind).toEqual([spin[0].damage, spin[1].damage, spin[2].damage]);

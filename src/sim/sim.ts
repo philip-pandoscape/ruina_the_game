@@ -33,7 +33,7 @@ export interface LifeHooks {
   /** Everything else in the world, once per step, after you have moved. */
   step(sim: Sim, a: Actions): void;
   /** Something you did (a hit landed, a cast, a roll): the skill behind it gains experience. */
-  observe(sim: Sim, e: GameEvent): void;
+  observe(e: GameEvent): void;
 }
 
 export interface SimOptions {
@@ -188,7 +188,7 @@ export class Sim {
     this.pending.push(e);
     this.log.push(e);
     if (this.log.length > 500) this.log.shift();
-    this.life?.observe(this, e);
+    this.life?.observe(e);
   }
 
   step(a: Actions): void {
@@ -304,11 +304,11 @@ export class Sim {
   takeHit(damageAmount: number, dirX: number, dirZ: number, knock: number): void {
     takeHit(this, damageAmount, dirX, dirZ, knock);
   }
-  damage(t: Target, amount: number, knock = 0, index = 0): void {
-    damage(this, t, amount, knock, index);
+  damage(t: Target, amount: number, knock = 0, index = 0, weapon?: number): void {
+    damage(this, t, amount, knock, index, weapon);
   }
-  damageFrom(t: Target, amount: number, nx: number, nz: number, knock = 0, index = 0): void {
-    damageFrom(this, t, amount, nx, nz, knock, index);
+  damageFrom(t: Target, amount: number, nx: number, nz: number, knock = 0, index = 0, weapon?: number): void {
+    damageFrom(this, t, amount, nx, nz, knock, index, weapon);
   }
   damageCircle(x: number, z: number, radius: number, amount: number, knock = 0, index = 0): void {
     damageCircle(this, x, z, radius, amount, knock, index);

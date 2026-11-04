@@ -324,7 +324,7 @@ const yardXp: Record<string, number> = (() => {
 })();
 let yardSaved = 0;
 function yardTrain(e: GameEvent): void {
-  const b = trainedBy(e, sim.player.weapon);
+  const b = trainedBy(e);
   if (b < 0) return;
   const id = BOOK[b].id;
   const before = levelOf(yardXp[id] ?? 0);
@@ -1410,7 +1410,7 @@ const api = {
   // Testing: a blow from you to one actor, by id, as if a weapon had landed it.
   hurtActor(id: number, amount: number): void {
     const a = sim.actors.get(id);
-    if (a && isAlive(a)) sim.damage(targetOf(a), amount);
+    if (a && isAlive(a)) sim.damage(targetOf(a), amount, 0, 0, sim.player.weapon);
   },
   // Testing: sets fields on an actor by id (a cooldown, a fuse), to set up a moment directly.
   setActor(id: number, fields: Partial<Actor>): void {

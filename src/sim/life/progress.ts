@@ -18,10 +18,12 @@ import { ABILITIES, MOVEMENT_SKILLS, WEAPONS } from '../../tuning';
 // drift from them, and finishing a quest that gained points later still counts.
 
 /** Which skill in the book (an index into BOOK) an event trains, or -1. */
-export function trainedBy(e: GameEvent, weapon: number): number {
+export function trainedBy(e: GameEvent): number {
   switch (e.type) {
     case 'hit':
-      return BOOK.findIndex((b) => b.kind === 'weapon' && b.index === weapon);
+      // The weapon that landed it, not whatever is in your hands by then; a blast trains nothing
+      // (its cast already did).
+      return BOOK.findIndex((b) => b.kind === 'weapon' && b.index === e.weapon);
     case 'cast':
       return BOOK.findIndex((b) => b.kind === 'ability' && b.index === e.ability);
     case 'action':
@@ -56,8 +58,8 @@ export function train(life: Life, b: number, amount = 1): void {
 }
 
 /** What the sim reports goes to the skill behind it, and a creature you finish off to the quests. */
-export function observe(life: Life, sim: Sim, e: GameEvent): void {
-  const b = trainedBy(e, sim.player.weapon);
+export function observe(life: Life, e: GameEvent): void {
+  const b = trainedBy(e);
   if (b >= 0) train(life, b);
   if (e.type === 'actorDie') life.notify({ type: 'defeat', kind: e.kind });
 }

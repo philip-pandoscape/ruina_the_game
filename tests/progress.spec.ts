@@ -81,11 +81,13 @@ test('skills level up as you use them, say so, and count toward Practised Hand',
   expect(life.state.quests.done).toContain('practisedHand');
 });
 
-test('what trains what: hits train the weapon in your hands, casts the ability, uses the movement skill', () => {
-  const hit = { type: 'hit', frame: 0, index: 0, damage: 12, x: 0, y: 0, z: 0, dirX: 0, dirZ: 1 } as const;
-  expect(trainedBy(hit, 0)).toBe(bookIndex('sword'));
-  expect(trainedBy(hit, 1)).toBe(bookIndex('club'));
-  expect(trainedBy({ type: 'cast', frame: 0, ability: 1, x: 0, z: 0, casterX: 0, casterZ: 0 }, 0)).toBe(bookIndex('meteor'));
-  expect(trainedBy({ type: 'action', frame: 0, id: SLIDE_SKILL, x: 0, y: 0, z: 0 }, 0)).toBe(bookIndex('slide'));
-  expect(trainedBy({ type: 'jump', frame: 0, x: 0, y: 0, z: 0 }, 0)).toBe(-1);
+test('what trains what: a hit the weapon that landed it, a cast the ability, a use the movement skill', () => {
+  const hit = (weapon?: number) => ({ type: 'hit', frame: 0, index: 0, damage: 12, x: 0, y: 0, z: 0, dirX: 0, dirZ: 1, weapon }) as const;
+  expect(trainedBy(hit(0))).toBe(bookIndex('sword'));
+  expect(trainedBy(hit(1))).toBe(bookIndex('club'));
+  expect(trainedBy(hit(3)), 'an arrow: the bow that loosed it').toBe(bookIndex('bow'));
+  expect(trainedBy(hit()), 'a blast: its cast already counted').toBe(-1);
+  expect(trainedBy({ type: 'cast', frame: 0, ability: 1, x: 0, z: 0, casterX: 0, casterZ: 0 })).toBe(bookIndex('meteor'));
+  expect(trainedBy({ type: 'action', frame: 0, id: SLIDE_SKILL, x: 0, y: 0, z: 0 })).toBe(bookIndex('slide'));
+  expect(trainedBy({ type: 'jump', frame: 0, x: 0, y: 0, z: 0 })).toBe(-1);
 });
