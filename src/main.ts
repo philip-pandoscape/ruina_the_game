@@ -578,9 +578,12 @@ function updateCombatAim(cam: { dYaw: number; dPitch: number }, dt: number): boo
   combat = input.pollCombat();
   for (let i = 0; i < combat.nextTarget; i++) cycleTarget(1);
   for (let i = 0; i < combat.prevTarget; i++) cycleTarget(-1);
-  if (combat.cancel > 0 && aimingSlot === 0) {
-    // Escape with nothing being aimed drops the target instead.
-    lockOn.clear();
+  if (combat.cancel > 0) {
+    // Escape backs out of a circle being placed, here rather than in a step: a frame can run no
+    // step at all, and the press would be gone by the next. With nothing being aimed it drops the
+    // target instead.
+    if (aimingSlot !== 0) aimingSlot = 0;
+    else lockOn.clear();
   }
   updateTarget();
 
@@ -1021,7 +1024,6 @@ function frame(now: number): void {
     // stand still. With a keyboard and mouse you can walk with a window open (walking away from
     // whoever you're talking to closes it). The skill panel and the map take every device.
     const padToMenu = panel.isOpen || (!!lifeUI?.takesPad && input.lastDevice === 'gamepad');
-    if (padToMenu || lifeUI?.modal) input.padToMenu();
     // Open-world keys first, so a panel they open takes this frame's input.
     if (lifeUI) {
       for (const k of input.pollLife(padToMenu)) {
@@ -1038,6 +1040,7 @@ function frame(now: number): void {
       if (panel.isOpen) panel.menu(m);
       else if (m === 'toggle' && (!net || playing)) panel.open();
     }
+    if (menuOpen && !panel.isOpen && !lifeUI?.modal && !(lifeUI?.takesPad && input.lastDevice === 'gamepad')) input.swallowHeld();
     const cam = input.pollCamera(dt);
     syncNet();
     const placing = !menuOpen && updateCombatAim(cam, dt);

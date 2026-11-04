@@ -395,12 +395,11 @@ export class Input {
   }
 
   /**
-   * Call on every frame a window has the controller (its D-pad, stick and buttons drive the window).
-   * The game's step may not run on a frame at all, so without this a button that closes a window
-   * would still be new to the game on the next step: the B that closes a panel would also slide.
-   * A button held now counts for the game again once it's let go and pressed again.
+   * Call when a window that had the controller closes. The game's step may not run on every frame,
+   * so without this the button that closed it would still be new to the game on the next step: the
+   * B that closes a panel would also slide. A button held now counts again once it's let go.
    */
-  padToMenu(): void {
+  swallowHeld(): void {
     const pad = this.pad();
     if (!pad) return;
     const held = pad.buttons.map((b) => b.pressed || b.value > 0.5);
