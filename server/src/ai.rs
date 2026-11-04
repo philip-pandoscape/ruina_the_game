@@ -100,6 +100,8 @@ pub struct Behaviour {
     pub gather: Option<Gather>,
     #[serde(default)]
     pub regroup_at: Option<i32>,
+    #[serde(default)]
+    pub flee_within: Option<f64>,
     pub states: Vec<BehaviourState>,
 }
 
@@ -393,6 +395,7 @@ fn holds(cond: Option<&str>, a: &Actor, b: &Behaviour, seen: Sighting, ctx: &Ctx
     match cond {
         "called" => a.rally_to != 0,
         "angry" => a.angry > 0 && seen.present,
+        "threatened" => a.angry > 0 && seen.present && len(seen.x - a.x, seen.z - a.z) <= b.flee_within.unwrap_or(0.0),
         "canCall" => can_call(a, b, seen, ctx),
         "slam" => {
             let Some(s) = kind(&a.kind).and_then(|k| k.slam.as_ref()) else { return false };

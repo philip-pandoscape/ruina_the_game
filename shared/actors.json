@@ -146,7 +146,8 @@
         "flee": "hop",
         "regroup": "hop",
         "dead": "die",
-        "rally": "hop"
+        "rally": "hop",
+        "huddle": "hop"
       },
       "maxHp": 10,
       "radius": 0.24,

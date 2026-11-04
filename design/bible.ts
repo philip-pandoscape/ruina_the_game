@@ -17,6 +17,8 @@ import { QUESTS, questDef, type QuestDef } from '../src/content/quests';
 import { SHIP_DESIGNS } from '../src/content/shipyard';
 import { GROUND, STORM, SWIM } from '../src/content/traversal';
 import { ABILITIES, JUMP, MOVE, MOVEMENT_SKILLS, SKILLS, WEAPONS } from '../src/tuning';
+import { LADDERS, actorKind } from '../src/content/actors';
+import { behaviour } from '../src/sim/ai/brain';
 import { freshness } from '../src/sim/life/trade';
 import { EMBERHOLM as Z } from '../src/sim/zone/world';
 import { generateZone } from '../src/sim/zone/generate';
@@ -276,7 +278,7 @@ const BLURB: Record<string, string> = {
   gullrock: 'An islet trading post off the south-east coast. Reachable only by boat (or a long glide). Pays ×1.5 and more seals.',
   thornwood: 'Dense forest with deadfall timber and Hob’s sawhorse, where lumber becomes bundles.',
   quarry: 'A stone pit with stone and iron outcrops and the stonecutter’s table.',
-  meadow: 'Slimes and a training dummy, for practising the combat.',
+  meadow: 'A slime pack and a training dummy. The slimes leave you alone until you hit one; then they call each other in, grow, and burst into pieces that reform bigger.',
   strand: 'A sandy beach on a sheltered bay; good for learning to swim and row.',
 };
 
@@ -798,6 +800,20 @@ part('combat', () => {
     ...MOVEMENT_SKILLS.map((m) => [`<b>${esc(m.name)}</b>`, 'Movement', esc(m.desc)]),
     [`<b>${SKILLS.nodes.length} skill nodes</b>`, 'Trees', `${SKILLS.trees.map((t) => esc(t.name)).join(', ')}; ${SKILLS.points} points to spend`],
   ]);
+  // Every size of every creature that comes in sizes, straight from the shared data.
+  const NAME: Record<string, string> = { slimelet: 'Slimelet', slime: 'Slime', 'great-slime': 'Great Slime', 'slime-monarch': 'Slime Monarch' };
+  table($('#creatureTable'), ['Size', 'Health', 'Mass', 'Slam', 'Dies into', 'Calls and gathers'], LADDERS.flatMap((l) => l.kinds.map((id) => {
+    const k = actorKind(id);
+    const g = k.brain ? behaviour(k.brain)?.gather : undefined;
+    return [
+      `<b>${esc(NAME[id] ?? id)}</b>`,
+      String(k.maxHp),
+      String(k.mass ?? 0),
+      k.slam ? `${k.slam.damage} in ${k.slam.radius} m, from ${k.slam.range} m away` : 'none',
+      k.burst ? `${k.burst.count} ${esc(NAME[k.burst.into] ?? k.burst.into)}s, ${(l.fuse / 60).toFixed(0)} s to kill them` : 'nothing',
+      k.gathers && g ? `yes: ${g.radius} m, ${g.cooldown / 60} s apart, broken by ${Math.round(g.breakAt * 100)}% of its health` : 'no',
+    ];
+  })), [1, 2]);
 });
 
 // ---------- architecture ----------

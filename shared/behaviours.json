@@ -1,5 +1,5 @@
 {
-  "comment": "Monster and NPC behaviour, read by src/sim/ai/brain.ts and server/src/ai.rs. A brain is a small state machine: each state does one thing (act) for a number of frames, then goes to `next` - a state name, or guards picked in order ({ if, to }, the last usually without an if). `interrupt` guards are checked every frame and cut a state short. Acts: wait, advance (along the gait, toward: wander | player | away | keep | caller | ally | group), windup (pick where a slam lands), leap (jump there and slam), channel (gather the pack in). Conditions: called, angry, canCall, slam, allies, callOver, broken, fuseLow. Distances are metres, times are sim frames (60 per second).",
+  "comment": "Monster and NPC behaviour, read by src/sim/ai/brain.ts and server/src/ai.rs. A brain is a small state machine: each state does one thing (act) for a number of frames, then goes to `next` - a state name, or guards picked in order ({ if, to }, the last usually without an if). `interrupt` guards are checked every frame and cut a state short. Acts: wait, advance (along the gait, toward: wander | player | away | keep | caller | ally | group), windup (pick where a slam lands), leap (jump there and slam), channel (gather the pack in). Conditions: called, angry, threatened, canCall, slam, allies, callOver, broken, fuseLow. Distances are metres, times are sim frames (60 per second).",
   "behaviours": [
     {
       "id": "skittish-hopper",
@@ -139,7 +139,8 @@
           "next": [
             { "if": "fuseLow", "to": "regroup" },
             { "if": "called", "to": "rally" },
-            { "if": "angry", "to": "flee" },
+            { "if": "threatened", "to": "flee" },
+            { "if": "angry", "to": "huddle" },
             { "to": "idle" }
           ]
         },
@@ -152,7 +153,8 @@
           "next": [
             { "if": "fuseLow", "to": "regroup" },
             { "if": "called", "to": "rally" },
-            { "if": "angry", "to": "flee" },
+            { "if": "threatened", "to": "flee" },
+            { "if": "angry", "to": "huddle" },
             { "to": "idle" }
           ]
         },
@@ -163,6 +165,20 @@
           "frames": [18, 18],
           "gait": { "distance": 0.8, "height": 0.25, "airStart": 0.15, "airSpan": 0.65 },
           "next": "regroup"
+        },
+        {
+          "name": "huddle",
+          "act": "advance",
+          "toward": "group",
+          "frames": [26, 26],
+          "gait": { "distance": 0.6, "height": 0.25, "airStart": 0.15, "airSpan": 0.65 },
+          "next": [
+            { "if": "fuseLow", "to": "regroup" },
+            { "if": "called", "to": "rally" },
+            { "if": "threatened", "to": "flee" },
+            { "if": "angry", "to": "huddle" },
+            { "to": "idle" }
+          ]
         },
         {
           "name": "idle",
@@ -179,7 +195,8 @@
           "next": [
             { "if": "fuseLow", "to": "regroup" },
             { "if": "called", "to": "rally" },
-            { "if": "angry", "to": "flee" },
+            { "if": "threatened", "to": "flee" },
+            { "if": "angry", "to": "huddle" },
             { "to": "idle" }
           ]
         },
@@ -192,11 +209,13 @@
           "next": [
             { "if": "fuseLow", "to": "regroup" },
             { "if": "called", "to": "rally" },
-            { "if": "angry", "to": "flee" },
+            { "if": "threatened", "to": "flee" },
+            { "if": "angry", "to": "huddle" },
             { "to": "idle" }
           ]
         }
-      ]
+      ],
+      "fleeWithin": 5
     }
   ]
 }

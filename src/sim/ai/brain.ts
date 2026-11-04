@@ -21,7 +21,7 @@ export interface Gait {
 }
 
 /** What a transition can wait for. Anything else never holds. */
-export type Condition = 'called' | 'angry' | 'canCall' | 'slam' | 'allies' | 'callOver' | 'broken' | 'fuseLow';
+export type Condition = 'called' | 'angry' | 'threatened' | 'canCall' | 'slam' | 'allies' | 'callOver' | 'broken' | 'fuseLow';
 
 /** Go to `to` if `if` holds; with no `if`, always. The first that holds wins. */
 export interface Guard {
@@ -75,6 +75,8 @@ export interface Behaviour {
   gather?: { radius: number; pull: number; breakAt: number; cooldown: number };
   /** A burst piece heads back to its group with this many frames left on the fuse. */
   regroupAt?: number;
+  /** Angry and you are this close: it feels threatened (and, a burst piece, runs). */
+  fleeWithin?: number;
   states: BehaviourState[];
 }
 
@@ -318,6 +320,8 @@ function holds(cond: Condition | undefined, a: Actor, b: Behaviour, seen: Sighti
       return a.rallyTo !== 0;
     case 'angry':
       return a.angry > 0 && seen.present;
+    case 'threatened':
+      return a.angry > 0 && seen.present && len(seen.x - a.x, seen.z - a.z) <= (b.fleeWithin ?? 0);
     case 'canCall':
       return canCall(a, b, seen, ctx);
     case 'slam': {

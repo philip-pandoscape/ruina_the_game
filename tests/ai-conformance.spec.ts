@@ -179,13 +179,13 @@ const PACKS: Record<string, Pack> = {
     pack: ring('slime', 6, 0, 3, 4, 0x51e0),
     frames: 2400,
     hits: hitsAt(0, 3, 30, 900, 12, 26),
-    expect: { kinds: ['slime', 'slimelet', 'great-slime'], states: ['chase', 'windup', 'leap', 'call', 'rally', 'gather', 'scatter', 'flee', 'regroup'], slams: true },
+    expect: { kinds: ['slime', 'slimelet', 'great-slime'], states: ['chase', 'windup', 'leap', 'call', 'rally', 'gather', 'scatter', 'flee', 'huddle', 'regroup'], slams: true },
   },
   'mixed sizes, hit hard': {
     pack: [...ring('slime', 4, 0, 2, 5, 0x77aa), ...ring('great-slime', 1, 0, 2, 0.5, 0x1234), ...ring('slimelet', 3, 2, -1, 2, 0x99)],
     frames: 2400,
     hits: [...hitsAt(0, 2, 20, 300, 12, 26), ...hitsAt(3, 3, 900, 1100, 15, 14)],
-    expect: { kinds: ['slime', 'great-slime', 'slimelet'], states: ['chase', 'windup', 'leap', 'scatter', 'regroup'], slams: true },
+    expect: { kinds: ['slime', 'great-slime', 'slimelet'], states: ['chase', 'windup', 'leap', 'scatter', 'flee'], slams: true },
   },
   // One blow, then nothing: the slime that was hit calls, the pack rallies to it, and it gathers.
   'one hit, and the pack gathers': {
