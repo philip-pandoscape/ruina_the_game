@@ -3,7 +3,8 @@ import { defineConfig } from '@playwright/test';
 // This worktree's own Vite on its own port, so a run never reuses another checkout's server.
 //   npx playwright test -c handoff/improve-ui/tools/pw.config.ts look-windows        (the specs here)
 //   SUITE=1 npx playwright test -c handoff/improve-ui/tools/pw.config.ts skills.spec (the real tests)
-const PORT = 5299;
+// PW_PORT picks another port: the improve-animations session's config uses 5299 too.
+const PORT = Number(process.env.PW_PORT ?? 5299);
 export default defineConfig({
   ...base,
   testDir: process.env.SUITE ? '../../../tests' : '.',

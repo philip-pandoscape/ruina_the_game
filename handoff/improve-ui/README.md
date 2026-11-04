@@ -10,6 +10,38 @@ at this file. **Delete `handoff/` before this branch is merged into `beta`.**
 - The user's standing instruction: build it all on this branch, commit in steps, and **hold until the
   user says to merge into `beta`**. Don't push to `beta` before then.
 
+## Where it stands (second session, 2026-11-04)
+
+Steps 1 to 4 of "What's left" are done and committed; the review canvas (step 5) has been shown.
+Nothing is pushed since `81be79e`: the rest is only in this worktree. Wait for the user's go-ahead
+before step 6.
+
+- **Conformance** rerun with `valid_movement` in: 78 passed (conformance, ai-, life-, world-
+  conformance, skilltree, progress, terrain).
+- **Findings a to d fixed** (`f4311e9`, `8f1f426`, `d807cbf`, `1b6fd40`), each with a test that fails on
+  the old rule: a place reached counts by each quest's own reach and height (both rules; new
+  life-conformance scenario); hits carry their weapon (arrows train their bow, blasts nothing);
+  `actorDie` says `killed`, and only kills are defeats; `__game.setBuild` and the offline island use the
+  island's budget, and the welcome build is taken as the server sent it (a 31-point build was
+  dropped by the browser's 30). Finding e (no TS-versus-Rust run with creatures) is still open.
+- **Beta merged** (`8c504e5`) as the merge notes below say. Follow-ups: the battlefield's
+  over-budget test build was 9 skills, legal under `skills.points` 30 (`1b4934a`); the server's test of
+  what trains what packed 9-byte inputs, 10 since the facing (`9ce5b14`).
+- **Docs** (`4f0c4f1`): the two patch scripts, plus a `src/ui/` row in `AGENTS.md`, `src/ui/theme` and
+  the character window (P) in the README.
+- **Tests** on the merged branch: typecheck clean; the full local suite 270 passed, 12 skipped (all
+  `online.spec.ts`), 0 failed; `cargo test --release` 109 passed; `online.spec.ts` 12 passed against
+  this branch's server on a private Postgres.
+- **Noticed, not changed** (in the canvas for the user): a wide docked window (the quest log) covers
+  the left end of a long toast; the `!` in the quest scroll's hint is about 8 px at 720p.
+
+On this machine (`C:\GitHub\games\yggdrasil`): the worktree is `.claude\worktrees\improve-ui`, Rust is
+native (`%USERPROFILE%\.cargo\bin\cargo.exe`), and Docker Desktop starts other projects' containers when
+it starts. Use `PW_PORT=5321` with the config here; the online tests ran against
+`DATABASE_URL=postgres://ruina:ruina@127.0.0.1:5439/ruina DEV_LOGIN=1 server/target/release/yggdrasil-server.exe --battle off --port 7796`
+(Postgres from `docker run --rm --name ruina-ui-db ... -p 127.0.0.1:5439:5432 postgres:18`) with
+`RUINA_SERVER=http://localhost:7796`, which stays clear of 7777 and the `ruina` compose project.
+
 ## Resume in ten minutes
 
 1. `cd C:\GitHub\heggelund\games\ruina-ui-restyle` (if the worktree is gone:
