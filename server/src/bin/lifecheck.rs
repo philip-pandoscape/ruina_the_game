@@ -4,7 +4,8 @@
 //!
 //!   lifecheck < script.json
 //!
-//! Script: {coins?, labor?, spawn?: {x, z, facing}, every: frames between checkpoints,
+//! Script: {coins?, labor?, spawn?: {x, z, facing}, island?: a saved island {state, player},
+//!          every: frames between checkpoints,
 //!          segments: [{frames, a?: Actions (camelCase, any subset), cmds?: [Command], tp?: {x, z, facing?}}]}
 //! A segment's teleport happens before its first frame, and its commands are given on that frame.
 //! Out: [{frame, player: PlayerState, life: LifeState, events: [LifeEvent]}], one per checkpoint
@@ -20,7 +21,7 @@ use yggdrasil_server::open::zone::emberholm;
 use yggdrasil_server::open::{step_player, OpenWorld, Sim};
 use yggdrasil_server::player::{Actions, Build, Mode, Player};
 use yggdrasil_server::world::Spawn;
-use yggdrasil_server::world_game::player_state_json;
+use yggdrasil_server::world_game::{load_island, player_state_json};
 
 #[derive(Deserialize, Default)]
 #[serde(default, rename_all = "camelCase")]
@@ -71,6 +72,7 @@ struct Script {
     coins: Option<f64>,
     labor: Option<f64>,
     spawn: Option<SpawnIn>,
+    island: Option<Value>,
     every: usize,
     segments: Vec<Segment>,
 }
@@ -87,6 +89,10 @@ fn main() {
     // Stand on the ground there, as the browser's api.reset() does.
     let hf = &zone.terrain;
     p.pos.y = ground_at(hf, &world.index, p.pos.x, p.pos.z, hf.height(p.pos.x, p.pos.z) + 1.2, 1.2);
+    // A saved island, as the browser kept it: loaded the way the server loads one (no time away).
+    if let Some(island) = &script.island {
+        load_island(&mut life, &mut p, &mut world, 1, island, 0, 0).expect("the island loads");
+    }
     life.after_reset(&mut p);
 
     let every = script.every.max(1);

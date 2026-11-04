@@ -8,6 +8,7 @@ import { generateZone } from '../src/sim/zone/generate';
 import { ColliderIndex, groundAt } from '../src/sim/zone/colliders';
 import { Life, type Command } from '../src/sim/life/life';
 import { dismount } from '../src/sim/life/vehicles';
+import { applySave, islandData, type Island } from '../src/app/save';
 
 // Online, the game server runs your island (server/src/life, server/src/open) and the browser shows
 // what it decides, predicting only your own moves and vehicles in between. If the two sets of
@@ -28,6 +29,8 @@ interface Segment {
 interface Script {
   coins?: number;
   labor?: number;
+  /** Start from an island the browser saved (as kept in Postgres). */
+  island?: Island;
   every: number;
   segments: Segment[];
 }
@@ -61,6 +64,16 @@ function freshWorld(): World {
 
 /** The script through the TypeScript rules, as the browser would run it offline. */
 function runTs(script: Script): Checkpoint[] {
+  return playTs(script).out;
+}
+
+/** The island the browser would save at the end of a script. */
+function islandAfter(script: Script): Island {
+  const { life, sim } = playTs(script);
+  return JSON.parse(JSON.stringify(islandData(life, sim))) as Island;
+}
+
+function playTs(script: Script): { out: Checkpoint[]; life: Life; sim: Sim } {
   const world = freshWorld();
   const hf = world.terrain!;
   const sim = new Sim(world, { training: false });
@@ -70,6 +83,7 @@ function runTs(script: Script): Checkpoint[] {
   p.pos.y = groundAt(hf, world.index, p.pos.x, p.pos.z, hf.height(p.pos.x, p.pos.z) + 1.2, 1.2);
   p.prevPos = { ...p.pos };
   life.afterReset(sim);
+  if (script.island) applySave(life, sim, { ...JSON.parse(JSON.stringify(script.island)), savedAt: 0 }, 0);
   const total = script.segments.reduce((n, s) => n + s.frames, 0);
   const out: Checkpoint[] = [];
   let events: Array<Record<string, unknown>> = [];
@@ -100,7 +114,7 @@ function runTs(script: Script): Checkpoint[] {
       }
     }
   }
-  return out;
+  return { out, life, sim };
 }
 
 function runRust(script: Script): Checkpoint[] {
@@ -251,6 +265,36 @@ test.describe('the island on the server matches the browser', () => {
         { frames: 120, a: { moveZ: 1, sprintHeld: true } },
         { frames: 1, a: { moveZ: 1, jumpPressed: true, jumpHeld: true } },
         { frames: 60, a: { moveZ: 1 } },
+      ],
+    });
+  });
+
+  test('an island saved by the browser plays on the same on the server', () => {
+    const farm = R.farmland;
+    const b = bench('lanternwickBench');
+    // Built in the browser's rules: a farm with crops in, a pack left on the ground, coins spent.
+    const island = islandAfter({
+      every: 1000,
+      segments: [
+        idle(5, [{ t: 'grant', item: 'scarecrow', n: 1 }, { t: 'grant', item: 'seed.sunroot', n: 6 }, { t: 'grant', item: 'sunroot', n: 6 }, { t: 'grant', item: 'barley', n: 4 }]),
+        { frames: 20, tp: { x: farm.x, z: farm.z - 7, facing: 0 }, cmds: [{ t: 'use', item: 'scarecrow' }] },
+        idle(20, [{ t: 'interact' }]),
+        { frames: 20, tp: { x: farm.x, z: farm.z - 3, facing: 0 }, cmds: [{ t: 'interact' }] },
+        { frames: 20, tp: facingFrom(b.x, b.z, 1.5, Math.PI / 2), cmds: [{ t: 'craft', recipe: 'pack.harvestCrate' }] },
+        idle(20, [{ t: 'drop' }]),
+        { frames: 60, a: { moveZ: -1 } },
+      ],
+    });
+    expect(island.state.scarecrows.length).toBe(1);
+    expect(island.state.packs.length).toBe(1);
+    compare('saved island', {
+      island,
+      every: 30,
+      segments: [
+        idle(30, [{ t: 'warp', seconds: 300 }]),
+        { frames: 20, tp: { x: farm.x, z: farm.z - 3, facing: 0 }, cmds: [{ t: 'interact' }] },
+        { frames: 20, tp: { x: island.state.packs[0].x, z: island.state.packs[0].z - 1, facing: 0 }, cmds: [{ t: 'interact' }] },
+        { frames: 60, a: { moveX: 1 } },
       ],
     });
   });

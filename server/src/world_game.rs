@@ -167,7 +167,7 @@ impl ChannelGame {
             let mut player = Player::new(Spawn { x: zone.recipe.spawn.x, z: zone.recipe.spawn.z, facing: zone.recipe.spawn.facing }, 0, a.build);
             stand_on_ground(&mut player, &self.open);
             if let Some(island) = &a.island {
-                if let Err(e) = load_island(&mut life, &mut player, &mut self.open, island, a.saved_at.unwrap_or(a.now), a.now) {
+                if let Err(e) = load_island(&mut life, &mut player, &mut self.open, a.character, island, a.saved_at.unwrap_or(a.now), a.now) {
                     eprintln!("character {}: the saved island can't be read ({e}); it is kept as it is, and this visit isn't saved", a.character);
                     life.toast("Your island couldn't be loaded. It's kept safe on the server, but nothing from this visit will be saved.", "bad");
                     keep_saved = true;
@@ -452,7 +452,7 @@ fn stand_on_ground(p: &mut Player, world: &OpenWorld) {
 }
 
 /// Makes an island's houses and farm posts solid in the channel (each piece once).
-fn make_solid(world: &mut OpenWorld, owner: i64, state: &LifeState) {
+pub fn make_solid(world: &mut OpenWorld, owner: i64, state: &LifeState) {
     let zone = world.zone;
     let mut life = Life::new(zone, None, None);
     life.state = state.clone();
@@ -485,13 +485,15 @@ fn short_time(s: f64) -> String {
 
 /// Restores a saved island into a fresh Life and player (src/app/save.ts applySave): its state,
 /// the time that passed while its owner was away, and where they stood.
-pub fn load_island(life: &mut Life, p: &mut Player, world: &mut OpenWorld, island: &Value, saved_at: i64, now: i64) -> Result<(), String> {
+pub fn load_island(life: &mut Life, p: &mut Player, world: &mut OpenWorld, owner: i64, island: &Value, saved_at: i64, now: i64) -> Result<(), String> {
     let state = island.get("state").ok_or("no state")?;
     let state = serde_json::from_value::<LifeState>(state.clone()).map_err(|e| e.to_string())?;
     life.load(state);
     for v in &mut life.state.vehicles {
         v.ridden = false;
     }
+    // Solid before anyone stands on it (a house floor is somewhere to stand).
+    make_solid(world, owner, &life.state);
     // Time away.
     let c = clock();
     let away = ((now - saved_at) as f64 / 1000.0).clamp(0.0, c.max_offline_seconds) * c.offline_factor;
