@@ -1,6 +1,6 @@
 import { expect, test, type Browser, type BrowserContext, type Page } from '@playwright/test';
 import { ABILITIES, comboFor, emptyMovement, HOTBAR_SLOTS, NO_ABILITY, SLIDE_SKILL, type Build, WEAPONS } from '../src/tuning';
-import { LEVEL_XP, resolveSkills, SKILL_POINTS, skillIndex, skillsFrom, START_POINTS } from '../src/skills';
+import { ADJACENT, emptySkills, LEVEL_XP, resolveSkills, SKILL_POINTS, skillCount, skillIndex, skillsFrom, soundTree, START_POINTS, withSkill } from '../src/skills';
 import { serverBuilt, TestServer } from './testServer';
 
 // The classless skill system: the skill panel, every weapon and ability in the training yard, and
@@ -18,6 +18,12 @@ const build = (ids: string[], weapon: number, ability1 = NO_ABILITY, ability2 = 
   const movement = emptyMovement();
   move.forEach((m, i) => (movement[i] = m));
   return { skills: skills(...ids), weapon, abilities, movement };
+};
+/** A sound set of `n` skills, grown outward from Sword Training along the tree's links. */
+const grown = (n: number) => {
+  const order = [skillIndex('sword')];
+  for (let q = 0; q < order.length && order.length < n; q++) for (const m of ADJACENT[order[q]]) if (order.length < n && !order.includes(m)) order.push(m);
+  return order.reduce((s, i) => withSkill(s, i, true), emptySkills());
 };
 const DODGE = 0; // index into MOVEMENT_SKILLS
 const NO_MOVEMENT_SLOT = 255;
@@ -435,10 +441,13 @@ test.describe('online', () => {
     );
 
   test('the server takes valid builds and turns down invalid ones', async ({ browser }) => {
+    // Sound, so only its size is wrong.
+    const tooMany = grown(SKILL_POINTS + 1);
+    expect([soundTree(tooMany), skillCount(tooMany)]).toEqual([true, SKILL_POINTS + 1]);
     const blue = await joinAs(browser, 0, PIERCER);
     const invalid: Array<[string, Build]> = [
       // One more skill than the budget allows, whatever the budget currently is.
-      ['more skills than points', build(['sword', 'cleave', 'whirlwind', 'dodgeRoll', 'club', 'heal', 'swiftMending', 'block', 'staff'], 0)],
+      ['more skills than points', { ...build(['sword'], 0), skills: tooMany }],
       ['skipping a skill', build(['sword', 'whirlwind'], 0)],
       ['a weapon you never trained', build(['sword'], 3)],
       ['an ability you never learned', build(['sword'], 0, METEOR)],
