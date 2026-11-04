@@ -5,10 +5,10 @@
 
 use crate::jsmath::JsMath;
 use crate::life::content::carry;
-use crate::skills::{resolve_skills, set_skill, ResolvedSkills, SkillSet, EMPTY_SKILLS};
+use crate::skills::{base_levels, node_index, resolve_skills, same_levels, set_skill, Levels, ResolvedSkills, SkillSet, EMPTY_SKILLS};
 use crate::tuning::{
-    ability, ability_cooldown, cast_frames_for, combo_for, movement_action, movement_cooldown, slide_skill, tuning, AttackStep, HOTBAR_SLOTS,
-    MOVEMENT_SLOTS, NO_ABILITY, NO_MOVEMENT,
+    ability, ability_cooldown, cast_frames_for, combo_for, movement_action, movement_cooldown_for, slide_skill, tuning, AttackStep,
+    HOTBAR_SLOTS, MOVEMENT_SLOTS, NO_ABILITY, NO_MOVEMENT,
 };
 use crate::world::{Spawn, World};
 
@@ -90,7 +90,11 @@ pub struct Player {
     // Build (skills and loadout).
     pub weapon: u8,  // 0 sword, 1 club, 2 staff, 3 bow
     pub skills: SkillSet, // which skills are learned (skills.rs)
-    /// Resolved once when the build changes, never in a frame.
+    /// The level of each skill in the skill book (skills.rs book()), which adds to what it does.
+    /// An open-world player's island keeps the experience behind them and sets these
+    /// (crate::life::progress::sync_levels); on the battlefield they stay at 1.
+    pub levels: Levels,
+    /// Resolved once when the build or a level changes, never in a frame.
     pub resolved: ResolvedSkills,
     pub abilities: [u8; HOTBAR_SLOTS], // one per hotbar slot (NO_ABILITY = empty)
     pub cooldowns: [i32; HOTBAR_SLOTS],  // frames until each slot can be used again
@@ -114,6 +118,9 @@ pub struct Player {
     pub cast_target_x: f64,
     pub cast_target_z: f64,
     pub fired_ability: u8, // the ability whose cast finished this frame, else NO_ABILITY
+    /// The movement skill that started this frame (the slide too), else NO_MOVEMENT: the
+    /// TypeScript's `action` event, which trains it in an open world.
+    pub started_action: u8,
     // ---- Open-world traversal (src/sim/types.ts). Always at rest on the battlefield. ----
     /// The trade pack on your back (an id in the life systems), 0 for none.
     pub pack: i64,
@@ -164,7 +171,7 @@ pub struct Build {
 impl Default for Build {
     fn default() -> Self {
         let mut skills = EMPTY_SKILLS;
-        if let Some(i) = tuning().skills.nodes.iter().position(|n| n.id == "sword") {
+        if let Some(i) = node_index("sword") {
             set_skill(&mut skills, i, true);
         }
         Build { skills, weapon: 0, abilities: [NO_ABILITY; HOTBAR_SLOTS], movement: [NO_MOVEMENT; MOVEMENT_SLOTS] }
@@ -205,7 +212,8 @@ impl Player {
             team,
             weapon: build.weapon,
             skills: build.skills,
-            resolved: resolve_skills(&build.skills),
+            levels: base_levels(),
+            resolved: resolve_skills(&build.skills, &[]),
             abilities: build.abilities,
             cooldowns: [0; HOTBAR_SLOTS],
             movement: build.movement,
@@ -226,6 +234,7 @@ impl Player {
             cast_target_x: 0.0,
             cast_target_z: 0.0,
             fired_ability: NO_ABILITY,
+            started_action: NO_MOVEMENT,
             pack: 0,
             vehicle: 0,
             seat: 0,
@@ -294,6 +303,7 @@ impl Player {
             self.action_dir_x = self.facing.js_sin();
             self.action_dir_z = self.facing.js_cos();
         }
+        self.started_action = id;
     }
 
     pub(crate) fn update_action(&mut self, a: &Actions) {
@@ -363,8 +373,9 @@ impl Player {
     fn end_action(&mut self) {
         // Cooldowns are per skill, so one moved between Q and E keeps its timer.
         if self.action_id != NO_MOVEMENT {
+            let frames = movement_cooldown_for(self.action_id, &self.resolved);
             if let Some(c) = self.movement_cooldowns.get_mut(self.action_id as usize) {
-                *c = movement_cooldown(self.action_id);
+                *c = frames;
             }
         }
         self.mode = Mode::Normal;
@@ -433,6 +444,7 @@ impl Player {
     pub(crate) fn begin_step(&mut self, a: &Actions) {
         let t = tuning();
         self.fired_ability = NO_ABILITY;
+        self.started_action = NO_MOVEMENT;
         if a.jump_pressed {
             self.jump_buffer = t.jump.buffer_frames;
         }
@@ -772,7 +784,7 @@ impl Player {
     pub fn apply_build(&mut self, b: Build) {
         self.weapon = b.weapon;
         self.skills = b.skills;
-        self.resolved = resolve_skills(&b.skills);
+        self.resolved = resolve_skills(&b.skills, &self.levels);
         self.abilities = b.abilities;
         self.movement = b.movement;
         if self.mode == Mode::Attack || self.mode == Mode::Cast || self.mode == Mode::Action {
@@ -786,6 +798,17 @@ impl Player {
         self.cast_ability = NO_ABILITY;
         self.cast_slot = 0;
         self.cast_frame = 0;
+    }
+
+    /// New skill levels (one per skills::book() entry). What the build does is worked out again
+    /// only if one actually changed, as the TypeScript's Sim.stats does. Nothing in progress is
+    /// dropped: a level only changes numbers.
+    pub fn set_levels(&mut self, levels: &[u32]) {
+        if same_levels(&self.levels, levels) {
+            return;
+        }
+        self.levels = levels.to_vec();
+        self.resolved = resolve_skills(&self.skills, &self.levels);
     }
 
     pub(crate) fn update_attack(&mut self, a: &Actions) {
@@ -963,5 +986,42 @@ impl Player {
             self.pos.x *= world.radius / r;
             self.pos.z *= world.radius / r;
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::skills::{book_index, skills_from};
+    use crate::world::{battlefield, SEED};
+
+    #[test]
+    fn a_movement_skill_cools_down_by_its_level() {
+        let world = battlefield(SEED);
+        let build = Build { skills: skills_from(&["sword", "dodgeRoll"]), weapon: 0, abilities: [NO_ABILITY; HOTBAR_SLOTS], movement: [0, NO_MOVEMENT] };
+        let after_a_dodge = |level: u32| {
+            let mut p = Player::new(world.team_spawns[0], 0, build);
+            let mut levels = base_levels();
+            levels[book_index("dodgeRoll").unwrap()] = level;
+            p.set_levels(&levels);
+            p.step(&Actions { movement_slot: 1, move_z: 1.0, ..Default::default() }, &world);
+            assert_eq!((p.mode, p.started_action), (Mode::Action, 0), "the dodge started, and says so for one frame");
+            let mut frames = 0;
+            while p.mode == Mode::Action && frames < 200 {
+                p.step(&Actions::default(), &world);
+                assert_eq!(p.started_action, NO_MOVEMENT);
+                frames += 1;
+            }
+            p.movement_cooldowns[0]
+        };
+        assert_eq!(after_a_dodge(1), 72);
+        assert_eq!(after_a_dodge(10), (72.0f64 * (1.0 - 0.03 * 9.0)).round() as i32);
+        // A new build keeps the levels it was given.
+        let mut p = Player::new(world.team_spawns[0], 0, build);
+        let mut levels = base_levels();
+        levels[book_index("sword").unwrap()] = 3;
+        p.set_levels(&levels);
+        p.apply_build(build);
+        assert_eq!(p.resolved.combo[0][0].damage, tuning().weapons[0].combo[0].damage * (1.0 + 0.03 * 2.0));
     }
 }

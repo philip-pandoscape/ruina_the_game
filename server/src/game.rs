@@ -9,6 +9,8 @@
 use std::collections::{HashMap, VecDeque};
 
 use crate::actors::{Actors, Slam};
+use crate::content::kind_at;
+use crate::life::progress::{sync_levels, Observed};
 use crate::life::{Command, Life};
 use crate::open::zone::Heightfield;
 use crate::open::OpenWorld;
@@ -18,7 +20,7 @@ use crate::protocol::{
     CAUSE_BOT, CAUSE_HEAL, CAUSE_METEOR, CAUSE_MONSTER, CAUSE_WEAPON, EVENT_YOU_HEAL, EVENT_YOU_HIT, EVENT_YOU_HURT,
     METEOR_ENTRY, PLAYER_ENTRY, YOU_ENTRY, put_actor, ACTOR_ENTRY};
 use crate::sim::{Battle, BotHit, BotTarget};
-use crate::skills::valid_build;
+use crate::skills::{valid_build, valid_movement};
 use crate::tuning::{
     ability, effect_amount, effect_damage, effect_radius, melee_targets, pierce_targets, tuning, AttackStep, HOTBAR_SLOTS,
     NO_ABILITY,
@@ -115,7 +117,9 @@ struct Arrow {
     id: u16,
     owner: u16,       // player id of the shooter
     owner_slot: usize, // and their slot, for "you hit X" events
-    cause: u8,         // which weapon fired it, for the icon on the damage number
+    owner_client: u32, // and who was in it, so what it does is credited to them and nobody else
+    weapon: u8,        // which weapon fired it (it trains that one)
+    cause: u8,         // and for the icon on the damage number
     team: u8,
     x: f64,
     y: f64,
@@ -133,6 +137,7 @@ struct Arrow {
 struct Meteor {
     id: u16,
     owner_slot: usize, // who called it down, for "you hit X" events
+    owner_client: u32, // and who was in that slot, for what it finishes off
     team: u8,
     x: f64,
     z: f64,
@@ -167,6 +172,32 @@ struct Event {
     y: f64,
     z: f64,
     size: u8,
+}
+
+/// The hits a player landed with `weapon` (None: a blast, which trains nothing; its cast already
+/// did), in the order they landed, each with the kind of creature it finished off if it did. Only
+/// a player with an island learns from them (src/sim/life/progress.ts observe): practice for the
+/// weapon, and a defeat for the quests, hit then death for each in turn as src/sim/combat/deal.ts
+/// reports them. A level gained changes the player's numbers from the next step on, as the
+/// TypeScript's would after its island's step.
+fn credit(life: &mut Life, p: &mut Player, weapon: Option<u8>, landed: &[Option<&str>]) {
+    let mut levelled = false;
+    for died in landed {
+        if let Some(w) = weapon {
+            levelled |= life.observe(Observed::Hit { weapon: w });
+        }
+        if let Some(kind) = died {
+            levelled |= life.observe(Observed::Defeat { kind });
+        }
+    }
+    if levelled {
+        sync_levels(life, p);
+    }
+}
+
+/// The kind of creature a death was, as quests name it.
+fn kind_of(kind_index: u8) -> Option<&'static str> {
+    kind_at(kind_index as usize).map(|k| k.id.as_str())
 }
 
 pub struct Players {
@@ -424,8 +455,9 @@ impl Players {
         self.ground.map_or(0.0, |g| g.height(x, z))
     }
 
-    /// Applies the build a player asked for, if it's new and allowed (enough skill points, skills
-    /// learned in order, a weapon they've trained, abilities they've learned).
+    /// The battlefield: applies the build a player asked for, if it's new and allowed (within
+    /// skills.points, learned outward from a root, a weapon they've trained, abilities they've
+    /// learned).
     pub fn sync_build(&mut self, client_id: u32, seq: u32, build: Build) {
         let Some(&s) = self.by_client.get(&client_id) else { return };
         let Some(slot) = &mut self.slots[s] else { return };
@@ -433,8 +465,20 @@ impl Players {
             return;
         }
         slot.build_seq = seq;
-        if valid_build(&build.skills, build.weapon, &build.abilities) {
+        if valid_build(&build.skills, build.weapon, &build.abilities, tuning().skills.points) && valid_movement(&build.skills, &build.movement) {
             slot.player.apply_build(build);
+        }
+    }
+
+    /// Credits the player in `slot`, if it's still `client` and has an island, with what one of
+    /// their arrows or meteors did (see credit()).
+    fn credit_owner(&mut self, slot: usize, client: u32, weapon: Option<u8>, landed: &[Option<&str>]) {
+        let Some(Some(s)) = self.slots.get_mut(slot) else { return };
+        if s.client_id != client {
+            return;
+        }
+        if let Some(life) = s.life.as_deref_mut() {
+            credit(life, &mut s.player, weapon, landed);
         }
     }
 
@@ -510,7 +554,7 @@ impl Players {
                 used += 1;
                 if let Some(swing) = slot.player.active_swing() {
                     if swing.projectile_speed > 0.0 {
-                        self.fire_arrow(s, &slot.player, &swing, (self.entity_base + s) as u16);
+                        self.fire_arrow(s, slot.client_id, &slot.player, &swing, (self.entity_base + s) as u16);
                         slot.player.attack_hit = true;
                     } else {
                         let latest = tick.saturating_sub(1) as f64;
@@ -518,9 +562,10 @@ impl Players {
                         let p = &slot.player;
                         let max_targets = melee_targets(p.weapon, &p.resolved);
                         let (px, pz, facing, weapon) = (p.pos.x, p.pos.z, p.facing, p.weapon);
-                        if self.swing(s, p, view, latest, &swing, max_targets, battle, &mut player_hits) {
-                            slot.player.attack_hit = true;
-                        }
+                        // Each hit this swing lands, in order, with what it finished off.
+                        let mut landed: Vec<Option<&'static str>> = Vec::new();
+                        let fighters = self.swing(s, p, view, latest, &swing, max_targets, battle, &mut player_hits);
+                        landed.resize(fighters, None);
                         // Monsters are in the arc too, and a swing that only catches one still
                         // counts as a hit. On hills (src/sim/player/attacks.ts checkHit) nothing is
                         // in reach from more than 2 m up, and only feet within 2 m of yours.
@@ -531,11 +576,14 @@ impl Players {
                             (p.pos.y - under, p.pos.y)
                         });
                         if feet.is_none_or(|(above, _)| above <= 2.0) {
-                            let before = self.events.len();
-                            self.swing_actors(actors, s, px, pz, facing, &swing, max_targets, weapon, feet.map(|f| f.1));
-                            if self.events.len() > before {
-                                slot.player.attack_hit = true;
-                            }
+                            self.swing_actors(actors, s, px, pz, facing, &swing, max_targets, weapon, feet.map(|f| f.1), &mut landed);
+                        }
+                        // One swing lands once, as checkHit's attackHit has it.
+                        if !landed.is_empty() {
+                            slot.player.attack_hit = true;
+                        }
+                        if let Some(life) = slot.life.as_deref_mut() {
+                            credit(life, &mut slot.player, Some(weapon), &landed);
                         }
                     }
                 }
@@ -546,7 +594,7 @@ impl Players {
                     for i in 0..ability(a).effects.len() {
                         match ability(a).effects[i].kind.as_str() {
                             "healArea" => self.heal_area(s, a, i, &mut slot.player, battle, &mut heals),
-                            "delayedArea" => self.delayed_area(s, a, i, &slot.player),
+                            "delayedArea" => self.delayed_area(s, slot.client_id, a, i, &slot.player),
                             other => debug_assert!(false, "unknown effect kind: {other}"),
                         }
                     }
@@ -592,12 +640,22 @@ impl Players {
         }
     }
 
-    /// Melee: finds enemies in front of a swinging player. Other players are checked where the
-    /// attacker saw them (tick `view`); bots where they are now. Returns true if anything was hit.
-    #[allow(clippy::too_many_arguments)]
     /// Everything a swing catches among the actors, on top of whatever bots and players it hit.
+    /// Each one hit goes on `landed`, with its kind if the hit finished it off.
     #[allow(clippy::too_many_arguments)]
-    fn swing_actors(&mut self, actors: &mut Actors, slot: usize, x: f64, z: f64, facing: f64, step: &AttackStep, max: usize, weapon: u8, feet: Option<f64>) {
+    fn swing_actors(
+        &mut self,
+        actors: &mut Actors,
+        slot: usize,
+        x: f64,
+        z: f64,
+        facing: f64,
+        step: &AttackStep,
+        max: usize,
+        weapon: u8,
+        feet: Option<f64>,
+        landed: &mut Vec<Option<&'static str>>,
+    ) {
         let hits = match (self.ground, feet) {
             (Some(g), Some(y)) => actors.cone_hits_where(x, z, facing, step.reach, step.arc_deg, max, |a| (a.y + g.height(a.x, a.z) - y).abs() <= 2.0),
             _ => actors.cone_hits(x, z, facing, step.reach, step.arc_deg, max),
@@ -612,13 +670,18 @@ impl Players {
             let ground = self.ground_at(ax, az);
             if let Some(died) = actors.damage(id, step.damage, dx / d, dz / d, step.player_knock) {
                 self.note(slot, EVENT_YOU_HIT, CAUSE_WEAPON + weapon, died.x, died.y + ground, died.z, step.damage);
+                landed.push(kind_of(died.kind_index));
             } else if let Some(a) = actors.get_mut(id) {
                 let (hx, hy, hz) = (a.x, a.y + a.hit_height + ground, a.z);
                 self.note(slot, EVENT_YOU_HIT, CAUSE_WEAPON + weapon, hx, hy, hz, step.damage);
+                landed.push(None);
             }
         }
     }
 
+    /// Melee: finds enemies in front of a swinging player. Other players are checked where the
+    /// attacker saw them (tick `view`); bots where they are now. Returns how many it hit.
+    #[allow(clippy::too_many_arguments)]
     fn swing(
         &mut self,
         attacker: usize,
@@ -629,9 +692,9 @@ impl Players {
         max_targets: usize,
         battle: &mut Battle,
         player_hits: &mut Vec<PlayerHit>,
-    ) -> bool {
+    ) -> usize {
         if a.pos.y > 2.0 {
-            return false;
+            return 0;
         }
         let reach = step.reach + BODY_RADIUS;
         let half_arc = step.arc_deg.to_radians() / 2.0;
@@ -695,10 +758,10 @@ impl Players {
             let (bx, bz) = (battle.x[b] as f64, battle.z[b] as f64);
             self.note(attacker, EVENT_YOU_HIT, CAUSE_WEAPON + a.weapon, bx, MARKER_HEIGHT, bz, step.damage);
         }
-        hits > 0
+        hits
     }
 
-    fn fire_arrow(&mut self, owner_slot: usize, shooter: &Player, shot: &AttackStep, owner: u16) {
+    fn fire_arrow(&mut self, owner_slot: usize, owner_client: u32, shooter: &Player, shot: &AttackStep, owner: u16) {
         let (dx, dz) = (shooter.facing.sin(), shooter.facing.cos());
         let pierce = pierce_targets(shooter.weapon, &shooter.resolved);
         let id = self.next_id();
@@ -706,6 +769,8 @@ impl Players {
             id,
             owner,
             owner_slot,
+            owner_client,
+            weapon: shooter.weapon,
             cause: CAUSE_WEAPON + shooter.weapon,
             team: shooter.team,
             x: shooter.pos.x + dx * 0.6,
@@ -749,13 +814,14 @@ impl Players {
     }
 
     /// delayedArea: something starts falling on the target spot and blasts it after a delay.
-    fn delayed_area(&mut self, caster_slot: usize, a: u8, fx: usize, caster: &Player) {
+    fn delayed_area(&mut self, caster_slot: usize, caster_client: u32, a: u8, fx: usize, caster: &Player) {
         let e = &ability(a).effects[fx];
         let fall_ticks = ((e.delay_frames as f64 / 60.0 * 1000.0 / self.tick_ms).round() as u32).max(1);
         let id = self.next_id();
         self.meteors.push(Meteor {
             id,
             owner_slot: caster_slot,
+            owner_client: caster_client,
             team: caster.team,
             x: caster.cast_target_x,
             z: caster.cast_target_z,
@@ -805,11 +871,14 @@ impl Players {
                 let key = 1u32 << 30 | id;
                 if !a.hit.contains(&key) {
                     let hit = actors.get_mut(id).map(|t| (t.x, t.y + t.hit_height + ground, t.z));
-                    actors.damage(id, a.damage, a.dx, a.dz, a.knock);
+                    let died = actors.damage(id, a.damage, a.dx, a.dz, a.knock);
                     a.hit.push(key);
                     if let Some((hx, hy, hz)) = hit {
                         self.events.push(Event { kind: EVENT_ARROW_HIT, x: a.x, y: a.y, z: a.z, size: a.damage as u8 });
                         self.note(a.owner_slot, EVENT_YOU_HIT, a.cause, hx, hy, hz, a.damage);
+                        // A hit with the bow that loosed it, and maybe a creature finished off.
+                        let died = died.and_then(|d| kind_of(d.kind_index));
+                        self.credit_owner(a.owner_slot, a.owner_client, Some(a.weapon), &[died]);
                     }
                     a.pierce_left -= 1;
                     if a.pierce_left == 0 {
@@ -837,6 +906,7 @@ impl Players {
                 self.events.push(Event { kind: EVENT_ARROW_HIT, x: a.x, y: a.y, z: a.z, size: a.damage as u8 });
                 self.note(a.owner_slot, EVENT_YOU_HIT, a.cause, struck.0, struck.1 + MARKER_HEIGHT, struck.2, a.damage);
                 self.note(i, EVENT_YOU_HURT, a.cause, struck.0, struck.1 + MARKER_HEIGHT, struck.2, a.damage);
+                self.credit_owner(a.owner_slot, a.owner_client, Some(a.weapon), &[None]);
                 a.pierce_left -= 1;
                 if a.pierce_left == 0 {
                     return false;
@@ -854,6 +924,7 @@ impl Players {
                 self.events.push(Event { kind: EVENT_ARROW_HIT, x: a.x, y: a.y, z: a.z, size: a.damage as u8 });
                 let (bx, bz) = (battle.x[b] as f64, battle.z[b] as f64);
                 self.note(a.owner_slot, EVENT_YOU_HIT, a.cause, bx, MARKER_HEIGHT, bz, a.damage);
+                self.credit_owner(a.owner_slot, a.owner_client, Some(a.weapon), &[None]);
                 a.pierce_left -= 1;
                 if a.pierce_left == 0 {
                     return false;
@@ -902,8 +973,12 @@ impl Players {
             let d = (dx * dx + dz * dz).sqrt().max(1e-3);
             let (ax, az) = (a.x, a.z);
             let ay = a.y + a.hit_height + self.ground.map_or(0.0, |g| g.height(ax, az));
-            actors.damage(id, m.damage, dx / d, dz / d, m.knock);
+            let died = actors.damage(id, m.damage, dx / d, dz / d, m.knock);
             self.note(m.owner_slot, EVENT_YOU_HIT, CAUSE_METEOR, ax, ay, az, m.damage);
+            // A blast trains nothing (the cast did), but what it finishes off counts.
+            if let Some(kind) = died.and_then(|d| kind_of(d.kind_index)) {
+                self.credit_owner(m.owner_slot, m.owner_client, None, &[Some(kind)]);
+            }
         }
         let ground = self.ground_at(m.x, m.z);
         self.events.push(Event { kind: EVENT_EXPLOSION, x: m.x, y: ground, z: m.z, size: (m.radius * 10.0) as u8 });

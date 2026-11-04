@@ -5,8 +5,26 @@ import { makeRng } from '../src/rng';
 import { Sim } from '../src/sim/sim';
 import { NO_ACTIONS, type Actions } from '../src/sim/types';
 import { makeBattlefield } from '../src/sim/world';
-import { ABILITIES, castFramesFor, comboFor, HOTBAR_SLOTS, meleeTargets, MOVEMENT_SKILL_CAP, MOVEMENT_SLOTS, NO_ABILITY, NO_MOVEMENT, pierceTargets, type Build, WEAPONS } from '../src/tuning';
-import { resolveSkills, skillsFrom } from '../src/skills';
+import {
+  ABILITIES,
+  castFramesFor,
+  comboFor,
+  effectAmount,
+  effectDamage,
+  effectRadius,
+  HOTBAR_SLOTS,
+  meleeTargets,
+  movementCooldownFor,
+  MOVEMENT_SKILL_CAP,
+  MOVEMENT_SKILLS,
+  MOVEMENT_SLOTS,
+  NO_ABILITY,
+  NO_MOVEMENT,
+  pierceTargets,
+  type Build,
+  WEAPONS,
+} from '../src/tuning';
+import { BOOK, resolveSkills, skillsFrom, type Levels } from '../src/skills';
 
 // The browser predicts your moves with src/sim/sim.ts; the server decides with server/src/player.rs.
 // If they ever disagree, your character would visibly jump back. This runs the same inputs through
@@ -59,6 +77,20 @@ const BUILDS: Record<string, Build> = {
   // Movement skills bound, so the action state machine is compared too: a dodge that commits to
   // a direction and a guard that stays up while it's held.
   duelist: { skills: skills('sword', 'dodgeRoll', 'club', 'block'), weapon: 0, abilities: bar(), movement: moves(DODGE, BLOCK) },
+  // The same builds again, with levels from use (below).
+  'seasoned duelist': { skills: skills('sword', 'dodgeRoll', 'club', 'block'), weapon: 0, abilities: bar(), movement: moves(DODGE, BLOCK) },
+  'practised healer': { skills: skills('club', 'heal', 'swiftMending'), weapon: 1, abilities: bar(HEAL), movement: moves() },
+  'practised meteor caster': { skills: skills('staff', 'meteor', 'quickIncantation'), weapon: 2, abilities: bar(METEOR), movement: moves() },
+};
+
+// The skills you use level up, and a level adds to what they do: damage, healing, cooldowns. The
+// island keeps the experience; these give a few builds levels straight away (src/skills.ts BOOK),
+// so what the levels add is compared too. The rest are at level 1.
+const levels = (at: Record<string, number>): Levels => BOOK.map((b) => at[b.id] ?? 1);
+const LEVELS: Record<string, Levels> = {
+  'seasoned duelist': levels({ sword: 7, club: 4, dodgeRoll: 10, block: 6, slide: 5 }),
+  'practised healer': levels({ club: 3, heal: 8, slide: 2 }),
+  'practised meteor caster': levels({ staff: 5, meteor: 9, slide: 10 }),
 };
 
 interface Hit {
@@ -156,6 +188,8 @@ for (const [name, build] of Object.entries(BUILDS)) {
     // TypeScript (what the browser predicts)
     const sim = new Sim(s.world, { training: false });
     sim.reset(s.spawn, s.team, build);
+    const lv = LEVELS[name];
+    if (lv) sim.levels = [...lv];
     const ts: number[][] = [];
     let casts = 0;
     s.steps.forEach((a, i) => {
@@ -173,7 +207,7 @@ for (const [name, build] of Object.entries(BUILDS)) {
     });
 
     // Rust (what the server decides)
-    const input = JSON.stringify({ spawn: s.spawn, team: s.team, build, steps: s.steps, hits: s.hits });
+    const input = JSON.stringify({ spawn: s.spawn, team: s.team, build, steps: s.steps, hits: s.hits, levels: lv ?? [] });
     const rust = JSON.parse(execFileSync(SIMCHECK, { input, maxBuffer: 64 * 1024 * 1024 }).toString()) as {
       frames: number[][];
       obstacles: number[][];
@@ -183,13 +217,15 @@ for (const [name, build] of Object.entries(BUILDS)) {
         cast_frames: number[];
         combo_startup: number[][];
         combo_damage: number[][];
+        movement_cooldowns: number[];
+        effects: number[][][];
       };
     };
 
     // The skill tree resolved to the same numbers on both sides. Checked directly rather than
     // only through behaviour, so a modifier folded in a different order is a failed assertion
     // here instead of a drift that only shows up in a particular fight.
-    const r = resolveSkills(build.skills);
+    const r = resolveSkills(build.skills, lv);
     const weapons = WEAPONS.map((_, w) => w);
     expect(weapons.map((w) => meleeTargets(w, r))).toEqual(rust.stats.melee_targets);
     expect(weapons.map((w) => pierceTargets(w, r))).toEqual(rust.stats.pierce_targets);
@@ -197,6 +233,15 @@ for (const [name, build] of Object.entries(BUILDS)) {
     expect(weapons.map((w) => comboFor(w, r).map((s) => s.startup))).toEqual(rust.stats.combo_startup);
     weapons.forEach((w) => {
       comboFor(w, r).forEach((step, i) => expect(step.damage).toBeCloseTo(rust.stats.combo_damage[w][i], 12));
+    });
+    expect(MOVEMENT_SKILLS.map((_, m) => movementCooldownFor(m, r))).toEqual(rust.stats.movement_cooldowns);
+    ABILITIES.forEach((a, i) => {
+      a.effects.forEach((e, k) => {
+        const [radius, damage, amount] = rust.stats.effects[i][k];
+        expect(effectRadius(i, e, r)).toBeCloseTo(radius, 12);
+        expect(effectDamage(i, e, r)).toBeCloseTo(damage, 12);
+        expect(effectAmount(i, e, r)).toBeCloseTo(amount, 12);
+      });
     });
 
     // Same battlefield layout.

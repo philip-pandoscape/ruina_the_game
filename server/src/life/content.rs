@@ -855,6 +855,8 @@ pub struct Objective {
     pub outpost: Option<String>,
     pub vehicle: Option<String>,
     pub seconds: Option<f64>,
+    /// defeat: what kind of creature.
+    pub kind: Option<String>,
 }
 
 /// How many of an objective are needed (1 for one-off objectives like talking to someone).
@@ -877,6 +879,9 @@ pub struct QuestRewards {
     pub labor: Option<f64>,
     pub items: Option<Vec<ItemCount>>,
     pub equip_glider: Option<String>,
+    /// Points to spend in the skill tree. Never kept: crate::life::progress counts them from the
+    /// quests you've finished.
+    pub skill_points: Option<u32>,
 }
 
 #[derive(Deserialize, Clone, Debug, Default)]
@@ -888,6 +893,9 @@ pub struct QuestDef {
     pub after: Vec<String>,
     /// Starts by itself as soon as it is available, without talking to anyone.
     pub auto: Option<bool>,
+    /// A milestone: starts by itself, quietly, and is done the moment its steps are, with nobody to
+    /// hand it to. Kept with the quests so it can count anything a quest can.
+    pub milestone: Option<bool>,
     pub steps: Vec<QuestStep>,
     pub turn_in: Option<String>,
     pub rewards: QuestRewards,

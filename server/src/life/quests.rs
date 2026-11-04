@@ -1,6 +1,12 @@
 //! The starter questline (src/sim/life/quests.ts): offered by NPCs once its prerequisites are
 //! done, advanced by events the other systems report (planted, harvested, delivered...), handed
-//! in for rewards.
+//! in for rewards. Milestones live alongside: they start by themselves and are done the moment
+//! their steps are.
+//!
+//! Finishing a milestone takes it off the active list, and can start others, in the middle of
+//! whatever walk of the list got it there. The TypeScript walks the list as it was when the walk
+//! began (an iterator over the old array, or a copy of it), so these walks do the same: each quest
+//! that was active then, once, if it still is when its turn comes (active_ids).
 
 use super::content::{js_hypot, format_coins, has_quest, item_def, js_max, js_min, labor, objective_target, quest_def, quests, ship_designs, ItemCount, Objective, QuestDef, QuestStep};
 use super::state::{Plant, QuestProgress};
@@ -15,6 +21,17 @@ pub fn quest_done(life: &Life, id: &str) -> bool {
 /// Index of the quest in life.state.quests.active, if it is active.
 pub fn quest_active(life: &Life, id: &str) -> Option<usize> {
     life.state.quests.active.iter().position(|q| q.id == id)
+}
+
+/// The quests active right now, to walk while the list changes under the walk. One finished along
+/// the way isn't found when its turn comes (the TypeScript finds its step past the end and passes
+/// over it); one started along the way waits for the next walk.
+fn active_ids(life: &Life) -> Vec<String> {
+    life.state.quests.active.iter().map(|q| q.id.clone()).collect()
+}
+
+fn is_milestone(q: &QuestDef) -> bool {
+    q.milestone == Some(true)
 }
 
 /// The step a quest is on (None once every step is done).
@@ -44,14 +61,16 @@ pub fn is_ready(life: &Life, id: &str) -> bool {
 /// Quests this NPC has to give, and quests ready to hand in to them: (offer, turn_in).
 pub fn quests_at(life: &Life, npc: &str) -> (Vec<&'static QuestDef>, Vec<&'static QuestDef>) {
     let offer = quests().iter().filter(|q| q.giver == npc && available(life, q) && q.auto != Some(true)).collect();
-    let turn_in = quests().iter().filter(|q| q.turn_in.as_deref().unwrap_or(&q.giver) == npc && is_ready(life, &q.id)).collect();
+    let turn_in = quests().iter().filter(|q| !is_milestone(q) && q.turn_in.as_deref().unwrap_or(&q.giver) == npc && is_ready(life, &q.id)).collect();
     (offer, turn_in)
 }
 
 pub fn start_quests(life: &mut Life) {
-    // Catching up advances quests but never adds or removes one, so the list keeps its shape.
-    for i in 0..life.state.quests.active.len() {
-        catch_up(life, i);
+    // Catching up can finish a milestone, which leaves the list and can start others.
+    for id in active_ids(life) {
+        if let Some(i) = quest_active(life, &id) {
+            catch_up(life, i);
+        }
     }
     for q in quests() {
         if q.auto == Some(true) && available(life, q) {
@@ -132,7 +151,10 @@ pub fn accept(life: &mut Life, id: &str) -> bool {
         life.give(&s.item, s.n, false);
     }
     life.emit(LifeEvent::Quest { id: id.to_string(), what: "accepted".into() });
-    life.toast(format!("New quest: {}", q.name), "quest");
+    // Milestones are always there to work toward; they only speak up when they're done.
+    if !is_milestone(q) {
+        life.toast(format!("New quest: {}", q.name), "quest");
+    }
     start_step(life, i);
     true
 }
@@ -165,14 +187,17 @@ pub fn complete(life: &mut Life, id: &str) -> bool {
     if let Some(g) = given(&r.equip_glider) {
         life.state.glider = g.to_string();
     }
+    // Skill points aren't kept: they're counted from the quests you've done (progress.rs).
     let mut bits = vec![
+        r.skill_points.filter(|&n| n != 0).map(|n| format!("{n} skill point{}", if n > 1 { "s" } else { "" })).unwrap_or_default(),
         truthy(r.coins).map(format_coins).unwrap_or_default(),
         truthy(r.seals).map(|n| format!("{n} seal{}", if n > 1.0 { "s" } else { "" })).unwrap_or_default(),
     ];
     bits.extend(r.items.iter().flatten().map(|i| format!("{}{}", if i.n > 1 { format!("{} ", i.n) } else { String::new() }, item_def(&i.item).name)));
     bits.retain(|b| !b.is_empty());
     let list = if bits.is_empty() { String::new() } else { format!(" - {}", bits.join(", ")) };
-    life.toast(format!("✔ {} complete{list}", q.name), "quest");
+    let title = if is_milestone(q) { format!("Milestone: {}", q.name) } else { format!("{} complete", q.name) };
+    life.toast(format!("✔ {title}{list}"), "quest");
     life.emit(LifeEvent::Quest { id: id.to_string(), what: "done".into() });
     // Anything that just became available and starts by itself.
     start_quests(life);
@@ -183,6 +208,7 @@ fn matches(o: &Objective, e: &QuestEvent) -> bool {
     // Each detail the objective names has to be the event's.
     let named = |want: &Option<String>, got: &Option<String>| given(want).is_none_or(|w| got.as_deref() == Some(w));
     o.type_ == e.type_
+        && named(&o.kind, &e.kind)
         && named(&o.place, &e.place)
         && named(&o.npc, &e.npc)
         && named(&o.crop, &e.crop)
@@ -192,11 +218,9 @@ fn matches(o: &Objective, e: &QuestEvent) -> bool {
 }
 
 pub fn notify_quests(life: &mut Life, e: &QuestEvent) {
-    // By index over the live list: advancing a quest never adds or removes one.
-    let mut i = 0;
-    while i < life.state.quests.active.len() {
+    for id in active_ids(life) {
+        let Some(i) = quest_active(life, &id) else { continue };
         let p = &mut life.state.quests.active[i];
-        i += 1;
         let Some(step) = step_of(quest_def(&p.id), p.step) else { continue };
         let mut changed = false;
         for (k, o) in step.objectives.iter().enumerate() {
@@ -217,7 +241,6 @@ pub fn notify_quests(life: &mut Life, e: &QuestEvent) {
             continue;
         }
         if step.objectives.iter().enumerate().all(|(k, o)| p.counts.get(k).is_some_and(|n| *n >= objective_target(o))) {
-            let id = p.id.clone();
             advance(life, &id);
         }
     }
@@ -231,6 +254,10 @@ fn advance(life: &mut Life, id: &str) {
     let step = p.step;
     if step >= q.steps.len() as i64 {
         p.counts.clear();
+        // A milestone has nobody to hand it to: it's done the moment its steps are.
+        if is_milestone(q) && complete(life, id) {
+            return;
+        }
         life.emit(LifeEvent::Quest { id: id.to_string(), what: "ready".into() });
         life.toast(format!("{}: return to {}", q.name, q.turn_in.as_deref().unwrap_or(&q.giver)), "quest");
         return;
@@ -249,10 +276,9 @@ pub fn step_quests(life: &mut Life, sim: &mut Sim) {
     }
     if life.state.clock % 0.25 < step_seconds() {
         let zone = life.zone;
-        let mut i = 0;
-        while i < life.state.quests.active.len() {
+        for id in active_ids(life) {
+            let Some(i) = quest_active(life, &id) else { continue };
             let qp = &life.state.quests.active[i];
-            i += 1;
             let Some(step) = step_of(quest_def(&qp.id), qp.step) else { continue };
             for o in &step.objectives {
                 if o.type_ != "reach" {
@@ -320,8 +346,14 @@ mod tests {
         assert_eq!((life.count("scarecrow"), life.count("seed.sunroot"), life.count("seed.barley")), (1, 8, 6));
         assert_eq!(life.state.seed, "seed.sunroot");
         let events = life.drain_events();
-        assert!(events.contains(&LifeEvent::Toast { text: "✔ Landfall complete - 50c, Scarecrow, 8 Sunroot Seeds, 6 Barley Seeds".into(), kind: "quest".into() }));
-        assert_eq!(events.last(), Some(&LifeEvent::Quest { id: "landfall".into(), what: "done".into() }));
+        assert!(events.contains(&LifeEvent::Toast {
+            text: "✔ Landfall complete - 1 skill point, 50c, Scarecrow, 8 Sunroot Seeds, 6 Barley Seeds".into(),
+            kind: "quest".into()
+        }));
+        // Done, and then the milestones it opens start, quietly.
+        let done = events.iter().position(|e| *e == LifeEvent::Quest { id: "landfall".into(), what: "done".into() }).expect("done");
+        let after: Vec<LifeEvent> = ["wayfarer", "slimeHunter", "practisedHand"].map(|id| LifeEvent::Quest { id: id.into(), what: "accepted".into() }).into();
+        assert_eq!(events[done + 1..], after);
         assert_eq!(ids(&quests_at(&life, "hollis").0), ["patch", "wings"]);
         // Once only.
         assert!(!complete(&mut life, "landfall"));
@@ -443,6 +475,9 @@ mod tests {
         talk(&mut life, "hollis");
         assert!(complete(&mut life, "landfall"));
         assert!(accept(&mut life, "wings"));
+        // Wings on its own: the Wayfarer milestone wants the spire too, from further out, and a
+        // place reached counts for every quest that names it.
+        life.state.quests.active.retain(|q| q.id == "wings");
         let top = life.zone.recipe.places.iter().find(|pl| pl.id == "windspire").unwrap().clone();
         // Near enough, but not up on top.
         sim.player.pos.x = top.x + 20.0;
@@ -484,7 +519,59 @@ mod tests {
         assert!(complete(&mut life, "firstFlight"));
         assert_eq!((life.state.coins, life.state.seals), (110.0, 1.0));
         let said = toasts(&mut life);
-        assert_eq!(said.last().unwrap(), "✔ First Flight complete - 60c, 1 seal");
+        assert_eq!(said.last().unwrap(), "✔ First Flight complete - 1 skill point, 60c, 1 seal");
+        // Sky Legs opens with it, quietly, and counts the gliding from here on.
+        assert!(quest_active(&life, "skyLegs").is_some());
+    }
+
+    #[test]
+    fn a_milestone_an_event_finishes_still_leaves_that_event_to_the_rest() {
+        let (mut life, _, _) = island(0.0);
+        talk(&mut life, "hollis");
+        assert!(complete(&mut life, "landfall"));
+        assert!(accept(&mut life, "wings"));
+        // Wayfarer, needing only the spire, then Wings, which starts by going there.
+        life.state.quests.active.retain(|q| q.id == "wayfarer" || q.id == "wings");
+        let w = quest_active(&life, "wayfarer").unwrap();
+        let spire = quest_def("wayfarer").steps[0].objectives.iter().position(|o| o.place.as_deref() == Some("windspire")).unwrap();
+        for (k, c) in life.state.quests.active[w].counts.iter_mut().enumerate() {
+            *c = if k == spire { 0.0 } else { 1.0 };
+        }
+        toasts(&mut life);
+        life.notify(QuestEvent { place: Some("windspire".into()), ..QuestEvent::new("reach") });
+        assert!(quest_done(&life, "wayfarer"));
+        assert_eq!(step(&life, "wings"), 1, "the reach counted for Wings too");
+        assert_eq!(toasts(&mut life), ["✔ Milestone: Wayfarer - 1 skill point", "Wings over the Windspire: Speak with Ysolde Windward at the glider launch"]);
+        // A defeat or a level is only counted by what names it.
+        assert!(matches(&Objective { type_: "defeat".into(), kind: Some("slime".into()), ..Default::default() }, &QuestEvent { kind: Some("slime".into()), ..QuestEvent::new("defeat") }));
+        assert!(!matches(&Objective { type_: "defeat".into(), kind: Some("slime".into()), ..Default::default() }, &QuestEvent { kind: Some("slimelet".into()), ..QuestEvent::new("defeat") }));
+        assert!(matches(&Objective { type_: "defeat".into(), ..Default::default() }, &QuestEvent { kind: Some("slimelet".into()), ..QuestEvent::new("defeat") }));
+        assert!(!matches(&Objective { type_: "skillLevel".into(), ..Default::default() }, &QuestEvent::new("defeat")));
+    }
+
+    #[test]
+    fn a_milestone_finished_while_catching_up_leaves_the_rest_to_catch_up() {
+        let (mut life, _, _) = island(0.0);
+        life.state.quests.done.extend(["landfall", "patch", "livestock", "firstFlight", "westward"].map(String::from));
+        // Rancher waiting on three animals that are already in the pens, and the house quest on a
+        // plot already claimed and half built.
+        life.state.quests.active = vec![
+            QuestProgress { id: "rancher".into(), step: 0, counts: vec![0.0] },
+            QuestProgress { id: "home".into(), step: 0, counts: vec![0.0] },
+        ];
+        let chick = || Some(Plant { crop: "chick".into(), animal: Some(true), ..Default::default() });
+        life.state.scarecrows.push(Scarecrow { id: 9, x: 0.0, z: 0.0, rot: 0.0, cells: vec![chick(), chick(), chick(), None] });
+        life.state.houses.push(crate::life::state::House { id: 5, plot: "rise-1".into(), blueprint: "cottage".into(), stage: 2, ..Default::default() });
+        toasts(&mut life);
+        start_quests(&mut life);
+        assert!(quest_done(&life, "rancher"));
+        let p = &life.state.quests.active[quest_active(&life, "home").unwrap()];
+        assert_eq!((p.step, p.counts.as_slice()), (1, [2.0].as_slice()));
+        assert!(toasts(&mut life).contains(&"✔ Milestone: Rancher - 1 skill point".to_string()));
+        // And what became available started too.
+        for id in ["wayfarer", "slimeHunter", "practisedHand", "skyLegs", "packMule"] {
+            assert!(quest_active(&life, id).is_some(), "{id}");
+        }
     }
 
     #[test]

@@ -233,6 +233,9 @@ pub struct LifeState {
     /// Gathering nodes on cooldown: node index -> world clock when it is back.
     pub nodes: BTreeMap<String, f64>,
     pub quests: Quests,
+    /// Experience of each skill in the skill book, by its id (crate::life::progress). An island
+    /// saved before skills levelled has none: everything at level 1.
+    pub skill_xp: BTreeMap<String, f64>,
     pub weather: Weather,
     #[serde(default)]
     pub stats: Stats,
@@ -264,6 +267,7 @@ pub fn new_life_state(coins: f64, labor: f64, seed: u32) -> LifeState {
         demand: BTreeMap::new(),
         nodes: BTreeMap::new(),
         quests: Quests::default(),
+        skill_xp: BTreeMap::new(),
         weather: Weather { rain_until: 0.0, next_rain: 240.0, wind_dir: 0.9, wind_speed: 0.8 },
         stats: Stats::default(),
         home: None,

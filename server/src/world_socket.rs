@@ -37,7 +37,7 @@ use crate::channels::CHANNEL_CAP;
 use crate::http::{same_origin, App};
 use crate::life::Command;
 use crate::player::Build;
-use crate::skills::{valid_build, SKILL_WORDS};
+use crate::skills::{valid_build, valid_movement, SKILL_WORDS};
 use crate::tuning::{HOTBAR_SLOTS, MOVEMENT_SLOTS, NO_ABILITY, NO_MOVEMENT};
 use crate::world_game::{Arrival, ChannelGame, Save, TICK_HZ};
 
@@ -257,8 +257,9 @@ async fn load_channel(app: &App, db: &PgPool, channel: i32) -> Result<(), sqlx::
 }
 
 /// A build as the browser keeps it (src/build.ts): the learned skills, weapon, hotbar and
-/// movement slots. None if it isn't one, or isn't allowed.
-pub fn parse_build(v: &Value) -> Option<Build> {
+/// movement slots. None if it isn't one, or isn't allowed with `budget` skill points (in the open
+/// world, what the character has earned: crate::life::progress::skill_budget).
+pub fn parse_build(v: &Value, budget: u32) -> Option<Build> {
     let mut b = Build::default();
     b.weapon = u8::try_from(v.get("weapon")?.as_u64()?).ok()?;
     let mut skills = [0u32; SKILL_WORDS];
@@ -277,7 +278,7 @@ pub fn parse_build(v: &Value) -> Option<Build> {
     };
     b.abilities.copy_from_slice(&slots("abilities", HOTBAR_SLOTS, NO_ABILITY)?);
     b.movement.copy_from_slice(&slots("movement", MOVEMENT_SLOTS, NO_MOVEMENT)?);
-    valid_build(&b.skills, b.weapon, &b.abilities).then_some(b)
+    (valid_build(&b.skills, b.weapon, &b.abilities, budget) && valid_movement(&b.skills, &b.movement)).then_some(b)
 }
 
 async fn play(socket: WebSocket, app: &App, db: &PgPool, account: &Account, session: i64, mut kicked: mpsc::Receiver<()>) -> Result<(), String> {
@@ -313,9 +314,10 @@ async fn play(socket: WebSocket, app: &App, db: &PgPool, account: &Account, sess
         island: island.map(|j| j.0),
         saved_at,
         now,
-        build: build_json.as_ref().and_then(parse_build).unwrap_or_default(),
+        build: build_json,
     };
-    let (estates, claims) = app.world.with_channel(channel, |ch| ch.join(arrival));
+    // The build they play with comes back: the one kept, if what they've earned still covers it.
+    let (estates, claims, build) = app.world.with_channel(channel, |ch| ch.join(arrival));
     let _seat = Seat { app: app.clone(), db: db.clone(), channel, character, session };
     send(
         &mut tx,
@@ -324,7 +326,7 @@ async fn play(socket: WebSocket, app: &App, db: &PgPool, account: &Account, sess
             "protocol": WORLD_PROTOCOL,
             "character": { "id": character, "name": name },
             "account": account.username,
-            "build": build_json,
+            "build": build,
             "now": now,
             "channel": channel,
             "dev": app.dev_tools,
@@ -357,11 +359,11 @@ async fn play(socket: WebSocket, app: &App, db: &PgPool, account: &Account, sess
                             Err(_) => send(&mut tx, json!({ "t": "error", "text": "The server didn't understand that command." })).await?,
                         },
                         Ok(FromBrowser::Build { build }) => {
-                            let Some(b) = parse_build(&build) else {
+                            // Checked against the skill points this character has earned so far.
+                            if !app.world.with_channel(channel, |ch| ch.set_build(character, &build)) {
                                 send(&mut tx, json!({ "t": "error", "text": "That build isn't allowed." })).await?;
                                 continue;
-                            };
-                            app.world.with_channel(channel, |ch| ch.set_build(character, b));
+                            }
                             let result = sqlx::query("UPDATE characters SET build = $3 WHERE id = $1 AND live_session = $2")
                                 .bind(character)
                                 .bind(session)
@@ -493,9 +495,14 @@ mod tests {
     fn builds_are_read_and_checked() {
         let d = Build::default();
         let ok = json!({ "skills": d.skills, "weapon": d.weapon, "abilities": d.abilities, "movement": d.movement });
-        let b = parse_build(&ok).expect("the default build");
+        let b = parse_build(&ok, 1).expect("the default build");
         assert_eq!(b.skills, d.skills);
-        assert!(parse_build(&json!({ "weapon": "sword" })).is_none());
-        assert!(parse_build(&json!("nonsense")).is_none());
+        assert!(parse_build(&json!({ "weapon": "sword" }), 30).is_none());
+        assert!(parse_build(&json!("nonsense"), 30).is_none());
+        // Only as many skills as the points allow.
+        assert!(parse_build(&ok, 0).is_none());
+        let three = json!({ "skills": crate::skills::skills_from(&["sword", "cleave", "whirlwind"]), "weapon": 0 });
+        assert!(parse_build(&three, 2).is_none());
+        assert!(parse_build(&three, 3).is_some());
     }
 }

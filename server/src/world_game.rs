@@ -19,6 +19,7 @@ use crate::actors::{Actors, LEAN_DAMPING, LEAN_SPRING};
 use crate::channels::{estate_of, Channel};
 use crate::game::{open_actions_from, Players};
 use crate::life::content::clock;
+use crate::life::progress::skill_budget;
 use crate::life::state::LifeState;
 use crate::life::{farming, housing, trade, vehicles, Command, Life};
 use crate::open::colliders::ground_at;
@@ -26,7 +27,9 @@ use crate::open::zone::{emberholm, Zone};
 use crate::open::{OpenWorld, Sim};
 use crate::player::{Build, Mode, Player};
 use crate::sim::Battle;
+use crate::skills::{valid_build, valid_movement};
 use crate::world::{Spawn, World};
+use crate::world_socket::parse_build;
 
 pub const TICK_HZ: u32 = 20;
 /// Islands are written to Postgres this often while their owner plays (and when they leave).
@@ -81,7 +84,9 @@ pub struct Arrival {
     /// When it was saved and the time now (ms since the epoch), for the time they were away.
     pub saved_at: Option<i64>,
     pub now: i64,
-    pub build: Build,
+    /// Their build as kept (src/build.ts's shape), if they have one. It is checked against the
+    /// skill points their island has earned once the island is loaded.
+    pub build: Option<Value>,
 }
 
 pub struct ChannelGame {
@@ -152,8 +157,8 @@ impl ChannelGame {
 
     /// Someone arrives. If their character is already here (another window, or a quick
     /// reconnect) they take it over as it is, which is newer than any save. Returns the welcome's
-    /// channel parts: everyone else's estates and the claims.
-    pub fn join(&mut self, a: Arrival) -> (Value, Value) {
+    /// channel parts (everyone else's estates and the claims) and the build they play with.
+    pub fn join(&mut self, a: Arrival) -> (Value, Value, Value) {
         let c = client(a.character);
         let mut keep_saved = false;
         self.lingering.retain(|_, (when, _, _)| when.elapsed() < LINGER);
@@ -164,7 +169,7 @@ impl ChannelGame {
         } else {
             let zone = self.open.zone;
             let mut life = Life::new(zone, None, None);
-            let mut player = Player::new(Spawn { x: zone.recipe.spawn.x, z: zone.recipe.spawn.z, facing: zone.recipe.spawn.facing }, 0, a.build);
+            let mut player = Player::new(Spawn { x: zone.recipe.spawn.x, z: zone.recipe.spawn.z, facing: zone.recipe.spawn.facing }, 0, Build::default());
             stand_on_ground(&mut player, &self.open);
             if let Some(island) = &a.island {
                 if let Err(e) = load_island(&mut life, &mut player, &mut self.open, a.character, island, a.saved_at.unwrap_or(a.now), a.now) {
@@ -172,6 +177,10 @@ impl ChannelGame {
                     life.toast("Your island couldn't be loaded. It's kept safe on the server, but nothing from this visit will be saved.", "bad");
                     keep_saved = true;
                 }
+            }
+            // The build they kept, if the skill points their island has earned still cover it.
+            if let Some(b) = a.build.as_ref().and_then(|v| parse_build(v, skill_budget(&life.state))) {
+                player.apply_build(b);
             }
             life.after_reset(&mut player);
             make_solid(&mut self.open, a.character, &life.state);
@@ -196,10 +205,14 @@ impl ChannelGame {
         self.refresh_estate(a.character);
         // Whatever happened to the claims, this island knows whose plots are whose.
         let held = self.estates.held_by_others(a.character);
-        if let Some((_, Some(life))) = self.players.open_mut(c) {
-            life.plot_owners = held;
+        let mut build = Value::Null;
+        if let Some((p, life)) = self.players.open_mut(c) {
+            build = build_json(&Build { skills: p.skills, weapon: p.weapon, abilities: p.abilities, movement: p.movement });
+            if let Some(life) = life {
+                life.plot_owners = held;
+            }
         }
-        (self.estates.estates_json(a.character), self.estates.claims_json())
+        (self.estates.estates_json(a.character), self.estates.claims_json(), build)
     }
 
     /// Someone's connection ended. Unless a newer window already took their seat, they're taken
@@ -288,11 +301,14 @@ impl ChannelGame {
         true
     }
 
-    /// A new build (skills and loadout), already checked.
-    pub fn set_build(&mut self, character: i64, build: Build) {
-        if let Some((p, _)) = self.players.open_mut(client(character)) {
-            p.apply_build(build);
-        }
+    /// A new build (skills and loadout) as the browser sent it: used if it is one, and the skill
+    /// points this character has earned cover it. False if it isn't allowed.
+    pub fn set_build(&mut self, character: i64, build: &Value) -> bool {
+        let Some((p, life)) = self.players.open_mut(client(character)) else { return false };
+        let budget = life.map_or(crate::tuning::tuning().skills.start_points, |l| skill_budget(&l.state));
+        let Some(b) = parse_build(build, budget) else { return false };
+        p.apply_build(b);
+        true
     }
 
     /// Starts someone's island over: a fresh one, standing at the spawn. What they had built goes.
@@ -301,8 +317,13 @@ impl ChannelGame {
         let zone = self.open.zone;
         let (p, life) = self.players.open_mut(client(character))?;
         let life = life?;
-        let build = Build { skills: p.skills, weapon: p.weapon, abilities: p.abilities, movement: p.movement };
         *life = Life::new(zone, None, None);
+        // The quests that earned skill points went with the island: the build stays only if the
+        // points a fresh island starts with still cover it.
+        let mut build = Build { skills: p.skills, weapon: p.weapon, abilities: p.abilities, movement: p.movement };
+        if !valid_build(&build.skills, build.weapon, &build.abilities, skill_budget(&life.state)) || !valid_movement(&build.skills, &build.movement) {
+            build = Build::default();
+        }
         *p = Player::new(Spawn { x: zone.recipe.spawn.x, z: zone.recipe.spawn.z, facing: zone.recipe.spawn.facing }, 0, build);
         stand_on_ground(p, &self.open);
         life.after_reset(p);
@@ -574,6 +595,11 @@ fn v3(x: f64, y: f64, z: f64) -> Value {
     json!({ "x": x, "y": y, "z": z })
 }
 
+/// A build in the shape the browser keeps one (src/build.ts Build), which parse_build reads back.
+pub fn build_json(b: &Build) -> Value {
+    json!({ "skills": b.skills, "weapon": b.weapon, "abilities": b.abilities, "movement": b.movement })
+}
+
 /// A player's whole state, in the shape of src/sim/types.ts PlayerState, for the browser to
 /// correct its prediction from.
 pub fn player_state_json(p: &Player) -> Value {
@@ -759,5 +785,111 @@ mod tests {
             assert!(v.get(k).is_some(), "{k}");
         }
         assert_eq!(v["mode"], "normal");
+    }
+
+    /// A channel with one character in it, `build` as they kept it.
+    fn channel_with(build: Option<Value>) -> (ChannelGame, Value) {
+        let mut ch = ChannelGame::new(1);
+        let (out, _) = mpsc::channel(16);
+        let arrival = Arrival { character: 7, session: 1, name: "Ada".into(), out, dev: false, island: None, saved_at: None, now: 0, build };
+        let (_, _, build) = ch.join(arrival);
+        (ch, build)
+    }
+
+    #[test]
+    fn a_build_is_held_to_the_points_the_island_has_earned() {
+        let three = crate::skills::skills_from(&["sword", "cleave", "whirlwind"]);
+        let wanted = build_json(&Build { skills: three, ..Build::default() });
+        // A newcomer has only the points everyone starts with, too few for three skills: they play
+        // with the default build, and their browser is told so.
+        let (mut ch, build) = channel_with(Some(wanted.clone()));
+        assert_eq!(build, build_json(&Build::default()));
+        assert!(!ch.set_build(7, &wanted));
+        // A quest finished is a point earned.
+        ch.players.open_mut(client(7)).unwrap().1.unwrap().state.quests.done.push("landfall".into());
+        assert!(ch.set_build(7, &wanted));
+        assert_eq!(ch.players.open_view(client(7)).unwrap().0.skills, three);
+        // Starting the island over takes the quest, and the point, with it.
+        ch.reset(7).expect("a fresh island");
+        assert_eq!(ch.players.open_view(client(7)).unwrap().0.skills, Build::default().skills);
+        // The island's own islanders keep theirs.
+        let (_, build) = channel_with(Some(build_json(&Build::default())));
+        assert_eq!(build, build_json(&Build::default()));
+    }
+
+    #[test]
+    fn hits_casts_and_slides_train_the_skills_behind_them() {
+        let (mut ch, _) = channel_with(None);
+        let c = client(7);
+        {
+            // Landfall done, so Slime Hunter is counting.
+            let life = ch.players.open_mut(c).unwrap().1.unwrap();
+            life.state.quests.done.push("landfall".into());
+            crate::life::quests::start_quests(life);
+        }
+        // A step away from the first slime, facing it.
+        let (sx, sz) = (ch.actors.list[0].x, ch.actors.list[0].z);
+        {
+            let p = ch.players.open_mut(c).unwrap().0;
+            p.pos.x = sx;
+            p.pos.z = sz - 1.0;
+            p.facing = 0.0;
+            stand_on_ground(p, &ch.open);
+        }
+        let mut seq = 0u32;
+        let mut play = |ch: &mut ChannelGame, first: [u8; 9], frames: u32| {
+            let inputs: Vec<(u32, [u8; 9])> = (0..frames).map(|k| (seq + 1 + k, if k == 0 { first } else { [0; 9] })).collect();
+            seq += frames;
+            ch.inputs(7, inputs.into_iter());
+            ch.players.inputs_per_tick = 12.0;
+            for tick in 0..frames.div_ceil(12) {
+                ch.players.step_in(&mut ch.battle, &mut ch.actors, &ch.world, tick as u64 + 1, Some(&mut ch.open));
+            }
+        };
+        let xp = |ch: &ChannelGame, id: &str| ch.players.open_view(client(7)).unwrap().2.unwrap().state.skill_xp.get(id).copied().unwrap_or(0.0);
+        const ATTACK: [u8; 9] = [0, 0, 4, 0, 0, 0, 0, 0, 0];
+        const SLIDE: [u8; 9] = [0, 0, 8, 0, 0, 0, 0, 0, 0];
+        // One swing lands once, however many frames it is live for, and trains the sword.
+        play(&mut ch, ATTACK, 48);
+        assert_eq!(ch.actors.list[0].hp, ch.actors.list[0].max_hp - tuning_damage());
+        assert_eq!(xp(&ch, "sword"), 1.0);
+        // Finishing one off counts for the milestone.
+        ch.actors.list[0].hp = 1.0;
+        play(&mut ch, ATTACK, 48);
+        assert!(ch.actors.list[0].dead_frame >= 0);
+        assert_eq!(xp(&ch, "sword"), 2.0);
+        let life = ch.players.open_view(c).unwrap().2.unwrap();
+        let hunter = crate::life::quests::quest_active(life, "slimeHunter").unwrap();
+        assert_eq!(life.state.quests.active[hunter].counts, [1.0]);
+        // The slide everyone has is a movement skill like the rest (done, and cooled down, after a
+        // second).
+        play(&mut ch, SLIDE, 60);
+        assert_eq!(xp(&ch, "slide"), 1.0);
+        // Enough of it is a level, which the player uses from then on.
+        ch.players.open_mut(c).unwrap().1.unwrap().state.skill_xp.insert("slide".into(), 19.0);
+        play(&mut ch, SLIDE, 12);
+        let (p, _, life) = ch.players.open_view(c).unwrap();
+        assert_eq!(life.unwrap().state.skill_xp["slide"], 20.0);
+        let slide = crate::skills::book_index("slide").unwrap();
+        assert_eq!(p.levels[slide], 2);
+        // A cast that goes off trains the ability.
+        let mut healer = Build { skills: crate::skills::skills_from(&["club", "heal"]), weapon: 1, ..Build::default() };
+        healer.abilities[0] = 0;
+        assert!(ch.set_build(7, &build_json(&healer)));
+        play(&mut ch, [0, 0, 0, 0, 0, 1, 0, 0, 0], 150);
+        assert_eq!(xp(&ch, "heal"), 1.0);
+        assert_eq!(xp(&ch, "club"), 0.0);
+    }
+
+    fn tuning_damage() -> f64 {
+        crate::tuning::tuning().weapons[0].combo[0].damage
+    }
+
+    #[test]
+    fn the_island_its_owner_sees_carries_skill_experience() {
+        let mut life = Life::new(emberholm(), None, None);
+        assert_eq!(life_view(&life)["state"]["skillXp"], json!({}));
+        life.state.skill_xp.insert("bow".into(), 42.0);
+        assert_eq!(life_view(&life)["state"]["skillXp"]["bow"], json!(42.0));
     }
 }

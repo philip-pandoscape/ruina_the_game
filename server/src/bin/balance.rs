@@ -18,7 +18,7 @@ use yggdrasil_server::actors::Actors;
 use yggdrasil_server::game::{actions_from, Players};
 use yggdrasil_server::player::{Build, Mode};
 use yggdrasil_server::sim::Battle;
-use yggdrasil_server::skills::{set_skill, EMPTY_SKILLS};
+use yggdrasil_server::skills::{node_index, set_skill, EMPTY_SKILLS};
 use yggdrasil_server::tuning::{HOTBAR_SLOTS, MOVEMENT_SLOTS, NO_ABILITY, NO_MOVEMENT, tuning};
 use yggdrasil_server::world::{battlefield, SEED};
 
@@ -104,7 +104,7 @@ impl Rng {
 fn to_build(b: &BuildIn) -> Build {
     let mut skills = EMPTY_SKILLS;
     for id in &b.skills {
-        let i = tuning().skills.nodes.iter().position(|n| &n.id == id).unwrap_or_else(|| panic!("unknown skill: {id}"));
+        let i = node_index(id).unwrap_or_else(|| panic!("unknown skill: {id}"));
         set_skill(&mut skills, i, true);
     }
     let mut abilities = [NO_ABILITY; HOTBAR_SLOTS];

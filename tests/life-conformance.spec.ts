@@ -11,6 +11,7 @@ import { dismount } from '../src/sim/life/vehicles';
 import { toWorld } from '../src/sim/zone/generate';
 import type { Vehicle } from '../src/sim/life/state';
 import { applySave, islandData, type Island } from '../src/app/save';
+import { LEVEL_XP } from '../src/skills';
 
 // Online, the game server runs your island (server/src/life, server/src/open) and the browser shows
 // what it decides, predicting only your own moves and vehicles in between. If the two sets of
@@ -425,5 +426,33 @@ test.describe('the island on the server matches the browser', () => {
       every: 30,
       segments: [...before, idle(20, [{ t: 'payTax', house: built[0].id }]), { frames: 120, a: { moveZ: -1 } }],
     });
+  });
+
+  test('a skill levelled by use, and a milestone that finishes itself', () => {
+    const hollis = npc('hollis');
+    // Kept by the browser: Landfall handed in (which starts the milestones), then the slide one use
+    // short of its next level and Practised Hand one level short of done.
+    const island = islandAfter({
+      every: 1000,
+      segments: [
+        { frames: 10, tp: facingFrom(hollis.x, hollis.z, 1.6, Math.PI) },
+        idle(20, [{ t: 'interact' }]),
+        idle(20, [{ t: 'complete', quest: 'landfall' }]),
+      ],
+    });
+    const practised = island.state.quests.active.find((q) => q.id === 'practisedHand');
+    expect(practised, 'Landfall started the milestones').toBeTruthy();
+    practised!.counts = [4];
+    island.state.skillXp = { slide: LEVEL_XP[1] - 1, sword: 3 };
+    const script: Script = {
+      island,
+      every: 30,
+      // Slide after slide, off to the side of Hollis.
+      segments: [idle(10), { frames: 150, a: { moveX: 1, slidePressed: true } }, idle(30)],
+    };
+    const end = runTs(script).at(-1)!.life as unknown as { skillXp: Record<string, number>; quests: { done: string[] } };
+    expect(end.skillXp.slide, 'slid more than once').toBeGreaterThan(LEVEL_XP[1]);
+    expect(end.quests.done, 'the milestone finished itself').toContain('practisedHand');
+    compare('levels and milestones', script);
   });
 });

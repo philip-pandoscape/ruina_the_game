@@ -8,7 +8,10 @@ use std::io::Read;
 use serde::{Deserialize, Serialize};
 use yggdrasil_server::player::{Actions, Build, Player};
 use yggdrasil_server::skills::{resolve_skills, EMPTY_SKILLS, SKILL_WORDS};
-use yggdrasil_server::tuning::{cast_frames_for, combo_for, HOTBAR_SLOTS, melee_targets, MOVEMENT_SKILL_CAP, MOVEMENT_SLOTS, NO_ABILITY, NO_MOVEMENT, pierce_targets, tuning};
+use yggdrasil_server::tuning::{
+    cast_frames_for, combo_for, effect_amount, effect_damage, effect_radius, melee_targets, movement_cooldown_for, pierce_targets, tuning, HOTBAR_SLOTS,
+    MOVEMENT_SKILL_CAP, MOVEMENT_SLOTS, NO_ABILITY, NO_MOVEMENT,
+};
 use yggdrasil_server::world::{battlefield, Spawn, SEED};
 
 #[derive(Deserialize)]
@@ -18,6 +21,9 @@ struct Script {
     build: BuildIn,
     steps: Vec<StepIn>,
     hits: Vec<HitIn>,
+    /// The skill book's levels (src/skills.ts BOOK order); everything at level 1 if absent.
+    #[serde(default)]
+    levels: Vec<u32>,
 }
 
 #[derive(Deserialize)]
@@ -94,6 +100,9 @@ struct Stats {
     cast_frames: Vec<i32>,
     combo_startup: Vec<Vec<i32>>,
     combo_damage: Vec<Vec<f64>>,
+    movement_cooldowns: Vec<i32>,
+    /// Per ability, per effect: radius, damage, amount.
+    effects: Vec<Vec<[f64; 3]>>,
 }
 
 fn main() {
@@ -117,6 +126,7 @@ fn main() {
     }
     let build = Build { skills, weapon: b.weapon, abilities, movement };
     let mut p = Player::new(spawn, script.team, build);
+    p.set_levels(&script.levels);
     let mut frames = Vec::with_capacity(script.steps.len());
     for (i, s) in script.steps.iter().enumerate() {
         for h in script.hits.iter().filter(|h| h.frame == i) {
@@ -152,7 +162,7 @@ fn main() {
         frames.push(frame);
     }
     let obstacles = world.obstacles.iter().map(|o| [o.x, o.z, o.r]).collect();
-    let r = resolve_skills(&build.skills);
+    let r = resolve_skills(&build.skills, &script.levels);
     let weapons = tuning().weapons.len();
     let stats = Stats {
         melee_targets: (0..weapons).map(|w| melee_targets(w as u8, &r)).collect(),
@@ -160,6 +170,13 @@ fn main() {
         cast_frames: (0..tuning().abilities.len()).map(|a| cast_frames_for(a as u8, &r)).collect(),
         combo_startup: (0..weapons).map(|w| combo_for(w as u8, &r).iter().map(|s| s.startup).collect()).collect(),
         combo_damage: (0..weapons).map(|w| combo_for(w as u8, &r).iter().map(|s| s.damage).collect()).collect(),
+        movement_cooldowns: (0..tuning().movement_skills.len()).map(|m| movement_cooldown_for(m as u8, &r)).collect(),
+        effects: tuning()
+            .abilities
+            .iter()
+            .enumerate()
+            .map(|(a, def)| def.effects.iter().map(|e| [effect_radius(a as u8, e, &r), effect_damage(a as u8, e, &r), effect_amount(a as u8, e, &r)]).collect())
+            .collect(),
     };
     println!("{}", serde_json::to_string(&Out { frames, obstacles, stats }).expect("serialize"));
 }

@@ -1,5 +1,7 @@
-//! Gameplay numbers, read from shared/tuning.json (the same file the browser uses).
+//! Gameplay numbers, read from shared/tuning.json (the same file the browser uses), and the skill
+//! tree from shared/skilltree.json.
 
+use std::collections::BTreeMap;
 use std::sync::OnceLock;
 
 use serde::Deserialize;
@@ -135,10 +137,17 @@ pub fn tuning() -> &'static Tuning {
             t.movement_skills.len() <= MOVEMENT_SKILL_CAP,
             "more movement skills than MOVEMENT_SKILL_CAP: raise it here and in src/tuning.ts together"
         );
-        assert!(
-            t.skills.nodes.len() <= MAX_NODES,
-            "the skill tree has outgrown SKILL_WORDS: raise it here and in src/skills.ts together"
-        );
+        t
+    })
+}
+
+static SKILL_TREE: OnceLock<SkillTreeFile> = OnceLock::new();
+
+/// The skill tree (shared/skilltree.json, the same file the browser lays its panel out from).
+pub fn skill_tree() -> &'static SkillTreeFile {
+    SKILL_TREE.get_or_init(|| {
+        let t: SkillTreeFile = serde_json::from_str(include_str!("../../shared/skilltree.json")).expect("shared/skilltree.json is valid");
+        assert!(t.nodes.len() <= MAX_NODES, "the skill tree has outgrown SKILL_WORDS: raise it here and in src/skills.ts together");
         t
     })
 }
@@ -199,22 +208,55 @@ pub struct Effect {
     pub delay_frames: i32, // delayedArea
 }
 
+/// tuning.json `skills`. The tree itself is shared/skilltree.json (skill_tree()).
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Skills {
+    /// What the training yard and the battlefield may spend.
     pub points: u32,
+    /// What every character starts with in the open world. Each quest and milestone they finish
+    /// adds its rewards.skillPoints (crate::life::progress::skill_budget).
+    pub start_points: u32,
     pub max_nodes: usize,
     pub trees: Vec<SkillTree>,
-    pub nodes: Vec<SkillNode>,
+    pub levels: SkillLevels,
 }
 
-/// One node of the tree. `requires` makes the tree a graph rather than four columns.
+/// The skills in your skill book (crate::skills::book) level up as you use them.
+#[derive(Deserialize)]
+pub struct SkillLevels {
+    /// Total experience each level needs: xp[0] for level 1 (always 0), and so on up. Its length
+    /// is the highest level.
+    pub xp: Vec<f64>,
+    /// What every level past the first adds, by skill book id: flat and inc only, so the order
+    /// they are summed in never matters.
+    pub per: BTreeMap<String, Vec<SkillMod>>,
+}
+
+/// shared/skilltree.json. The order of `nodes` is what a saved build's bits mean.
+#[derive(Deserialize)]
+pub struct SkillTreeFile {
+    pub nodes: Vec<SkillNode>,
+    /// The lines between nodes, by id: [a, b], or [a, b, 1] for one drawn along its orbit (which
+    /// only matters to the browser). A node can be learned when it is a root or touches a node
+    /// you have learned.
+    pub links: Vec<Vec<serde_json::Value>>,
+}
+
+/// One node of the tree. Where it is drawn (orbit, angle), its icon and description are only the
+/// browser's business.
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SkillNode {
     pub id: String,
+    /// skill (one of the skills you use, or one that changes it), small, notable or keystone.
+    pub kind: String,
+    /// The discipline, or -1 where two meet.
+    pub tree: i32,
     pub name: String,
-    pub requires: Vec<String>,
+    /// Learnable with nothing else learned.
+    #[serde(default)]
+    pub root: bool,
     #[serde(default)]
     pub grants: Option<SkillGrants>,
     #[serde(default)]
@@ -228,6 +270,9 @@ pub struct SkillGrants {
     pub weapon: Option<u8>,
     #[serde(default)]
     pub ability: Option<u8>,
+    /// A movement skill, for a Q / E slot.
+    #[serde(default)]
+    pub movement: Option<u8>,
     #[serde(default)]
     pub combo: Option<String>,
 }
@@ -307,8 +352,15 @@ pub fn movement_action(m: u8) -> Option<&'static ActionDef> {
     tuning().movement_skills.get(m as usize).map(|s| &s.action)
 }
 
+/// A movement skill's own cooldown, before the tree and its level change it.
 pub fn movement_cooldown(m: u8) -> i32 {
     tuning().movement_skills.get(m as usize).map_or(0, |s| s.cooldown_frames)
+}
+
+/// Frames before a movement skill can be used again: its own, as the tree and its level change it
+/// (movementCooldownFor in src/tuning.ts).
+pub fn movement_cooldown_for(m: u8, r: &ResolvedSkills) -> i32 {
+    channel(r.moves.get(m as usize), stat_movement_cooldown()).frames(movement_cooldown(m))
 }
 
 /// The slide everyone has. Looked up by id so reordering the data can't silently rebind it.
@@ -340,8 +392,6 @@ pub const NO_ABILITY: u8 = 255;
 pub const CAST_HEAL: u8 = 1;
 pub const CAST_METEOR: u8 = 2;
 
-/// Every skill is one bit: tree t, skill n gives bit t * 3 + n, in the order of shared/tuning.json
-/// (the same numbering as skillBit in src/tuning.ts).
 /// The combo for a weapon under this build. Resolved when the build changed, not now.
 pub fn combo_for(weapon: u8, r: &ResolvedSkills) -> &[AttackStep] {
     r.combo.get(weapon as usize).map_or(&[][..], |v| v.as_slice())
@@ -397,6 +447,10 @@ fn stat_ability_amount() -> usize {
 fn stat_ability_cooldown() -> usize {
     static I: OnceLock<usize> = OnceLock::new();
     cached_stat(&I, "ability.cooldown")
+}
+fn stat_movement_cooldown() -> usize {
+    static I: OnceLock<usize> = OnceLock::new();
+    cached_stat(&I, "movement.cooldown")
 }
 
 /// How many enemies one swing of this weapon reaches.

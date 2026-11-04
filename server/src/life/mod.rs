@@ -13,6 +13,7 @@ pub mod farming;
 pub mod housing;
 pub mod interact;
 pub mod livestock;
+pub mod progress;
 pub mod quests;
 pub mod shipyard;
 pub mod state;
@@ -258,9 +259,17 @@ impl Life {
         vehicles::ride_vehicle(self, sim, a);
     }
 
+    /// Something the player did (a hit landed, a cast, a roll): the skill behind it gains
+    /// experience; or a creature they finished off, for the quests. True if a skill went up a
+    /// level, so the player's numbers need working out again (progress::sync_levels).
+    pub fn observe(&mut self, e: progress::Observed) -> bool {
+        progress::observe(self, e)
+    }
+
     /// Everything else on the island, once per step, after you have moved.
     pub fn step(&mut self, sim: &mut Sim, a: &Actions) {
         let dt = step_seconds();
+        progress::sync_levels(self, sim.player);
         // Keep the glider you own on your back.
         if sim.player.glider != self.state.glider {
             sim.player.glider = self.state.glider.clone();

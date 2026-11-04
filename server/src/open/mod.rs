@@ -9,8 +9,10 @@ pub mod zone;
 
 use std::collections::HashSet;
 
+use crate::life::progress::Observed;
 use crate::life::Life;
 use crate::player::{Actions, Mode, Player};
+use crate::tuning::{NO_ABILITY, NO_MOVEMENT};
 use crate::world::Spawn;
 use colliders::ColliderIndex;
 use zone::{Heightfield, Zone};
@@ -109,6 +111,19 @@ pub fn step_player(p: &mut Player, a: &Actions, world: &mut OpenWorld, mut life:
                     sim.player.update_normal(a);
                 }
             }
+        }
+    }
+
+    // A cast that finished and a movement skill that started are practice for them, counted the
+    // moment the TypeScript reports them (its `cast` and `action` events), so the island's step
+    // below picks up any level they gained. Hits are counted where they land (game.rs).
+    if let Some(l) = life.as_deref_mut() {
+        let p = &*sim.player;
+        if p.fired_ability != NO_ABILITY {
+            l.observe(Observed::Cast { ability: p.fired_ability });
+        }
+        if p.started_action != NO_MOVEMENT {
+            l.observe(Observed::Action { id: p.started_action });
         }
     }
 
