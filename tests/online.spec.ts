@@ -4,6 +4,9 @@ import { expect, test, type Browser, type Page } from '@playwright/test';
 // Postgres between visits, starting over, one window per character, and sharing a channel. These
 // play the real game against the real server, so they need it running with developer sign-in:
 // `npm run up` (Docker). Without it they're skipped.
+//
+// The game steps (and sends its inputs) only as fast as it draws, and CI draws the island in
+// software at a few frames a second, so waits on the server's answers are generous.
 
 const SERVER = process.env.RUINA_SERVER ?? 'http://localhost:7777';
 const PASSWORD = 'lantern-light-42';
@@ -54,12 +57,12 @@ test('a new player makes an account, and their island is kept on the server betw
   // Earn something and go somewhere (both decided by the server), then come back later.
   const start = await game(page, (g) => g.life().coins);
   await game(page, (g) => g.lifeCommand({ t: 'grant', coins: 4321 }));
-  await expect.poll(() => game(page, (g) => g.life().coins)).toBe(start + 4321);
+  await expect.poll(() => game(page, (g) => g.life().coins), { timeout: 30_000 }).toBe(start + 4321);
   await game(page, (g) => g.teleport(142, -200));
   await expect.poll(async () => {
     const p = await game(page, (g) => g.state().player.pos);
     return Math.hypot(p.x - 142, p.z + 200);
-  }).toBeLessThan(2);
+  }, { timeout: 30_000 }).toBeLessThan(2);
   await saveAndWait(page);
 
   await page.reload();
@@ -82,7 +85,7 @@ test('the server decides where you are: a browser that moves itself is put back'
     .poll(async () => {
       const p = await game(page, (g) => g.state().player.pos);
       return Math.hypot(p.x - before.x, p.z - before.z);
-    }, { timeout: 10_000 })
+    }, { timeout: 30_000 })
     .toBeLessThan(2);
 });
 
@@ -100,9 +103,9 @@ test('walking, sprinting and jumping online, the browser predicts what the serve
       [60, {}],
     ]),
   );
-  await expect.poll(() => game(page, (g) => g.net().scriptLeft), { timeout: 30_000 }).toBe(0);
+  await expect.poll(() => game(page, (g) => g.net().scriptLeft), { timeout: 120_000 }).toBe(0);
   // Every input answered, and the answers matched the prediction.
-  await expect.poll(() => game(page, (g) => g.online().seq - g.online().ack), { timeout: 10_000 }).toBeLessThan(12);
+  await expect.poll(() => game(page, (g) => g.online().seq - g.online().ack), { timeout: 30_000 }).toBeLessThan(12);
   const o = await game(page, (g) => g.online());
   expect(o.maxCorrection, `${o.corrections} corrections`).toBeLessThan(0.05);
 });
@@ -137,7 +140,7 @@ test('starting over throws the island away on the server too', async ({ page }) 
   await waitOnline(page);
   const start = await game(page, (g) => g.life().coins);
   await game(page, (g) => g.lifeCommand({ t: 'grant', coins: 500 }));
-  await expect.poll(() => game(page, (g) => g.life().coins)).toBe(start + 500);
+  await expect.poll(() => game(page, (g) => g.life().coins), { timeout: 30_000 }).toBe(start + 500);
   await saveAndWait(page);
 
   await page.goto(`/?as=${name}&fresh&bugs=0`);
@@ -241,9 +244,9 @@ test("a neighbour's house is drawn on your island, and their plot can't be taken
   await a.bringToFront();
   await a.evaluate(() => (window as any).__game.lifeCommand({ t: 'grant', item: 'blueprint.cottage', n: 1 }));
   await a.evaluate(([x, z, f]) => (window as any).__game.teleport(x, z, f), site);
-  await expect.poll(() => game(a, (g) => g.life().focus?.action), { timeout: 15_000 }).toBe('claim');
+  await expect.poll(() => game(a, (g) => g.life().focus?.action), { timeout: 45_000 }).toBe('claim');
   await a.evaluate(() => (window as any).__game.lifeCommand({ t: 'interact' }));
-  await expect.poll(() => game(a, (g) => g.life().houses.length), { timeout: 15_000 }).toBe(1);
+  await expect.poll(() => game(a, (g) => g.life().houses.length), { timeout: 45_000 }).toBe(1);
 
   // Bea sees the building site, and the plot is Ann's.
   await b.bringToFront();
@@ -251,7 +254,7 @@ test("a neighbour's house is drawn on your island, and their plot can't be taken
   await expect.poll(() => b.evaluate((id) => (window as any).__game.online().claims[id], plot.id), { timeout: 30_000 }).toBe(nameA);
   await b.evaluate(() => (window as any).__game.lifeCommand({ t: 'grant', item: 'blueprint.cottage', n: 1 }));
   await b.evaluate(([x, z, f]) => (window as any).__game.teleport(x, z, f), site);
-  await expect.poll(() => game(b, (g) => g.life().focus?.label), { timeout: 15_000 }).toBe(`${nameA}'s plot`);
+  await expect.poll(() => game(b, (g) => g.life().focus?.label), { timeout: 45_000 }).toBe(`${nameA}'s plot`);
 });
 
 test('the developer panel is up to the server', async ({ page }) => {

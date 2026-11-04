@@ -961,6 +961,8 @@ let last = performance.now();
 let lastStats = 0;
 
 function frame(now: number): void {
+  // Asked for first, so one frame that throws can't stop the game.
+  requestAnimationFrame(frame);
   const dt = Math.min(0.1, (now - last) / 1000);
   last = now;
   frameTimes.push(dt * 1000);
@@ -1051,7 +1053,6 @@ function frame(now: number): void {
       hud.setStats(base);
     }
   }
-  requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
 
