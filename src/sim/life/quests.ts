@@ -163,21 +163,22 @@ function matches(o: { type: string; npc?: string; crop?: string; pack?: string; 
   return true;
 }
 
+/** Counts toward each objective of the quest's step that `pick` names and isn't done yet, and moves on once they all are. */
+function countToward(life: Life, p: QuestProgress, pick: (o: Objective) => boolean, amount: number): void {
+  const step = questDef(p.id).steps[p.step];
+  if (!step) return;
+  let changed = false;
+  step.objectives.forEach((o, i) => {
+    const target = objectiveTarget(o);
+    if (p.counts[i] >= target || !pick(o)) return;
+    p.counts[i] = Math.min(target, p.counts[i] + amount);
+    changed = true;
+  });
+  if (changed && step.objectives.every((o, i) => p.counts[i] >= objectiveTarget(o))) advance(life, p.id);
+}
+
 export function notifyQuests(life: Life, e: QuestEvent): void {
-  for (const p of life.state.quests.active) {
-    const q = questDef(p.id);
-    const step = q.steps[p.step];
-    if (!step) continue;
-    let changed = false;
-    step.objectives.forEach((o, i) => {
-      const target = objectiveTarget(o);
-      if (p.counts[i] >= target || !matches(o, e)) return;
-      p.counts[i] = Math.min(target, p.counts[i] + (e.amount ?? 1));
-      changed = true;
-    });
-    if (!changed) continue;
-    if (step.objectives.every((o, i) => p.counts[i] >= objectiveTarget(o))) advance(life, p.id);
-  }
+  for (const p of life.state.quests.active) countToward(life, p, (o) => matches(o, e), e.amount ?? 1);
 }
 
 function advance(life: Life, id: string): void {
@@ -202,15 +203,12 @@ export function stepQuests(life: Life, sim: Sim): void {
   const p = sim.player;
   if (p.mode === 'glide') notifyQuests(life, { type: 'glide', amount: STEP });
   if (life.state.clock % 0.25 < STEP) {
-    for (const qp of life.state.quests.active) {
-      const step = questDef(qp.id).steps[qp.step];
-      if (!step) continue;
-      step.objectives.forEach((o) => {
-        if (o.type !== 'reach' || !o.place) return;
-        const place = life.zone.recipe.places.find((pl) => pl.id === o.place);
-        if (!place) return;
-        if (Math.hypot(p.pos.x - place.x, p.pos.z - place.z) <= (o.r ?? 20) && p.pos.y >= (o.minY ?? -Infinity)) notifyQuests(life, { type: 'reach', place: o.place });
-      });
-    }
+    // Each quest measures its own places, with its own reach and height: the foot of the Windspire
+    // is the spire for one quest and not yet its top for another.
+    const at = (o: Objective): boolean => {
+      const place = o.type === 'reach' && o.place ? life.zone.recipe.places.find((pl) => pl.id === o.place) : undefined;
+      return !!place && Math.hypot(p.pos.x - place.x, p.pos.z - place.z) <= (o.r ?? 20) && p.pos.y >= (o.minY ?? -Infinity);
+    };
+    for (const qp of life.state.quests.active) countToward(life, qp, at, 1);
   }
 }

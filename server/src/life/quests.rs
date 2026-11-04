@@ -217,32 +217,35 @@ fn matches(o: &Objective, e: &QuestEvent) -> bool {
         && named(&o.vehicle, &e.vehicle)
 }
 
-pub fn notify_quests(life: &mut Life, e: &QuestEvent) {
-    for id in active_ids(life) {
-        let Some(i) = quest_active(life, &id) else { continue };
-        let p = &mut life.state.quests.active[i];
-        let Some(step) = step_of(quest_def(&p.id), p.step) else { continue };
-        let mut changed = false;
-        for (k, o) in step.objectives.iter().enumerate() {
-            let target = objective_target(o);
-            // Counts always cover the step's objectives (catch_up fills them in); a short list from
-            // a damaged save counts from zero.
-            let have = p.counts.get(k).copied().unwrap_or(0.0);
-            if have >= target || !matches(o, e) {
-                continue;
-            }
-            if p.counts.len() <= k {
-                p.counts.resize(k + 1, 0.0);
-            }
-            p.counts[k] = js_min(target, have + e.amount.unwrap_or(1.0));
-            changed = true;
-        }
-        if !changed {
+/// Counts toward each objective of the quest's step that `pick` names and isn't done yet, and
+/// moves on once they all are.
+fn count_toward(life: &mut Life, id: &str, pick: impl Fn(&Objective) -> bool, amount: f64) {
+    let Some(i) = quest_active(life, id) else { return };
+    let p = &mut life.state.quests.active[i];
+    let Some(step) = step_of(quest_def(id), p.step) else { return };
+    let mut changed = false;
+    for (k, o) in step.objectives.iter().enumerate() {
+        let target = objective_target(o);
+        // Counts always cover the step's objectives (catch_up fills them in); a short list from
+        // a damaged save counts from zero.
+        let have = p.counts.get(k).copied().unwrap_or(0.0);
+        if have >= target || !pick(o) {
             continue;
         }
-        if step.objectives.iter().enumerate().all(|(k, o)| p.counts.get(k).is_some_and(|n| *n >= objective_target(o))) {
-            advance(life, &id);
+        if p.counts.len() <= k {
+            p.counts.resize(k + 1, 0.0);
         }
+        p.counts[k] = js_min(target, have + amount);
+        changed = true;
+    }
+    if changed && step.objectives.iter().enumerate().all(|(k, o)| p.counts.get(k).is_some_and(|n| *n >= objective_target(o))) {
+        advance(life, id);
+    }
+}
+
+pub fn notify_quests(life: &mut Life, e: &QuestEvent) {
+    for id in active_ids(life) {
+        count_toward(life, &id, |o| matches(o, e), e.amount.unwrap_or(1.0));
     }
 }
 
@@ -275,21 +278,17 @@ pub fn step_quests(life: &mut Life, sim: &mut Sim) {
         notify_quests(life, &QuestEvent { amount: Some(step_seconds()), ..QuestEvent::new("glide") });
     }
     if life.state.clock % 0.25 < step_seconds() {
+        // Each quest measures its own places, with its own reach and height: the foot of the
+        // Windspire is the spire for one quest and not yet its top for another.
         let zone = life.zone;
+        let at = |o: &Objective| {
+            o.type_ == "reach"
+                && given(&o.place)
+                    .and_then(|place| zone.recipe.places.iter().find(|pl| pl.id == place))
+                    .is_some_and(|pl| js_hypot(x - pl.x, z - pl.z) <= o.r.unwrap_or(20.0) && y >= o.min_y.unwrap_or(f64::NEG_INFINITY))
+        };
         for id in active_ids(life) {
-            let Some(i) = quest_active(life, &id) else { continue };
-            let qp = &life.state.quests.active[i];
-            let Some(step) = step_of(quest_def(&qp.id), qp.step) else { continue };
-            for o in &step.objectives {
-                if o.type_ != "reach" {
-                    continue;
-                }
-                let Some(place) = given(&o.place) else { continue };
-                let Some(pl) = zone.recipe.places.iter().find(|pl| pl.id == place) else { continue };
-                if js_hypot(x - pl.x, z - pl.z) <= o.r.unwrap_or(20.0) && y >= o.min_y.unwrap_or(f64::NEG_INFINITY) {
-                    notify_quests(life, &QuestEvent { place: Some(place.to_string()), ..QuestEvent::new("reach") });
-                }
-            }
+            count_toward(life, &id, &at, 1.0);
         }
     }
 }
@@ -475,17 +474,19 @@ mod tests {
         talk(&mut life, "hollis");
         assert!(complete(&mut life, "landfall"));
         assert!(accept(&mut life, "wings"));
-        // Wings on its own: the Wayfarer milestone wants the spire too, from further out, and a
-        // place reached counts for every quest that names it.
-        life.state.quests.active.retain(|q| q.id == "wings");
         let top = life.zone.recipe.places.iter().find(|pl| pl.id == "windspire").unwrap().clone();
-        // Near enough, but not up on top.
+        // The Wayfarer milestone wants the spire too: from further out, at any height.
+        let spire = quest_def("wayfarer").steps[0].objectives.iter().position(|o| o.place.as_deref() == Some("windspire")).unwrap();
+        let wayfarer_has_it = |life: &Life| life.state.quests.active[quest_active(life, "wayfarer").unwrap()].counts[spire] == 1.0;
+        assert!(!wayfarer_has_it(&life));
+        // Near enough, but not up on top: that's the spire for Wayfarer, and not yet for Wings.
         sim.player.pos.x = top.x + 20.0;
         sim.player.pos.z = top.z;
         sim.player.pos.y = 100.0;
         life.state.clock = 0.25;
         step_quests(&mut life, &mut sim);
         assert_eq!(step(&life, "wings"), 0);
+        assert!(wayfarer_has_it(&life));
         // Up there, but it is only looked at four times a second.
         sim.player.pos.y = 120.0;
         life.state.clock = 0.4;
@@ -527,20 +528,37 @@ mod tests {
     #[test]
     fn a_milestone_an_event_finishes_still_leaves_that_event_to_the_rest() {
         let (mut life, _, _) = island(0.0);
+        life.state.quests.done.extend(["landfall", "patch", "harvest", "packwright", "westward"].map(String::from));
+        // Pack Mule one delivery short, then Wheels on its deliveries to Westwatch.
+        life.state.quests.active = vec![
+            QuestProgress { id: "packMule".into(), step: 0, counts: vec![4.0] },
+            QuestProgress { id: "wheels".into(), step: 2, counts: vec![0.0] },
+        ];
+        toasts(&mut life);
+        life.notify(QuestEvent { outpost: Some("westwatch".into()), pack: Some("flaxBale".into()), ..QuestEvent::new("deliver") });
+        assert!(quest_done(&life, "packMule"));
+        assert_eq!(life.state.quests.active[quest_active(&life, "wheels").unwrap()].counts, [1.0], "the delivery counted for Wheels too");
+        assert_eq!(toasts(&mut life), ["✔ Milestone: Pack Mule - 1 skill point"]);
+        // A place reached the same way: Wayfarer, needing only the spire, finishes as it's
+        // measured, and Wings, after it in the list, still measures the top for itself.
+        let (mut life, mut world, mut p) = island(0.0);
+        let mut sim = Sim { player: &mut p, world: &mut world, owner: 1 };
         talk(&mut life, "hollis");
         assert!(complete(&mut life, "landfall"));
         assert!(accept(&mut life, "wings"));
-        // Wayfarer, needing only the spire, then Wings, which starts by going there.
         life.state.quests.active.retain(|q| q.id == "wayfarer" || q.id == "wings");
         let w = quest_active(&life, "wayfarer").unwrap();
         let spire = quest_def("wayfarer").steps[0].objectives.iter().position(|o| o.place.as_deref() == Some("windspire")).unwrap();
         for (k, c) in life.state.quests.active[w].counts.iter_mut().enumerate() {
             *c = if k == spire { 0.0 } else { 1.0 };
         }
+        let top = life.zone.recipe.places.iter().find(|pl| pl.id == "windspire").unwrap().clone();
+        (sim.player.pos.x, sim.player.pos.y, sim.player.pos.z) = (top.x, 120.0, top.z);
+        life.state.clock = 0.25;
         toasts(&mut life);
-        life.notify(QuestEvent { place: Some("windspire".into()), ..QuestEvent::new("reach") });
+        step_quests(&mut life, &mut sim);
         assert!(quest_done(&life, "wayfarer"));
-        assert_eq!(step(&life, "wings"), 1, "the reach counted for Wings too");
+        assert_eq!(step(&life, "wings"), 1);
         assert_eq!(toasts(&mut life), ["✔ Milestone: Wayfarer - 1 skill point", "Wings over the Windspire: Speak with Ysolde Windward at the glider launch"]);
         // A defeat or a level is only counted by what names it.
         assert!(matches(&Objective { type_: "defeat".into(), kind: Some("slime".into()), ..Default::default() }, &QuestEvent { kind: Some("slime".into()), ..QuestEvent::new("defeat") }));

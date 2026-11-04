@@ -12,6 +12,7 @@ import { toWorld } from '../src/sim/zone/generate';
 import type { Vehicle } from '../src/sim/life/state';
 import { applySave, islandData, type Island } from '../src/app/save';
 import { LEVEL_XP } from '../src/skills';
+import { QUESTS } from '../src/content/quests';
 
 // Online, the game server runs your island (server/src/life, server/src/open) and the browser shows
 // what it decides, predicting only your own moves and vehicles in between. If the two sets of
@@ -454,5 +455,33 @@ test.describe('the island on the server matches the browser', () => {
     expect(end.skillXp.slide, 'slid more than once').toBeGreaterThan(LEVEL_XP[1]);
     expect(end.quests.done, 'the milestone finished itself').toContain('practisedHand');
     compare('levels and milestones', script);
+  });
+
+  test('a place reached counts for each quest by its own reach and height', () => {
+    const hollis = npc('hollis');
+    const spire = R.places.find((p) => p.id === 'windspire')!;
+    // Landfall handed in (which starts the Wayfarer milestone), and Wings taken: both want the
+    // Windspire, Wayfarer from 40 m at any height, Wings its top (30 m, 115 m up).
+    const island = islandAfter({
+      every: 1000,
+      segments: [
+        { frames: 10, tp: facingFrom(hollis.x, hollis.z, 1.6, Math.PI) },
+        idle(20, [{ t: 'interact' }]),
+        idle(20, [{ t: 'complete', quest: 'landfall' }, { t: 'accept', quest: 'wings' }]),
+      ],
+    });
+    const script: Script = {
+      island,
+      every: 30,
+      // 35 m out from the spire, then up on top of it.
+      segments: [{ frames: 30, tp: { x: spire.x + 35, z: spire.z } }, { frames: 30, tp: { x: spire.x, z: spire.z } }],
+    };
+    type Quests = { active: Array<{ id: string; step: number; counts: number[] }> };
+    const [foot, top] = runTs(script).map((c) => (c.life as unknown as { quests: Quests }).quests.active);
+    const k = QUESTS.find((q) => q.id === 'wayfarer')!.steps[0].objectives.findIndex((o) => o.place === 'windspire');
+    expect(foot.find((q) => q.id === 'wayfarer')!.counts[k], 'Wayfarer has the spire').toBe(1);
+    expect(foot.find((q) => q.id === 'wings')!.step, 'not yet the top for Wings').toBe(0);
+    expect(top.find((q) => q.id === 'wings')!.step, 'the top for Wings').toBe(1);
+    compare('places reached', script);
   });
 });
