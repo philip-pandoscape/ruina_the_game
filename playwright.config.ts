@@ -1,5 +1,10 @@
 import { defineConfig } from '@playwright/test';
 
+// The page the tests play is served by Vite on this port. PW_PORT moves it, so two checkouts can
+// run their suites at once without one testing the other's code (TEST_PORT_OFFSET moves the
+// battle servers some tests start, tests/testServer.ts).
+const port = Number(process.env.PW_PORT) || 5199;
+
 // On Windows the tests run in the Edge browser that ships with Windows (no extra download).
 // Elsewhere they use Playwright's own Chromium: run `npx playwright install chromium` once.
 export default defineConfig({
@@ -16,15 +21,15 @@ export default defineConfig({
   grepInvert: process.env.CI ? /@gpu/ : undefined,
   reporter: process.env.CI ? [['list'], ['github']] : [['list']],
   use: {
-    baseURL: 'http://localhost:5199',
+    baseURL: `http://localhost:${port}`,
     channel: process.platform === 'win32' ? 'msedge' : undefined,
     headless: true,
     viewport: { width: 1280, height: 720 },
     launchOptions: { args: ['--enable-gpu', '--ignore-gpu-blocklist', '--enable-unsafe-swiftshader'] },
   },
   webServer: {
-    command: 'npx vite --port 5199 --strictPort',
-    url: 'http://localhost:5199',
+    command: `npx vite --port ${port} --strictPort`,
+    url: `http://localhost:${port}`,
     reuseExistingServer: true,
     timeout: 60_000,
   },

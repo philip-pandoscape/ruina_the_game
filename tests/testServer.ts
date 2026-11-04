@@ -19,13 +19,16 @@ const portOpen = (port: number) =>
 
 export class TestServer {
   readonly url: string;
+  readonly port: number;
   private proc: ChildProcess | null = null;
 
+  /** `port` moves up by TEST_PORT_OFFSET, so two checkouts' suites can run at once. */
   constructor(
-    readonly port: number,
+    port: number,
     private args: string[],
   ) {
-    this.url = `ws://localhost:${port}`;
+    this.port = port + (Number(process.env.TEST_PORT_OFFSET) || 0);
+    this.url = `ws://localhost:${this.port}`;
   }
 
   async start(): Promise<void> {
