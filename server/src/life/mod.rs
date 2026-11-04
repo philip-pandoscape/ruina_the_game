@@ -76,7 +76,12 @@ pub enum Command {
     Warp { seconds: f64 },
     /// The developer panel's teleport. Not an island command in the TypeScript (the browser just
     /// moves you there); online only the server can, so the channel handles it before the island.
-    Teleport { x: f64, z: f64 },
+    Teleport {
+        x: f64,
+        z: f64,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        facing: Option<f64>,
+    },
 }
 
 impl Command {

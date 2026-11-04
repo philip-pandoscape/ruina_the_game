@@ -1,8 +1,9 @@
 import { expect, test, type Browser, type Page } from '@playwright/test';
 
-// Emberholm on the game server: signing in, your island kept in Postgres between visits, starting
-// over, and one window per character. These play the real game against the real server, so they
-// need it running with developer sign-in: `npm run up` (Docker). Without it they're skipped.
+// Emberholm on the game server: signing in, the server playing your island and keeping it in
+// Postgres between visits, starting over, one window per character, and sharing a channel. These
+// play the real game against the real server, so they need it running with developer sign-in:
+// `npm run up` (Docker). Without it they're skipped.
 
 const SERVER = process.env.RUINA_SERVER ?? 'http://localhost:7777';
 const PASSWORD = 'lantern-light-42';
@@ -24,16 +25,18 @@ const fresh = (prefix: string) => `${prefix}${Date.now().toString(36)}${Math.flo
 /** Runs `fn` in the page with the game's test API (window.__game). `fn` can't use anything from here. */
 const game = <T>(page: Page, fn: (g: any) => T) => page.evaluate(`(${fn.toString()})(window.__game)`) as Promise<T>;
 
-/** Waits until the island has loaded and the server connection is up. */
+/** Waits until the server connection is up and the server has started sending the island. */
 async function waitOnline(page: Page): Promise<void> {
-  await page.waitForFunction(() => (window as any).__game?.ready === true && (window as any).__game.online()?.status === 'online', null, { timeout: 60_000 });
+  await page.waitForFunction(() => {
+    const o = (window as any).__game?.online?.();
+    return (window as any).__game?.ready === true && o?.status === 'online' && o.ticks > 3;
+  }, null, { timeout: 60_000 });
 }
 
-/** Saves now and waits for the server to confirm it. */
+/** Waits until the server has written the island to the database again (it does every 5 s). */
 async function saveAndWait(page: Page): Promise<void> {
   const before = await game(page, (g) => g.online().lastSaved);
-  await game(page, (g) => g.saveNow());
-  await expect.poll(() => game(page, (g) => g.online().lastSaved), { timeout: 10_000 }).toBeGreaterThan(before);
+  await expect.poll(() => game(page, (g) => g.online().lastSaved), { timeout: 20_000 }).toBeGreaterThan(before);
 }
 
 test('a new player makes an account, and their island is kept on the server between visits', async ({ page }) => {
@@ -48,11 +51,15 @@ test('a new player makes an account, and their island is kept on the server betw
   expect(await game(page, (g) => g.online().account)).toBe(name);
   await expect(page.locator('#ruina-badge')).toContainText(name);
 
-  // Earn something and walk somewhere, then come back later.
+  // Earn something and go somewhere (both decided by the server), then come back later.
   const start = await game(page, (g) => g.life().coins);
   await game(page, (g) => g.lifeCommand({ t: 'grant', coins: 4321 }));
   await expect.poll(() => game(page, (g) => g.life().coins)).toBe(start + 4321);
   await game(page, (g) => g.teleport(142, -200));
+  await expect.poll(async () => {
+    const p = await game(page, (g) => g.state().player.pos);
+    return Math.hypot(p.x - 142, p.z + 200);
+  }).toBeLessThan(2);
   await saveAndWait(page);
 
   await page.reload();
@@ -60,6 +67,44 @@ test('a new player makes an account, and their island is kept on the server betw
   expect(await game(page, (g) => g.life().coins)).toBe(start + 4321);
   const p = await game(page, (g) => g.state().player.pos);
   expect(Math.hypot(p.x - 142, p.z + 200)).toBeLessThan(2);
+});
+
+test('the server decides where you are: a browser that moves itself is put back', async ({ page }) => {
+  await page.goto(`/?as=${fresh('stray')}&bugs=0`);
+  await waitOnline(page);
+  const before = await game(page, (g) => g.state().player.pos);
+  // Jump the browser's own copy across the island, as a modified browser might.
+  await game(page, (g) => {
+    const p = g.state().player.pos;
+    g.reset({ x: p.x + 60, z: p.z + 60 });
+  });
+  await expect
+    .poll(async () => {
+      const p = await game(page, (g) => g.state().player.pos);
+      return Math.hypot(p.x - before.x, p.z - before.z);
+    }, { timeout: 10_000 })
+    .toBeLessThan(2);
+});
+
+test('walking, sprinting and jumping online, the browser predicts what the server decides', async ({ page }) => {
+  await page.goto(`/?as=${fresh('walk')}&bugs=0`);
+  await waitOnline(page);
+  await game(page, (g) =>
+    g.scriptInput([
+      [90, { moveZ: 1 }],
+      [60, { moveX: 1, sprintHeld: true }],
+      [1, { moveX: 1, jumpPressed: true, jumpHeld: true }],
+      [40, { moveX: 1, jumpHeld: true }],
+      [1, { moveX: 1, jumpPressed: true, jumpHeld: true }],
+      [50, { moveX: 1 }],
+      [60, {}],
+    ]),
+  );
+  await expect.poll(() => game(page, (g) => g.net().scriptLeft), { timeout: 30_000 }).toBe(0);
+  // Every input answered, and the answers matched the prediction.
+  await expect.poll(() => game(page, (g) => g.online().seq - g.online().ack), { timeout: 10_000 }).toBeLessThan(12);
+  const o = await game(page, (g) => g.online());
+  expect(o.maxCorrection, `${o.corrections} corrections`).toBeLessThan(0.05);
 });
 
 test('a wrong password is refused, and the right one signs in', async ({ page, request }) => {

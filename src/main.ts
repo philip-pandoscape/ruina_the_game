@@ -213,7 +213,7 @@ function teleport(x: number, z: number, facing = sim.player.facing): void {
   if (!terrain) return;
   // Online only the server can move you.
   if (online) {
-    online.link.command((prediction?.seq ?? 0) + 1, { t: 'teleport', x, z } as unknown as Parameters<Life['command']>[0]);
+    online.link.command((prediction?.seq ?? 0) + 1, { t: 'teleport', x, z, facing } as unknown as Parameters<Life['command']>[0]);
     return;
   }
   if (life && sim.player.mode === 'ride') dismount(life, sim);
@@ -1389,6 +1389,7 @@ const api = {
           claims: online.link.claims,
           status: online.link.status,
           ticks: online.link.ticks,
+          lastSaved: online.link.lastSaved,
           ack: prediction?.lastAck ?? 0,
           seq: prediction?.seq ?? 0,
           corrections: prediction?.corrections ?? 0,

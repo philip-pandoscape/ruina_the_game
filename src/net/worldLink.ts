@@ -15,8 +15,8 @@ import type { ArrowRecord, EffectEvent, MeteorRecord, NetActor } from './netCrow
 //
 //   server → browser  (text) welcome {character, account, build, now, channel, dev, estates, claims}
 //                     tick {tick, you, peers, actors, arrows, meteors, events, lifeEvents?, life?}
-//                     estate {id, name, estate} | claims {claims} | left {id} | reset | kicked
-//                     | error {text}
+//                     estate {id, name, estate} | claims {claims} | left {id} | saved {at}
+//                     | reset | kicked | error {text}
 //   browser → server  (binary) inputs: 7, count, then per input a u32 sequence number and 9 bytes
 //                     (text) cmd {s, c} | build {build} | reset
 
@@ -111,6 +111,8 @@ export class WorldLink {
   readonly peers = new Map<number, PeerEntry>();
   readonly estates = new Map<number, EstateEntry>();
   claims: Record<string, string> = {};
+  /** The server's clock when it last wrote your island to the database. */
+  lastSaved = 0;
   /** Ticks heard since connecting (tests wait on this). */
   ticks = 0;
   /** The newest tick, for anything that arrives before the game is listening. */
@@ -190,7 +192,7 @@ export class WorldLink {
 
   private receive(data: unknown): void {
     if (typeof data !== 'string') return;
-    let msg: { t?: string; text?: string; id?: number; name?: string; estate?: Estate; claims?: Record<string, string> } & Partial<WorldTick>;
+    let msg: { t?: string; text?: string; id?: number; name?: string; estate?: Estate; claims?: Record<string, string>; at?: number } & Partial<WorldTick>;
     try {
       msg = JSON.parse(data);
     } catch {
@@ -203,7 +205,8 @@ export class WorldLink {
       for (const e of t.peers ?? []) this.peers.set(e.id, e);
       this.onPeers?.(t.peers ?? []);
       this.onTick?.(t);
-    } else if (msg.t === 'reset') for (const done of this.resetDone.splice(0)) done();
+    } else if (msg.t === 'saved') this.lastSaved = msg.at ?? Date.now();
+    else if (msg.t === 'reset') for (const done of this.resetDone.splice(0)) done();
     else if (msg.t === 'kicked') this.setStatus('kicked');
     else if (msg.t === 'error') this.onError?.(msg.text ?? 'The server had a problem.');
     else if (msg.t === 'estate' && msg.estate) {

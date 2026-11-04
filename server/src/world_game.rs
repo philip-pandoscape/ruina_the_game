@@ -40,11 +40,12 @@ const ACTOR_CAP: usize = 48;
 /// How long someone who left is remembered as they were (see ChannelGame::lingering).
 const LINGER: Duration = Duration::from_secs(60);
 
-/// An island to write to Postgres: (character, session, island JSON).
+/// An island to write to Postgres, and whose browser to tell once it's written.
 pub struct Save {
     pub character: i64,
     pub session: i64,
     pub island: Value,
+    pub out: Option<mpsc::Sender<String>>,
 }
 
 /// Someone playing in the channel right now.
@@ -203,7 +204,7 @@ impl ChannelGame {
     }
 
     /// The developer panel's teleport: off whatever you were riding, onto the ground there.
-    fn teleport(&mut self, character: i64, x: f64, z: f64) {
+    fn teleport(&mut self, character: i64, x: f64, z: f64, facing: Option<f64>) {
         let Some((p, life)) = self.players.open_mut(client(character)) else { return };
         let hf = self.open.terrain();
         if !x.is_finite() || !z.is_finite() || !hf.inside(x, z, 0.0) {
@@ -220,6 +221,9 @@ impl ChannelGame {
         p.pos.y = y;
         p.pos.z = z;
         p.vel = Default::default();
+        if let Some(f) = facing.filter(|f| f.is_finite()) {
+            p.facing = f;
+        }
         if p.mode == Mode::Glide || p.mode == Mode::Swim {
             p.mode = Mode::Normal;
         }
@@ -243,8 +247,8 @@ impl ChannelGame {
             return false;
         }
         m.life_due = 3;
-        if let Command::Teleport { x, z } = c {
-            self.teleport(character, x, z);
+        if let Command::Teleport { x, z, facing } = c {
+            self.teleport(character, x, z, facing);
             return true;
         }
         self.players.queue_command(client(character), seq, c);
@@ -393,7 +397,7 @@ impl ChannelGame {
             if let Some((p, Some(life))) = self.players.open_mut(c) {
                 life_events = life.drain_events();
                 if save_due {
-                    saves.push(Save { character: id, session, island: island_of(p, life, &mut self.open, id) });
+                    saves.push(Save { character: id, session, island: island_of(p, life, &mut self.open, id), out: Some(out.clone()) });
                 }
             }
             if save_due {

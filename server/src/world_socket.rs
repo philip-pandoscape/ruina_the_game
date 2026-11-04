@@ -8,8 +8,8 @@
 //!
 //!   server -> browser  (text) welcome {character, account, build, now, channel, dev, estates, claims}
 //!                      tick {tick, you, peers, actors, arrows, meteors, events, lifeEvents?, life?}
-//!                      estate {id, name, estate} | claims {claims} | left {id} | reset | kicked
-//!                      | error {text}
+//!                      estate {id, name, estate} | claims {claims} | left {id} | saved {at}
+//!                      | reset | kicked | error {text}
 //!   browser -> server  (binary) inputs: 7, count, then per input a u32 sequence number and 9 bytes
 //!                      (src/net/netPlayer.ts quantize)
 //!                      (text) cmd {s, c} | build {build} | reset
@@ -90,8 +90,14 @@ pub fn spawn_world(app: App) {
     if let Some(db) = app.db.clone() {
         tokio::spawn(async move {
             while let Some(s) = saves_rx.recv().await {
-                if let Err(e) = write_island(&db, s.character, s.session, s.island).await {
-                    eprintln!("could not save character {}: {e}", s.character);
+                match write_island(&db, s.character, s.session, s.island).await {
+                    Ok(r) if r.rows_affected() == 1 => {
+                        if let Some(out) = s.out {
+                            let _ = out.try_send(json!({ "t": "saved", "at": now_ms() }).to_string());
+                        }
+                    }
+                    Ok(_) => {}
+                    Err(e) => eprintln!("could not save character {}: {e}", s.character),
                 }
             }
         });
