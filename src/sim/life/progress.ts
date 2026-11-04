@@ -61,7 +61,8 @@ export function train(life: Life, b: number, amount = 1): void {
 export function observe(life: Life, e: GameEvent): void {
   const b = trainedBy(e);
   if (b >= 0) train(life, b);
-  if (e.type === 'actorDie') life.notify({ type: 'defeat', kind: e.kind });
+  // A kill, as the server counts them; a lone piece that dissolves on its own isn't one.
+  if (e.type === 'actorDie' && e.killed) life.notify({ type: 'defeat', kind: e.kind });
 }
 
 /** Keeps the sim's levels (which change what your skills do) in step with the island's experience. */

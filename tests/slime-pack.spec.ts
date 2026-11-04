@@ -199,6 +199,9 @@ test('a lone survivor does not reform; it dissolves a while later', async ({ pag
   expect(left[0].group).toBe(0);
   await advance(page, LADDER.alone + 70);
   expect(await all(page, 'slimelet')).toHaveLength(0);
+  // Three finished off, then the last piece dissolving on its own: not a kill, so no quest counts it.
+  const deaths = (await events(page, 'actorDie')) as unknown as Array<{ killed: boolean }>;
+  expect(deaths.map((d) => d.killed)).toEqual([true, true, true, false]);
 });
 
 test('the home slime waits to respawn while its pieces are still about', async ({ page }) => {

@@ -57,7 +57,7 @@ export function damageFrom(sim: Sim, t: Target, amount: number, nx: number, nz: 
     dirZ: nz,
     weapon,
   });
-  if (died) sim.emit({ type: 'actorDie', frame: sim.frame, id: a.id, kind: a.kind, x: a.x, y: a.hitHeight + ground, z: a.z });
+  if (died) sim.emit({ type: 'actorDie', frame: sim.frame, id: a.id, kind: a.kind, x: a.x, y: a.hitHeight + ground, z: a.z, killed: true });
 }
 
 /** A blast: everything standing inside the circle takes it. */

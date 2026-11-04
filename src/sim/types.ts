@@ -144,8 +144,9 @@ export type GameEvent =
   // loosed the arrow. A blast has none.
   | { type: 'hit'; frame: number; index: number; damage: number; x: number; y: number; z: number; dirX: number; dirZ: number; weapon?: number }
   // Anything in the world died. `kind` says what it was, so the effects can differ without the
-  // rules needing an event type per creature.
-  | { type: 'actorDie'; frame: number; id: number; kind: string; x: number; y: number; z: number }
+  // rules needing an event type per creature. `killed`: a blow finished it off (only those count
+  // as defeats), rather than a lone piece dissolving on its own.
+  | { type: 'actorDie'; frame: number; id: number; kind: string; x: number; y: number; z: number; killed: boolean }
   // A pack at work (src/sim/actors/step.ts). A dying one burst into `count` pieces; one called its
   // kin to it; one started gathering them in, or had the cast broken; one was taken in; one grew a
   // size (gathering, or a burst group that reformed).

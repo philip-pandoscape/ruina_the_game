@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import { Life } from '../src/sim/life/life';
 import { complete } from '../src/sim/life/quests';
 import { migrateLifeState, type LifeState } from '../src/sim/life/state';
-import { pointsEarned, skillBudget, train, trainedBy } from '../src/sim/life/progress';
+import { observe, pointsEarned, skillBudget, train, trainedBy } from '../src/sim/life/progress';
 import { EMBERHOLM, type ZoneData } from '../src/sim/zone/world';
 import { generateZone } from '../src/sim/zone/generate';
 import { QUESTS } from '../src/content/quests';
@@ -61,6 +61,17 @@ test('milestones start by themselves and finish themselves, with nobody to hand 
   expect(life.state.quests.active.map((q) => q.id)).not.toContain('slimeHunter');
   expect(skillBudget(life.state)).toBe(before + 1);
   expect(toasts(life)).toContain('✔ Milestone: Slime Hunter - 1 skill point');
+});
+
+test('a creature you finish off is a defeat; one that dissolves on its own is not', () => {
+  const life = fresh();
+  finishLandfall(life);
+  const hunted = () => life.state.quests.active.find((q) => q.id === 'slimeHunter')!.counts[0];
+  const death = (killed: boolean) => ({ type: 'actorDie', frame: 0, id: 7, kind: 'slime', x: 0, y: 0, z: 0, killed }) as const;
+  observe(life, death(false));
+  expect(hunted()).toBe(0);
+  observe(life, death(true));
+  expect(hunted()).toBe(1);
 });
 
 test('skills level up as you use them, say so, and count toward Practised Hand', () => {

@@ -304,7 +304,7 @@ function fuseOut(w: ActorWorld, a: Actor): void {
     if (a.reform === '') {
       a.hp = 0;
       a.deadFrame = 0;
-      w.emit({ type: 'actorDie', frame: w.frame, id: a.id, kind: a.kind, x: a.x, y: w.ground(a.x, a.z) + a.hitHeight, z: a.z });
+      w.emit({ type: 'actorDie', frame: w.frame, id: a.id, kind: a.kind, x: a.x, y: w.ground(a.x, a.z) + a.hitHeight, z: a.z, killed: false });
     }
     return;
   }
