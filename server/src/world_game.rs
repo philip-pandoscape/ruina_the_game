@@ -17,7 +17,7 @@ use tokio::sync::mpsc;
 
 use crate::actors::{Actors, LEAN_DAMPING, LEAN_SPRING};
 use crate::channels::{estate_of, Channel};
-use crate::game::{open_actions_from, Players};
+use crate::game::{open_actions_from, Players, OPEN_INPUT};
 use crate::life::content::clock;
 use crate::life::state::LifeState;
 use crate::life::{farming, housing, trade, vehicles, Command, Life};
@@ -267,8 +267,8 @@ impl ChannelGame {
         !self.members.is_empty()
     }
 
-    /// Inputs from a browser: (sequence number, the 9 bytes the browser packed).
-    pub fn inputs(&mut self, character: i64, list: impl Iterator<Item = (u32, [u8; 9])>) {
+    /// Inputs from a browser: (sequence number, the OPEN_INPUT bytes the browser packed).
+    pub fn inputs(&mut self, character: i64, list: impl Iterator<Item = (u32, [u8; OPEN_INPUT])>) {
         self.players.queue_actions(client(character), list.map(|(seq, raw)| (seq, open_actions_from(raw))));
     }
 

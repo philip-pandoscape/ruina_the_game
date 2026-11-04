@@ -19,6 +19,25 @@ export function input(_sim: Sim, a: Actions) : { dx: number; dz: number; mag: nu
   return { dx: a.moveX / l, dz: a.moveZ / l, mag };
 }
 
+/**
+ * Combat stance: the heading to keep facing while fighting, so the stick strafes, backs off and
+ * dodges in any direction instead of turning you; null to face the way you move. Sprinting always
+ * runs free.
+ */
+export function stance(sim: Sim, a: Actions) : number | null {
+  if (sim.player.sprinting || len(a.faceX, a.faceZ) < 0.5) return null;
+  return Math.atan2(a.faceX, a.faceZ);
+}
+
+/** Share of full speed when moving along (dx, dz) while facing `facing`: all of it straight ahead,
+ * strafeSpeed sideways, backSpeed backing away, blended in between. */
+export function stanceSpeed(facing: number, dx: number, dz: number) : number {
+  const ahead = dx * Math.sin(facing) + dz * Math.cos(facing);
+  return ahead >= 0
+    ? MOVE.strafeSpeed + (1 - MOVE.strafeSpeed) * ahead
+    : MOVE.strafeSpeed + (MOVE.backSpeed - MOVE.strafeSpeed) * -ahead;
+}
+
 export function tryJump(sim: Sim, a: Actions) : boolean {
   const p = sim.player;
   if (p.jumpBuffer <= 0) return false;
@@ -42,11 +61,12 @@ export function tryJump(sim: Sim, a: Actions) : boolean {
     p.flipFrame = 0;
     const { dx, dz, mag } = input(sim, a);
     if (mag > 0) {
-      // Like a platform fighter, the double jump lets you change direction instantly.
+      // Like a platform fighter, the double jump lets you change direction instantly. Fighting,
+      // you keep facing the fight and flip whichever way you jumped.
       const s = JUMP.doubleJumpSteer * MOVE.runSpeed * mag;
       p.vel.x = dx * s;
       p.vel.z = dz * s;
-      p.facing = Math.atan2(dx, dz);
+      if (stance(sim, a) === null) p.facing = Math.atan2(dx, dz);
     }
     sim.emit({ type: 'doubleJump', frame: sim.frame, x: p.pos.x, y: p.pos.y, z: p.pos.z });
     return true;
@@ -78,11 +98,15 @@ export function updateNormal(sim: Sim, a: Actions) : void {
   }
 
   const { dx, dz, mag } = input(sim, a);
-  if (mag > 0) p.facing = turnToward(p.facing, Math.atan2(dx, dz), MOVE.turnSpeed * STEP);
 
   // Crouch wins over sprint if you somehow hold both, and neither applies in the air.
   p.crouching = a.crouchHeld && p.grounded;
   p.sprinting = !p.crouching && a.sprintHeld && p.grounded && mag >= MOVE.runThreshold && !p.pack;
+
+  // Fighting, you keep facing the fight and strafe; otherwise you turn the way you go.
+  const face = stance(sim, a);
+  if (face !== null) p.facing = turnToward(p.facing, face, MOVE.turnSpeed * STEP);
+  else if (mag > 0) p.facing = turnToward(p.facing, Math.atan2(dx, dz), MOVE.turnSpeed * STEP);
 
   if (p.grounded) {
     let speed: number;
@@ -90,6 +114,7 @@ export function updateNormal(sim: Sim, a: Actions) : void {
     else if (mag >= MOVE.runThreshold) speed = p.sprinting ? MOVE.sprintSpeed : MOVE.runSpeed;
     else speed = MOVE.walkSpeed * (mag / MOVE.runThreshold);
     if (p.pack) speed *= CARRY.speedFactor;
+    if (face !== null && mag > 0) speed *= stanceSpeed(p.facing, dx, dz);
     const rate = speed <= 0.01 ? MOVE.groundDecel : p.sprinting ? MOVE.sprintAccel : MOVE.groundAccel;
     accelerateToward(sim, dx * speed, dz * speed, rate);
   } else {

@@ -14,7 +14,7 @@ use crate::open::zone::Heightfield;
 use crate::open::OpenWorld;
 use crate::player::{angle_diff, Actions, Build, Player};
 use crate::protocol::{
-    aim_axis, cm16, input_axis, put_player, put_you, ARROW_ENTRY, EVENT_ARROW_HIT, EVENT_ENTRY, EVENT_EXPLOSION, EVENT_HEAL,
+    aim_axis, cm16, face_axis, input_axis, put_player, put_you, ARROW_ENTRY, EVENT_ARROW_HIT, EVENT_ENTRY, EVENT_EXPLOSION, EVENT_HEAL,
     CAUSE_BOT, CAUSE_HEAL, CAUSE_METEOR, CAUSE_MONSTER, CAUSE_WEAPON, EVENT_YOU_HEAL, EVENT_YOU_HIT, EVENT_YOU_HURT,
     METEOR_ENTRY, PLAYER_ENTRY, YOU_ENTRY, put_actor, ACTOR_ENTRY};
 use crate::sim::{Battle, BotHit, BotTarget};
@@ -42,8 +42,9 @@ const MARKER_HEIGHT: f64 = 1.1; // floating numbers sit about head height above 
 const MAX_OWN_EVENTS: usize = 24; // attributed events per player per tick; the rest are dropped
 const SLAM_LIFT: f64 = 1.0; // a monster's slam only catches someone on the ground, not mid-jump
 
-pub fn actions_from(raw: [u8; 7]) -> Actions {
+pub fn actions_from(raw: [u8; 8]) -> Actions {
     let b = raw[2];
+    let (face_x, face_z) = face_axis(raw[7]);
     Actions {
         move_x: input_axis(raw[0] as i8),
         move_z: input_axis(raw[1] as i8),
@@ -61,17 +62,22 @@ pub fn actions_from(raw: [u8; 7]) -> Actions {
         aim_z: aim_axis(raw[4] as i8),
         stick_x: 0.0,
         stick_y: 0.0,
+        face_x,
+        face_z,
     }
 }
 
-/// Open worlds: the 9 bytes a browser packs per input: the battlefield's 7, plus the raw stick
+/// Open worlds: the 10 bytes a browser packs per input: the battlefield's 8, plus the raw stick
 /// (vehicles steer with it).
-pub fn open_actions_from(raw: [u8; 9]) -> Actions {
-    let mut a = actions_from([raw[0], raw[1], raw[2], raw[3], raw[4], raw[5], raw[6]]);
-    a.stick_x = input_axis(raw[7] as i8);
-    a.stick_y = input_axis(raw[8] as i8);
+pub fn open_actions_from(raw: [u8; OPEN_INPUT]) -> Actions {
+    let mut a = actions_from([raw[0], raw[1], raw[2], raw[3], raw[4], raw[5], raw[6], raw[7]]);
+    a.stick_x = input_axis(raw[8] as i8);
+    a.stick_y = input_axis(raw[9] as i8);
     a
 }
+
+/// Bytes per input in an open world's input message.
+pub const OPEN_INPUT: usize = 10;
 
 struct Slot {
     client_id: u32,
@@ -451,7 +457,7 @@ impl Players {
     }
 
     /// Inputs as (seq, view tick × 16, raw bytes).
-    pub fn queue_inputs(&mut self, client_id: u32, inputs: impl Iterator<Item = (u32, u32, [u8; 7])>) {
+    pub fn queue_inputs(&mut self, client_id: u32, inputs: impl Iterator<Item = (u32, u32, [u8; 8])>) {
         let Some(&s) = self.by_client.get(&client_id) else { return };
         if let Some(slot) = &mut self.slots[s] {
             for (seq, view, raw) in inputs {

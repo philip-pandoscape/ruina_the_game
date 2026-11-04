@@ -266,3 +266,98 @@ test('the slide is built in, not something the tree hands out', async ({ page })
   );
   expect(slid).toBe(true);
 });
+
+// ---------- Combat stance: facing the fight while moving every other way ----------
+// With faceX / faceZ set (the game sets them while an enemy is marked, or just after a swing), the
+// rules keep you facing that way: the stick strafes and backs off, slower than running ahead, and
+// dodges and double jumps go wherever you push without turning you. Sprinting runs free.
+
+const AHEAD = { faceX: 0, faceZ: 1 };
+
+test('fighting, you strafe instead of turning, a little slower than running', async ({ page }) => {
+  await ready(page, ROLLER);
+  const seen = await page.evaluate((face) => {
+    const g = (window as any).__game;
+    g.reset({ facing: 0 });
+    g.advance(40, { ...face, moveX: 1 });
+    const p = g.state().player;
+    return { facing: p.facing, vx: p.vel.x, vz: p.vel.z };
+  }, AHEAD);
+  expect(Math.abs(seen.facing)).toBeLessThan(0.01); // still looking ahead
+  expect(seen.vx).toBeCloseTo(7.5 * 0.85, 3); // sideways, at strafing speed
+  expect(Math.abs(seen.vz)).toBeLessThan(0.01);
+});
+
+test('fighting, you back away slower still, facing the fight', async ({ page }) => {
+  await ready(page, ROLLER);
+  const seen = await page.evaluate((face) => {
+    const g = (window as any).__game;
+    g.reset({ facing: 0 });
+    g.advance(40, { ...face, moveZ: -1 });
+    const p = g.state().player;
+    return { facing: p.facing, vz: p.vel.z };
+  }, AHEAD);
+  expect(Math.abs(seen.facing)).toBeLessThan(0.01);
+  expect(seen.vz).toBeCloseTo(-7.5 * 0.65, 3);
+});
+
+test('out of a fight you turn and run the way you push, as before', async ({ page }) => {
+  await ready(page, ROLLER);
+  const seen = await page.evaluate(() => {
+    const g = (window as any).__game;
+    g.reset({ facing: 0 });
+    g.advance(40, { moveX: 1 });
+    const p = g.state().player;
+    return { facing: p.facing, vx: p.vel.x };
+  });
+  expect(seen.facing).toBeCloseTo(Math.PI / 2, 2);
+  expect(seen.vx).toBeCloseTo(7.5, 3);
+});
+
+test('sprinting breaks the stance: you turn and run', async ({ page }) => {
+  await ready(page, ROLLER);
+  const seen = await page.evaluate((face) => {
+    const g = (window as any).__game;
+    g.reset({ facing: 0 });
+    g.advance(40, { ...face, moveX: 1, sprintHeld: true });
+    const p = g.state().player;
+    return { facing: p.facing, vx: p.vel.x, sprinting: p.sprinting };
+  }, AHEAD);
+  expect(seen.sprinting).toBe(true);
+  expect(seen.facing).toBeCloseTo(Math.PI / 2, 2);
+  expect(seen.vx).toBeGreaterThan(9);
+});
+
+test('fighting, a dodge goes the way you push without turning you', async ({ page }) => {
+  await ready(page, ROLLER);
+  const seen = await page.evaluate((face) => {
+    const g = (window as any).__game;
+    g.reset({ facing: 0 });
+    const from = { ...g.state().player.pos };
+    g.advance(1, { ...face, movementSlot: 1, moveX: -1 });
+    const started = g.state().player;
+    for (let i = 0; i < 14; i++) g.advance(1, { ...face });
+    const after = g.state().player;
+    return { facing: started.facing, dirX: started.actionDirX, dx: after.pos.x - from.x, dz: after.pos.z - from.z };
+  }, AHEAD);
+  expect(Math.abs(seen.facing)).toBeLessThan(0.01); // still facing ahead
+  expect(seen.dirX).toBeCloseTo(-1, 5); // rolling off to the right (-X)
+  expect(seen.dx).toBeLessThan(-1.5);
+  expect(Math.abs(seen.dz)).toBeLessThan(0.3);
+});
+
+test('fighting, a double jump flies the way you push and keeps you facing the fight', async ({ page }) => {
+  await ready(page, ROLLER);
+  const seen = await page.evaluate((face) => {
+    const g = (window as any).__game;
+    g.reset({ facing: 0 });
+    g.advance(1, { ...face, jumpPressed: true, jumpHeld: true });
+    g.advance(12, { ...face, jumpHeld: true });
+    g.advance(1, { ...face, moveX: 1, jumpPressed: true, jumpHeld: true });
+    const p = g.state().player;
+    return { facing: p.facing, vx: p.vel.x, flipping: p.flipFrame >= 0 };
+  }, AHEAD);
+  expect(seen.flipping).toBe(true);
+  expect(Math.abs(seen.facing)).toBeLessThan(0.01);
+  expect(seen.vx).toBeGreaterThan(5);
+});

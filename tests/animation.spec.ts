@@ -1,0 +1,301 @@
+import { expect, test, type Page } from '@playwright/test';
+
+// The hero's animations, measured rather than eyeballed. The gallery (animations.html) plays each
+// of the films in src/render/detail/scenarios.ts through the real close-up hero - poses, easing
+// between states, feet held where they're planted - and reports where everything went. No GPU
+// needed: it's all positions and angles.
+
+async function open(page: Page): Promise<string[]> {
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(String(e)));
+  page.on('console', (m) => {
+    if (m.type() === 'error') errors.push(m.text());
+  });
+  await page.goto('/animations.html?anim=idle');
+  await page.waitForFunction(() => (window as any).__anims?.ready === true);
+  return errors;
+}
+
+const ids = (page: Page, group?: string) =>
+  page.evaluate(
+    (g) => ((window as any).__anims.list() as Array<{ id: string; group: string }>).filter((s) => !g || s.group === g).map((s) => s.id),
+    group,
+  );
+
+test('every film plays through with every joint somewhere real', async ({ page }) => {
+  const errors = await open(page);
+  const bad = await page.evaluate(() => {
+    const a = (window as any).__anims;
+    const joints = ['head', 'handL', 'handR', 'footL', 'footR', 'kneeL', 'elbowR', 'capeTail'];
+    const out: string[] = [];
+    for (const s of a.list()) {
+      for (const row of a.track(s.id, joints)) {
+        for (const n of joints) if (!row.joints[n].every(Number.isFinite)) out.push(`${s.id} frame ${row.frame}: ${n}`);
+      }
+    }
+    return out;
+  });
+  expect(bad).toEqual([]);
+  expect(errors).toEqual([]);
+});
+
+// The point of the gait: a foot on the ground stays where it is on the ground. A heel or the ball of
+// a foot that touches down is followed until it lifts, and must not have moved over the floor.
+const PLANTED = ['walk', 'jog', 'run', 'sprint', 'sneak', 'carry', 'strafeL', 'strafeR', 'backpedal', 'backL', 'aheadL', 'strafeWalk', 'eight', 'startStop', 'turnOnSpot'];
+
+test('planted feet stay put: walking, running, strafing, backing off, starting, stopping and turning', async ({ page }) => {
+  await open(page);
+  const worst = await page.evaluate((list) => {
+    const a = (window as any).__anims;
+    const points = ['footL@0,-0.08,-0.085', 'footL@0,-0.08,0.17', 'footR@0,-0.08,-0.085', 'footR@0,-0.08,0.17'];
+    const out: Record<string, number> = {};
+    for (const id of list) {
+      const rows = a.track(id, points);
+      let w = 0;
+      for (const n of points) {
+        let start = -1;
+        for (let f = 30; f <= rows.length; f++) {
+          const r = rows[f];
+          const down = r && r.standing && r.joints[n][1] < 0.004;
+          if (down && start < 0) start = f;
+          if ((!down || f === rows.length) && start >= 0) {
+            // Over the floor: turned by the way the hero faces, and carried as far as it has gone.
+            const at = (k: number) => {
+              const [x, , z] = rows[k].joints[n];
+              const c = Math.cos(rows[k].facing);
+              const s = Math.sin(rows[k].facing);
+              return [x * c + z * s + rows[k].travelled[0], -x * s + z * c + rows[k].travelled[1]];
+            };
+            const p0 = at(start);
+            for (let k = start + 1; k < f; k++) {
+              const p = at(k);
+              w = Math.max(w, Math.hypot(p[0] - p0[0], p[1] - p0[1]));
+            }
+            start = -1;
+          }
+        }
+      }
+      out[id] = w;
+    }
+    return out;
+  }, PLANTED);
+  for (const id of PLANTED) {
+    // Moving steadily, a centimetre or so; changing direction, stopping and starting, turning, a few.
+    const allowed = ['strafeWalk', 'startStop', 'eight', 'turnOnSpot'].includes(id) ? 0.06 : 0.015;
+    expect(worst[id], `${id}: a planted foot slid ${worst[id].toFixed(3)} m`).toBeLessThan(allowed);
+  }
+});
+
+test('nothing goes through the floor, and weapons only bite into it when they strike', async ({ page }) => {
+  await open(page);
+  const list = (await page.evaluate(() => (window as any).__anims.list())) as Array<{ id: string; group: string }>;
+  const onFoot = list.filter((s) => s.group !== 'Travel').map((s) => s.id);
+  const low = await page.evaluate((l) => Object.fromEntries(l.map((id: string) => [id, (window as any).__anims.lowest(id)])), onFoot);
+  for (const id of onFoot) {
+    expect(low[id].body.low, `${id}: the body went ${low[id].body.low} m into the floor on frame ${low[id].body.frame}`).toBeGreaterThan(-0.03);
+    expect(low[id].weapon.low, `${id}: the weapon went ${low[id].weapon.low} m into the floor`).toBeGreaterThan(-0.2);
+  }
+  // Held, not swung, a weapon stays clear of the ground.
+  for (const id of ['idle', 'run', 'sprint', 'sneak', 'walk', 'strafeL', 'backpedal', 'block', 'carry']) {
+    expect(low[id].weapon.low, `${id} drags its weapon`).toBeGreaterThan(0);
+  }
+});
+
+test('knees and elbows only fold the way they can', async ({ page }) => {
+  await open(page);
+  const list = await ids(page);
+  const hinges = await page.evaluate((l) => Object.fromEntries(l.map((id: string) => [id, (window as any).__anims.hinges(id)])), list);
+  for (const id of list) {
+    // Knees fold the shin back (+), elbows the forearm forward (-); never the other way.
+    expect(hinges[id].knee[0], `${id}: a knee bent backwards`).toBeGreaterThan(-0.02);
+    expect(hinges[id].elbow[1], `${id}: an elbow bent backwards`).toBeLessThan(0.02);
+  }
+  // And they do fold: running, the knees come right up behind; swinging, the elbows work.
+  expect(hinges.run.knee[1]).toBeGreaterThan(1.8);
+  expect(hinges.sword.elbow[0]).toBeLessThan(-1.2);
+});
+
+test('a weapon trail is drawn exactly where the blade went', async ({ page }) => {
+  await open(page);
+  const gaps = await page.evaluate(() => {
+    const a = (window as any).__anims;
+    return Object.fromEntries(['sword', 'whirlwind', 'club', 'staff'].map((id) => [id, a.trailGap(id)]));
+  });
+  for (const [id, g] of Object.entries(gaps) as Array<[string, { worst: number; shown: number }]>) {
+    expect(g.shown, `${id} shows a trail`).toBeGreaterThan(3);
+    expect(g.worst, `${id}: the trail's edge is ${g.worst} m off the blade`).toBeLessThan(0.01);
+  }
+});
+
+test('the bowstring comes back to the cheek with the drawing hand, and snaps straight on the shot', async ({ page }) => {
+  await open(page);
+  const at = await page.evaluate(() => {
+    const a = (window as any).__anims;
+    return { drawn: a.nockGap('bow', 39), loosed: a.nockGap('bow', 41) };
+  });
+  expect(at.drawn.gap).toBeLessThan(0.02); // the nock is in the hand
+  expect(at.drawn.drawn).toBeGreaterThan(0.55); // a long way back from the grip
+  expect(at.loosed.draw).toBe(0);
+  expect(at.loosed.drawn).toBeCloseTo(at.loosed.rest, 3); // straight again
+});
+
+test('gliding, both hands hold the control bar wherever the wing tilts it', async ({ page }) => {
+  await open(page);
+  const gap = await page.evaluate(() => (window as any).__anims.glideGap());
+  expect(gap).toBeLessThan(0.1);
+});
+
+test('strafing, the legs run the way you go while the shoulders keep facing ahead', async ({ page }) => {
+  await open(page);
+  const seen = await page.evaluate(() => {
+    const a = (window as any).__anims;
+    const turn = (id: string, l: string, r: string) => {
+      const rows = a.track(id, [l, r]).slice(60);
+      const yaws = rows.map((row: any) => {
+        const [lx, , lz] = row.joints[l];
+        const [rx, , rz] = row.joints[r];
+        // Facing is perpendicular to the line from the right joint to the left.
+        return Math.atan2(-(lz - rz), lx - rx);
+      });
+      return yaws.reduce((s: number, y: number) => s + y, 0) / yaws.length;
+    };
+    return {
+      leftShoulders: turn('strafeL', 'shoulderL', 'shoulderR'),
+      leftHips: turn('strafeL', 'legL', 'legR'),
+      rightHips: turn('strafeR', 'legL', 'legR'),
+      backHips: turn('backpedal', 'legL', 'legR'),
+    };
+  });
+  expect(Math.abs(seen.leftShoulders)).toBeLessThan(0.25); // looking ahead
+  expect(seen.leftHips).toBeGreaterThan(0.5); // hips turned toward the left
+  expect(seen.rightHips).toBeLessThan(-0.5); // and the right
+  expect(Math.abs(seen.backHips)).toBeLessThan(0.25); // backing straight off, square on
+});
+
+test('dodges roll, and double jumps flip, whichever way they go', async ({ page }) => {
+  await open(page);
+  const tips = await page.evaluate(() => {
+    const a = (window as any).__anims;
+    // A quarter of the way round, the body lies flat, and its own up points the way it's tumbling.
+    // (Not the head against the hips: curled into a ball, the head is ahead of the hips whichever
+    // way the ball rolls.)
+    const tumbles = (id: string, field: 'action' | 'flip') => {
+      const out: number[] = [];
+      let on = false;
+      let found = false;
+      for (const row of a.track(id, ['body', 'body@0,1,0'])) {
+        if (row[field] < 0) {
+          on = false;
+          continue;
+        }
+        if (!on) [on, found] = [true, false];
+        const [bx, by, bz] = row.joints.body;
+        const [ux, uy, uz] = row.joints['body@0,1,0'];
+        if (!found && uy - by < 0.05) {
+          found = true;
+          out.push(Math.atan2(ux - bx, uz - bz));
+        }
+      }
+      return out;
+    };
+    return { rolls: tumbles('dodge8', 'action'), flips: tumbles('flip8', 'flip') };
+  });
+  const near = (a: number, b: number) => Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b)));
+  // The tuck leans the ball forward a little, so a sideways tumble reads a few degrees ahead of square.
+  const EIGHT = [0, 45, 90, 135, 180, -135, -90, -45].map((d) => (d * Math.PI) / 180);
+  expect(tips.rolls).toHaveLength(8);
+  tips.rolls.forEach((yaw: number, i: number) => expect(near(yaw, EIGHT[i]), `dodge ${i}`).toBeLessThan(0.35));
+  const FOUR = [0, 90, 180, -90].map((d) => (d * Math.PI) / 180);
+  expect(tips.flips).toHaveLength(4);
+  tips.flips.forEach((yaw: number, i: number) => expect(near(yaw, FOUR[i]), `flip ${i}`).toBeLessThan(0.35));
+});
+
+test('turning on the spot, the feet step round one at a time instead of swivelling', async ({ page }) => {
+  await open(page);
+  const seen = await page.evaluate(() => {
+    const a = (window as any).__anims;
+    const pts: Record<string, string[]> = { L: ['footL@0,-0.08,-0.085', 'footL@0,-0.08,0.17'], R: ['footR@0,-0.08,-0.085', 'footR@0,-0.08,0.17'] };
+    const rows = a.track('turnOnSpot', ['footL', 'footL@0,0,1', 'footR', 'footR@0,0,1', ...pts.L, ...pts.R]);
+    // The film turns the hero over the floor, so its joints are turned back into the floor's frame.
+    const world = (r: any, n: string) => {
+      const [x, y, z] = r.joints[n];
+      const c = Math.cos(r.facing);
+      const s = Math.sin(r.facing);
+      return [x * c + z * s + r.travelled[0], y, -x * s + z * c + r.travelled[1]];
+    };
+    const yaw = (r: any, s: string) => {
+      const p = world(r, `foot${s}`);
+      const q = world(r, `foot${s}@0,0,1`);
+      return Math.atan2(q[0] - p[0], q[2] - p[2]);
+    };
+    const low = (r: any, s: string) => Math.min(...pts[s].map((n) => world(r, n)[1]));
+    let swivel = 0;
+    let both = 0;
+    const steps: Record<string, number> = { L: 0, R: 0 };
+    for (const s of ['L', 'R']) {
+      let start = -1;
+      let up = false;
+      for (let f = 0; f <= rows.length; f++) {
+        const r = rows[f];
+        const down = !!r && low(r, s) < 0.004;
+        if (r && low(r, s) > 0.04 && !up) [steps[s], up] = [steps[s] + 1, true];
+        if (down) up = false;
+        if (down && start < 0) start = f;
+        if ((!down || f === rows.length) && start >= 0) {
+          for (let k = start + 1; k < f; k++) {
+            const d = yaw(rows[k], s) - yaw(rows[start], s);
+            swivel = Math.max(swivel, Math.abs(Math.atan2(Math.sin(d), Math.cos(d))));
+          }
+          start = -1;
+        }
+      }
+    }
+    for (const r of rows) if (low(r, 'L') > 0.04 && low(r, 'R') > 0.04) both++;
+    return { swivel, both, steps };
+  });
+  // A foot on the ground keeps pointing where it was put down (a few degrees as it rolls)...
+  expect(seen.swivel).toBeLessThan(0.15);
+  // ...and the turn is taken in steps, never both feet off the ground at once.
+  expect(seen.both).toBe(0);
+  expect(seen.steps.L).toBeGreaterThanOrEqual(3);
+  expect(seen.steps.R).toBeGreaterThanOrEqual(3);
+});
+
+test('a hit throws the body the way the blow shoves it', async ({ page }) => {
+  await open(page);
+  const thrown = await page.evaluate(() => {
+    const a = (window as any).__anims;
+    const rows = a.track('hit4', ['head', 'hips']);
+    const rel = (r: any) => [r.joints.head[0] - r.joints.hips[0], r.joints.head[2] - r.joints.hips[2]];
+    // Three frames after each blow lands, against how the body stood just before it.
+    const out: Array<{ yaw: number; far: number }> = [];
+    for (let i = 1; i + 3 < rows.length; i++) {
+      if (rows[i].stun !== 0 || rows[i - 1].stun >= 0) continue;
+      const [bx, bz] = rel(rows[i - 1]);
+      const [px, pz] = rel(rows[i + 3]);
+      out.push({ yaw: Math.atan2(px - bx, pz - bz), far: Math.hypot(px - bx, pz - bz) });
+    }
+    return out;
+  });
+  // The film is hit from the front, from behind, from the right and from the left: shoved back,
+  // forward, to the left and to the right.
+  const SHOVED = [180, 0, 90, -90].map((d) => (d * Math.PI) / 180);
+  const near = (a: number, b: number) => Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b)));
+  expect(thrown).toHaveLength(4);
+  thrown.forEach((t, i) => {
+    expect(near(t.yaw, SHOVED[i]), `hit ${i} threw the head the wrong way`).toBeLessThan(0.45);
+    expect(t.far, `hit ${i} hardly moved the body`).toBeGreaterThan(0.12);
+  });
+});
+
+test('easing between states never snaps the body', async ({ page }) => {
+  await open(page);
+  const jumps = await page.evaluate(() => {
+    const a = (window as any).__anims;
+    return Object.fromEntries(['startStop', 'carry', 'crouch', 'eight', 'strafeWalk', 'heal', 'meteor', 'bow', 'block'].map((id) => [id, a.jumps(id, ['head', 'body'])]));
+  });
+  for (const [id, j] of Object.entries(jumps) as Array<[string, { worst: number; frame: number }]>) {
+    expect(j.worst, `${id}: the body jumped ${j.worst} m on frame ${j.frame}`).toBeLessThan(0.14);
+  }
+});
+

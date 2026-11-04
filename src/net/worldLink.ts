@@ -17,7 +17,7 @@ import type { ArrowRecord, EffectEvent, MeteorRecord, NetActor } from './netCrow
 //                     tick {tick, you, peers, actors, arrows, meteors, events, lifeEvents?, life?}
 //                     estate {id, name, estate} | claims {claims} | left {id} | saved {at}
 //                     | reset | kicked | error {text}
-//   browser → server  (binary) inputs: 7, count, then per input a u32 sequence number and 9 bytes
+//   browser → server  (binary) inputs: 7, count, then per input a u32 sequence number and 10 bytes
 //                     (text) cmd {s, c} | build {build} | reset
 
 export interface Welcome {
@@ -93,9 +93,11 @@ export type LinkStatus = 'online' | 'reconnecting' | 'kicked' | 'signed-out';
 
 const RETRY_MS = [500, 1000, 2000, 4000, 8000];
 /** What this page speaks; the server says what it speaks in its welcome (server/src/world_socket.rs). */
-const WORLD_PROTOCOL = 2;
+const WORLD_PROTOCOL = 3;
 const RELOADED = 'ruina.reloaded-for-server';
 const SEND_INPUTS = 7;
+/** Bytes per input: the battlefield's 8 (src/net/netPlayer.ts quantize) and the raw stick. */
+const OPEN_INPUT = 10;
 
 export class WorldLink {
   status: LinkStatus = 'online';
@@ -147,14 +149,14 @@ export class WorldLink {
     return this.status === 'online' && this.ws.readyState === WebSocket.OPEN;
   }
 
-  /** One frame of what you pressed: its sequence number and the 9 bytes netPlayer.ts packs. */
+  /** One frame of what you pressed: its sequence number and the 10 bytes netPlayer.ts packs. */
   sendInput(seq: number, raw: readonly number[]): boolean {
     if (!this.open) return false;
-    const msg = new DataView(new ArrayBuffer(2 + 13));
+    const msg = new DataView(new ArrayBuffer(2 + 4 + OPEN_INPUT));
     msg.setUint8(0, SEND_INPUTS);
     msg.setUint8(1, 1);
     msg.setUint32(2, seq, true);
-    for (let k = 0; k < 9; k++) msg.setUint8(6 + k, (raw[k] ?? 0) & 255);
+    for (let k = 0; k < OPEN_INPUT; k++) msg.setUint8(6 + k, (raw[k] ?? 0) & 255);
     this.ws.send(msg.buffer);
     return true;
   }

@@ -717,9 +717,41 @@
         "src/render/vfx.ts",
         "src/species/builtin/slime.ts"
       ]
+    },
+    {
+      "system": "combat",
+      "status": "done",
+      "title": "A jointed hero, animated from scratch",
+      "notes": "Knees, ankles, elbows, a neck, blinking eyes and a two-piece cape (23 joints). Every animation redone with two-bone IK: a gait whose planted feet stay put at any speed or heading (walk, jog, run, sprint, creep, carry, strafe, back off), heel-to-toe roll, leaning into turns; sword, club and staff swings as keyframes with a wind-up, the body leading the arm, footwork that steps with the lunge and two-handed grips; a bow drawn to the cheek with the string following the hand; casts, guard, slide, rolls and flips in eight directions, hits that throw the body the way the blow shoves it, knock-downs; hands on the glider bar, the reins, the wheel and the oars, with the weapon put away at the hip or across the back; the cape takes the wind from the way you go. Weapon trails are traced from the blade. The close-up hero eases between states, holds planted feet where they are and the way they point through turns and stops, stepping round one foot at a time when they get too far out, and draws frame counters between sim steps. The crowd bakes its clips from the same poses.",
+      "files": [
+        "src/content/creatures/hero.ts",
+        "src/render/detail/humanoid.ts",
+        "src/render/detail/body.ts",
+        "src/render/detail/gait.ts",
+        "src/render/detail/swings.ts",
+        "src/render/detail/blend.ts",
+        "src/render/character.ts",
+        "src/render/detail/animations.ts",
+        "tests/animation.spec.ts"
+      ]
+    },
+    {
+      "system": "combat",
+      "status": "done",
+      "title": "Combat stance: strafing, backing off, dodging any way",
+      "notes": "With an enemy marked, or for 1.5 s after a swing or cast, you keep facing where the camera looks: the stick strafes (85% speed) and backs off (65%), and dodges and double jumps go wherever you push without turning you; attacks and unaimed casts go off ahead. Sprinting turns and runs. A facing intent in the input (one byte on the wire: battlefield inputs are 16 bytes, open-world ones 10) and the same rule in TypeScript and Rust, checked frame by frame.",
+      "files": [
+        "src/main.ts",
+        "src/sim/player/locomotion.ts",
+        "server/src/player.rs",
+        "server/src/protocol.rs",
+        "tests/movement.spec.ts",
+        "tests/conformance.spec.ts"
+      ]
     }
   ],
   "next": [
+    "Animation, next: drawing and sheathing the weapon (it moves between the hand and the back in one frame today); give the townsfolk (src/render/models/villagers.ts) the hero's gait.",
     "Shared world, next: trading-post demand, weather and gathering nodes shared by a channel (today each island has its own); choosing a channel (to join a friend in another one); others' parked vehicles while they're away.",
     "World server, next: islands in proper tables rather than one document each, if querying them (trading-post history, guild storage) needs it; bandwidth: send other players less often when they are far away."
   ],
@@ -858,6 +890,19 @@
         "server/src/world_game.rs: a game per channel, 20 ticks a second: players from their inputs (no faster than real time), commands on the input they were given with, the slimes and the dummy, combat on hills, islands saved from the server's own copy.",
         "The browser predicts its own player, vehicles and the clock with the TypeScript (src/net/netPlayer.ts, Life in remote mode) and corrects to each tick; the island it shows is the server's. Commands go to the server and their results come back a round trip later.",
         "The developer panel (give, skip time, teleport) goes through the server too, which only accepts it where it allows the panel."
+      ]
+    },
+    {
+      "date": "2026-11-04",
+      "title": "Moving well",
+      "summary": "The hero has elbows, knees and ankles, and every animation was rebuilt on them; fighting, you now strafe, back off, and dodge and flip in any direction.",
+      "points": [
+        "src/content/creatures/hero.ts: the rig is two-bone limbs (thigh, boot, foot; sleeve, bracer, hand), a neck, eyes that blink and a cape in two halves. The bow string is two halves meeting at the nock.",
+        "src/render/detail/: body.ts (analytic two-bone IK, feet and hands to points in the body's space), gait.ts (stride length and ground time by speed, a heel-to-toe rocker, a backpedal gait played backwards), swings.ts (keyframed swings with footwork), humanoid.ts (every pose, still a pure function of PoseInput so the crowd bakes from it).",
+        "src/render/character.ts: a stride clock that shortens strides as you slow, inertial blending between states, feet held where they are planted through turns, stops and starts (with a settling step), trails traced from the blade, the bowstring and arrow following the drawing hand, sub-frame timing on fast screens.",
+        "Combat stance in the rules (TS and Rust): faceX / faceZ in the input; the input packets grew a byte (battlefield 16 bytes an input, open world 10) and WORLD_PROTOCOL went to 3.",
+        "/animations.html plays every animation with the game's timing (slow motion, any camera, a floor to judge feet by); tests/animation.spec.ts measures planted feet (a centimetre at most moving steadily), floor clearance, joint limits, trails on the blade, the bowstring and the glider grips.",
+        "Round two: hits throw the body the way the blow shoves you (the close-up hero keeps the knock's direction while the slide dies away); turning on the spot, planted feet keep pointing the way they were put down and step round one at a time; travelling, the weapon goes to the hip or across the back; the cape takes the wind from the way you go. /animations.html gained films that turn the hero (facing) and hits from four sides."
       ]
     }
   ]

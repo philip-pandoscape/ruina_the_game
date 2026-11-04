@@ -352,6 +352,8 @@ export class Input {
       crouchHeld,
       aimX: 0, // aim assist (main.ts) fills these in when you attack or cast
       aimZ: 0,
+      faceX: 0, // and these in combat, to strafe rather than turn
+      faceZ: 0,
       stickX: sx,
       stickY: sy,
     };

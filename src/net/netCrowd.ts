@@ -3,8 +3,8 @@ import { ON_FOOT, type Mode, type PlayerState } from '../sim/types';
 import { resolveSkills, SKILL_WORDS } from '../skills';
 import { HOTBAR_SLOTS, MOVEMENT_SKILL_CAP, MOVEMENT_SLOTS, NO_ABILITY, NO_MOVEMENT, variantBits } from '../tuning';
 
-// The raw per-input bytes: move_x, move_z, buttons, aim_x, aim_z, hotbar slot.
-export type RawInput = [number, number, number, number, number, number, number];
+// The raw per-input bytes: move_x, move_z, buttons, aim_x, aim_z, slot, movement held, face.
+export type RawInput = [number, number, number, number, number, number, number, number];
 
 // Receives the battle from the Rust server (server/src/protocol.rs describes the bytes) and
 // smoothly moves each fighter between updates. Nearby fighters arrive 20 times a second,

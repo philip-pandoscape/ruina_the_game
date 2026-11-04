@@ -70,6 +70,9 @@ function writer(spawn: Script['spawn'], opts: { glider?: string; pack?: number }
 /** Someone playing: a direction held for a while, then another, with presses mixed in. */
 function wander(hold: (n: number, a: Partial<Actions>) => void, seed: number, frames: number): void {
   const rng = makeRng(seed);
+  // Facing a fight now and then (strafing, backing off), from its own stream so the rest of the
+  // wandering stays as it was.
+  const fight = makeRng(seed + 7919);
   for (let n = 0; n < frames; ) {
     const len = 10 + Math.floor(rng() * 50);
     const ang = rng() * Math.PI * 2;
@@ -77,6 +80,8 @@ function wander(hold: (n: number, a: Partial<Actions>) => void, seed: number, fr
     const sprint = rng() < 0.35;
     const crouch = rng() < 0.1;
     const held = rng() < 0.7;
+    const facing = fight() < 0.4;
+    const faceYaw = fight() * Math.PI * 2;
     for (let i = 0; i < len && n < frames; i++, n++) {
       hold(1, {
         moveX: Math.sin(ang) * mag,
@@ -87,6 +92,8 @@ function wander(hold: (n: number, a: Partial<Actions>) => void, seed: number, fr
         slidePressed: rng() < 0.01,
         sprintHeld: sprint,
         crouchHeld: crouch,
+        faceX: facing ? Math.sin(faceYaw) : 0,
+        faceZ: facing ? Math.cos(faceYaw) : 0,
       });
     }
   }

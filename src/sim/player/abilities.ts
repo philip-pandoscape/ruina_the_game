@@ -5,7 +5,7 @@ import type { Sim } from '../sim';
 import { ABILITIES, HOTBAR_SLOTS, MOVE, MOVEMENT_SKILLS, MOVEMENT_SLOTS, NO_ABILITY, NO_MOVEMENT, SPECIAL, STEP, abilityCooldown, castFramesFor, movementAction } from '../../tuning';
 import { len, turnToward } from '../math';
 import type { Actions } from '../types';
-import { accelerateToward, input, tryJump } from './locomotion';
+import { accelerateToward, input, stance, tryJump } from './locomotion';
 
 export function bufferAction(sim: Sim, id: number) : void {
   const def = movementAction(id);
@@ -51,7 +51,8 @@ export function startAction(sim: Sim, id: number, slot: number, a: Actions) : vo
   if (def.direction === 'input' && mag > 0.05) {
     p.actionDirX = dx;
     p.actionDirZ = dz;
-    p.facing = Math.atan2(dx, dz);
+    // Fighting, you dodge any way you push without turning from the fight.
+    if (stance(sim, a) === null) p.facing = Math.atan2(dx, dz);
   } else if (def.direction === 'backward') {
     p.actionDirX = -Math.sin(p.facing);
     p.actionDirZ = -Math.cos(p.facing);
@@ -181,8 +182,11 @@ export function startCast(sim: Sim, slot: number, a: Actions) : void {
       az *= max / aim;
     }
   } else {
+    // Unaimed, it goes off ahead: of the fight when you're facing one, else the way you push.
     const { dx, dz, mag } = input(sim, a);
-    if (mag > 0) p.facing = Math.atan2(dx, dz);
+    const face = stance(sim, a);
+    if (face !== null) p.facing = face;
+    else if (mag > 0) p.facing = Math.atan2(dx, dz);
     ax = Math.sin(p.facing) * (s.range ?? 0);
     az = Math.cos(p.facing) * (s.range ?? 0);
   }

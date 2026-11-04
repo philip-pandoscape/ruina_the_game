@@ -114,11 +114,34 @@ function buildScript() {
   const d = Math.hypot(rock.x - spawn.x, rock.z - spawn.z);
   add(420, { moveX: (rock.x - spawn.x) / d, moveZ: (rock.z - spawn.z) / d });
 
+  // Combat stance: facing one way while moving others. Strafe, back off, dodge sideways and
+  // back, double jump sideways, sprint out of it, and swing and cast at what you face.
+  const face = { faceX: Math.sin(0.6), faceZ: Math.cos(0.6) };
+  add(30, { ...face, moveX: 1 });
+  add(30, { ...face, moveX: -0.7, moveZ: -0.7 });
+  add(1, { ...face, moveX: -1, movementSlot: 1 }); // dodge to the side without turning
+  add(25, { ...face, moveX: -1 });
+  add(1, { ...face, moveZ: -1, movementSlot: 1 }); // and backwards
+  add(25, { ...face });
+  add(1, { ...face, moveX: 0.4, jumpPressed: true, jumpHeld: true });
+  add(14, { ...face, moveX: 0.4, jumpHeld: true });
+  add(1, { ...face, moveX: -1, jumpPressed: true, jumpHeld: true }); // double jump sideways, still facing
+  add(45, { ...face, moveX: -1, jumpHeld: true });
+  add(30, { ...face, moveZ: -1, sprintHeld: true }); // sprinting turns and runs
+  add(20, { ...face, moveX: 0.6, moveZ: 0.3, crouchHeld: true });
+  add(1, { ...face, moveX: 1, attackPressed: true }); // swings ahead, not the way you push
+  add(30, { ...face });
+  add(1, { ...face, moveX: -1, abilitySlot: 1 }); // casts ahead too
+  add(90, { ...face });
+
   // Random play: wandering with presses mixed in.
   const rng = makeRng(42);
   for (let i = 0; i < 600; i++) {
     const a = rng() * Math.PI * 2;
     const mag = rng() < 0.15 ? 0 : 0.3 + rng() * 0.7;
+    // Holding a combat stance about half the time, facing some other way.
+    const faceYaw = rng() * Math.PI * 2;
+    const facing = rng() < 0.5;
     steps.push({
       moveX: Math.sin(a) * mag,
       moveZ: Math.cos(a) * mag,
@@ -136,6 +159,8 @@ function buildScript() {
       crouchHeld: rng() < 0.12,
       aimX: rng() < 0.5 ? 0 : Math.round((rng() * 30 - 15) * 4) / 4,
       aimZ: rng() < 0.5 ? 0 : Math.round((rng() * 30 - 15) * 4) / 4,
+      faceX: facing ? Math.sin(faceYaw) : 0,
+      faceZ: facing ? Math.cos(faceYaw) : 0,
       stickX: 0, // vehicles only; on foot the rules read moveX / moveZ
       stickY: 0,
     });

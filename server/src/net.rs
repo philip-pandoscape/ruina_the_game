@@ -19,8 +19,10 @@ use crate::tuning::{HOTBAR_SLOTS, MOVEMENT_SLOTS, NO_ABILITY, NO_MOVEMENT};
 pub const QUEUE: usize = 32;
 
 // One input as it arrived: when, its sequence number, the server tick × 16 the player was seeing,
-// and the raw move_x, move_z, buttons, aim_x, aim_z, hotbar slot bytes.
-pub type RawInput = (Instant, u32, u32, [u8; 7]);
+// and the raw move_x, move_z, buttons, aim_x, aim_z, slot, movement held and face bytes.
+pub type RawInput = (Instant, u32, u32, [u8; 8]);
+/// Bytes per input in an INPUT message (see protocol.rs).
+const INPUT_LEN: usize = 16;
 
 pub struct ClientHandle {
     pub id: u32,
@@ -125,13 +127,15 @@ async fn run(ws: WebSocket, id: u32, registry: Registry, welcome: Bytes) -> Resu
                 let now = Instant::now();
                 let mut q = inputs.lock().unwrap();
                 for k in 0..count {
-                    let o = 2 + k * 15;
-                    if b.len() < o + 15 {
+                    let o = 2 + k * INPUT_LEN;
+                    if b.len() < o + INPUT_LEN {
                         break;
                     }
                     let seq = u32::from_le_bytes([b[o], b[o + 1], b[o + 2], b[o + 3]]);
                     let view = u32::from_le_bytes([b[o + 4], b[o + 5], b[o + 6], b[o + 7]]);
-                    q.push((now, seq, view, [b[o + 8], b[o + 9], b[o + 10], b[o + 11], b[o + 12], b[o + 13], b[o + 14]]));
+                    let mut raw = [0u8; 8];
+                    raw.copy_from_slice(&b[o + 8..o + 16]);
+                    q.push((now, seq, view, raw));
                 }
             }
             MSG_JOIN if b.len() >= 2 => {

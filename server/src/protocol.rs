@@ -37,10 +37,11 @@
 //! Client → server
 //!   VIEW     [1][x f32][z f32]   where the player is, so the server knows what's "near"
 //!   ATTACH   [2][bot u32]        follow one of the bots instead (used by the load tester)
-//!   INPUT    [3][count u8] then per input (15 bytes): seq u32, view u32, move_x i8, move_z i8,
-//!            buttons u8, aim_x i8, aim_z i8, slot u8, movement held u8
+//!   INPUT    [3][count u8] then per input (16 bytes): seq u32, view u32, move_x i8, move_z i8,
+//!            buttons u8, aim_x i8, aim_z i8, slot u8, movement held u8, face u8
 //!            slot = 1..=HOTBAR_SLOTS for the hotbar, then HOTBAR_SLOTS+1.. for a movement slot
 //!            view = the server tick × 16 that the player was looking at, for rewinding hits
+//!            face = 0 to face the way you move, else 1..=255 a heading to keep facing (combat stance)
 //!            buttons: 1 jump pressed, 2 jump held, 4 attack pressed, 8 slide pressed,
 //!                     16 sprint held, 32 crouch held
 //!            hotbar = the slot used this frame, 1..=HOTBAR_SLOTS, or 0 for none
@@ -52,6 +53,7 @@
 //!            skills: one bit per learned skill; the server checks the build before using it
 //!            one ability per hotbar slot, in slot order, 255 for an empty slot
 
+use crate::jsmath::JsMath;
 use crate::player::Player;
 use crate::sim::{Battle, MAX_HP};
 use crate::skills::SKILL_WORDS;
@@ -115,6 +117,15 @@ pub fn input_axis(v: i8) -> f64 {
 
 pub fn aim_axis(v: i8) -> f64 {
     v as f64 * 0.25
+}
+
+/// The combat-stance heading byte as a direction: 0 is none, 1..=255 a heading in 255 steps.
+pub fn face_axis(v: u8) -> (f64, f64) {
+    if v == 0 {
+        return (0.0, 0.0);
+    }
+    let yaw = (v - 1) as f64 * std::f64::consts::TAU / 255.0;
+    (yaw.js_sin(), yaw.js_cos())
 }
 
 fn clamp_i16(v: f64) -> [u8; 2] {

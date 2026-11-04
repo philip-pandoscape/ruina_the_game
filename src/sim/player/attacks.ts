@@ -7,7 +7,7 @@ import type { AttackStep } from '../../tuning';
 import { DEG, angleDiff, len } from '../math';
 import { coneHits, nearest } from '../combat/hit';
 import type { Actions } from '../types';
-import { accelerateToward, airControl, input, tryJump } from './locomotion';
+import { accelerateToward, airControl, input, stance, tryJump } from './locomotion';
 import { endAction, incomingScale, readyBufferedAction, setCooldown, startAction } from './abilities';
 import { heightAboveGround } from './traverse';
 
@@ -19,8 +19,11 @@ export function startAttack(sim: Sim, index: number, a: Actions) : void {
   p.attackQueued = false;
   p.attackHit = false;
   p.attackBuffer = 0;
+  // Swing at what you aimed at; else ahead, into the fight if you're facing one, or the way you push.
   const { dx, dz, mag } = input(sim, a);
-  if (mag > 0) p.facing = Math.atan2(dx, dz);
+  const face = stance(sim, a);
+  if (face !== null) p.facing = face;
+  else if (mag > 0) p.facing = Math.atan2(dx, dz);
   if (len(a.aimX, a.aimZ) > 0.01) p.facing = Math.atan2(a.aimX, a.aimZ);
   // Gentle auto-aim toward whatever is nearest and roughly in front (training only for now).
   if (sim.opts.training) {

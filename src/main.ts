@@ -417,6 +417,22 @@ function enemyAt(x: number, z: number, r: number): boolean {
   return hit;
 }
 
+// Combat stance: with an enemy marked, or for a moment after you swing or cast, you keep facing
+// where the camera looks, so the stick strafes and backs off, and dodges and double jumps go any of
+// eight ways. Out of a fight you turn and run the way you push; sprinting always does (the rules
+// see to that). Swimming, gliding and riding ignore it.
+const STANCE_LINGER = 90; // frames the stance holds after your last swing or cast
+let lastFight = -Infinity;
+function combatStance(a: Actions): Actions {
+  if (a.faceX !== 0 || a.faceZ !== 0) return a; // already given (tests)
+  if (net && !playing) return a;
+  const p = sim.player;
+  if (p.mode === 'attack' || p.mode === 'cast') lastFight = sim.frame;
+  const fighting = lockOn.mark() !== null || sim.frame - lastFight < STANCE_LINGER;
+  if (!fighting || p.mode === 'ride' || p.mode === 'swim' || p.mode === 'glide') return a;
+  return { ...a, faceX: Math.sin(follow.yaw), faceZ: Math.cos(follow.yaw) };
+}
+
 // Aim assist: attacks and Meteor go toward the enemy you most likely mean, the nearest one close
 // to the direction you're pushing (or facing; the bow and Meteor use the camera's direction when you
 // stand still). With nothing to aim at, the bow and Meteor still go where the camera looks. The rules
@@ -1007,8 +1023,8 @@ function frame(now: number): void {
       if (menuOpen && pad.abilitySlot >= 1 && panel.isAssigning) panel.assignToSlot(pad.abilitySlot);
       const a = scripted.length ? scripted.shift()! : menuOpen ? NO_ACTIONS : pad;
       // targeting() supplies an aim when it has a mark or a placed circle; aimAssist() only
-      // fills in the gaps it leaves.
-      stepOnce(aimAssist(targeting(autoAttack ? autoAim(a) : a)));
+      // fills in the gaps it leaves; combatStance() keeps you facing the fight.
+      stepOnce(combatStance(aimAssist(targeting(autoAttack ? autoAim(a) : a))));
       acc -= STEP;
       steps++;
     }

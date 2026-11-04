@@ -33,12 +33,30 @@ export function quantize(a: Actions): { actions: Actions; raw: RawInput; stick: 
     (a.slidePressed ? 8 : 0) |
     (a.sprintHeld ? 16 : 0) |
     (a.crouchHeld ? 32 : 0);
+  // Combat stance heading in 255 steps, 0 for none (face_axis in server/src/protocol.rs).
+  const facing = Math.hypot(a.faceX, a.faceZ) >= 0.5 ? (((Math.atan2(a.faceX, a.faceZ) % TAU) + TAU) % TAU) : -1;
+  const face = facing < 0 ? 0 : 1 + (Math.round(facing / (TAU / 255)) % 255);
+  const yaw = ((face - 1) * TAU) / 255;
   return {
-    actions: { ...a, moveX: qx / 127, moveZ: qz / 127, aimX: ax / 4, aimZ: az / 4, stickX: sx / 127, stickY: sy / 127, abilitySlot: slot, movementSlot: move, movementHeld: held },
-    raw: [qx & 255, qz & 255, buttons, ax & 255, az & 255, packed, held],
+    actions: {
+      ...a,
+      moveX: qx / 127,
+      moveZ: qz / 127,
+      aimX: ax / 4,
+      aimZ: az / 4,
+      faceX: face ? Math.sin(yaw) : 0,
+      faceZ: face ? Math.cos(yaw) : 0,
+      stickX: sx / 127,
+      stickY: sy / 127,
+      abilitySlot: slot,
+      movementSlot: move,
+      movementHeld: held,
+    },
+    raw: [qx & 255, qz & 255, buttons, ax & 255, az & 255, packed, held, face],
     stick: [sx & 255, sy & 255],
   };
 }
+const TAU = Math.PI * 2;
 
 function clonePlayer(p: PlayerState): PlayerState {
   return { ...p, pos: { ...p.pos }, prevPos: { ...p.prevPos }, vel: { ...p.vel } };

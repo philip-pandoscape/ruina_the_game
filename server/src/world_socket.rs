@@ -10,7 +10,7 @@
 //!                      tick {tick, you, peers, actors, arrows, meteors, events, lifeEvents?, life?}
 //!                      estate {id, name, estate} | claims {claims} | left {id} | saved {at}
 //!                      | reset | kicked | error {text}
-//!   browser -> server  (binary) inputs: 7, count, then per input a u32 sequence number and 9 bytes
+//!   browser -> server  (binary) inputs: 7, count, then per input a u32 sequence number and 10 bytes
 //!                      (src/net/netPlayer.ts quantize)
 //!                      (text) cmd {s, c} | build {build} | reset
 
@@ -34,6 +34,7 @@ use tokio::sync::mpsc;
 
 use crate::accounts::{signed_in, Account};
 use crate::channels::CHANNEL_CAP;
+use crate::game::OPEN_INPUT;
 use crate::http::{same_origin, App};
 use crate::life::Command;
 use crate::player::Build;
@@ -52,7 +53,7 @@ const MAX_BATCH: usize = 32;
 const SEND_INPUTS: u8 = 7;
 /// What this server speaks. A page that speaks something else is out of date: it reloads
 /// (src/net/worldLink.ts WORLD_PROTOCOL).
-pub const WORLD_PROTOCOL: u32 = 2;
+pub const WORLD_PROTOCOL: u32 = 3;
 
 /// Which connection is playing each character (so a second window takes over from the first),
 /// and the channels.
@@ -404,22 +405,22 @@ async fn play(socket: WebSocket, app: &App, db: &PgPool, account: &Account, sess
 }
 
 /// A batch of inputs: 7, the count, then per input a u32 sequence number (little-endian) and its
-/// 9 bytes. None if it isn't one.
-fn read_inputs(b: &[u8]) -> Option<Vec<(u32, [u8; 9])>> {
+/// OPEN_INPUT bytes. None if it isn't one.
+fn read_inputs(b: &[u8]) -> Option<Vec<(u32, [u8; OPEN_INPUT])>> {
     if b.len() < 2 || b[0] != SEND_INPUTS {
         return None;
     }
     let n = b[1] as usize;
-    if n == 0 || n > MAX_BATCH || b.len() != 2 + n * 13 {
+    if n == 0 || n > MAX_BATCH || b.len() != 2 + n * (4 + OPEN_INPUT) {
         return None;
     }
     Some(
         (0..n)
             .map(|k| {
-                let at = 2 + k * 13;
+                let at = 2 + k * (4 + OPEN_INPUT);
                 let seq = u32::from_le_bytes(b[at..at + 4].try_into().unwrap());
-                let mut raw = [0u8; 9];
-                raw.copy_from_slice(&b[at + 4..at + 13]);
+                let mut raw = [0u8; OPEN_INPUT];
+                raw.copy_from_slice(&b[at + 4..at + 4 + OPEN_INPUT]);
                 (seq, raw)
             })
             .collect(),
@@ -479,12 +480,12 @@ mod tests {
         let mut b = vec![SEND_INPUTS, 2];
         for seq in [5u32, 6] {
             b.extend(seq.to_le_bytes());
-            b.extend([127u8, 0, 1, 0, 0, 0, 0, 0, 127]);
+            b.extend([127u8, 0, 1, 0, 0, 0, 0, 0, 0, 127]);
         }
         let list = read_inputs(&b).unwrap();
         assert_eq!(list.len(), 2);
         assert_eq!(list[1].0, 6);
-        assert_eq!(list[0].1[8], 127);
+        assert_eq!(list[0].1[9], 127);
         assert!(read_inputs(&b[..b.len() - 1]).is_none());
         assert!(read_inputs(&[SEND_INPUTS, 0]).is_none());
     }

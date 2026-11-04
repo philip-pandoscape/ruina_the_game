@@ -182,6 +182,7 @@ fn duel(a: &Build, b: &Build, seed: u32, max_ticks: u32, distance: f64) -> Outco
                 q(dz * 4.0),
                 if dist < 14.0 { slot } else { 0 },
                 0, // the plain fighter never reaches for a movement skill
+                0, // nor holds a stance: it turns the way it goes
             ];
             seq[me] += 1;
             let client = me as u32 + 1;
