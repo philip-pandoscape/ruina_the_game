@@ -261,6 +261,78 @@ test('turning on the spot, the feet step round one at a time instead of swivelli
   expect(seen.steps.R).toBeGreaterThanOrEqual(3);
 });
 
+test('drawing and putting the weapon away: it changes hands without a jump, and never sweeps the ground', async ({ page }) => {
+  await open(page);
+  const seen = await page.evaluate(() => {
+    const a = (window as any).__anims;
+    return [0, 1, 2, 3].map((w) => {
+      const rows = a.weaponTrack('sheathe', w);
+      const step = (i: number) => Math.hypot(...[0, 1, 2].map((k) => rows[i].tip[k] - rows[i - 1].tip[k]));
+      let swaps = 0;
+      let swap = 0;
+      let lurch = 0;
+      let low = Infinity;
+      for (let i = 1; i < rows.length; i++) {
+        if (rows[i].inHand !== rows[i - 1].inHand) [swaps, swap] = [swaps + 1, Math.max(swap, step(i))];
+        if (i > 1) lurch = Math.max(lurch, step(i) - step(i - 1));
+        low = Math.min(low, rows[i].tip[1]);
+      }
+      return { swaps, swap, lurch, low };
+    });
+  });
+  seen.forEach((s, w) => {
+    // Put away once and drawn once, and the weapon is where it was at each change-over...
+    expect(s.swaps, `weapon ${w}`).toBe(2);
+    expect(s.swap, `weapon ${w} jumps as it changes over`).toBeLessThan(0.01);
+    // ...speeding up and slowing down smoothly, never lurching from one frame to the next...
+    expect(s.lurch, `weapon ${w} lurches`).toBeLessThan(0.3);
+    // ...and swinging up over the top, not through the floor.
+    expect(s.low, `weapon ${w} goes into the ground`).toBeGreaterThan(0);
+  });
+});
+
+test('with the weapon put away the hands are free, and it hangs clear of the ground', async ({ page }) => {
+  await open(page);
+  const seen = await page.evaluate(() => {
+    const a = (window as any).__anims;
+    return ['idleAway', 'runAway'].flatMap((id) =>
+      [0, 1, 2, 3].map((w) => {
+        const rows = a.weaponTrack(id, w);
+        return { id, w, held: rows.some((r: any) => r.inHand), low: Math.min(...rows.map((r: any) => r.tip[1])) };
+      }),
+    );
+  });
+  for (const s of seen) {
+    expect(s.held, `${s.id}, weapon ${s.w}`).toBe(false);
+    expect(s.low, `${s.id}: weapon ${s.w} drags on the ground`).toBeGreaterThan(0.05);
+  }
+});
+
+test('seated, the hands hold what the vehicle gives them and the feet find its footrest', async ({ page }) => {
+  await open(page);
+  const gaps = await page.evaluate(() => {
+    const a = (window as any).__anims;
+    return Object.fromEntries(['drive', 'driveRoadster', 'driveHauler', 'row', 'helm', 'ride'].map((id) => [id, a.holdGap(id)]));
+  });
+  // The cart's, the roadster's and the hauler's turning wheels, the oars mid-stroke and the ship's
+  // wheel: within a few centimetres.
+  for (const id of ['drive', 'driveRoadster', 'driveHauler', 'row', 'helm']) expect(gaps[id].hands, `${id}: a hand is off what it holds`).toBeLessThan(0.03);
+  // On a horse the feet are in the stirrups; elsewhere they rest on the footrest or hang just above it.
+  expect(gaps.ride.feet).toBeLessThan(0.03);
+  for (const id of ['drive', 'driveRoadster', 'row', 'helm']) expect(gaps[id].feet, `${id}: the feet hang far off the floor`).toBeLessThan(0.15);
+});
+
+test('a steering wheel faces its driver, square on its column', async ({ page }) => {
+  await open(page);
+  const facing = await page.evaluate(() => {
+    const a = (window as any).__anims;
+    return Object.fromEntries(['drive', 'driveRoadster', 'driveHauler'].map((id) => [id, a.wheelFacing(id)]));
+  });
+  // Its face looks back up the column at the driver (within 45 degrees of the way to them), not up
+  // and away over the bonnet as a wheel tipped the wrong way does (about -0.1).
+  for (const [id, cos] of Object.entries(facing)) expect(cos, `${id}: the wheel faces away from the driver`).toBeGreaterThan(0.7);
+});
+
 test('a hit throws the body the way the blow shoves it', async ({ page }) => {
   await open(page);
   const thrown = await page.evaluate(() => {

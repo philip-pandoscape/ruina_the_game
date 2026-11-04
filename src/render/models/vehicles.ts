@@ -52,6 +52,27 @@ export interface VehicleAnim {
 export interface VehicleModel {
   root: THREE.Group;
   animate(dt: number, s: VehicleAnim): void;
+  /** What the driver's (seat 0's) hands hold and feet rest on, moving with the model. */
+  holds: Holds;
+}
+
+/**
+ * Points on a model the person in its first seat reaches for, as they move with it (a turning
+ * wheel's rim, an oar's handle mid-stroke): the left hand's and the right hand's, and where the
+ * feet go if they reach. The hero's pose reads them each frame (src/render/character.ts).
+ */
+export interface Holds {
+  hands?: [THREE.Object3D, THREE.Object3D];
+  /** One place for both feet (they rest either side of it), or one each, left then right (stirrups). */
+  feet?: THREE.Object3D | [THREE.Object3D, THREE.Object3D];
+}
+
+/** A named empty at a point: something for a hand or a foot to find. */
+function hold(parent: THREE.Object3D, x: number, y: number, z: number): THREE.Object3D {
+  const o = new THREE.Object3D();
+  o.position.set(x, y, z);
+  parent.add(o);
+  return o;
 }
 
 type Animator = (dt: number, s: VehicleAnim) => void;
@@ -71,12 +92,13 @@ interface Build {
   glow: Parts;
   anims: Animator[];
   outline: number;
+  holds: Holds;
 }
 
 function start(def: VehicleDef, outline: number): Build {
   const root = new THREE.Group();
   root.name = `vehicle:${def.id}`;
-  return { root, body: new Parts(), trim: new Parts(), glow: new Parts(), anims: [], outline };
+  return { root, body: new Parts(), trim: new Parts(), glow: new Parts(), anims: [], outline, holds: {} };
 }
 
 function finish(b: Build): VehicleModel {
@@ -88,7 +110,40 @@ function finish(b: Build): VehicleModel {
     animate(dt, s) {
       for (const a of b.anims) a(dt, s);
     },
+    holds: b.holds,
   };
+}
+
+/**
+ * A steering wheel at `at` on its column, which runs ahead and down to `foot` (the dashboard, the
+ * floor): square on the column, so the rim's top leans away from the driver and its face looks up
+ * at them, as a wheel's does. It turns with the steering (steering left turns its top to the
+ * left), with the driver's grips at ten to two on the rim.
+ */
+function steeringWheel(
+  b: Build,
+  at: V3,
+  foot: V3,
+  r: number,
+  look: { rim: Rgb; spoke: Rgb; spokes: number; from?: number; tube: number; segs: [number, number]; column: Rgb; shaft: number },
+): void {
+  b.trim.add(rod(foot, at, look.shaft, 6), look.column);
+  const mount = pivot(b.root, at[0], at[1], at[2], 'steeringWheel');
+  // Tipped back by the column's rake: the wheel's axis runs down the column.
+  mount.rotation.x = Math.atan2(at[1] - foot[1], foot[2] - at[2]);
+  const spin = pivot(mount, 0, 0, 0);
+  // The rim outlined like the body and the spokes plain like the trim, as when the wheel was part
+  // of them: the same triangles as the fixed wheel, which keeps the hauler inside its budget.
+  mesh(spin, new Parts().add(tor(r, look.tube, ...look.segs), look.rim).build(), { outline: b.outline * 0.7 });
+  const spokes = new Parts();
+  for (let k = 0; k < look.spokes; k++) {
+    const a = (k / look.spokes) * TAU + (look.from ?? 0);
+    spokes.add(beam([0, 0, 0], [Math.cos(a) * r, Math.sin(a) * r, 0], look.tube * 0.8), look.spoke);
+  }
+  mesh(spin, spokes.build());
+  // +X is the driver's left: the left hand at ten to, the right at two.
+  b.holds.hands = [hold(spin, Math.cos(Math.PI / 2 - 1.05) * r, Math.sin(Math.PI / 2 - 1.05) * r, 0), hold(spin, Math.cos(Math.PI / 2 + 1.05) * r, Math.sin(Math.PI / 2 + 1.05) * r, 0)];
+  b.anims.push((_dt, s) => (spin.rotation.z = -clamp(s.steer, -1, 1) * 1.1));
 }
 
 // ---------- shared parts ----------
@@ -391,7 +446,9 @@ function helm(b: Build, at: V3, r: number, pedestal: number): void {
     p.add(beam([0, 0, 0], [Math.cos(a) * r * 1.22, Math.sin(a) * r * 1.22, 0], 0.03), PAL.wood);
   }
   mesh(g, p.build(), { outline: b.outline * 0.7 });
-  b.anims.push((_dt, s) => (g.rotation.z = clamp(s.steer, -1, 1) * 2.4));
+  // Steering left turns its top to the left (+X, the helmsman's left), and the hands go with the rim.
+  b.holds.hands = [1, -1].map((side) => hold(g, Math.cos(Math.PI / 2 - side * 0.9) * r * 0.93, Math.sin(Math.PI / 2 - side * 0.9) * r * 0.93, 0)) as [THREE.Object3D, THREE.Object3D];
+  b.anims.push((_dt, s) => (g.rotation.z = -clamp(s.steer, -1, 1) * 1.1));
 }
 
 /** A rudder blade hung on the stern post, deflecting against the turn. */
@@ -460,13 +517,19 @@ function farmCart(def: WheeledDef): VehicleModel {
   trim.add(box(1.31, 0.03, 0.065), cream, [0, seat.y - 0.13, zFront - 0.002], [0.12, 0, 0]);
   // Steering wheel for the driver.
   const drv = def.seats.find((s) => s.pose === 'drive') ?? seat;
-  const top: V3 = [drv.x, seat.y + 0.25, sz + 0.38];
-  trim.add(rod([drv.x, seat.y - 0.4, zFront - 0.05], top, 0.025, 6), PAL.iron);
-  body.add(tor(0.16, 0.022, 5, 12), PAL.woodDark, top, [-0.95, 0, 0]);
-  for (let k = 0; k < 3; k++) {
-    const a = (k / 3) * TAU;
-    trim.add(beam([0, 0, 0], [Math.cos(a) * 0.16, Math.sin(a) * 0.16, 0], 0.018), PAL.woodDark, top, [-0.95, 0, 0]);
-  }
+  // The column comes up out of the top of the front board.
+  const top: V3 = [drv.x, seat.y + 0.24, sz + 0.27];
+  steeringWheel(b, top, [drv.x, seat.y - 0.12, zFront - 0.04], 0.2, {
+    rim: PAL.woodDark,
+    spoke: PAL.woodDark,
+    spokes: 3,
+    tube: 0.022,
+    segs: [5, 12],
+    column: PAL.iron,
+    shaft: 0.025,
+  });
+  // The driver's feet on the footboard.
+  b.holds.feet = hold(b.root, drv.x, seat.y - 0.42, sz + 0.5);
   // Lantern on a crooked post at the front corner.
   const lx = hw - 0.05;
   body.add(box(0.06, 0.7, 0.06), PAL.woodDark, [lx, seat.y + 0.12, zFront - 0.08]);
@@ -586,13 +649,19 @@ function roadster(def: WheeledDef): VehicleModel {
   b.root.add(glass);
   // Steering wheel.
   const drv = def.seats.find((s) => s.pose === 'drive') ?? seat;
-  const sw: V3 = [drv.x, seat.y + 0.33, zSeat + 0.42];
-  body.add(tor(0.17, 0.02, 5, 14), PAL.black, sw, [-0.9, 0, 0]);
-  for (let k = 0; k < 3; k++) {
-    const a = (k / 3) * TAU + Math.PI / 2;
-    trim.add(beam([0, 0, 0], [Math.cos(a) * 0.17, Math.sin(a) * 0.17, 0], 0.016), chrome, sw, [-0.9, 0, 0]);
-  }
-  trim.add(rod(sw, [drv.x, 0.75, zSeat + 0.72], 0.02, 6), PAL.black);
+  const sw: V3 = [drv.x, seat.y + 0.3, zSeat + 0.34];
+  steeringWheel(b, sw, [drv.x, 0.75, zSeat + 0.72], 0.17, {
+    rim: PAL.black,
+    spoke: chrome,
+    spokes: 3,
+    from: Math.PI / 2,
+    tube: 0.02,
+    segs: [5, 14],
+    column: PAL.black,
+    shaft: 0.02,
+  });
+  // The driver's feet on the floor pan.
+  b.holds.feet = hold(b.root, drv.x, 0.3, zSeat + 0.5);
   // Side exhausts: three pipes out of the bonnet into one along the running board.
   for (let k = 0; k < 3; k++) {
     const z = zb0 + 0.3 + k * 0.18;
@@ -627,6 +696,7 @@ function roadster(def: WheeledDef): VehicleModel {
 function oars(b: Build, def: BoatDef): void {
   const locks = def.oars ?? [];
   const sides: Array<{ sweep: THREE.Group; dip: THREE.Group; feather: THREE.Group; side: number; phase: number; drive: number }> = [];
+  const handles: Array<THREE.Object3D | undefined> = [undefined, undefined];
   const oarGeo = (() => {
     const p = new Parts();
     p.add(rod([-0.68, 0, 0], [1.3, 0, 0], 0.03, 6), PAL.woodLight);
@@ -647,7 +717,11 @@ function oars(b: Build, def: BoatDef): void {
     const feather = pivot(dip, 0, 0, 0);
     mesh(feather, oarGeo, { outline: b.outline * 0.8 });
     sides.push({ sweep, dip, feather, side, phase: 0, drive: 0 });
+    // The rower's hand on the outer end of the grip (0.62-0.78 inboard of the lock), wherever the
+    // stroke has it, so the two hands don't meet in the middle.
+    handles[side > 0 ? 0 : 1] = hold(feather, -0.64, 0, 0);
   }
+  if (handles[0] && handles[1]) b.holds.hands = [handles[0], handles[1]];
   const REST_DIP = -0.27;
   b.anims.push((dt, s) => {
     for (const o of sides) {
@@ -658,7 +732,8 @@ function oars(b: Build, def: BoatDef): void {
       const rate = 0.35 + 0.6 * Math.abs(o.drive);
       o.phase = (o.phase + dt * rate * Math.sign(o.drive || 1) * (k > 0.01 ? 1 : 0) + 1) % 1;
       const ph = o.phase;
-      const A = 0.55 * k;
+      // A short stroke: from the rower's belly out to arm's reach (the locks are ahead of the seat).
+      const A = 0.3 * k;
       const sweep = ph < 0.55 ? -A * Math.cos((Math.PI * ph) / 0.55) : A * Math.cos((Math.PI * (ph - 0.55)) / 0.45);
       const inWater = 0.5 + 0.5 * Math.cos(TAU * (ph - 0.275));
       o.sweep.rotation.y = sweep;
@@ -789,6 +864,9 @@ function rowboat(def: BoatDef): VehicleModel {
   // Bow eye.
   trim.add(tor(0.04, 0.012, 4, 8), PAL.brass, [0, spec.sheerAt(1) - 0.12, L + 0.03], [0, Math.PI / 2, 0]);
   oars(b, def);
+  // The rower's feet braced on the floorboards ahead of the thwart.
+  const rower = def.seats[0];
+  b.holds.feet = hold(b.root, rower.x, -0.12, rower.z + 0.45);
   return finish(b);
 }
 
@@ -845,6 +923,8 @@ function sloop(def: BoatDef): VehicleModel {
     body.add(bev(0.7, hs.y - deck, 0.45, 0.03), PAL.wood, [hs.x, (hs.y + deck) / 2, hs.z]);
     body.add(bev(0.6, 0.05, 0.4, 0.02), 0x2f7f73, [hs.x, hs.y - 0.025, hs.z]);
     helm(b, [hs.x, hs.y + 0.42, hs.z + 0.55], 0.32, hs.y + 0.42 - deck);
+    // The helmsman's feet on the deck in front of the seat.
+    b.holds.feet = hold(b.root, hs.x, deck, hs.z + 0.36);
   }
   // Mast and its rigging, topped with a pennant staff.
   const mast = def.mast!;
@@ -953,13 +1033,17 @@ function hauler(def: WheeledDef): VehicleModel {
   body.add(cyl(0.09, 0.09, 0.04, 10), PAL.cream, [-0.28, by + br - 0.02, bz0 + 0.02], [Math.PI / 2 + 0.6, 0, 0]);
   // Steering wheel for the driver.
   const drv = def.seats.find((s) => s.pose === 'drive') ?? seat;
-  const sw: V3 = [drv.x, seat.y + 0.32, seat.z + 0.42];
-  body.add(tor(0.2, 0.025, 4, 10), PAL.black, sw, [-0.7, 0, 0]);
-  for (let k = 0; k < 4; k++) {
-    const a = (k / 4) * TAU;
-    trim.add(beam([0, 0, 0], [Math.cos(a) * 0.2, Math.sin(a) * 0.2, 0], 0.02), PAL.brass, sw, [-0.7, 0, 0]);
-  }
-  trim.add(rod(sw, [drv.x, 0.98, seat.z + 0.75], 0.03, 6), PAL.iron);
+  const sw: V3 = [drv.x, seat.y + 0.32, seat.z + 0.26];
+  // The column runs down into the top of the boiler.
+  steeringWheel(b, sw, [drv.x, seat.y - 0.02, seat.z + 0.7], 0.2, {
+    rim: PAL.black,
+    spoke: PAL.brass,
+    spokes: 4,
+    tube: 0.025,
+    segs: [4, 10],
+    column: PAL.iron,
+    shaft: 0.03,
+  });
   // Bumper, brass headlamps, mudguards.
   body.add(box(2.1, 0.16, 0.14), PAL.black, [0, 0.82, L - 0.07]);
   for (const sx of [-1, 1]) {
@@ -1097,6 +1181,7 @@ function cog(def: BoatDef): VehicleModel {
   if (helmSeat) {
     body.add(bev(0.55, helmSeat.y - castleY, 0.45, 0.03), PAL.wood, [helmSeat.x, (helmSeat.y + castleY) / 2, helmSeat.z]);
     helm(b, [helmSeat.x, helmSeat.y + 0.45, helmSeat.z + 0.6], 0.45, helmSeat.y + 0.45 - castleY);
+    b.holds.feet = hold(b.root, helmSeat.x, castleY, helmSeat.z + 0.38);
   }
   lantern(b, [0, castleY + 0.82, z0 + 0.1], 1.6);
   // Mast, crow's nest, flagstaff; rigging to the sides, the bowsprit and the stern.

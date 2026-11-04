@@ -133,7 +133,9 @@ in `.env` (git-ignored) as `RAILWAY_BETA_API_KEY` and `RAILWAY_PRODUCTION_API_KE
 **Fighting** (an enemy marked, or for a moment after you swing or cast) you keep facing where the
 camera looks: the stick strafes and backs off, a little slower than running ahead, and dodges and
 double jumps go whichever way you push without turning you. Sprint to turn and run. Out of a
-fight you turn and run the way you push.
+fight you turn and run the way you push. Your weapon comes out for a fight and goes away a few
+seconds after it (sword and club at the hip, staff and bow on the back); swing, shoot or cast and
+it's in your hand at once.
 
 In the open world:
 

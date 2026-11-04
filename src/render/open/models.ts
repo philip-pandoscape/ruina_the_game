@@ -1,5 +1,6 @@
 import type * as THREE from 'three';
 import type { VehicleDef, MountDef, GliderDef } from '../../content/vehicles';
+import type { Holds } from '../models/vehicles';
 
 // The procedural model library (src/render/models), loaded softly: if it is missing or fails to
 // load, every caller falls back to a plain stand-in shape instead of taking the game down with it.
@@ -23,8 +24,8 @@ export interface ModelKit {
   propGeometry(id: string): THREE.BufferGeometry;
   cropGeometry(id: string, stage: number): THREE.BufferGeometry;
   buildPack(id: string): THREE.Group;
-  buildVehicle(def: VehicleDef): { root: THREE.Group; animate(dt: number, s: VehicleAnim): void };
-  buildMount(def: MountDef): { root: THREE.Group; animate(dt: number, s: { speed: number; grounded: boolean }): void };
+  buildVehicle(def: VehicleDef): { root: THREE.Group; animate(dt: number, s: VehicleAnim): void; holds?: Holds };
+  buildMount(def: MountDef): { root: THREE.Group; animate(dt: number, s: { speed: number; grounded: boolean }): void; holds?: Holds };
   buildGlider(def: GliderDef): { root: THREE.Group; animate(dt: number, s: { bank: number; pitch: number; speed: number }): void };
   buildAnimal(id: string, stage: number): { root: THREE.Group; animate(dt: number, s: { time: number; hungry: boolean; ready: boolean }): void };
   buildVillager(id: string): { root: THREE.Group; animate(dt: number, s: { time: number; talking: boolean }): void };

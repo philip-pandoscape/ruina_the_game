@@ -734,7 +734,7 @@
       "system": "combat",
       "status": "done",
       "title": "A jointed hero, animated from scratch",
-      "notes": "Knees, ankles, elbows, a neck, blinking eyes and a two-piece cape (23 joints). Every animation redone with two-bone IK: a gait whose planted feet stay put at any speed or heading (walk, jog, run, sprint, creep, carry, strafe, back off), heel-to-toe roll, leaning into turns; sword, club and staff swings as keyframes with a wind-up, the body leading the arm, footwork that steps with the lunge and two-handed grips; a bow drawn to the cheek with the string following the hand; casts, guard, slide, rolls and flips in eight directions, hits that throw the body the way the blow shoves it, knock-downs; hands on the glider bar, the reins, the wheel and the oars, with the weapon put away at the hip or across the back; the cape takes the wind from the way you go. Weapon trails are traced from the blade. The close-up hero eases between states, holds planted feet where they are and the way they point through turns and stops, stepping round one foot at a time when they get too far out, and draws frame counters between sim steps. The crowd bakes its clips from the same poses.",
+      "notes": "Knees, ankles, elbows, a neck, blinking eyes and a two-piece cape (23 joints). Every animation redone with two-bone IK: a gait whose planted feet stay put at any speed or heading (walk, jog, run, sprint, creep, carry, strafe, back off), heel-to-toe roll, leaning into turns; sword, club and staff swings as keyframes with a wind-up, the body leading the arm, footwork that steps with the lunge and two-handed grips, and the sword carried ready (blade up and forward) when running; a bow drawn to the chin, the arrow in front of the chest and the string following the hand; casts, guard, slide, rolls and flips in eight directions, hits that throw the body the way the blow shoves it, knock-downs. Travelling, the hero takes hold of the vehicle as it moves (vehicles.ts Holds): hands on the steering wheel's rim (the wheels turn, square on their columns and facing the driver) and on the oars' handles mid-stroke, thighs out over the seat's edge and feet on the footrest; on a horse the knees bend round its body to short stirrups; the glider bar sits ahead of the chin. The cape takes the wind from the way you go. Weapon trails are traced from the blade. The close-up hero eases between states, holds planted feet where they are and the way they point through turns and stops, stepping round one foot at a time when they get too far out, and draws frame counters between sim steps. The crowd bakes its clips from the same poses.",
       "files": [
         "src/content/creatures/hero.ts",
         "src/render/detail/humanoid.ts",
@@ -743,8 +743,23 @@
         "src/render/detail/swings.ts",
         "src/render/detail/blend.ts",
         "src/render/character.ts",
+        "src/render/models/vehicles.ts",
         "src/render/detail/animations.ts",
         "tests/animation.spec.ts"
+      ]
+    },
+    {
+      "system": "combat",
+      "status": "done",
+      "title": "Weapons out for a fight, put away after",
+      "notes": "The weapon comes out while an enemy is marked (soft lock counts) or for 1.5 s after a swing or cast, the combat stance's rule, and goes away 2.5 s after: drawn in 0.45 s, put away in 0.6 s, the drawing hand reaching to where it hangs and taking it over halfway, without a jump. Swinging, shooting, casting or guarding puts it in hand at once. On foot the sword and club hang at the right hip, the staff over the right shoulder and the bow high by the left; travelling, along the body (swimming, gliding), down the horse's side, back over the boat at the oars, across the lap in a seat. Other players' heroes go by what they're doing and keep it out 4 s; on the battlefield it's always out. Drawing only: no rules change.",
+      "files": [
+        "src/render/detail/stow.ts",
+        "src/render/character.ts",
+        "src/render/detail/humanoid.ts",
+        "src/main.ts",
+        "tests/animation.spec.ts",
+        "tests/combat.spec.ts"
       ]
     },
     {
@@ -840,7 +855,7 @@
     }
   ],
   "next": [
-    "Animation, next: drawing and sheathing the weapon (it moves between the hand and the back in one frame today); give the townsfolk (src/render/models/villagers.ts) the hero's gait.",
+    "Animation, next: a draw or put-away when getting on or off a vehicle, mount or glider (the weapon still changes places in one frame there); reins on the horse; keep the cape off a staff or bow on the back; a footrest for the hauler's driver; give the townsfolk (src/render/models/villagers.ts) the hero's gait.",
     "Shared world, next: trading-post demand, weather and gathering nodes shared by a channel (today each island has its own); choosing a channel (to join a friend in another one); others' parked vehicles while they're away.",
     "World server, next: islands in proper tables rather than one document each, if querying them (trading-post history, guild storage) needs it; bandwidth: send other players less often when they are far away.",
     "Skills, next: balance the tree (its numbers are first guesses: a keystone is 8 to 13 points from nothing, Emberholm gives 31 in all); notables and keystones that do new things, not only bigger numbers; life skills (farming, crafting, sailing) that level by use the same way.",
@@ -994,6 +1009,7 @@
         "Combat stance in the rules (TS and Rust): faceX / faceZ in the input; the input packets grew a byte (battlefield 16 bytes an input, open world 10) and WORLD_PROTOCOL went to 3.",
         "/animations.html plays every animation with the game's timing (slow motion, any camera, a floor to judge feet by); tests/animation.spec.ts measures planted feet (a centimetre at most moving steadily), floor clearance, joint limits, trails on the blade, the bowstring and the glider grips.",
         "Round two: hits throw the body the way the blow shoves you (the close-up hero keeps the knock's direction while the slide dies away); turning on the spot, planted feet keep pointing the way they were put down and step round one at a time; travelling, the weapon goes to the hip or across the back; the cape takes the wind from the way you go. /animations.html gained films that turn the hero (facing) and hits from four sides.",
+        "Round three, after playing it: sitting forward, thighs over the seat's edge and feet on the vehicle's footrest; the vehicle hands the hero what to hold as it moves (vehicles.ts Holds: the steering wheel's rim, the oars' handles, the stirrups); the cart's, roadster's and hauler's wheels turn now, square on their columns and facing the driver (they were tipped back, facing away), and the ship's helm turns the way you steer; short stirrups, so the knees bend round the horse; the glider bar ahead of the chin; the bow drawn to the chin; the sword carried ready; and the weapon out for a fight and put away after it (src/render/detail/stow.ts). /animations.html gained films for putting the weapon away and drawing it, running with it away, and driving the roadster and the hauler; the tests measure hands on what they hold, feet in the stirrups, wheels facing their drivers, and a draw that never jumps or sweeps the ground.",
         "Fixes found on the way: Escape (backing out of a circle) and the button that closes a menu are kept until a rules step has seen them, so a fast screen neither drops them nor lets B slide as it closes the skill panel; the server listens on IPv4 as well as IPv6 on Windows too (socket2, dual-stack), so the battlefield tests run there; on the island you start, and get up after a knock-down, standing on the hill at the spawn rather than inside it (both rules)."
       ]
     },

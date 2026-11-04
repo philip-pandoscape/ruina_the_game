@@ -83,8 +83,24 @@ export interface PoseInput {
   bank: number;
   /** A pack on the back: arms to the straps, a forward lean. */
   carry: boolean;
+  /**
+   * The weapon in hand (0) or put away (1), and between them drawing or sheathing it: the hand
+   * reaches to where it's stowed (src/render/detail/stow.ts), takes it or lets it go halfway, and
+   * comes back. On foot only; travelling puts it away whatever this says.
+   */
+  stow: number;
   /** How hard the stroke, stride or pull is going, 0..1 (swimming, rowing, a mount's gait). */
   effort: number;
+  /**
+   * Seated, what the hands hold, as the vehicle has it this frame (a wheel's rim, an oar's handle):
+   * left x, y, z then right, in the body's model space. Null: the pose's own idea of where.
+   */
+  grips: number[] | null;
+  /**
+   * Seated, where the feet rest if they reach, in model space: x, y, z for both (either side of it),
+   * or left then right (a saddle's stirrups); null to let them hang.
+   */
+  footrest: number[] | null;
 }
 
 export const NEUTRAL_POSE: PoseInput = {
@@ -120,7 +136,10 @@ export const NEUTRAL_POSE: PoseInput = {
   travel: '',
   bank: 0,
   carry: false,
+  stow: 0,
   effort: 0,
+  grips: null,
+  footrest: null,
 };
 
 export const pose = (over: Partial<PoseInput> = {}): PoseInput => ({ ...NEUTRAL_POSE, ...over });
