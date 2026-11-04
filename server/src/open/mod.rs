@@ -10,7 +10,8 @@ pub mod zone;
 use std::collections::HashSet;
 
 use crate::life::Life;
-use crate::player::{Actions, Player};
+use crate::player::{Actions, Mode, Player};
+use crate::world::Spawn;
 use colliders::ColliderIndex;
 use zone::{Heightfield, Zone};
 
@@ -70,6 +71,51 @@ impl Zone {
 /// One step of the rules for one player in an open world: src/sim/sim.ts step() as the server runs
 /// it (no training dummy, no hit pause, no auto-aim), with the island's systems (`life`) riding
 /// along when the player has an island. `owner` is the character, for whatever they build.
-pub fn step_player(_p: &mut Player, _a: &Actions, _world: &mut OpenWorld, _life: Option<&mut Life>, _owner: i64) {
-    // Being ported (src/sim/player/traverse.ts into traverse.rs).
+pub fn step_player(p: &mut Player, a: &Actions, world: &mut OpenWorld, mut life: Option<&mut Life>, owner: i64) {
+    p.begin_step(a);
+    // The island has one spawn, and the TypeScript gives it to both teams.
+    let s = world.zone.recipe.spawn;
+    let mut sim = Sim { player: p, world, owner };
+
+    if sim.player.down_frame >= 0 {
+        // Knocked down: lie still, then get back up at the island's spawn.
+        if sim.player.update_down() {
+            sim.player.respawn(Spawn { x: s.x, z: s.z, facing: s.facing });
+        }
+    } else if sim.player.stun > 0 {
+        sim.player.update_stun();
+    } else {
+        match sim.player.mode {
+            Mode::Action => sim.player.update_action(a),
+            Mode::Cast => sim.player.update_cast(a),
+            Mode::Attack => sim.player.update_attack(a),
+            Mode::Swim => traverse::update_swim(&mut sim, a),
+            Mode::Glide => traverse::update_glide(&mut sim, a),
+            Mode::Ride => match life.as_deref_mut() {
+                Some(l) => l.ride(&mut sim, a),
+                // Nothing to ride without the island's vehicles: back on foot, as
+                // src/sim/life/vehicles.ts rideVehicle does when the vehicle is gone.
+                None => {
+                    sim.player.mode = Mode::Normal;
+                    sim.player.vehicle = 0;
+                }
+            },
+            Mode::Normal => {
+                // In the air with both jumps spent, jump again to open your glider.
+                let p = &*sim.player;
+                if !p.grounded && p.jump_buffer > 0 && p.jumps_used >= 2 && traverse::open_glider(&mut sim) {
+                    traverse::update_glide(&mut sim, a);
+                } else {
+                    sim.player.update_normal(a);
+                }
+            }
+        }
+    }
+
+    sim.player.update_crouch_frame();
+    traverse::integrate_open(&mut sim);
+    if let Some(l) = life {
+        l.step(&mut sim, a);
+    }
+    sim.player.end_step();
 }
