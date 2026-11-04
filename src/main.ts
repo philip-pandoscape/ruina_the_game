@@ -98,6 +98,13 @@ const sim = new Sim(world, { training: !serverRules });
 // world, in this browser elsewhere. On the battlefield, the server checks it and sends it back.
 let build: Build = online ? (parseBuild(online.welcome.build) ?? defaultBuild()) : loadBuild();
 sim.setBuild(build);
+if (terrain && !serverRules) {
+  // Offline on the island, start standing on the ground at the spawn rather than inside the hill
+  // (online the server puts you there, the same way).
+  const p = sim.player;
+  p.pos.y = groundAt(terrain, world.index, p.pos.x, p.pos.z, terrain.height(p.pos.x, p.pos.z) + 1.2, 1.2);
+  p.prevPos = { ...p.pos };
+}
 const range = serverRules ? null : new TrainingRange(sim);
 const models = openWorld ? await loadModels() : {};
 const openStage = openWorld ? new OpenStage(canvas, world, models) : null;

@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { sailEfficiency } from '../src/sim/life/vehicles';
 import { skillsFrom } from '../src/skills';
-import { emptyMovement, HOTBAR_SLOTS, NO_ABILITY } from '../src/tuning';
+import { COMBAT, emptyMovement, HOTBAR_SLOTS, NO_ABILITY } from '../src/tuning';
 
 // The open world (Emberholm): terrain, swimming, gliding, farming, pack running, vehicles, mounts,
 // housing, quests and saving. Like the other specs these drive the real game through
@@ -79,6 +79,29 @@ test('the open world loads: island, sea, townsfolk and HUD, without errors', asy
   console.log('world render', { drawCalls: perf.drawCalls, triangles: perf.triangles });
   expect(perf.drawCalls).toBeGreaterThan(20);
   expect(errors).toEqual([]);
+});
+
+test('you stand on the island, not inside it: arriving, and getting up after a knock-down', async ({ page }) => {
+  // No reset here: this is the island as a fresh page starts it.
+  await page.goto('/?world&test');
+  await page.waitForFunction(() => (window as any).__game?.ready === true, null, { timeout: 60_000 });
+  const aboveGround = () =>
+    page.evaluate(() => {
+      const game = (window as any).__game;
+      const p = game.state().player;
+      return p.pos.y - game.ground(p.pos.x, p.pos.z);
+    });
+  // The spawn is on a hill, well above sea level.
+  const start = await g(page).player();
+  expect(await page.evaluate(([x, z]) => (window as any).__game.ground(x, z), [start.pos.x, start.pos.z])).toBeGreaterThan(1);
+  expect(Math.abs(await aboveGround())).toBeLessThan(0.05);
+  // Knocked flat, then back up at the spawn: on the hill again.
+  await page.evaluate(() => (window as any).__game.takeHit(1000, 0, 1, 0));
+  expect((await g(page).player()).downFrame).toBeGreaterThanOrEqual(0);
+  await g(page).advance(COMBAT.downFrames + 10);
+  const p = await g(page).player();
+  expect(p.downFrame).toBe(-1);
+  expect(Math.abs(await aboveGround())).toBeLessThan(0.05);
 });
 
 test('terrain: you follow the hills, but cliffs stop you', async ({ page }) => {
