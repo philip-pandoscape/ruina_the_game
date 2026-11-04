@@ -123,7 +123,7 @@ interface Remote {
   seen: number; // server tick of the newest update that included this player
 }
 
-function blankState(): PlayerState {
+export function blankState(): PlayerState {
   return {
     pos: { x: 0, y: 0, z: 0 },
     prevPos: { x: 0, y: 0, z: 0 },

@@ -46,6 +46,11 @@ export const stageReady = (h: House): boolean => stillNeeds(h).every((n) => n.ha
 
 export function placeHouse(life: Life, sim: Sim, plot: string, item: string): boolean {
   if (houseOn(life, plot)) return false;
+  const owner = life.plotOwner?.(plot);
+  if (owner) {
+    life.toast(`That plot is ${owner}'s`, 'bad');
+    return false;
+  }
   if (life.state.houses.length >= 1) {
     life.toast('One house per settler on Emberholm (for now)', 'bad');
     return false;

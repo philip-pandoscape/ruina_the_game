@@ -80,6 +80,12 @@
       #target-plate .name { font-size: 11px; font-weight: 800; letter-spacing: 0.02em; }
       #target-plate .bar { margin-top: 3px; height: 5px; border-radius: 3px; overflow: hidden; background: rgba(0, 0, 0, 0.55); }
       #target-plate .bar .fill { height: 100%; width: 100%; background: linear-gradient(#ff6b6b, #d63031); transition: width 90ms; }
+      /* A monster's cast: break it before it fills. */
+      #target-plate .cast { display: none; position: relative; margin-top: 3px; height: 12px; border-radius: 3px; overflow: hidden;
+        background: rgba(0, 0, 0, 0.55); }
+      #target-plate .cast .fill { height: 100%; width: 0; background: linear-gradient(#c8ff8a, #59c13e); }
+      #target-plate .cast .label { position: absolute; inset: 0; font-size: 9px; font-weight: 800; line-height: 12px;
+        letter-spacing: 0.04em; color: #10210c; }
 
       /* Ability bar: weapon, two ability slots, skills button */
       #abilities { position: fixed; bottom: 52px; left: 50%; transform: translateX(-50%); display: flex; gap: 5px;
@@ -165,7 +171,7 @@
     <div id="hint" class="hud-text"></div>
     <div id="dummy-hp"><div class="fill"></div></div>
     <div id="player-hp" class="hud-text"><div class="fill"></div><span class="label"></span></div>
-    <div id="target-plate" class="hud-text"><span class="name"></span><div class="bar"><div class="fill"></div></div></div>
+    <div id="target-plate" class="hud-text"><span class="name"></span><div class="bar"><div class="fill"></div></div><div class="cast"><div class="fill"></div><span class="label"></span></div></div>
     <div id="abilities" class="hud-text"></div>
     <div id="castbar" class="hud-text"><div class="fill"></div><span class="label"></span></div>
     <div id="skills" class="hud-text" hidden></div>

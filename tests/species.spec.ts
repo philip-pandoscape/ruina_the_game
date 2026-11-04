@@ -42,7 +42,7 @@ const bounds = (page: Page, clip: string, frame: number) =>
 // What every species must satisfy, whatever shape it is.
 const SPECIES = [
   { id: 'fighter', joints: 7, boxes: 20, clips: ['idle', 'run', 'attack', 'down'], still: 'idle' },
-  { id: 'slime', joints: 5, boxes: 6, clips: ['idle', 'hop', 'die'], still: 'idle' },
+  { id: 'slime', joints: 5, boxes: 6, clips: ['idle', 'hop', 'die', 'windup', 'leap', 'gather', 'dazed'], still: 'idle' },
   { id: 'quadruped', joints: 18, boxes: 19, clips: ['idle', 'walk', 'run'], still: 'idle' },
 ] as const;
 

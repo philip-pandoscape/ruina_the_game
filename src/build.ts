@@ -166,17 +166,33 @@ export function cycleSlot(b: Build, slot: number): Build {
 
 export const abilityName = (a: number) => (a === NO_ABILITY ? 'Empty' : ABILITIES[a].name);
 
+// In the open world your build is kept on the game server with your character. The training yard
+// and the battlefield, which are developer tools, keep theirs in this browser.
 const STORAGE_KEY = 'yggdrasil.build';
+
+export function defaultBuild(): Build {
+  return { ...DEFAULT_BUILD, skills: [...DEFAULT_BUILD.skills], abilities: emptyHotbar(), movement: emptyMovement() };
+}
+
+/** A build as stored (here or on the server), carried forward from older shapes; null if it no longer holds together. */
+export function parseBuild(raw: unknown): Build | null {
+  if (!raw || typeof raw !== 'object') return null;
+  try {
+    const b = migrate(raw as Record<string, unknown>);
+    return b && validBuild(b) ? b : null;
+  } catch {
+    return null;
+  }
+}
 
 export function loadBuild(): Build {
   try {
-    const raw = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? 'null');
-    const b = raw && migrate(raw);
-    if (b && validBuild(b)) return b;
+    const b = parseBuild(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? 'null'));
+    if (b) return b;
   } catch {
     /* nothing saved, or storage unavailable */
   }
-  return { ...DEFAULT_BUILD, skills: [...DEFAULT_BUILD.skills], abilities: emptyHotbar(), movement: emptyMovement() };
+  return defaultBuild();
 }
 
 // Builds saved before the tree became a graph kept their skills in one number and their abilities

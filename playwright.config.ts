@@ -4,9 +4,17 @@ import { defineConfig } from '@playwright/test';
 // Elsewhere they use Playwright's own Chromium: run `npx playwright install chromium` once.
 export default defineConfig({
   testDir: 'tests',
-  timeout: 120_000,
+  // CI runners are slower than a desk machine and draw WebGL in software. There the suite is split
+  // across runners test by test (.github/workflows/ci-cd.yml), a test gets twice as long, and one
+  // that lost a race against the clock gets two more tries; a real failure fails all three.
+  // Tests tagged @gpu (several game windows at once, frame rates, screen capture) need a real
+  // GPU to keep up, so CI skips them; they run everywhere else.
+  timeout: process.env.CI ? 240_000 : 120_000,
   workers: 1,
-  reporter: [['list']],
+  fullyParallel: !!process.env.CI,
+  retries: process.env.CI ? 2 : 0,
+  grepInvert: process.env.CI ? /@gpu/ : undefined,
+  reporter: process.env.CI ? [['list'], ['github']] : [['list']],
   use: {
     baseURL: 'http://localhost:5199',
     channel: process.platform === 'win32' ? 'msedge' : undefined,

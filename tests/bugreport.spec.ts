@@ -127,7 +127,7 @@ async function play(page: Page, ms: number, a: Record<string, unknown>): Promise
 
 const cli = (...args: string[]) => execFileSync('node', ['tools/bugs.mjs', '--dir', REPORTS, ...args], { encoding: 'utf8' });
 
-test('a bug report keeps the moments before the key, records the voice, and saves everything', async ({ page }) => {
+test('a bug report keeps the moments before the key, records the voice, and saves everything', { tag: '@gpu' }, async ({ page }) => {
   test.setTimeout(90_000);
   const errors = await open(page);
   // Walk north for a while: that is the history the report should start with.
@@ -223,7 +223,8 @@ test('a bug report keeps the moments before the key, records the voice, and save
 
   // The CLI /fix-bugs uses: list, a digest, frames by time, and closing.
   expect(cli('list')).toContain(id);
-  const digest = cli('show', id);
+  // Paths in it use this machine's separator.
+  const digest = cli('show', id).replaceAll('\\', '/');
   for (const part of ['## What was said', 'the cart rolled off the pier', '## Look at these pictures', 'screenshot.jpg', 'frames/0', '## The game at the press', 'open world', '## Where the player was', 'save.json'])
     expect(digest).toContain(part);
   expect(cli('frames', id, '--from', '-1', '--to', '1').trim().split('\n').length).toBeGreaterThan(1);
@@ -234,7 +235,7 @@ test('a bug report keeps the moments before the key, records the voice, and save
   expect(errors).toEqual([]);
 });
 
-test('backspace twice throws a report away, and nothing is saved', async ({ page }) => {
+test('backspace twice throws a report away, and nothing is saved', { tag: '@gpu' }, async ({ page }) => {
   const errors = await open(page);
   const count = () => (existsSync(REPORTS) ? readdirSync(REPORTS).filter((f) => f !== 'closed').length : 0);
   const before = count();

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { loadBuild, pointsLeft, saveBuild, swapSlots, validBuild } from './build';
+import { defaultBuild, loadBuild, parseBuild, pointsLeft, saveBuild, swapSlots, validBuild } from './build';
 import { CROWD_TICK, CrowdSim } from './crowd/crowdSim';
 import { CrowdView, type CrowdSource } from './crowd/crowdView';
 import { Input } from './input/input';
@@ -10,9 +10,10 @@ import { FollowCamera } from './render/camera';
 import { Hero } from './render/character';
 import { TrainingDummy } from './render/dummy';
 import { ActorView } from './render/actors';
-import { actorKindIds } from './content/actors';
-import { isAlive } from './sim/actor';
-import { stateName } from './sim/ai/brain';
+import { actorKindAt, actorKindIds, findKind } from './content/actors';
+import { isAlive, type Actor } from './sim/actor';
+import { behaviour, startBrain, stateName, stateProgress } from './sim/ai/brain';
+import { targetOf } from './sim/combat/hit';
 import { createTargeting } from './app/targeting';
 import { Hud } from './render/hud';
 import { BATTLEFIELD_STAGE, Stage, TRAINING_STAGE } from './render/scene';
@@ -29,7 +30,11 @@ import { groundAt } from './sim/zone/colliders';
 import { Life } from './sim/life/life';
 import { LifeView } from './render/open/life';
 import { LifeUI } from './ui/life/lifeUI';
-import { clearLife, loadLife, saveData, saveLife } from './app/save';
+import { applySave, clearLife, islandData, loadLife, saveData, saveLife } from './app/save';
+import { goOnline } from './app/online';
+import { signOut } from './net/account';
+import { OnlineBadge, showStopped } from './ui/signIn';
+import { presenceOf, WorldPeers } from './net/worldPeers';
 import { BugReporter } from './app/bugs/reporter';
 import { installLogCapture } from './app/bugs/logs';
 import { dismount, ridden } from './sim/life/vehicles';
@@ -47,14 +52,18 @@ import { ABILITIES, abilityRadius, AIM, MOVEMENT_SKILLS, CAMERA, castFramesFor, 
 //   ?test          start paused so automated tests can step the game frame by frame
 //   ?raid=10000    raid stress test: two armies of fighters on a big battlefield
 //   &outline=0     raid without character outlines (to compare speed)
-//   ?server=ws://localhost:7777   play on the Rust battle server (server/)
+//   ?server=ws://localhost:7777   play on the Rust battle server's battlefield (server/)
 //     &team=0|1    which side to join (default: whichever the server picks)
 //     &play=0      just watch instead of joining
 //     &lag=150     testing: ask the server to delay this connection by 150 ms each way
 //   &softlock=0    turn off the automatic target pick; Tab still works
-//   (none)         the open world: Emberholm, the starter isle
-//   ?yard          the old training yard (also what ?test opens, unless ?world is given too)
-//   ?world&test    the open world, paused for automated tests
+//   (none)         the open world: Emberholm, the starter isle, played on the game server: sign in
+//                  first, and your island is kept there (src/app/online.ts)
+//     &as=name     development servers: sign straight in as name (a new account if it's new)
+//     &fresh       start your island over
+//   ?yard          the old training yard, offline (also what ?test opens, unless ?world is given too)
+//   ?world&test    the open world, offline and paused for automated tests (&load: the island
+//                  kept in this browser, for bug-report replays)
 //   ?bugs=0        no bug reporter (\ records a bug report; tests turn it on with &bugs)
 //   &bugspeech=0   bug reports without live transcription; &buglang=en-GB to change its language
 // Console output and errors are kept from here on, for bug reports.
@@ -69,6 +78,10 @@ const openWorld = !battlefield && !yardMode;
 const team = params.has('team') ? Number(params.get('team')) & 1 : 255;
 const lagMs = Math.max(0, Math.min(2000, Number(params.get('lag')) || 0));
 
+// Emberholm is played on the game server: sign in, and it hands over your island and build, and
+// keeps them from then on. Automated tests and the training yard stay offline.
+const online = openWorld && !testMode ? await goOnline(params) : null;
+
 const canvas = document.getElementById('game') as HTMLCanvasElement;
 const world = battlefield ? makeBattlefield() : openWorld ? makeZoneWorld() : makeWorld();
 const terrain = world.terrain ?? null;
@@ -76,8 +89,9 @@ const terrain = world.terrain ?? null;
 const groundY = (x: number, z: number): number => (terrain ? terrain.height(x, z) : 0);
 // Online, the server decides hits, so the local rules run without the training dummy and hit pause.
 const sim = new Sim(world, { training: !serverUrl });
-// Your skills and loadout, kept between visits. Online, the server checks it and sends it back.
-let build: Build = loadBuild();
+// Your skills and loadout, kept between visits: with your character on the game server in the open
+// world, in this browser elsewhere. On the battlefield, the server checks it and sends it back.
+let build: Build = online ? (parseBuild(online.welcome.build) ?? defaultBuild()) : loadBuild();
 sim.setBuild(build);
 const range = serverUrl ? null : new TrainingRange(sim);
 const models = openWorld ? await loadModels() : {};
@@ -166,17 +180,43 @@ if (terrain) vfx.ground = groundY;
 const lifeView = life ? new LifeView(stage.scene, life, models, hero) : null;
 if (lifeView && openStage) lifeView.onGroundChanged = () => openStage.foliage.invalidate();
 const lifeUI = life ? new LifeUI({ life, sim, world, camera: () => follow.camera, yaw: () => follow.yaw, device: () => input.lastDevice }) : null;
-// Your island is kept in this browser between visits (never in automated tests). ?fresh starts over.
-const saving = !!life && !testMode;
-let resetting = false;
-if (life && saving) {
-  if (params.has('fresh')) clearLife();
-  else loadLife(life, sim);
+// Online: everyone else in your channel of Emberholm, the plots they hold, and whether this server
+// offers the developer panel.
+const peers = online && life && world.zone ? new WorldPeers(stage.scene, world.zone, models, sim, life, online.welcome.character.id, online.link) : null;
+if (peers && openStage) peers.onGroundChanged = () => openStage.foliage.invalidate();
+if (online && life) {
+  const me = online.welcome.character.name;
+  life.plotOwner = (plot) => {
+    const holder = online.link.claims[plot];
+    return holder && holder !== me ? holder : null;
+  };
 }
-// Tests can ask for the saved island explicitly (?world&test&load).
+if (online && lifeUI) lifeUI.devTools = online.welcome.dev;
+if (peers && lifeUI) lifeUI.others = () => peers.list();
+// Your island is kept on the game server: sent every few seconds and whenever you leave the tab.
+// ?fresh starts it over. Automated tests start a fresh island every time, unless they ask for the
+// one kept in this browser (?world&test&load, which is how bug reports are replayed).
+const saving = !!life && !!online;
+// True once saving must stop: starting over, signed out, or another window took the character.
+let resetting = false;
+if (life && online) {
+  const w = online.welcome;
+  if (params.has('fresh')) void online.link.reset();
+  else if (w.island) applySave(life, sim, { ...w.island, savedAt: w.savedAt ?? w.now }, w.now);
+}
 if (life && testMode && params.has('load')) loadLife(life, sim);
 let lastSave = performance.now();
-if (saving) addEventListener('pagehide', () => resetting || saveLife(life!, sim));
+let lastPresence = 0;
+// What you have built, as last told to the server (null until the first look).
+let lastBuilt: string | null = null;
+/** Sends the island to the game server (online play only). */
+function saveIsland(): void {
+  if (life && online && !resetting) online.link.save(islandData(life, sim));
+}
+if (saving) {
+  addEventListener('pagehide', saveIsland);
+  document.addEventListener('visibilitychange', () => document.hidden && saveIsland());
+}
 
 /** Moves you somewhere (the dev panel and tests), off whatever you were riding. */
 function teleport(x: number, z: number, facing = sim.player.facing): void {
@@ -195,9 +235,10 @@ function teleport(x: number, z: number, facing = sim.player.facing): void {
 }
 if (lifeUI) {
   lifeUI.onTeleport = (x, z) => teleport(x, z);
-  lifeUI.onReset = () => {
+  lifeUI.onReset = async () => {
     resetting = true;
-    clearLife();
+    if (online) await online.link.reset();
+    else clearLife();
     location.replace(location.pathname);
   };
 }
@@ -233,8 +274,26 @@ hud.onSkillsClick = () => panel.toggle();
 hud.onSwapSlots = (from, to) => applyBuild(swapSlots(build, from, to));
 const DEG = Math.PI / 180;
 
+// What the target plate's cast bar calls a monster's cast, by the behaviour state casting it.
+const CASTS: Record<string, string> = { gather: 'Gathering' };
+
+/** The cast a marked actor is in the middle of, for the bar under its health. */
+function castOf(key: string): { label: string; progress: number } | null {
+  if (serverUrl || !key.startsWith('actor:')) return null;
+  const a = sim.actors.get(Number(key.slice(6)));
+  const s = a?.brain ? behaviour(a.brain)?.states[a.state] : undefined;
+  if (!a || !isAlive(a) || s?.act !== 'channel') return null;
+  return { label: CASTS[s.name] ?? s.name, progress: stateProgress(a) };
+}
+
 // What the target plate calls each kind. Content, not rules, so it lives next to the UI.
-const NAMES: Record<string, string> = { dummy: 'Training dummy', slime: 'Slime' };
+const NAMES: Record<string, string> = {
+  dummy: 'Training dummy',
+  slimelet: 'Slimelet',
+  slime: 'Slime',
+  'great-slime': 'Great Slime',
+  'slime-monarch': 'Slime Monarch',
+};
 
 // The raid's fighters come either from a local sim (?raid) or from the battle server (?server).
 const crowd = raidCount ? new CrowdSim(raidCount) : null;
@@ -276,7 +335,8 @@ if (net && !playing) hud.hideAbilities();
 // A new build from the skill panel: save it, and use it (online, the server switches you over).
 function applyBuild(b: Build): void {
   build = b;
-  saveBuild(b);
+  if (online) online.link.saveBuild(b);
+  else saveBuild(b);
   if (net) net.sendBuild(b.skills, b.weapon, b.abilities, b.movement);
   if (netSpells) netSpells.stats = resolveSkills(b.skills);
   else sim.setBuild(b);
@@ -295,6 +355,7 @@ function causeIcon(cause: number): string {
   if (cause === 5) return ABILITY_ICONS[1]; // meteor
   if (cause === 6) return ABILITY_ICONS[0]; // heal
   if (cause === 7) return '\u{1f43a}'; // a bot got you
+  if (cause === 8) return '\u{1f7e2}'; // a monster's slam
   return '';
 }
 if (netSpells) {
@@ -636,6 +697,14 @@ function showEvent(e: GameEvent): void {
     follow.shake(0.15);
   } else if (e.type === 'actorDie' && e.kind === 'dummy') {
     follow.shake(0.5);
+  } else if (e.type === 'hurt') {
+    // A monster got you. Online the server's own attributed event draws the number instead.
+    hud.marker('hurt', e.x, e.y, e.z, e.damage, causeIcon(8));
+    follow.shake(0.55);
+    input.rumble(0.9, 0.8, 180);
+  } else if (e.type === 'slam') {
+    const d = Math.hypot(e.x - sim.player.pos.x, e.z - sim.player.pos.z);
+    if (d < 10) follow.shake(0.3 * (1 - d / 10) * Math.min(2, e.radius));
   } else if (e.type === 'explosion') {
     const d = Math.hypot(e.x - sim.player.pos.x, e.z - sim.player.pos.z);
     if (d < 16) {
@@ -670,6 +739,32 @@ function castCircle(p: PlayerState, x: number, z: number, hostile: boolean, mine
   }
 }
 
+// Monsters about to do something to you: where a slam will land, from the moment one picks the
+// spot until it comes down. Read off the behaviour's acts, so a new monster's slam warns the same way.
+// A gather shows the reach of its pull, filling as the cast goes on.
+function monsterWarning(kind: string, state: number, progress: number, x: number, z: number, tx: number, tz: number): void {
+  const k = findKind(kind);
+  const b = k?.brain ? behaviour(k.brain) : undefined;
+  const act = b?.states[state]?.act;
+  if (act === 'channel' && b?.gather) spells.circle(x, z, b.gather.radius, progress, CIRCLE.gather, 0.55);
+  if (!k?.slam || (act !== 'windup' && act !== 'leap')) return;
+  spells.circle(tx, tz, k.slam.radius, act === 'windup' ? progress : 1, CIRCLE.enemy, 0.9);
+}
+
+function monsterWarnings(): void {
+  if (net) {
+    for (const a of net.actors) {
+      if (a.deadFrame >= 0) continue;
+      const k = actorKindAt(a.kind);
+      if (k) monsterWarning(k.id, a.state, a.progress, a.x, a.z, a.targetX, a.targetZ);
+    }
+    return;
+  }
+  for (const a of sim.actors.all()) {
+    if (isAlive(a) && !a.gone) monsterWarning(a.kind, a.state, stateProgress(a), a.x, a.z, a.targetX, a.targetZ);
+  }
+}
+
 // Arrows, meteors and cast warnings, drawn every frame.
 function drawSpells(alpha: number, dt: number): void {
   spells.begin(dt, follow.yaw);
@@ -689,6 +784,7 @@ function drawSpells(alpha: number, dt: number): void {
     for (const r of remotes?.shown() ?? []) castCircle(r, r.pos.x, r.pos.z, r.team !== sim.player.team, null);
   }
   if (!net || playing) castCircle(sim.player, hero.root.position.x, hero.root.position.z, false, sim.stats);
+  monsterWarnings();
   if (aimingSlot !== 0) {
     spells.circle(sim.player.pos.x, sim.player.pos.z, reticle.range, 0, CIRCLE.range, 0.35);
     spells.circle(reticle.x, reticle.z, reticle.radius, 1, CIRCLE.aim, 0.95);
@@ -744,6 +840,7 @@ function draw(alpha: number, cameraDt: number, animDt: number): void {
   if (net) remotes?.frame(net.renderTick(performance.now()), animDt, sim.frame, 60 / net.ticksPerSecond);
   if (crowdView && crowdSource) crowdView.update(crowdSource, animDt);
   drawSpells(alpha, animDt);
+  peers?.frame(animDt, sim.frame, follow.camera.position);
   if (life && lifeView) {
     lifeView.update(sim, animDt, follow.camera.position);
     lifeUI?.update(animDt);
@@ -784,7 +881,7 @@ function draw(alpha: number, cameraDt: number, animDt: number): void {
   const markNow = lockOn.mark();
   dummyTop.set(dAct?.x ?? 0, 2.05 + groundY(dAct?.x ?? 0, dAct?.z ?? 0), dAct?.z ?? 0);
   hud.setTarget(
-    markNow ? { pos: markPos.set(markNow.x, markNow.y + 2.15 + groundY(markNow.x, markNow.z), markNow.z), hp: markNow.hp, name: markNow.name, locked: lockOn.locked } : null,
+    markNow ? { pos: markPos.set(markNow.x, markNow.y + 2.15 + groundY(markNow.x, markNow.z), markNow.z), hp: markNow.hp, name: markNow.name, locked: lockOn.locked, cast: castOf(markNow.key) } : null,
   );
   // The dummy has its own health bar in the training yard; hide it when the target plate is
   // already showing the same thing, or they stack on top of each other.
@@ -893,9 +990,9 @@ function frame(now: number): void {
       if (cam.dYaw !== 0 || cam.dPitch !== 0) lastCameraTouch = now;
     }
     if (life) rideCamera(dt, now);
-    if (saving && !resetting && now - lastSave > 5000) {
+    if (saving && now - lastSave > 5000) {
       lastSave = now;
-      saveLife(life!, sim);
+      saveIsland();
     }
     acc += dt;
     let steps = 0;
@@ -912,6 +1009,18 @@ function frame(now: number): void {
       steps++;
     }
     if (steps === 5) acc = 0; // don't spiral if the tab was in the background
+    // Where you are, 20 times a second, for everyone else in the channel; and the moment you build
+    // something (a claimed plot most of all), the server hears about it.
+    // (Only once the rules have stepped: a new character starts below the ground until they land.)
+    if (online && life && sim.frame > 0 && now - lastPresence >= 50) {
+      lastPresence = now;
+      online.link.presence(presenceOf(sim, life));
+      const built = life.state.houses.map((h) => `${h.plot}:${h.stage}`).join() + '|' + life.state.scarecrows.length + '|' + (life.state.ships ?? []).map((b) => b.stage).join();
+      if (built !== lastBuilt) {
+        if (lastBuilt !== null) saveIsland();
+        lastBuilt = built;
+      }
+    }
     if (net && !playing && now - lastViewSent > 100) {
       lastViewSent = now;
       net.sendView(sim.player.pos.x, sim.player.pos.z);
@@ -1162,11 +1271,46 @@ const api = {
         y: +a.y.toFixed(3),
         z: +a.z.toFixed(3),
         hp: a.hp,
+        maxHp: a.maxHp,
         alive: isAlive(a),
         state: stateName(a),
         deadFrame: a.deadFrame,
         flash: a.flashFrame,
+        mass: a.mass,
+        gone: a.gone,
+        transient: a.transient,
+        angry: a.angry,
+        rallyTo: a.rallyTo,
+        calling: a.calling,
+        fuse: a.fuse,
+        group: a.group,
+        slamCd: a.slamCd,
+        gatherCd: a.gatherCd,
+        targetX: +a.targetX.toFixed(3),
+        targetZ: +a.targetZ.toFixed(3),
       }));
+  },
+  // Testing: a blow from you to one actor, by id, as if a weapon had landed it.
+  hurtActor(id: number, amount: number): void {
+    const a = sim.actors.get(id);
+    if (a && isAlive(a)) sim.damage(targetOf(a), amount);
+  },
+  // Testing: sets fields on an actor by id (a cooldown, a fuse), to set up a moment directly.
+  setActor(id: number, fields: Partial<Actor>): void {
+    const a = sim.actors.get(id);
+    if (a) Object.assign(a, fields);
+  },
+  // Testing: puts a new actor of a kind in the world, as if a fight had made it (it won't respawn).
+  spawnActor(kind: string, x: number, z: number): number {
+    const a = sim.actors.spawn({ kind, x, z, seed: (sim.frame * 2654435761 + sim.actors.all().length * 40503) >>> 0 });
+    a.transient = true;
+    startBrain(a, sim.sighting());
+    return a.id;
+  },
+  // Testing: monsters that never get angry, for tests about something else that hit them.
+  calmMonsters(on = true): void {
+    sim.actors.calm = on;
+    if (on) for (const a of sim.actors.all()) a.angry = 0;
   },
   skillPanel(open?: boolean): boolean {
     if (open === true && !panel.isOpen) panel.open();
@@ -1233,12 +1377,22 @@ const api = {
     });
     return out;
   },
-  /** Writes the save now (tests; normal play saves every few seconds). */
+  /** Writes the save now (tests; normal play saves every few seconds): to the server online, to this browser in tests. */
   saveNow(): void {
-    if (life) saveLife(life, sim);
+    if (online) saveIsland();
+    else if (life) saveLife(life, sim);
   },
   clearSave(): void {
-    clearLife();
+    if (online) void online.link.reset();
+    else clearLife();
+  },
+  /** Online play: who you are and the connection (null offline). */
+  /** Online: everyone else in your channel, as drawn. */
+  peers() {
+    return peers?.list() ?? [];
+  },
+  online() {
+    return online ? { account: online.account.username, character: online.welcome.character, channel: online.welcome.channel, dev: online.welcome.dev, claims: online.link.claims, status: online.link.status, lastSaved: online.link.lastSaved } : null;
   },
   /** Which life panel is open, if any. */
   lifePanel(): string | null {
@@ -1342,8 +1496,43 @@ if (testMode ? params.has('bugs') : params.get('bugs') !== '0') {
     speech: params.get('bugspeech') !== '0',
     lang: params.get('buglang') || navigator.language || 'en-US',
   });
+  // Mouse readings thrown away as impossible, so a report can show whether one caused a camera jump.
+  input.mouse.onDrop = (dx, dy, why) => bugs?.note('mouse', { type: why, dx, dy, raw: input.rawMouse });
   if (lifeUI) {
     lifeUI.onBugReport = () => bugs?.toggle();
     lifeUI.bugKey = () => bugs?.key ?? '\\';
   }
+}
+
+// ---------- The game server ----------
+// Set up last, once everything it touches exists. The badge shows who you are and whether the
+// server is there; play stops if another window takes this character or the sign-in ends.
+
+if (online) {
+  const { link } = online;
+  const badge = new OnlineBadge(`${online.account.username} · Emberholm ${online.welcome.channel}`, async () => {
+    saveIsland();
+    resetting = true;
+    await signOut();
+    location.replace(location.pathname);
+  });
+  const stopIf = (s: typeof link.status) => {
+    badge.set(s);
+    if (s === 'kicked' || s === 'signed-out') {
+      resetting = true;
+      paused = true;
+      showStopped(s);
+    }
+  };
+  link.onStatus = stopIf;
+  link.onReconnect = () => saveIsland();
+  // The server says where you are can't be right (under the ground, off the island).
+  link.onCorrect = (x, _y, z) => {
+    // Only if it still holds by our own ground: a correction can arrive after you have moved on.
+    const p = sim.player.pos;
+    const lost = !terrain || !terrain.inside(p.x, p.z, 0) || p.y < terrain.height(p.x, p.z) - 3;
+    if (lost) teleport(x, z);
+  };
+  link.onError = (text) => life?.toast(text, 'bad');
+  stopIf(link.status);
 }

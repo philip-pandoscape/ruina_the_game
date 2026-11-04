@@ -47,7 +47,7 @@ fn totals(c: &Counters) -> Totals {
 
 #[tokio::main]
 async fn main() {
-    let (mut url, mut clients, mut seconds, mut bots) = ("ws://127.0.0.1:7777".to_string(), 1000usize, 15u64, 10_000usize);
+    let (mut url, mut clients, mut seconds, mut bots) = ("ws://127.0.0.1:7777/ws/battle".to_string(), 1000usize, 15u64, 10_000usize);
     let argv: Vec<String> = std::env::args().collect();
     let mut i = 1;
     while i + 1 < argv.len() {

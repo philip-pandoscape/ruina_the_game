@@ -128,9 +128,9 @@ export class Sim {
     }
   }
 
-  /** What a brain can see of the player this frame. */
+  /** What a brain can see of the player this frame. Someone knocked down is nobody's target. */
   sighting(): Sighting {
-    return { x: this.player.pos.x, z: this.player.pos.z, present: true };
+    return { x: this.player.pos.x, z: this.player.pos.z, present: this.player.downFrame < 0 };
   }
 
   /** The first actor of a kind, for the few callers that want a specific one by name. */

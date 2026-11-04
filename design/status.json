@@ -1,6 +1,6 @@
 {
   "comment": "Implementation tracker for the design bible (design/index.html). Edit this file and the page follows: it reads the tracker live (npm run dev, then /design/). Status is one of: done, building, planned, idea. Keep `files` to the main places a feature lives so a future session can jump straight there.",
-  "updated": "2026-11-03",
+  "updated": "2026-11-04",
   "systems": [
     {
       "id": "world",
@@ -177,9 +177,14 @@
     },
     {
       "system": "traversal",
-      "status": "planned",
+      "status": "building",
       "title": "Traversal on the server",
-      "notes": "Mirror terrain sampling, swimming and gliding in Rust with conformance tests, like the combat rules already are."
+      "notes": "Started: the server stands on the same ground as the browser. tests/terrain.spec.ts bakes the generator's height grid into server/data/emberholm.terrain (checking the copy is current) and compares 2,000 heights from both sides; server/src/terrain.rs samples it on the same triangles, and the server moves anyone it hears is under the ground or off the island back. Still to come: swimming, gliding and colliders in Rust, so the server decides where you are and the browser only predicts.",
+      "files": [
+        "server/src/terrain.rs",
+        "server/data/emberholm.terrain",
+        "tests/terrain.spec.ts"
+      ]
     },
     {
       "system": "vehicles",
@@ -537,10 +542,51 @@
     {
       "system": "tech",
       "status": "done",
-      "title": "Saving in the browser",
-      "notes": "The whole island saves to localStorage every 5 seconds and on leaving; ?fresh starts over.",
+      "title": "Saving on the game server",
+      "notes": "Your island is kept in Postgres with your character: the browser sends it every 5 seconds and when you leave the tab, and the server hands it back next time (time away still ripens crops, measured on the server's clock). Only one window plays a character at a time; a newer one takes over and the older stops. ?fresh starts over on the server too. localStorage now holds an island only for tests and bug-report replays (?world&test&load). Phase 1 of the world server: the server stores what the browser reports, so it doesn't stop cheating yet.",
       "files": [
-        "src/app/save.ts"
+        "src/app/save.ts",
+        "src/net/worldLink.ts",
+        "server/src/world_socket.rs",
+        "server/migrations/",
+        "tests/online.spec.ts"
+      ]
+    },
+    {
+      "system": "tech",
+      "status": "done",
+      "title": "Accounts and sign-in",
+      "notes": "Names and Argon2id password hashes in Postgres, a 30-day http-only session cookie the WebSocket carries too, wrong-password throttling, and a sign-in screen before Emberholm loads. One character per account for now, in its own table so accounts can hold more later. Development servers also sign in by name alone (?as=name), so tests and several test windows need no passwords; never on Railway.",
+      "files": [
+        "server/src/accounts.rs",
+        "src/net/account.ts",
+        "src/ui/signIn.ts",
+        "src/app/online.ts"
+      ]
+    },
+    {
+      "system": "tech",
+      "status": "done",
+      "title": "One server, one port, ready for Railway",
+      "notes": "The Rust server (axum) serves the account API, the open world's WebSocket and the battlefield's on one port, plus the built game in production. The Dockerfile's last stage is what Railway deploys (railway.json); docker-compose.yml runs Postgres and the server for development, and Vite forwards /api and /ws to it so the browser sees one address either way. The battlefield runs unless the server is started with --battle off (as the Docker image is).",
+      "files": [
+        "server/src/http.rs",
+        "server/src/main.rs",
+        "Dockerfile",
+        "docker-compose.yml",
+        "railway.json",
+        "vite.config.ts"
+      ]
+    },
+    {
+      "system": "tech",
+      "status": "done",
+      "title": "Beta and production, with CI/CD",
+      "notes": "Two protected branches: beta takes direct pushes, production only pull requests with CI passing. Every push and pull request typechecks and builds the client, runs the Rust tests, and plays the whole Playwright suite against a real server and Postgres (battlefield and conformance tests included). A passing push deploys to the Railway environment of the same name and waits for /api/health on the new deployment. Each environment has its own Postgres.",
+      "files": [
+        ".github/workflows/ci-cd.yml",
+        ".github/scripts/railway-wait.mjs",
+        "AGENTS.md"
       ]
     },
     {
@@ -579,9 +625,29 @@
     },
     {
       "system": "tech",
-      "status": "planned",
+      "status": "building",
       "title": "A world server",
-      "notes": "Persistent, authoritative life systems: the same commands sent as requests, state in a database, interest management for other players' carts and ships."
+      "notes": "Persistent, authoritative life systems in the Rust server. Phases: (1) accounts and islands kept on the server, done; (2) movement on the server: started (the island's ground, and putting back anyone under it or off the map); still to come: swimming, gliding, vehicles and colliders in Rust, with the browser only predicting; (3) life on the server: started (plot claims and the developer panel are the server's call); still to come: trade, farming, housing, vehicles and quests decided by the server, so nothing trusts the browser; (4) one shared Emberholm in channels, done; (5) live on Railway, done.",
+      "files": [
+        "server/src/world_socket.rs",
+        "server/src/channels.rs",
+        "server/src/terrain.rs",
+        "server/src/http.rs"
+      ]
+    },
+    {
+      "system": "tech",
+      "status": "done",
+      "title": "One shared Emberholm, in channels",
+      "notes": "Channels are copies of the island, each home to up to 24 characters, who keep the one they were first given. Everyone in a channel sees everyone else (position, animation, glider, pack, vehicles and mounts, relayed about 20 times a second and drawn 100 ms behind with names over their heads) and everything each resident has built (houses, farms, ships on the slipway), which stays when they log off and is solid. A house plot belongs to whoever built on it first; the server keeps the claims. The developer panel is on in development and beta, off in production.",
+      "files": [
+        "server/src/channels.rs",
+        "server/src/world_socket.rs",
+        "src/net/worldPeers.ts",
+        "src/net/worldLink.ts",
+        "src/render/open/life.ts",
+        "tests/online.spec.ts"
+      ]
     },
     {
       "system": "ui",
@@ -632,10 +698,29 @@
         "src/render/models/villagers.ts",
         "src/render/open/life.ts"
       ]
+    },
+    {
+      "system": "combat",
+      "status": "done",
+      "title": "Slime pack fight",
+      "notes": "Four sizes on a ladder (slimelet, slime, great slime, slime monarch), each its own kind with mass, health, scale and slam. Slimes leave you alone until you hit one. Then: the one you hit calls (if its gather is ready) and the pack within 14 m rushes to it; with two within 8 m it gathers for 2.5 s (green swirl, cast bar on its plate), pulling them in and growing to the size their mass reaches, at full health; a quarter of its health in damage breaks the cast and dazes it, and if the caller dies the nearest rallying slime takes over. Anything angry in range winds up, leaps and slams where you stood (red ring). A kill bursts into 3/5/7 slimelets on a 6 s fuse that run while you are close and huddle otherwise; two or more left reform one size up from what you killed. A lone survivor dissolves; no creature passes 40 alive, and home slimes respawn only within the starting mass. Brains are data with guarded transitions, interrupts and requests the world carries out, the same in TypeScript and Rust, compared pack by pack in ai-conformance.",
+      "files": [
+        "shared/actors.json",
+        "shared/behaviours.json",
+        "src/sim/ai/brain.ts",
+        "src/sim/actors/step.ts",
+        "server/src/ai.rs",
+        "server/src/actors.rs",
+        "tests/slime-pack.spec.ts",
+        "src/render/vfx.ts",
+        "src/species/builtin/slime.ts"
+      ]
     }
   ],
   "next": [
-    "Decide the open questions below, then design the world server (persistence and other players' carts and ships)."
+    "World server phase 2, the rest: swimming, gliding, vehicles and colliders in Rust with conformance tests, so the server decides where you are and the browser predicts.",
+    "World server phase 3, the rest: trade, farming, housing, vehicles and quests decided by the server (the same Life commands as requests), state in Postgres tables, so nothing trusts the browser.",
+    "Shared world, next: trading-post demand, weather and gathering nodes shared by a channel; choosing a channel (to join a friend in another one); others' parked vehicles while they're away."
   ],
   "questions": [
     {
@@ -712,6 +797,55 @@
         "Gone: design/build.mjs, design/map.ts and npm run design, and the 400 KB of copied JSON and base64 map they wrote into design/index.html. Change the data or the tracker and the page reloads with it.",
         "design/index.html is now a proper document (without a doctype the dev server showed it in quirks mode) and design/ is type-checked with the rest.",
         "tests/design.spec.ts: every part draws without a console error, the ledger, vehicles, quests and log match the data, the tracker filters work, and the map is the generated island."
+      ]
+    },
+    {
+      "date": "2026-11-03",
+      "title": "Going online: accounts and islands on the server",
+      "summary": "Phase 1 of the world server. Emberholm is now played signed in, with your island and build kept in Postgres by the Rust server instead of in the browser, and the whole game builds into one Docker image ready for Railway.",
+      "points": [
+        "Decided: extend the Rust server rather than add a TypeScript one; one shared Emberholm in channels; username-and-password accounts; Postgres, Docker for development, Railway for hosting.",
+        "The server now serves everything on one port with axum: /api (health, me, register, login, logout, dev-login), /ws/world and /ws/battle, plus the built game when STATIC_DIR is set. The battlefield can be switched off with --battle off (the Docker image does); ?server=ws://host:port still finds it.",
+        "server/migrations/ holds the schema (accounts, sessions, characters), applied when the server starts. A save carries the connection's id, so a window that was taken over can't write over the newer one.",
+        "The browser signs in before the island loads (src/app/online.ts), shows who you are and the connection in the corner, keeps playing while it reconnects, and stops when another window takes the character.",
+        "npm run up starts Postgres and the server in Docker, so working on the game needs no Rust install. tests/online.spec.ts plays sign-up, sign-in, saving across visits, starting over and the takeover against the real server."
+      ]
+    },
+    {
+      "date": "2026-11-03",
+      "title": "Beta and production",
+      "summary": "The game is live on Railway in two environments, beta and production, each fed by a protected branch of the same name through CI/CD.",
+      "points": [
+        "beta takes direct pushes; production only pull requests with CI passing. Both refuse force-pushes and deletion, and beta is now the default branch.",
+        "Railway: each environment has the game and its own Postgres 18; Railway's own deploy-on-push from main is gone, so only CI deploys. Local development and CI use Postgres 18 too.",
+        "CI plays the whole Playwright suite on Linux against a real server and database, so the battlefield and TS/Rust conformance tests, which need the Rust binaries, run there.",
+        "AGENTS.md is the short guide for coding agents (CLAUDE.md points to it). The model gallery and harness pages got a favicon, and the bug-report test reads Windows paths."
+      ]
+    },
+    {
+      "date": "2026-11-04",
+      "title": "The slime pack fight",
+      "summary": "Slimes became a pack fight, in five steps each pushed to beta: groundwork for packs on both sides, the slam, bursting and reforming, the rally and gather, and a tuning pass.",
+      "points": [
+        "Brains in shared/behaviours.json choose their next state by condition, can be cut short by interrupts, and wind up, leap and channel. Anything that reaches another actor (calling, pulling, absorbing, slamming) is a request the world carries out after every brain has stepped, in src/sim/actors/step.ts and server/src/actors.rs alike.",
+        "Actors can be spawned and cleared mid-fight and grow into another kind in place; ids wrap at 16 bits skipping ones in use. Home actors respawn only within their ladder's mass budget, and a burst never takes a creature past its cap.",
+        "Hit a slime and the pack within 14 m is angry for 15 s: the one you hit calls and the rest rally to it, it gathers them in and grows, and anything in range slams the spot you stood on. Kills burst into slimelets that reform one size up unless you clear them within 6 s.",
+        "Drawn: per-size scale in the species crowd, windup, leap, gather and dazed clips, ground rings for slams and gathers, a cast bar on the target plate, splashes for bursting, growing and calling, and a fuse pulse on the pieces. The actor wire entry carries the slam target so the ring shows online too.",
+        "The server now steps monsters 60 times a second whatever its tick rate, as the browser does (they ran at a third of the speed on a 20 Hz server), and lands their slams on players with the usual dodge and guard rules.",
+        "Tuning: burst pieces only run while you are within 5 m and huddle otherwise, so a group that survives comes back where its pieces are instead of fanning out across the field.",
+        "ai-conformance now runs whole packs through both sides (bursts, reforms, a gather, a broken gather) and each has to prove it reached the states it covers; tests/slime-pack.spec.ts plays the fight in the yard, paused so only the test steps it."
+      ]
+    },
+    {
+      "date": "2026-11-04",
+      "title": "Playing together",
+      "summary": "Emberholm is shared: friends in the same channel see each other and what each has built, the server owns plot claims and knows the island's ground, and the game is live on Railway in beta and production.",
+      "points": [
+        "server/src/channels.rs: channels with a cap, each character's home channel stored; presences relayed 20 times a second; estates (houses, farms, ships) shared and kept while their owner is away; plot claims, first come.",
+        "src/net/worldPeers.ts draws everyone else with the same hero and the life view in a new others mode (their farms, house, vehicles, packs and glider, but not the island's townsfolk, nodes or weather a second time). Their houses and farm posts are solid. A plot someone else holds says so and can't be claimed.",
+        "server/src/terrain.rs reads the island's height grid baked from the TypeScript generator (tests/terrain.spec.ts keeps it current and compares the two), and the server puts back anyone reported under the ground or off the map.",
+        "The developer panel is the server's call: DEV_TOOLS=1 (and development servers) offer it; production doesn't.",
+        "CI: tests that need a real GPU (several game windows at once, frame rates, screen capture) are tagged @gpu and run on dev machines, not on GitHub's software-rendering runners; all 17 online battlefield tests pass against the new server with a GPU. --battle off now turns the battlefield off; --bots keeps its meaning."
       ]
     }
   ]

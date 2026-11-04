@@ -69,5 +69,58 @@ export function slimeSpecies(): SpeciesDef {
     return undefined;
   });
 
-  return { id: 'slime', height: rig.height, joints, proxy: rig.proxy, clips: [idle, hop, die] };
+  // Gathering itself to jump: it sinks and spreads, and shivers harder the closer it gets.
+  // Stretched over the whole windup, so the shiver is the warning you have to step away.
+  const windup = bakeAuthored(joints, { name: 'windup', frames: 18, fps: 30, loop: false }, (j, f) => {
+    const t = f / 17;
+    const sink = Math.min(1, t * 1.4);
+    const shiver = Math.sin(f * 2.6) * 0.05 * t;
+    const squash = sink * 0.45 + shiver;
+    if (j === rig.root) return { pos: [shiver * 0.3, 0, 0] };
+    if (j === rig.core) return { scale: [...blob(squash)] as [number, number, number] };
+    if (j === rig.top) return { pos: [0, 0.26 - sink * 0.08, 0] };
+    if (j === rig.budL) return { pos: [0.26 + squash * 0.14, 0.09 - sink * 0.04, 0] };
+    if (j === rig.budR) return { pos: [-0.26 - squash * 0.14, 0.09 - sink * 0.04, 0] };
+    return undefined;
+  });
+
+  // The slam: a high arc, long and thin on the way up, and a hard splat where it lands. Its rise
+  // matches the leap's gait in shared/behaviours.json (apex 0.9 m, off the ground 5%..95%).
+  const leap = bakeAuthored(joints, { name: 'leap', frames: 30, fps: 30, loop: false }, (j, f) => {
+    const t = f / 29;
+    const air = Math.max(0, Math.min(1, (t - 0.05) / 0.9));
+    const rise = Math.sin(air * Math.PI);
+    const splat = Math.max(0, 1 - Math.abs(t - 0.97) / 0.06);
+    const squash = splat * 0.55 - (air > 0 && air < 0.5 ? 0.28 * Math.sin(air * 2 * Math.PI) : 0);
+    if (j === rig.root) return { pos: [0, rise * 0.9, 0] };
+    if (j === rig.core) return { scale: [...blob(squash)] as [number, number, number] };
+    if (j === rig.budL) return { pos: [0.26 + squash * 0.16, 0.09, 0] };
+    if (j === rig.budR) return { pos: [-0.26 - squash * 0.16, 0.09, 0] };
+    return undefined;
+  });
+
+  // Gathering the pack in: it swells, its top lifting like a held breath, and throbs faster as the
+  // cast goes on. Stretched over the whole cast, so how swollen it is tells you how long is left.
+  const gather = bakeAuthored(joints, { name: 'gather', frames: 45, fps: 30, loop: false }, (j, f) => {
+    const t = f / 44;
+    const throb = Math.sin(f * (0.35 + t * 0.6)) * 0.06;
+    const swell = t * 0.22 + throb;
+    if (j === rig.core) return { scale: [1 + swell, 1 + swell * 0.7, 1 + swell] };
+    if (j === rig.top) return { pos: [0, 0.26 + t * 0.1 + throb * 0.5, 0], scale: [1 + swell * 0.6, 1 + swell * 0.8, 1 + swell * 0.6] };
+    if (j === rig.budL) return { pos: [0.26 + swell * 0.18, 0.09 + t * 0.05, 0] };
+    if (j === rig.budR) return { pos: [-0.26 - swell * 0.18, 0.09 + t * 0.05, 0] };
+    return undefined;
+  });
+
+  // Dazed after its cast was broken: slumped and wobbling off-balance.
+  const dazed = bakeAuthored(joints, { name: 'dazed', frames: 40, fps: 30 }, (j, f) => {
+    const t = (f / 40) * Math.PI * 2;
+    const tip = Math.sin(t) * 0.18;
+    const sag = 0.18 + Math.sin(t * 2) * 0.04;
+    if (j === rig.core) return { scale: [...blob(sag)] as [number, number, number], rot: [0, 0, Math.sin(tip / 2), Math.cos(tip / 2)] };
+    if (j === rig.top) return { pos: [Math.sin(t) * 0.05, 0.22, 0] };
+    return undefined;
+  });
+
+  return { id: 'slime', height: rig.height, joints, proxy: rig.proxy, clips: [idle, hop, die, windup, leap, gather, dazed] };
 }

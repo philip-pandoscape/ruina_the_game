@@ -111,17 +111,22 @@ export class LifeView {
   /** Called when the ground changes under the grass (a plot placed, a house begun). */
   onGroundChanged: (() => void) | null = null;
 
+  /** Draws someone else's things (their farms, house, vehicles, packs and glider) rather than yours and the island's: no nodes, townsfolk, weather or placement ghost. */
+  readonly others: boolean;
+
   constructor(
     scene: THREE.Scene,
     private life: Life,
     private models: Models,
     private hero: Hero,
+    opts: { others?: boolean } = {},
   ) {
+    this.others = !!opts.others;
     scene.add(this.group);
     this.group.add(this.plots, this.houses, this.slips);
     const hf = life.zone.gen.terrain;
     // Resource nodes (they vanish while picked clean).
-    life.zone.recipe.nodes.forEach((nd, i) => {
+    if (!this.others) life.zone.recipe.nodes.forEach((nd, i) => {
       const built = tryBuild(models.buildStructure ? () => models.buildStructure!(nd.kind) : null);
       const def = structureDef(nd.kind);
       const root = built?.root ?? box(def.w, def.h, def.d, 0x8d8a85);
@@ -131,7 +136,7 @@ export class LifeView {
       this.nodes.push({ root, i });
     });
     // Townsfolk with their own looks, standing at their posts.
-    for (const n of life.zone.recipe.npcs) {
+    for (const n of this.others ? [] : life.zone.recipe.npcs) {
       const m = tryBuild(models.buildVillager ? () => models.buildVillager!(n.id) : null);
       if (!m) continue;
       const holder = new THREE.Group();
@@ -153,7 +158,7 @@ export class LifeView {
     this.ghost = new THREE.Mesh(ghostGeo, new THREE.MeshBasicMaterial({ color: 0x7bed9f, transparent: true, opacity: 0.38, depthWrite: false }));
     this.ghost.visible = false;
     this.ghost.renderOrder = 3;
-    this.group.add(this.ghost);
+    if (!this.others) this.group.add(this.ghost);
     // Rain: a column of streaks that follows the camera.
     const n = 2400;
     const pos = new Float32Array(n * 3);
@@ -166,10 +171,10 @@ export class LifeView {
     rg.setAttribute('position', new THREE.BufferAttribute(pos, 3));
     this.rain = new THREE.Points(rg, new THREE.PointsMaterial({ color: 0xcfe6ff, size: 0.09, transparent: true, opacity: 0, depthWrite: false }));
     this.rain.frustumCulled = false;
-    this.group.add(this.rain);
+    if (!this.others) this.group.add(this.rain);
     // Updrafts: spiralling wisps so you can find the rising air.
     this.updrafts = new THREE.Group();
-    for (const u of life.zone.recipe.updrafts) {
+    for (const u of this.others ? [] : life.zone.recipe.updrafts) {
       const wisp = new THREE.Group();
       const mat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.32, depthWrite: false });
       for (let k = 0; k < 26; k++) {
@@ -487,7 +492,7 @@ export class LifeView {
     }
     if (life.state.clock % 1 < dt) for (const n of this.nodes) if (n) n.root.visible = nodeReady(life, n.i);
 
-    this.updateIndoors(this.hero.root.position.x, this.hero.root.position.y, this.hero.root.position.z);
+    if (!this.others) this.updateIndoors(this.hero.root.position.x, this.hero.root.position.y, this.hero.root.position.z);
 
     // Townsfolk turn to face you when you come close, and gesture while you talk.
     const hp = this.hero.root.position;
@@ -638,6 +643,8 @@ export class LifeView {
       g.root.rotation.set(0, 0, 0);
       g.animate?.(dt, { bank: p.bank * 0.6, pitch: Math.max(-0.35, Math.min(0.3, p.vel.y / 12)), speed: p.airspeed });
     } else if (this.gliderModel) this.gliderModel.root.visible = false;
+
+    if (this.others) return;
 
     // Placement ghost.
     const pl = life.placing;

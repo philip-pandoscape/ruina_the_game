@@ -86,10 +86,11 @@ pub const YOU_ENTRY: usize = 2
 pub const ARROW_ENTRY: usize = 15;
 pub const METEOR_ENTRY: usize = 10;
 pub const EVENT_ENTRY: usize = 8;
-// id u16, kind u8, x/z f32, y u8, facing u8, behaviour state u8, progress u8, hp u8, down u8.
-// Enough for the browser to place one and pick which clip it is playing; everything else about
-// a monster it already knows from shared/actors.json.
-pub const ACTOR_ENTRY: usize = 17;
+// id u16, kind u8, x/z f32, y u8, facing u8, behaviour state u8, progress u8, hp u8, down u8,
+// and where a slam it is winding up will land, as i8 offsets in tenths of a metre. Enough for the
+// browser to place one, pick which clip it is playing and warn you; everything else about a
+// monster it already knows from shared/actors.json.
+pub const ACTOR_ENTRY: usize = 19;
 
 pub const EVENT_HEAL: u8 = 1;
 pub const EVENT_EXPLOSION: u8 = 2;
@@ -105,6 +106,7 @@ pub const CAUSE_WEAPON: u8 = 1; // plus the weapon index: 1 sword, 2 club, 3 sta
 pub const CAUSE_METEOR: u8 = 5;
 pub const CAUSE_HEAL: u8 = 6;
 pub const CAUSE_BOT: u8 = 7;
+pub const CAUSE_MONSTER: u8 = 8;
 
 // Inputs travel as small integers; the browser applies the same rounding to its own prediction.
 pub fn input_axis(v: i8) -> f64 {
@@ -329,6 +331,8 @@ pub fn put_actor(
     progress: f64,
     hp_fraction: f64,
     dead_frame: i32,
+    target_dx: f64,
+    target_dz: f64,
 ) {
     let tau = std::f64::consts::PI * 2.0;
     out[0..2].copy_from_slice(&(id as u16).to_le_bytes());
@@ -341,4 +345,6 @@ pub fn put_actor(
     out[14] = (progress * 255.0).clamp(0.0, 255.0) as u8;
     out[15] = (hp_fraction * 255.0).clamp(0.0, 255.0) as u8;
     out[16] = if dead_frame < 0 { 0 } else { (dead_frame + 1).min(255) as u8 };
+    out[17] = (target_dx * 10.0).round().clamp(-127.0, 127.0) as i8 as u8;
+    out[18] = (target_dz * 10.0).round().clamp(-127.0, 127.0) as i8 as u8;
 }

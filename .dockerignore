@@ -1,0 +1,15 @@
+.git
+.claude
+node_modules
+dist
+server/target
+test-results
+playwright-report
+screenshots
+scratch
+bugs
+Dockerfile
+docker-compose.yml
+.dockerignore
+.env
+.env.*

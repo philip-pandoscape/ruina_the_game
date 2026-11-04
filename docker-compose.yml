@@ -1,0 +1,43 @@
+# Development: Postgres and the game server. `npm run up` starts both (rebuilding the server if
+# its code changed), then `npm run dev` serves the game at http://localhost:5173, forwarding /api
+# and /ws here, so the browser sees one address as it will on Railway.
+name: ruina
+
+services:
+  db:
+    # The same major version as Railway's (and CI's) Postgres.
+    image: postgres:18
+    environment:
+      POSTGRES_USER: ruina
+      POSTGRES_PASSWORD: ruina
+      POSTGRES_DB: ruina
+    # 5433 on this machine, so it doesn't clash with a Postgres you already run.
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      # Postgres 18 keeps its data in a versioned folder under here.
+      - pg:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ruina -d ruina"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  server:
+    build:
+      context: .
+      target: server
+    environment:
+      DATABASE_URL: postgres://ruina:ruina@db:5432/ruina
+      # Sign in by name alone with ?as=name. Development only; the server ignores it on Railway.
+      DEV_LOGIN: "1"
+      PORT: "7777"
+    ports:
+      - "127.0.0.1:7777:7777"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  pg:

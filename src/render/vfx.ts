@@ -329,6 +329,7 @@ class FlashPool {
 
 const DUST = new THREE.Color(0xefe4d0);
 const STRAW = new THREE.Color(0xe2c158);
+const SLIME_GREEN = new THREE.Color(0x7fd36a);
 const SMOKE = new THREE.Color(0x4a4440);
 const FIRE = [new THREE.Color(0xffd166), new THREE.Color(0xff9f1c), new THREE.Color(0xff5a14)];
 const HEAL = [new THREE.Color(0x7dffb0), new THREE.Color(0xd8ffe6), new THREE.Color(0x3ddc84)];
@@ -430,6 +431,51 @@ export class Vfx {
         this.puff(e.x, g + 0.6, e.z, 16, 3.5, 0.3, STRAW);
         this.burst(e.x, g + 1.1, e.z, 1, 0, 14, 7, STRAW);
         this.burst(e.x, g + 1.1, e.z, -1, 0, 14, 7, STRAW);
+        break;
+      }
+      case 'actorBurst': {
+        // Dying into pieces: a wet splash outward, more of it for a bigger one.
+        const n = 6 + e.count * 3;
+        this.puff(e.x, e.y, e.z, n, 2.6 + e.count * 0.3, 0.24, SLIME_GREEN);
+        for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) this.burst(e.x, e.y, e.z, dx, dz, 5, 5.5, SLIME_GREEN);
+        break;
+      }
+      case 'actorGrow': {
+        // Grown a size (or a group come back together): a bright ring and a gulp of slime.
+        const g = this.gy(e.x, e.z);
+        this.rings.spawn(this.v.set(e.x, g + 0.05, e.z), 3.2, 0.55, 0xb8ff9a);
+        this.rings.spawn(this.v.set(e.x, g + 0.08, e.z), 1.8, 0.35, 0xffffff);
+        this.puff(e.x, g + 0.5, e.z, 18, 3.2, 0.3, SLIME_GREEN);
+        break;
+      }
+      case 'actorCall': {
+        // Calling the pack: a green ripple spreading out from it.
+        const g = this.gy(e.x, e.z);
+        this.rings.spawn(this.v.set(e.x, g + 0.05, e.z), 5, 0.7, 0x9dff5c);
+        this.rings.spawn(this.v.set(e.x, g + 0.06, e.z), 2.5, 0.45, 0xd8ffc0);
+        break;
+      }
+      case 'gatherStart': {
+        const g = this.gy(e.x, e.z);
+        this.rings.spawn(this.v.set(e.x, g + 0.05, e.z), e.radius, 0.6, 0x9dff5c);
+        break;
+      }
+      case 'gatherBroken':
+        // Broken: a pop of white, and it slumps.
+        this.burst(e.x, e.y, e.z, 1, 0, 10, 6, new THREE.Color(0xffffff));
+        this.burst(e.x, e.y, e.z, -1, 0, 10, 6, new THREE.Color(0xffffff));
+        this.rings.spawn(this.v.set(e.x, this.gy(e.x, e.z) + 0.05, e.z), 2, 0.3, 0xffffff);
+        break;
+      case 'actorAbsorbed':
+        this.puff(e.x, e.y, e.z, 6, 1.6, 0.2, SLIME_GREEN);
+        break;
+      case 'slam': {
+        // A monster landing hard: a dust ring the size of what it hit, and a splash of slime.
+        const g = this.gy(e.x, e.z);
+        this.rings.spawn(this.v.set(e.x, g + 0.04, e.z), e.radius * 1.1, 0.4, 0xff6b5b);
+        this.puff(e.x, g + 0.1, e.z, 8 + Math.round(e.radius * 6), 2 + e.radius * 1.5, 0.22 + e.radius * 0.08);
+        this.burst(e.x, g + 0.3, e.z, 1, 0, 8, 4 + e.radius * 2, SLIME_GREEN);
+        this.burst(e.x, g + 0.3, e.z, -1, 0, 8, 4 + e.radius * 2, SLIME_GREEN);
         break;
       }
       case 'shoot':

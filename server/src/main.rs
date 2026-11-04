@@ -1,25 +1,35 @@
-//! Raid stress-test server: simulates thousands of fighters at a fixed tick rate and streams each
-//! connected player a personal update over WebSockets.
+//! The game server. On one port (server/src/http.rs):
+//!   - accounts and the open world, Emberholm, kept in Postgres (when DATABASE_URL is set)
+//!   - the PvP battlefield: thousands of fighters simulated at a fixed tick rate, each connected
+//!     player streamed a personal update (unless started with --battle off)
+//!   - the game's built files (with --static or STATIC_DIR; in development Vite serves them)
 //!
 //!   cargo run --release -- --bots 10000 --virtual-clients 10000 --port 7777 --hz 20
 //!
 //! --virtual-clients N builds a personal update for N bots every tick as if they were connected
 //! players, without sending it anywhere. That measures the server cost of a full raid.
+//!
+//! Environment: PORT (Railway sets it; --port wins), DATABASE_URL, STATIC_DIR, DEV_LOGIN=1 (sign in
+//! by name alone, for development; ignored on Railway), DEV_TOOLS=1 (the in-game developer panel;
+//! on with DEV_LOGIN), COOKIE_SECURE=1 (https without Railway).
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
+use axum::body::Bytes;
 use rayon::prelude::*;
 use tokio::sync::mpsc::Sender;
-use tokio_tungstenite::tungstenite::Bytes;
 use yggdrasil_server::actors::Actors;
 use yggdrasil_server::game::Players;
+use yggdrasil_server::http::{self, AppState};
 use yggdrasil_server::interest::{build_snapshot, InterestGrid, Records, Scratch, MID_EVERY};
-use yggdrasil_server::net::{self, unpack_view, Registry};
+use yggdrasil_server::net::{unpack_view, Registry};
 use yggdrasil_server::protocol::{self, StatsMsg};
 use yggdrasil_server::sim::{Battle, BotHit, FIELD};
+use yggdrasil_server::{db, world_socket};
 
 // How anything that rocks when hit settles back upright; matches LEAN in src/tuning.ts.
 const LEAN_SPRING: f64 = 140.0;
@@ -27,6 +37,9 @@ const LEAN_DAMPING: f64 = 7.0;
 use yggdrasil_server::world::{battlefield, SEED};
 
 struct Args {
+    /// Run the battlefield at all (--battle off for a server that only hosts the open world).
+    battle: bool,
+    /// Fighters on the battlefield (at least 2).
     bots: usize,
     virtual_clients: usize,
     port: u16,
@@ -34,20 +47,26 @@ struct Args {
     /// Monsters to scatter around the players' end of the field. Off unless asked for:
     /// putting them in by default would change every world anybody already runs.
     slimes: usize,
+    /// The built game (dist/) to serve, if any.
+    static_dir: Option<PathBuf>,
 }
 
 fn parse_args() -> Args {
-    let mut a = Args { bots: 10_000, virtual_clients: 0, port: 7777, hz: 20, slimes: 0 };
+    let env_port = std::env::var("PORT").ok().and_then(|p| p.parse().ok());
+    let static_dir = std::env::var_os("STATIC_DIR").filter(|d| !d.is_empty()).map(PathBuf::from);
+    let mut a = Args { battle: true, bots: 10_000, virtual_clients: 0, port: env_port.unwrap_or(7777), hz: 20, slimes: 0, static_dir };
     let argv: Vec<String> = std::env::args().collect();
     let mut i = 1;
     while i + 1 < argv.len() {
         let v = &argv[i + 1];
         match argv[i].as_str() {
+            "--battle" => a.battle = v != "off",
             "--bots" => a.bots = v.parse().expect("--bots needs a number"),
             "--virtual-clients" => a.virtual_clients = v.parse().expect("--virtual-clients needs a number"),
             "--port" => a.port = v.parse().expect("--port needs a number"),
             "--hz" => a.hz = v.parse().expect("--hz needs a number"),
             "--slimes" => a.slimes = v.parse().expect("--slimes needs a number"),
+            "--static" => a.static_dir = Some(PathBuf::from(v)),
             other => panic!("unknown argument {other}"),
         }
         i += 2;
@@ -59,26 +78,60 @@ fn parse_args() -> Args {
 
 fn main() {
     let args = parse_args();
-    let registry: Registry = Arc::new(Mutex::new(Vec::new()));
-    let welcome = Bytes::from(protocol::welcome(args.bots, args.hz, FIELD));
-    println!(
-        "bots {} | slimes {} | virtual players {} | {} ticks/s | {} CPU threads",
-        args.bots,
-        args.slimes,
-        args.virtual_clients,
-        args.hz,
-        rayon::current_num_threads()
-    );
-    {
-        let registry = registry.clone();
+    let on_railway = std::env::var_os("RAILWAY_PROJECT_ID").is_some();
+    let dev_login = std::env::var("DEV_LOGIN").is_ok_and(|v| v == "1") && !on_railway;
+    let secure_cookies = on_railway || std::env::var("COOKIE_SECURE").is_ok_and(|v| v == "1");
+    let dev_tools = dev_login || std::env::var("DEV_TOOLS").is_ok_and(|v| v == "1");
+
+    let battle = if args.battle {
+        let registry: Registry = Arc::new(Mutex::new(Vec::new()));
+        let welcome = Bytes::from(protocol::welcome(args.bots, args.hz, FIELD));
+        println!(
+            "battlefield: bots {} | slimes {} | virtual players {} | {} ticks/s | {} CPU threads",
+            args.bots,
+            args.slimes,
+            args.virtual_clients,
+            args.hz,
+            rayon::current_num_threads()
+        );
+        let sim_registry = registry.clone();
         let (bots, virt, hz, slimes) = (args.bots, args.virtual_clients, args.hz, args.slimes);
         std::thread::Builder::new()
             .name("sim".into())
-            .spawn(move || run(bots, virt, hz, slimes, registry))
+            .spawn(move || run(bots, virt, hz, slimes, sim_registry))
             .expect("start sim thread");
-    }
+        Some(http::Battle { registry, welcome })
+    } else {
+        println!("battlefield: off (--battle off)");
+        None
+    };
+
     let rt = tokio::runtime::Builder::new_multi_thread().enable_all().build().expect("start tokio");
-    if let Err(e) = rt.block_on(net::serve(args.port, registry, welcome)) {
+    let result = rt.block_on(async move {
+        let db = match std::env::var("DATABASE_URL") {
+            Ok(url) if !url.is_empty() => {
+                let pool = db::connect(&url).await.map_err(std::io::Error::other)?;
+                db::spawn_housekeeping(pool.clone());
+                println!("database: connected{}", if dev_login { " | developer sign-in on (?as=name)" } else { "" });
+                Some(pool)
+            }
+            _ => {
+                println!("database: none (DATABASE_URL is not set), so accounts and the open world are off");
+                None
+            }
+        };
+        let state = AppState {
+            db,
+            battle,
+            world: world_socket::Hub::default(),
+            dev_login,
+            dev_tools,
+            secure_cookies,
+            failed_logins: Mutex::new(HashMap::new()),
+        };
+        http::serve(args.port, state, args.static_dir).await
+    });
+    if let Err(e) = result {
         eprintln!("server error: {e}");
         std::process::exit(1);
     }
@@ -118,6 +171,7 @@ fn run(bots: usize, virtual_clients: usize, hz: u32, slimes: usize, registry: Re
         );
     }
     let dt = 1.0 / hz as f32;
+    let monster_steps = (60 / hz.max(1)).max(1);
     let period = Duration::from_secs_f64(1.0 / hz as f64);
     let mut next = Instant::now() + period;
     let mut window = Window::default();
@@ -166,8 +220,14 @@ fn run(bots: usize, virtual_clients: usize, hz: u32, slimes: usize, registry: Re
         players.apply_bot_hits(&bot_hits);
         players.step_effects(&mut battle, &mut actors);
         // Monsters move after the players, on the same tick, reading where everyone ended up.
+        // Their brains count 60ths of a second, as in the browser, so a tick runs as many of
+        // those as it lasts; then their slams land on whoever is standing in them.
         let seen: Vec<(f64, f64)> = players.live_positions();
-        actors.step(&seen, LEAN_SPRING, LEAN_DAMPING, dt as f64);
+        let mut slams = Vec::new();
+        for _ in 0..monster_steps {
+            slams.extend(actors.step(&seen, LEAN_SPRING, LEAN_DAMPING, 1.0 / 60.0));
+        }
+        players.apply_slams(&slams);
         players.record_history(battle.tick);
         let t1 = Instant::now();
         grid.rebuild(&battle);

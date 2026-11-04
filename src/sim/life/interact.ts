@@ -257,6 +257,11 @@ export function findFocus(life: Life, sim: Sim): Focus | null {
     const h = houseOn(life, plot.id);
     const y = hf.height(plot.x, plot.z);
     const d = Math.hypot(lx, lz) * 0.25 + 1.5;
+    const owner = h ? null : (life.plotOwner?.(plot.id) ?? null);
+    if (owner) {
+      consider({ action: 'info', key: `plot:${plot.id}`, label: `${owner}'s plot`, detail: 'Already claimed', ok: false, plot: plot.id, x: plot.x, y, z: plot.z }, d, 9);
+      continue;
+    }
     if (!h) {
       const bp = life.state.bag.find((s) => s.item.startsWith('blueprint.'));
       consider(

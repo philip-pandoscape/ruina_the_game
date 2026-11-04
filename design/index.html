@@ -420,6 +420,9 @@ kbd { font: 600 0.74rem/1 var(--mono); padding: 3px 6px; border-radius: 5px; bor
         <div class="table-wrap"><table id="weaponTable"></table></div>
         <div class="table-wrap"><table id="abilityTable"></table></div>
       </div>
+      <h3>The slime pack</h3>
+      <p>Slimes on the meadow leave you alone until you hit one. Then the pack fights as one: the slime you hit calls the others, who rush to it while it backs away from you, and once two are close it gathers them in and grows a size. Break the cast by hitting it hard enough, or keep the pack from reaching it. Anything angry and close winds up and slams the spot you were standing on; step out of the red ring. A slime you kill bursts into slimelets that run from you and pulse as a six-second fuse burns; any two left alive when it runs out come back as one size bigger than what you killed. Every number below is <code>shared/actors.json</code> and <code>shared/behaviours.json</code>, run the same way in the browser and on the server.</p>
+      <div class="table-wrap"><table id="creatureTable"></table></div>
       <div class="next" data-next="combat"></div>
     </section>
 
@@ -430,7 +433,7 @@ kbd { font: 600 0.74rem/1 var(--mono); padding: 3px 6px; border-radius: 5px; bor
         <div class="box"><b>Content</b><small>Every number and placement: vehicles, crops, packs, quests, zones, structures.</small><code>shared/*.json</code></div>
         <div class="box"><b>Rules</b><small>Fixed 60 Hz steps. Movement and combat in the Sim; trade, farms, houses and vehicles in Life, changed only by queued commands.</small><code>src/sim/ · src/sim/life/</code></div>
         <div class="box"><b>Presentation</b><small>Three.js scene, procedural toon models, DOM HUD and panels. Reads the rules' state; never changes it.</small><code>src/render/ · src/ui/</code></div>
-        <div class="box future"><b>World server</b><small>Planned: the same Life commands as requests, state in a database, other players' carts and ships streamed by interest.</small><code>server/ (battle server today)</code></div>
+        <div class="box future"><b>World server</b><small>Building: accounts and islands kept in Postgres, and one shared Emberholm in channels (players, their carts and ships, and every resident's house and farm), with plot claims and the island's ground on the server. Next: the same rules and Life commands decided on the server, so nothing trusts the browser.</small><code>server/</code></div>
       </div>
       <div class="table-wrap"><table id="fileTable"></table></div>
       <div class="next" data-next="tech"></div>

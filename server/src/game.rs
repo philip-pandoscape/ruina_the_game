@@ -8,11 +8,11 @@
 
 use std::collections::{HashMap, VecDeque};
 
-use crate::actors::Actors;
+use crate::actors::{Actors, Slam};
 use crate::player::{angle_diff, Actions, Build, Player};
 use crate::protocol::{
     aim_axis, cm16, input_axis, put_player, put_you, ARROW_ENTRY, EVENT_ARROW_HIT, EVENT_ENTRY, EVENT_EXPLOSION, EVENT_HEAL,
-    CAUSE_BOT, CAUSE_HEAL, CAUSE_METEOR, CAUSE_WEAPON, EVENT_YOU_HEAL, EVENT_YOU_HIT, EVENT_YOU_HURT,
+    CAUSE_BOT, CAUSE_HEAL, CAUSE_METEOR, CAUSE_MONSTER, CAUSE_WEAPON, EVENT_YOU_HEAL, EVENT_YOU_HIT, EVENT_YOU_HURT,
     METEOR_ENTRY, PLAYER_ENTRY, YOU_ENTRY, put_actor, ACTOR_ENTRY};
 use crate::sim::{Battle, BotHit, BotTarget};
 use crate::skills::valid_build;
@@ -37,6 +37,7 @@ const ARROW_HEIGHT: f64 = 1.3; // arrows fly at chest height
 const ARROW_RADIUS: f64 = 0.55; // how close an arrow has to pass to hit someone
 const MARKER_HEIGHT: f64 = 1.1; // floating numbers sit about head height above whoever they're about
 const MAX_OWN_EVENTS: usize = 24; // attributed events per player per tick; the rest are dropped
+const SLAM_LIFT: f64 = 1.0; // a monster's slam only catches someone on the ground, not mid-jump
 
 pub fn actions_from(raw: [u8; 7]) -> Actions {
     let b = raw[2];
@@ -751,7 +752,36 @@ impl Players {
         }
     }
 
-    /// Remembers where everyone stood at the end of `tick`, for rewinding later swings.
+    /// Monsters' slams: everyone standing in one when it lands is hit, with the same dodge and
+    /// guard rules as any other blow. Mirrors updateActors() in src/sim/actors/step.ts.
+    pub fn apply_slams(&mut self, slams: &[Slam]) {
+        let body = tuning().movement.player_radius;
+        for s in slams {
+            let mut struck: Vec<(usize, f64, f64, f64, f64)> = Vec::new();
+            for (i, slot) in self.slots.iter_mut().enumerate() {
+                let Some(slot) = slot else { continue };
+                let p = &mut slot.player;
+                if p.down_frame >= 0 || p.pos.y > SLAM_LIFT {
+                    continue;
+                }
+                let (dx, dz) = (p.pos.x - s.x, p.pos.z - s.z);
+                let d = (dx * dx + dz * dz).sqrt();
+                if d > s.radius + body {
+                    continue;
+                }
+                let (nx, nz) = if d > 0.01 { (dx / d, dz / d) } else { (p.facing.sin(), p.facing.cos()) };
+                let before = p.hp;
+                p.take_hit(s.damage, nx, nz, s.knock);
+                if p.hp < before {
+                    struck.push((i, p.pos.x, p.pos.y, p.pos.z, before - p.hp));
+                }
+            }
+            for (i, x, y, z, taken) in struck {
+                self.note(i, EVENT_YOU_HURT, CAUSE_MONSTER, x, y + MARKER_HEIGHT, z, taken);
+            }
+        }
+    }
+
     /// Where everyone still standing is, for the monsters to notice.
     pub fn live_positions(&self) -> Vec<(f64, f64)> {
         self.slots
@@ -779,7 +809,10 @@ impl Players {
                 a.state as u8,
                 progress.clamp(0.0, 1.0),
                 if a.max_hp > 0.0 { a.hp / a.max_hp } else { 0.0 },
-                a.dead_frame,
+                // Taken out of the world (absorbed): sent as long dead, which a browser doesn't draw.
+                if a.gone { 254 } else { a.dead_frame },
+                a.target_x - a.x,
+                a.target_z - a.z,
             );
             self.packed_actors.push((a.x, a.z, e));
         }
