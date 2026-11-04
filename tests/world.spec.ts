@@ -283,7 +283,12 @@ test('pack running: craft a pack, carry it slowly, sell it, and watch demand fal
   expect((await w.life()).focus?.action).toBe('craft');
   await w.cmd({ t: 'craft', recipe: 'pack.harvestCrate' });
   await w.advance(2);
-  expect((await w.player()).pack).toBeGreaterThan(0);
+  const carrier = await w.player();
+  expect(carrier.pack).toBeGreaterThan(0);
+  // On your back, not your chest: the crate's bulk sits behind you.
+  const [worn] = await page.evaluate(() => (window as any).__game.sceneObjects('pack:'));
+  const ahead = (worn.centre.x - carrier.pos.x) * Math.sin(carrier.facing) + (worn.centre.z - carrier.pos.z) * Math.cos(carrier.facing);
+  expect(ahead).toBeLessThan(-0.25);
   const loaded = await run();
   console.log('m/s free vs carrying', free, loaded);
   expect(loaded).toBeLessThan(free * 0.65);

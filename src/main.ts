@@ -1212,16 +1212,24 @@ const api = {
   ground(x: number, z: number): number {
     return terrain ? terrain.height(x, z) : 0;
   },
-  /** Scene objects whose name starts with `prefix`, with where they are (tests and debugging). */
+  /**
+   * Scene objects whose name starts with `prefix`, with where they are (tests and debugging):
+   * the origin, and the centre of what is drawn, which differ for models anchored at an edge.
+   */
   sceneObjects(prefix: string) {
-    const out: Array<{ name: string; x: number; y: number; z: number; visible: boolean }> = [];
+    type Seen = { name: string; x: number; y: number; z: number; visible: boolean; centre: { x: number; y: number; z: number } };
+    const out: Seen[] = [];
     const v = new THREE.Vector3();
+    const c = new THREE.Vector3();
+    const box = new THREE.Box3();
+    const r = (n: number) => +n.toFixed(2);
     stage.scene.traverse((o) => {
       if (!o.name.startsWith(prefix)) return;
       o.getWorldPosition(v);
+      box.setFromObject(o).getCenter(c);
       let shown = o.visible;
       for (let p = o.parent; p && shown; p = p.parent) shown = p.visible;
-      out.push({ name: o.name, x: +v.x.toFixed(2), y: +v.y.toFixed(2), z: +v.z.toFixed(2), visible: shown });
+      out.push({ name: o.name, x: r(v.x), y: r(v.y), z: r(v.z), visible: shown, centre: { x: r(c.x), y: r(c.y), z: r(c.z) } });
     });
     return out;
   },

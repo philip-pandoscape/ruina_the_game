@@ -573,8 +573,10 @@ export class LifeView {
       }
       if (pk.at === 'back' && p.pack === pk.id && p.mode !== 'ride') {
         if (m.parent !== this.hero.torsoJoint) this.hero.torsoJoint.add(m);
-        m.position.set(0, 0.0, -0.17);
-        m.rotation.set(0, Math.PI, 0);
+        // Pack models put their straps on +Z and the load toward -Z, and the hero faces +Z, so
+        // unturned the pack hangs behind: strap face just off the cape on the back of the tunic.
+        m.position.set(0, -0.02, -0.2);
+        m.rotation.set(0, 0, 0);
         m.scale.setScalar(0.92);
       } else if (pk.at === 'back') {
         // Riding with a pack: it goes in the seat behind you (a donkey's pannier, a cart bench).
