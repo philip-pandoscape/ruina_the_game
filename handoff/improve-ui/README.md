@@ -3,7 +3,8 @@
 Paused on 2026-11-04 at the user's request, to be picked up in a new session. Point the new session
 at this file. **Delete `handoff/` before this branch is merged into `beta`.**
 
-- Branch: `feature/improve-ui`, branched from `beta` at `2f1257e`. Not pushed.
+- Branch: `feature/improve-ui`, branched from `beta` at `2f1257e`, pushed to `origin/feature/improve-ui`
+  (CI runs only for `beta` and `production`, so pushing this branch deploys nothing).
 - Worktree: `C:\GitHub\heggelund\games\ruina-ui-restyle` (the main checkout `C:\GitHub\heggelund\games\ruina`
   stays on `beta`, where another session works).
 - The user's standing instruction: build it all on this branch, commit in steps, and **hold until the
