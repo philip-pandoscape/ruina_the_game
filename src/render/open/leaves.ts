@@ -268,14 +268,25 @@ export function cardMaterial(map: THREE.Texture, sway: number): THREE.MeshToonMa
   return mat;
 }
 
-/** Writes a card (a quad) into the arrays: corners a..d, one normal per corner, uv 0..1, a shade per corner. */
-function quad(out: Cards, corners: THREE.Vector3[], normals: THREE.Vector3[], shades: number[], uvs: Array<[number, number]>): void {
+/**
+ * Writes a card (a quad) into the arrays: corners a..d, one normal per corner, uv 0..1, a shade per
+ * corner, and a hue for the whole card ([r, g, b] multipliers: some yellower, some bluer).
+ */
+function quad(out: Cards, corners: THREE.Vector3[], normals: THREE.Vector3[], shades: number[], uvs: Array<[number, number]>, hue: [number, number, number] = [1, 1, 1]): void {
   for (const k of [0, 1, 2, 0, 2, 3]) {
     out.pos.push(corners[k].x, corners[k].y, corners[k].z);
     out.nor.push(normals[k].x, normals[k].y, normals[k].z);
     out.uv.push(uvs[k][0], uvs[k][1]);
-    out.col.push(shades[k], shades[k], shades[k]);
+    out.col.push(shades[k] * hue[0], shades[k] * hue[1], shades[k] * hue[2]);
   }
+}
+
+/** A card's own hue: mostly as it is; now and then a sunnier yellow-green or a cooler blue-green. */
+function cardHue(rng: () => number): [number, number, number] {
+  const r = rng();
+  if (r < 0.18) return [1.1, 1.04, 0.82];
+  if (r < 0.32) return [0.9, 0.98, 1.06];
+  return [1, 1, 1];
 }
 
 interface Cards {
@@ -331,12 +342,19 @@ export function leafCards(lumps: Array<[number, number, number, number]>, centre
         const out2 = THREE.MathUtils.clamp(c.distanceTo(centre) / reach, 0, 1);
         return 0.62 + 0.38 * (0.6 * up + 0.4 * out2);
       });
-      quad(out, corners, normals, shades, [
-        [0, 0],
-        [1, 0],
-        [1, 1],
-        [0, 1],
-      ]);
+      quad(
+        out,
+        corners,
+        normals,
+        shades,
+        [
+          [0, 0],
+          [1, 0],
+          [1, 1],
+          [0, 1],
+        ],
+        cardHue(rng),
+      );
     }
   }
   return geometry(out);

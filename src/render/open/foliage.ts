@@ -153,7 +153,21 @@ function lump(r: number, detail: number, at: [number, number, number], centre: T
 
 /** A trunk from the ground up, its foot as wide as the tree's collider (0.45 m at scale 1). */
 function trunkGeo(top: number, sides: number, branches: boolean): THREE.BufferGeometry {
-  const parts = [new THREE.CylinderGeometry(0.24, 0.45, top, sides).translate(0, top / 2, 0)];
+  const trunk = new THREE.CylinderGeometry(0.24, 0.45, top, sides, 6).translate(0, top / 2, 0);
+  if (sides >= 7) {
+    // Roots: the foot flares out in ribs over the last half metre, onto the ground round it.
+    const p = trunk.attributes.position;
+    for (let i = 0; i < p.count; i++) {
+      const y = p.getY(i);
+      if (y > 0.9) continue;
+      const a = Math.atan2(p.getZ(i), p.getX(i));
+      const rib = Math.max(0, Math.cos(a * 5 + 0.7));
+      const flare = 1 + (1 - y / 0.9) ** 2 * (0.25 + 0.75 * rib * rib);
+      p.setXYZ(i, p.getX(i) * flare, y, p.getZ(i) * flare);
+    }
+    trunk.computeVertexNormals();
+  }
+  const parts = [trunk];
   if (branches) {
     const branch = (to: [number, number, number], from: number, r: number) => {
       const dir = new THREE.Vector3(...to).sub(new THREE.Vector3(0, from, 0));
@@ -308,7 +322,7 @@ function treeLods(): TreeLods {
 }
 
 /** Within this far of a tree chunk's middle, its trees are drawn in full detail. */
-const TREE_NEAR = 230;
+const TREE_NEAR = 320;
 /** Blossom trees, pink, near the town square, as in the island's reference picture. */
 const BLOSSOM = [0xf2b5c8, 0xeaa0bb, 0xf6c7d6, 0xe7a6c0];
 const TOWN = { x: 0, z: -264, r: 190 };
