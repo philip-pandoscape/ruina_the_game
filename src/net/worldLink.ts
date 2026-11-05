@@ -298,7 +298,7 @@ export class WorldLink {
 }
 
 /** The page is reloading to come back as the newer game: nothing more to do here. */
-class Reloading extends ServerDown {}
+export class Reloading extends ServerDown {}
 
 /** Reloads into the world with `character`, without the intro or the character select screen. */
 function reloadInto(character: number | undefined): void {

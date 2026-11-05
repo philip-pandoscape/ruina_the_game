@@ -1,5 +1,5 @@
 import { currentAccount, devSignIn, listCharacters, Refused, type Account, type CharacterInfo } from '../net/account';
-import { WorldLink, type Welcome } from '../net/worldLink';
+import { Reloading, WorldLink, type Welcome } from '../net/worldLink';
 import { CharacterSelect } from '../ui/characterSelect';
 import { SignInScreen } from '../ui/signIn';
 import { splash } from '../ui/splash';
@@ -77,6 +77,11 @@ export async function goOnline(params: URLSearchParams): Promise<Online> {
       playingAs(welcome.character.id);
       return { account, link, welcome };
     } catch (e) {
+      // The server is newer than this page, which is reloading to come straight back in.
+      if (e instanceof Reloading) {
+        screen.wait('Loading the New Version…');
+        await new Promise(() => {});
+      }
       // On the way in with someone: once the server answers, in with them again.
       if (entering) {
         resume = entering.id;

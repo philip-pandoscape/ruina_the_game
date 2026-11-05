@@ -178,7 +178,6 @@ export class NetOverlay {
   private shown: 'updating' | 'reconnecting' | null = null;
   private timer = 0;
   private since = 0;
-  private tries = 0;
 
   show(kind: 'updating' | 'reconnecting'): void {
     if (this.shown === kind) return;
@@ -206,21 +205,11 @@ export class NetOverlay {
     }, 1000);
   }
 
-  /** Another try at reaching the server failed. */
-  tried(): void {
-    this.tries++;
-  }
-
   hide(): void {
     clearInterval(this.timer);
     this.root?.remove();
     this.root = null;
     this.shown = null;
-    this.tries = 0;
-  }
-
-  get showing(): 'updating' | 'reconnecting' | null {
-    return this.shown;
   }
 }
 

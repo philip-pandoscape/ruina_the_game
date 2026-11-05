@@ -55,6 +55,8 @@ export class CharacterSelect {
     private max: number,
   ) {
     const outBtn = el('button', { className: 'lui-btn small', type: 'button', textContent: 'Sign Out' });
+    this.list.setAttribute('role', 'listbox');
+    this.list.setAttribute('aria-label', 'Characters');
     const panel = el(
       'div',
       { className: 'fd-card cs-panel fd-in' },
