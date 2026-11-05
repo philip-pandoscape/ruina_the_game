@@ -63,6 +63,8 @@ async function together(browser: Browser, prefixes: string[]): Promise<Player[]>
     const name = fresh(prefix);
     await page.goto(`/?as=${name}&bugs=0`);
     await waitOnline(page);
+    // A turn long enough for a browser drawing in software, as CI's does (the server only allows it in development).
+    await game(page, (g) => g.setChallengeTurn(600));
     const o = await game(page, (g) => g.online());
     return { page, name, id: o.character.id as number, channel: o.channel as number };
   };
@@ -169,7 +171,8 @@ async function move(p: Player, role: 'win' | 'lose', row: number[], last: string
   );
 }
 
-test('a challenge accepted puts both stakes in the pot, throws a table down for everyone to see, and the winner takes the pot', async ({ browser }) => {
+// Three game windows at once: a browser drawing in software (CI's) can't keep up with them.
+test('a challenge accepted puts both stakes in the pot, throws a table down for everyone to see, and the winner takes the pot @gpu', async ({ browser }) => {
   test.setTimeout(process.env.CI ? 360_000 : 180_000);
   const [ann, bea, cal] = await together(browser, ['ann', 'bea', 'cal']);
   const errors: string[] = [];
@@ -278,13 +281,15 @@ test('a challenge accepted puts both stakes in the pot, throws a table down for 
     }
   }
 
-  // Ann made her row: she takes the pot, and both see how it ended.
+  // Ann made her row: she takes the pot, and both see how it ended while the table stands (a few
+  // seconds), each in their own window: a page in the background hears it late, so Bea's comes front.
   await expect.poll(async () => (await mg(ann))?.table?.over?.winner, { timeout: 60_000 }).toBe(1);
-  expect((await mg(bea))?.table?.over?.why).toBe('rules');
-  await expect.poll(() => coins(ann), { timeout: 60_000 }).toBe(250);
-  await expect.poll(() => coins(bea), { timeout: 60_000 }).toBe(150);
   await expect(ann.page.locator('#mg-game .mg-result')).toContainText('You Won');
   expect(await untitled(ann.page, [ann.name, bea.name])).toEqual([]);
+  await bea.page.bringToFront();
+  await expect.poll(async () => (await mg(bea))?.table?.over?.why, { timeout: 60_000 }).toBe('rules');
+  await expect.poll(() => coins(ann), { timeout: 60_000 }).toBe(250);
+  await expect.poll(() => coins(bea), { timeout: 60_000 }).toBe(150);
 
   // The table goes a few seconds later, for everyone, and the players are free again.
   await cal.page.bringToFront();
