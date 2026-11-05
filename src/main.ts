@@ -137,6 +137,15 @@ const vfx = new Vfx(stage.scene);
 const spells = new SpellView(stage.scene, vfx);
 const follow = new FollowCamera(innerWidth / innerHeight, battlefield ? 1200 : openWorld ? 2600 : 320, battlefield ? 160 : openWorld ? 40 : 14);
 // Over hills and water the camera must not dip into the ground or under the sea, and it pulls in
+// Warning circles lie on the island's hills (and on a deck or roof under whoever they're about),
+// floating on the sea rather than sinking under it.
+if (terrain) {
+  spells.ground = {
+    cell: terrain.cell,
+    origin: terrain.min,
+    height: (x, z, near) => Math.max(terrain.water, Number.isFinite(near) ? groundAt(terrain, world.index, x, z, near, 0.5) : terrain.height(x, z)),
+  };
+}
 // rather than looking through a wall.
 if (terrain) follow.groundAt = (x, z) => Math.max(terrain.water + 0.35, terrain.height(x, z) + 0.45);
 if (world.index) {
@@ -870,9 +879,9 @@ function castCircle(p: PlayerState, x: number, z: number, hostile: boolean, mine
   const radius = mine ? abilityRadius(ability, mine) : Math.max(0, ...ABILITIES[ability].effects.map((e) => e.radius));
   // A placed cast warns at the spot; one centred on the caster warns around them.
   if (ABILITIES[ability].target === 'ground') {
-    spells.circle(p.castTargetX, p.castTargetZ, radius, k, hostile ? CIRCLE.enemy : CIRCLE.ally, 0.6);
+    spells.circle(p.castTargetX, p.castTargetZ, radius, k, hostile ? CIRCLE.enemy : CIRCLE.ally, 0.6, p.pos.y);
   } else {
-    spells.circle(x, z, radius, k, CIRCLE.heal, 0.5);
+    spells.circle(x, z, radius, k, CIRCLE.heal, 0.5, p.pos.y);
   }
 }
 
@@ -923,8 +932,9 @@ function drawSpells(alpha: number, dt: number): void {
   if (!net || playing) castCircle(sim.player, hero.root.position.x, hero.root.position.z, false, sim.stats);
   monsterWarnings();
   if (aimingSlot !== 0) {
-    spells.circle(sim.player.pos.x, sim.player.pos.z, reticle.range, 0, CIRCLE.range, 0.35);
-    spells.circle(reticle.x, reticle.z, reticle.radius, 1, CIRCLE.aim, 0.95);
+    const y = sim.player.pos.y;
+    spells.circle(sim.player.pos.x, sim.player.pos.z, reticle.range, 0, CIRCLE.range, 0.35, y);
+    spells.circle(reticle.x, reticle.z, reticle.radius, 1, CIRCLE.aim, 0.95, y);
   }
   spells.end();
 }
@@ -1572,6 +1582,10 @@ const api = {
           lifeLoaded: online.lifeLoaded?.() ?? false,
           lastSaved: online.link.lastSaved,
           ack: prediction?.lastAck ?? 0,
+  /** Testing: the height of the highest ground circle drawn over (x, z), or null where there is none. */
+  circleHeight(x: number, z: number): number | null {
+    return spells.heightAt(x, z);
+  },
           seq: prediction?.seq ?? 0,
           corrections: prediction?.corrections ?? 0,
           maxCorrection: prediction?.maxCorrection ?? 0,

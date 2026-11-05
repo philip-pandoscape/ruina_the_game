@@ -373,3 +373,58 @@ test('the target plate shows the gather filling', async ({ page }) => {
   expect(plate.label).toBe('Gathering');
   expect(parseInt(plate.width, 10)).toBeGreaterThan(10);
 });
+
+test('on a hillside the slam warning lies on the slope, not under it', async ({ page }) => {
+  const errors = watchErrors(page);
+  // The island, offline and stepped by the test: the training yard is flat, the island is not.
+  await page.goto('/?world&test');
+  await page.waitForFunction(() => (window as any).__game?.ready === true, null, { timeout: 60_000 });
+  await page.evaluate((v) => (window as any).__game.setBuild(v), SWORD);
+  // The steepest walkable ground within reach of the spawn.
+  const spot = await page.evaluate(() => {
+    const g = (window as any).__game;
+    const s = g.zone().spawn;
+    let best = { x: s.x, z: s.z, slope: 0 };
+    for (let dx = -150; dx <= 150; dx += 3) {
+      for (let dz = -150; dz <= 150; dz += 3) {
+        const x = s.x + dx;
+        const z = s.z + dz;
+        if (g.ground(x, z) < 2) continue;
+        const slope = Math.hypot(g.ground(x + 1.5, z) - g.ground(x - 1.5, z), g.ground(x, z + 1.5) - g.ground(x, z - 1.5)) / 3;
+        if (slope > best.slope && slope < 0.65) best = { x, z, slope };
+      }
+    }
+    return best;
+  });
+  expect(spot.slope).toBeGreaterThan(0.3);
+  await page.evaluate(([x, z]) => (window as any).__game.teleport(x, z), [spot.x, spot.z]);
+  const p = await me(page);
+  // A slime beside you, angry: it winds up to slam where you stand.
+  const id = await page.evaluate(([x, z]) => (window as any).__game.spawnActor('slime', x + 2.5, z), [p.pos.x, p.pos.z]);
+  await hurt(page, id, 1);
+  const winding = await until(page, id, 'windup');
+  expect(winding).toBeDefined();
+  await advance(page, 10);
+  // Wherever you look inside the ring, it is drawn just over the ground there.
+  const gaps = await page.evaluate(([tx, tz, r]) => {
+    const g = (window as any).__game;
+    g.render();
+    const out: number[] = [];
+    for (let i = 0; i < 24; i++) {
+      const a = i * 2.39996;
+      const d = r * 0.95 * Math.sqrt((i + 0.5) / 24);
+      const x = tx + Math.cos(a) * d;
+      const z = tz + Math.sin(a) * d;
+      const h = g.circleHeight(x, z);
+      out.push(h === null ? Infinity : h - g.ground(x, z));
+    }
+    return out;
+  }, [winding!.targetX, winding!.targetZ, SLAM.radius]);
+  const rise = (Math.max(...gaps.filter(Number.isFinite)) - Math.min(...gaps)) as number;
+  expect(gaps.every(Number.isFinite), 'the ring is drawn all the way across').toBe(true);
+  // Lifted a hair off the ground everywhere (it would be a metre off at one side lying flat).
+  for (const gap of gaps) expect(gap).toBeGreaterThan(0.005);
+  for (const gap of gaps) expect(gap).toBeLessThan(0.05);
+  expect(rise).toBeLessThan(0.01);
+  expect(errors).toEqual([]);
+});
