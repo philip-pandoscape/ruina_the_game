@@ -51,6 +51,8 @@
   --text-outline: 0 1px 0 #2b1a0e, 1px 0 0 #2b1a0e, -1px 0 0 #2b1a0e, 0 -1px 0 #2b1a0e, 1px 1px 0 #2b1a0e, -1px 1px 0 #2b1a0e, 0 2px 4px rgba(0, 0, 0, 0.5);
   --gloss: linear-gradient(180deg, rgba(255, 255, 255, 0.42) 0%, rgba(255, 255, 255, 0.12) 46%, rgba(255, 255, 255, 0) 52%, rgba(0, 0, 0, 0.14) 100%);
   --labor: linear-gradient(180deg, #8ff0f2, #3fbdd0 60%, #2a93a8);
+  --mp: linear-gradient(180deg, #a9c9ff, #4a82ea 60%, #2c55b0);
+  --stamina: linear-gradient(180deg, #fff3a6, #f2cc3a 60%, #c49416);
   --hp: linear-gradient(180deg, #ff8a7a, #e0403c 60%, #a8262a);
   --hp-ok: linear-gradient(180deg, #a8ee8a, #5cc04a 60%, #3c9a34);
   --cast: linear-gradient(180deg, #ffe9a0, #f6bd3e 60%, #d48f26);

@@ -38,6 +38,10 @@ export interface Loadout {
   weapon: number;
   abilities: number[]; // one per slot, 255 for empty
   cooldowns: number[]; // frames left, per slot
+  movement: number[]; // the movement skill on Q / E, 255 for none
+  movementCooldowns: number[]; // frames left, per movement skill
+  stamina: number; // what a dodge is paid from
+  mp: number; // what a cast is paid from
   castAbility: number; // 255 when not casting
   castSlot: number; // 1..slots while casting, else 0
   castFrame: number;
@@ -46,9 +50,21 @@ export interface Loadout {
   downFrame: number;
 }
 
+/** Your health, MP and stamina, as the bars show them. */
+export interface Vitals {
+  hp: number;
+  maxHp: number;
+  mp: number;
+  maxMp: number;
+  stamina: number;
+  maxStamina: number;
+}
+
 // What each hotbar slot is bound to, shown in its corner.
 const KEY_BINDS = ['1', '2', '3', '4', '5', '6', '7', '8'];
 const PAD_BINDS = ['LT+A', 'LT+B', 'LT+X', 'LT+Y', 'RT+A', 'RT+B', 'RT+X', 'RT+Y'];
+const MOVE_KEYS = ['Q', 'E'];
+const MOVE_PADS = ['LB', 'RB'];
 
 // What a floating number means. 'hit' is damage you dealt, 'hurt' damage you took, 'heal'
 // healing you gave. They are coloured apart rather than left for the player to work out.
@@ -104,6 +120,8 @@ export class Hud {
   private v = new THREE.Vector3();
   private bar = document.getElementById('abilities') as HTMLDivElement;
   private castBar = document.getElementById('castbar') as HTMLDivElement;
+  private vitalsEl = document.getElementById('player-hp') as HTMLDivElement;
+  private refuseEl = document.createElement('div');
   private barKey = '';
   private wasCasting = 0; // castKind last frame
   private castName = '';
@@ -115,6 +133,14 @@ export class Hud {
   private dragFrom = -1;
 
   constructor() {
+    // Health with MP and stamina under it, over the hotbar (the training yard and the battlefield;
+    // the open world shows them beside your portrait).
+    this.vitalsEl.innerHTML =
+      '<div class="pv pv-hp"><div class="fill"></div><span class="label"></span></div>' +
+      '<div class="pv-row"><div class="pv pv-mp" title="MP"><div class="fill"></div></div><div class="pv pv-st" title="Stamina"><div class="fill"></div></div></div>';
+    // "Not Enough Stamina" and the like, when you ask for what you can't afford.
+    this.refuseEl.id = 'hud-refuse';
+    (this.bar.parentElement ?? document.body).appendChild(this.refuseEl);
     this.bar.addEventListener('click', (e) => {
       if ((e.target as HTMLElement).closest('.skills-btn')) this.onSkillsClick?.();
     });
@@ -163,33 +189,62 @@ export class Hud {
     this.stats.textContent = text;
   }
 
-  // Your own health bar (networked play). Pass null to hide it.
-  /** `team` is the battlefield's side; null where there are no sides (the open world). */
-  setPlayerHp(hp: number | null, max: number, team: number | null = 0): void {
-    const bar = document.getElementById('player-hp') as HTMLDivElement;
-    if (hp === null) {
-      bar.style.display = 'none';
+  /**
+   * Your health, with MP and stamina under it, over the hotbar (the training yard, the
+   * battlefield). Pass null to hide them. `team` is the battlefield's side; null where there are
+   * no sides.
+   */
+  setVitals(v: Vitals | null, team: number | null = 0): void {
+    const el = this.vitalsEl;
+    if (v === null) {
+      el.style.display = 'none';
       return;
     }
-    bar.style.display = 'block';
-    bar.classList.toggle('hurt', hp < max * 0.35);
-    (bar.querySelector('.fill') as HTMLDivElement).style.width = `${Math.round((hp / max) * 100)}%`;
-    (bar.querySelector('.label') as HTMLSpanElement).textContent =
-      hp <= 0 ? 'Knocked down…' : team === null ? `${Math.round(hp)} / ${max}` : `${team === 0 ? 'Blue' : 'Red'} team · ${Math.round(hp)} / ${max}`;
+    el.style.display = 'block';
+    el.classList.toggle('hurt', v.hp < v.maxHp * 0.35);
+    const width = (sel: string, frac: number) => {
+      const w = `${(Math.max(0, Math.min(1, frac)) * 100).toFixed(1)}%`;
+      const fill = el.querySelector(`${sel} .fill`) as HTMLDivElement;
+      if (fill.style.width !== w) fill.style.width = w;
+    };
+    width('.pv-hp', v.hp / v.maxHp);
+    width('.pv-mp', v.mp / v.maxMp);
+    width('.pv-st', v.stamina / v.maxStamina);
+    const label = el.querySelector('.pv-hp .label') as HTMLSpanElement;
+    const text = v.hp <= 0 ? 'Knocked Down…' : team === null ? `${Math.round(v.hp)} / ${v.maxHp}` : `${team === 0 ? 'Blue' : 'Red'} Team · ${Math.round(v.hp)} / ${v.maxHp}`;
+    if (label.textContent !== text) label.textContent = text;
   }
 
-  // The ability bar: weapon, two ability slots with cooldowns, and the skills button.
+  /** Says why what you asked for didn't happen ("Not Enough Stamina"), for a moment. */
+  refuse(text: string): void {
+    this.refuseEl.textContent = text;
+    this.refuseEl.classList.remove('show');
+    void this.refuseEl.offsetWidth; // restart the fade for a second press
+    this.refuseEl.classList.add('show'); // fades itself out (hud.css)
+  }
+
+  // The ability bar: weapon, the movement skills on Q / E, the hotbar slots with their cooldowns,
+  // and the skills button.
   // names/icons come from the caller so this file doesn't need the game's tables.
   setAbilities(
     l: Loadout,
     device: Device,
     pointsLeft: number,
-    look: { weapon: [string, string]; ability: (a: number) => [string, string] | null; cooldownFrames: (a: number) => number },
+    look: {
+      weapon: [string, string];
+      ability: (a: number) => [string, string] | null;
+      cooldownFrames: (a: number) => number;
+      mpCost: (a: number) => number;
+      move: (m: number) => [string, string] | null;
+      moveCooldownFrames: (m: number) => number;
+      staminaCost: (m: number) => number;
+    },
   ): void {
     const binds = device === 'gamepad' ? PAD_BINDS : KEY_BINDS;
+    const moveBinds = device === 'gamepad' ? MOVE_PADS : MOVE_KEYS;
     const skillsBind = device === 'gamepad' ? 'View' : 'T';
     const slots = l.abilities;
-    const key = [l.weapon, ...slots, device, pointsLeft].join(',');
+    const key = [l.weapon, ...slots, '|', ...l.movement, device, pointsLeft].join(',');
     if (key !== this.barKey) {
       this.barKey = key;
       const slot = (a: number, i: number) => {
@@ -198,22 +253,61 @@ export class Hud {
         return `<div class="slot${info ? '' : ' empty'}" data-slot="${i + 1}" draggable="${info ? 'true' : 'false'}" title="${title}">
           <span class="icon">${info ? iconHtml(info[0], undefined, 36) : ''}</span><span class="cd"></span><span class="secs"></span><span class="bind">${binds[i]}</span></div>`;
       };
+      // Q and E (LB and RB): the dodge or guard on each.
+      const moveSlot = (m: number, i: number) => {
+        const info = m === 255 ? null : look.move(m);
+        const title = info ? info[1] : 'Empty: put a dodge or a guard here from the skill book';
+        return `<div class="mslot${info ? '' : ' empty'}" data-move="${i}" title="${title}">
+          <span class="icon">${info ? iconHtml(info[0], undefined, 30) : ''}</span><span class="cd"></span><span class="secs"></span><span class="bind">${moveBinds[i] ?? ''}</span></div>`;
+      };
       this.bar.innerHTML =
         `<div class="weapon" title="${look.weapon[1]}"><span class="icon">${iconHtml(look.weapon[0], undefined, 40)}</span><span class="name">${look.weapon[1]}</span></div>` +
+        `<div class="moves">${l.movement.map(moveSlot).join('')}</div>` +
         slots.map(slot).join('') +
         `<div class="skills-btn${pointsLeft > 0 ? ' unspent' : ''}"><span class="bind">${skillsBind}</span>Skills${pointsLeft > 0 ? ` <b>${pointsLeft}</b>` : ''}</div>`;
     }
-    // Cooldown sweeps.
+    const titled = (el: HTMLElement, t: string) => {
+      if (el.title !== t) el.title = t;
+    };
+    // Cooldown sweeps, and a cast you haven't the MP for shaded over, as it waits for more.
     slots.forEach((a, i) => {
       const el = this.bar.querySelector(`.slot[data-slot="${i + 1}"]`) as HTMLDivElement | null;
-      if (!el || !look.ability(a)) return;
+      const info = look.ability(a);
+      if (!el || !info) return;
       const left = l.cooldowns[i] ?? 0;
       const total = Math.max(left, look.cooldownFrames(a));
+      const cost = look.mpCost(a);
+      const short = l.mp < cost;
       const cd = el.querySelector('.cd') as HTMLSpanElement;
       cd.style.background = left > 0 ? `conic-gradient(rgba(10, 16, 24, 0.72) ${(left / total) * 360}deg, transparent 0)` : 'none';
       (el.querySelector('.secs') as HTMLSpanElement).textContent = left > 0 ? (left / 60).toFixed(left > 60 ? 0 : 1) : '';
       el.classList.toggle('casting', l.castSlot === i + 1 && l.castAbility !== 255);
-      el.classList.toggle('ready', left === 0);
+      el.classList.toggle('short', short);
+      el.classList.toggle('ready', left === 0 && !short);
+      titled(el, short ? `${info[1]}: Not Enough MP (${Math.ceil(cost)})` : cost > 0 ? `${info[1]} · ${Math.ceil(cost)} MP` : info[1]);
+    });
+    // Q / E: a guard's cooldown sweeps round; a dodge has none, and one you haven't the stamina
+    // for fills back up from the bottom as the stamina comes back.
+    l.movement.forEach((m, i) => {
+      const el = this.bar.querySelector(`.mslot[data-move="${i}"]`) as HTMLDivElement | null;
+      const info = m === 255 ? null : look.move(m);
+      if (!el || !info) return;
+      const left = l.movementCooldowns[m] ?? 0;
+      const cost = look.staminaCost(m);
+      const short = cost > 0 && l.stamina < cost;
+      const cd = el.querySelector('.cd') as HTMLSpanElement;
+      const total = Math.max(left, look.moveCooldownFrames(m), 1);
+      const back = Math.round((Math.max(0, l.stamina) / Math.max(cost, 1)) * 100);
+      cd.style.background =
+        left > 0
+          ? `conic-gradient(rgba(10, 16, 24, 0.72) ${(left / total) * 360}deg, transparent 0)`
+          : short
+            ? `linear-gradient(to top, transparent ${back}%, rgba(10, 16, 24, 0.66) ${back}%)`
+            : 'none';
+      (el.querySelector('.secs') as HTMLSpanElement).textContent = left > 0 ? (left / 60).toFixed(left > 60 ? 0 : 1) : '';
+      el.classList.toggle('short', short && left === 0);
+      el.classList.toggle('ready', left === 0 && !short);
+      titled(el, short ? `${info[1]}: Not Enough Stamina (${Math.ceil(cost)})` : cost > 0 ? `${info[1]} · ${Math.ceil(cost)} Stamina` : info[1]);
     });
 
     // Cast bar: fills while casting; says how it ended.

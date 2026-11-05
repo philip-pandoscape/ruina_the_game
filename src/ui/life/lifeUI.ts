@@ -25,6 +25,7 @@ import { iconHtml, iconUrl, money } from '../theme/icons';
 import { GOLD_STAR, pixelIcon } from '../theme/pixelIcons';
 import { setUserScale, uiRoot, userScale, UI_SCALE_MAX, UI_SCALE_MIN } from '../theme/scale';
 import { addTipSource, hideTip, tipFor, wireTips } from '../theme/tooltip';
+import type { Vitals } from '../../render/hud';
 
 // The open world's HUD and windows. Everything here only reads the life state and queues commands;
 // nothing in the UI changes the world directly. Windows dock at the side and leave the world
@@ -147,6 +148,10 @@ export class LifeUI {
   private vario = 0;
   private hp = 0;
   private maxHp = 0;
+  /** Health, MP and stamina, as the app last said (setVitals). */
+  private vit: Vitals | null = null;
+  /** What each vital's bar and the character window last showed, so only changes touch the page. */
+  private vitalsShown = new Map<string, string>();
 
   constructor(private d: LifeUIDeps) {
     const root = uiRoot();
@@ -227,10 +232,11 @@ export class LifeUI {
     return this.d.life;
   }
 
-  /** Your health, for the vitals (the open world's health bar). */
-  setHealth(hp: number, max: number): void {
-    this.hp = hp;
-    this.maxHp = max;
+  /** Your health, MP and stamina, for the vitals beside your portrait and the character window. */
+  setVitals(v: Vitals): void {
+    this.vit = v;
+    this.hp = v.hp;
+    this.maxHp = v.maxHp;
   }
 
   // ---------- Input ----------
@@ -481,17 +487,55 @@ export class LifeUI {
     if (ribbon.textContent !== this.playerName) ribbon.textContent = this.playerName;
   }
 
+  /** Health, MP, stamina and labor beside your portrait, and the purse under them. */
   private updateVitals(): void {
     const s = this.life.state;
-    const key = [Math.round(this.hp), this.maxHp, Math.floor(s.labor), s.coins, s.seals, this.life.resting].join('|');
-    if (key === this.vitalsKey) return;
-    this.vitalsKey = key;
-    const bar = (icon: string, c: string, frac: number, txt: string) =>
-      `<div class="hud-bar" style="--c:${c}"><span class="cap">${icon}</span><div class="track"><div class="fill" style="width:calc((100% - 12px) * ${Math.max(0, Math.min(1, frac)).toFixed(3)})"></div><span class="txt">${txt}</span></div></div>`;
-    this.vitals.innerHTML =
-      (this.maxHp > 0 ? bar(pixelIcon('heart', 20), 'var(--hp)', this.hp / this.maxHp, `${Math.max(0, Math.round(this.hp))} / ${this.maxHp}`) : '') +
-      bar(pixelIcon('bolt', 20), 'var(--labor)', s.labor / LABOR.max, `${Math.floor(s.labor)} / ${LABOR.max}${this.life.resting ? ' · resting ×3' : ''}`) +
-      `<div class="hud-purse"><span class="hud-pill" title="Money">${money(s.coins, 16)}</span><span class="hud-pill" title="Seals">${pixelIcon('seal', 18)}${s.seals}</span></div>`;
+    const v = this.vit;
+    // Built once; after that only the fills, the numbers and the purse change (stamina refills
+    // every frame after a dodge).
+    if (!this.vitals.firstChild) {
+      const bar = (k: string, icon: string, c: string, title: string, slim = true) =>
+        `<div class="hud-bar v-${k}${slim ? ' slim' : ''}" style="--c:${c}" title="${title}"><span class="cap">${icon}</span><div class="track"><div class="fill"></div><span class="txt"></span></div></div>`;
+      this.vitals.innerHTML =
+        bar('hp', pixelIcon('heart', 20), 'var(--hp)', 'Health', false) +
+        bar('mp', pixelIcon('mana', 16), 'var(--mp)', 'MP') +
+        bar('st', pixelIcon('stamina', 16), 'var(--stamina)', 'Stamina') +
+        bar('labor', pixelIcon('bolt', 16), 'var(--labor)', 'Labor') +
+        '<div class="hud-purse"></div>';
+    }
+    const shown = this.vitalsShown;
+    const set = (k: string, frac: number, text: string) => {
+      const width = `calc((100% - 12px) * ${Math.max(0, Math.min(1, frac)).toFixed(3)})`;
+      if (shown.get(k) !== width) {
+        shown.set(k, width);
+        (this.vitals.querySelector(`.v-${k} .fill`) as HTMLElement).style.width = width;
+      }
+      if (shown.get(`${k}.text`) !== text) {
+        shown.set(`${k}.text`, text);
+        (this.vitals.querySelector(`.v-${k} .txt`) as HTMLElement).textContent = text;
+      }
+    };
+    const mp = v ? `${Math.floor(v.mp)} / ${v.maxMp}` : '';
+    const stamina = v ? `${Math.floor(v.stamina)} / ${v.maxStamina}` : '';
+    if (v) {
+      set('hp', v.hp / v.maxHp, `${Math.max(0, Math.round(v.hp))} / ${v.maxHp}`);
+      set('mp', v.mp / v.maxMp, mp);
+      set('st', v.stamina / v.maxStamina, stamina);
+    }
+    set('labor', s.labor / LABOR.max, `${Math.floor(s.labor)} / ${LABOR.max}${this.life.resting ? ' · resting ×3' : ''}`);
+    const purse = `${s.coins}|${s.seals}`;
+    if (purse !== this.vitalsKey) {
+      this.vitalsKey = purse;
+      (this.vitals.querySelector('.hud-purse') as HTMLElement).innerHTML =
+        `<span class="hud-pill" title="Money">${money(s.coins, 16)}</span><span class="hud-pill" title="Seals">${pixelIcon('seal', 18)}${s.seals}</span>`;
+    }
+    // The character window's MP and stamina tick along with the bars, without drawing it again.
+    if (v && this.panel?.kind === 'character') {
+      for (const el of this.card.querySelectorAll<HTMLElement>('[data-vital]')) {
+        const text = el.dataset.vital === 'mp' ? mp : stamina;
+        if (el.textContent !== text) el.textContent = text;
+      }
+    }
   }
 
   private updateClock(): void {
@@ -1449,6 +1493,8 @@ export class LifeUI {
         <div class="ch-col">${slot('Legs', null, '👖', 'slot:Legs')}${slot('Feet', null, '🥾', 'slot:Feet')}${slot('Mount', mount ? item(mount) : null, '🐎', mount ? `item:${mount}` : 'slot:Mount')}${slot('Pack', back ? `<div class="ib big">${iconHtml(packDef(back.def).icon, undefined, 48)}</div>` : null, '📦', back ? `pack:${back.def}` : 'slot:Pack')}</div>
         <div class="ch-stats"><h4>${esc(this.playerName)}</h4>
           ${this.maxHp ? `<div class="r"><span>Health</span><b>${Math.round(this.hp)} / ${this.maxHp}</b></div>` : ''}
+          ${this.vit ? `<div class="r"><span>MP</span><b data-vital="mp">${Math.floor(this.vit.mp)} / ${this.vit.maxMp}</b></div>` : ''}
+          ${this.vit ? `<div class="r"><span>Stamina</span><b data-vital="stamina">${Math.floor(this.vit.stamina)} / ${this.vit.maxStamina}</b></div>` : ''}
           <div class="r"><span>Labor</span><b>${Math.floor(life.state.labor)} / ${LABOR.max}</b></div>
           <div class="r"><span>Weapon</span><b>${esc(WEAPON_NAMES[weapon] ?? '')}</b></div>
           <div class="r"><span>Combo damage</span><b>${comboDamage(weapon, this.d.sim.stats)}</b></div>

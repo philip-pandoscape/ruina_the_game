@@ -70,6 +70,10 @@ const ICONS: Record<string, Icon> = {
   qgray: { pal: { '#': '#3a2a1a', y: '#d8cbb4', Y: '#9a8a74' }, rows: Q_ROWS },
   bubble: { rows: ['............', '..########..', '.#cccccccc#.', '#cccccccccc#', '#c##c##c##c#', '#cccccccccc#', '.#ssssssss#.', '..###c####..', '....#c#.....', '....##......', '............', '............'] },
   lock: { pal: { '#': '#2b1a0e', g: '#c9a24e', G: '#8a6420', s: '#5a3720' }, rows: ['............', '....####....', '...#....#...', '..#.#..#.#..', '..#.#..#.#..', '.##########.', '.#gggggggg#.', '.#gggssggg#.', '.#ggGssGgg#.', '.#gggssggg#.', '.#GGGGGGGG#.', '.##########.'] },
+  // MP: a drop of blue.
+  mana: { pal: { '#': '#0e1f44', b: '#4f8ff0', B: '#2b55b5', w: '#d6e8ff' }, rows: ['.....##.....', '....#bb#....', '...#bbbb#...', '...#bbbb#...', '..#bwbbbb#..', '.#bwbbbbbB#.', '.#bwbbbbbB#.', '.#bwbbbbbB#.', '.#bbbbbbbB#.', '..#bbbbbB#..', '...#BBBB#...', '....####....'] },
+  // Stamina: a winged boot.
+  stamina: { pal: { '#': '#3a2406', y: '#f5cf3f', Y: '#c48f16', w: '#fff6c8' }, rows: ['...######...', '#..#yyyy#...', '##.#ywyy#...', '#w##ywyy#...', '.#w#yyyy#...', '..##yyyy#...', '...#yyyyY##.', '...#yyyyyyY#', '..#ywyyyyyY#', '..#YYYYYYYY#', '..##########', '............'] },
 };
 
 /** Palettes for coins of each metal. */

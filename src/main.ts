@@ -50,7 +50,7 @@ import type { MarkerKind } from './render/hud';
 import { BOOK, levelOf, levelsFrom, resolveSkills, sameLevels, SKILL_POINTS, type ResolvedSkills } from './skills';
 import { SkillsPanel } from './ui/skills/panel';
 import { skillBudget, trainedBy } from './sim/life/progress';
-import { ABILITIES, abilityRadius, AIM, MOVEMENT_SKILLS, CAMERA, castFramesFor, comboFor, COMBAT, DUMMY, groundRange, isGroundTargeted, NO_ABILITY, STEP, type Build } from './tuning';
+import { ABILITIES, abilityMpFor, abilityRadius, AIM, MOVEMENT_SKILLS, CAMERA, castFramesFor, comboFor, COMBAT, DUMMY, groundRange, isGroundTargeted, movementCooldownFor, movementStaminaFor, MP, NO_ABILITY, STAMINA, STEP, type Build } from './tuning';
 import './ui/theme/theme.css';
 import './ui/theme/hud.css';
 import './ui/theme/windows.css';
@@ -850,6 +850,8 @@ function showEvent(e: GameEvent): void {
     }
   } else if (e.type === 'cast') {
     hud.castFinished();
+  } else if (e.type === 'short') {
+    hud.refuse(e.what === 'mp' ? 'Not Enough MP' : 'Not Enough Stamina');
   } else if (e.type === 'splash') {
     vfx.lifeEffect('splash', e.x, e.y, e.z);
     if (e.speed > 8) follow.shake(0.2);
@@ -938,6 +940,10 @@ function drawAbilityBar(): void {
       weapon: p.weapon,
       abilities: p.abilities,
       cooldowns: p.cooldowns,
+      movement: p.movement,
+      movementCooldowns: p.movementCooldowns,
+      stamina: p.stamina,
+      mp: p.mp,
       castAbility: p.castAbility,
       castSlot: p.castSlot,
       castFrame: p.castFrame,
@@ -951,6 +957,10 @@ function drawAbilityBar(): void {
       weapon: [WEAPON_ICONS[p.weapon] ?? '', WEAPON_NAMES[p.weapon] ?? ''],
       ability: (a) => (a === NO_ABILITY || !ABILITIES[a] ? null : [ABILITY_ICONS[a], ABILITIES[a].name]),
       cooldownFrames: (a) => ABILITIES[a]?.cooldownFrames ?? 1,
+      mpCost: (a) => abilityMpFor(a, sim.stats),
+      move: (m) => (MOVEMENT_SKILLS[m] ? [MOVEMENT_SKILLS[m].icon, MOVEMENT_SKILLS[m].name] : null),
+      moveCooldownFrames: (m) => movementCooldownFor(m, sim.stats),
+      staminaCost: (m) => movementStaminaFor(m, sim.stats),
     },
   );
 }
@@ -995,9 +1005,10 @@ function draw(alpha: number, cameraDt: number, animDt: number): void {
     }
   }
   if (!net || playing) drawAbilityBar();
-  // In the open world your health sits with your portrait; the bar over the hotbar is the battlefield's.
-  hud.setPlayerHp(!lifeUI && prediction && net?.you ? sim.player.hp : null, COMBAT.maxHp, serverUrl ? sim.player.team : null);
-  lifeUI?.setHealth(sim.player.hp, COMBAT.maxHp);
+  // Health, MP and stamina: in the open world beside your portrait, elsewhere over the hotbar.
+  const vitals = { hp: sim.player.hp, maxHp: COMBAT.maxHp, mp: sim.player.mp, maxMp: MP.max, stamina: sim.player.stamina, maxStamina: STAMINA.max };
+  hud.setVitals(!lifeUI && (!net || (prediction && net.you)) ? vitals : null, serverUrl ? sim.player.team : null);
+  lifeUI?.setVitals(vitals);
   const pos = hero.root.position;
   if (cameraDt > 0) follow.update(pos, cameraDt);
   stage.follow(pos.x, pos.z, pos.y);

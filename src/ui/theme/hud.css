@@ -41,12 +41,24 @@
 @keyframes dmg-pop { from { transform: translate(-50%, -50%) scale(calc(var(--ui-s) * 1.25)); } to { transform: translate(-50%, -50%) scale(var(--ui-s)); } }
 @keyframes dmg-crit { from { transform: translate(-50%, -50%) scale(calc(var(--ui-s) * 1.85)); } to { transform: translate(-50%, -50%) scale(var(--ui-s)); } }
 
-/* ---------- Battlefield health bar, above the hotbar ---------- */
-#player-hp { position: fixed; left: 50%; bottom: 150px; width: 260px; height: 20px; margin-left: -130px; display: none; border-radius: 10px; overflow: hidden;
+/* ---------- Health, with MP and stamina under it, above the hotbar (training yard, battlefield) ---------- */
+#player-hp { position: fixed; left: 50%; bottom: 142px; width: 268px; margin-left: -134px; display: none; pointer-events: none; }
+#player-hp .pv { position: relative; height: 20px; overflow: hidden; border-radius: 10px;
   background: linear-gradient(180deg, #2e1c10, #4e3220); border: 2px solid #8a5a32; box-shadow: 0 0 0 1px #2b1a0e, inset 0 2px 4px rgba(0, 0, 0, 0.5); }
+#player-hp .pv-row { display: flex; gap: 8px; margin-top: 5px; }
+#player-hp .pv-row .pv { flex: 1; height: 11px; border-radius: 6px; border-width: 1.5px; }
 #player-hp .fill { height: 100%; width: 100%; background: var(--gloss), var(--hp-ok); transition: width 120ms; }
+#player-hp .pv-mp .fill { background: var(--gloss), var(--mp); }
+#player-hp .pv-st .fill { background: var(--gloss), var(--stamina); }
 #player-hp .label { position: absolute; inset: 0; text-align: center; font: 700 12px/16px var(--font); color: #fff6e2; text-shadow: var(--text-outline); }
-#player-hp.hurt .fill { background: var(--gloss), var(--hp); }
+#player-hp.hurt .pv-hp .fill { background: var(--gloss), var(--hp); }
+
+/* ---------- "Not Enough Stamina": what you asked for and couldn't afford, for a moment ---------- */
+#hud-refuse { position: fixed; left: 50%; top: 18%; transform: translateX(-50%); padding: 3px 14px 4px; opacity: 0; pointer-events: none; white-space: nowrap;
+  font: 700 15px var(--font); color: var(--bad); border: 2px solid transparent; border-radius: 999px;
+  background: var(--card) padding-box, var(--wood) border-box; box-shadow: var(--card-shadow); }
+#hud-refuse.show { animation: hud-refuse 1.3s ease-out forwards; }
+@keyframes hud-refuse { 0% { opacity: 0; transform: translateX(-50%) translateY(4px); } 8%, 70% { opacity: 1; transform: translateX(-50%); } 100% { opacity: 0; transform: translateX(-50%); } }
 
 /* ---------- Hotbar: weapon, eight slots, skills button ---------- */
 #abilities { position: fixed; left: 50%; bottom: 66px; transform: translateX(-50%); display: flex; gap: 8px; align-items: flex-end; pointer-events: none; }
@@ -67,6 +79,22 @@
 #abilities .slot .secs { position: absolute; inset: 0; display: grid; place-items: center; font: 900 17px var(--font); color: #fff6e2; text-shadow: var(--text-outline); }
 #abilities .bind { position: absolute; right: 2px; bottom: 2px; min-width: 0; height: auto; padding: 0 4px; font: 700 12px/14px var(--font);
   color: var(--key-ink); background: var(--key); border: 1px solid var(--key-line); border-radius: 3px; text-shadow: none; }
+/* Short of the MP a cast costs: tinted blue, as it waits for more. */
+#abilities .slot.short .icon { filter: saturate(0.35) brightness(0.8); }
+#abilities .slot.short::after { content: ''; position: absolute; inset: 0; background: rgba(40, 90, 200, 0.32); box-shadow: inset 0 0 0 2px rgba(74, 130, 234, 0.85); pointer-events: none; }
+/* Q and E: the dodge or guard on each, a little smaller, between the weapon and the hotbar. */
+#abilities .moves { display: flex; gap: 6px; margin-right: 10px; }
+#abilities .mslot { position: relative; width: 44px; height: 44px; overflow: hidden; display: grid; place-items: center;
+  border: 2px solid transparent; border-radius: 22px; background: var(--slot) padding-box, var(--slot-frame) border-box;
+  box-shadow: 0 0 0 1.5px #2b1a0e, inset 0 0 0 1px #2b1a0e, inset 0 6px 12px rgba(0, 0, 0, 0.18); }
+#abilities .mslot .icon img { width: 30px; height: 30px; image-rendering: pixelated; }
+#abilities .mslot.empty { background: var(--slot-empty) padding-box, var(--slot-empty-frame) border-box; }
+#abilities .mslot .cd { position: absolute; inset: 0; }
+#abilities .mslot .secs { position: absolute; inset: 0; display: grid; place-items: center; font: 900 15px var(--font); color: #fff6e2; text-shadow: var(--text-outline); }
+#abilities .mslot .bind { right: 50%; bottom: 0; transform: translateX(50%); padding: 0 3px; font-size: 10px; line-height: 12px; }
+/* A dodge you haven't the stamina for: it fills back up from the bottom as the stamina returns. */
+#abilities .mslot.short .icon { filter: saturate(0.35) brightness(0.8); }
+#abilities .mslot.short { box-shadow: 0 0 0 1.5px #2b1a0e, inset 0 0 0 2px rgba(242, 204, 58, 0.9); }
 #abilities .skills-btn { position: relative; pointer-events: auto; cursor: pointer; margin-left: 10px; padding: 9px 14px 9px 10px; display: flex; align-items: center; gap: 6px;
   font: 700 14px var(--font); color: #fff0d4; text-shadow: 0 1px 0 #2b1a0e; border: 2px solid transparent; border-radius: 6px;
   background: linear-gradient(180deg, #8a5a33 0%, #6a4226 55%, #4e301b 100%) padding-box, var(--brass) border-box; box-shadow: 0 0 0 1.5px #2b1a0e, inset 0 0 0 1px #2b1a0e, 0 4px 0 rgba(0, 0, 0, 0.3); }
@@ -152,7 +180,7 @@
 #hud-portrait .ribbon { position: relative; width: 96px; margin: -12px 0 0 -4px; padding: 3px 0 5px; text-align: center; font: 700 14px var(--font-title); color: #ffeccc;
   text-shadow: 0 1px 0 #2b0d10; border: 2px solid transparent; background: var(--plaque) padding-box, var(--wood) border-box; box-shadow: 0 0 0 2px #2b1a0e, 0 4px 8px rgba(0, 0, 0, 0.35);
   clip-path: polygon(0 0, 100% 0, calc(100% - 9px) 50%, 100% 100%, 0 100%, 9px 50%); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-#hud-vitals { position: fixed; left: 118px; top: 18px; width: 228px; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+#hud-vitals { position: fixed; left: 118px; top: 18px; width: 228px; display: flex; flex-direction: column; gap: 5px; pointer-events: none; }
 .hud-bar { position: relative; height: 24px; display: flex; align-items: center; }
 .hud-bar .cap { position: relative; z-index: 2; flex: none; width: 34px; height: 34px; margin-right: -12px; display: grid; place-items: center; border: 3px solid transparent; border-radius: 50%;
   background: radial-gradient(circle at 50% 35%, #fff3d6, #e3c48c 80%) padding-box, var(--wood) border-box; box-shadow: 0 0 0 2px #2b1a0e, inset 0 0 0 1px #2b1a0e; }
@@ -160,6 +188,11 @@
   background: linear-gradient(180deg, #2e1c10, #4e3220) padding-box, var(--wood) border-box; box-shadow: 0 0 0 2px #2b1a0e, inset 0 0 0 1px #2b1a0e; }
 .hud-bar .fill { position: absolute; left: 12px; top: 1px; bottom: 1px; border-radius: 0 3px 3px 0; background: var(--gloss), var(--c, var(--labor)); transition: width 150ms; }
 .hud-bar .txt { position: absolute; inset: 0; padding-left: 12px; text-align: center; font: 700 12px/16px var(--font); color: #fff6e2; text-shadow: var(--text-outline); }
+/* MP, stamina and labor under health, a size down, so the purse still clears a window docked on the left. */
+.hud-bar.slim { height: 20px; }
+.hud-bar.slim .cap { width: 28px; height: 28px; margin-right: -10px; border-width: 2.5px; }
+.hud-bar.slim .track { height: 16px; }
+.hud-bar.slim .txt { font-size: 11px; line-height: 12px; }
 .hud-purse { display: flex; gap: 10px; padding-left: 8px; }
 .hud-pill { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 12px 0 8px; font: 700 13.5px var(--font); color: var(--ink);
   text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5); border: 2px solid transparent; border-radius: 999px; background: var(--card) padding-box, var(--wood) border-box;
