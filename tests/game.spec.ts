@@ -285,19 +285,26 @@ test('keyboard: C crouches standing still, slides on the run and crouches after;
   await page.keyboard.down('Space');
   await advanceLive(page, 20);
   await page.keyboard.up('Space');
-  for (let i = 0; i < 30; i++) {
-    const q = (await state(page)).player;
-    if (q.vel.y < 0 && q.pos.y < 0.45) break;
-    await advanceLive(page, 1);
-  }
+  // A frame at a time in the page, drawn only at the end.
+  await page.evaluate(() => {
+    const g = (window as any).__game;
+    for (let i = 0; i < 30; i++) {
+      const q = g.state().player;
+      if (q.vel.y < 0 && q.pos.y < 0.45) break;
+      g.advanceLive(1, false);
+    }
+  });
   expect((await state(page)).player.grounded).toBe(false);
   const before = await slides();
   await page.keyboard.down('KeyC');
-  let landed = false;
-  for (let i = 0; i < 40 && !landed; i++) {
-    await advanceLive(page, 1);
-    landed = (await state(page)).player.grounded;
-  }
+  const landed = await page.evaluate(() => {
+    const g = (window as any).__game;
+    for (let i = 0; i < 40; i++) {
+      g.advanceLive(1, false);
+      if (g.state().player.grounded) return true;
+    }
+    return false;
+  });
   await advanceLive(page, 8);
   p = (await state(page)).player;
   expect(landed).toBe(true);

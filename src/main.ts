@@ -1430,8 +1430,9 @@ const api = {
     }
     if (drawn) draw(1, 0, 0);
   },
-  // Steps the game reading the real keyboard, mouse and controller.
-  advanceLive(frames: number): void {
+  // Steps the game reading the real keyboard, mouse and controller, and draws the last (`drawn`
+  // false leaves that to the caller, as advance's does).
+  advanceLive(frames: number, drawn = true): void {
     for (let i = 0; i < frames; i++) {
       const cam = input.pollCamera(STEP);
       follow.rotate(cam.dYaw, cam.dPitch);
@@ -1440,7 +1441,7 @@ const api = {
       stepOnce(walker ? walker.steer(own, follow.yaw) : own);
       followSim(STEP);
     }
-    draw(1, 0, 0);
+    if (drawn) draw(1, 0, 0);
   },
   /** Auto-run and travel by road: what is walking you, where to, and how far is left. */
   walk() {

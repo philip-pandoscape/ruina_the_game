@@ -237,15 +237,19 @@ test('glider: rising air at the foot of the Windspire lifts you; C flares it and
   expect(p.mode).toBe('glide');
   // Still picking up speed toward its cruise; flaring, it sheds it instead.
   const opened = p.airspeed;
-  const live = (n: number) => page.evaluate((k) => (window as any).__game.advanceLive(k), n);
+  const live = (n: number, drawn = true) => page.evaluate(([k, d]) => (window as any).__game.advanceLive(k, d), [n, drawn] as const);
   const slides = () => page.evaluate((id) => (window as any).__game.events().filter((e: any) => e.type === 'action' && e.id === id).length, SLIDE_SKILL);
   const before = await slides();
   await page.keyboard.down('KeyC');
-  await live(45);
+  await live(45, false);
   p = await w.player();
   expect(p.mode).toBe('glide');
   expect(p.airspeed).toBeLessThan(opened - 1);
-  for (let i = 0; i < 20 && !(await w.player()).grounded; i++) await live(30);
+  // Down to the ground in the page, drawn once there.
+  await page.evaluate(() => {
+    const game = (window as any).__game;
+    for (let i = 0; i < 20 && !game.state().player.grounded; i++) game.advanceLive(30, false);
+  });
   await live(6);
   p = await w.player();
   expect([p.mode, p.grounded, p.crouching, (await slides()) - before]).toEqual(['normal', true, true, 0]);
