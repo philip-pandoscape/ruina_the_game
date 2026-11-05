@@ -131,7 +131,7 @@ in `.env` (git-ignored) as `RAILWAY_BETA_API_KEY` and `RAILWAY_PRODUCTION_API_KE
 |---|---|---|
 | Move / camera | WASD / mouse (click to capture) | Left / right stick |
 | Sprint | Hold Shift | Click left stick |
-| Crouch (hold; still held when a slide ends, you stay down) | Hold C | Click right stick |
+| Crouch (held through a slide, you come out of it crouched) | Hold C | Click right stick |
 | Jump (twice for a double jump) | Space | A |
 | Attack | Left click or J | X |
 | Slide | C on the run, or K | B |
