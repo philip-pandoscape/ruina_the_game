@@ -52,11 +52,17 @@ const fragment = /* glsl */ `
     col = mix(col, col * 0.9, step(ripple, 0.06));
 
     // Foam: a breathing line where the water meets the land, and a broken second line further out.
+    // The lines are drawn by depth, so far off, or seen flat, one is narrower than a pixel and would
+    // pop on and off as the camera turns. fw is how much the depth changes across a pixel: each
+    // line's edges soften over at least that, and a line thinner than that spreads into a fainter
+    // one as wide as the pixel, so it holds still.
+    float fw = max(fwidth(depth), 1e-4);
     float edge = 0.5 + 0.28 * sin(uTime * 1.25 + vWorld.x * 0.05 + vWorld.z * 0.04);
-    float foam = 1.0 - smoothstep(edge * 0.55, edge, depth);
+    float foam = 1.0 - smoothstep(edge * 0.55 - 0.5 * fw, edge + 0.5 * fw, depth);
     float swell = 1.25 + 0.45 * sin(uTime * 0.85 + vWorld.x * 0.06 - vWorld.z * 0.03);
-    float band = (1.0 - smoothstep(0.0, 0.12, abs(depth - swell))) * (1.0 - smoothstep(0.6, 2.6, depth));
-    foam = max(foam, band * step(0.4, n1));
+    float band = (1.0 - smoothstep(0.0, 0.12 + fw, abs(depth - swell))) * (0.12 / max(0.12, fw)) * (1.0 - smoothstep(0.6, 2.6, depth));
+    float fn = fwidth(n1);
+    foam = max(foam, band * smoothstep(0.4 - fn, 0.4 + fn, n1));
     foam = clamp(foam, 0.0, 1.0);
     col = mix(col, uFoam, foam);
 
@@ -106,7 +112,10 @@ export class WaterView {
       depthWrite: false,
       fog: true,
     });
-    const geo = new THREE.PlaneGeometry(9000, 9000, 1, 1);
+    // In tiles of 50 m, not one sheet: the world position the depth and the foam are read at is
+    // interpolated across each triangle, and across a 9 km triangle that is off by metres and
+    // jumps as the camera turns, so the foam along the shore strobed thick and thin.
+    const geo = new THREE.PlaneGeometry(9000, 9000, 180, 180);
     geo.rotateX(-Math.PI / 2);
     this.mesh = new THREE.Mesh(geo, mat);
     this.mesh.position.y = hf.water;
