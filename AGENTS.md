@@ -31,6 +31,7 @@ npm run typecheck
 npx playwright test     # all; tests/online.spec.ts needs `npm run up`; tests/update.spec.ts needs RUINA_DATABASE_URL
 PW_PORT=5211 TEST_PORT_OFFSET=10 npx playwright test   # beside another checkout's suite (its own Vite and battle-server ports)
 cargo test --release --manifest-path server/Cargo.toml   # needs Rust; CI runs it anyway
+npm run image -- --out scratch/x.png --ref look.png "prompt"   # a picture from Gemini (Art and assets below)
 ```
 
 ## Rules
@@ -48,7 +49,42 @@ cargo test --release --manifest-path server/Cargo.toml   # needs Rust; CI runs i
   items answer a click (pick), a double-click (their main action) and a right-click (a menu).
 - Tag a test `@gpu` if it needs a real GPU to keep up (several game windows, frame rates, screen
   capture). CI renders in software and skips them; run them locally before pushing such changes.
-- Never commit `.env` (Railway keys). Commit messages carry no AI attribution.
+- Never commit `.env` (Railway keys, `GEMINI_API_KEY`). Commit messages carry no AI attribution.
+
+## Art and assets
+
+Concepts come first: paint them and show the user (side by side, with today's look) before making
+models. Meshy credits and Gemini billing are the user's money, so say what a batch makes and what it
+costs before running it. Whatever comes from outside goes in `CREDITS.md` (what, where, from,
+licence).
+
+- **Free assets.** CC0 only (or a licence that asks for no more than a credit), never anything
+  taken from another game. Textures from [Poly Haven](https://polyhaven.com/textures) and
+  [ambientCG](https://ambientcg.com): the 1K JPGs, only the maps the shader reads, in
+  `src/render/assets/` (ground in `ground/`); greyscale where the palette gives the colour
+  (`detail.jpg` packs three grains, a channel each).
+- **Gemini API** for pictures (concept art, Meshy's input, textures): `tools/images/gemini.mjs`,
+  run as `npm run image` (`--list` for the models). It runs the same Nano Banana models as Meshy's
+  image tools, for less: Nano Banana Pro (the default) for concepts, `--model
+  gemini-3.1-flash-image` (Nano Banana 2) for cheap drafts. The key is `GEMINI_API_KEY` in `.env`;
+  in a worktree it is read from the main checkout's `.env`. It needs billing on the key's Google
+  project: on the free tier every image model's quota is 0 (a 429). Give the island's reference
+  picture as a `--ref` to keep the style. Work in `scratch/` (git-ignored).
+- **Meshy** (the `meshy` MCP server) for 3D models: image-to-3D from a concept painted "isolated on
+  white, three-quarter front-left view" (that face becomes +Z), `meshy-t2.5` smart topology,
+  textured (15 credits; `meshy-7.1` for a showpiece). Check the balance first (free). t2.5 can drop
+  thin parts and parts on top (the hay cart lost its hay); `meshy-6` and a remesh fix that.
+  - Compress into the game: `npx @gltf-transform/cli optimize in.glb
+    src/render/assets/models/<id>.glb --compress meshopt --texture-compress webp --texture-size
+    1024 --simplify false --join false --instance false --flatten true` (1024 for buildings, 512
+    for props, nodes and packs).
+  - An entry in `MADE_STRUCTURES`, `MADE_PROPS` or `MADE_PACKS` (`src/render/models/glb.ts`)
+    swaps it in for the procedural model with the same id, fitted into its footprint, so the
+    rules, colliders and server never see it.
+  - Meshopt keeps positions as normalized int16: bake them to Float32 before any `applyMatrix4`,
+    or everything past ±1 m is cut off (`baked` in `glb.ts`).
+- `tests/look.spec.ts` shoots the same places at the same hours in both looks
+  (`screenshots/look-*`): run it before and after, and show the user both.
 
 ## Branches and deploys
 

@@ -16,6 +16,7 @@
     "loadtest": "cargo run --release --manifest-path server/Cargo.toml --bin loadtest -- --clients 1000 --seconds 15",
     "balance": "cargo run --release --manifest-path server/Cargo.toml --bin balance < balance.json",
     "icons": "node tools/icons/bake.mjs",
+    "image": "node tools/images/gemini.mjs",
     "skilltree": "node tools/skilltree/gen.mjs"
   },
   "type": "module",
