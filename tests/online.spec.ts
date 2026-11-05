@@ -330,20 +330,25 @@ test('deleting a character takes their name typed, and only your own characters 
 
 // ---------- Sharing Emberholm ----------
 
-/** Two new players who share a channel (new names until they do, should one channel fill up). */
+/**
+ * Two new players who share a channel. A new character lives in the first channel with room, so if
+ * the first one took the last place in theirs, the second starts the next channel: then the second
+ * stays, and the next new player joins them there.
+ */
 async function pair(browser: Browser): Promise<{ a: Page; b: Page; nameA: string; nameB: string }> {
-  const a = await (await browser.newContext()).newPage();
-  const nameA = fresh('ann');
-  await a.goto(`/?as=${nameA}&bugs=0`);
-  await waitOnline(a);
-  const channel = await game(a, (g) => g.online().channel);
+  const player = async (prefix: string) => {
+    const page = await (await browser.newContext()).newPage();
+    const name = fresh(prefix);
+    await page.goto(`/?as=${name}&bugs=0`);
+    await waitOnline(page);
+    return { page, name, channel: await game(page, (g) => g.online().channel) };
+  };
+  let first = await player('ann');
   for (let tries = 0; tries < 3; tries++) {
-    const b = await (await browser.newContext()).newPage();
-    const nameB = fresh('bea');
-    await b.goto(`/?as=${nameB}&bugs=0`);
-    await waitOnline(b);
-    if ((await game(b, (g) => g.online().channel)) === channel) return { a, b, nameA, nameB };
-    await b.context().close();
+    const second = await player('bea');
+    if (second.channel === first.channel) return { a: first.page, b: second.page, nameA: first.name, nameB: second.name };
+    await first.page.context().close();
+    first = second;
   }
   throw new Error('could not get two players into one channel');
 }
@@ -393,6 +398,43 @@ test("a neighbour's house is drawn on your island, and their plot can't be taken
   await b.evaluate(() => (window as any).__game.lifeCommand({ t: 'grant', item: 'blueprint.cottage', n: 1 }));
   await b.evaluate(([x, z, f]) => (window as any).__game.teleport(x, z, f), site);
   await expect.poll(() => game(b, (g) => g.life().focus?.label), { timeout: 45_000 }).toBe(`${nameA}'s Plot`);
+});
+
+test("another player's name shows near you, fades past 30 m and is gone by 45 m", async ({ browser }) => {
+  const { a, b, nameA } = await pair(browser);
+  const ann = () => seen(b, nameA);
+  /** Ann goes to (x, z), and Bea waits until she sees her there. */
+  const annTo = async (x: number, z: number) => {
+    await a.bringToFront();
+    await a.evaluate(([x, z]) => (window as any).__game.teleport(x, z), [x, z]);
+    await b.bringToFront();
+    await expect.poll(async () => {
+      const p = await ann();
+      return p ? Math.hypot(p.x - x, p.z - z) : Infinity;
+    }, { timeout: 30_000 }).toBeLessThan(2);
+    // A few frames drawn there.
+    await b.waitForTimeout(300);
+    return (await ann())!;
+  };
+  const bea = await game(b, (g) => g.state().player.pos);
+
+  // Beside Bea: her name is whole.
+  let p = await annTo(bea.x + 3, bea.z + 3);
+  expect(p.away).toBeLessThan(30);
+  expect(p.plate).toBe(1);
+  // 33 m in front of her (a little more from her camera, behind her): fading.
+  p = await annTo(bea.x, bea.z + 33);
+  expect(p.away).toBeGreaterThan(30);
+  expect(p.away).toBeLessThan(45);
+  expect(p.plate).toBeGreaterThan(0);
+  expect(p.plate).toBeLessThan(1);
+  // Up at Hearthside Rise, 150 m off: no name floating over the trees.
+  p = await annTo(142, -200);
+  expect(p.away).toBeGreaterThan(45);
+  expect(p.plate).toBe(0);
+  // And back: whole again.
+  p = await annTo(bea.x + 3, bea.z + 3);
+  expect(p.plate).toBe(1);
 });
 
 test('the developer panel is up to the server', async ({ page }) => {
