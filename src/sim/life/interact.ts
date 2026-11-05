@@ -18,6 +18,7 @@ import { acceptContract } from './contracts';
 import { buildShipStage, deliverShipMaterial, designItemsInBag, launch, layKeel, shipFinished, shipNeeds, shipOn, shipStageReady } from './shipyard';
 import { shipDesign, designForItem } from '../../content/shipyard';
 import { questDef } from '../../content/quests';
+import { CHALLENGE } from '../../content/minigames';
 
 // What pressing F does right now, and the commands everything else sends. The focus is worked out
 // every step from what is near you and in front of you, so the prompt on screen is always exactly
@@ -26,7 +27,8 @@ import { questDef } from '../../content/quests';
 export type FocusAction =
   | 'talk' | 'sell' | 'craft' | 'pickup' | 'board' | 'ride' | 'load' | 'unload' | 'exit'
   | 'plant' | 'water' | 'harvest' | 'fell' | 'gather' | 'claim' | 'deliver' | 'build'
-  | 'rest' | 'storage' | 'tax' | 'placeScarecrow' | 'keel' | 'shipDeliver' | 'shipBuild' | 'launch' | 'feed' | 'collect' | 'info';
+  | 'rest' | 'storage' | 'tax' | 'placeScarecrow' | 'keel' | 'shipDeliver' | 'shipBuild' | 'launch' | 'feed' | 'collect' | 'info'
+  | 'challenge';
 
 export interface Focus {
   action: FocusAction;
@@ -43,6 +45,8 @@ export interface Focus {
   vehicle?: number;
   /** Riding along: whose vehicle it is (their character). */
   host?: number;
+  /** A challenge: the other player (their character). */
+  other?: number;
   slot?: number;
   sc?: number;
   cell?: number;
@@ -321,6 +325,17 @@ export function findFocus(life: Life, sim: Sim): Focus | null {
     }
     const t = taxDue(life, h);
     if (Math.abs(lz) > 5) consider({ action: 'tax', key: `tax:${h.id}`, label: `Pay Property Tax (${formatCoins(t.owed)})`, detail: t.dueIn > 0 ? `Paid for ${shortTime(t.dueIn)}` : 'Overdue', ok: true, house: h.id, x: plot.x, y, z: plot.z }, d + 1, 9);
+  }
+
+  // Online, another player close by: challenge them to a mini-game (src/ui/minigames asks the
+  // server). Only when F has nothing else to do here, so someone standing at a merchant's counter
+  // or on the plot beside yours never gets in the way of what you came for.
+  if (!best && p.mode === 'normal') {
+    for (const o of life.othersAround?.() ?? []) {
+      const d = Math.hypot(o.x - p.pos.x, o.z - p.pos.z);
+      const detail = o.busy ?? (back ? 'Put your pack down first' : 'Play a Mini-Game');
+      consider({ action: 'challenge', key: `challenge:${o.id}`, label: `Challenge ${o.name}`, detail, ok: !o.busy && !back, other: o.id, x: o.x, y: o.y, z: o.z }, d, CHALLENGE.range);
+    }
   }
   return best;
 }

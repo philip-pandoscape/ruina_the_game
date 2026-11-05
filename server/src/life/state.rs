@@ -221,6 +221,10 @@ pub struct LifeState {
     /// World seconds since this island began.
     pub clock: f64,
     pub coins: f64,
+    /// Coins on a table for a game being played (server/src/world_game/tables.rs): out of the
+    /// purse until the game pays out. An island loaded with some still here gets them back.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub staked: Option<f64>,
     pub seals: f64,
     pub labor: f64,
     pub bag: Vec<Stack>,
@@ -266,6 +270,7 @@ pub fn new_life_state(coins: f64, labor: f64, seed: u32) -> LifeState {
         version: LIFE_VERSION,
         clock: 0.0,
         coins,
+        staked: None,
         seals: 0.0,
         labor,
         bag: Vec::new(),

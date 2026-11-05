@@ -21,11 +21,14 @@ import { resumeAfterReload } from '../app/resume';
 // into the world with the same character (src/app/resume.ts).
 //
 //   server → browser  (text) welcome {protocol, character, account, build, now, channel, dev, estates, claims}
-//                     tick {tick, you, peers, actors, arrows, meteors, events, lifeEvents?, life?}
+//                     tick {tick, you, peers, actors, arrows, meteors, events, lifeEvents?, life?, tables?}
 //                     estate {id, name, estate} | claims {claims} | left {id} | saved {at}
+//                     | challenges {sent, waiting} | table {table}   (mini-games, src/ui/minigames)
 //                     | reset | kicked | error {text} | updating
 //   browser → server  (binary) inputs: 7, count, then per input a u32 sequence number and 10 bytes
 //                     (text) cmd {s, c} | build {build} | reset
+//                     | challenge {to, game, stake, seed?} | withdraw | answer {from, accept}
+//                     | move {table, m} | concede {table}
 
 export interface Welcome {
   character: { id: number; name: string };
@@ -90,6 +93,59 @@ export interface WorldTick {
   lifeEvents?: LifeEvent[];
   /** Your whole island, when it changed (and every couple of seconds anyway). */
   life?: { rev: number; state: LifeState; placing: Placement | null; resting: boolean };
+  /** Mini-game tables near you, as everyone sees them (none: no table near). */
+  tables?: TableShown[];
+}
+
+/** A mini-game's table as everyone in the world sees it (server/src/minigames Table::shown). */
+export interface TableShown {
+  id: number;
+  game: string;
+  /** Its middle on the ground, and the way from seat 0 to seat 1 (x = sin, z = cos). */
+  x: number;
+  y: number;
+  z: number;
+  rot: number;
+  /** Seat 0 was challenged and moves first. */
+  seats: Array<{ id: number; name: string }>;
+  /** Each player's stake (copper). */
+  stake: number;
+  /** Beacons: who lit each hex (0 nobody, 1 seat 0, 2 seat 1) and the winning row. */
+  board: { lit: number[]; row: number[] };
+  /** Once the game is over: who won (null: nobody) and why. */
+  over?: { winner: number | null; why: 'rules' | 'conceded' | 'timeouts' | 'away' | 'aborted' };
+}
+
+/** Your own table as you may see it (Table::view): the clock, and the game as the rules show it to you. */
+export interface TableView extends Omit<TableShown, 'seats'> {
+  /** Your seat. */
+  you: number;
+  seats: Array<{ id: number; name: string; timeouts: number; away: boolean }>;
+  turnSeconds: number;
+  /** What was left on the clock of the player to move when this was sent. */
+  ms: number;
+  toMove: number | null;
+  /** The game's own state (Beacons: src/ui/minigames/beacons.ts BeaconsState). */
+  state: Record<string, unknown>;
+}
+
+/** A challenge as the server tells it to both players (server/src/minigames Challenge::json). */
+export interface ChallengeView {
+  from: number;
+  fromName: string;
+  to: number;
+  toName: string;
+  game: string;
+  /** Each player's stake (copper). */
+  stake: number;
+  /** Time left to answer when this was sent. */
+  ms: number;
+}
+
+/** Your challenge out, and one waiting for your answer. */
+export interface Challenges {
+  sent: ChallengeView | null;
+  waiting: ChallengeView | null;
 }
 
 /**
@@ -104,7 +160,7 @@ const RETRY_MS = { updating: [500, 1000, 1500, 2000], reconnecting: [500, 1000, 
 /** A WebSocket closed as a service restart: the server is being updated. */
 const SERVICE_RESTART = 1012;
 /** What this page speaks; the server says what it speaks in its welcome (server/src/world_socket.rs). */
-const WORLD_PROTOCOL = 5;
+const WORLD_PROTOCOL = 6;
 const RELOADED = 'ruina.reloaded-for-server';
 const RELOADED_BUILD = 'ruina.reloaded-for-build';
 const SEND_INPUTS = 7;
@@ -123,6 +179,15 @@ export class WorldLink {
   onEstate: ((e: EstateEntry) => void) | null = null;
   onClaims: ((claims: Record<string, string>) => void) | null = null;
   onLeft: ((id: number) => void) | null = null;
+  /** Mini-games: your table's game changed (null: you're up from the table), and your challenges. */
+  onTable: ((t: TableView | null) => void) | null = null;
+  onChallenges: ((c: Challenges) => void) | null = null;
+  /** Your table as last heard (null when you aren't at one), and when it came (performance.now()). */
+  table: TableView | null = null;
+  tableHeard = 0;
+  /** Your challenges as last heard, and when they came. */
+  challenges: Challenges = { sent: null, waiting: null };
+  challengesHeard = 0;
   private resetDone: Array<() => void> = [];
   /** The channel as last heard, kept here so nothing is missed before the game is ready to draw it. */
   readonly peers = new Map<number, PeerEntry>();
@@ -162,6 +227,13 @@ export class WorldLink {
     for (const e of w.estates ?? []) this.estates.set(e.id, e);
     this.claims = w.claims ?? {};
     this.clock = { server: w.now, heard };
+    // A game or a challenge that's still on comes again from the server, after its welcome.
+    const hadTable = this.table !== null;
+    const hadChallenges = !!(this.challenges.sent || this.challenges.waiting);
+    this.table = null;
+    this.challenges = { sent: null, waiting: null };
+    if (hadTable) this.onTable?.(null);
+    if (hadChallenges) this.onChallenges?.(this.challenges);
   }
 
   /**
@@ -210,6 +282,33 @@ export class WorldLink {
 
   saveBuild(build: Build): boolean {
     return this.send({ t: 'build', build });
+  }
+
+  // ---------- Mini-games (server/src/world_game/tables.rs) ----------
+
+  /** Challenges another player here to `game` for `stake` copper each (development servers: `seed` deals a known game). */
+  challenge(to: number, game: string, stake: number, seed?: number): boolean {
+    return this.send({ t: 'challenge', to, game, stake, ...(seed !== undefined ? { seed } : {}) });
+  }
+
+  /** Takes your challenge back. */
+  withdraw(): boolean {
+    return this.send({ t: 'withdraw' });
+  }
+
+  /** Accepts or declines the challenge from `from`. */
+  answer(from: number, accept: boolean): boolean {
+    return this.send({ t: 'answer', from, accept });
+  }
+
+  /** A move at your table, in the game's own terms. */
+  move(table: number, m: Record<string, unknown>): boolean {
+    return this.send({ t: 'move', table, m });
+  }
+
+  /** Gives your game up: the other player wins it. */
+  concede(table: number): boolean {
+    return this.send({ t: 'concede', table });
   }
 
   /** Starts the island over on the server. Resolves once it's done (or after 3 s). */
@@ -278,6 +377,15 @@ export class WorldLink {
     } else if (msg.t === 'left') {
       this.peers.delete(msg.id ?? 0);
       this.onLeft?.(msg.id ?? 0);
+    } else if (msg.t === 'table') {
+      this.table = (msg as { table?: TableView | null }).table ?? null;
+      this.tableHeard = performance.now();
+      this.onTable?.(this.table);
+    } else if (msg.t === 'challenges') {
+      const c = msg as { sent?: ChallengeView | null; waiting?: ChallengeView | null };
+      this.challenges = { sent: c.sent ?? null, waiting: c.waiting ?? null };
+      this.challengesHeard = performance.now();
+      this.onChallenges?.(this.challenges);
     }
   }
 

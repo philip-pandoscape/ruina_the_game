@@ -131,6 +131,11 @@ export interface LifeState {
   /** World seconds since this save began. Keeps running (at a rate) while you are away. */
   clock: number;
   coins: number;
+  /**
+   * Coins on a table for a mini-game being played online (server/src/world_game/tables.rs): out of
+   * the purse until the game pays out. An island loaded with some still here gets them back.
+   */
+  staked?: number;
   seals: number;
   labor: number;
   bag: Stack[];

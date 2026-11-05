@@ -22,14 +22,18 @@ use crate::life::content::clock;
 use crate::life::progress::skill_budget;
 use crate::life::state::LifeState;
 use crate::life::{farming, housing, trade, vehicles, Command, Life};
+use crate::minigames::Minigames;
 use crate::open::colliders::ground_at;
 use crate::open::zone::{emberholm, Zone};
 use crate::open::{OpenWorld, Sim};
-use crate::player::{Build, Mode, Player};
+use crate::player::{Actions, Build, Mode, Player};
 use crate::sim::Battle;
 use crate::skills::{valid_build, valid_movement};
 use crate::world::{Spawn, World};
 use crate::world_socket::parse_build;
+
+/// Mini-games here: challenges, tables and the money on them.
+mod tables;
 
 pub const TICK_HZ: u32 = 20;
 /// Islands are written to Postgres this often while their owner plays (and when they leave).
@@ -92,11 +96,22 @@ pub struct Arrival {
     pub build: Option<Value>,
 }
 
+/// Someone who left in the last minute, with their island as they left it.
+struct Lingering {
+    at: Instant,
+    /// The connection that played them last, which may still write their island.
+    session: i64,
+    player: Player,
+    life: Box<Life>,
+    /// A game changed their island since they left (it was paid out): written when the server stops.
+    dirty: bool,
+}
+
 pub struct ChannelGame {
     pub id: i32,
     /// Who left in the last minute, with their island as they left it: newer than any save that
     /// might still be on its way to the database, so a quick reload picks up exactly there.
-    lingering: HashMap<i64, (Instant, Player, Box<Life>)>,
+    lingering: HashMap<i64, Lingering>,
     /// Everyone's estates and who holds which plot, online or not.
     pub estates: Channel,
     pub members: HashMap<i64, Member>,
@@ -107,6 +122,17 @@ pub struct ChannelGame {
     battle: Battle,
     tick: u64,
     last_tick: Instant,
+    /// Challenges and the tables they became (server/src/world_game/tables.rs).
+    pub tables: Minigames,
+    /// When the channel began: games' clocks run from here.
+    started: Instant,
+    /// Tests: seconds added to the games' clock.
+    pub(crate) skew: f64,
+    /// Islands to write together, in one transaction (a pot changing hands), when there's no
+    /// writer to hand them to straight away (tests).
+    joint: Vec<Vec<Save>>,
+    /// The server's queue of islands to write (world_socket.rs spawn_world), if it has one.
+    pub saver: Option<mpsc::UnboundedSender<Vec<Save>>>,
 }
 
 /// A player's id on the wire (Players numbers its clients with u32).
@@ -144,7 +170,17 @@ impl ChannelGame {
             battle: Battle::new(0),
             tick: 0,
             last_tick: Instant::now(),
+            tables: Minigames::default(),
+            started: Instant::now(),
+            skew: 0.0,
+            joint: Vec::new(),
+            saver: None,
         }
+    }
+
+    /// Islands to be written together, each list in one transaction (a game's pot paid out).
+    pub fn take_joint(&mut self) -> Vec<Vec<Save>> {
+        std::mem::take(&mut self.joint)
     }
 
     /// A resident who isn't online: their houses and farms stand (and are solid) all the same.
@@ -164,11 +200,11 @@ impl ChannelGame {
     pub fn join(&mut self, a: Arrival) -> (Value, Value, Value) {
         let c = client(a.character);
         let mut keep_saved = false;
-        self.lingering.retain(|_, (when, _, _)| when.elapsed() < LINGER);
+        self.lingering.retain(|_, l| l.at.elapsed() < LINGER);
         if self.players.open_view(c).is_some() {
             self.players.restart_inputs(c);
-        } else if let Some((_, player, life)) = self.lingering.remove(&a.character) {
-            self.players.join_open(c, a.character, player, life);
+        } else if let Some(l) = self.lingering.remove(&a.character) {
+            self.players.join_open(c, a.character, l.player, l.life);
         } else {
             let zone = self.open.zone;
             let mut life = Life::new(zone, None, None);
@@ -206,6 +242,8 @@ impl ChannelGame {
             },
         );
         self.refresh_estate(a.character);
+        // A game or a challenge they were in the middle of comes back to their browser.
+        self.joined_tables(a.character);
         // Whatever happened to the claims, this island knows whose plots are whose.
         let held = self.estates.held_by_others(a.character);
         let mut build = Value::Null;
@@ -227,6 +265,8 @@ impl ChannelGame {
         // Riding along with someone, you step out beside their vehicle first: that's where you are.
         self.drop_off(character);
         let keep_saved = self.members.remove(&character).is_some_and(|m| m.keep_saved);
+        // Challenges are off; a game they're playing waits a while for them (tables.rs).
+        self.left_tables(character);
         let (player, life) = self.players.leave(client(character))?;
         let mut life = life?;
         let island = island_of(&player, &mut life, &mut self.open, character);
@@ -234,7 +274,7 @@ impl ChannelGame {
         if keep_saved {
             return None;
         }
-        self.lingering.insert(character, (Instant::now(), player, life));
+        self.lingering.insert(character, Lingering { at: Instant::now(), session, player, life, dirty: false });
         Some(island)
     }
 
@@ -289,8 +329,10 @@ impl ChannelGame {
         p.grounded = true;
     }
 
-    /// Everyone's island as it is this moment, to save (the server is stopping).
+    /// Everyone's island as it is this moment, to save (the server is stopping). Games can't go
+    /// on without the server: they're called off first, each stake back to its player.
     pub fn islands_now(&mut self) -> Vec<Save> {
+        self.abort_tables();
         let ids: Vec<(i64, i64, bool)> = self.members.iter().map(|(id, m)| (*id, m.session, m.keep_saved)).collect();
         let mut out = Vec::new();
         for (id, session, keep_saved) in ids {
@@ -302,6 +344,13 @@ impl ChannelGame {
                 out.push(Save { character: id, session, island, out: None });
             }
         }
+        // Someone away whose game was paid out since they left.
+        for (id, l) in &mut self.lingering {
+            if l.dirty {
+                let island = island_of(&l.player, &mut l.life, &mut self.open, *id);
+                out.push(Save { character: *id, session: l.session, island, out: None });
+            }
+        }
         out
     }
 
@@ -309,9 +358,11 @@ impl ChannelGame {
         !self.members.is_empty()
     }
 
-    /// Inputs from a browser: (sequence number, the OPEN_INPUT bytes the browser packed).
+    /// Inputs from a browser: (sequence number, the OPEN_INPUT bytes the browser packed). At a
+    /// table you stay in your seat: what you press counts as nothing.
     pub fn inputs(&mut self, character: i64, list: impl Iterator<Item = (u32, [u8; OPEN_INPUT])>) {
-        self.players.queue_actions(client(character), list.map(|(seq, raw)| (seq, open_actions_from(raw))));
+        let seated = self.tables.seated(character);
+        self.players.queue_actions(client(character), list.map(|(seq, raw)| (seq, if seated { Actions::default() } else { open_actions_from(raw) })));
     }
 
     /// A command for someone's island, given on input `seq`. The developer panel's only count where
@@ -322,6 +373,10 @@ impl ChannelGame {
             return false;
         }
         m.life_due = 3;
+        // At a table the game is all you do (the developer panel's grants and time aside).
+        if self.tables.seated(character) && !matches!(c, Command::Grant { .. } | Command::Warp { .. }) {
+            return true;
+        }
         if let Command::Teleport { x, z, facing } = c {
             self.teleport(character, x, z, facing);
             return true;
@@ -472,6 +527,8 @@ impl ChannelGame {
     /// Starts someone's island over: a fresh one, standing at the spawn. What they had built goes.
     /// Returns the fresh island, to save.
     pub fn reset(&mut self, character: i64) -> Option<Value> {
+        // A game they're playing is called off first: the other player's stake goes back to them.
+        self.abort_table_of(character);
         let zone = self.open.zone;
         let (p, life) = self.players.open_mut(client(character))?;
         let life = life?;
@@ -572,6 +629,8 @@ impl ChannelGame {
         self.gather_movers();
         self.players.step_in(&mut self.battle, &mut self.actors, &self.world, self.tick, Some(&mut self.open));
         self.seat_passengers();
+        // Games' clocks, payouts, and players kept in their seats.
+        self.step_tables();
         self.players.step_effects(&mut self.battle, &mut self.actors);
         let seen = self.players.live_positions();
         let mut slams = Vec::new();
@@ -592,6 +651,8 @@ impl ChannelGame {
             let Some(m) = self.members.get(&owner) else { continue };
             presences.push((owner, json!({ "id": owner, "name": m.name, "p": presence_json(p, life, fr) })));
         }
+        // The tables thrown down for games, as everyone sees them.
+        let tables = self.tables_shown();
 
         for id in ids {
             let c = client(id);
@@ -640,6 +701,10 @@ impl ChannelGame {
             }
             if let Some(l) = life_json {
                 msg["life"] = l;
+            }
+            let near = ChannelGame::tables_near(&tables, x, z);
+            if !near.is_empty() {
+                msg["tables"] = Value::Array(near);
             }
             let _ = out.try_send(msg.to_string());
         }
@@ -708,6 +773,11 @@ pub fn load_island(life: &mut Life, p: &mut Player, world: &mut OpenWorld, owner
     life.load(state);
     for v in &mut life.state.vehicles {
         v.ridden = false;
+    }
+    // A stake still on a table when this was saved (the server stopped or fell over mid-game): no
+    // game holds it now, as games are only in the server's memory, so it's back in the purse.
+    if let Some(s) = life.state.staked.take() {
+        life.state.coins += s;
     }
     // Solid before anyone stands on it (a house floor is somewhere to stand).
     make_solid(world, owner, &life.state);

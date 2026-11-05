@@ -40,6 +40,8 @@ import { signOut } from './net/account';
 import { NetOverlay, OnlineBadge, showStopped } from './ui/signIn';
 import { splash } from './ui/splash';
 import { WorldPeers } from './net/worldPeers';
+import { MinigamesUI } from './ui/minigames/minigames';
+import { GameTables, seatedState } from './render/open/gameTables';
 import type { WorldTick, YouState } from './net/worldLink';
 import { addHouseColliders } from './sim/life/housing';
 import { addScarecrowCollider } from './sim/life/farming';
@@ -273,6 +275,27 @@ if (online && life) {
   life.plotOwner = (plot) => {
     const holder = online.link.claims[plot];
     return holder && holder !== me ? holder : null;
+  };
+}
+// Online: mini-games with the other players here (src/ui/minigames), at tables everyone in the
+// channel sees (src/render/open/gameTables.ts). F on another player challenges them; at a table you
+// stay in your seat until the game is over.
+const gameTables = online ? new GameTables(stage.scene) : null;
+const minigames =
+  online && life && lifeUI
+    ? new MinigamesUI({ link: online.link, life, openPanel: () => lifeUI.openPanel, freeMouse: () => document.pointerLockElement && document.exitPointerLock() })
+    : null;
+if (minigames && lifeUI) lifeUI.intercept = (k) => minigames.intercept(k);
+if (peers && gameTables) peers.stoolFor = (id) => gameTables.seatOf(id);
+if (online && peers && life && minigames) {
+  life.othersAround = () => {
+    if (minigames.seated) return [];
+    const playing = new Set((online.link.latest?.tables ?? []).flatMap((t) => t.seats.map((s) => s.id)));
+    const busy = (id: number, mode: string) => (playing.has(id) ? 'At a Table' : mode === 'ride' ? 'Riding' : mode === 'glide' ? 'In the Air' : mode === 'swim' ? 'Swimming' : null);
+    return peers
+      .list()
+      .filter((p) => p.online)
+      .map((p) => ({ id: p.id, name: p.name, x: p.x, y: p.y, z: p.z, busy: busy(p.id, p.mode) }));
   };
 }
 if (online && lifeUI) lifeUI.devTools = online.welcome.dev;
@@ -886,6 +909,12 @@ const markPos = new THREE.Vector3();
 
 // One fixed sim step, plus the effects its events trigger.
 function stepOnce(actions: Actions): void {
+  // At a mini-game's table you stay in your seat, as the server keeps you there: nothing you press
+  // moves you, and nothing walks you off.
+  if (minigames?.seated) {
+    actions = NO_ACTIONS;
+    walker?.stop();
+  }
   if (prediction) {
     if (!net?.you) return; // wait until the server has placed us
     prediction.step(actions);
@@ -1135,8 +1164,11 @@ function draw(alpha: number, cameraDt: number, animDt: number): void {
   // their vehicle is placed first, with everyone else.
   const along = sim.player.mode === 'ride' && !!sim.player.host;
   if (along) peers?.frame(animDt, sim.frame, follow.camera.position);
-  sitIn(hero, lifeView?.placeRide(sim.player, alpha, prediction?.offset ?? null, animDt) ?? (along ? (peers?.seatFor(sim.player) ?? null) : null));
-  hero.update(sim.player, alpha, sim.frame);
+  // Mini-game tables near you; at one, you sit on its stool.
+  if (gameTables && online) gameTables.update(online.link.latest?.tables ?? []);
+  const stool = online ? (gameTables?.seatOf(online.welcome.character.id) ?? null) : null;
+  sitIn(hero, stool ?? lifeView?.placeRide(sim.player, alpha, prediction?.offset ?? null, animDt) ?? (along ? (peers?.seatFor(sim.player) ?? null) : null));
+  hero.update(stool ? seatedState(sim.player) : sim.player, alpha, sim.frame);
   if (prediction && !hero.seat) hero.root.position.add(prediction.offset);
   const d = dummyActor();
   if (d) dummy.update(d);
@@ -1157,6 +1189,7 @@ function draw(alpha: number, cameraDt: number, animDt: number): void {
   if (life && lifeView) {
     lifeView.update(sim, animDt, follow.camera.position);
     lifeUI?.update(animDt);
+    minigames?.update();
     // Wakes behind boats, dust behind fast wheels.
     for (const v of life.state.vehicles) {
       const speed = Math.abs(v.speed);
@@ -1881,6 +1914,29 @@ const api = {
   bugReport(action: 'toggle' | 'discard' = 'toggle'): void {
     if (action === 'discard') bugs?.discard();
     else bugs?.toggle();
+  },
+  // ---- Mini-games (online) ----
+  /** The mini-game windows, your challenges and your table's game as the server last sent them (null offline). */
+  minigames() {
+    return minigames ? JSON.parse(JSON.stringify(minigames.state())) : null;
+  },
+  /** The mini-game tables drawn near you: where, who sits at them, and how many beacons are lit. */
+  gameTables() {
+    return gameTables?.list() ?? [];
+  },
+  /** Challenges another player (by character), as the challenge window does; development servers deal `seed`'s game. */
+  challenge(to: number, stake = 0, game = 'beacons', seed?: number): boolean {
+    return online?.link.challenge(to, game, stake, seed) ?? false;
+  },
+  /** Answers the challenge waiting for you, as its window does. */
+  answerChallenge(accept: boolean): boolean {
+    const c = online?.link.challenges.waiting;
+    return !!c && !!online && online.link.answer(c.from, accept);
+  },
+  /** A move at your table, in the game's own terms (Beacons: src/ui/minigames/beacons.ts). */
+  tableMove(m: Record<string, unknown>): boolean {
+    const t = online?.link.table;
+    return !!t && !!online && online.link.move(t.id, m);
   },
 };
 

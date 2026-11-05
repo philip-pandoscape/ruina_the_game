@@ -422,6 +422,18 @@ test.describe('the island on the server matches the browser', () => {
     });
   });
 
+  test('an island saved with a stake still on a mini-game table gets it back, in both', () => {
+    // The server stopped mid-game (src/ui/minigames): the stake was out of the purse, on the table.
+    const island = islandAfter({ every: 1000, segments: [idle(5)] });
+    const purse = island.state.coins;
+    island.state.coins -= 50;
+    island.state.staked = 50;
+    const script = { island, every: 10, segments: [idle(10)] };
+    compare('stake back', script);
+    const first = runTs(script)[0].life as { coins: number; staked?: number };
+    expect([first.coins, first.staked]).toEqual([purse, undefined]);
+  });
+
   test('a house claimed and built from hauled stone', () => {
     const plot = R.housePlots[0];
     const cutter = bench('stonecutter');

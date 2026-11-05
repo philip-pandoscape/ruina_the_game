@@ -57,6 +57,10 @@ export function applySave(life: Life, sim: Sim, data: Saved, now = Date.now()): 
   life.load(data.state);
   const s = life.state;
   for (const v of s.vehicles) v.ridden = false;
+  // A stake still on a table when this was saved: no game holds it now (games live only on the
+  // server, while they're played), so it's back in the purse, as the server does (load_island).
+  if (s.staked) s.coins += s.staked;
+  delete s.staked;
   for (const sc of s.scarecrows) addScarecrowCollider(sim, sc);
   for (const h of s.houses) addHouseColliders(life, sim, h);
 
