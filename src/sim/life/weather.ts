@@ -45,7 +45,11 @@ export function rainAt(t: number): { raining: boolean; start: number; end: numbe
   return { raining: t < s.end, start: s.start, end: s.end, next: shower(k + 1).start };
 }
 
-export function stepWeather(life: Life, _dt: number): void {
+/**
+ * The rain and the wind as they are now on the weather's clock. `say`: tell the player as a shower
+ * starts (online the server's island tells them, so the browser's copy keeps quiet).
+ */
+export function stepWeather(life: Life, _dt: number, say = true): void {
   const w = life.state.weather;
   const c = life.state.clock;
   const t = weatherClock(life);
@@ -55,7 +59,7 @@ export function stepWeather(life: Life, _dt: number): void {
   w.rainUntil = r.raining ? c + (r.end - t) : Math.min(w.rainUntil, c);
   w.nextRain = c + (r.next - t);
   // Said as it starts, not on arriving in the middle of one.
-  if (r.raining && !was && t - r.start < 1) life.toast('🌧️ Rain sweeps in from the sea - every field drinks it in', 'info');
+  if (say && r.raining && !was && t - r.start < 1) life.toast('🌧️ Rain sweeps in from the sea - every field drinks it in', 'info');
   stepWind(life);
 }
 
