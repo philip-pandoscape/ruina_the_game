@@ -847,10 +847,11 @@ part('the controls', () => {
     ['Open or fold the glider directly', '<kbd>G</kbd>', '—'],
     ['Change the seed you plant', '<kbd>Z</kbd>', '—'],
     ['Bag · map · vehicles · quest log', '<kbd>I</kbd> · <kbd>M</kbd> · <kbd>V</kbd> · <kbd>L</kbd>', 'Menu · D-pad up'],
-    ['Glider: dive / flare', '<kbd>Shift</kbd> / <kbd>Ctrl</kbd>', 'Left / right stick click'],
+    ['Glider: dive / flare', '<kbd>Shift</kbd> / <kbd>C</kbd>', 'Left / right stick click'],
     ['Driving: throttle, steer, handbrake, boost', '<kbd>W</kbd><kbd>S</kbd>, <kbd>A</kbd><kbd>D</kbd>, <kbd>Space</kbd>, <kbd>Shift</kbd>', 'Left stick, <kbd>A</kbd>, left stick click'],
     ['Sailing: raise / lower the sail', '<kbd>W</kbd> / <kbd>S</kbd>', 'Left stick'],
-    ['Combat (unchanged)', 'Mouse / <kbd>J</kbd>, <kbd>C</kbd>, <kbd>1</kbd>–<kbd>8</kbd>, <kbd>Q</kbd> <kbd>E</kbd>, <kbd>T</kbd>', 'X, B, triggers + face buttons, bumpers'],
+    ['Combat (unchanged)', 'Mouse / <kbd>J</kbd>, <kbd>C</kbd> on the run or <kbd>K</kbd>, <kbd>1</kbd>–<kbd>8</kbd>, <kbd>Q</kbd> <kbd>E</kbd>, <kbd>T</kbd>', 'X, B, triggers + face buttons, bumpers'],
+    ['Crouch (hold)', '<kbd>C</kbd>', 'Right stick click'],
     ['Developer tools', '<kbd>`</kbd>', '—'],
   ]);
 });

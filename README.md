@@ -131,10 +131,10 @@ in `.env` (git-ignored) as `RAILWAY_BETA_API_KEY` and `RAILWAY_PRODUCTION_API_KE
 |---|---|---|
 | Move / camera | WASD / mouse (click to capture) | Left / right stick |
 | Sprint | Hold Shift | Click left stick |
-| Crouch | Ctrl | Click right stick |
+| Crouch (hold; still held when a slide ends, you stay down) | Hold C | Click right stick |
 | Jump (twice for a double jump) | Space | A |
 | Attack | Left click or J | X |
-| Slide | C | B |
+| Slide | C on the run, or K | B |
 | Hotbar (hold to aim a ground cast) | 1 – 8 | LT or RT + A/B/X/Y |
 | Movement skills (dodge, backstep, block) | Q, E | LB, RB |
 | Next target | Tab (Shift-Tab goes back) | D-pad right / left |
@@ -156,7 +156,7 @@ In the open world:
 |---|---|---|
 | Interact (talk, plant, harvest, load, drive, build, ride along in a friend's vehicle) | F | Y |
 | Open the glider (in the air, after the double jump) / fold it | Space again, or G | A |
-| Glider: dive / flare | Shift / Ctrl | Click left / right stick |
+| Glider: dive / flare | Shift / C | Click left / right stick |
 | Drive: throttle, steer, handbrake, boost | W S, A D, Space, Shift | Left stick, A |
 | Sail: raise / lower the sail | W / S | Left stick |
 | Call or dismiss your mount | R | D-pad down |

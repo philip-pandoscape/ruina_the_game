@@ -1047,7 +1047,7 @@ export class LifeUI {
     } else if (mode === 'ride') parts.push(item(key('W') + key('S'), 'Throttle'), item(key('A') + key('D'), 'Steer'), item(key('Space'), 'Handbrake'), item(key('Shift'), 'Boost'), ...autoItem('H'), item(key('F'), 'Get Out'));
     else if (mode === 'boat') parts.push(item(key('W') + key('S'), 'Oars / Sail'), item(key('A') + key('D'), 'Rudder'), ...autoItem('H'), item(key('F'), 'Get Out'), item(key('M'), 'Map'));
     else if (mode === 'mount') parts.push(item(key('WASD'), 'Ride'), item(key('Shift'), 'Gallop'), item(key('Space'), 'Jump'), ...autoItem('H'), item(key('R'), 'Dismount'));
-    else if (mode === 'glide') parts.push(item(key('WASD'), 'Steer'), item(key('Shift'), 'Dive'), item(key('Ctrl'), 'Flare'), item(key('F'), 'Gust'), item(key('Space'), 'Fold'));
+    else if (mode === 'glide') parts.push(item(key('WASD'), 'Steer'), item(key('Shift'), 'Dive'), item(key('C'), 'Flare'), item(key('F'), 'Gust'), item(key('Space'), 'Fold'));
     else {
       parts.push(item(key('WASD'), 'Move'), item(key('Space'), 'Jump ×2 · ×3 Glide'), item(key('F'), 'Interact'));
       if (mode === 'carry') parts.push(item(key('X'), 'Drop Pack'));

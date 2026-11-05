@@ -243,6 +243,70 @@ test('keyboard: WASD moves, Space jumps', async ({ page }) => {
   expect(errors).toEqual([]);
 });
 
+test('keyboard: C crouches standing still, slides on the run and crouches after; K slides; C in the air never slides on landing', async ({ page }) => {
+  const errors = await open(page);
+  const slides = () => page.evaluate((id) => (window as any).__game.events().filter((e: any) => e.type === 'action' && e.id === id).length, SLIDE_SKILL);
+  // Standing still: down into a crouch, and no slide.
+  await reset(page, LANE);
+  await page.keyboard.down('KeyC');
+  await advanceLive(page, 10);
+  let p = (await state(page)).player;
+  expect([p.crouching, sliding(p)]).toEqual([true, false]);
+  await page.keyboard.up('KeyC');
+  await advanceLive(page, 10);
+  expect((await state(page)).player.crouching).toBe(false);
+  expect(await slides()).toBe(0);
+
+  // On the run: the press slides, and held on through it you're crouched once it's done.
+  await page.keyboard.down('KeyW');
+  await advanceLive(page, 15);
+  await page.keyboard.down('KeyC');
+  await advanceLive(page, 2);
+  expect(sliding((await state(page)).player)).toBe(true);
+  await advanceLive(page, 30);
+  p = (await state(page)).player;
+  expect([sliding(p), p.crouching]).toEqual([false, true]);
+  await page.keyboard.up('KeyC');
+  await page.keyboard.up('KeyW');
+  expect(await slides()).toBe(1);
+
+  // K slides from a standstill.
+  await reset(page, LANE);
+  await page.keyboard.press('KeyK');
+  await advanceLive(page, 2);
+  expect(sliding((await state(page)).player)).toBe(true);
+  await advanceLive(page, 40);
+
+  // Pressed in the air just before a running jump comes down (within the few frames a slide press
+  // is kept for), C leaves nothing waiting for the landing: you come down crouched, not sliding.
+  await reset(page, LANE);
+  await page.keyboard.down('KeyW');
+  await advanceLive(page, 10);
+  await page.keyboard.down('Space');
+  await advanceLive(page, 20);
+  await page.keyboard.up('Space');
+  for (let i = 0; i < 30; i++) {
+    const q = (await state(page)).player;
+    if (q.vel.y < 0 && q.pos.y < 0.45) break;
+    await advanceLive(page, 1);
+  }
+  expect((await state(page)).player.grounded).toBe(false);
+  const before = await slides();
+  await page.keyboard.down('KeyC');
+  let landed = false;
+  for (let i = 0; i < 40 && !landed; i++) {
+    await advanceLive(page, 1);
+    landed = (await state(page)).player.grounded;
+  }
+  await advanceLive(page, 8);
+  p = (await state(page)).player;
+  expect(landed).toBe(true);
+  expect([sliding(p), p.crouching, (await slides()) - before]).toEqual([false, true, 0]);
+  await page.keyboard.up('KeyC');
+  await page.keyboard.up('KeyW');
+  expect(errors).toEqual([]);
+});
+
 test('performance snapshot while running live', async ({ page }) => {
   const errors = await open(page);
   await reset(page);

@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { defaultBuild, loadBuild, parseBuild, pointsLeft, saveBuild, swapSlots, validBuild } from './build';
 import { CROWD_TICK, CrowdSim } from './crowd/crowdSim';
 import { CrowdView, type CrowdSource } from './crowd/crowdView';
-import { Input } from './input/input';
+import { crouchKeySlides, Input } from './input/input';
 import { INTERP_TICKS, NetCrowd, type NetActor } from './net/netCrowd';
 import { NetMonsters } from './net/netMonsters';
 import { Prediction, RemotePlayers, stateFromServer } from './net/netPlayer';
@@ -225,6 +225,8 @@ if (world.index) {
 }
 follow.reset(world.spawn.facing);
 const input = new Input(canvas);
+// C slides you on the run; standing still it only crouches, and in the air it only flares the glider.
+input.crouchSlides = () => crouchKeySlides(sim.player);
 const hud = new Hud();
 hud.setDevice(input.lastDevice);
 

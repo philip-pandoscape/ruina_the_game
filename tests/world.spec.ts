@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { sailEfficiency } from '../src/sim/life/vehicles';
 import { skillsFrom } from '../src/skills';
-import { COMBAT, emptyMovement, HOTBAR_SLOTS, NO_ABILITY } from '../src/tuning';
+import { COMBAT, emptyMovement, HOTBAR_SLOTS, NO_ABILITY, SLIDE_SKILL } from '../src/tuning';
 
 // The open world (Emberholm): terrain, swimming, gliding, farming, pack running, vehicles, mounts,
 // housing, quests and saving. Like the other specs these drive the real game through
@@ -195,7 +195,7 @@ test('glider: jump, jump, jump again off the Windspire and glide most of the way
   expect(l.stats.glideSeconds).toBeGreaterThan(30);
 });
 
-test('glider: rising air at the foot of the Windspire lifts you; a trade pack keeps it shut', async ({ page }) => {
+test('glider: rising air at the foot of the Windspire lifts you; C flares it and lands you crouched; a trade pack keeps it shut', async ({ page }) => {
   await open(page);
   const w = g(page);
   await grant(page, [['glider.wayfarer', 1], ['sunroot', 6], ['barley', 4]]);
@@ -222,6 +222,34 @@ test('glider: rising air at the foot of the Windspire lifts you; a trade pack ke
   }
   console.log('updraft climb', (top - y0).toFixed(1));
   expect(top).toBeGreaterThan(y0 + 3);
+
+  // Out on open grass, C itself flares the wing, and pressed in the air it leaves no slide waiting
+  // for the landing: you come down crouched.
+  await w.teleport(-150, -222, 0);
+  await w.advance(2);
+  await w.advance(1, { jumpPressed: true, jumpHeld: true });
+  await w.advance(12, { jumpHeld: true });
+  await w.advance(1, { jumpPressed: true, jumpHeld: true });
+  await w.advance(16, { jumpHeld: true });
+  await w.advance(1, { jumpPressed: true, jumpHeld: true });
+  await w.advance(30);
+  p = await w.player();
+  expect(p.mode).toBe('glide');
+  // Still picking up speed toward its cruise; flaring, it sheds it instead.
+  const opened = p.airspeed;
+  const live = (n: number) => page.evaluate((k) => (window as any).__game.advanceLive(k), n);
+  const slides = () => page.evaluate((id) => (window as any).__game.events().filter((e: any) => e.type === 'action' && e.id === id).length, SLIDE_SKILL);
+  const before = await slides();
+  await page.keyboard.down('KeyC');
+  await live(45);
+  p = await w.player();
+  expect(p.mode).toBe('glide');
+  expect(p.airspeed).toBeLessThan(opened - 1);
+  for (let i = 0; i < 20 && !(await w.player()).grounded; i++) await live(30);
+  await live(6);
+  p = await w.player();
+  expect([p.mode, p.grounded, p.crouching, (await slides()) - before]).toEqual(['normal', true, true, 0]);
+  await page.keyboard.up('KeyC');
 
   // With a pack on your back the glider will not open.
   const wb = z.workbenches[0];

@@ -9,10 +9,9 @@ const HINTS: Record<Device, string> = {
   keyboard: [
     item(key('WASD'), 'Move'),
     item(key('Shift'), 'Sprint'),
-    item(key('Ctrl'), 'Crouch'),
+    item(key('C'), 'Crouch · Slide on the Run'),
     item(key('Space'), 'Jump ×2'),
     item(key('LMB') + key('J'), 'Attack'),
-    item(key('C'), 'Slide'),
     item(key('1') + key('–') + key('8'), 'Hotbar (Hold to Aim)'),
     item(key('Q') + key('E'), 'Dodge / Block'),
     item(key('Tab'), 'Next Target'),
