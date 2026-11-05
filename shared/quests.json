@@ -1,5 +1,5 @@
 {
-  "comment": "The starter questline on Emberholm, and its milestones. Read by src/content/quests.ts and server/src/life. Each quest is offered by `giver` once everything in `after` is done, has steps of objectives counted from events the life systems raise, and is handed in to `turnIn` (the giver unless named). A milestone starts by itself and is done the moment its steps are. Objective types: talk, reach, plant, harvest, gather, craftPack, deliver, glide, summon, ride, load, placeScarecrow, placeHouse, buildStage, sell, buy, defeat (kind), skillLevel. rewards.skillPoints are points for the skill tree: you have skills.startPoints (tuning.json) plus those of everything you have finished.",
+  "comment": "The starter questline on Emberholm, and its milestones. Read by src/content/quests.ts and server/src/life. Each quest is offered by `giver` once everything in `after` is done, has steps of objectives counted from events the life systems raise, and is handed in to `turnIn` (the giver unless named). A milestone starts by itself and is done the moment its steps are. Objective types: talk, reach, plant, harvest, gather (kind: timber, stone, ore, herbs; n counts what you get, a node's or a felled tree's yield), craftPack, deliver, glide, summon, ride, load, placeScarecrow, placeHouse, buildStage, sell, buy, defeat (kind), skillLevel. rewards.skillPoints are points for the skill tree: you have skills.startPoints (tuning.json) plus those of everything you have finished.",
   "quests": [
     {
       "id": "landfall",
@@ -332,14 +332,107 @@
       }
     },
     {
-      "id": "home",
-      "name": "A Place to Call Home",
+      "id": "stonecutting",
+      "name": "Stone from Stonebreak",
       "giver": "quill",
       "after": [
         "firstFlight",
         "westward"
       ],
-      "intro": "Land on Emberholm is granted by blueprint. A Cottage Blueprint costs three silver and three Charter Seals; place it on any empty plot at Hearthside Rise. Then you build it - stone blocks from the quarry, lumber bundles from Thornwood, an iron crate for the fittings. Haul them to the site on your back or by cart.",
+      "intro": "Land is granted by blueprint, but a blueprint is only paper. A cottage stands on stone and timber, and nobody hands you either ready-cut: you quarry the stone and cut the blocks yourself. Brenna Stoneheart keeps Stonebreak Quarry, up the north road and west along the quarry fork. Go and learn the trade from her.",
+      "steps": [
+        {
+          "text": "Go to Stonebreak Quarry and speak with Brenna Stoneheart",
+          "objectives": [
+            {
+              "type": "talk",
+              "npc": "brenna"
+            }
+          ]
+        },
+        {
+          "text": "Quarry 10 stone from the pale rock outcrops (F)",
+          "objectives": [
+            {
+              "type": "gather",
+              "kind": "stone",
+              "n": 10
+            }
+          ]
+        },
+        {
+          "text": "Cut a Stone Block at the Stonecutter's Table",
+          "objectives": [
+            {
+              "type": "craftPack",
+              "pack": "stoneBlock",
+              "n": 1
+            }
+          ]
+        }
+      ],
+      "turnIn": "brenna",
+      "outro": "A good square block, and it's yours. A cottage takes three of them, and an Iron Fittings Crate for the roof: six ore from the rust-streaked rocks, packed at this same table. Set the block down (X) or load it on your cart - nobody ties timber with stone on their back. And if your arms give out, my stores sell stone and ore by the piece.",
+      "rewards": {
+        "skillPoints": 1,
+        "coins": 60
+      }
+    },
+    {
+      "id": "woodcutting",
+      "name": "Timber from Thornwood",
+      "giver": "brenna",
+      "after": [
+        "stonecutting"
+      ],
+      "intro": "Stone's half a house. The other half is timber, and Hob Ashgrove cuts it at his camp on the edge of Thornwood, where the east road ends. He'll show you how to chop the deadfall and bundle it. Once you've a bundle tied, tell Registrar Quill you're ready to build.",
+      "steps": [
+        {
+          "text": "Speak with Hob Ashgrove at his camp in Thornwood, where the east road ends",
+          "objectives": [
+            {
+              "type": "talk",
+              "npc": "hob"
+            }
+          ]
+        },
+        {
+          "text": "Chop 10 lumber from the deadfall timber around his camp (F)",
+          "objectives": [
+            {
+              "type": "gather",
+              "kind": "timber",
+              "n": 10
+            }
+          ]
+        },
+        {
+          "text": "Tie a Lumber Bundle at Hob's Sawhorse",
+          "objectives": [
+            {
+              "type": "craftPack",
+              "pack": "lumberBundle",
+              "n": 1
+            }
+          ]
+        }
+      ],
+      "turnIn": "quill",
+      "outro": "Stone from Stonebreak, timber from Thornwood: now you know what a house is made of. A cottage takes three Stone Blocks, five Lumber Bundles and an Iron Fittings Crate - more hauling than you'd think, so take your cart. Here's a Charter Seal toward your blueprint.",
+      "rewards": {
+        "skillPoints": 1,
+        "coins": 60,
+        "seals": 1
+      }
+    },
+    {
+      "id": "home",
+      "name": "A Place to Call Home",
+      "giver": "quill",
+      "after": [
+        "woodcutting"
+      ],
+      "intro": "Land on Emberholm is granted by blueprint. A Cottage Blueprint costs three silver and three Charter Seals; place it on any empty plot at Hearthside Rise. Then build it in four stages: three Stone Blocks and an Iron Fittings Crate from the Stonecutter's Table at Stonebreak Quarry, and five Lumber Bundles from Hob's Sawhorse in Thornwood. Haul them to the site on your back or by cart.",
       "steps": [
         {
           "text": "Place a Cottage Blueprint on a plot at Hearthside Rise",
@@ -351,7 +444,7 @@
           ]
         },
         {
-          "text": "Finish all four building stages",
+          "text": "Build all four stages with packs from Stonebreak Quarry and Thornwood",
           "objectives": [
             {
               "type": "buildStage",

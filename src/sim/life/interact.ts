@@ -573,7 +573,8 @@ function interact(life: Life, sim: Sim): void {
         return;
       }
       if (!life.afford({ labor: y.labor }, y.verb.toLowerCase())) return;
-      life.give(y.item, life.randInt(y.n[0], y.n[1]));
+      const n = life.randInt(y.n[0], y.n[1]);
+      life.give(y.item, n);
       if (y.rare && life.rand() < y.rare.chance) {
         life.give(y.rare.item, 1);
         life.toast('⚡ A thunderstruck log!', 'coin');
@@ -582,7 +583,8 @@ function interact(life: Life, sim: Sim): void {
       life.state.nodes[f.node!] = life.state.clock + y.respawn;
       life.revision++;
       life.emit({ t: 'gather', x: nd.x, y: f.y, z: nd.z, kind: y.kind });
-      life.notify({ type: 'gather', kind: y.kind });
+      // A step like "quarry 10 stone" counts the stone, not the swings.
+      life.notify({ type: 'gather', kind: y.kind, amount: n });
       return;
     }
     case 'claim': {
