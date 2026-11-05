@@ -49,7 +49,7 @@ import { dismount, ridden } from './sim/life/vehicles';
 import { RIDE_CAMERA } from './content/traversal';
 import { rideable, isBoat } from './content/vehicles';
 import { angleDiff } from './sim/math';
-import { hourOfDay } from './sim/life/weather';
+import { hourAt, hourOfDay } from './sim/life/weather';
 import { ABILITY_ICONS, WEAPON_ICONS, WEAPON_NAMES } from './ui/icons';
 import type { MarkerKind } from './render/hud';
 import { BOOK, levelOf, levelsFrom, resolveSkills, sameLevels, SKILL_POINTS, type ResolvedSkills } from './skills';
@@ -263,6 +263,13 @@ if (online && life) {
 if (online && lifeUI) lifeUI.devTools = online.welcome.dev;
 // Your character's name (an account can hold several).
 if (online && lifeUI) lifeUI.playerName = online.welcome.character.name;
+/**
+ * The hour of the day the sky shows. Online it is the world's, from the server's clock, so everyone
+ * in Emberholm sees the same sky at the same moment (each island's own clock ran on by itself while
+ * its player was away); offline it is the island's.
+ */
+const skyHour = (): number => (!life ? 12 : online ? hourAt(life.zone.recipe.sky, online.link.serverNow() / 1000) : hourOfDay(life));
+if (online && lifeUI) lifeUI.skyHour = skyHour;
 // Faces for the UI, taken from the scene: yours beside your health, the person you're talking to,
 // and all of you in the character window. Kept a few seconds, then taken again.
 const portraits = new Portraits(stage.renderer, stage.scene);
@@ -422,6 +429,14 @@ panel.onChange = applyBuild;
 hud.onSkillsClick = () => panel.toggle('book');
 // Rearranging the bar in play, without opening the panel.
 hud.onSwapSlots = (from, to) => applyBuild(swapSlots(build, from, to));
+// A window that closes itself after something clicked in it (a pack made, a vehicle summoned, off
+// to place something) gives the mouse back to the camera, if the camera had it when the window
+// opened. Not while the skill book or tree is open, nor while the world waits for the server.
+if (lifeUI) {
+  lifeUI.onMouseBack = () => {
+    if (!panel.isOpen && !frozen) input.capture();
+  };
+}
 const DEG = Math.PI / 180;
 
 // What the target plate's cast bar calls a monster's cast, by the behaviour state casting it.
@@ -1157,7 +1172,7 @@ function draw(alpha: number, cameraDt: number, animDt: number): void {
   openStage?.update(animDt, follow.camera, pos.x, pos.z);
   if (openStage && life) {
     const sky = life.zone.recipe.sky;
-    openStage.setTime(hourOfDay(life), sky.sunrise, sky.sunset);
+    openStage.setTime(skyHour(), sky.sunrise, sky.sunset);
   }
 
   const under = terrain ? Math.max(terrain.water, groundUnder(pos.x, pos.z, pos.y)) : 0;
@@ -1696,6 +1711,10 @@ const api = {
   life() {
     if (!life) return null;
     return JSON.parse(JSON.stringify({ ...life.state, focus: life.focus, placing: life.placing, resting: life.resting }));
+  },
+  /** The hour of the day the sky shows, 0..24 (online the world's, from the server's clock). */
+  dayHour(): number | null {
+    return life ? skyHour() : null;
   },
   /** Queues a life command (it runs on the next sim step). */
   lifeCommand(c: Parameters<Life['command']>[0]): void {

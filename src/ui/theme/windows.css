@@ -49,7 +49,11 @@
 .g-opts li small { margin-left: auto; font-size: 11.5px; font-weight: 600; color: var(--ink-2); }
 .q-title { margin: 0 0 8px; font: 700 22px/1.15 var(--font-title); color: var(--title); text-shadow: var(--title-shadow); }
 .q-story { margin: 0 0 8px; font-size: 14px; line-height: 1.5; color: var(--ink-strong); }
-.q-story .dropcap { float: left; font: 700 44px/0.82 var(--font-title); color: var(--title); margin: 5px 6px 0 0; }
+/* A drop cap two lines deep: its capital stands from the top of the first line's capitals down to
+   the second line's baseline. Alegreya SC's capitals are 0.65 em tall, so 47 px spans the 30.6 px
+   between the two in 14 px Pagella on 21 px lines; a 36 px line puts its baseline on the second
+   line's. tests/ui.spec.ts measures it. */
+.q-story .dropcap { float: left; font: 700 47px/36px var(--font-title); color: var(--title); margin: 0 6px 0 0; }
 .q-objs { list-style: none; margin: 0; padding: 0; }
 .q-objs li { position: relative; padding-left: 18px; margin: 3px 0; font-size: 13.5px; line-height: 1.38; }
 .q-objs li::before { content: ''; position: absolute; left: 3px; top: 6px; width: 7px; height: 7px; transform: rotate(45deg); background: #c98a2c; box-shadow: 0 0 0 1px #5a3720; }

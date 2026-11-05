@@ -1,4 +1,5 @@
 import { expect, test, type Browser, type Page } from '@playwright/test';
+import { readFileSync } from 'node:fs';
 
 // Emberholm on the game server: signing in, choosing among several characters (each with an island
 // of its own), the server playing your island and keeping it in Postgres between visits, starting
@@ -330,20 +331,25 @@ test('deleting a character takes their name typed, and only your own characters 
 
 // ---------- Sharing Emberholm ----------
 
-/** Two new players who share a channel (new names until they do, should one channel fill up). */
+/**
+ * Two new players who share a channel. A new character lives in the first channel with room, so if
+ * the first one took the last place in theirs, the second starts the next channel: then the second
+ * stays, and the next new player joins them there.
+ */
 async function pair(browser: Browser): Promise<{ a: Page; b: Page; nameA: string; nameB: string }> {
-  const a = await (await browser.newContext()).newPage();
-  const nameA = fresh('ann');
-  await a.goto(`/?as=${nameA}&bugs=0`);
-  await waitOnline(a);
-  const channel = await game(a, (g) => g.online().channel);
+  const player = async (prefix: string) => {
+    const page = await (await browser.newContext()).newPage();
+    const name = fresh(prefix);
+    await page.goto(`/?as=${name}&bugs=0`);
+    await waitOnline(page);
+    return { page, name, channel: await game(page, (g) => g.online().channel) };
+  };
+  let first = await player('ann');
   for (let tries = 0; tries < 3; tries++) {
-    const b = await (await browser.newContext()).newPage();
-    const nameB = fresh('bea');
-    await b.goto(`/?as=${nameB}&bugs=0`);
-    await waitOnline(b);
-    if ((await game(b, (g) => g.online().channel)) === channel) return { a, b, nameA, nameB };
-    await b.context().close();
+    const second = await player('bea');
+    if (second.channel === first.channel) return { a: first.page, b: second.page, nameA: first.name, nameB: second.name };
+    await first.page.context().close();
+    first = second;
   }
   throw new Error('could not get two players into one channel');
 }
@@ -517,6 +523,85 @@ test('far from the server, a pack comes out of the cart at once and getting in d
   expect(ride.modes.filter((m) => m !== 'ride')).toEqual([]);
   const worst = Math.max(...ride.ys.map((y) => Math.abs(y - resting.y)));
   expect(worst, `the cart drawn ${worst.toFixed(2)} m off where it stood`).toBeLessThan(0.08);
+});
+
+test("another player's name shows near you, fades past 30 m and is gone by 45 m", async ({ browser }) => {
+  const { a, b, nameA } = await pair(browser);
+  const ann = () => seen(b, nameA);
+  /** Ann goes to (x, z), and Bea waits until she sees her there. */
+  const annTo = async (x: number, z: number) => {
+    await a.bringToFront();
+    await a.evaluate(([x, z]) => (window as any).__game.teleport(x, z), [x, z]);
+    await b.bringToFront();
+    await expect.poll(async () => {
+      const p = await ann();
+      return p ? Math.hypot(p.x - x, p.z - z) : Infinity;
+    }, { timeout: 30_000 }).toBeLessThan(2);
+    // A few frames drawn there.
+    await b.waitForTimeout(300);
+    return (await ann())!;
+  };
+  const bea = await game(b, (g) => g.state().player.pos);
+
+  // Beside Bea: her name is whole.
+  let p = await annTo(bea.x + 3, bea.z + 3);
+  expect(p.away).toBeLessThan(30);
+  expect(p.plate).toBe(1);
+  // 33 m in front of her (a little more from her camera, behind her): fading.
+  p = await annTo(bea.x, bea.z + 33);
+  expect(p.away).toBeGreaterThan(30);
+  expect(p.away).toBeLessThan(45);
+  expect(p.plate).toBeGreaterThan(0);
+  expect(p.plate).toBeLessThan(1);
+  // Up at Hearthside Rise, 150 m off: no name floating over the trees.
+  p = await annTo(142, -200);
+  expect(p.away).toBeGreaterThan(45);
+  expect(p.plate).toBe(0);
+  // And back: whole again.
+  p = await annTo(bea.x + 3, bea.z + 3);
+  expect(p.plate).toBe(1);
+});
+
+test("everyone in a channel sees the same time of day, the server's, whatever their islands' clocks say", async ({ browser }) => {
+  const { a, b } = await pair(browser);
+  const sky = JSON.parse(readFileSync('shared/zones/emberholm.json', 'utf8')).sky;
+  /** The hour of the day by the server's clock: it runs on this computer, so Date.now() is its clock. */
+  const world = (ms: number) => {
+    const days = ms / 1000 / sky.dayLengthSeconds + sky.startHour / 24;
+    return (days - Math.floor(days)) * 24;
+  };
+  /** Hours between two times of day, either way round midnight. */
+  const apart = (x: number, y: number) => {
+    const d = Math.abs(x - y) % 24;
+    return Math.min(d, 24 - d);
+  };
+  /** The hour a page's sky shows, the hour its clock on the HUD says, and when that was. */
+  const reading = (page: Page) =>
+    page.evaluate(() => {
+      const [hh, mm] = document.querySelector('#hud-clock span')!.textContent!.match(/(\d\d):(\d\d)/)!.slice(1).map(Number);
+      return { sky: (window as any).__game.dayHour() as number, hud: hh + mm / 60, at: Date.now() };
+    });
+
+  // Bea skips ahead a third of a day on her island, so her island's clock and Ann's are 8 hours apart.
+  await b.bringToFront();
+  const before = await game(b, (g) => g.life().clock);
+  await game(b, (g) => g.lifeCommand({ t: 'warp', seconds: 600 }));
+  await expect.poll(() => game(b, (g) => g.life().clock), { timeout: 30_000 }).toBeGreaterThan(before + 590);
+
+  // Yet both skies, and both clocks on the HUD, show the server's hour.
+  for (const page of [a, b]) {
+    await page.bringToFront();
+    await page.waitForTimeout(300);
+    const r = await reading(page);
+    expect(apart(r.sky, world(r.at)), 'the sky').toBeLessThan(0.01);
+    expect(apart(r.hud, r.sky), 'the clock on the HUD').toBeLessThan(2 / 60);
+  }
+  // And it runs on smoothly: two seconds later, two seconds' worth of the day later.
+  const first = await reading(b);
+  await b.waitForTimeout(2000);
+  const then = await reading(b);
+  const passed = ((then.at - first.at) / 1000 / sky.dayLengthSeconds) * 24;
+  expect(Math.abs(apart(then.sky, first.sky) - passed)).toBeLessThan(0.003);
 });
 
 test('the developer panel is up to the server', async ({ page }) => {

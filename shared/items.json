@@ -207,7 +207,7 @@
     {
       "id": "deed.farmCart",
       "name": "Farm Cart Deed",
-      "icon": "🛒",
+      "icon": "🚜",
       "cat": "deed",
       "stack": 1,
       "value": 0,

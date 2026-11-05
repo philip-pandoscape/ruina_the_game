@@ -31,7 +31,7 @@ export interface Welcome {
   character: { id: number; name: string };
   account: string;
   build: unknown;
-  /** The server's clock (ms). */
+  /** The server's clock (ms since 1970) as it sent this: online, the sky's time of day runs on it. */
   now: number;
   /** Which copy of Emberholm this character lives in. */
   channel: number;
@@ -142,22 +142,34 @@ export class WorldLink {
    * away would (?lag=ms), so a local server can be played as the deployed one feels.
    */
   lag = 0;
+  /** The server's clock in its last welcome (ms since 1970), and when that came (performance.now()). */
+  private clock = { server: 0, heard: 0 };
 
   private constructor(
     private ws: WebSocket,
     welcome: Welcome,
+    heard: number,
     /** The character this connection plays (and comes back with). */
     readonly character: number,
   ) {
-    this.welcomed(welcome);
+    this.welcomed(welcome, heard);
     this.attach(ws);
   }
 
-  private welcomed(w: Welcome): void {
+  private welcomed(w: Welcome, heard: number): void {
     this.peers.clear();
     this.estates.clear();
     for (const e of w.estates ?? []) this.estates.set(e.id, e);
     this.claims = w.claims ?? {};
+    this.clock = { server: w.now, heard };
+  }
+
+  /**
+   * The server's clock now (ms since 1970), counted on from its last welcome: the same for everyone
+   * playing, whatever their own computer's clock says. A reconnection's welcome sets it again.
+   */
+  serverNow(): number {
+    return this.clock.server + (performance.now() - this.clock.heard);
   }
 
   /**
@@ -165,8 +177,8 @@ export class WorldLink {
    * the welcome. Rejects with ServerDown if the server can't be reached.
    */
   static async open(character?: number): Promise<{ link: WorldLink; welcome: Welcome }> {
-    const { ws, welcome } = await connect(character);
-    return { link: new WorldLink(ws, welcome, welcome.character.id), welcome };
+    const { ws, welcome, heard } = await connect(character);
+    return { link: new WorldLink(ws, welcome, heard, welcome.character.id), welcome };
   }
 
   get open(): boolean {
@@ -284,9 +296,9 @@ export class WorldLink {
         return;
       }
       try {
-        const { ws, welcome } = await connect(this.character);
+        const { ws, welcome, heard } = await connect(this.character);
         this.ws = ws;
-        this.welcomed(welcome);
+        this.welcomed(welcome, heard);
         this.attach(ws);
         this.updating = false;
         this.setStatus('online');
@@ -347,7 +359,8 @@ async function newBuildOut(): Promise<boolean> {
   }
 }
 
-function connect(character?: number): Promise<{ ws: WebSocket; welcome: Welcome }> {
+/** A connection and its welcome, with when the welcome came (performance.now()). */
+function connect(character?: number): Promise<{ ws: WebSocket; welcome: Welcome; heard: number }> {
   return new Promise((resolve, reject) => {
     const which = character === undefined ? '' : `?character=${character}`;
     const ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws/world${which}`);
@@ -356,6 +369,7 @@ function connect(character?: number): Promise<{ ws: WebSocket; welcome: Welcome 
       reject(new ServerDown("The game server didn't answer."));
     }, 10_000);
     ws.onmessage = (e) => {
+      const heard = performance.now();
       if (typeof e.data !== 'string') return;
       let msg: Welcome & { t?: string };
       try {
@@ -381,7 +395,7 @@ function connect(character?: number): Promise<{ ws: WebSocket; welcome: Welcome 
         return;
       }
       sessionStorage.removeItem(RELOADED);
-      resolve({ ws, welcome: msg });
+      resolve({ ws, welcome: msg, heard });
     };
     ws.onclose = () => {
       clearTimeout(timer);

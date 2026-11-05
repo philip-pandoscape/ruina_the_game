@@ -121,6 +121,11 @@ export class LifeUI {
   private bigMap = document.createElement('canvas');
   private panel: Panel | null = null;
   private bagOpen = false;
+  /**
+   * Whether the mouse was steering the camera when the open windows took it (a window frees the
+   * pointer as it opens). A window that closes itself after something clicked in it gives it back.
+   */
+  private hadMouse = false;
   private panelSig = '';
   private bagSig = '';
   private sel = -1;
@@ -353,7 +358,7 @@ export class LifeUI {
     this.panelSig = '';
     if (panel.kind === 'shop') this.openBag();
     this.card.hidden = false;
-    if (document.pointerLockElement) document.exitPointerLock?.();
+    this.freeMouse();
     this.renderPanel(!same);
   }
 
@@ -366,13 +371,14 @@ export class LifeUI {
     hideTip();
     closeMenu();
     if (wasShop) this.closeBag();
+    if (!this.bagOpen) this.hadMouse = false;
   }
 
   openBag(): void {
     this.bagOpen = true;
     this.bagSig = '';
     this.bagEl.hidden = false;
-    if (document.pointerLockElement) document.exitPointerLock?.();
+    this.freeMouse();
     this.renderBag();
   }
 
@@ -382,6 +388,7 @@ export class LifeUI {
     this.bagEl.innerHTML = '';
     hideTip();
     closeMenu();
+    if (!this.panel) this.hadMouse = false;
   }
 
   /** Closes every window. */
@@ -389,6 +396,29 @@ export class LifeUI {
     this.close();
     this.closeBag();
   }
+
+  /** A window opening frees the mouse to use it, remembering whether the camera had it. */
+  private freeMouse(): void {
+    if (!document.pointerLockElement) return;
+    this.hadMouse = true;
+    document.exitPointerLock?.();
+  }
+
+  /**
+   * Closes the window (or every window) once something clicked in it is under way: a pack made, a
+   * vehicle summoned, off to place or ride something. The mouse goes back to steering the camera if
+   * it was when the windows opened, unless a window is still open. Closing a window yourself (its
+   * Close button, Escape, B) leaves the mouse free.
+   */
+  private finish(all = false): void {
+    const hadMouse = this.hadMouse;
+    if (all) this.closeAll();
+    else this.close();
+    if (hadMouse && !this.panel && !this.bagOpen) this.onMouseBack?.();
+  }
+
+  /** Set by the app: capture the mouse for the camera again (a window that took it has finished). */
+  onMouseBack: (() => void) | null = null;
 
   private onWindowClick(e: MouseEvent, w: HTMLElement): void {
     const b = (e.target as HTMLElement).closest('[data-act]') as HTMLElement | null;
@@ -590,7 +620,7 @@ export class LifeUI {
     const wind = life.state.weather;
     const rel = angleDiff(this.d.yaw(), wind.windDir);
     const weather = raining(life) ? '🌧️' : (climate?.icon ?? '');
-    const text = `${clock(hourOfDay(life), life.zone.recipe.sky)} ${weather}`;
+    const text = `${clock(this.skyHour?.() ?? hourOfDay(life), life.zone.recipe.sky)} ${weather}`;
     const key = `${text}|${Math.round(wind.windSpeed * 100)}|${Math.round((rel * 180) / Math.PI / 10)}`;
     if (key === this.clockKey) return;
     this.clockKey = key;
@@ -1349,7 +1379,7 @@ export class LifeUI {
       handlers: {
         make: (id) => {
           life.command({ t: 'craft', recipe: id });
-          if (recipeDef(id)?.makes.pack) setTimeout(() => this.close(), 60);
+          if (recipeDef(id)?.makes.pack) setTimeout(() => this.finish(), 60);
         },
       },
     };
@@ -1465,7 +1495,7 @@ export class LifeUI {
     this.life.command({ t: 'use', item });
     const cat = itemDef(item).cat;
     // Out of the way of the world: you walk off to place it, or get on what you called.
-    if (cat === 'deed' || cat === 'placeable' || cat === 'mount') this.closeAll();
+    if (cat === 'deed' || cat === 'placeable' || cat === 'mount') this.finish(true);
   }
 
   private garageView(): View {
@@ -1493,12 +1523,12 @@ export class LifeUI {
       handlers: {
         summon: (item) => {
           life.command({ t: 'summon', item });
-          this.close();
+          this.finish();
         },
         recall: (id) => life.command({ t: 'recall', vehicle: Number(id) }),
         mount: () => {
           life.command({ t: 'mount' });
-          this.close();
+          this.finish();
         },
       },
     };
@@ -1744,10 +1774,11 @@ export class LifeUI {
       <button class="lui-btn small" data-act="grant" data-arg="mats">Building Materials</button>
       <button class="lui-btn small" data-act="grant" data-arg="rides">Every Vehicle, Mount & Glider</button>
       <button class="lui-btn small" data-act="grant" data-arg="house">Cottage Blueprint, Cog Design, Scarecrows</button>
-      <div class="h">Time</div>
+      <div class="h">Island Time</div>
       <button class="lui-btn small" data-act="warp" data-arg="60">+1 Minute</button>
       <button class="lui-btn small" data-act="warp" data-arg="600">+10 Minutes</button>
       <button class="lui-btn small" data-act="warp" data-arg="3600">+1 Hour</button>
+      <div class="note">Skips ahead on your island: crops grow, and labor and prices recover. ${this.skyHour ? "The sky keeps the world's time, the same for everyone." : 'The sky moves on with it.'}</div>
       <div class="h">Teleport</div>${places}
       <div class="h">Save</div><button class="lui-btn small" data-act="reset">Start Emberholm Over</button>
       ${this.onBugReport ? `<div class="h">Bug Report</div><button class="lui-btn small" data-act="bug">Record a Bug Report</button><div class="note">Or press <b>${esc(this.bugKey())}</b> any time (click both sticks on a controller). It keeps the last 30 seconds of play, then records your voice and the screen until you press it again.</div>` : ''}</div>`,
@@ -1768,11 +1799,12 @@ export class LifeUI {
         tp: (id) => {
           const pl = life.zone.recipe.places.find((x) => x.id === id)!;
           this.onTeleport?.(pl.x, pl.z);
-          this.close();
+          this.finish();
         },
         reset: () => this.onReset?.(),
         bug: () => {
-          // Close first, so the report's screenshot shows the game rather than this window.
+          // Close first, so the report's screenshot shows the game rather than this window. The
+          // mouse stays free: the bug reporter may ask for a microphone, or for the bug in writing.
           this.closeAll();
           this.onBugReport?.();
         },
@@ -1787,6 +1819,11 @@ export class LifeUI {
   onExitToSelect: (() => void) | null = null;
   /** Whether the developer panel opens (online, the server decides: development and beta only). */
   devTools = true;
+  /**
+   * Set by the app online: the hour of the day the sky shows, from the server's clock, the same for
+   * everyone. Offline the island's own clock tells the hour.
+   */
+  skyHour: (() => number) | null = null;
   /** Online: everyone else in your channel, for the map. */
   others: () => Array<{ name: string; online: boolean; x: number; z: number }> = () => [];
   /** Set by the app when bug reports are on: start (or finish) one. */

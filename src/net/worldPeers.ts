@@ -52,6 +52,8 @@ interface Peer {
   clock: number;
   online: boolean;
   label: THREE.Sprite;
+  /** How far their name plate is from the camera (m), as of the last frame. */
+  away: number;
   estateKey: string;
   solid: Set<string>;
   /** When we last heard from them (ms, performance.now()). */
@@ -63,6 +65,16 @@ const SILENT_MS = 5000;
 
 /** Riding along in someone else's vehicle (as last drawn). */
 const along = (p: Peer): boolean => p.shown.mode === 'ride' && !!p.shown.host;
+
+/**
+ * Names over other players, by their distance from the camera in metres: whole within `fullWithin`,
+ * fading out to nothing by `goneBy` (an MMO's range: the people around you are named, a crowd far
+ * off isn't a cloud of names). Past `shrinkFrom` they also shrink a little, to `farScale` of their
+ * size by `goneBy`, so a far name looks far.
+ */
+const NAME_PLATE = { fullWithin: 30, goneBy: 45, shrinkFrom: 10, farScale: 0.8 };
+/** A name plate's height as a sprite's scale, which without size attenuation is a size on screen. */
+const PLATE_HEIGHT = 0.04;
 
 export class WorldPeers {
   private peers = new Map<number, Peer>();
@@ -87,8 +99,11 @@ export class WorldPeers {
     link.onLeft = (id) => this.left(id);
   }
 
-  /** For tests and the bug reporter: who is here and what of theirs is drawn. */
-  list(): Array<{ id: number; name: string; online: boolean; x: number; y: number; z: number; mode: string; houses: number; scarecrows: number; vehicles: number }> {
+  /**
+   * For tests and the bug reporter: who is here and what of theirs is drawn, with how far they are
+   * from the camera (metres) and how much of their name plate shows (0 hidden, 1 whole).
+   */
+  list(): Array<{ id: number; name: string; online: boolean; x: number; y: number; z: number; mode: string; houses: number; scarecrows: number; vehicles: number; away: number; plate: number }> {
     return [...this.peers.values()].map((p) => ({
       id: p.id,
       name: p.name,
@@ -100,6 +115,8 @@ export class WorldPeers {
       houses: p.life.state.houses.length,
       scarecrows: p.life.state.scarecrows.length,
       vehicles: p.life.state.vehicles.length,
+      away: +p.away.toFixed(1),
+      plate: p.label.visible && p.hero.root.visible ? +(p.label.material as THREE.SpriteMaterial).opacity.toFixed(3) : 0,
     }));
   }
 
@@ -116,7 +133,7 @@ export class WorldPeers {
     const label = nameTag(name);
     label.position.set(0, 2.45, 0);
     hero.root.add(label);
-    p = { id, name, hero, life, view, shown: blankState(), samples: [], clock: -1, online: false, label, estateKey: '', solid: new Set(), heard: 0 };
+    p = { id, name, hero, life, view, shown: blankState(), samples: [], clock: -1, online: false, label, away: Infinity, estateKey: '', solid: new Set(), heard: 0 };
     this.peers.set(id, p);
     return p;
   }
@@ -220,6 +237,8 @@ export class WorldPeers {
       if (p.online && p.samples.length) this.pose(p, dt, frame);
       p.view.update({ player: p.shown } as unknown as Sim, dt, cameraPos);
       for (const v of s.vehicles) movers.push(...vehicleBodies(v));
+      p.away = Math.hypot(p.shown.pos.x - cameraPos.x, p.shown.pos.y + p.label.position.y - cameraPos.y, p.shown.pos.z - cameraPos.z);
+      plateFor(p.label, p.away);
     }
     // Their vehicles are as solid to you as yours are, where you see them.
     this.sim.world.movers = movers;
@@ -288,25 +307,42 @@ function lerp3(a: { x: number; y: number; z: number }, b: { x: number; y: number
   return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t, z: a.z + (b.z - a.z) * t };
 }
 
-/** A name over someone's head. */
+/** A name over someone's head, on a canvas as wide as the name, so a long one isn't cut off. */
 function nameTag(name: string): THREE.Sprite {
+  const font = 'bold 30px system-ui, -apple-system, "Segoe UI", sans-serif';
   const c = document.createElement('canvas');
-  c.width = 256;
-  c.height = 64;
   const g = c.getContext('2d')!;
-  g.font = 'bold 30px system-ui, -apple-system, "Segoe UI", sans-serif';
+  g.font = font;
+  // Room either side for the outline.
+  c.width = Math.max(64, Math.ceil(g.measureText(name).width) + 24);
+  c.height = 64;
+  // Sizing the canvas resets how it draws.
+  g.font = font;
   g.textAlign = 'center';
   g.textBaseline = 'middle';
   g.lineWidth = 6;
   g.strokeStyle = 'rgba(20, 30, 40, 0.85)';
-  g.strokeText(name, 128, 32);
+  g.strokeText(name, c.width / 2, 32);
   g.fillStyle = '#ffffff';
-  g.fillText(name, 128, 32);
+  g.fillText(name, c.width / 2, 32);
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
-  // The same size on screen however far away they are, so you can always find your friend.
+  // The same size on screen at any distance, crisp and easy to read, until it is far enough away
+  // to shrink a little and fade (plateFor).
   const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthWrite: false, transparent: true, sizeAttenuation: false }));
-  sprite.scale.set(0.16, 0.04, 1);
+  sprite.userData.aspect = c.width / c.height;
+  sprite.scale.set(PLATE_HEIGHT * sprite.userData.aspect, PLATE_HEIGHT, 1);
   sprite.renderOrder = 5;
   return sprite;
+}
+
+/** Fades and sizes a name plate for how far it is from the camera, in metres (NAME_PLATE). */
+function plateFor(label: THREE.Sprite, distance: number): void {
+  const { fullWithin, goneBy, shrinkFrom, farScale } = NAME_PLATE;
+  const t = Math.min(1, Math.max(0, (distance - fullWithin) / (goneBy - fullWithin)));
+  const shown = 1 - t * t * (3 - 2 * t);
+  label.visible = shown > 0.01;
+  (label.material as THREE.SpriteMaterial).opacity = shown;
+  const k = 1 - (1 - farScale) * Math.min(1, Math.max(0, (distance - shrinkFrom) / (goneBy - shrinkFrom)));
+  label.scale.set(PLATE_HEIGHT * label.userData.aspect * k, PLATE_HEIGHT * k, 1);
 }

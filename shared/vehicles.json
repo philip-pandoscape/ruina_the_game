@@ -5,7 +5,7 @@
       "id": "farmCart",
       "name": "Farm Cart",
       "class": "wheeled",
-      "icon": "🛒",
+      "icon": "🚜",
       "desc": "A sturdy two-seat cart with a four-pack bed. Slow, forgiving, and the backbone of every trade run.",
       "length": 3.6,
       "width": 1.9,
