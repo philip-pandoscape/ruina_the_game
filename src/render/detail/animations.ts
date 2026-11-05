@@ -185,7 +185,7 @@ class Take {
 
   step(): void {
     const m = this.s.at(this.frame);
-    const input = pose({ time: this.frame * STEP, ...m.input, weapon: this.s.weapon ?? this.weapon });
+    const input = pose({ time: (this.s.start ?? 0) + this.frame * STEP, ...m.input, weapon: this.s.weapon ?? this.weapon });
     if (input.run > 0) this.distance += Math.abs(m.speed) * STEP;
     this.facing = m.facing ?? 0;
     const h = this.facing + (m.input.heading ?? 0);

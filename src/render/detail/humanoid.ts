@@ -1139,6 +1139,20 @@ function down(b: Body, p: PoseInput): void {
 
 // ---------- travel ----------
 
+/**
+ * How fast the stroke clock (PoseInput.phase, travelling) turns, radians a second: swimming, one
+ * turn is a stroke of each arm; riding, the rise and fall of two of the mount's strides; rowing, one
+ * stroke of the oars. The close-up hero (src/render/character.ts) winds the clock on by this each
+ * frame, so a change of pace speeds the stroke up or slows it down instead of jumping it along.
+ */
+export function strokeRate(p: PoseInput): number {
+  const e = clamp01(p.effort);
+  if (p.travel === 'swim') return 2.6 + 2.4 * e;
+  if (p.travel === 'ride') return 6 + 6 * e;
+  if (p.travel === 'row') return TAU * (0.35 + 0.6 * e);
+  return 0;
+}
+
 function travel(b: Body, p: PoseInput): void {
   travelPose(b, p);
   // Travelling, the weapon is put away on the back or at the hip (the close-up hero sees to that),
@@ -1209,8 +1223,9 @@ function swim(b: Body, p: PoseInput): void {
   cape(b, 1.2, 0.2);
   const tread = b.save(b.buf(0));
   b.reset();
-  // Front crawl: flat on the water, rolling with each stroke, turning the face up to breathe.
-  const kk = t * (2.6 + 2.4 * e);
+  // Front crawl: flat on the water, rolling with each stroke, turning the face up to breathe. The
+  // stroke clock turns once for a stroke of each arm (strokeRate).
+  const kk = p.phase;
   b.body.position.set(0, 1.02, 0);
   b.body.rotation.set(1.36, 0.36 * Math.sin(kk), 0);
   const breathe = Math.pow(Math.max(0, Math.sin(kk * 0.5)), 4);
@@ -1230,7 +1245,7 @@ function swim(b: Body, p: PoseInput): void {
     b.setLegOut(s, 0.05 + 0.22 * Math.sin(ph), 0.04, 0.25 + 0.3 * Math.max(0, -Math.sin(ph)), 0.9);
   }
   cape(b, 1.4 + 0.05 * Math.sin(kk * 2), 0.05);
-  b.mix(tread, b.save(b.buf(1)), smooth((e - 0.05) / 0.35));
+  b.mix(tread, b.save(b.buf(1)), smooth((e - 0.05) / 0.45));
 }
 
 /** Hanging from the control bar: hands on its grips wherever the wing tilts it. */
@@ -1258,8 +1273,8 @@ function glide(b: Body, p: PoseInput): void {
 /** Astride: legs round the barrel, feet in the stirrups, reins in hand, rising to the trot. */
 function ride(b: Body, p: PoseInput): void {
   const e = clamp01(p.effort);
-  const t = p.time;
-  const stride = t * (6 + 6 * e);
+  // Rising and sitting twice a turn of the stroke clock (strokeRate).
+  const stride = p.phase;
   const post = Math.abs(Math.sin(stride)) * 0.035 * e;
   // Down in the saddle, the hips' joints just above the seat, rising a little to the trot.
   b.body.position.set(0, 0.22 + post, -0.03);
@@ -1318,10 +1333,9 @@ function gripFor(p: PoseInput, s: Side, fallback: THREE.Vector3): THREE.Vector3 
  */
 function row(b: Body, p: PoseInput): void {
   const e = clamp01(p.effort);
-  const t = p.time;
   // How far forward the handles are: from the boat's own oars when it gave them, otherwise a stroke
-  // at 0.35 + 0.6 x throttle a second (vehicles.ts oars()).
-  const ph = (((t * (0.35 + 0.6 * e)) % 1) + 1) % 1;
+  // on the stroke clock (strokeRate), as vehicles.ts oars() pulls them.
+  const ph = (((p.phase / TAU) % 1) + 1) % 1;
   const drive = ph < 0.55 ? easeInOut(ph / 0.55) : 1 - smooth((ph - 0.55) / 0.45);
   const reachOut = p.grips ? clamp01(((p.grips[2] + p.grips[5]) / 2 - 0.22) / 0.42) : 1 - drive * e;
   b.torso.rotation.set(lerp(-0.2, 0.42, reachOut), 0, 0);

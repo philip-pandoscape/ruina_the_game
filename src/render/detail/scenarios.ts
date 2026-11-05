@@ -1,5 +1,6 @@
 import { ABILITIES, ATTACK, COMBAT, JUMP, MOVE, MOVEMENT_SKILLS, comboShape, type AttackStep } from '../../tuning';
 import type { PoseInput } from '../../content/pose';
+import { SWIM } from '../../content/traversal';
 import { lungeSpeed } from './humanoid';
 
 // Little films of the hero, for the animation gallery (animations.html) and the tests that check
@@ -26,6 +27,8 @@ export interface Scenario {
   weapon?: number;
   /** A model to show with it: what is ridden, flown or sat in. */
   prop?: 'glider' | 'horse' | 'cart' | 'roadster' | 'hauler' | 'rowboat' | 'sloop';
+  /** Seconds into a session the film's clock starts at (PoseInput.time), as when you've played a while. */
+  start?: number;
   at(frame: number): Moment;
 }
 
@@ -325,6 +328,21 @@ const travel = (frames: number, mode: string, at: (t: number) => Partial<PoseInp
   at: (f) => ({ input: { travel: mode, ...at(f / HZ) }, speed }),
 });
 
+/** How hard the stroke goes at a speed, as the close-up hero reads it (character.ts inputFromPlayer). */
+const effortAt = (speed: number): number => Math.min(1, Math.abs(speed) / 6);
+
+/** Swimming, speeding up or slowing down at the rules' rate (src/sim/player/traverse.ts updateSwim). */
+const swimRamp = (from: number, to: number): Segment => {
+  const frames = Math.max(1, Math.ceil((Math.abs(to - from) / SWIM.accel) * HZ));
+  return {
+    frames,
+    at: (f) => {
+      const v = from + Math.sign(to - from) * Math.min(Math.abs(to - from), (SWIM.accel * (f + 1)) / HZ);
+      return { input: { travel: 'swim', effort: effortAt(v) }, speed: v };
+    },
+  };
+};
+
 const EIGHT = [0, 45, 90, 135, 180, -135, -90, -45];
 
 export const SCENARIOS: Scenario[] = [
@@ -408,10 +426,25 @@ export const SCENARIOS: Scenario[] = [
   },
 
   // ---- Travel ----
-  { id: 'swim', group: 'Travel', label: 'Swim', ...sequence([travel(240, 'swim', () => ({ effort: 1 }), 4)]) },
+  { id: 'swim', group: 'Travel', label: 'Swim', ...sequence([travel(240, 'swim', () => ({ effort: effortAt(SWIM.speed) }), SWIM.speed)]) },
+  { id: 'swimSprint', group: 'Travel', label: 'Swim, sprinting', ...sequence([travel(240, 'swim', () => ({ effort: effortAt(SWIM.sprintSpeed) }), SWIM.sprintSpeed)]) },
+  {
+    id: 'swimStart',
+    group: 'Travel',
+    label: 'Tread water, swim off, stop',
+    // Twenty minutes into a session, when a stroke timed by the clock alone would leap at any change of pace.
+    start: 1200,
+    ...sequence([
+      travel(90, 'swim', () => ({ effort: 0 })),
+      swimRamp(0, SWIM.speed),
+      travel(150, 'swim', () => ({ effort: effortAt(SWIM.speed) }), SWIM.speed),
+      swimRamp(SWIM.speed, 0),
+      travel(90, 'swim', () => ({ effort: 0 })),
+    ]),
+  },
   { id: 'tread', group: 'Travel', label: 'Tread water', ...sequence([travel(240, 'swim', () => ({ effort: 0 }))]) },
   { id: 'glide', group: 'Travel', label: 'Glide', prop: 'glider', ...sequence([travel(360, 'glide', (t) => ({ bank: Math.sin(t * 1.2) * 0.9, rise: -0.15 }), 12)]) },
-  { id: 'ride', group: 'Travel', label: 'Ride', prop: 'horse', ...sequence([travel(240, 'ride', (t) => ({ effort: 0.5 + 0.5 * Math.sin(t * 0.8), bank: Math.sin(t * 0.6) * 0.5 }), 6)]) },
+  { id: 'ride', group: 'Travel', label: 'Ride', prop: 'horse', start: 1200, ...sequence([travel(240, 'ride', (t) => ({ effort: 0.5 + 0.5 * Math.sin(t * 0.8), bank: Math.sin(t * 0.6) * 0.5 }), 6)]) },
   { id: 'drive', group: 'Travel', label: 'Drive', prop: 'cart', ...sequence([travel(240, 'drive', (t) => ({ bank: Math.sin(t * 1.1), effort: 0.6 }), 6)]) },
   { id: 'driveRoadster', group: 'Travel', label: 'Drive the roadster', prop: 'roadster', ...sequence([travel(240, 'drive', (t) => ({ bank: Math.sin(t * 1.1), effort: 0.6 }), 9)]) },
   { id: 'driveHauler', group: 'Travel', label: 'Drive the hauler', prop: 'hauler', ...sequence([travel(240, 'drive', (t) => ({ bank: Math.sin(t * 1.1), effort: 0.6 }), 5)]) },

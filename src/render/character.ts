@@ -8,7 +8,7 @@ import { Inertia } from './detail/blend';
 import { directional, dutyFactor, strideLength } from './detail/gait';
 import { HERO_BOW, HERO_RIG, HERO_TEAM_COLOURS, HERO_TRAIL_EDGES, HERO_WEAPONS } from '../content/creatures/hero';
 import { SlashArc } from './vfx';
-import { poseHumanoid, settle } from './detail/humanoid';
+import { poseHumanoid, settle, strokeRate } from './detail/humanoid';
 import { swingFor } from './detail/swings';
 import { pose, type PoseFeedback, type PoseInput } from '../content/pose';
 import type { Holds } from './models/vehicles';
@@ -176,6 +176,9 @@ const OTHERS_LINGER = 4;
 const STEP_UP_POP = 0.2;
 const STEP_UP_EASE = 14;
 
+/** How quickly a change of effort (PoseInput.effort) comes through: the time constant, seconds. */
+const EFFORT_EASE = 0.35;
+
 /** A foot held where it was planted. */
 interface FootHold {
   /** Where the point it pivots on is held in the world, while planted. */
@@ -220,6 +223,10 @@ export class Hero {
   private inertia: Inertia;
   /** The stride clock: one turn per stride, advanced by the distance actually run. */
   private phase = 0;
+  /** Travelling, the stroke clock: wound on at the pace of the stroke (strokeRate in humanoid.ts). */
+  private stroke = 0;
+  /** The effort as drawn (PoseInput.effort, eased: see drive); NaN until the first pose. */
+  private effort = NaN;
   private lastDistance = NaN;
   private lastTime = NaN;
   private lastFacing = NaN;
@@ -469,7 +476,16 @@ export class Hero {
       const v = input.run * MOVE.runSpeed;
       this.phase = (this.phase + (moved / strideLength(v, input.crouch, input.carry, directional(input.heading).back)) * TAU) % (TAU * 64);
     }
-    input.phase = this.phase;
+    // How hard the stroke goes eases in and out over a moment, as the stride does: setting off from
+    // treading water the body tips forward into the crawl rather than flopping flat, and a pace read
+    // from someone else's updates doesn't flicker.
+    if (Number.isNaN(this.effort) || jumped) this.effort = input.effort;
+    else this.effort += (input.effort - this.effort) * (1 - Math.exp(-step / EFFORT_EASE));
+    input.effort = this.effort;
+    // Travelling, the stroke clock stands in for it (swimming, riding, rowing), wound on at the
+    // stroke's pace: speeding up or slowing down quickens or eases the stroke, never jumps it.
+    if (input.travel) this.stroke = (this.stroke + step * strokeRate(input)) % (TAU * 64);
+    input.phase = input.travel ? this.stroke : this.phase;
 
     // Into and out of the stride over a few frames: a foot that was planted stays planted (and
     // held) while the other one swings in or sets down.

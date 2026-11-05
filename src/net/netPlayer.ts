@@ -113,6 +113,11 @@ export class Prediction {
     const prevPos = { ...this.sim.player.prevPos };
     this.sim.player = clonePlayer(server);
     this.beforeReplay?.();
+    // The replay runs the last few frames again rather than new ones, so it numbers them as they
+    // were: the frame count is the clock everything is drawn by (src/render/character.ts), and
+    // counting a round trip's worth of frames again on every server update ran it two to four
+    // times as fast as time, in jerks.
+    this.sim.frame -= this.pending.length;
     for (const p of this.pending) this.sim.step(p.actions);
     this.sim.drainEvents(); // replays shouldn't repeat dust puffs and other effects
     if (this.pending.length === 0) this.sim.player.prevPos = prevPos;

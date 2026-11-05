@@ -1,4 +1,9 @@
 import { expect, test, type Page } from '@playwright/test';
+import type { NetCrowd } from '../src/net/netCrowd';
+import { Prediction } from '../src/net/netPlayer';
+import { Sim } from '../src/sim/sim';
+import { NO_ACTIONS } from '../src/sim/types';
+import { makeBattlefield } from '../src/sim/world';
 import { comboShape } from '../src/tuning';
 
 // The hero's animations, measured rather than eyeballed. The gallery (animations.html) plays each
@@ -407,3 +412,50 @@ test('easing between states never snaps the body', async ({ page }) => {
   }
 });
 
+test('swimming, the stroke keeps a calm pace and never leaps, however long the session has run', async ({ page }) => {
+  await open(page);
+  const seen = await page.evaluate(() => {
+    const a = (window as any).__anims;
+    const pts = ['handL', 'handR', 'footL', 'footR', 'head'];
+    const jumps = Object.fromEntries(['swim', 'swimSprint', 'swimStart', 'tread', 'ride'].map((id) => [id, a.jumps(id, pts)]));
+    // How long a stroke of each arm takes: frames between the left hand passing its midpoint forward.
+    const stroke = (id: string) => {
+      const z = a.track(id, ['handL']).map((r: any) => r.joints.handL[2]);
+      const mid = (Math.min(...z) + Math.max(...z)) / 2;
+      const ups = z.flatMap((v: number, i: number) => (i > 0 && z[i - 1] < mid && v >= mid ? [i] : []));
+      return (ups[ups.length - 1] - ups[0]) / (ups.length - 1) / 60;
+    };
+    return { jumps, swim: stroke('swim'), sprint: stroke('swimSprint') };
+  });
+  // Treading water, swimming off and stopping twenty minutes into a session, and riding a horse
+  // whose pace keeps changing: nothing leaps from one frame to the next. The stroke used to be the
+  // session's clock times a pace, so any change of pace (or of the speed another player's updates
+  // report) threw it on by the whole session's worth of the difference.
+  for (const [id, j] of Object.entries(seen.jumps) as Array<[string, { worst: number; frame: number; joint: string }]>) {
+    const allowed = id === 'ride' || id === 'tread' ? 0.03 : 0.09;
+    expect(j.worst, `${id}: the ${j.joint} leapt ${j.worst} m on frame ${j.frame}`).toBeLessThan(allowed);
+  }
+  // At the rules' swimming speed a stroke of each arm takes about a second and a half, sprinting a
+  // little less: a calm crawl.
+  expect(seen.swim).toBeGreaterThan(1.3);
+  expect(seen.swim).toBeLessThan(2);
+  expect(seen.sprint).toBeGreaterThan(1.1);
+  expect(seen.sprint).toBeLessThan(seen.swim);
+});
+
+test('online, running the unanswered inputs again on each server update leaves the clock everything is drawn by at the speed of time', () => {
+  const sim = new Sim(makeBattlefield(), { training: false });
+  const net = { renderTick: () => 0, sendInput: () => {} } as unknown as NetCrowd;
+  const prediction = new Prediction(sim, net);
+  const state = () => JSON.parse(JSON.stringify(sim.player));
+  prediction.reconcile(0, state()); // the first update places you
+  const start = sim.frame;
+  // Two seconds of play, the server answering every third frame, eight frames (a round trip) behind.
+  for (let i = 1; i <= 120; i++) {
+    prediction.step(NO_ACTIONS);
+    if (i % 3 === 0 && i > 8) prediction.reconcile(i - 8, state());
+  }
+  // Counting the replayed frames again ran the clock (and every animation on it) three to four
+  // times as fast as time, in jerks: the stroke of someone swimming past whirled.
+  expect(sim.frame - start).toBe(120);
+});

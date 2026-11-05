@@ -11,7 +11,11 @@ export interface PoseInput {
    * sprinting. Picks the gait and scales the stride. Zero in the air and during actions.
    */
   run: number;
-  /** Stride phase, radians: one full turn is a left step and a right step. */
+  /**
+   * Stride phase, radians: one full turn is a left step and a right step. Travelling, the stroke's
+   * instead (strokeRate in src/render/detail/humanoid.ts): swimming, a stroke of each arm; riding,
+   * the rise and fall of two of the mount's strides; rowing, one stroke of the oars.
+   */
   phase: number;
   /** Horizontal speed over run speed whatever the body is doing (a running leap, a lunge). */
   speed: number;
