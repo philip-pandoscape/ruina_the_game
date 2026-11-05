@@ -389,6 +389,8 @@ function grass(z0: number, z1: number) {
   g.receiveShadow = true;
   scene.add(g);
 }
+/** The sea's surface, when there are boats. */
+let seaSurface: THREE.Mesh | null = null;
 if (sea.length) {
   grass(seaFront, centre.z + extent / 2);
   grass(centre.z - extent / 2, seaBack);
@@ -401,6 +403,7 @@ if (sea.length) {
   water.renderOrder = 5;
   water.receiveShadow = true;
   scene.add(water);
+  seaSurface = water;
   const bed = new THREE.Mesh(new THREE.PlaneGeometry(extent, seaFront - seaBack).rotateX(-Math.PI / 2), toon(0x2f7fa8));
   bed.position.set(centre.x, -depth, (seaFront + seaBack) / 2);
   scene.add(bed);
@@ -512,5 +515,83 @@ function ray(label: string, from: [number, number, number], dir: [number, number
   return local.toArray().map((v) => +v.toFixed(4));
 }
 
+/**
+ * Whether the sea shows inside a boat's hull. Draws the boat from straight above twice, as it is and
+ * with neither the sea nor the hull's seal (vehicles.ts sealHull), and compares the two over the
+ * hull's opening (a mask drawn from the seal): the sea drawn over the floor, or anything inside
+ * hidden by the seal, is a difference there. `swell` first lowers and tips the boat into the sea, as
+ * src/render/open/life.ts rocks one at sea. Returns how many pixels inside the opening differ, out of
+ * how many, and the share of the pixels outside it that differ (the sea, which should be drawn).
+ */
+function seaInside(label: string, swell: { bob?: number; pitch?: number; roll?: number } = {}): { inside: number; of: number; around: number } | null {
+  const p = placed.find((q) => q.item.label === label);
+  if (!p || !seaSurface) return null;
+  const obj = p.item.object;
+  const seals: THREE.Mesh[] = [];
+  obj.traverse((o) => o.name === 'seal' && seals.push(o as THREE.Mesh));
+  if (!seals.length) return null;
+  const was = { y: obj.position.y, rot: obj.rotation.clone() };
+  obj.rotation.set(-(swell.pitch ?? 0), was.rot.y, swell.roll ?? 0, 'YXZ');
+  obj.position.y = swell.bob ?? 0;
+  scene.updateMatrixWorld(true);
+  // Straight down on the boat, framing it.
+  const box = measure(obj);
+  const c = box.getCenter(new THREE.Vector3());
+  const half = Math.max(box.max.x - box.min.x, box.max.z - box.min.z) * 0.6;
+  const w = renderer.domElement.width;
+  const h = renderer.domElement.height;
+  const cam = new THREE.OrthographicCamera((-half * w) / h, (half * w) / h, half, -half, 0.1, 200);
+  cam.position.set(c.x, c.y + 60, c.z);
+  cam.up.set(0, 0, -1);
+  cam.lookAt(c);
+  cam.updateMatrixWorld(true);
+  const gl = renderer.getContext();
+  const shot = (s: THREE.Scene) => {
+    renderer.render(s, cam);
+    const px = new Uint8Array(w * h * 4);
+    gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, px);
+    return px;
+  };
+  const real = shot(scene);
+  seaSurface.visible = false;
+  for (const s of seals) s.visible = false;
+  const bare = shot(scene);
+  seaSurface.visible = true;
+  for (const s of seals) s.visible = true;
+  const maskScene = new THREE.Scene();
+  maskScene.background = new THREE.Color(0x000000);
+  const white = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide });
+  for (const s of seals) {
+    const m = new THREE.Mesh(s.geometry, white);
+    m.matrixAutoUpdate = false;
+    m.matrix.copy(s.matrixWorld);
+    maskScene.add(m);
+  }
+  const mask = shot(maskScene);
+  obj.position.y = was.y;
+  obj.rotation.copy(was.rot);
+  // Inside: well inside the opening (two pixels in from its edge, clear of the antialiasing).
+  const open = (x: number, y: number) => x >= 0 && y >= 0 && x < w && y < h && mask[(y * w + x) * 4] > 128;
+  const differs = (i: number) => Math.max(Math.abs(real[i] - bare[i]), Math.abs(real[i + 1] - bare[i + 1]), Math.abs(real[i + 2] - bare[i + 2])) > 4;
+  let inside = 0;
+  let of = 0;
+  let out = 0;
+  let outDiffer = 0;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const i = (y * w + x) * 4;
+      if (open(x, y)) {
+        if (!open(x - 2, y) || !open(x + 2, y) || !open(x, y - 2) || !open(x, y + 2)) continue;
+        of++;
+        if (differs(i)) inside++;
+      } else {
+        out++;
+        if (differs(i)) outDiffer++;
+      }
+    }
+  }
+  return { inside, of, around: +(outDiffer / Math.max(1, out)).toFixed(3) };
+}
+
 const ids = [...new Set(placed.map((p) => p.item.id))];
-(window as unknown as { __models: unknown }).__models = { ready: true, ids, stats, probe, ray, cat: cats.length === 1 ? cats[0] : 'all' };
+(window as unknown as { __models: unknown }).__models = { ready: true, ids, stats, probe, ray, seaInside, cat: cats.length === 1 ? cats[0] : 'all' };

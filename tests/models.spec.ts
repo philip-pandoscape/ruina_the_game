@@ -112,6 +112,28 @@ test('vehicles sit on their anchors: wheels on the ground, hulls to their draft,
   }
 });
 
+test('boats keep the sea out: none of it is drawn inside a hull, calm or rocked low in the swell', async ({ page }) => {
+  await open(page, 'cat=vehicles');
+  // Each boat also pushed down and tipped, far past what the swell does even in a storm, so the sea
+  // stands over her floor or deck (the rowboat's is under it anyway) but not over her gunwale.
+  const rocked: Record<string, { bob: number; pitch: number; roll: number }> = {
+    rowboat: { bob: -0.3, pitch: 0.05, roll: 0.08 },
+    sloop: { bob: -0.9, pitch: 0.04, roll: 0.06 },
+    cog: { bob: -2.2, pitch: 0.03, roll: 0.05 },
+  };
+  for (const v of data('vehicles.json').vehicles.filter((v: { class: string }) => v.class === 'boat')) {
+    for (const swell of [{}, rocked[v.id] ?? {}]) {
+      const r = await page.evaluate(([l, s]) => (window as any).__models.seaInside(l, s), [v.name, swell] as const);
+      expect(r, `${v.id}: no hull seal`).not.toBeNull();
+      expect(r.of, `${v.id}: the hull's opening`).toBeGreaterThan(5000);
+      // The floor, the thwarts, the deck and the cargo hatch as they are without the sea...
+      expect(r.inside, `${v.id} ${JSON.stringify(swell)}: the sea shows on ${r.inside} of ${r.of} pixels inside the hull`).toBeLessThan(r.of * 0.002);
+      // ...and the sea all round her as it is.
+      expect(r.around, `${v.id}: the sea around her`).toBeGreaterThan(0.5);
+    }
+  }
+});
+
 test('mounts: saddle top on the seat, the donkey pack frame on its cargo slot', async ({ page }) => {
   await open(page, 'cat=mounts');
   for (const m of data('vehicles.json').mounts) {

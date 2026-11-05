@@ -316,9 +316,10 @@ class Tris {
 
 /**
  * A lofted open hull: planked outside, an inner skin down to the floor or deck, a gunwale cap,
- * the deck itself, and a flat transom if the stern is square.
+ * the deck itself, and a flat transom if the stern is square. Also the hull's opening, the surface
+ * spanning the inner edge of the gunwale all the way round, for sealHull.
  */
-function hull(s: HullSpec): THREE.BufferGeometry {
+function hull(s: HullSpec): { shell: THREE.BufferGeometry; opening: THREE.BufferGeometry } {
   const T = new Tris();
   const e = 2 / s.fullness;
   const N = s.stations;
@@ -410,7 +411,31 @@ function hull(s: HullSpec): THREE.BufferGeometry {
       T.quad(mirror(o[s.rows], side), V(0, o[s.rows].y, o[s.rows].z), V(0, ii[K].y, ii[K].z), mirror(ii[K], side), s.rim, V(0, 1, 0));
     }
   }
-  return T.geometry();
+  // The opening: straight across from one side's inner gunwale edge to the other's, station by
+  // station, on the very points the gunwale cap ends at, so there is no crack along the edge.
+  const O = new Tris();
+  for (let i = 0; i < N; i++) O.quad(inner[i][K], inner[i + 1][K], mirror(inner[i + 1][K], -1), mirror(inner[i][K], -1), s.rim, V(0, 1, 0));
+  return { shell: T.geometry(), opening: O.geometry() };
+}
+
+let sealMat: THREE.MeshBasicMaterial | null = null;
+
+/**
+ * Seals a hull against the sea. The floor of an open boat sits below the waterline, and the sea is
+ * one flat surface drawn over everything solid (src/render/open/water.ts), so it would show inside
+ * the hull. A lid over the hull's opening, drawn only into the depth buffer, comes after everything
+ * solid (the floor, the thwarts, the cargo, whoever sits inside are all drawn by then and stay as
+ * they are) and before anything see-through: the sea inside the hull is behind it and isn't drawn,
+ * however the swell rocks the boat (her gunwale stays above the waterline). Nothing that rays look
+ * for is there, so they pass through.
+ */
+function sealHull(b: Build, opening: THREE.BufferGeometry): void {
+  const lid = new THREE.Mesh(opening, (sealMat ??= new THREE.MeshBasicMaterial({ colorWrite: false })));
+  lid.name = 'seal';
+  // Opaque things draw in renderOrder order, and all of them before the transparent ones.
+  lid.renderOrder = 1;
+  lid.raycast = () => {};
+  b.root.add(lid);
 }
 
 /** Half-width of a hull spec's inside at a given z and height, for placing seats and hatches. */
@@ -845,7 +870,9 @@ function rowboat(def: BoatDef): VehicleModel {
     deck: (m) => (m % 2 ? PAL.wood : PAL.woodLight),
     transom: 0x4e98c8,
   };
-  body.list.push(hull(spec));
+  const lofted = hull(spec);
+  body.list.push(lofted.shell);
+  sealHull(b, lofted.opening);
   // Keel strip and stem post.
   body.add(box(0.08, 0.07, def.length * 0.8), PAL.woodDark, [0, -def.draft + 0.035, -0.1]);
   body.add(beam([0, -0.12, L - 0.1], [0, spec.sheerAt(1) + 0.06, L + 0.01], 0.05, 0.06), PAL.woodDark);
@@ -906,7 +933,9 @@ function sloop(def: BoatDef): VehicleModel {
     deck: (m) => (m % 2 ? PAL.woodPale : PAL.woodLight),
     transom: 0x2a7268,
   };
-  body.list.push(hull(spec));
+  const lofted = hull(spec);
+  body.list.push(lofted.shell);
+  sealHull(b, lofted.opening);
   // Ballast keel down to the draft, stem post and bowsprit.
   body.add(extrude([[-2.6, 0], [1.6, 0], [1.1, -def.draft + 0.75], [-2.2, -def.draft + 0.75]], 0.18), 0x3b3f46, [0, -0.72, 0], [0, -Math.PI / 2, 0]);
   body.add(beam([0, -0.3, z1 - 0.03], [0, spec.sheerAt(1) + 0.12, z1 + 0.05], 0.12), PAL.woodDark);
@@ -1130,7 +1159,9 @@ function cog(def: BoatDef): VehicleModel {
     deck: (m) => (m % 2 ? PAL.woodPale : PAL.woodLight),
     transom: 0x7b4f2f,
   };
-  body.list.push(hull(spec));
+  const lofted = hull(spec);
+  body.list.push(lofted.shell);
+  sealHull(b, lofted.opening);
   body.add(box(0.24, 0.2, def.length * 0.82), 0x3e2a1c, [0, -def.draft + 0.1, 0]);
   body.add(beam([0, -0.8, z1 - 0.2], [0, spec.sheerAt(1) + 0.35, z1 + 0.15], 0.22), PAL.woodDark);
   const sprit: V3 = [0, spec.sheerAt(1) + 0.3, L];
@@ -1295,7 +1326,9 @@ function genericBoat(def: BoatDef): VehicleModel {
     deck: (m) => (m % 2 ? PAL.woodPale : PAL.woodLight),
     transom: PAL.wood,
   };
-  b.body.list.push(hull(spec));
+  const lofted = hull(spec);
+  b.body.list.push(lofted.shell);
+  sealHull(b, lofted.opening);
   for (const s of def.seats) b.body.add(bev(0.5, Math.max(0.05, s.y - deck), 0.45, 0.03), PAL.wood, [s.x, (s.y + deck) / 2, s.z]);
   if (def.mast) {
     b.body.add(rod([def.mast.x, deck, def.mast.z], [def.mast.x, def.mast.height, def.mast.z], 0.15, 8, 0.1), PAL.woodLight);
