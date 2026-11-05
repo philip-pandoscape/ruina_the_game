@@ -1,4 +1,4 @@
-import { expect, test, type Browser, type Page } from '@playwright/test';
+import { expect, test, type Browser, type BrowserContext, type Page } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { rainAt } from '../src/sim/life/weather';
 
@@ -24,6 +24,12 @@ test.beforeAll(async () => {
   }
 });
 test.beforeEach(() => test.skip(!serverUp, `needs the game server with a database at ${SERVER} (npm run up)`));
+
+/** Windows a test opened for players of its own, closed after it: a game left running in one weighs on every test after. */
+const opened: BrowserContext[] = [];
+test.afterEach(async () => {
+  for (const c of opened.splice(0)) await c.close().catch(() => {});
+});
 
 /** A name nobody has used yet (names are 3 to 20 letters, digits, - and _). */
 const fresh = (prefix: string) => `${prefix}${Date.now().toString(36)}${Math.floor(Math.random() * 1296).toString(36)}`.slice(0, 20);
@@ -339,7 +345,9 @@ test('deleting a character takes their name typed, and only your own characters 
  */
 async function pair(browser: Browser): Promise<{ a: Page; b: Page; nameA: string; nameB: string }> {
   const player = async (prefix: string) => {
-    const page = await (await browser.newContext()).newPage();
+    const context = await browser.newContext();
+    opened.push(context);
+    const page = await context.newPage();
     const name = fresh(prefix);
     await page.goto(`/?as=${name}&bugs=0`);
     await waitOnline(page);
