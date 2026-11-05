@@ -1,4 +1,5 @@
 import { expect, test, type Browser, type Page } from '@playwright/test';
+import { readFileSync } from 'node:fs';
 
 // Emberholm on the game server: signing in, choosing among several characters (each with an island
 // of its own), the server playing your island and keeping it in Postgres between visits, starting
@@ -435,6 +436,48 @@ test("another player's name shows near you, fades past 30 m and is gone by 45 m"
   // And back: whole again.
   p = await annTo(bea.x + 3, bea.z + 3);
   expect(p.plate).toBe(1);
+});
+
+test("everyone in a channel sees the same time of day, the server's, whatever their islands' clocks say", async ({ browser }) => {
+  const { a, b } = await pair(browser);
+  const sky = JSON.parse(readFileSync('shared/zones/emberholm.json', 'utf8')).sky;
+  /** The hour of the day by the server's clock: it runs on this computer, so Date.now() is its clock. */
+  const world = (ms: number) => {
+    const days = ms / 1000 / sky.dayLengthSeconds + sky.startHour / 24;
+    return (days - Math.floor(days)) * 24;
+  };
+  /** Hours between two times of day, either way round midnight. */
+  const apart = (x: number, y: number) => {
+    const d = Math.abs(x - y) % 24;
+    return Math.min(d, 24 - d);
+  };
+  /** The hour a page's sky shows, the hour its clock on the HUD says, and when that was. */
+  const reading = (page: Page) =>
+    page.evaluate(() => {
+      const [hh, mm] = document.querySelector('#hud-clock span')!.textContent!.match(/(\d\d):(\d\d)/)!.slice(1).map(Number);
+      return { sky: (window as any).__game.dayHour() as number, hud: hh + mm / 60, at: Date.now() };
+    });
+
+  // Bea skips ahead a third of a day on her island, so her island's clock and Ann's are 8 hours apart.
+  await b.bringToFront();
+  const before = await game(b, (g) => g.life().clock);
+  await game(b, (g) => g.lifeCommand({ t: 'warp', seconds: 600 }));
+  await expect.poll(() => game(b, (g) => g.life().clock), { timeout: 30_000 }).toBeGreaterThan(before + 590);
+
+  // Yet both skies, and both clocks on the HUD, show the server's hour.
+  for (const page of [a, b]) {
+    await page.bringToFront();
+    await page.waitForTimeout(300);
+    const r = await reading(page);
+    expect(apart(r.sky, world(r.at)), 'the sky').toBeLessThan(0.01);
+    expect(apart(r.hud, r.sky), 'the clock on the HUD').toBeLessThan(2 / 60);
+  }
+  // And it runs on smoothly: two seconds later, two seconds' worth of the day later.
+  const first = await reading(b);
+  await b.waitForTimeout(2000);
+  const then = await reading(b);
+  const passed = ((then.at - first.at) / 1000 / sky.dayLengthSeconds) * 24;
+  expect(Math.abs(apart(then.sky, first.sky) - passed)).toBeLessThan(0.003);
 });
 
 test('the developer panel is up to the server', async ({ page }) => {

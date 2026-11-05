@@ -616,7 +616,7 @@ export class LifeUI {
     const wind = life.state.weather;
     const rel = angleDiff(this.d.yaw(), wind.windDir);
     const weather = raining(life) ? '🌧️' : (climate?.icon ?? '');
-    const text = `${clock(hourOfDay(life), life.zone.recipe.sky)} ${weather}`;
+    const text = `${clock(this.skyHour?.() ?? hourOfDay(life), life.zone.recipe.sky)} ${weather}`;
     const key = `${text}|${Math.round(wind.windSpeed * 100)}|${Math.round((rel * 180) / Math.PI / 10)}`;
     if (key === this.clockKey) return;
     this.clockKey = key;
@@ -1767,10 +1767,11 @@ export class LifeUI {
       <button class="lui-btn small" data-act="grant" data-arg="mats">Building Materials</button>
       <button class="lui-btn small" data-act="grant" data-arg="rides">Every Vehicle, Mount & Glider</button>
       <button class="lui-btn small" data-act="grant" data-arg="house">Cottage Blueprint, Cog Design, Scarecrows</button>
-      <div class="h">Time</div>
+      <div class="h">Island Time</div>
       <button class="lui-btn small" data-act="warp" data-arg="60">+1 Minute</button>
       <button class="lui-btn small" data-act="warp" data-arg="600">+10 Minutes</button>
       <button class="lui-btn small" data-act="warp" data-arg="3600">+1 Hour</button>
+      <div class="note">Skips ahead on your island: crops grow, and labor and prices recover. ${this.skyHour ? "The sky keeps the world's time, the same for everyone." : 'The sky moves on with it.'}</div>
       <div class="h">Teleport</div>${places}
       <div class="h">Save</div><button class="lui-btn small" data-act="reset">Start Emberholm Over</button>
       ${this.onBugReport ? `<div class="h">Bug Report</div><button class="lui-btn small" data-act="bug">Record a Bug Report</button><div class="note">Or press <b>${esc(this.bugKey())}</b> any time (click both sticks on a controller). It keeps the last 30 seconds of play, then records your voice and the screen until you press it again.</div>` : ''}</div>`,
@@ -1811,6 +1812,11 @@ export class LifeUI {
   onExitToSelect: (() => void) | null = null;
   /** Whether the developer panel opens (online, the server decides: development and beta only). */
   devTools = true;
+  /**
+   * Set by the app online: the hour of the day the sky shows, from the server's clock, the same for
+   * everyone. Offline the island's own clock tells the hour.
+   */
+  skyHour: (() => number) | null = null;
   /** Online: everyone else in your channel, for the map. */
   others: () => Array<{ name: string; online: boolean; x: number; z: number }> = () => [];
   /** Set by the app when bug reports are on: start (or finish) one. */

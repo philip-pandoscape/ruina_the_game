@@ -28,11 +28,19 @@ export function stepWind(life: Life): void {
   w.windSpeed = 0.72 + 0.22 * Math.sin(c / 97 + 0.4);
 }
 
-/** Hour of the day, 0..24, from the world clock. */
-export function hourOfDay(life: Life): number {
-  const sky = life.zone.recipe.sky;
-  const days = life.state.clock / sky.dayLengthSeconds + sky.startHour / 24;
+/** Hour of the day, 0..24, `seconds` into a clock: the island's own, or online the server's. */
+export function hourAt(sky: { dayLengthSeconds: number; startHour: number }, seconds: number): number {
+  const days = seconds / sky.dayLengthSeconds + sky.startHour / 24;
   return (days - Math.floor(days)) * 24;
+}
+
+/**
+ * Hour of the day, 0..24, from the island's clock. Online the sky follows the server's clock
+ * instead (src/main.ts), which everyone shares: each island's clock runs on by itself while you're
+ * away, so no two islands agree on the hour.
+ */
+export function hourOfDay(life: Life): number {
+  return hourAt(life.zone.recipe.sky, life.state.clock);
 }
 
 /** How much daylight there is, 0 (night) to 1 (full day), easing through dawn and dusk. */
