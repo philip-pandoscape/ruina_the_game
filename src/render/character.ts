@@ -592,6 +592,8 @@ export class Hero {
     let blend = 0;
     if (key !== this.lastKey) {
       blend = jumped ? 0 : transition(this.lastKey, key);
+      // A made body's swings (takes.ts) end further from standing than the box hero's keyframes do.
+      if (this.made && !jumped && this.lastKey.startsWith('attack') && !key.startsWith('attack')) blend = Math.max(blend, 0.26);
       this.lastKey = key;
     }
     if (jumped) this.inertia.reset();

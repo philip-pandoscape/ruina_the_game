@@ -6,6 +6,7 @@ import { Body, SIDES, bump, clamp, clamp01, easeIn, easeInOut, easeOut, lerp, sm
 import { directional, dutyFactor, planFoot, runGait, sprintGait, type FootPlan, type GaitShape } from './gait';
 import { cycleTurn, motionOf, type Motion } from './mocap';
 import { READY, swingFor, type SwingDef, type SwingKey } from './swings';
+import { takeBoth, takeFoot, takeTurn, takeVector, type Take } from './takes';
 import { gliderGrip } from '../models/gliders';
 import { DRAWING_HAND, stowedFor } from './stow';
 import { HERO_BOW } from '../../content/creatures/hero';
@@ -767,6 +768,8 @@ function reachArm(b: Body, az: number, el: number, straight: number): void {
 function attack(b: Body, p: PoseInput, out: PoseFeedback): void {
   const step = p.step!;
   if (p.weapon === 3) return bowShot(b, p, step, out);
+  const take = p.airSwing || step.pose ? undefined : takeFor(b, p.weapon, Math.max(0, p.attackIndex));
+  if (take) return takeAttack(b, p, step, take, out);
   const def = swingFor(p.weapon, Math.max(0, p.attackIndex), step.pose, p.airSwing);
   // A jump attack: begun in the air, it never stepped through a lunge.
   const jump = def !== swingFor(p.weapon, Math.max(0, p.attackIndex), step.pose);
@@ -823,6 +826,92 @@ function attack(b: Body, p: PoseInput, out: PoseFeedback): void {
   keepBladeUp(b, p.weapon, -0.1);
   cape(b, 0.25 + 0.45 * Math.abs(s.torso[1]) + 2.4 * spinK * (1 - spinK), 0.15 + 0.2 * span(t, 1, 2), -s.torso[1] * 0.25);
   trail(out, p.weapon, Math.max(0, p.attackIndex), def.spin ? 'spin' : null, f, step);
+}
+
+// ---------- swings from an animation library (takes.ts) ----------
+
+/** A made body's take for a combo hit, if it has one. */
+function takeFor(b: Body, weapon: number, index: number): Take | undefined {
+  return b.stride.made ? motionOf(b.rig.def)?.takes?.get(`${weapon}:${index}`) : undefined;
+}
+
+/**
+ * Where in the take a place on the swing's timeline falls: the take's wind-up over the rules'
+ * startup frames, its strike over their active ones, however quick, and its recovery, back to a
+ * stance, over theirs. Chained, the next hit starts two frames into the recovery (attacks.ts), where
+ * the library's next hit starts too: from the end of this one's strike.
+ */
+function takeTime(take: Take, step: AttackStep, t: number): number {
+  const [m1, m2] = take.marks;
+  if (t <= 1) return t * m1;
+  if (t <= 2) return m1 + (t - 1) * (m2 - m1);
+  return Math.min(take.seconds, m2 + (t - 2) * takeRecovery(take, step));
+}
+
+/** Take seconds the rules' recovery covers: all of the take's, up to six times as fast. */
+function takeRecovery(take: Take, step: AttackStep): number {
+  const frames = Math.max(1, step.recovery) / HZ;
+  return frames * clamp((take.seconds - take.marks[1]) / frames, 1, 6);
+}
+
+const _blade = new THREE.Vector3();
+const _edge = new THREE.Vector3();
+const _x = new THREE.Vector3();
+
+/**
+ * A combo hit played from a take: the upper body turns as the take does and the hips carry the
+ * weight where it has them; the feet stand where its feet do, turned and pitched as they are, and
+ * the legs reach down to them; the weapon points where the take's fist points it, its edge leading
+ * as the take's does; and the other hand comes onto the grip where the take brings it there. A foot
+ * the take has planted is held where it stands on the ground (character.ts), as the rules' lunge
+ * carries the body on over it.
+ */
+function takeAttack(b: Body, p: PoseInput, step: AttackStep, take: Take, out: PoseFeedback): void {
+  const f = p.attackFrame;
+  const t = timeline(step, f);
+  const s = takeTime(take, step, t);
+  takeVector(take, take.hips, s, _a);
+  b.body.position.set(_a.x, b.standY + _a.y, _a.z);
+  b.body.rotation.set(0, 0, 0);
+  for (const j of take.joints) takeTurn(take, j, s, b.rig.joint(j).quaternion);
+
+  if (p.grounded) {
+    SIDES.forEach((side, i) => {
+      const at = takeFoot(take, i, s);
+      const ft = _feet[side];
+      ft.x = at.x;
+      ft.z = at.z;
+      ft.lift = at.lift;
+      ft.pitch = at.pitch;
+      ft.yaw = at.yaw;
+    });
+    plant(b, _feet, 0.18);
+    // Planted as the take plants them, a heel come up or not.
+    SIDES.forEach((side, i) => (_planted[side] = takeFoot(take, i, s).planted ? 1 : 0));
+  } else airLegs(b, p);
+
+  // The weapon along the take's fist, then turned about itself so an edge leads where the take's
+  // does (either edge: a sword has two).
+  takeVector(take, take.blade, s, _blade).normalize();
+  b.aimHand('R', _blade);
+  takeVector(take, take.edge, s, _edge);
+  _edge.addScaledVector(_blade, -_edge.dot(_blade)).normalize();
+  _x.set(1, 0, 0).applyQuaternion(b.quaternionOf(b.arm.R.end, _mq));
+  let roll = Math.atan2(_c.crossVectors(_x, _edge).dot(_blade), _x.dot(_edge));
+  if (roll > Math.PI / 2) roll -= Math.PI;
+  else if (roll < -Math.PI / 2) roll += Math.PI;
+  b.aimHand('R', _blade, roll);
+
+  // Both hands on it where the take has them together.
+  const both = takeBoth(take, s);
+  if (both > 0.01) {
+    const free = b.positionOf(b.arm.L.end, _d);
+    const grip = b.toModel(b.arm.R.end, _b.set(0, 0.13, 0), _b);
+    b.handTo('L', _c.lerpVectors(free, grip, smooth(both)), torsoDir(b, _pole.set(0.6, -0.6, -0.3)));
+  }
+
+  keepBladeUp(b, p.weapon, -0.1);
+  trail(out, p.weapon, Math.max(0, p.attackIndex), null, f, step);
 }
 
 function trail(out: PoseFeedback, weapon: number, index: number, spin: 'spin' | null, f: number, step: AttackStep): void {
