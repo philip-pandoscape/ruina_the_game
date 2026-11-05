@@ -1,4 +1,5 @@
-//! Yggdrasil game server: accounts and the open world kept in Postgres, and the PvP battlefield
+//! Ruina's game server (the crate keeps the working name yggdrasil-server): accounts, characters
+//! and the open world kept in Postgres, and the PvP battlefield
 //! (simulation, interest management, wire protocol and networking).
 
 #![recursion_limit = "256"]
@@ -8,6 +9,7 @@ pub mod actor;
 pub mod ai;
 pub mod actors;
 pub mod channels;
+pub mod characters;
 pub mod content;
 pub mod db;
 pub mod game;
