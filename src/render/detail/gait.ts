@@ -10,11 +10,42 @@ import { clamp01, lerp, smooth } from './body';
 // The stride clock that drives this lives with whoever owns the body (src/render/character.ts):
 // it advances by distance over strideLength(), so the two always agree.
 
-const SPEEDS = [0, 1.0, 1.6, 3.2, 5.0, 7.5, 10.5];
-const LENGTHS = [0.6, 0.8, 0.95, 1.5, 2.0, 2.6, 3.3];
-const DUTIES = [0.66, 0.63, 0.6, 0.38, 0.28, 0.22, 0.19];
+/**
+ * How a body strides: metres per stride and the share of it each foot is down, by ground speed,
+ * and the speeds its gait turns from a walk into a run. The box hero's short legs take short, quick
+ * steps; a made body of human size (fit.ts) strides as people do, measured off a captured walk
+ * (1.4 m/s: 1.5 m a stride, 112 steps a minute) and run (3.45 m/s: 2.3 m, 180 a minute) and out
+ * to a sprinter's 4.8 m at 10.5 m/s; it also swings its feet along the captured paths (planFoot).
+ */
+export interface Stride {
+  speeds: readonly number[];
+  lengths: readonly number[];
+  duties: readonly number[];
+  /** Speeds where the walk has become a run (runGait 0 -> 1). */
+  runFrom: number;
+  runTo: number;
+  made: boolean;
+}
 
-function table(xs: number[], ys: number[], x: number): number {
+export const BOX_STRIDE: Stride = {
+  speeds: [0, 1.0, 1.6, 3.2, 5.0, 7.5, 10.5],
+  lengths: [0.6, 0.8, 0.95, 1.5, 2.0, 2.6, 3.3],
+  duties: [0.66, 0.63, 0.6, 0.38, 0.28, 0.22, 0.19],
+  runFrom: 2.2,
+  runTo: 5.0,
+  made: false,
+};
+
+export const MADE_STRIDE: Stride = {
+  speeds: [0, 1.0, 1.4, 2.0, 3.2, 5.0, 7.5, 10.5],
+  lengths: [0.9, 1.15, 1.5, 1.8, 2.45, 3.2, 4.1, 4.8],
+  duties: [0.66, 0.64, 0.62, 0.58, 0.4, 0.31, 0.25, 0.21],
+  runFrom: 2.1,
+  runTo: 3.5,
+  made: true,
+};
+
+function table(xs: readonly number[], ys: readonly number[], x: number): number {
   if (x <= xs[0]) return ys[0];
   for (let i = 1; i < xs.length; i++) {
     if (x <= xs[i]) return lerp(ys[i - 1], ys[i], (x - xs[i - 1]) / (xs[i] - xs[i - 1]));
@@ -23,13 +54,13 @@ function table(xs: number[], ys: number[], x: number): number {
 }
 
 /** Metres one full stride cycle covers at a ground speed (m/s); `back` 0..1 for backing away. */
-export function strideLength(speed: number, crouch = 0, carry = false, back = 0): number {
-  return table(SPEEDS, LENGTHS, speed) * (1 + 0.18 * crouch) * (carry ? 0.86 : 1) * (1 - 0.22 * back);
+export function strideLength(speed: number, crouch = 0, carry = false, back = 0, stride: Stride = BOX_STRIDE): number {
+  return table(stride.speeds, stride.lengths, speed) * (1 + 0.18 * crouch) * (carry ? 0.86 : 1) * (1 - 0.22 * back);
 }
 
 /** Fraction of the cycle each foot is on the ground. */
-export function dutyFactor(speed: number, crouch = 0, back = 0): number {
-  return Math.min(0.72, table(SPEEDS, DUTIES, speed) + 0.06 * crouch + 0.08 * back);
+export function dutyFactor(speed: number, crouch = 0, back = 0, stride: Stride = BOX_STRIDE): number {
+  return Math.min(0.72, table(stride.speeds, stride.duties, speed) + 0.06 * crouch + 0.08 * back);
 }
 
 const wrap = (a: number): number => Math.atan2(Math.sin(a), Math.cos(a));
@@ -51,7 +82,7 @@ export function directional(heading: number): { back: number; ahead: number; beh
 const clamp = (v: number, a: number, b: number): number => Math.max(a, Math.min(b, v));
 
 /** 0 for a walk, 1 for a run: how much flight there is, how the feet land. */
-export const runGait = (speed: number): number => smooth((speed - 2.2) / 2.8);
+export const runGait = (speed: number, stride: Stride = BOX_STRIDE): number => smooth((speed - stride.runFrom) / (stride.runTo - stride.runFrom));
 /** 0 at running pace, 1 flat out. */
 export const sprintGait = (speed: number): number => smooth((speed - 7.6) / 2.9);
 
@@ -78,6 +109,27 @@ export interface GaitShape {
   ankleHeight: number;
   heel: number;
   ball: number;
+  /** How this body strides (BOX_STRIDE if left out). */
+  stride?: Stride;
+  /** 0..1 how much lower a made body keeps its swinging feet (going sideways, a shuffle). */
+  low?: number;
+}
+
+// A made body's swinging foot, from toe-off (0) to landing (1), measured off the captured cycles:
+// how far the ankle rises above the straight line between the two (metres) and how far along from
+// the one to the other it is (it can go back first, or past the landing and back). Running, the
+// heel flicks up behind and the foot stays back until the knee drives it through; walking, it
+// skims low through the middle of the swing and reaches past its landing.
+const RUN_LIFT = [0, 0.16, 0.32, 0.47, 0.53, 0.54, 0.47, 0.34, 0.24, 0.11, 0.03, 0];
+const RUN_ALONG = [0, -0.13, -0.14, -0.05, 0.13, 0.3, 0.39, 0.44, 0.5, 0.68, 0.87, 1];
+const WALK_LIFT = [0, 0.089, 0.099, 0.046, 0.021, 0.013, 0.048, 0.022, 0];
+const WALK_ALONG = [0, 0.09, 0.27, 0.5, 0.65, 0.96, 1.14, 1.11, 1];
+
+/** A table spread evenly over 0..1, read with straight lines between its points. */
+function curve(ys: readonly number[], t: number): number {
+  const x = clamp01(t) * (ys.length - 1);
+  const i = Math.min(ys.length - 2, Math.floor(x));
+  return lerp(ys[i], ys[i + 1], x - i);
 }
 
 const _r = new THREE.Vector3();
@@ -120,10 +172,11 @@ const _a1 = new THREE.Vector3();
  */
 export function planFoot(shape: GaitShape, u: number, out: FootPlan): FootPlan {
   const v = shape.speed;
-  const L = strideLength(v, shape.crouch, shape.carry, shape.back);
-  const d = dutyFactor(v, shape.crouch, shape.back);
+  const stride = shape.stride ?? BOX_STRIDE;
+  const L = strideLength(v, shape.crouch, shape.carry, shape.back, stride);
+  const d = dutyFactor(v, shape.crouch, shape.back, stride);
   // Backing away is a quicker, lower shuffle than running forward at the same speed.
-  const run = runGait(v * (1 - 0.35 * shape.back));
+  const run = runGait(v * (1 - 0.35 * shape.back), stride);
   const sprint = sprintGait(v) * (1 - shape.back);
   const travel = d * L; // ground the body covers while this foot is down
   // Heel contact at touchdown, chosen so the flat part of the stance centres under the hip.
@@ -144,6 +197,18 @@ export function planFoot(shape: GaitShape, u: number, out: FootPlan): FootPlan {
   const onPitch = stancePitch(0, run);
   rocker(shape, heel0 - travel, offPitch, _a0);
   rocker(shape, heel0, onPitch, _a1);
+  if (stride.made) {
+    // Along the captured paths, walk blended into run; the heel rises higher the faster the run.
+    const rise = lerp(0.85, 1.12, smooth((v - 3) / 4.5)) * (1 - 0.35 * shape.crouch) * (0.6 + 0.4 * clamp01(v / 1.2)) * (1 - (shape.low ?? 0));
+    const up = lerp(curve(WALK_LIFT, q), curve(RUN_LIFT, q) * rise, run);
+    const along = lerp(curve(WALK_ALONG, q), curve(RUN_ALONG, q), run);
+    out.ankle.set(0, lerp(_a0.y, _a1.y, q) + up, lerp(_a0.z, _a1.z, along));
+    const hang = lerp(0.25, 0.9, run) * Math.sin(Math.PI * clamp01(q / 0.8));
+    out.pitch = lerp(offPitch, onPitch, smooth(q)) + hang * (1 - q);
+    out.stance = -1;
+    out.planted = 0;
+    return out;
+  }
   // A swinging foot always clears the ground, even slowing to a stop (standing still is blended in
   // by whoever calls this), so a slow step is a step and not a shuffle.
   const lift = 0.6 + 0.4 * clamp01(v / 1.2);

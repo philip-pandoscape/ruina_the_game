@@ -38,6 +38,11 @@ export function resetAssetFailures(): void {
 const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
 const models = new Map<string, Promise<THREE.Group>>();
 
+/** Loads a file whole, animations and all (once), for a captured motion rather than a model. */
+export function loadGltf(url: string): Promise<{ scene: THREE.Group; animations: THREE.AnimationClip[] }> {
+  return loader.loadAsync(url);
+}
+
 /** Loads a model once; every caller gets the same scene, to clone. */
 export function loadModel(url: string): Promise<THREE.Group> {
   let p = models.get(url);

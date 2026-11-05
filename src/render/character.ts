@@ -523,14 +523,14 @@ export class Hero {
     // ground (the left, which leads every leap); setting off from standing, with the back foot's step.
     if (input.grounded && !this.wasGrounded) {
       const v = input.speed * MOVE.runSpeed;
-      if (Math.cos(input.heading) < -0.3 && v > 0.5) this.phase = -dutyFactor(v, input.crouch, 1) * TAU; // backing away: toes first
+      if (Math.cos(input.heading) < -0.3 && v > 0.5) this.phase = -dutyFactor(v, input.crouch, 1, this.body.stride) * TAU; // backing away: toes first
       else this.phase = Math.sin(input.heading) * input.speed < -0.15 ? Math.PI : 0;
     }
     else if (this.stride < 0.02 && input.run > 0.01) this.phase = 0.06 * TAU;
     this.wasGrounded = input.grounded;
     if (moved > 0 && moved < 3) {
       const v = input.run * MOVE.runSpeed;
-      this.phase = (this.phase + (moved / strideLength(v, input.crouch, input.carry, directional(input.heading).back)) * TAU) % (TAU * 64);
+      this.phase = (this.phase + (moved / strideLength(v, input.crouch, input.carry, directional(input.heading).back, this.body.stride)) * TAU) % (TAU * 64);
     }
     // How hard the stroke goes eases in and out over a moment, as the stride does: setting off from
     // treading water the body tips forward into the crawl rather than flopping flat, and a pace read
@@ -611,7 +611,8 @@ export class Hero {
     const inHand = this.weaponAt === 'hand';
     const w = this.weaponShown;
     const travelling = !!input.travel;
-    const relaxed = travelling ? 1 : 0.18;
+    // Loosely curled standing, a loose fist on the run.
+    const relaxed = travelling ? 1 : 0.18 + 0.32 * Math.min(1, Math.max(0, input.run));
     const blade = inHand && w >= 0 && w <= 2 ? this.rig.attachment(HERO_WEAPONS[w]) : null;
     const bow = inHand && w === 3;
     return {

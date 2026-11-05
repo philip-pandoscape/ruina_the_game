@@ -59,4 +59,6 @@ export interface RigDef {
   attachments?: Record<string, { joint: string; exclusive?: boolean; parts: PartDef[] }>;
   /** The ankle above the sole, and the heel and the ball of the foot ahead of it (metres); the box hero's if left out. */
   feet?: { ankle: number; heel: number; ball: number };
+  /** 'made': a human-sized made body, which strides and moves as people do (gait.ts, mocap.ts). */
+  gait?: 'made';
 }

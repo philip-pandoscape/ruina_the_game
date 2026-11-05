@@ -216,6 +216,8 @@ export interface Fitted {
   feet: { ankle: number; heel: number; ball: number };
   /** From the wrist to the middle of a closed fist, where a held grip goes (metres). */
   fist: number;
+  /** The model's world units to our metres (its captured motions share its skeleton). */
+  scale: number;
   geometry: THREE.BufferGeometry;
   material: THREE.Material | THREE.Material[];
   bind: Map<string, THREE.Quaternion>;
@@ -283,6 +285,7 @@ export function fit(scene: THREE.Object3D, height: number, base: RigDef): Fitted
     geometry: geo,
     material: src.material,
     fist: +(hands.knuckle * 0.82).toFixed(3),
+    scale: body.toModel.elements[0],
     bind: bindTurns(joints, body),
   };
 }

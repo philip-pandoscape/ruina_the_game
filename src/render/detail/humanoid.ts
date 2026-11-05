@@ -4,6 +4,7 @@ import type { DetailRig } from './rig';
 import type { PoseFeedback, PoseInput } from '../../content/pose';
 import { Body, SIDES, bump, clamp, clamp01, easeIn, easeInOut, easeOut, lerp, smooth, span, type Side } from './body';
 import { directional, dutyFactor, planFoot, runGait, sprintGait, type FootPlan, type GaitShape } from './gait';
+import { cycleTurn, motionOf, type Motion } from './mocap';
 import { READY, swingFor, type SwingDef, type SwingKey } from './swings';
 import { gliderGrip } from '../models/gliders';
 import { DRAWING_HAND, STOWED } from './stow';
@@ -78,6 +79,7 @@ const k = (s: Side): number => (s === 'L' ? 1 : -1);
  */
 function plant(b: Body, feet: Record<Side, Foot>, kneeOut = 0.12, hold: Record<Side, number> = ALL): void {
   let drop = 0;
+  const sinkMax = (MAX_SINK * (b.leg.L.l1 + b.leg.L.l2)) / 0.54;
   for (const s of SIDES) {
     const f = feet[s];
     // A planted foot left further away than the leg can reach, even with the body sunk as far as
@@ -85,7 +87,7 @@ function plant(b: Body, feet: Record<Side, Foot>, kneeOut = 0.12, hold: Record<S
     if (hold[s] > 0) {
       const hip = b.hipOf(s, _b);
       const reach = (b.leg[s].l1 + b.leg[s].l2) * 0.99;
-      const rise = hip.y - MAX_SINK - (f.lift + b.ankleHeight);
+      const rise = hip.y - sinkMax - (f.lift + b.ankleHeight);
       const flat = Math.sqrt(Math.max(0, reach * reach - rise * rise));
       const dx = f.x - hip.x;
       const dz = f.z - hip.z;
@@ -98,7 +100,7 @@ function plant(b: Body, feet: Record<Side, Foot>, kneeOut = 0.12, hold: Record<S
     b.ankleOver(f.x, f.lift, f.z, _a);
     drop = Math.max(drop, b.dropToReach(s, _a) * hold[s]);
   }
-  b.body.position.y -= Math.min(MAX_SINK, drop);
+  b.body.position.y -= Math.min(sinkMax, drop);
   for (const s of SIDES) {
     const f = feet[s];
     b.footTo(s, b.ankleOver(f.x, f.lift, f.z, _a), f.pitch, f.yaw, kneeOut);
@@ -221,11 +223,16 @@ function locomotion(b: Body, p: PoseInput, sink = 0): Gait {
   const c = clamp01(p.crouch);
   const moving = p.stride >= 0 ? clamp01(p.stride) : smooth(v / 0.8);
   const still = 1 - moving;
-  const run = runGait(v);
+  const stride = b.stride;
+  const run = runGait(v, stride);
   const sprint = sprintGait(v);
   const carry = p.carry ? 1 : 0;
   const cycle = p.phase / TAU;
-  const d = dutyFactor(v, c, directional(p.heading).back);
+  const d = dutyFactor(v, c, directional(p.heading).back, stride);
+  // A made body's captured walk and run (mocap.ts), and how much longer its legs are than the box
+  // hero's, which the body's rise and fall and its crouch are measured against.
+  const motion = stride.made ? motionOf(b.rig.def) : undefined;
+  const legs = (b.leg.L.l1 + b.leg.L.l2) / 0.54;
   const t = p.time;
   const breath = Math.sin(t * 2.2);
 
@@ -238,8 +245,10 @@ function locomotion(b: Body, p: PoseInput, sink = 0): Gait {
   // Hips turn toward the way you go once you're moving properly; creeping sideways is a side-step.
   const twist = smooth((v - 0.8) / 2.2) * (1 - 0.6 * c);
   const pelvis = lerp(dirs.pelvisAhead, dirs.pelvisBehind, back) * twist * moving;
-  const shape: GaitShape = { speed: v, crouch: c, carry: p.carry, back: 0, centre: 0.015 * run, width: 0, ankleHeight: b.ankleHeight, heel: b.heel, ball: b.ball };
-  const width = lerp(lerp(0.115, 0.085, run) - 0.012 * sprint, 0.17, c);
+  // A made body's planted foot centres a little behind its hips, as a person's does.
+  const centre = stride.made ? -0.04 - 0.06 * run : 0.015 * run;
+  const shape: GaitShape = { speed: v, crouch: c, carry: p.carry, back: 0, centre, width: 0, ankleHeight: b.ankleHeight, heel: b.heel, ball: b.ball, stride, low: stride.made ? 0.6 * Math.abs(Math.sin(p.heading)) : 0 };
+  const width = stride.made ? lerp(lerp(0.1, 0.06, run) - 0.01 * sprint, 0.16, c) : lerp(lerp(0.115, 0.085, run) - 0.012 * sprint, 0.17, c);
   const hold = { L: 1, R: 1 };
   const onGround = { L: 1, R: 1 };
   const along = { L: 0, R: 0 };
@@ -286,10 +295,10 @@ function locomotion(b: Body, p: PoseInput, sink = 0): Gait {
   // The body: a little lower at speed, bobbing (up over the planted foot walking, down onto it
   // running), swaying over the standing leg, shifting its weight when still.
   const idle = noise(t * 0.45);
-  const bob = moving * lerp(0.012, -0.032 - 0.012 * sprint, run) * Math.cos(TAU * 2 * (cycle - d / 2));
+  const bob = legs * moving * lerp(0.012, -0.032 - 0.012 * sprint, run) * Math.cos(TAU * 2 * (cycle - d / 2));
   b.body.position.set(
-    moving * lerp(0.022, 0.008, run) * Math.cos(TAU * (cycle - d / 2)) + still * 0.013 * idle,
-    b.standY - 0.012 * still - c * 0.25 - 0.03 * run - 0.02 * carry - sink + bob,
+    legs * moving * lerp(0.022, 0.008, run) * Math.cos(TAU * (cycle - d / 2)) + still * 0.013 * idle,
+    b.standY - 0.012 * still - legs * (c * 0.25 + 0.03 * run) - 0.02 * carry - sink + bob,
     0,
   );
   // Leaning into turns, and toward the side you're strafing to.
@@ -297,8 +306,11 @@ function locomotion(b: Body, p: PoseInput, sink = 0): Gait {
 
   // The pelvis turns toward the way you go and swings with the striding legs; the shoulders keep
   // facing ahead and turn against the swing.
-  const hipYaw = -0.3 * (along.L - along.R) * moving;
+  const hipYaw = (motion ? 0 : -0.3) * (along.L - along.R) * moving;
   b.hips.rotation.set((0.05 * run + 0.04 * carry) * Math.max(0, ahead) + 0.16 * c, pelvis + hipYaw, 0);
+  // A made body's pelvis swings and tips as the captured one does, on top of turning to go.
+  const phase = back > 0.5 ? -p.phase : p.phase;
+  if (motion) b.hips.quaternion.multiply(captured(motion, 'hips', phase, run, moving, _mq));
   // Lean into a run, sit back a little backing away, upright strafing.
   const runLean = moving * lerp(0.07, 0.17, run) + 0.2 * sprint;
   const lean = 0.04 + runLean * Math.max(0, ahead) - 0.3 * runLean * Math.max(0, -ahead) + 0.3 * c + 0.18 * carry + sink * 1.3;
@@ -309,6 +321,14 @@ function locomotion(b: Body, p: PoseInput, sink = 0): Gait {
 
   // The head keeps the eyes level and forward, and looks about when standing.
   b.neck.rotation.set(-lean * 0.6 + still * 0.05 * noise(t * 0.31 + 1.3), 0.55 * hipYaw + still * 0.24 * noise(t * 0.23 + 3.1), 0);
+  if (motion) {
+    // On the move a made body's chest, neck and head go as captured, still leaning into a crouch,
+    // a load or a turn as the box hero does.
+    _mq2.setFromEuler(_me.set(0.3 * c + 0.18 * carry + sink * 1.3, 0, 0.3 * p.lean * moving * run));
+    b.torso.quaternion.slerp(_mq2.multiply(captured(motion, 'torso', phase, run, 1, _mq)), moving);
+    b.neck.quaternion.slerp(captured(motion, 'neck', phase, run, 1, _mq), moving);
+    b.head.quaternion.slerp(captured(motion, 'head', phase, run, 1, _mq), moving);
+  }
 
   plant(b, _feet, 0.1 + 0.25 * c, hold);
   // A foot is planted the whole time it's down, heel strike to toe-off (it pivots on its heel and
@@ -318,7 +338,14 @@ function locomotion(b: Body, p: PoseInput, sink = 0): Gait {
   // Arms swing against the legs, elbows folding as the pace rises; less when strafing.
   const amp = (moving * lerp(0.3, 0.62, run) + 0.3 * sprint) * (1 - 0.35 * Math.abs(side));
   const elbow = lerp(0.22, lerp(0.35, 1.3, run) + 0.25 * sprint, moving) + 0.5 * c;
-  for (const s of SIDES) {
+  if (motion) {
+    // A made body's arms hang easy standing and swing as the captured walk and run swing them.
+    for (const s of SIDES) {
+      b.setArmOut(s, 0.1 + 0.08 * c, 0.015 * breath * still - 0.25 * c, 0, -(0.18 + 0.5 * c));
+      for (const j of ARM_JOINTS[s]) b.rig.joint(j).quaternion.slerp(captured(motion, j, phase, run, 1, _mq), moving * (1 - 0.3 * Math.abs(side)));
+    }
+  }
+  for (const s of motion ? [] : SIDES) {
     const fwd = Math.cos(TAU * (s === 'R' ? cycle : cycle + 0.5));
     b.setArmOut(
       s,
@@ -346,6 +373,19 @@ function locomotion(b: Body, p: PoseInput, sink = 0): Gait {
     0.15 * p.lean * moving - 0.5 * side * speedLift * (1 - behind),
   );
   return { moving, run, sprint, cycle };
+}
+
+const _mq = new THREE.Quaternion();
+const _mq2 = new THREE.Quaternion();
+const _mq3 = new THREE.Quaternion();
+const _me = new THREE.Euler();
+const ARM_JOINTS: Record<Side, readonly string[]> = { L: ['armL', 'elbowL', 'handL'], R: ['armR', 'elbowR', 'handR'] };
+
+/** A joint's turn in a made body's captured walk blended into its run, from rest by `weight`. */
+function captured(m: Motion, joint: string, phase: number, run: number, weight: number, out: THREE.Quaternion): THREE.Quaternion {
+  cycleTurn(m.walk, joint, phase, out);
+  out.slerp(cycleTurn(m.run, joint, phase, _mq3), run);
+  return weight >= 1 ? out : out.slerp(_mq3.identity(), 1 - weight);
 }
 
 // ---------- what the hands carry ----------
@@ -409,7 +449,23 @@ function holdWeapon(b: Body, p: PoseInput, g: Gait): void {
 function holdArmed(b: Body, p: PoseInput, g: Gait): void {
   const move = g.moving;
   const t = p.time;
-  if (p.weapon === 0) {
+  if (p.weapon === 0 && b.stride.made) {
+    // A made body holds a sword as a person does, the blade square to the forearm across the fist:
+    // hanging at the side, point down and a little forward, at rest; on the move the arm swinging
+    // half as far as the free one and the blade trailing back and down past the leg; up in front on
+    // guard while strafing or backing off.
+    const swing = Math.cos(TAU * g.cycle);
+    const ahead = Math.max(0, Math.cos(p.heading));
+    const at = move * smooth((ahead - 0.5) / 0.4);
+    const guard = move * (1 - smooth((ahead - 0.5) / 0.4));
+    const pace = 0.6 + 0.4 * g.run;
+    b.setArmOut('R', lerp(0.14 + 0.04 * move, 0.05, guard), lerp(lerp(-0.1, -0.08 - 0.32 * swing * pace, at), -0.5, guard), 0, -lerp(lerp(0.28, 0.45 + 0.3 * g.run, at), 1.25, guard));
+    // Swung round the outside (the hero's right), never across the legs. On guard, a low one: the
+    // hand at the waist in front, the point up and forward toward the middle.
+    const az = lerp(lerp(-0.12, -(Math.PI - 0.3), at), 0.32, guard);
+    const el = lerp(lerp(-0.85, -0.62, at), 0.62, guard) + 0.02 * Math.sin(t * 2.2);
+    b.aimHand('R', torsoDir(b, dir(az, el, _a)));
+  } else if (p.weapon === 0) {
     // Sword: low and forward at rest; running ahead, carried ready - elbow bent, hand at the waist,
     // the blade up and forward, bobbing with the stride; held up in front on guard while strafing
     // or backing off.
@@ -631,15 +687,15 @@ type Stance = Record<Side, readonly [number, number]>;
 const stanceCache = new Map<string, Stance>();
 
 /** Where the feet are when swing `index` of a combo begins: where the swing before left them. */
-function startStance(weapon: number, index: number, pose: string | undefined): Stance {
-  if (index <= 0) return READY;
-  const key = `${weapon}:${index}:${pose ?? ''}`;
+function startStance(weapon: number, index: number, pose: string | undefined, reach = 1): Stance {
+  if (index <= 0) return reach === 1 ? READY : { L: [READY.L[0], READY.L[1] * reach], R: [READY.R[0], READY.R[1] * reach] };
+  const key = `${weapon}:${index}:${pose ?? ''}:${reach}`;
   const hit = stanceCache.get(key);
   if (hit) return hit;
   const combo = comboShape(weapon, 0);
   const prev = combo[index - 1];
   const chain = prev.startup + prev.active + 2;
-  const feet = footwork(swingFor(weapon, index - 1, prev.pose), prev, startStance(weapon, index - 1, prev.pose), chain, true);
+  const feet = footwork(swingFor(weapon, index - 1, prev.pose), prev, startStance(weapon, index - 1, prev.pose, reach), chain, true, reach);
   const out: Stance = { L: [feet.L.x, feet.L.z], R: [feet.R.x, feet.R.z] };
   stanceCache.set(key, out);
   return out;
@@ -649,7 +705,7 @@ function startStance(weapon: number, index: number, pose: string | undefined): S
  * The feet through a swing: planted where they are, stepping where the swing says. A planted
  * foot stays put on the ground while the lunge carries the body forward over it.
  */
-function footwork(def: SwingDef, step: AttackStep, start: Stance, f: number, grounded: boolean): Record<Side, Foot> {
+function footwork(def: SwingDef, step: AttackStep, start: Stance, f: number, grounded: boolean, reach = 1): Record<Side, Foot> {
   const travelled = grounded ? lunged(step, f) : 0;
   for (const s of SIDES) {
     // Ground positions are measured in the frame the body had when the swing began.
@@ -663,7 +719,8 @@ function footwork(def: SwingDef, step: AttackStep, start: Stance, f: number, gro
       const f1 = frameAt(step, st.land);
       if (f <= f0) break;
       const tx = st.to[0];
-      const tz = st.to[1] + (grounded ? lunged(step, f1) : 0);
+      // Steps are measured for the box hero's legs; longer ones step out further.
+      const tz = st.to[1] * reach + (grounded ? lunged(step, f1) : 0);
       if (f >= f1) {
         x = tx;
         z = tz;
@@ -674,7 +731,7 @@ function footwork(def: SwingDef, step: AttackStep, start: Stance, f: number, gro
       const q = easeInOut(Math.min(1, k0 * 1.2));
       x = lerp(x, tx, q);
       z = lerp(z, tz, q);
-      lift = (st.height ?? 0.06) * bump(k0);
+      lift = (st.height ?? 0.06) * reach * bump(k0);
       pitch = 0.35 * bump(q) - 0.15 * smooth((q - 0.6) / 0.4);
       break;
     }
@@ -717,7 +774,9 @@ function attack(b: Body, p: PoseInput, out: PoseFeedback): void {
   // Body: sink into the swing; spin and hop for Whirlwind.
   const spinK = def.spin ? easeOut(span(t, 1.02, 1.85)) : 0;
   const hop = def.hop ? def.hop * bump(span(t, 1.0, 2.05)) : 0;
-  b.body.position.set(0, b.standY - s.drop + hop, 0);
+  // Sinks and steps are measured for the box hero's legs; longer ones go further.
+  const legs = (b.leg.L.l1 + b.leg.L.l2) / 0.54;
+  b.body.position.set(0, b.standY - s.drop * legs + hop, 0);
   const spin = (def.spin ?? 0) * TAU * spinK;
   b.body.rotation.set(0, spin, 0);
   b.hips.rotation.set(0.04 + s.drop * 0.6, s.hips, 0);
@@ -727,7 +786,7 @@ function attack(b: Body, p: PoseInput, out: PoseFeedback): void {
   // Feet: footwork on the ground (turning with a spin), or tucked up in the air. A jump attack that
   // comes down before it's done lands square, feet under you, and finishes there.
   if (p.grounded) {
-    const feet = jump ? footwork(def, step, READY, f, false) : footwork(def, step, startStance(p.weapon, p.attackIndex, step.pose), f, true);
+    const feet = jump ? footwork(def, step, startStance(p.weapon, 0, step.pose, legs), f, false, legs) : footwork(def, step, startStance(p.weapon, p.attackIndex, step.pose, legs), f, true, legs);
     if (spin) {
       const c = Math.cos(spin);
       const sn = Math.sin(spin);

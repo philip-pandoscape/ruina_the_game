@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import type { DetailRig } from './rig';
+import { BOX_STRIDE, MADE_STRIDE, type Stride } from './gait';
 
 // Handles on a humanoid rig, and the two ways to pose a limb: by its angles (forward kinematics)
 // or by where its end should be (inverse kinematics, analytic two-bone). Everything is measured in
@@ -127,6 +128,8 @@ export class Body {
   /** Heel and ball of the foot, forward of the ankle (the toe-off pivot is the ball). */
   readonly heel: number;
   readonly ball: number;
+  /** How this body strides: the box hero's quick short steps, or a made body's human ones. */
+  readonly stride: Stride;
   private readonly bind: Array<{ g: THREE.Group; pos: THREE.Vector3 }> = [];
   private readonly chains = new Map<THREE.Object3D, THREE.Object3D[]>();
 
@@ -166,6 +169,7 @@ export class Body {
     this.ankleHeight = feet.ankle;
     this.heel = feet.heel;
     this.ball = feet.ball;
+    this.stride = rig.def.gait === 'made' ? MADE_STRIDE : BOX_STRIDE;
   }
 
   /** Back to the bind pose: every joint where the rig put it, unturned, unscaled. */
