@@ -138,7 +138,7 @@ export class Input {
   /** In an open world the D-pad calls your mount and opens the map instead of zooming. */
   worldMode = false;
 
-  constructor(canvas: HTMLCanvasElement) {
+  constructor(private readonly canvas: HTMLCanvasElement) {
     window.addEventListener('keydown', (e) => {
       if (BLOCK_DEFAULT.has(e.code)) e.preventDefault();
       // Ctrl is crouch, and the glider's flare, so it is held down with game keys: Ctrl+D would
@@ -188,6 +188,15 @@ export class Input {
     document.addEventListener('pointerlockchange', () => this.mouse.reset());
     canvas.addEventListener('wheel', (e) => (this.wheel += e.deltaY), { passive: true });
     canvas.addEventListener('contextmenu', (e) => e.preventDefault()); // right-click is an ability
+  }
+
+  /**
+   * Captures the mouse for the camera, as clicking the game does: for a window that closes itself
+   * after a click in it, to give back the mouse it took. The browser allows it while that click is
+   * recent (a few seconds), or when the page itself let go of the mouse last.
+   */
+  capture(): void {
+    if (document.pointerLockElement !== this.canvas) this.lockPointer(this.canvas);
   }
 
   // Asks for raw mouse movement, which skips the cursor re-centring the bogus readings come from

@@ -291,6 +291,120 @@ test("a story's drop cap stands from the top of its first line to the second lin
   await page.evaluate(() => localStorage.removeItem('ruina.uiScale'));
 });
 
+test('a window that closes itself after a click gives the mouse back to the camera, if the camera had it', async ({ page }) => {
+  const errors = await open(page);
+  const g = game(page);
+  for (const [item, n] of [['sunroot', 24], ['barley', 16], ['deed.farmCart', 1]] as const) await g.cmd({ t: 'grant', item, n });
+  await g.advance(2);
+  // The game running on its own, so the keys go through it as they do in play.
+  await page.evaluate(() => (window as any).__game.setPaused(false));
+  const mouse = () => page.evaluate(() => (document.pointerLockElement ? 'camera' : 'free'));
+  const capture = async () => {
+    await page.mouse.click(640, 300);
+    await expect.poll(mouse).toBe('camera');
+  };
+  /** Stays as it is for a moment (nothing asked for the mouse late). */
+  const stays = async (want: string) => {
+    await page.waitForTimeout(400);
+    expect(await mouse()).toBe(want);
+  };
+  const wb = (await g.zone()).workbenches[0];
+  const make = page.locator('.lui-card [data-act="make"][data-arg="pack.harvestCrate"]');
+
+  // Packing at the workbench: talking to it (F) frees the mouse, and once the pack is made the
+  // window closes and the camera has the mouse again.
+  await g.teleport(wb.x, wb.z + 2, Math.PI);
+  await capture();
+  await page.keyboard.press('KeyF');
+  await expect.poll(g.panel).toBe('craft');
+  expect(await mouse()).toBe('free');
+  await make.click();
+  await expect.poll(g.panel).toBeNull();
+  await expect.poll(mouse).toBe('camera');
+  expect(await page.evaluate(() => (window as any).__game.state().player.pack)).toBeGreaterThan(0);
+
+  // With the bag open beside the workbench, the bag stays when the workbench closes, and keeps the
+  // mouse. Closing the bag yourself (Escape) leaves it free. (The pack is set down away from the
+  // bench, where F would pick it up again.)
+  await g.teleport(wb.x + 12, wb.z + 12, Math.PI);
+  await page.keyboard.press('KeyX');
+  await expect.poll(() => page.evaluate(() => (window as any).__game.state().player.pack)).toBe(0);
+  await g.teleport(wb.x, wb.z + 2, Math.PI);
+  await page.keyboard.press('KeyF');
+  await expect.poll(g.panel).toBe('craft');
+  await page.keyboard.press('KeyI');
+  await expect(page.locator('.lui-bag')).toBeVisible();
+  await make.click();
+  await expect.poll(g.panel).toBe('bag');
+  await stays('free');
+  await page.keyboard.press('Escape');
+  await expect.poll(g.panel).toBeNull();
+  await stays('free');
+
+  // A deed from the bag: a double-click summons the cart, the bag gets out of the way, and the
+  // camera has the mouse again.
+  await capture();
+  await page.keyboard.press('KeyI');
+  await expect.poll(g.panel).toBe('bag');
+  expect(await mouse()).toBe('free');
+  await page.locator('.lui-bag [data-tip="item:deed.farmCart"]').dblclick();
+  await expect.poll(g.panel).toBeNull();
+  await expect.poll(mouse).toBe('camera');
+  await expect.poll(async () => (await g.life()).vehicles.length).toBe(1);
+
+  // A window opened with the mouse already free leaves it free when it closes itself.
+  await page.evaluate(() => document.exitPointerLock());
+  await expect.poll(mouse).toBe('free');
+  await page.keyboard.press('KeyV');
+  await expect.poll(g.panel).toBe('garage');
+  await page.locator('.lui-card [data-act="summon"]').click();
+  await expect.poll(g.panel).toBeNull();
+  await stays('free');
+  expect(errors).toEqual([]);
+});
+
+test('on a controller, packing at the workbench still closes it and leaves the mouse alone; Menu and B open and shut the bag', async ({ page }) => {
+  // A simulated Xbox controller (the browser's standard layout).
+  await page.addInitScript(() => {
+    const buttons = Array.from({ length: 17 }, () => ({ pressed: false, touched: false, value: 0 }));
+    const pad = { id: 'Xbox Wireless Controller (STANDARD GAMEPAD)', index: 0, connected: true, mapping: 'standard', axes: [0, 0, 0, 0], buttons, timestamp: 0 };
+    (window as any).__pad = pad;
+    Object.defineProperty(navigator, 'getGamepads', { value: () => [pad, null, null, null], configurable: true });
+  });
+  const errors = await open(page);
+  const g = game(page);
+  for (const [item, n] of [['sunroot', 12], ['barley', 8]] as const) await g.cmd({ t: 'grant', item, n });
+  await g.advance(2);
+  await page.evaluate(() => (window as any).__game.setPaused(false));
+  const PAD = { A: 0, B: 1, Y: 3, MENU: 9, DOWN: 13 };
+  const tap = async (i: number) => {
+    await page.evaluate((b) => Object.assign((window as any).__pad.buttons[b], { pressed: true, value: 1 }), i);
+    await page.waitForTimeout(120);
+    await page.evaluate((b) => Object.assign((window as any).__pad.buttons[b], { pressed: false, value: 0 }), i);
+    await page.waitForTimeout(120);
+  };
+  const wb = (await g.zone()).workbenches[0];
+  await g.teleport(wb.x, wb.z + 2, Math.PI);
+  await tap(PAD.Y);
+  await expect.poll(g.panel).toBe('craft');
+  // Down to the crate's Pack It, then A.
+  for (let i = 0; i < 12; i++) {
+    const on = await page.evaluate(() => document.querySelector('.lui-card .lui-focus')?.getAttribute('data-arg'));
+    if (on === 'pack.harvestCrate') break;
+    await tap(PAD.DOWN);
+  }
+  await tap(PAD.A);
+  await expect.poll(g.panel).toBeNull();
+  expect(await page.evaluate(() => (window as any).__game.state().player.pack)).toBeGreaterThan(0);
+  await page.waitForTimeout(300);
+  expect(await page.evaluate(() => document.pointerLockElement)).toBeNull();
+  await tap(PAD.MENU);
+  await expect.poll(g.panel).toBe('bag');
+  await tap(PAD.B);
+  await expect.poll(g.panel).toBeNull();
+  expect(errors).toEqual([]);
+});
+
 test('the clock sits clear of the minimap above it', async ({ page }) => {
   await open(page);
   await game(page).advance(2);

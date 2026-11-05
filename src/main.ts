@@ -416,6 +416,14 @@ panel.onChange = applyBuild;
 hud.onSkillsClick = () => panel.toggle('book');
 // Rearranging the bar in play, without opening the panel.
 hud.onSwapSlots = (from, to) => applyBuild(swapSlots(build, from, to));
+// A window that closes itself after something clicked in it (a pack made, a vehicle summoned, off
+// to place something) gives the mouse back to the camera, if the camera had it when the window
+// opened. Not while the skill book or tree is open, nor while the world waits for the server.
+if (lifeUI) {
+  lifeUI.onMouseBack = () => {
+    if (!panel.isOpen && !frozen) input.capture();
+  };
+}
 const DEG = Math.PI / 180;
 
 // What the target plate's cast bar calls a monster's cast, by the behaviour state casting it.
