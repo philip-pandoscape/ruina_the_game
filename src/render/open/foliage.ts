@@ -16,6 +16,10 @@ const GRASS_RADIUS = 64;
 const GRASS_CELL = 1.25;
 const GRASS_CAP = 9000;
 const FLOWER_CAP = 1400;
+/** The new look's undergrowth: low bushes in a field around you, one chance per cell. */
+const BUSH_RADIUS = 150;
+const BUSH_CELL = 5;
+const BUSH_CAP = 2600;
 
 function faceted(geo: THREE.BufferGeometry): THREE.BufferGeometry {
   const g = geo.index ? geo.toNonIndexed() : geo;
@@ -243,6 +247,7 @@ export class FoliageView {
   readonly group = new THREE.Group();
   private grass: THREE.InstancedMesh;
   private flowers: THREE.InstancedMesh;
+  private bushes: THREE.InstancedMesh | null = null;
   private grassAt = { x: Infinity, z: Infinity };
   private m = new THREE.Matrix4();
   private q = new THREE.Quaternion();
@@ -327,6 +332,26 @@ export class FoliageView {
     this.flowers.frustumCulled = false;
     this.flowers.count = 0;
     this.group.add(this.grass, this.flowers);
+    if (NEW_LOOK) {
+      // Knee- to waist-high: something to wade through, not a wall. Drawing only.
+      const centre = new THREE.Vector3(0, 0.35, 0);
+      const bush = shade(
+        mergeGeometries([lump(0.6, 1, [0, 0.38, 0], centre, 1).toNonIndexed(), lump(0.45, 1, [0.5, 0.3, 0.15], centre, 2).toNonIndexed(), lump(0.42, 1, [-0.42, 0.28, -0.2], centre, 3).toNonIndexed()]),
+        0,
+        0.95,
+        0,
+        0.35,
+        0,
+        0.9,
+        0.5,
+      );
+      this.bushes = new THREE.InstancedMesh(bush, toon(0xffffff, { vertexColors: true }), BUSH_CAP);
+      this.bushes.frustumCulled = false;
+      this.bushes.castShadow = true;
+      this.bushes.receiveShadow = true;
+      this.bushes.count = 0;
+      this.group.add(this.bushes);
+    }
   }
 
   private place(geo: THREE.BufferGeometry, mat: THREE.Material, items: Obstacle[], color: (o: Obstacle) => THREE.Color, squashY = 1): THREE.InstancedMesh | null {
@@ -431,6 +456,48 @@ export class FoliageView {
     }
   }
 
+  /** Bushes around (x, z): on grass and in woods, off paths, plots and slopes, thicker in the woods. */
+  private layBushes(x: number, z: number): void {
+    const hf = this.hf;
+    const bushes = this.bushes!;
+    const greens = PALETTE.leaves;
+    let n = 0;
+    const r = BUSH_RADIUS;
+    const i0 = Math.floor((x - r) / BUSH_CELL);
+    const i1 = Math.floor((x + r) / BUSH_CELL);
+    const j0 = Math.floor((z - r) / BUSH_CELL);
+    const j1 = Math.floor((z + r) / BUSH_CELL);
+    for (let j = j0; j <= j1 && n < BUSH_CAP; j++)
+      for (let i = i0; i <= i1 && n < BUSH_CAP; i++) {
+        const px = (i + hash2(i, j, 701)) * BUSH_CELL;
+        const pz = (j + hash2(i, j, 709)) * BUSH_CELL;
+        const dx = px - x;
+        const dz = pz - z;
+        if (dx * dx + dz * dz > r * r || !hf.inside(px, pz, 3)) continue;
+        const ci = Math.floor((px - hf.min) / hf.cell);
+        const cj = Math.floor((pz - hf.min) / hf.cell);
+        const s = hf.surface[cj * hf.cells + ci];
+        const chance = s === SURFACE.forest ? 0.4 : s === SURFACE.grass ? 0.09 : 0;
+        if (hash2(i, j, 719) > chance || this.clear[cj * hf.cells + ci]) continue;
+        const h = hf.height(px, pz);
+        if (h < hf.water + 0.8 || hf.slope(px, pz) > 0.7) continue;
+        const scale = 0.7 + hash2(i, j, 727) * 0.9;
+        this.q.setFromAxisAngle(this.up, hash2(i, j, 733) * Math.PI * 2);
+        this.m.compose(this.v.set(px, h - 0.08, pz), this.q, this.s.set(scale, scale * (0.8 + hash2(i, j, 739) * 0.4), scale));
+        bushes.setMatrixAt(n, this.m);
+        // Mostly leaf greens; now and then one in flower.
+        const bloom = hash2(i, j, 743);
+        if (bloom < 0.06) this.c.setHex(BLOSSOM[Math.floor(hash2(i, j, 751) * BLOSSOM.length)]);
+        else if (bloom < 0.09) this.c.setHex(0xf2efe4);
+        else this.c.setHex(greens[Math.floor(hash2(i, j, 757) * greens.length)]).offsetHSL(0.01, -0.05, -0.04);
+        bushes.setColorAt(n, this.c);
+        n++;
+      }
+    bushes.count = n;
+    bushes.instanceMatrix.needsUpdate = true;
+    if (bushes.instanceColor) bushes.instanceColor.needsUpdate = true;
+  }
+
   /** Lays the grass again on the next update (the ground changed: a new plot, a house). */
   invalidate(): void {
     this.grassAt = { x: Infinity, z: Infinity };
@@ -484,6 +551,7 @@ export class FoliageView {
       }
     this.grass.count = g;
     this.flowers.count = f;
+    if (this.bushes) this.layBushes(x, z);
     this.grass.instanceMatrix.needsUpdate = true;
     this.flowers.instanceMatrix.needsUpdate = true;
     if (this.grass.instanceColor) this.grass.instanceColor.needsUpdate = true;

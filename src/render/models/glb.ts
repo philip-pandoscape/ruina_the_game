@@ -72,7 +72,21 @@ export const MADE_PROPS: Record<string, MadeModel> = {
 
 /** Trade packs with a made model, by pack id (shared/trade.json): their straps face +Z, as the procedural ones' do. */
 export const MADE_PACKS: Record<string, MadeModel> = Object.fromEntries(
-  ['harvestCrate', 'flaxBale', 'emberPreserves', 'ciderCask', 'fleeceBale', 'hamper', 'lumberBundle', 'stoneBlock', 'ironCrate', 'sailcloth'].map((id) => [id, { files: [`pack_${id}`] }]),
+  // How far each made pack turns to bring its straps round to +Z.
+  (
+    [
+      ['harvestCrate', 0],
+      ['flaxBale', Math.PI],
+      ['emberPreserves', Math.PI],
+      ['ciderCask', -Math.PI / 2],
+      ['fleeceBale', 0],
+      ['hamper', 0],
+      ['lumberBundle', -Math.PI / 2],
+      ['stoneBlock', Math.PI],
+      ['ironCrate', -Math.PI / 2],
+      ['sailcloth', Math.PI],
+    ] as const
+  ).map(([id, yaw]) => [id, { files: [`pack_${id}`], yaw }]),
 );
 
 const materials = new Map<string, THREE.Material>();
