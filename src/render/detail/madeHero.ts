@@ -5,8 +5,9 @@ import { toon } from '../toon';
 import type { RigDef } from '../../content/rig';
 import { HERO_RIG } from '../../content/creatures/hero';
 import { fit, hull, type Fitted } from './fit';
-import { bakeCycle, setMotion } from './mocap';
-import { bakeTake, SWING_TAKES, type Take } from './takes';
+import { bakeCycle, setMotion, type Move } from './mocap';
+import { bake, type Baked } from './retarget';
+import { HERO_MOVES, HERO_MOVE_SETS, WEAPON_KEYS, type MoveClip } from './moves';
 import { madeWeapons, type MadeWeapons } from './madeWeapons';
 
 // The new look's hero body: a made, rigged model (src/render/assets/models/hero.glb, from Meshy)
@@ -24,8 +25,12 @@ const URL = params?.get('heroModel') ?? file('hero');
 /** Its captured walk and run (Meshy's, on the same skeleton), which move its upper body. */
 const WALK = file('hero_walk');
 const RUN = file('hero_run');
-/** Its swings, from an animation library (takes.ts); ?heroSwings=keyed keeps the keyframed ones, to compare. */
-const SWINGS = params?.get('heroSwings') === 'keyed' ? null : file('hero_swings');
+/**
+ * Its moves (moves.ts): per weapon a set of clips from animation libraries, retargeted onto it, or
+ * its keyframed swings. ?swordMoves=keyed|meshy|quaternius (clubMoves=, ...) plays another set.
+ */
+const SETS = Object.fromEntries(WEAPON_KEYS.map((w) => [w, params?.get(`${w}Moves`) ?? HERO_MOVE_SETS[w] ?? 'keyed']));
+const MOVES = WEAPON_KEYS.flatMap((w, weapon) => (HERO_MOVES[w]?.[SETS[w]] ?? []).map((m, hit) => ({ weapon, hit, m }))).filter((x) => x.m) as Array<{ weapon: number; hit: number; m: MoveClip }>;
 
 export interface MadeHero {
   fitted: Fitted;
@@ -45,8 +50,9 @@ export const madeHeroNow = (): MadeHero | null => ready;
 export function madeHero(): Promise<MadeHero | null> | null {
   if (!NEW_LOOK || !URL) return null;
   const clips = !params?.has('heroModel') && WALK && RUN ? [track(loadGltf(WALK)), track(loadGltf(RUN))] : [];
-  const swings = !params?.has('heroModel') && SWINGS ? track(loadGltf(SWINGS)) : undefined;
-  loading ??= Promise.all([track(loadModel(URL)), madeWeapons(), swings, ...clips]).then(([scene, made, library, walk, run]) => {
+  const files = params?.has('heroModel') ? [] : [...new Set(MOVES.map((x) => x.m.file))];
+  const libraries = Promise.all(files.map((f) => (file(f) ? track(loadGltf(file(f)!)) : undefined)));
+  loading ??= Promise.all([track(loadModel(URL)), madeWeapons(), libraries, ...clips]).then(([scene, made, loaded, walk, run]) => {
     if (!scene) return null;
     const weapons = (made as MadeWeapons | null) ?? null;
     const height = Number(params?.get('heroHeight')) || HEIGHT;
@@ -63,7 +69,7 @@ export function madeHero(): Promise<MadeHero | null> | null {
       setMotion(def, {
         walk: bakeCycle(w.scene, w.animations[0], fitted.joints, fitted.bind, fitted.scale),
         run: bakeCycle(r.scene, r.animations[0], fitted.joints, fitted.bind, fitted.scale),
-        takes: bakeTakes(library as { scene: THREE.Group; animations: THREE.AnimationClip[] } | undefined, fitted),
+        moves: bakeMoves(files, loaded as Array<{ scene: THREE.Group; animations: THREE.AnimationClip[] } | undefined>, fitted),
       });
     }
     return (ready = { fitted, def, weapons });
@@ -71,13 +77,17 @@ export function madeHero(): Promise<MadeHero | null> | null {
   return loading;
 }
 
-/** The swings, baked for the made body: every one the library has (SWING_TAKES), or none. */
-function bakeTakes(library: { scene: THREE.Group; animations: THREE.AnimationClip[] } | undefined, fitted: Fitted): Map<string, Take> | undefined {
-  if (!library) return undefined;
-  // The leg's length, hip to knee to ankle, which the library's moves are sized by.
-  const offset = (name: string) => new THREE.Vector3(...(fitted.joints.find((j) => j.name === name)?.pos ?? [0, 0, 0])).length();
-  const leg = offset('kneeL') + offset('footL');
-  const takes = new Map<string, Take>();
-  for (const [key, parts] of Object.entries(SWING_TAKES)) takes.set(key, bakeTake(library.scene, library.animations, parts, fitted.joints, fitted.bind, leg));
-  return takes;
+/** The moves' clips, baked for the made body, by weapon and combo hit ("0:1"); a clip a move shares baked once. */
+function bakeMoves(files: string[], loaded: Array<{ scene: THREE.Group; animations: THREE.AnimationClip[] } | undefined>, fitted: Fitted): Map<string, Move> {
+  const moves = new Map<string, Move>();
+  const baked = new Map<string, Baked>();
+  for (const { weapon, hit, m } of MOVES) {
+    const lib = loaded[files.indexOf(m.file)];
+    if (!lib) continue;
+    const key = JSON.stringify([m.file, m.parts, m.strikes ?? 1]);
+    let clip = baked.get(key);
+    if (!clip) baked.set(key, (clip = bake(lib.scene, lib.animations, m.parts, { joints: fitted.joints, bind: fitted.bind }, m.strikes ?? 1)));
+    moves.set(`${weapon}:${hit}`, { clip, strike: clip.strikes[m.strike ?? 0] });
+  }
+  return moves;
 }

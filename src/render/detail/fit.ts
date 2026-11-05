@@ -84,7 +84,10 @@ export function readBody(scene: THREE.Object3D, height: number): MadeBody {
       up = up.parent;
     }
     jointOf.push(joint ?? 'body');
-    if (joint && !bone.has(joint)) bone.set(joint, b);
+  });
+  ownJoints(m.skeleton.bones, jointOf);
+  m.skeleton.bones.forEach((b, i) => {
+    if (!bone.has(jointOf[i])) bone.set(jointOf[i], b);
   });
   for (const need of ['hips', 'torso', 'neck', 'head', 'armL', 'elbowL', 'handL', 'armR', 'elbowR', 'handR', 'legL', 'kneeL', 'footL', 'legR', 'kneeR', 'footR']) {
     if (!bone.has(need)) throw new Error(`made body: no bone for ${need} (bones: ${m.skeleton.bones.map((b) => b.name).join(', ')})`);
@@ -128,6 +131,32 @@ export function readBody(scene: THREE.Object3D, height: number): MadeBody {
   return { mesh: m, bone, jointOf, toModel, bindPositions };
 }
 
+/**
+ * The bones a made body keeps a joint each for, so a clip retargets onto it bone for bone
+ * (retarget.ts): the spine's bones in order up from the hips (the torso, the chest, the upper
+ * chest), the collarbones and the toes. A bone with no joint of its own goes with its parent's.
+ */
+function ownJoints(bones: readonly THREE.Bone[], jointOf: string[]): void {
+  const neck = jointOf.indexOf('neck');
+  const chain: number[] = [];
+  for (let b = bones[neck]?.parent; b; b = b.parent) {
+    const i = bones.indexOf(b as THREE.Bone);
+    if (i < 0 || jointOf[i] !== 'torso') break;
+    chain.unshift(i);
+  }
+  const names = chain.length >= 3 ? ['torso', ...chain.slice(2).map(() => 'chest'), 'upperChest'] : chain.length === 2 ? ['torso', 'upperChest'] : ['torso'];
+  chain.forEach((i, k) => (jointOf[i] = names[k]));
+  bones.forEach((b, i) => {
+    const own = jointFor(b.name);
+    if (own === 'shoulderL' || own === 'shoulderR') jointOf[i] = `clavicle${own.slice(-1)}`;
+    else if ((own === 'footL' || own === 'footR') && /toe|ball/i.test(b.name)) jointOf[i] = `toe${own.slice(-1)}`;
+    else if (!own) {
+      const up = bones.indexOf(b.parent as THREE.Bone);
+      if (up >= 0 && up < i) jointOf[i] = jointOf[up];
+    }
+  });
+}
+
 /** A bone's head in our model space. */
 function at(body: MadeBody, joint: string): THREE.Vector3 {
   return body.bone.get(joint)!.getWorldPosition(new THREE.Vector3()).applyMatrix4(body.toModel);
@@ -151,6 +180,9 @@ export function measureRig(body: MadeBody, base: RigDef): JointDef[] {
   const hips = at(body, 'hips');
   const spine = at(body, 'torso');
   const neck = at(body, 'neck');
+  const has = (joint: string) => body.bone.has(joint);
+  const chestAt = (has('chest') ? at(body, 'chest') : spine.clone().lerp(neck, 1 / 3)).setX(0);
+  const upperChestAt = (has('upperChest') ? at(body, 'upperChest') : spine.clone().lerp(neck, 2 / 3)).setX(0);
   const head = at(body, 'head');
   const headTop = tip(body, 'head');
   const leg = { L: at(body, 'legL'), R: at(body, 'legR') };
@@ -164,7 +196,7 @@ export function measureRig(body: MadeBody, base: RigDef): JointDef[] {
   const body0 = new THREE.Vector3(0, hips.y + 0.1, 0);
   const torso = new THREE.Vector3(0, spine.y, spine.z).sub(body0);
   const torsoAt = body0.clone().add(torso);
-  const shoulderAt = (s: 'L' | 'R') => arm[s].clone().sub(torsoAt);
+  const clavicleAt = (s: 'L' | 'R') => (has(`clavicle${s}`) ? at(body, `clavicle${s}`) : upperChestAt.clone());
   const pos: Record<string, THREE.Vector3> = {
     squash: new THREE.Vector3(),
     body: body0,
@@ -176,21 +208,48 @@ export function measureRig(body: MadeBody, base: RigDef): JointDef[] {
     kneeR: new THREE.Vector3(0, -thigh, 0),
     footR: new THREE.Vector3(0, -shin, 0),
     torso,
-    neck: neck.clone().setX(0).sub(torsoAt),
+    chest: chestAt.clone().sub(torsoAt),
+    upperChest: upperChestAt.clone().sub(chestAt),
+    neck: neck.clone().setX(0).sub(upperChestAt),
     head: head.clone().setX(0).sub(neck.clone().setX(0)),
     eyes: new THREE.Vector3(0, (headTop.y - head.y) * 0.42, 0.09),
     cape: new THREE.Vector3(0, (arm.L.y + arm.R.y) / 2 - torsoAt.y, -0.13),
     capeTail: new THREE.Vector3(0, -0.42, 0),
-    shoulderL: shoulderAt('L'),
+    clavicleL: clavicleAt('L').sub(upperChestAt),
+    shoulderL: arm.L.clone().sub(clavicleAt('L')),
     armL: new THREE.Vector3(),
     elbowL: new THREE.Vector3(0, -upper, 0),
     handL: new THREE.Vector3(0, -fore, 0),
-    shoulderR: shoulderAt('R'),
+    clavicleR: clavicleAt('R').sub(upperChestAt),
+    shoulderR: arm.R.clone().sub(clavicleAt('R')),
     armR: new THREE.Vector3(),
     elbowR: new THREE.Vector3(0, -upper, 0),
     handR: new THREE.Vector3(0, -fore, 0),
+    // The toes, model space here: fit() turns them into the feet's frames once it has the bind pose.
+    toeL: (has('toeL') ? at(body, 'toeL') : tip(body, 'footL')).sub(at(body, 'footL')),
+    toeR: (has('toeR') ? at(body, 'toeR') : tip(body, 'footR')).sub(at(body, 'footR')),
   };
-  return base.joints.map((j) => ({ ...j, pos: r3(pos[j.name] ?? new THREE.Vector3(...(j.pos ?? [0, 0, 0]))) }));
+  return madeJoints(base.joints).map((j) => ({ ...j, pos: r3(pos[j.name] ?? new THREE.Vector3(...(j.pos ?? [0, 0, 0]))) }));
+}
+
+/**
+ * The hero rig's joints with a made body's own: the chest and upper chest above the torso (the
+ * neck on top of them), a collarbone under each shoulder, and the toes. Posed by the pose code,
+ * which never turns them, the body moves as the rig without them would.
+ */
+function madeJoints(joints: readonly JointDef[]): JointDef[] {
+  const out: JointDef[] = [];
+  for (const j of joints) {
+    if (j.name === 'shoulderL' || j.name === 'shoulderR') {
+      const s = j.name.slice(-1);
+      out.push({ name: `clavicle${s}`, parent: 'upperChest' }, { ...j, parent: `clavicle${s}` });
+      continue;
+    }
+    out.push(j.name === 'neck' ? { ...j, parent: 'upperChest' } : j);
+    if (j.name === 'torso') out.push({ name: 'chest', parent: 'torso' }, { name: 'upperChest', parent: 'chest' });
+    if (j.name === 'footL' || j.name === 'footR') out.push({ name: `toe${j.name.slice(-1)}`, parent: j.name });
+  }
+  return out;
 }
 
 const DOWN = new THREE.Vector3(0, -1, 0);
@@ -305,6 +364,17 @@ export function fit(scene: THREE.Object3D, height: number, base: RigDef): Fitted
   geo.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(idx, 4));
   geo.setAttribute('skinWeight', new THREE.Float32BufferAttribute(wts, 4));
 
+  // The toes hang off the feet, which the bind pose turns with the shins: their offsets go into the
+  // feet's turned frames, so the toes sit where the model's do.
+  const bind = bindTurns(joints, body);
+  const bindWorld = new Map<string, THREE.Quaternion>();
+  for (const j of joints) bindWorld.set(j.name, ((j.parent && bindWorld.get(j.parent)) || new THREE.Quaternion()).clone().multiply(bind.get(j.name) ?? new THREE.Quaternion()));
+  for (const j of joints) {
+    if (j.name !== 'toeL' && j.name !== 'toeR') continue;
+    const toFoot = bindWorld.get(j.parent!)!.clone().invert();
+    j.pos = r3(new THREE.Vector3(...(j.pos ?? [0, 0, 0])).applyQuaternion(toFoot));
+  }
+
   const ankle = (at(body, 'footL').y + at(body, 'footR').y) / 2;
   const toe = (tip(body, 'footL').z + tip(body, 'footR').z) / 2 - (at(body, 'footL').z + at(body, 'footR').z) / 2;
   return {
@@ -314,7 +384,7 @@ export function fit(scene: THREE.Object3D, height: number, base: RigDef): Fitted
     material: src.material,
     fist: +(hands.knuckle * 0.82).toFixed(3),
     scale: body.toModel.elements[0],
-    bind: bindTurns(joints, body),
+    bind,
   };
 }
 

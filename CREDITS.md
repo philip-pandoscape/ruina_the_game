@@ -14,8 +14,9 @@ licences:
 | The made hero's sword and club swings | `src/render/assets/models/hero_swings.glb`, cut from the library by `tools/models/clips.mjs` | [Quaternius](https://quaternius.com/packs/universalanimationlibrary2.html), Universal Animation Library 2 (Sword_Regular_A, B and C with their recoveries, Sword_Heavy_Combo) | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) |
 | Wood, stone and plaster grain | `src/render/assets/detail.jpg` | [Poly Haven](https://polyhaven.com/textures) (brown_planks_05, stone_wall, plastered_wall), made greyscale and packed a channel each | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) |
 
-The made models in `src/render/assets/models/` (buildings, stalls, props, resource nodes, boulders, the hero
-and his weapons) are the project's own: generated with [Meshy](https://www.meshy.ai) on a paid plan from
-concept art it painted for Ruina, then compressed with [glTF Transform](https://gltf-transform.dev).
+The made models in `src/render/assets/models/` (buildings, stalls, props, resource nodes, boulders, the hero,
+his weapons and his Meshy animation clips: `hero_walk`, `hero_run`, `hero_moves_meshy`) are the project's
+own: generated with [Meshy](https://www.meshy.ai) on a paid plan from concept art it painted for Ruina, then
+compressed with [glTF Transform](https://gltf-transform.dev).
 
 The game says so too, in its Settings window.

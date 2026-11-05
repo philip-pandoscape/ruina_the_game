@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import type { JointDef, RigDef } from '../../content/rig';
 import type { DetailRig } from './rig';
 import { jointFor } from './fit';
-import type { Take } from './takes';
+import type { Baked, Strike } from './retarget';
 
 // A captured cycle - Meshy's walk or run, recorded on the made hero's own skeleton - baked for
 // our rig: at evenly spaced moments through one stride, the turn of every joint it moves, and how
@@ -137,8 +137,14 @@ export function cycleLift(c: Cycle, phase: number): number {
 export interface Motion {
   walk: Cycle;
   run: Cycle;
-  /** Swings from an animation library, by weapon and combo hit ("0:1"): takes.ts. */
-  takes?: Map<string, Take>;
+  /** Combo hits played from animation libraries' clips, by weapon and hit ("0:1"): moves.ts. */
+  moves?: Map<string, Move>;
+}
+
+/** A combo hit played from a clip: the clip, baked for the body (retarget.ts), and its strike. */
+export interface Move {
+  clip: Baked;
+  strike: Strike;
 }
 
 const motions = new WeakMap<RigDef, Motion>();
