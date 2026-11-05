@@ -870,7 +870,8 @@ fn gather(life: &mut Life, f: &Focus) {
     life.state.nodes.insert(i.to_string(), back);
     life.revision += 1;
     life.emit(LifeEvent::Gather { x: nd.x, y: f.y, z: nd.z, kind: y.kind.clone() });
-    life.notify(QuestEvent { kind: Some(y.kind.clone()), ..QuestEvent::new("gather") });
+    // A step like "quarry 10 stone" counts the stone, not the swings.
+    life.notify(QuestEvent { kind: Some(y.kind.clone()), amount: Some(n as f64), ..QuestEvent::new("gather") });
 }
 
 /// Every step: resting ends as soon as you move.
@@ -891,7 +892,7 @@ pub fn keep_resting(life: &mut Life, sim: &mut Sim) {
 mod tests {
     use super::*;
     use crate::life::farming::tests::{got, island, stand};
-    use crate::life::state::Stack;
+    use crate::life::state::{QuestProgress, Stack};
 
     /// What the prompt says: (action, label, detail, ok).
     fn prompt(life: &mut Life, sim: &Sim) -> (String, String, String, bool) {
@@ -976,11 +977,14 @@ mod tests {
         let mut sim = Sim { player: &mut p, world: &mut world, owner: 1 };
         stand(&mut sim, nd.x, nd.z - 2.4, 0.0);
         let f = find_focus(&mut life, &sim).unwrap();
-        assert_eq!((f.action.as_str(), f.label.as_str(), f.detail.as_deref(), f.key.as_str(), f.node), ("gather", "Chop timber", Some("8 labor"), "node:0", Some(0)));
+        assert_eq!((f.action.as_str(), f.label.as_str(), f.detail.as_deref(), f.key.as_str(), f.node), ("gather", "Chop Timber", Some("8 labor"), "node:0", Some(0)));
+        // On Hob's lesson, which wants ten lumber.
+        life.state.quests.active = vec![QuestProgress { id: "woodcutting".into(), step: 1, counts: vec![0.0] }];
         run_command(&mut life, &mut sim, &Command::Interact);
         assert_eq!(life.state.bag, vec![Stack { item: "lumber".into(), n: 5 }]);
         assert_eq!(life.state.labor, 792.0);
         assert_eq!(life.drain_events(), vec![got(5, "lumber"), LifeEvent::Gather { x: nd.x, y: f.y, z: nd.z, kind: "timber".into() }]);
+        assert_eq!(life.state.quests.active[0].counts, [5.0], "the lumber it gave counts, not the one swing");
         assert_eq!(life.state.nodes.get("0"), Some(&60.0));
         assert_eq!(prompt(&mut life, &sim), says("info", "Deadfall Timber - picked clean", "back in 1m 0s", false));
         run_command(&mut life, &mut sim, &Command::Interact);

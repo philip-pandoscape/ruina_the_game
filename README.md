@@ -87,6 +87,20 @@ house plot belongs to whoever claimed it first. Their vehicles are solid too, an
 in one: beside a friend's cart or boat, F climbs into its free seat ("Ride with ..."), and F again
 gets you out.
 
+**Mini-games:** walk up to another player on foot and F offers to challenge them ("Challenge ...").
+Pick the game and the stake (No Stake, or up to what you can afford) and send it; they have 30
+seconds to accept or decline. If they accept, both stakes go into the pot and a table is thrown
+down between you, with a stool each, for everyone in the channel to see. You play at it (you can't
+walk off until it's over; Escape or Concede gives the game up) and the winner takes the pot; a
+draw gives each stake back, and so does a game the server calls off (when it's updated). Leave
+for more than 30 seconds and you forfeit. The first game is **Beacons**, made for Ruina: a board
+of 37 hexes, each showing one of six island goods (the middle one is the Old Beacon). On your turn
+play one card to light an unlit hex of its good with your beacon, or two of a kind to light any
+hex, the Old Beacon too, or swap a card; then draw back up to four from the face-up Harbour or the
+deck. Four of your beacons in a straight row wins. Each turn has 40 seconds (the server plays for
+you when it runs out; three in a row forfeits). The server runs the game
+(`server/src/minigames`) and only ever moves money between the two purses at the table.
+
 **The server decides:** your browser sends only what you press (about 60 times a second) and what
 you ask your island to do (talk, plant, buy, craft, drive...). The server runs every rule on its own
 copy: where you are (hills, cliffs, walls, water, gliders, vehicles), every hit, and everything on
@@ -96,9 +110,10 @@ the same rules (in TypeScript) and corrects itself to the answer, so play feels 
 `tests/world-conformance.spec.ts` and `tests/life-conformance.spec.ts` check the two sets of rules
 agree. The developer panel (give items, skip time, teleport) exists only where the server allows it
 (development and beta, not production). Automated tests (`?test`) run the island offline, in the
-browser, except `tests/online.spec.ts`, which needs `npm run up`, and `tests/update.spec.ts`, which
-starts and stops a game server of its own on the database in `RUINA_DATABASE_URL`. To run the suite
-beside another checkout's, give it its own ports: `PW_PORT=5211 TEST_PORT_OFFSET=10`.
+browser, except `tests/online.spec.ts` and `tests/minigames.spec.ts`, which need `npm run up`, and
+`tests/update.spec.ts`, which starts and stops a game server of its own on the database in
+`RUINA_DATABASE_URL`. To run the suite beside another checkout's, give it its own ports:
+`PW_PORT=5211 TEST_PORT_OFFSET=10`.
 
 ## Branches, CI and deploys
 
@@ -112,7 +127,10 @@ on every push and pull request to them: the client typechecks and builds, the Ru
 pass, and the whole Playwright suite plays the game against a real server and Postgres (with the
 battlefield and the TypeScript/Rust conformance tests, which need the Rust binaries). A push that
 passes is uploaded to the Railway environment of the same name with `railway up`, and the job
-waits until `/api/health` answers from the new deployment.
+waits until `/api/health` answers from the new deployment. For now a push to `beta` skips the
+Playwright suite (half an hour and more on CI's runners, which have no GPU), so beta deploys a few
+minutes after the push: run the suite locally before pushing. Pull requests, `production` and a
+manual run of the workflow still play it.
 
 **Railway** (project `intuitive-enthusiasm`): environments `beta` and `production`, each with the
 game service and its own Postgres. The game's `DATABASE_URL` refers to that environment's
@@ -131,10 +149,10 @@ in `.env` (git-ignored) as `RAILWAY_BETA_API_KEY` and `RAILWAY_PRODUCTION_API_KE
 |---|---|---|
 | Move / camera | WASD / mouse (click to capture) | Left / right stick |
 | Sprint | Hold Shift | Click left stick |
-| Crouch | Ctrl | Click right stick |
+| Crouch (held through a slide, you come out of it crouched) | Hold C | Click right stick |
 | Jump (twice for a double jump) | Space | A |
 | Attack | Left click or J | X |
-| Slide | C | B |
+| Slide | C on the run, or K | B |
 | Hotbar (hold to aim a ground cast) | 1 – 8 | LT or RT + A/B/X/Y |
 | Movement skills (dodge, backstep, block) | Q, E | LB, RB |
 | Next target | Tab (Shift-Tab goes back) | D-pad right / left |
@@ -154,9 +172,10 @@ In the open world:
 
 | | Keyboard and mouse | Xbox controller |
 |---|---|---|
-| Interact (talk, plant, harvest, load, drive, build, ride along in a friend's vehicle) | F | Y |
+| Interact (talk, plant, harvest, load, drive, build, ride along in a friend's vehicle, challenge another player to a mini-game) | F | Y |
+| At a mini-game's table: pick a card (two of a kind for a pair), click a glowing hex, take from the Harbour or the deck; right-click a card for more; give up | Mouse; Escape | |
 | Open the glider (in the air, after the double jump) / fold it | Space again, or G | A |
-| Glider: dive / flare | Shift / Ctrl | Click left / right stick |
+| Glider: dive / flare | Shift / C | Click left / right stick |
 | Drive: throttle, steer, handbrake, boost | W S, A D, Space, Shift | Left stick, A |
 | Sail: raise / lower the sail | W / S | Left stick |
 | Call or dismiss your mount | R | D-pad down |

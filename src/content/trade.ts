@@ -15,6 +15,8 @@ export interface PackDef {
   fee: number;
   inputs: Array<{ item: string; n: number }>;
   look: string;
+  /** 'trade' packs sell at another town's trader; 'material' ones are hauled to a building site. */
+  kind?: string;
 }
 
 export interface RouteDef {

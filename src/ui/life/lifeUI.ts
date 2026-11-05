@@ -2,20 +2,22 @@ import * as THREE from 'three';
 import type { Life, LifeEvent } from '../../sim/life/life';
 import type { Sim } from '../../sim/sim';
 import type { World } from '../../sim/types';
-import { itemDef, recipesAt, vendorFor, BAG_SLOTS, recipe as recipeDef } from '../../content/items';
+import { itemDef, recipesAt, vendorFor, BAG_SLOTS, recipe as recipeDef, RECIPES, VENDORS } from '../../content/items';
 import { packDef, PACKS, route, placeName, LABOR, CONTRACTS } from '../../content/trade';
 import { QUESTS, questDef, objectiveTarget, type QuestDef } from '../../content/quests';
 import { rideable, glider as gliderDef, isBoat, isMount } from '../../content/vehicles';
-import { cropDef, CLIMATES } from '../../content/farming';
+import { cropDef, CLIMATES, GATHERING } from '../../content/farming';
 import { blueprintDef } from '../../content/housing';
+import { structureDef } from '../../content/structures';
 import { questsAt, isReady } from '../../sim/life/quests';
 import { quote, demandAt, freshness, carried } from '../../sim/life/trade';
 import { ridden, sailEfficiency } from '../../sim/life/vehicles';
 import { heightAboveGround } from '../../sim/player/traverse';
 import { angleDiff } from '../../sim/math';
 import { SURFACE } from '../../sim/terrain';
-import { isComplete, stillNeeds, housePose } from '../../sim/life/housing';
-import { shortTime } from '../../sim/life/interact';
+import { isComplete, stillNeeds, housePose, stageReady } from '../../sim/life/housing';
+import { nodeReady, shortTime } from '../../sim/life/interact';
+import { shipFinished, shipNeeds, shipOn, shipStageReady } from '../../sim/life/shipyard';
 import { raining, hourOfDay, stormAt } from '../../sim/life/weather';
 import { WEAPON_ICONS, WEAPON_NAMES } from '../icons';
 import { comboDamage } from '../skills/describe';
@@ -56,6 +58,9 @@ type Panel =
   | { kind: 'map' | 'garage' | 'dev' | 'log' | 'character' | 'settings' };
 
 type ShopTab = 'buy' | 'sell' | 'buyback';
+
+/** Somewhere a quest leads you: the ring on the maps and the marker on the compass. */
+type Goal = { x: number; z: number; label: string };
 type Handler = (arg: string, e: MouseEvent | null) => void;
 type View = { title: string; sub?: string; portrait?: string; body: string; foot?: string; cls?: string; w: number; h?: number; handlers?: Record<string, Handler> };
 
@@ -261,6 +266,9 @@ export class LifeUI {
   // ---------- Input ----------
 
   press(k: LifePress): void {
+    // Mini-games first (src/ui/minigames): F on another player challenges them, and at a table the
+    // world's keys wait and Escape offers to concede.
+    if (this.intercept?.(k)) return;
     const life = this.life;
     const p = this.d.sim.player;
     if (k === 'escape') {
@@ -437,6 +445,9 @@ export class LifeUI {
 
   /** Set by the app: capture the mouse for the camera again (a window that took it has finished). */
   onMouseBack: (() => void) | null = null;
+
+  /** Set by the app: a key for the mini-games to take before the world does; true if they took it. */
+  intercept: ((k: LifePress) => boolean) | null = null;
 
   private onWindowClick(e: MouseEvent, w: HTMLElement): void {
     const b = (e.target as HTMLElement).closest('[data-act]') as HTMLElement | null;
@@ -780,7 +791,7 @@ export class LifeUI {
   }
 
   /** Where the first unfinished quest wants you to go. */
-  goal(): { x: number; z: number; label: string } | null {
+  goal(): Goal | null {
     const life = this.life;
     const r = life.zone.recipe;
     const npc = (id: string) => r.npcs.find((n) => n.id === id);
@@ -803,7 +814,11 @@ export class LifeUI {
           const op = r.outposts.find((x) => x.id === o.outpost);
           if (op) return { x: op.x, z: op.z, label: placeName(o.outpost) };
         }
-        if (o.type === 'craftPack') return { x: r.workbenches[0].x, z: r.workbenches[0].z, label: 'Specialty Workbench' };
+        if (o.type === 'gather') {
+          const nd = this.nodeFor(o.kind);
+          if (nd) return nd;
+        }
+        if (o.type === 'craftPack') return (o.pack ? this.benchFor(o.pack) : null) ?? { x: r.workbenches[0].x, z: r.workbenches[0].z, label: 'Specialty Workbench' };
         if (o.type === 'placeScarecrow') return { x: r.farmland.x, z: r.farmland.z, label: 'Barleybrook Fields' };
         if ((o.type === 'plant' || o.type === 'harvest' || o.type === 'raise') && life.state.scarecrows[0]) return { x: life.state.scarecrows[0].x, z: life.state.scarecrows[0].z, label: 'Your Plot' };
         if (o.type === 'contract') {
@@ -811,21 +826,74 @@ export class LifeUI {
           const op = r.outposts.find((x) => x.id === (k?.outpost ?? 'westwatch'));
           if (op) return { x: op.x, z: op.z, label: placeName(op.id) };
         }
-        if ((o.type === 'layKeel' || o.type === 'shipStage' || o.type === 'launch') && r.shipyards?.[0]) return { x: r.shipyards[0].x, z: r.shipyards[0].z, label: r.shipyards[0].name };
+        if ((o.type === 'layKeel' || o.type === 'shipStage' || o.type === 'launch') && r.shipyards?.[0]) {
+          const sy = r.shipyards[0];
+          const slip = { x: sy.x, z: sy.z, label: sy.name };
+          const b = shipOn(life, sy.id);
+          return o.type === 'shipStage' && b && !shipFinished(b) ? this.fetchFor(shipNeeds(b), shipStageReady(b), slip) : slip;
+        }
         if (o.type === 'summon' && o.vehicle && isBoat(rideable(o.vehicle))) return { x: place('docks')!.x, z: place('docks')!.z, label: 'The Docks' };
         if (o.type === 'load' && life.state.vehicles[0]) return { x: life.state.vehicles[0].x, z: life.state.vehicles[0].z, label: 'Your Vehicle' };
         if (o.type === 'placeHouse' || o.type === 'buildStage') {
           const h = life.state.houses[0];
           if (h) {
             const pose = housePose(life, h);
-            return { x: pose.x, z: pose.z, label: 'Your House' };
+            const site = { x: pose.x, z: pose.z, label: 'Your House' };
+            return isComplete(h) ? site : this.fetchFor(stillNeeds(h), stageReady(h), site);
           }
+          // No blueprint to place yet: whoever sells them.
+          const vendor = VENDORS.find((v) => v.sells.some((s) => s.item.startsWith('blueprint.')));
+          const seller = vendor ? npc(vendor.npc) : undefined;
+          if (seller && !life.state.bag.some((s) => s.item.startsWith('blueprint.'))) return { x: seller.x, z: seller.z, label: seller.name };
           return { x: place('hearthside')!.x, z: place('hearthside')!.z, label: 'Hearthside Rise' };
         }
         if (o.type === 'glide') return { x: r.places.find((pl) => pl.id === 'lanternwick')!.x, z: r.places.find((pl) => pl.id === 'lanternwick')!.z, label: 'Lanternwick' };
       }
     }
     return null;
+  }
+
+  /** The nearest resource node that gives `kind` (timber, stone...), one ready to work before one picked clean. */
+  private nodeFor(kind?: string): Goal | null {
+    const life = this.life;
+    const p = this.d.sim.player.pos;
+    const nodes = life.zone.recipe.nodes;
+    let best: Goal | null = null;
+    let bestScore = Infinity;
+    for (let i = 0; i < nodes.length; i++) {
+      const nd = nodes[i];
+      const g = GATHERING[nd.kind];
+      if (!g || (kind && g.kind !== kind)) continue;
+      const score = Math.hypot(nd.x - p.x, nd.z - p.z) + (nodeReady(life, i) ? 0 : 1e5);
+      if (score < bestScore) {
+        bestScore = score;
+        best = { x: nd.x, z: nd.z, label: structureDef(nd.kind).name };
+      }
+    }
+    return best;
+  }
+
+  /** The workbench that makes a pack. */
+  private benchFor(pack: string): Goal | null {
+    const rc = RECIPES.find((x) => x.makes.pack === pack);
+    const b = rc ? this.life.zone.recipe.workbenches.find((w) => w.id === rc.bench) : undefined;
+    return b ? { x: b.x, z: b.z, label: (b as { name?: string }).name ?? 'Workbench' } : null;
+  }
+
+  /**
+   * Where to go next for a stage of your house or ship: the site, once it has all it needs or you
+   * have a pack it wants on your back or aboard a vehicle; a pack it wants that you left lying
+   * somewhere; otherwise the bench that makes the first pack it still wants.
+   */
+  private fetchFor(needs: Array<{ pack: string; have: number; need: number }>, ready: boolean, site: Goal): Goal {
+    const want = needs.filter((n) => n.have < n.need).map((n) => n.pack);
+    if (ready || !want.length) return site;
+    const mine = this.life.state.packs.filter((pk) => want.includes(pk.def));
+    if (mine.some((pk) => pk.at !== 'ground')) return site;
+    const p = this.d.sim.player.pos;
+    const lying = mine.sort((a, b) => Math.hypot(a.x - p.x, a.z - p.z) - Math.hypot(b.x - p.x, b.z - p.z))[0];
+    if (lying) return { x: lying.x, z: lying.z, label: packDef(lying.def).name };
+    return this.benchFor(want[0]) ?? site;
   }
 
   private updateBanner(dt: number): void {
@@ -1047,7 +1115,7 @@ export class LifeUI {
     } else if (mode === 'ride') parts.push(item(key('W') + key('S'), 'Throttle'), item(key('A') + key('D'), 'Steer'), item(key('Space'), 'Handbrake'), item(key('Shift'), 'Boost'), ...autoItem('H'), item(key('F'), 'Get Out'));
     else if (mode === 'boat') parts.push(item(key('W') + key('S'), 'Oars / Sail'), item(key('A') + key('D'), 'Rudder'), ...autoItem('H'), item(key('F'), 'Get Out'), item(key('M'), 'Map'));
     else if (mode === 'mount') parts.push(item(key('WASD'), 'Ride'), item(key('Shift'), 'Gallop'), item(key('Space'), 'Jump'), ...autoItem('H'), item(key('R'), 'Dismount'));
-    else if (mode === 'glide') parts.push(item(key('WASD'), 'Steer'), item(key('Shift'), 'Dive'), item(key('Ctrl'), 'Flare'), item(key('F'), 'Gust'), item(key('Space'), 'Fold'));
+    else if (mode === 'glide') parts.push(item(key('WASD'), 'Steer'), item(key('Shift'), 'Dive'), item(key('C'), 'Flare'), item(key('F'), 'Gust'), item(key('Space'), 'Fold'));
     else {
       parts.push(item(key('WASD'), 'Move'), item(key('Space'), 'Jump ×2 · ×3 Glide'), item(key('F'), 'Interact'));
       if (mode === 'carry') parts.push(item(key('X'), 'Drop Pack'));
@@ -1088,6 +1156,7 @@ export class LifeUI {
     if (kind === 'pack') {
       try {
         const pk = packDef(id);
+        if (pk.kind === 'material') return `<h5>${esc(pk.name)}</h5><div class="ty">Building Material</div><p>Made at ${esc(placeName(pk.origin))}. Haul it to a building site: your house, or a ship on the slipway.</p>`;
         return `<h5>${esc(pk.name)}</h5><div class="ty">Trade Pack</div><p>Made at ${esc(placeName(pk.origin))}. Carry it to another town's trader to sell.</p>`;
       } catch {
         return null;
@@ -1392,7 +1461,9 @@ export class LifeUI {
         } else if (pack) sells = '<small>Building material: haul it to a house site</small>';
         const name = pack?.name ?? item?.name ?? r.id;
         const icon = pack ? iconHtml(pack.icon) : item ? iconHtml(item.icon, r.makes.item) : pixelIcon('star', 28);
-        const desc = item?.desc ? `<small>${esc(item.desc)}</small>` : '';
+        // Short of a raw material: where it comes from (its description says).
+        const short = inputs.find((i) => life.count(i.item) < i.n && itemDef(i.item).cat === 'material');
+        const desc = (item?.desc ? `<small>${esc(item.desc)}</small>` : '') + (short ? `<small>${esc(itemDef(short.item).desc)}</small>` : '');
         const tip = item ? ` data-tip="item:${r.makes.item}"` : pack ? ` data-tip="pack:${pack.id}"` : '';
         return `<div class="lui-row"${tip}><div class="ib">${icon}</div><div class="body"><b>${esc(name)}</b><small>${need}${coins ? ` · ${money(coins, 11)}` : ''}${labor ? ` · ${labor} Labor` : ''}</small>${sells}${desc}</div><button class="lui-btn small ${have ? 'gold' : ''}" data-act="make" data-arg="${r.id}" ${have ? '' : 'disabled'}>${pack ? 'Pack It' : 'Make'}</button></div>`;
       })
@@ -1767,6 +1838,13 @@ export class LifeUI {
       g.beginPath();
       g.arc(px, py, 10 + Math.sin(performance.now() / 200) * 2, 0, Math.PI * 2);
       g.stroke();
+      // What it is, above the ring.
+      g.font = 'bold 12px "Ruina Serif", Georgia, serif';
+      g.lineWidth = 3;
+      g.strokeStyle = 'rgba(43,26,14,0.8)';
+      g.strokeText(goal.label, px, py - 16);
+      g.fillStyle = '#ffd166';
+      g.fillText(goal.label, px, py - 16);
     }
     this.travel?.draw(g, toPx, 1.8);
     const p = this.d.sim.player;

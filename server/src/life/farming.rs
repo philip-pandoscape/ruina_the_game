@@ -388,7 +388,8 @@ pub fn fell(life: &mut Life, sc: i64, idx: usize, y: f64) -> bool {
     life.state.scarecrows[k].cells[idx] = None;
     life.revision += 1;
     life.emit(LifeEvent::Gather { x: cx, y, z: cz, kind: "timber".into() });
-    life.notify(QuestEvent { kind: Some("timber".into()), ..QuestEvent::new("gather") });
+    // Timber you grow counts for a step like "chop 10 lumber" as much as deadfall does.
+    life.notify(QuestEvent { kind: Some("timber".into()), amount: Some(n as f64), ..QuestEvent::new("gather") });
     true
 }
 
@@ -397,7 +398,7 @@ pub fn fell(life: &mut Life, sc: i64, idx: usize, y: f64) -> bool {
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
-    use crate::life::state::Stack;
+    use crate::life::state::{QuestProgress, Stack};
     use crate::open::zone::emberholm;
     use crate::open::OpenWorld;
     use crate::player::{Build, Player};
@@ -576,6 +577,23 @@ pub(crate) mod tests {
         assert_eq!(life.drain_events(), vec![got(6, "apple"), LifeEvent::Harvest { x: -209.0, y: 2.0, z: -241.0 }, got(5, "lumber"), timber(-209.0), got(7, "lumber"), timber(-207.0)]);
         assert_eq!(life.state.rng, 567901804);
         assert!(plant_at(&life, sc, 5).is_none() && plant_at(&life, sc, 6).is_none());
+    }
+
+    #[test]
+    fn a_tree_you_fell_counts_its_timber_toward_a_quest() {
+        let (mut life, mut world, mut p) = island();
+        let mut sim = Sim { player: &mut p, world: &mut world, owner: 1 };
+        let sc = add_scarecrow(&mut life, &mut sim, -208.0, -240.0, 0.0);
+        life.give("sapling.apple", 1, true);
+        assert!(plant(&mut life, sc, 5, "sapling.apple"));
+        life.state.clock += 700.0;
+        grow_for(&mut life, 700.0);
+        // Hob's lesson wants ten lumber; an apple tree gives four to six.
+        life.state.quests.active = vec![QuestProgress { id: "woodcutting".into(), step: 1, counts: vec![0.0] }];
+        assert!(fell(&mut life, sc, 5, 2.0));
+        let n = life.count("lumber");
+        assert!((4..=6).contains(&n), "{n}");
+        assert_eq!(life.state.quests.active[0].counts, [n as f64]);
     }
 
     #[test]

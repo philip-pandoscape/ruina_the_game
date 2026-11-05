@@ -2,6 +2,9 @@
 # typechecks and builds, the Rust server's tests pass, and the Playwright suite plays the game
 # against a real server and database (the battlefield and TS/Rust conformance tests included).
 # A push that passes is deployed to the Railway environment of the same name and checked live.
+# For now a push to beta skips the Playwright suite, which takes half an hour and more here without
+# a GPU: it runs on the developer's machine before every push. Pull requests, production and a
+# manual run (workflow_dispatch) still play it.
 #
 #   beta        push directly; deploys to https://ruinathegame-beta.up.railway.app
 #   production  pull requests only (branch protection); deploys to https://ruinathegame-production.up.railway.app
@@ -67,12 +70,15 @@ jobs:
             server/target/release/lifecheck
 
   # The suite plays the real game in a browser that draws in software here, so it's split across
-  # four runners (about 10 minutes instead of 40). "Game tests" below is the one check to require.
+  # four runners. They share the tests out by count, not time, so the one with the open world's
+  # long walks takes 30 to 45 minutes on a slow runner while another takes 10; it gets an hour.
+  # "Game tests" below is the one check to require.
   game:
     name: Game tests (${{ matrix.shard }}/4)
     needs: server
+    if: github.event_name != 'push' || github.ref_name != 'beta'
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
@@ -133,13 +139,22 @@ jobs:
     if: always()
     runs-on: ubuntu-latest
     steps:
+      # A push to beta doesn't play them (above); anywhere else every part has to pass.
       - name: Every part passed
-        run: test "${{ needs.game.result }}" = success
+        run: |
+          test "${{ needs.game.result }}" = success && exit 0
+          test "${{ needs.game.result }}" = skipped && test "${{ github.event_name }}" = push && test "${{ github.ref_name }}" = beta && exit 0
+          exit 1
 
   deploy:
     name: Deploy
     needs: [client, server, game-result]
-    if: github.event_name != 'pull_request' && (github.ref_name == 'beta' || github.ref_name == 'production')
+    # Says what must have passed rather than leaving it to success(), which a job skipped further up
+    # (the game tests, on a push to beta) turns false.
+    if: >-
+      !cancelled() && needs.client.result == 'success' && needs.server.result == 'success' &&
+      needs.game-result.result == 'success' && github.event_name != 'pull_request' &&
+      (github.ref_name == 'beta' || github.ref_name == 'production')
     runs-on: ubuntu-latest
     environment:
       name: ${{ github.ref_name }}

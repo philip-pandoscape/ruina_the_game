@@ -225,7 +225,8 @@ export function fell(life: Life, sc: Scarecrow, idx: number, y: number): boolean
     return false;
   }
   if (!life.afford({ labor: def.chop.labor }, 'fell a tree')) return false;
-  life.give(def.chop.item, life.randInt(def.chop.yield[0], def.chop.yield[1]));
+  const n = life.randInt(def.chop.yield[0], def.chop.yield[1]);
+  life.give(def.chop.item, n);
   const c = cellCentre(sc, idx);
   if (life.rand() < 0.06) {
     life.give('thunderLog', 1);
@@ -235,6 +236,7 @@ export function fell(life: Life, sc: Scarecrow, idx: number, y: number): boolean
   sc.cells[idx] = null;
   life.revision++;
   life.emit({ t: 'gather', x: c.x, y, z: c.z, kind: 'timber' });
-  life.notify({ type: 'gather', kind: 'timber' });
+  // Timber you grow counts for a step like "chop 10 lumber" as much as deadfall does.
+  life.notify({ type: 'gather', kind: 'timber', amount: n });
   return true;
 }

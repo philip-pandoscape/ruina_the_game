@@ -83,6 +83,8 @@ export class WorldPeers {
   onGroundChanged: (() => void) | null = null;
   /** What draws your own vehicles, for anyone riding along in one of them. */
   mineView: LifeView | null = null;
+  /** Where someone sits at a mini-game's table, if they're at one (src/render/open/gameTables.ts). */
+  stoolFor: ((id: number) => Seated | null) | null = null;
 
   constructor(
     private scene: THREE.Scene,
@@ -119,6 +121,13 @@ export class WorldPeers {
       away: +p.away.toFixed(1),
       plate: p.label.visible && p.hero.root.visible ? +(p.label.material as THREE.SpriteMaterial).opacity.toFixed(3) : 0,
     }));
+  }
+
+  /** How far the farm ground drawn for anyone here stands over the terrain within `pad` metres of (x, z) (LifeView.raisedAt). */
+  raisedAt(x: number, z: number, pad: number): number {
+    let top = 0;
+    for (const p of this.peers.values()) top = Math.max(top, p.view.raisedAt(x, z, pad));
+    return top;
   }
 
   private peer(id: number, name: string): Peer {
@@ -297,11 +306,13 @@ export class WorldPeers {
     p.life.state.packs = b.p.packs ?? [];
     p.life.state.glider = sh.glider;
 
-    // Driving, their vehicle goes under them; riding along, they sit in whoever's it is.
+    // Driving, their vehicle goes under them; riding along, they sit in whoever's it is; at a
+    // mini-game's table, on its stool.
     const host = sh.host === this.me ? this.mineView : this.peers.get(sh.host)?.view;
-    sitIn(p.hero, sh.mode === 'ride' && sh.host ? (host?.seatOf(sh.vehicle, sh.seat) ?? null) : p.view.placeRide(sh, 1, null, dt));
+    const stool = this.stoolFor?.(p.id) ?? null;
+    sitIn(p.hero, stool ?? (sh.mode === 'ride' && sh.host ? (host?.seatOf(sh.vehicle, sh.seat) ?? null) : p.view.placeRide(sh, 1, null, dt)));
     p.hero.root.visible = true;
-    p.hero.update(sh, 1, frame);
+    p.hero.update(stool ? { ...sh, mode: 'ride' } : sh, 1, frame);
   }
 }
 

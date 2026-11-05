@@ -422,6 +422,18 @@ test.describe('the island on the server matches the browser', () => {
     });
   });
 
+  test('an island saved with a stake still on a mini-game table gets it back, in both', () => {
+    // The server stopped mid-game (src/ui/minigames): the stake was out of the purse, on the table.
+    const island = islandAfter({ every: 1000, segments: [idle(5)] });
+    const purse = island.state.coins;
+    island.state.coins -= 50;
+    island.state.staked = 50;
+    const script = { island, every: 10, segments: [idle(10)] };
+    compare('stake back', script);
+    const first = runTs(script)[0].life as { coins: number; staked?: number };
+    expect([first.coins, first.staked]).toEqual([purse, undefined]);
+  });
+
   test('a house claimed and built from hauled stone', () => {
     const plot = R.housePlots[0];
     const cutter = bench('stonecutter');
@@ -445,6 +457,43 @@ test.describe('the island on the server matches the browser', () => {
       every: 30,
       segments: [...before, idle(20, [{ t: 'payTax', house: built[0].id }]), { frames: 120, a: { moveZ: -1 } }],
     });
+  });
+
+  test('stone and timber before the house: gathered, cut, bundled and handed in', () => {
+    const [quill, brenna, hob] = ['quill', 'brenna', 'hob'].map(npc);
+    const front = (n: { x: number; z: number; facing: number }) => facingFrom(n.x, n.z, 1.6, n.facing);
+    // Four swings at each: three to five a swing, so always the ten a step wants.
+    const work = (kind: string): Segment[] => R.nodes.filter((n) => n.kind === kind).slice(0, 4).map((nd) => ({ frames: 20, tp: facingFrom(nd.x, nd.z, 2, 0), cmds: [{ t: 'interact' }] }));
+    // Kept by the browser: everything before the house done.
+    const island = islandAfter({ every: 1000, segments: [idle(5)] });
+    island.state.quests = { active: [], done: ['landfall', 'patch', 'wings', 'firstFlight', 'harvest', 'packwright', 'westward'] };
+    island.state.labor = 1000;
+    island.player = { ...front(quill), y: 0 };
+    const script: Script = {
+      island,
+      every: 30,
+      segments: [
+        idle(20, [{ t: 'interact' }]),
+        idle(20, [{ t: 'accept', quest: 'stonecutting' }]),
+        { frames: 20, tp: front(brenna), cmds: [{ t: 'interact' }] },
+        ...work('stoneNode'),
+        { frames: 20, tp: facingFrom(bench('stonecutter').x, bench('stonecutter').z, 1.5, 0), cmds: [{ t: 'craft', recipe: 'pack.stoneBlock' }] },
+        idle(20, [{ t: 'drop' }]),
+        { frames: 20, tp: front(brenna), cmds: [{ t: 'complete', quest: 'stonecutting' }, { t: 'accept', quest: 'woodcutting' }] },
+        { frames: 20, tp: front(hob), cmds: [{ t: 'interact' }] },
+        ...work('timberNode'),
+        { frames: 20, tp: facingFrom(bench('sawhorse').x, bench('sawhorse').z, 1.5, 0), cmds: [{ t: 'craft', recipe: 'pack.lumberBundle' }] },
+        { frames: 20, tp: front(quill), cmds: [{ t: 'complete', quest: 'woodcutting' }, { t: 'accept', quest: 'home' }] },
+        idle(30),
+      ],
+    };
+    type State = { seals: number; packs: Array<{ def: string; at: string }>; quests: { active: Array<{ id: string }>; done: string[] } };
+    const end = runTs(script).at(-1)!.life as unknown as State;
+    expect(end.quests.done, 'both lessons handed in').toEqual(expect.arrayContaining(['stonecutting', 'woodcutting']));
+    expect(end.quests.active.map((q) => q.id), 'and the house taken').toContain('home');
+    expect(end.packs.map((p) => `${p.def}@${p.at}`).sort()).toEqual(['lumberBundle@back', 'stoneBlock@ground']);
+    expect(end.seals).toBe(island.state.seals + 1);
+    compare('stone and timber', script);
   });
 
   test('a skill levelled by use, and a milestone that finishes itself', () => {

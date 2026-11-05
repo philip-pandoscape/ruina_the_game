@@ -1,7 +1,11 @@
 import { expect, test, type Page } from '@playwright/test';
+import { SAVE_KEY } from '../src/app/save';
+import { Life } from '../src/sim/life/life';
 import { sailEfficiency } from '../src/sim/life/vehicles';
+import { generateZone } from '../src/sim/zone/generate';
+import { EMBERHOLM } from '../src/sim/zone/world';
 import { skillsFrom } from '../src/skills';
-import { COMBAT, emptyMovement, HOTBAR_SLOTS, NO_ABILITY } from '../src/tuning';
+import { COMBAT, emptyMovement, HOTBAR_SLOTS, NO_ABILITY, SLIDE_SKILL } from '../src/tuning';
 
 // The open world (Emberholm): terrain, swimming, gliding, farming, pack running, vehicles, mounts,
 // housing, quests and saving. Like the other specs these drive the real game through
@@ -195,7 +199,7 @@ test('glider: jump, jump, jump again off the Windspire and glide most of the way
   expect(l.stats.glideSeconds).toBeGreaterThan(30);
 });
 
-test('glider: rising air at the foot of the Windspire lifts you; a trade pack keeps it shut', async ({ page }) => {
+test('glider: rising air at the foot of the Windspire lifts you; C flares it and lands you crouched; a trade pack keeps it shut', async ({ page }) => {
   await open(page);
   const w = g(page);
   await grant(page, [['glider.wayfarer', 1], ['sunroot', 6], ['barley', 4]]);
@@ -222,6 +226,38 @@ test('glider: rising air at the foot of the Windspire lifts you; a trade pack ke
   }
   console.log('updraft climb', (top - y0).toFixed(1));
   expect(top).toBeGreaterThan(y0 + 3);
+
+  // Out on open grass, C itself flares the wing, and pressed in the air it leaves no slide waiting
+  // for the landing: you come down crouched.
+  await w.teleport(-150, -222, 0);
+  await w.advance(2);
+  await w.advance(1, { jumpPressed: true, jumpHeld: true });
+  await w.advance(12, { jumpHeld: true });
+  await w.advance(1, { jumpPressed: true, jumpHeld: true });
+  await w.advance(16, { jumpHeld: true });
+  await w.advance(1, { jumpPressed: true, jumpHeld: true });
+  await w.advance(30);
+  p = await w.player();
+  expect(p.mode).toBe('glide');
+  // Still picking up speed toward its cruise; flaring, it sheds it instead.
+  const opened = p.airspeed;
+  const live = (n: number, drawn = true) => page.evaluate(([k, d]) => (window as any).__game.advanceLive(k, d), [n, drawn] as const);
+  const slides = () => page.evaluate((id) => (window as any).__game.events().filter((e: any) => e.type === 'action' && e.id === id).length, SLIDE_SKILL);
+  const before = await slides();
+  await page.keyboard.down('KeyC');
+  await live(45, false);
+  p = await w.player();
+  expect(p.mode).toBe('glide');
+  expect(p.airspeed).toBeLessThan(opened - 1);
+  // Down to the ground in the page, drawn once there.
+  await page.evaluate(() => {
+    const game = (window as any).__game;
+    for (let i = 0; i < 20 && !game.state().player.grounded; i++) game.advanceLive(30, false);
+  });
+  await live(6);
+  p = await w.player();
+  expect([p.mode, p.grounded, p.crouching, (await slides()) - before]).toEqual(['normal', true, true, 0]);
+  await page.keyboard.up('KeyC');
 
   // With a pack on your back the glider will not open.
   const wb = z.workbenches[0];
@@ -290,6 +326,80 @@ test('farming: a scarecrow plot, planting, watering, growing and harvesting', as
   expect(l.bag.find((s: { item: string }) => s.item === 'sunroot')?.n).toBeGreaterThanOrEqual(3);
   expect(l.labor).toBeLessThan(before);
   expect(l.scarecrows[0].cells[0]).toBeNull();
+});
+
+test('farming: ground circles and the shadow under you lie on top of a plot, its furrows and its edges, turned on a slope', async ({ page }) => {
+  const errors = await open(page);
+  const w = g(page);
+  await grant(page, [['scarecrow', 1]]);
+  // A plot turned 30 degrees, on ground that rises well over a metre across it.
+  await w.teleport(-150, -300, Math.PI / 6);
+  await w.cmd({ t: 'use', item: 'scarecrow' });
+  await w.advance(2);
+  await w.cmd({ t: 'interact' });
+  await w.advance(2);
+  const sc = (await w.life()).scarecrows[0];
+  expect(sc.rot).toBeCloseTo(Math.PI / 6);
+  const at = (lx: number, lz: number) => ({ x: sc.x + lx * Math.cos(sc.rot) + lz * Math.sin(sc.rot), z: sc.z - lx * Math.sin(sc.rot) + lz * Math.cos(sc.rot) });
+  // A Meteor aimed at the plot's near corner: its warning lies over soil, furrow ends and grass.
+  const meteor = 1;
+  const mage = { skills: skillsFrom('staff', 'meteor'), weapon: 2, abilities: [meteor, ...new Array(HOTBAR_SLOTS - 1).fill(NO_ABILITY)], movement: emptyMovement() };
+  expect(await page.evaluate((b) => (window as any).__game.setBuild(b), mage)).toBe(true);
+  const corner = at(4, -4);
+  const p = await w.player();
+  await page.evaluate(([dx, dz]) => (window as any).__game.advance(1, { abilitySlot: 1, aimX: dx, aimZ: dz }), [corner.x - p.pos.x, corner.z - p.pos.z] as const);
+  await w.advance(20);
+  expect((await w.player()).mode).toBe('cast');
+  const seen = await page.evaluate(
+    ([cx, cz, r]) => {
+      const g = (window as any).__game;
+      g.render();
+      const out = { samples: 0, soil: 0, furrow: 0, grass: 0, missing: 0, under: [] as string[] };
+      for (let x = cx - r; x <= cx + r; x += 0.1) {
+        for (let z = cz - r; z <= cz + r; z += 0.1) {
+          if (Math.hypot(x - cx, z - cz) > r * 0.92) continue;
+          out.samples++;
+          const circle = g.circleHeight(x, z);
+          const farm = g.farmGround(x, z);
+          const ground = g.ground(x, z);
+          if (circle === null) {
+            out.missing++;
+            continue;
+          }
+          if (farm === null) out.grass++;
+          else if (farm - ground > 0.08) out.furrow++;
+          else out.soil++;
+          const top = Math.max(ground, farm ?? -Infinity);
+          if (circle < top + 0.005) out.under.push(`(${x.toFixed(1)}, ${z.toFixed(1)}): circle ${circle.toFixed(3)}, ground drawn at ${top.toFixed(3)}`);
+        }
+      }
+      return out;
+    },
+    [corner.x, corner.z, 3.5] as const,
+  );
+  console.log('circle over the plot', { ...seen, under: seen.under.length });
+  expect(seen.missing, 'the warning is drawn all the way across').toBe(0);
+  expect(seen.soil).toBeGreaterThan(100);
+  expect(seen.furrow).toBeGreaterThan(20);
+  expect(seen.grass).toBeGreaterThan(100);
+  expect(seen.under.slice(0, 5)).toEqual([]);
+  await page.evaluate(() => (window as any).__game.setCamera({ yaw: Math.PI / 6 + 0.5, pitch: 0.75, distance: 11 }));
+  await w.advance(1);
+  await page.screenshot({ path: `${SHOTS}/world-05-farm-warning.png` });
+  await w.advance(90);
+
+  // Standing on a furrow, the shadow under you lies on it rather than under the soil.
+  const row = at(-1, -1);
+  await w.teleport(row.x, row.z, 0);
+  await w.advance(2);
+  const shadow = await page.evaluate(() => {
+    const g = (window as any).__game;
+    const q = g.state().player.pos;
+    return { shadow: g.shadowHeight(), farm: g.farmGround(q.x, q.z), ground: g.ground(q.x, q.z) };
+  });
+  expect(shadow.farm! - shadow.ground).toBeGreaterThan(0.08);
+  expect(shadow.shadow).toBeGreaterThan(shadow.farm!);
+  expect(errors).toEqual([]);
 });
 
 test('pack running: craft a pack, carry it slowly, sell it, and watch demand fall and recover', async ({ page }) => {
@@ -593,6 +703,140 @@ test('quests: the starter chain advances from what you do', async ({ page }) => 
   l = await w.life();
   const q = l.quests.active.find((x: { id: string }) => x.id === 'patch');
   expect(q.step).toBe(1);
+});
+
+test('stone and timber: before the house, the quests lead you to the outcrops, the deadfall and the benches', async ({ page }) => {
+  // An island that has done everything before the house, kept in this browser for ?load.
+  const quill = EMBERHOLM.npcs.find((n) => n.id === 'quill')!;
+  const state = JSON.parse(JSON.stringify(new Life({ recipe: EMBERHOLM, gen: generateZone(EMBERHOLM) }).state));
+  state.quests = { active: [], done: ['landfall', 'patch', 'wings', 'firstFlight', 'harvest', 'packwright', 'westward'] };
+  state.labor = 1000;
+  const saved = { savedAt: Date.now(), state, player: { x: quill.x - 1.6, y: 0, z: quill.z, facing: Math.PI / 2 } };
+  await page.addInitScript(([k, v]) => localStorage.setItem(k, v), [SAVE_KEY, JSON.stringify(saved)] as const);
+  const errors = await open(page, '&load');
+  const w = g(page);
+  const z = await w.zone();
+  // Moving about without drawing (CI draws in software): only the end is drawn.
+  const quiet = (frames: number) => page.evaluate((n) => (window as any).__game.advance(n, {}, false), frames);
+  const goTo = async (x: number, zz: number, facing: number) => {
+    await page.evaluate(([a, b, c]) => (window as any).__game.teleport(a, b, c, false), [x, zz, facing] as const);
+    await quiet(2);
+  };
+  const toNpc = (id: string) => {
+    const n = z.npcs.find((x: { id: string }) => x.id === id);
+    return goTo(n.x + Math.sin(n.facing) * 1.6, n.z + Math.cos(n.facing) * 1.6, n.facing + Math.PI);
+  };
+  const press = async () => {
+    await w.cmd({ t: 'interact' });
+    await quiet(2);
+  };
+  const close = () => page.evaluate(() => (window as any).__game.closeLifePanel());
+  const goal = () => page.evaluate(() => (window as any).__game.questGoal());
+  const progress = async (id: string) => (await w.life()).quests.active.find((q: { id: string }) => q.id === id);
+  const count = async (item: string) => ((await w.life()).bag as Array<{ item: string; n: number }>).filter((s) => s.item === item).reduce((n, s) => n + s.n, 0);
+  const card = page.locator('.lui-card');
+
+  // Quill won't grant land before you know what a house is made of.
+  await toNpc('quill');
+  await press();
+  await expect(card.locator('[data-act="quest"][data-arg="home"]')).toHaveCount(0);
+  await card.locator('[data-act="quest"][data-arg="stonecutting"]').click();
+  await expect(card).toContainText('you quarry the stone and cut the blocks yourself');
+  await card.locator('[data-act="accept"]').click();
+  await quiet(1);
+  await close();
+  expect((await goal()).label).toBe('Brenna Stoneheart');
+
+  // Brenna at the quarry, then the nearest outcrop: each swing counts the stone it gives.
+  await toNpc('brenna');
+  await press();
+  await close();
+  expect((await goal()).label).toBe('Stone Outcrop');
+  for (const nd of z.nodes.filter((n: { kind: string }) => n.kind === 'stoneNode')) {
+    if ((await progress('stonecutting')).step > 1) break;
+    await goTo(nd.x, nd.z + 2, Math.PI);
+    const f = (await w.life()).focus;
+    expect([f.label, f.detail]).toEqual(['Quarry Stone', '8 Labor · 3-5 Stone']);
+    await press();
+    const q = await progress('stonecutting');
+    if (q.step === 1) expect(q.counts[0]).toBe(await count('stone'));
+  }
+  expect((await progress('stonecutting')).step).toBe(2);
+  // The table says what it makes; its window says where stone comes from when you're short.
+  expect((await goal()).label).toBe("Stonecutter's Table");
+  const cutter = z.workbenches.find((b: { id: string }) => b.id === 'stonecutter');
+  await goTo(cutter.x, cutter.z + 1.5, Math.PI);
+  expect((await w.life()).focus.detail).toBe('Stone Block · Iron Fittings Crate');
+  await press();
+  await expect(card).toContainText("Six make an Iron Fittings Crate at the Stonecutter's Table");
+  await card.locator('[data-act="make"][data-arg="pack.stoneBlock"]').click();
+  await quiet(2);
+  // Packing it closes the window (a moment later).
+  await expect.poll(() => page.evaluate(() => (window as any).__game.lifePanel())).toBeNull();
+  expect((await progress('stonecutting')).step).toBe(3);
+  expect((await goal()).label).toBe('Brenna Stoneheart');
+
+  // Set the block down by the table and hand it in: Brenna sends you on to Hob.
+  await w.cmd({ t: 'drop' });
+  await quiet(2);
+  await toNpc('brenna');
+  await press();
+  await card.locator('[data-act="quest"][data-arg="stonecutting"]').click();
+  await card.locator('[data-act="complete"]').click();
+  await quiet(2);
+  await page.evaluate(() => (window as any).__game.render());
+  await card.locator('[data-act="quest"][data-arg="woodcutting"]').click();
+  await card.locator('[data-act="accept"]').click();
+  await quiet(1);
+  await close();
+  expect((await w.life()).quests.done).toContain('stonecutting');
+  expect((await goal()).label).toBe('Hob Ashgrove');
+
+  // Hob's camp: the deadfall, then his sawhorse.
+  await toNpc('hob');
+  await press();
+  await close();
+  expect((await goal()).label).toBe('Deadfall Timber');
+  for (const nd of z.nodes.filter((n: { kind: string }) => n.kind === 'timberNode')) {
+    if ((await progress('woodcutting')).step > 1) break;
+    await goTo(nd.x, nd.z + 2, Math.PI);
+    expect((await w.life()).focus.label).toBe('Chop Timber');
+    await press();
+  }
+  expect((await goal()).label).toBe("Hob's Sawhorse");
+  const saw = z.workbenches.find((b: { id: string }) => b.id === 'sawhorse');
+  await goTo(saw.x, saw.z + 1.5, Math.PI);
+  expect((await w.life()).focus.detail).toBe('Lumber Bundle');
+  await w.cmd({ t: 'craft', recipe: 'pack.lumberBundle' });
+  await quiet(2);
+  expect((await goal()).label).toBe('Registrar Quill');
+
+  // Quill takes it, with a seal toward the blueprint, and only now offers the house.
+  const seals = (await w.life()).seals;
+  await toNpc('quill');
+  await w.cmd({ t: 'complete', quest: 'woodcutting' });
+  await w.cmd({ t: 'accept', quest: 'home' });
+  await quiet(2);
+  expect((await w.life()).seals).toBe(seals + 1);
+  expect((await progress('home')).step).toBe(0);
+  // No blueprint yet: the marker stays on whoever sells them; with one, Hearthside Rise.
+  expect((await goal()).label).toBe('Registrar Quill');
+  await w.cmd({ t: 'grant', item: 'blueprint.cottage', n: 1 });
+  await quiet(1);
+  expect((await goal()).label).toBe('Hearthside Rise');
+  const plot = z.housePlots[0];
+  await goTo(plot.x, plot.z + 5, plot.rot + Math.PI);
+  await press();
+  // The foundation wants stone: the site says where it's cut, and the marker goes to the block you left.
+  const l = await w.life();
+  expect([l.focus.label, l.focus.detail]).toEqual(['Foundation Needs', 'Stone Block 0/2 (Stonebreak Quarry)']);
+  const block = l.packs.find((p: { def: string }) => p.def === 'stoneBlock');
+  expect(await goal()).toEqual({ x: block.x, z: block.z, label: 'Stone Block' });
+  await page.evaluate(() => (window as any).__game.pressLife('map'));
+  await page.evaluate(() => (window as any).__game.render());
+  await expect(page.locator('#lui-quests')).toContainText('Build all four stages with packs from Stonebreak Quarry and Thornwood');
+  await page.screenshot({ path: `${SHOTS}/world-13-building-lessons.png` });
+  expect(errors).toEqual([]);
 });
 
 test('quest log: take a quest off the tracker and back, and give one up', async ({ page }) => {

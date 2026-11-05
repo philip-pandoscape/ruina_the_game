@@ -6,7 +6,7 @@ import { BAG_SLOTS, itemDef } from '../../content/items';
 import { LABOR } from '../../content/trade';
 import { FARM } from '../../content/farming';
 import { migrateLifeState, newLifeState, type LifeState, type Stack, type Vehicle } from './state';
-import { stepWeather, stepWind } from './weather';
+import { stepWeather } from './weather';
 import { stepFarms } from './farming';
 import { stepBuyback, stepTrade } from './trade';
 import { stepVehicles, rideVehicle } from './vehicles';
@@ -67,6 +67,17 @@ export interface OthersVehicle {
   name: string;
   vehicle: Vehicle;
   taken: number[];
+}
+
+/** Another player near you, whom the prompt can offer to challenge to a mini-game (src/ui/minigames). */
+export interface OtherPlayer {
+  id: number;
+  name: string;
+  x: number;
+  y: number;
+  z: number;
+  /** Why they can't be challenged right now ('Riding', 'At a Table'...), or null. */
+  busy: string | null;
 }
 
 export interface LifeOptions {
@@ -188,7 +199,9 @@ export class Life implements LifeHooks {
     if (this.remote) {
       s.clock += STEP;
       this.regenLabor(STEP, this.resting);
-      stepWind(this);
+      // The rain and the wind from the world's clock, as the server works them out: kept by the
+      // server's last word instead, the rain ran early by however far this browser is ahead of it.
+      stepWeather(this, STEP, false);
       stepVehicles(this, sim, a);
       this.focus = findFocus(this, sim);
       return;
@@ -225,6 +238,12 @@ export class Life implements LifeHooks {
    * prompt can offer to ride along (src/net/worldPeers.ts; null offline, where nobody else is).
    */
   othersVehicles: (() => OthersVehicle[]) | null = null;
+
+  /**
+   * Online: everyone else in your channel, for the prompt to offer a mini-game challenge
+   * (src/ui/minigames; null offline, where there's nobody to play).
+   */
+  othersAround: (() => OtherPlayer[]) | null = null;
 
   /**
    * Online: the world's clock (the server's, in seconds since 1970), which the rain and the wind run

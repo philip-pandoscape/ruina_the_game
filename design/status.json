@@ -1071,6 +1071,100 @@
         "src/render/look.ts",
         "tests/look.spec.ts"
       ]
+    },
+    {
+      "system": "look",
+      "status": "done",
+      "title": "Jelly slimes",
+      "notes": "In the new look slimes are glossy jelly gumdrops (src/species/jelly.ts): a see-through shell, bright at the rim, with a window gloss and a glint of the sun, what each kind carries showing inside, a soft pool of shadow that shrinks as it hops, and a face whose mood follows what it is doing (winding up, dazed, dying). They play the same clips as the box slimes, so the crowd, the rules and the server never see the difference; ?look=classic keeps the boxes.",
+      "files": [
+        "src/species/jelly.ts",
+        "src/render/actors.ts"
+      ]
+    },
+    {
+      "system": "look",
+      "status": "done",
+      "title": "The hero as a made body",
+      "notes": "In the new look the hero is a made model (painted turnaround from Gemini, made and rigged by Meshy, src/render/assets/models/hero.glb) worn on the hero rig: fit.ts measures the rig off the model's skeleton, keeps a joint for each of its spine's bones, collarbones and toes, moves the skin onto our joints, adds a palm and two finger joints to each hand and closes them round what they hold (the grip in front of the palm, not through the hand). It walks and runs as people do: strides, time on the ground and the swinging foot's path measured off Meshy's captured walk and run (gait.ts MADE_STRIDE), its chest, head and free arms swinging as captured (mocap.ts). The rules are unchanged: walk 3.2 m/s is a jog for a body this size.",
+      "files": [
+        "src/render/detail/fit.ts",
+        "src/render/detail/madeHero.ts",
+        "src/render/detail/mocap.ts",
+        "src/render/detail/gait.ts",
+        "src/render/character.ts"
+      ]
+    },
+    {
+      "system": "look",
+      "status": "done",
+      "title": "Made weapons",
+      "notes": "A sword, club, staff and bow made with Meshy (Poly Haven's free estoc and mace were compared in the game first and read as a rapier and a mace) held where the box hero's were, as long, so swings, trails and reach are unchanged (madeWeapons.ts). Steel and gold give back the hemisphere light's sky and ground colours, so they dim at night; the staff's orb glows; the bow's string is the game's own, drawn back to the hand. Put away, a made body carries the sword and club at the hip and the staff and bow across the back (stow.ts MADE_STOWED). tools/models/weaponprep.mjs paints a metal-roughness map from Meshy's colour-only textures.",
+      "files": [
+        "src/render/detail/madeWeapons.ts",
+        "src/render/detail/stow.ts",
+        "tools/models/weaponprep.mjs"
+      ]
+    },
+    {
+      "system": "look",
+      "status": "done",
+      "title": "Moves from animation libraries",
+      "notes": "Any of the hero's moves can be its own keyframes or a clip from an animation library, retargeted onto it bone for bone (retarget.ts): each joint's rest lined up with its source bone's, every turn copied, the body following the source's hip joints sized by leg length, the clip's own travel taken off so the rules carry the body and the feet it plants are held. Bone tables for Meshy, Quaternius and Mixamo. moves.ts picks per weapon: the sword plays Quaternius' sword combo and the club its heavy combo (CC0); Meshy's Triple Combo Attack, split at its three strikes, is the other sword set (?swordMoves=keyed|meshy|quaternius). A strike lands on the rules' first active frame at up to 1.5x the clip's pace. /retarget.html shows a clip on the hero beside its source, and tests/retarget.spec.ts holds every move's clip to within a degree of it; the retarget-animation skill (.claude/skills) says how to bring in another.",
+      "files": [
+        "src/render/detail/retarget.ts",
+        "src/render/detail/moves.ts",
+        "src/render/detail/retargetView.ts",
+        "tests/retarget.spec.ts",
+        "tools/models/clips.mjs",
+        ".claude/skills/retarget-animation/SKILL.md"
+      ]
+    },
+    {
+      "system": "economy",
+      "status": "done",
+      "title": "Mini-games at a table, for a stake",
+      "notes": "Walk up to another player on foot and F offers \"Challenge <name>\": pick the game and the stake (No Stake, or what you can afford), they have 30 s to accept. Accepted, both stakes go into the pot and a round table with two stools is thrown down between you for the whole channel to see (pegs on its board for the lit beacons); you sit at it until the game is over, Escape or Concede gives it up. The winner takes the pot, a draw or a game the server calls off returns each stake, 30 s away forfeits. The server runs it all (world_game/tables.rs, minigames/): a stake sits in the island's `staked` until the game ends, a pot only ever moves between the two islands at the table and both are written in one transaction, an island loaded while no game holds its stake gets it back (a crash or a deploy mid-game loses nothing), and every island write goes through one ordered queue. WORLD_PROTOCOL 6.",
+      "files": [
+        "server/src/world_game/tables.rs",
+        "server/src/minigames/mod.rs",
+        "src/ui/minigames/minigames.ts",
+        "src/render/open/gameTables.ts",
+        "shared/minigames.json",
+        "tests/minigames.spec.ts"
+      ]
+    },
+    {
+      "system": "economy",
+      "status": "done",
+      "title": "Beacons, the first mini-game",
+      "notes": "A card-and-board game made for Ruina (the user asked for Sequence; we don't recreate existing games, so this is an original one in the same genre). 37 hexes in a hexagon, six island goods on six hexes each and never beside themselves, the Old Beacon in the middle; 48 cards. Play a card to light an unlit hex of its good, two of a kind to light any hex (the Old Beacon too), or swap a card; then draw back to four from the face-up Harbour or the deck. Four of yours in a straight row wins. 40 s a turn (the server plays for you when it runs out; three in a row forfeits).",
+      "files": [
+        "server/src/minigames/beacons.rs",
+        "src/ui/minigames/beacons.ts"
+      ]
+    },
+    {
+      "system": "quests",
+      "status": "done",
+      "title": "Stone and timber before the house",
+      "notes": "Two lessons before \"A Place to Call Home\": Quill sends you to Brenna at Stonebreak Quarry to quarry stone from the outcrops and cut a Stone Block at the Stonecutter's Table, and she sends you to Hob in Thornwood to chop deadfall and tie a Lumber Bundle at his sawhorse. A gather step counts what a swing gives, not the swings (both rules). The quest marker leads to the nearest ready outcrop or deadfall, the bench that makes a pack, or the site when you carry what it needs; build sites say where each pack they want is made.",
+      "files": [
+        "shared/quests.json",
+        "src/sim/life/quests.ts",
+        "server/src/life/quests.rs",
+        "src/ui/life/lifeUI.ts"
+      ]
+    },
+    {
+      "system": "ui",
+      "status": "done",
+      "title": "Your portrait from a studio",
+      "notes": "Your face by the health bar and your picture in the character window come from a scene of their own (src/render/studio.ts): you standing at ease, weapon put away, under fixed lights, in the look's own colours; taken again only when your weapon, team or character (or the hero model) changes, not every few seconds from the world. NPC portraits are still taken from the world.",
+      "files": [
+        "src/render/studio.ts",
+        "src/render/portrait.ts"
+      ]
     }
   ],
   "next": [
@@ -1082,7 +1176,8 @@
     "After the beta playtest: appearance for characters (they differ only by weapon); steps or a ramp for the western pier, now that a deck too high to step onto is a wall; stamina for sprinting, if wanted; other players' hits sparking on monsters, not only flashing.",
     "Riding along, next: walking a moving ship's deck; the owner seeing (and turning out) who rides with them; vehicles bumping into each other, not only into people.",
     "Travel by road, next: sea lanes for boats; a key to clear the map marker; check the six-metre hauler across the town square.",
-    "The look, next: made models for the vehicles' hulls and the trade packs (their seats, oars, rigging, straps and sealed hulls need fitting by hand); the player's cottage as a made model at each build stage; bushes and hedges along the fields; surf around the crags; a graphics setting in the Settings window instead of the automatic guess."
+    "The look, next: made models for the vehicles' hulls and the trade packs (their seats, oars, rigging, straps and sealed hulls need fitting by hand); the player's cottage as a made model at each build stage; bushes and hedges along the fields; surf around the crags; a graphics setting in the Settings window instead of the automatic guess; the townsfolk as made bodies, playing the same clips; choosing a look in Create Character (skin, hair, outfit dyes); more moves from clips (a block, the roll, hits and a death from Quaternius' free set; the bow, the staff and the whirlwind from Meshy).",
+    "Mini-games, next: more games at the same tables (the Rules trait in server/src/minigames takes any turn-based game for two); a controller in the game window; onlookers opening the board to watch; the table solid and monsters leaving players at a table alone; the challenge prompt winning over a nearby plot or townsperson when you face a player."
   ],
   "questions": [
     {
@@ -1290,6 +1385,34 @@
         "Trees at full size with two levels of detail and blossoms by the square; crags on the cliffs; boulders; isles on the horizon; painted clouds; a hazy world tree; lit windows at night; the cog under a cream and blue sail.",
         "Built things in vertex colours get wood, stone or plaster grain; creatures keep their colours.",
         "Tests: tests/look.spec.ts draws the same places in both looks (and from the air), times both at 1080p, and the new look at medium quality; species.spec.ts counts both looks' draws."
+      ]
+    },
+    {
+      "date": "2026-11-05",
+      "title": "The third beta playtest",
+      "summary": "Nine things found playing the deployed beta. Fixed: the strobing shore foam, ground circles under farm soil, the browser asking to leave (Ctrl was crouch, so crouch-walking pressed Ctrl+W), the planned-points badge, a portrait that changed with everything you did, and no way to learn where stone and timber come from. New: mini-games with a stake, Beacons first. The two animation items (the run, the jumping overhead slash) are left to the session reworking the animations.",
+      "points": [
+        "Shore foam: the sea was one 9 km square, two triangles, and the world position the GPU worked out across them was off by metres and jumped as the camera turned, so the foam round a lagoon strobed thick and thin (worst in the new look, where the user saw it). Drawn in 50 m tiles it holds still; lines thinner than a pixel fade instead of popping (fwidth). tests/sea.spec.ts.",
+        "Ground circles: farm soil is laid 5 cm over the ground and its furrows higher, so the aim circle vanished over a plot. Every plot records how high its soil and furrows stand, and circles, effect rings and the shadow under you are lifted over it, edges and all; furrows now follow the ground.",
+        "Leaving the site: Ctrl was crouch and the glider's flare, so crouch-walking pressed Ctrl+W, which no page can stop; the game asked before leaving. Crouch and flare are on C now (a press on the run slides, K still slides), Ctrl means nothing in the game and the browser's shortcuts are its own again.",
+        "Skill tree: the planned points badge stands as tall as Learn and Undo, at any UI size.",
+        "Portrait: taken from a studio of its own (src/render/studio.ts) rather than every 4 s from the world, so running, fighting, the night and the rain no longer change it.",
+        "Stone and timber: the nodes and benches were there, but nothing taught them. Two quest lessons (Brenna at the quarry, Hob in Thornwood) come before the house; gather steps count what a swing gives; the marker and the site prompt say where packs are made.",
+        "Mini-games: challenge a player with F, a stake for both, a table in the world for everyone to see, the server running the game and the money (a stake kept in the island until the game ends, both islands written together, refunds on a crash or an update). Beacons is an original hex-board card game, not Sequence: Ruina doesn't recreate existing games.",
+        "Found on the way: online the browser kept the rain the server last reported but ran its own island clock ahead with every input it predicted, so under load a shower came early on the page (the shared-weather test caught it, two minutes out). The browser now works the rain out from the world clock each step, using the same schedule as the server; the server still announces when a shower starts. The online specs also close the windows they open, so the games of earlier tests stop weighing on later ones.",
+        "Animation: the run and the jumping overhead slash were started in a track of their own, then dropped unmerged at the user's word: another session owns the animations."
+      ]
+    },
+    {
+      "date": "2026-11-05",
+      "title": "Characters, weapons and moves for the new look",
+      "summary": "The new look's people and creatures after its places: jelly slimes, the hero as a made body that walks and runs as people do, made weapons, and moves played from animation libraries, retargeted bone for bone and checked against their sources. Free assets first: AGENTS.md says to look for a free model, texture or clip before making one.",
+      "points": [
+        "Slimes: glossy jelly gumdrops with a pool shadow and a face that changes with mood (src/species/jelly.ts).",
+        "Hero: a Meshy model on the hero rig (fit.ts), fingers that close round the grip, a gait measured off captured walking and running.",
+        "Weapons: Meshy's sword, club, staff and bow where the box ones were, shining with the sky's light, carried at the hip and across the back.",
+        "Moves: Quaternius' sword combo and heavy combo on the sword and club, Meshy's Triple Combo Attack as the sword's other set; retarget.ts, moves.ts, /retarget.html, tests/retarget.spec.ts, the retarget-animation skill.",
+        "Tools: npm run image (Gemini), tools/models/weaponprep.mjs, tools/models/clips.mjs."
       ]
     }
   ]
