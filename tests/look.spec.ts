@@ -111,6 +111,19 @@ test.describe('at 1920 x 1080', () => {
   });
 });
 
+test('the new look at medium quality (integrated graphics): no occlusion, nearer shadows @gpu', async ({ page }) => {
+  const errors = await open(page, 'new', '&quality=medium');
+  for (const s of SCENES.filter((x) => x.id === 'square-morning' || x.id === 'fields-noon')) {
+    await setHour(page, s.hour);
+    await page.evaluate(([x, z, f]) => (window as any).__game.teleport(x, z, f), [s.x, s.z, s.facing] as const);
+    await page.evaluate((c) => (window as any).__game.setCamera(c), s.camera);
+    await page.evaluate(() => (window as any).__game.advance(40));
+    await page.waitForFunction(() => (window as any).__game.assetsReady === true, null, { timeout: 60_000 });
+    await page.screenshot({ path: `${SHOTS}/look-${s.id}-medium.png` });
+  }
+  expect(errors).toEqual([]);
+});
+
 test('the new look: its ambient occlusion on its own, by the market stalls @gpu', async ({ page }) => {
   const errors = await open(page, 'new', '&lookdebug=ao');
   const s = SCENES.find((x) => x.id === 'stalls-closeup')!;

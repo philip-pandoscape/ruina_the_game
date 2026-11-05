@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { FullScreenQuad } from 'three/addons/postprocessing/Pass.js';
-import { LOOK_DEBUG_AO, POST } from '../look';
+import { LOOK_DEBUG_AO, POST, QUALITY } from '../look';
 
 // The new look's screen effects (?look=new, src/render/look.ts). Each frame:
 //   1. the scene is drawn into a multisampled, high-range buffer that keeps its depth;
@@ -122,6 +122,17 @@ const finishFragment = /* glsl */ `
   }
 `;
 
+let whiteTexture: THREE.DataTexture | null = null;
+
+/** One white texel: no occlusion anywhere. */
+function white(): THREE.DataTexture {
+  if (!whiteTexture) {
+    whiteTexture = new THREE.DataTexture(new Uint8Array([255, 255, 255, 255]), 1, 1);
+    whiteTexture.needsUpdate = true;
+  }
+  return whiteTexture;
+}
+
 export interface Atmosphere {
   /** The haze colour (the horizon's), the sun's colour and where it is, all for the hour. */
   fog: THREE.Color;
@@ -228,16 +239,20 @@ export class WorldPost {
     this.litTarget = new THREE.WebGLRenderTarget(w, h, { type: THREE.HalfFloatType, depthBuffer: false });
     // Occlusion is soft and slow-changing, so it is worked out at half size (a quarter of the cost)
     // from the full-size depth, and smoothed back up where it is laid on.
-    this.ao = new GTAOPass(this.scene, camera, Math.ceil(w / 2), Math.ceil(h / 2), { depthTexture: depth });
-    this.ao.output = GTAOPass.OUTPUT.Off;
-    this.ao.updateGtaoMaterial({ radius: POST.ao.radius, distanceExponent: 2, thickness: 2, scale: POST.ao.darken, samples: 16, screenSpaceRadius: false });
-    this.ao.updatePdMaterial({ radius: 4, rings: 2, samples: 16 });
+    // At medium quality there is no occlusion pass at all: the haze pass reads plain white instead.
+    this.ao = QUALITY === 'high' ? new GTAOPass(this.scene, camera, Math.ceil(w / 2), Math.ceil(h / 2), { depthTexture: depth }) : null;
+    if (this.ao) {
+      this.ao.output = GTAOPass.OUTPUT.Off;
+      this.ao.updateGtaoMaterial({ radius: POST.ao.radius, distanceExponent: 2, thickness: 2, scale: POST.ao.darken, samples: 16, screenSpaceRadius: false });
+      this.ao.updatePdMaterial({ radius: 4, rings: 2, samples: 16 });
+    }
     const b = POST.bloom;
     this.bloom = new UnrealBloomPass(new THREE.Vector2(w, h), b.strength, b.radius, b.threshold);
     const u = this.atmosphereMat.uniforms;
     u.tColor.value = this.sceneTarget.texture;
     u.tDepth.value = this.sceneTarget.depthTexture;
-    u.tAO.value = this.ao.pdRenderTarget.texture;
+    u.tAO.value = this.ao ? this.ao.pdRenderTarget.texture : white();
+    u.uAO.value = this.ao ? POST.ao.strength : 0;
     this.finishMat.uniforms.tColor.value = this.litTarget.texture;
   }
 
@@ -251,7 +266,7 @@ export class WorldPost {
     r.info.reset();
     r.setRenderTarget(sceneTarget);
     r.render(this.scene, camera);
-    this.ao!.render(r, null as unknown as THREE.WebGLRenderTarget, sceneTarget, 0, false);
+    this.ao?.render(r, null as unknown as THREE.WebGLRenderTarget, sceneTarget, 0, false);
 
     const u = this.atmosphereMat.uniforms;
     (u.uProjInv.value as THREE.Matrix4).copy(camera.projectionMatrixInverse);

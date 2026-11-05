@@ -11,23 +11,35 @@ import { SURFACE } from '../sim/terrain';
 export type LookName = 'classic' | 'new';
 
 const params = typeof location === 'undefined' ? null : new URLSearchParams(location.search);
-/** True when WebGL is drawn on the CPU (SwiftShader, llvmpipe): no graphics card to carry the new look. */
-function softwareGl(): boolean {
-  if (typeof document === 'undefined') return false;
+/** The graphics chip's name as WebGL reports it ('' outside a browser or when it won't say). */
+function gpuName(): string {
+  if (typeof document === 'undefined') return '';
   try {
     const gl = document.createElement('canvas').getContext('webgl2');
-    if (!gl) return true;
+    if (!gl) return 'none';
     const info = gl.getExtension('WEBGL_debug_renderer_info');
     const name = String(info ? gl.getParameter(info.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER));
     gl.getExtension('WEBGL_lose_context')?.loseContext();
-    return /swiftshader|llvmpipe|software/i.test(name);
+    return name;
   } catch {
-    return false;
+    return '';
   }
 }
 
+const GPU = gpuName();
+/** WebGL drawn on the CPU (SwiftShader, llvmpipe), or none at all: no graphics card to carry the new look. */
+const SOFTWARE = GPU === 'none' || /swiftshader|llvmpipe|software/i.test(GPU);
+/** A graphics chip that shares the computer's memory (laptops' and phones'): the new look, lighter. */
+const INTEGRATED = /intel|uhd|iris|mali|adreno|powervr|apple gpu/i.test(GPU);
+
 const asked = params?.get('look');
-export const LOOK: LookName = asked === 'classic' ? 'classic' : asked === 'new' ? 'new' : softwareGl() ? 'classic' : 'new';
+export const LOOK: LookName = asked === 'classic' ? 'classic' : asked === 'new' ? 'new' : SOFTWARE ? 'classic' : 'new';
+
+/**
+ * How much of the new look's screen work to do: 'high' everything; 'medium' (chosen for integrated
+ * graphics) leaves out ambient occlusion and draws smaller, nearer shadows. ?quality= overrides.
+ */
+export const QUALITY: 'high' | 'medium' = params?.get('quality') === 'medium' ? 'medium' : params?.get('quality') === 'high' ? 'high' : INTEGRATED ? 'medium' : 'high';
 export const NEW_LOOK = LOOK === 'new';
 /** &lookdebug=ao shows the new look's ambient occlusion on its own. */
 export const LOOK_DEBUG_AO = NEW_LOOK && params?.get('lookdebug') === 'ao';
@@ -130,7 +142,7 @@ export const POST = {
    * Ambient occlusion: how far it reaches (metres), how strongly it is laid on (0..1), and an
    * exponent that deepens it (1 is three's GTAO as it comes).
    */
-  ao: { radius: 2, strength: 0.9, darken: 1.8 },
+  ao: { radius: 3, strength: 0.9, darken: 3 },
   /**
    * Height fog: density at sea level per metre, how fast it thins with height (per metre), a thin
    * haze everywhere (per metre), and how much it glows toward the sun.
@@ -143,5 +155,5 @@ export const POST = {
   /** The grade, after tone mapping: saturation, contrast, cool shadows and warm highlights, dark corners. */
   grade: { saturation: 1.03, contrast: 1.07, lift: [-0.008, 0.0, 0.012] as [number, number, number], gain: [1.02, 1.0, 0.97] as [number, number, number], vignette: 0.12 },
   /** Shadows: how far around you they reach (metres each way), their map size, and how soft their edges are. */
-  shadow: { reach: 70, mapSize: 4096, softness: 3 },
+  shadow: QUALITY === 'high' ? { reach: 70, mapSize: 4096, softness: 3 } : { reach: 50, mapSize: 2048, softness: 2 },
 };
