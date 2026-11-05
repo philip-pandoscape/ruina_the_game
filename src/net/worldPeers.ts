@@ -51,7 +51,7 @@ interface Peer {
   clock: number;
   online: boolean;
   label: THREE.Sprite;
-  /** How far their name plate is from the camera (m), as of the last frame. */
+  /** How far they are from you (m), as of the last frame. */
   away: number;
   estateKey: string;
   solid: Set<string>;
@@ -63,10 +63,11 @@ interface Peer {
 const SILENT_MS = 5000;
 
 /**
- * Names over other players, by their distance from the camera in metres: whole within `fullWithin`,
- * fading out to nothing by `goneBy` (an MMO's range: the people around you are named, a crowd far
- * off isn't a cloud of names). Past `shrinkFrom` they also shrink a little, to `farScale` of their
- * size by `goneBy`, so a far name looks far.
+ * Names over other players, by their distance from you in metres: whole within `fullWithin`, fading
+ * out to nothing by `goneBy`, where the townsfolk's names go too (an MMO's range: the people around
+ * you are named, a crowd far off isn't a cloud of names). From you rather than the camera, so the
+ * crew beside you stay named when the camera pulls back behind a boat. Past `shrinkFrom` they also
+ * shrink a little, to `farScale` of their size by `goneBy`, so a far name looks far.
  */
 const NAME_PLATE = { fullWithin: 30, goneBy: 45, shrinkFrom: 10, farScale: 0.8 };
 /** A name plate's height as a sprite's scale, which without size attenuation is a size on screen. */
@@ -95,7 +96,7 @@ export class WorldPeers {
 
   /**
    * For tests and the bug reporter: who is here and what of theirs is drawn, with how far they are
-   * from the camera (metres) and how much of their name plate shows (0 hidden, 1 whole).
+   * from you (metres) and how much of their name plate shows (0 hidden, 1 whole).
    */
   list(): Array<{ id: number; name: string; online: boolean; x: number; y: number; z: number; mode: string; houses: number; scarecrows: number; vehicles: number; away: number; plate: number }> {
     return [...this.peers.values()].map((p) => ({
@@ -198,6 +199,7 @@ export class WorldPeers {
   /** Poses everyone for this frame. */
   frame(dt: number, frame: number, cameraPos: THREE.Vector3): void {
     const now = performance.now();
+    const me = this.sim.player.pos;
     for (const p of this.peers.values()) {
       if (p.online && now - p.heard > SILENT_MS) this.left(p.id);
       const s = p.life.state;
@@ -205,7 +207,7 @@ export class WorldPeers {
       s.weather = this.mine.state.weather;
       if (p.online && p.samples.length) this.pose(p, dt, frame);
       p.view.update({ player: p.shown } as unknown as Sim, dt, cameraPos);
-      p.away = Math.hypot(p.shown.pos.x - cameraPos.x, p.shown.pos.y + p.label.position.y - cameraPos.y, p.shown.pos.z - cameraPos.z);
+      p.away = Math.hypot(p.shown.pos.x - me.x, p.shown.pos.y - me.y, p.shown.pos.z - me.z);
       plateFor(p.label, p.away);
     }
   }
@@ -297,7 +299,7 @@ function nameTag(name: string): THREE.Sprite {
   return sprite;
 }
 
-/** Fades and sizes a name plate for how far it is from the camera, in metres (NAME_PLATE). */
+/** Fades and sizes a name plate for how far its player is from you, in metres (NAME_PLATE). */
 function plateFor(label: THREE.Sprite, distance: number): void {
   const { fullWithin, goneBy, shrinkFrom, farScale } = NAME_PLATE;
   const t = Math.min(1, Math.max(0, (distance - fullWithin) / (goneBy - fullWithin)));

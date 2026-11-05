@@ -423,8 +423,8 @@ test("another player's name shows near you, fades past 30 m and is gone by 45 m"
   let p = await annTo(bea.x + 3, bea.z + 3);
   expect(p.away).toBeLessThan(30);
   expect(p.plate).toBe(1);
-  // 33 m in front of her (a little more from her camera, behind her): fading.
-  p = await annTo(bea.x, bea.z + 33);
+  // 37 m in front of her: fading.
+  p = await annTo(bea.x, bea.z + 37);
   expect(p.away).toBeGreaterThan(30);
   expect(p.away).toBeLessThan(45);
   expect(p.plate).toBeGreaterThan(0);
