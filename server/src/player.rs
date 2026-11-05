@@ -7,8 +7,8 @@ use crate::jsmath::JsMath;
 use crate::life::content::carry;
 use crate::skills::{base_levels, node_index, resolve_skills, same_levels, set_skill, Levels, ResolvedSkills, SkillSet, EMPTY_SKILLS};
 use crate::tuning::{
-    ability, ability_cooldown, cast_frames_for, combo_for, movement_action, movement_cooldown_for, slide_skill, tuning, AttackStep,
-    HOTBAR_SLOTS, MOVEMENT_SLOTS, NO_ABILITY, NO_MOVEMENT,
+    ability, ability_cooldown, ability_mp_for, cast_frames_for, combo_for, movement_action, movement_cooldown_for, movement_stamina_for, slide_skill,
+    tuning, AttackStep, HOTBAR_SLOTS, MOVEMENT_SLOTS, NO_ABILITY, NO_MOVEMENT,
 };
 use crate::world::{Spawn, World};
 
@@ -88,6 +88,12 @@ pub struct Player {
     pub takeoff_frame: i32,
     pub run_phase: f64,
     pub hp: f64,
+    /// Spent by dodges; refills a moment after it was last spent (tuning().stamina).
+    pub stamina: f64,
+    /// Frames before stamina starts refilling again, counted down from the last spend.
+    pub stamina_delay: i32,
+    /// Spent by casting; refills steadily (tuning().mp).
+    pub mp: f64,
     pub stun: i32,
     pub down_frame: i32,
     pub team: u8,
@@ -211,6 +217,9 @@ impl Player {
             takeoff_frame: 999,
             run_phase: 0.0,
             hp: tuning().combat.max_hp,
+            stamina: tuning().stamina.max,
+            stamina_delay: 0,
+            mp: tuning().mp.max,
             stun: 0,
             down_frame: -1,
             team,
@@ -265,7 +274,7 @@ impl Player {
         if self.action_buffer <= 0 || id == NO_MOVEMENT || !self.grounded {
             return NO_MOVEMENT;
         }
-        if self.movement_cooldowns.get(id as usize).copied().unwrap_or(0) > 0 {
+        if self.movement_cooldowns.get(id as usize).copied().unwrap_or(0) > 0 || self.stamina < movement_stamina_for(id, &self.resolved) {
             return NO_MOVEMENT;
         }
         id
@@ -277,7 +286,12 @@ impl Player {
             return 0;
         }
         let m = self.movement[slot as usize - 1];
-        if m == NO_MOVEMENT || movement_action(m).is_none() || self.movement_cooldowns.get(m as usize).copied().unwrap_or(0) > 0 {
+        // A dodge costs stamina instead of having a cooldown: without enough, it doesn't start.
+        if m == NO_MOVEMENT
+            || movement_action(m).is_none()
+            || self.movement_cooldowns.get(m as usize).copied().unwrap_or(0) > 0
+            || self.stamina < movement_stamina_for(m, &self.resolved)
+        {
             return 0;
         }
         slot
@@ -295,6 +309,7 @@ impl Player {
         self.attack_queued = false;
         self.action_buffer = 0;
         self.action_buffer_id = NO_MOVEMENT;
+        self.spend_stamina(movement_stamina_for(id, &self.resolved));
         let (dx, dz, mag) = Self::input(a);
         if def.direction == "input" && mag > 0.05 {
             self.action_dir_x = dx;
@@ -481,6 +496,7 @@ impl Player {
                 *c -= 1;
             }
         }
+        self.regen_vitals();
         self.coyote = if self.grounded { t.jump.coyote_frames } else { (self.coyote - 1).max(0) };
 
         // Releasing jump early gives a short hop.
@@ -493,6 +509,41 @@ impl Player {
         // (stunned, sliding, attacking, casting, knocked down) drops them.
         self.sprinting = false;
         self.crouching = false;
+    }
+
+    /// Once a step: stamina refills once a moment has passed since it was last spent; MP always
+    /// does (src/sim/player/vitals.ts regenVitals).
+    fn regen_vitals(&mut self) {
+        let t = tuning();
+        if self.stamina_delay > 0 {
+            self.stamina_delay -= 1;
+        } else {
+            self.stamina = (self.stamina + t.stamina.regen_per_second * step_len()).min(t.stamina.max);
+        }
+        self.mp = (self.mp + t.mp.regen_per_second * step_len()).min(t.mp.max);
+    }
+
+    /// A dodge starting: pays its stamina, and holds off the refill for a moment. Free moves don't.
+    fn spend_stamina(&mut self, cost: f64) {
+        if cost <= 0.0 {
+            return;
+        }
+        self.stamina = (self.stamina - cost).max(0.0);
+        self.stamina_delay = tuning().stamina.regen_delay_frames;
+    }
+
+    /// A cast going off: pays its MP.
+    fn spend_mp(&mut self, cost: f64) {
+        if cost > 0.0 {
+            self.mp = (self.mp - cost).max(0.0);
+        }
+    }
+
+    /// Full stamina and MP: someone new, or back on their feet.
+    pub(crate) fn refill_vitals(&mut self) {
+        self.stamina = tuning().stamina.max;
+        self.stamina_delay = 0;
+        self.mp = tuning().mp.max;
     }
 
     /// Knocked down: lie still. True on the frame it is time to get back up; where depends on the
@@ -744,7 +795,8 @@ impl Player {
             return 0;
         }
         let i = slot as usize - 1;
-        if self.abilities[i] == NO_ABILITY || self.cooldowns[i] > 0 {
+        let ab = self.abilities[i];
+        if ab == NO_ABILITY || self.cooldowns[i] > 0 || self.mp < ability_mp_for(ab, &self.resolved) {
             return 0;
         }
         slot
@@ -817,6 +869,8 @@ impl Player {
         }
         if self.cast_frame >= cast_frames_for(ab, &self.resolved) {
             self.set_cooldown(self.cast_slot, ability_cooldown(ab, &self.resolved));
+            // Paid as it goes off, so a cast you cancel or that's interrupted costs nothing.
+            self.spend_mp(ability_mp_for(ab, &self.resolved));
             self.mode = Mode::Normal;
             self.fired_ability = ab;
             self.cast_ability = NO_ABILITY;
@@ -953,7 +1007,7 @@ impl Player {
         }
     }
 
-    /// Back on your feet at `s`, at full health.
+    /// Back on your feet at `s`, with full health, stamina and MP.
     pub(crate) fn respawn(&mut self, s: Spawn) {
         self.pos = V3 { x: s.x, y: 0.0, z: s.z };
         self.vel = V3::default();
@@ -961,6 +1015,7 @@ impl Player {
         self.grounded = true;
         self.jumps_used = 0;
         self.hp = tuning().combat.max_hp;
+        self.refill_vitals();
         self.stun = 0;
         self.down_frame = -1;
         self.mode = Mode::Normal;
@@ -1042,26 +1097,87 @@ mod tests {
     use crate::world::{battlefield, SEED};
 
     #[test]
-    fn a_movement_skill_cools_down_by_its_level() {
+    fn a_dodge_costs_stamina_by_its_level_instead_of_cooling_down() {
         let world = battlefield(SEED);
         let build = Build { skills: skills_from(&["sword", "dodgeRoll"]), weapon: 0, abilities: [NO_ABILITY; HOTBAR_SLOTS], movement: [0, NO_MOVEMENT] };
+        let (max, cost) = (tuning().stamina.max, tuning().movement_skills[0].stamina_cost);
+        let dodge = Actions { movement_slot: 1, move_z: 1.0, ..Default::default() };
         let after_a_dodge = |level: u32| {
             let mut p = Player::new(world.team_spawns[0], 0, build);
             let mut levels = base_levels();
             levels[book_index("dodgeRoll").unwrap()] = level;
             p.set_levels(&levels);
-            p.step(&Actions { movement_slot: 1, move_z: 1.0, ..Default::default() }, &world);
+            p.step(&dodge, &world);
             assert_eq!((p.mode, p.started_action), (Mode::Action, 0), "the dodge started, and says so for one frame");
+            let left = p.stamina;
+            assert_eq!(p.stamina_delay, tuning().stamina.regen_delay_frames, "and nothing refills for a moment");
             let mut frames = 0;
             while p.mode == Mode::Action && frames < 200 {
                 p.step(&Actions::default(), &world);
                 assert_eq!(p.started_action, NO_MOVEMENT);
                 frames += 1;
             }
-            p.movement_cooldowns[0]
+            assert_eq!(p.movement_cooldowns[0], 0, "no cooldown");
+            left
         };
-        assert_eq!(after_a_dodge(1), 72);
-        assert_eq!(after_a_dodge(10), (72.0f64 * (1.0 - 0.03 * 9.0)).round() as i32);
+        assert!(cost > 0.0);
+        assert_eq!(after_a_dodge(1), max - cost);
+        assert_eq!(after_a_dodge(10), max - cost * (1.0 - 0.03 * 9.0), "each level makes it 3% cheaper");
+        // Without enough it doesn't start; it refills, and then it does.
+        let mut p = Player::new(world.team_spawns[0], 0, build);
+        p.stamina = cost - 1.0;
+        p.step(&dodge, &world);
+        assert_eq!((p.mode, p.stamina), (Mode::Normal, (cost - 1.0 + tuning().stamina.regen_per_second * step_len()).min(max)));
+        let mut frames = 0;
+        while p.stamina < cost && frames < 600 {
+            p.step(&Actions::default(), &world);
+            frames += 1;
+        }
+        p.step(&dodge, &world);
+        assert_eq!(p.mode, Mode::Action);
+        // Getting back up fills it again.
+        p.respawn(world.team_spawns[0]);
+        assert_eq!((p.stamina, p.stamina_delay, p.mp), (max, 0, tuning().mp.max));
+        // The guard is no dodge: it keeps its short cooldown and costs nothing.
+        assert_eq!(tuning().movement_skills[2].stamina_cost, 0.0);
+        assert!(tuning().movement_skills[2].cooldown_frames > 0);
+    }
+
+    #[test]
+    fn a_cast_pays_its_mp_when_it_goes_off_and_waits_for_enough() {
+        let world = battlefield(SEED);
+        let mut build = Build { skills: skills_from(&["club", "heal"]), weapon: 1, ..Build::default() };
+        build.abilities[0] = 0;
+        let cost = tuning().abilities[0].mp_cost;
+        let max = tuning().mp.max;
+        let regen = tuning().mp.regen_per_second * step_len();
+        let cast = Actions { ability_slot: 1, ..Default::default() };
+        let mut p = Player::new(world.team_spawns[0], 0, build);
+        p.step(&cast, &world);
+        assert_eq!((p.mode, p.mp), (Mode::Cast, max), "nothing paid as it starts");
+        // Interrupted: it fizzles, and costs nothing.
+        p.take_hit(1.0, 0.0, 1.0, 0.0);
+        assert_eq!(p.mp, max);
+        for _ in 0..240 {
+            p.step(&Actions::default(), &world);
+        }
+        p.cooldowns = [0; HOTBAR_SLOTS];
+        p.step(&cast, &world);
+        let mut frames = 0;
+        while p.fired_ability == NO_ABILITY && frames < 200 {
+            p.step(&Actions::default(), &world);
+            frames += 1;
+        }
+        assert_eq!(p.mp, max - cost, "paid as it goes off");
+        // Without enough it doesn't start, until enough has come back.
+        p.cooldowns = [0; HOTBAR_SLOTS];
+        p.mp = cost - regen * 3.0;
+        p.step(&cast, &world);
+        assert_eq!(p.mode, Mode::Normal);
+        for _ in 0..4 {
+            p.step(&Actions::default(), &world);
+        }
+        assert_eq!(p.mode, Mode::Cast, "the press waited in its buffer for the MP");
         // A new build keeps the levels it was given.
         let mut p = Player::new(world.team_spawns[0], 0, build);
         let mut levels = base_levels();

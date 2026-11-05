@@ -73,8 +73,8 @@ struct StepIn {
 // airspeed, bank, land impact, run phase, hp, then mode (player.rs Mode), grounded, jumps used,
 // jump cut done, coyote, jump buffer, flip frame, land frame, takeoff frame, sprinting, crouching,
 // crouch frame, mode frame, gust frames, action id, action frame, attack index, attack frame,
-// stun, down frame.
-const FRAME_LEN: usize = 32;
+// stun, down frame, stamina, MP, stamina delay.
+const FRAME_LEN: usize = 35;
 
 #[derive(Serialize)]
 struct Out {
@@ -159,6 +159,9 @@ fn main() {
             p.attack_frame as f64,
             p.stun as f64,
             p.down_frame as f64,
+            p.stamina,
+            p.mp,
+            p.stamina_delay as f64,
         ];
         debug_assert_eq!(frame.len(), FRAME_LEN);
         frames.push(frame);

@@ -32,7 +32,7 @@ import {
   type SkillMod,
 } from '../src/skills';
 import { learnBlock, learnPath, NODE_INFO, validBuild } from '../src/build';
-import { castFramesFor, comboFor, emptyHotbar, emptyMovement, meleeTargets, movementCooldownFor, MOVEMENT_SKILLS, pierceTargets, WEAPONS, type Build } from '../src/tuning';
+import { castFramesFor, comboFor, emptyHotbar, emptyMovement, meleeTargets, movementCooldownFor, movementStaminaFor, MOVEMENT_SKILLS, pierceTargets, WEAPONS, type Build } from '../src/tuning';
 
 const BALANCE = `server/target/release/balance${process.platform === 'win32' ? '.exe' : ''}`;
 
@@ -168,18 +168,26 @@ test('a level adds to its own skill only', () => {
   expect(trained.ability).toEqual(plain.ability);
 });
 
-test('movement skills recover faster through the tree and with their level', () => {
+test('a dodge costs less stamina through the tree and with its level, and has no cooldown', () => {
   const dodge = MOVEMENT_SKILLS.findIndex((m) => m.id === 'dodgeRoll');
-  const base = MOVEMENT_SKILLS[dodge].cooldownFrames;
-  expect(movementCooldownFor(dodge, resolveSkills(skillsFrom('sword', 'dodgeRoll')))).toBe(base);
+  const base = MOVEMENT_SKILLS[dodge].staminaCost ?? 0;
+  expect(base).toBeGreaterThan(0);
+  const plain = resolveSkills(skillsFrom('sword', 'dodgeRoll'));
+  expect(movementStaminaFor(dodge, plain)).toBe(base);
+  expect(movementCooldownFor(dodge, plain)).toBe(0);
   const levelled = resolveSkills(skillsFrom('sword', 'dodgeRoll'), levelsFrom({ dodgeRoll: LEVEL_XP[4] })); // level 5
-  expect(movementCooldownFor(dodge, levelled)).toBe(Math.round(base * (1 + 4 * LEVEL_MODS.dodgeRoll[0].value)));
-  // A Footwork passive in the tree, wherever it is, shortens it too.
-  const footwork = NODES.findIndex((n) => n.mods?.some((m) => m.stat === 'movement.cooldown' && m.skill === 'dodgeRoll'));
+  expect(LEVEL_MODS.dodgeRoll[0].stat).toBe('movement.stamina');
+  expect(movementStaminaFor(dodge, levelled)).toBeCloseTo(base * (1 + 4 * LEVEL_MODS.dodgeRoll[0].value), 9);
+  // A Footwork passive in the tree, wherever it is, makes it cheaper too.
+  const footwork = NODES.findIndex((n) => n.mods?.some((m) => m.stat === 'movement.stamina' && m.skill === 'dodgeRoll'));
   const path = pathTo(skillsFrom('sword', 'dodgeRoll'), footwork);
   let s = skillsFrom('sword', 'dodgeRoll');
   for (const i of path) s = withSkill(s, i, true);
-  expect(movementCooldownFor(dodge, resolveSkills(s))).toBeLessThan(base);
+  expect(movementStaminaFor(dodge, resolveSkills(s))).toBeLessThan(base);
+  // The guard keeps its cooldown, and the tree still shortens that.
+  const block = MOVEMENT_SKILLS.findIndex((m) => m.id === 'block');
+  expect(movementCooldownFor(block, resolveSkills(skillsFrom('club', 'block')))).toBe(MOVEMENT_SKILLS[block].cooldownFrames);
+  expect(movementStaminaFor(block, resolveSkills(skillsFrom('club', 'block')))).toBe(0);
 });
 
 // ---------- The modifier fold ----------

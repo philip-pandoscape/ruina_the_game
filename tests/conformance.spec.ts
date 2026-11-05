@@ -7,6 +7,7 @@ import { NO_ACTIONS, type Actions } from '../src/sim/types';
 import { makeBattlefield } from '../src/sim/world';
 import {
   ABILITIES,
+  abilityMpFor,
   castFramesFor,
   comboFor,
   effectAmount,
@@ -15,6 +16,7 @@ import {
   HOTBAR_SLOTS,
   meleeTargets,
   movementCooldownFor,
+  movementStaminaFor,
   MOVEMENT_SKILL_CAP,
   MOVEMENT_SKILLS,
   MOVEMENT_SLOTS,
@@ -38,13 +40,13 @@ const MODES = { normal: 0, attack: 1, cast: 2, action: 3 } as const;
 const F = {
   x: 0, y: 1, z: 2, vx: 3, vy: 4, vz: 5, facing: 6, hp: 7,
   mode: 8, castFrame: 9, firedAbility: 10, castTargetX: 11, castTargetZ: 12,
-  sprinting: 13, crouching: 14, crouchFrame: 15, actionId: 16, actionFrame: 17,
-  cooldowns: 18, movementCooldowns: 18 + HOTBAR_SLOTS,
+  sprinting: 13, crouching: 14, crouchFrame: 15, actionId: 16, actionFrame: 17, stamina: 18, mp: 19, staminaDelay: 20,
+  cooldowns: 21, movementCooldowns: 21 + HOTBAR_SLOTS,
 } as const;
 // Continuous values, compared with a tolerance.
-const NEAR = [F.x, F.y, F.z, F.vx, F.vy, F.vz, F.facing, F.hp, F.castTargetX, F.castTargetZ];
+const NEAR = [F.x, F.y, F.z, F.vx, F.vy, F.vz, F.facing, F.hp, F.castTargetX, F.castTargetZ, F.stamina, F.mp];
 // Whole numbers and flags, which must match exactly.
-const EXACT = [F.mode, F.castFrame, F.firedAbility, F.sprinting, F.crouching, F.crouchFrame, F.actionId, F.actionFrame,
+const EXACT = [F.mode, F.castFrame, F.firedAbility, F.sprinting, F.crouching, F.crouchFrame, F.actionId, F.actionFrame, F.staminaDelay,
   ...Array.from({ length: HOTBAR_SLOTS }, (_, i) => F.cooldowns + i),
   ...Array.from({ length: MOVEMENT_SKILL_CAP }, (_, i) => F.movementCooldowns + i)];
 
@@ -81,6 +83,14 @@ const BUILDS: Record<string, Build> = {
   'seasoned duelist': { skills: skills('sword', 'dodgeRoll', 'club', 'block'), weapon: 0, abilities: bar(), movement: moves(DODGE, BLOCK) },
   'practised healer': { skills: skills('club', 'heal', 'swiftMending'), weapon: 1, abilities: bar(HEAL), movement: moves() },
   'practised meteor caster': { skills: skills('staff', 'meteor', 'quickIncantation'), weapon: 2, abilities: bar(METEOR), movement: moves() },
+  // Out of MP to begin with (below), so casts are turned down until enough has come back.
+  'drained meteor caster': { skills: skills('staff', 'meteor', 'quickIncantation'), weapon: 2, abilities: bar(METEOR), movement: moves() },
+};
+
+// Where a build starts short of stamina or MP, so turning a dodge or a cast down for the want of
+// it, and the refill that lets it through later, are compared too. The rest start full.
+const STARTS: Record<string, { stamina?: number; mp?: number }> = {
+  'drained meteor caster': { mp: 0 },
 };
 
 // The skills you use level up, and a level adds to what they do: damage, healing, cooldowns. The
@@ -197,6 +207,16 @@ function buildScript() {
       stickY: 0,
     });
   }
+  // Dodging until out of stamina: five in a row (the last turned down, however cheap levels have
+  // made them), and one more once enough has come back. (Only builds with a dodge on Q do anything.)
+  add(60, {});
+  for (let k = 0; k < 5; k++) {
+    add(1, { moveX: k % 2 ? 1 : -1, movementSlot: 1 });
+    add(25, {});
+  }
+  add(60, {});
+  add(1, { moveZ: 1, movementSlot: 1 });
+  add(40, {});
   const hits: Hit[] = [
     { frame: 240, damage: 30, dirX: 0.6, dirZ: 0.8, knock: 3.5 }, // knocked back mid-play
     { frame: 520, damage: 10, dirX: -0.8, dirZ: 0.6, knock: 3 }, // interrupts a cast
@@ -215,6 +235,10 @@ for (const [name, build] of Object.entries(BUILDS)) {
     sim.reset(s.spawn, s.team, build);
     const lv = LEVELS[name];
     if (lv) sim.levels = [...lv];
+    const start = STARTS[name] ?? {};
+    if (start.stamina !== undefined) sim.player.stamina = start.stamina;
+    if (start.mp !== undefined) sim.player.mp = start.mp;
+    const short = { stamina: 0, mp: 0 };
     const ts: number[][] = [];
     let casts = 0;
     s.steps.forEach((a, i) => {
@@ -222,17 +246,25 @@ for (const [name, build] of Object.entries(BUILDS)) {
       sim.step(a);
       const p = sim.player;
       if (p.firedAbility !== NO_ABILITY) casts++;
+      for (const e of sim.drainEvents()) if (e.type === 'short') short[e.what]++;
       ts.push([
         p.pos.x, p.pos.y, p.pos.z, p.vel.x, p.vel.y, p.vel.z, p.facing, p.hp, MODES[p.mode as keyof typeof MODES],
         p.castFrame, p.firedAbility, p.castTargetX, p.castTargetZ,
-        p.sprinting ? 1 : 0, p.crouching ? 1 : 0, p.crouchFrame, p.actionId, p.actionFrame,
+        p.sprinting ? 1 : 0, p.crouching ? 1 : 0, p.crouchFrame, p.actionId, p.actionFrame, p.stamina, p.mp, p.staminaDelay,
         ...p.cooldowns,
         ...Array.from({ length: MOVEMENT_SKILL_CAP }, (_, i) => p.movementCooldowns[i] ?? 0),
       ]);
     });
 
     // Rust (what the server decides)
-    const input = JSON.stringify({ spawn: s.spawn, team: s.team, build, steps: s.steps, hits: s.hits, levels: lv ?? [] });
+    // The script asks for what the build can't always afford: dodges in quick succession, casts out of MP.
+    if (build.movement.includes(DODGE)) expect(short.stamina, 'a dodge turned down for want of stamina').toBeGreaterThan(0);
+    if (start.mp === 0) {
+      expect(short.mp, 'a cast turned down for want of MP').toBeGreaterThan(0);
+      expect(casts, 'and cast once enough came back').toBeGreaterThan(0);
+    }
+
+    const input = JSON.stringify({ spawn: s.spawn, team: s.team, build, steps: s.steps, hits: s.hits, levels: lv ?? [], start });
     const rust = JSON.parse(execFileSync(SIMCHECK, { input, maxBuffer: 64 * 1024 * 1024 }).toString()) as {
       frames: number[][];
       obstacles: number[][];
@@ -243,6 +275,8 @@ for (const [name, build] of Object.entries(BUILDS)) {
         combo_startup: number[][];
         combo_damage: number[][];
         movement_cooldowns: number[];
+        movement_stamina: number[];
+        ability_mp: number[];
         effects: number[][][];
       };
     };
@@ -260,6 +294,8 @@ for (const [name, build] of Object.entries(BUILDS)) {
       comboFor(w, r).forEach((step, i) => expect(step.damage).toBeCloseTo(rust.stats.combo_damage[w][i], 12));
     });
     expect(MOVEMENT_SKILLS.map((_, m) => movementCooldownFor(m, r))).toEqual(rust.stats.movement_cooldowns);
+    MOVEMENT_SKILLS.forEach((_, m) => expect(movementStaminaFor(m, r)).toBeCloseTo(rust.stats.movement_stamina[m], 12));
+    ABILITIES.forEach((_, a) => expect(abilityMpFor(a, r)).toBeCloseTo(rust.stats.ability_mp[a], 12));
     ABILITIES.forEach((a, i) => {
       a.effects.forEach((e, k) => {
         const [radius, damage, amount] = rust.stats.effects[i][k];

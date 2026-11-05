@@ -1317,6 +1317,12 @@ const api = {
   takeHit(damage: number, dirX: number, dirZ: number, knock: number): void {
     sim.takeHit(damage, dirX, dirZ, knock);
   },
+  // Testing: your stamina and MP as they would be part way through a fight (offline only).
+  setVitals(v: { stamina?: number; mp?: number }): void {
+    if (v.stamina !== undefined) sim.player.stamina = v.stamina;
+    if (v.mp !== undefined) sim.player.mp = v.mp;
+    draw(1, 0, 0);
+  },
   // The skill panel: whether it's open and whether it's waiting for a hotbar slot.
   panel() {
     return { ...panel.state(), abilities: [...build.abilities] };

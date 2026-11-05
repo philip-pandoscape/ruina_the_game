@@ -22,6 +22,8 @@ pub struct Tuning {
     pub abilities: Vec<Ability>,
     pub skills: Skills,
     pub combat: Combat,
+    pub stamina: Stamina,
+    pub mp: Mp,
     pub hotbar: Hotbar,
     pub stats: Vec<StatDef>,
     pub movement_skills: Vec<MovementSkill>,
@@ -128,6 +130,25 @@ pub struct Combat {
     pub down_frames: i32,
 }
 
+/// Every fighter's stamina: dodges spend it (MovementSkill::stamina_cost), and it refills at
+/// regen_per_second once regen_delay_frames have passed since it was last spent.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Stamina {
+    pub max: f64,
+    pub regen_per_second: f64,
+    pub regen_delay_frames: i32,
+}
+
+/// Every fighter's MP: casting spends it (Ability::mp_cost, paid when the cast goes off), and it
+/// refills at regen_per_second.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Mp {
+    pub max: f64,
+    pub regen_per_second: f64,
+}
+
 static TUNING: OnceLock<Tuning> = OnceLock::new();
 
 pub fn tuning() -> &'static Tuning {
@@ -187,6 +208,9 @@ pub struct Ability {
     pub target: String,
     pub cast_frames: i32,
     pub cooldown_frames: i32,
+    /// MP the cast costs, paid when it goes off.
+    #[serde(default)]
+    pub mp_cost: f64,
     #[serde(default)]
     pub range: f64,
     #[serde(default)]
@@ -307,7 +331,12 @@ pub struct MovementSkill {
     /// Q / E slot, but they run through the same action machine as the rest.
     #[serde(default)]
     pub builtin: bool,
+    /// Frames before it can be used again; none if absent (the dodges cost stamina instead).
+    #[serde(default)]
     pub cooldown_frames: i32,
+    /// Stamina it costs to start, and it can't start without that much.
+    #[serde(default)]
+    pub stamina_cost: f64,
     pub action: ActionDef,
 }
 
@@ -364,6 +393,19 @@ pub fn movement_cooldown(m: u8) -> i32 {
 /// (movementCooldownFor in src/tuning.ts).
 pub fn movement_cooldown_for(m: u8, r: &ResolvedSkills) -> i32 {
     channel(r.moves.get(m as usize), stat_movement_cooldown()).frames(movement_cooldown(m))
+}
+
+/// Stamina a movement skill costs (a dodge's; the rest cost none), as the tree and its level change
+/// it (movementStaminaFor in src/tuning.ts).
+pub fn movement_stamina_for(m: u8, r: &ResolvedSkills) -> f64 {
+    let base = tuning().movement_skills.get(m as usize).map_or(0.0, |s| s.stamina_cost);
+    channel(r.moves.get(m as usize), stat_movement_stamina()).apply(base).max(0.0)
+}
+
+/// MP an ability costs, as the tree changes it (abilityMpFor in src/tuning.ts).
+pub fn ability_mp_for(a: u8, r: &ResolvedSkills) -> f64 {
+    let base = tuning().abilities.get(a as usize).map_or(0.0, |ab| ab.mp_cost);
+    channel(r.ability.get(a as usize), stat_ability_mp()).apply(base).max(0.0)
 }
 
 /// The slide everyone has. Looked up by id so reordering the data can't silently rebind it.
@@ -454,6 +496,14 @@ fn stat_ability_cooldown() -> usize {
 fn stat_movement_cooldown() -> usize {
     static I: OnceLock<usize> = OnceLock::new();
     cached_stat(&I, "movement.cooldown")
+}
+fn stat_movement_stamina() -> usize {
+    static I: OnceLock<usize> = OnceLock::new();
+    cached_stat(&I, "movement.stamina")
+}
+fn stat_ability_mp() -> usize {
+    static I: OnceLock<usize> = OnceLock::new();
+    cached_stat(&I, "ability.mp")
 }
 
 /// How many enemies one swing of this weapon reaches.

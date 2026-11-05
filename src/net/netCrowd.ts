@@ -22,12 +22,12 @@ const SEND_LAG = 5;
 const SEND_BUILD = 6;
 
 const PLAYER_ENTRY = 31;
-// Must match YOU_ENTRY in server/src/protocol.rs: id + ack + 14 f64 + (16 + slots) i16
-// + perks + (14 + slots) u8.
-// Must match YOU_ENTRY in server/src/protocol.rs.
-const YOU_I16S = 15 + HOTBAR_SLOTS + MOVEMENT_SKILL_CAP;
+// Must match YOU_ENTRY in server/src/protocol.rs: id + ack + 16 f64 + (16 + a cooldown per hotbar
+// slot and per possible movement skill) i16 + the learned set + (17 + hotbar + movement slots) u8.
+const YOU_F64S = 16;
+const YOU_I16S = 16 + HOTBAR_SLOTS + MOVEMENT_SKILL_CAP;
 const YOU_U8S = 17 + HOTBAR_SLOTS + MOVEMENT_SLOTS;
-const YOU_ENTRY = 2 + 4 + 14 * 8 + YOU_I16S * 2 + SKILL_WORDS * 4 + YOU_U8S;
+const YOU_ENTRY = 2 + 4 + YOU_F64S * 8 + YOU_I16S * 2 + SKILL_WORDS * 4 + YOU_U8S;
 const ARROW_ENTRY = 15;
 const METEOR_ENTRY = 10;
 // Must match ACTOR_ENTRY in server/src/protocol.rs.
@@ -117,7 +117,7 @@ export interface EffectEvent {
 }
 
 function readYou(v: DataView, o: number): { id: number; ack: number; player: PlayerState } {
-  const I16S = o + 6 + 14 * 8; // after the f64 block
+  const I16S = o + 6 + YOU_F64S * 8; // after the f64 block
   const SKILLS_AT = I16S + YOU_I16S * 2;
   const U8S = SKILLS_AT + SKILL_WORDS * 4;
   const skills = Array.from({ length: SKILL_WORDS }, (_, k) => v.getUint32(SKILLS_AT + k * 4, true));
@@ -141,6 +141,8 @@ function readYou(v: DataView, o: number): { id: number; ack: number; player: Pla
       hp: f(11),
       castTargetX: f(12),
       castTargetZ: f(13),
+      stamina: f(14),
+      mp: f(15),
       jumpsUsed: i(0),
       coyote: i(1),
       jumpBuffer: i(2),
@@ -156,8 +158,9 @@ function readYou(v: DataView, o: number): { id: number; ack: number; player: Pla
       castFrame: i(12),
       crouchFrame: i(13),
       actionFrame: i(14),
-      cooldowns: Array.from({ length: HOTBAR_SLOTS }, (_, k) => i(15 + k)),
-      movementCooldowns: Array.from({ length: MOVEMENT_SKILL_CAP }, (_, k) => i(15 + HOTBAR_SLOTS + k)),
+      staminaDelay: i(15),
+      cooldowns: Array.from({ length: HOTBAR_SLOTS }, (_, k) => i(16 + k)),
+      movementCooldowns: Array.from({ length: MOVEMENT_SKILL_CAP }, (_, k) => i(16 + HOTBAR_SLOTS + k)),
       skills,
       comboVariants: variantBits(resolveSkills(skills)),
       mode: MODES[b(0)] ?? 'normal',

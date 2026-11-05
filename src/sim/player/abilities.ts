@@ -2,10 +2,11 @@
 // button press and an effect going off.
 
 import type { Sim } from '../sim';
-import { ABILITIES, HOTBAR_SLOTS, MOVE, MOVEMENT_SLOTS, NO_ABILITY, NO_MOVEMENT, SPECIAL, STEP, abilityCooldown, castFramesFor, movementAction, movementCooldownFor } from '../../tuning';
+import { ABILITIES, HOTBAR_SLOTS, MOVE, MOVEMENT_SLOTS, NO_ABILITY, NO_MOVEMENT, SPECIAL, STEP, abilityCooldown, abilityMpFor, castFramesFor, movementAction, movementCooldownFor, movementStaminaFor } from '../../tuning';
 import { len, turnToward } from '../math';
 import type { Actions } from '../types';
 import { accelerateToward, input, stance, tryJump } from './locomotion';
+import { spendMp, spendStamina } from './vitals';
 
 export function bufferAction(sim: Sim, id: number) : void {
   const def = movementAction(id);
@@ -20,7 +21,7 @@ export function readyBufferedAction(sim: Sim) : number {
   const p = sim.player;
   const id = p.actionBufferId;
   if (p.actionBuffer <= 0 || id === NO_MOVEMENT || !p.grounded) return NO_MOVEMENT;
-  if ((p.movementCooldowns[id] ?? 0) > 0) return NO_MOVEMENT;
+  if ((p.movementCooldowns[id] ?? 0) > 0 || p.stamina < movementStaminaFor(id, sim.stats)) return NO_MOVEMENT;
   return id;
 }
 
@@ -29,7 +30,8 @@ export function readyMovement(sim: Sim, a: Actions) : number {
   const slot = a.movementSlot;
   if (slot < 1 || slot > MOVEMENT_SLOTS || !p.grounded) return 0;
   const m = p.movement[slot - 1];
-  if (m === NO_MOVEMENT || !movementAction(m) || (p.movementCooldowns[m] ?? 0) > 0) return 0;
+  // A dodge costs stamina instead of having a cooldown: without enough, it doesn't start.
+  if (m === NO_MOVEMENT || !movementAction(m) || (p.movementCooldowns[m] ?? 0) > 0 || p.stamina < movementStaminaFor(m, sim.stats)) return 0;
   return slot;
 }
 
@@ -47,6 +49,7 @@ export function startAction(sim: Sim, id: number, slot: number, a: Actions) : vo
   p.attackQueued = false;
   p.actionBuffer = 0;
   p.actionBufferId = NO_MOVEMENT;
+  spendStamina(p, movementStaminaFor(id, sim.stats));
   const { dx, dz, mag } = input(sim, a);
   if (def.direction === 'input' && mag > 0.05) {
     p.actionDirX = dx;
@@ -150,7 +153,8 @@ export function readySlot(sim: Sim) : number {
   if (!p.grounded || p.abilityBuffer <= 0) return 0;
   const slot = p.abilityBufferSlot;
   if (slot < 1 || slot > HOTBAR_SLOTS) return 0;
-  if (p.abilities[slot - 1] === NO_ABILITY || p.cooldowns[slot - 1] > 0) return 0;
+  const ability = p.abilities[slot - 1];
+  if (ability === NO_ABILITY || p.cooldowns[slot - 1] > 0 || p.mp < abilityMpFor(ability, sim.stats)) return 0;
   return slot;
 }
 
@@ -214,6 +218,8 @@ export function updateCast(sim: Sim, a: Actions) : void {
   }
   if (p.castFrame >= castFramesFor(ability, sim.stats)) {
     setCooldown(sim, p.castSlot, abilityCooldown(ability, sim.stats));
+    // Paid as it goes off, so a cast you cancel or that's interrupted costs nothing.
+    spendMp(p, abilityMpFor(ability, sim.stats));
     p.mode = 'normal';
     p.firedAbility = ability;
     sim.emit({ type: 'cast', frame: sim.frame, ability, x: p.castTargetX, z: p.castTargetZ, casterX: p.pos.x, casterZ: p.pos.z });

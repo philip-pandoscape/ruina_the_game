@@ -5,7 +5,7 @@ import { ON_FOOT, type Actions, type PlayerState } from '../sim/types';
 import { comboShape } from '../tuning';
 import { emptySkills } from '../skills';
 import { MODE_DOWN, MODES } from './netCrowd';
-import { HOTBAR_SLOTS, MOVEMENT_SKILL_CAP, MOVEMENT_SLOTS, NO_ABILITY, NO_MOVEMENT } from '../tuning';
+import { HOTBAR_SLOTS, MOVEMENT_SKILL_CAP, MOVEMENT_SLOTS, MP, NO_ABILITY, NO_MOVEMENT, STAMINA } from '../tuning';
 import type { NetCrowd, RawInput, RemoteRecord } from './netCrowd';
 
 // ---------- Your own fighter: predict instantly, correct when the server answers ----------
@@ -198,6 +198,9 @@ export function blankState(): PlayerState {
     takeoffFrame: 999,
     runPhase: 0,
     hp: 100,
+    stamina: STAMINA.max,
+    staminaDelay: 0,
+    mp: MP.max,
     stun: 0,
     downFrame: -1,
     team: 0,

@@ -544,7 +544,7 @@ pub fn valid_movement(skills: &SkillSet, movement: &[u8]) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::tuning::{movement_cooldown_for, HOTBAR_SLOTS};
+    use crate::tuning::{movement_cooldown_for, movement_stamina_for, HOTBAR_SLOTS};
 
     fn at(id: &str) -> usize {
         node_index(id).unwrap_or_else(|| panic!("no node {id}"))
@@ -736,13 +736,15 @@ mod tests {
         let base = tuning().weapons[0].combo[0].damage;
         assert_eq!(r.combo[0][0].damage, base * (1.0 + 0.03 * 4.0));
         assert_eq!(r.ability[0][amount].inc, 0.05 * 2.0);
-        // Dodge Roll level 10: 72 frames, 27% shorter.
-        assert_eq!(movement_cooldown_for(0, &r), (72.0f64 * (1.0 - 0.03 * 9.0)).round() as i32);
-        assert_eq!(movement_cooldown_for(0, &plain), 72);
+        // Dodge Roll level 10: its stamina, 27% less. It has no cooldown to shorten.
+        let cost = tuning().movement_skills[0].stamina_cost;
+        assert_eq!(movement_stamina_for(0, &r), cost * (1.0 - 0.03 * 9.0));
+        assert_eq!(movement_stamina_for(0, &plain), cost);
+        assert_eq!((movement_cooldown_for(0, &r), movement_cooldown_for(0, &plain)), (0, 0));
         // The tree's own modifiers come first, then the levels' sums.
         let footwork = skills_from(&["sword", "cleave", "sw-1-10", "dodgeRoll"]);
         let r = resolve_skills(&footwork, &levels);
-        assert_eq!(movement_cooldown_for(0, &r), (72.0f64 * (1.0 + -0.03 * 9.0) * (1.0 - 0.05)).round() as i32);
+        assert_eq!(movement_stamina_for(0, &r), cost * (1.0 + -0.03 * 9.0) * (1.0 - 0.05));
         // And learned movement skills are listed like weapons and abilities.
         assert_eq!(r.movement, [0]);
     }

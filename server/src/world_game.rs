@@ -626,6 +626,9 @@ pub fn player_state_json(p: &Player) -> Value {
         "takeoffFrame": p.takeoff_frame,
         "runPhase": p.run_phase,
         "hp": p.hp,
+        "stamina": p.stamina,
+        "staminaDelay": p.stamina_delay,
+        "mp": p.mp,
         "stun": p.stun,
         "downFrame": p.down_frame,
         "team": p.team,
@@ -781,7 +784,7 @@ mod tests {
         let zone = emberholm();
         let p = Player::new(Spawn { x: zone.recipe.spawn.x, z: zone.recipe.spawn.z, facing: 0.0 }, 0, Build::default());
         let v = player_state_json(&p);
-        for k in ["pos", "vel", "mode", "jumpsUsed", "cooldowns", "movementCooldowns", "skills", "glider", "gustFrames"] {
+        for k in ["pos", "vel", "mode", "jumpsUsed", "cooldowns", "movementCooldowns", "skills", "glider", "gustFrames", "stamina", "staminaDelay", "mp"] {
             assert!(v.get(k).is_some(), "{k}");
         }
         assert_eq!(v["mode"], "normal");

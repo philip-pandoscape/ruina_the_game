@@ -145,7 +145,7 @@ function differences(a: unknown, b: unknown, path: string, out: string[], tol: n
 }
 
 /** The player fields both sides keep (the TypeScript's prevPos and prevFacing are the renderer's). */
-const PLAYER_KEYS = ['pos', 'vel', 'facing', 'mode', 'grounded', 'jumpsUsed', 'hp', 'stun', 'downFrame', 'pack', 'vehicle', 'seat', 'glider', 'airspeed', 'bank', 'modeFrame', 'gustFrames', 'sprinting', 'crouching'];
+const PLAYER_KEYS = ['pos', 'vel', 'facing', 'mode', 'grounded', 'jumpsUsed', 'hp', 'stamina', 'staminaDelay', 'mp', 'stun', 'downFrame', 'pack', 'vehicle', 'seat', 'glider', 'airspeed', 'bank', 'modeFrame', 'gustFrames', 'sprinting', 'crouching'];
 
 function compare(name: string, script: Script): void {
   const ts = runTs(script);

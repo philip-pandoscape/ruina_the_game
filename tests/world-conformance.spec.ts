@@ -28,11 +28,11 @@ const F = {
   x: 0, y: 1, z: 2, vx: 3, vy: 4, vz: 5, facing: 6, airspeed: 7, bank: 8, landImpact: 9, runPhase: 10, hp: 11,
   mode: 12, grounded: 13, jumpsUsed: 14, jumpCutDone: 15, coyote: 16, jumpBuffer: 17, flipFrame: 18, landFrame: 19,
   takeoffFrame: 20, sprinting: 21, crouching: 22, crouchFrame: 23, modeFrame: 24, gustFrames: 25, actionId: 26,
-  actionFrame: 27, attackIndex: 28, attackFrame: 29, stun: 30, downFrame: 31,
+  actionFrame: 27, attackIndex: 28, attackFrame: 29, stun: 30, downFrame: 31, stamina: 32, mp: 33, staminaDelay: 34,
 } as const;
-const FRAME_LEN = 32;
+const FRAME_LEN = 35;
 // Continuous values, compared with a tolerance.
-const NEAR = [F.x, F.y, F.z, F.vx, F.vy, F.vz, F.facing, F.airspeed, F.bank, F.landImpact, F.runPhase, F.hp];
+const NEAR = [F.x, F.y, F.z, F.vx, F.vy, F.vz, F.facing, F.airspeed, F.bank, F.landImpact, F.runPhase, F.hp, F.stamina, F.mp];
 // Modes, flags and frame counters, which must match exactly.
 const EXACT = Object.values(F).filter((k) => !NEAR.includes(k as (typeof NEAR)[number]));
 // How far apart the two may drift. Both do the same arithmetic in the same order; what is left is
@@ -577,7 +577,7 @@ function runTs(s: Script): { start: number[]; frames: Frame[] } {
       p.pos.x, p.pos.y, p.pos.z, p.vel.x, p.vel.y, p.vel.z, p.facing, p.airspeed, p.bank, p.landImpact, p.runPhase, p.hp,
       MODES[p.mode], p.grounded ? 1 : 0, p.jumpsUsed, p.jumpCutDone ? 1 : 0, p.coyote, p.jumpBuffer, p.flipFrame, p.landFrame,
       p.takeoffFrame, p.sprinting ? 1 : 0, p.crouching ? 1 : 0, p.crouchFrame, p.modeFrame, p.gustFrames, p.actionId,
-      p.actionFrame, p.attackIndex, p.attackFrame, p.stun, p.downFrame,
+      p.actionFrame, p.attackIndex, p.attackFrame, p.stun, p.downFrame, p.stamina, p.mp, p.staminaDelay,
     ];
     return f;
   });

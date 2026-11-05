@@ -155,6 +155,47 @@ test('the bar holds eight slots and each one casts what is in it', async ({ page
   expect(after.cooldowns.filter((c: number) => c > 0)).toHaveLength(1);
 });
 
+test('a cast pays its MP as it goes off, and none starts without enough', async ({ page }) => {
+  await ready(page);
+  expect(await page.evaluate((b) => (window as any).__game.setBuild(b), CASTER)).toBe(true);
+  const heal = ABILITIES[HEAL].mpCost!;
+  const meteor = ABILITIES[METEOR].mpCost!;
+  const seen = await page.evaluate(
+    ([meteor]) => {
+      const g = (window as any).__game;
+      g.reset({});
+      const full = g.state().player.mp;
+      g.advance(1, { abilitySlot: 2 }); // the heal
+      const casting = g.state().player;
+      let frames = 0;
+      while (g.state().player.firedAbility === 255 && frames < 120) {
+        g.advance(1, {});
+        frames++;
+      }
+      const fired = g.state().player.mp;
+      // Short of the meteor's cost: turned down, and the screen is told why.
+      g.setVitals({ mp: meteor - 1 });
+      g.advance(1, { abilitySlot: 1 });
+      const refused = g.state().player;
+      const shorts = g.events().filter((e: { type: string; what?: string }) => e.type === 'short' && e.what === 'mp').length;
+      g.advance(10, {});
+      const still = g.state().player.mode;
+      // MP comes back on its own; with enough, it casts.
+      g.advance(30, {});
+      g.advance(1, { abilitySlot: 1 });
+      return { full, casting: { mode: casting.mode, mp: casting.mp }, fired, refused: { mode: refused.mode, mp: refused.mp }, shorts, still, again: g.state().player.mode };
+    },
+    [meteor],
+  );
+  expect(seen.casting.mode).toBe('cast');
+  expect(seen.casting.mp).toBe(seen.full); // nothing paid as it starts
+  expect(seen.fired).toBe(seen.full - heal); // paid as it goes off
+  expect(seen.refused.mode).toBe('normal');
+  expect(seen.shorts).toBe(1);
+  expect(seen.still).toBe('normal'); // the press ran out before the MP came back
+  expect(seen.again).toBe('cast');
+});
+
 test('an empty slot does nothing at all', async ({ page }) => {
   await ready(page);
   await page.evaluate((b) => (window as any).__game.setBuild(b), CASTER);

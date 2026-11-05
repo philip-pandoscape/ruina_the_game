@@ -9,8 +9,8 @@ use serde::{Deserialize, Serialize};
 use yggdrasil_server::player::{Actions, Build, Player};
 use yggdrasil_server::skills::{resolve_skills, EMPTY_SKILLS, SKILL_WORDS};
 use yggdrasil_server::tuning::{
-    cast_frames_for, combo_for, effect_amount, effect_damage, effect_radius, melee_targets, movement_cooldown_for, pierce_targets, tuning, HOTBAR_SLOTS,
-    MOVEMENT_SKILL_CAP, MOVEMENT_SLOTS, NO_ABILITY, NO_MOVEMENT,
+    ability_mp_for, cast_frames_for, combo_for, effect_amount, effect_damage, effect_radius, melee_targets, movement_cooldown_for, movement_stamina_for,
+    pierce_targets, tuning, HOTBAR_SLOTS, MOVEMENT_SKILL_CAP, MOVEMENT_SLOTS, NO_ABILITY, NO_MOVEMENT,
 };
 use yggdrasil_server::world::{battlefield, Spawn, SEED};
 
@@ -24,6 +24,15 @@ struct Script {
     /// The skill book's levels (src/skills.ts BOOK order); everything at level 1 if absent.
     #[serde(default)]
     levels: Vec<u32>,
+    /// Stamina and MP to start with, where not full.
+    #[serde(default)]
+    start: StartIn,
+}
+
+#[derive(Deserialize, Default)]
+struct StartIn {
+    stamina: Option<f64>,
+    mp: Option<f64>,
 }
 
 #[derive(Deserialize)]
@@ -82,10 +91,11 @@ struct HitIn {
     knock: f64,
 }
 
-// Per frame: x, y, z, vx, vy, vz, facing, hp, mode (0 normal, 1 slide, 2 attack, 3 cast),
-// cast frame, cast that finished this frame, cast target x / z, sprinting, crouching, crouch
-// frame, then one cooldown per hotbar slot.
-const FRAME_LEN: usize = 18 + HOTBAR_SLOTS + MOVEMENT_SKILL_CAP;
+// Per frame, in the order of F in tests/conformance.spec.ts: x, y, z, vx, vy, vz, facing, hp, mode
+// (player.rs Mode), cast frame, cast that finished this frame, cast target x / z, sprinting,
+// crouching, crouch frame, action id, action frame, stamina, MP, stamina delay, then one cooldown
+// per hotbar slot and one per possible movement skill.
+const FRAME_LEN: usize = 21 + HOTBAR_SLOTS + MOVEMENT_SKILL_CAP;
 
 #[derive(Serialize)]
 struct Out {
@@ -105,6 +115,8 @@ struct Stats {
     combo_startup: Vec<Vec<i32>>,
     combo_damage: Vec<Vec<f64>>,
     movement_cooldowns: Vec<i32>,
+    movement_stamina: Vec<f64>,
+    ability_mp: Vec<f64>,
     /// Per ability, per effect: radius, damage, amount.
     effects: Vec<Vec<[f64; 3]>>,
 }
@@ -131,6 +143,12 @@ fn main() {
     let build = Build { skills, weapon: b.weapon, abilities, movement };
     let mut p = Player::new(spawn, script.team, build);
     p.set_levels(&script.levels);
+    if let Some(v) = script.start.stamina {
+        p.stamina = v;
+    }
+    if let Some(v) = script.start.mp {
+        p.mp = v;
+    }
     let mut frames = Vec::with_capacity(script.steps.len());
     for (i, s) in script.steps.iter().enumerate() {
         for h in script.hits.iter().filter(|h| h.frame == i) {
@@ -160,7 +178,7 @@ fn main() {
             p.pos.x, p.pos.y, p.pos.z, p.vel.x, p.vel.y, p.vel.z, p.facing, p.hp, p.mode as i32 as f64,
             p.cast_frame as f64, p.fired_ability as f64, p.cast_target_x, p.cast_target_z,
             p.sprinting as i32 as f64, p.crouching as i32 as f64, p.crouch_frame as f64,
-            p.action_id as f64, p.action_frame as f64,
+            p.action_id as f64, p.action_frame as f64, p.stamina, p.mp, p.stamina_delay as f64,
         ]);
         frame.extend(p.cooldowns.iter().map(|&c| c as f64));
         frame.extend((0..MOVEMENT_SKILL_CAP).map(|i| p.movement_cooldowns.get(i).copied().unwrap_or(0) as f64));
@@ -177,6 +195,8 @@ fn main() {
         combo_startup: (0..weapons).map(|w| combo_for(w as u8, &r).iter().map(|s| s.startup).collect()).collect(),
         combo_damage: (0..weapons).map(|w| combo_for(w as u8, &r).iter().map(|s| s.damage).collect()).collect(),
         movement_cooldowns: (0..tuning().movement_skills.len()).map(|m| movement_cooldown_for(m as u8, &r)).collect(),
+        movement_stamina: (0..tuning().movement_skills.len()).map(|m| movement_stamina_for(m as u8, &r)).collect(),
+        ability_mp: (0..tuning().abilities.len()).map(|a| ability_mp_for(a as u8, &r)).collect(),
         effects: tuning()
             .abilities
             .iter()
