@@ -80,9 +80,12 @@ stops the first.
 
 **Playing together:** Emberholm runs as channels, copies of the island each home to up to 24
 characters (the badge in the corner says which). Everyone in your channel sees everyone else move,
-glide, sail and ride, with a name over their head, fights the same slimes, and sees what every
-resident has built: houses and farms stay standing while their owner is away, their walls are solid,
-and a house plot belongs to whoever claimed it first.
+glide, sail and ride, with a name over their head while they're within about 45 m, fights the same
+slimes, sees the same time of day (the server's clock), and sees what every resident has built:
+houses and farms stay standing while their owner is away, their walls are solid, and a house plot
+belongs to whoever claimed it first. Their vehicles are solid too, and you can ride along in one:
+beside a friend's cart or boat, F climbs into its free seat ("Ride with ..."), and F again gets you
+out.
 
 **The server decides:** your browser sends only what you press (about 60 times a second) and what
 you ask your island to do (talk, plant, buy, craft, drive...). The server runs every rule on its own
@@ -151,7 +154,7 @@ In the open world:
 
 | | Keyboard and mouse | Xbox controller |
 |---|---|---|
-| Interact (talk, plant, harvest, load, drive, build) | F | Y |
+| Interact (talk, plant, harvest, load, drive, build, ride along in a friend's vehicle) | F | Y |
 | Open the glider (in the air, after the double jump) / fold it | Space again, or G | A |
 | Glider: dive / flare | Shift / Ctrl | Click left / right stick |
 | Drive: throttle, steer, handbrake, boost | W S, A D, Space, Shift | Left stick, A |

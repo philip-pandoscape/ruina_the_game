@@ -1,5 +1,6 @@
 import { expect, test, type Browser, type Page } from '@playwright/test';
 import { readFileSync } from 'node:fs';
+import { rainAt } from '../src/sim/life/weather';
 
 // Emberholm on the game server: signing in, choosing among several characters (each with an island
 // of its own), the server playing your island and keeping it in Postgres between visits, starting
@@ -602,6 +603,36 @@ test("everyone in a channel sees the same time of day, the server's, whatever th
   const then = await reading(b);
   const passed = ((then.at - first.at) / 1000 / sky.dayLengthSeconds) * 24;
   expect(Math.abs(apart(then.sky, first.sky) - passed)).toBeLessThan(0.003);
+});
+
+test("everyone in a channel has the same rain and wind, the world's, whatever their islands' clocks say", async ({ browser }) => {
+  const { a, b } = await pair(browser);
+  // Bea's island runs ten minutes ahead of Ann's: a different shower, a different wind, before.
+  await b.bringToFront();
+  const before = await game(b, (g) => g.life().clock);
+  await game(b, (g) => g.lifeCommand({ t: 'warp', seconds: 600 }));
+  await expect.poll(() => game(b, (g) => g.life().clock), { timeout: 30_000 }).toBeGreaterThan(before + 590);
+  /** A page's weather, with how long its shower lasts and how long until the next, and when that was. */
+  const weather = (page: Page) =>
+    page.evaluate(() => {
+      const l = (window as any).__game.life();
+      const w = l.weather;
+      return { raining: l.clock < w.rainUntil, left: w.rainUntil - l.clock, next: w.nextRain - l.clock, windDir: w.windDir, windSpeed: w.windSpeed, at: Date.now() / 1000 };
+    });
+  for (const page of [a, b]) {
+    await page.bringToFront();
+    await page.waitForTimeout(300);
+    const w = await weather(page);
+    // The server runs on this computer, so the world's clock is Date.now(): the weather is the
+    // schedule's at that moment (src/sim/life/weather.ts), for both of them alike.
+    const r = rainAt(w.at);
+    if (Math.min(Math.abs(w.at - r.start), Math.abs(w.at - r.end), Math.abs(w.at - r.next)) < 1) continue; // a shower starting or ending this second
+    expect(w.raining, 'raining or not').toBe(r.raining);
+    expect(Math.abs(w.next - (r.next - w.at)), 'the next shower').toBeLessThan(0.5);
+    if (r.raining) expect(Math.abs(w.left - (r.end - w.at)), 'the rain stops').toBeLessThan(0.5);
+    expect(Math.abs(w.windDir - (0.9 + 0.75 * Math.sin(w.at / 190) + 0.3 * Math.sin(w.at / 57 + 1.3))), 'the wind blows from').toBeLessThan(0.01);
+    expect(Math.abs(w.windSpeed - (0.72 + 0.22 * Math.sin(w.at / 97 + 0.4))), 'the wind blows at').toBeLessThan(0.01);
+  }
 });
 
 test('the developer panel is up to the server', async ({ page }) => {

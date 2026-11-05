@@ -226,6 +226,12 @@ export class Life implements LifeHooks {
    */
   othersVehicles: (() => OthersVehicle[]) | null = null;
 
+  /**
+   * Online: the world's clock (the server's, in seconds since 1970), which the rain and the wind run
+   * on so that everyone has the same weather (weather.ts); null runs them on the island's own clock.
+   */
+  worldClock: (() => number) | null = null;
+
   regenLabor(seconds: number, resting = false, offline = false): void {
     const s = this.state;
     const perMin = offline ? LABOR.offlinePerMinute : LABOR.perMinute * (resting ? LABOR.restMultiplier : 1);

@@ -564,6 +564,11 @@ impl ChannelGame {
         // Each player may run as many inputs as real time allows (a hair more, so a browser whose
         // clock runs a little fast never builds up a queue), and no more.
         self.players.inputs_per_tick = elapsed * 61.0;
+        // Everyone's weather runs on the world's clock, so it's the same weather for all of them.
+        let world = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0.0, |d| d.as_secs_f64());
+        for (_, life) in self.players.each_life_mut() {
+            life.world_clock = Some(world);
+        }
         self.gather_movers();
         self.players.step_in(&mut self.battle, &mut self.actors, &self.world, self.tick, Some(&mut self.open));
         self.seat_passengers();

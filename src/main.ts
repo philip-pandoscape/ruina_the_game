@@ -273,6 +273,9 @@ if (online && lifeUI) lifeUI.playerName = online.welcome.character.name;
  */
 const skyHour = (): number => (!life ? 12 : online ? hourAt(life.zone.recipe.sky, online.link.serverNow() / 1000) : hourOfDay(life));
 if (online && lifeUI) lifeUI.skyHour = skyHour;
+// The rain and the wind run on the world's clock too (the server decides the rain; the wind you sail
+// on is worked out here between its updates from the same clock).
+if (online && life) life.worldClock = () => online.link.serverNow() / 1000;
 // Faces for the UI, taken from the scene: yours beside your health, the person you're talking to,
 // and all of you in the character window. Kept a few seconds, then taken again.
 const portraits = new Portraits(stage.renderer, stage.scene);

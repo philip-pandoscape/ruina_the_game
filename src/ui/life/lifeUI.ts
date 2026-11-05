@@ -1809,7 +1809,7 @@ export class LifeUI {
       <button class="lui-btn small" data-act="warp" data-arg="60">+1 Minute</button>
       <button class="lui-btn small" data-act="warp" data-arg="600">+10 Minutes</button>
       <button class="lui-btn small" data-act="warp" data-arg="3600">+1 Hour</button>
-      <div class="note">Skips ahead on your island: crops grow, and labor and prices recover. ${this.skyHour ? "The sky keeps the world's time, the same for everyone." : 'The sky moves on with it.'}</div>
+      <div class="note">Skips ahead on your island: crops grow, and labor and prices recover. ${this.skyHour ? "The sky and the weather keep the world's time, the same for everyone." : 'The sky and the weather move on with it.'}</div>
       <div class="h">Teleport</div>${places}
       <div class="h">Save</div><button class="lui-btn small" data-act="reset">Start Emberholm Over</button>
       ${this.onBugReport ? `<div class="h">Bug Report</div><button class="lui-btn small" data-act="bug">Record a Bug Report</button><div class="note">Or press <b>${esc(this.bugKey())}</b> any time (click both sticks on a controller). It keeps the last 30 seconds of play, then records your voice and the screen until you press it again.</div>` : ''}</div>`,

@@ -8,6 +8,7 @@ import { generateZone } from '../src/sim/zone/generate';
 import { ColliderIndex, groundAt } from '../src/sim/zone/colliders';
 import { Life, type Command } from '../src/sim/life/life';
 import { dismount } from '../src/sim/life/vehicles';
+import { rainAt } from '../src/sim/life/weather';
 import { toWorld } from '../src/sim/zone/generate';
 import type { Vehicle } from '../src/sim/life/state';
 import { applySave, islandData, type Island } from '../src/app/save';
@@ -195,6 +196,23 @@ function besideVehicle(v: Vehicle, lx: number, lz: number): { x: number; z: numb
   const z = v.z + oz;
   return { x, z, facing: Math.atan2(v.x - x, v.z - z) };
 }
+
+test('the rain falls on the same clock in both rules, to the last bit (server/src/life/weather.rs pins the same showers)', () => {
+  // (t, raining, start, end, next): online t is the server's clock, so these are what everyone gets.
+  const showers: Array<[number, boolean, number, number, number]> = [
+    [0, false, 240, 370.96530275652185, 240],
+    [239, false, 240, 370.96530275652185, 240],
+    [240, true, 240, 370.96530275652185, 983.9430155046284],
+    [300, true, 240, 370.96530275652185, 983.9430155046284],
+    [400, false, 240, 370.96530275652185, 983.9430155046284],
+    [1000, true, 983.9430155046284, 1101.4316743402742, 1693.8431939273141],
+    [5000, false, 4592.312170029618, 4691.087984668557, 5360.571019051131],
+    [123456.5, false, 123296.18334829574, 123441.47021974204, 123953.02136573591],
+    [1762300000, false, 1762299390.7330143, 1762299488.1632354, 1762300209.9376085],
+    [1762310077.25, false, 1762310136.8058028, 1762310283.342108, 1762310136.8058028],
+  ];
+  for (const [t, raining, start, end, next] of showers) expect(rainAt(t), `at ${t}`).toEqual({ raining, start, end, next });
+});
 
 test.describe('the island on the server matches the browser', () => {
   test.skip(!existsSync(LIFECHECK), 'build the server first: cargo build --release --manifest-path server/Cargo.toml');

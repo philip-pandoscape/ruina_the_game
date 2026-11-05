@@ -195,6 +195,10 @@ pub struct Life {
     /// Plots other characters hold: plot id -> their name. A plot someone else holds can't be
     /// claimed (the TypeScript's plotOwner).
     pub plot_owners: HashMap<String, String>,
+    /// Online: the world's clock (the server's, in seconds since 1970), set by the channel each
+    /// tick, which the rain and the wind run on so that everyone has the same weather
+    /// (weather.rs). None runs them on the island's own clock (the rules' checks, tests).
+    pub world_clock: Option<f64>,
     queue: Vec<Command>,
     events: Vec<LifeEvent>,
 }
@@ -203,7 +207,7 @@ impl Life {
     /// A new island, with the start-of-game money and labor (tests can be generous).
     pub fn new(zone: &'static Zone, coins: Option<f64>, start_labor: Option<f64>) -> Life {
         let state = new_life_state(coins.unwrap_or(200.0), start_labor.unwrap_or(labor().start), zone.recipe.seed);
-        let mut life = Life { state, zone, focus: None, placing: None, revision: 0, resting: false, plot_owners: HashMap::new(), queue: Vec::new(), events: Vec::new() };
+        let mut life = Life { state, zone, focus: None, placing: None, revision: 0, resting: false, plot_owners: HashMap::new(), world_clock: None, queue: Vec::new(), events: Vec::new() };
         // The first quest is waiting the moment you arrive.
         quests::start_quests(&mut life);
         life
