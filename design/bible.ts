@@ -88,7 +88,7 @@ function part(name: string, draw: () => void): void {
 // ---------- navigation ----------
 
 const SECTIONS: Array<[id: string, name: string, system?: string]> = [
-  ['overview', 'Overview'], ['pillars', 'Pillars'], ['world', 'World', 'world'], ['getting-around', 'Getting around', 'traversal'],
+  ['overview', 'Overview'], ['pillars', 'Pillars'], ['world', 'World', 'world'], ['look', 'The look', 'look'], ['getting-around', 'Getting around', 'traversal'],
   ['vehicles', 'Vehicles & mounts', 'vehicles'], ['trade', 'Trade & packs', 'trade'], ['farming', 'Farming', 'farming'],
   ['housing', 'Housing', 'housing'], ['economy', 'Economy', 'economy'], ['quests', 'Quests', 'quests'], ['combat', 'Combat & skills', 'combat'],
   ['interface', 'Interface', 'ui'], ['architecture', 'Architecture', 'tech'], ['controls', 'Controls'], ['tracker', 'Tracker'], ['research', 'ArcheAge notes'], ['questions', 'Open questions'], ['log', 'Session log'],

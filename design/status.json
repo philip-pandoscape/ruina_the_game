@@ -1,10 +1,14 @@
 {
   "comment": "Implementation tracker for the design bible (design/index.html). Edit this file and the page follows: it reads the tracker live (npm run dev, then /design/). Status is one of: done, building, planned, idea. Keep `files` to the main places a feature lives so a future session can jump straight there.",
-  "updated": "2026-11-04",
+  "updated": "2026-11-05",
   "systems": [
     {
       "id": "world",
       "name": "World & terrain"
+    },
+    {
+      "id": "look",
+      "name": "The look"
     },
     {
       "id": "traversal",
@@ -986,6 +990,87 @@
         "server/src/life/weather.rs",
         "src/main.ts"
       ]
+    },
+    {
+      "system": "look",
+      "status": "done",
+      "title": "Light and atmosphere",
+      "notes": "Soft light without outlines (the toon ramp wrapped into ordinary diffuse light), ambient occlusion worked out from depth at half size, fog that thins with height and glows toward the sun, bloom on what is brighter than white (the sun, lamps and windows at night), Khronos PBR Neutral tone mapping and a colour grade. Shadows reach 70 m. Screen effects in one pipeline without EffectComposer.",
+      "files": [
+        "src/render/open/post.ts",
+        "src/render/look.ts",
+        "src/render/open/stage.ts"
+      ]
+    },
+    {
+      "system": "look",
+      "status": "done",
+      "title": "The palette, after the reference picture",
+      "notes": "Lush greens with darker woods, pale warm sand, grey-brown rock, light dusty paths, turquoise shallows over a deep blue sea, a clear sky. Every colour the island is painted with lives once per look in src/render/look.ts, so the classic and new looks compare from the same build.",
+      "files": [
+        "src/render/look.ts"
+      ]
+    },
+    {
+      "system": "look",
+      "status": "done",
+      "title": "Textured ground",
+      "notes": "CC0 textures (ambientCG, Poly Haven; CREDITS.md) laid over the seven surfaces, each texture bringing only its detail (its own average colour divided out) so the palette still decides the colours. Steep slopes turn to rock, projected from three sides. Grass repeats at two scales so a meadow shows no tiling.",
+      "files": [
+        "src/render/open/ground.ts",
+        "src/render/open/terrain.ts",
+        "src/render/assets/ground/"
+      ]
+    },
+    {
+      "system": "look",
+      "status": "done",
+      "title": "Made models for buildings, props and resource nodes",
+      "notes": "Generated with Meshy (concept art painted after the reference picture with nano-banana-pro, then meshy-t2.5 low-poly textured models), compressed with gltf-transform (meshopt, WebP), about 60-260 KB each. Each takes the place of the procedural model of the same id once it loads, fitted into the structure's own box from shared/structures.json, so the rules, colliders and server are unchanged. Painted windows glow at night. The player's cottage, docks, plots and the glider deck keep their procedural models (they are walked into or onto).",
+      "files": [
+        "src/render/models/glb.ts",
+        "src/render/assets.ts",
+        "src/render/assets/models/"
+      ]
+    },
+    {
+      "system": "look",
+      "status": "done",
+      "title": "Trees, rocks and cliffs",
+      "notes": "Trees at full size (a 10 m broadleaf of many lumps, a 12 m pine of ragged tiers), shaded darker inside and underneath, with near and far shapes per 128 m chunk; the trunk's foot keeps the collider's width. Blossom trees by the square. Loose rocks become made boulders. Slopes far too steep to walk get big crags set into them (drawing only).",
+      "files": [
+        "src/render/open/foliage.ts"
+      ]
+    },
+    {
+      "system": "look",
+      "status": "done",
+      "title": "Sea, sky and horizon",
+      "notes": "The sea darkens with depth, reflects the sky at a glance and sparkles in the sun, and runs on to the true horizon (the sky dome shows the far sea below it). Painted cumulus clouds that never bloom. Other isles stand on the horizon past the edge of the world, hazed blue. The world tree is a hazy giant on the skyline.",
+      "files": [
+        "src/render/open/water.ts",
+        "src/render/open/sky.ts",
+        "src/render/open/horizon.ts"
+      ]
+    },
+    {
+      "system": "look",
+      "status": "done",
+      "title": "Grain on built things",
+      "notes": "Buildings, vehicles, docks, packs and props still drawn in vertex colours get the grain of what they are made of: warm browns wood, greys stone, the rest a plaster tooth, projected from three sides in world space. Creatures keep their plain colours.",
+      "files": [
+        "src/render/models/detail.ts"
+      ]
+    },
+    {
+      "system": "look",
+      "status": "done",
+      "title": "Quality and the classic look",
+      "notes": "The new look is the default. WebGL drawn in software (CI) gets the classic look; integrated graphics get medium quality (no occlusion, nearer shadows). ?look=classic|new and ?quality=medium|high override. At 1920 x 1080 on an RTX 4090 laptop the square costs about 6.5 ms of GPU a frame against 3.3 ms in the classic look (tests/look.spec.ts).",
+      "files": [
+        "src/render/look.ts",
+        "tests/look.spec.ts"
+      ]
     }
   ],
   "next": [
@@ -996,7 +1081,8 @@
     "Quests, next: Share (the quest log's third button in the prototype) once there are parties to share with.",
     "After the beta playtest: appearance for characters (they differ only by weapon); steps or a ramp for the western pier, now that a deck too high to step onto is a wall; stamina for sprinting, if wanted; other players' hits sparking on monsters, not only flashing.",
     "Riding along, next: walking a moving ship's deck; the owner seeing (and turning out) who rides with them; vehicles bumping into each other, not only into people.",
-    "Travel by road, next: sea lanes for boats; a key to clear the map marker; check the six-metre hauler across the town square."
+    "Travel by road, next: sea lanes for boats; a key to clear the map marker; check the six-metre hauler across the town square.",
+    "The look, next: made models for the vehicles' hulls and the trade packs (their seats, oars, rigging, straps and sealed hulls need fitting by hand); the player's cottage as a made model at each build stage; bushes and hedges along the fields; surf around the crags; a graphics setting in the Settings window instead of the automatic guess."
   ],
   "questions": [
     {
@@ -1191,6 +1277,19 @@
         "Weather: the rain and the wind run on the world's clock online too (Life.worldClock, life.world_clock), so everyone has the same; showers are a schedule on that clock rather than the island's dice, pinned to the last bit in both rules.",
         "Getting about: H or Num Lock auto-runs (cruise in a cart or boat); a click on the map follows the roads there, the route drawn on the map and the minimap (src/sim/zone/roads.ts, src/app/autoWalk.ts).",
         "Tests: riding along and bumping into a parked cart, a pack out of the cart at once 120 ms from the server, everyone sharing the hour, name plates by distance (online.spec.ts); the drop cap and the mouse coming back (ui.spec.ts); travel by road on foot, horseback, cart and roadster (travel.spec.ts); hands on the oars in the real game at 30 and 144 fps, the swim clock, weapons hidden (animation.spec.ts); no sea inside any hull (models.spec.ts); passengers and movers (Rust)."
+      ]
+    },
+    {
+      "date": "2026-11-05",
+      "title": "Emberholm after its reference picture",
+      "summary": "Overnight, from a painted reference picture of the starter isle: a new look for the whole island (light, palette, textured ground, made models, full-size trees, sea, sky and horizon), the default on its branch, with the classic look kept for comparison and for software WebGL. The layout, the rules and the server are unchanged.",
+      "points": [
+        "Light: soft diffuse light, ambient occlusion from depth, height fog that glows toward the sun, bloom, PBR Neutral tone mapping and a grade (src/render/open/post.ts).",
+        "Ground: CC0 textures over the surfaces, the palette still choosing colours; rock on steep slopes from three sides (src/render/open/ground.ts).",
+        "Models: 37 made with Meshy from concept art painted after the reference (buildings, stalls, the well, resource nodes, street props, boulders), fitted into each structure's own footprint; about 740 credits.",
+        "Trees at full size with two levels of detail and blossoms by the square; crags on the cliffs; boulders; isles on the horizon; painted clouds; a hazy world tree; lit windows at night; the cog under a cream and blue sail.",
+        "Built things in vertex colours get wood, stone or plaster grain; creatures keep their colours.",
+        "Tests: tests/look.spec.ts draws the same places in both looks (and from the air), times both at 1080p, and the new look at medium quality; species.spec.ts counts both looks' draws."
       ]
     }
   ]

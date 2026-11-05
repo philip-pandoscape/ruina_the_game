@@ -1687,7 +1687,7 @@ export class LifeUI {
       portrait: `<span class="emoji">${pixelIcon('gear', 36)}</span>`,
       w: 420,
       h: exit ? 430 : 330,
-      body: `<div class="h">Interface</div><div class="set-row"><span>UI Size</span><input type="range" min="${UI_SCALE_MIN * 100}" max="${UI_SCALE_MAX * 100}" step="5" value="${v}" data-set="uiScale"><b>${v}%</b></div><p class="note">The UI keeps its size relative to the window; this makes it bigger or smaller on top of that.</p>${exit}<div class="h">Credits</div><p class="note">Item and skill icons drawn from Twemoji by Twitter and contributors, CC-BY 4.0. Type: TeX Gyre Pagella (GUST Font License) and Alegreya SC (SIL Open Font License).</p>`,
+      body: `<div class="h">Interface</div><div class="set-row"><span>UI Size</span><input type="range" min="${UI_SCALE_MIN * 100}" max="${UI_SCALE_MAX * 100}" step="5" value="${v}" data-set="uiScale"><b>${v}%</b></div><p class="note">The UI keeps its size relative to the window; this makes it bigger or smaller on top of that.</p>${exit}<div class="h">Credits</div><p class="note">Item and skill icons drawn from Twemoji by Twitter and contributors, CC-BY 4.0. Type: TeX Gyre Pagella (GUST Font License) and Alegreya SC (SIL Open Font License). Ground and grain textures from ambientCG and Poly Haven, CC0.</p>`,
       foot: `<button class="lui-btn small" data-act="resetScale">Reset</button><button class="lui-btn" data-act="close">Done</button>`,
       handlers: {
         resetScale: () => {
