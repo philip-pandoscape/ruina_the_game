@@ -69,6 +69,17 @@ export interface OthersVehicle {
   taken: number[];
 }
 
+/** Another player near you, whom the prompt can offer to challenge to a mini-game (src/ui/minigames). */
+export interface OtherPlayer {
+  id: number;
+  name: string;
+  x: number;
+  y: number;
+  z: number;
+  /** Why they can't be challenged right now ('Riding', 'At a Table'...), or null. */
+  busy: string | null;
+}
+
 export interface LifeOptions {
   /** Start-of-game money and labor (tests and the dev panel can be generous). */
   coins?: number;
@@ -225,6 +236,12 @@ export class Life implements LifeHooks {
    * prompt can offer to ride along (src/net/worldPeers.ts; null offline, where nobody else is).
    */
   othersVehicles: (() => OthersVehicle[]) | null = null;
+
+  /**
+   * Online: everyone else in your channel, for the prompt to offer a mini-game challenge
+   * (src/ui/minigames; null offline, where there's nobody to play).
+   */
+  othersAround: (() => OtherPlayer[]) | null = null;
 
   /**
    * Online: the world's clock (the server's, in seconds since 1970), which the rain and the wind run

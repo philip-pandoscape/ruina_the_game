@@ -261,6 +261,9 @@ export class LifeUI {
   // ---------- Input ----------
 
   press(k: LifePress): void {
+    // Mini-games first (src/ui/minigames): F on another player challenges them, and at a table the
+    // world's keys wait and Escape offers to concede.
+    if (this.intercept?.(k)) return;
     const life = this.life;
     const p = this.d.sim.player;
     if (k === 'escape') {
@@ -437,6 +440,9 @@ export class LifeUI {
 
   /** Set by the app: capture the mouse for the camera again (a window that took it has finished). */
   onMouseBack: (() => void) | null = null;
+
+  /** Set by the app: a key for the mini-games to take before the world does; true if they took it. */
+  intercept: ((k: LifePress) => boolean) | null = null;
 
   private onWindowClick(e: MouseEvent, w: HTMLElement): void {
     const b = (e.target as HTMLElement).closest('[data-act]') as HTMLElement | null;
