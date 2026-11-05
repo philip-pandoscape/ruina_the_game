@@ -147,6 +147,13 @@
 #lui-prompt.off { opacity: 0.7; }
 #lui-prompt .key { min-width: 26px; height: 26px; font-size: 14px; color: var(--btn-gold-ink); background: var(--btn-gold); border-color: var(--outline); box-shadow: 0 2px 0 var(--outline); }
 #lui-prompt .detail { font-size: 12.5px; font-weight: 600; color: var(--ink-2); }
+/* Auto-run or travel by road, under the compass: what is walking you and how to stop it (travelUI.ts). */
+#lui-walk { top: 50px; left: 50%; transform: translateX(-50%); display: none; align-items: center; gap: 8px; padding: 3px 12px 3px 9px; white-space: nowrap;
+  font: 700 13px var(--font); color: var(--ink-strong); border: 2px solid transparent; border-radius: 999px; background: var(--card) padding-box, var(--wood) border-box; box-shadow: var(--card-shadow); }
+#lui-walk.show { display: flex; }
+#lui-walk .dist { color: var(--ink-2); }
+#lui-walk .stop { display: inline-flex; align-items: center; gap: 3px; padding-left: 8px; font-size: 12px; color: var(--ink-2); border-left: 1px solid rgba(110, 70, 30, 0.35); }
+#lui-walk .key { min-width: 18px; height: 18px; margin-right: 2px; font-size: 11px; }
 #lui-ride { right: 16px; bottom: 150px; min-width: 200px; padding: 9px 12px; display: none; font-size: 12.5px;
   border: 2px solid transparent; border-radius: 8px; background: var(--card) padding-box, var(--wood) border-box; box-shadow: var(--card-shadow); }
 #lui-ride.show { display: block; }
