@@ -28,8 +28,10 @@ import { makeZoneWorld } from './sim/zone/world';
 import { OpenStage } from './render/open/stage';
 import { loadModels } from './render/open/models';
 import { groundAt } from './sim/zone/colliders';
-import { Life } from './sim/life/life';
-import { LifeView } from './render/open/life';
+import { Life, type Command } from './sim/life/life';
+import { runCommand, type FocusAction } from './sim/life/interact';
+import type { LifeState } from './sim/life/state';
+import { LifeView, sitIn } from './render/open/life';
 import { LifeUI } from './ui/life/lifeUI';
 import { clearLife, loadLife, saveData, saveLife } from './app/save';
 import { goOnline } from './app/online';
@@ -249,6 +251,8 @@ const lifeUI = life ? new LifeUI({ life, sim, world, camera: () => follow.camera
 // offers the developer panel.
 const peers = online && life && world.zone ? new WorldPeers(stage.scene, world.zone, models, sim, life, online.welcome.character.id, online.link) : null;
 if (peers && openStage) peers.onGroundChanged = () => openStage.foliage.invalidate();
+if (peers) peers.mineView = lifeView;
+if (peers && life) life.othersVehicles = () => peers.vehicles(sim.player);
 if (online && life) {
   const me = online.welcome.character.name;
   life.plotOwner = (plot) => {
@@ -311,6 +315,8 @@ if (life && online) {
   // Starting over: the old island must be gone before this page shows one.
   if (params.has('fresh')) await online.link.reset();
   life.remote = (c) => online.link.command((prediction?.seq ?? 0) + 1, c);
+  // ?lag=ms plays a local server as one far away would feel.
+  online.link.lag = lagMs;
 }
 if (life && testMode && params.has('load')) loadLife(life, sim);
 // The island's skill points hold your build to what you've earned, as the server does on joining:
@@ -851,6 +857,8 @@ addEventListener('resize', resize);
 resize();
 
 const simPos = new THREE.Vector3();
+/** What F does that runs ahead online (see life.remote): packs in and out of hands and vehicles, getting in. */
+const QUICK = new Set<FocusAction>(['pickup', 'load', 'unload', 'board']);
 const dummyTop = new THREE.Vector3();
 const markPos = new THREE.Vector3();
 
@@ -1098,11 +1106,16 @@ function refreshActors(now: number): void {
 function draw(alpha: number, cameraDt: number, animDt: number): void {
   // Weapon out in a fight, put away a little after one (the battlefield is all fight).
   hero.armed = battlefield || inAFight();
+  prediction?.ease(animDt);
+  // Riding: the vehicle goes where it is this frame before you're posed in its seat, so you tilt
+  // with it on a hill and your hands find its wheel or oars where they are now. Driving, yours is
+  // put under you (and anyone riding along with you sits in it after); riding along with someone,
+  // their vehicle is placed first, with everyone else.
+  const along = sim.player.mode === 'ride' && !!sim.player.host;
+  if (along) peers?.frame(animDt, sim.frame, follow.camera.position);
+  sitIn(hero, lifeView?.placeRide(sim.player, alpha, prediction?.offset ?? null, animDt) ?? (along ? (peers?.seatFor(sim.player) ?? null) : null));
   hero.update(sim.player, alpha, sim.frame);
-  if (prediction) {
-    prediction.ease(animDt);
-    hero.root.position.add(prediction.offset);
-  }
+  if (prediction && !hero.seat) hero.root.position.add(prediction.offset);
   const d = dummyActor();
   if (d) dummy.update(d);
   if (net) {
@@ -1118,7 +1131,7 @@ function draw(alpha: number, cameraDt: number, animDt: number): void {
   if (net) remotes?.frame(net.renderTick(performance.now()), animDt, sim.frame, 60 / net.ticksPerSecond);
   if (crowdView && crowdSource) crowdView.update(crowdSource, animDt);
   drawSpells(alpha, animDt);
-  peers?.frame(animDt, sim.frame, follow.camera.position);
+  if (!along) peers?.frame(animDt, sim.frame, follow.camera.position);
   if (life && lifeView) {
     lifeView.update(sim, animDt, follow.camera.position);
     lifeUI?.update(animDt);
@@ -1675,6 +1688,10 @@ const api = {
     };
   },
   // ---- Open world ----
+  /** Where your vehicles are drawn this frame. */
+  drawnVehicles() {
+    return lifeView?.drawnVehicles() ?? [];
+  },
   /** The life systems' state, as plain data. */
   life() {
     if (!life) return null;
@@ -1769,7 +1786,8 @@ const api = {
     lifeUI?.press(k);
   },
   setLag(ms: number): void {
-    net?.setLag(ms);
+    if (online) online.link.lag = ms;
+    else net?.setLag(ms);
   },
   /** The bug reporter: what it is doing and the last report it saved (null when it is off). */
   bugs() {
@@ -1918,29 +1936,56 @@ if (online) {
   };
   link.onStatus = stopIf;
   // A new connection counts inputs from scratch: start again from the server's next word.
-  link.onReconnect = () => prediction?.resync();
+  link.onReconnect = () => {
+    prediction?.resync();
+    ahead.length = 0;
+  };
   link.onError = (text) => life?.fromServer({ t: 'toast', text, kind: 'bad' });
 
   // Your island as the server has it, and the parts that move with you as of each update.
   let you: YouState | null = null;
+  /** Commands run here ahead of the server (see life.remote below), with the input each went with. */
+  const ahead: Array<{ seq: number; c: Command }> = [];
   let lastRev = -1;
   let lifeLoaded = false;
   const solidScarecrows = new Set<number>();
+  /** What's built on your island (farms and houses, where), last time the grass was laid round it. */
+  let groundKey = '';
+  /** Your island as the server last sent it, kept as it came. */
+  let base: LifeState | null = null;
   if (prediction && life) {
+    // Picking a pack up or putting it down, loading one or taking one out, getting in or out: run
+    // here at once as well as on the server, so the pack is on your back (or you're in the seat)
+    // without waiting a round trip for it. Until the server has run it too, whatever it sends is
+    // taken with what's still to come run again on top.
+    const quick = (c: Command): boolean => c.t === 'drop' || (c.t === 'exit' && !sim.player.host) || (c.t === 'interact' && !!life.focus?.ok && QUICK.has(life.focus.action));
+    life.remote = (c) => {
+      const seq = prediction.seq + 1;
+      online.link.command(seq, c);
+      if (!quick(c) || ahead.length >= 8) return;
+      if (life.state === base) life.state = structuredClone(base);
+      runCommand(life, sim, c);
+      ahead.push({ seq, c });
+    };
     prediction.beforeReplay = () => {
       if (!you) return;
+      // What the server has run too is in what it sent.
+      while (ahead.length && ahead[0].seq <= you.ack) ahead.shift();
+      if (ahead.length && base) life.state = structuredClone(base);
       const s = life.state;
       s.clock = you.clock;
       s.labor = you.labor;
       s.weather = you.weather;
-      s.vehicles = you.vehicles;
+      s.vehicles = ahead.length ? structuredClone(you.vehicles) : you.vehicles;
       life.resting = you.resting;
       life.placing = you.placing;
+      for (const a of ahead) runCommand(life, sim, a.c);
     };
   }
   const onTick = (t: WorldTick) => {
     if (life && t.life) {
       lifeLoaded = true;
+      base = t.life.state;
       life.state = t.life.state;
       life.placing = t.life.placing;
       life.resting = t.life.resting;
@@ -1954,7 +1999,13 @@ if (online) {
           solidScarecrows.add(sc.id);
           addScarecrowCollider(sim, sc);
         }
-        lifeView?.onGroundChanged?.();
+        // The grass is laid again only round something new built: a pack picked up changes the
+        // island too, and laying it all again then is a stutter.
+        const ground = life.state.scarecrows.map((sc) => sc.id).join(',') + '|' + life.state.houses.map((h) => `${h.plot}:${h.stage}`).join(',');
+        if (ground !== groundKey) {
+          groundKey = ground;
+          lifeView?.onGroundChanged?.();
+        }
       }
     }
     you = t.you;

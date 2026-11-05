@@ -11,7 +11,7 @@ import { toLocal } from '../zone/generate';
 import { closeGlider, gliderBlocked, gust, openGlider } from '../player/traverse';
 import { addScarecrow, cellAt, cellCentre, fell, harvest, isRipe, plant, plotProblem, secondsToRipe, stageOf, water, growFor } from './farming';
 import { buy, buyBack, carried, dropPack, pickUp, quote, recoverDemand, runRecipe, sell, loadPack, unloadPack, sellPack } from './trade';
-import { board, dismount, distanceTo, mountCommand, nearestAnchor, recall, ridden, summon } from './vehicles';
+import { board, dismount, distanceTo, mountCommand, nearestAnchor, packBlocks, recall, ridden, summon } from './vehicles';
 import { buildStage, deliverMaterial, houseOn, housePose, interiorPoint, isComplete, payTax, placeHouse, stageReady, stillNeeds, taxDue, DAY } from './housing';
 import { abandon, accept, complete, questsAt } from './quests';
 import { acceptContract } from './contracts';
@@ -24,7 +24,7 @@ import { questDef } from '../../content/quests';
 // what the next press will do.
 
 export type FocusAction =
-  | 'talk' | 'sell' | 'craft' | 'pickup' | 'board' | 'load' | 'unload' | 'exit'
+  | 'talk' | 'sell' | 'craft' | 'pickup' | 'board' | 'ride' | 'load' | 'unload' | 'exit'
   | 'plant' | 'water' | 'harvest' | 'fell' | 'gather' | 'claim' | 'deliver' | 'build'
   | 'rest' | 'storage' | 'tax' | 'placeScarecrow' | 'keel' | 'shipDeliver' | 'shipBuild' | 'launch' | 'feed' | 'collect' | 'info';
 
@@ -41,6 +41,8 @@ export interface Focus {
   bench?: string;
   pack?: number;
   vehicle?: number;
+  /** Riding along: whose vehicle it is (their character). */
+  host?: number;
   slot?: number;
   sc?: number;
   cell?: number;
@@ -171,9 +173,22 @@ export function findFocus(life: Life, sim: Sim): Focus | null {
       consider({ action: 'unload', key: `veh:${v.id}:unload`, label: `Take a Pack from the ${def.name}`, detail: `${used}/${def.cargo.length} Aboard`, ok: true, vehicle: v.id, slot: loaded, ...at }, d, 2.2);
     } else {
       const mount = isMount(def);
-      const blocked = mount && back && !def.canCarryPack;
-      consider({ action: 'board', key: `veh:${v.id}`, label: `${mount ? 'Ride' : 'Drive'} ${def.name}`, detail: blocked ? 'Will not carry a pack' : def.cargo.length ? `Cargo ${used}/${def.cargo.length}` : undefined, ok: !blocked, vehicle: v.id, ...at }, d + 0.3, 2.2);
+      // With a pack on your back only a pack animal will carry you; a cart takes it in its bed.
+      const blocked = !!back && !!packBlocks(def);
+      consider({ action: 'board', key: `veh:${v.id}`, label: `${mount ? 'Ride' : 'Drive'} ${def.name}`, detail: blocked ? (mount ? 'Will not carry a pack' : 'Load your pack first') : def.cargo.length ? `Cargo ${used}/${def.cargo.length}` : undefined, ok: !blocked, vehicle: v.id, ...at }, d + 0.3, 2.2);
     }
+  }
+
+  // Online, someone else's vehicle with a seat beside its driver's: ride along (the channel seats you).
+  for (const o of life.othersVehicles?.() ?? []) {
+    const v = o.vehicle;
+    const def = rideable(v.def);
+    if (def.seats.length < 2) continue;
+    const d = distanceTo(v, p.pos.x, p.pos.z);
+    if (d > 2.2) continue;
+    const room = o.taken.length < def.seats.length - 1;
+    const detail = back ? 'Put your pack down first' : room ? def.name : 'No room left';
+    consider({ action: 'ride', key: `ride:${o.host}:${v.id}`, label: `Ride with ${o.name}`, detail, ok: !back && room, host: o.host, vehicle: v.id, x: v.x, y: v.y, z: v.z }, d + 0.3, 2.2);
   }
 
   // Your farm plots: whatever is in the cell in front of you.
@@ -428,6 +443,10 @@ export function runCommand(life: Life, sim: Sim, c: Command): void {
       growFor(life, c.seconds);
       recoverDemand(life, c.seconds);
       life.regenLabor(c.seconds);
+      return;
+    case 'ride':
+      // Someone else's vehicle is never on your island: online the channel seats you
+      // (server/src/world_game.rs), and alone there is nobody to ride with.
       return;
   }
 }

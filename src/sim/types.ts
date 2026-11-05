@@ -131,6 +131,11 @@ export interface PlayerState {
   /** What you are riding (a vehicle id in the life systems), 0 on foot; and which seat. */
   vehicle: number;
   seat: number;
+  /**
+   * Riding along in someone else's vehicle: whose (their character), 0 in your own or on foot. Their
+   * vehicle numbers are their island's, so `vehicle` is one of theirs then.
+   */
+  host: number;
   /** The glider you have equipped ('' for none), and its airspeed while open. */
   glider: string;
   airspeed: number;
@@ -143,7 +148,7 @@ export interface PlayerState {
 }
 
 /** The traversal fields of someone simply on foot, for code that builds a PlayerState by hand. */
-export const ON_FOOT = { pack: 0, vehicle: 0, seat: 0, glider: '', airspeed: 0, bank: 0, modeFrame: 0, gustFrames: 0 };
+export const ON_FOOT = { pack: 0, vehicle: 0, seat: 0, host: 0, glider: '', airspeed: 0, bank: 0, modeFrame: 0, gustFrames: 0 };
 
 export type GameEvent =
   | { type: 'jump'; frame: number; x: number; y: number; z: number }
@@ -231,4 +236,19 @@ export interface World {
   index?: ColliderIndex;
   /** The recipe and everything generated from it. */
   zone?: ZoneData;
+  /**
+   * Online: everyone else's vehicles in your channel, as circles where they are this step, which you
+   * bump into like your own. The server keeps the channel's (server/src/world_game.rs); the browser
+   * fills in the others as it draws them (src/net/worldPeers.ts).
+   */
+  movers?: Mover[];
+}
+
+/** One circle of something solid that moves (a vehicle), with the height it stands at and how tall it is. */
+export interface Mover {
+  x: number;
+  z: number;
+  r: number;
+  y: number;
+  height: number;
 }

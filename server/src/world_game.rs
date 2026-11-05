@@ -42,6 +42,9 @@ const ACTOR_RADIUS: f64 = 70.0;
 const ACTOR_CAP: usize = 48;
 /// How long someone who left is remembered as they were (see ChannelGame::lingering).
 const LINGER: Duration = Duration::from_secs(60);
+/// How close to someone's vehicle you have to be to climb in (the hull, as the island's prompts
+/// measure it, with a little slack for where you were drawn).
+const CLIMB_IN: f64 = 2.6;
 
 /// An island to write to Postgres, and whose browser to tell once it's written.
 pub struct Save {
@@ -221,6 +224,8 @@ impl ChannelGame {
         if !self.members.get(&character).is_some_and(|m| m.session == session) {
             return None;
         }
+        // Riding along with someone, you step out beside their vehicle first: that's where you are.
+        self.drop_off(character);
         let keep_saved = self.members.remove(&character).is_some_and(|m| m.keep_saved);
         let (player, life) = self.players.leave(client(character))?;
         let mut life = life?;
@@ -258,6 +263,7 @@ impl ChannelGame {
 
     /// The developer panel's teleport: off whatever you were riding, onto the ground there.
     fn teleport(&mut self, character: i64, x: f64, z: f64, facing: Option<f64>) {
+        self.drop_off(character);
         let Some((p, life)) = self.players.open_mut(client(character)) else { return };
         let hf = self.open.terrain();
         if !x.is_finite() || !z.is_finite() || !hf.inside(x, z, 0.0) {
@@ -320,8 +326,137 @@ impl ChannelGame {
             self.teleport(character, x, z, facing);
             return true;
         }
+        if let Command::Ride { host, vehicle } = c {
+            self.ride_along(character, host, vehicle);
+            return true;
+        }
+        // Riding along with someone, the key that gets you out of your own vehicle gets you out of
+        // theirs: their vehicle isn't on your island, so the channel does it.
+        if matches!(c, Command::Interact | Command::Exit) && self.passenger(character).is_some() {
+            self.drop_off(character);
+            return true;
+        }
         self.players.queue_command(client(character), seq, c);
         true
+    }
+
+    /// Who a passenger rides with, which of their vehicles and which seat, if they ride along.
+    fn passenger(&self, character: i64) -> Option<(i64, i64, usize)> {
+        let (p, _, _) = self.players.open_view(client(character))?;
+        (p.mode == Mode::Ride && p.host != 0).then_some((p.host, p.vehicle, p.seat as usize))
+    }
+
+    /// A vehicle of `host`'s as it is now, if they're here and it's out.
+    fn vehicle_of(&self, host: i64, vehicle: i64) -> Option<crate::life::state::Vehicle> {
+        let (_, _, life) = self.players.open_view(client(host))?;
+        let life = life?;
+        vehicles::vehicle_index(life, vehicle).map(|i| life.state.vehicles[i].clone())
+    }
+
+    /// Climbs into the free seat of `host`'s vehicle nearest you (the driver's is its owner's).
+    /// You need to be beside it, on your feet or swimming, with your hands free. True if you're in.
+    pub fn ride_along(&mut self, character: i64, host: i64, vehicle: i64) -> bool {
+        if host == character || !self.members.contains_key(&host) {
+            return false;
+        }
+        let Some(v) = self.vehicle_of(host, vehicle) else { return false };
+        let def = crate::life::content::rideable(&v.def);
+        let taken: Vec<usize> = self.players.each_open().filter(|(_, _, p, _)| p.mode == Mode::Ride && p.host == host && p.vehicle == vehicle).map(|(_, _, p, _)| p.seat as usize).collect();
+        let owner_name = self.members.get(&host).map(|m| m.name.clone()).unwrap_or_default();
+        let Some((p, life)) = self.players.open_mut(client(character)) else { return false };
+        let say = |life: Option<&mut Life>, text: String| {
+            if let Some(l) = life {
+                l.toast(text, "bad");
+            }
+        };
+        if (p.mode != Mode::Normal && p.mode != Mode::Swim) || p.down_frame >= 0 || p.stun > 0 {
+            return false;
+        }
+        if p.pack != 0 {
+            say(life, format!("Put your pack down first - there's no room for it in {owner_name}'s {}", def.name.to_lowercase()));
+            return false;
+        }
+        if vehicles::distance_to(&v, p.pos.x, p.pos.z) > CLIMB_IN {
+            return false;
+        }
+        let near = |k: &usize| {
+            let (x, _, z) = vehicles::anchor_world(&v, &def.seats[*k]);
+            (x - p.pos.x).hypot(z - p.pos.z)
+        };
+        let Some(seat) = (1..def.seats.len()).filter(|k| !taken.contains(k)).min_by(|a, b| near(a).total_cmp(&near(b))) else {
+            say(life, format!("There's no room left in {owner_name}'s {}", def.name.to_lowercase()));
+            return false;
+        };
+        p.mode = Mode::Ride;
+        p.vehicle = vehicle;
+        p.host = host;
+        p.seat = seat as u8;
+        p.grounded = true;
+        p.jumps_used = 0;
+        p.sprinting = false;
+        p.crouching = false;
+        p.jump_buffer = 0;
+        sit(p, &v, seat);
+        true
+    }
+
+    /// A passenger steps out beside the vehicle they ride in (or, if it has gone, where they are).
+    fn drop_off(&mut self, character: i64) {
+        let Some((host, vehicle, _)) = self.passenger(character) else { return };
+        let v = self.vehicle_of(host, vehicle);
+        let Some((p, _)) = self.players.open_mut(client(character)) else { return };
+        let sim = Sim { player: p, world: &mut self.open, owner: character };
+        let (x, y, z, dry) = match &v {
+            Some(v) => vehicles::exit_spot(&sim, v),
+            None => {
+                let hf = sim.terrain();
+                let (x, z) = (sim.player.pos.x, sim.player.pos.z);
+                let y = ground_at(hf, &sim.world.index, x, z, sim.player.pos.y.max(hf.water) + 0.5, 3.0);
+                let dry = y > hf.water - crate::life::content::swim().depth + 0.2;
+                (x, if dry { y } else { hf.water - crate::life::content::swim().float }, z, dry)
+            }
+        };
+        let p = &mut *sim.player;
+        p.mode = Mode::Normal;
+        p.vehicle = 0;
+        p.host = 0;
+        p.seat = 0;
+        p.pos.x = x;
+        p.pos.y = y;
+        p.pos.z = z;
+        p.vel = Default::default();
+        p.grounded = dry;
+    }
+
+    /// Everyone riding along sits where their seat has gone this tick, now their host has driven;
+    /// whoever's vehicle (or host) has gone steps off where they are.
+    fn seat_passengers(&mut self) {
+        let riders: Vec<(i64, i64, i64, usize)> = self.players.each_open().filter(|(_, _, p, _)| p.mode == Mode::Ride && p.host != 0).map(|(_, who, p, _)| (who, p.host, p.vehicle, p.seat as usize)).collect();
+        for (who, host, vehicle, seat) in riders {
+            let v = self.vehicle_of(host, vehicle).filter(|v| seat < crate::life::content::rideable(&v.def).seats.len());
+            match v {
+                Some(v) => {
+                    if let Some((p, _)) = self.players.open_mut(client(who)) {
+                        sit(p, &v, seat);
+                    }
+                }
+                None => self.drop_off(who),
+            }
+        }
+    }
+
+    /// Everyone's vehicles, solid to everyone but their owner, as they stand when the tick begins.
+    fn gather_movers(&mut self) {
+        let mut movers = std::mem::take(&mut self.open.movers);
+        movers.clear();
+        for (_, owner, _, life) in self.players.each_open() {
+            if let Some(l) = life {
+                for v in &l.state.vehicles {
+                    movers.extend(vehicles::bodies(owner, v));
+                }
+            }
+        }
+        self.open.movers = movers;
     }
 
     /// A new build (skills and loadout) as the browser sent it: used if it is one, and the skill
@@ -429,7 +564,9 @@ impl ChannelGame {
         // Each player may run as many inputs as real time allows (a hair more, so a browser whose
         // clock runs a little fast never builds up a queue), and no more.
         self.players.inputs_per_tick = elapsed * 61.0;
+        self.gather_movers();
         self.players.step_in(&mut self.battle, &mut self.actors, &self.world, self.tick, Some(&mut self.open));
+        self.seat_passengers();
         self.players.step_effects(&mut self.battle, &mut self.actors);
         let seen = self.players.live_positions();
         let mut slams = Vec::new();
@@ -502,6 +639,21 @@ impl ChannelGame {
             let _ = out.try_send(msg.to_string());
         }
     }
+}
+
+/// Puts a passenger in seat `seat` of a vehicle, facing the way it faces and moving with it.
+fn sit(p: &mut Player, v: &crate::life::state::Vehicle, seat: usize) {
+    let def = crate::life::content::rideable(&v.def);
+    let Some(a) = def.seats.get(seat) else { return };
+    let (x, y, z) = vehicles::anchor_world(v, a);
+    p.pos.x = x;
+    p.pos.y = y;
+    p.pos.z = z;
+    p.facing = v.heading;
+    p.vel.x = v.vx;
+    p.vel.y = v.vy;
+    p.vel.z = v.vz;
+    p.bank = 0.0;
 }
 
 /// Stands a player on whatever is under them (terrain, a deck, a roof).
@@ -681,6 +833,7 @@ pub fn player_state_json(p: &Player) -> Value {
         "pack": p.pack,
         "vehicle": p.vehicle,
         "seat": p.seat,
+        "host": p.host,
         "glider": p.glider,
         "airspeed": p.airspeed,
         "bank": p.bank,
@@ -739,6 +892,7 @@ fn presence_json(p: &Player, life: Option<&Life>, fr: u64) -> Value {
         "pack": p.pack,
         "vehicle": p.vehicle,
         "seat": p.seat,
+        "host": p.host,
         "glider": p.glider,
         "airspeed": p.airspeed,
         "sprinting": p.sprinting,
@@ -917,5 +1071,148 @@ mod tests {
         assert_eq!(life_view(&life)["state"]["skillXp"], json!({}));
         life.state.skill_xp.insert("bow".into(), 42.0);
         assert_eq!(life_view(&life)["state"]["skillXp"]["bow"], json!(42.0));
+    }
+
+    /// Ada (7) with her farm cart out on the west road, and Bo (8) in the same channel.
+    fn ada_and_bo() -> (ChannelGame, i64) {
+        let (mut ch, _) = channel_with(None);
+        let (out, _) = mpsc::channel(16);
+        ch.join(Arrival { character: 8, session: 2, name: "Bo".into(), out, dev: false, island: None, saved_at: None, now: 0, build: None });
+        let (x, z, heading) = (150.0, -210.0, std::f64::consts::FRAC_PI_2 + 0.25);
+        let id = {
+            let (p, life) = ch.players.open_mut(client(7)).unwrap();
+            p.pos.x = x - 6.0;
+            p.pos.z = z;
+            p.facing = heading;
+            stand_on_ground(p, &ch.open);
+            let life = life.unwrap();
+            life.give("deed.farmCart", 1, true);
+            let mut sim = Sim { player: p, world: &mut ch.open, owner: 7 };
+            vehicles::summon(life, &mut sim, "deed.farmCart").expect("a cart on the road")
+        };
+        (ch, id)
+    }
+
+    /// Runs \`frames\` inputs for everyone (Ada's \`ada\`, Bo standing still), a tick at a time, as
+    /// step() does: everyone's vehicles made solid, everyone moved, passengers seated.
+    fn play_both(ch: &mut ChannelGame, seq: &mut u32, ada: [u8; OPEN_INPUT], frames: u32) {
+        for _ in 0..frames.div_ceil(3) {
+            let first = *seq + 1;
+            *seq += 3;
+            ch.inputs(7, (first..=*seq).map(|s| (s, ada)));
+            ch.inputs(8, (first..=*seq).map(|s| (s, [0; OPEN_INPUT])));
+            ch.players.inputs_per_tick = 3.0;
+            ch.gather_movers();
+            ch.players.step_in(&mut ch.battle, &mut ch.actors, &ch.world, 1, Some(&mut ch.open));
+            ch.seat_passengers();
+        }
+    }
+
+    fn cart(ch: &ChannelGame, id: i64) -> crate::life::state::Vehicle {
+        ch.vehicle_of(7, id).expect("Ada's cart is out")
+    }
+
+    #[test]
+    fn a_friend_rides_along_in_your_cart_and_steps_out_beside_it() {
+        let (mut ch, id) = ada_and_bo();
+        let seat = |v: &crate::life::state::Vehicle, k: usize| vehicles::anchor_world(v, &crate::life::content::rideable("farmCart").seats[k]);
+        // Bo walks up to the passenger's side and climbs in.
+        let v = cart(&ch, id);
+        let (sx, _, sz) = seat(&v, 1);
+        {
+            let p = ch.players.open_mut(client(8)).unwrap().0;
+            p.pos.x = sx - 1.2 * v.heading.cos();
+            p.pos.z = sz + 1.2 * v.heading.sin();
+            stand_on_ground(p, &ch.open);
+        }
+        assert!(ch.command(8, 1, Command::Ride { host: 7, vehicle: id }));
+        let bo = ch.players.open_view(client(8)).unwrap().0;
+        assert_eq!((bo.mode, bo.host, bo.vehicle, bo.seat), (Mode::Ride, 7, id, 1));
+        assert_eq!((bo.pos.x, bo.pos.y, bo.pos.z), seat(&v, 1));
+        // Nobody else fits in a two-seater, and nobody takes the wheel from its owner.
+        assert!(!ch.ride_along(7, 7, id), "not in your own as a passenger");
+        // Ada gets in and drives off up the road: Bo goes with her, in his seat all the way.
+        {
+            let v = cart(&ch, id);
+            let (p, life) = ch.players.open_mut(client(7)).unwrap();
+            let (x, _, z) = seat(&v, 0);
+            p.pos.x = x + 1.0 * v.heading.cos();
+            p.pos.z = z - 1.0 * v.heading.sin();
+            let mut sim = Sim { player: p, world: &mut ch.open, owner: 7 };
+            assert!(vehicles::board(life.unwrap(), &mut sim, id));
+        }
+        let mut seq = 1;
+        const GO: [u8; OPEN_INPUT] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 127];
+        let start = cart(&ch, id);
+        play_both(&mut ch, &mut seq, GO, 120);
+        let v = cart(&ch, id);
+        let went = (v.x - start.x).hypot(v.z - start.z);
+        assert!(went > 3.0, "the cart went {went} m");
+        let bo = ch.players.open_view(client(8)).unwrap().0;
+        assert_eq!((bo.mode, bo.host), (Mode::Ride, 7));
+        assert_eq!((bo.pos.x, bo.pos.y, bo.pos.z), seat(&v, 1));
+        assert_eq!(bo.facing, v.heading);
+        // F gets him out, beside the cart, on his feet.
+        assert!(ch.command(8, seq + 1, Command::Interact));
+        let bo = ch.players.open_view(client(8)).unwrap().0;
+        assert_eq!((bo.mode, bo.host, bo.vehicle, bo.seat), (Mode::Normal, 0, 0, 0));
+        let off = vehicles::distance_to(&v, bo.pos.x, bo.pos.z);
+        assert!(off > 0.0 && off < 1.5, "{off} m from the hull");
+    }
+
+    #[test]
+    fn your_friend_bumps_into_your_cart_and_falls_off_when_it_goes_home() {
+        let (mut ch, id) = ada_and_bo();
+        let v = cart(&ch, id);
+        // Bo walks into the middle of Ada's cart: he's pushed out of it, as from his own.
+        {
+            let p = ch.players.open_mut(client(8)).unwrap().0;
+            p.pos.x = v.x;
+            p.pos.z = v.z;
+            stand_on_ground(p, &ch.open);
+        }
+        let mut seq = 0;
+        play_both(&mut ch, &mut seq, [0; OPEN_INPUT], 3);
+        let bo = ch.players.open_view(client(8)).unwrap().0;
+        assert!((bo.pos.x - v.x).hypot(bo.pos.z - v.z) > 1.0, "pushed out of the cart");
+        // In he climbs; then Ada sends it home. Bo is left standing where it was.
+        assert!(ch.ride_along(8, 7, id));
+        {
+            let (p, life) = ch.players.open_mut(client(7)).unwrap();
+            let mut sim = Sim { player: p, world: &mut ch.open, owner: 7 };
+            assert!(vehicles::recall(life.unwrap(), &mut sim, id, true));
+        }
+        play_both(&mut ch, &mut seq, [0; OPEN_INPUT], 3);
+        let bo = ch.players.open_view(client(8)).unwrap().0;
+        assert_eq!((bo.mode, bo.host), (Mode::Normal, 0));
+        let hf = ch.open.terrain();
+        assert!((bo.pos.y - hf.height(bo.pos.x, bo.pos.z)).abs() < 1.5, "on the ground where the cart was");
+    }
+
+    #[test]
+    fn nobody_rides_along_with_a_pack_or_from_far_away() {
+        let (mut ch, id) = ada_and_bo();
+        let v = cart(&ch, id);
+        ch.players.open_mut(client(8)).unwrap().1.unwrap().drain_events();
+        {
+            let p = ch.players.open_mut(client(8)).unwrap().0;
+            p.pos.x = v.x + 9.0;
+            p.pos.z = v.z;
+            stand_on_ground(p, &ch.open);
+        }
+        assert!(!ch.ride_along(8, 7, id), "too far");
+        {
+            let p = ch.players.open_mut(client(8)).unwrap().0;
+            p.pos.x = v.x + 1.6 * v.heading.cos();
+            p.pos.z = v.z - 1.6 * v.heading.sin();
+            p.pack = 12;
+        }
+        assert!(!ch.ride_along(8, 7, id), "a pack in his arms");
+        let toasts: Vec<String> = ch.players.open_mut(client(8)).unwrap().1.unwrap().drain_events().into_iter().filter_map(|e| if let crate::life::LifeEvent::Toast { text, .. } = e { Some(text) } else { None }).collect();
+        assert_eq!(toasts, ["Put your pack down first - there's no room for it in Ada's farm cart"]);
+        ch.players.open_mut(client(8)).unwrap().0.pack = 0;
+        assert!(!ch.ride_along(8, 7, 999), "no such cart");
+        assert!(!ch.ride_along(8, 9, id), "nobody by that name here");
+        assert!(ch.ride_along(8, 7, id));
     }
 }

@@ -1,6 +1,6 @@
 import type { Life } from './life';
 import type { Sim } from '../sim';
-import type { Actions } from '../types';
+import type { Actions, Mover } from '../types';
 import type { Vehicle } from './state';
 import { isBoat, isMount, isWheeled, rideable, type BoatDef, type MountDef, type RideableDef, type WheeledDef } from '../../content/vehicles';
 import { itemDef } from '../../content/items';
@@ -23,12 +23,28 @@ const wrap = (a: number) => (a > Math.PI ? a - TAU : a < -Math.PI ? a + TAU : a)
 const clamp = (v: number, lo: number, hi: number) => (v < lo ? lo : v > hi ? hi : v);
 
 export const vehicleById = (life: Life, id: number): Vehicle | undefined => life.state.vehicles.find((v) => v.id === id);
-export const ridden = (life: Life, sim: Sim): Vehicle | undefined => (sim.player.vehicle ? vehicleById(life, sim.player.vehicle) : undefined);
+/**
+ * The vehicle of yours you are riding. Riding along in someone else's (`host` set), it's theirs, not
+ * one of your island's, even when one of yours has the same number.
+ */
+export const ridden = (life: Life, sim: Sim): Vehicle | undefined => (sim.player.vehicle && !sim.player.host ? vehicleById(life, sim.player.vehicle) : undefined);
 
-/** A point given in the vehicle's own frame, out in the world. */
+/**
+ * A point given in the vehicle's own frame, out in the world: turned by its roll, then its pitch
+ * (nose up is positive), then its heading, just as the vehicle is drawn (rotation order YXZ with
+ * x = -pitch, y = heading, z = roll), so a seat stays where the model's seat is however it tilts.
+ */
 export function anchorWorld(v: Vehicle, a: { x: number; y: number; z: number }): { x: number; y: number; z: number } {
-  const [ox, oz] = toWorld(a.x, a.z, v.heading);
-  return { x: v.x + ox, y: v.y + a.y - a.z * Math.sin(v.pitch) + a.x * Math.sin(v.roll), z: v.z + oz };
+  const cr = Math.cos(v.roll);
+  const sr = Math.sin(v.roll);
+  const cp = Math.cos(v.pitch);
+  const sp = Math.sin(v.pitch);
+  const x1 = a.x * cr - a.y * sr;
+  const y1 = a.x * sr + a.y * cr;
+  const y2 = y1 * cp + a.z * sp;
+  const z2 = a.z * cp - y1 * sp;
+  const [ox, oz] = toWorld(x1, z2, v.heading);
+  return { x: v.x + ox, y: v.y + y2, z: v.z + oz };
 }
 
 // ---------- Summoning ----------
@@ -179,11 +195,21 @@ export function recall(life: Life, sim: Sim, id: number, quiet = false): boolean
 
 // ---------- Getting in and out ----------
 
+/**
+ * Why a pack on your back keeps you out of this one's seat, or null if it doesn't: only a pack
+ * animal carries you with one. Carts and boats have a bed or a hold for it.
+ */
+export function packBlocks(def: RideableDef): string | null {
+  if (isMount(def)) return def.canCarryPack ? null : `Your ${def.name.toLowerCase()} won't carry a trade pack - a donkey will`;
+  return `Load your pack into the ${def.name.toLowerCase()} first - you can't ${isBoat(def) ? 'row or sail' : 'drive'} with it on your back`;
+}
+
 export function board(life: Life, sim: Sim, v: Vehicle): boolean {
   const def = rideable(v.def);
   const p = sim.player;
-  if (isMount(def) && p.pack && !def.canCarryPack) {
-    life.toast(`Your ${def.name.toLowerCase()} won't carry a trade pack - a donkey will`, 'bad');
+  const blocked = p.pack ? packBlocks(def) : null;
+  if (blocked) {
+    life.toast(blocked, 'bad');
     return false;
   }
   if (p.mode !== 'normal' && p.mode !== 'swim') return false;
@@ -232,6 +258,8 @@ export function dismount(life: Life, sim: Sim): boolean {
   if (!v) {
     if (p.mode === 'ride') p.mode = 'normal';
     p.vehicle = 0;
+    p.host = 0;
+    p.seat = 0;
     return false;
   }
   const def = rideable(v.def);
@@ -327,8 +355,11 @@ export function mountCommand(life: Life, sim: Sim): void {
 // ---------- Every step ----------
 
 export function rideVehicle(life: Life, sim: Sim, a: Actions): void {
-  const v = ridden(life, sim);
   const p = sim.player;
+  // Riding along in someone else's: you sit where its seat goes, which whoever runs the channel
+  // works out once its owner has driven it this step (server/src/world_game.rs).
+  if (p.host) return;
+  const v = ridden(life, sim);
   if (!v) {
     p.mode = 'normal';
     p.vehicle = 0;
@@ -354,26 +385,37 @@ export function stepVehicles(life: Life, sim: Sim, _a: Actions): void {
     else if (isBoat(def)) stepBoat(life, sim, v, def, { ...none, handbrake: false });
     else stepMountIdle(sim, v, def);
   }
-  // You bump into vehicles you are not riding, like anything else solid.
+  // You bump into vehicles you are not riding, like anything else solid: yours, and online
+  // everyone else's in the channel (ridden or not).
   const p = sim.player;
   if (p.mode !== 'ride' && p.mode !== 'glide') {
     for (const v of life.state.vehicles) {
       if (v.ridden) continue;
       const def = rideable(v.def);
-      for (const c of circles(v, def)) {
-        const dx = p.pos.x - c.x;
-        const dz = p.pos.z - c.z;
-        const min = c.r + MOVE.playerRadius;
-        const d2 = dx * dx + dz * dz;
-        if (d2 >= min * min) continue;
-        // Only if you are at its height (not standing on a deck above a boat, say).
-        if (Math.abs(p.pos.y - v.y) > Math.max(2.2, def.height)) continue;
-        const d = Math.sqrt(d2) || 1e-4;
-        p.pos.x = c.x + (dx / d) * min;
-        p.pos.z = c.z + (dz / d) * min;
-      }
+      for (const c of circles(v, def)) bump(p.pos, c, v.y, def.height);
     }
+    for (const m of sim.world.movers ?? []) bump(p.pos, m, m.y, m.height);
   }
+}
+
+/** Pushes you out of one of a vehicle's circles, if you are in it and at its height. */
+function bump(pos: { x: number; y: number; z: number }, c: { x: number; z: number; r: number }, y: number, height: number): void {
+  const dx = pos.x - c.x;
+  const dz = pos.z - c.z;
+  const min = c.r + MOVE.playerRadius;
+  const d2 = dx * dx + dz * dz;
+  if (d2 >= min * min) return;
+  // Only if you are at its height (not standing on a deck above a boat, say).
+  if (Math.abs(pos.y - y) > Math.max(2.2, height)) return;
+  const d = Math.sqrt(d2) || 1e-4;
+  pos.x = c.x + (dx / d) * min;
+  pos.z = c.z + (dz / d) * min;
+}
+
+/** A vehicle as something solid to everyone but its owner (World.movers): its circles, where it is now. */
+export function vehicleBodies(v: Vehicle): Mover[] {
+  const def = rideable(v.def);
+  return circles(v, def).map((c) => ({ ...c, y: v.y, height: def.height }));
 }
 
 /** A long vehicle is two circles (front and back), a short one is one. */

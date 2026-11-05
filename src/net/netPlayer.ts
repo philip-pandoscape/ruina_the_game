@@ -111,6 +111,7 @@ export class Prediction {
     }
     const before = { ...this.sim.player.pos };
     const prevPos = { ...this.sim.player.prevPos };
+    const was = this.sim.player;
     this.sim.player = clonePlayer(server);
     this.beforeReplay?.();
     for (const p of this.pending) this.sim.step(p.actions);
@@ -126,8 +127,11 @@ export class Prediction {
       this.corrections++;
       this.lastCorrection = err;
       this.maxCorrection = Math.max(this.maxCorrection, err);
-      // Small corrections ease in; big ones (respawns, long knockbacks) snap.
-      if (err < 3) this.offset.add(new THREE.Vector3(dx, dy, dz));
+      // Small corrections ease in; big ones (respawns, long knockbacks) snap. So does getting into
+      // a seat or out of one (the server's answer to your F): eased, you'd be drawn sliding up from
+      // the ground, and the vehicle, drawn under you, sinking into it and back.
+      const seated = (q: PlayerState) => (q.mode === 'ride' ? `${q.host}:${q.vehicle}:${q.seat}` : '');
+      if (err < 3 && seated(was) === seated(this.sim.player)) this.offset.add(new THREE.Vector3(dx, dy, dz));
       else this.offset.set(0, 0, 0);
     }
   }

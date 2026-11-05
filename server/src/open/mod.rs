@@ -27,6 +27,20 @@ pub struct OpenWorld {
     pub radius: f64,
     /// Built pieces already made solid, as "owner:what" keys, so each is added once.
     pub added: HashSet<String>,
+    /// Everyone's vehicles as they stood when this tick began, which everyone but their owner bumps
+    /// into (src/sim/types.ts World.movers).
+    pub movers: Vec<Mover>,
+}
+
+/// One circle of a vehicle, with whose it is, the height it stands at and how tall it is.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct Mover {
+    pub owner: i64,
+    pub x: f64,
+    pub z: f64,
+    pub r: f64,
+    pub y: f64,
+    pub height: f64,
 }
 
 impl OpenWorld {
@@ -37,6 +51,7 @@ impl OpenWorld {
             clear: zone.clear.clone(),
             radius: zone.radius,
             added: HashSet::new(),
+            movers: Vec::new(),
         }
     }
 

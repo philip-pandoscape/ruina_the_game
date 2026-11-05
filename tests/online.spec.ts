@@ -395,6 +395,130 @@ test("a neighbour's house is drawn on your island, and their plot can't be taken
   await expect.poll(() => game(b, (g) => g.life().focus?.label), { timeout: 45_000 }).toBe(`${nameA}'s Plot`);
 });
 
+test('a friend rides along in your cart wherever you drive it, and bumps into it parked', async ({ browser }) => {
+  const { a, b, nameA } = await pair(browser);
+  const ann = await game(a, (g) => g.online().character.id);
+  // Ann brings her farm cart out on the west road.
+  await a.bringToFront();
+  await a.evaluate(() => (window as any).__game.lifeCommand({ t: 'grant', item: 'deed.farmCart', n: 1 }));
+  await a.evaluate(() => (window as any).__game.teleport(150, -210, Math.PI / 2 + 0.25));
+  await expect.poll(() => game(a, (g) => g.life().bag.some((s: { item: string }) => s.item === 'deed.farmCart')), { timeout: 30_000 }).toBe(true);
+  await a.evaluate(() => (window as any).__game.lifeCommand({ t: 'summon', item: 'deed.farmCart' }));
+  await expect.poll(() => game(a, (g) => g.life().vehicles.length), { timeout: 30_000 }).toBe(1);
+  const cart = await game(a, (g) => g.life().vehicles[0]);
+  /** A point beside a vehicle, given in its own frame (+x its left, +z ahead), out in the world. */
+  const beside = (v: { x: number; z: number; heading: number }, lx: number, lz: number, turn: number) => [v.x + lx * Math.cos(v.heading) + lz * Math.sin(v.heading), v.z - lx * Math.sin(v.heading) + lz * Math.cos(v.heading), v.heading + turn];
+
+  // Bea walks up to its passenger side: the prompt offers her a ride, and F puts her in.
+  await b.bringToFront();
+  await b.evaluate(([x, z, f]) => (window as any).__game.teleport(x, z, f), beside(cart, -1.7, 0.95, Math.PI / 2));
+  await expect.poll(() => game(b, (g) => g.life().focus?.label), { timeout: 30_000 }).toBe(`Ride with ${nameA}`);
+  await b.evaluate(() => (window as any).__game.pressLife('interact'));
+  const seated = () => game(b, (g) => `${g.state().player.mode}:${g.state().player.host}:${g.state().player.seat}`);
+  await expect.poll(seated, { timeout: 30_000 }).toBe(`ride:${ann}:1`);
+
+  // Ann climbs into the driver's seat and drives off up the road.
+  await a.bringToFront();
+  await a.evaluate(([x, z, f]) => (window as any).__game.teleport(x, z, f), beside(cart, 1.7, 0.95, -Math.PI / 2));
+  await expect.poll(() => game(a, (g) => g.life().focus?.action), { timeout: 30_000 }).toBe('board');
+  await a.evaluate(() => (window as any).__game.pressLife('interact'));
+  await expect.poll(() => game(a, (g) => g.state().player.mode), { timeout: 30_000 }).toBe('ride');
+  await a.evaluate(() => (window as any).__game.scriptInput([[150, { stickY: 1 }], [90, { jumpHeld: true }]]));
+  await expect.poll(() => game(a, (g) => g.net().scriptLeft), { timeout: 60_000 }).toBe(0);
+  const moved = await game(a, (g) => g.life().vehicles[0]);
+  expect(Math.hypot(moved.x - cart.x, moved.z - cart.z), 'Ann drove her cart up the road').toBeGreaterThan(6);
+
+  // Bea went with her, in the seat beside Ann's; F gets her out, on her feet beside the cart.
+  await b.bringToFront();
+  await expect.poll(async () => {
+    const p = (await game(b, (g) => g.state().player)) as { pos: { x: number; z: number } };
+    return Math.hypot(p.pos.x - moved.x, p.pos.z - moved.z);
+  }, { timeout: 30_000 }).toBeLessThan(1.6);
+  expect(await seated()).toBe(`ride:${ann}:1`);
+  await b.evaluate(() => (window as any).__game.pressLife('interact'));
+  await expect.poll(seated, { timeout: 30_000 }).toBe('normal:0:0');
+
+  // Parked, Ann's cart is as solid to Bea as her own would be: walking into its side, she stops at it.
+  await a.bringToFront();
+  await a.evaluate(() => (window as any).__game.pressLife('interact'));
+  await expect.poll(() => game(a, (g) => g.state().player.mode), { timeout: 30_000 }).toBe('normal');
+  const parked = await game(a, (g) => g.life().vehicles[0]);
+  await b.bringToFront();
+  const [sx, sz] = beside(parked, -3.4, 0, 0);
+  await b.evaluate(([x, z, f]) => (window as any).__game.teleport(x, z, f), [sx, sz, parked.heading - Math.PI / 2]);
+  const dir = [parked.x - sx, parked.z - sz].map((c) => c / 3.4);
+  await b.evaluate(([x, z]) => (window as any).__game.scriptInput([[150, { moveX: x, moveZ: z }]]), dir);
+  await expect.poll(() => game(b, (g) => g.net().scriptLeft), { timeout: 60_000 }).toBe(0);
+  const bea = (await game(b, (g) => g.state().player)) as { pos: { x: number; z: number } };
+  expect(Math.hypot(bea.pos.x - parked.x, bea.pos.z - parked.z), 'stopped against the side of the cart').toBeGreaterThan(1.3);
+});
+
+test('far from the server, a pack comes out of the cart at once and getting in does not sink the cart', async ({ page }) => {
+  // 120 ms each way, about what the deployed server is from a long way off.
+  await page.goto(`/?as=${fresh('far')}&bugs=0&lag=120`);
+  await waitOnline(page);
+  for (const [item, n] of [['deed.farmCart', 1], ['sunroot', 12], ['barley', 8]] as const) await page.evaluate(([i, k]) => (window as any).__game.lifeCommand({ t: 'grant', item: i, n: k }), [item, n]);
+  const zone = await game(page, (g) => g.zone());
+  const wb = zone.workbenches[0];
+  await page.evaluate(([x, z]) => (window as any).__game.teleport(x - 6, z + 6, 0), [wb.x, wb.z]);
+  await expect.poll(() => game(page, (g) => g.life().bag.some((s: { item: string }) => s.item === 'deed.farmCart')), { timeout: 30_000 }).toBe(true);
+  await page.evaluate(() => (window as any).__game.lifeCommand({ t: 'summon', item: 'deed.farmCart' }));
+  await expect.poll(() => game(page, (g) => g.life().vehicles.length), { timeout: 30_000 }).toBe(1);
+  const cart = await game(page, (g) => g.life().vehicles[0]);
+  // A crate from the bench, into the cart's bed.
+  await page.evaluate(([x, z]) => (window as any).__game.teleport(x, z + 2, Math.PI), [wb.x, wb.z]);
+  await page.evaluate(() => (window as any).__game.lifeCommand({ t: 'craft', recipe: 'pack.harvestCrate' }));
+  await expect.poll(() => game(page, (g) => g.state().player.pack), { timeout: 30_000 }).toBeGreaterThan(0);
+  const bed = [cart.x - Math.sin(cart.heading) * 2.6, cart.z - Math.cos(cart.heading) * 2.6, cart.heading];
+  await page.evaluate(([x, z, f]) => (window as any).__game.teleport(x, z, f), bed);
+  await expect.poll(() => game(page, (g) => g.life().focus?.action), { timeout: 30_000 }).toBe('load');
+  await page.evaluate(() => (window as any).__game.pressLife('interact'));
+  await expect.poll(() => game(page, (g) => g.life().vehicles[0].cargo.filter(Boolean).length), { timeout: 30_000 }).toBe(1);
+  await expect.poll(() => game(page, (g) => g.state().player.pack)).toBe(0);
+  await expect.poll(() => game(page, (g) => g.life().focus?.action), { timeout: 30_000 }).toBe('unload');
+
+  // F: the crate is on your back at once (not a round trip later), and stays there, frame after
+  // frame, while the server's answers arrive.
+  const packs = await page.evaluate(async () => {
+    const g = (window as any).__game;
+    g.pressLife('interact');
+    const seen: number[] = [];
+    for (let i = 0; i < 70; i++) {
+      await new Promise((r) => requestAnimationFrame(r));
+      seen.push(g.state().player.pack);
+    }
+    return seen;
+  });
+  expect(packs[1], 'on your back the next frame').toBeGreaterThan(0);
+  expect(packs.filter((p) => p === 0), `never back in the cart: ${packs.join(',')}`).toEqual([]);
+  await expect.poll(() => game(page, (g) => g.life().vehicles[0].cargo.filter(Boolean).length), { timeout: 30_000 }).toBe(0);
+
+  // Put it back in, then get in at the driver's side: you're in the seat at once, and the cart, drawn
+  // under you, stays where it stands rather than sinking into the ground and rising again.
+  await page.evaluate(() => (window as any).__game.pressLife('interact'));
+  await expect.poll(() => game(page, (g) => g.state().player.pack), { timeout: 30_000 }).toBe(0);
+  const side = [cart.x + Math.cos(cart.heading) * 1.9 + Math.sin(cart.heading) * 0.9, cart.z - Math.sin(cart.heading) * 1.9 + Math.cos(cart.heading) * 0.9, cart.heading];
+  await page.evaluate(([x, z, f]) => (window as any).__game.teleport(x, z, f), side);
+  await expect.poll(() => game(page, (g) => g.life().focus?.action), { timeout: 30_000 }).toBe('board');
+  const resting = (await game(page, (g) => g.drawnVehicles()[0])) as { y: number };
+  const ride = await page.evaluate(async () => {
+    const g = (window as any).__game;
+    g.pressLife('interact');
+    const ys: number[] = [];
+    const modes: string[] = [];
+    for (let i = 0; i < 70; i++) {
+      await new Promise((r) => requestAnimationFrame(r));
+      ys.push(g.drawnVehicles()[0].y);
+      modes.push(g.state().player.mode);
+    }
+    return { ys, modes };
+  });
+  expect(ride.modes[1], 'in the seat the next frame').toBe('ride');
+  expect(ride.modes.filter((m) => m !== 'ride')).toEqual([]);
+  const worst = Math.max(...ride.ys.map((y) => Math.abs(y - resting.y)));
+  expect(worst, `the cart drawn ${worst.toFixed(2)} m off where it stood`).toBeLessThan(0.08);
+});
+
 test('the developer panel is up to the server', async ({ page }) => {
   await page.goto(`/?as=${fresh('dev')}&bugs=0`);
   await waitOnline(page);

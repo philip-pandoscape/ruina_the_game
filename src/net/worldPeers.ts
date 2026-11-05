@@ -1,14 +1,15 @@
 import * as THREE from 'three';
 import { Hero } from '../render/character';
-import { LifeView } from '../render/open/life';
+import { LifeView, sitIn, type Seated } from '../render/open/life';
 import type { Models } from '../render/open/models';
 import { addScarecrowCollider } from '../sim/life/farming';
 import { addHouseColliders } from '../sim/life/housing';
-import { Life } from '../sim/life/life';
+import { Life, type OthersVehicle } from '../sim/life/life';
 import type { House, Pack, Scarecrow, ShipBuild, Vehicle } from '../sim/life/state';
 import { angleDiff } from '../sim/math';
 import type { Sim } from '../sim/sim';
-import type { PlayerState } from '../sim/types';
+import type { Mover, PlayerState } from '../sim/types';
+import { vehicleBodies } from '../sim/life/vehicles';
 import type { ZoneData } from '../sim/zone/world';
 import { blankState } from './netPlayer';
 import type { Estate, EstateEntry, PeerEntry, WorldLink } from './worldLink';
@@ -23,7 +24,7 @@ import type { Estate, EstateEntry, PeerEntry, WorldLink } from './worldLink';
 const SHOWN = [
   'facing', 'mode', 'grounded', 'attackIndex', 'attackFrame', 'flipFrame', 'landFrame', 'landImpact', 'takeoffFrame', 'runPhase',
   'stun', 'downFrame', 'weapon', 'comboVariants', 'actionId', 'actionFrame', 'castAbility', 'castFrame', 'bank', 'pack', 'vehicle',
-  'seat', 'glider', 'airspeed', 'sprinting', 'crouching', 'crouchFrame', 'hp',
+  'seat', 'host', 'glider', 'airspeed', 'sprinting', 'crouching', 'crouchFrame', 'hp',
 ] as const;
 
 /**
@@ -60,10 +61,15 @@ interface Peer {
 /** Everyone reports 20 times a second, even standing still; this long without a word, they've gone. */
 const SILENT_MS = 5000;
 
+/** Riding along in someone else's vehicle (as last drawn). */
+const along = (p: Peer): boolean => p.shown.mode === 'ride' && !!p.shown.host;
+
 export class WorldPeers {
   private peers = new Map<number, Peer>();
   /** Called when the ground under someone's new farm or house needs its grass cleared. */
   onGroundChanged: (() => void) | null = null;
+  /** What draws your own vehicles, for anyone riding along in one of them. */
+  mineView: LifeView | null = null;
 
   constructor(
     private scene: THREE.Scene,
@@ -178,17 +184,45 @@ export class WorldPeers {
     p.life.state.packs = [];
   }
 
+  /** Everyone's vehicles as drawn, with the seats taken in them (`you` too), for the prompt to ride along. */
+  vehicles(you: PlayerState): OthersVehicle[] {
+    const seated = (q: PlayerState) => (q.mode === 'ride' && q.host ? `${q.host}:${q.vehicle}` : '');
+    const riders = [...this.peers.values()].filter((p) => p.online).map((p) => p.shown).concat(you);
+    const out: OthersVehicle[] = [];
+    for (const p of this.peers.values()) {
+      if (!p.online) continue;
+      for (const v of p.life.state.vehicles) {
+        const here = `${p.id}:${v.id}`;
+        out.push({ host: p.id, name: p.name, vehicle: v, taken: riders.filter((q) => seated(q) === here).map((q) => q.seat) });
+      }
+    }
+    return out;
+  }
+
+  /** Where you sit riding along in someone's vehicle this frame (theirs is placed by frame(), so call that first). */
+  seatFor(you: PlayerState): Seated | null {
+    if (you.mode !== 'ride' || !you.host) return null;
+    return this.peers.get(you.host)?.view.seatOf(you.vehicle, you.seat) ?? null;
+  }
+
   /** Poses everyone for this frame. */
   frame(dt: number, frame: number, cameraPos: THREE.Vector3): void {
     const now = performance.now();
-    for (const p of this.peers.values()) {
+    // Whoever drives (or walks) first, then whoever rides along with them: a vehicle has to be
+    // where it is this frame before anyone sits down in it.
+    const order = [...this.peers.values()].sort((a, b) => Number(along(a)) - Number(along(b)));
+    const movers: Mover[] = [];
+    for (const p of order) {
       if (p.online && now - p.heard > SILENT_MS) this.left(p.id);
       const s = p.life.state;
       s.clock = this.mine.state.clock;
       s.weather = this.mine.state.weather;
       if (p.online && p.samples.length) this.pose(p, dt, frame);
       p.view.update({ player: p.shown } as unknown as Sim, dt, cameraPos);
+      for (const v of s.vehicles) movers.push(...vehicleBodies(v));
     }
+    // Their vehicles are as solid to you as yours are, where you see them.
+    this.sim.world.movers = movers;
   }
 
   private pose(p: Peer, dt: number, frame: number): void {
@@ -222,8 +256,7 @@ export class WorldPeers {
     sh.facing = sh.prevFacing = a.p.facing + angleDiff(a.p.facing, b.p.facing) * t;
     sh.vel = { ...b.p.vel };
     sh.glider = (b.p.glider as string) ?? '';
-    p.hero.root.visible = true;
-    p.hero.update(sh, 1, frame);
+    sh.host = Number(sh.host) || 0;
 
     // Their vehicles glide between updates the same way; packs ride on whatever carries them.
     const before = new Map((a.p.vehicles ?? []).map((v) => [v.id, v]));
@@ -242,6 +275,12 @@ export class WorldPeers {
     });
     p.life.state.packs = b.p.packs ?? [];
     p.life.state.glider = sh.glider;
+
+    // Driving, their vehicle goes under them; riding along, they sit in whoever's it is.
+    const host = sh.host === this.me ? this.mineView : this.peers.get(sh.host)?.view;
+    sitIn(p.hero, sh.mode === 'ride' && sh.host ? (host?.seatOf(sh.vehicle, sh.seat) ?? null) : p.view.placeRide(sh, 1, null, dt));
+    p.hero.root.visible = true;
+    p.hero.update(sh, 1, frame);
   }
 }
 

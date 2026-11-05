@@ -1,8 +1,9 @@
 import * as THREE from 'three';
 import type { Life } from '../../sim/life/life';
 import type { Sim } from '../../sim/sim';
-import type { Hero } from '../character';
-import type { Vehicle } from '../../sim/life/state';
+import type { Hero, SeatPose } from '../character';
+import type { PlayerState } from '../../sim/types';
+import type { Scarecrow, Vehicle } from '../../sim/life/state';
 import { rideable, glider as gliderDef, isBoat, isMount, isWheeled, type RideableDef } from '../../content/vehicles';
 import { packDef } from '../../content/trade';
 import { FARM, cropDef } from '../../content/farming';
@@ -11,7 +12,7 @@ import { blueprintDef } from '../../content/housing';
 import { cellCentre, scarecrowPost, stageOf } from '../../sim/life/farming';
 import { housePose, isComplete } from '../../sim/life/housing';
 import { nodeReady } from '../../sim/life/interact';
-import { anchorWorld, sailEfficiency } from '../../sim/life/vehicles';
+import { sailEfficiency } from '../../sim/life/vehicles';
 import { stormAt } from '../../sim/life/weather';
 import { angleDiff } from '../../sim/math';
 import { toon } from '../toon';
@@ -23,6 +24,24 @@ import { shipDesign } from '../../content/shipyard';
 // Draws what the life systems own: vehicles and mounts, every trade pack (on a back, in a cart,
 // on the ground), scarecrow plots and what grows in them, houses as far as they are built, the
 // resource nodes, the glider over your head and the scarecrow you are about to place.
+
+/** A seat this frame: where it is and how it's turned, how to sit in it and what to hold (the driver's wheel or oars). */
+export interface Seated extends SeatPose {
+  pose: string;
+  holds: Holds | null;
+}
+
+/** Sits a body in a seat, or (null) back on its feet. */
+export function sitIn(hero: Hero, s: Seated | null): void {
+  hero.seat = s;
+  hero.seatPose = s?.pose ?? '';
+  hero.seatHolds = s?.holds ?? null;
+}
+
+const _e = new THREE.Euler();
+const _q = new THREE.Quaternion();
+const _v = new THREE.Vector3();
+const _v2 = new THREE.Vector3();
 
 interface Shown {
   root: THREE.Object3D;
@@ -69,6 +88,12 @@ function standInVehicle(def: RideableDef): THREE.Group {
   return g;
 }
 
+/** Everything the farm plots are drawn from: where each is, and what is in each cell at what stage. */
+function plotKey(scarecrows: Scarecrow[]): string {
+  const cell = (c: Scarecrow['cells'][number]) => (c ? `${c.crop}${stageOf(c)}${c.animal ? (c.growth >= 1 ? 'A' : 'a') : ''}${c.watered ? 'w' : ''}` : '');
+  return scarecrows.map((sc) => `${sc.id}@${sc.x},${sc.z},${sc.rot}:${sc.cells.map(cell).join(',')}`).join('|');
+}
+
 function standInPack(id: string): THREE.Group {
   const g = new THREE.Group();
   const kind = (packDef(id) as { kind?: string }).kind;
@@ -113,6 +138,8 @@ export class LifeView {
   private cropGeoCache = new Map<string, THREE.BufferGeometry>();
   private cropMat = toon(0xffffff, { vertexColors: true });
   private plotCount = -1;
+  /** What the farm plots were last built from (plotKey). */
+  private plotKey = '';
   /** Farm animals in plot cells, with what they need to animate. */
   private animals: Array<{ root: THREE.Object3D; sc: number; idx: number; animate?: (dt: number, s: { time: number; hungry: boolean; ready: boolean }) => void; phase: number }> = [];
   /** Called when the ground changes under the grass (a plot placed, a house begun). */
@@ -120,6 +147,8 @@ export class LifeView {
 
   /** Draws someone else's things (their farms, house, vehicles, packs and glider) rather than yours and the island's: no nodes, townsfolk, weather or placement ghost. */
   readonly others: boolean;
+  /** The vehicle placeRide put under its driver this frame, which update() leaves where it is. */
+  private placed = -1;
 
   constructor(
     scene: THREE.Scene,
@@ -475,6 +504,88 @@ export class LifeView {
     return tryBuild(this.models.buildPack ? () => this.models.buildPack!(id) : null) ?? standInPack(id);
   }
 
+  /**
+   * Driving one of these vehicles: puts it under the driver as they are drawn (the rules' seat part
+   * way between steps, plus `shift`, a correction being eased in), so the driver never slides in the
+   * seat; adds the swell under a boat and moves its wheels and oars for this frame, so the hands
+   * find them where they are now; and says where the seat is, for the driver to sit in. Call it
+   * before the driver is posed, and before update(). Null when `p` isn't driving one of these.
+   */
+  placeRide(p: PlayerState, alpha: number, shift: THREE.Vector3 | null, dt: number): Seated | null {
+    this.placed = -1;
+    if (p.mode !== 'ride' || !p.vehicle || p.host) return null;
+    const v = this.life.state.vehicles.find((x) => x.id === p.vehicle);
+    if (!v) return null;
+    const s = this.shownVehicle(v);
+    const seat = s.def.seats[0];
+    // The rules seat the driver at anchorWorld(v, seat) (src/sim/life/vehicles.ts): turned the
+    // same way, the vehicle's middle is that far back from where the driver is drawn.
+    const heading = p.prevFacing + angleDiff(p.prevFacing, p.facing) * alpha;
+    _q.setFromEuler(_e.set(-v.pitch, heading, v.roll, 'YXZ'));
+    _v.set(seat.x, seat.y, seat.z).applyQuaternion(_q);
+    const at = _v2.set(p.prevPos.x + (p.pos.x - p.prevPos.x) * alpha, p.prevPos.y + (p.pos.y - p.prevPos.y) * alpha, p.prevPos.z + (p.pos.z - p.prevPos.z) * alpha);
+    if (shift) at.add(shift);
+    at.sub(_v);
+    this.dress(v, s, at.x, at.y, at.z, heading, this.time + dt, dt);
+    this.placed = v.id;
+    return this.seatIn(s, 0, s.holds ?? null);
+  }
+
+  /**
+   * Where seat `k` of one of these vehicles is this frame, for someone riding along in it (already
+   * placed this frame: by placeRide for the one being driven, else by update()).
+   */
+  seatOf(vehicle: number, k: number): Seated | null {
+    const s = this.vehicles.get(vehicle);
+    return s && s.def.seats[k] ? this.seatIn(s, k, null) : null;
+  }
+
+  /** For tests: where each vehicle is drawn this frame. */
+  drawnVehicles(): Array<{ id: number; x: number; y: number; z: number }> {
+    return [...this.vehicles].map(([id, s]) => ({ id, x: s.root.position.x, y: s.root.position.y, z: s.root.position.z }));
+  }
+
+  private seatIn(s: Shown, k: number, holds: Holds | null): Seated {
+    const seat = s.def.seats[k];
+    s.root.updateMatrix();
+    return {
+      position: new THREE.Vector3(seat.x, seat.y, seat.z).applyMatrix4(s.root.matrix),
+      quaternion: s.root.quaternion.clone(),
+      pose: seat.pose,
+      holds,
+    };
+  }
+
+  /** Puts a vehicle's model at (x, y, z) turned to `heading` (a boat on the swell), and moves its parts. */
+  private dress(v: Vehicle, s: Shown, x: number, y: number, z: number, heading: number, time: number, dt: number): void {
+    const def = s.def;
+    let pitch = v.pitch;
+    let roll = v.roll;
+    if (isBoat(def)) {
+      // Swell, much heavier out at sea in a storm.
+      const hf = this.life.zone.gen.terrain;
+      const rough = 1 + 3 * stormAt(this.life, hf.water - hf.height(v.x, v.z));
+      const swell = Math.sin(time * 1.3 + v.x * 0.05) * 0.12 + Math.sin(time * 0.8 + v.z * 0.07) * 0.08;
+      y += swell * (def.length > 8 ? 0.5 : 1) * rough;
+      pitch += Math.sin(time * 1.1 + v.z * 0.05) * 0.025 * rough;
+      roll += Math.sin(time * 0.9 + v.x * 0.04) * 0.035 * rough;
+    }
+    s.root.position.set(x, y, z);
+    s.root.rotation.set(-pitch, heading, roll);
+    if (s.animate) {
+      const rel = angleDiff(this.life.state.weather.windDir, v.heading);
+      s.animate(dt, {
+        speed: v.speed,
+        steer: v.steer,
+        throttle: v.throttle,
+        sail: isBoat(def) && def.sail ? v.sail : 0,
+        boom: isBoat(def) && def.sail ? Math.max(-1.1, Math.min(1.1, -rel * 0.55)) * (sailEfficiency(rel) > 0.3 ? 1 : 0.4) : 0,
+        time,
+      });
+    }
+    if (s.mount) s.mount(dt, { speed: Math.abs(v.speed), grounded: v.grounded });
+  }
+
   update(sim: Sim, dt: number, cameraPos: THREE.Vector3): void {
     this.time += dt;
     const life = this.life;
@@ -488,7 +599,13 @@ export class LifeView {
         this.plotCount = plots;
         this.onGroundChanged?.();
       }
-      this.rebuildPlots();
+      // Only when what grows in them changed: a pack picked up or a cart loaded changes the island
+      // too, and building every plot again for that is a stutter you feel.
+      const pk = plotKey(life.state.scarecrows);
+      if (pk !== this.plotKey) {
+        this.plotKey = pk;
+        this.rebuildPlots();
+      }
       const sk = (life.state.ships ?? []).map((b) => `${b.slip}:${b.stage}`).join(',') + '|';
       if (sk !== this.shipKey) {
         this.shipKey = sk;
@@ -529,58 +646,19 @@ export class LifeView {
       if (!hungry) a.root.rotation.y += Math.sin(this.time * 0.3 + a.phase) * dt * 0.4;
     }
 
-    // Vehicles: the one you ride is drawn where your interpolated body is, so you never slide in the seat.
+    // Vehicles where the rules have them; the one being driven was put under its driver already
+    // (placeRide), before they were posed.
     const live = new Set<number>();
     for (const v of life.state.vehicles) {
       live.add(v.id);
-      const s = this.shownVehicle(v);
-      const def = s.def;
-      let x = v.x;
-      let y = v.y;
-      let z = v.z;
-      if (v.ridden) {
-        const seat = def.seats[0];
-        const [ox, oz] = toWorld(seat.x, seat.z, v.heading);
-        const hp = this.hero.root.position;
-        x = hp.x - ox;
-        z = hp.z - oz;
-        y = hp.y - (anchorWorld(v, seat).y - v.y);
-        this.hero.seatPose = seat.pose;
-        this.hero.seatHolds = s.holds ?? null;
-      }
-      let pitch = v.pitch;
-      let roll = v.roll;
-      if (isBoat(def)) {
-        // Swell, much heavier out at sea in a storm.
-        const rough = 1 + 3 * stormAt(life, hf.water - hf.height(v.x, v.z));
-        const swell = Math.sin(this.time * 1.3 + v.x * 0.05) * 0.12 + Math.sin(this.time * 0.8 + v.z * 0.07) * 0.08;
-        y += swell * (def.length > 8 ? 0.5 : 1) * rough;
-        pitch += Math.sin(this.time * 1.1 + v.z * 0.05) * 0.025 * rough;
-        roll += Math.sin(this.time * 0.9 + v.x * 0.04) * 0.035 * rough;
-      }
-      s.root.position.set(x, y, z);
-      s.root.rotation.set(-pitch, v.heading, roll);
-      if (s.animate) {
-        const rel = angleDiff(life.state.weather.windDir, v.heading);
-        s.animate(dt, {
-          speed: v.speed,
-          steer: v.steer,
-          throttle: v.throttle,
-          sail: isBoat(def) && def.sail ? v.sail : 0,
-          boom: isBoat(def) && def.sail ? Math.max(-1.1, Math.min(1.1, -rel * 0.55)) * (sailEfficiency(rel) > 0.3 ? 1 : 0.4) : 0,
-          time: this.time,
-        });
-      }
-      if (s.mount) s.mount(dt, { speed: Math.abs(v.speed), grounded: v.grounded });
+      if (v.id === this.placed) continue;
+      this.dress(v, this.shownVehicle(v), v.x, v.y, v.z, v.heading, this.time, dt);
     }
+    this.placed = -1;
     for (const [id, s] of this.vehicles) {
       if (live.has(id)) continue;
       this.group.remove(s.root);
       this.vehicles.delete(id);
-    }
-    if (!p.vehicle) {
-      this.hero.seatPose = '';
-      this.hero.seatHolds = null;
     }
 
     // Packs: on your back, in a vehicle's slot, or on the ground.

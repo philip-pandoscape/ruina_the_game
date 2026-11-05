@@ -255,11 +255,15 @@ export class LifeUI {
     // The map takes over; with anything else open the world keys still work.
     if (this.modal && !['bag', 'map', 'garage', 'dev', 'quests', 'character', 'settings'].includes(k)) return;
     switch (k) {
-      case 'interact':
+      case 'interact': {
+        const f = life.focus;
         if (p.mode === 'ride') life.command({ t: 'exit' });
         else if (p.mode === 'glide') life.command({ t: 'gust' });
+        // Someone else's vehicle isn't on your island: say whose, and the channel seats you.
+        else if (f?.action === 'ride' && f.host && f.vehicle) life.command({ t: 'ride', host: f.host, vehicle: f.vehicle });
         else life.command({ t: 'interact' });
         return;
+      }
       case 'drop':
         return life.command({ t: 'drop' });
       case 'mount':
@@ -971,13 +975,16 @@ export class LifeUI {
     const v = mode === 'ride' ? ridden(this.life, this.d.sim) : undefined;
     if (v && isBoat(rideable(v.def))) mode = 'boat';
     if (v && isMount(rideable(v.def))) mode = 'mount';
+    if (mode === 'ride' && p.host) mode = 'along';
     const sig = `${mode}${pad}`;
     if (sig === this.hintKey) return;
     this.hintKey = sig;
     const hint = document.getElementById('hint');
     if (!hint) return;
     const parts: string[] = [];
-    if (pad) {
+    // Riding along in someone else's vehicle, they drive: all you can do is get out.
+    if (mode === 'along') parts.push(item(key(pad ? 'Y' : 'F'), 'Get Out'));
+    else if (pad) {
       if (mode === 'ride' || mode === 'boat') parts.push(item(key('L'), 'Drive'), item(key('A'), 'Handbrake'), item(key('Y'), 'Get Out'));
       else parts.push(item(key('L'), 'Move'), item(key('A'), mode === 'glide' ? 'Fold' : 'Jump · Glide'), item(key('Y'), 'Interact'), item(key('▼'), 'Mount'), item(key('☰'), 'Bag'), item(key('▲'), 'Map'));
     } else if (mode === 'ride') parts.push(item(key('W') + key('S'), 'Throttle'), item(key('A') + key('D'), 'Steer'), item(key('Space'), 'Handbrake'), item(key('Shift'), 'Boost'), item(key('F'), 'Get Out'));

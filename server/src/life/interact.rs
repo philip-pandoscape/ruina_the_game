@@ -18,7 +18,7 @@ use super::quests::{abandon, accept, complete, quests_at};
 use super::shipyard::{build_ship_stage, deliver_ship_material, design_items_in_bag, launch, lay_keel, ship_finished, ship_needs, ship_on, ship_stage_ready};
 use super::state::{Home, Stack};
 use super::trade::{buy, buy_back, carried, drop_pack, load_pack, pack_index, pick_up, quote, recover_demand, run_recipe, sell, sell_pack, unload_pack};
-use super::vehicles::{board, dismount, distance_to, mount_command, nearest_anchor, recall, ridden, summon, vehicle_index};
+use super::vehicles::{board, dismount, distance_to, mount_command, nearest_anchor, pack_blocks, recall, ridden, summon, vehicle_index};
 use super::{Command, Focus, Life, LifeEvent, Placement, QuestEvent};
 use crate::open::traverse::{close_glider, glider_blocked, gust, open_glider};
 use crate::open::zone::{to_local, Outpost, Zone};
@@ -263,9 +263,10 @@ pub fn find_focus(life: &mut Life, sim: &Sim) -> Option<Focus> {
             pick.consider(Focus { slot: Some(loaded as i64), ..f }, d, 2.2);
         } else {
             let mount = def.is_mount();
-            let blocked = mount && back.is_some() && !def.can_carry_pack;
+            // With a pack on your back only a pack animal will carry you; a cart takes it in its bed.
+            let blocked = back.is_some() && pack_blocks(def).is_some();
             let detail = if blocked {
-                Some("Will not carry a pack".into())
+                Some(if mount { "Will not carry a pack" } else { "Load your pack first" }.into())
             } else if slots > 0 {
                 Some(format!("cargo {used}/{slots}"))
             } else {
@@ -599,7 +600,7 @@ pub fn run_command(life: &mut Life, sim: &mut Sim, c: &Command) {
             life.regen_labor(seconds, false, false);
         }
         // The channel moves you itself (server/src/world_game.rs); it never reaches an island.
-        Command::Teleport { .. } => {}
+        Command::Teleport { .. } | Command::Ride { .. } => {}
     }
 }
 

@@ -85,6 +85,9 @@ pub enum Command {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         facing: Option<f64>,
     },
+    /// Ride along in another player's vehicle (`host` is their character). Their vehicle isn't on
+    /// your island, so the channel seats you before it gets there.
+    Ride { host: i64, vehicle: i64 },
 }
 
 impl Command {
@@ -211,6 +214,8 @@ impl Life {
     pub fn after_reset(&mut self, p: &mut Player) {
         p.pack = self.state.packs.iter().find(|pk| pk.at == "back").map(|pk| pk.id).unwrap_or(0);
         p.vehicle = 0;
+        p.seat = 0;
+        p.host = 0;
         p.glider = self.state.glider.clone();
         for v in &mut self.state.vehicles {
             v.ridden = false;

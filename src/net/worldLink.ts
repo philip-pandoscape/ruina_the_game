@@ -104,7 +104,7 @@ const RETRY_MS = { updating: [500, 1000, 1500, 2000], reconnecting: [500, 1000, 
 /** A WebSocket closed as a service restart: the server is being updated. */
 const SERVICE_RESTART = 1012;
 /** What this page speaks; the server says what it speaks in its welcome (server/src/world_socket.rs). */
-const WORLD_PROTOCOL = 4;
+const WORLD_PROTOCOL = 5;
 const RELOADED = 'ruina.reloaded-for-server';
 const RELOADED_BUILD = 'ruina.reloaded-for-build';
 const SEND_INPUTS = 7;
@@ -137,6 +137,11 @@ export class WorldLink {
   latestLife: WorldTick['life'] | null = null;
   /** The server said it is stopping for an update. */
   private updating = false;
+  /**
+   * Testing: holds everything going out and coming in for this long (ms) each way, as a server far
+   * away would (?lag=ms), so a local server can be played as the deployed one feels.
+   */
+  lag = 0;
 
   private constructor(
     private ws: WebSocket,
@@ -176,8 +181,14 @@ export class WorldLink {
     msg.setUint8(1, 1);
     msg.setUint32(2, seq, true);
     for (let k = 0; k < OPEN_INPUT; k++) msg.setUint8(6 + k, (raw[k] ?? 0) & 255);
-    this.ws.send(msg.buffer);
+    this.out(msg.buffer);
     return true;
+  }
+
+  /** Sends now, or after the test lag (to the connection open then). */
+  private out(data: string | ArrayBuffer): void {
+    if (!this.lag) return this.ws.send(data);
+    setTimeout(() => this.open && this.ws.send(data), this.lag);
   }
 
   /** Asks your island to do something, on the input with sequence number `seq`. */
@@ -200,7 +211,7 @@ export class WorldLink {
 
   private send(msg: object): boolean {
     if (!this.open) return false;
-    this.ws.send(JSON.stringify(msg));
+    this.out(JSON.stringify(msg));
     return true;
   }
 
@@ -208,7 +219,9 @@ export class WorldLink {
     ws.binaryType = 'arraybuffer';
     // Only the current connection speaks for the link; a replaced one is ignored.
     ws.onmessage = (e) => {
-      if (ws === this.ws) this.receive(e.data);
+      if (ws !== this.ws) return;
+      if (this.lag) setTimeout(() => ws === this.ws && this.receive(e.data), this.lag);
+      else this.receive(e.data);
     };
     ws.onclose = (e) => {
       if (ws === this.ws) void this.lost(e.code);

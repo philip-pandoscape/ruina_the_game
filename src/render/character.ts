@@ -176,6 +176,12 @@ const OTHERS_LINGER = 4;
 const STEP_UP_POP = 0.2;
 const STEP_UP_EASE = 14;
 
+/** Where a seat is in the world and how it is turned, for the body sitting in it. */
+export interface SeatPose {
+  position: THREE.Vector3;
+  quaternion: THREE.Quaternion;
+}
+
 /** A foot held where it was planted. */
 interface FootHold {
   /** Where the point it pivots on is held in the world, while planted. */
@@ -274,6 +280,12 @@ export class Hero {
    * wheel's rim, its oars' handles), set by whoever draws the vehicle; null for none.
    */
   seatHolds: Holds | null = null;
+  /**
+   * Riding, where the seat is this frame and how it is turned (the vehicle's heading, pitch and roll,
+   * the swell under a boat), set by whoever draws the vehicle before the body is posed: the body sits
+   * in it, tilting with it on a hill. Null on foot, where the rules' position and facing are drawn.
+   */
+  seat: SeatPose | null = null;
   /** Where a pack on your back hangs from. */
   get torsoJoint(): THREE.Object3D {
     return this.torso;
@@ -281,6 +293,8 @@ export class Hero {
 
   constructor() {
     this.rig = new DetailRig(HERO_RIG);
+    // Heading first, then pitch and roll, as vehicles are turned: rotation.y stays the heading.
+    this.root.rotation.order = 'YXZ';
     this.root.add(this.rig.root);
     this.body = Body.of(this.rig);
     this.torso = this.rig.joint('torso');
@@ -393,8 +407,14 @@ export class Hero {
 
   // Poses the character from the game state. alpha blends between the last two sim steps.
   update(p: PlayerState, alpha: number, frame: number): void {
-    this.root.position.set(lerp(p.prevPos.x, p.pos.x, alpha), this.easeStepUp(p, alpha, frame), lerp(p.prevPos.z, p.pos.z, alpha));
-    this.root.rotation.y = angleLerp(p.prevFacing, p.facing, alpha);
+    const y = this.easeStepUp(p, alpha, frame);
+    if (this.seat) {
+      this.root.position.copy(this.seat.position);
+      this.root.quaternion.copy(this.seat.quaternion);
+    } else {
+      this.root.position.set(lerp(p.prevPos.x, p.pos.x, alpha), y, lerp(p.prevPos.z, p.pos.z, alpha));
+      this.root.rotation.set(0, angleLerp(p.prevFacing, p.facing, alpha), 0);
+    }
     // How far you have run, drawn part way between steps like everything else.
     const running = p.mode === 'normal' && p.grounded;
     const back = running ? Math.hypot(p.vel.x, p.vel.z) * STEP * (1 - alpha) : 0;

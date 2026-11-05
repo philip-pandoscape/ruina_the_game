@@ -5,7 +5,7 @@ import { STEP } from '../../tuning';
 import { BAG_SLOTS, itemDef } from '../../content/items';
 import { LABOR } from '../../content/trade';
 import { FARM } from '../../content/farming';
-import { migrateLifeState, newLifeState, type LifeState, type Stack } from './state';
+import { migrateLifeState, newLifeState, type LifeState, type Stack, type Vehicle } from './state';
 import { stepWeather, stepWind } from './weather';
 import { stepFarms } from './farming';
 import { stepBuyback, stepTrade } from './trade';
@@ -47,7 +47,9 @@ export type Command =
   | { t: 'contract'; id: number }
   | { t: 'gust' }
   | { t: 'grant'; item?: string; n?: number; coins?: number; seals?: number; labor?: number }
-  | { t: 'warp'; seconds: number };
+  | { t: 'warp'; seconds: number }
+  /** Ride along in another player's vehicle (`host` is their character): the channel seats you. */
+  | { t: 'ride'; host: number; vehicle: number };
 
 export type LifeEvent =
   | { t: 'toast'; text: string; kind: 'good' | 'bad' | 'info' | 'coin' | 'quest' }
@@ -58,6 +60,14 @@ export type LifeEvent =
   | { t: 'gather'; x: number; y: number; z: number; kind: string }
   | { t: 'quest'; id: string; what: 'accepted' | 'step' | 'ready' | 'done' | 'abandoned' }
   | { t: 'thunder'; x: number; y: number; z: number };
+
+/** Another player's vehicle as you see it: whose (their character and name), and the seats taken in it. */
+export interface OthersVehicle {
+  host: number;
+  name: string;
+  vehicle: Vehicle;
+  taken: number[];
+}
 
 export interface LifeOptions {
   /** Start-of-game money and labor (tests and the dev panel can be generous). */
@@ -102,6 +112,8 @@ export class Life implements LifeHooks {
     const back = this.state.packs.find((pk) => pk.at === 'back');
     p.pack = back ? back.id : 0;
     p.vehicle = 0;
+    p.seat = 0;
+    p.host = 0;
     p.glider = this.state.glider;
     for (const v of this.state.vehicles) v.ridden = false;
     this.placing = null;
@@ -207,6 +219,12 @@ export class Life implements LifeHooks {
    * A plot someone else holds can't be claimed.
    */
   plotOwner: ((plot: string) => string | null) | null = null;
+
+  /**
+   * Online: everyone else's vehicles, with whose they are and which of their seats are taken, so the
+   * prompt can offer to ride along (src/net/worldPeers.ts; null offline, where nobody else is).
+   */
+  othersVehicles: (() => OthersVehicle[]) | null = null;
 
   regenLabor(seconds: number, resting = false, offline = false): void {
     const s = this.state;

@@ -137,6 +137,9 @@ pub struct Player {
     /// What you are riding (a vehicle id in the life systems), 0 on foot; and which seat.
     pub vehicle: i64,
     pub seat: u8,
+    /// Riding along in someone else's vehicle: whose (their character), 0 in your own or on foot.
+    /// Their vehicle numbers are their island's, so `vehicle` is one of theirs then.
+    pub host: i64,
     /// The glider you have equipped ("" for none), and its airspeed while open.
     pub glider: String,
     pub airspeed: f64,
@@ -251,6 +254,7 @@ impl Player {
             pack: 0,
             vehicle: 0,
             seat: 0,
+            host: 0,
             glider: String::new(),
             airspeed: 0.0,
             bank: 0.0,

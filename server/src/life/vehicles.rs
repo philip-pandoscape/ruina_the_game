@@ -18,7 +18,7 @@ use super::weather::storm_at;
 use super::{step_seconds, Life, QuestEvent};
 use crate::open::colliders::{ground_at, push_out_of_box};
 use crate::open::zone::{surface, to_local, to_world, Heightfield};
-use crate::open::Sim;
+use crate::open::{Mover, Sim};
 use crate::player::{angle_diff, Actions, Mode};
 use crate::tuning::tuning;
 
@@ -76,15 +76,24 @@ pub fn vehicle_index(life: &Life, id: i64) -> Option<usize> {
     life.state.vehicles.iter().position(|v| v.id == id)
 }
 
-/// Index of the vehicle the player is riding, if any (TS ridden).
+/// Index of the vehicle of yours the player is riding, if any (TS ridden). Riding along in someone
+/// else's (`host` set), it's theirs, not one of this island's, even when one has the same number.
 pub fn ridden(life: &Life, sim: &Sim) -> Option<usize> {
-    if sim.player.vehicle != 0 { vehicle_index(life, sim.player.vehicle) } else { None }
+    if sim.player.vehicle != 0 && sim.player.host == 0 { vehicle_index(life, sim.player.vehicle) } else { None }
 }
 
-/// A point given in the vehicle's own frame, out in the world.
+/// A point given in the vehicle's own frame, out in the world: turned by its roll, then its pitch
+/// (nose up is positive), then its heading, just as the browser draws the vehicle, so a seat stays
+/// where the model's seat is however it tilts.
 pub fn anchor_world(v: &Vehicle, a: &Anchor) -> (f64, f64, f64) {
-    let (ox, oz) = to_world(a.x, a.z, v.heading);
-    (v.x + ox, v.y + a.y - a.z * v.pitch.js_sin() + a.x * v.roll.js_sin(), v.z + oz)
+    let (cr, sr) = (v.roll.js_cos(), v.roll.js_sin());
+    let (cp, sp) = (v.pitch.js_cos(), v.pitch.js_sin());
+    let x1 = a.x * cr - a.y * sr;
+    let y1 = a.x * sr + a.y * cr;
+    let y2 = y1 * cp + a.z * sp;
+    let z2 = a.z * cp - y1 * sp;
+    let (ox, oz) = to_world(x1, z2, v.heading);
+    (v.x + ox, v.y + y2, v.z + oz)
 }
 
 // ---------- Summoning ----------
@@ -279,11 +288,22 @@ pub fn recall(life: &mut Life, sim: &mut Sim, id: i64, quiet: bool) -> bool {
 
 // ---------- Getting in and out ----------
 
+/// Why a pack on your back keeps you out of this one's seat, or None if it doesn't: only a pack
+/// animal carries you with one. Carts and boats have a bed or a hold for it (TS packBlocks).
+pub fn pack_blocks(def: &RideableDef) -> Option<String> {
+    if def.is_mount() {
+        return (!def.can_carry_pack).then(|| format!("Your {} won't carry a trade pack - a donkey will", def.name.to_lowercase()));
+    }
+    let verb = if def.is_boat() { "row or sail" } else { "drive" };
+    Some(format!("Load your pack into the {} first - you can't {verb} with it on your back", def.name.to_lowercase()))
+}
+
 pub fn board(life: &mut Life, sim: &mut Sim, id: i64) -> bool {
     let Some(i) = vehicle_index(life, id) else { return false };
     let def = rideable(&life.state.vehicles[i].def);
-    if def.is_mount() && sim.player.pack != 0 && !def.can_carry_pack {
-        life.toast(format!("Your {} won't carry a trade pack - a donkey will", def.name.to_lowercase()), "bad");
+    let blocked = if sim.player.pack != 0 { pack_blocks(def) } else { None };
+    if let Some(why) = blocked {
+        life.toast(why, "bad");
         return false;
     }
     if sim.player.mode != Mode::Normal && sim.player.mode != Mode::Swim {
@@ -340,6 +360,8 @@ pub fn dismount(life: &mut Life, sim: &mut Sim) -> bool {
             p.mode = Mode::Normal;
         }
         p.vehicle = 0;
+        p.host = 0;
+        p.seat = 0;
         return false;
     };
     let hf = sim.terrain();
@@ -458,6 +480,11 @@ struct DriveInput {
 }
 
 pub fn ride_vehicle(life: &mut Life, sim: &mut Sim, a: &Actions) {
+    // Riding along in someone else's: you sit where its seat goes, which the channel works out once
+    // its owner has driven it this step (world_game.rs seat_passengers).
+    if sim.player.host != 0 {
+        return;
+    }
     let Some(i) = ridden(life, sim) else {
         sim.player.mode = Mode::Normal;
         sim.player.vehicle = 0;
@@ -504,8 +531,9 @@ pub fn step_vehicles(life: &mut Life, sim: &mut Sim, _a: &Actions) {
             step_mount_idle(sim, &mut life.state.vehicles[i], def);
         }
     }
-    // You bump into vehicles you are not riding, like anything else solid.
-    let player_radius = tuning().movement.player_radius;
+    // You bump into vehicles you are not riding, like anything else solid: yours, and everyone
+    // else's in the channel (ridden or not).
+    let owner = sim.owner;
     let p = &mut *sim.player;
     if p.mode != Mode::Ride && p.mode != Mode::Glide {
         for v in &life.state.vehicles {
@@ -515,23 +543,39 @@ pub fn step_vehicles(life: &mut Life, sim: &mut Sim, _a: &Actions) {
             let def = rideable(&v.def);
             let (cs, n) = circles(v, def);
             for c in &cs[..n] {
-                let dx = p.pos.x - c.x;
-                let dz = p.pos.z - c.z;
-                let min = c.r + player_radius;
-                let d2 = dx * dx + dz * dz;
-                if d2 >= min * min {
-                    continue;
-                }
-                // Only if you are at its height (not standing on a deck above a boat, say).
-                if (p.pos.y - v.y).abs() > 2.2f64.max(def.height) {
-                    continue;
-                }
-                let d = or(d2.sqrt(), 1e-4);
-                p.pos.x = c.x + (dx / d) * min;
-                p.pos.z = c.z + (dz / d) * min;
+                bump(p, c.x, c.z, c.r, v.y, def.height);
             }
         }
+        for m in sim.world.movers.iter().filter(|m| m.owner != owner) {
+            bump(p, m.x, m.z, m.r, m.y, m.height);
+        }
     }
+}
+
+/// Pushes you out of one of a vehicle's circles, if you are in it and at its height.
+fn bump(p: &mut crate::player::Player, cx: f64, cz: f64, r: f64, y: f64, height: f64) {
+    let dx = p.pos.x - cx;
+    let dz = p.pos.z - cz;
+    let min = r + tuning().movement.player_radius;
+    let d2 = dx * dx + dz * dz;
+    if d2 >= min * min {
+        return;
+    }
+    // Only if you are at its height (not standing on a deck above a boat, say).
+    if (p.pos.y - y).abs() > 2.2f64.max(height) {
+        return;
+    }
+    let d = or(d2.sqrt(), 1e-4);
+    p.pos.x = cx + (dx / d) * min;
+    p.pos.z = cz + (dz / d) * min;
+}
+
+/// A vehicle as something solid to everyone but its owner (OpenWorld::movers): its circles, where
+/// it is now (TS vehicleBodies).
+pub fn bodies(owner: i64, v: &Vehicle) -> impl Iterator<Item = Mover> + '_ {
+    let def = rideable(&v.def);
+    let (cs, n) = circles(v, def);
+    (0..n).map(move |k| Mover { owner, x: cs[k].x, z: cs[k].z, r: cs[k].r, y: v.y, height: def.height })
 }
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -1629,10 +1673,97 @@ mod tests {
         let (sx, _, sz) = anchor_world(&turned, &rideable("farmCart").seats[0]);
         assert!((sx - 10.95).abs() < 1e-9 && (sz - 19.58).abs() < 1e-9, "{sx} {sz}");
         assert!(nearest_anchor(&turned, sx, sz, false).dist < 1e-9);
-        // Pitch and roll lift the seat with the floor.
-        let tilted = Vehicle { pitch: 0.1, roll: -0.2, ..v };
-        let (_, y, _) = anchor_world(&tilted, &rideable("farmCart").seats[0]);
-        assert!((y - (1.05 - 0.95 * 0.1f64.js_sin() + 0.42 * (-0.2f64).js_sin())).abs() < 1e-12);
+        // Nose up (climbing a hill) the seat ahead of the middle rises with the floor and comes back
+        // toward the middle, as the model is drawn: turned by roll, then pitch, then heading.
+        let seat = rideable("farmCart").seats[0];
+        let climbing = Vehicle { pitch: 0.5, ..v.clone() };
+        let (x, y, z) = anchor_world(&climbing, &seat);
+        assert!((y - (1.05 * 0.5f64.js_cos() + 0.95 * 0.5f64.js_sin())).abs() < 1e-12, "{y}");
+        assert!((z - (20.0 + 0.95 * 0.5f64.js_cos() - 1.05 * 0.5f64.js_sin())).abs() < 1e-12, "{z}");
+        assert!((x - 10.42).abs() < 1e-12);
+        // Rolled onto its left (+x) side, the seat on that side rises and leans out.
+        let rolled = Vehicle { roll: 0.3, ..v.clone() };
+        let (x, y, _) = anchor_world(&rolled, &seat);
+        assert!((y - (0.42 * 0.3f64.js_sin() + 1.05 * 0.3f64.js_cos())).abs() < 1e-12, "{y}");
+        assert!((x - (10.0 + 0.42 * 0.3f64.js_cos() - 1.05 * 0.3f64.js_sin())).abs() < 1e-12, "{x}");
+        // However it tilts, the seat is as far from the middle as it is level: it only turns.
+        for (pitch, roll, heading) in [(0.6, -0.5, 1.0), (-0.4, 0.2, -2.5)] {
+            let t = Vehicle { pitch, roll, heading, ..v.clone() };
+            let (x, y, z) = anchor_world(&t, &seat);
+            let r = ((x - 10.0).powi(2) + y.powi(2) + (z - 20.0).powi(2)).sqrt();
+            assert!((r - (0.42f64.powi(2) + 1.05f64.powi(2) + 0.95f64.powi(2)).sqrt()).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn a_pack_on_your_back_keeps_you_out_of_the_drivers_seat() {
+        let mut w = Island::new();
+        let wb = &w.world.zone.recipe.workbenches[0];
+        w.stand((wb.x - 6.0, wb.z + 6.0, 0.0));
+        let id = w.summon("deed.farmCart").unwrap();
+        w.toasts();
+        w.p.pack = 77;
+        assert!(!w.board(id));
+        assert_eq!(w.toasts(), ["Load your pack into the farm cart first - you can't drive with it on your back"]);
+        assert!(w.p.mode == Mode::Normal && !w.v(id).ridden);
+        // Up beside the driver's seat with it, the prompt says why.
+        let seat = anchor_world(w.v(id), &rideable("farmCart").seats[0]);
+        let (sx, sz) = (seat.0 + 0.9 * w.v(id).heading.js_cos(), seat.2 - 0.9 * w.v(id).heading.js_sin());
+        w.p.pos = V3 { x: sx, y: w.v(id).y, z: sz };
+        assert_eq!(pack_blocks(rideable("rowboat")).as_deref(), Some("Load your pack into the rowboat first - you can't row or sail with it on your back"));
+        assert_eq!(pack_blocks(rideable("donkey")), None);
+        // With it loaded into the bed, in you get.
+        w.p.pack = 0;
+        assert!(w.board(id));
+    }
+
+    #[test]
+    fn riding_along_in_someone_elses_vehicle_is_theirs_to_drive() {
+        let mut w = Island::new();
+        let wb = &w.world.zone.recipe.workbenches[0];
+        w.stand((wb.x - 6.0, wb.z + 6.0, 0.0));
+        // Your own cart has the same number as the one you ride along in.
+        let mine = w.summon("deed.farmCart").unwrap();
+        let (x0, y0, z0) = (w.p.pos.x, w.p.pos.y, w.p.pos.z);
+        w.p.mode = Mode::Ride;
+        w.p.vehicle = mine;
+        w.p.host = 99;
+        w.p.seat = 1;
+        // It isn't yours, so your controls don't drive yours, and nothing moves you: the channel does.
+        assert_eq!(w.with(|life, sim| ridden(life, sim)), None);
+        w.frames(30, drive(1.0, 0.5, false));
+        assert_eq!((w.p.mode, w.p.vehicle, w.p.host, w.p.seat), (Mode::Ride, mine, 99, 1));
+        assert_eq!((w.p.pos.x, w.p.pos.y, w.p.pos.z), (x0, y0, z0));
+        assert!(!w.v(mine).ridden && w.v(mine).speed.abs() < 1e-9);
+        // Getting out of a vehicle that isn't here just puts you back on your feet.
+        assert!(!w.dismount());
+        assert_eq!((w.p.mode, w.p.vehicle, w.p.host, w.p.seat), (Mode::Normal, 0, 0, 0));
+    }
+
+    #[test]
+    fn everyone_elses_vehicles_are_solid_too_but_not_your_own_twice() {
+        let mut w = Island::new();
+        w.stand((0.0, -200.0, 0.0));
+        let y = w.p.pos.y;
+        let theirs = Vehicle { def: "farmCart".into(), x: 0.5, y, z: -200.0, ..Default::default() };
+        w.world.movers = bodies(5, &theirs).collect();
+        assert_eq!(w.world.movers.len(), 3, "a cart is long: front, back and middle");
+        w.frames(1, Actions::default());
+        let out = hypot(w.p.pos.x - 0.5, w.p.pos.z + 200.0);
+        assert!(out >= 0.95 + 0.1 + 0.35 - 1e-9, "pushed {out} m out of their cart");
+        // A body of yours in the list (the channel lists everyone's) isn't bumped into again.
+        w.stand((0.0, -200.0, 0.0));
+        w.world.movers = bodies(1, &theirs).collect();
+        w.frames(1, Actions::default());
+        assert_eq!((w.p.pos.x, w.p.pos.z), (0.0, -200.0));
+        // Riding along (in this very cart, say), you sit where you sit.
+        w.world.movers = bodies(5, &theirs).collect();
+        w.p.mode = Mode::Ride;
+        w.p.host = 5;
+        w.p.vehicle = 1;
+        w.p.seat = 1;
+        w.frames(1, Actions::default());
+        assert_eq!((w.p.pos.x, w.p.pos.z), (0.0, -200.0));
     }
 
     #[test]
