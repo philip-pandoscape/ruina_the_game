@@ -603,7 +603,9 @@ test("everyone in a channel sees the same time of day, the server's, whatever th
     await page.waitForTimeout(300);
     const r = await reading(page);
     expect(apart(r.sky, world(r.at)), 'the sky').toBeLessThan(0.01);
-    expect(apart(r.hud, r.sky), 'the clock on the HUD').toBeLessThan(2 / 60);
+    // The HUD writes the minute (dropping the seconds) as the page draws: a game minute is 1.25 s, and
+    // a browser drawing in software can take a second or two to draw.
+    expect(apart(r.hud, r.sky), 'the clock on the HUD').toBeLessThan(4 / 60);
   }
   // And it runs on smoothly: two seconds later, two seconds' worth of the day later.
   const first = await reading(b);
@@ -615,6 +617,10 @@ test("everyone in a channel sees the same time of day, the server's, whatever th
 
 test("everyone in a channel has the same rain and wind, the world's, whatever their islands' clocks say", async ({ browser }) => {
   const { a, b } = await pair(browser);
+  // Each works its weather out as it plays, and the server works out a new island's only once it
+  // has played: until then it's the fresh island's. Online comes before the first frame, which in a
+  // browser drawing in software (the shaders) can take seconds.
+  for (const page of [a, b]) await page.waitForFunction(() => (window as any).__game.state().frame > 30, null, { timeout: 60_000 });
   // Their islands' clocks count from when each was made, some seconds apart and nowhere near the
   // world's, so each island's own showers and wind (as it was) would be neither each other's nor the
   // world's. The server runs on this computer: the world's clock is Date.now(), and the weather is
