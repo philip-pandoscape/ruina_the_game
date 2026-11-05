@@ -211,11 +211,39 @@ export const STAFF_SWINGS: SwingDef[] = [
   },
 ];
 
+/**
+ * The sword's jump attack, whichever swing of the combo it is: the arm goes straight up, the blade
+ * pointing at the sky over the head, then it chops down in front as the body folds over it, the
+ * free arm swinging back against it. One-handed: the hero's arms are too short to meet over its
+ * head. (Angles are in the torso's frame, which leans back into the raise.)
+ */
+export const AIR_SLASH: SwingDef = {
+  color: 0x8fe0ff,
+  core: 0xffffff,
+  keys: [
+    { at: 0, arm: [0.1, 0.2, 0.8], aim: [0.25, 0.55], torso: [0.0, 0.0, 0], off: [0.45, -0.5, -0.4] },
+    { at: 0.5, arm: [0.4, 0.95, 0.9], aim: [0.8, 1.15], torso: [-0.1, 0.03, 0], off: [0.65, -0.55, -0.45] },
+    { at: 1, arm: [0.6, 1.42, 0.98], aim: [1.2, 1.33], torso: [-0.18, 0.04, 0], off: [0.8, -0.35, -0.4] },
+    { at: 1.4, arm: [0.3, 0.55, 0.98], aim: [0.1, 0.4], torso: [0.12, 0.02, 0], drop: 0.02, off: [0.6, 0.15, -0.5] },
+    { at: 2, arm: [0.12, -0.45, 0.95], aim: [0.03, -0.75], torso: [0.45, 0.02, 0], drop: 0.06, off: [0.45, 0.5, -0.6] },
+    { at: 2.5, arm: [0.15, -0.6, 0.9], aim: [0.25, -0.42], torso: [0.3, 0.02, 0], drop: 0.04, off: [0.3, 0.3, -0.5] },
+    { at: 3, ...REST_SWORD },
+  ],
+};
+
+/** Jump attacks, by weapon: a swing begun in the air plays these instead of its combo step. */
+export const AIR_SWINGS: Partial<Record<number, SwingDef>> = { 0: AIR_SLASH };
+
 export const swingsFor = (weapon: number): SwingDef[] => (weapon === 1 ? CLUB_SWINGS : weapon === 2 ? STAFF_SWINGS : SWORD_SWINGS);
 
-/** Which swing a combo step uses: Whirlwind's spin replaces whatever was in its place. */
-export function swingFor(weapon: number, index: number, pose: string | undefined): SwingDef {
+/**
+ * Which swing a combo step uses: Whirlwind's spin replaces whatever was in its place, and a swing
+ * begun in the air (`air`) is the weapon's jump attack, if it has one.
+ */
+export function swingFor(weapon: number, index: number, pose: string | undefined, air = false): SwingDef {
   if (pose === 'spin') return WHIRLWIND;
+  const jump = air ? AIR_SWINGS[weapon] : undefined;
+  if (jump) return jump;
   const list = swingsFor(weapon);
   return list[Math.min(index, list.length - 1)];
 }

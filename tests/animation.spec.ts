@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { comboShape } from '../src/tuning';
 
 // The hero's animations, measured rather than eyeballed. The gallery (animations.html) plays each
 // of the films in src/render/detail/scenarios.ts through the real close-up hero - poses, easing
@@ -119,12 +120,47 @@ test('a weapon trail is drawn exactly where the blade went', async ({ page }) =>
   await open(page);
   const gaps = await page.evaluate(() => {
     const a = (window as any).__anims;
-    return Object.fromEntries(['sword', 'whirlwind', 'club', 'staff'].map((id) => [id, a.trailGap(id)]));
+    return Object.fromEntries(['sword', 'whirlwind', 'club', 'staff', 'airSlash'].map((id) => [id, a.trailGap(id)]));
   });
   for (const [id, g] of Object.entries(gaps) as Array<[string, { worst: number; shown: number }]>) {
     expect(g.shown, `${id} shows a trail`).toBeGreaterThan(3);
     expect(g.worst, `${id}: the trail's edge is ${g.worst} m off the blade`).toBeLessThan(0.01);
   }
+});
+
+test('jumping, the sword goes straight up overhead and chops down in front, and still does if you land halfway', async ({ page }) => {
+  await open(page);
+  const step = comboShape(0, 0)[0];
+  const seen = await page.evaluate(() => {
+    const a = (window as any).__anims;
+    const pts = ['handR', 'handR@0,-1.1,0', 'head', 'shoulderR'];
+    return Object.fromEntries(['airSlash', 'airSlashLand'].map((id) => [id, a.track(id, pts)]));
+  });
+  type Row = { attack: number; airSwing: boolean; standing: boolean; lift: number; joints: Record<string, number[]> };
+  for (const [id, rows] of Object.entries(seen) as Array<[string, Row[]]>) {
+    const at = (f: number) => rows.find((r) => r.attack === f)!;
+    // The jump attack, from its first frame to its last.
+    expect(rows.filter((r) => r.attack >= 0).every((r) => r.airSwing), `${id} plays the jump attack throughout`).toBe(true);
+    // Raised: the arm up past the shoulder, the blade standing straight up over the head.
+    const up = at(step.startup);
+    const hy = up.joints.handR[1];
+    const [tx, ty, tz] = up.joints['handR@0,-1.1,0'];
+    expect(hy - up.joints.shoulderR[1], `${id}: the hand is raised`).toBeGreaterThan(0.3);
+    expect(ty - hy, `${id}: the blade points up`).toBeGreaterThan(1.0);
+    expect(Math.hypot(tx - up.joints.head[0], tz - up.joints.head[2]), `${id}: the blade is over the head`).toBeLessThan(0.35);
+    // Struck: chopped down in front, not swept across.
+    const down = at(step.startup + step.active);
+    const [dx, dy, dz] = down.joints['handR@0,-1.1,0'];
+    const hand = down.joints.handR;
+    expect(dz - hand[2], `${id}: the blade ends in front`).toBeGreaterThan(0.5);
+    expect(hand[1] - dy, `${id}: the blade ends pointing down`).toBeGreaterThan(0.4);
+    expect(Math.abs(dx - hand[0]), `${id}: the blade came straight down, not across`).toBeLessThan(0.3);
+  }
+  // In the second film the feet touch down while the blade is still coming down.
+  const land = seen.airSlashLand as Row[];
+  const landed = land.findIndex((r, i) => i > 0 && r.standing && !land[i - 1].standing);
+  expect(land[landed]?.attack, 'lands mid-swing').toBeGreaterThan(0);
+  expect(land[landed].attack).toBeLessThan(step.startup + step.active + step.recovery);
 });
 
 test('the bowstring comes back to the cheek with the drawing hand, and snaps straight on the shot', async ({ page }) => {

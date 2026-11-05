@@ -453,7 +453,20 @@ const api = {
   track(id: string, names: string[], weaponOverride?: number) {
     const t = new Take(scenario(id), weaponOverride ?? 0);
     const rig = t.hero.detail;
-    const out: Array<{ frame: number; travelled: [number, number]; facing: number; lift: number; standing: boolean; flip: number; action: number; stun: number; joints: Record<string, number[]> }> = [];
+    const out: Array<{
+      frame: number;
+      travelled: [number, number];
+      facing: number;
+      lift: number;
+      standing: boolean;
+      flip: number;
+      action: number;
+      stun: number;
+      /** The swing's frame (-1 when not swinging), and whether it is a jump attack. */
+      attack: number;
+      airSwing: boolean;
+      joints: Record<string, number[]>;
+    }> = [];
     const inv = new THREE.Matrix4();
     for (let f = 0; f < t.s.frames; f++) {
       t.step();
@@ -477,6 +490,8 @@ const api = {
         standing,
         flip: t.input.flipFrame,
         action: t.input.actionId >= 0 ? t.input.actionFrame : -1,
+        attack: t.input.attackIndex >= 0 ? t.input.attackFrame : -1,
+        airSwing: t.input.airSwing,
         stun: t.input.stunned ? t.input.stunFrame : -1,
         joints,
       });

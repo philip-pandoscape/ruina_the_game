@@ -44,6 +44,12 @@ export interface PoseInput {
   step: AttackStep | null;
   /** How many steps the combo has, so the last one can hit harder. */
   comboLength: number;
+  /**
+   * The swing began in the air: it's the weapon's jump attack (src/render/detail/swings.ts
+   * AIR_SWINGS), played through to the end even if the feet touch down halfway. The close-up
+   * renderer sets this from what it saw as the swing started; the rules don't know about it.
+   */
+  airSwing: boolean;
 
   /** Movement skill in progress, or -1. */
   actionId: number;
@@ -119,6 +125,7 @@ export const NEUTRAL_POSE: PoseInput = {
   attackFrame: 0,
   step: null,
   comboLength: 1,
+  airSwing: false,
   actionId: -1,
   actionFrame: 0,
   castAbility: -1,
