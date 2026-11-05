@@ -144,7 +144,7 @@ function makeProp(kind: Scenario['prop'], hero: Hero): Prop | null {
     driver: def.seats[0].pose,
     animate: (dt, m, input) => {
       t += dt;
-      v.animate(dt, { speed: m.speed, steer: input.bank, throttle: input.effort, sail: 0.8, boom: 0.3, time: t });
+      v.animate(dt, { speed: m.speed, steer: m.controls?.steer ?? input.bank, throttle: m.controls?.throttle ?? input.effort, sail: 0.8, boom: 0.3, time: t });
     },
   };
 }
@@ -715,6 +715,36 @@ const api = {
     }
     t.dispose();
     return { hands: +hands.toFixed(4), feet: feet === null ? null : +feet.toFixed(3) };
+  },
+
+  /**
+   * Seated in a vehicle's first seat, frame by frame: where what each hand holds is (left, right) in
+   * the vehicle's own frame, and how far each hand is from it.
+   */
+  holdTrack(id: string) {
+    const t = new Take(scenario(id), 0);
+    const rig = t.hero.detail;
+    const out: Array<{ frame: number; holds: number[][]; gaps: number[] }> = [];
+    const a = new THREE.Vector3();
+    const b = new THREE.Vector3();
+    const toProp = new THREE.Matrix4();
+    for (let f = 0; f < t.s.frames; f++) {
+      t.step();
+      const hands = t.prop?.holds?.hands;
+      if (!hands || t.input.travel !== t.prop?.driver) continue;
+      t.hero.root.updateMatrixWorld(true);
+      toProp.copy(t.prop.root.matrixWorld).invert();
+      const holds: number[][] = [];
+      const gaps: number[] = [];
+      hands.forEach((o, i) => {
+        o.getWorldPosition(b);
+        gaps.push(rig.joint(i === 0 ? 'handL' : 'handR').getWorldPosition(a).distanceTo(b));
+        holds.push(b.applyMatrix4(toProp).toArray());
+      });
+      out.push({ frame: f, holds, gaps });
+    }
+    t.dispose();
+    return out;
   },
 
   /**

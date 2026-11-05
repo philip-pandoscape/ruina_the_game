@@ -692,10 +692,15 @@ function roadster(def: WheeledDef): VehicleModel {
 
 // ---------- boats ----------
 
-/** Two oars at the oarlocks, swept in a rowing cycle whose rate follows |throttle|. */
+/**
+ * Two oars at the oarlocks, pulled by one rower: one stroke for both, whose pace follows the harder
+ * pulled oar. Turning, the oar on the inside of the turn takes a shorter stroke; turning on the
+ * spot, one oar rows ahead while the other backs water (its blade bites on the way back instead of
+ * on the way out). The handles always swing together, so the rower's hands do too.
+ */
 function oars(b: Build, def: BoatDef): void {
   const locks = def.oars ?? [];
-  const sides: Array<{ sweep: THREE.Group; dip: THREE.Group; feather: THREE.Group; side: number; phase: number; drive: number }> = [];
+  const sides: Array<{ sweep: THREE.Group; dip: THREE.Group; feather: THREE.Group; side: number; drive: number }> = [];
   const handles: Array<THREE.Object3D | undefined> = [undefined, undefined];
   const oarGeo = (() => {
     const p = new Parts();
@@ -716,27 +721,32 @@ function oars(b: Build, def: BoatDef): void {
     const dip = pivot(sweep, 0, 0, 0);
     const feather = pivot(dip, 0, 0, 0);
     mesh(feather, oarGeo, { outline: b.outline * 0.8 });
-    sides.push({ sweep, dip, feather, side, phase: 0, drive: 0 });
+    sides.push({ sweep, dip, feather, side, drive: 0 });
     // The rower's hand on the outer end of the grip (0.62-0.78 inboard of the lock), wherever the
     // stroke has it, so the two hands don't meet in the middle.
     handles[side > 0 ? 0 : 1] = hold(feather, -0.64, 0, 0);
   }
   if (handles[0] && handles[1]) b.holds.hands = [handles[0], handles[1]];
   const REST_DIP = -0.27;
+  /** How far through the stroke both oars are, 0..1: out over the first 0.55, back over the rest. */
+  let phase = 0;
   b.anims.push((dt, s) => {
+    let lead = 0;
     for (const o of sides) {
-      // Turning left pulls harder on the right (-X) oar.
+      // Turning left pulls harder on the right (-X) oar: on the spot, the left one backs water.
       const want = clamp(s.throttle - o.side * clamp(s.steer, -1, 1) * 0.6, -1, 1);
       o.drive += (want - o.drive) * Math.min(1, dt * 4);
+      lead = Math.max(lead, Math.abs(o.drive));
+    }
+    if (smooth(lead * 1.5) > 0.01) phase = (phase + dt * (0.35 + 0.6 * lead)) % 1;
+    // A short stroke: from the rower's belly out to arm's reach and back (the locks are ahead of
+    // the seat), -1 .. 1.
+    const swing = phase < 0.55 ? -Math.cos((Math.PI * phase) / 0.55) : Math.cos((Math.PI * (phase - 0.55)) / 0.45);
+    for (const o of sides) {
       const k = smooth(Math.abs(o.drive) * 1.5);
-      const rate = 0.35 + 0.6 * Math.abs(o.drive);
-      o.phase = (o.phase + dt * rate * Math.sign(o.drive || 1) * (k > 0.01 ? 1 : 0) + 1) % 1;
-      const ph = o.phase;
-      // A short stroke: from the rower's belly out to arm's reach (the locks are ahead of the seat).
-      const A = 0.3 * k;
-      const sweep = ph < 0.55 ? -A * Math.cos((Math.PI * ph) / 0.55) : A * Math.cos((Math.PI * (ph - 0.55)) / 0.45);
-      const inWater = 0.5 + 0.5 * Math.cos(TAU * (ph - 0.275));
-      o.sweep.rotation.y = sweep;
+      // The blade is in the water pushing the handle out to row ahead, pulling it back to back water.
+      const inWater = 0.5 + 0.5 * Math.cos(TAU * (phase - (o.drive >= 0 ? 0.275 : 0.775)));
+      o.sweep.rotation.y = 0.3 * k * swing;
       o.dip.rotation.z = lerp(REST_DIP, lerp(-0.2, -0.4, inWater), k);
       o.feather.rotation.x = lerp(0.6, (1 - smooth((inWater - 0.25) / 0.4)) * 1.45, k);
     }

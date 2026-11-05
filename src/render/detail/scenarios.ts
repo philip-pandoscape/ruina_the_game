@@ -16,6 +16,12 @@ export interface Moment {
   lift?: number;
   /** Which way the hero faces, radians (0 is the floor's +z, + turns left); the heading is from here. */
   facing?: number;
+  /**
+   * What the vehicle's controls are doing (throttle and steering, -1..1, as the rules have them in
+   * src/sim/life/vehicles.ts): what its model moves to (the oars' stroke, the wheel). Left out, the
+   * effort and the bank stand in for them.
+   */
+  controls?: { throttle: number; steer: number };
 }
 
 export interface Scenario {
@@ -343,6 +349,25 @@ const swimRamp = (from: number, to: number): Segment => {
   };
 };
 
+/**
+ * At the oars, with the boat's controls going where `legs` say (throttle, steering, frames), eased
+ * the way the rules ease them (src/sim/life/vehicles.ts stepBoat): rowing ahead, turning, backing
+ * water, turning on the spot, starting and stopping.
+ */
+function rowing(legs: Array<[throttle: number, steer: number, frames: number]>): Segment {
+  const out: Moment[] = [];
+  let throttle = 0;
+  let steer = 0;
+  for (const [t, s, frames] of legs) {
+    for (let f = 0; f < frames; f++) {
+      throttle += (t - throttle) * Math.min(1, 5 / HZ);
+      steer += (s - steer) * Math.min(1, 5 / HZ);
+      out.push({ input: { travel: 'row', effort: Math.abs(throttle), bank: steer }, speed: throttle * 3, controls: { throttle, steer } });
+    }
+  }
+  return { frames: out.length, at: (f) => out[f] };
+}
+
 const EIGHT = [0, 45, 90, 135, 180, -135, -90, -45];
 
 export const SCENARIOS: Scenario[] = [
@@ -449,6 +474,13 @@ export const SCENARIOS: Scenario[] = [
   { id: 'driveRoadster', group: 'Travel', label: 'Drive the roadster', prop: 'roadster', ...sequence([travel(240, 'drive', (t) => ({ bank: Math.sin(t * 1.1), effort: 0.6 }), 9)]) },
   { id: 'driveHauler', group: 'Travel', label: 'Drive the hauler', prop: 'hauler', ...sequence([travel(240, 'drive', (t) => ({ bank: Math.sin(t * 1.1), effort: 0.6 }), 5)]) },
   { id: 'row', group: 'Travel', label: 'Row', prop: 'rowboat', ...sequence([travel(240, 'row', () => ({ effort: 1 }), 3)]) },
+  {
+    id: 'rowTurns',
+    group: 'Travel',
+    label: 'Row: turn, back water, spin, stop',
+    prop: 'rowboat',
+    ...sequence([rowing([[0, 0, 40], [1, 0, 150], [1, 1, 150], [1, -1, 150], [0, 0, 100], [-1, 0, 150], [0, 1, 120], [0, -1, 120], [0.4, 0, 180], [0, 0, 90]])]),
+  },
   { id: 'helm', group: 'Travel', label: 'At the helm', prop: 'sloop', ...sequence([travel(240, 'helm', (t) => ({ bank: Math.sin(t * 0.9) * 0.8, effort: 0.5 }), 5)]) },
   { id: 'sit', group: 'Travel', label: 'Passenger', prop: 'cart', ...sequence([travel(240, 'sit', () => ({ effort: 0.3 }), 6)]) },
 ];

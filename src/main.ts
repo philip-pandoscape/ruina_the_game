@@ -1453,6 +1453,16 @@ const api = {
   heroWeapon(): 'hand' | 'away' {
     return hero.weaponInHand ? 'hand' : 'away';
   },
+  /**
+   * At the controls of a vehicle: where each hand is and where what it holds is (the oars' handles,
+   * a wheel's rim), left then right, in the world as last drawn; null with nothing to hold.
+   */
+  holds() {
+    const h = hero.seatHolds?.hands;
+    if (!h) return null;
+    const at = (o: THREE.Object3D) => o.getWorldPosition(new THREE.Vector3()).toArray();
+    return { hands: [at(hero.detail.joint('handL')), at(hero.detail.joint('handR'))], holds: h.map(at) };
+  },
   // Targeting, the ground-aim circle, and the floating numbers currently on screen.
   combat() {
     return {

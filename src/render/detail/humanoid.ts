@@ -1337,7 +1337,9 @@ function row(b: Body, p: PoseInput): void {
   // on the stroke clock (strokeRate), as vehicles.ts oars() pulls them.
   const ph = (((p.phase / TAU) % 1) + 1) % 1;
   const drive = ph < 0.55 ? easeInOut(ph / 0.55) : 1 - smooth((ph - 0.55) / 0.45);
-  const reachOut = p.grips ? clamp01(((p.grips[2] + p.grips[5]) / 2 - 0.22) / 0.42) : 1 - drive * e;
+  // Leaning in as far as the further handle needs: turning, the inside oar takes a shorter stroke,
+  // and leaning only as far as the two handles' middle would leave the outside hand short of its own.
+  const reachOut = p.grips ? clamp01((Math.max(p.grips[2], p.grips[5]) - 0.22) / 0.42) : 1 - drive * e;
   b.torso.rotation.set(lerp(-0.2, 0.42, reachOut), 0, 0);
   b.neck.rotation.set(lerp(0.12, -0.3, reachOut), 0, 0);
   seatedLegs(b, p, 0.06, 0.53);
