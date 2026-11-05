@@ -17,6 +17,7 @@ pub mod http;
 pub mod interest;
 pub mod jsmath;
 pub mod life;
+pub mod minigames;
 pub mod net;
 pub mod open;
 pub mod player;

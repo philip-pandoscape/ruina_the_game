@@ -10,14 +10,19 @@
 //! character the account played last.
 //!
 //!   server -> browser  (text) welcome {protocol, character, account, build, now, channel, dev, estates, claims}
-//!                      tick {tick, you, peers, actors, arrows, meteors, events, lifeEvents?, life?}
+//!                      tick {tick, you, peers, actors, arrows, meteors, events, lifeEvents?, life?,
+//!                            tables?: the mini-game tables near you, as everyone sees them}
 //!                      estate {id, name, estate} | claims {claims} | left {id} | saved {at}
+//!                      | challenges {sent, waiting}: your challenge out, and one waiting for your answer
+//!                      | table {table}: the game at your table as you may see it (null: you're up)
 //!                      | reset | kicked | error {text}
 //!                      | updating: the server is stopping for an update; once the island is
 //!                        written, the connection closes with 1012 (service restart)
 //!   browser -> server  (binary) inputs: 7, count, then per input a u32 sequence number and 10 bytes
 //!                      (src/net/netPlayer.ts quantize)
 //!                      (text) cmd {s, c} | build {build} | reset
+//!                      | challenge {to, game, stake, seed?} | withdraw | answer {from, accept}
+//!                      | move {table, m} | concede {table}   (mini-games, server/src/world_game/tables.rs)
 
 use std::collections::HashMap;
 use std::sync::Mutex;
@@ -59,7 +64,7 @@ const MAX_BATCH: usize = 32;
 const SEND_INPUTS: u8 = 7;
 /// What this server speaks. A page that speaks something else is out of date: it reloads
 /// (src/net/worldLink.ts WORLD_PROTOCOL).
-pub const WORLD_PROTOCOL: u32 = 5;
+pub const WORLD_PROTOCOL: u32 = 6;
 
 /// Where the server is in its life. Railway starts a new server for an update, then stops this one.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -80,11 +85,15 @@ pub struct Hub {
     stage: watch::Sender<Stage>,
     /// Asked to stop the way SIGTERM asks (the developer endpoint, for tests).
     stop: Notify,
+    /// The one queue islands are written from, in the order they were taken (spawn_world): a
+    /// list is written in one transaction. Islands are queued with the channels locked, so an
+    /// older copy of an island can never be written over a newer one.
+    saver: Mutex<Option<mpsc::UnboundedSender<Vec<Save>>>>,
 }
 
 impl Default for Hub {
     fn default() -> Self {
-        Hub { live: Mutex::default(), channels: Mutex::default(), stage: watch::channel(Stage::Running).0, stop: Notify::new() }
+        Hub { live: Mutex::default(), channels: Mutex::default(), stage: watch::channel(Stage::Running).0, stop: Notify::new(), saver: Mutex::default() }
     }
 }
 
@@ -115,7 +124,15 @@ impl Hub {
     fn with_channel<T>(&self, id: i32, f: impl FnOnce(&mut ChannelGame) -> T) -> T {
         // A connection that failed halfway through a change mustn't stop everyone else's.
         let mut channels = self.channels.lock().unwrap_or_else(|e| e.into_inner());
-        f(channels.entry(id).or_insert_with(|| ChannelGame::new(id)))
+        f(channels.entry(id).or_insert_with(|| {
+            let mut ch = ChannelGame::new(id);
+            ch.saver = self.saver();
+            ch
+        }))
+    }
+
+    fn saver(&self) -> Option<mpsc::UnboundedSender<Vec<Save>>> {
+        self.saver.lock().unwrap_or_else(|e| e.into_inner()).clone()
     }
 
     /// A character is gone for good (deleted): their estate comes down in their channel, if that
@@ -142,21 +159,23 @@ impl Hub {
     }
 }
 
-/// Plays every channel with anyone in it, TICK_HZ times a second, on a thread of its own; and
-/// writes the islands that are due a save.
+/// Plays every channel with anyone in it (or a game going on), TICK_HZ times a second, on a
+/// thread of its own; and writes the islands that are due a save.
 pub fn spawn_world(app: App) {
-    let (saves_tx, mut saves_rx) = mpsc::unbounded_channel::<Save>();
+    let (saves_tx, mut saves_rx) = mpsc::unbounded_channel::<Vec<Save>>();
+    *app.world.saver.lock().unwrap_or_else(|e| e.into_inner()) = Some(saves_tx.clone());
     if let Some(db) = app.db.clone() {
         tokio::spawn(async move {
-            while let Some(s) = saves_rx.recv().await {
-                match write_island(&db, s.character, s.session, s.island).await {
-                    Ok(r) if r.rows_affected() == 1 => {
-                        if let Some(out) = s.out {
-                            let _ = out.try_send(json!({ "t": "saved", "at": now_ms() }).to_string());
+            while let Some(batch) = saves_rx.recv().await {
+                match write_islands(&db, &batch).await {
+                    Ok(written) => {
+                        for (s, ok) in batch.iter().zip(written) {
+                            if let (true, Some(out)) = (ok, &s.out) {
+                                let _ = out.try_send(json!({ "t": "saved", "at": now_ms() }).to_string());
+                            }
                         }
                     }
-                    Ok(_) => {}
-                    Err(e) => eprintln!("could not save character {}: {e}", s.character),
+                    Err(e) => eprintln!("could not save characters {:?}: {e}", batch.iter().map(|s| s.character).collect::<Vec<_>>()),
                 }
             }
         });
@@ -172,17 +191,23 @@ pub fn spawn_world(app: App) {
                 {
                     let mut channels = hub.world.channels.lock().unwrap_or_else(|e| e.into_inner());
                     for ch in channels.values_mut() {
-                        if ch.has_players() {
+                        if ch.has_players() || ch.has_tables() {
                             // One channel's bad moment mustn't stop all the others.
                             let id = ch.id;
                             if std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| ch.step(&mut saves))).is_err() {
                                 eprintln!("channel {id} failed a tick");
                             }
                         }
+                        // Games paid out before the channel had the queue (it hands them over
+                        // itself as they're paid): both islands together.
+                        for batch in ch.take_joint() {
+                            let _ = saves_tx.send(batch);
+                        }
                     }
-                }
-                for s in saves.drain(..) {
-                    let _ = saves_tx.send(s);
+                    // Queued with the channels still locked, so they're in the order they were taken.
+                    for s in saves.drain(..) {
+                        let _ = saves_tx.send(vec![s]);
+                    }
                 }
                 let now = Instant::now();
                 if next > now {
@@ -278,9 +303,35 @@ pub async fn upgrade(State(app): State<App>, headers: HeaderMap, Query(which): Q
 #[derive(Deserialize)]
 #[serde(tag = "t", rename_all = "camelCase")]
 enum FromBrowser {
-    Cmd { s: u32, c: Value },
-    Build { build: Value },
+    Cmd {
+        s: u32,
+        c: Value,
+    },
+    Build {
+        build: Value,
+    },
     Reset,
+    /// Mini-games (server/src/world_game/tables.rs): challenge someone, take it back, answer one,
+    /// make a move at your table, give the game up.
+    Challenge {
+        to: i64,
+        game: String,
+        stake: f64,
+        #[serde(default)]
+        seed: Option<u32>,
+    },
+    Withdraw,
+    Answer {
+        from: i64,
+        accept: bool,
+    },
+    Move {
+        table: u64,
+        m: Value,
+    },
+    Concede {
+        table: u64,
+    },
 }
 
 type Tx = SplitSink<WebSocket, Message>;
@@ -297,7 +348,17 @@ struct Seat {
 
 impl Drop for Seat {
     fn drop(&mut self) {
-        let island = self.app.world.with_channel(self.channel, |ch| ch.leave(self.character, self.session));
+        // Into the queue with everything else, while the channel is still locked: a game paid out
+        // a moment later is written after this, never under it.
+        let saver = self.app.world.saver();
+        let island = self.app.world.with_channel(self.channel, |ch| {
+            let island = ch.leave(self.character, self.session)?;
+            let save = Save { character: self.character, session: self.session, island, out: None };
+            match &saver {
+                Some(tx) => tx.send(vec![save]).err().map(|e| e.0.into_iter().next().unwrap().island),
+                None => Some(save.island),
+            }
+        });
         if let Some(island) = island {
             let (db, character, session) = (self.db.clone(), self.character, self.session);
             tokio::spawn(async move {
@@ -483,6 +544,27 @@ async fn play(
                                 Wrote::Failed => {}
                             }
                         }
+                        Ok(FromBrowser::Challenge { to, game, stake, seed }) => {
+                            if let Err(text) = app.world.with_channel(channel, |ch| ch.challenge(character, to, &game, stake, seed)) {
+                                send(&mut tx, json!({ "t": "error", "text": text })).await?;
+                            }
+                        }
+                        Ok(FromBrowser::Withdraw) => app.world.with_channel(channel, |ch| ch.withdraw(character)),
+                        Ok(FromBrowser::Answer { from, accept }) => {
+                            if let Err(text) = app.world.with_channel(channel, |ch| ch.answer(character, from, accept)) {
+                                send(&mut tx, json!({ "t": "error", "text": text })).await?;
+                            }
+                        }
+                        Ok(FromBrowser::Move { table, m }) => {
+                            if let Err(text) = app.world.with_channel(channel, |ch| ch.table_move(character, table, &m)) {
+                                send(&mut tx, json!({ "t": "error", "text": text })).await?;
+                            }
+                        }
+                        Ok(FromBrowser::Concede { table }) => {
+                            if let Err(text) = app.world.with_channel(channel, |ch| ch.concede(character, table)) {
+                                send(&mut tx, json!({ "t": "error", "text": text })).await?;
+                            }
+                        }
                         Err(_) => send(&mut tx, json!({ "t": "error", "text": "The server didn't understand that message." })).await?,
                     },
                     Some(Ok(Message::Close(_))) | None => break,
@@ -542,6 +624,28 @@ async fn write_island(db: &PgPool, character: i64, session: i64, island: Value) 
         .bind(Json(island))
         .execute(db)
         .await
+}
+
+/// Writes a list of islands: one alone, or several in one transaction, so that when a game's pot
+/// changes hands both players' islands are kept or neither is. Whether each was written (one a
+/// newer window has taken over is that window's to write).
+async fn write_islands(db: &PgPool, batch: &[Save]) -> Result<Vec<bool>, sqlx::Error> {
+    if let [s] = batch {
+        return Ok(vec![write_island(db, s.character, s.session, s.island.clone()).await?.rows_affected() == 1]);
+    }
+    let mut tx = db.begin().await?;
+    let mut written = Vec::new();
+    for s in batch {
+        let r = sqlx::query("UPDATE characters SET island = $3, saved_at = now() WHERE id = $1 AND live_session = $2")
+            .bind(s.character)
+            .bind(s.session)
+            .bind(Json(&s.island))
+            .execute(&mut *tx)
+            .await?;
+        written.push(r.rows_affected() == 1);
+    }
+    tx.commit().await?;
+    Ok(written)
 }
 
 enum Wrote {
