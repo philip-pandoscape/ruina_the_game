@@ -3,8 +3,8 @@
 An original browser MMORPG prototype: third-person 3D action combat with platform-fighter movement
 (run, slide, double jump), classless skill trees, Xbox controller support, and a Rust game server
 that plays the open world itself (every rule, from movement to trade, runs there), keeps players'
-accounts and islands in Postgres, and is built for 10,000-player PvP raids. The code still uses the working name *yggdrasil* (package name,
-server binary, page title).
+accounts and islands in Postgres, and is built for 10,000-player PvP raids. The game is called
+Ruina; the Rust crate and server binary keep the working name *yggdrasil*.
 
 The open world starts on **Emberholm**, a starter isle with ArcheAge-style life systems: gliders,
 carts, a roadster, boats that sail on the wind, mounts, trade packs you carry to faraway trading
@@ -60,9 +60,12 @@ short version of this file for coding agents.
    server first if its code changed. Run it again after changing anything in `server/`.
    `npm run logs` follows the server's output, `npm run psql` opens the database, `npm run down` stops both.
 2. `npm run dev`, then open
-   - http://localhost:5173/ for the open world, Emberholm. Sign in or make an account; your island is
-     kept on the server. `?as=name` signs straight in as `name` (development only, a new account if
-     it's new), so you can play several characters in different windows. `?fresh` starts your island over.
+   - http://localhost:5173/ for the open world, Emberholm. The title screen, then sign in or make an
+     account, then pick or create a character (up to six, each with its own island, kept on the
+     server). Characters on the badge, or Settings > Exit to Character Select, goes back there.
+     `?as=name` signs straight in as `name` and plays its last character (development only, a new
+     account if it's new), so you can play several in different windows. `?fresh` starts your island
+     over. When the server is updated the world freezes under a notice and carries on by itself.
    - http://localhost:5173/?yard for the training yard (offline)
    - http://localhost:5173/animations.html for the hero's animations, each played with the game's
      own timing: slow motion, any camera, and a floor to judge the feet by (`src/render/detail/`)
@@ -90,7 +93,9 @@ the same rules (in TypeScript) and corrects itself to the answer, so play feels 
 `tests/world-conformance.spec.ts` and `tests/life-conformance.spec.ts` check the two sets of rules
 agree. The developer panel (give items, skip time, teleport) exists only where the server allows it
 (development and beta, not production). Automated tests (`?test`) run the island offline, in the
-browser, except `tests/online.spec.ts`, which needs `npm run up`.
+browser, except `tests/online.spec.ts`, which needs `npm run up`, and `tests/update.spec.ts`, which
+starts and stops a game server of its own on the database in `RUINA_DATABASE_URL`. To run the suite
+beside another checkout's, give it its own ports: `PW_PORT=5211 TEST_PORT_OFFSET=10`.
 
 ## Branches, CI and deploys
 

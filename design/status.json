@@ -852,6 +852,104 @@
         "server/src/life/trade.rs",
         "src/ui/life/lifeUI.ts"
       ]
+    },
+    {
+      "system": "ui",
+      "status": "done",
+      "title": "Title screen, sign-in and character select",
+      "notes": "The game opens on a dusk title scene (drawn by index.html before the code arrives) with a loading bar fed by real steps; sign-in, account creation and the character select screen sit on it. An account holds up to six characters, each with its own island; the select screen shows the chosen hero live in 3D, with Enter World, Create Character and Delete Character (type the name). Characters and Settings > Exit to Character Select go back to it from the world.",
+      "files": [
+        "index.html",
+        "src/ui/splash.ts",
+        "src/ui/signIn.ts",
+        "src/ui/characterSelect.ts",
+        "src/render/heroPreview.ts",
+        "server/src/characters.rs",
+        "server/migrations/0003_several_characters.sql"
+      ]
+    },
+    {
+      "system": "tech",
+      "status": "done",
+      "title": "Riding out a server update",
+      "notes": "A stopping server (a deploy) tells every player it is updating, saves every island, then closes with 1012. The page freezes the world under a \"Ruina Is Being Updated\" card, reconnects by itself, and reloads straight back into the world with the same character when a new build or protocol is out. A dropped connection freezes the same way. railway.json gives the old server 20 s to do it.",
+      "files": [
+        "server/src/world_socket.rs",
+        "server/src/http.rs",
+        "src/net/worldLink.ts",
+        "src/app/resume.ts",
+        "tests/update.spec.ts",
+        "railway.json"
+      ]
+    },
+    {
+      "system": "combat",
+      "status": "done",
+      "title": "Stamina and MP",
+      "notes": "Every fighter has health, MP and stamina (and labor on the island). Dodge Roll and Backstep cost stamina instead of a cooldown; Healing Circle and Meteor cost MP, paid when the cast goes off. Values in shared/tuning.json (stamina, mp, staminaCost, mpCost). Shown beside your portrait, over the hotbar off the island, and on the Q and E slots, which shade when you can not afford them.",
+      "files": [
+        "src/sim/player/vitals.ts",
+        "server/src/player.rs",
+        "shared/tuning.json",
+        "src/render/hud.ts",
+        "src/ui/life/lifeUI.ts"
+      ]
+    },
+    {
+      "system": "traversal",
+      "status": "done",
+      "title": "Walking onto platforms",
+      "notes": "Decks (the glider launch, piers) are walked up onto as high as ground.deckStep, and one you can neither step onto nor pass under is solid from the side, so you no longer walk under the launch deck. The body eases up over the step.",
+      "files": [
+        "src/sim/player/traverse.ts",
+        "server/src/open/traverse.rs",
+        "shared/traversal.json"
+      ]
+    },
+    {
+      "system": "combat",
+      "status": "done",
+      "title": "Monsters online, smooth and readable",
+      "notes": "Online, monsters are drawn interpolated at the moment other players are (they moved in 20 Hz jumps); warning circles lie on the hills (they were drawn at sea level, under the ground); a hit sparks, shakes, pauses and flashes the slime the moment your blade connects, with the server's number following; anyone's hit flashes the monster. Slimes can be soft-locked online.",
+      "files": [
+        "src/net/actorTimeline.ts",
+        "src/net/netMonsters.ts",
+        "src/render/spells.ts",
+        "tests/online-combat.spec.ts"
+      ]
+    },
+    {
+      "system": "combat",
+      "status": "done",
+      "title": "An overhead chop in the air",
+      "notes": "A sword swung in the air raises the blade straight up overhead, then chops down in front, playing through if you land halfway.",
+      "files": [
+        "src/render/detail/swings.ts",
+        "src/render/detail/humanoid.ts",
+        "src/render/character.ts"
+      ]
+    },
+    {
+      "system": "ui",
+      "status": "done",
+      "title": "Item menus: click, double-click, right-click",
+      "notes": "In the bag a click picks an item out, a double-click does its main thing (place the scarecrow, plant, equip, summon; sell at a merchant, store at your chest) and a right-click opens a menu of what can be done with it now; A and Y on a controller. The merchant's goods have menus too.",
+      "files": [
+        "src/ui/theme/contextMenu.ts",
+        "src/ui/life/lifeUI.ts"
+      ]
+    },
+    {
+      "system": "ui",
+      "status": "done",
+      "title": "The UI design system",
+      "notes": "design/ui.html: the look, the writing rules (labels in Title Case, sentences in sentence case: src/ui/theme/text.ts), where everything sits on screen, every component drawn with the game's own styles, and how items answer the mouse and a controller. tests/ui.spec.ts holds the open windows to the rules.",
+      "files": [
+        "design/ui.html",
+        "design/ui.ts",
+        "src/ui/theme/text.ts",
+        "tests/ui.spec.ts"
+      ]
     }
   ],
   "next": [
@@ -859,7 +957,8 @@
     "Shared world, next: trading-post demand, weather and gathering nodes shared by a channel (today each island has its own); choosing a channel (to join a friend in another one); others' parked vehicles while they're away.",
     "World server, next: islands in proper tables rather than one document each, if querying them (trading-post history, guild storage) needs it; bandwidth: send other players less often when they are far away.",
     "Skills, next: balance the tree (its numbers are first guesses: a keystone is 8 to 13 points from nothing, Emberholm gives 31 in all); notables and keystones that do new things, not only bigger numbers; life skills (farming, crafting, sailing) that level by use the same way.",
-    "Quests, next: Share (the quest log's third button in the prototype) once there are parties to share with."
+    "Quests, next: Share (the quest log's third button in the prototype) once there are parties to share with.",
+    "After the beta playtest: appearance for characters (they differ only by weapon); steps or a ramp for the western pier, now that a deck too high to step onto is a wall; stamina for sprinting, if wanted; other players' hits sparking on monsters, not only flashing."
   ],
   "questions": [
     {
@@ -1024,6 +1123,20 @@
         "Input: an open window has the controller, the press that closes a window is not also a game press, and the skill book (T, View) and tree (N, a bumper) have their own cursor.",
         "The browser and the server agree on getting better: a place reached counts for each quest by its own reach and height (both rules); a hit trains the weapon that landed it, so an arrow trains its bow and a blast nothing; only a kill is a defeat, not a piece dissolving; a build is held to the points the island has earned.",
         "After the review: the portrait shows your shoulders and the character window all of you again; toasts at the bottom right, smaller; the character window's combo damage and skill points left; the quest log's Abandon and Track on Screen; the merchant's Buyback (Abandon and Buyback in both rules). The skill point amounts stay as they are for now."
+      ]
+    },
+    {
+      "date": "2026-11-04",
+      "title": "The beta playtest",
+      "summary": "Twenty things found playing the deployed beta, fixed in four tracks at once: the front door (the name Ruina, a title screen, characters, riding out server updates), the rules (stamina and MP, walking onto platforms, quests heard at once), combat online (smooth slimes, warnings on the ground, hit feedback, the air slash), and the island UI (item menus, the minimap, Title Case, the design system).",
+      "points": [
+        "Front door: a dusk title scene drawn before the code arrives, sign-in on it, an account holds up to six characters (/api/characters, migration 0003, /ws/world?character=), a select screen with the hero live in 3D, and a way back to it from the world. The badge moved under the menu buttons, off the stats line.",
+        "Server updates: {t:\"updating\"}, then every island saved, then close 1012; the page freezes under a card, reconnects, and reloads straight back in when a new build or protocol is out (src/app/resume.ts). F5 also returns straight to the world. tests/update.spec.ts plays it through.",
+        "Rules (both languages): stamina and MP (dodges cost stamina, casts MP; WORLD_PROTOCOL 4); decks walked onto up to deckStep and solid when they can't be; a quest stepping on bumps the island's revision, so the NPC window shows it at once rather than 2 s later; the ready toast names the NPC.",
+        "Combat online: actors interpolated on a timeline at the render tick (src/net/actorTimeline.ts); circles cut along the terrain's triangles; hits guessed against the server's own rule and played at once, numbers on arrival (src/net/netMonsters.ts); the overhead air chop (AIR_SWINGS).",
+        "Island UI: NPC portraits taken from in front of them on a layer of their own; the minimap arrow pointed backwards; quest hand-ins pinned to the minimap's rim; the medallion covered the first line; button text sat high (--cap-nudge); the NPC window 30% taller; room under the minimap; Ctrl+key presses kept from the browser (Ctrl+D bookmarked the page while flaring).",
+        "Writing: labels in Title Case everywhere, sentences in sentence case, documented with the rest of the interface at /design/ui.html and checked by tests/ui.spec.ts.",
+        "Tests: PW_PORT and TEST_PORT_OFFSET let two checkouts run their suites side by side."
       ]
     }
   ]

@@ -1,7 +1,8 @@
 # AGENTS.md
 
 **Ruina**: an original browser MMORPG prototype. Three.js + TypeScript client (Vite), a Rust game
-server (axum), Postgres. The code still says *yggdrasil* (package, server binary, page title).
+server (axum), Postgres. The Rust crate and server binary still say *yggdrasil*; everything players
+see says Ruina.
 The open world is **Emberholm**, a starter isle with ArcheAge-style life systems.
 
 ## Layout
@@ -13,7 +14,7 @@ The open world is **Emberholm**, a starter isle with ArcheAge-style life systems
 | `src/render/detail/` | Close-up bodies. `humanoid.ts` poses every humanoid as a pure function of `PoseInput` (the crowd bakes its clips from it), with `body.ts` (two-bone IK), `gait.ts` (planted feet at any speed and heading), `swings.ts` (weapon keyframes), `stow.ts` (where weapons are put away); `src/render/character.ts` adds the stateful parts (transitions, foot holds, trails, bowstring, drawing and putting away the weapon). `/animations.html` plays them all; `tests/animation.spec.ts` measures them |
 | `src/ui/` | The Parchment & Timber look. `theme/`: the CSS, the UI laid out on a 1029 px virtual screen and scaled to the window (`scale.ts`), fonts, tooltips, right-click menus (`contextMenu.ts`), the writing rule (`text.ts`), pixel icons baked from Twemoji (`npm run icons`). `life/lifeUI.ts`: the island's HUD and its windows docked at the sides. `skills/`: the skill book (T) and the skill tree (N). Skill points are counted from finished quests (`src/sim/life/progress.ts`), never stored |
 | `src/main.ts` | Wires it all up; URL options at the top; `window.__game` is the test API |
-| `src/app/online.ts`, `src/net/` | Sign-in, the world connection (`worldLink.ts`: inputs and commands out, the server's ticks in), predicting your own player (`netPlayer.ts`), everyone else in your channel (`worldPeers.ts`), the battlefield client |
+| `src/app/online.ts`, `src/net/` | The way in (the title screen drawn by `index.html`, `src/ui/splash.ts`, sign-in `src/ui/signIn.ts`, `src/ui/characterSelect.ts`), the world connection (`worldLink.ts`: inputs and commands out, the server's ticks in; riding out a server update, `src/app/resume.ts`), predicting your own player (`netPlayer.ts`), everyone else in your channel (`worldPeers.ts`), monsters drawn on a timeline between the server's ticks (`actorTimeline.ts`) with hits felt at once (`netMonsters.ts`), the battlefield client |
 | `server/` | Rust server. It plays Emberholm: `world_game.rs` runs each channel (players from their inputs, the island's rules, slimes, combat via `game.rs`), `world_socket.rs` is the connection, `open/` the island's ground, colliders and traversal (baked from the TS generator into `server/data/emberholm.zone` by `tests/terrain.spec.ts`), `life/` trade, farming, housing, vehicles and quests. Accounts and islands in Postgres (`server/migrations/`, applied on start). The PvP battlefield. `player.rs`, `skills.rs`, `open/`, `life/` mirror the TS rules |
 | `shared/*.json` | Content and tuning, read by both sides. New content is data, not code |
 | `tests/` | Playwright tests that play the real game, plus TS/Rust conformance |
@@ -23,9 +24,9 @@ The open world is **Emberholm**, a starter isle with ArcheAge-style life systems
 
 ```sh
 npm run up              # Postgres + game server in Docker (rebuilds the server); npm run down stops
-npm run dev             # http://localhost:5173  (?as=name signs in on dev, ?yard, ?world&test)
+npm run dev             # http://localhost:5173  (?as=name signs in on dev and plays its last character, ?yard, ?world&test)
 npm run typecheck
-npx playwright test     # all; tests/online.spec.ts needs `npm run up`
+npx playwright test     # all; tests/online.spec.ts needs `npm run up`; tests/update.spec.ts needs RUINA_DATABASE_URL
 PW_PORT=5211 TEST_PORT_OFFSET=10 npx playwright test   # beside another checkout's suite (its own Vite and battle-server ports)
 cargo test --release --manifest-path server/Cargo.toml   # needs Rust; CI runs it anyway
 ```
@@ -56,6 +57,12 @@ cargo test --release --manifest-path server/Cargo.toml   # needs Rust; CI runs i
 - Railway project `intuitive-enthusiasm`: environments `beta` and `production`, each with its own
   Postgres. The game service gets `DATABASE_URL` (a reference to that environment's database) and `PORT=8080`;
   beta also `DEV_TOOLS=1` (the in-game developer panel, off in production).
+- An account holds up to six characters (`/api/characters`, `server/src/characters.rs`); the world
+  plays the one `/ws/world?character=<id>` names, or the last played. `/api/me` is `{id, username}`.
+- Deploys: the stopping server tells every player `{t:"updating"}`, saves every island, then closes
+  with 1012 (`railway.json` gives it 20 s); pages freeze, reconnect, and reload straight back into the
+  world when a new build or `WORLD_PROTOCOL` is out. `POST /api/dev/stop` does the same where
+  `DEV_LOGIN=1` (`tests/update.spec.ts`).
 - Online the server plays Emberholm: browsers send key presses (binary, 60 a second) and commands,
   the server runs every rule and keeps the islands in Postgres, and answers 20 times a second.
   Nothing a browser says about its own state is believed. `grant`, `warp` and `teleport` (the
