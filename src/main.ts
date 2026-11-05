@@ -768,7 +768,11 @@ function targeting(a: Actions): Actions {
   const p = sim.player;
   const swinging = out.attackPressed || p.attackBuffer > 0 || p.attackQueued;
   const mark = lockOn.mark();
-  if (mark && swinging) return { ...out, aimX: mark.x - p.pos.x, aimZ: mark.z - p.pos.z };
+  // A blade only turns to the mark when it can reach it: swinging at the slime beside you while
+  // one further off is marked hits the one beside you (aimAssist), not the air. The bow shoots at
+  // the mark wherever it is.
+  const reach = p.weapon === 3 ? Infinity : comboFor(p.weapon, sim.stats)[0].reach + 1.6;
+  if (mark && swinging && Math.hypot(mark.x - p.pos.x, mark.z - p.pos.z) <= reach) return { ...out, aimX: mark.x - p.pos.x, aimZ: mark.z - p.pos.z };
   return out;
 }
 

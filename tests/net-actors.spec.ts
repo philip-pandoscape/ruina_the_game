@@ -204,7 +204,9 @@ test('a player can kill one, and everyone sees it go down', async ({ page }) => 
       const dz = t.z - me.z;
       const d = Math.hypot(dx, dz);
       const close = d < 1.3;
-      g.scriptInput([[1, close ? { attackPressed: true } : { moveX: dx / d, moveZ: dz / d }]]);
+      // Aimed at it, as a player does with the camera: with a monster marked you face where the
+      // camera looks, so an unaimed swing would go wherever this test's camera happens to point.
+      g.scriptInput([[1, close ? { attackPressed: true, aimX: dx, aimZ: dz } : { moveX: dx / d, moveZ: dz / d }]]);
       await new Promise((r) => setTimeout(r, 50));
       const after = ((g.netActors?.() ?? []) as Array<{ id: number; deadFrame: number }>).find((a) => a.id === t.id);
       if (after && after.deadFrame >= 0) return true;
@@ -239,7 +241,7 @@ test('hit one and it fights back: the server lands its slam on you', async ({ pa
       const dz = t.z - me.z;
       const d = Math.hypot(dx, dz);
       if (!swung && d < 1.3) {
-        g.scriptInput([[1, { attackPressed: true }]]);
+        g.scriptInput([[1, { attackPressed: true, aimX: dx, aimZ: dz }]]);
         swung = true;
       } else if (!swung) {
         g.scriptInput([[1, { moveX: dx / d, moveZ: dz / d }]]);
