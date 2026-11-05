@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { defaultBuild, loadBuild, parseBuild, pointsLeft, saveBuild, swapSlots, validBuild } from './build';
 import { CROWD_TICK, CrowdSim } from './crowd/crowdSim';
 import { CrowdView, type CrowdSource } from './crowd/crowdView';
-import { Input } from './input/input';
+import { crouchKeySlides, Input } from './input/input';
 import { INTERP_TICKS, NetCrowd, type NetActor } from './net/netCrowd';
 import { NetMonsters } from './net/netMonsters';
 import { Prediction, RemotePlayers, stateFromServer } from './net/netPlayer';
@@ -64,6 +64,7 @@ import './ui/theme/windows.css';
 import './ui/theme/skills.css';
 import { initUiScale } from './ui/theme/scale';
 import { Portraits } from './render/portrait';
+import { Studio } from './render/studio';
 
 // The UI is laid out on a virtual screen and scaled to the window; start that before anything
 // builds UI.
@@ -169,13 +170,19 @@ stage.scene.add(dummy.root);
 stage.scene.add(actorView.group);
 const vfx = new Vfx(stage.scene);
 const spells = new SpellView(stage.scene, vfx);
-// Warning circles lie on the island's hills (and on a deck or roof under whoever they're about),
-// floating on the sea rather than sinking under it.
+/**
+ * The terrain's height at (x, z) and above it whatever is drawn over it within `pad` metres (farm soil
+ * and furrows: yours and everyone else's here), for what lies on the ground to lie on top of.
+ */
+const drawnGround = (x: number, z: number, pad: number): number =>
+  terrain ? terrain.height(x, z) + Math.max(lifeView?.raisedAt(x, z, pad) ?? 0, peers?.raisedAt(x, z, pad) ?? 0) : 0;
+// Warning circles lie on the island's hills and farms (and on a deck or roof under whoever they're
+// about), floating on the sea rather than sinking under it.
 if (terrain) {
   spells.ground = {
     cell: terrain.cell,
     origin: terrain.min,
-    height: (x, z, near) => Math.max(terrain.water, Number.isFinite(near) ? groundAt(terrain, world.index, x, z, near, 0.5) : terrain.height(x, z)),
+    height: (x, z, near, pad) => Math.max(terrain.water, Number.isFinite(near) ? groundAt(terrain, world.index, x, z, near, 0.5) : terrain.height(x, z), drawnGround(x, z, pad)),
   };
 }
 const follow = new FollowCamera(innerWidth / innerHeight, battlefield ? 1200 : openWorld ? 2600 : 320, battlefield ? 160 : openWorld ? 40 : 14);
@@ -225,6 +232,8 @@ if (world.index) {
 }
 follow.reset(world.spawn.facing);
 const input = new Input(canvas);
+// C slides you on the run; standing still it only crouches, and in the air it only flares the glider.
+input.crouchSlides = () => crouchKeySlides(sim.player);
 const hud = new Hud();
 hud.setDevice(input.lastDevice);
 
@@ -244,7 +253,10 @@ if (life) {
   };
 }
 input.worldMode = !!life;
-if (terrain) vfx.ground = groundY;
+if (terrain) {
+  vfx.ground = groundY;
+  vfx.raised = (x, z, r) => drawnGround(x, z, r) - terrain.height(x, z);
+}
 const lifeView = life ? new LifeView(stage.scene, life, models, hero) : null;
 if (lifeView && openStage) lifeView.onGroundChanged = () => openStage.foliage.invalidate();
 // Auto-run (H) and travel by road from the map: it only makes the controls, so it works online too.
@@ -276,47 +288,34 @@ if (online && lifeUI) lifeUI.skyHour = skyHour;
 // The rain and the wind run on the world's clock too (the server decides the rain; the wind you sail
 // on is worked out here between its updates from the same clock).
 if (online && life) life.worldClock = () => online.link.serverNow() / 1000;
-// Faces for the UI, taken from the scene: yours beside your health, the person you're talking to,
-// and all of you in the character window. Kept a few seconds, then taken again.
+// Faces for the UI. Yours (beside your health, in the skill tree) and all of you (the character
+// window) come from a studio of their own: you as you look, whatever you're doing, wherever you are,
+// at any hour (src/render/studio.ts). The person you're talking to is taken from the scene, kept a
+// moment, then taken again.
+const studio = new Studio(stage.renderer);
 const portraits = new Portraits(stage.renderer, stage.scene);
-/** Layers a portrait draws on its own (with the scene's lights): you, and whoever you talk to. */
-const YOU_LAYER = 1;
+/** The layer a townsperson's portrait draws on its own (with the scene's lights). */
 const NPC_LAYER = 2;
-/** A picture from the live scene: 'player' (your face), 'body' (all of you) or an NPC's id. */
+/** A picture for the UI: 'player' (your face) or 'body' (all of you) from the studio, or an NPC's id. */
 function portraitOf(who: string): string | null {
-  {
-    const shot = portraits.get(who);
-    const fresh = who === 'player' ? 4000 : who === 'body' ? 800 : 1500;
-    if (!shot || shot.age > fresh) {
-      const up = (v: THREE.Vector3, y: number) => v.clone().setY(v.y + y);
-      const alone = (o: THREE.Object3D, layer: number) => {
-        o.traverse((c) => c.layers.enable(layer));
-        stage.scene.traverse((c) => (c as THREE.Light).isLight && c.layers.enable(layer));
-      };
-      if (who === 'player' || who === 'body') {
-        // Just you, so nothing stands in front of the camera.
-        alone(hero.root, YOU_LAYER);
-        const at = hero.root.position;
-        const f = sim.player.facing;
-        const fwd = new THREE.Vector3(Math.sin(f), 0, Math.cos(f));
-        // Your face with your shoulders and the top of your chest; or all of you, hair to boots,
-        // with a little room round you.
-        if (who === 'player') portraits.request(who, up(at, 1.42).addScaledVector(fwd, 1.9), up(at, 1.34), 128, 128, YOU_LAYER);
-        else portraits.request(who, up(at, 0.95).addScaledVector(fwd, 4.6), up(at, 0.85), 214, 300, YOU_LAYER);
-      } else {
-        // Just them, framed like your own portrait from in front of their face. You stand right
-        // beside whoever you talk to, so with everything drawn your own head would fill the picture.
-        const body = lifeView?.villager(who);
-        if (body) {
-          alone(body, NPC_LAYER);
-          const f = body.rotation.y; // they turn to face you while you talk
-          const fwd = new THREE.Vector3(Math.sin(f), 0, Math.cos(f));
-          portraits.request(who, up(body.position, 1.42).addScaledVector(fwd, 1.9), up(body.position, 1.34), 128, 128, NPC_LAYER);
-        }
-      }
-    }
-    return shot?.url ?? null;
+  if (who === 'player' || who === 'body') {
+    return studio.shot(who === 'player' ? 'face' : 'body', { weapon: sim.player.weapon, team: serverUrl ? sim.player.team : 0, who: String(online?.welcome.character.id ?? '') });
   }
+  const shot = portraits.get(who);
+  if (!shot || shot.age > 1500) {
+    // Just them, framed from in front of their face. You stand right beside whoever you talk to, so
+    // with everything drawn your own head would fill the picture.
+    const body = lifeView?.villager(who);
+    if (body) {
+      body.traverse((c) => c.layers.enable(NPC_LAYER));
+      stage.scene.traverse((c) => (c as THREE.Light).isLight && c.layers.enable(NPC_LAYER));
+      const up = (v: THREE.Vector3, y: number) => v.clone().setY(v.y + y);
+      const f = body.rotation.y; // they turn to face you while you talk
+      const fwd = new THREE.Vector3(Math.sin(f), 0, Math.cos(f));
+      portraits.request(who, up(body.position, 1.42).addScaledVector(fwd, 1.9), up(body.position, 1.34), 128, 128, NPC_LAYER);
+    }
+  }
+  return shot?.url ?? null;
 }
 if (lifeUI) lifeUI.portraitOf = portraitOf;
 if (peers && lifeUI) lifeUI.others = () => peers.list();
@@ -1183,8 +1182,9 @@ function draw(alpha: number, cameraDt: number, animDt: number): void {
     openStage.setTime(skyHour(), sky.sunrise, sky.sunset);
   }
 
-  const under = terrain ? Math.max(terrain.water, groundUnder(pos.x, pos.z, pos.y)) : 0;
-  const lift = Math.max(0.35, 1 - (pos.y - under) * 0.18);
+  // On a farm the shadow lies on its soil, which is drawn a little over the ground you stand on.
+  const under = terrain ? Math.max(terrain.water, groundUnder(pos.x, pos.z, pos.y), drawnGround(pos.x, pos.z, 0.42)) : 0;
+  const lift = Math.max(0.35, Math.min(1, 1 - (pos.y - under) * 0.18));
   blob.position.set(pos.x, under + 0.03, pos.z);
   blob.visible = sim.player.mode !== 'swim';
   blob.scale.setScalar(lift);
@@ -1430,8 +1430,9 @@ const api = {
     }
     if (drawn) draw(1, 0, 0);
   },
-  // Steps the game reading the real keyboard, mouse and controller.
-  advanceLive(frames: number): void {
+  // Steps the game reading the real keyboard, mouse and controller, and draws the last (`drawn`
+  // false leaves that to the caller, as advance's does).
+  advanceLive(frames: number, drawn = true): void {
     for (let i = 0; i < frames; i++) {
       const cam = input.pollCamera(STEP);
       follow.rotate(cam.dYaw, cam.dPitch);
@@ -1440,7 +1441,7 @@ const api = {
       stepOnce(walker ? walker.steer(own, follow.yaw) : own);
       followSim(STEP);
     }
-    draw(1, 0, 0);
+    if (drawn) draw(1, 0, 0);
   },
   /** Auto-run and travel by road: what is walking you, where to, and how far is left. */
   walk() {
@@ -1736,6 +1737,18 @@ const api = {
   /** Testing: the height of the highest ground circle drawn over (x, z), or null where there is none. */
   circleHeight(x: number, z: number): number | null {
     return spells.heightAt(x, z);
+  },
+  /** Testing: the height of your farm's soil or furrows drawn over (x, z), or null where there is none. */
+  farmGround(x: number, z: number): number | null {
+    return lifeView?.farmGroundAt(x, z) ?? null;
+  },
+  /** Testing: where the shadow under you is drawn. */
+  shadowHeight(): number {
+    return blob.position.y;
+  },
+  /** A portrait the UI shows (an image URL): 'player' (your face), 'body' (all of you) or an NPC's id; and how many of yours the studio has taken. */
+  portrait(who: string) {
+    return { url: portraitOf(who), taken: studio.taken };
   },
   spells() {
     return {

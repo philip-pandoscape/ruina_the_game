@@ -118,7 +118,10 @@
 .st-btn:hover { filter: brightness(1.15); }
 .st-bottom { position: absolute; left: 50%; bottom: 20px; transform: translateX(-50%); z-index: 6; display: flex; gap: 14px; align-items: center; }
 .st-bottom .lui-btn { padding: calc(9px + var(--cap-nudge)) 22px calc(9px - var(--cap-nudge)); font-size: 14.5px; }
-.st-pending { font-size: 14px; font-weight: 700; color: var(--ink-strong); padding: 6px 12px; border-radius: 6px; background: var(--card); box-shadow: 0 0 0 2px #8a5a32, 0 0 0 3.5px #2b1a0e; }
+/* The planned points stand as tall as the buttons beside them (stretched to their line, so at any UI
+   scale), their words nudged down as a button's are (twice the nudge on top: half of it is centring). */
+.st-pending { align-self: stretch; display: flex; align-items: center; white-space: nowrap; font-size: 14px; font-weight: 700; color: var(--ink-strong); padding: calc(2 * var(--cap-nudge)) 14px 0;
+  border-radius: 6px; background: var(--card); box-shadow: 0 0 0 2px #8a5a32, 0 0 0 3.5px #2b1a0e; }
 .st-pending.over { color: var(--bad); }
 .st-note { position: absolute; left: 50%; bottom: 74px; transform: translateX(-50%); z-index: 6; padding: 6px 14px; border-radius: 6px; font-size: 14px; font-weight: 700; white-space: nowrap;
   color: var(--strip-ink); background: var(--strip); box-shadow: 0 0 0 2px #2b1a0e; }

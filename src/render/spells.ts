@@ -68,9 +68,11 @@ function streakGeometry(): THREE.BufferGeometry {
 export interface CircleGround {
   /**
    * Height to lie on at (x, z). `near` is the height of whoever the circle is about (NaN: nobody in
-   * particular), so a deck or a roof they stand on counts.
+   * particular), so a deck or a roof they stand on counts. `pad` is how far the circle's mesh reaches
+   * from this point (metres): ground drawn over the terrain that near (a farm's soil and furrows)
+   * counts too, or the circle would be cut where it runs onto it between two of its points.
    */
-  height(x: number, z: number, near: number): number;
+  height(x: number, z: number, near: number, pad: number): number;
   /** Metres between the terrain's grid lines, and where line 0 is (x and z alike). */
   cell: number;
   origin: number;
@@ -183,13 +185,15 @@ function drape(c: Circle, g: CircleGround, x: number, z: number, radius: number,
   const uv = geo.getAttribute('uv') as THREE.BufferAttribute;
   const p = pos.array as Float32Array;
   const t = uv.array as Float32Array;
+  // Every triangle touching a point lies within a cell of it, along the grid or across.
+  const pad = s * Math.SQRT2;
   let k = 0;
   for (let j = 0; j < rows; j++) {
     const wz = g.origin + (j0 + j) * s;
     for (let i = 0; i < cols; i++, k++) {
       const wx = g.origin + (i0 + i) * s;
       p[k * 3] = wx;
-      p[k * 3 + 1] = g.height(wx, wz, near) + LIFT;
+      p[k * 3 + 1] = g.height(wx, wz, near, pad) + LIFT;
       p[k * 3 + 2] = wz;
       t[k * 2] = ((wx - x) / radius + 1) / 2;
       t[k * 2 + 1] = ((wz - z) / radius + 1) / 2;
@@ -307,7 +311,7 @@ export class SpellView {
     const fx = Math.sin(yaw);
     const fz = Math.cos(yaw);
     // Down to the ground it's aimed at, up on the hills too.
-    const floor = this.ground ? this.ground.height(x, z, NaN) : 0;
+    const floor = this.ground ? this.ground.height(x, z, NaN, 0) : 0;
     g.position.set(x + (fx * SKY_AHEAD - fz * SKY_SIDE) * k, floor + 0.5 + SKY_UP * k, z + (fz * SKY_AHEAD + fx * SKY_SIDE) * k);
     g.rotation.set(this.time * 7, this.time * 5, 0);
     g.scale.setScalar(1 + 0.08 * Math.sin(this.time * 40));

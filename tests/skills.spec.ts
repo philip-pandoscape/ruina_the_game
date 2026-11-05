@@ -70,6 +70,32 @@ test('skill tree: plan the way to a skill, learn it, give it back, and the build
   // Whirlwind is two steps out: one click plans the way there, Learn spends the points.
   await node('whirlwind').click();
   expect((await panelState(page)).plan).toEqual(['cleave', 'whirlwind']);
+  // The planned points stand level with Learn and Undo and exactly as tall, at any UI scale: the
+  // player's own setting as it comes, at its largest and at its smallest (at 720p, 70%, 91% and 35%).
+  for (const user of [1, 1.3, 0.5]) {
+    await page.evaluate((u) => {
+      localStorage.setItem('ruina.uiScale', String(u));
+      dispatchEvent(new Event('resize'));
+    }, user);
+    const [badge, ...buttons] = await page.evaluate(() =>
+      ['.st-pending', '[data-act="learn"]', '[data-act="undo"]'].map((s) => {
+        const r = document.querySelector(`#skills .st-bottom ${s}`)!.getBoundingClientRect();
+        return { top: r.top, bottom: r.bottom };
+      }),
+    );
+    for (const b of buttons) {
+      expect(Math.abs(badge.top - b.top), `UI size ${user}: top`).toBeLessThan(0.5);
+      expect(Math.abs(badge.bottom - b.bottom), `UI size ${user}: bottom`).toBeLessThan(0.5);
+    }
+    if (user === 1.3) {
+      const r = await page.locator('#skills .st-bottom').boundingBox();
+      await page.screenshot({ path: `${SHOTS}/40-skill-tree-planned.png`, clip: { x: r!.x - 16, y: r!.y - 16, width: r!.width + 32, height: r!.height + 32 } });
+    }
+  }
+  await page.evaluate(() => {
+    localStorage.removeItem('ruina.uiScale');
+    dispatchEvent(new Event('resize'));
+  });
   await learn.click();
   await expect(left).toHaveText(String(SKILL_POINTS - 3));
   // Healing Circle hangs off Club Training: planning it plans both, and it goes straight onto the bar.

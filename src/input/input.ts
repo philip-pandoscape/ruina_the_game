@@ -1,4 +1,4 @@
-import type { Actions } from '../sim/types';
+import type { Actions, PlayerState } from '../sim/types';
 import { CAMERA, GAMEPAD } from '../tuning';
 import { MouseFilter } from './mouseFilter';
 
@@ -21,11 +21,26 @@ const KEYS = {
   right: ['KeyD'],
   jump: ['Space'],
   attack: ['KeyJ', 'Mouse0'],
-  // Shift sprints now, so sliding moved to C. K stays as it was.
-  slide: ['KeyC', 'KeyK'],
+  // K always slides. C is the crouch, held (and the glider's flare), and a press of it on the run
+  // slides too: see crouchKeySlides. Nothing is on Ctrl, which is held down with the browser's
+  // shortcuts (Ctrl+W closes the tab, and no page can stop it).
+  slide: ['KeyK'],
   sprint: ['ShiftLeft', 'ShiftRight'],
-  crouch: ['ControlLeft', 'ControlRight'],
+  crouch: ['KeyC'],
 };
+
+/** Running faster than this (metres a second), a press of the crouch key slides. */
+const CROUCH_SLIDE_SPEED = 2;
+
+/**
+ * Whether a press of the crouch key (C) slides as well, for a player as they are now: on their feet
+ * on the ground and on the move. Standing still it only crouches, and in the air (gliding, falling)
+ * it only crouches or flares, rather than leaving a slide waiting for the landing.
+ */
+export function crouchKeySlides(p: Pick<PlayerState, 'grounded' | 'mode' | 'vel'>): boolean {
+  if (!p.grounded || p.mode === 'ride' || p.mode === 'swim' || p.mode === 'glide') return false;
+  return Math.hypot(p.vel.x, p.vel.z) > CROUCH_SLIDE_SPEED;
+}
 
 // Movement skills: Q and E, or the bumpers.
 const MOVEMENT_KEYS = ['KeyQ', 'KeyE'];
@@ -108,12 +123,6 @@ interface Rumbler {
   playEffect?: (type: string, params: Record<string, number>) => Promise<unknown>;
 }
 
-/** Whether a key press is going into a text field rather than the game. */
-function typing(t: EventTarget | null): boolean {
-  const el = t as HTMLElement | null;
-  return !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable);
-}
-
 function deadzone(x: number, y: number): [number, number] {
   const mag = Math.hypot(x, y);
   if (mag < GAMEPAD.deadzone) return [0, 0];
@@ -144,14 +153,19 @@ export class Input {
   private stickTap = { at: -1, spoilt: false };
   /** In an open world the D-pad calls your mount and opens the map instead of zooming. */
   worldMode = false;
+  /**
+   * Whether a press of the crouch key slides right now as well (the game sets it: crouchKeySlides
+   * for the player). Unset, it never does.
+   */
+  crouchSlides: (() => boolean) | null = null;
 
   constructor(private readonly canvas: HTMLCanvasElement) {
     window.addEventListener('keydown', (e) => {
+      // A key pressed with Ctrl (or Cmd) is one of the browser's shortcuts, not the game's: Ctrl+W,
+      // Ctrl+R and Ctrl+F do what they always do, and nothing here. (Ctrl with Alt is AltGr, which
+      // types a character on some keyboards.)
+      if ((e.ctrlKey && !e.altKey) || e.metaKey) return;
       if (BLOCK_DEFAULT.has(e.code)) e.preventDefault();
-      // Ctrl is crouch, and the glider's flare, so it is held down with game keys: Ctrl+D would
-      // bookmark the page, Ctrl+R reload it, Ctrl+F open find. Keep those from the browser, except
-      // in a text field (copy and paste). The few it can't stop (Ctrl+W) ask first: see beforeunload.
-      if (e.ctrlKey && !e.altKey && !typing(e.target) && /^(Key[A-Z]|Digit\d|Space)$/.test(e.code)) e.preventDefault();
       if (!e.repeat) this.pressed.add(e.code);
       if (!e.repeat && MENU_KEYS[e.code] && this.menuPresses.length < 16) this.menuPresses.push(MENU_KEYS[e.code]);
       if (!e.repeat && e.code === 'Tab') (e.shiftKey ? this.combat.prevTarget++ : this.combat.nextTarget++);
@@ -162,12 +176,6 @@ export class Input {
     });
     window.addEventListener('keyup', (e) => this.down.delete(e.code));
     window.addEventListener('blur', () => this.down.clear());
-    // Ctrl+W closes the tab and no page may stop it, so with Ctrl held (crouching, flaring the
-    // glider) the browser asks before leaving. Leaving any other way (reload, closing the tab with
-    // the mouse, the game reloading itself) doesn't ask.
-    window.addEventListener('beforeunload', (e) => {
-      if (this.down.has('ControlLeft') || this.down.has('ControlRight')) e.preventDefault();
-    });
     canvas.addEventListener('mousedown', (e) => {
       this.setDevice('keyboard');
       if (document.pointerLockElement !== canvas) {
@@ -319,7 +327,7 @@ export class Input {
     let jumpPressed = this.anyPressed(KEYS.jump);
     let jumpHeld = this.anyDown(KEYS.jump);
     let attackPressed = this.anyPressed(KEYS.attack);
-    let slidePressed = this.anyPressed(KEYS.slide);
+    let slidePressed = this.anyPressed(KEYS.slide) || (this.anyPressed(KEYS.crouch) && !!this.crouchSlides?.());
     let abilitySlot = 0;
     for (let k = 0; k < HOTBAR_KEYS.length; k++) {
       if (this.pressed.has(HOTBAR_KEYS[k])) {
