@@ -103,6 +103,12 @@ interface Rumbler {
   playEffect?: (type: string, params: Record<string, number>) => Promise<unknown>;
 }
 
+/** Whether a key press is going into a text field rather than the game. */
+function typing(t: EventTarget | null): boolean {
+  const el = t as HTMLElement | null;
+  return !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable);
+}
+
 function deadzone(x: number, y: number): [number, number] {
   const mag = Math.hypot(x, y);
   if (mag < GAMEPAD.deadzone) return [0, 0];
@@ -135,6 +141,10 @@ export class Input {
   constructor(canvas: HTMLCanvasElement) {
     window.addEventListener('keydown', (e) => {
       if (BLOCK_DEFAULT.has(e.code)) e.preventDefault();
+      // Ctrl is crouch, and the glider's flare, so it is held down with game keys: Ctrl+D would
+      // bookmark the page, Ctrl+R reload it, Ctrl+F open find. Keep those from the browser, except
+      // in a text field (copy and paste). The few it can't stop (Ctrl+W) ask first: see beforeunload.
+      if (e.ctrlKey && !e.altKey && !typing(e.target) && /^(Key[A-Z]|Digit\d|Space)$/.test(e.code)) e.preventDefault();
       if (!e.repeat) this.pressed.add(e.code);
       if (!e.repeat && MENU_KEYS[e.code] && this.menuPresses.length < 16) this.menuPresses.push(MENU_KEYS[e.code]);
       if (!e.repeat && e.code === 'Tab') (e.shiftKey ? this.combat.prevTarget++ : this.combat.nextTarget++);
@@ -145,6 +155,12 @@ export class Input {
     });
     window.addEventListener('keyup', (e) => this.down.delete(e.code));
     window.addEventListener('blur', () => this.down.clear());
+    // Ctrl+W closes the tab and no page may stop it, so with Ctrl held (crouching, flaring the
+    // glider) the browser asks before leaving. Leaving any other way (reload, closing the tab with
+    // the mouse, the game reloading itself) doesn't ask.
+    window.addEventListener('beforeunload', (e) => {
+      if (this.down.has('ControlLeft') || this.down.has('ControlRight')) e.preventDefault();
+    });
     canvas.addEventListener('mousedown', (e) => {
       this.setDevice('keyboard');
       if (document.pointerLockElement !== canvas) {
