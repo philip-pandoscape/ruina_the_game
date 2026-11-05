@@ -1,4 +1,4 @@
-import { ABILITIES, COMBAT, JUMP, MOVE, MOVEMENT_SKILLS, comboShape, type AttackStep } from '../../tuning';
+import { ABILITIES, ATTACK, COMBAT, JUMP, MOVE, MOVEMENT_SKILLS, comboShape, type AttackStep } from '../../tuning';
 import type { PoseInput } from '../../content/pose';
 import { lungeSpeed } from './humanoid';
 
@@ -238,6 +238,46 @@ function knocked(pushDeg: number, knock = 3): Segment {
   return { frames: frames.length, at: (f) => frames[f] };
 }
 
+/**
+ * A standing jump with a sword swing begun `at` frames after take-off, as the rules play it: the
+ * fall eases while the swing strikes (ATTACK.airGravityScale), and a swing still going when the
+ * feet touch down carries on to its end on the ground.
+ */
+function jumpAttack(at: number, settle = 24, weapon = 0, index = 0): Segment {
+  const combo = comboShape(weapon, 0);
+  const step = combo[index];
+  const total = step.startup + step.active + step.recovery;
+  const frames: Moment[] = [];
+  let y = 0;
+  let vy = JUMP.velocity;
+  let takeoff = 0;
+  let land = -1;
+  let impact = 0;
+  for (let f = 0; f < 600; f++) {
+    const swing = f - at;
+    const swinging = swing >= 0 && swing < total;
+    if (land < 0) {
+      let g = vy > 0 ? JUMP.gravityUp : JUMP.gravityDown;
+      if (swinging && swing <= step.startup + step.active) g *= ATTACK.airGravityScale;
+      vy = Math.max(vy - g / HZ, -JUMP.maxFall);
+      y += vy / HZ;
+      if (y <= 0) {
+        y = 0;
+        land = 0;
+        impact = Math.min(1, -vy / 20);
+      }
+    } else land++;
+    if (land >= settle && !swinging) break;
+    const input: Partial<PoseInput> =
+      land < 0
+        ? { grounded: false, run: 0, speed: 0, rise: Math.max(-1, Math.min(1, vy / JUMP.velocity)), takeoffFrame: takeoff++ }
+        : { landFrame: land, landImpact: impact };
+    if (swinging) Object.assign(input, { attackIndex: index, attackFrame: swing, step, comboLength: combo.length, weapon });
+    frames.push({ input, speed: 0, lift: y });
+  }
+  return { frames: frames.length, at: (f) => frames[f] };
+}
+
 /** One swing of a combo. `chain` cuts it where the next swing would take over when mashing. */
 function swing(weapon: number, index: number, chain: boolean, variants = 0): Segment {
   const combo = comboShape(weapon, variants);
@@ -353,7 +393,8 @@ export const SCENARIOS: Scenario[] = [
   { id: 'roll', group: 'Fighting', label: 'Dodge roll', ...sequence([move(30, RUN), action('dodgeRoll', RUN), move(40, RUN)]) },
   { id: 'backstep', group: 'Fighting', label: 'Backstep', ...sequence([stand(30), action('backstep'), stand(40)]) },
   { id: 'slide', group: 'Fighting', label: 'Slide', ...sequence([move(40, RUN), action('slide', RUN), move(40, RUN)]) },
-  { id: 'airSlash', group: 'Fighting', label: 'Jump attack', weapon: 0, ...sequence([stand(20), jump(0, -1, 30), stand(10)]) },
+  { id: 'airSlash', group: 'Fighting', label: 'Jump attack: overhead chop', weapon: 0, ...sequence([stand(20), jumpAttack(14, 30), stand(20)]) },
+  { id: 'airSlashLand', group: 'Fighting', label: 'Jump attack, landing mid-swing', weapon: 0, ...sequence([stand(20), jumpAttack(30, 20), stand(20)]) },
 
   // ---- Hurt ----
   { id: 'hit', group: 'Hurt', label: 'Hit', ...sequence([stand(30), knocked(180), stand(40)]) },
@@ -378,22 +419,6 @@ export const SCENARIOS: Scenario[] = [
   { id: 'helm', group: 'Travel', label: 'At the helm', prop: 'sloop', ...sequence([travel(240, 'helm', (t) => ({ bank: Math.sin(t * 0.9) * 0.8, effort: 0.5 }), 5)]) },
   { id: 'sit', group: 'Travel', label: 'Passenger', prop: 'cart', ...sequence([travel(240, 'sit', () => ({ effort: 0.3 }), 6)]) },
 ];
-
-/** The jump attack: an air swing started near the top of a jump. */
-{
-  const s = SCENARIOS.find((x) => x.id === 'airSlash')!;
-  const base = s.at.bind(s);
-  const step = comboShape(0, 0)[0];
-  const swingFrames = step.startup + step.active + step.recovery;
-  s.at = (frame) => {
-    const m = base(frame);
-    const f = (((frame % s.frames) + s.frames) % s.frames) - 20 - 18;
-    if (m.input.grounded === false && f >= 0 && f < swingFrames) {
-      return { ...m, input: { ...m.input, attackIndex: 0, attackFrame: f, step, comboLength: 3, weapon: 0 } };
-    }
-    return m;
-  };
-}
 
 export const scenario = (id: string): Scenario => {
   const s = SCENARIOS.find((x) => x.id === id);

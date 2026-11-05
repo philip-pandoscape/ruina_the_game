@@ -26,6 +26,12 @@ const SHOWN = [
   'seat', 'glider', 'airspeed', 'sprinting', 'crouching', 'crouchFrame', 'hp',
 ] as const;
 
+/**
+ * Frame counters that go up by one a frame for as long as what they count goes on: run on between
+ * updates, so someone's swing, cast or flip is drawn as smoothly as their movement.
+ */
+const COUNTERS = ['attackFrame', 'actionFrame', 'castFrame', 'flipFrame', 'landFrame', 'takeoffFrame', 'downFrame'] as const;
+
 /** Frames behind the newest presence that others are drawn at (100 ms). */
 const DELAY = 6;
 
@@ -202,8 +208,15 @@ export class WorldPeers {
     const t = span > 0 && !jump ? Math.min(1, Math.max(0, (p.clock - a.fr) / span)) : 1;
 
     const sh = p.shown;
-    const src = (t < 0.5 ? a : b).p as Record<string, unknown>;
-    for (const key of SHOWN) (sh as unknown as Record<string, unknown>)[key] = src[key];
+    const from = t < 0.5 ? a : b;
+    const src = from.p as Record<string, unknown>;
+    const shown = sh as unknown as Record<string, unknown>;
+    for (const key of SHOWN) shown[key] = src[key];
+    // As of the moment drawn, not of the update they came in (which may be a frame or two either side).
+    for (const key of COUNTERS) {
+      const v = shown[key];
+      if (typeof v === 'number' && v >= 0) shown[key] = Math.max(0, v + p.clock - from.fr);
+    }
     sh.pos = lerp3(a.p.pos, b.p.pos, t);
     sh.prevPos = { ...sh.pos };
     sh.facing = sh.prevFacing = a.p.facing + angleDiff(a.p.facing, b.p.facing) * t;

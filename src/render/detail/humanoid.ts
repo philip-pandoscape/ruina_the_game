@@ -707,7 +707,9 @@ function reachArm(b: Body, az: number, el: number, straight: number): void {
 function attack(b: Body, p: PoseInput, out: PoseFeedback): void {
   const step = p.step!;
   if (p.weapon === 3) return bowShot(b, p, step, out);
-  const def = swingFor(p.weapon, Math.max(0, p.attackIndex), step.pose);
+  const def = swingFor(p.weapon, Math.max(0, p.attackIndex), step.pose, p.airSwing);
+  // A jump attack: begun in the air, it never stepped through a lunge.
+  const jump = def !== swingFor(p.weapon, Math.max(0, p.attackIndex), step.pose);
   const f = p.attackFrame;
   const t = timeline(step, f);
   const s = sample(def.keys, t, _sampled);
@@ -722,9 +724,10 @@ function attack(b: Body, p: PoseInput, out: PoseFeedback): void {
   b.torso.rotation.set(s.torso[0], s.torso[1], s.torso[2]);
   b.neck.rotation.set(-s.torso[0] * 0.6, -s.torso[1] * 0.55, -s.torso[2] * 0.5);
 
-  // Feet: footwork on the ground (turning with a spin), or tucked up in the air.
+  // Feet: footwork on the ground (turning with a spin), or tucked up in the air. A jump attack that
+  // comes down before it's done lands square, feet under you, and finishes there.
   if (p.grounded) {
-    const feet = footwork(def, step, startStance(p.weapon, p.attackIndex, step.pose), f, true);
+    const feet = jump ? footwork(def, step, READY, f, false) : footwork(def, step, startStance(p.weapon, p.attackIndex, step.pose), f, true);
     if (spin) {
       const c = Math.cos(spin);
       const sn = Math.sin(spin);
@@ -771,11 +774,19 @@ function trail(out: PoseFeedback, weapon: number, index: number, spin: 'spin' | 
   out.trail = { set, index, head, tail: lerp(Math.max(0, head - 0.6), 1, fade), alpha: 1 - fade * 0.6 };
 }
 
-/** Legs in the air while the arms do something else (air attacks, air casts). */
+/**
+ * Legs in the air while the arms do something else (air attacks, air casts), reaching down for the
+ * ground as you fall - but no further than your feet go, so they meet the floor as you land rather
+ * than through it. Only the legs move for that, so the swing above stays where it was traced.
+ */
 function airLegs(b: Body, p: PoseInput): void {
   const down = clamp01(-p.rise);
   b.setLegOut('L', lerp(-1.0, -0.5, down), 0.06, lerp(1.5, 0.6, down), 0.45);
   b.setLegOut('R', lerp(0.25, 0.0, down), 0.08, lerp(1.2, 0.45, down), 0.6);
+  for (const s of SIDES) {
+    const low = lowestOn(b, b.leg[s].end);
+    if (low < 0) b.liftLeg(s, -low);
+  }
 }
 
 // ---------- the bow ----------

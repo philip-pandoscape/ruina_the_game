@@ -87,7 +87,8 @@ function stateKey(p: PoseInput): string {
   if (p.travel) return `travel:${p.travel}`;
   if (p.down) return 'down';
   if (p.actionId >= 0) return `action:${p.actionId}`;
-  if (p.attackIndex >= 0) return `attack:${p.attackIndex}`;
+  // Coming down mid-swing is worth easing over too: the legs reach for the ground.
+  if (p.attackIndex >= 0) return `attack:${p.attackIndex}${p.grounded ? '' : ':air'}`;
   if (p.castAbility >= 0) return `cast:${p.castAbility}`;
   return `${p.grounded ? 'ground' : 'air'}${p.flipFrame >= 0 ? ':flip' : ''}${p.carry ? ':carry' : ''}${p.stunned ? ':hit' : ''}:${p.weapon}`;
 }
@@ -114,7 +115,7 @@ const traced = new Map<string, Edges | null>();
 let tracer: DetailRig | null = null;
 
 const swingKey = (p: PoseInput): string =>
-  `${p.weapon}:${p.attackIndex}:${p.comboLength}:${p.step?.startup}:${p.step?.active}:${p.step?.recovery}:${p.step?.pose ?? ''}`;
+  `${p.weapon}:${p.attackIndex}:${p.comboLength}:${p.step?.startup}:${p.step?.active}:${p.step?.recovery}:${p.step?.pose ?? ''}:${p.airSwing ? 'air' : ''}`;
 
 /**
  * Where the weapon's edge goes through a swing's strike: the pose run offscreen at evenly spaced
@@ -133,7 +134,8 @@ export function traceSwing(p: PoseInput): Edges | null {
     edges = [];
     for (let i = 0; i <= n; i++) {
       const f = step.startup + (step.active * i) / n;
-      poseHumanoid(tracer, pose({ weapon: p.weapon, attackIndex: p.attackIndex, attackFrame: f, step, comboLength: p.comboLength }));
+      // A jump attack is traced in the air, as it is mostly swung.
+      poseHumanoid(tracer, pose({ weapon: p.weapon, attackIndex: p.attackIndex, attackFrame: f, step, comboLength: p.comboLength, airSwing: p.airSwing, grounded: !p.airSwing }));
       tracer.root.updateMatrixWorld(true);
       edges.push([new THREE.Vector3(...edge.inner).applyMatrix4(hand.matrixWorld), new THREE.Vector3(...edge.outer).applyMatrix4(hand.matrixWorld)]);
     }
@@ -228,6 +230,20 @@ export class Hero {
   private lastKey = '';
   /** Which way the hit that stunned you shoved you, kept from the moment it landed (NaN: not hit). */
   private hitFrom = NaN;
+  /**
+   * The swing being drawn (combo step and frame) and whether it began in the air: a jump attack
+   * plays through to its end, landing or not (PoseInput.airSwing).
+   */
+  private swingIndex = -1;
+  private swingFrame = 0;
+  private swingAir = false;
+  /**
+   * A hit's pause, drawn: sixtieths of a second of it still to hold, how far behind the rules the
+   * swing is drawn because of it, and which swing it was for.
+   */
+  private pauseLeft = 0;
+  private pauseLag = 0;
+  private pauseSwing = -1;
   private lastStunFrame = Infinity;
   /**
    * Where the weapon's model hangs: null in the hand, '' put away on foot, otherwise put away for
@@ -344,6 +360,37 @@ export class Hero {
     return this.rig;
   }
 
+  /**
+   * A swing of yours connected: hold it where it is for `frames` (sixtieths of a second), then let
+   * it catch up, as the rules' own hit pause does in the training yard. Online the rules can't stop
+   * for it - the server decides where you are - so only the drawing does.
+   */
+  hitPause(frames: number, swing: number): void {
+    if (frames <= 0) return;
+    if (swing !== this.pauseSwing) this.pauseLag = 0;
+    this.pauseSwing = swing;
+    this.pauseLeft = Math.max(this.pauseLeft, frames);
+  }
+
+  /** Draws the swing a little behind the rules while a hit's pause holds it and it catches up. */
+  private holdForHit(input: PoseInput): void {
+    if (input.attackIndex < 0 || input.attackIndex !== this.pauseSwing) {
+      this.pauseLeft = this.pauseLag = 0;
+      this.pauseSwing = -1;
+      return;
+    }
+    const dt = Number.isFinite(this.lastTime) ? clamp((input.time - this.lastTime) * 60, 0, 6) : 0;
+    if (this.pauseLeft > 0) {
+      const hold = Math.min(this.pauseLeft, dt);
+      this.pauseLeft -= hold;
+      this.pauseLag += hold;
+    } else {
+      // Half as fast again until it's caught up.
+      this.pauseLag = Math.max(0, this.pauseLag - dt * 0.5);
+    }
+    input.attackFrame = Math.max(0, input.attackFrame - this.pauseLag);
+  }
+
   // Poses the character from the game state. alpha blends between the last two sim steps.
   update(p: PlayerState, alpha: number, frame: number): void {
     this.root.position.set(lerp(p.prevPos.x, p.pos.x, alpha), this.easeStepUp(p, alpha, frame), lerp(p.prevPos.z, p.pos.z, alpha));
@@ -352,6 +399,7 @@ export class Hero {
     const running = p.mode === 'normal' && p.grounded;
     const back = running ? Math.hypot(p.vel.x, p.vel.z) * STEP * (1 - alpha) : 0;
     const input = inputFromPlayer(p, frame, this.seatPose, alpha);
+    this.holdForHit(input);
     input.stow = this.drawOrSheathe(p, input);
     this.drive(input, p.runPhase - back);
   }
@@ -446,6 +494,14 @@ export class Hero {
     else if (Number.isNaN(this.hitFrom) || input.stunFrame < this.lastStunFrame) this.hitFrom = input.hit;
     this.lastStunFrame = input.stunned ? input.stunFrame : Infinity;
     if (input.stunned) input.hit = this.hitFrom;
+
+    // A swing that starts in the air is the jump attack, all the way through.
+    if (input.attackIndex >= 0) {
+      if (input.attackIndex !== this.swingIndex || input.attackFrame < this.swingFrame) this.swingAir = input.airSwing || !input.grounded;
+      input.airSwing = this.swingAir;
+    }
+    this.swingIndex = input.attackIndex;
+    this.swingFrame = input.attackFrame;
 
     if (input.weapon !== this.weaponShown) this.setWeapon(input.weapon);
     // Where the weapon hangs: travelling, put away for it (stow.ts); on foot, in the hand until the
@@ -582,7 +638,7 @@ export class Hero {
       if (!arc) {
         const edges = traceSwing(input);
         if (edges) {
-          const def = swingFor(input.weapon, input.attackIndex, input.step.pose);
+          const def = swingFor(input.weapon, input.attackIndex, input.step.pose, input.airSwing);
           arc = new SlashArc(def, edges);
           this.root.add(arc.mesh);
           this.trails.set(key, arc);

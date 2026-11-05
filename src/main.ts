@@ -3,7 +3,8 @@ import { defaultBuild, loadBuild, parseBuild, pointsLeft, saveBuild, swapSlots, 
 import { CROWD_TICK, CrowdSim } from './crowd/crowdSim';
 import { CrowdView, type CrowdSource } from './crowd/crowdView';
 import { Input } from './input/input';
-import { NetCrowd } from './net/netCrowd';
+import { INTERP_TICKS, NetCrowd, type NetActor } from './net/netCrowd';
+import { NetMonsters } from './net/netMonsters';
 import { Prediction, RemotePlayers, stateFromServer } from './net/netPlayer';
 import { NetSpells } from './net/netSpells';
 import { FollowCamera } from './render/camera';
@@ -50,7 +51,8 @@ import type { MarkerKind } from './render/hud';
 import { BOOK, levelOf, levelsFrom, resolveSkills, sameLevels, SKILL_POINTS, type ResolvedSkills } from './skills';
 import { SkillsPanel } from './ui/skills/panel';
 import { skillBudget, trainedBy } from './sim/life/progress';
-import { ABILITIES, abilityMpFor, abilityRadius, AIM, MOVEMENT_SKILLS, CAMERA, castFramesFor, comboFor, COMBAT, DUMMY, groundRange, isGroundTargeted, movementCooldownFor, movementStaminaFor, MP, NO_ABILITY, STAMINA, STEP, type Build } from './tuning';
+import { ABILITIES, abilityMpFor, abilityRadius, AIM, MOVEMENT_SKILLS, CAMERA, castFramesFor, comboFor, COMBAT, DUMMY, groundRange, isGroundTargeted, meleeTargets, movementCooldownFor, movementStaminaFor, MP, NO_ABILITY, STAMINA, STEP, type Build } from './tuning';
+import { heightAboveGround } from './sim/player/traverse';
 import './ui/theme/theme.css';
 import './ui/theme/hud.css';
 import './ui/theme/windows.css';
@@ -135,6 +137,15 @@ stage.scene.add(dummy.root);
 stage.scene.add(actorView.group);
 const vfx = new Vfx(stage.scene);
 const spells = new SpellView(stage.scene, vfx);
+// Warning circles lie on the island's hills (and on a deck or roof under whoever they're about),
+// floating on the sea rather than sinking under it.
+if (terrain) {
+  spells.ground = {
+    cell: terrain.cell,
+    origin: terrain.min,
+    height: (x, z, near) => Math.max(terrain.water, Number.isFinite(near) ? groundAt(terrain, world.index, x, z, near, 0.5) : terrain.height(x, z)),
+  };
+}
 const follow = new FollowCamera(innerWidth / innerHeight, battlefield ? 1200 : openWorld ? 2600 : 320, battlefield ? 160 : openWorld ? 40 : 14);
 // Over hills and water the camera must not dip into the ground or under the sea, and it pulls in
 // rather than looking through a wall.
@@ -382,7 +393,17 @@ const CASTS: Record<string, string> = { gather: 'Gathering' };
 
 /** The cast a marked actor is in the middle of, for the bar under its health. */
 function castOf(key: string): { label: string; progress: number } | null {
-  if (serverRules || !key.startsWith('actor:')) return null;
+  if (!key.startsWith('actor:')) return null;
+  if (net) {
+    // Online, as the server has it now: a cast bar is a warning, so it shouldn't run late.
+    const id = Number(key.slice(6));
+    const a = presentActors.find((x) => x.id === id);
+    const k = a ? actorKindAt(a.kind) : undefined;
+    const s = a && k?.brain ? behaviour(k.brain)?.states[a.state] : undefined;
+    if (!a || a.deadFrame >= 0 || s?.act !== 'channel') return null;
+    return { label: CASTS[s.name] ?? s.name, progress: a.progress };
+  }
+  if (serverRules) return null;
   const a = sim.actors.get(Number(key.slice(6)));
   const s = a?.brain ? behaviour(a.brain)?.states[a.state] : undefined;
   if (!a || !isAlive(a) || s?.act !== 'channel') return null;
@@ -402,6 +423,13 @@ const NAMES: Record<string, string> = {
 const crowd = raidCount ? new CrowdSim(raidCount) : null;
 const net = serverUrl ? new NetCrowd(serverUrl) : online ? NetCrowd.detached((seq, raw, stick) => online.link.sendInput(seq, [...raw, ...stick])) : null;
 const netSpells = net ? new NetSpells(net, resolveSkills(build.skills)) : null;
+// The server's monsters: drawn between its updates, at the moment other players are drawn
+// (shownActors), and as it has them now (presentActors) for what has to be on time - warnings, and
+// guessing whether your swing connects. NetMonsters gives online hits their sparks and flashes.
+const netMonsters = net ? new NetMonsters(groundY) : null;
+let shownActors: NetActor[] = [];
+let presentActors: NetActor[] = [];
+const shownById = new Map<number, NetActor>();
 const crowdSource: CrowdSource | null = crowd ?? (serverUrl ? net : null);
 let crowdView: CrowdView | null = null;
 function addCrowdView(n: number): void {
@@ -464,7 +492,19 @@ function causeIcon(cause: number): string {
   return '';
 }
 if (netSpells) {
-  netSpells.onMarker = (kind: MarkerKind, x, y, z, amount, cause) => hud.marker(kind, x, y, z, amount, causeIcon(cause));
+  netSpells.onMarker = (kind: MarkerKind, x, y, z, amount, cause) => {
+    if (kind === 'hit' && netMonsters) {
+      // One of your blows: on a monster, the number goes on it as drawn, and a hit this screen
+      // didn't already show (a guess missed it) gets its sparks and shake now.
+      const p = sim.player;
+      const from = { x: p.pos.x, z: p.pos.z, index: p.mode === 'attack' ? p.attackIndex : 0 };
+      const at = netMonsters.confirm(x, y, z, cause, from, net?.actorTimeline.newest() ?? [], shownById, sim.frame, performance.now());
+      for (const e of at.show) showEvent(e);
+      hud.marker(kind, at.x, at.y, at.z, amount, causeIcon(cause));
+      return;
+    }
+    hud.marker(kind, x, y, z, amount, causeIcon(cause));
+  };
 }
 
 // Test hook: swing at the nearest enemy you can see within reach (players first, then bots),
@@ -506,8 +546,8 @@ function autoAim(a: Actions): Actions {
 function forEachEnemy(fn: (x: number, z: number) => void): void {
   const myTeam = sim.player.team;
   if (!serverRules) for (const a of sim.actors.all()) if (isAlive(a) && a.faction !== 0 && a.faction !== 2) fn(a.x, a.z);
-  // The server's monsters (not townsfolk, not other players' things).
-  for (const a of net?.actors ?? []) {
+  // The server's monsters (not townsfolk, not other players' things), where they're drawn.
+  for (const a of shownActors) {
     const f = actorKindAt(a.kind)?.faction ?? 0;
     if (a.deadFrame < 0 && f !== 0 && f !== 2) fn(a.x, a.z);
   }
@@ -597,6 +637,7 @@ const lockOn = createTargeting({
   online: serverRules,
   softLock: params.get('softlock') !== '0',
   names: NAMES,
+  netActors: () => shownActors,
 });
 const updateTarget = () => lockOn.update();
 const cycleTarget = (step: number) => lockOn.cycle(step);
@@ -731,7 +772,11 @@ function targeting(a: Actions): Actions {
   const p = sim.player;
   const swinging = out.attackPressed || p.attackBuffer > 0 || p.attackQueued;
   const mark = lockOn.mark();
-  if (mark && swinging) return { ...out, aimX: mark.x - p.pos.x, aimZ: mark.z - p.pos.z };
+  // A blade only turns to the mark when it can reach it: swinging at the slime beside you while
+  // one further off is marked hits the one beside you (aimAssist), not the air. The bow shoots at
+  // the mark wherever it is.
+  const reach = p.weapon === 3 ? Infinity : comboFor(p.weapon, sim.stats)[0].reach + 1.6;
+  if (mark && swinging && Math.hypot(mark.x - p.pos.x, mark.z - p.pos.z) <= reach) return { ...out, aimX: mark.x - p.pos.x, aimZ: mark.z - p.pos.z };
   return out;
 }
 
@@ -797,6 +842,22 @@ function stepOnce(actions: Actions): void {
     // Online: your own arrows, meteors and heals show straight away.
     const local = events.flatMap((e) => netSpells.local(e));
     events = events.concat(local, netSpells.step(STEP, sim.frame, enemyAt));
+  }
+  if (prediction && netMonsters) {
+    // Online: your swing connecting with a monster sparks and shakes the moment it strikes.
+    const p = sim.player;
+    const attacking = p.mode === 'attack';
+    const swing = attacking ? (comboFor(p.weapon, sim.stats)[p.attackIndex] ?? null) : null;
+    const hits = netMonsters.swing(
+      { attacking, attackIndex: p.attackIndex, attackFrame: p.attackFrame, step: swing, x: p.pos.x, y: p.pos.y, z: p.pos.z, facing: p.facing, above: swing ? heightAboveGround(sim) : 0, max: meleeTargets(p.weapon, sim.stats) },
+      presentActors,
+      shownById,
+      sim.frame,
+      performance.now(),
+    );
+    // The swing pauses on the hit as it does offline, in the drawing only.
+    if (hits.length && swing) hero.hitPause(swing.hitstop, p.attackIndex);
+    events = events.concat(hits);
   }
   for (const e of events) showEvent(e);
   if (!life && !net) {
@@ -876,28 +937,42 @@ function castCircle(p: PlayerState, x: number, z: number, hostile: boolean, mine
   const radius = mine ? abilityRadius(ability, mine) : Math.max(0, ...ABILITIES[ability].effects.map((e) => e.radius));
   // A placed cast warns at the spot; one centred on the caster warns around them.
   if (ABILITIES[ability].target === 'ground') {
-    spells.circle(p.castTargetX, p.castTargetZ, radius, k, hostile ? CIRCLE.enemy : CIRCLE.ally, 0.6);
+    spells.circle(p.castTargetX, p.castTargetZ, radius, k, hostile ? CIRCLE.enemy : CIRCLE.ally, 0.6, p.pos.y);
   } else {
-    spells.circle(x, z, radius, k, CIRCLE.heal, 0.5);
+    spells.circle(x, z, radius, k, CIRCLE.heal, 0.5, p.pos.y);
   }
 }
 
 // Monsters about to do something to you: where a slam will land, from the moment one picks the
 // spot until it comes down. Read off the behaviour's acts, so a new monster's slam warns the same way.
 // A gather shows the reach of its pull, filling as the cast goes on.
-function monsterWarning(kind: string, state: number, progress: number, x: number, z: number, tx: number, tz: number): void {
+function monsterWarning(kind: string, state: number, progress: number, x: number, z: number, tx: number, tz: number): boolean {
   const k = findKind(kind);
   const b = k?.brain ? behaviour(k.brain) : undefined;
   const act = b?.states[state]?.act;
-  if (act === 'channel' && b?.gather) spells.circle(x, z, b.gather.radius, progress, CIRCLE.gather, 0.55);
-  if (!k?.slam || (act !== 'windup' && act !== 'leap')) return;
+  let drawn = false;
+  if (act === 'channel' && b?.gather) {
+    spells.circle(x, z, b.gather.radius, progress, CIRCLE.gather, 0.55);
+    drawn = true;
+  }
+  if (!k?.slam || (act !== 'windup' && act !== 'leap')) return drawn;
   spells.circle(tx, tz, k.slam.radius, act === 'windup' ? progress : 1, CIRCLE.enemy, 0.9);
+  return true;
 }
 
 function monsterWarnings(): void {
   if (net) {
-    for (const a of net.actors) {
+    // As the server has them now, so a warning never runs late...
+    const warned = new Set<number>();
+    for (const a of presentActors) {
       if (a.deadFrame >= 0) continue;
+      const k = actorKindAt(a.kind);
+      if (k && monsterWarning(k.id, a.state, a.progress, a.x, a.z, a.targetX, a.targetZ)) warned.add(a.id);
+    }
+    // ...and kept until the monster drawn on screen has done what it warned of (a slam stays
+    // marked until the slime you see lands on it).
+    for (const a of shownActors) {
+      if (a.deadFrame >= 0 || warned.has(a.id)) continue;
       const k = actorKindAt(a.kind);
       if (k) monsterWarning(k.id, a.state, a.progress, a.x, a.z, a.targetX, a.targetZ);
     }
@@ -929,8 +1004,9 @@ function drawSpells(alpha: number, dt: number): void {
   if (!net || playing) castCircle(sim.player, hero.root.position.x, hero.root.position.z, false, sim.stats);
   monsterWarnings();
   if (aimingSlot !== 0) {
-    spells.circle(sim.player.pos.x, sim.player.pos.z, reticle.range, 0, CIRCLE.range, 0.35);
-    spells.circle(reticle.x, reticle.z, reticle.radius, 1, CIRCLE.aim, 0.95);
+    const y = sim.player.pos.y;
+    spells.circle(sim.player.pos.x, sim.player.pos.z, reticle.range, 0, CIRCLE.range, 0.35, y);
+    spells.circle(reticle.x, reticle.z, reticle.radius, 1, CIRCLE.aim, 0.95, y);
   }
   spells.end();
 }
@@ -974,6 +1050,21 @@ function followSim(dt: number): void {
   follow.update(simPos.set(p.x, p.y, p.z), dt);
 }
 
+// Where the server's monsters are drawn this frame, and what they've just done.
+function refreshActors(now: number): void {
+  if (!net) return;
+  const tick = net.renderTick(now);
+  shownActors = net.actorTimeline.at(tick);
+  presentActors = net.actorTimeline.at(tick + INTERP_TICKS);
+  shownById.clear();
+  for (const a of shownActors) shownById.set(a.id, a);
+  if (!netMonsters) return;
+  // Anyone's blow flashes what it hit at the moment that blow is drawn.
+  const tickMs = 1000 / net.ticksPerSecond;
+  netMonsters.hurts(net.actorTimeline, (t, at) => at + Math.max(0, t - net.renderTick(at)) * tickMs);
+  for (const e of netMonsters.transitions(shownActors, sim.frame)) showEvent(e);
+}
+
 function draw(alpha: number, cameraDt: number, animDt: number): void {
   // Weapon out in a fight, put away a little after one (the battlefield is all fight).
   hero.armed = battlefield || inAFight();
@@ -984,7 +1075,11 @@ function draw(alpha: number, cameraDt: number, animDt: number): void {
   }
   const d = dummyActor();
   if (d) dummy.update(d);
-  if (net) actorView.fromNetwork(net.actors);
+  if (net) {
+    const now = performance.now();
+    refreshActors(now);
+    actorView.fromNetwork(shownActors, (id) => netMonsters?.flash(id, now) ?? 0);
+  }
   // Townsfolk with their own models are drawn by the life view instead of the crowd.
   else actorView.update(lifeView?.drawsTownsfolk ? sim.actors.all().filter((a) => a.faction !== 2) : sim.actors.all());
   if (lifeView && lifeUI) lifeView.talkingTo = lifeUI.talkingTo;
@@ -1450,6 +1545,15 @@ const api = {
   netActors() {
     return net?.actors ?? [];
   },
+  /** The server's monsters as drawn this frame (between its updates), with how white each one is. */
+  shownActors() {
+    const now = performance.now();
+    return shownActors.map((a) => ({ ...a, flash: netMonsters?.flash(a.id, now) ?? 0 }));
+  },
+  /** Online hit effects so far: swings guessed to land, the server's confirmations (and how many matched a guess or came late), flashes, and slams and deaths shown. */
+  netFx() {
+    return netMonsters ? { ...netMonsters.counts } : null;
+  },
   actors(kind?: string) {
     return sim.actors
       .all()
@@ -1506,6 +1610,10 @@ const api = {
     if (open === true && !panel.isOpen) panel.open('book');
     if (open === false && panel.isOpen) panel.close();
     return panel.isOpen;
+  },
+  /** Testing: the height of the highest ground circle drawn over (x, z), or null where there is none. */
+  circleHeight(x: number, z: number): number | null {
+    return spells.heightAt(x, z);
   },
   spells() {
     return {

@@ -87,9 +87,9 @@ export class ActorView {
   /**
    * Draws what the server says is out there. The wire carries the behaviour state and how far
    * through it the actor is, which is all the clip choice needs - the rest the browser already
-   * knows from shared/actors.json.
+   * knows from shared/actors.json. `flash` says how white each one is (0..1) as a blow lands.
    */
-  fromNetwork(actors: readonly NetActor[]): void {
+  fromNetwork(actors: readonly NetActor[], flash: (id: number) => number = () => 0): void {
     this.draw(
       actors.map((a) => {
         const kind = actorKindAt(a.kind);
@@ -106,7 +106,7 @@ export class ActorView {
           deadFrame: Math.max(0, a.deadFrame),
           flash: 999,
           gone: false,
-          glow: 0,
+          glow: flash(a.id),
         };
       }),
     );
