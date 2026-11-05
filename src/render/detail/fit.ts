@@ -400,6 +400,8 @@ export interface Grip {
 }
 
 const MAX_BEND = (65 * Math.PI) / 180;
+/** How far in front of the palm's middle a gripped handle's axis runs, metres. */
+const PALM_DEPTH = 0.034;
 const _f = new THREE.Vector3();
 const _d = new THREE.Vector3();
 const _a = new THREE.Vector3();
@@ -437,7 +439,10 @@ export function gripHands(rig: DetailRig, fist: number, grips: Record<'L' | 'R',
       _bx.crossVectors(_by, _bz);
       _bq.setFromRotationMatrix(_bm.makeBasis(_bx, _by, _bz));
       palm.quaternion.slerp(_bq, Math.min(1, g.amount));
-      for (const h of g.held ?? []) h.position.copy(_d).multiplyScalar(fist * Math.min(1, g.amount));
+      // The grip lies across the palm, in front of it (the right palm faces the palm frame's +X,
+      // the left one's -X), where the curled fingers close round it; not through the hand.
+      _bx.multiplyScalar(s === 'R' ? PALM_DEPTH : -PALM_DEPTH);
+      for (const h of g.held ?? []) h.position.copy(_d).multiplyScalar(fist).add(_bx).multiplyScalar(Math.min(1, g.amount));
     } else {
       for (const h of g.held ?? []) h.position.set(0, 0, 0);
     }
