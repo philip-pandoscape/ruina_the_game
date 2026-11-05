@@ -1025,8 +1025,8 @@
     {
       "system": "look",
       "status": "done",
-      "title": "Made models for buildings, props and resource nodes",
-      "notes": "Generated with Meshy (concept art painted after the reference picture with nano-banana-pro, then meshy-t2.5 low-poly textured models), compressed with gltf-transform (meshopt, WebP), about 60-260 KB each. Each takes the place of the procedural model of the same id once it loads, fitted into the structure's own box from shared/structures.json, so the rules, colliders and server are unchanged. Painted windows glow at night. The player's cottage, docks, plots and the glider deck keep their procedural models (they are walked into or onto).",
+      "title": "Made models for buildings, props, resource nodes and trade packs",
+      "notes": "Generated with Meshy (concept art painted after the reference picture with nano-banana-pro, then meshy-t2.5 low-poly textured models), compressed with gltf-transform (meshopt, WebP), about 60-260 KB each. Each takes the place of the procedural model of the same id once it loads, fitted into the structure's own box from shared/structures.json, so the rules, colliders and server are unchanged. Painted windows glow at night. The ten trade packs too, each fitted into its procedural pack's box with its straps to the carrier's back. The player's cottage, docks, plots and the glider deck keep their procedural models (they are walked into or onto); so do the vehicles' hulls and bodies (seats, oars, wheels and the sealed hulls are fitted to the rules).",
       "files": [
         "src/render/models/glb.ts",
         "src/render/assets.ts",
@@ -1037,7 +1037,7 @@
       "system": "look",
       "status": "done",
       "title": "Trees, rocks and cliffs",
-      "notes": "Trees at full size (a 10 m broadleaf of many lumps, a 12 m pine of ragged tiers), shaded darker inside and underneath, with near and far shapes per 128 m chunk; the trunk's foot keeps the collider's width. Blossom trees by the square. Loose rocks become made boulders. Slopes far too steep to walk get big crags set into them (drawing only).",
+      "notes": "Trees at full size (a 10 m broadleaf of many lumps, a 12 m pine of ragged tiers), shaded darker inside and underneath, with near and far shapes per 128 m chunk; the trunk's foot keeps the collider's width. Blossom trees by the square. Loose rocks become made boulders. Low bushes, some in flower, grow around you on grass and in the woods. Slopes far too steep to walk get big crags set into them (drawing only).",
       "files": [
         "src/render/open/foliage.ts"
       ]
@@ -1286,7 +1286,7 @@
       "points": [
         "Light: soft diffuse light, ambient occlusion from depth, height fog that glows toward the sun, bloom, PBR Neutral tone mapping and a grade (src/render/open/post.ts).",
         "Ground: CC0 textures over the surfaces, the palette still choosing colours; rock on steep slopes from three sides (src/render/open/ground.ts).",
-        "Models: 37 made with Meshy from concept art painted after the reference (buildings, stalls, the well, resource nodes, street props, boulders), fitted into each structure's own footprint; about 740 credits.",
+        "Models: 40 made with Meshy from concept art painted after the reference (buildings, stalls, the well, resource nodes, street props, boulders, the ten trade packs), fitted into each one's own box; about 1,000 credits.",
         "Trees at full size with two levels of detail and blossoms by the square; crags on the cliffs; boulders; isles on the horizon; painted clouds; a hazy world tree; lit windows at night; the cog under a cream and blue sail.",
         "Built things in vertex colours get wood, stone or plaster grain; creatures keep their colours.",
         "Tests: tests/look.spec.ts draws the same places in both looks (and from the air), times both at 1080p, and the new look at medium quality; species.spec.ts counts both looks' draws."
