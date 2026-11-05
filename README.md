@@ -127,7 +127,10 @@ on every push and pull request to them: the client typechecks and builds, the Ru
 pass, and the whole Playwright suite plays the game against a real server and Postgres (with the
 battlefield and the TypeScript/Rust conformance tests, which need the Rust binaries). A push that
 passes is uploaded to the Railway environment of the same name with `railway up`, and the job
-waits until `/api/health` answers from the new deployment.
+waits until `/api/health` answers from the new deployment. For now a push to `beta` skips the
+Playwright suite (half an hour and more on CI's runners, which have no GPU), so beta deploys a few
+minutes after the push: run the suite locally before pushing. Pull requests, `production` and a
+manual run of the workflow still play it.
 
 **Railway** (project `intuitive-enthusiasm`): environments `beta` and `production`, each with the
 game service and its own Postgres. The game's `DATABASE_URL` refers to that environment's

@@ -51,8 +51,10 @@ cargo test --release --manifest-path server/Cargo.toml   # needs Rust; CI runs i
 
 ## Branches and deploys
 
-- `beta` (default): push directly. CI (`.github/workflows/ci-cd.yml`) runs; if it passes, it
-  deploys to https://ruinathegame-beta.up.railway.app.
+- `beta` (default): push directly. CI (`.github/workflows/ci-cd.yml`) typechecks and builds the
+  client and runs the Rust tests; if they pass, it deploys to https://ruinathegame-beta.up.railway.app.
+  It skips the Playwright suite for a beta push (CI has no GPU, so it takes half an hour and more):
+  run the full suite locally before pushing (`npx playwright test`; online specs need a server).
 - `production`: pull requests only (from `beta`), CI must pass; merging deploys to
   https://ruinathegame-production.up.railway.app.
 - Railway project `intuitive-enthusiasm`: environments `beta` and `production`, each with its own
