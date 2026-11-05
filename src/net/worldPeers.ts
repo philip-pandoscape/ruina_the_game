@@ -121,6 +121,13 @@ export class WorldPeers {
     }));
   }
 
+  /** How far the farm ground drawn for anyone here stands over the terrain within `pad` metres of (x, z) (LifeView.raisedAt). */
+  raisedAt(x: number, z: number, pad: number): number {
+    let top = 0;
+    for (const p of this.peers.values()) top = Math.max(top, p.view.raisedAt(x, z, pad));
+    return top;
+  }
+
   private peer(id: number, name: string): Peer {
     let p = this.peers.get(id);
     if (p) return p;

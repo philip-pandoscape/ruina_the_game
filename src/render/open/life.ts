@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import type { Life } from '../../sim/life/life';
 import type { Sim } from '../../sim/sim';
 import type { Hero, SeatPose } from '../character';
@@ -18,8 +19,9 @@ import { angleDiff } from '../../sim/math';
 import { toon } from '../toon';
 import { tryBuild, type Models, type VehicleAnim } from './models';
 import type { Holds } from '../models/vehicles';
-import { toWorld } from '../../sim/zone/generate';
+import { toLocal, toWorld } from '../../sim/zone/generate';
 import { shipDesign } from '../../content/shipyard';
+import type { Heightfield } from '../../sim/terrain';
 
 // Draws what the life systems own: vehicles and mounts, every trade pack (on a back, in a cart,
 // on the ground), scarecrow plots and what grows in them, houses as far as they are built, the
@@ -94,6 +96,39 @@ function plotKey(scarecrows: Scarecrow[]): string {
   return scarecrows.map((sc) => `${sc.id}@${sc.x},${sc.z},${sc.rot}:${sc.cells.map(cell).join(',')}`).join('|');
 }
 
+/** How far over the terrain a farm's soil and its furrows are drawn (metres), and the furrows' size. */
+const SOIL_LIFT = 0.05;
+const FURROW = { lift: 0.07, height: 0.08, width: 0.35, inset: 0.4, segments: 16 };
+
+/**
+ * The most a mesh laid over the terrain (its vertices in world coordinates) stands above the ground
+ * anywhere on it: every triangle sampled across, not just at its corners, as the terrain's own
+ * triangles fold under it. A centimetre more, for what falls between the samples.
+ */
+function standsOver(hf: Heightfield, geo: THREE.BufferGeometry, steps = 6): number {
+  const pos = geo.getAttribute('position');
+  const index = geo.getIndex();
+  const n = index ? index.count : pos.count;
+  const at = (k: number) => (index ? index.getX(k) : k);
+  let top = -Infinity;
+  for (let t = 0; t + 2 < n; t += 3) {
+    const a = at(t);
+    const b = at(t + 1);
+    const c = at(t + 2);
+    for (let i = 0; i <= steps; i++)
+      for (let j = 0; j <= steps - i; j++) {
+        const u = i / steps;
+        const v = j / steps;
+        const w = 1 - u - v;
+        const x = pos.getX(a) * w + pos.getX(b) * u + pos.getX(c) * v;
+        const y = pos.getY(a) * w + pos.getY(b) * u + pos.getY(c) * v;
+        const z = pos.getZ(a) * w + pos.getZ(b) * u + pos.getZ(c) * v;
+        top = Math.max(top, y - hf.height(x, z));
+      }
+  }
+  return top + 0.01;
+}
+
 function standInPack(id: string): THREE.Group {
   const g = new THREE.Group();
   const kind = (packDef(id) as { kind?: string }).kind;
@@ -142,6 +177,14 @@ export class LifeView {
   private plotKey = '';
   /** Farm animals in plot cells, with what they need to animate. */
   private animals: Array<{ root: THREE.Object3D; sc: number; idx: number; animate?: (dt: number, s: { time: number; hungry: boolean; ready: boolean }) => void; phase: number }> = [];
+  /** The farm plots as drawn: where each lies and how it's turned, half its side, and the most its soil and furrows stand over the terrain. */
+  private plotGround: Array<{ x: number; z: number; rot: number; half: number; top: number }> = [];
+  /** Those heights by where a plot lies, kept while it lies there (they only change when one is put down). */
+  private plotTops = new Map<string, number>();
+  private soilMat = toon(0x6e4a2e);
+  private furrowMat = toon(0x5a3a22);
+  private wetGeo = new THREE.CircleGeometry(0.75, 10).rotateX(-Math.PI / 2);
+  private wetMat = new THREE.MeshBasicMaterial({ color: 0x3b2614, transparent: true, opacity: 0.45, depthWrite: false });
   /** Called when the ground changes under the grass (a plot placed, a house begun). */
   onGroundChanged: (() => void) | null = null;
 
@@ -250,29 +293,51 @@ export class LifeView {
     for (const c of [...this.plots.children]) {
       this.plots.remove(c);
       if (c instanceof THREE.InstancedMesh) c.dispose();
+      // The soil and furrows are made afresh each time (the models and crop shapes are shared).
+      else if (c.userData.ground) (c as THREE.Mesh).geometry.dispose();
     }
     const half = (FARM.scarecrowCells * FARM.cell) / 2;
     const byGeo = new Map<string, THREE.Matrix4[]>();
+    const tops = new Map<string, number>();
+    this.plotGround = [];
     for (const sc of this.life.state.scarecrows) {
       // Soil, draped over the ground.
       const soil = new THREE.PlaneGeometry(half * 2, half * 2, 8, 8).rotateX(-Math.PI / 2);
       const p = soil.attributes.position;
       for (let i = 0; i < p.count; i++) {
         const [ox, oz] = toWorld(p.getX(i), p.getZ(i), sc.rot);
-        p.setXYZ(i, sc.x + ox, hf.height(sc.x + ox, sc.z + oz) + 0.05, sc.z + oz);
+        p.setXYZ(i, sc.x + ox, hf.height(sc.x + ox, sc.z + oz) + SOIL_LIFT, sc.z + oz);
       }
       soil.computeVertexNormals();
-      const soilMesh = new THREE.Mesh(soil, toon(0x6e4a2e));
+      const soilMesh = new THREE.Mesh(soil, this.soilMat);
       soilMesh.receiveShadow = true;
+      soilMesh.userData.ground = true;
       this.plots.add(soilMesh);
-      // Furrows: darker rows.
+      // Furrows: darker rows, following the ground along their length as the soil does (one long
+      // box laid flat would float off a slope at one end and sink into it at the other).
+      const rows: THREE.BufferGeometry[] = [];
       for (let row = 0; row < FARM.scarecrowCells; row++) {
-        const fur = new THREE.Mesh(new THREE.BoxGeometry(half * 2 - 0.4, 0.08, 0.35), toon(0x5a3a22));
-        const [ox, oz] = toWorld(0, (row - (FARM.scarecrowCells - 1) / 2) * FARM.cell, sc.rot);
-        fur.position.set(sc.x + ox, hf.height(sc.x + ox, sc.z + oz) + 0.07, sc.z + oz);
-        fur.rotation.y = sc.rot;
-        this.plots.add(fur);
+        const rowZ = (row - (FARM.scarecrowCells - 1) / 2) * FARM.cell;
+        const fur = new THREE.BoxGeometry(half * 2 - FURROW.inset, FURROW.height, FURROW.width, FURROW.segments, 1, 1);
+        const fp = fur.attributes.position;
+        for (let i = 0; i < fp.count; i++) {
+          const [ox, oz] = toWorld(fp.getX(i), rowZ + fp.getZ(i), sc.rot);
+          fp.setXYZ(i, sc.x + ox, hf.height(sc.x + ox, sc.z + oz) + FURROW.lift + fp.getY(i), sc.z + oz);
+        }
+        fur.computeVertexNormals();
+        rows.push(fur);
       }
+      const furrows = mergeGeometries(rows)!;
+      for (const r of rows) r.dispose();
+      const furrowMesh = new THREE.Mesh(furrows, this.furrowMat);
+      furrowMesh.receiveShadow = true;
+      furrowMesh.userData.ground = true;
+      this.plots.add(furrowMesh);
+      // How high all that stands over the terrain, so what lies on the ground can lie on top of it.
+      const key = `${sc.x},${sc.z},${sc.rot}`;
+      const top = this.plotTops.get(key) ?? Math.max(standsOver(hf, soil), standsOver(hf, furrows));
+      tops.set(key, top);
+      this.plotGround.push({ x: sc.x, z: sc.z, rot: sc.rot, half, top });
       const post = scarecrowPost(sc);
       const built = tryBuild(this.models.buildStructure ? () => this.models.buildStructure!('scarecrow') : null);
       const sc3 = built?.root ?? box(0.5, 2.2, 0.3, 0xe2c158);
@@ -307,7 +372,7 @@ export class LifeView {
         if (!list) byGeo.set(key, (list = []));
         list.push(m);
         if (pl.watered) {
-          const wet = new THREE.Mesh(new THREE.CircleGeometry(0.75, 10).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0x3b2614, transparent: true, opacity: 0.45, depthWrite: false }));
+          const wet = new THREE.Mesh(this.wetGeo, this.wetMat);
           wet.position.set(c.x, hf.height(c.x, c.z) + 0.11, c.z);
           this.plots.add(wet);
         }
@@ -323,6 +388,34 @@ export class LifeView {
       mesh.computeBoundingSphere();
       this.plots.add(mesh);
     }
+    this.plotTops = tops;
+  }
+
+  /**
+   * How far the ground drawn over the terrain (a farm's soil and furrows) stands above it, at most,
+   * anywhere within `pad` metres of (x, z); 0 where there is none. What lies on the ground (a warning
+   * circle, the shadow under you) lies on top of it there.
+   */
+  raisedAt(x: number, z: number, pad: number): number {
+    let top = 0;
+    for (const g of this.plotGround) {
+      if (g.top <= top) continue;
+      const dx = x - g.x;
+      const dz = z - g.z;
+      const reach = (g.half + pad) * Math.SQRT2;
+      if (dx * dx + dz * dz > reach * reach) continue;
+      const [lx, lz] = toLocal(dx, dz, g.rot);
+      if (Math.abs(lx) <= g.half + pad && Math.abs(lz) <= g.half + pad) top = g.top;
+    }
+    return top;
+  }
+
+  /** For tests: the height of the farm ground drawn over (x, z) (soil or a furrow), or null where there is none. */
+  farmGroundAt(x: number, z: number): number | null {
+    const ray = new THREE.Raycaster(new THREE.Vector3(x, 1e4, z), new THREE.Vector3(0, -1, 0), 0, 2e4);
+    let best: number | null = null;
+    for (const h of ray.intersectObjects(this.plots.children.filter((c) => c.userData.ground), false)) best = Math.max(best ?? -Infinity, h.point.y);
+    return best;
   }
 
   private rebuildHouses(): void {

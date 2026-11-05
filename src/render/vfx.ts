@@ -343,6 +343,11 @@ export class Vfx {
   private w = new THREE.Vector3();
   /** Ground height in an open world, so effects that hug the ground sit on hills too. */
   ground: ((x: number, z: number) => number) | null = null;
+  /**
+   * How far ground drawn over the terrain (a farm's soil and furrows) stands above it within `r`
+   * metres of (x, z): rings lying on the ground lie on top of it.
+   */
+  raised: ((x: number, z: number, r: number) => number) | null = null;
 
   private gy(x: number, z: number): number {
     return this.ground ? this.ground(x, z) : 0;
@@ -352,7 +357,7 @@ export class Vfx {
 
   /** A ring lying on the ground at (x, z), `lift` over it, tipped to the slope there. */
   private groundRing(x: number, z: number, lift: number, size: number, life: number, color: number): void {
-    const g = this.gy(x, z);
+    const g = this.gy(x, z) + (this.raised?.(x, z, size) ?? 0);
     let up: THREE.Vector3 | undefined;
     if (this.ground) {
       const e = 0.5;

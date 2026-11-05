@@ -169,13 +169,19 @@ stage.scene.add(dummy.root);
 stage.scene.add(actorView.group);
 const vfx = new Vfx(stage.scene);
 const spells = new SpellView(stage.scene, vfx);
-// Warning circles lie on the island's hills (and on a deck or roof under whoever they're about),
-// floating on the sea rather than sinking under it.
+/**
+ * The terrain's height at (x, z) and above it whatever is drawn over it within `pad` metres (farm soil
+ * and furrows: yours and everyone else's here), for what lies on the ground to lie on top of.
+ */
+const drawnGround = (x: number, z: number, pad: number): number =>
+  terrain ? terrain.height(x, z) + Math.max(lifeView?.raisedAt(x, z, pad) ?? 0, peers?.raisedAt(x, z, pad) ?? 0) : 0;
+// Warning circles lie on the island's hills and farms (and on a deck or roof under whoever they're
+// about), floating on the sea rather than sinking under it.
 if (terrain) {
   spells.ground = {
     cell: terrain.cell,
     origin: terrain.min,
-    height: (x, z, near) => Math.max(terrain.water, Number.isFinite(near) ? groundAt(terrain, world.index, x, z, near, 0.5) : terrain.height(x, z)),
+    height: (x, z, near, pad) => Math.max(terrain.water, Number.isFinite(near) ? groundAt(terrain, world.index, x, z, near, 0.5) : terrain.height(x, z), drawnGround(x, z, pad)),
   };
 }
 const follow = new FollowCamera(innerWidth / innerHeight, battlefield ? 1200 : openWorld ? 2600 : 320, battlefield ? 160 : openWorld ? 40 : 14);
@@ -246,7 +252,10 @@ if (life) {
   };
 }
 input.worldMode = !!life;
-if (terrain) vfx.ground = groundY;
+if (terrain) {
+  vfx.ground = groundY;
+  vfx.raised = (x, z, r) => drawnGround(x, z, r) - terrain.height(x, z);
+}
 const lifeView = life ? new LifeView(stage.scene, life, models, hero) : null;
 if (lifeView && openStage) lifeView.onGroundChanged = () => openStage.foliage.invalidate();
 // Auto-run (H) and travel by road from the map: it only makes the controls, so it works online too.
@@ -1185,8 +1194,9 @@ function draw(alpha: number, cameraDt: number, animDt: number): void {
     openStage.setTime(skyHour(), sky.sunrise, sky.sunset);
   }
 
-  const under = terrain ? Math.max(terrain.water, groundUnder(pos.x, pos.z, pos.y)) : 0;
-  const lift = Math.max(0.35, 1 - (pos.y - under) * 0.18);
+  // On a farm the shadow lies on its soil, which is drawn a little over the ground you stand on.
+  const under = terrain ? Math.max(terrain.water, groundUnder(pos.x, pos.z, pos.y), drawnGround(pos.x, pos.z, 0.42)) : 0;
+  const lift = Math.max(0.35, Math.min(1, 1 - (pos.y - under) * 0.18));
   blob.position.set(pos.x, under + 0.03, pos.z);
   blob.visible = sim.player.mode !== 'swim';
   blob.scale.setScalar(lift);
@@ -1738,6 +1748,14 @@ const api = {
   /** Testing: the height of the highest ground circle drawn over (x, z), or null where there is none. */
   circleHeight(x: number, z: number): number | null {
     return spells.heightAt(x, z);
+  },
+  /** Testing: the height of your farm's soil or furrows drawn over (x, z), or null where there is none. */
+  farmGround(x: number, z: number): number | null {
+    return lifeView?.farmGroundAt(x, z) ?? null;
+  },
+  /** Testing: where the shadow under you is drawn. */
+  shadowHeight(): number {
+    return blob.position.y;
   },
   spells() {
     return {

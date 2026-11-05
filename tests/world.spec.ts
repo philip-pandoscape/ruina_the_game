@@ -320,6 +320,80 @@ test('farming: a scarecrow plot, planting, watering, growing and harvesting', as
   expect(l.scarecrows[0].cells[0]).toBeNull();
 });
 
+test('farming: ground circles and the shadow under you lie on top of a plot, its furrows and its edges, turned on a slope', async ({ page }) => {
+  const errors = await open(page);
+  const w = g(page);
+  await grant(page, [['scarecrow', 1]]);
+  // A plot turned 30 degrees, on ground that rises well over a metre across it.
+  await w.teleport(-150, -300, Math.PI / 6);
+  await w.cmd({ t: 'use', item: 'scarecrow' });
+  await w.advance(2);
+  await w.cmd({ t: 'interact' });
+  await w.advance(2);
+  const sc = (await w.life()).scarecrows[0];
+  expect(sc.rot).toBeCloseTo(Math.PI / 6);
+  const at = (lx: number, lz: number) => ({ x: sc.x + lx * Math.cos(sc.rot) + lz * Math.sin(sc.rot), z: sc.z - lx * Math.sin(sc.rot) + lz * Math.cos(sc.rot) });
+  // A Meteor aimed at the plot's near corner: its warning lies over soil, furrow ends and grass.
+  const meteor = 1;
+  const mage = { skills: skillsFrom('staff', 'meteor'), weapon: 2, abilities: [meteor, ...new Array(HOTBAR_SLOTS - 1).fill(NO_ABILITY)], movement: emptyMovement() };
+  expect(await page.evaluate((b) => (window as any).__game.setBuild(b), mage)).toBe(true);
+  const corner = at(4, -4);
+  const p = await w.player();
+  await page.evaluate(([dx, dz]) => (window as any).__game.advance(1, { abilitySlot: 1, aimX: dx, aimZ: dz }), [corner.x - p.pos.x, corner.z - p.pos.z] as const);
+  await w.advance(20);
+  expect((await w.player()).mode).toBe('cast');
+  const seen = await page.evaluate(
+    ([cx, cz, r]) => {
+      const g = (window as any).__game;
+      g.render();
+      const out = { samples: 0, soil: 0, furrow: 0, grass: 0, missing: 0, under: [] as string[] };
+      for (let x = cx - r; x <= cx + r; x += 0.1) {
+        for (let z = cz - r; z <= cz + r; z += 0.1) {
+          if (Math.hypot(x - cx, z - cz) > r * 0.92) continue;
+          out.samples++;
+          const circle = g.circleHeight(x, z);
+          const farm = g.farmGround(x, z);
+          const ground = g.ground(x, z);
+          if (circle === null) {
+            out.missing++;
+            continue;
+          }
+          if (farm === null) out.grass++;
+          else if (farm - ground > 0.08) out.furrow++;
+          else out.soil++;
+          const top = Math.max(ground, farm ?? -Infinity);
+          if (circle < top + 0.005) out.under.push(`(${x.toFixed(1)}, ${z.toFixed(1)}): circle ${circle.toFixed(3)}, ground drawn at ${top.toFixed(3)}`);
+        }
+      }
+      return out;
+    },
+    [corner.x, corner.z, 3.5] as const,
+  );
+  console.log('circle over the plot', { ...seen, under: seen.under.length });
+  expect(seen.missing, 'the warning is drawn all the way across').toBe(0);
+  expect(seen.soil).toBeGreaterThan(100);
+  expect(seen.furrow).toBeGreaterThan(20);
+  expect(seen.grass).toBeGreaterThan(100);
+  expect(seen.under.slice(0, 5)).toEqual([]);
+  await page.evaluate(() => (window as any).__game.setCamera({ yaw: Math.PI / 6 + 0.5, pitch: 0.75, distance: 11 }));
+  await w.advance(1);
+  await page.screenshot({ path: `${SHOTS}/world-05-farm-warning.png` });
+  await w.advance(90);
+
+  // Standing on a furrow, the shadow under you lies on it rather than under the soil.
+  const row = at(-1, -1);
+  await w.teleport(row.x, row.z, 0);
+  await w.advance(2);
+  const shadow = await page.evaluate(() => {
+    const g = (window as any).__game;
+    const q = g.state().player.pos;
+    return { shadow: g.shadowHeight(), farm: g.farmGround(q.x, q.z), ground: g.ground(q.x, q.z) };
+  });
+  expect(shadow.farm! - shadow.ground).toBeGreaterThan(0.08);
+  expect(shadow.shadow).toBeGreaterThan(shadow.farm!);
+  expect(errors).toEqual([]);
+});
+
 test('pack running: craft a pack, carry it slowly, sell it, and watch demand fall and recover', async ({ page }) => {
   await open(page);
   const w = g(page);
