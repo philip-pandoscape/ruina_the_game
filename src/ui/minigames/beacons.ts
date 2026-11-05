@@ -163,7 +163,8 @@ export class BeaconsPanel {
     const who = (seat: number) => (seat === v.you ? 'You' : esc(v.seats[seat]?.name ?? ''));
     const line = (e: BeaconsLog) => {
       if (e.k === 'light') {
-        const where = e.hex === OLD_BEACON ? 'the Old Beacon' : `a ${esc(goodName(HEXES[e.hex]?.good ?? -1))} hex`;
+        const name = goodName(HEXES[e.hex]?.good ?? -1);
+        const where = e.hex === OLD_BEACON ? 'the Old Beacon' : `${/^[aeiou]/i.test(name) ? 'an' : 'a'} ${esc(name)} hex`;
         return `${who(e.seat)} lit ${where}${e.goods.length === 2 ? ` with a pair of ${esc(goodName(e.goods[0]))}` : ''}.`;
       }
       if (e.k === 'swap') return `${who(e.seat)} swapped a card.`;
