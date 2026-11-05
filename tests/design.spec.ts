@@ -40,3 +40,24 @@ test('the design bible draws from the game data without errors', async ({ page }
   });
   expect(colours).toBeGreaterThan(50);
 });
+
+test('the UI design system page draws its specimens with the game\'s own styles', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('console', (m) => {
+    if (m.type() === 'error') errors.push(m.text());
+  });
+  page.on('pageerror', (e) => errors.push(String(e)));
+  await page.goto('/design/ui.html');
+  await page.waitForSelector('html[data-ready]', { timeout: 60_000 });
+  expect(errors).toEqual([]);
+  await expect(page.locator('#buttons .lui-btn')).toHaveCount(6);
+  await expect(page.locator('#windows .mw')).toHaveCount(2);
+  expect(await page.locator('#swatches .swatch').count()).toBeGreaterThan(15);
+  // The Title Case example converts as the rule says.
+  await page.fill('#tcIn', 'sell all produce for the merchant');
+  await expect(page.locator('#tcOut')).toHaveText('→ Sell All Produce for the Merchant');
+  // The live specimen's right-click menu.
+  await page.locator('#items .ib.big').click({ button: 'right' });
+  await expect(page.locator('#ui .ctx .ctx-i.primary')).toHaveText('Place');
+  await page.screenshot({ path: 'screenshots/design-ui.png', fullPage: true });
+});

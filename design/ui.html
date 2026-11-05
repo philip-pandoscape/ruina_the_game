@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Ruina UI Design System</title>
+<!-- How Ruina's interface looks, reads and behaves. This file is the prose; design/ui.ts draws every
+     specimen with the game's own stylesheets and modules (src/ui/theme/), so the page shows exactly
+     what the game shows. Open it from the dev server: npm run dev, then /design/ui.html -->
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<style>
+/* The page sits on a dark wood table; each part is a parchment sheet, as the game's windows are.
+   Colours and fonts come from src/ui/theme/theme.css (loaded by ui.ts). */
+html { background: #2a1a0f; }
+body { margin: 0; color: var(--ink); font: 400 15.5px/1.6 var(--font); background:
+  radial-gradient(ellipse at 50% -10%, rgba(255, 190, 110, 0.18), transparent 60%),
+  repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.025) 0 2px, transparent 2px 9px), linear-gradient(180deg, #3b2616, #23150b 70%); min-height: 100vh; }
+.page { max-width: 1120px; margin: 0 auto; padding: 36px 28px 80px; }
+header.top { text-align: center; padding: 18px 0 30px; color: #f6e6c6; }
+header.top .eyebrow { font: 700 13px var(--font-title); letter-spacing: 0.3em; text-transform: uppercase; color: #e0b065; }
+header.top h1 { margin: 6px 0 8px; font: 700 54px/1 var(--font-title); letter-spacing: 0.05em; color: #ffe2a0; text-shadow: 0 2px 0 #2b0d10, 0 0 24px rgba(255, 170, 60, 0.35); }
+header.top p { max-width: 720px; margin: 0 auto; color: #e8d3ad; font-size: 16.5px; }
+header.top nav { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 14px; margin-top: 18px; }
+header.top nav a { color: #ffd98a; font: 700 13.5px var(--font); text-decoration: none; letter-spacing: 0.02em; }
+header.top nav a:hover { text-decoration: underline; }
+.sheet { position: relative; margin: 0 0 26px; padding: 22px 30px 26px; border: 5px solid transparent; border-radius: 10px;
+  background: var(--rivets), var(--grain) padding-box, var(--parchment) padding-box, var(--wood) border-box; box-shadow: var(--panel-shadow); }
+.sheet > h2 { margin: 0 0 4px; font: 700 27px var(--font-title); color: var(--title); letter-spacing: 0.03em; text-shadow: var(--title-shadow); }
+.sheet > .lede { margin: 0 0 14px; color: var(--ink-2); font-size: 15px; }
+.sheet h3 { display: flex; align-items: center; gap: 8px; margin: 18px 0 8px; font: 700 16px var(--font-title); color: var(--title); letter-spacing: 0.05em; }
+.sheet h3::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, rgba(110, 70, 30, 0.5), transparent); }
+.sheet p { margin: 0 0 10px; }
+.sheet ul { margin: 0 0 10px; padding-left: 20px; }
+.sheet li { margin: 3px 0; }
+code { font: 13px ui-monospace, Menlo, Consolas, monospace; background: rgba(140, 95, 45, 0.12); padding: 1px 5px; border-radius: 4px; color: var(--ink-strong); }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px 26px; }
+.grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+@media (max-width: 860px) { .grid2, .grid3 { grid-template-columns: 1fr; } }
+.rule { padding: 10px 12px; border-radius: 6px; background: var(--inset); border: 1px solid var(--inset-line); }
+.rule b { color: var(--ink-strong); }
+.do, .dont { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; }
+.do::before { content: '✓'; color: var(--good); } .dont::before { content: '✗'; color: var(--bad); }
+.dont { color: var(--ink-2); text-decoration: line-through; text-decoration-color: rgba(176, 42, 34, 0.6); }
+table.words { width: 100%; border-collapse: collapse; font-size: 14px; }
+table.words td, table.words th { padding: 6px 8px; border-bottom: 1px dashed rgba(110, 70, 30, 0.3); text-align: left; vertical-align: top; }
+table.words th { font: 700 13px var(--font-title); color: var(--ink-2); letter-spacing: 0.06em; }
+.specimen { display: flex; flex-wrap: wrap; align-items: center; gap: 16px 18px; padding: 16px; border-radius: 8px; background: rgba(140, 95, 45, 0.08); border: 1px dashed rgba(110, 70, 30, 0.35); }
+.specimen.dark { background: linear-gradient(180deg, #6f9a52, #4f7b3a); border-style: solid; border-color: #2b1a0e; }
+.specimen .cap { width: 100%; margin: -4px 0 0; font-size: 12.5px; color: var(--ink-2); }
+.specimen.dark .cap { color: #fff6e2; text-shadow: var(--text-outline); }
+.specimen, .specimen *, .layout * { box-sizing: border-box; }
+/* Windows are fixed to the screen in the game; here they stand in the page. */
+.specimen .mw { position: relative; left: auto; top: auto; right: auto; transform: none; z-index: 1; }
+.specimen .tt, .specimen .ctx { position: relative; left: auto; top: auto; }
+.swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.swatch { display: flex; align-items: center; gap: 9px; font-size: 12.5px; line-height: 1.25; }
+.swatch i { flex: none; width: 34px; height: 34px; border-radius: 6px; box-shadow: 0 0 0 1.5px #2b1a0e, inset 0 0 0 1px rgba(255, 255, 255, 0.25); }
+.swatch b { display: block; font-size: 13px; color: var(--ink-strong); }
+.layout { position: relative; aspect-ratio: 16 / 9; border-radius: 8px; overflow: hidden; background: linear-gradient(180deg, #9fd0e8 0%, #cfe8f2 48%, #8cbf6a 49%, #6e9f4f 100%);
+  box-shadow: 0 0 0 2px #2b1a0e, inset 0 0 40px rgba(0, 0, 0, 0.25); font-size: 11.5px; line-height: 1.2; }
+.layout .zone { position: absolute; display: grid; place-items: center; padding: 4px; text-align: center; border-radius: 5px; color: #2b170a; font-weight: 700;
+  background: rgba(251, 240, 216, 0.88); box-shadow: 0 0 0 1.5px #2b1a0e; }
+.layout .zone.win { background: rgba(236, 214, 170, 0.75); border: 2px dashed #7a1f26; box-shadow: none; }
+.layout .zone small { display: block; font-weight: 400; color: #6e5236; }
+.tc-try { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.tc-try input { flex: 1; min-width: 220px; padding: 7px 10px; border-radius: 6px; font: 15px var(--font); color: var(--ink-strong); background: rgba(255, 250, 236, 0.8); border: 1px solid var(--inset-line); }
+.tc-try output { font-weight: 700; color: var(--title); }
+.checklist li { list-style: none; position: relative; padding-left: 26px; }
+.checklist li::before { content: ''; position: absolute; left: 2px; top: 5px; width: 13px; height: 13px; border-radius: 3px; border: 2px solid #7a1f26; background: rgba(255, 250, 236, 0.7); }
+footer { text-align: center; color: #c9ad80; font-size: 13px; }
+footer a { color: #ffd98a; }
+header.top code, footer code { background: rgba(255, 220, 160, 0.12); color: #ffd98a; }
+</style>
+</head>
+<body>
+<div id="ui" style="position:fixed;left:0;top:0;pointer-events:none"></div>
+<div class="page">
+  <header class="top">
+    <div class="eyebrow">Ruina · Parchment &amp; Timber</div>
+    <h1>UI Design System</h1>
+    <p>How the game's interface looks, reads and behaves. Every specimen below is drawn by the game's own stylesheets and modules (<code>src/ui/theme/</code>), so this page cannot drift from the game. The rest of the design lives in the <a href="/design/" style="color:#ffd98a">design bible</a>.</p>
+    <nav><a href="#principles">Principles</a><a href="#writing">Writing</a><a href="#layout">Layout</a><a href="#colour">Colour &amp; Type</a><a href="#components">Components</a><a href="#interaction">Interaction</a><a href="#checklist">Checklist</a></nav>
+  </header>
+
+  <section class="sheet" id="principles">
+    <h2>Principles</h2>
+    <p class="lede">What every screen has to serve.</p>
+    <div class="grid2">
+      <div class="rule"><b>The world comes first.</b> The HUD keeps to the edges and windows dock to the sides, so the middle of the screen is always play. The map is the one window that takes over.</div>
+      <div class="rule"><b>One look.</b> Parchment cards in dark wood frames with brass rivets, burgundy for buttons and titles, gold for the one main action, pixel icons for things. No new colours outside <code>theme.css</code>.</div>
+      <div class="rule"><b>Every action three ways.</b> Mouse, keyboard and controller can all do everything a window offers. A window open on a controller takes the pad; with a mouse you can keep walking.</div>
+      <div class="rule"><b>Scaled, not reflowed.</b> The UI is laid out on a virtual screen 1029 px tall and scaled to the window (<code>scale.ts</code>), times the player's UI Size setting. Sizes in the CSS are those virtual pixels.</div>
+      <div class="rule"><b>Never in the way.</b> Nothing covers another part of the HUD at 1280×720 or 1920×1080, and no browser shortcut steals a game key (Ctrl is crouch: Ctrl+key presses are kept from the browser).</div>
+      <div class="rule"><b>Show what the server says.</b> Online, windows show the island the server keeps. Commands go to the server; the window redraws when its answer arrives (the same tick).</div>
+    </div>
+  </section>
+
+  <section class="sheet" id="writing">
+    <h2>Writing</h2>
+    <p class="lede">Labels name things; sentences explain them. They are capitalised differently.</p>
+    <div class="grid2">
+      <div>
+        <h3>Title Case for Labels</h3>
+        <p>Buttons, menu and context-menu entries, tabs, window titles, headings, status tags, stat names, prompts and the controls hint: every word capitalised except the small words in the middle.</p>
+        <table class="words">
+          <tr><th>Write</th><th>Not</th></tr>
+          <tr><td><span class="do">Sell All Produce</span></td><td><span class="dont">Sell all produce</span></td></tr>
+          <tr><td><span class="do">Track on Screen</span></td><td><span class="dont">Track On Screen</span></td></tr>
+          <tr><td><span class="do">Exit to Character Select</span></td><td><span class="dont">Exit to character select</span></td></tr>
+          <tr><td><span class="do">In Progress</span></td><td><span class="dont">in progress</span></td></tr>
+          <tr><td><span class="do">Pick Up Fish Pack</span></td><td><span class="dont">Pick up fish pack</span></td></tr>
+          <tr><td><span class="do">Jump ×2 · ×3 Glide</span></td><td><span class="dont">Jump ×2 · ×3 glide</span></td></tr>
+        </table>
+        <p style="margin-top:10px">Small words, lower case unless first or last: <span id="smallWords"></span>.</p>
+      </div>
+      <div>
+        <h3>Sentence Case for Sentences</h3>
+        <p>What people say, quest stories and objectives, descriptions, notes, errors and toasts are sentences: a capital to start, the rest as written.</p>
+        <table class="words">
+          <tr><td>“The bench is yours whenever you've the goods.”</td></tr>
+          <tr><td>Carry a pack here and press F to sell.</td></tr>
+          <tr><td>Place your scarecrow on open, level ground.</td></tr>
+          <tr><td>Not enough money</td></tr>
+        </table>
+        <h3>Try It</h3>
+        <div class="tc-try"><input id="tcIn" value="exit to the character select screen" aria-label="A label to put in Title Case"><output id="tcOut"></output></div>
+        <p style="margin-top:8px;font-size:13px;color:var(--ink-2)"><code>titleCase()</code> and <code>isTitleCase()</code> in <code>src/ui/theme/text.ts</code>; <code>tests/ui.spec.ts</code> opens the game's windows and checks their labels with it.</p>
+      </div>
+    </div>
+    <h3>Also</h3>
+    <ul>
+      <li>Call things what the world calls them: Labor, Seals, Packs, the Windspire. Names keep their own capitals.</li>
+      <li>Numbers and units: <b>52 m</b>, <b>3s</b>, <b>12 km/h</b>, <b>80%</b>. Keys are drawn as key caps: <span class="key">F</span> <span class="key">Esc</span>.</li>
+      <li>Never type in capitals; the type line of a tooltip and the place banner are set in capitals by CSS.</li>
+      <li>Something still happening ends in an ellipsis: <b>Saving…</b>, <b>Reconnecting…</b></li>
+      <li>Giving something up asks once more (<b>Abandon</b> → <i>Give it up?</i>). Nothing is ever lost to one click.</li>
+    </ul>
+  </section>
+
+  <section class="sheet" id="layout">
+    <h2>Layout</h2>
+    <p class="lede">Where everything lives on screen. Windows dock to the sides; the map takes the centre.</p>
+    <div class="layout" id="layoutMap"></div>
+    <p style="margin-top:10px;font-size:13.5px">Things drawn over the world (name plates, damage numbers, the target plate) live outside the UI root and scale themselves by <code>--ui-s</code>. Tooltips and context menus are drawn in the UI root, beside the pointer, kept on screen.</p>
+  </section>
+
+  <section class="sheet" id="colour">
+    <h2>Colour &amp; Type</h2>
+    <p class="lede">Read live from the variables in <code>src/ui/theme/theme.css</code>.</p>
+    <div class="swatches" id="swatches"></div>
+    <h3>Type</h3>
+    <div class="grid2" id="typeSpecimens"></div>
+  </section>
+
+  <section class="sheet" id="components">
+    <h2>Components</h2>
+    <p class="lede">Build new UI from these; they are the game's own classes.</p>
+    <h3>Buttons</h3>
+    <div class="specimen" id="buttons"></div>
+    <p>One <b>gold</b> button per window, for its main action (Accept, Complete Quest, Place). Burgundy for the rest. Disabled buttons stay visible, greyed, with the reason nearby or in the tooltip. Text in a button is nudged down by <code>--cap-nudge</code>, because Pagella's capitals sit 0.115em above the middle of their line; anything that centres text in a box uses it.</p>
+    <h3>Windows</h3>
+    <div class="specimen" id="windows"></div>
+    <p>A wood frame, a title strip (title, then a short subtitle), a close button, a scrolling body (a drawn scrollbar and fade when it overflows) and a foot holding the actions. Someone you talk to looks out of a portrait medallion over the top left corner; the body starts below it. The main window docks left, the bag docks right.</p>
+    <h3>Items, Tooltips and Context Menus</h3>
+    <div class="specimen dark" id="items"></div>
+    <h3>Bars, Keys, Toasts and Marks</h3>
+    <div class="specimen dark" id="bits"></div>
+  </section>
+
+  <section class="sheet" id="interaction">
+    <h2>Interaction</h2>
+    <p class="lede">The same moves do the same things everywhere.</p>
+    <div class="grid2">
+      <div>
+        <h3>Items</h3>
+        <ul>
+          <li><b>Hover</b>: the tooltip (what it is, what it's worth).</li>
+          <li><b>Click</b>: picks it out (highlight).</li>
+          <li><b>Double-click</b>: its main action. Place a scarecrow, plant a seed, equip a glider, summon a vehicle, use a tonic. With a merchant's window open, sell it; with your chest open, store it.</li>
+          <li><b>Right-click</b>: a menu of everything you can do with it right now, the main action first and in bold; anything you can't do here is greyed out with why.</li>
+        </ul>
+      </div>
+      <div>
+        <h3>Controller and Keys</h3>
+        <ul>
+          <li><b>D-pad</b> or arrows move the highlight over a window's buttons and items.</li>
+          <li><b>A</b> (Enter): press it; on an item, its main action.</li>
+          <li><b>Y</b>: an item's menu. <b>B</b> (Esc): back out.</li>
+          <li><b>Esc</b> closes the topmost thing first: a menu, then the window, then the bag, then cancels placing.</li>
+          <li>A window that belongs to someone closes when you walk away from them.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="sheet" id="checklist">
+    <h2>Checklist for New UI</h2>
+    <ul class="checklist">
+      <li>Labels in Title Case, sentences in sentence case (<code>isTitleCase</code>, and <code>tests/ui.spec.ts</code> covers the windows it opens).</li>
+      <li>Built from <code>.mw</code>, <code>.lui-btn</code>, <code>.ib</code>, <code>.tt</code>, <code>.ctx</code> and the colour variables; no one-off colours.</li>
+      <li>One gold button at most, for the main action.</li>
+      <li>Works with mouse, keyboard and controller; Esc and B back out.</li>
+      <li>Sized in virtual pixels inside <code>#ui</code>; looked at in a screenshot at 1280×720 and 1920×1080 with nothing overlapping.</li>
+      <li>Items: click picks, double-click does the main thing, right-click lists the rest.</li>
+      <li>Shows the server's word online; never changes the world from the UI (it queues commands).</li>
+    </ul>
+  </section>
+  <footer>Drawn by <code>design/ui.ts</code> from the game's own modules · the prose is <code>design/ui.html</code></footer>
+</div>
+<script type="module" src="/design/ui.ts"></script>
+</body>
+</html>

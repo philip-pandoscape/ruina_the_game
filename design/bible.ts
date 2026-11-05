@@ -91,7 +91,7 @@ const SECTIONS: Array<[id: string, name: string, system?: string]> = [
   ['overview', 'Overview'], ['pillars', 'Pillars'], ['world', 'World', 'world'], ['getting-around', 'Getting around', 'traversal'],
   ['vehicles', 'Vehicles & mounts', 'vehicles'], ['trade', 'Trade & packs', 'trade'], ['farming', 'Farming', 'farming'],
   ['housing', 'Housing', 'housing'], ['economy', 'Economy', 'economy'], ['quests', 'Quests', 'quests'], ['combat', 'Combat & skills', 'combat'],
-  ['architecture', 'Architecture', 'tech'], ['controls', 'Controls'], ['tracker', 'Tracker'], ['research', 'ArcheAge notes'], ['questions', 'Open questions'], ['log', 'Session log'],
+  ['interface', 'Interface', 'ui'], ['architecture', 'Architecture', 'tech'], ['controls', 'Controls'], ['tracker', 'Tracker'], ['research', 'ArcheAge notes'], ['questions', 'Open questions'], ['log', 'Session log'],
 ];
 
 function countBy(system: string | null): Record<Status, number> {
@@ -111,7 +111,7 @@ function pips(system: string): string {
 
 part('the navigation', () => {
   $('#railnav').innerHTML = SECTIONS.map(
-    ([id, name, sys], i) => (i === 2 ? '<div class="group">Systems</div>' : i === 11 ? '<div class="group">Reference</div>' : '') + `<a href="#${id}" data-id="${id}"><span>${esc(name)}</span>${sys ? pips(sys) : ''}</a>`,
+    ([id, name, sys], i) => (i === 2 ? '<div class="group">Systems</div>' : i === 12 ? '<div class="group">Reference</div>' : '') + `<a href="#${id}" data-id="${id}"><span>${esc(name)}</span>${sys ? pips(sys) : ''}</a>`,
   ).join('');
   $('#topnav').innerHTML = SECTIONS.map(([id, name]) => `<a href="#${id}">${esc(name)}</a>`).join('');
   $('#railfoot').innerHTML = `Drawn live from the game's data<br>Tracker updated ${esc(S.updated)}`;
