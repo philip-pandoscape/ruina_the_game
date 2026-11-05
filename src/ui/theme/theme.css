@@ -59,7 +59,7 @@
 /* The UI root: a virtual screen scaled to the window. Things drawn over the world stay outside it. */
 #ui { position: fixed; left: 0; top: 0; transform-origin: 0 0; pointer-events: none; z-index: 3; font-family: var(--font); color: var(--ink); }
 /* Big panels get their own compositing layer, so the HUD changing every frame never repaints them. */
-.mw, #skills .panel, .tt, #ruina-online .ro-card { will-change: transform; }
+.mw, #skills .panel, .tt, #ruina-net .fd-card, .fd-front .fd-card { will-change: transform; }
 #ui * { box-sizing: border-box; }
 .pxi { display: block; flex: none; image-rendering: pixelated; }
 img.icon16 { image-rendering: pixelated; }
@@ -109,32 +109,15 @@ img.icon16 { image-rendering: pixelated; }
   box-shadow: inset 0 1px 2px rgba(60, 35, 15, 0.25), 0 0 0 1px rgba(90, 55, 25, 0.5); }
 .q-bar > i { display: block; height: 100%; background: var(--gloss), linear-gradient(180deg, #e6c45a, #c08a2a); }
 
-/* ---------- Sign-in screen and online badge ---------- */
-#ruina-online { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; pointer-events: auto;
-  background: linear-gradient(180deg, #8fcbe6 0%, #bfe3f2 55%, #eadcb6 100%); }
-#ruina-online.over-game { background: rgba(40, 24, 10, 0.55); }
-#ruina-online .ro-card { width: 380px; padding: 24px 28px 22px; color: var(--ink); border: 5px solid transparent; border-radius: 10px;
-  background: var(--rivets), var(--grain) padding-box, var(--parchment) padding-box, var(--wood) border-box; box-shadow: var(--panel-shadow); }
-#ruina-online h1 { margin: 0; font: 700 40px var(--font-title); color: var(--title); text-shadow: var(--title-shadow); letter-spacing: 0.04em; }
-#ruina-online h2 { margin: 0 0 8px; font: 700 21px var(--font-title); color: var(--title); }
-#ruina-online .ro-sub { margin: 2px 0 16px; font-size: 14px; color: var(--ink-2); }
-#ruina-online p { margin: 0 0 16px; line-height: 1.45; font-size: 14px; color: var(--ink); }
-#ruina-online label { display: block; margin: 0 0 12px; font-size: 13px; font-weight: 700; color: var(--ink-2); }
-#ruina-online input { display: block; width: 100%; margin-top: 5px; padding: 8px 11px; border-radius: 6px; font: 15px var(--font); color: var(--ink-strong);
-  background: rgba(255, 250, 236, 0.75); border: 1px solid var(--inset-line); box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.18); outline: none; user-select: text; }
-#ruina-online input:focus { border-color: var(--title); }
-#ruina-online .ro-error { min-height: 18px; margin: 2px 0 10px; color: var(--bad); font-size: 13px; }
-#ruina-online button { font: inherit; cursor: pointer; }
-#ruina-online .ro-primary { width: 100%; padding: 9px; border-radius: 6px; font: 700 15px var(--font); color: var(--btn-gold-ink); background: var(--btn-gold);
-  border: 2px solid #2b0d10; box-shadow: 0 0 0 2px #d4a04c, 0 0 0 3.5px #2b1a0e; }
-#ruina-online .ro-primary:disabled { opacity: 0.6; cursor: default; }
-#ruina-online .ro-link { display: block; margin: 14px auto 0; border: 0; background: none; color: var(--ink-2); font-size: 13px; text-decoration: underline; }
-#ruina-online .ro-wait { display: flex; align-items: center; gap: 12px; font-size: 15px; }
-#ruina-online .ro-spin { width: 18px; height: 18px; border-radius: 50%; border: 3px solid rgba(110, 70, 30, 0.25); border-top-color: var(--title); animation: ro-spin 0.8s linear infinite; }
-@keyframes ro-spin { to { transform: rotate(360deg); } }
-#ruina-badge { position: fixed; left: 16px; bottom: 16px; z-index: 5; display: flex; align-items: center; gap: 7px; padding: 4px 6px 4px 10px; border-radius: 999px;
-  font: 700 12.5px var(--font); color: var(--ink); background: var(--card); box-shadow: var(--card-shadow); pointer-events: auto; }
+/* ---------- Online badge (the sign-in screen and the screens that stop play are in front.css) ----------
+   Bottom right, under the menu buttons (#hud-menu, hud.css, whose labels hang just below them) and
+   clear of the stats line at the bottom left. */
+#ruina-badge { position: fixed; right: 18px; bottom: 14px; z-index: 5; display: flex; align-items: center; gap: 7px; padding: 4px 5px 4px 11px; border-radius: 999px;
+  white-space: nowrap; font: 700 12.5px var(--font); color: var(--ink); background: var(--card); box-shadow: var(--card-shadow); pointer-events: auto; }
+#ruina-badge .who { margin-right: 3px; }
 #ruina-badge .dot { width: 8px; height: 8px; border-radius: 50%; background: #3fae4a; box-shadow: 0 0 0 1px #2b1a0e; }
 #ruina-badge.reconnecting .dot { background: #f0ad4e; }
 #ruina-badge.stopped .dot { background: #d9534f; }
-#ruina-badge button { font: 700 11px var(--font); color: var(--btn-ink); cursor: pointer; padding: 2px 9px; border-radius: 999px; border: 1px solid #2b0d10; background: var(--btn); }
+#ruina-badge button { font: 700 11.5px var(--font-title); letter-spacing: 0.03em; color: var(--btn-ink); cursor: pointer; padding: 2px 10px 3px; border-radius: 999px;
+  border: 1px solid #2b0d10; background: var(--btn); text-shadow: 0 1px 0 #2b0d10; }
+#ruina-badge button:hover { filter: brightness(1.12); }

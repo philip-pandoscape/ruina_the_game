@@ -1463,18 +1463,23 @@ export class LifeUI {
 
   private settingsView(): View {
     const v = Math.round(userScale() * 100);
+    // Online: back to the character select screen (the server keeps the island).
+    const exit = this.onExitToSelect
+      ? `<div class="h">Character</div><p class="note">Play someone else: your island is saved on the server as you go.</p><button class="lui-btn" data-act="exitToSelect">Exit to Character Select</button>`
+      : '';
     return {
       title: 'Settings',
       portrait: `<span class="emoji">${pixelIcon('gear', 36)}</span>`,
       w: 420,
-      h: 330,
-      body: `<div class="h">Interface</div><div class="set-row"><span>UI size</span><input type="range" min="${UI_SCALE_MIN * 100}" max="${UI_SCALE_MAX * 100}" step="5" value="${v}" data-set="uiScale"><b>${v}%</b></div><p class="note">The UI keeps its size relative to the window; this makes it bigger or smaller on top of that.</p><div class="h">Credits</div><p class="note">Item and skill icons drawn from Twemoji by Twitter and contributors, CC-BY 4.0. Type: TeX Gyre Pagella (GUST Font License) and Alegreya SC (SIL Open Font License).</p>`,
+      h: exit ? 430 : 330,
+      body: `<div class="h">Interface</div><div class="set-row"><span>UI size</span><input type="range" min="${UI_SCALE_MIN * 100}" max="${UI_SCALE_MAX * 100}" step="5" value="${v}" data-set="uiScale"><b>${v}%</b></div><p class="note">The UI keeps its size relative to the window; this makes it bigger or smaller on top of that.</p>${exit}<div class="h">Credits</div><p class="note">Item and skill icons drawn from Twemoji by Twitter and contributors, CC-BY 4.0. Type: TeX Gyre Pagella (GUST Font License) and Alegreya SC (SIL Open Font License).</p>`,
       foot: `<button class="lui-btn small" data-act="resetScale">Reset</button><button class="lui-btn" data-act="close">Done</button>`,
       handlers: {
         resetScale: () => {
           setUserScale(1);
           this.renderPanel(false);
         },
+        exitToSelect: () => this.onExitToSelect?.(),
       },
     };
   }
@@ -1616,6 +1621,8 @@ export class LifeUI {
   /** Set by the app: move the player somewhere (dev panel). */
   onTeleport: ((x: number, z: number) => void) | null = null;
   onReset: (() => void) | null = null;
+  /** Set by the app online: leave the world for the character select screen (Settings offers it). */
+  onExitToSelect: (() => void) | null = null;
   /** Whether the developer panel opens (online, the server decides: development and beta only). */
   devTools = true;
   /** Online: everyone else in your channel, for the map. */

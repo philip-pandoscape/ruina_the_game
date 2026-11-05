@@ -4,6 +4,7 @@ import type { LifeState, Vehicle, Weather } from '../sim/life/state';
 import type { Build } from '../tuning';
 import { currentAccount, ServerDown } from './account';
 import type { ArrowRecord, EffectEvent, MeteorRecord, NetActor } from './netCrowd';
+import { resumeAfterReload } from '../app/resume';
 
 // Your connection to the game server (server/src/world_socket.rs), which plays Emberholm: your
 // browser sends what you press (about 60 inputs a second) and what you ask your island to do
@@ -11,12 +12,18 @@ import type { ArrowRecord, EffectEvent, MeteorRecord, NetActor } from './netCrow
 // and answers 20 times a second with where you really are, what your island holds, and what
 // everyone else in your channel is doing. Your own player is predicted with the same rules in the
 // meantime (src/net/netPlayer.ts) and corrected to what arrives here. Only one window plays a
-// character at a time.
+// character at a time. /ws/world?character=<id> plays that one of your characters.
+//
+// When the server is updated, it says so (updating), writes your island and hangs up as a service
+// restart (1012); a connection can also just drop. Either way the game freezes while this keeps
+// trying, and carries on once the server is back. If the page is out of date by then (the server
+// speaks another protocol, or a new build of the game is out), it reloads and comes straight back
+// into the world with the same character (src/app/resume.ts).
 //
 //   server → browser  (text) welcome {protocol, character, account, build, now, channel, dev, estates, claims}
 //                     tick {tick, you, peers, actors, arrows, meteors, events, lifeEvents?, life?}
 //                     estate {id, name, estate} | claims {claims} | left {id} | saved {at}
-//                     | reset | kicked | error {text}
+//                     | reset | kicked | error {text} | updating
 //   browser → server  (binary) inputs: 7, count, then per input a u32 sequence number and 10 bytes
 //                     (text) cmd {s, c} | build {build} | reset
 
@@ -86,15 +93,20 @@ export interface WorldTick {
 }
 
 /**
- * online: connected. reconnecting: the connection dropped; the world waits until it's back.
+ * online: connected. updating: the server is being updated (it said so, or hung up as a service
+ * restart); reconnecting: the connection dropped. Either way the world waits until it's back.
  * kicked: another window took this character over. signed-out: the sign-in ended meanwhile.
  */
-export type LinkStatus = 'online' | 'reconnecting' | 'kicked' | 'signed-out';
+export type LinkStatus = 'online' | 'updating' | 'reconnecting' | 'kicked' | 'signed-out';
 
-const RETRY_MS = [500, 1000, 2000, 4000, 8000];
+/** How long to wait between tries: an update's new server is usually there within seconds. */
+const RETRY_MS = { updating: [500, 1000, 1500, 2000], reconnecting: [500, 1000, 2000, 4000] };
+/** A WebSocket closed as a service restart: the server is being updated. */
+const SERVICE_RESTART = 1012;
 /** What this page speaks; the server says what it speaks in its welcome (server/src/world_socket.rs). */
 const WORLD_PROTOCOL = 3;
 const RELOADED = 'ruina.reloaded-for-server';
+const RELOADED_BUILD = 'ruina.reloaded-for-build';
 const SEND_INPUTS = 7;
 /** Bytes per input: the battlefield's 8 (src/net/netPlayer.ts quantize) and the raw stick. */
 const OPEN_INPUT = 10;
@@ -123,10 +135,14 @@ export class WorldLink {
   /** The newest tick, and the newest whole island, for whatever arrives before the game is listening. */
   latest: WorldTick | null = null;
   latestLife: WorldTick['life'] | null = null;
+  /** The server said it is stopping for an update. */
+  private updating = false;
 
   private constructor(
     private ws: WebSocket,
     welcome: Welcome,
+    /** The character this connection plays (and comes back with). */
+    readonly character: number,
   ) {
     this.welcomed(welcome);
     this.attach(ws);
@@ -139,10 +155,13 @@ export class WorldLink {
     this.claims = w.claims ?? {};
   }
 
-  /** Connects and waits for the welcome. Rejects with ServerDown if the server can't be reached. */
-  static async open(): Promise<{ link: WorldLink; welcome: Welcome }> {
-    const { ws, welcome } = await connect();
-    return { link: new WorldLink(ws, welcome), welcome };
+  /**
+   * Connects to play `character` (one of yours; without one, the one you played last) and waits for
+   * the welcome. Rejects with ServerDown if the server can't be reached.
+   */
+  static async open(character?: number): Promise<{ link: WorldLink; welcome: Welcome }> {
+    const { ws, welcome } = await connect(character);
+    return { link: new WorldLink(ws, welcome, welcome.character.id), welcome };
   }
 
   get open(): boolean {
@@ -191,8 +210,8 @@ export class WorldLink {
     ws.onmessage = (e) => {
       if (ws === this.ws) this.receive(e.data);
     };
-    ws.onclose = () => {
-      if (ws === this.ws) void this.lost();
+    ws.onclose = (e) => {
+      if (ws === this.ws) void this.lost(e.code);
     };
   }
 
@@ -219,7 +238,11 @@ export class WorldLink {
       for (const done of this.resetDone.splice(0)) done();
     }
     else if (msg.t === 'kicked') this.setStatus('kicked');
-    else if (msg.t === 'error') this.onError?.(msg.text ?? 'The server had a problem.');
+    else if (msg.t === 'updating') {
+      // The server is stopping for an update: nothing more counts until the new one is up.
+      this.updating = true;
+      this.setStatus('updating');
+    } else if (msg.t === 'error') this.onError?.(msg.text ?? 'The server had a problem.');
     else if (msg.t === 'estate' && msg.estate) {
       const e = { id: msg.id ?? 0, name: msg.name ?? '', estate: msg.estate };
       this.estates.set(e.id, e);
@@ -233,20 +256,31 @@ export class WorldLink {
     }
   }
 
-  private async lost(): Promise<void> {
+  /** The connection closed (`code`: the WebSocket's close code). Keeps trying until it's back. */
+  private async lost(code: number): Promise<void> {
     if (this.status === 'kicked' || this.status === 'signed-out') return;
-    this.setStatus('reconnecting');
+    if (code === SERVICE_RESTART) this.updating = true;
+    this.setStatus(this.updating ? 'updating' : 'reconnecting');
     for (let attempt = 0; ; attempt++) {
-      await new Promise((r) => setTimeout(r, RETRY_MS[Math.min(attempt, RETRY_MS.length - 1)]));
+      const waits = RETRY_MS[this.updating ? 'updating' : 'reconnecting'];
+      await new Promise((r) => setTimeout(r, waits[Math.min(attempt, waits.length - 1)]));
+      // A new build of the game came out (with the new server, most likely): load it, and come
+      // straight back in.
+      if (await newBuildOut()) {
+        reloadInto(this.character);
+        return;
+      }
       try {
-        const { ws, welcome } = await connect();
+        const { ws, welcome } = await connect(this.character);
         this.ws = ws;
         this.welcomed(welcome);
         this.attach(ws);
+        this.updating = false;
         this.setStatus('online');
         this.onReconnect?.(welcome);
         return;
-      } catch {
+      } catch (e) {
+        if (e instanceof Reloading) return;
         // Signed out meanwhile (expired, or signed out in another window): retrying won't help.
         if ((await currentAccount().catch(() => undefined)) === null) {
           this.setStatus('signed-out');
@@ -263,9 +297,47 @@ export class WorldLink {
   }
 }
 
-function connect(): Promise<{ ws: WebSocket; welcome: Welcome }> {
+/** The page is reloading to come back as the newer game: nothing more to do here. */
+class Reloading extends ServerDown {}
+
+/** Reloads into the world with `character`, without the intro or the character select screen. */
+function reloadInto(character: number | undefined): void {
+  if (character !== undefined) resumeAfterReload(character);
+  location.reload();
+}
+
+/** The game's build a page loads: its module scripts (hashed file names in production). */
+function buildOf(doc: Document): string {
+  return [...doc.querySelectorAll('script[type="module"][src]')].map((s) => s.getAttribute('src')).join(' ');
+}
+
+/**
+ * Whether a newer build of the game is out than this page: its own module scripts against those of
+ * a fresh copy of the page. (In development both are /src/main.ts.) Not if it already reloaded for
+ * that build once and still isn't it: a cache in the way mustn't make it reload forever.
+ */
+async function newBuildOut(): Promise<boolean> {
+  try {
+    const res = await fetch(location.pathname, { cache: 'no-store', credentials: 'same-origin' });
+    if (!res.ok) return false;
+    const theirs = buildOf(new DOMParser().parseFromString(await res.text(), 'text/html'));
+    // Not the game's page (a proxy's error page, say), or the same build.
+    if (!theirs || theirs === buildOf(document)) {
+      sessionStorage.removeItem(RELOADED_BUILD);
+      return false;
+    }
+    if (sessionStorage.getItem(RELOADED_BUILD) === theirs) return false;
+    sessionStorage.setItem(RELOADED_BUILD, theirs);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function connect(character?: number): Promise<{ ws: WebSocket; welcome: Welcome }> {
   return new Promise((resolve, reject) => {
-    const ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws/world`);
+    const which = character === undefined ? '' : `?character=${character}`;
+    const ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws/world${which}`);
     const timer = setTimeout(() => {
       ws.close();
       reject(new ServerDown("The game server didn't answer."));
@@ -282,13 +354,15 @@ function connect(): Promise<{ ws: WebSocket; welcome: Welcome }> {
       clearTimeout(timer);
       ws.onmessage = null;
       ws.onclose = null;
-      // The server was updated since this page loaded: load the new game (once; if that didn't
-      // help, say so rather than reloading forever).
+      // The server was updated since this page loaded: load the new game, straight back into the
+      // world with this character (once; if that didn't help, say so rather than reloading forever).
       if ((msg as { protocol?: number }).protocol !== WORLD_PROTOCOL) {
         ws.close();
         if (!sessionStorage.getItem(RELOADED)) {
           sessionStorage.setItem(RELOADED, '1');
-          location.reload();
+          reloadInto(character ?? msg.character?.id);
+          reject(new Reloading('The game was updated. Loading the new version…'));
+          return;
         }
         reject(new ServerDown('The game was updated. Reload the page to play.'));
         return;
