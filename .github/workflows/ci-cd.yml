@@ -149,7 +149,12 @@ jobs:
   deploy:
     name: Deploy
     needs: [client, server, game-result]
-    if: github.event_name != 'pull_request' && (github.ref_name == 'beta' || github.ref_name == 'production')
+    # Says what must have passed rather than leaving it to success(), which a job skipped further up
+    # (the game tests, on a push to beta) turns false.
+    if: >-
+      !cancelled() && needs.client.result == 'success' && needs.server.result == 'success' &&
+      needs.game-result.result == 'success' && github.event_name != 'pull_request' &&
+      (github.ref_name == 'beta' || github.ref_name == 'production')
     runs-on: ubuntu-latest
     environment:
       name: ${{ github.ref_name }}
