@@ -146,7 +146,12 @@ export class NetSpells {
         this.meteors.set(m.id, { rec: m, first: tick, last: tick });
       }
     }
-    for (const e of this.net.events.splice(0)) this.queued.push({ tick, e });
+    for (const e of this.net.events.splice(0)) {
+      // Your own hits show the moment the server's word arrives: the swing that made them is
+      // already on screen, since your own player is drawn in the present.
+      if ((e.kind & 15) === EVENT_YOU_HIT) this.onMarker?.('hit', e.x, e.y, e.z, e.size, e.kind >> 4);
+      else this.queued.push({ tick, e });
+    }
   }
 
   // The local arrow that matches a server arrow: same direction, on the same line.

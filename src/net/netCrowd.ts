@@ -1,4 +1,5 @@
 import type { CrowdSource } from '../crowd/crowdView';
+import { ActorTimeline } from './actorTimeline';
 import { ON_FOOT, type Mode, type PlayerState } from '../sim/types';
 import { resolveSkills, SKILL_WORDS } from '../skills';
 import { HOTBAR_SLOTS, MOVEMENT_SKILL_CAP, MOVEMENT_SLOTS, NO_ABILITY, NO_MOVEMENT, variantBits } from '../tuning';
@@ -199,9 +200,9 @@ const FINE_HOLD_MS = 600; // ignore coarse once-a-second positions for fighters 
 // A jump bigger than TELEPORT_SLACK + TELEPORT_SPEED × (seconds since the last update) is a teleport.
 const TELEPORT_SLACK = 2; // metres
 const TELEPORT_SPEED = 8; // m/s, faster than any fighter runs
-// Other players are drawn this many server ticks behind the newest update (100 ms at 20 Hz),
-// so there's always a next update to blend toward.
-const INTERP_TICKS = 2;
+// Other players (and monsters) are drawn this many server ticks behind the newest update (100 ms
+// at 20 Hz), so there's always a next update to blend toward.
+export const INTERP_TICKS = 2;
 
 export interface ServerStats {
   tick: number;
@@ -250,6 +251,8 @@ export class NetCrowd implements CrowdSource {
   events: EffectEvent[] = []; // effects to show; the game takes them out as it shows them
   /** Monsters, NPCs and props near you, as the server last described them. */
   actors: NetActor[] = [];
+  /** The last second of those descriptions, for drawing them between updates (actorTimeline.ts). */
+  readonly actorTimeline = new ActorTimeline();
   snapshots = 0; // counts up with every update, so the game can tell when new data has arrived
   lastTick = 0; // server tick of the newest update
   private tickMs = 50;
@@ -307,6 +310,7 @@ export class NetCrowd implements CrowdSource {
     this.meteors = meteors;
     this.events.push(...events);
     this.actors = actors;
+    this.actorTimeline.push(tick, actors, performance.now());
     this.arrowsTick = this.lastTick;
     this.snapshots++;
   }
@@ -575,6 +579,7 @@ export class NetCrowd implements CrowdSource {
           });
         }
         this.actors = actors;
+        this.actorTimeline.push(this.lastTick, actors, now);
         this.arrows = arrows;
         this.meteors = meteors;
         this.arrowsTick = this.lastTick;

@@ -1,6 +1,7 @@
 import type * as THREE from 'three';
 import type { CrowdSource } from '../crowd/crowdView';
-import type { NetCrowd } from '../net/netCrowd';
+import type { NetActor, NetCrowd } from '../net/netCrowd';
+import { actorKindAt } from '../content/actors';
 import type { RemotePlayers } from '../net/netPlayer';
 import { isAlive } from '../sim/actor';
 import { COMBAT } from '../tuning';
@@ -26,6 +27,8 @@ export interface TargetingDeps {
   softLock: boolean;
   /** What to call each actor kind on the target plate. */
   names: Record<string, string>;
+  /** Online: the server's monsters, where they're drawn on this screen. */
+  netActors?: () => readonly NetActor[];
 }
 
 export function createTargeting(d: TargetingDeps) {
@@ -71,6 +74,16 @@ export function createTargeting(d: TargetingDeps) {
         const dz = a.z - pz;
         if (dx * dx + dz * dz > r2) continue;
         visit(`actor:${a.id}`, a.x, a.y, a.z, a.hp / a.maxHp, d.names[a.kind] ?? a.kind);
+      }
+    }
+    if (d.online && d.netActors) {
+      for (const a of d.netActors()) {
+        const kind = actorKindAt(a.kind);
+        if (!kind || a.deadFrame >= 0 || kind.faction === 0 || kind.faction === 2) continue; // not players, not townsfolk
+        const dx = a.x - px;
+        const dz = a.z - pz;
+        if (dx * dx + dz * dz > r2) continue;
+        visit(`actor:${a.id}`, a.x, a.y, a.z, a.hp, d.names[kind.id] ?? kind.id);
       }
     }
     for (const r of d.remotes?.list() ?? []) {

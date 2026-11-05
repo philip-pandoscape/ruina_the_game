@@ -229,6 +229,13 @@ export class Hero {
   private swingIndex = -1;
   private swingFrame = 0;
   private swingAir = false;
+  /**
+   * A hit's pause, drawn: sixtieths of a second of it still to hold, how far behind the rules the
+   * swing is drawn because of it, and which swing it was for.
+   */
+  private pauseLeft = 0;
+  private pauseLag = 0;
+  private pauseSwing = -1;
   private lastStunFrame = Infinity;
   /**
    * Where the weapon's model hangs: null in the hand, '' put away on foot, otherwise put away for
@@ -340,6 +347,37 @@ export class Hero {
     return this.rig;
   }
 
+  /**
+   * A swing of yours connected: hold it where it is for `frames` (sixtieths of a second), then let
+   * it catch up, as the rules' own hit pause does in the training yard. Online the rules can't stop
+   * for it - the server decides where you are - so only the drawing does.
+   */
+  hitPause(frames: number, swing: number): void {
+    if (frames <= 0) return;
+    if (swing !== this.pauseSwing) this.pauseLag = 0;
+    this.pauseSwing = swing;
+    this.pauseLeft = Math.max(this.pauseLeft, frames);
+  }
+
+  /** Draws the swing a little behind the rules while a hit's pause holds it and it catches up. */
+  private holdForHit(input: PoseInput): void {
+    if (input.attackIndex < 0 || input.attackIndex !== this.pauseSwing) {
+      this.pauseLeft = this.pauseLag = 0;
+      this.pauseSwing = -1;
+      return;
+    }
+    const dt = Number.isFinite(this.lastTime) ? clamp((input.time - this.lastTime) * 60, 0, 6) : 0;
+    if (this.pauseLeft > 0) {
+      const hold = Math.min(this.pauseLeft, dt);
+      this.pauseLeft -= hold;
+      this.pauseLag += hold;
+    } else {
+      // Half as fast again until it's caught up.
+      this.pauseLag = Math.max(0, this.pauseLag - dt * 0.5);
+    }
+    input.attackFrame = Math.max(0, input.attackFrame - this.pauseLag);
+  }
+
   // Poses the character from the game state. alpha blends between the last two sim steps.
   update(p: PlayerState, alpha: number, frame: number): void {
     this.root.position.set(lerp(p.prevPos.x, p.pos.x, alpha), lerp(p.prevPos.y, p.pos.y, alpha), lerp(p.prevPos.z, p.pos.z, alpha));
@@ -348,6 +386,7 @@ export class Hero {
     const running = p.mode === 'normal' && p.grounded;
     const back = running ? Math.hypot(p.vel.x, p.vel.z) * STEP * (1 - alpha) : 0;
     const input = inputFromPlayer(p, frame, this.seatPose, alpha);
+    this.holdForHit(input);
     input.stow = this.drawOrSheathe(p, input);
     this.drive(input, p.runPhase - back);
   }
