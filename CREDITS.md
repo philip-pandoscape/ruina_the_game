@@ -10,6 +10,7 @@ licences:
 | Title type: Alegreya SC | `src/ui/theme/fonts/alegreya-sc-700.woff2` | [The Alegreya Project Authors](https://github.com/huertatipografica/Alegreya) (Juan Pablo del Peral, Huerta Tipográfica) | SIL Open Font License 1.1 (`src/ui/theme/fonts/ALEGREYA-SC-OFL.txt`) |
 | Ground textures: grass | `src/render/assets/ground/grass*.jpg` | [ambientCG](https://ambientcg.com/view?id=Grass004) (Grass004) | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) |
 | Ground textures: path, sand, rock, soil, cobbles, forest floor | `src/render/assets/ground/` | [Poly Haven](https://polyhaven.com/textures) (dirt_floor, coast_sand_01, rock_face_03, farm_soil, cobblestone_floor_08, forrest_ground_01) | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) |
+| Tree bark | `src/render/assets/bark_*.jpg` | [Poly Haven](https://polyhaven.com/textures) (bark_brown_02, pine_bark) | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) |
 | Wood, stone and plaster grain | `src/render/assets/detail.jpg` | [Poly Haven](https://polyhaven.com/textures) (brown_planks_05, stone_wall, plastered_wall), made greyscale and packed a channel each | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) |
 
 The made models in `src/render/assets/models/` (buildings, stalls, props, resource nodes, boulders)
