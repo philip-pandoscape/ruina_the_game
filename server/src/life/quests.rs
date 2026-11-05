@@ -449,7 +449,7 @@ mod tests {
         assert!(accept(&mut life, "shipwright"));
         assert!(is_ready(&life, "shipwright"));
         // A house part built counts its stages.
-        life.state.quests.done.push("firstFlight".into());
+        life.state.quests.done.extend(["firstFlight", "stonecutting", "woodcutting"].map(String::from));
         life.state.houses.push(crate::life::state::House { id: 5, plot: "rise-1".into(), blueprint: "cottage".into(), stage: 2, ..Default::default() });
         assert!(accept(&mut life, "home"));
         let p = &life.state.quests.active[quest_active(&life, "home").unwrap()];
@@ -501,6 +501,47 @@ mod tests {
         life.notify(deliver("westwatch"));
         let p = &life.state.quests.active[quest_active(&life, "wheels").unwrap()];
         assert_eq!(p.counts, [1.0]);
+    }
+
+    #[test]
+    fn stone_then_timber_come_before_the_house_and_count_what_you_gather() {
+        let (mut life, _, _) = island(0.0);
+        life.state.quests.active.clear();
+        life.state.quests.done.extend(["landfall", "patch", "wings", "firstFlight", "harvest", "packwright", "westward"].map(String::from));
+        // Quill teaches what a house is made of before granting land.
+        assert_eq!(ids(&quests_at(&life, "quill").0), ["stonecutting"]);
+        assert!(!accept(&mut life, "home"), "stone and timber first");
+        assert!(accept(&mut life, "stonecutting"));
+        talk(&mut life, "brenna");
+        assert_eq!(step(&life, "stonecutting"), 1);
+        // "Quarry 10 stone" counts the stone each swing gives, and only stone.
+        let gather = |kind: &str, n: f64| QuestEvent { kind: Some(kind.into()), amount: Some(n), ..QuestEvent::new("gather") };
+        life.notify(gather("timber", 5.0));
+        life.notify(gather("stone", 4.0));
+        life.notify(gather("stone", 3.0));
+        assert_eq!(life.state.quests.active[quest_active(&life, "stonecutting").unwrap()].counts, [7.0]);
+        life.notify(gather("stone", 5.0));
+        assert_eq!(step(&life, "stonecutting"), 2, "twelve stone is the ten it wants");
+        // Only the pack it names.
+        life.notify(QuestEvent { pack: Some("ironCrate".into()), ..QuestEvent::new("craftPack") });
+        assert!(!is_ready(&life, "stonecutting"));
+        life.notify(QuestEvent { pack: Some("stoneBlock".into()), ..QuestEvent::new("craftPack") });
+        assert_eq!(ids(&quests_at(&life, "brenna").1), ["stonecutting"]);
+        assert!(complete(&mut life, "stonecutting"));
+        // Brenna sends you on to Hob; that one is handed in to Quill, who then offers the house.
+        assert_eq!(ids(&quests_at(&life, "brenna").0), ["woodcutting"]);
+        assert!(quests_at(&life, "quill").0.is_empty());
+        assert!(accept(&mut life, "woodcutting"));
+        talk(&mut life, "hob");
+        life.notify(gather("timber", 10.0));
+        life.notify(QuestEvent { pack: Some("lumberBundle".into()), ..QuestEvent::new("craftPack") });
+        assert!(quests_at(&life, "hob").1.is_empty());
+        assert_eq!(ids(&quests_at(&life, "quill").1), ["woodcutting"]);
+        toasts(&mut life);
+        assert!(complete(&mut life, "woodcutting"));
+        assert_eq!((life.state.coins, life.state.seals), (120.0, 1.0));
+        assert_eq!(toasts(&mut life), ["✔ Timber from Thornwood complete - 1 skill point, 60c, 1 seal"]);
+        assert_eq!(ids(&quests_at(&life, "quill").0), ["home"]);
     }
 
     #[test]

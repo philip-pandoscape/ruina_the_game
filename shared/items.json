@@ -114,7 +114,7 @@
       "cat": "material",
       "stack": 200,
       "value": 6,
-      "desc": "Rough-sawn timber. Bundle ten at a sawhorse to haul to a building site."
+      "desc": "Rough-sawn timber, chopped from the deadfall around Hob's camp in Thornwood (F) or felled from trees you grow; Hob's Woodpile sells it too. Ten make a Lumber Bundle at Hob's Sawhorse."
     },
     {
       "id": "stone",
@@ -123,7 +123,7 @@
       "cat": "material",
       "stack": 200,
       "value": 6,
-      "desc": "Quarried stone. Ten make a building block at the stonecutter."
+      "desc": "Quarried from the pale rock outcrops at Stonebreak Quarry (F), or bought at Brenna's Quarry Stores. Ten make a Stone Block at the Stonecutter's Table."
     },
     {
       "id": "ironOre",
@@ -132,7 +132,7 @@
       "cat": "material",
       "stack": 200,
       "value": 15,
-      "desc": "Rusty ore for nails, fittings and axles."
+      "desc": "Rusty ore for nails, fittings and axles, mined from the rust-streaked outcrops at Stonebreak Quarry (F) or bought at Brenna's Quarry Stores. Six make an Iron Fittings Crate at the Stonecutter's Table."
     },
     {
       "id": "herbs",

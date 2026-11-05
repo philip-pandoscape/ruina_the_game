@@ -772,7 +772,7 @@ part('the quest flow', () => {
   const W = 24 + Object.keys(cols).length * (BW + GX) - GX;
   const H = 24 + maxRows * (BH + GY) - GY;
   const TEACH: Record<string, string> = {
-    placeScarecrow: 'FARMING', plant: 'FARMING', harvest: 'HARVEST', reach: 'EXPLORE', glide: 'GLIDING', craftPack: 'PACKS', deliver: 'TRADE', summon: 'VEHICLES', load: 'CARGO',
+    placeScarecrow: 'FARMING', plant: 'FARMING', harvest: 'HARVEST', reach: 'EXPLORE', glide: 'GLIDING', gather: 'GATHERING', craftPack: 'PACKS', deliver: 'TRADE', summon: 'VEHICLES', load: 'CARGO',
     placeHouse: 'HOUSING', buildStage: 'HOUSING', talk: 'MEET', raise: 'LIVESTOCK', contract: 'CONTRACTS', layKeel: 'SHIPYARD', shipStage: 'SHIPYARD', launch: 'SHIPYARD',
   };
   let s = '';
