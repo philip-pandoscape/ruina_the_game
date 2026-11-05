@@ -149,12 +149,18 @@ export class CharacterSelect {
       );
       return;
     }
-    if (!this.preview) {
-      this.preview = new HeroPreview(600, 620);
-      this.stage.replaceChildren(this.preview.canvas);
+    if (!this.preview && !this.stage.querySelector('.cs-name')) {
+      try {
+        this.preview = new HeroPreview(600, 620);
+        this.stage.replaceChildren(this.preview.canvas);
+      } catch (e) {
+        // No WebGL for a second canvas: the screen works without the hero.
+        console.warn('no hero preview', e);
+        this.stage.replaceChildren();
+      }
     }
     if (changed || !this.stage.querySelector('.cs-name')) {
-      this.preview.show(c.weapon, flourish);
+      this.preview?.show(c.weapon, flourish);
       const chips = el('div', { className: 'cs-chips' });
       chips.innerHTML =
         `<span>${iconHtml(WEAPON_ICONS[c.weapon] ?? WEAPON_ICONS[0], undefined, 16)}${WEAPON_NAMES[c.weapon] ?? 'Sword'}</span>` +

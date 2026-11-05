@@ -50,6 +50,7 @@ export async function goOnline(params: URLSearchParams): Promise<Online> {
         }
       }
       if (!account) {
+        await splash?.afterIntro();
         account = await screen.ask(note);
         straight = false;
       }
@@ -60,6 +61,7 @@ export async function goOnline(params: URLSearchParams): Promise<Online> {
       straight = false;
       resume = null;
       if (!pick) {
+        await splash?.afterIntro();
         const choice = await CharacterSelect.show(account, characters, max);
         // Signed out: back to signing in.
         if ('signedOut' in choice) continue;

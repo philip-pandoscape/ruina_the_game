@@ -32,8 +32,12 @@ export type LoadStep = keyof typeof STEPS;
 /** What index.html keeps on window: when the page started, and how to stop the embers. */
 interface SplashGlobal {
   progress: number;
+  started: number;
   stop?: () => void;
 }
+
+/** How long the intro takes to bring the name in (index.html's intro animations). */
+const INTRO_MS = 1300;
 
 export type SplashMode = 'title' | 'select' | 'entering';
 
@@ -104,6 +108,16 @@ export class Splash {
   /** The title look, the character select look (the name moves up out of the way), or going in. */
   setMode(mode: SplashMode): void {
     this.root.dataset.mode = mode;
+  }
+
+  /**
+   * Resolves once the intro has brought the name in, so a card doesn't arrive in the middle of it
+   * (at once when there was no intro: a reload, or reduced motion).
+   */
+  afterIntro(): Promise<void> {
+    if (document.documentElement.classList.contains('splash-quick') || reducedMotion()) return Promise.resolve();
+    const left = INTRO_MS - (performance.now() - (this.global?.started ?? 0));
+    return left > 0 ? new Promise((resolve) => setTimeout(resolve, left)) : Promise.resolve();
   }
 
   /** Lets the browser draw the bar before a long step that holds up the page. */
