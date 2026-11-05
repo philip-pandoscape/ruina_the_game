@@ -47,7 +47,9 @@
 .fd-front .fd-card { width: 410px; }
 
 /* ---------- Choosing a character ---------- */
-.cs { position: absolute; inset: 0; pointer-events: none; }
+.cs { position: absolute; inset: 0; pointer-events: none; transition: opacity 0.3s ease-out; }
+.cs.cs-out { opacity: 0; }
+.cs.cs-out * { pointer-events: none !important; }
 .cs-stage { position: absolute; left: 0; right: 470px; top: 96px; bottom: 150px; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }
 .cs-hero { display: block; width: 600px; height: 620px; flex: none; pointer-events: auto; cursor: grab; touch-action: none; }
 .cs-hero:active { cursor: grabbing; }
@@ -116,5 +118,5 @@
 @media (prefers-reduced-motion: reduce) {
   .fd-in, .fd-modal, #ruina-net, .cs-enter .lui-btn, .net-spin::after { animation: none !important; }
   .net-spin::before { animation-duration: 4s; }
-  .cs-row { transition: none; }
+  .cs-row, .cs { transition: none; }
 }

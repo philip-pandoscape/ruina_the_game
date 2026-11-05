@@ -205,9 +205,15 @@ export class CharacterSelect {
 
   private finish(choice: Choice): void {
     removeEventListener('keydown', this.onKey);
-    this.preview?.dispose();
+    // Going in: the circle flares under them as the screen fades away.
+    if ('enter' in choice) this.preview?.show(choice.enter.weapon, true);
+    this.root.classList.add('cs-out');
+    const preview = this.preview;
     this.preview = null;
-    this.root.remove();
+    setTimeout(() => {
+      preview?.dispose();
+      this.root.remove();
+    }, 320);
     this.done?.(choice);
   }
 

@@ -120,9 +120,18 @@ export class Splash {
     return left > 0 ? new Promise((resolve) => setTimeout(resolve, left)) : Promise.resolve();
   }
 
-  /** Lets the browser draw the bar before a long step that holds up the page. */
+  /**
+   * Lets the browser draw the bar before a long step that holds up the page. In a background tab
+   * (no frames drawn there) it goes on anyway, so loading doesn't stop while you look elsewhere.
+   */
   paint(): Promise<void> {
-    return new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve, 0)));
+    return new Promise((resolve) => {
+      const hidden = setTimeout(resolve, 60);
+      requestAnimationFrame(() => {
+        clearTimeout(hidden);
+        setTimeout(resolve, 0);
+      });
+    });
   }
 
   /** Fades into the game, then goes for good (the embers stop with it). */
