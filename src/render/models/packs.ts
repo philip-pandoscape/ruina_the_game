@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { PACKS } from './data';
 import { PAL, Parts, beam, bev, box, cone, cyl, glowMaterial, ico, jiggle, lathe, makeRng, mesh, octa, ring, rod, span, vary, type V3 } from './kit';
+import { grainify } from './detail';
 
 // Trade packs: what you craft at a workbench and carry on your back to a trading post.
 // Origin: bottom-centre of the strap face. The straps face +Z (they press against the
@@ -299,5 +300,6 @@ export function buildPack(id: string): THREE.Group {
   }
   mesh(root, body.build(), { outline: OUTLINE });
   if (!glow.empty) mesh(root, glow.build(), { mat: glowMaterial(), outline: OUTLINE, shadow: false });
+  grainify(root);
   return root;
 }

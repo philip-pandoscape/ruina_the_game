@@ -28,6 +28,7 @@ const atmosphereFragment = /* glsl */ `
   uniform mat4 uCamWorld;
   uniform vec3 uCamPos;
   uniform vec3 uFogColor;
+  uniform vec3 uSeaFar;
   uniform vec3 uSunColor;
   uniform vec3 uSunDir;
   uniform float uDensity;
@@ -59,7 +60,8 @@ const atmosphereFragment = /* glsl */ `
       gl_FragColor = vec4(vec3(ao), 1.0);
       return;
     #endif
-    vec3 col = src.rgb * mix(1.0, ao, uAO);
+    // Far off the depth buffer is too coarse for occlusion to mean anything; let it fade out.
+    vec3 col = src.rgb * mix(1.0, ao, uAO * (1.0 - smoothstep(90.0, 220.0, dist)));
 
     // Fog whose density falls off exponentially with height, integrated along the view ray, plus a
     // thin haze everywhere so the far isle and clouds soften too.
@@ -68,10 +70,12 @@ const atmosphereFragment = /* glsl */ `
     float optical = uDensity * exp(-uFalloff * (uCamPos.y - uBase)) * column + uHaze * dist;
     // Whatever reaches the edge of the view (the sea, mostly) is all haze by then, so it meets
     // the sky without a seam.
-    float fog = max(1.0 - exp(-optical), smoothstep(uFar * 0.5, uFar * 0.92, dist));
+    float fog = 1.0 - exp(-optical);
     float toSun = max(dot(rd, uSunDir), 0.0);
     vec3 fogColor = mix(uFogColor, uSunColor, pow(toSun, 6.0) * uSunGlow);
-    gl_FragColor = vec4(mix(col, fogColor, fog), 1.0);
+    col = mix(col, fogColor, fog);
+    vec3 edge = rd.y < 0.0 ? mix(uSeaFar, uFogColor, exp(rd.y * 40.0)) : uFogColor;
+    gl_FragColor = vec4(mix(col, edge, smoothstep(uFar * 0.55, uFar * 0.95, dist)), 1.0);
   }
 `;
 
@@ -121,6 +125,8 @@ const finishFragment = /* glsl */ `
 export interface Atmosphere {
   /** The haze colour (the horizon's), the sun's colour and where it is, all for the hour. */
   fog: THREE.Color;
+  /** The far sea seen from the air (OpenStage: the sky dome below its horizon shows the same). */
+  seaFar: THREE.Color;
   sun: THREE.Color;
   sunDir: THREE.Vector3;
   /** How much the haze glows toward the sun (less by moonlight). */
@@ -157,6 +163,7 @@ export class WorldPost {
         uCamWorld: { value: new THREE.Matrix4() },
         uCamPos: { value: new THREE.Vector3() },
         uFogColor: { value: new THREE.Color() },
+        uSeaFar: { value: new THREE.Color() },
         uSunColor: { value: new THREE.Color() },
         uSunDir: { value: new THREE.Vector3(0, 1, 0) },
         uDensity: { value: f.density },
@@ -198,6 +205,7 @@ export class WorldPost {
   setAtmosphere(a: Atmosphere): void {
     const u = this.atmosphereMat.uniforms;
     (u.uFogColor.value as THREE.Color).copy(a.fog);
+    (u.uSeaFar.value as THREE.Color).copy(a.seaFar);
     (u.uSunColor.value as THREE.Color).copy(a.sun);
     (u.uSunDir.value as THREE.Vector3).copy(a.sunDir).normalize();
     u.uSunGlow.value = a.sunGlow;

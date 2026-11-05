@@ -28,6 +28,7 @@ import {
   type V3,
 } from './kit';
 import { toon } from '../toon';
+import { grainify } from './detail';
 
 // Vehicles: wheeled carts and cars, and boats. Built around the anchors in shared/vehicles.json
 // (seats, cargo slots, wheels, oars, masts), so the rules and the art agree on where things are.
@@ -1360,7 +1361,9 @@ const BUILDERS: Record<string, (def: never) => VehicleModel> = {
 /** Builds the model for a vehicle definition; unknown ids get a generic body from the data. */
 export function buildVehicle(def: VehicleDef): VehicleModel {
   const custom = BUILDERS[def.id] as ((d: VehicleDef) => VehicleModel) | undefined;
-  if (custom) return custom(def);
-  return def.class === 'boat' ? genericBoat(def) : genericWheeled(def);
+  const model = custom ? custom(def) : def.class === 'boat' ? genericBoat(def) : genericWheeled(def);
+  // The new look gives planks, iron and canvas their grain (src/render/models/detail.ts).
+  grainify(model.root);
+  return model;
 }
 

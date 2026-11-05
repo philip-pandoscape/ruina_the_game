@@ -2,6 +2,9 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import type { World } from '../../sim/types';
 import { structureDef, propDef } from '../../content/structures';
+import { track } from '../assets';
+import { grainMaterial } from '../models/detail';
+import { madeProp } from '../models/glb';
 import { toon } from '../toon';
 import { tryBuild, type Models } from './models';
 
@@ -66,7 +69,9 @@ export class ZoneDressing {
   constructor(world: World, models: Models) {
     const zone = world.zone;
     if (!zone) return;
-    const mat = toon(0xffffff, { vertexColors: true });
+    // Built things take the new look's grain; crops keep plain colours.
+    const plainMat = toon(0xffffff, { vertexColors: true });
+    const mat = grainMaterial(plainMat);
     const standIns: THREE.BufferGeometry[] = [];
     const props = new Map<string, Array<{ x: number; y: number; z: number; rot: number }>>();
     const crops = new Map<string, Array<{ x: number; y: number; z: number; rot: number }>>();
@@ -124,8 +129,8 @@ export class ZoneDressing {
     const up = new THREE.Vector3(0, 1, 0);
     const one = new THREE.Vector3(1, 1, 1);
     const pos = new THREE.Vector3();
-    const instanced = (geo: THREE.BufferGeometry, items: Array<{ x: number; y: number; z: number; rot: number }>, shadow: boolean) => {
-      const mesh = new THREE.InstancedMesh(geo, mat, items.length);
+    const instanced = (geo: THREE.BufferGeometry, items: Array<{ x: number; y: number; z: number; rot: number }>, shadow: boolean, material: THREE.Material = mat): THREE.InstancedMesh => {
+      const mesh = new THREE.InstancedMesh(geo, material, items.length);
       items.forEach((it, i) => {
         q.setFromAxisAngle(up, it.rot);
         m.compose(pos.set(it.x, it.y, it.z), q, one);
@@ -136,17 +141,29 @@ export class ZoneDressing {
       mesh.receiveShadow = true;
       mesh.computeBoundingSphere();
       this.group.add(mesh);
+      return mesh;
     };
     for (const [id, items] of props) {
       const def = propDef(id);
       const geo = tryBuild(models.propGeometry ? () => models.propGeometry!(id) : null) ?? standIn(def.w, def.h, def.d, 0x8d5a3b, 0x734828);
-      instanced(geo, items, true);
+      const mesh = instanced(geo, items, true);
+      // The new look's made model, when it has one, takes over the same instances once loaded.
+      const made = madeProp(id, def);
+      if (made)
+        track(
+          made.then((m) => {
+            if (!m) return;
+            mesh.geometry = m.geometry;
+            mesh.material = m.material;
+            mesh.computeBoundingSphere();
+          }),
+        );
     }
     for (const [id, items] of crops) {
       const geo =
         tryBuild(models.cropGeometry ? () => models.cropGeometry!(id, 3) : null) ??
         standIn(0.7, 0.9, 0.7, id === 'barley' ? 0xe2c158 : id === 'flax' ? 0x8fb8ff : 0x4caf50, 0x3e9a45);
-      instanced(geo, items, false);
+      instanced(geo, items, false, plainMat);
     }
   }
 

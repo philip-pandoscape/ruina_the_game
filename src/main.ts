@@ -7,6 +7,7 @@ import { INTERP_TICKS, NetCrowd, type NetActor } from './net/netCrowd';
 import { NetMonsters } from './net/netMonsters';
 import { Prediction, RemotePlayers, stateFromServer } from './net/netPlayer';
 import { NetSpells } from './net/netSpells';
+import { assetsReady } from './render/assets';
 import { FollowCamera } from './render/camera';
 import { Hero, type WeaponAt } from './render/character';
 import { TrainingDummy } from './render/dummy';
@@ -1129,6 +1130,9 @@ function refreshActors(now: number): void {
   for (const e of netMonsters.transitions(shownActors, sim.frame)) showEvent(e);
 }
 
+/** A camera the tests park anywhere (window.__game.viewFrom), for views the follow camera can't reach. */
+let pinnedView: { from: THREE.Vector3; to: THREE.Vector3 } | null = null;
+
 function draw(alpha: number, cameraDt: number, animDt: number): void {
   // Weapon out in a fight, put away a little after one (the battlefield is all fight).
   hero.armed = battlefield || inAFight();
@@ -1179,6 +1183,11 @@ function draw(alpha: number, cameraDt: number, animDt: number): void {
   lifeUI?.setVitals(vitals);
   const pos = hero.root.position;
   if (cameraDt > 0) follow.update(pos, cameraDt);
+  if (pinnedView) {
+    follow.camera.position.copy(pinnedView.from);
+    follow.camera.lookAt(pinnedView.to);
+    follow.camera.updateMatrixWorld();
+  }
   stage.follow(pos.x, pos.z, pos.y);
   openStage?.update(animDt, follow.camera, pos.x, pos.z);
   if (openStage && life) {
@@ -1423,6 +1432,10 @@ requestAnimationFrame(frame);
 
 const api = {
   ready: true,
+  /** The new look's textures and models have all arrived (src/render/assets.ts). */
+  get assetsReady(): boolean {
+    return assetsReady();
+  },
   // Steps the game with the same scripted actions every frame (auto-walk, when on, moves you).
   advance(frames: number, actions: Partial<Actions> = {}): void {
     for (let i = 0; i < frames; i++) {
@@ -1504,6 +1517,13 @@ const api = {
   },
   camera() {
     return { yaw: follow.yaw, pitch: follow.pitch, distance: follow.distance };
+  },
+  /** Parks the camera at `from` looking at `to` (null hands it back to the follow camera). */
+  viewFrom(from: [number, number, number] | null, to: [number, number, number] = [0, 0, 0]): void {
+    pinnedView = from ? { from: new THREE.Vector3(...from), to: new THREE.Vector3(...to) } : null;
+    // The follow camera only moves when it steps, so step it back from wherever the view was.
+    if (!pinnedView) followSim(STEP);
+    draw(1, 0, 0);
   },
   // Where the eye actually is, which the targeting view lifts. follow.pitch is what you chose and
   // doesn't change while aiming, so it can't be used to see this.

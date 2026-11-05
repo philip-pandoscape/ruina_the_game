@@ -70,31 +70,32 @@ const CLASSIC: Palette = {
   light: { sun: 0xfff0d8, goldSun: 0xffa463, moon: 0x9fb4ff, sunIntensity: 2.6, sky: 0xe2f2ff, ground: 0x5d7f3a, nightSky: 0x5d74b8, nightGround: 0x1e2c33, fill: 1.25 },
 };
 
-// Muted and earthy: olive and moss instead of lime, dusty roads, grey stone, a slate sea, a hazy
-// sky, and real darks. Saturation is saved for what should catch the eye (banners, spells, people).
+// After the island's reference picture: lush greens with darker woods, pale warm sand, grey-brown
+// rock, light dusty paths, turquoise shallows over a deep blue sea, a clear sky. Rich, but with real
+// darks; the made models bring the red roofs and blue banners.
 const EARTHY: Palette = {
   ground: {
-    [SURFACE.grass]: [0x86a35a, 0x67873f],
-    [SURFACE.road]: [0xb09772, 0x977f5e],
-    [SURFACE.sand]: [0xdccfa8, 0xcbbb92],
-    [SURFACE.rock]: [0x928f88, 0x777571],
-    [SURFACE.soil]: [0x654a35, 0x523b2a],
-    [SURFACE.plaza]: [0xbdb29a, 0xa79c84],
-    [SURFACE.forest]: [0x62804a, 0x506c3b],
+    [SURFACE.grass]: [0x789a4a, 0x5a8238],
+    [SURFACE.road]: [0xc0a074, 0xa98a60],
+    [SURFACE.sand]: [0xe3d3a6, 0xd2c08f],
+    [SURFACE.rock]: [0x8f877d, 0x746c63],
+    [SURFACE.soil]: [0x6b4a32, 0x573c28],
+    [SURFACE.plaza]: [0xc4bba8, 0xada491],
+    [SURFACE.forest]: [0x4d7236, 0x3d602d],
   },
-  wetSand: 0xa18c62,
-  seabed: 0x2c5a60,
-  highland: 0xaaa794,
-  leaves: [0x5c8443, 0x4d763a, 0x6a8f4c, 0x426533, 0x76944f],
-  trunk: 0x6e523c,
-  rock: 0x908d85,
-  grass: [0x7a9850, 0x688843, 0x87a359, 0x5d7c40],
-  flowers: [0xe9e4d6, 0xdcc472, 0xc98e9b, 0xa194c8],
-  sea: { shallow: 0x5ea7a1, deep: 0x234f6b, foam: 0xe8f0f2, duskShallow: 0xd9a77e, duskDeep: 0x6a5a8a },
-  sky: { top: 0x4f8ccf, horizon: 0xcfdde3, goldTop: 0x5c74ad, goldHorizon: 0xf0b98a, nightTop: 0x060d1f, nightHorizon: 0x16233d },
-  clouds: { color: 0xffffff, emissive: 0xd9e1ea, emissiveIntensity: 0.55 },
+  wetSand: 0xb39a6a,
+  seabed: 0x2b6f78,
+  highland: 0xa9a58c,
+  leaves: [0x4f8a34, 0x3f7a2e, 0x5c9a3c, 0x356b28, 0x6aa244],
+  trunk: 0x6b4a33,
+  rock: 0x8f877d,
+  grass: [0x749a4a, 0x62903e, 0x84a852, 0x58843a],
+  flowers: [0xf2efe4, 0xf0d36a, 0xe08fa0, 0xa99be0],
+  sea: { shallow: 0x3fbfbe, deep: 0x15487a, foam: 0xf2f7f8, duskShallow: 0xd9a77e, duskDeep: 0x5a4f86 },
+  sky: { top: 0x3f7fc6, horizon: 0xd4e6ef, goldTop: 0x5c74ad, goldHorizon: 0xf3bf8c, nightTop: 0x060d1f, nightHorizon: 0x16233d },
+  clouds: { color: 0xffffff, emissive: 0xe4ebf2, emissiveIntensity: 0.6 },
   worldTree: { trunk: 0x9eaeb8, leaves: 0x93aaab },
-  light: { sun: 0xfff1dc, goldSun: 0xff9a55, moon: 0x8fa6e8, sunIntensity: 3.4, sky: 0xb9cfe8, ground: 0x7a7652, nightSky: 0x40528a, nightGround: 0x141c22, fill: 1.35 },
+  light: { sun: 0xfff3e0, goldSun: 0xff9a55, moon: 0x8fa6e8, sunIntensity: 3.6, sky: 0xc4dbf2, ground: 0x6f7a4a, nightSky: 0x40528a, nightGround: 0x141c22, fill: 1.3 },
 };
 
 export const PALETTE: Palette = NEW_LOOK ? EARTHY : CLASSIC;
@@ -116,13 +117,13 @@ export const POST = {
    * Height fog: density at sea level per metre, how fast it thins with height (per metre), a thin
    * haze everywhere (per metre), and how much it glows toward the sun.
    */
-  fog: { density: 0.0011, falloff: 0.012, haze: 0.00012, sunGlow: 0.7 },
+  fog: { density: 0.0006, falloff: 0.012, haze: 0.00006, sunGlow: 0.7 },
   /** Bloom on what is brighter than white: the sun, lamps at night, spells. */
-  bloom: { strength: 0.4, radius: 0.5, threshold: 1.25 },
+  bloom: { strength: 0.4, radius: 0.5, threshold: 1.6 },
   /** How bright the sun's disc is in the sky (the classic sky draws it at 0.9), so it blooms. */
   sunDisc: 3,
   /** The grade, after tone mapping: saturation, contrast, cool shadows and warm highlights, dark corners. */
-  grade: { saturation: 0.96, contrast: 1.05, lift: [-0.008, 0.0, 0.012] as [number, number, number], gain: [1.02, 1.0, 0.97] as [number, number, number], vignette: 0.16 },
+  grade: { saturation: 1.03, contrast: 1.07, lift: [-0.008, 0.0, 0.012] as [number, number, number], gain: [1.02, 1.0, 0.97] as [number, number, number], vignette: 0.12 },
   /** Shadows: how far around you they reach (metres each way), their map size, and how soft their edges are. */
   shadow: { reach: 70, mapSize: 4096, softness: 3 },
 };

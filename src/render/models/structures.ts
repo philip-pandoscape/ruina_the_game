@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import { structureData, type StructureData } from './data';
+import { grainify } from './detail';
+import { madeStructure } from './glb';
 import {
   PAL,
   Parts,
@@ -1448,6 +1450,13 @@ const generic: Builder = (c) => {
   gable(p, { x0: -d.w * 0.45, x1: d.w * 0.45, zf: d.d / 2, zb: -d.d / 2, eave: d.h * 0.55, ridge: d.h, thick: 0.2, over: 0.2, courses: 5, colors: [PAL.roofRed, PAL.roofRedDark], cap: PAL.roofRedDark }, rng);
 };
 
+/** The made stalls come with a red awning or a blue one: whichever is nearer the tint asked for. */
+function stallVariant(tint: number): number {
+  const hsl = { h: 0, s: 0, l: 0 };
+  new THREE.Color(tint).getHSL(hsl);
+  return hsl.h > 0.42 && hsl.h < 0.8 ? 1 : 0;
+}
+
 /**
  * Builds a structure from its data id. Options: `stage` (cottage 0..4), `tint` (stall awning),
  * `seed` (variation). Windmill sails are a child named 'sails' that animate() turns about Z.
@@ -1459,6 +1468,10 @@ export function buildStructure(id: string, opts: StructureOpts = {}): StructureM
   const c: Ctx = { d, body: new Parts(), glow: new Parts(), root, rng: makeRng((opts.seed ?? 1) * 977 + id.length * 13), opts };
   const animate = (BUILDERS[id] ?? generic)(c) ?? undefined;
   if (!c.body.empty) mesh(root, c.body.build(), { name: 'body' });
+  // The new look swaps in a made model where there is one (src/render/models/glb.ts); a cottage
+  // still being built, or a stall in another colour, keeps its own.
+  grainify(root);
+  if ((opts.stage ?? 4) >= 4) madeStructure(id, root, d, id === 'stall' && opts.tint !== undefined ? stallVariant(opts.tint) : opts.seed);
   let lamp: THREE.MeshBasicMaterial | null = null;
   if (!c.glow.empty) {
     if (id === 'lighthouse') lamp = glowMaterial().clone();

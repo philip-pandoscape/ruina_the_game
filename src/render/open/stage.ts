@@ -4,7 +4,7 @@ import { NEW_LOOK, PALETTE, POST } from '../look';
 import { glowMaterial } from '../models/kit';
 import { TerrainView } from './terrain';
 import { WaterView } from './water';
-import { SkyView, SKY_HORIZON } from './sky';
+import { SkyView, seaFar, SKY_HORIZON } from './sky';
 import { FoliageView } from './foliage';
 import { ZoneDressing } from './dressing';
 import { WorldPost } from './post';
@@ -116,9 +116,12 @@ export class OpenStage {
     if (this.scene.fog) (this.scene.fog as THREE.Fog).color.copy(horizon);
     this.sky.setLight(top, horizon, sun, sunCol, night, moon);
     this.water.setBrightness(1 - night * 0.55, gold);
+    // The new look's sea reflects the sky a little above the horizon, and the sun (or moon) glints on it.
+    if (NEW_LOOK) this.water.setSky(this.sunDir, night > 0.6 ? C(light.moon) : sunCol, horizon.clone().lerp(top, 0.3), 1 - night * 0.7);
     if (this.post) {
       this.post.setAtmosphere({
         fog: horizon,
+        seaFar: seaFar(horizon, night),
         sun: night > 0.6 ? C(light.moon) : sunCol,
         sunDir: this.sunDir,
         sunGlow: POST.fog.sunGlow * (1 - night * 0.8),

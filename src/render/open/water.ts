@@ -22,6 +22,10 @@ const vertex = /* glsl */ `
 
 const fragment = /* glsl */ `
   uniform sampler2D uDepth;
+  uniform vec3 uSunDir;
+  uniform vec3 uSunColor;
+  uniform vec3 uSky;
+  uniform float uGlints;
   uniform vec4 uBounds;
   uniform float uTime;
   uniform vec3 uShallow;
@@ -45,6 +49,26 @@ const fragment = /* glsl */ `
     if (uv.x > 0.0 && uv.y > 0.0 && uv.x < 1.0 && uv.y < 1.0) d = texture2D(uDepth, uv).r;
     float depth = d * ${DEPTH_RANGE.toFixed(1)};
     vec3 col = mix(uShallow, uDeep, smoothstep(0.4, 11.0, depth));
+    #ifdef GLINTS
+      // Out deep the sea goes darker still, and the surface tips with two drifting swells: the sky
+      // shows in it at a glance (more the flatter you look), and the sun sparkles on it.
+      col = mix(col, uDeep * 0.55, smoothstep(10.0, 28.0, depth));
+      float e = 0.35;
+      vec2 p1 = vWorld.xz * 0.11 + vec2(uTime * 0.05, uTime * 0.03);
+      vec2 p2 = vWorld.xz * 0.37 - vec2(uTime * 0.07, -uTime * 0.05);
+      float h0 = noise(p1) + 0.5 * noise(p2);
+      float hx = noise(p1 + vec2(e * 0.11, 0.0)) + 0.5 * noise(p2 + vec2(e * 0.37, 0.0));
+      float hz = noise(p1 + vec2(0.0, e * 0.11)) + 0.5 * noise(p2 + vec2(0.0, e * 0.37));
+      // Far off the swells are finer than a pixel: flatten them there, or they shimmer as noise.
+      float near = 1.0 - smoothstep(40.0, 320.0, length(cameraPosition - vWorld));
+      vec3 n = normalize(vec3(-(hx - h0) / e * 1.6 * near, 1.0, -(hz - h0) / e * 1.6 * near));
+      vec3 v = normalize(cameraPosition - vWorld);
+      float fresnel = 0.03 + 0.97 * pow(1.0 - max(dot(n, v), 0.0), 5.0);
+      col = mix(col, uSky, clamp(fresnel, 0.0, 1.0) * 0.75);
+      vec3 r = reflect(-v, n);
+      float sun = max(dot(r, normalize(uSunDir)), 0.0);
+      col += uSunColor * (pow(sun, 900.0) * 6.0 * near + pow(sun, 60.0) * 0.25) * uGlints;
+    #endif
 
     // Toon ripples: two drifting noise fields, thresholded into flat flecks of light.
     float n1 = noise(vWorld.xz * 0.16 + vec2(uTime * 0.32, uTime * 0.18));
@@ -63,6 +87,9 @@ const fragment = /* glsl */ `
     col = mix(col, uFoam, foam);
 
     float alpha = mix(0.5, 0.94, smoothstep(0.0, 5.0, depth));
+    #ifdef GLINTS
+      alpha = mix(0.55, 1.0, smoothstep(0.0, 7.0, depth));
+    #endif
     alpha = max(alpha, foam * 0.95);
     gl_FragColor = vec4(col, alpha);
     #include <colorspace_fragment>
@@ -100,7 +127,11 @@ export class WaterView {
       uDeep: { value: new THREE.Color(PALETTE.sea.deep) },
       uFoam: { value: new THREE.Color(PALETTE.sea.foam) },
       // The flecks of light are a toon touch; the new look keeps them faint.
-      uRipple: { value: NEW_LOOK ? 0.45 : 1 },
+      uRipple: { value: NEW_LOOK ? 0.25 : 1 },
+      uSunDir: { value: new THREE.Vector3(0.4, 0.8, 0.3) },
+      uSunColor: { value: new THREE.Color(0xffffff) },
+      uSky: { value: new THREE.Color(PALETTE.sky.horizon) },
+      uGlints: { value: 1 },
     });
     const mat = new THREE.ShaderMaterial({
       uniforms: this.uniforms,
@@ -110,6 +141,7 @@ export class WaterView {
       // The new look's haze is laid on from the depth buffer, so the sea has to be in it.
       depthWrite: NEW_LOOK,
       fog: true,
+      defines: NEW_LOOK ? { GLINTS: '' } : {},
     });
     const geo = new THREE.PlaneGeometry(9000, 9000, 1, 1);
     geo.rotateX(-Math.PI / 2);
@@ -121,6 +153,14 @@ export class WaterView {
 
   update(time: number): void {
     this.uniforms.uTime.value = time;
+  }
+
+  /** The sun (or moon) and the sky the new look's sea reflects. */
+  setSky(sunDir: THREE.Vector3, sun: THREE.Color, sky: THREE.Color, glints: number): void {
+    (this.uniforms.uSunDir.value as THREE.Vector3).copy(sunDir);
+    (this.uniforms.uSunColor.value as THREE.Color).copy(sun);
+    (this.uniforms.uSky.value as THREE.Color).copy(sky);
+    this.uniforms.uGlints.value = glints;
   }
 
   /** Dims the sea at night and warms it at dusk. */

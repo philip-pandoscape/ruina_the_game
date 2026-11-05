@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type { GliderDef } from '../../content/vehicles';
 import { Cloth, PAL, Parts, beam, clothMaterial, cone, cyl, extrude, mesh, octa, pivot, rod, tor, type Rgb, type V3 } from './kit';
+import { grainify } from './detail';
 
 // Gliders. Origin is the pilot's feet: the hero hangs below the wing with hands up on the
 // control bar (y ~2.0); the wing sits at y ~2.4-2.7 and spans the data's `span`.
@@ -215,10 +216,16 @@ function swiftwing(def: GliderDef, root: THREE.Group): GliderModel['animate'] {
 }
 
 /** Builds a glider; unknown ids get the canvas wayfarer at the data's span. */
-export function buildGlider(def: GliderDef): GliderModel {
+function buildGliderModel(def: GliderDef): GliderModel {
   const root = new THREE.Group();
   root.name = `glider:${def.id}`;
   const animate = def.id === 'swiftwing' ? swiftwing(def, root) : wayfarer(def, root);
   return { root, animate };
 }
 
+
+export function buildGlider(def: GliderDef): GliderModel {
+  const model = buildGliderModel(def);
+  grainify(model.root);
+  return model;
+}

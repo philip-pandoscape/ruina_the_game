@@ -27,11 +27,14 @@ const fragment = /* glsl */ `
   uniform vec3 uMoonDir;
   uniform float uNight;
   uniform float uDisc;
+  uniform vec3 uSeaFar;
   varying vec3 vDir;
   void main() {
     vec3 d = normalize(vDir);
     float h = d.y;
     vec3 col = mix(uHorizon, uTop, pow(smoothstep(-0.02, 0.55, h), 0.75));
+    // Under the horizon: the sea, far off and hazy, fading into the horizon at the line itself.
+    if (h < 0.0) col = mix(uSeaFar, uHorizon, exp(h * 40.0));
     float s = max(dot(d, normalize(uSunDir)), 0.0);
     col += uSun * (step(0.9993, s) * uDisc + pow(s, 24.0) * 0.22 + pow(s, 4.0) * 0.05) * (1.0 - uNight);
     float m = max(dot(d, normalize(uMoonDir)), 0.0);
@@ -62,6 +65,8 @@ export class SkyView {
       uNight: { value: 0 },
       // The new look's sun is brighter than white, so its bloom catches it.
       uDisc: { value: NEW_LOOK ? POST.sunDisc : 0.9 },
+      // The classic look keeps the horizon colour all the way down.
+      uSeaFar: { value: new THREE.Color(SKY_HORIZON) },
     };
     const mat = new THREE.ShaderMaterial({
       uniforms: this.uniforms,
@@ -127,6 +132,7 @@ export class SkyView {
   setLight(top: THREE.Color, horizon: THREE.Color, sunDir: THREE.Vector3, sun: THREE.Color, night: number, moonDir: THREE.Vector3): void {
     (this.uniforms.uTop.value as THREE.Color).copy(top);
     (this.uniforms.uHorizon.value as THREE.Color).copy(horizon);
+    (this.uniforms.uSeaFar.value as THREE.Color).copy(NEW_LOOK ? seaFar(horizon, night) : horizon);
     (this.uniforms.uSunDir.value as THREE.Vector3).copy(sunDir);
     (this.uniforms.uSun.value as THREE.Color).copy(sun);
     (this.uniforms.uMoonDir.value as THREE.Vector3).copy(moonDir);
@@ -167,6 +173,11 @@ interface SelfLit {
   mat: THREE.MeshToonMaterial;
   glow: number;
   color: THREE.Color;
+}
+
+/** The far sea as seen from the air: the deep sea's blue under the horizon's haze. */
+export function seaFar(horizon: THREE.Color, night: number): THREE.Color {
+  return new THREE.Color(PALETTE.sea.deep).multiplyScalar(1 - night * 0.6).lerp(horizon, 0.45);
 }
 
 const selfLit = (mat: THREE.MeshToonMaterial): SelfLit => ({ mat, glow: mat.emissiveIntensity, color: mat.color.clone() });

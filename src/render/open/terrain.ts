@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { Heightfield, SURFACE, valueNoise } from '../../sim/terrain';
 import { NEW_LOOK, PALETTE } from '../look';
 import { toon } from '../toon';
+import { splatWeights, texturedGround } from './ground';
 
 // The ground of an open world, drawn from the very grid the rules walk on, split into the same
 // triangles (each quad along its a-d diagonal) so feet land on the drawn surface exactly.
@@ -19,6 +20,8 @@ export class TerrainView {
 
   constructor(private hf: Heightfield) {
     this.material = toon(0xffffff, { vertexColors: true });
+    // The new look lays real textures over the surfaces (src/render/open/ground.ts).
+    if (NEW_LOOK) texturedGround(this.material, GROUND[SURFACE.rock][0]);
     const per = Math.ceil(hf.cells / CHUNK);
     for (let cj = 0; cj < per; cj++)
       for (let ci = 0; ci < per; ci++) {
@@ -80,6 +83,11 @@ export class TerrainView {
     const pos = new Float32Array(vx * vz * 3);
     const nor = new Float32Array(vx * vz * 3);
     const col = new Float32Array(vx * vz * 3);
+    const splatA = NEW_LOOK ? new Float32Array(vx * vz * 4) : null;
+    const splatB = NEW_LOOK ? new Float32Array(vx * vz * 4) : null;
+    const around: number[] = [];
+    const wa = [0, 0, 0, 0];
+    const wb = [0, 0, 0, 0];
     const c = new THREE.Color();
     const t1 = new THREE.Color();
     const t2 = new THREE.Color();
@@ -111,6 +119,18 @@ export class TerrainView {
         col[k] = c.r;
         col[k + 1] = c.g;
         col[k + 2] = c.b;
+        if (splatA && splatB) {
+          around.length = 0;
+          for (let dj = -1; dj <= 0; dj++)
+            for (let di = -1; di <= 0; di++) {
+              const ci = gi + di;
+              const cj = gj + dj;
+              if (ci >= 0 && cj >= 0 && ci < hf.cells && cj < hf.cells) around.push(hf.surface[cj * hf.cells + ci]);
+            }
+          splatWeights(around, wa, wb);
+          splatA.set(wa, (j * vx + i) * 4);
+          splatB.set(wb, (j * vx + i) * 4);
+        }
       }
     const idx = new Uint32Array(wi * wj * 6);
     let o = 0;
@@ -132,6 +152,10 @@ export class TerrainView {
     geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
     geo.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
     geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    if (splatA && splatB) {
+      geo.setAttribute('splatA', new THREE.BufferAttribute(splatA, 4));
+      geo.setAttribute('splatB', new THREE.BufferAttribute(splatB, 4));
+    }
     geo.setIndex(new THREE.BufferAttribute(idx, 1));
     geo.computeBoundingSphere();
     geo.computeBoundingBox();

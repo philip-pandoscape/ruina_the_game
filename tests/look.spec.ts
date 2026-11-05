@@ -18,11 +18,15 @@ interface Scene {
   /** The hour on Emberholm's clock. */
   hour: number;
   camera: { yaw: number; pitch: number; distance: number };
+  /** A parked camera instead, for views from the air: where it is and what it looks at. */
+  view?: { from: [number, number, number]; to: [number, number, number] };
 }
 
 // In order of the hour, so the clock only ever runs forward a little.
 const SCENES: Scene[] = [
   { id: 'square-morning', x: 0, z: -264, facing: 0, hour: 9, camera: { yaw: 0.25, pitch: 0.28, distance: 9 } },
+  { id: 'aerial-harbour', x: 0, z: -264, facing: 0, hour: 9.5, camera: { yaw: 0, pitch: 0.2, distance: 9 }, view: { from: [60, 140, -520], to: [0, 0, -240] } },
+  { id: 'aerial-isle', x: 0, z: -264, facing: 0, hour: 9.7, camera: { yaw: 0, pitch: 0.2, distance: 9 }, view: { from: [420, 330, -760], to: [0, 0, -60] } },
   { id: 'stalls-closeup', x: 6, z: -250, facing: 0.6, hour: 10, camera: { yaw: 0.6, pitch: 0.16, distance: 6 } },
   { id: 'windspire-vista', x: 40, z: 227, facing: Math.PI, hour: 11, camera: { yaw: Math.PI, pitch: 0.12, distance: 7 } },
   { id: 'fields-noon', x: -140, z: -225, facing: -0.8, hour: 12.5, camera: { yaw: -0.8, pitch: 0.22, distance: 10 } },
@@ -40,6 +44,7 @@ async function open(page: Page, look: string, extra = ''): Promise<string[]> {
   await page.goto(`/?world&test${look === 'new' ? '&look=new' : ''}${extra}`);
   await page.waitForFunction(() => (window as any).__game?.ready === true, null, { timeout: 60_000 });
   await page.evaluate(() => (window as any).__game.reset());
+  await page.waitForFunction(() => (window as any).__game.assetsReady === true, null, { timeout: 60_000 });
   // Just the world: no HUD, windows or prompts over it.
   await page.addStyleTag({ content: 'body > *:not(#game) { visibility: hidden !important; }' });
   return errors;
@@ -54,15 +59,18 @@ async function setHour(page: Page, hour: number): Promise<void> {
 }
 
 for (const look of ['classic', 'new']) {
-  test(`the look test, ${look}: six places at six hours @gpu`, async ({ page }) => {
+  test(`the look test, ${look}: the same places at the same hours @gpu`, async ({ page }) => {
     const errors = await open(page, look);
     for (const s of SCENES) {
       await setHour(page, s.hour);
       await page.evaluate(([x, z, f]) => (window as any).__game.teleport(x, z, f), [s.x, s.z, s.facing] as const);
       await page.evaluate((c) => (window as any).__game.setCamera(c), s.camera);
       await page.evaluate(() => (window as any).__game.advance(40));
+      await page.evaluate((v) => (window as any).__game.viewFrom(v ? v.from : null, v?.to), s.view ?? null);
+      await page.waitForFunction(() => (window as any).__game.assetsReady === true, null, { timeout: 60_000 });
       await page.screenshot({ path: `${SHOTS}/look-${s.id}-${look}.png` });
     }
+    await page.evaluate(() => (window as any).__game.viewFrom(null));
     expect(errors).toEqual([]);
   });
 }
