@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import { SpeciesCrowd } from '../species/crowd';
+import { JellyCrowd } from '../species/jelly';
+import { NEW_LOOK } from './look';
 import { getSpecies } from '../species/registry';
 import { actorKind } from '../content/actors';
 import { actorKindAt, LADDERS } from '../content/actors';
@@ -47,7 +49,7 @@ function fuseGlow(a: Actor): number {
 }
 
 interface Pack {
-  crowd: SpeciesCrowd;
+  crowd: SpeciesCrowd | JellyCrowd;
   clipIndex: Map<string, number>;
   clipSeconds: Map<string, number>;
   used: number;
@@ -66,12 +68,16 @@ export class ActorView {
       const kind = actorKind(id);
       if (!kind.species || this.packs.has(packKey(kind))) continue;
       const species = getSpecies(kind.species);
-      const crowd = new SpeciesCrowd(species, capacity, {
-        tint: true,
-        outlineThickness: 0.015,
-        palette: kind.palette,
-        scale: kind.scale,
-      });
+      // The new look's slimes are jelly (src/species/jelly.ts), on the same skeleton and clips.
+      const crowd =
+        NEW_LOOK && species.id === 'slime'
+          ? new JellyCrowd(species, capacity, { kind: kind.id, palette: kind.palette, scale: kind.scale })
+          : new SpeciesCrowd(species, capacity, {
+              tint: true,
+              outlineThickness: 0.015,
+              palette: kind.palette,
+              scale: kind.scale,
+            });
       crowd.setCount(capacity);
       this.group.add(crowd.group);
       const clipIndex = new Map<string, number>();
@@ -161,8 +167,9 @@ export class ActorView {
     }
 
     for (const p of this.packs.values()) {
-      // Park every instance we did not use this frame.
+      // Park every instance we did not use this frame, and draw only those we did.
       for (let i = p.used; i < this.capacity; i++) p.crowd.place(i, 0, HIDDEN_Y, 0, 0);
+      p.crowd.setCount(p.used);
       p.crowd.flush();
     }
   }

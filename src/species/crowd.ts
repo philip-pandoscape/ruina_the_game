@@ -3,7 +3,7 @@ import { OUTLINES } from '../render/look';
 import { toon } from '../render/toon';
 import { buildPoseTexture } from './pose';
 import { buildProxyGeometry, proxyTriangles } from './proxy';
-import { clipRows, type SpeciesDef } from './types';
+import { clipRows, type Clip, type SpeciesDef } from './types';
 
 // Draws any number of one species in two or three draw calls, whatever its skeleton is. A vertex
 // knows which joint drives it; the pose texture knows where that joint is on a given frame of a
@@ -31,8 +31,9 @@ export interface SpeciesCrowdOptions {
   scale?: number;
 }
 
-// aRoot = (x, y, z, yaw); aPose = (row, nextRow, mix, team 0/1).
-const COMMON = /* glsl */ `
+// aRoot = (x, y, z, yaw); aPose = (row, nextRow, mix, team 0/1). Shared with the new look's
+// jelly slimes (jelly.ts), which pose their own shapes with the same clips.
+export const SPECIES_GLSL = /* glsl */ `
 attribute vec4 aRoot;
 attribute vec4 aPose;
 attribute float aJoint;
@@ -97,7 +98,21 @@ const COLOR = /* glsl */ `
 #endif
 `;
 
-function instanced(src: THREE.BufferGeometry, count: number): THREE.InstancedBufferGeometry {
+/** Writes an instance's (row, nextRow, mix, team) for a clip that starts on row `base`, at a time in seconds. */
+export function writeFrame(pose: Float32Array, i: number, c: Clip, base: number, seconds: number, team = 0): void {
+  const t = seconds * c.fps;
+  let f = c.loop ? t % c.frames : Math.min(t, c.frames - 1);
+  if (f < 0) f += c.frames;
+  const a = Math.floor(f);
+  const b = c.loop ? (a + 1) % c.frames : Math.min(a + 1, c.frames - 1);
+  const at = i * 4;
+  pose[at] = base + a;
+  pose[at + 1] = base + b;
+  pose[at + 2] = f - a;
+  pose[at + 3] = team;
+}
+
+export function instanced(src: THREE.BufferGeometry, count: number): THREE.InstancedBufferGeometry {
   const g = new THREE.InstancedBufferGeometry();
   g.index = src.index;
   for (const [name, attr] of Object.entries(src.attributes)) g.setAttribute(name, attr);
@@ -165,7 +180,7 @@ export class SpeciesCrowd {
         .replace(
           '#include <common>',
           `#include <common>
-          ${defines}${COMMON}
+          ${defines}${SPECIES_GLSL}
           uniform vec3 uTeamA; uniform vec3 uTeamB; uniform vec3 uHairA; uniform vec3 uHairB; uniform vec3 uSkinA; uniform vec3 uSkinB;`,
         )
         .replace('#include <color_vertex>', COLOR)
@@ -191,7 +206,7 @@ export class SpeciesCrowd {
         ]),
         vertexShader: /* glsl */ `
           #include <common>
-          ${defines}${COMMON}
+          ${defines}${SPECIES_GLSL}
           #include <fog_pars_vertex>
           uniform float uThickness;
           void main() {
@@ -244,17 +259,7 @@ export class SpeciesCrowd {
   animate(i: number, clip: number, seconds: number, team = 0): void {
     const c = this.species.clips[clip];
     if (!c) return;
-    const base = this.rows[clip];
-    const t = seconds * c.fps;
-    let f = c.loop ? t % c.frames : Math.min(t, c.frames - 1);
-    if (f < 0) f += c.frames;
-    const a = Math.floor(f);
-    const b = c.loop ? (a + 1) % c.frames : Math.min(a + 1, c.frames - 1);
-    const at = i * 4;
-    this.pose[at] = base + a;
-    this.pose[at + 1] = base + b;
-    this.pose[at + 2] = f - a;
-    this.pose[at + 3] = team;
+    writeFrame(this.pose, i, c, this.rows[clip], seconds, team);
   }
 
   flush(): void {
