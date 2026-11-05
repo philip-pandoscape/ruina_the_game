@@ -94,6 +94,10 @@ export class LifeView {
   readonly drawsTownsfolk: boolean;
   /** The NPC whose dialog is open, so they gesture while you talk. */
   talkingTo: string | null = null;
+  /** A townsperson's model (on the ground at their post, turned the way they face), if drawn here. */
+  villager(id: string): THREE.Object3D | null {
+    return this.villagers.find((v) => v.id === id)?.holder ?? null;
+  }
   /** The house you are standing in, if any (the camera stops treating its walls as solid). */
   inside: { x: number; z: number; rot: number; hw: number; hd: number } | null = null;
   private nodes: Array<{ root: THREE.Object3D; i: number } | null> = [];

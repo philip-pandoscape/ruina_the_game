@@ -221,8 +221,9 @@ if (online && lifeUI) lifeUI.playerName = online.account.username;
 // Faces for the UI, taken from the scene: yours beside your health, the person you're talking to,
 // and all of you in the character window. Kept a few seconds, then taken again.
 const portraits = new Portraits(stage.renderer, stage.scene);
-const HEAD = 1.45;
-const zone = world.zone;
+/** Layers a portrait draws on its own (with the scene's lights): you, and whoever you talk to. */
+const YOU_LAYER = 1;
+const NPC_LAYER = 2;
 /** A picture from the live scene: 'player' (your face), 'body' (all of you) or an NPC's id. */
 function portraitOf(who: string): string | null {
   {
@@ -230,26 +231,29 @@ function portraitOf(who: string): string | null {
     const fresh = who === 'player' ? 4000 : who === 'body' ? 800 : 1500;
     if (!shot || shot.age > fresh) {
       const up = (v: THREE.Vector3, y: number) => v.clone().setY(v.y + y);
+      const alone = (o: THREE.Object3D, layer: number) => {
+        o.traverse((c) => c.layers.enable(layer));
+        stage.scene.traverse((c) => (c as THREE.Light).isLight && c.layers.enable(layer));
+      };
       if (who === 'player' || who === 'body') {
-        // Just you, on layer 1 with the scene's lights, so nothing stands in front of the camera.
-        hero.root.traverse((o) => o.layers.enable(1));
-        stage.scene.traverse((o) => (o as THREE.Light).isLight && o.layers.enable(1));
+        // Just you, so nothing stands in front of the camera.
+        alone(hero.root, YOU_LAYER);
         const at = hero.root.position;
         const f = sim.player.facing;
         const fwd = new THREE.Vector3(Math.sin(f), 0, Math.cos(f));
         // Your face with your shoulders and the top of your chest; or all of you, hair to boots,
         // with a little room round you.
-        if (who === 'player') portraits.request(who, up(at, 1.42).addScaledVector(fwd, 1.9), up(at, 1.34), 128, 128, 1);
-        else portraits.request(who, up(at, 0.95).addScaledVector(fwd, 4.6), up(at, 0.85), 214, 300, 1);
+        if (who === 'player') portraits.request(who, up(at, 1.42).addScaledVector(fwd, 1.9), up(at, 1.34), 128, 128, YOU_LAYER);
+        else portraits.request(who, up(at, 0.95).addScaledVector(fwd, 4.6), up(at, 0.85), 214, 300, YOU_LAYER);
       } else {
-        const n = zone?.recipe.npcs.find((x) => x.id === who);
-        if (n) {
-          const ground = terrain ? terrain.height(n.x, n.z) : 0;
-          const head = new THREE.Vector3(n.x, ground + HEAD, n.z);
-          // They turn to face you while you talk, so look from where you stand.
-          const toYou = new THREE.Vector3(sim.player.pos.x - n.x, 0, sim.player.pos.z - n.z);
-          const fwd = toYou.lengthSq() > 0.01 ? toYou.normalize() : new THREE.Vector3(Math.sin(n.facing), 0, Math.cos(n.facing));
-          portraits.request(who, head.clone().addScaledVector(fwd, 1.25).setY(head.y + 0.05), head, 128, 128);
+        // Just them, framed like your own portrait from in front of their face. You stand right
+        // beside whoever you talk to, so with everything drawn your own head would fill the picture.
+        const body = lifeView?.villager(who);
+        if (body) {
+          alone(body, NPC_LAYER);
+          const f = body.rotation.y; // they turn to face you while you talk
+          const fwd = new THREE.Vector3(Math.sin(f), 0, Math.cos(f));
+          portraits.request(who, up(body.position, 1.42).addScaledVector(fwd, 1.9), up(body.position, 1.34), 128, 128, NPC_LAYER);
         }
       }
     }
@@ -387,7 +391,7 @@ function castOf(key: string): { label: string; progress: number } | null {
 
 // What the target plate calls each kind. Content, not rules, so it lives next to the UI.
 const NAMES: Record<string, string> = {
-  dummy: 'Training dummy',
+  dummy: 'Training Dummy',
   slimelet: 'Slimelet',
   slime: 'Slime',
   'great-slime': 'Great Slime',
