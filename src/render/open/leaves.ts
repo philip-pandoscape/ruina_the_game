@@ -101,7 +101,7 @@ export function firBranchTexture(): THREE.CanvasTexture {
       const t = Math.min(0.97, (i + rng() * 0.6) / 30);
       const [x, y] = spine(t);
       const len = Math.pow(1 - t, 0.75) * 96 + 16;
-      tufts.push({ x, y, len, w: range(rng, 7, 10) * (1 - t * 0.4), ang: side * (0.8 + 0.3 * t + range(rng, -0.12, 0.12)), l: range(rng, 0.5, 0.72) });
+      tufts.push({ x, y, len, w: range(rng, 4.5, 7) * (1 - t * 0.4), ang: side * (0.8 + 0.3 * t + range(rng, -0.12, 0.12)), l: range(rng, 0.52, 0.76) });
     }
   // A few tufts along the spine itself, pointing on toward the tip.
   for (let i = 0; i < 12; i++) {
@@ -168,13 +168,60 @@ const DISSOLVE = /* glsl */ `
   }
 `;
 
-/** A tree's solid parts (trunks, the dark core of a canopy): vertex colours, dissolving near the camera. */
-export function solidMaterial(map: THREE.Texture | null = null): THREE.MeshToonMaterial {
+// Light through the leaves: looking toward the sun through a crown, it glows a little.
+const THROUGH = /* glsl */ `
+  #if NUM_DIR_LIGHTS > 0
+  {
+    float through = pow(max(-dot(normalize(vViewPosition), directionalLights[0].direction), 0.0), 3.0);
+    outgoingLight += diffuseColor.rgb * directionalLights[0].color * through * 0.32;
+  }
+  #endif
+`;
+
+/**
+ * A tree's solid parts (trunks, the dark core of a crown, the whole crown far off): vertex colours,
+ * dissolving near the camera. With `leafy`, the leaf texture is laid over it from three sides in
+ * world space, so a crown reads as leaves even where no cards are drawn, and lets light through.
+ */
+export function solidMaterial(map: THREE.Texture | null = null, leafy = false): THREE.MeshToonMaterial {
   const mat = toon(0xffffff, { vertexColors: true, map });
+  const uniforms = { tLeaf: { value: leafy ? leafClusterTexture() : null } };
   mat.onBeforeCompile = (shader) => {
     shader.fragmentShader = shader.fragmentShader.replace('#include <clipping_planes_fragment>', `#include <clipping_planes_fragment>\n${DISSOLVE}`);
+    if (!leafy) return;
+    Object.assign(shader.uniforms, uniforms);
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', '#include <common>\nvarying vec3 vLeafPos;\nvarying vec3 vLeafNormal;')
+      .replace(
+        '#include <worldpos_vertex>',
+        `#include <worldpos_vertex>
+        {
+          vec4 leafWorld = vec4(transformed, 1.0);
+          mat3 leafTurn = mat3(modelMatrix);
+          #ifdef USE_INSTANCING
+            leafWorld = instanceMatrix * leafWorld;
+            leafTurn = leafTurn * mat3(instanceMatrix);
+          #endif
+          vLeafPos = (modelMatrix * leafWorld).xyz;
+          vLeafNormal = normalize(leafTurn * objectNormal);
+        }`,
+      );
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', '#include <common>\nuniform sampler2D tLeaf;\nvarying vec3 vLeafPos;\nvarying vec3 vLeafNormal;')
+      .replace(
+        '#include <color_fragment>',
+        `#include <color_fragment>
+        {
+          vec3 w = pow(abs(normalize(vLeafNormal)), vec3(4.0));
+          w /= w.x + w.y + w.z;
+          vec3 p = vLeafPos * 0.42;
+          vec4 t = texture2D(tLeaf, p.zy) * w.x + texture2D(tLeaf, p.xz) * w.y + texture2D(tLeaf, p.xy) * w.z;
+          diffuseColor.rgb *= mix(0.62, dot(t.rgb, vec3(0.333)) * 1.3, t.a);
+        }`,
+      )
+      .replace('#include <opaque_fragment>', `${THROUGH}\n#include <opaque_fragment>`);
   };
-  mat.customProgramCacheKey = () => `tree-solid:${map ? map.uuid : ''}`;
+  mat.customProgramCacheKey = () => `tree-solid:${map ? map.uuid : ''}:${leafy}`;
   return mat;
 }
 
@@ -214,7 +261,8 @@ export function cardMaterial(map: THREE.Texture, sway: number): THREE.MeshToonMa
         }
         #include <alphatest_fragment>`,
       )
-      .replace('#include <normal_fragment_begin>', '#include <normal_fragment_begin>\n  normal = normalize(vNormal);');
+      .replace('#include <normal_fragment_begin>', '#include <normal_fragment_begin>\n  normal = normalize(vNormal);')
+      .replace('#include <opaque_fragment>', `${THROUGH}\n#include <opaque_fragment>`);
   };
   mat.customProgramCacheKey = () => `tree-cards:${map.uuid}:${sway}`;
   return mat;
@@ -304,7 +352,7 @@ export function boughCards(tiers: Array<{ y: number; radius: number }>, top: num
   const up = new THREE.Vector3(0, 1, 0);
   tiers.forEach(({ y, radius }, k) => {
     for (const ring of [0, 1]) {
-      const count = Math.round((7 + radius * 2.4) * (ring ? 0.7 : 1));
+      const count = Math.round((9 + radius * 3) * (ring ? 0.75 : 1));
       for (let i = 0; i < count; i++) {
         const a = ((i + (ring ? 0.5 : 0)) / count) * TAU + range(rng, -0.15, 0.15);
         const droop = range(rng, 0.32, 0.55) + (ring ? 0.12 : 0);
@@ -313,12 +361,12 @@ export function boughCards(tiers: Array<{ y: number; radius: number }>, top: num
         const along = out3.clone().multiplyScalar(Math.cos(droop)).setY(-Math.sin(droop));
         // Across the bough, tilted a little off the horizontal so the rings don't all lie flat.
         const across = new THREE.Vector3(-Math.sin(a), 0, Math.cos(a)).applyAxisAngle(along, range(rng, -0.35, 0.35));
-        const w = len * 0.42;
+        const w = len * 0.52;
         const base = new THREE.Vector3(0, y + (ring ? 0.35 : 0), 0).addScaledVector(out3, 0.12);
         const tip = base.clone().addScaledVector(along, len);
         const corners = [base.clone().addScaledVector(across, -w / 2), tip.clone().addScaledVector(across, -w / 2), tip.clone().addScaledVector(across, w / 2), base.clone().addScaledVector(across, w / 2)];
         const normal = out3.clone().multiplyScalar(0.55).add(up).normalize();
-        const tierLight = 0.7 + 0.3 * (k / Math.max(1, tiers.length - 1));
+        const tierLight = (0.7 + 0.3 * (k / Math.max(1, tiers.length - 1))) * range(rng, 0.85, 1.1);
         quad(out, corners, [normal, normal, normal, normal], [0.5 * tierLight, 1 * tierLight, 1 * tierLight, 0.5 * tierLight], [
           [0, 0.02],
           [1, 0.02],

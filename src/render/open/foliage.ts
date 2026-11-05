@@ -182,23 +182,47 @@ const CROWN: Array<[number, number, number, number]> = [
 ];
 const CROWN_MIDDLE = new THREE.Vector3(0, 7.0, 0);
 
+/** A taller, narrower crown for some of the broadleaf trees, about its middle at (0, 8, 0). */
+const TALL_CROWN: Array<[number, number, number, number]> = [
+  [0, 8.0, 0, 2.2],
+  [1.3, 7.0, 0.5, 1.6],
+  [-1.2, 7.3, -0.4, 1.7],
+  [0.3, 9.6, 0.2, 1.7],
+  [-0.5, 10.8, -0.2, 1.3],
+  [0.6, 6.0, -1.3, 1.4],
+  [-0.7, 6.2, 1.2, 1.4],
+  [0.1, 11.9, 0, 0.9],
+];
+const TALL_MIDDLE = new THREE.Vector3(0, 8.4, 0);
+
 /**
  * Near: a smaller, darker core of lumps that the leaf cards (leafCards) cover; far: fewer, full-size
  * lumps that stand in for the cards too.
  */
-function broadleafCanopy(detail: number): THREE.BufferGeometry {
-  const few: Array<[number, number, number, number]> = [
-    [0, 7.2, 0, 2.9],
-    [1.6, 6.3, 0.5, 2.0],
-    [-1.6, 6.5, -0.5, 2.1],
-    [0, 8.4, 0, 1.9],
-  ];
+function broadleafCanopy(detail: number, tall = false): THREE.BufferGeometry {
+  const crown = tall ? TALL_CROWN : CROWN;
+  const middle = tall ? TALL_MIDDLE : CROWN_MIDDLE;
+  const top = tall ? 12.8 : 9.8;
+  const few: Array<[number, number, number, number]> = tall
+    ? [
+        [0, 8.2, 0, 2.4],
+        [0.9, 6.6, 0.3, 1.8],
+        [-0.9, 6.8, -0.3, 1.8],
+        [0, 10.4, 0, 1.8],
+      ]
+    : [
+        [0, 7.2, 0, 2.9],
+        [1.6, 6.3, 0.5, 2.0],
+        [-1.6, 6.5, -0.5, 2.1],
+        [0, 8.4, 0, 1.9],
+      ];
   if (detail > 0) {
-    const parts = CROWN.map(([x, y, z, r], k) => lump(r * 0.62, 1, [x, y, z], CROWN_MIDDLE, k).toNonIndexed());
-    return dim(shade(mergeGeometries(parts), 4.4, 9.8, 0, 7.0, 0, 3.4, 0.3), 0.55);
+    const parts = crown.map(([x, y, z, r], k) => lump(r * 0.62, 1, [x, y, z], middle, k).toNonIndexed());
+    return dim(shade(mergeGeometries(parts), 4.4, top, 0, middle.y, 0, 3.4, 0.3), 0.55);
   }
-  const parts = few.map(([x, y, z, r], k) => lump(r, 0, [x, y, z], CROWN_MIDDLE, k).toNonIndexed());
-  return shade(mergeGeometries(parts), 4.4, 9.8, 0, 7.0, 0, 3.4);
+  // Far off: detail 1, so the leaf texture laid over it has something round to follow.
+  const parts = few.map(([x, y, z, r], k) => lump(r, 1, [x, y, z], middle, k).toNonIndexed());
+  return shade(mergeGeometries(parts), 4.4, top, 0, middle.y, 0, 3.4);
 }
 
 /** The pine's tiers: where each starts, how wide and tall it is. */
@@ -216,7 +240,7 @@ function pineCanopy(detail: number): THREE.BufferGeometry {
   for (let k = 0; k < tiers; k++) {
     const u = k / (tiers - 1);
     // Near, a narrower, darker cone stands inside the boughs (boughCards); far, it is the whole tree.
-    const radius = (3.1 - u * 2.4) * (detail > 0 ? 0.62 : 1);
+    const radius = (3.1 - u * 2.4) * (detail > 0 ? 0.5 : 1);
     const height = 3.2 - u * 1.2;
     const y0 = 2.2 + u * 8.6;
     const g = new THREE.ConeGeometry(radius, height, segs, 2, true).toNonIndexed();
@@ -258,9 +282,11 @@ interface TreeLods {
   trunk: Lod;
   pineTrunk: Lod;
   round: Lod;
+  tall: Lod;
   pine: Lod;
-  /** Near only: the broadleaf's leaf cards and the pine's boughs. */
+  /** Near only: the broadleaf's leaf cards (both crowns) and the pine's boughs. */
   roundCards: THREE.BufferGeometry;
+  tallCards: THREE.BufferGeometry;
   pineCards: THREE.BufferGeometry;
 }
 
@@ -269,8 +295,10 @@ function treeLods(): TreeLods {
     trunk: [trunkGeo(6.2, 8, true), trunkGeo(6.2, 5, false)],
     pineTrunk: [trunkGeo(10.5, 7, false), trunkGeo(10.5, 5, false)],
     round: [broadleafCanopy(1), broadleafCanopy(0)],
+    tall: [broadleafCanopy(1, true), broadleafCanopy(0, true)],
     pine: [pineCanopy(1), pineCanopy(0)],
     roundCards: leafCards(CROWN, CROWN_MIDDLE, 5, 0.78, 41, 4.2, 10),
+    tallCards: leafCards(TALL_CROWN, TALL_MIDDLE, 5, 0.78, 47, 4.6, 12.8),
     pineCards: boughCards(
       pineTiers(7).map((t) => ({ y: t.y0 + t.height * 0.45, radius: t.radius })),
       13.2,
@@ -321,7 +349,7 @@ export class FoliageView {
       list.push(o);
     }
     const lods = NEW_LOOK ? treeLods() : null;
-    const treeMat = NEW_LOOK ? solidMaterial() : mat;
+    const treeMat = NEW_LOOK ? solidMaterial(null, true) : mat;
     const barkMat = NEW_LOOK ? solidMaterial(barkTexture('broadleaf')) : mat;
     const pineBarkMat = NEW_LOOK ? solidMaterial(barkTexture('pine')) : mat;
     const leafMat = NEW_LOOK ? cardMaterial(leafClusterTexture(), 0.012) : mat;
@@ -346,14 +374,20 @@ export class FoliageView {
         };
         const needles = (o: Obstacle) => {
           let c = leafColour.get(o);
-          if (!c) leafColour.set(o, (c = pick().offsetHSL(0.05, -0.1, 0.02)));
+          if (!c) leafColour.set(o, (c = pick().offsetHSL(0.07, -0.1, -0.04)));
           return c;
         };
         this.placeLod(lods.trunk, barkMat, rounds, bark);
         this.placeLod(lods.pineTrunk, pineBarkMat, pines, bark);
-        this.placeLod(lods.round, treeMat, rounds, leafy, crownShape);
+        // Four in ten broadleaf trees grow the taller crown.
+        const tall = (o: Obstacle) => hash2(Math.round(o.x * 10), Math.round(o.z * 10), 191) < 0.4;
+        const wide = rounds.filter((o) => !tall(o));
+        const tallOnes = rounds.filter(tall);
+        this.placeLod(lods.round, treeMat, wide, leafy, crownShape);
+        this.placeLod(lods.tall, treeMat, tallOnes, leafy, crownShape);
         this.placeLod(lods.pine, treeMat, pines, needles, pineShape);
-        this.placeNear(lods.roundCards, leafMat, rounds, leafy, crownShape);
+        this.placeNear(lods.roundCards, leafMat, wide, leafy, crownShape);
+        this.placeNear(lods.tallCards, leafMat, tallOnes, leafy, crownShape);
         this.placeNear(lods.pineCards, boughMat, pines, needles, pineShape);
       } else {
         this.place(geo.trunk, mat, trees, () => new THREE.Color(PALETTE.trunk));

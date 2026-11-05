@@ -32,6 +32,7 @@ const SCENES: Scene[] = [
   { id: 'windspire-vista', x: 40, z: 227, facing: Math.PI, hour: 11, camera: { yaw: Math.PI, pitch: 0.12, distance: 7 } },
   { id: 'tree-closeup', x: 10, z: -24, facing: 0, hour: 11.2, camera: { yaw: 0, pitch: 0.2, distance: 9 }, view: { from: [12, 3.2, -23], to: [1.6, 6, -10.8], ground: true } },
   { id: 'woods-thornwood', x: -262, z: 116, facing: 0, hour: 11.5, camera: { yaw: 0, pitch: 0.2, distance: 9 }, view: { from: [-258, 3.5, 112], to: [-290, 7, 140], ground: true } },
+  { id: 'woods-far', x: -40, z: 40, facing: 0, hour: 11.6, camera: { yaw: 0, pitch: 0.2, distance: 9 }, view: { from: [-40, 8, 40], to: [-290, 10, 140], ground: true } },
   { id: 'north-pines', x: 40, z: 118, facing: 0, hour: 11.8, camera: { yaw: 0, pitch: 0.2, distance: 9 }, view: { from: [46, 4, 116], to: [27.8, 8, 146], ground: true } },
   { id: 'fields-noon', x: -140, z: -225, facing: -0.8, hour: 12.5, camera: { yaw: -0.8, pitch: 0.22, distance: 10 } },
   { id: 'bushes-edge', x: -258, z: 112, facing: 0.6, hour: 13, camera: { yaw: 0.6, pitch: 0.18, distance: 9 } },
