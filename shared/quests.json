@@ -385,7 +385,7 @@
       "after": [
         "stonecutting"
       ],
-      "intro": "Stone's half a house. The other half is timber, and Hob Ashgrove cuts it at his camp on the edge of Thornwood, where the east road ends. He'll show you how to chop the deadfall and bundle it. Once you've a bundle tied, tell Registrar Quill you're ready to build.",
+      "intro": "Stone's half a house. The other half is timber, and Hob Ashgrove cuts it at his camp on the edge of Thornwood, where the east road ends. He'll show you how to chop the deadfall and bundle it, and his woodpile sells lumber if you'd rather pay than chop. Once you've a bundle tied, tell Registrar Quill you're ready to build.",
       "steps": [
         {
           "text": "Speak with Hob Ashgrove at his camp in Thornwood, where the east road ends",

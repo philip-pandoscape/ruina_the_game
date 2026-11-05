@@ -1756,6 +1756,10 @@ const api = {
     if (!life) return null;
     return JSON.parse(JSON.stringify({ ...life.state, focus: life.focus, placing: life.placing, resting: life.resting }));
   },
+  /** Where the quest you're on leads you (the ring on the maps, the marker on the compass). */
+  questGoal() {
+    return lifeUI?.goal() ?? null;
+  },
   /** The hour of the day the sky shows, 0..24 (online the world's, from the server's clock). */
   dayHour(): number | null {
     return life ? skyHour() : null;
@@ -1764,11 +1768,11 @@ const api = {
   lifeCommand(c: Parameters<Life['command']>[0]): void {
     life?.command(c);
   },
-  /** Jumps the player to (x, z) on the ground. */
-  teleport(x: number, z: number, facing?: number): void {
+  /** Jumps the player to (x, z) on the ground (`drawn` false leaves drawing it to the caller, as advance's does). */
+  teleport(x: number, z: number, facing?: number, drawn = true): void {
     teleport(x, z, facing);
     followSim(STEP);
-    draw(1, 0, 0);
+    if (drawn) draw(1, 0, 0);
   },
   /** Where things are on this island. */
   zone() {

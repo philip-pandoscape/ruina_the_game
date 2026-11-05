@@ -1,5 +1,9 @@
 import { expect, test, type Page } from '@playwright/test';
+import { SAVE_KEY } from '../src/app/save';
+import { Life } from '../src/sim/life/life';
 import { sailEfficiency } from '../src/sim/life/vehicles';
+import { generateZone } from '../src/sim/zone/generate';
+import { EMBERHOLM } from '../src/sim/zone/world';
 import { skillsFrom } from '../src/skills';
 import { COMBAT, emptyMovement, HOTBAR_SLOTS, NO_ABILITY } from '../src/tuning';
 
@@ -593,6 +597,140 @@ test('quests: the starter chain advances from what you do', async ({ page }) => 
   l = await w.life();
   const q = l.quests.active.find((x: { id: string }) => x.id === 'patch');
   expect(q.step).toBe(1);
+});
+
+test('stone and timber: before the house, the quests lead you to the outcrops, the deadfall and the benches', async ({ page }) => {
+  // An island that has done everything before the house, kept in this browser for ?load.
+  const quill = EMBERHOLM.npcs.find((n) => n.id === 'quill')!;
+  const state = JSON.parse(JSON.stringify(new Life({ recipe: EMBERHOLM, gen: generateZone(EMBERHOLM) }).state));
+  state.quests = { active: [], done: ['landfall', 'patch', 'wings', 'firstFlight', 'harvest', 'packwright', 'westward'] };
+  state.labor = 1000;
+  const saved = { savedAt: Date.now(), state, player: { x: quill.x - 1.6, y: 0, z: quill.z, facing: Math.PI / 2 } };
+  await page.addInitScript(([k, v]) => localStorage.setItem(k, v), [SAVE_KEY, JSON.stringify(saved)] as const);
+  const errors = await open(page, '&load');
+  const w = g(page);
+  const z = await w.zone();
+  // Moving about without drawing (CI draws in software): only the end is drawn.
+  const quiet = (frames: number) => page.evaluate((n) => (window as any).__game.advance(n, {}, false), frames);
+  const goTo = async (x: number, zz: number, facing: number) => {
+    await page.evaluate(([a, b, c]) => (window as any).__game.teleport(a, b, c, false), [x, zz, facing] as const);
+    await quiet(2);
+  };
+  const toNpc = (id: string) => {
+    const n = z.npcs.find((x: { id: string }) => x.id === id);
+    return goTo(n.x + Math.sin(n.facing) * 1.6, n.z + Math.cos(n.facing) * 1.6, n.facing + Math.PI);
+  };
+  const press = async () => {
+    await w.cmd({ t: 'interact' });
+    await quiet(2);
+  };
+  const close = () => page.evaluate(() => (window as any).__game.closeLifePanel());
+  const goal = () => page.evaluate(() => (window as any).__game.questGoal());
+  const progress = async (id: string) => (await w.life()).quests.active.find((q: { id: string }) => q.id === id);
+  const count = async (item: string) => ((await w.life()).bag as Array<{ item: string; n: number }>).filter((s) => s.item === item).reduce((n, s) => n + s.n, 0);
+  const card = page.locator('.lui-card');
+
+  // Quill won't grant land before you know what a house is made of.
+  await toNpc('quill');
+  await press();
+  await expect(card.locator('[data-act="quest"][data-arg="home"]')).toHaveCount(0);
+  await card.locator('[data-act="quest"][data-arg="stonecutting"]').click();
+  await expect(card).toContainText('you quarry the stone and cut the blocks yourself');
+  await card.locator('[data-act="accept"]').click();
+  await quiet(1);
+  await close();
+  expect((await goal()).label).toBe('Brenna Stoneheart');
+
+  // Brenna at the quarry, then the nearest outcrop: each swing counts the stone it gives.
+  await toNpc('brenna');
+  await press();
+  await close();
+  expect((await goal()).label).toBe('Stone Outcrop');
+  for (const nd of z.nodes.filter((n: { kind: string }) => n.kind === 'stoneNode')) {
+    if ((await progress('stonecutting')).step > 1) break;
+    await goTo(nd.x, nd.z + 2, Math.PI);
+    const f = (await w.life()).focus;
+    expect([f.label, f.detail]).toEqual(['Quarry Stone', '8 Labor · 3-5 Stone']);
+    await press();
+    const q = await progress('stonecutting');
+    if (q.step === 1) expect(q.counts[0]).toBe(await count('stone'));
+  }
+  expect((await progress('stonecutting')).step).toBe(2);
+  // The table says what it makes; its window says where stone comes from when you're short.
+  expect((await goal()).label).toBe("Stonecutter's Table");
+  const cutter = z.workbenches.find((b: { id: string }) => b.id === 'stonecutter');
+  await goTo(cutter.x, cutter.z + 1.5, Math.PI);
+  expect((await w.life()).focus.detail).toBe('Stone Block · Iron Fittings Crate');
+  await press();
+  await expect(card).toContainText("Six make an Iron Fittings Crate at the Stonecutter's Table");
+  await card.locator('[data-act="make"][data-arg="pack.stoneBlock"]').click();
+  await quiet(2);
+  // Packing it closes the window (a moment later).
+  await expect.poll(() => page.evaluate(() => (window as any).__game.lifePanel())).toBeNull();
+  expect((await progress('stonecutting')).step).toBe(3);
+  expect((await goal()).label).toBe('Brenna Stoneheart');
+
+  // Set the block down by the table and hand it in: Brenna sends you on to Hob.
+  await w.cmd({ t: 'drop' });
+  await quiet(2);
+  await toNpc('brenna');
+  await press();
+  await card.locator('[data-act="quest"][data-arg="stonecutting"]').click();
+  await card.locator('[data-act="complete"]').click();
+  await quiet(2);
+  await page.evaluate(() => (window as any).__game.render());
+  await card.locator('[data-act="quest"][data-arg="woodcutting"]').click();
+  await card.locator('[data-act="accept"]').click();
+  await quiet(1);
+  await close();
+  expect((await w.life()).quests.done).toContain('stonecutting');
+  expect((await goal()).label).toBe('Hob Ashgrove');
+
+  // Hob's camp: the deadfall, then his sawhorse.
+  await toNpc('hob');
+  await press();
+  await close();
+  expect((await goal()).label).toBe('Deadfall Timber');
+  for (const nd of z.nodes.filter((n: { kind: string }) => n.kind === 'timberNode')) {
+    if ((await progress('woodcutting')).step > 1) break;
+    await goTo(nd.x, nd.z + 2, Math.PI);
+    expect((await w.life()).focus.label).toBe('Chop Timber');
+    await press();
+  }
+  expect((await goal()).label).toBe("Hob's Sawhorse");
+  const saw = z.workbenches.find((b: { id: string }) => b.id === 'sawhorse');
+  await goTo(saw.x, saw.z + 1.5, Math.PI);
+  expect((await w.life()).focus.detail).toBe('Lumber Bundle');
+  await w.cmd({ t: 'craft', recipe: 'pack.lumberBundle' });
+  await quiet(2);
+  expect((await goal()).label).toBe('Registrar Quill');
+
+  // Quill takes it, with a seal toward the blueprint, and only now offers the house.
+  const seals = (await w.life()).seals;
+  await toNpc('quill');
+  await w.cmd({ t: 'complete', quest: 'woodcutting' });
+  await w.cmd({ t: 'accept', quest: 'home' });
+  await quiet(2);
+  expect((await w.life()).seals).toBe(seals + 1);
+  expect((await progress('home')).step).toBe(0);
+  // No blueprint yet: the marker stays on whoever sells them; with one, Hearthside Rise.
+  expect((await goal()).label).toBe('Registrar Quill');
+  await w.cmd({ t: 'grant', item: 'blueprint.cottage', n: 1 });
+  await quiet(1);
+  expect((await goal()).label).toBe('Hearthside Rise');
+  const plot = z.housePlots[0];
+  await goTo(plot.x, plot.z + 5, plot.rot + Math.PI);
+  await press();
+  // The foundation wants stone: the site says where it's cut, and the marker goes to the block you left.
+  const l = await w.life();
+  expect([l.focus.label, l.focus.detail]).toEqual(['Foundation Needs', 'Stone Block 0/2 (Stonebreak Quarry)']);
+  const block = l.packs.find((p: { def: string }) => p.def === 'stoneBlock');
+  expect(await goal()).toEqual({ x: block.x, z: block.z, label: 'Stone Block' });
+  await page.evaluate(() => (window as any).__game.pressLife('map'));
+  await page.evaluate(() => (window as any).__game.render());
+  await expect(page.locator('#lui-quests')).toContainText('Build all four stages with packs from Stonebreak Quarry and Thornwood');
+  await page.screenshot({ path: `${SHOTS}/world-13-building-lessons.png` });
+  expect(errors).toEqual([]);
 });
 
 test('quest log: take a quest off the tracker and back, and give one up', async ({ page }) => {

@@ -977,7 +977,7 @@ mod tests {
         let mut sim = Sim { player: &mut p, world: &mut world, owner: 1 };
         stand(&mut sim, nd.x, nd.z - 2.4, 0.0);
         let f = find_focus(&mut life, &sim).unwrap();
-        assert_eq!((f.action.as_str(), f.label.as_str(), f.detail.as_deref(), f.key.as_str(), f.node), ("gather", "Chop timber", Some("8 labor"), "node:0", Some(0)));
+        assert_eq!((f.action.as_str(), f.label.as_str(), f.detail.as_deref(), f.key.as_str(), f.node), ("gather", "Chop Timber", Some("8 labor"), "node:0", Some(0)));
         // On Hob's lesson, which wants ten lumber.
         life.state.quests.active = vec![QuestProgress { id: "woodcutting".into(), step: 1, counts: vec![0.0] }];
         run_command(&mut life, &mut sim, &Command::Interact);
