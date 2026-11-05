@@ -159,10 +159,16 @@ test('a hit sparks and flashes the slime the moment the swing lands, and the ser
         .sort((a, b) => Math.hypot(a.x - me.x, a.z - me.z) - Math.hypot(b.x - me.x, b.z - me.z))[0];
     };
     let flash = 0;
-    const target = near();
-    for (let i = 0; i < 300 && target; i++) {
-      const t = (g.shownActors() as Shown[]).find((a) => a.id === target.id);
-      if (!t || t.deadFrame >= 0) break;
+    let target = near();
+    // This server's bots fight the slimes too: one that goes down before you reach it is swapped
+    // for the next nearest.
+    for (let i = 0; i < 600 && target; i++) {
+      const t = (g.shownActors() as Shown[]).find((a) => a.id === target!.id);
+      if (!t || t.deadFrame >= 0) {
+        target = near();
+        flash = 0;
+        continue;
+      }
       flash = Math.max(flash, t.flash);
       const fx = g.netFx();
       if (fx.claimed + fx.late > 0 && flash > 0) break;
