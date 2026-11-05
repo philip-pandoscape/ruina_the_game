@@ -61,13 +61,19 @@ export const MADE_PROPS: Record<string, MadeModel> = {
   bench: { files: ['bench'], sink: 0.02 },
   lamp: { files: ['lamp'], sink: 0.05 },
   signpost: { files: ['signpost'], sink: 0.1 },
-  haycart: { files: ['haycart'], sink: 0.02 },
+  // The made cart is long across X; the prop is long along Z.
+  haycart: { files: ['haycart'], yaw: Math.PI / 2, sink: 0.02 },
   bollard: { files: ['bollard'], sink: 0.02 },
   fence: { files: ['fence'], sink: 0.08 },
   // The island's loose rocks (src/render/open/foliage.ts): the box of a rock at scale 1.
   boulderGranite: { files: ['boulder_granite'], w: 1.7, h: 1.15, d: 1.7, sink: 0.3 },
   boulderCoast: { files: ['boulder_coast'], w: 1.6, h: 1.3, d: 1.6, sink: 0.3 },
 };
+
+/** Trade packs with a made model, by pack id (shared/trade.json): their straps face +Z, as the procedural ones' do. */
+export const MADE_PACKS: Record<string, MadeModel> = Object.fromEntries(
+  ['harvestCrate', 'flaxBale', 'emberPreserves', 'ciderCask', 'fleeceBale', 'hamper', 'lumberBundle', 'stoneBlock', 'ironCrate', 'sailcloth'].map((id) => [id, { files: [`pack_${id}`] }]),
+);
 
 const materials = new Map<string, THREE.Material>();
 
@@ -187,4 +193,29 @@ export function madeProp(id: string, box: { w: number; h: number; d: number }): 
     });
     return found;
   });
+}
+
+/**
+ * Swaps a made pack in for a procedural one once it has loaded: the same box, in the same place
+ * against the carrier's back (the procedural pack's own bounds), so carrying, loading and stowing
+ * see no difference.
+ */
+export function madePack(id: string, root: THREE.Object3D): void {
+  if (!NEW_LOOK) return;
+  const made = MADE_PACKS[id];
+  const url = made && urls[`../assets/models/${made.files[0]}.glb`];
+  if (!made || !url) return;
+  root.updateMatrixWorld(true);
+  const box = new THREE.Box3().setFromObject(root);
+  if (box.isEmpty()) return;
+  const size = box.getSize(new THREE.Vector3());
+  const centre = box.getCenter(new THREE.Vector3());
+  track(
+    loadModel(url).then((scene) => {
+      const model = fitted(scene, { ...made, sink: 0 }, size.x, size.y, size.z);
+      model.position.set(centre.x, box.min.y, centre.z);
+      for (const child of [...root.children]) root.remove(child);
+      root.add(model);
+    }),
+  );
 }
