@@ -203,7 +203,9 @@ const worldLetsIn = (page: Page, query = '') =>
 test('the badge sits at the bottom right under the menu buttons, clear of their labels and the stats line', async ({ page }) => {
   await page.goto(`/?as=${fresh('badge')}&bugs=0`);
   await waitOnline(page);
-  await expect(page.locator('#splash')).toHaveCount(0);
+  // The title screen fades out a few frames after the island arrives: slow where frames are drawn
+  // in software (CI).
+  await expect(page.locator('#splash')).toHaveCount(0, { timeout: 30_000 });
   for (const [width, height] of [
     [1280, 720],
     [1920, 1080],
