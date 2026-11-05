@@ -143,21 +143,28 @@ async function untitled(page: Page, sel: string): Promise<string[]> {
 
 /**
  * Lets the travel run until it stops or `seconds` of game time pass, sampling what is underfoot
- * (or under the hooves or wheels) every half second.
+ * (or under the hooves or wheels) every half second. It all runs in the page, drawing only at the
+ * end: a browser drawing in software (CI's) takes a second or more over every frame it draws.
  */
 async function travel(page: Page, seconds: number): Promise<{ seconds: number; paved: number; samples: number }> {
-  const w = g(page);
-  let paved = 0;
-  let samples = 0;
-  let frames = 0;
-  for (; frames < seconds * 60; frames += 30) {
-    await w.advance(30);
-    const p = await w.player();
-    samples++;
-    if (PAVED.has(await w.surface(p.pos.x, p.pos.z))) paved++;
-    if ((await w.walk()).mode === 'off') break;
-  }
-  return { seconds: frames / 60, paved, samples };
+  return page.evaluate(
+    ([seconds, paved]) => {
+      const g = (window as any).__game;
+      let onRoad = 0;
+      let samples = 0;
+      let frames = 0;
+      for (; frames < seconds * 60; frames += 30) {
+        g.advance(30, {}, false);
+        const p = g.state().player;
+        samples++;
+        if (paved.includes(g.surface(p.pos.x, p.pos.z))) onRoad++;
+        if (g.walk().mode === 'off') break;
+      }
+      g.render();
+      return { seconds: frames / 60, paved: onRoad, samples };
+    },
+    [seconds, [...PAVED]] as const,
+  );
 }
 
 test('auto-run: H runs you on where the camera looks, the mouse steering; A and D strafe, W or S take over', async ({ page }) => {
@@ -417,14 +424,20 @@ test('travel by road in a roadster: it slows in time for the square and stops at
   expect((await w.player()).mode).toBe('ride');
   // Down into Lanternwick's square, round the well and out along the west road.
   expect(await w.travelTo(60, -246, 'The West Road')).toBe(true);
-  let fastest = 0;
-  let inSquare = 0;
-  for (let i = 0; i < 60 && (await w.walk()).mode === 'travel'; i++) {
-    await w.advance(15);
-    const v = (await w.life()).vehicles.find((x: { def: string }) => x.def === 'roadster');
-    fastest = Math.max(fastest, Math.abs(v.speed));
-    if (Math.hypot(v.x, v.z + 250) < 15) inSquare = Math.max(inSquare, Math.abs(v.speed));
-  }
+  // Driven in the page, drawn at the end (see travel()).
+  const { fastest, inSquare } = await page.evaluate(() => {
+    const g = (window as any).__game;
+    let fastest = 0;
+    let inSquare = 0;
+    for (let i = 0; i < 60 && g.walk().mode === 'travel'; i++) {
+      g.advance(15, {}, false);
+      const v = g.life().vehicles.find((x: { def: string }) => x.def === 'roadster');
+      fastest = Math.max(fastest, Math.abs(v.speed));
+      if (Math.hypot(v.x, v.z + 250) < 15) inSquare = Math.max(inSquare, Math.abs(v.speed));
+    }
+    g.render();
+    return { fastest, inSquare };
+  });
   const v = (await w.life()).vehicles.find((x: { def: string }) => x.def === 'roadster');
   console.log('roadster', { fastest: fastest.toFixed(1), inSquare: inSquare.toFixed(1), at: [v.x.toFixed(1), v.z.toFixed(1)] });
   expect((await w.walk()).mode).toBe('off');

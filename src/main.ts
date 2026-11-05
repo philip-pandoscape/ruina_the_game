@@ -1419,14 +1419,16 @@ requestAnimationFrame(frame);
 
 const api = {
   ready: true,
-  // Steps the game with the same scripted actions every frame (auto-walk, when on, moves you).
-  advance(frames: number, actions: Partial<Actions> = {}): void {
+  // Steps the game with the same scripted actions every frame (auto-walk, when on, moves you), and
+  // draws the last; `drawn` false leaves that to the caller (a long walk sampled as it goes needn't
+  // draw every sample, which a browser drawing in software, as CI's does, takes a second over).
+  advance(frames: number, actions: Partial<Actions> = {}, drawn = true): void {
     for (let i = 0; i < frames; i++) {
       const own = { ...NO_ACTIONS, ...actions };
       stepOnce(walker ? walker.steer(own, follow.yaw) : own);
       followSim(STEP);
     }
-    draw(1, 0, 0);
+    if (drawn) draw(1, 0, 0);
   },
   // Steps the game reading the real keyboard, mouse and controller.
   advanceLive(frames: number): void {
