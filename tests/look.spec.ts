@@ -18,8 +18,8 @@ interface Scene {
   /** The hour on Emberholm's clock. */
   hour: number;
   camera: { yaw: number; pitch: number; distance: number };
-  /** A parked camera instead, for views from the air: where it is and what it looks at. */
-  view?: { from: [number, number, number]; to: [number, number, number] };
+  /** A parked camera instead, for views from the air: where it is and what it looks at (heights above the ground when `ground`). */
+  view?: { from: [number, number, number]; to: [number, number, number]; ground?: boolean };
 }
 
 // In order of the hour, so the clock only ever runs forward a little.
@@ -30,7 +30,11 @@ const SCENES: Scene[] = [
   { id: 'stalls-closeup', x: 6, z: -250, facing: 0.6, hour: 10, camera: { yaw: 0.6, pitch: 0.16, distance: 6 } },
   { id: 'windspire-cliffs', x: 40, z: 110, facing: 0, hour: 10.5, camera: { yaw: 0, pitch: 0.2, distance: 9 }, view: { from: [95, 26, 70], to: [40, 70, 250] } },
   { id: 'windspire-vista', x: 40, z: 227, facing: Math.PI, hour: 11, camera: { yaw: Math.PI, pitch: 0.12, distance: 7 } },
+  { id: 'tree-closeup', x: 10, z: -24, facing: 0, hour: 11.2, camera: { yaw: 0, pitch: 0.2, distance: 9 }, view: { from: [12, 3.2, -23], to: [1.6, 6, -10.8], ground: true } },
+  { id: 'woods-thornwood', x: -262, z: 116, facing: 0, hour: 11.5, camera: { yaw: 0, pitch: 0.2, distance: 9 }, view: { from: [-258, 3.5, 112], to: [-290, 7, 140], ground: true } },
+  { id: 'north-pines', x: 40, z: 118, facing: 0, hour: 11.8, camera: { yaw: 0, pitch: 0.2, distance: 9 }, view: { from: [46, 4, 116], to: [27.8, 8, 146], ground: true } },
   { id: 'fields-noon', x: -140, z: -225, facing: -0.8, hour: 12.5, camera: { yaw: -0.8, pitch: 0.22, distance: 10 } },
+  { id: 'bushes-edge', x: -258, z: 112, facing: 0.6, hour: 13, camera: { yaw: 0.6, pitch: 0.18, distance: 9 } },
   { id: 'docks-afternoon', x: 2, z: -332, facing: 3.5, hour: 15.5, camera: { yaw: 3.5, pitch: 0.2, distance: 12 } },
   { id: 'hearthside-dusk', x: 142, z: -200, facing: 1.75, hour: 19.3, camera: { yaw: 1.75, pitch: 0.15, distance: 10 } },
   { id: 'square-night', x: 0, z: -264, facing: 0, hour: 22.5, camera: { yaw: 0.25, pitch: 0.28, distance: 9 } },
@@ -67,7 +71,12 @@ for (const look of ['classic', 'new']) {
       await page.evaluate(([x, z, f]) => (window as any).__game.teleport(x, z, f), [s.x, s.z, s.facing] as const);
       await page.evaluate((c) => (window as any).__game.setCamera(c), s.camera);
       await page.evaluate(() => (window as any).__game.advance(40));
-      await page.evaluate((v) => (window as any).__game.viewFrom(v ? v.from : null, v?.to), s.view ?? null);
+      await page.evaluate((v) => {
+        const g = (window as any).__game;
+        if (!v) return g.viewFrom(null);
+        const lift = (p: [number, number, number]) => (v.ground ? [p[0], p[1] + g.ground(p[0], p[2]), p[2]] : p);
+        g.viewFrom(lift(v.from), lift(v.to));
+      }, s.view ?? null);
       await page.waitForFunction(() => (window as any).__game.assetsReady === true, null, { timeout: 60_000 });
       await page.screenshot({ path: `${SHOTS}/look-${s.id}-${look}.png` });
     }

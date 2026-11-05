@@ -6,6 +6,7 @@ import { glowMaterial } from '../models/kit';
 import { TerrainView } from './terrain';
 import { WaterView } from './water';
 import { horizonIsles } from './horizon';
+import { foliageTime } from './leaves';
 import { SkyView, seaFar, SKY_HORIZON } from './sky';
 import { FoliageView } from './foliage';
 import { ZoneDressing } from './dressing';
@@ -151,6 +152,7 @@ export class OpenStage {
   update(dt: number, camera: THREE.Camera, playerX: number, playerZ: number): void {
     this.time += dt;
     this.water.update(this.time);
+    foliageTime.value = this.time;
     this.sky.update(this.time, camera.position.x, camera.position.z);
     this.foliage.update(playerX, playerZ);
     this.dressing.update(this.time);

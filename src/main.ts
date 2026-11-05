@@ -1814,6 +1814,13 @@ const api = {
    * Scene objects whose name starts with `prefix`, with where they are (tests and debugging):
    * the origin, and the centre of what is drawn, which differ for models anchored at an edge.
    */
+  /** Trees within r of (x, z), nearest first: where they stand and how big (the look test frames them). */
+  treesNear(x: number, z: number, r = 40) {
+    return world.obstacles
+      .filter((o) => o.kind === 'tree' && Math.hypot(o.x - x, o.z - z) < r)
+      .sort((a, b) => Math.hypot(a.x - x, a.z - z) - Math.hypot(b.x - x, b.z - z))
+      .map((o) => ({ x: +o.x.toFixed(2), z: +o.z.toFixed(2), scale: +o.scale.toFixed(2) }));
+  },
   sceneObjects(prefix: string) {
     type Seen = { name: string; x: number; y: number; z: number; visible: boolean; centre: { x: number; y: number; z: number } };
     const out: Seen[] = [];
