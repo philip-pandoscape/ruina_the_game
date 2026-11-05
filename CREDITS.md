@@ -13,7 +13,7 @@ licences:
 | Tree bark | `src/render/assets/bark_*.jpg` | [Poly Haven](https://polyhaven.com/textures) (bark_brown_02, pine_bark) | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) |
 | Wood, stone and plaster grain | `src/render/assets/detail.jpg` | [Poly Haven](https://polyhaven.com/textures) (brown_planks_05, stone_wall, plastered_wall), made greyscale and packed a channel each | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) |
 
-The made models in `src/render/assets/models/` (buildings, stalls, props, resource nodes, boulders)
+The made models in `src/render/assets/models/` (buildings, stalls, props, resource nodes, boulders, the hero)
 are the project's own: generated with [Meshy](https://www.meshy.ai) on a paid plan from concept art
 it painted for Ruina, then compressed with [glTF Transform](https://gltf-transform.dev).
 

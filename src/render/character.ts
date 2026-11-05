@@ -13,6 +13,9 @@ import { swingFor } from './detail/swings';
 import { pose, type PoseFeedback, type PoseInput } from '../content/pose';
 import type { Holds } from './models/vehicles';
 import { STOWED, stowedTurn } from './detail/stow';
+import { madeHero, madeHeroNow, type MadeHero } from './detail/madeHero';
+import { gripHands, wear, type Grip } from './detail/fit';
+import type { RigDef } from '../content/rig';
 
 const TAU = Math.PI * 2;
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
@@ -111,8 +114,8 @@ function transition(from: string, to: string): number {
 // ---------- weapon trails, traced from the swings themselves ----------
 
 type Edges = Array<readonly [THREE.Vector3, THREE.Vector3]>;
-const traced = new Map<string, Edges | null>();
-let tracer: DetailRig | null = null;
+/** Traced swings and the offscreen rig they were traced on, per body (the box hero's or a made one). */
+const tracers = new Map<RigDef, { rig: DetailRig; traced: Map<string, Edges | null> }>();
 
 const swingKey = (p: PoseInput): string =>
   `${p.weapon}:${p.attackIndex}:${p.comboLength}:${p.step?.startup}:${p.step?.active}:${p.step?.recovery}:${p.step?.pose ?? ''}:${p.airSwing ? 'air' : ''}`;
@@ -121,14 +124,16 @@ const swingKey = (p: PoseInput): string =>
  * Where the weapon's edge goes through a swing's strike: the pose run offscreen at evenly spaced
  * moments, the blade's base and tip read off the hand. The trail can't help but follow the blade.
  */
-export function traceSwing(p: PoseInput): Edges | null {
+export function traceSwing(p: PoseInput, def: RigDef = HERO_RIG): Edges | null {
+  let t = tracers.get(def);
+  if (!t) tracers.set(def, (t = { rig: new DetailRig(def), traced: new Map() }));
+  const { rig: tracer, traced } = t;
   const key = swingKey(p);
   if (traced.has(key)) return traced.get(key)!;
   const step = p.step!;
   const edge = HERO_TRAIL_EDGES[HERO_WEAPONS[p.weapon] ?? ''];
   let edges: Edges | null = null;
   if (edge) {
-    tracer ??= new DetailRig(HERO_RIG);
     const hand = tracer.joint('handR');
     const n = Math.max(24, step.active * 6);
     edges = [];
@@ -211,6 +216,9 @@ const _v = new THREE.Vector3();
 const _v2 = new THREE.Vector3();
 const _v3 = new THREE.Vector3();
 const UP_Z = new THREE.Vector3(0, 0, 1);
+/** Grip axes in a hand's space: a blade, club or staff runs down it, the bow's handle along +Z. */
+const GRIP_DOWN = new THREE.Vector3(0, -1, 0);
+const GRIP_ALONG = new THREE.Vector3(0, 0, 1);
 const DOWN_Z = new THREE.Vector3(0, 0, -1);
 const DOWN_Y = new THREE.Vector3(0, -1, 0);
 
@@ -309,6 +317,32 @@ export class Hero {
     this.strings = this.rig.built.filter((b) => b.mat === 'string').map((b) => b.mesh);
     this.inertia = new Inertia(this.body);
     this.setWeapon(0);
+    // The new look's made body, as soon as it has loaded (at once, if it already has).
+    const made = madeHeroNow();
+    if (made) this.adopt(made);
+    else void madeHero()?.then((m) => m && this.adopt(m));
+  }
+
+  /** The made body worn, once it has loaded; null while the box body is drawn. */
+  private made: MadeHero | null = null;
+
+  /** Swaps the box body for the made one: a rig measured to it, wearing it, posed as before. */
+  private adopt(made: MadeHero): void {
+    this.made = made;
+    const rig = new DetailRig(made.def);
+    this.root.remove(this.rig.root);
+    this.rig = rig;
+    this.root.add(rig.root);
+    this.body = Body.of(rig);
+    this.torso = rig.joint('torso');
+    this.nockedArrow = rig.attachment('arrow');
+    this.strings = rig.built.filter((b) => b.mat === 'string').map((b) => b.mesh);
+    this.inertia = new Inertia(this.body);
+    for (const arc of this.trails.values()) arc.mesh.removeFromParent();
+    this.trails.clear();
+    wear(rig, made.fitted);
+    this.place(this.weaponAt);
+    this.setWeapon(this.weaponShown);
   }
 
   // Team colours: blue tunic with a red cape, or red tunic with a dark cape.
@@ -562,9 +596,28 @@ export class Hero {
     this.inertia.step(step, blend);
     if (this.inertia.blending) settle(this.rig, input);
     this.holdFeet(input, fb, step, jumped);
+    if (this.made) gripHands(this.rig, this.made.fitted.fist, this.grips(input));
 
     this.feedback(input, fb);
     return fb;
+  }
+
+  /**
+   * What the made body's hands are doing: closed round a weapon in hand (a blade's grip runs down
+   * the hand joint's -Y, the bow's along its +Z), round the reins, oars or wheel when travelling,
+   * pinching the string drawing a bow, and otherwise loosely curled.
+   */
+  private grips(input: PoseInput): Record<Side, Grip> {
+    const inHand = this.weaponAt === 'hand';
+    const w = this.weaponShown;
+    const travelling = !!input.travel;
+    const relaxed = travelling ? 1 : 0.18;
+    const blade = inHand && w >= 0 && w <= 2 ? this.rig.attachment(HERO_WEAPONS[w]) : null;
+    const bow = inHand && w === 3;
+    return {
+      R: blade ? { amount: 1, axis: GRIP_DOWN, held: [blade] } : { amount: bow ? 0.6 : relaxed },
+      L: bow ? { amount: 1, axis: GRIP_ALONG, held: [this.rig.attachment('bow'), this.nockedArrow] } : { amount: relaxed },
+    };
   }
 
   /**
@@ -675,7 +728,7 @@ export class Hero {
       const key = swingKey(input);
       let arc = this.trails.get(key);
       if (!arc) {
-        const edges = traceSwing(input);
+        const edges = traceSwing(input, this.rig.def);
         if (edges) {
           const def = swingFor(input.weapon, input.attackIndex, input.step.pose, input.airSwing);
           arc = new SlashArc(def, edges);

@@ -43,6 +43,8 @@ export interface PartDef {
   castShadow?: boolean;
   /** Escape hatch for the handful of shapes that need a rotate or a squash first. */
   tweak?: (g: THREE.BufferGeometry) => void;
+  /** Built but not drawn: a made body's bulk, for the pose code to keep out of the floor. */
+  hidden?: boolean;
 }
 
 export interface RigDef {
@@ -55,4 +57,6 @@ export interface RigDef {
    * Anything else (a nocked arrow, a lantern) is left for the renderer to toggle itself.
    */
   attachments?: Record<string, { joint: string; exclusive?: boolean; parts: PartDef[] }>;
+  /** The ankle above the sole, and the heel and the ball of the foot ahead of it (metres); the box hero's if left out. */
+  feet?: { ankle: number; heel: number; ball: number };
 }

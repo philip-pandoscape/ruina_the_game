@@ -123,10 +123,10 @@ export class Body {
   /** Standing height of the body joint, from the rig. */
   readonly standY: number;
   /** Ankle above the sole of the boot. */
-  readonly ankleHeight = 0.08;
+  readonly ankleHeight: number;
   /** Heel and ball of the foot, forward of the ankle (the toe-off pivot is the ball). */
-  readonly heel = -0.085;
-  readonly ball = 0.17;
+  readonly heel: number;
+  readonly ball: number;
   private readonly bind: Array<{ g: THREE.Group; pos: THREE.Vector3 }> = [];
   private readonly chains = new Map<THREE.Object3D, THREE.Object3D[]>();
 
@@ -162,6 +162,10 @@ export class Body {
     this.leg = { L: limb('legL', 'kneeL', 'footL'), R: limb('legR', 'kneeR', 'footR') };
     for (const d of rig.def.joints) this.bind.push({ g: j(d.name), pos: new THREE.Vector3(...(d.pos ?? [0, 0, 0])) });
     this.standY = this.body.position.y;
+    const feet = rig.def.feet ?? { ankle: 0.08, heel: -0.085, ball: 0.17 };
+    this.ankleHeight = feet.ankle;
+    this.heel = feet.heel;
+    this.ball = feet.ball;
   }
 
   /** Back to the bind pose: every joint where the rig put it, unturned, unscaled. */
