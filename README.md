@@ -10,6 +10,10 @@ The open world starts on **Emberholm**, a starter isle with ArcheAge-style life 
 carts, a roadster, boats that sail on the wind, mounts, trade packs you carry to faraway trading
 posts, scarecrow farms, and houses you build from hauled materials.
 
+**UI design system:** how the interface looks, reads and behaves (the look, Title Case labels, the
+screen layout, every component drawn with the game's own styles, and how items answer a click,
+double-click and right-click) is at http://localhost:5173/design/ui.html (`design/ui.html`).
+
 **Design bible:** the root design document lives in `design/`: every system, live numbers from the
 game's data, an interactive map, and the implementation tracker (`design/status.json`). Run
 `npm run dev` and open http://localhost:5173/design/. The prose is `design/index.html`; everything

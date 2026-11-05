@@ -11,13 +11,13 @@ The open world is **Emberholm**, a starter isle with ArcheAge-style life systems
 | `src/sim/` | Game rules: fixed 60 Hz steps, deterministic, no DOM. `src/sim/life/` (trade, farming, housing, vehicles, quests) changes only through queued commands |
 | `src/render/`, `src/ui/` | Presentation. Reads the rules' state, never changes it |
 | `src/render/detail/` | Close-up bodies. `humanoid.ts` poses every humanoid as a pure function of `PoseInput` (the crowd bakes its clips from it), with `body.ts` (two-bone IK), `gait.ts` (planted feet at any speed and heading), `swings.ts` (weapon keyframes), `stow.ts` (where weapons are put away); `src/render/character.ts` adds the stateful parts (transitions, foot holds, trails, bowstring, drawing and putting away the weapon). `/animations.html` plays them all; `tests/animation.spec.ts` measures them |
-| `src/ui/` | The Parchment & Timber look. `theme/`: the CSS, the UI laid out on a 1029 px virtual screen and scaled to the window (`scale.ts`), fonts, tooltips, pixel icons baked from Twemoji (`npm run icons`). `life/lifeUI.ts`: the island's HUD and its windows docked at the sides. `skills/`: the skill book (T) and the skill tree (N). Skill points are counted from finished quests (`src/sim/life/progress.ts`), never stored |
+| `src/ui/` | The Parchment & Timber look. `theme/`: the CSS, the UI laid out on a 1029 px virtual screen and scaled to the window (`scale.ts`), fonts, tooltips, right-click menus (`contextMenu.ts`), the writing rule (`text.ts`), pixel icons baked from Twemoji (`npm run icons`). `life/lifeUI.ts`: the island's HUD and its windows docked at the sides. `skills/`: the skill book (T) and the skill tree (N). Skill points are counted from finished quests (`src/sim/life/progress.ts`), never stored |
 | `src/main.ts` | Wires it all up; URL options at the top; `window.__game` is the test API |
 | `src/app/online.ts`, `src/net/` | Sign-in, the world connection (`worldLink.ts`: inputs and commands out, the server's ticks in), predicting your own player (`netPlayer.ts`), everyone else in your channel (`worldPeers.ts`), the battlefield client |
 | `server/` | Rust server. It plays Emberholm: `world_game.rs` runs each channel (players from their inputs, the island's rules, slimes, combat via `game.rs`), `world_socket.rs` is the connection, `open/` the island's ground, colliders and traversal (baked from the TS generator into `server/data/emberholm.zone` by `tests/terrain.spec.ts`), `life/` trade, farming, housing, vehicles and quests. Accounts and islands in Postgres (`server/migrations/`, applied on start). The PvP battlefield. `player.rs`, `skills.rs`, `open/`, `life/` mirror the TS rules |
 | `shared/*.json` | Content and tuning, read by both sides. New content is data, not code |
 | `tests/` | Playwright tests that play the real game, plus TS/Rust conformance |
-| `design/` | Design bible (`/design/` on the dev server); `design/status.json` is the tracker and session log |
+| `design/` | Design bible (`/design/` on the dev server) and the UI design system (`/design/ui.html`); `design/status.json` is the tracker and session log |
 
 ## Commands
 
@@ -26,6 +26,7 @@ npm run up              # Postgres + game server in Docker (rebuilds the server)
 npm run dev             # http://localhost:5173  (?as=name signs in on dev, ?yard, ?world&test)
 npm run typecheck
 npx playwright test     # all; tests/online.spec.ts needs `npm run up`
+PW_PORT=5211 TEST_PORT_OFFSET=10 npx playwright test   # beside another checkout's suite (its own Vite and battle-server ports)
 cargo test --release --manifest-path server/Cargo.toml   # needs Rust; CI runs it anyway
 ```
 
@@ -39,6 +40,9 @@ cargo test --release --manifest-path server/Cargo.toml   # needs Rust; CI runs i
   `BAKE=1 npx playwright test tests/terrain.spec.ts`.
 - Keep `src/sim/` deterministic: its own seeded RNG, never `Math.random` or `Date.now`.
 - When a feature lands, update `design/status.json` (feature status, next steps, session log).
+- UI follows the design system (`design/ui.html`): labels (buttons, tabs, headings, prompts, tags) in
+  Title Case and sentences in sentence case (`src/ui/theme/text.ts`, checked by `tests/ui.spec.ts`);
+  items answer a click (pick), a double-click (their main action) and a right-click (a menu).
 - Tag a test `@gpu` if it needs a real GPU to keep up (several game windows, frame rates, screen
   capture). CI renders in software and skips them; run them locally before pushing such changes.
 - Never commit `.env` (Railway keys). Commit messages carry no AI attribution.
