@@ -6,7 +6,7 @@ import { Body, SIDES, bump, clamp, clamp01, easeIn, easeInOut, easeOut, lerp, sm
 import { directional, dutyFactor, planFoot, runGait, sprintGait, type FootPlan, type GaitShape } from './gait';
 import { READY, swingFor, type SwingDef, type SwingKey } from './swings';
 import { gliderGrip } from '../models/gliders';
-import { DRAWING_HAND, stowedFor } from './stow';
+import { DRAWING_HAND, STOWED } from './stow';
 
 // How a humanoid moves. Every playable race and humanoid NPC shares this - they differ in how
 // they are built (src/content/creatures), not in how they walk. Poses only ever touch named
@@ -371,7 +371,7 @@ function holdWeapon(b: Body, p: PoseInput, g: Gait): void {
   const u = clamp01(p.stow);
   if (u <= 0) return holdArmed(b, p, g);
   const name = WEAPON_NAMES[p.weapon] ?? 'sword';
-  const st = stowedFor('')[name];
+  const st = STOWED[name];
   const s = DRAWING_HAND[name] ?? 'R';
   const free = b.save(b.buf(6));
   holdArmed(b, p, g);
@@ -1153,17 +1153,12 @@ export function strokeRate(p: PoseInput): number {
   return 0;
 }
 
+/**
+ * Swimming, gliding, riding or seated in a vehicle. The weapon isn't drawn while travelling (the
+ * close-up hero sees to that), so the hands are free for the stroke, the bar, the reins, the wheel
+ * or the oars.
+ */
 function travel(b: Body, p: PoseInput): void {
-  travelPose(b, p);
-  // Travelling, the weapon is put away on the back or at the hip (the close-up hero sees to that),
-  // and the hands are free. With a pack in the way it stays in the hand, carried out of the way:
-  // blade down and back along the body.
-  if (!p.carry) return;
-  if (p.weapon === 3) b.frameHand('L', torsoDir(b, _a.set(0, -0.8, -0.6)), torsoDir(b, _b.set(0, 0.6, -0.8)));
-  else b.aimHand('R', torsoDir(b, _a.set(-0.15, -0.75, -0.65)));
-}
-
-function travelPose(b: Body, p: PoseInput): void {
   const t = p.time;
   if (p.travel === 'swim') return swim(b, p);
   if (p.travel === 'glide') return glide(b, p);
@@ -1372,12 +1367,14 @@ function helmsman(b: Body, p: PoseInput): void {
 
 // ---------- carrying ----------
 
-/** A trade pack's straps in both hands, leaning into the weight; the weapon over the shoulder. */
-function carry(b: Body, p: PoseInput): void {
+/**
+ * A trade pack's straps in both hands, leaning into the weight. The weapon isn't drawn with a pack
+ * on but for a strike (the close-up hero sees to that), so there's nothing else to hold.
+ */
+function carry(b: Body): void {
   for (const s of SIDES) {
     b.handTo(s, torsoPoint(b, k(s) * 0.12, 0.34, 0.18, _a), torsoDir(b, _pole.set(k(s) * 0.8, -0.6, -0.1)));
   }
-  if (p.weapon !== 3) b.aimHand('R', torsoDir(b, dir(-2.9, 0.95, _a)));
   b.neck.rotation.x -= 0.12;
 }
 
@@ -1412,7 +1409,7 @@ export function poseHumanoid(rig: DetailRig, p: PoseInput): PoseFeedback {
       // Knocked off your feet, you don't leap: arms out for balance and legs reaching for the
       // ground, as when falling, whichever way the knock is taking you.
       air(b, p.stunned ? { ...p, rise: Math.min(p.rise, -0.5) } : p);
-      if (p.carry) carry(b, p);
+      if (p.carry) carry(b);
     } else {
       // Landing: the knees take it, deeper the harder you came down.
       let sink = 0;
@@ -1421,7 +1418,7 @@ export function poseHumanoid(rig: DetailRig, p: PoseInput): PoseFeedback {
         sink = (0.05 + 0.17 * p.landImpact) * (lf < 2.5 ? easeOut(lf / 2.5) : 1 - easeInOut((lf - 2.5) / 11.5));
       }
       const g = locomotion(b, p, sink);
-      if (p.carry) carry(b, p);
+      if (p.carry) carry(b);
       else holdWeapon(b, p, g);
     }
     if (p.stunned) hurt(b, p);

@@ -12,7 +12,7 @@ import { poseHumanoid, settle, strokeRate } from './detail/humanoid';
 import { swingFor } from './detail/swings';
 import { pose, type PoseFeedback, type PoseInput } from '../content/pose';
 import type { Holds } from './models/vehicles';
-import { stowedFor, stowedTurn } from './detail/stow';
+import { STOWED, stowedTurn } from './detail/stow';
 
 const TAU = Math.PI * 2;
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
@@ -168,6 +168,9 @@ const SHEATHE_TIME = 0.6;
 const LINGER = 2.5;
 const OTHERS_LINGER = 4;
 
+/** Where the weapon is drawn: in a hand, put away on the body (stow.ts), or not at all. */
+export type WeaponAt = 'hand' | 'away' | 'hidden';
+
 /**
  * Stepping up onto a deck or a ledge is one step of the rules (up to 0.65 m in a sixtieth of a
  * second); drawn as it is, the body pops up. A rise in one step of at least STEP_UP_POP (more than
@@ -252,11 +255,8 @@ export class Hero {
   private pauseLag = 0;
   private pauseSwing = -1;
   private lastStunFrame = Infinity;
-  /**
-   * Where the weapon's model hangs: null in the hand, '' put away on foot, otherwise put away for
-   * that way of travelling (stow.ts).
-   */
-  private stowedAs: string | null = null;
+  /** Where the weapon's model is: in the hand, put away on the body (stow.ts), or not drawn. */
+  private weaponAt: WeaponAt = 'hand';
   /** 0 the weapon in hand .. 1 put away (PoseInput.stow), and when you last fought (seconds). */
   private stow = 0;
   private lastFight = -Infinity;
@@ -307,7 +307,7 @@ export class Hero {
   // 0 sword, 1 club, 2 staff, 3 bow.
   setWeapon(weapon: number): void {
     this.weaponShown = weapon;
-    this.rig.showAttachment(HERO_WEAPONS[weapon] ?? null);
+    this.rig.showAttachment(this.weaponAt === 'hidden' ? null : (HERO_WEAPONS[weapon] ?? null));
   }
 
   /** Where the vehicle's holds are this frame, in the body's model space, for the seated poses. */
@@ -338,15 +338,15 @@ export class Hero {
     }
   }
 
-  /** Hangs the weapons where they are put away (null: in the hand; '' on foot, or a way of travelling). */
-  private place(as: string | null): void {
-    this.stowedAs = as;
-    const table = as === null ? null : stowedFor(as);
+  /** Puts the weapons in the hand, where they are put away on the body (stow.ts), or out of sight. */
+  private place(at: WeaponAt): void {
+    this.weaponAt = at;
+    this.rig.showAttachment(at === 'hidden' ? null : (HERO_WEAPONS[this.weaponShown] ?? null));
     for (const name of HERO_WEAPONS) {
       const g = this.rig.attachment(name);
-      const s = table?.[name];
+      const s = at === 'away' ? STOWED[name] : undefined;
       if (s) {
-        (s.parent === 'hips' ? this.rig.joint('hips') : this.torso).add(g);
+        this.torso.add(g);
         g.position.set(...s.at);
         stowedTurn(s, g.quaternion);
       } else {
@@ -357,9 +357,9 @@ export class Hero {
     }
   }
 
-  /** Whether the weapon is in a hand right now, rather than put away. */
-  get weaponInHand(): boolean {
-    return this.stowedAs === null;
+  /** Where the weapon is drawn right now: in a hand, put away, or out of sight. */
+  get weaponState(): WeaponAt {
+    return this.weaponAt;
   }
 
   /** The body itself, for benches and tests that measure it. */
@@ -433,8 +433,9 @@ export class Hero {
   /**
    * The weapon comes out for a fight and goes away after one: drawn over DRAW_TIME when a fight
    * starts, put away over SHEATHE_TIME once it has been over a while, and in the hand at once
-   * whenever you swing, shoot, cast or guard (the swing's own wind-up covers the draw). A pack on
-   * your back keeps it in hand, over the shoulder; travelling puts it away whatever.
+   * whenever you swing, shoot, cast or guard (the swing's own wind-up covers the draw). Travelling,
+   * or with a pack on your back (the hands on its straps), it's put away the moment a strike is
+   * over, and out of sight (drive): stepping off or dropping the pack in a fight, you draw it again.
    */
   private drawOrSheathe(p: PlayerState, input: PoseInput): number {
     const now = input.time;
@@ -444,7 +445,8 @@ export class Hero {
     const fighting = striking || p.stun > 0 || this.armed === true;
     if (fighting) this.lastFight = now;
     const linger = this.armed === undefined ? OTHERS_LINGER : LINGER;
-    if (striking || input.carry) this.stow = 0;
+    if (striking) this.stow = 0;
+    else if (input.travel || input.carry) this.stow = 1;
     else if (fighting || now - this.lastFight < linger) this.stow = Math.max(0, this.stow - step / DRAW_TIME);
     else this.stow = Math.min(1, this.stow + step / SHEATHE_TIME);
     return this.stow;
@@ -520,11 +522,12 @@ export class Hero {
     this.swingFrame = input.attackFrame;
 
     if (input.weapon !== this.weaponShown) this.setWeapon(input.weapon);
-    // Where the weapon hangs: travelling, put away for it (stow.ts); on foot, in the hand until the
-    // hand putting it away lets go of it, halfway through (and back in it halfway through drawing).
-    // A pack on the back keeps it in hand, over the shoulder.
-    const as = input.carry ? null : input.travel ? input.travel : input.stow >= 0.5 ? '' : null;
-    if (as !== this.stowedAs) this.place(as);
+    // Where the weapon is drawn. Travelling, not at all: it would only lie across a lap, tangle with
+    // the oars or trail off a swimmer's feet. With a pack on the back neither, but for a strike
+    // (drawOrSheathe). On foot, in the hand until the hand putting it away lets go of it, halfway
+    // through (and back in it halfway through drawing), then at the hip or across the back.
+    const at: WeaponAt = input.travel || (input.carry && input.stow >= 1) ? 'hidden' : !input.carry && input.stow >= 0.5 ? 'away' : 'hand';
+    if (at !== this.weaponAt) this.place(at);
     if (input.travel && this.seatHolds) this.reachForHolds(input, this.seatHolds);
     const fb = poseHumanoid(this.rig, input);
 

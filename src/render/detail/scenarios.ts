@@ -108,6 +108,18 @@ function stowing(from: number, to: number, speed = 0): Segment {
   };
 }
 
+/**
+ * A strike with a pack on the back: the weapon in hand for it, put away (and out of sight) either
+ * side of it, as the close-up hero has it (character.ts drawOrSheathe).
+ */
+const packed = (s: Segment): Segment => ({
+  frames: s.frames,
+  at: (f, k) => {
+    const m = s.at(f, k);
+    return { ...m, input: { ...m.input, carry: true, stow: 0 } };
+  },
+});
+
 /** Speeding up or slowing down at the rules' acceleration. */
 const ramp = (from: number, to: number, accel: number, extra: Partial<PoseInput> = {}): Segment => {
   const frames = Math.max(1, Math.ceil((Math.abs(to - from) / accel) * HZ));
@@ -387,7 +399,12 @@ export const SCENARIOS: Scenario[] = [
   },
   { id: 'crouch', group: 'Moving', label: 'Crouch', ...sequence([stand(40), { frames: 200, at: (f) => ({ input: { crouch: Math.min(1, f / MOVE.crouchEnterFrames) }, speed: 0 }) }]) },
   { id: 'sneak', group: 'Moving', label: 'Crouch walk', ...sequence([move(240, MOVE.crouchSpeed, { crouch: 1 })]) },
-  { id: 'carry', group: 'Moving', label: 'Carrying a pack', ...sequence([stand(60, { carry: true }), ramp(0, RUN * 0.55, MOVE.groundAccel, { carry: true }), move(180, RUN * 0.55, { carry: true })]) },
+  {
+    id: 'carry',
+    group: 'Moving',
+    label: 'Carrying a pack',
+    ...sequence([stand(60, { carry: true, stow: 1 }), ramp(0, RUN * 0.55, MOVE.groundAccel, { carry: true, stow: 1 }), move(180, RUN * 0.55, { carry: true, stow: 1 })]),
+  },
   { id: 'turn', group: 'Moving', label: 'Running turns', ...sequence([move(90, RUN, { lean: 0.8 }), move(90, RUN, { lean: -0.8 })]) },
   {
     id: 'turnOnSpot',
@@ -427,6 +444,12 @@ export const SCENARIOS: Scenario[] = [
   { id: 'meteor', group: 'Fighting', label: 'Cast: Meteor', weapon: 2, ...sequence([stand(30, { weapon: 2 }), cast(ABILITIES.findIndex((a) => a.id === 'meteor')), stand(40, { weapon: 2 })]) },
   { id: 'block', group: 'Fighting', label: 'Block', ...sequence([stand(30), action('block'), stand(40)]) },
   { id: 'sheathe', group: 'Fighting', label: 'Put away and draw', ...sequence([stand(30), stowing(0, 1), stand(40, { stow: 1 }), stowing(1, 0), stand(30)]) },
+  {
+    id: 'carrySwing',
+    group: 'Fighting',
+    label: 'A swing with a pack on',
+    ...sequence([stand(40, { carry: true, stow: 1 }), packed(swing(0, 0, false)), stand(50, { carry: true, stow: 1 })]),
+  },
   {
     id: 'sheatheRun',
     group: 'Fighting',

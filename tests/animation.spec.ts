@@ -350,6 +350,28 @@ test('with the weapon put away the hands are free, and it hangs clear of the gro
   }
 });
 
+test('travelling the weapon is out of sight, and with a pack on the back it only shows for a strike', async ({ page }) => {
+  await open(page);
+  const seen = await page.evaluate(() => {
+    const a = (window as any).__anims;
+    const travel = (a.list() as Array<{ id: string; group: string }>).filter((s) => s.group === 'Travel').map((s) => s.id);
+    return [0, 1, 2, 3].flatMap((w) => [
+      // Swimming, gliding, on a horse, at a wheel, at the oars, at the helm, a passenger: never drawn.
+      ...travel.map((id: string) => ({ id, w, shown: a.weaponTrack(id, w).filter((r: any) => r.shown).length, wrong: 0 })),
+      // A pack on the back: not drawn walking about with it, drawn exactly while the strike lasts.
+      ...['carry', 'carrySwing'].map((id) => {
+        const rows = a.weaponTrack(id, w);
+        return { id, w, shown: rows.filter((r: any) => r.shown).length, wrong: rows.filter((r: any) => r.shown !== r.attack >= 0).length };
+      }),
+    ]);
+  });
+  for (const s of seen) {
+    if (s.id === 'carrySwing') expect(s.shown, `weapon ${s.w} comes out for the strike`).toBeGreaterThan(20);
+    else expect(s.shown, `${s.id}: weapon ${s.w} is drawn on ${s.shown} frames`).toBe(0);
+    expect(s.wrong, `${s.id}: weapon ${s.w} drawn outside the strike, or not during it`).toBe(0);
+  }
+});
+
 test('seated, the hands hold what the vehicle gives them and the feet find its footrest', async ({ page }) => {
   await open(page);
   const gaps = await page.evaluate(() => {

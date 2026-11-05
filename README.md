@@ -144,7 +144,8 @@ camera looks: the stick strafes and backs off, a little slower than running ahea
 double jumps go whichever way you push without turning you. Sprint to turn and run. Out of a
 fight you turn and run the way you push. Your weapon comes out for a fight and goes away a few
 seconds after it (sword and club at the hip, staff and bow on the back); swing, shoot or cast and
-it's in your hand at once.
+it's in your hand at once. Swimming, gliding, riding, or at the wheel, the oars or the helm, it's
+out of sight; with a trade pack on your back it only shows for a strike.
 
 In the open world:
 

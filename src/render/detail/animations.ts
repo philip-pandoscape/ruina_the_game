@@ -775,8 +775,8 @@ const api = {
 
   /**
    * The weapon's far end (a blade's tip, the staff's orb, the bow's top) frame by frame, in the
-   * world, the stow on that frame, and whether the weapon hangs from a hand: for drawing and
-   * sheathing, which must never make it jump.
+   * world, the stow on that frame, whether the weapon hangs from a hand and whether it's drawn at
+   * all: for drawing and sheathing, which must never make it jump, and for when it's out of sight.
    */
   weaponTrack(id: string, weapon = 0) {
     const t = new Take(scenario(id), weapon);
@@ -784,12 +784,19 @@ const api = {
     const name = HERO_WEAPONS[weapon];
     const far: Record<string, [number, number, number]> = { sword: [0, -1.1, 0], club: [0, -0.6, 0], staff: [0, -1.2, 0], bow: [0, 0.275, 0.476] };
     const g = rig.attachment(name);
-    const out: Array<{ frame: number; stow: number; inHand: boolean; tip: number[] }> = [];
+    const out: Array<{ frame: number; stow: number; inHand: boolean; shown: boolean; attack: number; tip: number[] }> = [];
     for (let f = 0; f < t.s.frames; f++) {
       t.step();
       t.hero.root.updateMatrixWorld(true);
       const p = new THREE.Vector3(...far[name]).applyMatrix4(g.matrixWorld);
-      out.push({ frame: f, stow: t.input.stow, inHand: g.parent === rig.joint('handR') || g.parent === rig.joint('handL'), tip: [p.x, p.y, p.z] });
+      out.push({
+        frame: f,
+        stow: t.input.stow,
+        inHand: g.parent === rig.joint('handR') || g.parent === rig.joint('handL'),
+        shown: g.visible,
+        attack: t.input.attackIndex >= 0 ? t.input.attackFrame : -1,
+        tip: [p.x, p.y, p.z],
+      });
     }
     t.dispose();
     return out;

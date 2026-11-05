@@ -152,6 +152,7 @@ test('swimming: wade into the sea and you swim; come back out and you walk', asy
   const p = await w.player();
   expect(p.pos.y).toBeLessThan(0);
   expect(p.pos.y).toBeGreaterThan(-1.6);
+  expect(await page.evaluate(() => (window as any).__game.heroWeapon()), 'the weapon, swimming').toBe('hidden');
   await page.screenshot({ path: `${SHOTS}/world-02-swimming.png` });
   // Turn round and swim back to shore.
   let walking = false;
@@ -359,11 +360,14 @@ test('vehicles: summon a farm cart, load two packs, drive, unload', async ({ pag
   await w.advance(2);
   let cart = (await w.life()).vehicles[0];
   expect(cart?.def).toBe('farmCart');
+  const weapon = () => page.evaluate(() => (window as any).__game.heroWeapon());
   // Two crates, each carried from the bench to the cart's bed (behind it).
   for (let i = 0; i < 2; i++) {
     await w.teleport(wb.x, wb.z + 2, Math.PI);
     await w.cmd({ t: 'craft', recipe: 'pack.harvestCrate' });
     await w.advance(2);
+    // A pack on the back: hands on its straps, the weapon out of sight.
+    expect(await weapon()).toBe('hidden');
     cart = (await w.life()).vehicles[0];
     const bx = cart.x - Math.sin(cart.heading) * 2.6;
     const bz = cart.z - Math.cos(cart.heading) * 2.6;
@@ -390,6 +394,8 @@ test('vehicles: summon a farm cart, load two packs, drive, unload', async ({ pag
   const z0 = cart.z;
   await w.advance(150, { stickY: 1 });
   await page.screenshot({ path: `${SHOTS}/world-05-farm-cart.png` });
+  // At the wheel the weapon is out of sight, not across the lap.
+  expect(await weapon()).toBe('hidden');
   cart = (await w.life()).vehicles[0];
   expect(Math.hypot(cart.x - x0, cart.z - z0)).toBeGreaterThan(8);
   // Packs went along for the ride.
@@ -397,6 +403,8 @@ test('vehicles: summon a farm cart, load two packs, drive, unload', async ({ pag
   await w.cmd({ t: 'exit' });
   await w.advance(2);
   expect((await w.player()).mode).toBe('normal');
+  // Back on foot, it hangs at the hip again.
+  expect(await weapon()).toBe('away');
   cart = (await w.life()).vehicles[0];
   await w.teleport(cart.x - Math.sin(cart.heading) * 2.6, cart.z - Math.cos(cart.heading) * 2.6, cart.heading);
   await w.advance(2);
@@ -455,6 +463,7 @@ test('boats: a rowboat at the docks, and a sloop runs faster with the wind behin
   await w.cmd({ t: 'interact' });
   await w.advance(2);
   expect((await w.player()).mode).toBe('ride');
+  expect(await page.evaluate(() => (window as any).__game.heroWeapon()), 'the weapon at the helm').toBe('hidden');
   // Raise the sail and stand out to sea.
   await w.advance(420, { stickY: 1 });
   const v = (await w.life()).vehicles[0];
@@ -486,6 +495,7 @@ test('mounts: the donkey carries a pack, the horse will not', async ({ page }) =
   const p = await w.player();
   expect(p.mode).toBe('ride');
   expect(p.pack).toBeGreaterThan(0);
+  expect(await page.evaluate(() => (window as any).__game.heroWeapon()), 'the weapon in the saddle').toBe('hidden');
   const l = await w.life();
   expect(l.vehicles.find((v: { ridden: boolean }) => v.ridden).def).toBe('donkey');
   const x0 = p.pos.x;
