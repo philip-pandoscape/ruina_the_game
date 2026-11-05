@@ -67,12 +67,14 @@ jobs:
             server/target/release/lifecheck
 
   # The suite plays the real game in a browser that draws in software here, so it's split across
-  # four runners (about 10 minutes instead of 40). "Game tests" below is the one check to require.
+  # four runners. They share the tests out by count, not time, so the one with the open world's
+  # long walks takes 30 to 45 minutes on a slow runner while another takes 10; it gets an hour.
+  # "Game tests" below is the one check to require.
   game:
     name: Game tests (${{ matrix.shard }}/4)
     needs: server
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
