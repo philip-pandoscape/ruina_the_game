@@ -1,6 +1,6 @@
 {
   "comment": "Implementation tracker for the design bible (design/index.html). Edit this file and the page follows: it reads the tracker live (npm run dev, then /design/). Status is one of: done, building, planned, idea. Keep `files` to the main places a feature lives so a future session can jump straight there.",
-  "updated": "2026-11-04",
+  "updated": "2026-11-05",
   "systems": [
     {
       "id": "world",
@@ -986,6 +986,52 @@
         "server/src/life/weather.rs",
         "src/main.ts"
       ]
+    },
+    {
+      "system": "economy",
+      "status": "done",
+      "title": "Mini-games at a table, for a stake",
+      "notes": "Walk up to another player on foot and F offers \"Challenge <name>\": pick the game and the stake (No Stake, or what you can afford), they have 30 s to accept. Accepted, both stakes go into the pot and a round table with two stools is thrown down between you for the whole channel to see (pegs on its board for the lit beacons); you sit at it until the game is over, Escape or Concede gives it up. The winner takes the pot, a draw or a game the server calls off returns each stake, 30 s away forfeits. The server runs it all (world_game/tables.rs, minigames/): a stake sits in the island's `staked` until the game ends, a pot only ever moves between the two islands at the table and both are written in one transaction, an island loaded while no game holds its stake gets it back (a crash or a deploy mid-game loses nothing), and every island write goes through one ordered queue. WORLD_PROTOCOL 6.",
+      "files": [
+        "server/src/world_game/tables.rs",
+        "server/src/minigames/mod.rs",
+        "src/ui/minigames/minigames.ts",
+        "src/render/open/gameTables.ts",
+        "shared/minigames.json",
+        "tests/minigames.spec.ts"
+      ]
+    },
+    {
+      "system": "economy",
+      "status": "done",
+      "title": "Beacons, the first mini-game",
+      "notes": "A card-and-board game made for Ruina (the user asked for Sequence; we don't recreate existing games, so this is an original one in the same genre). 37 hexes in a hexagon, six island goods on six hexes each and never beside themselves, the Old Beacon in the middle; 48 cards. Play a card to light an unlit hex of its good, two of a kind to light any hex (the Old Beacon too), or swap a card; then draw back to four from the face-up Harbour or the deck. Four of yours in a straight row wins. 40 s a turn (the server plays for you when it runs out; three in a row forfeits).",
+      "files": [
+        "server/src/minigames/beacons.rs",
+        "src/ui/minigames/beacons.ts"
+      ]
+    },
+    {
+      "system": "quests",
+      "status": "done",
+      "title": "Stone and timber before the house",
+      "notes": "Two lessons before \"A Place to Call Home\": Quill sends you to Brenna at Stonebreak Quarry to quarry stone from the outcrops and cut a Stone Block at the Stonecutter's Table, and she sends you to Hob in Thornwood to chop deadfall and tie a Lumber Bundle at his sawhorse. A gather step counts what a swing gives, not the swings (both rules). The quest marker leads to the nearest ready outcrop or deadfall, the bench that makes a pack, or the site when you carry what it needs; build sites say where each pack they want is made.",
+      "files": [
+        "shared/quests.json",
+        "src/sim/life/quests.ts",
+        "server/src/life/quests.rs",
+        "src/ui/life/lifeUI.ts"
+      ]
+    },
+    {
+      "system": "ui",
+      "status": "done",
+      "title": "Your portrait from a studio",
+      "notes": "Your face by the health bar and your picture in the character window come from a scene of their own (src/render/studio.ts): you standing at ease, weapon put away, under fixed lights, in the look's own colours; taken again only when your weapon, team or character (or the hero model) changes, not every few seconds from the world. NPC portraits are still taken from the world.",
+      "files": [
+        "src/render/studio.ts",
+        "src/render/portrait.ts"
+      ]
     }
   ],
   "next": [
@@ -996,7 +1042,8 @@
     "Quests, next: Share (the quest log's third button in the prototype) once there are parties to share with.",
     "After the beta playtest: appearance for characters (they differ only by weapon); steps or a ramp for the western pier, now that a deck too high to step onto is a wall; stamina for sprinting, if wanted; other players' hits sparking on monsters, not only flashing.",
     "Riding along, next: walking a moving ship's deck; the owner seeing (and turning out) who rides with them; vehicles bumping into each other, not only into people.",
-    "Travel by road, next: sea lanes for boats; a key to clear the map marker; check the six-metre hauler across the town square."
+    "Travel by road, next: sea lanes for boats; a key to clear the map marker; check the six-metre hauler across the town square.",
+    "Mini-games, next: more games at the same tables (the Rules trait in server/src/minigames takes any turn-based game for two); a controller in the game window; onlookers opening the board to watch; the table solid and monsters leaving players at a table alone; the challenge prompt winning over a nearby plot or townsperson when you face a player."
   ],
   "questions": [
     {
@@ -1191,6 +1238,22 @@
         "Weather: the rain and the wind run on the world's clock online too (Life.worldClock, life.world_clock), so everyone has the same; showers are a schedule on that clock rather than the island's dice, pinned to the last bit in both rules.",
         "Getting about: H or Num Lock auto-runs (cruise in a cart or boat); a click on the map follows the roads there, the route drawn on the map and the minimap (src/sim/zone/roads.ts, src/app/autoWalk.ts).",
         "Tests: riding along and bumping into a parked cart, a pack out of the cart at once 120 ms from the server, everyone sharing the hour, name plates by distance (online.spec.ts); the drop cap and the mouse coming back (ui.spec.ts); travel by road on foot, horseback, cart and roadster (travel.spec.ts); hands on the oars in the real game at 30 and 144 fps, the swim clock, weapons hidden (animation.spec.ts); no sea inside any hull (models.spec.ts); passengers and movers (Rust)."
+      ]
+    },
+    {
+      "date": "2026-11-05",
+      "title": "The third beta playtest",
+      "summary": "Nine things found playing the deployed beta. Fixed: the strobing shore foam, ground circles under farm soil, the browser asking to leave (Ctrl was crouch, so crouch-walking pressed Ctrl+W), the planned-points badge, a portrait that changed with everything you did, and no way to learn where stone and timber come from. New: mini-games with a stake, Beacons first. The two animation items (the run, the jumping overhead slash) are left to the session reworking the animations.",
+      "points": [
+        "Shore foam: the sea was one 9 km square, two triangles, and the world position the GPU worked out across them was off by metres and jumped as the camera turned, so the foam round a lagoon strobed thick and thin (worst in the new look, where the user saw it). Drawn in 50 m tiles it holds still; lines thinner than a pixel fade instead of popping (fwidth). tests/sea.spec.ts.",
+        "Ground circles: farm soil is laid 5 cm over the ground and its furrows higher, so the aim circle vanished over a plot. Every plot records how high its soil and furrows stand, and circles, effect rings and the shadow under you are lifted over it, edges and all; furrows now follow the ground.",
+        "Leaving the site: Ctrl was crouch and the glider's flare, so crouch-walking pressed Ctrl+W, which no page can stop; the game asked before leaving. Crouch and flare are on C now (a press on the run slides, K still slides), Ctrl means nothing in the game and the browser's shortcuts are its own again.",
+        "Skill tree: the planned points badge stands as tall as Learn and Undo, at any UI size.",
+        "Portrait: taken from a studio of its own (src/render/studio.ts) rather than every 4 s from the world, so running, fighting, the night and the rain no longer change it.",
+        "Stone and timber: the nodes and benches were there, but nothing taught them. Two quest lessons (Brenna at the quarry, Hob in Thornwood) come before the house; gather steps count what a swing gives; the marker and the site prompt say where packs are made.",
+        "Mini-games: challenge a player with F, a stake for both, a table in the world for everyone to see, the server running the game and the money (a stake kept in the island until the game ends, both islands written together, refunds on a crash or an update). Beacons is an original hex-board card game, not Sequence: Ruina doesn't recreate existing games.",
+        "Found on the way: online the browser kept the rain the server last reported but ran its own island clock ahead with every input it predicted, so under load a shower came early on the page (the shared-weather test caught it, two minutes out). The browser now works the rain out from the world clock each step, using the same schedule as the server; the server still announces when a shower starts. The online specs also close the windows they open, so the games of earlier tests stop weighing on later ones.",
+        "Animation: the run and the jumping overhead slash were started in a track of their own, then dropped unmerged at the user's word: another session owns the animations."
       ]
     }
   ]
