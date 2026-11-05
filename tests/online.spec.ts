@@ -200,6 +200,36 @@ const worldLetsIn = (page: Page, query = '') =>
     query,
   );
 
+test('the badge sits at the bottom right under the menu buttons, clear of their labels and the stats line', async ({ page }) => {
+  await page.goto(`/?as=${fresh('badge')}&bugs=0`);
+  await waitOnline(page);
+  await expect(page.locator('#splash')).toHaveCount(0);
+  for (const [width, height] of [
+    [1280, 720],
+    [1920, 1080],
+  ]) {
+    await page.setViewportSize({ width, height });
+    await page.waitForTimeout(300);
+    const r = await page.evaluate(() => {
+      const box = (e: Element) => {
+        const b = e.getBoundingClientRect();
+        return { left: b.left, right: b.right, top: b.top, bottom: b.bottom };
+      };
+      return {
+        badge: box(document.getElementById('ruina-badge')!),
+        menu: box(document.getElementById('hud-menu')!),
+        others: [...document.querySelectorAll('#hud-menu .lbl, #hud-menu .hud-mbtn, #stats, #hint, #abilities')].map(box),
+      };
+    });
+    const overlaps = (a: typeof r.badge, b: typeof r.badge) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+    expect(r.others.filter((o) => overlaps(r.badge, o)), `${width}x${height}`).toEqual([]);
+    // Under the menu, lined up with its right edge, on screen.
+    expect(r.badge.top).toBeGreaterThan(r.menu.bottom);
+    expect(Math.abs(r.badge.right - r.menu.right)).toBeLessThan(2);
+    expect(r.badge.bottom).toBeLessThanOrEqual(height);
+  }
+});
+
 test('the open world needs a signed-in player', async ({ page }) => {
   await page.goto('/?yard&bugs=0');
   expect(await worldLetsIn(page)).toBe('refused');
