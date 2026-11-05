@@ -258,6 +258,10 @@
           return e;
         }
         for (i = 0; i < 70; i++) embers.push(ember({}, true));
+        // A few birds heading home past the spire, and now and then a shooting star.
+        var birds = [];
+        for (i = 0; i < 5; i++) birds.push({ x: 1560 + i * 34 + rnd() * 16, y: 392 + (i % 2) * 12 - i * 5 + rnd() * 8, p: rnd() * 6.3, s: 0.85 + rnd() * 0.35 });
+        var shoot = { next: 3 + rnd() * 5, life: -1, x: 0, y: 0, vx: 0, vy: 0 };
         function size() {
           dpr = Math.min(devicePixelRatio || 1, 1.5);
           W = innerWidth;
@@ -283,6 +287,34 @@
             g.fillRect(ox + st.x * k - st.r * k * 0.5, oy + st.y * k - st.r * k * 0.5, st.r * k, st.r * k);
           }
           g.globalCompositeOperation = 'lighter';
+          if (t > shoot.next && shoot.life < 0) {
+            shoot.life = 0;
+            shoot.x = 400 + rnd() * 1300;
+            shoot.y = 40 + rnd() * 190;
+            shoot.vx = -(650 + rnd() * 350);
+            shoot.vy = 230 + rnd() * 140;
+          }
+          if (shoot.life >= 0) {
+            shoot.life += dt;
+            shoot.x += shoot.vx * dt;
+            shoot.y += shoot.vy * dt;
+            var tail = 0.16 * Math.min(1, shoot.life * 4);
+            var sx = ox + shoot.x * k, sy = oy + shoot.y * k;
+            var tg = g.createLinearGradient(sx, sy, sx - shoot.vx * tail * k, sy - shoot.vy * tail * k);
+            tg.addColorStop(0, 'rgba(255,248,225,0.9)');
+            tg.addColorStop(1, 'rgba(255,200,140,0)');
+            g.globalAlpha = Math.max(0, 1 - shoot.life / 0.75);
+            g.strokeStyle = tg;
+            g.lineWidth = Math.max(1, 1.6 * k);
+            g.beginPath();
+            g.moveTo(sx, sy);
+            g.lineTo(sx - shoot.vx * tail * k, sy - shoot.vy * tail * k);
+            g.stroke();
+            if (shoot.life > 0.75) {
+              shoot.life = -1;
+              shoot.next = t + 8 + rnd() * 12;
+            }
+          }
           // The sun's path on the water.
           for (j = 0; j < glints.length; j++) {
             var gl = glints[j];
@@ -300,6 +332,25 @@
           g.globalAlpha = 0.85 * pulse;
           var br = 34 * k * (0.85 + 0.3 * pulse);
           g.drawImage(dot, ox + 1450 * k - br, oy + 152 * k - br, br * 2, br * 2);
+          g.globalCompositeOperation = 'source-over';
+          g.globalAlpha = 0.85;
+          g.strokeStyle = '#1c0c1e';
+          g.lineWidth = Math.max(1, 1.7 * k);
+          g.lineCap = 'round';
+          for (j = 0; j < birds.length; j++) {
+            var b = birds[j];
+            b.x -= 20 * dt;
+            if (b.x < -60) b.x += 2060;
+            var wv = 8 * b.s * k;
+            var flap = Math.sin(t * 6.5 + b.p);
+            var bx = ox + b.x * k, by = oy + (b.y + Math.sin(t * 0.8 + b.p) * 4) * k;
+            g.beginPath();
+            g.moveTo(bx - wv, by - flap * wv * 0.5);
+            g.quadraticCurveTo(bx - wv * 0.45, by - wv * 0.3, bx, by);
+            g.quadraticCurveTo(bx + wv * 0.45, by - wv * 0.3, bx + wv, by - flap * wv * 0.5);
+            g.stroke();
+          }
+          g.globalCompositeOperation = 'lighter';
           for (j = 0; j < embers.length; j++) {
             e = embers[j];
             e.life += dt;
