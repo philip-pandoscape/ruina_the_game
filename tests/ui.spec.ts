@@ -1,4 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
+import { skillsFrom } from '../src/skills';
+import { emptyMovement, HOTBAR_SLOTS, NO_ABILITY } from '../src/tuning';
 import { isTitleCase } from '../src/ui/theme/text';
 
 // The interface's own rules (design/ui.html): labels in Title Case, items answering a double-click
@@ -221,6 +223,74 @@ test('the person you talk to looks out of the window, which starts its text belo
   });
   expect(overlap.textTop >= overlap.portraitBottom - 1 || overlap.textLeft >= overlap.portraitRight).toBe(true);
   await page.screenshot({ path: `${SHOTS}/ui-02-talk.png` });
+});
+
+test('your portrait stays as it is: running, swinging, crouching and night falling leave it be; another weapon takes a new one', async ({ page }) => {
+  const errors = await open(page);
+  const g = game(page);
+  const portrait = (who = 'player') => page.evaluate((k) => (window as any).__game.portrait(k), who) as Promise<{ url: string; taken: number }>;
+  await g.advance(2);
+  const face = await portrait();
+  const body = await portrait('body');
+  expect(face.url).toMatch(/^data:image\/png/);
+  // Shown beside your health.
+  await expect(page.locator('#hud-portrait .frame img')).toHaveAttribute('src', face.url);
+  // Whatever you're doing, wherever the camera is, at any hour: the same picture, not taken again.
+  const same = async (doing: string) => {
+    const now = await portrait();
+    expect(now.url === face.url, `${doing}: the same face`).toBe(true);
+    expect((await portrait('body')).url === body.url, `${doing}: the same body`).toBe(true);
+    expect(now.taken, `${doing}: nothing taken again`).toBe(body.taken);
+  };
+  await page.evaluate(() => (window as any).__game.advance(40, { moveZ: 1, sprintHeld: true }));
+  await same('running');
+  await page.evaluate(() => {
+    const game = (window as any).__game;
+    game.advance(1, { attackPressed: true });
+    game.advance(6);
+  });
+  expect((await page.evaluate(() => (window as any).__game.state().player.mode))).toBe('attack');
+  await same('swinging');
+  await page.evaluate(() => (window as any).__game.advance(20, { crouchHeld: true }));
+  await same('crouching');
+  await page.evaluate(() => (window as any).__game.setCamera({ yaw: 2.5, pitch: 0.2, distance: 5 }));
+  const hour = (await page.evaluate(() => (window as any).__game.dayHour())) as number;
+  await g.cmd({ t: 'warp', seconds: Math.round((((23 - hour + 24) % 24) * 1800) / 24) });
+  await g.advance(2);
+  expect(await page.evaluate(() => (window as any).__game.dayHour())).toBeGreaterThan(22);
+  await same('at night');
+  // It's a picture of you, in the colours you're drawn in: a clear sky behind (as bright as it
+  // should be, not the darker numbers a picture left unconverted would have), you in the middle.
+  const look = await page.evaluate(async (url) => {
+    const img = new Image();
+    img.src = url;
+    await img.decode();
+    const c = document.createElement('canvas');
+    c.width = img.naturalWidth;
+    c.height = img.naturalHeight;
+    const x = c.getContext('2d')!;
+    x.drawImage(img, 0, 0);
+    const corner = [...x.getImageData(2, 2, 1, 1).data];
+    const d = x.getImageData(c.width * 0.3, c.height * 0.3, c.width * 0.4, c.height * 0.4).data;
+    let sky = 0;
+    for (let i = 0; i < d.length; i += 4) if (Math.abs(d[i] - corner[0]) + Math.abs(d[i + 1] - corner[1]) + Math.abs(d[i + 2] - corner[2]) < 12) sky++;
+    return { corner, size: c.width, sky: sky / (d.length / 4) };
+  }, face.url);
+  console.log('your portrait', look);
+  expect(look.corner[0]).toBeGreaterThan(185);
+  expect(look.corner[2]).toBeGreaterThan(look.corner[0]);
+  expect(look.sky).toBeLessThan(0.1);
+  // A new weapon is a new picture; back to the sword, the one from before.
+  const club = { skills: skillsFrom('sword', 'club'), weapon: 1, abilities: new Array(HOTBAR_SLOTS).fill(NO_ABILITY), movement: emptyMovement() };
+  expect(await page.evaluate((b) => (window as any).__game.setBuild(b), club)).toBe(true);
+  await g.advance(1);
+  const clubBody = await portrait('body');
+  expect(clubBody.url === body.url).toBe(false);
+  expect(clubBody.taken).toBeGreaterThan(body.taken);
+  expect(await page.evaluate((b) => (window as any).__game.setBuild(b), { ...club, weapon: 0 })).toBe(true);
+  await g.advance(1);
+  expect((await portrait('body')).url === body.url).toBe(true);
+  expect(errors).toEqual([]);
 });
 
 /**

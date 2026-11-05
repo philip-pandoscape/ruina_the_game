@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 
-// Portraits for the UI (your face by the health bar, the person you're talking to, you in the
-// character window), taken from the live scene. A queued portrait is drawn into a corner of the
+// Portraits for the UI taken from the live scene: the person you're talking to (your own come from
+// a studio of their own, src/render/studio.ts). A queued portrait is drawn into a corner of the
 // game's canvas just before the frame's real render, copied out, and then painted over by the
 // frame itself, so it costs one small extra render and looks exactly like the game.
 

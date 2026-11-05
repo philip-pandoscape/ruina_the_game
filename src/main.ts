@@ -64,6 +64,7 @@ import './ui/theme/windows.css';
 import './ui/theme/skills.css';
 import { initUiScale } from './ui/theme/scale';
 import { Portraits } from './render/portrait';
+import { Studio } from './render/studio';
 
 // The UI is laid out on a virtual screen and scaled to the window; start that before anything
 // builds UI.
@@ -287,47 +288,34 @@ if (online && lifeUI) lifeUI.skyHour = skyHour;
 // The rain and the wind run on the world's clock too (the server decides the rain; the wind you sail
 // on is worked out here between its updates from the same clock).
 if (online && life) life.worldClock = () => online.link.serverNow() / 1000;
-// Faces for the UI, taken from the scene: yours beside your health, the person you're talking to,
-// and all of you in the character window. Kept a few seconds, then taken again.
+// Faces for the UI. Yours (beside your health, in the skill tree) and all of you (the character
+// window) come from a studio of their own: you as you look, whatever you're doing, wherever you are,
+// at any hour (src/render/studio.ts). The person you're talking to is taken from the scene, kept a
+// moment, then taken again.
+const studio = new Studio(stage.renderer);
 const portraits = new Portraits(stage.renderer, stage.scene);
-/** Layers a portrait draws on its own (with the scene's lights): you, and whoever you talk to. */
-const YOU_LAYER = 1;
+/** The layer a townsperson's portrait draws on its own (with the scene's lights). */
 const NPC_LAYER = 2;
-/** A picture from the live scene: 'player' (your face), 'body' (all of you) or an NPC's id. */
+/** A picture for the UI: 'player' (your face) or 'body' (all of you) from the studio, or an NPC's id. */
 function portraitOf(who: string): string | null {
-  {
-    const shot = portraits.get(who);
-    const fresh = who === 'player' ? 4000 : who === 'body' ? 800 : 1500;
-    if (!shot || shot.age > fresh) {
-      const up = (v: THREE.Vector3, y: number) => v.clone().setY(v.y + y);
-      const alone = (o: THREE.Object3D, layer: number) => {
-        o.traverse((c) => c.layers.enable(layer));
-        stage.scene.traverse((c) => (c as THREE.Light).isLight && c.layers.enable(layer));
-      };
-      if (who === 'player' || who === 'body') {
-        // Just you, so nothing stands in front of the camera.
-        alone(hero.root, YOU_LAYER);
-        const at = hero.root.position;
-        const f = sim.player.facing;
-        const fwd = new THREE.Vector3(Math.sin(f), 0, Math.cos(f));
-        // Your face with your shoulders and the top of your chest; or all of you, hair to boots,
-        // with a little room round you.
-        if (who === 'player') portraits.request(who, up(at, 1.42).addScaledVector(fwd, 1.9), up(at, 1.34), 128, 128, YOU_LAYER);
-        else portraits.request(who, up(at, 0.95).addScaledVector(fwd, 4.6), up(at, 0.85), 214, 300, YOU_LAYER);
-      } else {
-        // Just them, framed like your own portrait from in front of their face. You stand right
-        // beside whoever you talk to, so with everything drawn your own head would fill the picture.
-        const body = lifeView?.villager(who);
-        if (body) {
-          alone(body, NPC_LAYER);
-          const f = body.rotation.y; // they turn to face you while you talk
-          const fwd = new THREE.Vector3(Math.sin(f), 0, Math.cos(f));
-          portraits.request(who, up(body.position, 1.42).addScaledVector(fwd, 1.9), up(body.position, 1.34), 128, 128, NPC_LAYER);
-        }
-      }
-    }
-    return shot?.url ?? null;
+  if (who === 'player' || who === 'body') {
+    return studio.shot(who === 'player' ? 'face' : 'body', { weapon: sim.player.weapon, team: serverUrl ? sim.player.team : 0, who: String(online?.welcome.character.id ?? '') });
   }
+  const shot = portraits.get(who);
+  if (!shot || shot.age > 1500) {
+    // Just them, framed from in front of their face. You stand right beside whoever you talk to, so
+    // with everything drawn your own head would fill the picture.
+    const body = lifeView?.villager(who);
+    if (body) {
+      body.traverse((c) => c.layers.enable(NPC_LAYER));
+      stage.scene.traverse((c) => (c as THREE.Light).isLight && c.layers.enable(NPC_LAYER));
+      const up = (v: THREE.Vector3, y: number) => v.clone().setY(v.y + y);
+      const f = body.rotation.y; // they turn to face you while you talk
+      const fwd = new THREE.Vector3(Math.sin(f), 0, Math.cos(f));
+      portraits.request(who, up(body.position, 1.42).addScaledVector(fwd, 1.9), up(body.position, 1.34), 128, 128, NPC_LAYER);
+    }
+  }
+  return shot?.url ?? null;
 }
 if (lifeUI) lifeUI.portraitOf = portraitOf;
 if (peers && lifeUI) lifeUI.others = () => peers.list();
@@ -1756,6 +1744,10 @@ const api = {
   /** Testing: where the shadow under you is drawn. */
   shadowHeight(): number {
     return blob.position.y;
+  },
+  /** A portrait the UI shows (an image URL): 'player' (your face), 'body' (all of you) or an NPC's id; and how many of yours the studio has taken. */
+  portrait(who: string) {
+    return { url: portraitOf(who), taken: studio.taken };
   },
   spells() {
     return {
