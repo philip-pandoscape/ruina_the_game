@@ -3,6 +3,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { makeRng, range } from '../../rng';
 import type { Obstacle } from '../../sim/types';
 import { hash2, SURFACE, type Heightfield } from '../../sim/terrain';
+import { NEW_LOOK, PALETTE } from '../look';
 import { toon } from '../toon';
 
 // Trees and rocks across a whole island, and grass around wherever you are. Trees are instanced
@@ -27,14 +28,37 @@ interface Geos {
   rock: THREE.BufferGeometry;
 }
 
+// The new look's soft light: a canopy's normals point out from its middle, so it shades like a ball
+// of leaves rather than a cut gem; grass takes the light of the ground it grows from.
+function puffy(g: THREE.BufferGeometry): THREE.BufferGeometry {
+  if (!NEW_LOOK) return g;
+  const p = g.attributes.position;
+  const n = g.attributes.normal;
+  const v = new THREE.Vector3();
+  for (let i = 0; i < p.count; i++) {
+    v.fromBufferAttribute(p, i).normalize();
+    n.setXYZ(i, v.x, v.y, v.z);
+  }
+  n.needsUpdate = true;
+  return g;
+}
+
+function upright(g: THREE.BufferGeometry): THREE.BufferGeometry {
+  if (!NEW_LOOK) return g;
+  const n = g.attributes.normal;
+  for (let i = 0; i < n.count; i++) n.setXYZ(i, 0, 1, 0);
+  n.needsUpdate = true;
+  return g;
+}
+
 function geometries(): Geos {
   const trunk = faceted(new THREE.CylinderGeometry(0.2, 0.3, 1.9, 6));
   trunk.translate(0, 0.95, 0);
-  const a = new THREE.IcosahedronGeometry(1.35, 0);
+  const a = puffy(new THREE.IcosahedronGeometry(1.35, 0));
   a.translate(0, 2.6, 0);
-  const b = new THREE.IcosahedronGeometry(0.95, 0);
+  const b = puffy(new THREE.IcosahedronGeometry(0.95, 0));
   b.translate(0.4, 3.5, 0.15);
-  const c = new THREE.IcosahedronGeometry(0.8, 0);
+  const c = puffy(new THREE.IcosahedronGeometry(0.8, 0));
   c.translate(-0.55, 3.0, -0.35);
   const round = mergeGeometries([a, b, c]);
   const cones = [
@@ -82,7 +106,7 @@ export class FoliageView {
   ) {
     const geo = geometries();
     const rng = makeRng(seed + 1);
-    const greens = [0x4caf50, 0x3e9a45, 0x5cb85c, 0x2e7d32, 0x6abf4b].map((h) => new THREE.Color(h));
+    const greens = PALETTE.leaves.map((h) => new THREE.Color(h));
     const pick = () => greens[Math.floor(rng() * greens.length)].clone().offsetHSL(0, 0, range(rng, -0.04, 0.04));
     const mat = toon(0xffffff);
 
@@ -102,10 +126,10 @@ export class FoliageView {
       const pines = trees.filter(isPine);
       const rounds = trees.filter((o) => !isPine(o));
       const rocks = list.filter((o) => o.kind === 'rock');
-      this.place(geo.trunk, mat, trees, () => new THREE.Color(0x8d5a3b));
+      this.place(geo.trunk, mat, trees, () => new THREE.Color(PALETTE.trunk));
       this.place(geo.round, mat, rounds, pick);
       this.place(geo.pine, mat, pines, () => pick().offsetHSL(0.02, -0.05, -0.06));
-      this.place(geo.rock, mat, rocks, () => new THREE.Color(0x9a9a94).offsetHSL(0, 0, range(rng, -0.06, 0.06)), 0.75);
+      this.place(geo.rock, mat, rocks, () => new THREE.Color(PALETTE.rock).offsetHSL(0, 0, range(rng, -0.06, 0.06)), 0.75);
     }
 
     // Grass and flowers: a field around the player that moves with them.
@@ -118,7 +142,7 @@ export class FoliageView {
       b.rotateY(k * 1.1);
       return b;
     });
-    this.grass = new THREE.InstancedMesh(mergeGeometries(blades), toon(0xffffff), GRASS_CAP);
+    this.grass = new THREE.InstancedMesh(upright(mergeGeometries(blades)), toon(0xffffff), GRASS_CAP);
     this.grass.frustumCulled = false;
     this.grass.receiveShadow = true;
     this.grass.count = 0;
@@ -157,8 +181,8 @@ export class FoliageView {
     if (Math.hypot(x - this.grassAt.x, z - this.grassAt.z) < 10) return;
     this.grassAt = { x, z };
     const hf = this.hf;
-    const grassCols = [0x6fb64a, 0x5aa33f, 0x82c95b, 0x4f9a38];
-    const flowerCols = [0xffffff, 0xffe066, 0xff8fab, 0xb8a1ff];
+    const grassCols = PALETTE.grass;
+    const flowerCols = PALETTE.flowers;
     let g = 0;
     let f = 0;
     const r = GRASS_RADIUS;

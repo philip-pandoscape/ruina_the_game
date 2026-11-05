@@ -87,6 +87,9 @@ initUiScale(document.getElementById('ui') as HTMLElement);
 //   ?yard          the old training yard, offline (also what ?test opens, unless ?world is given too)
 //   ?world&test    the open world, offline and paused for automated tests (&load: the island
 //                  kept in this browser, for bug-report replays)
+//   &look=new      the open world in the look being tried: soft light, ambient occlusion, haze, a
+//                  colour grade and a muted palette (src/render/look.ts); &lookdebug=ao shows its
+//                  ambient occlusion alone
 //   ?bugs=0        no bug reporter (\ records a bug report; tests turn it on with &bugs)
 //   &bugspeech=0   bug reports without live transcription; &buglang=en-GB to change its language
 // Console output and errors are kept from here on, for bug reports.
@@ -1192,7 +1195,8 @@ function draw(alpha: number, cameraDt: number, animDt: number): void {
 
   const timing = gpuTimerBegin();
   portraits.flush();
-  stage.renderer.render(stage.scene, follow.camera);
+  if (openStage) openStage.render(follow.camera);
+  else stage.renderer.render(stage.scene, follow.camera);
   if (timing) gpuTimerEnd();
   bugs?.afterRender();
   const dAct = dummyActor();

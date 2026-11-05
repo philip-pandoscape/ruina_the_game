@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { Heightfield, SURFACE, valueNoise } from '../../sim/terrain';
+import { NEW_LOOK, PALETTE } from '../look';
 import { toon } from '../toon';
 
 // The ground of an open world, drawn from the very grid the rules walk on, split into the same
@@ -8,16 +9,8 @@ import { toon } from '../toon';
 
 const CHUNK = 64; // cells per chunk side
 
-// Ground colours per surface: a pair to dither between, so big areas never look flat.
-const PALETTE: Record<number, [number, number]> = {
-  [SURFACE.grass]: [0x8ccb5c, 0x62ab45],
-  [SURFACE.road]: [0xd2ac72, 0xbd955c],
-  [SURFACE.sand]: [0xeedb9f, 0xe0c787],
-  [SURFACE.rock]: [0xa3a39b, 0x85857f],
-  [SURFACE.soil]: [0x7e5636, 0x6a4529],
-  [SURFACE.plaza]: [0xd9cdb2, 0xc6b897],
-  [SURFACE.forest]: [0x5f9e43, 0x4b8a38],
-};
+// Ground colours per surface (src/render/look.ts): a pair to dither between, so big areas never look flat.
+const GROUND = PALETTE.ground;
 
 export class TerrainView {
   readonly group = new THREE.Group();
@@ -58,7 +51,7 @@ export class TerrainView {
         const cj = j + dj;
         if (ci < 0 || cj < 0 || ci >= hf.cells || cj >= hf.cells) continue;
         const s = hf.surface[cj * hf.cells + ci];
-        const [ca, cb] = PALETTE[s] ?? PALETTE[SURFACE.grass];
+        const [ca, cb] = GROUND[s] ?? GROUND[SURFACE.grass];
         tmp.setHex(ca).lerp(tmp2.setHex(cb), dither);
         r += tmp.r;
         g += tmp.g;
@@ -69,11 +62,11 @@ export class TerrainView {
     // Wet sand at the waterline, then the seabed darkening and greening with depth.
     if (h < hf.water + 0.5) {
       const wet = Math.min(1, (hf.water + 0.5 - h) / 1.5);
-      out.lerp(tmp.setHex(0xb59a62), wet * 0.6);
-      if (h < hf.water - 1) out.lerp(tmp.setHex(0x3f7f86), Math.min(1, (hf.water - 1 - h) / 14));
+      out.lerp(tmp.setHex(PALETTE.wetSand), wet * 0.6);
+      if (h < hf.water - 1) out.lerp(tmp.setHex(PALETTE.seabed), Math.min(1, (hf.water - 1 - h) / 14));
     }
     // A little warmth up high, a little lushness down low.
-    if (h > 40) out.lerp(tmp.setHex(0xb8b59a), Math.min(0.35, (h - 40) / 200));
+    if (h > 40) out.lerp(tmp.setHex(PALETTE.highland), Math.min(0.35, (h - 40) / 200));
   }
 
   private buildChunk(i0: number, j0: number, wi: number, wj: number): THREE.Mesh | null {
@@ -144,6 +137,8 @@ export class TerrainView {
     geo.computeBoundingBox();
     const mesh = new THREE.Mesh(geo, this.material);
     mesh.receiveShadow = true;
+    // In the new look hills shade the ground behind them too, which shows when the sun is low.
+    mesh.castShadow = NEW_LOOK;
     mesh.matrixAutoUpdate = false;
     return mesh;
   }

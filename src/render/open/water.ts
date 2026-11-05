@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import type { Heightfield } from '../../sim/terrain';
+import { NEW_LOOK, PALETTE } from '../look';
 
 // The sea: one big flat plane, coloured by how deep the water is over the seabed (a texture baked
 // from the heightfield), with toon ripples and foam breathing along the shore. Transparent in the
@@ -26,6 +27,7 @@ const fragment = /* glsl */ `
   uniform vec3 uShallow;
   uniform vec3 uDeep;
   uniform vec3 uFoam;
+  uniform float uRipple;
   varying vec3 vWorld;
   #include <fog_pars_fragment>
 
@@ -48,8 +50,8 @@ const fragment = /* glsl */ `
     float n1 = noise(vWorld.xz * 0.16 + vec2(uTime * 0.32, uTime * 0.18));
     float n2 = noise(vWorld.xz * 0.29 - vec2(uTime * 0.22, -uTime * 0.27));
     float ripple = n1 * n2;
-    col = mix(col, col * 1.16 + 0.05, step(0.43, ripple));
-    col = mix(col, col * 0.9, step(ripple, 0.06));
+    col = mix(col, col * 1.16 + 0.05, step(0.43, ripple) * uRipple);
+    col = mix(col, col * 0.9, step(ripple, 0.06) * uRipple);
 
     // Foam: a breathing line where the water meets the land, and a broken second line further out.
     float edge = 0.5 + 0.28 * sin(uTime * 1.25 + vWorld.x * 0.05 + vWorld.z * 0.04);
@@ -94,16 +96,19 @@ export class WaterView {
       uDepth: { value: tex },
       uBounds: { value: new THREE.Vector4(hf.min, hf.min, hf.size, hf.size) },
       uTime: { value: 0 },
-      uShallow: { value: new THREE.Color(0x63d6cf) },
-      uDeep: { value: new THREE.Color(0x2c6fb4) },
-      uFoam: { value: new THREE.Color(0xf4fbff) },
+      uShallow: { value: new THREE.Color(PALETTE.sea.shallow) },
+      uDeep: { value: new THREE.Color(PALETTE.sea.deep) },
+      uFoam: { value: new THREE.Color(PALETTE.sea.foam) },
+      // The flecks of light are a toon touch; the new look keeps them faint.
+      uRipple: { value: NEW_LOOK ? 0.45 : 1 },
     });
     const mat = new THREE.ShaderMaterial({
       uniforms: this.uniforms,
       vertexShader: vertex,
       fragmentShader: fragment,
       transparent: true,
-      depthWrite: false,
+      // The new look's haze is laid on from the depth buffer, so the sea has to be in it.
+      depthWrite: NEW_LOOK,
       fog: true,
     });
     const geo = new THREE.PlaneGeometry(9000, 9000, 1, 1);
@@ -120,8 +125,9 @@ export class WaterView {
 
   /** Dims the sea at night and warms it at dusk. */
   setBrightness(k: number, gold: number): void {
-    (this.uniforms.uShallow.value as THREE.Color).setHex(0x63d6cf).lerp(new THREE.Color(0xe9b98a), gold * 0.25).multiplyScalar(k);
-    (this.uniforms.uDeep.value as THREE.Color).setHex(0x2c6fb4).lerp(new THREE.Color(0x8a6aa8), gold * 0.2).multiplyScalar(k);
-    (this.uniforms.uFoam.value as THREE.Color).setHex(0xf4fbff).multiplyScalar(0.5 + 0.5 * k);
+    const sea = PALETTE.sea;
+    (this.uniforms.uShallow.value as THREE.Color).setHex(sea.shallow).lerp(new THREE.Color(sea.duskShallow), gold * 0.25).multiplyScalar(k);
+    (this.uniforms.uDeep.value as THREE.Color).setHex(sea.deep).lerp(new THREE.Color(sea.duskDeep), gold * 0.2).multiplyScalar(k);
+    (this.uniforms.uFoam.value as THREE.Color).setHex(sea.foam).multiplyScalar(0.5 + 0.5 * k);
   }
 }

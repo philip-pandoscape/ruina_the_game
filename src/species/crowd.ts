@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { OUTLINES } from '../render/look';
 import { toon } from '../render/toon';
 import { buildPoseTexture } from './pose';
 import { buildProxyGeometry, proxyTriangles } from './proxy';
@@ -182,7 +183,7 @@ export class SpeciesCrowd {
     this.group.add(bodies);
     this.meshes.push(bodies);
 
-    if (opts.outlines !== false) {
+    if (opts.outlines !== false && OUTLINES) {
       const outline = new THREE.ShaderMaterial({
         uniforms: THREE.UniformsUtils.merge([
           THREE.UniformsLib.fog,

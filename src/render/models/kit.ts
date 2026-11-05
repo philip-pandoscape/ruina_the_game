@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { makeRng } from '../../rng';
+import { OUTLINES } from '../look';
 import { outlineMaterial, toon } from '../toon';
 
 // The toolkit every procedural model in this folder is built with. Models are assembled from
@@ -464,7 +465,7 @@ export function mesh(parent: THREE.Object3D, geo: THREE.BufferGeometry, opts: Me
   m.receiveShadow = opts.receive ?? true;
   if (opts.name) m.name = opts.name;
   parent.add(m);
-  if (opts.outline) {
+  if (opts.outline && OUTLINES) {
     const hull = new THREE.Mesh(hullOf(geo), outlineMaterial(opts.outline));
     hull.castShadow = false;
     hull.receiveShadow = false;
