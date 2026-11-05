@@ -49,6 +49,15 @@ impl Channel {
         true
     }
 
+    /// A character is gone for good: their estate and their plots go. True if they lived here.
+    pub fn remove(&mut self, id: i64) -> bool {
+        if self.estates.remove(&id).is_none() {
+            return false;
+        }
+        self.recount_claims();
+        true
+    }
+
     /// Plots go to the earliest character holding them (a race settles the same way every time).
     fn recount_claims(&mut self) {
         self.claims.clear();
@@ -128,5 +137,18 @@ mod tests {
         // Gone: the plot is free for the next one.
         assert!(c.set_estate(3, "early", json!({ "houses": [] })));
         assert_eq!(c.claims_json(), json!({ "p1": "late" }));
+    }
+
+    #[test]
+    fn a_deleted_character_frees_their_plots() {
+        let mut c = Channel::default();
+        c.set_estate(3, "early", json!({ "houses": [house("p1")] }));
+        c.set_estate(7, "late", json!({ "houses": [house("p1"), house("p2")] }));
+        assert_eq!(c.claims_json(), json!({ "p1": "early", "p2": "late" }));
+        assert!(c.remove(3));
+        assert_eq!(c.claims_json(), json!({ "p1": "late", "p2": "late" }));
+        assert!(!c.remove(3));
+        assert!(c.remove(7));
+        assert_eq!(c.claims_json(), json!({}));
     }
 }

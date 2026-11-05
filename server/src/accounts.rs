@@ -1,7 +1,7 @@
 //! Accounts and signing in: names with Argon2id password hashes in Postgres, and a session cookie
 //! that the game's pages and its WebSocket both carry. The cookie is http-only, so the page's own
-//! scripts never see it. One character per account for now, made with the account and named after
-//! it.
+//! scripts never see it. An account holds several characters (server/src/characters.rs); registering
+//! makes the first, named after the account.
 
 use std::sync::OnceLock;
 use std::time::{Duration, Instant};
@@ -31,8 +31,6 @@ const FAILURE_WINDOW: Duration = Duration::from_secs(600);
 pub struct Account {
     pub id: i64,
     pub username: String,
-    pub character_id: i64,
-    pub character: String,
 }
 
 #[derive(Deserialize)]
@@ -117,18 +115,16 @@ pub async fn signed_in(headers: &HeaderMap, db: &PgPool) -> Result<Option<Accoun
     let Some(token) = cookie(headers, COOKIE) else {
         return Ok(None);
     };
-    let row: Option<(i64, String, i64, String)> = sqlx::query_as(
-        "SELECT a.id, a.username, c.id, c.name FROM sessions s \
-         JOIN accounts a ON a.id = s.account_id JOIN characters c ON c.account_id = a.id \
-         WHERE s.token_hash = $1 AND s.expires_at > now()",
-    )
-    .bind(token_hash(&token))
-    .fetch_optional(db)
-    .await?;
-    Ok(row.map(|(id, username, character_id, character)| Account { id, username, character_id, character }))
+    let row: Option<(i64, String)> =
+        sqlx::query_as("SELECT a.id, a.username FROM sessions s JOIN accounts a ON a.id = s.account_id WHERE s.token_hash = $1 AND s.expires_at > now()")
+            .bind(token_hash(&token))
+            .fetch_optional(db)
+            .await?;
+    Ok(row.map(|(id, username)| Account { id, username }))
 }
 
-/// Makes the account and its character together. None if the name is taken.
+/// Makes the account and its first character, named after it, together. None if the name is taken
+/// (by another account, or by anyone's character: names show over heads).
 async fn create_account(db: &PgPool, name: &str, hash: &str) -> Result<Option<Account>, sqlx::Error> {
     let mut tx = db.begin().await?;
     let id: Option<i64> = sqlx::query_scalar(
@@ -143,15 +139,17 @@ async fn create_account(db: &PgPool, name: &str, hash: &str) -> Result<Option<Ac
     let Some(id) = id else {
         return Ok(None);
     };
-    let character_id: i64 = sqlx::query_scalar("INSERT INTO characters (account_id, name) VALUES ($1, $2) RETURNING id").bind(id).bind(name).fetch_one(&mut *tx).await?;
+    // Returning without committing takes the account back out.
+    if crate::characters::insert(&mut tx, id, name).await?.is_none() {
+        return Ok(None);
+    }
     tx.commit().await?;
-    Ok(Some(Account { id, username: name.to_string(), character_id, character: name.to_string() }))
+    Ok(Some(Account { id, username: name.to_string() }))
 }
 
 async fn account_by_id(db: &PgPool, id: i64) -> Result<Account, sqlx::Error> {
-    let (id, username, character_id, character): (i64, String, i64, String) =
-        sqlx::query_as("SELECT a.id, a.username, c.id, c.name FROM accounts a JOIN characters c ON c.account_id = a.id WHERE a.id = $1").bind(id).fetch_one(db).await?;
-    Ok(Account { id, username, character_id, character })
+    let (id, username): (i64, String) = sqlx::query_as("SELECT id, username FROM accounts WHERE id = $1").bind(id).fetch_one(db).await?;
+    Ok(Account { id, username })
 }
 
 async fn start_session(app: &AppState, db: &PgPool, account: Account) -> Result<Response, ApiError> {
@@ -183,7 +181,8 @@ fn cookie(headers: &HeaderMap, name: &str) -> Option<String> {
         .filter(|v| !v.is_empty())
 }
 
-fn check_name(name: &str) -> Result<(), ApiError> {
+/// Account and character names: 3 to 20 letters, digits, - and _.
+pub(crate) fn check_name(name: &str) -> Result<(), ApiError> {
     if !(3..=20).contains(&name.chars().count()) {
         return Err(ApiError(StatusCode::BAD_REQUEST, "Names are 3 to 20 characters long."));
     }

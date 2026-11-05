@@ -233,6 +233,29 @@ impl ChannelGame {
         Some(island)
     }
 
+    /// A character who lived here was deleted (they can't be playing): their houses, farms and
+    /// ships come down for everyone, and their plots are free for the next one.
+    pub fn remove_resident(&mut self, character: i64) {
+        if self.members.contains_key(&character) {
+            return;
+        }
+        self.lingering.remove(&character);
+        let Some(name) = self.estates.estates.get(&character).map(|e| e.name.clone()) else { return };
+        // Everyone else's browser takes the buildings down (an empty estate), then forgets them.
+        let empty = json!({ "t": "estate", "id": character, "name": name, "estate": estate_of(&json!({})) });
+        self.send_all(&empty.to_string(), None);
+        self.estates.remove(character);
+        self.send_all(&self.estates.claims_message(), None);
+        let held: HashMap<i64, HashMap<String, String>> = self.members.keys().map(|id| (*id, self.estates.held_by_others(*id))).collect();
+        for (owner, life) in self.players.each_life_mut() {
+            if let Some(h) = held.get(&owner) {
+                life.plot_owners = h.clone();
+            }
+        }
+        // Their walls and posts stop being solid.
+        self.rebuild_world();
+    }
+
     /// The developer panel's teleport: off whatever you were riding, onto the ground there.
     fn teleport(&mut self, character: i64, x: f64, z: f64, facing: Option<f64>) {
         let Some((p, life)) = self.players.open_mut(client(character)) else { return };

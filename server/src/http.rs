@@ -9,7 +9,10 @@
 //!   POST /api/login     {username, password}
 //!   POST /api/logout
 //!   POST /api/dev-login {username}   development only (DEV_LOGIN=1): signs in without a password
-//!   GET  /ws/world      the open world (server/src/world_socket.rs)
+//!   GET  /api/characters, POST /api/characters {name}, DELETE /api/characters/{id} {name}
+//!                       your characters (server/src/characters.rs)
+//!   POST /api/dev/stop  development only (DEV_LOGIN=1): stops the server as a deploy does (tests)
+//!   GET  /ws/world      the open world (server/src/world_socket.rs); ?character=<id>
 //!   GET  /ws/battle     the PvP battlefield (server/src/net.rs), when the server runs one
 
 use std::collections::HashMap;
@@ -21,7 +24,7 @@ use axum::body::Bytes;
 use axum::extract::{State, WebSocketUpgrade};
 use axum::http::{header, HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
-use axum::routing::{get, post};
+use axum::routing::{delete, get, post};
 use axum::serve::ListenerExt;
 use axum::{Json, Router};
 use serde_json::json;
@@ -30,7 +33,7 @@ use tokio::net::TcpListener;
 use tower_http::compression::Compression;
 use tower_http::services::ServeDir;
 
-use crate::{accounts, net, world_socket};
+use crate::{accounts, characters, net, world_socket};
 
 /// The battlefield's connections, shared with its simulation thread (server/src/main.rs).
 pub struct Battle {
@@ -64,6 +67,9 @@ pub async fn serve(port: u16, state: AppState, static_dir: Option<PathBuf>) -> s
         .route("/api/login", post(accounts::login))
         .route("/api/logout", post(accounts::logout))
         .route("/api/dev-login", post(accounts::dev_login))
+        .route("/api/characters", get(characters::list).post(characters::create))
+        .route("/api/characters/{id}", delete(characters::delete))
+        .route("/api/dev/stop", post(dev_stop))
         .route("/ws/world", get(world_socket::upgrade))
         .route("/ws/battle", get(battle));
     if let Some(dir) = static_dir {
@@ -73,6 +79,7 @@ pub async fn serve(port: u16, state: AppState, static_dir: Option<PathBuf>) -> s
     let app = Arc::new(state);
     world_socket::spawn_world(app.clone());
     let saver = app.clone();
+    let asker = app.clone();
     let router = router.with_state(app);
 
     let listener = listen_everywhere(port)?;
@@ -81,13 +88,17 @@ pub async fn serve(port: u16, state: AppState, static_dir: Option<PathBuf>) -> s
     let listener = listener.tap_io(|tcp| {
         let _ = tcp.set_nodelay(true);
     });
-    // Stopped (Railway stops the old server when a new one is up): everyone's island is written
-    // first, so nothing since its last save is lost.
+    // Stopped (Railway stops the old server when a new one is up): everyone hears the game is being
+    // updated, their islands are written, so nothing since the last save is lost, and their
+    // connections close as a service restart; their browsers come back on the new server.
     axum::serve(listener, router)
         .with_graceful_shutdown(async move {
-            stopped().await;
-            println!("stopping: saving everyone's island");
-            world_socket::save_everyone(&saver).await;
+            tokio::select! {
+                _ = stopped() => {}
+                _ = asker.world.stop_asked() => {}
+            }
+            println!("stopping: telling everyone, saving everyone's island");
+            world_socket::stop_world(&saver).await;
         })
         .await
 }
@@ -136,6 +147,16 @@ async fn stopped() {
 
 async fn health(State(app): State<App>) -> Json<serde_json::Value> {
     Json(json!({ "ok": true, "database": app.db.is_some(), "battle": app.battle.is_some(), "playing": app.world.count() }))
+}
+
+/// Development only (DEV_LOGIN=1): stops the server the way a deploy does, so tests can watch
+/// browsers ride out an update. Whoever runs the server starts it again.
+async fn dev_stop(State(app): State<App>) -> Result<Json<serde_json::Value>, ApiError> {
+    if !app.dev_login {
+        return Err(ApiError(StatusCode::NOT_FOUND, "Developer tools are off on this server."));
+    }
+    app.world.ask_to_stop();
+    Ok(Json(json!({ "ok": true })))
 }
 
 async fn battle(State(app): State<App>, ws: WebSocketUpgrade) -> Response {
