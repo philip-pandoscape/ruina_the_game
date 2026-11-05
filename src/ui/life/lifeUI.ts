@@ -1347,7 +1347,7 @@ export class LifeUI {
     this.bagHandlers = {
       // A click picks an item out; a double-click does its main thing (right-click: everything else).
       sel: (i, e) => {
-        if ((e?.detail ?? 1) >= 2) return this.itemPrimary(Number(i));
+        if (e?.detail === 2) return this.itemPrimary(Number(i));
         this.sel = Number(i);
         for (const c of this.bagEl.querySelectorAll('.bag-grid [data-act="sel"]')) c.classList.toggle('sel', c.getAttribute('data-arg') === i);
       },
