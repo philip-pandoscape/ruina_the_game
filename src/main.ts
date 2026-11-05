@@ -8,6 +8,7 @@ import { NetMonsters } from './net/netMonsters';
 import { Prediction, RemotePlayers, stateFromServer } from './net/netPlayer';
 import { NetSpells } from './net/netSpells';
 import { assetsReady } from './render/assets';
+import { isPine } from './render/open/foliage';
 import { FollowCamera } from './render/camera';
 import { Hero, type WeaponAt } from './render/character';
 import { TrainingDummy } from './render/dummy';
@@ -1819,7 +1820,7 @@ const api = {
     return world.obstacles
       .filter((o) => o.kind === 'tree' && Math.hypot(o.x - x, o.z - z) < r)
       .sort((a, b) => Math.hypot(a.x - x, a.z - z) - Math.hypot(b.x - x, b.z - z))
-      .map((o) => ({ x: +o.x.toFixed(2), z: +o.z.toFixed(2), scale: +o.scale.toFixed(2) }));
+      .map((o) => ({ x: +o.x.toFixed(2), z: +o.z.toFixed(2), scale: +o.scale.toFixed(2), pine: terrain ? isPine(o.x, o.z, terrain.height(o.x, o.z)) : false }));
   },
   sceneObjects(prefix: string) {
     type Seen = { name: string; x: number; y: number; z: number; visible: boolean; centre: { x: number; y: number; z: number } };

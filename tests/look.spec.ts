@@ -34,6 +34,8 @@ const SCENES: Scene[] = [
   { id: 'woods-thornwood', x: -262, z: 116, facing: 0, hour: 11.5, camera: { yaw: 0, pitch: 0.2, distance: 9 }, view: { from: [-258, 3.5, 112], to: [-290, 7, 140], ground: true } },
   { id: 'woods-far', x: -40, z: 40, facing: 0, hour: 11.6, camera: { yaw: 0, pitch: 0.2, distance: 9 }, view: { from: [-40, 8, 40], to: [-290, 10, 140], ground: true } },
   { id: 'north-pines', x: 40, z: 118, facing: 0, hour: 11.8, camera: { yaw: 0, pitch: 0.2, distance: 9 }, view: { from: [46, 4, 116], to: [27.8, 8, 146], ground: true } },
+  { id: 'pine-closeup', x: -134, z: -258, facing: 0.7, hour: 12.2, camera: { yaw: 0.7, pitch: 0.2, distance: 9 }, view: { from: [-131, 1.8, -261], to: [-139.94, 8.5, -252.21], ground: true } },
+  { id: 'broadleaf-closeup', x: -129, z: -223, facing: 0.7, hour: 12.3, camera: { yaw: 0.7, pitch: 0.2, distance: 9 }, view: { from: [-127, 1.8, -223], to: [-136.46, 7.5, -214.38], ground: true } },
   { id: 'fields-noon', x: -140, z: -225, facing: -0.8, hour: 12.5, camera: { yaw: -0.8, pitch: 0.22, distance: 10 } },
   { id: 'bushes-edge', x: -258, z: 112, facing: 0.6, hour: 13, camera: { yaw: 0.6, pitch: 0.18, distance: 9 } },
   { id: 'docks-afternoon', x: 2, z: -332, facing: 3.5, hour: 15.5, camera: { yaw: 3.5, pitch: 0.2, distance: 12 } },
