@@ -27,7 +27,7 @@ import { resumeAfterReload } from '../app/resume';
 //                     | reset | kicked | error {text} | updating
 //   browser → server  (binary) inputs: 7, count, then per input a u32 sequence number and 10 bytes
 //                     (text) cmd {s, c} | build {build} | reset
-//                     | challenge {to, game, stake, seed?} | withdraw | answer {from, accept}
+//                     | challenge {to, game, stake, seed?, turn?} | withdraw | answer {from, accept}
 //                     | move {table, m} | concede {table}
 
 export interface Welcome {
@@ -286,9 +286,16 @@ export class WorldLink {
 
   // ---------- Mini-games (server/src/world_game/tables.rs) ----------
 
+  /**
+   * Tests: how long each turn lasts (seconds) in a game this browser challenges someone to, on a
+   * development server; for a browser drawing in software, too slow for the game's own clock.
+   */
+  challengeTurn: number | null = null;
+
   /** Challenges another player here to `game` for `stake` copper each (development servers: `seed` deals a known game). */
   challenge(to: number, game: string, stake: number, seed?: number): boolean {
-    return this.send({ t: 'challenge', to, game, stake, ...(seed !== undefined ? { seed } : {}) });
+    const turn = this.challengeTurn;
+    return this.send({ t: 'challenge', to, game, stake, ...(seed !== undefined ? { seed } : {}), ...(turn !== null ? { turn } : {}) });
   }
 
   /** Takes your challenge back. */

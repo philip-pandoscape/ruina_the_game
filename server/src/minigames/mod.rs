@@ -200,6 +200,8 @@ pub struct Table {
     pub rules: Box<dyn Rules>,
     /// When the player to move began their turn (the channel's clock, seconds).
     pub turn_began: f64,
+    /// How long a turn lasts: the game's, or on a development server what the challenge asked for.
+    pub turn_seconds: f64,
     turns_seen: u32,
     pub over: Option<Over>,
     /// Goes up with every change, so each player's view goes out again.
@@ -209,7 +211,7 @@ pub struct Table {
 impl Table {
     pub fn new(id: u64, game: &'static GameDef, stake: f64, seats: [Seat; 2], at: Spot, rules: Box<dyn Rules>, now: f64) -> Table {
         let turns_seen = rules.turns();
-        Table { id, game, stake, seats, at, rules, turn_began: now, turns_seen, over: None, version: 1 }
+        Table { id, game, stake, seats, at, rules, turn_began: now, turn_seconds: game.turn_seconds, turns_seen, over: None, version: 1 }
     }
 
     pub fn seat_of(&self, id: i64) -> Option<usize> {
@@ -218,7 +220,7 @@ impl Table {
 
     /// Seconds left on the clock of the player to move.
     pub fn time_left(&self, now: f64) -> f64 {
-        (self.game.turn_seconds - (now - self.turn_began)).max(0.0)
+        (self.turn_seconds - (now - self.turn_began)).max(0.0)
     }
 
     /// A move by the player in `seat`.
@@ -296,7 +298,7 @@ impl Table {
             }
         }
         if let Some(s) = self.rules.to_move() {
-            if now - self.turn_began >= self.game.turn_seconds {
+            if now - self.turn_began >= self.turn_seconds {
                 self.seats[s].timeouts += 1;
                 if self.seats[s].timeouts >= self.game.timeouts_to_forfeit {
                     self.end(Some(1 - s), Why::Timeouts, now);
@@ -344,7 +346,7 @@ impl Table {
                 .collect(),
         );
         v["game"] = json!(self.game.id);
-        v["turnSeconds"] = json!(self.game.turn_seconds);
+        v["turnSeconds"] = json!(self.turn_seconds);
         v["ms"] = json!((self.time_left(now) * 1000.0).round());
         v["toMove"] = json!(if self.over.is_some() { None } else { self.rules.to_move() });
         v["state"] = self.rules.view(Some(seat));
@@ -365,6 +367,8 @@ pub struct Challenge {
     pub expires: f64,
     /// Development servers: the deal, so tests know it.
     pub seed: Option<u32>,
+    /// Development servers: how long each turn lasts, for tests in a browser too slow for the game's.
+    pub turn: Option<f64>,
 }
 
 impl Challenge {

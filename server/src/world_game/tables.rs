@@ -176,6 +176,12 @@ impl ChannelGame {
     /// `from` challenges `to` to `game` for `stake` copper each. On development servers `seed`
     /// deals a known game. Err: why not, for `from`.
     pub fn challenge(&mut self, from: i64, to: i64, game: &str, stake: f64, seed: Option<u32>) -> Result<(), String> {
+        self.challenge_timed(from, to, game, stake, seed, None)
+    }
+
+    /// A challenge whose game gives each turn `turn` seconds, on development servers (tests in a
+    /// browser that draws in software, too slow for the game's own clock).
+    pub fn challenge_timed(&mut self, from: i64, to: i64, game: &str, stake: f64, seed: Option<u32>, turn: Option<f64>) -> Result<(), String> {
         let c = &content().challenge;
         let now = self.game_clock();
         let Some(def) = game_def(game) else { return Err("There's no such game.".into()) };
@@ -212,7 +218,7 @@ impl ChannelGame {
             return Err("You don't have that much to stake.".into());
         }
         let dev = self.members.get(&from).is_some_and(|m| m.dev);
-        self.tables.challenges.push(Challenge { from, from_name, to, to_name, game: def, stake, expires: now + c.invite_seconds, seed: seed.filter(|_| dev) });
+        self.tables.challenges.push(Challenge { from, from_name, to, to_name, game: def, stake, expires: now + c.invite_seconds, seed: seed.filter(|_| dev), turn: turn.filter(|t| dev && t.is_finite() && *t > 0.0) });
         self.tell_challenges(from);
         self.tell_challenges(to);
         Ok(())
@@ -233,9 +239,9 @@ impl ChannelGame {
     pub fn answer(&mut self, to: i64, from: i64, accept: bool) -> Result<(), String> {
         let now = self.game_clock();
         let Some(i) = self.tables.challenges.iter().position(|c| c.from == from && c.to == to) else { return Err("That challenge isn't open any more.".into()) };
-        let (game, stake, seed, from_name, to_name) = {
+        let (game, stake, seed, turn, from_name, to_name) = {
             let c = &self.tables.challenges[i];
-            (c.game, c.stake, c.seed, c.from_name.clone(), c.to_name.clone())
+            (c.game, c.stake, c.seed, c.turn, c.from_name.clone(), c.to_name.clone())
         };
         let close = |ch: &mut ChannelGame| {
             ch.tables.challenges.retain(|c| !(c.from == from && c.to == to));
@@ -286,7 +292,10 @@ impl ChannelGame {
                 m.life_due = 3;
             }
         }
-        let table = Table::new(id, game, stake, [Seat::new(to, &to_name), Seat::new(from, &from_name)], spot, rules, now);
+        let mut table = Table::new(id, game, stake, [Seat::new(to, &to_name), Seat::new(from, &from_name)], spot, rules, now);
+        if let Some(t) = turn {
+            table.turn_seconds = t;
+        }
         self.tables.tables.push(table);
         self.pin_seated(Some(id));
         let pot = if stake > 0.0 { format!(" for {}", format_coins(stake * 2.0)) } else { String::new() };
@@ -967,5 +976,22 @@ mod tests {
         assert!(ch.answer(8, 7, true).unwrap_err().starts_with("There's no room for a table here"));
         assert_eq!((coins(&ch, 7), coins(&ch, 8)), (200.0, 200.0));
         assert_eq!(ch.tables.challenges.len(), 1, "still open, if they move somewhere better");
+    }
+
+    #[test]
+    fn a_development_server_gives_a_test_the_turn_it_asks_for_and_nobody_else() {
+        let (mut ch, _rx_a, _rx_b) = ann_and_bea();
+        let turn = game_def("beacons").unwrap().turn_seconds;
+        ch.challenge_timed(7, 8, "beacons", 0.0, None, Some(600.0)).unwrap();
+        ch.answer(8, 7, true).unwrap();
+        let t = ch.tables.tables.last().unwrap();
+        assert_eq!(t.turn_seconds, 600.0);
+        assert_eq!(t.time_left(t.turn_began + turn + 1.0), 600.0 - turn - 1.0, "well past the game's own clock, still on");
+        // Off a development server it's the game's clock, whatever the challenge asks.
+        let (mut ch, _rx_a, _rx_b) = ann_and_bea();
+        ch.members.get_mut(&7).unwrap().dev = false;
+        ch.challenge_timed(7, 8, "beacons", 0.0, None, Some(600.0)).unwrap();
+        ch.answer(8, 7, true).unwrap();
+        assert_eq!(ch.tables.tables.last().unwrap().turn_seconds, turn);
     }
 }

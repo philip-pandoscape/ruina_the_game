@@ -1928,6 +1928,10 @@ const api = {
   challenge(to: number, stake = 0, game = 'beacons', seed?: number): boolean {
     return online?.link.challenge(to, game, stake, seed) ?? false;
   },
+  /** Tests: each turn of a game this browser challenges someone to lasts `seconds` (development servers). */
+  setChallengeTurn(seconds: number | null): void {
+    if (online) online.link.challengeTurn = seconds;
+  },
   /** Answers the challenge waiting for you, as its window does. */
   answerChallenge(accept: boolean): boolean {
     const c = online?.link.challenges.waiting;

@@ -21,7 +21,7 @@
 //!   browser -> server  (binary) inputs: 7, count, then per input a u32 sequence number and 10 bytes
 //!                      (src/net/netPlayer.ts quantize)
 //!                      (text) cmd {s, c} | build {build} | reset
-//!                      | challenge {to, game, stake, seed?} | withdraw | answer {from, accept}
+//!                      | challenge {to, game, stake, seed?, turn?} | withdraw | answer {from, accept}
 //!                      | move {table, m} | concede {table}   (mini-games, server/src/world_game/tables.rs)
 
 use std::collections::HashMap;
@@ -319,6 +319,8 @@ enum FromBrowser {
         stake: f64,
         #[serde(default)]
         seed: Option<u32>,
+        #[serde(default)]
+        turn: Option<f64>,
     },
     Withdraw,
     Answer {
@@ -544,8 +546,8 @@ async fn play(
                                 Wrote::Failed => {}
                             }
                         }
-                        Ok(FromBrowser::Challenge { to, game, stake, seed }) => {
-                            if let Err(text) = app.world.with_channel(channel, |ch| ch.challenge(character, to, &game, stake, seed)) {
+                        Ok(FromBrowser::Challenge { to, game, stake, seed, turn }) => {
+                            if let Err(text) = app.world.with_channel(channel, |ch| ch.challenge_timed(character, to, &game, stake, seed, turn)) {
                                 send(&mut tx, json!({ "t": "error", "text": text })).await?;
                             }
                         }
