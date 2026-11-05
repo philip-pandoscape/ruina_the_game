@@ -144,7 +144,7 @@ function makeProp(kind: Scenario['prop'], hero: Hero): Prop | null {
     driver: def.seats[0].pose,
     animate: (dt, m, input) => {
       t += dt;
-      v.animate(dt, { speed: m.speed, steer: input.bank, throttle: input.effort, sail: 0.8, boom: 0.3, time: t });
+      v.animate(dt, { speed: m.speed, steer: m.controls?.steer ?? input.bank, throttle: m.controls?.throttle ?? input.effort, sail: 0.8, boom: 0.3, time: t });
     },
   };
 }
@@ -185,7 +185,7 @@ class Take {
 
   step(): void {
     const m = this.s.at(this.frame);
-    const input = pose({ time: this.frame * STEP, ...m.input, weapon: this.s.weapon ?? this.weapon });
+    const input = pose({ time: (this.s.start ?? 0) + this.frame * STEP, ...m.input, weapon: this.s.weapon ?? this.weapon });
     if (input.run > 0) this.distance += Math.abs(m.speed) * STEP;
     this.facing = m.facing ?? 0;
     const h = this.facing + (m.input.heading ?? 0);
@@ -718,6 +718,36 @@ const api = {
   },
 
   /**
+   * Seated in a vehicle's first seat, frame by frame: where what each hand holds is (left, right) in
+   * the vehicle's own frame, and how far each hand is from it.
+   */
+  holdTrack(id: string) {
+    const t = new Take(scenario(id), 0);
+    const rig = t.hero.detail;
+    const out: Array<{ frame: number; holds: number[][]; gaps: number[] }> = [];
+    const a = new THREE.Vector3();
+    const b = new THREE.Vector3();
+    const toProp = new THREE.Matrix4();
+    for (let f = 0; f < t.s.frames; f++) {
+      t.step();
+      const hands = t.prop?.holds?.hands;
+      if (!hands || t.input.travel !== t.prop?.driver) continue;
+      t.hero.root.updateMatrixWorld(true);
+      toProp.copy(t.prop.root.matrixWorld).invert();
+      const holds: number[][] = [];
+      const gaps: number[] = [];
+      hands.forEach((o, i) => {
+        o.getWorldPosition(b);
+        gaps.push(rig.joint(i === 0 ? 'handL' : 'handR').getWorldPosition(a).distanceTo(b));
+        holds.push(b.applyMatrix4(toProp).toArray());
+      });
+      out.push({ frame: f, holds, gaps });
+    }
+    t.dispose();
+    return out;
+  },
+
+  /**
    * How squarely a vehicle's steering wheel faces the driver over a film, at worst: the cosine
    * between the way its face looks (back up its column) and the way from it to the driver's neck.
    * 1 is straight at them; null when the vehicle has no wheel.
@@ -745,8 +775,8 @@ const api = {
 
   /**
    * The weapon's far end (a blade's tip, the staff's orb, the bow's top) frame by frame, in the
-   * world, the stow on that frame, and whether the weapon hangs from a hand: for drawing and
-   * sheathing, which must never make it jump.
+   * world, the stow on that frame, whether the weapon hangs from a hand and whether it's drawn at
+   * all: for drawing and sheathing, which must never make it jump, and for when it's out of sight.
    */
   weaponTrack(id: string, weapon = 0) {
     const t = new Take(scenario(id), weapon);
@@ -754,12 +784,19 @@ const api = {
     const name = HERO_WEAPONS[weapon];
     const far: Record<string, [number, number, number]> = { sword: [0, -1.1, 0], club: [0, -0.6, 0], staff: [0, -1.2, 0], bow: [0, 0.275, 0.476] };
     const g = rig.attachment(name);
-    const out: Array<{ frame: number; stow: number; inHand: boolean; tip: number[] }> = [];
+    const out: Array<{ frame: number; stow: number; inHand: boolean; shown: boolean; attack: number; tip: number[] }> = [];
     for (let f = 0; f < t.s.frames; f++) {
       t.step();
       t.hero.root.updateMatrixWorld(true);
       const p = new THREE.Vector3(...far[name]).applyMatrix4(g.matrixWorld);
-      out.push({ frame: f, stow: t.input.stow, inHand: g.parent === rig.joint('handR') || g.parent === rig.joint('handL'), tip: [p.x, p.y, p.z] });
+      out.push({
+        frame: f,
+        stow: t.input.stow,
+        inHand: g.parent === rig.joint('handR') || g.parent === rig.joint('handL'),
+        shown: g.visible,
+        attack: t.input.attackIndex >= 0 ? t.input.attackFrame : -1,
+        tip: [p.x, p.y, p.z],
+      });
     }
     t.dispose();
     return out;

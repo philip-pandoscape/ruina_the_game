@@ -6,7 +6,7 @@ import { Body, SIDES, bump, clamp, clamp01, easeIn, easeInOut, easeOut, lerp, sm
 import { directional, dutyFactor, planFoot, runGait, sprintGait, type FootPlan, type GaitShape } from './gait';
 import { READY, swingFor, type SwingDef, type SwingKey } from './swings';
 import { gliderGrip } from '../models/gliders';
-import { DRAWING_HAND, stowedFor } from './stow';
+import { DRAWING_HAND, STOWED } from './stow';
 
 // How a humanoid moves. Every playable race and humanoid NPC shares this - they differ in how
 // they are built (src/content/creatures), not in how they walk. Poses only ever touch named
@@ -371,7 +371,7 @@ function holdWeapon(b: Body, p: PoseInput, g: Gait): void {
   const u = clamp01(p.stow);
   if (u <= 0) return holdArmed(b, p, g);
   const name = WEAPON_NAMES[p.weapon] ?? 'sword';
-  const st = stowedFor('')[name];
+  const st = STOWED[name];
   const s = DRAWING_HAND[name] ?? 'R';
   const free = b.save(b.buf(6));
   holdArmed(b, p, g);
@@ -1139,17 +1139,26 @@ function down(b: Body, p: PoseInput): void {
 
 // ---------- travel ----------
 
-function travel(b: Body, p: PoseInput): void {
-  travelPose(b, p);
-  // Travelling, the weapon is put away on the back or at the hip (the close-up hero sees to that),
-  // and the hands are free. With a pack in the way it stays in the hand, carried out of the way:
-  // blade down and back along the body.
-  if (!p.carry) return;
-  if (p.weapon === 3) b.frameHand('L', torsoDir(b, _a.set(0, -0.8, -0.6)), torsoDir(b, _b.set(0, 0.6, -0.8)));
-  else b.aimHand('R', torsoDir(b, _a.set(-0.15, -0.75, -0.65)));
+/**
+ * How fast the stroke clock (PoseInput.phase, travelling) turns, radians a second: swimming, one
+ * turn is a stroke of each arm; riding, the rise and fall of two of the mount's strides; rowing, one
+ * stroke of the oars. The close-up hero (src/render/character.ts) winds the clock on by this each
+ * frame, so a change of pace speeds the stroke up or slows it down instead of jumping it along.
+ */
+export function strokeRate(p: PoseInput): number {
+  const e = clamp01(p.effort);
+  if (p.travel === 'swim') return 2.6 + 2.4 * e;
+  if (p.travel === 'ride') return 6 + 6 * e;
+  if (p.travel === 'row') return TAU * (0.35 + 0.6 * e);
+  return 0;
 }
 
-function travelPose(b: Body, p: PoseInput): void {
+/**
+ * Swimming, gliding, riding or seated in a vehicle. The weapon isn't drawn while travelling (the
+ * close-up hero sees to that), so the hands are free for the stroke, the bar, the reins, the wheel
+ * or the oars.
+ */
+function travel(b: Body, p: PoseInput): void {
   const t = p.time;
   if (p.travel === 'swim') return swim(b, p);
   if (p.travel === 'glide') return glide(b, p);
@@ -1209,8 +1218,9 @@ function swim(b: Body, p: PoseInput): void {
   cape(b, 1.2, 0.2);
   const tread = b.save(b.buf(0));
   b.reset();
-  // Front crawl: flat on the water, rolling with each stroke, turning the face up to breathe.
-  const kk = t * (2.6 + 2.4 * e);
+  // Front crawl: flat on the water, rolling with each stroke, turning the face up to breathe. The
+  // stroke clock turns once for a stroke of each arm (strokeRate).
+  const kk = p.phase;
   b.body.position.set(0, 1.02, 0);
   b.body.rotation.set(1.36, 0.36 * Math.sin(kk), 0);
   const breathe = Math.pow(Math.max(0, Math.sin(kk * 0.5)), 4);
@@ -1230,7 +1240,7 @@ function swim(b: Body, p: PoseInput): void {
     b.setLegOut(s, 0.05 + 0.22 * Math.sin(ph), 0.04, 0.25 + 0.3 * Math.max(0, -Math.sin(ph)), 0.9);
   }
   cape(b, 1.4 + 0.05 * Math.sin(kk * 2), 0.05);
-  b.mix(tread, b.save(b.buf(1)), smooth((e - 0.05) / 0.35));
+  b.mix(tread, b.save(b.buf(1)), smooth((e - 0.05) / 0.45));
 }
 
 /** Hanging from the control bar: hands on its grips wherever the wing tilts it. */
@@ -1258,8 +1268,8 @@ function glide(b: Body, p: PoseInput): void {
 /** Astride: legs round the barrel, feet in the stirrups, reins in hand, rising to the trot. */
 function ride(b: Body, p: PoseInput): void {
   const e = clamp01(p.effort);
-  const t = p.time;
-  const stride = t * (6 + 6 * e);
+  // Rising and sitting twice a turn of the stroke clock (strokeRate).
+  const stride = p.phase;
   const post = Math.abs(Math.sin(stride)) * 0.035 * e;
   // Down in the saddle, the hips' joints just above the seat, rising a little to the trot.
   b.body.position.set(0, 0.22 + post, -0.03);
@@ -1318,12 +1328,13 @@ function gripFor(p: PoseInput, s: Side, fallback: THREE.Vector3): THREE.Vector3 
  */
 function row(b: Body, p: PoseInput): void {
   const e = clamp01(p.effort);
-  const t = p.time;
   // How far forward the handles are: from the boat's own oars when it gave them, otherwise a stroke
-  // at 0.35 + 0.6 x throttle a second (vehicles.ts oars()).
-  const ph = (((t * (0.35 + 0.6 * e)) % 1) + 1) % 1;
+  // on the stroke clock (strokeRate), as vehicles.ts oars() pulls them.
+  const ph = (((p.phase / TAU) % 1) + 1) % 1;
   const drive = ph < 0.55 ? easeInOut(ph / 0.55) : 1 - smooth((ph - 0.55) / 0.45);
-  const reachOut = p.grips ? clamp01(((p.grips[2] + p.grips[5]) / 2 - 0.22) / 0.42) : 1 - drive * e;
+  // Leaning in as far as the further handle needs: turning, the inside oar takes a shorter stroke,
+  // and leaning only as far as the two handles' middle would leave the outside hand short of its own.
+  const reachOut = p.grips ? clamp01((Math.max(p.grips[2], p.grips[5]) - 0.22) / 0.42) : 1 - drive * e;
   b.torso.rotation.set(lerp(-0.2, 0.42, reachOut), 0, 0);
   b.neck.rotation.set(lerp(0.12, -0.3, reachOut), 0, 0);
   seatedLegs(b, p, 0.06, 0.53);
@@ -1356,12 +1367,14 @@ function helmsman(b: Body, p: PoseInput): void {
 
 // ---------- carrying ----------
 
-/** A trade pack's straps in both hands, leaning into the weight; the weapon over the shoulder. */
-function carry(b: Body, p: PoseInput): void {
+/**
+ * A trade pack's straps in both hands, leaning into the weight. The weapon isn't drawn with a pack
+ * on but for a strike (the close-up hero sees to that), so there's nothing else to hold.
+ */
+function carry(b: Body): void {
   for (const s of SIDES) {
     b.handTo(s, torsoPoint(b, k(s) * 0.12, 0.34, 0.18, _a), torsoDir(b, _pole.set(k(s) * 0.8, -0.6, -0.1)));
   }
-  if (p.weapon !== 3) b.aimHand('R', torsoDir(b, dir(-2.9, 0.95, _a)));
   b.neck.rotation.x -= 0.12;
 }
 
@@ -1396,7 +1409,7 @@ export function poseHumanoid(rig: DetailRig, p: PoseInput): PoseFeedback {
       // Knocked off your feet, you don't leap: arms out for balance and legs reaching for the
       // ground, as when falling, whichever way the knock is taking you.
       air(b, p.stunned ? { ...p, rise: Math.min(p.rise, -0.5) } : p);
-      if (p.carry) carry(b, p);
+      if (p.carry) carry(b);
     } else {
       // Landing: the knees take it, deeper the harder you came down.
       let sink = 0;
@@ -1405,7 +1418,7 @@ export function poseHumanoid(rig: DetailRig, p: PoseInput): PoseFeedback {
         sink = (0.05 + 0.17 * p.landImpact) * (lf < 2.5 ? easeOut(lf / 2.5) : 1 - easeInOut((lf - 2.5) / 11.5));
       }
       const g = locomotion(b, p, sink);
-      if (p.carry) carry(b, p);
+      if (p.carry) carry(b);
       else holdWeapon(b, p, g);
     }
     if (p.stunned) hurt(b, p);

@@ -316,9 +316,10 @@ class Tris {
 
 /**
  * A lofted open hull: planked outside, an inner skin down to the floor or deck, a gunwale cap,
- * the deck itself, and a flat transom if the stern is square.
+ * the deck itself, and a flat transom if the stern is square. Also the hull's opening, the surface
+ * spanning the inner edge of the gunwale all the way round, for sealHull.
  */
-function hull(s: HullSpec): THREE.BufferGeometry {
+function hull(s: HullSpec): { shell: THREE.BufferGeometry; opening: THREE.BufferGeometry } {
   const T = new Tris();
   const e = 2 / s.fullness;
   const N = s.stations;
@@ -410,7 +411,31 @@ function hull(s: HullSpec): THREE.BufferGeometry {
       T.quad(mirror(o[s.rows], side), V(0, o[s.rows].y, o[s.rows].z), V(0, ii[K].y, ii[K].z), mirror(ii[K], side), s.rim, V(0, 1, 0));
     }
   }
-  return T.geometry();
+  // The opening: straight across from one side's inner gunwale edge to the other's, station by
+  // station, on the very points the gunwale cap ends at, so there is no crack along the edge.
+  const O = new Tris();
+  for (let i = 0; i < N; i++) O.quad(inner[i][K], inner[i + 1][K], mirror(inner[i + 1][K], -1), mirror(inner[i][K], -1), s.rim, V(0, 1, 0));
+  return { shell: T.geometry(), opening: O.geometry() };
+}
+
+let sealMat: THREE.MeshBasicMaterial | null = null;
+
+/**
+ * Seals a hull against the sea. The floor of an open boat sits below the waterline, and the sea is
+ * one flat surface drawn over everything solid (src/render/open/water.ts), so it would show inside
+ * the hull. A lid over the hull's opening, drawn only into the depth buffer, comes after everything
+ * solid (the floor, the thwarts, the cargo, whoever sits inside are all drawn by then and stay as
+ * they are) and before anything see-through: the sea inside the hull is behind it and isn't drawn,
+ * however the swell rocks the boat (her gunwale stays above the waterline). Nothing that rays look
+ * for is there, so they pass through.
+ */
+function sealHull(b: Build, opening: THREE.BufferGeometry): void {
+  const lid = new THREE.Mesh(opening, (sealMat ??= new THREE.MeshBasicMaterial({ colorWrite: false })));
+  lid.name = 'seal';
+  // Opaque things draw in renderOrder order, and all of them before the transparent ones.
+  lid.renderOrder = 1;
+  lid.raycast = () => {};
+  b.root.add(lid);
 }
 
 /** Half-width of a hull spec's inside at a given z and height, for placing seats and hatches. */
@@ -692,10 +717,15 @@ function roadster(def: WheeledDef): VehicleModel {
 
 // ---------- boats ----------
 
-/** Two oars at the oarlocks, swept in a rowing cycle whose rate follows |throttle|. */
+/**
+ * Two oars at the oarlocks, pulled by one rower: one stroke for both, whose pace follows the harder
+ * pulled oar. Turning, the oar on the inside of the turn takes a shorter stroke; turning on the
+ * spot, one oar rows ahead while the other backs water (its blade bites on the way back instead of
+ * on the way out). The handles always swing together, so the rower's hands do too.
+ */
 function oars(b: Build, def: BoatDef): void {
   const locks = def.oars ?? [];
-  const sides: Array<{ sweep: THREE.Group; dip: THREE.Group; feather: THREE.Group; side: number; phase: number; drive: number }> = [];
+  const sides: Array<{ sweep: THREE.Group; dip: THREE.Group; feather: THREE.Group; side: number; drive: number }> = [];
   const handles: Array<THREE.Object3D | undefined> = [undefined, undefined];
   const oarGeo = (() => {
     const p = new Parts();
@@ -716,27 +746,32 @@ function oars(b: Build, def: BoatDef): void {
     const dip = pivot(sweep, 0, 0, 0);
     const feather = pivot(dip, 0, 0, 0);
     mesh(feather, oarGeo, { outline: b.outline * 0.8 });
-    sides.push({ sweep, dip, feather, side, phase: 0, drive: 0 });
+    sides.push({ sweep, dip, feather, side, drive: 0 });
     // The rower's hand on the outer end of the grip (0.62-0.78 inboard of the lock), wherever the
     // stroke has it, so the two hands don't meet in the middle.
     handles[side > 0 ? 0 : 1] = hold(feather, -0.64, 0, 0);
   }
   if (handles[0] && handles[1]) b.holds.hands = [handles[0], handles[1]];
   const REST_DIP = -0.27;
+  /** How far through the stroke both oars are, 0..1: out over the first 0.55, back over the rest. */
+  let phase = 0;
   b.anims.push((dt, s) => {
+    let lead = 0;
     for (const o of sides) {
-      // Turning left pulls harder on the right (-X) oar.
+      // Turning left pulls harder on the right (-X) oar: on the spot, the left one backs water.
       const want = clamp(s.throttle - o.side * clamp(s.steer, -1, 1) * 0.6, -1, 1);
       o.drive += (want - o.drive) * Math.min(1, dt * 4);
+      lead = Math.max(lead, Math.abs(o.drive));
+    }
+    if (smooth(lead * 1.5) > 0.01) phase = (phase + dt * (0.35 + 0.6 * lead)) % 1;
+    // A short stroke: from the rower's belly out to arm's reach and back (the locks are ahead of
+    // the seat), -1 .. 1.
+    const swing = phase < 0.55 ? -Math.cos((Math.PI * phase) / 0.55) : Math.cos((Math.PI * (phase - 0.55)) / 0.45);
+    for (const o of sides) {
       const k = smooth(Math.abs(o.drive) * 1.5);
-      const rate = 0.35 + 0.6 * Math.abs(o.drive);
-      o.phase = (o.phase + dt * rate * Math.sign(o.drive || 1) * (k > 0.01 ? 1 : 0) + 1) % 1;
-      const ph = o.phase;
-      // A short stroke: from the rower's belly out to arm's reach (the locks are ahead of the seat).
-      const A = 0.3 * k;
-      const sweep = ph < 0.55 ? -A * Math.cos((Math.PI * ph) / 0.55) : A * Math.cos((Math.PI * (ph - 0.55)) / 0.45);
-      const inWater = 0.5 + 0.5 * Math.cos(TAU * (ph - 0.275));
-      o.sweep.rotation.y = sweep;
+      // The blade is in the water pushing the handle out to row ahead, pulling it back to back water.
+      const inWater = 0.5 + 0.5 * Math.cos(TAU * (phase - (o.drive >= 0 ? 0.275 : 0.775)));
+      o.sweep.rotation.y = 0.3 * k * swing;
       o.dip.rotation.z = lerp(REST_DIP, lerp(-0.2, -0.4, inWater), k);
       o.feather.rotation.x = lerp(0.6, (1 - smooth((inWater - 0.25) / 0.4)) * 1.45, k);
     }
@@ -835,7 +870,9 @@ function rowboat(def: BoatDef): VehicleModel {
     deck: (m) => (m % 2 ? PAL.wood : PAL.woodLight),
     transom: 0x4e98c8,
   };
-  body.list.push(hull(spec));
+  const lofted = hull(spec);
+  body.list.push(lofted.shell);
+  sealHull(b, lofted.opening);
   // Keel strip and stem post.
   body.add(box(0.08, 0.07, def.length * 0.8), PAL.woodDark, [0, -def.draft + 0.035, -0.1]);
   body.add(beam([0, -0.12, L - 0.1], [0, spec.sheerAt(1) + 0.06, L + 0.01], 0.05, 0.06), PAL.woodDark);
@@ -896,7 +933,9 @@ function sloop(def: BoatDef): VehicleModel {
     deck: (m) => (m % 2 ? PAL.woodPale : PAL.woodLight),
     transom: 0x2a7268,
   };
-  body.list.push(hull(spec));
+  const lofted = hull(spec);
+  body.list.push(lofted.shell);
+  sealHull(b, lofted.opening);
   // Ballast keel down to the draft, stem post and bowsprit.
   body.add(extrude([[-2.6, 0], [1.6, 0], [1.1, -def.draft + 0.75], [-2.2, -def.draft + 0.75]], 0.18), 0x3b3f46, [0, -0.72, 0], [0, -Math.PI / 2, 0]);
   body.add(beam([0, -0.3, z1 - 0.03], [0, spec.sheerAt(1) + 0.12, z1 + 0.05], 0.12), PAL.woodDark);
@@ -1120,7 +1159,9 @@ function cog(def: BoatDef): VehicleModel {
     deck: (m) => (m % 2 ? PAL.woodPale : PAL.woodLight),
     transom: 0x7b4f2f,
   };
-  body.list.push(hull(spec));
+  const lofted = hull(spec);
+  body.list.push(lofted.shell);
+  sealHull(b, lofted.opening);
   body.add(box(0.24, 0.2, def.length * 0.82), 0x3e2a1c, [0, -def.draft + 0.1, 0]);
   body.add(beam([0, -0.8, z1 - 0.2], [0, spec.sheerAt(1) + 0.35, z1 + 0.15], 0.22), PAL.woodDark);
   const sprit: V3 = [0, spec.sheerAt(1) + 0.3, L];
@@ -1285,7 +1326,9 @@ function genericBoat(def: BoatDef): VehicleModel {
     deck: (m) => (m % 2 ? PAL.woodPale : PAL.woodLight),
     transom: PAL.wood,
   };
-  b.body.list.push(hull(spec));
+  const lofted = hull(spec);
+  b.body.list.push(lofted.shell);
+  sealHull(b, lofted.opening);
   for (const s of def.seats) b.body.add(bev(0.5, Math.max(0.05, s.y - deck), 0.45, 0.03), PAL.wood, [s.x, (s.y + deck) / 2, s.z]);
   if (def.mast) {
     b.body.add(rod([def.mast.x, deck, def.mast.z], [def.mast.x, def.mast.height, def.mast.z], 0.15, 8, 0.1), PAL.woodLight);

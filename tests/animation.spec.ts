@@ -1,10 +1,16 @@
 import { expect, test, type Page } from '@playwright/test';
+import type { NetCrowd } from '../src/net/netCrowd';
+import { Prediction } from '../src/net/netPlayer';
+import { Sim } from '../src/sim/sim';
+import { NO_ACTIONS } from '../src/sim/types';
+import { makeBattlefield } from '../src/sim/world';
 import { comboShape } from '../src/tuning';
 
 // The hero's animations, measured rather than eyeballed. The gallery (animations.html) plays each
 // of the films in src/render/detail/scenarios.ts through the real close-up hero - poses, easing
 // between states, feet held where they're planted - and reports where everything went. No GPU
-// needed: it's all positions and angles.
+// needed: it's all positions and angles. A few play the game itself (?world&test), at a set frame
+// rate, to check what the gallery can't: the hero and what it rides, drawn together.
 
 async function open(page: Page): Promise<string[]> {
   const errors: string[] = [];
@@ -344,18 +350,60 @@ test('with the weapon put away the hands are free, and it hangs clear of the gro
   }
 });
 
+test('travelling the weapon is out of sight, and with a pack on the back it only shows for a strike', async ({ page }) => {
+  await open(page);
+  const seen = await page.evaluate(() => {
+    const a = (window as any).__anims;
+    const travel = (a.list() as Array<{ id: string; group: string }>).filter((s) => s.group === 'Travel').map((s) => s.id);
+    return [0, 1, 2, 3].flatMap((w) => [
+      // Swimming, gliding, on a horse, at a wheel, at the oars, at the helm, a passenger: never drawn.
+      ...travel.map((id: string) => ({ id, w, shown: a.weaponTrack(id, w).filter((r: any) => r.shown).length, wrong: 0 })),
+      // A pack on the back: not drawn walking about with it, drawn exactly while the strike lasts.
+      ...['carry', 'carrySwing'].map((id) => {
+        const rows = a.weaponTrack(id, w);
+        return { id, w, shown: rows.filter((r: any) => r.shown).length, wrong: rows.filter((r: any) => r.shown !== r.attack >= 0).length };
+      }),
+    ]);
+  });
+  for (const s of seen) {
+    if (s.id === 'carrySwing') expect(s.shown, `weapon ${s.w} comes out for the strike`).toBeGreaterThan(20);
+    else expect(s.shown, `${s.id}: weapon ${s.w} is drawn on ${s.shown} frames`).toBe(0);
+    expect(s.wrong, `${s.id}: weapon ${s.w} drawn outside the strike, or not during it`).toBe(0);
+  }
+});
+
 test('seated, the hands hold what the vehicle gives them and the feet find its footrest', async ({ page }) => {
   await open(page);
   const gaps = await page.evaluate(() => {
     const a = (window as any).__anims;
-    return Object.fromEntries(['drive', 'driveRoadster', 'driveHauler', 'row', 'helm', 'ride'].map((id) => [id, a.holdGap(id)]));
+    return Object.fromEntries(['drive', 'driveRoadster', 'driveHauler', 'row', 'rowTurns', 'helm', 'ride'].map((id) => [id, a.holdGap(id)]));
   });
   // The cart's, the roadster's and the hauler's turning wheels, the oars mid-stroke and the ship's
   // wheel: within a few centimetres.
   for (const id of ['drive', 'driveRoadster', 'driveHauler', 'row', 'helm']) expect(gaps[id].hands, `${id}: a hand is off what it holds`).toBeLessThan(0.03);
+  // The oars, rowing ahead, turning (the inside oar on a shorter stroke), backing water, turning on
+  // the spot (one oar ahead, one backing), starting and stopping: the hands never leave the handles.
+  for (const id of ['row', 'rowTurns']) expect(gaps[id].hands, `${id}: a hand is off its oar`).toBeLessThan(0.005);
   // On a horse the feet are in the stirrups; elsewhere they rest on the footrest or hang just above it.
   expect(gaps.ride.feet).toBeLessThan(0.03);
   for (const id of ['drive', 'driveRoadster', 'row', 'helm']) expect(gaps[id].feet, `${id}: the feet hang far off the floor`).toBeLessThan(0.15);
+});
+
+test('rowing, the two oars keep one stroke, so the hands do too, after any turn', async ({ page }) => {
+  await open(page);
+  const rows = await page.evaluate(() => (window as any).__anims.holdTrack('rowTurns'));
+  // The film's last stretch rows straight ahead again after turning, backing water and spinning on
+  // the spot (then stops). Rowing straight, the handles are each other's mirror image: the same
+  // point of the same stroke. Each oar kept its own stroke once, and every turn left them apart for
+  // good, the hands working out of step from then on.
+  const straight = rows.slice(-150, -90) as Array<{ holds: number[][] }>;
+  let apart = 0;
+  for (const { holds: [l, r] } of straight) apart = Math.max(apart, Math.hypot(l[0] + r[0], l[1] - r[1], l[2] - r[2]));
+  expect(straight.length).toBe(60);
+  expect(apart, `the oars are ${apart.toFixed(3)} m out of step`).toBeLessThan(0.01);
+  // And they are rowing, not resting.
+  const reach = straight.map(({ holds }) => holds[0][2]);
+  expect(Math.max(...reach) - Math.min(...reach)).toBeGreaterThan(0.05);
 });
 
 test('a steering wheel faces its driver, square on its column', async ({ page }) => {
@@ -407,3 +455,143 @@ test('easing between states never snaps the body', async ({ page }) => {
   }
 });
 
+test('swimming, the stroke keeps a calm pace and never leaps, however long the session has run', async ({ page }) => {
+  await open(page);
+  const seen = await page.evaluate(() => {
+    const a = (window as any).__anims;
+    const pts = ['handL', 'handR', 'footL', 'footR', 'head'];
+    const jumps = Object.fromEntries(['swim', 'swimSprint', 'swimStart', 'tread', 'ride'].map((id) => [id, a.jumps(id, pts)]));
+    // How long a stroke of each arm takes: frames between the left hand passing its midpoint forward.
+    const stroke = (id: string) => {
+      const z = a.track(id, ['handL']).map((r: any) => r.joints.handL[2]);
+      const mid = (Math.min(...z) + Math.max(...z)) / 2;
+      const ups = z.flatMap((v: number, i: number) => (i > 0 && z[i - 1] < mid && v >= mid ? [i] : []));
+      return (ups[ups.length - 1] - ups[0]) / (ups.length - 1) / 60;
+    };
+    return { jumps, swim: stroke('swim'), sprint: stroke('swimSprint') };
+  });
+  // Treading water, swimming off and stopping twenty minutes into a session, and riding a horse
+  // whose pace keeps changing: nothing leaps from one frame to the next. The stroke used to be the
+  // session's clock times a pace, so any change of pace (or of the speed another player's updates
+  // report) threw it on by the whole session's worth of the difference.
+  for (const [id, j] of Object.entries(seen.jumps) as Array<[string, { worst: number; frame: number; joint: string }]>) {
+    const allowed = id === 'ride' || id === 'tread' ? 0.03 : 0.09;
+    expect(j.worst, `${id}: the ${j.joint} leapt ${j.worst} m on frame ${j.frame}`).toBeLessThan(allowed);
+  }
+  // At the rules' swimming speed a stroke of each arm takes about a second and a half, sprinting a
+  // little less: a calm crawl.
+  expect(seen.swim).toBeGreaterThan(1.3);
+  expect(seen.swim).toBeLessThan(2);
+  expect(seen.sprint).toBeGreaterThan(1.1);
+  expect(seen.sprint).toBeLessThan(seen.swim);
+});
+
+test('online, running the unanswered inputs again on each server update leaves the clock everything is drawn by at the speed of time', () => {
+  const sim = new Sim(makeBattlefield(), { training: false });
+  const net = { renderTick: () => 0, sendInput: () => {} } as unknown as NetCrowd;
+  const prediction = new Prediction(sim, net);
+  const state = () => JSON.parse(JSON.stringify(sim.player));
+  prediction.reconcile(0, state()); // the first update places you
+  const start = sim.frame;
+  // Two seconds of play, the server answering every third frame, eight frames (a round trip) behind.
+  for (let i = 1; i <= 120; i++) {
+    prediction.step(NO_ACTIONS);
+    if (i % 3 === 0 && i > 8) prediction.reconcile(i - 8, state());
+  }
+  // Counting the replayed frames again ran the clock (and every animation on it) three to four
+  // times as fast as time, in jerks: the stroke of someone swimming past whirled.
+  expect(sim.frame - start).toBe(120);
+});
+
+/**
+ * Hands the page's frame loop a clock that moves exactly 1000/fps ms a frame, as fast as it can
+ * draw, so the game plays at any frame rate: window.__fps, window.__afterFrame (called after each).
+ */
+function fixedFrameRate(): void {
+  const w = window as any;
+  let queue: FrameRequestCallback[] = [];
+  let t = performance.now();
+  w.__fps = 60;
+  w.__clockFrom = (from: number) => (t = from);
+  window.requestAnimationFrame = (cb) => queue.push(cb);
+  window.cancelAnimationFrame = () => {};
+  const tick = () => {
+    const due = queue;
+    queue = [];
+    t += 1000 / w.__fps;
+    for (const cb of due) cb(t);
+    w.__afterFrame?.();
+    setTimeout(tick, 0);
+  };
+  setTimeout(tick, 0);
+}
+
+for (const fps of [30, 144]) {
+  test(`rowing in the game at ${fps} fps, the hands stay on the oars: ahead, turning, backing, spinning, starting, stopping`, { tag: '@gpu' }, async ({ page }) => {
+    // The boat is placed and its oars swing before the rower is posed in its seat, tilting and
+    // riding the swell with it (src/main.ts draw(), LifeView.placeRide): the hands reach for where
+    // the handles are this frame, not a frame ago.
+    await page.setViewportSize({ width: 480, height: 270 });
+    await page.addInitScript(fixedFrameRate);
+    await page.goto('/?world&test');
+    await page.waitForFunction(() => (window as any).__game?.ready === true, null, { timeout: 60_000 });
+    const boarded = await page.evaluate(() => {
+      const g = (window as any).__game;
+      g.reset();
+      g.lifeCommand({ t: 'grant', item: 'deed.rowboat', n: 1 });
+      g.advance(1);
+      g.teleport(-10, -334, Math.PI);
+      g.lifeCommand({ t: 'summon', item: 'deed.rowboat' });
+      g.advance(2);
+      const b = g.life().vehicles[0];
+      for (const side of [1, -1]) {
+        g.teleport(b.x + Math.cos(b.heading) * 1.3 * side, b.z - Math.sin(b.heading) * 1.3 * side, b.heading);
+        g.advance(2);
+        g.lifeCommand({ t: 'interact' });
+        // Half a second a frame at a time, so the body has eased into the seat.
+        for (let i = 0; i < 30; i++) g.advance(1);
+        if (g.state().player.mode === 'ride') return true;
+      }
+      return false;
+    });
+    expect(boarded).toBe(true);
+    const legs: Array<[number, Record<string, number>]> = [
+      [60, {}],
+      [150, { stickY: 1 }],
+      [120, { stickY: 1, stickX: -1 }],
+      [120, { stickY: 1, stickX: 1 }],
+      [90, {}],
+      [120, { stickY: -1 }],
+      [120, { stickX: 1 }],
+      [60, {}],
+    ];
+    const frames = legs.reduce((n, [f]) => n + f, 0);
+    await page.evaluate(
+      ([legs, fps]) => {
+        const w = window as any;
+        const g = w.__game;
+        w.__fps = fps;
+        w.__gaps = [];
+        // Each hand from its handle, as drawn.
+        w.__afterFrame = () => {
+          const h = g.holds();
+          if (h) w.__gaps.push(Math.max(...h.hands.map((p: number[], i: number) => Math.hypot(p[0] - h.holds[i][0], p[1] - h.holds[i][1], p[2] - h.holds[i][2]))));
+        };
+        g.scriptInput(legs);
+        w.__clockFrom(performance.now());
+        g.setPaused(false);
+      },
+      [legs, fps] as const,
+    );
+    const start = await page.evaluate(() => (window as any).__game.state().frame);
+    await page.waitForFunction(([s, n]) => (window as any).__game.state().frame >= s + n, [start, frames] as const, { timeout: 100_000, polling: 250 });
+    const gaps = await page.evaluate(() => {
+      const w = window as any;
+      w.__game.setPaused(true);
+      return w.__gaps as number[];
+    });
+    expect(gaps.length).toBeGreaterThan(frames * (fps / 60) * 0.9);
+    const worst = Math.max(...gaps);
+    expect(worst, `a hand ${worst.toFixed(3)} m off its oar, on frame ${gaps.indexOf(worst)} of ${gaps.length}`).toBeLessThan(0.02);
+  });
+}

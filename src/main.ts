@@ -8,7 +8,7 @@ import { NetMonsters } from './net/netMonsters';
 import { Prediction, RemotePlayers, stateFromServer } from './net/netPlayer';
 import { NetSpells } from './net/netSpells';
 import { FollowCamera } from './render/camera';
-import { Hero } from './render/character';
+import { Hero, type WeaponAt } from './render/character';
 import { TrainingDummy } from './render/dummy';
 import { ActorView } from './render/actors';
 import { actorKindAt, actorKindIds, findKind } from './content/actors';
@@ -1503,9 +1503,22 @@ const api = {
   cameraHeight(): number {
     return follow.camera.position.y;
   },
-  /** Where the hero's weapon is drawn: 'hand' when held, 'away' when put away (hip, back, lap). */
-  heroWeapon(): 'hand' | 'away' {
-    return hero.weaponInHand ? 'hand' : 'away';
+  /**
+   * Where the hero's weapon is drawn: 'hand' when held, 'away' when put away (at the hip, across the
+   * back), 'hidden' when it isn't drawn at all (travelling, a pack on the back).
+   */
+  heroWeapon(): WeaponAt {
+    return hero.weaponState;
+  },
+  /**
+   * At the controls of a vehicle: where each hand is and where what it holds is (the oars' handles,
+   * a wheel's rim), left then right, in the world as last drawn; null with nothing to hold.
+   */
+  holds() {
+    const h = hero.seatHolds?.hands;
+    if (!h) return null;
+    const at = (o: THREE.Object3D) => o.getWorldPosition(new THREE.Vector3()).toArray();
+    return { hands: [at(hero.detail.joint('handL')), at(hero.detail.joint('handR'))], holds: h.map(at) };
   },
   // Targeting, the ground-aim circle, and the floating numbers currently on screen.
   combat() {

@@ -11,7 +11,11 @@ export interface PoseInput {
    * sprinting. Picks the gait and scales the stride. Zero in the air and during actions.
    */
   run: number;
-  /** Stride phase, radians: one full turn is a left step and a right step. */
+  /**
+   * Stride phase, radians: one full turn is a left step and a right step. Travelling, the stroke's
+   * instead (strokeRate in src/render/detail/humanoid.ts): swimming, a stroke of each arm; riding,
+   * the rise and fall of two of the mount's strides; rowing, one stroke of the oars.
+   */
   phase: number;
   /** Horizontal speed over run speed whatever the body is doing (a running leap, a lunge). */
   speed: number;
@@ -92,7 +96,8 @@ export interface PoseInput {
   /**
    * The weapon in hand (0) or put away (1), and between them drawing or sheathing it: the hand
    * reaches to where it's stowed (src/render/detail/stow.ts), takes it or lets it go halfway, and
-   * comes back. On foot only; travelling puts it away whatever this says.
+   * comes back. On foot only: travelling the weapon isn't drawn at all, and with a pack on the back
+   * (carry) only while this is under 1, which is for a strike.
    */
   stow: number;
   /** How hard the stroke, stride or pull is going, 0..1 (swimming, rowing, a mount's gait). */
