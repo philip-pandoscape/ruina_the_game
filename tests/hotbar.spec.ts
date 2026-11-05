@@ -196,6 +196,27 @@ test('a cast pays its MP as it goes off, and none starts without enough', async 
   expect(seen.again).toBe('cast');
 });
 
+test('health, MP and stamina sit over the hotbar, with the dodge and the guard on Q and E', async ({ page }) => {
+  await ready(page);
+  const duelist: Build = { skills: skills('sword', 'dodgeRoll', 'club', 'block', 'staff', 'meteor'), weapon: 0, abilities: bar(METEOR), movement: [0, 2] };
+  expect(await page.evaluate((b) => (window as any).__game.setBuild(b), duelist)).toBe(true);
+  await page.evaluate(() => (window as any).__game.advance(2));
+  await expect(page.locator('#player-hp')).toBeVisible();
+  await expect(page.locator('#player-hp .pv-hp .label')).toHaveText('100 / 100');
+  await expect(page.locator('#player-hp .pv-mp, #player-hp .pv-st')).toHaveCount(2);
+  await expect(page.locator('#abilities .mslot')).toHaveCount(2);
+  await expect(page.locator('#abilities .short')).toHaveCount(0);
+  // Short of stamina and MP: the dodge and the meteor say so; the guard costs nothing.
+  await page.evaluate(() => (window as any).__game.setVitals({ stamina: 5, mp: 5 }));
+  await page.evaluate(() => (window as any).__game.advance(1, { movementSlot: 1, moveZ: 1 }));
+  await expect(page.locator('#abilities .mslot[data-move="0"]')).toHaveClass(/short/);
+  await expect(page.locator('#abilities .mslot[data-move="0"]')).toHaveAttribute('title', /Not Enough Stamina/);
+  await expect(page.locator('#abilities .mslot[data-move="1"]')).not.toHaveClass(/short/);
+  await expect(page.locator('#abilities .slot[data-slot="1"]')).toHaveClass(/short/);
+  await expect(page.locator('#hud-refuse')).toHaveText('Not Enough Stamina');
+  expect((await state(page)).mode).toBe('normal');
+});
+
 test('an empty slot does nothing at all', async ({ page }) => {
   await ready(page);
   await page.evaluate((b) => (window as any).__game.setBuild(b), CASTER);
