@@ -158,14 +158,16 @@ export function pushOutOfBox(b: BoxCollider, x: number, z: number, r: number): {
 
 /**
  * The ground under a point for something whose feet are at `y`: the terrain, or a deck or a
- * box top it is standing on (anything at most `stepUp` above its feet).
+ * box top it is standing on (a box top at most `stepUp` above its feet, a deck at most `deckUp`:
+ * someone walking steps higher onto a deck, which is built for it).
  */
-export function groundAt(hf: Heightfield, index: ColliderIndex | undefined, x: number, z: number, y: number, stepUp: number): number {
+export function groundAt(hf: Heightfield, index: ColliderIndex | undefined, x: number, z: number, y: number, stepUp: number, deckUp = stepUp): number {
   let g = hf.height(x, z);
   if (!index) return g;
   const reach = y + stepUp;
+  const deckReach = y + deckUp;
   index.eachDeck(x, z, 0.5, (d) => {
-    if (d.top > g && d.top <= reach && inRect(d, x, z)) g = d.top;
+    if (d.top > g && d.top <= deckReach && inRect(d, x, z)) g = d.top;
   });
   index.eachBox(x, z, 0.5, (b) => {
     if (b.top > g && b.top <= reach && inRect(b, x, z)) g = b.top;

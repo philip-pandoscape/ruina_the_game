@@ -7,11 +7,11 @@ import { ATTACK, JUMP, STEP, comboFor } from '../../tuning';
 import { GLIDE, GROUND, SWIM } from '../../content/traversal';
 import { CARRY } from '../../content/trade';
 import { glider as gliderDef } from '../../content/vehicles';
-import { groundAt, pushOutOfBox } from '../zone/colliders';
+import { groundAt, inRect, pushOutOfBox } from '../zone/colliders';
 import { isAlive } from '../actor';
 import { angleDiff, len, turnToward } from '../math';
 import { MOVE } from '../../tuning';
-import type { Actions } from '../types';
+import type { Actions, PlayerState } from '../types';
 import type { Updraft } from '../zone/types';
 
 const TAU = Math.PI * 2;
@@ -68,17 +68,44 @@ export function integrateOpen(sim: Sim): void {
   if (p.grounded && p.mode === 'normal') p.runPhase += len(p.vel.x, p.vel.z) * STEP;
 }
 
-/** Would moving from (ox, oz) to (nx, nz) walk into a cliff, a wall of rock, or a ledge too high? */
+// ---------- Decks ----------
+// A deck (a pier, the glider launch, a house floor) is ground on top and open underneath. Walking,
+// you step up onto one as high as deckStep (they are built to be walked onto); in the air, only
+// within the usual stepUp, as you land. One you can't get onto, and too low to pass under, is as
+// solid as a wall from the side.
+
+/** How high a deck you can get onto right now: walking, a deck's own step; in the air, as you land. */
+export const deckReach = (p: PlayerState): number => (p.grounded ? GROUND.deckStep : GROUND.stepUp);
+
+/** Whether a deck topped at `top` is in the way of feet at `y` that get `reach` up: too high to get onto, too low to pass under. */
+export const deckInTheWay = (top: number, y: number, reach: number): boolean => top > y + reach && top < y + GROUND.deckHeadroom;
+
+/**
+ * Would the move carry you into a deck in your way? collideOpen keeps you off their edges; this
+ * stops anything fast enough to cross one in a single step.
+ */
+function intoDeck(sim: Sim, ox: number, oz: number, nx: number, nz: number, reach: number): boolean {
+  const y = sim.player.pos.y;
+  let hit = false;
+  sim.world.index?.eachDeck(nx, nz, 0.5, (d) => {
+    if (!hit && deckInTheWay(d.top, y, reach) && inRect(d, nx, nz) && !inRect(d, ox, oz)) hit = true;
+  });
+  return hit;
+}
+
+/** Would moving from (ox, oz) to (nx, nz) walk into a cliff, a wall of rock, a deck's side, or a ledge too high? */
 function blocked(sim: Sim, ox: number, oz: number, nx: number, nz: number): boolean {
   const p = sim.player;
   const run = Math.hypot(nx - ox, nz - oz);
   if (run < 1e-7) return false;
   const hf = sim.world.terrain!;
+  const reach = deckReach(p);
+  if (intoDeck(sim, ox, oz, nx, nz, reach)) return true;
   const terrain = hf.height(nx, nz);
-  const ground = groundAt(hf, sim.world.index, nx, nz, p.pos.y, GROUND.stepUp);
+  const ground = groundAt(hf, sim.world.index, nx, nz, p.pos.y, GROUND.stepUp, reach);
   const rise = ground - p.pos.y;
   if (rise <= 0.02) return false;
-  if (ground > terrain + 0.01) return rise > GROUND.stepUp; // a deck or a box top: step up if low enough
+  if (ground > terrain + 0.01) return false; // a deck or a box top, low enough to step up onto
   if (rise > GROUND.stepUp) return true;
   // Climbing the terrain itself: only up slopes gentle enough to walk.
   return p.grounded && hf.slope(nx, nz) > GROUND.maxSlope;
@@ -123,6 +150,24 @@ export function collideOpen(sim: Sim): void {
         p.vel.z -= vn * nz;
       }
     });
+    // A deck's side, where it is too high to get onto and too low to pass under. Already beneath
+    // one (wading under a pier), you carry on.
+    const reach = deckReach(p);
+    idx.eachDeck(p.pos.x, p.pos.z, r + 1, (d) => {
+      if (!deckInTheWay(d.top, p.pos.y, reach) || inRect(d, p.pos.x, p.pos.z)) return;
+      const push = pushOutOfBox(d, p.pos.x, p.pos.z, r);
+      if (!push) return;
+      p.pos.x += push.x;
+      p.pos.z += push.z;
+      const l = Math.hypot(push.x, push.z) || 1;
+      const nx = push.x / l;
+      const nz = push.z / l;
+      const vn = p.vel.x * nx + p.vel.z * nz;
+      if (vn < 0) {
+        p.vel.x -= vn * nx;
+        p.vel.z -= vn * nz;
+      }
+    });
   }
   if (sim.opts.training && p.mode !== 'glide') {
     const feet = p.pos.y;
@@ -152,7 +197,7 @@ export function collideOpen(sim: Sim): void {
 function settle(sim: Sim): void {
   const p = sim.player;
   const hf = sim.world.terrain!;
-  const ground = groundAt(hf, sim.world.index, p.pos.x, p.pos.z, p.pos.y, GROUND.stepUp);
+  const ground = groundAt(hf, sim.world.index, p.pos.x, p.pos.z, p.pos.y, GROUND.stepUp, deckReach(p));
   if (p.mode === 'swim') return; // updateSwim keeps you at the surface
   if (p.grounded) {
     const speed = len(p.vel.x, p.vel.z);
