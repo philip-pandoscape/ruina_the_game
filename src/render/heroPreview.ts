@@ -89,7 +89,7 @@ export class HeroPreview {
     this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true, alpha: true, powerPreference: 'low-power' });
     this.renderer.setClearColor(0x000000, 0);
     this.camera = new THREE.PerspectiveCamera(26, width / height, 0.1, 40);
-    this.camera.position.set(0, 1.0, 4.75);
+    this.camera.position.set(0, 1.0, 5.0);
     this.camera.lookAt(0, 0.86, 0);
 
     // Dusk: a violet sky above, the warm ground below, the setting sun behind and to one side
@@ -106,7 +106,7 @@ export class HeroPreview {
     this.scene.add(key, rim, rim2, fill);
 
     const ringTex = ringTexture();
-    const ringGeo = new THREE.PlaneGeometry(2.6, 2.6).rotateX(-Math.PI / 2);
+    const ringGeo = new THREE.PlaneGeometry(1.9, 1.9).rotateX(-Math.PI / 2);
     const ringMat = new THREE.MeshBasicMaterial({ map: ringTex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false });
     this.ring = new THREE.Mesh(ringGeo, ringMat);
     this.ring.position.y = 0.01;
@@ -168,7 +168,7 @@ export class HeroPreview {
     this.hero.drive(pose({ time: this.time, weapon: this.weapon, stow: 0 }), 0, dt);
     // The circle turns slowly the other way, and flares when someone new steps onto it.
     this.flare = Math.max(0, this.flare - dt * 1.6);
-    this.ring.rotation.y -= dt * 0.15;
+    if (!this.still) this.ring.rotation.y -= dt * 0.15;
     this.ring.scale.setScalar(1 + this.flare * 0.25);
     (this.ring.material as THREE.MeshBasicMaterial).opacity = 0.85 + this.flare * 0.35;
     this.renderer.render(this.scene, this.camera);

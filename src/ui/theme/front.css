@@ -49,7 +49,7 @@
 /* ---------- Choosing a character ---------- */
 .cs { position: absolute; inset: 0; pointer-events: none; }
 .cs-stage { position: absolute; left: 0; right: 470px; top: 96px; bottom: 150px; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }
-.cs-hero { display: block; width: 460px; height: 610px; flex: none; pointer-events: auto; cursor: grab; touch-action: none; }
+.cs-hero { display: block; width: 600px; height: 620px; flex: none; pointer-events: auto; cursor: grab; touch-action: none; }
 .cs-hero:active { cursor: grabbing; }
 .cs-name { position: relative; z-index: 1; margin-top: -58px; padding: 6px 50px 9px; white-space: nowrap; font: 700 34px var(--font-title); letter-spacing: 0.06em; color: #ffeccc;
   text-shadow: 0 1px 0 #2b0d10; border: 3px solid transparent; border-radius: 4px; background: var(--plaque) padding-box, var(--wood) border-box; box-shadow: var(--card-shadow), 0 0 40px rgba(255, 130, 50, 0.25); }
@@ -58,7 +58,8 @@
 .cs-chips { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; justify-content: center; }
 .cs-chips span { display: inline-flex; align-items: center; gap: 6px; padding: 4px 13px 5px; border-radius: 999px; white-space: nowrap; font: 700 14px var(--font-title); letter-spacing: 0.04em;
   color: #f8e2bb; background: rgba(24, 12, 24, 0.62); box-shadow: 0 0 0 1px rgba(255, 196, 120, 0.4), 0 4px 10px rgba(0, 0, 0, 0.35); }
-.cs-chips span b { color: #ffd77a; }
+.cs-chips span b { font-family: var(--font); color: #ffd77a; }
+.cs-chips .mny b { font-family: var(--font); }
 .cs-empty { margin-bottom: 120px; text-align: center; pointer-events: auto; }
 .cs-empty h2 { margin: 0 0 10px; font: 700 34px var(--font-title); color: #ffe2a8; text-shadow: 0 2px 6px rgba(0, 0, 0, 0.6); }
 .cs-empty p { margin: 0 0 18px; color: #f6dcb0; font-size: 16px; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8); }
@@ -98,9 +99,10 @@
 /* ---------- When play stops: an update, a lost connection, another window, signed out ---------- */
 #ruina-net { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; pointer-events: auto;
   background: radial-gradient(ellipse at 50% 45%, rgba(26, 12, 30, 0.42), rgba(8, 4, 14, 0.82)); backdrop-filter: blur(3px) saturate(0.75); animation: fd-fade 0.3s ease-out both; }
-#ruina-net .fd-card { width: 470px; padding: 46px 36px 28px; text-align: center; }
-#ruina-net .fd-card p { margin: 14px 0 0; font-size: 16px; }
-#ruina-net .net-status { margin-top: 10px; font: 700 14px var(--font-title); letter-spacing: 0.06em; color: var(--ink-2); }
+#ruina-net .fd-card { width: 540px; padding: 52px 40px 30px; text-align: center; }
+#ruina-net .fd-plaque { font-size: 26px; padding: 7px 44px 9px; top: -27px; }
+#ruina-net .fd-card p { margin: 16px 0 0; font-size: 18.5px; line-height: 1.45; }
+#ruina-net .net-status { margin-top: 12px; font: 700 15.5px var(--font-title); letter-spacing: 0.06em; color: var(--ink-2); }
 #ruina-net .lui-btn { margin-top: 18px; }
 .net-spin { position: relative; width: 66px; height: 66px; margin: 2px auto 4px; }
 .net-spin::before { content: ''; position: absolute; inset: 0; border-radius: 50%; animation: net-turn 1.15s linear infinite;

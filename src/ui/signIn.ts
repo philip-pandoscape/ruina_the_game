@@ -163,7 +163,7 @@ export class OnlineBadge {
 
   set(status: LinkStatus): void {
     this.root.className = status === 'online' ? '' : status === 'reconnecting' || status === 'updating' ? 'reconnecting' : 'stopped';
-    this.label.textContent = status === 'reconnecting' ? `${this.name} · reconnecting` : status === 'updating' ? `${this.name} · updating` : this.name;
+    this.label.textContent = status === 'reconnecting' ? `${this.name} · Reconnecting` : status === 'updating' ? `${this.name} · Updating` : this.name;
     this.root.title = status === 'online' ? 'Connected to the game server; your island is saved there' : '';
   }
 }

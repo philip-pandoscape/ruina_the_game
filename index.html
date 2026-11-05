@@ -99,7 +99,7 @@
     <!-- The title screen: dusk over Emberholm's spire. Sign-in and character select happen on it
          (src/ui/splash.ts), and it fades into the game once the island is built. -->
     <div id="splash" aria-label="Ruina">
-      <svg class="sp-scene" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
+      <svg class="sp-scene" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
         <defs>
           <linearGradient id="sp-sky" x1="0" y1="0" x2="0" y2="800" gradientUnits="userSpaceOnUse">
             <stop offset="0" stop-color="#060819" />
@@ -135,7 +135,7 @@
             <stop offset="0.28" stop-color="#3c1a3a" />
             <stop offset="1" stop-color="#0b0613" />
           </linearGradient>
-          <radialGradient id="sp-sheen" cx="760" cy="806" r="420" gradientTransform="matrix(1 0 0 0.25 0 604.5)" gradientUnits="userSpaceOnUse">
+          <radialGradient id="sp-sheen" cx="760" cy="806" r="420" gradientTransform="matrix(1 0 0 0.45 0 443.3)" gradientUnits="userSpaceOnUse">
             <stop offset="0" stop-color="#ffd38a" stop-opacity="0.75" />
             <stop offset="1" stop-color="#ffd38a" stop-opacity="0" />
           </radialGradient>
@@ -151,6 +151,16 @@
           <linearGradient id="sp-rim2" x1="1396" y1="0" x2="1446" y2="0" gradientUnits="userSpaceOnUse">
             <stop offset="0" stop-color="#ffb06a" stop-opacity="0.7" />
             <stop offset="1" stop-color="#ffb06a" stop-opacity="0" />
+          </linearGradient>
+          <!-- The islet to the west is lit on its east side, facing the sun. -->
+          <linearGradient id="sp-rim3" x1="370" y1="0" x2="130" y2="0" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stop-color="#ffb06a" stop-opacity="0.8" />
+            <stop offset="1" stop-color="#ffb06a" stop-opacity="0" />
+          </linearGradient>
+          <linearGradient id="sp-isle2" x1="380" y1="0" x2="60" y2="0" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stop-color="#3d1a29" />
+            <stop offset="0.45" stop-color="#1e0e1b" />
+            <stop offset="1" stop-color="#110812" />
           </linearGradient>
           <radialGradient id="sp-mist" cx="0.5" cy="0.5" r="0.5">
             <stop offset="0" stop-color="#ffc9b0" stop-opacity="0.26" />
@@ -170,19 +180,23 @@
         <path fill="url(#sp-far)" d="M-20 800 L-20 742 Q40 722 92 730 Q150 690 212 706 Q262 676 322 700 Q382 716 432 735 Q500 748 562 770 Q604 786 640 800 Z" />
         <path fill="url(#sp-far)" d="M980 800 Q1060 772 1140 762 Q1220 734 1300 744 Q1380 712 1470 726 Q1560 702 1650 718 Q1760 692 1860 712 L1940 716 L1940 800 Z" />
         <rect y="800" width="1920" height="280" fill="url(#sp-sea)" />
-        <rect y="760" width="1920" height="120" fill="url(#sp-sheen)" />
+        <rect y="800" width="1920" height="200" fill="url(#sp-sheen)" />
         <ellipse cx="1320" cy="800" rx="560" ry="24" fill="url(#sp-mist)" />
         <ellipse cx="230" cy="802" rx="380" ry="18" fill="url(#sp-mist)" />
         <!-- Emberholm: the spire, the ruined arches and colonnade on the plateau, pines on the slopes. -->
         <g fill="url(#sp-isle)">
           <path stroke="url(#sp-rim)" stroke-width="2.5" stroke-linejoin="round" d="M1006 801 L1030 787 L1052 784 L1066 770 L1090 766 L1104 744 L1122 737 L1136 713 L1150 707 L1158 682 L1176 673 L1190 652 L1214 641 L1236 630 L1262 625 L1290 619 L1330 615 L1372 607 L1400 603 L1520 600 L1560 605 L1600 601 L1640 607 L1690 613 L1730 621 L1770 617 L1810 629 L1850 641 L1890 653 L1940 661 L1940 801 Z" />
-          <path stroke="url(#sp-rim2)" stroke-width="2" stroke-linejoin="round" d="M1394 607 L1408 562 L1413 522 L1417 472 L1425 467 L1429 382 L1431 305 L1417 301 L1417 290 L1433 290 L1435 232 L1428 228 L1428 208 L1435 208 L1435 214 L1443 214 L1450 132 L1457 214 L1465 214 L1465 208 L1472 208 L1472 228 L1466 238 L1470 248 L1463 258 L1468 270 L1466 290 L1483 290 L1483 301 L1469 305 L1471 382 L1475 467 L1483 472 L1487 522 L1492 562 L1506 607 Z" />
+          <path stroke="url(#sp-rim2)" stroke-width="2" stroke-linejoin="round" d="M1394 607 L1408 562 L1413 522 L1417 472 L1425 467 L1429 382 L1431 305 L1417 301 L1417 290 L1433 290 L1435 232 L1428 228 L1428 208 L1435 208 L1435 214 L1443 214 L1450 156 L1457 214 L1465 214 L1465 208 L1472 208 L1472 228 L1466 238 L1470 248 L1463 258 L1468 270 L1466 290 L1483 290 L1483 301 L1469 305 L1471 382 L1475 467 L1483 472 L1487 522 L1492 562 L1506 607 Z" />
           <path d="M1194 652 L1194 574 Q1194 541 1227 539 L1236 541 L1231 555 Q1213 556 1212 574 L1212 652 Z M1246 652 L1246 598 L1252 590 L1260 596 L1260 652 Z" />
           <path d="M1280 628 L1280 550 Q1280 520 1315 504 Q1350 520 1350 550 L1350 628 L1336 628 L1336 554 Q1336 535 1315 524 Q1294 535 1294 554 L1294 628 Z" />
           <path d="M1586 604 L1586 524 L1580 524 L1580 516 L1606 516 L1606 524 L1600 524 L1600 604 Z M1622 604 L1622 556 L1628 548 L1632 556 L1636 551 L1636 604 Z M1656 606 L1656 508 L1650 508 L1650 498 L1712 498 L1712 508 L1706 508 L1706 606 L1692 606 L1692 508 L1670 508 L1670 606 Z M1732 612 L1732 584 L1740 578 L1746 586 L1746 612 Z" />
           <path d="M1112 716 L1121 662 L1130 716 Z M1140 696 L1151 626 L1162 696 Z M1166 680 L1174 640 L1182 680 Z M1524 604 L1534 542 L1544 604 Z M1790 632 L1801 560 L1812 632 Z M1824 644 L1833 590 L1842 644 Z M1868 654 L1876 612 L1884 654 Z" />
-          <path stroke="url(#sp-rim)" stroke-width="2" d="M-20 801 L-20 642 Q18 622 50 636 L70 612 Q96 597 120 612 L150 640 Q176 650 190 676 L214 700 Q246 716 262 740 Q290 770 330 790 L362 801 Z M84 614 L84 548 Q84 531 104 526 L113 530 L106 541 Q98 544 98 552 L98 614 Z M148 642 L157 588 L166 642 Z" />
           <path d="M874 801 Q884 790 896 793 Q906 788 914 801 Z" />
+        </g>
+        <!-- The islet to the west, with what is left of an arch. -->
+        <g fill="url(#sp-isle2)">
+          <path stroke="url(#sp-rim3)" stroke-width="2" stroke-linejoin="round" d="M-20 801 L-20 642 Q18 622 50 636 L70 612 Q96 597 120 612 L150 640 Q176 650 190 676 L214 700 Q246 716 262 740 Q290 770 330 790 L362 801 Z" />
+          <path d="M64 616 L64 562 Q64 530 96 528 L106 531 L100 541 Q80 543 78 562 L78 616 Z M110 619 L110 588 L116 581 L124 587 L124 619 Z M146 642 L156 590 L166 642 Z M172 660 L179 626 L186 660 Z" />
         </g>
         <g fill="#ffbe5c">
           <rect x="1446" y="330" width="8" height="14" rx="4" />
@@ -195,7 +209,7 @@
       <div class="sp-title">
         <h1 class="sp-word">Ruina</h1>
         <div class="sp-orn"><i></i><b></b><i></i></div>
-        <div class="sp-tag">Build a life among the ruins</div>
+        <div class="sp-tag">Build a Life Among the Ruins</div>
       </div>
       <div class="sp-load"><div class="sp-status">Waking the Island…</div><div class="sp-bar"><i></i></div></div>
       <div class="sp-foot">Prototype</div>
@@ -235,8 +249,9 @@
           e.vx = -6 - rnd() * 14;
           e.vy = -(14 + rnd() * 34) * (e.near ? 1.6 : 1);
           e.r = (e.near ? 2.6 : 0.9) + rnd() * (e.near ? 3 : 1.7);
-          e.life = 0;
           e.max = 5 + rnd() * 7;
+          // The first ones are already on their way (and show in a still frame).
+          e.life = fresh ? e.max * (0.15 + rnd() * 0.5) : 0;
           e.p = rnd() * 6.3;
           e.sw = 6 + rnd() * 16;
           return e;
@@ -248,10 +263,10 @@
           H = innerHeight;
           cv.width = Math.round(W * dpr);
           cv.height = Math.round(H * dpr);
-          // The scene's own coordinates (the SVG's 1920 x 1080, covering the window from the bottom).
+          // The scene's own coordinates (the SVG's 1920 x 1080, covering the window, centred).
           k = Math.max(W / 1920, H / 1080);
           ox = (W - 1920 * k) / 2;
-          oy = H - 1080 * k;
+          oy = (H - 1080 * k) / 2;
         }
         function draw(t, dt) {
           g.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -261,7 +276,7 @@
           for (j = 0; j < stars.length; j++) {
             var st = stars[j];
             // Not through the spire.
-            if (st.x > 1408 && st.x < 1492 && st.y > 128) continue;
+            if (st.x > 1408 && st.x < 1492 && st.y > 150) continue;
             a = st.a * (0.55 + 0.45 * Math.sin(t * st.f + st.p));
             g.globalAlpha = Math.max(0, a) * Math.min(1, (520 - st.y) / 180);
             g.fillRect(ox + st.x * k - st.r * k * 0.5, oy + st.y * k - st.r * k * 0.5, st.r * k, st.r * k);
@@ -283,7 +298,7 @@
           var pulse = 0.75 + 0.25 * Math.sin(t * 2.1);
           g.globalAlpha = 0.85 * pulse;
           var br = 34 * k * (0.85 + 0.3 * pulse);
-          g.drawImage(dot, ox + 1450 * k - br, oy + 128 * k - br, br * 2, br * 2);
+          g.drawImage(dot, ox + 1450 * k - br, oy + 152 * k - br, br * 2, br * 2);
           for (j = 0; j < embers.length; j++) {
             e = embers[j];
             e.life += dt;

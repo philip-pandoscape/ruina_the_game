@@ -150,7 +150,7 @@ export class CharacterSelect {
       return;
     }
     if (!this.preview) {
-      this.preview = new HeroPreview(460, 610);
+      this.preview = new HeroPreview(600, 620);
       this.stage.replaceChildren(this.preview.canvas);
     }
     if (changed || !this.stage.querySelector('.cs-name')) {
