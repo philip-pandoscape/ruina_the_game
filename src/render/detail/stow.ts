@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import type { Side } from './body';
+import type { RigDef } from '../../content/rig';
 
 // Where the hero's weapon goes when it isn't in hand, on foot out of a fight. The close-up hero
 // (src/render/character.ts) hangs the weapon's model there; the poses (humanoid.ts) reach a hand
@@ -31,6 +32,21 @@ export const STOWED: Record<string, Stowed> = {
   staff: { at: [-0.33, 0.53, -0.24], along: [0.82, -0.57, 0], face: [0, 0, -1] },
   bow: { at: [0.1, 0.38, -0.25], along: [-0.6, -0.8, 0], face: [0.8, -0.6, 0] },
 };
+
+/**
+ * On a made body, which is taller and slimmer: the sword and the club hanging nearer upright at the
+ * right hip, outside the arm; the staff nearly upright across the back, its orb up past the left
+ * shoulder and its foot down by the right calf; the bow steeper across the shoulders.
+ */
+export const MADE_STOWED: Record<string, Stowed> = {
+  sword: { at: [-0.25, -0.1, 0.1], along: [-0.1, -0.86, -0.5], face: [-1, 0, 0] },
+  club: { at: [-0.25, -0.08, 0.1], along: [-0.1, -0.9, -0.42], face: [-1, 0, 0] },
+  staff: { at: [-0.19, -0.43, -0.17], along: [0.34, 0.94, 0], face: [0, 0, -1] },
+  bow: { at: [0.05, 0.28, -0.18], along: [-0.87, -0.5, 0], face: [0.5, -0.87, 0] },
+};
+
+/** Where a rig's weapons are put away: a made body's places, or the box hero's. */
+export const stowedFor = (def: RigDef): Record<string, Stowed> => (def.gait === 'made' ? MADE_STOWED : STOWED);
 
 /** The hand that draws and sheathes each weapon: the bow is the left hand's, the rest the right's. */
 export const DRAWING_HAND: Record<string, Side> = { sword: 'R', club: 'R', staff: 'R', bow: 'L' };

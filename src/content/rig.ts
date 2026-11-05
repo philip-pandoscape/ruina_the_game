@@ -61,4 +61,18 @@ export interface RigDef {
   feet?: { ankle: number; heel: number; ball: number };
   /** 'made': a human-sized made body, which strides and moves as people do (gait.ts, mocap.ts). */
   gait?: 'made';
+  /** Its bow's string, if its bow isn't the box hero's (HERO_BOW). */
+  bow?: BowString;
+}
+
+/** A bow's string in the bow hand's space, the grip at the hand. */
+export interface BowString {
+  /** Where the string's middle rests, behind the grip. */
+  nock: Vec3;
+  /** Where it is tied at the bow's two tips. */
+  tips: readonly [Vec3, Vec3];
+  /** How far back from the grip the arrow's own nock end sits. */
+  arrowNock: number;
+  /** The longest the string stretches from the grip. */
+  maxDraw: number;
 }

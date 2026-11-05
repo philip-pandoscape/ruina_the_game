@@ -6,6 +6,7 @@ import type { RigDef } from '../../content/rig';
 import { HERO_RIG } from '../../content/creatures/hero';
 import { fit, hull, type Fitted } from './fit';
 import { bakeCycle, setMotion } from './mocap';
+import { madeWeapons, type MadeWeapons } from './madeWeapons';
 
 // The new look's hero body: a made, rigged model (src/render/assets/models/hero.glb, from Meshy)
 // worn on the hero rig, the rig measured to it (fit.ts). Fitted once; every hero wears the same
@@ -27,6 +28,8 @@ export interface MadeHero {
   fitted: Fitted;
   /** The hero rig measured to the body, with hidden parts for its bulk. */
   def: RigDef;
+  /** The weapons it carries, made too (none that failed to load: the box hero's stand in). */
+  weapons: MadeWeapons | null;
 }
 
 let loading: Promise<MadeHero | null> | null = null;
@@ -39,14 +42,15 @@ export const madeHeroNow = (): MadeHero | null => ready;
 export function madeHero(): Promise<MadeHero | null> | null {
   if (!NEW_LOOK || !URL) return null;
   const clips = !params?.has('heroModel') && WALK && RUN ? [track(loadGltf(WALK)), track(loadGltf(RUN))] : [];
-  loading ??= Promise.all([track(loadModel(URL)), ...clips]).then(([scene, walk, run]) => {
+  loading ??= Promise.all([track(loadModel(URL)), madeWeapons(), ...clips]).then(([scene, made, walk, run]) => {
     if (!scene) return null;
+    const weapons = (made as MadeWeapons | null) ?? null;
     const height = Number(params?.get('heroHeight')) || HEIGHT;
     const fitted = fit(scene as THREE.Group, height, HERO_RIG);
     // Shaded as the rest of the new look is: the painted texture, the island's soft toon light.
     const src = (Array.isArray(fitted.material) ? fitted.material[0] : fitted.material) as THREE.MeshStandardMaterial;
     fitted.material = toon(0xffffff, { map: src.map ?? null });
-    const def: RigDef = { ...HERO_RIG, joints: fitted.joints, parts: hull(fitted.joints, fitted.feet.ankle), feet: fitted.feet };
+    const def: RigDef = { ...HERO_RIG, joints: fitted.joints, parts: hull(fitted.joints, fitted.feet.ankle), feet: fitted.feet, bow: weapons?.bow };
     const w = walk as { scene: THREE.Group; animations: THREE.AnimationClip[] } | undefined;
     const r = run as { scene: THREE.Group; animations: THREE.AnimationClip[] } | undefined;
     // ?heroGait=box keeps the box hero's gait on the made body, to compare.
@@ -57,7 +61,7 @@ export function madeHero(): Promise<MadeHero | null> | null {
         run: bakeCycle(r.scene, r.animations[0], fitted.joints, fitted.bind, fitted.scale),
       });
     }
-    return (ready = { fitted, def });
+    return (ready = { fitted, def, weapons });
   }) as Promise<MadeHero | null>;
   return loading;
 }

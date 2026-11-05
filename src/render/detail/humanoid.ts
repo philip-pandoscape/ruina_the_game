@@ -7,7 +7,8 @@ import { directional, dutyFactor, planFoot, runGait, sprintGait, type FootPlan, 
 import { cycleTurn, motionOf, type Motion } from './mocap';
 import { READY, swingFor, type SwingDef, type SwingKey } from './swings';
 import { gliderGrip } from '../models/gliders';
-import { DRAWING_HAND, STOWED } from './stow';
+import { DRAWING_HAND, stowedFor } from './stow';
+import { HERO_BOW } from '../../content/creatures/hero';
 
 // How a humanoid moves. Every playable race and humanoid NPC shares this - they differ in how
 // they are built (src/content/creatures), not in how they walk. Poses only ever touch named
@@ -413,7 +414,7 @@ function holdWeapon(b: Body, p: PoseInput, g: Gait): void {
   const u = clamp01(p.stow);
   if (u <= 0) return holdArmed(b, p, g);
   const name = WEAPON_NAMES[p.weapon] ?? 'sword';
-  const st = STOWED[name];
+  const st = stowedFor(b.rig.def)[name];
   const s = DRAWING_HAND[name] ?? 'R';
   const free = b.save(b.buf(6));
   holdArmed(b, p, g);
@@ -895,7 +896,7 @@ function bowShot(b: Body, p: PoseInput, step: AttackStep, out: PoseFeedback): vo
   b.handTo('L', _a.lerpVectors(grip, restL, 1 - on), _pole.set(0.6, -0.5, -0.2));
   b.frameHand('L', _a.copy(aim).lerp(_b.set(0.1, -0.45, 1).normalize(), 1 - on), _c.set(-0.15, 1, 0));
   // Draw hand: to the string, back to the chin, and away on the release.
-  const nock = b.toModel(b.arm.L.end, _a.set(0, 0.275, 0), _a);
+  const nock = b.toModel(b.arm.L.end, _a.set(...(b.rig.def.bow ?? HERO_BOW).nock), _a);
   const anchor = _b.copy(grip).addScaledVector(aim, -0.66).add(_pole.set(0, 0.02, 0));
   const hand = _c.lerpVectors(nock, anchor, pull);
   if (loosed) hand.copy(anchor).addScaledVector(aim, -0.13 * after).add(_pole.set(-0.08 * after, 0.04 * after, 0));

@@ -12,7 +12,7 @@ The open world is **Emberholm**, a starter isle with ArcheAge-style life systems
 | `src/sim/` | Game rules: fixed 60 Hz steps, deterministic, no DOM. `src/sim/life/` (trade, farming, housing, vehicles, quests) changes only through queued commands |
 | `src/render/`, `src/ui/` | Presentation. Reads the rules' state, never changes it |
 | `src/render/look.ts` | The look: the new one (default) or the old toon one (`?look=classic`, and software WebGL), each with its palette; `?quality=medium` (auto on integrated graphics). Screen effects in `src/render/open/post.ts`; textured ground `open/ground.ts`; made models (Meshy, compressed, in `src/render/assets/models/`) swapped in for the procedural ones by id and fitted into their footprints, `models/glb.ts`, so the rules never see them; `tests/look.spec.ts` shoots both looks |
-| `src/render/detail/` | Close-up bodies. `humanoid.ts` poses every humanoid as a pure function of `PoseInput` (the crowd bakes its clips from it), with `body.ts` (two-bone IK), `gait.ts` (planted feet at any speed and heading), `swings.ts` (weapon keyframes), `stow.ts` (where weapons are put away); `src/render/character.ts` adds the stateful parts (transitions, foot holds, trails, bowstring, drawing and putting away the weapon). `/animations.html` plays them all; `tests/animation.spec.ts` measures them. The new look's hero wears a made body (`madeHero.ts`, `assets/models/hero.glb`): `fit.ts` measures the hero rig off the model's skeleton, moves its skin onto our joints, adds a palm and finger joints to each hand and closes them round what they hold (`gripHands`), so the same poses move it |
+| `src/render/detail/` | Close-up bodies. `humanoid.ts` poses every humanoid as a pure function of `PoseInput` (the crowd bakes its clips from it), with `body.ts` (two-bone IK), `gait.ts` (planted feet at any speed and heading), `swings.ts` (weapon keyframes), `stow.ts` (where weapons are put away); `src/render/character.ts` adds the stateful parts (transitions, foot holds, trails, bowstring, drawing and putting away the weapon). `/animations.html` plays them all; `tests/animation.spec.ts` measures them. The new look's hero wears a made body (`madeHero.ts`, `assets/models/hero.glb`): `fit.ts` measures the hero rig off the model's skeleton, moves its skin onto our joints, adds a palm and finger joints to each hand and closes them round what they hold (`gripHands`), so the same poses move it; it carries made weapons (`madeWeapons.ts`) where the box hero's were |
 | `src/ui/` | The Parchment & Timber look. `theme/`: the CSS, the UI laid out on a 1029 px virtual screen and scaled to the window (`scale.ts`), fonts, tooltips, right-click menus (`contextMenu.ts`), the writing rule (`text.ts`), pixel icons baked from Twemoji (`npm run icons`). `life/lifeUI.ts`: the island's HUD and its windows docked at the sides. `skills/`: the skill book (T) and the skill tree (N). Skill points are counted from finished quests (`src/sim/life/progress.ts`), never stored |
 | `src/main.ts` | Wires it all up; URL options at the top (`?lag=ms` plays a local server as a far one feels); `window.__game` is the test API. Riding, the vehicle is placed before its rider is posed in its seat (`LifeView.placeRide`). Online, picking packs up and putting them down, loading, unloading and getting in run ahead in the browser until the server has run them too |
 | `src/app/autoWalk.ts`, `src/sim/zone/roads.ts` | Auto-run (H) and travel by road from the map: the road network and its routes, followed by making the same controls the keyboard would (`src/ui/life/travelUI.ts` draws them) |
@@ -53,16 +53,31 @@ npm run image -- --out scratch/x.png --ref look.png "prompt"   # a picture from 
 
 ## Art and assets
 
-Concepts come first: paint them and show the user (side by side, with today's look) before making
-models. Meshy credits and Gemini billing are the user's money, so say what a batch makes and what it
-costs before running it. Whatever comes from outside goes in `CREDITS.md` (what, where, from,
-licence).
+Free first: before making a model, texture or animation, look for a free one (below) and judge it in
+the game's look beside what we would make. Make one only when nothing free is as good; never trade
+quality for the saving. Concepts come first for whatever is made: paint them and show the user (side
+by side, with today's look) before making models. Meshy credits and Gemini billing are the user's
+money, so say what a batch makes, what it costs and what free option it beats before running it.
+Whatever comes from outside goes in `CREDITS.md` (what, where, from, licence).
 
-- **Free assets.** CC0 only (or a licence that asks for no more than a credit), never anything
-  taken from another game. Textures from [Poly Haven](https://polyhaven.com/textures) and
-  [ambientCG](https://ambientcg.com): the 1K JPGs, only the maps the shader reads, in
-  `src/render/assets/` (ground in `ground/`); greyscale where the palette gives the colour
-  (`detail.jpg` packs three grains, a channel each).
+- **Free assets.** CC0 (or a licence that asks for no more than a credit), never anything taken
+  from another game, fan art of one included.
+  - Models: [Poly Haven](https://polyhaven.com/models) first. Realistic, CC0 and scriptable:
+    `https://api.polyhaven.com/assets?t=models` lists every model with its tags, `/info/<id>` gives
+    its size in millimetres and its triangles, `/files/<id>` its glTF at 1k to 8k with the textures.
+    Props, tools, rocks, trees and a few weapons (an estoc, a saber, a mace, a war hammer, a dagger,
+    axes, a kite shield). [Sketchfab](https://sketchfab.com) has far more: its search API
+    (`https://api.sketchfab.com/v3/search?type=models&downloadable=true&license=cc0`, or `by`)
+    needs no key, but downloads need the user's API token, and many CC0 models there are museum
+    scans too heavy to use as they are. [Quaternius](https://quaternius.com) and
+    [Kenney](https://kenney.nl) are CC0 but low-poly and stylized: stand-ins, not the look.
+  - Textures from [Poly Haven](https://polyhaven.com/textures) and
+    [ambientCG](https://ambientcg.com): the 1K JPGs, only the maps the shader reads, in
+    `src/render/assets/` (ground in `ground/`); greyscale where the palette gives the colour
+    (`detail.jpg` packs three grains, a channel each).
+  - Animations: a Meshy rig comes with a free walk and run (`mocap.ts` bakes them onto our rig);
+    Quaternius' [Universal Animation Library](https://quaternius.com/packs/universalanimationlibrary.html)
+    is CC0 (120+ clips on one humanoid rig).
 - **Gemini API** for pictures (concept art, Meshy's input, textures): `tools/images/gemini.mjs`,
   run as `npm run image` (`--list` for the models). It runs the same Nano Banana models as Meshy's
   image tools, for less: Nano Banana Pro (the default) for concepts, `--model
@@ -70,10 +85,11 @@ licence).
   in a worktree it is read from the main checkout's `.env`. It needs billing on the key's Google
   project: on the free tier every image model's quota is 0 (a 429). Give the island's reference
   picture as a `--ref` to keep the style. Work in `scratch/` (git-ignored).
-- **Meshy** (the `meshy` MCP server) for 3D models: image-to-3D from a concept painted "isolated on
-  white, three-quarter front-left view" (that face becomes +Z), `meshy-t2.5` smart topology,
-  textured (15 credits; `meshy-7.1` for a showpiece). Check the balance first (free). t2.5 can drop
-  thin parts and parts on top (the hay cart lost its hay); `meshy-6` and a remesh fix that.
+- **Meshy** (the `meshy` MCP server) for the 3D models nothing free matches: image-to-3D from a
+  concept painted "isolated on white, three-quarter front-left view" (that face becomes +Z),
+  `meshy-t2.5` smart topology, textured (15 credits; `meshy-7.1` for a showpiece). Check the
+  balance first (free). t2.5 can drop thin parts and parts on top (the hay cart lost its hay);
+  `meshy-6` and a remesh fix that.
   - Compress into the game: `npx @gltf-transform/cli optimize in.glb
     src/render/assets/models/<id>.glb --compress meshopt --texture-compress webp --texture-size
     1024 --simplify false --join false --instance false --flatten true` (1024 for buildings, 512
@@ -87,6 +103,9 @@ licence).
     `pose_mode: "t-pose"` and a remesh to ~30k triangles (`meshy-7.1`, 30 credits), then
     `meshy_rig` (5). Meshy's rig has no finger bones; `fit.ts` adds them. Compress with
     `--flatten false` so the skeleton keeps its tree.
+  - Meshy's textures are colour only, so its metal looks painted. For the hero's weapons
+    (`madeWeapons.ts`), `tools/models/weaponprep.mjs` paints a metal-roughness map from the colours
+    (and a glow map, and cuts off the bowstring the game draws itself) before compressing.
 - `tests/look.spec.ts` shoots the same places at the same hours in both looks
   (`screenshots/look-*`): run it before and after, and show the user both.
 

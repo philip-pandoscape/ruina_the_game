@@ -12,8 +12,9 @@ import { poseHumanoid, settle, strokeRate } from './detail/humanoid';
 import { swingFor } from './detail/swings';
 import { pose, type PoseFeedback, type PoseInput } from '../content/pose';
 import type { Holds } from './models/vehicles';
-import { STOWED, stowedTurn } from './detail/stow';
+import { stowedFor, stowedTurn } from './detail/stow';
 import { madeHero, madeHeroNow, type MadeHero } from './detail/madeHero';
+import { dressWeapons } from './detail/madeWeapons';
 import { gripHands, wear, type Grip } from './detail/fit';
 import type { RigDef } from '../content/rig';
 
@@ -330,6 +331,7 @@ export class Hero {
   private adopt(made: MadeHero): void {
     this.made = made;
     const rig = new DetailRig(made.def);
+    if (made.weapons) dressWeapons(rig, made.weapons);
     this.root.remove(this.rig.root);
     this.rig = rig;
     this.root.add(rig.root);
@@ -392,7 +394,7 @@ export class Hero {
     this.rig.showAttachment(at === 'hidden' ? null : (HERO_WEAPONS[this.weaponShown] ?? null));
     for (const name of HERO_WEAPONS) {
       const g = this.rig.attachment(name);
-      const s = at === 'away' ? STOWED[name] : undefined;
+      const s = at === 'away' ? stowedFor(this.rig.def)[name] : undefined;
       if (s) {
         this.torso.add(g);
         g.position.set(...s.at);
@@ -745,15 +747,20 @@ export class Hero {
 
   /** The string follows the drawing hand back, and the nocked arrow lies along it to the grip. */
   private bowstring(fb: PoseFeedback): void {
-    const nock = _v.set(...HERO_BOW.nock);
+    const bow = this.rig.def.bow ?? HERO_BOW;
+    // The string hangs in the bow's own space, which a made hand's grip moves about in the hand.
+    const held = this.rig.attachment('bow');
+    const nock = _v.set(...bow.nock);
     if (fb.draw > 0) {
-      const toBow = this.body.matrixOf(this.body.arm.L.end, _m).invert();
+      held.updateMatrix();
+      const toBow = this.body.matrixOf(this.body.arm.L.end, _m).multiply(held.matrix).invert();
       const hand = this.body.positionOf(this.body.arm.R.end, _v2).applyMatrix4(toBow);
-      if (hand.length() > HERO_BOW.maxDraw) hand.setLength(HERO_BOW.maxDraw);
+      if (hand.length() > bow.maxDraw) hand.setLength(bow.maxDraw);
       nock.lerp(hand, fb.draw);
     }
+    // The string's halves are built as long as the box hero's (hero.ts), and stretched to fit.
     const half = HERO_BOW.tips[0][2];
-    HERO_BOW.tips.forEach((tip, i) => {
+    bow.tips.forEach((tip, i) => {
       const mesh = this.strings[i];
       if (!mesh) return;
       const run = _v3.set(tip[0], tip[1], tip[2]).sub(nock);
@@ -763,10 +770,11 @@ export class Hero {
       mesh.scale.set(1, 1, len / half);
     });
     if (fb.arrow) {
-      // Nock end on the string, shaft resting on the grip (the hand's origin).
+      // Nock end on the string, shaft resting on the grip (the bow's origin), the arrow hanging from
+      // the hand as the bow does.
       const along = _v3.copy(nock).negate().normalize();
       this.nockedArrow.quaternion.setFromUnitVectors(DOWN_Y, along);
-      this.nockedArrow.position.copy(nock).sub(_v2.set(0, HERO_BOW.arrowNock, 0).applyQuaternion(this.nockedArrow.quaternion));
+      this.nockedArrow.position.copy(nock).sub(_v2.set(0, bow.arrowNock, 0).applyQuaternion(this.nockedArrow.quaternion)).add(held.position);
     }
   }
 }

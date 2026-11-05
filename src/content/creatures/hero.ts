@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { comboShape } from '../../tuning';
 import { MAT } from '../../species/types';
 import type { ClipDriver } from '../pose';
-import type { PartDef, RigDef } from '../rig';
+import type { BowString, PartDef, RigDef } from '../rig';
 
 // The player character's build: what it is made of and how it hangs together. The motion that
 // drives it lives in src/render/character.ts, because every humanoid race shares it - a second
@@ -51,12 +51,13 @@ function staff(): PartDef[] {
  * The bow in the hand's space: the grip at the hand, the limbs curving back toward +Y, the tips
  * at ±Z. The string is two halves meeting at the nock, so a drawing hand can pull it back.
  */
-export const HERO_BOW = {
-  nock: [0, 0.275, 0] as const,
-  tips: [[0, 0.275, 0.476] as const, [0, 0.275, -0.476] as const],
-  /** How far back from the grip the arrow's own nock end sits. */
+export const HERO_BOW: BowString = {
+  nock: [0, 0.275, 0],
+  tips: [
+    [0, 0.275, 0.476],
+    [0, 0.275, -0.476],
+  ],
   arrowNock: 0.3,
-  /** The longest the string stretches from the grip. */
   maxDraw: 0.72,
 };
 

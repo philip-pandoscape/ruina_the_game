@@ -175,7 +175,7 @@ export function madeStructure(id: string, root: THREE.Object3D, box: { w: number
  * normals as normalized 16-bit numbers, which can't hold anything past -1..1: moving them in place
  * would clip a lamp post at a metre.
  */
-function baked(geometry: THREE.BufferGeometry, matrix: THREE.Matrix4): THREE.BufferGeometry {
+export function baked(geometry: THREE.BufferGeometry, matrix: THREE.Matrix4): THREE.BufferGeometry {
   const g = geometry.clone();
   for (const name of ['position', 'normal']) {
     const a = g.getAttribute(name);
