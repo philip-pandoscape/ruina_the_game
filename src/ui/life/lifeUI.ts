@@ -27,13 +27,15 @@ import { setUserScale, uiRoot, userScale, UI_SCALE_MAX, UI_SCALE_MIN } from '../
 import { addTipSource, hideTip, tipFor, wireTips } from '../theme/tooltip';
 import { closeMenu, menuPress, openMenu, type MenuEntry } from '../theme/contextMenu';
 import type { Vitals } from '../../render/hud';
+import type { AutoWalk } from '../../app/autoWalk';
+import { TravelUI } from './travelUI';
 
 // The open world's HUD and windows. Everything here only reads the life state and queues commands;
 // nothing in the UI changes the world directly. Windows dock at the side and leave the world
 // running (the map is the one that takes over), the bag docks on the right, and the person you talk
 // to looks out of the corner of the window.
 
-export type LifePress = 'interact' | 'drop' | 'mount' | 'glider' | 'seed' | 'bag' | 'map' | 'garage' | 'quests' | 'character' | 'settings' | 'escape' | 'dev';
+export type LifePress = 'interact' | 'drop' | 'mount' | 'glider' | 'seed' | 'autorun' | 'bag' | 'map' | 'garage' | 'quests' | 'character' | 'settings' | 'escape' | 'dev';
 
 export interface LifeUIDeps {
   life: Life;
@@ -42,6 +44,8 @@ export interface LifeUIDeps {
   camera: () => THREE.Camera;
   yaw: () => number;
   device: () => 'keyboard' | 'gamepad';
+  /** Auto-run and travel by road (src/app/autoWalk.ts), shown on the map and under the compass. */
+  walk?: AutoWalk;
 }
 
 type Panel =
@@ -153,6 +157,9 @@ export class LifeUI {
   private vit: Vitals | null = null;
   /** What each vital's bar and the character window last showed, so only changes touch the page. */
   private vitalsShown = new Map<string, string>();
+  /** Travel by road on the map, and the auto-walk readout (src/ui/life/travelUI.ts). */
+  private travel: TravelUI | null = null;
+  private travelSig = '';
 
   constructor(private d: LifeUIDeps) {
     const root = uiRoot();
@@ -204,6 +211,11 @@ export class LifeUI {
     for (const e of [this.portrait, this.vitals, this.minimap, this.clockEl, this.compass, this.banner, this.toasts, this.prompt, this.quests, this.rideBox, this.menuEl, this.card, this.bagEl]) root.appendChild(e);
     wireTips();
     addTipSource((tip) => this.tip(tip));
+    if (d.walk) {
+      const player = (): [number, number] => [d.sim.player.pos.x, d.sim.player.pos.z];
+      this.travel = new TravelUI({ walk: d.walk, world: d.world, places: () => this.life.zone.recipe.places, player, device: d.device, toast: (t, k) => this.toast(t, k) });
+      this.travel.attachMap(this.bigMap);
+    }
   }
 
   /** The NPC whose dialog, shop or workshop is open, if any. */
@@ -253,9 +265,13 @@ export class LifeUI {
       return;
     }
     // The map takes over; with anything else open the world keys still work.
-    if (this.modal && !['bag', 'map', 'garage', 'dev', 'quests', 'character', 'settings'].includes(k)) return;
+    if (this.modal && !['bag', 'map', 'garage', 'dev', 'quests', 'character', 'settings', 'autorun'].includes(k)) return;
     switch (k) {
+      case 'autorun':
+        return this.travel?.toggle();
       case 'interact':
+        // Doing something here means stopping here (the glider's gust aside).
+        this.travel?.interrupt(p.mode === 'glide');
         if (p.mode === 'ride') life.command({ t: 'exit' });
         else if (p.mode === 'glide') life.command({ t: 'gust' });
         else life.command({ t: 'interact' });
@@ -296,6 +312,8 @@ export class LifeUI {
     // An item's menu, while it's open, takes the presses.
     if ((m === 'up' || m === 'down' || m === 'select' || m === 'back') && menuPress(m)) return true;
     if (m === 'left' || m === 'right' || m === 'reset') closeMenu();
+    // On the map the arrows, D-pad and stick pick a place to travel to, and A or Enter sets off.
+    if (this.panel?.kind === 'map' && m !== 'back' && this.travel?.mapPress(m)) return true;
     if (m === 'back') {
       if (this.panel) this.close();
       else this.closeBag();
@@ -467,9 +485,13 @@ export class LifeUI {
     this.updatePlates();
     this.updateHints();
     this.walkAway();
+    this.travel?.update();
     if (this.frameNo % 15 === 0) this.refreshPortraits();
-    if (this.panel?.kind === 'map') this.drawBigMap();
-    else if (this.panel && this.signature() !== this.panelSig) this.renderPanel(false);
+    if (this.panel?.kind === 'map') {
+      // The map's foot follows travel by road; the map itself is drawn every frame.
+      if (this.travel && this.travel.sig() !== this.travelSig) this.renderPanel(false);
+      this.drawBigMap();
+    } else if (this.panel && this.signature() !== this.panelSig) this.renderPanel(false);
     if (this.bagOpen && this.signature() !== this.bagSig) this.renderBag();
   }
 
@@ -666,6 +688,7 @@ export class LifeUI {
       g.arc(gx, gy, 11, 0, Math.PI * 2);
       g.stroke();
     }
+    this.travel?.draw(g, at, 2, { cx: N / 2, cy: N / 2, r: rim });
     // You, pointing the way you face. North is up and east to the right, so a heading of `facing`
     // (x = sin, z = cos) points at (-sin, -cos) on the canvas: a turn of -facing from straight up.
     g.save();
@@ -977,17 +1000,21 @@ export class LifeUI {
     const hint = document.getElementById('hint');
     if (!hint) return;
     const parts: string[] = [];
+    // Auto-walk (src/app/autoWalk.ts): H or Num Lock, a click of the left stick at rest on a pad.
+    // In a cart or a boat it holds the throttle: cruising.
+    const auto = this.travel ? (mode === 'ride' || mode === 'boat' ? 'Cruise' : 'Auto-Run') : '';
+    const autoItem = (k: string) => (auto && mode !== 'glide' ? [item(key(k), auto)] : []);
     if (pad) {
-      if (mode === 'ride' || mode === 'boat') parts.push(item(key('L'), 'Drive'), item(key('A'), 'Handbrake'), item(key('Y'), 'Get Out'));
-      else parts.push(item(key('L'), 'Move'), item(key('A'), mode === 'glide' ? 'Fold' : 'Jump · Glide'), item(key('Y'), 'Interact'), item(key('▼'), 'Mount'), item(key('☰'), 'Bag'), item(key('▲'), 'Map'));
-    } else if (mode === 'ride') parts.push(item(key('W') + key('S'), 'Throttle'), item(key('A') + key('D'), 'Steer'), item(key('Space'), 'Handbrake'), item(key('Shift'), 'Boost'), item(key('F'), 'Get Out'));
-    else if (mode === 'boat') parts.push(item(key('W') + key('S'), 'Oars / Sail'), item(key('A') + key('D'), 'Rudder'), item(key('F'), 'Get Out'), item(key('M'), 'Map'));
-    else if (mode === 'mount') parts.push(item(key('WASD'), 'Ride'), item(key('Shift'), 'Gallop'), item(key('Space'), 'Jump'), item(key('R'), 'Dismount'));
+      if (mode === 'ride' || mode === 'boat') parts.push(item(key('L'), 'Drive'), item(key('A'), 'Handbrake'), item(key('Y'), 'Get Out'), ...autoItem('LS'));
+      else parts.push(item(key('L'), 'Move'), item(key('A'), mode === 'glide' ? 'Fold' : 'Jump · Glide'), item(key('Y'), 'Interact'), item(key('▼'), 'Mount'), ...autoItem('LS'), item(key('☰'), 'Bag'), item(key('▲'), 'Map'));
+    } else if (mode === 'ride') parts.push(item(key('W') + key('S'), 'Throttle'), item(key('A') + key('D'), 'Steer'), item(key('Space'), 'Handbrake'), item(key('Shift'), 'Boost'), ...autoItem('H'), item(key('F'), 'Get Out'));
+    else if (mode === 'boat') parts.push(item(key('W') + key('S'), 'Oars / Sail'), item(key('A') + key('D'), 'Rudder'), ...autoItem('H'), item(key('F'), 'Get Out'), item(key('M'), 'Map'));
+    else if (mode === 'mount') parts.push(item(key('WASD'), 'Ride'), item(key('Shift'), 'Gallop'), item(key('Space'), 'Jump'), ...autoItem('H'), item(key('R'), 'Dismount'));
     else if (mode === 'glide') parts.push(item(key('WASD'), 'Steer'), item(key('Shift'), 'Dive'), item(key('Ctrl'), 'Flare'), item(key('F'), 'Gust'), item(key('Space'), 'Fold'));
     else {
       parts.push(item(key('WASD'), 'Move'), item(key('Space'), 'Jump ×2 · ×3 Glide'), item(key('F'), 'Interact'));
       if (mode === 'carry') parts.push(item(key('X'), 'Drop Pack'));
-      parts.push(item(key('R'), 'Mount'), item(key('T'), 'Skills'));
+      parts.push(item(key('R'), 'Mount'), ...autoItem('H'), item(key('T'), 'Skills'));
     }
     hint.innerHTML = parts.join('');
   }
@@ -1058,6 +1085,7 @@ export class LifeUI {
     this.handlers = view.handlers ?? {};
     const nb = this.card.querySelector('.mw-body') as HTMLElement;
     if (p.kind === 'map') {
+      this.travelSig = this.travel?.sig() ?? '';
       nb.append(this.bigMap);
       this.drawBigMap();
     }
@@ -1102,8 +1130,10 @@ export class LifeUI {
         return this.craftView(p.id);
       case 'storage':
         return this.storageView(Number(p.id));
-      case 'map':
-        return { title: this.life.zone.recipe.name, sub: esc(this.life.zone.recipe.subtitle), cls: 'center map', w: 734, body: '' };
+      case 'map': {
+        const foot = this.travel?.foot();
+        return { title: this.life.zone.recipe.name, sub: esc(this.life.zone.recipe.subtitle), cls: 'center map', w: 734, body: '', foot: foot?.html, handlers: foot?.handlers };
+      }
       case 'garage':
         return this.garageView();
       case 'dev':
@@ -1701,6 +1731,7 @@ export class LifeUI {
       g.arc(px, py, 10 + Math.sin(performance.now() / 200) * 2, 0, Math.PI * 2);
       g.stroke();
     }
+    this.travel?.draw(g, toPx, 1.8);
     const p = this.d.sim.player;
     const [px, py] = toPx(p.pos.x, p.pos.z);
     g.save();

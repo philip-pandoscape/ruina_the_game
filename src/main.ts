@@ -44,6 +44,7 @@ import { addScarecrowCollider } from './sim/life/farming';
 import { BugReporter } from './app/bugs/reporter';
 import { installLogCapture } from './app/bugs/logs';
 import { dismount, ridden } from './sim/life/vehicles';
+import { AutoWalk } from './app/autoWalk';
 import { RIDE_CAMERA } from './content/traversal';
 import { rideable, isBoat } from './content/vehicles';
 import { angleDiff } from './sim/math';
@@ -244,7 +245,9 @@ input.worldMode = !!life;
 if (terrain) vfx.ground = groundY;
 const lifeView = life ? new LifeView(stage.scene, life, models, hero) : null;
 if (lifeView && openStage) lifeView.onGroundChanged = () => openStage.foliage.invalidate();
-const lifeUI = life ? new LifeUI({ life, sim, world, camera: () => follow.camera, yaw: () => follow.yaw, device: () => input.lastDevice }) : null;
+// Auto-run (H) and travel by road from the map: it only makes the controls, so it works online too.
+const walker = life ? new AutoWalk({ sim, world, life }) : null;
+const lifeUI = life ? new LifeUI({ life, sim, world, camera: () => follow.camera, yaw: () => follow.yaw, device: () => input.lastDevice, walk: walker ?? undefined }) : null;
 // Online: everyone else in your channel of Emberholm, the plots they hold, and whether this server
 // offers the developer panel.
 const peers = online && life && world.zone ? new WorldPeers(stage.scene, world.zone, models, sim, life, online.welcome.character.id, online.link) : null;
@@ -324,6 +327,8 @@ if (life && (!online || params.has('fresh')) && !validBuild(build, skillBudget(l
 /** Moves you somewhere (the dev panel and tests), off whatever you were riding. */
 function teleport(x: number, z: number, facing = sim.player.facing): void {
   if (!terrain) return;
+  // Somewhere else entirely: whatever was walking you there has nothing left to follow.
+  walker?.stop();
   // Online only the server can move you.
   if (online) {
     online.link.command((prediction?.seq ?? 0) + 1, { t: 'teleport', x, z, facing } as unknown as Parameters<Life['command']>[0]);
@@ -1309,6 +1314,11 @@ function frame(now: number): void {
       if (cam.dYaw !== 0 || cam.dPitch !== 0) lastCameraTouch = now;
     }
     if (life) rideCamera(dt, now);
+    // Travelling by road on foot, the camera comes round behind you as it does on a mount, unless
+    // you have been turning it yourself.
+    if (walker?.mode === 'travel' && sim.player.mode !== 'ride' && now - lastCameraTouch > RIDE_CAMERA.autoDelay * 1000 && Math.hypot(sim.player.vel.x, sim.player.vel.z) > 1.5) {
+      follow.yaw += angleDiff(follow.yaw, sim.player.facing) * (1 - Math.exp(-RIDE_CAMERA.autoFollow * dt));
+    }
     // Online the world waits while the connection is down: inputs that can't reach the server
     // would only be taken back.
     if (online && !online.link.open) acc = 0;
@@ -1319,7 +1329,9 @@ function frame(now: number): void {
       // With the panel open and an ability waiting to be placed, a hotbar press assigns it
       // instead of casting it.
       if (menuOpen && pad.abilitySlot >= 1 && panel.isAssigning) panel.assignToSlot(pad.abilitySlot);
-      const a = scripted.length ? scripted.shift()! : menuOpen ? NO_ACTIONS : pad;
+      const own = scripted.length ? scripted.shift()! : menuOpen ? NO_ACTIONS : pad;
+      // Auto-run or travel by road moves you, until your own moving takes over.
+      const a = walker ? walker.steer(own, follow.yaw) : own;
       // targeting() supplies an aim when it has a mark or a placed circle; aimAssist() only
       // fills in the gaps it leaves; combatStance() keeps you facing the fight.
       stepOnce(combatStance(aimAssist(targeting(autoAttack ? autoAim(a) : a))));
@@ -1376,10 +1388,11 @@ requestAnimationFrame(frame);
 
 const api = {
   ready: true,
-  // Steps the game with the same scripted actions every frame.
+  // Steps the game with the same scripted actions every frame (auto-walk, when on, moves you).
   advance(frames: number, actions: Partial<Actions> = {}): void {
     for (let i = 0; i < frames; i++) {
-      stepOnce({ ...NO_ACTIONS, ...actions });
+      const own = { ...NO_ACTIONS, ...actions };
+      stepOnce(walker ? walker.steer(own, follow.yaw) : own);
       followSim(STEP);
     }
     draw(1, 0, 0);
@@ -1390,10 +1403,23 @@ const api = {
       const cam = input.pollCamera(STEP);
       follow.rotate(cam.dYaw, cam.dPitch);
       follow.zoom(cam.dZoom);
-      stepOnce(input.pollActions(follow.yaw));
+      const own = input.pollActions(follow.yaw);
+      stepOnce(walker ? walker.steer(own, follow.yaw) : own);
       followSim(STEP);
     }
     draw(1, 0, 0);
+  },
+  /** Auto-run and travel by road: what is walking you, where to, and how far is left. */
+  walk() {
+    if (!walker) return null;
+    const r = walker.route;
+    return { mode: walker.mode, marker: walker.marker, left: walker.left, length: r?.length ?? 0, short: r?.short ?? 0, refusal: walker.refusal() };
+  },
+  /** Marks (x, z) and sets off along the roads to it, as a click on the map does. False when you can't from here. */
+  travelTo(x: number, z: number, label = 'Marked Spot'): boolean {
+    if (!walker) return false;
+    walker.mark(x, z, label);
+    return walker.travel();
   },
   render(): void {
     draw(1, 0, 0);
@@ -1704,6 +1730,10 @@ const api = {
   ground(x: number, z: number): number {
     return terrain ? terrain.height(x, z) : 0;
   },
+  /** What the ground is made of under a point (SURFACE in src/sim/terrain.ts). */
+  surface(x: number, z: number): number {
+    return terrain ? terrain.surfaceAt(x, z) : 0;
+  },
   /**
    * Scene objects whose name starts with `prefix`, with where they are (tests and debugging):
    * the origin, and the centre of what is drawn, which differ for models anchored at an edge.
@@ -1806,6 +1836,7 @@ function bugSnapshot(): Record<string, unknown> {
     panels: { life: api.lifePanel(), skills: panel.isOpen ? panel.view : null, aimingSlot },
     target: mark ? { name: mark.name, hp: mark.hp, x: r2(mark.x), z: r2(mark.z), locked: lockOn.locked } : null,
     riding: life && p.mode === 'ride' ? (ridden(life, sim) ?? null) : null,
+    walk: walker ? { mode: walker.mode, marker: walker.marker, left: r2(walker.left) } : null,
     nearby: sim.actors
       .all()
       .map((a) => ({ id: a.id, kind: a.kind, x: r2(a.x), y: r2(a.y), z: r2(a.z), hp: a.hp, alive: isAlive(a), state: stateName(a), dist: r2(Math.hypot(a.x - p.pos.x, a.z - p.pos.z)) }))

@@ -842,6 +842,8 @@ part('the controls', () => {
     ['Interact (talk, plant, harvest, load, drive, build)', '<kbd>F</kbd>', '<kbd>Y</kbd>'],
     ['Drop a pack', '<kbd>X</kbd>', '—'],
     ['Call / dismiss your mount', '<kbd>R</kbd>', 'D-pad down'],
+    ['Auto-run where the camera looks (in a cart or boat: hold the throttle)', '<kbd>H</kbd> or <kbd>Num Lock</kbd> · <kbd>W</kbd> / <kbd>S</kbd> stops', 'Left stick click, stick at rest'],
+    ['Travel by road to a place picked on the map', 'Click it on the map (right-click for more) · <kbd>H</kbd> sets off again', 'D-pad on the map, then <kbd>A</kbd>'],
     ['Open or fold the glider directly', '<kbd>G</kbd>', '—'],
     ['Change the seed you plant', '<kbd>Z</kbd>', '—'],
     ['Bag · map · vehicles · quest log', '<kbd>I</kbd> · <kbd>M</kbd> · <kbd>V</kbd> · <kbd>L</kbd>', 'Menu · D-pad up'],

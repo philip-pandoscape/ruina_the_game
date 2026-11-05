@@ -156,6 +156,8 @@ In the open world:
 | Drive: throttle, steer, handbrake, boost | W S, A D, Space, Shift | Left stick, A |
 | Sail: raise / lower the sail | W / S | Left stick |
 | Call or dismiss your mount | R | D-pad down |
+| Auto-run, straight on where the camera looks (A, D strafe; W or S stop it); in a cart or a boat it holds the throttle | H or Num Lock | Click the left stick with it at rest |
+| Travel by road: pick a place on the map and you follow the roads there (moving yourself stops it; H sets off again) | Click it on the map (right-click for more) | D-pad on the map, then A |
 | Drop the pack on your back | X | |
 | Change the seed you plant | Z | |
 | Bag, map, vehicles, quest log | I, M, V, L | Menu, D-pad up |

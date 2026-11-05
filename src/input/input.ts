@@ -81,14 +81,17 @@ const MENU_PAD: Array<[number, MenuPress]> = [
   [PAD.RB, 'tab'],
 ];
 
-// Open-world keys: interact, drop a pack, mount, glider, change seed, and the panels.
-export type LifeKey = 'interact' | 'drop' | 'mount' | 'glider' | 'seed' | 'bag' | 'map' | 'garage' | 'quests' | 'character' | 'escape' | 'dev';
+// Open-world keys: interact, drop a pack, mount, glider, change seed, auto-walk, and the panels.
+export type LifeKey = 'interact' | 'drop' | 'mount' | 'glider' | 'seed' | 'autorun' | 'bag' | 'map' | 'garage' | 'quests' | 'character' | 'escape' | 'dev';
 const LIFE_KEYS: Record<string, LifeKey> = {
   KeyF: 'interact',
   KeyX: 'drop',
   KeyR: 'mount',
   KeyG: 'glider',
   KeyZ: 'seed',
+  // Auto-walk: Num Lock as in other MMOs, and H for keyboards without one (R, the usual other, mounts).
+  KeyH: 'autorun',
+  NumLock: 'autorun',
   KeyI: 'bag',
   KeyB: 'bag',
   KeyM: 'map',
@@ -98,6 +101,8 @@ const LIFE_KEYS: Record<string, LifeKey> = {
   Escape: 'escape',
   Backquote: 'dev',
 };
+/** A click of the left stick shorter than this, with the stick at rest, is auto-walk rather than sprint. */
+const STICK_TAP_MS = 300;
 
 interface Rumbler {
   playEffect?: (type: string, params: Record<string, number>) => Promise<unknown>;
@@ -135,6 +140,8 @@ export class Input {
   private combat = { nextTarget: 0, prevTarget: 0, cancel: 0 };
   private lifePresses: LifeKey[] = [];
   private lifePadPrev: boolean[] = [];
+  /** When the left stick was clicked down (-1 while up), and whether the stick moved or the right one was clicked since. */
+  private stickTap = { at: -1, spoilt: false };
   /** In an open world the D-pad calls your mount and opens the map instead of zooming. */
   worldMode = false;
 
@@ -417,8 +424,9 @@ export class Input {
   }
 
   /**
-   * Open-world presses since the last call: keys, plus Y / Menu / D-pad on a controller. While a
-   * window has the controller, its Y and D-pad are the window's; Menu still opens and shuts the bag.
+   * Open-world presses since the last call: keys, plus Y / Menu / D-pad on a controller, and a quick
+   * click of the left stick at rest for auto-walk (held while moving, it sprints). While a window has
+   * the controller, its Y and D-pad are the window's; Menu still opens and shuts the bag.
    */
   pollLife(padToMenu = false): LifeKey[] {
     const out = this.lifePresses;
@@ -434,6 +442,13 @@ export class Input {
         if (this.worldMode && edge(PAD.DOWN)) out.push('mount');
         if (this.worldMode && edge(PAD.UP)) out.push('map');
       }
+      // A quick click of the left stick at rest is auto-walk. Pushed while it's held, it's sprinting;
+      // with the right stick clicked too, it's the bug report.
+      const [lx, ly] = deadzone(pad.axes[0] ?? 0, pad.axes[1] ?? 0);
+      const moving = lx !== 0 || ly !== 0 || !!held[PAD.RS];
+      if (edge(PAD.LS)) this.stickTap = { at: performance.now(), spoilt: moving };
+      else if (held[PAD.LS] && moving) this.stickTap.spoilt = true;
+      if (!held[PAD.LS] && this.lifePadPrev[PAD.LS] && !this.stickTap.spoilt && !padToMenu && this.worldMode && performance.now() - this.stickTap.at < STICK_TAP_MS) out.push('autorun');
       this.lifePadPrev = held;
     }
     return out;
