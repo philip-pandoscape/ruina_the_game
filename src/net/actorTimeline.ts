@@ -107,15 +107,6 @@ export class ActorTimeline {
     return this.snaps[this.snaps.length - 1]?.list ?? [];
   }
 
-  get newestTick(): number {
-    return this.snaps[this.snaps.length - 1]?.tick ?? 0;
-  }
-
-  /** One actor as of the newest update, by id. */
-  latest(id: number): NetActor | undefined {
-    return this.snaps[this.snaps.length - 1]?.byId.get(id);
-  }
-
   /**
    * Every actor as it was at (fractional) server tick `tick`: blended between the two updates
    * either side, or carried on a little past the newest. Health is always the newest word on it,
@@ -166,10 +157,5 @@ export class ActorTimeline {
       const fresh = newest.byId.get(x.id);
       return fresh ? { ...x, hp: fresh.hp } : { ...x };
     });
-  }
-
-  clear(): void {
-    this.snaps = [];
-    this.hurts.length = 0;
   }
 }

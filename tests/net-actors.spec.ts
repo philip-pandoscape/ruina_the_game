@@ -106,7 +106,9 @@ test('they move, and the browser is told which animation they are playing', asyn
   expect(airborne).toBe(true);
 });
 
-test('between the server updates they are drawn moving, not jumping from one to the next', async ({ page }) => {
+// Frame rates: a browser drawing fewer frames than the server sends updates has nothing to draw
+// between them, and a flash lasts a tenth of a second. Real GPUs only (CI draws in software).
+test('between the server updates they are drawn moving, not jumping from one to the next', { tag: '@gpu' }, async ({ page }) => {
   await join(page);
   await seeActors(page);
   // Every drawn frame for two seconds: the server's update count, and where each one is drawn.
@@ -144,7 +146,7 @@ test('between the server updates they are drawn moving, not jumping from one to 
   expect(worst).toBeLessThan(0.5);
 });
 
-test('a hit sparks and flashes the slime the moment the swing lands, and the server number follows', async ({ page }) => {
+test('a hit sparks and flashes the slime the moment the swing lands, and the server number follows', { tag: '@gpu' }, async ({ page }) => {
   await join(page);
   await seeActors(page);
   const seen = await page.evaluate(async () => {
