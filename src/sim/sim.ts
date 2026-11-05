@@ -7,10 +7,12 @@ import {
   MOVE,
   SLIDE_SKILL,
   MOVEMENT_SKILLS,
+  MP,
   NO_MOVEMENT,
   NO_ABILITY,
   variantBits,
   SPECIAL,
+  STAMINA,
   type Build,
 } from '../tuning';
 import { BOOK, emptySkills, resolveSkills, sameLevels, type Levels, type ResolvedSkills, type SkillSet } from '../skills';
@@ -25,6 +27,7 @@ import { updateAttack, checkShot, takeHit, respawn } from './player/attacks';
 import { damage, damageFrom, damageCircle } from './combat/deal';
 import { updateActors } from './actors/step';
 import { openGlider, updateGlide, updateSwim } from './player/traverse';
+import { regenVitals, shortFor } from './player/vitals';
 
 /** The open-world systems (vehicles, trade, farming, housing...) a Sim can carry. src/sim/life. */
 export interface LifeHooks {
@@ -93,6 +96,9 @@ export class Sim {
       takeoffFrame: 999,
       runPhase: 0,
       hp: COMBAT.maxHp,
+      stamina: STAMINA.max,
+      staminaDelay: 0,
+      mp: MP.max,
       stun: 0,
       downFrame: -1,
       team,
@@ -218,6 +224,10 @@ export class Sim {
     if (p.flipFrame >= 0) p.flipFrame = p.flipFrame + 1 > JUMP.flipFrames ? -1 : p.flipFrame + 1;
     for (let i = 0; i < HOTBAR_SLOTS; i++) if (p.cooldowns[i] > 0) p.cooldowns[i]--;
     for (let i = 0; i < p.movementCooldowns.length; i++) if (p.movementCooldowns[i] > 0) p.movementCooldowns[i]--;
+    regenVitals(p);
+    // A dodge or a cast asked for without the stamina or MP it costs doesn't start; say why.
+    const short = shortFor(this, a);
+    if (short) this.emit({ type: 'short', frame: this.frame, what: short });
     p.coyote = p.grounded ? JUMP.coyoteFrames : Math.max(0, p.coyote - 1);
 
     // Releasing jump early gives a short hop.

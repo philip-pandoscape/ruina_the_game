@@ -88,6 +88,12 @@ export interface PlayerState {
   takeoffFrame: number; // frames since leaving the ground with a jump
   runPhase: number; // distance-driven run cycle
   hp: number;
+  /** Spent by dodges (STAMINA in src/tuning.ts); refills a moment after it was last spent. */
+  stamina: number;
+  /** Frames before stamina starts refilling again, counted down from the last spend. */
+  staminaDelay: number;
+  /** Spent by casting (MP in src/tuning.ts); refills steadily. */
+  mp: number;
   stun: number; // frames of no control left after being hit
   downFrame: number; // counts up while knocked down, -1 when standing
   team: number; // 0 or 1
@@ -166,6 +172,8 @@ export type GameEvent =
   | { type: 'slam'; frame: number; x: number; y: number; z: number; radius: number }
   | { type: 'hurt'; frame: number; damage: number; x: number; y: number; z: number }
   | { type: 'respawn'; frame: number; x: number; y: number; z: number }
+  // A movement or hotbar slot was pressed without the stamina or MP its skill costs.
+  | { type: 'short'; frame: number; what: 'stamina' | 'mp' }
   // A bow loosed an arrow (the server flies it; the browser draws it straight away). `weapon` is
   // the one that loosed it.
   | { type: 'shoot'; frame: number; x: number; y: number; z: number; dirX: number; dirZ: number; speed: number; range: number; damage: number; pierce: number; weapon: number }

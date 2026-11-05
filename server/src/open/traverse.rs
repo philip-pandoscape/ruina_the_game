@@ -6,11 +6,11 @@
 
 use crate::jsmath::JsMath;
 use crate::life::content::js_hypot;
-use super::colliders::{ground_at, push_out_of_box};
+use super::colliders::{ground_at, ground_at_decks, in_rect, push_out_of_box};
 use super::zone::Updraft;
 use super::Sim;
 use crate::life::content::{carry, glide, glider_def, ground, js_round, swim};
-use crate::player::{angle_diff, len, step_len, turn_toward, Actions, Mode};
+use crate::player::{angle_diff, len, step_len, turn_toward, Actions, Mode, Player};
 use crate::tuning::{combo_for, tuning};
 
 const PI: f64 = std::f64::consts::PI;
@@ -84,7 +84,38 @@ pub fn integrate_open(sim: &mut Sim) {
     }
 }
 
-/// Would moving from (ox, oz) to (nx, nz) walk into a cliff, a wall of rock, or a ledge too high?
+// ---------- Decks ----------
+// A deck (a pier, the glider launch, a house floor) is ground on top and open underneath. Walking,
+// you step up onto one as high as deck_step (they are built to be walked onto); in the air, only
+// within the usual step_up, as you land. One you can't get onto, and too low to pass under, is as
+// solid as a wall from the side.
+
+/// How high a deck you can get onto right now: walking, a deck's own step; in the air, as you land.
+pub fn deck_reach(p: &Player) -> f64 {
+    if p.grounded { ground().deck_step } else { ground().step_up }
+}
+
+/// Whether a deck topped at `top` is in the way of feet at `y` that get `reach` up: too high to get
+/// onto, too low to pass under.
+pub fn deck_in_the_way(top: f64, y: f64, reach: f64) -> bool {
+    top > y + reach && top < y + ground().deck_headroom
+}
+
+/// Would the move carry you into a deck in your way? collide_open keeps you off their edges; this
+/// stops anything fast enough to cross one in a single step.
+fn into_deck(sim: &Sim, ox: f64, oz: f64, nx: f64, nz: f64, reach: f64) -> bool {
+    let y = sim.player.pos.y;
+    let mut hit = false;
+    sim.world.index.each_deck(nx, nz, 0.5, |d| {
+        if !hit && deck_in_the_way(d.top, y, reach) && in_rect(d, nx, nz, 0.0) && !in_rect(d, ox, oz, 0.0) {
+            hit = true;
+        }
+    });
+    hit
+}
+
+/// Would moving from (ox, oz) to (nx, nz) walk into a cliff, a wall of rock, a deck's side, or a
+/// ledge too high?
 fn blocked(sim: &Sim, ox: f64, oz: f64, nx: f64, nz: f64) -> bool {
     let p = &*sim.player;
     let run = js_hypot(nx - ox, nz - oz);
@@ -93,14 +124,18 @@ fn blocked(sim: &Sim, ox: f64, oz: f64, nx: f64, nz: f64) -> bool {
     }
     let hf = sim.terrain();
     let gr = ground();
+    let reach = deck_reach(p);
+    if into_deck(sim, ox, oz, nx, nz, reach) {
+        return true;
+    }
     let terrain = hf.height(nx, nz);
-    let g = ground_at(hf, &sim.world.index, nx, nz, p.pos.y, gr.step_up);
+    let g = ground_at_decks(hf, &sim.world.index, nx, nz, p.pos.y, gr.step_up, reach);
     let rise = g - p.pos.y;
     if rise <= 0.02 {
         return false;
     }
     if g > terrain + 0.01 {
-        return rise > gr.step_up; // a deck or a box top: step up if low enough
+        return false; // a deck or a box top, low enough to step up onto
     }
     if rise > gr.step_up {
         return true;
@@ -155,6 +190,26 @@ pub fn collide_open(sim: &mut Sim) {
             p.vel.z -= vn * nz;
         }
     });
+    // A deck's side, where it is too high to get onto and too low to pass under. Already beneath
+    // one (wading under a pier), you carry on.
+    let reach = deck_reach(p);
+    idx.each_deck(p.pos.x, p.pos.z, r + 1.0, |d| {
+        if !deck_in_the_way(d.top, p.pos.y, reach) || in_rect(d, p.pos.x, p.pos.z, 0.0) {
+            return;
+        }
+        let Some((px, pz)) = push_out_of_box(d, p.pos.x, p.pos.z, r) else { return };
+        p.pos.x += px;
+        p.pos.z += pz;
+        let h = js_hypot(px, pz);
+        let l = if h == 0.0 { 1.0 } else { h };
+        let nx = px / l;
+        let nz = pz / l;
+        let vn = p.vel.x * nx + p.vel.z * nz;
+        if vn < 0.0 {
+            p.vel.x -= vn * nx;
+            p.vel.z -= vn * nz;
+        }
+    });
     let lim = sim.world.radius;
     let rr = len(p.pos.x, p.pos.z);
     if rr > lim {
@@ -169,7 +224,7 @@ fn settle(sim: &mut Sim) {
     let gr = ground();
     let sw = swim();
     let dt = step_len();
-    let g = ground_at(hf, &sim.world.index, sim.player.pos.x, sim.player.pos.z, sim.player.pos.y, gr.step_up);
+    let g = ground_at_decks(hf, &sim.world.index, sim.player.pos.x, sim.player.pos.z, sim.player.pos.y, gr.step_up, deck_reach(sim.player));
     if sim.player.mode == Mode::Swim {
         return; // update_swim keeps you at the surface
     }

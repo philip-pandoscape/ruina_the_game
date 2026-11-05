@@ -37,6 +37,9 @@ import {
 //           skill), cooldownFrames, and heal amount or meteor range / fall / blast details.
 // skills    points to spend, and four trees of three skills each, learned top to bottom.
 // combat    maxHp, stunFrames after being hit, knockUp (m/s), downFrames before respawning
+// stamina   max, regenPerSecond, regenDelayFrames (no refilling for this long after spending any).
+//           Dodges cost it (movementSkills[].staminaCost) instead of having a cooldown.
+// mp        max, regenPerSecond. Abilities cost it (abilities[].mpCost), paid when the cast goes off.
 
 export const SIM_HZ = shared.simHz;
 export const STEP = 1 / SIM_HZ;
@@ -45,6 +48,10 @@ export const JUMP = shared.jump;
 export const SLIDE = shared.slide;
 export const COMBAT = shared.combat;
 export const SPECIAL = shared.special;
+/** Every fighter's stamina: dodges spend it, and it refills a moment after the last one. */
+export const STAMINA: { max: number; regenPerSecond: number; regenDelayFrames: number } = shared.stamina;
+/** Every fighter's MP: casting spends it, and it refills steadily. */
+export const MP: { max: number; regenPerSecond: number } = shared.mp;
 
 export interface AttackStep {
   startup: number;
@@ -98,6 +105,8 @@ export interface Ability {
   target: 'self' | 'ground';
   castFrames: number;
   cooldownFrames: number;
+  /** MP the cast costs, paid when it goes off. */
+  mpCost?: number;
   range?: number; // ground: default distance in front when you don't aim
   maxRange?: number;
   castPose?: string; // which casting animation to use; the rules never look at it
@@ -138,7 +147,10 @@ export interface MovementSkill {
   // Built-in moves everyone has (the slide). No tree node grants them, so they never reach a
   // Q / E slot, but they run through the same action machine as the rest.
   builtin?: boolean;
-  cooldownFrames: number;
+  /** Frames before it can be used again (none if absent: the dodges cost stamina instead). */
+  cooldownFrames?: number;
+  /** Stamina it costs to start, and it can't start without that much. */
+  staminaCost?: number;
   action: ActionDef;
 }
 
@@ -259,10 +271,22 @@ const STAT_ABILITY_COOLDOWN = statIndex('ability.cooldown');
 const STAT_MELEE_TARGETS = statIndex('melee.maxTargets');
 const STAT_PIERCE = statIndex('projectile.pierce');
 const STAT_MOVE_COOLDOWN = statIndex('movement.cooldown');
+const STAT_MOVE_STAMINA = statIndex('movement.stamina');
+const STAT_ABILITY_MP = statIndex('ability.mp');
 
 /** Frames before a movement skill can be used again: its own, as the tree and its level change it. */
 export function movementCooldownFor(id: number, r: ResolvedSkills): number {
   return applyFrames(r.move[id]?.[STAT_MOVE_COOLDOWN], MOVEMENT_SKILLS[id]?.cooldownFrames ?? 0);
+}
+
+/** Stamina a movement skill costs (a dodge's; the rest cost none), as the tree and its level change it. */
+export function movementStaminaFor(id: number, r: ResolvedSkills): number {
+  return Math.max(0, applyChannel(r.move[id]?.[STAT_MOVE_STAMINA], MOVEMENT_SKILLS[id]?.staminaCost ?? 0));
+}
+
+/** MP an ability costs, as the tree changes it. */
+export function abilityMpFor(ability: number, r: ResolvedSkills): number {
+  return Math.max(0, applyChannel(r.ability[ability]?.[STAT_ABILITY_MP], ABILITIES[ability]?.mpCost ?? 0));
 }
 
 export function castFramesFor(ability: number, r: ResolvedSkills): number {

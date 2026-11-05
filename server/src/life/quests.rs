@@ -172,6 +172,9 @@ pub fn complete(life: &mut Life, id: &str) -> bool {
     let s = &mut life.state;
     s.quests.active.retain(|p| p.id != id);
     s.quests.done.push(id.to_string());
+    // News for the quest log and the townsfolk's marks: the island goes out with it.
+    life.revision += 1;
+    let s = &mut life.state;
     if let Some(coins) = truthy(r.coins) {
         s.coins += coins;
     }
@@ -281,6 +284,10 @@ fn advance(life: &mut Life, id: &str) {
     let p = &mut life.state.quests.active[i];
     p.step += 1;
     let step = p.step;
+    // A new step, or ready to hand in, is news: the island goes to its owner on the next tick
+    // rather than with the next refresh. The counts measured on the way there are not.
+    life.revision += 1;
+    let p = &mut life.state.quests.active[i];
     if step >= q.steps.len() as i64 {
         p.counts.clear();
         // A milestone has nobody to hand it to: it's done the moment its steps are.
@@ -288,7 +295,10 @@ fn advance(life: &mut Life, id: &str) {
             return;
         }
         life.emit(LifeEvent::Quest { id: id.to_string(), what: "ready".into() });
-        life.toast(format!("{}: return to {}", q.name, q.turn_in.as_deref().unwrap_or(&q.giver)), "quest");
+        let who = q.turn_in.as_deref().unwrap_or(&q.giver);
+        let zone = life.zone;
+        let name = zone.recipe.npcs.iter().find(|n| n.id == who).map_or(who, |n| n.name.as_str());
+        life.toast(format!("{}: return to {}", q.name, name), "quest");
         return;
     }
     life.emit(LifeEvent::Quest { id: id.to_string(), what: "step".into() });
@@ -362,7 +372,7 @@ mod tests {
         assert!(!is_ready(&life, "landfall"));
         talk(&mut life, "hollis");
         assert!(is_ready(&life, "landfall"));
-        assert_eq!(toasts(&mut life), ["Landfall: return to hollis"]);
+        assert_eq!(toasts(&mut life), ["Landfall: return to Reeve Hollis"]);
         assert_eq!(ids(&quests_at(&life, "hollis").1), ["landfall"]);
         // Handing it in pays out, and opens the next quests.
         assert!(complete(&mut life, "landfall"));
@@ -428,7 +438,7 @@ mod tests {
         toasts(&mut life);
         assert!(accept(&mut life, "patch"));
         assert!(is_ready(&life, "patch"));
-        assert_eq!(toasts(&mut life), ["New quest: A Patch of Earth", "A Patch of Earth: Plant seeds in your plot", "A Patch of Earth: return to hollis"]);
+        assert_eq!(toasts(&mut life), ["New quest: A Patch of Earth", "A Patch of Earth: Plant seeds in your plot", "A Patch of Earth: return to Reeve Hollis"]);
         // Its reward includes labor, never past the most you can hold.
         life.state.labor = 950.0;
         assert!(complete(&mut life, "patch"));
@@ -549,6 +559,36 @@ mod tests {
         assert_eq!(said.last().unwrap(), "✔ First Flight complete - 1 skill point, 60c, 1 seal");
         // Sky Legs opens with it, quietly, and counts the gliding from here on.
         assert!(quest_active(&life, "skyLegs").is_some());
+    }
+
+    #[test]
+    fn a_step_finished_by_measuring_is_news_but_the_measuring_is_not() {
+        // The island goes to its owner's browser on the tick its revision moves (world_game.rs),
+        // otherwise every couple of seconds. Time in the air counts every step: only the step that
+        // finishes it should send the island, so the quest log and Hollis's mark change at once.
+        let (mut life, mut world, mut p) = island(0.0);
+        let mut sim = Sim { player: &mut p, world: &mut world, owner: 1 };
+        life.state.quests.done.extend(["landfall", "wings"].map(String::from));
+        life.state.quests.active.clear();
+        assert!(accept(&mut life, "firstFlight"));
+        sim.player.mode = Mode::Glide;
+        let news = life.revision;
+        step_quests(&mut life, &mut sim);
+        assert!(life.state.quests.active[0].counts[0] > 0.0, "a step's worth of gliding counted");
+        assert_eq!(life.revision, news, "and that alone isn't news");
+        let mut frames = 1;
+        while step(&life, "firstFlight") == 0 && frames < 2000 {
+            step_quests(&mut life, &mut sim);
+            assert!(step(&life, "firstFlight") == 1 || life.revision == news, "nothing new until the step is done");
+            frames += 1;
+        }
+        assert_eq!(life.revision, news + 1, "the step it finished is news");
+        talk(&mut life, "hollis");
+        assert!(is_ready(&life, "firstFlight"));
+        assert_eq!(life.revision, news + 2, "and so is being ready to hand in");
+        assert_eq!(toasts(&mut life).last().unwrap(), "First Flight: return to Reeve Hollis", "by the name you know them by");
+        assert!(complete(&mut life, "firstFlight"));
+        assert!(life.revision > news + 2, "and handing it in");
     }
 
     #[test]

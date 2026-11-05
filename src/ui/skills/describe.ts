@@ -1,6 +1,7 @@
 import {
   ABILITIES,
   abilityCooldown,
+  abilityMpFor,
   castFramesFor,
   comboFor,
   effectAmount,
@@ -8,6 +9,7 @@ import {
   effectRadius,
   meleeTargets,
   movementCooldownFor,
+  movementStaminaFor,
   MOVEMENT_SKILLS,
   pierceTargets,
   WEAPONS,
@@ -55,6 +57,10 @@ export function describeMod(m: SkillMod): string {
       return `${m.skill ? abilityName(m.skill) : 'Ability'} cooldown ${pct(m.value)} ${m.value < 0 ? 'shorter' : 'longer'}`;
     case 'movement.cooldown':
       return `${m.skill ? moveName(m.skill) : 'Movement skills'} ${m.value < 0 ? 'recovers' : 'recover'} ${pct(m.value)} ${m.value < 0 ? 'faster' : 'slower'}`;
+    case 'movement.stamina':
+      return `${m.skill ? moveName(m.skill) : 'Movement skills'} ${m.skill ? 'costs' : 'cost'} ${pct(m.value)} ${m.value < 0 ? 'less' : 'more'} stamina`;
+    case 'ability.mp':
+      return `${m.skill ? abilityName(m.skill) : 'Abilities'} ${m.skill ? 'costs' : 'cost'} ${pct(m.value)} ${m.value < 0 ? 'less' : 'more'} MP`;
     default:
       return `${m.stat} ${m.op} ${m.value}`;
   }
@@ -145,9 +151,17 @@ export function bookStats(b: BookSkill, r: ResolvedSkills): Array<[string, strin
     }
     out.push(['Cast Time', secs(castFramesFor(b.index, r))]);
     out.push(['Cooldown', secs(abilityCooldown(b.index, r))]);
+    const mp = abilityMpFor(b.index, r);
+    if (mp > 0) out.push(['MP Cost', num(mp)]);
     return out;
   }
-  return [['Recovers In', secs(movementCooldownFor(b.index, r))]];
+  // A dodge costs stamina and has no cooldown; a guard and the slide the other way round.
+  const out: Array<[string, string]> = [];
+  const stamina = movementStaminaFor(b.index, r);
+  if (stamina > 0) out.push(['Stamina Cost', num(stamina)]);
+  const cooldown = movementCooldownFor(b.index, r);
+  if (cooldown > 0 || stamina <= 0) out.push(['Recovers In', secs(cooldown)]);
+  return out;
 }
 
 /** The levels with this one skill a level higher, for "Level 4: Heals 30". */

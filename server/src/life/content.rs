@@ -476,6 +476,11 @@ pub fn climate_factor(crop: &CropDef, climate: &str) -> f64 {
 pub struct Ground {
     pub max_slope: f64,
     pub step_up: f64,
+    /// How high a deck (a pier, the glider launch) you walk straight up onto: they are built for it.
+    pub deck_step: f64,
+    /// A deck at least this far above your feet has room to walk or swim under; lower ones you
+    /// can't step onto are solid from the side.
+    pub deck_headroom: f64,
     pub snap_down: f64,
     pub wade_depth: f64,
     pub wade_speed: f64,

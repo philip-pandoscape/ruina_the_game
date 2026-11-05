@@ -11,6 +11,7 @@ import { accelerateToward, airControl, input, stance, tryJump } from './locomoti
 import { endAction, incomingScale, readyBufferedAction, setCooldown, startAction } from './abilities';
 import { heightAboveGround } from './traverse';
 import { groundAt } from '../zone/colliders';
+import { refillVitals } from './vitals';
 
 export function startAttack(sim: Sim, index: number, a: Actions) : void {
   const p = sim.player;
@@ -173,6 +174,8 @@ export function takeHit(sim: Sim, damage: number, dirX: number, dirZ: number, kn
   }
 }
 
+// Back up after a knock-down: at the spawn, with full health, stamina and MP.
+
 export function respawn(sim: Sim) : void {
   const p = sim.player;
   const s = sim.world.teamSpawns[p.team] ?? sim.world.spawn;
@@ -186,6 +189,7 @@ export function respawn(sim: Sim) : void {
   p.grounded = true;
   p.jumpsUsed = 0;
   p.hp = COMBAT.maxHp;
+  refillVitals(p);
   p.stun = 0;
   p.downFrame = -1;
   p.mode = 'normal';

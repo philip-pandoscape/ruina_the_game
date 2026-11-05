@@ -93,7 +93,7 @@ export type LinkStatus = 'online' | 'reconnecting' | 'kicked' | 'signed-out';
 
 const RETRY_MS = [500, 1000, 2000, 4000, 8000];
 /** What this page speaks; the server says what it speaks in its welcome (server/src/world_socket.rs). */
-const WORLD_PROTOCOL = 3;
+const WORLD_PROTOCOL = 4;
 const RELOADED = 'ruina.reloaded-for-server';
 const SEND_INPUTS = 7;
 /** Bytes per input: the battlefield's 8 (src/net/netPlayer.ts quantize) and the raw stick. */

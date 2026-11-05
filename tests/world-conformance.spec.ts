@@ -5,7 +5,7 @@ import { makeRng } from '../src/rng';
 import { Sim } from '../src/sim/sim';
 import { NO_ACTIONS, type Actions, type Mode } from '../src/sim/types';
 import { makeZoneWorld } from '../src/sim/zone/world';
-import { groundAt, pushOutOfBox } from '../src/sim/zone/colliders';
+import { groundAt, inRect, pushOutOfBox } from '../src/sim/zone/colliders';
 import { gust } from '../src/sim/player/traverse';
 import { GLIDE, GROUND, SWIM } from '../src/content/traversal';
 import { CARRY } from '../src/content/trade';
@@ -28,11 +28,11 @@ const F = {
   x: 0, y: 1, z: 2, vx: 3, vy: 4, vz: 5, facing: 6, airspeed: 7, bank: 8, landImpact: 9, runPhase: 10, hp: 11,
   mode: 12, grounded: 13, jumpsUsed: 14, jumpCutDone: 15, coyote: 16, jumpBuffer: 17, flipFrame: 18, landFrame: 19,
   takeoffFrame: 20, sprinting: 21, crouching: 22, crouchFrame: 23, modeFrame: 24, gustFrames: 25, actionId: 26,
-  actionFrame: 27, attackIndex: 28, attackFrame: 29, stun: 30, downFrame: 31,
+  actionFrame: 27, attackIndex: 28, attackFrame: 29, stun: 30, downFrame: 31, stamina: 32, mp: 33, staminaDelay: 34,
 } as const;
-const FRAME_LEN = 32;
+const FRAME_LEN = 35;
 // Continuous values, compared with a tolerance.
-const NEAR = [F.x, F.y, F.z, F.vx, F.vy, F.vz, F.facing, F.airspeed, F.bank, F.landImpact, F.runPhase, F.hp];
+const NEAR = [F.x, F.y, F.z, F.vx, F.vy, F.vz, F.facing, F.airspeed, F.bank, F.landImpact, F.runPhase, F.hp, F.stamina, F.mp];
 // Modes, flags and frame counters, which must match exactly.
 const EXACT = Object.values(F).filter((k) => !NEAR.includes(k as (typeof NEAR)[number]));
 // How far apart the two may drift. Both do the same arithmetic in the same order; what is left is
@@ -119,6 +119,26 @@ function hauledOut(frames: Frame[], press: number): number {
   expect(frames[out][F.grounded]).toBe(0);
   expect(frames[out][F.vy], 'up and out').toBeGreaterThan(0);
   return out;
+}
+
+/**
+ * Never through a deck: on your feet, you are on top of one, beneath one with room overhead, or
+ * clear of its edges where it is too high to step onto and too low to pass under. (Judged at your
+ * height before and after the step: walking up out of deep water under a pier's edge, the room
+ * overhead runs out during a step, and the push off its edge comes on the next.)
+ */
+function neverThroughADeck(frames: Frame[]): void {
+  const decks = world().index!.decks;
+  const inTheWay = (top: number, y: number) => top - y > GROUND.deckStep && top - y < GROUND.deckHeadroom;
+  const bad = frames.findIndex((f, i) => {
+    if (f[F.grounded] !== 1) return false;
+    const before = frames[Math.max(0, i - 1)][F.y];
+    return decks.some((d) => {
+      if (!inTheWay(d.top, f[F.y]) || !inTheWay(d.top, before)) return false; // on it, or room under it
+      return inRect(d, f[F.x], f[F.z]) || pushOutOfBox(d, f[F.x], f[F.z], MOVE.playerRadius - 1e-6) !== null;
+    });
+  });
+  expect(bad, 'never through a deck, or into its side').toBe(-1);
 }
 
 interface Case {
@@ -209,6 +229,76 @@ const CASES: Record<string, () => Case> = {
         expect(wading, 'wading').toBeGreaterThan(0);
         expect(pace(fr[wading - 1], fr[wading]), 'slowly').toBeCloseTo(MOVE.runSpeed * GROUND.wadeSpeed, 1);
         expect(fr[fr.length - 1][F.y], 'up on the quay at the end').toBeGreaterThan(1.4);
+      },
+    };
+  },
+
+  // The glider launch on Windspire's plateau stands 0.6 m up (higher than a step, lower than a
+  // deck's step): walk up onto it at its open front, across and off its back, back up from behind
+  // and off the front again, and up onto it from the side.
+  'walking onto the glider launch': () => {
+    const { s, hold, now } = writer({ x: 40, z: 222, facing: 0 });
+    hold(80, { moveZ: 1 });
+    hold(50, { moveZ: 1 });
+    const back = now();
+    hold(100, { moveZ: -1 });
+    hold(20, {});
+    const side = now();
+    hold(30, { moveX: 0.8, moveZ: 0.6 });
+    hold(90, { moveX: -1 });
+    return {
+      script: s,
+      verify: (fr) => {
+        const w = world();
+        const deck = w.index!.decks.find((d) => inRect(d, 40, 232))!;
+        const hf = w.terrain!;
+        expect(deck.top - hf.height(40, 226), 'the launch stands higher than a step up').toBeGreaterThan(GROUND.stepUp);
+        expect(deck.top - hf.height(40, 226), 'but within a deck step').toBeLessThanOrEqual(GROUND.deckStep);
+        const onIt = (f: Frame) => f[F.grounded] === 1 && f[F.y] === deck.top && inRect(deck, f[F.x], f[F.z]);
+        const up = anyFrame(fr, 0, back, onIt);
+        expect(up, 'walked up onto it at the front').toBeGreaterThan(0);
+        expect(fr[up - 1][F.grounded], 'without a jump').toBe(1);
+        expect(fr[up - 1][F.y], 'from the plateau').toBeCloseTo(hf.height(fr[up - 1][F.x], fr[up - 1][F.z]), 6);
+        expect(anyFrame(fr, up, back, (f) => f[F.grounded] === 0), 'and off its back').toBeGreaterThan(up);
+        expect(anyFrame(fr, back + 20, side, onIt), 'up again from behind').toBeGreaterThan(0);
+        expect(anyFrame(fr, side + 30, fr.length, onIt), 'and from the side').toBeGreaterThan(0);
+        expect(fr.every((f) => f[F.jumpsUsed] === 0), 'never a jump').toBe(true);
+      },
+    };
+  },
+
+  // The east pier at Lanternwick, from the shallows beside it, where it stands too high to step
+  // onto and too low to pass under: walk into its side and stop, push along it to where the water
+  // is deep enough to wade under it, come out past its end, then jump up onto it from the shallows.
+  'a pier is a wall from the shallows until there is room underneath': () => {
+    const { s, hold, jump, now } = writer({ x: 21, z: -338, facing: -Math.PI / 2 });
+    hold(60, { moveX: -1 });
+    const along = now();
+    hold(150, { moveX: -0.6, moveZ: -0.8 });
+    hold(80, { moveX: 1, moveZ: 0.6 });
+    hold(86, { moveX: -0.3, moveZ: 1 });
+    const leap = now();
+    hold(20, { moveX: -1 });
+    const hop = jump({ moveX: -1 });
+    hold(60, { moveX: -1, jumpHeld: true });
+    return {
+      script: s,
+      verify: (fr) => {
+        const w = world();
+        const pier = w.index!.decks.find((d) => inRect(d, 16, -342))!;
+        const wall = pier.x + pier.hw + MOVE.playerRadius;
+        const beside = (f: Frame) => {
+          const rise = pier.top - f[F.y];
+          return f[F.grounded] === 1 && Math.abs(f[F.x] - wall) < 1e-6 && rise > GROUND.deckStep && rise < GROUND.deckHeadroom;
+        };
+        expect(beside(fr[along - 1]), 'stopped at its side, too high to step onto and too low to pass under').toBe(true);
+        expect(fr[along - 1][F.vx], 'still pushing into it').toBe(0);
+        const under = anyFrame(fr, along, leap, (f) => inRect(pier, f[F.x], f[F.z]) && f[F.grounded] === 1);
+        expect(under, 'under it where the water is deep enough').toBeGreaterThan(0);
+        expect(pier.top - fr[under][F.y], 'with room overhead').toBeGreaterThanOrEqual(GROUND.deckHeadroom);
+        expect(beside(fr[hop - 1]), 'back at its side before the jump').toBe(true);
+        const onIt = anyFrame(fr, hop, fr.length, (f) => f[F.grounded] === 1 && f[F.y] === pier.top);
+        expect(onIt, 'and a jump gets you up onto it').toBeGreaterThan(hop);
       },
     };
   },
@@ -577,7 +667,7 @@ function runTs(s: Script): { start: number[]; frames: Frame[] } {
       p.pos.x, p.pos.y, p.pos.z, p.vel.x, p.vel.y, p.vel.z, p.facing, p.airspeed, p.bank, p.landImpact, p.runPhase, p.hp,
       MODES[p.mode], p.grounded ? 1 : 0, p.jumpsUsed, p.jumpCutDone ? 1 : 0, p.coyote, p.jumpBuffer, p.flipFrame, p.landFrame,
       p.takeoffFrame, p.sprinting ? 1 : 0, p.crouching ? 1 : 0, p.crouchFrame, p.modeFrame, p.gustFrames, p.actionId,
-      p.actionFrame, p.attackIndex, p.attackFrame, p.stun, p.downFrame,
+      p.actionFrame, p.attackIndex, p.attackFrame, p.stun, p.downFrame, p.stamina, p.mp, p.staminaDelay,
     ];
     return f;
   });
@@ -590,6 +680,8 @@ for (const [name, make] of Object.entries(CASES)) {
     const ts = runTs(script);
     expect(ts.frames[0].length).toBe(FRAME_LEN);
     verify(ts.frames);
+    // Whatever a script is about, nobody walks through a deck.
+    neverThroughADeck(ts.frames);
 
     test.skip(!existsSync(WORLDCHECK), 'build it first: cargo build --release --manifest-path server/Cargo.toml --bin worldcheck');
     const rust = JSON.parse(execFileSync(WORLDCHECK, { input: JSON.stringify(script), maxBuffer: 64 * 1024 * 1024 }).toString()) as {

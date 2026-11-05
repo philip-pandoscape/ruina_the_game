@@ -1,10 +1,10 @@
 import { expect, test, type Page } from '@playwright/test';
 import { skillsFrom } from '../src/skills';
-import { emptyMovement, HOTBAR_SLOTS, MOVEMENT_SKILLS, NO_ABILITY, NO_MOVEMENT, SLIDE_SKILL, type Build } from '../src/tuning';
+import { COMBAT, emptyMovement, HOTBAR_SLOTS, MOVEMENT_SKILLS, MP, NO_ABILITY, NO_MOVEMENT, SLIDE_SKILL, STAMINA, STEP, type Build } from '../src/tuning';
 
 // Movement skills: the data-driven action states on Q / E (LB / RB). A dodge commits to a
-// direction and cannot be hit for part of it; a guard stays up while you hold it and lets only
-// part of a hit through.
+// direction and cannot be hit for part of it, and costs stamina rather than having a cooldown; a
+// guard stays up while you hold it and lets only part of a hit through.
 
 const DODGE = 0;
 const BACKSTEP = 1;
@@ -35,12 +35,13 @@ const ready = async (page: Page, b: Build) => {
   expect(await page.evaluate((x) => (window as any).__game.setBuild(x), b)).toBe(true);
 };
 
-test('a dodge moves you, costs its cooldown, and ends on its own', async ({ page }) => {
+test('a dodge moves you, costs stamina rather than a cooldown, and ends on its own', async ({ page }) => {
   await ready(page, ROLLER);
   const seen = await page.evaluate(() => {
     const g = (window as any).__game;
     g.reset({});
     const from = { ...g.state().player.pos };
+    const full = g.state().player.stamina;
     g.advance(1, { movementSlot: 1, moveZ: 1 });
     const started = g.state().player;
     // Run it out without holding anything, so nothing but the action is moving us.
@@ -53,13 +54,19 @@ test('a dodge moves you, costs its cooldown, and ends on its own', async ({ page
       travelled: Math.hypot(after.pos.x - from.x, after.pos.z - from.z),
       endedMode: after.mode,
       cooldown: after.movementCooldowns[0],
+      full,
+      left: started.stamina,
+      delay: started.staminaDelay,
     };
   });
   expect(seen.mode).toBe('action');
   expect(seen.actionId).toBe(DODGE);
   expect(seen.travelled).toBeGreaterThan(2); // it actually carried us
   expect(seen.endedMode).toBe('normal'); // and let go again
-  expect(seen.cooldown).toBeGreaterThan(0);
+  expect(seen.full).toBe(STAMINA.max);
+  expect(seen.full - seen.left).toBe(MOVEMENT_SKILLS[DODGE].staminaCost); // paid for in stamina
+  expect(seen.delay).toBe(STAMINA.regenDelayFrames); // which waits a moment before refilling
+  expect(seen.cooldown).toBe(0); // and no cooldown
 });
 
 test('a dodge commits to the direction it started in', async ({ page }) => {
@@ -157,22 +164,75 @@ test('a backstep goes the other way from where you face', async ({ page }) => {
   expect(seen.dz).toBeLessThan(-1); // away from the way we were looking
 });
 
-test('an empty movement slot does nothing, and a cooldown blocks a second go', async ({ page }) => {
+test('an empty movement slot does nothing, and dodges run on stamina: back to back until it runs out', async ({ page }) => {
   await ready(page, ROLLER);
-  const seen = await page.evaluate(() => {
+  const cost = MOVEMENT_SKILLS[DODGE].staminaCost!;
+  const seen = await page.evaluate((cost) => {
     const g = (window as any).__game;
     g.reset({});
     g.advance(1, { movementSlot: 2 }); // nothing bound there
     const empty = g.state().player.mode;
+    // Roll after roll, each the moment the last one is over.
+    const rolls: number[] = [];
+    let refused: { at: number; stamina: number; mode: string; shorts: number } | null = null;
+    for (let k = 0; k < 8 && !refused; k++) {
+      const before = g.state().player.stamina;
+      g.advance(1, { movementSlot: 1, moveZ: k % 2 ? -1 : 1 });
+      const p = g.state().player;
+      if (p.mode === 'action') {
+        rolls.push(before);
+        g.advance(24, {});
+      } else {
+        const shorts = g.events().filter((e: { type: string; what?: string }) => e.type === 'short' && e.what === 'stamina').length;
+        refused = { at: k, stamina: p.stamina, mode: p.mode, shorts };
+      }
+    }
+    // It comes back once a moment has passed since the last roll, at its own pace.
+    const waits: number[] = [];
+    for (let i = 0; i < 12; i++) {
+      waits.push(g.state().player.stamina);
+      g.advance(1, {});
+    }
+    let frames = 0;
+    while (g.state().player.stamina < cost && frames < 600) {
+      g.advance(1, {});
+      frames++;
+    }
     g.advance(1, { movementSlot: 1, moveZ: 1 });
-    for (let i = 0; i < 40; i++) g.advance(1, {});
-    const cooling = g.state().player.movementCooldowns[0];
-    g.advance(1, { movementSlot: 1, moveZ: 1 }); // still on cooldown
-    return { empty, cooling, second: g.state().player.mode };
-  });
+    return { empty, rolls, refused, waits, again: g.state().player.mode };
+  }, cost);
   expect(seen.empty).toBe('normal');
-  expect(seen.cooling).toBeGreaterThan(0);
-  expect(seen.second).toBe('normal');
+  // No cooldown between them: as many rolls in a row as the stamina pays for, then no more.
+  expect(seen.rolls.length).toBe(Math.floor(STAMINA.max / cost));
+  expect(seen.refused).not.toBeNull();
+  expect(seen.refused!.mode).toBe('normal');
+  expect(seen.refused!.stamina).toBeLessThan(cost);
+  expect(seen.refused!.shorts).toBe(1); // and the screen is told why
+  const steps = seen.waits.slice(1).map((v, i) => v - seen.waits[i]);
+  expect(steps.some((d) => d === 0)).toBe(true); // a pause first,
+  expect(steps[steps.length - 1]).toBeCloseTo(STAMINA.regenPerSecond * STEP, 9); // then refilling
+  expect(seen.again).toBe('action'); // and a roll again once there is enough
+});
+
+test('getting back up after a knock-down fills stamina and MP', async ({ page }) => {
+  await ready(page, ROLLER);
+  const seen = await page.evaluate((down) => {
+    const g = (window as any).__game;
+    g.reset({});
+    g.advance(1, { movementSlot: 1, moveZ: 1 });
+    g.advance(24, {});
+    g.setVitals({ mp: 3 });
+    g.takeHit(1000, 0, 1, 3);
+    const knocked = g.state().player;
+    g.advance((down as number) + 2, {});
+    const up = g.state().player;
+    return { knocked: { stamina: knocked.stamina, mp: knocked.mp, down: knocked.downFrame }, up: { stamina: up.stamina, mp: up.mp, delay: up.staminaDelay, down: up.downFrame } };
+  }, COMBAT.downFrames);
+  expect(seen.knocked.down).toBeGreaterThanOrEqual(0);
+  expect(seen.knocked.stamina).toBeLessThan(STAMINA.max);
+  expect(seen.knocked.mp).toBeLessThan(MP.max);
+  expect(seen.up.down).toBe(-1);
+  expect(seen.up).toEqual({ stamina: STAMINA.max, mp: MP.max, delay: 0, down: -1 });
 });
 
 test('the tree is what grants a movement skill', async ({ page }) => {

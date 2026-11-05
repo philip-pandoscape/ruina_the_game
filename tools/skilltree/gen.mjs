@@ -68,6 +68,8 @@ const castSlower = (value, f) => ({ stat: 'cast.frames', op: 'more', value, ...f
 const cooldown = (value, f) => ({ stat: 'ability.cooldown', op: 'more', value: -value, ...f });
 const cooldownLonger = (value, f) => ({ stat: 'ability.cooldown', op: 'more', value, ...f });
 const recover = (value, skill) => ({ stat: 'movement.cooldown', op: 'more', value: -value, skill });
+// The dodges have no cooldown: they cost stamina, and these make them cost less.
+const lighter = (value, skill) => ({ stat: 'movement.stamina', op: 'more', value: -value, skill });
 const targets = (value, weapon) => ({ stat: 'melee.maxTargets', op: 'flat', value, weapon });
 const pierce = (value) => ({ stat: 'projectile.pierce', op: 'flat', value, weapon: 3 });
 const SWORD = { weapon: 0 };
@@ -88,15 +90,15 @@ const DISCIPLINES = [
       { name: 'Sword Damage', mods: [dmg(0.04, SWORD)] },
       { name: 'Sword Speed', mods: [speed(0.04, SWORD)] },
       { name: 'Melee Damage', mods: [dmg(0.03, MELEE)] },
-      { name: 'Footwork', mods: [recover(0.05, 'dodgeRoll')] },
+      { name: 'Footwork', mods: [lighter(0.05, 'dodgeRoll')] },
     ],
     notable: [
       { name: 'Keen Edge', icon: '⚔️', mods: [dmg(0.12, SWORD)] },
       { name: 'Riposte', icon: '🤺', mods: [speed(0.08, SWORD), dmg(0.04, SWORD)] },
       { name: 'Wide Arc', icon: '🌪️', mods: [targets(1, 0), dmg(0.04, SWORD)] },
       { name: 'Iron Wrists', icon: '💪', mods: [speed(0.06, MELEE)] },
-      { name: "Duelist's Step", icon: '👣', mods: [recover(0.2, 'dodgeRoll')] },
-      { name: 'Blade Dancer', icon: '🍃', mods: [dmg(0.08, SWORD), recover(0.1, 'dodgeRoll')] },
+      { name: "Duelist's Step", icon: '👣', mods: [lighter(0.2, 'dodgeRoll')] },
+      { name: 'Blade Dancer', icon: '🍃', mods: [dmg(0.08, SWORD), lighter(0.1, 'dodgeRoll')] },
       { name: 'Heavy Swing', icon: '💥', mods: [dmg(0.15, MELEE), slower(0.05, MELEE)] },
       { name: 'Steel Nerves', icon: '⛓️', mods: [dmg(0.1, MELEE)] },
     ],
@@ -153,7 +155,7 @@ const DISCIPLINES = [
     small: [
       { name: 'Arrow Damage', mods: [dmg(0.04, BOW)] },
       { name: 'Draw Speed', mods: [speed(0.04, BOW)] },
-      { name: 'Nimble', mods: [recover(0.05, 'backstep')] },
+      { name: 'Nimble', mods: [lighter(0.05, 'backstep')] },
       { name: 'Ranged Damage', mods: [dmg(0.03, RANGED)] },
     ],
     notable: [
@@ -161,14 +163,14 @@ const DISCIPLINES = [
       { name: 'Fletcher', icon: '🪶', mods: [pierce(1)] },
       { name: 'Quick Draw', icon: '⏱️', mods: [speed(0.1, BOW)] },
       { name: 'Hawk Eye', icon: '🦅', mods: [dmg(0.08, BOW), pierce(1)] },
-      { name: 'Light Feet', icon: '🐾', mods: [recover(0.25, 'backstep')] },
+      { name: 'Light Feet', icon: '🐾', mods: [lighter(0.25, 'backstep')] },
       { name: "Hunter's Mark", icon: '🦌', mods: [dmg(0.1, RANGED)] },
       { name: 'Volley', icon: '🎆', mods: [speed(0.06, BOW), dmg(0.05, BOW)] },
       { name: 'Wind Reader', icon: '🌬️', mods: [dmg(0.1, BOW)] },
     ],
     keystone: [
       { name: 'Deadeye', icon: '👁️', mods: [pierce(3), slower(0.2, BOW)] },
-      { name: 'Skirmisher', icon: '🐺', mods: [recover(0.5, 'backstep'), dmg(-0.15, BOW)] },
+      { name: 'Skirmisher', icon: '🐺', mods: [lighter(0.5, 'backstep'), dmg(-0.15, BOW)] },
     ],
   },
 ];

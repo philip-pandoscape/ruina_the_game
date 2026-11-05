@@ -132,6 +132,8 @@ export function complete(life: Life, id: string): boolean {
   const s = life.state;
   s.quests.active = s.quests.active.filter((p) => p.id !== id);
   s.quests.done.push(id);
+  // News for the quest log and the townsfolk's marks (online, the island goes out with it).
+  life.revision++;
   if (r.coins) s.coins += r.coins;
   if (r.seals) s.seals += r.seals;
   if (r.labor) s.labor = Math.min(LABOR.max, s.labor + r.labor);
@@ -207,12 +209,15 @@ function advance(life: Life, id: string): void {
   const p = questActive(life, id)!;
   const q = questDef(id);
   p.step++;
+  // A new step, or ready to hand in, is news; the counts measured on the way there are not.
+  life.revision++;
   if (p.step >= q.steps.length) {
     p.counts = [];
     // A milestone has nobody to hand it to: it's done the moment its steps are.
     if (q.milestone && complete(life, id)) return;
     life.emit({ t: 'quest', id, what: 'ready' });
-    life.toast(`${q.name}: return to ${q.turnIn ?? q.giver}`, 'quest');
+    const who = q.turnIn ?? q.giver;
+    life.toast(`${q.name}: return to ${life.zone.recipe.npcs.find((n) => n.id === who)?.name ?? who}`, 'quest');
     return;
   }
   life.emit({ t: 'quest', id, what: 'step' });

@@ -53,7 +53,7 @@ const MAX_BATCH: usize = 32;
 const SEND_INPUTS: u8 = 7;
 /// What this server speaks. A page that speaks something else is out of date: it reloads
 /// (src/net/worldLink.ts WORLD_PROTOCOL).
-pub const WORLD_PROTOCOL: u32 = 3;
+pub const WORLD_PROTOCOL: u32 = 4;
 
 /// Which connection is playing each character (so a second window takes over from the first),
 /// and the channels.

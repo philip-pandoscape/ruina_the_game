@@ -15,9 +15,10 @@
 //!              combo variants u8 (one bit per unlocked variant: all another client needs of
 //!              someone's skill tree to draw them), cast_ability u8 (255 = none), cast_frame u8,
 //!              cast target x/z i16 cm
-//!            you (195 bytes): your exact state so the browser can correct its prediction:
-//!              id u16, last input seq used u32, 14 × f64, (16 + HOTBAR_SLOTS) × i16,
-//!              SKILL_WORDS × u32 (the learned set), (14 + HOTBAR_SLOTS) × u8 (see put_you)
+//!            you (YOU_ENTRY bytes): your exact state so the browser can correct its prediction:
+//!              id u16, last input seq used u32, 16 × f64 (with stamina and MP),
+//!              (16 + HOTBAR_SLOTS + MOVEMENT_SKILL_CAP) × i16, SKILL_WORDS × u32 (the learned set),
+//!              (17 + HOTBAR_SLOTS + MOVEMENT_SLOTS) × u8 (see put_you)
 //!            arrow (15 bytes): id u16, owner u16 (shooter's player id), x/y/z i16 cm, vx/vz i16 cm/s, team u8
 //!            meteor (10 bytes): id u16, x/z i16 cm, ticks until it lands u8, fall ticks u8, team u8,
 //!                     radius in tenths of a metre u8
@@ -75,14 +76,13 @@ pub const MSG_BUILD: u8 = 6;
 /// Mode, so adding a mode without moving this would make the two indistinguishable.
 pub const MODE_DOWN: u8 = 7;
 pub const PLAYER_ENTRY: usize = 31;
-// id + ack + 14 f64 + (16 fixed + one cooldown per slot) i16 + perks + (16 fixed + one ability
-// per slot) u8. Kept as arithmetic so changing HOTBAR_SLOTS can't silently desync the wire format.
-// 15 fixed i16s plus one cooldown per hotbar slot and one per possible movement skill; 17 fixed
-// u8s plus the hotbar and the movement slots. Arithmetic so the two sides can't drift.
+// id + ack + 16 f64s; 16 fixed i16s plus one cooldown per hotbar slot and one per possible
+// movement skill; the learned set; 17 fixed u8s plus the hotbar and the movement slots. Kept as
+// arithmetic so changing a count can't silently desync the wire format (src/net/netCrowd.ts).
 pub const YOU_ENTRY: usize = 2
     + 4
-    + 14 * 8
-    + (15 + HOTBAR_SLOTS + MOVEMENT_SKILL_CAP) * 2
+    + 16 * 8
+    + (16 + HOTBAR_SLOTS + MOVEMENT_SKILL_CAP) * 2
     + SKILL_WORDS * 4
     + (17 + HOTBAR_SLOTS + MOVEMENT_SLOTS);
 pub const ARROW_ENTRY: usize = 15;
@@ -167,14 +167,14 @@ pub fn put_you(out: &mut Vec<u8>, id: u16, ack: u32, p: &Player) {
     out.extend_from_slice(&ack.to_le_bytes());
     for v in [
         p.pos.x, p.pos.y, p.pos.z, p.vel.x, p.vel.y, p.vel.z, p.facing, p.action_dir_x, p.action_dir_z, p.land_impact, p.run_phase, p.hp,
-        p.cast_target_x, p.cast_target_z,
+        p.cast_target_x, p.cast_target_z, p.stamina, p.mp,
     ] {
         out.extend_from_slice(&v.to_le_bytes());
     }
     for v in [
         p.jumps_used, p.coyote, p.jump_buffer, p.attack_buffer, p.action_buffer, p.attack_frame,
         p.flip_frame, p.land_frame, p.takeoff_frame, p.stun, p.down_frame, p.ability_buffer, p.cast_frame, p.crouch_frame,
-        p.action_frame,
+        p.action_frame, p.stamina_delay,
     ] {
         out.extend_from_slice(&(v.clamp(-32768, 32767) as i16).to_le_bytes());
     }
@@ -358,4 +358,28 @@ pub fn put_actor(
     out[16] = if dead_frame < 0 { 0 } else { (dead_frame + 1).min(255) as u8 };
     out[17] = (target_dx * 10.0).round().clamp(-127.0, 127.0) as i8 as u8;
     out[18] = (target_dz * 10.0).round().clamp(-127.0, 127.0) as i8 as u8;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::player::Build;
+    use crate::world::{battlefield, SEED};
+
+    #[test]
+    fn your_own_state_fills_its_entry_with_stamina_and_mp_where_the_browser_reads_them() {
+        let world = battlefield(SEED);
+        let mut p = Player::new(world.team_spawns[0], 0, Build::default());
+        p.stamina = 42.5;
+        p.mp = 17.25;
+        p.stamina_delay = 9;
+        let mut out = Vec::new();
+        put_you(&mut out, 3, 7, &p);
+        assert_eq!(out.len(), YOU_ENTRY);
+        // src/net/netCrowd.ts readYou: f64s 14 and 15, then the 16th i16.
+        let f = |k: usize| f64::from_le_bytes(out[6 + k * 8..14 + k * 8].try_into().unwrap());
+        assert_eq!((f(11), f(14), f(15)), (p.hp, 42.5, 17.25));
+        let at = 6 + 16 * 8 + 15 * 2;
+        assert_eq!(i16::from_le_bytes([out[at], out[at + 1]]), 9);
+    }
 }

@@ -166,6 +166,14 @@ const SHEATHE_TIME = 0.6;
 const LINGER = 2.5;
 const OTHERS_LINGER = 4;
 
+/**
+ * Stepping up onto a deck or a ledge is one step of the rules (up to 0.65 m in a sixtieth of a
+ * second); drawn as it is, the body pops up. A rise in one step of at least STEP_UP_POP (more than
+ * the steepest slope you can sprint up gives) is eased over instead, this fast (per second).
+ */
+const STEP_UP_POP = 0.2;
+const STEP_UP_EASE = 14;
+
 /** A foot held where it was planted. */
 interface FootHold {
   /** Where the point it pivots on is held in the world, while planted. */
@@ -229,6 +237,11 @@ export class Hero {
   /** 0 the weapon in hand .. 1 put away (PoseInput.stow), and when you last fought (seconds). */
   private stow = 0;
   private lastFight = -Infinity;
+  /** How far below the rules' height the body is drawn, easing out after a step up; and what was drawn last, when. */
+  private stepLift = 0;
+  private stepFrame = -1;
+  private shownY = NaN;
+  private shownAt = NaN;
   /**
    * Whether you are in a fight, set by whoever knows (main.ts, for the player: an enemy marked or a
    * swing just made); left undefined, the hero judges by what the rules have it doing. In a fight
@@ -333,7 +346,7 @@ export class Hero {
 
   // Poses the character from the game state. alpha blends between the last two sim steps.
   update(p: PlayerState, alpha: number, frame: number): void {
-    this.root.position.set(lerp(p.prevPos.x, p.pos.x, alpha), lerp(p.prevPos.y, p.pos.y, alpha), lerp(p.prevPos.z, p.pos.z, alpha));
+    this.root.position.set(lerp(p.prevPos.x, p.pos.x, alpha), this.easeStepUp(p, alpha, frame), lerp(p.prevPos.z, p.pos.z, alpha));
     this.root.rotation.y = angleLerp(p.prevFacing, p.facing, alpha);
     // How far you have run, drawn part way between steps like everything else.
     const running = p.mode === 'normal' && p.grounded;
@@ -341,6 +354,25 @@ export class Hero {
     const input = inputFromPlayer(p, frame, this.seatPose, alpha);
     input.stow = this.drawOrSheathe(p, input);
     this.drive(input, p.runPhase - back);
+  }
+
+  /** Where to draw the body's height: the rules', but carried up over a step instead of popping. */
+  private easeStepUp(p: PlayerState, alpha: number, frame: number): number {
+    const y = lerp(p.prevPos.y, p.pos.y, alpha);
+    const now = (frame - (1 - alpha)) / 60;
+    const dt = Number.isFinite(this.shownAt) ? clamp(now - this.shownAt, 0, 0.1) : 0;
+    const rise = p.pos.y - p.prevPos.y;
+    if (frame !== this.stepFrame && p.grounded && rise >= STEP_UP_POP && rise < 1 && Number.isFinite(this.shownY)) {
+      this.stepFrame = frame;
+      this.stepLift = Math.min(0, this.shownY - y); // carry on from where it was drawn
+    } else {
+      this.stepLift *= Math.exp(-dt * STEP_UP_EASE);
+    }
+    // Only ever below where it stands, and gone once it's too small to see (or you've left the ground).
+    if (this.stepLift > -1e-3 || !p.grounded) this.stepLift = 0;
+    this.shownAt = now;
+    this.shownY = y + this.stepLift;
+    return this.shownY;
   }
 
   /**
