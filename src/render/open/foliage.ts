@@ -221,6 +221,27 @@ function pineCanopy(detail: number): THREE.BufferGeometry {
 
 type Lod = [THREE.BufferGeometry, THREE.BufferGeometry];
 
+/**
+ * Full-size trees reach down to where the camera flies, so whatever is within a few metres of the
+ * camera dissolves (a dither, no sorting) instead of filling the screen with leaves. Shadows keep
+ * their full shape.
+ */
+function nearFade(mat: THREE.MeshToonMaterial): THREE.MeshToonMaterial {
+  mat.onBeforeCompile = (shader) => {
+    shader.fragmentShader = shader.fragmentShader.replace(
+      '#include <clipping_planes_fragment>',
+      `#include <clipping_planes_fragment>
+      {
+        float near = smoothstep(1.2, 3.6, length(vViewPosition));
+        float dither = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
+        if (dither > near) discard;
+      }`,
+    );
+  };
+  mat.customProgramCacheKey = () => 'near-fade';
+  return mat;
+}
+
 interface TreeLods {
   trunk: Lod;
   pineTrunk: Lod;
@@ -278,7 +299,7 @@ export class FoliageView {
       list.push(o);
     }
     const lods = NEW_LOOK ? treeLods() : null;
-    const treeMat = NEW_LOOK ? toon(0xffffff, { vertexColors: true }) : mat;
+    const treeMat = NEW_LOOK ? nearFade(toon(0xffffff, { vertexColors: true })) : mat;
     for (const list of chunks.values()) {
       const trees = list.filter((o) => o.kind === 'tree');
       // Pines grow in the highlands and the north; broadleaf in the lowlands.
