@@ -223,6 +223,74 @@ test('the person you talk to looks out of the window, which starts its text belo
   await page.screenshot({ path: `${SHOTS}/ui-02-talk.png` });
 });
 
+/**
+ * Where a story's drop cap stands against the lines beside it, in the UI's virtual px: its capitals'
+ * top against the first line's, its baseline against the second line's, and its bottom against the
+ * third line's top (which it must leave whole).
+ */
+const dropcapFit = (page: Page) =>
+  page.evaluate(() => {
+    const story = [...document.querySelectorAll<HTMLElement>('.q-story')].find((e) => e.offsetParent !== null)!;
+    const cap = story.querySelector<HTMLElement>('.dropcap')!;
+    // Boxes of no size sitting on the baselines: the cap's own, and the first line's beside it.
+    const mark = () => {
+      const i = document.createElement('i');
+      i.style.cssText = 'display:inline-block;width:0;height:0;vertical-align:baseline';
+      return i;
+    };
+    const capMark = cap.appendChild(mark());
+    const lineMark = mark();
+    cap.after(lineMark);
+    const capBase = capMark.getBoundingClientRect().bottom;
+    const lineBase = lineMark.getBoundingClientRect().bottom;
+    capMark.remove();
+    lineMark.remove();
+    // Capital heights in em, measured large: the canvas rounds ink to whole pixels.
+    const g = document.createElement('canvas').getContext('2d')!;
+    const capHeight = (s: CSSStyleDeclaration) => {
+      g.font = `${s.fontWeight} 1000px ${s.fontFamily}`;
+      return g.measureText('H').actualBoundingBoxAscent / 1000;
+    };
+    const cs = getComputedStyle(cap);
+    const ss = getComputedStyle(story);
+    const k = Number(getComputedStyle(document.documentElement).getPropertyValue('--ui-s'));
+    const line = parseFloat(ss.lineHeight) * k;
+    const capTop = capBase - capHeight(cs) * parseFloat(cs.fontSize) * k;
+    const lineCapTop = lineBase - capHeight(ss) * parseFloat(ss.fontSize) * k;
+    const thirdLine = story.getBoundingClientRect().top + 2 * line;
+    return { scale: k, top: (capTop - lineCapTop) / k, baseline: (capBase - (lineBase + line)) / k, clear: (thirdLine - cap.getBoundingClientRect().bottom) / k };
+  });
+
+test("a story's drop cap stands from the top of its first line to the second line's baseline, at any UI scale", async ({ page }) => {
+  await open(page);
+  const g = game(page);
+  await page.evaluate(() => document.fonts.ready);
+  await faceNpc(page, 'hollis');
+  await g.press('interact');
+  await g.advance(3);
+  // At 720p (the UI at 70%), and at 1080p with the player's own setting at its largest (136%).
+  const sizes = [[1280, 720, 1], [1920, 1080, 1.3]] as const;
+  for (const where of ['dialog', 'quest log']) {
+    if (where === 'quest log') {
+      await g.close();
+      await g.press('quests');
+      await g.advance(2);
+    }
+    await expect(page.locator('.q-story .dropcap').first()).toBeVisible();
+    for (const [width, height, user] of sizes) {
+      await page.evaluate((u) => localStorage.setItem('ruina.uiScale', String(u)), user);
+      await page.setViewportSize({ width, height });
+      await page.evaluate(() => dispatchEvent(new Event('resize')));
+      const fit = await dropcapFit(page);
+      const at = `${where} at ${width}x${height}, UI ${fit.scale.toFixed(2)}`;
+      expect(Math.abs(fit.top), `${at}: top`).toBeLessThan(0.75);
+      expect(Math.abs(fit.baseline), `${at}: baseline`).toBeLessThan(0.75);
+      expect(fit.clear, `${at}: the third line is whole`).toBeGreaterThanOrEqual(0);
+    }
+  }
+  await page.evaluate(() => localStorage.removeItem('ruina.uiScale'));
+});
+
 test('the clock sits clear of the minimap above it', async ({ page }) => {
   await open(page);
   await game(page).advance(2);
