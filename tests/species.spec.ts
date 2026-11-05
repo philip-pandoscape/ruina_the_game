@@ -19,13 +19,13 @@ interface Loaded {
 
 type Vec = [number, number, number];
 
-const harness = async (page: Page) => {
+const harness = async (page: Page, look: 'new' | 'classic' = 'new') => {
   const errors: string[] = [];
   page.on('console', (m) => {
     if (m.type() === 'error') errors.push(m.text());
   });
   page.on('pageerror', (e) => errors.push(String(e)));
-  await page.goto('/species.html');
+  await page.goto(`/species.html?look=${look}`);
   await page.waitForFunction(() => typeof (window as any).__species === 'object');
   return errors;
 };
@@ -64,14 +64,20 @@ test.describe('species contract', () => {
     });
 
     test(`${spec.id} draws any number of itself in three calls`, async ({ page }) => {
-      await harness(page);
-      await load(page, spec.id, 2000);
-      const one = await page.evaluate((c) => (window as any).__species.grid(1, c), spec.still);
-      const many = await page.evaluate((c) => (window as any).__species.grid(2000, c), spec.still);
-      // Body, outline hull, ground. Instancing means the count does not move with the crowd.
-      expect(one.draws).toBe(3);
-      expect(many.draws).toBe(3);
-      expect(many.triangles).toBeGreaterThan(one.triangles * 1000);
+      // Body, outline hull, ground; the new look (src/render/look.ts) draws no outlines, so one call
+      // fewer. Instancing means the count does not move with the crowd.
+      for (const [look, calls] of [
+        ['classic', 3],
+        ['new', 2],
+      ] as const) {
+        await harness(page, look);
+        await load(page, spec.id, 2000);
+        const one = await page.evaluate((c) => (window as any).__species.grid(1, c), spec.still);
+        const many = await page.evaluate((c) => (window as any).__species.grid(2000, c), spec.still);
+        expect(one.draws).toBe(calls);
+        expect(many.draws).toBe(calls);
+        expect(many.triangles).toBeGreaterThan(one.triangles * 1000);
+      }
     });
 
     test(`${spec.id} holds still when it should`, async ({ page }) => {

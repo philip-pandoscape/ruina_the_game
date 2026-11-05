@@ -14,7 +14,9 @@ const SCALE: Record<(typeof LAYERS)[number], number> = { grass: 1 / 4.5, road: 1
 const COLOR_SIZE = 1024;
 const NORMAL_SIZE = 512;
 
-const urls = import.meta.glob('../assets/ground/*.jpg', { query: '?url', import: 'default', eager: true }) as Record<string, string>;
+// Vite turns this into a table of file URLs. Tests that load the game's modules straight into Node
+// have no Vite, and no glob: there the table is empty and nothing is loaded.
+const urls = (typeof window !== 'undefined' ? import.meta.glob('../assets/ground/*.jpg', { query: '?url', import: 'default', eager: true }) : {}) as Record<string, string>;
 const url = (name: string) => urls[`../assets/ground/${name}.jpg`];
 
 if (LAYERS.some((l, i) => SURFACE[l] !== i)) throw new Error('ground layers out of SURFACE order');

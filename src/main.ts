@@ -88,9 +88,9 @@ initUiScale(document.getElementById('ui') as HTMLElement);
 //   ?yard          the old training yard, offline (also what ?test opens, unless ?world is given too)
 //   ?world&test    the open world, offline and paused for automated tests (&load: the island
 //                  kept in this browser, for bug-report replays)
-//   &look=new      the open world in the look being tried: soft light, ambient occlusion, haze, a
-//                  colour grade and a muted palette (src/render/look.ts); &lookdebug=ao shows its
-//                  ambient occlusion alone
+//   &look=classic  the open world in its old bright toon look; &look=new forces the new one, which is
+//                  the default unless WebGL is drawn in software (src/render/look.ts); &lookdebug=ao
+//                  shows the new look's ambient occlusion alone
 //   ?bugs=0        no bug reporter (\ records a bug report; tests turn it on with &bugs)
 //   &bugspeech=0   bug reports without live transcription; &buglang=en-GB to change its language
 // Console output and errors are kept from here on, for bug reports.

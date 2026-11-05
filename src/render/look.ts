@@ -1,15 +1,33 @@
 import { SURFACE } from '../sim/terrain';
 
-// Which look the world is drawn in. 'classic' is the bright toon look Ruina has had; 'new'
-// (?look=new) is the look being tried: smooth light without outlines, ambient occlusion, haze that
-// thins with height and warms toward the sun, a colour grade, and a muted, earthy palette. The
-// screen effects are src/render/open/post.ts. Every colour the island is painted with lives here,
-// once per look, so the two can be compared from the same build.
+// Which look the world is drawn in. 'new' (the default) is Emberholm after its reference picture:
+// smooth light without outlines, ambient occlusion, haze that thins with height and warms toward the
+// sun, bloom, a colour grade, textured ground, made models and full-size trees. 'classic'
+// (?look=classic) is the bright toon look Ruina had before, kept for comparison and for machines
+// that draw WebGL in software (CI's browsers among them), which the new look's screen effects would
+// slow to a crawl. The screen effects are src/render/open/post.ts. Every colour the island is
+// painted with lives here, once per look, so the two can be compared from the same build.
 
 export type LookName = 'classic' | 'new';
 
 const params = typeof location === 'undefined' ? null : new URLSearchParams(location.search);
-export const LOOK: LookName = params?.get('look') === 'new' ? 'new' : 'classic';
+/** True when WebGL is drawn on the CPU (SwiftShader, llvmpipe): no graphics card to carry the new look. */
+function softwareGl(): boolean {
+  if (typeof document === 'undefined') return false;
+  try {
+    const gl = document.createElement('canvas').getContext('webgl2');
+    if (!gl) return true;
+    const info = gl.getExtension('WEBGL_debug_renderer_info');
+    const name = String(info ? gl.getParameter(info.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER));
+    gl.getExtension('WEBGL_lose_context')?.loseContext();
+    return /swiftshader|llvmpipe|software/i.test(name);
+  } catch {
+    return false;
+  }
+}
+
+const asked = params?.get('look');
+export const LOOK: LookName = asked === 'classic' ? 'classic' : asked === 'new' ? 'new' : softwareGl() ? 'classic' : 'new';
 export const NEW_LOOK = LOOK === 'new';
 /** &lookdebug=ao shows the new look's ambient occlusion on its own. */
 export const LOOK_DEBUG_AO = NEW_LOOK && params?.get('lookdebug') === 'ao';

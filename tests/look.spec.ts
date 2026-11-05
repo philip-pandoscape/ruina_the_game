@@ -1,8 +1,8 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
 
-// The look test (?look=new, src/render/look.ts): the same places at the same hours drawn in the
-// classic look and in the new one, to compare side by side. Screenshots land in
+// The look test (src/render/look.ts): the same places at the same hours drawn in the classic look
+// (?look=classic) and in the new one (?look=new), to compare side by side. Screenshots land in
 // screenshots/look-<scene>-<look>.png without the HUD, frame times in screenshots/look-perf-<look>.json.
 // Tagged @gpu: it captures the screen and times frames.
 
@@ -42,7 +42,7 @@ async function open(page: Page, look: string, extra = ''): Promise<string[]> {
     if (m.type() === 'error') errors.push(m.text());
   });
   page.on('pageerror', (e) => errors.push(String(e)));
-  await page.goto(`/?world&test${look === 'new' ? '&look=new' : ''}${extra}`);
+  await page.goto(`/?world&test&look=${look}${extra}`);
   await page.waitForFunction(() => (window as any).__game?.ready === true, null, { timeout: 60_000 });
   await page.evaluate(() => (window as any).__game.reset());
   await page.waitForFunction(() => (window as any).__game.assetsReady === true, null, { timeout: 60_000 });

@@ -1,6 +1,5 @@
 import * as THREE from 'three';
 import { track } from '../assets';
-import detailUrl from '../assets/detail.jpg';
 import { NEW_LOOK } from '../look';
 import { toon } from '../toon';
 
@@ -16,6 +15,9 @@ const MEAN = [0.771, 0.555, 0.638];
 /** Grain repeats per metre: wood, stone, plaster. */
 const SCALE = 0.55;
 
+// Under Node (tests that import the game's modules) there is no Vite to hand out the file's URL.
+const detailUrl = (typeof window !== 'undefined' ? Object.values(import.meta.glob('../assets/detail.jpg', { query: '?url', import: 'default', eager: true }))[0] : undefined) as string | undefined;
+
 let texture: THREE.Texture | null = null;
 
 function detailTexture(): THREE.Texture {
@@ -23,12 +25,13 @@ function detailTexture(): THREE.Texture {
   const t = new THREE.Texture();
   t.wrapS = t.wrapT = THREE.RepeatWrapping;
   t.anisotropy = 4;
-  track(
-    new THREE.TextureLoader().loadAsync(detailUrl).then((loaded) => {
-      t.image = loaded.image;
-      t.needsUpdate = true;
-    }),
-  );
+  if (detailUrl)
+    track(
+      new THREE.TextureLoader().loadAsync(detailUrl).then((loaded) => {
+        t.image = loaded.image;
+        t.needsUpdate = true;
+      }),
+    );
   return (texture = t);
 }
 

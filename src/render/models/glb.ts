@@ -8,7 +8,9 @@ import { toon } from '../toon';
 // model of the same id: the procedural one is drawn at once, and the made one replaces it when it
 // has loaded, fitted into the same box (the rules' footprint), front to +Z, foot on the ground.
 
-const urls = import.meta.glob('../assets/models/*.glb', { query: '?url', import: 'default', eager: true }) as Record<string, string>;
+// Vite turns this into a table of file URLs; under Node (tests that import the game's modules)
+// there is no glob and the table is empty.
+const urls = (typeof window !== 'undefined' ? import.meta.glob('../assets/models/*.glb', { query: '?url', import: 'default', eager: true }) : {}) as Record<string, string>;
 
 export interface MadeModel {
   /** Model files to pick from by seed, without the extension. */
