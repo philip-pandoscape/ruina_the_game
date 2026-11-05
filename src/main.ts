@@ -1525,7 +1525,7 @@ const api = {
     const now = performance.now();
     return shownActors.map((a) => ({ ...a, flash: netMonsters?.flash(a.id, now) ?? 0 }));
   },
-  /** Online hit effects so far: guessed, confirmed, late, flashes, slams and deaths shown. */
+  /** Online hit effects so far: swings guessed to land, the server's confirmations (and how many matched a guess or came late), flashes, and slams and deaths shown. */
   netFx() {
     return netMonsters ? { ...netMonsters.counts } : null;
   },
