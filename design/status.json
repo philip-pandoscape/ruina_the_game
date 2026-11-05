@@ -228,7 +228,7 @@
       "system": "vehicles",
       "status": "done",
       "title": "Summon, board, cargo",
-      "notes": "Deeds summon vehicles (boats at the nearest deep water). Walk to the seat to drive, to the bed to load or unload. Loaded vehicles cannot be sent home.",
+      "notes": "Deeds summon vehicles (boats at the nearest deep water). Walk to the seat to drive, to the bed to load or unload. Loaded vehicles cannot be sent home. A pack on your back keeps you out of a cart's or boat's seat: load it into the bed first (only a donkey carries you with one). Seats are where the model's seats are however the vehicle tilts, and the rider tilts with it; online, picking up, loading, unloading and getting in run at once in the browser and again on top of the server's answers until it has run them too.",
       "files": [
         "src/sim/life/vehicles.ts",
         "src/sim/life/interact.ts"
@@ -253,9 +253,21 @@
     },
     {
       "system": "vehicles",
+      "status": "done",
+      "title": "Riding along with friends",
+      "notes": "Beside another player's cart, car or boat, F climbs into its free passenger seat (\"Ride with <name>\"), and you go wherever its owner drives; F gets you out beside it, and if it's sent home, wrecked or its owner leaves you're set down where it was. The channel seats passengers after everyone has moved (the player's host field says whose vehicle it is). Everyone else's vehicles are solid to you, ridden or not.",
+      "files": [
+        "server/src/world_game.rs",
+        "src/net/worldPeers.ts",
+        "src/render/open/life.ts",
+        "src/sim/life/vehicles.ts"
+      ]
+    },
+    {
+      "system": "vehicles",
       "status": "planned",
-      "title": "Passengers and walkable decks",
-      "notes": "Other players in the extra seats; walking the deck of a moving ship."
+      "title": "Walking the deck of a moving ship",
+      "notes": "Standing and walking about on a sloop or cog while she sails, rather than only sitting in her seats."
     },
     {
       "system": "trade",
@@ -950,15 +962,41 @@
         "src/ui/theme/text.ts",
         "tests/ui.spec.ts"
       ]
+    },
+    {
+      "system": "traversal",
+      "status": "done",
+      "title": "Auto-run and travel by road",
+      "notes": "H or Num Lock (a quick click of the left stick at rest) runs you on where the camera looks; in a cart or boat it holds the throttle. A click on the big map marks a place and follows the roads there (the road network joins where roads meet and across the town square), on foot, on a mount or in a cart; a place a few steps off the road is walked to, a far one gets you as near as the road goes. Your own movement, mounting, water or getting stuck stops it.",
+      "files": [
+        "src/app/autoWalk.ts",
+        "src/sim/zone/roads.ts",
+        "src/sim/zone/localPath.ts",
+        "src/ui/life/travelUI.ts"
+      ]
+    },
+    {
+      "system": "world",
+      "status": "done",
+      "title": "One time of day and weather for everyone",
+      "notes": "Online the sky, the HUD clock, the rain and the wind follow the server's clock (the welcome's now in the browser; the channel hands it to every island each tick), so everyone in Emberholm sees the same hour and is rained on and sails on the same wind. Showers are a schedule on that clock (a slot each, started and lasting as a hash of the slot falls), the same to the last bit in both rules. Each island's own clock still runs its crops, labor and contracts; skipping time in the developer panel moves only that.",
+      "files": [
+        "src/net/worldLink.ts",
+        "src/sim/life/weather.ts",
+        "server/src/life/weather.rs",
+        "src/main.ts"
+      ]
     }
   ],
   "next": [
-    "Animation, next: a draw or put-away when getting on or off a vehicle, mount or glider (the weapon still changes places in one frame there); reins on the horse; keep the cape off a staff or bow on the back; a footrest for the hauler's driver; give the townsfolk (src/render/models/villagers.ts) the hero's gait.",
-    "Shared world, next: trading-post demand, weather and gathering nodes shared by a channel (today each island has its own); choosing a channel (to join a friend in another one); others' parked vehicles while they're away.",
+    "Animation, next: other players drawn on our 60-a-second frame clock step in sixtieths above 60 fps; reins on the horse; keep the cape off a staff or bow on the back; a footrest for the hauler's driver; give the townsfolk (src/render/models/villagers.ts) the hero's gait.",
+    "Shared world, next: trading-post demand and gathering nodes shared by a channel (the time of day, rain and wind are shared now; these are still each island's own); choosing a channel (to join a friend in another one); others' parked vehicles while they're away.",
     "World server, next: islands in proper tables rather than one document each, if querying them (trading-post history, guild storage) needs it; bandwidth: send other players less often when they are far away.",
     "Skills, next: balance the tree (its numbers are first guesses: a keystone is 8 to 13 points from nothing, Emberholm gives 31 in all); notables and keystones that do new things, not only bigger numbers; life skills (farming, crafting, sailing) that level by use the same way.",
     "Quests, next: Share (the quest log's third button in the prototype) once there are parties to share with.",
-    "After the beta playtest: appearance for characters (they differ only by weapon); steps or a ramp for the western pier, now that a deck too high to step onto is a wall; stamina for sprinting, if wanted; other players' hits sparking on monsters, not only flashing."
+    "After the beta playtest: appearance for characters (they differ only by weapon); steps or a ramp for the western pier, now that a deck too high to step onto is a wall; stamina for sprinting, if wanted; other players' hits sparking on monsters, not only flashing.",
+    "Riding along, next: walking a moving ship's deck; the owner seeing (and turning out) who rides with them; vehicles bumping into each other, not only into people.",
+    "Travel by road, next: sea lanes for boats; a key to clear the map marker; check the six-metre hauler across the town square."
   ],
   "questions": [
     {
@@ -1137,6 +1175,22 @@
         "Island UI: NPC portraits taken from in front of them on a layer of their own; the minimap arrow pointed backwards; quest hand-ins pinned to the minimap's rim; the medallion covered the first line; button text sat high (--cap-nudge); the NPC window 30% taller; room under the minimap; Ctrl+key presses kept from the browser (Ctrl+D bookmarked the page while flaring).",
         "Writing: labels in Title Case everywhere, sentences in sentence case, documented with the rest of the interface at /design/ui.html and checked by tests/ui.spec.ts.",
         "Tests: PW_PORT and TEST_PORT_OFFSET let two checkouts run their suites side by side."
+      ]
+    },
+    {
+      "date": "2026-11-04",
+      "title": "The second beta playtest",
+      "summary": "Seventeen things found playing the deployed beta, fixed in four tracks at once: vehicles (friends ride along, riders sit right on hills, no driving with a pack, packs grabbed at once online), animation (weapons out of sight with a pack or travelling, a calm swim, rowing in step, no sea in the boats), the island UI (the drop cap, the mouse back after packing, the farm cart's icon, name plates near you only, one time of day and weather for everyone) and getting about (auto-run, and travel by road from the map).",
+      "points": [
+        "Vehicles: another player's cart or boat offers \"Ride with <name>\"; the channel seats passengers after everyone has moved and sets them down if the vehicle goes (a host field on the player, the 'ride' command, WORLD_PROTOCOL 5). Everyone else's vehicles are solid (World.movers, both rules). A pack on your back keeps you out of a cart's or boat's seat.",
+        "Seats on a tilted vehicle: anchorWorld had pitch the wrong way round, so climbing a hill the driver was drawn a metre ahead of and below the seat. It now turns by roll, pitch and heading as the model is drawn; the ridden vehicle is placed (with a boat's swell) and its wheels and oars moved before the rider is posed in its seat, tilting with it (LifeView.placeRide).",
+        "Online: the cart sank into the ground and back on getting in (a server correction eased in under the rider; seat changes snap now). Picking a pack up, loading and unloading one, dropping it, and getting in or out run at once in the browser and again on top of each update until the server has run them; a changed island no longer re-lays the grass or rebuilds every farm plot. ?lag=ms now works in the open world for testing.",
+        "Animation: online, every server update replayed the unanswered inputs and counted those frames again, so the clock bodies are drawn by ran two to six times as fast as time, in jerks: the swim on ultraspeed (netPlayer.ts reconcile renumbers the replay). The swim stroke winds its own clock. Rowing: one stroke for both oars, so the hands stay on the handles through turns and backing water. A depth-only seal over each hull's opening keeps the sea out of the boats.",
+        "Weapons: out of sight while travelling (vehicles, mounts, glider, swimming) and with a pack on the back except for a strike; only the on-foot places to put it away are left (stow.ts).",
+        "UI: the drop cap stands level with the first line's capitals; a window that closes itself after a click (a pack made, a deed used) gives the mouse back to the camera; the farm cart's icon is the cart itself, drawn in tools/icons/bake.mjs; other players' names fade out between 30 and 45 m from you; online the sky follows the server's clock.",
+        "Weather: the rain and the wind run on the world's clock online too (Life.worldClock, life.world_clock), so everyone has the same; showers are a schedule on that clock rather than the island's dice, pinned to the last bit in both rules.",
+        "Getting about: H or Num Lock auto-runs (cruise in a cart or boat); a click on the map follows the roads there, the route drawn on the map and the minimap (src/sim/zone/roads.ts, src/app/autoWalk.ts).",
+        "Tests: riding along and bumping into a parked cart, a pack out of the cart at once 120 ms from the server, everyone sharing the hour, name plates by distance (online.spec.ts); the drop cap and the mouse coming back (ui.spec.ts); travel by road on foot, horseback, cart and roadster (travel.spec.ts); hands on the oars in the real game at 30 and 144 fps, the swim clock, weapons hidden (animation.spec.ts); no sea inside any hull (models.spec.ts); passengers and movers (Rust)."
       ]
     }
   ]
