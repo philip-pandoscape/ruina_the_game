@@ -85,6 +85,7 @@ test.describe('at 1920 x 1080', () => {
     // in turn, and read every quarter second; the lowest reading is the look's own cost.
     test.setTimeout(240_000);
     const ms: Record<string, number[]> = { classic: [], new: [] };
+    const work: Record<string, { drawCalls: number; triangles: number; cpuMs: number }> = {};
     for (let round = 0; round < 3; round++) {
       for (const look of ['classic', 'new']) {
         await open(page, look);
@@ -95,6 +96,7 @@ test.describe('at 1920 x 1080', () => {
           await page.waitForTimeout(250);
           const p = await page.evaluate(() => (window as any).__game.perf());
           if (p.gpuMs) ms[look].push(p.gpuMs);
+          work[look] = { drawCalls: p.drawCalls, triangles: p.triangles, cpuMs: p.cpuMs };
         }
       }
     }
@@ -102,7 +104,7 @@ test.describe('at 1920 x 1080', () => {
       const s = [...xs].sort((a, b) => a - b);
       return { lowest: +s[0].toFixed(2), median: +s[Math.floor(s.length / 2)].toFixed(2), readings: s.length };
     };
-    const result = { viewport: '1920x1080', gpuMsPerFrame: { classic: sum(ms.classic), new: sum(ms.new) } };
+    const result = { viewport: '1920x1080', gpuMsPerFrame: { classic: sum(ms.classic), new: sum(ms.new) }, lastFrame: work };
     console.log('look cost', JSON.stringify(result));
     writeFileSync(`${SHOTS}/look-perf.json`, JSON.stringify(result, null, 2));
     expect(ms.new.length).toBeGreaterThan(0);

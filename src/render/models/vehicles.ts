@@ -27,6 +27,7 @@ import {
   type Rgb,
   type V3,
 } from './kit';
+import { NEW_LOOK } from '../look';
 import { toon } from '../toon';
 import { grainify } from './detail';
 
@@ -1233,7 +1234,7 @@ function cog(def: BoatDef): VehicleModel {
   const nestY = top - 2.0;
   body.add(lathe([[0.2, nestY - 0.35], [0.62, nestY], [0.62, nestY + 0.55], [0.55, nestY + 0.55], [0.55, nestY + 0.05], [0.2, nestY + 0.05]], 10), (c) => (c.y > nestY + 0.3 ? PAL.red : PAL.woodDark), [mast.x, 0, mast.z]);
   trim.add(rod([mast.x, top, mast.z], [mast.x, def.height - 0.1, mast.z], 0.04, 5), PAL.woodDark);
-  flag(b, [mast.x, def.height - 0.15, mast.z], 1.6, 0.9, (_i, j) => (j ? PAL.yellow : PAL.red));
+  flag(b, [mast.x, def.height - 0.15, mast.z], 1.6, 0.9, (_i, j) => (NEW_LOOK ? (j ? PAL.cream : 0x2f4f8a) : j ? PAL.yellow : PAL.red));
   const stays: Array<[V3, V3]> = [
     [[0, top - 0.6, mast.z + 0.1], sprit],
     [[0, top - 0.6, mast.z - 0.1], [0, castleY + 0.8, z0 + 0.3]],
@@ -1265,7 +1266,9 @@ function cog(def: BoatDef): VehicleModel {
   const halfYard = def.width * 0.85;
   mesh(yard, new Parts().add(rod([-halfYard, 0, 0], [halfYard, 0, 0], 0.13, 8, 0.13), PAL.woodLight).build(), { outline: b.outline });
   const stripes = 8;
-  const sail = new Cloth(stripes, 6, (i) => (i % 2 ? PAL.cream : 0xc8382e));
+  // The new look flies the island's colours, as the reference picture's ship does: a cream sail
+  // with a broad blue band.
+  const sail = new Cloth(stripes, 6, (i) => (NEW_LOOK ? (i === 3 || i === 4 ? 0x2f4f8a : PAL.cream) : i % 2 ? PAL.cream : 0xc8382e));
   const sm = mesh(yard, sail.geometry, { mat: clothMaterial(), name: 'sail', receive: false });
   sm.castShadow = true;
   const drop = yardY - (deck + 2.6);

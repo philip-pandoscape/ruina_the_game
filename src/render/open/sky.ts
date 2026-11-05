@@ -56,6 +56,13 @@ export class SkyView {
   private selfLit: SelfLit[] = [];
   /** The new look's clouds: painted light, bright tops and blue-grey bellies, never brighter than white. */
   private cloudLight = cloudShading();
+  /** The new look's world tree, shaded the same way in the haze's colours (depth not written: the
+   *  screen haze treats it as sky, so its haze is painted in here). */
+  private treeLight = (() => {
+    const t = cloudShading(10, 55);
+    t.material.depthWrite = false;
+    return t;
+  })();
 
   constructor(sunDir: THREE.Vector3) {
     this.uniforms = {
@@ -122,7 +129,7 @@ export class SkyView {
     this.stars.frustumCulled = false;
     this.stars.renderOrder = -9;
     this.group.add(this.stars);
-    this.group.add(worldTree(this.selfLit));
+    this.group.add(worldTree(this.selfLit, this.treeLight));
     this.update(0, 0, 0);
   }
 
@@ -141,6 +148,11 @@ export class SkyView {
     (cu.uSunDir.value as THREE.Vector3).copy(sunDir).normalize();
     (cu.uLit.value as THREE.Color).setRGB(1.12, 1.1, 1.06).lerp(sun, 0.25).multiplyScalar(1 - night * 0.82);
     (cu.uShade.value as THREE.Color).copy(top).lerp(horizon, 0.55).lerp(new THREE.Color(0x9aa6b8), 0.5).multiplyScalar(1 - night * 0.78);
+    const tu = this.treeLight.uniforms;
+    const leaves = new THREE.Color(PALETTE.worldTree.leaves);
+    (tu.uSunDir.value as THREE.Vector3).copy(sunDir).normalize();
+    (tu.uLit.value as THREE.Color).copy(leaves).lerp(horizon, 0.5).lerp(sun, 0.1).multiplyScalar(1.05 * (1 - night * 0.8));
+    (tu.uShade.value as THREE.Color).copy(leaves).multiplyScalar(0.55).lerp(horizon, 0.62).lerp(top, 0.1).multiplyScalar(1 - night * 0.8);
     for (const s of this.selfLit) {
       s.mat.emissiveIntensity = s.glow * (1 - night * 0.85);
       s.mat.color.copy(s.color).multiplyScalar(1 - night * 0.7);
@@ -196,8 +208,10 @@ function cumulus(): THREE.BufferGeometry {
   return g;
 }
 
-function cloudShading(): { material: THREE.ShaderMaterial; uniforms: Record<string, THREE.IUniform> } {
+function cloudShading(upFrom = -2.5, upSpan = 16): { material: THREE.ShaderMaterial; uniforms: Record<string, THREE.IUniform> } {
   const uniforms = {
+    uUpFrom: { value: upFrom },
+    uUpSpan: { value: upSpan },
     uSunDir: { value: new THREE.Vector3(0, 1, 0) },
     uLit: { value: new THREE.Color(1, 1, 1) },
     uShade: { value: new THREE.Color(0.7, 0.75, 0.82) },
@@ -205,12 +219,22 @@ function cloudShading(): { material: THREE.ShaderMaterial; uniforms: Record<stri
   const material = new THREE.ShaderMaterial({
     uniforms,
     vertexShader: /* glsl */ `
+      uniform float uUpFrom;
+      uniform float uUpSpan;
       varying vec3 vN;
       varying float vUp;
       void main() {
-        vN = normalize(mat3(modelMatrix) * mat3(instanceMatrix) * normal);
-        vUp = clamp((position.y + 2.5) / 16.0, 0.0, 1.0);
-        gl_Position = projectionMatrix * viewMatrix * modelMatrix * instanceMatrix * vec4(position, 1.0);
+        #ifdef USE_INSTANCING
+          vN = normalize(mat3(modelMatrix) * mat3(instanceMatrix) * normal);
+        #else
+          vN = normalize(mat3(modelMatrix) * normal);
+        #endif
+        vUp = clamp((position.y - uUpFrom) / uUpSpan, 0.0, 1.0);
+        #ifdef USE_INSTANCING
+          gl_Position = projectionMatrix * viewMatrix * modelMatrix * instanceMatrix * vec4(position, 1.0);
+        #else
+          gl_Position = projectionMatrix * viewMatrix * modelMatrix * vec4(position, 1.0);
+        #endif
       }
     `,
     fragmentShader: /* glsl */ `
@@ -246,8 +270,54 @@ export function seaFar(horizon: THREE.Color, night: number): THREE.Color {
 
 const selfLit = (mat: THREE.MeshToonMaterial): SelfLit => ({ mat, glow: mat.emissiveIntensity, color: mat.color.clone() });
 
-function worldTree(lit: SelfLit[]): THREE.Group {
+/** The new look's world tree: lumps of crown and a flared trunk, in one geometry, in its local metres. */
+function giantTree(): THREE.BufferGeometry {
+  const rng = makeRng(911);
+  const parts: THREE.BufferGeometry[] = [];
+  const trunk = new THREE.CylinderGeometry(4.5, 11, 46, 14, 4);
+  const tp = trunk.attributes.position;
+  for (let i = 0; i < tp.count; i++) {
+    // Buttress roots: the foot flares out in ribs.
+    const y = tp.getY(i);
+    const a = Math.atan2(tp.getZ(i), tp.getX(i));
+    const flare = 1 + Math.max(0, (-y - 8) / 15) * (0.35 + 0.35 * Math.cos(a * 5));
+    tp.setX(i, tp.getX(i) * flare);
+    tp.setZ(i, tp.getZ(i) * flare);
+  }
+  trunk.translate(0, 23, 0);
+  parts.push(trunk.toNonIndexed());
+  for (let k = 0; k < 26; k++) {
+    const a = rng() * Math.PI * 2;
+    const d = k < 3 ? range(rng, 0, 6) : range(rng, 8, 30);
+    const r = k < 3 ? range(rng, 14, 17) : range(rng, 7, 12) * (1 - d / 60);
+    const g = new THREE.IcosahedronGeometry(r, 2);
+    g.translate(Math.cos(a) * d, 46 + range(rng, -4, 9) + (1 - d / 30) * 6, Math.sin(a) * d);
+    parts.push(g.toNonIndexed());
+  }
+  const g = mergeGeometries(parts);
+  const p = g.attributes.position;
+  const n = g.attributes.normal;
+  const v = new THREE.Vector3();
+  const centre = new THREE.Vector3(0, 48, 0);
+  for (let i = 0; i < p.count; i++) {
+    if (p.getY(i) < 40) continue;
+    v.fromBufferAttribute(p, i).sub(centre).normalize();
+    v.lerp(new THREE.Vector3(n.getX(i), n.getY(i), n.getZ(i)), 0.5).normalize();
+    n.setXYZ(i, v.x, v.y, v.z);
+  }
+  return g;
+}
+
+function worldTree(lit: SelfLit[], shading?: { material: THREE.ShaderMaterial }): THREE.Group {
   const tree = new THREE.Group();
+  if (NEW_LOOK && shading) {
+    const giant = new THREE.Mesh(giantTree(), shading.material);
+    giant.frustumCulled = false;
+    tree.add(giant);
+    tree.position.set(-520, -40, 1900);
+    tree.scale.setScalar(8.5);
+    return tree;
+  }
   // Flat facets in the classic look; in the new one normals out from each crown's middle, so it
   // reads as a soft mass of leaves.
   const facet = (g: THREE.BufferGeometry) => {

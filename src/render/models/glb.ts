@@ -151,6 +151,23 @@ export function madeStructure(id: string, root: THREE.Object3D, box: { w: number
 }
 
 /**
+ * The geometry moved by a matrix into plain floats. The compressed models keep positions and
+ * normals as normalized 16-bit numbers, which can't hold anything past -1..1: moving them in place
+ * would clip a lamp post at a metre.
+ */
+function baked(geometry: THREE.BufferGeometry, matrix: THREE.Matrix4): THREE.BufferGeometry {
+  const g = geometry.clone();
+  for (const name of ['position', 'normal']) {
+    const a = g.getAttribute(name);
+    if (!a) continue;
+    const f = new Float32Array(a.count * 3);
+    for (let i = 0; i < a.count; i++) f.set([a.getX(i), a.getY(i), a.getZ(i)], i * 3);
+    g.setAttribute(name, new THREE.BufferAttribute(f, 3));
+  }
+  return g.applyMatrix4(matrix);
+}
+
+/**
  * A made prop as one geometry and material, fitted into the box, for an instanced mesh. Null when
  * there is no made model for it (or in the classic look).
  */
@@ -166,7 +183,7 @@ export function madeProp(id: string, box: { w: number; h: number; d: number }): 
     model.traverse((o) => {
       const mesh = o as THREE.Mesh;
       if (found || !mesh.isMesh || Array.isArray(mesh.material)) return;
-      found = { geometry: mesh.geometry.clone().applyMatrix4(mesh.matrixWorld), material: mesh.material };
+      found = { geometry: baked(mesh.geometry, mesh.matrixWorld), material: mesh.material };
     });
     return found;
   });
