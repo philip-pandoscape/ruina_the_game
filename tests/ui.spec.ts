@@ -229,6 +229,8 @@ test('your portrait stays as it is: running, swinging, crouching and night falli
   const errors = await open(page);
   const g = game(page);
   const portrait = (who = 'player') => page.evaluate((k) => (window as any).__game.portrait(k), who) as Promise<{ url: string; taken: number }>;
+  // The new look's hero model arrives after the page; the studio rightly takes you again then.
+  await page.waitForFunction(() => (window as any).__game.assetsReady === true, null, { timeout: 60_000 });
   await g.advance(2);
   const face = await portrait();
   const body = await portrait('body');
@@ -271,7 +273,9 @@ test('your portrait stays as it is: running, swinging, crouching and night falli
     const x = c.getContext('2d')!;
     x.drawImage(img, 0, 0);
     const corner = [...x.getImageData(2, 2, 1, 1).data];
-    const d = x.getImageData(c.width * 0.3, c.height * 0.3, c.width * 0.4, c.height * 0.4).data;
+    // Down the middle, where you stand: a made body is slimmer than the box hero, so the sky shows
+    // beside its head and shoulders, but not through it.
+    const d = x.getImageData(c.width * 0.42, c.height * 0.3, c.width * 0.16, c.height * 0.4).data;
     let sky = 0;
     for (let i = 0; i < d.length; i += 4) if (Math.abs(d[i] - corner[0]) + Math.abs(d[i + 1] - corner[1]) + Math.abs(d[i + 2] - corner[2]) < 12) sky++;
     return { corner, size: c.width, sky: sky / (d.length / 4) };

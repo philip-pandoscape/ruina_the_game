@@ -154,8 +154,9 @@ const materials = new Map<THREE.Material, THREE.Material>();
 
 /**
  * The model's own material, its metal catching the island's light: the sun's glint, and where
- * steel or gold faces up or down, the sky's or the ground's colour - the hemisphere light's, so it
- * dims at night with everything else.
+ * steel or gold faces up or down, the sky's colour or the ground's brightness - the hemisphere
+ * light's, so it dims at night with everything else. The ground's brightness, not its colour: steel
+ * giving back Emberholm's grass all along its side read as a green blade.
  */
 function weaponMaterial(m: THREE.Material): THREE.Material {
   let out = materials.get(m);
@@ -169,8 +170,9 @@ function weaponMaterial(m: THREE.Material): THREE.Material {
       #if defined( RE_IndirectSpecular ) && NUM_HEMI_LIGHTS > 0
         {
           vec3 r = reflect( - geometryViewDir, geometryNormal );
-          float up = smoothstep( -0.3, 0.4, dot( r, hemisphereLights[ 0 ].direction ) );
-          radiance += mix( hemisphereLights[ 0 ].groundColor, hemisphereLights[ 0 ].skyColor, up ) * ( ${SHINE.toFixed(2)} * RECIPROCAL_PI );
+          float up = smoothstep( -0.6, 0.3, dot( r, hemisphereLights[ 0 ].direction ) );
+          vec3 below = vec3( dot( hemisphereLights[ 0 ].groundColor, vec3( 0.299, 0.587, 0.114 ) ) );
+          radiance += mix( below, hemisphereLights[ 0 ].skyColor, up ) * ( ${SHINE.toFixed(2)} * RECIPROCAL_PI );
         }
       #endif`,
     );
