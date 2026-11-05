@@ -52,8 +52,10 @@ export class SkyView {
   private clouds: THREE.InstancedMesh;
   private cloudBase: Array<{ x: number; y: number; z: number; s: number; r: number }> = [];
   private dummy = new THREE.Object3D();
-  /** The new look's clouds and world tree: partly lit from within by day, dark against the night. */
+  /** The new look's world tree: partly lit from within by day, dark against the night. */
   private selfLit: SelfLit[] = [];
+  /** The new look's clouds: painted light, bright tops and blue-grey bellies, never brighter than white. */
+  private cloudLight = cloudShading();
 
   constructor(sunDir: THREE.Vector3) {
     this.uniforms = {
@@ -87,25 +89,21 @@ export class SkyView {
       g.translate(x, y, z);
       return g;
     };
-    const cloudGeo = mergeGeometries([
-      puff(0, 0, 0, 9),
-      puff(9, -1.5, 2, 7),
-      puff(-9, -2, -1, 6.5),
-      puff(4, 3.5, -3, 6),
-      puff(-4, 2.5, 3, 5.5),
-      puff(15, -3, -2, 4.5),
-    ]);
-    const p = cloudGeo.attributes.position;
-    for (let i = 0; i < p.count; i++) if (p.getY(i) < -2.5) p.setY(i, -2.5 + (p.getY(i) + 2.5) * 0.25);
-    cloudGeo.computeVertexNormals();
+    const cloudGeo = NEW_LOOK
+      ? cumulus()
+      : mergeGeometries([puff(0, 0, 0, 9), puff(9, -1.5, 2, 7), puff(-9, -2, -1, 6.5), puff(4, 3.5, -3, 6), puff(-4, 2.5, 3, 5.5), puff(15, -3, -2, 4.5)]);
+    if (!NEW_LOOK) {
+      const p = cloudGeo.attributes.position;
+      for (let i = 0; i < p.count; i++) if (p.getY(i) < -2.5) p.setY(i, -2.5 + (p.getY(i) + 2.5) * 0.25);
+      cloudGeo.computeVertexNormals();
+    }
     const rng = makeRng(4242);
-    const count = 46;
+    const count = NEW_LOOK ? 58 : 46;
     const cl = PALETTE.clouds;
-    const cloudMat = toon(cl.color, { emissive: cl.emissive, emissiveIntensity: cl.emissiveIntensity });
-    if (NEW_LOOK) this.selfLit.push(selfLit(cloudMat));
+    const cloudMat = NEW_LOOK ? this.cloudLight.material : toon(cl.color, { emissive: cl.emissive, emissiveIntensity: cl.emissiveIntensity });
     this.clouds = new THREE.InstancedMesh(cloudGeo, cloudMat, count);
     for (let i = 0; i < count; i++) {
-      this.cloudBase.push({ x: range(rng, -1300, 1300), y: range(rng, 170, 290), z: range(rng, -1300, 1300), s: range(rng, 0.8, 2.1), r: rng() * Math.PI * 2 });
+      this.cloudBase.push({ x: range(rng, -1300, 1300), y: range(rng, 170, 290), z: range(rng, -1300, 1300), s: range(rng, 0.8, 2.1) * (NEW_LOOK ? 1.25 : 1), r: rng() * Math.PI * 2 });
     }
     this.clouds.frustumCulled = false;
     this.clouds.castShadow = false;
@@ -139,6 +137,10 @@ export class SkyView {
     this.uniforms.uNight.value = night;
     (this.stars.material as THREE.PointsMaterial).opacity = Math.max(0, night - 0.15) * 1.1;
     this.stars.visible = night > 0.15;
+    const cu = this.cloudLight.uniforms;
+    (cu.uSunDir.value as THREE.Vector3).copy(sunDir).normalize();
+    (cu.uLit.value as THREE.Color).setRGB(1.12, 1.1, 1.06).lerp(sun, 0.25).multiplyScalar(1 - night * 0.82);
+    (cu.uShade.value as THREE.Color).copy(top).lerp(horizon, 0.55).lerp(new THREE.Color(0x9aa6b8), 0.5).multiplyScalar(1 - night * 0.78);
     for (const s of this.selfLit) {
       s.mat.emissiveIntensity = s.glow * (1 - night * 0.85);
       s.mat.color.copy(s.color).multiplyScalar(1 - night * 0.7);
@@ -164,6 +166,68 @@ export class SkyView {
     });
     this.clouds.instanceMatrix.needsUpdate = true;
   }
+}
+
+// The new look's clouds: a cauliflower of lumps with a flat belly, its normals leaning out from the
+// middle, lit by a shader that keeps them below the bloom: white where the sun falls, the sky's
+// blue-grey underneath.
+function cumulus(): THREE.BufferGeometry {
+  const rng = makeRng(77);
+  const lumps: THREE.BufferGeometry[] = [];
+  const centre = new THREE.Vector3(0, 2, 0);
+  for (let k = 0; k < 15; k++) {
+    const a = rng() * Math.PI * 2;
+    const d = k === 0 ? 0 : range(rng, 3, 15);
+    const r = k === 0 ? 10 : range(rng, 4.5, 8.5) * (1 - d / 30);
+    const g = new THREE.IcosahedronGeometry(r, 2);
+    g.translate(Math.cos(a) * d * 1.3, range(rng, -1, 4) + (1 - d / 15) * 3, Math.sin(a) * d * 0.8);
+    lumps.push(g);
+  }
+  const g = mergeGeometries(lumps);
+  const p = g.attributes.position;
+  const n = g.attributes.normal;
+  const v = new THREE.Vector3();
+  for (let i = 0; i < p.count; i++) {
+    if (p.getY(i) < -2.5) p.setY(i, -2.5 + (p.getY(i) + 2.5) * 0.2);
+    v.fromBufferAttribute(p, i).sub(centre).multiply(new THREE.Vector3(0.6, 1, 0.8)).normalize();
+    v.lerp(new THREE.Vector3(n.getX(i), n.getY(i), n.getZ(i)), 0.5).normalize();
+    n.setXYZ(i, v.x, v.y, v.z);
+  }
+  return g;
+}
+
+function cloudShading(): { material: THREE.ShaderMaterial; uniforms: Record<string, THREE.IUniform> } {
+  const uniforms = {
+    uSunDir: { value: new THREE.Vector3(0, 1, 0) },
+    uLit: { value: new THREE.Color(1, 1, 1) },
+    uShade: { value: new THREE.Color(0.7, 0.75, 0.82) },
+  };
+  const material = new THREE.ShaderMaterial({
+    uniforms,
+    vertexShader: /* glsl */ `
+      varying vec3 vN;
+      varying float vUp;
+      void main() {
+        vN = normalize(mat3(modelMatrix) * mat3(instanceMatrix) * normal);
+        vUp = clamp((position.y + 2.5) / 16.0, 0.0, 1.0);
+        gl_Position = projectionMatrix * viewMatrix * modelMatrix * instanceMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: /* glsl */ `
+      uniform vec3 uSunDir;
+      uniform vec3 uLit;
+      uniform vec3 uShade;
+      varying vec3 vN;
+      varying float vUp;
+      void main() {
+        float sun = max(dot(normalize(vN), uSunDir), 0.0);
+        float k = clamp(0.15 + sun * 0.55 + vUp * 0.45, 0.0, 1.0);
+        gl_FragColor = vec4(mix(uShade, uLit, k), 1.0);
+        #include <colorspace_fragment>
+      }
+    `,
+  });
+  return { material, uniforms };
 }
 
 // The tree the world is named for: a hazy giant far to the north, past the sea. No fog on it -

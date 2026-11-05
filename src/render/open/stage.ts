@@ -1,9 +1,11 @@
 import * as THREE from 'three';
 import type { World } from '../../sim/types';
 import { NEW_LOOK, PALETTE, POST } from '../look';
+import { windowGlow } from '../models/glb';
 import { glowMaterial } from '../models/kit';
 import { TerrainView } from './terrain';
 import { WaterView } from './water';
+import { horizonIsles } from './horizon';
 import { SkyView, seaFar, SKY_HORIZON } from './sky';
 import { FoliageView } from './foliage';
 import { ZoneDressing } from './dressing';
@@ -77,6 +79,8 @@ export class OpenStage {
     this.scene.add(this.sky.group, this.terrain.group, this.water.mesh, this.foliage.group, this.dressing.group);
     this.post = NEW_LOOK ? new WorldPost(this.renderer, this.scene) : null;
     if (this.post) this.post.base = hf.water;
+    // Other isles on the horizon, past where anyone can go (src/render/open/horizon.ts).
+    if (NEW_LOOK) this.scene.add(horizonIsles(hf.min + hf.size / 2, hf.min + hf.size / 2, hf.water));
   }
 
   /** Keeps the sun's shadow box centred on the player, wherever they are and however high. */
@@ -129,6 +133,7 @@ export class OpenStage {
       });
       // Lit windows and lanterns glow brighter than white after dark, so the bloom catches them.
       glowMaterial().color.setScalar(1.1 + night * 1.6);
+      windowGlow.value = Math.max(0, night - 0.25) / 0.75;
     }
   }
 

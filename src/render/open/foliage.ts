@@ -3,7 +3,9 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { makeRng, range } from '../../rng';
 import type { Obstacle } from '../../sim/types';
 import { hash2, SURFACE, type Heightfield } from '../../sim/terrain';
+import { track } from '../assets';
 import { NEW_LOOK, PALETTE } from '../look';
+import { madeProp } from '../models/glb';
 import { toon } from '../toon';
 
 // Trees and rocks across a whole island, and grass around wherever you are. Trees are instanced
@@ -286,14 +288,24 @@ export class FoliageView {
         this.placeLod(lods.trunk, treeMat, rounds, bark);
         this.placeLod(lods.pineTrunk, treeMat, pines, bark);
         this.placeLod(lods.round, treeMat, rounds, leafy);
-        this.placeLod(lods.pine, treeMat, pines, () => pick().offsetHSL(0.03, -0.08, -0.08));
+        this.placeLod(lods.pine, treeMat, pines, () => pick().offsetHSL(0.05, -0.15, -0.09));
       } else {
         this.place(geo.trunk, mat, trees, () => new THREE.Color(PALETTE.trunk));
         this.place(geo.round, mat, rounds, pick);
         this.place(geo.pine, mat, pines, () => pick().offsetHSL(0.02, -0.05, -0.06));
       }
-      this.place(geo.rock, mat, rocks, () => new THREE.Color(PALETTE.rock).offsetHSL(0, 0, range(rng, -0.06, 0.06)), 0.75);
+      if (NEW_LOOK) {
+        // Made boulders once they load: granite inland, sharp grey-brown rock by the shore.
+        const coast = (o: Obstacle) => hf.height(o.x, o.z) < 6 || hash2(Math.round(o.x * 10), Math.round(o.z * 10), 149) < 0.3;
+        this.madeRocks('boulderCoast', rocks.filter(coast), geo.rock, mat, rng);
+        this.madeRocks('boulderGranite', rocks.filter((o) => !coast(o)), geo.rock, mat, rng);
+      } else this.place(geo.rock, mat, rocks, () => new THREE.Color(PALETTE.rock).offsetHSL(0, 0, range(rng, -0.06, 0.06)), 0.75);
     }
+
+    // The new look breaks up cliffs with crags: big jagged rocks set into slopes far too steep to walk
+    // (well past the rules' steepest), and only where all around is as steep, so nothing ever stands
+    // on a path. Drawing only: no rule knows of them.
+    if (NEW_LOOK) this.crags(seed);
 
     // Grass and flowers: a field around the player that moves with them.
     const blade = faceted(new THREE.ConeGeometry(0.07, 0.42, 3));
@@ -336,6 +348,67 @@ export class FoliageView {
   }
 
   private lodMeshes: Array<{ mesh: THREE.InstancedMesh; lod: Lod; x: number; z: number }> = [];
+
+  private crags(seed: number): void {
+    const hf = this.hf;
+    const items: Obstacle[] = [];
+    const STEP = 7;
+    const steep = (x: number, z: number, k: number) => hf.inside(x, z, 4) && hf.slope(x, z) > k;
+    for (let z = hf.min + STEP; z < hf.min + hf.size - STEP; z += STEP)
+      for (let x = hf.min + STEP; x < hf.min + hf.size - STEP; x += STEP) {
+        const jx = x + (hash2(x, z, seed + 401) - 0.5) * STEP;
+        const jz = z + (hash2(x, z, seed + 409) - 0.5) * STEP;
+        if (!steep(jx, jz, 1.45) || hf.height(jx, jz) < hf.water + 1) continue;
+        let ok = true;
+        for (let a = 0; a < 8 && ok; a++) ok = steep(jx + Math.cos(a * 0.785) * 5, jz + Math.sin(a * 0.785) * 5, 1.15);
+        if (!ok || hash2(x, z, seed + 419) > 0.6) continue;
+        const scale = 5 + hash2(x, z, seed + 421) * 7;
+        items.push({ kind: 'rock', x: jx, z: jz, r: 0, scale, rot: hash2(x, z, seed + 431) * Math.PI * 2 });
+      }
+    if (!items.length) return;
+    const made = madeProp('boulderCoast', { w: 1.6, h: 1.2, d: 1.6 });
+    if (!made) return;
+    track(
+      made.then((m) => {
+        if (!m) return;
+        const mesh = new THREE.InstancedMesh(m.geometry, m.material, items.length);
+        items.forEach((o, i) => {
+          // Leaning with the face and set into it, nearly half below the ground where it stands, so
+          // neighbours run together into ledges and buttresses.
+          const e = 1.5;
+          const nx = -(hf.height(o.x + e, o.z) - hf.height(o.x - e, o.z)) / (2 * e);
+          const nz = -(hf.height(o.x, o.z + e) - hf.height(o.x, o.z - e)) / (2 * e);
+          const lean = this.v.set(nx, 1, nz).normalize().lerp(this.up, 0.45).normalize();
+          this.q.setFromUnitVectors(this.up, lean).multiply(new THREE.Quaternion().setFromAxisAngle(this.up, o.rot));
+          this.m.compose(new THREE.Vector3(o.x, hf.height(o.x, o.z) - 0.45 * o.scale, o.z), this.q, this.s.set(o.scale, o.scale * 1.2, o.scale));
+          mesh.setMatrixAt(i, this.m);
+          mesh.setColorAt(i, this.c.setScalar(1.05 + hash2(i, 7, 433) * 0.25));
+        });
+        mesh.instanceMatrix.needsUpdate = true;
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        mesh.computeBoundingSphere();
+        mesh.name = 'crags';
+        this.group.add(mesh);
+      }),
+    );
+  }
+
+  /** Rocks drawn plain at once, then as a made boulder (src/render/models/glb.ts) when it arrives. */
+  private madeRocks(id: string, items: Obstacle[], plainGeo: THREE.BufferGeometry, plainMat: THREE.Material, rng: () => number): void {
+    const plain = this.place(plainGeo, plainMat, items, () => new THREE.Color(PALETTE.rock).offsetHSL(0, 0, range(rng, -0.06, 0.06)), 0.75);
+    const made = plain && madeProp(id, { w: 1.6, h: 1.2, d: 1.6 });
+    if (!plain || !made) return;
+    const tints = items.map(() => new THREE.Color().setScalar(range(rng, 0.86, 1.04)));
+    track(
+      made.then((m) => {
+        if (!m) return;
+        this.group.remove(plain);
+        const mesh = this.place(m.geometry, m.material, items, (o) => tints[items.indexOf(o)]);
+        if (mesh) mesh.receiveShadow = true;
+      }),
+    );
+  }
 
   /** Trees with a near and a far shape: the chunk's mesh swaps between them as you come and go. */
   private placeLod(lod: Lod, mat: THREE.Material, items: Obstacle[], color: (o: Obstacle) => THREE.Color): void {

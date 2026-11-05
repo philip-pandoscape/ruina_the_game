@@ -28,6 +28,7 @@ const SCENES: Scene[] = [
   { id: 'aerial-harbour', x: 0, z: -264, facing: 0, hour: 9.5, camera: { yaw: 0, pitch: 0.2, distance: 9 }, view: { from: [60, 140, -520], to: [0, 0, -240] } },
   { id: 'aerial-isle', x: 0, z: -264, facing: 0, hour: 9.7, camera: { yaw: 0, pitch: 0.2, distance: 9 }, view: { from: [420, 330, -760], to: [0, 0, -60] } },
   { id: 'stalls-closeup', x: 6, z: -250, facing: 0.6, hour: 10, camera: { yaw: 0.6, pitch: 0.16, distance: 6 } },
+  { id: 'windspire-cliffs', x: 40, z: 110, facing: 0, hour: 10.5, camera: { yaw: 0, pitch: 0.2, distance: 9 }, view: { from: [95, 26, 70], to: [40, 70, 250] } },
   { id: 'windspire-vista', x: 40, z: 227, facing: Math.PI, hour: 11, camera: { yaw: Math.PI, pitch: 0.12, distance: 7 } },
   { id: 'fields-noon', x: -140, z: -225, facing: -0.8, hour: 12.5, camera: { yaw: -0.8, pitch: 0.22, distance: 10 } },
   { id: 'docks-afternoon', x: 2, z: -332, facing: 3.5, hour: 15.5, camera: { yaw: 3.5, pitch: 0.2, distance: 12 } },
