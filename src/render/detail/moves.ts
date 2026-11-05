@@ -34,5 +34,5 @@ export const HERO_MOVES: Record<string, Record<string, Array<MoveClip | null>>> 
 };
 
 /** The set each weapon plays (absent: keyframed). Weapons as the rules number them. */
-export const HERO_MOVE_SETS: Record<string, string> = { sword: 'meshy', club: 'quaternius' };
+export const HERO_MOVE_SETS: Record<string, string> = { sword: 'quaternius', club: 'quaternius' };
 export const WEAPON_KEYS = ['sword', 'club', 'staff', 'bow'] as const;

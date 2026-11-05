@@ -24,7 +24,7 @@ for (const { file, clip } of clips.values()) {
     const errors: string[] = [];
     page.on('pageerror', (e) => errors.push(String(e)));
     await page.setViewportSize({ width: 900, height: 620 });
-    await page.goto(`/retarget.html?look=new&file=${file}&clip=${encodeURIComponent(clip)}`);
+    await page.goto(`/retarget.html?look=new&file=${file}&clip=${encodeURIComponent(clip)}${process.env.RECORD ? '' : '&draw=0'}`);
     await page.waitForFunction(() => (window as any).__retarget?.ready === true, null, { timeout: 120_000 });
     expect(errors).toEqual([]);
     const seconds: number = await page.evaluate(() => (window as any).__retarget.seconds);

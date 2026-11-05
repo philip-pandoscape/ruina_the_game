@@ -15,6 +15,7 @@ import { bake, JOINT, LIBRARIES, libraryOf, poseFromClip, RATE, type Baked, type
 //   ?url=/scratch/x.glb&clip=Name~Other                   any GLB, clips end to end
 //   &mesh=/scratch/with-skin.glb                          show the source skinned (else its bones)
 //   &view=three|side|front                                where the camera looks from
+//   &draw=0                                               measure without drawing (a test in software)
 //
 // window.__retarget: { ready, seconds, seek(t) -> { mean, worst, bone, feet } }. tests/retarget.spec.ts
 // holds every move's clip (moves.ts) to it. The retarget-animation skill says how to use it.
@@ -159,7 +160,7 @@ draw();
   libraries: Object.keys(LIBRARIES),
   seek(t: number) {
     const out = seek(t);
-    draw();
+    if (q.get('draw') !== '0') draw();
     return out;
   },
 };
