@@ -113,6 +113,9 @@ jobs:
           cat server.log
           exit 1
       - name: Play the game
+        # tests/update.spec.ts stops and starts a game server of its own, on this database.
+        env:
+          RUINA_DATABASE_URL: postgres://ruina:ruina@localhost:5432/ruina
         run: npx playwright test --shard=${{ matrix.shard }}/4
       - name: Server log
         if: failure()

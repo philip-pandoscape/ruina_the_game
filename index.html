@@ -3,13 +3,84 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Yggdrasil</title>
+    <title>Ruina</title>
+    <meta name="description" content="Ruina: build a life among the ruins. A browser MMORPG." />
     <link rel="icon" href="data:," />
+    <script>
+      // The title screen, from the very first frame: src/ui/splash.ts takes it over once the game's
+      // code arrives. It is for people only: automated tests and the battlefield (?test, ?yard,
+      // ?raid, ?server=) start straight away without it. The intro plays once per tab.
+      (function () {
+        var q = new URLSearchParams(location.search);
+        if (q.get('server') || q.has('raid') || q.has('yard') || q.has('test')) return;
+        var quick = false;
+        try {
+          quick = !!sessionStorage.getItem('ruina.introSeen');
+          sessionStorage.setItem('ruina.introSeen', '1');
+        } catch (e) {}
+        document.documentElement.className += quick ? ' splash splash-quick' : ' splash';
+        window.__splash = { progress: 0.05, started: performance.now() };
+      })();
+    </script>
     <style>
       /* Enough to paint the first frame; the UI's look is in src/ui/theme/. */
       html, body { margin: 0; height: 100%; overflow: hidden; background: #bfe3f2; }
       body { color: #fff; user-select: none; }
       #game { position: fixed; inset: 0; display: block; width: 100%; height: 100%; }
+
+      /* ---------- The title screen (src/ui/splash.ts) ----------
+         Sized on the UI's virtual screen, 1029 units tall (src/ui/theme/scale.ts): --u is one unit. */
+      @font-face { font-family: 'Ruina Title'; src: url('/src/ui/theme/fonts/alegreya-sc-700.woff2') format('woff2'); font-weight: 400 900; font-style: normal; font-display: block; }
+      #splash { display: none; }
+      html.splash, html.splash body { background: #070a1f; }
+      html.splash #splash { display: block; }
+      #splash { position: fixed; inset: 0; z-index: 10; overflow: hidden; --u: calc(100vh / 1029); font-family: 'Ruina Title', Georgia, serif; color: #fff1d6;
+        transition: opacity 1.1s ease; }
+      #splash.sp-gone { opacity: 0; pointer-events: none; }
+      #splash svg.sp-scene, #sp-fx { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+      #splash .sp-vignette { position: absolute; inset: 0; pointer-events: none;
+        background: radial-gradient(ellipse 75% 70% at 50% 42%, transparent 55%, rgba(5, 3, 14, 0.55) 100%), linear-gradient(180deg, rgba(5, 4, 18, 0.35), transparent 18%); }
+      #splash .sp-title { position: absolute; left: 50%; top: calc(96 * var(--u)); transform: translateX(-50%); text-align: center; white-space: nowrap; pointer-events: none;
+        transform-origin: 50% 0; transition: transform 0.9s cubic-bezier(0.2, 0.7, 0.2, 1), top 0.9s cubic-bezier(0.2, 0.7, 0.2, 1); }
+      #splash .sp-word { margin: 0; font-size: calc(176 * var(--u)); line-height: 1; font-weight: 700; letter-spacing: 0.13em; padding-left: 0.13em;
+        color: #ffd77a; background: linear-gradient(110deg, transparent 38%, rgba(255, 252, 235, 0.95) 50%, transparent 62%) -160% 0 / 260% 100% no-repeat,
+          linear-gradient(180deg, #fff6d6 0%, #ffdf8a 30%, #f4ae45 58%, #c2701f 82%, #8f4a12 100%);
+        -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+        filter: drop-shadow(0 calc(3 * var(--u)) 0 #3b1606) drop-shadow(0 0 calc(26 * var(--u)) rgba(255, 140, 50, 0.55)); animation: sp-shine 7s ease-in-out 2.4s infinite; }
+      #splash .sp-orn { display: flex; align-items: center; justify-content: center; gap: calc(14 * var(--u)); margin: calc(8 * var(--u)) auto 0; width: calc(560 * var(--u)); }
+      #splash .sp-orn i { flex: 1; height: calc(2 * var(--u)); background: linear-gradient(90deg, transparent, #f2b75a 70%, #ffe3a0); }
+      #splash .sp-orn i:last-child { transform: scaleX(-1); }
+      #splash .sp-orn b { width: calc(11 * var(--u)); height: calc(11 * var(--u)); transform: rotate(45deg); background: linear-gradient(135deg, #fff1c0, #e09a35); box-shadow: 0 0 calc(12 * var(--u)) rgba(255, 170, 70, 0.8); }
+      #splash .sp-tag { margin-top: calc(12 * var(--u)); font-size: calc(25 * var(--u)); letter-spacing: 0.32em; padding-left: 0.32em; color: #f6dcb0; text-shadow: 0 0 calc(14 * var(--u)) rgba(255, 150, 70, 0.55), 0 calc(2 * var(--u)) calc(3 * var(--u)) rgba(10, 4, 20, 0.8); }
+      #splash .sp-load { position: absolute; left: 50%; bottom: calc(54 * var(--u)); width: calc(520 * var(--u)); transform: translateX(-50%); text-align: center; transition: opacity 0.5s; }
+      #splash .sp-load.off { opacity: 0; }
+      #splash .sp-status { margin-bottom: calc(10 * var(--u)); font-size: calc(19 * var(--u)); letter-spacing: 0.14em; color: #f3d6a8; text-shadow: 0 calc(2 * var(--u)) calc(4 * var(--u)) rgba(5, 3, 14, 0.9); min-height: 1.2em; }
+      #splash .sp-bar { position: relative; height: calc(12 * var(--u)); padding: calc(2 * var(--u)); border-radius: calc(8 * var(--u));
+        background: linear-gradient(180deg, #2a1608, #4a2a12); box-shadow: 0 0 0 calc(1.5 * var(--u)) #c9923f, 0 0 0 calc(3 * var(--u)) #24120a, 0 calc(6 * var(--u)) calc(18 * var(--u)) rgba(0, 0, 0, 0.55); }
+      #splash .sp-bar i { position: relative; display: block; height: 100%; width: 5%; border-radius: calc(6 * var(--u)); transition: width 0.6s cubic-bezier(0.3, 0.7, 0.3, 1);
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.45), rgba(255, 255, 255, 0) 55%), linear-gradient(90deg, #b8561a, #f0a23c 70%, #ffe08a);
+        box-shadow: 0 0 calc(12 * var(--u)) rgba(255, 160, 60, 0.75); }
+      #splash .sp-bar i::after { content: ''; position: absolute; right: calc(-6 * var(--u)); top: 50%; width: calc(14 * var(--u)); height: calc(14 * var(--u)); margin-top: calc(-7 * var(--u)); border-radius: 50%;
+        background: radial-gradient(circle, #fffbe8 0%, #ffd27a 35%, rgba(255, 150, 50, 0) 70%); animation: sp-spark 1.1s ease-in-out infinite; }
+      #splash .sp-foot { position: absolute; right: calc(22 * var(--u)); bottom: calc(14 * var(--u)); font-size: calc(14 * var(--u)); letter-spacing: 0.18em; color: rgba(243, 214, 168, 0.45); }
+      @keyframes sp-shine { 0%, 62% { background-position: -160% 0, 0 0; } 88%, 100% { background-position: 260% 0, 0 0; } }
+      @keyframes sp-spark { 50% { transform: scale(1.35); opacity: 0.8; } }
+      /* The intro, once per tab: out of the dark, then the name (src/ui/splash.ts INTRO_MS waits for it). */
+      html.splash:not(.splash-quick) #splash .sp-scene { animation: sp-dawn 1.4s ease-out both; }
+      html.splash:not(.splash-quick) #splash .sp-word { animation: sp-rise 1.2s cubic-bezier(0.2, 0.7, 0.2, 1) 0.25s both, sp-shine 7s ease-in-out 2.2s infinite; }
+      html.splash:not(.splash-quick) #splash .sp-orn i { animation: sp-draw 0.9s ease-out 0.75s both; }
+      html.splash:not(.splash-quick) #splash .sp-orn b, html.splash:not(.splash-quick) #splash .sp-tag { animation: sp-fade 0.8s ease-out 1.05s both; }
+      html.splash:not(.splash-quick) #splash .sp-load { animation: sp-fade 0.8s ease-out 0.5s both; }
+      @keyframes sp-dawn { from { opacity: 0; filter: brightness(0.3); } }
+      /* Same filters as .sp-word's own, then a blur, so the glow and the blur both ease in. */
+      @keyframes sp-rise { from { opacity: 0; transform: translateY(calc(26 * var(--u))) scale(0.96); filter: drop-shadow(0 calc(3 * var(--u)) 0 transparent) drop-shadow(0 0 0 transparent) blur(calc(10 * var(--u))); } }
+      @keyframes sp-draw { from { transform: scaleX(0); opacity: 0; } }
+      #splash .sp-orn i:last-child { animation-name: sp-draw-r !important; }
+      @keyframes sp-draw-r { from { transform: scaleX(0); opacity: 0; } to { transform: scaleX(-1); } }
+      @keyframes sp-fade { from { opacity: 0; } }
+      @media (prefers-reduced-motion: reduce) {
+        #splash *, #splash { animation: none !important; transition: none !important; }
+      }
     </style>
   </head>
   <body>
@@ -26,6 +97,296 @@
       <div id="castbar"><div class="fill"></div><span class="label"></span></div>
       <div id="skills" hidden></div>
     </div>
+    <!-- The title screen: dusk over Emberholm's spire. Sign-in and character select happen on it
+         (src/ui/splash.ts), and it fades into the game once the island is built. -->
+    <div id="splash" aria-label="Ruina">
+      <svg class="sp-scene" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+        <defs>
+          <linearGradient id="sp-sky" x1="0" y1="0" x2="0" y2="800" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stop-color="#060819" />
+            <stop offset="0.34" stop-color="#191540" />
+            <stop offset="0.6" stop-color="#47204f" />
+            <stop offset="0.78" stop-color="#93374a" />
+            <stop offset="0.91" stop-color="#de6a3d" />
+            <stop offset="1" stop-color="#ffb259" />
+          </linearGradient>
+          <radialGradient id="sp-glow" cx="760" cy="800" r="820" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stop-color="#ffe2a6" stop-opacity="0.95" />
+            <stop offset="0.07" stop-color="#ffb867" stop-opacity="0.6" />
+            <stop offset="0.28" stop-color="#ef7448" stop-opacity="0.22" />
+            <stop offset="1" stop-color="#ef7448" stop-opacity="0" />
+          </radialGradient>
+          <radialGradient id="sp-sun" cx="0.5" cy="0.45" r="0.55">
+            <stop offset="0" stop-color="#fffbe6" />
+            <stop offset="0.6" stop-color="#ffe09a" />
+            <stop offset="1" stop-color="#ffb35a" />
+          </radialGradient>
+          <linearGradient id="sp-cloud" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#2a1740" stop-opacity="0.75" />
+            <stop offset="0.65" stop-color="#7a2f4c" stop-opacity="0.55" />
+            <stop offset="1" stop-color="#ff9a62" stop-opacity="0.65" />
+          </linearGradient>
+          <linearGradient id="sp-far" x1="0" y1="680" x2="0" y2="800" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stop-color="#3a1c3c" />
+            <stop offset="1" stop-color="#7c3346" />
+          </linearGradient>
+          <linearGradient id="sp-sea" x1="0" y1="800" x2="0" y2="1080" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stop-color="#e08a4f" />
+            <stop offset="0.05" stop-color="#9c4148" />
+            <stop offset="0.28" stop-color="#3c1a3a" />
+            <stop offset="1" stop-color="#0b0613" />
+          </linearGradient>
+          <radialGradient id="sp-sheen" cx="760" cy="806" r="420" gradientTransform="matrix(1 0 0 0.45 0 443.3)" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stop-color="#ffd38a" stop-opacity="0.75" />
+            <stop offset="1" stop-color="#ffd38a" stop-opacity="0" />
+          </radialGradient>
+          <linearGradient id="sp-isle" x1="1000" y1="0" x2="1560" y2="0" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stop-color="#3d1a29" />
+            <stop offset="0.3" stop-color="#1e0e1b" />
+            <stop offset="1" stop-color="#110812" />
+          </linearGradient>
+          <linearGradient id="sp-rim" x1="1000" y1="0" x2="1260" y2="0" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stop-color="#ffb06a" stop-opacity="0.85" />
+            <stop offset="1" stop-color="#ffb06a" stop-opacity="0" />
+          </linearGradient>
+          <linearGradient id="sp-rim2" x1="1396" y1="0" x2="1446" y2="0" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stop-color="#ffb06a" stop-opacity="0.7" />
+            <stop offset="1" stop-color="#ffb06a" stop-opacity="0" />
+          </linearGradient>
+          <!-- The islet to the west is lit on its east side, facing the sun. -->
+          <linearGradient id="sp-rim3" x1="370" y1="0" x2="130" y2="0" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stop-color="#ffb06a" stop-opacity="0.8" />
+            <stop offset="1" stop-color="#ffb06a" stop-opacity="0" />
+          </linearGradient>
+          <linearGradient id="sp-isle2" x1="380" y1="0" x2="60" y2="0" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stop-color="#3d1a29" />
+            <stop offset="0.45" stop-color="#1e0e1b" />
+            <stop offset="1" stop-color="#110812" />
+          </linearGradient>
+          <radialGradient id="sp-mist" cx="0.5" cy="0.5" r="0.5">
+            <stop offset="0" stop-color="#ffc9b0" stop-opacity="0.26" />
+            <stop offset="1" stop-color="#ffc9b0" stop-opacity="0" />
+          </radialGradient>
+        </defs>
+        <rect width="1920" height="1080" fill="url(#sp-sky)" />
+        <rect width="1920" height="1080" fill="url(#sp-glow)" />
+        <g fill="url(#sp-cloud)">
+          <path d="M120 520 Q300 492 520 506 Q700 488 860 512 Q700 532 520 528 Q300 540 120 520 Z" />
+          <path d="M980 446 Q1180 420 1420 436 Q1580 428 1720 446 Q1560 464 1380 458 Q1180 470 980 446 Z" opacity="0.8" />
+          <path d="M400 612 Q560 596 760 604 Q920 594 1080 610 Q900 624 740 620 Q560 630 400 612 Z" />
+          <path d="M1240 566 Q1420 548 1640 560 Q1780 556 1900 572 Q1760 588 1600 582 Q1420 592 1240 566 Z" opacity="0.9" />
+          <path d="M-40 380 Q140 360 360 372 Q520 366 640 382 Q500 396 340 392 Q140 400 -40 380 Z" opacity="0.55" />
+        </g>
+        <circle cx="760" cy="800" r="62" fill="url(#sp-sun)" />
+        <path fill="url(#sp-far)" d="M-20 800 L-20 742 Q40 722 92 730 Q150 690 212 706 Q262 676 322 700 Q382 716 432 735 Q500 748 562 770 Q604 786 640 800 Z" />
+        <path fill="url(#sp-far)" d="M980 800 Q1060 772 1140 762 Q1220 734 1300 744 Q1380 712 1470 726 Q1560 702 1650 718 Q1760 692 1860 712 L1940 716 L1940 800 Z" />
+        <rect y="800" width="1920" height="280" fill="url(#sp-sea)" />
+        <rect y="800" width="1920" height="200" fill="url(#sp-sheen)" />
+        <ellipse cx="1320" cy="800" rx="560" ry="24" fill="url(#sp-mist)" />
+        <ellipse cx="230" cy="802" rx="380" ry="18" fill="url(#sp-mist)" />
+        <!-- Emberholm: the spire, the ruined arches and colonnade on the plateau, pines on the slopes. -->
+        <g fill="url(#sp-isle)">
+          <path stroke="url(#sp-rim)" stroke-width="2.5" stroke-linejoin="round" d="M1006 801 L1030 787 L1052 784 L1066 770 L1090 766 L1104 744 L1122 737 L1136 713 L1150 707 L1158 682 L1176 673 L1190 652 L1214 641 L1236 630 L1262 625 L1290 619 L1330 615 L1372 607 L1400 603 L1520 600 L1560 605 L1600 601 L1640 607 L1690 613 L1730 621 L1770 617 L1810 629 L1850 641 L1890 653 L1940 661 L1940 801 Z" />
+          <path stroke="url(#sp-rim2)" stroke-width="2" stroke-linejoin="round" d="M1394 607 L1408 562 L1413 522 L1417 472 L1425 467 L1429 382 L1431 305 L1417 301 L1417 290 L1433 290 L1435 232 L1428 228 L1428 208 L1435 208 L1435 214 L1443 214 L1450 156 L1457 214 L1465 214 L1465 208 L1472 208 L1472 228 L1466 238 L1470 248 L1463 258 L1468 270 L1466 290 L1483 290 L1483 301 L1469 305 L1471 382 L1475 467 L1483 472 L1487 522 L1492 562 L1506 607 Z" />
+          <path d="M1194 652 L1194 574 Q1194 541 1227 539 L1236 541 L1231 555 Q1213 556 1212 574 L1212 652 Z M1246 652 L1246 598 L1252 590 L1260 596 L1260 652 Z" />
+          <path d="M1280 628 L1280 550 Q1280 520 1315 504 Q1350 520 1350 550 L1350 628 L1336 628 L1336 554 Q1336 535 1315 524 Q1294 535 1294 554 L1294 628 Z" />
+          <path d="M1586 604 L1586 524 L1580 524 L1580 516 L1606 516 L1606 524 L1600 524 L1600 604 Z M1622 604 L1622 556 L1628 548 L1632 556 L1636 551 L1636 604 Z M1656 606 L1656 508 L1650 508 L1650 498 L1712 498 L1712 508 L1706 508 L1706 606 L1692 606 L1692 508 L1670 508 L1670 606 Z M1732 612 L1732 584 L1740 578 L1746 586 L1746 612 Z" />
+          <path d="M1112 716 L1121 662 L1130 716 Z M1140 696 L1151 626 L1162 696 Z M1166 680 L1174 640 L1182 680 Z M1524 604 L1534 542 L1544 604 Z M1790 632 L1801 560 L1812 632 Z M1824 644 L1833 590 L1842 644 Z M1868 654 L1876 612 L1884 654 Z" />
+          <path d="M874 801 Q884 790 896 793 Q906 788 914 801 Z" />
+        </g>
+        <!-- The islet to the west, with what is left of an arch. -->
+        <g fill="url(#sp-isle2)">
+          <path stroke="url(#sp-rim3)" stroke-width="2" stroke-linejoin="round" d="M-20 801 L-20 642 Q18 622 50 636 L70 612 Q96 597 120 612 L150 640 Q176 650 190 676 L214 700 Q246 716 262 740 Q290 770 330 790 L362 801 Z" />
+          <path d="M64 616 L64 562 Q64 530 96 528 L106 531 L100 541 Q80 543 78 562 L78 616 Z M110 619 L110 588 L116 581 L124 587 L124 619 Z M146 642 L156 590 L166 642 Z M172 660 L179 626 L186 660 Z" />
+        </g>
+        <g fill="#ffbe5c">
+          <rect x="1446" y="330" width="8" height="14" rx="4" />
+          <rect x="1447" y="398" width="6" height="12" rx="3" />
+          <rect x="1445" y="520" width="10" height="18" rx="5" />
+        </g>
+      </svg>
+      <canvas id="sp-fx" aria-hidden="true"></canvas>
+      <div class="sp-vignette"></div>
+      <div class="sp-title">
+        <h1 class="sp-word">Ruina</h1>
+        <div class="sp-orn"><i></i><b></b><i></i></div>
+        <div class="sp-tag">Build a Life Among the Ruins</div>
+      </div>
+      <div class="sp-load"><div class="sp-status">Waking the Island…</div><div class="sp-bar"><i></i></div></div>
+      <div class="sp-foot">Prototype</div>
+    </div>
+    <script>
+      // The title screen's moving parts on one canvas: stars, embers rising off the island, the sun
+      // glinting on the sea and the beacon on the spire. Light on purpose; still for reduced motion;
+      // stopped (window.__splash.stop) once the game is showing.
+      (function () {
+        var s = window.__splash;
+        var cv = document.getElementById('sp-fx');
+        if (!s || !cv || !cv.getContext) return;
+        var g = cv.getContext('2d');
+        var still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+        var W = 0, H = 0, k = 1, ox = 0, oy = 0, dpr = 1, raf = 0, last = performance.now();
+        var seed = 9;
+        function rnd() { seed = (seed * 16807) % 2147483647; return seed / 2147483647; }
+        // A soft glowing dot, drawn once and stamped.
+        var dot = document.createElement('canvas');
+        dot.width = dot.height = 64;
+        var dg = dot.getContext('2d');
+        var rg = dg.createRadialGradient(32, 32, 0, 32, 32, 32);
+        rg.addColorStop(0, 'rgba(255,250,225,1)');
+        rg.addColorStop(0.18, 'rgba(255,205,120,0.9)');
+        rg.addColorStop(0.45, 'rgba(255,130,50,0.28)');
+        rg.addColorStop(1, 'rgba(255,90,30,0)');
+        dg.fillStyle = rg;
+        dg.fillRect(0, 0, 64, 64);
+        var stars = [], embers = [], glints = [];
+        for (var i = 0; i < 130; i++) stars.push({ x: rnd() * 1920, y: rnd() * 470, r: 0.5 + rnd() * rnd() * 1.9, a: 0.25 + rnd() * 0.75, f: 0.6 + rnd() * 2.2, p: rnd() * 6.3 });
+        for (i = 0; i < 46; i++) glints.push({ t: rnd(), w: 6 + rnd() * 22, p: rnd() * 6.3, f: 2 + rnd() * 5 });
+        function ember(e, fresh) {
+          // Mostly off the island and up through the sky, a few drifting past close by.
+          e.near = rnd() < 0.12;
+          e.x = e.near ? rnd() * 1920 : 960 + rnd() * 1000 - (rnd() < 0.3 ? 900 : 0);
+          e.y = fresh ? 300 + rnd() * 780 : 820 + rnd() * 260;
+          e.vx = -6 - rnd() * 14;
+          e.vy = -(14 + rnd() * 34) * (e.near ? 1.6 : 1);
+          e.r = (e.near ? 2.6 : 0.9) + rnd() * (e.near ? 3 : 1.7);
+          e.max = 5 + rnd() * 7;
+          // The first ones are already on their way (and show in a still frame).
+          e.life = fresh ? e.max * (0.15 + rnd() * 0.5) : 0;
+          e.p = rnd() * 6.3;
+          e.sw = 6 + rnd() * 16;
+          return e;
+        }
+        for (i = 0; i < 70; i++) embers.push(ember({}, true));
+        // A few birds heading home past the spire, and now and then a shooting star.
+        var birds = [];
+        for (i = 0; i < 5; i++) birds.push({ x: 1560 + i * 34 + rnd() * 16, y: 392 + (i % 2) * 12 - i * 5 + rnd() * 8, p: rnd() * 6.3, s: 0.85 + rnd() * 0.35 });
+        var shoot = { next: 3 + rnd() * 5, life: -1, x: 0, y: 0, vx: 0, vy: 0 };
+        function size() {
+          dpr = Math.min(devicePixelRatio || 1, 1.5);
+          W = innerWidth;
+          H = innerHeight;
+          cv.width = Math.round(W * dpr);
+          cv.height = Math.round(H * dpr);
+          // The scene's own coordinates (the SVG's 1920 x 1080, covering the window, centred).
+          k = Math.max(W / 1920, H / 1080);
+          ox = (W - 1920 * k) / 2;
+          oy = (H - 1080 * k) / 2;
+        }
+        function draw(t, dt) {
+          g.setTransform(dpr, 0, 0, dpr, 0, 0);
+          g.clearRect(0, 0, W, H);
+          var x, y, a, j, e;
+          g.fillStyle = '#fff6e0';
+          for (j = 0; j < stars.length; j++) {
+            var st = stars[j];
+            // Not through the spire.
+            if (st.x > 1408 && st.x < 1492 && st.y > 150) continue;
+            a = st.a * (0.55 + 0.45 * Math.sin(t * st.f + st.p));
+            g.globalAlpha = Math.max(0, a) * Math.min(1, (520 - st.y) / 180);
+            g.fillRect(ox + st.x * k - st.r * k * 0.5, oy + st.y * k - st.r * k * 0.5, st.r * k, st.r * k);
+          }
+          g.globalCompositeOperation = 'lighter';
+          if (t > shoot.next && shoot.life < 0) {
+            shoot.life = 0;
+            shoot.x = 400 + rnd() * 1300;
+            shoot.y = 40 + rnd() * 190;
+            shoot.vx = -(650 + rnd() * 350);
+            shoot.vy = 230 + rnd() * 140;
+          }
+          if (shoot.life >= 0) {
+            shoot.life += dt;
+            shoot.x += shoot.vx * dt;
+            shoot.y += shoot.vy * dt;
+            var tail = 0.16 * Math.min(1, shoot.life * 4);
+            var sx = ox + shoot.x * k, sy = oy + shoot.y * k;
+            var tg = g.createLinearGradient(sx, sy, sx - shoot.vx * tail * k, sy - shoot.vy * tail * k);
+            tg.addColorStop(0, 'rgba(255,248,225,0.9)');
+            tg.addColorStop(1, 'rgba(255,200,140,0)');
+            g.globalAlpha = Math.max(0, 1 - shoot.life / 0.75);
+            g.strokeStyle = tg;
+            g.lineWidth = Math.max(1, 1.6 * k);
+            g.beginPath();
+            g.moveTo(sx, sy);
+            g.lineTo(sx - shoot.vx * tail * k, sy - shoot.vy * tail * k);
+            g.stroke();
+            if (shoot.life > 0.75) {
+              shoot.life = -1;
+              shoot.next = t + 8 + rnd() * 12;
+            }
+          }
+          // The sun's path on the water.
+          for (j = 0; j < glints.length; j++) {
+            var gl = glints[j];
+            var d = gl.t * gl.t;
+            y = 806 + d * 260;
+            var spread = 20 + d * 150;
+            x = 760 + Math.sin(gl.p * 3.1 + gl.t * 9) * spread;
+            a = 0.35 + 0.35 * Math.sin(t * gl.f + gl.p);
+            g.globalAlpha = Math.max(0, a) * (1 - d * 0.7);
+            g.fillStyle = '#ffd890';
+            g.fillRect(ox + (x - gl.w * (1 + d) * 0.5) * k, oy + y * k, gl.w * (1 + d) * k, Math.max(1, 1.6 * k));
+          }
+          // The beacon on the spire.
+          var pulse = 0.75 + 0.25 * Math.sin(t * 2.1);
+          g.globalAlpha = 0.85 * pulse;
+          var br = 34 * k * (0.85 + 0.3 * pulse);
+          g.drawImage(dot, ox + 1450 * k - br, oy + 152 * k - br, br * 2, br * 2);
+          g.globalCompositeOperation = 'source-over';
+          g.globalAlpha = 0.85;
+          g.strokeStyle = '#1c0c1e';
+          g.lineWidth = Math.max(1, 1.7 * k);
+          g.lineCap = 'round';
+          for (j = 0; j < birds.length; j++) {
+            var b = birds[j];
+            b.x -= 20 * dt;
+            if (b.x < -60) b.x += 2060;
+            var wv = 8 * b.s * k;
+            var flap = Math.sin(t * 6.5 + b.p);
+            var bx = ox + b.x * k, by = oy + (b.y + Math.sin(t * 0.8 + b.p) * 4) * k;
+            g.beginPath();
+            g.moveTo(bx - wv, by - flap * wv * 0.5);
+            g.quadraticCurveTo(bx - wv * 0.45, by - wv * 0.3, bx, by);
+            g.quadraticCurveTo(bx + wv * 0.45, by - wv * 0.3, bx + wv, by - flap * wv * 0.5);
+            g.stroke();
+          }
+          g.globalCompositeOperation = 'lighter';
+          for (j = 0; j < embers.length; j++) {
+            e = embers[j];
+            e.life += dt;
+            e.x += e.vx * dt;
+            e.y += e.vy * dt;
+            if (e.life > e.max || e.y < -40) ember(e, false);
+            var fade = Math.min(1, e.life / 1.2) * Math.min(1, (e.max - e.life) / 1.5);
+            var flick = 0.65 + 0.35 * Math.sin(t * 9 + e.p * 3);
+            g.globalAlpha = Math.max(0, fade * flick) * (e.near ? 0.55 : 0.9);
+            var rr = e.r * k * 3.2;
+            x = ox + (e.x + Math.sin(t * 0.9 + e.p) * e.sw) * k;
+            y = oy + e.y * k;
+            g.drawImage(dot, x - rr, y - rr, rr * 2, rr * 2);
+          }
+          g.globalCompositeOperation = 'source-over';
+          g.globalAlpha = 1;
+        }
+        function frame(now) {
+          raf = requestAnimationFrame(frame);
+          var dt = Math.min(0.1, (now - last) / 1000);
+          last = now;
+          draw(now / 1000, dt);
+        }
+        size();
+        addEventListener('resize', function () {
+          size();
+          if (still) draw(1, 0);
+        });
+        if (still) draw(1, 0);
+        else raf = requestAnimationFrame(frame);
+        s.stop = function () {
+          cancelAnimationFrame(raf);
+          still = true;
+        };
+      })();
+    </script>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

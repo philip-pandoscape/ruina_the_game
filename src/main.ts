@@ -33,8 +33,10 @@ import { LifeView } from './render/open/life';
 import { LifeUI } from './ui/life/lifeUI';
 import { clearLife, loadLife, saveData, saveLife } from './app/save';
 import { goOnline } from './app/online';
+import { leaveFor, plainUrl } from './app/resume';
 import { signOut } from './net/account';
-import { OnlineBadge, showStopped } from './ui/signIn';
+import { NetOverlay, OnlineBadge, showStopped } from './ui/signIn';
+import { splash } from './ui/splash';
 import { WorldPeers } from './net/worldPeers';
 import type { WorldTick, YouState } from './net/worldLink';
 import { addHouseColliders } from './sim/life/housing';
@@ -74,8 +76,10 @@ initUiScale(document.getElementById('ui') as HTMLElement);
 //     &lag=150     testing: ask the server to delay this connection by 150 ms each way
 //   &softlock=0    turn off the automatic target pick; Tab still works
 //   (none)         the open world: Emberholm, the starter isle, played on the game server: sign in
-//                  first; the server runs the island and keeps it (src/app/online.ts)
-//     &as=name     development servers: sign straight in as name (a new account if it's new)
+//                  and choose a character first, on the title screen; the server runs the island
+//                  and keeps it (src/app/online.ts)
+//     &as=name     development servers: sign straight in as name (a new account if it's new) and
+//                  play the character it played last
 //     &fresh       start your island over
 //   ?yard          the old training yard, offline (also what ?test opens, unless ?world is given too)
 //   ?world&test    the open world, offline and paused for automated tests (&load: the island
@@ -94,9 +98,19 @@ const openWorld = !battlefield && !yardMode;
 const team = params.has('team') ? Number(params.get('team')) & 1 : 255;
 const lagMs = Math.max(0, Math.min(2000, Number(params.get('lag')) || 0));
 
-// Emberholm is played on the game server: sign in, and it hands over your island and build, and
-// keeps them from then on. Automated tests and the training yard stay offline.
+// The island's models load from the start (online, while you sign in and choose a character).
+const modelsLoading = openWorld ? loadModels().then((m) => (splash?.step('models'), m)) : null;
+
+// Emberholm is played on the game server: sign in and choose a character, and it hands over their
+// island and build, and keeps them from then on. Automated tests and the training yard stay
+// offline. Online, all of it happens on the title screen (src/ui/splash.ts), which shows the island
+// being built and then fades into the game.
 const online = openWorld && !testMode ? await goOnline(params) : null;
+if (splash) {
+  splash.say('Raising the Island…');
+  splash.toward('world', 3);
+  await splash.paint();
+}
 
 const canvas = document.getElementById('game') as HTMLCanvasElement;
 const world = battlefield ? makeBattlefield() : openWorld ? makeZoneWorld() : makeWorld();
@@ -121,8 +135,23 @@ if (terrain && !serverRules) {
   p.prevPos = { ...p.pos };
 }
 const range = serverRules ? null : new TrainingRange(sim);
-const models = openWorld ? await loadModels() : {};
+if (splash) {
+  splash.step('world');
+  splash.say(splash.has('models') ? 'Planting the Forests…' : 'Loading Models…');
+}
+const models = modelsLoading ? await modelsLoading : {};
+if (splash) {
+  splash.say('Planting the Forests…');
+  splash.toward('stage', 4);
+  await splash.paint();
+}
 const openStage = openWorld ? new OpenStage(canvas, world, models) : null;
+if (splash) {
+  splash.step('stage');
+  splash.say('Waking the Townsfolk…');
+  splash.toward('ready', 5);
+  await splash.paint();
+}
 const stage: { renderer: THREE.WebGLRenderer; scene: THREE.Scene; follow(x: number, z: number, y?: number): void; resize(w: number, h: number): void } =
   openStage ?? new Stage(canvas, world, battlefield ? BATTLEFIELD_STAGE : TRAINING_STAGE);
 const hero = new Hero();
@@ -228,7 +257,8 @@ if (online && life) {
   };
 }
 if (online && lifeUI) lifeUI.devTools = online.welcome.dev;
-if (online && lifeUI) lifeUI.playerName = online.account.username;
+// Your character's name (an account can hold several).
+if (online && lifeUI) lifeUI.playerName = online.welcome.character.name;
 // Faces for the UI, taken from the scene: yours beside your health, the person you're talking to,
 // and all of you in the character window. Kept a few seconds, then taken again.
 const portraits = new Portraits(stage.renderer, stage.scene);
@@ -1205,9 +1235,25 @@ function perf() {
 // ---------- Main loop ----------
 
 let paused = testMode;
+/**
+ * Online, while the server is away (being updated, or the connection dropped): no rules steps,
+ * nothing pressed counts, and the last frame stays up under the screen that says so.
+ */
+let frozen = false;
 let acc = 0;
 let last = performance.now();
 let lastStats = 0;
+/** Frames drawn so far (the title screen fades once the first few are up). */
+let framesDrawn = 0;
+
+/** Throws away whatever was pressed (while frozen): it mustn't all happen at once when play resumes. */
+function dropInput(): void {
+  input.pollLife(true);
+  input.pollMenu();
+  input.pollCamera(0);
+  input.pollCombat();
+  input.pollActions(follow.yaw);
+}
 
 function frame(now: number): void {
   // Asked for first, so one frame that throws can't stop the game.
@@ -1218,7 +1264,9 @@ function frame(now: number): void {
   if (frameTimes.length > 240) frameTimes.shift();
   const cpuStart = performance.now();
 
-  if (!paused) {
+  if (frozen) {
+    dropInput();
+  } else if (!paused) {
     // A window open on a controller has the pad: its stick and buttons drive the window, so you
     // stand still. With a keyboard and mouse you can walk with a window open (walking away from
     // whoever you're talking to closes it). The skill panel and the map take every device.
@@ -1294,8 +1342,10 @@ function frame(now: number): void {
       if (ticks === 3) crowdAcc = 0;
     }
     draw(acc / STEP, dt, dt);
+    framesDrawn++;
   } else {
     draw(1, 0, 0);
+    framesDrawn++;
   }
   cpuMs = cpuMs * 0.95 + (performance.now() - cpuStart) * 0.05;
 
@@ -1697,6 +1747,7 @@ const api = {
           dev: online.welcome.dev,
           claims: online.link.claims,
           status: online.link.status,
+          frozen,
           ticks: online.link.ticks,
           lifeLoaded: online.lifeLoaded?.() ?? false,
           lastSaved: online.link.lastSaved,
@@ -1819,19 +1870,50 @@ if (testMode ? params.has('bugs') : params.get('bugs') !== '0') {
 
 // ---------- The game server ----------
 // Set up last, once everything it touches exists. The badge shows who you are and whether the
-// server is there; play stops if another window takes this character or the sign-in ends.
+// server is there, with Characters (back to the character select screen) and Sign Out. While the
+// server is away - being updated, or the connection dropped - the world freezes under a screen
+// that says so, and carries on when it's back; play stops for good if another window takes this
+// character or the sign-in ends.
 
 if (online) {
   const { link } = online;
-  const badge = new OnlineBadge(`${online.account.username} · Emberholm ${online.welcome.channel}`, async () => {
-    await signOut();
-    location.replace(location.pathname);
+  const exitToSelect = () => leaveFor(plainUrl());
+  const badge = new OnlineBadge(`${online.welcome.character.name} · Emberholm ${online.welcome.channel}`, {
+    characters: exitToSelect,
+    signOut: async () => {
+      await signOut();
+      leaveFor(plainUrl());
+    },
   });
+  if (lifeUI) lifeUI.onExitToSelect = exitToSelect;
+  const overlay = new NetOverlay();
+  let dropTimer = 0;
+  const freeze = (on: boolean) => {
+    if (frozen === on) return;
+    frozen = on;
+    acc = 0;
+    if (on && document.pointerLockElement) document.exitPointerLock();
+  };
   const stopIf = (s: typeof link.status) => {
     badge.set(s);
-    if (s === 'kicked' || s === 'signed-out') {
+    clearTimeout(dropTimer);
+    if (s === 'online') {
+      freeze(false);
+      overlay.hide();
+    } else if (s === 'updating') {
+      freeze(true);
+      overlay.show('updating');
+    } else if (s === 'reconnecting') {
+      // Frozen at once; a blip shorter than this isn't worth a screen.
+      freeze(true);
+      dropTimer = window.setTimeout(() => overlay.show('reconnecting'), 400);
+    } else {
+      freeze(false);
+      overlay.hide();
       paused = true;
       showStopped(s);
+      // Still loading: the title screen mustn't hide why play stopped.
+      void splash?.fadeOut();
     }
   };
   link.onStatus = stopIf;
@@ -1885,4 +1967,15 @@ if (online) {
   else if (link.latest) onTick(link.latest);
   online.lifeLoaded = () => lifeLoaded;
   stopIf(link.status);
+
+  // Into the game: the title screen fades once the first frames are drawn (the first one compiles
+  // the shaders) and your island has arrived, so it opens on your island as it is.
+  if (splash) {
+    const title = splash;
+    title.say('Lighting the Lanterns…');
+    const started = performance.now();
+    const ready = () => framesDrawn >= 3 && (lifeLoaded || performance.now() - started > 4000);
+    const wait = () => (ready() ? void title.fadeOut() : requestAnimationFrame(wait));
+    requestAnimationFrame(wait);
+  }
 }

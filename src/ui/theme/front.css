@@ -1,0 +1,122 @@
+/* The front door, in the Parchment & Timber look: what sits on the title screen (index.html,
+   src/ui/splash.ts) - signing in, the character select screen and its dialogs - and the screens that
+   stop play: the server being updated or out of reach, another window taking over, signing out.
+   Sizes are on the UI's virtual screen, 1029 units tall (src/ui/theme/scale.ts). */
+
+/* ---------- The title screen's layer for cards, scaled like the UI ---------- */
+#sp-ui { position: absolute; left: 0; top: 0; width: calc(100vw / var(--ui-s)); height: calc(100vh / var(--ui-s)); transform: scale(var(--ui-s)); transform-origin: 0 0;
+  font-family: var(--font); color: var(--ink); }
+#sp-ui * { box-sizing: border-box; }
+/* Choosing a character: the name moves up out of the way. */
+#splash[data-mode='select'] .sp-title, #splash[data-mode='entering'] .sp-title { top: calc(22 * var(--u)); transform: translateX(-50%) scale(0.4); }
+#splash[data-mode='select'] .sp-tag, #splash[data-mode='entering'] .sp-tag { opacity: 0; transition: opacity 0.4s; }
+
+/* ---------- Cards, plaques, fields and buttons ---------- */
+.fd-card { position: relative; width: 400px; padding: 40px 32px 26px; color: var(--ink); border: 6px solid transparent; border-radius: 12px; pointer-events: auto;
+  background: var(--rivets), var(--grain) padding-box, var(--parchment) padding-box, var(--wood) border-box;
+  box-shadow: var(--panel-shadow), 0 0 70px rgba(255, 140, 60, 0.18); }
+.fd-plaque { position: absolute; left: 50%; top: -24px; margin: 0; transform: translateX(-50%); padding: 6px 38px 8px; white-space: nowrap; font: 700 22px var(--font-title);
+  letter-spacing: 0.05em; color: #ffeccc; text-shadow: 0 1px 0 #2b0d10; border: 3px solid transparent; border-radius: 4px;
+  background: var(--plaque) padding-box, var(--wood) border-box; box-shadow: var(--card-shadow); }
+.fd-plaque::before, .fd-plaque::after { content: ''; position: absolute; top: 50%; width: 14px; height: 14px; margin-top: -7px; transform: rotate(45deg);
+  background: var(--wood); box-shadow: 0 0 0 2px #2b1a0e; }
+.fd-plaque::before { left: -10px; } .fd-plaque::after { right: -10px; }
+.fd-plaque small { margin-left: 10px; font: 700 14px var(--font); color: #f3c98a; letter-spacing: 0; }
+.fd-sub { margin: 0 0 16px; text-align: center; font-size: 14.5px; color: var(--ink-2); }
+.fd-card p { margin: 0 0 16px; line-height: 1.45; font-size: 14.5px; }
+.fd-card label { display: block; margin: 0 0 12px; font: 700 14px var(--font-title); letter-spacing: 0.04em; color: var(--ink-2); }
+.fd-card input { display: block; width: 100%; margin-top: 5px; padding: 9px 12px; border-radius: 6px; font: 16px var(--font); color: var(--ink-strong); letter-spacing: 0;
+  background: rgba(255, 250, 236, 0.8); border: 1px solid var(--inset-line); box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.18); outline: none; user-select: text; }
+.fd-card input:focus { border-color: var(--title); box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.18), 0 0 0 2px rgba(122, 31, 38, 0.25); }
+.fd-hint { margin: -6px 0 12px; font-size: 12.5px; color: var(--ink-2); }
+.fd-error { min-height: 19px; margin: 2px 0 10px; color: var(--bad); font-size: 13.5px; line-height: 1.35; }
+.fd-card .lui-btn, #sp-ui .lui-btn, #ruina-net .lui-btn { font-family: var(--font-title); letter-spacing: 0.04em; }
+.lui-btn.fd-wide { display: block; width: 100%; padding: 10px; font-size: 17px; }
+.lui-btn.fd-big { padding: 14px 56px 15px; font-size: 23px; border-radius: 8px; }
+.lui-btn.fd-quiet { background: linear-gradient(180deg, #8a6a4a, #5e4329); }
+.lui-btn:disabled { opacity: 0.5; filter: saturate(0.25); cursor: default; }
+.fd-swap { margin-top: 14px; text-align: center; font-size: 14px; color: var(--ink-2); }
+.fd-link { border: 0; padding: 0 2px; background: none; cursor: pointer; font: 700 14.5px var(--font-title); letter-spacing: 0.03em; color: var(--title); text-decoration: underline; text-underline-offset: 3px; }
+.fd-link:hover { color: #a12a33; }
+.fd-actions { display: flex; gap: 12px; justify-content: flex-end; margin-top: 4px; }
+.fd-in { animation: fd-in 0.55s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+@keyframes fd-in { from { opacity: 0; transform: translateY(16px); } }
+
+/* ---------- Signing in ---------- */
+.fd-front { position: absolute; left: 50%; top: 372px; transform: translateX(-50%); }
+.fd-front .fd-card { width: 410px; }
+
+/* ---------- Choosing a character ---------- */
+.cs { position: absolute; inset: 0; pointer-events: none; transition: opacity 0.3s ease-out; }
+.cs.cs-out { opacity: 0; }
+.cs.cs-out * { pointer-events: none !important; }
+.cs-stage { position: absolute; left: 0; right: 470px; top: 96px; bottom: 150px; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }
+.cs-hero { display: block; width: 600px; height: 620px; flex: none; pointer-events: auto; cursor: grab; touch-action: none; }
+.cs-hero:active { cursor: grabbing; }
+.cs-name { position: relative; z-index: 1; margin-top: -58px; padding: 6px 50px 9px; white-space: nowrap; font: 700 34px var(--font-title); letter-spacing: 0.06em; color: #ffeccc;
+  text-shadow: 0 1px 0 #2b0d10; border: 3px solid transparent; border-radius: 4px; background: var(--plaque) padding-box, var(--wood) border-box; box-shadow: var(--card-shadow), 0 0 40px rgba(255, 130, 50, 0.25); }
+.cs-name::before, .cs-name::after { content: ''; position: absolute; top: 50%; width: 18px; height: 18px; margin-top: -9px; transform: rotate(45deg); background: var(--wood); box-shadow: 0 0 0 2px #2b1a0e; }
+.cs-name::before { left: -12px; } .cs-name::after { right: -12px; }
+.cs-chips { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; justify-content: center; }
+.cs-chips span { display: inline-flex; align-items: center; gap: 6px; padding: 4px 13px 5px; border-radius: 999px; white-space: nowrap; font: 700 14px var(--font-title); letter-spacing: 0.04em;
+  color: #f8e2bb; background: rgba(24, 12, 24, 0.62); box-shadow: 0 0 0 1px rgba(255, 196, 120, 0.4), 0 4px 10px rgba(0, 0, 0, 0.35); }
+.cs-chips span b { font-family: var(--font); color: #ffd77a; }
+.cs-chips .mny b { font-family: var(--font); }
+.cs-empty { margin-bottom: 120px; text-align: center; pointer-events: auto; }
+.cs-empty h2 { margin: 0 0 10px; font: 700 34px var(--font-title); color: #ffe2a8; text-shadow: 0 2px 6px rgba(0, 0, 0, 0.6); }
+.cs-empty p { margin: 0 0 18px; color: #f6dcb0; font-size: 16px; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8); }
+.cs-panel { position: absolute; right: 56px; top: 150px; width: 384px; padding: 40px 18px 18px; }
+.cs-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+.cs-row { display: grid; grid-template-columns: 48px 1fr auto; column-gap: 12px; align-items: center; width: 100%; min-height: 62px; padding: 7px 12px 7px 8px; text-align: left; cursor: pointer;
+  font: inherit; color: var(--ink); border: 2px solid transparent; border-radius: 8px;
+  background: var(--inset) padding-box, linear-gradient(180deg, rgba(140, 95, 45, 0.35), rgba(110, 70, 30, 0.45)) border-box; transition: transform 0.12s; }
+.cs-row:hover { transform: translateX(-3px); background: linear-gradient(180deg, rgba(255, 246, 220, 0.6), rgba(240, 220, 175, 0.45)) padding-box, linear-gradient(180deg, rgba(160, 110, 50, 0.55), rgba(120, 75, 30, 0.6)) border-box; }
+.cs-row .ib { width: 46px; height: 46px; }
+.cs-row .ib > img, .cs-row .ib > .pxi { width: 32px; height: 32px; }
+.cs-row .n { display: block; font: 700 19px/1.15 var(--font-title); letter-spacing: 0.03em; color: var(--ink-strong); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cs-row .d { display: block; margin-top: 2px; font-size: 13px; color: var(--ink-2); white-space: nowrap; }
+.cs-row .when { align-self: start; margin-top: 4px; font-size: 12px; color: var(--ink-2); white-space: nowrap; }
+.cs-row.sel { background: var(--slot-sel) padding-box, var(--brass) border-box; box-shadow: 0 0 0 1.5px #2b1a0e, 0 0 16px var(--glow); }
+.cs-row.sel .n { color: var(--title); }
+.cs-row.empty { grid-template-columns: 1fr; min-height: 48px; place-items: center; font: 700 14px var(--font-title); letter-spacing: 0.05em; color: rgba(110, 82, 54, 0.75);
+  background: none; border: 2px dashed rgba(110, 70, 30, 0.35); }
+.cs-row.empty:hover { color: var(--title); border-color: rgba(122, 31, 38, 0.5); transform: none; }
+.cs-row:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.cs-buttons { display: flex; flex-direction: column; gap: 10px; }
+.cs-enter { position: absolute; left: 0; right: 470px; bottom: 58px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.cs-enter .lui-btn { pointer-events: auto; }
+.cs-enter .lui-btn:not(:disabled) { animation: cs-glow 2.6s ease-in-out infinite; }
+@keyframes cs-glow { 50% { box-shadow: 0 0 0 2px #d4a04c, 0 0 0 3.5px #2b1a0e, 0 3px 0 2px rgba(60, 30, 10, 0.3), 0 0 34px rgba(255, 190, 80, 0.75); } }
+.cs-enter .tip { font-size: 13px; color: rgba(246, 220, 176, 0.75); text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9); }
+.cs-account { position: absolute; left: 28px; bottom: 24px; display: flex; align-items: center; gap: 10px; pointer-events: auto; font-size: 14px; color: #f6dcb0; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9); }
+.cs-account b { color: #ffe2a8; }
+
+/* ---------- Dialogs over the select screen ---------- */
+.fd-modal { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: auto; background: rgba(8, 4, 14, 0.58); animation: fd-fade 0.25s ease-out both; }
+.fd-modal .fd-card { width: 430px; }
+.fd-modal .fd-card.danger .fd-plaque { background: linear-gradient(180deg, #a3282b, #5c1214) padding-box, var(--wood) border-box; }
+.fd-modal .fd-card p b { color: var(--title); }
+@keyframes fd-fade { from { opacity: 0; } }
+
+/* ---------- When play stops: an update, a lost connection, another window, signed out ---------- */
+#ruina-net { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; pointer-events: auto;
+  background: radial-gradient(ellipse at 50% 45%, rgba(26, 12, 30, 0.42), rgba(8, 4, 14, 0.82)); backdrop-filter: blur(3px) saturate(0.75); animation: fd-fade 0.3s ease-out both; }
+#ruina-net .fd-card { width: 540px; padding: 52px 40px 30px; text-align: center; }
+#ruina-net .fd-plaque { font-size: 26px; padding: 7px 44px 9px; top: -27px; }
+#ruina-net .fd-card p { margin: 16px 0 0; font-size: 18.5px; line-height: 1.45; }
+#ruina-net .net-status { margin-top: 12px; font: 700 15.5px var(--font-title); letter-spacing: 0.06em; color: var(--ink-2); }
+#ruina-net .lui-btn { margin-top: 18px; }
+.net-spin { position: relative; width: 66px; height: 66px; margin: 2px auto 4px; }
+.net-spin::before { content: ''; position: absolute; inset: 0; border-radius: 50%; animation: net-turn 1.15s linear infinite;
+  background: conic-gradient(from 0deg, rgba(201, 146, 63, 0) 0deg, rgba(201, 146, 63, 0.2) 90deg, #e0a84a 250deg, #fff1c0 300deg, rgba(201, 146, 63, 0) 302deg);
+  -webkit-mask: radial-gradient(circle, transparent 23px, #000 24px, #000 31px, transparent 32px); mask: radial-gradient(circle, transparent 23px, #000 24px, #000 31px, transparent 32px); }
+.net-spin::after { content: ''; position: absolute; left: 50%; top: 50%; width: 16px; height: 16px; margin: -8px 0 0 -8px; transform: rotate(45deg);
+  background: linear-gradient(135deg, #fff1c0, #d9922a); box-shadow: 0 0 0 2px #2b1a0e, 0 0 14px rgba(255, 170, 70, 0.8); animation: net-beat 1.6s ease-in-out infinite; }
+@keyframes net-beat { 50% { transform: rotate(45deg) scale(0.8); } }
+@keyframes net-turn { to { transform: rotate(360deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .fd-in, .fd-modal, #ruina-net, .cs-enter .lui-btn, .net-spin::after { animation: none !important; }
+  .net-spin::before { animation-duration: 4s; }
+  .cs-row, .cs { transition: none; }
+}

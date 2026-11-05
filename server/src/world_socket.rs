@@ -6,10 +6,15 @@
 //! back, 20 times a second, where it really is, what its island holds, and everyone else in the
 //! channel. Islands are kept in Postgres, written by the server from its own copy.
 //!
+//! /ws/world?character=<id> plays that character, if it's the signed-in account's; without one, the
+//! character the account played last.
+//!
 //!   server -> browser  (text) welcome {protocol, character, account, build, now, channel, dev, estates, claims}
 //!                      tick {tick, you, peers, actors, arrows, meteors, events, lifeEvents?, life?}
 //!                      estate {id, name, estate} | claims {claims} | left {id} | saved {at}
 //!                      | reset | kicked | error {text}
+//!                      | updating: the server is stopping for an update; once the island is
+//!                        written, the connection closes with 1012 (service restart)
 //!   browser -> server  (binary) inputs: 7, count, then per input a u32 sequence number and 10 bytes
 //!                      (src/net/netPlayer.ts quantize)
 //!                      (text) cmd {s, c} | build {build} | reset
@@ -20,8 +25,8 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use argon2::password_hash::rand_core::{OsRng, RngCore};
 use axum::body::Bytes;
-use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
-use axum::extract::State;
+use axum::extract::ws::{close_code, CloseFrame, Message, WebSocket, WebSocketUpgrade};
+use axum::extract::{Query, State};
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
 use futures_util::stream::SplitSink;
@@ -30,9 +35,10 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 use sqlx::types::Json;
 use sqlx::PgPool;
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, watch, Notify};
 
 use crate::accounts::{signed_in, Account};
+use crate::characters;
 use crate::channels::CHANNEL_CAP;
 use crate::game::OPEN_INPUT;
 use crate::http::{same_origin, App};
@@ -55,12 +61,31 @@ const SEND_INPUTS: u8 = 7;
 /// (src/net/worldLink.ts WORLD_PROTOCOL).
 pub const WORLD_PROTOCOL: u32 = 4;
 
+/// Where the server is in its life. Railway starts a new server for an update, then stops this one.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Stage {
+    Running,
+    /// Stopping: every browser has been told the server is being updated, and the islands are
+    /// being written. Nobody new comes in.
+    Updating,
+    /// The islands are written: every connection closes as a service restart (1012).
+    Closing,
+}
+
 /// Which connection is playing each character (so a second window takes over from the first),
-/// and the channels.
-#[derive(Default)]
+/// the channels, and whether the server is stopping.
 pub struct Hub {
     live: Mutex<HashMap<i64, (i64, mpsc::Sender<()>)>>,
     channels: Mutex<HashMap<i32, ChannelGame>>,
+    stage: watch::Sender<Stage>,
+    /// Asked to stop the way SIGTERM asks (the developer endpoint, for tests).
+    stop: Notify,
+}
+
+impl Default for Hub {
+    fn default() -> Self {
+        Hub { live: Mutex::default(), channels: Mutex::default(), stage: watch::channel(Stage::Running).0, stop: Notify::new() }
+    }
 }
 
 impl Hub {
@@ -82,10 +107,38 @@ impl Hub {
         self.live.lock().unwrap().len()
     }
 
+    /// Whether a connection is playing this character right now.
+    pub fn is_playing(&self, character: i64) -> bool {
+        self.live.lock().unwrap().contains_key(&character)
+    }
+
     fn with_channel<T>(&self, id: i32, f: impl FnOnce(&mut ChannelGame) -> T) -> T {
         // A connection that failed halfway through a change mustn't stop everyone else's.
         let mut channels = self.channels.lock().unwrap_or_else(|e| e.into_inner());
         f(channels.entry(id).or_insert_with(|| ChannelGame::new(id)))
+    }
+
+    /// A character is gone for good (deleted): their estate comes down in their channel, if that
+    /// channel is running (one that isn't reads its residents without them when it starts).
+    pub fn remove_resident(&self, channel: i32, character: i64) {
+        let mut channels = self.channels.lock().unwrap_or_else(|e| e.into_inner());
+        if let Some(ch) = channels.get_mut(&channel) {
+            ch.remove_resident(character);
+        }
+    }
+
+    pub fn stage(&self) -> Stage {
+        *self.stage.borrow()
+    }
+
+    /// Stops the server the way SIGTERM does (the developer endpoint).
+    pub fn ask_to_stop(&self) {
+        self.stop.notify_one();
+    }
+
+    /// Resolves once ask_to_stop is called.
+    pub async fn stop_asked(&self) {
+        self.stop.notified().await
     }
 }
 
@@ -143,6 +196,23 @@ pub fn spawn_world(app: App) {
         .expect("start the world thread");
 }
 
+/// The server is stopping (Railway stops the old server once the new one is up, and DEV_LOGIN's
+/// /api/dev/stop does the same). Everyone hears that the game is being updated, so their browser
+/// freezes the world; a moment later, once inputs already on their way have landed, their islands
+/// are written; then their connections close as a service restart (1012), and their browsers come
+/// back, on the new server, to where they were.
+pub async fn stop_world(app: &App) {
+    app.world.stage.send_replace(Stage::Updating);
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    save_everyone(app).await;
+    app.world.stage.send_replace(Stage::Closing);
+    // A moment for the connections to close properly.
+    let deadline = Instant::now() + Duration::from_secs(3);
+    while app.world.count() > 0 && Instant::now() < deadline {
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
+}
+
 /// Writes the island of everyone playing right now (the server is stopping).
 pub async fn save_everyone(app: &App) {
     let Some(db) = app.db.clone() else { return };
@@ -161,12 +231,22 @@ pub async fn save_everyone(app: &App) {
     println!("saved {written} islands");
 }
 
-pub async fn upgrade(State(app): State<App>, headers: HeaderMap, ws: WebSocketUpgrade) -> Response {
+/// Which character a browser wants to play (/ws/world?character=<id>).
+#[derive(Deserialize)]
+pub struct Which {
+    character: Option<i64>,
+}
+
+pub async fn upgrade(State(app): State<App>, headers: HeaderMap, Query(which): Query<Which>, ws: WebSocketUpgrade) -> Response {
     let Some(db) = app.db.clone() else {
         return (StatusCode::SERVICE_UNAVAILABLE, "this server has no database").into_response();
     };
     if !same_origin(&headers) {
         return (StatusCode::FORBIDDEN, "wrong origin").into_response();
+    }
+    // Stopping for an update: the browser keeps trying, and finds the new server.
+    if app.world.stage() != Stage::Running {
+        return (StatusCode::SERVICE_UNAVAILABLE, "the server is restarting").into_response();
     }
     let account = match signed_in(&headers, &db).await {
         Ok(Some(a)) => a,
@@ -176,12 +256,19 @@ pub async fn upgrade(State(app): State<App>, headers: HeaderMap, ws: WebSocketUp
             return (StatusCode::INTERNAL_SERVER_ERROR, "database error").into_response();
         }
     };
+    let (character, name) = match characters::pick(&db, account.id, which.character).await {
+        Ok(Some(c)) => c,
+        Ok(None) => return (StatusCode::NOT_FOUND, "no such character").into_response(),
+        Err(e) => {
+            eprintln!("database error: {e}");
+            return (StatusCode::INTERNAL_SERVER_ERROR, "database error").into_response();
+        }
+    };
     ws.max_message_size(MAX_MESSAGE).on_upgrade(move |socket| async move {
-        let character = account.character_id;
         let session = (OsRng.next_u64() >> 1) as i64;
         let (kick, kicked) = mpsc::channel(1);
         app.world.claim(character, session, kick);
-        if let Err(e) = play(socket, &app, &db, &account, session, kicked).await {
+        if let Err(e) = play(socket, &app, &db, &account, (character, name), session, kicked).await {
             eprintln!("world connection for {} ended: {e}", account.username);
         }
         app.world.release(character, session);
@@ -282,10 +369,17 @@ pub fn parse_build(v: &Value, budget: u32) -> Option<Build> {
     (valid_build(&b.skills, b.weapon, &b.abilities, budget) && valid_movement(&b.skills, &b.movement)).then_some(b)
 }
 
-async fn play(socket: WebSocket, app: &App, db: &PgPool, account: &Account, session: i64, mut kicked: mpsc::Receiver<()>) -> Result<(), String> {
-    let character = account.character_id;
-    let name = account.character.clone();
+async fn play(
+    socket: WebSocket,
+    app: &App,
+    db: &PgPool,
+    account: &Account,
+    (character, name): (i64, String),
+    session: i64,
+    mut kicked: mpsc::Receiver<()>,
+) -> Result<(), String> {
     let (mut tx, mut rx) = socket.split();
+    let mut stage = app.world.stage.subscribe();
 
     let channel = home_channel(db, character).await.map_err(|e| e.to_string())?;
     load_channel(app, db, channel).await.map_err(|e| e.to_string())?;
@@ -293,7 +387,7 @@ async fn play(socket: WebSocket, app: &App, db: &PgPool, account: &Account, sess
     // Taking the character over: from here on only this connection's saves are written, so a
     // window it replaced can't write over it.
     let (island, build, saved_at): (Option<Json<Value>>, Option<Json<Value>>, Option<i64>) = sqlx::query_as(
-        "UPDATE characters SET live_session = $2 WHERE id = $1 \
+        "UPDATE characters SET live_session = $2, last_played_at = now() WHERE id = $1 \
          RETURNING island, build, (extract(epoch FROM saved_at) * 1000)::bigint",
     )
     .bind(character)
@@ -336,6 +430,12 @@ async fn play(socket: WebSocket, app: &App, db: &PgPool, account: &Account, sess
         }),
     )
     .await?;
+    // The server may have begun stopping while this connection was being set up.
+    let mut told = false;
+    let now = *stage.borrow_and_update();
+    if let Some(done) = stopping(&mut tx, now, &mut told).await? {
+        return Ok(done);
+    }
 
     let mut last_heard = Instant::now();
     let mut last_ping = Instant::now();
@@ -392,6 +492,12 @@ async fn play(socket: WebSocket, app: &App, db: &PgPool, account: &Account, sess
             }
             Some(text) = outbox.recv() => tx.send(Message::Text(text.into())).await.map_err(|e| e.to_string())?,
             _ = kicked.recv() => return replaced(&mut tx).await,
+            Ok(()) = stage.changed() => {
+                let now = *stage.borrow_and_update();
+                if let Some(done) = stopping(&mut tx, now, &mut told).await? {
+                    return Ok(done);
+                }
+            }
             _ = tick.tick() => {
                 if last_heard.elapsed() > IDLE {
                     break;
@@ -465,6 +571,25 @@ async fn replaced(tx: &mut Tx) -> Result<(), String> {
     Ok(())
 }
 
+/// The server is stopping for an update. The browser hears it first (`updating`: it freezes the
+/// world); once the islands are written it's hung up on as a service restart (1012), and waits for
+/// the new server. Some(()) once the connection is closed. `told`: whether it has heard already (a
+/// busy connection may only notice the stop once the islands are written, and still hears it first).
+async fn stopping(tx: &mut Tx, stage: Stage, told: &mut bool) -> Result<Option<()>, String> {
+    if stage == Stage::Running {
+        return Ok(None);
+    }
+    if !*told {
+        *told = true;
+        send(tx, json!({ "t": "updating" })).await?;
+    }
+    if stage == Stage::Closing {
+        let _ = tx.send(Message::Close(Some(CloseFrame { code: close_code::RESTART, reason: "service restart".into() }))).await;
+        return Ok(Some(()));
+    }
+    Ok(None)
+}
+
 async fn send(tx: &mut Tx, v: Value) -> Result<(), String> {
     tx.send(Message::Text(v.to_string().into())).await.map_err(|e| e.to_string())
 }
@@ -505,5 +630,55 @@ mod tests {
         let three = json!({ "skills": crate::skills::skills_from(&["sword", "cleave", "whirlwind"]), "weapon": 0 });
         assert!(parse_build(&three, 2).is_none());
         assert!(parse_build(&three, 3).is_some());
+    }
+
+    fn app() -> App {
+        std::sync::Arc::new(crate::http::AppState {
+            db: None,
+            battle: None,
+            world: Hub::default(),
+            dev_login: true,
+            dev_tools: true,
+            secure_cookies: false,
+            failed_logins: Mutex::new(HashMap::new()),
+        })
+    }
+
+    #[tokio::test]
+    async fn stopping_tells_every_connection_before_it_closes_them() {
+        let app = app();
+        // What each connection watches (play() subscribes the same way).
+        let mut heard = app.world.stage.subscribe();
+        assert_eq!(app.world.stage(), Stage::Running);
+        let stop = tokio::spawn({
+            let app = app.clone();
+            async move { stop_world(&app).await }
+        });
+        heard.changed().await.unwrap();
+        assert_eq!(*heard.borrow_and_update(), Stage::Updating, "told before anything closes");
+        heard.changed().await.unwrap();
+        assert_eq!(*heard.borrow_and_update(), Stage::Closing);
+        // Nobody connected: it doesn't hang about waiting for anyone.
+        tokio::time::timeout(Duration::from_secs(2), stop).await.expect("stopped promptly").unwrap();
+    }
+
+    #[tokio::test]
+    async fn the_developer_endpoint_stops_the_server_like_a_deploy() {
+        let app = app();
+        let asked = tokio::spawn({
+            let app = app.clone();
+            async move { app.world.stop_asked().await }
+        });
+        // Asked before or after anyone listens, it isn't lost.
+        app.world.ask_to_stop();
+        tokio::time::timeout(Duration::from_secs(2), asked).await.expect("heard").unwrap();
+    }
+
+    #[test]
+    fn deleting_a_character_leaves_channels_nobody_started_alone() {
+        let hub = Hub::default();
+        hub.remove_resident(4, 99);
+        assert!(hub.channels.lock().unwrap().is_empty(), "no channel made just to delete from it");
+        assert!(!hub.is_playing(99));
     }
 }
