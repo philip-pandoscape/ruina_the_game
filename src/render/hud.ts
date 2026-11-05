@@ -13,9 +13,9 @@ const HINTS: Record<Device, string> = {
     item(key('Space'), 'Jump ×2'),
     item(key('LMB') + key('J'), 'Attack'),
     item(key('C'), 'Slide'),
-    item(key('1') + key('–') + key('8'), 'Hotbar (hold to aim)'),
-    item(key('Q') + key('E'), 'Dodge / block'),
-    item(key('Tab'), 'Next target'),
+    item(key('1') + key('–') + key('8'), 'Hotbar (Hold to Aim)'),
+    item(key('Q') + key('E'), 'Dodge / Block'),
+    item(key('Tab'), 'Next Target'),
     item(key('T'), 'Skills'),
   ].join(''),
   gamepad: [
@@ -26,9 +26,9 @@ const HINTS: Record<Device, string> = {
     item(key('A', 'pad pad-a'), 'Jump ×2'),
     item(key('X', 'pad pad-x'), 'Attack'),
     item(key('B', 'pad pad-b'), 'Slide'),
-    item(key('LT', 'stick') + key('RT', 'stick') + key('+ABXY'), 'Hotbar (hold to aim)'),
-    item(key('LB', 'stick') + key('RB', 'stick'), 'Dodge / block'),
-    item(key('D-pad', 'stick'), 'Next target'),
+    item(key('LT', 'stick') + key('RT', 'stick') + key('+ABXY'), 'Hotbar (Hold to Aim)'),
+    item(key('LB', 'stick') + key('RB', 'stick'), 'Dodge / Block'),
+    item(key('D-pad', 'stick'), 'Next Target'),
     item(key('View', 'stick'), 'Skills'),
   ].join(''),
 };
@@ -175,7 +175,7 @@ export class Hud {
     bar.classList.toggle('hurt', hp < max * 0.35);
     (bar.querySelector('.fill') as HTMLDivElement).style.width = `${Math.round((hp / max) * 100)}%`;
     (bar.querySelector('.label') as HTMLSpanElement).textContent =
-      hp <= 0 ? 'Knocked down…' : team === null ? `${Math.round(hp)} / ${max}` : `${team === 0 ? 'Blue' : 'Red'} team · ${Math.round(hp)} / ${max}`;
+      hp <= 0 ? 'Knocked Down…' : team === null ? `${Math.round(hp)} / ${max}` : `${team === 0 ? 'Blue' : 'Red'} Team · ${Math.round(hp)} / ${max}`;
   }
 
   // The ability bar: weapon, two ability slots with cooldowns, and the skills button.
@@ -194,7 +194,7 @@ export class Hud {
       this.barKey = key;
       const slot = (a: number, i: number) => {
         const info = look.ability(a);
-        const title = info ? info[1] : 'Empty slot: drag an ability here from the skill trees';
+        const title = info ? info[1] : 'Empty Slot: drag an ability here from the skill book';
         return `<div class="slot${info ? '' : ' empty'}" data-slot="${i + 1}" draggable="${info ? 'true' : 'false'}" title="${title}">
           <span class="icon">${info ? iconHtml(info[0], undefined, 36) : ''}</span><span class="cd"></span><span class="secs"></span><span class="bind">${binds[i]}</span></div>`;
       };

@@ -25,6 +25,7 @@ import { iconHtml, iconUrl, money } from '../theme/icons';
 import { GOLD_STAR, pixelIcon } from '../theme/pixelIcons';
 import { setUserScale, uiRoot, userScale, UI_SCALE_MAX, UI_SCALE_MIN } from '../theme/scale';
 import { addTipSource, hideTip, tipFor, wireTips } from '../theme/tooltip';
+import { closeMenu, menuPress, openMenu, type MenuEntry } from '../theme/contextMenu';
 
 // The open world's HUD and windows. Everything here only reads the life state and queues commands;
 // nothing in the UI changes the world directly. Windows dock at the side and leave the world
@@ -75,7 +76,7 @@ const GREETINGS: Record<string, string> = {
 const BENCH_OF: Record<string, string> = { tamsin: 'lanternwickBench', hob: 'sawhorse', brenna: 'stonecutter' };
 /** How far you can walk from whoever you're dealing with before their window closes. */
 const WALK_AWAY = 9;
-const CAT: Record<string, string> = { seed: 'Seed', produce: 'Produce', material: 'Material', consumable: 'Consumable', placeable: 'Placeable', glider: 'Glider', deed: 'Vehicle deed', mount: 'Mount' };
+const CAT: Record<string, string> = { seed: 'Seed', produce: 'Produce', material: 'Material', consumable: 'Consumable', placeable: 'Placeable', glider: 'Glider', deed: 'Vehicle Deed', mount: 'Mount' };
 
 /** "☀️ 14:20" or "🌙 23:05" for an hour of the day. */
 function clock(h: number, sky: { sunrise: number; sunset: number }): string {
@@ -164,7 +165,7 @@ export class LifeUI {
     this.minimap.innerHTML =
       '<div class="ring"></div><div class="rim"></div><i class="stud" style="left:50%;top:4.5px"></i><i class="stud" style="left:calc(100% - 4.5px);top:50%"></i>' +
       '<i class="stud" style="left:50%;top:calc(100% - 4.5px)"></i><i class="stud" style="left:4.5px;top:50%"></i><span class="n">N</span>' +
-      '<span class="zoom in" data-zoom="1" title="Zoom in">+</span><span class="zoom out" data-zoom="-1" title="Zoom out">−</span>';
+      '<span class="zoom in" data-zoom="1" title="Zoom In">+</span><span class="zoom out" data-zoom="-1" title="Zoom Out">−</span>';
     this.mapCanvas.width = this.mapCanvas.height = 280;
     this.minimap.prepend(this.mapCanvas);
     this.minimap.addEventListener('click', (e) => {
@@ -185,6 +186,7 @@ export class LifeUI {
     this.bagEl.hidden = true;
     for (const w of [this.card, this.bagEl]) {
       w.addEventListener('click', (e) => this.onWindowClick(e, w));
+      w.addEventListener('contextmenu', (e) => this.onWindowMenu(e, w));
       w.addEventListener('input', (e) => {
         const t = e.target as HTMLInputElement;
         if (t.dataset.set === 'uiScale') {
@@ -285,6 +287,9 @@ export class LifeUI {
     if (!this.panel && !this.bagOpen) return false;
     // The skill book and tree have their own keys, open window or not.
     if (m === 'tab' || m === 'tree' || m === 'toggle') return false;
+    // An item's menu, while it's open, takes the presses.
+    if ((m === 'up' || m === 'down' || m === 'select' || m === 'back') && menuPress(m)) return true;
+    if (m === 'left' || m === 'right' || m === 'reset') closeMenu();
     if (m === 'back') {
       if (this.panel) this.close();
       else this.closeBag();
@@ -294,8 +299,16 @@ export class LifeUI {
     if (!buttons.length) return true;
     if (m === 'up' || m === 'left') this.menuFocus = this.menuFocus <= 0 ? buttons.length - 1 : this.menuFocus - 1;
     else if (m === 'down' || m === 'right') this.menuFocus = (this.menuFocus + 1) % buttons.length;
-    else if (m === 'select' && this.menuFocus >= 0) {
-      buttons[Math.min(this.menuFocus, buttons.length - 1)].click();
+    else if ((m === 'select' || m === 'reset') && this.menuFocus >= 0) {
+      const b = buttons[Math.min(this.menuFocus, buttons.length - 1)];
+      // An item in the bag: A does its main thing, as a double-click would, and Y opens its menu.
+      if (b.dataset.act === 'sel' && this.bagEl.contains(b)) {
+        if (m === 'select') this.itemPrimary(Number(b.dataset.arg));
+        else {
+          const r = b.getBoundingClientRect();
+          this.itemMenu(Number(b.dataset.arg), r.right, r.top);
+        }
+      } else if (m === 'select') b.click();
       return true;
     }
     this.showMenuFocus();
@@ -341,6 +354,7 @@ export class LifeUI {
     this.card.innerHTML = '';
     this.handlers = {};
     hideTip();
+    closeMenu();
     if (wasShop) this.closeBag();
   }
 
@@ -357,6 +371,7 @@ export class LifeUI {
     this.bagEl.hidden = true;
     this.bagEl.innerHTML = '';
     hideTip();
+    closeMenu();
   }
 
   /** Closes every window. */
@@ -373,6 +388,33 @@ export class LifeUI {
     if (act === 'close') return w === this.bagEl ? this.closeBag() : this.close();
     const h = (w === this.bagEl ? this.bagHandlers : this.handlers)[act];
     h?.(b.dataset.arg ?? '', e);
+  }
+
+  /** Right-click on an item, in the bag or a merchant's window: what can be done with it. */
+  private onWindowMenu(e: MouseEvent, w: HTMLElement): void {
+    e.preventDefault();
+    const b = (e.target as HTMLElement).closest('[data-act]') as HTMLElement | null;
+    const act = b?.dataset.act ?? '';
+    if (!b) return;
+    if (w === this.bagEl && act === 'sel') this.itemMenu(Number(b.dataset.arg), e.clientX, e.clientY);
+    else if (w === this.card && (act === 'buy' || act === 'sell' || act === 'buyback')) this.shopMenu(act, b.dataset.arg ?? '', b.hasAttribute('disabled'), e.clientX, e.clientY);
+  }
+
+  /** A merchant's item: buy or sell one, or a handful. */
+  private shopMenu(act: 'buy' | 'sell' | 'buyback', item: string, cant: boolean, x: number, y: number): void {
+    const p = this.panel;
+    if (p?.kind !== 'shop') return;
+    const life = this.life;
+    const def = itemDef(item);
+    const go = (t: 'buy' | 'sell' | 'buyback', n: number) => () => life.command({ t, npc: p.id, item, n });
+    const broke = cant ? 'Not enough money' : undefined;
+    const entries: MenuEntry[] =
+      act === 'buy'
+        ? [{ label: 'Buy One', primary: true, disabled: broke, run: go('buy', 1) }, ...(def.stack > 1 ? [{ label: 'Buy Five', disabled: broke, run: go('buy', 5) }] : [])]
+        : act === 'sell'
+          ? [{ label: 'Sell One', primary: true, run: go('sell', 1) }, { label: 'Sell All', run: go('sell', 9999) }]
+          : [{ label: 'Buy Back One', primary: true, disabled: broke, run: go('buyback', 1) }, { label: 'Buy Back All', disabled: broke, run: go('buyback', 9999) }];
+    openMenu(x, y, def.name, entries);
   }
 
   // ---------- Events from the world ----------
@@ -427,7 +469,7 @@ export class LifeUI {
 
   private signature(): string {
     const s = this.life.state;
-    return [s.coins, s.seals, Math.floor(s.labor / 5), this.life.revision, s.bag.map((b) => `${b.item}${b.n}`).join(), s.quests.active.map((q) => `${q.id}${q.step}${q.counts}`).join(), s.quests.done.length, this.sel, this.logSel, this.d.sim.player.pack, this.d.sim.player.weapon, this.d.sim.player.skills.join(), s.vehicles.length, s.glider, s.seed, s.contracts?.active.length, s.contracts?.offered.length, s.buyback?.map((b) => `${b.npc}${b.item}${b.n}`).join(), Math.round(this.hp)].join('|');
+    return [s.coins, s.seals, Math.floor(s.labor / 5), this.life.revision, s.bag.map((b) => `${b.item}${b.n}`).join(), s.quests.active.map((q) => `${q.id}${q.step}${q.counts}`).join(), s.quests.done.length, this.logSel, this.d.sim.player.pack, this.d.sim.player.weapon, this.d.sim.player.skills.join(), s.vehicles.length, s.glider, s.seed, s.contracts?.active.length, s.contracts?.offered.length, s.buyback?.map((b) => `${b.npc}${b.item}${b.n}`).join(), Math.round(this.hp)].join('|');
   }
 
   /** Portraits arrive a frame or two after a window opens and are retaken now and then: show the latest. */
@@ -490,7 +532,7 @@ export class LifeUI {
       `<div class="hud-bar" style="--c:${c}"><span class="cap">${icon}</span><div class="track"><div class="fill" style="width:calc((100% - 12px) * ${Math.max(0, Math.min(1, frac)).toFixed(3)})"></div><span class="txt">${txt}</span></div></div>`;
     this.vitals.innerHTML =
       (this.maxHp > 0 ? bar(pixelIcon('heart', 20), 'var(--hp)', this.hp / this.maxHp, `${Math.max(0, Math.round(this.hp))} / ${this.maxHp}`) : '') +
-      bar(pixelIcon('bolt', 20), 'var(--labor)', s.labor / LABOR.max, `${Math.floor(s.labor)} / ${LABOR.max}${this.life.resting ? ' · resting ×3' : ''}`) +
+      bar(pixelIcon('bolt', 20), 'var(--labor)', s.labor / LABOR.max, `${Math.floor(s.labor)} / ${LABOR.max}${this.life.resting ? ' · Resting ×3' : ''}`) +
       `<div class="hud-purse"><span class="hud-pill" title="Money">${money(s.coins, 16)}</span><span class="hud-pill" title="Seals">${pixelIcon('seal', 18)}${s.seals}</span></div>`;
   }
 
@@ -539,21 +581,21 @@ export class LifeUI {
       g.fillStyle = '#fff6e2';
       g.fillText(pl.name, x, y + 28);
     }
-    // Townsfolk with something for you.
+    // Townsfolk with something for you. A quest to hand in always shows: off the map, it is pinned
+    // to the rim in their direction. One on offer shows while they are in view.
+    const rim = N / 2 - 18;
     for (const n of r.npcs) {
       const qa = questsAt(this.life, n.id);
-      if (!qa.offer.length && !qa.turnIn.length) continue;
-      const [x, y] = at(n.x, n.z);
-      g.fillStyle = qa.turnIn.length ? '#4fae3a' : '#f0b432';
-      g.strokeStyle = '#2b1a0e';
-      g.lineWidth = 3;
-      g.beginPath();
-      g.arc(x, y, 9, 0, Math.PI * 2);
-      g.fill();
-      g.stroke();
-      g.fillStyle = '#fff';
-      g.font = 'bold 14px Georgia, serif';
-      g.fillText(qa.turnIn.length ? '?' : '!', x, y + 5);
+      const ready = qa.turnIn.length > 0;
+      if (!ready && !qa.offer.length) continue;
+      let [x, y] = at(n.x, n.z);
+      const d = Math.hypot(x - N / 2, y - N / 2);
+      if (d > rim) {
+        if (!ready) continue;
+        x = N / 2 + ((x - N / 2) / d) * rim;
+        y = N / 2 + ((y - N / 2) / d) * rim;
+      }
+      questMark(g, x, y, ready, 15);
     }
     for (const o of this.others()) {
       if (!o.online) continue;
@@ -568,16 +610,23 @@ export class LifeUI {
     }
     const goal = this.goal();
     if (goal) {
-      const [gx, gy] = at(goal.x, goal.z);
+      let [gx, gy] = at(goal.x, goal.z);
+      const d = Math.hypot(gx - N / 2, gy - N / 2);
+      if (d > rim) {
+        gx = N / 2 + ((gx - N / 2) / d) * rim;
+        gy = N / 2 + ((gy - N / 2) / d) * rim;
+      }
       g.strokeStyle = '#ffd166';
       g.lineWidth = 4;
       g.beginPath();
-      g.arc(Math.max(16, Math.min(N - 16, gx)), Math.max(16, Math.min(N - 16, gy)), 11, 0, Math.PI * 2);
+      g.arc(gx, gy, 11, 0, Math.PI * 2);
       g.stroke();
     }
+    // You, pointing the way you face. North is up and east to the right, so a heading of `facing`
+    // (x = sin, z = cos) points at (-sin, -cos) on the canvas: a turn of -facing from straight up.
     g.save();
     g.translate(N / 2, N / 2);
-    g.rotate(-p.facing + Math.PI);
+    g.rotate(-p.facing);
     g.fillStyle = '#ff5a5a';
     g.strokeStyle = '#fff';
     g.lineWidth = 3;
@@ -655,20 +704,20 @@ export class LifeUI {
         }
         if (o.type === 'craftPack') return { x: r.workbenches[0].x, z: r.workbenches[0].z, label: 'Specialty Workbench' };
         if (o.type === 'placeScarecrow') return { x: r.farmland.x, z: r.farmland.z, label: 'Barleybrook Fields' };
-        if ((o.type === 'plant' || o.type === 'harvest' || o.type === 'raise') && life.state.scarecrows[0]) return { x: life.state.scarecrows[0].x, z: life.state.scarecrows[0].z, label: 'Your plot' };
+        if ((o.type === 'plant' || o.type === 'harvest' || o.type === 'raise') && life.state.scarecrows[0]) return { x: life.state.scarecrows[0].x, z: life.state.scarecrows[0].z, label: 'Your Plot' };
         if (o.type === 'contract') {
           const k = life.state.contracts?.active[0];
           const op = r.outposts.find((x) => x.id === (k?.outpost ?? 'westwatch'));
           if (op) return { x: op.x, z: op.z, label: placeName(op.id) };
         }
         if ((o.type === 'layKeel' || o.type === 'shipStage' || o.type === 'launch') && r.shipyards?.[0]) return { x: r.shipyards[0].x, z: r.shipyards[0].z, label: r.shipyards[0].name };
-        if (o.type === 'summon' && o.vehicle && isBoat(rideable(o.vehicle))) return { x: place('docks')!.x, z: place('docks')!.z, label: 'The docks' };
-        if (o.type === 'load' && life.state.vehicles[0]) return { x: life.state.vehicles[0].x, z: life.state.vehicles[0].z, label: 'Your vehicle' };
+        if (o.type === 'summon' && o.vehicle && isBoat(rideable(o.vehicle))) return { x: place('docks')!.x, z: place('docks')!.z, label: 'The Docks' };
+        if (o.type === 'load' && life.state.vehicles[0]) return { x: life.state.vehicles[0].x, z: life.state.vehicles[0].z, label: 'Your Vehicle' };
         if (o.type === 'placeHouse' || o.type === 'buildStage') {
           const h = life.state.houses[0];
           if (h) {
             const pose = housePose(life, h);
-            return { x: pose.x, z: pose.z, label: 'Your house' };
+            return { x: pose.x, z: pose.z, label: 'Your House' };
           }
           return { x: place('hearthside')!.x, z: place('hearthside')!.z, label: 'Hearthside Rise' };
         }
@@ -767,7 +816,7 @@ export class LifeUI {
       parts.push(`<div class="q"><div class="qt"><i></i>${esc(q.name)}</div><div class="step">${esc(step.text)}${counts}</div>${bars}</div>`);
     }
     for (const k of life.state.contracts?.active ?? []) {
-      parts.push(`<div class="q"><div class="qt"><i></i>Contract · ${esc(placeName(k.outpost))}</div><div class="step">${k.count} × ${esc(packDef(k.pack).name)} <span class="count">${k.delivered}/${k.count}</span> · ${shortTime(k.expires - life.state.clock)} left</div><div class="q-bar"><i style="width:${(k.delivered / k.count) * 100}%"></i></div></div>`);
+      parts.push(`<div class="q"><div class="qt"><i></i>Contract · ${esc(placeName(k.outpost))}</div><div class="step">${k.count} × ${esc(packDef(k.pack).name)} <span class="count">${k.delivered}/${k.count}</span> · ${shortTime(k.expires - life.state.clock)} Left</div><div class="q-bar"><i style="width:${(k.delivered / k.count) * 100}%"></i></div></div>`);
     }
     if (untracked) parts.push(`<div class="hint">${untracked} more in your quest log (L)</div>`);
     const offers = QUESTS.filter((q) => !q.auto && questsAt(life, q.giver).offer.includes(q)).length;
@@ -794,10 +843,10 @@ export class LifeUI {
       const lift = life.zone.recipe.updrafts.some((u) => Math.hypot(u.x - p.pos.x, u.z - p.pos.z) < u.r && p.pos.y < u.top);
       this.rideBox.className = 'lui show';
       this.rideBox.innerHTML =
-        `<div style="color:var(--ink-2)">${withIcons(`${g.icon} ${g.name}`)}</div><div class="big">${Math.round(this.lastAlt)}<small>m up</small></div>` +
+        `<div style="color:var(--ink-2)">${withIcons(`${g.icon} ${g.name}`)}</div><div class="big">${Math.round(this.lastAlt)}<small>m Up</small></div>` +
         `<div>${Math.round(p.airspeed * 3.6)} km/h · <span class="vario ${this.vario > 0.2 ? 'up' : this.vario < -2.5 ? 'down' : ''}">${this.vario >= 0 ? '▲' : '▼'} ${Math.abs(this.vario).toFixed(1)} m/s</span></div>` +
-        `${lift ? '<div style="color:var(--good);font-weight:700">⤒ Rising air!</div>' : ''}${p.pos.y < hf.water + 6 ? '<div style="color:var(--sea)">Over water</div>' : ''}` +
-        (g.gust ? `<div style="margin-top:4px;color:var(--ink-2)">F · Gust ${p.gustFrames > 0 ? `in ${Math.ceil(p.gustFrames / 60)}s` : '<b style="color:var(--accent)">ready</b>'}</div>` : '');
+        `${lift ? '<div style="color:var(--good);font-weight:700">⤒ Rising Air!</div>' : ''}${p.pos.y < hf.water + 6 ? '<div style="color:var(--sea)">Over Water</div>' : ''}` +
+        (g.gust ? `<div style="margin-top:4px;color:var(--ink-2)">F · Gust ${p.gustFrames > 0 ? `in ${Math.ceil(p.gustFrames / 60)}s` : '<b style="color:var(--accent)">Ready</b>'}</div>` : '');
       return;
     }
     const v = ridden(life, sim);
@@ -814,12 +863,12 @@ export class LifeUI {
     if (isBoat(def)) {
       const hull = Math.max(0, v.hp / def.hp);
       const storm = stormAt(life, sim.world.terrain!.water - sim.world.terrain!.height(v.x, v.z));
-      extra += `<div style="margin-top:4px">Hull <b style="color:${hull > 0.5 ? 'var(--good)' : hull > 0.25 ? 'var(--accent)' : 'var(--bad)'}">${Math.round(hull * 100)}%</b>${storm > 0 ? ' · <b style="color:var(--bad)">rough seas</b>' : ''}</div>`;
+      extra += `<div style="margin-top:4px">Hull <b style="color:${hull > 0.5 ? 'var(--good)' : hull > 0.25 ? 'var(--accent)' : 'var(--bad)'}">${Math.round(hull * 100)}%</b>${storm > 0 ? ' · <b style="color:var(--bad)">Rough Seas</b>' : ''}</div>`;
     }
     if (isBoat(def) && def.sail) {
       const rel = angleDiff(life.state.weather.windDir, v.heading);
       const eff = sailEfficiency(rel);
-      extra += `<div class="wind">Wind <span class="arrow" style="transform:rotate(${(rel * 180) / Math.PI}deg)">⬆</span> ${Math.round(eff * 100)}% · sail</div><div class="trim"><i style="width:${v.sail * 100}%"></i></div><div style="color:var(--ink-2);margin-top:3px">W/S raise / lower sail</div>`;
+      extra += `<div class="wind">Wind <span class="arrow" style="transform:rotate(${(rel * 180) / Math.PI}deg)">⬆</span> ${Math.round(eff * 100)}% · Sail</div><div class="trim"><i style="width:${v.sail * 100}%"></i></div><div style="color:var(--ink-2);margin-top:3px">W/S Raise / Lower Sail</div>`;
     }
     const surf = sim.world.terrain!.surfaceAt(v.x, v.z);
     const road = !isBoat(def) && !isMount(def) ? (surf === SURFACE.road || surf === SURFACE.plaza ? '<span style="color:var(--good)">on road</span>' : '<span style="color:var(--ink-2)">off road</span>') : '';
@@ -885,15 +934,15 @@ export class LifeUI {
     if (!hint) return;
     const parts: string[] = [];
     if (pad) {
-      if (mode === 'ride' || mode === 'boat') parts.push(item(key('L'), 'Drive'), item(key('A'), 'Handbrake'), item(key('Y'), 'Get out'));
+      if (mode === 'ride' || mode === 'boat') parts.push(item(key('L'), 'Drive'), item(key('A'), 'Handbrake'), item(key('Y'), 'Get Out'));
       else parts.push(item(key('L'), 'Move'), item(key('A'), mode === 'glide' ? 'Fold' : 'Jump · Glide'), item(key('Y'), 'Interact'), item(key('▼'), 'Mount'), item(key('☰'), 'Bag'), item(key('▲'), 'Map'));
-    } else if (mode === 'ride') parts.push(item(key('W') + key('S'), 'Throttle'), item(key('A') + key('D'), 'Steer'), item(key('Space'), 'Handbrake'), item(key('Shift'), 'Boost'), item(key('F'), 'Get out'));
-    else if (mode === 'boat') parts.push(item(key('W') + key('S'), 'Oars / sail'), item(key('A') + key('D'), 'Rudder'), item(key('F'), 'Get out'), item(key('M'), 'Map'));
+    } else if (mode === 'ride') parts.push(item(key('W') + key('S'), 'Throttle'), item(key('A') + key('D'), 'Steer'), item(key('Space'), 'Handbrake'), item(key('Shift'), 'Boost'), item(key('F'), 'Get Out'));
+    else if (mode === 'boat') parts.push(item(key('W') + key('S'), 'Oars / Sail'), item(key('A') + key('D'), 'Rudder'), item(key('F'), 'Get Out'), item(key('M'), 'Map'));
     else if (mode === 'mount') parts.push(item(key('WASD'), 'Ride'), item(key('Shift'), 'Gallop'), item(key('Space'), 'Jump'), item(key('R'), 'Dismount'));
     else if (mode === 'glide') parts.push(item(key('WASD'), 'Steer'), item(key('Shift'), 'Dive'), item(key('Ctrl'), 'Flare'), item(key('F'), 'Gust'), item(key('Space'), 'Fold'));
     else {
-      parts.push(item(key('WASD'), 'Move'), item(key('Space'), 'Jump ×2 · ×3 glide'), item(key('F'), 'Interact'));
-      if (mode === 'carry') parts.push(item(key('X'), 'Drop pack'));
+      parts.push(item(key('WASD'), 'Move'), item(key('Space'), 'Jump ×2 · ×3 Glide'), item(key('F'), 'Interact'));
+      if (mode === 'carry') parts.push(item(key('X'), 'Drop Pack'));
       parts.push(item(key('R'), 'Mount'), item(key('T'), 'Skills'));
     }
     hint.innerHTML = parts.join('');
@@ -925,19 +974,19 @@ export class LifeUI {
       const p = this.panel;
       const v = p && p.kind === 'shop' ? vendorFor(p.id) : null;
       const n = v && p && 'id' in p ? this.life.zone.recipe.npcs.find((x) => x.id === p.id) : null;
-      const sells = v && v.buys.includes(id) ? `<div class="row"><span class="muted">${esc(n?.name.split(' ')[0] ?? 'They')} pays</span>${money(Math.max(1, Math.round(it.value * v.buyRate)), 12)}</div>` : it.value ? `<div class="row"><span class="muted">Worth</span>${money(it.value, 12)}</div>` : '';
-      return `<h5>${esc(it.name)}</h5><div class="ty">${CAT[it.cat] ?? it.cat}${it.stack > 1 ? ` · stacks to ${it.stack}` : ''}</div><p>${esc(it.desc)}</p>${extra}${sells ? `<hr>${sells}` : ''}`;
+      const sells = v && v.buys.includes(id) ? `<div class="row"><span class="muted">${esc(n?.name.split(' ')[0] ?? 'They')} Pays</span>${money(Math.max(1, Math.round(it.value * v.buyRate)), 12)}</div>` : it.value ? `<div class="row"><span class="muted">Worth</span>${money(it.value, 12)}</div>` : '';
+      return `<h5>${esc(it.name)}</h5><div class="ty">${CAT[it.cat] ?? it.cat}${it.stack > 1 ? ` · Stacks to ${it.stack}` : ''}</div><p>${esc(it.desc)}</p>${extra}${sells ? `<hr>${sells}` : ''}`;
     }
     if (kind === 'pack') {
       try {
         const pk = packDef(id);
-        return `<h5>${esc(pk.name)}</h5><div class="ty">Trade pack</div><p>Made at ${esc(placeName(pk.origin))}. Carry it to another town's trader to sell.</p>`;
+        return `<h5>${esc(pk.name)}</h5><div class="ty">Trade Pack</div><p>Made at ${esc(placeName(pk.origin))}. Carry it to another town's trader to sell.</p>`;
       } catch {
         return null;
       }
     }
     if (kind === 'slot') return `<h5>${esc(id)}</h5><div class="ty">Empty</div><p>There's nothing to wear here yet.</p>`;
-    if (kind === 'weapon') return `<h5>${esc(WEAPON_NAMES[Number(id)] ?? '')}</h5><div class="ty">Main hand</div><p>Change your weapon in the skill book (T).</p>`;
+    if (kind === 'weapon') return `<h5>${esc(WEAPON_NAMES[Number(id)] ?? '')}</h5><div class="ty">Main Hand</div><p>Change your weapon in the skill book (T).</p>`;
     return null;
   }
 
@@ -1063,11 +1112,11 @@ export class LifeUI {
     });
     const outpost = life.zone.recipe.outposts.find((o) => o.npc === npcId);
     const talk: Array<[string, string, string]> = [];
-    if (vendorFor(npcId)) talk.push(['shop', '', `${pixelIcon('coin', 22)}<span>Browse ${esc(n.name.split(' ')[0])}'s goods</span>`]);
-    if (outpost) talk.push(['trade', '', `${pixelIcon('scroll', 22)}<span>Trade packs and contracts</span>`]);
-    if (recipesAt(npcId).length) talk.push(['craft', npcId, `${pixelIcon('star', 22)}<span>Commission work</span>`]);
-    if (BENCH_OF[npcId]) talk.push(['craft', BENCH_OF[npcId], `${pixelIcon('star', 22)}<span>Use the workbench</span>`]);
-    const base = { title: n.name, sub: esc(n.title), portrait: this.face(npcId), w: 424, h: 430 };
+    if (vendorFor(npcId)) talk.push(['shop', '', `${pixelIcon('coin', 22)}<span>Browse ${esc(n.name.split(' ')[0])}'s Goods</span>`]);
+    if (outpost) talk.push(['trade', '', `${pixelIcon('scroll', 22)}<span>Trade Packs and Contracts</span>`]);
+    if (recipesAt(npcId).length) talk.push(['craft', npcId, `${pixelIcon('star', 22)}<span>Commission Work</span>`]);
+    if (BENCH_OF[npcId]) talk.push(['craft', BENCH_OF[npcId], `${pixelIcon('star', 22)}<span>Use the Workbench</span>`]);
+    const base = { title: n.name, sub: esc(n.title), portrait: this.face(npcId), w: 424, h: 560 };
     const handlers: Record<string, Handler> = {
       quest: (id) => this.open({ kind: 'dialog', id: npcId, quest: id }),
       back: () => this.open({ kind: 'dialog', id: npcId }),
@@ -1096,7 +1145,7 @@ export class LifeUI {
           if (!r) return '';
           const dmd = demandAt(life, outpost.id, pk.id);
           const fresh = Math.round(pk.base * r.factor * dmd * freshness(0));
-          return `<div class="lui-row" data-tip="pack:${pk.id}"><div class="ib">${iconHtml(pk.icon)}</div><div class="body"><b>${esc(pk.name)}</b><small>from ${esc(placeName(pk.origin))} · demand ${Math.round(dmd * 100)}%</small></div><div class="price">${money(fresh, 12)}${r.seals ? ` +${r.seals} ${pixelIcon('seal', 12)}` : ''}</div></div>`;
+          return `<div class="lui-row" data-tip="pack:${pk.id}"><div class="ib">${iconHtml(pk.icon)}</div><div class="body"><b>${esc(pk.name)}</b><small>From ${esc(placeName(pk.origin))} · Demand ${Math.round(dmd * 100)}%</small></div><div class="price">${money(fresh, 12)}${r.seals ? ` +${r.seals} ${pixelIcon('seal', 12)}` : ''}</div></div>`;
         })
         .join('');
       const cs = life.state.contracts;
@@ -1104,14 +1153,14 @@ export class LifeUI {
       const offered = (cs?.offered ?? []).filter((k) => k.outpost === outpost.id);
       const contracts =
         mine.length || offered.length
-          ? `<div class="h">Contracts</div><div class="lui-list">${mine.map((k) => `<div class="lui-row"><div class="ib">${pixelIcon('scroll', 28)}</div><div class="body"><b>${k.count} × ${esc(packDef(k.pack).name)}</b><small>taken · ${k.delivered}/${k.count} delivered · ${shortTime(k.expires - life.state.clock)} left</small></div><div class="price">+${money(k.bonusCoins, 12)}</div></div>`).join('')}${offered.map((k) => `<div class="lui-row"><div class="ib">${pixelIcon('scroll', 28)}</div><div class="body"><b>${k.count} × ${esc(packDef(k.pack).name)}</b><small>a bonus on the normal price · ${shortTime(CONTRACTS.durationSeconds)} to fill once taken</small></div><div class="price">+${money(k.bonusCoins, 12)}</div><button class="lui-btn small gold" data-act="contract" data-arg="${k.id}">Take</button></div>`).join('')}</div>`
+          ? `<div class="h">Contracts</div><div class="lui-list">${mine.map((k) => `<div class="lui-row"><div class="ib">${pixelIcon('scroll', 28)}</div><div class="body"><b>${k.count} × ${esc(packDef(k.pack).name)}</b><small>Taken · ${k.delivered}/${k.count} Delivered · ${shortTime(k.expires - life.state.clock)} Left</small></div><div class="price">+${money(k.bonusCoins, 12)}</div></div>`).join('')}${offered.map((k) => `<div class="lui-row"><div class="ib">${pixelIcon('scroll', 28)}</div><div class="body"><b>${k.count} × ${esc(packDef(k.pack).name)}</b><small>A bonus on the normal price · ${shortTime(CONTRACTS.durationSeconds)} to fill once taken</small></div><div class="price">+${money(k.bonusCoins, 12)}</div><button class="lui-btn small gold" data-act="contract" data-arg="${k.id}">Take</button></div>`).join('')}</div>`
           : '';
       const pk = carried(life, this.d.sim);
       const q = pk ? quote(life, pk, outpost.id) : null;
       return {
         ...base,
-        h: 500,
-        body: `<div class="h">Buying today (fresh packs)</div><div class="lui-list">${rows}</div><p class="note" style="margin-top:8px">Carry a pack here and press F to sell. Each sale lowers demand by 5%; it recovers over time. Fresh packs earn up to +15%; stale ones lose up to 12%.</p>${contracts}`,
+        h: 650,
+        body: `<div class="h">Buying Today (Fresh Packs)</div><div class="lui-list">${rows}</div><p class="note" style="margin-top:8px">Carry a pack here and press F to sell. Each sale lowers demand by 5%; it recovers over time. Fresh packs earn up to +15%; stale ones lose up to 12%.</p>${contracts}`,
         foot: `<button class="lui-btn" data-act="back">Back</button>${pk && q ? `<button class="lui-btn gold" data-act="sellpack">Sell ${esc(packDef(pk.def).name)} for ${money(q.coins, 12)}</button>` : '<button class="lui-btn" data-act="close">Goodbye</button>'}`,
         handlers,
       };
@@ -1130,9 +1179,9 @@ export class LifeUI {
     }
 
     const quests = [
-      ...qa.turnIn.map((q) => `<li data-act="quest" data-arg="${q.id}">${pixelIcon('qmark', 22)}<span>${esc(q.name)}</span><small>complete</small></li>`),
+      ...qa.turnIn.map((q) => `<li data-act="quest" data-arg="${q.id}">${pixelIcon('qmark', 22)}<span>${esc(q.name)}</span><small>Complete</small></li>`),
       ...qa.offer.map((q) => `<li data-act="quest" data-arg="${q.id}">${pixelIcon('excl', 22)}<span>${esc(q.name)}</span></li>`),
-      ...active.map((qp) => `<li class="prog" data-act="quest" data-arg="${qp.id}">${pixelIcon('qgray', 22)}<span>${esc(questDef(qp.id).name)}</span><small>in progress</small></li>`),
+      ...active.map((qp) => `<li class="prog" data-act="quest" data-arg="${qp.id}">${pixelIcon('qgray', 22)}<span>${esc(questDef(qp.id).name)}</span><small>In Progress</small></li>`),
     ];
     const talkHtml = talk.map(([act, arg, html]) => `<li class="talk" data-act="${act}" data-arg="${arg}">${html}</li>`);
     return {
@@ -1163,7 +1212,7 @@ export class LifeUI {
         .map((i) => {
           const it = itemDef(i);
           const price = Math.max(1, Math.round(it.value * v.buyRate));
-          return `<div class="m-item" data-act="sell" data-arg="${i}" data-tip="item:${i}"><div class="ib">${iconHtml(it.icon, i)}<span class="n">${life.count(i)}</span></div><div><div class="nm">${esc(it.name)}</div><div class="pr">${money(price, 12)} each</div></div></div>`;
+          return `<div class="m-item" data-act="sell" data-arg="${i}" data-tip="item:${i}"><div class="ib">${iconHtml(it.icon, i)}<span class="n">${life.count(i)}</span></div><div><div class="nm">${esc(it.name)}</div><div class="pr">${money(price, 12)} Each</div></div></div>`;
         })
         .join('');
       if (!have.length) grid = `<div class="m-empty" style="grid-column:1/-1">Nothing ${esc(n.name.split(' ')[0])} wants in your bag.</div>`;
@@ -1174,7 +1223,7 @@ export class LifeUI {
         .map((b) => {
           const it = itemDef(b.item);
           const can = s.coins >= b.price;
-          return `<div class="m-item${can ? '' : ' cant'}" data-act="buyback" data-arg="${b.item}" data-tip="item:${b.item}"${can ? '' : ' disabled'}><div class="ib">${iconHtml(it.icon, b.item)}<span class="n">${b.n}</span></div><div><div class="nm">${esc(it.name)}</div><div class="pr">${money(b.price, 12)} each</div></div></div>`;
+          return `<div class="m-item${can ? '' : ' cant'}" data-act="buyback" data-arg="${b.item}" data-tip="item:${b.item}"${can ? '' : ' disabled'}><div class="ib">${iconHtml(it.icon, b.item)}<span class="n">${b.n}</span></div><div><div class="nm">${esc(it.name)}</div><div class="pr">${money(b.price, 12)} Each</div></div></div>`;
         })
         .join('');
       if (!held.length) grid = `<div class="m-empty" style="grid-column:1/-1">Nothing to buy back. ${esc(n.name.split(' ')[0])} holds what you sell here until you walk off.</div>`;
@@ -1189,8 +1238,8 @@ export class LifeUI {
       h: 500,
       body: `<div class="m-tabs">${(['buy', 'sell', 'buyback'] as const).map((t) => `<span class="m-tab${tab === t ? ' on' : ''}" data-act="tab" data-arg="${t}">${{ buy: 'Buy', sell: 'Sell', buyback: 'Buyback' }[t]}</span>`).join('')}</div>
         <div class="m-grid${tab === 'sell' ? ' m-sell' : ''}">${grid}</div>
-        <div class="m-buys"><b>${esc(n.name.split(' ')[0])} buys:</b> ${esc(buys)}. ${how}</div>`,
-      foot: `<span>${money(s.coins)}&nbsp; ${pixelIcon('seal', 16)} <b>${s.seals}</b></span><span style="display:flex;gap:12px"><button class="lui-btn small" data-act="sellall">Sell all produce</button><button class="lui-btn small" data-act="back">Back</button></span>`,
+        <div class="m-buys"><b>${esc(n.name.split(' ')[0])} Buys:</b> ${esc(buys)}. ${how}</div>`,
+      foot: `<span>${money(s.coins)}&nbsp; ${pixelIcon('seal', 16)} <b>${s.seals}</b></span><span style="display:flex;gap:12px"><button class="lui-btn small" data-act="sellall">Sell All Produce</button><button class="lui-btn small" data-act="back">Back</button></span>`,
       handlers: {
         tab: (t) => this.open({ kind: 'shop', id: npcId, tab: t as ShopTab }),
         buy: (item, e) => life.command({ t: 'buy', npc: npcId, item, n: e?.shiftKey && itemDef(item).stack > 1 ? 5 : 1 }),
@@ -1209,7 +1258,7 @@ export class LifeUI {
     const bench = life.zone.recipe.workbenches.find((b) => b.id === benchOrNpc);
     const npc = life.zone.recipe.npcs.find((x) => x.id === benchOrNpc);
     const recipes = recipesAt(benchOrNpc);
-    const title = bench ? ((bench as { name?: string }).name ?? 'Workbench') : `${npc?.name ?? ''}'s workshop`;
+    const title = bench ? ((bench as { name?: string }).name ?? 'Workbench') : `${npc?.name ?? ''}'s Workshop`;
     const rows = recipes
       .map((r) => {
         const pack = r.makes.pack ? packDef(r.makes.pack) : null;
@@ -1234,7 +1283,7 @@ export class LifeUI {
         const icon = pack ? iconHtml(pack.icon) : item ? iconHtml(item.icon, r.makes.item) : pixelIcon('star', 28);
         const desc = item?.desc ? `<small>${esc(item.desc)}</small>` : '';
         const tip = item ? ` data-tip="item:${r.makes.item}"` : pack ? ` data-tip="pack:${pack.id}"` : '';
-        return `<div class="lui-row"${tip}><div class="ib">${icon}</div><div class="body"><b>${esc(name)}</b><small>${need}${coins ? ` · ${money(coins, 11)}` : ''}${labor ? ` · ${labor} labor` : ''}</small>${sells}${desc}</div><button class="lui-btn small ${have ? 'gold' : ''}" data-act="make" data-arg="${r.id}" ${have ? '' : 'disabled'}>${pack ? 'Pack it' : 'Make'}</button></div>`;
+        return `<div class="lui-row"${tip}><div class="ib">${icon}</div><div class="body"><b>${esc(name)}</b><small>${need}${coins ? ` · ${money(coins, 11)}` : ''}${labor ? ` · ${labor} Labor` : ''}</small>${sells}${desc}</div><button class="lui-btn small ${have ? 'gold' : ''}" data-act="make" data-arg="${r.id}" ${have ? '' : 'disabled'}>${pack ? 'Pack It' : 'Make'}</button></div>`;
       })
       .join('');
     const backLine = this.d.sim.player.pack ? '<p style="color:var(--bad)">Your back is full: set your pack down (X) before packing another.</p>' : '';
@@ -1245,7 +1294,7 @@ export class LifeUI {
       w: 520,
       h: 520,
       body: backLine + `<div class="lui-list">${rows}</div>`,
-      foot: `<span>${money(life.state.coins)}&nbsp; ${pixelIcon('bolt', 16)} <b>${Math.floor(life.state.labor)}</b> labor</span><button class="lui-btn" data-act="close">Close</button>`,
+      foot: `<span>${money(life.state.coins)}&nbsp; ${pixelIcon('bolt', 16)} <b>${Math.floor(life.state.labor)}</b> Labor</span><button class="lui-btn" data-act="close">Close</button>`,
       handlers: {
         make: (id) => {
           life.command({ t: 'craft', recipe: id });
@@ -1258,16 +1307,16 @@ export class LifeUI {
   private storageView(houseId: number): View {
     const life = this.life;
     const h = life.state.houses.find((x) => x.id === houseId);
-    if (!h || !isComplete(h)) return { title: 'Storage chest', w: 420, body: '<p>Gone.</p>' };
+    if (!h || !isComplete(h)) return { title: 'Storage Chest', w: 420, body: '<p>Gone.</p>' };
     const bp = blueprintDef(h.blueprint);
     const list = (stacks: Array<{ item: string; n: number }>, act: string) =>
       stacks.map((st) => `<div class="lui-row" data-tip="item:${st.item}"><div class="ib">${iconHtml(itemDef(st.item).icon, st.item)}<span class="n">${st.n}</span></div><div class="body"><b>${esc(itemDef(st.item).name)}</b></div><button class="lui-btn small" data-act="${act}" data-arg="${st.item}">${act === 'store' ? 'Store' : 'Take'}</button></div>`).join('') || '<p class="muted">Empty</p>';
     return {
-      title: 'Storage chest',
-      sub: `${h.storage.length}/${bp.perks.storageSlots} kinds stored`,
+      title: 'Storage Chest',
+      sub: `${h.storage.length}/${bp.perks.storageSlots} Kinds Stored`,
       w: 620,
       h: 520,
-      body: `<div class="lui-cols"><div><div class="h">Your bag</div><div class="lui-list">${list(life.state.bag, 'store')}</div></div><div><div class="h">Chest</div><div class="lui-list">${list(h.storage, 'take')}</div></div></div>`,
+      body: `<div class="lui-cols"><div><div class="h">Your Bag</div><div class="lui-list">${list(life.state.bag, 'store')}</div></div><div><div class="h">Chest</div><div class="lui-list">${list(h.storage, 'take')}</div></div></div>`,
       handlers: {
         store: (item) => life.command({ t: 'store', house: houseId, item, n: life.count(item) }),
         take: (item) => life.command({ t: 'take', house: houseId, item, n: 9999 }),
@@ -1289,30 +1338,83 @@ export class LifeUI {
       const def = itemDef(st.item);
       cells.push(`<div class="ib sm${this.sel === i ? ' sel' : ''}" data-act="sel" data-arg="${i}" data-tip="item:${st.item}">${iconHtml(def.icon, st.item)}${st.n > 1 ? `<span class="n">${st.n}</span>` : ''}</div>`);
     }
-    let detail = '<span class="muted">Click an item to use it.</span>';
-    const st = s.bag[this.sel];
-    if (st) {
-      const def = itemDef(st.item);
-      const verb = def.cat === 'seed' ? (s.seed === st.item ? 'Planting this' : 'Plant with F') : def.cat === 'deed' ? 'Summon' : def.cat === 'mount' ? 'Call (R)' : def.cat === 'glider' ? (s.glider === def.glider ? 'Equipped' : 'Equip') : def.cat === 'placeable' ? 'Place' : def.cat === 'consumable' ? 'Use' : '';
-      detail = `<b>${esc(def.name)}</b> <span class="muted">×${st.n}</span>${verb ? ` <button class="lui-btn gold small" data-act="use" data-arg="${st.item}">${verb}</button>` : ''}`;
-    }
     const pk = carried(life, this.d.sim);
     this.bagEl.style.width = '452px';
     this.bagEl.innerHTML =
       `<div class="mw-bar">Bag <small>${s.bag.length} / ${BAG_SLOTS}</small></div><div class="mw-x" data-act="close" title="Close (I)">✕</div>` +
-      `<div class="mw-body" style="overflow:hidden"><div class="bag-grid">${cells.join('')}</div><div class="bag-detail">${detail}</div>${pk ? `<div class="note" style="margin-top:6px">On your back: ${withIcons(`${packDef(pk.def).icon} ${packDef(pk.def).name}`, 14)}</div>` : ''}</div>` +
-      `<div class="mw-foot"><span>${money(s.coins)}&nbsp; ${pixelIcon('seal', 16)} <b>${s.seals}</b></span><span>${pixelIcon('bolt', 14)} <b>${Math.floor(s.labor)}</b> labor</span></div>`;
+      `<div class="mw-body" style="overflow:hidden"><div class="bag-grid">${cells.join('')}</div>${pk ? `<div class="note" style="margin-top:8px">On Your Back: ${withIcons(`${packDef(pk.def).icon} ${packDef(pk.def).name}`, 14)}</div>` : ''}</div>` +
+      `<div class="mw-foot"><span>${money(s.coins)}&nbsp; ${pixelIcon('seal', 16)} <b>${s.seals}</b></span><span>${pixelIcon('bolt', 14)} <b>${Math.floor(s.labor)}</b> Labor</span></div>`;
     this.bagHandlers = {
-      sel: (i) => {
+      // A click picks an item out; a double-click does its main thing (right-click: everything else).
+      sel: (i, e) => {
+        if ((e?.detail ?? 1) >= 2) return this.itemPrimary(Number(i));
         this.sel = Number(i);
-        this.renderBag();
-      },
-      use: (item) => {
-        life.command({ t: 'use', item });
-        const cat = itemDef(item).cat;
-        if (cat === 'deed' || cat === 'placeable' || cat === 'mount') this.closeAll();
+        for (const c of this.bagEl.querySelectorAll('.bag-grid [data-act="sel"]')) c.classList.toggle('sel', c.getAttribute('data-arg') === i);
       },
     };
+  }
+
+  /**
+   * What can be done with the item in bag slot `i` right now, its main action first: using it
+   * (placing a scarecrow, equipping a glider...), or selling or storing it while a merchant's or
+   * your chest's window is open, which then comes first.
+   */
+  private itemActions(i: number): MenuEntry[] {
+    const life = this.life;
+    const s = life.state;
+    const st = s.bag[i];
+    if (!st) return [];
+    const item = st.item;
+    const def = itemDef(item);
+    const out: MenuEntry[] = [];
+    const use = (label: string): MenuEntry => ({ label, run: () => this.useItem(item) });
+    if (def.cat === 'seed') out.push(s.seed === item ? { label: 'Planting This', disabled: 'F plants this seed already' } : use('Plant This'));
+    else if (def.cat === 'placeable') out.push(use('Place'));
+    else if (def.cat === 'glider') out.push(s.glider === def.glider ? { label: 'Equipped', disabled: 'This is the glider you fly' } : use('Equip'));
+    else if (def.cat === 'deed') out.push(use('Summon'));
+    else if (def.cat === 'mount') out.push(use('Call'));
+    else if (def.cat === 'consumable') out.push(use('Use'));
+    const p = this.panel;
+    const trade: MenuEntry[] = [];
+    if (p?.kind === 'shop') {
+      const v = vendorFor(p.id);
+      const who = life.zone.recipe.npcs.find((n) => n.id === p.id)?.name.split(' ')[0] ?? 'They';
+      if (v?.buys.includes(item)) {
+        trade.push({ label: 'Sell One', run: () => life.command({ t: 'sell', npc: p.id, item, n: 1 }) });
+        if (st.n > 1) trade.push({ label: 'Sell All', run: () => life.command({ t: 'sell', npc: p.id, item, n: 9999 }) });
+      } else trade.push({ label: 'Sell', disabled: `${who} doesn't buy this` });
+    } else if (p?.kind === 'storage') {
+      trade.push({ label: 'Store in Chest', run: () => life.command({ t: 'store', house: Number(p.id), item, n: life.count(item) }) });
+    } else if (def.cat === 'produce' || def.cat === 'material') {
+      out.push({ label: 'Sell', disabled: 'Talk to a merchant who buys it' });
+    }
+    // At a merchant or your chest, that comes first: a double-click sells or stores.
+    const all = trade.some((e) => !e.disabled) ? [...trade, ...out] : [...out, ...trade];
+    const first = all.find((e) => !e.disabled);
+    return all.map((e) => ({ ...e, primary: e === first }));
+  }
+
+  /** A double-click (or A on a controller): the item's main action. */
+  private itemPrimary(i: number): void {
+    this.itemActions(i)
+      .find((e) => e.primary)
+      ?.run?.();
+  }
+
+  /** The right-click menu for bag slot `i`, at a point on screen. */
+  private itemMenu(i: number, x: number, y: number): void {
+    const st = this.life.state.bag[i];
+    if (!st) return;
+    this.sel = i;
+    for (const c of this.bagEl.querySelectorAll('.bag-grid [data-act="sel"]')) c.classList.toggle('sel', c.getAttribute('data-arg') === String(i));
+    openMenu(x, y, st.n > 1 ? `${itemDef(st.item).name} ×${st.n}` : itemDef(st.item).name, this.itemActions(i));
+  }
+
+  private useItem(item: string): void {
+    this.life.command({ t: 'use', item });
+    const cat = itemDef(item).cat;
+    // Out of the way of the world: you walk off to place it, or get on what you called.
+    if (cat === 'deed' || cat === 'placeable' || cat === 'mount') this.closeAll();
   }
 
   private garageView(): View {
@@ -1325,13 +1427,13 @@ export class LifeUI {
         const vid = def.vehicle ?? def.mount!;
         const r = rideable(vid);
         const out = life.state.vehicles.find((v) => v.def === vid);
-        const where = out ? `${Math.round(Math.hypot(out.x - p.pos.x, out.z - p.pos.z))} m away${out.cargo.some(Boolean) ? ` · ${out.cargo.filter(Boolean).length} packs aboard` : ''}` : 'stabled';
-        const stats = isMount(r) ? `${r.runSpeed} m/s · ${r.canCarryPack ? 'carries a pack' : 'no packs'}` : `${r.maxSpeed} m/s · ${r.cargo.length} pack slots · ${r.seats.length} seats`;
-        return `<div class="lui-row" data-tip="item:${s.item}"><div class="ib">${iconHtml(r.icon)}</div><div class="body"><b>${esc(r.name)}</b><small>${stats}</small><small>${where}</small></div>${isMount(r) ? `<button class="lui-btn small gold" data-act="mount">Call (R)</button>` : `<button class="lui-btn small gold" data-act="summon" data-arg="${s.item}">${out ? 'Bring here' : 'Summon'}</button>`}${out && !isMount(r) ? `<button class="lui-btn small" data-act="recall" data-arg="${out.id}">Send home</button>` : ''}</div>`;
+        const where = out ? `${Math.round(Math.hypot(out.x - p.pos.x, out.z - p.pos.z))} m Away${out.cargo.some(Boolean) ? ` · ${out.cargo.filter(Boolean).length} Packs Aboard` : ''}` : 'Stabled';
+        const stats = isMount(r) ? `${r.runSpeed} m/s · ${r.canCarryPack ? 'Carries a Pack' : 'No Packs'}` : `${r.maxSpeed} m/s · ${r.cargo.length} Pack Slots · ${r.seats.length} Seats`;
+        return `<div class="lui-row" data-tip="item:${s.item}"><div class="ib">${iconHtml(r.icon)}</div><div class="body"><b>${esc(r.name)}</b><small>${stats}</small><small>${where}</small></div>${isMount(r) ? `<button class="lui-btn small gold" data-act="mount">Call (R)</button>` : `<button class="lui-btn small gold" data-act="summon" data-arg="${s.item}">${out ? 'Bring Here' : 'Summon'}</button>`}${out && !isMount(r) ? `<button class="lui-btn small" data-act="recall" data-arg="${out.id}">Send Home</button>` : ''}</div>`;
       })
       .join('');
     return {
-      title: 'Vehicles & mounts',
+      title: 'Vehicles & Mounts',
       sub: 'Boats appear at the nearest deep water',
       portrait: `<span class="emoji">${pixelIcon('wheel', 36)}</span>`,
       w: 480,
@@ -1365,7 +1467,7 @@ export class LifeUI {
       active.map(row).join('') +
       (milestones.length ? `<div class="ql-zone" style="margin-top:14px"><span>Milestones</span><span>${milestones.length}</span></div>` + milestones.map(row).join('') : '') +
       `<div class="ql-zone" style="margin-top:14px"><span>Completed</span><span>${done.length}</span></div>` +
-      done.map((id) => `<div class="ql-q done"><i class="dot done"></i>${esc(questDef(id).name)}<small>✓ ${questDef(id).milestone ? 'milestone' : 'done'}</small></div>`).join('');
+      done.map((id) => `<div class="ql-q done"><i class="dot done"></i>${esc(questDef(id).name)}<small>✓ ${questDef(id).milestone ? 'Milestone' : 'Done'}</small></div>`).join('');
     let page = '<p class="muted">No quests under way. Look for people with a gold mark over their heads.</p>';
     const qp = all.find((x) => x.id === this.logSel);
     if (qp) {
@@ -1392,7 +1494,7 @@ export class LifeUI {
     }
     return {
       title: 'Quest Log',
-      sub: `${doneQuests} of ${quests.length} quests · ${done.length - doneQuests} of ${QUESTS.length - quests.length} milestones`,
+      sub: `${doneQuests} of ${quests.length} Quests · ${done.length - doneQuests} of ${QUESTS.length - quests.length} Milestones`,
       portrait: `<span class="emoji">${pixelIcon('scroll', 40)}</span>`,
       w: 700,
       h: 520,
@@ -1445,14 +1547,14 @@ export class LifeUI {
       body: `<div class="ch">
         <div class="ch-col">${slot('Head', null, '🪖', 'slot:Head')}${slot('Back', glider ? item(glider) : null, '🪁', glider ? `item:${glider}` : 'slot:Back')}${slot('Chest', null, '👕', 'slot:Chest')}${slot('Hands', null, '🧤', 'slot:Hands')}</div>
         <div class="ch-mid"><div class="ch-model">${body ? `<img src="${body}" alt="">` : '<div style="display:grid;place-items:center;height:100%;font-size:90px">🧑</div>'}</div>
-          <div class="ch-weap">${slot('Main hand', `<div class="ib big">${iconHtml(WEAPON_ICONS[weapon] ?? '🗡️', undefined, 48)}</div>`, '🗡️', `weapon:${weapon}`)}${slot('Off hand', null, '🛡️', 'slot:Off hand')}${slot('Tool', null, '🔨', 'slot:Tool')}</div></div>
+          <div class="ch-weap">${slot('Main Hand', `<div class="ib big">${iconHtml(WEAPON_ICONS[weapon] ?? '🗡️', undefined, 48)}</div>`, '🗡️', `weapon:${weapon}`)}${slot('Off Hand', null, '🛡️', 'slot:Off Hand')}${slot('Tool', null, '🔨', 'slot:Tool')}</div></div>
         <div class="ch-col">${slot('Legs', null, '👖', 'slot:Legs')}${slot('Feet', null, '🥾', 'slot:Feet')}${slot('Mount', mount ? item(mount) : null, '🐎', mount ? `item:${mount}` : 'slot:Mount')}${slot('Pack', back ? `<div class="ib big">${iconHtml(packDef(back.def).icon, undefined, 48)}</div>` : null, '📦', back ? `pack:${back.def}` : 'slot:Pack')}</div>
         <div class="ch-stats"><h4>${esc(this.playerName)}</h4>
           ${this.maxHp ? `<div class="r"><span>Health</span><b>${Math.round(this.hp)} / ${this.maxHp}</b></div>` : ''}
           <div class="r"><span>Labor</span><b>${Math.floor(life.state.labor)} / ${LABOR.max}</b></div>
           <div class="r"><span>Weapon</span><b>${esc(WEAPON_NAMES[weapon] ?? '')}</b></div>
-          <div class="r"><span>Combo damage</span><b>${comboDamage(weapon, this.d.sim.stats)}</b></div>
-          <div class="r"><span>Skill points</span><b>${pointsLeft(p.skills, skillBudget(life.state))} left</b></div>
+          <div class="r"><span>Combo Damage</span><b>${comboDamage(weapon, this.d.sim.stats)}</b></div>
+          <div class="r"><span>Skill Points</span><b>${pointsLeft(p.skills, skillBudget(life.state))} Left</b></div>
           <div class="r"><span>Glider</span><b>${life.state.glider ? esc(gliderDef(life.state.glider).name) : 'None'}</b></div>
           <div class="r"><span>Money</span>${money(life.state.coins, 12)}</div>
           <div class="r"><span>Seals</span><b>${life.state.seals}</b></div>
@@ -1468,7 +1570,7 @@ export class LifeUI {
       portrait: `<span class="emoji">${pixelIcon('gear', 36)}</span>`,
       w: 420,
       h: 330,
-      body: `<div class="h">Interface</div><div class="set-row"><span>UI size</span><input type="range" min="${UI_SCALE_MIN * 100}" max="${UI_SCALE_MAX * 100}" step="5" value="${v}" data-set="uiScale"><b>${v}%</b></div><p class="note">The UI keeps its size relative to the window; this makes it bigger or smaller on top of that.</p><div class="h">Credits</div><p class="note">Item and skill icons drawn from Twemoji by Twitter and contributors, CC-BY 4.0. Type: TeX Gyre Pagella (GUST Font License) and Alegreya SC (SIL Open Font License).</p>`,
+      body: `<div class="h">Interface</div><div class="set-row"><span>UI Size</span><input type="range" min="${UI_SCALE_MIN * 100}" max="${UI_SCALE_MAX * 100}" step="5" value="${v}" data-set="uiScale"><b>${v}%</b></div><p class="note">The UI keeps its size relative to the window; this makes it bigger or smaller on top of that.</p><div class="h">Credits</div><p class="note">Item and skill icons drawn from Twemoji by Twitter and contributors, CC-BY 4.0. Type: TeX Gyre Pagella (GUST Font License) and Alegreya SC (SIL Open Font License).</p>`,
       foot: `<button class="lui-btn small" data-act="resetScale">Reset</button><button class="lui-btn" data-act="close">Done</button>`,
       handlers: {
         resetScale: () => {
@@ -1515,6 +1617,13 @@ export class LifeUI {
       g.font = '14px system-ui';
       g.fillText(rideable(v.def).icon, px, py + 5);
     }
+    // Townsfolk with a quest for you, or one to hand in.
+    for (const n of life.zone.recipe.npcs) {
+      const qa = questsAt(life, n.id);
+      if (!qa.offer.length && !qa.turnIn.length) continue;
+      const [px, py] = toPx(n.x, n.z);
+      questMark(g, px, py - 14, qa.turnIn.length > 0, 9);
+    }
     for (const o of this.others()) {
       if (!o.online) continue;
       const [ox, oy] = toPx(o.x, o.z);
@@ -1545,7 +1654,7 @@ export class LifeUI {
     const [px, py] = toPx(p.pos.x, p.pos.z);
     g.save();
     g.translate(px, py);
-    g.rotate(-p.facing + Math.PI);
+    g.rotate(-p.facing); // north up, as on the minimap
     g.fillStyle = '#ff5a5a';
     g.strokeStyle = '#fff';
     g.lineWidth = 2;
@@ -1564,26 +1673,26 @@ export class LifeUI {
     const life = this.life;
     const places = life.zone.recipe.places.map((pl) => `<button class="lui-btn small" data-act="tp" data-arg="${pl.id}">${esc(pl.name)}</button>`).join('');
     return {
-      title: 'Developer tools',
+      title: 'Developer Tools',
       sub: 'For trying things out quickly. ` toggles this window.',
       w: 560,
       h: 600,
       body: `<div class="lui-dev"><div class="h">Give</div>
-      <button class="lui-btn small" data-act="grant" data-arg="coins">+1 gold</button>
-      <button class="lui-btn small" data-act="grant" data-arg="seals">+10 seals</button>
-      <button class="lui-btn small" data-act="grant" data-arg="labor">+500 labor</button>
-      <button class="lui-btn small" data-act="grant" data-arg="seeds">Seeds, saplings & young animals</button>
-      <button class="lui-btn small" data-act="grant" data-arg="produce">Produce for packs</button>
-      <button class="lui-btn small" data-act="grant" data-arg="mats">Building materials</button>
-      <button class="lui-btn small" data-act="grant" data-arg="rides">Every vehicle, mount & glider</button>
-      <button class="lui-btn small" data-act="grant" data-arg="house">Cottage blueprint, cog design, scarecrows</button>
+      <button class="lui-btn small" data-act="grant" data-arg="coins">+1 Gold</button>
+      <button class="lui-btn small" data-act="grant" data-arg="seals">+10 Seals</button>
+      <button class="lui-btn small" data-act="grant" data-arg="labor">+500 Labor</button>
+      <button class="lui-btn small" data-act="grant" data-arg="seeds">Seeds, Saplings & Young Animals</button>
+      <button class="lui-btn small" data-act="grant" data-arg="produce">Produce for Packs</button>
+      <button class="lui-btn small" data-act="grant" data-arg="mats">Building Materials</button>
+      <button class="lui-btn small" data-act="grant" data-arg="rides">Every Vehicle, Mount & Glider</button>
+      <button class="lui-btn small" data-act="grant" data-arg="house">Cottage Blueprint, Cog Design, Scarecrows</button>
       <div class="h">Time</div>
-      <button class="lui-btn small" data-act="warp" data-arg="60">+1 minute</button>
-      <button class="lui-btn small" data-act="warp" data-arg="600">+10 minutes</button>
-      <button class="lui-btn small" data-act="warp" data-arg="3600">+1 hour</button>
+      <button class="lui-btn small" data-act="warp" data-arg="60">+1 Minute</button>
+      <button class="lui-btn small" data-act="warp" data-arg="600">+10 Minutes</button>
+      <button class="lui-btn small" data-act="warp" data-arg="3600">+1 Hour</button>
       <div class="h">Teleport</div>${places}
-      <div class="h">Save</div><button class="lui-btn small" data-act="reset">Start Emberholm over</button>
-      ${this.onBugReport ? `<div class="h">Bug report</div><button class="lui-btn small" data-act="bug">Record a bug report</button><div class="note">Or press <b>${esc(this.bugKey())}</b> any time (click both sticks on a controller). It keeps the last 30 seconds of play, then records your voice and the screen until you press it again.</div>` : ''}</div>`,
+      <div class="h">Save</div><button class="lui-btn small" data-act="reset">Start Emberholm Over</button>
+      ${this.onBugReport ? `<div class="h">Bug Report</div><button class="lui-btn small" data-act="bug">Record a Bug Report</button><div class="note">Or press <b>${esc(this.bugKey())}</b> any time (click both sticks on a controller). It keeps the last 30 seconds of play, then records your voice and the screen until you press it again.</div>` : ''}</div>`,
       handlers: {
         grant: (what) => {
           const g = (item: string, n = 1) => life.command({ t: 'grant', item, n });
@@ -1631,6 +1740,38 @@ export class LifeUI {
     if (!h) return '';
     return stillNeeds(h).map((n) => `${packDef(n.pack).name} ${n.have}/${n.need}`).join(', ');
   }
+}
+
+/**
+ * A quest marker on a map, as over people's heads: a gold disc with ! for a quest on offer, a green
+ * one with ? for a quest to hand in. `r` is its radius in the canvas's pixels.
+ */
+function questMark(g: CanvasRenderingContext2D, x: number, y: number, ready: boolean, r: number): void {
+  const fill = g.createRadialGradient(x - r * 0.25, y - r * 0.3, r * 0.1, x, y, r);
+  fill.addColorStop(0, ready ? '#b6f08e' : '#ffe28a');
+  fill.addColorStop(0.6, ready ? '#4fae3a' : '#f0a92e');
+  fill.addColorStop(1, ready ? '#2f7a24' : '#b8741a');
+  g.beginPath();
+  g.arc(x, y, r, 0, Math.PI * 2);
+  g.fillStyle = fill;
+  g.fill();
+  g.lineWidth = Math.max(2, r * 0.2);
+  g.strokeStyle = '#7a1f26';
+  g.stroke();
+  g.beginPath();
+  g.arc(x, y, r + g.lineWidth * 0.75, 0, Math.PI * 2);
+  g.lineWidth = Math.max(1.5, r * 0.12);
+  g.strokeStyle = '#2b1a0e';
+  g.stroke();
+  g.font = `900 ${Math.round(r * 1.35)}px Georgia, serif`;
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  g.lineWidth = Math.max(2, r * 0.22);
+  g.strokeStyle = 'rgba(43, 26, 14, 0.75)';
+  g.strokeText(ready ? '?' : '!', x, y + r * 0.06);
+  g.fillStyle = '#fff';
+  g.fillText(ready ? '?' : '!', x, y + r * 0.06);
+  g.textBaseline = 'alphabetic';
 }
 
 /** The island drawn from above, once: shaded relief, sea by depth, roads and fields. */

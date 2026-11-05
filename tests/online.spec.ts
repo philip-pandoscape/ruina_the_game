@@ -254,7 +254,7 @@ test("a neighbour's house is drawn on your island, and their plot can't be taken
   await expect.poll(() => b.evaluate((id) => (window as any).__game.online().claims[id], plot.id), { timeout: 30_000 }).toBe(nameA);
   await b.evaluate(() => (window as any).__game.lifeCommand({ t: 'grant', item: 'blueprint.cottage', n: 1 }));
   await b.evaluate(([x, z, f]) => (window as any).__game.teleport(x, z, f), site);
-  await expect.poll(() => game(b, (g) => g.life().focus?.label), { timeout: 45_000 }).toBe(`${nameA}'s plot`);
+  await expect.poll(() => game(b, (g) => g.life().focus?.label), { timeout: 45_000 }).toBe(`${nameA}'s Plot`);
 });
 
 test('the developer panel is up to the server', async ({ page }) => {

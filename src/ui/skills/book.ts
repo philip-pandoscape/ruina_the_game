@@ -357,7 +357,7 @@ export class SkillBook {
     const left = this.ctx.budget() - skillCount(b.skills);
     const pad = this.ctx.device() === 'gamepad';
     const points = `<button class="sb-pts" data-act="tree">${pixelIcon('star', 18, { '#': '#3a1a06', c: '#ffd84a', s: '#d99a1a' })}<span>${
-      left > 0 ? `<b>${left}</b> skill point${left === 1 ? '' : 's'} to spend in the tree` : 'Open the skill tree'
+      left > 0 ? `<b>${left}</b> Skill Point${left === 1 ? '' : 's'} to Spend in the Tree` : 'Open the Skill Tree'
     }</span><span class="key">${pad ? 'RB' : 'N'}</span></button>`;
 
     const slot = (i: number) => {
@@ -410,7 +410,7 @@ export class SkillBook {
     const lv = levels[i] ?? 1;
     const xp = this.ctx.xp()[s.id] ?? 0;
     const r = resolveSkills(b.skills, levels);
-    const head = `<div class="sd-lv">${known ? `Level ${lv}` : 'Not learned'}</div><h3 class="sd-name">${esc(bookName(s))}</h3><div class="sd-type">${esc(bookType(s))}</div><p class="sd-desc">${esc(bookDesc(s))}</p>`;
+    const head = `<div class="sd-lv">${known ? `Level ${lv}` : 'Not Learned'}</div><h3 class="sd-name">${esc(bookName(s))}</h3><div class="sd-type">${esc(bookType(s))}</div><p class="sd-desc">${esc(bookDesc(s))}</p>`;
     if (!known) {
       const n = NODES[grantingNode(s)];
       return `${head}<div class="sd-stats locked"><p>Learn <b>${esc(n?.name ?? bookName(s))}</b> in the skill tree to use it. Skill points come from quests and milestones.</p></div>
@@ -447,7 +447,7 @@ export class SkillBook {
           ? `<button class="lui-btn" data-act="clear">Clear Slot</button><button class="lui-btn gold" disabled>On Hotbar · Slot ${at + 1}</button>`
           : `<button class="lui-btn gold" data-act="slot">Put on Hotbar</button>`;
     } else if (MOVEMENT_SKILLS[s.index]?.builtin) {
-      btns = `<button class="lui-btn" disabled>Always ready · C, or B on a controller</button>`;
+      btns = `<button class="lui-btn" disabled>Always Ready · C, or B on a Controller</button>`;
     } else {
       const at = b.movement.indexOf(s.index);
       btns = MOVE_KEYS.map((k, m) => `<button class="lui-btn${at === m ? ' gold' : ''}" data-act="bind${m}"${at === m ? ' disabled' : ''}>${at === m ? `On ${k}` : `Bind to ${k}`}</button>`).join('');

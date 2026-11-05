@@ -137,7 +137,7 @@ test('a bug report keeps the moments before the key, records the voice, and save
 
   await page.keyboard.press('Backslash');
   await expect.poll(async () => (await advance(page, 1), (await status(page)).phase), { timeout: 10_000 }).toBe('recording');
-  await expect(page.locator('#bug-overlay')).toContainText('Recording bug report');
+  await expect(page.locator('#bug-overlay')).toContainText('Recording Bug Report');
   // Talk (the stand-in microphone) and walk east while recording. What is heard shows as it comes.
   await play(page, 1500, { moveX: 1, stickX: 1 });
   await expect(page.locator('#bug-overlay')).toContainText('the cart rolled off the pier');
@@ -154,7 +154,7 @@ test('a bug report keeps the moments before the key, records the voice, and save
     .not.toBeNull();
   const s = await status(page);
   expect(s.lastError).toBe('');
-  await expect(page.locator('#bug-overlay')).toContainText('Bug report saved');
+  await expect(page.locator('#bug-overlay')).toContainText('Bug Report Saved');
   const { id, path } = s.lastSaved!;
   expect(path).toBe(join(REPORTS, id));
   // The folder is named after what was said.
@@ -247,7 +247,7 @@ test('backspace twice throws a report away, and nothing is saved', { tag: '@gpu'
   expect((await status(page)).phase).toBe('recording');
   await page.keyboard.press('Backspace');
   await expect.poll(async () => (await status(page)).phase).toBe('idle');
-  await expect(page.locator('#bug-overlay')).toContainText('discarded');
+  await expect(page.locator('#bug-overlay')).toContainText('Discarded');
   await page.waitForTimeout(500);
   expect(count()).toBe(before);
   expect(errors).toEqual([]);

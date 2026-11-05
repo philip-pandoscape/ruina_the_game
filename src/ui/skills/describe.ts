@@ -106,7 +106,7 @@ export function bookType(b: BookSkill): string {
   const where = treeName(bookTree(b));
   if (b.kind === 'weapon') return `Weapon · ${where}`;
   if (b.kind === 'ability') return `Ability · ${where}${ABILITIES[b.index]?.tags.includes('spell') ? ' · Spell' : ''}`;
-  return bookTree(b) >= 0 ? `Movement · ${where}` : 'Movement · Everyone knows it';
+  return bookTree(b) >= 0 ? `Movement · ${where}` : 'Movement · Everyone Knows It';
 }
 
 /** What a skill gains experience from, for "128 / 200 hits". */
@@ -128,11 +128,11 @@ export function bookStats(b: BookSkill, r: ResolvedSkills): Array<[string, strin
     const w = WEAPONS[b.index];
     const out: Array<[string, string]> = [
       ['Damage', comboDamage(b.index, r)],
-      ['Combo', `${steps.length} ${steps.length === 1 ? 'hit' : 'hits'}`],
+      ['Combo', `${steps.length} ${steps.length === 1 ? 'Hit' : 'Hits'}`],
       [w.tags.includes('ranged') ? 'Draw' : 'Wind-up', secs(steps[0]?.startup ?? 0)],
     ];
-    if (w.tags.includes('ranged')) out.push(['Pierces', `${pierceTargets(b.index, r)} ${pierceTargets(b.index, r) === 1 ? 'enemy' : 'enemies'}`]);
-    else out.push(['Hits per swing', `up to ${meleeTargets(b.index, r)}`]);
+    if (w.tags.includes('ranged')) out.push(['Pierces', `${pierceTargets(b.index, r)} ${pierceTargets(b.index, r) === 1 ? 'Enemy' : 'Enemies'}`]);
+    else out.push(['Hits per Swing', `Up to ${meleeTargets(b.index, r)}`]);
     return out;
   }
   if (b.kind === 'ability') {
@@ -143,11 +143,11 @@ export function bookStats(b: BookSkill, r: ResolvedSkills): Array<[string, strin
       if (e.damage) out.push(['Damage', num(effectDamage(b.index, e, r))]);
       out.push(['Radius', `${num(effectRadius(b.index, e, r))} m`]);
     }
-    out.push(['Cast time', secs(castFramesFor(b.index, r))]);
+    out.push(['Cast Time', secs(castFramesFor(b.index, r))]);
     out.push(['Cooldown', secs(abilityCooldown(b.index, r))]);
     return out;
   }
-  return [['Recovers in', secs(movementCooldownFor(b.index, r))]];
+  return [['Recovers In', secs(movementCooldownFor(b.index, r))]];
 }
 
 /** The levels with this one skill a level higher, for "Level 4: Heals 30". */

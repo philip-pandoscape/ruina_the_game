@@ -362,8 +362,8 @@ export class SkillTreeView {
         <div class="st-title">Skill Tree</div>
         <div class="st-pts"></div>
         <div class="st-sp"></div>
-        <input class="st-search" type="search" placeholder="Search the tree…" spellcheck="false">
-        <div class="st-zoom"><button class="st-btn" data-act="out" aria-label="Zoom out">−</button><button class="st-btn" data-act="fit" aria-label="Whole tree">◎</button><button class="st-btn" data-act="in" aria-label="Zoom in">+</button></div>
+        <input class="st-search" type="search" placeholder="Search the Tree…" spellcheck="false">
+        <div class="st-zoom"><button class="st-btn" data-act="out" aria-label="Zoom Out">−</button><button class="st-btn" data-act="fit" aria-label="Whole Tree">◎</button><button class="st-btn" data-act="in" aria-label="Zoom In">+</button></div>
         <button class="st-btn wide" data-act="book">Skill Book · ${pad ? 'LB' : 'T'}</button>
         <button class="st-btn" data-act="close" aria-label="Close">✕</button>
       </div>
@@ -449,7 +449,7 @@ export class SkillTreeView {
       const pad = this.ctx.device() === 'gamepad';
       bottom.hidden = !n;
       bottom.innerHTML = n
-        ? `<span class="st-pending${n > left ? ' over' : ''}">Planned: ${n} point${n === 1 ? '' : 's'}${n > left ? ` · you have ${Math.max(0, left)}` : ''}</span>
+        ? `<span class="st-pending${n > left ? ' over' : ''}">Planned: ${n} Point${n === 1 ? '' : 's'}${n > left ? ` · You Have ${Math.max(0, left)}` : ''}</span>
            <button class="lui-btn gold" data-act="learn"${n > left ? ' disabled' : ''}>Learn${pad ? ' · Y' : ''}</button><button class="lui-btn" data-act="undo">Undo${pad ? ' · B' : ''}</button>`
         : '';
     }
@@ -466,7 +466,7 @@ export class SkillTreeView {
     if (!n) return '';
     const learned = this.learned();
     const lines = nodeLines(n).map((l) => `<p class="${n.kind === 'skill' ? '' : 'g'}">${esc(l)}</p>`).join('');
-    const where = n.tree >= 0 ? treeName(n.tree) : 'Where two disciplines meet';
+    const where = n.tree >= 0 ? treeName(n.tree) : 'Where Two Disciplines Meet';
     let foot: string;
     if (hasSkill(learned, i)) {
       const more = alsoDropped(this.build, NODE_INFO[i]);
@@ -476,7 +476,7 @@ export class SkillTreeView {
     } else {
       const cost = pathTo(this.withPlan(), i).length + this.plan.length;
       const left = this.pointsLeft;
-      foot = `<div class="row"><span class="muted">${this.plan.length ? 'With your plan' : 'From what you know'}</span><b>${cost} point${cost === 1 ? '' : 's'}</b></div>
+      foot = `<div class="row"><span class="muted">${this.plan.length ? 'With Your Plan' : 'From What You Know'}</span><b>${cost} Point${cost === 1 ? '' : 's'}</b></div>
         <div class="row"><span class="muted">${cost > left ? `You have ${Math.max(0, left)}: more come from quests and milestones` : 'Click to plan it · Learn to keep it'}</span></div>`;
     }
     return `<h5>${esc(n.name)}</h5><div class="ty">${KIND_NAMES[n.kind]} · ${esc(where)}</div>${lines}<hr>${foot}`;

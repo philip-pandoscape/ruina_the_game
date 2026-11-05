@@ -54,7 +54,7 @@ test('the game marks the dummy by itself, and hitting it puts numbers over it', 
 
   // Nobody pressed anything: the dummy is straight ahead, so it gets picked up on its own.
   const soft = await combat(page);
-  expect(soft.target?.name).toBe('Training dummy');
+  expect(soft.target?.name).toBe('Training Dummy');
   expect(soft.target?.hp).toBe(1);
   expect(soft.locked).toBe(false); // picked for you, not chosen with Tab
 
@@ -167,7 +167,7 @@ test('the circle opens on whoever is marked, so the common case needs no aiming'
   await page.evaluate((b) => (window as any).__game.setBuild(b), MAGE);
   // The dummy is straight ahead and gets marked on its own.
   const mark = (await combat(page)).target;
-  expect(mark?.name).toBe('Training dummy');
+  expect(mark?.name).toBe('Training Dummy');
 
   await page.keyboard.down('Digit1');
   await page.waitForFunction(() => (window as any).__game.combat().aiming === 1, null, { timeout: 2000, polling: 'raf' });
