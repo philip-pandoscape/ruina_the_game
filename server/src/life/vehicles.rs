@@ -1171,7 +1171,7 @@ mod tests {
         let wb = &w.world.zone.recipe.workbenches[0];
         w.stand((wb.x - 6.0, wb.z + 6.0, 0.0));
         let id = w.summon("deed.farmCart").expect("a farm cart");
-        assert_eq!(w.toasts(), ["🛒 Farm Cart summoned"]);
+        assert_eq!(w.toasts(), ["🚜 Farm Cart summoned"]);
         let (v, p) = (w.v(id), &w.p);
         assert_eq!((v.def.as_str(), v.hp, v.cargo.len()), ("farmCart", 600.0, 4));
         assert_eq!((v.heading, v.grounded, v.ridden), (p.facing, true, false));
