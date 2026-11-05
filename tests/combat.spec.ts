@@ -181,6 +181,8 @@ test('the left stick pushes the circle around, and it stops at the skill range',
   const pad = await withPad(page);
   await page.goto('/?yard');
   await page.waitForFunction(() => (window as any).__game?.ready === true);
+  // What loads after the page (the new look's hero body) is in before anything is timed.
+  await page.waitForFunction(() => (window as any).__game.assetsReady === true);
   await page.evaluate((b) => (window as any).__game.setBuild(b), MAGE);
   await page.evaluate(() => (window as any).__game.setCamera({ yaw: 0 }));
 

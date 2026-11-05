@@ -213,6 +213,8 @@ interface Gait {
   cycle: number;
 }
 const STILL: Gait = { moving: 0, run: 0, sprint: 0, cycle: 0 };
+/** In the air, a weapon is carried as at a run, mid-stride. */
+const LEAPING: Gait = { moving: 1, run: 1, sprint: 0, cycle: 0.25 };
 
 /**
  * Standing, walking, running, sprinting, creeping: the whole body from the speed and stride
@@ -1469,6 +1471,8 @@ export function poseHumanoid(rig: DetailRig, p: PoseInput): PoseFeedback {
       // ground, as when falling, whichever way the knock is taking you.
       air(b, p.stunned ? { ...p, rise: Math.min(p.rise, -0.5) } : p);
       if (p.carry) carry(b);
+      // A made body carries its weapon through a leap as it does running, not held out ahead.
+      else if (b.stride.made && !p.stunned) holdWeapon(b, p, LEAPING);
     } else {
       // Landing: the knees take it, deeper the harder you came down.
       let sink = 0;
@@ -1482,8 +1486,11 @@ export function poseHumanoid(rig: DetailRig, p: PoseInput): PoseFeedback {
     }
     if (p.stunned) hurt(b, p);
 
-    // A touch of stretch leaving the ground and squash meeting it.
-    if (p.grounded && p.landFrame < 8 && p.actionId < 0) {
+    // A touch of stretch leaving the ground and squash meeting it (the box hero's; a made body
+    // is a person, and doesn't squash).
+    if (b.stride.made) {
+      // no squash
+    } else if (p.grounded && p.landFrame < 8 && p.actionId < 0) {
       const s = (1 - p.landFrame / 8) * (0.3 + 0.7 * p.landImpact);
       b.squash.scale.multiply(_a.set(1 + 0.05 * s, 1 - 0.07 * s, 1 + 0.05 * s));
     } else if (!p.grounded && p.takeoffFrame < 6 && p.actionId < 0) {

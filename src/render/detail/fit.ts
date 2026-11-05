@@ -95,11 +95,32 @@ export function readBody(scene: THREE.Object3D, height: number): MadeBody {
   m.skeleton.update();
   const box = new THREE.Box3();
   const pos = m.geometry.attributes.position;
+  const si = m.geometry.attributes.skinIndex;
+  const sw = m.geometry.attributes.skinWeight;
+  // Three's skinning (SkinnedMesh.applyBoneTransform) with each bone's whole chain folded into one
+  // matrix up front: world = matrixWorld * bindMatrixInverse * bone * boneInverse * bindMatrix.
+  const fold = new THREE.Matrix4().multiplyMatrices(m.matrixWorld, m.bindMatrixInverse);
+  const mats = m.skeleton.bones.map((b, i) => new THREE.Matrix4().multiplyMatrices(fold, b.matrixWorld).multiply(m.skeleton.boneInverses[i]).multiply(m.bindMatrix).elements);
   const bindPositions = new Float32Array(pos.count * 3);
   for (let i = 0; i < pos.count; i++) {
-    m.applyBoneTransform(i, _v.fromBufferAttribute(pos, i)).applyMatrix4(m.matrixWorld);
-    _v.toArray(bindPositions, i * 3);
-    box.expandByPoint(_v);
+    const x = pos.getX(i);
+    const y = pos.getY(i);
+    const z = pos.getZ(i);
+    let ox = 0;
+    let oy = 0;
+    let oz = 0;
+    for (let k = 0; k < 4; k++) {
+      const w = sw.getComponent(i, k);
+      if (w <= 0) continue;
+      const e = mats[si.getComponent(i, k)];
+      ox += w * (e[0] * x + e[4] * y + e[8] * z + e[12]);
+      oy += w * (e[1] * x + e[5] * y + e[9] * z + e[13]);
+      oz += w * (e[2] * x + e[6] * y + e[10] * z + e[14]);
+    }
+    bindPositions[i * 3] = ox;
+    bindPositions[i * 3 + 1] = oy;
+    bindPositions[i * 3 + 2] = oz;
+    box.expandByPoint(_v.set(ox, oy, oz));
   }
   const s = height / (box.max.y - box.min.y);
   const hips = bone.get('hips')!.getWorldPosition(new THREE.Vector3());
@@ -257,21 +278,28 @@ export function fit(scene: THREE.Object3D, height: number, base: RigDef): Fitted
   const sw = geo.attributes.skinWeight;
   const idx = new Uint16Array(si.count * 4);
   const wts = new Float32Array(si.count * 4);
-  const sum = new Map<number, number>();
+  // Our joint for each of the model's bones, looked up once.
+  const body0 = index.get('body')!;
+  const jointIndex = body.jointOf.map((name) => index.get(name) ?? body0);
   for (let v = 0; v < si.count; v++) {
-    sum.clear();
+    // At most four bones, so at most four joints: merge the ones that land on the same joint.
+    let n = 0;
+    let total = 0;
     for (let k = 0; k < 4; k++) {
       const w = sw.getComponent(v, k);
       if (w <= 0) continue;
-      const joint = index.get(body.jointOf[si.getComponent(v, k)]) ?? index.get('body')!;
-      sum.set(joint, (sum.get(joint) ?? 0) + w);
+      const joint = jointIndex[si.getComponent(v, k)];
+      total += w;
+      let m = 0;
+      while (m < n && idx[v * 4 + m] !== joint) m++;
+      if (m === n) {
+        idx[v * 4 + n] = joint;
+        wts[v * 4 + n] = 0;
+        n++;
+      }
+      wts[v * 4 + m] += w;
     }
-    const top = [...sum.entries()].sort((a, b) => b[1] - a[1]).slice(0, 4);
-    const total = top.reduce((t, [, w]) => t + w, 0) || 1;
-    top.forEach(([j, w], k) => {
-      idx[v * 4 + k] = j;
-      wts[v * 4 + k] = w / total;
-    });
+    for (let m = 0; m < n; m++) wts[v * 4 + m] /= total || 1;
   }
   splitHands(body, geo, idx, wts, index, hands);
   geo.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(idx, 4));
@@ -359,7 +387,10 @@ function splitHands(body: MadeBody, geo: THREE.BufferGeometry, idx: Uint16Array,
     const { wrist, along, thumb } = handFrame(body, s);
     const hand = index.get(`hand${s}`)!;
     const parts = [index.get(`palm${s}`)!, index.get(`fingers${s}`)!, index.get(`fingertips${s}`)!];
-    const w = new Map<number, number>();
+    // Up to six influences while splitting (three hand parts and the vertex's other joints), cut
+    // back to the strongest four.
+    const js = new Int32Array(6);
+    const ws = new Float32Array(6);
     for (let v = 0; v < pos.count; v++) {
       let k = 0;
       while (k < 4 && !(idx[v * 4 + k] === hand && wts[v * 4 + k] > 0)) k++;
@@ -371,23 +402,41 @@ function splitHands(body: MadeBody, geo: THREE.BufferGeometry, idx: Uint16Array,
       const thumbish = smoothstep(0.2, 0.26, t) * (1 - smoothstep(0.7, 0.8, u));
       const f1 = smoothstep(kn - 0.055, kn + 0.055, u) * (1 - thumbish);
       const f2 = smoothstep(md - 0.05, md + 0.05, u) * (1 - thumbish);
-      w.clear();
+      let n = 0;
+      const add = (joint: number, weight: number) => {
+        if (weight <= 0) return;
+        let m = 0;
+        while (m < n && js[m] !== joint) m++;
+        if (m === n) {
+          js[n] = joint;
+          ws[n++] = 0;
+        }
+        ws[m] += weight;
+      };
       for (let j = 0; j < 4; j++) {
         const joint = idx[v * 4 + j];
         const weight = wts[v * 4 + j];
-        if (weight <= 0) continue;
-        if (joint !== hand) {
-          w.set(joint, (w.get(joint) ?? 0) + weight);
-          continue;
+        if (joint !== hand) add(joint, weight);
+        else {
+          add(parts[0], weight * (1 - f1));
+          add(parts[1], weight * (f1 - f2));
+          add(parts[2], weight * f2);
         }
-        const share = [1 - f1, f1 - f2, f2];
-        parts.forEach((p, i) => share[i] > 0 && w.set(p, (w.get(p) ?? 0) + weight * share[i]));
       }
-      const top = [...w.entries()].sort((a, b) => b[1] - a[1]).slice(0, 4);
-      const total = top.reduce((sum, [, x]) => sum + x, 0) || 1;
+      // The strongest four, by a short selection sort.
+      let total = 0;
       for (let j = 0; j < 4; j++) {
-        idx[v * 4 + j] = top[j]?.[0] ?? 0;
-        wts[v * 4 + j] = top[j] ? top[j][1] / total : 0;
+        let best = j;
+        for (let m = j + 1; m < n; m++) if (ws[m] > ws[best]) best = m;
+        if (best !== j && best < n) {
+          [js[j], js[best]] = [js[best], js[j]];
+          [ws[j], ws[best]] = [ws[best], ws[j]];
+        }
+        if (j < n) total += ws[j];
+      }
+      for (let j = 0; j < 4; j++) {
+        idx[v * 4 + j] = j < n ? js[j] : 0;
+        wts[v * 4 + j] = j < n ? ws[j] / (total || 1) : 0;
       }
     }
   }
