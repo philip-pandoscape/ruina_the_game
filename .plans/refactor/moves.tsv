@@ -42,3 +42,10 @@ tests/life-conformance.spec.ts	tests/conformance/life.test.ts
 tests/ai-conformance.spec.ts	tests/conformance/ai.test.ts
 tests/terrain.spec.ts	tests/conformance/terrain.test.ts
 balance.json	tools/balance/scenario.json
+animations.html	dev/animations.html
+buildings.html	dev/buildings.html
+creatures.html	dev/creatures.html
+library.html	dev/library.html
+models.html	dev/models.html
+retarget.html	dev/retarget.html
+species.html	dev/species.html

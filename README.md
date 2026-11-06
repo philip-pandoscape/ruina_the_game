@@ -37,7 +37,7 @@ rules' formulas and the terrain generator), so it is always current and there is
 - `shared/zones/`, `shared/{vehicles,trade,farming,housing,items,quests,structures,traversal}.json`:
   the open world's content. `src/sim/zone/` grows the island from a zone recipe, `src/sim/life/`
   runs trade, farming, housing, vehicles and quests, `src/render/open/` and `src/render/models/`
-  draw it (preview every model at http://localhost:5173/models.html), `src/ui/life/` is its HUD
+  draw it (preview every model at http://localhost:5173/dev/models.html), `src/ui/life/` is its HUD
   and windows, in the look `src/ui/theme/` gives the whole UI
 - `tests/`: Playwright tests that play the real game in a browser, plus checks that the TypeScript and
   Rust rules agree frame by frame
@@ -67,9 +67,9 @@ short version of this file for coding agents.
      account if it's new), so you can play several in different windows. `?fresh` starts your island
      over. When the server is updated the world freezes under a notice and carries on by itself.
    - http://localhost:5173/?yard for the training yard (offline)
-   - http://localhost:5173/animations.html for the hero's animations, each played with the game's
+   - http://localhost:5173/dev/animations.html for the hero's animations, each played with the game's
      own timing: slow motion, any camera, and a floor to judge the feet by (`src/render/detail/`)
-   - http://localhost:5173/library.html, the animation library: every character's animations frame by
+   - http://localhost:5173/dev/library.html, the animation library: every character's animations frame by
      frame, with notes, poses corrected by moving the bones, and **Create Prompt** to hand them to
      Claude (`src/library/`, the `animation-review` skill)
    - http://localhost:5173/?raid=10000 for the rendering stress test (offline)

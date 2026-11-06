@@ -3,7 +3,7 @@ import { App } from './app';
 import { store, type Note } from './store';
 import { SUBJECTS } from './subjects';
 
-// /library.html: the animation library. See app.ts for what it does and AGENTS.md for where it fits.
+// /dev/library.html: the animation library. See app.ts for what it does and AGENTS.md for where it fits.
 // window.__library lets tests (tests/integration/library.spec.ts) and the review check (tests/integration/library-review.spec.ts)
 // drive it.
 

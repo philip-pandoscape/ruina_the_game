@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 // Its tests share nothing, so they spread across the workers (playwright.config.ts).
 test.describe.configure({ mode: 'parallel' });
 
-// The procedural models (src/render/models) in their gallery, models.html. Every category must
+// The procedural models (src/render/models) in their gallery, dev/models.html. Every category must
 // build without a console error and inside its triangle budget, and the parts the rules lean on
 // - wheels on the ground, hulls down to their draft, seats, cargo slots, decks and the cottage's
 // walls - must be where shared/*.json says. The screenshots in screenshots/ are for a human.
@@ -51,7 +51,7 @@ async function open(page: Page, query: string, errors: string[] = []) {
     });
     page.on('pageerror', (e) => errors.push(String(e)));
   }
-  await page.goto(`/models.html?${query}`);
+  await page.goto(`/dev/models.html?${query}`);
   await page.waitForFunction(() => (window as any).__models?.ready === true, null, { timeout: 90_000 });
   // Let the animations run (wheels, oars, legs, sails) before anything is measured or shot.
   await page.waitForTimeout(600);

@@ -1,6 +1,6 @@
 import type * as THREE from 'three';
 
-// The animation library's own vocabulary (/library.html, src/library/main.ts). Everything that moves
+// The animation library's own vocabulary (/dev/library.html, src/library/main.ts). Everything that moves
 // in the game is a Subject: the hero, a slime, a cow, a villager. A subject lists its animations and
 // makes a Take of one: the animation played through once, every frame kept, so any frame can be
 // shown at once, scrubbed backwards, drawn as a ghost or corrected by hand. How a subject is

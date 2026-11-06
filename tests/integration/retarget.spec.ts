@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test';
 import { HERO_MOVES } from '../../src/render/detail/moves';
 
 // Every clip the made hero's moves play (moves.ts), retargeted onto it as the game does it
-// (retarget.ts), held against its own skeleton on /retarget.html frame by frame: each bone points
+// (retarget.ts), held against its own skeleton on /dev/retarget.html frame by frame: each bone points
 // where the source's does, and the feet stay out of the ground. RECORD=1 keeps the frames
 // (test-results/retarget/<file>-<clip>/) for a GIF.
 
@@ -24,7 +24,7 @@ for (const { file, clip } of clips.values()) {
     const errors: string[] = [];
     page.on('pageerror', (e) => errors.push(String(e)));
     await page.setViewportSize({ width: 900, height: 620 });
-    await page.goto(`/retarget.html?file=${file}&clip=${encodeURIComponent(clip)}${process.env.RECORD ? '' : '&draw=0'}`);
+    await page.goto(`/dev/retarget.html?file=${file}&clip=${encodeURIComponent(clip)}${process.env.RECORD ? '' : '&draw=0'}`);
     await page.waitForFunction(() => (window as any).__retarget?.ready === true, null, { timeout: 120_000 });
     expect(errors).toEqual([]);
     const seconds: number = await page.evaluate(() => (window as any).__retarget.seconds);

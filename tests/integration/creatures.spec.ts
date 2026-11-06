@@ -20,7 +20,7 @@ const open = async (page: Page) => {
   const errors: string[] = [];
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
   page.on('pageerror', (e) => errors.push(String(e)));
-  await page.goto('/creatures.html');
+  await page.goto('/dev/creatures.html');
   await page.waitForFunction(() => typeof (window as any).__creatures === 'object');
   return errors;
 };

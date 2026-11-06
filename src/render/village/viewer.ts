@@ -7,7 +7,7 @@ import { assetsReady } from '../assets';
 import { windowGlow } from '../models/glb';
 import { Village } from './village';
 
-// /buildings.html: the buildings you can walk into, as the game draws them.
+// /dev/buildings.html: the buildings you can walk into, as the game draws them.
 //   ?plan=townhouse         one plan (all of them in a row without)
 //   ?cut=0                  as seen from inside, on that storey
 //   ?colliders=1            the rules' walls (red), decks (blue) and posts (yellow) over it

@@ -28,7 +28,7 @@ const harness = async (page: Page) => {
     if (m.type() === 'error') errors.push(m.text());
   });
   page.on('pageerror', (e) => errors.push(String(e)));
-  await page.goto('/species.html');
+  await page.goto('/dev/species.html');
   await page.waitForFunction(() => typeof (window as any).__species === 'object');
   return errors;
 };

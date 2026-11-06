@@ -41,7 +41,7 @@ test('pose corrections against the code as it is now', async ({ page }) => {
   const notes = review.notes.filter((n) => n.status === 'open' && n.fix);
   const dir = dirname(REVIEW!);
   mkdirSync(join(dir, 'images'), { recursive: true });
-  await page.goto('/library.html?test');
+  await page.goto('/dev/library.html?test');
   await page.waitForFunction(() => (window as unknown as { __library?: { ready: boolean } }).__library?.ready, null, { timeout: 120_000 });
 
   const out: string[] = [`# Pose corrections against the code (${new Date().toLocaleString()})`, ''];

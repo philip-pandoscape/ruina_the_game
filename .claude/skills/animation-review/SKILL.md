@@ -1,11 +1,11 @@
 ---
 name: animation-review
-description: Work through notes left in the animation library (/library.html) - notes on whole animations, stretches of frames, and single frames with poses corrected by moving the bones - by changing the animation code until the corrected poses are met, measured against them. Use when the user pastes a prompt starting "# Animation review", types /animation-review, or asks to fix the animations they reviewed or noted in the library.
+description: Work through notes left in the animation library (/dev/library.html) - notes on whole animations, stretches of frames, and single frames with poses corrected by moving the bones - by changing the animation code until the corrected poses are met, measured against them. Use when the user pastes a prompt starting "# Animation review", types /animation-review, or asks to fix the animations they reviewed or noted in the library.
 ---
 
 # Animation review
 
-The user reviews animations in the animation library (`/library.html`, `src/library/`): they play an
+The user reviews animations in the animation library (`/dev/library.html`, `src/library/`): they play an
 animation, leave notes on all of it, on a stretch of frames or on one frame, and on a frame they can
 move the bones to where they should be. **Create Prompt** turns the open notes into a prompt. This
 skill is how to act on one.
@@ -62,8 +62,8 @@ The prompt gives absolute paths; use them (the review may be in another checkout
 
 - Frame numbers count from 0 and are the animation's own: the hero's films run at 60 fps (a sim
   frame each), species clips at their clip rate (30 fps).
-- The library shows the new look's made hero unless `?look=classic`; the box hero shares the same
-  pose code, so a fix lands on both, but check the box hero too if the change is about proportions.
+- The library shows the made hero; the box hero (the stand-in while the made body loads, or if it
+  can't) shares the same pose code, so a fix lands on both.
 - `window.__library` drives the page from a test or the console: `open(subject, anim, options,
   frame)`, `seek`, `state`, `bones`, `turn`, `notes`, `prompt`, `check(note)`.
 - Another session may be working on the hero's animations (`src/render/detail/`): keep changes to

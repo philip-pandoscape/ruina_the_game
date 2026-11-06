@@ -14,7 +14,7 @@ import type { AnimDef, Bone, FrameInfo, Options, Phase, Posable, Snapshot, Sourc
 
 // The hero in the library: each of the films in src/render/detail/scenarios.ts (what the rules
 // report frame by frame) played through the game's own Hero (src/render/character.ts), exactly as
-// /animations.html plays them, every frame kept. The hero wears its made body (madeHero.ts).
+// /dev/animations.html plays them, every frame kept. The hero wears its made body (madeHero.ts).
 
 const STEP = 1 / 60;
 
@@ -28,7 +28,7 @@ interface HeroInside {
 }
 const inside = (h: Hero): HeroInside => h as unknown as HeroInside;
 
-// ---------- what the hero rides, flies or sits in (as /animations.html has them) ----------
+// ---------- what the hero rides, flies or sits in (as /dev/animations.html has them) ----------
 
 interface Prop {
   root: THREE.Object3D;
@@ -440,7 +440,7 @@ export const heroSubject: Subject = {
       system: [
         'Procedural: every pose is worked out in code, a pure function of a PoseInput (what the rules say the body is doing on a frame: speed, heading, which swing and which frame of it, a jump\'s rise, a hit) — `poseHumanoid` in src/render/detail/humanoid.ts.',
         'On top of that the stateful Hero (src/render/character.ts) eases between states (Inertia), holds planted feet where they were put down (holdFeet), draws and sheathes the weapon, closes made hands round what they hold (gripHands), and draws trails and the bowstring.',
-        'The library plays the films in src/render/detail/scenarios.ts (the rules\' frame counts, speeds and timings, frame by frame at 60 fps) through that same Hero, exactly as /animations.html does.',
+        'The library plays the films in src/render/detail/scenarios.ts (the rules\' frame counts, speeds and timings, frame by frame at 60 fps) through that same Hero, exactly as /dev/animations.html does.',
         made
           ? `This is the made body (madeHero.ts, src/render/assets/models/hero.glb, rig measured by fit.ts): its walk and run upper body come from Meshy's captured cycles (mocap.ts), and some combo swings are animation-library clips retargeted bone for bone (retarget.ts; which clip each weapon's combo plays: moves.ts — sets in use: ${sets}; 'keyed' means the code keyframes in swings.ts). A note on a swing that plays a clip may mean changing the clip choice, its cut (parts/from/to) or the retarget rather than swings.ts.`
           : 'This is the box hero (src/content/creatures/hero.ts), standing in while the made body loads (or because it could not): every move comes from the code keyframes.',

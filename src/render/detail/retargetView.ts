@@ -7,7 +7,7 @@ import { dressWeapons } from './madeWeapons';
 import { wear } from './fit';
 import { bake, JOINT, LIBRARIES, libraryOf, poseFromClip, RATE, type Baked, type Canon } from './retarget';
 
-// The retargeting check, /retarget.html: a library clip on the made hero, baked and posed exactly
+// The retargeting check, /dev/retarget.html: a library clip on the made hero, baked and posed exactly
 // as the game does it (retarget.ts), beside the clip's own skeleton playing it as authored; every
 // bone's direction on the hero measured against its source bone's, and the feet against the ground.
 //

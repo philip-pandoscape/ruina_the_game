@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 
-// The animation library (/library.html, src/library/): every character's animations open and play,
+// The animation library (/dev/library.html, src/library/): every character's animations open and play,
 // a corrected pose becomes a note with a picture and the bones it moved, notes outlive a reload (kept
 // by the dev server), and the prompt carries what Claude needs. Notes made here go to
 // test-results/anim-reviews/ (?test), never to reviews/.
@@ -30,7 +30,7 @@ const DIR = join(process.cwd(), 'test-results', 'anim-reviews');
 async function load(page: Page, hash = ''): Promise<void> {
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
-  await page.goto(`/library.html?test${hash}`);
+  await page.goto(`/dev/library.html?test${hash}`);
   await page.waitForFunction(() => (window as unknown as { __library?: Lib }).__library?.ready, null, { timeout: 90_000 });
   expect(errors).toEqual([]);
 }

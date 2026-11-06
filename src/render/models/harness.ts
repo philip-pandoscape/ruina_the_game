@@ -16,7 +16,7 @@ import { buildStructure } from './structures';
 import { buildVehicle } from './vehicles';
 
 // A gallery of every procedural model, for looking at them side by side next to a 1.9 m figure.
-//   /models.html?cat=vehicles|mounts|gliders|packs|crops|structures|props|livestock|villagers   (default: all)
+//   /dev/models.html?cat=vehicles|mounts|gliders|packs|crops|structures|props|livestock|villagers   (default: all)
 //   &only=<id>      one model, close up
 //   &label=<text>   only models whose label contains it (e.g. a cottage stage)
 //   &yaw=<rad>      turn every model to this heading (0 = facing the camera)

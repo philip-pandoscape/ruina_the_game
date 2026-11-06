@@ -9,6 +9,8 @@ COPY package.json package-lock.json ./
 RUN npm ci
 COPY tsconfig.json vite.config.ts playwright.config.ts index.html ./
 COPY src src
+# The developer pages and the design, built beside the game (served to admins only).
+COPY dev dev
 COPY shared shared
 COPY tools tools
 COPY design design

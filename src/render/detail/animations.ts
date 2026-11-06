@@ -11,7 +11,7 @@ import { SCENARIOS, scenario, type Moment, type Scenario } from './scenarios';
 import { TAU } from '../../util/math';
 
 // The hero's animations, one at a time, for looking at and for tests to measure.
-//   /animations.html                   pick one on the left; drag to orbit, wheel to zoom
+//   /dev/animations.html                   pick one on the left; drag to orbit, wheel to zoom
 //   ?anim=<id>                         start on that one (ids in src/render/detail/scenarios.ts)
 //   &speed=0.25                        slow motion
 //   &view=side|front|back|three        camera

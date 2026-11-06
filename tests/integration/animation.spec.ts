@@ -5,7 +5,7 @@ import { gameReady } from '../support/game';
 // Its tests share nothing, so they spread across the workers (playwright.config.ts).
 test.describe.configure({ mode: 'parallel' });
 
-// The hero's animations, measured rather than eyeballed. The gallery (animations.html) plays each
+// The hero's animations, measured rather than eyeballed. The gallery (dev/animations.html) plays each
 // of the films in src/render/detail/scenarios.ts through the real close-up hero - poses, easing
 // between states, feet held where they're planted - and reports where everything went. No GPU
 // needed: it's all positions and angles. A few play the game itself (?world&test), at a set frame
@@ -17,7 +17,7 @@ async function open(page: Page): Promise<string[]> {
   page.on('console', (m) => {
     if (m.type() === 'error') errors.push(m.text());
   });
-  await page.goto('/animations.html?anim=idle');
+  await page.goto('/dev/animations.html?anim=idle');
   await page.waitForFunction(() => (window as any).__anims?.ready === true);
   return errors;
 }

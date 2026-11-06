@@ -83,13 +83,13 @@ humanoid's.
 
 ## 5. Check it
 
-1. `/retarget.html?look=new&file=hero_<name>&clip=A~B` (add `&mesh=/scratch/<skinned source>.glb` to
+1. `/dev/retarget.html?file=hero_<name>&clip=A~B` (add `&mesh=/scratch/<skinned source>.glb` to
    show the source skinned rather than as bones): the hero as the game bakes and poses it, beside the
    source. `window.__retarget.seek(t)` gives each moment's error.
 2. `npx playwright test tests/integration/retarget.spec.ts`: every move's clip, every frame: bones within 0.1°
    on average and 1° at worst, ankles no more than 2.5 cm under where they stand. `RECORD=1` keeps
    the frames under `test-results/retarget/` for a GIF.
-3. `/animations.html?look=new` (`&swordMoves=keyed|meshy|quaternius` to compare sets): the move in the
+3. `/dev/animations.html` (`?swordMoves=keyed|meshy|quaternius` to compare sets): the move in the
    game's timing, with the trail, the feet held and the fingers round the weapon. Step it with
    `window.__anims.sheet(id, { frames: [f] })` and screenshot each frame for a GIF.
 4. `npx playwright test tests/integration/animation.spec.ts` (and the game and combat suites).

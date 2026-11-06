@@ -103,7 +103,7 @@
       "notes": "Low-poly toon models built in code to the data's exact footprints and anchors: 20 structures (the cottage in 5 build stages), 6 vehicles, 2 mounts, 2 gliders, 9 packs, 6 crops in 4 stages, 3 kinds of livestock (young and grown), 12 villagers and 8 props. Merged per model for few draw calls; tests check wheels, waterlines, seat heights and the cottage doorway.",
       "files": [
         "src/render/models/",
-        "models.html",
+        "dev/models.html",
         "tests/integration/models.spec.ts"
       ]
     },
@@ -903,9 +903,9 @@
       "system": "tech",
       "status": "done",
       "title": "Animation library: review animations and send Claude the fixes",
-      "notes": "/library.html shows every animated thing: the hero (each film in scenarios.ts, in the made body or the box one, any weapon), slimes in every size (as jelly or boxes), the crowd's far-away bodies, the farm animals, the twelve townsfolk and the mounts. Pick one, then an animation; play it at any speed, step it a frame at a time, scrub, loop a stretch, look from any side, with its skeleton, onion skins and the paths of its hands and feet. The timeline shows what the rules have the body doing when (a swing's wind-up, strike and recovery, the air, a landing). Notes go on the whole animation, a stretch of frames or one frame; on a frame you can move the bones (turn a joint, or take a hand or a foot and bend the limb to reach it) and keep the corrected pose with a picture of before and after. Create Prompt turns the open notes into one prompt for Claude: what moves each body and where, every note with the rules' state on its frames, and for corrected poses the bones' turns in degrees, where the hands and feet went in centimetres, and the pictures. The notes are kept by the dev server in reviews/animations/ (tools/animReviews.ts), so they outlive the reload a code change brings; corrected poses then show as green ghosts on their frames, with how close the animation now comes. tests/integration/library-review.spec.ts measures every correction against the code (REVIEW=.../review.json), and the animation-review skill says how to work through a review.",
+      "notes": "/dev/library.html shows every animated thing: the hero (each film in scenarios.ts, in the made body or the box one, any weapon), slimes in every size (as jelly or boxes), the crowd's far-away bodies, the farm animals, the twelve townsfolk and the mounts. Pick one, then an animation; play it at any speed, step it a frame at a time, scrub, loop a stretch, look from any side, with its skeleton, onion skins and the paths of its hands and feet. The timeline shows what the rules have the body doing when (a swing's wind-up, strike and recovery, the air, a landing). Notes go on the whole animation, a stretch of frames or one frame; on a frame you can move the bones (turn a joint, or take a hand or a foot and bend the limb to reach it) and keep the corrected pose with a picture of before and after. Create Prompt turns the open notes into one prompt for Claude: what moves each body and where, every note with the rules' state on its frames, and for corrected poses the bones' turns in degrees, where the hands and feet went in centimetres, and the pictures. The notes are kept by the dev server in reviews/animations/ (tools/animReviews.ts), so they outlive the reload a code change brings; corrected poses then show as green ghosts on their frames, with how close the animation now comes. tests/integration/library-review.spec.ts measures every correction against the code (REVIEW=.../review.json), and the animation-review skill says how to work through a review.",
       "files": [
-        "library.html",
+        "dev/library.html",
         "src/library/",
         "tools/animReviews.ts",
         "tests/integration/library.spec.ts",
@@ -1125,7 +1125,7 @@
       "system": "look",
       "status": "done",
       "title": "Moves from animation libraries",
-      "notes": "Any of the hero's moves can be its own keyframes or a clip from an animation library, retargeted onto it bone for bone (retarget.ts): each joint's rest lined up with its source bone's, every turn copied, the body following the source's hip joints sized by leg length, the clip's own travel taken off so the rules carry the body and the feet it plants are held. Bone tables for Meshy, Quaternius and Mixamo. moves.ts picks per weapon: the sword plays Quaternius' sword combo and the club its heavy combo (CC0); Meshy's Triple Combo Attack, split at its three strikes, is the other sword set (?swordMoves=keyed|meshy|quaternius). A strike lands on the rules' first active frame at up to 1.5x the clip's pace. /retarget.html shows a clip on the hero beside its source, and tests/integration/retarget.spec.ts holds every move's clip to within a degree of it; the retarget-animation skill (.claude/skills) says how to bring in another.",
+      "notes": "Any of the hero's moves can be its own keyframes or a clip from an animation library, retargeted onto it bone for bone (retarget.ts): each joint's rest lined up with its source bone's, every turn copied, the body following the source's hip joints sized by leg length, the clip's own travel taken off so the rules carry the body and the feet it plants are held. Bone tables for Meshy, Quaternius and Mixamo. moves.ts picks per weapon: the sword plays Quaternius' sword combo and the club its heavy combo (CC0); Meshy's Triple Combo Attack, split at its three strikes, is the other sword set (?swordMoves=keyed|meshy|quaternius). A strike lands on the rules' first active frame at up to 1.5x the clip's pace. /dev/retarget.html shows a clip on the hero beside its source, and tests/integration/retarget.spec.ts holds every move's clip to within a degree of it; the retarget-animation skill (.claude/skills) says how to bring in another.",
       "files": [
         "src/render/detail/retarget.ts",
         "src/render/detail/moves.ts",
@@ -1192,7 +1192,7 @@
         "src/sim/zone/buildings.ts",
         "src/render/village/",
         "tools/models/village.mjs",
-        "buildings.html",
+        "dev/buildings.html",
         "tests/integration/village.spec.ts"
       ]
     },
@@ -1457,9 +1457,9 @@
         "src/render/detail/: body.ts (analytic two-bone IK, feet and hands to points in the body's space), gait.ts (stride length and ground time by speed, a heel-to-toe rocker, a backpedal gait played backwards), swings.ts (keyframed swings with footwork), humanoid.ts (every pose, still a pure function of PoseInput so the crowd bakes from it).",
         "src/render/character.ts: a stride clock that shortens strides as you slow, inertial blending between states, feet held where they are planted through turns, stops and starts (with a settling step), trails traced from the blade, the bowstring and arrow following the drawing hand, sub-frame timing on fast screens.",
         "Combat stance in the rules (TS and Rust): faceX / faceZ in the input; the input packets grew a byte (battlefield 16 bytes an input, open world 10) and WORLD_PROTOCOL went to 3.",
-        "/animations.html plays every animation with the game's timing (slow motion, any camera, a floor to judge feet by); tests/integration/animation.spec.ts measures planted feet (a centimetre at most moving steadily), floor clearance, joint limits, trails on the blade, the bowstring and the glider grips.",
-        "Round two: hits throw the body the way the blow shoves you (the close-up hero keeps the knock's direction while the slide dies away); turning on the spot, planted feet keep pointing the way they were put down and step round one at a time; travelling, the weapon goes to the hip or across the back; the cape takes the wind from the way you go. /animations.html gained films that turn the hero (facing) and hits from four sides.",
-        "Round three, after playing it: sitting forward, thighs over the seat's edge and feet on the vehicle's footrest; the vehicle hands the hero what to hold as it moves (vehicles.ts Holds: the steering wheel's rim, the oars' handles, the stirrups); the cart's, roadster's and hauler's wheels turn now, square on their columns and facing the driver (they were tipped back, facing away), and the ship's helm turns the way you steer; short stirrups, so the knees bend round the horse; the glider bar ahead of the chin; the bow drawn to the chin; the sword carried ready; and the weapon out for a fight and put away after it (src/render/detail/stow.ts). /animations.html gained films for putting the weapon away and drawing it, running with it away, and driving the roadster and the hauler; the tests measure hands on what they hold, feet in the stirrups, wheels facing their drivers, and a draw that never jumps or sweeps the ground.",
+        "/dev/animations.html plays every animation with the game's timing (slow motion, any camera, a floor to judge feet by); tests/integration/animation.spec.ts measures planted feet (a centimetre at most moving steadily), floor clearance, joint limits, trails on the blade, the bowstring and the glider grips.",
+        "Round two: hits throw the body the way the blow shoves you (the close-up hero keeps the knock's direction while the slide dies away); turning on the spot, planted feet keep pointing the way they were put down and step round one at a time; travelling, the weapon goes to the hip or across the back; the cape takes the wind from the way you go. /dev/animations.html gained films that turn the hero (facing) and hits from four sides.",
+        "Round three, after playing it: sitting forward, thighs over the seat's edge and feet on the vehicle's footrest; the vehicle hands the hero what to hold as it moves (vehicles.ts Holds: the steering wheel's rim, the oars' handles, the stirrups); the cart's, roadster's and hauler's wheels turn now, square on their columns and facing the driver (they were tipped back, facing away), and the ship's helm turns the way you steer; short stirrups, so the knees bend round the horse; the glider bar ahead of the chin; the bow drawn to the chin; the sword carried ready; and the weapon out for a fight and put away after it (src/render/detail/stow.ts). /dev/animations.html gained films for putting the weapon away and drawing it, running with it away, and driving the roadster and the hauler; the tests measure hands on what they hold, feet in the stirrups, wheels facing their drivers, and a draw that never jumps or sweeps the ground.",
         "Fixes found on the way: Escape (backing out of a circle) and the button that closes a menu are kept until a rules step has seen them, so a fast screen neither drops them nor lets B slide as it closes the skill panel; the server listens on IPv4 as well as IPv6 on Windows too (socket2, dual-stack), so the battlefield tests run there; on the island you start, and get up after a knock-down, standing on the hill at the spawn rather than inside it (both rules)."
       ]
     },
@@ -1543,7 +1543,7 @@
         "Slimes: glossy jelly gumdrops with a pool shadow and a face that changes with mood (src/species/jelly.ts).",
         "Hero: a Meshy model on the hero rig (fit.ts), fingers that close round the grip, a gait measured off captured walking and running.",
         "Weapons: Meshy's sword, club, staff and bow where the box ones were, shining with the sky's light, carried at the hip and across the back.",
-        "Moves: Quaternius' sword combo and heavy combo on the sword and club, Meshy's Triple Combo Attack as the sword's other set; retarget.ts, moves.ts, /retarget.html, tests/integration/retarget.spec.ts, the retarget-animation skill.",
+        "Moves: Quaternius' sword combo and heavy combo on the sword and club, Meshy's Triple Combo Attack as the sword's other set; retarget.ts, moves.ts, /dev/retarget.html, tests/integration/retarget.spec.ts, the retarget-animation skill.",
         "Tools: npm run image (Gemini), tools/models/weaponprep.mjs, tools/models/clips.mjs."
       ]
     },
@@ -1563,7 +1563,7 @@
       "title": "An animation library for reviewing animations with Claude",
       "summary": "A place to go through every character's animations frame by frame and tell Claude what to change: notes on an animation, a stretch of frames or a frame, poses corrected by moving the bones, and a prompt made from them that carries the code's whereabouts, the numbers and the pictures. Once Claude has changed the code, the corrections stay on screen as ghosts to compare against.",
       "points": [
-        "/library.html (src/library/): the hero, slimes, crowd bodies, farm animals, townsfolk and mounts, each through an adapter (subjects/) that keeps every frame of an animation so it can be scrubbed, ghosted and posed.",
+        "/dev/library.html (src/library/): the hero, slimes, crowd bodies, farm animals, townsfolk and mounts, each through an adapter (subjects/) that keeps every frame of an animation so it can be scrubbed, ghosted and posed.",
         "Pose correction: a rotation gizmo per joint, two-bone IK for hands and feet, scale for squash and stretch, undo, exact angles; kept with a picture of before and after.",
         "Create Prompt: open notes in one prompt (prompt.ts); notes, pictures and prompts kept in reviews/animations/ by the dev server (tools/animReviews.ts).",
         "Checking a fix: green ghosts of the corrections on their frames and a meter of how close the animation comes; tests/integration/library-review.spec.ts measures them all (degrees and centimetres) and draws the frames as they are now.",
@@ -1601,7 +1601,7 @@
         "Drawing: the town merged into a few meshes per neighbourhood; the house you are in cut open above your storey by its vertices, its roof still casting its shadow; warm indoor light, four shared lamps that follow you, doors that swing open, hearth fires.",
         "Camera: indoors it looks down into the room from within the walls and never slips into a house through its door.",
         "Player cottages from the kit, stage by stage. Meshy's building models retired.",
-        "Tools: tools/models/village.mjs packs the kits; /buildings.html shows each plan, cut open, with its colliders."
+        "Tools: tools/models/village.mjs packs the kits; /dev/buildings.html shows each plan, cut open, with its colliders."
       ]
     },
     {

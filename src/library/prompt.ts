@@ -21,7 +21,7 @@ export const linkTo = (origin: string, subject: string, anim: string, options: O
   const q = new URLSearchParams(options);
   if (frame !== undefined) q.set('f', String(frame));
   const s = q.toString();
-  return `${origin}/library.html#/${subject}/${anim}${s ? `?${s}` : ''}`;
+  return `${origin}/dev/library.html#/${subject}/${anim}${s ? `?${s}` : ''}`;
 };
 
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
@@ -117,7 +117,7 @@ export function buildPrompt(notes: Note[], ctx: PromptContext): string {
   out.push(
     `# Animation review: ${plural(open.length, 'note')} on ${plural(anims.size, 'animation')}`,
     '',
-    "I went through Ruina's animations in the animation library (`/library.html`, src/library/) and left notes: on whole animations, on stretches of frames, and on single frames" +
+    "I went through Ruina's animations in the animation library (`/dev/library.html`, src/library/) and left notes: on whole animations, on stretches of frames, and on single frames" +
       (fixes ? `, ${plural(fixes, 'of them', 'of them')} with the pose corrected by hand to show where the bones should have been` : '') +
       '. Please change the animation code so that each note below is dealt with.',
     '',
@@ -127,7 +127,7 @@ export function buildPrompt(notes: Note[], ctx: PromptContext): string {
     "- A corrected pose is the target for that frame. Change the code that makes the pose (not the bones of one frame) so the animation passes through it, and blend into and out of it so the frames around it stay smooth. Small differences that don't change how it reads are fine; the direction and size of the change matter.",
     "- Fix how it looks, not the rules' timing: frame counts (startup, active, recovery), speeds and the films in src/render/detail/scenarios.ts are game rules or stand for them; changing a rule means TypeScript and Rust together (AGENTS.md). If a note can only be met by changing timing, say so instead.",
     '- Keep src/sim/ untouched and the render code presentation only. Another session may be working on the animations: keep your changes to what the notes ask for.',
-    `- The library reloads by itself when you save, and shows my corrected poses as green ghosts on their frames, so I can compare at once${ctx.origin ? ` (${ctx.origin}/library.html)` : ''}.`,
+    `- The library reloads by itself when you save, and shows my corrected poses as green ghosts on their frames, so I can compare at once${ctx.origin ? ` (${ctx.origin}/dev/library.html)` : ''}.`,
     '',
   );
 

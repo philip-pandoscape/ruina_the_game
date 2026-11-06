@@ -50,7 +50,7 @@ Phase 10.
 
 ## Adding a Page
 
-1. Its HTML in `dev/` (it loads its module from `src/`, as the others do).
+1. Its HTML in `dev/` (it loads its module from `src/`, as the others do). The build makes
+   every page in `dev/` and `design/` (`vite.config.ts`), so it's served on beta without more.
 2. An entry in `src/dev/pages.ts`: Title Case title, a sentence saying what it's for.
-3. Its HTML in the build's pages (`vite.config.ts`), so it's served on beta.
-4. If a test opens it, the test goes in `tests/integration/` and reaches it at `/dev/<page>.html`.
+3. If a test opens it, the test goes in `tests/integration/` and reaches it at `/dev/<page>.html`.

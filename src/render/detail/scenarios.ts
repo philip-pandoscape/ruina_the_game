@@ -4,7 +4,7 @@ import { SWIM } from '../../content/traversal';
 import { lungeSpeed } from './humanoid';
 import { TAU } from '../../util/math';
 
-// Little films of the hero, for the animation gallery (animations.html) and the tests that check
+// Little films of the hero, for the animation gallery (dev/animations.html) and the tests that check
 // the motion. Each one is what the rules would report frame by frame - running speed, which way
 // you're going, a jump's rise and fall, which swing of a combo is on which frame - so the gallery
 // plays the poses the way the game does, transitions and all, without a game running.
