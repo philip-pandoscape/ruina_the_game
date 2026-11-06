@@ -5,8 +5,9 @@ server (axum) on a Rust engine shared with the client's rules (`crates/`), Postg
 repository keeps the working name *yggdrasil*; the server is `ruina-server`.
 The main world is meant to be one seamless open world of regions defined by data, with ArcheAge-style
 life systems and land that is scarce and contested. **Emberholm**, a starter isle, is its first
-region, and today its only one. Dungeons and developer zones are instances. The refactor's Phase 10
-lays the foundations: `.plans/refactor/README.md` (One World) and `.plans/world/research.md`.
+region, and today its only one. Dungeons and developer zones are instances. How the world is laid
+out, read and played: `docs/world.md`. The refactor's Phase 10 lays the foundations:
+`.plans/refactor/README.md` (One World) and `.plans/world/research.md`.
 
 ## Layout
 

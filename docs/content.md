@@ -244,7 +244,8 @@ has, and every one the game has to something that wears it.
   it's entered from. A dungeon's dressing is still code (the refactor's R9.8).
 - **A region**: its recipe, `content/regions/<id>.json`, a folder of what it places beside it
   (`content/regions/<id>/`, the lists above), and its chunks in `content/world.json`, whose comment
-  says what its grid must be. Every id in it is one thing in the whole world (contentc).
+  says what its grid must be. Every id in it is one thing in the whole world (contentc). Adding one
+  step by step: `docs/world.md`.
 
 ## Mini-Games
 

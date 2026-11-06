@@ -26,7 +26,8 @@ How to add each kind of thing, as files alone: `docs/content.md`.
 - **A thing in several files**: a creature (`creatures/goblin.json` naming its parts in
   `creatures/goblin/`: its kinds, its attacks, its brain) and a region (`regions/emberholm.json`, its
   recipe, and `regions/emberholm/`: its places, buildings, gathering spots, the doors into its
-  dungeons and the rest; its people are `npcs/`). `world.json` places each region on its chunks.
+  dungeons and the rest; its people are `npcs/`). `world.json` places each region on its chunks
+  (`docs/world.md`).
 - **`_templates/`**: a thing of each kind to copy for a new one (`docs/content.md` says where each
   goes); no bundle takes them. `tests/unit/templates.test.ts` keeps them fitting their kinds.
 - **`_schemas/`**: each kind's JSON Schema (`npm run content:schemas` writes them from the things

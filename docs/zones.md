@@ -3,7 +3,8 @@
 Where the game is played: one open world of regions (`content/world.json` places each on its
 chunks; today Emberholm, the starter isle, is the only one), and the instances beside it that a party
 plays in a copy of its own: the dungeons, and the developer zones admins use to try things out. Each
-of those is files; nothing in code lists them.
+of those is files; nothing in code lists them. The world itself, its regions, ground and channels:
+[world.md](world.md).
 
 | What | Where | Played in |
 |---|---|---|
