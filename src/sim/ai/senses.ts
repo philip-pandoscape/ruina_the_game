@@ -1,7 +1,7 @@
 import type { Sim } from '../sim';
 import type { Actor } from '../actor';
 import type { PlayerState } from '../types';
-import { comboFor, MOVEMENT_SKILLS, COMBAT, type AttackStep } from '../../tuning';
+import { comboFor, MOVEMENT_SKILLS, COMBAT, type AttackStep } from '../../content/tuning';
 import { incomingScale } from '../player/abilities';
 import { heightAboveGround } from '../player/traverse';
 import { len } from '../math';

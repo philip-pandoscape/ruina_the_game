@@ -1,6 +1,6 @@
 import type { MenuPress } from '../../input/input';
-import { BOOK, NODES } from '../../skills';
-import type { Build } from '../../tuning';
+import { BOOK, NODES } from '../../content/skills';
+import type { Build } from '../../content/tuning';
 import { addTipSource, hideTip, wireTips } from '../theme/tooltip';
 import { SkillBook } from './book';
 import { esc, type SkillsContext } from './context';

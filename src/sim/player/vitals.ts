@@ -5,7 +5,7 @@
 
 import type { Sim } from '../sim';
 import type { Actions, PlayerState } from '../types';
-import { HOTBAR_SLOTS, MOVEMENT_SLOTS, MP, NO_ABILITY, NO_MOVEMENT, STAMINA, STEP, abilityMpFor, movementStaminaFor } from '../../tuning';
+import { HOTBAR_SLOTS, MOVEMENT_SLOTS, MP, NO_ABILITY, NO_MOVEMENT, STAMINA, STEP, abilityMpFor, movementStaminaFor } from '../../content/tuning';
 
 /** Once a step: stamina refills once a moment has passed since it was last spent; MP always does. */
 export function regenVitals(p: PlayerState): void {

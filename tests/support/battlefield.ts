@@ -2,7 +2,7 @@ import { readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test, type Browser, type BrowserContext, type Page } from '@playwright/test';
-import type { Build } from '../../src/tuning';
+import type { Build } from '../../src/content/tuning';
 import { onlineReady } from './game';
 import { GameServer, ownServerMissing } from './ownServer';
 import { serverBuilt } from './testServer';

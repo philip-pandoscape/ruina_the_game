@@ -1,4 +1,4 @@
-import type { AttackStep } from '../tuning';
+import type { AttackStep } from './tuning';
 
 // What a pose needs to know, with nothing from the rules in it. The live renderer fills this in
 // from PlayerState every frame; the clip baker fills it in from a time along an animation. Same

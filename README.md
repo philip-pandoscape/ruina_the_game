@@ -21,7 +21,7 @@ else is drawn by `design/bible.ts` from the game's own modules (the content in `
 rules' formulas and the terrain generator), so it is always current and there is nothing to rebuild.
 
 - `src/`: browser client (Three.js + TypeScript, built with Vite)
-- `src/skills.ts` and `crates/engine/src/skills.rs`: the skill tree, the levels skills gain by use, and the
+- `src/content/skills.ts` and `crates/engine/src/skills.rs`: the skill tree, the levels skills gain by use, and the
   modifiers both apply, mirrored in both languages. The tree is data in `shared/skilltree.json`
   (laid out by `tools/skilltree/gen.mjs`), points and levels in `shared/tuning.json`; adding a
   skill should not mean writing code.

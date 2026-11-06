@@ -1,5 +1,5 @@
-import { alsoDropped, learnBlock, learnPath, NODE_INFO, unlearn, unlearnBlock } from '../../build';
-import { ADJACENT, hasSkill, LINKS, NODES, ORBITS, pathTo, reachable, ROOTS, skillCount, TREES, withSkill, type SkillSet } from '../../skills';
+import { alsoDropped, learnBlock, learnPath, NODE_INFO, unlearn, unlearnBlock } from '../../app/build';
+import { ADJACENT, hasSkill, LINKS, NODES, ORBITS, pathTo, reachable, ROOTS, skillCount, TREES, withSkill, type SkillSet } from '../../content/skills';
 import type { MenuPress } from '../../input/input';
 import { iconUrl } from '../theme/icons';
 import { toUi, uiSize } from '../theme/scale';

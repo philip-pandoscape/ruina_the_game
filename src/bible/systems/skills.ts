@@ -16,8 +16,8 @@ import {
   START_POINTS,
   STATS,
   TREES,
-} from '../../skills';
-import { ABILITIES, DEFAULT_BUILD, HOTBAR_SLOTS, MOVEMENT_SKILLS, MOVEMENT_SLOTS, WEAPONS } from '../../tuning';
+} from '../../content/skills';
+import { ABILITIES, DEFAULT_BUILD, HOTBAR_SLOTS, MOVEMENT_SKILLS, MOVEMENT_SLOTS, WEAPONS } from '../../content/tuning';
 import { change, count, num, pct } from '../format';
 import { system, table } from '../kit';
 import { type Html, link, md, phrase, raw } from '../md';
@@ -42,7 +42,7 @@ function modOf(id: string, stat: string): SkillMod {
   return m;
 }
 
-/** How each stat is applied by the rules (src/tuning.ts): rounded to whole frames, kept at one or more, never below nothing. */
+/** How each stat is applied by the rules (src/content/tuning.ts): rounded to whole frames, kept at one or more, never below nothing. */
 const APPLIED: Record<string, string> = {
   'attack.startup': 'Rounded to whole frames',
   'cast.frames': 'Rounded to whole frames, at least one',
@@ -91,8 +91,8 @@ export const skills = system({
     'modifier',
   ],
   rules: [
-    'src/skills.ts',
-    'src/build.ts',
+    'src/content/skills.ts',
+    'src/app/build.ts',
     'src/sim/life/progress.ts',
     'crates/engine/src/skills.rs',
     'crates/engine/src/tuning.rs',

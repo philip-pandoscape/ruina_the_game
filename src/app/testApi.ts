@@ -2,7 +2,7 @@
 // them) read and drive: the rules' state, stepping frame by frame, commands, windows, the camera,
 // online play. It reaches the game through `g`, the references src/main.ts hands it.
 import * as THREE from 'three';
-import { pointsLeft, swapSlots, validBuild } from '../build';
+import { pointsLeft, swapSlots, validBuild } from './build';
 import { actorKindAt } from '../content/actors';
 import { assetsReady } from '../render/assets';
 import { isPine } from '../render/open/foliage';
@@ -15,8 +15,8 @@ import { groundAt } from '../sim/zone/colliders';
 import { Life } from '../sim/life/life';
 import { LifeUI } from '../ui/life/lifeUI';
 import { clearLife, saveLife } from './save';
-import { BOOK } from '../skills';
-import { STEP, type Build } from '../tuning';
+import { BOOK } from '../content/skills';
+import { STEP, type Build } from '../content/tuning';
 import type { GameRefs } from '../main';
 
 /** The test API on the game `g` refers to. */

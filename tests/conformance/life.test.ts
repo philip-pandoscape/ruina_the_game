@@ -12,7 +12,7 @@ import { rainAt } from '../../src/sim/life/weather';
 import { toWorld } from '../../src/sim/zone/generate';
 import type { Vehicle } from '../../src/sim/life/state';
 import { applySave, islandData, type Island } from '../../src/app/save';
-import { LEVEL_XP } from '../../src/skills';
+import { LEVEL_XP } from '../../src/content/skills';
 import { QUESTS } from '../../src/content/quests';
 
 // Online, the game server runs your island (crates/engine/src/life, crates/engine/src/open) and the browser shows

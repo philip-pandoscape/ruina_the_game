@@ -78,7 +78,7 @@ pub struct DungeonDef {
 }
 
 /// One of a kind at a spot, or a war-band of them (`band`: `count` in a ring round it, fighting
-/// together as a pack, as bandAround() in src/sim/world.ts lays one out).
+/// together as a pack, as bandAround() in src/sim/yard.ts lays one out).
 #[derive(Deserialize, Clone, Debug)]
 pub struct ZoneSpawn {
     pub kind: String,
@@ -96,7 +96,7 @@ fn one() -> u32 {
 
 impl ZoneSpawn {
     /// Where each one stands (relative to the origin), which way it faces, and its seed: a band in a
-    /// ring round the spot facing out (bandAround() in src/sim/world.ts), anything else on the spot.
+    /// ring round the spot facing out (bandAround() in src/sim/yard.ts), anything else on the spot.
     pub fn points(&self, seed: u32) -> Vec<(f64, f64, f64, u32)> {
         let n = self.count.max(1);
         (0..n)

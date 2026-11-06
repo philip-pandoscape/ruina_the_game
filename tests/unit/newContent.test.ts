@@ -59,7 +59,7 @@ import { questsAt } from '../../src/sim/life/quests';
 import type { Vehicle } from '../../src/sim/life/state';
 import { Sim } from '../../src/sim/sim';
 import { type Actions, NO_ACTIONS, type World } from '../../src/sim/types';
-import { makeWorld } from '../../src/sim/world';
+import { makeWorld } from '../../src/sim/yard';
 import { groundAt } from '../../src/sim/zone/colliders';
 import { toWorld } from '../../src/sim/zone/generate';
 import type { ZoneNpc } from '../../src/sim/zone/types';

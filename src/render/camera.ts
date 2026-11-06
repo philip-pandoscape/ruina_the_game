@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { CAMERA } from '../tuning';
+import { CAMERA } from '../content/tuning';
 
 // Over-the-shoulder camera that orbits the player and shakes on big hits.
 export class FollowCamera {

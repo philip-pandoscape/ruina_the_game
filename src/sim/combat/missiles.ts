@@ -1,7 +1,7 @@
 import type { Actor, Actors, Missile } from '../actor';
 import type { AttackDef } from '../../content/attacks';
 import type { Foe } from '../ai/senses';
-import { MOVE } from '../../tuning';
+import { MOVE } from '../../content/tuning';
 import { len } from '../math';
 
 // What creatures throw and shoot, in flight: a stone, later an arrow or a bolt. It is aimed where

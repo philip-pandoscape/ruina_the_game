@@ -102,7 +102,7 @@ pub struct Arrival {
     /// When it was saved and the time now (ms since the epoch), for the time they were away.
     pub saved_at: Option<i64>,
     pub now: i64,
-    /// Their build as kept (src/build.ts's shape), if they have one. It is checked against the
+    /// Their build as kept (src/app/build.ts's shape), if they have one. It is checked against the
     /// skill points their island has earned once the island is loaded.
     pub build: Option<Value>,
 }
@@ -1194,7 +1194,7 @@ fn v3(x: f64, y: f64, z: f64) -> Value {
     json!({ "x": x, "y": y, "z": z })
 }
 
-/// A build in the shape the browser keeps one (src/build.ts Build), which parse_build reads back.
+/// A build in the shape the browser keeps one (src/app/build.ts Build), which parse_build reads back.
 pub fn build_json(b: &Build) -> Value {
     json!({ "skills": b.skills, "weapon": b.weapon, "abilities": b.abilities, "movement": b.movement })
 }

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
-import { makeRng, range } from '../rng';
+import { makeRng, range } from '../util/rng';
 import type { GameEvent } from '../sim/types';
-import { MOVEMENT_SKILLS } from '../tuning';
+import { MOVEMENT_SKILLS } from '../content/tuning';
 import { toon } from './toon';
 
 // ---------- Slash trail ----------

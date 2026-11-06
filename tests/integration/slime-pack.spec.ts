@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
-import { COMBAT, emptyMovement, HOTBAR_SLOTS, NO_ABILITY, SLIME, type Build } from '../../src/tuning';
-import { skillsFrom } from '../../src/skills';
+import { COMBAT, emptyMovement, HOTBAR_SLOTS, NO_ABILITY, SLIME, type Build } from '../../src/content/tuning';
+import { skillsFrom } from '../../src/content/skills';
 import { actorKind } from '../../src/content/actors';
 import { gameReady } from '../support/game';
 

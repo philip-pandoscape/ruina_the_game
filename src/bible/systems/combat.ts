@@ -1,9 +1,22 @@
 // Combat: written from its rules (`rules` below); every number from the content and the rules.
 
 import { actorKind } from '../../content/actors';
-import { statBase, STATS } from '../../skills';
+import { statBase, STATS } from '../../content/skills';
 import { EMBERHOLM } from '../../sim/zone/world';
-import { ABILITIES, ATTACK, type AttackStep, COMBAT, HOTBAR_SLOTS, MOVEMENT_SKILLS, MOVEMENT_SLOTS, MP, SIM_HZ, SPECIAL, STAMINA, WEAPONS } from '../../tuning';
+import {
+  ABILITIES,
+  ATTACK,
+  type AttackStep,
+  COMBAT,
+  HOTBAR_SLOTS,
+  MOVEMENT_SKILLS,
+  MOVEMENT_SLOTS,
+  MP,
+  SIM_HZ,
+  SPECIAL,
+  STAMINA,
+  WEAPONS,
+} from '../../content/tuning';
 import { count, duration, frames, framesAsSeconds, key, metres, num, pct, speed, times } from '../format';
 import { system, table } from '../kit';
 import { link, md, phrase, raw } from '../md';

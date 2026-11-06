@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 import type { Sim } from '../sim/sim';
 import { ON_FOOT, type Actions, type PlayerState } from '../sim/types';
-import { emptySkills } from '../skills';
-import { HOTBAR_SLOTS, MOVEMENT_SKILL_CAP, MOVEMENT_SLOTS, MP, NO_ABILITY, NO_MOVEMENT, STAMINA } from '../tuning';
+import { emptySkills } from '../content/skills';
+import { HOTBAR_SLOTS, MOVEMENT_SKILL_CAP, MOVEMENT_SLOTS, MP, NO_ABILITY, NO_MOVEMENT, STAMINA } from '../content/tuning';
 import type { RawInput, WorldFeed } from './worldFeed';
 import { TAU } from '../util/math';
 

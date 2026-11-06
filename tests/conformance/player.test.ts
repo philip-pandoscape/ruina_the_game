@@ -1,10 +1,10 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { expect, test } from 'vitest';
-import { makeRng } from '../../src/rng';
+import { makeRng } from '../../src/util/rng';
 import { Sim } from '../../src/sim/sim';
 import { NO_ACTIONS, type Actions } from '../../src/sim/types';
-import { makeBattlefield } from '../../src/sim/world';
+import { makeBattlefield } from '../../src/sim/yard';
 import {
   ABILITIES,
   abilityMpFor,
@@ -25,8 +25,8 @@ import {
   pierceTargets,
   type Build,
   WEAPONS,
-} from '../../src/tuning';
-import { BOOK, resolveSkills, skillsFrom, type Levels } from '../../src/skills';
+} from '../../src/content/tuning';
+import { BOOK, resolveSkills, skillsFrom, type Levels } from '../../src/content/skills';
 
 // The browser predicts your moves with src/sim/sim.ts; the server decides with crates/engine/src/player.rs.
 // If they ever disagree, your character would visibly jump back. This runs the same inputs through
@@ -123,7 +123,7 @@ const STARTS: Record<string, { stamina?: number; mp?: number }> = {
 };
 
 // The skills you use level up, and a level adds to what they do: damage, healing, cooldowns. The
-// island keeps the experience; these give a few builds levels straight away (src/skills.ts BOOK),
+// island keeps the experience; these give a few builds levels straight away (src/content/skills.ts BOOK),
 // so what the levels add is compared too. The rest are at level 1.
 const levels = (at: Record<string, number>): Levels => BOOK.map((b) => at[b.id] ?? 1);
 const LEVELS: Record<string, Levels> = {

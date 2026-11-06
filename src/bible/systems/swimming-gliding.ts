@@ -5,7 +5,7 @@ import { GLIDE, GROUND, RIDE_CAMERA, SWIM } from '../../content/traversal';
 import { GLIDERS } from '../../content/vehicles';
 import traverseSource from '../../sim/player/traverse.ts?raw';
 import { EMBERHOLM } from '../../sim/zone/world';
-import { SIM_HZ } from '../../tuning';
+import { SIM_HZ } from '../../content/tuning';
 import { accel, duration, frames, key, metres, num, pct, speed, speedKmh, turnRate } from '../format';
 import { system, table } from '../kit';
 import { link, md, phrase, raw } from '../md';

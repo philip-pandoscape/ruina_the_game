@@ -2,7 +2,7 @@ import type * as THREE from 'three';
 import type { NetActor } from '../net/worldFeed';
 import { actorKindAt } from '../content/actors';
 import { isAlive } from '../sim/actor';
-import { COMBAT } from '../tuning';
+import { COMBAT } from '../content/tuning';
 import type { Sim } from '../sim/sim';
 
 // Who the game has you aimed at. Pulled out of main.ts because it owns real state of its own -

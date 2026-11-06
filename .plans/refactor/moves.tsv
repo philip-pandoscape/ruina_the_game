@@ -111,3 +111,8 @@ src/creatures/goblin	src/render/creatures/goblin
 src/creatures/index.ts	src/render/creatures/folders.ts
 src/content/creatures/hero.ts	src/render/creatures/heroBody.ts
 src/content/creatures/index.ts	src/render/creatures/closeUps.ts
+src/rng.ts	src/util/rng.ts
+src/tuning.ts	src/content/tuning.ts
+src/skills.ts	src/content/skills.ts
+src/build.ts	src/app/build.ts
+src/sim/world.ts	src/sim/yard.ts

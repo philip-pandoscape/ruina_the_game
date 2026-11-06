@@ -1,6 +1,18 @@
 import { expect, test, type Page } from '@playwright/test';
-import { skillsFrom } from '../../src/skills';
-import { COMBAT, emptyMovement, HOTBAR_SLOTS, MOVEMENT_SKILLS, MP, NO_ABILITY, NO_MOVEMENT, SLIDE_SKILL, STAMINA, STEP, type Build } from '../../src/tuning';
+import { skillsFrom } from '../../src/content/skills';
+import {
+  COMBAT,
+  emptyMovement,
+  HOTBAR_SLOTS,
+  MOVEMENT_SKILLS,
+  MP,
+  NO_ABILITY,
+  NO_MOVEMENT,
+  SLIDE_SKILL,
+  STAMINA,
+  STEP,
+  type Build,
+} from '../../src/content/tuning';
 import { gameReady } from '../support/game';
 
 // Its tests share nothing, so they spread across the workers (playwright.config.ts).

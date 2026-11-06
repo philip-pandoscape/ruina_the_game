@@ -45,7 +45,7 @@ The prompt gives absolute paths; use them (the review may be in another checkout
    weapon's tip went, in centimetres and words. Change the pose function or the keyframes so the
    animation passes through the corrected pose on that frame **and blends into and out of it** (the
    frames around it must stay smooth: scrub them). Never special-case a frame number.
-5. Do not change the rules' timing (frame counts in shared/*.json and src/tuning.ts, speeds, the
+5. Do not change the rules' timing (frame counts in shared/*.json and src/content/tuning.ts, speeds, the
    films in scenarios.ts) to meet a note; if only a timing change can meet it, say so. Rules are
    TypeScript and Rust together (AGENTS.md).
 6. Measure again (step 2) until each corrected bone is within a few degrees and each moved joint

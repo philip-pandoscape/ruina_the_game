@@ -2,7 +2,7 @@ import { actorKindAt } from '../content/actors';
 import { behaviour } from '../sim/ai/brain';
 import { coneHits, type Target } from '../sim/combat/hit';
 import type { GameEvent } from '../sim/types';
-import type { AttackStep } from '../tuning';
+import type { AttackStep } from '../content/tuning';
 import type { ActorTimeline } from './actorTimeline';
 import type { NetActor } from './worldFeed';
 

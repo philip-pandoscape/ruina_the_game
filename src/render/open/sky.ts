@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { makeRng, range } from '../../rng';
+import { makeRng, range } from '../../util/rng';
 import { GRAPHICS, PALETTE, POST } from '../look';
 
 // Sky dome, sun, drifting clouds and the world tree standing over the horizon.

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { makeRng, range } from '../../rng';
+import { makeRng, range } from '../../util/rng';
 import { valueNoise } from '../../sim/terrain';
 import { PALETTE } from '../look';
 import { toon } from '../toon';

@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
-import { emptyMovement, HOTBAR_SLOTS, NO_ABILITY, SLIME, WEAPONS, type Build } from '../../src/tuning';
-import { skillsFrom } from '../../src/skills';
+import { emptyMovement, HOTBAR_SLOTS, NO_ABILITY, SLIME, WEAPONS, type Build } from '../../src/content/tuning';
+import { skillsFrom } from '../../src/content/skills';
 import { gameReady } from '../support/game';
 
 // Slimes in the training yard: the first creature built out of species data to make it into the

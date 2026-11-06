@@ -1,4 +1,4 @@
-import type { SkillSet } from '../skills';
+import type { SkillSet } from '../content/skills';
 import type { Heightfield } from './terrain';
 import type { ColliderIndex } from './zone/colliders';
 import type { ZoneData } from './zone/world';
@@ -88,18 +88,18 @@ export interface PlayerState {
   takeoffFrame: number; // frames since leaving the ground with a jump
   runPhase: number; // distance-driven run cycle
   hp: number;
-  /** Spent by dodges (STAMINA in src/tuning.ts); refills a moment after it was last spent. */
+  /** Spent by dodges (STAMINA in src/content/tuning.ts); refills a moment after it was last spent. */
   stamina: number;
   /** Frames before stamina starts refilling again, counted down from the last spend. */
   staminaDelay: number;
-  /** Spent by casting (MP in src/tuning.ts); refills steadily. */
+  /** Spent by casting (MP in src/content/tuning.ts); refills steadily. */
   mp: number;
   stun: number; // frames of no control left after being hit
   downFrame: number; // counts up while knocked down, -1 when standing
   team: number; // 0 or 1
   // Build (skills and loadout), set by the server.
   weapon: number; // 0 sword, 1 club, 2 staff, 3 bow
-  skills: SkillSet; // which skills are learned (src/skills.ts)
+  skills: SkillSet; // which skills are learned (src/content/skills.ts)
   // Which combo variants this build unlocked. Derived from `skills` for your own fighter, and the
   // only part of someone else's tree that reaches you, since it changes how they are drawn.
   comboVariants: number;

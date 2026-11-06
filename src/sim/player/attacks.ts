@@ -2,8 +2,8 @@
 
 import type { Sim } from '../sim';
 import { damage } from '../combat/deal';
-import { ATTACK, COMBAT, MOVE, NO_ABILITY, NO_MOVEMENT, SPECIAL, comboFor, meleeTargets, pierceTargets } from '../../tuning';
-import type { AttackStep } from '../../tuning';
+import { ATTACK, COMBAT, MOVE, NO_ABILITY, NO_MOVEMENT, SPECIAL, comboFor, meleeTargets, pierceTargets } from '../../content/tuning';
+import type { AttackStep } from '../../content/tuning';
 import { DEG, angleDiff, len } from '../math';
 import { coneHits, nearest } from '../combat/hit';
 import type { Actions } from '../types';

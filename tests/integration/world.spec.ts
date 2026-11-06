@@ -5,8 +5,8 @@ import { Life } from '../../src/sim/life/life';
 import { sailEfficiency } from '../../src/sim/life/vehicles';
 import { generateZone } from '../../src/sim/zone/generate';
 import { EMBERHOLM } from '../../src/sim/zone/world';
-import { skillsFrom } from '../../src/skills';
-import { COMBAT, emptyMovement, HOTBAR_SLOTS, NO_ABILITY, SLIDE_SKILL } from '../../src/tuning';
+import { skillsFrom } from '../../src/content/skills';
+import { COMBAT, emptyMovement, HOTBAR_SLOTS, NO_ABILITY, SLIDE_SKILL } from '../../src/content/tuning';
 import type { Command } from '../../src/sim/life/life';
 import { gameReady } from '../support/game';
 

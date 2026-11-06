@@ -1,4 +1,4 @@
-//! The rules' one random stream: mulberry32, exactly as src/rng.ts (and the browser's brain.ts
+//! The rules' one random stream: mulberry32, exactly as src/util/rng.ts (and the browser's brain.ts
 //! draw and life.ts rand), so a seed gives the same numbers on both sides. Each user keeps its own
 //! state where it belongs (an actor's seed, the island's saved `rng`, a battle's, a table's), and
 //! steps it here.
@@ -45,7 +45,7 @@ mod tests {
 
     #[test]
     fn the_same_numbers_as_the_browser() {
-        // src/rng.ts makeRng(1): the first three.
+        // src/util/rng.ts makeRng(1): the first three.
         let mut r = Rng::new(1);
         let got = [r.next_f64(), r.next_f64(), r.next_f64()];
         assert_eq!(got, [0.6270739405881613, 0.002735721180215478, 0.5274470399599522]);

@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { expect, test } from 'vitest';
-import { makeRng } from '../../src/rng';
+import { makeRng } from '../../src/util/rng';
 import { EMBERHOLM } from '../../src/sim/zone/world';
 import { generateZone } from '../../src/sim/zone/generate';
 

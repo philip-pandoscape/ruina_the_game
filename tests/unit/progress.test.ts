@@ -6,8 +6,8 @@ import { observe, pointsEarned, skillBudget, train, trainedBy } from '../../src/
 import { EMBERHOLM, type ZoneData } from '../../src/sim/zone/world';
 import { generateZone } from '../../src/sim/zone/generate';
 import { QUESTS } from '../../src/content/quests';
-import { bookIndex, LEVEL_XP, levelsFrom, START_POINTS } from '../../src/skills';
-import { SLIDE_SKILL } from '../../src/tuning';
+import { bookIndex, LEVEL_XP, levelsFrom, START_POINTS } from '../../src/content/skills';
+import { SLIDE_SKILL } from '../../src/content/tuning';
 
 // Getting better on the island: skill points from the quests and milestones you finish, and skills
 // that level up as you use them (src/sim/life/progress.ts). crates/engine/src/life does the same.

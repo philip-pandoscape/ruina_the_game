@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
-import { ADJACENT, emptySkills, skillCount, skillIndex, SKILL_POINTS, skillsFrom, soundTree, withSkill } from '../../src/skills';
-import { ABILITIES, emptyMovement, HOTBAR_SLOTS, NO_ABILITY, type Build, WEAPONS } from '../../src/tuning';
+import { ADJACENT, emptySkills, skillCount, skillIndex, SKILL_POINTS, skillsFrom, soundTree, withSkill } from '../../src/content/skills';
+import { ABILITIES, emptyMovement, HOTBAR_SLOTS, NO_ABILITY, type Build, WEAPONS } from '../../src/content/tuning';
 import { battlefield, net, script, scriptDone, seesPlayers, sometime, useBuild } from '../support/battlefield';
 
 // Players fighting players on the battlefield (content/dungeons/battlefield.json), the developer

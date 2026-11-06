@@ -3,7 +3,7 @@ import type { WorldFeed } from '../../src/net/worldFeed';
 import { Prediction } from '../../src/net/netPlayer';
 import { Sim } from '../../src/sim/sim';
 import { NO_ACTIONS } from '../../src/sim/types';
-import { makeBattlefield } from '../../src/sim/world';
+import { makeBattlefield } from '../../src/sim/yard';
 
 // Predicting your own player online (src/net/netPlayer.ts): replaying the inputs the server hasn't
 // answered yet must not run the clock everything is drawn by faster than time.

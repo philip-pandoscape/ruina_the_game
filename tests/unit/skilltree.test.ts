@@ -28,8 +28,8 @@ import {
   toSkillSet,
   withSkill,
   type SkillMod,
-} from '../../src/skills';
-import { learnBlock, learnPath, NODE_INFO, validBuild } from '../../src/build';
+} from '../../src/content/skills';
+import { learnBlock, learnPath, NODE_INFO, validBuild } from '../../src/app/build';
 import {
   castFramesFor,
   comboFor,
@@ -42,7 +42,7 @@ import {
   pierceTargets,
   WEAPONS,
   type Build,
-} from '../../src/tuning';
+} from '../../src/content/tuning';
 
 // The balance harness's check through the server's own rules is in tests/conformance/balance.test.ts.
 

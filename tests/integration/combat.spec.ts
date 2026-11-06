@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
-import { ABILITIES, emptyMovement, HOTBAR_SLOTS, NO_ABILITY, type Build, WEAPONS } from '../../src/tuning';
-import { skillsFrom } from '../../src/skills';
+import { ABILITIES, emptyMovement, HOTBAR_SLOTS, NO_ABILITY, type Build, WEAPONS } from '../../src/content/tuning';
+import { skillsFrom } from '../../src/content/skills';
 import { gameReady } from '../support/game';
 
 // Combat feedback and aiming: the floating numbers, the enemy the game marks for you, and

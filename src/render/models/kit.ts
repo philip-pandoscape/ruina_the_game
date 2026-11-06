@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { makeRng } from '../../rng';
+import { makeRng } from '../../util/rng';
 import { toon } from '../toon';
 import { TAU } from '../../util/math';
 

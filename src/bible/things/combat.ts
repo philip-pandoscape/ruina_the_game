@@ -1,7 +1,7 @@
 // Weapons, abilities, movement skills and every node of the skill tree.
 
-import { ADJACENT, NODES, type SkillMod, type SkillNode, STATS, TREES } from '../../skills';
-import { ABILITIES, type Ability, type AttackStep, type MovementSkill, MOVEMENT_SKILLS, type Weapon, WEAPONS } from '../../tuning';
+import { ADJACENT, NODES, type SkillMod, type SkillNode, STATS, TREES } from '../../content/skills';
+import { ABILITIES, type Ability, type AttackStep, type MovementSkill, MOVEMENT_SKILLS, type Weapon, WEAPONS } from '../../content/tuning';
 import { change, count, frames, metres, num, pct, speed, times } from '../format';
 import { described, join, kind, note, table } from '../kit';
 import { type Html, link, md, phrase, plainNumber, raw } from '../md';

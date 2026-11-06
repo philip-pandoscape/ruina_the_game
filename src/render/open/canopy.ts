@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { makeRng, range } from '../../rng';
+import { makeRng, range } from '../../util/rng';
 import { toon } from '../toon';
 import { foliageTime } from './leaves';
 import { TAU } from '../../util/math';

@@ -1,4 +1,4 @@
-//! The raid battlefield layout, ported from makeBattlefield() in src/sim/world.ts.
+//! The raid battlefield layout, ported from makeBattlefield() in src/sim/yard.ts.
 //! Same seed and the same random sequence give the same obstacles on both sides.
 
 use crate::jsmath::JsMath;

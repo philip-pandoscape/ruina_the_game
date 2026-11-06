@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { comboShape } from '../../tuning';
+import { comboShape } from '../../content/tuning';
 import { MAT } from './species';
 import type { ClipDriver } from '../../content/pose';
 import type { BowString, PartDef, RigDef } from '../../content/rig';

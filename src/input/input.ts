@@ -1,5 +1,5 @@
 import type { Actions, PlayerState } from '../sim/types';
-import { CAMERA, GAMEPAD } from '../tuning';
+import { CAMERA, GAMEPAD } from '../content/tuning';
 import { MouseFilter } from './mouseFilter';
 
 export type Device = 'keyboard' | 'gamepad';

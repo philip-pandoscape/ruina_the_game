@@ -1,4 +1,4 @@
-import shared from '../shared/tuning.json' with { type: 'json' };
+import shared from '../../shared/tuning.json' with { type: 'json' };
 import {
   applyChannel,
   applyFrames,
@@ -80,7 +80,7 @@ export interface Weapon {
   tags: string[];
   combo: AttackStep[];
   // Structural alternatives a skill can unlock, swapping one step of the combo for another.
-  // Anything that is only a number belongs in a modifier instead (see src/skills.ts).
+  // Anything that is only a number belongs in a modifier instead (see src/content/skills.ts).
   variants?: Array<{ id: string; replace: number; step: AttackStep }>;
 }
 
@@ -201,7 +201,7 @@ export const SKILLS = { points: SKILL_POINTS, trees: TREES, nodes: NODES };
 export const NO_ABILITY = 255;
 
 // Combos and cast times, resolved through the skill tree rather than against named perks.
-// Adding a skill that changes either is now a data change; see src/skills.ts for the rules.
+// Adding a skill that changes either is now a data change; see src/content/skills.ts for the rules.
 
 interface ComboVariant {
   id: string;

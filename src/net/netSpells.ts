@@ -1,7 +1,7 @@
 import type { SpellView } from '../render/spells';
 import type { GameEvent } from '../sim/types';
-import { ABILITIES, effectRadius } from '../tuning';
-import type { ResolvedSkills } from '../skills';
+import { ABILITIES, effectRadius } from '../content/tuning';
+import type { ResolvedSkills } from '../content/skills';
 import type { ArrowRecord, EffectEvent, MeteorRecord, WorldFeed } from './worldFeed';
 
 // Arrows, meteors and spell effects online, timed to match the rest of the screen: other players'

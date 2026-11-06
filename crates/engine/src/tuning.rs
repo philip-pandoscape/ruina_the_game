@@ -148,7 +148,7 @@ pub fn tuning() -> &'static Tuning {
         assert_eq!(t.hotbar.slots, HOTBAR_SLOTS, "hotbar.slots in shared/tuning.json must match HOTBAR_SLOTS");
         assert_eq!(t.skills.max_nodes, MAX_NODES, "skills.maxNodes in shared/tuning.json must match SKILL_WORDS");
         assert_eq!(t.movement_slots, MOVEMENT_SLOTS, "movementSlots in shared/tuning.json must match MOVEMENT_SLOTS");
-        assert!(t.movement_skills.len() <= MOVEMENT_SKILL_CAP, "more movement skills than MOVEMENT_SKILL_CAP: raise it here and in src/tuning.ts together");
+        assert!(t.movement_skills.len() <= MOVEMENT_SKILL_CAP, "more movement skills than MOVEMENT_SKILL_CAP: raise it here and in src/content/tuning.ts together");
         t
     })
 }
@@ -159,7 +159,7 @@ static SKILL_TREE: OnceLock<SkillTreeFile> = OnceLock::new();
 pub fn skill_tree() -> &'static SkillTreeFile {
     SKILL_TREE.get_or_init(|| {
         let t: SkillTreeFile = serde_json::from_str(include_str!("../../../shared/skilltree.json")).expect("shared/skilltree.json is valid");
-        assert!(t.nodes.len() <= MAX_NODES, "the skill tree has outgrown SKILL_WORDS: raise it here and in src/skills.ts together");
+        assert!(t.nodes.len() <= MAX_NODES, "the skill tree has outgrown SKILL_WORDS: raise it here and in src/content/skills.ts together");
         t
     })
 }
@@ -365,7 +365,7 @@ pub const NO_MOVEMENT: u8 = 255;
 /// Must match movementSlots in shared/tuning.json (checked when the tuning is loaded).
 pub const MOVEMENT_SLOTS: usize = 2;
 /// Room for this many movement skills, so the wire size doesn't move every time one is added.
-/// Raise it here and in src/tuning.ts together when the data outgrows it.
+/// Raise it here and in src/content/tuning.ts together when the data outgrows it.
 pub const MOVEMENT_SKILL_CAP: usize = 16;
 
 pub fn movement_action(m: u8) -> Option<&'static ActionDef> {
@@ -378,19 +378,19 @@ pub fn movement_cooldown(m: u8) -> i32 {
 }
 
 /// Frames before a movement skill can be used again: its own, as the tree and its level change it
-/// (movementCooldownFor in src/tuning.ts).
+/// (movementCooldownFor in src/content/tuning.ts).
 pub fn movement_cooldown_for(m: u8, r: &ResolvedSkills) -> i32 {
     channel(r.moves.get(m as usize), stat_movement_cooldown()).frames(movement_cooldown(m))
 }
 
 /// Stamina a movement skill costs (a dodge's; the rest cost none), as the tree and its level change
-/// it (movementStaminaFor in src/tuning.ts).
+/// it (movementStaminaFor in src/content/tuning.ts).
 pub fn movement_stamina_for(m: u8, r: &ResolvedSkills) -> f64 {
     let base = tuning().movement_skills.get(m as usize).map_or(0.0, |s| s.stamina_cost);
     channel(r.moves.get(m as usize), stat_movement_stamina()).apply(base).max(0.0)
 }
 
-/// MP an ability costs, as the tree changes it (abilityMpFor in src/tuning.ts).
+/// MP an ability costs, as the tree changes it (abilityMpFor in src/content/tuning.ts).
 pub fn ability_mp_for(a: u8, r: &ResolvedSkills) -> f64 {
     let base = tuning().abilities.get(a as usize).map_or(0.0, |ab| ab.mp_cost);
     channel(r.ability.get(a as usize), stat_ability_mp()).apply(base).max(0.0)

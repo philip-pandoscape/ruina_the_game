@@ -1,6 +1,6 @@
 import './party.css';
 import type { PartyView, SpaceView, WorldLink } from '../../net/worldLink';
-import { COMBAT } from '../../tuning';
+import { COMBAT } from '../../content/tuning';
 import { docksLeft, type LifePress } from '../life/lifeUI';
 import { closeMenu, openMenu, type MenuEntry } from '../theme/contextMenu';
 import { uiIcon } from '../theme/icons';

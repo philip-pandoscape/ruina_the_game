@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { readFileSync } from 'node:fs';
-import { skillsFrom } from '../../src/skills';
-import { emptyMovement, HOTBAR_SLOTS, NO_ABILITY, type Build } from '../../src/tuning';
+import { skillsFrom } from '../../src/content/skills';
+import { emptyMovement, HOTBAR_SLOTS, NO_ABILITY, type Build } from '../../src/content/tuning';
 import { onlineReady } from '../support/game';
 
 // The yard's monsters on the game server (content/dungeons/yard.json, a developer zone): the rules

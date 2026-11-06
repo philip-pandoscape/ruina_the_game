@@ -13,8 +13,8 @@ import {
   MOVEMENT_SKILLS,
   pierceTargets,
   WEAPONS,
-} from '../../tuning';
-import { BOOK, LEVEL_XP, MAX_LEVEL, NODES, TREES, type BookSkill, type Levels, type ResolvedSkills, type SkillMod, type SkillNode } from '../../skills';
+} from '../../content/tuning';
+import { BOOK, LEVEL_XP, MAX_LEVEL, NODES, TREES, type BookSkill, type Levels, type ResolvedSkills, type SkillMod, type SkillNode } from '../../content/skills';
 
 // Words for what skills and the tree do, drawn from the same numbers the rules use, so the text can
 // never promise something the game doesn't do.

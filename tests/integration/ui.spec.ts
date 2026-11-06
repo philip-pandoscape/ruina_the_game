@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
-import { skillsFrom } from '../../src/skills';
-import { emptyMovement, HOTBAR_SLOTS, NO_ABILITY } from '../../src/tuning';
+import { skillsFrom } from '../../src/content/skills';
+import { emptyMovement, HOTBAR_SLOTS, NO_ABILITY } from '../../src/content/tuning';
 import { isTitleCase } from '../../src/ui/theme/text';
 import type { Command } from '../../src/sim/life/life';
 import type { LifePress } from '../../src/ui/life/lifeUI';

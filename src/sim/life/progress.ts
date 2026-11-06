@@ -2,9 +2,9 @@ import type { Life } from './life';
 import type { LifeState } from './state';
 import type { Sim } from '../sim';
 import type { GameEvent } from '../types';
-import { BOOK, levelOf, levelsFrom, sameLevels, START_POINTS } from '../../skills';
+import { BOOK, levelOf, levelsFrom, sameLevels, START_POINTS } from '../../content/skills';
 import { QUESTS } from '../../content/quests';
-import { ABILITIES, MOVEMENT_SKILLS, WEAPONS } from '../../tuning';
+import { ABILITIES, MOVEMENT_SKILLS, WEAPONS } from '../../content/tuning';
 
 // Getting better: the skills you use level up, and the tree grows with what you've done.
 //

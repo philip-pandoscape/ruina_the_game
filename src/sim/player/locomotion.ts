@@ -5,7 +5,7 @@
 import type { Sim } from '../sim';
 import { startAttack } from './attacks';
 import { readyBufferedAction, readyMovement, readySlot, startAction, startCast } from './abilities';
-import { ATTACK, JUMP, MOVE, NO_MOVEMENT, STEP, comboFor } from '../../tuning';
+import { ATTACK, JUMP, MOVE, NO_MOVEMENT, STEP, comboFor } from '../../content/tuning';
 import { len, turnToward } from '../math';
 import { CARRY } from '../../content/trade';
 import { integrateOpen } from './traverse';

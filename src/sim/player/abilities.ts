@@ -17,7 +17,7 @@ import {
   movementAction,
   movementCooldownFor,
   movementStaminaFor,
-} from '../../tuning';
+} from '../../content/tuning';
 import { len, turnToward } from '../math';
 import type { Actions } from '../types';
 import { accelerateToward, input, stance, tryJump } from './locomotion';

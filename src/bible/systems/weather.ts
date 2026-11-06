@@ -9,7 +9,7 @@ import { sailEfficiency } from '../../sim/life/vehicles';
 import weatherSource from '../../sim/life/weather.ts?raw';
 import { hourAt, rainAt } from '../../sim/life/weather';
 import { EMBERHOLM } from '../../sim/zone/world';
-import { SIM_HZ } from '../../tuning';
+import { SIM_HZ } from '../../content/tuning';
 import { degrees, duration, metres, num, pct } from '../format';
 import { system, table } from '../kit';
 import { md, phrase, raw } from '../md';

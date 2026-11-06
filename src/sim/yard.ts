@@ -1,5 +1,5 @@
-import { makeRng, range } from '../rng';
-import { SLIME, WORLD } from '../tuning';
+import { makeRng, range } from '../util/rng';
+import { SLIME, WORLD } from '../content/tuning';
 import type { ActorSpawnPoint, Obstacle, World } from './types';
 
 /**

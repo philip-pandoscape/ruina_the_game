@@ -7,7 +7,7 @@ import { GROUND, STORM } from '../../content/traversal';
 import { type BoatDef, isBoat, MOUNTS, VEHICLES, type WheeledDef } from '../../content/vehicles';
 import { sailEfficiency } from '../../sim/life/vehicles';
 import { EMBERHOLM } from '../../sim/zone/world';
-import { MOVE } from '../../tuning';
+import { MOVE } from '../../content/tuning';
 import { coins, count, degrees, duration, listOf, metres, num, pct, slopeDegrees, speed, speedKmh, times, turnRate } from '../format';
 import { join, system, table } from '../kit';
 import { link, md, phrase, raw } from '../md';

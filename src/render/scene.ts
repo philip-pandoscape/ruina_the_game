@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { makeRng, range } from '../rng';
+import { makeRng, range } from '../util/rng';
 import type { Obstacle, World } from '../sim/types';
 import { toon } from './toon';
 

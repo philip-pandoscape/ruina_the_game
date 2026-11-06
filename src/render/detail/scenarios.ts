@@ -1,4 +1,4 @@
-import { ABILITIES, ATTACK, COMBAT, JUMP, MOVE, MOVEMENT_SKILLS, comboShape, type AttackStep } from '../../tuning';
+import { ABILITIES, ATTACK, COMBAT, JUMP, MOVE, MOVEMENT_SKILLS, comboShape, type AttackStep } from '../../content/tuning';
 import type { PoseInput } from '../../content/pose';
 import { SWIM } from '../../content/traversal';
 import { lungeSpeed } from './humanoid';

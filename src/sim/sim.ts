@@ -14,13 +14,13 @@ import {
   SPECIAL,
   STAMINA,
   type Build,
-} from '../tuning';
-import { BOOK, emptySkills, resolveSkills, sameLevels, type Levels, type ResolvedSkills, type SkillSet } from '../skills';
+} from '../content/tuning';
+import { BOOK, emptySkills, resolveSkills, sameLevels, type Levels, type ResolvedSkills, type SkillSet } from '../content/skills';
 import { Actors, type Actor } from './actor';
 import { actorKind } from '../content/actors';
 import { sightingAt, startBrain, type Sighting } from './ai/brain';
 import { foesOf, sightingOf } from './ai/senses';
-import { bandAround } from './world';
+import { bandAround } from './yard';
 import { liveTargets, type Target } from './combat/hit';
 import { ON_FOOT, type Actions, type GameEvent, type PlayerState, type Spawn, type World } from './types';
 import { integrate, updateNormal, accelerateToward, airControl } from './player/locomotion';
@@ -302,7 +302,7 @@ export class Sim {
   }
 
   /**
-   * The level of each skill in the skill book (src/skills.ts BOOK), which adds to what it does.
+   * The level of each skill in the skill book (src/content/skills.ts BOOK), which adds to what it does.
    * The island keeps the experience behind them and sets this; the training yard keeps its own.
    */
   levels: Levels = BOOK.map(() => 1);

@@ -6,7 +6,7 @@ import { stateName } from '../sim/ai/brain';
 import { saveData } from './save';
 import { BugReporter } from './bugs/reporter';
 import { ridden } from '../sim/life/vehicles';
-import { COMBAT } from '../tuning';
+import { COMBAT } from '../content/tuning';
 import type { GameRefs } from '../main';
 
 export function wireBugReports(g: GameRefs): void {

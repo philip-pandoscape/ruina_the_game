@@ -1,4 +1,4 @@
-import { ABILITIES, effectDamage, effectRadius, STEP } from '../tuning';
+import { ABILITIES, effectDamage, effectRadius, STEP } from '../content/tuning';
 import { pointHit } from './combat/hit';
 import type { Sim } from './sim';
 import type { GameEvent } from './types';

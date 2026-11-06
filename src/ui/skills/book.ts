@@ -1,6 +1,6 @@
-import { assignMovement, assignSlot, movementName, swapSlots } from '../../build';
-import { BOOK, bookContext, hasSkill, MAX_LEVEL, modApplies, NODES, resolveSkills, skillCount, type BookSkill } from '../../skills';
-import { ABILITIES, HOTBAR_SLOTS, MOVEMENT_SKILLS, MOVEMENT_SLOTS, NO_ABILITY, NO_MOVEMENT, WEAPONS, type Build } from '../../tuning';
+import { assignMovement, assignSlot, movementName, swapSlots } from '../../app/build';
+import { BOOK, bookContext, hasSkill, MAX_LEVEL, modApplies, NODES, resolveSkills, skillCount, type BookSkill } from '../../content/skills';
+import { ABILITIES, HOTBAR_SLOTS, MOVEMENT_SKILLS, MOVEMENT_SLOTS, NO_ABILITY, NO_MOVEMENT, WEAPONS, type Build } from '../../content/tuning';
 import type { MenuPress } from '../../input/input';
 import { iconHtml, uiIcon } from '../theme/icons';
 import { esc, type SkillsContext } from './context';

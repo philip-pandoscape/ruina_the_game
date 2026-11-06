@@ -38,7 +38,7 @@ const ALLOWED: Allowance[] = [
   },
   {
     why: "weapons, abilities and movement skills are code until they are data (R9.5): the close-up bodies' moves and films (src/render/detail/, the animation session's), the default build, the slide every build has, and what a skill's tooltip says",
-    files: ['src/render/detail/', 'src/render/character.ts', 'src/tuning.ts', 'crates/engine/src/tuning.rs', 'src/input/input.ts', 'src/ui/skills/'],
+    files: ['src/render/detail/', 'src/render/character.ts', 'src/content/tuning.ts', 'crates/engine/src/tuning.rs', 'src/input/input.ts', 'src/ui/skills/'],
   },
   {
     why: "src/main.ts, until it is split: the slimes' and the dummy's name plates (R9.9), the slide's dust (R9.5), and the battlefield's option",
@@ -47,7 +47,7 @@ const ALLOWED: Allowance[] = [
   },
   {
     why: "the island's own slimes and training dummy are spawned by code until spawns are data (R9.3), and ?goblins= puts a band in the yard",
-    files: ['src/sim/zone/world.ts', 'src/sim/world.ts', 'src/main.ts', 'crates/server/src/play/mod.rs'],
+    files: ['src/sim/zone/world.ts', 'src/sim/yard.ts', 'src/main.ts', 'crates/server/src/play/mod.rs'],
     ids: ['slime', 'dummy', 'goblin'],
   },
   { why: "the island's generator special-cases some structures by id until zones are data (R9.10)", files: ['src/sim/zone/generate.ts'] },

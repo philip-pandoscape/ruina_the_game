@@ -21,7 +21,7 @@ struct Script {
     build: BuildIn,
     steps: Vec<StepIn>,
     hits: Vec<HitIn>,
-    /// The skill book's levels (src/skills.ts BOOK order); everything at level 1 if absent.
+    /// The skill book's levels (src/content/skills.ts BOOK order); everything at level 1 if absent.
     #[serde(default)]
     levels: Vec<u32>,
     /// Stamina and MP to start with, where not full.

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { comboShape } from '../../src/tuning';
+import { comboShape } from '../../src/content/tuning';
 import * as a from '../../src/library/bench/hero';
 
 // The hero's animations, measured rather than eyeballed (src/library/bench/hero.ts): each of the

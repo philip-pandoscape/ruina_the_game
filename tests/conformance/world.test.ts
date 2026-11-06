@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { expect, test } from 'vitest';
-import { makeRng } from '../../src/rng';
+import { makeRng } from '../../src/util/rng';
 import { Sim } from '../../src/sim/sim';
 import { NO_ACTIONS, type Actions, type Mode } from '../../src/sim/types';
 import { makeZoneWorld } from '../../src/sim/zone/world';
@@ -11,7 +11,7 @@ import { gust } from '../../src/sim/player/traverse';
 import { GLIDE, GROUND, SWIM } from '../../src/content/traversal';
 import { CARRY } from '../../src/content/trade';
 import { glider as gliderDef } from '../../src/content/vehicles';
-import { JUMP, MOVE, STEP } from '../../src/tuning';
+import { JUMP, MOVE, STEP } from '../../src/content/tuning';
 
 // Emberholm's rules, browser against server: the browser predicts your own moves with
 // src/sim/player/traverse.ts (hills, cliffs, decks, wading, swimming, gliders, trade packs) and the

@@ -1,5 +1,5 @@
-import type { Build } from '../../tuning';
-import type { Levels } from '../../skills';
+import type { Build } from '../../content/tuning';
+import type { Levels } from '../../content/skills';
 import { esc } from '../../util/html';
 
 /** What the skill book and tree need from the game around them. */

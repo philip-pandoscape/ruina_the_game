@@ -31,7 +31,7 @@ use crate::player::{Actions, Mode, Player};
 use content::{ItemCount, bag_slots, item_def, labor};
 use state::{LIFE_VERSION, LifeState, new_life_state};
 
-/// One fixed step of the rules (src/tuning.ts STEP).
+/// One fixed step of the rules (src/content/tuning.ts STEP).
 pub fn step_seconds() -> f64 {
     1.0 / crate::tuning::tuning().sim_hz
 }
@@ -566,7 +566,7 @@ mod tests {
     fn rand_is_the_browsers_mulberry32() {
         let mut life = Life::new(emberholm(), None, None);
         life.state.rng = 1;
-        // rng() from src/rng.ts seeded with 1 (makeRng(1)()).
+        // rng() from src/util/rng.ts seeded with 1 (makeRng(1)()).
         let first = life.rand();
         assert!((first - 0.6270739405881613).abs() < 1e-15, "{first}");
     }

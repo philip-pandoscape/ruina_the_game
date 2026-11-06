@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { SLIDE_SKILL, WEAPONS } from '../../src/tuning';
+import { SLIDE_SKILL, WEAPONS } from '../../src/content/tuning';
 import { gameReady } from '../support/game';
 
 // Sliding is an action state now, not a mode of its own.

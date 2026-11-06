@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { defaultBuild, loadBuild, parseBuild, pointsLeft, saveBuild, swapSlots, validBuild } from './build';
+import { defaultBuild, loadBuild, parseBuild, pointsLeft, saveBuild, swapSlots, validBuild } from './app/build';
 import { crouchKeySlides, Input } from './input/input';
 import { INTERP_TICKS, WorldFeed, type NetActor } from './net/worldFeed';
 import { NetMonsters } from './net/netMonsters';
@@ -21,7 +21,7 @@ import { Vfx } from './render/vfx';
 import { Sim } from './sim/sim';
 import { TrainingRange } from './sim/training';
 import { NO_ACTIONS, type Actions, type GameEvent, type PlayerState } from './sim/types';
-import { bandAround, makeWorld } from './sim/world';
+import { bandAround, makeWorld } from './sim/yard';
 import { MissileView } from './render/missiles';
 import { dungeonDef } from './sim/zone/dungeon';
 import { makeZoneWorld } from './sim/zone/world';
@@ -56,7 +56,7 @@ import { angleDiff } from './sim/math';
 import { hourAt, hourOfDay } from './sim/life/weather';
 import { ABILITY_ICONS, WEAPON_ICONS, WEAPON_NAMES } from './ui/icons';
 import type { MarkerKind } from './render/hud';
-import { BOOK, levelOf, levelsFrom, NODES, resolveSkills, sameLevels, SKILL_POINTS, type ResolvedSkills } from './skills';
+import { BOOK, levelOf, levelsFrom, NODES, resolveSkills, sameLevels, SKILL_POINTS, type ResolvedSkills } from './content/skills';
 import { SkillsPanel } from './ui/skills/panel';
 import { skillBudget, trainedBy } from './sim/life/progress';
 import {
@@ -80,7 +80,7 @@ import {
   STAMINA,
   STEP,
   type Build,
-} from './tuning';
+} from './content/tuning';
 import { heightAboveGround } from './sim/player/traverse';
 import './ui/theme/theme.css';
 import './ui/theme/hud.css';

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { ABILITIES, JUMP, MOVE, MOVEMENT_SKILLS, WEAPONS, comboShape, type AttackStep } from '../../tuning';
+import { ABILITIES, JUMP, MOVE, MOVEMENT_SKILLS, WEAPONS, comboShape, type AttackStep } from '../../content/tuning';
 import type { DetailRig } from './rig';
 import type { PoseFeedback, PoseInput } from '../../content/pose';
 import { Body, SIDES, bump, clamp, clamp01, easeIn, easeInOut, easeOut, lerp, smooth, span, type Side } from './body';

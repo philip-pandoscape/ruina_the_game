@@ -7,7 +7,7 @@
 
 import type { Sim } from '../sim';
 import type { GameEvent } from '../types';
-import { LEAN, MOVE, STEP } from '../../tuning';
+import { LEAN, MOVE, STEP } from '../../content/tuning';
 import { actorKind, findKind, kindMass, LADDERS, sizeFor, sizeUp } from '../../content/actors';
 import { attackDef, attackIndex } from '../../content/attacks';
 import { becomeKind, isAlive, type Actor, type Actors } from '../actor';

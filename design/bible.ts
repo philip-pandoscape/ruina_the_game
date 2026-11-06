@@ -16,7 +16,7 @@ import { BLUEPRINTS } from '../src/content/housing';
 import { QUESTS, questDef, type QuestDef } from '../src/content/quests';
 import { SHIP_DESIGNS } from '../src/content/shipyard';
 import { GROUND, STORM, SWIM } from '../src/content/traversal';
-import { ABILITIES, JUMP, MOVE, MOVEMENT_SKILLS, SKILLS, WEAPONS } from '../src/tuning';
+import { ABILITIES, JUMP, MOVE, MOVEMENT_SKILLS, SKILLS, WEAPONS } from '../src/content/tuning';
 import { LADDERS, actorKind } from '../src/content/actors';
 import { behaviour } from '../src/sim/ai/brain';
 import { freshness } from '../src/sim/life/trade';

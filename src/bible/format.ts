@@ -2,7 +2,7 @@
 // (from the content, the tuning or the rules) and returns it ready for a page, so prose never holds
 // a number typed by hand (src/bible/md.ts).
 
-import { SIM_HZ } from '../tuning';
+import { SIM_HZ } from '../content/tuning';
 import { money } from '../ui/theme/icons';
 import { Html, plainNumber, raw } from './md';
 

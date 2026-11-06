@@ -5,7 +5,7 @@ import type { Plant, QuestProgress } from './state';
 import { SHIP_DESIGNS } from '../../content/shipyard';
 import { itemDef } from '../../content/items';
 import { formatCoins, LABOR } from '../../content/trade';
-import { STEP } from '../../tuning';
+import { STEP } from '../../content/tuning';
 
 // The starter questline: offered by NPCs once its prerequisites are done, advanced by events the
 // other systems report (planted, harvested, delivered...), handed in for rewards.

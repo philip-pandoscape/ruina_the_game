@@ -1,7 +1,7 @@
 import type { LifeHooks, Sim } from '../sim';
 import type { Actions } from '../types';
 import type { ZoneData } from '../zone/world';
-import { STEP } from '../../tuning';
+import { STEP } from '../../content/tuning';
 import { BAG_SLOTS, itemDef } from '../../content/items';
 import { LABOR } from '../../content/trade';
 import { FARM } from '../../content/farming';

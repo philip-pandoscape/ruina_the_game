@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { isAlive, type Actor } from '../sim/actor';
-import { DUMMY } from '../tuning';
+import { DUMMY } from '../content/tuning';
 import { part, toon } from './toon';
 
 // A straw training dummy on a post. It wobbles, flashes white when hit, and pops back after breaking.

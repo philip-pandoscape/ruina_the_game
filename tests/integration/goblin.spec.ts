@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
-import { COMBAT, emptyMovement, HOTBAR_SLOTS, NO_ABILITY, type Build } from '../../src/tuning';
-import { skillsFrom } from '../../src/skills';
+import { COMBAT, emptyMovement, HOTBAR_SLOTS, NO_ABILITY, type Build } from '../../src/content/tuning';
+import { skillsFrom } from '../../src/content/skills';
 import { actorKind } from '../../src/content/actors';
 import { attackDef } from '../../src/content/attacks';
 import { behaviour } from '../../src/sim/ai/brain';

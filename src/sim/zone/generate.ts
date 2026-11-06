@@ -1,5 +1,5 @@
 import { fbm, Heightfield, lerp, smoothstep, SURFACE } from '../terrain';
-import { makeRng, range } from '../../rng';
+import { makeRng, range } from '../../util/rng';
 import type { Obstacle } from '../types';
 import { structureDef, propDef, type StructureDef } from '../../content/structures';
 import { placedPlan, type BuildingPlan } from '../../content/buildings';

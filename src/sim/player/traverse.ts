@@ -3,14 +3,14 @@
 // hands over when the world has terrain - so the server-mirrored rules stay exactly as they were.
 
 import type { Sim } from '../sim';
-import { ATTACK, JUMP, STEP, comboFor } from '../../tuning';
+import { ATTACK, JUMP, STEP, comboFor } from '../../content/tuning';
 import { GLIDE, GROUND, SWIM } from '../../content/traversal';
 import { CARRY } from '../../content/trade';
 import { glider as gliderDef } from '../../content/vehicles';
 import { groundAt, inRect, pushOutOfBox } from '../zone/colliders';
 import { isAlive } from '../actor';
 import { angleDiff, len, turnToward } from '../math';
-import { MOVE } from '../../tuning';
+import { MOVE } from '../../content/tuning';
 import type { Actions, PlayerState } from '../types';
 import type { Updraft } from '../zone/types';
 import { TAU } from '../../util/math';

@@ -5,7 +5,7 @@ import { HERO_RIG, HERO_WEAPONS } from '../../render/creatures/heroBody';
 import { SCENARIOS, scenario, type Moment, type Scenario } from '../../render/detail/scenarios';
 import { madeHero, madeHeroNow } from '../../render/detail/madeHero';
 import { HERO_MOVES, HERO_MOVE_SETS } from '../../render/detail/moves';
-import { ABILITIES, MOVEMENT_SKILLS, MOVE, WEAPONS } from '../../tuning';
+import { ABILITIES, MOVEMENT_SKILLS, MOVE, WEAPONS } from '../../content/tuning';
 import { NodeTrack, readBones, readJoint, sideOf, writeBones, writeJoint } from '../pose';
 import type { AnimDef, Bone, FrameInfo, Options, Phase, Posable, Snapshot, Source, Subject, Take } from '../types';
 import { Film } from './film';
@@ -406,7 +406,7 @@ export const heroSubject: Subject = {
         { path: 'src/render/detail/scenarios.ts', what: 'the films: what the rules report per frame (do not change these to fix a pose)' },
         { path: 'src/render/creatures/heroBody.ts', what: 'the box rig: joints, parts, weapons' },
         {
-          path: 'shared/*.json, src/tuning.ts',
+          path: 'shared/*.json, src/content/tuning.ts',
           what: "the rules' frame counts (startup/active/recovery): changing them is a rules change in TS and Rust together",
         },
       ],

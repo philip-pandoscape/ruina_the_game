@@ -56,8 +56,8 @@ const REQUIRED_SYSTEMS = [
 /** Where the rules live: every file here is a system's, and its page says so in `rules`. */
 const RULES = [
   ...files('src/sim', '.ts'),
-  'src/skills.ts',
-  'src/build.ts',
+  'src/content/skills.ts',
+  'src/app/build.ts',
   ...files('crates/engine/src', '.rs'),
   ...files('crates/server/src/play', '.rs'),
   'crates/server/src/combat.rs',
@@ -81,7 +81,7 @@ const PLUMBING: Record<string, string> = {
   'crates/server/src/play/socket.rs': 'a player’s connection to the server',
   'crates/server/src/play/channels.rs': 'who is in which channel',
   // The developer zones, which only admins enter: no player reads about them.
-  'src/sim/world.ts': 'the training yard’s and the battlefield’s grounds, developer zones',
+  'src/sim/yard.ts': 'the training yard’s and the battlefield’s grounds, developer zones',
   'src/sim/training.ts': 'the training yard’s stand-in for the server, a developer zone',
   'crates/engine/src/world.rs': 'the battlefield’s ground, a developer zone',
 };

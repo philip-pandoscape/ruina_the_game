@@ -1,7 +1,7 @@
 //! Skills, the tree they live in, the levels the ones you use gain, and the modifiers all of that
 //! applies.
 //!
-//! This mirrors src/skills.ts, and the two must agree exactly: the browser predicts with these
+//! This mirrors src/content/skills.ts, and the two must agree exactly: the browser predicts with these
 //! numbers and this decides with them. That is why the fold below is in a fixed order rather than
 //! a convenient one, and why every sum is gathered before it is used.
 
@@ -50,7 +50,7 @@ pub fn node_index(id: &str) -> Option<usize> {
     nodes().iter().position(|n| n.id == id)
 }
 
-/// A set from node ids, for tests and tools (skillsFrom in src/skills.ts). An unknown id is a
+/// A set from node ids, for tests and tools (skillsFrom in src/content/skills.ts). An unknown id is a
 /// mistake in the caller, not something to carry on past.
 pub fn skills_from(ids: &[&str]) -> SkillSet {
     let mut out = EMPTY_SKILLS;
@@ -150,7 +150,7 @@ pub fn sound_tree(s: &SkillSet) -> bool {
 
 /// The cheapest way to `index` from what you've learned: the nodes to learn, nearest first,
 /// ending with it. Empty if it is already learned. Ties go to the lower index, the same on every
-/// machine (pathTo in src/skills.ts).
+/// machine (pathTo in src/content/skills.ts).
 pub fn path_to(s: &SkillSet, index: usize) -> Vec<usize> {
     let count = nodes().len();
     if index >= count || has_skill(s, index) {
@@ -520,7 +520,7 @@ pub fn valid_build(skills: &SkillSet, weapon: u8, abilities: &[u8], budget: u32)
     true
 }
 
-/// The rest of a build's check (validBuild in src/build.ts): the Q / E slots hold only movement
+/// The rest of a build's check (validBuild in src/app/build.ts): the Q / E slots hold only movement
 /// skills the set has learned, each in at most one slot. Movement skills cost points like anything
 /// else in the tree, so one can't be slotted without them.
 pub fn valid_movement(skills: &SkillSet, movement: &[u8]) -> bool {
