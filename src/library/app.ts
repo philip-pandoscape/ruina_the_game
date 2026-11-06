@@ -1524,7 +1524,7 @@ export class App {
       sub: `${store.count((n) => n.status === 'open')} open, ${store.count((n) => n.status === 'done')} done`,
       body,
       foot: [
-        h('span', { class: 'grow' }, store.dir ? `Kept in ${store.dir}` : 'Kept in this browser'),
+        h('span', { class: 'grow' }, store.dir ? `Kept in ${store.dir}` : 'Kept in this browser only: the development server (npm run dev) keeps them as files, pictures and all.'),
         h(
           'button',
           {

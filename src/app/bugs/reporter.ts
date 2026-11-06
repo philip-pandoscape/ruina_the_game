@@ -427,6 +427,11 @@ export class BugReporter {
   }
 
   private async checkServer(): Promise<void> {
+    // A built game (beta, production) has no dev server to keep reports: say so rather than fail.
+    if (!import.meta.env.DEV) {
+      this.serverProblem = 'Bug reports are kept by the development server (npm run dev): this build of the game can’t save them.';
+      return;
+    }
     try {
       const r = await fetch(`${ENDPOINT}/ping`, { cache: 'no-store' });
       const json = (r.headers.get('content-type') ?? '').includes('application/json');
