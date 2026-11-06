@@ -313,3 +313,30 @@ the developer zone; then the engine bridge (R6.4) and Phase 8's switches.
   import and cut everything between it and the last import (511 lines of `main.ts`, caught before
   anything was committed). It now leaves locals alone and handles `x as y`. The docs' path test no
   longer reads the agents' worktrees.
+
+## 2026-11-06: The Bridge Is the One Way to the Rules
+
+- **The agents' work is in (R5.6, R6.7, R8.6 ported, R9.10 but the waterfall).** Three background
+  agents stopped at the user's word, and what they had finished is merged. The engine has golden
+  tests that keep its answers bit for bit once the TypeScript goes, and the content library's
+  2,316-line `app.ts` is split by concern. The island's generator runs in Rust and matches the bake:
+  none of 591,361 heights differ. Their unfinished work (the network/drawing split) was finished
+  here. From now on one session does the work, without agents.
+- **The client's areas lean one way (R6.0).** The network keeps everyone else's state and the
+  drawing draws them. The sign-in, character, party and mini-game windows declare what they show and
+  call, and the app hands them the connection. The build's rules moved to content and auto-run to
+  input, the HUD moved to the UI, and drawing no longer imports the windows. The boundary test now
+  forbids every crossing the survey found, and it lists no exceptions.
+- **Only the bridge touches the rules (R6.0b, R6.4).** Every write from outside the rules is a named
+  call on `src/engine/engine.ts`: the server's word on you, solid houses and vehicles, your island
+  online (taken from ticks, commands run ahead and run again), levels, commands, and the test API's
+  hooks. Four facades name the 111 things the rest of the client reads from the rules, by the domains
+  Phase 8 switches. Nothing else imports `src/sim/`, so Phase 8 can answer the bridge from the Rust
+  engine with no change outside it.
+- **`main.ts`'s tangles undone (R6.2).** There is no patched `life.command`, the key intercept is
+  composed once, and nothing is used before it's declared. `main.ts` is 1,518 lines (2,566 at the
+  start). Drawing a frame and the loop are left to split, along with the game context they need.
+- **Guides:** `src/render`, `src/ui`, `src/dev` and `src/engine` have their AGENTS.md (R6.13).
+- **Tests:** `npm run check` and conformance (64) pass. The integration tier passes 241 of 245. Of
+  the rest, three are races under load that pass alone and one needs pointer lock, which macOS's
+  headless browser doesn't give. The races are listed in the tracker.
