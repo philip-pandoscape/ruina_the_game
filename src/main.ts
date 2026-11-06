@@ -40,6 +40,7 @@ import { LifeView, sitIn } from './render/open/life';
 import { LifeUI } from './ui/life/lifeUI';
 import { clearLife, loadLife, saveData, saveLife } from './app/save';
 import { goOnline } from './app/online';
+import { readOptions } from './app/options';
 import { leaveFor, plainUrl } from './app/resume';
 import { currentAccount, signOut } from './net/account';
 import { addAdminButton } from './ui/admin/adminMenu';
@@ -106,39 +107,11 @@ migrateStorage(localStorage);
 // builds UI.
 initUiScale(document.getElementById('ui') as HTMLElement);
 
-// URL options:
-//   ?test          start paused so automated tests can step the game frame by frame
-//   ?raid=10000    raid stress test: two armies of fighters on a big battlefield
-//   ?server=ws://localhost:7777   play on the Rust battle server's battlefield (crates/server/)
-//     &team=0|1    which side to join (default: whichever the server picks)
-//     &play=0      just watch instead of joining
-//     &lag=150     testing: ask the server to delay this connection by 150 ms each way
-//   &softlock=0    turn off the automatic target pick; Tab still works
-//   (none)         the open world: Emberholm, the starter isle, played on the game server: sign in
-//                  and choose a character first, on the title screen; the server runs the island
-//                  and keeps it (src/app/online.ts)
-//     &as=name     development servers: sign straight in as name (a new account if it's new) and
-//                  play the character it played last
-//     &fresh       start your island over
-//   ?yard          the old training yard, offline (also what ?test opens, unless ?world is given too)
-//     &goblins=6   a war-band of goblins in the yard's far corner (design/goblins.md)
-//   ?world&test    the open world, offline and paused for automated tests (&load: the island
-//                  kept in this browser, for bug-report replays)
-//   &quality=low|medium|high  how much of the look to draw, instead of what the graphics chip
-//                  picks (src/render/look.ts); &lookdebug=ao shows the ambient occlusion alone
-//   ?bugs=0        no bug reporter (\ records a bug report; tests turn it on with &bugs)
-//   &bugspeech=0   bug reports without live transcription; &buglang=en-GB to change its language
+// The address's options (?test, ?yard, ?as=name and the rest) are listed in src/app/options.ts.
 // Console output and errors are kept from here on, for bug reports.
 installLogCapture();
-const params = new URLSearchParams(location.search);
-const testMode = params.has('test');
-const serverUrl = params.get('server');
-const raidCount = !serverUrl && params.has('raid') ? Math.max(100, Math.min(50000, Number(params.get('raid')) || 10000)) : 0;
-const battlefield = raidCount > 0 || !!serverUrl;
-const yardMode = params.has('yard') || (testMode && !params.has('world'));
-const openWorld = !battlefield && !yardMode;
-const team = params.has('team') ? Number(params.get('team')) & 1 : 255;
-const lagMs = Math.max(0, Math.min(2000, Number(params.get('lag')) || 0));
+const opt = readOptions();
+const { test: testMode, server: serverUrl, raid: raidCount, battlefield, openWorld, team, lag: lagMs } = opt;
 
 // The island's models load from the start (online, while you sign in and choose a character).
 const modelsLoading = openWorld ? loadModels().then((m) => (splash?.step('models'), m)) : null;
@@ -147,7 +120,7 @@ const modelsLoading = openWorld ? loadModels().then((m) => (splash?.step('models
 // island and build, and keeps them from then on. Automated tests and the training yard stay
 // offline. Online, all of it happens on the title screen (src/ui/splash.ts), which shows the island
 // being built and then fades into the game.
-const online = openWorld && !testMode ? await goOnline(params) : null;
+const online = openWorld && !testMode ? await goOnline(opt) : null;
 if (splash) {
   splash.say('Raising the Island…');
   splash.toward('world', 3);
@@ -157,7 +130,7 @@ if (splash) {
 const canvas = document.getElementById('game') as HTMLCanvasElement;
 const world = battlefield ? makeBattlefield() : openWorld ? makeZoneWorld() : makeWorld();
 // A war-band to fight in the yard, if asked for.
-const yardGoblins = yardMode ? Math.max(0, Math.min(24, Math.floor(Number(params.get('goblins')) || 0))) : 0;
+const yardGoblins = opt.goblins;
 if (yardGoblins) world.spawns.push(...bandAround('goblin', yardGoblins, 9, 10, 1));
 const terrain = world.terrain ?? null;
 /** Ground height under a point: the island's terrain, or 0 on the flat training grounds. */
@@ -532,16 +505,16 @@ if (peers && lifeUI) lifeUI.others = () => peers.list();
 // the one kept in this browser (?world&test&load, which is how bug reports are replayed).
 if (life && online) {
   // Starting over: the old island must be gone before this page shows one.
-  if (params.has('fresh')) await online.link.reset();
+  if (opt.fresh) await online.link.reset();
   life.remote = (c) => online.link.command((prediction?.seq ?? 0) + 1, c);
   // ?lag=ms plays a local server as one far away would feel.
   online.link.lag = lagMs;
 }
-if (life && testMode && params.has('load')) loadLife(life, sim);
+if (life && testMode && opt.load) loadLife(life, sim);
 // The island's skill points hold your build to what you've earned, as the server does on joining:
 // a build they can't cover falls back to Sword Training. Online the welcome already says what the
 // server chose, except when ?fresh has just started the island, and its points, over.
-if (life && (!online || params.has('fresh')) && !validBuild(build, skillBudget(life.state))) {
+if (life && (!online || opt.fresh) && !validBuild(build, skillBudget(life.state))) {
   build = defaultBuild();
   sim.setBuild(build);
 }
@@ -716,7 +689,7 @@ let lastViewSent = 0;
 
 // Online play: your fighter is predicted locally and corrected by the server; other players are drawn
 // from the server's updates.
-const playing = !!net && params.get('play') !== '0';
+const playing = !!net && opt.play;
 const prediction = net && playing ? new Prediction(sim, net) : null;
 // Other players on the battlefield; in Emberholm they're drawn with their vehicles and gliders by
 // WorldPeers instead.
@@ -909,7 +882,7 @@ const lockOn = createTargeting({
   net,
   playing,
   online: serverRules,
-  softLock: params.get('softlock') !== '0',
+  softLock: opt.softLock,
   names: NAMES,
   netActors: () => shownActors,
 });
@@ -2363,7 +2336,7 @@ function bugSample(): Record<string, unknown> {
   return s;
 }
 
-if (testMode ? params.has('bugs') : params.get('bugs') !== '0') {
+if (opt.bugs) {
   bugs = new BugReporter({
     canvas,
     snapshot: bugSnapshot,
@@ -2371,8 +2344,8 @@ if (testMode ? params.has('bugs') : params.get('bugs') !== '0') {
     sample: bugSample,
     device: () => input.lastDevice,
     test: testMode,
-    speech: params.get('bugspeech') !== '0',
-    lang: params.get('buglang') || navigator.language || 'en-US',
+    speech: opt.bugSpeech,
+    lang: opt.bugLang || navigator.language || 'en-US',
   });
   // Mouse readings thrown away as impossible, so a report can show whether one caused a camera jump.
   input.mouse.onDrop = (dx, dy, why) => bugs?.note('mouse', { type: why, dx, dy, raw: input.rawMouse });

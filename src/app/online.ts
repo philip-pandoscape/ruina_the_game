@@ -3,6 +3,7 @@ import { Reloading, WorldLink, type Welcome } from '../net/worldLink';
 import { CharacterSelect } from '../ui/characterSelect';
 import { SignInScreen } from '../ui/signIn';
 import { splash } from '../ui/splash';
+import type { Options } from './options';
 import { playingAs, takeResume } from './resume';
 
 // Emberholm is played on the game server. The front door, on the title screen (src/ui/splash.ts):
@@ -27,9 +28,9 @@ export interface Online {
 /** The character played most recently. */
 const lastPlayed = (list: CharacterInfo[]) => [...list].sort((a, b) => (b.lastPlayed ?? 0) - (a.lastPlayed ?? 0) || a.id - b.id)[0] ?? null;
 
-export async function goOnline(params: URLSearchParams): Promise<Online> {
+export async function goOnline(opt: Pick<Options, 'as'>): Promise<Online> {
   const screen = new SignInScreen();
-  const as = params.get('as');
+  const as = opt.as;
   // Straight in, the first time round: a dev sign-in, or a reload of a tab that was in the world.
   let resume = takeResume();
   let straight = !!as || resume !== null;
