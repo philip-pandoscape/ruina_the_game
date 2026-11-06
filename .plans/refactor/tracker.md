@@ -473,6 +473,16 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
 
 ## Phase 10: Zones, Developer Zones and Bots
 
+**How (2026-11-06):** the developer zones ride on the dungeon copies, which already do what they
+need: a place of its own, solid and drawn only there, players moved in and out mid-connection,
+saved as standing outside. The yard and the battlefield become places like Goblin's Dread's
+grotto (floors and walls round an origin, spawns), flagged `developer` (admins only, entered from
+the Admin menu) and drawn as open arenas; the battlefield's copy is one for every admin, with two
+sides of bots, started by the first admin in and stopped when the last leaves. Bots are players
+without a socket whose inputs a brain fills each tick (the engine's `bots`), shown to browsers as
+peers marked as bots. Today's battle server, its loop and the `?server=`, `?yard`, `?raid` pages go
+once these stand. The island's generator for any zone (R10.1) waits for its port to Rust (R8.6).
+
 - [ ] **R10.1** A zone is a content folder (`content/zones/<id>/`): its recipe or layout, spawns, rules
   flags (PvP, developer, instanced), ways in and out. The engine loads any zone; the generator builds
   any recipe (after R9.10).

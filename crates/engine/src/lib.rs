@@ -10,6 +10,7 @@
 pub mod actor;
 pub mod actors;
 pub mod ai;
+pub mod bots;
 pub mod content;
 pub mod creatures;
 pub mod jsmath;
