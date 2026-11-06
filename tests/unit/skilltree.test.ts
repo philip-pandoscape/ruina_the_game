@@ -107,25 +107,8 @@ test('every link joins two nodes that exist, and everything can be reached from 
   expect(soundTree(s)).toBe(true);
 });
 
-test('the fifteen skills keep their old places, so saved builds still mean the same', () => {
-  const OLD = [
-    'sword',
-    'cleave',
-    'whirlwind',
-    'club',
-    'heal',
-    'swiftMending',
-    'staff',
-    'meteor',
-    'quickIncantation',
-    'bow',
-    'rapidFire',
-    'piercing',
-    'dodgeRoll',
-    'backstep',
-    'block',
-  ];
-  expect(NODES.slice(0, 15).map((n) => n.id)).toEqual(OLD);
+test('the tree starts at the four weapons', () => {
+  // Kept builds name their nodes by id (tests/unit/savedBuild.test.ts), so the nodes' order is free.
   expect(ROOTS.map((i) => NODES[i].id).sort()).toEqual(['bow', 'club', 'staff', 'sword']);
 });
 

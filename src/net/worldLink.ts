@@ -1,6 +1,7 @@
 import type { Command, LifeEvent, Placement, LifeState, Vehicle, Weather } from '../engine/island';
 import type { Build } from '../content/tuning';
 import { MINIGAMES } from '../content/minigames';
+import contentHash from '../../shared/hash.json' with { type: 'json' };
 import { currentAccount, ServerDown } from './account';
 import type { ArrowRecord, EffectEvent, MeteorRecord, NetActor } from './worldFeed';
 
@@ -15,10 +16,10 @@ import type { ArrowRecord, EffectEvent, MeteorRecord, NetActor } from './worldFe
 // When the server is updated, it says so (updating), writes your island and hangs up as a service
 // restart (1012); a connection can also just drop. Either way the game freezes while this keeps
 // trying, and carries on once the server is back. If the page is out of date by then (the server
-// speaks another protocol, or a new build of the game is out), it reloads and comes straight back
-// into the world with the same character (src/app/resume.ts).
+// speaks another protocol or was built from other content, or a new build of the game is out), it
+// reloads and comes straight back into the world with the same character (src/app/resume.ts).
 //
-//   server → browser  (text) welcome {protocol, character, account, build, now, channel, dev, estates, claims, space}
+//   server → browser  (text) welcome {protocol, content, character, account, build, now, channel, dev, estates, claims, space}
 //                     tick {tick, you, peers, actors, arrows, meteors, events, lifeEvents?, life?, tables?}
 //                     estate {id, name, estate} | claims {claims} | left {id} | saved {at}
 //                     | challenges {sent, waiting} | table {table}   (mini-games, src/ui/minigames)
@@ -208,7 +209,14 @@ const RETRY_MS = { updating: [500, 1000, 1500, 2000], reconnecting: [500, 1000, 
 /** A WebSocket closed as a service restart: the server is being updated. */
 const SERVICE_RESTART = 1012;
 /** What this page speaks; the server says what it speaks in its welcome (crates/server/src/play/socket.rs). */
-const WORLD_PROTOCOL = 10;
+const WORLD_PROTOCOL = 11;
+/**
+ * The content this page was built from (shared/hash.json, tools/content/contentc.mjs); the server
+ * says its own in its welcome. Built from other content, the two would read what goes on the wire
+ * as a place in a bundle's list (a creature's kind, a weapon, a skill, a mini-game) as different
+ * things, so it counts as another protocol.
+ */
+const CONTENT = contentHash.content;
 const RELOADED = 'ruina.reloaded-for-server';
 const RELOADED_BUILD = 'ruina.reloaded-for-build';
 const SEND_INPUTS = 7;
@@ -635,8 +643,12 @@ function connect(character: number | undefined, beforeReload: BeforeReload): Pro
       ws.onclose = null;
       // The server was updated since this page loaded: load the new game, straight back into the
       // world with this character (once; if that didn't help, say so rather than reloading forever).
-      if ((msg as { protocol?: number }).protocol !== WORLD_PROTOCOL) {
+      const theirs = msg as { protocol?: number; content?: string };
+      if (theirs.protocol !== WORLD_PROTOCOL || theirs.content !== CONTENT) {
         ws.close();
+        // For whoever is developing: a world server built from other content than the page's
+        // needs building again (npm run up).
+        console.warn(`The world server speaks protocol ${theirs.protocol} with content ${theirs.content}; this page ${WORLD_PROTOCOL} with ${CONTENT}.`);
         if (!sessionStorage.getItem(RELOADED)) {
           sessionStorage.setItem(RELOADED, '1');
           reloadInto(character ?? msg.character?.id, beforeReload);

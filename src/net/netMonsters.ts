@@ -1,8 +1,9 @@
 import { actorKindAt } from '../content/actors';
 import { behaviour, coneHits, type Target } from '../engine/creatures';
 import type { GameEvent } from '../engine/rules';
-import type { AttackStep } from '../content/tuning';
+import { type AttackStep, WEAPONS } from '../content/tuning';
 import type { ActorTimeline } from './actorTimeline';
+import { CAUSE_WEAPON, causeOf } from './netSpells';
 import type { NetActor } from './worldFeed';
 
 // Monsters online, made to feel the way they do offline. The server decides every hit, so on its
@@ -25,8 +26,6 @@ const CLAIM_MS = 1500;
 const OWN_MS = 900;
 /** How near a hit the server reports must be to a monster to be on it (metres). */
 const ON_IT = 1.2;
-/** The server's numbers say what caused them: 1..4 the weapons (4 the bow), 5 meteor, 6 heal. */
-const CAUSE_MELEE_LAST = 3;
 
 /** What the drawn monster was doing last frame, to see what it has just done. */
 interface Was {
@@ -111,7 +110,7 @@ export class NetMonsters {
   }
 
   /**
-   * The server's word that one of your blows landed (cause 1..4 a weapon, 5 a meteor). Returns
+   * The server's word that one of your blows landed (`cause`: a weapon or an ability, causeOf). Returns
    * where the number goes, on the monster as drawn if it was one, and anything still to show: a
    * melee hit that wasn't guessed gets its sparks and shake now.
    */
@@ -151,7 +150,9 @@ export class NetMonsters {
       return { ...at, show: [] };
     }
     const show: GameEvent[] = [];
-    if (cause >= 1 && cause <= CAUSE_MELEE_LAST) {
+    // A melee weapon's blow, not an arrow's or a spell's.
+    const { sort, index } = causeOf(cause);
+    if (sort === CAUSE_WEAPON && !WEAPONS[index]?.combo.some((s) => s.projectileSpeed)) {
       show.push(this.hitAt(a, from.x, from.z, from.index, 0, frame));
       this.counts.late++;
     }

@@ -617,9 +617,9 @@ mod tests {
         let all = crate::skills::skills_from(&["sword", "cleave", "whirlwind"]);
         let wanted = crate::play::build_json(&crate::player::Build { skills: all, ..crate::player::Build::default() });
         // On the island a newcomer hasn't the points for it.
-        assert!(!sp.game_of(1).unwrap().set_build(1, &wanted));
+        assert!(sp.game_of(1).unwrap().set_build(1, &wanted).is_none());
         sp.enter_zone(1, "yard", true, None).unwrap();
-        assert!(sp.game_of(1).unwrap().set_build(1, &wanted));
+        assert!(sp.game_of(1).unwrap().set_build(1, &wanted).is_some());
         let skills = |sp: &mut Spaces| sp.game_of(1).unwrap().players.open_view(client(1)).unwrap().0.skills;
         assert_eq!(skills(&mut sp), all);
         // Back out, it's the build the island has earned.

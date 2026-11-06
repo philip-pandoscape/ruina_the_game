@@ -1,5 +1,6 @@
 import { adminCard } from './admin/adminMenu';
 import { HeroPreview } from '../render/heroPreview';
+import { WEAPONS } from '../content/tuning';
 import { WEAPON_ICONS, WEAPON_NAMES } from './icons';
 import { iconHtml, money } from './theme/icons';
 import { card, el, frontLayer, type Account } from './signIn';
@@ -19,9 +20,16 @@ export interface CharacterInfo {
   skillPoints: number;
   questsDone: number;
   coins: number;
-  /** The weapon in their build: 0 sword, 1 club, 2 staff, 3 bow. */
-  weapon: number;
+  /** The weapon of their build, by id. */
+  weapon: string;
 }
+
+/** Where a character's weapon is among the weapons, for its icon, its name and the hero holding it. */
+const weaponOf = (c: CharacterInfo): number =>
+  Math.max(
+    0,
+    WEAPONS.findIndex((w) => w.name === c.weapon),
+  );
 
 /** What the screen asks of the account API. The app hands it the API (src/net/account.ts), which the screen doesn't import. */
 export interface CharactersApi {
@@ -147,7 +155,7 @@ export class CharacterSelect {
       const row = el('button', { className: 'cs-row', type: 'button' });
       row.dataset.id = String(c.id);
       row.setAttribute('role', 'option');
-      row.innerHTML = `<span class="ib">${iconHtml(WEAPON_ICONS[c.weapon] ?? WEAPON_ICONS[0], undefined, 32)}</span>`;
+      row.innerHTML = `<span class="ib">${iconHtml(WEAPON_ICONS[weaponOf(c)], undefined, 32)}</span>`;
       row.append(
         el(
           'span',
@@ -213,10 +221,10 @@ export class CharacterSelect {
       }
     }
     if (changed || !this.stage.querySelector('.cs-name')) {
-      this.preview?.show(c.weapon, flourish);
+      this.preview?.show(weaponOf(c), flourish);
       const chips = el('div', { className: 'cs-chips' });
       chips.innerHTML =
-        `<span>${iconHtml(WEAPON_ICONS[c.weapon] ?? WEAPON_ICONS[0], undefined, 16)}${WEAPON_NAMES[c.weapon] ?? 'Sword'}</span>` +
+        `<span>${iconHtml(WEAPON_ICONS[weaponOf(c)], undefined, 16)}${WEAPON_NAMES[weaponOf(c)]}</span>` +
         `<span>${c.channel ? `Emberholm ${c.channel}` : 'New to Emberholm'}</span>` +
         `<span><b>${c.skillPoints}</b> Skill Points</span>` +
         `<span><b>${c.questsDone}</b> ${c.questsDone === 1 ? 'Quest' : 'Quests'} Done</span>` +
@@ -257,7 +265,7 @@ export class CharacterSelect {
   private finish(choice: Choice): void {
     removeEventListener('keydown', this.onKey);
     // Going in: the circle flares under them as the screen fades away.
-    if ('enter' in choice) this.preview?.show(choice.enter.weapon, true);
+    if ('enter' in choice) this.preview?.show(weaponOf(choice.enter), true);
     this.root.classList.add('cs-out');
     const preview = this.preview;
     this.preview = null;

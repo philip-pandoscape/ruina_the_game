@@ -3,10 +3,26 @@
 //! browser's own fields (species, clips, palette, scale, name, cycles, look) are simply not
 //! declared here; serde skips them, so one file can describe both what a monster is and how it
 //! looks.
+//!
+//! And what the content is, in a word: content_hash.
 
 use std::sync::OnceLock;
 
 use serde::Deserialize;
+
+/// The content's hash: every file under shared/ but shared/hash.json, which holds it
+/// (tools/content/contentc.mjs writes it as it builds the bundles). The world's connection compares
+/// the server's with the page's, as it does WORLD_PROTOCOL (crates/server/src/play/socket.rs,
+/// src/net/worldLink.ts): built from other content, the two would read what goes on the wire as a
+/// place in a bundle's list as different things.
+pub fn content_hash() -> &'static str {
+    #[derive(Deserialize)]
+    struct Hash {
+        content: String,
+    }
+    static HASH: OnceLock<String> = OnceLock::new();
+    HASH.get_or_init(|| serde_json::from_str::<Hash>(include_str!("../../../shared/hash.json")).expect("shared/hash.json is valid").content)
+}
 
 /// Dies into this many of another kind.
 #[derive(Deserialize, Clone, Debug)]

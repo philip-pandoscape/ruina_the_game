@@ -1,7 +1,7 @@
 //! Every creature with a folder of its own (content/creatures/, built into shared/creatures.json):
 //! its kinds, brains and attacks, all data for the shared engine parts (design/goblins.md). The same
 //! bundle as src/content/creatures.ts reads: a kind travels on the wire as its index, after those in
-//! shared/actors.json, so a new creature goes on the end of content/creatures/_order.json.
+//! shared/actors.json, the same on both sides as they read the same bundles.
 
 use std::sync::OnceLock;
 

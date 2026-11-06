@@ -4,6 +4,7 @@
 import * as THREE from 'three';
 import { pointsLeft } from '../content/build';
 import { INTERP_TICKS, type NetActor } from '../net/worldFeed';
+import { CAUSE_MONSTER } from '../net/netSpells';
 import { actorKindAt, findKind } from '../content/actors';
 import { isAlive, behaviour, stateProgress } from '../engine/creatures';
 import { type GameEvent, type PlayerState } from '../engine/rules';
@@ -105,7 +106,7 @@ export function makeDrawing(g: GameRefs) {
       follow.shake(0.5);
     } else if (e.type === 'hurt') {
       // A monster got you. Online the server's own attributed event draws the number instead.
-      hud.marker('hurt', e.x, e.y, e.z, e.damage, causeIcon(8));
+      hud.marker('hurt', e.x, e.y, e.z, e.damage, causeIcon(CAUSE_MONSTER));
       follow.shake(0.55);
       input.rumble(0.9, 0.8, 180);
     } else if (e.type === 'slam') {

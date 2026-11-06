@@ -5,7 +5,7 @@ import { crouchKeySlides, Input } from './input/input';
 import { WorldFeed, type NetActor } from './net/worldFeed';
 import { NetMonsters } from './net/netMonsters';
 import { Prediction } from './net/netPlayer';
-import { NetSpells } from './net/netSpells';
+import { CAUSE_ABILITY, CAUSE_MONSTER, CAUSE_WEAPON, causeOf, NetSpells } from './net/netSpells';
 import { FollowCamera } from './render/camera';
 import { GRAPHICS } from './render/look';
 import { Hero } from './render/character';
@@ -550,13 +550,13 @@ const showHurt = (x: number, y: number, z: number, damage: number, dirX: number,
   vfx.onEvent({ type: 'hit', frame: 0, index: damage >= 25 ? 2 : 0, damage, x, y, z, dirX, dirZ });
 if (peers) peers.onHurt = showHurt;
 
-// Which icon goes beside a floating number, from the cause the server packed into the event.
+// Which icon goes beside a floating number, from the cause the server packed into the event: the
+// weapon's or the ability's own, or a monster's.
 function causeIcon(cause: number): string {
-  if (cause >= 1 && cause <= 4) return WEAPON_ICONS[cause - 1] ?? '';
-  if (cause === 5) return ABILITY_ICONS[1]; // meteor
-  if (cause === 6) return ABILITY_ICONS[0]; // heal
-  if (cause === 7) return '\u{1f43a}'; // a bot got you
-  if (cause === 8) return '\u{1f7e2}'; // a monster's slam
+  const { sort, index } = causeOf(cause);
+  if (sort === CAUSE_WEAPON) return WEAPON_ICONS[index] ?? '';
+  if (sort === CAUSE_ABILITY) return ABILITY_ICONS[index] ?? '';
+  if (sort === CAUSE_MONSTER) return '\u{1f7e2}'; // a monster's slam
   return '';
 }
 if (netSpells) {

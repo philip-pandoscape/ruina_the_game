@@ -8,7 +8,11 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::OnceLock;
 
-use crate::tuning::{AttackStep, NO_ABILITY, NO_MOVEMENT, SkillMod, SkillNode, skill_tree, tuning};
+use serde::Deserialize;
+use serde_json::{Value, json};
+
+use crate::player::Build;
+use crate::tuning::{AttackStep, HOTBAR_SLOTS, MOVEMENT_SLOTS, NO_ABILITY, NO_MOVEMENT, SkillMod, SkillNode, skill_tree, tuning};
 
 /// A learned set travels as this many 32-bit words, so the wire size never depends on the tree.
 /// Must match maxNodes in shared/tuning.json (checked when the tuning is loaded).
@@ -528,6 +532,115 @@ pub fn valid_movement(skills: &SkillSet, movement: &[u8]) -> bool {
     movement.iter().enumerate().all(|(i, &m)| m == NO_MOVEMENT || (g.movement.contains(&m) && !movement[..i].contains(&m)))
 }
 
+/// A whole build's check: valid_build and valid_movement, with `budget` points to spend.
+pub fn allowed(b: &Build, budget: u32) -> bool {
+    valid_build(&b.skills, b.weapon, &b.abilities, budget) && valid_movement(&b.skills, &b.movement)
+}
+
+// ---------- Builds as they're kept ----------
+//
+// A kept build (a character's, in Postgres; the browser's for the yard and the battlefield) names
+// what it holds by id: its weapon, the nodes it has learned, and what is in each hotbar and movement
+// slot, so it means the same whatever order the content comes in. The run-time build and the wire
+// use places in that order (both sides read it from the same bundles, and the world's connection
+// checks they have the same ones). Builds kept before they named things by id are read through the
+// order they were kept in, frozen in shared/buildsByIndex.json. The browser's half:
+// src/content/build.ts (savedBuild, readSavedBuild).
+
+/// A build as it's kept: `{weapon, skills, abilities, movement}` by id, the skills in the tree's
+/// order and an empty slot null.
+pub fn saved_build(b: &Build) -> Value {
+    let t = tuning();
+    let learned: Vec<&str> = nodes().iter().enumerate().filter(|&(i, _)| has_skill(&b.skills, i)).map(|(_, n)| n.id.as_str()).collect();
+    let abilities: Vec<Option<&str>> = b.abilities.iter().map(|&a| t.abilities.get(a as usize).map(|x| x.id.as_str())).collect();
+    let movement: Vec<Option<&str>> = b.movement.iter().map(|&m| t.movement_skills.get(m as usize).map(|x| x.id.as_str())).collect();
+    json!({
+        "weapon": t.weapons.get(b.weapon as usize).map(|w| w.name.as_str()),
+        "skills": learned,
+        "abilities": abilities,
+        "movement": movement,
+    })
+}
+
+/// A kept build (by id, or by index as builds were kept before), or None if it isn't one. A node
+/// the tree no longer has is left out and a slot naming something gone is empty, but a weapon that's
+/// gone leaves no build. Whether it's allowed is the caller's to check (`allowed`, with the points
+/// it may spend there).
+pub fn build_from_saved(v: &Value) -> Option<Build> {
+    match v.get("weapon")? {
+        Value::String(_) => by_id(v),
+        Value::Number(_) => by_id(&saved_by_id(v)?),
+        _ => None,
+    }
+}
+
+fn by_id(v: &Value) -> Option<Build> {
+    let t = tuning();
+    let weapon = v.get("weapon")?.as_str()?;
+    let weapon = u8::try_from(t.weapons.iter().position(|w| w.name == weapon)?).ok()?;
+    let mut skills = EMPTY_SKILLS;
+    for id in v.get("skills")?.as_array()? {
+        if let Some(i) = id.as_str().and_then(node_index) {
+            set_skill(&mut skills, i, true);
+        }
+    }
+    let slot = |id: &Value, place: &dyn Fn(&str) -> Option<usize>, empty: u8| id.as_str().and_then(place).and_then(|i| u8::try_from(i).ok()).unwrap_or(empty);
+    let mut abilities = [NO_ABILITY; HOTBAR_SLOTS];
+    for (k, id) in v.get("abilities").and_then(Value::as_array).into_iter().flatten().take(HOTBAR_SLOTS).enumerate() {
+        abilities[k] = slot(id, &|id| t.abilities.iter().position(|a| a.id == id), NO_ABILITY);
+    }
+    let mut movement = [NO_MOVEMENT; MOVEMENT_SLOTS];
+    for (k, id) in v.get("movement").and_then(Value::as_array).into_iter().flatten().take(MOVEMENT_SLOTS).enumerate() {
+        movement[k] = slot(id, &|id| t.movement_skills.iter().position(|m| m.id == id), NO_MOVEMENT);
+    }
+    Some(Build { skills, weapon, abilities, movement })
+}
+
+/// shared/buildsByIndex.json: how builds were kept before they named things by id. Frozen.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ByIndex {
+    weapons: Vec<String>,
+    abilities: Vec<String>,
+    movement_skills: Vec<String>,
+    skill_nodes: Vec<String>,
+}
+
+fn by_index() -> &'static ByIndex {
+    static ORDER: OnceLock<ByIndex> = OnceLock::new();
+    ORDER.get_or_init(|| serde_json::from_str(include_str!("../../../shared/buildsByIndex.json")).expect("shared/buildsByIndex.json is valid"))
+}
+
+/// A build kept by index, as builds were before they named things by id (`{skills: [the learned
+/// set's words], weapon, abilities, movement}`, the slots NO_ABILITY or NO_MOVEMENT where empty), as
+/// it's kept now; None if it isn't one. It is read in the order it was kept in, so it names what it
+/// always meant. What the server would have turned down (a weapon, an ability or a node that order
+/// hasn't got) isn't one: it stays as it was, and is turned down still.
+pub fn saved_by_id(old: &Value) -> Option<Value> {
+    let order = by_index();
+    let at = |list: &'static [String], v: &Value| -> Option<&'static str> { list.get(usize::try_from(v.as_u64()?).ok()?).map(String::as_str) };
+    let weapon = at(&order.weapons, old.get("weapon")?)?;
+    let mut learned = Vec::new();
+    for (w, word) in old.get("skills")?.as_array()?.iter().take(SKILL_WORDS).enumerate() {
+        let bits = u32::try_from(word.as_u64()?).ok()?;
+        for bit in (0..32).filter(|b| bits & (1 << b) != 0) {
+            learned.push(order.skill_nodes.get(w * 32 + bit)?.as_str());
+        }
+    }
+    let slots = |key: &str, list: &'static [String], n: usize, empty: u64| -> Option<Vec<Option<&'static str>>> {
+        let mut out = vec![None; n];
+        for (k, v) in old.get(key).and_then(Value::as_array).into_iter().flatten().take(n).enumerate() {
+            if v.as_u64() != Some(empty) {
+                out[k] = Some(at(list, v)?);
+            }
+        }
+        Some(out)
+    };
+    let abilities = slots("abilities", &order.abilities, HOTBAR_SLOTS, NO_ABILITY.into())?;
+    let movement = slots("movement", &order.movement_skills, MOVEMENT_SLOTS, NO_MOVEMENT.into())?;
+    Some(json!({ "weapon": weapon, "skills": learned, "abilities": abilities, "movement": movement }))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -568,26 +681,8 @@ mod tests {
     fn the_tree_holds_together() {
         let n = nodes();
         assert!(n.len() <= MAX_NODES);
-        // The first fifteen are the old skills in their old order, so builds saved before the tree
-        // grew still mean the same skills.
-        let old = [
-            "sword",
-            "cleave",
-            "whirlwind",
-            "club",
-            "heal",
-            "swiftMending",
-            "staff",
-            "meteor",
-            "quickIncantation",
-            "bow",
-            "rapidFire",
-            "piercing",
-            "dodgeRoll",
-            "backstep",
-            "block",
-        ];
-        assert_eq!(ids(&(0..15).collect::<Vec<_>>()), old);
+        // Ids are a node's name for good: a kept build names its nodes by them.
+        assert_eq!(n.iter().map(|x| x.id.as_str()).collect::<BTreeSet<_>>().len(), n.len(), "two nodes share an id");
         assert_eq!(ids(roots()), ["sword", "club", "staff", "bow"]);
         // Neighbours are listed both ways round and in ascending order.
         for (i, list) in adjacent().iter().enumerate() {
@@ -750,5 +845,161 @@ mod tests {
         assert_eq!(movement_stamina_for(0, &r), cost * (1.0 + -0.03 * 9.0) * (1.0 - 0.05));
         // And learned movement skills are listed like weapons and abilities.
         assert_eq!(r.movement, [0]);
+    }
+
+    // ---------- Builds as they're kept ----------
+
+    /// Where an id is in the content now.
+    fn weapon(id: &str) -> u8 {
+        tuning().weapons.iter().position(|w| w.name == id).unwrap() as u8
+    }
+    fn ability_at(id: &str) -> u8 {
+        tuning().abilities.iter().position(|a| a.id == id).unwrap() as u8
+    }
+    fn move_at(id: &str) -> u8 {
+        tuning().movement_skills.iter().position(|m| m.id == id).unwrap() as u8
+    }
+
+    /// Club Training and Healing Circle, with the circle in the third slot and Block on E.
+    fn healer() -> Build {
+        let mut b = Build { skills: skills_from(&["club", "heal", "block"]), weapon: weapon("club"), ..Build::default() };
+        b.abilities[2] = ability_at("heal");
+        b.movement[1] = move_at("block");
+        b
+    }
+
+    fn same(a: &Build, b: &Build) -> bool {
+        a.skills == b.skills && a.weapon == b.weapon && a.abilities == b.abilities && a.movement == b.movement
+    }
+
+    #[test]
+    fn a_build_is_kept_by_id() {
+        let kept = saved_build(&healer());
+        assert_eq!(
+            kept,
+            json!({
+                "weapon": "club",
+                "skills": ["club", "heal", "block"],
+                "abilities": [null, null, "heal", null, null, null, null, null],
+                "movement": [null, "block"],
+            })
+        );
+        assert!(same(&build_from_saved(&kept).unwrap(), &healer()));
+        // Whatever the tree allows comes back as it went.
+        let mut all = Build { skills: skills_from(&["staff", "meteor", "club", "heal", "sword", "dodgeRoll"]), weapon: weapon("staff"), ..Build::default() };
+        all.abilities[4] = ability_at("meteor");
+        all.abilities[7] = ability_at("heal");
+        all.movement = [move_at("dodgeRoll"), NO_MOVEMENT];
+        let wide = Build { skills: grown(30), ..Build::default() };
+        for b in [all, wide, Build::default()] {
+            assert!(same(&build_from_saved(&saved_build(&b)).unwrap(), &b));
+        }
+    }
+
+    #[test]
+    fn a_kept_build_reads_ids_into_the_content_as_it_is() {
+        let b = build_from_saved(&json!({ "weapon": "bow", "skills": ["backstep", "bow"], "abilities": [], "movement": ["backstep"] })).unwrap();
+        assert_eq!(b.weapon, weapon("bow"));
+        assert_eq!(b.skills, skills_from(&["bow", "backstep"]));
+        assert_eq!(b.abilities, [NO_ABILITY; HOTBAR_SLOTS]);
+        assert_eq!(b.movement, [move_at("backstep"), NO_MOVEMENT]);
+        // What the content no longer has is left out, and a slot naming it is empty; without its
+        // weapon it's no build.
+        let gone = json!({ "weapon": "sword", "skills": ["sword", "longGone"], "abilities": ["oldSpell", "heal"], "movement": [null, "teleport"] });
+        let b = build_from_saved(&gone).unwrap();
+        assert_eq!(b.skills, skills_from(&["sword"]));
+        assert_eq!(b.abilities[..2], [NO_ABILITY, ability_at("heal")]);
+        assert_eq!(b.movement, [NO_MOVEMENT; MOVEMENT_SLOTS]);
+        assert!(build_from_saved(&json!({ "weapon": "trident", "skills": ["sword"] })).is_none());
+        assert!(build_from_saved(&json!({ "weapon": "sword" })).is_none(), "no skills");
+        assert!(build_from_saved(&json!("sword")).is_none());
+        assert!(build_from_saved(&json!({ "weapon": true, "skills": [] })).is_none());
+        // More slots than the bar has are cut off; fewer leave the rest empty.
+        let long = json!({ "weapon": "club", "skills": ["club", "heal"], "abilities": [null, null, null, null, null, null, null, null, "heal"] });
+        assert_eq!(build_from_saved(&long).unwrap().abilities, [NO_ABILITY; HOTBAR_SLOTS]);
+        // Whether it's allowed is checked where it's used, as any build is.
+        assert!(!allowed(&build_from_saved(&json!({ "weapon": "club", "skills": ["sword"] })).unwrap(), 30), "no club");
+    }
+
+    /// Builds as the server wrote them before they named things by id (c3d19c3, its database's rows
+    /// as Postgres gives them back), with what each means.
+    const KEPT_BY_INDEX: [(&str, &str); 6] = [
+        (
+            r#"{"skills": [1, 0, 0, 0, 0, 0, 0, 0], "weapon": 0, "movement": [255, 255], "abilities": [255, 255, 255, 255, 255, 255, 255, 255]}"#,
+            r#"{"weapon": "sword", "skills": ["sword"], "abilities": [null, null, null, null, null, null, null, null], "movement": [null, null]}"#,
+        ),
+        (
+            r#"{"skills": [4097, 0, 0, 0, 0, 0, 0, 0], "weapon": 0, "movement": [255, 0], "abilities": [255, 255, 255, 255, 255, 255, 255, 255]}"#,
+            r#"{"weapon": "sword", "skills": ["sword", "dodgeRoll"], "abilities": [null, null, null, null, null, null, null, null], "movement": [null, "dodgeRoll"]}"#,
+        ),
+        (
+            r#"{"skills": [24, 0, 0, 0, 0, 0, 0, 0], "weapon": 1, "movement": [255, 255], "abilities": [255, 255, 0, 255, 255, 255, 255, 255]}"#,
+            r#"{"weapon": "club", "skills": ["club", "heal"], "abilities": [null, null, "heal", null, null, null, null, null], "movement": [null, null]}"#,
+        ),
+        (
+            r#"{"skills": [192, 0, 0, 0, 0, 0, 0, 0], "weapon": 2, "movement": [255, 255], "abilities": [1, 255, 255, 255, 255, 255, 255, 255]}"#,
+            r#"{"weapon": "staff", "skills": ["staff", "meteor"], "abilities": ["meteor", null, null, null, null, null, null, null], "movement": [null, null]}"#,
+        ),
+        (
+            r#"{"skills": [8704, 0, 0, 0, 0, 0, 0, 0], "weapon": 3, "movement": [1, 255], "abilities": [255, 255, 255, 255, 255, 255, 255, 255]}"#,
+            r#"{"weapon": "bow", "skills": ["bow", "backstep"], "abilities": [null, null, null, null, null, null, null, null], "movement": ["backstep", null]}"#,
+        ),
+        (
+            r#"{"skills": [32767, 0, 0, 0, 0, 0, 0, 0], "weapon": 3, "movement": [2, 0], "abilities": [255, 255, 255, 255, 1, 255, 255, 0]}"#,
+            r#"{"weapon": "bow", "skills": ["sword", "cleave", "whirlwind", "club", "heal", "swiftMending", "staff", "meteor", "quickIncantation", "bow", "rapidFire", "piercing", "dodgeRoll", "backstep", "block"], "abilities": [null, null, null, null, "meteor", null, null, "heal"], "movement": ["block", "dodgeRoll"]}"#,
+        ),
+    ];
+
+    #[test]
+    fn builds_kept_by_index_are_read_in_the_order_they_were_kept_in() {
+        for (old, by_id) in KEPT_BY_INDEX {
+            let (old, by_id): (Value, Value) = (serde_json::from_str(old).unwrap(), serde_json::from_str(by_id).unwrap());
+            assert_eq!(saved_by_id(&old).as_ref(), Some(&by_id), "{old}");
+            let b = build_from_saved(&old).unwrap();
+            assert!(same(&b, &build_from_saved(&by_id).unwrap()), "{old}");
+            // Kept again, it's kept by id, and means the same.
+            assert!(saved_build(&b)["weapon"].is_string());
+            assert!(same(&build_from_saved(&saved_build(&b)).unwrap(), &b));
+        }
+        // Thirty nodes across four words, as a developer zone allowed.
+        let bar = [NO_ABILITY; HOTBAR_SLOTS];
+        let wide = json!({ "skills": [101060615, 1065354224, 66584576, 1572864, 0, 0, 0, 0], "weapon": 0, "movement": [0, 255], "abilities": bar });
+        let by_id = saved_by_id(&wide).unwrap();
+        assert_eq!(by_id["skills"].as_array().unwrap().len(), 30);
+        assert_eq!(by_id["movement"], json!(["dodgeRoll", null]));
+        let b = build_from_saved(&wide).unwrap();
+        assert_eq!(skill_count(&b.skills), 30);
+        assert!(allowed(&b, 30) && !allowed(&b, 29));
+    }
+
+    #[test]
+    fn what_was_turned_down_by_index_stays_as_it_was() {
+        let bar = [NO_ABILITY; HOTBAR_SLOTS];
+        let old = |skills: [u32; SKILL_WORDS], weapon: u64, abilities: [u8; HOTBAR_SLOTS]| json!({ "skills": skills, "weapon": weapon, "abilities": abilities, "movement": [255, 255] });
+        let sword = skills_from(&["sword"]);
+        assert!(saved_by_id(&old(sword, 0, bar)).is_some());
+        assert!(saved_by_id(&old(sword, 4, bar)).is_none(), "a fifth weapon, which there wasn't");
+        let mut past = EMPTY_SKILLS;
+        set_skill(&mut past, 0, true);
+        set_skill(&mut past, by_index().skill_nodes.len(), true);
+        assert!(saved_by_id(&old(past, 0, bar)).is_none(), "a node past the tree as it was");
+        let mut spell = bar;
+        spell[0] = 2;
+        assert!(saved_by_id(&old(sword, 0, spell)).is_none(), "a third ability, which there wasn't");
+        assert!(saved_by_id(&json!({ "skills": "lots", "weapon": 0 })).is_none());
+        assert!(saved_by_id(&json!({ "weapon": 0 })).is_none());
+        // Kept by id already: nothing to carry forward.
+        assert!(saved_by_id(&saved_build(&healer())).is_none());
+    }
+
+    #[test]
+    fn the_order_builds_were_kept_in_never_changes() {
+        // shared/buildsByIndex.json is what builds kept by index mean: edited, an old build would
+        // read as something it never was. Leave it as it is.
+        let text = include_str!("../../../shared/buildsByIndex.json");
+        let fnv = text.bytes().fold(0xcbf2_9ce4_8422_2325u64, |h, b| (h ^ u64::from(b)).wrapping_mul(0x0000_0100_0000_01b3));
+        assert_eq!(format!("{fnv:016x}"), "5bb24058dc2a5243");
+        let order = by_index();
+        assert_eq!((order.weapons.len(), order.abilities.len(), order.movement_skills.len(), order.skill_nodes.len()), (4, 2, 4, 226));
     }
 }

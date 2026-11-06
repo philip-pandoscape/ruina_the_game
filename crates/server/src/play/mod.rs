@@ -30,7 +30,7 @@ use crate::open::{OpenWorld, Sim};
 use crate::play::channels::{Channel, estate_of};
 use crate::play::socket::parse_build;
 use crate::player::{Actions, Build, Mode, Player};
-use crate::skills::{valid_build, valid_movement};
+use crate::skills::{allowed, build_from_saved};
 use crate::world::{Spawn, World};
 
 /// Bots: players without a socket, their inputs decided by their brains.
@@ -102,8 +102,8 @@ pub struct Arrival {
     /// When it was saved and the time now (ms since the epoch), for the time they were away.
     pub saved_at: Option<i64>,
     pub now: i64,
-    /// Their build as kept (src/content/build.ts's shape), if they have one. It is checked against the
-    /// skill points their island has earned once the island is loaded.
+    /// Their build as kept (by id: crate::skills::saved_build), if they have one. It is checked
+    /// against the skill points their island has earned once the island is loaded.
     pub build: Option<Value>,
 }
 
@@ -353,7 +353,8 @@ impl ChannelGame {
             // Sides are a developer zone's (spaces.rs take_side): on the island everyone is on one.
             player.team = 0;
             // So is trying any build (set_build): here it stays only if this island has earned it.
-            if !valid_build(&player.skills, player.weapon, &player.abilities, skill_budget(&life.state)) || !valid_movement(&player.skills, &player.movement) {
+            let using = Build { skills: player.skills, weapon: player.weapon, abilities: player.abilities, movement: player.movement };
+            if !allowed(&using, skill_budget(&life.state)) {
                 player.apply_build(Build::default());
             }
         }
@@ -433,7 +434,7 @@ impl ChannelGame {
                 keep_saved = true;
             }
             // The build they kept, if the skill points their island has earned still cover it.
-            if let Some(b) = a.build.as_ref().and_then(|v| parse_build(v, skill_budget(&life.state))) {
+            if let Some(b) = a.build.as_ref().and_then(build_from_saved).filter(|b| allowed(b, skill_budget(&life.state))) {
                 player.apply_build(b);
             }
             life.after_reset(&mut player);
@@ -784,15 +785,15 @@ impl ChannelGame {
     }
 
     /// A new build (skills and loadout) as the browser sent it: used if it is one, and the skill
-    /// points this character has earned cover it. False if it isn't allowed.
-    pub fn set_build(&mut self, character: i64, build: &Value) -> bool {
+    /// points this character has earned cover it. The build now in use, or None if it isn't allowed.
+    pub fn set_build(&mut self, character: i64, build: &Value) -> Option<Build> {
         // A developer zone is for trying weapons and skills: any build the tree allows.
         let trying = self.copy_of().is_some_and(|c| c.def.developer);
-        let Some((p, life)) = self.players.open_mut(client(character)) else { return false };
+        let (p, life) = self.players.open_mut(client(character))?;
         let budget = if trying { u32::MAX } else { life.map_or(crate::tuning::tuning().skills.start_points, |l| skill_budget(&l.state)) };
-        let Some(b) = parse_build(build, budget) else { return false };
+        let b = parse_build(build, budget)?;
         p.apply_build(b);
-        true
+        Some(b)
     }
 
     /// Starts someone's island over: a fresh one, standing at the spawn. What they had built goes.
@@ -807,7 +808,7 @@ impl ChannelGame {
         // The quests that earned skill points went with the island: the build stays only if the
         // points a fresh island starts with still cover it.
         let mut build = Build { skills: p.skills, weapon: p.weapon, abilities: p.abilities, movement: p.movement };
-        if !valid_build(&build.skills, build.weapon, &build.abilities, skill_budget(&life.state)) || !valid_movement(&build.skills, &build.movement) {
+        if !allowed(&build, skill_budget(&life.state)) {
             build = Build::default();
         }
         *p = Player::new(Spawn { x: zone.recipe.spawn.x, z: zone.recipe.spawn.z, facing: zone.recipe.spawn.facing }, 0, build);
@@ -1432,23 +1433,42 @@ mod tests {
 
     #[test]
     fn a_build_is_held_to_the_points_the_island_has_earned() {
-        let three = crate::skills::skills_from(&["sword", "cleave", "whirlwind"]);
-        let wanted = build_json(&Build { skills: three, ..Build::default() });
+        let three = Build { skills: crate::skills::skills_from(&["sword", "cleave", "whirlwind"]), ..Build::default() };
+        let (kept, wanted) = (crate::skills::saved_build(&three), build_json(&three));
         // A newcomer has only the points everyone starts with, too few for three skills: they play
         // with the default build, and their browser is told so.
-        let (mut ch, build) = channel_with(Some(wanted.clone()));
+        let (mut ch, build) = channel_with(Some(kept));
         assert_eq!(build, build_json(&Build::default()));
-        assert!(!ch.set_build(7, &wanted));
+        assert!(ch.set_build(7, &wanted).is_none());
         // A quest finished is a point earned.
         ch.players.open_mut(client(7)).unwrap().1.unwrap().state.quests.done.push("landfall".into());
-        assert!(ch.set_build(7, &wanted));
-        assert_eq!(ch.players.open_view(client(7)).unwrap().0.skills, three);
+        assert_eq!(ch.set_build(7, &wanted).map(|b| b.skills), Some(three.skills));
+        assert_eq!(ch.players.open_view(client(7)).unwrap().0.skills, three.skills);
         // Starting the island over takes the quest, and the point, with it.
         ch.reset(7).expect("a fresh island");
         assert_eq!(ch.players.open_view(client(7)).unwrap().0.skills, Build::default().skills);
         // The island's own islanders keep theirs.
-        let (_, build) = channel_with(Some(build_json(&Build::default())));
+        let (_, build) = channel_with(Some(crate::skills::saved_build(&Build::default())));
         assert_eq!(build, build_json(&Build::default()));
+    }
+
+    #[test]
+    fn a_build_kept_by_id_or_by_index_comes_back_on_the_wire_by_index() {
+        let mut dodger = Build { skills: crate::skills::skills_from(&["sword", "dodgeRoll"]), ..Build::default() };
+        dodger.movement[1] = crate::tuning::tuning().movement_skills.iter().position(|m| m.id == "dodgeRoll").unwrap() as u8;
+        // As it's kept now, and as the server kept it before (c3d19c3's row for the same build).
+        let by_index: Value = serde_json::from_str(
+            r#"{"skills": [4097, 0, 0, 0, 0, 0, 0, 0], "weapon": 0, "movement": [255, 0], "abilities": [255, 255, 255, 255, 255, 255, 255, 255]}"#,
+        )
+        .unwrap();
+        for kept in [crate::skills::saved_build(&dodger), by_index] {
+            let (_, build) = channel_with(Some(kept));
+            assert_eq!(build, build_json(&dodger));
+        }
+        // Nothing kept, or nothing that reads as a build: the default one.
+        for kept in [None, Some(json!("nonsense"))] {
+            assert_eq!(channel_with(kept).1, build_json(&Build::default()));
+        }
     }
 
     #[test]
@@ -1553,7 +1573,7 @@ mod tests {
         // A cast that goes off trains the ability.
         let mut healer = Build { skills: crate::skills::skills_from(&["club", "heal"]), weapon: 1, ..Build::default() };
         healer.abilities[0] = 0;
-        assert!(ch.set_build(7, &build_json(&healer)));
+        assert!(ch.set_build(7, &build_json(&healer)).is_some());
         play(&mut ch, [0, 0, 0, 0, 0, 1, 0, 0, 0, 0], 150);
         assert_eq!(xp(&ch, "heal"), 1.0);
         assert_eq!(xp(&ch, "club"), 0.0);

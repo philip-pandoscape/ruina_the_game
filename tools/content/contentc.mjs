@@ -10,10 +10,12 @@
 //
 // It checks what a person editing content gets wrong: a thing missing from its folder's _order.json
 // or listed there with no file, a file named other than its thing's id, the same id twice, a
-// reference to something that doesn't exist (REFS below), a file in content/ no bundle takes.
+// reference to something that doesn't exist (REFS below), a file in content/ no bundle takes. And it
+// writes shared/hash.json, a hash of all of shared/, which the world's connection compares (hashOf).
 //
 //   node tools/content/contentc.mjs           builds shared/
 //   node tools/content/contentc.mjs --check   checks, and that shared/ is what content/ builds (CI)
+import { createHash } from 'node:crypto';
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -123,7 +125,33 @@ export function build(root = CONTENT) {
   for (const f of walk(root)) if (!used.has(f) && !/^_(schemas|templates)\//.test(f) && !f.endsWith('.md')) errors.push(`content/${f}: no bundle takes it`);
   errors.push(...references(bundles));
   if (errors.length) throw new ContentError(errors.join('\n'));
+  bundles.set(HASH, hashOf(bundles));
   return bundles;
+}
+
+// ---------- The content's hash ----------
+
+const HASH = 'hash.json';
+
+/**
+ * shared/hash.json: a hash of every file under shared/ but itself, the bundles as built and the rest
+ * (the skill tree, the order builds were once kept in) as they are there. The server and the page
+ * each take it in as they are built; the server says its own in the world's welcome, and a page with
+ * another reloads into the new build, as for another protocol (crates/server/src/play/socket.rs,
+ * src/net/worldLink.ts): built from other content, the two would read a place in a bundle's list on
+ * the wire as different things.
+ */
+function hashOf(bundles) {
+  const files = new Map([...bundles].map(([p, v]) => [p, text(v)]));
+  if (existsSync(SHARED))
+    for (const p of walk(SHARED)) if (p.endsWith('.json') && p !== HASH && !files.has(p)) files.set(p, readFileSync(join(SHARED, p), 'utf8'));
+  const hash = createHash('sha256');
+  for (const p of [...files.keys()].sort()) hash.update(`${p}\0${files.get(p)}\0`);
+  return {
+    comment:
+      "Written by tools/content/contentc.mjs (npm run content): a hash of every file in shared/ but this one. The server sends it in the world's welcome, and a page built from other content reloads into the new build (crates/server/src/play/socket.rs, src/net/worldLink.ts).",
+    content: hash.digest('hex').slice(0, 16),
+  };
 }
 
 // ---------- Schemas ----------
@@ -256,6 +284,13 @@ export function stale(bundles) {
   return [...bundles].filter(([p, v]) => !existsSync(join(SHARED, p)) || readFileSync(join(SHARED, p), 'utf8') !== text(v)).map(([p]) => p);
 }
 
+/** Writes the bundles that changed into shared/: their paths. */
+export function write(bundles) {
+  const changed = stale(bundles);
+  for (const p of changed) writeFileSync(join(SHARED, p), text(bundles.get(p)));
+  return changed;
+}
+
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const check = process.argv.includes('--check');
   try {
@@ -268,7 +303,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       }
       console.log(`content: ${bundles.size} bundles, all as built`);
     } else {
-      for (const [p, v] of bundles) writeFileSync(join(SHARED, p), text(v));
+      write(bundles);
       console.log(`content: ${bundles.size} bundles built into shared/`);
     }
   } catch (e) {

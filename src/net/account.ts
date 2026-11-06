@@ -23,8 +23,8 @@ export interface CharacterInfo {
   skillPoints: number;
   questsDone: number;
   coins: number;
-  /** The weapon in their build: 0 sword, 1 club, 2 staff, 3 bow. */
-  weapon: number;
+  /** The weapon of their build, by id. */
+  weapon: string;
 }
 
 /** The server couldn't be reached or broke: worth trying again, unlike a refusal. */

@@ -37,6 +37,21 @@ contentc also checks every reference (an item a vendor sells, a quest's giver an
 markers point at, a recipe's workbench, a person's place and bench, an item's category, a
 creature's brain: `REFS` in contentc.mjs says which keys name which kinds).
 
+## Order, the Wire and Saves
+
+- **What goes on the wire as a place in a list** (a creature's kind, a weapon, an ability, a
+  movement skill, a skill node, a mini-game, an item in a trade) takes that place from the bundle,
+  which the server and the browser read alike. contentc writes a hash of all of `shared/`
+  (`shared/hash.json`); the server says its own when a page connects, and a page built from other
+  content reloads into the new build, as for a new protocol (`crates/server/src/play/socket.rs`,
+  `src/net/worldLink.ts`). So an order can change, as long as the server is built again with it
+  (`npm run up`).
+- **What's kept names things by id**: a character's build (the server's `characters.build`) and the
+  browser's own (`crates/engine/src/skills.rs` and `src/content/build.ts`: weapon, skill nodes,
+  hotbar and movement slots), and the island, so a kept thing means the same in any order. Builds kept
+  by index before that are read in the order they were kept in, frozen in `shared/buildsByIndex.json`
+  (not built from here, never edited).
+
 ## Adding Content
 
 - **Another thing of a kind there is** (a person, an item, a quest, a creature): its template

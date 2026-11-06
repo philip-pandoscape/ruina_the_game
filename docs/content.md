@@ -26,6 +26,11 @@ The steps are the same for every kind; the recipes below say what each kind's fi
 5. **On the island?** Anything placed on it (a person, a structure, a gathering spot, a plot) moves
    the ground round it; the server and the browser both grow the island from the bundles, so
    nothing more is needed.
+6. **Online**, build the world server again (`npm run up`). `npm run content` writes the content's
+   hash too (`shared/hash.json`), the server says its own when a page connects, and a page built
+   from other content reloads once and then stops, as for a new protocol: what goes on the wire as
+   a place in a list (a creature's kind, a weapon, a skill, a mini-game) would mean something else
+   to each.
 
 Pictures and models are assets, not content: an item's `icon` is an emoji the painted icons stand
 for (`tools/icons/catalog.mjs`; a new one is painted and `npm run icons`). Without a model of its
@@ -169,8 +174,9 @@ A new type of objective is a new mechanic: code.
   `content/actors/<id>.json` (template `actor.json`), wearing a species there is a body for (`hero`,
   `fighter`, `slime`, `quadruped`, `goblin`), with a brain from `content/behaviours/` (template
   `behaviour.json`); a creature that comes in sizes has a ladder (`content/ladders/`, template
-  `ladder.json`). A kind travels on the wire as its index, so a new one goes on the end of
-  `content/actors/_order.json`.
+  `ladder.json`). A kind travels on the wire as its place in `content/actors/_order.json`, which
+  the server and the page read from the same bundle; on the end of the list keeps the engine's
+  golden answers, which name kinds by place, as they are.
 - **A creature with its own attacks and brain** (the goblins): `content/creatures/<id>.json` naming
   its parts in `content/creatures/<id>/` (templates `creature.json` and `creature/`): its kinds, its
   attacks (a strike is a cone in front of it; a throw, a lobbed missile) and its brain, a list of
@@ -205,8 +211,8 @@ but each a module named after the game and found by that name, with no list of g
 - **Its file**: `content/minigames/<id>.json`: its name, icon and blurb (the blurb is the bible's
   explanation), how many play, a turn's time and how many turns run out in a row lose; and under
   `rules`, whatever its rules module reads (Beacons': the hand, the Harbour, the deck, the row that
-  wins, the goods and the board). Its id goes on the end of `content/minigames/_order.json`: a game
-  goes on the wire as its place there.
+  wins, the goods and the board). Its id goes in `content/minigames/_order.json`: a game goes on
+  the wire as its place there, which the server and the page read from the same bundle.
 - **Its rules**: `crates/engine/src/minigames/games/<id>.rs`, with a `RULES` (a `RulesModule`):
   `deal` starts a game of it from its file and a seed (a `Rules`: whose turn it is, a move checked
   and played, the server's move for a player out of time, the game as each seat and onlookers may
@@ -231,14 +237,14 @@ game; the rules are tested in Rust beside them.
 A new one of these needs code today, each named for the refactor's task that makes it data:
 
 - **Weapons, abilities and movement skills** (R9.5): their moves, models, icons and where they are
-  put away are code, and causes go on the wire by index.
+  put away are code, which knows the weapons by their places in the list.
 - **Stats** in the skill tree are numbers the rules read by name; nodes are written by
   `tools/skilltree/gen.mjs`.
 
 ## Checks
 
 - `npm run content` (and the unit tier's `tests/unit/content.test.ts`): every file fits its kind,
-  every reference is found, and `shared/` is what `content/` builds.
+  every reference is found, and `shared/` is what `content/` builds, its hash with it.
 - `tests/unit/templates.test.ts`: every kind added as data has a template, each fits its kind, and
   copied in together they build.
 - `tests/unit/newContent.test.ts`: a townsperson with wares and a quest, an item, a vehicle and a

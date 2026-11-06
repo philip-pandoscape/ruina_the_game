@@ -1,5 +1,5 @@
 {
-  "comment": "The skill tree, laid out by tools/skilltree/gen.mjs (npm run skilltree) and editable by hand. The order of nodes is what a saved build means: append, never reorder. A node can be learned when it is a root or touches a node you have learned; links are the lines between them (arc: drawn along the orbit). o is the orbit (radii), a the angle in degrees clockwise from up. mods use the stats in tuning.json.",
+  "comment": "The skill tree, laid out by tools/skilltree/gen.mjs (npm run skilltree) and editable by hand. A kept build names its nodes by id, so an id is a node's for good; their order here is a learned set's bits on the wire. A node can be learned when it is a root or touches a node you have learned; links are the lines between them (arc: drawn along the orbit). o is the orbit (radii), a the angle in degrees clockwise from up. mods use the stats in tuning.json.",
   "radii": [128,196,266,338,412,488,566,646],
   "nodes": [
     {"id":"sword","kind":"skill","tree":0,"name":"Sword Training","desc":"Wield a sword: a fast three-hit combo.","icon":"🗡️","tags":["melee"],"grants":{"weapon":0},"root":true,"o":0,"a":-45},

@@ -15,7 +15,20 @@ import {
   type SkillNode,
   type SkillSet,
 } from './skills';
-import { DEFAULT_BUILD, emptyHotbar, emptyMovement, HOTBAR_SLOTS, MOVEMENT_SKILLS, MOVEMENT_SLOTS, NO_ABILITY, NO_MOVEMENT, type Build } from './tuning';
+import {
+  ABILITIES,
+  DEFAULT_BUILD,
+  emptyHotbar,
+  emptyMovement,
+  HOTBAR_SLOTS,
+  MOVEMENT_SKILLS,
+  MOVEMENT_SLOTS,
+  NO_ABILITY,
+  NO_MOVEMENT,
+  WEAPONS,
+  type Build,
+} from './tuning';
+import BY_INDEX from '../../shared/buildsByIndex.json' with { type: 'json' };
 
 // Picking a build: learning outward through the tree, and filling the hotbar from what you've
 // learned. crates/engine/src/skills.rs checks the same rules, so a build that passes here is accepted
@@ -167,29 +180,102 @@ export function defaultBuild(): Build {
   return { ...DEFAULT_BUILD, skills: [...DEFAULT_BUILD.skills], abilities: emptyHotbar(), movement: emptyMovement() };
 }
 
-/** A build as stored (here or on the server), carried forward from older shapes; null if it no longer holds together. */
+/**
+ * A build as it comes on the wire, by places in the content (crates/server/src/play/socket.rs
+ * parse_build: the learned set's words, the weapon, the hotbar and the movement slots); null if it
+ * isn't one, or doesn't hold together with `budget` points. The server and this page have the same
+ * content (src/net/worldLink.ts checks), so the places mean the same to both.
+ */
 export function parseBuild(raw: unknown, budget = SKILL_POINTS): Build | null {
   if (!raw || typeof raw !== 'object') return null;
-  try {
-    const b = migrate(raw as Record<string, unknown>);
-    return b && validBuild(b, budget) ? b : null;
-  } catch {
-    return null;
-  }
+  const r = raw as Record<string, unknown>;
+  if (typeof r.weapon !== 'number' || !Array.isArray(r.skills)) return null;
+  const slots = (v: unknown, n: number, empty: number): number[] =>
+    Array.from({ length: n }, (_, i) => (Array.isArray(v) && typeof v[i] === 'number' ? v[i] : empty));
+  const b: Build = {
+    skills: toSkillSet(r.skills),
+    weapon: r.weapon,
+    abilities: slots(r.abilities, HOTBAR_SLOTS, NO_ABILITY),
+    movement: slots(r.movement, MOVEMENT_SLOTS, NO_MOVEMENT),
+  };
+  return validBuild(b, budget) ? b : null;
 }
 
-// Builds saved before the tree became a graph kept their skills in one number and their abilities
-// in two named slots. Carry both forward rather than throwing away someone's loadout.
-function migrate(raw: Record<string, unknown>): Build | null {
-  if (typeof raw.weapon !== 'number') return null;
-  const skills = toSkillSet(raw.skills ?? raw.perks);
-  const abilities = Array.isArray(raw.abilities) ? [...(raw.abilities as number[])] : emptyHotbar();
-  if (!Array.isArray(raw.abilities)) {
-    if (typeof raw.ability1 === 'number') abilities[0] = raw.ability1;
-    if (typeof raw.ability2 === 'number') abilities[1] = raw.ability2;
+// ---------- Builds as they're kept ----------
+//
+// A kept build (this browser's, for the training yard and the battlefield; a character's on the
+// server, crates/engine/src/skills.rs saved_build) names what it holds by id: its weapon, the nodes
+// it has learned and what is in each hotbar and movement slot, so it means the same whatever order
+// the content comes in. The run-time build and the wire use places in that order. A build kept
+// before builds named things by id is read in the order it was kept in, frozen in
+// shared/buildsByIndex.json.
+
+/** A build as it's kept: by id, the learned nodes in the tree's order, an empty slot null. */
+export interface SavedBuild {
+  weapon: string;
+  skills: string[];
+  abilities: Array<string | null>;
+  movement: Array<string | null>;
+}
+
+export function savedBuild(b: Build): SavedBuild {
+  return {
+    weapon: WEAPONS[b.weapon]?.name ?? '',
+    skills: NODES.filter((_, i) => hasSkill(b.skills, i)).map((n) => n.id),
+    abilities: b.abilities.map((a) => ABILITIES[a]?.id ?? null),
+    movement: b.movement.map((m) => MOVEMENT_SKILLS[m]?.id ?? null),
+  };
+}
+
+/**
+ * A kept build (by id, or by index as builds were kept before) as the content has it now; null if
+ * it isn't one, or doesn't hold together with `budget` points. What the content no longer has is
+ * left out, and what's left kept as far as it still hangs together, rather than throwing away
+ * someone's loadout.
+ */
+export function readSavedBuild(raw: unknown, budget = SKILL_POINTS): Build | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const r = raw as Record<string, unknown>;
+  const kept = typeof r.weapon === 'string' ? r : typeof r.weapon === 'number' ? byIndex(r) : null;
+  if (!kept) return null;
+  const place = (list: ReadonlyArray<{ id: string }>, id: unknown, empty: number): number => {
+    const i = typeof id === 'string' ? list.findIndex((x) => x.id === id) : -1;
+    return i < 0 ? empty : i;
+  };
+  const slots = (v: unknown, n: number, list: ReadonlyArray<{ id: string }>, empty: number): number[] =>
+    Array.from({ length: n }, (_, i) => (Array.isArray(v) ? place(list, v[i], empty) : empty));
+  let skills = emptySkills();
+  for (const id of Array.isArray(kept.skills) ? kept.skills : []) {
+    const i = place(NODES, id, -1);
+    if (i >= 0) skills = withSkill(skills, i, true);
   }
-  // An old set may name skills that have since moved or gone; keep only what still hangs together
-  // back to where the tree starts.
+  const b = fixLoadout({
+    skills: hangingTogether(skills),
+    weapon: WEAPONS.findIndex((w) => w.name === kept.weapon),
+    abilities: slots(kept.abilities, HOTBAR_SLOTS, ABILITIES, NO_ABILITY),
+    movement: slots(kept.movement, MOVEMENT_SLOTS, MOVEMENT_SKILLS, NO_MOVEMENT),
+  });
+  return validBuild(b, budget) ? b : null;
+}
+
+/**
+ * A build kept by index, by id: read in the order it was kept in. The shapes before that too: the
+ * learned set as one number or as `perks`, and the hotbar as ability1 and ability2.
+ */
+function byIndex(raw: Record<string, unknown>): Record<string, unknown> {
+  const at = (list: readonly string[], v: unknown): string | null => (typeof v === 'number' ? (list[v] ?? null) : null);
+  const set = toSkillSet(raw.skills ?? raw.perks);
+  const abilities = Array.isArray(raw.abilities) ? raw.abilities : [raw.ability1, raw.ability2];
+  return {
+    weapon: at(BY_INDEX.weapons, raw.weapon),
+    skills: BY_INDEX.skillNodes.filter((_, i) => hasSkill(set, i)),
+    abilities: abilities.map((a) => at(BY_INDEX.abilities, a)),
+    movement: Array.isArray(raw.movement) ? raw.movement.map((m) => at(BY_INDEX.movementSkills, m)) : [],
+  };
+}
+
+/** The learned nodes that still hang together back to where the tree starts. */
+function hangingTogether(skills: SkillSet): SkillSet {
   let kept = emptySkills();
   const queue = ROOTS.filter((r) => hasSkill(skills, r));
   for (const r of queue) kept = withSkill(kept, r, true);
@@ -200,8 +286,7 @@ function migrate(raw: Record<string, unknown>): Build | null {
       queue.push(n);
     }
   }
-  const movement = Array.isArray(raw.movement) ? [...(raw.movement as number[])] : emptyMovement();
-  return fixLoadout({ skills: kept, weapon: raw.weapon, abilities, movement });
+  return kept;
 }
 
 // Puts a movement skill in a Q / E slot (or clears it). Like the hotbar, it moves rather than
