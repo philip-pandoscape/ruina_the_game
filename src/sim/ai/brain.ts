@@ -5,7 +5,7 @@ import { CREATURES } from '../../content/creatures';
 import { angleDiff, len } from '../math';
 
 // The behaviour interpreter. Monsters and NPCs do not get their own code: they get an entry in
-// shared/behaviours.json (or their own file in shared/creatures/), and this walks it.
+// shared/behaviours.json (or their own in shared/creatures.json), and this walks it.
 // crates/engine/src/ai.rs walks the same files the same way, so the training yard offline and the
 // server online agree frame for frame.
 //
@@ -74,7 +74,7 @@ export interface BehaviourState {
   speed?: number;
   /** 'foe': keeps facing its foe (circling, backing off, drinking) rather than the way it moves. */
   face?: 'foe';
-  /** A strike's or throw's attack (shared/creatures/). */
+  /** A strike's or throw's attack (shared/creatures.json). */
   attack?: string;
   /** While here it holds its pack's attack token. */
   token?: boolean;

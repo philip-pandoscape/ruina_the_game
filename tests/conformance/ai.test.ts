@@ -9,7 +9,7 @@ import { stepActors } from '../../src/sim/actors/step';
 import { hurtActor } from '../../src/sim/combat/deal';
 import { len } from '../../src/sim/math';
 
-// Monster behaviour is data in shared/behaviours.json and shared/creatures/, read by
+// Monster behaviour is data in shared/behaviours.json and shared/creatures.json, read by
 // src/sim/ai/brain.ts offline and crates/engine/src/ai.rs online. If the two ever drift, a monster would
 // move differently in the training yard than it does on a server. This runs every behaviour
 // through both and checks they agree frame by frame - each brain on its own, then whole packs of

@@ -6,7 +6,7 @@ import { attackDef } from '../../src/content/attacks';
 import { behaviour } from '../../src/sim/ai/brain';
 import { gameReady } from '../support/game';
 
-// The basic goblin (shared/creatures/goblin.json, design/goblins.md), played in the training yard
+// The basic goblin (content/creatures/goblin/, design/goblins.md), played in the training yard
 // where every frame is stepped by the test: easy one at a time, dangerous as a band. They notice
 // you and wake each other, only a few strike at once while the rest circle just outside your
 // reach, they read your weapon, slip in when you turn your back, and run to their friends (or off

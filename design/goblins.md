@@ -20,14 +20,15 @@ The plan of record for goblins, agreed on 2026-11-05 (canvas `cnv_mv4fcuf5`). Co
 
 A creature is two things, and neither needs engine code of its own:
 
-- `shared/creatures/<name>.json`: its rules, which the browser and the server both read. Its
-  kinds (health, size, poise), its brains (state machines in the format of
-  `shared/behaviours.json`), its attacks (strikes and throws) and how its pack fights.
+- `content/creatures/<name>/` (built with the others into `shared/creatures.json`): its rules,
+  which the browser and the server both read. Its kinds (health, size, poise), its brains (state
+  machines in the format of `shared/behaviours.json`), its attacks (strikes and throws) and how its
+  pack fights.
 - `src/creatures/<name>/`: its body and look in the browser (a species the crowd renderer draws,
-  the clips its states play).
+  the clips its states play), unless its kinds wear a species there is already.
 
-The registries list each creature once: `src/content/creatures.ts` and `crates/engine/src/creatures.rs`
-(same order, because a kind travels on the wire as its index).
+No list in code names the creatures: `content/creatures/_order.json` orders them, the order both
+sides read them in, because a kind travels on the wire as its index (a new one goes on the end).
 
 ## The engine parts
 

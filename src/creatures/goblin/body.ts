@@ -7,7 +7,7 @@ import { TAU } from '../../util/math';
 // The goblin's body until its model is made (design/goblins.md): boxes on an eight-joint rig,
 // drawn by the same instanced crowd as everything else. A metre tall, hunched, with a big head,
 // long ears and long arms, a sackcloth tunic, a stone pouch and a rusty dagger held point-down.
-// Each brain state in shared/creatures/goblin.json names one of these clips. The ones the rules
+// Each brain state in content/creatures/goblin/ names one of these clips. The ones the rules
 // time (stab, throw) put their blow where the attack's wind-up ends: the stab at 16 of its 36
 // frames, the throw at 24 of 40.
 

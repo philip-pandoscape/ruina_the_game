@@ -29,7 +29,7 @@ export function contentIds(root = '.') {
   const vehicles = bundle('vehicles.json');
   const structures = bundle('structures.json');
   const tuning = bundle('tuning.json');
-  const creatures = readdirSync(join(root, 'shared/creatures')).map((f) => bundle(`creatures/${f}`));
+  const creatures = bundle('creatures.json').creatures;
   const kinds = {
     item: ids(items.items),
     recipe: ids(items.recipes),

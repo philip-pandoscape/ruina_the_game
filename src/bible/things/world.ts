@@ -223,7 +223,7 @@ export const creatures = kind<ActorKind>({
   noun: 'Creature',
   icon: '🟢',
   summary: 'What you fight: how tough each creature is, how it hits you and what it turns into.',
-  sources: ['shared/actors.json#kinds', 'shared/actors.json#ladders', 'shared/creatures/*.json#kinds', 'shared/creatures/*.json#attacks'],
+  sources: ['shared/actors.json#kinds', 'shared/actors.json#ladders', 'shared/creatures.json#creatures'],
   systems: ['creatures', 'combat'],
   all: CREATURE_KINDS,
   key: (k) => k.id,

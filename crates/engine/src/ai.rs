@@ -179,8 +179,8 @@ pub fn behaviours() -> &'static Vec<Behaviour> {
         let raw = include_str!("../../../shared/behaviours.json");
         let file: File = serde_json::from_str(raw).expect("shared/behaviours.json is malformed");
         let mut all = file.behaviours;
-        for raw in crate::creatures::FILES {
-            let c: File = serde_json::from_str(raw).expect("a file in shared/creatures/ is malformed");
+        for c in crate::creatures::files() {
+            let c = File::deserialize(c).expect("a creature in shared/creatures.json is malformed");
             all.extend(c.behaviours);
         }
         all

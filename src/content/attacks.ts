@@ -1,8 +1,8 @@
 import { CREATURES } from './creatures';
 
-// What a creature can do to a player, from the creatures' files (shared/creatures/). A brain state
-// names one (act strike or throw); src/sim/actors/step.ts lands it, and crates/engine/src/content.rs reads
-// the same entries.
+// What a creature can do to a player, from the creatures' files (shared/creatures.json). A brain
+// state names one (act strike or throw); src/sim/actors/step.ts lands it, and
+// crates/engine/src/content.rs reads the same entries.
 
 export interface AttackDef {
   id: string;

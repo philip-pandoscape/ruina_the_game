@@ -126,8 +126,8 @@ fn content() -> &'static Content {
         let file: File = serde_json::from_str(raw).expect("shared/actors.json is malformed");
         let mut kinds = file.kinds;
         let mut attacks = Vec::new();
-        for raw in crate::creatures::FILES {
-            let c: CreatureFile = serde_json::from_str(raw).expect("a file in shared/creatures/ is malformed");
+        for c in crate::creatures::files() {
+            let c = CreatureFile::deserialize(c).expect("a creature in shared/creatures.json is malformed");
             kinds.extend(c.kinds);
             attacks.extend(c.attacks);
         }

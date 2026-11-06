@@ -4,7 +4,7 @@
 //!   aicheck < scenario.json
 //!
 //! Two kinds of scenario. One brain on its own: `brain`, `seed`, `x`, `z`, `frames`, `player`.
-//! A whole pack (`pack` is present): real kinds from shared/actors.json and shared/creatures/
+//! A whole pack (`pack` is present): real kinds from shared/actors.json and shared/creatures.json
 //! stepped together, with hits landing on whoever stands nearest a point at given frames, so
 //! calling, gathering, bursting and reforming all run as they do in a fight. A pack can be given
 //! scripted `foes` (players walking back and forth, swinging, dodging) for war-bands to fight; the

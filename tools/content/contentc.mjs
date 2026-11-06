@@ -39,11 +39,11 @@ const walk = (root, d = root, out = []) => {
   return out;
 };
 
-/** The templates: content/*.json and content/{creatures,zones}/*.json, as under shared/. */
+/** The templates: content/*.json and content/zones/*.json, as under shared/. */
 function templates(root) {
   const out = [];
   for (const e of readdirSync(root)) if (e.endsWith('.json')) out.push(e);
-  for (const d of ['creatures', 'zones']) {
+  for (const d of ['zones']) {
     const dir = join(root, d);
     if (existsSync(dir)) for (const e of readdirSync(dir)) if (e.endsWith('.json')) out.push(`${d}/${e}`);
   }
@@ -183,7 +183,7 @@ function ids(b) {
     animal: list('farming.json', 'animals'),
     behaviour: new Set([
       ...list('behaviours.json', 'behaviours'),
-      ...[...b.entries()].filter(([p]) => p.startsWith('creatures/')).flatMap(([, c]) => (c.behaviours ?? []).map((x) => x.id)),
+      ...(b.get('creatures.json')?.creatures ?? []).flatMap((c) => (c.behaviours ?? []).map((x) => x.id)),
     ]),
     quest: list('quests.json', 'quests'),
     structure: list('structures.json', 'structures'),
@@ -219,7 +219,7 @@ const REFS = [
   { bundles: /^items\.json$/, key: 'bench', kind: ['workbench', 'npc'] },
   { bundles: /^trade\.json$/, key: 'from', kind: 'market' },
   { bundles: /^trade\.json$/, key: 'to', kind: 'market' },
-  { bundles: /^(actors\.json|creatures\/.*)$/, key: 'brain', kind: 'behaviour' },
+  { bundles: /^(actors|creatures)\.json$/, key: 'brain', kind: 'behaviour' },
   { bundles: /^zones\/.*$/, key: 'dungeon', kind: 'dungeon' },
 ];
 

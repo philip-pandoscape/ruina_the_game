@@ -252,7 +252,7 @@ export const creatures = system({
     'crates/engine/src/pack.rs',
     'crates/engine/src/missiles.rs',
   ],
-  content: ['shared/behaviours.json#behaviours', 'shared/creatures/*.json#behaviours', 'shared/zones/*.json#slimes'],
+  content: ['shared/behaviours.json#behaviours', 'shared/creatures.json#creatures', 'shared/zones/*.json#slimes'],
   body: () => {
     const slime = brain('slime');
     const slimelet = brain('slimelet');

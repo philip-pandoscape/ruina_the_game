@@ -21,17 +21,21 @@ export function kinds(root = CONTENT) {
     Object.values(v).forEach(look);
   };
   const tops = readdirSync(root).filter((f) => f.endsWith('.json'));
-  for (const d of ['creatures', 'zones']) for (const f of readdirSync(join(root, d)).filter((x) => x.endsWith('.json'))) tops.push(`${d}/${f}`);
+  for (const d of ['zones']) for (const f of readdirSync(join(root, d)).filter((x) => x.endsWith('.json'))) tops.push(`${d}/${f}`);
   for (const t of tops) look(JSON.parse(readFileSync(join(root, t), 'utf8')));
   return [...found].sort();
 }
+
+/** A part of a thing as its bundle has it: one in a file of its own ({"$file": path}, a creature's kinds) read in. */
+const part = (v, root) => (v && typeof v === 'object' && typeof v.$file === 'string' ? JSON.parse(readFileSync(join(root, v.$file), 'utf8')) : v);
+const withParts = (thing, root) => Object.fromEntries(Object.entries(thing).map(([k, v]) => [k, part(v, root)]));
 
 /** A schema inferred from the things in `folder`. */
 export function infer(folder, root = CONTENT) {
   const dir = join(root, folder);
   const things = readdirSync(dir)
     .filter((f) => f.endsWith('.json') && !f.startsWith('_'))
-    .map((f) => JSON.parse(readFileSync(join(dir, f), 'utf8')));
+    .map((f) => withParts(JSON.parse(readFileSync(join(dir, f), 'utf8')), root));
   const types = new Map();
   for (const t of things) for (const [k, v] of Object.entries(t)) types.set(k, new Set([...(types.get(k) ?? []), typeOf(v)]));
   const required = [...types.keys()].filter((k) => things.every((t) => k in t));
