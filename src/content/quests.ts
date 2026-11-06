@@ -16,6 +16,21 @@ export interface Objective {
   seconds?: number;
   /** defeat: what kind of creature. */
   kind?: string;
+  /** Where the quest marker points while this is unfinished, when nothing the objective names says where (src/ui/life/hud/goal.ts). */
+  marker?: QuestMarker;
+}
+
+/**
+ * Somewhere on the island a quest's marker can point: one of its places, trading posts, workbenches
+ * or slipways, by id, called by its own name there unless `label` says otherwise. The rules never
+ * read it.
+ */
+export interface QuestMarker {
+  place?: string;
+  outpost?: string;
+  workbench?: string;
+  shipyard?: string;
+  label?: string;
 }
 
 export interface QuestStep {

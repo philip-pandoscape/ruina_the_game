@@ -12,7 +12,10 @@
       "objectives": [
         {
           "type": "layKeel",
-          "n": 1
+          "n": 1,
+          "marker": {
+            "shipyard": "lanternwick-slip"
+          }
         }
       ]
     },
@@ -21,7 +24,10 @@
       "objectives": [
         {
           "type": "shipStage",
-          "n": 4
+          "n": 4,
+          "marker": {
+            "shipyard": "lanternwick-slip"
+          }
         }
       ]
     },
@@ -30,7 +36,10 @@
       "objectives": [
         {
           "type": "launch",
-          "n": 1
+          "n": 1,
+          "marker": {
+            "shipyard": "lanternwick-slip"
+          }
         }
       ]
     }

@@ -12,7 +12,10 @@
       "objectives": [
         {
           "type": "glide",
-          "seconds": 20
+          "seconds": 20,
+          "marker": {
+            "place": "lanternwick"
+          }
         }
       ]
     },

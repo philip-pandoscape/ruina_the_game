@@ -12,7 +12,10 @@
       "objectives": [
         {
           "type": "placeHouse",
-          "n": 1
+          "n": 1,
+          "marker": {
+            "place": "hearthside"
+          }
         }
       ]
     },
@@ -21,7 +24,10 @@
       "objectives": [
         {
           "type": "buildStage",
-          "n": 4
+          "n": 4,
+          "marker": {
+            "place": "hearthside"
+          }
         }
       ]
     }

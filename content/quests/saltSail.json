@@ -12,7 +12,11 @@
       "objectives": [
         {
           "type": "summon",
-          "vehicle": "rowboat"
+          "vehicle": "rowboat",
+          "marker": {
+            "place": "docks",
+            "label": "The Docks"
+          }
         }
       ]
     },

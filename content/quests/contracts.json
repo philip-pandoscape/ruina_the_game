@@ -12,7 +12,10 @@
       "objectives": [
         {
           "type": "contract",
-          "n": 1
+          "n": 1,
+          "marker": {
+            "outpost": "westwatch"
+          }
         }
       ]
     }

@@ -1,9 +1,8 @@
 import { GATHERING } from '../../../content/farming';
 import { RECIPES, VENDORS } from '../../../content/items';
-import { objectiveTarget, questDef } from '../../../content/quests';
+import { type Objective, objectiveTarget, type QuestMarker, questDef } from '../../../content/quests';
 import { structureDef } from '../../../content/structures';
 import { packDef, placeName } from '../../../content/trade';
-import { isBoat, rideable } from '../../../content/vehicles';
 import { housePose, isComplete, stageReady, stillNeeds } from '../../../sim/life/housing';
 import { nodeReady } from '../../../sim/life/interact';
 import type { Life } from '../../../sim/life/life';
@@ -11,7 +10,9 @@ import { shipFinished, shipNeeds, shipOn, shipStageReady } from '../../../sim/li
 import type { Sim } from '../../../sim/sim';
 
 // Where the quest you're on leads you: the ring on both maps, the marker on the compass, and what
-// `LifeUI.goal` tells the tests.
+// `LifeUI.goal` tells the tests. What an objective names leads first (the person to talk to, the
+// place to reach, the trading post, the bench that makes the pack, your plot, house, ship or
+// vehicle); otherwise its quest's data says where (an objective's `marker`, content/quests/).
 
 /** Somewhere a quest leads you: the ring on the maps and the marker on the compass. */
 export type Goal = { x: number; z: number; label: string };
@@ -19,13 +20,11 @@ export type Goal = { x: number; z: number; label: string };
 /** Where the first unfinished quest wants you to go. */
 export function questGoal(life: Life, sim: Sim): Goal | null {
   const r = life.zone.recipe;
-  const npc = (id: string) => r.npcs.find((n) => n.id === id);
-  const place = (id: string) => r.places.find((pl) => pl.id === id);
   for (const qp of life.state.quests.active) {
     const q = questDef(qp.id);
     if (q.milestone) continue; // something to work toward, not somewhere to go
     if (qp.step >= q.steps.length) {
-      const n = npc(q.turnIn ?? q.giver);
+      const n = r.npcs.find((x) => x.id === (q.turnIn ?? q.giver));
       if (n) return { x: n.x, z: n.z, label: n.name };
       continue;
     }
@@ -33,53 +32,96 @@ export function questGoal(life: Life, sim: Sim): Goal | null {
     for (let i = 0; i < step.objectives.length; i++) {
       const o = step.objectives[i];
       if (qp.counts[i] >= objectiveTarget(o)) continue;
-      if (o.npc && npc(o.npc)) return { x: npc(o.npc)!.x, z: npc(o.npc)!.z, label: npc(o.npc)!.name };
-      if (o.type === 'reach' && o.place && place(o.place)) return { x: place(o.place)!.x, z: place(o.place)!.z, label: place(o.place)!.name };
-      if (o.type === 'deliver' && o.outpost) {
-        const op = r.outposts.find((x) => x.id === o.outpost);
-        if (op) return { x: op.x, z: op.z, label: placeName(o.outpost) };
-      }
-      if (o.type === 'gather') {
-        const nd = nodeFor(life, sim, o.kind);
-        if (nd) return nd;
-      }
-      if (o.type === 'craftPack')
-        return (o.pack ? benchFor(life, o.pack) : null) ?? { x: r.workbenches[0].x, z: r.workbenches[0].z, label: 'Specialty Workbench' };
-      if (o.type === 'placeScarecrow') return { x: r.farmland.x, z: r.farmland.z, label: 'Barleybrook Fields' };
-      if ((o.type === 'plant' || o.type === 'harvest' || o.type === 'raise') && life.state.scarecrows[0])
-        return { x: life.state.scarecrows[0].x, z: life.state.scarecrows[0].z, label: 'Your Plot' };
-      if (o.type === 'contract') {
-        const k = life.state.contracts?.active[0];
-        const op = r.outposts.find((x) => x.id === (k?.outpost ?? 'westwatch'));
-        if (op) return { x: op.x, z: op.z, label: placeName(op.id) };
-      }
-      if ((o.type === 'layKeel' || o.type === 'shipStage' || o.type === 'launch') && r.shipyards?.[0]) {
-        const sy = r.shipyards[0];
-        const slip = { x: sy.x, z: sy.z, label: sy.name };
-        const b = shipOn(life, sy.id);
-        return o.type === 'shipStage' && b && !shipFinished(b) ? fetchFor(life, sim, shipNeeds(b), shipStageReady(b), slip) : slip;
-      }
-      if (o.type === 'summon' && o.vehicle && isBoat(rideable(o.vehicle))) return { x: place('docks')!.x, z: place('docks')!.z, label: 'The Docks' };
-      if (o.type === 'load' && life.state.vehicles[0]) return { x: life.state.vehicles[0].x, z: life.state.vehicles[0].z, label: 'Your Vehicle' };
-      if (o.type === 'placeHouse' || o.type === 'buildStage') {
-        const h = life.state.houses[0];
-        if (h) {
-          const pose = housePose(life, h);
-          const site = { x: pose.x, z: pose.z, label: 'Your House' };
-          return isComplete(h) ? site : fetchFor(life, sim, stillNeeds(h), stageReady(h), site);
-        }
-        // No blueprint to place yet: whoever sells them.
-        const vendor = VENDORS.find((v) => v.sells.some((s) => s.item.startsWith('blueprint.')));
-        const seller = vendor ? npc(vendor.npc) : undefined;
-        if (seller && !life.state.bag.some((s) => s.item.startsWith('blueprint.'))) return { x: seller.x, z: seller.z, label: seller.name };
-        return { x: place('hearthside')!.x, z: place('hearthside')!.z, label: 'Hearthside Rise' };
-      }
-      if (o.type === 'glide')
-        return { x: r.places.find((pl) => pl.id === 'lanternwick')!.x, z: r.places.find((pl) => pl.id === 'lanternwick')!.z, label: 'Lanternwick' };
+      const g = objectiveGoal(life, sim, o);
+      if (g) return g;
     }
   }
   return null;
 }
+
+/** Where an unfinished objective leads, or null if nowhere in particular. */
+function objectiveGoal(life: Life, sim: Sim, o: Objective): Goal | null {
+  const r = life.zone.recipe;
+  const s = life.state;
+  const n = o.npc ? r.npcs.find((x) => x.id === o.npc) : undefined;
+  if (n) return { x: n.x, z: n.z, label: n.name };
+  const pl = o.type === 'reach' && o.place ? r.places.find((x) => x.id === o.place) : undefined;
+  if (pl) return { x: pl.x, z: pl.z, label: pl.name };
+  if (o.type === 'deliver' && o.outpost) {
+    const op = r.outposts.find((x) => x.id === o.outpost);
+    if (op) return { x: op.x, z: op.z, label: placeName(o.outpost) };
+  }
+  if (o.type === 'gather') {
+    const nd = nodeFor(life, sim, o.kind);
+    if (nd) return nd;
+  }
+  if (o.type === 'craftPack') {
+    const b = o.pack ? benchFor(life, o.pack) : null;
+    if (b) return b;
+  }
+  if ((o.type === 'plant' || o.type === 'harvest' || o.type === 'raise') && s.scarecrows[0])
+    return { x: s.scarecrows[0].x, z: s.scarecrows[0].z, label: 'Your Plot' };
+  if (o.type === 'contract') {
+    // The trading post of the contract you took; with none taken, where the quest says.
+    const k = s.contracts?.active[0];
+    if (k) {
+      const op = r.outposts.find((x) => x.id === k.outpost);
+      return op ? { x: op.x, z: op.z, label: placeName(op.id) } : null;
+    }
+  }
+  if (o.type === 'layKeel' || o.type === 'shipStage' || o.type === 'launch') {
+    // The slipway the quest names, else the island's own.
+    const sy = r.shipyards?.find((x) => x.id === o.marker?.shipyard) ?? r.shipyards?.[0];
+    if (sy) {
+      const slip = { x: sy.x, z: sy.z, label: o.marker?.label ?? sy.name };
+      const b = shipOn(life, sy.id);
+      return o.type === 'shipStage' && b && !shipFinished(b) ? fetchFor(life, sim, shipNeeds(b), shipStageReady(b), slip) : slip;
+    }
+  }
+  if (o.type === 'load' && s.vehicles[0]) return { x: s.vehicles[0].x, z: s.vehicles[0].z, label: 'Your Vehicle' };
+  if (o.type === 'placeHouse' || o.type === 'buildStage') {
+    const h = s.houses[0];
+    if (h) {
+      const pose = housePose(life, h);
+      const site = { x: pose.x, z: pose.z, label: 'Your House' };
+      return isComplete(h) ? site : fetchFor(life, sim, stillNeeds(h), stageReady(h), site);
+    }
+    // No blueprint to place yet: whoever sells them.
+    const vendor = VENDORS.find((v) => v.sells.some((x) => x.item.startsWith('blueprint.')));
+    const seller = vendor ? r.npcs.find((x) => x.id === vendor.npc) : undefined;
+    if (seller && !s.bag.some((x) => x.item.startsWith('blueprint.'))) return { x: seller.x, z: seller.z, label: seller.name };
+  }
+  // Where the quest says: a place, a trading post, a workbench or a slipway. A pack with no bench
+  // to make it is made at the island's first.
+  return marked(life, o.marker) ?? (o.type === 'craftPack' && r.workbenches[0] ? benchGoal(r.workbenches[0]) : null);
+}
+
+/** The spot a quest's marker names, called by its own name there unless the marker gives another. */
+function marked(life: Life, m: QuestMarker | undefined): Goal | null {
+  if (!m) return null;
+  const r = life.zone.recipe;
+  const at = (spot: { x: number; z: number } | undefined, name: string): Goal | null => (spot ? { x: spot.x, z: spot.z, label: m.label ?? name } : null);
+  if (m.place) {
+    const pl = r.places.find((x) => x.id === m.place);
+    return at(pl, pl?.name ?? '');
+  }
+  if (m.outpost) {
+    const op = r.outposts.find((x) => x.id === m.outpost);
+    return at(op, placeName(m.outpost));
+  }
+  if (m.workbench) {
+    const b = r.workbenches.find((x) => x.id === m.workbench);
+    return at(b, b ? benchGoal(b).label : '');
+  }
+  if (m.shipyard) {
+    const sy = r.shipyards?.find((x) => x.id === m.shipyard);
+    return at(sy, sy?.name ?? '');
+  }
+  return null;
+}
+
+/** A workbench, by its name. */
+const benchGoal = (b: { x: number; z: number; name?: string }): Goal => ({ x: b.x, z: b.z, label: b.name ?? 'Workbench' });
 
 /** The nearest resource node that gives `kind` (timber, stone...), one ready to work before one picked clean. */
 function nodeFor(life: Life, sim: Sim, kind?: string): Goal | null {
@@ -104,7 +146,7 @@ function nodeFor(life: Life, sim: Sim, kind?: string): Goal | null {
 function benchFor(life: Life, pack: string): Goal | null {
   const rc = RECIPES.find((x) => x.makes.pack === pack);
   const b = rc ? life.zone.recipe.workbenches.find((w) => w.id === rc.bench) : undefined;
-  return b ? { x: b.x, z: b.z, label: (b as { name?: string }).name ?? 'Workbench' } : null;
+  return b ? benchGoal(b) : null;
 }
 
 /**

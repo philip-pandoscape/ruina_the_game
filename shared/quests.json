@@ -53,7 +53,10 @@
           "objectives": [
             {
               "type": "placeScarecrow",
-              "n": 1
+              "n": 1,
+              "marker": {
+                "place": "barleybrook"
+              }
             }
           ]
         },
@@ -137,7 +140,10 @@
           "objectives": [
             {
               "type": "glide",
-              "seconds": 20
+              "seconds": 20,
+              "marker": {
+                "place": "lanternwick"
+              }
             }
           ]
         },
@@ -302,7 +308,11 @@
           "objectives": [
             {
               "type": "summon",
-              "vehicle": "rowboat"
+              "vehicle": "rowboat",
+              "marker": {
+                "place": "docks",
+                "label": "The Docks"
+              }
             }
           ]
         },
@@ -439,7 +449,10 @@
           "objectives": [
             {
               "type": "placeHouse",
-              "n": 1
+              "n": 1,
+              "marker": {
+                "place": "hearthside"
+              }
             }
           ]
         },
@@ -448,7 +461,10 @@
           "objectives": [
             {
               "type": "buildStage",
-              "n": 4
+              "n": 4,
+              "marker": {
+                "place": "hearthside"
+              }
             }
           ]
         }
@@ -479,7 +495,10 @@
           "objectives": [
             {
               "type": "layKeel",
-              "n": 1
+              "n": 1,
+              "marker": {
+                "shipyard": "lanternwick-slip"
+              }
             }
           ]
         },
@@ -488,7 +507,10 @@
           "objectives": [
             {
               "type": "shipStage",
-              "n": 4
+              "n": 4,
+              "marker": {
+                "shipyard": "lanternwick-slip"
+              }
             }
           ]
         },
@@ -497,7 +519,10 @@
           "objectives": [
             {
               "type": "launch",
-              "n": 1
+              "n": 1,
+              "marker": {
+                "shipyard": "lanternwick-slip"
+              }
             }
           ]
         }
@@ -570,7 +595,10 @@
           "objectives": [
             {
               "type": "contract",
-              "n": 1
+              "n": 1,
+              "marker": {
+                "outpost": "westwatch"
+              }
             }
           ]
         }
