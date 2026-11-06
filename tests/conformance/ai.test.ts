@@ -8,6 +8,7 @@ import { actorKind, actorKindAt, actorKindIndex } from '../../src/content/actors
 import { stepActors } from '../../src/sim/actors/step';
 import { hurtActor } from '../../src/sim/combat/deal';
 import { len } from '../../src/sim/math';
+import { golden } from './golden';
 
 // Monster behaviour is data in shared/behaviours.json and shared/creatures.json, read by
 // src/sim/ai/brain.ts offline and crates/engine/src/ai.rs online. If the two ever drift, a monster would
@@ -23,7 +24,9 @@ const FRAMES = 900; // fifteen seconds, enough for many state changes and random
 // The same path the Rust side works out for itself, so the scenario stays small.
 const playerAt = (f: number): [number, number] => [Math.sin(f / 90) * 4, Math.cos(f / 70) * 4 - 1];
 
-const rust = <T>(scenario: object): T => JSON.parse(execFileSync(AICHECK, { input: JSON.stringify(scenario), maxBuffer: 256 * 1024 * 1024 }).toString()) as T;
+const run = (scenario: object): string => execFileSync(AICHECK, { input: JSON.stringify(scenario), maxBuffer: 256 * 1024 * 1024 }).toString();
+/** Each case, once it agrees, kept for the engine's golden tests (./golden.ts). */
+const keep = golden('aicheck');
 
 // One brain on its own, built by hand so the kind doesn't have to exist.
 function blank(x: number, z: number, seed: number, brain: string): Actor {
@@ -72,7 +75,9 @@ describe('TypeScript and Rust run the same behaviours', () => {
       test(`${b.id}${present ? '' : ' with nobody about'}`, (ctx) => {
         ctx.skip(!existsSync(AICHECK), 'build it first: cargo build --release --bin aicheck');
         const seed = 0x51e0 + b.id.length * 7919;
-        const r = rust<{ frames: number[][] }>({ brain: b.id, seed, x: 2.5, z: 3.5, frames: FRAMES, player: present });
+        const scenario = { brain: b.id, seed, x: 2.5, z: 3.5, frames: FRAMES, player: present };
+        const printed = run(scenario);
+        const r = JSON.parse(printed) as { frames: number[][] };
         const ts = runTs(b.id, seed, 2.5, 3.5, present);
 
         expect(r.frames).toHaveLength(ts.length);
@@ -87,6 +92,7 @@ describe('TypeScript and Rust run the same behaviours', () => {
         // It should actually have done something, or the check proves nothing.
         const moved = ts.some((row) => Math.hypot(row[0] - 2.5, row[2] - 3.5) > 0.5);
         expect(moved).toBe(true);
+        keep(`${b.id}${present ? '' : ' with nobody about'}`, scenario, printed);
       });
     }
   }
@@ -429,7 +435,8 @@ describe('TypeScript and Rust run the same packs', () => {
       ctx.skip(!existsSync(AICHECK), 'build it first: cargo build --release --bin aicheck');
       const ts = runPackTs(s);
       const { expect: want, ...scenario } = s;
-      comparePacks(name, ts, rust<PackRun>(scenario));
+      const printed = run(scenario);
+      comparePacks(name, ts, JSON.parse(printed) as PackRun);
       const kinds = new Set<number>();
       const states = new Set<string>();
       for (const frame of ts.frames) {
@@ -458,6 +465,7 @@ describe('TypeScript and Rust run the same packs', () => {
           ts.missiles.some((f) => f.length > 0),
           `${name} never threw anything`,
         ).toBe(true);
+      keep(name, scenario, printed);
     });
   }
 });

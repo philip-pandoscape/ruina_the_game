@@ -15,7 +15,14 @@ time, the middle one before every push to `beta`, the slow one before a release.
   Import the module and call it. No `window`, no WebGL, no server, no waiting on time. The rules are
   deterministic, so a unit test is too.
 - **It checks the TypeScript rules give what the Rust ones do.** `tests/conformance/` (these go away
-  when the rules are one copy: `.plans/refactor`, Phase 8).
+  when the rules are one copy: `.plans/refactor`, Phase 8). The engine keeps its own guard for
+  then: the golden tests (`crates/engine/src/checks/mod.rs`) run every creature, player and
+  open-world scenario the conformance tier proves and hold the Rust to those answers bit for bit, by
+  a hash of each kept in `crates/engine/tests/golden/`. After a change both sides make on purpose (a
+  rule changed in TypeScript and Rust, the island rebaked), `RUINA_GOLDEN=1 npm run test:conformance`
+  writes the new answers, once the comparison has passed on them. The server's fighting, which has no
+  TypeScript twin, has a golden battle of its own (`a_battle_plays_out_as_it_always_has` in
+  `crates/server/src/play/bots.rs`).
 - **It needs the game running in a page: the HUD, windows, input, drawing, online play.** An
   integration test, `tests/integration/<area>.spec.ts`.
 - **It measures speed, or needs the machine to itself (frame rates, thousands of fighters, several
@@ -66,6 +73,7 @@ Switches for looking closer when something disagrees:
 | `LIFE_SUMMARY=1` | `tests/conformance/life.test.ts`: each case's island at the end (modes, coins, bag, packs, vehicles, crops, houses, quests, toasts) |
 | `BALANCE_TRACE=1` | `npm run balance` (`crates/tools/src/bin/balance.rs`): every duel's fighters every half second (positions, distance, health, mode, cooldowns) |
 | `BAKE=1` | `tests/conformance/terrain.test.ts` writes the island's bake instead of only checking it (`npm run bake` sets it) |
+| `RUINA_GOLDEN=1` | `tests/conformance/` (ai, player, world) writes each scenario it proves, with a hash of the Rust's answer, for the engine's golden tests (`crates/engine/tests/golden/`) |
 
 ### Ports and a private test rig
 

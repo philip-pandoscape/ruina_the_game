@@ -163,6 +163,51 @@ mod tests {
         assert!(now.iter().zip(&full).any(|(n, f)| n < f), "blows landed: {full:?} -> {now:?}");
     }
 
+    /// The battlefield as it comes (its 32 bots, two sides), with each weapon in turn (swords,
+    /// clubs, staves and bows), played for `ticks` ticks of the rules alone: the game itself, and a
+    /// hash of everyone's state after every tick (FNV-1a over each player's state as the browser
+    /// reads it, in slot order), and how many arrows were seen in flight, tick by tick.
+    pub(crate) fn battle(ticks: u32) -> (ChannelGame, String, usize) {
+        let def = crate::open::dungeon::dungeon("battlefield").expect("the battlefield");
+        let mut ch = ChannelGame::copy(-1, def, def.door.as_ref().expect("its door"), super::super::Owner::Everyone);
+        ch.zone_bots_in();
+        let ids: Vec<i64> = ch.bots.iter().map(|b| b.id).collect();
+        for (k, id) in ids.into_iter().enumerate() {
+            let weapon = (k % 4) as u8;
+            let skills = crate::skills::skills_from(&[["sword", "club", "staff", "bow"][k % 4]]);
+            if let Some((p, _)) = ch.players.open_mut(client(id)) {
+                p.apply_build(Build { skills, weapon, ..Build::default() });
+            }
+        }
+        let mut h: u64 = 0xcbf2_9ce4_8422_2325;
+        let mut arrows = 0;
+        for _ in 0..ticks {
+            ch.play_tick(1.0 / f64::from(TICK_HZ), 0.0);
+            for (_, _, p, _) in ch.players.each_open() {
+                for b in super::super::player_state_json(p).to_string().bytes() {
+                    h = (h ^ u64::from(b)).wrapping_mul(0x0000_0100_0000_01b3);
+                }
+            }
+            arrows += ch.players.effects_json(None, def.origin.x, def.origin.z).0.as_array().map_or(0, Vec::len);
+        }
+        (ch, format!("{h:016x}"), arrows)
+    }
+
+    #[test]
+    fn a_battle_plays_out_as_it_always_has() {
+        // Combat between players, bots' brains and their moves, the battlefield's floor: a guard
+        // for the server's rules that have no TypeScript twin to be compared with (and for running
+        // them in parallel, which mustn't change a thing). If a rule changed on purpose, this is the
+        // battle's new hash.
+        let (ch, hash, arrows) = battle(400);
+        assert_eq!(ch.bots.len(), 32);
+        // It was a fight: blows landed, arrows flew, and some went down.
+        assert!(ch.players.pvp_hits > 50, "{} blows", ch.players.pvp_hits);
+        assert!(arrows > 20, "{arrows} arrows");
+        assert!(ch.players.each_open().any(|(_, _, p, _)| p.down_frame >= 0 || p.hp < 100.0), "nobody hurt");
+        assert_eq!(hash, "1c5ed3eb80b27638");
+    }
+
     #[test]
     fn a_channel_holds_only_so_many() {
         let mut ch = ChannelGame::new(1);
