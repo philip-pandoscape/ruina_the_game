@@ -5,7 +5,7 @@ import { CrowdView, type CrowdSource } from './crowd/crowdView';
 import { crouchKeySlides, Input } from './input/input';
 import { INTERP_TICKS, NetCrowd, type NetActor } from './net/netCrowd';
 import { NetMonsters } from './net/netMonsters';
-import { Prediction, RemotePlayers, stateFromServer } from './net/netPlayer';
+import { Prediction, RemotePlayers } from './net/netPlayer';
 import { NetSpells } from './net/netSpells';
 import { FollowCamera } from './render/camera';
 import { GRAPHICS } from './render/look';
@@ -14,7 +14,7 @@ import { TrainingDummy } from './render/dummy';
 import { ActorView } from './render/actors';
 import { actorKindAt, actorKindIds, findKind, kindName } from './content/actors';
 import { isAlive } from './sim/actor';
-import { behaviour, stateName, stateProgress } from './sim/ai/brain';
+import { behaviour, stateProgress } from './sim/ai/brain';
 import { createTargeting } from './app/targeting';
 import { Hud } from './render/hud';
 import { BATTLEFIELD_STAGE, Stage, TRAINING_STAGE } from './render/scene';
@@ -30,28 +30,25 @@ import { OpenStage } from './render/open/stage';
 import { loadModels } from './render/open/models';
 import { groundAt, inRect } from './sim/zone/colliders';
 import type { BoxCollider, Deck } from './sim/zone/types';
-import { Life, type Command } from './sim/life/life';
-import { runCommand, type FocusAction } from './sim/life/interact';
-import type { LifeState } from './sim/life/state';
+import { Life } from './sim/life/life';
+import { type FocusAction } from './sim/life/interact';
 import { LifeView, sitIn } from './render/open/life';
 import { LifeUI } from './ui/life/lifeUI';
-import { clearLife, loadLife, saveData } from './app/save';
+import { clearLife, loadLife } from './app/save';
 import { goOnline } from './app/online';
 import { readOptions } from './app/options';
 import { makeTestApi } from './app/testApi';
-import { leaveFor, plainUrl } from './app/resume';
-import { currentAccount, signOut } from './net/account';
+import { wireOnline } from './app/onlineWiring';
+import { wireBugReports } from './app/bugWiring';
+import { currentAccount } from './net/account';
 import { addAdminButton } from './ui/admin/adminMenu';
-import { NetOverlay, OnlineBadge, showStopped } from './ui/signIn';
 import { splash } from './ui/splash';
 import { WorldPeers } from './net/worldPeers';
 import { MinigamesUI } from './ui/minigames/minigames';
 import { PartyUI } from './ui/party/partyUI';
 import { uiIcon } from './ui/theme/icons';
 import { GameTables, seatedState } from './render/open/gameTables';
-import type { SpaceView, WorldTick, YouState } from './net/worldLink';
-import { addHouseColliders } from './sim/life/housing';
-import { addScarecrowCollider } from './sim/life/farming';
+import type { SpaceView } from './net/worldLink';
 import { BugReporter } from './app/bugs/reporter';
 import { installLogCapture } from './app/bugs/logs';
 import { dismount, ridden } from './sim/life/vehicles';
@@ -1850,107 +1847,52 @@ const refs = {
   get yardXp() {
     return yardXp;
   },
+  get api() {
+    return api;
+  },
+  set bugs(v) {
+    bugs = v;
+  },
+  get canvas() {
+    return canvas;
+  },
+  get openWorld() {
+    return openWorld;
+  },
+  get opt() {
+    return opt;
+  },
+  get raidCount() {
+    return raidCount;
+  },
+  get serverUrl() {
+    return serverUrl;
+  },
+  get testMode() {
+    return testMode;
+  },
+  get QUICK() {
+    return QUICK;
+  },
+  get framesDrawn() {
+    return framesDrawn;
+  },
+  set frozen(v) {
+    frozen = v;
+  },
+  get onlineSpace() {
+    return onlineSpace;
+  },
 };
 export type GameRefs = typeof refs;
 const api = makeTestApi(refs);
 
 (window as unknown as { __game: typeof api }).__game = api;
-/** The test API's type, so the tests (tests/support/game.ts) call it by name and the compiler checks them. */
-
 // ---------- Bug reports ----------
 // \ (or clicking both sticks) records one: see src/app/bugs/reporter.ts. The dev server saves it
 // to bugs/, and /fix-bugs in Claude Code works through them. Off in automated tests unless asked for.
 
-const r2 = (v: number) => Math.round(v * 100) / 100;
-const r3 = (v: number) => Math.round(v * 1000) / 1000;
-
-/** Everything a bug report wants to know about the game at one moment. */
-function bugSnapshot(): Record<string, unknown> {
-  const p = sim.player;
-  const mark = lockOn.mark();
-  const eye = follow.camera.position;
-  return {
-    mode: openWorld ? 'open world (Emberholm)' : serverUrl ? 'online battle' : raidCount ? 'raid stress test' : 'training yard',
-    frame: sim.frame,
-    paused,
-    device: input.lastDevice,
-    player: p,
-    camera: { yaw: r3(follow.yaw), pitch: r3(follow.pitch), distance: r2(follow.distance), eye: [r2(eye.x), r2(eye.y), r2(eye.z)] },
-    panels: { life: api.lifePanel(), skills: panel.isOpen ? panel.view : null, aimingSlot },
-    target: mark ? { name: mark.name, hp: mark.hp, x: r2(mark.x), z: r2(mark.z), locked: lockOn.locked } : null,
-    riding: life && p.mode === 'ride' ? (ridden(life, sim) ?? null) : null,
-    walk: walker ? { mode: walker.mode, marker: walker.marker, left: r2(walker.left) } : null,
-    nearby: sim.actors
-      .all()
-      .map((a) => ({
-        id: a.id,
-        kind: a.kind,
-        x: r2(a.x),
-        y: r2(a.y),
-        z: r2(a.z),
-        hp: a.hp,
-        alive: isAlive(a),
-        state: stateName(a),
-        dist: r2(Math.hypot(a.x - p.pos.x, a.z - p.pos.z)),
-      }))
-      .filter((a) => a.dist < 40)
-      .sort((a, b) => a.dist - b.dist)
-      .slice(0, 24),
-    life: life ? { ...life.state, focus: life.focus, placing: life.placing, resting: life.resting } : null,
-    build,
-    net: api.net(),
-    perf: perf(),
-  };
-}
-
-/** The player in a few numbers, ten times a second, for a report's timeline. */
-function bugSample(): Record<string, unknown> {
-  const p = sim.player;
-  const s: Record<string, unknown> = {
-    f: sim.frame,
-    x: r2(p.pos.x),
-    y: r2(p.pos.y),
-    z: r2(p.pos.z),
-    vx: r2(p.vel.x),
-    vy: r2(p.vel.y),
-    vz: r2(p.vel.z),
-    mode: p.mode,
-    grounded: p.grounded,
-    facing: r3(p.facing),
-  };
-  if (p.hp !== COMBAT.maxHp) s.hp = p.hp;
-  if (p.sprinting) s.sprinting = true;
-  if (p.crouching) s.crouching = true;
-  if (life) {
-    const v = p.mode === 'ride' ? ridden(life, sim) : undefined;
-    if (v) s.ride = { id: v.id, def: v.def, x: r2(v.x), y: r2(v.y), z: r2(v.z), speed: r2(v.speed), heading: r3(v.heading) };
-    if (life.focus) s.focus = `${life.focus.action}: ${life.focus.label}${life.focus.ok ? '' : ' (not now)'}`;
-    if (life.placing) s.placing = true;
-  }
-  const lp = api.lifePanel();
-  if (lp) s.panel = lp;
-  else if (panel.isOpen) s.panel = panel.view === 'tree' ? 'skill tree' : 'skill book';
-  return s;
-}
-
-if (opt.bugs) {
-  bugs = new BugReporter({
-    canvas,
-    snapshot: bugSnapshot,
-    save: () => (life ? saveData(life, sim) : null),
-    sample: bugSample,
-    device: () => input.lastDevice,
-    test: testMode,
-    speech: opt.bugSpeech,
-    lang: opt.bugLang || navigator.language || 'en-US',
-  });
-  // Mouse readings thrown away as impossible, so a report can show whether one caused a camera jump.
-  input.mouse.onDrop = (dx, dy, why) => bugs?.note('mouse', { type: why, dx, dy, raw: input.rawMouse });
-  if (lifeUI) {
-    lifeUI.onBugReport = () => bugs?.toggle();
-    lifeUI.bugKey = () => bugs?.key ?? '\\';
-  }
-}
+wireBugReports(refs);
 
 // ---------- Dungeons, online ----------
 // You're in a dungeon's copy, or back in the open world (crates/server/src/play/spaces.rs): the server moved you
@@ -1969,168 +1911,4 @@ function onlineSpace(s: SpaceView): void {
 // that says so, and carries on when it's back; play stops for good if another window takes this
 // character or the sign-in ends.
 
-if (online) {
-  const { link } = online;
-  const exitToSelect = () => leaveFor(plainUrl());
-  const where = (s: SpaceView) => `${online.welcome.character.name} · ${s.kind === 'dungeon' ? s.name : `Emberholm ${s.channel}`}`;
-  const badge = new OnlineBadge(where(link.space), {
-    characters: exitToSelect,
-    signOut: async () => {
-      await signOut();
-      leaveFor(plainUrl());
-    },
-  });
-  if (lifeUI) lifeUI.onExitToSelect = exitToSelect;
-  const overlay = new NetOverlay();
-  let dropTimer = 0;
-  const freeze = (on: boolean) => {
-    if (frozen === on) return;
-    frozen = on;
-    acc = 0;
-    if (on && document.pointerLockElement) document.exitPointerLock();
-  };
-  const stopIf = (s: typeof link.status) => {
-    badge.set(s);
-    clearTimeout(dropTimer);
-    if (s === 'online') {
-      freeze(false);
-      overlay.hide();
-    } else if (s === 'updating') {
-      freeze(true);
-      overlay.show('updating');
-    } else if (s === 'reconnecting') {
-      // Frozen at once; a blip shorter than this isn't worth a screen.
-      freeze(true);
-      dropTimer = window.setTimeout(() => overlay.show('reconnecting'), 400);
-    } else {
-      freeze(false);
-      overlay.hide();
-      paused = true;
-      showStopped(s);
-      // Still loading: the title screen mustn't hide why play stopped.
-      void splash?.fadeOut();
-    }
-  };
-  link.onStatus = stopIf;
-  // A new connection counts inputs from scratch: start again from the server's next word. It may
-  // put you somewhere else, too: a restarted server has no dungeon copies, and puts you outside the
-  // door of the one you were in.
-  link.onReconnect = () => {
-    prediction?.resync();
-    ahead.length = 0;
-    peers?.everyoneLeft();
-    net?.resetWorld();
-    badge.rename(where(link.space));
-    onlineSpace(link.space);
-  };
-  link.onError = (text) => life?.fromServer({ t: 'toast', text, kind: 'bad' });
-  link.onNotice = (text) => life?.fromServer({ t: 'toast', text, kind: 'info' });
-  // Into a dungeon's copy, or back out of it (crates/server/src/play/spaces.rs): another game, with its own ticks
-  // and its own people. As after a reconnection, start again from what the server says next.
-  link.onSpace = (s) => {
-    prediction?.resync();
-    ahead.length = 0;
-    peers?.everyoneLeft();
-    net?.resetWorld();
-    badge.rename(where(s));
-    onlineSpace(s);
-  };
-
-  // Your island as the server has it, and the parts that move with you as of each update.
-  let you: YouState | null = null;
-  /** Commands run here ahead of the server (see life.remote below), with the input each went with. */
-  const ahead: Array<{ seq: number; c: Command }> = [];
-  let lastRev = -1;
-  let lifeLoaded = false;
-  const solidScarecrows = new Set<number>();
-  /** What's built on your island (farms and houses, where), last time the grass was laid round it. */
-  let groundKey = '';
-  /** Your island as the server last sent it, kept as it came. */
-  let base: LifeState | null = null;
-  if (prediction && life) {
-    // Picking a pack up or putting it down, loading one or taking one out, getting in or out: run
-    // here at once as well as on the server, so the pack is on your back (or you're in the seat)
-    // without waiting a round trip for it. Until the server has run it too, whatever it sends is
-    // taken with what's still to come run again on top.
-    const quick = (c: Command): boolean =>
-      c.t === 'drop' || (c.t === 'exit' && !sim.player.host) || (c.t === 'interact' && !!life.focus?.ok && QUICK.has(life.focus.action));
-    life.remote = (c) => {
-      const seq = prediction.seq + 1;
-      online.link.command(seq, c);
-      if (!quick(c) || ahead.length >= 8) return;
-      if (life.state === base) life.state = structuredClone(base);
-      runCommand(life, sim, c);
-      ahead.push({ seq, c });
-    };
-    prediction.beforeReplay = () => {
-      if (!you) return;
-      // What the server has run too is in what it sent.
-      while (ahead.length && ahead[0].seq <= you.ack) ahead.shift();
-      if (ahead.length && base) life.state = structuredClone(base);
-      const s = life.state;
-      s.clock = you.clock;
-      s.labor = you.labor;
-      s.weather = you.weather;
-      s.vehicles = ahead.length ? structuredClone(you.vehicles) : you.vehicles;
-      life.resting = you.resting;
-      life.placing = you.placing;
-      for (const a of ahead) runCommand(life, sim, a.c);
-    };
-  }
-  const onTick = (t: WorldTick) => {
-    if (life && t.life) {
-      lifeLoaded = true;
-      base = t.life.state;
-      life.state = t.life.state;
-      life.placing = t.life.placing;
-      life.resting = t.life.resting;
-      if (t.life.rev !== lastRev) {
-        lastRev = t.life.rev;
-        life.revision++;
-        // What you've built is solid here as it is on the server.
-        for (const h of life.state.houses) addHouseColliders(life, sim, h);
-        for (const sc of life.state.scarecrows) {
-          if (solidScarecrows.has(sc.id)) continue;
-          solidScarecrows.add(sc.id);
-          addScarecrowCollider(sim, sc);
-        }
-        // The grass is laid again only round something new built: a pack picked up changes the
-        // island too, and laying it all again then is a stutter.
-        const ground = life.state.scarecrows.map((sc) => sc.id).join(',') + '|' + life.state.houses.map((h) => `${h.plot}:${h.stage}`).join(',');
-        if (ground !== groundKey) {
-          groundKey = ground;
-          lifeView?.onGroundChanged?.();
-        }
-      }
-    }
-    you = t.you;
-    net?.applyWorld(
-      t.tick,
-      { id: t.you.id, ack: t.you.ack, player: stateFromServer(t.you.p) },
-      t.arrows ?? [],
-      t.meteors ?? [],
-      t.events ?? [],
-      t.actors ?? [],
-    );
-    if (life) for (const e of t.lifeEvents ?? []) life.fromServer(e);
-  };
-  link.onTick = onTick;
-  // Back in a dungeon's copy you were in (the connection came back while it was still there).
-  onlineSpace(link.space);
-  // Whatever came while the page was still loading: the newest island, then the newest tick.
-  if (link.latestLife && link.latest && !link.latest.life) onTick({ ...link.latest, life: link.latestLife });
-  else if (link.latest) onTick(link.latest);
-  online.lifeLoaded = () => lifeLoaded;
-  stopIf(link.status);
-
-  // Into the game: the title screen fades once the first frames are drawn (the first one compiles
-  // the shaders) and your island has arrived, so it opens on your island as it is.
-  if (splash) {
-    const title = splash;
-    title.say('Lighting the Lanterns…');
-    const started = performance.now();
-    const ready = () => framesDrawn >= 3 && (lifeLoaded || performance.now() - started > 4000);
-    const wait = () => (ready() ? void title.fadeOut() : requestAnimationFrame(wait));
-    requestAnimationFrame(wait);
-  }
-}
+wireOnline(refs);
