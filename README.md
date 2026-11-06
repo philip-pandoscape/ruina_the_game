@@ -222,7 +222,7 @@ game you're playing. `tests/integration/world.spec.ts` plays the open world (`/?
 
 ## Balance
 
-`npm run balance` runs the builds in `balance.json` against each other under the server's own hit
+`npm run balance` runs the builds in `tools/balance/scenario.json` against each other under the server's own hit
 resolution and prints a win-rate, time-to-kill and damage table (JSON on stdout for diffing, the
 table on stderr to read). Both fighters are driven by the same plain policy — walk in and swing —
 so it measures the paper matchup, not the played one: anything that wants to kite or space will

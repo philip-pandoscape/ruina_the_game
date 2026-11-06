@@ -24,7 +24,7 @@
     "server": "node tools/cargo.mjs run --release --manifest-path server/Cargo.toml --bin yggdrasil-server -- --bots 10000 --slimes 24",
     "server:stress": "node tools/cargo.mjs run --release --manifest-path server/Cargo.toml --bin yggdrasil-server -- --bots 10000 --virtual-clients 10000",
     "loadtest": "node tools/cargo.mjs run --release --manifest-path server/Cargo.toml --bin loadtest -- --clients 1000 --seconds 15",
-    "balance": "node tools/cargo.mjs run --release --manifest-path server/Cargo.toml --bin balance < balance.json",
+    "balance": "node tools/cargo.mjs run --release --manifest-path server/Cargo.toml --bin balance < tools/balance/scenario.json",
     "icons": "node tools/icons/bake.mjs",
     "image": "node tools/images/gemini.mjs",
     "skilltree": "node tools/skilltree/gen.mjs",

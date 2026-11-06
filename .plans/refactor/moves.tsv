@@ -41,3 +41,4 @@ tests/world-conformance.spec.ts	tests/conformance/world.test.ts
 tests/life-conformance.spec.ts	tests/conformance/life.test.ts
 tests/ai-conformance.spec.ts	tests/conformance/ai.test.ts
 tests/terrain.spec.ts	tests/conformance/terrain.test.ts
+balance.json	tools/balance/scenario.json
