@@ -1256,7 +1256,7 @@
       "system": "world",
       "status": "done",
       "title": "Goblin's Dread, the first dungeon: its inner grotto",
-      "notes": "An instanced dungeon (content/dungeons/goblinsDread.json): its floors and walls stand round a spot high above the sea north of the island and are solid only in a copy of it (src/engine/world/dungeons.ts, crates/engine/src/open/dungeon.rs), drawn with the island put away (src/render/open/dungeonView.ts: rock shell, the back of the falls glowing at the south end with the way out, landing stage, lookout with a pot gong, totem, torches, the tunnel north to a goblin barricade). Cave light: no sun, a cool fill and the daylight through the falls. Anyone knocked down or falling out gets up where it's entered. The rest of the lair (the Warren, its three wings, the chief's hall) is the concept art's plan, not built yet.",
+      "notes": "An instanced dungeon (content/dungeons/goblinsDread.json): a space of its own, its floors and walls round its own origin over nothing, played only in a copy of it (src/engine/world/dungeons.ts, crates/engine/src/open/dungeon.rs OpenWorld::instance), drawn with the island put away (src/render/open/dungeonView.ts: rock shell, the back of the falls glowing at the south end with the way out, landing stage, lookout with a pot gong, totem, torches, the tunnel north to a goblin barricade). Cave light: no sun, a cool fill and the daylight through the falls. Anyone knocked down or falling out gets up where it's entered. The rest of the lair (the Warren, its three wings, the chief's hall) is the concept art's plan, not built yet.",
       "files": [
         "content/dungeons/goblinsDread.json",
         "src/engine/world/dungeons.ts",
@@ -1668,7 +1668,9 @@
         "Measured against where the refactor started (tools/perf/measure.mjs, R8.14): start-up and frames no worse, a little more memory, and an offline step 3.3 times cheaper once the engine wrote its view of each step straight from its values.",
         "The world map in the engine (R10.16, R10.1): content/world.json places regions on 256 m chunks with open sea between, the engine answers the ground, the water and the colliders across regions, and the edge of the world is the edge of the map. A fixture of two regions across open sea is crossed swimming.",
         "Saved builds name their weapon, skills and abilities by id (R9.1), and old saves are rewritten as the server starts; the server sends a hash of the content in its welcome, and a page built from other content reloads into the new build (R9.2).",
-        "Borders with no seam (R10.16): near a chunk's edge the ground is shared with what's across it, weighed smoothly over 64 m, so two regions meet vertex for vertex and a region's coast slopes down to the open sea's floor; a fixture of two regions across a land border is walked across."
+        "Borders with no seam (R10.16): near a chunk's edge the ground is shared with what's across it, weighed smoothly over 64 m, so two regions meet vertex for vertex and a region's coast slopes down to the open sea's floor; a fixture of two regions across a land border is walked across.",
+        "The island's rules take the world (R10.16): what's near you comes from the space you're in, what's found by id from the whole world; gathering spots have ids (R10.1).",
+        "Instances in spaces of their own (R10.15): a dungeon or developer zone is played round its own origin over nothing, in place of the world (the server's copy, and the browser while you're inside), where it was pieces high in Emberholm's sky; the rule keeping them within 760 m of the island and apart went with it."
       ]
     }
   ]

@@ -7,11 +7,14 @@ import type { FollowCamera } from '../render/camera';
 import type { OpenStage } from '../render/open/stage';
 
 export function rigCamera(follow: FollowCamera, engine: Engine, openStage: OpenStage | null): void {
-  const { terrain, world } = engine;
+  const { world } = engine;
+  // The ground of the space you're in, read when it's needed (a copy of an instance has its own).
+  const ground = () => engine.terrain!;
   // Over hills and water the camera must not dip into the ground or under the sea, and it pulls in
   // rather than looking through a wall.
-  if (terrain)
+  if (engine.terrain)
     follow.groundAt = (x, z) => {
+      const terrain = ground();
       // Indoors, not below the floor of the storey you are on.
       const inside = openStage?.village.indoors;
       let floor = -Infinity;
@@ -27,9 +30,9 @@ export function rigCamera(follow: FollowCamera, engine: Engine, openStage: OpenS
     };
   // Goblin's Dread: under the hood of rock over the ledge behind the Windspire's falls the ground
   // behind you is the cliff above the hood, so the eye stays under the hood instead (camera.ts).
-  if (terrain && world.index) {
+  if (engine.terrain && world.index) {
     const idx = world.index;
-    follow.terrainAt = (x, z) => terrain.height(x, z);
+    follow.terrainAt = (x, z) => ground().height(x, z);
     follow.ceiling = (x, y, z) => {
       const found: { d: Deck | null } = { d: null };
       idx.eachDeck(x, z, 0.5, (d) => {
@@ -39,6 +42,7 @@ export function rigCamera(follow: FollowCamera, engine: Engine, openStage: OpenS
       if (!hood) return null;
       const eye = hood.top - 2.1;
       // Only a hood with room for the eye under it, above the ground and the sea (not a pier over a swimmer).
+      const terrain = ground();
       if (eye < Math.max(terrain.water, terrain.height(x, z)) + 1.2) return null;
       return { eye, under: (px, pz) => inRect(hood, px, pz, 0.6) };
     };

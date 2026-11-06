@@ -7,7 +7,7 @@
 //! (`view_text` after each step or call). crates/engine-wasm hands it to the browser, and the
 //! headless rules tests (tests/unit/rules) play it as the page does.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use serde::Serialize;
 use serde_json::{Map, Value, json};
@@ -24,8 +24,8 @@ use crate::life::{
     Command, Focus, Life, LifeEvent, OtherPlayer, OthersVehicle, Placement, content::clock, farming, housing, interact, interact::short_time, trade, vehicles,
 };
 use crate::missiles::Missile;
-use crate::open::colliders::{ColliderIndex, ground_at};
-use crate::open::dungeon::{DungeonDef, Spot, dungeon};
+use crate::open::colliders::ground_at;
+use crate::open::dungeon::{Spot, dungeon};
 use crate::open::map::WorldMap;
 use crate::open::zone::emberholm;
 use crate::open::{Mover, OpenWorld, Sim, traverse};
@@ -43,13 +43,6 @@ const SLAM_LIFT: f64 = 1.0;
 pub enum Ground {
     Flat { yard: Yard, world: World },
     Open(Box<OpenWorld>),
-}
-
-/// A dungeon's floors and walls as added to the island's colliders, and whether they are solid now.
-struct Solids {
-    boxes: Vec<usize>,
-    decks: Vec<usize>,
-    solid: bool,
 }
 
 pub struct Session {
@@ -81,7 +74,13 @@ pub struct Session {
     pub placed: Option<f64>,
     dungeon: Option<String>,
     respawn_at: Option<Spot>,
-    solids: BTreeMap<String, Solids>,
+    /// In a copy of an instance, the world you came into it from (its ground, its colliders, what's
+    /// been built in it), to come back out to.
+    outside: Option<Box<OpenWorld>>,
+    /// The instances you've been in a copy of (the tests ask which you're in now).
+    visited: BTreeSet<String>,
+    /// How many times you've gone from one space to another, so the page reads what's solid again.
+    crossings: u32,
     /// Online, where you were drawn from when the server's word on you came (`take_player`), for a
     /// `replay` with nothing to run again.
     drawn_from: Option<V3>,
@@ -127,7 +126,9 @@ impl Session {
             placed: None,
             dungeon: None,
             respawn_at: None,
-            solids: BTreeMap::new(),
+            outside: None,
+            visited: BTreeSet::new(),
+            crossings: 0,
             drawn_from: None,
             sent: None,
             is_sent: false,
@@ -457,19 +458,23 @@ impl Session {
         }
     }
 
-    /// Into a copy of a dungeon or developer zone: its floors and walls solid around you, and
+    /// Into a copy of a dungeon or developer zone, a space of its own (OpenWorld::instance): the
+    /// world you were in set aside, its floors and walls the only things solid round you, and
     /// knocked down in it you get up where it's entered. False if there's no such dungeon here.
     pub fn enter_dungeon(&mut self, id: &str) -> bool {
         let Some(def) = dungeon(id) else { return false };
         if !matches!(self.ground, Ground::Open(_)) {
             return false;
         }
-        if self.dungeon.as_deref().is_some_and(|d| d != id) {
-            self.leave_dungeon();
+        if self.dungeon.as_deref() == Some(id) {
+            return true;
         }
+        self.leave_dungeon();
         let Ground::Open(w) = &mut self.ground else { return false };
-        let had = self.solids.remove(id);
-        self.solids.insert(id.to_string(), set_solid(&mut w.index, def, had, true));
+        let inside = Box::new(OpenWorld::instance(def, w.zone));
+        self.outside = Some(std::mem::replace(w, inside));
+        self.crossings += 1;
+        self.visited.insert(id.to_string());
         self.dungeon = Some(id.to_string());
         self.respawn_at = Some(def.arrival());
         if let Some(life) = self.life.as_mut() {
@@ -478,12 +483,15 @@ impl Session {
         true
     }
 
-    /// Out of the copy you're in: its floors and walls gone from your world again.
+    /// Out of the copy you're in, back into the world you came from.
     pub fn leave_dungeon(&mut self) {
-        let Some(id) = self.dungeon.take() else { return };
-        if let (Some(def), Ground::Open(w), Some(had)) = (dungeon(&id), &mut self.ground, self.solids.remove(&id)) {
-            self.solids.insert(id.clone(), set_solid(&mut w.index, def, Some(had), false));
+        if self.dungeon.take().is_none() {
+            return;
         }
+        if let (Some(outside), Ground::Open(w)) = (self.outside.take(), &mut self.ground) {
+            *w = outside;
+        }
+        self.crossings += 1;
         self.respawn_at = None;
         if let Some(life) = self.life.as_mut() {
             life.dungeon = None;
@@ -502,12 +510,21 @@ impl Session {
 
     /// The floor's height in the copy you're in.
     pub fn floor_here(&self) -> Option<f64> {
-        self.dungeon.as_deref().and_then(dungeon).map(|d| d.origin.y)
+        self.dungeon.as_deref().and_then(dungeon).map(|d| d.arrival().y)
     }
 
     /// Which dungeons have been made solid in your world, and whether they still are (tests).
     pub fn solidity(&self) -> BTreeMap<String, bool> {
-        self.solids.iter().map(|(k, s)| (k.clone(), s.solid)).collect()
+        self.visited.iter().map(|k| (k.clone(), self.dungeon.as_deref() == Some(k.as_str()))).collect()
+    }
+
+    /// The ground of the space you're in as the page draws it: in a copy of an instance, how far down
+    /// the nothing under its floors is and the water (none: under that), null out in the world.
+    pub fn space_ground(&self) -> Value {
+        match (&self.ground, &self.dungeon) {
+            (Ground::Open(w), Some(_)) => json!({ "floor": w.map.sea_floor, "water": w.map.water }),
+            _ => Value::Null,
+        }
     }
 
     /// Ground height under a point: a copy's floor where you're in one, the island's terrain, or 0.
@@ -679,13 +696,22 @@ impl Session {
     /// A house solid here as it is on the server: yours, or someone else's where you see it (their
     /// houses come with ids of their own, so they're never taken for yours).
     pub fn add_solid_house(&mut self, h: &House) {
-        let Ground::Open(world) = &mut self.ground else { return };
+        // In the world, even from inside a copy of an instance (it's the world you'll come back to).
+        let world: &mut OpenWorld = match (self.outside.as_deref_mut(), &mut self.ground) {
+            (Some(w), _) => w,
+            (None, Ground::Open(w)) => w,
+            _ => return,
+        };
         housing::add_house_colliders(&mut Sim { player: &mut self.player, world, owner: 0 }, h);
     }
 
-    /// A scarecrow's post solid, and the ground round it tilled, as on the server.
+    /// A scarecrow's post solid, and the ground round it tilled, as on the server (in the world).
     pub fn add_solid_scarecrow(&mut self, sc: &Scarecrow) {
-        let Ground::Open(world) = &mut self.ground else { return };
+        let world: &mut OpenWorld = match (self.outside.as_deref_mut(), &mut self.ground) {
+            (Some(w), _) => w,
+            (None, Ground::Open(w)) => w,
+            _ => return,
+        };
         farming::add_scarecrow_collider(&mut Sim { player: &mut self.player, world, owner: 0 }, sc);
     }
 
@@ -859,9 +885,7 @@ impl Session {
         mix(w.index.obstacles.len());
         mix(w.index.boxes.len());
         mix(w.index.decks.len());
-        for (k, s) in self.solids.values().enumerate() {
-            mix(k * 2 + s.solid as usize);
-        }
+        mix(self.crossings as usize);
         h
     }
 
@@ -980,25 +1004,6 @@ impl Session {
             Ground::Open(_) => json!({ "spawns": self.spawns }),
         }
     }
-}
-
-/// A dungeon's floors and walls made solid in an island's colliders, or taken out again (their tops
-/// sunk out of reach).
-fn set_solid(index: &mut ColliderIndex, def: &DungeonDef, had: Option<Solids>, solid: bool) -> Solids {
-    let (boxes, decks) = def.colliders();
-    let mut s = had.unwrap_or_else(|| Solids {
-        boxes: boxes.iter().map(|b| index.add_box(*b)).collect(),
-        decks: decks.iter().map(|d| index.add_deck(*d)).collect(),
-        solid: true,
-    });
-    for (k, &i) in s.boxes.iter().enumerate() {
-        index.boxes[i].top = if solid { boxes[k].top } else { f64::NEG_INFINITY };
-    }
-    for (k, &i) in s.decks.iter().enumerate() {
-        index.decks[i].top = if solid { decks[k].top } else { f64::NEG_INFINITY };
-    }
-    s.solid = solid;
-    s
 }
 
 fn mode_of(s: &str) -> Option<Mode> {

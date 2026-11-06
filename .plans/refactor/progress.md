@@ -536,3 +536,20 @@ the developer zone; then the engine bridge (R6.4) and Phase 8's switches.
 - **What moved.** Emberholm's outer 64 m band, where its edge was as shallow as 6.8 m beside the
   open sea's 30 m floor (an underwater cliff of up to 23 m): it slopes down to meet it now. One
   golden answer moved, the edge scenario again.
+
+## 2026-11-06: The Rules Take the World, and Instances in Spaces of Their Own (R10.16, R10.1, R10.15)
+
+- **The rules take the world.** What can be near you (townsfolk, benches, gathering spots, slipways,
+  plots, portals, the places quests send you, updrafts) comes from the regions of the space you're
+  in; what's found by id comes from the whole world. Gathering spots have ids, and their time to come
+  back is kept by id (old saves' timers by index are dropped: the spot is simply back); contentc
+  holds every placed thing's id to one thing in the world. No golden answer moved.
+- **Instances in spaces of their own.** A dungeon or developer zone is no longer pieces high in
+  Emberholm's sky but a space of its own round its own origin, over nothing, with no region or sea
+  in its map. The server's copy plays it; the browser's session plays it in place of the world while
+  you're inside and takes the world back after. The page's ground there is the engine's for that space,
+  so the camera, shadows and effects don't meet Emberholm's hills where the cave now stands.
+  Saves made in a copy keep the spot outside its door. The rule that kept instances within 760 m of the
+  island and apart went with it.
+- **Moved on purpose.** The battlefield's replay hash in the server's tests (everyone round its own
+  origin now).

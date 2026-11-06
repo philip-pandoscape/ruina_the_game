@@ -1,10 +1,10 @@
 import type { Engine } from '../engine/engine';
 import type { OpenStage } from '../render/open/stage';
-import { arrivalOf, dungeonDef, dungeonDoor, inWorld } from '../engine/zone';
+import { arrivalOf, dungeonDef, dungeonDoor } from '../engine/zone';
 
-// Going into a copy of a dungeon and out again, as this browser sees it: the dungeon's floors and
-// walls made solid in your world and taken away again after (the engine's: Engine.enterDungeon),
-// its cave drawn and the island put away, no rain under the rock. Offline (?world&test) this is the
+// Going into a copy of a dungeon and out again, as this browser sees it: a space of its own played
+// in place of the world and the world back after (the engine's: Engine.enterDungeon), its cave or
+// arena drawn and the island put away, no rain under the rock. Offline (?world&test) this is the
 // whole visit and it moves you too; online the server takes you (and your party) through and moves
 // you, and this only follows (main.ts: onPortal and the server's word).
 
@@ -66,6 +66,6 @@ export class DungeonVisit {
   /** For tests: where you are and whether the dungeon is solid in your world. */
   state(): { inside: string | null; solid: Record<string, boolean>; exit: { x: number; y: number; z: number } | null } {
     const def = this.inside ? dungeonDef(this.inside) : undefined;
-    return { inside: this.inside, solid: this.d.engine.solidity(), exit: def ? inWorld(def, def.exit.x, def.exit.z) : null };
+    return { inside: this.inside, solid: this.d.engine.solidity(), exit: def ? { x: def.exit.x, y: 0, z: def.exit.z } : null };
   }
 }

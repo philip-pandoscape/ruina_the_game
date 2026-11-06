@@ -35,7 +35,7 @@ const rule = () => ({
   exitSlack: sourceNumber(dungeonSource, new RegExp(String.raw`<= self\.exit\.r \+ ${N}`), 'the slack round the way out'),
   exitHeight: sourceNumber(
     dungeonSource,
-    new RegExp(String.raw`self\.exit\.r \+ \d+(?:\.\d+)? && \(y - o\.y\)\.abs\(\) < ${N}`),
+    new RegExp(String.raw`self\.exit\.r \+ \d+(?:\.\d+)? && y\.abs\(\) < ${N}`),
     'how far above the way out you may stand',
   ),
   /** The prompt at a door: how far above or below it you may stand. */
@@ -108,8 +108,8 @@ A dungeon's door is a portal somewhere on the island. Stand at it (within its re
 
 You go into your party's copy of the dungeon, or, on your own, your own copy. The first of you to go in makes it; the rest of the party joins the same copy, until it holds as many players as the dungeon allows. Inside:
 
-- You arrive at its way in. Its floors and walls are solid only in a copy; the island outside is out of reach.
-- Knocked down, you get up at the way in, not at the island's spawn far below.
+- You arrive at its way in. A copy is a place of its own: its floors and walls are all there is, and nothing of the world outside is near you.
+- Knocked down, you get up at the way in, not at the world's spawn.
 - Fall out of the bottom of it and you are back at the way in.
 
 To leave, F at the portal back out (the server allows ${metres(R.exitSlack)} more than its reach, and ${metres(

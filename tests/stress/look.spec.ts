@@ -53,7 +53,7 @@ const SCENES: Scene[] = [
     view: { from: [76, 62, 112], to: [52, 92, 220] },
   },
   { id: 'falls-ledge', x: 50.74, z: 220.49, facing: 5.93, hour: 10.7, camera: { yaw: 5.93, pitch: 0.16, distance: 6 } },
-  { id: 'dungeon-grotto', x: 0, z: 641.5, facing: 0, hour: 10.8, camera: { yaw: 0, pitch: 0.24, distance: 9 }, dungeon: 'goblinsDread' },
+  { id: 'dungeon-grotto', x: 0, z: 1.5, facing: 0, hour: 10.8, camera: { yaw: 0, pitch: 0.24, distance: 9 }, dungeon: 'goblinsDread' },
   { id: 'windspire-vista', x: 40, z: 227, facing: Math.PI, hour: 11, camera: { yaw: Math.PI, pitch: 0.12, distance: 7 } },
   {
     id: 'tree-closeup',

@@ -235,15 +235,16 @@ impl ChannelGame {
         }
     }
 
-    /// A copy of a dungeon, for `owner`: its floors and walls solid, nobody in it yet.
+    /// A copy of a dungeon, for `owner`: a space of its own (OpenWorld::instance), its floors and
+    /// walls the only things solid in it, nobody in it yet.
     pub fn copy(id: i32, def: &'static DungeonDef, door: &'static DungeonDoor, owner: Owner) -> Self {
         let mut ch = ChannelGame::new(id);
+        ch.open = OpenWorld::instance(def, ch.open.zone);
         ch.actors = Actors::new();
         // What its file says lives in it (a developer zone's training dummy, slimes, a war-band).
         for (i, s) in def.spawns.iter().enumerate() {
             let band = if s.band { i as u32 + 1 } else { 0 };
             for (x, z, facing, seed) in s.points(0x20ae ^ (i as u32).wrapping_mul(0x9e37_79b1)) {
-                let (x, z) = (def.origin.x + x, def.origin.z + z);
                 if band > 0 {
                     ch.actors.spawn_in_band(&s.kind, x, z, facing, seed, band);
                 } else {
@@ -251,9 +252,9 @@ impl ChannelGame {
                 }
             }
         }
-        ch.open.make_dungeon(def);
-        // Heights in a fight are measured from its floor, far over the island.
+        // Heights in a fight are measured from its floor; off it there's no ground but a fall.
         ch.players.floor = Some(def);
+        ch.players.ground = None;
         ch.estates.loaded = true;
         ch.space = Space::Copy(CopyOf { def, door, owner, empty_since: Some(Instant::now()), expel: HashMap::new() });
         ch
@@ -285,11 +286,12 @@ impl ChannelGame {
 
     /// In a copy, an island is saved as standing outside its door: a copy is gone after a restart,
     /// and its owner comes back to the open world there.
+    /// In a copy, the spot outside its door in the world: what a save made here keeps (a save is of
+    /// the world), at the portal's height, from which whoever is put there settles on what's solid.
     fn outside(&self) -> Option<Spot> {
         let c = self.copy_of()?;
         let o = &c.door.outside;
-        let hf = self.open.terrain();
-        Some(Spot { x: o.x, y: ground_at(hf, &self.open.index, o.x, o.z, c.door.portal.y + 1.2, 1.2), z: o.z, facing: o.facing })
+        Some(Spot { x: o.x, y: c.door.portal.y, z: o.z, facing: o.facing })
     }
 
     /// Someone here as they are: where they stand, how, and whether they're free to go somewhere
@@ -924,7 +926,7 @@ impl ChannelGame {
         self.players.step_effects(&mut self.actors);
         let foes = self.players.foes();
         let ground = self.players.ground;
-        // In a copy of a dungeon or a developer zone, its creatures stand on its floor, far over the island.
+        // In a copy of a dungeon or a developer zone, its creatures stand on its floor.
         let floor = self.copy_of().map(|c| c.def);
         let ground_at = move |x: f64, z: f64| floor.and_then(|d| d.floor_at(x, z)).unwrap_or_else(|| ground.map_or(0.0, |g| g.height(x, z)));
         let mut done = StepOut::default();

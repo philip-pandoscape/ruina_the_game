@@ -109,7 +109,9 @@ let build: Build = online ? (parseBuild(online.welcome.build, Infinity) ?? defau
 // without the training dummy and hit pause, and only predict your own moves.
 await engineLoading;
 const engine = new Engine({ openWorld, online: !!online, goblins: opt.goblins, build });
-const { world, terrain, sim, range } = engine;
+const { world, sim, range } = engine;
+/** The world's ground at the start (null on the yard's flat ground): whether this is an open world. What's under a point is read from `engine.terrain` when it's needed, as in a copy of an instance it's that space's. */
+const terrain = engine.terrain;
 
 // Online, what the server says of the world (you, monsters, arrows, meteors, effects), timed to be
 // drawn; inputs go out over the world link.
@@ -166,16 +168,20 @@ const spells = new SpellView(stage.scene, vfx);
  * The terrain's height at (x, z) and above it whatever is drawn over it within `pad` metres (farm soil
  * and furrows: yours and everyone else's here), for what lies on the ground to lie on top of.
  */
-const drawnGround = (x: number, z: number, pad: number): number =>
-  terrain ? terrain.height(x, z) + Math.max(lifeView?.raisedAt(x, z, pad) ?? 0, peersView?.raisedAt(x, z, pad) ?? 0) : 0;
+const drawnGround = (x: number, z: number, pad: number): number => {
+  const ground = engine.terrain;
+  return ground ? ground.height(x, z) + Math.max(lifeView?.raisedAt(x, z, pad) ?? 0, peersView?.raisedAt(x, z, pad) ?? 0) : 0;
+};
 // Warning circles lie on the island's hills and farms (and on a deck or roof under whoever they're
 // about), floating on the sea rather than sinking under it.
 if (terrain) {
   spells.ground = {
     cell: terrain.cell,
     origin: terrain.min,
-    height: (x, z, near, pad) =>
-      Math.max(terrain.water, Number.isFinite(near) ? groundAt(terrain, world.index, x, z, near, 0.5) : terrain.height(x, z), drawnGround(x, z, pad)),
+    height: (x, z, near, pad) => {
+      const ground = engine.terrain ?? terrain;
+      return Math.max(ground.water, Number.isFinite(near) ? groundAt(ground, world.index, x, z, near, 0.5) : ground.height(x, z), drawnGround(x, z, pad));
+    },
   };
 }
 const follow = new FollowCamera(innerWidth / innerHeight, openWorld ? GRAPHICS.viewDistance : 320, openWorld ? 40 : 14);
@@ -201,7 +207,7 @@ function islandCommand(c: Command): void {
 input.worldMode = !!life;
 if (terrain) {
   vfx.ground = groundY;
-  vfx.raised = (x, z, r) => drawnGround(x, z, r) - terrain.height(x, z);
+  vfx.raised = (x, z, r) => drawnGround(x, z, r) - (engine.terrain ?? terrain).height(x, z);
 }
 const lifeView = life ? new LifeView(stage.scene, life, models, hero) : null;
 if (lifeView && openStage) lifeView.onGroundChanged = () => openStage.foliage.invalidate();
@@ -415,7 +421,7 @@ function teleport(x: number, z: number, facing = engine.player.facing): void {
     online.link.command((prediction?.seq ?? 0) + 1, { t: 'teleport', x, z, facing } as unknown as Parameters<IslandView['command']>[0]);
     return;
   }
-  // Inside a dungeon the floor is its own, far over the island's ground.
+  // Inside a dungeon its floors are all there is, over nothing.
   engine.place(x, z, facing);
   follow.reset(follow.yaw);
 }
@@ -772,7 +778,7 @@ const refs = {
     return teleport;
   },
   get terrain() {
-    return terrain;
+    return engine.terrain;
   },
   get vfx() {
     return vfx;

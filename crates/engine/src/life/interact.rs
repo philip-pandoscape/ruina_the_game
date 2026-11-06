@@ -677,7 +677,7 @@ pub fn find_focus(life: &mut Life, sim: &Sim) -> Option<Focus> {
         let busy = back.map(|_| "Put your pack down first".to_string());
         match life.dungeon.as_deref().and_then(dungeon) {
             Some(inside) => {
-                let (x, z) = (inside.origin.x + inside.exit.x, inside.origin.z + inside.exit.z);
+                let (x, z) = (inside.exit.x, inside.exit.z);
                 let f = Focus {
                     action: "leaveDungeon".into(),
                     key: format!("dungeon:{}:leave", inside.id),

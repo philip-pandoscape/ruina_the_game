@@ -6,7 +6,7 @@
 
 export { Heightfield, SURFACE, hash2, valueNoise } from './world/terrain';
 export { groundAt, inRect } from './world/colliders';
-export { DUNGEONS, arrivalOf, dungeonDef, dungeonDoor, inWorld } from './world/dungeons';
+export { DUNGEONS, arrivalOf, dungeonDef, dungeonDoor } from './world/dungeons';
 export type { DungeonDef, DungeonPiece } from './world/dungeons';
 export { toLocal, toWorld } from './world/frames';
 export { ON_ROAD, RoadNetwork, TAIL_MAX, routeFrom, routeNearest, routePoint, routeTight } from './world/roads';

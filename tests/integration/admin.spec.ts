@@ -145,7 +145,7 @@ test('an admin goes into the battlefield from the world, finds its bots and an a
   expect(await page.evaluate(() => window.__game.dungeon().drawn)).toBe('battlefield');
 
   // Out through its way out, at its door on the island.
-  await page.evaluate(([x, z]) => window.__game.teleport(x, z), [zone.origin.x + zone.exit.x, zone.origin.z + zone.exit.z] as const);
+  await page.evaluate(([x, z]) => window.__game.teleport(x, z), [zone.exit.x, zone.exit.z] as const);
   await expect
     .poll(() => page.evaluate(() => window.__game.throughPortal(false, 'battlefield') && window.__game.space()?.kind), { timeout: 30_000 })
     .toBe('channel');
@@ -159,7 +159,7 @@ test('an admin goes into the battlefield from the world, finds its bots and an a
 
 test('an admin in the yard finds its dummy and slimes standing on its floor, and the dummy takes their blows', async ({ page }) => {
   const zone = JSON.parse(readFileSync('content/dungeons/yard.json', 'utf8'));
-  const at = (sp: { x: number; z: number }) => ({ x: zone.origin.x + sp.x, z: zone.origin.z + sp.z });
+  const at = (sp: { x: number; z: number }) => ({ x: sp.x, z: sp.z });
 
   // Straight in from the character select screen: the Admin card's zone takes the chosen character
   // into the world and on into the yard.
@@ -180,8 +180,8 @@ test('an admin in the yard finds its dummy and slimes standing on its floor, and
   expect(Math.hypot(dummy.x - post.x, dummy.z - post.z)).toBeLessThan(0.1);
   expect(Math.abs(dummy.y)).toBeLessThan(0.5);
   // Drawn there too, on the floor and not on the island far below.
-  await expect.poll(() => page.evaluate(() => window.__game.drawnDummy()?.y ?? null), { timeout: 10_000 }).toBeCloseTo(zone.origin.y, 0);
-  expect(await page.evaluate(([x, z]) => window.__game.ground(x, z), [post.x, post.z] as const)).toBeCloseTo(zone.origin.y, 1);
+  await expect.poll(() => page.evaluate(() => window.__game.drawnDummy()?.y ?? null), { timeout: 10_000 }).toBeCloseTo(0, 0);
+  expect(await page.evaluate(([x, z]) => window.__game.ground(x, z), [post.x, post.z] as const)).toBeCloseTo(0, 1);
 
   // Up to it and swinging: the server, measuring from the floor, lets the blows land.
   await page.evaluate(([x, z]) => window.__game.teleport(x, z), [post.x, post.z - 1.2] as const);
@@ -224,7 +224,7 @@ test('an admin goes into the goblin camp from the Admin window and finds its war
   const goblins = () => page.evaluate(() => window.__game.shownActors().filter((a) => a.kindId === 'goblin'));
   await expect.poll(async () => (await goblins()).length, { timeout: 30_000 }).toBe(band.count);
   for (const g of await goblins()) {
-    expect(Math.hypot(g.x - (zone.origin.x + band.x), g.z - (zone.origin.z + band.z))).toBeLessThan(8);
+    expect(Math.hypot(g.x - band.x, g.z - band.z)).toBeLessThan(8);
     expect(Math.abs(g.y)).toBeLessThan(0.5);
   }
 });

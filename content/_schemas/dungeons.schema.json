@@ -27,9 +27,6 @@
     "style": {
       "type": "string"
     },
-    "origin": {
-      "type": "object"
-    },
     "arrive": {
       "type": "object"
     },
@@ -60,7 +57,6 @@
     "id",
     "name",
     "maxPlayers",
-    "origin",
     "arrive",
     "exit",
     "fall",

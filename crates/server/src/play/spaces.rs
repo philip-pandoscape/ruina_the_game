@@ -709,7 +709,7 @@ mod tests {
         // A creature's height is above the ground under it, which in the copy is the yard's floor.
         let yard = dungeon("yard").unwrap();
         for a in &sp.games[&copy].actors.list {
-            assert_eq!(yard.floor_at(a.x, a.z), Some(yard.origin.y), "{} is over the yard's floor", a.kind);
+            assert_eq!(yard.floor_at(a.x, a.z), Some(0.0), "{} is over the yard's floor", a.kind);
             assert!(a.y.abs() < 1.0, "{} stands on it ({} above it)", a.kind, a.y);
         }
     }
@@ -749,7 +749,7 @@ mod tests {
     fn at_the_exit(sp: &mut Spaces, who: i64) {
         let def = dungeon("goblinsDread").unwrap();
         let a = def.arrival();
-        sp.game_of(who).unwrap().place(who, def.origin.x + def.exit.x, a.y, def.origin.z + def.exit.z);
+        sp.game_of(who).unwrap().place(who, def.exit.x, a.y, def.exit.z);
     }
 
     #[test]

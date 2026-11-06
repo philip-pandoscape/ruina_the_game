@@ -13,9 +13,9 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
   foundations, decided 2026-11-06, D16-D19), with 9's rest beside them; 7, 11 and 12 done.
 - **Next:**
   1. Phase 10's foundations, in order:
-     - R10.14 the words;
-     - R10.15 spaces;
-     - R10.1 and R10.16 the world as data and the world map;
+     - R10.14 the words (as each area is touched);
+     - R10.1 and R10.16 the world as data and the world map (the map, borders and the rules taking
+       the world are in; the content's folders and growing by need are left);
      - R10.17 ids and the clock;
      - R10.18 the tick that splits;
      - R10.19 borders;
@@ -986,12 +986,26 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
   "Island" leaves the code, the wire and the docs (`IslandView`, `takeIsland`, `islandData`,
   `Saved`, and `characters.island` by a migration). Each name changes as its area is touched, and the
   bible and the design pages say the same.
-- [ ] **R10.15** Spaces.
+- [x] **R10.15** Spaces.
   - Every position the server, the browser or a save keeps carries its space.
   - Each instance has a frame of its own: its world is built from its file, not from pieces added
     high in Emberholm's sky. That means `open/dungeon.rs`, `OpenWorld::make_dungeon`,
     `ChannelGame::copy` and the browser's dungeon visit.
   - The "within 760 m, apart from the others" rule goes.
+  Done (this commit): an instance is a space of its own, `OpenWorld::instance`: its floors and walls
+  round its own origin (the files lose `origin`), its map with no region and no sea in it
+  (`WorldMap::void`: nothing under its floors but a long fall), so nothing of the world is near you
+  in it (the rules take the world, ca6cfc2). The server's copy plays it (`ChannelGame::copy`, its
+  fights measured from its floor and nothing under it); the browser's session plays it in place of
+  the world while you're inside and takes the world back after (houses and farms the server makes
+  solid meanwhile go into the world set aside); the page's ground there is the engine's for that
+  space (`spaceGround`; the camera, shadows and effects read `engine.terrain` when they're used), and
+  the island is put away for an arena too, which keeps its sky. A position is kept in the space it
+  was taken in: each server game is one space, a portal or a way out is checked in that game's frame,
+  and a save made in a copy keeps the spot outside its door (the server's already did; the
+  page's offline save too now), at the portal's height to settle from. The 760 m rule went; each
+  instance is checked to have a floor where you come in and its pieces within its edge. The
+  battlefield's replay hash moved (everyone round its own origin).
 - [~] **R10.16** The world map in the engine.
   - **Queries:** height, surface, water and colliders are answered across regions, by chunk.
   - **Growing:** a region is grown from its recipe when it's first needed, and dropped when it no
@@ -1271,6 +1285,7 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
 | 2026-11-06 | R9.1, R9.2 | Saved builds by id; the content's hash on the wire (a background agent, merged) | 29f0696, e06eda0, cb7bfa0 |
 | 2026-11-06 | R10.16 | Borders: the ground blended across them, regions meeting vertex for vertex and the open sea sloping to meet them; walked across a land border | 86e96b5 |
 | 2026-11-06 | R10.16, R10.1 | The rules take the world: what's near you from the space you're in, what's found by id from the whole world; gathering spots by id | ca6cfc2 |
+| 2026-11-06 | R10.15 | Instances in spaces of their own: a dungeon or developer zone played round its own origin over nothing, in place of the world, by the server and the browser | (this commit) |
 | 2026-11-06 | R9.14 | `docs/content.md` | 5e23680 |
 | 2026-11-06 | R10.10, R11.1, R11.2, R11.7, R11.8 | Snapshot to move machines: the battle server's Rust gone; the asset manifest, loader and first-download budget, `docs/assets.md` | a975617 |
 | 2026-11-06 | R6.10, R6.11, R6.8 | The client's moves: creature bodies into src/render/creatures/, the root files to their areas, the library under src/dev/ | 9317ff3, 5de387d, 81df3de |

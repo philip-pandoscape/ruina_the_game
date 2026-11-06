@@ -1,21 +1,23 @@
-//! The island's dungeons and the developer zones (content/dungeons/<id>.json, built into
-//! shared/dungeons.json; docs/zones.md; the page reads the files through
-//! src/engine/world/dungeons.ts). Each party plays its own copy of one (crate::spaces). Inside,
-//! everything stands round a
-//! spot high above the sea that nothing else in the world uses, and is solid only in a copy: a
-//! copy's OpenWorld gets the dungeon's boxes and decks, the channels never do.
+//! The world's instances: its dungeons and the developer zones (content/dungeons/<id>.json, built
+//! into shared/dungeons.json; docs/zones.md; the page reads the files through
+//! src/engine/world/dungeons.ts). Each party plays its own copy of one (crate::spaces), a space of
+//! its own: everything in it stands round its own origin, in a frame no region shares, over nothing
+//! (its map has no regions and no sea: OpenWorld::instance), and its floors and walls are the only
+//! things solid in it.
 
+use std::collections::BTreeSet;
 use std::sync::OnceLock;
 
 use serde::Deserialize;
 
-use crate::jsmath::JsMath;
+use crate::jsmath::{JsMath, js_hypot};
 
 use super::OpenWorld;
-use super::colliders::{ground_at, in_rect};
+use super::colliders::{ColliderIndex, ground_at, in_rect};
+use super::map::WorldMap;
 use super::zone::{BoxCollider, Deck, DungeonDoor, Spawn, rect};
 
-/// A box or deck as a dungeon's file gives it: around the origin, its top above the origin's height.
+/// A box or deck as a dungeon's file gives it: round its origin, its top above the origin.
 #[derive(Deserialize, Clone, Copy, Debug)]
 pub struct Piece {
     pub x: f64,
@@ -24,13 +26,6 @@ pub struct Piece {
     pub hd: f64,
     pub rot: f64,
     pub top: f64,
-}
-
-#[derive(Deserialize, Clone, Copy, Debug)]
-pub struct Origin {
-    pub x: f64,
-    pub y: f64,
-    pub z: f64,
 }
 
 /// The portal back out: F within `r` of it.
@@ -48,11 +43,10 @@ pub struct DungeonDef {
     pub name: String,
     /// How many players a copy holds.
     pub max_players: usize,
-    pub origin: Origin,
-    /// Where you come in (around the origin, on its floor).
+    /// Where you come in (round its origin, on its floor).
     pub arrive: Spawn,
     pub exit: Exit,
-    /// Below origin.y + fall you're put back where you came in.
+    /// Below this you're put back where you came in.
     pub fall: f64,
     pub boxes: Vec<Piece>,
     pub decks: Vec<Piece>,
@@ -67,13 +61,13 @@ pub struct DungeonDef {
     #[serde(default)]
     pub door: Option<DungeonDoor>,
     /// Bots in it while anyone is (crate::bots): how many, with which brain, on which side, round
-    /// where (relative to the origin).
+    /// where.
     #[serde(default)]
     pub bots: Vec<ZoneBots>,
     /// How the browser draws it: "cave" (the default) or "arena" (open sky).
     #[serde(default)]
     pub style: Option<String>,
-    /// Creatures a copy of it brings (relative to the origin): a training dummy, slimes, goblins.
+    /// Creatures a copy of it brings: a training dummy, slimes, goblins.
     #[serde(default)]
     pub spawns: Vec<ZoneSpawn>,
 }
@@ -96,8 +90,8 @@ fn one() -> u32 {
 }
 
 impl ZoneSpawn {
-    /// Where each one stands (relative to the origin), which way it faces, and its seed: a band in a
-    /// ring round the spot facing out, anything else on the spot.
+    /// Where each one stands, which way it faces, and its seed: a band in a ring round the spot
+    /// facing out, anything else on the spot.
     pub fn points(&self, seed: u32) -> Vec<(f64, f64, f64, u32)> {
         let n = self.count.max(1);
         (0..n)
@@ -130,45 +124,67 @@ pub struct Spot {
 }
 
 impl DungeonDef {
-    /// Its boxes and decks, where they stand in the world.
+    /// Its boxes and decks, where they stand in its space.
     pub fn colliders(&self) -> (Vec<BoxCollider>, Vec<Deck>) {
-        let o = self.origin;
-        let place = |p: &Piece| rect(o.x + p.x, o.z + p.z, p.hw, p.hd, p.rot, o.y + p.top);
+        let place = |p: &Piece| rect(p.x, p.z, p.hw, p.hd, p.rot, p.top);
         (self.boxes.iter().map(place).collect(), self.decks.iter().map(place).collect())
     }
 
     /// Where you stand on arriving (the floor's height there is found once it's solid).
     pub fn arrival(&self) -> Spot {
-        let o = self.origin;
-        Spot { x: o.x + self.arrive.x, y: o.y, z: o.z + self.arrive.z, facing: self.arrive.facing }
+        Spot { x: self.arrive.x, y: 0.0, z: self.arrive.z, facing: self.arrive.facing }
     }
 
     /// Whether you're at the portal back out: within its reach (a step's slack), on its floor.
     pub fn at_exit(&self, x: f64, y: f64, z: f64) -> bool {
-        let o = self.origin;
-        let (ex, ez) = (o.x + self.exit.x, o.z + self.exit.z);
-        ((x - ex).powi(2) + (z - ez).powi(2)).sqrt() <= self.exit.r + 1.0 && (y - o.y).abs() < 6.0
+        ((x - self.exit.x).powi(2) + (z - self.exit.z).powi(2)).sqrt() <= self.exit.r + 1.0 && y.abs() < 6.0
     }
 
-    /// The floor at (x, z) (in the world), if it has one there: the top of the highest of its low
-    /// pieces (a floor, a deck; walls and rails aren't floor) whose footprint holds the point. What a
-    /// creature in a copy of it stands on.
+    /// The floor at (x, z), if it has one there: the top of the highest of its low pieces (a floor, a
+    /// deck; walls and rails aren't floor) whose footprint holds the point. What a creature in a copy
+    /// of it stands on.
     pub fn floor_at(&self, x: f64, z: f64) -> Option<f64> {
-        let o = self.origin;
         self.boxes
             .iter()
             .chain(&self.decks)
             .filter(|p| p.top <= 0.6)
-            .filter(|p| in_rect(&rect(o.x + p.x, o.z + p.z, p.hw, p.hd, p.rot, 0.0), x, z, 0.0))
-            .map(|p| o.y + p.top)
+            .filter(|p| in_rect(&rect(p.x, p.z, p.hw, p.hd, p.rot, 0.0), x, z, 0.0))
+            .map(|p| p.top)
             .max_by(f64::total_cmp)
     }
 
     /// Whether someone has fallen out of it.
     pub fn fallen_out(&self, y: f64) -> bool {
-        y < self.origin.y + self.fall
+        y < self.fall
+    }
+
+    /// How far its pieces reach from its origin.
+    pub fn reach(&self) -> f64 {
+        self.boxes.iter().chain(&self.decks).map(|p| js_hypot(p.x, p.z) + js_hypot(p.hw, p.hd)).fold(0.0, f64::max)
+    }
+
+    /// Its space's map: no regions, and nothing under its floors but a long fall (no sea to land in),
+    /// its edge well past its pieces.
+    pub fn map(&self) -> &'static WorldMap {
+        static MAPS: OnceLock<Vec<WorldMap>> = OnceLock::new();
+        let maps = MAPS.get_or_init(|| {
+            dungeons()
+                .iter()
+                .map(|d| {
+                    let r = d.reach() + VOID_MARGIN;
+                    WorldMap::void([-r, -r, r, r], d.fall - VOID_DEPTH)
+                })
+                .collect()
+        });
+        let i = dungeons().iter().position(|d| d.id == self.id).expect("one of the world's instances");
+        &maps[i]
     }
 }
+
+/// How far past an instance's pieces its edge is.
+const VOID_MARGIN: f64 = 64.0;
+/// How far under where someone is caught falling the nothing under an instance is.
+const VOID_DEPTH: f64 = 100.0;
 
 /// Every dungeon there is.
 /// Every dungeon and developer zone, from shared/dungeons.json (built from content/dungeons/).
@@ -190,20 +206,16 @@ pub fn dungeon(id: &str) -> Option<&'static DungeonDef> {
 }
 
 impl OpenWorld {
-    /// Makes a world a copy of a dungeon: its floors and walls solid, and anyone knocked down in it
-    /// back on their feet where they came in, not at the island's spawn far below.
-    pub fn make_dungeon(&mut self, def: &DungeonDef) {
+    /// A copy of an instance, a space of its own: its floors and walls the only things solid, over
+    /// nothing, and anyone knocked down in it back on their feet where they came in. `home` is the
+    /// region its players' lives belong to (OpenWorld::zone): nothing of it is near them in here.
+    pub fn instance(def: &'static DungeonDef, home: &'static super::zone::Zone) -> Self {
+        let map = def.map();
         let (boxes, decks) = def.colliders();
-        for b in boxes {
-            self.index.add_box(b);
-        }
-        for d in decks {
-            self.index.add_deck(d);
-        }
+        let index = ColliderIndex::new(Vec::new(), boxes, decks);
         let a = def.arrival();
-        let hf = self.terrain();
-        let y = ground_at(hf, &self.index, a.x, a.z, a.y + 1.2, 1.2);
-        self.respawn = Some(Spot { y, ..a });
+        let y = ground_at(map, &index, a.x, a.z, a.y + 1.2, 1.2);
+        OpenWorld { map, zone: home, index, clear: home.clear.clone(), added: BTreeSet::new(), movers: Vec::new(), respawn: Some(Spot { y, ..a }) }
     }
 }
 
@@ -213,42 +225,36 @@ mod tests {
     use crate::open::zone::emberholm;
 
     #[test]
-    fn goblins_dread_is_solid_only_in_a_copy() {
+    fn goblins_dread_is_a_space_of_its_own() {
         let def = dungeon("goblinsDread").expect("Goblin's Dread");
         assert_eq!(def.name, "Goblin's Dread");
         assert!(def.max_players >= 1);
+        let world = OpenWorld::instance(def, emberholm());
         let a = def.arrival();
-        let mut world = OpenWorld::new(emberholm());
-        let hf = world.terrain();
-        // Nothing there in the open world: you'd be over the sea, far below.
-        assert!(ground_at(hf, &world.index, a.x, a.z, a.y + 1.2, 1.2) < a.y - 100.0);
-        assert!(world.respawn.is_none());
-        world.make_dungeon(def);
+        // On its floor where you come in, round its own origin.
         let floor = world.respawn.expect("a copy has a place to get up again").y;
-        assert!((floor - def.origin.y).abs() < 1.0, "on the floor where you arrive: {floor}");
-        assert!(def.at_exit(def.origin.x + def.exit.x, def.origin.y, def.origin.z + def.exit.z));
-        assert!(!def.at_exit(a.x + 30.0, a.y, a.z));
-        assert!(def.fallen_out(def.origin.y + def.fall - 1.0) && !def.fallen_out(def.origin.y));
+        assert!(floor.abs() < 1.0, "on the floor where you arrive: {floor}");
+        assert_eq!(def.floor_at(a.x, a.z).map(|f| (f - floor).abs() < 1e-9), Some(true));
+        // Nothing of Emberholm in it: no trees, no ground, no sea; off its floor, a long fall.
+        assert_eq!(world.index.obstacles.len(), 0);
+        assert!(world.map.regions().is_empty());
+        assert!(world.map.height(a.x + 500.0, a.z) < def.fall - 50.0);
+        assert_eq!(world.map.depth(a.x, a.z), 0.0, "nothing to swim in");
+        assert!(world.map.recipes().next().is_none(), "nobody and nothing of the world's near you in here");
+        // Its way out, and the fall it catches.
+        assert!(def.at_exit(def.exit.x, 0.0, def.exit.z));
+        assert!(!def.at_exit(a.x + 30.0, 0.0, a.z));
+        assert!(def.fallen_out(def.fall - 1.0) && !def.fallen_out(0.0));
     }
 
     #[test]
-    fn every_dungeon_stands_where_players_may_go_and_apart_from_the_others() {
-        use crate::jsmath::js_hypot;
-        // How far its pieces reach from its origin, round each piece's middle.
-        let reach = |d: &DungeonDef| d.boxes.iter().chain(&d.decks).map(|p| js_hypot(p.x, p.z) + js_hypot(p.hw, p.hd)).fold(0.0, f64::max);
-        let world = OpenWorld::new(emberholm());
+    fn every_instance_stands_on_its_own_floor_within_its_edge() {
         for d in dungeons() {
-            let r = reach(d) + crate::open::traverse::EDGE;
-            assert!(
-                world.map.inside(d.origin.x, d.origin.z, r),
-                "{} reaches past where players are kept, {} m in from the edge of the world",
-                d.id,
-                crate::open::traverse::EDGE
-            );
-            for e in dungeons().iter().filter(|e| e.id < d.id) {
-                let gap = js_hypot(d.origin.x - e.origin.x, d.origin.z - e.origin.z) - reach(d) - reach(e);
-                assert!(gap > 20.0, "{} and {} are {gap:.0} m apart", d.id, e.id);
-            }
+            let world = OpenWorld::instance(d, emberholm());
+            let a = d.arrival();
+            assert!(d.floor_at(a.x, a.z).is_some(), "{} has a floor where you come in", d.id);
+            assert!(world.map.inside(a.x, a.z, crate::open::traverse::EDGE) && world.map.inside(d.exit.x, d.exit.z, crate::open::traverse::EDGE), "{}", d.id);
+            assert!(world.map.inside(d.reach(), 0.0, crate::open::traverse::EDGE), "{}: its edge is past its pieces", d.id);
         }
     }
 

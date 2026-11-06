@@ -196,8 +196,8 @@ export class OpenStage {
   }
 
   /**
-   * Into a dungeon: its cave drawn round its origin, the island put away, the cave's own light; or
-   * into a developer zone, its arena drawn there under the sky, the island still in view below.
+   * Into a dungeon, a space of its own: its cave drawn round its origin, the island put away, the
+   * cave's own light; or into a developer zone, its arena drawn there under the sky.
    */
   enterDungeon(def: DungeonDef): void {
     let view = this.dungeons.get(def.id);
@@ -209,9 +209,9 @@ export class OpenStage {
     if (this.inside && this.inside !== view) this.inside.group.visible = false;
     view.group.visible = true;
     this.inside = view;
-    if (!view.dark) return;
-    for (const o of this.outdoors()) o.visible = false;
-    this.lightInside();
+    // The island isn't in its space (it would stand where the dungeon does); an arena keeps the sky.
+    for (const o of this.outdoors()) o.visible = !view.dark && o === this.sky.group;
+    if (view.dark) this.lightInside();
   }
 
   /** Back out on the island: the cave put away, the island drawn again, lit by the sky (the next setTime). */

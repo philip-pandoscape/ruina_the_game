@@ -259,7 +259,7 @@ export interface World {
   zone?: ZoneData;
   /**
    * Where someone knocked down gets up again instead of the island's spawn: in a copy of a dungeon,
-   * where it's entered (crates/engine/src/open/dungeon.rs make_dungeon does the same).
+   * where it's entered (crates/engine/src/open/dungeon.rs OpenWorld::instance does the same).
    */
   respawnAt?: { x: number; y: number; z: number; facing: number };
   /**

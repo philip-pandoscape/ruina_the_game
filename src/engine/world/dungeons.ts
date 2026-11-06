@@ -3,14 +3,14 @@ import { inRect } from './colliders';
 import { rect } from './frames';
 import type { DungeonDoor, ZoneRecipe } from './types';
 
-// The island's dungeons and the developer zones (content/dungeons/<id>.json, built into
-// shared/dungeons.json; docs/zones.md). Each party plays its own copy of one, which the
-// server keeps apart from the open world (crates/server/src/play/spaces.rs); inside, everything
-// stands round a spot high above the sea that nothing else in the world uses, and is solid only in a
-// copy (crates/engine/src/open/dungeon.rs; offline the Engine adds a dungeon's boxes and decks while
-// you're inside one, src/engine/engine.ts). These read a dungeon's file for the page.
+// The world's instances: its dungeons and the developer zones (content/dungeons/<id>.json, built
+// into shared/dungeons.json; docs/zones.md). Each party plays its own copy of one, a space of its
+// own (crates/server/src/play/spaces.rs; offline the Engine plays it in place of the world while
+// you're inside, src/engine/engine.ts): everything in it stands round its own origin, over nothing,
+// and its floors and walls are all that's solid there (crates/engine/src/open/dungeon.rs). These
+// read a dungeon's file for the page.
 
-/** A box or deck as a dungeon's file gives it: around `origin`, its top above `origin.y`. */
+/** A box or deck as a dungeon's file gives it: round its origin, its top above it. */
 export interface DungeonPiece {
   id: string;
   x: number;
@@ -26,12 +26,11 @@ export interface DungeonDef {
   name: string;
   /** How many players a copy holds. */
   maxPlayers: number;
-  origin: { x: number; y: number; z: number };
-  /** Where you come in (around the origin, on its floor). */
+  /** Where you come in (round its origin, on its floor). */
   arrive: { x: number; z: number; facing: number };
   /** The portal back out: F within `r` of it. */
   exit: { x: number; z: number; r: number };
-  /** Below origin.y + fall you are put back at `arrive`. */
+  /** Below this you are put back at `arrive`. */
   fall: number;
   boxes: DungeonPiece[];
   decks: DungeonPiece[];
@@ -66,28 +65,22 @@ export function dungeonDoor(recipe: ZoneRecipe, id: string): DungeonDoor | undef
   return recipe.dungeons?.find((d) => d.id === id);
 }
 
-/** A point given around a dungeon's origin, in the world. */
-export function inWorld(def: DungeonDef, x: number, z: number, y = 0): { x: number; y: number; z: number } {
-  return { x: def.origin.x + x, y: def.origin.y + y, z: def.origin.z + z };
-}
-
 /**
- * The floor at (x, z) in the world, if a copy of the dungeon has one there: the top of the highest of
- * its low pieces (a floor, a deck; walls and rails aren't floor) whose footprint holds the point.
- * What its creatures stand on (crates/engine/src/open/dungeon.rs floor_at).
+ * The floor at (x, z) in a copy of the dungeon, if it has one there: the top of the highest of its
+ * low pieces (a floor, a deck; walls and rails aren't floor) whose footprint holds the point. What
+ * its creatures stand on (crates/engine/src/open/dungeon.rs floor_at).
  */
 export function floorAt(def: DungeonDef, x: number, z: number): number | null {
   let best: number | null = null;
   for (const p of [...def.boxes, ...def.decks]) {
     if (p.top > 0.6) continue;
-    if (!inRect(rect(def.origin.x + p.x, def.origin.z + p.z, p.hw, p.hd, p.rot, 0), x, z)) continue;
-    const top = def.origin.y + p.top;
-    if (best === null || top > best) best = top;
+    if (!inRect(rect(p.x, p.z, p.hw, p.hd, p.rot, 0), x, z)) continue;
+    if (best === null || p.top > best) best = p.top;
   }
   return best;
 }
 
 /** Where you stand on arriving: on the floor at `arrive`, facing the way it says. */
 export function arrivalOf(def: DungeonDef): { x: number; y: number; z: number; facing: number } {
-  return { ...inWorld(def, def.arrive.x, def.arrive.z), facing: def.arrive.facing };
+  return { x: def.arrive.x, y: 0, z: def.arrive.z, facing: def.arrive.facing };
 }

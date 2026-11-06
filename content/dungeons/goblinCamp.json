@@ -1,16 +1,11 @@
 {
-  "comment": "The goblin camp, a developer zone (docs/zones.md): only admins go in, from the Admin menu, each party into a copy of its own. A war-band of goblins (content/creatures/goblin/) stands round its fire at the north end, to fight or to watch working together: they spot you, close in turns, circle, stab, throw and drink when hurt (crates/engine/src/pack.rs). An open arena high above the sea north-west of Emberholm, placed as a dungeon is (content/dungeons/goblinsDread.json says how), inside the 760 m from the middle that anyone can go. `door` is where its way out lets you out on the island. Heights (top) are above origin.y.",
+  "comment": "The goblin camp, a developer zone (docs/zones.md): only admins go in, from the Admin menu, each party into a copy of its own. A war-band of goblins (content/creatures/goblin/) stands round its fire at the north end, to fight or to watch working together: they spot you, close in turns, circle, stab, throw and drink when hurt (crates/engine/src/pack.rs). An open arena in a space of its own (content/dungeons/goblinsDread.json says how). `door` is where its way out lets you out in the world. Heights (top) are above its origin.",
   "id": "goblinCamp",
   "name": "The Goblin Camp",
   "about": "A war-band of goblins round their fire, to fight or to watch working together: they spot you, take turns to close in, circle, stab, throw and drink when hurt.",
   "maxPlayers": 5,
   "developer": true,
   "style": "arena",
-  "origin": {
-    "x": -450,
-    "y": 400,
-    "z": 520
-  },
   "arrive": {
     "x": 0,
     "z": -18,

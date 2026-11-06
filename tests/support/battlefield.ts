@@ -15,7 +15,6 @@ import { serverBuilt } from './testServer';
 // skips without one.
 
 export const ZONE = JSON.parse(readFileSync('content/dungeons/battlefield.json', 'utf8')) as {
-  origin: { x: number; y: number; z: number };
   exit: { x: number; z: number };
 };
 
@@ -105,9 +104,9 @@ export function battlefield(base: number) {
   return { server, fighter };
 }
 
-/** Stands someone at (x, z) round the battlefield's origin, facing `facing`, once the server has put them there. */
+/** Stands someone at (x, z) round the battlefield's origin (its own space's), facing `facing`, once the server has put them there. */
 export async function stand(page: Page, x: number, z: number, facing = 0): Promise<void> {
-  const at = { x: ZONE.origin.x + x, z: ZONE.origin.z + z };
+  const at = { x, z };
   await page.evaluate(([x, z, f]) => window.__game.teleport(x, z, f), [at.x, at.z, facing] as const);
   await page.waitForFunction(
     ([x, z]) => {

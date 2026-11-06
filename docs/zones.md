@@ -12,11 +12,12 @@ to try things out. Each of those is a file; nothing in code lists them.
 
 ## How a Copy Works
 
-A dungeon or developer zone is floors and walls round an `origin` high above the sea, which nothing
-else in the world uses. They're solid only in a copy of it: the server's copy gets its pieces
-(`crates/engine/src/open/dungeon.rs`, `OpenWorld::make_dungeon`), and so does the browser while you're
-in one (`src/engine/world/dungeons.ts`, `src/app/dungeonVisit.ts`), so the island's channels never meet
-them.
+A dungeon or developer zone is an instance: a space of its own, its floors and walls round its own
+origin, over nothing. A copy of it plays that space alone (`crates/engine/src/open/dungeon.rs`,
+`OpenWorld::instance`: no region in its map, no sea, a long fall under its floors), the server's and
+the browser's while you're in one (`src/engine/world/dungeons.ts`, `src/app/dungeonVisit.ts`: the
+world set aside until you come back out), so nothing of the world is near you in it, and nothing of
+it in the world.
 
 - **Going in** moves you between games on the server mid-connection, island and all
   (`Spaces::move_to`); the browser hears where it is (`onSpace`) and draws the place: a cave
@@ -25,22 +26,22 @@ them.
 - **A copy is kept** 30 minutes after the last player leaves, as World of Warcraft keeps an instance;
   whoever is in it but no longer in its party is put out after a minute.
 - **Saving**: an island in a copy is saved as standing outside its door, so a restart puts you there.
-- **Falling** below `origin.y + fall`, or being knocked down, gets you up where you came in.
+- **Falling** below `fall`, or being knocked down, gets you up where you came in.
 - **Creatures** a copy brings (`spawns`) stand on its floor: their heights, and every height in a fight,
   are measured from the copy's floor where it has one (`DungeonDef::floor_at`, the highest piece no
   more than 0.6 m tall under a point; `floorAt` in the browser).
 
 ## A Zone's File
 
-Everything round `origin`; heights (`top`) above `origin.y`. `content/_schemas/dungeons.schema.json`
-holds the fields.
+Everything round its own origin, heights (`top`) above it: an instance's space is its own, so where
+one stands says nothing about where another does. `content/_schemas/dungeons.schema.json` holds the
+fields.
 
 | Field | What |
 |---|---|
 | `id`, `name` | Its id (the file's name) and what it's called |
 | `about` | A developer zone's line in the Admin menu |
 | `maxPlayers` | How many a copy holds |
-| `origin` | Where it stands: high above the sea, every piece within the 760 m of the middle players are kept to, and apart from the others (the engine's tests check both) |
 | `arrive`, `exit`, `fall` | Where you come in and which way you face; the way out (F within `r` of it); how far below the floor you can fall |
 | `boxes`, `decks` | Its pieces: `x`, `z`, half-sizes `hw`, `hd`, a turn `rot` and a `top`. A box is solid to its top; a deck is a floor you can walk under |
 | `style` | `"cave"` (the default) or `"arena"` (open sky) |
@@ -54,11 +55,11 @@ holds the fields.
 
 **A developer zone** is its file alone:
 
-1. Copy `content/dungeons/yard.json` to `content/dungeons/<id>.json`; give it an `id`, `name`,
-   `about` and an `origin` clear of the others; lay out its pieces, spawns and bots.
+1. Copy `content/dungeons/yard.json` to `content/dungeons/<id>.json`; give it an `id`, `name` and
+   `about`; lay out its pieces, spawns and bots round its origin.
 2. Its id in `content/dungeons/_order.json`, then `npm run content`.
-3. `cargo test --release --workspace` checks it stands where players may go, apart from the others,
-   and has a way out; the Admin menu lists it from then on.
+3. `cargo test --release --workspace` checks it has a floor where you come in, its pieces within its
+   edge, and a way out; the Admin menu lists it from then on.
 
 **A dungeon** is its file, a door on the island and, today, its dressing in code:
 

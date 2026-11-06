@@ -7,7 +7,8 @@ import type { Command, OtherPlayer, OthersVehicle } from './life/life';
 import type { House, LifeState, Scarecrow, Vehicle, Weather } from './life/state';
 import type { Actions, GameEvent, Mover, PlayerState, World } from './shapes';
 import { ColliderIndex, groundAt } from './world/colliders';
-import { dungeonDef, floorAt } from './world/dungeons';
+import { arrivalOf, dungeonDef, floorAt } from './world/dungeons';
+import { Heightfield } from './world/terrain';
 import { makeZoneWorld } from './world/region';
 import { IslandView } from './islandView';
 import { EngineSession, type SessionView } from './session';
@@ -51,8 +52,8 @@ function islandWorld(): World {
 
 export class Engine {
   readonly world: World;
-  /** The island's ground (null on the yard's flat ground). */
-  readonly terrain: World['terrain'] | null;
+  /** In a copy of an instance, the world's ground, set aside until you come back out to it. */
+  private outsideTerrain: Heightfield | undefined;
   /** Online: the server decides; these rules only predict your own moves. */
   readonly online: boolean;
   /** You, the step count, your skills' numbers and the creatures, as the engine last showed them. */
@@ -100,7 +101,6 @@ export class Engine {
     this.session = new EngineSession({ openWorld: o.openWorld, online: o.online, goblins: o.goblins, build: o.build });
     // The yard as the session lays it out (its props, the dummy, where you start, who stands about).
     this.world = o.openWorld ? islandWorld() : this.session.call<World>('world');
-    this.terrain = this.world.terrain ?? null;
     const first = this.session.view(false);
     this.solid = first.solid;
     this.sim = new SimView(this.world, first.player);
@@ -256,19 +256,31 @@ export class Engine {
    */
   enterDungeon(id: string): boolean {
     if (!this.session.call<boolean>('enterDungeon', { id })) return false;
+    if (!this.dungeon) this.outsideTerrain = this.world.terrain;
     this.dungeon = id;
     if (this.life) this.life.dungeon = id;
+    // Its space has no ground but a long fall under its floors, and no sea: what the page reads of the
+    // ground there (the camera, shadows, effects) is the engine's for it, not the world's.
+    const g = this.session.call<{ floor: number; water: number } | null>('spaceGround');
+    if (g && this.outsideTerrain) this.world.terrain = nothingUnder(g.floor, g.water);
     this.reread();
     return true;
   }
 
-  /** Out of the copy you're in: its floors and walls gone from your world again. */
+  /** Out of the copy you're in, back in the world. */
   leaveDungeon(): void {
     if (!this.dungeon) return;
     this.session.call('leaveDungeon');
     this.dungeon = null;
     if (this.life) this.life.dungeon = null;
+    if (this.outsideTerrain) this.world.terrain = this.outsideTerrain;
+    this.outsideTerrain = undefined;
     this.reread();
+  }
+
+  /** The ground of the space you're in (null on the yard's flat ground): the world's, or in a copy of an instance the nothing under its floors. */
+  get terrain(): Heightfield | null {
+    return this.world.terrain ?? null;
   }
 
   /** The dungeon or developer zone you're in a copy of (null out in the world). */
@@ -285,7 +297,7 @@ export class Engine {
   /** The floor's height in the copy you're in (null out in the world). */
   floorHere(): number | null {
     const def = this.dungeon ? dungeonDef(this.dungeon) : undefined;
-    return def ? def.origin.y : null;
+    return def ? arrivalOf(def).y : null;
   }
 
   /** Which dungeons have been made solid in your world, and whether they still are (tests). */
@@ -435,4 +447,11 @@ export class Engine {
     this.session.call('takeHit', { damage, dirX, dirZ, knock });
     this.reread();
   }
+}
+
+/** A space's ground where there's none: one flat square at `floor` everywhere, the water under it. */
+function nothingUnder(floor: number, water: number): Heightfield {
+  const hf = new Heightfield(1, 4096, water);
+  hf.heights.fill(floor);
+  return hf;
 }

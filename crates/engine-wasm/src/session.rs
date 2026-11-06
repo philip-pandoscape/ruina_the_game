@@ -290,6 +290,7 @@ fn call(s: &mut Session, v: &Value) -> Value {
         "floorAt" => return json!(s.floor_at(n("x"), n("z"))),
         "floorHere" => return json!(s.floor_here()),
         "solidity" => return json!(s.solidity()),
+        "spaceGround" => return s.space_ground(),
         "groundY" => return json!(s.ground_y(n("x"), n("z"))),
         "standingAt" => return json!(s.standing_at(n("x"), n("z"), n("near"), n("pad"))),
         "loadIsland" => return json!(v.get("data").is_some_and(|d| s.load_island(d, n("now")))),

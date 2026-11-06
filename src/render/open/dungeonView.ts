@@ -92,7 +92,6 @@ export class DungeonView {
   constructor(def: DungeonDef) {
     this.def = def;
     this.group.name = `dungeon-${def.id}`;
-    this.group.position.set(def.origin.x, def.origin.y, def.origin.z);
     this.build();
     this.group.visible = false;
   }

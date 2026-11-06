@@ -27,7 +27,6 @@ export class ArenaView {
 
   constructor(readonly def: DungeonDef) {
     this.group.name = `arena-${def.id}`;
-    this.group.position.set(def.origin.x, def.origin.y, def.origin.z);
     for (const b of def.boxes) this.group.add(this.piece(b, b.id === 'floor'));
     for (const d of def.decks) this.group.add(this.piece(d, true));
     // The way out, standing on the floor, facing into the arena.

@@ -106,8 +106,9 @@ test("a party goes through Goblin's Dread's portal into one copy, and someone on
   expect((await space(b)).copy).toBe(copyA);
   // Inside, high above the sea, on the dungeon's floor where it's entered.
   const pos = await game(a, (g) => g.state().player.pos);
-  expect(Math.hypot(pos.x - (DUNGEON.origin.x + DUNGEON.arrive.x), pos.z - (DUNGEON.origin.z + DUNGEON.arrive.z))).toBeLessThan(2);
-  expect(Math.abs(pos.y - DUNGEON.origin.y)).toBeLessThan(1);
+  // In its own space, round its own origin, on its floor.
+  expect(Math.hypot(pos.x - DUNGEON.arrive.x, pos.z - DUNGEON.arrive.z)).toBeLessThan(2);
+  expect(Math.abs(pos.y)).toBeLessThan(1);
   // Each sees the other there, and the party says two are inside.
   await expect.poll(() => game(a, (g) => g.party()?.party?.dungeons[0]?.inside), { timeout: 20_000 }).toBe(2);
   // Cy, on his own, gets a copy of his own.
@@ -130,7 +131,7 @@ test('leaving through the way out puts you outside the door, and the copy waits 
   await a.waitForTimeout(1500);
   expect((await space(a)).kind).toBe('dungeon');
   // To the way out (the developer teleport stands you on the dungeon's floor), and out.
-  const ex = { x: DUNGEON.origin.x + DUNGEON.exit.x, z: DUNGEON.origin.z + DUNGEON.exit.z };
+  const ex = { x: DUNGEON.exit.x, z: DUNGEON.exit.z };
   await a.evaluate(([x, z]) => window.__game.teleport(x, z), [ex.x, ex.z]);
   await expect
     .poll(

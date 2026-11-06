@@ -6,11 +6,6 @@
   "maxPlayers": 5,
   "developer": true,
   "style": "arena",
-  "origin": {
-    "x": -450,
-    "y": 400,
-    "z": -520
-  },
   "arrive": {
     "x": 0,
     "z": -18,

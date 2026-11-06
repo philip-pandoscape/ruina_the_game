@@ -1,5 +1,6 @@
 import { type LifeState } from './state';
 import { exitSpot, ridden } from './vehicles';
+import { dungeonDef, dungeonDoor } from '../world/dungeons';
 import type { IslandRead } from './life';
 import type { SimRead } from '../shapes';
 
@@ -19,9 +20,11 @@ export interface Saved extends Island {
   savedAt: number;
 }
 
-/** The island as it would be saved right now. */
-export function islandData(life: IslandRead, sim: SimRead): Island {
+/** The island as it would be saved right now: in a copy of an instance, standing outside its door (a save is of the world). */
+export function islandData(life: IslandRead & { readonly dungeon?: string | null }, sim: SimRead): Island {
   const p = sim.player;
+  const door = life.dungeon ? (dungeonDoor(life.zone.recipe, life.dungeon) ?? dungeonDef(life.dungeon)?.door) : undefined;
+  if (door) return { state: life.state, player: { x: door.outside.x, y: door.portal.y, z: door.outside.z, facing: door.outside.facing } };
   // Riding is not saved: you will be standing beside it next time.
   const v = p.mode === 'ride' ? ridden(life, sim) : undefined;
   const at = v ? exitSpot(sim, v) : p.pos;

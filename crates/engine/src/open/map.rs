@@ -127,6 +127,12 @@ impl WorldMap {
         Ok(WorldMap { chunk: file.chunk, water: file.sea.level, sea_floor: file.sea.level - file.sea.depth, blend: file.blend, regions, by_chunk, bounds })
     }
 
+    /// A space with no regions in it, an instance's: nothing under its own floors but a fall to
+    /// `floor`, no sea, and its edge at `bounds` (min x, min z, max x, max z).
+    pub fn void(bounds: [f64; 4], floor: f64) -> WorldMap {
+        WorldMap { chunk: 256.0, water: floor - 1.0, sea_floor: floor, blend: 0.0, regions: Vec::new(), by_chunk: BTreeMap::new(), bounds }
+    }
+
     pub fn regions(&self) -> &[Region] {
         &self.regions
     }
