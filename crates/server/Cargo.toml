@@ -13,7 +13,7 @@ sha2 = "0.10.9"
 # One port for everything (Railway gives a service one): the game's files, the account API and
 # the WebSockets.
 axum = { version = "0.8.9", features = ["ws"] }
-tower-http = { version = "0.7.1", features = ["fs", "compression-gzip"] }
+tower-http = { version = "0.7.1", features = ["fs", "compression-gzip", "compression-br"] }
 # The same tower axum is built on: a guard in front of the game's files (the developer pages).
 tower = "0.5.3"
 futures-util.workspace = true

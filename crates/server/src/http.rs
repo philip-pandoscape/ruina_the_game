@@ -24,7 +24,7 @@ use std::time::Instant;
 
 use axum::body::Bytes;
 use axum::extract::{Request, State, WebSocketUpgrade};
-use axum::http::{HeaderMap, StatusCode, header};
+use axum::http::{HeaderMap, HeaderValue, StatusCode, header};
 use axum::middleware::{self, Next};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{delete, get, post};
@@ -87,6 +87,31 @@ impl AppState {
     }
 }
 
+/// How long a browser may keep each of the game's files. The build names every script, style,
+/// picture and model in /assets/ after what's in it, so a file there never changes: kept a year,
+/// never asked about again. Everything else (the pages, which name those files) is asked about each
+/// time, and answered "not modified" (304) unless it changed, so a new build reaches everyone at once.
+async fn cache_headers(request: Request, next: Next) -> Response {
+    let named_by_content = request.uri().path().starts_with("/assets/");
+    let mut response = next.run(request).await;
+    if response.status().is_success() || response.status() == StatusCode::NOT_MODIFIED {
+        let value = if named_by_content { "public, max-age=31536000, immutable" } else { "no-cache" };
+        response.headers_mut().insert(header::CACHE_CONTROL, HeaderValue::from_static(value));
+    }
+    response
+}
+
+/// The built game's files from `dir`: cached as `cache_headers` says, compressed (brotli or gzip, as
+/// the browser takes), the developer pages only for admins.
+fn game_files(app: App, dir: PathBuf) -> Router<App> {
+    Router::new().fallback_service(
+        ServiceBuilder::new()
+            .layer(middleware::from_fn(cache_headers))
+            .layer(middleware::from_fn_with_state(app, admin_pages))
+            .service(Compression::new(ServeDir::new(dir))),
+    )
+}
+
 /// The developer pages, /dev/ and /design/, for admins only: anyone else gets "not found", as if
 /// they weren't there. The game's own files pass straight through.
 async fn admin_pages(State(app): State<App>, request: Request, next: Next) -> Response {
@@ -120,9 +145,7 @@ pub async fn serve(port: u16, everywhere: bool, state: AppState, static_dir: Opt
     let app = Arc::new(state);
     if let Some(dir) = static_dir {
         println!("serving the game from {}", dir.display());
-        // The developer pages (/dev/, /design/) only to an admin's session; "not found" to anyone else.
-        let files = ServiceBuilder::new().layer(middleware::from_fn_with_state(app.clone(), admin_pages)).service(Compression::new(ServeDir::new(dir)));
-        router = router.fallback_service(files);
+        router = router.merge(game_files(app.clone(), dir));
     }
     socket::spawn_world(app.clone());
     let saver = app.clone();
@@ -311,7 +334,28 @@ pub fn database(app: &AppState) -> Result<&PgPool, ApiError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use axum::http::HeaderValue;
+    use tower::ServiceExt;
+
+    #[tokio::test]
+    async fn hashed_files_are_kept_a_year_and_pages_are_asked_about_each_time() {
+        let dir = std::env::temp_dir().join(format!("ruina-files-{}", std::process::id()));
+        std::fs::create_dir_all(dir.join("assets")).unwrap();
+        std::fs::write(dir.join("index.html"), "<!doctype html>").unwrap();
+        std::fs::write(dir.join("assets").join("main-Ab12.js"), "export {}".repeat(200)).unwrap();
+        let app = Arc::new(state(false, ""));
+        let files = game_files(app.clone(), dir.clone()).with_state(app);
+        let get = |path: &str, accept: &str| Request::builder().uri(path).header(header::ACCEPT_ENCODING, accept).body(axum::body::Body::empty()).unwrap();
+        let script = files.clone().oneshot(get("/assets/main-Ab12.js", "br, gzip")).await.unwrap();
+        assert_eq!(script.headers()[header::CACHE_CONTROL], "public, max-age=31536000, immutable");
+        assert_eq!(script.headers()[header::CONTENT_ENCODING], "br");
+        let page = files.clone().oneshot(get("/index.html", "gzip")).await.unwrap();
+        assert_eq!(page.headers()[header::CACHE_CONTROL], "no-cache");
+        // The developer pages stay hidden, and say nothing about caching.
+        let hidden = files.oneshot(get("/dev/library.html", "gzip")).await.unwrap();
+        assert_eq!(hidden.status(), StatusCode::NOT_FOUND);
+        assert!(hidden.headers().get(header::CACHE_CONTROL).is_none());
+        std::fs::remove_dir_all(dir).ok();
+    }
 
     fn headers(pairs: &[(&'static str, &'static str)]) -> HeaderMap {
         let mut h = HeaderMap::new();
