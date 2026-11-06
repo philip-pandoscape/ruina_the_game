@@ -29,3 +29,54 @@ export interface Look {
   body?: string;
   model?: MadeModel;
 }
+
+/** How a townsperson can wear their hair, and their beard. */
+export const HAIRS = ['short', 'long', 'braid', 'ponytail', 'bun', 'bald', 'none'] as const;
+export type Hair = (typeof HAIRS)[number];
+export const BEARDS = ['bushy', 'long', 'stubble', 'moustache'] as const;
+
+/** A colour, as #rrggbb. */
+type Colour = string;
+
+/**
+ * A townsperson's look: the townsfolk's body (src/render/models/villagers.ts) built and dressed by
+ * these, and an outfit over it (an apron and a basket, a coat and a spyglass), by name.
+ */
+export interface VillagerLook {
+  outfit?: string;
+  skin: Colour;
+  /** Build: shoulder width, depth, torso height, arm thickness, leg length (1 is the hero's). */
+  w?: number;
+  d?: number;
+  h?: number;
+  arm?: number;
+  leg?: number;
+  /** A forward stoop of the upper body (radians). */
+  hunch?: number;
+  shirt: Colour;
+  sleeve?: Colour;
+  /** Sleeves rolled to the elbow. */
+  rolled?: boolean;
+  gloves?: Colour;
+  pants: Colour;
+  boots: Colour;
+  tallBoots?: boolean;
+  /** A robe or dress down to the ankles, in place of trousers, and a band round its hem. */
+  skirt?: Colour;
+  trim?: Colour;
+  /** Long coat tails behind the legs. */
+  tails?: Colour;
+  /** Its colour (leather if none is given), or null for no belt. */
+  belt?: Colour | null;
+  hair: Colour;
+  style: Hair;
+  /** A beard, in the hair's colour. */
+  beard?: (typeof BEARDS)[number];
+  blush?: boolean;
+  /** How the arms rest (radians about x, y and z), and which are free to gesture. */
+  rest?: { l?: [number, number, number]; r?: [number, number, number] };
+  free?: Array<'l' | 'r'>;
+}
+
+/** A townsperson's look as their file gives it (the zone holds it as it is), if it gives one. */
+export const villagerLook = (raw: unknown): VillagerLook | undefined => (raw && typeof raw === 'object' ? (raw as VillagerLook) : undefined);

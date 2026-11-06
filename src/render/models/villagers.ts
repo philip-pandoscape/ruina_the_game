@@ -1,12 +1,15 @@
 import * as THREE from 'three';
 import { PAL, Parts, bev, box, cone, cyl, extrude, glowMaterial, ico, mesh, mix, octa, pivot, rod, sph, tor, type Rgb, type V3 } from './kit';
 import { clamp } from '../../util/math';
+import type { Hair, VillagerLook } from '../../content/looks';
 
 // The townsfolk of Emberholm, built like the hero (src/render/creatures/heroBody.ts): chunky
 // rounded blocks, a big head, ~1.7-1.9 m tall, facing +Z with the origin at the feet. Each is
 // five merged meshes on pivots - legs, torso, head and two arms - so animate() can breathe, look
-// around and gesture (more when `talking`) for about ten draw calls. Outfits, hair, hats and a
-// prop in hand say each one's job at a glance; unknown ids get a plain villager.
+// around and gesture (more when `talking`) for about ten draw calls. Each is built and dressed
+// by their look (src/content/looks.ts VillagerLook: colours, build and hair, and an outfit by name,
+// hats and a prop in hand that say their job at a glance); one with no look gets a plain villager
+// dressed from their id.
 
 export interface VillagerAnim {
   /** Seconds. */
@@ -19,15 +22,11 @@ export interface VillagerModel {
   animate(dt: number, s: VillagerAnim): void;
 }
 
-export const VILLAGER_IDS = ['hollis', 'mara', 'tamsin', 'bertram', 'sela', 'ilsa', 'quill', 'ysolde', 'dunmore', 'pell', 'hob', 'brenna'];
-
 const ease = (a: number, b: number, v: number) => {
   const t = clamp((v - a) / (b - a), 0, 1);
   return t * t * (3 - 2 * t);
 };
 const inside = (p: number, a: number, b: number, e: number) => ease(a - e, a, p) * (1 - ease(b, b + e, p));
-
-type Hair = 'short' | 'long' | 'braid' | 'ponytail' | 'bun' | 'bald' | 'none';
 
 interface Look {
   skin: Rgb;
@@ -255,409 +254,229 @@ function beard(p: Parts, c: Rgb, kind: 'bushy' | 'long' | 'stubble' | 'moustache
   }
 }
 
-// ---------- the townsfolk ----------
+// ---------- outfits ----------
 
-const SKIN = [0xf1c27d, 0xe0ac69, 0xc68642, 0x8d5524, 0xffdbac];
-
-const hollis = () =>
-  villager(
-    'hollis',
-    {
-      skin: SKIN[4],
-      hunch: 0.12,
-      shirt: 0x6a4a9a,
-      pants: 0x6a4a9a,
-      boots: 0x4a3426,
-      skirt: 0x6a4a9a,
-      trim: PAL.gold,
-      belt: PAL.gold,
-      hair: 0xf2f2ee,
-      style: 'bald',
-      beard: { c: 0xf2f2ee, kind: 'long' },
-      rest: { r: [-0.3, 0, -0.12] },
-      free: ['l'],
-    },
-    (k) => {
-      // A gold-trimmed collar and a gnarled staff with a little green shoot.
-      k.torso.add(box(0.5, 0.08, 0.34), PAL.gold, [0, 0.49, 0]);
-      k.torso.add(box(0.06, 0.4, 0.02), PAL.gold, [0, 0.28, 0.157]);
-      k.held('r', (p, hand, ground) => {
-        p.add(rod([hand.x, ground, hand.z], [hand.x + 0.02, hand.y + 0.75, hand.z], 0.035, 6, 0.03), PAL.woodDark);
-        p.add(ico(0.07, 0), PAL.woodDark, [hand.x + 0.02, hand.y + 0.8, hand.z], undefined, [1, 1.2, 1]);
-        p.add(octa(0.045), PAL.leaf, [hand.x + 0.07, hand.y + 0.85, hand.z], undefined, [0.6, 1.2, 0.3]);
-      });
-    },
-  );
-
-const mara = () =>
-  villager(
-    'mara',
-    {
-      skin: SKIN[0],
-      shirt: 0x4f8f4a,
-      sleeve: 0x4f8f4a,
-      pants: 0x4f8f4a,
-      boots: 0x5a3a28,
-      skirt: 0x4f8f4a,
-      belt: null,
-      hair: 0x8a4a2a,
-      style: 'bun',
-      blush: true,
-      rest: { l: [-0.35, 0, 0.18] },
-      free: ['r'],
-    },
-    (k) => {
-      // A white apron over the dress, a red headscarf, a basket of produce on her arm.
-      k.torso.add(box(0.34, 0.34, 0.03), PAL.cream, [0, 0.24, 0.158]);
-      k.legs.add(box(0.44, 0.52, 0.03), PAL.cream, [0, 0.42, 0.245], [-0.12, 0, 0]);
-      k.legs.add(box(0.2, 0.12, 0.035), 0xe8dcbc, [0.07, 0.48, 0.255], [-0.12, 0, 0]);
-      k.torso.add(box(0.48, 0.05, 0.33), PAL.cream, [0, 0.1, 0]);
-      soft(k.head, 0.57, 0.24, 0.53, PAL.red, [0, 0.43, -0.02], undefined, 0.09);
-      for (const sx of [-1, 1]) k.head.add(box(0.09, 0.12, 0.05), PAL.red, [sx * 0.05, 0.28, -0.28], [0, 0, sx * 0.4]);
-      for (const [x, z] of [
-        [-0.15, 0.1],
-        [0.12, 0.15],
-        [0.0, -0.12],
-        [0.18, -0.08],
-      ] as const)
-        k.head.add(box(0.04, 0.04, 0.012), PAL.white, [x, 0.5, z + 0.12], [-1.2, 0, 0]);
-      k.held('l', (p, hand) => {
-        const b = hand.clone().add(new THREE.Vector3(0.05, -0.2, 0.06));
-        p.add(cyl(0.17, 0.13, 0.15, 8), 0xb98a55, [b.x, b.y, b.z]);
-        p.add(tor(0.15, 0.015, 3, 8, Math.PI), 0x9a6a3c, [b.x, b.y + 0.07, b.z], [0, Math.PI / 2, 0]);
-        const fruit: Array<[number, number, Rgb]> = [
-          [-0.06, 0.03, PAL.red],
-          [0.06, 0.04, 0xd9a441],
-          [0.0, -0.06, 0x6fbf4a],
-          [0.07, -0.05, PAL.red],
-        ];
-        for (const [x, z, c] of fruit) p.add(ico(0.06, 0), c, [b.x + x, b.y + 0.09, b.z + z]);
-      });
-    },
-  );
-
-const tamsin = () =>
-  villager('tamsin', { skin: SKIN[1], shirt: 0xeedfc0, rolled: true, pants: 0x6b4a32, boots: 0x3d2a1e, hair: 0xa0522d, style: 'ponytail' }, (k) => {
-    // Leather apron, a pack strap over one shoulder and the crate it holds on her back.
-    k.torso.add(box(0.38, 0.62, 0.03), 0x7a4a2a, [0, 0.12, 0.16]);
-    for (const sx of [-1, 1]) k.torso.add(box(0.03, 0.2, 0.03), 0x5a341d, [sx * 0.14, 0.42, 0.16]);
-    k.torso.add(box(0.08, 0.04, 0.035), PAL.brass, [0.1, 0.0, 0.18]);
-    k.torso.add(box(0.06, 0.62, 0.035), PAL.leatherDark, [0.02, 0.28, 0.165], [0, 0, 0.62]);
-    k.torso.add(box(0.06, 0.5, 0.035), PAL.leatherDark, [0.08, 0.3, -0.165], [0, 0, -0.5]);
-    k.torso.add(box(0.3, 0.36, 0.2), PAL.crate, [-0.06, 0.36, -0.27], [0.1, 0, -0.12]);
-    k.torso.add(box(0.32, 0.05, 0.22), PAL.woodDark, [-0.07, 0.5, -0.27], [0.1, 0, -0.12]);
+/** A gold-trimmed collar and a gnarled staff with a green shoot: the village elder's. */
+const elder: Extra = (k) => {
+  k.torso.add(box(0.5, 0.08, 0.34), PAL.gold, [0, 0.49, 0]);
+  k.torso.add(box(0.06, 0.4, 0.02), PAL.gold, [0, 0.28, 0.157]);
+  k.held('r', (p, hand, ground) => {
+    p.add(rod([hand.x, ground, hand.z], [hand.x + 0.02, hand.y + 0.75, hand.z], 0.035, 6, 0.03), PAL.woodDark);
+    p.add(ico(0.07, 0), PAL.woodDark, [hand.x + 0.02, hand.y + 0.8, hand.z], undefined, [1, 1.2, 1]);
+    p.add(octa(0.045), PAL.leaf, [hand.x + 0.07, hand.y + 0.85, hand.z], undefined, [0.6, 1.2, 0.3]);
   });
+};
 
-const bertram = () =>
-  villager(
-    'bertram',
-    {
-      skin: SKIN[0],
-      w: 1.32,
-      d: 1.3,
-      arm: 1.3,
-      shirt: 0x5a7aa0,
-      rolled: true,
-      pants: 0x4a3f36,
-      boots: 0x3a2a20,
-      hair: 0x6b4226,
-      style: 'short',
-      beard: { c: 0x6b4226, kind: 'bushy' },
-    },
-    (k) => {
-      // Brown work apron and a hammer hanging at the belt.
-      k.torso.add(box(0.5, 0.68, 0.03), 0x7d5a3a, [0, 0.12, 0.21]);
-      for (const sx of [-1, 1]) k.torso.add(box(0.035, 0.2, 0.03), 0x5a3a24, [sx * 0.18, 0.44, 0.205]);
-      k.torso.add(box(0.05, 0.3, 0.05), PAL.woodLight, [-0.33, -0.05, 0.06]);
-      k.torso.add(box(0.16, 0.08, 0.08), PAL.iron, [-0.33, -0.2, 0.06]);
-    },
-  );
+/** A white apron, a red headscarf and a basket of produce on the arm: the grocer's. */
+const grocer: Extra = (k) => {
+  k.torso.add(box(0.34, 0.34, 0.03), PAL.cream, [0, 0.24, 0.158]);
+  k.legs.add(box(0.44, 0.52, 0.03), PAL.cream, [0, 0.42, 0.245], [-0.12, 0, 0]);
+  k.legs.add(box(0.2, 0.12, 0.035), 0xe8dcbc, [0.07, 0.48, 0.255], [-0.12, 0, 0]);
+  k.torso.add(box(0.48, 0.05, 0.33), PAL.cream, [0, 0.1, 0]);
+  soft(k.head, 0.57, 0.24, 0.53, PAL.red, [0, 0.43, -0.02], undefined, 0.09);
+  for (const sx of [-1, 1]) k.head.add(box(0.09, 0.12, 0.05), PAL.red, [sx * 0.05, 0.28, -0.28], [0, 0, sx * 0.4]);
+  for (const [x, z] of [
+    [-0.15, 0.1],
+    [0.12, 0.15],
+    [0.0, -0.12],
+    [0.18, -0.08],
+  ] as const)
+    k.head.add(box(0.04, 0.04, 0.012), PAL.white, [x, 0.5, z + 0.12], [-1.2, 0, 0]);
+  k.held('l', (p, hand) => {
+    const b = hand.clone().add(new THREE.Vector3(0.05, -0.2, 0.06));
+    p.add(cyl(0.17, 0.13, 0.15, 8), 0xb98a55, [b.x, b.y, b.z]);
+    p.add(tor(0.15, 0.015, 3, 8, Math.PI), 0x9a6a3c, [b.x, b.y + 0.07, b.z], [0, Math.PI / 2, 0]);
+    const fruit: Array<[number, number, Rgb]> = [
+      [-0.06, 0.03, PAL.red],
+      [0.06, 0.04, 0xd9a441],
+      [0.0, -0.06, 0x6fbf4a],
+      [0.07, -0.05, PAL.red],
+    ];
+    for (const [x, z, c] of fruit) p.add(ico(0.06, 0), c, [b.x + x, b.y + 0.09, b.z + z]);
+  });
+};
 
-const sela = () =>
-  villager(
-    'sela',
-    {
-      skin: SKIN[4],
-      shirt: 0x2f6f5f,
-      gloves: PAL.leather,
-      pants: 0xc8a878,
-      boots: 0x3a2618,
-      tallBoots: true,
-      hair: 0xc0502a,
-      style: 'braid',
-    },
-    (k) => {
-      // Riding jacket buttons and a coil of rope over her shoulder.
-      for (let i = 0; i < 3; i++) k.torso.add(box(0.04, 0.04, 0.02), PAL.brass, [0, 0.42 - i * 0.12, 0.158]);
-      k.torso.add(box(0.48, 0.06, 0.32), PAL.leatherDark, [0, 0.1, 0]);
-      k.torso.add(tor(0.2, 0.045, 4, 12), PAL.rope, [0.18, 0.36, 0.0], [0, Math.PI / 2, 0.75]);
-      k.torso.add(tor(0.17, 0.04, 4, 10), 0xc2a676, [0.2, 0.36, 0.0], [0, Math.PI / 2, 0.75]);
-    },
-  );
+/** A leather apron, a pack strap over one shoulder and the crate it holds on the back: the packwright's. */
+const packer: Extra = (k) => {
+  k.torso.add(box(0.38, 0.62, 0.03), 0x7a4a2a, [0, 0.12, 0.16]);
+  for (const sx of [-1, 1]) k.torso.add(box(0.03, 0.2, 0.03), 0x5a341d, [sx * 0.14, 0.42, 0.16]);
+  k.torso.add(box(0.08, 0.04, 0.035), PAL.brass, [0.1, 0.0, 0.18]);
+  k.torso.add(box(0.06, 0.62, 0.035), PAL.leatherDark, [0.02, 0.28, 0.165], [0, 0, 0.62]);
+  k.torso.add(box(0.06, 0.5, 0.035), PAL.leatherDark, [0.08, 0.3, -0.165], [0, 0, -0.5]);
+  k.torso.add(box(0.3, 0.36, 0.2), PAL.crate, [-0.06, 0.36, -0.27], [0.1, 0, -0.12]);
+  k.torso.add(box(0.32, 0.05, 0.22), PAL.woodDark, [-0.07, 0.5, -0.27], [0.1, 0, -0.12]);
+};
 
-const ilsa = () =>
-  villager(
-    'ilsa',
-    {
-      skin: SKIN[1],
-      shirt: 0x2a3a6a,
-      pants: 0x2a2f3a,
-      boots: 0x1f1c1c,
-      tallBoots: true,
-      tails: 0x2a3a6a,
-      belt: 0x1f1c1c,
-      hair: 0x2b1d14,
-      style: 'ponytail',
-      rest: { r: [-0.7, 0, -0.1] },
-      free: ['l'],
-    },
-    (k) => {
-      // Long navy coat with gold buttons and a white cravat; a tricorn; a brass spyglass.
-      for (let i = 0; i < 4; i++) for (const sx of [-1, 1]) k.torso.add(box(0.035, 0.035, 0.02), PAL.gold, [sx * 0.1, 0.42 - i * 0.1, 0.158]);
-      k.torso.add(box(0.12, 0.14, 0.03), PAL.white, [0, 0.43, 0.16]);
-      for (const arm of [k.armL, k.armR]) arm.add(box(0.15, 0.06, 0.16), PAL.gold, [0, -0.37, 0]);
-      const hat = new Parts();
-      hat.add(
-        extrude(
-          [
-            [0, -0.4],
-            [0.4, 0.24],
-            [-0.4, 0.24],
-          ],
-          0.07,
-        ),
-        0x1f2430,
-        [0, 0.52, 0],
-        [-Math.PI / 2, 0, 0],
-      );
-      hat.add(
-        extrude(
-          [
-            [0, -0.43],
-            [0.43, 0.26],
-            [-0.43, 0.26],
-          ],
-          0.03,
-        ),
-        PAL.gold,
-        [0, 0.5, 0],
-        [-Math.PI / 2, 0, 0],
-      );
-      hat.add(cyl(0.2, 0.24, 0.16, 8), 0x1f2430, [0, 0.62, -0.02]);
-      k.head.take(hat);
-      k.held('r', (p, hand) => {
-        p.add(rod([hand.x, hand.y - 0.03, hand.z - 0.12], [hand.x, hand.y + 0.06, hand.z + 0.36], 0.035, 8, 0.05), PAL.brass);
-        p.add(cyl(0.056, 0.056, 0.05, 8), 0x8a5a34, [hand.x, hand.y + 0.03, hand.z + 0.18], [Math.PI / 2 - 0.18, 0, 0]);
-      });
-    },
-  );
+/** A brown work apron and a hammer at the belt: the wainwright's. */
+const wainwright: Extra = (k) => {
+  k.torso.add(box(0.5, 0.68, 0.03), 0x7d5a3a, [0, 0.12, 0.21]);
+  for (const sx of [-1, 1]) k.torso.add(box(0.035, 0.2, 0.03), 0x5a3a24, [sx * 0.18, 0.44, 0.205]);
+  k.torso.add(box(0.05, 0.3, 0.05), PAL.woodLight, [-0.33, -0.05, 0.06]);
+  k.torso.add(box(0.16, 0.08, 0.08), PAL.iron, [-0.33, -0.2, 0.06]);
+};
 
-const quill = () =>
-  villager(
-    'quill',
-    {
-      skin: SKIN[4],
-      h: 1.08,
-      leg: 1.08,
-      w: 0.92,
-      shirt: 0x2f3340,
-      pants: 0x2a2d36,
-      boots: 0x1c1c22,
-      tails: 0x2f3340,
-      belt: null,
-      hair: 0x9aa0a8,
-      style: 'short',
-      rest: { l: [0, 0, 0.02] },
-      free: ['r'],
-    },
-    (k) => {
-      // A tall dark coat, a white collar, spectacles, a quill behind the ear, a ledger under the arm.
-      k.torso.add(box(0.14, 0.12, 0.03), PAL.white, [0, 0.46, 0.15]);
-      for (let i = 0; i < 4; i++) k.torso.add(box(0.035, 0.035, 0.02), PAL.steel, [0, 0.36 - i * 0.1, 0.143]);
-      k.torso.add(box(0.06, 0.32, 0.26), 0x8a2f2a, [0.26, 0.24, 0.02]);
-      k.torso.add(box(0.065, 0.3, 0.02), PAL.cream, [0.262, 0.24, 0.15]);
-      for (const sx of [-1, 1]) k.head.add(tor(0.055, 0.01, 3, 10), PAL.gold, [sx * 0.11, 0.23, 0.25]);
-      k.head.add(box(0.06, 0.012, 0.012), PAL.gold, [0, 0.24, 0.25]);
-      k.head.add(cone(0.025, 0.28, 4), PAL.white, [0.27, 0.42, -0.05], [0.4, 0, -0.3], [1, 1, 0.3]);
-    },
-  );
+/** Riding-jacket buttons and a coil of rope over the shoulder: the stablemaster's. */
+const stablemaster: Extra = (k) => {
+  for (let i = 0; i < 3; i++) k.torso.add(box(0.04, 0.04, 0.02), PAL.brass, [0, 0.42 - i * 0.12, 0.158]);
+  k.torso.add(box(0.48, 0.06, 0.32), PAL.leatherDark, [0, 0.1, 0]);
+  k.torso.add(tor(0.2, 0.045, 4, 12), PAL.rope, [0.18, 0.36, 0.0], [0, Math.PI / 2, 0.75]);
+  k.torso.add(tor(0.17, 0.04, 4, 10), 0xc2a676, [0.2, 0.36, 0.0], [0, Math.PI / 2, 0.75]);
+};
 
-const ysolde = () =>
-  villager(
-    'ysolde',
-    { skin: SKIN[0], shirt: 0x8a5a34, pants: 0x7a7458, boots: 0x3a2618, tallBoots: true, belt: 0x3a2618, hair: 0xe8c46a, style: 'short' },
-    (k, _root, body) => {
-      // Flight jacket with a fleece collar, goggles pushed up, a red scarf whose end streams out.
-      k.torso.add(box(0.5, 0.1, 0.34), 0xf1e6cc, [0, 0.46, 0]);
-      k.torso.add(box(0.03, 0.4, 0.02), PAL.iron, [0.05, 0.26, 0.157]);
-      k.torso.add(box(0.5, 0.09, 0.35), PAL.red, [0, 0.5, 0]);
-      k.head.add(box(0.53, 0.07, 0.49), 0x3a2a20, [0, 0.39, 0]);
-      for (const sx of [-1, 1]) {
-        k.head.add(cyl(0.075, 0.075, 0.05, 8), PAL.brass, [sx * 0.11, 0.4, 0.25], [Math.PI / 2, 0, 0]);
-        k.head.add(cyl(0.058, 0.058, 0.02, 8), 0x7fd3c8, [sx * 0.11, 0.4, 0.28], [Math.PI / 2, 0, 0]);
-      }
-      const scarf = pivot(body, 0.08, 0.5 * k.h, -0.16, 'scarf');
-      mesh(
-        scarf,
-        new Parts()
-          .add(box(0.12, 0.42, 0.04), PAL.red, [0, -0.2, -0.02])
-          .add(box(0.13, 0.06, 0.05), 0xf2c84b, [0, -0.39, -0.02])
-          .build(),
-      );
-      return (t, talk) => {
-        scarf.rotation.x = 0.35 + Math.sin(t * 2.6) * 0.12 + talk * 0.1;
-        scarf.rotation.z = Math.sin(t * 1.9) * 0.15;
-      };
-    },
+/** A long navy coat with gold buttons, a white cravat, a tricorn and a brass spyglass: a ship's captain's. */
+const captain: Extra = (k) => {
+  for (let i = 0; i < 4; i++) for (const sx of [-1, 1]) k.torso.add(box(0.035, 0.035, 0.02), PAL.gold, [sx * 0.1, 0.42 - i * 0.1, 0.158]);
+  k.torso.add(box(0.12, 0.14, 0.03), PAL.white, [0, 0.43, 0.16]);
+  for (const arm of [k.armL, k.armR]) arm.add(box(0.15, 0.06, 0.16), PAL.gold, [0, -0.37, 0]);
+  const hat = new Parts();
+  hat.add(
+    extrude(
+      [
+        [0, -0.4],
+        [0.4, 0.24],
+        [-0.4, 0.24],
+      ],
+      0.07,
+    ),
+    0x1f2430,
+    [0, 0.52, 0],
+    [-Math.PI / 2, 0, 0],
   );
+  hat.add(
+    extrude(
+      [
+        [0, -0.43],
+        [0.43, 0.26],
+        [-0.43, 0.26],
+      ],
+      0.03,
+    ),
+    PAL.gold,
+    [0, 0.5, 0],
+    [-Math.PI / 2, 0, 0],
+  );
+  hat.add(cyl(0.2, 0.24, 0.16, 8), 0x1f2430, [0, 0.62, -0.02]);
+  k.head.take(hat);
+  k.held('r', (p, hand) => {
+    p.add(rod([hand.x, hand.y - 0.03, hand.z - 0.12], [hand.x, hand.y + 0.06, hand.z + 0.36], 0.035, 8, 0.05), PAL.brass);
+    p.add(cyl(0.056, 0.056, 0.05, 8), 0x8a5a34, [hand.x, hand.y + 0.03, hand.z + 0.18], [Math.PI / 2 - 0.18, 0, 0]);
+  });
+};
 
-const dunmore = () =>
-  villager(
-    'dunmore',
-    {
-      skin: SKIN[2],
-      w: 1.12,
-      d: 1.22,
-      shirt: PAL.cream,
-      pants: 0x5a4030,
-      boots: 0x2e2018,
-      hair: 0x3a2a1e,
-      style: 'short',
-      beard: { c: 0x3a2a1e, kind: 'moustache' },
-      rest: { l: [-0.55, 0, 0.1] },
-      free: ['r'],
-    },
-    (k) => {
-      // Maroon merchant vest, brass buttons, a fat coin purse, a flat cap and a ledger in hand.
-      const v = 0x8a2f3a;
-      for (const sx of [-1, 1]) k.torso.add(box(0.19 * k.w, 0.4, 0.03), v, [sx * 0.135 * k.w, 0.29, 0.18]);
-      k.torso.add(box(0.48 * k.w, 0.4, 0.03), v, [0, 0.29, -0.18]);
-      for (let i = 0; i < 3; i++) k.torso.add(box(0.035, 0.035, 0.02), PAL.brass, [0.06, 0.4 - i * 0.1, 0.2]);
-      k.torso.add(bev(0.16, 0.18, 0.1, 0.04), PAL.leather, [0.2, -0.04, 0.17]);
-      k.torso.add(box(0.12, 0.03, 0.06), PAL.gold, [0.2, 0.06, 0.17]);
-      soft(k.head, 0.54, 0.1, 0.52, 0x6b5a48, [0, 0.47, -0.02], undefined, 0.04);
-      k.head.add(box(0.42, 0.03, 0.16), 0x5a4a3a, [0, 0.45, 0.27], [-0.15, 0, 0]);
-      k.held('l', (p, hand) => {
-        p.add(box(0.06, 0.3, 0.22), 0x2f5a3a, [hand.x + 0.02, hand.y + 0.05, hand.z + 0.03], [0.3, 0, 0]);
-        p.add(box(0.065, 0.28, 0.02), PAL.cream, [hand.x + 0.02, hand.y + 0.05, hand.z + 0.14], [0.3, 0, 0]);
-      });
-    },
-  );
+/** A white collar, buttons, spectacles, a quill behind the ear and a ledger under the arm: the land clerk's. */
+const clerk: Extra = (k) => {
+  k.torso.add(box(0.14, 0.12, 0.03), PAL.white, [0, 0.46, 0.15]);
+  for (let i = 0; i < 4; i++) k.torso.add(box(0.035, 0.035, 0.02), PAL.steel, [0, 0.36 - i * 0.1, 0.143]);
+  k.torso.add(box(0.06, 0.32, 0.26), 0x8a2f2a, [0.26, 0.24, 0.02]);
+  k.torso.add(box(0.065, 0.3, 0.02), PAL.cream, [0.262, 0.24, 0.15]);
+  for (const sx of [-1, 1]) k.head.add(tor(0.055, 0.01, 3, 10), PAL.gold, [sx * 0.11, 0.23, 0.25]);
+  k.head.add(box(0.06, 0.012, 0.012), PAL.gold, [0, 0.24, 0.25]);
+  k.head.add(cone(0.025, 0.28, 4), PAL.white, [0.27, 0.42, -0.05], [0.4, 0, -0.3], [1, 1, 0.3]);
+};
 
-const pell = () =>
-  villager(
-    'pell',
-    {
-      skin: SKIN[4],
-      w: 0.9,
-      h: 1.04,
-      shirt: 0x3a2a4a,
-      pants: 0x2a2433,
-      boots: 0x16141a,
-      tails: 0x3a2a4a,
-      belt: null,
-      hair: 0x1f1a16,
-      style: 'short',
-      rest: { r: [-0.25, 0, -0.18] },
-      free: ['l'],
-    },
-    (k) => {
-      // A gold brocade waistcoat with a watch chain, a cravat, a monocle, a top hat and a cane.
-      for (const sx of [-1, 1]) k.torso.add(box(0.12, 0.34, 0.03), sx > 0 ? 0xd9a73a : 0xc9932a, [sx * 0.07, 0.26, 0.158]);
-      for (let i = 0; i < 3; i++) k.torso.add(box(0.03, 0.03, 0.02), PAL.white, [0.0, 0.36 - i * 0.09, 0.176]);
-      k.torso.add(beamish(0.06, 0.2, -0.1, 0.12), PAL.gold);
-      k.torso.add(box(0.12, 0.12, 0.04), PAL.white, [0, 0.45, 0.16]);
-      k.head.add(tor(0.055, 0.012, 3, 10), PAL.gold, [-0.11, 0.23, 0.25]);
-      k.head.add(cyl(0.32, 0.32, 0.03, 10), 0x16141a, [0, 0.5, 0]);
-      k.head.add(cyl(0.2, 0.21, 0.4, 10), 0x16141a, [0, 0.71, 0]);
-      k.head.add(cyl(0.212, 0.212, 0.07, 10), 0x6a3a8a, [0, 0.56, 0]);
-      k.held('r', (p, hand, ground) => {
-        p.add(rod([hand.x, ground, hand.z + 0.06], [hand.x, hand.y + 0.04, hand.z], 0.02, 5), 0x16141a);
-        p.add(sph(0.045, 6, 4), PAL.gold, [hand.x, hand.y + 0.07, hand.z]);
-      });
-    },
+/** A flight jacket with a fleece collar, goggles pushed up and a red scarf streaming out: the wingwright's. */
+const wingwright: Extra = (k, _root, body) => {
+  k.torso.add(box(0.5, 0.1, 0.34), 0xf1e6cc, [0, 0.46, 0]);
+  k.torso.add(box(0.03, 0.4, 0.02), PAL.iron, [0.05, 0.26, 0.157]);
+  k.torso.add(box(0.5, 0.09, 0.35), PAL.red, [0, 0.5, 0]);
+  k.head.add(box(0.53, 0.07, 0.49), 0x3a2a20, [0, 0.39, 0]);
+  for (const sx of [-1, 1]) {
+    k.head.add(cyl(0.075, 0.075, 0.05, 8), PAL.brass, [sx * 0.11, 0.4, 0.25], [Math.PI / 2, 0, 0]);
+    k.head.add(cyl(0.058, 0.058, 0.02, 8), 0x7fd3c8, [sx * 0.11, 0.4, 0.28], [Math.PI / 2, 0, 0]);
+  }
+  const scarf = pivot(body, 0.08, 0.5 * k.h, -0.16, 'scarf');
+  mesh(
+    scarf,
+    new Parts()
+      .add(box(0.12, 0.42, 0.04), PAL.red, [0, -0.2, -0.02])
+      .add(box(0.13, 0.06, 0.05), 0xf2c84b, [0, -0.39, -0.02])
+      .build(),
   );
+  return (t, talk) => {
+    scarf.rotation.x = 0.35 + Math.sin(t * 2.6) * 0.12 + talk * 0.1;
+    scarf.rotation.z = Math.sin(t * 1.9) * 0.15;
+  };
+};
+
+/** A maroon vest with brass buttons, a fat coin purse, a flat cap and a ledger in hand: a trader's. */
+const trader: Extra = (k) => {
+  const v = 0x8a2f3a;
+  for (const sx of [-1, 1]) k.torso.add(box(0.19 * k.w, 0.4, 0.03), v, [sx * 0.135 * k.w, 0.29, 0.18]);
+  k.torso.add(box(0.48 * k.w, 0.4, 0.03), v, [0, 0.29, -0.18]);
+  for (let i = 0; i < 3; i++) k.torso.add(box(0.035, 0.035, 0.02), PAL.brass, [0.06, 0.4 - i * 0.1, 0.2]);
+  k.torso.add(bev(0.16, 0.18, 0.1, 0.04), PAL.leather, [0.2, -0.04, 0.17]);
+  k.torso.add(box(0.12, 0.03, 0.06), PAL.gold, [0.2, 0.06, 0.17]);
+  soft(k.head, 0.54, 0.1, 0.52, 0x6b5a48, [0, 0.47, -0.02], undefined, 0.04);
+  k.head.add(box(0.42, 0.03, 0.16), 0x5a4a3a, [0, 0.45, 0.27], [-0.15, 0, 0]);
+  k.held('l', (p, hand) => {
+    p.add(box(0.06, 0.3, 0.22), 0x2f5a3a, [hand.x + 0.02, hand.y + 0.05, hand.z + 0.03], [0.3, 0, 0]);
+    p.add(box(0.065, 0.28, 0.02), PAL.cream, [hand.x + 0.02, hand.y + 0.05, hand.z + 0.14], [0.3, 0, 0]);
+  });
+};
+
+/** A gold brocade waistcoat and watch chain, a cravat, a monocle, a top hat and a cane: an exchange's factor's. */
+const factor: Extra = (k) => {
+  for (const sx of [-1, 1]) k.torso.add(box(0.12, 0.34, 0.03), sx > 0 ? 0xd9a73a : 0xc9932a, [sx * 0.07, 0.26, 0.158]);
+  for (let i = 0; i < 3; i++) k.torso.add(box(0.03, 0.03, 0.02), PAL.white, [0.0, 0.36 - i * 0.09, 0.176]);
+  k.torso.add(beamish(0.06, 0.2, -0.1, 0.12), PAL.gold);
+  k.torso.add(box(0.12, 0.12, 0.04), PAL.white, [0, 0.45, 0.16]);
+  k.head.add(tor(0.055, 0.012, 3, 10), PAL.gold, [-0.11, 0.23, 0.25]);
+  k.head.add(cyl(0.32, 0.32, 0.03, 10), 0x16141a, [0, 0.5, 0]);
+  k.head.add(cyl(0.2, 0.21, 0.4, 10), 0x16141a, [0, 0.71, 0]);
+  k.head.add(cyl(0.212, 0.212, 0.07, 10), 0x6a3a8a, [0, 0.56, 0]);
+  k.held('r', (p, hand, ground) => {
+    p.add(rod([hand.x, ground, hand.z + 0.06], [hand.x, hand.y + 0.04, hand.z], 0.02, 5), 0x16141a);
+    p.add(sph(0.045, 6, 4), PAL.gold, [hand.x, hand.y + 0.07, hand.z]);
+  });
+};
+
+/** Plaid, a green knit cap and an axe over the shoulder: the woodcutter's. */
+const woodcutter: Extra = (k) => {
+  for (const y of [0.15, 0.3, 0.45]) k.torso.add(box(0.47 * k.w, 0.035, 0.31), 0x2a1c1c, [0, y, 0]);
+  for (const x of [-0.12, 0.12]) k.torso.add(box(0.035, 0.44, 0.31), 0x2a1c1c, [x * k.w, 0.29, 0]);
+  for (const y of [-0.07, -0.16]) k.armL.add(box(0.155, 0.03, 0.165), 0x2a1c1c, [0, y, 0]);
+  for (const y of [-0.07, -0.16]) k.armR.add(box(0.155, 0.03, 0.165), 0x2a1c1c, [0, y, 0]);
+  soft(k.head, 0.55, 0.22, 0.51, 0x4f7a3a, [0, 0.44, -0.01], undefined, 0.08);
+  k.head.add(box(0.57, 0.07, 0.53), 0x3f6a2e, [0, 0.36, -0.01]);
+  k.head.add(ico(0.07, 0), 0x3f6a2e, [0, 0.58, -0.02]);
+  k.held('r', (p, hand) => {
+    // The haft runs from the hand up over the shoulder; the head rides just above and behind it.
+    const top = new THREE.Vector3(hand.x - 0.1, 0.36, -0.12);
+    p.add(rod([hand.x, hand.y - 0.06, hand.z + 0.05], [top.x, top.y, top.z], 0.032, 6), PAL.woodLight);
+    p.add(box(0.06, 0.1, 0.3), PAL.iron, [top.x, top.y - 0.02, top.z - 0.08], [0.35, 0, 0]);
+    p.add(box(0.05, 0.22, 0.06), PAL.steel, [top.x, top.y - 0.05, top.z - 0.24], [0.35, 0, 0]);
+  });
+};
+
+/** A leather vest, a brass miner's helmet with a little lamp and a pickaxe planted: the quarrymaster's. */
+const quarrymaster: Extra = (k) => {
+  for (const sx of [-1, 1]) k.torso.add(box(0.2 * k.w, 0.42, 0.03), PAL.leatherDark, [sx * 0.13 * k.w, 0.29, 0.18]);
+  k.torso.add(box(0.48 * k.w, 0.42, 0.03), PAL.leatherDark, [0, 0.29, -0.18]);
+  k.head.add(cyl(0.27, 0.3, 0.17, 10), 0xb8913f, [0, 0.52, -0.01]);
+  k.head.add(cyl(0.34, 0.34, 0.03, 10), 0x9a7a35, [0, 0.45, -0.01]);
+  k.head.add(box(0.1, 0.1, 0.06), PAL.iron, [0, 0.53, 0.3]);
+  k.glow.add(box(0.07, 0.07, 0.02), PAL.glow, [0, 0.53, 0.335]);
+  k.held('r', (p, hand, ground) => {
+    const foot = new THREE.Vector3(hand.x - 0.05, ground + 0.05, hand.z + 0.32);
+    p.add(rod([hand.x, hand.y + 0.06, hand.z], [foot.x, foot.y + 0.14, foot.z], 0.03, 6), PAL.woodLight);
+    p.add(beam3([foot.x, foot.y + 0.1, foot.z - 0.26], [foot.x, foot.y + 0.1, foot.z + 0.26]), PAL.ironLight);
+    p.add(cone(0.035, 0.12, 4), PAL.ironLight, [foot.x, foot.y + 0.05, foot.z + 0.3], [Math.PI / 2 + 0.6, 0, 0]);
+  });
+};
 
 /** A short slanted strip (the waistcoat's watch chain). */
 function beamish(x: number, y: number, x2: number, y2: number): THREE.BufferGeometry {
   return rod([x, y, 0.177], [x2, y2, 0.177], 0.01, 3);
 }
 
-const hob = () =>
-  villager(
-    'hob',
-    {
-      skin: SKIN[1],
-      w: 1.12,
-      shirt: 0xb83a30,
-      rolled: true,
-      sleeve: 0xb83a30,
-      pants: 0x4a4a38,
-      boots: 0x3a2a1e,
-      hair: 0x5a3a24,
-      style: 'short',
-      beard: { c: 0x5a3a24, kind: 'stubble' },
-      rest: { r: [-0.9, 0, -0.15] },
-      free: ['l'],
-    },
-    (k) => {
-      // Plaid: dark bands across the red shirt; a green knit cap; an axe over the shoulder.
-      for (const y of [0.15, 0.3, 0.45]) k.torso.add(box(0.47 * k.w, 0.035, 0.31), 0x2a1c1c, [0, y, 0]);
-      for (const x of [-0.12, 0.12]) k.torso.add(box(0.035, 0.44, 0.31), 0x2a1c1c, [x * k.w, 0.29, 0]);
-      for (const y of [-0.07, -0.16]) k.armL.add(box(0.155, 0.03, 0.165), 0x2a1c1c, [0, y, 0]);
-      for (const y of [-0.07, -0.16]) k.armR.add(box(0.155, 0.03, 0.165), 0x2a1c1c, [0, y, 0]);
-      soft(k.head, 0.55, 0.22, 0.51, 0x4f7a3a, [0, 0.44, -0.01], undefined, 0.08);
-      k.head.add(box(0.57, 0.07, 0.53), 0x3f6a2e, [0, 0.36, -0.01]);
-      k.head.add(ico(0.07, 0), 0x3f6a2e, [0, 0.58, -0.02]);
-      k.held('r', (p, hand) => {
-        // The haft runs from the hand up over the shoulder; the head rides just above and behind it.
-        const top = new THREE.Vector3(hand.x - 0.1, 0.36, -0.12);
-        p.add(rod([hand.x, hand.y - 0.06, hand.z + 0.05], [top.x, top.y, top.z], 0.032, 6), PAL.woodLight);
-        p.add(box(0.06, 0.1, 0.3), PAL.iron, [top.x, top.y - 0.02, top.z - 0.08], [0.35, 0, 0]);
-        p.add(box(0.05, 0.22, 0.06), PAL.steel, [top.x, top.y - 0.05, top.z - 0.24], [0.35, 0, 0]);
-      });
-    },
-  );
-
-const brenna = () =>
-  villager(
-    'brenna',
-    {
-      skin: SKIN[3],
-      w: 1.18,
-      d: 1.15,
-      arm: 1.15,
-      shirt: 0x8a8070,
-      rolled: true,
-      pants: 0x5a564e,
-      boots: 0x2e2a26,
-      hair: 0x2b1d14,
-      style: 'bun',
-      rest: { r: [-0.45, 0, -0.1] },
-      free: ['l'],
-    },
-    (k) => {
-      // A leather vest, a dented brass miner's helmet with a little lamp, a pickaxe planted.
-      for (const sx of [-1, 1]) k.torso.add(box(0.2 * k.w, 0.42, 0.03), PAL.leatherDark, [sx * 0.13 * k.w, 0.29, 0.18]);
-      k.torso.add(box(0.48 * k.w, 0.42, 0.03), PAL.leatherDark, [0, 0.29, -0.18]);
-      k.head.add(cyl(0.27, 0.3, 0.17, 10), 0xb8913f, [0, 0.52, -0.01]);
-      k.head.add(cyl(0.34, 0.34, 0.03, 10), 0x9a7a35, [0, 0.45, -0.01]);
-      k.head.add(box(0.1, 0.1, 0.06), PAL.iron, [0, 0.53, 0.3]);
-      k.glow.add(box(0.07, 0.07, 0.02), PAL.glow, [0, 0.53, 0.335]);
-      k.held('r', (p, hand, ground) => {
-        const foot = new THREE.Vector3(hand.x - 0.05, ground + 0.05, hand.z + 0.32);
-        p.add(rod([hand.x, hand.y + 0.06, hand.z], [foot.x, foot.y + 0.14, foot.z], 0.03, 6), PAL.woodLight);
-        p.add(beam3([foot.x, foot.y + 0.1, foot.z - 0.26], [foot.x, foot.y + 0.1, foot.z + 0.26]), PAL.ironLight);
-        p.add(cone(0.035, 0.12, 4), PAL.ironLight, [foot.x, foot.y + 0.05, foot.z + 0.3], [Math.PI / 2 + 0.6, 0, 0]);
-      });
-    },
-  );
-
 function beam3(a: V3, b: V3): THREE.BufferGeometry {
   return rod(a, b, 0.035, 4, 0.025);
 }
 
-const generic = (id: string) => {
+const SKIN = [0xf1c27d, 0xe0ac69, 0xc68642, 0x8d5524, 0xffdbac];
+
+/** A townsperson with no look: a plain villager, dressed from their id. */
+const plain = (id: string) => {
   let h = 0;
   for (const ch of id) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
   const pick = <T>(xs: T[], salt: number) => xs[(h >>> salt) % xs.length];
@@ -671,9 +490,62 @@ const generic = (id: string) => {
   });
 };
 
-const BUILD: Record<string, () => VillagerModel> = { hollis, mara, tamsin, bertram, sela, ilsa, quill, ysolde, dunmore, pell, hob, brenna };
+/** What a townsperson wears over their clothes and holds, by name: a look's `outfit`. */
+const OUTFITS: Record<string, Extra> = {
+  elder,
+  grocer,
+  packer,
+  wainwright,
+  stablemaster,
+  captain,
+  clerk,
+  wingwright,
+  trader,
+  factor,
+  woodcutter,
+  quarrymaster,
+};
 
-/** Builds one of Emberholm's townsfolk by NPC id; unknown ids get a plain villager. */
-export function buildVillager(id: string): VillagerModel {
-  return (BUILD[id] ?? (() => generic(id)))();
+/** The outfits a look can name. */
+export const outfits = (): string[] => Object.keys(OUTFITS);
+
+const colour = (c: string): number => Number.parseInt(c.slice(1), 16);
+
+/** A look as content gives it (colours as #rrggbb, a beard in the hair's colour), as the body is built from it. */
+function bodyLook(l: VillagerLook): Look {
+  const maybe = (c: string | undefined) => (c === undefined ? undefined : colour(c));
+  return {
+    skin: colour(l.skin),
+    w: l.w,
+    d: l.d,
+    h: l.h,
+    arm: l.arm,
+    leg: l.leg,
+    hunch: l.hunch,
+    shirt: colour(l.shirt),
+    sleeve: maybe(l.sleeve),
+    rolled: l.rolled,
+    gloves: maybe(l.gloves),
+    pants: colour(l.pants),
+    boots: colour(l.boots),
+    tallBoots: l.tallBoots,
+    skirt: maybe(l.skirt),
+    trim: maybe(l.trim),
+    tails: maybe(l.tails),
+    belt: l.belt === null ? null : maybe(l.belt),
+    hair: colour(l.hair),
+    style: l.style,
+    beard: l.beard && { c: colour(l.hair), kind: l.beard },
+    blush: l.blush,
+    rest: l.rest,
+    free: l.free,
+  };
+}
+
+/**
+ * Builds a townsperson (`id` names the model) dressed by their look and its outfit; with no look,
+ * a plain villager dressed from their id.
+ */
+export function buildVillager(id: string, look?: VillagerLook): VillagerModel {
+  return look ? villager(id, bodyLook(look), look.outfit ? OUTFITS[look.outfit] : undefined) : plain(id);
 }

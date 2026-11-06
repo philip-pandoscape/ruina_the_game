@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import emberholm from '../../../../shared/zones/emberholm.json' with { type: 'json' };
 import { buildAnimal, restartIdles as restartAnimals, type AnimalModel } from '../../../render/models/animals';
-import { VILLAGER_IDS, buildVillager, restartIdles as restartVillagers, type VillagerModel } from '../../../render/models/villagers';
+import { buildVillager, restartIdles as restartVillagers, type VillagerModel } from '../../../render/models/villagers';
+import { villagerLook } from '../../../content/looks';
 import { buildMount, type MountModel } from '../../../render/models/mounts';
 import { MOUNTS } from '../../../content/vehicles';
 import { ANIMALS } from '../../../content/farming';
@@ -234,11 +235,11 @@ function animalSubject(id: string): Subject {
 
 // ---------- townsfolk ----------
 
-const NPCS = (emberholm as unknown as { npcs: Array<{ id: string; name: string; title: string }> }).npcs;
+const NPCS = (emberholm as unknown as { npcs: Array<{ id: string; name: string; title: string; look?: unknown }> }).npcs;
 
 function villagerModel(id: string, talking: boolean): Model {
   restartVillagers();
-  const m: VillagerModel = buildVillager(id);
+  const m: VillagerModel = buildVillager(id, villagerLook(NPCS.find((n) => n.id === id)?.look));
   return { root: m.root, step: (dt, t) => m.animate(dt, { time: t, talking }) };
 }
 
@@ -345,6 +346,6 @@ function mountSubject(id: string): Subject {
 
 export const modelSubjects: Subject[] = [
   ...ANIMALS.map((a) => animalSubject(a.id)),
-  ...VILLAGER_IDS.map(villagerSubject),
+  ...NPCS.map((n) => villagerSubject(n.id)),
   ...MOUNTS.map((m) => mountSubject(m.id)),
 ];

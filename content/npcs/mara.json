@@ -7,7 +7,29 @@
   "z": -238.6,
   "facing": 0,
   "kind": "npc-merchant",
-  "look": "mara",
+  "look": {
+    "outfit": "grocer",
+    "skin": "#f1c27d",
+    "shirt": "#4f8f4a",
+    "sleeve": "#4f8f4a",
+    "pants": "#4f8f4a",
+    "boots": "#5a3a28",
+    "skirt": "#4f8f4a",
+    "belt": null,
+    "hair": "#8a4a2a",
+    "style": "bun",
+    "blush": true,
+    "rest": {
+      "l": [
+        -0.35,
+        0,
+        0.18
+      ]
+    },
+    "free": [
+      "r"
+    ]
+  },
   "portrait": "👩‍🌾",
   "greeting": "Seeds for sowing, coin for your crops. Sunroot's quick, emberberry's dear - and slow on this isle."
 }

@@ -7,7 +7,30 @@
   "z": -244.5,
   "facing": 2.6,
   "kind": "npc-elder",
-  "look": "hollis",
+  "look": {
+    "outfit": "elder",
+    "skin": "#ffdbac",
+    "hunch": 0.12,
+    "shirt": "#6a4a9a",
+    "pants": "#6a4a9a",
+    "boots": "#4a3426",
+    "skirt": "#6a4a9a",
+    "trim": "#f2c94c",
+    "belt": "#f2c94c",
+    "hair": "#f2f2ee",
+    "style": "bald",
+    "beard": "long",
+    "rest": {
+      "r": [
+        -0.3,
+        0,
+        -0.12
+      ]
+    },
+    "free": [
+      "l"
+    ]
+  },
   "portrait": "🧓",
   "greeting": "Lanternwick prospers when its people do. Plant, pack, haul - and keep your boots dry."
 }

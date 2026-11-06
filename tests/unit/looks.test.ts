@@ -1,4 +1,6 @@
 import { expect, test } from 'vitest';
+import emberholm from '../../shared/zones/emberholm.json' with { type: 'json' };
+import { BEARDS, HAIRS, type VillagerLook } from '../../src/content/looks';
 import { GLIDERS, MOUNTS, VEHICLES } from '../../src/content/vehicles';
 import { animalBodies } from '../../src/render/models/animals';
 import { ANIMALS, CROPS, PACKS, PROPS, STRUCTURES } from '../../src/render/models/data';
@@ -9,6 +11,7 @@ import { packBodies } from '../../src/render/models/packs';
 import { propBodies } from '../../src/render/models/props';
 import { structureBodies } from '../../src/render/models/structures';
 import { vehicleBodies } from '../../src/render/models/vehicles';
+import { outfits } from '../../src/render/models/villagers';
 
 // A thing's look names a body built into the game and a made model fitted over it
 // (src/content/looks.ts). contentc checks a look's fields and that its made model's files are there;
@@ -45,4 +48,26 @@ test('every look names a body its kind has', () => {
 test('every body is one something wears', () => {
   const unworn = KINDS.flatMap((k) => k.bodies.filter((b) => !k.things.some((t) => t.look?.body === b)).map((b) => `${k.kind}: ${b}`));
   expect(unworn, 'bodies no content names: a look should, or the code goes').toEqual([]);
+});
+
+const NPCS = (emberholm as unknown as { npcs: Array<{ id: string; look?: VillagerLook }> }).npcs;
+const COLOURS = ['skin', 'shirt', 'sleeve', 'gloves', 'pants', 'boots', 'skirt', 'trim', 'tails', 'belt', 'hair'] as const;
+
+test("every townsperson's look is one the townsfolk's body can be dressed in", () => {
+  const wrong: string[] = [];
+  for (const n of NPCS) {
+    const l = n.look;
+    if (!l) continue;
+    const at = `content/npcs/${n.id}.json`;
+    if (l.outfit !== undefined && !outfits().includes(l.outfit)) wrong.push(`${at}: no outfit "${l.outfit}" (there are ${outfits().join(', ')})`);
+    if (!HAIRS.includes(l.style)) wrong.push(`${at}: no hair "${l.style}"`);
+    if (l.beard !== undefined && !BEARDS.includes(l.beard)) wrong.push(`${at}: no beard "${l.beard}"`);
+    for (const k of COLOURS) {
+      const c = l[k];
+      if (c !== undefined && c !== null && !/^#[0-9a-f]{6}$/i.test(c)) wrong.push(`${at}: its ${k} is "${c}", not a colour as #rrggbb`);
+    }
+  }
+  expect(wrong).toEqual([]);
+  const unworn = outfits().filter((o) => !NPCS.some((n) => n.look?.outfit === o));
+  expect(unworn, 'outfits no one wears').toEqual([]);
 });

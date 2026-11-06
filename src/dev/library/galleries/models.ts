@@ -7,6 +7,7 @@ import { part, toon } from '../../../render/toon';
 import { CROPS, PACKS, PROPS, STRUCTURES } from '../../../render/models/data';
 import { buildAnimal } from '../../../render/models/animals';
 import { buildVillager } from '../../../render/models/villagers';
+import { villagerLook } from '../../../content/looks';
 import { PAL, cost, vcMaterial } from '../../../render/models/kit';
 import { buildCrop, cropStages } from '../../../render/models/crops';
 import { buildGlider } from '../../../render/models/gliders';
@@ -70,7 +71,7 @@ interface Stat {
   max: number[];
 }
 
-const NPCS = (emberholm as unknown as { npcs: Array<{ id: string; title?: string }> }).npcs;
+const NPCS = (emberholm as unknown as { npcs: Array<{ id: string; title?: string; look?: unknown }> }).npcs;
 
 /** A plain 1.9 m person in the hero's colours, for scale. */
 function figure(): THREE.Group {
@@ -244,7 +245,7 @@ function livestock(): Item[] {
 
 function villagers(): Item[] {
   return NPCS.map((n, i) => {
-    const m = buildVillager(n.id);
+    const m = buildVillager(n.id, villagerLook(n.look));
     const talking = i % 2 === 1;
     return {
       id: n.id,

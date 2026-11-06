@@ -7,7 +7,7 @@ export { buildMount, type MountAnim, type MountModel } from './mounts';
 export { buildGlider, type GliderAnim, type GliderModel } from './gliders';
 export { buildPack, PACK_IDS, PACK_SIZE } from './packs';
 export { buildAnimal, type AnimalAnim, type AnimalModel } from './animals';
-export { buildVillager, VILLAGER_IDS, type VillagerAnim, type VillagerModel } from './villagers';
+export { buildVillager, type VillagerAnim, type VillagerModel } from './villagers';
 export { cropGeometry, cropStages, buildCrop } from './crops';
 export { buildStructure, type StructureModel, type StructureOpts } from './structures';
 export { propGeometry } from './props';

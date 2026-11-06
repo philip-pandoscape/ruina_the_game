@@ -25,6 +25,7 @@ import { toon } from '../toon';
 import type { ModelKit } from './models';
 import type { Holds, VehicleAnim } from '../models/vehicles';
 import { shipDesign } from '../../content/shipyard';
+import { villagerLook } from '../../content/looks';
 
 // Draws what the life systems own: vehicles and mounts, every trade pack (on a back, in a cart,
 // on the ground), scarecrow plots and what grows in them, houses as far as they are built, the
@@ -188,9 +189,9 @@ export class LifeView {
         this.group.add(root);
         this.nodes.push({ root, i });
       });
-    // Townsfolk with their own looks (content/npcs/<id>.json `look`), standing at their posts.
+    // The townsfolk as their looks say (content/npcs/<id>.json `look`), standing at their posts.
     for (const n of this.others ? [] : life.zone.recipe.npcs) {
-      const m = models.buildVillager(n.look);
+      const m = models.buildVillager(n.id, villagerLook(n.look));
       const holder = new THREE.Group();
       holder.add(m.root);
       holder.position.set(n.x, hf.height(n.x, n.z), n.z);

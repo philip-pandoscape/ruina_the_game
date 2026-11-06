@@ -7,7 +7,28 @@
   "z": -16,
   "facing": -1.5708,
   "kind": "npc-merchant",
-  "look": "dunmore",
+  "look": {
+    "outfit": "trader",
+    "skin": "#c68642",
+    "w": 1.12,
+    "d": 1.22,
+    "shirt": "#f6ecd2",
+    "pants": "#5a4030",
+    "boots": "#2e2018",
+    "hair": "#3a2a1e",
+    "style": "short",
+    "beard": "moustache",
+    "rest": {
+      "l": [
+        -0.55,
+        0,
+        0.1
+      ]
+    },
+    "free": [
+      "r"
+    ]
+  },
   "portrait": "🧑‍💼",
   "greeting": "Westwatch buys what the east grows. Prices fall as I fill my storeroom - they recover with time."
 }

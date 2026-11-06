@@ -7,7 +7,28 @@
   "z": -326.5,
   "facing": 3.14159,
   "kind": "npc-sailor",
-  "look": "ilsa",
+  "look": {
+    "outfit": "captain",
+    "skin": "#e0ac69",
+    "shirt": "#2a3a6a",
+    "pants": "#2a2f3a",
+    "boots": "#1f1c1c",
+    "tallBoots": true,
+    "tails": "#2a3a6a",
+    "belt": "#1f1c1c",
+    "hair": "#2b1d14",
+    "style": "ponytail",
+    "rest": {
+      "r": [
+        -0.7,
+        0,
+        -0.1
+      ]
+    },
+    "free": [
+      "l"
+    ]
+  },
   "portrait": "🧑‍✈️",
   "greeting": "Rowboats for the bay, a sloop for the open sea. Sail with the wind at your back and you'll fly."
 }

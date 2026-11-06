@@ -42,7 +42,7 @@ own a thing is drawn with a plain one, until looks are data (the refactor's R9.9
 | `place` | The place they belong to (`content/zones/emberholm/places.json`) |
 | `x`, `z`, `facing` | Where they stand on the island, and which way they face |
 | `kind` | Their actor kind (`content/actors/`: `npc-elder`, `npc-merchant`, `npc-crafter`, `npc-sailor`): solid, never anyone's target, and how the crowd draws them from afar |
-| `look` | The body they are drawn with close up: one of the built townsfolk, by name, or any other name for a plain villager dressed from it |
+| `look` | How they are drawn close up: their colours (`#rrggbb`), build and hair, and an `outfit` by name (`src/render/models/villagers.ts` OUTFITS: the elder's staff, the grocer's basket); without one, a plain villager dressed from their id |
 | `portrait` | Their face as an emoji, until their portrait is taken |
 | `greeting` | What they say when you talk to them |
 | `bench` | The workbench they stand at, if any: talking to them offers it |
