@@ -9,8 +9,8 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
 
 ## Now
 
-- **Phase:** 8 (one copy of the rules: the browser plays on the engine's) and 10 (one world: its
-  foundations, decided 2026-11-06, D16-D19), with 9's rest beside them; 7, 11 and 12 done.
+- **Phase:** 10 (one world: its foundations, decided 2026-11-06, D16-D19), with 9's rest beside it;
+  7, 8, 11 and 12 done.
 - **Next:**
   1. Phase 10's foundations, in order:
      - R10.14 the words (as each area is touched);
@@ -26,7 +26,7 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
      - R10.23 the client;
      - R10.24 proof at scale;
      - R10.25 the guide.
-  2. Phase 9's rest (R9.5, R9.9, the partials), R8.16, R6.11b and R6.14 beside them.
+  2. Phase 9's rest (R9.3, R9.5, R9.8, R9.10), R6.11b and R6.14 beside them.
   3. Phase 13 and the merge.
 
   The multi-server version follows the merge (`.plans/world/`).
@@ -870,12 +870,15 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
 - [x] **R9.12** A test that no content id appears in code, with an allowlist of reasons.
   Done (41395e6): `tests/unit/contentIds.test.ts` (`tools/content/ids.mjs`), with allowances that
   each name the task that removes them, and fail once they allow nothing.
-- [~] **R9.13** Templates per kind (`content/_templates/`) and fixture tests that add a creature, an
+- [x] **R9.13** Templates per kind (`content/_templates/`) and fixture tests that add a creature, an
   NPC, an item, a quest and a vehicle as data only and play them; a Content Library subject per kind.
   Done (fef19c5) but the library subject per kind: `content/_templates/` (a thing of each kind),
   `tests/unit/templates.test.ts`, and `tests/unit/newContent.test.ts` adding a townsperson with wares
   and a quest, an item, a vehicle and a creature as files alone and playing them. Creatures came from
   their folder first (3d84597: `content/creatures/_order.json`, no list in code).
+  The library (8fc8ffd): its crowd subjects come from the creatures' registry, so a creature with a
+  body of its own gets one (the goblin had none); the models gallery and the townsfolk, animal and
+  mount subjects list theirs from the content since R9.9, the close-up rigs theirs from `creatureIds`.
 - [x] **R9.14** `docs/content.md`: a recipe per kind, data files only.
   Done (5e23680): `docs/content.md`, with what still needs code listed by the task that makes it
   data.
@@ -1325,6 +1328,7 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
 | 2026-11-06 | — | A space change forgets the last game's word on you (the party spec's race) | f46a20d |
 | 2026-11-06 | R8.3, R8.2, R2.11 | `docs/engine.md`; the spike and the formatting closed | 0285ad3 |
 | 2026-11-06 | R8.16 | The skill tree's numbers from the engine | 883e178 |
+| 2026-11-06 | R9.13 | The library's crowd subjects from the registry | 8fc8ffd |
 | 2026-11-06 | R9.9, R6.11b | Looks from data; the model library as a chunk, the `tryBuild` fallbacks gone (a background agent) | 3cffed1..40161aa, 2d5de57 |
 | 2026-11-06 | R9.14 | `docs/content.md` | 5e23680 |
 | 2026-11-06 | R10.10, R11.1, R11.2, R11.7, R11.8 | Snapshot to move machines: the battle server's Rust gone; the asset manifest, loader and first-download budget, `docs/assets.md` | a975617 |
