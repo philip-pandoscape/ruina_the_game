@@ -37,6 +37,8 @@ function markdown(dir: string, out: string[] = []): string[] {
   for (const name of readdirSync(join(ROOT, dir))) {
     const p = join(ROOT, dir, name);
     if (['node_modules', 'target', 'scratch', 'dist', 'test-results', '.git'].includes(name)) continue;
+    // Agents' worktrees: each a checkout of its own, with its own docs, checked there.
+    if (rel(p) === '.claude/worktrees') continue;
     if (statSync(p).isDirectory()) markdown(rel(p), out);
     else if (name === 'AGENTS.md' || name === 'SKILL.md' || (dir === 'docs' && name.endsWith('.md'))) out.push(rel(p));
   }

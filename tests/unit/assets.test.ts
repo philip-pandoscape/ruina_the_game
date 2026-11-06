@@ -38,7 +38,7 @@ describe('the catalogue', () => {
     expect(RULES.flatMap((r) => r.zones.filter((z) => !known.has(z)).map((z) => `${r.match}: ${z}`))).toEqual([]);
   });
 
-  test('puts the hero, their weapons and the typefaces in the first download, and the island after it', () => {
+  test('loads the hero, their weapons and the typefaces first, and the island after them', () => {
     const zonesOf = (id: string) => ruleFor(id)?.zones ?? [];
     for (const id of ['models/hero', 'models/weapon_sword', 'models/hero_walk', 'fonts/pagella-400']) expect(usedIn(zonesOf(id), 'front'), id).toBe(true);
     for (const id of ['village/kit', 'ground/grass', 'models/windmill', 'models/hero_moves_meshy']) expect(usedIn(zonesOf(id), 'front'), id).toBe(false);

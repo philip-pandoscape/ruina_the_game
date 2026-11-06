@@ -92,9 +92,10 @@ From a find to the player's screen: `docs/assets.md`. Every file in the asset fo
 file without one), and the build lists it in the asset manifest (`/asset-manifest.json`, by
 `tools/assets/manifest.ts`). The game loads it by id through the loader (`src/assets/loader.ts`:
 `model`, `gltf` and `picture` in `src/render/assets.ts`), most needed first and the nearest of what
-stands about the island before the rest, drawing a stand-in until it arrives. Only the title screen,
-sign-in and character select come in the first download (`src/app/boot.ts` fetches the rest of the
-game once a character is chosen); `tests/integration/download.spec.ts` holds it to its budget.
+stands about the island before the rest, drawing a stand-in until it arrives. The title screen,
+sign-in and character select come first (`src/app/boot.ts` fetches the rest of the game once a
+character is chosen). The client will be packaged as a desktop app, so a browser's download isn't
+held to a budget.
 
 Free first: before making a model, texture or animation, look for a free one (below) and judge it in
 the game's look beside what we would make. Make one only when nothing free is as good; never trade

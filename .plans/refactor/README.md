@@ -50,8 +50,9 @@ These are the asks, written as outcomes we can check.
 5. **No dead code**, and checks that keep it out.
 6. **An admin menu** that reaches every developer page (the yard, the animation library, the PvP
    battlefield, ...), shown to admins only, on beta as well as locally.
-7. **A game that can grow well past 64 MB.** It streams what you need, caches what you have, and
-   keeps big files somewhere that scales.
+7. **A game that can grow well past 64 MB.** Big files live somewhere that scales, every asset is
+   listed with the zones that use it, and the game loads what the world near you needs. The client
+   will be packaged as a desktop app later (D15), so keeping a browser's download small is not a goal.
 8. **A `/find-assets` skill** for finding and fetching models, animations, textures, sounds, music,
    effects and fonts.
 9. **AGENTS.md rewritten**, with checks that catch stale paths.
@@ -163,7 +164,7 @@ The order, and what can run alongside:
 
 ```mermaid
 flowchart LR
-  P0[0 Prepare] --> P1[1 Test tiers] --> P2[2 Dead code] --> P5[5 Rust workspace] --> P6[6 Client areas] --> P7[7 Content folders] --> P8[8 One copy of the rules] --> P9[9 Content as data] --> P10[10 Zones and bots] --> P11[11 Bigger than 64 MB] --> P12[12 Knowledge base] --> P13[13 Docs] --> M[Merge into beta]
+  P0[0 Prepare] --> P1[1 Test tiers] --> P2[2 Dead code] --> P5[5 Rust workspace] --> P6[6 Client areas] --> P7[7 Content folders] --> P8[8 One copy of the rules] --> P9[9 Content as data] --> P10[10 Zones and bots] --> P11[11 Assets] --> P12[12 Knowledge base] --> P13[13 Docs] --> M[Merge into beta]
   P2 --> P3[3 Admin menu]
   P0 --> P4[4 find-assets skill]
 ```
@@ -439,7 +440,7 @@ Size: extra large: the long one.
 - Then `src/sim/` is gone, and so are the six Rust check programs and the conformance specs. Road
   routing for auto-run (`roads.ts`, `localPath.ts`) exists only in TypeScript and only the browser
   uses it; it stays there, reading the island through the bridge, unless the server ever needs it.
-- Measured against the baseline: frame time, start-up time, download size, memory. Each frame reads
+- Measured against the baseline: frame time, start-up time, memory (not the download's size: D15). Each frame reads
   about 100 fields of the rules' state today; typed views over WebAssembly memory keep that cheap.
 
 Done when no rule exists twice, the determinism test passes, and the game plays the same.
@@ -498,25 +499,25 @@ of the engine that any zone can use.
 Done when the yard and the battlefield are content folders, the server has no code only they use,
 and the stress tier fights thousands of bots in the battlefield zone.
 
-## Phase 11: Bigger Than 64 MB
+## Phase 11: Assets
 
-Size: medium. Today's game is 15 MB and all of it comes in the first download. A real MMO's is
-gigabytes.
+Size: small (cut from medium on 2026-11-06, D15). The game was 15 MB, all of it in the first
+download; a real MMO's is gigabytes. The client will be packaged as a desktop app later, where the
+files are on disk, so the work that only keeps a browser's download small is out: the service
+worker, KTX2 textures for smaller downloads and the first-download budget. What was built for it
+stays, as it serves a desktop app's start-up and graphics memory too.
 
 - An asset manifest: every model, texture, sound and animation has an id, a hashed file name, a size
   and the zones that use it.
-- Streaming: the first download carries the title screen and what you need to start; the rest
-  arrives by zone and by distance, with a progress bar and low detail first.
+- Loading: the title screen and what you need to start first; the rest by zone and by distance,
+  with a progress bar and low detail first.
 - Caching: hashed files sent as never-changing (`Cache-Control: immutable`), pages and the manifest
-  always checked, brotli compression; optionally a service worker that keeps assets between visits
-  and fetches the next zone early.
-- Compressed textures (KTX2) for smaller downloads and less GPU memory.
+  always checked, brotli compression, for the browser game until the desktop app.
 - Where big files live: in **Git LFS** (decided; moved in Phase 0). The manifest keeps the game
-  independent of where files are stored, so a CDN in front of them later is a configuration change.
-- A budget a test enforces: the first download may not grow past a set size.
+  independent of where files are stored.
 
-Done when the first download stays small however much the game grows, and repeat visits fetch
-only what changed.
+Done when every asset has an id and the zones that use it, and the game loads what the world near
+you needs, nearest first.
 
 ## Phase 12: The Design Bible as a Knowledge Base
 
@@ -588,3 +589,4 @@ Settled with you; filled in from the review.
 | D12 | Big files | Git LFS (F9) |
 | D13 | Old branches and worktrees | Tidied (F10) |
 | D14 | The design bible | Becomes a knowledge base anyone can read: every system and every thing, exactly, numbers from the game's own data (review, Phase 11 comment) |
+| D15 | The browser's download | The client will be packaged as a desktop app later (not in this refactor), so work only to keep a browser's download small is out: the service worker (R11.4), KTX2 textures (R11.5), the first-download budget test (R11.7) and the download's size in R8.14's measurements (2026-11-06) |

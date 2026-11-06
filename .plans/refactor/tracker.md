@@ -27,6 +27,9 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
   TEST_PORT_OFFSET=60 RUINA_SERVER=http://localhost:7871
   RUINA_DATABASE_URL=postgres://ruina:ruina@127.0.0.1:5461/ruina` and `--output=scratch/pw-*`.
   Servers listen on localhost only.
+- **Decided 2026-11-06 (D15):** the client will be packaged as a desktop app later, so the work
+  that only keeps a browser's download small is out: R11.4 and R11.5 dropped, the first-download
+  budget test (R11.7) removed, R8.14 measures no download size.
 - **Plan reviewed 2026-11-05:** approved with changes (decisions D0-D14 in the plan). Run every phase
   to the end, one merge into `beta` at the end, progress report along the way, no waiting.
 
@@ -495,7 +498,8 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
 - [ ] **R8.12** Road routing (`zone/roads.ts`, `zone/localPath.ts`, TS-only, browser-only) reads the
   island through the bridge; it stays TypeScript unless the server needs it.
 - [ ] **R8.13** Delete `src/sim/`, the check programs and the conformance specs.
-- [ ] **R8.14** Measure against the baseline: frame time, start-up, download size, memory. Log it.
+- [ ] **R8.14** Measure against the baseline: frame time, start-up, memory. Log it. (The download's
+  size dropped, D15.)
 - [x] **R8.15** `crates/engine/AGENTS.md`: determinism rules, adding a system, testing it.
   Done (33bf4ea): `crates/engine/AGENTS.md`.
 
@@ -617,7 +621,7 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
 - [x] **R10.13** `docs/zones.md`: adding a zone, a developer zone, bots.
   Done (777949b).
 
-## Phase 11: Bigger Than 64 MB
+## Phase 11: Assets
 
 - [x] **R11.1** The asset manifest: id, hashed file, size, kind, zones; built with the client.
   Done (a975617): `tools/assets/manifest.ts` (a Vite plugin) writes `/asset-manifest.json`; kinds
@@ -633,15 +637,20 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
 - [x] **R11.3** Caching: `immutable` for hashed files, revalidation for pages and the manifest, brotli.
   Done (740f845): `/assets/` a year and immutable, everything else `no-cache` (a 304 unless
   changed), brotli beside gzip; tested on a built game's files. The manifest comes with R11.1.
-- [ ] **R11.4** Optional: a service worker that keeps assets and prefetches the next zone.
-- [~] **R11.5** KTX2 textures where they save size or GPU memory.
+- [-] **R11.4** Optional: a service worker that keeps assets and prefetches the next zone.
+  Dropped (D15): the desktop app will have the files on disk.
+- [-] **R11.5** KTX2 textures where they save size or GPU memory.
   Measured (a975617, `docs/assets.md`): the ground as ETC1S first (smaller and 47 MB less on the
   GPU). Waits on KTX-Software's `toktx`, which wasn't installed on the Windows machine.
+  Dropped from the refactor (D15): the download's size no longer counts; the graphics memory it
+  would save is in `docs/assets.md` for a later performance pass.
 - [x] **R11.6** Where big files live: Git LFS (decided; done in R0.9). A CDN in front later is a
   manifest setting.
-- [x] **R11.7** A first-download budget the integration tier enforces.
+- [-] **R11.7** A first-download budget the integration tier enforces.
   Done (a975617): `tests/integration/download.spec.ts`, 2.4 MB to character select, 0.75 MB to
   sign-in, nothing of the world before a character is chosen; passing on the Mac too.
+  Removed (D15): with a desktop app coming the download isn't held to a budget; what loads first
+  (`src/app/boot.ts`, the catalogue's `front` zone) stays, for start-up.
 - [x] **R11.8** `docs/assets.md`: the pipeline from a find to the manifest.
   Done (a975617): `docs/assets.md`.
 

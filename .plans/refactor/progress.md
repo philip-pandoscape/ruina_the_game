@@ -20,7 +20,7 @@ is in [tracker.md](tracker.md), the plan in [README.md](README.md).
 | 8 One Copy of the Rules | begun |
 | 9 Content as Data, Finished | begun |
 | 10 Zones, Developer Zones and Bots | zones done; the old battle server still to go |
-| 11 Bigger Than 64 MB | begun (caching) |
+| 11 Assets | done; the browser's download work dropped (D15) |
 | 12 The Design Bible as a Knowledge Base | done |
 | 13 AGENTS.md, the Docs and the Merge | to do |
 
@@ -283,3 +283,33 @@ test "turning on the spot" fail now and then under load and pass alone, as befor
 
 **Next:** the old battle server and its client paths out (R10.10, R10.9), so the battlefield is only
 the developer zone; then the engine bridge (R6.4) and Phase 8's switches.
+
+## 2026-11-06: On the Mac, the Engine Bridge, and a Desktop App Later
+
+- **Picked up on the Mac** (c2d6394). The Windows machine's last snapshot (a975617) is checked out here
+  with Git LFS, and its unchecked work verified: 243 of the integration tier pass. Of the three that
+  don't, two pass alone (they lose races under load) and one needs pointer lock, which macOS's
+  headless browser doesn't give. The tracker is up to date with every landing, and this machine has
+  a test rig of its own (Postgres on 5461, a world server on 7871).
+- **The client's files where they belong (R6.8, R6.10, R6.11).** Creature bodies are in
+  `src/render/creatures/`, the root files in their areas, and the content library under `src/dev/`,
+  all moved by the moves script.
+- **The engine bridge begins (R6.4, R6.0b; 6553617).** `src/engine/engine.ts` is how the page
+  reaches the rules, and what changes them from outside is a named call: putting you somewhere, your
+  build, a dungeon's floors and walls, an island loaded. Taking an island up from a save belongs to the
+  rules (`src/sim/life/island.ts`, the twin of the server's `load_island`).
+- **`main.ts`'s split goes on (R6.2).** Frame stats are in `src/app/perf.ts`, and aiming (the mark,
+  the ground-aimed circle, aim assist, the combat stance) is moving to `src/app/aiming.ts`.
+- **Decided: a desktop app later (D15).** The client will be packaged as a desktop app, though not
+  in this refactor, so the work that only keeps a browser's download small is out. The service
+  worker (R11.4) and KTX2 textures (R11.5) are dropped, the first-download budget test is removed
+  (R11.7), and R8.14 measures no download size. What was built stays: the asset catalogue and
+  manifest, the loader (nearest first, which still serves start-up time and graphics memory), and the
+  cache headers for the browser game until then. That makes Phase 11 done.
+- **Three agents run alongside,** each in a worktree of its own: the island's generator in Rust
+  (R8.6), the network and drawing split with crowds at scale (R6.0, R10.8), and the library's split
+  with a UI gallery (R6.7, R6.9).
+- **Fixed on the way.** `tools/refactor/prune-imports.mjs` took an unused local for part of an
+  import and cut everything between it and the last import (511 lines of `main.ts`, caught before
+  anything was committed). It now leaves locals alone and handles `x as y`. The docs' path test no
+  longer reads the agents' worktrees.

@@ -74,7 +74,7 @@ Several checkouts and sessions run suites on one machine, so a run can be moved 
 | Setting | Default | What |
 |---|---|---|
 | `PW_PORT` | 5199 | the Vite server the integration tests play |
-| `TEST_PORT_OFFSET` | 0 | added to the ports of the game servers some specs start of their own (`tests/support/ownServer.ts`: admin, update, download, battlefield) |
+| `TEST_PORT_OFFSET` | 0 | added to the ports of the game servers some specs start of their own (`tests/support/ownServer.ts`: admin, update, battlefield) |
 | `PW_WORKERS` | 6 | pages side by side |
 | `RUINA_SERVER` | http://localhost:7777 | the world server the online specs and the dev server use |
 | `RUINA_DATABASE_URL` | none | the database update.spec starts its own server on |

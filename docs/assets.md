@@ -1,10 +1,11 @@
 # Assets
 
 Every model, texture, animation, icon and typeface the game ships, from the moment someone finds it
-to the moment a player's browser fetches it. The game is meant to grow far past what anyone should
-download before they can sign in, so only the title screen, sign-in and character select come in
-the first download; everything else streams in as the world needs it, nearest first, drawn plain
-until it arrives.
+to the moment the game loads it. The game is meant to grow far past what it should load before you
+can sign in, so the title screen, sign-in and character select come first; everything else loads as
+the world needs it, nearest first, drawn plain until it arrives. The client will be packaged as a
+desktop app (the refactor's D15), so a browser's download isn't held to a budget: what comes first
+is about start-up time and graphics memory.
 
 | Step | Where | What it does |
 |---|---|---|
@@ -14,7 +15,7 @@ until it arrives.
 | Describe it | `src/assets/catalog.ts` | Its kind and the zones that use it, by its id |
 | Load it | `src/assets/loader.ts`, through `src/render/assets.ts` | Fetched by id when it's needed, the most needed first, a stand-in drawn until it arrives |
 | Build | `tools/assets/manifest.ts` (a Vite plugin) | `/asset-manifest.json`: every asset with its built file, size, kind and zones |
-| Hold the line | `tests/unit/assets.test.ts`, `tests/integration/download.spec.ts` | Every file described; the first download within its budget |
+| Hold the line | `tests/unit/assets.test.ts` | Every file described, with the zones that use it |
 
 ## From a Find to the Game
 
@@ -44,8 +45,7 @@ until it arrives.
    `src/render/assets.ts`. A made model that stands in for a procedural one needs only an entry in
    `MADE_STRUCTURES`, `MADE_PROPS` or `MADE_PACKS` (`src/render/models/glb.ts`), which loads it as it
    comes near.
-6. **Check it in the game** (the skill's last step), and run `tests/integration/download.spec.ts` if
-   it is something the title screen or character select shows.
+6. **Check it in the game** (the skill's last step).
 
 ## The Manifest
 
@@ -118,30 +118,13 @@ Measured over the wire with brotli from the game server, a browser with nothing 
 | In the world and playing | 5,132 KB | 3,894 KB: the ground's textures and the rest still streaming in |
 | Everything the island loads | 9,326 KB | 9,337 KB (one more script) |
 
-**The budget.** `tests/integration/download.spec.ts` builds the game, serves it from a game server
-of its own and counts every byte a new player's browser fetches up to character select with its
-hero standing there: it fails past `FIRST_DOWNLOAD_BUDGET` (2.4 MB), or if sign-in alone passes
-`SIGN_IN_BUDGET` (0.75 MB), or if anything of the world (an island file, the game's own code) is
-fetched before a character is chosen. When it fails, the first download grew: find what (the test
-says how much is code, models, typefaces and pictures), and put it after the front door (a need
-other than `front`, a zone other than `front`, a dynamic `import()`) before raising the budget.
-
-**What would make it smaller next:**
-
-- *The weapons nobody holds* (690 KB over the wire: the club, staff and bow beside a sword, and the
-  hero's walk, run and swings 100 KB more): the made hero is fitted with all four weapons and its
-  moves at once (`madeHero.ts`, `madeWeapons.ts`), so character select waits for them all. Fitting
-  the body with the weapon on show first, and the rest as the world loads, would take a third off
-  the first download. The body itself is 604 KB: its skinned mesh, and a 2048-pixel texture of
-  248 KB.
-- *The typefaces* (309 KB): Pagella carries far more letters than the game writes; cut to the Latin
-  the game uses (`pyftsubset` from fonttools, or the `subset-font` package), about 200 KB less.
-- *Sign-in without three.js*: the hero preview's code (~190 KB) could load as character select
-  opens, and the Admin menu's (with the dungeon list it reads) only for admins.
+No budget holds it any more (D15): with a desktop app coming, the files will be on disk. The
+measurements above are kept for the record.
 
 ## KTX2 Textures
 
-Not yet: making them needs KTX-Software's `toktx` (which glTF Transform's `etc1s`, `uastc` and
+Dropped from the refactor (D15): with a desktop app the download's size doesn't count, so what's
+left is the graphics memory, for a later performance pass. Not made yet: making them needs KTX-Software's `toktx` (which glTF Transform's `etc1s`, `uastc` and
 `ktx2` steps call), and it isn't installed on the development machine. What they would bring,
 measured on the game's biggest textures (2026-11-06) with the same Basis Universal encoder built to
 WebAssembly (the `ktx2-encoder` package, run from `scratch/`, not part of the project), at glTF
@@ -193,5 +176,5 @@ check it with `toktx --version`):
 
 Done in R11.3: everything under `/assets/` kept a year (`immutable`), the pages and the manifest
 asked about every time and answered "not modified" unless they changed, brotli beside gzip
-(`crates/server/src/http.rs`). A service worker that keeps the files between visits and fetches the
-next zone early is not built yet; the manifest's zones are what it would read.
+(`crates/server/src/http.rs`), for the browser game until the desktop app. A service worker that
+kept the files between visits was dropped (D15): the desktop app will have them on disk.
