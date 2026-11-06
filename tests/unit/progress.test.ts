@@ -4,7 +4,7 @@ import { complete } from '../../src/sim/life/quests';
 import { migrateLifeState, type LifeState } from '../../src/sim/life/state';
 import { observe, pointsEarned, skillBudget, train, trainedBy } from '../../src/sim/life/progress';
 import { EMBERHOLM, type ZoneData } from '../../src/sim/zone/world';
-import { generateZone } from '../../src/sim/zone/generate';
+import { generateZone } from '../../src/sim/zone/world';
 import { QUESTS } from '../../src/content/quests';
 import { bookIndex, LEVEL_XP, levelsFrom, START_POINTS } from '../../src/content/skills';
 import { SLIDE_SKILL } from '../../src/content/tuning';

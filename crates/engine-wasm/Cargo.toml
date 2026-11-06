@@ -10,3 +10,4 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 ruina-engine.workspace = true
+serde_json.workspace = true

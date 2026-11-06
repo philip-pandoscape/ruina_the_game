@@ -1,4 +1,3 @@
-import { lerp } from '../util/math';
 // The ground under an open world: a regular grid of heights plus a surface type per cell.
 //
 // The rules and the renderer read the *same* grid, split into triangles the same way (each quad
@@ -159,25 +158,3 @@ export function valueNoise(x: number, z: number, seed: number): number {
   const d = hash2(ix + 1, iz + 1, seed);
   return a + (b - a) * ux + (c - a) * uz + (a - b - c + d) * ux * uz;
 }
-
-/** Fractal noise in roughly -1..1. */
-export function fbm(x: number, z: number, octaves: number, seed: number): number {
-  let sum = 0;
-  let amp = 0.5;
-  let norm = 0;
-  let f = 1;
-  for (let o = 0; o < octaves; o++) {
-    sum += amp * (valueNoise(x * f, z * f, seed + o * 1013) * 2 - 1);
-    norm += amp;
-    amp *= 0.5;
-    f *= 2.03;
-  }
-  return sum / norm;
-}
-
-export const smoothstep = (a: number, b: number, x: number): number => {
-  const t = Math.max(0, Math.min(1, (x - a) / (b - a)));
-  return t * t * (3 - 2 * t);
-};
-
-export { lerp };

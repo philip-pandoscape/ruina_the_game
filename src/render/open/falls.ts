@@ -1,7 +1,7 @@
 import * as THREE from 'three';
-import { RUNNEL, type WaterfallInfo } from '../../engine/zone';
+import type { WaterfallInfo } from '../../engine/zone';
 
-// The island's waterfalls (src/sim/zone/generate.ts cuts their slots): the spring pool spills down a
+// The island's waterfalls (the engine's generator cuts their slots, crates/engine/src/open/generate.rs): the spring pool spills down a
 // runnel to the lip, the water falls free in a curtain that fans out as it drops, and lands in the
 // plunge pool in a churn of foam and a cloud of mist. Two layers of water, streaked white and
 // scrolling down faster the further they fall, so it reads as thick, moving water from any side.
@@ -173,7 +173,7 @@ const mistFragment = /* glsl */ `
 function waterPath(f: WaterfallInfo): Array<{ s: number; y: number; half: number; down: number; fall: number }> {
   const level = f.spring.level - 0.03;
   const tEnd = Math.sqrt((2 * (level - f.plunge.level)) / G);
-  const top = RUNNEL - 0.2;
+  const top = f.runnel - 0.2;
   const bottom = f.width / 2 - 0.4;
   const rows: Array<{ s: number; y: number; half: number; down: number; fall: number }> = [];
   const from = f.spring.at + f.spring.r * 0.6;

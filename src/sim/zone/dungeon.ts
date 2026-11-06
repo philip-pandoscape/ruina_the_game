@@ -1,6 +1,6 @@
 import data from '../../../shared/dungeons.json' with { type: 'json' };
 import { inRect, type ColliderIndex } from './colliders';
-import { rect } from './generate';
+import { rect } from './frames';
 import type { BoxCollider, Deck, DungeonDoor, ZoneRecipe } from './types';
 
 // The island's dungeons and the developer zones (content/dungeons/<id>.json, built into

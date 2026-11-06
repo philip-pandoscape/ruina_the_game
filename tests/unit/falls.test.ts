@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { generateZone } from '../../src/sim/zone/generate';
+import { generateZone } from '../../src/sim/zone/world';
 import { EMBERHOLM } from '../../src/sim/zone/world';
 
 // The Windspire's waterfall (src/sim/zone/generate.ts, falls) is cut after the trees and rocks are

@@ -59,7 +59,7 @@
       "notes": "Coastline, bays, sea cliffs, rolling hills, the Windspire with a ledge path cut along its contour lines, a quarry pit, flattened town ground, graded roads, surfaces. Same seed, same island.",
       "files": [
         "shared/zones/emberholm.json",
-        "src/sim/zone/generate.ts",
+        "crates/engine/src/open/generate.rs",
         "src/sim/terrain.ts"
       ]
     },
@@ -1192,7 +1192,7 @@
       "files": [
         "shared/buildings.json",
         "src/content/buildings.ts",
-        "src/sim/zone/buildings.ts",
+        "crates/engine/src/open/buildings.rs",
         "src/render/village/",
         "tools/models/village.mjs",
         "src/dev/library/galleries/buildings.ts",
@@ -1239,7 +1239,7 @@
       "notes": "A spring pool beside the launch deck spills over the lip and falls free down a slot cut in the south-west face into a plunge pool at the foot (recipe `falls`, cut after the tree and rock scatter so nothing else on the island moves). Behind the curtain, 85 m up, a ledge under a hood of rock: you only get there by gliding in (dropping off the summit lands you on the hood). On it the goblins' landing stage, catch nets, a totem, lanterns, cave drawings, and the portal: F takes you into your party's copy of Goblin's Dread. The pools are under half a metre deep in the rules (no wading or swimming yet).",
       "files": [
         "shared/zones/emberholm.json",
-        "src/sim/zone/generate.ts",
+        "crates/engine/src/open/generate.rs",
         "src/render/open/falls.ts",
         "src/render/open/grotto.ts",
         "src/render/open/goblinKit.ts",

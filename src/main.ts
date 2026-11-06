@@ -31,6 +31,7 @@ import { clearLife, savedIsland } from './app/save';
 import { goOnline } from './app/online';
 import { readOptions } from './app/options';
 import { makeTestApi } from './app/testApi';
+import { startEngine } from './engine/load';
 import { YardPractice } from './app/yardPractice';
 import { rigCamera } from './app/cameraRig';
 import { makeStep } from './app/step';
@@ -78,6 +79,8 @@ initUiScale(document.getElementById('ui') as HTMLElement);
 // Console output and errors are kept from here on, for bug reports.
 installLogCapture();
 const opt = readOptions();
+// The engine's WebAssembly (the rules the server runs, src/engine/load.ts), fetched while the rest starts.
+const engineLoading = startEngine();
 const { test: testMode, openWorld, lag: lagMs } = opt;
 
 // The island's models load from the start (online, while you sign in and choose a character).
@@ -104,6 +107,7 @@ let build: Build = online ? (parseBuild(online.welcome.build, Infinity) ?? defau
 // of goblins, if asked for), you in it, and offline the yard's arrows and meteors. Online (Emberholm
 // on the game server, and its developer zones) the server decides hits, so the rules here run
 // without the training dummy and hit pause, and only predict your own moves.
+await engineLoading;
 const engine = new Engine({ openWorld, online: !!online, goblins: opt.goblins, build });
 const { world, terrain, sim, range } = engine;
 

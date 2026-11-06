@@ -5,7 +5,7 @@ import { CARRY } from '../../content/trade';
 import { GROUND } from '../../content/traversal';
 import autoWalkSource from '../../input/autoWalk.ts?raw';
 import interactSource from '../../sim/life/interact.ts?raw';
-import generateSource from '../../sim/zone/generate.ts?raw';
+import generateSource from '../../../crates/engine/src/open/generate.rs?raw';
 import localPathSource from '../../sim/zone/localPath.ts?raw';
 import roadsSource from '../../sim/zone/roads.ts?raw';
 import { ON_ROAD, TAIL_MAX, EMBERHOLM, makeZoneWorld } from '../../engine/zone';
@@ -43,7 +43,7 @@ export const world = system({
   keywords: ['island', 'map', 'terrain', 'ground', 'road', 'roads', 'travel', 'auto-run', 'interact', 'F key', 'coast', 'mountain', 'forest', 'trees'],
   rules: [
     'src/sim/terrain.ts',
-    'src/sim/zone/generate.ts',
+    'crates/engine/src/open/generate.rs',
     'src/sim/zone/world.ts',
     'src/sim/zone/roads.ts',
     'src/sim/zone/localPath.ts',
@@ -67,24 +67,24 @@ export const world = system({
     const fall = t.falls?.[0];
     const door = Z.dungeons?.[0];
     // The generator's own numbers.
-    const cliffRise = sourceNumber(generateSource, /c\.h \* smoothstep\(0, ([\d.]+), d\)/, 'how fast a sea cliff rears up');
-    const grade = tsConst(generateSource, 'grade');
-    const shoulder = tsConst(generateSource, 'shoulder');
-    const roadLow = sourceNumber(generateSource, /Math\.max\(([\d.]+), hf\.height\(x, zz\)\)/, 'how low a road may run');
-    const padOut = sourceNumber(generateSource, /Math\.abs\(lx\) - def\.w \/ 2 - ([\d.]+)\)/, 'how far round a building the ground is levelled');
+    const cliffRise = sourceNumber(generateSource, /c\.h \* smoothstep\(0\.0, ([\d.]+), d\)/, 'how fast a sea cliff rears up');
+    const grade = sourceNumber(generateSource, /let grade = ([\d.]+);/, 'how steep a road may climb');
+    const shoulder = sourceNumber(generateSource, /let shoulder = ([\d.]+);/, 'how wide a road’s shoulder is');
+    const roadLow = sourceNumber(generateSource, /js_max\(([\d.]+), hf\.height\(x, zz\)\)/, 'how low a road may run');
+    const padOut = sourceNumber(generateSource, /lx\.abs\(\) - def\.w \/ 2\.0 - ([\d.]+)\)/, 'how far round a building the ground is levelled');
     const padBlend = sourceNumber(
       generateSource,
-      /1 - smoothstep\(0, ([\d.]+), Math\.sqrt\(ox \* ox \+ oz \* oz\)\)/,
+      /1\.0 - smoothstep\(0\.0, ([\d.]+), \(ox \* ox \+ oz \* oz\)\.sqrt\(\)\)/,
       'how far a building’s pad blends into the land',
     );
-    const forestCore = sourceNumber(generateSource, /f\.r \* ([\d.]+)\) s = SURFACE\.forest/, 'how much of a forest is forest floor');
-    const sandInland = sourceNumber(generateSource, /coast\[j \* n \+ i\] < ([\d.]+)\) s = SURFACE\.sand/, 'how far inland sand reaches');
-    const scatterCell = tsConst(generateSource, 'G');
-    const scatterLow = sourceNumber(generateSource, /if \(h < ([\d.]+)\) continue;/, 'how high above the sea trees and rocks start');
+    const forestCore = sourceNumber(generateSource, /f\.r \* ([\d.]+) \{\s*s = surface::FOREST/, 'how much of a forest is forest floor');
+    const sandInland = sourceNumber(generateSource, /coast\[j \* n \+ i\]\) < ([\d.]+) \{\s*s = surface::SAND/, 'how far inland sand reaches');
+    const scatterCell = sourceNumber(generateSource, /let big_g = ([\d.]+);/, 'how big a scatter cell is');
+    const scatterLow = sourceNumber(generateSource, /if h < ([\d.]+) \{\s*continue;/, 'how high above the sea trees and rocks start');
     const treeSlope = sourceNumber(generateSource, /slope < ([\d.]+) && roll < density/, 'how steep a slope a tree grows on');
     const [rockOnRock, rockOnSand] = numbers(
       generateSource,
-      /s === SURFACE\.rock \? ([\d.]+) : s === SURFACE\.sand \? ([\d.]+)/,
+      /if s == surface::ROCK \{\s*([\d.]+)\s*\} else if s == surface::SAND \{\s*([\d.]+)/,
       'how often rocks lie on rock and sand',
     );
     // The roads as a network, and travel along them.

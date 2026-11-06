@@ -7,7 +7,7 @@ import { claimsPlot, itemDef, recipe as recipeById, recipesAt } from '../../cont
 import { blueprintDef } from '../../content/housing';
 import { structureDef } from '../../content/structures';
 import { rideable, isMount } from '../../content/vehicles';
-import { toLocal } from '../zone/generate';
+import { toLocal } from '../zone/frames';
 import { closeGlider, gliderBlocked, gust, openGlider } from '../player/traverse';
 import { addScarecrow, cellAt, cellCentre, fell, findRare, harvest, isRipe, plant, plotProblem, secondsToRipe, stageOf, water, growFor } from './farming';
 import { buy, buyBack, carried, dropPack, pickUp, quote, recoverDemand, runRecipe, sell, loadPack, unloadPack, sellPack } from './trade';

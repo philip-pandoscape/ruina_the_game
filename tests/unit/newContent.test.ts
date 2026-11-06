@@ -61,7 +61,7 @@ import { Sim } from '../../src/sim/sim';
 import { type Actions, NO_ACTIONS, type World } from '../../src/sim/types';
 import { makeWorld } from '../../src/sim/yard';
 import { groundAt } from '../../src/sim/zone/colliders';
-import { toWorld } from '../../src/sim/zone/generate';
+import { toWorld } from '../../src/sim/zone/frames';
 import type { ZoneNpc } from '../../src/sim/zone/types';
 import { makeZoneWorld } from '../../src/sim/zone/world';
 import type { IslandUI } from '../../src/ui/life/context';

@@ -16,6 +16,7 @@ export default defineConfig({
           name: 'unit',
           include: ['tests/unit/**/*.test.ts'],
           environment: 'node',
+          setupFiles: ['tests/support/engineSetup.ts'],
           testTimeout: 60_000,
           hookTimeout: 60_000,
         },
@@ -25,6 +26,7 @@ export default defineConfig({
           name: 'conformance',
           include: ['tests/conformance/**/*.test.ts'],
           environment: 'node',
+          setupFiles: ['tests/support/engineSetup.ts'],
           // Some cases walk the island for minutes of game time in both languages.
           testTimeout: 300_000,
           hookTimeout: 300_000,

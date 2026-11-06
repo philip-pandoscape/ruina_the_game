@@ -74,6 +74,7 @@ const PLUMBING: Record<string, string> = {
   'src/sim/math.ts': 'angles and lengths, used by every system',
   'src/sim/types.ts': 'the shapes of the rules’ state',
   'src/sim/zone/types.ts': 'the shape of a zone recipe',
+  'src/sim/zone/frames.ts': 'turning between a structure’s own frame and the world’s',
   'crates/engine/src/lib.rs': 'the engine crate’s table of contents',
   'crates/engine/src/jsmath.rs': 'the browser’s maths, to the bit, so both sides agree',
   'crates/engine/src/rng.rs': 'the seeded random numbers both sides share',

@@ -1,8 +1,9 @@
+import '../support/engineSetup';
 import { expect, test, type Page } from '@playwright/test';
 import { SAVE_KEY } from '../../src/app/save';
 import { Life } from '../../src/sim/life/life';
 import { sailEfficiency } from '../../src/sim/life/vehicles';
-import { generateZone } from '../../src/sim/zone/generate';
+import { generateZone } from '../../src/sim/zone/world';
 import { EMBERHOLM } from '../../src/sim/zone/world';
 import { skillsFrom } from '../../src/content/skills';
 import { emptyMovement, HOTBAR_SLOTS, NO_ABILITY, SLIDE_SKILL } from '../../src/content/tuning';

@@ -2,13 +2,13 @@ import { execFileSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { expect, test } from 'vitest';
 import { makeRng } from '../../src/util/rng';
-import { EMBERHOLM } from '../../src/sim/zone/world';
-import { generateZone } from '../../src/sim/zone/generate';
+import { EMBERHOLM, generateZone } from '../../src/sim/zone/world';
 
-// The server and the browser grow the same island from its recipe (shared/zones/, built from
-// content/zones/): the engine (crates/engine/src/open/generate.rs) and, until the browser runs the
-// engine's, src/sim/zone/generate.ts. Here the two are held to each other: all of what they grow,
-// and the ground as the rules sample it.
+// The server and the browser play the same island: the engine grows it from its recipe
+// (crates/engine/src/open/generate.rs), natively on the server and in the browser through its
+// WebAssembly (generateZone, src/engine/wasm.ts). Here the browser's is held to the server's, all
+// of what grows and handed over, and the ground as the TypeScript rules sample it (src/sim/terrain.ts)
+// to the engine's sampling, until the browser's rules are the engine's too.
 
 const CHECK = `target/release/terraincheck${process.platform === 'win32' ? '.exe' : ''}`;
 
@@ -47,7 +47,7 @@ function differences(a: unknown, b: unknown, path: string, out: string[]): void 
   if (a !== b) out.push(`${path}: ${JSON.stringify(a)} != ${JSON.stringify(b)}`);
 }
 
-test('the engine grows Emberholm as the browser does: ground, colliders, roads, placements, waterfalls, buildings', (ctx) => {
+test('the browser grows the island the server does: ground, colliders, roads, placements, waterfalls, buildings', (ctx) => {
   ctx.skip(!existsSync(CHECK), 'build the server first: cargo build --release');
   const gen = generateZone(EMBERHOLM);
   const hf = gen.terrain;

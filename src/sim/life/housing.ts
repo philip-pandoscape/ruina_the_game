@@ -6,7 +6,7 @@ import { itemDef } from '../../content/items';
 import { structureDef } from '../../content/structures';
 import { packDef, formatCoins } from '../../content/trade';
 import { carried, consumeCarried } from './trade';
-import { rect, toWorld } from '../zone/generate';
+import { rect, toWorld } from '../zone/frames';
 
 // Houses on the plots at Hearthside Rise. A blueprint claims an empty plot; then the house goes
 // up a stage at a time as you haul each stage's material packs to the site - on your back or by

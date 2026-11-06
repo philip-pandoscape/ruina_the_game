@@ -6,7 +6,7 @@ import { itemDef } from '../../content/items';
 import { SURFACE } from '../terrain';
 import { raining } from './weather';
 import { stepAnimal } from './livestock';
-import { toLocal, toWorld } from '../zone/generate';
+import { toLocal, toWorld } from '../zone/frames';
 
 // Scarecrow plots and what grows in them. A scarecrow claims an 8 x 8 m patch of open, level
 // ground (up to three); each of its 2 m cells holds one plant, which grows in real time - faster

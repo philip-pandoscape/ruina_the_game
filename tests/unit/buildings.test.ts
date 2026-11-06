@@ -14,7 +14,7 @@ import {
   WALL,
 } from '../../src/content/buildings';
 import { structureDef, structureIds } from '../../src/content/structures';
-import { generateZone } from '../../src/sim/zone/generate';
+import { generateZone } from '../../src/sim/zone/world';
 import { inRect } from '../../src/sim/zone/colliders';
 import { EMBERHOLM } from '../../src/sim/zone/world';
 

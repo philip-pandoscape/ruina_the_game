@@ -6,14 +6,14 @@ import { GROUND } from '../../content/traversal';
 import inputSource from '../../input/input.ts?raw';
 import locomotionSource from '../../sim/player/locomotion.ts?raw';
 import traverseSource from '../../sim/player/traverse.ts?raw';
-import buildingsSource from '../../sim/zone/buildings.ts?raw';
+import buildingsSource from '../../../crates/engine/src/open/buildings.rs?raw';
 import zoneWorldSource from '../../sim/zone/world.ts?raw';
 import { EMBERHOLM } from '../../engine/zone';
 import { ATTACK, JUMP, MOVE, MOVEMENT_SKILLS, SIM_HZ, STEP } from '../../content/tuning';
 import { accel, count, duration, frames, metres, num, pct, slopeDegrees, speed, speedKmh, turnRate } from '../format';
 import { system, table } from '../kit';
 import { link, md, phrase } from '../md';
-import { sourceNumber, tsConst } from '../source';
+import { rustConst, sourceNumber, tsConst } from '../source';
 
 /** How high a jump at `v` takes you, and how long it rises, under gravity `g`. */
 const rise = (v: number, g: number) => ({ height: (v * v) / (2 * g), time: v / g });
@@ -30,7 +30,7 @@ export const movingAndClimbing = system({
     'src/sim/player/abilities.ts',
     'src/sim/sim.ts',
     'src/sim/zone/colliders.ts',
-    'src/sim/zone/buildings.ts',
+    'crates/engine/src/open/buildings.rs',
     'src/sim/zone/world.ts',
     'src/input/input.ts',
     'crates/engine/src/player.rs',
@@ -53,9 +53,9 @@ export const movingAndClimbing = system({
     const crouchSlide = tsConst(inputSource, 'CROUCH_SLIDE_SPEED');
     const snapK = sourceNumber(traverseSource, /speed \* STEP \* GROUND\.maxSlope \* ([\d.]+)/, 'how far the ground may drop away under you');
     const steepExtra = sourceNumber(traverseSource, /GROUND\.maxSlope \+ ([\d.]+)\)/, 'how steep ground is before you slide off it');
-    const head = tsConst(buildingsSource, 'HEAD');
-    const rail = sourceNumber(buildingsSource, /railTop = floor \+ STOREY \+ ([\d.]+)/, 'how high a stairwell’s rail is');
-    const furnitureLow = sourceNumber(buildingsSource, /Math\.min\(HEAD, Math\.max\(([\d.]+), def\.h\)\)/, 'the lowest an upstairs piece of furniture is');
+    const head = rustConst(buildingsSource, 'HEAD');
+    const rail = sourceNumber(buildingsSource, /rail_top = floor \+ STOREY \+ ([\d.]+)/, 'how high a stairwell’s rail is');
+    const furnitureLow = sourceNumber(buildingsSource, /js_min\(HEAD, js_max\(([\d.]+), def\.h\)\)/, 'the lowest an upstairs piece of furniture is');
     const edgeMargin = sourceNumber(zoneWorldSource, /hf\.size \/ 2 - ([\d.]+)/, 'how far in from its edge the world ends');
     const slide = MOVEMENT_SKILLS.find((m) => m.id === 'slide');
     const sa = slide?.action;

@@ -6,7 +6,7 @@ import { isBoat, isMount, isWheeled, rideable, type BoatDef, type MountDef, type
 import { itemDef } from '../../content/items';
 import { SURFACE, type Heightfield } from '../terrain';
 import { groundAt, pushOutOfBox } from '../zone/colliders';
-import { toLocal, toWorld } from '../zone/generate';
+import { toLocal, toWorld } from '../zone/frames';
 import { angleDiff, len, turnToward } from '../math';
 import { MOVE, STEP } from '../../content/tuning';
 import { GROUND, STORM, SWIM } from '../../content/traversal';

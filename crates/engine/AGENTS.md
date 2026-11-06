@@ -46,6 +46,6 @@ refactor's Phase 8). Until then the two copies are held to each other by the con
 - `npm run test:conformance`: builds the engine and its WebAssembly, then compares the two copies
   (player, creatures, the island, life systems, ground) and holds the WebAssembly to the native
   engine bit for bit (`tests/conformance/engine.test.ts`).
-- The island grows from its recipe here and in the browser alike (`open/generate.rs`,
-  `src/sim/zone/generate.ts`, until the browser runs this one): a change to how it grows is made on
-  both sides, and `tests/conformance/terrain.test.ts` compares all of what they grow.
+- The island grows from its recipe here alone (`open/generate.rs`, `open/buildings.rs`): the
+  browser grows it through `crates/engine-wasm` (`zone_grow`), and `tests/conformance/terrain.test.ts`
+  holds the WebAssembly's island to the native one, all of it.

@@ -62,7 +62,8 @@ export default defineConfig({
         { name: 'one at a time', grep: ALONE, workers: 1 },
       ],
   webServer: {
-    command: `npx vite --port ${port} --strictPort`,
+    // The engine's WebAssembly first (src/engine/load.ts): a moment when it's up to date.
+    command: `npm run engine && npx vite --port ${port} --strictPort`,
     url: `http://localhost:${port}`,
     reuseExistingServer: true,
     // Its first page can take most of a minute when other checkouts' suites are busy on the machine.

@@ -152,6 +152,8 @@ export interface WaterfallRecipe {
 
 /** A waterfall as the generator cut it: where everything is, for the renderer and the tests. */
 export interface WaterfallInfo {
+  /** How far the spring's runnel reaches either side of the bearing, for drawing it. */
+  runnel: number;
   id: string;
   /** The mountain's middle, and the unit vectors out along the bearing (u) and across it (v). */
   cx: number;

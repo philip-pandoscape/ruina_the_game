@@ -77,7 +77,8 @@ class BuildingsGallery implements Gallery {
       if (!base) continue;
       const p = mirror ? mirrorPlan(base) : base;
       const px = x + p.w / 2;
-      const solid = buildingColliders(p, px, 0, 0, 0);
+      const solid = buildingColliders(id, mirror, px, 0, 0, 0);
+      if (!solid) continue;
       this.placed.push({ id, plan: p, x: px, y: 0, z: 0, rot: 0, mirror, boxes: solid.boxes });
       this.solids.push({ id, boxes: solid.boxes.length, decks: solid.decks.length, posts: solid.obstacles.length });
       x += p.w + 6;

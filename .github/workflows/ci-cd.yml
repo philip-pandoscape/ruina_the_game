@@ -43,6 +43,16 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      # The engine's WebAssembly (crates/engine-wasm): the browser's rules, which the unit tests and
+      # the build load.
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: engine-wasm
+      - name: The engine for the browser
+        run: npm run engine
       - name: Unit tests
         run: npx vitest run --project unit
       # Code nothing uses fails the check (knip finds the pages through the build, and knip.json adds the tests and tools).

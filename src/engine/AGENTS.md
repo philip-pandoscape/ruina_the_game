@@ -1,13 +1,16 @@
 # src/engine
 
 The bridge to the rules: the only way to them from the rest of the client
-(`tests/unit/boundaries.test.ts` holds it). Today it stands in front of the TypeScript rules
-(`src/sim/`); Phase 8 of the refactor (`.plans/refactor/`) answers the same calls from the Rust engine
-compiled to WebAssembly (`crates/engine-wasm`), and nothing that uses the bridge should notice.
+(`tests/unit/boundaries.test.ts` holds it). It stands in front of the TypeScript rules (`src/sim/`)
+and, more and more, the Rust engine compiled to WebAssembly (`crates/engine-wasm`): Phase 8 of the
+refactor (`.plans/refactor/`) answers the same calls from the engine, subsystem by subsystem, and
+nothing that uses the bridge should notice. The island already grows in the engine (`zone_grow`).
 
 | File | What |
 |---|---|
 | `engine.ts` | `Engine`: the rules for the page (the island or the yard, you in it, the island's life), stepping them, and every change made to them from outside as a named call: putting you somewhere, your build and levels, a dungeon's floors and walls, an island loaded, the server's word on you (`correct`), your island as the server has it (`takeIsland`, `runAhead`, `replayIsland`), what's solid on the server (`addSolidHouse`, `addSolidScarecrow`, `setOthersVehicles`), and the test API's hooks. |
+| `wasm.ts` | The engine's WebAssembly: loaded once per page, then asked synchronously (text through its memory, big arrays copied out). `growZone` grows a zone from its recipe; `buildingSolids` gives a building plan's colliders. |
+| `load.ts` | The engine's file for a page (`startEngine()`): every page that reaches the island awaits it first (the game, the bible, the content library). The tests load it from the file (`tests/support/engineSetup.ts`). |
 | `rules.ts` | The rules' common shapes and helpers: the world, you, what you press and what happens. |
 | `zone.ts` | The island's ground and what stands on it: terrain, zones, buildings, colliders, roads, dungeons. |
 | `island.ts` | The island's life systems: trade, farming, housing, the shipyard, vehicles, quests, weather, saves. |

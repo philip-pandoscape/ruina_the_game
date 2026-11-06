@@ -417,6 +417,8 @@ pub struct WaterfallInfo {
     pub floor: [f64; 2],
     pub spring: SpringInfo,
     pub plunge: PlungeInfo,
+    /// How far the spring's runnel reaches either side of the bearing (`RUNNEL`), for drawing it.
+    pub runnel: f64,
 }
 
 /// Everything grown from a recipe.
@@ -1241,6 +1243,7 @@ pub fn generate(z: &Recipe) -> Generated {
             floor: f.floor,
             spring: SpringInfo { x: sx, z: sz, at: f.spring.at, r: f.spring.r, level: spring_level },
             plunge: PlungeInfo { x: px, z: pz, s: f.plunge.at, along: f.plunge.along, across: f.plunge.across, level: plunge_level },
+            runnel: RUNNEL,
         });
     }
 

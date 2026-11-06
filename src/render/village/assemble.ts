@@ -13,7 +13,7 @@ import {
   type FurnitureDef,
   type WallKind,
 } from '../../content/buildings';
-import { ROOF_RISE, roofSpan } from '../../engine/zone';
+import { ROOF_RISE, roofSpan } from '../../content/buildings';
 import { ROOF_PART } from './kit';
 
 // A building plan (src/content/buildings.ts) as the kit pieces that make it, each placed in the
