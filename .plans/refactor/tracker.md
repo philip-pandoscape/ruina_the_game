@@ -9,12 +9,12 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
 
 ## Now
 
-- **Phase:** 5, the Rust Workspace (Phases 0-4 done but Biome, R5.0b, which waits for the
-  toon-look agent's last fix).
-- **Next:** R5.1-R5.4 and R5.9: the workspace, the engine crate, the tools crate, `ruina-server`.
+- **Phase:** 6, the Client in Areas (Phases 0-5 done; R5.3b and R5.6 wait for Phases 10 and 8).
+- **Next:** R6.2a, the game core: `main.ts`'s rules half as a module of its own.
 - **Test rig for this branch:** Postgres container `ruina-refactor-db` on 127.0.0.1:5461; the
   world server copied to `scratch/server-run/` on 7871 (`DATABASE_URL=postgres://ruina:ruina@127.0.0.1:5461/ruina
-  DEV_LOGIN=1 ./yggdrasil-server.exe --battle off --port 7871`, rebuilt and copied after a server change); the suite with `PW_PORT=5261
+  DEV_LOGIN=1 ./ruina-server.exe --battle off --port 7871`, rebuilt (`cargo build --release`) and copied
+  from `target/release/` after a server change); the suite with `PW_PORT=5261
   TEST_PORT_OFFSET=60 RUINA_SERVER=http://localhost:7871
   RUINA_DATABASE_URL=postgres://ruina:ruina@127.0.0.1:5461/ruina`. Servers listen on localhost only:
   never start one that listens everywhere on this machine (it raises a Windows prompt).
@@ -260,13 +260,15 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
   Dockerfile, CI, `package.json`, `vite.config.ts` (the `src/app/bugs/logs.ts` regex); AGENTS.md,
   `docs/`, the skills, `design/status.json`. It can replay the same moves on any other branch.
   Done in Phase 1 (57bbd61, 1e0bf67), with template-string URLs since (4183398).
-- [~] **R5.0b** The one formatting commit (rustfmt, Biome), listed in `.git-blame-ignore-revs`.
+- [x] **R5.0b** The one formatting commit (rustfmt, Biome), listed in `.git-blame-ignore-revs`.
   Rust done (440a861: 160 columns, Max heuristics, the closest to how it was written; checked by CI
   and `npm run check`). Biome (160 columns too; about 8,700 lines change) once the toon-look agent
   has committed its TypeScript.
-- [ ] **R5.1** Root `Cargo.toml` workspace with `crates/engine`, `crates/server`, `crates/tools`;
+  Done: Biome too (cf22932: 160 columns, a light rule set, 177 files), in CI and `npm run check`.
+- [x] **R5.1** Root `Cargo.toml` workspace with `crates/engine`, `crates/server`, `crates/tools`;
   one `target/` at the root.
-- [ ] **R5.2** Move the pure rules modules into `crates/engine` (`inventory/rules-map.md` section 1:
+  Done (8030f44).
+- [x] **R5.2** Move the pure rules modules into `crates/engine` (`inventory/rules-map.md` section 1:
   actor, actors, ai, pack, missiles, content, creatures, tuning, skills, jsmath, player, world, sim's
   `Battle`, open/\*, life/\*, minigames/\*); the engine depends on serde, serde_json and libm only.
   First cut the couplings: game.rs's combat rules from its protocol encoders and client slots;
@@ -274,23 +276,34 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
   `world_game::{load_island, player_state_json}` (island loading is a rule, so it moves); the loops
   `open`/`life` and `skills`/`tuning` (shared helpers such as `js_hypot`, `js_round`, `carry` into a
   module of their own).
+  Done (8030f44): the engine compiles to wasm32 unchanged. The server re-exports its modules, so
+  `crate::player` and the rest still read as before. Left for Phase 8: island loading
+  (`load_island`, `player_state_json`) is still the server's, which the lifecheck tool uses.
 - [x] **R5.2b** One of each helper: one mulberry32 `Rng` (today in sim.rs, `Life::rand`, ai.rs `draw`,
   beacons.rs), one `len` (six copies), one set of `js_*` maths helpers. Done (f1ec903): `rng.rs`
   and `jsmath.rs`; all 63 TypeScript-against-Rust checks unchanged.
-- [ ] **R5.3** Server areas: `net/`, `db/`, `world/`, `battle/`, `admin/`; `main.rs` only starts things;
+- [x] **R5.3** Server areas: `net/`, `db/`, `world/`, `battle/`, `admin/`; `main.rs` only starts things;
   `lib.rs`'s flat list of 30 modules becomes a few public areas.
-- [ ] **R5.3b** Cut the battlefield loose from the open world: `world_game.rs:31,206` makes an empty
+  Done (04da4b6): `accounts/`, `play/`, `battle/`, with `combat.rs`, `protocol.rs`, `db.rs`, `http.rs`;
+  `main.rs` 123 lines (was 394).
+- [~] **R5.3b** Cut the battlefield loose from the open world: `world_game.rs:31,206` makes an empty
   `Battle` per channel; `game.rs:19-29` uses `protocol`, `sim` and `world`; `world::{World, Spawn}` are
   used by `player.rs`, `open/mod.rs`, `world_game.rs:33`. Shared types to the engine; the
   battlefield's own code fenced into `battle/` with no new work, until R10.10 deletes it.
-- [ ] **R5.4** `crates/tools`: balance, loadtest (taking `tokio-tungstenite`, today compiled into every
+  The battlefield's loop and networking are fenced in `battle/` (04da4b6); `combat.rs` still
+  writes its protocol and steps an empty `Battle` per channel, which Phase 10 removes with it.
+- [x] **R5.4** `crates/tools`: balance, loadtest (taking `tokio-tungstenite`, today compiled into every
   server build for a tool run by hand); the check programs until R8.13. `rayon` stays with the
   battlefield's loop only (until R10.8 brings parallel stepping to every zone).
-- [ ] **R5.5** Determinism lints in the engine (`clippy.toml`): no `std` `HashMap`/`HashSet`, no
+  Done (8030f44).
+- [x] **R5.5** Determinism lints in the engine (`clippy.toml`): no `std` `HashMap`/`HashSet`, no
   `f64::sin`/`cos`/`tan`/`exp`/`ln`/`powf`/`atan2`/`hypot`... (use `libm`), no clocks, no `rand`. Fix
   the ~40 calls listed in `inventory/rules-map.md` section 2 (actors, ai, game, life/interact x11,
   farming, vehicles `powf`, minigames, world, sim, world_game, tables), checked against the
   TypeScript results (the conformance tolerance should shrink, not grow).
+  Done (598820c): `crates/engine/clippy.toml`; maps and sets are B-trees; hypot is V8's. The
+  tolerances stay: V8's sin and cos aren't fdlibm's, so the TypeScript and the Rust can't agree to
+  the bit until both run the engine (Phase 8).
 - [x] **R5.5b** Bug: `world_game.rs:754` `rebuild_world` walks the estates `HashMap` (random order) and
   so inserts colliders in a different order each run. Walk them in a fixed order; a test proves two
   runs agree. Done (f8a7187): the test failed three times out of three before the fix.
@@ -298,14 +311,21 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
   against today's TypeScript results. Planned as hashes: each conformance scenario's Rust output
   hashed bit for bit and kept beside it, recorded while the conformance checks still prove it
   matches the TypeScript, so the engine keeps its own guard when Phase 8 deletes them.
-- [ ] **R5.7** Build speed: dev-profile settings, linker trial on Windows, `cargo build --timings`
+- [x] **R5.7** Build speed: dev-profile settings, linker trial on Windows, `cargo build --timings`
   report; Docker caching for a workspace (`cargo-chef` or stub crates).
-- [ ] **R5.8** Paths: Dockerfile, CI, `package.json`, `tests/support/testServer.ts`, README,
+  Done: the dev profile (Phase 1); Docker caches the dependencies with stand-in crates; `rust-lld`
+  tried and dropped (the workspace's edit-and-test 14.9 s with it, 15.3 s without).
+- [x] **R5.8** Paths: Dockerfile, CI, `package.json`, `tests/support/testServer.ts`, README,
   AGENTS.md, the design bible, memory notes (the live battle server's path).
-- [ ] **R5.9** Rename the crate and binary `yggdrasil-server` to `ruina-server` (decided), with every
+  Done (8030f44, and the memory notes).
+- [x] **R5.9** Rename the crate and binary `yggdrasil-server` to `ruina-server` (decided), with every
   `yggdrasil_server::` import, the Dockerfile, CI and scripts.
-- [ ] **R5.10** Measure and log: engine edit-and-test, server-only edit, clean build.
+  Done (8030f44).
+- [x] **R5.10** Measure and log: engine edit-and-test, server-only edit, clean build.
 
+  Done: an engine edit tested in 5.2 s (`cargo test -p ruina-engine`; 7 s in one crate before),
+  a server edit in 8.7 s, everything in 15.4 s; the release server rebuilt in 40-55 s; a clean
+  build of every test 119 s.
 ## Phase 6: The Client in Areas
 
 - [ ] **R6.0** Fix the boundary breaks first (`inventory/architecture.md` section 2): the network

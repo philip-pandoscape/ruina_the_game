@@ -14,7 +14,7 @@ is in [tracker.md](tracker.md), the plan in [README.md](README.md).
 | 2 Clear Out Dead Code | done (Biome with Phase 5) |
 | 3 Admin Menu | done |
 | 4 The /find-assets Skill | done |
-| 5 The Rust Workspace | in progress |
+| 5 The Rust Workspace | done |
 | 6 The Client in Areas | to do |
 | 7 Content in Folders | to do |
 | 8 One Copy of the Rules | to do |
@@ -185,3 +185,27 @@ is in [tracker.md](tracker.md), the plan in [README.md](README.md).
 - **Tests:** `admin.spec.ts` runs a server of its own with `ADMIN_USERS` set: a player gets no menu,
   their commands are ignored, the pages are not found and stopping the server is refused; an admin
   has the card, the window, a page in a tab and Developer Tools, and their commands work.
+
+## 2026-11-06: Phase 5, the Rust Workspace: done
+
+| | Before | After |
+|---|---|---|
+| Layout | one crate, `server/`, 30 modules in a flat list | `crates/engine` (the rules), `crates/server` (`ruina-server`, in areas), `crates/tools` |
+| Edit a rules file, test it | 7 s (one crate) | **5.2 s** (`cargo test -p ruina-engine`) |
+| Edit the server, test it | 12 s | 8.7 s |
+| Edit anything, test everything | 12 s | 15.4 s (three crates and the tools' binaries) |
+| Release server after an edit | 1 min 38 s | 40-55 s |
+| A clean build of every test | | 119 s |
+
+- **The engine** holds the rules with serde, serde_json and libm only: no clocks, threads or I/O.
+  It compiles to WebAssembly as it is (Phase 8's start). Clippy keeps it deterministic: the
+  browser's maths (`hypot` is now V8's, as the TypeScript's is), no hash maps (their order differs
+  between native code and WebAssembly), no clocks.
+- **The server** is `ruina-server`, in areas: `accounts/`, `play/` (Emberholm online), `battle/`
+  (the battlefield, fenced in until Phase 10 replaces it), `combat.rs`, `http.rs`, `db.rs`.
+- **One format:** rustfmt and Biome (160 columns), checked by CI and `npm run check`.
+- **A bug fixed:** starting an island over rebuilt everyone's solids in a random order.
+- **Tried and dropped:** the `lld` linker (no faster here).
+- **Waiting:** golden results for the engine's own tests (before Phase 8 deletes the comparisons
+  with the TypeScript), and untangling combat from the battlefield (Phase 10 deletes it).
+- **Next:** Phase 6, the client in areas.
