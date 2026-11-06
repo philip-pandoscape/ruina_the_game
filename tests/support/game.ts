@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import type { GameApi } from '../../src/main';
+import type { GameApi } from '../../src/app/testApi';
 
 // What every test that plays the game in a page shares: the game's test API, typed (window.__game,
 // built in src/main.ts), and one way to open the game and wait until it's ready.

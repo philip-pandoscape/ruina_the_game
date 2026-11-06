@@ -7,17 +7,14 @@ import { INTERP_TICKS, NetCrowd, type NetActor } from './net/netCrowd';
 import { NetMonsters } from './net/netMonsters';
 import { Prediction, RemotePlayers, stateFromServer } from './net/netPlayer';
 import { NetSpells } from './net/netSpells';
-import { assetsReady } from './render/assets';
-import { isPine } from './render/open/foliage';
 import { FollowCamera } from './render/camera';
 import { GRAPHICS } from './render/look';
-import { Hero, type WeaponAt } from './render/character';
+import { Hero } from './render/character';
 import { TrainingDummy } from './render/dummy';
 import { ActorView } from './render/actors';
 import { actorKindAt, actorKindIds, findKind, kindName } from './content/actors';
-import { isAlive, type Actor } from './sim/actor';
-import { behaviour, startBrain, stateName, stateProgress } from './sim/ai/brain';
-import { targetOf } from './sim/combat/hit';
+import { isAlive } from './sim/actor';
+import { behaviour, stateName, stateProgress } from './sim/ai/brain';
 import { createTargeting } from './app/targeting';
 import { Hud } from './render/hud';
 import { BATTLEFIELD_STAGE, Stage, TRAINING_STAGE } from './render/scene';
@@ -38,9 +35,10 @@ import { runCommand, type FocusAction } from './sim/life/interact';
 import type { LifeState } from './sim/life/state';
 import { LifeView, sitIn } from './render/open/life';
 import { LifeUI } from './ui/life/lifeUI';
-import { clearLife, loadLife, saveData, saveLife } from './app/save';
+import { clearLife, loadLife, saveData } from './app/save';
 import { goOnline } from './app/online';
 import { readOptions } from './app/options';
+import { makeTestApi } from './app/testApi';
 import { leaveFor, plainUrl } from './app/resume';
 import { currentAccount, signOut } from './net/account';
 import { addAdminButton } from './ui/admin/adminMenu';
@@ -1664,601 +1662,200 @@ requestAnimationFrame(frame);
 
 // ---------- Hooks for automated tests ----------
 
-const api = {
-  ready: true,
-  /** The textures and models that load after the page have all arrived (src/render/assets.ts). */
-  get assetsReady(): boolean {
-    return assetsReady();
-  },
-  // Steps the game with the same scripted actions every frame (auto-walk, when on, moves you), and
-  // draws the last; `drawn` false leaves that to the caller (a long walk sampled as it goes needn't
-  // draw every sample, which a browser drawing in software, as CI's does, takes a second over).
-  advance(frames: number, actions: Partial<Actions> = {}, drawn = true): void {
-    for (let i = 0; i < frames; i++) {
-      const own = { ...NO_ACTIONS, ...actions };
-      stepOnce(walker ? walker.steer(own, follow.yaw) : own);
-      followSim(STEP);
-    }
-    if (drawn) draw(1, 0, 0);
-  },
-  // Steps the game reading the real keyboard, mouse and controller, and draws the last (`drawn`
-  // false leaves that to the caller, as advance's does).
-  advanceLive(frames: number, drawn = true): void {
-    for (let i = 0; i < frames; i++) {
-      const cam = input.pollCamera(STEP);
-      follow.rotate(cam.dYaw, cam.dPitch);
-      follow.zoom(cam.dZoom);
-      const own = input.pollActions(follow.yaw);
-      stepOnce(walker ? walker.steer(own, follow.yaw) : own);
-      followSim(STEP);
-    }
-    if (drawn) draw(1, 0, 0);
-  },
-  /** Auto-run and travel by road: what is walking you, where to, and how far is left. */
-  walk() {
-    if (!walker) return null;
-    const r = walker.route;
-    return { mode: walker.mode, marker: walker.marker, left: walker.left, length: r?.length ?? 0, short: r?.short ?? 0, refusal: walker.refusal() };
-  },
-  /** Marks (x, z) and sets off along the roads to it, as a click on the map does. False when you can't from here. */
-  travelTo(x: number, z: number, label = 'Marked Spot'): boolean {
-    if (!walker) return false;
-    walker.mark(x, z, label);
-    return walker.travel();
-  },
-  render(): void {
-    draw(1, 0, 0);
-  },
-  reset(opts: { x?: number; z?: number; facing?: number; camYaw?: number } = {}): void {
-    const facing = opts.facing ?? world.spawn.facing;
-    sim.reset({ x: opts.x ?? world.spawn.x, z: opts.z ?? world.spawn.z, facing }, 0, build);
-    if (terrain) {
-      // Stand on the ground there, not inside it.
-      const p = sim.player;
-      p.pos.y = groundAt(terrain, world.index, p.pos.x, p.pos.z, terrain.height(p.pos.x, p.pos.z) + 1.2, 1.2);
-      p.prevPos = { ...p.pos };
-    }
-    life?.afterReset(sim);
-    range?.reset();
-    vfx.reset();
-    hud.clear();
-    follow.reset(opts.camYaw ?? facing);
-    followSim(STEP);
-    draw(1, 0, 0);
-  },
-  state() {
-    return JSON.parse(JSON.stringify({ frame: sim.frame, hitstop: sim.hitstop, player: sim.player, dummy: dummyActor() }));
-  },
-  events() {
-    return sim.log.map((e) => ({ ...e }));
-  },
-  perf,
-  crowd() {
-    if (net) return { fighters: net.n, known: net.knownCount(), connected: net.connected, downloadKBps: net.bytesPerSec / 1024, server: net.stats };
-    if (!crowd) return null;
-    return { fighters: crowd.n, alive: crowd.aliveCount(), kills: crowd.kills, ticks: crowd.tick, trianglesPerFighter: crowdView?.trianglesPerFighter };
-  },
-  setPaused(p: boolean): void {
-    paused = p;
-    acc = 0;
-    last = performance.now();
-  },
-  setCamera(c: { yaw?: number; pitch?: number; distance?: number }): void {
-    if (c.yaw !== undefined) follow.yaw = c.yaw;
-    if (c.pitch !== undefined) follow.pitch = c.pitch;
-    if (c.distance !== undefined) {
-      follow.distance = c.distance;
-      follow.zoom(0);
-    }
-    followSim(STEP);
-  },
-  camera() {
-    return { yaw: follow.yaw, pitch: follow.pitch, distance: follow.distance };
-  },
-  /** Parks the camera at `from` looking at `to` (null hands it back to the follow camera). */
-  viewFrom(from: [number, number, number] | null, to: [number, number, number] = [0, 0, 0]): void {
-    pinnedView = from ? { from: new THREE.Vector3(...from), to: new THREE.Vector3(...to) } : null;
-    // The follow camera only moves when it steps, so step it back from wherever the view was.
-    if (!pinnedView) followSim(STEP);
-    draw(1, 0, 0);
-  },
-  // Where the eye actually is, which the targeting view lifts. follow.pitch is what you chose and
-  // doesn't change while aiming, so it can't be used to see this.
-  cameraHeight(): number {
-    return follow.camera.position.y;
-  },
-  /**
-   * Where the hero's weapon is drawn: 'hand' when held, 'away' when put away (at the hip, across the
-   * back), 'hidden' when it isn't drawn at all (travelling, a pack on the back).
-   */
-  heroWeapon(): WeaponAt {
-    return hero.weaponState;
-  },
-  /**
-   * At the controls of a vehicle: where each hand is and where what it holds is (the oars' handles,
-   * a wheel's rim), left then right, in the world as last drawn; null with nothing to hold.
-   */
-  holds() {
-    const h = hero.seatHolds?.hands;
-    if (!h) return null;
-    const at = (o: THREE.Object3D) => o.getWorldPosition(new THREE.Vector3()).toArray();
-    return { hands: [at(hero.detail.joint('handL')), at(hero.detail.joint('handR'))], holds: h.map(at) };
-  },
-  // Targeting, the ground-aim circle, and the floating numbers currently on screen.
-  combat() {
-    return {
-      target: (() => {
-        const m = lockOn.mark();
-        return m ? { key: m.key, name: m.name, hp: m.hp, x: m.x, z: m.z } : null;
-      })(),
-      locked: lockOn.locked,
-      aiming: aimingSlot,
-      reticle: aimingSlot !== 0 ? { x: reticle.x, z: reticle.z, range: reticle.range, radius: reticle.radius } : null,
-      markers: hud.markerLog(),
-    };
-  },
-  // Pretends Tab (1) or Shift-Tab (-1) was pressed.
-  cycleTarget(step = 1): void {
-    cycleTarget(step);
-  },
-  clearMarkers(): void {
-    hud.clearMarkerLog();
-  },
-  // Testing: take a hit as if another fighter had landed it.
-  takeHit(damage: number, dirX: number, dirZ: number, knock: number): void {
-    sim.takeHit(damage, dirX, dirZ, knock);
-  },
-  // Testing: your stamina and MP as they would be part way through a fight (offline only).
-  setVitals(v: { stamina?: number; mp?: number }): void {
-    if (v.stamina !== undefined) sim.player.stamina = v.stamina;
-    if (v.mp !== undefined) sim.player.mp = v.mp;
-    draw(1, 0, 0);
-  },
-  // The skill panel: whether it's open and whether it's waiting for a hotbar slot.
-  panel() {
-    return { ...panel.state(), abilities: [...build.abilities] };
-  },
-  /** Puts the skill book's cursor on a skill (by id) or a slot, or the tree's on a node. */
-  panelFocus(where: { book?: string; slot?: number; move?: number; node?: string }): void {
-    panel.setFocus(where);
-  },
-  openPanel(view: 'book' | 'tree' = 'book'): void {
-    panel.open(view);
-  },
-  /** Plans the way to a tree node and learns it, as clicking it and Learn would. */
-  learnNode(id: string): boolean {
-    return panel.learnNode(id);
-  },
-  selectBook(id: string): void {
-    panel.selectBook(id);
-  },
-  /** Skill points, levels and experience, as the book shows them. */
-  skills() {
-    return {
-      budget: skillPoints(),
-      left: pointsLeft(build.skills, skillPoints()),
-      levels: Object.fromEntries(BOOK.map((b, i) => [b.id, sim.levels[i] ?? 1])),
-      xp: { ...(life ? (life.state.skillXp ?? {}) : yardXp) },
-    };
-  },
-  // What a drag between two hotbar slots ends up doing.
-  swapSlots(a: number, b: number): void {
-    applyBuild(swapSlots(build, a, b));
-  },
-  device() {
-    return input.lastDevice;
-  },
-  // Online play: your fighter, how often the server corrected the prediction, and the players nearby.
-  net() {
-    if (!net) return null;
-    const p = sim.player;
-    return {
-      connected: net.connected,
-      joined: !!net.you,
-      id: net.you?.id ?? null,
-      team: p.team,
-      hp: p.hp,
-      x: p.pos.x,
-      y: p.pos.y,
-      z: p.pos.z,
-      mode: p.mode,
-      stun: p.stun,
-      weapon: p.weapon,
-      skills: [...p.skills],
-      abilities: [...p.abilities],
-      cooldowns: [...p.cooldowns],
-      sprinting: p.sprinting,
-      crouching: p.crouching,
-      castAbility: p.castAbility,
-      seq: prediction?.seq ?? 0,
-      ack: prediction?.lastAck ?? 0,
-      pending: prediction?.pendingCount ?? 0,
-      corrections: prediction?.corrections ?? 0,
-      maxCorrection: prediction?.maxCorrection ?? 0,
-      lastCorrection: prediction?.lastCorrection ?? 0,
-      snapshots: net.snapshots,
-      remotes: remotes?.list() ?? [],
-      scriptLeft: scripted.length,
-      renderTick: net.renderTick(performance.now()),
-      lastTick: net.lastTick,
-      server: net.stats,
-    };
-  },
-  // Feeds a list of [frames, actions] in place of the controller (live play, for tests).
-  scriptInput(segments: Array<[number, Partial<Actions>]>): void {
-    for (const [frames, a] of segments) for (let i = 0; i < frames; i++) scripted.push({ ...NO_ACTIONS, ...a });
-  },
-  // Every crowd fighter's (x, y, z, yaw) as drawn this frame; y below zero means sinking or hidden.
-  crowdRoots(): Float32Array | null {
-    return crowdView?.roots() ?? null;
-  },
-  autoAttack(on: boolean): void {
-    autoAttack = on;
-  },
-  // Skills and loadout: the build you've chosen, and what your fighter is actually using.
-  build() {
-    const p = sim.player;
-    return { chosen: { ...build }, using: { skills: [...p.skills], weapon: p.weapon, abilities: [...p.abilities], movement: [...p.movement] } };
-  },
-  setBuild(b: Build): boolean {
-    // Only what your points allow: on the island, what its quests and milestones have earned.
-    if (!validBuild(b, skillPoints())) return false;
-    panel.setBuild(b);
-    applyBuild(b);
-    return true;
-  },
-  // Testing: send a build without checking it first, to see the server turn it down.
-  sendRawBuild(b: Build): void {
-    net?.sendBuild(b.skills, b.weapon, b.abilities, b.movement);
-  },
-  // Puts an actor of a kind somewhere specific, so a test does not have to wait for one to
-  // wander over. `i` indexes the actors of that kind, in spawn order.
-  placeActor(kind: string, i: number, x: number, z: number): void {
-    const a = sim.actors.all().filter((v) => v.kind === kind)[i];
-    if (!a) return;
-    a.x = x;
-    a.z = z;
-    a.y = 0;
-    a.homeX = x;
-    a.homeZ = z;
-  },
-  // What the server says is in the world around you; empty when playing offline.
-  netActors() {
-    return net?.actors ?? [];
-  },
-  /** The server's monsters as drawn this frame (between its updates), with how white each one is. */
-  shownActors() {
-    const now = performance.now();
-    return shownActors.map((a) => ({ ...a, flash: netMonsters?.flash(a.id, now) ?? 0 }));
-  },
-  /** Online hit effects so far: swings guessed to land, the server's confirmations (and how many matched a guess or came late), flashes, and slams and deaths shown. */
-  netFx() {
-    return netMonsters ? { ...netMonsters.counts } : null;
-  },
-  actors(kind?: string) {
-    return sim.actors
-      .all()
-      .filter((a) => !kind || a.kind === kind)
-      .map((a) => ({
-        id: a.id,
-        kind: a.kind,
-        x: +a.x.toFixed(3),
-        y: +a.y.toFixed(3),
-        z: +a.z.toFixed(3),
-        hp: a.hp,
-        maxHp: a.maxHp,
-        alive: isAlive(a),
-        state: stateName(a),
-        deadFrame: a.deadFrame,
-        flash: a.flashFrame,
-        mass: a.mass,
-        gone: a.gone,
-        transient: a.transient,
-        angry: a.angry,
-        rallyTo: a.rallyTo,
-        calling: a.calling,
-        fuse: a.fuse,
-        group: a.group,
-        slamCd: a.slamCd,
-        gatherCd: a.gatherCd,
-        targetX: +a.targetX.toFixed(3),
-        targetZ: +a.targetZ.toFixed(3),
-        target: a.target,
-        band: a.band,
-        token: a.token,
-        opening: a.opening,
-        afraid: a.afraid,
-        slotX: +a.slotX.toFixed(3),
-        slotZ: +a.slotZ.toFixed(3),
-        charges: a.charges,
-        cds: [...a.cds],
-        facing: +a.facing.toFixed(4),
-      }));
-  },
-  // Testing: a war-band of `count` of a kind round (x, z), fighting together. Returns their ids.
-  spawnBand(kind: string, count: number, x: number, z: number): number[] {
-    return sim.spawnBand(kind, count, x, z, (sim.frame * 2654435761 + sim.actors.all().length * 40503) >>> 0);
-  },
-  // What creatures have thrown, still in the air.
-  missiles() {
-    return sim.actors.missiles.map((m) => ({ id: m.id, owner: m.owner, x: +m.x.toFixed(3), y: +m.y.toFixed(3), z: +m.z.toFixed(3), age: m.age }));
-  },
-  // Testing: a blow from you to one actor, by id, as if a weapon had landed it.
-  hurtActor(id: number, amount: number): void {
-    const a = sim.actors.get(id);
-    if (a && isAlive(a)) sim.damage(targetOf(a), amount, 0, 0, sim.player.weapon);
-  },
-  // Testing: sets fields on an actor by id (a cooldown, a fuse), to set up a moment directly.
-  setActor(id: number, fields: Partial<Actor>): void {
-    const a = sim.actors.get(id);
-    if (a) Object.assign(a, fields);
-  },
-  // Testing: puts a new actor of a kind in the world, as if a fight had made it (it won't respawn).
-  spawnActor(kind: string, x: number, z: number): number {
-    const a = sim.actors.spawn({ kind, x, z, seed: (sim.frame * 2654435761 + sim.actors.all().length * 40503) >>> 0 });
-    a.transient = true;
-    startBrain(a, sim.sighting());
-    return a.id;
-  },
-  // Testing: monsters that never get angry, for tests about something else that hit them.
-  calmMonsters(on = true): void {
-    sim.actors.calm = on;
-    if (on) for (const a of sim.actors.all()) a.angry = 0;
-  },
-  skillPanel(open?: boolean): boolean {
-    if (open === true && !panel.isOpen) panel.open('book');
-    if (open === false && panel.isOpen) panel.close();
-    return panel.isOpen;
-  },
-  /** Testing: the height of the highest ground circle drawn over (x, z), or null where there is none. */
-  circleHeight(x: number, z: number): number | null {
-    return spells.heightAt(x, z);
-  },
-  /** Testing: the height of your farm's soil or furrows drawn over (x, z), or null where there is none. */
-  farmGround(x: number, z: number): number | null {
-    return lifeView?.farmGroundAt(x, z) ?? null;
-  },
-  /** Testing: where the shadow under you is drawn. */
-  shadowHeight(): number {
-    return blob.position.y;
-  },
-  /** A portrait the UI shows (an image URL): 'player' (your face), 'body' (all of you) or an NPC's id; and how many of yours the studio has taken. */
-  portrait(who: string) {
-    return { url: portraitOf(who), taken: studio.taken };
-  },
-  spells() {
-    return {
-      arrowsDrawn: spells.arrowsDrawn,
-      meteorsDrawn: spells.meteorsDrawn,
-      circlesDrawn: spells.circlesDrawn,
-      training: range ? { arrows: range.arrows.length, meteors: range.meteors.length } : null,
-      online: netSpells?.counts ?? null,
-    };
-  },
-  // ---- Open world ----
-  /** Where your vehicles are drawn this frame. */
-  drawnVehicles() {
-    return lifeView?.drawnVehicles() ?? [];
-  },
-  /** The building you are in (src/render/village), and which storey: null outdoors. */
-  indoors() {
-    const i = openStage?.village.indoors;
-    return i ? { id: i.building.id, x: i.building.x, z: i.building.z, storey: i.storey } : null;
-  },
-  /** What the village draws: its meshes, how many triangles each, and whether it is drawn now. */
-  villageStats() {
-    return openStage?.village.stats() ?? null;
-  },
-  /** The life systems' state, as plain data. */
-  life() {
-    if (!life) return null;
-    return JSON.parse(JSON.stringify({ ...life.state, focus: life.focus, placing: life.placing, resting: life.resting }));
-  },
-  /** Where the quest you're on leads you (the ring on the maps, the marker on the compass). */
-  questGoal() {
-    return lifeUI?.goal() ?? null;
-  },
-  /** The hour of the day the sky shows, 0..24 (online the world's, from the server's clock). */
-  dayHour(): number | null {
-    return life ? skyHour() : null;
-  },
-  /** Queues a life command (it runs on the next sim step). */
-  lifeCommand(c: Parameters<Life['command']>[0]): void {
-    life?.command(c);
-  },
-  /** Jumps the player to (x, z) on the ground (`drawn` false leaves drawing it to the caller, as advance's does). */
-  teleport(x: number, z: number, facing?: number, drawn = true): void {
-    teleport(x, z, facing);
-    followSim(STEP);
-    if (drawn) draw(1, 0, 0);
-  },
-  /** Where things are on this island. */
-  zone() {
-    if (!world.zone) return null;
-    const r = world.zone.recipe;
-    return JSON.parse(
-      JSON.stringify({
-        places: r.places,
-        npcs: r.npcs,
-        outposts: r.outposts,
-        workbenches: r.workbenches,
-        housePlots: r.housePlots,
-        updrafts: r.updrafts,
-        nodes: r.nodes,
-        spawn: r.spawn,
-        ramps: world.zone.gen.ramps.map((pts) => [pts[0], pts[pts.length - 1]]),
-      }),
-    );
-  },
-  /** Dungeons: which one you're inside a copy of, whether each is solid in your world, its exit, and what F does now. */
-  dungeon() {
-    return {
-      ...(visit?.state() ?? { inside: null, solid: {}, exit: null }),
-      drawn: openStage?.dungeon ?? null,
-      focus: life?.focus ? { action: life.focus.action, label: life.focus.label, ok: life.focus.ok } : null,
-    };
-  },
-  /** Offline: straight into a copy of a dungeon (at its arrival point), or back out to its door (null). */
-  visitDungeon(id: string | null): boolean {
-    if (!visit || online) return false;
-    return id ? visit.enterDungeonHere(id, true) : visit.leaveDungeonHere(true);
-  },
-  /** The waterfalls as the generator cut them (src/sim/zone/generate.ts). */
-  falls() {
-    return JSON.parse(JSON.stringify(world.zone?.gen.falls ?? []));
-  },
-  /** A carved mountain path as points from bottom to top (every few metres). */
-  rampPath(i = 0): Array<[number, number]> {
-    const r = world.zone?.gen.ramps[i] ?? [];
-    return r.filter((_, k) => k % 3 === 0 || k === r.length - 1).map(([x, z]) => [x, z]);
-  },
-  ground(x: number, z: number): number {
-    return terrain ? terrain.height(x, z) : 0;
-  },
-  /** What the ground is made of under a point (SURFACE in src/sim/terrain.ts). */
-  surface(x: number, z: number): number {
-    return terrain ? terrain.surfaceAt(x, z) : 0;
-  },
-  /**
-   * Scene objects whose name starts with `prefix`, with where they are (tests and debugging):
-   * the origin, and the centre of what is drawn, which differ for models anchored at an edge.
-   */
-  /** Trees within r of (x, z), nearest first: where they stand and how big (the look test frames them). */
-  treesNear(x: number, z: number, r = 40) {
-    return world.obstacles
-      .filter((o) => o.kind === 'tree' && Math.hypot(o.x - x, o.z - z) < r)
-      .sort((a, b) => Math.hypot(a.x - x, a.z - z) - Math.hypot(b.x - x, b.z - z))
-      .map((o) => ({ x: +o.x.toFixed(2), z: +o.z.toFixed(2), scale: +o.scale.toFixed(2), pine: terrain ? isPine(o.x, o.z, terrain.height(o.x, o.z)) : false }));
-  },
-  sceneObjects(prefix: string) {
-    type Seen = { name: string; x: number; y: number; z: number; visible: boolean; centre: { x: number; y: number; z: number } };
-    const out: Seen[] = [];
-    const v = new THREE.Vector3();
-    const c = new THREE.Vector3();
-    const box = new THREE.Box3();
-    const r = (n: number) => +n.toFixed(2);
-    stage.scene.traverse((o) => {
-      if (!o.name.startsWith(prefix)) return;
-      o.getWorldPosition(v);
-      box.setFromObject(o).getCenter(c);
-      let shown = o.visible;
-      for (let p = o.parent; p && shown; p = p.parent) shown = p.visible;
-      out.push({ name: o.name, x: r(v.x), y: r(v.y), z: r(v.z), visible: shown, centre: { x: r(c.x), y: r(c.y), z: r(c.z) } });
-    });
-    return out;
-  },
-  /** Writes the island to this browser now (tests and bug-report replays). Online the server keeps it. */
-  saveNow(): void {
-    if (!online && life) saveLife(life, sim);
-  },
-  clearSave(): void {
-    if (online) void online.link.reset();
-    else clearLife();
-  },
-  /** Online play: who you are and the connection (null offline). */
-  /** Online: everyone else in your channel, as drawn. */
-  peers() {
-    return peers?.list() ?? [];
-  },
-  online() {
-    return online
-      ? {
-          account: online.account.username,
-          character: online.welcome.character,
-          channel: online.welcome.channel,
-          dev: online.welcome.dev,
-          claims: online.link.claims,
-          status: online.link.status,
-          frozen,
-          ticks: online.link.ticks,
-          lifeLoaded: online.lifeLoaded?.() ?? false,
-          lastSaved: online.link.lastSaved,
-          ack: prediction?.lastAck ?? 0,
-          seq: prediction?.seq ?? 0,
-          corrections: prediction?.corrections ?? 0,
-          maxCorrection: prediction?.maxCorrection ?? 0,
-        }
-      : null;
-  },
-  /** Which life panel is open, if any. */
-  lifePanel(): string | null {
-    return lifeUI?.openPanel ?? null;
-  },
-  closeLifePanel(): void {
-    lifeUI?.closeAll();
-  },
-  pressLife(k: Parameters<LifeUI['press']>[0]): void {
-    lifeUI?.press(k);
-  },
-  setLag(ms: number): void {
-    if (online) online.link.lag = ms;
-    else net?.setLag(ms);
-  },
-  /** The bug reporter: what it is doing and the last report it saved (null when it is off). */
-  bugs() {
-    return bugs?.status() ?? null;
-  },
-  /** Same as pressing \ (toggle) or Backspace twice (discard). */
-  bugReport(action: 'toggle' | 'discard' = 'toggle'): void {
-    if (action === 'discard') bugs?.discard();
-    else bugs?.toggle();
-  },
-  // ---- Mini-games (online) ----
-  /** The mini-game windows, your challenges and your table's game as the server last sent them (null offline). */
-  minigames() {
-    return minigames ? JSON.parse(JSON.stringify(minigames.state())) : null;
-  },
-  /** Your party as the server sent it, the invitation waiting for you, and which of its windows show. */
-  party() {
-    return party ? JSON.parse(JSON.stringify(party.state())) : null;
-  },
-  /** Invites someone to your party by name (as the Party window does). */
-  partyInvite(name: string): boolean {
-    return online?.link.partyInvite({ name }) ?? false;
-  },
-  /** Answers the invitation waiting for you. */
-  partyAnswer(accept: boolean): boolean {
-    const inv = online?.link.invite;
-    return !!inv && (online?.link.partyAnswer(inv.from, accept) ?? false);
-  },
-  partyLeave(): boolean {
-    return online?.link.partyLeave() ?? false;
-  },
-  /** Where you play now: your channel, or a dungeon's copy (crates/server/src/play/spaces.rs). */
-  space() {
-    return online ? { ...online.link.space } : null;
-  },
-  /** Online: through a dungeon's portal (you must be at it), or back out of its copy (at its way out), as F does there. */
-  throughPortal(enter: boolean, id = 'goblinsDread'): boolean {
-    return online?.link.dungeon(id, enter) ?? false;
-  },
-  /** The mini-game tables drawn near you: where, who sits at them, and how many beacons are lit. */
-  gameTables() {
-    return gameTables?.list() ?? [];
-  },
-  /** Challenges another player (by character), as the challenge window does; development servers deal `seed`'s game. */
-  challenge(to: number, stake = 0, game = 'beacons', seed?: number): boolean {
-    return online?.link.challenge(to, game, stake, seed) ?? false;
-  },
-  /** Tests: each turn of a game this browser challenges someone to lasts `seconds` (development servers). */
-  setChallengeTurn(seconds: number | null): void {
-    if (online) online.link.challengeTurn = seconds;
-  },
-  /** Answers the challenge waiting for you, as its window does. */
-  answerChallenge(accept: boolean): boolean {
-    const c = online?.link.challenges.waiting;
-    return !!c && !!online && online.link.answer(c.from, accept);
-  },
-  /** A move at your table, in the game's own terms (Beacons: src/ui/minigames/beacons.ts). */
-  tableMove(m: Record<string, unknown>): boolean {
-    const t = online?.link.table;
-    return !!t && !!online && online.link.move(t.id, m);
+/** What the test API (src/app/testApi.ts) reaches the game through: read when used, so it sees each as it is then. */
+const refs = {
+  get acc() {
+    return acc;
+  },
+  set acc(v) {
+    acc = v;
+  },
+  get aimingSlot() {
+    return aimingSlot;
+  },
+  get applyBuild() {
+    return applyBuild;
+  },
+  get autoAttack() {
+    return autoAttack;
+  },
+  set autoAttack(v) {
+    autoAttack = v;
+  },
+  get blob() {
+    return blob;
+  },
+  get bugs() {
+    return bugs;
+  },
+  get build() {
+    return build;
+  },
+  get crowd() {
+    return crowd;
+  },
+  get crowdView() {
+    return crowdView;
+  },
+  get cycleTarget() {
+    return cycleTarget;
+  },
+  get draw() {
+    return draw;
+  },
+  get dummyActor() {
+    return dummyActor;
+  },
+  get follow() {
+    return follow;
+  },
+  get followSim() {
+    return followSim;
+  },
+  get frozen() {
+    return frozen;
+  },
+  get gameTables() {
+    return gameTables;
+  },
+  get hero() {
+    return hero;
+  },
+  get hud() {
+    return hud;
+  },
+  get input() {
+    return input;
+  },
+  get last() {
+    return last;
+  },
+  set last(v) {
+    last = v;
+  },
+  get life() {
+    return life;
+  },
+  get lifeUI() {
+    return lifeUI;
+  },
+  get lifeView() {
+    return lifeView;
+  },
+  get lockOn() {
+    return lockOn;
+  },
+  get minigames() {
+    return minigames;
+  },
+  get net() {
+    return net;
+  },
+  get netMonsters() {
+    return netMonsters;
+  },
+  get netSpells() {
+    return netSpells;
+  },
+  get online() {
+    return online;
+  },
+  get openStage() {
+    return openStage;
+  },
+  get panel() {
+    return panel;
+  },
+  get party() {
+    return party;
+  },
+  get paused() {
+    return paused;
+  },
+  set paused(v) {
+    paused = v;
+  },
+  get peers() {
+    return peers;
+  },
+  get perf() {
+    return perf;
+  },
+  get pinnedView() {
+    return pinnedView;
+  },
+  set pinnedView(v) {
+    pinnedView = v;
+  },
+  get portraitOf() {
+    return portraitOf;
+  },
+  get prediction() {
+    return prediction;
+  },
+  get range() {
+    return range;
+  },
+  get remotes() {
+    return remotes;
+  },
+  get reticle() {
+    return reticle;
+  },
+  get scripted() {
+    return scripted;
+  },
+  get shownActors() {
+    return shownActors;
+  },
+  get sim() {
+    return sim;
+  },
+  get skillPoints() {
+    return skillPoints;
+  },
+  get skyHour() {
+    return skyHour;
+  },
+  get spells() {
+    return spells;
+  },
+  get stage() {
+    return stage;
+  },
+  get stepOnce() {
+    return stepOnce;
+  },
+  get studio() {
+    return studio;
+  },
+  get teleport() {
+    return teleport;
+  },
+  get terrain() {
+    return terrain;
+  },
+  get vfx() {
+    return vfx;
+  },
+  get visit() {
+    return visit;
+  },
+  get walker() {
+    return walker;
+  },
+  get world() {
+    return world;
+  },
+  get yardXp() {
+    return yardXp;
   },
 };
+export type GameRefs = typeof refs;
+const api = makeTestApi(refs);
 
 (window as unknown as { __game: typeof api }).__game = api;
 /** The test API's type, so the tests (tests/support/game.ts) call it by name and the compiler checks them. */
-export type GameApi = typeof api;
 
 // ---------- Bug reports ----------
 // \ (or clicking both sticks) records one: see src/app/bugs/reporter.ts. The dev server saves it
