@@ -374,17 +374,26 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
   Done (49f62b4, a background agent): lifeUI.ts 600 lines (2,328), a module per window in
   `windows/` and per widget in `hud/`; the same DOM in 89 states, checked by a harness.
 - [ ] **R6.7** `src/library/app.ts` split by concern.
-- [~] **R6.8** `src/dev/` and `dev/*.html`: every developer page; the admin list (R3.6) updated.
+- [x] **R6.8** `src/dev/` and `dev/*.html`: every developer page; the admin list (R3.6) updated.
   `dev/` holds the content library alone now (R6.15); the admin list has the zones from their files
   and the pages from `src/dev/pages.ts` (777949b). `src/library/` moving under `src/dev/` is left.
+  Done (81df3de): `src/library/` is `src/dev/library/`.
 - [ ] **R6.9** A UI gallery (a Content Library subject or `/dev/ui.html`): every window with made-up
   state.
-- [ ] **R6.10** Creature bodies into `src/render/creatures/` (from `src/species/`, `src/creatures/`,
+- [x] **R6.10** Creature bodies into `src/render/creatures/` (from `src/species/`, `src/creatures/`,
   `src/crowd/`, `src/content/creatures/`).
-- [ ] **R6.11** Root files to their areas: `src/skills.ts`, `src/tuning.ts`, `src/build.ts`,
+  Done (9317ff3): `src/render/creatures/` holds the species format (`species.ts`), its registry,
+  baked clips (`clips.ts`), the crowd, jelly and proxies, the built-in species, the goblin's body, the
+  bodies with folders of their own (`folders.ts`), the hero's close-up body (`heroBody.ts`, no longer
+  content importing three.js) and the list of close-up bodies (`closeUps.ts`).
+- [~] **R6.11** Root files to their areas: `src/skills.ts`, `src/tuning.ts`, `src/build.ts`,
   `src/rng.ts`. Names that say what they are: today there are 5 `index.ts`, 4 `types.ts`, 3 each of
   `pose.ts`/`hero.ts`/`harness.ts`, `sim/world.ts` beside `sim/zone/world.ts`, and
   `content/creatures.ts` beside a `content/creatures/` folder.
+  Moved (5de387d): `rng.ts` to `src/util/`, `tuning.ts` and `skills.ts` to `src/content/` (the typed
+  readers of tuning.json and skilltree.json, which outlast `src/sim/`), `build.ts` to `src/app/`,
+  `src/sim/world.ts` to `src/sim/yard.ts`. The other names that don't say what they are come with
+  the splits that touch them.
 - [ ] **R6.11b** Workarounds out: the 15 `tryBuild(...) ?? standIn` fallbacks for a models folder that
   can't be missing (or real lazy loading, R11.2); `worldPeers.ts:258`'s fake `Sim`; the library's and
   `animations.ts:650`'s reaching into the hero's private fields; `main.ts:505` (the TypeScript command
@@ -741,3 +750,4 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
 | 2026-11-06 | R8.15 | `crates/engine/AGENTS.md` | 33bf4ea |
 | 2026-11-06 | R9.14 | `docs/content.md` | 5e23680 |
 | 2026-11-06 | R10.10, R11.1, R11.2, R11.7, R11.8 | Snapshot to move machines: the battle server's Rust gone; the asset manifest, loader and first-download budget, `docs/assets.md` | a975617 |
+| 2026-11-06 | R6.10, R6.11, R6.8 | The client's moves: creature bodies into src/render/creatures/, the root files to their areas, the library under src/dev/ | 9317ff3, 5de387d, 81df3de |
