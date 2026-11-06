@@ -9,17 +9,18 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
 
 ## Now
 
-- **Phase:** 6 (the client in areas) with 7 done, 8, 10 and 12 begun or done beside it; background
-  agents on the Content Library (R6.15).
-- **Next:** the developer zones' client side and the Admin menu's links (after the library agent), the
-  engine bridge (R6.4), then Phase 8's first switch.
-- **Test rig for this branch:** Postgres container `ruina-refactor-db` on 127.0.0.1:5461; the
-  world server copied to `scratch/server-run/` on 7871 (`DATABASE_URL=postgres://ruina:ruina@127.0.0.1:5461/ruina
-  DEV_LOGIN=1 ./ruina-server.exe --battle off --port 7871`, rebuilt (`cargo build --release`) and copied
-  from `target/release/` after a server change); the suite with `PW_PORT=5261
-  TEST_PORT_OFFSET=60 RUINA_SERVER=http://localhost:7871
-  RUINA_DATABASE_URL=postgres://ruina:ruina@127.0.0.1:5461/ruina`. Servers listen on localhost only:
-  never start one that listens everywhere on this machine (it raises a Windows prompt).
+- **Phase:** 6 (the client in areas) and 10 (zones and bots), with 7 and 12 done and 8, 9 and 11
+  begun beside them. The Content Library (R6.15) is done.
+- **Next:** the old battle server and its client paths out (R10.10, R10.9), then the engine bridge
+  (R6.4) and Phase 8's first switch.
+- **Test rig for this branch:** Postgres container `ruina-refactor-db` on 127.0.0.1:5461; a world
+  server on 7871 run from `target/release/` as a background task (`DATABASE_URL=postgres://ruina:ruina@127.0.0.1:5461/ruina
+  DEV_LOGIN=1 PORT= ./target/release/ruina-server.exe --battle off --port 7871`; stop that task, not
+  every ruina-server, before `cargo build --release` replaces the binary); the suite with
+  `PW_PORT=5261 TEST_PORT_OFFSET=60 RUINA_SERVER=http://localhost:7871
+  RUINA_DATABASE_URL=postgres://ruina:ruina@127.0.0.1:5461/ruina` and `--output=scratch/pw-*`.
+  Servers listen on localhost only: never start one that listens everywhere on this machine (it
+  raises a Windows prompt).
 - **Plan reviewed 2026-11-05:** approved with changes (decisions D0-D14 in the plan). Run every phase
   to the end, one merge into `beta` at the end, progress report along the way, no waiting.
 
@@ -367,7 +368,9 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
   Done (49f62b4, a background agent): lifeUI.ts 600 lines (2,328), a module per window in
   `windows/` and per widget in `hud/`; the same DOM in 89 states, checked by a harness.
 - [ ] **R6.7** `src/library/app.ts` split by concern.
-- [ ] **R6.8** `src/dev/` and `dev/*.html`: every developer page; the admin list (R3.6) updated.
+- [~] **R6.8** `src/dev/` and `dev/*.html`: every developer page; the admin list (R3.6) updated.
+  `dev/` holds the content library alone now (R6.15); the admin list has the zones from their files
+  and the pages from `src/dev/pages.ts` (777949b). `src/library/` moving under `src/dev/` is left.
 - [ ] **R6.9** A UI gallery (a Content Library subject or `/dev/ui.html`): every window with made-up
   state.
 - [ ] **R6.10** Creature bodies into `src/render/creatures/` (from `src/species/`, `src/creatures/`,
@@ -387,15 +390,18 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
   `src/app`, `src/dev`.
   Begun: `src/app/AGENTS.md`, `content/AGENTS.md`.
 - [ ] **R6.14** Look check: `tests/look.spec.ts` before and after, no change.
-- [~] **R6.15** The Content Library (decided: one page for everything): the animation library grows
+- [x] **R6.15** The Content Library (decided: one page for everything): the animation library grows
   subjects for models (`models.html`: categories, anchors, budgets), buildings (`buildings.html`:
   plans, cut-away, colliders, night), species and creatures, retargeted clips beside their sources
   (`retarget.html`), and the scenarios of `animations.html`; those six pages and their `window.__x`
   APIs go, their tests moved to the library or the unit tier. Later phases add a subject per content
   kind (R9.13).
 
-  A background agent is folding the galleries into the library: models (1894d4a) and buildings
-  (2803a97) so far.
+  Done by a background agent: models (1894d4a), buildings (2803a97), species (cc7ef82), creature rigs
+  (232e1bb), retargeting (a496998), the hero's animations (12a0573). The six pages and their
+  `window.__x` APIs are gone; 83 checks kept and 6 added, the data-only ones (20 films, 24 species, 6
+  rigs) in the unit tier. The film checks always measure the box hero now, which ends "turning on the
+  spot" failing now and then.
 ## Phase 7: Content in Folders
 
 - [x] **R7.1** The layout (decided): `content/` with a folder per kind and a file or folder per thing.
@@ -482,15 +488,19 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
 - [ ] **R9.1** Saved builds by id (weapons, abilities, movement skills, skill-tree nodes); a migration
   converts existing saves; tested on copies of real saves.
 - [ ] **R9.2** Wire indexes from the compiled bundle; the connection compares bundle hashes.
-- [ ] **R9.3** Spawns in zone and dungeon data; the built-in `slimes`/`dummy` keys go; `?goblins=`
+- [~] **R9.3** Spawns in zone and dungeon data; the built-in `slimes`/`dummy` keys go; `?goblins=`
   becomes a developer option on top of data.
+  Dungeons and zones have `spawns` (b318daf, 777949b: one of a kind, or a war-band of `count`); the
+  island's `slimes`/`dummy` keys are left.
 - [ ] **R9.4** NPCs in `content/npcs/`; `FACES`, `GREETINGS`, `BENCH_OF` out of the UI.
 - [ ] **R9.5** Weapons and abilities from data (icons, moves, models, stowing); causes on the wire by
   kind and id.
 - [ ] **R9.6** Quest markers from quest data; no place ids in the UI.
 - [ ] **R9.7** Item behaviours from data: placeables, rare drops, default craft place, the labor cap
   from `LABOR.max`, categories and their labels.
-- [ ] **R9.8** Dungeons from their folder (no lists in code); each dungeon's dressing in data.
+- [~] **R9.8** Dungeons from their folder (no lists in code); each dungeon's dressing in data.
+  From their folder (777949b): `content/dungeons/` built into one bundle both sides read; the goblin
+  camp was added as a file alone. Goblin's Dread's dressing (`dungeonView.ts`) is still code.
 - [ ] **R9.9** Looks from data (made model with fit and clips, or a built-in body with settings);
   builders by id become fallbacks; the prose `look` fields become real ones.
 - [ ] **R9.10** Zones: the generator's special cases by id become data flags; more than one zone can
@@ -519,15 +529,18 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
   any recipe (after R9.10).
 - [ ] **R10.2** The server hosts any zone as channels and copies (today's `spaces.rs` handles channels
   and dungeon copies: generalized), with travel between zones and where each character is saved.
-- [~] **R10.3** Developer zones: a `developer` flag; only admins may enter (the server checks); the
+- [x] **R10.3** Developer zones: a `developer` flag; only admins may enter (the server checks); the
   admin menu lists them from the zone list.
-  The server's half (acaf9b5): `developer` zones, admins only (`spaces.rs enter_zone`). The Admin
-  menu's entries wait for the library agent to finish with `src/dev/pages.ts`.
+  Done: the server's half (acaf9b5); the Admin window's zone buttons (8d1722f); the Admin menu lists
+  the zones from their files, at character select too, and an admin goes from one zone straight into
+  another (777949b).
 - [~] **R10.4** The training yard as a zone (`content/zones/yard/`): its layout (today's `makeWorld`),
   the dummy, targets and slimes (and goblins) as spawns. The yard's own rules (hit-stop, auto-aim, the
   dummy) are engine rules any zone can switch on.
   The server's half (acaf9b5): `content/dungeons/yard.json`, a copy each with wandering bots as moving
-  targets; the dummy and creatures in a copy need actors that stand on its floor.
+  targets. Its dummy and slimes (b318daf), standing on its floor, with combat measured from it, and the
+  server's dummy drawn online. Left: the offline yard's own rules (hit-stop, auto-aim) as engine rules
+  any zone switches on, with R10.11; the goblin band is the goblin camp's (777949b).
 - [x] **R10.5** Bots in the engine: a bot is a player whose inputs and commands come from a brain
   (brains are data, as creatures' are), stepped by the server like a player without a socket and
   marked as a bot on the wire. First brains: a skirmisher (find a foe, fight, retreat when hurt) and
@@ -541,7 +554,8 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
   layout, two sides, armies of bots. It runs only while an admin is inside: the first admin in starts
   it and spawns its bots; when the last admin leaves, it stops and its bots go (decided).
   The server's half (acaf9b5): one copy for every admin, sixteen skirmishers a side, in with the first
-  admin and gone with the last. The browser's arena and the old battle server's removal are left.
+  admin and gone with the last. The browser's arena (157e823). The old battle server's removal is
+  R10.10.
 - [ ] **R10.8** Crowds at scale in every zone: the interest grid (each client is sent what's near it,
   far things coarser), compact snapshots for many entities, players and bots stepped in parallel
   (`rayon`). Measured: server tick time and bandwidth for N bots.
@@ -554,10 +568,15 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
   virtual clients against a zone instead.
 - [ ] **R10.11** Offline: the browser's engine runs any zone locally for tests and development (one
   option for tests in place of `?yard`/`?test`/`?world&test`).
-- [ ] **R10.12** Tests: unit (zone loading, bot brains); integration (an admin enters the yard and the
+- [~] **R10.12** Tests: unit (zone loading, bot brains); integration (an admin enters the yard and the
   battlefield from the menu, a player is refused, the battlefield starts and stops with an admin
   inside); stress (thousands of bots in the battlefield: frame time, tick time, bandwidth).
-- [ ] **R10.13** `docs/zones.md`: adding a zone, a developer zone, bots.
+  Rust: zones load, stand where players may go and apart, have ways out; bots' brains; copies,
+  admins, bots coming and going, spawns, zone to zone. Integration (`admin.spec.ts`): the battlefield
+  from the world, the yard from character select, the goblin camp from the Admin window, a player kept
+  out. The stress test is left (R10.8).
+- [x] **R10.13** `docs/zones.md`: adding a zone, a developer zone, bots.
+  Done (777949b).
 
 ## Phase 11: Bigger Than 64 MB
 
@@ -567,7 +586,9 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
   models are eager URL globs, the hero and its four weapons (~1.9 MB) load with character select's
   preview, the village kit (3.8 MB) and ground textures (2.4 MB) when the island builds, and the
   `models` chunk is only partly lazy (`models/kit.ts` and `models/glb.ts` are in the main bundle).
-- [ ] **R11.3** Caching: `immutable` for hashed files, revalidation for pages and the manifest, brotli.
+- [x] **R11.3** Caching: `immutable` for hashed files, revalidation for pages and the manifest, brotli.
+  Done (740f845): `/assets/` a year and immutable, everything else `no-cache` (a 304 unless
+  changed), brotli beside gzip; tested on a built game's files. The manifest comes with R11.1.
 - [ ] **R11.4** Optional: a service worker that keeps assets and prefetches the next zone.
 - [ ] **R11.5** KTX2 textures where they save size or GPU memory.
 - [x] **R11.6** Where big files live: Git LFS (decided; done in R0.9). A CDN in front later is a
@@ -635,3 +656,32 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
 | 2026-11-05 | R0.3, R0.4 | Timing reporter; the baseline (395 pass, 10.8 min) | 942d980 |
 | 2026-11-05 | R0.6, R0.8, R0.10 | Worktrees and branches tidied; the refactor in the design bible; Phase 0 done | (next commit) |
 | 2026-11-05 | R1.1-R1.15 | Test tiers: Vitest unit and conformance, integration and stress folders, typed test API, CI, docs; Rust tests 7 s | 57bbd61..c85dfb3 |
+| 2026-11-05 | R1 close | Phase 1 measured: unit in seconds, Rust edits tested in 7 s, integration 281 tests in 8.7 min | 3fdaeaa |
+| 2026-11-05 | R2.1-R2.3, R2.12 | Dead TypeScript and Rust out (48 exports, terrain.rs, 16 items); knip and clippy as guards | 5307934, 560ce2b, d158ac1 |
+| 2026-11-05 | R2.4-R2.7 | Dead data, one copy of each helper (src/util), weapon names in data, small fixes, storage keys under ruina.* | 034dc6e..e0c94a8 |
+| 2026-11-05 | R4.1-R4.6 | The find-assets skill | de8fd77 |
+| 2026-11-05 | R3.2-R3.4b | Admins: ADMIN_USERS on the server, the developer commands and pages kept from players | 8ee8144, ee702b5 |
+| 2026-11-06 | R5.0b, R2.11 | Rust formatted once (rustfmt.toml) and blame told to look through it | 440a861, 2078180 |
+| 2026-11-06 | R5.5b, R5.2b | Starting an island over rebuilt solids in a HashMap's order; one mulberry32 | f8a7187, f1ec903 |
+| 2026-11-06 | R2.8, R2.8b | The toon look retired; quality settings in its place | e97d392 |
+| 2026-11-06 | R3.5-R3.11 | The Admin menu; the developer pages in dev/, built with the game | 6542f7d, 9d9a9d7 |
+| 2026-11-06 | R2, R3 close | Phases 2 and 3 done, with the quality settings' numbers | c443aa2 |
+| 2026-11-06 | R5.1-R5.5, R5.9 | The Rust in a workspace of three crates; the server renamed ruina-server; the server in areas; determinism lints | 8030f44, 598820c, 04da4b6 |
+| 2026-11-06 | R5.0b, R2.11 | The TypeScript formatted once (Biome) and checked | cf22932, 1841a64, cf09432 |
+| 2026-11-06 | R5 close | Phase 5 done, with build and test times | 0b89335 |
+| 2026-11-06 | R6.1, R6.3 | Every URL option in one list (and its test); the test API in its own module | 138706b, ec69498, e5a6253 |
+| 2026-11-06 | R8.1, R8.2, R8.4 | The engine compiled to WebAssembly: ground queries, the same to the bit natively and in the browser | 2ff8375 |
+| 2026-11-06 | R6.2 | The bug reporter's and the server's wiring out of main.ts | 586f27e |
+| 2026-11-06 | R6.12 | The areas' boundaries as a unit test | ec3051e |
+| 2026-11-06 | R10.5 | Bots in the engine and the world server | 03e5a4c, 3c1c4ca |
+| 2026-11-06 | R6.5, R6.6 | The UI's components; lifeUI.ts a module per window | 7de96ec, 49f62b4 |
+| 2026-11-06 | R6.15 | The content library holds the galleries: models, buildings, species, rigs, retargeting, the hero's animations | 1894d4a..12a0573 |
+| 2026-11-06 | R10.3, R10.4, R10.6, R10.7 | The developer zones on the server: the yard and the battlefield as copies, bots from their files | acaf9b5 |
+| 2026-11-06 | R12.1-R12.7 | The Ruina Bible at /bible/, open to everyone; the design page its Development tab | 738e040, 6b45e97, 5594678 |
+| 2026-11-06 | R7.1-R7.8 | Content in folders: content/, contentc, schemas, cross-references | 80ffc5a |
+| 2026-11-06 | R7, R12 close | Phases 7 and 12 done; the rules issues the knowledge base found | f291a84 |
+| 2026-11-06 | R10.7 | The developer zones in the browser: an arena under the sky, bots drawn as players | 157e823 |
+| 2026-11-06 | R10.3 | The Admin window's zone buttons | 8d1722f |
+| 2026-11-06 | R11.3 | Caching and brotli | 740f845 |
+| 2026-11-06 | R10.4 | The yard's dummy and slimes on its floor; combat measured from a copy's floor | b318daf |
+| 2026-11-06 | R9.8, R10.3, R10.13 | Zones are content (one bundle, no lists in code); the goblin camp; the Admin menu's zones from character select; zone to zone; docs/zones.md | 777949b |

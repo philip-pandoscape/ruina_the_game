@@ -18,9 +18,9 @@ is in [tracker.md](tracker.md), the plan in [README.md](README.md).
 | 6 The Client in Areas | in progress |
 | 7 Content in Folders | done |
 | 8 One Copy of the Rules | begun |
-| 9 Content as Data, Finished | to do |
-| 10 Zones, Developer Zones and Bots | server done |
-| 11 Bigger Than 64 MB | to do |
+| 9 Content as Data, Finished | begun |
+| 10 Zones, Developer Zones and Bots | zones done; the old battle server still to go |
+| 11 Bigger Than 64 MB | begun (caching) |
 | 12 The Design Bible as a Knowledge Base | done |
 | 13 AGENTS.md, the Docs and the Merge | to do |
 
@@ -251,3 +251,35 @@ the knowledge base) while the main line went on.
 
 **Flaky, not this branch:** `net-actors.spec.ts` "drawn moving, not jumping" (@gpu) and the animation
 test "turning on the spot" fail now and then under load and pass alone, as before the refactor.
+
+## 2026-11-06: The Content Library, and the Developer Zones in the Game
+
+- **The Content Library (R6.15, done).** The six gallery pages are one page, `/dev/library.html`:
+  every animated thing frame by frame, library clips on the hero beside their source, close-up rigs,
+  every model, the buildings cut open, crowds with their cost. Each old URL option is a hash option
+  there. Their tests moved with them (83 kept, 6 added), the checks that need no page to the unit
+  tier (the hero's 20 film checks in 9 seconds). Two bugs found on the way: the retargeting page's
+  mixer left bones up to 90 degrees out when a frame was shown from a kept copy, and it never drew the
+  source's skeleton at all. "Turning on the spot" no longer fails now and then: the checks measured
+  whichever body loaded first; they always measure the box hero now.
+- **The developer zones, in the game (R10.3, R10.4, R10.7, R10.13).** The Admin menu lists the yard,
+  the battlefield and a new goblin camp, and takes an admin into one from the world or straight from
+  character select, and from one zone into another. The yard has its training dummy and slimes, and
+  blows land on them: a copy's creatures, and every height in a fight, are measured from its floor, not
+  the island's ground 400 m below. Online the server's dummy is drawn (the island's one was solid and
+  invisible online). The old zone pages (`?yard`, `?server=`, `?raid`) are off the menu.
+- **Zones are content (R9.8, first half).** `content/dungeons/` is a folder of files built into one
+  bundle both sides read: a new dungeon or zone is a file, with no list in code. The goblin camp was
+  made that way, a file alone: a war-band of six round their fire (a zone's spawns can be a band). The
+  engine checks every zone stands where players may go and apart from the others. `docs/zones.md`
+  says how to add one.
+- **Caching (R11.3).** Files the build names after their contents are kept a year; pages are asked
+  about each time; brotli beside gzip.
+- **The tracker's log** was behind since Phase 1; it now lists every landing with its commit.
+- **Tests:** unit 126, conformance 64, Rust 205, all passing; the admin spec 5 (the battlefield, the
+  yard from character select, the goblin camp from the Admin window, a player kept out, the menu); the
+  specs the library agent saw fail (combat, skills, PvP, net actors: 35) pass, as their failures were
+  its stopped server.
+
+**Next:** the old battle server and its client paths out (R10.10, R10.9), so the battlefield is only
+the developer zone; then the engine bridge (R6.4) and Phase 8's switches.
