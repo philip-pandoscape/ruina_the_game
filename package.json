@@ -20,7 +20,6 @@
     "check": "npm run typecheck && npm run lint && npm run deadcode && npm run lint:rust && npm run test:unit",
     "check:beta": "npm run check && npm run test:conformance && npm run test:integration",
     "check:release": "npm run check:beta && npm run test:stress",
-    "bake": "node tools/tests/bake.mjs",
     "server": "node tools/cargo.mjs run --release --bin ruina-server",
     "balance": "node tools/cargo.mjs run --release --bin balance < tools/balance/scenario.json",
     "icons": "node tools/icons/bake.mjs",

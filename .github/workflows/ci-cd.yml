@@ -59,10 +59,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      # The server builds the baked island into itself (include_bytes!), and it's in LFS.
-      - uses: ./.github/actions/lfs
-        with:
-          include: crates/engine/data/emberholm.zone
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy, rustfmt

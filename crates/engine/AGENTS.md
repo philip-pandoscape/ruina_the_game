@@ -7,7 +7,7 @@ refactor's Phase 8). Until then the two copies are held to each other by the con
 | Module | What |
 |---|---|
 | `player.rs`, `skills.rs`, `tuning.rs` | A player's step: movement, combos, abilities, vitals; the skill tree and builds; the numbers from `shared/tuning.json`. |
-| `open/` | The island: its ground and surfaces (`zone.rs`, read from the baked `data/emberholm.zone`), colliders (`colliders.rs`), traversal (`traverse.rs`: climbing, gliding, swimming), dungeons and developer zones (`dungeon.rs`, from `shared/dungeons.json`). |
+| `open/` | The island: its ground and surfaces (`zone.rs`, grown from the zone's recipe by `generate.rs` the first time anything asks), colliders (`colliders.rs`), traversal (`traverse.rs`: climbing, gliding, swimming), dungeons and developer zones (`dungeon.rs`, from `shared/dungeons.json`). |
 | `actor.rs`, `actors.rs`, `ai.rs`, `pack.rs`, `missiles.rs`, `content.rs`, `creatures.rs` | Creatures: their kinds (`shared/actors.json`, `shared/creatures.json`), brains (`shared/behaviours.json` and each creature's), packs, missiles, hits. |
 | `bots.rs` | Bots: brains that fill a player's inputs (`docs/zones.md`). |
 | `life/` | The island's life systems: state, trade, farming, livestock, housing, the shipyard, vehicles, contracts, quests, progress, weather; commands in (`life::Command`), events out. |
@@ -46,5 +46,6 @@ refactor's Phase 8). Until then the two copies are held to each other by the con
 - `npm run test:conformance`: builds the engine and its WebAssembly, then compares the two copies
   (player, creatures, the island, life systems, ground) and holds the WebAssembly to the native
   engine bit for bit (`tests/conformance/engine.test.ts`).
-- After changing the island (`content/zones/`, `src/sim/zone/`, the building plans), rebake its copy
-  here: `npm run bake`, then rebuild the server.
+- The island grows from its recipe here and in the browser alike (`open/generate.rs`,
+  `src/sim/zone/generate.ts`, until the browser runs this one): a change to how it grows is made on
+  both sides, and `tests/conformance/terrain.test.ts` compares all of what they grow.

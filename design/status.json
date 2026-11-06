@@ -184,7 +184,7 @@
       "system": "traversal",
       "status": "done",
       "title": "Traversal on the server",
-      "notes": "The server decides where everyone is. tests/conformance/terrain.test.ts bakes the whole generated island (ground, surfaces, cleared cells, trees and rocks, walls and decks) into crates/engine/data/emberholm.zone and checks it is current; crates/engine/src/open ports the colliders, walking over hills and cliffs, wading, swimming and gliding (traverse.ts), and runs each player's key presses through them. The browser predicts its own player with the TypeScript and corrects to the server's answer; tests/conformance/world.test.ts compares the two frame by frame.",
+      "notes": "The server decides where everyone is. The engine grows the island from its recipe (crates/engine/src/open/generate.rs), the same island the browser grows (tests/conformance/terrain.test.ts compares all of it); crates/engine/src/open ports the colliders, walking over hills and cliffs, wading, swimming and gliding (traverse.ts), and runs each player's key presses through them. The browser predicts its own player with the TypeScript and corrects to the server's answer; tests/conformance/world.test.ts compares the two frame by frame.",
       "files": [
         "crates/engine/src/open/traverse.rs",
         "crates/engine/src/open/colliders.rs",

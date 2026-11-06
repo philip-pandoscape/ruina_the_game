@@ -1328,33 +1328,17 @@ fn moving_average(v: &[f64], half: i64) -> Vec<f64> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::open::zone::parse;
-
-    fn emberholm_recipe() -> Recipe {
-        serde_json::from_str(include_str!("../../../../shared/zones/emberholm.json")).expect("shared/zones/emberholm.json is a zone recipe")
-    }
+    use crate::open::zone::emberholm_recipe;
 
     #[test]
-    fn emberholm_grows_as_the_typescript_baked_it() {
-        // crates/engine/data/emberholm.zone is what src/sim/zone/generate.ts grew: the same island
-        // here, to the bit.
+    fn emberholm_grows_whole() {
+        // tests/conformance/terrain.test.ts holds all of it to the TypeScript generator; here, that
+        // it grows at all: land at the spawn, trees and rocks, buildings with their walls, a road.
         let g = generate(&emberholm_recipe());
-        let baked = parse(include_bytes!("../../data/emberholm.zone"), emberholm_recipe()).expect("the bake reads");
-        let same = |a: f64, b: f64| a.to_bits() == b.to_bits();
-        let heights = g.terrain.heights().iter().zip(baked.terrain.heights()).filter(|(a, b)| a.to_bits() != b.to_bits()).count();
-        assert_eq!(heights, 0, "heights that aren't the bake's");
-        assert!(g.terrain.surface == baked.terrain.surface, "the surfaces are the bake's");
-        assert!(g.clear == baked.clear, "the cells kept clear are the bake's");
-        assert_eq!(g.obstacles.len(), baked.obstacles.len(), "trees, rocks and posts");
-        for (i, (a, b)) in g.obstacles.iter().zip(&baked.obstacles).enumerate() {
-            assert!(a.kind == b.kind && same(a.x, b.x) && same(a.z, b.z) && same(a.r, b.r), "obstacle {i}: {a:?}, baked {b:?}");
-        }
-        for (what, ours, theirs) in [("boxes", &g.boxes, &baked.boxes), ("decks", &g.decks, &baked.decks)] {
-            assert_eq!(ours.len(), theirs.len(), "{what}");
-            for (i, (a, b)) in ours.iter().zip(theirs.iter()).enumerate() {
-                let bits = |c: &BoxCollider| [c.x, c.z, c.hw, c.hd, c.rot, c.cos, c.sin, c.top].map(f64::to_bits);
-                assert_eq!(bits(a), bits(b), "{what}[{i}]: {a:?}, baked {b:?}");
-            }
-        }
+        let s = emberholm_recipe().spawn;
+        assert!(g.terrain.height(s.x, s.z) > g.terrain.water, "the spawn is on dry land");
+        assert!(g.obstacles.len() > 1000, "trees and rocks");
+        assert!(!g.buildings.is_empty() && g.buildings.iter().all(|b| b.boxes[1] > b.boxes[0]), "buildings with walls");
+        assert!(!g.roads.is_empty() && !g.falls.is_empty() && !g.placements.is_empty());
     }
 }

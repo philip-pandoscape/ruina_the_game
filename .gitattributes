@@ -29,5 +29,4 @@
 *.wav filter=lfs diff=lfs merge=lfs -text
 *.flac filter=lfs diff=lfs merge=lfs -text
 # The baked island (until the server makes the island itself) and packed kits
-*.zone filter=lfs diff=lfs merge=lfs -text
 *.zip filter=lfs diff=lfs merge=lfs -text

@@ -1,67 +1,82 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname } from 'node:path';
+import { existsSync } from 'node:fs';
 import { expect, test } from 'vitest';
 import { makeRng } from '../../src/util/rng';
 import { EMBERHOLM } from '../../src/sim/zone/world';
 import { generateZone } from '../../src/sim/zone/generate';
 
-// The server runs the island's rules on the same island as the browser: it reads Emberholm from
-// crates/engine/data/emberholm.zone, baked from the TypeScript generator (src/sim/zone/generate.ts), and
-// samples the ground on the same triangles (crates/engine/src/open/zone.rs). After changing the island
-// or its generator, rebake:
-//   npm run bake
-//
-// File: b"RUZN", u32 version (1), u32 cells, f64 cell size, f64 water level, f64 world X/Z of
-// vertex (0, 0); (cells + 1)^2 f32 heights, row by row; cells^2 u8 surfaces; cells^2 u8 "kept
-// clear" flags; u32 count + obstacles (u8 kind, f64 x, z, r); then u32 count + boxes and u32 count
-// + decks (f64 x, z, hw, hd, rot, cos, sin, top). Little-endian throughout.
+// The server and the browser grow the same island from its recipe (shared/zones/, built from
+// content/zones/): the engine (crates/engine/src/open/generate.rs) and, until the browser runs the
+// engine's, src/sim/zone/generate.ts. Here the two are held to each other: all of what they grow,
+// and the ground as the rules sample it.
 
-const FILE = 'crates/engine/data/emberholm.zone';
 const CHECK = `target/release/terraincheck${process.platform === 'win32' ? '.exe' : ''}`;
-/** Obstacle kinds by number, in the order crates/engine/src/open/zone.rs reads them. */
-const KINDS = ['tree', 'rock', 'crate', 'hay', 'post'];
 
-function bake(): Buffer {
-  // Grown afresh rather than taken from makeZoneWorld(), whose cached copy the rules add to.
-  const gen = generateZone(EMBERHOLM);
-  const hf = gen.terrain;
-  const head = Buffer.alloc(36);
-  head.write('RUZN', 0, 'latin1');
-  head.writeUInt32LE(1, 4);
-  head.writeUInt32LE(hf.cells, 8);
-  head.writeDoubleLE(hf.cell, 12);
-  head.writeDoubleLE(hf.water, 20);
-  head.writeDoubleLE(hf.min, 28);
-  const bytes = (a: Float32Array | Uint8Array) => Buffer.from(a.buffer, a.byteOffset, a.byteLength);
-  const obstacles = Buffer.alloc(4 + gen.obstacles.length * 25);
-  obstacles.writeUInt32LE(gen.obstacles.length, 0);
-  gen.obstacles.forEach((o, i) => {
-    const at = 4 + i * 25;
-    const kind = KINDS.indexOf(o.kind);
-    if (kind < 0) throw new Error(`obstacle kind "${o.kind}" has no number in KINDS`);
-    obstacles.writeUInt8(kind, at);
-    obstacles.writeDoubleLE(o.x, at + 1);
-    obstacles.writeDoubleLE(o.z, at + 9);
-    obstacles.writeDoubleLE(o.r, at + 17);
-  });
-  const rects = (list: typeof gen.boxes) => {
-    const out = Buffer.alloc(4 + list.length * 64);
-    out.writeUInt32LE(list.length, 0);
-    list.forEach((b, i) => [b.x, b.z, b.hw, b.hd, b.rot, b.cos, b.sin, b.top].forEach((v, k) => out.writeDoubleLE(v, 4 + i * 64 + k * 8)));
-    return out;
-  };
-  return Buffer.concat([head, bytes(hf.heights), bytes(hf.surface), bytes(gen.clear), obstacles, rects(gen.boxes), rects(gen.decks)]);
+/**
+ * Where two values differ, as paths, numbers within a part in a billion (the generator's sines and
+ * cosines come from libm in Rust and from V8 here, and a few differ in the last bit). A field one
+ * side leaves out and the other has as nothing (undefined, null) is the same.
+ */
+function differences(a: unknown, b: unknown, path: string, out: string[]): void {
+  if (out.length > 20) return;
+  if (typeof a === 'number' && typeof b === 'number') {
+    if (!(a === b || (Number.isNaN(a) && Number.isNaN(b)) || Math.abs(a - b) <= 1e-9 * Math.max(1, Math.abs(a), Math.abs(b))))
+      out.push(`${path}: ${a} != ${b}`);
+    return;
+  }
+  if (Array.isArray(a) || ArrayBuffer.isView(a)) {
+    const x = Array.from(a as ArrayLike<unknown>);
+    const y = Array.isArray(b) || ArrayBuffer.isView(b) ? Array.from(b as ArrayLike<unknown>) : null;
+    if (!y || x.length !== y.length) {
+      out.push(`${path}: ${x.length} items != ${y ? y.length : typeof b}`);
+      return;
+    }
+    x.forEach((v, i) => differences(v, y[i], `${path}[${i}]`, out));
+    return;
+  }
+  if (a && typeof a === 'object' && b && typeof b === 'object') {
+    const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
+    for (const k of keys) {
+      const va = (a as Record<string, unknown>)[k];
+      const vb = (b as Record<string, unknown>)[k];
+      if (va == null && vb == null) continue;
+      differences(va, vb, `${path}.${k}`, out);
+    }
+    return;
+  }
+  if (a !== b) out.push(`${path}: ${JSON.stringify(a)} != ${JSON.stringify(b)}`);
 }
 
-test("the server's copy of the island is current", () => {
-  const want = bake();
-  if (process.env.BAKE) {
-    mkdirSync(dirname(FILE), { recursive: true });
-    writeFileSync(FILE, want);
-  }
-  const have = existsSync(FILE) ? readFileSync(FILE) : Buffer.alloc(0);
-  expect(have.equals(want), `${FILE} is stale: run npm run bake`).toBe(true);
+test('the engine grows Emberholm as the browser does: ground, colliders, roads, placements, waterfalls, buildings', (ctx) => {
+  ctx.skip(!existsSync(CHECK), 'build the server first: cargo build --release');
+  const gen = generateZone(EMBERHOLM);
+  const hf = gen.terrain;
+  const rust = JSON.parse(execFileSync(CHECK, ['--zone'], { maxBuffer: 1 << 26 }).toString());
+  expect([rust.cells, rust.cell, rust.water, rust.min]).toEqual([hf.cells, hf.cell, hf.water, hf.min]);
+  // Heights are kept as f32 on both sides: to the bit.
+  let heights = 0;
+  hf.heights.forEach((h, i) => {
+    if (Math.fround(rust.heights[i]) !== h) heights++;
+  });
+  expect(heights, 'heights that differ').toBe(0);
+  expect(rust.heights.length).toBe(hf.heights.length);
+  expect(Buffer.from(Uint8Array.from(rust.surface)).equals(Buffer.from(hf.surface)), 'surfaces').toBe(true);
+  expect(Buffer.from(Uint8Array.from(rust.clear)).equals(Buffer.from(gen.clear)), 'cells kept clear').toBe(true);
+  const out: string[] = [];
+  differences(rust.obstacles, gen.obstacles, 'obstacles', out);
+  for (const k of ['boxes', 'decks'] as const) differences(rust[k], gen[k], k, out);
+  differences(rust.roads, gen.roads, 'roads', out);
+  differences(rust.ramps, gen.ramps, 'ramps', out);
+  differences(rust.placements, gen.placements, 'placements', out);
+  differences(rust.falls, gen.falls, 'falls', out);
+  // A building's walls are a stretch of the zone's boxes in the engine, the boxes themselves here.
+  differences(
+    rust.buildings.map((b: { boxes: [number, number] }) => ({ ...b, boxes: rust.boxes.slice(b.boxes[0], b.boxes[1]) })),
+    gen.buildings.map(({ plan: _plan, ...b }) => b),
+    'buildings',
+    out,
+  );
+  expect(out).toEqual([]);
 });
 
 test('the server and the browser agree on the ground', (ctx) => {

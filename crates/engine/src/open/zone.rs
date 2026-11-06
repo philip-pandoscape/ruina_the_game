@@ -1,8 +1,8 @@
-//! Emberholm for the server: the zone recipe (shared/zones/emberholm.json) and everything the
-//! TypeScript generator grows from it (src/sim/zone/generate.ts): the ground, what each patch of it
-//! is made of, which cells are kept clear, and the trees, rocks, walls and decks. The generator
-//! runs in the browser; tests/conformance/terrain.test.ts bakes its output into crates/engine/data/emberholm.zone and
-//! checks the copy is current, so both sides play on exactly the same island.
+//! A zone as the rules see it: its recipe (shared/zones/, built from content/zones/) and what the
+//! generator (generate.rs) grows from it: the ground, what each patch of it is made of, which cells
+//! are kept clear, and the trees, rocks, walls and decks. Emberholm is grown the first time anything
+//! asks (about a tenth of a second). The browser grows the same island (src/sim/zone/generate.ts,
+//! until it runs this), held to it by tests/conformance/terrain.test.ts.
 
 use crate::jsmath::JsMath;
 use std::sync::OnceLock;
@@ -371,83 +371,25 @@ pub struct Zone {
     pub radius: f64,
 }
 
-/// Reads the baked island (see tests/conformance/terrain.test.ts for the layout).
-pub fn parse(b: &[u8], recipe: Recipe) -> Option<Zone> {
-    struct Reader<'a> {
-        b: &'a [u8],
-        at: usize,
+impl Zone {
+    /// Grows the zone its recipe describes (src/sim/zone/generate.ts in the browser, until it runs
+    /// this too): about a tenth of a second for Emberholm.
+    pub fn grow(recipe: Recipe) -> Zone {
+        let g = super::generate::generate(&recipe);
+        let radius = g.terrain.size() / 2.0 - 8.0;
+        Zone { recipe, terrain: g.terrain, clear: g.clear, obstacles: g.obstacles, boxes: g.boxes, decks: g.decks, radius }
     }
-    impl Reader<'_> {
-        fn take(&mut self, n: usize) -> Option<&[u8]> {
-            let s = self.b.get(self.at..self.at + n)?;
-            self.at += n;
-            Some(s)
-        }
-        fn u32(&mut self) -> Option<u32> {
-            self.take(4).map(|s| u32::from_le_bytes(s.try_into().unwrap()))
-        }
-        fn f64(&mut self) -> Option<f64> {
-            self.take(8).map(|s| f64::from_le_bytes(s.try_into().unwrap()))
-        }
-        fn rects(&mut self) -> Option<Vec<BoxCollider>> {
-            let n = self.u32()? as usize;
-            (0..n)
-                .map(|_| {
-                    Some(BoxCollider {
-                        x: self.f64()?,
-                        z: self.f64()?,
-                        hw: self.f64()?,
-                        hd: self.f64()?,
-                        rot: self.f64()?,
-                        cos: self.f64()?,
-                        sin: self.f64()?,
-                        top: self.f64()?,
-                    })
-                })
-                .collect()
-        }
-    }
-    let mut r = Reader { b, at: 0 };
-    if r.take(4)? != b"RUZN" || r.u32()? != 1 {
-        return None;
-    }
-    let cells = r.u32()? as usize;
-    let (cell, water, min) = (r.f64()?, r.f64()?, r.f64()?);
-    let n = cells + 1;
-    let heights = r.take(n * n * 4)?.as_chunks::<4>().0.iter().map(|c| f32::from_le_bytes([c[0], c[1], c[2], c[3]])).collect();
-    let surface = r.take(cells * cells)?.to_vec();
-    let clear = r.take(cells * cells)?.to_vec();
-    let count = r.u32()? as usize;
-    let mut obstacles = Vec::with_capacity(count);
-    for _ in 0..count {
-        let kind = match r.take(1)?[0] {
-            0 => ObstacleKind::Tree,
-            1 => ObstacleKind::Rock,
-            2 => ObstacleKind::Crate,
-            3 => ObstacleKind::Hay,
-            _ => ObstacleKind::Post,
-        };
-        // The bake keeps what the rules read: not how big each is drawn, nor its turn.
-        obstacles.push(Obstacle { kind, x: r.f64()?, z: r.f64()?, r: r.f64()?, scale: 1.0, rot: 0.0 });
-    }
-    let boxes = r.rects()?;
-    let decks = r.rects()?;
-    if r.at != b.len() {
-        return None;
-    }
-    let terrain = Heightfield { cells, n, cell, water, min, heights, surface };
-    let radius = terrain.size() / 2.0 - 8.0;
-    Some(Zone { recipe, terrain, clear, obstacles, boxes, decks, radius })
 }
 
-/// Emberholm, the starter isle, baked into the server.
+/// Emberholm's recipe (shared/zones/emberholm.json, built from content/zones/).
+pub fn emberholm_recipe() -> Recipe {
+    serde_json::from_str(include_str!("../../../../shared/zones/emberholm.json")).expect("shared/zones/emberholm.json is a zone recipe")
+}
+
+/// Emberholm, the starter isle, grown the first time anything asks.
 pub fn emberholm() -> &'static Zone {
     static Z: OnceLock<Zone> = OnceLock::new();
-    Z.get_or_init(|| {
-        let recipe: Recipe =
-            serde_json::from_str(include_str!("../../../../shared/zones/emberholm.json")).expect("shared/zones/emberholm.json is a zone recipe");
-        parse(include_bytes!("../../data/emberholm.zone"), recipe).expect("crates/engine/data/emberholm.zone is valid: rebake it with npm run bake")
-    })
+    Z.get_or_init(|| Zone::grow(emberholm_recipe()))
 }
 
 #[cfg(test)]

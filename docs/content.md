@@ -24,7 +24,8 @@ The steps are the same for every kind; the recipes below say what each kind's fi
 4. **Explain it for the bible**, if its kind has no description of its own: a `## <id>` and a few
    sentences in `src/bible/notes/<kind>.md` (Markdown, not code; the bible's test says which).
 5. **On the island?** Anything placed on it (a person, a structure, a gathering spot, a plot) moves
-   the ground round it: `npm run bake`.
+   the ground round it; the server and the browser both grow the island from the bundles, so
+   nothing more is needed.
 
 Pictures and models are assets, not content: an item's `icon` is an emoji the painted icons stand
 for (`tools/icons/catalog.mjs`; a new one is painted and `npm run icons`). Without a model of its
@@ -57,7 +58,7 @@ What they do besides talk is other things naming them:
   `npc` (template `zone/outposts.json`), with a market of the same id (`content/markets/`) and
   routes to it in `content/trade.json`.
 
-Then the bible's note on them (`src/bible/notes/npcs.md`) and `npm run bake`.
+Then the bible's note on them (`src/bible/notes/npcs.md`).
 
 ## Items
 
@@ -161,7 +162,6 @@ A new type of objective is a new mechanic: code.
   an entry in `content/zones/emberholm/props.json` (template `zone/props.json`): at a spot, in a ring,
   along a road or on a line.
 
-Anything placed: `npm run bake`.
 
 ## Creatures
 
