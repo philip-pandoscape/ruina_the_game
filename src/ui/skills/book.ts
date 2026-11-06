@@ -2,8 +2,7 @@ import { assignMovement, assignSlot, movementName, swapSlots } from '../../build
 import { BOOK, bookContext, hasSkill, MAX_LEVEL, modApplies, NODES, resolveSkills, skillCount, type BookSkill } from '../../skills';
 import { ABILITIES, HOTBAR_SLOTS, MOVEMENT_SKILLS, MOVEMENT_SLOTS, NO_ABILITY, NO_MOVEMENT, WEAPONS, type Build } from '../../tuning';
 import type { MenuPress } from '../../input/input';
-import { iconHtml } from '../theme/icons';
-import { pixelIcon } from '../theme/pixelIcons';
+import { iconHtml, uiIcon } from '../theme/icons';
 import { esc, type SkillsContext } from './context';
 import {
   BOOK_GROUPS,
@@ -350,13 +349,13 @@ export class SkillBook {
       const inHand = s.kind === 'weapon' && b.weapon === s.index;
       return `<button class="sk${i === this.selected ? ' sel' : ''}${known ? '' : ' locked'}${inHand ? ' held' : ''}${focused('book', i)}" data-book="${i}" draggable="${known && s.kind !== 'weapon'}" style="--c:${treeColor(bookTree(s))}">
         <span class="tile">${iconHtml(bookIcon(s), undefined, 36)}${known ? `<span class="lv">${lv}</span>` : ''}</span>
-        ${known ? `<span class="xp"><i style="width:${p.max ? 100 : Math.round((p.have / p.need) * 100)}%"></i></span>` : `<span class="lock">${pixelIcon('lock', 18)}</span>`}
+        ${known ? `<span class="xp"><i style="width:${p.max ? 100 : Math.round((p.have / p.need) * 100)}%"></i></span>` : `<span class="lock">${uiIcon('lock', 20)}</span>`}
         <span class="nm">${esc(bookName(s))}</span></button>`;
     };
     const groups = BOOK_GROUPS.map((g) => `<div class="sb-group">${g.title}</div><div class="sb-grid">${bookEntries(g.kind).map((x) => tile(x.i)).join('')}</div>`).join('');
     const left = this.ctx.budget() - skillCount(b.skills);
     const pad = this.ctx.device() === 'gamepad';
-    const points = `<button class="sb-pts" data-act="tree">${pixelIcon('star', 18, { '#': '#3a1a06', c: '#ffd84a', s: '#d99a1a' })}<span>${
+    const points = `<button class="sb-pts" data-act="tree">${uiIcon('star', 22)}<span>${
       left > 0 ? `<b>${left}</b> Skill Point${left === 1 ? '' : 's'} to Spend in the Tree` : 'Open the Skill Tree'
     }</span><span class="key">${pad ? 'RB' : 'N'}</span></button>`;
 
@@ -376,8 +375,8 @@ export class SkillBook {
       <div class="sb">
         <div class="sb-cover"></div>
         <div class="sb-tabs">
-          <button class="sb-tab on" data-tip="text:Skill Book" aria-label="Skill Book">${pixelIcon('scroll', 20)}</button>
-          <button class="sb-tab tree" data-act="tree" data-tip="text:Skill Tree (${pad ? 'RB' : 'N'})" aria-label="Skill Tree">${pixelIcon('star', 20, { '#': '#3a1a06', c: '#ffd84a', s: '#d99a1a' })}</button>
+          <button class="sb-tab on" data-tip="text:Skill Book" aria-label="Skill Book">${uiIcon('book', 24)}</button>
+          <button class="sb-tab tree" data-act="tree" data-tip="text:Skill Tree (${pad ? 'RB' : 'N'})" aria-label="Skill Tree">${uiIcon('star', 24)}</button>
         </div>
         <div class="sb-page l">
           <h2>Skill Book</h2>

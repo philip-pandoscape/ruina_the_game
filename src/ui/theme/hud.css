@@ -35,7 +35,7 @@
 .dmg.hurt.big { color: #ff4d4d; font-size: 38px; }
 .dmg.heal { color: #8fe07a; }
 .dmg .icon { display: inline-block; margin-right: 3px; vertical-align: -0.1em; }
-.dmg .icon img { width: 0.75em; height: 0.75em; image-rendering: pixelated; }
+.dmg .icon img { width: 0.75em; height: 0.75em; }
 .dmg.pop { animation: dmg-pop 150ms ease-out; }
 .dmg.big.pop { animation: dmg-crit 260ms cubic-bezier(0.2, 1.5, 0.4, 1); }
 @keyframes dmg-pop { from { transform: translate(-50%, -50%) scale(calc(var(--ui-s) * 1.25)); } to { transform: translate(-50%, -50%) scale(var(--ui-s)); } }
@@ -65,13 +65,13 @@
 #abilities .weapon { display: flex; flex-direction: column; align-items: center; gap: 3px; margin-right: 8px; }
 #abilities .weapon .icon { width: 54px; height: 54px; display: grid; place-items: center; font-size: 28px; border: 2px solid transparent; border-radius: 6px;
   background: var(--slot-sel) padding-box, var(--brass) border-box; box-shadow: 0 0 0 1.5px #2b1a0e, inset 0 0 0 1px #2b1a0e, 0 0 10px var(--glow); }
-#abilities .weapon .icon img { width: 40px; height: 40px; image-rendering: pixelated; }
+#abilities .weapon .icon img { width: 40px; height: 40px; }
 #abilities .weapon .name { font: 700 13px var(--font); color: #fff6e2; text-shadow: var(--text-outline); letter-spacing: 0.04em; text-transform: capitalize; }
 #abilities .slot { position: relative; width: 50px; height: 50px; overflow: hidden; display: grid; place-items: center; cursor: grab; pointer-events: auto;
   border: 2px solid transparent; border-radius: 6px; background: var(--slot) padding-box, var(--slot-frame) border-box;
   box-shadow: 0 0 0 1.5px #2b1a0e, inset 0 0 0 1px #2b1a0e, inset 0 6px 12px rgba(0, 0, 0, 0.18); }
 #abilities .slot .icon { font-size: 25px; line-height: 1; }
-#abilities .slot .icon img { width: 36px; height: 36px; image-rendering: pixelated; }
+#abilities .slot .icon img { width: 36px; height: 36px; }
 #abilities .slot.empty { background: var(--slot-empty) padding-box, var(--slot-empty-frame) border-box; }
 #abilities .slot.drag { opacity: 0.45; cursor: grabbing; }
 #abilities .slot.over, #abilities .slot.casting { background: var(--slot-sel) padding-box, var(--brass) border-box; box-shadow: 0 0 0 1.5px #2b1a0e, 0 0 14px var(--glow); }
@@ -87,7 +87,7 @@
 #abilities .mslot { position: relative; width: 44px; height: 44px; overflow: hidden; display: grid; place-items: center;
   border: 2px solid transparent; border-radius: 22px; background: var(--slot) padding-box, var(--slot-frame) border-box;
   box-shadow: 0 0 0 1.5px #2b1a0e, inset 0 0 0 1px #2b1a0e, inset 0 6px 12px rgba(0, 0, 0, 0.18); }
-#abilities .mslot .icon img { width: 30px; height: 30px; image-rendering: pixelated; }
+#abilities .mslot .icon img { width: 30px; height: 30px; }
 #abilities .mslot.empty { background: var(--slot-empty) padding-box, var(--slot-empty-frame) border-box; }
 #abilities .mslot .cd { position: absolute; inset: 0; }
 #abilities .mslot .secs { position: absolute; inset: 0; display: grid; place-items: center; font: 900 15px var(--font); color: #fff6e2; text-shadow: var(--text-outline); }
@@ -121,7 +121,7 @@
 #lui-compass .tick { position: absolute; top: 5px; transform: translateX(-50%); font: 700 12px var(--font); color: var(--strip-ink); text-shadow: 0 1px 0 #24140a; }
 #lui-compass .tick.card { top: 4px; font-size: 14px; color: #ffd36e; }
 #lui-compass .poi { position: absolute; top: 4px; transform: translateX(-50%); }
-#lui-compass .poi img { width: 18px; height: 18px; image-rendering: pixelated; }
+#lui-compass .poi img { width: 20px; height: 20px; filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.5)); }
 #lui-compass .goal { position: absolute; top: 1px; transform: translateX(-50%); z-index: 2; font-size: 16px; font-weight: 900; color: #ffd36e; text-shadow: var(--text-outline); }
 #lui-compass .goal small { position: absolute; top: 16px; left: 50%; transform: translateX(-50%); font: 700 9px var(--font); color: #fff6e2; white-space: nowrap; }
 #lui-compass .centre { position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: linear-gradient(#ffd36e 0 28%, transparent 28% 72%, #ffd36e 72%); }
@@ -138,7 +138,7 @@
 #lui-toasts { right: 16px; bottom: 150px; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
 #lui-toasts .t { display: inline-flex; align-items: center; gap: 5px; padding: 2px 10px; font: 700 11.5px var(--font); color: var(--ink); white-space: nowrap;
   border: 2px solid transparent; border-radius: 999px; background: var(--card) padding-box, var(--wood) border-box; box-shadow: var(--card-shadow); transition: opacity 0.4s, transform 0.4s; }
-#lui-toasts .t img { width: 13px; height: 13px; image-rendering: pixelated; }
+#lui-toasts .t img { width: 16px; height: 16px; }
 #lui-toasts .t.good { color: var(--good); } #lui-toasts .t.bad { color: var(--bad); } #lui-toasts .t.coin, #lui-toasts .t.quest { color: var(--price); }
 #lui-toasts .t.fade { opacity: 0; transform: translateY(-6px); }
 #lui-prompt { left: 50%; bottom: 190px; transform: translateX(-50%); display: none; align-items: center; gap: 9px; padding: 8px 16px 8px 10px; font: 700 16px var(--font);
@@ -162,7 +162,7 @@
 #lui-ride .slots { display: flex; gap: 4px; margin-top: 6px; flex-wrap: wrap; }
 #lui-ride .slot { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 5px; border: 2px solid transparent;
   background: var(--slot) padding-box, var(--slot-frame) border-box; box-shadow: 0 0 0 1px #2b1a0e; }
-#lui-ride .slot img { width: 20px; height: 20px; image-rendering: pixelated; }
+#lui-ride .slot img { width: 20px; height: 20px; }
 #lui-ride .wind { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
 #lui-ride .arrow { display: inline-block; font-size: 18px; transition: transform 0.2s; }
 #lui-ride .trim { height: 7px; border-radius: 4px; overflow: hidden; margin-top: 4px; background: rgba(110, 70, 30, 0.16); box-shadow: 0 0 0 1px rgba(90, 55, 25, 0.5); }
@@ -172,10 +172,7 @@
 /* ---------- Name plates over townsfolk (outside the UI root, so they scale themselves) ---------- */
 .lui-plate { position: fixed; transform: translate(-50%, -100%) scale(var(--ui-s)); transform-origin: 50% 100%; text-align: center; pointer-events: none; white-space: nowrap;
   font-family: var(--font); color: #fff6e2; text-shadow: var(--text-outline); }
-.lui-plate .mark { display: inline-grid; place-items: center; width: 22px; height: 22px; margin-bottom: 3px; border-radius: 50%; font: 900 13px/1 var(--font); color: #fff;
-  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.5); background: radial-gradient(circle at 40% 35%, #ffe28a, #f0a92e 60%, #b8741a); box-shadow: 0 0 0 2px #7a1f26, 0 0 0 3.5px #2b1a0e, 0 3px 6px rgba(0, 0, 0, 0.4); }
-.lui-plate .mark.ready { background: radial-gradient(circle at 40% 35%, #b6f08e, #4fae3a 60%, #2f7a24); }
-.lui-plate .mark .pxi { width: 14px; height: 14px; }
+.lui-plate .mark { display: inline-grid; place-items: center; margin-bottom: 1px; filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.55)); }
 .lui-plate .n { font-size: 15px; font-weight: 700; }
 .lui-plate .t { font-size: 12px; color: #f6e6c6; }
 
@@ -240,7 +237,7 @@
 #lui-quests .q .q-bar { margin-left: 14px; height: 7px; }
 #lui-quests .q .count { color: var(--good); font-weight: 700; }
 #lui-quests .hint { padding-left: 14px; font-size: 12px; color: var(--ink-2); }
-#lui-quests .hint .pxi { display: inline-block; vertical-align: -2px; }
+#lui-quests .hint .uic { display: inline-block; vertical-align: -3px; }
 
 /* ---------- Menu buttons, bottom right ---------- */
 #hud-menu { position: fixed; right: 18px; bottom: 74px; display: flex; gap: 20px; pointer-events: none; }

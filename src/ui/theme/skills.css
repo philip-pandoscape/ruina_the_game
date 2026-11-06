@@ -38,7 +38,7 @@
 .sk .tile { position: relative; width: 52px; height: 52px; box-sizing: border-box; display: grid; place-items: center; border-radius: 7px; border: 3px solid transparent;
   background: radial-gradient(circle at 50% 30%, color-mix(in srgb, var(--c) 45%, #fff 55%), var(--c) 62%, color-mix(in srgb, var(--c) 62%, #000 38%)) padding-box, var(--brass) border-box;
   box-shadow: 0 0 0 1.5px #2b1a0e, 0 3px 0 rgba(0, 0, 0, 0.25); }
-.sk .tile img, .sk .tile .emoji { width: 36px; height: 36px; image-rendering: pixelated; filter: drop-shadow(0 2px 0 rgba(0, 0, 0, 0.35)); }
+.sk .tile img, .sk .tile .emoji { width: 36px; height: 36px; filter: drop-shadow(0 2px 0 rgba(0, 0, 0, 0.35)); }
 .sk .lv { position: absolute; right: -5px; bottom: -5px; min-width: 19px; height: 19px; padding: 0 3px; box-sizing: border-box; border-radius: 10px; display: grid; place-items: center;
   font: 700 11px/1 var(--font); color: #3a1906; background: var(--btn-gold); box-shadow: 0 0 0 1.5px #2b1a0e; }
 .sk .xp { display: block; width: 46px; height: 5px; margin-top: 3px; border-radius: 3px; background: #4e3220; box-shadow: 0 0 0 1px #2b1a0e; overflow: hidden; }
@@ -85,7 +85,7 @@
 .sb-bar .hs { position: relative; width: 44px; height: 44px; box-sizing: border-box; display: grid; place-items: center; border-radius: 6px; border: 2px solid transparent; padding: 0;
   background: var(--slot-empty) padding-box, var(--slot-empty-frame) border-box; box-shadow: 0 0 0 1.5px #2b1a0e, inset 0 1px 3px rgba(0, 0, 0, 0.2); }
 .sb-bar .hs.on { background: radial-gradient(circle at 50% 30%, color-mix(in srgb, var(--c) 55%, #fff 45%), var(--c) 60%, color-mix(in srgb, var(--c) 60%, #000 40%)) padding-box, var(--brass) border-box; }
-.sb-bar .hs img, .sb-bar .hs .emoji { width: 30px; height: 30px; image-rendering: pixelated; }
+.sb-bar .hs img, .sb-bar .hs .emoji { width: 30px; height: 30px; }
 .sb-bar .hs .k { position: absolute; right: 2px; bottom: 0; font: 700 9.5px var(--font); color: #fff6e2; text-shadow: var(--text-outline); }
 .sb-bar .hs.drop, .sb-bar .hs.focus { box-shadow: 0 0 0 2px #7a1f26, 0 0 0 4px #ffd36a; }
 .sb-bar .sep { width: 2px; align-self: stretch; background: rgba(110, 70, 30, 0.35); }
@@ -154,7 +154,6 @@
 .st .n .core { fill: #f3e4c2; stroke: #6e4a2a; stroke-width: 1.5; }
 .st .n.al .ring { fill: #ffd36a; }
 .st .n.pd .ring { fill: #e8c9a0; stroke: #7a1f26; stroke-width: 2.5; }
-.st .n image { image-rendering: pixelated; }
 .st .n:not(.al):not(.pd) image { filter: grayscale(0.8) opacity(0.7); }
 .st .n.ks .dia { fill: var(--c); stroke: #2b1a0e; stroke-width: 2.5; }
 .st .n.ks:not(.al) .dia { filter: saturate(0.4); }

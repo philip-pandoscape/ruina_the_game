@@ -1,19 +1,47 @@
-// Pixel icons for things content names by emoji (items, packs, vehicles, skills, places), and money
-// drawn as gold, silver and copper coins.
-import { EMOJI_ICONS, ITEM_ICONS } from './icons.gen';
-import { COIN, pixelIcon } from './pixelIcons';
+// Painted icons (tools/icons: painted with Gemini, cut out by `npm run icons`) for what content
+// names by emoji (items, packs, vehicles, skills, places), the HUD's own by name (hearts, menu
+// buttons, quest marks), and money drawn as gold, silver and copper coins.
+import { EMOJI_ICONS, ICON_URLS, ITEM_ICONS, type IconName } from './icons.gen';
+
+export type { IconName };
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 
-/** The baked pixel art for an emoji (or an item, for those with their own art), if there is one. */
+/** The painted icon for an emoji (or an item, for those with a picture of their own), if there is one. */
 export function iconUrl(emoji: string, itemId?: string): string | null {
-  return (itemId && ITEM_ICONS[itemId]) || EMOJI_ICONS[emoji] || EMOJI_ICONS[emoji.replace(/️/g, '')] || null;
+  const name = (itemId && ITEM_ICONS[itemId]) || EMOJI_ICONS[emoji.replace(/️/g, '')];
+  return name ? ICON_URLS[name] : null;
 }
 
-/** An <img> of the pixel art, or the emoji itself when there is none. */
+/** An <img> of the painted icon, or the emoji itself when there is none. */
 export function iconHtml(emoji: string, itemId?: string, px = 32): string {
   const url = iconUrl(emoji, itemId);
-  return url ? `<img class="icon16" src="${url}" width="${px}" height="${px}" alt="">` : `<span class="emoji">${esc(emoji)}</span>`;
+  return url ? `<img class="ico" src="${url}" width="${px}" height="${px}" alt="" draggable="false">` : `<span class="emoji">${esc(emoji)}</span>`;
+}
+
+/** One of the HUD's own icons, `px` wide. */
+export function uiIcon(name: IconName, px = 24): string {
+  return `<img class="uic" src="${ICON_URLS[name]}" width="${px}" height="${px}" alt="" draggable="false">`;
+}
+
+const images = new Map<string, HTMLImageElement>();
+/** A painted icon to draw on a canvas: null until it has loaded (a canvas drawn every frame picks it up then). */
+export function iconImage(emoji: string, itemId?: string): HTMLImageElement | null {
+  const url = iconUrl(emoji, itemId);
+  return url ? loaded(url) : null;
+}
+/** One of the HUD's own icons to draw on a canvas, once it has loaded. */
+export function uiImage(name: IconName): HTMLImageElement | null {
+  return loaded(ICON_URLS[name]);
+}
+function loaded(url: string): HTMLImageElement | null {
+  let img = images.get(url);
+  if (!img) {
+    img = new Image();
+    img.src = url;
+    images.set(url, img);
+  }
+  return img.complete && img.naturalWidth ? img : null;
 }
 
 /** Copper split into gold, silver and copper, each with its own coin. Zero parts are left out. */
@@ -22,10 +50,10 @@ export function money(copper: number, size = 14): string {
   const g = Math.floor(c / 10000);
   const s = Math.floor(c / 100) % 100;
   const k = c % 100;
-  const part = (n: number, pal: Record<string, string> | undefined) => `<b>${n}</b>${pixelIcon('coin', size, pal)}`;
+  const part = (n: number, coin: IconName) => `<b>${n}</b>${uiIcon(coin, size)}`;
   const bits: string[] = [];
-  if (g) bits.push(part(g, COIN.gold));
-  if (s) bits.push(part(s, COIN.silver));
-  if (k || !bits.length) bits.push(part(k, COIN.copper));
+  if (g) bits.push(part(g, 'coin-gold'));
+  if (s) bits.push(part(s, 'coin-silver'));
+  if (k || !bits.length) bits.push(part(k, 'coin-copper'));
   return `<span class="mny">${bits.join('')}</span>`;
 }

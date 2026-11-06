@@ -6,8 +6,7 @@ import '../src/ui/theme/theme.css';
 import '../src/ui/theme/hud.css';
 import '../src/ui/theme/windows.css';
 import { initUiScale } from '../src/ui/theme/scale';
-import { iconHtml, money } from '../src/ui/theme/icons';
-import { GOLD_STAR, pixelIcon } from '../src/ui/theme/pixelIcons';
+import { iconHtml, money, uiIcon } from '../src/ui/theme/icons';
 import { addTipSource, wireTips } from '../src/ui/theme/tooltip';
 import { openMenu } from '../src/ui/theme/contextMenu';
 import { SMALL_WORDS, titleCase } from '../src/ui/theme/text';
@@ -88,14 +87,14 @@ $('#windows').innerHTML =
   `<div class="mw has-portrait" style="width:400px;height:330px"><div class="mw-portrait"><span class="emoji">${iconHtml('🧓', undefined, 40)}</span></div>` +
   '<div class="mw-bar">Reeve Hollis <small>Village Elder</small></div><div class="mw-x">✕</div>' +
   `<div class="mw-body"><p class="g-say">“Lanternwick prospers when its people do. Plant, pack, haul - and keep your boots dry.”</p><div class="h">Quests</div>` +
-  `<ul class="g-opts"><li>${pixelIcon('qmark', 22)}<span>First Flight</span><small>Complete</small></li><li class="prog">${pixelIcon('qgray', 22)}<span>A Patch of Earth</span><small>In Progress</small></li></ul>` +
-  `<div class="h">Talk</div><ul class="g-opts"><li class="talk">${pixelIcon('star', 22)}<span>Use the Workbench</span></li></ul></div>` +
+  `<ul class="g-opts"><li>${uiIcon('quest-done', 24)}<span>First Flight</span><small>Complete</small></li><li class="prog">${uiIcon('quest-active', 24)}<span>A Patch of Earth</span><small>In Progress</small></li></ul>` +
+  `<div class="h">Talk</div><ul class="g-opts"><li class="talk">${uiIcon('craft', 24)}<span>Use the Workbench</span></li></ul></div>` +
   '<div class="mw-foot"><span></span><button class="lui-btn">Goodbye</button></div></div>' +
   '<div class="mw" style="width:330px"><div class="mw-bar">Bag <small>3 / 30</small></div><div class="mw-x">✕</div>' +
   `<div class="mw-body" style="overflow:hidden"><div class="bag-grid" style="grid-template-columns:repeat(7, 38px)">` +
   `<div class="ib sm sel">${iconHtml('🧑‍🌾', 'scarecrow')}</div><div class="ib sm">${iconHtml('🥕', 'seed.sunroot')}<span class="n">8</span></div><div class="ib sm">${iconHtml('🪁', 'glider.wayfarer')}</div>` +
   '<div class="ib sm empty"></div><div class="ib sm empty"></div><div class="ib sm empty"></div><div class="ib sm empty"></div></div></div>' +
-  `<div class="mw-foot"><span>${money(320)}&nbsp; ${pixelIcon('seal', 16)} <b>2</b></span><span>${pixelIcon('bolt', 14)} <b>800</b> Labor</span></div></div>`;
+  `<div class="mw-foot"><span>${money(320)}&nbsp; ${uiIcon('seal', 18)} <b>2</b></span><span>${uiIcon('labor', 18)} <b>800</b> Labor</span></div></div>`;
 
 const demo = document.createElement('div');
 demo.className = 'ib big';
@@ -120,19 +119,18 @@ $('#items').insertAdjacentHTML(
 
 const bar = (icon: string, colour: string, frac: number, text: string) =>
   `<div class="hud-bar" style="--c:${colour};width:228px"><span class="cap">${icon}</span><div class="track"><div class="fill" style="width:calc((100% - 12px) * ${frac})"></div><span class="txt">${text}</span></div></div>`;
-const bars = [bar(pixelIcon('heart', 20), 'var(--hp)', 0.82, '82 / 100')];
-if (css.getPropertyValue('--mp').trim()) bars.push(bar(pixelIcon('star', 20), 'var(--mp)', 0.6, '60 / 100'));
-if (css.getPropertyValue('--stamina').trim()) bars.push(bar(pixelIcon('bolt', 20), 'var(--stamina)', 0.45, '45 / 100'));
-bars.push(bar(pixelIcon('bolt', 20), 'var(--labor)', 0.8, '800 / 1000'));
-const mark = (ready: boolean) =>
-  `<div style="display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;background:radial-gradient(circle at 40% 35%, ${ready ? '#b6f08e, #4fae3a 60%, #2f7a24' : '#ffe28a, #f0a92e 60%, #b8741a'});box-shadow:0 0 0 2px #7a1f26, 0 0 0 3.5px #2b1a0e">${pixelIcon(ready ? 'qmark' : 'excl', 14, { y: '#ffffff', Y: '#ffe6b0' })}</div>`;
+const bars = [bar(uiIcon('heart', 24), 'var(--hp)', 0.82, '82 / 100')];
+if (css.getPropertyValue('--mp').trim()) bars.push(bar(uiIcon('mana', 22), 'var(--mp)', 0.6, '60 / 100'));
+if (css.getPropertyValue('--stamina').trim()) bars.push(bar(uiIcon('stamina', 22), 'var(--stamina)', 0.45, '45 / 100'));
+bars.push(bar(uiIcon('labor', 22), 'var(--labor)', 0.8, '800 / 1000'));
+const mark = (ready: boolean) => `<div class="lui-plate" style="position:static;transform:none"><div class="mark">${uiIcon(ready ? 'quest-done' : 'quest-new', 30)}</div></div>`;
 $('#bits').innerHTML =
   `<div style="display:flex;flex-direction:column;gap:8px">${bars.join('')}</div>` +
   '<span class="key">F</span><span class="key">Esc</span><span class="key">Space</span>' +
   `<div id="lui-toasts" style="position:static"><div class="t good">${iconHtml('🧑‍🌾', 'scarecrow', 13)} +1 Scarecrow</div><div class="t quest">New quest: Landfall</div></div>` +
   mark(false) +
   mark(true) +
-  `<div class="ib">${pixelIcon('star', 28, GOLD_STAR)}</div>` +
+  `<div class="ib">${uiIcon('star', 32)}</div>` +
   '<span class="cap">Vitals bars · key caps · toasts (sentences) · quest marks: ! on offer, ? to hand in (over heads and on both maps)</span>';
 
 document.documentElement.dataset.ready = '1';

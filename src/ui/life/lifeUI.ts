@@ -23,8 +23,7 @@ import { WEAPON_ICONS, WEAPON_NAMES } from '../icons';
 import { comboDamage } from '../skills/describe';
 import { pointsLeft } from '../../build';
 import { skillBudget } from '../../sim/life/progress';
-import { iconHtml, iconUrl, money } from '../theme/icons';
-import { GOLD_STAR, pixelIcon } from '../theme/pixelIcons';
+import { iconHtml, iconImage, iconUrl, money, uiIcon, uiImage } from '../theme/icons';
 import { setUserScale, uiRoot, userScale, UI_SCALE_MAX, UI_SCALE_MIN } from '../theme/scale';
 import { addTipSource, hideTip, tipFor, wireTips } from '../theme/tooltip';
 import { closeMenu, menuPress, openMenu, type MenuEntry } from '../theme/contextMenu';
@@ -98,7 +97,7 @@ function clock(h: number, sky: { sunrise: number; sunset: number }): string {
 
 const esc = (s: string) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 const EMOJI = /\p{Extended_Pictographic}(?:️|‍\p{Extended_Pictographic}️?)*/gu;
-/** Text with its emoji drawn as pixel icons where there are any. */
+/** Text with its emoji drawn as painted icons where there are any. */
 const withIcons = (text: string, px = 16) => esc(text).replace(EMOJI, (e) => (iconUrl(e) ? iconHtml(e, undefined, px) : e));
 const dropcap = (t: string) => `<span class="dropcap">${esc(t[0])}</span>${esc(t.slice(1))}`;
 
@@ -198,8 +197,8 @@ export class LifeUI {
     const btn = (press: LifePress, icon: string, label: string, key: string) =>
       `<div class="hud-mbtn" data-press="${press}" title="${label}${key ? ` (${key})` : ''}">${icon}${key ? `<span class="k">${key}</span>` : ''}<span class="lbl">${label}</span></div>`;
     this.menuEl.innerHTML =
-      btn('bag', pixelIcon('bag', 24), 'Bag', 'I') + btn('character', pixelIcon('person', 24), 'Character', 'P') + btn('quests', pixelIcon('scroll', 24), 'Quests', 'L') +
-      btn('map', pixelIcon('map', 24), 'Map', 'M') + btn('garage', pixelIcon('wheel', 24), 'Rides', 'V') + btn('settings', pixelIcon('gear', 24), 'Settings', '');
+      btn('bag', uiIcon('bag', 34), 'Bag', 'I') + btn('character', uiIcon('helm', 34), 'Character', 'P') + btn('quests', uiIcon('scroll', 34), 'Quests', 'L') +
+      btn('map', uiIcon('map', 34), 'Map', 'M') + btn('garage', uiIcon('wheel', 34), 'Rides', 'V') + btn('settings', uiIcon('gear', 34), 'Settings', '');
     this.menuEl.addEventListener('click', (e) => {
       const b = (e.target as HTMLElement).closest('[data-press]') as HTMLElement | null;
       if (b) this.press(b.dataset.press as LifePress);
@@ -606,10 +605,10 @@ export class LifeUI {
       const bar = (k: string, icon: string, c: string, title: string, slim = true) =>
         `<div class="hud-bar v-${k}${slim ? ' slim' : ''}" style="--c:${c}" title="${title}"><span class="cap">${icon}</span><div class="track"><div class="fill"></div><span class="txt"></span></div></div>`;
       this.vitals.innerHTML =
-        bar('hp', pixelIcon('heart', 20), 'var(--hp)', 'Health', false) +
-        bar('mp', pixelIcon('mana', 16), 'var(--mp)', 'MP') +
-        bar('st', pixelIcon('stamina', 16), 'var(--stamina)', 'Stamina') +
-        bar('labor', pixelIcon('bolt', 16), 'var(--labor)', 'Labor') +
+        bar('hp', uiIcon('heart', 24), 'var(--hp)', 'Health', false) +
+        bar('mp', uiIcon('mana', 19), 'var(--mp)', 'MP') +
+        bar('st', uiIcon('stamina', 19), 'var(--stamina)', 'Stamina') +
+        bar('labor', uiIcon('labor', 19), 'var(--labor)', 'Labor') +
         '<div class="hud-purse"></div>';
     }
     const shown = this.vitalsShown;
@@ -636,7 +635,7 @@ export class LifeUI {
     if (purse !== this.vitalsKey) {
       this.vitalsKey = purse;
       (this.vitals.querySelector('.hud-purse') as HTMLElement).innerHTML =
-        `<span class="hud-pill" title="Money">${money(s.coins, 16)}</span><span class="hud-pill" title="Seals">${pixelIcon('seal', 18)}${s.seals}</span>`;
+        `<span class="hud-pill" title="Money">${money(s.coins, 16)}</span><span class="hud-pill" title="Seals">${uiIcon('seal', 20)}${s.seals}</span>`;
     }
     // The character window's MP and stamina tick along with the bars, without drawing it again.
     if (v && this.panel?.kind === 'character') {
@@ -989,8 +988,8 @@ export class LifeUI {
     }
     if (untracked) parts.push(`<div class="hint">${untracked} more in your quest log (L)</div>`);
     const offers = QUESTS.filter((q) => !q.auto && questsAt(life, q.giver).offer.includes(q)).length;
-    if (offers) parts.push(`<div class="hint">${offers} quest${offers > 1 ? 's' : ''} on offer: look for ${pixelIcon('excl', 12)}</div>`);
-    if (!parts.length) parts.push(`<div class="hint">Nothing under way. Look for ${pixelIcon('excl', 12)} over people's heads.</div>`);
+    if (offers) parts.push(`<div class="hint">${offers} quest${offers > 1 ? 's' : ''} on offer: look for ${uiIcon('quest-new', 15)}</div>`);
+    if (!parts.length) parts.push(`<div class="hint">Nothing under way. Look for ${uiIcon('quest-new', 15)} over people's heads.</div>`);
     const html = `<div class="scroll"><h4>Quests</h4>${parts.join('')}</div>`;
     if (html !== this.questsKey) {
       this.questsKey = html;
@@ -1076,8 +1075,7 @@ export class LifeUI {
       }
       const qa = questsAt(life, n.id);
       const talk = life.state.quests.active.some((qp) => questDef(qp.id).steps[qp.step]?.objectives.some((o) => o.type === 'talk' && o.npc === n.id));
-      const white = { y: '#ffffff', Y: '#ffe6b0' };
-      const mark = qa.turnIn.length ? `<div class="mark ready">${pixelIcon('qmark', 14, white)}</div>` : qa.offer.length ? `<div class="mark">${pixelIcon('excl', 14, white)}</div>` : talk ? `<div class="mark">${pixelIcon('bubble', 14)}</div>` : '';
+      const mark = qa.turnIn.length ? `<div class="mark">${uiIcon('quest-done', 30)}</div>` : qa.offer.length ? `<div class="mark">${uiIcon('quest-new', 30)}</div>` : talk ? `<div class="mark">${uiIcon('talk', 28)}</div>` : '';
       plate.style.display = 'block';
       plate.style.left = `${(this.v.x * 0.5 + 0.5) * w}px`;
       plate.style.top = `${(-this.v.y * 0.5 + 0.5) * h}px`;
@@ -1259,10 +1257,10 @@ export class LifeUI {
       const it = itemDef(i.item);
       return `<div class="rw" data-tip="item:${i.item}"><div class="ib">${iconHtml(it.icon, i.item)}${i.n > 1 ? `<span class="n">${i.n}</span>` : ''}</div><span class="nm">${esc(it.name)}</span></div>`;
     });
-    if (r.skillPoints) rows.push(`<div class="rw"><div class="ib">${pixelIcon('star', 28, GOLD_STAR)}</div><span class="nm">${r.skillPoints} Skill Point${r.skillPoints > 1 ? 's' : ''}</span></div>`);
-    if (r.labor) rows.push(`<div class="rw"><div class="ib">${pixelIcon('bolt', 28)}</div><span class="nm">${r.labor} Labor</span></div>`);
-    if (r.seals) rows.push(`<div class="rw"><div class="ib">${pixelIcon('seal', 28)}</div><span class="nm">${r.seals} Seal${r.seals > 1 ? 's' : ''}</span></div>`);
-    if (r.coins) rows.push(`<div class="rw"><div class="ib">${pixelIcon('coin', 28)}</div><span class="nm">${money(r.coins, 12)}</span></div>`);
+    if (r.skillPoints) rows.push(`<div class="rw"><div class="ib">${uiIcon('star', 32)}</div><span class="nm">${r.skillPoints} Skill Point${r.skillPoints > 1 ? 's' : ''}</span></div>`);
+    if (r.labor) rows.push(`<div class="rw"><div class="ib">${uiIcon('labor', 32)}</div><span class="nm">${r.labor} Labor</span></div>`);
+    if (r.seals) rows.push(`<div class="rw"><div class="ib">${uiIcon('seal', 32)}</div><span class="nm">${r.seals} Seal${r.seals > 1 ? 's' : ''}</span></div>`);
+    if (r.coins) rows.push(`<div class="rw"><div class="ib">${uiIcon('coins', 32)}</div><span class="nm">${money(r.coins, 12)}</span></div>`);
     return rows.length ? `<div class="h">Rewards</div><div class="q-rewards">${rows.join('')}</div>` : '';
   }
 
@@ -1292,10 +1290,10 @@ export class LifeUI {
     });
     const outpost = life.zone.recipe.outposts.find((o) => o.npc === npcId);
     const talk: Array<[string, string, string]> = [];
-    if (vendorFor(npcId)) talk.push(['shop', '', `${pixelIcon('coin', 22)}<span>Browse ${esc(n.name.split(' ')[0])}'s Goods</span>`]);
-    if (outpost) talk.push(['trade', '', `${pixelIcon('scroll', 22)}<span>Trade Packs and Contracts</span>`]);
-    if (recipesAt(npcId).length) talk.push(['craft', npcId, `${pixelIcon('star', 22)}<span>Commission Work</span>`]);
-    if (BENCH_OF[npcId]) talk.push(['craft', BENCH_OF[npcId], `${pixelIcon('star', 22)}<span>Use the Workbench</span>`]);
+    if (vendorFor(npcId)) talk.push(['shop', '', `${uiIcon('coins', 24)}<span>Browse ${esc(n.name.split(' ')[0])}'s Goods</span>`]);
+    if (outpost) talk.push(['trade', '', `${uiIcon('scroll', 24)}<span>Trade Packs and Contracts</span>`]);
+    if (recipesAt(npcId).length) talk.push(['craft', npcId, `${uiIcon('craft', 24)}<span>Commission Work</span>`]);
+    if (BENCH_OF[npcId]) talk.push(['craft', BENCH_OF[npcId], `${uiIcon('craft', 24)}<span>Use the Workbench</span>`]);
     const base = { title: n.name, sub: esc(n.title), portrait: this.face(npcId), w: 424, h: 560 };
     const handlers: Record<string, Handler> = {
       quest: (id) => this.open({ kind: 'dialog', id: npcId, quest: id }),
@@ -1325,7 +1323,7 @@ export class LifeUI {
           if (!r) return '';
           const dmd = demandAt(life, outpost.id, pk.id);
           const fresh = Math.round(pk.base * r.factor * dmd * freshness(0));
-          return `<div class="lui-row" data-tip="pack:${pk.id}"><div class="ib">${iconHtml(pk.icon)}</div><div class="body"><b>${esc(pk.name)}</b><small>From ${esc(placeName(pk.origin))} · Demand ${Math.round(dmd * 100)}%</small></div><div class="price">${money(fresh, 12)}${r.seals ? ` +${r.seals} ${pixelIcon('seal', 12)}` : ''}</div></div>`;
+          return `<div class="lui-row" data-tip="pack:${pk.id}"><div class="ib">${iconHtml(pk.icon)}</div><div class="body"><b>${esc(pk.name)}</b><small>From ${esc(placeName(pk.origin))} · Demand ${Math.round(dmd * 100)}%</small></div><div class="price">${money(fresh, 12)}${r.seals ? ` +${r.seals} ${uiIcon('seal', 14)}` : ''}</div></div>`;
         })
         .join('');
       const cs = life.state.contracts;
@@ -1333,7 +1331,7 @@ export class LifeUI {
       const offered = (cs?.offered ?? []).filter((k) => k.outpost === outpost.id);
       const contracts =
         mine.length || offered.length
-          ? `<div class="h">Contracts</div><div class="lui-list">${mine.map((k) => `<div class="lui-row"><div class="ib">${pixelIcon('scroll', 28)}</div><div class="body"><b>${k.count} × ${esc(packDef(k.pack).name)}</b><small>Taken · ${k.delivered}/${k.count} Delivered · ${shortTime(k.expires - life.state.clock)} Left</small></div><div class="price">+${money(k.bonusCoins, 12)}</div></div>`).join('')}${offered.map((k) => `<div class="lui-row"><div class="ib">${pixelIcon('scroll', 28)}</div><div class="body"><b>${k.count} × ${esc(packDef(k.pack).name)}</b><small>A bonus on the normal price · ${shortTime(CONTRACTS.durationSeconds)} to fill once taken</small></div><div class="price">+${money(k.bonusCoins, 12)}</div><button class="lui-btn small gold" data-act="contract" data-arg="${k.id}">Take</button></div>`).join('')}</div>`
+          ? `<div class="h">Contracts</div><div class="lui-list">${mine.map((k) => `<div class="lui-row"><div class="ib">${uiIcon('scroll', 32)}</div><div class="body"><b>${k.count} × ${esc(packDef(k.pack).name)}</b><small>Taken · ${k.delivered}/${k.count} Delivered · ${shortTime(k.expires - life.state.clock)} Left</small></div><div class="price">+${money(k.bonusCoins, 12)}</div></div>`).join('')}${offered.map((k) => `<div class="lui-row"><div class="ib">${uiIcon('scroll', 32)}</div><div class="body"><b>${k.count} × ${esc(packDef(k.pack).name)}</b><small>A bonus on the normal price · ${shortTime(CONTRACTS.durationSeconds)} to fill once taken</small></div><div class="price">+${money(k.bonusCoins, 12)}</div><button class="lui-btn small gold" data-act="contract" data-arg="${k.id}">Take</button></div>`).join('')}</div>`
           : '';
       const pk = carried(life, this.d.sim);
       const q = pk ? quote(life, pk, outpost.id) : null;
@@ -1359,9 +1357,9 @@ export class LifeUI {
     }
 
     const quests = [
-      ...qa.turnIn.map((q) => `<li data-act="quest" data-arg="${q.id}">${pixelIcon('qmark', 22)}<span>${esc(q.name)}</span><small>Complete</small></li>`),
-      ...qa.offer.map((q) => `<li data-act="quest" data-arg="${q.id}">${pixelIcon('excl', 22)}<span>${esc(q.name)}</span></li>`),
-      ...active.map((qp) => `<li class="prog" data-act="quest" data-arg="${qp.id}">${pixelIcon('qgray', 22)}<span>${esc(questDef(qp.id).name)}</span><small>In Progress</small></li>`),
+      ...qa.turnIn.map((q) => `<li data-act="quest" data-arg="${q.id}">${uiIcon('quest-done', 24)}<span>${esc(q.name)}</span><small>Complete</small></li>`),
+      ...qa.offer.map((q) => `<li data-act="quest" data-arg="${q.id}">${uiIcon('quest-new', 24)}<span>${esc(q.name)}</span></li>`),
+      ...active.map((qp) => `<li class="prog" data-act="quest" data-arg="${qp.id}">${uiIcon('quest-active', 24)}<span>${esc(questDef(qp.id).name)}</span><small>In Progress</small></li>`),
     ];
     const talkHtml = talk.map(([act, arg, html]) => `<li class="talk" data-act="${act}" data-arg="${arg}">${html}</li>`);
     return {
@@ -1383,7 +1381,7 @@ export class LifeUI {
         .map((o) => {
           const it = itemDef(o.item);
           const can = s.coins >= o.price && s.seals >= (o.seals ?? 0);
-          return `<div class="m-item${can ? '' : ' cant'}" data-act="buy" data-arg="${o.item}" data-tip="item:${o.item}"${can ? '' : ' disabled'}><div class="ib">${iconHtml(it.icon, o.item)}</div><div><div class="nm">${esc(it.name)}</div><div class="pr">${money(o.price, 12)}${o.seals ? ` + ${o.seals} ${pixelIcon('seal', 12)}` : ''}</div></div></div>`;
+          return `<div class="m-item${can ? '' : ' cant'}" data-act="buy" data-arg="${o.item}" data-tip="item:${o.item}"${can ? '' : ' disabled'}><div class="ib">${iconHtml(it.icon, o.item)}</div><div><div class="nm">${esc(it.name)}</div><div class="pr">${money(o.price, 12)}${o.seals ? ` + ${o.seals} ${uiIcon('seal', 14)}` : ''}</div></div></div>`;
         })
         .join('');
     } else if (tab === 'sell') {
@@ -1419,7 +1417,7 @@ export class LifeUI {
       body: `<div class="m-tabs">${(['buy', 'sell', 'buyback'] as const).map((t) => `<span class="m-tab${tab === t ? ' on' : ''}" data-act="tab" data-arg="${t}">${{ buy: 'Buy', sell: 'Sell', buyback: 'Buyback' }[t]}</span>`).join('')}</div>
         <div class="m-grid${tab === 'sell' ? ' m-sell' : ''}">${grid}</div>
         <div class="m-buys"><b>${esc(n.name.split(' ')[0])} Buys:</b> ${esc(buys)}. ${how}</div>`,
-      foot: `<span>${money(s.coins)}&nbsp; ${pixelIcon('seal', 16)} <b>${s.seals}</b></span><span style="display:flex;gap:12px"><button class="lui-btn small" data-act="sellall">Sell All Produce</button><button class="lui-btn small" data-act="back">Back</button></span>`,
+      foot: `<span>${money(s.coins)}&nbsp; ${uiIcon('seal', 18)} <b>${s.seals}</b></span><span style="display:flex;gap:12px"><button class="lui-btn small" data-act="sellall">Sell All Produce</button><button class="lui-btn small" data-act="back">Back</button></span>`,
       handlers: {
         tab: (t) => this.open({ kind: 'shop', id: npcId, tab: t as ShopTab }),
         buy: (item, e) => life.command({ t: 'buy', npc: npcId, item, n: e?.shiftKey && itemDef(item).stack > 1 ? 5 : 1 }),
@@ -1460,7 +1458,7 @@ export class LifeUI {
           sells = `<small>Sells at ${quotes.join(' · ')}</small>`;
         } else if (pack) sells = '<small>Building material: haul it to a house site</small>';
         const name = pack?.name ?? item?.name ?? r.id;
-        const icon = pack ? iconHtml(pack.icon) : item ? iconHtml(item.icon, r.makes.item) : pixelIcon('star', 28);
+        const icon = pack ? iconHtml(pack.icon) : item ? iconHtml(item.icon, r.makes.item) : uiIcon('craft', 32);
         // Short of a raw material: where it comes from (its description says).
         const short = inputs.find((i) => life.count(i.item) < i.n && itemDef(i.item).cat === 'material');
         const desc = (item?.desc ? `<small>${esc(item.desc)}</small>` : '') + (short ? `<small>${esc(itemDef(short.item).desc)}</small>` : '');
@@ -1472,11 +1470,11 @@ export class LifeUI {
     return {
       title,
       sub: npc ? esc(npc.title) : '',
-      portrait: npc ? this.face(benchOrNpc) : `<span class="emoji">${pixelIcon('star', 36)}</span>`,
+      portrait: npc ? this.face(benchOrNpc) : uiIcon('craft'),
       w: 520,
       h: 520,
       body: backLine + `<div class="lui-list">${rows}</div>`,
-      foot: `<span>${money(life.state.coins)}&nbsp; ${pixelIcon('bolt', 16)} <b>${Math.floor(life.state.labor)}</b> Labor</span><button class="lui-btn" data-act="close">Close</button>`,
+      foot: `<span>${money(life.state.coins)}&nbsp; ${uiIcon('labor', 18)} <b>${Math.floor(life.state.labor)}</b> Labor</span><button class="lui-btn" data-act="close">Close</button>`,
       handlers: {
         make: (id) => {
           life.command({ t: 'craft', recipe: id });
@@ -1525,7 +1523,7 @@ export class LifeUI {
     this.bagEl.innerHTML =
       `<div class="mw-bar">Bag <small>${s.bag.length} / ${BAG_SLOTS}</small></div><div class="mw-x" data-act="close" title="Close (I)">✕</div>` +
       `<div class="mw-body" style="overflow:hidden"><div class="bag-grid">${cells.join('')}</div>${pk ? `<div class="note" style="margin-top:8px">On Your Back: ${withIcons(`${packDef(pk.def).icon} ${packDef(pk.def).name}`, 14)}</div>` : ''}</div>` +
-      `<div class="mw-foot"><span>${money(s.coins)}&nbsp; ${pixelIcon('seal', 16)} <b>${s.seals}</b></span><span>${pixelIcon('bolt', 14)} <b>${Math.floor(s.labor)}</b> Labor</span></div>`;
+      `<div class="mw-foot"><span>${money(s.coins)}&nbsp; ${uiIcon('seal', 18)} <b>${s.seals}</b></span><span>${uiIcon('labor', 18)} <b>${Math.floor(s.labor)}</b> Labor</span></div>`;
     this.bagHandlers = {
       // A click picks an item out; a double-click does its main thing (right-click: everything else).
       sel: (i, e) => {
@@ -1617,7 +1615,7 @@ export class LifeUI {
     return {
       title: 'Vehicles & Mounts',
       sub: 'Boats appear at the nearest deep water',
-      portrait: `<span class="emoji">${pixelIcon('wheel', 36)}</span>`,
+      portrait: uiIcon('wheel'),
       w: 480,
       h: 430,
       body: `<div class="lui-list">${rows || '<p>You own no vehicles yet. Bertram (carts and cars), Captain Ilsa (boats) and Sela (mounts) are in Lanternwick.</p>'}</div>`,
@@ -1677,7 +1675,7 @@ export class LifeUI {
     return {
       title: 'Quest Log',
       sub: `${doneQuests} of ${quests.length} Quests · ${done.length - doneQuests} of ${QUESTS.length - quests.length} Milestones`,
-      portrait: `<span class="emoji">${pixelIcon('scroll', 40)}</span>`,
+      portrait: uiIcon('scroll'),
       w: 700,
       h: 520,
       body: `<div class="ql"><div class="ql-list">${list}</div><div>${page}</div></div>`,
@@ -1755,10 +1753,10 @@ export class LifeUI {
       : '';
     return {
       title: 'Settings',
-      portrait: `<span class="emoji">${pixelIcon('gear', 36)}</span>`,
+      portrait: uiIcon('gear'),
       w: 420,
       h: exit ? 430 : 330,
-      body: `<div class="h">Interface</div><div class="set-row"><span>UI Size</span><input type="range" min="${UI_SCALE_MIN * 100}" max="${UI_SCALE_MAX * 100}" step="5" value="${v}" data-set="uiScale"><b>${v}%</b></div><p class="note">The UI keeps its size relative to the window; this makes it bigger or smaller on top of that.</p>${exit}<div class="h">Credits</div><p class="note">Item and skill icons drawn from Twemoji by Twitter and contributors, CC-BY 4.0. Type: TeX Gyre Pagella (GUST Font License) and Alegreya SC (SIL Open Font License). Ground and grain textures from ambientCG and Poly Haven, CC0.</p>`,
+      body: `<div class="h">Interface</div><div class="set-row"><span>UI Size</span><input type="range" min="${UI_SCALE_MIN * 100}" max="${UI_SCALE_MAX * 100}" step="5" value="${v}" data-set="uiScale"><b>${v}%</b></div><p class="note">The UI keeps its size relative to the window; this makes it bigger or smaller on top of that.</p>${exit}<div class="h">Credits</div><p class="note">Type: TeX Gyre Pagella (GUST Font License) and Alegreya SC (SIL Open Font License). Ground and grain textures from ambientCG and Poly Haven, CC0.</p>`,
       foot: `<button class="lui-btn small" data-act="resetScale">Reset</button><button class="lui-btn" data-act="close">Done</button>`,
       handlers: {
         resetScale: () => {
@@ -1781,8 +1779,7 @@ export class LifeUI {
     g.textAlign = 'center';
     for (const pl of life.zone.recipe.places) {
       const [px, py] = toPx(pl.x, pl.z);
-      g.font = '18px system-ui';
-      g.fillText(pl.icon, px, py + 6);
+      mapIcon(g, iconImage(pl.icon), px, py - 2, 30);
       g.font = 'bold 12px "Ruina Serif", Georgia, serif';
       g.lineWidth = 3;
       g.strokeStyle = 'rgba(43,26,14,0.8)';
@@ -1798,20 +1795,18 @@ export class LifeUI {
     for (const h of life.state.houses) {
       const pose = housePose(life, h);
       const [px, py] = toPx(pose.x, pose.z);
-      g.font = '16px system-ui';
-      g.fillText('🏠', px, py + 5);
+      mapIcon(g, iconImage('🏠'), px, py, 26);
     }
     for (const v of life.state.vehicles) {
       const [px, py] = toPx(v.x, v.z);
-      g.font = '14px system-ui';
-      g.fillText(rideable(v.def).icon, px, py + 5);
+      mapIcon(g, iconImage(rideable(v.def).icon), px, py, 26);
     }
     // Townsfolk with a quest for you, or one to hand in.
     for (const n of life.zone.recipe.npcs) {
       const qa = questsAt(life, n.id);
       if (!qa.offer.length && !qa.turnIn.length) continue;
       const [px, py] = toPx(n.x, n.z);
-      questMark(g, px, py - 14, qa.turnIn.length > 0, 9);
+      questMark(g, px, py - 16, qa.turnIn.length > 0, 11);
     }
     for (const o of this.others()) {
       if (!o.online) continue;
@@ -1948,36 +1943,40 @@ export class LifeUI {
   }
 }
 
+/** A painted icon centred on a map, with a shadow to stand off the ground (nothing until it has loaded). */
+function mapIcon(g: CanvasRenderingContext2D, img: HTMLImageElement | null, x: number, y: number, size: number): void {
+  if (!img) return;
+  g.save();
+  g.shadowColor = 'rgba(20, 10, 4, 0.7)';
+  g.shadowBlur = size * 0.18;
+  g.shadowOffsetY = size * 0.06;
+  g.drawImage(img, x - size / 2, y - size / 2, size, size);
+  g.restore();
+}
+
 /**
- * A quest marker on a map, as over people's heads: a gold disc with ! for a quest on offer, a green
- * one with ? for a quest to hand in. `r` is its radius in the canvas's pixels.
+ * A quest marker on a map: the mark over people's heads (! for a quest on offer, ? for one to hand
+ * in) on a dark disc with a brass rim, to stand out from the ground. `r` is its radius in the canvas's pixels.
  */
 function questMark(g: CanvasRenderingContext2D, x: number, y: number, ready: boolean, r: number): void {
-  const fill = g.createRadialGradient(x - r * 0.25, y - r * 0.3, r * 0.1, x, y, r);
-  fill.addColorStop(0, ready ? '#b6f08e' : '#ffe28a');
-  fill.addColorStop(0.6, ready ? '#4fae3a' : '#f0a92e');
-  fill.addColorStop(1, ready ? '#2f7a24' : '#b8741a');
+  g.save();
   g.beginPath();
   g.arc(x, y, r, 0, Math.PI * 2);
+  const fill = g.createRadialGradient(x - r * 0.3, y - r * 0.35, r * 0.1, x, y, r);
+  fill.addColorStop(0, '#7a4a2a');
+  fill.addColorStop(1, '#2b1a0e');
   g.fillStyle = fill;
+  g.shadowColor = 'rgba(20, 10, 4, 0.6)';
+  g.shadowBlur = r * 0.5;
+  g.shadowOffsetY = r * 0.1;
   g.fill();
-  g.lineWidth = Math.max(2, r * 0.2);
-  g.strokeStyle = '#7a1f26';
+  g.shadowColor = 'transparent';
+  g.lineWidth = Math.max(1.5, r * 0.16);
+  g.strokeStyle = '#e0a84a';
   g.stroke();
-  g.beginPath();
-  g.arc(x, y, r + g.lineWidth * 0.75, 0, Math.PI * 2);
-  g.lineWidth = Math.max(1.5, r * 0.12);
-  g.strokeStyle = '#2b1a0e';
-  g.stroke();
-  g.font = `900 ${Math.round(r * 1.35)}px Georgia, serif`;
-  g.textAlign = 'center';
-  g.textBaseline = 'middle';
-  g.lineWidth = Math.max(2, r * 0.22);
-  g.strokeStyle = 'rgba(43, 26, 14, 0.75)';
-  g.strokeText(ready ? '?' : '!', x, y + r * 0.06);
-  g.fillStyle = '#fff';
-  g.fillText(ready ? '?' : '!', x, y + r * 0.06);
-  g.textBaseline = 'alphabetic';
+  const img = uiImage(ready ? 'quest-done' : 'quest-new');
+  if (img) g.drawImage(img, x - r * 0.95, y - r * 0.95, r * 1.9, r * 1.9);
+  g.restore();
 }
 
 /** The island drawn from above, once: shaded relief, sea by depth, roads and fields. */

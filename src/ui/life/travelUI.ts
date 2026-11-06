@@ -2,7 +2,7 @@ import type { World } from '../../sim/types';
 import type { AutoWalk, Refusal, WalkEvent } from '../../app/autoWalk';
 import { routeFrom, type Point } from '../../sim/zone/roads';
 import { openMenu } from '../theme/contextMenu';
-import { pixelIcon } from '../theme/pixelIcons';
+import { uiIcon } from '../theme/icons';
 import { uiRoot } from '../theme/scale';
 
 // Travel by road and auto-run, as the island's UI shows them. On the map a click marks a spot and
@@ -112,11 +112,11 @@ export class TravelUI {
     let html = '';
     if (w.mode === 'run') {
       const stop = pad ? '<span class="key">L</span>' : '<span class="key">W</span><span class="key">S</span>';
-      html = `${pixelIcon('stamina', 16)}<span class="lbl">Auto-Run</span><span class="stop">${stop}Stop</span>`;
+      html = `${uiIcon('stamina', 20)}<span class="lbl">Auto-Run</span><span class="stop">${stop}Stop</span>`;
     } else if (w.mode === 'travel') {
       const stop = pad ? '<span class="key">L</span>' : '<span class="key">WASD</span>';
       const to = w.marker?.label ?? SPOT;
-      html = `${pixelIcon('map', 16)}<span class="lbl">Travelling to ${esc(to)}</span><span class="dist">${Math.round(w.left)} m</span><span class="stop">${stop}Stop</span>`;
+      html = `${uiIcon('compass', 20)}<span class="lbl">Travelling to ${esc(to)}</span><span class="dist">${Math.round(w.left)} m</span><span class="stop">${stop}Stop</span>`;
     }
     if (html === this.shown) return;
     this.shown = html;
@@ -260,7 +260,7 @@ export class TravelUI {
       ? '<button class="lui-btn" data-act="halt">Stop</button>'
       : `<button class="lui-btn gold" data-act="go"${why ? ` disabled title="${esc(this.refusal(why))}"` : ''}>Travel</button>`;
     return {
-      html: `<span>${pixelIcon('map', 18)} <b>${esc(m.label)}</b> · ${status}</span><span style="display:flex;gap:10px"><button class="lui-btn small" data-act="unmark">Clear Marker</button>${go}</span>`,
+      html: `<span>${uiIcon('flag', 20)} <b>${esc(m.label)}</b> · ${status}</span><span style="display:flex;gap:10px"><button class="lui-btn small" data-act="unmark">Clear Marker</button>${go}</span>`,
       handlers: {
         unmark: () => w.clearMarker(),
         halt: () => w.stop(),
