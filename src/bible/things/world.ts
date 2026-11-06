@@ -6,7 +6,7 @@ import { CREATURES } from '../../content/creatures';
 import { RECIPES, VENDORS } from '../../content/items';
 import { QUESTS } from '../../content/quests';
 import { ROUTES } from '../../content/trade';
-import type { ActorKind } from '../../sim/actor';
+import type { ActorKind } from '../../content/actors';
 import { DUNGEONS, type DungeonDef } from '../../sim/zone/dungeon';
 import type { ZoneNpc, ZonePlace, ZoneRecipe } from '../../sim/zone/types';
 import { count, duration, frames, metres, num, speed, times } from '../format';

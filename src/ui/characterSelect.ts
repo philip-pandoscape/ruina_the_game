@@ -4,6 +4,7 @@ import { WEAPON_ICONS, WEAPON_NAMES } from './icons';
 import { iconHtml, money } from './theme/icons';
 import { card, el, frontLayer, type Account } from './signIn';
 import { splash } from './splash';
+import { onUiScale, uiScale } from './theme/scale';
 
 /** A character on the account, as the list shows them. */
 export interface CharacterInfo {
@@ -203,7 +204,7 @@ export class CharacterSelect {
     }
     if (!this.preview && !this.stage.querySelector('.cs-name')) {
       try {
-        this.preview = new HeroPreview(600, 620);
+        this.preview = new HeroPreview(600, 620, uiScale, onUiScale);
         this.stage.replaceChildren(this.preview.canvas);
       } catch (e) {
         // No WebGL for a second canvas: the screen works without the hero.

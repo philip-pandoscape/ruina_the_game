@@ -4,7 +4,6 @@ import type { LifeState, Vehicle, Weather } from '../sim/life/state';
 import type { Build } from '../content/tuning';
 import { currentAccount, ServerDown } from './account';
 import type { ArrowRecord, EffectEvent, MeteorRecord, NetActor } from './worldFeed';
-import { resumeAfterReload } from '../app/resume';
 
 // Your connection to the game server (crates/server/src/play/socket.rs), which plays Emberholm: your
 // browser sends what you press (about 60 inputs a second) and what you ask your island to do
@@ -279,6 +278,7 @@ export class WorldLink {
     heard: number,
     /** The character this connection plays (and comes back with). */
     readonly character: number,
+    private readonly beforeReload: BeforeReload,
   ) {
     this.welcomed(welcome, heard);
     this.attach(ws);
@@ -312,9 +312,9 @@ export class WorldLink {
    * Connects to play `character` (one of yours; without one, the one you played last) and waits for
    * the welcome. Rejects with ServerDown if the server can't be reached.
    */
-  static async open(character?: number): Promise<{ link: WorldLink; welcome: Welcome }> {
-    const { ws, welcome, heard } = await connect(character);
-    return { link: new WorldLink(ws, welcome, heard, welcome.character.id), welcome };
+  static async open(character: number | undefined, beforeReload: BeforeReload): Promise<{ link: WorldLink; welcome: Welcome }> {
+    const { ws, welcome, heard } = await connect(character, beforeReload);
+    return { link: new WorldLink(ws, welcome, heard, welcome.character.id, beforeReload), welcome };
   }
 
   get open(): boolean {
@@ -531,11 +531,11 @@ export class WorldLink {
       // A new build of the game came out (with the new server, most likely): load it, and come
       // straight back in.
       if (await newBuildOut()) {
-        reloadInto(this.character);
+        reloadInto(this.character, this.beforeReload);
         return;
       }
       try {
-        const { ws, welcome, heard } = await connect(this.character);
+        const { ws, welcome, heard } = await connect(this.character, this.beforeReload);
         this.ws = ws;
         this.welcomed(welcome, heard);
         this.attach(ws);
@@ -564,9 +564,15 @@ export class WorldLink {
 /** The page is reloading to come back as the newer game: nothing more to do here. */
 export class Reloading extends ServerDown {}
 
+/**
+ * Told the character a reload goes back into, just before the page reloads, so it comes straight
+ * back into the world (the app remembers it: src/app/resume.ts).
+ */
+export type BeforeReload = (character: number) => void;
+
 /** Reloads into the world with `character`, without the intro or the character select screen. */
-function reloadInto(character: number | undefined): void {
-  if (character !== undefined) resumeAfterReload(character);
+function reloadInto(character: number | undefined, beforeReload: BeforeReload): void {
+  if (character !== undefined) beforeReload(character);
   location.reload();
 }
 
@@ -599,7 +605,7 @@ async function newBuildOut(): Promise<boolean> {
 }
 
 /** A connection and its welcome, with when the welcome came (performance.now()). */
-function connect(character?: number): Promise<{ ws: WebSocket; welcome: Welcome; heard: number }> {
+function connect(character: number | undefined, beforeReload: BeforeReload): Promise<{ ws: WebSocket; welcome: Welcome; heard: number }> {
   return new Promise((resolve, reject) => {
     const which = character === undefined ? '' : `?character=${character}`;
     const ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws/world${which}`);
@@ -626,7 +632,7 @@ function connect(character?: number): Promise<{ ws: WebSocket; welcome: Welcome;
         ws.close();
         if (!sessionStorage.getItem(RELOADED)) {
           sessionStorage.setItem(RELOADED, '1');
-          reloadInto(character ?? msg.character?.id);
+          reloadInto(character ?? msg.character?.id, beforeReload);
           reject(new Reloading('The game was updated. Loading the new version…'));
           return;
         }

@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import { defaultBuild, loadBuild, parseBuild, pointsLeft, saveBuild, swapSlots, validBuild } from './content/build';
+import { defaultBuild, parseBuild, pointsLeft, swapSlots, validBuild } from './content/build';
+import { loadBuild, saveBuild } from './app/savedBuild';
 import { crouchKeySlides, Input } from './input/input';
 import { INTERP_TICKS, WorldFeed, type NetActor } from './net/worldFeed';
 import { NetMonsters } from './net/netMonsters';

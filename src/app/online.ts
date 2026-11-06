@@ -16,7 +16,7 @@ import { CharacterSelect } from '../ui/characterSelect';
 import { SignInScreen } from '../ui/signIn';
 import { splash } from '../ui/splash';
 import type { Options } from './options';
-import { playingAs, takeResume } from './resume';
+import { playingAs, resumeAfterReload, takeResume } from './resume';
 
 // Emberholm is played on the game server. The front door, on the title screen (src/ui/splash.ts):
 // sign in (or make an account), choose a character on the character select screen (each has an
@@ -103,7 +103,7 @@ async function frontDoor(opt: Pick<Options, 'as'>): Promise<Online> {
       splash?.setMode('entering');
       screen.wait(`Entering Emberholm as ${pick.name}…`);
       splash?.toward('joined', 4);
-      const { link, welcome } = await WorldLink.open(pick.id);
+      const { link, welcome } = await WorldLink.open(pick.id, resumeAfterReload);
       splash?.step('joined');
       screen.close();
       playingAs(welcome.character.id);

@@ -3,7 +3,7 @@
 // the same shape. A few fields only some kinds use (a prop's lean, a brain's scratch) cost four
 // numbers each and save a hierarchy nobody wants to mirror twice.
 
-import { findKind, ladderOf } from '../content/actors';
+import { findKind, ladderOf, type ActorKind } from '../content/actors';
 
 export type ActorId = number;
 
@@ -148,53 +148,6 @@ export interface ActorSpawn {
   z: number;
   facing?: number;
   seed?: number;
-}
-
-/** A slam: where it lands and what it does to whoever is standing there. */
-export interface SlamDef {
-  /** It winds up when you are this close. */
-  range: number;
-  /** The furthest it jumps. */
-  leap: number;
-  radius: number;
-  damage: number;
-  knock: number;
-}
-
-/** What a kind of actor is, before one exists. Content, not state. */
-export interface ActorKind {
-  id: string;
-  faction: number;
-  maxHp: number;
-  radius: number;
-  hitHeight: number;
-  hitCeiling: number;
-  solid: boolean;
-  /** Behaviour id, or null for something that just stands there. */
-  brain: string | null;
-  /** Frames face-down before it comes back; -1 never respawns. */
-  respawnFrames: number;
-  /** Which species the renderers draw it as, or null for a bespoke renderer. */
-  species: string | null;
-  /** Behaviour state name (or 'dead') to clip name, for whichever species it uses. */
-  clips: Record<string, string>;
-  /** Recolours the species' team slot, so one body can serve several creatures. */
-  palette?: { teamA: number; teamB: number };
-  /** How big the species is drawn. Drawing only. */
-  scale?: number;
-  /** For a kind on a ladder: how much of the creature it is. */
-  mass?: number;
-  /** Dies into this many of another kind. */
-  burst?: { into: string; count: number };
-  slam?: SlamDef;
-  /** Whether it can call the pack and gather them in. */
-  gathers?: boolean;
-  /** A blow dealing at least this much knocks it out of what it was doing (its brain's flinch). */
-  poise?: number;
-  /** What its target plate calls it. Drawing only. */
-  name?: string;
-  /** Clips that play by distance walked, not by state: metres one cycle covers. Drawing only. */
-  cycles?: Record<string, number>;
 }
 
 export const isAlive = (a: Actor): boolean => a.deadFrame < 0;

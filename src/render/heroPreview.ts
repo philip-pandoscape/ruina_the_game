@@ -1,7 +1,6 @@
 import * as THREE from 'three';
 import { Hero } from './character';
 import { pose } from '../content/pose';
-import { onUiScale, uiScale } from '../ui/theme/scale';
 
 // The character select screen's hero: the game's own Hero, standing idle with their weapon, slowly
 // turning on a glowing circle in the dusk, lit warm from behind by the setting sun. Its own small
@@ -81,9 +80,15 @@ export class HeroPreview {
   private still = matchMedia('(prefers-reduced-motion: reduce)').matches;
   private disposed = false;
 
+  /**
+   * `width` by `height` in the UI's own pixels; `scale` is how big the UI is drawn now, and
+   * `onScale` calls back when that changes (src/ui/theme/scale.ts), so the canvas stays sharp.
+   */
   constructor(
     private width: number,
     private height: number,
+    private scale: () => number,
+    onScale: (changed: () => void) => void,
   ) {
     this.canvas.className = 'cs-hero';
     this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true, alpha: true, powerPreference: 'low-power' });
@@ -119,7 +124,7 @@ export class HeroPreview {
     this.scene.add(this.ring, shadow, this.hero.root);
 
     this.resize();
-    onUiScale(() => this.resize());
+    onScale(() => this.resize());
     this.canvas.addEventListener('pointerdown', (e) => {
       this.drag = { x: e.clientX, yaw: this.yaw };
       this.settle = null;
@@ -144,7 +149,7 @@ export class HeroPreview {
   private resize(): void {
     if (this.disposed) return;
     // Drawn at the size it appears on screen: the UI's scale times the screen's pixel density.
-    const k = uiScale() * Math.min(2, devicePixelRatio || 1);
+    const k = this.scale() * Math.min(2, devicePixelRatio || 1);
     this.renderer.setPixelRatio(1);
     this.renderer.setSize(Math.round(this.width * k), Math.round(this.height * k), false);
   }

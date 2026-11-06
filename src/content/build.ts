@@ -15,17 +15,7 @@ import {
   type SkillNode,
   type SkillSet,
 } from './skills';
-import {
-  DEFAULT_BUILD,
-  emptyHotbar,
-  emptyMovement,
-  HOTBAR_SLOTS,
-  MOVEMENT_SKILLS,
-  MOVEMENT_SLOTS,
-  NO_ABILITY,
-  NO_MOVEMENT,
-  type Build,
-} from './tuning';
+import { DEFAULT_BUILD, emptyHotbar, emptyMovement, HOTBAR_SLOTS, MOVEMENT_SKILLS, MOVEMENT_SLOTS, NO_ABILITY, NO_MOVEMENT, type Build } from './tuning';
 
 // Picking a build: learning outward through the tree, and filling the hotbar from what you've
 // learned. crates/engine/src/skills.rs checks the same rules, so a build that passes here is accepted
@@ -173,10 +163,6 @@ export function validBuild(b: Build, budget = SKILL_POINTS): boolean {
   return r.weapons.includes(b.weapon);
 }
 
-// In the open world your build is kept on the game server with your character. The training yard
-// and the battlefield, which are developer tools, keep theirs in this browser.
-const STORAGE_KEY = 'ruina.build';
-
 export function defaultBuild(): Build {
   return { ...DEFAULT_BUILD, skills: [...DEFAULT_BUILD.skills], abilities: emptyHotbar(), movement: emptyMovement() };
 }
@@ -190,16 +176,6 @@ export function parseBuild(raw: unknown, budget = SKILL_POINTS): Build | null {
   } catch {
     return null;
   }
-}
-
-export function loadBuild(): Build {
-  try {
-    const b = parseBuild(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? 'null'));
-    if (b) return b;
-  } catch {
-    /* nothing saved, or storage unavailable */
-  }
-  return defaultBuild();
 }
 
 // Builds saved before the tree became a graph kept their skills in one number and their abilities
@@ -226,14 +202,6 @@ function migrate(raw: Record<string, unknown>): Build | null {
   }
   const movement = Array.isArray(raw.movement) ? [...(raw.movement as number[])] : emptyMovement();
   return fixLoadout({ skills: kept, weapon: raw.weapon, abilities, movement });
-}
-
-export function saveBuild(b: Build): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(b));
-  } catch {
-    /* storage unavailable */
-  }
 }
 
 // Puts a movement skill in a Q / E slot (or clears it). Like the hotbar, it moves rather than

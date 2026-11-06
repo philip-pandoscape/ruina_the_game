@@ -1,5 +1,4 @@
 import data from '../../shared/actors.json' with { type: 'json' };
-import type { ActorKind } from '../sim/actor';
 import { CREATURES } from './creatures';
 
 // What kinds of thing can exist in the world. The data is in shared/actors.json so the server
@@ -64,3 +63,50 @@ export function sizeFor(ladder: number, mass: number): string {
 }
 
 export const kindMass = (id: string): number => BY_ID.get(id)?.mass ?? 0;
+
+/** A slam: where it lands and what it does to whoever is standing there. */
+export interface SlamDef {
+  /** It winds up when you are this close. */
+  range: number;
+  /** The furthest it jumps. */
+  leap: number;
+  radius: number;
+  damage: number;
+  knock: number;
+}
+
+/** What a kind of actor is, before one exists. Content, not state. */
+export interface ActorKind {
+  id: string;
+  faction: number;
+  maxHp: number;
+  radius: number;
+  hitHeight: number;
+  hitCeiling: number;
+  solid: boolean;
+  /** Behaviour id, or null for something that just stands there. */
+  brain: string | null;
+  /** Frames face-down before it comes back; -1 never respawns. */
+  respawnFrames: number;
+  /** Which species the renderers draw it as, or null for a bespoke renderer. */
+  species: string | null;
+  /** Behaviour state name (or 'dead') to clip name, for whichever species it uses. */
+  clips: Record<string, string>;
+  /** Recolours the species' team slot, so one body can serve several creatures. */
+  palette?: { teamA: number; teamB: number };
+  /** How big the species is drawn. Drawing only. */
+  scale?: number;
+  /** For a kind on a ladder: how much of the creature it is. */
+  mass?: number;
+  /** Dies into this many of another kind. */
+  burst?: { into: string; count: number };
+  slam?: SlamDef;
+  /** Whether it can call the pack and gather them in. */
+  gathers?: boolean;
+  /** A blow dealing at least this much knocks it out of what it was doing (its brain's flinch). */
+  poise?: number;
+  /** What its target plate calls it. Drawing only. */
+  name?: string;
+  /** Clips that play by distance walked, not by state: metres one cycle covers. Drawing only. */
+  cycles?: Record<string, number>;
+}
