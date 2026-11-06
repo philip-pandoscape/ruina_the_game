@@ -1,0 +1,4 @@
+# Commits that only reformat, for git blame to look through: git config blame.ignoreRevsFile .git-blame-ignore-revs
+
+# The Rust code in one format (rustfmt.toml)
+440a86169a59d4bdbcdde3f4749713c2c402baa2
