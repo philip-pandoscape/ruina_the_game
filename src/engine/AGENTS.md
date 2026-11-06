@@ -7,7 +7,8 @@ session (`crates/engine/src/session.rs`: you, the creatures, the yard, the islan
 dungeons) and, after each step or call, reads back what the page shows. The island grows in the
 engine too (`zone_grow`). What the page reads of the rules besides is TypeScript here, read-only:
 the shapes of their state (`shapes.ts`), the world's ground, regions, instances and roads (`world/`),
-the read helpers of a life (`life/`) and of creatures (`actors/`). None of it steps the rules.
+the read helpers of a life (`life/`) and of creatures (`actors/`). None of it steps the rules. The
+interface to the engine, export by export and call by call: `docs/engine.md`.
 
 | File | What |
 |---|---|

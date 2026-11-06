@@ -54,10 +54,11 @@ online specs need a world server with a database (`npm run up`, or the private r
 
 - The rules are one copy, the engine's (`crates/engine`): the server runs them natively, and the
   browser runs the same code through the WebAssembly (`src/engine/`) to predict its own moves and to
-  play offline. A rule changes in one place; the engine's golden tests
-  (`crates/engine/tests/golden/`) hold the answers of its scenarios, and a change made on purpose
-  keeps the new ones (`RUINA_GOLDEN=1 cargo test --release -p ruina-engine golden`). Online the
-  server decides; the browser only predicts its own moves and shows what the server says.
+  play offline (`docs/engine.md`: how each side reaches them, and adding to what crosses). A rule
+  changes in one place; the engine's golden tests (`crates/engine/tests/golden/`) hold the answers
+  of its scenarios, and a change made on purpose keeps the new ones (`RUINA_GOLDEN=1 cargo test
+  --release -p ruina-engine golden`). Online the server decides; the browser only predicts its own
+  moves and shows what the server says.
 - Each region grows from its recipe in the engine alone (`crates/engine/src/open/generate.rs`,
   `buildings.rs`): the server grows it the first time anything asks, the browser through the
   engine's WebAssembly (`src/engine/wasm.ts`, which `npm run engine` builds and `npm run dev` builds

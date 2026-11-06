@@ -3,7 +3,8 @@
 The game's rules in Rust, one copy: what the server runs to decide everything, and (through
 `crates/engine-wasm`) what the browser runs to predict your moves and to play offline. The browser's
 game is `session.rs`: you, the creatures, the yard, the life systems and copies of dungeons, stepped
-for one page, with every change from outside as a named call.
+for one page, with every change from outside as a named call. How the server and the browser reach
+the engine, and how to add to the browser's interface: `docs/engine.md`.
 
 | Module | What |
 |---|---|

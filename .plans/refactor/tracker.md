@@ -210,9 +210,11 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
   animation session's); `softlock=0` kept, documented in the option list (comparing targeting feel);
   all of them listed with R6.1's options module. `--virtual-clients` and the battle server's own
   `lag` go with the battle server in Phase 10 (R10.7), leaving `?lag=` one option.
-- [~] **R2.11** Lint and format: rustfmt and clippy (`-D warnings` in CI); Biome for TypeScript with a
+- [x] **R2.11** Lint and format: rustfmt and clippy (`-D warnings` in CI); Biome for TypeScript with a
   light rule set. The one formatting commit lands at the start of Phase 5's move window, recorded in
   `.git-blame-ignore-revs`. Clippy done (d158ac1); rustfmt and Biome with Phase 5's formatting commit.
+  Done: both formatting commits are in `.git-blame-ignore-revs`, and `npm run check` runs Biome,
+  rustfmt and clippy (`-D warnings`).
 - [x] **R2.12** Guards: `knip` in the unit tier (new dead code fails it); clippy in CI. Done: both in
   `npm run check` and CI (5307934, d158ac1).
 
@@ -567,12 +569,15 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
   `wasm-bindgen-cli` to pin); the browser's loader (`src/engine/load.ts`, Vite's `?url`), Vitest's
   (`tests/support/engineSetup.ts`), `npm run dev`, `build`, the unit tier and Playwright's server build
   it first, and CI's client job and Docker build it.
-- [~] **R8.2** Spike: ground height and collider queries end to end through `crates/engine-wasm`
+- [x] **R8.2** Spike: ground height and collider queries end to end through `crates/engine-wasm`
   (the render reads ground height every frame for the shadow), measured per frame, before the
   interface is settled.
   Begun (2ff8375): ground height, standing ground and surface through the WebAssembly in Node: the
   island ready 10 ms after the first call, a query about 45 ns.
-- [~] **R8.3** The interface (`docs/engine.md`): step with inputs (~17 action fields), commands in,
+  Done: it settled the interface (R8.3). The page samples the ground from the grid the engine grows
+  (`zone_grow`), which the conformance tier holds to the engine's own, so a frame's queries don't
+  cross into the WebAssembly at all.
+- [x] **R8.3** The interface (`docs/engine.md`): step with inputs (~17 action fields), commands in,
   events and commands out; named calls for every write JavaScript makes into the rules today
   (`inventory/rules-map.md` section 3: the server's player at reconcile, island state from ticks,
   movers, colliders, respawn point, dungeon, levels); views: typed arrays over WebAssembly memory for
@@ -582,7 +587,8 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
   Begun (see R8.5): the session's interface (`crates/engine-wasm/src/session.rs`, `src/engine/session.ts`):
   a step takes the actions as numbers (the six buttons as bits); you, the creatures, what happened and
   the island come back as JSON in the TypeScript's shapes; every other write the Engine makes is one
-  named call (`session_call`). Left: `docs/engine.md`. Typed arrays rather than JSON aren't needed:
+  named call (`session_call`). `docs/engine.md` (this commit) says it export by export and call by
+  call, and how to add to it. Typed arrays rather than JSON aren't needed:
   R8.14 found the JSON was most of an offline step only while it was built as JSON values first;
   written straight from the session's values, the 18 KB view costs 0.04 ms to write and 0.04 ms to
   parse.
