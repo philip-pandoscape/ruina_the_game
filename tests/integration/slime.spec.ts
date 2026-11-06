@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
-import { emptyMovement, HOTBAR_SLOTS, NO_ABILITY, SLIME, WEAPONS, type Build } from '../src/tuning';
-import { skillsFrom } from '../src/skills';
+import { emptyMovement, HOTBAR_SLOTS, NO_ABILITY, SLIME, WEAPONS, type Build } from '../../src/tuning';
+import { skillsFrom } from '../../src/skills';
 
 // Slimes in the training yard: the first creature built out of species data to make it into the
 // game itself. They hop, they take hits from everything the player has, they die and come back.
@@ -103,7 +103,7 @@ test('a sword kills a slime, which flashes, dies, bursts, and comes back once th
   expect(hits.length).toBeGreaterThan(0);
   expect(hits.some((m) => m.amount === swordDamage)).toBe(true);
 
-  // Down, in pieces (tests/slime-pack.spec.ts covers those); clear them away and it comes back
+  // Down, in pieces (tests/integration/slime-pack.spec.ts covers those); clear them away and it comes back
   // on its feet with full health where it fell.
   await advance(page, 10);
   expect((await slimes(page))[0].alive).toBe(false);

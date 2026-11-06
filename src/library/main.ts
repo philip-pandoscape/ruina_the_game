@@ -4,7 +4,7 @@ import { store, type Note } from './store';
 import { SUBJECTS } from './subjects';
 
 // /library.html: the animation library. See app.ts for what it does and AGENTS.md for where it fits.
-// window.__library lets tests (tests/library.spec.ts) and the review check (tests/library-review.spec.ts)
+// window.__library lets tests (tests/integration/library.spec.ts) and the review check (tests/integration/library-review.spec.ts)
 // drive it.
 
 const app = new App(document.getElementById('app')!);

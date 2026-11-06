@@ -11,10 +11,10 @@ The open world is **Emberholm**, a starter isle with ArcheAge-style life systems
 |---|---|
 | `src/sim/` | Game rules: fixed 60 Hz steps, deterministic, no DOM. `src/sim/life/` (trade, farming, housing, vehicles, quests) changes only through queued commands |
 | `src/render/`, `src/ui/` | Presentation. Reads the rules' state, never changes it |
-| `src/render/look.ts` | The look: the new one (default) or the old toon one (`?look=classic`, and software WebGL), each with its palette; `?quality=medium` (auto on integrated graphics). Screen effects in `src/render/open/post.ts`; textured ground `open/ground.ts`; made models (Meshy, compressed, in `src/render/assets/models/`) swapped in for the procedural ones by id and fitted into their footprints, `models/glb.ts`, so the rules never see them; `tests/look.spec.ts` shoots both looks |
+| `src/render/look.ts` | The look: the new one (default) or the old toon one (`?look=classic`, and software WebGL), each with its palette; `?quality=medium` (auto on integrated graphics). Screen effects in `src/render/open/post.ts`; textured ground `open/ground.ts`; made models (Meshy, compressed, in `src/render/assets/models/`) swapped in for the procedural ones by id and fitted into their footprints, `models/glb.ts`, so the rules never see them; `tests/stress/look.spec.ts` shoots both looks |
 | `src/render/village/`, `shared/buildings.json` | Buildings you can walk into, built from Quaternius' village kit: plans (`src/content/buildings.ts`) on its 2 m grid, 3 m a storey, walls written as strings of modules (door, window, arch...), stairs, roof, furniture. The rules wall, floor and stair-step each one from its plan (`src/sim/zone/buildings.ts`: doorways open, upper floors and treads as decks, furniture solid; baked for the server like the rest of the island). `assemble.ts` lays out the kit's pieces; `village.ts` draws the town in a few merged meshes, cuts the house you are in open above your storey (its roof still shading the room), keeps the camera in its walls, swings doors open as anyone comes up to them and lights the lamps and hearths nearest you; `furnish.ts` the furniture (props, rugs, straw, fire). Players' cottages are its too, stage by stage. `/buildings.html` shows each plan (`?cut=0` from inside, `?colliders=1` the rules over it) |
-| `src/render/detail/` | Close-up bodies. `humanoid.ts` poses every humanoid as a pure function of `PoseInput` (the crowd bakes its clips from it), with `body.ts` (two-bone IK), `gait.ts` (planted feet at any speed and heading), `swings.ts` (weapon keyframes), `stow.ts` (where weapons are put away); `src/render/character.ts` adds the stateful parts (transitions, foot holds, trails, bowstring, drawing and putting away the weapon). `/animations.html` plays them all; `tests/animation.spec.ts` measures them. The new look's hero wears a made body (`madeHero.ts`, `assets/models/hero.glb`): `fit.ts` measures the hero rig off the model's skeleton, moves its skin onto our joints, adds a palm and finger joints to each hand and closes them round what they hold (`gripHands`), so the same poses move it; it carries made weapons (`madeWeapons.ts`) where the box hero's were. Its moves can also be clips from animation libraries, retargeted onto it bone for bone (`retarget.ts`; which move plays which clip: `moves.ts`, `?swordMoves=keyed|meshy|quaternius` to compare); `/retarget.html` shows a clip on the hero beside its source and `tests/retarget.spec.ts` holds every one to it |
-| `src/library/` | The animation library, `/library.html`: every animated thing (hero, slimes, crowd bodies, farm animals, townsfolk, mounts) through an adapter in `subjects/` that keeps each frame of an animation, so it can be scrubbed, onion-skinned and posed. Notes on an animation, a stretch of frames or a frame (a pose corrected by moving its bones: `editor.ts`) become one prompt for Claude (`prompt.ts`). The dev server keeps them in `reviews/animations/` (`tools/animReviews.ts`); corrected poses stay as green ghosts on their frames to compare a fix against, and `tests/library-review.spec.ts` (`REVIEW=<review.json>`) measures them. A review to act on: the `animation-review` skill |
+| `src/render/detail/` | Close-up bodies. `humanoid.ts` poses every humanoid as a pure function of `PoseInput` (the crowd bakes its clips from it), with `body.ts` (two-bone IK), `gait.ts` (planted feet at any speed and heading), `swings.ts` (weapon keyframes), `stow.ts` (where weapons are put away); `src/render/character.ts` adds the stateful parts (transitions, foot holds, trails, bowstring, drawing and putting away the weapon). `/animations.html` plays them all; `tests/integration/animation.spec.ts` measures them. The new look's hero wears a made body (`madeHero.ts`, `assets/models/hero.glb`): `fit.ts` measures the hero rig off the model's skeleton, moves its skin onto our joints, adds a palm and finger joints to each hand and closes them round what they hold (`gripHands`), so the same poses move it; it carries made weapons (`madeWeapons.ts`) where the box hero's were. Its moves can also be clips from animation libraries, retargeted onto it bone for bone (`retarget.ts`; which move plays which clip: `moves.ts`, `?swordMoves=keyed|meshy|quaternius` to compare); `/retarget.html` shows a clip on the hero beside its source and `tests/integration/retarget.spec.ts` holds every one to it |
+| `src/library/` | The animation library, `/library.html`: every animated thing (hero, slimes, crowd bodies, farm animals, townsfolk, mounts) through an adapter in `subjects/` that keeps each frame of an animation, so it can be scrubbed, onion-skinned and posed. Notes on an animation, a stretch of frames or a frame (a pose corrected by moving its bones: `editor.ts`) become one prompt for Claude (`prompt.ts`). The dev server keeps them in `reviews/animations/` (`tools/animReviews.ts`); corrected poses stay as green ghosts on their frames to compare a fix against, and `tests/integration/library-review.spec.ts` (`REVIEW=<review.json>`) measures them. A review to act on: the `animation-review` skill |
 | `src/ui/` | The Parchment & Timber look. `theme/`: the CSS, the UI laid out on a 1029 px virtual screen and scaled to the window (`scale.ts`), fonts, tooltips, right-click menus (`contextMenu.ts`), the writing rule (`text.ts`), painted icons (`icons.ts`; `tools/icons/catalog.mjs` lists what each one shows and the emoji or item it stands for, `node tools/icons/paint.mjs` paints them nine to a sheet with Gemini, `npm run icons` cuts them out). `life/lifeUI.ts`: the island's HUD and its windows docked at the sides. `skills/`: the skill book (T) and the skill tree (N). Skill points are counted from finished quests (`src/sim/life/progress.ts`), never stored. `minigames/`: challenging another player (F on them), the invitation, and the game window at your table (Beacons' board), all showing what the server sends. `party/`: the party frame under your portrait, the invitation and the Party window (O) |
 | `src/main.ts` | Wires it all up; URL options at the top (`?lag=ms` plays a local server as a far one feels); `window.__game` is the test API. Riding, the vehicle is placed before its rider is posed in its seat (`LifeView.placeRide`). Online, picking packs up and putting them down, loading, unloading and getting in run ahead in the browser until the server has run them too |
 | `src/app/autoWalk.ts`, `src/sim/zone/roads.ts` | Auto-run (H) and travel by road from the map: the road network and its routes, followed by making the same controls the keyboard would (`src/ui/life/travelUI.ts` draws them) |
@@ -31,8 +31,8 @@ The open world is **Emberholm**, a starter isle with ArcheAge-style life systems
 npm run up              # Postgres + game server in Docker (rebuilds the server); npm run down stops
 npm run dev             # http://localhost:5173  (?as=name signs in on dev and plays its last character, ?yard, ?world&test)
 npm run typecheck
-npx playwright test     # all (or npm test), ~12 min; tests/online.spec.ts, tests/minigames.spec.ts and tests/party.spec.ts need `npm run up`; tests/update.spec.ts needs RUINA_DATABASE_URL
-npx playwright test tests/ui.spec.ts   # some of it: files, -g "title"
+npx playwright test     # all (or npm test), ~12 min; tests/integration/online.spec.ts, tests/integration/minigames.spec.ts and tests/integration/party.spec.ts need `npm run up`; tests/integration/update.spec.ts needs RUINA_DATABASE_URL
+npx playwright test tests/integration/ui.spec.ts   # some of it: files, -g "title"
 npx playwright test --last-failed      # after a fix, what failed last time, not the whole suite again
 PW_PORT=5211 TEST_PORT_OFFSET=10 npx playwright test   # beside another checkout's suite (its own Vite and battle-server ports)
 PW_WORKERS=4 npx playwright test   # fewer test pages side by side (6 by default)
@@ -52,7 +52,7 @@ npm run image -- --out scratch/x.png --ref look.png "prompt"   # a picture from 
 - Keep `src/sim/` deterministic: its own seeded RNG, never `Math.random` or `Date.now`.
 - When a feature lands, update `design/status.json` (feature status, next steps, session log).
 - UI follows the design system (`design/ui.html`): labels (buttons, tabs, headings, prompts, tags) in
-  Title Case and sentences in sentence case (`src/ui/theme/text.ts`, checked by `tests/ui.spec.ts`);
+  Title Case and sentences in sentence case (`src/ui/theme/text.ts`, checked by `tests/integration/ui.spec.ts`);
   items answer a click (pick), a double-click (their main action) and a right-click (a menu).
 - Tag a test `@gpu` if it needs a real GPU to keep up (several game windows, frame rates, screen
   capture). CI renders in software and skips them; run them locally before pushing such changes.
@@ -60,7 +60,7 @@ npm run image -- --out scratch/x.png --ref look.png "prompt"   # a picture from 
   `@alone` tests one at a time: the whole suite plays them after the rest, a run of some of it beside
   the rest. Tag a test `@alone` if it races the clock in a way other pages drawing would upset
   (stopping a server under players, two windows of one character). A spec file that starts a battle
-  server gives it a port no other file uses (`tests/testServer.ts`); one whose tests share nothing
+  server gives it a port no other file uses (`tests/support/testServer.ts`); one whose tests share nothing
   says so (`test.describe.configure({ mode: 'parallel' })`). A test never waits a fixed time for the
   game to notice something (a key, a pad button): it waits for frames.
 - Never commit `.env` (Railway keys, `GEMINI_API_KEY`). Commit messages carry no AI attribution.
@@ -139,7 +139,7 @@ Whatever comes from outside goes in `CREDITS.md` (what, where, from, licence).
   - Meshy's textures are colour only, so its metal looks painted. For the hero's weapons
     (`madeWeapons.ts`), `tools/models/weaponprep.mjs` paints a metal-roughness map from the colours
     (and a glow map, and cuts off the bowstring the game draws itself) before compressing.
-- `tests/look.spec.ts` shoots the same places at the same hours in both looks
+- `tests/stress/look.spec.ts` shoots the same places at the same hours in both looks
   (`screenshots/look-*`): run it before and after, and show the user both.
 
 ## Branches and deploys
@@ -158,7 +158,7 @@ Whatever comes from outside goes in `CREDITS.md` (what, where, from, licence).
 - Deploys: the stopping server tells every player `{t:"updating"}`, saves every island, then closes
   with 1012 (`railway.json` gives it 20 s); pages freeze, reconnect, and reload straight back into the
   world when a new build or `WORLD_PROTOCOL` is out. `POST /api/dev/stop` does the same where
-  `DEV_LOGIN=1` (`tests/update.spec.ts`).
+  `DEV_LOGIN=1` (`tests/integration/update.spec.ts`).
 - Online the server plays Emberholm: browsers send key presses (binary, 60 a second) and commands,
   the server runs every rule and keeps the islands in Postgres, and answers 20 times a second.
   Nothing a browser says about its own state is believed. `grant`, `warp` and `teleport` (the

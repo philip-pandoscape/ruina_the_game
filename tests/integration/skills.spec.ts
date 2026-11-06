@@ -1,7 +1,7 @@
 import { expect, test, type Browser, type BrowserContext, type Page } from '@playwright/test';
-import { ABILITIES, comboFor, emptyMovement, HOTBAR_SLOTS, NO_ABILITY, SLIDE_SKILL, type Build, WEAPONS } from '../src/tuning';
-import { ADJACENT, emptySkills, LEVEL_XP, resolveSkills, SKILL_POINTS, skillCount, skillIndex, skillsFrom, soundTree, START_POINTS, withSkill } from '../src/skills';
-import { serverBuilt, TestServer } from './testServer';
+import { ABILITIES, comboFor, emptyMovement, HOTBAR_SLOTS, NO_ABILITY, SLIDE_SKILL, type Build, WEAPONS } from '../../src/tuning';
+import { ADJACENT, emptySkills, LEVEL_XP, resolveSkills, SKILL_POINTS, skillCount, skillIndex, skillsFrom, soundTree, START_POINTS, withSkill } from '../../src/skills';
+import { serverBuilt, TestServer } from '../support/testServer';
 
 // The classless skill system: the skill panel, every weapon and ability in the training yard, and
 // the same things online, where the server decides what hits.

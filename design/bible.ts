@@ -828,7 +828,7 @@ part('the file map', () => {
     ['<code>src/render/open/</code> · <code>src/render/models/</code>', 'The open-world scene and the procedural models (preview at <code>/models.html</code>).'],
     ['<code>src/ui/life/</code>', 'The open-world HUD and panels.'],
     ['<code>src/app/save.ts</code>', 'Saving the island in the browser, and time passing while away.'],
-    ['<code>tests/world.spec.ts</code>', 'The open-world test suite.'],
+    ['<code>tests/integration/world.spec.ts</code>', 'The open-world test suite.'],
     ['<code>design/</code>', 'This document (prose in <code>index.html</code>, everything drawn from data in <code>bible.ts</code>), its tracker and the research notes.'],
   ]);
 });

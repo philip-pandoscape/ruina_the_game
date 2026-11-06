@@ -1,7 +1,7 @@
 import { expect, test, type Browser, type BrowserContext, type Page } from '@playwright/test';
-import { ABILITIES, emptyMovement, HOTBAR_SLOTS, NO_ABILITY, type Build, WEAPONS } from '../src/tuning';
-import { skillsFrom } from '../src/skills';
-import { serverBuilt, TestServer } from './testServer';
+import { ABILITIES, emptyMovement, HOTBAR_SLOTS, NO_ABILITY, type Build, WEAPONS } from '../../src/tuning';
+import { skillsFrom } from '../../src/skills';
+import { serverBuilt, TestServer } from '../support/testServer';
 
 // Combat feedback and aiming: the floating numbers, the enemy the game marks for you, and
 // placing a ground-aimed cast by holding its button.

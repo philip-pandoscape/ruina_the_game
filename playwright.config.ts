@@ -2,7 +2,7 @@ import { defineConfig } from '@playwright/test';
 
 // The page the tests play is served by Vite on this port. PW_PORT moves it, so two checkouts can
 // run their suites at once without one testing the other's code (TEST_PORT_OFFSET moves the
-// battle servers some tests start, tests/testServer.ts).
+// battle servers some tests start, tests/support/testServer.ts).
 const port = Number(process.env.PW_PORT) || 5199;
 
 // Here the spec files play side by side, PW_WORKERS of them at once (each file that needs a battle
@@ -27,8 +27,12 @@ const wholeSuite = process.env.RUINA_WHOLE_SUITE === '1';
 
 // On Windows the tests run in the Edge browser that ships with Windows (no extra download).
 // Elsewhere they use Playwright's own Chromium: run `npx playwright install chromium` once.
+//
+// This is the integration tier: the game in a browser, with its servers (tests/integration), run
+// before a push to beta. The unit tier needs no browser (Vitest, vitest.config.ts); the stress tier
+// has a config of its own (playwright.stress.config.ts), run before a release.
 export default defineConfig({
-  testDir: 'tests',
+  testDir: 'tests/integration',
   // CI runners are slower than a desk machine and draw WebGL in software. There the suite is split
   // across runners test by test (.github/workflows/ci-cd.yml), a test gets twice as long, and one
   // that lost a race against the clock gets two more tries; a real failure fails all three.

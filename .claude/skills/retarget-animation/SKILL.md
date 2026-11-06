@@ -14,7 +14,7 @@ first turned to point the way its source bone points at rest, and then it takes 
 turn away from rest at every moment. The body follows the point between the source's hip joints,
 sized by leg length; the clip's own travel is taken off, so the rules carry the body and the feet
 the clip plants are held on the ground (`character.ts` holdFeet). Done right, every bone points
-within a tenth of a degree of its source's: `tests/retarget.spec.ts` holds every move to that.
+within a tenth of a degree of its source's: `tests/integration/retarget.spec.ts` holds every move to that.
 
 If arguments were given (`$ARGUMENTS`), that is the move or clip to bring in.
 
@@ -86,13 +86,13 @@ humanoid's.
 1. `/retarget.html?look=new&file=hero_<name>&clip=A~B` (add `&mesh=/scratch/<skinned source>.glb` to
    show the source skinned rather than as bones): the hero as the game bakes and poses it, beside the
    source. `window.__retarget.seek(t)` gives each moment's error.
-2. `npx playwright test tests/retarget.spec.ts`: every move's clip, every frame: bones within 0.1°
+2. `npx playwright test tests/integration/retarget.spec.ts`: every move's clip, every frame: bones within 0.1°
    on average and 1° at worst, ankles no more than 2.5 cm under where they stand. `RECORD=1` keeps
    the frames under `test-results/retarget/` for a GIF.
 3. `/animations.html?look=new` (`&swordMoves=keyed|meshy|quaternius` to compare sets): the move in the
    game's timing, with the trail, the feet held and the fingers round the weapon. Step it with
    `window.__anims.sheet(id, { frames: [f] })` and screenshot each frame for a GIF.
-4. `npx playwright test tests/animation.spec.ts` (and the game and combat suites).
+4. `npx playwright test tests/integration/animation.spec.ts` (and the game and combat suites).
 
 Show the user the clip against its source and in the game, side by side with what it replaces,
 before you call it done.

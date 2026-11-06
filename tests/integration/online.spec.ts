@@ -1,6 +1,6 @@
 import { expect, test, type Browser, type BrowserContext, type Page } from '@playwright/test';
 import { readFileSync } from 'node:fs';
-import { rainAt } from '../src/sim/life/weather';
+import { rainAt } from '../../src/sim/life/weather';
 
 // Its tests share nothing, so they spread across the workers (playwright.config.ts).
 test.describe.configure({ mode: 'parallel' });
@@ -9,7 +9,7 @@ test.describe.configure({ mode: 'parallel' });
 // of its own), the server playing your island and keeping it in Postgres between visits, starting
 // over, one window per character, and sharing a channel. These play the real game against the real
 // server, so they need it running with developer sign-in: `npm run up` (Docker). Without it they're
-// skipped. (Updates and dropped connections are in tests/update.spec.ts, with a server of its own.)
+// skipped. (Updates and dropped connections are in tests/integration/update.spec.ts, with a server of its own.)
 //
 // The game steps (and sends its inputs) only as fast as it draws, and CI draws the island in
 // software at a few frames a second, so waits on the server's answers are generous.

@@ -4,7 +4,7 @@ import { expect, test, type Page } from '@playwright/test';
 // browser only draws: the slimes move smoothly between the server's updates, their warnings lie on
 // the ground (the slime meadow is 18 m above the sea, where a circle drawn at sea level can't be
 // seen), and a swing that connects sparks and flashes the slime straight away. Needs the game server
-// with developer sign-in, as tests/online.spec.ts does (npm run up); skipped without it. Tagged
+// with developer sign-in, as tests/integration/online.spec.ts does (npm run up); skipped without it. Tagged
 // @gpu: it walks up to a slime and swings at it, which a software-drawn browser is too slow for.
 
 const SERVER = process.env.RUINA_SERVER ?? 'http://localhost:7777';

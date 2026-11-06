@@ -121,7 +121,7 @@ test('a corrected pose becomes a note with a picture, survives a reload, and goe
   expect(prompt).toContain('**Frames 40–46**');
   expect(prompt).toContain('**The whole animation**');
   expect(prompt).toContain(`${id}.png`);
-  expect(prompt).toContain('tests/library-review.spec.ts');
+  expect(prompt).toContain('tests/integration/library-review.spec.ts');
 });
 
 test('the library is laid out and answers the keyboard', async ({ page }) => {

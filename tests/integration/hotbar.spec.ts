@@ -1,9 +1,9 @@
 import { expect, test, type Page } from '@playwright/test';
-import { ABILITIES, emptyMovement, HOTBAR_SLOTS, MOVE, NO_ABILITY, SLIDE_SKILL, type Build } from '../src/tuning';
+import { ABILITIES, emptyMovement, HOTBAR_SLOTS, MOVE, NO_ABILITY, SLIDE_SKILL, type Build } from '../../src/tuning';
 
 // Sliding is an action state now, not a mode of its own.
 const sliding = (p: { mode: string; actionId: number }) => p.mode === 'action' && p.actionId === SLIDE_SKILL;
-import { skillsFrom } from '../src/skills';
+import { skillsFrom } from '../../src/skills';
 
 // Its tests share nothing, so they spread across the workers (playwright.config.ts).
 test.describe.configure({ mode: 'parallel' });

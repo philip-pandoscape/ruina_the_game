@@ -9,7 +9,7 @@ import { dirname, join } from 'node:path';
 // with the correction's ghost over it, saved as images/<note id>-now.png beside the user's picture.
 // The results are printed and kept in check.md next to review.json. Without REVIEW it is skipped.
 //
-//   REVIEW="C:\...\reviews\animations\review.json" npx playwright test tests/library-review.spec.ts
+//   REVIEW="C:\...\reviews\animations\review.json" npx playwright test tests/integration/library-review.spec.ts
 
 interface Measure {
   bones: Array<{ name: string; now: number; was: number }>;

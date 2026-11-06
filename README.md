@@ -113,8 +113,8 @@ the same rules (in TypeScript) and corrects itself to the answer, so play feels 
 `tests/world-conformance.spec.ts` and `tests/life-conformance.spec.ts` check the two sets of rules
 agree. The developer panel (give items, skip time, teleport) exists only where the server allows it
 (development and beta, not production). Automated tests (`?test`) run the island offline, in the
-browser, except `tests/online.spec.ts` and `tests/minigames.spec.ts`, which need `npm run up`, and
-`tests/update.spec.ts`, which starts and stops a game server of its own on the database in
+browser, except `tests/integration/online.spec.ts` and `tests/integration/minigames.spec.ts`, which need `npm run up`, and
+`tests/integration/update.spec.ts`, which starts and stops a game server of its own on the database in
 `RUINA_DATABASE_URL`. To run the suite beside another checkout's, give it its own ports:
 `PW_PORT=5211 TEST_PORT_OFFSET=10`.
 
@@ -214,8 +214,8 @@ game state, and the island save (so the bug can be replayed on the same island).
 ## Tests
 
 `npm test` runs everything. Tests that need a server start their own on ports 7791–7794, so they never
-join a game you're playing. `npm run typecheck` checks types. `tests/world.spec.ts` plays the open
-world (`/?world&test`) and `tests/models.spec.ts` checks every procedural model.
+join a game you're playing. `npm run typecheck` checks types. `tests/integration/world.spec.ts` plays the open
+world (`/?world&test`) and `tests/integration/models.spec.ts` checks every procedural model.
 
 ## Balance
 

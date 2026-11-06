@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import * as THREE from 'three';
-import { WaterView } from '../src/render/open/water';
-import { Heightfield } from '../src/sim/terrain';
+import { WaterView } from '../../src/render/open/water';
+import { Heightfield } from '../../src/sim/terrain';
 
 // The sea along the shore. Its foam is drawn by how deep the water is under each point, so it
 // depends on the point being where it really is: drawn as one 9 km sheet, the positions the GPU

@@ -38,7 +38,7 @@ The digest has what was said (t = seconds from the key press, negative = before 
 
 Reproduce before fixing whenever you can; a fix you never saw fail is a guess.
 
-- Playwright drives the real game through `window.__game` (the "Hooks for automated tests" section of `src/main.ts`): `advance(frames, actions)`, `teleport(x, z, facing)`, `lifeCommand(cmd)`, `state()`, `life()`, `setCamera(...)`, `sceneObjects(prefix)`, and more. `tests/world.spec.ts` shows the helpers the existing specs use.
+- Playwright drives the real game through `window.__game` (the "Hooks for automated tests" section of `src/main.ts`): `advance(frames, actions)`, `teleport(x, z, facing)`, `lifeCommand(cmd)`, `state()`, `life()`, `setCamera(...)`, `sceneObjects(prefix)`, and more. `tests/integration/world.spec.ts` shows the helpers the existing specs use.
 - `save.json` loads the island exactly as it was at the press:
   ```ts
   await page.addInitScript((s) => localStorage.setItem('ruina.emberholm.v1', s), readFileSync('bugs/<id>/save.json', 'utf8'));
@@ -46,7 +46,7 @@ Reproduce before fixing whenever you can; a fix you never saw fail is a guess.
   ```
   It stands you where you were (off any vehicle). `state.json` has the exact position, velocity and what you were riding.
 - `timeline.json` has every input as `[steps, actions]` runs, ready for `__game.advance`. The sim is deterministic, but the history starts mid-action, so the inputs show what was pressed rather than replaying the bug exactly.
-- Explore in a temporary spec under `tests/` (Playwright only runs files there), and delete it when you're done. Then write a regression test in the spec file that owns the system (`tests/world.spec.ts` for the open world, and so on). The kept test must not read `bugs/`, which isn't in git: rebuild the situation with commands, grants and teleports.
+- Explore in a temporary spec under `tests/` (Playwright only runs files there), and delete it when you're done. Then write a regression test in the spec file that owns the system (`tests/integration/world.spec.ts` for the open world, and so on). The kept test must not read `bugs/`, which isn't in git: rebuild the situation with commands, grants and teleports.
 
 ## 4. Fix it
 

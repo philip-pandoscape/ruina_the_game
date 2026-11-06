@@ -206,7 +206,7 @@ function animalSubject(id: AnimalId): Subject {
         { path: 'src/render/models/kit.ts', what: 'the building blocks and pivot()' },
       ],
       conventions: 'Faces +Z, origin on the ground under its middle. Pivots turn with rotation.x/y/z set in animate() from the time (seconds).',
-      checks: [{ command: 'npx playwright test tests/models.spec.ts', what: 'the models build and stay in budget' }],
+      checks: [{ command: 'npx playwright test tests/integration/models.spec.ts', what: 'the models build and stay in budget' }],
     }),
     animSource: (animId) => `animate() of the ${id} in src/render/models/animals.ts (${animId === 'hungry' ? 'hungry: true' : animId === 'ready' ? 'ready: true' : 'content'})`,
   };
@@ -252,7 +252,7 @@ function villagerSubject(id: string): Subject {
         { path: 'shared/zones/emberholm.json', what: 'where they stand (npcs)' },
       ],
       conventions: 'Faces +Z, origin at the feet. Arms hang from armL/armR pivots at the shoulders: rotation.x negative lifts the arm forward; rotation.z spreads it out (+ for the left).',
-      checks: [{ command: 'npx playwright test tests/models.spec.ts', what: 'the models build and stay in budget' }],
+      checks: [{ command: 'npx playwright test tests/integration/models.spec.ts', what: 'the models build and stay in budget' }],
     }),
     animSource: (animId) => `animate() in villager() in src/render/models/villagers.ts (${animId === 'talk' ? 'talking: true' : 'talking: false'})`,
   };
@@ -302,7 +302,7 @@ function mountSubject(id: string): Subject {
         { path: 'shared/vehicles.json', what: `the ${def.name.toLowerCase()}'s speeds and stride (mounts)` },
       ],
       conventions: 'Faces +Z, origin on the ground under the middle. Hips and knees swing about +X (rotation.x).',
-      checks: [{ command: 'npx playwright test tests/models.spec.ts', what: 'the models build and stay in budget' }],
+      checks: [{ command: 'npx playwright test tests/integration/models.spec.ts', what: 'the models build and stay in budget' }],
     }),
     animSource: (animId) => `animate() in src/render/models/mounts.ts, driven at ${gaits.find((g) => g.id === animId)?.note ?? ''}`,
   };

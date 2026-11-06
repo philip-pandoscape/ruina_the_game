@@ -1,9 +1,9 @@
 import { expect, test, type Page } from '@playwright/test';
-import { COMBAT, emptyMovement, HOTBAR_SLOTS, NO_ABILITY, type Build } from '../src/tuning';
-import { skillsFrom } from '../src/skills';
-import { actorKind } from '../src/content/actors';
-import { attackDef } from '../src/content/attacks';
-import { behaviour } from '../src/sim/ai/brain';
+import { COMBAT, emptyMovement, HOTBAR_SLOTS, NO_ABILITY, type Build } from '../../src/tuning';
+import { skillsFrom } from '../../src/skills';
+import { actorKind } from '../../src/content/actors';
+import { attackDef } from '../../src/content/attacks';
+import { behaviour } from '../../src/sim/ai/brain';
 
 // The basic goblin (shared/creatures/goblin.json, design/goblins.md), played in the training yard
 // where every frame is stepped by the test: easy one at a time, dangerous as a band. They notice

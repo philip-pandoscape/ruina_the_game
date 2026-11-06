@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { creatureIds } from '../src/content/creatures/index';
+import { creatureIds } from '../../src/content/creatures/index';
 
 // Close-up bodies. These are content now (src/content/creatures), so what a test can check is
 // that the content still describes a whole creature: every joint the poses turn is present, the

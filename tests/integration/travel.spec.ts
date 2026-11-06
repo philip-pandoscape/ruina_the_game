@@ -1,9 +1,9 @@
 import { expect, test, type Page } from '@playwright/test';
-import { SURFACE } from '../src/sim/terrain';
-import { EMBERHOLM, makeZoneWorld } from '../src/sim/zone/world';
-import { RoadNetwork, routePoint, TAIL_MAX, type Route } from '../src/sim/zone/roads';
-import { inRect } from '../src/sim/zone/colliders';
-import { isTitleCase } from '../src/ui/theme/text';
+import { SURFACE } from '../../src/sim/terrain';
+import { EMBERHOLM, makeZoneWorld } from '../../src/sim/zone/world';
+import { RoadNetwork, routePoint, TAIL_MAX, type Route } from '../../src/sim/zone/roads';
+import { inRect } from '../../src/sim/zone/colliders';
+import { isTitleCase } from '../../src/ui/theme/text';
 
 // Auto-run and travel by road (src/app/autoWalk.ts, src/sim/zone/roads.ts, src/ui/life/travelUI.ts).
 // The road network and its routes are checked here in Node; the walking, the map and the readout in

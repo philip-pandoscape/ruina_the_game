@@ -57,7 +57,7 @@ Each part is a rule in TypeScript and Rust alike, compared frame by frame by
 ## Milestones
 
 1. **The goblin in the yard** (built). Engine parts and the goblin, in both languages, with
-   conformance tests and the yard tests (`tests/goblin.spec.ts`), box body. Try it with
+   conformance tests and the yard tests (`tests/integration/goblin.spec.ts`), box body. Try it with
    `npm run dev` and `/?yard&goblins=6`.
 2. **Online at Thornwood.** The server's foes from every player, hits on players, missiles on the
    wire, a band at Thornwood's southern edge; pushed to beta for a playtest.

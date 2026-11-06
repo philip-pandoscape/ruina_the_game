@@ -1,12 +1,12 @@
 import { expect, test, type Page } from '@playwright/test';
-import { SAVE_KEY } from '../src/app/save';
-import { structureDef } from '../src/content/structures';
-import { Life } from '../src/sim/life/life';
-import { sailEfficiency } from '../src/sim/life/vehicles';
-import { generateZone } from '../src/sim/zone/generate';
-import { EMBERHOLM } from '../src/sim/zone/world';
-import { skillsFrom } from '../src/skills';
-import { COMBAT, emptyMovement, HOTBAR_SLOTS, NO_ABILITY, SLIDE_SKILL } from '../src/tuning';
+import { SAVE_KEY } from '../../src/app/save';
+import { structureDef } from '../../src/content/structures';
+import { Life } from '../../src/sim/life/life';
+import { sailEfficiency } from '../../src/sim/life/vehicles';
+import { generateZone } from '../../src/sim/zone/generate';
+import { EMBERHOLM } from '../../src/sim/zone/world';
+import { skillsFrom } from '../../src/skills';
+import { COMBAT, emptyMovement, HOTBAR_SLOTS, NO_ABILITY, SLIDE_SKILL } from '../../src/tuning';
 
 // Its tests share nothing, so they spread across the workers (playwright.config.ts).
 test.describe.configure({ mode: 'parallel' });

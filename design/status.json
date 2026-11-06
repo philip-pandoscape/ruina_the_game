@@ -104,7 +104,7 @@
       "files": [
         "src/render/models/",
         "models.html",
-        "tests/models.spec.ts"
+        "tests/integration/models.spec.ts"
       ]
     },
     {
@@ -623,7 +623,7 @@
       "title": "Open-world tests",
       "notes": "25 Playwright tests drive terrain, swimming, gliding, gusts and updrafts, farming, livestock, packs, contracts, carts, cars, boats, storms, mounts, housing, the shipyard, quests, panels, saving and combat on the hills (arrows, and sword, club and staff swings at slimes and the dummy).",
       "files": [
-        "tests/world.spec.ts"
+        "tests/integration/world.spec.ts"
       ]
     },
     {
@@ -636,19 +636,19 @@
         "tools/bugReports.ts",
         "tools/bugs.mjs",
         ".claude/skills/fix-bugs/SKILL.md",
-        "tests/bugreport.spec.ts"
+        "tests/integration/bugreport.spec.ts"
       ]
     },
     {
       "system": "tech",
       "status": "done",
       "title": "Design bible drawn from the game's own modules",
-      "notes": "design/index.html is the prose; design/bible.ts draws every table, chart, calculator and the map from the content modules, the rules' formulas (freshness, climate) and the terrain generator, and the tracker from this file. The dev server serves it at /design/. Nothing is generated or copied, so it is always current. tests/design.spec.ts checks it draws without errors.",
+      "notes": "design/index.html is the prose; design/bible.ts draws every table, chart, calculator and the map from the content modules, the rules' formulas (freshness, climate) and the terrain generator, and the tracker from this file. The dev server serves it at /design/. Nothing is generated or copied, so it is always current. tests/integration/design.spec.ts checks it draws without errors.",
       "files": [
         "design/index.html",
         "design/bible.ts",
         "design/status.json",
-        "tests/design.spec.ts"
+        "tests/integration/design.spec.ts"
       ]
     },
     {
@@ -676,7 +676,7 @@
         "src/net/worldPeers.ts",
         "src/net/worldLink.ts",
         "src/render/open/life.ts",
-        "tests/online.spec.ts"
+        "tests/integration/online.spec.ts"
       ]
     },
     {
@@ -741,7 +741,7 @@
         "src/sim/actors/step.ts",
         "server/src/ai.rs",
         "server/src/actors.rs",
-        "tests/slime-pack.spec.ts",
+        "tests/integration/slime-pack.spec.ts",
         "src/render/vfx.ts",
         "src/species/builtin/slime.ts"
       ]
@@ -761,7 +761,7 @@
         "src/render/character.ts",
         "src/render/models/vehicles.ts",
         "src/render/detail/animations.ts",
-        "tests/animation.spec.ts"
+        "tests/integration/animation.spec.ts"
       ]
     },
     {
@@ -774,8 +774,8 @@
         "src/render/character.ts",
         "src/render/detail/humanoid.ts",
         "src/main.ts",
-        "tests/animation.spec.ts",
-        "tests/combat.spec.ts"
+        "tests/integration/animation.spec.ts",
+        "tests/integration/combat.spec.ts"
       ]
     },
     {
@@ -788,7 +788,7 @@
         "src/sim/player/locomotion.ts",
         "server/src/player.rs",
         "server/src/protocol.rs",
-        "tests/movement.spec.ts",
+        "tests/integration/movement.spec.ts",
         "tests/conformance.spec.ts"
       ]
     },
@@ -895,7 +895,7 @@
         "server/src/http.rs",
         "src/net/worldLink.ts",
         "src/app/resume.ts",
-        "tests/update.spec.ts",
+        "tests/integration/update.spec.ts",
         "railway.json"
       ]
     },
@@ -903,13 +903,13 @@
       "system": "tech",
       "status": "done",
       "title": "Animation library: review animations and send Claude the fixes",
-      "notes": "/library.html shows every animated thing: the hero (each film in scenarios.ts, in the made body or the box one, any weapon), slimes in every size (as jelly or boxes), the crowd's far-away bodies, the farm animals, the twelve townsfolk and the mounts. Pick one, then an animation; play it at any speed, step it a frame at a time, scrub, loop a stretch, look from any side, with its skeleton, onion skins and the paths of its hands and feet. The timeline shows what the rules have the body doing when (a swing's wind-up, strike and recovery, the air, a landing). Notes go on the whole animation, a stretch of frames or one frame; on a frame you can move the bones (turn a joint, or take a hand or a foot and bend the limb to reach it) and keep the corrected pose with a picture of before and after. Create Prompt turns the open notes into one prompt for Claude: what moves each body and where, every note with the rules' state on its frames, and for corrected poses the bones' turns in degrees, where the hands and feet went in centimetres, and the pictures. The notes are kept by the dev server in reviews/animations/ (tools/animReviews.ts), so they outlive the reload a code change brings; corrected poses then show as green ghosts on their frames, with how close the animation now comes. tests/library-review.spec.ts measures every correction against the code (REVIEW=.../review.json), and the animation-review skill says how to work through a review.",
+      "notes": "/library.html shows every animated thing: the hero (each film in scenarios.ts, in the made body or the box one, any weapon), slimes in every size (as jelly or boxes), the crowd's far-away bodies, the farm animals, the twelve townsfolk and the mounts. Pick one, then an animation; play it at any speed, step it a frame at a time, scrub, loop a stretch, look from any side, with its skeleton, onion skins and the paths of its hands and feet. The timeline shows what the rules have the body doing when (a swing's wind-up, strike and recovery, the air, a landing). Notes go on the whole animation, a stretch of frames or one frame; on a frame you can move the bones (turn a joint, or take a hand or a foot and bend the limb to reach it) and keep the corrected pose with a picture of before and after. Create Prompt turns the open notes into one prompt for Claude: what moves each body and where, every note with the rules' state on its frames, and for corrected poses the bones' turns in degrees, where the hands and feet went in centimetres, and the pictures. The notes are kept by the dev server in reviews/animations/ (tools/animReviews.ts), so they outlive the reload a code change brings; corrected poses then show as green ghosts on their frames, with how close the animation now comes. tests/integration/library-review.spec.ts measures every correction against the code (REVIEW=.../review.json), and the animation-review skill says how to work through a review.",
       "files": [
         "library.html",
         "src/library/",
         "tools/animReviews.ts",
-        "tests/library.spec.ts",
-        "tests/library-review.spec.ts",
+        "tests/integration/library.spec.ts",
+        "tests/integration/library-review.spec.ts",
         ".claude/skills/animation-review/SKILL.md"
       ]
     },
@@ -946,7 +946,7 @@
         "src/net/actorTimeline.ts",
         "src/net/netMonsters.ts",
         "src/render/spells.ts",
-        "tests/online-combat.spec.ts"
+        "tests/integration/online-combat.spec.ts"
       ]
     },
     {
@@ -974,12 +974,12 @@
       "system": "ui",
       "status": "done",
       "title": "The UI design system",
-      "notes": "design/ui.html: the look, the writing rules (labels in Title Case, sentences in sentence case: src/ui/theme/text.ts), where everything sits on screen, every component drawn with the game's own styles, and how items answer the mouse and a controller. tests/ui.spec.ts holds the open windows to the rules.",
+      "notes": "design/ui.html: the look, the writing rules (labels in Title Case, sentences in sentence case: src/ui/theme/text.ts), where everything sits on screen, every component drawn with the game's own styles, and how items answer the mouse and a controller. tests/integration/ui.spec.ts holds the open windows to the rules.",
       "files": [
         "design/ui.html",
         "design/ui.ts",
         "src/ui/theme/text.ts",
-        "tests/ui.spec.ts"
+        "tests/integration/ui.spec.ts"
       ]
     },
     {
@@ -1081,10 +1081,10 @@
       "system": "look",
       "status": "done",
       "title": "Quality and the classic look",
-      "notes": "The new look is the default. WebGL drawn in software (CI) gets the classic look; integrated graphics get medium quality (no occlusion, nearer shadows). ?look=classic|new and ?quality=medium|high override. At 1920 x 1080 on an RTX 4090 laptop the square costs about 6.5 ms of GPU a frame against 3.3 ms in the classic look (tests/look.spec.ts).",
+      "notes": "The new look is the default. WebGL drawn in software (CI) gets the classic look; integrated graphics get medium quality (no occlusion, nearer shadows). ?look=classic|new and ?quality=medium|high override. At 1920 x 1080 on an RTX 4090 laptop the square costs about 6.5 ms of GPU a frame against 3.3 ms in the classic look (tests/stress/look.spec.ts).",
       "files": [
         "src/render/look.ts",
-        "tests/look.spec.ts"
+        "tests/stress/look.spec.ts"
       ]
     },
     {
@@ -1125,12 +1125,12 @@
       "system": "look",
       "status": "done",
       "title": "Moves from animation libraries",
-      "notes": "Any of the hero's moves can be its own keyframes or a clip from an animation library, retargeted onto it bone for bone (retarget.ts): each joint's rest lined up with its source bone's, every turn copied, the body following the source's hip joints sized by leg length, the clip's own travel taken off so the rules carry the body and the feet it plants are held. Bone tables for Meshy, Quaternius and Mixamo. moves.ts picks per weapon: the sword plays Quaternius' sword combo and the club its heavy combo (CC0); Meshy's Triple Combo Attack, split at its three strikes, is the other sword set (?swordMoves=keyed|meshy|quaternius). A strike lands on the rules' first active frame at up to 1.5x the clip's pace. /retarget.html shows a clip on the hero beside its source, and tests/retarget.spec.ts holds every move's clip to within a degree of it; the retarget-animation skill (.claude/skills) says how to bring in another.",
+      "notes": "Any of the hero's moves can be its own keyframes or a clip from an animation library, retargeted onto it bone for bone (retarget.ts): each joint's rest lined up with its source bone's, every turn copied, the body following the source's hip joints sized by leg length, the clip's own travel taken off so the rules carry the body and the feet it plants are held. Bone tables for Meshy, Quaternius and Mixamo. moves.ts picks per weapon: the sword plays Quaternius' sword combo and the club its heavy combo (CC0); Meshy's Triple Combo Attack, split at its three strikes, is the other sword set (?swordMoves=keyed|meshy|quaternius). A strike lands on the rules' first active frame at up to 1.5x the clip's pace. /retarget.html shows a clip on the hero beside its source, and tests/integration/retarget.spec.ts holds every move's clip to within a degree of it; the retarget-animation skill (.claude/skills) says how to bring in another.",
       "files": [
         "src/render/detail/retarget.ts",
         "src/render/detail/moves.ts",
         "src/render/detail/retargetView.ts",
-        "tests/retarget.spec.ts",
+        "tests/integration/retarget.spec.ts",
         "tools/models/clips.mjs",
         ".claude/skills/retarget-animation/SKILL.md"
       ]
@@ -1146,7 +1146,7 @@
         "src/ui/minigames/minigames.ts",
         "src/render/open/gameTables.ts",
         "shared/minigames.json",
-        "tests/minigames.spec.ts"
+        "tests/integration/minigames.spec.ts"
       ]
     },
     {
@@ -1193,7 +1193,7 @@
         "src/render/village/",
         "tools/models/village.mjs",
         "buildings.html",
-        "tests/village.spec.ts"
+        "tests/integration/village.spec.ts"
       ]
     },
     {
@@ -1224,7 +1224,7 @@
         "server/src/missiles.rs",
         "server/src/ai.rs",
         "server/src/actors.rs",
-        "tests/goblin.spec.ts",
+        "tests/integration/goblin.spec.ts",
         "tests/ai-conformance.spec.ts"
       ]
     },
@@ -1240,7 +1240,7 @@
         "src/render/open/grotto.ts",
         "src/render/open/goblinKit.ts",
         "src/render/camera.ts",
-        "tests/dungeon-way-in.spec.ts"
+        "tests/integration/dungeon-way-in.spec.ts"
       ]
     },
     {
@@ -1266,7 +1266,7 @@
         "server/src/spaces.rs",
         "src/ui/party/partyUI.ts",
         "src/net/worldLink.ts",
-        "tests/party.spec.ts"
+        "tests/integration/party.spec.ts"
       ]
     },
     {
@@ -1362,7 +1362,7 @@
         "A report holds a transcript, voice.wav (whisper-ready), a video, a screenshot with the HUD, frames, console output and errors, game events and commands, the player timeline and inputs, the full state at the press and at the end, and the island save.",
         "The dev server (vite.config.ts, tools/bugReports.ts) writes reports to bugs/ (git-ignored) and only accepts them from the game on this machine.",
         "tools/bugs.mjs lists, summarizes, transcribes (whisper.cpp, if installed) and closes reports; .claude/skills/fix-bugs/SKILL.md is the /fix-bugs routine.",
-        "tests/bugreport.spec.ts records a full report with a stand-in microphone and speech recognizer, checks every file, the discard path and the server refusing writes from elsewhere."
+        "tests/integration/bugreport.spec.ts records a full report with a stand-in microphone and speech recognizer, checks every file, the discard path and the server refusing writes from elsewhere."
       ]
     },
     {
@@ -1374,7 +1374,7 @@
         "Fix (src/sim/player/attacks.ts): the check uses your height above the ground under you. In the flat yard that is still just your height, so the rules the Rust server mirrors are unchanged.",
         "On hills a swing also only reaches targets whose feet are within 2 m of yours, the same rule the server uses between fighters, so you cannot hit a slime down a cliff.",
         "The practice dummy's straw burst, when you knock it down, was drawn at a fixed height above the sea, inside the hill under the meadow. It now bursts from the ground under the dummy (src/render/vfx.ts).",
-        "New test in tests/world.spec.ts: sword, club and staff swings hurt a slime on the meadow, the sword hurts the dummy, and a slime 3 m down a rock edge is out of reach."
+        "New test in tests/integration/world.spec.ts: sword, club and staff swings hurt a slime on the meadow, the sword hurts the dummy, and a slime 3 m down a rock edge is out of reach."
       ]
     },
     {
@@ -1385,7 +1385,7 @@
         "design/bible.ts draws everything that comes from data by importing the modules the game runs on: src/content/ (shared/*.json), the tuning, the rules' freshness and climate formulas, and the zone recipe grown by the real generator. The map's relief is shaded in the browser.",
         "Gone: design/build.mjs, design/map.ts and npm run design, and the 400 KB of copied JSON and base64 map they wrote into design/index.html. Change the data or the tracker and the page reloads with it.",
         "design/index.html is now a proper document (without a doctype the dev server showed it in quirks mode) and design/ is type-checked with the rest.",
-        "tests/design.spec.ts: every part draws without a console error, the ledger, vehicles, quests and log match the data, the tracker filters work, and the map is the generated island."
+        "tests/integration/design.spec.ts: every part draws without a console error, the ledger, vehicles, quests and log match the data, the tracker filters work, and the map is the generated island."
       ]
     },
     {
@@ -1397,7 +1397,7 @@
         "The server now serves everything on one port with axum: /api (health, me, register, login, logout, dev-login), /ws/world and /ws/battle, plus the built game when STATIC_DIR is set. The battlefield can be switched off with --battle off (the Docker image does); ?server=ws://host:port still finds it.",
         "server/migrations/ holds the schema (accounts, sessions, characters), applied when the server starts. A save carries the connection's id, so a window that was taken over can't write over the newer one.",
         "The browser signs in before the island loads (src/app/online.ts), shows who you are and the connection in the corner, keeps playing while it reconnects, and stops when another window takes the character.",
-        "npm run up starts Postgres and the server in Docker, so working on the game needs no Rust install. tests/online.spec.ts plays sign-up, sign-in, saving across visits, starting over and the takeover against the real server."
+        "npm run up starts Postgres and the server in Docker, so working on the game needs no Rust install. tests/integration/online.spec.ts plays sign-up, sign-in, saving across visits, starting over and the takeover against the real server."
       ]
     },
     {
@@ -1422,7 +1422,7 @@
         "Drawn: per-size scale in the species crowd, windup, leap, gather and dazed clips, ground rings for slams and gathers, a cast bar on the target plate, splashes for bursting, growing and calling, and a fuse pulse on the pieces. The actor wire entry carries the slam target so the ring shows online too.",
         "The server now steps monsters 60 times a second whatever its tick rate, as the browser does (they ran at a third of the speed on a 20 Hz server), and lands their slams on players with the usual dodge and guard rules.",
         "Tuning: burst pieces only run while you are within 5 m and huddle otherwise, so a group that survives comes back where its pieces are instead of fanning out across the field.",
-        "ai-conformance now runs whole packs through both sides (bursts, reforms, a gather, a broken gather) and each has to prove it reached the states it covers; tests/slime-pack.spec.ts plays the fight in the yard, paused so only the test steps it."
+        "ai-conformance now runs whole packs through both sides (bursts, reforms, a gather, a broken gather) and each has to prove it reached the states it covers; tests/integration/slime-pack.spec.ts plays the fight in the yard, paused so only the test steps it."
       ]
     },
     {
@@ -1457,7 +1457,7 @@
         "src/render/detail/: body.ts (analytic two-bone IK, feet and hands to points in the body's space), gait.ts (stride length and ground time by speed, a heel-to-toe rocker, a backpedal gait played backwards), swings.ts (keyframed swings with footwork), humanoid.ts (every pose, still a pure function of PoseInput so the crowd bakes from it).",
         "src/render/character.ts: a stride clock that shortens strides as you slow, inertial blending between states, feet held where they are planted through turns, stops and starts (with a settling step), trails traced from the blade, the bowstring and arrow following the drawing hand, sub-frame timing on fast screens.",
         "Combat stance in the rules (TS and Rust): faceX / faceZ in the input; the input packets grew a byte (battlefield 16 bytes an input, open world 10) and WORLD_PROTOCOL went to 3.",
-        "/animations.html plays every animation with the game's timing (slow motion, any camera, a floor to judge feet by); tests/animation.spec.ts measures planted feet (a centimetre at most moving steadily), floor clearance, joint limits, trails on the blade, the bowstring and the glider grips.",
+        "/animations.html plays every animation with the game's timing (slow motion, any camera, a floor to judge feet by); tests/integration/animation.spec.ts measures planted feet (a centimetre at most moving steadily), floor clearance, joint limits, trails on the blade, the bowstring and the glider grips.",
         "Round two: hits throw the body the way the blow shoves you (the close-up hero keeps the knock's direction while the slide dies away); turning on the spot, planted feet keep pointing the way they were put down and step round one at a time; travelling, the weapon goes to the hip or across the back; the cape takes the wind from the way you go. /animations.html gained films that turn the hero (facing) and hits from four sides.",
         "Round three, after playing it: sitting forward, thighs over the seat's edge and feet on the vehicle's footrest; the vehicle hands the hero what to hold as it moves (vehicles.ts Holds: the steering wheel's rim, the oars' handles, the stirrups); the cart's, roadster's and hauler's wheels turn now, square on their columns and facing the driver (they were tipped back, facing away), and the ship's helm turns the way you steer; short stirrups, so the knees bend round the horse; the glider bar ahead of the chin; the bow drawn to the chin; the sword carried ready; and the weapon out for a fight and put away after it (src/render/detail/stow.ts). /animations.html gained films for putting the weapon away and drawing it, running with it away, and driving the roadster and the hauler; the tests measure hands on what they hold, feet in the stirrups, wheels facing their drivers, and a draw that never jumps or sweeps the ground.",
         "Fixes found on the way: Escape (backing out of a circle) and the button that closes a menu are kept until a rules step has seen them, so a fast screen neither drops them nor lets B slide as it closes the skill panel; the server listens on IPv4 as well as IPv6 on Windows too (socket2, dual-stack), so the battlefield tests run there; on the island you start, and get up after a knock-down, standing on the hill at the spawn rather than inside it (both rules)."
@@ -1482,11 +1482,11 @@
       "summary": "Twenty things found playing the deployed beta, fixed in four tracks at once: the front door (the name Ruina, a title screen, characters, riding out server updates), the rules (stamina and MP, walking onto platforms, quests heard at once), combat online (smooth slimes, warnings on the ground, hit feedback, the air slash), and the island UI (item menus, the minimap, Title Case, the design system).",
       "points": [
         "Front door: a dusk title scene drawn before the code arrives, sign-in on it, an account holds up to six characters (/api/characters, migration 0003, /ws/world?character=), a select screen with the hero live in 3D, and a way back to it from the world. The badge moved under the menu buttons, off the stats line.",
-        "Server updates: {t:\"updating\"}, then every island saved, then close 1012; the page freezes under a card, reconnects, and reloads straight back in when a new build or protocol is out (src/app/resume.ts). F5 also returns straight to the world. tests/update.spec.ts plays it through.",
+        "Server updates: {t:\"updating\"}, then every island saved, then close 1012; the page freezes under a card, reconnects, and reloads straight back in when a new build or protocol is out (src/app/resume.ts). F5 also returns straight to the world. tests/integration/update.spec.ts plays it through.",
         "Rules (both languages): stamina and MP (dodges cost stamina, casts MP; WORLD_PROTOCOL 4); decks walked onto up to deckStep and solid when they can't be; a quest stepping on bumps the island's revision, so the NPC window shows it at once rather than 2 s later; the ready toast names the NPC.",
         "Combat online: actors interpolated on a timeline at the render tick (src/net/actorTimeline.ts); circles cut along the terrain's triangles; hits guessed against the server's own rule and played at once, numbers on arrival (src/net/netMonsters.ts); the overhead air chop (AIR_SWINGS).",
         "Island UI: NPC portraits taken from in front of them on a layer of their own; the minimap arrow pointed backwards; quest hand-ins pinned to the minimap's rim; the medallion covered the first line; button text sat high (--cap-nudge); the NPC window 30% taller; room under the minimap; Ctrl+key presses kept from the browser (Ctrl+D bookmarked the page while flaring).",
-        "Writing: labels in Title Case everywhere, sentences in sentence case, documented with the rest of the interface at /design/ui.html and checked by tests/ui.spec.ts.",
+        "Writing: labels in Title Case everywhere, sentences in sentence case, documented with the rest of the interface at /design/ui.html and checked by tests/integration/ui.spec.ts.",
         "Tests: PW_PORT and TEST_PORT_OFFSET let two checkouts run their suites side by side."
       ]
     },
@@ -1516,7 +1516,7 @@
         "Models: 40 made with Meshy from concept art painted after the reference (buildings, stalls, the well, resource nodes, street props, boulders, the ten trade packs), fitted into each one's own box; about 1,000 credits.",
         "Trees at full size with two levels of detail and blossoms by the square; crags on the cliffs; boulders; isles on the horizon; painted clouds; a hazy world tree; lit windows at night; the cog under a cream and blue sail.",
         "Built things in vertex colours get wood, stone or plaster grain; creatures keep their colours.",
-        "Tests: tests/look.spec.ts draws the same places in both looks (and from the air), times both at 1080p, and the new look at medium quality; species.spec.ts counts both looks' draws."
+        "Tests: tests/stress/look.spec.ts draws the same places in both looks (and from the air), times both at 1080p, and the new look at medium quality; species.spec.ts counts both looks' draws."
       ]
     },
     {
@@ -1524,7 +1524,7 @@
       "title": "The third beta playtest",
       "summary": "Nine things found playing the deployed beta. Fixed: the strobing shore foam, ground circles under farm soil, the browser asking to leave (Ctrl was crouch, so crouch-walking pressed Ctrl+W), the planned-points badge, a portrait that changed with everything you did, and no way to learn where stone and timber come from. New: mini-games with a stake, Beacons first. The two animation items (the run, the jumping overhead slash) are left to the session reworking the animations.",
       "points": [
-        "Shore foam: the sea was one 9 km square, two triangles, and the world position the GPU worked out across them was off by metres and jumped as the camera turned, so the foam round a lagoon strobed thick and thin (worst in the new look, where the user saw it). Drawn in 50 m tiles it holds still; lines thinner than a pixel fade instead of popping (fwidth). tests/sea.spec.ts.",
+        "Shore foam: the sea was one 9 km square, two triangles, and the world position the GPU worked out across them was off by metres and jumped as the camera turned, so the foam round a lagoon strobed thick and thin (worst in the new look, where the user saw it). Drawn in 50 m tiles it holds still; lines thinner than a pixel fade instead of popping (fwidth). tests/integration/sea.spec.ts.",
         "Ground circles: farm soil is laid 5 cm over the ground and its furrows higher, so the aim circle vanished over a plot. Every plot records how high its soil and furrows stand, and circles, effect rings and the shadow under you are lifted over it, edges and all; furrows now follow the ground.",
         "Leaving the site: Ctrl was crouch and the glider's flare, so crouch-walking pressed Ctrl+W, which no page can stop; the game asked before leaving. Crouch and flare are on C now (a press on the run slides, K still slides), Ctrl means nothing in the game and the browser's shortcuts are its own again.",
         "Skill tree: the planned points badge stands as tall as Learn and Undo, at any UI size.",
@@ -1543,7 +1543,7 @@
         "Slimes: glossy jelly gumdrops with a pool shadow and a face that changes with mood (src/species/jelly.ts).",
         "Hero: a Meshy model on the hero rig (fit.ts), fingers that close round the grip, a gait measured off captured walking and running.",
         "Weapons: Meshy's sword, club, staff and bow where the box ones were, shining with the sky's light, carried at the hip and across the back.",
-        "Moves: Quaternius' sword combo and heavy combo on the sword and club, Meshy's Triple Combo Attack as the sword's other set; retarget.ts, moves.ts, /retarget.html, tests/retarget.spec.ts, the retarget-animation skill.",
+        "Moves: Quaternius' sword combo and heavy combo on the sword and club, Meshy's Triple Combo Attack as the sword's other set; retarget.ts, moves.ts, /retarget.html, tests/integration/retarget.spec.ts, the retarget-animation skill.",
         "Tools: npm run image (Gemini), tools/models/weaponprep.mjs, tools/models/clips.mjs."
       ]
     },
@@ -1566,7 +1566,7 @@
         "/library.html (src/library/): the hero, slimes, crowd bodies, farm animals, townsfolk and mounts, each through an adapter (subjects/) that keeps every frame of an animation so it can be scrubbed, ghosted and posed.",
         "Pose correction: a rotation gizmo per joint, two-bone IK for hands and feet, scale for squash and stretch, undo, exact angles; kept with a picture of before and after.",
         "Create Prompt: open notes in one prompt (prompt.ts); notes, pictures and prompts kept in reviews/animations/ by the dev server (tools/animReviews.ts).",
-        "Checking a fix: green ghosts of the corrections on their frames and a meter of how close the animation comes; tests/library-review.spec.ts measures them all (degrees and centimetres) and draws the frames as they are now.",
+        "Checking a fix: green ghosts of the corrections on their frames and a meter of how close the animation comes; tests/integration/library-review.spec.ts measures them all (degrees and centimetres) and draws the frames as they are now.",
         "animals.ts and villagers.ts gained restartIdles(), so a model built in the library starts its idle where the last one did."
       ]
     },
@@ -1577,7 +1577,7 @@
       "points": [
         "Plan and concept art: design/goblins.md and design/goblins/ (lineup, ambush, camp, attack tells, night raid). Decisions: Thornwood camp only, no raids, captives to rescue, the agreed difficulty, the grunt to be tested with Meshy beside a free model.",
         "Creature engine: senses, a pack step, walk/strike/throw/heal acts, conditions with arguments, missiles and flinches, in TypeScript and Rust, compared frame by frame (three goblin scenarios in tests/ai-conformance.spec.ts).",
-        "The basic goblin: shared/creatures/goblin.json and src/creatures/goblin/, fought in the yard with ?yard&goblins=6; tests/goblin.spec.ts plays its behaviours."
+        "The basic goblin: shared/creatures/goblin.json and src/creatures/goblin/, fought in the yard with ?yard&goblins=6; tests/integration/goblin.spec.ts plays its behaviours."
       ]
     },
     {
@@ -1613,7 +1613,7 @@
         "Goblin's Dread's inner grotto, solid and drawn only in a copy of it, high above the sea.",
         "Parties: invite by name or nearby (O), the party frame, leader, kick, lead, leave.",
         "Dungeon copies: one per party (or player), kept 30 minutes after everyone leaves; moving between games mid-connection (server/src/spaces.rs).",
-        "Tests: tests/party.spec.ts (online), tests/dungeon-way-in.spec.ts, Rust unit tests for parties and spaces."
+        "Tests: tests/integration/party.spec.ts (online), tests/integration/dungeon-way-in.spec.ts, Rust unit tests for parties and spaces."
       ]
     },
     {

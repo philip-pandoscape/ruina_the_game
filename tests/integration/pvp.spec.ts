@@ -1,5 +1,5 @@
 import { expect, test, type Browser, type BrowserContext, type Page } from '@playwright/test';
-import { serverBuilt, TestServer } from './testServer';
+import { serverBuilt, TestServer } from '../support/testServer';
 
 // Two real players on the Rust server, each in their own browser window. The tests start their own
 // server (2000 bots) on a separate port.

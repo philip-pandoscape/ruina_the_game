@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
-import { EMBERHOLM } from '../src/sim/zone/world';
-import { generateZone } from '../src/sim/zone/generate';
+import { EMBERHOLM } from '../../src/sim/zone/world';
+import { generateZone } from '../../src/sim/zone/generate';
 
 // The way into Goblin's Dread (shared/dungeons/goblinsDread.json). A spring beside the Windspire's
 // launch deck spills down a slot cut in its face (src/sim/zone/generate.ts, falls), and behind the

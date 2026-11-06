@@ -470,8 +470,8 @@ export const heroSubject: Subject = {
       conventions:
         "Model space: x to the body's left, y up, z ahead; the ground is y = 0. A bone hangs down its parent's -Y at rest. Arms: yaw about +Y, then pitch about +X (0 hangs down, -90° points forward, -180° straight up), then twist; elbows bend the forearm forward with negative X. Legs: pitch about +X (negative swings forward), spread about +Z, twist about +Y; knees bend the shin back with positive X; feet: positive pitch points the toes. Torso and hips: positive pitch leans forward, positive yaw turns left. Joints named @sword/@club/@staff/@bow/@arrow are what the hands hold (placed by gripHands and stow.ts).",
       checks: [
-        { command: 'npx playwright test tests/animation.spec.ts', what: 'planted feet, floor clearance, joint limits, trails on the blade, the bowstring, grips' },
-        ...(made ? [{ command: 'npx playwright test tests/retarget.spec.ts', what: 'library clips held to their source' }] : []),
+        { command: 'npx playwright test tests/integration/animation.spec.ts', what: 'planted feet, floor clearance, joint limits, trails on the blade, the bowstring, grips' },
+        ...(made ? [{ command: 'npx playwright test tests/integration/retarget.spec.ts', what: 'library clips held to their source' }] : []),
       ],
     };
   },

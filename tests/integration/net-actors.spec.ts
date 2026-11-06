@@ -1,8 +1,8 @@
 import { expect, test, type Page } from '@playwright/test';
-import { emptyMovement, HOTBAR_SLOTS, NO_ABILITY, type Build } from '../src/tuning';
-import { skillsFrom } from '../src/skills';
-import { ActorTimeline } from '../src/net/actorTimeline';
-import { serverBuilt, TestServer } from './testServer';
+import { emptyMovement, HOTBAR_SLOTS, NO_ABILITY, type Build } from '../../src/tuning';
+import { skillsFrom } from '../../src/skills';
+import { ActorTimeline } from '../../src/net/actorTimeline';
+import { serverBuilt, TestServer } from '../support/testServer';
 
 // Monsters on a live server. The rules for them run in Rust, the browser only draws what it is
 // told, and the behaviour both sides interpret is the same shared/behaviours.json that

@@ -277,8 +277,8 @@ const slimeSubject: Subject = {
     ],
     conventions: "Joints: root (on the ground), core (the body's middle, scaled for squash), top, budL, budR. In bakeAuthored a pose returns pos (metres, in the parent's space), rot (quaternion x, y, z, w) and scale. The library's numbers are in the slime's own space at size 1 (the sizes are scaled copies).",
     checks: [
-      { command: 'npx playwright test tests/slime.spec.ts', what: 'slime behaviour and clips' },
-      { command: 'npx playwright test tests/species.spec.ts', what: 'species format and baking' },
+      { command: 'npx playwright test tests/integration/slime.spec.ts', what: 'slime behaviour and clips' },
+      { command: 'npx playwright test tests/integration/species.spec.ts', what: 'species format and baking' },
     ],
   }),
   animSource: (animId) => `clip '${animId}' in src/species/builtin/slime.ts (bakeAuthored)${usesOf(animId).length ? `, played for ${usesOf(animId).join(', ')} (shared/actors.json)` : ''}`,
@@ -304,7 +304,7 @@ function crowdSubject(id: string, name: string, blurb: string, file: string, mad
         { path: 'src/species/pose.ts', what: 'baking clips to matrices' },
         { path: 'src/species/crowd.ts', what: 'drawing them' },
       ],
-      checks: [{ command: 'npx playwright test tests/species.spec.ts', what: 'species format and baking' }],
+      checks: [{ command: 'npx playwright test tests/integration/species.spec.ts', what: 'species format and baking' }],
     }),
     animSource: (animId) => `clip '${animId}' in ${file}`,
   };

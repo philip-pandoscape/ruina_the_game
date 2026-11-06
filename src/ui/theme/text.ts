@@ -1,6 +1,6 @@
 // How UI text is written (design/ui.html, "Writing"). Labels are in Title Case: buttons, menu
 // entries, tabs, window titles, headings, status tags, stat names, the controls hint. Sentences
-// (what people say, descriptions, notes, toasts) are in sentence case. tests/ui.spec.ts holds the
+// (what people say, descriptions, notes, toasts) are in sentence case. tests/integration/ui.spec.ts holds the
 // open windows to this.
 
 /** Words a title keeps in lower case, unless they start or end it. */

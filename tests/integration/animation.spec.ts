@@ -1,10 +1,10 @@
 import { expect, test, type Page } from '@playwright/test';
-import type { NetCrowd } from '../src/net/netCrowd';
-import { Prediction } from '../src/net/netPlayer';
-import { Sim } from '../src/sim/sim';
-import { NO_ACTIONS } from '../src/sim/types';
-import { makeBattlefield } from '../src/sim/world';
-import { comboShape } from '../src/tuning';
+import type { NetCrowd } from '../../src/net/netCrowd';
+import { Prediction } from '../../src/net/netPlayer';
+import { Sim } from '../../src/sim/sim';
+import { NO_ACTIONS } from '../../src/sim/types';
+import { makeBattlefield } from '../../src/sim/world';
+import { comboShape } from '../../src/tuning';
 
 // Its tests share nothing, so they spread across the workers (playwright.config.ts).
 test.describe.configure({ mode: 'parallel' });

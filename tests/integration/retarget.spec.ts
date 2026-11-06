@@ -1,6 +1,6 @@
 import { mkdirSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
-import { HERO_MOVES } from '../src/render/detail/moves';
+import { HERO_MOVES } from '../../src/render/detail/moves';
 
 // Every clip the made hero's moves play (moves.ts), retargeted onto it as the game does it
 // (retarget.ts), held against its own skeleton on /retarget.html frame by frame: each bone points

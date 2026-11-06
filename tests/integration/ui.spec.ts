@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
-import { skillsFrom } from '../src/skills';
-import { emptyMovement, HOTBAR_SLOTS, NO_ABILITY } from '../src/tuning';
-import { isTitleCase } from '../src/ui/theme/text';
+import { skillsFrom } from '../../src/skills';
+import { emptyMovement, HOTBAR_SLOTS, NO_ABILITY } from '../../src/tuning';
+import { isTitleCase } from '../../src/ui/theme/text';
 
 // Its tests share nothing, so they spread across the workers (playwright.config.ts).
 test.describe.configure({ mode: 'parallel' });

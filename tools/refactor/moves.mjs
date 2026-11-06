@@ -29,6 +29,9 @@ if (!listFile) {
 
 const LOG = '.plans/refactor/moves.tsv';
 const KEEP_OLD_NAMES = ['.plans/refactor/'];
+// A file that holds made-up or historical paths on purpose (the moves tool's own tests) says so with
+// this marker, and is left as it is.
+const KEEP_MARKER = 'refactor-moves: keep paths';
 
 const git = (...a) => execFileSync('git', a, { encoding: 'utf8', maxBuffer: 1 << 28 });
 const root = git('rev-parse', '--show-toplevel').trim();
@@ -53,6 +56,7 @@ for (const f of files) {
   if (!isTextFile(f) || KEEP_OLD_NAMES.some((p) => f.startsWith(p))) continue;
   if (!existsSync(f)) continue;
   const text = readFileSync(f, 'utf8');
+  if (text.includes(KEEP_MARKER)) continue;
   const out = rewriteFile(text, f, ctx);
   if (out !== text) rewritten.set(f, out);
 }

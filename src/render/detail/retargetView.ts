@@ -17,7 +17,7 @@ import { bake, JOINT, LIBRARIES, libraryOf, poseFromClip, RATE, type Baked, type
 //   &view=three|side|front                                where the camera looks from
 //   &draw=0                                               measure without drawing (a test in software)
 //
-// window.__retarget: { ready, seconds, seek(t) -> { mean, worst, bone, feet } }. tests/retarget.spec.ts
+// window.__retarget: { ready, seconds, seek(t) -> { mean, worst, bone, feet } }. tests/integration/retarget.spec.ts
 // holds every move's clip (moves.ts) to it. The retarget-animation skill says how to use it.
 
 const q = new URLSearchParams(location.search);

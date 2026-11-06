@@ -197,7 +197,7 @@ export function buildPrompt(notes: Note[], ctx: PromptContext): string {
   out.push('## Checking your change', '', '- `npm run typecheck`.');
   if (fixes && ctx.reviewFile)
     out.push(
-      `- Measure the corrected poses against the code as it is now: \`REVIEW="${ctx.reviewFile}" npx playwright test tests/library-review.spec.ts\`. For every pose correction it prints how far each bone I changed still is from my pose (degrees, in the body's space) and how far the joints I moved are from where I put them (cm), and writes a picture of the frame as it is now beside mine (\`images/<note id>-now.png\`). Aim for every corrected bone within a few degrees and every moved joint within 2-3 cm, unless a note says otherwise.`,
+      `- Measure the corrected poses against the code as it is now: \`REVIEW="${ctx.reviewFile}" npx playwright test tests/integration/library-review.spec.ts\`. For every pose correction it prints how far each bone I changed still is from my pose (degrees, in the body's space) and how far the joints I moved are from where I put them (cm), and writes a picture of the frame as it is now beside mine (\`images/<note id>-now.png\`). Aim for every corrected bone within a few degrees and every moved joint within 2-3 cm, unless a note says otherwise.`,
     );
   out.push(
     '- Run the checks listed under each animation above, and the suite for anything else you touched.',

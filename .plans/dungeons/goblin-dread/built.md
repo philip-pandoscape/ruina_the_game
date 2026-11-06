@@ -10,7 +10,7 @@ As of 2026-11-05. AGENTS.md and design/status.json have the same in brief.
   - Numbers: bearing -1.2217 rad (about -70°, atan2(dz, dx) from the mountain's centre at 40, 250);
     lip 26 m out from the centre, foot 74; the slot is 10 m wide.
   - The falls are cut after the tree and rock scatter, so no other tree or rock on the island moves
-    (`tests/dungeon-way-in.spec.ts` checks this).
+    (`tests/integration/dungeon-way-in.spec.ts` checks this).
 - **The ledge behind the curtain:** 85 m up, 26 to 34 m out from the centre, under a hood of rock
   (a deck with its top at 92 m).
   - Anyone dropping off the summit lands on the hood, so the only way onto the ledge is to glide in.
@@ -107,8 +107,8 @@ As of 2026-11-05. AGENTS.md and design/status.json have the same in brief.
 | `server/src/parties.rs` | Unit tests: invitations, leading, kicking, the cap of 5, lapsing |
 | `server/src/spaces.rs` | Unit tests: one copy per party, a separate copy for a player on their own, the 30-minute rule, a minute's warning before being put out, adopting a copy, reconnecting inside, Start Over |
 | `server/src/open/dungeon.rs` | Unit test: solid only in a copy |
-| `tests/party.spec.ts` (online) | Forming a party by name; a party into one copy and someone on their own into theirs; leaving and coming back to the same copy |
-| `tests/dungeon-way-in.spec.ts` | Gliding off the deck into the falls onto the stage; in and out through the portal offline; dropping off the summit lands on the hood; no tree or rock moved |
-| `tests/update.spec.ts` | A server restart while you're inside brings you back outside the door with the cave put away |
+| `tests/integration/party.spec.ts` (online) | Forming a party by name; a party into one copy and someone on their own into theirs; leaving and coming back to the same copy |
+| `tests/integration/dungeon-way-in.spec.ts` | Gliding off the deck into the falls onto the stage; in and out through the portal offline; dropping off the summit lands on the hood; no tree or rock moved |
+| `tests/integration/update.spec.ts` | A server restart while you're inside brings you back outside the door with the cave put away |
 | `tests/terrain.spec.ts` | 400 extra points over the falls, where the server and the browser must agree on the ground |
-| `tests/look.spec.ts` | Shots of the falls from Lanternwick, of the ledge, and of the inner grotto |
+| `tests/stress/look.spec.ts` | Shots of the falls from Lanternwick, of the ledge, and of the inner grotto |

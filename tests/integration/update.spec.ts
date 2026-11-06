@@ -1,7 +1,7 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
-import { SERVER_EXE, serverBuilt } from './testServer';
+import { SERVER_EXE, serverBuilt } from '../support/testServer';
 
 // Updating the game while people play. When the server stops (a deploy: Railway stops the old
 // server once the new one is up), every browser hears it's being updated, freezes its world under a

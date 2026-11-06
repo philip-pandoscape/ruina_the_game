@@ -1,6 +1,6 @@
 import { expect, test, type Browser, type BrowserContext, type Page } from '@playwright/test';
-import { HEXES } from '../src/content/minigames';
-import { isTitleCase } from '../src/ui/theme/text';
+import { HEXES } from '../../src/content/minigames';
+import { isTitleCase } from '../../src/ui/theme/text';
 
 // Mini-games online (src/ui/minigames, server/src/world_game/tables.rs): walk up to another player,
 // challenge them with F, they accept, both stakes go into the pot and a table is thrown down

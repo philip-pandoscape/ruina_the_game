@@ -1,9 +1,9 @@
 import { expect, test, type Page } from '@playwright/test';
-import { buildingPlan, furnitureDef, furnitureIds, MODULE, modules, opening, sideLength, SIDES, STOREY, stairwell, turn, WALL } from '../src/content/buildings';
-import { structureDef, structureIds } from '../src/content/structures';
-import { generateZone } from '../src/sim/zone/generate';
-import { inRect } from '../src/sim/zone/colliders';
-import { EMBERHOLM } from '../src/sim/zone/world';
+import { buildingPlan, furnitureDef, furnitureIds, MODULE, modules, opening, sideLength, SIDES, STOREY, stairwell, turn, WALL } from '../../src/content/buildings';
+import { structureDef, structureIds } from '../../src/content/structures';
+import { generateZone } from '../../src/sim/zone/generate';
+import { inRect } from '../../src/sim/zone/colliders';
+import { EMBERHOLM } from '../../src/sim/zone/world';
 
 // The buildings you can walk into (src/content/buildings.ts, src/render/village): their plans fit
 // their footprints and the kit, the rules wall them with their doorways open, and in the game you

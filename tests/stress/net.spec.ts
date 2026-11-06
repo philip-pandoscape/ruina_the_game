@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { serverBuilt, TestServer } from './testServer';
+import { serverBuilt, TestServer } from '../support/testServer';
 
 // Networked raid: the browser draws the battle streamed by the Rust server. The tests start their
 // own server (10,000 bots) on a separate port.

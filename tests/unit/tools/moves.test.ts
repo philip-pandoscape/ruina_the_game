@@ -11,7 +11,8 @@ import {
 } from '../../../tools/refactor/moves-lib.mjs';
 
 // The refactor's moves script (tools/refactor/moves.mjs) moves files and rewrites every reference to
-// them. These check the rewriting on a small made-up repository.
+// them. These check the rewriting on a small made-up repository, whose paths look like real ones, so
+// the script must leave this file alone: refactor-moves: keep paths
 
 const files = new Set([
   'src/main.ts',

@@ -124,7 +124,7 @@ header.top code, footer code { background: rgba(255, 220, 160, 0.12); color: #ff
         </table>
         <h3>Try It</h3>
         <div class="tc-try"><input id="tcIn" value="exit to the character select screen" aria-label="A label to put in Title Case"><output id="tcOut"></output></div>
-        <p style="margin-top:8px;font-size:13px;color:var(--ink-2)"><code>titleCase()</code> and <code>isTitleCase()</code> in <code>src/ui/theme/text.ts</code>; <code>tests/ui.spec.ts</code> opens the game's windows and checks their labels with it.</p>
+        <p style="margin-top:8px;font-size:13px;color:var(--ink-2)"><code>titleCase()</code> and <code>isTitleCase()</code> in <code>src/ui/theme/text.ts</code>; <code>tests/integration/ui.spec.ts</code> opens the game's windows and checks their labels with it.</p>
       </div>
     </div>
     <h3>Also</h3>
@@ -196,7 +196,7 @@ header.top code, footer code { background: rgba(255, 220, 160, 0.12); color: #ff
   <section class="sheet" id="checklist">
     <h2>Checklist for New UI</h2>
     <ul class="checklist">
-      <li>Labels in Title Case, sentences in sentence case (<code>isTitleCase</code>, and <code>tests/ui.spec.ts</code> covers the windows it opens).</li>
+      <li>Labels in Title Case, sentences in sentence case (<code>isTitleCase</code>, and <code>tests/integration/ui.spec.ts</code> covers the windows it opens).</li>
       <li>Built from <code>.mw</code>, <code>.lui-btn</code>, <code>.ib</code>, <code>.tt</code>, <code>.ctx</code> and the colour variables; no one-off colours.</li>
       <li>One gold button at most, for the main action.</li>
       <li>Works with mouse, keyboard and controller; Esc and B back out.</li>

@@ -31,7 +31,7 @@ The prompt gives absolute paths; use them (the review may be in another checkout
 1. Read the whole prompt, then **look at every picture** it names (Read the PNGs). The numbers say
    how far; the pictures say what the user saw.
 2. Measure where things stand before changing anything:
-   `REVIEW="<path to review.json>" npx playwright test tests/library-review.spec.ts`
+   `REVIEW="<path to review.json>" npx playwright test tests/integration/library-review.spec.ts`
    (add `PW_PORT=5213 TEST_PORT_OFFSET=13` if another checkout's suite may be running). It prints, for
    each correction, the worst bone's angle from the corrected pose and the worst joint's distance, and
    writes the `-now` pictures.
@@ -51,7 +51,7 @@ The prompt gives absolute paths; use them (the review may be in another checkout
 6. Measure again (step 2) until each corrected bone is within a few degrees and each moved joint
    within 2-3 cm, or you can say why not. Look at the `-now` pictures.
 7. Run what holds the animation together: `npm run typecheck` and the checks the prompt lists for
-   that character (for the hero `tests/animation.spec.ts`, and `tests/retarget.spec.ts` if a clip
+   that character (for the hero `tests/integration/animation.spec.ts`, and `tests/integration/retarget.spec.ts` if a clip
    changed).
 8. Report note by note: what you changed (file, function), how close each correction is now (from the
    check), and anything you couldn't meet. The user looks in the library (it reloads by itself; the
