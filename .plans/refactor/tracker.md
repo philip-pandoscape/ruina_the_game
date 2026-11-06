@@ -898,7 +898,7 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
   - **The engine** loads any region and any instance.
   So far: `content/world.json`, with R10.16's first step; contentc holds each region's grid to its
   chunks and refuses two regions on one chunk.
-  Ids (this commit): gathering spots have ids (`timber1`...), and their time to come back is kept by
+  Ids (ca6cfc2): gathering spots have ids (`timber1`...), and their time to come back is kept by
   id (a save's old ones, kept by their place in the list, are dropped as it's taken up: the spot is
   simply back); contentc holds every placed thing's id (places, townsfolk, workbenches, outposts,
   house plots, gathering spots, dungeon doors, slipways) to one thing in the whole world.
@@ -992,7 +992,7 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
     high in Emberholm's sky. That means `open/dungeon.rs`, `OpenWorld::make_dungeon`,
     `ChannelGame::copy` and the browser's dungeon visit.
   - The "within 760 m, apart from the others" rule goes.
-  Done (this commit): an instance is a space of its own, `OpenWorld::instance`: its floors and walls
+  Done (55f53b3): an instance is a space of its own, `OpenWorld::instance`: its floors and walls
   round its own origin (the files lose `origin`), its map with no region and no sea in it
   (`WorldMap::void`: nothing under its floors but a long fall), so nothing of the world is near you
   in it (the rules take the world, ca6cfc2). The server's copy plays it (`ChannelGame::copy`, its
@@ -1016,7 +1016,7 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
   - **The rules:** `Life` and the player rules take the world, not one zone.
   - **A fixture world for the tests:** Emberholm, a region across a land border, and one across the
     sea.
-  So far (this commit): `crates/engine/src/open/map.rs`, the `WorldMap` read from `content/world.json`.
+  So far (8c79bdd): `crates/engine/src/open/map.rs`, the `WorldMap` read from `content/world.json`.
   Regions stand on 256 m chunks, each grown from its recipe the first time anything asks. Height,
   slope, surface and depth are answered across regions, with open sea `sea.depth` deep where none
   stands, and the edge of the world is the edge of every region's chunks together (a square where it
@@ -1024,7 +1024,7 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
   region's colliders. A region's terrain has an `origin`, so its recipe is in world coordinates. A
   fixture of two regions, an islet four chunks east of Emberholm across open sea, is crossed
   swimming.
-  Borders (this commit): near a chunk's edge the ground is shared with what's across it, weights
+  Borders (86e96b5): near a chunk's edge the ground is shared with what's across it, weights
   stepping smoothly over `blend` (64 m) either side and summing to one, each side's ground as its
   recipe grew it (the open sea's its floor). Each region bakes it into its grid as it grows (the
   browser's `zone_grow` and the conformance tool the same, `WorldMap::generate`), so two regions'
@@ -1033,7 +1033,7 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
   land border, one island grown half by each with its own hills, is walked across; Emberholm changes
   only in its outer band, where its edge sloped as much as 23 m under the open sea's floor (the edge
   scenario's answer moved again).
-  The rules take the world (this commit): what can be near you (townsfolk, workbenches, gathering
+  The rules take the world (ca6cfc2): what can be near you (townsfolk, workbenches, gathering
   spots, slipways, house plots, portals, places a quest asks you to reach, updrafts) comes from the
   regions of the space you're in (`sim.world.map`), and what's found by id (an outpost, a plot, a
   slipway, a crafter's bench, a quest's townsperson, every trading post's contracts) from the whole
@@ -1285,7 +1285,7 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
 | 2026-11-06 | R9.1, R9.2 | Saved builds by id; the content's hash on the wire (a background agent, merged) | 29f0696, e06eda0, cb7bfa0 |
 | 2026-11-06 | R10.16 | Borders: the ground blended across them, regions meeting vertex for vertex and the open sea sloping to meet them; walked across a land border | 86e96b5 |
 | 2026-11-06 | R10.16, R10.1 | The rules take the world: what's near you from the space you're in, what's found by id from the whole world; gathering spots by id | ca6cfc2 |
-| 2026-11-06 | R10.15 | Instances in spaces of their own: a dungeon or developer zone played round its own origin over nothing, in place of the world, by the server and the browser | (this commit) |
+| 2026-11-06 | R10.15 | Instances in spaces of their own: a dungeon or developer zone played round its own origin over nothing, in place of the world, by the server and the browser | 55f53b3 |
 | 2026-11-06 | R9.14 | `docs/content.md` | 5e23680 |
 | 2026-11-06 | R10.10, R11.1, R11.2, R11.7, R11.8 | Snapshot to move machines: the battle server's Rust gone; the asset manifest, loader and first-download budget, `docs/assets.md` | a975617 |
 | 2026-11-06 | R6.10, R6.11, R6.8 | The client's moves: creature bodies into src/render/creatures/, the root files to their areas, the library under src/dev/ | 9317ff3, 5de387d, 81df3de |
