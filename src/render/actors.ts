@@ -1,7 +1,7 @@
 import * as THREE from 'three';
-import { SpeciesCrowd } from '../species/crowd';
-import { JellyCrowd } from '../species/jelly';
-import { getSpecies } from '../species/registry';
+import { SpeciesCrowd } from './creatures/crowd';
+import { JellyCrowd } from './creatures/jelly';
+import { getSpecies } from './creatures/registry';
 import { actorKind } from '../content/actors';
 import { actorKindAt, LADDERS } from '../content/actors';
 import { isAlive, type Actor } from '../sim/actor';
@@ -80,7 +80,7 @@ export class ActorView {
       const kind = actorKind(id);
       if (!kind.species || this.packs.has(packKey(kind))) continue;
       const species = getSpecies(kind.species);
-      // Slimes are jelly (src/species/jelly.ts), on the same skeleton and clips.
+      // Slimes are jelly (src/render/creatures/jelly.ts), on the same skeleton and clips.
       const crowd =
         species.id === 'slime'
           ? new JellyCrowd(species, capacity, { kind: kind.id, palette: kind.palette, scale: kind.scale })

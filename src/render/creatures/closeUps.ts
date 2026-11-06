@@ -1,5 +1,5 @@
-import type { RigDef } from '../rig';
-import { HERO_RIG } from './hero';
+import type { RigDef } from '../../content/rig';
+import { HERO_RIG } from './heroBody';
 
 // Every close-up body the game can draw. A new playable race or a named NPC is a file next to
 // hero.ts and a line here; the renderer and its poses do not change.

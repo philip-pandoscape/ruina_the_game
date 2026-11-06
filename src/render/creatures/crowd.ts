@@ -1,8 +1,8 @@
 import * as THREE from 'three';
-import { toon } from '../render/toon';
-import { buildPoseTexture } from './pose';
+import { toon } from '../toon';
+import { buildPoseTexture } from './clips';
 import { buildProxyGeometry, proxyTriangles } from './proxy';
-import { clipRows, type Clip, type SpeciesDef } from './types';
+import { clipRows, type Clip, type SpeciesDef } from './species';
 
 // Draws any number of one species in one draw call, whatever its skeleton is. A vertex
 // knows which joint drives it; the pose texture knows where that joint is on a given frame of a

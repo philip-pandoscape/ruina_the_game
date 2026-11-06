@@ -2,8 +2,8 @@ import { fighterSpecies } from './builtin/fighter';
 import { heroSpecies } from './builtin/hero';
 import { slimeSpecies } from './builtin/slime';
 import { quadrupedSpecies } from './builtin/quadruped';
-import { CREATURE_BODIES } from '../creatures';
-import { validateSpecies, type SpeciesDef } from './types';
+import { CREATURE_BODIES } from './folders.ts';
+import { validateSpecies, type SpeciesDef } from './species';
 
 // Everything the world can spawn, by id. Built-ins are authored in code, and so are the bodies of
 // creatures with folders of their own (src/creatures/); imported species register themselves once

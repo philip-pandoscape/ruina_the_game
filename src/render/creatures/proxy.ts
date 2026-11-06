@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import type { SpeciesDef } from './types';
+import type { SpeciesDef } from './species';
 
 // The proxy as the GPU sees it: one merged box soup, each vertex carrying the joint that drives
 // it and the palette slot that tints it. Twelve triangles per box, and the whole thing is static

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { traceSwing } from '../../render/character';
-import { HERO_BOW, HERO_TRAIL_EDGES, HERO_WEAPONS } from '../../content/creatures/hero';
+import { HERO_BOW, HERO_TRAIL_EDGES, HERO_WEAPONS } from '../../render/creatures/heroBody';
 import { gliderGrip } from '../../render/models/gliders';
 import { SCENARIOS, scenario } from '../../render/detail/scenarios';
 import { Film } from '../subjects/film';

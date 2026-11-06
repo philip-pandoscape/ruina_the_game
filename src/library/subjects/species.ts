@@ -1,14 +1,14 @@
 import * as THREE from 'three';
 import { actorKind, actorKindIds } from '../../content/actors';
-import { JellyCrowd } from '../../species/jelly';
-import { bindWorlds } from '../../species/pose';
-import { getSpecies } from '../../species/registry';
-import { MATRIX_STRIDE, type Clip, type SpeciesDef } from '../../species/types';
+import { JellyCrowd } from '../../render/creatures/jelly';
+import { bindWorlds } from '../../render/creatures/clips';
+import { getSpecies } from '../../render/creatures/registry';
+import { MATRIX_STRIDE, type Clip, type SpeciesDef } from '../../render/creatures/species';
 import { readBones, sideOf, writeBones } from '../pose';
 import type { AnimDef, Bone, FrameInfo, Options, Phase, Posable, Snapshot, Source, Subject, Take } from '../types';
 
 // Species in the library: bodies the crowd draws from baked clips (src/species/): the slimes in
-// every size (as jelly: src/species/jelly.ts), and the far-away bodies of the
+// every size (as jelly: src/render/creatures/jelly.ts), and the far-away bodies of the
 // battlefield's crowds. A clip is a matrix per joint per frame; here each frame is turned back into
 // joints you can see and move, with the species' boxes hung off them.
 
@@ -297,11 +297,11 @@ const slimeSubject: Subject = {
   },
   source: (): Source => ({
     system:
-      "Baked clips: each clip is authored in code as a function of (joint, frame) returning a joint's offset from its bind pose (position, rotation, scale), then baked to a matrix per joint per frame (`bakeAuthored` in src/species/pose.ts) and drawn by the crowd shader. A slime's motion is almost all squash and stretch: scale on `core` and `top`, the root lifted for hops and leaps, the buds sliding out. Every size shares the same clips, scaled (shared/actors.json). The game draws them as jelly over the same skeleton (src/species/jelly.ts, which lifts each frame so the jelly's base sits on the ground); the Boxes look shows the boxes the clips move.",
+      "Baked clips: each clip is authored in code as a function of (joint, frame) returning a joint's offset from its bind pose (position, rotation, scale), then baked to a matrix per joint per frame (`bakeAuthored` in src/render/creatures/clips.ts) and drawn by the crowd shader. A slime's motion is almost all squash and stretch: scale on `core` and `top`, the root lifted for hops and leaps, the buds sliding out. Every size shares the same clips, scaled (shared/actors.json). The game draws them as jelly over the same skeleton (src/render/creatures/jelly.ts, which lifts each frame so the jelly's base sits on the ground); the Boxes look shows the boxes the clips move.",
     files: [
-      { path: 'src/species/builtin/slime.ts', what: 'the skeleton, its boxes, and every clip (idle, hop, die, windup, leap, gather, dazed)' },
-      { path: 'src/species/jelly.ts', what: 'the jelly drawn over the same joints, faces by clip' },
-      { path: 'src/species/pose.ts', what: 'bakeAuthored: how a clip function becomes matrices' },
+      { path: 'src/render/creatures/builtin/slime.ts', what: 'the skeleton, its boxes, and every clip (idle, hop, die, windup, leap, gather, dazed)' },
+      { path: 'src/render/creatures/jelly.ts', what: 'the jelly drawn over the same joints, faces by clip' },
+      { path: 'src/render/creatures/clips.ts', what: 'bakeAuthored: how a clip function becomes matrices' },
       { path: 'shared/actors.json', what: "which clip plays for which of a slime's moments (move, chase, windup, leap, …), sizes" },
       { path: 'shared/behaviours.json', what: "the leap's gait (apex height, when it leaves and meets the ground): the rules; the leap clip matches it" },
     ],
@@ -313,7 +313,7 @@ const slimeSubject: Subject = {
     ],
   }),
   animSource: (animId) =>
-    `clip '${animId}' in src/species/builtin/slime.ts (bakeAuthored)${usesOf(animId).length ? `, played for ${usesOf(animId).join(', ')} (shared/actors.json)` : ''}`,
+    `clip '${animId}' in src/render/creatures/builtin/slime.ts (bakeAuthored)${usesOf(animId).length ? `, played for ${usesOf(animId).join(', ')} (shared/actors.json)` : ''}`,
 };
 
 function crowdSubject(id: string, name: string, blurb: string, file: string, made: string): Subject {
@@ -330,11 +330,11 @@ function crowdSubject(id: string, name: string, blurb: string, file: string, mad
       return new SpeciesTake(def, clip, { kind: null, scale: 1, jelly: false }, (b) => b.color);
     },
     source: (): Source => ({
-      system: `Baked clips drawn by the crowd shader (src/species/crowd.ts) for bodies seen from afar, many at once. ${made}`,
+      system: `Baked clips drawn by the crowd shader (src/render/creatures/crowd.ts) for bodies seen from afar, many at once. ${made}`,
       files: [
         { path: file, what: 'the skeleton, its boxes and its clips' },
-        { path: 'src/species/pose.ts', what: 'baking clips to matrices' },
-        { path: 'src/species/crowd.ts', what: 'drawing them' },
+        { path: 'src/render/creatures/clips.ts', what: 'baking clips to matrices' },
+        { path: 'src/render/creatures/crowd.ts', what: 'drawing them' },
       ],
       checks: [{ command: 'npx vitest run tests/unit/species.test.ts', what: 'species format and baking' }],
     }),
@@ -348,21 +348,21 @@ export const speciesSubjects: Subject[] = [
     'hero',
     'Hero, far away',
     'The crowd’s cut of the hero',
-    'src/species/builtin/hero.ts',
-    "This one is the hero's own poses sampled: the clips (HERO_CLIPS in src/content/creatures/hero.ts) say what the hero is doing along each, and the close-up pose code (humanoid.ts) is run to bake them (src/species/fromRig.ts), so fixing the hero's close-up animation fixes these too.",
+    'src/render/creatures/builtin/hero.ts',
+    "This one is the hero's own poses sampled: the clips (HERO_CLIPS in src/render/creatures/heroBody.ts) say what the hero is doing along each, and the close-up pose code (humanoid.ts) is run to bake them (src/render/creatures/fromRig.ts), so fixing the hero's close-up animation fixes these too.",
   ),
   crowdSubject(
     'fighter',
     'Fighter',
     'Battlefield crowd; townsfolk at a distance',
-    'src/species/builtin/fighter.ts',
+    'src/render/creatures/builtin/fighter.ts',
     'Its four clips are authored directly as joint turns (bakeAuthored).',
   ),
   crowdSubject(
     'quadruped',
     'Four-legged beast',
     'A test beast: four leg chains and a tail',
-    'src/species/builtin/quadruped.ts',
+    'src/render/creatures/builtin/quadruped.ts',
     'Its clips are authored as joint turns per frame.',
   ),
 ];

@@ -12,22 +12,18 @@ import { expect, test } from 'vitest';
 const FORBIDDEN: Record<string, string[]> = {
   util: ['*'],
   // The asset manifest and loader: beneath everything that draws, knowing files and not what's in them.
-  assets: ['sim', 'content', 'render', 'ui', 'net', 'app', 'input', 'library', 'dev', 'bible', 'crowd', 'species', 'creatures', '(root:main)'],
-  sim: ['render', 'ui', 'net', 'app', 'input', 'library', 'dev', 'bible', 'crowd', 'species', 'creatures', '(root:main)'],
-  content: ['sim', 'species', 'render', 'ui', 'net', 'app', 'input', 'library', 'dev', 'bible', 'crowd', 'creatures', '(root:main)'],
+  assets: ['sim', 'content', 'render', 'ui', 'net', 'app', 'input', 'library', 'dev', 'bible', '(root:main)'],
+  sim: ['render', 'ui', 'net', 'app', 'input', 'library', 'dev', 'bible', '(root:main)'],
+  content: ['sim', 'render', 'ui', 'net', 'app', 'input', 'library', 'dev', 'bible', '(root:main)'],
   input: ['render', 'ui', 'net', 'app', 'library', 'dev', 'bible', '(root:main)'],
   render: ['app', 'library', 'dev', 'bible', '(root:main)'],
   net: ['ui', 'library', 'dev', 'bible', '(root:main)'],
   ui: ['library', 'bible', '(root:main)'],
-  species: ['ui', 'net', 'app', 'library', 'dev', 'bible', '(root:main)'],
-  creatures: ['ui', 'net', 'app', 'library', 'dev', 'bible', '(root:main)'],
-  crowd: ['ui', 'net', 'app', 'library', 'dev', 'bible', '(root:main)'],
 };
 
 /** Imports across a line today, each with what will remove it (.plans/refactor/tracker.md). */
 const KNOWN: Record<string, string> = {
   'content/actors.ts -> sim': "R6.0: content's actor kinds and the rules' actor record lean on each other",
-  'content/creatures/hero.ts -> species': "R6.0: the hero's content builds a three.js body",
 };
 
 const files: string[] = [];

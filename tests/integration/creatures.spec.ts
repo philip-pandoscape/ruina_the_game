@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { creatureIds } from '../../src/content/creatures/index';
+import { creatureIds } from '../../src/render/creatures/closeUps';
 
 // Close-up bodies drawn as their content builds them, on the content library's creature bench
 // (/dev/library.html#/rig-<id>/rest, src/library/subjects/rigs.ts): each rig with each weapon in its

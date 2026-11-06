@@ -1,6 +1,6 @@
 import { RigBuilder } from '../authoring';
-import { bakeAuthored } from '../pose';
-import { MAT, type SpeciesDef } from '../types';
+import { bakeAuthored } from '../clips';
+import { MAT, type SpeciesDef } from '../species';
 
 // A slime: five joints, no limbs, and all of its movement in scale rather than rotation. It
 // exists to keep the format honest - nothing in the renderer or the pose baker may assume a

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { getSpecies } from '../../src/species/registry';
+import { getSpecies } from '../../src/render/creatures/registry';
 import { jointWorld, posedBounds, poseWorld, speciesInfo } from '../../src/library/bench/species';
 
 // Per-species tests, on the baked clips' numbers (src/library/bench/species.ts): no drawing, so they

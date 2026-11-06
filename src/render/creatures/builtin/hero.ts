@@ -1,7 +1,7 @@
-import { HERO_CLIPS, HERO_RIG, HERO_SLOTS } from '../../content/creatures/hero';
-import { poseHumanoid } from '../../render/detail/humanoid';
+import { HERO_CLIPS, HERO_RIG, HERO_SLOTS } from '../heroBody';
+import { poseHumanoid } from '../../detail/humanoid';
 import { speciesFromRig } from '../fromRig';
-import type { SpeciesDef } from '../types';
+import type { SpeciesDef } from '../species';
 
 // The player character at crowd range. Nothing here describes how a hero moves - it bakes the
 // close-up poses, so the two can never drift.

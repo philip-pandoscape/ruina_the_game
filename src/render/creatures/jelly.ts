@@ -1,9 +1,9 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { SPECIES_GLSL, instanced, writeFrame } from './crowd';
-import { buildPoseTexture } from './pose';
-import { MATRIX_STRIDE, clipRows, type SpeciesDef } from './types';
-import { TAU } from '../util/math';
+import { buildPoseTexture } from './clips';
+import { MATRIX_STRIDE, clipRows, type SpeciesDef } from './species';
+import { TAU } from '../../util/math';
 
 // The slimes as the game draws them: a gumdrop of glossy jelly the sun shines through,
 // whatever it swallowed floating inside, and a face painted on its front that

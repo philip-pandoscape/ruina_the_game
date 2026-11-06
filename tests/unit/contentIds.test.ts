@@ -33,8 +33,7 @@ const ALLOWED: Allowance[] = [
       'src/render/open/life.ts',
       'src/render/actors.ts',
       'src/render/vfx.ts',
-      'src/species/',
-      'src/creatures/',
+      'src/render/creatures/',
     ],
   },
   {

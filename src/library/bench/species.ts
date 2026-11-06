@@ -1,9 +1,9 @@
 import * as THREE from 'three';
-import { SpeciesCrowd } from '../../species/crowd';
-import { bindWorlds } from '../../species/pose';
-import { getSpecies } from '../../species/registry';
-import { MATRIX_STRIDE, clipByName, type SpeciesDef } from '../../species/types';
-import { HERO_CLIPS, HERO_RIG } from '../../content/creatures/hero';
+import { SpeciesCrowd } from '../../render/creatures/crowd';
+import { bindWorlds } from '../../render/creatures/clips';
+import { getSpecies } from '../../render/creatures/registry';
+import { MATRIX_STRIDE, clipByName, type SpeciesDef } from '../../render/creatures/species';
+import { HERO_CLIPS, HERO_RIG } from '../../render/creatures/heroBody';
 import { pose } from '../../content/pose';
 import { poseHumanoid } from '../../render/detail/humanoid';
 import { DetailRig } from '../../render/detail/rig';

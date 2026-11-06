@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { Hero, type WeaponAt } from '../../render/character';
 import { pose, type PoseFeedback, type PoseInput } from '../../content/pose';
-import { HERO_RIG, HERO_WEAPONS } from '../../content/creatures/hero';
+import { HERO_RIG, HERO_WEAPONS } from '../../render/creatures/heroBody';
 import { SCENARIOS, scenario, type Moment, type Scenario } from '../../render/detail/scenarios';
 import { madeHero, madeHeroNow } from '../../render/detail/madeHero';
 import { HERO_MOVES, HERO_MOVE_SETS } from '../../render/detail/moves';
@@ -386,7 +386,7 @@ export const heroSubject: Subject = {
         "The library plays the films in src/render/detail/scenarios.ts (the rules' frame counts, speeds and timings, frame by frame at 60 fps) through that same Hero (src/library/subjects/film.ts), as the measurements play them (src/library/bench/hero.ts).",
         made
           ? `This is the made body (madeHero.ts, src/render/assets/models/hero.glb, rig measured by fit.ts): its walk and run upper body come from Meshy's captured cycles (mocap.ts), and some combo swings are animation-library clips retargeted bone for bone (retarget.ts; which clip each weapon's combo plays: moves.ts — sets in use: ${sets}; 'keyed' means the code keyframes in swings.ts). A note on a swing that plays a clip may mean changing the clip choice, its cut (parts/from/to) or the retarget rather than swings.ts.`
-          : 'This is the box hero (src/content/creatures/hero.ts), standing in while the made body loads (or because it could not): every move comes from the code keyframes.',
+          : 'This is the box hero (src/render/creatures/heroBody.ts), standing in while the made body loads (or because it could not): every move comes from the code keyframes.',
       ].join(' '),
       files: [
         { path: 'src/render/detail/humanoid.ts', what: 'poseHumanoid: every pose (gait, swings, actions, casts, hits, travel) from a PoseInput' },
@@ -404,7 +404,7 @@ export const heroSubject: Subject = {
             ]
           : []),
         { path: 'src/render/detail/scenarios.ts', what: 'the films: what the rules report per frame (do not change these to fix a pose)' },
-        { path: 'src/content/creatures/hero.ts', what: 'the box rig: joints, parts, weapons' },
+        { path: 'src/render/creatures/heroBody.ts', what: 'the box rig: joints, parts, weapons' },
         {
           path: 'shared/*.json, src/tuning.ts',
           what: "the rules' frame counts (startup/active/recovery): changing them is a rules change in TS and Rust together",

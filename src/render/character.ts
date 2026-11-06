@@ -6,7 +6,7 @@ import { DetailRig } from './detail/rig';
 import { Body, SIDES, type Side } from './detail/body';
 import { Inertia } from './detail/blend';
 import { directional, dutyFactor, strideLength } from './detail/gait';
-import { HERO_BOW, HERO_RIG, HERO_TEAM_COLOURS, HERO_TRAIL_EDGES, HERO_WEAPONS } from '../content/creatures/hero';
+import { HERO_BOW, HERO_RIG, HERO_TEAM_COLOURS, HERO_TRAIL_EDGES, HERO_WEAPONS } from './creatures/heroBody';
 import { SlashArc } from './vfx';
 import { poseHumanoid, settle, strokeRate } from './detail/humanoid';
 import { swingFor } from './detail/swings';
@@ -227,7 +227,7 @@ const DOWN_Y = new THREE.Vector3(0, -1, 0);
 // the build has equipped: sword, club, staff or bow.
 export class Hero {
   readonly root = new THREE.Group();
-  // The body comes from content (src/content/creatures/hero.ts); the motion lives in
+  // The body comes from content (src/render/creatures/heroBody.ts); the motion lives in
   // detail/humanoid.ts, shared by every humanoid race, and is a pure function of its input. What
   // only the close-up body does - the stride clock, easing between states, trails, the bowstring -
   // lives here.

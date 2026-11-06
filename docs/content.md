@@ -173,7 +173,7 @@ Anything placed: `npm run bake`.
   states built from the engine's acts (wait, walk, strike, throw, heal...) and conditions, with its
   pack's tactics if it fights in a band (`design/goblins.md`). Its id goes on the end of
   `content/creatures/_order.json`. Its kinds wear a species there is a body for, or bring a body of
-  their own (`src/creatures/<name>/`: code).
+  their own (`src/render/creatures/<name>/`: code).
 - **Where they are**: a dungeon's or a zone's `spawns` (`docs/zones.md`).
 
 A new act or condition for brains is a new engine part: code, never a creature's own.

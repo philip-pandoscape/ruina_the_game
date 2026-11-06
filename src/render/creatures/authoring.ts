@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { bindWorlds } from './pose';
-import { MAT, type Joint, type ProxyBox, type Quat, type Vec3 } from './types';
+import { bindWorlds } from './clips';
+import { MAT, type Joint, type ProxyBox, type Quat, type Vec3 } from './species';
 
 // Hand-authoring a species. Imported rigs go through fit.ts; anything without a motion library -
 // a slime, a construct, a boss with three heads - is written here instead, and comes out in the

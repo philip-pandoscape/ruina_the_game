@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 import { comboShape } from '../../tuning';
-import { MAT } from '../../species/types';
-import type { ClipDriver } from '../pose';
-import type { BowString, PartDef, RigDef } from '../rig';
+import { MAT } from './species';
+import type { ClipDriver } from '../../content/pose';
+import type { BowString, PartDef, RigDef } from '../../content/rig';
 import { TAU } from '../../util/math';
 
 // The player character's build: what it is made of and how it hangs together. The motion that

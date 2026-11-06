@@ -744,7 +744,7 @@
         "crates/engine/src/actors.rs",
         "tests/integration/slime-pack.spec.ts",
         "src/render/vfx.ts",
-        "src/species/builtin/slime.ts"
+        "src/render/creatures/builtin/slime.ts"
       ]
     },
     {
@@ -753,7 +753,7 @@
       "title": "A jointed hero, animated from scratch",
       "notes": "Knees, ankles, elbows, a neck, blinking eyes and a two-piece cape (23 joints). Every animation redone with two-bone IK: a gait whose planted feet stay put at any speed or heading (walk, jog, run, sprint, creep, carry, strafe, back off), heel-to-toe roll, leaning into turns; sword, club and staff swings as keyframes with a wind-up, the body leading the arm, footwork that steps with the lunge and two-handed grips, and the sword carried ready (blade up and forward) when running; a bow drawn to the chin, the arrow in front of the chest and the string following the hand; casts, guard, slide, rolls and flips in eight directions, hits that throw the body the way the blow shoves it, knock-downs. Travelling, the hero takes hold of the vehicle as it moves (vehicles.ts Holds): hands on the steering wheel's rim (the wheels turn, square on their columns and facing the driver) and on the oars' handles mid-stroke, thighs out over the seat's edge and feet on the footrest; on a horse the knees bend round its body to short stirrups; the glider bar sits ahead of the chin. The cape takes the wind from the way you go. Weapon trails are traced from the blade. The close-up hero eases between states, holds planted feet where they are and the way they point through turns and stops, stepping round one foot at a time when they get too far out, and draws frame counters between sim steps. The crowd bakes its clips from the same poses.",
       "files": [
-        "src/content/creatures/hero.ts",
+        "src/render/creatures/heroBody.ts",
         "src/render/detail/humanoid.ts",
         "src/render/detail/body.ts",
         "src/render/detail/gait.ts",
@@ -1094,9 +1094,9 @@
       "system": "look",
       "status": "done",
       "title": "Jelly slimes",
-      "notes": "Slimes are glossy jelly gumdrops (src/species/jelly.ts): a see-through shell, bright at the rim, with a window gloss and a glint of the sun, what each kind carries showing inside, a soft pool of shadow that shrinks as it hops, and a face whose mood follows what it is doing (winding up, dazed, dying). They play the same clips as the box slimes, so the crowd, the rules and the server never see the difference; the animation library can still show the boxes (Look: Boxes).",
+      "notes": "Slimes are glossy jelly gumdrops (src/render/creatures/jelly.ts): a see-through shell, bright at the rim, with a window gloss and a glint of the sun, what each kind carries showing inside, a soft pool of shadow that shrinks as it hops, and a face whose mood follows what it is doing (winding up, dazed, dying). They play the same clips as the box slimes, so the crowd, the rules and the server never see the difference; the animation library can still show the boxes (Look: Boxes).",
       "files": [
-        "src/species/jelly.ts",
+        "src/render/creatures/jelly.ts",
         "src/render/actors.ts"
       ]
     },
@@ -1215,10 +1215,10 @@
       "system": "combat",
       "status": "done",
       "title": "Goblins: the basic goblin and the creature engine",
-      "notes": "The first of the Split-Eye war-band (design/goblins.md), in the training yard (?yard&goblins=6). A creature is data and a body: shared/creatures/goblin.json (its kind, a stab and a stone throw, and a brain in the behaviours' format) and src/creatures/goblin/ (a box body until its model is made), run by engine parts any creature can use, in TypeScript and Rust alike: senses (every player as a foe: weapon reach, bow or not, swinging, recovering, casting, guarding, dodging, stunned), a pack step (attack tokens per foe, one more for an opening such as your back or your recovery, ring places just outside your weapon's reach bunched up behind you, courage from health, friends and foes, and where to run), brain acts walk, strike, throw and heal with conditions that take arguments, missiles in flight, and a flinch for blows at or above a kind's poise. One goblin dies to a sword combo and barely scratches you; six wear you down while only three or four strike at once. Against a sword they wait outside its reach and throw stones; against a bow they come right up. Hurt and alone it runs home and drinks its stolen potion out of reach (a blow spills it); hurt in a band it runs to the biggest group. Not online yet: the server runs the same rules but places no goblins.",
+      "notes": "The first of the Split-Eye war-band (design/goblins.md), in the training yard (?yard&goblins=6). A creature is data and a body: shared/creatures/goblin.json (its kind, a stab and a stone throw, and a brain in the behaviours' format) and src/render/creatures/goblin/ (a box body until its model is made), run by engine parts any creature can use, in TypeScript and Rust alike: senses (every player as a foe: weapon reach, bow or not, swinging, recovering, casting, guarding, dodging, stunned), a pack step (attack tokens per foe, one more for an opening such as your back or your recovery, ring places just outside your weapon's reach bunched up behind you, courage from health, friends and foes, and where to run), brain acts walk, strike, throw and heal with conditions that take arguments, missiles in flight, and a flinch for blows at or above a kind's poise. One goblin dies to a sword combo and barely scratches you; six wear you down while only three or four strike at once. Against a sword they wait outside its reach and throw stones; against a bow they come right up. Hurt and alone it runs home and drinks its stolen potion out of reach (a blow spills it); hurt in a band it runs to the biggest group. Not online yet: the server runs the same rules but places no goblins.",
       "files": [
         "content/creatures/goblin.json",
-        "src/creatures/goblin/body.ts",
+        "src/render/creatures/goblin/body.ts",
         "src/sim/ai/senses.ts",
         "src/sim/ai/pack.ts",
         "src/sim/ai/brain.ts",
@@ -1460,7 +1460,7 @@
       "title": "Moving well",
       "summary": "The hero has elbows, knees and ankles, and every animation was rebuilt on them; fighting, you now strafe, back off, and dodge and flip in any direction.",
       "points": [
-        "src/content/creatures/hero.ts: the rig is two-bone limbs (thigh, boot, foot; sleeve, bracer, hand), a neck, eyes that blink and a cape in two halves. The bow string is two halves meeting at the nock.",
+        "src/render/creatures/heroBody.ts: the rig is two-bone limbs (thigh, boot, foot; sleeve, bracer, hand), a neck, eyes that blink and a cape in two halves. The bow string is two halves meeting at the nock.",
         "src/render/detail/: body.ts (analytic two-bone IK, feet and hands to points in the body's space), gait.ts (stride length and ground time by speed, a heel-to-toe rocker, a backpedal gait played backwards), swings.ts (keyframed swings with footwork), humanoid.ts (every pose, still a pure function of PoseInput so the crowd bakes from it).",
         "src/render/character.ts: a stride clock that shortens strides as you slow, inertial blending between states, feet held where they are planted through turns, stops and starts (with a settling step), trails traced from the blade, the bowstring and arrow following the drawing hand, sub-frame timing on fast screens.",
         "Combat stance in the rules (TS and Rust): faceX / faceZ in the input; the input packets grew a byte (battlefield 16 bytes an input, open world 10) and WORLD_PROTOCOL went to 3.",
@@ -1547,7 +1547,7 @@
       "title": "Characters, weapons and moves for the new look",
       "summary": "The new look's people and creatures after its places: jelly slimes, the hero as a made body that walks and runs as people do, made weapons, and moves played from animation libraries, retargeted bone for bone and checked against their sources. Free assets first: AGENTS.md says to look for a free model, texture or clip before making one.",
       "points": [
-        "Slimes: glossy jelly gumdrops with a pool shadow and a face that changes with mood (src/species/jelly.ts).",
+        "Slimes: glossy jelly gumdrops with a pool shadow and a face that changes with mood (src/render/creatures/jelly.ts).",
         "Hero: a Meshy model on the hero rig (fit.ts), fingers that close round the grip, a gait measured off captured walking and running.",
         "Weapons: Meshy's sword, club, staff and bow where the box ones were, shining with the sky's light, carried at the hip and across the back.",
         "Moves: Quaternius' sword combo and heavy combo on the sword and club, Meshy's Triple Combo Attack as the sword's other set; retarget.ts, moves.ts, /dev/retarget.html, tests/integration/retarget.spec.ts, the retarget-animation skill.",
@@ -1584,7 +1584,7 @@
       "points": [
         "Plan and concept art: design/goblins.md and design/goblins/ (lineup, ambush, camp, attack tells, night raid). Decisions: Thornwood camp only, no raids, captives to rescue, the agreed difficulty, the grunt to be tested with Meshy beside a free model.",
         "Creature engine: senses, a pack step, walk/strike/throw/heal acts, conditions with arguments, missiles and flinches, in TypeScript and Rust, compared frame by frame (three goblin scenarios in tests/conformance/ai.test.ts).",
-        "The basic goblin: shared/creatures/goblin.json and src/creatures/goblin/, fought in the yard with ?yard&goblins=6; tests/integration/goblin.spec.ts plays its behaviours."
+        "The basic goblin: shared/creatures/goblin.json and src/render/creatures/goblin/, fought in the yard with ?yard&goblins=6; tests/integration/goblin.spec.ts plays its behaviours."
       ]
     },
     {

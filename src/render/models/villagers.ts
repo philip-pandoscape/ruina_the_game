@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { PAL, Parts, bev, box, cone, cyl, extrude, glowMaterial, ico, mesh, mix, octa, pivot, rod, sph, tor, type Rgb, type V3 } from './kit';
 import { clamp } from '../../util/math';
 
-// The townsfolk of Emberholm, built like the hero (src/content/creatures/hero.ts): chunky
+// The townsfolk of Emberholm, built like the hero (src/render/creatures/heroBody.ts): chunky
 // rounded blocks, a big head, ~1.7-1.9 m tall, facing +Z with the origin at the feet. Each is
 // five merged meshes on pivots - legs, torso, head and two arms - so animate() can breathe, look
 // around and gesture (more when `talking`) for about ten draw calls. Outfits, hair, hats and a

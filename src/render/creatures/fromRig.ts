@@ -1,9 +1,9 @@
 import * as THREE from 'three';
-import type { RigDef } from '../content/rig';
-import { DetailRig } from '../render/detail/rig';
-import { pose, type PoseInput } from '../content/pose';
-import { writeMatrix } from './pose';
-import { MAT, MATRIX_STRIDE, type Clip, type Joint, type ProxyBox, type SpeciesDef, type Quat, type Vec3 } from './types';
+import type { RigDef } from '../../content/rig';
+import { DetailRig } from '../detail/rig';
+import { pose, type PoseInput } from '../../content/pose';
+import { writeMatrix } from './clips';
+import { MAT, MATRIX_STRIDE, type Clip, type Joint, type ProxyBox, type SpeciesDef, type Quat, type Vec3 } from './species';
 
 // Bakes a close-up creature into the crowd's content format. The poses are not rewritten for
 // distance - they are run offscreen, a frame at a time, and the joint matrices they produce are

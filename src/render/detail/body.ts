@@ -9,7 +9,7 @@ import { clamp, lerp } from '../../util/math';
 // y = 0 and the creature faces +Z. Squash and stretch stays a cartoon touch on top, and the feet
 // still meet the floor.
 //
-// Conventions (see the joint notes in src/content/creatures/hero.ts):
+// Conventions (see the joint notes in src/render/creatures/heroBody.ts):
 //   arms:  yaw about +Y (+ swings toward +X, the left), then pitch about +X (0 hangs down, -pi/2
 //          points forward, -pi straight up), then twist about the arm itself. Elbows bend the
 //          forearm forward with negative angles.

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { creatureRig } from '../../content/creatures/index';
+import { creatureRig } from '../../render/creatures/closeUps';
 import { DetailRig } from '../../render/detail/rig';
 
 // A close-up body built straight from its content (src/content/creatures/), measured: what it is

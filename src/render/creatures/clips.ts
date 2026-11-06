@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { MATRIX_STRIDE, totalFrames, type Clip, type Joint, type SpeciesDef, type Quat, type Vec3 } from './types';
+import { MATRIX_STRIDE, totalFrames, type Clip, type Joint, type SpeciesDef, type Quat, type Vec3 } from './species';
 
 // Clips are baked down to one model-space matrix per joint per frame, with the inverse bind
 // already folded in, and uploaded as a texture. The crowd then poses a vertex with a single

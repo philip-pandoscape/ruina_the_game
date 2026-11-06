@@ -1,13 +1,13 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { SpeciesCrowd } from '../../species/crowd';
-import { getSpecies, speciesIds } from '../../species/registry';
-import type { SpeciesDef } from '../../species/types';
+import { SpeciesCrowd } from '../../render/creatures/crowd';
+import { getSpecies, speciesIds } from '../../render/creatures/registry';
+import type { SpeciesDef } from '../../render/creatures/species';
 import { jointPositions, jointWorld, posedBounds, poseWorld, speciesInfo } from '../bench/species';
 import { h } from '../dom';
 import type { AnimDef, Gallery, Options, Subject } from '../types';
 
-// The crowd bench: one species at a time as the crowd draws it (src/species/crowd.ts, every body an
+// The crowd bench: one species at a time as the crowd draws it (src/render/creatures/crowd.ts, every body an
 // instance of one mesh): one body close up on a moment of a clip, or a block of them as a crowd is
 // seen, playing or still, with what a frame of them costs. As the species harness drew it (a dark
 // room, a dark floor), in the library's viewport. Library routes:
@@ -379,12 +379,12 @@ export const crowdsSubject: Subject = {
   gallery: (host, entry, o) => new CrowdBench(host, entry, o),
   source: () => ({
     system:
-      "Bodies seen from afar, many at once: a species is a skeleton, boxes hung off its joints (its proxy) and clips baked to a matrix per joint per frame (src/species/), drawn by one instanced mesh whose shader poses every body from a texture of those matrices (src/species/crowd.ts): any number of them in a draw call. A slime, the battlefield's fighters, a test beast, and the hero, baked from its own close-up poses (src/species/fromRig.ts).",
+      "Bodies seen from afar, many at once: a species is a skeleton, boxes hung off its joints (its proxy) and clips baked to a matrix per joint per frame (src/species/), drawn by one instanced mesh whose shader poses every body from a texture of those matrices (src/render/creatures/crowd.ts): any number of them in a draw call. A slime, the battlefield's fighters, a test beast, and the hero, baked from its own close-up poses (src/render/creatures/fromRig.ts).",
     files: [
-      { path: 'src/species/registry.ts', what: 'every species, by id' },
-      { path: 'src/species/builtin/', what: "each species' skeleton, boxes and clips" },
-      { path: 'src/species/pose.ts', what: 'baking clips to matrices' },
-      { path: 'src/species/crowd.ts', what: 'drawing them, an instance each' },
+      { path: 'src/render/creatures/registry.ts', what: 'every species, by id' },
+      { path: 'src/render/creatures/builtin/', what: "each species' skeleton, boxes and clips" },
+      { path: 'src/render/creatures/clips.ts', what: 'baking clips to matrices' },
+      { path: 'src/render/creatures/crowd.ts', what: 'drawing them, an instance each' },
       { path: 'src/library/bench/species.ts', what: 'their joints and silhouettes measured on any frame' },
     ],
     conventions: "A body faces +Z with its root on the ground; a clip's matrices map the bind pose to the posed one, joint by joint.",
@@ -395,6 +395,6 @@ export const crowdsSubject: Subject = {
   }),
   animSource: (entry) => {
     const [id, clip] = entry.split('/');
-    return `clip '${clip}' of the ${id} species (src/species/builtin/${id}.ts), baked and drawn by src/species/crowd.ts`;
+    return `clip '${clip}' of the ${id} species (src/render/creatures/builtin/${id}.ts), baked and drawn by src/render/creatures/crowd.ts`;
   },
 };

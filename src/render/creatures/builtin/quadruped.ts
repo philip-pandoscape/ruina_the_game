@@ -1,6 +1,6 @@
 import { RigBuilder, swing } from '../authoring';
-import { bakeAuthored } from '../pose';
-import { MAT, type Quat, type SpeciesDef } from '../types';
+import { bakeAuthored } from '../clips';
+import { MAT, type Quat, type SpeciesDef } from '../species';
 
 // A four-legged beast: four limb chains instead of two, a spine that runs horizontally and a
 // tail. Where the slime proves a species can have no limbs, this one proves the count is not

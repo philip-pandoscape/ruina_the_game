@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { creatureIds } from '../../src/content/creatures/index';
+import { creatureIds } from '../../src/render/creatures/closeUps';
 import { RigBench } from '../../src/library/bench/rigs';
 
 // Close-up bodies. These are content (src/content/creatures), so what a test can check is that the

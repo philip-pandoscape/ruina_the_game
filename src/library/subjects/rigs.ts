@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { creatureIds, creatureRig } from '../../content/creatures/index';
+import { creatureIds, creatureRig } from '../../render/creatures/closeUps';
 import type { RigDef } from '../../content/rig';
 import { DetailRig } from '../../render/detail/rig';
 import { readBones, sideOf, writeBones } from '../pose';
@@ -138,7 +138,7 @@ function rigSubject(id: string): Subject {
       system: `A close-up body is content: a rig of joints (each a position on its parent), rounded boxes and balls hung off them in named materials, and what it carries (src/content/creatures/${id}.ts), built by DetailRig (src/render/detail/rig.ts). The poses that move it are code (src/render/detail/humanoid.ts) and turn its joints by name; a new race is a new rig with the same joints, looked at here before it is wired into the game.`,
       files: [
         { path: `src/content/creatures/${id}.ts`, what: 'the rig: joints, parts, materials, weapons' },
-        { path: 'src/content/creatures/index.ts', what: 'every close-up body, by id' },
+        { path: 'src/render/creatures/closeUps.ts', what: 'every close-up body, by id' },
         { path: 'src/render/detail/rig.ts', what: 'building it' },
         { path: 'src/library/bench/rigs.ts', what: 'measuring it: rest positions, turning joints' },
       ],

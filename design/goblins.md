@@ -24,7 +24,7 @@ A creature is two things, and neither needs engine code of its own:
   which the browser and the server both read. Its kinds (health, size, poise), its brains (state
   machines in the format of `shared/behaviours.json`), its attacks (strikes and throws) and how its
   pack fights.
-- `src/creatures/<name>/`: its body and look in the browser (a species the crowd renderer draws,
+- `src/render/creatures/<name>/`: its body and look in the browser (a species the crowd renderer draws,
   the clips its states play), unless its kinds wear a species there is already.
 
 No list in code names the creatures: `content/creatures/_order.json` orders them, the order both

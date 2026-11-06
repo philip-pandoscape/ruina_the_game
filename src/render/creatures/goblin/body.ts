@@ -1,8 +1,8 @@
 import * as THREE from 'three';
-import { RigBuilder } from '../../species/authoring';
-import { bakeAuthored, type LocalPose } from '../../species/pose';
-import { MAT, type Quat, type SpeciesDef, type Vec3 } from '../../species/types';
-import { TAU } from '../../util/math';
+import { RigBuilder } from '../authoring';
+import { bakeAuthored, type LocalPose } from '../clips';
+import { MAT, type Quat, type SpeciesDef, type Vec3 } from '../species';
+import { TAU } from '../../../util/math';
 
 // The goblin's body until its model is made (design/goblins.md): boxes on an eight-joint rig,
 // drawn by the same instanced crowd as everything else. A metre tall, hunched, with a big head,

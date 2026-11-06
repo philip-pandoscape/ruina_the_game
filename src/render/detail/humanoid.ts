@@ -9,7 +9,7 @@ import { READY, swingFor, type SwingDef, type SwingKey } from './swings';
 import { playPlanted, poseFromClip, strikeTime } from './retarget';
 import { gliderGrip } from '../models/gliders';
 import { DRAWING_HAND, stowedFor } from './stow';
-import { HERO_BOW } from '../../content/creatures/hero';
+import { HERO_BOW } from '../creatures/heroBody';
 import { TAU } from '../../util/math';
 
 // How a humanoid moves. Every playable race and humanoid NPC shares this - they differ in how

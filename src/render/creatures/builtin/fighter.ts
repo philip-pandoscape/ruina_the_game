@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 import { RigBuilder } from '../authoring';
-import { bakeAuthored } from '../pose';
-import { MAT, type SpeciesDef, type Vec3 } from '../types';
-import { lerp } from '../../util/math';
+import { bakeAuthored } from '../clips';
+import { MAT, type SpeciesDef, type Vec3 } from '../species';
+import { lerp } from '../../../util/math';
 
 // The crowd's fighter, as species data. The geometry is the same twenty boxes it always
 // was; what used to be an if-chain of hardcoded pivots and angles in the vertex shader is now

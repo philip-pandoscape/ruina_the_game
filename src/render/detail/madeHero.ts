@@ -3,7 +3,7 @@ import { asset } from '../../assets/manifest';
 import { gltf, loadModel, model, track } from '../assets';
 import { toon } from '../toon';
 import type { RigDef } from '../../content/rig';
-import { HERO_RIG } from '../../content/creatures/hero';
+import { HERO_RIG } from '../creatures/heroBody';
 import { fit, hull, type Fitted } from './fit';
 import { bakeCycle, setMotion, type Move } from './mocap';
 import { bake, type Baked } from './retarget';
