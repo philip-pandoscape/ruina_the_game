@@ -32,12 +32,13 @@ The open world is **Emberholm**, a starter isle with ArcheAge-style life systems
 npm run up              # Postgres + game server in Docker (rebuilds the server); npm run down stops
 npm run dev             # http://localhost:5173  (?as=name signs in on dev and plays its last character, ?yard, ?world&test)
 npm run typecheck
-npm run check           # typecheck + the unit tier (Vitest tests/unit, cargo test): seconds, run after every change
+npm run check           # typecheck, format and lint (Biome, rustfmt, clippy), dead code (knip), the unit tier (Vitest tests/unit, cargo test): run after every change
+npm run format          # formats the TypeScript (biome.json) and the Rust (rustfmt.toml): run before committing
 npm run check:beta      # + the integration tier (tests/conformance, then Playwright tests/integration): before every push to beta
 npm run check:release   # + the stress tier (tests/stress, a real GPU): before a release
 npx playwright test tests/integration/ui.spec.ts   # some of the integration tier: files, -g "title"; --last-failed after a fix
 PW_PORT=5211 TEST_PORT_OFFSET=10 npx playwright test   # beside another checkout's suite (its own Vite and battle-server ports)
-npm run bake            # rebake the server's copy of the island after changing it
+npm run bake            # rebake the engine's copy of the island after changing it
 npm run image -- --out scratch/x.png --ref look.png "prompt"   # a picture from Gemini (Art and assets below)
 ```
 
