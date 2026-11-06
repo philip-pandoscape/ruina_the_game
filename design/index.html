@@ -84,6 +84,8 @@ code, .mono { font-family: var(--mono); font-size: 0.86em; }
 .rail nav .pips i { width: 6px; height: 6px; border-radius: 2px; background: var(--rule); }
 .rail nav .group { margin-top: 10px; font: 600 0.66rem/1 var(--mono); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); padding: 6px 8px; }
 .rail .foot { margin-top: auto; font-size: var(--s-1); color: var(--muted); }
+.rail .bible-link { font-size: 0.86rem; font-weight: 600; text-decoration: none; padding: 7px 9px; border-radius: 8px; background: var(--gold-soft); color: var(--gold); line-height: 1.35; }
+.bible-note { margin-top: 14px; max-width: 36em; padding: 10px 14px; border-left: 3px solid var(--gold); background: var(--gold-soft); border-radius: 0 8px 8px 0; font-size: 0.95rem; }
 
 .topbar { display: none; }
 
@@ -253,6 +255,7 @@ kbd { font: 600 0.74rem/1 var(--mono); padding: 3px 6px; border-radius: 5px; bor
 <div class="shell">
   <aside class="rail">
     <div class="brand"><b>Ruina</b><span>Design bible</span></div>
+    <a class="bible-link" href="/bible/">The Ruina Bible: how the game works, for everyone →</a>
     <nav id="railnav" aria-label="Sections"></nav>
     <div class="foot" id="railfoot"></div>
   </aside>
@@ -260,9 +263,10 @@ kbd { font: 600 0.74rem/1 var(--mono); padding: 3px 6px; border-radius: 5px; bor
   <main>
     <header class="hero" id="overview">
       <div>
-        <div class="eyebrow">Root design document · how the game works</div>
+        <div class="eyebrow">Development · what is built, what is next, and why</div>
         <h1>Ruina<small>A sandbox world you carry on your back</small></h1>
         <p class="lede">Grow it, pack it, and haul it across land, sea and sky to wherever it is worth the most. Build a home with materials you carried there yourself. Fight with a deep classless build and movement that plays like a platform fighter.</p>
+        <p class="bible-note">How every system and every thing works, exactly, for players as much as for us, is <a href="/bible/">the Ruina Bible</a>, drawn from the game's content and rules. This page is the development view, for admins: the tracker, the design notes behind each system, the open questions and the session log.</p>
         <div class="facts" id="facts"></div>
         <div class="status-sum" id="statusSum"></div>
       </div>
@@ -496,6 +500,7 @@ kbd { font: 600 0.74rem/1 var(--mono); padding: 3px 6px; border-radius: 5px; bor
           <li>Feature status, next steps, open questions and this log live in <code>design/status.json</code>.</li>
           <li>The tables, charts, calculators and map are drawn by <code>design/bible.ts</code> from the game's own modules: the content in <code>shared/*.json</code>, the rules' formulas and the terrain generator. Nothing is copied, so there is nothing to rebuild; the page reloads when any of them changes.</li>
           <li>The prose is edited directly in <code>design/index.html</code>. Open the page from the dev server: <code>npm run dev</code>, then <code>/design/</code>.</li>
+          <li>How the game works, for players, is the bible (<code>/bible/</code>, <code>src/bible/</code>): a page per system and an entry per thing, its numbers from the content and the rules, kept complete by <code>tests/unit/bible.test.ts</code>.</li>
         </ul>
       </div>
     </section>

@@ -25,6 +25,8 @@ test('the design bible draws from the game data without errors', async ({ page }
   await expect(page.locator('#questFlow .node')).toHaveCount(json('shared/quests.json').quests.length);
   await expect(page.locator('#sessions .entry')).toHaveCount(status.sessions.length);
   await expect(page.locator('#facts')).toContainText('trees');
+  // It is the bible's Development tab: it leads to the bible, which says how the game works.
+  await expect(page.locator('.rail a.bible-link')).toHaveAttribute('href', '/bible/');
 
   // The tracker's filters.
   await page.click('#trackerTools button[data-st="done"]');
