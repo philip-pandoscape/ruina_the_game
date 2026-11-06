@@ -61,6 +61,16 @@ export type LifeEvent =
   | { t: 'quest'; id: string; what: 'accepted' | 'step' | 'ready' | 'done' | 'abandoned' }
   | { t: 'thunder'; x: number; y: number; z: number };
 
+/**
+ * What the helpers the page calls read of an island: its zone, its state and what's in the bag (the
+ * engine's snapshot, src/engine/islandView.ts, or these rules' Life).
+ */
+export interface IslandRead {
+  readonly zone: ZoneData;
+  readonly state: LifeState;
+  count(item: string): number;
+}
+
 /** Another player's vehicle as you see it: whose (their character and name), and the seats taken in it. */
 export interface OthersVehicle {
   host: number;

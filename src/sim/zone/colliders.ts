@@ -23,6 +23,22 @@ export class ColliderIndex {
     decks.forEach((d, i) => this.insert(this.deckCells, d.x, d.z, Math.hypot(d.hw, d.hd), i));
   }
 
+  /**
+   * Everything solid replaced with these, in place (the engine's, read back whenever what's solid
+   * changes: src/engine/engine.ts), so whoever holds this index sees them.
+   */
+  take(obstacles: readonly Obstacle[], boxes: readonly BoxCollider[], decks: readonly Deck[]): void {
+    this.obstacles.splice(0, this.obstacles.length, ...obstacles);
+    this.boxes.splice(0, this.boxes.length, ...boxes);
+    this.decks.splice(0, this.decks.length, ...decks);
+    this.obstacleCells.clear();
+    this.boxCells.clear();
+    this.deckCells.clear();
+    this.obstacles.forEach((o, i) => this.insert(this.obstacleCells, o.x, o.z, o.r, i));
+    this.boxes.forEach((b, i) => this.insert(this.boxCells, b.x, b.z, Math.hypot(b.hw, b.hd), i));
+    this.decks.forEach((d, i) => this.insert(this.deckCells, d.x, d.z, Math.hypot(d.hw, d.hd), i));
+  }
+
   /** Adds a box after the fact (a house that just got its walls). Returns its index. */
   addBox(b: BoxCollider): number {
     const i = this.boxes.push(b) - 1;

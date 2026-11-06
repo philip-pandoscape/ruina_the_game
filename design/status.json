@@ -1316,7 +1316,7 @@
     "The look, next: made models for the vehicles' hulls and the trade packs (their seats, oars, rigging, straps and sealed hulls need fitting by hand); the player's cottage as a made model at each build stage; bushes and hedges along the fields; surf around the crags; a graphics setting in the Settings window instead of the automatic guess; the townsfolk as made bodies, playing the same clips; choosing a look in Create Character (skin, hair, outfit dyes); more moves from clips (a block, the roll, hits and a death from Quaternius' free set; the bow, the staff and the whirlwind from Meshy).",
     "Mini-games, next: more games at the same tables (the Rules trait in crates/engine/src/minigames takes any turn-based game for two); a controller in the game window; onlookers opening the board to watch; the table solid and monsters leaving players at a table alone; the challenge prompt winning over a nearby plot or townsperson when you face a player.",
     "Goblin's Dread, next: the level plan from the concept art (the Warren hub; the water, wind and war wings with the jump puzzles; the sunbeam door; the chief's hall and the stolen lighthouse lens), with the goblins from the goblin session; moving platforms (waterwheels, swinging planks); water you can wade and swim in above sea level (the plunge pool, the cistern); a controller button for the Party window; party-only healing and loot.",
-    "Refactor, next (.plans/refactor/tracker.md): test tiers (Vitest for the tests that need no browser, a headless harness for the rules tests, integration and stress tiers), then dead code and the toon look, the admin menu and the /find-assets skill, before the Rust workspace and the moves."
+    "Refactor, next (.plans/refactor/tracker.md): delete the TypeScript copy of the rules (src/sim/, R8.13), keeping what the page reads as views, and measure frame time, start-up and memory (R8.14); crowds at scale (R10.8); then the docs pass and the one merge into beta (Phase 13)."
   ],
   "questions": [
     {
@@ -1646,6 +1646,19 @@
         "Admins: ADMIN_USERS names them (on a development server everyone, unless it names someone); the Admin menu on character select, in the world and in the yard; /dev/ and /design/ answer anyone else \"not found\".",
         "The /find-assets skill: free models, textures, skies, animations, sounds and effects searched and fetched with their licences and credits.",
         "Rust: one format (rustfmt), one random generator and one set of JavaScript maths helpers, and starting an island over now rebuilds solids in the same order every time."
+      ]
+    },
+    {
+      "date": "2026-11-06",
+      "title": "The first refactor: one copy of the rules",
+      "summary": "Phases 5 to 12 of the refactor side by side, on branch refactor/first: the Rust in a workspace, the client in areas, content in folders, the developer zones on the world server, the Ruina Bible, and the browser playing on the engine's rules (Phase 8's switch), so the server and the browser run one copy of them.",
+      "points": [
+        "The engine grows Emberholm from its recipe, on the server and, through its WebAssembly, in the browser: no bake, and the TypeScript generator is gone.",
+        "The browser plays on the engine: the Engine (src/engine/) steps the engine's session (crates/engine/src/session.rs) and reads back you, the creatures, the yard and the island after each step; online it takes the server's word on you and replays your inputs inside the engine.",
+        "Before the switch, a shadow ran the engine beside the TypeScript rules in every test and page and compared them bit for bit; it found the prompts drifted, getting off a vehicle handled two ways, and the prediction's -0 that turned you the wrong way round.",
+        "The developer zones (the yard, the battlefield, the goblin camp) are copies on the world server, with bots in the engine; the old battle server is gone.",
+        "Content in folders (content/, a file per thing, checked and built by npm run content); new content as data alone, played in a test.",
+        "The Ruina Bible at /bible/: how the game works, exactly, a page per system and an entry per thing, its numbers taken from the rules and the content."
       ]
     }
   ]

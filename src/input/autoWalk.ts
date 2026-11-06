@@ -1,5 +1,5 @@
-import { type Actions, type World, type Sim, angleDiff } from '../engine/rules';
-import { type Life, ridden } from '../engine/island';
+import { type Actions, type World, type SimView, angleDiff } from '../engine/rules';
+import { type IslandView, ridden } from '../engine/island';
 import { RoadNetwork, routeNearest, routePoint, routeTight, type Route } from '../engine/zone';
 import { isBoat, isMount, isWheeled, rideable, type WheeledDef } from '../content/vehicles';
 
@@ -70,7 +70,7 @@ export class AutoWalk {
   private vehicle = 0;
   private anchor = { x: 0, z: 0, steps: 0 };
 
-  constructor(private d: { sim: Sim; world: World; life: Life | null }) {}
+  constructor(private d: { sim: SimView; world: World; life: IslandView | null }) {}
 
   /** The island's roads, joined up the first time they are wanted. */
   get roads(): RoadNetwork {

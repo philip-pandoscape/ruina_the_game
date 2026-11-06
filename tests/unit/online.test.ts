@@ -1,45 +1,18 @@
-import { afterEach, expect, test } from 'vitest';
+import { expect, test } from 'vitest';
 import { defaultBuild } from '../../src/content/build';
 import { Engine } from '../../src/engine/engine';
 import type { Command } from '../../src/engine/island';
 import { type Actions, NO_ACTIONS, type PlayerState } from '../../src/engine/rules';
 import { EngineSession } from '../../src/engine/session';
-import { differences, shadowRules } from '../../src/engine/shadow';
 import { Prediction, quantize, stateFromServer } from '../../src/net/netPlayer';
 import type { WorldFeed } from '../../src/net/worldFeed';
 
-// The shadow (src/engine/shadow.ts, .plans/refactor R8.5): the engine's own session beside the
-// TypeScript rules, every step compared. The headless rules tests run with it on
-// (tests/support/engineSetup.ts); these hold it to failing when the two differ.
+// The Engine online (src/engine/engine.ts, src/net/netPlayer.ts, src/app/onlineWiring.ts): the
+// engine's session predicting you a round trip ahead of a server, taking its word on you and your
+// island as it comes, running quick commands ahead of it, and offering what the page says is about
+// you (someone's vehicle to ride along in, someone to challenge, a plot someone holds).
 
-afterEach(() => shadowRules(false));
-
-test('the shadow fails the step after the rules part ways', () => {
-  const seen: string[] = [];
-  shadowRules(true, (d) => seen.push(d));
-  const engine = new Engine({ openWorld: false, online: false, build: defaultBuild() });
-  engine.step(NO_ACTIONS);
-  expect(seen).toEqual([]);
-  // A write that goes round the Engine's named calls reaches the TypeScript alone.
-  engine.sim.player.hp -= 7;
-  engine.step(NO_ACTIONS);
-  expect(seen).toHaveLength(1);
-  expect(seen[0]).toMatch(/after step at frame 2:\n {2}player\.hp: \d+ vs \d+/);
-  // Having parted ways it stops comparing: everything after would differ too.
-  engine.step(NO_ACTIONS);
-  expect(seen).toHaveLength(1);
-});
-
-test('differences: missing is undefined, a seed is read mod 2^32, and lists say how long they are', () => {
-  expect(differences({ a: 1, b: undefined }, { a: 1, b: null })).toEqual([]);
-  expect(differences({ seed: 2 ** 32 + 5 }, { seed: 5 }, 'actor')).toEqual([]);
-  expect(differences([1, 2], [1, 3, 4], 'xs')).toEqual(['xs: 2 items vs 3', 'xs[1]: 2 vs 3']);
-  expect(differences({ p: { x: 0.1 } }, { p: { x: 0.2 } })).toEqual(['p.x: 0.1 vs 0.2']);
-});
-
-test("online: the server's word on you, your island as it sends it and commands run ahead come out alike", () => {
-  const seen: string[] = [];
-  shadowRules(true, (d) => seen.push(d));
+test("online: the server's word on you, your island as it sends it and commands run ahead come out as the server has them", () => {
   const build = defaultBuild();
   // An offline island stands in for the server, the engine's own (the page's island is built once
   // and every Engine on it shares its colliders): it runs the same inputs, a round trip behind.
@@ -83,7 +56,7 @@ test("online: the server's word on you, your island as it sends it and commands 
   client.plotOwners = () => ({ 'rise-2': 'Brann' });
   const post = ahead(9, 0.4);
   client.setOthersVehicles([{ ...post, r: 0.7, y: client.groundY(post.x, post.z), height: 1.5 }]);
-  client.addSolidHouse(life, { id: 1, plot: 'rise-1', blueprint: 'cottage', stage: 3, delivered: {}, storage: [], taxPaidUntil: 0 });
+  client.addSolidHouse({ id: 1, plot: 'rise-1', blueprint: 'cottage', stage: 3, delivered: {}, storage: [], taxPaidUntil: 0 });
   const field = ahead(-6, 3);
   client.addSolidScarecrow({ id: 4, ...field, rot: 0.3, cells: new Array(16).fill(null) });
 
@@ -153,13 +126,7 @@ test("online: the server's word on you, your island as it sends it and commands 
     if (i % 3 === 0 && i > 8) tick(i - 8);
     clock += 1 / 60;
   }
-  expect(seen).toEqual([]);
   expect(sent.map((c) => c.t)).toEqual(['drop', 'exit']);
   // Riding along with Brann and challenging him were both on offer on the way, and the plot he holds wasn't yours to claim.
   expect([...prompts]).toEqual(expect.arrayContaining(['Ride with Brann', 'Challenge Brann', "Brann's Plot"]));
-  // And the shadow was watching all along: a write round the Engine's calls shows at the next step.
-  client.sim.player.mp -= 3;
-  client.step(NO_ACTIONS);
-  expect(seen).toHaveLength(1);
-  expect(seen[0]).toMatch(/player\.mp/);
 });

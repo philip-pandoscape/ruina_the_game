@@ -15,7 +15,7 @@ import { actorKindAt, actorKindIds, actorKindIndex, kindName } from './content/a
 import { isAlive, behaviour, stateProgress } from './engine/creatures';
 import { type Actions, type GameEvent, angleDiff } from './engine/rules';
 import { dungeonDef, groundAt } from './engine/zone';
-import { type Life, ridden, hourAt, hourOfDay, skillBudget, type Command } from './engine/island';
+import { type IslandView, ridden, hourAt, hourOfDay, skillBudget, type Command } from './engine/island';
 import { Aiming } from './app/aiming';
 import { Hud } from './ui/hud';
 import { Stage, TRAINING_STAGE } from './render/scene';
@@ -32,7 +32,6 @@ import { goOnline } from './app/online';
 import { readOptions } from './app/options';
 import { makeTestApi } from './app/testApi';
 import { startEngine } from './engine/load';
-import { shadowRules } from './engine/shadow';
 import { YardPractice } from './app/yardPractice';
 import { rigCamera } from './app/cameraRig';
 import { makeStep } from './app/step';
@@ -109,15 +108,6 @@ let build: Build = online ? (parseBuild(online.welcome.build, Infinity) ?? defau
 // on the game server, and its developer zones) the server decides hits, so the rules here run
 // without the training dummy and hit pause, and only predict your own moves.
 await engineLoading;
-// In development, the dev server started with SHADOW=1 runs the engine's own session beside the
-// TypeScript rules in every page (src/engine/shadow.ts, tools/shadowReports.ts): a page's first
-// difference goes to the dev server, which keeps it in scratch/shadow-page.txt.
-if (import.meta.env.VITE_SHADOW === '1') {
-  shadowRules(true, (d) => {
-    console.warn(d);
-    void fetch('/__shadow', { method: 'POST', body: `${location.pathname}${location.search}\n${d}` });
-  });
-}
 const engine = new Engine({ openWorld, online: !!online, goblins: opt.goblins, build });
 const { world, terrain, sim, range } = engine;
 
@@ -422,7 +412,7 @@ function teleport(x: number, z: number, facing = engine.player.facing): void {
   walker?.stop();
   // Online only the server can move you.
   if (online) {
-    online.link.command((prediction?.seq ?? 0) + 1, { t: 'teleport', x, z, facing } as unknown as Parameters<Life['command']>[0]);
+    online.link.command((prediction?.seq ?? 0) + 1, { t: 'teleport', x, z, facing } as unknown as Parameters<IslandView['command']>[0]);
     return;
   }
   // Inside a dungeon the floor is its own, far over the island's ground.

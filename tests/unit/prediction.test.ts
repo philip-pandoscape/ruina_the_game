@@ -4,13 +4,12 @@ import { Prediction, quantize } from '../../src/net/netPlayer';
 import { defaultBuild } from '../../src/content/build';
 import { Engine } from '../../src/engine/engine';
 import { NO_ACTIONS } from '../../src/sim/types';
-import { makeBattlefield } from '../../src/sim/yard';
 
 // Predicting your own player online (src/net/netPlayer.ts): replaying the inputs the server hasn't
 // answered yet must not run the clock everything is drawn by faster than time.
 
 test('online, running the unanswered inputs again on each server update leaves the clock everything is drawn by at the speed of time', () => {
-  const engine = new Engine({ openWorld: false, online: true, build: defaultBuild(), world: makeBattlefield() });
+  const engine = new Engine({ openWorld: false, online: true, build: defaultBuild() });
   const net = { renderTick: () => 0, sendInput: () => {} } as unknown as WorldFeed;
   const prediction = new Prediction(engine, net);
   const state = () => JSON.parse(JSON.stringify(engine.player));

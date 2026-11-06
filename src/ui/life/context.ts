@@ -1,7 +1,7 @@
 import type * as THREE from 'three';
 import type { Vitals } from '../hud';
-import type { Command, Life } from '../../engine/island';
-import type { Sim, World } from '../../engine/rules';
+import type { Command, IslandView } from '../../engine/island';
+import type { SimView, World } from '../../engine/rules';
 import type { Goal } from './hud/goal';
 import type { TravelUI } from './travelUI';
 
@@ -34,10 +34,10 @@ export interface AppHooks {
 }
 
 export interface IslandUI {
-  readonly life: Life;
+  readonly life: IslandView;
   /** Gives the island a command, through the app (never `life.command` directly). */
   command(c: Command): void;
-  readonly sim: Sim;
+  readonly sim: SimView;
   readonly world: World;
   readonly app: AppHooks;
   camera(): THREE.Camera;

@@ -5,13 +5,14 @@ import { designForItem, shipDesign } from '../../content/shipyard';
 import { itemDef } from '../../content/items';
 import { packDef } from '../../content/trade';
 import { carried, consumeCarried } from './trade';
+import type { IslandRead } from './life';
 
 // Slipways, where big ships are built the way houses are: a design claims the slip, then each
 // stage is finished by hauling its material packs there and putting in the labor. The last stage
 // launches her: the slip clears and you hold the deed.
 
 export const slipDef = (life: Life, slip: string) => life.zone.recipe.shipyards.find((s) => s.id === slip);
-export const shipOn = (life: Life, slip: string): ShipBuild | undefined => life.state.ships.find((s) => s.slip === slip);
+export const shipOn = (life: IslandRead, slip: string): ShipBuild | undefined => life.state.ships.find((s) => s.slip === slip);
 
 export function shipNeeds(b: ShipBuild): Array<{ pack: string; need: number; have: number }> {
   const stage = shipDesign(b.design).stages[b.stage];

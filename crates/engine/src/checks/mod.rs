@@ -80,19 +80,41 @@ mod tests {
             .collect()
     }
 
-    /// Runs every case of a check and lists the ones whose answers aren't the ones kept.
+    /// Runs every case of a check and lists the ones whose answers aren't the ones kept. With
+    /// RUINA_GOLDEN set, the answers given are kept instead (a rule changed on purpose).
     fn differ(check: &str, run: fn(&str) -> serde_json::Result<String>) -> Vec<String> {
-        cases(check)
+        let found: Vec<(String, String, String)> = cases(check)
             .into_iter()
-            .filter_map(|(name, input, hash)| {
+            .map(|(name, input, kept)| {
                 let got = fnv1a64(&run(&input).expect("the scenario runs"));
-                (got != hash).then(|| format!("{name}: {got}, kept {hash}"))
+                (name, kept, got)
             })
-            .collect()
+            .collect();
+        if std::env::var_os("RUINA_GOLDEN").is_some() {
+            keep(check, &found);
+            return Vec::new();
+        }
+        found.into_iter().filter(|(_, kept, got)| got != kept).map(|(name, kept, got)| format!("{name}: {got}, kept {kept}")).collect()
     }
 
-    const WHY: &str = "a rule's answers changed from the ones the TypeScript agreed with; if both sides changed on purpose, \
-                       write the new answers with RUINA_GOLDEN=1 npm run test:conformance";
+    /// Writes the answers given in place of the ones kept, case by case: each case is a line of its
+    /// own in the golden file, so only the hashes that changed change.
+    fn keep(check: &str, found: &[(String, String, String)]) {
+        let path = format!("{}/tests/golden/{check}.json", env!("CARGO_MANIFEST_DIR"));
+        let text = std::fs::read_to_string(&path).expect("the golden file");
+        let lines: Vec<String> = text
+            .lines()
+            .map(|line| {
+                let Ok(case) = serde_json::from_str::<Value>(line.trim_end_matches(',')) else { return line.to_string() };
+                let Some((_, kept, got)) = found.iter().find(|(name, _, _)| case["name"] == name.as_str()) else { return line.to_string() };
+                line.replacen(&format!("\"hash\":\"{kept}\""), &format!("\"hash\":\"{got}\""), 1)
+            })
+            .collect();
+        std::fs::write(&path, lines.join("\n") + "\n").expect("the golden file written");
+    }
+
+    const WHY: &str = "a rule's answers changed from the ones kept; if it changed on purpose, \
+                       keep the new answers with RUINA_GOLDEN=1 cargo test --release -p ruina-engine golden";
 
     #[test]
     fn creatures_give_the_answers_the_typescript_agreed_with() {

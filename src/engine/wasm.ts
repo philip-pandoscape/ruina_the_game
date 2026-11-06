@@ -46,6 +46,11 @@ interface Exports {
   session_call(h: number, p: number, n: number): number;
   session_world_clock(h: number, t: number): void;
   session_take_island(h: number, p: number, n: number): number;
+  session_view(h: number, events: number): number;
+  session_solid_key(h: number): number;
+  session_colliders(h: number): number;
+  session_clear_ptr(h: number): number;
+  session_clear_len(h: number): number;
 }
 
 let engine: Exports | null = null;

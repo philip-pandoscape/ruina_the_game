@@ -9,7 +9,7 @@ import { isPine } from '../render/open/foliage';
 import { type WeaponAt } from '../render/character';
 import { isAlive, type Actor, stateName } from '../engine/creatures';
 import { NO_ACTIONS, type Actions } from '../engine/rules';
-import { Life } from '../engine/island';
+import { IslandView } from '../engine/island';
 import { LifeUI } from '../ui/life/lifeUI';
 import { clearLife, saveLife } from './save';
 import { BOOK } from '../content/skills';
@@ -393,7 +393,7 @@ export function makeTestApi(g: GameRefs) {
       return g.life ? g.skyHour() : null;
     },
     /** Queues a life command (it runs on the next sim step). */
-    lifeCommand(c: Parameters<Life['command']>[0]): void {
+    lifeCommand(c: Parameters<IslandView['command']>[0]): void {
       g.islandCommand(c);
     },
     /**
@@ -401,7 +401,7 @@ export function makeTestApi(g: GameRefs) {
      * or with `n` 0 every bot here sent away (the server's; crates/server/src/play/bots.rs).
      */
     sendBots(n: number, brain?: string, team?: number): boolean {
-      const c = { t: 'bots', n, brain, team } as unknown as Parameters<Life['command']>[0];
+      const c = { t: 'bots', n, brain, team } as unknown as Parameters<IslandView['command']>[0];
       return g.online?.link.command((g.prediction?.seq ?? 0) + 1, c) ?? false;
     },
     /** Jumps the player to (x, z) on the ground (`drawn` false leaves drawing it to the caller, as advance's does). */

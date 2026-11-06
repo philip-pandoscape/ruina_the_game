@@ -362,38 +362,3 @@ fn call(s: &mut Session, v: &Value) -> Value {
     }
     Value::Null
 }
-
-// ---------- The engine's maths, for the shadow ----------
-// The TypeScript rules call Math.sin and Math.cos, which in V8 differ from the engine's (libm's) in
-// the last bit on about 1% of inputs. While the shadow compares the two, the tests point Math.sin,
-// Math.cos, Math.atan2, Math.exp and Math.pow at these, so what is left to differ is the rules.
-
-#[unsafe(no_mangle)]
-pub extern "C" fn js_sin(x: f64) -> f64 {
-    use ruina_engine::jsmath::JsMath;
-    x.js_sin()
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn js_cos(x: f64) -> f64 {
-    use ruina_engine::jsmath::JsMath;
-    x.js_cos()
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn js_atan2(y: f64, x: f64) -> f64 {
-    use ruina_engine::jsmath::JsMath;
-    y.js_atan2(x)
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn js_exp(x: f64) -> f64 {
-    use ruina_engine::jsmath::JsMath;
-    x.js_exp()
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn js_pow(x: f64, y: f64) -> f64 {
-    use ruina_engine::jsmath::JsMath;
-    x.js_pow(y)
-}

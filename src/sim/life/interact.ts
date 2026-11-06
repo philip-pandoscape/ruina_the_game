@@ -20,6 +20,7 @@ import { shipDesign, designForItem } from '../../content/shipyard';
 import { questDef } from '../../content/quests';
 import { CHALLENGE } from '../../content/minigames';
 import { dungeonDef, inWorld } from '../zone/dungeon';
+import type { IslandRead } from './life';
 
 // What pressing F does right now, and the commands everything else sends. The focus is worked out
 // every step from what is near you and in front of you, so the prompt on screen is always exactly
@@ -98,7 +99,7 @@ const NODE_YIELD = GATHERING;
 
 const outpostOf = (life: Life, npc: string) => life.zone.recipe.outposts.find((o) => o.npc === npc);
 
-export function nodeReady(life: Life, i: number): boolean {
+export function nodeReady(life: IslandRead, i: number): boolean {
   return (life.state.nodes[i] ?? 0) <= life.state.clock;
 }
 

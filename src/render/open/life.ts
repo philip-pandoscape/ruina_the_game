@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import {
-  type Life,
+  type IslandView,
   type Scarecrow,
   type Vehicle,
   cellCentre,
@@ -13,7 +13,7 @@ import {
   sailEfficiency,
   stormAt,
 } from '../../engine/island';
-import { type Sim, type PlayerState, angleDiff } from '../../engine/rules';
+import { type SimView, type PlayerState, angleDiff } from '../../engine/rules';
 import { toLocal, toWorld, type Heightfield } from '../../engine/zone';
 import type { Hero, SeatPose } from '../character';
 import { rideable, glider as gliderDef, isBoat, isMount, isWheeled, type RideableDef } from '../../content/vehicles';
@@ -216,7 +216,7 @@ export class LifeView {
 
   constructor(
     scene: THREE.Scene,
-    private life: Life,
+    private life: IslandView,
     private models: Models,
     private hero: Hero,
     opts: { others?: boolean } = {},
@@ -682,7 +682,7 @@ export class LifeView {
     if (s.mount) s.mount(dt, { speed: Math.abs(v.speed), grounded: v.grounded });
   }
 
-  update(sim: Sim, dt: number, cameraPos: THREE.Vector3): void {
+  update(sim: SimView, dt: number, cameraPos: THREE.Vector3): void {
     this.time += dt;
     const life = this.life;
     const hf = life.zone.gen.terrain;

@@ -12,6 +12,8 @@ import { MOVE, STEP } from '../../content/tuning';
 import { GROUND, STORM, SWIM } from '../../content/traversal';
 import { stormAt } from './weather';
 import { TAU } from '../../util/math';
+import type { IslandRead } from './life';
+import type { SimRead } from '../types';
 
 // Carts, cars, boats and mounts. Wheeled things keep their own world velocity and only grip the
 // road sideways, so a handbrake turn really slides; boats sail on whatever wind is blowing and run
@@ -21,12 +23,12 @@ const G = 9.81 * 1.6;
 const wrap = (a: number) => (a > Math.PI ? a - TAU : a < -Math.PI ? a + TAU : a);
 const clamp = (v: number, lo: number, hi: number) => (v < lo ? lo : v > hi ? hi : v);
 
-export const vehicleById = (life: Life, id: number): Vehicle | undefined => life.state.vehicles.find((v) => v.id === id);
+export const vehicleById = (life: IslandRead, id: number): Vehicle | undefined => life.state.vehicles.find((v) => v.id === id);
 /**
  * The vehicle of yours you are riding. Riding along in someone else's (`host` set), it's theirs, not
  * one of your island's, even when one of yours has the same number.
  */
-export const ridden = (life: Life, sim: Sim): Vehicle | undefined =>
+export const ridden = (life: IslandRead, sim: SimRead): Vehicle | undefined =>
   sim.player.vehicle && !sim.player.host ? vehicleById(life, sim.player.vehicle) : undefined;
 
 /**
@@ -49,7 +51,7 @@ export function anchorWorld(v: Vehicle, a: { x: number; y: number; z: number }):
 
 // ---------- Summoning ----------
 
-function clearAt(sim: Sim, x: number, z: number, r: number): boolean {
+function clearAt(sim: SimRead, x: number, z: number, r: number): boolean {
   let ok = true;
   sim.world.index?.eachObstacle(x, z, r + 1, (o) => {
     if (o.r > 0 && Math.hypot(o.x - x, o.z - z) < o.r + r) ok = false;
@@ -229,7 +231,7 @@ export function board(life: Life, sim: Sim, v: Vehicle): boolean {
 }
 
 /** Where you would end up stepping out of a vehicle (dry land or a deck if any side has one). */
-export function exitSpot(sim: Sim, v: Vehicle): { x: number; y: number; z: number; dry: boolean } {
+export function exitSpot(sim: SimRead, v: Vehicle): { x: number; y: number; z: number; dry: boolean } {
   const def = rideable(v.def);
   const hf = sim.world.terrain!;
   const side = def.width / 2 + 0.7;

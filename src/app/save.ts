@@ -1,5 +1,5 @@
-import { type Life, islandData, type Saved } from '../engine/island';
-import type { Sim } from '../engine/rules';
+import { type IslandView, islandData, type Saved } from '../engine/island';
+import type { SimView } from '../engine/rules';
 
 // Your island between visits, in this browser: only for automated tests and bug-report replays
 // (?world&test&load), never for players, whose islands live on the game server (kept in Postgres).
@@ -9,11 +9,11 @@ import type { Sim } from '../engine/rules';
 export const SAVE_KEY = 'ruina.emberholm.v1';
 const KEY = SAVE_KEY;
 
-export function saveData(life: Life, sim: Sim): Saved {
+export function saveData(life: IslandView, sim: SimView): Saved {
   return { savedAt: Date.now(), ...islandData(life, sim) };
 }
 
-export function saveLife(life: Life, sim: Sim): void {
+export function saveLife(life: IslandView, sim: SimView): void {
   try {
     localStorage.setItem(KEY, JSON.stringify(saveData(life, sim)));
   } catch {

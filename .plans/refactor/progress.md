@@ -17,7 +17,7 @@ is in [tracker.md](tracker.md), the plan in [README.md](README.md).
 | 5 The Rust Workspace | done |
 | 6 The Client in Areas | in progress |
 | 7 Content in Folders | done |
-| 8 One Copy of the Rules | in progress: the engine plays the browser's game beside the TypeScript, offline and online, matching it bit for bit; the switch is next |
+| 8 One Copy of the Rules | in progress: the browser plays on the engine's rules (the switch is done); deleting the TypeScript copy is next |
 | 9 Content as Data, Finished | begun |
 | 10 Zones, Developer Zones and Bots | zones done, the old battle server gone; crowds at scale to go |
 | 11 Assets | done; the browser's download work dropped (D15) |
@@ -374,6 +374,20 @@ the developer zone; then the engine bridge (R6.4) and Phase 8's switches.
 - **A sub-agent is back, one at a time** (the user's word), on Opus 5.5 at max effort in a worktree
   of its own. It has the mini-games (the board shows what the engine's rules allow), then the UI
   gallery.
-- **Next:** the switch. The Engine answers from the engine's session, the page reads snapshots of
-  you, the creatures and the island, and `src/sim/` (9,668 lines) goes, keeping only what the page
-  reads as views (types, the ground's sampling, the roads).
+- **The page shadow found one difference, and it was real.** Played with the shadow on, the whole
+  integration tier found one difference, twice: the prediction rounded a stick nudged just left of
+  straight back to -0, which the server, rebuilding it from a byte, has as 0, so turning to face
+  straight back went the other way in the browser. Fixed, with a unit test.
+- **The switch (R8.7-R8.9, done).** The browser plays on the engine's rules: the Engine answers
+  every step and call from the engine's session, and the page reads snapshots back after each one
+  (you, your levels, the creatures, the yard's arrows and meteors, the island, its prompt and what it
+  said). The page's names stayed (`engine.sim`, `engine.life`), as views, so the windows and the
+  drawing didn't change. What's solid has one copy too: the camera's and the drawing's colliders are
+  read back from the engine whenever they change. The shadow went with the TypeScript it compared;
+  its online scenario stays as a test against an engine standing in for the server. The
+  integration tier found two slips (a reset kept the old log; levels the island raised didn't reach
+  the page), both fixed. A step costs 0.03 ms online and 0.3 ms offline on the island, most of it
+  reading the island back.
+- **Next:** delete `src/sim/` (9,668 lines, R8.13), keeping only what the page reads as views
+  (types, the ground's sampling, the roads, the island's read helpers), and the conformance checks
+  with it; then measure frame time, start-up and memory against the baseline (R8.14).

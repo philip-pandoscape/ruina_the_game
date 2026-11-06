@@ -65,20 +65,6 @@ export function circleHits(targets: readonly Target[], x: number, z: number, rad
   return hits;
 }
 
-/** A projectile at a point in flight: the first thing it touches, or null. */
-export function pointHit(targets: readonly Target[], x: number, y: number, z: number, pad = 0): Target | null {
-  let best: Target | null = null;
-  let bestDist = Infinity;
-  for (const t of targets) {
-    if (y > t.hitCeiling) continue;
-    const dist = Math.hypot(t.x - x, t.z - z);
-    if (dist > t.radius + pad || dist >= bestDist) continue;
-    best = t;
-    bestDist = dist;
-  }
-  return best;
-}
-
 /** The nearest thing worth swinging at, for auto-aim. Ignores the arc. */
 export function nearest(targets: readonly Target[], x: number, z: number, within: number): Target | null {
   let best: Target | null = null;

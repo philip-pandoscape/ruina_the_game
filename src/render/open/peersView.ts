@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import type { Life } from '../../engine/island';
-import type { Sim, PlayerState } from '../../engine/rules';
+import type { IslandView } from '../../engine/island';
+import type { SimView, PlayerState } from '../../engine/rules';
 import { Hero } from '../character';
 import type { HouseView } from '../village/village';
 import { LifeView, sitIn, type Seated } from './life';
@@ -20,7 +20,7 @@ export interface ShownPeer {
   /** Their state at the moment drawn. */
   readonly shown: PlayerState;
   /** What of their island everyone sees. */
-  readonly life: Life;
+  readonly life: IslandView;
   /** How far they are from you (m). */
   readonly away: number;
 }
@@ -116,7 +116,7 @@ export class PeersView {
       const b = this.body(p);
       if (p.drawn) this.pose(p, b, dt, frame);
       else b.hero.root.visible = false;
-      b.view.update({ player: p.shown } as unknown as Sim, dt, cameraPos);
+      b.view.update({ player: p.shown } as unknown as SimView, dt, cameraPos);
       plateFor(b.label, p.away);
     }
   }

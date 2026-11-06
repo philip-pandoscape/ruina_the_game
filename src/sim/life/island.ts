@@ -8,6 +8,8 @@ import type { Life } from './life';
 import { LIFE_VERSION, type LifeState } from './state';
 import { recoverDemand } from './trade';
 import { exitSpot, ridden } from './vehicles';
+import type { IslandRead } from './life';
+import type { SimRead } from '../types';
 
 // Your island as the rules keep it between visits: money, bag, farms, house, vehicles, quests, and
 // where you were standing, and how it's taken up again with the time you were away (crops ripen,
@@ -27,7 +29,7 @@ export interface Saved extends Island {
 }
 
 /** The island as it would be saved right now. */
-export function islandData(life: Life, sim: Sim): Island {
+export function islandData(life: IslandRead, sim: SimRead): Island {
   const p = sim.player;
   // Riding is not saved: you will be standing beside it next time.
   const v = p.mode === 'ride' ? ridden(life, sim) : undefined;

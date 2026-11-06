@@ -14,6 +14,7 @@ import { MOVE } from '../../content/tuning';
 import type { Actions, PlayerState } from '../types';
 import type { Updraft } from '../zone/types';
 import { TAU } from '../../util/math';
+import type { SimRead } from '../types';
 
 // ---------- Integration over terrain ----------
 
@@ -312,7 +313,7 @@ export function updateSwim(sim: Sim, a: Actions): void {
 // ---------- Gliding ----------
 
 /** Height of your feet above whatever is under you (water counts as a floor). */
-export function heightAboveGround(sim: Sim): number {
+export function heightAboveGround(sim: SimRead): number {
   const p = sim.player;
   const hf = sim.world.terrain;
   if (!hf) return p.pos.y;

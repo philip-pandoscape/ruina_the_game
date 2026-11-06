@@ -4,10 +4,15 @@
 // Engine runs one beside its TypeScript rules when shadowing (src/engine/shadow.ts), and in time in
 // their place (the refactor's Phase 8).
 
+import type { Levels } from '../content/skills';
 import type { Build } from '../content/tuning';
 import type { Actor, Missile } from '../sim/actor';
+import type { Focus, Placement } from '../sim/life/interact';
+import type { LifeEvent } from '../sim/life/life';
 import type { LifeState } from '../sim/life/state';
-import type { Actions, GameEvent, PlayerState } from '../sim/types';
+import type { ArrowFlight, MeteorFall } from '../sim/training';
+import type { Actions, GameEvent, Obstacle, PlayerState } from '../sim/types';
+import type { BoxCollider, Deck } from '../sim/zone/types';
 import { answer, wasm, withText } from './wasm';
 
 export interface SessionOptions {
@@ -20,10 +25,29 @@ export interface SessionOptions {
 /** The island as the session shows it. */
 export interface SessionLife {
   state: LifeState;
-  focus: { action: string; key: string; label: string; ok: boolean } | null;
-  placing: unknown;
+  focus: Focus | null;
+  placing: Placement | null;
   resting: boolean;
   revision: number;
+}
+
+/** Everything the page reads after a step or a call (crates/engine/src/session.rs view_json). */
+export interface SessionView {
+  frame: number;
+  hitstop: number;
+  player: PlayerState;
+  /** Your skill levels, which the island raises as you earn them. */
+  levels: Levels;
+  actors: { list: Actor[]; missiles: Missile[]; arrows: ArrowFlight[]; meteors: MeteorFall[] };
+  life: SessionLife | null;
+  /** What the island said (toasts, windows to open), taken. */
+  said: LifeEvent[];
+  /** Offline, fallen out of the bottom of a copy this step: put back where it's entered, facing this way. */
+  placed: number | null;
+  /** Changes whenever what's solid does. */
+  solid: number;
+  /** After a step, what happened in it (taken); after a call, nothing (it comes out with the next step). */
+  events: GameEvent[];
 }
 
 export class EngineSession {
@@ -71,6 +95,24 @@ export class EngineSession {
   takeIsland(island: { state: LifeState; placing: unknown; resting: boolean }): void {
     const e = wasm();
     if (!withText(JSON.stringify(island), (p, n) => e.session_take_island(this.h, p, n))) throw new Error('engine session: the island could not be read');
+  }
+
+  /** Everything the page reads, after a step (`events`: with what happened in it, taken) or a call. */
+  view(events: boolean): SessionView {
+    return answer<SessionView>(wasm().session_view(this.h, events ? 1 : 0));
+  }
+
+  /** Everything solid on the island as it stands (null on the yard's flat ground). */
+  colliders(): { obstacles: Obstacle[]; boxes: BoxCollider[]; decks: Deck[] } | null {
+    return answer(wasm().session_colliders(this.h));
+  }
+
+  /** The island's cells kept clear of trees and scarecrows, copied into `into` (as long as the island's). */
+  clear(into: Uint8Array): void {
+    const e = wasm();
+    const n = e.session_clear_len(this.h);
+    if (n !== into.length) return;
+    into.set(new Uint8Array(e.memory.buffer, e.session_clear_ptr(this.h), n));
   }
 
   /** One of the Engine's other calls, by its name, with its arguments. */

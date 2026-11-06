@@ -2,8 +2,8 @@ import type * as THREE from 'three';
 import type { AutoWalk } from '../../input/autoWalk';
 import { packDef } from '../../content/trade';
 import type { Vitals } from '../hud';
-import { housePose, stillNeeds, type Command, type Life, type LifeEvent } from '../../engine/island';
-import type { Sim, World } from '../../engine/rules';
+import { housePose, stillNeeds, type Command, type IslandView, type LifeEvent } from '../../engine/island';
+import type { SimView, World } from '../../engine/rules';
 import { DockedWindow, type View } from '../components/window';
 import { closeMenu, menuPress } from '../theme/contextMenu';
 import { uiRoot } from '../theme/scale';
@@ -64,10 +64,10 @@ export type LifePress =
   | 'admin';
 
 export interface LifeUIDeps {
-  life: Life;
+  life: IslandView;
   /** Gives the island a command (the app notes it for bug reports and passes it to the rules). */
   command: (c: Command) => void;
-  sim: Sim;
+  sim: SimView;
   world: World;
   camera: () => THREE.Camera;
   yaw: () => number;
@@ -229,7 +229,7 @@ export class LifeUI {
     return this.panel?.kind ?? (this.bagOpen ? 'bag' : null);
   }
 
-  get life(): Life {
+  get life(): IslandView {
     return this.d.life;
   }
 

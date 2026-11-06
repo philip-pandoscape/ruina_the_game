@@ -3,8 +3,19 @@ import { claimsPlot, RECIPES, VENDORS } from '../../../content/items';
 import { type Objective, objectiveTarget, type QuestMarker, questDef } from '../../../content/quests';
 import { structureDef } from '../../../content/structures';
 import { packDef, placeName } from '../../../content/trade';
-import { housePose, isComplete, stageReady, stillNeeds, nodeReady, type Life, shipFinished, shipNeeds, shipOn, shipStageReady } from '../../../engine/island';
-import type { Sim } from '../../../engine/rules';
+import {
+  housePose,
+  isComplete,
+  stageReady,
+  stillNeeds,
+  nodeReady,
+  type IslandRead,
+  shipFinished,
+  shipNeeds,
+  shipOn,
+  shipStageReady,
+} from '../../../engine/island';
+import type { SimRead } from '../../../engine/rules';
 
 // Where the quest you're on leads you: the ring on both maps, the marker on the compass, and what
 // `LifeUI.goal` tells the tests. What an objective names leads first (the person to talk to, the
@@ -15,7 +26,7 @@ import type { Sim } from '../../../engine/rules';
 export type Goal = { x: number; z: number; label: string };
 
 /** Where the first unfinished quest wants you to go. */
-export function questGoal(life: Life, sim: Sim): Goal | null {
+export function questGoal(life: IslandRead, sim: SimRead): Goal | null {
   const r = life.zone.recipe;
   for (const qp of life.state.quests.active) {
     const q = questDef(qp.id);
@@ -37,7 +48,7 @@ export function questGoal(life: Life, sim: Sim): Goal | null {
 }
 
 /** Where an unfinished objective leads, or null if nowhere in particular. */
-function objectiveGoal(life: Life, sim: Sim, o: Objective): Goal | null {
+function objectiveGoal(life: IslandRead, sim: SimRead, o: Objective): Goal | null {
   const r = life.zone.recipe;
   const s = life.state;
   const n = o.npc ? r.npcs.find((x) => x.id === o.npc) : undefined;
@@ -94,7 +105,7 @@ function objectiveGoal(life: Life, sim: Sim, o: Objective): Goal | null {
 }
 
 /** The spot a quest's marker names, called by its own name there unless the marker gives another. */
-function marked(life: Life, m: QuestMarker | undefined): Goal | null {
+function marked(life: IslandRead, m: QuestMarker | undefined): Goal | null {
   if (!m) return null;
   const r = life.zone.recipe;
   const at = (spot: { x: number; z: number } | undefined, name: string): Goal | null => (spot ? { x: spot.x, z: spot.z, label: m.label ?? name } : null);
@@ -121,7 +132,7 @@ function marked(life: Life, m: QuestMarker | undefined): Goal | null {
 const benchGoal = (b: { x: number; z: number; name?: string }): Goal => ({ x: b.x, z: b.z, label: b.name ?? 'Workbench' });
 
 /** The nearest resource node that gives `kind` (timber, stone...), one ready to work before one picked clean. */
-function nodeFor(life: Life, sim: Sim, kind?: string): Goal | null {
+function nodeFor(life: IslandRead, sim: SimRead, kind?: string): Goal | null {
   const p = sim.player.pos;
   const nodes = life.zone.recipe.nodes;
   let best: Goal | null = null;
@@ -140,7 +151,7 @@ function nodeFor(life: Life, sim: Sim, kind?: string): Goal | null {
 }
 
 /** The workbench that makes a pack. */
-function benchFor(life: Life, pack: string): Goal | null {
+function benchFor(life: IslandRead, pack: string): Goal | null {
   const rc = RECIPES.find((x) => x.makes.pack === pack);
   const b = rc ? life.zone.recipe.workbenches.find((w) => w.id === rc.bench) : undefined;
   return b ? benchGoal(b) : null;
@@ -151,7 +162,7 @@ function benchFor(life: Life, pack: string): Goal | null {
  * have a pack it wants on your back or aboard a vehicle; a pack it wants that you left lying
  * somewhere; otherwise the bench that makes the first pack it still wants.
  */
-function fetchFor(life: Life, sim: Sim, needs: Array<{ pack: string; have: number; need: number }>, ready: boolean, site: Goal): Goal {
+function fetchFor(life: IslandRead, sim: SimRead, needs: Array<{ pack: string; have: number; need: number }>, ready: boolean, site: Goal): Goal {
   const want = needs.filter((n) => n.have < n.need).map((n) => n.pack);
   if (ready || !want.length) return site;
   const mine = life.state.packs.filter((pk) => want.includes(pk.def));

@@ -1,7 +1,7 @@
 import data from '../../../shared/dungeons.json' with { type: 'json' };
-import { inRect, type ColliderIndex } from './colliders';
+import { inRect } from './colliders';
 import { rect } from './frames';
-import type { BoxCollider, Deck, DungeonDoor, ZoneRecipe } from './types';
+import type { DungeonDoor, ZoneRecipe } from './types';
 
 // The island's dungeons and the developer zones (content/dungeons/<id>.json, built into
 // shared/dungeons.json; docs/zones.md). Each party plays its own copy of one, which the
@@ -71,12 +71,6 @@ export function inWorld(def: DungeonDef, x: number, z: number, y = 0): { x: numb
   return { x: def.origin.x + x, y: def.origin.y + y, z: def.origin.z + z };
 }
 
-/** A dungeon's boxes and decks, where they stand in the world. */
-export function dungeonColliders(def: DungeonDef): { boxes: BoxCollider[]; decks: Deck[] } {
-  const place = (p: DungeonPiece) => rect(def.origin.x + p.x, def.origin.z + p.z, p.hw, p.hd, p.rot, def.origin.y + p.top);
-  return { boxes: def.boxes.map(place), decks: def.decks.map(place) };
-}
-
 /**
  * The floor at (x, z) in the world, if a copy of the dungeon has one there: the top of the highest of
  * its low pieces (a floor, a deck; walls and rails aren't floor) whose footprint holds the point.
@@ -96,25 +90,4 @@ export function floorAt(def: DungeonDef, x: number, z: number): number | null {
 /** Where you stand on arriving: on the floor at `arrive`, facing the way it says. */
 export function arrivalOf(def: DungeonDef): { x: number; y: number; z: number; facing: number } {
   return { ...inWorld(def, def.arrive.x, def.arrive.z), facing: def.arrive.facing };
-}
-
-/** A dungeon's boxes and decks in a world's index (their places in its lists), solid or not. */
-export interface DungeonSolids {
-  def: DungeonDef;
-  boxes: number[];
-  decks: number[];
-  solid: boolean;
-}
-
-/**
- * Makes a dungeon solid in a world (you've come into a copy of it), or not (you've left): added
- * the first time, after that only switched on and off, so coming and going doesn't pile them up.
- */
-export function setDungeonSolid(index: ColliderIndex, def: DungeonDef, had: DungeonSolids | null, solid: boolean): DungeonSolids {
-  const { boxes, decks } = dungeonColliders(def);
-  const s = had ?? { def, boxes: boxes.map((b) => index.addBox(b)), decks: decks.map((d) => index.addDeck(d)), solid: true };
-  s.boxes.forEach((i, k) => (solid ? (index.boxes[i].top = boxes[k].top) : index.removeBox(i)));
-  s.decks.forEach((i, k) => (solid ? (index.decks[i].top = decks[k].top) : index.removeDeck(i)));
-  s.solid = solid;
-  return s;
 }

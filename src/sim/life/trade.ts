@@ -5,6 +5,8 @@ import { DEMAND, FRESHNESS, packDef, route, formatCoins, placeName } from '../..
 import { itemDef, recipe as recipeDef, vendorFor, type RecipeDef } from '../../content/items';
 import { groundAt } from '../zone/colliders';
 import { contractDelivered } from './contracts';
+import type { IslandRead } from './life';
+import type { SimRead } from '../types';
 
 // Pack running. A pack is made at a workbench from local goods and labor, rides on your back
 // (slowly - no sprint, no double jump, no glider) or in a vehicle's cargo, and is sold at a
@@ -15,7 +17,7 @@ import { contractDelivered } from './contracts';
 
 const demandKey = (outpost: string, pack: string) => `${outpost}:${pack}`;
 
-export function demandAt(life: Life, outpost: string, pack: string): number {
+export function demandAt(life: IslandRead, outpost: string, pack: string): number {
   return life.state.demand[demandKey(outpost, pack)] ?? DEMAND.start;
 }
 
@@ -38,7 +40,7 @@ export interface Quote {
 }
 
 /** What a trading post would pay for a pack right now, or null if it will not buy it. */
-export function quote(life: Life, pack: Pack, outpost: string): Quote | null {
+export function quote(life: IslandRead, pack: Pack, outpost: string): Quote | null {
   const def = packDef(pack.def);
   if ((def as { kind?: string }).kind === 'material') return null;
   const r = route(pack.origin, outpost);
@@ -60,8 +62,8 @@ export function recoverDemand(life: Life, seconds: number): void {
 
 // ---------- Where packs are ----------
 
-export const packById = (life: Life, id: number): Pack | undefined => life.state.packs.find((p) => p.id === id);
-export const carried = (life: Life, sim: Sim): Pack | undefined => (sim.player.pack ? packById(life, sim.player.pack) : undefined);
+export const packById = (life: IslandRead, id: number): Pack | undefined => life.state.packs.find((p) => p.id === id);
+export const carried = (life: IslandRead, sim: SimRead): Pack | undefined => (sim.player.pack ? packById(life, sim.player.pack) : undefined);
 
 function removePack(life: Life, id: number): void {
   const i = life.state.packs.findIndex((p) => p.id === id);

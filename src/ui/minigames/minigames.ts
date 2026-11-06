@@ -1,7 +1,7 @@
 import './minigames.css';
 import { CHALLENGE, MINIGAMES, SEAT_COLORS, minigame, stakesFor } from '../../content/minigames';
 import type { ChallengeView, TableLink, TableView } from './tables';
-import type { Life } from '../../engine/island';
+import type { IslandView } from '../../engine/island';
 import { docksLeft, type LifePress } from '../life/lifeUI';
 import { closeMenu, openMenu } from '../theme/contextMenu';
 import { iconHtml, money } from '../theme/icons';
@@ -20,7 +20,7 @@ import { esc } from '../../util/html';
 
 export interface MinigamesDeps {
   link: TableLink;
-  life: Life;
+  life: IslandView;
   /** Which of the island's windows is open, if any (Escape closes that first). */
   openPanel: () => string | null;
   /** The pointer is the camera's: let go of it, to use a window. */

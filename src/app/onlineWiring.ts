@@ -128,7 +128,7 @@ export function wireOnline(g: GameRefs): void {
           lastRev = t.life.rev;
           life.revision++;
           // What you've built is solid here as it is on the server.
-          for (const h of life.state.houses) g.engine.addSolidHouse(life, h);
+          for (const h of life.state.houses) g.engine.addSolidHouse(h);
           for (const sc of life.state.scarecrows) {
             if (solidScarecrows.has(sc.id)) continue;
             solidScarecrows.add(sc.id);

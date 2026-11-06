@@ -267,6 +267,12 @@ export interface World {
   movers?: Mover[];
 }
 
+/** What the helpers the page calls read of the rules: you and the world (the engine's snapshot, src/engine/views.ts, or the Sim). */
+export interface SimRead {
+  readonly player: PlayerState;
+  readonly world: World;
+}
+
 /** One circle of something solid that moves (a vehicle), with the height it stands at and how tall it is. */
 export interface Mover {
   x: number;

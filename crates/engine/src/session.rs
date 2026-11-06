@@ -927,6 +927,7 @@ impl Session {
             "frame": self.frame,
             "hitstop": self.hitstop,
             "player": self.player_json(),
+            "levels": self.player.levels,
             "actors": self.actors_json(),
             "life": self.life_json(),
             "said": said,

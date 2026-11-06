@@ -11,10 +11,8 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
 
 - **Phase:** 6 (the client in areas) and 8 (one copy of the rules), with 7, 11 and 12 done or
   nearly, and 9 and 10 mostly landed beside them. The old battle server is gone (R10.9, R10.10).
-- **Next:** Phase 8: the engine's session plays the offline game and the shadow holds it to the
-  TypeScript (R8.5), offline and online (R8.3b), in the headless tests and in every page of the
-  integration tier; next the switch (R8.7-R8.9: the Engine answers from the session) and deleting
-  `src/sim/` (R8.13); then crowds at scale (R10.8).
+- **Next:** Phase 8: the Engine answers from the engine's session (R8.7-R8.9), the page reading
+  snapshots; next deleting `src/sim/` (R8.13) and measuring (R8.14); then crowds at scale (R10.8).
 - **How:** one session does the work, with at most one sub-agent beside it, on Opus 5.5 at max
   effort, in a worktree of its own (the user's call on 2026-11-06: three at once used tokens too
   fast; one is allowed). It has the mini-games (R9.11, R8.11), then the UI gallery (R6.9).
@@ -625,7 +623,7 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
   the player step (R8.9): moved alone they would be TypeScript calling into the engine for every
   query only until the step itself moves. *Verified:* conformance (64), `npm run check`, the game,
   bible, library, village, sea, travel, online and dungeon specs (63).
-- [ ] **R8.7** Switch the island's life systems (life, state, trade, farming, housing, shipyard,
+- [x] **R8.7** Switch the island's life systems (life, state, trade, farming, housing, shipyard,
   livestock, vehicles, contracts, quests, progress, weather, interact: ~3,500 TS lines, 1:1 with
   `life/`). The UI and `render/open/life.ts` read versioned snapshots; `life.command` goes in as
   commands. Delete the copy and life-conformance.
@@ -641,14 +639,39 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
   `session_colliders`, `session_clear_ptr`), so the geometry has one copy too. The island's helpers
   the page calls (prices, freshness, quests at a giver, house stages, the weather's hour...) move
   out of `src/sim/` as views over the snapshots, typed to what they read; the steppers go.
-- [ ] **R8.8** Switch creatures: actor, actors/step, brain, pack, senses, missiles, hit, deal (offline
+  Done (with R8.8 and R8.9): the Engine (`src/engine/engine.ts`) is the session's, through
+  `crates/engine-wasm`. After each step or call one `session_view` reads back you, your levels (the
+  island raises them), the creatures, the yard's arrows and meteors, the island's state, prompt,
+  placing and resting, what it said, and a key that changes with what's solid; `src/engine/views.ts`
+  (`SimView`, `ActorsView`, `RangeView`) and `src/engine/islandView.ts` (`IslandView`) hold them for
+  the page, under the names it read before. Commands go in as commands (online, to the server). The
+  island's helpers the page calls (prices, quests at a giver, house poses, the weather's hour...)
+  take the read interfaces `IslandRead` and `SimRead`, so they serve the snapshots until R8.13 moves
+  them out; the TypeScript steppers no longer run. Each Engine has its own copy of what's solid and
+  the cleared cells (`islandWorld()`), read back from the session when its solid key changes, so the
+  camera and the drawing see the engine's geometry. The shadow went with the TypeScript it compared
+  (`src/engine/shadow.ts`, its test, `tools/shadowReports.ts`, the dev server's `SHADOW=1`);
+  `tests/unit/online.test.ts` keeps its online scenario against an engine standing in for the
+  server. The golden hashes can be kept from Rust (`RUINA_GOLDEN=1 cargo test --release -p
+  ruina-engine golden`). The integration tier found two slips, fixed: a reset clears the log, and
+  the levels the island raises reach the page. A step costs 0.03 ms online and 0.3 ms offline on the
+  island (reading 18 KB of view back as JSON; 0.1 ms in the yard). Left for R8.13: the read helpers
+  out of `src/sim/`, and the online guess at a blow (`coneHits`, `behaviour()` in `netMonsters.ts`).
+  *Verified:* `npm run check` (238 TypeScript tests, 144 engine and 73 server tests); the integration
+  tier, 163 passed, the three that failed with two suites sharing the machine passing alone, and the
+  pointer-lock test failing as it did before (macOS headless).
+- [x] **R8.8** Switch creatures: actor, actors/step, brain, pack, senses, missiles, hit, deal (offline
   yard and offline monsters; online, `netMonsters.ts`'s `coneHits` and `behaviour()`). Delete the copy
   and ai-conformance.
-- [ ] **R8.9** Switch the player step: locomotion, abilities, attacks, vitals, traverse, `sim.ts`
+  Done with R8.7 (the session steps them). The online guess's `coneHits` and `behaviour()` go with
+  R8.13, as do the copy and ai-conformance.
+- [x] **R8.9** Switch the player step: locomotion, abilities, attacks, vitals, traverse, `sim.ts`
   with its training branch (hit-stop, the dummy, auto-aim, pushing against actors) and `training.ts`
   (the yard's arrows, meteors and heal, ported from TypeScript), skills and builds. Prediction's
   reconcile-and-replay runs inside the engine, one call per snapshot. Delete the copy, conformance and
   world-conformance.
+  Done with R8.7: the session steps you, and a correction is one `takePlayer` and one `replay` of
+  the unanswered inputs inside the engine. The copy and the conformance specs go with R8.13.
 - [-] **R8.10** The raid's crowd: not ported; bot players replace it (R10.5, R10.10).
 - [ ] **R8.11** Mini-game rules in the browser from the engine (the board shows what the same rules
   allow).
@@ -930,7 +953,8 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
 | 2026-11-06 | R8.5 | The engine's player and creatures say what happened (events) | 15a7ff9, 6ed236a |
 | 2026-11-06 | R8.5, R8.3 | The engine plays the browser's offline game (the session, the training layer, the yard), and the shadow holds it to the TypeScript in the 77 headless rules tests, bit for bit | ac7e7ed |
 | 2026-11-06 | R8.3b, R8.5 | The session online: the server's word on you, the island as sent, commands run ahead, the page's hooks as inputs; shadowed online | d250c74 |
-| 2026-11-06 | R8.5 | The shadow in the page; the whole integration tier played with it; the prediction's -0 fixed; the design bible loads the engine | (this commit) |
+| 2026-11-06 | R8.5 | The shadow in the page; the whole integration tier played with it; the prediction's -0 fixed; the design bible loads the engine | 2e4fc44 |
+| 2026-11-06 | R8.7, R8.8, R8.9 | The switch: the Engine answers from the engine's session (you, the creatures, the yard, the island), the page reading snapshots; the shadow gone with what it compared | (this commit) |
 | 2026-11-06 | R9.14 | `docs/content.md` | 5e23680 |
 | 2026-11-06 | R10.10, R11.1, R11.2, R11.7, R11.8 | Snapshot to move machines: the battle server's Rust gone; the asset manifest, loader and first-download budget, `docs/assets.md` | a975617 |
 | 2026-11-06 | R6.10, R6.11, R6.8 | The client's moves: creature bodies into src/render/creatures/, the root files to their areas, the library under src/dev/ | 9317ff3, 5de387d, 81df3de |

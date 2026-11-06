@@ -1,4 +1,14 @@
-import { Life, type OthersVehicle, type House, type Pack, type Scarecrow, type ShipBuild, type Vehicle, vehicleBodies } from '../engine/island';
+import {
+  IslandView,
+  newLifeState,
+  type OthersVehicle,
+  type House,
+  type Pack,
+  type Scarecrow,
+  type ShipBuild,
+  type Vehicle,
+  vehicleBodies,
+} from '../engine/island';
 import { angleDiff, type Mover, type PlayerState } from '../engine/rules';
 import type { ZoneData } from '../engine/zone';
 import type { Engine } from '../engine/engine';
@@ -79,7 +89,7 @@ export interface Peer {
   /** Their state at the moment drawn, between the server's updates. */
   readonly shown: PlayerState;
   /** What of their island everyone sees: houses, farms and ships, and the vehicles, packs and glider they have out. */
-  readonly life: Life;
+  readonly life: IslandView;
   /** How far they are from you (m), as of the last frame. */
   readonly away: number;
 }
@@ -91,7 +101,7 @@ interface Kept {
   online: boolean;
   drawn: boolean;
   shown: PlayerState;
-  life: Life;
+  life: IslandView;
   away: number;
   samples: Sample[];
   clock: number;
@@ -116,7 +126,7 @@ export class WorldPeers {
   constructor(
     private zone: ZoneData,
     private engine: Engine,
-    private mine: Life,
+    private mine: IslandView,
     private me: number,
     link: WorldLink,
   ) {
@@ -185,7 +195,8 @@ export class WorldPeers {
   private peer(id: number, name: string): Kept {
     let p = this.peers.get(id);
     if (p) return p;
-    const life = new Life(this.zone);
+    // What of their island everyone sees (their houses, farms, ships, vehicles and packs), to draw.
+    const life = new IslandView(this.zone, newLifeState({ coins: 0, labor: 0, seed: this.zone.recipe.seed }), () => {});
     life.state.weather = this.mine.state.weather;
     p = {
       id,
@@ -248,7 +259,7 @@ export class WorldPeers {
       const k = `h${h.id}:${h.stage}`;
       if (p.solid.has(k)) continue;
       p.solid.add(k);
-      this.engine.addSolidHouse(p.life, { ...h, id: -(e.id * 100_000 + h.id) });
+      this.engine.addSolidHouse({ ...h, id: -(e.id * 100_000 + h.id) });
       changed = true;
     }
     for (const sc of s.scarecrows) {

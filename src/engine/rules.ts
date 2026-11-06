@@ -5,6 +5,6 @@
 
 export { angleDiff } from '../sim/math';
 export { heightAboveGround } from '../sim/player/traverse';
-export type { Sim } from '../sim/sim';
+export type { SimView } from './views';
 export { NO_ACTIONS, ON_FOOT } from '../sim/types';
-export type { Actions, GameEvent, Mover, Obstacle, PlayerState, World } from '../sim/types';
+export type { Actions, GameEvent, Mover, Obstacle, PlayerState, SimRead, World } from '../sim/types';

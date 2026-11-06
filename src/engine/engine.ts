@@ -1,33 +1,26 @@
-import type { Levels } from '../content/skills';
+import { type Levels, sameLevels } from '../content/skills';
 import type { Build } from '../content/tuning';
-import { isAlive, type Actor } from '../sim/actor';
-import { startBrain } from '../sim/ai/brain';
-import { targetOf } from '../sim/combat/hit';
-import { addScarecrowCollider } from '../sim/life/farming';
-import { addHouseColliders } from '../sim/life/housing';
-import { runCommand, type Placement } from '../sim/life/interact';
-import { applySave, type Saved } from '../sim/life/island';
-import { Life, type Command, type OtherPlayer, type OthersVehicle } from '../sim/life/life';
+import type { Actor } from '../sim/actor';
+import type { Placement } from '../sim/life/interact';
+import type { Saved } from '../sim/life/island';
+import type { Command, OtherPlayer, OthersVehicle } from '../sim/life/life';
 import type { House, LifeState, Scarecrow, Vehicle, Weather } from '../sim/life/state';
-import { dismount } from '../sim/life/vehicles';
-import { Sim } from '../sim/sim';
-import { TrainingRange } from '../sim/training';
 import type { Actions, GameEvent, Mover, PlayerState, World } from '../sim/types';
-import { bandAround, makeWorld } from '../sim/yard';
-import { groundAt } from '../sim/zone/colliders';
-import { arrivalOf, type DungeonSolids, dungeonDef, floorAt, setDungeonSolid } from '../sim/zone/dungeon';
+import { ColliderIndex, groundAt } from '../sim/zone/colliders';
+import { dungeonDef, floorAt } from '../sim/zone/dungeon';
 import { makeZoneWorld } from '../sim/zone/world';
-import { type Compared, isShadowing, Shadow } from './shadow';
+import { IslandView } from './islandView';
+import { EngineSession, type SessionView } from './session';
+import { RangeView, SimView } from './views';
 
-// The one way into the rules for everything outside them (.plans/refactor R6.4). Today it runs the
-// TypeScript rules (src/sim/); Phase 8 runs the same calls on the Rust engine compiled to
-// WebAssembly (crates/engine-wasm), and nothing that uses it should notice. So whatever changes the
-// rules' state from outside is a call here, named for what it does (R6.0b): putting you somewhere,
-// your build, a copy's floors and walls, an island loaded. What it hands out (you, the island's
-// state) is for reading.
-//
-// `sim` and `life` are still public while the modules that take them directly (the island's UI and
-// drawing, the network's prediction and peers, the test API) move over to this (R6.4).
+// The one way into the rules for everything outside them (.plans/refactor R6.4): the engine's own
+// rules (crates/engine), compiled to WebAssembly (crates/engine-wasm) and played here as a session
+// (src/engine/session.ts), the same rules the server runs (Phase 8). Whatever changes the rules'
+// state from outside is a call here, named for what it does: putting you somewhere, your build, a
+// copy's floors and walls, an island loaded, the server's word on you. After every step and call
+// what the page reads is read back from the session: you and the creatures (`sim`, src/engine/
+// views.ts), the island (`life`, src/engine/islandView.ts), and for drawing and the camera the
+// world's colliders whenever what's solid changes. Those are for reading.
 
 export interface EngineOptions {
   /** The open world (Emberholm) rather than the training yard. */
@@ -41,8 +34,19 @@ export interface EngineOptions {
   goblins?: number;
   /** Your skills and loadout to start with. */
   build: Build;
-  /** A world made elsewhere (the tests' battlefield), in place of the island or the yard. */
-  world?: World;
+}
+
+/** The island to draw, the page's own copy of it: the ground and what's grown on it are shared, what's solid and the cleared cells are this Engine's (read back from its session). */
+function islandWorld(): World {
+  const w = makeZoneWorld();
+  const zone = w.zone!;
+  const gen = zone.gen;
+  return {
+    ...w,
+    spawns: [...w.spawns],
+    index: new ColliderIndex([...gen.obstacles], [...gen.boxes], [...gen.decks]),
+    zone: { recipe: zone.recipe, gen: { ...gen, clear: gen.clear.slice() } },
+  };
 }
 
 export class Engine {
@@ -51,25 +55,17 @@ export class Engine {
   readonly terrain: World['terrain'] | null;
   /** Online: the server decides; these rules only predict your own moves. */
   readonly online: boolean;
-  readonly sim: Sim;
-  /** Offline: the yard's arrows, meteors and heals, against whatever stands about. */
-  readonly range: TrainingRange | null;
-  /** The island's life systems (trade, farming, housing, vehicles, quests), in the open world. */
-  readonly life: Life | null;
+  /** You, the step count, your skills' numbers and the creatures, as the engine last showed them. */
+  readonly sim: SimView;
+  /** Offline: the yard's arrows and meteors in flight. */
+  readonly range: RangeView | null;
+  /** The island (trade, farming, housing, vehicles, quests) as the engine last showed it, in the open world. */
+  readonly life: IslandView | null;
   /**
    * Called when a step puts you somewhere by itself (offline, fallen out of the bottom of a copy:
    * back where it's entered), with the way you face, so the camera and auto-run can follow.
    */
   onPlaced: ((facing: number) => void) | null = null;
-  /** The dungeon or developer zone you're in a copy of, null out in the world. */
-  private dungeon: string | null = null;
-  private solids = new Map<string, DungeonSolids>();
-  /** Online: your island as the server last sent it, kept as it came (commands run ahead work on a copy). */
-  private sent: LifeState | null = null;
-  /** In the tests, the engine's own session beside these rules, compared every step (src/engine/shadow.ts). */
-  private readonly shadow: Shadow | null;
-  /** What was last handed to the shadow of what the page says about everyone else (as JSON), so it's handed over again only when it changes. */
-  private toldOthers = '';
 
   // ---------- Online: what the rules ask the page ----------
   // Read once before each step (and before inputs run again on the server's word on you), so the
@@ -89,73 +85,77 @@ export class Engine {
   /** Online: the house plots other characters hold (plot id to their name): one someone else holds can't be claimed. */
   plotOwners: (() => Record<string, string>) | null = null;
 
+  private readonly session: EngineSession;
+  /** The dungeon or developer zone you're in a copy of, null out in the world. */
+  private dungeon: string | null = null;
+  /** What's solid as last read back (`SessionView.solid`). */
+  private solid: number;
+  /** The island's revision as the engine last had it, to tell the page's when it moves. */
+  private revision = -1;
+  /** What the page last said about everyone else (as JSON), so it's handed over again only when it changes. */
+  private toldOthers = '';
+
   constructor(o: EngineOptions) {
     this.online = o.online;
-    this.world = o.world ?? (o.openWorld ? makeZoneWorld() : makeWorld());
-    if (o.goblins) this.world.spawns.push(...bandAround('goblin', o.goblins, 9, 10, 1));
+    this.session = new EngineSession({ openWorld: o.openWorld, online: o.online, goblins: o.goblins, build: o.build });
+    // The yard as the session lays it out (its props, the dummy, where you start, who stands about).
+    this.world = o.openWorld ? islandWorld() : this.session.call<World>('world');
     this.terrain = this.world.terrain ?? null;
-    this.sim = new Sim(this.world, { training: !o.online });
-    this.sim.setBuild(o.build);
-    // Offline on the island, start standing on the ground at the spawn rather than inside the hill
-    // (online the server puts you there, the same way).
-    if (this.terrain && !o.online) {
-      const p = this.sim.player;
-      this.settle(p, p.pos.x, p.pos.z, this.terrain.height(p.pos.x, p.pos.z));
+    const first = this.session.view(false);
+    this.solid = first.solid;
+    this.sim = new SimView(this.world, first.player);
+    this.range = o.online ? null : new RangeView();
+    this.life = o.openWorld && this.world.zone && first.life ? new IslandView(this.world.zone, first.life.state, (c) => this.command(c)) : null;
+    this.take(first);
+  }
+
+  /** What the session shows now, taken in (after a step, `v.events` are what happened in it). */
+  private take(v: SessionView): void {
+    const s = this.sim;
+    s.frame = v.frame;
+    s.hitstop = v.hitstop;
+    s.player = v.player;
+    if (!sameLevels(v.levels, s.levels)) s.levels = v.levels;
+    s.actors.list = v.actors.list;
+    s.actors.missiles = v.actors.missiles;
+    if (this.range) {
+      this.range.arrows = v.actors.arrows;
+      this.range.meteors = v.actors.meteors;
     }
-    this.range = o.online ? null : new TrainingRange(this.sim);
-    this.life = o.openWorld && this.world.zone ? new Life(this.world.zone) : null;
-    if (this.life) this.sim.life = this.life;
-    // Online the island is the server's from the start: this copy runs nothing it's told.
-    if (this.life && o.online) this.life.remote = (c) => this.remote?.(c);
-    this.shadow = isShadowing() && !o.world ? new Shadow({ openWorld: o.openWorld, online: o.online, goblins: o.goblins, build: o.build }) : null;
-    this.shadow?.check(this.compared(), 'start');
-  }
-
-  /** What these rules show, for the shadow to compare. */
-  private compared(): Compared {
     const life = this.life;
-    return {
-      frame: this.sim.frame,
-      player: this.sim.player,
-      actors: this.sim.actors.all(),
-      missiles: this.sim.actors.missiles,
-      life: life ? { state: life.state, focus: life.focus, placing: life.placing, resting: life.resting } : null,
-    };
+    if (life && v.life) {
+      life.state = v.life.state;
+      life.focus = v.life.focus;
+      life.placing = v.life.placing;
+      life.resting = v.life.resting;
+      if (v.life.revision !== this.revision) {
+        this.revision = v.life.revision;
+        life.revision++;
+      }
+      for (const e of v.said) life.hear(e);
+    }
+    if (v.solid !== this.solid) {
+      this.solid = v.solid;
+      this.readColliders();
+    }
   }
 
-  /**
-   * Online: what the rules will ask the page this step (the world's clock, everyone else's vehicles
-   * and whereabouts, the plots they hold), asked once and given to the rules as it was, and to the
-   * shadow alike.
-   */
-  private askPage(): void {
-    const life = this.life;
-    if (!life || !this.online) return;
-    const t = this.worldClock?.() ?? null;
-    const vehicles = this.othersVehicles?.() ?? [];
-    const around = this.othersAround?.() ?? [];
-    const plots = this.plotOwners?.() ?? {};
-    life.worldClock = t === null ? null : () => t;
-    life.othersVehicles = () => vehicles;
-    life.othersAround = () => around;
-    life.plotOwner = (plot) => plots[plot] ?? null;
-    const shadow = this.shadow;
-    if (!shadow) return;
-    shadow.feed((s) => {
-      s.worldClock(t);
-      const others = JSON.stringify({ vehicles, around, plots });
-      if (others === this.toldOthers) return;
-      this.toldOthers = others;
-      s.call('others', { vehicles, around, plots });
-    });
+  /** The island's colliders and cleared cells as the session has them, into the world the camera and the drawing use. */
+  private readColliders(): void {
+    const index = this.world.index;
+    const gen = this.world.zone?.gen;
+    if (!index || !gen) return;
+    const c = this.session.colliders();
+    if (c) index.take(c.obstacles, c.boxes, c.decks);
+    this.session.clear(gen.clear);
   }
 
-  /** A named call made on the shadow too. */
-  private mirror(name: string, args: object = {}): void {
-    this.shadow?.call(name, args, () => this.compared());
+  /** After a call: what it changed, read back. */
+  private reread(): void {
+    this.take(this.session.view(false));
   }
 
-  /** You, as the rules have you now. */
+  /** You, as the engine has you now. */
   get player(): PlayerState {
     return this.sim.player;
   }
@@ -166,12 +166,12 @@ export class Engine {
   }
 
   /** The creatures these rules run (offline: online the server's are drawn from its updates). */
-  get actors(): Sim['actors'] {
+  get actors(): SimView['actors'] {
     return this.sim.actors;
   }
 
   /** What your skills make of your attacks and spells (reach, radius, damage), from your build. */
-  get stats(): Sim['stats'] {
+  get stats(): SimView['stats'] {
     return this.sim.stats;
   }
 
@@ -186,38 +186,56 @@ export class Engine {
   }
 
   /**
-   * One fixed step offline: the rules, then the yard's arrows, meteors and heals against whatever
+   * One fixed step: the rules, and offline the yard's arrows, meteors and heals against whatever
    * stands about. Returns what happened. (Online, the prediction steps the rules: src/net/netPlayer.ts.)
    */
   step(a: Actions): GameEvent[] {
     this.askPage();
-    this.sim.step(a);
-    this.catchFall();
-    let events = this.sim.drainEvents();
-    if (this.range) {
-      this.range.step(events);
-      events = events.concat(this.sim.drainEvents());
-    }
-    this.shadow?.step(a, events, this.compared());
-    return events;
+    this.session.step(a);
+    const v = this.session.view(true);
+    this.take(v);
+    this.sim.heard(v.events);
+    if (v.placed !== null) this.onPlaced?.(v.placed);
+    return v.events;
   }
 
-  /** A command for the island, run on the next step (online, it goes to the server too: the island's remote hook). */
+  /**
+   * Online: what the rules will ask the page this step (the world's clock, everyone else's vehicles
+   * and whereabouts, the plots they hold), asked once and handed to the session.
+   */
+  private askPage(): void {
+    if (!this.life || !this.online) return;
+    this.session.worldClock(this.worldClock?.() ?? null);
+    const vehicles = this.othersVehicles?.() ?? [];
+    const around = this.othersAround?.() ?? [];
+    const plots = this.plotOwners?.() ?? {};
+    const others = JSON.stringify({ vehicles, around, plots });
+    if (others === this.toldOthers) return;
+    this.toldOthers = others;
+    this.session.call('others', { vehicles, around, plots });
+  }
+
+  /** A command for the island, run on the next step (online, it goes to the server instead: `remote`). */
   command(c: Command): void {
-    this.life?.command(c);
-    this.mirror('command', { command: c });
+    if (!this.life) return;
+    if (this.online) {
+      this.remote?.(c);
+      return;
+    }
+    this.session.call('command', { command: c });
   }
 
   /** Your skill levels (in the yard, from the experience earned there; on the island, from your quests). */
   setLevels(levels: Levels): void {
     this.sim.levels = levels;
-    this.mirror('setLevels', { levels });
+    this.session.call('setLevels', { levels });
+    this.reread();
   }
 
   /** Switches your skills and loadout, as the server does: any attack or cast in progress is dropped. */
   setBuild(b: Build): void {
-    this.sim.setBuild(b);
-    this.mirror('setBuild', { build: b });
+    this.session.call('setBuild', { build: b });
+    this.reread();
   }
 
   /**
@@ -227,14 +245,8 @@ export class Engine {
    */
   place(x: number, z: number, facing: number, fromY?: number): void {
     if (!this.terrain) return;
-    if (this.life && this.sim.player.mode === 'ride') dismount(this.life, this.sim);
-    const p = this.sim.player;
-    this.settle(p, x, z, fromY ?? this.floorHere() ?? this.terrain.height(x, z));
-    p.vel = { x: 0, y: 0, z: 0 };
-    p.facing = facing;
-    p.prevFacing = facing;
-    if (p.mode === 'glide' || p.mode === 'swim') p.mode = 'normal';
-    this.mirror('place', { x, z, facing, fromY });
+    this.session.call('place', { x, z, facing, fromY });
+    this.reread();
   }
 
   /**
@@ -243,29 +255,20 @@ export class Engine {
    * the island's prompts and weather know you're inside. False if there's no such dungeon here.
    */
   enterDungeon(id: string): boolean {
-    const def = dungeonDef(id);
-    const index = this.world.index;
-    if (!def || !index) return false;
-    if (this.dungeon && this.dungeon !== id) this.leaveDungeon();
-    this.solids.set(id, setDungeonSolid(index, def, this.solids.get(id) ?? null, true));
+    if (!this.session.call<boolean>('enterDungeon', { id })) return false;
     this.dungeon = id;
-    this.world.respawnAt = arrivalOf(def);
     if (this.life) this.life.dungeon = id;
-    this.mirror('enterDungeon', { id });
+    this.reread();
     return true;
   }
 
   /** Out of the copy you're in: its floors and walls gone from your world again. */
   leaveDungeon(): void {
-    const id = this.dungeon;
-    if (!id) return;
-    const def = dungeonDef(id);
-    const had = this.solids.get(id);
-    if (def && this.world.index && had) setDungeonSolid(this.world.index, def, had, false);
+    if (!this.dungeon) return;
+    this.session.call('leaveDungeon');
     this.dungeon = null;
-    this.world.respawnAt = undefined;
     if (this.life) this.life.dungeon = null;
-    this.mirror('leaveDungeon');
+    this.reread();
   }
 
   /** The dungeon or developer zone you're in a copy of (null out in the world). */
@@ -287,62 +290,47 @@ export class Engine {
 
   /** Which dungeons have been made solid in your world, and whether they still are (tests). */
   solidity(): Record<string, boolean> {
-    return Object.fromEntries([...this.solids].map(([k, s]) => [k, s.solid]));
+    return this.session.call<Record<string, boolean>>('solidity');
   }
 
   /**
-   * Restores a saved island (an automated test's, or a bug report's) into these rules: its state,
-   * the time you were away, where you stood. `now` is the clock `savedAt` was measured on. Returns
-   * false, changing nothing, for a save from a newer game than this one.
+   * Restores a saved island (an automated test's, or a bug report's): its state, the time you were
+   * away, where you stood. `now` is the clock `savedAt` was measured on. Returns false, changing
+   * nothing, for a save from a newer game than this one.
    */
   loadIsland(data: Saved, now = Date.now()): boolean {
-    // The save as it came: loading it moves its clock on by the time away, in place.
-    const saved = this.shadow ? structuredClone(data) : data;
-    const loaded = !!this.life && applySave(this.life, this.sim, data, now);
-    this.mirror('loadIsland', { data: saved, now });
+    const loaded = this.session.call<boolean>('loadIsland', { data, now });
+    this.reread();
     return loaded;
   }
 
   // ---------- Online: what the server says ----------
 
   /**
-   * Online: the server's word on you. You start again from `server` (a copy, which the rules keep),
-   * `restore` puts back the parts of the island that move with you as of the same update, then
-   * `inputs` (those it hasn't used yet) run again on top: numbered as they were the first time (the
-   * frame count is the clock everything is drawn by) and setting nothing off (that was shown
-   * already). With none to run you're drawn from where you were, so the last step isn't drawn twice.
-   * `first`: the first word since joining, taken as it is.
+   * Online: the server's word on you. You start again from `server`, `restore` puts back the parts
+   * of the island that move with you as of the same update, then `inputs` (those it hasn't used yet)
+   * run again on top: numbered as they were the first time (the frame count is the clock everything
+   * is drawn by) and setting nothing off (that was shown already). With none to run you're drawn
+   * from where you were, so the last step isn't drawn twice. `first`: the first word since joining,
+   * taken as it is.
    */
   correct(server: PlayerState, inputs: readonly Actions[], restore: (() => void) | null, first = false): void {
-    const drawnFrom = { ...this.sim.player.prevPos };
-    this.sim.player = server;
-    this.mirror('takePlayer', { player: server });
+    this.session.call('takePlayer', { player: server });
     restore?.();
-    if (first) return;
-    this.askPage();
-    this.sim.frame -= inputs.length;
-    for (const a of inputs) this.sim.step(a);
-    this.sim.drainEvents();
-    if (inputs.length === 0) this.sim.player.prevPos = drawnFrom;
-    this.mirror('replay', { inputs, worldClock: this.life?.worldClock?.() ?? null });
+    if (!first) {
+      this.askPage();
+      this.session.call('replay', { inputs, worldClock: this.worldClock?.() ?? null });
+    }
+    this.reread();
   }
 
   /**
-   * Online: your island as a tick has it: its state (kept as it came, not copied), and whether you're
-   * placing something or resting.
+   * Online: your island as a tick has it: its state, and whether you're placing something or resting.
    */
   takeIsland(island: { state: LifeState; placing: Placement | null; resting: boolean }): void {
-    const life = this.life;
-    if (!life) return;
-    this.sent = island.state;
-    life.state = island.state;
-    life.placing = island.placing;
-    life.resting = island.resting;
-    this.shadow?.apply(
-      (s) => s.takeIsland(island),
-      'takeIsland',
-      () => this.compared(),
-    );
+    if (!this.life) return;
+    this.session.takeIsland(island);
+    this.reread();
   }
 
   /**
@@ -350,11 +338,9 @@ export class Engine {
    * a copy of the island the server sent, so that one stays as it came.
    */
   runAhead(c: Command): void {
-    const life = this.life;
-    if (!life) return;
-    if (this.sent && life.state === this.sent) life.state = structuredClone(this.sent);
-    runCommand(life, this.sim, c);
-    this.mirror('runAhead', { command: c });
+    if (!this.life) return;
+    this.session.call('runAhead', { command: c });
+    this.reread();
   }
 
   /**
@@ -366,139 +352,87 @@ export class Engine {
     you: { clock: number; labor: number; weather: Weather; vehicles: Vehicle[]; resting: boolean; placing: Placement | null },
     ahead: readonly Command[],
   ): void {
-    const life = this.life;
-    if (!life) return;
-    if (ahead.length && this.sent) life.state = structuredClone(this.sent);
-    const s = life.state;
-    s.clock = you.clock;
-    s.labor = you.labor;
-    s.weather = you.weather;
-    s.vehicles = ahead.length ? structuredClone(you.vehicles) : you.vehicles;
-    life.resting = you.resting;
-    life.placing = you.placing;
-    for (const c of ahead) runCommand(life, this.sim, c);
+    if (!this.life) return;
     const { clock, labor, weather, vehicles, resting, placing } = you;
-    this.mirror('replayIsland', { you: { clock, labor, weather, vehicles, resting, placing }, ahead });
+    this.session.call('replayIsland', { you: { clock, labor, weather, vehicles, resting, placing }, ahead });
   }
 
-  /** A house solid here as it is on the server: yours, or someone else's where you see it (`owner`: their island). */
-  addSolidHouse(owner: Life, house: House): void {
-    addHouseColliders(owner, this.sim, house);
-    this.mirror('addSolidHouse', { house });
+  /** A house solid here as it is on the server: yours, or someone else's where you see it (with an id of its own). */
+  addSolidHouse(house: House): void {
+    this.session.call('addSolidHouse', { house });
+    this.reread();
   }
 
   /** A scarecrow's post solid, and the ground round it tilled, as on the server. */
   addSolidScarecrow(sc: Scarecrow): void {
-    addScarecrowCollider(this.sim, sc);
-    this.mirror('addSolidScarecrow', { post: sc });
+    this.session.call('addSolidScarecrow', { post: sc });
+    this.reread();
   }
 
   /** Other players' vehicles where they're drawn, solid to you as yours are. */
   setOthersVehicles(movers: Mover[]): void {
     this.world.movers = movers;
-    this.mirror('movers', { movers });
+    this.session.call('movers', { movers });
   }
 
   // ---------- For tests (the test API, src/app/testApi.ts) ----------
 
   /** Starts you over at `at` with `build`, standing on whatever is solid there, the island's and the yard's parts with you. */
   reset(at: { x: number; z: number; facing: number }, build: Build): void {
-    this.sim.reset(at, 0, build);
-    const terrain = this.terrain;
-    if (terrain) {
-      const p = this.sim.player;
-      p.pos.y = groundAt(terrain, this.world.index, p.pos.x, p.pos.z, terrain.height(p.pos.x, p.pos.z) + 1.2, 1.2);
-      p.prevPos = { ...p.pos };
-    }
-    this.life?.afterReset(this.sim);
-    this.range?.reset();
-    this.mirror('reset', { at, build });
+    this.session.call('reset', { at, build });
+    // A fresh start shows nothing that happened before it.
+    this.sim.log.length = 0;
+    this.reread();
   }
 
   /** Your stamina and MP as they would be part way through a fight. */
   setVitals(v: { stamina?: number; mp?: number }): void {
-    if (v.stamina !== undefined) this.sim.player.stamina = v.stamina;
-    if (v.mp !== undefined) this.sim.player.mp = v.mp;
-    this.mirror('setVitals', v);
+    this.session.call('setVitals', v);
+    this.reread();
   }
 
   /** Monsters that never get angry, for tests about something else that hits them. */
   calm(on: boolean): void {
-    this.sim.actors.calm = on;
-    if (on) for (const a of this.sim.actors.all()) a.angry = 0;
-    this.mirror('calm', { on });
+    this.session.call('calm', { on });
+    this.reread();
   }
 
   /** Puts the `i`th actor of a kind (in spawn order) at (x, z), at home there. */
   placeActor(kind: string, i: number, x: number, z: number): void {
-    const a = this.sim.actors.all().filter((v) => v.kind === kind)[i];
-    if (!a) return;
-    a.x = x;
-    a.z = z;
-    a.y = 0;
-    a.homeX = x;
-    a.homeZ = z;
-    this.mirror('placeActor', { kind, i, x, z });
+    this.session.call('placeActor', { kind, i, x, z });
+    this.reread();
   }
 
   /** Sets fields on an actor (a cooldown, a fuse), to set up a moment directly. */
   setActor(id: number, fields: Partial<Actor>): void {
-    const a = this.sim.actors.get(id);
-    if (a) Object.assign(a, fields);
-    this.mirror('setActor', { id, fields });
+    const unknown = this.session.call<string[]>('setActor', { id, fields });
+    if (unknown?.length) throw new Error(`setActor: the engine has no ${unknown.join(', ')} to set`);
+    this.reread();
   }
 
   /** A new actor of a kind at (x, z), as if a fight had made it (it won't respawn). Returns its id. */
   spawnActor(kind: string, x: number, z: number): number {
-    const a = this.sim.actors.spawn({ kind, x, z, seed: this.testSeed() });
-    a.transient = true;
-    startBrain(a, this.sim.sighting());
-    this.mirror('spawnActor', { kind, x, z });
-    return a.id;
+    const id = this.session.call<number>('spawnActor', { kind, x, z });
+    this.reread();
+    return id;
   }
 
   /** A band of `count` of a kind round (x, z), as a zone's spawns make one. Returns their ids. */
   spawnBand(kind: string, count: number, x: number, z: number): number[] {
-    const ids = this.sim.spawnBand(kind, count, x, z, this.testSeed());
-    this.mirror('spawnBand', { kind, count, x, z });
+    const ids = this.session.call<number[]>('spawnBand', { kind, count, x, z });
+    this.reread();
     return ids;
   }
 
   /** A blow from you to an actor, as if your weapon had landed it. */
   hurtActor(id: number, amount: number): void {
-    const a = this.sim.actors.get(id);
-    if (a && isAlive(a)) this.sim.damage(targetOf(a), amount, 0, 0, this.sim.player.weapon);
-    this.mirror('hurtActor', { id, amount });
+    this.session.call('hurtActor', { id, amount });
+    this.reread();
   }
 
   /** A blow landing on you from (dirX, dirZ), as if something had hit you. */
   takeHit(damage: number, dirX: number, dirZ: number, knock: number): void {
-    this.sim.takeHit(damage, dirX, dirZ, knock);
-    this.mirror('takeHit', { damage, dirX, dirZ, knock });
-  }
-
-  /** A seed for what a test makes, from the moment and how many there are (the same run, the same seed). */
-  private testSeed(): number {
-    return (this.sim.frame * 2654435761 + this.sim.actors.all().length * 40503) >>> 0;
-  }
-
-  /** Offline, fallen out of the bottom of a copy: back where it's entered (the server does this online). */
-  private catchFall(): void {
-    if (this.online || !this.dungeon) return;
-    const def = dungeonDef(this.dungeon);
-    if (!def || this.sim.player.pos.y >= def.origin.y + def.fall) return;
-    const a = arrivalOf(def);
-    this.place(a.x, a.z, a.facing, a.y);
-    this.onPlaced?.(a.facing);
-  }
-
-  /** Stands `p` at rest on whatever is solid at (x, z) under `near`. */
-  private settle(p: PlayerState, x: number, z: number, near: number): void {
-    const terrain = this.terrain;
-    if (!terrain) return;
-    const y = groundAt(terrain, this.world.index, x, z, near + 1.2, 1.2);
-    p.pos = { x, y, z };
-    p.prevPos = { x, y, z };
-    p.grounded = true;
+    this.session.call('takeHit', { damage, dirX, dirZ, knock });
+    this.reread();
   }
 }
