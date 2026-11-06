@@ -1,9 +1,7 @@
-import { addScarecrowCollider } from '../sim/life/farming';
-import { addHouseColliders } from '../sim/life/housing';
 import { Life, type OthersVehicle } from '../sim/life/life';
 import type { House, Pack, Scarecrow, ShipBuild, Vehicle } from '../sim/life/state';
 import { angleDiff } from '../sim/math';
-import type { Sim } from '../sim/sim';
+import type { Engine } from '../engine/engine';
 import type { Mover, PlayerState } from '../sim/types';
 import { vehicleBodies } from '../sim/life/vehicles';
 import type { ZoneData } from '../sim/zone/world';
@@ -120,7 +118,7 @@ export class WorldPeers {
 
   constructor(
     private zone: ZoneData,
-    private sim: Sim,
+    private engine: Engine,
     private mine: Life,
     private me: number,
     link: WorldLink,
@@ -253,14 +251,14 @@ export class WorldPeers {
       const k = `h${h.id}:${h.stage}`;
       if (p.solid.has(k)) continue;
       p.solid.add(k);
-      addHouseColliders(p.life, this.sim, { ...h, id: -(e.id * 100_000 + h.id) });
+      this.engine.addSolidHouse(p.life, { ...h, id: -(e.id * 100_000 + h.id) });
       changed = true;
     }
     for (const sc of s.scarecrows) {
       const k = `s${sc.id}`;
       if (p.solid.has(k)) continue;
       p.solid.add(k);
-      addScarecrowCollider(this.sim, sc);
+      this.engine.addSolidScarecrow(sc);
       changed = true;
     }
     if (changed) this.onGroundChanged?.();
@@ -305,7 +303,7 @@ export class WorldPeers {
    */
   frame(dt: number): void {
     const now = performance.now();
-    const me = this.sim.player.pos;
+    const me = this.engine.player.pos;
     const movers: Mover[] = [];
     for (const p of this.peers.values()) {
       if (p.online && now - p.heard > SILENT_MS) this.left(p.id);
@@ -316,7 +314,7 @@ export class WorldPeers {
       for (const v of s.vehicles) movers.push(...vehicleBodies(v));
       p.away = Math.hypot(p.shown.pos.x - me.x, p.shown.pos.y - me.y, p.shown.pos.z - me.z);
     }
-    this.sim.world.movers = movers;
+    this.engine.setOthersVehicles(movers);
   }
 
   private pose(p: Kept, dt: number): void {

@@ -304,7 +304,7 @@ const lifeUI = life
   : null;
 // Online: everyone else in your channel of Emberholm, the plots they hold, and whether this server
 // offers the developer panel.
-const peers = online && life && world.zone ? new WorldPeers(world.zone, sim, life, online.welcome.character.id, online.link) : null;
+const peers = online && life && world.zone ? new WorldPeers(world.zone, engine, life, online.welcome.character.id, online.link) : null;
 // ...and drawn: a body and a name each, and what of their island everyone sees (src/render/open/peersView.ts).
 const peersView = online && peers ? new PeersView(stage.scene, models, peers, online.welcome.character.id) : null;
 if (peers && openStage) peers.onGroundChanged = () => openStage.foliage.invalidate();
@@ -646,7 +646,7 @@ let presentActors: NetActor[] = [];
 const shownById = new Map<number, NetActor>();
 // Online play: your hero is predicted here and corrected by the server; other players are drawn
 // from the server's updates (WorldPeers, with their vehicles and gliders).
-const prediction = net ? new Prediction(sim, net) : null;
+const prediction = net ? new Prediction(engine, net) : null;
 let lastSnapshot = 0;
 let lastHp: number = COMBAT.maxHp;
 /** The side your hero's colours show: only a developer zone's side changes it (on the island everyone is on one). */
@@ -760,8 +760,7 @@ function stepOnce(actions: Actions): void {
   let events: GameEvent[];
   if (prediction) {
     if (!net?.you) return; // wait until the server has placed us
-    prediction.step(actions);
-    events = sim.drainEvents();
+    events = prediction.step(actions);
   } else {
     // Offline the rules decide, the yard's arrows, meteors and heals among them.
     events = engine.step(actions);
@@ -1414,6 +1413,9 @@ const refs = {
   },
   get shownActors() {
     return shownActors;
+  },
+  get engine() {
+    return engine;
   },
   get sim() {
     return sim;

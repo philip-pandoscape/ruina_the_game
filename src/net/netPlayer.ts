@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import type { Sim } from '../sim/sim';
-import { ON_FOOT, type Actions, type PlayerState } from '../sim/types';
+import type { Engine } from '../engine/engine';
+import { ON_FOOT, type Actions, type GameEvent, type PlayerState } from '../sim/types';
 import { emptySkills } from '../content/skills';
 import { HOTBAR_SLOTS, MOVEMENT_SKILL_CAP, MOVEMENT_SLOTS, MP, NO_ABILITY, NO_MOVEMENT, STAMINA } from '../content/tuning';
 import type { RawInput, WorldFeed } from './worldFeed';
@@ -70,7 +70,7 @@ export class Prediction {
   beforeReplay: (() => void) | null = null;
 
   constructor(
-    private sim: Sim,
+    private engine: Engine,
     private net: WorldFeed,
   ) {}
 
@@ -80,14 +80,14 @@ export class Prediction {
 
   // Runs one frame of your input immediately and sends it to the server, along with which server
   // tick the other players are drawn at, so the server can check your swings against what you saw.
-  step(a: Actions): void {
+  step(a: Actions): GameEvent[] {
     const { actions, raw, stick } = quantize(a);
     this.seq++;
     this.pending.push({ seq: this.seq, actions });
     if (this.pending.length > 600) this.pending.shift();
     const view = Math.max(0, Math.round(this.net.renderTick(performance.now()) * 16));
     this.net.sendInput(this.seq, view, raw, stick);
-    this.sim.step(actions);
+    return this.engine.step(actions);
   }
 
   // The server's word on where you are: start from it and replay the inputs it hasn't used yet.
@@ -97,25 +97,22 @@ export class Prediction {
     if (!this.synced) {
       // First update after joining: just take the server's spawn position.
       this.synced = true;
-      this.sim.player = clonePlayer(server);
-      this.beforeReplay?.();
+      this.engine.correct(clonePlayer(server), [], this.beforeReplay, true);
       return;
     }
-    const before = { ...this.sim.player.pos };
-    const prevPos = { ...this.sim.player.prevPos };
-    const was = this.sim.player;
-    this.sim.player = clonePlayer(server);
-    this.beforeReplay?.();
+    const before = { ...this.engine.player.pos };
+    const was = this.engine.player;
     // The replay runs the last few frames again rather than new ones, so it numbers them as they
     // were: the frame count is the clock everything is drawn by (src/render/character.ts), and
     // counting a round trip's worth of frames again on every server update ran it two to four
-    // times as fast as time, in jerks.
-    this.sim.frame -= this.pending.length;
-    for (const p of this.pending) this.sim.step(p.actions);
-    this.sim.drainEvents(); // replays shouldn't repeat dust puffs and other effects
-    if (this.pending.length === 0) this.sim.player.prevPos = prevPos;
+    // times as fast as time, in jerks. Replays don't repeat dust puffs and other effects.
+    this.engine.correct(
+      clonePlayer(server),
+      this.pending.map((p) => p.actions),
+      this.beforeReplay,
+    );
 
-    const after = this.sim.player.pos;
+    const after = this.engine.player.pos;
     const dx = before.x - after.x;
     const dy = before.y - after.y;
     const dz = before.z - after.z;
@@ -128,7 +125,7 @@ export class Prediction {
       // a seat or out of one (the server's answer to your F): eased, you'd be drawn sliding up from
       // the ground, and the vehicle, drawn under you, sinking into it and back.
       const seated = (q: PlayerState) => (q.mode === 'ride' ? `${q.host}:${q.vehicle}:${q.seat}` : '');
-      if (err < 3 && seated(was) === seated(this.sim.player)) this.offset.add(new THREE.Vector3(dx, dy, dz));
+      if (err < 3 && seated(was) === seated(this.engine.player)) this.offset.add(new THREE.Vector3(dx, dy, dz));
       else this.offset.set(0, 0, 0);
     }
   }

@@ -8,10 +8,8 @@ import { assetsReady } from '../render/assets';
 import { isPine } from '../render/open/foliage';
 import { type WeaponAt } from '../render/character';
 import { isAlive, type Actor } from '../sim/actor';
-import { startBrain, stateName } from '../sim/ai/brain';
-import { targetOf } from '../sim/combat/hit';
+import { stateName } from '../sim/ai/brain';
 import { NO_ACTIONS, type Actions } from '../sim/types';
-import { groundAt } from '../sim/zone/colliders';
 import { Life } from '../sim/life/life';
 import { LifeUI } from '../ui/life/lifeUI';
 import { clearLife, saveLife } from './save';
@@ -68,15 +66,7 @@ export function makeTestApi(g: GameRefs) {
     },
     reset(opts: { x?: number; z?: number; facing?: number; camYaw?: number } = {}): void {
       const facing = opts.facing ?? g.world.spawn.facing;
-      g.sim.reset({ x: opts.x ?? g.world.spawn.x, z: opts.z ?? g.world.spawn.z, facing }, 0, g.build);
-      if (g.terrain) {
-        // Stand on the ground there, not inside it.
-        const p = g.sim.player;
-        p.pos.y = groundAt(g.terrain, g.world.index, p.pos.x, p.pos.z, g.terrain.height(p.pos.x, p.pos.z) + 1.2, 1.2);
-        p.prevPos = { ...p.pos };
-      }
-      g.life?.afterReset(g.sim);
-      g.range?.reset();
+      g.engine.reset({ x: opts.x ?? g.world.spawn.x, z: opts.z ?? g.world.spawn.z, facing }, g.build);
       g.vfx.reset();
       g.hud.clear();
       g.follow.reset(opts.camYaw ?? facing);
@@ -158,12 +148,11 @@ export function makeTestApi(g: GameRefs) {
     },
     // Testing: take a hit as if another fighter had landed it.
     takeHit(damage: number, dirX: number, dirZ: number, knock: number): void {
-      g.sim.takeHit(damage, dirX, dirZ, knock);
+      g.engine.takeHit(damage, dirX, dirZ, knock);
     },
     // Testing: your stamina and MP as they would be part way through a fight (offline only).
     setVitals(v: { stamina?: number; mp?: number }): void {
-      if (v.stamina !== undefined) g.sim.player.stamina = v.stamina;
-      if (v.mp !== undefined) g.sim.player.mp = v.mp;
+      g.engine.setVitals(v);
       g.draw(1, 0, 0);
     },
     // The skill panel: whether it's open and whether it's waiting for a hotbar slot.
@@ -268,13 +257,7 @@ export function makeTestApi(g: GameRefs) {
     // Puts an actor of a kind somewhere specific, so a test does not have to wait for one to
     // wander over. `i` indexes the actors of that kind, in spawn order.
     placeActor(kind: string, i: number, x: number, z: number): void {
-      const a = g.sim.actors.all().filter((v) => v.kind === kind)[i];
-      if (!a) return;
-      a.x = x;
-      a.z = z;
-      a.y = 0;
-      a.homeX = x;
-      a.homeZ = z;
+      g.engine.placeActor(kind, i, x, z);
     },
     // What the server says is in the world around you; empty when playing offline.
     netActors() {
@@ -331,7 +314,7 @@ export function makeTestApi(g: GameRefs) {
     },
     // Testing: a war-band of `count` of a kind round (x, z), fighting together. Returns their ids.
     spawnBand(kind: string, count: number, x: number, z: number): number[] {
-      return g.sim.spawnBand(kind, count, x, z, (g.sim.frame * 2654435761 + g.sim.actors.all().length * 40503) >>> 0);
+      return g.engine.spawnBand(kind, count, x, z);
     },
     // What creatures have thrown, still in the air.
     missiles() {
@@ -339,25 +322,19 @@ export function makeTestApi(g: GameRefs) {
     },
     // Testing: a blow from you to one actor, by id, as if a weapon had landed it.
     hurtActor(id: number, amount: number): void {
-      const a = g.sim.actors.get(id);
-      if (a && isAlive(a)) g.sim.damage(targetOf(a), amount, 0, 0, g.sim.player.weapon);
+      g.engine.hurtActor(id, amount);
     },
     // Testing: sets fields on an actor by id (a cooldown, a fuse), to set up a moment directly.
     setActor(id: number, fields: Partial<Actor>): void {
-      const a = g.sim.actors.get(id);
-      if (a) Object.assign(a, fields);
+      g.engine.setActor(id, fields);
     },
     // Testing: puts a new actor of a kind in the world, as if a fight had made it (it won't respawn).
     spawnActor(kind: string, x: number, z: number): number {
-      const a = g.sim.actors.spawn({ kind, x, z, seed: (g.sim.frame * 2654435761 + g.sim.actors.all().length * 40503) >>> 0 });
-      a.transient = true;
-      startBrain(a, g.sim.sighting());
-      return a.id;
+      return g.engine.spawnActor(kind, x, z);
     },
     // Testing: monsters that never get angry, for tests about something else that hit them.
     calmMonsters(on = true): void {
-      g.sim.actors.calm = on;
-      if (on) for (const a of g.sim.actors.all()) a.angry = 0;
+      g.engine.calm(on);
     },
     skillPanel(open?: boolean): boolean {
       if (open === true && !g.panel.isOpen) g.panel.open('book');

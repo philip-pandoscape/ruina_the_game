@@ -14,8 +14,6 @@ import { NetOverlay, OnlineBadge, showStopped } from '../ui/signIn';
 import { splash } from '../ui/splash';
 import { loader } from '../assets/loader';
 import type { SpaceView, WorldTick, YouState } from '../net/worldLink';
-import { addHouseColliders } from '../sim/life/housing';
-import { addScarecrowCollider } from '../sim/life/farming';
 import type { GameRefs } from '../main';
 
 export function wireOnline(g: GameRefs): void {
@@ -139,11 +137,11 @@ export function wireOnline(g: GameRefs): void {
           lastRev = t.life.rev;
           life.revision++;
           // What you've built is solid here as it is on the server.
-          for (const h of life.state.houses) addHouseColliders(life, sim, h);
+          for (const h of life.state.houses) g.engine.addSolidHouse(life, h);
           for (const sc of life.state.scarecrows) {
             if (solidScarecrows.has(sc.id)) continue;
             solidScarecrows.add(sc.id);
-            addScarecrowCollider(sim, sc);
+            g.engine.addSolidScarecrow(sc);
           }
           // The grass is laid again only round something new built: a pack picked up changes the
           // island too, and laying it all again then is a stutter.

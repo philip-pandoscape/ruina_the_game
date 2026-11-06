@@ -1,10 +1,16 @@
 import type { Build } from '../content/tuning';
+import { isAlive, type Actor } from '../sim/actor';
+import { startBrain } from '../sim/ai/brain';
+import { targetOf } from '../sim/combat/hit';
+import { addScarecrowCollider } from '../sim/life/farming';
+import { addHouseColliders } from '../sim/life/housing';
 import { applySave, type Saved } from '../sim/life/island';
 import { Life } from '../sim/life/life';
+import type { House, Scarecrow } from '../sim/life/state';
 import { dismount } from '../sim/life/vehicles';
 import { Sim } from '../sim/sim';
 import { TrainingRange } from '../sim/training';
-import type { Actions, GameEvent, PlayerState, World } from '../sim/types';
+import type { Actions, GameEvent, Mover, PlayerState, World } from '../sim/types';
 import { bandAround, makeWorld } from '../sim/yard';
 import { groundAt } from '../sim/zone/colliders';
 import { arrivalOf, type DungeonSolids, dungeonDef, floorAt, setDungeonSolid } from '../sim/zone/dungeon';
@@ -32,6 +38,8 @@ export interface EngineOptions {
   goblins?: number;
   /** Your skills and loadout to start with. */
   build: Build;
+  /** A world made elsewhere (the tests' battlefield), in place of the island or the yard. */
+  world?: World;
 }
 
 export class Engine {
@@ -56,7 +64,7 @@ export class Engine {
 
   constructor(o: EngineOptions) {
     this.online = o.online;
-    this.world = o.openWorld ? makeZoneWorld() : makeWorld();
+    this.world = o.world ?? (o.openWorld ? makeZoneWorld() : makeWorld());
     if (o.goblins) this.world.spawns.push(...bandAround('goblin', o.goblins, 9, 10, 1));
     this.terrain = this.world.terrain ?? null;
     this.sim = new Sim(this.world, { training: !o.online });
@@ -196,6 +204,115 @@ export class Engine {
    */
   loadIsland(data: Saved, now = Date.now()): boolean {
     return !!this.life && applySave(this.life, this.sim, data, now);
+  }
+
+  // ---------- Online: what the server says ----------
+
+  /**
+   * Online: the server's word on you. You start again from `server` (a copy, which the rules keep),
+   * `restore` puts back the parts of the island that move with you as of the same update, then
+   * `inputs` (those it hasn't used yet) run again on top: numbered as they were the first time (the
+   * frame count is the clock everything is drawn by) and setting nothing off (that was shown
+   * already). With none to run you're drawn from where you were, so the last step isn't drawn twice.
+   * `first`: the first word since joining, taken as it is.
+   */
+  correct(server: PlayerState, inputs: readonly Actions[], restore: (() => void) | null, first = false): void {
+    const drawnFrom = { ...this.sim.player.prevPos };
+    this.sim.player = server;
+    restore?.();
+    if (first) return;
+    this.sim.frame -= inputs.length;
+    for (const a of inputs) this.sim.step(a);
+    this.sim.drainEvents();
+    if (inputs.length === 0) this.sim.player.prevPos = drawnFrom;
+  }
+
+  /** A house solid here as it is on the server: yours, or someone else's where you see it (`owner`: their island). */
+  addSolidHouse(owner: Life, house: House): void {
+    addHouseColliders(owner, this.sim, house);
+  }
+
+  /** A scarecrow's post solid, and the ground round it tilled, as on the server. */
+  addSolidScarecrow(sc: Scarecrow): void {
+    addScarecrowCollider(this.sim, sc);
+  }
+
+  /** Other players' vehicles where they're drawn, solid to you as yours are. */
+  setOthersVehicles(movers: Mover[]): void {
+    this.world.movers = movers;
+  }
+
+  // ---------- For tests (the test API, src/app/testApi.ts) ----------
+
+  /** Starts you over at `at` with `build`, standing on whatever is solid there, the island's and the yard's parts with you. */
+  reset(at: { x: number; z: number; facing: number }, build: Build): void {
+    this.sim.reset(at, 0, build);
+    const terrain = this.terrain;
+    if (terrain) {
+      const p = this.sim.player;
+      p.pos.y = groundAt(terrain, this.world.index, p.pos.x, p.pos.z, terrain.height(p.pos.x, p.pos.z) + 1.2, 1.2);
+      p.prevPos = { ...p.pos };
+    }
+    this.life?.afterReset(this.sim);
+    this.range?.reset();
+  }
+
+  /** Your stamina and MP as they would be part way through a fight. */
+  setVitals(v: { stamina?: number; mp?: number }): void {
+    if (v.stamina !== undefined) this.sim.player.stamina = v.stamina;
+    if (v.mp !== undefined) this.sim.player.mp = v.mp;
+  }
+
+  /** Monsters that never get angry, for tests about something else that hits them. */
+  calm(on: boolean): void {
+    this.sim.actors.calm = on;
+    if (on) for (const a of this.sim.actors.all()) a.angry = 0;
+  }
+
+  /** Puts the `i`th actor of a kind (in spawn order) at (x, z), at home there. */
+  placeActor(kind: string, i: number, x: number, z: number): void {
+    const a = this.sim.actors.all().filter((v) => v.kind === kind)[i];
+    if (!a) return;
+    a.x = x;
+    a.z = z;
+    a.y = 0;
+    a.homeX = x;
+    a.homeZ = z;
+  }
+
+  /** Sets fields on an actor (a cooldown, a fuse), to set up a moment directly. */
+  setActor(id: number, fields: Partial<Actor>): void {
+    const a = this.sim.actors.get(id);
+    if (a) Object.assign(a, fields);
+  }
+
+  /** A new actor of a kind at (x, z), as if a fight had made it (it won't respawn). Returns its id. */
+  spawnActor(kind: string, x: number, z: number): number {
+    const a = this.sim.actors.spawn({ kind, x, z, seed: this.testSeed() });
+    a.transient = true;
+    startBrain(a, this.sim.sighting());
+    return a.id;
+  }
+
+  /** A band of `count` of a kind round (x, z), as a zone's spawns make one. Returns their ids. */
+  spawnBand(kind: string, count: number, x: number, z: number): number[] {
+    return this.sim.spawnBand(kind, count, x, z, this.testSeed());
+  }
+
+  /** A blow from you to an actor, as if your weapon had landed it. */
+  hurtActor(id: number, amount: number): void {
+    const a = this.sim.actors.get(id);
+    if (a && isAlive(a)) this.sim.damage(targetOf(a), amount, 0, 0, this.sim.player.weapon);
+  }
+
+  /** A blow landing on you from (dirX, dirZ), as if something had hit you. */
+  takeHit(damage: number, dirX: number, dirZ: number, knock: number): void {
+    this.sim.takeHit(damage, dirX, dirZ, knock);
+  }
+
+  /** A seed for what a test makes, from the moment and how many there are (the same run, the same seed). */
+  private testSeed(): number {
+    return (this.sim.frame * 2654435761 + this.sim.actors.all().length * 40503) >>> 0;
   }
 
   /** Offline, fallen out of the bottom of a copy: back where it's entered (the server does this online). */
