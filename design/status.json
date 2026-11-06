@@ -1,6 +1,6 @@
 {
   "comment": "Implementation tracker for the design bible (design/index.html). Edit this file and the page follows: it reads the tracker live (npm run dev, then /design/). Status is one of: done, building, planned, idea. Keep `files` to the main places a feature lives so a future session can jump straight there.",
-  "updated": "2026-11-05",
+  "updated": "2026-11-06",
   "systems": [
     {
       "id": "world",
@@ -1286,12 +1286,15 @@
       "system": "tech",
       "status": "building",
       "title": "The first refactor: one copy of the rules, areas, content as data",
-      "notes": "Planned and reviewed on 2026-11-05 (.plans/refactor/README.md): fourteen phases on branch refactor/first, merged into beta once at the end. Test tiers (unit tests without a browser, integration before beta, stress before a release); dead code out and the toon look retired for quality settings of the new look; an admin menu (admins named in ADMIN_USERS) reaching every developer page and zone; a /find-assets skill; a Rust workspace (crates/engine, crates/server, crates/tools; the server renamed ruina-server); the client in areas with one bridge to the rules and one Content Library page; content in folders, compiled and checked by contentc; the rules in one Rust engine, run natively by the server and as WebAssembly by the browser; content as data (ids in saves and on the wire, spawns, NPCs, weapons, looks); zones as data, the yard and the battlefield as developer zones, and bots as part of the engine; assets streamed and cached for a game far bigger than 64 MB, binaries in Git LFS; the design bible as a knowledge base anyone can read; AGENTS.md rewritten. Done so far: the survey (.plans/refactor/inventory), the baseline (395 tests pass in 10.8 minutes), binaries in Git LFS, and servers that listen on this machine only so Windows never asks to let them through.",
+      "notes": "Planned and reviewed on 2026-11-05 (.plans/refactor/README.md): fourteen phases on branch refactor/first, merged into beta once at the end. Test tiers (unit tests without a browser, integration before beta, stress before a release); dead code out and the toon look retired for quality settings of the new look; an admin menu (admins named in ADMIN_USERS) reaching every developer page and zone; a /find-assets skill; a Rust workspace (crates/engine, crates/server, crates/tools; the server renamed ruina-server); the client in areas with one bridge to the rules and one Content Library page; content in folders, compiled and checked by contentc; the rules in one Rust engine, run natively by the server and as WebAssembly by the browser; content as data (ids in saves and on the wire, spawns, NPCs, weapons, looks); zones as data, the yard and the battlefield as developer zones, and bots as part of the engine; assets streamed and cached for a game far bigger than 64 MB, binaries in Git LFS; the design bible as a knowledge base anyone can read; AGENTS.md rewritten. Done so far: the survey (.plans/refactor/inventory) and the baseline (395 tests pass in 10.8 minutes); binaries in Git LFS; servers that listen on this machine only; the test tiers (npm run check after a change: typecheck, dead code, Rust format and lints, unit tests; a Rust rules file edited and tested in 7 s; the TypeScript-against-Rust checks in 39 s without a browser); dead code out (knip and clippy guard it); the toon look retired for high, medium and low quality settings; the Admin menu (docs/admin.md: admins named in ADMIN_USERS reach Developer Tools, the developer zones and the developer pages, now built into dev/ and served to admins only; the developer commands no longer open to every player on beta); the /find-assets skill; the Rust code in one format, one copy of each rules helper, and a bug fixed in rebuilding everyone's solids after an island is started over.",
       "files": [
         ".plans/refactor/README.md",
         ".plans/refactor/tracker.md",
         ".plans/refactor/progress.md",
-        ".plans/refactor/inventory/baseline.md"
+        ".plans/refactor/inventory/baseline.md",
+        "docs/admin.md",
+        "src/dev/pages.ts",
+        "src/ui/admin/adminMenu.ts"
       ]
     }
   ],
@@ -1626,6 +1629,19 @@
         "Binaries (models, pictures, icons, fonts, the baked island) in Git LFS, fetched by CI from a cache.",
         "The server listens on this machine only unless asked (--listen all, set in the Docker image), so starting one never brings up a Windows prompt.",
         "Tidied: the merged branches and worktrees, their scratch work kept in the main checkout."
+      ]
+    },
+    {
+      "date": "2026-11-06",
+      "title": "The first refactor: test tiers, dead code, quality settings, the Admin menu",
+      "summary": "Phases 1 to 4 of the refactor on branch refactor/first, with Phase 5 begun: tests in tiers that run in seconds where they can, dead code out, the toon look retired for quality settings, an Admin menu for the developer zones and pages, and a skill for finding free assets.",
+      "points": [
+        "Test tiers: unit and TypeScript-against-Rust checks on Vitest (no browser), the integration tier on Playwright, stress tests before a release; npm run check after every change.",
+        "Dead code: 48 TypeScript exports, 16 Rust items and a module nothing used; knip and clippy keep it out.",
+        "The look: one look, at high (a graphics card), medium (integrated graphics) or low (software WebGL, as CI draws: haze and grade only, plainer ground and trees, a shorter view), ?quality= to choose.",
+        "Admins: ADMIN_USERS names them (on a development server everyone, unless it names someone); the Admin menu on character select, in the world and in the yard; /dev/ and /design/ answer anyone else \"not found\".",
+        "The /find-assets skill: free models, textures, skies, animations, sounds and effects searched and fetched with their licences and credits.",
+        "Rust: one format (rustfmt), one random generator and one set of JavaScript maths helpers, and starting an island over now rebuilds solids in the same order every time."
       ]
     }
   ]

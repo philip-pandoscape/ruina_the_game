@@ -9,11 +9,12 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
 
 ## Now
 
-- **Phase:** 2, Clear Out Dead Code.
-- **Next:** R2.1.
+- **Phase:** 5, the Rust Workspace (Phases 0-4 done but Biome, R5.0b, which waits for the
+  toon-look agent's last fix).
+- **Next:** R5.1-R5.4 and R5.9: the workspace, the engine crate, the tools crate, `ruina-server`.
 - **Test rig for this branch:** Postgres container `ruina-refactor-db` on 127.0.0.1:5461; the
   world server copied to `scratch/server-run/` on 7871 (`DATABASE_URL=postgres://ruina:ruina@127.0.0.1:5461/ruina
-  DEV_LOGIN=1 ./yggdrasil-server.exe --battle off --port 7871`); the suite with `PW_PORT=5261
+  DEV_LOGIN=1 ./yggdrasil-server.exe --battle off --port 7871`, rebuilt and copied after a server change); the suite with `PW_PORT=5261
   TEST_PORT_OFFSET=60 RUINA_SERVER=http://localhost:7871
   RUINA_DATABASE_URL=postgres://ruina:ruina@127.0.0.1:5461/ruina`. Servers listen on localhost only:
   never start one that listens everywhere on this machine (it raises a Windows prompt).
@@ -111,80 +112,114 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
 
 ## Phase 2: Clear Out Dead Code
 
-- [ ] **R2.1** `knip` configured with every entry (the 9 HTML pages, configs, tests, tools,
+- [x] **R2.1** `knip` configured with every entry (the 9 HTML pages, configs, tests, tools,
   `import.meta.glob` users) and run with `node_modules` installed; `cargo clippy` (installed here, not
   in CI) with dead-code lints. Merge with `inventory/debt.md` section 1; each entry re-checked by grep.
-- [ ] **R2.2** Remove the unused TypeScript: the 42 exports in `inventory/debt.md` section 1,
+  Done (5307934): `knip.json`; clippy installed with rustfmt.
+- [x] **R2.2** Remove the unused TypeScript: the 42 exports in `inventory/debt.md` section 1,
   `src/species/index.ts`, the unused `hero` and `quadruped` species (if nothing will use them), the
   never-built imported-species path (`registerSpecies`, `bakeImported`, `restClip`), the
   `render/models/index.ts` re-exports nothing uses. One commit per area; suite green after each.
-- [ ] **R2.3** Remove the unused Rust: `terrain.rs`; the unused `pub` items (`FACTION_*`, `new_band`,
+  Done (5307934): 48 exports and the barrel file. The `hero` and `quadruped` species stay: the
+  library and the species harness show them as test subjects. `render/models/index.ts` is used.
+- [x] **R2.3** Remove the unused Rust: `terrain.rs`; the unused `pub` items (`FACTION_*`, `new_band`,
   `live_positions`, `recipes_at`, `has_crop_def`, `has_rideable`, `has_glider`, `slots_used`,
   `cell_size`, `hour_of_day`, `remove_box`, `remove_obstacle`, `surface::ROCK`); `CAST_HEAL`/`CAST_METEOR`.
   Test-only and aicheck-only items stay, marked `#[cfg(test)]` or moved beside their user.
-- [ ] **R2.4** Dead data and stale words: `tuning.json` `slide.frames` (and the `tuning.rs:83` claim);
+  Done (560ce2b): 16 items; `surface::ROCK` stays, part of the surface table shared with TypeScript.
+- [x] **R2.4** Dead data and stale words: `tuning.json` `slide.frames` (and the `tuning.rs:83` claim);
   stale comments (`character.ts:595`, `sim/types.ts:128`, `emberholm.json:2`, `tuning.rs:83`); the
   skill-tree tool's fallback to `tuning.skills.nodes`; README ports (7791-7795) and commands. The
   unused behaviours `skittish-hopper` and `prowler` stay (data future creatures can take up; the AI
-  tests exercise them).
-- [ ] **R2.5** `src/util/`: one `esc`, `TAU`, `clamp`, `lerp`, `angleDiff` (10, 20, 10, 7 and 2 copies
+  tests exercise them). Done (034dc6e).
+- [x] **R2.5** `src/util/`: one `esc`, `TAU`, `clamp`, `lerp`, `angleDiff` (10, 20, 10, 7 and 2 copies
   today). `render/models/data.ts` uses the content modules instead of reading the JSON again;
   `ui/icons.ts`'s old emoji tables (`ABILITY_ICONS` copying `tuning.json`, `WEAPON_NAMES` copied again
-  in `library/subjects/hero.ts:22`) go.
-- [ ] **R2.6** Small fixes: `npm run server` off port 7777 (it clashes with `npm run up`); declare the
+  in `library/subjects/hero.ts:22`) go. Done (ac2ac82, 712c5e9; the combat rules' own `angleDiff`
+  with the Admin menu's commit). `render/models/data.ts` moves to Phase 7 (R7.4), where the content
+  modules are rebuilt anyway.
+- [x] **R2.6** Small fixes: `npm run server` off port 7777 (it clashes with `npm run up`); declare the
   `tools/models/` packages (`@gltf-transform/*`, `meshoptimizer`, `sharp`) as dev dependencies;
   `.dockerignore` the icon sheets, `design/goblins/` and `.plans/`; the root `balance.json` to
-  `tools/balance/`; document `BALANCE_TRACE` and `LIFE_SUMMARY`.
-- [ ] **R2.7** Browser storage: `yggdrasil.build`, `yggdrasil.skillxp`, `yggdrasil.untracked.*` move
-  to `ruina.*` with a one-time migration on load (a test proves a saved build survives).
-- [ ] **R2.8** Retire the toon look (decided): the 75 `NEW_LOOK` branches in 16 files, the CLASSIC
+  `tools/balance/`; document `BALANCE_TRACE` and `LIFE_SUMMARY`. Done (5307934, e0a106b, b09b6f5).
+  The `npm run server` port item is dropped: Phase 10 removes the battle server it starts.
+- [x] **R2.7** Browser storage: `yggdrasil.build`, `yggdrasil.skillxp`, `yggdrasil.untracked.*` move
+  to `ruina.*` with a one-time migration on load (a test proves a saved build survives). Done (e0c94a8).
+- [x] **R2.8** Retire the toon look (decided): the 75 `NEW_LOOK` branches in 16 files, the CLASSIC
   palette, `OUTLINES`, the toon ramp, `?look=classic`; the box hero kept only as the stand-in while (or
   if) `hero.glb` fails to load. Tests that assumed the toon look under software WebGL updated.
-- [ ] **R2.8b** Quality settings for weaker GPUs: a `low` setting of the new look (no screen effects,
+  Done (e97d392, 3100d2b) by a background agent: one look; the box hero stands in only until
+  `hero.glb` loads, or for good if it can't.
+- [x] **R2.8b** Quality settings for weaker GPUs: a `low` setting of the new look (no screen effects,
   simpler materials and shadows, shorter view distance, fewer trees and props) picked automatically
   for software WebGL and integrated graphics, beside today's `medium` and `high`; measured in
-  SwiftShader (CI's renderer) and recorded in the progress report.
+  SwiftShader (CI's renderer) and recorded in the progress report. Done (e97d392): `GRAPHICS` in
+  `look.ts`; in SwiftShader low draws a frame in 285-367 ms (the toon look 235-597, high 2092-3529);
+  on Intel UHD at 1080p the square costs 14.4 ms of GPU at low (the toon look 14.6, high 51.6).
+  Left: at low, tree tops on the far ridge drawn without haze (the agent is on it).
 - [-] **R2.9** The older galleries: became the Content Library, R6.15 (decided: one page for everything).
-- [ ] **R2.10** Untested flags, one decision each, kept only with a test or a documented reason:
+- [x] **R2.10** Untested flags, one decision each, kept only with a test or a documented reason:
   `softlock=0`, `heroModel`/`heroHeight`/`heroGait`, `heroWeapons`, `sword=`, `?goblins` (keep, gets a
-  test), `--virtual-clients`; the two `lag=ms` implementations made one option.
-- [ ] **R2.11** Lint and format: rustfmt and clippy (`-D warnings` in CI); Biome for TypeScript with a
+  test), `--virtual-clients`; the two `lag=ms` implementations made one option. Decided:
+  `?goblins` kept, with a test (goblin.spec); `heroModel`, `heroHeight`, `heroGait`, `heroWeapons`,
+  `sword=` and `swordMoves=` kept, documented where they're read: they're the animation work's
+  switches for trying a body, a weapon or a set of moves without shipping it (that code is the
+  animation session's); `softlock=0` kept, documented in the option list (comparing targeting feel);
+  all of them listed with R6.1's options module. `--virtual-clients` and the battle server's own
+  `lag` go with the battle server in Phase 10 (R10.7), leaving `?lag=` one option.
+- [~] **R2.11** Lint and format: rustfmt and clippy (`-D warnings` in CI); Biome for TypeScript with a
   light rule set. The one formatting commit lands at the start of Phase 5's move window, recorded in
-  `.git-blame-ignore-revs`.
-- [ ] **R2.12** Guards: `knip` in the unit tier (new dead code fails it); clippy in CI.
+  `.git-blame-ignore-revs`. Clippy done (d158ac1); rustfmt and Biome with Phase 5's formatting commit.
+- [x] **R2.12** Guards: `knip` in the unit tier (new dead code fails it); clippy in CI. Done: both in
+  `npm run check` and CI (5307934, d158ac1).
 
 ## Phase 3: Admin Menu
 
-- [ ] **R3.1** Migration `0004`: `accounts.role` (`player` | `admin`, default `player`).
-- [ ] **R3.2** `ADMIN_USERS` (usernames, comma-separated; decided: `philip`) applied at start-up,
+- [-] **R3.1** Migration `0004`: `accounts.role` (`player` | `admin`, default `player`). Dropped: the
+  server checks `ADMIN_USERS` at sign-in and on each request, so nothing needs storing; a role column
+  can come with an admin-management screen, if one is ever wanted.
+- [x] **R3.2** `ADMIN_USERS` (usernames, comma-separated; decided: `philip`) applied at start-up,
   parsed beside the dev flags (`main.rs:76-81`), kept in AppState (`http.rs:44-58`), matched against
-  `username_key`; locally for `?as=` accounts. Beta's variable is set with the final merge.
-- [ ] **R3.3** `/api/me` returns `admin`: a field on `Account` (`accounts.rs:29-34`) filled in
+  `username_key`; locally for `?as=` accounts. Beta's variable is set with the final merge. Done
+  (8ee8144). On a development server everyone is an admin unless `ADMIN_USERS` names someone (so a
+  test, or a developer, can be a player).
+- [x] **R3.3** `/api/me` returns `admin`: a field on `Account` (`accounts.rs:29-34`) filled in
   `signed_in` (114-124), `account_by_id` (150), `create_account` (147); the client's `Account`
-  (`net/account.ts:6-9`). Tests for a player and an admin.
-- [ ] **R3.4** Developer commands (grant, warp, teleport; seeded and timed mini-game challenges)
+  (`net/account.ts:6-9`). Tests for a player and an admin. Done (8ee8144; `admin.spec.ts`).
+- [x] **R3.4** Developer commands (grant, warp, teleport; seeded and timed mini-game challenges)
   require an admin, in every environment: `world_socket.rs:521` and `:541` become
   `dev_tools && account.admin`, so the checks at `world_game.rs:560` and `tables.rs:220` follow.
   Today beta's `DEV_TOOLS=1` gives them to every player. Tests: a player's command is refused.
-- [ ] **R3.4b** The other open doors: `/api/dev/stop` (`http.rs:154`) checks for an admin session;
+  Done (8ee8144; `DEV_TOOLS` is gone; `admin.spec.ts` sends a player's grant).
+- [x] **R3.4b** The other open doors: `/api/dev/stop` (`http.rs:154`) checks for an admin session;
   `/ws/battle` (`http.rs:162`) checks sign-in and origin until Phase 10 deletes it; "start the island
-  over" (`world_socket.rs:593`, `&fresh`) becomes an admin tool.
-- [ ] **R3.5** The developer pages built into `dist` under `/dev/` (multi-page build); the server
+  over" (`world_socket.rs:593`, `&fresh`) becomes an admin tool. Done (8ee8144) but `/ws/battle`,
+  which Phase 10 deletes (R10.7): its tests run battle servers with no database to sign in to.
+- [x] **R3.5** The developer pages built into `dist` under `/dev/` (multi-page build); the server
   sends `/dev/*` only to an admin's session (sign-in is a cookie already, `server/src/http.rs`) and
-  "not found" to anyone else.
-- [ ] **R3.6** `src/dev/pages.ts`: one entry per page or developer zone (title, URL, what it's for,
+  "not found" to anyone else. Done: the guard (8ee8144, asked by `admin.spec.ts`); the pages in
+  `dev/` and every page in `dev/` and `design/` built with the game (9d9a9d7).
+- [x] **R3.6** `src/dev/pages.ts`: one entry per page or developer zone (title, URL, what it's for,
   whether it needs the dev server or a server flag).
-- [ ] **R3.7** The Admin menu (Title Case, design system), admins only: a card on the title screen
+- [x] **R3.7** The Admin menu (Title Case, design system), admins only: a card on the title screen
   (`splash.layer`, `splash.ts:60`), a button in character select's account row
   (`characterSelect.ts:71`), a menu-bar button in the open world (`addMenuButton`, `lifeUI.ts:235`,
   as Party does at `main.ts:367`: a new press, `Panel` kind and view), and a HUD button in the yard
   and on the battlefield (`render/hud.ts:143`). It also opens the developer panel, which today only
-  the backquote key reaches.
+  the backquote key reaches. `src/ui/admin/`: the card (character select's account row; the
+  title screen shows character select once you're signed in), the world's Admin window with
+  Developer Tools at its top (the menu bar's Admin button), and a corner button in the yard and on
+  the battlefield for an account the server calls an admin. Done (6542f7d).
 - [-] **R3.8** A battlefield on demand: replaced by the battlefield developer zone, R10.7 (decided).
-- [ ] **R3.9** Pages that save through Vite plugins (library notes, bug reports) explain themselves
-  on beta instead of failing.
-- [ ] **R3.10** Integration tests: menu shown and hidden, `/dev/` and commands refused to players.
-- [ ] **R3.11** Docs: `docs/admin.md`, the AGENTS.md entry, the design bible.
+- [x] **R3.9** Pages that save through Vite plugins (library notes, bug reports) explain themselves
+  on beta instead of failing. The library already kept its notes in the browser and now says the
+  dev server keeps them as files; the bug reporter, in a built game, says the dev server keeps
+  reports instead of asking whether `npm run dev` is running.
+- [x] **R3.10** Integration tests: menu shown and hidden, `/dev/` and commands refused to players.
+  `tests/integration/admin.spec.ts` (a server of its own with `ADMIN_USERS`; the helper
+  `tests/support/ownServer.ts`, which `update.spec.ts` now uses too): both halves pass; the Admin
+  window's labels are held to the writing rule in `ui.spec.ts`.
+- [x] **R3.11** Docs: `docs/admin.md`, the AGENTS.md entry, the design bible. Done.
 
 ## Phase 4: The /find-assets Skill (parallel)
 
@@ -218,13 +253,17 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
 
 ## Phase 5: The Rust Workspace
 
-- [ ] **R5.0** The moves script, `tools/refactor/moves.mjs`, reading `.plans/refactor/moves.tsv`
+- [x] **R5.0** The moves script, `tools/refactor/moves.mjs`, reading `.plans/refactor/moves.tsv`
   (old path, new path) and fixing every reference: TypeScript imports; tests' path strings
   (`models.spec:192-193`, `village.spec:100-102`, `update.spec:209`, `library.spec:117`); the 41 source
   paths the library's subjects embed; `include_str!`/`include_bytes!` (18 point at `shared/`);
   Dockerfile, CI, `package.json`, `vite.config.ts` (the `src/app/bugs/logs.ts` regex); AGENTS.md,
   `docs/`, the skills, `design/status.json`. It can replay the same moves on any other branch.
-- [ ] **R5.0b** The one formatting commit (rustfmt, Biome), listed in `.git-blame-ignore-revs`.
+  Done in Phase 1 (57bbd61, 1e0bf67), with template-string URLs since (4183398).
+- [~] **R5.0b** The one formatting commit (rustfmt, Biome), listed in `.git-blame-ignore-revs`.
+  Rust done (440a861: 160 columns, Max heuristics, the closest to how it was written; checked by CI
+  and `npm run check`). Biome (160 columns too; about 8,700 lines change) once the toon-look agent
+  has committed its TypeScript.
 - [ ] **R5.1** Root `Cargo.toml` workspace with `crates/engine`, `crates/server`, `crates/tools`;
   one `target/` at the root.
 - [ ] **R5.2** Move the pure rules modules into `crates/engine` (`inventory/rules-map.md` section 1:
@@ -235,8 +274,9 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
   `world_game::{load_island, player_state_json}` (island loading is a rule, so it moves); the loops
   `open`/`life` and `skills`/`tuning` (shared helpers such as `js_hypot`, `js_round`, `carry` into a
   module of their own).
-- [ ] **R5.2b** One of each helper: one mulberry32 `Rng` (today in sim.rs, `Life::rand`, ai.rs `draw`,
-  beacons.rs), one `len` (six copies), one set of `js_*` maths helpers.
+- [x] **R5.2b** One of each helper: one mulberry32 `Rng` (today in sim.rs, `Life::rand`, ai.rs `draw`,
+  beacons.rs), one `len` (six copies), one set of `js_*` maths helpers. Done (f1ec903): `rng.rs`
+  and `jsmath.rs`; all 63 TypeScript-against-Rust checks unchanged.
 - [ ] **R5.3** Server areas: `net/`, `db/`, `world/`, `battle/`, `admin/`; `main.rs` only starts things;
   `lib.rs`'s flat list of 30 modules becomes a few public areas.
 - [ ] **R5.3b** Cut the battlefield loose from the open world: `world_game.rs:31,206` makes an empty
@@ -251,11 +291,13 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
   the ~40 calls listed in `inventory/rules-map.md` section 2 (actors, ai, game, life/interact x11,
   farming, vehicles `powf`, minigames, world, sim, world_game, tables), checked against the
   TypeScript results (the conformance tolerance should shrink, not grow).
-- [ ] **R5.5b** Bug: `world_game.rs:754` `rebuild_world` walks the estates `HashMap` (random order) and
+- [x] **R5.5b** Bug: `world_game.rs:754` `rebuild_world` walks the estates `HashMap` (random order) and
   so inserts colliders in a different order each run. Walk them in a fixed order; a test proves two
-  runs agree.
+  runs agree. Done (f8a7187): the test failed three times out of three before the fix.
 - [ ] **R5.6** Rust tests for `ai.rs`, `sim.rs`, `actors.rs`, `game.rs`: golden scenarios checked
-  against today's TypeScript results.
+  against today's TypeScript results. Planned as hashes: each conformance scenario's Rust output
+  hashed bit for bit and kept beside it, recorded while the conformance checks still prove it
+  matches the TypeScript, so the engine keeps its own guard when Phase 8 deletes them.
 - [ ] **R5.7** Build speed: dev-profile settings, linker trial on Windows, `cargo build --timings`
   report; Docker caching for a workspace (`cargo-chef` or stub crates).
 - [ ] **R5.8** Paths: Dockerfile, CI, `package.json`, `tests/support/testServer.ts`, README,

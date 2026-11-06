@@ -11,10 +11,10 @@ is in [tracker.md](tracker.md), the plan in [README.md](README.md).
 |---|---|
 | 0 Prepare and Measure | done |
 | 1 Test Tiers | done |
-| 2 Clear Out Dead Code | in progress |
-| 3 Admin Menu | to do |
+| 2 Clear Out Dead Code | done (Biome with Phase 5) |
+| 3 Admin Menu | done |
 | 4 The /find-assets Skill | done |
-| 5 The Rust Workspace | to do |
+| 5 The Rust Workspace | in progress |
 | 6 The Client in Areas | to do |
 | 7 Content in Folders | to do |
 | 8 One Copy of the Rules | to do |
@@ -121,3 +121,67 @@ is in [tracker.md](tracker.md), the plan in [README.md](README.md).
 - **Docs:** `docs/testing.md` (the tiers, where a new test goes, the helpers, running, ports, a
   private rig), `tests/AGENTS.md`, and AGENTS.md's commands and test rules.
 - **Next:** Phase 2, clearing out dead code (and retiring the toon look).
+
+## 2026-11-05: Phase 4, the /find-assets Skill: done
+
+- `.claude/skills/find-assets/SKILL.md`: free first, the licences a public repository can carry
+  (CC0, CC-BY with a credit), where to look for each kind of asset (models, textures, skies,
+  animations, sounds, music, effects, fonts), judging candidates in the game's look, showing you,
+  fetching, bringing them in, crediting them, and paid makers (Meshy, Gemini) last, with their cost
+  said first.
+- `tools/assets/search.mjs` searches Poly Haven, ambientCG, Sketchfab (light models only, unless
+  asked) and Freesound; `tools/assets/fetch.mjs` fetches from those, Kenney's pages and itch.io's
+  free downloads into a fresh folder of its own, with a `credit.json` and the `CREDITS.md` row.
+  Proven on a Poly Haven model and texture, an ambientCG texture, Kenney's impact sounds and
+  Quaternius' animation library. Sketchfab downloads want your API token and Freesound's API a key
+  (`SKETCHFAB_TOKEN`, `FREESOUND_API_KEY` in `.env`); without them those two only search.
+
+## 2026-11-06: Phase 2, Clearing Out Dead Code: done
+
+- **Out:** 48 TypeScript exports nothing used and a barrel file; `terrain.rs` and 16 Rust items;
+  `tuning.json`'s `slide.frames`; comments about files long gone. `knip` now reports nothing and,
+  with clippy (every lint an error), guards `npm run check` and CI.
+- **One copy each:** `TAU`, `clamp`, `lerp`, `esc`, `angleDiff` in `src/util/`; weapons' names and
+  icons in `tuning.json`, read by the UI, the library and the poses, which each had a copy.
+- **Under the game's name:** the browser's saved build, the yard's skill experience and the quest
+  tracker's hidden quests move from `yggdrasil.*` to `ruina.*` once, without anyone losing them.
+- **Flags:** `?goblins` has a test; the hero's comparison switches (`heroModel`, `heroWeapons`,
+  `swordMoves`...) stay, documented, as the animation work's; the battle server's own options go with
+  it in Phase 10.
+- **The toon look, retired** (a background agent, e97d392): one look, at three qualities, picked by
+  the graphics chip or `?quality=`. **Low** is new, for software WebGL (CI's browsers) and no WebGL2:
+  of the screen effects only the haze and the grade, the frame at three quarters size, plain ground,
+  far-shape trees with half the clumps, a 1,200 m view. Time per frame in SwiftShader at 1280 x 720:
+
+  | Place | Toon look (before) | Low | High |
+  |---|---|---|---|
+  | The square | 485 ms | 367 ms | 2,564 ms |
+  | The isle from the air | 597 ms | 285 ms | 3,529 ms |
+  | The fields | 235 ms | 332 ms | 2,092 ms |
+
+  On Intel UHD graphics at 1080p the square costs 14.4 ms of GPU a frame at low (the toon look
+  14.6), 33.1 at medium, 51.6 at high. Screenshots: `screenshots/look-<place>-<quality>.png`. Left:
+  at low, a few tree tops on the far ridge show without haze (being fixed); the fields at low are
+  slower than the toon look was, because of the tree crowns.
+- **Left:** Biome for the TypeScript, with Phase 5's formatting (the Rust's is done).
+
+## 2026-11-06: Phase 3, the Admin Menu: done
+
+- **Who:** `ADMIN_USERS` names the admins (on beta: `philip`, set with the final merge). On a
+  development server everyone is one unless `ADMIN_USERS` names someone, so you (or a test) can see
+  the game as a player does. The server says so in `/api/me`, at sign-in and in the world's welcome.
+- **Closed to players:** the developer commands (gifts, island time, teleports, seeded mini-game
+  challenges, starting the island over). Until now beta's `DEV_TOOLS=1` gave them to every player.
+  The developer pages, `/dev/` and `/design/`, answer anyone else "not found"; stopping the server
+  wants an admin.
+- **The menu:** a button beside Sign Out on character select opens a card of every developer zone
+  and page (`src/dev/pages.ts`), each opening in a new tab; in the world, an Admin window with
+  Developer Tools at its top (until now only the backquote key reached it), opened from the menu
+  bar's Admin button; a corner button in the yard and on the battlefield.
+- **The pages on beta:** the developer pages moved into `dev/` and, with the design pages, are now
+  built with the game, so beta serves them (to admins only).
+- **Beta explains itself:** the bug reporter says reports need the dev server, instead of asking
+  whether `npm run dev` is running; the library says the dev server would keep its notes as files.
+- **Tests:** `admin.spec.ts` runs a server of its own with `ADMIN_USERS` set: a player gets no menu,
+  their commands are ignored, the pages are not found and stopping the server is refused; an admin
+  has the card, the window, a page in a tab and Developer Tools, and their commands work.
