@@ -1,7 +1,7 @@
 //! Everything solid in an open world, bucketed on a coarse grid so a query only looks at what is
 //! nearby. A port of src/sim/zone/colliders.ts: the same buckets, visited in the same order.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet};
 
 use super::zone::{BoxCollider, Deck, Heightfield, Obstacle};
 use crate::jsmath::js_hypot;
@@ -13,9 +13,9 @@ pub struct ColliderIndex {
     pub obstacles: Vec<Obstacle>,
     pub boxes: Vec<BoxCollider>,
     pub decks: Vec<Deck>,
-    obstacle_cells: HashMap<i64, Vec<usize>>,
-    box_cells: HashMap<i64, Vec<usize>>,
-    deck_cells: HashMap<i64, Vec<usize>>,
+    obstacle_cells: BTreeMap<i64, Vec<usize>>,
+    box_cells: BTreeMap<i64, Vec<usize>>,
+    deck_cells: BTreeMap<i64, Vec<usize>>,
 }
 
 fn key(bx: i64, bz: i64) -> i64 {
@@ -26,7 +26,7 @@ fn span(x: f64, z: f64, r: f64) -> (i64, i64, i64, i64) {
     (((x - r) / BUCKET).floor() as i64, ((x + r) / BUCKET).floor() as i64, ((z - r) / BUCKET).floor() as i64, ((z + r) / BUCKET).floor() as i64)
 }
 
-fn insert(cells: &mut HashMap<i64, Vec<usize>>, x: f64, z: f64, r: f64, i: usize) {
+fn insert(cells: &mut BTreeMap<i64, Vec<usize>>, x: f64, z: f64, r: f64, i: usize) {
     let (x0, x1, z0, z1) = span(x, z, r);
     for bx in x0..=x1 {
         for bz in z0..=z1 {
@@ -36,7 +36,7 @@ fn insert(cells: &mut HashMap<i64, Vec<usize>>, x: f64, z: f64, r: f64, i: usize
 }
 
 /// Indices of everything listed near (x, z), each once, in the order the TypeScript visits them.
-fn visit(cells: &HashMap<i64, Vec<usize>>, x: f64, z: f64, r: f64, out: &mut Vec<usize>) {
+fn visit(cells: &BTreeMap<i64, Vec<usize>>, x: f64, z: f64, r: f64, out: &mut Vec<usize>) {
     out.clear();
     let (x0, x1, z0, z1) = span(x, z, r);
     if x0 == x1 && z0 == z1 {
@@ -46,7 +46,7 @@ fn visit(cells: &HashMap<i64, Vec<usize>>, x: f64, z: f64, r: f64, out: &mut Vec
         return;
     }
     // A thing spanning two buckets is listed in both; visit it once.
-    let mut seen = HashSet::new();
+    let mut seen = BTreeSet::new();
     for bx in x0..=x1 {
         for bz in z0..=z1 {
             if let Some(list) = cells.get(&key(bx, bz)) {

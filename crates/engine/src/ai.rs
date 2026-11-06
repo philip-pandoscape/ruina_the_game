@@ -380,8 +380,8 @@ fn wander(a: &mut Actor, b: &Behaviour, seen: Sighting, most: f64) {
         a.move_z = hz / to_home;
     } else {
         let angle = draw(a) * std::f64::consts::PI * 2.0;
-        a.move_x = angle.sin();
-        a.move_z = angle.cos();
+        a.move_x = angle.js_sin();
+        a.move_z = angle.js_cos();
     }
     a.stride = most;
 }
@@ -419,7 +419,7 @@ fn enter(a: &mut Actor, b: &Behaviour, index: usize, seen: Sighting, ctx: &mut C
             a.target_z = if seen.present { seen.z } else { a.z + a.move_z };
             let (dx, dz) = (a.target_x - a.x, a.target_z - a.z);
             if len(dx, dz) > 1e-6 {
-                a.facing = dx.atan2(dz);
+                a.facing = dx.js_atan2(dz);
             }
             return;
         }
@@ -429,7 +429,7 @@ fn enter(a: &mut Actor, b: &Behaviour, index: usize, seen: Sighting, ctx: &mut C
             if d > 1e-6 {
                 a.move_x = dx / d;
                 a.move_z = dz / d;
-                a.facing = a.move_x.atan2(a.move_z);
+                a.facing = a.move_x.js_atan2(a.move_z);
             }
             let reach = kind(&a.kind).and_then(|k| k.slam.as_ref()).map_or(0.0, |s| s.leap);
             a.stride = d.min(reach);
@@ -523,7 +523,7 @@ fn enter(a: &mut Actor, b: &Behaviour, index: usize, seen: Sighting, ctx: &mut C
         }
         _ => wander(a, b, seen, most),
     }
-    a.facing = a.move_x.atan2(a.move_z);
+    a.facing = a.move_x.js_atan2(a.move_z);
 }
 
 // A frame of walking: work out where it is going now, step toward it at the state's pace, keep
@@ -784,7 +784,7 @@ pub fn step_brain_in(a: &mut Actor, seen: Sighting, ctx: &mut Ctx) {
             let moved = (now - before) * a.stride;
             a.x += a.move_x * moved;
             a.z += a.move_z * moved;
-            a.y = (now * std::f64::consts::PI).sin() * g.height;
+            a.y = (now * std::f64::consts::PI).js_sin() * g.height;
         }
     } else if s.act == "channel" {
         ctx.out.push(Request::Pull(a.id));

@@ -5,7 +5,7 @@
 //! numbers and this decides with them. That is why the fold below is in a fixed order rather than
 //! a convenient one, and why every sum is gathered before it is used.
 
-use std::collections::{BTreeMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet};
 use std::sync::OnceLock;
 
 use crate::tuning::{AttackStep, NO_ABILITY, NO_MOVEMENT, SkillMod, SkillNode, skill_tree, tuning};
@@ -405,7 +405,7 @@ pub struct ResolvedSkills {
     pub ability: Vec<Vec<Channel>>, // [ability][stat]
     /// [movement skill][stat] (`move` in the TypeScript).
     pub moves: Vec<Vec<Channel>>,
-    pub combos: HashSet<String>,
+    pub combos: BTreeSet<String>,
     pub weapons: Vec<u8>,
     pub abilities: Vec<u8>,
     /// Movement skills it has learned.
@@ -430,14 +430,14 @@ pub fn variant_ids() -> &'static Vec<String> {
 
 /// What a learned set grants, in node order.
 struct Grants {
-    combos: HashSet<String>,
+    combos: BTreeSet<String>,
     weapons: Vec<u8>,
     abilities: Vec<u8>,
     movement: Vec<u8>,
 }
 
 fn granted(s: &SkillSet) -> Grants {
-    let mut out = Grants { combos: HashSet::new(), weapons: Vec::new(), abilities: Vec::new(), movement: Vec::new() };
+    let mut out = Grants { combos: BTreeSet::new(), weapons: Vec::new(), abilities: Vec::new(), movement: Vec::new() };
     for (i, node) in nodes().iter().enumerate() {
         if !has_skill(s, i) {
             continue;

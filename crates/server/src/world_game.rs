@@ -9,7 +9,7 @@
 //! The browser predicts its own player with the TypeScript twin of these rules and corrects itself
 //! to what arrives here (src/net/worldLink.ts, src/net/netPlayer.ts).
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::time::{Duration, Instant};
 
 use serde_json::{Value, json};
@@ -476,7 +476,7 @@ impl ChannelGame {
         self.send_all(&empty.to_string(), None);
         self.estates.remove(character);
         self.send_all(&self.estates.claims_message(), None);
-        let held: HashMap<i64, HashMap<String, String>> = self.members.keys().map(|id| (*id, self.estates.held_by_others(*id))).collect();
+        let held: HashMap<i64, BTreeMap<String, String>> = self.members.keys().map(|id| (*id, self.estates.held_by_others(*id))).collect();
         for (owner, life) in self.players.each_life_mut() {
             if let Some(h) = held.get(&owner) {
                 life.plot_owners = h.clone();
@@ -799,7 +799,7 @@ impl ChannelGame {
             }
             self.send_all(&self.estates.claims_message(), None);
             // Who may claim which plot changed for everyone.
-            let held: HashMap<i64, HashMap<String, String>> = self.members.keys().map(|id| (*id, self.estates.held_by_others(*id))).collect();
+            let held: HashMap<i64, BTreeMap<String, String>> = self.members.keys().map(|id| (*id, self.estates.held_by_others(*id))).collect();
             for (owner, life) in self.players.each_life_mut() {
                 if let Some(h) = held.get(&owner) {
                     life.plot_owners = h.clone();

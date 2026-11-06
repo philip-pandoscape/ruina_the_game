@@ -21,7 +21,7 @@ pub mod trade;
 pub mod vehicles;
 pub mod weather;
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
@@ -271,7 +271,7 @@ pub struct Life {
     pub resting: bool,
     /// Plots other characters hold: plot id -> their name. A plot someone else holds can't be
     /// claimed (the TypeScript's plotOwner).
-    pub plot_owners: HashMap<String, String>,
+    pub plot_owners: BTreeMap<String, String>,
     /// Online: the world's clock (the server's, in seconds since 1970), set by the channel each
     /// tick, which the rain and the wind run on so that everyone has the same weather
     /// (weather.rs). None runs them on the island's own clock (the rules' checks, tests).
@@ -291,7 +291,7 @@ impl Life {
             placing: None,
             revision: 0,
             resting: false,
-            plot_owners: HashMap::new(),
+            plot_owners: BTreeMap::new(),
             world_clock: None,
             queue: Vec::new(),
             events: Vec::new(),

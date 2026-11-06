@@ -3,7 +3,7 @@
 //! so the prompt on screen is always exactly what the next press will do.
 
 use crate::jsmath::JsMath;
-use std::collections::HashSet;
+use std::collections::BTreeSet;
 use std::f64::consts::PI;
 
 use super::content::{
@@ -24,7 +24,7 @@ use super::state::{Home, Stack};
 use super::trade::{buy, buy_back, carried, drop_pack, load_pack, pack_index, pick_up, quote, recover_demand, run_recipe, sell, sell_pack, unload_pack};
 use super::vehicles::{board, dismount, distance_to, mount_command, nearest_anchor, pack_blocks, recall, ridden, summon, vehicle_index};
 use super::{Command, Focus, Life, LifeEvent, Placement, QuestEvent};
-use crate::jsmath::{js_max, js_min, js_round};
+use crate::jsmath::{js_hypot, js_max, js_min, js_round};
 use crate::open::Sim;
 use crate::open::traverse::{close_glider, glider_blocked, gust, open_glider};
 use crate::open::zone::{Outpost, Zone, to_local};
@@ -118,7 +118,7 @@ impl Pick {
         }
         let dx = f.x - self.x;
         let dz = f.z - self.z;
-        let l = dx.hypot(dz);
+        let l = js_hypot(dx, dz);
         let facing = if l > 0.3 { (dx * self.fx + dz * self.fz) / l } else { 1.0 };
         let score = dist + (1.0 - facing) * 1.2;
         if score < self.score {
@@ -185,7 +185,7 @@ pub fn find_focus(life: &mut Life, sim: &Sim) -> Option<Focus> {
 
     // People.
     for n in &zone.recipe.npcs {
-        let d = (n.x - px).hypot(n.z - pz);
+        let d = js_hypot(n.x - px, n.z - pz);
         if d > 4.0 {
             continue;
         }
@@ -248,7 +248,7 @@ pub fn find_focus(life: &mut Life, sim: &Sim) -> Option<Focus> {
 
     // Workbenches.
     for b in &zone.recipe.workbenches {
-        let d = (b.x - px).hypot(b.z - pz);
+        let d = js_hypot(b.x - px, b.z - pz);
         let name = b.name.as_deref().unwrap_or("Workbench");
         let detail = if back.is_some() { "Your back is full".into() } else { format!("{} packs", place_name(&b.place)) };
         let f = Focus {
@@ -272,7 +272,7 @@ pub fn find_focus(life: &mut Life, sim: &Sim) -> Option<Focus> {
             if pk.at != "ground" {
                 continue;
             }
-            let d = (pk.x - px).hypot(pk.z - pz);
+            let d = js_hypot(pk.x - px, pk.z - pz);
             let f = Focus {
                 action: "pickup".into(),
                 key: format!("pack:{}", pk.id),
@@ -422,7 +422,7 @@ pub fn find_focus(life: &mut Life, sim: &Sim) -> Option<Focus> {
     for (i, nd) in zone.recipe.nodes.iter().enumerate() {
         let Some(y) = gathering().get(&nd.kind) else { continue };
         let sd = structure_def(&nd.kind);
-        let d = js_max(0.0, (nd.x - px).hypot(nd.z - pz) - sd.w / 2.0);
+        let d = js_max(0.0, js_hypot(nd.x - px, nd.z - pz) - sd.w / 2.0);
         if d > 2.0 {
             continue;
         }
@@ -451,7 +451,7 @@ pub fn find_focus(life: &mut Life, sim: &Sim) -> Option<Focus> {
 
     // Slipways: lay a keel, haul materials, build, launch.
     for sy in &zone.recipe.shipyards {
-        let d = (sy.x - px).hypot(sy.z - pz);
+        let d = js_hypot(sy.x - px, sy.z - pz);
         if d > 12.0 {
             continue;
         }
@@ -504,7 +504,7 @@ pub fn find_focus(life: &mut Life, sim: &Sim) -> Option<Focus> {
         }
         let h = house_on(life, &plot.id).map(|i| &life.state.houses[i]);
         let y = hf.height(plot.x, plot.z);
-        let d = lx.hypot(lz) * 0.25 + 1.5;
+        let d = js_hypot(lx, lz) * 0.25 + 1.5;
         let owner = if h.is_some() { None } else { life.plot_owners.get(&plot.id).filter(|o| !o.is_empty()) };
         let on_plot = |action: &str, label: String, detail: &str, ok: bool| Focus {
             action: action.into(),
@@ -560,7 +560,7 @@ pub fn find_focus(life: &mut Life, sim: &Sim) -> Option<Focus> {
         }
         for what in ["bed", "chest"] {
             let (ix, iz) = interior_point(life, h, what);
-            let dd = (ix - px).hypot(iz - pz);
+            let dd = js_hypot(ix - px, iz - pz);
             let f = if what == "bed" {
                 Focus {
                     action: "rest".into(),
@@ -614,7 +614,7 @@ pub fn find_focus(life: &mut Life, sim: &Sim) -> Option<Focus> {
 
 fn near_npc(life: &Life, sim: &Sim, npc: &str, range: f64) -> bool {
     let zone: &'static Zone = life.zone;
-    zone.recipe.npcs.iter().find(|x| x.id == npc).is_some_and(|n| (n.x - sim.player.pos.x).hypot(n.z - sim.player.pos.z) <= range)
+    zone.recipe.npcs.iter().find(|x| x.id == npc).is_some_and(|n| js_hypot(n.x - sim.player.pos.x, n.z - sim.player.pos.z) <= range)
 }
 
 fn house_index(life: &Life, id: i64) -> Option<usize> {
@@ -686,7 +686,7 @@ pub fn run_command(life: &mut Life, sim: &mut Sim, c: &Command) {
             let Some(r) = recipe_by_id(recipe) else { return };
             let zone: &'static Zone = life.zone;
             let near = match zone.recipe.workbenches.iter().find(|b| b.id == r.bench) {
-                Some(bench) => (bench.x - sim.player.pos.x).hypot(bench.z - sim.player.pos.z) <= 6.0,
+                Some(bench) => js_hypot(bench.x - sim.player.pos.x, bench.z - sim.player.pos.z) <= 6.0,
                 None => near_npc(life, sim, &r.bench, 6.0),
             };
             if !near {
@@ -768,7 +768,7 @@ fn store_or_take(life: &mut Life, store: bool, house: i64, item: &str, n: i64) {
     let bp = blueprint_def(&life.state.houses[hi].blueprint);
     if store {
         let n = n.min(life.count(item));
-        let slots: HashSet<&str> = life.state.houses[hi].storage.iter().map(|s| s.item.as_str()).collect();
+        let slots: BTreeSet<&str> = life.state.houses[hi].storage.iter().map(|s| s.item.as_str()).collect();
         if n == 0 || (!slots.contains(item) && slots.len() >= bp.perks.storage_slots) {
             return;
         }
@@ -1031,7 +1031,7 @@ pub fn keep_resting(life: &mut Life, sim: &mut Sim) {
         return;
     }
     let p = &sim.player;
-    if p.vel.x.hypot(p.vel.z) > 0.6 || p.mode != Mode::Normal {
+    if js_hypot(p.vel.x, p.vel.z) > 0.6 || p.mode != Mode::Normal {
         life.resting = false;
     }
 }

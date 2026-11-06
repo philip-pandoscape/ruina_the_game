@@ -8,7 +8,7 @@ use super::livestock::step_animal;
 use super::state::{Plant, Scarecrow};
 use super::weather::raining;
 use super::{Life, LifeEvent, QuestEvent};
-use crate::jsmath::{js_max, js_min};
+use crate::jsmath::{js_hypot, js_max, js_min};
 use crate::open::Sim;
 use crate::open::zone::{Obstacle, ObstacleKind, surface, to_local, to_world};
 
@@ -220,12 +220,12 @@ pub fn plot_problem(life: &Life, sim: &Sim, x: f64, z: f64, rot: f64) -> Option<
         return Some("The ground is too uneven".into());
     }
     for other in &s.scarecrows {
-        if (other.x - x).hypot(other.z - z) < half * 2.0 + 1.0 {
+        if js_hypot(other.x - x, other.z - z) < half * 2.0 + 1.0 {
             return Some("Overlaps another plot".into());
         }
     }
     for p in &life.zone.recipe.house_plots {
-        if (p.x - x).hypot(p.z - z) < 15.0 {
+        if js_hypot(p.x - x, p.z - z) < 15.0 {
             return Some("That is a house plot".into());
         }
     }

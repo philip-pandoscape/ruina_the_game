@@ -551,8 +551,8 @@ impl Actors {
             c.reform = reform.clone();
             c.angry = anger_of(c);
             let angle = base + (n as f64 * std::f64::consts::PI * 2.0) / count as f64;
-            c.move_x = angle.sin();
-            c.move_z = angle.cos();
+            c.move_x = angle.js_sin();
+            c.move_z = angle.js_cos();
             c.stride = 2.0 + draw(c);
             start_brain(c, seen);
         }
@@ -693,7 +693,7 @@ impl Actors {
                 if dist > reach + a.radius {
                     return None;
                 }
-                let in_cone = angle_diff(facing, dx.atan2(dz)).abs() <= (arc_deg / 2.0) * DEG;
+                let in_cone = angle_diff(facing, dx.js_atan2(dz)).abs() <= (arc_deg / 2.0) * DEG;
                 if !in_cone && dist > a.radius + 0.3 {
                     return None;
                 }

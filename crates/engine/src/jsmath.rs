@@ -3,7 +3,8 @@
 //! corrects). V8's exp and atan2 are fdlibm's, as are the `libm` crate's, so those match bit for
 //! bit; Rust's own (the C library's) differ in the last bit on a tenth to a fifth of inputs. V8's
 //! sin and cos come from elsewhere, and `libm`'s are the nearer of the two (about 1% of inputs a
-//! bit off, against 3%). Math.pow is the C library's in both. Math.hypot is js_hypot below.
+//! bit off, against 3%). Math.pow is `libm`'s pow here (the same natively
+//! and in WebAssembly; whether it matches V8's to the bit is untested). Math.hypot is js_hypot below.
 
 pub trait JsMath {
     fn js_sin(self) -> f64;
@@ -11,6 +12,8 @@ pub trait JsMath {
     /// `y.js_atan2(x)`, like f64::atan2: Math.atan2(y, x).
     fn js_atan2(self, x: f64) -> f64;
     fn js_exp(self) -> f64;
+    /// `x.js_pow(y)`: Math.pow(x, y), `libm`'s, the same natively and in WebAssembly.
+    fn js_pow(self, y: f64) -> f64;
 }
 
 impl JsMath for f64 {
@@ -33,6 +36,10 @@ impl JsMath for f64 {
             return std::f64::consts::E;
         }
         libm::exp(self)
+    }
+
+    fn js_pow(self, y: f64) -> f64 {
+        libm::pow(self, y)
     }
 }
 

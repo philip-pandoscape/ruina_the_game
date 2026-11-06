@@ -82,7 +82,7 @@ impl Channel {
     }
 
     /// The plots held by anyone but `who`, with the holder's name (what a Life's plot_owners holds).
-    pub fn held_by_others(&self, who: i64) -> HashMap<String, String> {
+    pub fn held_by_others(&self, who: i64) -> BTreeMap<String, String> {
         self.claims.iter().filter(|(_, id)| **id != who).filter_map(|(plot, id)| self.estates.get(id).map(|e| (plot.clone(), e.name.clone()))).collect()
     }
 

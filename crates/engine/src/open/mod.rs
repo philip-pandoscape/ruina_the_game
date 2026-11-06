@@ -8,7 +8,7 @@ pub mod dungeon;
 pub mod traverse;
 pub mod zone;
 
-use std::collections::HashSet;
+use std::collections::BTreeSet;
 
 use crate::life::Life;
 use crate::life::progress::Observed;
@@ -27,7 +27,7 @@ pub struct OpenWorld {
     pub clear: Vec<u8>,
     pub radius: f64,
     /// Built pieces already made solid, as "owner:what" keys, so each is added once.
-    pub added: HashSet<String>,
+    pub added: BTreeSet<String>,
     /// Everyone's vehicles as they stood when this tick began, which everyone but their owner bumps
     /// into (src/sim/types.ts World.movers).
     pub movers: Vec<Mover>,
@@ -53,7 +53,7 @@ impl OpenWorld {
             index: ColliderIndex::new(zone.obstacles.clone(), zone.boxes.clone(), zone.decks.clone()),
             clear: zone.clear.clone(),
             radius: zone.radius,
-            added: HashSet::new(),
+            added: BTreeSet::new(),
             movers: Vec::new(),
             respawn: None,
         }

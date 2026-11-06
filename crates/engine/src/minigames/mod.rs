@@ -11,11 +11,13 @@
 
 pub mod beacons;
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::sync::OnceLock;
 
 use serde::Deserialize;
 use serde_json::{Value, json};
+
+use crate::jsmath::JsMath;
 
 // ---------- Content ----------
 
@@ -149,7 +151,7 @@ impl Spot {
     /// Where seat `k` is (x, z) and the way it faces (toward the table).
     pub fn seat(&self, k: usize) -> (f64, f64, f64) {
         let d = content().table.seat * if k == 0 { -1.0 } else { 1.0 };
-        let (x, z) = (self.x + self.rot.sin() * d, self.z + self.rot.cos() * d);
+        let (x, z) = (self.x + self.rot.js_sin() * d, self.z + self.rot.js_cos() * d);
         let facing = if k == 0 { self.rot } else { self.rot + std::f64::consts::PI };
         (x, z, facing)
     }
@@ -388,9 +390,9 @@ pub struct Minigames {
     pub challenges: Vec<Challenge>,
     next_id: u64,
     /// The view of their table each seated player was last sent: (table, version).
-    pub sent: HashMap<i64, (u64, u64)>,
+    pub sent: BTreeMap<i64, (u64, u64)>,
     /// (who asked, who said no) -> until when the one who asked waits before asking again.
-    pub declined: HashMap<(i64, i64), f64>,
+    pub declined: BTreeMap<(i64, i64), f64>,
 }
 
 impl Minigames {
@@ -437,6 +439,7 @@ impl Minigames {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::jsmath::js_hypot;
 
     /// A game whose moves are just "pass" and whose winner the test decides.
     struct Coin {
@@ -573,10 +576,10 @@ mod tests {
         let (ax, az, af) = at.seat(0);
         let (bx, bz, bf) = at.seat(1);
         let d = content().table.seat;
-        assert!(((ax - at.x).hypot(az - at.z) - d).abs() < 1e-9);
+        assert!((js_hypot(ax - at.x, az - at.z) - d).abs() < 1e-9);
         assert!(((ax + bx) / 2.0 - at.x).abs() < 1e-9 && ((az + bz) / 2.0 - at.z).abs() < 1e-9);
         // Each looks at the table's middle.
-        assert!(((at.x - ax) / d - af.sin()).abs() < 1e-9 && ((at.z - az) / d - af.cos()).abs() < 1e-9);
-        assert!(((at.x - bx) / d - bf.sin()).abs() < 1e-9 && ((at.z - bz) / d - bf.cos()).abs() < 1e-9);
+        assert!(((at.x - ax) / d - af.js_sin()).abs() < 1e-9 && ((at.z - az) / d - af.js_cos()).abs() < 1e-9);
+        assert!(((at.x - bx) / d - bf.js_sin()).abs() < 1e-9 && ((at.z - bz) / d - bf.js_cos()).abs() < 1e-9);
     }
 }

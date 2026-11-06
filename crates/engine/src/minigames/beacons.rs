@@ -17,7 +17,7 @@
 //! On the wire hexes are numbered row by row from the top (shared/minigames.json `layout`), cards
 //! by their place in your hand, goods by their place in `goods`.
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::sync::OnceLock;
 
 use serde::Deserialize;
@@ -53,7 +53,7 @@ pub fn def() -> &'static Def {
 /// The board's shape: each hex's axial coordinates (q, r), and the hex at each.
 pub struct Board {
     pub cells: Vec<(i32, i32)>,
-    pub index: HashMap<(i32, i32), usize>,
+    pub index: BTreeMap<(i32, i32), usize>,
     /// The Old Beacon, in the middle.
     pub centre: usize,
 }
@@ -67,7 +67,7 @@ pub fn board() -> &'static Board {
                 cells.push((q, r));
             }
         }
-        let index: HashMap<(i32, i32), usize> = cells.iter().enumerate().map(|(i, c)| (*c, i)).collect();
+        let index: BTreeMap<(i32, i32), usize> = cells.iter().enumerate().map(|(i, c)| (*c, i)).collect();
         let centre = index[&(0, 0)];
         Board { cells, index, centre }
     })

@@ -922,7 +922,7 @@ fn break_up(life: &mut Life, sim: &mut Sim, id: i64) {
 
 /// How much of the wind a sail can use at this angle off it (0 = wind straight behind).
 pub fn sail_efficiency(rel: f64) -> f64 {
-    0.25 + 0.75 * (0.5 + 0.5 * rel.js_cos()).powf(0.6)
+    0.25 + 0.75 * (0.5 + 0.5 * rel.js_cos()).js_pow(0.6)
 }
 
 fn step_mount(sim: &Sim, v: &mut Vehicle, d: &RideableDef, a: &Actions, carrying: bool) {

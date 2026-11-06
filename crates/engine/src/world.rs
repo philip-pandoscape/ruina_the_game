@@ -1,6 +1,7 @@
 //! The raid battlefield layout, ported from makeBattlefield() in src/sim/world.ts.
 //! Same seed and the same random sequence give the same obstacles on both sides.
 
+use crate::jsmath::JsMath;
 use crate::sim::Rng;
 
 #[derive(Clone, Copy)]
@@ -41,7 +42,7 @@ pub fn battlefield(seed: u32) -> World {
         tries += 1;
         let angle = rng.next_f64() * tau;
         let dist = 158.0 + (270.0 - 158.0) * rng.next_f64();
-        let (x, z) = (angle.cos() * dist, angle.sin() * dist);
+        let (x, z) = (angle.js_cos() * dist, angle.js_sin() * dist);
         let scale = 1.0 + (1.7 - 1.0) * rng.next_f64();
         if !fits(&obstacles, x, z, 0.45 * scale, 3.0) {
             continue;
@@ -56,7 +57,7 @@ pub fn battlefield(seed: u32) -> World {
         tries += 1;
         let angle = rng.next_f64() * tau;
         let dist = 105.0 + (140.0 - 105.0) * rng.next_f64();
-        let (x, z) = (angle.cos() * dist, angle.sin() * dist);
+        let (x, z) = (angle.js_cos() * dist, angle.js_sin() * dist);
         let scale = 0.6 + (1.6 - 0.6) * rng.next_f64();
         if !fits(&obstacles, x, z, 0.55 * scale, 2.0) {
             continue;
