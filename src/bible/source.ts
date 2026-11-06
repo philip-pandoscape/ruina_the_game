@@ -1,12 +1,15 @@
 // Numbers the rules hold in their source without exporting them (how long the server keeps a
 // dungeon's copy, the steepest ground a farm plot takes), read from that source as the bible is built,
-// so they are the rules' own and change when they do. Import the source with `?raw`:
+// so they are the rules' own and change when they do. The rules are the engine's and the server's
+// Rust; what the browser alone does (the controls, travel by road) is TypeScript. Import the source
+// with `?raw`:
 //
 //   import spaces from '../../../crates/server/src/play/spaces.rs?raw';
 //   rustConst(spaces, 'COPY_KEPT')                         // a Rust const, Durations in seconds
-//   import farming from '../../sim/life/farming.ts?raw';
-//   tsConst(farming, 'HALF')                               // a TypeScript const of plain numbers
-//   sourceNumber(farming, /hf\.slope\(px, pz\) > ([\d.]+)\)/, 'the steepest ground a plot takes')
+//   import farming from '../../../crates/engine/src/life/farming.rs?raw';
+//   sourceNumber(farming, /hf\.slope\(px, pz\) > ([\d.]+) \{/, 'the steepest ground a plot takes')
+//   import autoWalk from '../../input/autoWalk.ts?raw';
+//   tsConst(autoWalk, 'ARRIVE')                            // a TypeScript const of plain numbers
 //
 // A number that is gone, or no longer a plain number, throws: the completeness test draws every page
 // (tests/unit/bible.test.ts), so it fails until the page is brought up to date.

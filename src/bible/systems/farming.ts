@@ -8,26 +8,26 @@ import { EMBERHOLM as Z } from '../../engine/zone';
 import { coins, count, degrees, duration, key, metres, pct, range, slopeDegrees, times } from '../format';
 import { system, table } from '../kit';
 import { type Html, link, md, phrase, raw } from '../md';
-import { sourceNumber, tsConst } from '../source';
-import farmingSource from '../../sim/life/farming.ts?raw';
-import interactSource from '../../sim/life/interact.ts?raw';
+import { sourceNumber } from '../source';
+import farmingSource from '../../../crates/engine/src/life/farming.rs?raw';
+import interactSource from '../../../crates/engine/src/life/interact.rs?raw';
 
 /** The numbers the farming and interaction rules keep in their source: where a plot may go, and so on. */
 function rules() {
   const f = (re: RegExp, what: string) => sourceNumber(farmingSource, re, what);
   const i = (re: RegExp, what: string) => sourceNumber(interactSource, re, what);
   return {
-    edge: f(/hf\.inside\(px, pz, ([\d.]+)\)\) return 'Too close to the edge of the world'/, 'how far a plot keeps from the edge of the world'),
-    aboveSea: f(/h < hf\.water \+ ([\d.]+)\) return 'Too close to the water'/, 'how far above the sea a plot must be'),
-    slope: f(/hf\.slope\(px, pz\) > ([\d.]+)\) return 'The ground is too steep'/, 'the steepest ground a plot takes'),
-    uneven: f(/hi - lo > ([\d.]+)\) return 'The ground is too uneven'/, 'how uneven a plot may be'),
-    apart: f(/HALF \* 2 \+ ([\d.]+)\) return 'Overlaps another plot'/, 'the gap between plots'),
-    housePlot: f(/p\.z - z\) < ([\d.]+)\) return 'That is a house plot'/, 'how far a plot keeps from a house plot'),
-    clearance: f(/Math\.abs\(lx\) < HALF \+ o\.r \+ ([\d.]+)/, 'how far a plot keeps from trees and rocks'),
-    ahead: tsConst(interactSource, 'ahead'),
-    turns: i(/pl\.rot = Math\.round\(p\.facing \/ \(Math\.PI \/ (\d+)\)\)/, 'the turns a plot is placed at'),
-    cellAhead: i(/const tx = p\.pos\.x \+ fx \* ([\d.]+);/, 'how far ahead of you F finds a plot cell'),
-    nodeReach: i(/structureDef\(nd\.kind\)\.w \/ 2\);\s*if \(d > ([\d.]+)\) return;/, 'how close you must be to a gathering spot'),
+    edge: f(/!hf\.inside\(px, pz, ([\d.]+)\) \{\s*return Some\("Too close to the edge of the world"/, 'how far a plot keeps from the edge of the world'),
+    aboveSea: f(/h < hf\.water \+ ([\d.]+) \{\s*return Some\("Too close to the water"/, 'how far above the sea a plot must be'),
+    slope: f(/hf\.slope\(px, pz\) > ([\d.]+) \{\s*return Some\("The ground is too steep"/, 'the steepest ground a plot takes'),
+    uneven: f(/hi - lo > ([\d.]+) \{\s*return Some\("The ground is too uneven"/, 'how uneven a plot may be'),
+    apart: f(/half \* 2\.0 \+ ([\d.]+) \{\s*return Some\("Overlaps another plot"/, 'the gap between plots'),
+    housePlot: f(/p\.z - z\) < ([\d.]+) \{\s*return Some\("That is a house plot"/, 'how far a plot keeps from a house plot'),
+    clearance: f(/lx\.abs\(\) < half \+ o\.r \+ ([\d.]+)/, 'how far a plot keeps from trees and rocks'),
+    ahead: i(/let ahead = ([\d.]+);/, 'how far ahead of you a plot is placed'),
+    turns: i(/js_round\(p\.facing \/ \(PI \/ ([\d.]+)\)\)/, 'the turns a plot is placed at'),
+    cellAhead: i(/let tx = px \+ fx \* ([\d.]+);/, 'how far ahead of you F finds a plot cell'),
+    nodeReach: i(/- sd\.w \/ 2\.0\);\s*if d > ([\d.]+) \{/, 'how close you must be to a gathering spot'),
   };
 }
 
@@ -74,13 +74,7 @@ export const farming = system({
     'herbs',
     'thunderstruck',
   ],
-  rules: [
-    'src/sim/life/farming.ts',
-    'crates/engine/src/life/farming.rs',
-    'src/sim/life/interact.ts',
-    'crates/engine/src/life/interact.rs',
-    'src/sim/life/island.ts',
-  ],
+  rules: ['crates/engine/src/life/farming.rs', 'crates/engine/src/life/interact.rs'],
   content: [
     'shared/farming.json#cell',
     'shared/farming.json#scarecrowCells',

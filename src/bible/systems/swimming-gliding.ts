@@ -3,7 +3,7 @@
 import { CARRY } from '../../content/trade';
 import { GLIDE, GROUND, RIDE_CAMERA, SWIM } from '../../content/traversal';
 import { GLIDERS } from '../../content/vehicles';
-import traverseSource from '../../sim/player/traverse.ts?raw';
+import traverseSource from '../../../crates/engine/src/open/traverse.rs?raw';
 import { EMBERHOLM } from '../../engine/zone';
 import { SIM_HZ } from '../../content/tuning';
 import { accel, duration, frames, key, metres, num, pct, speed, speedKmh, turnRate } from '../format';
@@ -26,7 +26,7 @@ export const swimmingAndGliding = system({
   summary: 'Wading, swimming and climbing out of the water; opening a glider, its flight, dives, flares, gusts and rising air.',
   icon: '🪁',
   keywords: ['glider', 'gliders', 'glide', 'swim', 'swimming', 'water', 'flight', 'fly', 'updraft', 'wade', 'dive', 'flare', 'gust', 'stall'],
-  rules: ['src/sim/player/traverse.ts', 'src/sim/sim.ts', 'crates/engine/src/open/traverse.rs', 'src/main.ts'],
+  rules: ['crates/engine/src/open/traverse.rs', 'src/main.ts'],
   content: [
     'shared/traversal.json#swim',
     'shared/traversal.json#glide',
@@ -37,27 +37,27 @@ export const swimmingAndGliding = system({
   body: () => {
     const keep = sourceNumber(
       traverseSource,
-      /p\.vel\.x \*= ([\d.]+);\s*p\.vel\.z \*= [\d.]+;\s*sim\.emit\(\{ type: 'splash'/,
+      /p\.vel\.x \*= ([\d.]+);\s*p\.vel\.z \*= [\d.]+;\s*p\.events\.push\(Event::Splash/,
       'how much speed you keep going into the water',
     );
-    const bob = sourceNumber(traverseSource, /Math\.sin\(p\.modeFrame \* [\d.]+\) \* ([\d.]+)/, 'how far a swimmer bobs');
-    const standOut = sourceNumber(traverseSource, /hf\.water - under < SWIM\.depth - ([\d.]+)\)/, 'how shallow the water is where you stand up');
+    const bob = sourceNumber(traverseSource, /\(p\.mode_frame as f64 \* [\d.]+\)\.js_sin\(\) \* ([\d.]+)/, 'how far a swimmer bobs');
+    const standOut = sourceNumber(traverseSource, /hf\.water - under < sw\.depth - ([\d.]+) \{/, 'how shallow the water is where you stand up');
     const lookAhead = sourceNumber(
       traverseSource,
-      /const ax = p\.pos\.x \+ Math\.sin\(p\.facing\) \* ([\d.]+);/,
+      /let ax = p\.pos\.x \+ p\.facing\.js_sin\(\) \* ([\d.]+);/,
       'how far ahead an edge to climb out on is looked for',
     );
     const [below, above] = numbers(traverseSource, /ahead > hf\.water - ([\d.]+) && ahead < hf\.water \+ ([\d.]+)/, 'how high an edge you can climb out on');
-    const outForward = sourceNumber(traverseSource, /p\.vel\.x = Math\.sin\(p\.facing\) \* ([\d.]+);/, 'how fast you climb out forward');
-    const faceFrom = sourceNumber(traverseSource, /if \(hs > ([\d.]+)\) p\.facing = Math\.atan2/, 'how fast you must be going to face it as the wing opens');
-    const steerFrom = sourceNumber(
+    const outForward = sourceNumber(traverseSource, /p\.vel\.x = p\.facing\.js_sin\(\) \* ([\d.]+);/, 'how fast you climb out forward');
+    const faceFrom = sourceNumber(
       traverseSource,
-      /if \(mag > ([\d.]+)\) \{\s*const want = Math\.atan2\(a\.moveX/,
-      'how far you push the stick before a glider turns',
+      /if hs > ([\d.]+) \{\s*p\.facing = p\.vel\.x\.js_atan2/,
+      'how fast you must be going to face it as the wing opens',
     );
-    const stallK = sourceNumber(traverseSource, /vy -= \(g\.stallSpeed - p\.airspeed\) \* ([\d.]+);/, 'how fast a stalled glider drops');
-    const gravity = sourceNumber(traverseSource, /\/ STEP \/ ([\d.]+)\) \* g\.zoomLift/, 'gravity, in the zoom climb');
-    const fade = sourceNumber(traverseSource, /\(u\.top - y\) \/ ([\d.]+)\)/, 'how far below its top rising air fades');
+    const steerFrom = sourceNumber(traverseSource, /if mag > ([\d.]+) \{\s*let want = a\.move_x\.js_atan2/, 'how far you push the stick before a glider turns');
+    const stallK = sourceNumber(traverseSource, /vy -= \(g\.stall_speed - p\.airspeed\) \* ([\d.]+);/, 'how fast a stalled glider drops');
+    const gravity = sourceNumber(traverseSource, /\/ dt \/ ([\d.]+)\) \* g\.zoom_lift/, 'gravity, in the zoom climb');
+    const fade = sourceNumber(traverseSource, /\(\(u\.top - y\) \/ ([\d.]+)\)\.min\(1\.0\)/, 'how far below its top rising air fades');
     const spire = EMBERHOLM.terrain.mountains.find((m) => m.id === 'windspire') ?? EMBERHOLM.terrain.mountains[0];
     const from = spire?.top ?? 0;
     return md`

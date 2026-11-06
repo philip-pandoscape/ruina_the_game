@@ -12,7 +12,7 @@ const itemName = (id: string): string => ITEMS.find((i) => i.id === id)?.name ??
 const item = (id: string): Html => link(`items/${id}`, itemName(id));
 const links = (list: Html[]): Html => raw(list.map((l) => l.html).join(', '));
 
-/** What a vendor pays for an item: its worth times their rate, rounded, never under a copper (src/sim/life/trade.ts, sell). */
+/** What a vendor pays for an item: its worth times their rate, rounded, never under a copper (crates/engine/src/life/trade.rs, sell). */
 const paid = (id: string): number | null => {
   const worth = ITEMS.find((i) => i.id === id)?.value ?? 0;
   const rates = VENDORS.filter((v) => v.buys.includes(id)).map((v) => Math.max(1, Math.round(worth * v.buyRate)));
@@ -33,7 +33,7 @@ export const livestock = system({
   summary: 'Raising chicks, lambs and calves in a plot: feeding, growing up, and collecting eggs, wool and milk.',
   icon: '🐔',
   keywords: ['animal', 'animals', 'chicken', 'chick', 'sheep', 'lamb', 'cow', 'calf', 'feed', 'egg', 'wool', 'milk', 'raise'],
-  rules: ['src/sim/life/livestock.ts', 'crates/engine/src/life/livestock.rs', 'src/sim/life/interact.ts'],
+  rules: ['crates/engine/src/life/livestock.rs', 'crates/engine/src/life/interact.rs'],
   content: ['shared/farming.json#animals'],
   body: () => {
     const sellers = VENDORS.filter((v) => v.sells.some((s) => ANIMALS.some((a) => a.item === s.item)));

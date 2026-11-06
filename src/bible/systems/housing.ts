@@ -9,30 +9,32 @@ import { coins, count, duration, metres, speed } from '../format';
 import { join, system, table } from '../kit';
 import { type Html, link, md, phrase, raw } from '../md';
 import { sourceNumber } from '../source';
-import housingSource from '../../sim/life/housing.ts?raw';
-import interactSource from '../../sim/life/interact.ts?raw';
+import housingSource from '../../../crates/engine/src/life/housing.rs?raw';
+import interactSource from '../../../crates/engine/src/life/interact.rs?raw';
 
 /** The numbers the housing rules keep in their source. */
 const RULE = {
   /** How many days of tax one payment covers. */
-  week: () => sourceNumber(housingSource, /taxPerDay \* (\d+)/, 'how many days a tax payment covers'),
-  /** How many houses one settler may have. */
-  houses: () => sourceNumber(housingSource, /houses\.length >= (\d+)/, 'how many houses a settler may have'),
+  week: () => sourceNumber(housingSource, /let week = bp\.tax_per_day \* (\d+(?:\.\d+)?);/, 'how many days a tax payment covers'),
   /** The stage from which the floor is solid, and the walls. */
-  floorFrom: () => sourceNumber(housingSource, /h\.stage >= (\d+) && !done\.has\(`\$\{h\.id\}:floor`\)/, 'the stage the floor is laid at'),
-  wallsFrom: () => sourceNumber(housingSource, /h\.stage >= (\d+) && !done\.has\(`\$\{h\.id\}:walls`\)/, 'the stage the walls go up at'),
+  floorFrom: () => sourceNumber(housingSource, /h\.stage >= (\d+) && sim\.world\.added\.insert\(key\("floor"\)\)/, 'the stage the floor is laid at'),
+  wallsFrom: () => sourceNumber(housingSource, /h\.stage >= (\d+) && sim\.world\.added\.insert\(key\("walls"\)\)/, 'the stage the walls go up at'),
   /** How near a plot's middle (along either side) its prompts reach. */
-  plotReach: () => sourceNumber(interactSource, /Math\.abs\(lx\) > (\d+(?:\.\d+)?) \|\| Math\.abs\(lz\) > \d/, 'how near a plot its prompts reach'),
-  /** How near the bed, or the chest, you stand to use it. */
-  bedReach: () => sourceNumber(interactSource, /action: 'rest'[\s\S]*?dd,\s*(\d+(?:\.\d+)?),\s*\)/, 'how near the bed you rest'),
-  chestReach: () => sourceNumber(interactSource, /action: 'storage'[\s\S]*?dd,\s*(\d+(?:\.\d+)?)\)/, 'how near the chest you open it'),
+  plotReach: () => sourceNumber(interactSource, /if lx\.abs\(\) > (\d+(?:\.\d+)?) \|\| lz\.abs\(\) > \d/, 'how near a plot its prompts reach'),
+  /** How near the bed and the chest you stand to use them: one reach for both. */
+  furnitureReach: () =>
+    sourceNumber(
+      interactSource,
+      /for what in \["bed", "chest"\] \{[\s\S]*?pick\.consider\(f, dd, (\d+(?:\.\d+)?)\);/,
+      'how near the bed and the chest you use them',
+    ),
   /** How far in front of or behind the plot's middle the tax prompt shows. */
-  taxFrom: () => sourceNumber(interactSource, /if \(Math\.abs\(lz\) > (\d+(?:\.\d+)?)\)\s*consider\(\s*\{\s*action: 'tax'/, 'where the tax prompt shows'),
+  taxFrom: () => sourceNumber(interactSource, /if lz\.abs\(\) > (\d+(?:\.\d+)?) \{\s*let detail = if due_in/, 'where the tax prompt shows'),
   /** Moving faster than this gets you out of bed. */
   restBreak: () =>
     sourceNumber(
       interactSource,
-      /Math\.hypot\(p\.vel\.x, p\.vel\.z\) > (\d+(?:\.\d+)?) \|\| p\.mode !== 'normal'\) life\.resting = false/,
+      /js_hypot\(p\.vel\.x, p\.vel\.z\) > (\d+(?:\.\d+)?) \|\| p\.mode != Mode::Normal \{\s*life\.resting = false;/,
       'how fast a move ends a rest',
     ),
 };
@@ -83,7 +85,7 @@ export const housing = system({
   summary: 'Claiming a plot with a blueprint, building a house stage by stage, storage, rest and tax.',
   icon: '🏡',
   keywords: ['house', 'home', 'cottage', 'plot', 'blueprint', 'tax', 'bed', 'chest', 'storage', 'build'],
-  rules: ['src/sim/life/housing.ts', 'crates/engine/src/life/housing.rs'],
+  rules: ['crates/engine/src/life/housing.rs'],
   content: ['shared/housing.json#blueprints', 'shared/zones/*.json#housePlots'],
   body: () => {
     const bp = BLUEPRINTS[0];
@@ -117,7 +119,7 @@ ${EMBERHOLM.name} has ${count(EMBERHOLM.housePlots.length, 'house plot')} at [[p
 
 1. If a house already stands on the plot, nothing happens.
 2. Online, if someone else holds the plot, it says whose it is. Everyone in your channel shares the plots, so a plot another settler has claimed is theirs.
-3. If you already have ${count(RULE.houses(), 'house')}, you can't have another: one house per settler, for now.
+3. If you already have a house, you can't have another: one house per settler, for now.
 4. Otherwise the blueprint leaves your bag and the plot is yours. The house will stand ${metres(
         -HOUSE_SETBACK,
       )} back from the plot's middle, leaving a front yard, and its tax is paid for the first ${count(bp.graceDays, 'day')}.
@@ -144,11 +146,11 @@ As it goes up, the house becomes solid: from the end of stage ${RULE.floorFrom()
       md`
 ## A Finished House
 
-- **The chest.** F beside it (within ${metres(RULE.chestReach())}) opens your storage. It holds ${count(
+- **The chest.** F beside it (within ${metres(RULE.furnitureReach())}) opens your storage. It holds ${count(
         bp.perks.storageSlots,
         'kind',
       )} of thing and as many of each kind as you like; once it holds that many kinds, only more of a kind already in it can go in.
-- **The bed.** F beside it (within ${metres(RULE.bedReach())}) lies you down to rest. While you rest your labor comes back ${LABOR.restMultiplier} times as fast, ${
+- **The bed.** F beside it (within ${metres(RULE.furnitureReach())}) lies you down to rest. While you rest your labor comes back ${LABOR.restMultiplier} times as fast, ${
         LABOR.perMinute * LABOR.restMultiplier
       } a minute instead of ${LABOR.perMinute}. Moving faster than ${speed(
         RULE.restBreak(),

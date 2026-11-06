@@ -55,7 +55,6 @@ const REQUIRED_SYSTEMS = [
 
 /** Where the rules live: every file here is a system's, and its page says so in `rules`. */
 const RULES = [
-  ...files('src/sim', '.ts'),
   'src/content/skills.ts',
   'src/content/build.ts',
   ...files('crates/engine/src', '.rs'),
@@ -71,10 +70,6 @@ const PLUMBING_NAMES: Array<[RegExp, string]> = [
 
 /** Rules files that hold no rule a player meets, with why. */
 const PLUMBING: Record<string, string> = {
-  'src/sim/math.ts': 'angles and lengths, used by every system',
-  'src/sim/types.ts': 'the shapes of the rules’ state',
-  'src/sim/zone/types.ts': 'the shape of a zone recipe',
-  'src/sim/zone/frames.ts': 'turning between a structure’s own frame and the world’s',
   'crates/engine/src/lib.rs': 'the engine crate’s table of contents',
   'crates/engine/src/jsmath.rs': 'the browser’s maths, to the bit, so both sides agree',
   'crates/engine/src/rng.rs': 'the seeded random numbers both sides share',
@@ -85,8 +80,6 @@ const PLUMBING: Record<string, string> = {
   'crates/server/src/play/socket.rs': 'a player’s connection to the server',
   'crates/server/src/play/channels.rs': 'who is in which channel',
   // The developer zones, which only admins enter: no player reads about them.
-  'src/sim/yard.ts': 'the training yard’s and the battlefield’s grounds, developer zones',
-  'src/sim/training.ts': 'the training yard’s stand-in for the server, a developer zone',
   'crates/engine/src/world.rs': 'the battlefield’s ground, a developer zone',
   'crates/engine/src/yard.rs': 'the training yard’s ground and who stands about it, a developer zone',
   'crates/engine/src/training.rs': 'the training yard’s stand-in for the server, a developer zone',

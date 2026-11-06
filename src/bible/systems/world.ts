@@ -4,8 +4,10 @@ import { CHALLENGE } from '../../content/minigames';
 import { CARRY } from '../../content/trade';
 import { GROUND } from '../../content/traversal';
 import autoWalkSource from '../../input/autoWalk.ts?raw';
-import interactSource from '../../sim/life/interact.ts?raw';
+import interactSource from '../../../crates/engine/src/life/interact.rs?raw';
 import generateSource from '../../../crates/engine/src/open/generate.rs?raw';
+// Travel by road is the browser's alone (the engine has no twin of the road network), so its numbers
+// are the road network's TypeScript.
 import localPathSource from '../../sim/zone/localPath.ts?raw';
 import roadsSource from '../../sim/zone/roads.ts?raw';
 import { ON_ROAD, TAIL_MAX, EMBERHOLM, makeZoneWorld } from '../../engine/zone';
@@ -42,18 +44,12 @@ export const world = system({
   icon: '🗺️',
   keywords: ['island', 'map', 'terrain', 'ground', 'road', 'roads', 'travel', 'auto-run', 'interact', 'F key', 'coast', 'mountain', 'forest', 'trees'],
   rules: [
-    'src/sim/terrain.ts',
-    'crates/engine/src/open/generate.rs',
-    'src/sim/zone/world.ts',
-    'src/sim/zone/roads.ts',
-    'src/sim/zone/localPath.ts',
-    'src/sim/life/interact.ts',
-    'src/input/autoWalk.ts',
     'crates/engine/src/open/mod.rs',
     'crates/engine/src/open/zone.rs',
     'crates/engine/src/open/generate.rs',
     'crates/engine/src/open/noise.rs',
     'crates/engine/src/life/interact.rs',
+    'src/input/autoWalk.ts',
   ],
   content: ['shared/zones/*.json#terrain', 'shared/zones/*.json#forests', 'shared/zones/*.json#scatter', 'shared/zones/*.json#spawn'],
   body: () => {
@@ -98,31 +94,25 @@ export const world = system({
     const stuck = tsConst(autoWalkSource, 'STUCK_STEPS');
     // What F reaches.
     const near = (re: RegExp, what: string) => sourceNumber(interactSource, re, what);
-    const fTalk = near(
-      /recipe\.npcs\) \{\s*const d = Math\.hypot\(n\.x - p\.pos\.x, n\.z - p\.pos\.z\);\s*if \(d > ([\d.]+)\) continue;/,
-      'how near a person F reaches',
-    );
-    const fBench = near(/Use \$\{name\}[\s\S]*?\},\s*d,\s*([\d.]+),\s*\);/, 'how near a workbench F reaches');
-    const fRide = near(
-      /life\.state\.vehicles\) \{\s*const d = distanceTo\(v, p\.pos\.x, p\.pos\.z\);\s*if \(d > ([\d.]+)\) continue;/,
-      'how near a vehicle F reaches',
-    );
-    const fCell = near(/const tx = p\.pos\.x \+ fx \* ([\d.]+);/, 'how far ahead F looks for a plot cell');
-    const fCellScore = near(/Z: Change Seed`,\s*ok: true,\s*\},\s*([\d.]+),/, 'how near a plot cell counts');
-    const fNode = near(/structureDef\(nd\.kind\)\.w \/ 2\);\s*if \(d > ([\d.]+)\) return;/, 'how near a gathering spot F reaches');
+    const fTalk = near(/for n in &zone\.recipe\.npcs \{\s*let d = js_hypot\(n\.x - px, n\.z - pz\);\s*if d > ([\d.]+) \{/, 'how near a person F reaches');
+    const fBench = near(/format!\("Use \{name\}"\)[\s\S]*?pick\.consider\(f, d, ([\d.]+)\);/, 'how near a workbench F reaches');
+    const fRide = near(/for v in &life\.state\.vehicles \{\s*let d = distance_to\(v, px, pz\);\s*if d > ([\d.]+) \{/, 'how near a vehicle F reaches');
+    const fCell = near(/let tx = px \+ fx \* ([\d.]+);/, 'how far ahead F looks for a plot cell');
+    const fCellScore = near(/Z: Change Seed", life\.count\(&seed\)\), true\), ([\d.]+), [\d.]+\);/, 'how near a plot cell counts');
+    const fNode = near(/- sd\.w \/ 2\.0\);\s*if d > ([\d.]+) \{/, 'how near a gathering spot F reaches');
     const fSlip = near(
-      /shipyards \?\? \[\]\) \{\s*const d = Math\.hypot\(sy\.x - p\.pos\.x, sy\.z - p\.pos\.z\);\s*if \(d > ([\d.]+)\) continue;/,
+      /for sy in &zone\.recipe\.shipyards \{\s*let d = js_hypot\(sy\.x - px, sy\.z - pz\);\s*if d > ([\d.]+) \{/,
       'how near a slipway F reaches',
     );
-    const fPlot = near(/Math\.abs\(lx\) > ([\d.]+) \|\| Math\.abs\(lz\) > [\d.]+\) continue;/, 'how near a house plot F reaches');
-    const fBed = near(/label: 'Rest in Bed'[\s\S]*?\},\s*dd,\s*([\d.]+),/, 'how near your bed F reaches');
-    const fPortal = near(/door\.portal\.y\) > ([\d.]+)\) continue;/, 'how near a portal’s height F reaches');
-    const fScore = near(/const score = dist \+ \(1 - facing\) \* ([\d.]+);/, 'how much facing something counts');
-    const fAhead = near(/const facing = l > ([\d.]+) \?/, 'how near something counts as straight ahead');
-    const fPlace = tsConst(interactSource, 'ahead');
-    const fTurn = near(/Math\.round\(p\.facing \/ \(Math\.PI \/ (\d+)\)\)/, 'the turns a scarecrow is placed at');
-    const fShop = near(/function nearNpc\(life: Life, sim: Sim, npc: string, range = ([\d.]+)\)/, 'how near a shopkeeper you must stay');
-    const fCraft = near(/Math\.hypot\(bench\.x - p\.pos\.x, bench\.z - p\.pos\.z\) <= ([\d.]+)/, 'how near a workbench you must stay');
+    const fPlot = near(/if lx\.abs\(\) > ([\d.]+) \|\| lz\.abs\(\) > [\d.]+ \{\s*continue;/, 'how near a house plot F reaches');
+    const fBed = near(/label: "Rest in Bed"[\s\S]*?pick\.consider\(f, dd, ([\d.]+)\);/, 'how near your bed F reaches');
+    const fPortal = near(/\(p\.pos\.y - door\.portal\.y\)\.abs\(\) > ([\d.]+) \{/, 'how near a portal’s height F reaches');
+    const fScore = near(/let score = dist \+ \(1\.0 - facing\) \* ([\d.]+);/, 'how much facing something counts');
+    const fAhead = near(/let facing = if l > ([\d.]+) \{/, 'how near something counts as straight ahead');
+    const fPlace = near(/let ahead = ([\d.]+);/, 'how far ahead a scarecrow is placed');
+    const fTurn = near(/js_round\(p\.facing \/ \(PI \/ ([\d.]+)\)\)/, 'the turns a scarecrow is placed at');
+    const fShop = near(/Command::Buy \{ npc, item, n \} => \{\s*if near_npc\(life, sim, npc, ([\d.]+)\)/, 'how near a shopkeeper you must stay');
+    const fCraft = near(/js_hypot\(bench\.x - sim\.player\.pos\.x, bench\.z - sim\.player\.pos\.z\) <= ([\d.]+)/, 'how near a workbench you must stay');
     // A road's end: on another road (where it joins it), or at the place it is nearest.
     const end = (id: string, [x, z]: [number, number]) => {
       const on = gen.roads.find((o) => o.id !== id && o.points.some(([ax, az], i) => i > 0 && segmentDistance(x, z, o.points[i - 1], [ax, az]) <= join));

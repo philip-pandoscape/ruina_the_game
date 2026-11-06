@@ -8,28 +8,30 @@ import { count, duration, frames, framesAsSeconds, metres, num, pct, speed } fro
 import { system, table } from '../kit';
 import { esc } from '../../util/html';
 import { type Html, link, md, phrase, raw } from '../md';
-import { sourceNumber, tsConst } from '../source';
+import { rustConst, sourceNumber } from '../source';
 import { nearestPlace } from '../things/refs';
-import stepSource from '../../sim/actors/step.ts?raw';
-import packSource from '../../sim/ai/pack.ts?raw';
-import brainSource from '../../sim/ai/brain.ts?raw';
-import missilesSource from '../../sim/combat/missiles.ts?raw';
+import actorsSource from '../../../crates/engine/src/actors.rs?raw';
+import packSource from '../../../crates/engine/src/pack.rs?raw';
+import aiSource from '../../../crates/engine/src/ai.rs?raw';
+import missilesSource from '../../../crates/engine/src/missiles.rs?raw';
+import serverCombat from '../../../crates/server/src/combat.rs?raw';
 
-// Numbers the rules keep in their source rather than in the content.
-const CLEAR_AFTER = () => tsConst(stepSource, 'CLEAR_AFTER');
-const TOUCH = () => tsConst(stepSource, 'TOUCH');
-const SLAM_LIFT = () => tsConst(stepSource, 'SLAM_LIFT');
-const GROUP = () => tsConst(packSource, 'GROUP');
-const MISSILE_LIFE = () => tsConst(missilesSource, 'LIFE');
-const STRIKE_ON_TOP = () => sourceNumber(stepSource, /d > MOVE\.playerRadius \+ ([\d.]+)\) continue/, 'how close a strike catches you outside its arc');
-const BURST_STRIDE = () => sourceNumber(stepSource, /c\.stride = ([\d.]+) \+ draw\(c\)/, 'how far a burst piece scatters');
-const REFORM_CALM = () => sourceNumber(stepSource, /gather\?\.cooldown \?\? 0\) : 0\) \/ (\d+)\)/, 'how much sooner a reformed creature can gather');
-const LUNGE_STOP = () => sourceNumber(brainSource, /len\(seen\.x - a\.x, seen\.z - a\.z\) <= a\.radius \+ ([\d.]+);/, 'how close a lunge stops');
-const WANDER_SHARE = () => sourceNumber(brainSource, /draw\(a\) \* b\.leash \* ([\d.]+);/, 'how far from home a stroll goes');
-const THROW_AHEAD = () => sourceNumber(missilesSource, /const ox = a\.x \+ Math\.sin\(a\.facing\) \* ([\d.]+);/, 'where a throw starts');
-const THROW_HEIGHT = () => sourceNumber(missilesSource, /const oy = groundY \+ a\.hitHeight \* ([\d.]+);/, 'how high a throw starts');
+// Numbers the rules keep in their source rather than in the content: the creatures' own (the
+// engine's), and who a slam catches, which the server decides online (combat.rs).
+const CLEAR_AFTER = () => rustConst(actorsSource, 'CLEAR_AFTER');
+const TOUCH = () => rustConst(actorsSource, 'TOUCH');
+const SLAM_LIFT = () => rustConst(serverCombat, 'SLAM_LIFT');
+const GROUP = () => rustConst(packSource, 'GROUP');
+const MISSILE_LIFE = () => rustConst(missilesSource, 'LIFE');
+const STRIKE_ON_TOP = () => sourceNumber(actorsSource, /> half && d > body \+ ([\d.]+) \{/, 'how close a strike catches you outside its arc');
+const BURST_STRIDE = () => sourceNumber(actorsSource, /c\.stride = ([\d.]+) \+ draw\(c\)/, 'how far a burst piece scatters');
+const REFORM_CALM = () => sourceNumber(actorsSource, /map_or\(0, \|g\| g\.cooldown\) \/ (\d+);/, 'how much sooner a reformed creature can gather');
+const LUNGE_STOP = () => sourceNumber(aiSource, /len\(seen\.x - a\.x, seen\.z - a\.z\) <= a\.radius \+ ([\d.]+);/, 'how close a lunge stops');
+const WANDER_SHARE = () => sourceNumber(aiSource, /draw\(a\) \* b\.leash \* ([\d.]+);/, 'how far from home a stroll goes');
+const THROW_AHEAD = () => sourceNumber(missilesSource, /let ox = a\.x \+ a\.facing\.js_sin\(\) \* ([\d.]+);/, 'where a throw starts');
+const THROW_HEIGHT = () => sourceNumber(missilesSource, /let oy = ground_y \+ a\.hit_height \* ([\d.]+);/, 'how high a throw starts');
 const THROW_AT = () => sourceNumber(missilesSource, /foe\.y \+ ([\d.]+) - oy/, 'how high on you a throw comes down');
-const THROW_SOONEST = () => sourceNumber(missilesSource, /Math\.max\(d \/ speed, ([\d.]+)\)/, 'the shortest flight of a throw');
+const THROW_SOONEST = () => sourceNumber(missilesSource, /\(d \/ speed\)\.max\(([\d.]+)\)/, 'the shortest flight of a throw');
 
 const FACTION_NAME: Record<number, string> = {
   [FACTION.hostile]: 'Hostile',
@@ -237,19 +239,7 @@ export const creatures = system({
   summary: 'How creatures see you, choose what to do, fight as a pack, throw things, grow, burst and come back.',
   icon: '👺',
   keywords: ['monster', 'monsters', 'enemy', 'enemies', 'ai', 'brain', 'slime', 'goblin', 'pack', 'aggro', 'respawn', 'boss'],
-  rules: [
-    'src/sim/actor.ts',
-    'src/sim/actors/step.ts',
-    'src/sim/ai/brain.ts',
-    'src/sim/ai/pack.ts',
-    'src/sim/ai/senses.ts',
-    'src/sim/combat/missiles.ts',
-    'crates/engine/src/actor.rs',
-    'crates/engine/src/actors.rs',
-    'crates/engine/src/ai.rs',
-    'crates/engine/src/pack.rs',
-    'crates/engine/src/missiles.rs',
-  ],
+  rules: ['crates/engine/src/actor.rs', 'crates/engine/src/actors.rs', 'crates/engine/src/ai.rs', 'crates/engine/src/pack.rs', 'crates/engine/src/missiles.rs'],
   content: ['shared/behaviours.json#behaviours', 'shared/creatures.json#creatures', 'shared/zones/*.json#slimes'],
   body: () => {
     const slime = brain('slime');

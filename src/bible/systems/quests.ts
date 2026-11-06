@@ -9,16 +9,21 @@ import { coins, count, duration, metres } from '../format';
 import { join, system, table } from '../kit';
 import { type Html, link, md, phrase, raw } from '../md';
 import { sourceNumber } from '../source';
-import questsSource from '../../sim/life/quests.ts?raw';
-import interactSource from '../../sim/life/interact.ts?raw';
+import questsSource from '../../../crates/engine/src/life/quests.rs?raw';
+import interactSource from '../../../crates/engine/src/life/interact.rs?raw';
 
 const RULE = {
   /** How near a place counts as reaching it, when the objective doesn't say. */
-  reach: () => sourceNumber(questsSource, /\(o\.r \?\? (\d+(?:\.\d+)?)\)/, 'how near a place counts as reaching it'),
+  reach: () => sourceNumber(questsSource, /o\.r\.unwrap_or\((\d+(?:\.\d+)?)\)/, 'how near a place counts as reaching it'),
   /** How often getting somewhere is measured. */
-  every: () => sourceNumber(questsSource, /life\.state\.clock % (\d+(?:\.\d+)?) < STEP/, 'how often a place reached is measured'),
+  every: () => sourceNumber(questsSource, /life\.state\.clock % (\d+(?:\.\d+)?) < step_seconds\(\)/, 'how often a place reached is measured'),
   /** How near a person you talk to them. */
-  talk: () => sourceNumber(interactSource, /n\.z - p\.pos\.z\);\s*if \(d > (\d+(?:\.\d+)?)\) continue;/, 'how near a person you talk to them'),
+  talk: () =>
+    sourceNumber(
+      interactSource,
+      /for n in &zone\.recipe\.npcs \{\s*let d = js_hypot\(n\.x - px, n\.z - pz\);\s*if d > (\d+(?:\.\d+)?) \{/,
+      'how near a person you talk to them',
+    ),
 };
 
 /** What counts toward each kind of objective, as the rules count it. Every kind the quests use must be here. */
@@ -83,7 +88,7 @@ export const quests = system({
   summary: 'How quests open, start, count what you do and pay out; milestones; and the skill points they earn.',
   icon: '📜',
   keywords: ['quest', 'questline', 'milestone', 'objective', 'reward', 'skill points', 'abandon', 'hand in'],
-  rules: ['src/sim/life/quests.ts', 'crates/engine/src/life/quests.rs'],
+  rules: ['crates/engine/src/life/quests.rs'],
   content: ['shared/quests.json#quests'],
   body: () => {
     const kinds = objectiveKinds();
