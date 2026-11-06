@@ -7,6 +7,7 @@
 use super::Sim;
 use super::colliders::{ground_at, ground_at_decks, in_rect, push_out_of_box};
 use super::zone::Updraft;
+use crate::event::Event;
 use crate::jsmath::JsMath;
 use crate::jsmath::{js_hypot, js_round, len};
 use crate::life::content::{carry, glide, glider_def, ground, swim};
@@ -255,6 +256,7 @@ fn settle(sim: &mut Sim) {
             p.flip_frame = -1;
             p.land_frame = 0;
             p.land_impact = (-p.vel.y / 20.0).min(1.0);
+            p.events.push(Event::Land { x: p.pos.x, y: g, z: p.pos.z, impact: p.land_impact });
             p.pos.y = g;
             p.vel.y = 0.0;
         }
@@ -279,6 +281,7 @@ fn enter_swim(sim: &mut Sim) {
         close_glider(sim, "water");
     }
     let p = &mut *sim.player;
+    let speed = p.vel.y.abs().max(len(p.vel.x, p.vel.z));
     p.mode = Mode::Swim;
     p.mode_frame = 0;
     p.grounded = false;
@@ -288,6 +291,7 @@ fn enter_swim(sim: &mut Sim) {
     p.pos.y = hf.water - swim().float;
     p.vel.x *= 0.35;
     p.vel.z *= 0.35;
+    p.events.push(Event::Splash { x: p.pos.x, y: hf.water, z: p.pos.z, speed });
 }
 
 pub fn update_swim(sim: &mut Sim, a: &Actions) {
@@ -345,6 +349,7 @@ pub fn update_swim(sim: &mut Sim, a: &Actions) {
             p.vel.y = sw.climb_out;
             p.vel.x = p.facing.js_sin() * 3.0;
             p.vel.z = p.facing.js_cos() * 3.0;
+            p.events.push(Event::Jump { x: p.pos.x, y: p.pos.y, z: p.pos.z });
         }
     }
 }
@@ -397,6 +402,7 @@ pub fn open_glider(sim: &mut Sim) -> bool {
     if hs > 0.5 {
         p.facing = p.vel.x.js_atan2(p.vel.z);
     }
+    p.events.push(Event::GlideOpen { x: p.pos.x, y: p.pos.y, z: p.pos.z });
     true
 }
 
@@ -413,6 +419,7 @@ pub fn close_glider(sim: &mut Sim, _why: &str) {
     if !p.grounded {
         p.jumps_used = 1;
     }
+    p.events.push(Event::GlideClose { x: p.pos.x, y: p.pos.y, z: p.pos.z });
 }
 
 /// Climb rate from rising air at a point.
@@ -440,6 +447,7 @@ pub fn gust(sim: &mut Sim) -> bool {
     p.airspeed += g.speed;
     p.vel.y = p.vel.y.max(0.0) + g.lift;
     p.gust_frames = js_round(g.cooldown_seconds / step_len()) as i32;
+    p.events.push(Event::GlideOpen { x: p.pos.x, y: p.pos.y, z: p.pos.z });
     true
 }
 

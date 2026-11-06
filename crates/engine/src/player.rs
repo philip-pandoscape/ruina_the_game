@@ -4,13 +4,14 @@
 //! Open worlds reuse these pieces from crate::open::step_player (tests/conformance/world.test.ts).
 
 use crate::ai::{ACT_CAST, ACT_DODGE, ACT_FREE, ACT_GUARD, ACT_RECOVER, ACT_STUNNED, ACT_SWING, Foe};
+use crate::event::Event;
 use crate::jsmath::JsMath;
 use crate::jsmath::len;
 use crate::life::content::carry;
 use crate::skills::{EMPTY_SKILLS, Levels, ResolvedSkills, SkillSet, base_levels, node_index, resolve_skills, same_levels, set_skill};
 use crate::tuning::{
     AttackStep, HOTBAR_SLOTS, MOVEMENT_SLOTS, NO_ABILITY, NO_MOVEMENT, ability, ability_cooldown, ability_mp_for, cast_frames_for, combo_for, movement_action,
-    movement_cooldown_for, movement_stamina_for, slide_skill, tuning,
+    movement_cooldown_for, movement_stamina_for, pierce_targets, slide_skill, tuning,
 };
 use crate::world::{Spawn, World};
 
@@ -150,6 +151,9 @@ pub struct Player {
     pub mode_frame: i32,
     /// Frames until the glider's gust can be used again.
     pub gust_frames: i32,
+    /// What happened this step, in the order it happened (crate::event): taken by the browser's
+    /// session after each step, cleared at the next.
+    pub events: Vec<Event>,
 }
 
 pub fn angle_diff(a: f64, b: f64) -> f64 {
@@ -257,6 +261,7 @@ impl Player {
             bank: 0.0,
             mode_frame: 0,
             gust_frames: 0,
+            events: Vec::new(),
         }
     }
 
@@ -327,6 +332,7 @@ impl Player {
             self.action_dir_z = self.facing.js_cos();
         }
         self.started_action = id;
+        self.events.push(Event::Action { id, x: self.pos.x, y: self.pos.y, z: self.pos.z });
     }
 
     pub(crate) fn update_action(&mut self, a: &Actions) {
@@ -446,6 +452,7 @@ impl Player {
         if self.down_frame >= 0 {
             if self.update_down() {
                 self.respawn(world.team_spawns[self.team as usize & 1]);
+                self.respawned();
             }
         } else if self.stun > 0 {
             self.update_stun();
@@ -461,13 +468,47 @@ impl Player {
         }
         self.update_crouch_frame();
         self.integrate(world);
+        self.check_shot();
         self.end_step();
+    }
+
+    /// Says you're back up where you now stand (after `respawn` and whatever puts you on the ground).
+    pub(crate) fn respawned(&mut self) {
+        self.events.push(Event::Respawn { x: self.pos.x, y: self.pos.y, z: self.pos.z });
+    }
+
+    /// A bow looses its arrow on the first frame after the swing's startup, from in front of you at
+    /// chest height (src/sim/player/attacks.ts checkShot): what flies it is the caller's business.
+    pub(crate) fn check_shot(&mut self) {
+        if self.mode != Mode::Attack {
+            return;
+        }
+        let combo = combo_for(self.weapon, &self.resolved);
+        let Some(step) = combo.get(self.attack_index) else { return };
+        if step.projectile_speed == 0.0 || self.attack_frame != step.startup + 1 {
+            return;
+        }
+        let dir_x = self.facing.js_sin();
+        let dir_z = self.facing.js_cos();
+        self.events.push(Event::Shoot {
+            x: self.pos.x + dir_x * 0.6,
+            y: self.pos.y + 1.3,
+            z: self.pos.z + dir_z * 0.6,
+            dir_x,
+            dir_z,
+            speed: step.projectile_speed,
+            range: step.projectile_range,
+            damage: step.damage,
+            pierce: pierce_targets(self.weapon, &self.resolved) as u32,
+            weapon: self.weapon,
+        });
     }
 
     /// The start of every step: remember presses, count down timers, cut a short hop, and drop
     /// sprinting and crouching (only normal control sets them again).
     pub(crate) fn begin_step(&mut self, a: &Actions) {
         let t = tuning();
+        self.events.clear();
         self.fired_ability = NO_ABILITY;
         self.started_action = NO_MOVEMENT;
         if a.jump_pressed {
@@ -500,6 +541,10 @@ impl Player {
             }
         }
         self.regen_vitals();
+        // A dodge or a cast asked for without the stamina or MP it costs doesn't start; say why.
+        if let Some(what) = self.short_for(a) {
+            self.events.push(Event::Short { what });
+        }
         self.coyote = if self.grounded { t.jump.coyote_frames } else { (self.coyote - 1).max(0) };
 
         // Releasing jump early gives a short hop.
@@ -512,6 +557,22 @@ impl Player {
         // (stunned, sliding, attacking, casting, knocked down) drops them.
         self.sprinting = false;
         self.crouching = false;
+    }
+
+    /// What a pressed movement or hotbar slot is short of, if its skill costs more stamina or MP
+    /// than you have (src/sim/player/vitals.ts shortFor).
+    fn short_for(&self, a: &Actions) -> Option<&'static str> {
+        let slot = a.movement_slot as usize;
+        let m = if (1..=MOVEMENT_SLOTS).contains(&slot) { self.movement[slot - 1] } else { NO_MOVEMENT };
+        if m != NO_MOVEMENT && self.stamina < movement_stamina_for(m, &self.resolved) {
+            return Some("stamina");
+        }
+        let slot = a.ability_slot as usize;
+        let ab = if (1..=HOTBAR_SLOTS).contains(&slot) { self.abilities[slot - 1] } else { NO_ABILITY };
+        if ab != NO_ABILITY && self.mp < ability_mp_for(ab, &self.resolved) {
+            return Some("mp");
+        }
+        None
     }
 
     /// Once a step: stamina refills once a moment has passed since it was last spent; MP always
@@ -640,6 +701,7 @@ impl Player {
             self.jump_cut_done = false;
             self.jump_buffer = 0;
             self.takeoff_frame = 0;
+            self.events.push(Event::Jump { x: self.pos.x, y: self.pos.y, z: self.pos.z });
             return true;
         }
         // A trade pack on your back is too heavy for the second jump.
@@ -659,6 +721,7 @@ impl Player {
                     self.facing = dx.js_atan2(dz);
                 }
             }
+            self.events.push(Event::DoubleJump { x: self.pos.x, y: self.pos.y, z: self.pos.z });
             return true;
         }
         false
@@ -775,6 +838,7 @@ impl Player {
         if len(a.aim_x, a.aim_z) > 0.01 {
             self.facing = a.aim_x.js_atan2(a.aim_z);
         }
+        self.events.push(Event::Attack { index });
     }
 
     /// An ability slot that was pressed and can be cast now (1 or 2), else 0.
@@ -868,6 +932,7 @@ impl Player {
             self.spend_mp(ability_mp_for(ab, &self.resolved));
             self.mode = Mode::Normal;
             self.fired_ability = ab;
+            self.events.push(Event::Cast { ability: ab, x: self.cast_target_x, z: self.cast_target_z, caster_x: self.pos.x, caster_z: self.pos.z });
             self.cast_ability = NO_ABILITY;
             self.cast_slot = 0;
             self.cast_frame = 0;
@@ -1096,6 +1161,7 @@ impl Player {
                 self.flip_frame = -1;
                 self.land_frame = 0;
                 self.land_impact = (-self.vel.y / 20.0).min(1.0);
+                self.events.push(Event::Land { x: self.pos.x, y: 0.0, z: self.pos.z, impact: self.land_impact });
             }
             self.pos.y = 0.0;
             self.vel.y = 0.0;

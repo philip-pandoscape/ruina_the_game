@@ -116,6 +116,7 @@ pub fn step_player(p: &mut Player, a: &Actions, world: &mut OpenWorld, mut life:
                 let hf = sim.terrain();
                 sim.player.pos.y = colliders::ground_at(hf, &sim.world.index, s.x, s.z, hf.height(s.x, s.z) + 1.2, 1.2);
             }
+            sim.player.respawned();
         }
     } else if sim.player.stun > 0 {
         sim.player.update_stun();
@@ -162,6 +163,7 @@ pub fn step_player(p: &mut Player, a: &Actions, world: &mut OpenWorld, mut life:
 
     sim.player.update_crouch_frame();
     traverse::integrate_open(&mut sim);
+    sim.player.check_shot();
     if let Some(l) = life {
         l.step(&mut sim, a);
     }
