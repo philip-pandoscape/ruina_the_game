@@ -2,6 +2,9 @@ import { expect, test, type Browser, type BrowserContext, type Page } from '@pla
 import { readFileSync } from 'node:fs';
 import { rainAt } from '../src/sim/life/weather';
 
+// Its tests share nothing, so they spread across the workers (playwright.config.ts).
+test.describe.configure({ mode: 'parallel' });
+
 // Emberholm on the game server: signing in, choosing among several characters (each with an island
 // of its own), the server playing your island and keeping it in Postgres between visits, starting
 // over, one window per character, and sharing a channel. These play the real game against the real
@@ -166,7 +169,8 @@ test('starting over throws the island away on the server too', async ({ page }) 
   expect(await game(page, (g) => g.life().coins)).toBe(start);
 });
 
-test('a second window takes the character over, and the first stops', async ({ page }) => {
+// @alone: two game windows of the same character, each a whole game, take turns at the server.
+test('a second window takes the character over, and the first stops', { tag: '@alone' }, async ({ page }) => {
   const name = fresh('twice');
   await page.goto(`/?as=${name}&bugs=0`);
   await waitOnline(page);

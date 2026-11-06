@@ -1,5 +1,8 @@
 import { expect, test, type Page } from '@playwright/test';
 
+// Its tests share nothing, so they spread across the workers (playwright.config.ts).
+test.describe.configure({ mode: 'parallel' });
+
 // Per-species tests. Adding a monster means adding a row to SPECIES and, if it moves in a way
 // worth guaranteeing, one motion test below - not a new harness. The numeric assertions read
 // baked clip data rather than pixels, so they hold in headless CI; the screenshots are for a

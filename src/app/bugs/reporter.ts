@@ -330,8 +330,9 @@ export class BugReporter {
         resolve(s);
       };
       this.shotWaiters.push(done);
-      // If nothing is being drawn (a paused test, a background tab, a crashed loop), don't wait.
-      setTimeout(() => done(null), 2000);
+      // If nothing is being drawn (a background tab, a crashed loop), don't wait. Long enough for
+      // the frame after the press, which starting a report can hold up by a second or more.
+      setTimeout(() => done(null), 5000);
     });
   }
 

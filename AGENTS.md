@@ -28,8 +28,11 @@ The open world is **Emberholm**, a starter isle with ArcheAge-style life systems
 npm run up              # Postgres + game server in Docker (rebuilds the server); npm run down stops
 npm run dev             # http://localhost:5173  (?as=name signs in on dev and plays its last character, ?yard, ?world&test)
 npm run typecheck
-npx playwright test     # all; tests/online.spec.ts and tests/minigames.spec.ts need `npm run up`; tests/update.spec.ts needs RUINA_DATABASE_URL
+npx playwright test     # all (or npm test), ~12 min; tests/online.spec.ts and tests/minigames.spec.ts need `npm run up`; tests/update.spec.ts needs RUINA_DATABASE_URL
+npx playwright test tests/ui.spec.ts   # some of it: files, -g "title"
+npx playwright test --last-failed      # after a fix, what failed last time, not the whole suite again
 PW_PORT=5211 TEST_PORT_OFFSET=10 npx playwright test   # beside another checkout's suite (its own Vite and battle-server ports)
+PW_WORKERS=4 npx playwright test   # fewer test pages side by side (6 by default)
 cargo test --release --manifest-path server/Cargo.toml   # needs Rust; CI runs it anyway
 npm run image -- --out scratch/x.png --ref look.png "prompt"   # a picture from Gemini (Art and assets below)
 ```
@@ -49,6 +52,13 @@ npm run image -- --out scratch/x.png --ref look.png "prompt"   # a picture from 
   items answer a click (pick), a double-click (their main action) and a right-click (a menu).
 - Tag a test `@gpu` if it needs a real GPU to keep up (several game windows, frame rates, screen
   capture). CI renders in software and skips them; run them locally before pushing such changes.
+- Locally the tests run side by side, six pages at once (`playwright.config.ts`), and `@gpu` and
+  `@alone` tests one at a time: the whole suite plays them after the rest, a run of some of it beside
+  the rest. Tag a test `@alone` if it races the clock in a way other pages drawing would upset
+  (stopping a server under players, two windows of one character). A spec file that starts a battle
+  server gives it a port no other file uses (`tests/testServer.ts`); one whose tests share nothing
+  says so (`test.describe.configure({ mode: 'parallel' })`). A test never waits a fixed time for the
+  game to notice something (a key, a pad button): it waits for frames.
 - Never commit `.env` (Railway keys, `GEMINI_API_KEY`). Commit messages carry no AI attribution.
 
 ## Art and assets

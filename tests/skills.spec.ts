@@ -419,7 +419,7 @@ test('training yard: arrows, Meteor, Healing Circle and Whirlwind against the du
 
 test.describe('online', () => {
   test.skip(!serverBuilt, 'build the server first: cargo build --release --manifest-path server/Cargo.toml');
-  const server = new TestServer(7791, ['--bots', '40']);
+  const server = new TestServer(7795, ['--bots', '40']);
   test.beforeAll(async () => server.start());
   test.afterAll(() => server.stop());
 

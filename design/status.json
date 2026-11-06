@@ -1426,6 +1426,17 @@
         "The HUD's own pixel icons (src/ui/theme/pixelIcons.ts) are gone: uiIcon(name) draws the painted heart, mana, stamina, labor, coins, seal, menu buttons, quest marks (! on offer, ? to hand in, a grey ? under way), talk bubble, lock, craft, star, book, compass and flag. Name plates show the mark itself; the maps put it on a dark disc so it stands off the ground, and the big map draws places, houses and vehicles as painted icons rather than emoji text.",
         "Sanctuary's icon key is 🔷 (it shared 💠 with flax); a few items have pictures of their own (seed sacks by crop, saplings, the lamb, the thunderstruck log, the cottage blueprint, the Swiftwing glider). Twemoji is no longer used, so its SVGs and credit are gone."
       ]
+    },
+    {
+      "date": "2026-11-05",
+      "title": "A faster suite",
+      "summary": "The whole Playwright suite, the only browser check before a push to beta, took half an hour here: it ran one test at a time, and every test starts the game afresh in a new browser (about 4 s). It now runs side by side, six pages at once, and the tests that need the machine to themselves after the rest, one at a time: 12 minutes, all 366 passing.",
+      "points": [
+        "playwright.config.ts: six workers; the biggest spec files spread their tests out (test.describe.configure); @gpu and @alone tests run one at a time, after the rest in a run of the whole suite, beside the rest in a run of some of it.",
+        "@alone: tests that race the clock, stopping a server under players (update.spec) or two windows of one character; update.spec warms its own Vite before its first test.",
+        "Tests that lost races under load now wait for frames: a controller press is held for two frames, the bug report's stand-in speech comes phrase after phrase, and the reporter waits up to 5 s for the frame after the press.",
+        "Why the rest of the time goes: about 4 s per test starting the game (the scene's shaders, building the island), and other checkouts' suites sharing the laptop."
+      ]
     }
   ]
 }
