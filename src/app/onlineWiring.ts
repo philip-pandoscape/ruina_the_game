@@ -6,8 +6,6 @@
 // through `g`, the references src/main.ts hands it.
 import { stateFromServer } from '../net/netPlayer';
 import { type Command } from '../sim/life/life';
-import { runCommand } from '../sim/life/interact';
-import type { LifeState } from '../sim/life/state';
 import { leaveFor, plainUrl } from '../app/resume';
 import { signOut } from '../net/account';
 import { NetOverlay, OnlineBadge, showStopped } from '../ui/signIn';
@@ -94,8 +92,6 @@ export function wireOnline(g: GameRefs): void {
     const solidScarecrows = new Set<number>();
     /** What's built on your island (farms and houses, where), last time the grass was laid round it. */
     let groundKey = '';
-    /** Your island as the server last sent it, kept as it came. */
-    let base: LifeState | null = null;
     if (prediction && life) {
       // Picking a pack up or putting it down, loading one or taking one out, getting in or out: run
       // here at once as well as on the server, so the pack is on your back (or you're in the seat)
@@ -107,32 +103,23 @@ export function wireOnline(g: GameRefs): void {
         const seq = prediction.seq + 1;
         online.link.command(seq, c);
         if (!quick(c) || ahead.length >= 8) return;
-        if (life.state === base) life.state = structuredClone(base);
-        runCommand(life, sim, c);
+        g.engine.runAhead(c);
         ahead.push({ seq, c });
       };
       prediction.beforeReplay = () => {
         if (!you) return;
         // What the server has run too is in what it sent.
         while (ahead.length && ahead[0].seq <= you.ack) ahead.shift();
-        if (ahead.length && base) life.state = structuredClone(base);
-        const s = life.state;
-        s.clock = you.clock;
-        s.labor = you.labor;
-        s.weather = you.weather;
-        s.vehicles = ahead.length ? structuredClone(you.vehicles) : you.vehicles;
-        life.resting = you.resting;
-        life.placing = you.placing;
-        for (const a of ahead) runCommand(life, sim, a.c);
+        g.engine.replayIsland(
+          you,
+          ahead.map((a) => a.c),
+        );
       };
     }
     const onTick = (t: WorldTick) => {
       if (life && t.life) {
         lifeLoaded = true;
-        base = t.life.state;
-        life.state = t.life.state;
-        life.placing = t.life.placing;
-        life.resting = t.life.resting;
+        g.engine.takeIsland(t.life);
         if (t.life.rev !== lastRev) {
           lastRev = t.life.rev;
           life.revision++;

@@ -1,12 +1,14 @@
+import type { Levels } from '../content/skills';
 import type { Build } from '../content/tuning';
 import { isAlive, type Actor } from '../sim/actor';
 import { startBrain } from '../sim/ai/brain';
 import { targetOf } from '../sim/combat/hit';
 import { addScarecrowCollider } from '../sim/life/farming';
 import { addHouseColliders } from '../sim/life/housing';
+import { runCommand, type Placement } from '../sim/life/interact';
 import { applySave, type Saved } from '../sim/life/island';
-import { Life } from '../sim/life/life';
-import type { House, Scarecrow } from '../sim/life/state';
+import { Life, type Command } from '../sim/life/life';
+import type { House, LifeState, Scarecrow, Vehicle, Weather } from '../sim/life/state';
 import { dismount } from '../sim/life/vehicles';
 import { Sim } from '../sim/sim';
 import { TrainingRange } from '../sim/training';
@@ -61,6 +63,8 @@ export class Engine {
   /** The dungeon or developer zone you're in a copy of, null out in the world. */
   private dungeon: string | null = null;
   private solids = new Map<string, DungeonSolids>();
+  /** Online: your island as the server last sent it, kept as it came (commands run ahead work on a copy). */
+  private sent: LifeState | null = null;
 
   constructor(o: EngineOptions) {
     this.online = o.online;
@@ -123,6 +127,11 @@ export class Engine {
       events = events.concat(this.sim.drainEvents());
     }
     return events;
+  }
+
+  /** Your skill levels (in the yard, from the experience earned there; on the island, from your quests). */
+  setLevels(levels: Levels): void {
+    this.sim.levels = levels;
   }
 
   /** Switches your skills and loadout, as the server does: any attack or cast in progress is dropped. */
@@ -225,6 +234,52 @@ export class Engine {
     for (const a of inputs) this.sim.step(a);
     this.sim.drainEvents();
     if (inputs.length === 0) this.sim.player.prevPos = drawnFrom;
+  }
+
+  /**
+   * Online: your island as a tick has it: its state (kept as it came, not copied), and whether you're
+   * placing something or resting.
+   */
+  takeIsland(island: { state: LifeState; placing: Placement | null; resting: boolean }): void {
+    const life = this.life;
+    if (!life) return;
+    this.sent = island.state;
+    life.state = island.state;
+    life.placing = island.placing;
+    life.resting = island.resting;
+  }
+
+  /**
+   * Online: a command run here at once as well as on the server (a pack picked up, a seat taken), on
+   * a copy of the island the server sent, so that one stays as it came.
+   */
+  runAhead(c: Command): void {
+    const life = this.life;
+    if (!life) return;
+    if (this.sent && life.state === this.sent) life.state = structuredClone(this.sent);
+    runCommand(life, this.sim, c);
+  }
+
+  /**
+   * Online, before your inputs run again on the server's word on you: the parts of the island that
+   * move with you as of that word (its clock, your labor, the weather, your vehicles, resting and
+   * placing), and the commands the server hasn't run yet (`ahead`) run again on the island it sent.
+   */
+  replayIsland(
+    you: { clock: number; labor: number; weather: Weather; vehicles: Vehicle[]; resting: boolean; placing: Placement | null },
+    ahead: readonly Command[],
+  ): void {
+    const life = this.life;
+    if (!life) return;
+    if (ahead.length && this.sent) life.state = structuredClone(this.sent);
+    const s = life.state;
+    s.clock = you.clock;
+    s.labor = you.labor;
+    s.weather = you.weather;
+    s.vehicles = ahead.length ? structuredClone(you.vehicles) : you.vehicles;
+    life.resting = you.resting;
+    life.placing = you.placing;
+    for (const c of ahead) runCommand(life, this.sim, c);
   }
 
   /** A house solid here as it is on the server: yours, or someone else's where you see it (`owner`: their island). */

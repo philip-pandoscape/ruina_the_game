@@ -569,7 +569,7 @@ function yardTrain(e: GameEvent): void {
     }
   }
 }
-if (!life) sim.levels = levelsFrom(yardXp);
+if (!life) engine.setLevels(levelsFrom(yardXp));
 /**
  * Points you may have in the tree: earned on the island, a training budget elsewhere, and the whole
  * tree in a developer zone, which is for trying weapons and skills (the server allows the same).
@@ -804,7 +804,7 @@ function stepOnce(actions: Actions): void {
   if (!life && !net) {
     for (const e of events) yardTrain(e);
     const lv = levelsFrom(yardXp);
-    if (!sameLevels(lv, sim.levels)) sim.levels = lv;
+    if (!sameLevels(lv, sim.levels)) engine.setLevels(lv);
   }
   const le = life ? life.drainEvents() : [];
   bugs?.step(sim.frame, actions, events, le);
