@@ -12,12 +12,12 @@ import type { Handler, View } from '../../components/window';
 import { iconHtml, money, uiIcon } from '../../theme/icons';
 import type { IslandUI } from '../context';
 import { dropcap, objectivesHtml, rewardsHtml } from './quest';
-import { BENCH_OF, GREETINGS } from './townsfolk';
 
 // Talking to someone: what they say, the quests they have for you (on offer, under way, to hand
 // in), what else they do (their goods, their workshop or workbench), and at an outpost what its
 // trader pays for trade packs today and the contracts on offer. One quest and nothing else to talk
-// about opens straight away.
+// about opens straight away. Who they are, what they say and the bench they stand at are theirs
+// (content/npcs/<id>.json).
 
 /** A line in a list of what you can say (.g-opts): its icon, what it is, and a note at its end. */
 const option = (act: string, arg: string, icon: string, label: string, note = '', cls = ''): string =>
@@ -36,7 +36,7 @@ export function dialogView(ui: IslandUI, npcId: string, questId?: string, trade?
   if (vendorFor(npcId)) talk.push(option('shop', '', uiIcon('coins', 24), `Browse ${esc(n.name.split(' ')[0])}'s Goods`, '', 'talk'));
   if (outpost) talk.push(option('trade', '', uiIcon('scroll', 24), 'Trade Packs and Contracts', '', 'talk'));
   if (recipesAt(npcId).length) talk.push(option('craft', npcId, uiIcon('craft', 24), 'Commission Work', '', 'talk'));
-  if (BENCH_OF[npcId]) talk.push(option('craft', BENCH_OF[npcId], uiIcon('craft', 24), 'Use the Workbench', '', 'talk'));
+  if (n.bench) talk.push(option('craft', n.bench, uiIcon('craft', 24), 'Use the Workbench', '', 'talk'));
   const base = { title: n.name, sub: esc(n.title), portrait: ui.face(npcId), w: 424, h: 560 };
   const handlers: Record<string, Handler> = {
     quest: (id) => ui.open({ kind: 'dialog', id: npcId, quest: id }),
@@ -148,7 +148,7 @@ export function dialogView(ui: IslandUI, npcId: string, questId?: string, trade?
   ];
   return {
     ...base,
-    body: `<p class="g-say">“${esc(GREETINGS[npcId] ?? 'Good day.')}”</p>${quests.length ? `<div class="h">Quests</div><ul class="g-opts">${quests.join('')}</ul>` : ''}${talk.length ? `<div class="h">Talk</div><ul class="g-opts">${talk.join('')}</ul>` : ''}`,
+    body: `<p class="g-say">“${esc(n.greeting)}”</p>${quests.length ? `<div class="h">Quests</div><ul class="g-opts">${quests.join('')}</ul>` : ''}${talk.length ? `<div class="h">Talk</div><ul class="g-opts">${talk.join('')}</ul>` : ''}`,
     foot: `<span></span>${buttonHtml('Goodbye', 'close')}`,
     handlers,
   };

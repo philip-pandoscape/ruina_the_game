@@ -1,0 +1,13 @@
+{
+  "id": "hollis",
+  "name": "Reeve Hollis",
+  "title": "Village Elder",
+  "place": "lanternwick",
+  "x": -4.5,
+  "z": -244.5,
+  "facing": 2.6,
+  "kind": "npc-elder",
+  "look": "hollis",
+  "portrait": "🧓",
+  "greeting": "Lanternwick prospers when its people do. Plant, pack, haul - and keep your boots dry."
+}

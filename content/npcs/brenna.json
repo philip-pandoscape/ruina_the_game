@@ -1,0 +1,14 @@
+{
+  "id": "brenna",
+  "name": "Brenna Stoneheart",
+  "title": "Quarrymaster",
+  "place": "quarry",
+  "x": 186,
+  "z": 148,
+  "facing": 3.14159,
+  "kind": "npc-crafter",
+  "look": "brenna",
+  "portrait": "⛏️",
+  "greeting": "Stone and iron, raw or ready. Ten stone makes a block at the cutting table. Mind your back.",
+  "bench": "stonecutter"
+}

@@ -65,7 +65,7 @@ export interface ZoneRecipe {
     line?: [[number, number], [number, number]];
   }>;
   npcs: ZoneNpc[];
-  workbenches: Array<{ id: string; place: string; x: number; z: number }>;
+  workbenches: Array<{ id: string; name?: string; place: string; x: number; z: number }>;
   outposts: Array<{ id: string; npc: string; x: number; z: number }>;
   housePlots: Array<{ id: string; x: number; z: number; rot: number }>;
   farmland: { x: number; z: number; w: number; d: number };
@@ -92,14 +92,26 @@ export interface ZonePlace {
   z: number;
 }
 
+/** One of the island's people (content/npcs/<id>.json): who they are, where they stand, how they look and what they say. */
 export interface ZoneNpc {
   id: string;
   name: string;
   title: string;
+  /** The place they belong to (a zone place's id). */
+  place: string;
   x: number;
   z: number;
   facing: number;
+  /** Their actor kind (content/actors/): solid townsfolk, and how the crowd draws them from afar. */
   kind: string;
+  /** The body they're drawn with close up: a townsperson's build (src/render/models/villagers.ts), else a plain villager dressed from this name. */
+  look: string;
+  /** Their face as an emoji, until their portrait is taken. */
+  portrait: string;
+  /** What they say when you talk to them. */
+  greeting: string;
+  /** The workbench they stand at: talking to them offers it. */
+  bench?: string;
 }
 
 /**

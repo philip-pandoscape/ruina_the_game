@@ -233,9 +233,9 @@ export class LifeView {
         this.group.add(root);
         this.nodes.push({ root, i });
       });
-    // Townsfolk with their own looks, standing at their posts.
+    // Townsfolk with their own looks (content/npcs/<id>.json `look`), standing at their posts.
     for (const n of this.others ? [] : life.zone.recipe.npcs) {
-      const m = tryBuild(models.buildVillager ? () => models.buildVillager!(n.id) : null);
+      const m = tryBuild(models.buildVillager ? () => models.buildVillager!(n.look) : null);
       if (!m) continue;
       const holder = new THREE.Group();
       holder.add(m.root);

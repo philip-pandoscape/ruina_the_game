@@ -1,0 +1,13 @@
+{
+  "id": "dunmore",
+  "name": "Dunmore Vell",
+  "title": "Westwatch Trader",
+  "place": "westwatch",
+  "x": 418.5,
+  "z": -16,
+  "facing": -1.5708,
+  "kind": "npc-merchant",
+  "look": "dunmore",
+  "portrait": "🧑‍💼",
+  "greeting": "Westwatch buys what the east grows. Prices fall as I fill my storeroom - they recover with time."
+}

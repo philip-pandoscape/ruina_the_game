@@ -1,0 +1,13 @@
+{
+  "id": "quill",
+  "name": "Registrar Quill",
+  "title": "Land & Deeds",
+  "place": "lanternwick",
+  "x": 26.5,
+  "z": -237.6,
+  "facing": -1.5708,
+  "kind": "npc-elder",
+  "look": "quill",
+  "portrait": "🧐",
+  "greeting": "Land is granted by blueprint, and kept by paying your tax. Hearthside Rise has plots for claim."
+}

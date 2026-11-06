@@ -1,0 +1,13 @@
+{
+  "id": "mara",
+  "name": "Mara Thistle",
+  "title": "Grocer & Seeds",
+  "place": "lanternwick",
+  "x": -11,
+  "z": -238.6,
+  "facing": 0,
+  "kind": "npc-merchant",
+  "look": "mara",
+  "portrait": "👩‍🌾",
+  "greeting": "Seeds for sowing, coin for your crops. Sunroot's quick, emberberry's dear - and slow on this isle."
+}

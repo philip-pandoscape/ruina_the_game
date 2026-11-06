@@ -1,0 +1,13 @@
+{
+  "id": "sela",
+  "name": "Sela Brightmane",
+  "title": "Stablemaster",
+  "place": "lanternwick",
+  "x": -52,
+  "z": -263,
+  "facing": 0,
+  "kind": "npc-merchant",
+  "look": "sela",
+  "portrait": "👩‍🦰",
+  "greeting": "A donkey will carry your pack and complain the whole way. A horse will outrun the wind and carry nothing."
+}

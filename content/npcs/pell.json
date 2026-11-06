@@ -1,0 +1,13 @@
+{
+  "id": "pell",
+  "name": "Factor Pell",
+  "title": "Gullrock Exchange",
+  "place": "gullrock",
+  "x": -551.5,
+  "z": -421.5,
+  "facing": 0.785,
+  "kind": "npc-merchant",
+  "look": "pell",
+  "portrait": "🎩",
+  "greeting": "Gullrock's a long row from anywhere. That's why I pay in seals as well as silver."
+}

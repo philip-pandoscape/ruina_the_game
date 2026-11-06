@@ -119,7 +119,8 @@ export function build(root = CONTENT) {
       bundle.comment = `Built from content/${t} by tools/content/contentc.mjs (npm run content): edit there, not here. ${bundle.comment}`;
     bundles.set(t, bundle);
   }
-  for (const f of walk(root)) if (!used.has(f) && !f.startsWith('_schemas/') && !f.endsWith('.md')) errors.push(`content/${f}: no bundle takes it`);
+  // The schemas, and the templates a new thing is copied from (content/_templates/), are no bundle's.
+  for (const f of walk(root)) if (!used.has(f) && !/^_(schemas|templates)\//.test(f) && !f.endsWith('.md')) errors.push(`content/${f}: no bundle takes it`);
   errors.push(...references(bundles));
   if (errors.length) throw new ContentError(errors.join('\n'));
   return bundles;
@@ -162,10 +163,14 @@ function fits(thing, schema, where) {
 function ids(b) {
   const list = (bundle, key, id = 'id') => new Set((b.get(bundle)?.[key] ?? []).map((x) => x[id]));
   const zone = b.get('zones/emberholm.json') ?? {};
+  const inZone = (key) => new Set((zone[key] ?? []).map((x) => x.id));
   return {
     item: list('items.json', 'items'),
-    npc: new Set((zone.npcs ?? []).map((n) => n.id)),
-    workbench: new Set((zone.workbenches ?? []).map((w) => w.id)),
+    npc: inZone('npcs'),
+    workbench: inZone('workbenches'),
+    place: inZone('places'),
+    outpost: inZone('outposts'),
+    shipyard: inZone('shipyards'),
     pack: list('trade.json', 'packs'),
     market: list('trade.json', 'places'),
     crop: list('farming.json', 'crops'),
@@ -186,6 +191,17 @@ const REFS = [
   { bundles: /^items\.json$/, key: 'npc', kind: 'npc' },
   { bundles: /^quests\.json$/, key: 'giver', kind: 'npc' },
   { bundles: /^quests\.json$/, key: 'turnIn', kind: 'npc' },
+  // An objective's person, place or trading post, and where its marker points (a place, a trading
+  // post, a workbench or a slipway).
+  { bundles: /^quests\.json$/, key: 'npc', kind: 'npc' },
+  { bundles: /^quests\.json$/, key: 'place', kind: 'place' },
+  { bundles: /^quests\.json$/, key: 'outpost', kind: 'outpost' },
+  { bundles: /^quests\.json$/, key: 'workbench', kind: 'workbench' },
+  { bundles: /^quests\.json$/, key: 'shipyard', kind: 'shipyard' },
+  // A townsperson's place and the workbench they stand at; a workbench's place; a trading post's trader.
+  { bundles: /^zones\/.*$/, key: 'place', kind: 'place' },
+  { bundles: /^zones\/.*$/, key: 'bench', kind: 'workbench' },
+  { bundles: /^zones\/.*$/, key: 'npc', kind: 'npc' },
   { bundles: /^(quests|items)\.json$/, key: 'pack', kind: 'pack' },
   // A workbench, or a townsperson who takes the work on (commissions).
   { bundles: /^items\.json$/, key: 'bench', kind: ['workbench', 'npc'] },

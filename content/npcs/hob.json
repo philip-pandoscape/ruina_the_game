@@ -1,0 +1,14 @@
+{
+  "id": "hob",
+  "name": "Hob Ashgrove",
+  "title": "Woodcutter",
+  "place": "thornwood",
+  "x": -242,
+  "z": 42,
+  "facing": 3.14159,
+  "kind": "npc-crafter",
+  "look": "hob",
+  "portrait": "🪓",
+  "greeting": "Fell the deadfall for timber, bundle ten at my sawhorse, and haul it wherever you build.",
+  "bench": "sawhorse"
+}

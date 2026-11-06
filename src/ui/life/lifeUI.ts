@@ -37,7 +37,6 @@ import { ridesView } from './windows/rides';
 import { onSettingsInput, settingsView } from './windows/settings';
 import { shopView } from './windows/shop';
 import { storageView } from './windows/storage';
-import { faceHtml } from './windows/townsfolk';
 
 // The open world's HUD and windows. Everything here only reads the life state and queues commands;
 // nothing in the UI changes the world directly. Windows dock at the side and leave the world
@@ -85,6 +84,9 @@ export const docksLeft = (open: string | null): boolean => open !== null && open
 
 /** How far you can walk from whoever you're dealing with before their window closes. */
 const WALK_AWAY = 9;
+
+/** Whoever looks out of a window's medallion: their portrait (`url`), else their face as an emoji (an NPC's `portrait`). */
+const faceHtml = (url: string | null, emoji = '🙂'): string => (url ? `<img src="${url}" alt="">` : `<span class="emoji">${emoji}</span>`);
 
 export class LifeUI {
   /** What the widgets and windows see of this. */
@@ -144,7 +146,7 @@ export class LifeUI {
       redraw: () => this.renderPanel(false),
       finish: (all) => this.finish(all),
       closeAll: () => this.closeAll(),
-      face: (id) => faceHtml(id, this.portraitOf(id)),
+      face: (id) => faceHtml(this.portraitOf(id), d.life.zone.recipe.npcs.find((n) => n.id === id)?.portrait),
     };
     const untracked = new Untracked(() => this.playerName);
     const picture = new IslandPicture(d.world);

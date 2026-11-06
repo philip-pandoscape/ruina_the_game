@@ -505,7 +505,7 @@
     "$file": "zones/emberholm/props.json"
   },
   "npcs": {
-    "$file": "zones/emberholm/npcs.json"
+    "$things": "npcs"
   },
   "workbenches": {
     "$file": "zones/emberholm/workbenches.json"

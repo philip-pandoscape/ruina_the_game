@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "npcs",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "title": {
+      "type": "string"
+    },
+    "place": {
+      "type": "string"
+    },
+    "x": {
+      "type": "number"
+    },
+    "z": {
+      "type": "number"
+    },
+    "facing": {
+      "type": "number"
+    },
+    "kind": {
+      "type": "string"
+    },
+    "look": {
+      "type": "string"
+    },
+    "portrait": {
+      "type": "string"
+    },
+    "greeting": {
+      "type": "string"
+    },
+    "bench": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "name",
+    "title",
+    "place",
+    "x",
+    "z",
+    "facing",
+    "kind",
+    "look",
+    "portrait",
+    "greeting"
+  ],
+  "additionalProperties": false
+}

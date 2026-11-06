@@ -1,0 +1,13 @@
+{
+  "id": "ilsa",
+  "name": "Captain Ilsa Marrow",
+  "title": "Shipwright",
+  "place": "docks",
+  "x": 28,
+  "z": -326.5,
+  "facing": 3.14159,
+  "kind": "npc-sailor",
+  "look": "ilsa",
+  "portrait": "🧑‍✈️",
+  "greeting": "Rowboats for the bay, a sloop for the open sea. Sail with the wind at your back and you'll fly."
+}

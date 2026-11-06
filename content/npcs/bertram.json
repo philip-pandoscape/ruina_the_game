@@ -1,0 +1,13 @@
+{
+  "id": "bertram",
+  "name": "Bertram Cogg",
+  "title": "Wainwright",
+  "place": "lanternwick",
+  "x": -30,
+  "z": -258.5,
+  "facing": 0,
+  "kind": "npc-crafter",
+  "look": "bertram",
+  "portrait": "🧔",
+  "greeting": "A cart for the patient, a roadster for the bold, a hauler for the ambitious. Bring timber and iron."
+}

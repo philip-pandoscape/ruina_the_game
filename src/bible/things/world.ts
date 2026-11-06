@@ -99,7 +99,7 @@ export const zones = kind<ZoneRecipe>({
       md`## People`,
       table(
         ['Who', 'What They Do', 'Where'],
-        z.npcs.map((n) => [npcLink(n.id), n.title, placeLink(nearestPlace(n.x, n.z).id)]),
+        z.npcs.map((n) => [npcLink(n.id), n.title, placeLink(n.place)]),
       ),
       md`[[systems/world]] tells how the island is grown from its recipe, and [[systems/weather]] how its days and weather go.`,
     ),
@@ -126,7 +126,7 @@ export const places = kind<ZonePlace>({
   explain: (p) => note('places', p.id),
   facts: (p) => {
     const near = (x: number, z: number) => nearestPlace(x, z).id === p.id;
-    const people = ZONE.npcs.filter((n) => near(n.x, n.z));
+    const people = ZONE.npcs.filter((n) => n.place === p.id);
     const benches = ZONE.workbenches.filter((b) => b.place === p.id);
     const post = ZONE.outposts.find((o) => o.id === p.id);
     const spots = ZONE.nodes.filter((n) => near(n.x, n.z));
@@ -176,7 +176,7 @@ export const npcs = kind<ZoneNpc>({
   key: (n) => n.id,
   name: (n) => n.name,
   iconOf: () => '🧑',
-  group: (n) => placeName(nearestPlace(n.x, n.z).id),
+  group: (n) => placeName(n.place),
   line: (n) => `${n.title}.`,
   explain: (n) => note('npcs', n.id),
   facts: (n) => {
@@ -187,8 +187,10 @@ export const npcs = kind<ZoneNpc>({
     const post = ZONE.outposts.find((o) => o.npc === n.id);
     return [
       ['Does', n.title],
-      ['Where', placeLink(nearestPlace(n.x, n.z).id)],
+      ['Where', placeLink(n.place)],
+      ['Says', `“${n.greeting}”`],
       ['Shop', vendor ? link(`vendors/${vendor.npc}`, vendor.name) : null],
+      ['Workbench', n.bench ? link(`workbenches/${n.bench}`) : null],
       ['Makes', linksTo(makes.map((r) => `recipes/${r.id}`))],
       ['Buys packs', post ? link(`places/${post.id}`) : null],
       ['Gives quests', linksTo(gives.map((q) => `quests/${q.id}`))],
