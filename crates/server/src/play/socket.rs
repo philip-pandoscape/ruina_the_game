@@ -463,7 +463,7 @@ async fn load_channel(app: &App, db: &PgPool, channel: i32) -> Result<(), sqlx::
     Ok(())
 }
 
-/// A build as the browser keeps it (src/app/build.ts): the learned skills, weapon, hotbar and
+/// A build as the browser keeps it (src/content/build.ts): the learned skills, weapon, hotbar and
 /// movement slots. None if it isn't one, or isn't allowed with `budget` skill points (in the open
 /// world, what the character has earned: crate::life::progress::skill_budget).
 pub fn parse_build(v: &Value, budget: u32) -> Option<Build> {

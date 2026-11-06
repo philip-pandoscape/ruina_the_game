@@ -29,7 +29,7 @@ import {
   withSkill,
   type SkillMod,
 } from '../../src/content/skills';
-import { learnBlock, learnPath, NODE_INFO, validBuild } from '../../src/app/build';
+import { learnBlock, learnPath, NODE_INFO, validBuild } from '../../src/content/build';
 import {
   castFramesFor,
   comboFor,

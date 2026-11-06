@@ -57,7 +57,7 @@ const REQUIRED_SYSTEMS = [
 const RULES = [
   ...files('src/sim', '.ts'),
   'src/content/skills.ts',
-  'src/app/build.ts',
+  'src/content/build.ts',
   ...files('crates/engine/src', '.rs'),
   ...files('crates/server/src/play', '.rs'),
   'crates/server/src/combat.rs',

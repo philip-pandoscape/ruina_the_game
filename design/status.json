@@ -530,7 +530,7 @@
       "notes": "The tree (N) is a chart of 226 nodes: four disciplines around you, each with its weapon next to you and its skills along a spine, and passives, notables and keystones between them, every one a modifier the rules already apply. You learn outward from what you know: click to plan the way to a node, Learn to spend the points, right-click to give one back (and whatever only it held up). The book (T) lists every weapon, ability and movement skill with its level, experience and numbers, and is where you equip a weapon and fill the hotbar and the Q / E keys. The fifteen old skills kept their places, links and costs, so saved builds still mean the same.",
       "files": [
         "src/content/skills.ts",
-        "src/app/build.ts",
+        "src/content/build.ts",
         "src/ui/skills/panel.ts",
         "src/ui/skills/book.ts",
         "src/ui/skills/tree.ts",

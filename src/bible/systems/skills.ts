@@ -92,7 +92,7 @@ export const skills = system({
   ],
   rules: [
     'src/content/skills.ts',
-    'src/app/build.ts',
+    'src/content/build.ts',
     'src/sim/life/progress.ts',
     'crates/engine/src/skills.rs',
     'crates/engine/src/tuning.rs',

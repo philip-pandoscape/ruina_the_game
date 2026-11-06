@@ -14,7 +14,7 @@ import {
   withSkill,
   type SkillNode,
   type SkillSet,
-} from '../content/skills';
+} from './skills';
 import {
   DEFAULT_BUILD,
   emptyHotbar,
@@ -25,7 +25,7 @@ import {
   NO_ABILITY,
   NO_MOVEMENT,
   type Build,
-} from '../content/tuning';
+} from './tuning';
 
 // Picking a build: learning outward through the tree, and filling the hotbar from what you've
 // learned. crates/engine/src/skills.rs checks the same rules, so a build that passes here is accepted

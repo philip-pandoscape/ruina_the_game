@@ -520,7 +520,7 @@ pub fn valid_build(skills: &SkillSet, weapon: u8, abilities: &[u8], budget: u32)
     true
 }
 
-/// The rest of a build's check (validBuild in src/app/build.ts): the Q / E slots hold only movement
+/// The rest of a build's check (validBuild in src/content/build.ts): the Q / E slots hold only movement
 /// skills the set has learned, each in at most one slot. Movement skills cost points like anything
 /// else in the tree, so one can't be slotted without them.
 pub fn valid_movement(skills: &SkillSet, movement: &[u8]) -> bool {

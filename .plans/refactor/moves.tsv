@@ -117,3 +117,4 @@ src/skills.ts	src/content/skills.ts
 src/build.ts	src/app/build.ts
 src/sim/world.ts	src/sim/yard.ts
 src/library	src/dev/library
+src/app/build.ts	src/content/build.ts

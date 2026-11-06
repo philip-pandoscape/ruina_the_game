@@ -2,7 +2,7 @@
 // them) read and drive: the rules' state, stepping frame by frame, commands, windows, the camera,
 // online play. It reaches the game through `g`, the references src/main.ts hands it.
 import * as THREE from 'three';
-import { pointsLeft, swapSlots, validBuild } from './build';
+import { pointsLeft, swapSlots, validBuild } from '../content/build';
 import { actorKindAt } from '../content/actors';
 import { assetsReady } from '../render/assets';
 import { isPine } from '../render/open/foliage';
