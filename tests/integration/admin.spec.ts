@@ -1,48 +1,38 @@
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
 import { onlineReady } from '../support/game';
-import { GameServer, ownServerMissing, viteFor } from '../support/ownServer';
+import { GameServer, ownServerMissing } from '../support/ownServer';
 import { serverBuilt } from '../support/testServer';
 
 // Admins (docs/admin.md): the Admin menu shows for the accounts ADMIN_USERS names and for nobody
 // else, and the server keeps the developer pages and commands from players. Every other online spec
 // plays on a development server where everyone is an admin, so this file runs a game server of its
-// own with ADMIN_USERS set, and its own Vite forwarding to it (tests/support/ownServer.ts). The
-// server also serves a stand-in for the built game, so its guard on /dev/ and /design/ can be
-// asked. It needs a database (RUINA_DATABASE_URL); without one it's skipped.
+// own with ADMIN_USERS set (tests/support/ownServer.ts), serving the game built as it is for beta:
+// the game, the developer pages in /dev/ and the design in /design/, so its guard is asked about
+// the real pages. It needs a database (RUINA_DATABASE_URL); without one it's skipped.
 
 const fresh = (prefix: string) => `${prefix}${Date.now().toString(36)}${Math.floor(Math.random() * 1296).toString(36)}`.slice(0, 20);
 const ADMIN = fresh('boss');
-const STATIC = join(tmpdir(), `ruina-admin-${process.pid}`);
-const server = new GameServer(7787, { ADMIN_USERS: ADMIN, STATIC_DIR: STATIC });
-let vite: { base: string; close(): Promise<void> } | null = null;
+const BUILT = join(tmpdir(), `ruina-admin-${process.pid}`);
+const server = new GameServer(7787, { ADMIN_USERS: ADMIN, STATIC_DIR: BUILT });
 
 // One server for both tests, so one at a time.
 test.describe.configure({ mode: 'serial' });
 
-test.beforeAll(async ({ browser }) => {
+test.beforeAll(async () => {
   if (ownServerMissing(serverBuilt)) return;
   test.setTimeout(240_000);
-  // The built game, as far as the guard cares: a page anyone may have, and the admins' pages.
-  mkdirSync(join(STATIC, 'dev'), { recursive: true });
-  mkdirSync(join(STATIC, 'design'), { recursive: true });
-  writeFileSync(join(STATIC, 'index.html'), '<!doctype html><title>Ruina</title>');
-  writeFileSync(join(STATIC, 'dev', 'page.html'), '<!doctype html><title>A Developer Page</title>');
-  writeFileSync(join(STATIC, 'design', 'index.html'), '<!doctype html><title>The Design</title>');
+  // The game as beta has it (a second or two), served by the server itself.
+  const { build } = await import('vite');
+  await build({ logLevel: 'warn', build: { outDir: BUILT, emptyOutDir: true } });
   await server.start();
-  vite = await viteFor(server, 5291, 'node_modules/.vite-admin-test');
-  // A Vite of its own compiles the whole game for its first page: here, not in the first test's time.
-  const warm = await browser.newPage();
-  await warm.goto(`${vite.base}/?bugs=0`, { timeout: 180_000 });
-  await warm.close();
 });
 
-test.afterAll(async () => {
+test.afterAll(() => {
   server.kill();
-  await vite?.close();
-  rmSync(STATIC, { recursive: true, force: true });
+  rmSync(BUILT, { recursive: true, force: true });
 });
 
 test.beforeEach(() => {
@@ -52,8 +42,8 @@ test.beforeEach(() => {
 
 /** Signed in as `name` (made if new, with a character named after it), on the character select screen. */
 async function atCharacterSelect(page: Page, name: string): Promise<void> {
-  expect((await page.request.post(`${vite!.base}/api/dev-login`, { data: { username: name } })).ok()).toBe(true);
-  await page.goto(`${vite!.base}/?bugs=0`);
+  expect((await page.request.post(`${server.url}/api/dev-login`, { data: { username: name } })).ok()).toBe(true);
+  await page.goto(`${server.url}/?bugs=0`);
   await expect(page.locator('.cs-account').getByRole('button', { name: 'Sign Out' })).toBeVisible({ timeout: 60_000 });
 }
 
@@ -66,7 +56,7 @@ async function enterWorld(page: Page): Promise<void> {
 const coins = (page: Page) => page.evaluate(() => window.__game.life().coins);
 const panel = (page: Page) => page.evaluate(() => window.__game.lifePanel());
 
-/** The status of a request to the game server itself (not through Vite), with this page's sign-in. */
+/** The status of a request to the game server, with this page's sign-in. */
 const status = async (page: Page, path: string, method: 'get' | 'post' = 'get') => (await page.request[method](`${server.url}${path}`)).status();
 
 test('a player sees no Admin menu, and the server keeps the developer pages and commands from them', async ({ page }) => {
@@ -90,7 +80,7 @@ test('a player sees no Admin menu, and the server keeps the developer pages and 
 
   // Its developer pages aren't there for them, nor is stopping it; the game's own files are.
   expect(await status(page, '/')).toBe(200);
-  expect(await status(page, '/dev/page.html')).toBe(404);
+  expect(await status(page, '/dev/library.html')).toBe(404);
   expect(await status(page, '/design/')).toBe(404);
   expect(await status(page, '/api/dev/stop', 'post')).toBe(403);
 });
@@ -119,6 +109,6 @@ test('an admin has the Admin menu on character select and in the world, and it o
   const before = await coins(page);
   await page.evaluate(() => window.__game.lifeCommand({ t: 'grant', coins: 300 }));
   await expect.poll(() => coins(page), { timeout: 30_000 }).toBe(before + 300);
-  expect(await status(page, '/dev/page.html')).toBe(200);
+  expect(await status(page, '/dev/library.html')).toBe(200);
   expect(await status(page, '/design/')).toBe(200);
 });

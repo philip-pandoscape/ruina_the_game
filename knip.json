@@ -1,15 +1,6 @@
 {
   "$schema": "https://unpkg.com/knip@5/schema.json",
   "entry": [
-    "src/library/main.ts",
-    "src/render/detail/animations.ts",
-    "src/render/detail/harness.ts",
-    "src/render/detail/retargetView.ts",
-    "src/render/models/harness.ts",
-    "src/render/village/viewer.ts",
-    "src/species/harness.ts",
-    "design/bible.ts",
-    "design/ui.ts",
     "tests/**/*.{test,spec}.ts",
     "tools/**/*.{mjs,ts}",
     "*.config.ts"
