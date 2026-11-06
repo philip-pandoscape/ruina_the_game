@@ -36,7 +36,10 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
   mini-games (R9.11, R8.11) and the UI gallery (R6.9); then the bible's reading of the engine's Rust
   (R8.13's part); then saved builds by id with the bundle's hash on the wire (R9.1, R9.2); then looks
   from data (R9.9); now the tick that splits (R10.18) and Phase 9's client leftovers (R9.10, R9.8 and
-  R9.5's client part).
+  R9.5's client part). Work not yet merged stays on the agent's branch, in its worktree on this Mac:
+  R10.18 on `worktree-agent-a0995fdb432d330d1` (`.claude/worktrees/agent-a0995fdb432d330d1`), Phase 9's
+  client leftovers on `worktree-agent-a6d8f024939313def` (`.claude/worktrees/agent-a6d8f024939313def`).
+  Each is merged into `refactor/first` once reviewed and its tests pass.
 - **Races under load (the Mac, four workers):** these lose a race now and then and pass alone:
   `online.spec.ts:50`, `:109`, `:258`, `:617`, `combat.spec.ts:185`; and
   `game.spec.ts:43` and `dungeon-way-in.spec.ts:50` when Vite reloads the page at the start of a run
