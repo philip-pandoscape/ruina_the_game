@@ -71,9 +71,15 @@ pub fn admin_users(list: &str) -> HashSet<String> {
 
 impl AppState {
     /// Whether an account may use the developer pages and commands: one ADMIN_USERS names, or
-    /// anyone where developer sign-in is on (development; never on Railway).
+    /// anyone where developer sign-in is on (development; never on Railway) and ADMIN_USERS names
+    /// nobody. Naming admins on a development server leaves everyone else a player, to see the
+    /// game as players do.
     pub fn is_admin(&self, account: &accounts::Account) -> bool {
-        self.dev_login || self.admin_users.contains(&account.username.to_lowercase())
+        if self.admin_users.is_empty() {
+            self.dev_login
+        } else {
+            self.admin_users.contains(&account.username.to_lowercase())
+        }
     }
 
     /// The account as the browser is told about it: whether it's an admin, filled in.
@@ -91,7 +97,7 @@ async fn admin_pages(State(app): State<App>, request: Request, next: Next) -> Re
     if guarded {
         let admin = match &app.db {
             Some(db) => matches!(accounts::signed_in(request.headers(), db).await, Ok(Some(a)) if app.is_admin(&a)),
-            None => app.dev_login,
+            None => app.dev_login && app.admin_users.is_empty(),
         };
         if !admin {
             return (StatusCode::NOT_FOUND, "Not found").into_response();
@@ -352,6 +358,14 @@ mod tests {
     fn nobody_is_an_admin_without_admin_users_but_everyone_is_with_developer_sign_in() {
         assert!(!state(false, "").is_admin(&account("philip")));
         assert!(state(true, "").is_admin(&account("anyone")));
+    }
+
+    #[test]
+    fn admin_users_on_a_development_server_leaves_everyone_else_a_player() {
+        // How a developer (or a test) sees the game as a player does.
+        let app = state(true, "boss");
+        assert!(app.is_admin(&account("Boss")));
+        assert!(!app.is_admin(&account("anyone")));
     }
 
     #[test]

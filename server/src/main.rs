@@ -14,7 +14,8 @@
 //!
 //! Environment: PORT (Railway sets it; --port wins), LISTEN (all | local), DATABASE_URL, STATIC_DIR,
 //! ADMIN_USERS (the accounts, by name, comma-separated, that reach the developer pages and commands),
-//! DEV_LOGIN=1 (sign in by name alone, and everyone an admin: for development; ignored on Railway),
+//! DEV_LOGIN=1 (sign in by name alone, and everyone an admin unless ADMIN_USERS names some: for
+//! development; ignored on Railway),
 //! COOKIE_SECURE=1 (https without Railway).
 
 use std::collections::{HashMap, HashSet};
@@ -93,8 +94,8 @@ fn main() {
     let dev_login = std::env::var("DEV_LOGIN").is_ok_and(|v| v == "1") && !on_railway;
     let secure_cookies = on_railway || std::env::var("COOKIE_SECURE").is_ok_and(|v| v == "1");
     let admin_users = http::admin_users(&std::env::var("ADMIN_USERS").unwrap_or_default());
-    if dev_login {
-        println!("admins: everyone (developer sign-in is on)");
+    if dev_login && admin_users.is_empty() {
+        println!("admins: everyone (developer sign-in is on and ADMIN_USERS names nobody)");
     } else if admin_users.is_empty() {
         println!("admins: none (ADMIN_USERS is not set)");
     } else {
