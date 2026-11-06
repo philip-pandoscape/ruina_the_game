@@ -1,17 +1,17 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { expect, test } from '@playwright/test';
-import { makeRng } from '../src/rng';
-import { Sim } from '../src/sim/sim';
-import { NO_ACTIONS, type Actions, type Mode } from '../src/sim/types';
-import { makeZoneWorld } from '../src/sim/zone/world';
-import { structureDef } from '../src/content/structures';
-import { groundAt, inRect, pushOutOfBox } from '../src/sim/zone/colliders';
-import { gust } from '../src/sim/player/traverse';
-import { GLIDE, GROUND, SWIM } from '../src/content/traversal';
-import { CARRY } from '../src/content/trade';
-import { glider as gliderDef } from '../src/content/vehicles';
-import { JUMP, MOVE, STEP } from '../src/tuning';
+import { expect, test } from 'vitest';
+import { makeRng } from '../../src/rng';
+import { Sim } from '../../src/sim/sim';
+import { NO_ACTIONS, type Actions, type Mode } from '../../src/sim/types';
+import { makeZoneWorld } from '../../src/sim/zone/world';
+import { structureDef } from '../../src/content/structures';
+import { groundAt, inRect, pushOutOfBox } from '../../src/sim/zone/colliders';
+import { gust } from '../../src/sim/player/traverse';
+import { GLIDE, GROUND, SWIM } from '../../src/content/traversal';
+import { CARRY } from '../../src/content/trade';
+import { glider as gliderDef } from '../../src/content/vehicles';
+import { JUMP, MOVE, STEP } from '../../src/tuning';
 
 // Emberholm's rules, browser against server: the browser predicts your own moves with
 // src/sim/player/traverse.ts (hills, cliffs, decks, wading, swimming, gliders, trade packs) and the
@@ -711,7 +711,7 @@ function runTs(s: Script): { start: number[]; frames: Frame[] } {
 }
 
 for (const [name, make] of Object.entries(CASES)) {
-  test(`TypeScript and Rust agree in Emberholm frame by frame: ${name}`, () => {
+  test(`TypeScript and Rust agree in Emberholm frame by frame: ${name}`, (ctx) => {
     const { script, verify } = make();
     const ts = runTs(script);
     expect(ts.frames[0].length).toBe(FRAME_LEN);
@@ -719,7 +719,7 @@ for (const [name, make] of Object.entries(CASES)) {
     // Whatever a script is about, nobody walks through a deck.
     neverThroughADeck(ts.frames);
 
-    test.skip(!existsSync(WORLDCHECK), 'build it first: cargo build --release --manifest-path server/Cargo.toml --bin worldcheck');
+    ctx.skip(!existsSync(WORLDCHECK), 'build it first: cargo build --release --manifest-path server/Cargo.toml --bin worldcheck');
     const rust = JSON.parse(execFileSync(WORLDCHECK, { input: JSON.stringify(script), maxBuffer: 64 * 1024 * 1024 }).toString()) as {
       start: number[];
       frames: Frame[];

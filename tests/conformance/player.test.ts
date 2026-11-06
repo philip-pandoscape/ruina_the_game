@@ -1,10 +1,10 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { expect, test } from '@playwright/test';
-import { makeRng } from '../src/rng';
-import { Sim } from '../src/sim/sim';
-import { NO_ACTIONS, type Actions } from '../src/sim/types';
-import { makeBattlefield } from '../src/sim/world';
+import { expect, test } from 'vitest';
+import { makeRng } from '../../src/rng';
+import { Sim } from '../../src/sim/sim';
+import { NO_ACTIONS, type Actions } from '../../src/sim/types';
+import { makeBattlefield } from '../../src/sim/world';
 import {
   ABILITIES,
   abilityMpFor,
@@ -25,8 +25,8 @@ import {
   pierceTargets,
   type Build,
   WEAPONS,
-} from '../src/tuning';
-import { BOOK, resolveSkills, skillsFrom, type Levels } from '../src/skills';
+} from '../../src/tuning';
+import { BOOK, resolveSkills, skillsFrom, type Levels } from '../../src/skills';
 
 // The browser predicts your moves with src/sim/sim.ts; the server decides with server/src/player.rs.
 // If they ever disagree, your character would visibly jump back. This runs the same inputs through
@@ -226,8 +226,8 @@ function buildScript() {
 }
 
 for (const [name, build] of Object.entries(BUILDS)) {
-  test(`TypeScript and Rust rules agree frame by frame: ${name}`, () => {
-    test.skip(!existsSync(SIMCHECK), 'build it first: cargo build --release --manifest-path server/Cargo.toml --bin simcheck');
+  test(`TypeScript and Rust rules agree frame by frame: ${name}`, (ctx) => {
+    ctx.skip(!existsSync(SIMCHECK), 'build it first: cargo build --release --manifest-path server/Cargo.toml --bin simcheck');
     const s = buildScript();
 
     // TypeScript (what the browser predicts)

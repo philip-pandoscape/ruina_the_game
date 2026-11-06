@@ -1,16 +1,16 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
-import { expect, test } from '@playwright/test';
-import { makeRng } from '../src/rng';
-import { EMBERHOLM } from '../src/sim/zone/world';
-import { generateZone } from '../src/sim/zone/generate';
+import { expect, test } from 'vitest';
+import { makeRng } from '../../src/rng';
+import { EMBERHOLM } from '../../src/sim/zone/world';
+import { generateZone } from '../../src/sim/zone/generate';
 
 // The server runs the island's rules on the same island as the browser: it reads Emberholm from
 // server/data/emberholm.zone, baked from the TypeScript generator (src/sim/zone/generate.ts), and
 // samples the ground on the same triangles (server/src/open/zone.rs). After changing the island
 // or its generator, rebake:
-//   BAKE=1 npx playwright test tests/terrain.spec.ts
+//   npm run bake
 //
 // File: b"RUZN", u32 version (1), u32 cells, f64 cell size, f64 water level, f64 world X/Z of
 // vertex (0, 0); (cells + 1)^2 f32 heights, row by row; cells^2 u8 surfaces; cells^2 u8 "kept
@@ -61,11 +61,11 @@ test("the server's copy of the island is current", () => {
     writeFileSync(FILE, want);
   }
   const have = existsSync(FILE) ? readFileSync(FILE) : Buffer.alloc(0);
-  expect(have.equals(want), `${FILE} is stale: run BAKE=1 npx playwright test tests/terrain.spec.ts`).toBe(true);
+  expect(have.equals(want), `${FILE} is stale: run npm run bake`).toBe(true);
 });
 
-test('the server and the browser agree on the ground', () => {
-  test.skip(!existsSync(CHECK), 'build the server first: cargo build --release --manifest-path server/Cargo.toml');
+test('the server and the browser agree on the ground', (ctx) => {
+  ctx.skip(!existsSync(CHECK), 'build the server first: cargo build --release --manifest-path server/Cargo.toml');
   const gen = generateZone(EMBERHOLM);
   const hf = gen.terrain;
   const rng = makeRng(20261104);

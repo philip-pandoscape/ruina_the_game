@@ -1,6 +1,6 @@
 // Stamina and MP: what dodging and casting spend, and how they come back. Health is in attacks.ts
 // (being hit) and labor is the island's (src/sim/life). The server's twin is in
-// server/src/player.rs (regen_vitals, spend_stamina, refill_vitals); tests/conformance.spec.ts
+// server/src/player.rs (regen_vitals, spend_stamina, refill_vitals); tests/conformance/player.test.ts
 // checks the two agree frame by frame.
 
 import type { Sim } from '../sim';

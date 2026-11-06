@@ -1,6 +1,6 @@
 //! Plays a scripted session of the open world through the server's rules (server/src/open and
 //! server/src/life) and prints the player and the whole island at checkpoints, so
-//! tests/life-conformance.spec.ts can check the TypeScript gives the same island.
+//! tests/conformance/life.test.ts can check the TypeScript gives the same island.
 //!
 //!   lifecheck < script.json
 //!

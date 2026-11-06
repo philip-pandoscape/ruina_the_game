@@ -1,5 +1,5 @@
 //! Runs a scripted list of inputs through the Rust open-world rules on Emberholm and prints every
-//! frame as JSON, so tests/world-conformance.spec.ts can check the TypeScript version (what the
+//! frame as JSON, so tests/conformance/world.test.ts can check the TypeScript version (what the
 //! browser predicts) gives the same results.
 //!
 //!   worldcheck < script.json
@@ -69,7 +69,7 @@ struct StepIn {
     face_z: f64,
 }
 
-// Per frame, in the order of F in tests/world-conformance.spec.ts: x, y, z, vx, vy, vz, facing,
+// Per frame, in the order of F in tests/conformance/world.test.ts: x, y, z, vx, vy, vz, facing,
 // airspeed, bank, land impact, run phase, hp, then mode (player.rs Mode), grounded, jumps used,
 // jump cut done, coyote, jump buffer, flip frame, land frame, takeoff frame, sprinting, crouching,
 // crouch frame, mode frame, gust frames, action id, action frame, attack index, attack frame,

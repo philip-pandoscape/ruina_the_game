@@ -32,7 +32,7 @@ The registries list each creature once: `src/content/creatures.ts` and `server/s
 ## The engine parts
 
 Each part is a rule in TypeScript and Rust alike, compared frame by frame by
-`tests/ai-conformance.spec.ts`.
+`tests/conformance/ai.test.ts`.
 
 | Part | TypeScript | Rust | What it does |
 |---|---|---|---|

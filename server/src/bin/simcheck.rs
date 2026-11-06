@@ -1,5 +1,5 @@
 //! Runs a scripted list of inputs through the Rust player rules and prints every frame as JSON,
-//! so tests/conformance.spec.ts can check the TypeScript version gives the same results.
+//! so tests/conformance/player.test.ts can check the TypeScript version gives the same results.
 //!
 //!   simcheck < script.json
 
@@ -91,7 +91,7 @@ struct HitIn {
     knock: f64,
 }
 
-// Per frame, in the order of F in tests/conformance.spec.ts: x, y, z, vx, vy, vz, facing, hp, mode
+// Per frame, in the order of F in tests/conformance/player.test.ts: x, y, z, vx, vy, vz, facing, hp, mode
 // (player.rs Mode), cast frame, cast that finished this frame, cast target x / z, sprinting,
 // crouching, crouch frame, action id, action frame, stamina, MP, stamina delay, then one cooldown
 // per hotbar slot and one per possible movement skill.

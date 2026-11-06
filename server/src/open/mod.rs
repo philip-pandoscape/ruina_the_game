@@ -1,7 +1,7 @@
 //! Open worlds on the server: Emberholm's ground, colliders and getting around it, and the world
 //! each channel plays in. The browser predicts your own moves with the TypeScript rules
 //! (src/sim/player/traverse.ts, src/sim/zone/*); these are their Rust twins, and
-//! tests/world-conformance.spec.ts runs both and compares them frame by frame.
+//! tests/conformance/world.test.ts runs both and compares them frame by frame.
 
 pub mod colliders;
 pub mod dungeon;

@@ -1,4 +1,4 @@
-//! Prints the server's ground for each point it's given, so tests/terrain.spec.ts can check it
+//! Prints the server's ground for each point it's given, so tests/conformance/terrain.test.ts can check it
 //! against the browser's: stdin [[x, z], ...] -> stdout [[height, slope, surface], ...].
 
 use std::io::Read;

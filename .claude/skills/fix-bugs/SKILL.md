@@ -52,7 +52,7 @@ Reproduce before fixing whenever you can; a fix you never saw fail is a guess.
 
 Fix the cause, not the symptom, and keep to the project's rules:
 
-- The flat training/battlefield rules must stay byte-identical to the Rust server; `tests/conformance.spec.ts` guards this. After changing `server/src`, rebuild first with `~/.cargo/bin/cargo build --release --manifest-path server/Cargo.toml` (cargo isn't on PATH).
+- The flat training/battlefield rules must stay byte-identical to the Rust server; `tests/conformance/player.test.ts` guards this. After changing `server/src`, rebuild first with `~/.cargo/bin/cargo build --release --manifest-path server/Cargo.toml` (cargo isn't on PATH).
 - Open-world state changes only inside `Life.step`, through `life.command(...)`.
 - Content is data in `shared/*.json`. When the data is what's wrong, fix the data.
 - Run `npm run typecheck`, the specs covering what you touched, and the new test. Run the whole suite (`npm test`) when the change is broad.

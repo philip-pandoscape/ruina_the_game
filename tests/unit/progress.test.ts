@@ -1,19 +1,19 @@
-import { expect, test } from '@playwright/test';
-import { Life } from '../src/sim/life/life';
-import { complete } from '../src/sim/life/quests';
-import { migrateLifeState, type LifeState } from '../src/sim/life/state';
-import { observe, pointsEarned, skillBudget, train, trainedBy } from '../src/sim/life/progress';
-import { EMBERHOLM, type ZoneData } from '../src/sim/zone/world';
-import { generateZone } from '../src/sim/zone/generate';
-import { QUESTS } from '../src/content/quests';
-import { bookIndex, LEVEL_XP, levelsFrom, START_POINTS } from '../src/skills';
-import { SLIDE_SKILL } from '../src/tuning';
+import { beforeAll, expect, test } from 'vitest';
+import { Life } from '../../src/sim/life/life';
+import { complete } from '../../src/sim/life/quests';
+import { migrateLifeState, type LifeState } from '../../src/sim/life/state';
+import { observe, pointsEarned, skillBudget, train, trainedBy } from '../../src/sim/life/progress';
+import { EMBERHOLM, type ZoneData } from '../../src/sim/zone/world';
+import { generateZone } from '../../src/sim/zone/generate';
+import { QUESTS } from '../../src/content/quests';
+import { bookIndex, LEVEL_XP, levelsFrom, START_POINTS } from '../../src/skills';
+import { SLIDE_SKILL } from '../../src/tuning';
 
 // Getting better on the island: skill points from the quests and milestones you finish, and skills
 // that level up as you use them (src/sim/life/progress.ts). server/src/life does the same.
 
 let zone: ZoneData;
-test.beforeAll(() => {
+beforeAll(() => {
   zone = { recipe: EMBERHOLM, gen: generateZone(EMBERHOLM) };
 });
 const fresh = () => new Life(zone);

@@ -1,7 +1,7 @@
 //! Emberholm for the server: the zone recipe (shared/zones/emberholm.json) and everything the
 //! TypeScript generator grows from it (src/sim/zone/generate.ts): the ground, what each patch of it
 //! is made of, which cells are kept clear, and the trees, rocks, walls and decks. The generator
-//! runs in the browser; tests/terrain.spec.ts bakes its output into server/data/emberholm.zone and
+//! runs in the browser; tests/conformance/terrain.test.ts bakes its output into server/data/emberholm.zone and
 //! checks the copy is current, so both sides play on exactly the same island.
 
 use crate::jsmath::JsMath;
@@ -324,7 +324,7 @@ pub struct Zone {
     pub radius: f64,
 }
 
-/// Reads the baked island (see tests/terrain.spec.ts for the layout).
+/// Reads the baked island (see tests/conformance/terrain.test.ts for the layout).
 pub fn parse(b: &[u8], recipe: Recipe) -> Option<Zone> {
     struct Reader<'a> {
         b: &'a [u8],
@@ -397,7 +397,7 @@ pub fn emberholm() -> &'static Zone {
     static Z: OnceLock<Zone> = OnceLock::new();
     Z.get_or_init(|| {
         let recipe: Recipe = serde_json::from_str(include_str!("../../../shared/zones/emberholm.json")).expect("shared/zones/emberholm.json is a zone recipe");
-        parse(include_bytes!("../../data/emberholm.zone"), recipe).expect("server/data/emberholm.zone is valid: rebake it with BAKE=1 npx playwright test tests/terrain.spec.ts")
+        parse(include_bytes!("../../data/emberholm.zone"), recipe).expect("server/data/emberholm.zone is valid: rebake it with npm run bake")
     })
 }
 

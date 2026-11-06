@@ -33,3 +33,11 @@ tests/ui.spec.ts	tests/integration/ui.spec.ts
 tests/update.spec.ts	tests/integration/update.spec.ts
 tests/village.spec.ts	tests/integration/village.spec.ts
 tests/world.spec.ts	tests/integration/world.spec.ts
+tests/progress.spec.ts	tests/unit/progress.test.ts
+tests/skilltree.spec.ts	tests/unit/skilltree.test.ts
+tests/input.spec.ts	tests/unit/input.test.ts
+tests/conformance.spec.ts	tests/conformance/player.test.ts
+tests/world-conformance.spec.ts	tests/conformance/world.test.ts
+tests/life-conformance.spec.ts	tests/conformance/life.test.ts
+tests/ai-conformance.spec.ts	tests/conformance/ai.test.ts
+tests/terrain.spec.ts	tests/conformance/terrain.test.ts

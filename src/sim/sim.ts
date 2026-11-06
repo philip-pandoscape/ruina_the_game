@@ -44,7 +44,7 @@ export interface LifeHooks {
 export interface SimOptions {
   // Training: the dummy is a target, hits pause the action briefly, and attacks auto-aim.
   // Networked play turns these off, because the server decides what gets hit.
-  // server/src/player.rs must follow the same rules (tests/conformance.spec.ts checks it).
+  // server/src/player.rs must follow the same rules (tests/conformance/player.test.ts checks it).
   training: boolean;
 }
 

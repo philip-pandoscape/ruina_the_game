@@ -1,19 +1,19 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { expect, test } from '@playwright/test';
-import { Sim } from '../src/sim/sim';
-import { NO_ACTIONS, type Actions, type World } from '../src/sim/types';
-import { EMBERHOLM, type ZoneData } from '../src/sim/zone/world';
-import { generateZone } from '../src/sim/zone/generate';
-import { ColliderIndex, groundAt } from '../src/sim/zone/colliders';
-import { Life, type Command } from '../src/sim/life/life';
-import { dismount } from '../src/sim/life/vehicles';
-import { rainAt } from '../src/sim/life/weather';
-import { toWorld } from '../src/sim/zone/generate';
-import type { Vehicle } from '../src/sim/life/state';
-import { applySave, islandData, type Island } from '../src/app/save';
-import { LEVEL_XP } from '../src/skills';
-import { QUESTS } from '../src/content/quests';
+import { describe, expect, test } from 'vitest';
+import { Sim } from '../../src/sim/sim';
+import { NO_ACTIONS, type Actions, type World } from '../../src/sim/types';
+import { EMBERHOLM, type ZoneData } from '../../src/sim/zone/world';
+import { generateZone } from '../../src/sim/zone/generate';
+import { ColliderIndex, groundAt } from '../../src/sim/zone/colliders';
+import { Life, type Command } from '../../src/sim/life/life';
+import { dismount } from '../../src/sim/life/vehicles';
+import { rainAt } from '../../src/sim/life/weather';
+import { toWorld } from '../../src/sim/zone/generate';
+import type { Vehicle } from '../../src/sim/life/state';
+import { applySave, islandData, type Island } from '../../src/app/save';
+import { LEVEL_XP } from '../../src/skills';
+import { QUESTS } from '../../src/content/quests';
 
 // Online, the game server runs your island (server/src/life, server/src/open) and the browser shows
 // what it decides, predicting only your own moves and vehicles in between. If the two sets of
@@ -214,9 +214,8 @@ test('the rain falls on the same clock in both rules, to the last bit (server/sr
   for (const [t, raining, start, end, next] of showers) expect(rainAt(t), `at ${t}`).toEqual({ raining, start, end, next });
 });
 
-test.describe('the island on the server matches the browser', () => {
-  test.skip(!existsSync(LIFECHECK), 'build the server first: cargo build --release --manifest-path server/Cargo.toml');
-
+// Skipped until the server is built (cargo build --release --manifest-path server/Cargo.toml).
+describe.skipIf(!existsSync(LIFECHECK))('the island on the server matches the browser', () => {
   test('the first quest, a farm plot, planting, harvesting and the grocer', () => {
     const hollis = npc('hollis');
     const mara = npc('mara');

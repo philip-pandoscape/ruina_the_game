@@ -1,5 +1,5 @@
 //! Runs behaviours through the Rust rules and prints every frame as JSON, so
-//! tests/ai-conformance.spec.ts can check the TypeScript version agrees.
+//! tests/conformance/ai.test.ts can check the TypeScript version agrees.
 //!
 //!   aicheck < scenario.json
 //!
@@ -43,7 +43,7 @@ fn one() -> f64 {
 
 /// A scripted player: walks back and forth between two points, facing a point, swinging and
 /// dodging on a beat. Only exact arithmetic (and atan2, which both sides share bit for bit), so
-/// the browser works out the very same foe (foeAt in tests/ai-conformance.spec.ts).
+/// the browser works out the very same foe (foeAt in tests/conformance/ai.test.ts).
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct FoeScript {

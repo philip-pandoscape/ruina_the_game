@@ -1,5 +1,5 @@
-import { expect, test } from '@playwright/test';
-import { crouchKeySlides, Input } from '../src/input/input';
+import { afterAll, beforeAll, expect, test } from 'vitest';
+import { crouchKeySlides, Input } from '../../src/input/input';
 
 // The keyboard's mapping, run in Node against stand-ins for the page's window and canvas: no
 // browser, no drawing. C crouches while held (and flares the glider), a press of it on the run
@@ -8,12 +8,12 @@ import { crouchKeySlides, Input } from '../src/input/input';
 type Mods = { ctrlKey?: boolean; metaKey?: boolean; altKey?: boolean; shiftKey?: boolean };
 
 let win: EventTarget;
-test.beforeAll(() => {
+beforeAll(() => {
   win = new EventTarget();
   Object.assign(globalThis, { window: win, document: new EventTarget() });
   if (typeof navigator === 'undefined') Object.defineProperty(globalThis, 'navigator', { value: {}, configurable: true });
 });
-test.afterAll(() => {
+afterAll(() => {
   delete (globalThis as Record<string, unknown>).window;
   delete (globalThis as Record<string, unknown>).document;
 });

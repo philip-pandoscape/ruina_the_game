@@ -1,7 +1,7 @@
 //! The open-world systems on the server: trade, farming, housing, vehicles and quests, a port of
 //! src/sim/life/*.ts. Players' islands change only here: the browser sends key presses and
 //! commands, the server runs them through these rules, and what comes out is what is kept in
-//! Postgres and shown to everyone. tests/life-conformance.spec.ts runs the same commands through
+//! Postgres and shown to everyone. tests/conformance/life.test.ts runs the same commands through
 //! the TypeScript and checks both end up with the same island.
 //!
 //! Like the TypeScript, a Life changes only inside step(), from the commands queued since the last

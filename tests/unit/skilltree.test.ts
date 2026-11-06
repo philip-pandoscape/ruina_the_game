@@ -1,6 +1,4 @@
-import { execFileSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
-import { expect, test } from '@playwright/test';
+import { expect, test } from 'vitest';
 import {
   applyChannel,
   applyFrames,
@@ -30,14 +28,11 @@ import {
   toSkillSet,
   withSkill,
   type SkillMod,
-} from '../src/skills';
-import { learnBlock, learnPath, NODE_INFO, validBuild } from '../src/build';
-import { castFramesFor, comboFor, emptyHotbar, emptyMovement, meleeTargets, movementCooldownFor, movementStaminaFor, MOVEMENT_SKILLS, pierceTargets, WEAPONS, type Build } from '../src/tuning';
+} from '../../src/skills';
+import { learnBlock, learnPath, NODE_INFO, validBuild } from '../../src/build';
+import { castFramesFor, comboFor, emptyHotbar, emptyMovement, meleeTargets, movementCooldownFor, movementStaminaFor, MOVEMENT_SKILLS, pierceTargets, WEAPONS, type Build } from '../../src/tuning';
 
-// Its tests share nothing, so they spread across the workers (playwright.config.ts).
-test.describe.configure({ mode: 'parallel' });
-
-const BALANCE = `server/target/release/balance${process.platform === 'win32' ? '.exe' : ''}`;
+// The balance harness's check through the server's own rules is in tests/conformance/balance.test.ts.
 
 // The skill architecture itself: the set, the graph, and the modifier fold. These are the
 // properties a growing tree leans on, so they are checked directly rather than through a fight.
@@ -303,34 +298,4 @@ test('resolving an empty build gives the untouched numbers', () => {
   expect(comboFor(0, none).map((s) => s.damage)).toEqual(WEAPONS[0].combo.map((s) => s.damage));
   expect(meleeTargets(0, none)).toBe(1);
   expect(castFramesFor(1, none)).toBe(72);
-});
-
-// ---------- End to end, through the real rules ----------
-
-// The balance harness runs builds against each other under the server's own hit resolution, so
-// this is the last link in the chain: a modifier in the data actually changes a fight.
-test('a skill upgrade beats the build it upgrades, measured through the server rules', () => {
-  test.skip(!existsSync(BALANCE), 'build it first: cargo build --release --manifest-path server/Cargo.toml --bin balance');
-  const scenario = {
-    duels: 6,
-    seed: 3,
-    maxSeconds: 25,
-    startDistance: 8,
-    builds: [
-      { name: 'mage', skills: ['staff', 'meteor'], weapon: 2, abilities: ['meteor'] },
-      { name: 'quick', skills: ['staff', 'meteor', 'quickIncantation'], weapon: 2, abilities: ['meteor'] },
-      { name: 'healer', skills: ['club', 'heal'], weapon: 1, abilities: ['heal'] },
-      { name: 'mender', skills: ['club', 'heal', 'swiftMending'], weapon: 1, abilities: ['heal'] },
-      { name: 'archer', skills: ['bow'], weapon: 3, abilities: [] },
-      { name: 'rapid', skills: ['bow', 'rapidFire'], weapon: 3, abilities: [] },
-    ],
-  };
-  const out = JSON.parse(execFileSync(BALANCE, { input: JSON.stringify(scenario), maxBuffer: 16 * 1024 * 1024 }).toString()) as {
-    pairings: Array<{ a: string; b: string; aWinRate: number; draws: number }>;
-  };
-  const rate = (a: string, b: string) => out.pairings.find((p) => p.a === a && p.b === b)!.aWinRate;
-  // Casting faster, drawing faster: each upgrade should win its own mirror.
-  expect(rate('mage', 'quick')).toBeLessThan(0.5);
-  expect(rate('healer', 'mender')).toBeLessThan(0.5);
-  expect(rate('archer', 'rapid')).toBeLessThan(0.5);
 });

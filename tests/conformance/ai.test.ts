@@ -1,13 +1,13 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { expect, test } from '@playwright/test';
-import { BEHAVIOURS, behaviour, sightingAt, startBrain, stepBrain, type Sighting } from '../src/sim/ai/brain';
-import type { Foe } from '../src/sim/ai/senses';
-import { Actors, isAlive, type Actor } from '../src/sim/actor';
-import { actorKind, actorKindAt, actorKindIndex } from '../src/content/actors';
-import { stepActors } from '../src/sim/actors/step';
-import { hurtActor } from '../src/sim/combat/deal';
-import { len } from '../src/sim/math';
+import { describe, expect, test } from 'vitest';
+import { BEHAVIOURS, behaviour, sightingAt, startBrain, stepBrain, type Sighting } from '../../src/sim/ai/brain';
+import type { Foe } from '../../src/sim/ai/senses';
+import { Actors, isAlive, type Actor } from '../../src/sim/actor';
+import { actorKind, actorKindAt, actorKindIndex } from '../../src/content/actors';
+import { stepActors } from '../../src/sim/actors/step';
+import { hurtActor } from '../../src/sim/combat/deal';
+import { len } from '../../src/sim/math';
 
 // Monster behaviour is data in shared/behaviours.json and shared/creatures/, read by
 // src/sim/ai/brain.ts offline and server/src/ai.rs online. If the two ever drift, a monster would
@@ -55,11 +55,11 @@ function runTs(brain: string, seed: number, x: number, z: number, present: boole
 
 const LABELS = ['x', 'y', 'z', 'facing', 'state', 'stateFrame', 'wait', 'moveX', 'moveZ'];
 
-test.describe('TypeScript and Rust run the same behaviours', () => {
+describe('TypeScript and Rust run the same behaviours', () => {
   for (const b of BEHAVIOURS) {
     for (const present of [true, false]) {
-      test(`${b.id}${present ? '' : ' with nobody about'}`, () => {
-        test.skip(!existsSync(AICHECK), 'build it first: cargo build --release --manifest-path server/Cargo.toml --bin aicheck');
+      test(`${b.id}${present ? '' : ' with nobody about'}`, (ctx) => {
+        ctx.skip(!existsSync(AICHECK), 'build it first: cargo build --release --manifest-path server/Cargo.toml --bin aicheck');
         const seed = 0x51e0 + b.id.length * 7919;
         const r = rust<{ frames: number[][] }>({ brain: b.id, seed, x: 2.5, z: 3.5, frames: FRAMES, player: present });
         const ts = runTs(b.id, seed, 2.5, 3.5, present);
@@ -307,10 +307,10 @@ const PACKS: Record<string, Pack> = {
   },
 };
 
-test.describe('TypeScript and Rust run the same packs', () => {
+describe('TypeScript and Rust run the same packs', () => {
   for (const [name, s] of Object.entries(PACKS)) {
-    test(name, () => {
-      test.skip(!existsSync(AICHECK), 'build it first: cargo build --release --manifest-path server/Cargo.toml --bin aicheck');
+    test(name, (ctx) => {
+      ctx.skip(!existsSync(AICHECK), 'build it first: cargo build --release --manifest-path server/Cargo.toml --bin aicheck');
       const ts = runPackTs(s);
       const { expect: want, ...scenario } = s;
       comparePacks(name, ts, rust<PackRun>(scenario));

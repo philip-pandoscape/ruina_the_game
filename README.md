@@ -110,7 +110,7 @@ copy: where you are (hills, cliffs, walls, water, gliders, vehicles), every hit,
 your island (bag, coins, labor, farms, houses, packs, quests), and keeps the island in Postgres
 from that copy. It answers 20 times a second; meanwhile your browser predicts your own moves with
 the same rules (in TypeScript) and corrects itself to the answer, so play feels instant.
-`tests/world-conformance.spec.ts` and `tests/life-conformance.spec.ts` check the two sets of rules
+`tests/conformance/world.test.ts` and `tests/conformance/life.test.ts` check the two sets of rules
 agree. The developer panel (give items, skip time, teleport) exists only where the server allows it
 (development and beta, not production). Automated tests (`?test`) run the island offline, in the
 browser, except `tests/integration/online.spec.ts` and `tests/integration/minigames.spec.ts`, which need `npm run up`, and

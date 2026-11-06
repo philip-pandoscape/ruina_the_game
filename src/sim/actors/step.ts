@@ -3,7 +3,7 @@
 // pieces, a caller gathering the others in, a burst group reforming one size up, a war-band
 // sharing out who strikes and where the rest wait (src/sim/ai/pack.ts), and the blows, throws
 // and heals they ask for. server/src/actors.rs runs the same frame the same way;
-// tests/ai-conformance.spec.ts compares whole packs of them frame by frame.
+// tests/conformance/ai.test.ts compares whole packs of them frame by frame.
 
 import type { Sim } from '../sim';
 import type { GameEvent } from '../types';

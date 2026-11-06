@@ -29,7 +29,7 @@ As of 2026-11-05. AGENTS.md and design/status.json have the same in brief.
   - `src/render/camera.ts`: under a deck overhead, the camera stays under it and pulls in short of
     rock.
 - **The server** gets the terrain only from the bake (`server/data/emberholm.zone`, rebaked with
-  `BAKE=1 npx playwright test tests/terrain.spec.ts`), and reads the door from the recipe.
+  `npm run bake`), and reads the door from the recipe.
 
 ## A dungeon's copy
 
@@ -110,5 +110,5 @@ As of 2026-11-05. AGENTS.md and design/status.json have the same in brief.
 | `tests/integration/party.spec.ts` (online) | Forming a party by name; a party into one copy and someone on their own into theirs; leaving and coming back to the same copy |
 | `tests/integration/dungeon-way-in.spec.ts` | Gliding off the deck into the falls onto the stage; in and out through the portal offline; dropping off the summit lands on the hood; no tree or rock moved |
 | `tests/integration/update.spec.ts` | A server restart while you're inside brings you back outside the door with the cave put away |
-| `tests/terrain.spec.ts` | 400 extra points over the falls, where the server and the browser must agree on the ground |
+| `tests/conformance/terrain.test.ts` | 400 extra points over the falls, where the server and the browser must agree on the ground |
 | `tests/stress/look.spec.ts` | Shots of the falls from Lanternwick, of the ledge, and of the inner grotto |

@@ -1,6 +1,6 @@
 //! Getting around an open world: walking over hills (and not up cliffs), wading and swimming,
 //! and flying a glider. A port of src/sim/player/traverse.ts: the same arithmetic in the same
-//! order, so the browser's prediction and the server agree (tests/world-conformance.spec.ts).
+//! order, so the browser's prediction and the server agree (tests/conformance/world.test.ts).
 //! The TypeScript's events (landing, splashes, the glider opening) are for the screen; the server
 //! has none, so they are left out.
 
@@ -500,7 +500,7 @@ pub fn update_glide(sim: &mut Sim, a: &Actions) {
     p.vel.z = p.facing.js_cos() * p.airspeed;
 }
 
-// The frame-by-frame match with the TypeScript is tests/world-conformance.spec.ts; these only check
+// The frame-by-frame match with the TypeScript is tests/conformance/world.test.ts; these only check
 // that the server's rules hold up on their own.
 #[cfg(test)]
 mod tests {
