@@ -8,6 +8,7 @@
 use crate::actor::Actor;
 use crate::ai::{Ctx, Foe, Peer, Request, Sighting, angle_diff, brain_of, draw, flinch, force_state, rest_state, start_brain, step_brain_in};
 use crate::content::{attack_at, kind, kind_index, kind_mass, ladder_at, ladders, size_for, size_up};
+use crate::event::Event;
 use crate::jsmath::JsMath;
 use crate::jsmath::len;
 use crate::missiles::{Flight, Missile, launch, step_missiles};
@@ -153,6 +154,14 @@ pub struct StepOut {
     pub landed: Vec<(f64, f64, f64)>,
 }
 
+/// A slam or a blow from a frame of actors, in the order they happened, for whoever stands in the
+/// way (`Actors::step_with`).
+#[derive(Clone, Copy, Debug)]
+pub enum Blow {
+    Slam(Slam),
+    Hit(FoeHit),
+}
+
 impl StepOut {
     pub fn extend(&mut self, other: StepOut) {
         self.slams.extend(other.slams);
@@ -230,6 +239,31 @@ impl Actors {
     /// for the caller to deal with.
     pub fn step(&mut self, foes: &[Foe], ground: &dyn Fn(f64, f64) -> f64, spring: f64, damping: f64, dt: f64) -> StepOut {
         let mut res = StepOut::default();
+        let mut ev = Vec::new();
+        let landed = self.step_with(foes, ground, spring, damping, dt, &mut ev, &mut |b, _| match b {
+            Blow::Slam(s) => res.slams.push(s),
+            Blow::Hit(h) => res.hits.push(h),
+        });
+        res.landed = landed;
+        res
+    }
+
+    /// The same frame, with what it shows (crate::event: pieces bursting, calls, gathering,
+    /// healing, missiles landing, growing) added to `ev` as it happens, and every slam and blow
+    /// handed to `on_blow` the moment it lands, with `ev` for what that shows (src/sim/actors/step.ts
+    /// stepActors with its world). Returns where missiles came down.
+    #[allow(clippy::too_many_arguments)]
+    pub fn step_with(
+        &mut self,
+        foes: &[Foe],
+        ground: &dyn Fn(f64, f64) -> f64,
+        spring: f64,
+        damping: f64,
+        dt: f64,
+        ev: &mut Vec<Event>,
+        on_blow: &mut dyn FnMut(Blow, &mut Vec<Event>),
+    ) -> Vec<(f64, f64, f64)> {
+        let mut landed = Vec::new();
 
         // Whatever was killed since the last frame: a caller hands its call on, and anything
         // that bursts does.
@@ -243,7 +277,7 @@ impl Actors {
             }
             self.list[i].calling = -1;
             self.list[i].rally_to = 0;
-            self.burst(i, foes);
+            self.burst(i, foes, ground, ev);
         }
 
         // What every brain can see of the others, and how much of each creature is about.
@@ -360,35 +394,52 @@ impl Actors {
             let id = match r {
                 Request::Call(id) | Request::Pull(id) | Request::Absorb(id) | Request::Slam(id) | Request::FuseOut(id) => id,
                 Request::Strike(id, _) | Request::Throw(id, _) | Request::Heal(id) => id,
-                Request::GatherStart(_) | Request::Broke(_) => continue, // effects only, for the browser
+                Request::GatherStart(id) | Request::Broke(id) => id,
             };
             let Some(i) = self.index_of(id) else { continue };
             if !self.list[i].is_alive() || self.list[i].gone {
                 continue;
             }
             match r {
-                Request::Call(_) => self.call(i),
+                Request::Call(_) => self.call(i, ground, ev),
                 Request::Pull(_) => self.pull(i),
-                Request::Absorb(_) => self.absorb(i),
+                Request::Absorb(_) => self.absorb(i, ground, ev),
                 Request::Slam(_) => {
                     let a = &self.list[i];
                     if let Some(s) = kind(&a.kind).and_then(|k| k.slam.as_ref()) {
-                        res.slams.push(Slam { x: a.x, z: a.z, radius: s.radius, damage: s.damage, knock: s.knock });
+                        on_blow(Blow::Slam(Slam { x: a.x, z: a.z, radius: s.radius, damage: s.damage, knock: s.knock }), ev);
                     }
                 }
-                Request::FuseOut(_) => self.fuse_out(i, foes),
-                Request::Strike(_, attack) => self.strike_foes(i, attack, foes, &mut res.hits),
+                Request::FuseOut(_) => self.fuse_out(i, foes, ground, ev),
+                Request::Strike(_, attack) => {
+                    let mut hits = Vec::new();
+                    self.strike_foes(i, attack, foes, &mut hits);
+                    for h in hits {
+                        on_blow(Blow::Hit(h), ev);
+                    }
+                }
                 Request::Throw(_, attack) => self.throw_at(i, attack, foes, ground),
-                Request::Heal(_) => self.heal(i),
-                Request::GatherStart(_) | Request::Broke(_) => {}
+                Request::Heal(_) => self.heal(i, ground, ev),
+                Request::GatherStart(_) => {
+                    let a = &self.list[i];
+                    let radius = brain_of(a).and_then(|b| b.gather.as_ref()).map_or(0.0, |g| g.radius);
+                    ev.push(Event::GatherStart { id: a.id, x: a.x, y: ground(a.x, a.z), z: a.z, radius });
+                }
+                Request::Broke(_) => {
+                    let a = &self.list[i];
+                    ev.push(Event::GatherBroken { id: a.id, x: a.x, y: ground(a.x, a.z) + a.hit_height, z: a.z });
+                }
             }
         }
 
         // Everything thrown, in flight.
         for f in step_missiles(&mut self.missiles, foes, ground) {
             match f {
-                Flight::Hit { foe, damage, knock, nx, nz } => res.hits.push(FoeHit { foe, damage, nx, nz, knock }),
-                Flight::Landed { x, y, z } => res.landed.push((x, y, z)),
+                Flight::Hit { foe, damage, knock, nx, nz } => on_blow(Blow::Hit(FoeHit { foe, damage, nx, nz, knock }), ev),
+                Flight::Landed { x, y, z } => {
+                    ev.push(Event::MissileLand { x, y, z });
+                    landed.push((x, y, z));
+                }
             }
         }
 
@@ -405,7 +456,7 @@ impl Actors {
         }
 
         self.list.retain(|a| !(a.transient && (a.gone || a.dead_frame >= CLEAR_AFTER)));
-        res
+        landed
     }
 
     // A creature that watches for trouble sees a foe in range of its home: it is angry, and so is
@@ -484,10 +535,12 @@ impl Actors {
     }
 
     // A drink went down: it is back on its feet by its brain's heal.
-    fn heal(&mut self, i: usize) {
+    fn heal(&mut self, i: usize, ground: &dyn Fn(f64, f64) -> f64, ev: &mut Vec<Event>) {
         let a = &mut self.list[i];
         let Some(h) = brain_of(a).and_then(|b| b.heal.as_ref()) else { return };
+        let was = a.hp;
         a.hp = a.max_hp.min(a.hp + h.amount * a.max_hp);
+        ev.push(Event::ActorHeal { id: a.id, x: a.x, y: ground(a.x, a.z) + a.hit_height, z: a.z, amount: a.hp - was });
     }
 
     // The caller fell: the nearest of those rallying to it that could gather takes the call over.
@@ -526,7 +579,7 @@ impl Actors {
     }
 
     // Dying into pieces: they scatter, and have the fuse to be killed in before they reform.
-    fn burst(&mut self, i: usize, foes: &[Foe]) {
+    fn burst(&mut self, i: usize, foes: &[Foe], ground: &dyn Fn(f64, f64) -> f64, ev: &mut Vec<Event>) {
         let Some(k) = kind(&self.list[i].kind) else { return };
         let Some(b) = k.burst.as_ref() else { return };
         let ladder = self.list[i].ladder;
@@ -556,10 +609,12 @@ impl Actors {
             c.stride = 2.0 + draw(c);
             start_brain(c, seen);
         }
+        let a = &self.list[i];
+        ev.push(Event::ActorBurst { kind: a.kind.clone(), count: count as u32, x, y: ground(x, z) + a.hit_height, z });
     }
 
     // The pack hears the call: every one of its kin close enough that isn't busy comes running.
-    fn call(&mut self, ci: usize) {
+    fn call(&mut self, ci: usize, ground: &dyn Fn(f64, f64) -> f64, ev: &mut Vec<Event>) {
         let Some(c) = brain_of(&self.list[ci]).and_then(|b| b.call.as_ref()) else { return };
         let caller = self.list[ci].clone();
         for o in self.list.iter_mut() {
@@ -575,6 +630,7 @@ impl Actors {
             o.rally_to = caller.id;
             o.angry = o.angry.max(anger_of(o));
         }
+        ev.push(Event::ActorCall { id: caller.id, x: caller.x, y: ground(caller.x, caller.z), z: caller.z, radius: c.radius });
     }
 
     // A frame of gathering: every one of its kin inside the swirl slides in until it touches.
@@ -604,7 +660,7 @@ impl Actors {
     }
 
     // The cast is done: everything touching it is taken in, and it grows if that's enough.
-    fn absorb(&mut self, ci: usize) {
+    fn absorb(&mut self, ci: usize, ground: &dyn Fn(f64, f64) -> f64, ev: &mut Vec<Event>) {
         let caster = self.list[ci].clone();
         let mut gained = 0.0;
         let mut healed = 0.0;
@@ -618,6 +674,7 @@ impl Actors {
             gained += o.mass;
             healed += o.hp;
             take_out(o);
+            ev.push(Event::ActorAbsorbed { x: o.x, y: ground(o.x, o.z) + o.hit_height, z: o.z, to_x: caster.x, to_z: caster.z });
         }
         if gained <= 0.0 {
             return;
@@ -628,6 +685,7 @@ impl Actors {
         if let Some(k) = grown {
             c.become_kind(k);
             c.hp = c.max_hp;
+            ev.push(Event::ActorGrow { id: c.id, kind: c.kind.clone(), x: c.x, y: ground(c.x, c.z), z: c.z });
         } else {
             c.hp = c.max_hp.min(c.hp + healed);
         }
@@ -635,13 +693,14 @@ impl Actors {
 
     // A fuse ran out. Two or more of the group left: they come back together, one size up. One
     // left: it's alone, and dissolves in a while. Alone already: it's gone.
-    fn fuse_out(&mut self, i: usize, foes: &[Foe]) {
+    fn fuse_out(&mut self, i: usize, foes: &[Foe], ground: &dyn Fn(f64, f64) -> f64, ev: &mut Vec<Event>) {
         let group = self.list[i].group;
         if group == 0 {
             let a = &mut self.list[i];
             if a.reform.is_empty() {
                 a.hp = 0.0;
                 a.dead_frame = 0;
+                ev.push(Event::ActorDie { id: a.id, kind: a.kind.clone(), x: a.x, y: ground(a.x, a.z) + a.hit_height, z: a.z, killed: false });
             }
             return;
         }
@@ -673,6 +732,7 @@ impl Actors {
         c.angry = anger_of(c);
         c.gather_cd = brain_of(c).and_then(|b| b.gather.as_ref()).map_or(0, |g| g.cooldown) / 2;
         start_brain(c, nearest_at(foes, x, z));
+        ev.push(Event::ActorGrow { id: c.id, kind: c.kind.clone(), x, y: ground(x, z), z });
     }
 
     /// A melee swing: everything in the arc and in reach, nearest first, capped at `max`.
