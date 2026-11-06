@@ -1,8 +1,13 @@
-import type { SpellView } from '../render/spells';
 import type { GameEvent } from '../sim/types';
 import { ABILITIES, effectRadius } from '../content/tuning';
 import type { ResolvedSkills } from '../content/skills';
 import type { ArrowRecord, EffectEvent, MeteorRecord, WorldFeed } from './worldFeed';
+
+/** What draws arrows and meteors where they are (src/render/spells.ts's SpellView). */
+export interface SpellDrawing {
+  arrow(x: number, y: number, z: number, dirX: number, dirZ: number): void;
+  meteor(x: number, z: number, fall: number, radius: number, hostile: boolean): void;
+}
 
 // Arrows, meteors and spell effects online, timed to match the rest of the screen: other players'
 // at the moment other players are drawn (a little in the past), your own in the present. Your own
@@ -204,7 +209,7 @@ export class NetSpells {
 
   // Draws every arrow and meteor. Other players' at renderTick, your own at presentTick (both in
   // server ticks, fractional).
-  draw(view: SpellView, renderTick: number, presentTick: number, myId: number | null, myTeam: number): void {
+  draw(view: SpellDrawing, renderTick: number, presentTick: number, myId: number | null, myTeam: number): void {
     const tickSec = 1 / this.net.ticksPerSecond;
     for (const [id, t] of this.arrows) {
       const a = t.rec;

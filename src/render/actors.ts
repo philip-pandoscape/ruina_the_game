@@ -6,7 +6,22 @@ import { actorKind } from '../content/actors';
 import { actorKindAt, LADDERS } from '../content/actors';
 import { isAlive, type Actor } from '../sim/actor';
 import { behaviour, stateName, stateProgress } from '../sim/ai/brain';
-import type { NetActor } from '../net/worldFeed';
+
+/** A monster as the server has it, as much as drawing it needs (src/net/worldFeed.ts's NetActor). */
+export interface ShownActor {
+  id: number;
+  /** Index into the kinds in shared/actors.json. */
+  kind: number;
+  x: number;
+  y: number;
+  z: number;
+  facing: number;
+  /** Which behaviour state it is in, and how far through it. */
+  state: number;
+  progress: number;
+  /** -1 while alive, otherwise frames since it went down. */
+  deadFrame: number;
+}
 
 // Draws every actor that has a species, whatever kind it is. One instanced crowd per species,
 // so a yard with five slimes and a yard with five hundred cost the same number of draw calls,
@@ -102,7 +117,7 @@ export class ActorView {
    * through it the actor is, which is all the clip choice needs - the rest the browser already
    * knows from shared/actors.json. `flash` says how white each one is (0..1) as a blow lands.
    */
-  fromNetwork(actors: readonly NetActor[], flash: (id: number) => number = () => 0): void {
+  fromNetwork(actors: readonly ShownActor[], flash: (id: number) => number = () => 0): void {
     this.draw(
       actors.map((a) => {
         const kind = actorKindAt(a.kind);

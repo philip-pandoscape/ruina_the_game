@@ -527,11 +527,11 @@ export function makeTestApi(g: GameRefs) {
       if (g.online) void g.online.link.reset();
       else clearLife();
     },
-    /** Online play: who you are and the connection (null offline). */
-    /** Online: everyone else in your channel, as drawn. */
+    /** Online: everyone else in your channel, as drawn, with how much of each one's name plate shows (0 hidden, 1 whole). */
     peers() {
-      return g.peers?.list() ?? [];
+      return (g.peers?.list() ?? []).map((p) => ({ ...p, plate: g.peersView?.plate(p.id) ?? 0 }));
     },
+    /** Online play: who you are and the connection (null offline). */
     online() {
       return g.online
         ? {

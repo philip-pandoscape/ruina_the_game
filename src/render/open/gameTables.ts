@@ -1,6 +1,5 @@
 import * as THREE from 'three';
 import { BEACONS, HEXES, OLD_BEACON, SEAT_COLORS, TABLE, hexCentre } from '../../content/minigames';
-import type { TableShown } from '../../net/worldLink';
 import type { PlayerState } from '../../sim/types';
 import { PAL, Parts, TAU, box, cyl, mesh, mix } from '../models/kit';
 import type { Seated } from './life';
@@ -75,7 +74,7 @@ function tableGeometry(): THREE.BufferGeometry {
 }
 
 /** The pegs of the lit beacons, and a gold ring round each hex of a winning row. */
-function pegGeometry(lit: number[], row: number[]): THREE.BufferGeometry | null {
+function pegGeometry(lit: readonly number[], row: readonly number[]): THREE.BufferGeometry | null {
   const p = new Parts();
   for (let i = 0; i < lit.length && i < HEXES.length; i++) {
     if (!lit[i]) continue;
@@ -94,8 +93,22 @@ function pegGeometry(lit: number[], row: number[]): THREE.BufferGeometry | null 
   return p.empty ? null : p.build();
 }
 
+/** A table as the server has it, as much as drawing it needs (src/net/worldLink.ts's TableShown). */
+export interface ShownTable {
+  id: number;
+  /** Its middle on the ground, and the way from seat 0 to seat 1 (x = sin, z = cos). */
+  x: number;
+  y: number;
+  z: number;
+  rot: number;
+  /** Who sits in each seat. */
+  seats: ReadonlyArray<{ id: number; name: string }>;
+  /** Beacons: who lit each hex (0 nobody, 1 seat 0, 2 seat 1) and the winning row. */
+  board: { lit: readonly number[]; row: readonly number[] };
+}
+
 interface Shown {
-  data: TableShown;
+  data: ShownTable;
   root: THREE.Group;
   pegs: THREE.Mesh | null;
   pegKey: string;
@@ -120,7 +133,7 @@ export class GameTables {
   }
 
   /** The tables near you this frame (from the server's newest tick). */
-  update(list: readonly TableShown[]): void {
+  update(list: readonly ShownTable[]): void {
     const live = new Set<number>();
     this.seats.clear();
     for (const t of list) {
@@ -152,7 +165,7 @@ export class GameTables {
     }
   }
 
-  private build(t: TableShown): Shown {
+  private build(t: ShownTable): Shown {
     const root = new THREE.Group();
     root.name = `gameTable:${t.id}`;
     root.position.set(t.x, t.y, t.z);

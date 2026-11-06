@@ -18,8 +18,10 @@ const FORBIDDEN: Record<string, string[]> = {
   engine: ['render', 'ui', 'net', 'app', 'input', 'dev', 'bible', '(root:main)'],
   content: ['sim', 'render', 'ui', 'net', 'app', 'input', 'dev', 'bible', '(root:main)'],
   input: ['render', 'ui', 'net', 'app', 'dev', 'bible', '(root:main)'],
-  render: ['app', 'dev', 'bible', '(root:main)'],
-  net: ['ui', 'dev', 'bible', '(root:main)'],
+  // Drawing and the network don't know each other (R6.0): the network keeps what the server says, the
+  // drawing draws what it's handed, and the app hands one to the other.
+  render: ['net', 'app', 'dev', 'bible', '(root:main)'],
+  net: ['render', 'ui', 'dev', 'bible', '(root:main)'],
   ui: ['bible', '(root:main)'],
 };
 

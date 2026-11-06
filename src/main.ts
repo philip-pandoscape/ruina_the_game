@@ -38,6 +38,7 @@ import { wireOnline } from './app/onlineWiring';
 import { wireBugReports } from './app/bugWiring';
 import { splash } from './ui/splash';
 import { WorldPeers } from './net/worldPeers';
+import { PeersView } from './render/open/peersView';
 import { MinigamesUI } from './ui/minigames/minigames';
 import { PartyUI } from './ui/party/partyUI';
 import { uiIcon } from './ui/theme/icons';
@@ -169,7 +170,7 @@ const spells = new SpellView(stage.scene, vfx);
  * and furrows: yours and everyone else's here), for what lies on the ground to lie on top of.
  */
 const drawnGround = (x: number, z: number, pad: number): number =>
-  terrain ? terrain.height(x, z) + Math.max(lifeView?.raisedAt(x, z, pad) ?? 0, peers?.raisedAt(x, z, pad) ?? 0) : 0;
+  terrain ? terrain.height(x, z) + Math.max(lifeView?.raisedAt(x, z, pad) ?? 0, peersView?.raisedAt(x, z, pad) ?? 0) : 0;
 // Warning circles lie on the island's hills and farms (and on a deck or roof under whoever they're
 // about), floating on the sea rather than sinking under it.
 if (terrain) {
@@ -302,10 +303,13 @@ const lifeUI = life
   : null;
 // Online: everyone else in your channel of Emberholm, the plots they hold, and whether this server
 // offers the developer panel.
-const peers = online && life && world.zone ? new WorldPeers(stage.scene, world.zone, models, sim, life, online.welcome.character.id, online.link) : null;
+const peers = online && life && world.zone ? new WorldPeers(world.zone, sim, life, online.welcome.character.id, online.link) : null;
+// ...and drawn: a body and a name each, and what of their island everyone sees (src/render/open/peersView.ts).
+const peersView = online && peers ? new PeersView(stage.scene, models, peers, online.welcome.character.id) : null;
 if (peers && openStage) peers.onGroundChanged = () => openStage.foliage.invalidate();
-if (peers && openStage) peers.houseSink = (owner, houses) => openStage.village.setHouses(owner, houses);
-if (peers) peers.mineView = lifeView;
+if (peersView && openStage) peersView.onGroundChanged = () => openStage.foliage.invalidate();
+if (peersView && openStage) peersView.houseSink = (owner, houses) => openStage.village.setHouses(owner, houses);
+if (peersView) peersView.mineView = lifeView;
 if (peers && life) life.othersVehicles = () => peers.vehicles(sim.player);
 if (online && life) {
   const me = online.welcome.character.name;
@@ -399,7 +403,7 @@ if (lifeUI && life) {
   };
 }
 // ---------- end Goblin's Dread ----------
-if (peers && gameTables) peers.stoolFor = (id) => gameTables.seatOf(id);
+if (peersView && gameTables) peersView.stoolFor = (id) => gameTables.seatOf(id);
 if (online && peers && life && minigames) {
   life.othersAround = () => {
     if (minigames.seated) return [];
@@ -1009,6 +1013,12 @@ function refreshActors(now: number): void {
 /** A camera the tests park anywhere (window.__game.viewFrom), for views the follow camera can't reach. */
 let pinnedView: { from: THREE.Vector3; to: THREE.Vector3 } | null = null;
 
+/** Everyone else brought to the moment drawn, then drawn there. */
+function framePeers(dt: number): void {
+  peers?.frame(dt);
+  peersView?.frame(dt, sim.frame, follow.camera.position);
+}
+
 function draw(alpha: number, cameraDt: number, animDt: number): void {
   // Weapon out in a fight, put away a little after one.
   hero.armed = aiming.inAFight();
@@ -1018,11 +1028,11 @@ function draw(alpha: number, cameraDt: number, animDt: number): void {
   // put under you (and anyone riding along with you sits in it after); riding along with someone,
   // their vehicle is placed first, with everyone else.
   const along = sim.player.mode === 'ride' && !!sim.player.host;
-  if (along) peers?.frame(animDt, sim.frame, follow.camera.position);
+  if (along) framePeers(animDt);
   // Mini-game tables near you; at one, you sit on its stool.
   if (gameTables && online) gameTables.update(online.link.latest?.tables ?? []);
   const stool = online ? (gameTables?.seatOf(online.welcome.character.id) ?? null) : null;
-  sitIn(hero, stool ?? lifeView?.placeRide(sim.player, alpha, prediction?.offset ?? null, animDt) ?? (along ? (peers?.seatFor(sim.player) ?? null) : null));
+  sitIn(hero, stool ?? lifeView?.placeRide(sim.player, alpha, prediction?.offset ?? null, animDt) ?? (along ? (peersView?.seatFor(sim.player) ?? null) : null));
   hero.update(stool ? seatedState(sim.player) : sim.player, alpha, sim.frame);
   if (prediction && !hero.seat) hero.root.position.add(prediction.offset);
   const d = dummyActor();
@@ -1050,7 +1060,7 @@ function draw(alpha: number, cameraDt: number, animDt: number): void {
   if (!net) missileView.update(sim.actors.missiles);
   if (lifeView && lifeUI) lifeView.talkingTo = lifeUI.talkingTo;
   drawSpells(alpha, animDt);
-  if (!along) peers?.frame(animDt, sim.frame, follow.camera.position);
+  if (!along) framePeers(animDt);
   if (life && lifeView) {
     lifeView.update(sim, animDt, follow.camera.position);
     lifeUI?.update(animDt);
@@ -1373,6 +1383,9 @@ const refs = {
   },
   get peers() {
     return peers;
+  },
+  get peersView() {
+    return peersView;
   },
   get perf() {
     return () => perfs.numbers();

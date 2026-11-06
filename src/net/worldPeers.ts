@@ -1,8 +1,3 @@
-import * as THREE from 'three';
-import { Hero } from '../render/character';
-import { LifeView, sitIn, type Seated } from '../render/open/life';
-import type { HouseView } from '../render/village/village';
-import type { Models } from '../render/open/models';
 import { addScarecrowCollider } from '../sim/life/farming';
 import { addHouseColliders } from '../sim/life/housing';
 import { Life, type OthersVehicle } from '../sim/life/life';
@@ -16,10 +11,11 @@ import { blankState } from './netPlayer';
 import type { Estate, EstateEntry, PeerEntry, WorldLink } from './worldLink';
 
 // Everyone else in your channel of Emberholm, as the server plays them (crates/server/src/play/mod.rs):
-// each player as they move (about 20 times a second, drawn a few frames behind so there is always
-// a next one to blend toward), with their glider, pack, vehicles and mounts; and everything every
+// each player as they move (about 20 times a second, kept a few frames behind so there is always a
+// next one to blend toward), with their glider, pack, vehicles and mounts; and everything every
 // resident has built, their houses and farms, which stay standing while they're away. Houses and
-// farm posts are solid, as yours are.
+// farm posts are solid, as yours are, and so are their vehicles where you see them. This keeps them
+// as they are at the moment drawn; src/render/open/peersView.ts draws them.
 
 /** The player fields drawing someone needs (src/render/character.ts and the life view); the server sends these. */
 const SHOWN = [
@@ -75,27 +71,39 @@ interface Sample {
   };
 }
 
-interface Peer {
+/** Someone else here, as drawn this frame: what the drawing reads (src/render/open/peersView.ts). */
+export interface Peer {
+  readonly id: number;
+  readonly name: string;
+  /** A bot: no invitations or challenges for it. */
+  readonly bot: boolean;
+  /** Playing here now; someone who left is kept for what they built, which still stands. */
+  readonly online: boolean;
+  /** Playing here and heard from since they came: there's someone to draw. */
+  readonly drawn: boolean;
+  /** Their state at the moment drawn, between the server's updates. */
+  readonly shown: PlayerState;
+  /** What of their island everyone sees: houses, farms and ships, and the vehicles, packs and glider they have out. */
+  readonly life: Life;
+  /** How far they are from you (m), as of the last frame. */
+  readonly away: number;
+}
+
+interface Kept {
   id: number;
   name: string;
-  /** A bot: no invitations or challenges for it. */
   bot: boolean;
-  hero: Hero;
-  life: Life;
-  view: LifeView;
+  online: boolean;
+  drawn: boolean;
   shown: PlayerState;
+  life: Life;
+  away: number;
   samples: Sample[];
   clock: number;
-  online: boolean;
-  label: THREE.Sprite;
-  /** How far they are from you (m), as of the last frame. */
-  away: number;
   estateKey: string;
   solid: Set<string>;
   /** When we last heard from them (ms, performance.now()). */
   heard: number;
-  /** The side their colours show (0 until a developer zone puts them on another). */
-  team: number;
   /** Their health as last drawn, to show a blow as it lands on screen. */
   hp: number;
 }
@@ -103,37 +111,15 @@ interface Peer {
 /** Everyone reports 20 times a second, even standing still; this long without a word, they've gone. */
 const SILENT_MS = 5000;
 
-/** Riding along in someone else's vehicle (as last drawn). */
-const along = (p: Peer): boolean => p.shown.mode === 'ride' && !!p.shown.host;
-
-/**
- * Names over other players, by their distance from you in metres: whole within `fullWithin`, fading
- * out to nothing by `goneBy`, where the townsfolk's names go too (an MMO's range: the people around
- * you are named, a crowd far off isn't a cloud of names). From you rather than the camera, so the
- * crew beside you stay named when the camera pulls back behind a boat. Past `shrinkFrom` they also
- * shrink a little, to `farScale` of their size by `goneBy`, so a far name looks far.
- */
-const NAME_PLATE = { fullWithin: 30, goneBy: 45, shrinkFrom: 10, farScale: 0.8 };
-/** A name plate's height as a sprite's scale, which without size attenuation is a size on screen. */
-const PLATE_HEIGHT = 0.04;
-
 export class WorldPeers {
-  private peers = new Map<number, Peer>();
-  /** Called when the ground under someone's new farm or house needs its grass cleared. */
+  private peers = new Map<number, Kept>();
+  /** Called when someone's walls or farm posts became solid, so the grass is laid round them again. */
   onGroundChanged: (() => void) | null = null;
-  /** What draws your own vehicles, for anyone riding along in one of them. */
-  mineView: LifeView | null = null;
-  /** Where someone sits at a mini-game's table, if they're at one (src/render/open/gameTables.ts). */
-  stoolFor: ((id: number) => Seated | null) | null = null;
-  /** Where everyone's houses are drawn (the island's Village), by owner. */
-  houseSink: ((owner: string, houses: HouseView[]) => void) | null = null;
   /** A blow landing on someone as drawn here: where, how much, and the way it pushes them. */
   onHurt: ((x: number, y: number, z: number, damage: number, dirX: number, dirZ: number) => void) | null = null;
 
   constructor(
-    private scene: THREE.Scene,
     private zone: ZoneData,
-    private models: Models,
     private sim: Sim,
     private mine: Life,
     private me: number,
@@ -146,9 +132,14 @@ export class WorldPeers {
     link.onLeft = (id) => this.left(id);
   }
 
+  /** Everyone known here, those who left too (what they built stands), as drawn this frame. */
+  all(): Iterable<Peer> {
+    return this.peers.values();
+  }
+
   /**
    * For tests and the bug reporter: who is here and what of theirs is drawn, with how far they are
-   * from you (metres) and how much of their name plate shows (0 hidden, 1 whole).
+   * from you (metres).
    */
   list(): Array<{
     id: number;
@@ -163,7 +154,6 @@ export class WorldPeers {
     scarecrows: number;
     vehicles: number;
     away: number;
-    plate: number;
     team: number;
     hp: number;
     weapon: number;
@@ -181,7 +171,6 @@ export class WorldPeers {
       scarecrows: p.life.state.scarecrows.length,
       vehicles: p.life.state.vehicles.length,
       away: +p.away.toFixed(1),
-      plate: p.label.visible && p.hero.root.visible ? +(p.label.material as THREE.SpriteMaterial).opacity.toFixed(3) : 0,
       team: p.shown.team,
       hp: p.shown.hp,
       weapon: p.shown.weapon,
@@ -198,44 +187,25 @@ export class WorldPeers {
     return this.list().filter((p) => p.online);
   }
 
-  /** How far the farm ground drawn for anyone here stands over the terrain within `pad` metres of (x, z) (LifeView.raisedAt). */
-  raisedAt(x: number, z: number, pad: number): number {
-    let top = 0;
-    for (const p of this.peers.values()) top = Math.max(top, p.view.raisedAt(x, z, pad));
-    return top;
-  }
-
-  private peer(id: number, name: string): Peer {
+  private peer(id: number, name: string): Kept {
     let p = this.peers.get(id);
     if (p) return p;
-    const hero = new Hero();
-    hero.root.visible = false;
-    this.scene.add(hero.root);
     const life = new Life(this.zone);
     life.state.weather = this.mine.state.weather;
-    const view = new LifeView(this.scene, life, this.models, hero, { others: true });
-    view.onGroundChanged = () => this.onGroundChanged?.();
-    view.houseSink = (houses) => this.houseSink?.(`peer:${id}`, houses);
-    const label = nameTag(name);
-    label.position.set(0, 2.45, 0);
-    hero.root.add(label);
     p = {
       id,
       name,
       bot: false,
-      hero,
-      life,
-      view,
+      online: false,
+      drawn: false,
       shown: blankState(),
+      life,
+      away: Infinity,
       samples: [],
       clock: -1,
-      online: false,
-      label,
-      away: Infinity,
       estateKey: '',
       solid: new Set(),
       heard: 0,
-      team: 0,
       hp: Infinity,
     };
     this.peers.set(id, p);
@@ -305,8 +275,8 @@ export class WorldPeers {
     const p = this.peers.get(id);
     if (!p) return;
     p.online = false;
+    p.drawn = false;
     p.samples = [];
-    p.hero.root.visible = false;
     p.life.state.vehicles = [];
     p.life.state.packs = [];
   }
@@ -329,36 +299,27 @@ export class WorldPeers {
     return out;
   }
 
-  /** Where you sit riding along in someone's vehicle this frame (theirs is placed by frame(), so call that first). */
-  seatFor(you: PlayerState): Seated | null {
-    if (you.mode !== 'ride' || !you.host) return null;
-    return this.peers.get(you.host)?.view.seatOf(you.vehicle, you.seat) ?? null;
-  }
-
-  /** Poses everyone for this frame. */
-  frame(dt: number, frame: number, cameraPos: THREE.Vector3): void {
+  /**
+   * Brings everyone to the moment they're drawn this frame (`dt` seconds on), with their vehicles,
+   * packs and gliders; their vehicles are as solid to you as yours are, where you see them.
+   */
+  frame(dt: number): void {
     const now = performance.now();
     const me = this.sim.player.pos;
-    // Whoever drives (or walks) first, then whoever rides along with them: a vehicle has to be
-    // where it is this frame before anyone sits down in it.
-    const order = [...this.peers.values()].sort((a, b) => Number(along(a)) - Number(along(b)));
     const movers: Mover[] = [];
-    for (const p of order) {
+    for (const p of this.peers.values()) {
       if (p.online && now - p.heard > SILENT_MS) this.left(p.id);
       const s = p.life.state;
       s.clock = this.mine.state.clock;
       s.weather = this.mine.state.weather;
-      if (p.online && p.samples.length) this.pose(p, dt, frame);
-      p.view.update({ player: p.shown } as unknown as Sim, dt, cameraPos);
+      if (p.online && p.samples.length) this.pose(p, dt);
       for (const v of s.vehicles) movers.push(...vehicleBodies(v));
       p.away = Math.hypot(p.shown.pos.x - me.x, p.shown.pos.y - me.y, p.shown.pos.z - me.z);
-      plateFor(p.label, p.away);
     }
-    // Their vehicles are as solid to you as yours are, where you see them.
     this.sim.world.movers = movers;
   }
 
-  private pose(p: Peer, dt: number, frame: number): void {
+  private pose(p: Kept, dt: number): void {
     const samples = p.samples;
     const newest = samples[samples.length - 1].fr;
     const target = newest - DELAY;
@@ -391,11 +352,6 @@ export class WorldPeers {
     sh.glider = (b.p.glider as string) ?? '';
     sh.host = Number(sh.host) || 0;
     sh.team = Number(sh.team) || 0;
-    // Sides are a developer zone's: there, everyone wears their side's colours.
-    if (sh.team !== p.team) {
-      p.team = sh.team;
-      p.hero.setTeam(sh.team);
-    }
     // A blow shows the moment the drawn them takes it.
     if (sh.hp < p.hp) this.onHurt?.(sh.pos.x, sh.pos.y + 1.1, sh.pos.z, p.hp - sh.hp, -Math.sin(sh.facing), -Math.cos(sh.facing));
     p.hp = sh.hp;
@@ -417,57 +373,10 @@ export class WorldPeers {
     });
     p.life.state.packs = b.p.packs ?? [];
     p.life.state.glider = sh.glider;
-
-    // Driving, their vehicle goes under them; riding along, they sit in whoever's it is; at a
-    // mini-game's table, on its stool.
-    const host = sh.host === this.me ? this.mineView : this.peers.get(sh.host)?.view;
-    const stool = this.stoolFor?.(p.id) ?? null;
-    sitIn(p.hero, stool ?? (sh.mode === 'ride' && sh.host ? (host?.seatOf(sh.vehicle, sh.seat) ?? null) : p.view.placeRide(sh, 1, null, dt)));
-    p.hero.root.visible = true;
-    p.hero.update(stool ? { ...sh, mode: 'ride' } : sh, 1, frame);
+    p.drawn = true;
   }
 }
 
 function lerp3(a: { x: number; y: number; z: number }, b: { x: number; y: number; z: number }, t: number): { x: number; y: number; z: number } {
   return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t, z: a.z + (b.z - a.z) * t };
-}
-
-/** A name over someone's head, on a canvas as wide as the name, so a long one isn't cut off. */
-function nameTag(name: string): THREE.Sprite {
-  const font = 'bold 30px system-ui, -apple-system, "Segoe UI", sans-serif';
-  const c = document.createElement('canvas');
-  const g = c.getContext('2d')!;
-  g.font = font;
-  // Room either side for the outline.
-  c.width = Math.max(64, Math.ceil(g.measureText(name).width) + 24);
-  c.height = 64;
-  // Sizing the canvas resets how it draws.
-  g.font = font;
-  g.textAlign = 'center';
-  g.textBaseline = 'middle';
-  g.lineWidth = 6;
-  g.strokeStyle = 'rgba(20, 30, 40, 0.85)';
-  g.strokeText(name, c.width / 2, 32);
-  g.fillStyle = '#ffffff';
-  g.fillText(name, c.width / 2, 32);
-  const tex = new THREE.CanvasTexture(c);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  // The same size on screen at any distance, crisp and easy to read, until it is far enough away
-  // to shrink a little and fade (plateFor).
-  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthWrite: false, transparent: true, sizeAttenuation: false }));
-  sprite.userData.aspect = c.width / c.height;
-  sprite.scale.set(PLATE_HEIGHT * sprite.userData.aspect, PLATE_HEIGHT, 1);
-  sprite.renderOrder = 5;
-  return sprite;
-}
-
-/** Fades and sizes a name plate for how far its player is from you, in metres (NAME_PLATE). */
-function plateFor(label: THREE.Sprite, distance: number): void {
-  const { fullWithin, goneBy, shrinkFrom, farScale } = NAME_PLATE;
-  const t = Math.min(1, Math.max(0, (distance - fullWithin) / (goneBy - fullWithin)));
-  const shown = 1 - t * t * (3 - 2 * t);
-  label.visible = shown > 0.01;
-  (label.material as THREE.SpriteMaterial).opacity = shown;
-  const k = 1 - (1 - farScale) * Math.min(1, Math.max(0, (distance - shrinkFrom) / (goneBy - shrinkFrom)));
-  label.scale.set(PLATE_HEIGHT * label.userData.aspect * k, PLATE_HEIGHT * k, 1);
 }
