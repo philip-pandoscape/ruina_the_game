@@ -40,9 +40,9 @@ const ALLOWED: Allowance[] = [
     files: ['src/render/detail/', 'src/render/character.ts', 'src/content/tuning.ts', 'crates/engine/src/tuning.rs', 'src/input/input.ts', 'src/ui/skills/'],
   },
   {
-    why: "src/main.ts and the step it runs, until they're data: the slimes' and the dummy's name plates (R9.9), the slide's dust (R9.5), and the battlefield's option",
-    files: ['src/main.ts', 'src/app/step.ts'],
-    ids: ['slimelet', 'great-slime', 'slime-monarch', 'slide', 'battlefield'],
+    why: "the step src/main.ts runs, until it's data: the slide's dust (R9.5)",
+    files: ['src/app/step.ts'],
+    ids: ['slide'],
   },
   {
     why: "the island's own slimes and training dummy are spawned by code until spawns are data (R9.3), and ?goblins= puts a band in the yard",

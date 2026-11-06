@@ -1,5 +1,6 @@
 {
   "id": "slime",
+  "name": "Slime",
   "faction": 1,
   "maxHp": 40,
   "radius": 0.42,
@@ -38,5 +39,12 @@
     "into": "slimelet",
     "count": 3
   },
-  "gathers": true
+  "gathers": true,
+  "look": {
+    "body": "jelly",
+    "inside": [
+      "leaf",
+      "pebble"
+    ]
+  }
 }

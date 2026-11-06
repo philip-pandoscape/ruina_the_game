@@ -1,5 +1,6 @@
 {
   "id": "great-slime",
+  "name": "Great Slime",
   "faction": 1,
   "solid": false,
   "brain": "slime",
@@ -38,5 +39,12 @@
     "into": "slimelet",
     "count": 5
   },
-  "gathers": true
+  "gathers": true,
+  "look": {
+    "body": "jelly",
+    "inside": [
+      "coins",
+      "dagger"
+    ]
+  }
 }

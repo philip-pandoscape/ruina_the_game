@@ -34,5 +34,12 @@
     "damage": 8,
     "knock": 5
   },
-  "gathers": true
+  "gathers": true,
+  "look": {
+    "body": "jelly",
+    "inside": [
+      "leaf",
+      "pebble"
+    ]
+  }
 }

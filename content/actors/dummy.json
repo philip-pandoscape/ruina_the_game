@@ -1,5 +1,6 @@
 {
   "id": "dummy",
+  "name": "Training Dummy",
   "faction": 3,
   "maxHp": 100,
   "radius": 0.4,
@@ -9,5 +10,8 @@
   "brain": null,
   "respawnFrames": 60,
   "species": null,
-  "clips": {}
+  "clips": {},
+  "look": {
+    "dies": "straw"
+  }
 }

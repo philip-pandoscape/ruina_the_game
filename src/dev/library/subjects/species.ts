@@ -140,7 +140,8 @@ class SpeciesTake implements Take {
     this.framing = { target: [0, Math.max(0.25, h * 0.5), 0] as [number, number, number], distance: Math.max(2.4, h * 4.4), height: h };
     if (look.jelly && look.kind) {
       // The jelly, drawn by the game's own crowd code from the same clip.
-      this.jelly = new JellyCrowd(def, 1, { kind: look.kind, palette: look.palette, scale: look.scale });
+      const jelly = actorKind(look.kind).look;
+      this.jelly = new JellyCrowd(def, 1, { inside: jelly?.inside, crown: jelly?.crown, palette: look.palette, scale: look.scale });
       this.jelly.place(0, 0, 0, 0, 0);
       this.root.add(this.jelly.group);
       for (const m of this.body.boxes) m.visible = false;

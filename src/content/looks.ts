@@ -78,5 +78,19 @@ export interface VillagerLook {
   free?: Array<'l' | 'r'>;
 }
 
+/**
+ * A creature's look besides its species (an actor kind's `species`, `palette`, `scale`, `clips`
+ * and `cycles` are the rest of it).
+ */
+export interface CreatureLook {
+  /** jelly: drawn as the slimes' jelly over the species' skeleton, rather than as its boxes. */
+  body?: 'jelly';
+  /** What floats inside the jelly (src/render/creatures/jelly.ts INSIDES), and whether it wears a crown. */
+  inside?: string[];
+  crown?: boolean;
+  /** How it falls apart when it goes down: straw, a burst of it from where it stands; otherwise a puff of dust. */
+  dies?: 'straw';
+}
+
 /** A townsperson's look as their file gives it (the zone holds it as it is), if it gives one. */
 export const villagerLook = (raw: unknown): VillagerLook | undefined => (raw && typeof raw === 'object' ? (raw as VillagerLook) : undefined);

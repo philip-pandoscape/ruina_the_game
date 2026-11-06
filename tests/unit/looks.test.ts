@@ -1,6 +1,8 @@
 import { expect, test } from 'vitest';
 import emberholm from '../../shared/zones/emberholm.json' with { type: 'json' };
+import { actorKind, actorKindIds } from '../../src/content/actors';
 import { BEARDS, HAIRS, type VillagerLook } from '../../src/content/looks';
+import { INSIDES } from '../../src/render/creatures/jelly';
 import { GLIDERS, MOUNTS, VEHICLES } from '../../src/content/vehicles';
 import { animalBodies } from '../../src/render/models/animals';
 import { ANIMALS, CROPS, PACKS, PROPS, STRUCTURES } from '../../src/render/models/data';
@@ -70,4 +72,26 @@ test("every townsperson's look is one the townsfolk's body can be dressed in", (
   expect(wrong).toEqual([]);
   const unworn = outfits().filter((o) => !NPCS.some((n) => n.look?.outfit === o));
   expect(unworn, 'outfits no one wears').toEqual([]);
+});
+
+test("every creature's look is one it can be drawn with", () => {
+  const wrong: string[] = [];
+  const worn = new Set<string>();
+  for (const id of actorKindIds()) {
+    const k = actorKind(id);
+    const l = k.look;
+    if (!l) continue;
+    if (l.body !== undefined && l.body !== 'jelly') wrong.push(`${id}: no body "${l.body}" (jelly, or none for its species' own)`);
+    if (l.body === 'jelly' && !k.species) wrong.push(`${id}: jelly is drawn over a species' skeleton, and it has none`);
+    for (const x of l.inside ?? []) {
+      worn.add(x);
+      if (!(INSIDES as readonly string[]).includes(x)) wrong.push(`${id}: nothing called "${x}" floats in jelly (${INSIDES.join(', ')} do)`);
+    }
+    if (l.dies !== undefined && l.dies !== 'straw') wrong.push(`${id}: dies as "${l.dies}", where only straw is drawn`);
+  }
+  expect(wrong).toEqual([]);
+  expect(
+    INSIDES.filter((x) => !worn.has(x)),
+    'what floats in no slime',
+  ).toEqual([]);
 });

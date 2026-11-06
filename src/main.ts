@@ -517,16 +517,8 @@ function castOf(key: string): { label: string; progress: number } | null {
   return { label: CASTS[s.name] ?? s.name, progress: stateProgress(a) };
 }
 
-// What the target plate calls each kind. Content, not rules, so it lives next to the UI.
-const NAMES: Record<string, string> = {
-  dummy: 'Training Dummy',
-  slimelet: 'Slimelet',
-  slime: 'Slime',
-  'great-slime': 'Great Slime',
-  'slime-monarch': 'Slime Monarch',
-  // Creatures with files of their own name themselves (shared/creatures/).
-  ...Object.fromEntries(actorKindIds().flatMap((id) => (kindName(id) ? [[id, kindName(id)!]] : []))),
-};
+// What the target plate calls each kind: its name in its file (shared/actors.json, shared/creatures/).
+const NAMES: Record<string, string> = Object.fromEntries(actorKindIds().flatMap((id) => (kindName(id) ? [[id, kindName(id)!]] : [])));
 
 // The server's monsters: drawn between its updates, at the moment other players are drawn
 // (shownActors), and as it has them now (presentActors) for what has to be on time - warnings, and
