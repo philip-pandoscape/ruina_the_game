@@ -107,7 +107,7 @@ pub struct Actors {
     next_group: u32,
     next_band: u32,
     next_missile: u32,
-    /// Testing: nothing gets angry (Actors.calm in src/engine/actors/actor.ts).
+    /// Testing: nothing gets angry.
     pub calm: bool,
 }
 
@@ -207,7 +207,7 @@ impl Actors {
         Some(id)
     }
 
-    // Counts up and wraps, skipping ids still in use. Mirrors Actors.allocate() in actor.ts.
+    // Counts up and wraps, skipping ids still in use.
     fn allocate(&mut self) -> u32 {
         loop {
             let id = self.next_id;

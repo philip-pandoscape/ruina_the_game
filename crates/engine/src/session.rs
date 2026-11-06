@@ -1,17 +1,18 @@
 //! The game as the browser plays it: the rules for one player, in the island or the training yard,
-//! as src/engine/engine.ts runs them. You, the creatures and the
-//! training range offline (the server decides them online), the island's life, the copies of
-//! dungeons you're in; stepped once per fixed frame with what you pressed, and changed from outside
-//! only by the named calls below, each the twin of one of the Engine's. What happened comes out as
-//! events (crate::event) in the order they happen, and everything the page draws can
-//! be read off as the TypeScript's shapes (`player_json`, `actors_json`, `life_json`).
-//! crates/engine-wasm hands it to the browser; the headless tests run it beside the TypeScript and
-//! compare every step until the TypeScript goes.
+//! as src/engine/engine.ts runs them. You, the creatures and the training range offline (the server
+//! decides them online), the island's life, the copies of dungeons you're in; stepped once per fixed
+//! frame with what you pressed, and changed from outside only by the named calls below, each the
+//! other half of one of the Engine's. What happened comes out as events (crate::event) in the order
+//! they happen, and everything the page draws is read off in the shapes src/engine/ reads
+//! (`view_text` after each step or call). crates/engine-wasm hands it to the browser, and the
+//! headless rules tests (tests/unit/rules) play it as the page does.
 
 use std::collections::BTreeMap;
 
+use serde::Serialize;
 use serde_json::{Map, Value, json};
 
+use crate::actor::Actor;
 use crate::actors::{Actors, Blow, LEAN_DAMPING, LEAN_SPRING};
 use crate::ai::{Foe, Sighting};
 use crate::event::Event;
@@ -19,14 +20,17 @@ use crate::jsmath::{JsMath, len};
 use crate::life::progress::Observed;
 use crate::life::state::{House, Scarecrow, Vehicle, Weather};
 use crate::life::state::{LIFE_VERSION, LifeState};
-use crate::life::{Command, Life, OtherPlayer, OthersVehicle, Placement, content::clock, farming, housing, interact, interact::short_time, trade, vehicles};
+use crate::life::{
+    Command, Focus, Life, LifeEvent, OtherPlayer, OthersVehicle, Placement, content::clock, farming, housing, interact, interact::short_time, trade, vehicles,
+};
+use crate::missiles::Missile;
 use crate::open::colliders::{ColliderIndex, ground_at};
 use crate::open::dungeon::{DungeonDef, Spot, dungeon};
 use crate::open::zone::{Heightfield, emberholm};
 use crate::open::{Mover, OpenWorld, Sim, traverse};
 use crate::player::{Actions, Body, Build, Mode, Player, V3, step_len};
-use crate::skills::resolve_skills;
-use crate::training::{Blows, Range, check_hit, targets};
+use crate::skills::{Levels, resolve_skills};
+use crate::training::{Arrow, Blows, Meteor, Range, check_hit, targets};
 use crate::tuning::tuning;
 use crate::world::{Spawn, World};
 use crate::yard::{SpawnPoint, YARD_SEED, Yard, band_around, island_spawns, yard};
@@ -520,7 +524,7 @@ impl Session {
 
     /// Restores a saved island (a test's, or a bug report's): its state, the time you were away
     /// (`now` on the clock `savedAt` was measured on, in ms), where you stood. False, changing
-    /// nothing, for a save from a newer game than this one (applySave in src/engine/life/save.ts).
+    /// nothing, for a save from a newer game than this one.
     pub fn load_island(&mut self, data: &Value, now: f64) -> bool {
         let (Some(life), Ground::Open(world)) = (self.life.as_mut(), &mut self.ground) else { return false };
         let Some(state) = data.get("state") else { return false };
@@ -760,7 +764,7 @@ impl Session {
         }
     }
 
-    /// Sets fields on an actor (a cooldown, where it stands), by the TypeScript's names, to set up a
+    /// Sets fields on an actor (a cooldown, where it stands), by the page's names for them, to set up a
     /// moment directly (tests). Returns the names it doesn't know.
     pub fn set_actor(&mut self, id: u32, fields: &Map<String, Value>) -> Vec<String> {
         let Some(a) = self.actors.get_mut(id) else { return Vec::new() };
@@ -889,12 +893,61 @@ impl Session {
         }
     }
 
-    /// Everything the page reads after a step or a call, in one: the step count and the hit pause,
-    /// you, the creatures and the yard's arrows and meteors (offline), the island, what the island
-    /// said (taken), whether a fall put you somewhere (and facing which way), a number that changes
-    /// when what's solid does (`solid_key`), and with `events` what happened (taken).
-    pub fn view_json(&mut self, events: bool) -> Value {
-        let happened: Vec<Value> = if events {
+    /// Everything the page reads after a step or a call, in one, as JSON text: the step count and the
+    /// hit pause, you, the creatures and the yard's arrows and meteors (offline), the island, what the
+    /// island said (taken), whether a fall put you somewhere (and facing which way), a number that
+    /// changes when what's solid does (`solid_key`), and with `events` what happened (taken). Written
+    /// straight from the session's own values: building it as JSON values first was most of an
+    /// offline step's time (the refactor's R8.14).
+    pub fn view_text(&mut self, events: bool) -> String {
+        #[derive(Serialize)]
+        struct ActorsView<'a> {
+            list: &'a [Actor],
+            missiles: &'a [Missile],
+            arrows: &'a [Arrow],
+            meteors: &'a [Meteor],
+        }
+        #[derive(Serialize)]
+        struct LifeView<'a> {
+            state: &'a LifeState,
+            focus: &'a Option<Focus>,
+            placing: &'a Option<Placement>,
+            resting: bool,
+            revision: u64,
+        }
+        #[derive(Serialize)]
+        struct View<'a> {
+            frame: u32,
+            hitstop: i32,
+            player: Value,
+            levels: &'a Levels,
+            actors: ActorsView<'a>,
+            life: Option<LifeView<'a>>,
+            said: Vec<LifeEvent>,
+            placed: Option<f64>,
+            solid: u32,
+            events: Vec<Value>,
+        }
+        let happened = self.happened(events);
+        let said = self.life.as_mut().map(|l| l.drain_events()).unwrap_or_default();
+        let view = View {
+            frame: self.frame,
+            hitstop: self.hitstop,
+            player: self.player_json(),
+            levels: &self.player.levels,
+            actors: ActorsView { list: &self.actors.list, missiles: &self.actors.missiles, arrows: &self.range.arrows, meteors: &self.range.meteors },
+            life: self.life.as_ref().map(|l| LifeView { state: &l.state, focus: &l.focus, placing: &l.placing, resting: l.resting, revision: l.revision }),
+            said,
+            placed: self.placed,
+            solid: self.solid_key(),
+            events: happened,
+        };
+        serde_json::to_string(&view).unwrap_or_default()
+    }
+
+    /// With `events`, what happened since the last time (taken), each with the frame it happened on.
+    fn happened(&mut self, events: bool) -> Vec<Value> {
+        if events {
             self.take_events()
                 .into_iter()
                 .map(|(frame, e)| {
@@ -907,20 +960,7 @@ impl Session {
                 .collect()
         } else {
             Vec::new()
-        };
-        let said = self.life.as_mut().map(|l| l.drain_events()).unwrap_or_default();
-        json!({
-            "frame": self.frame,
-            "hitstop": self.hitstop,
-            "player": self.player_json(),
-            "levels": self.player.levels,
-            "actors": self.actors_json(),
-            "life": self.life_json(),
-            "said": said,
-            "placed": self.placed,
-            "solid": self.solid_key(),
-            "events": happened,
-        })
+        }
     }
 
     /// The flat world as it's drawn (the yard's props, the dummy, where you start and who stands about).
@@ -942,7 +982,7 @@ impl Session {
 }
 
 /// A dungeon's floors and walls made solid in an island's colliders, or taken out again (their tops
-/// sunk out of reach, as the TypeScript's setDungeonSolid does).
+/// sunk out of reach).
 fn set_solid(index: &mut ColliderIndex, def: &DungeonDef, had: Option<Solids>, solid: bool) -> Solids {
     let (boxes, decks) = def.colliders();
     let mut s = had.unwrap_or_else(|| Solids {

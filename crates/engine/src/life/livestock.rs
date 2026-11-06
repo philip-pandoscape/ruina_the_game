@@ -1,4 +1,4 @@
-//! Farm animals in scarecrow plots (src/engine/life/livestock.ts), raised in plot cells like crops: a
+//! Farm animals in scarecrow plots, raised in plot cells like crops: a
 //! chick, lamb or calf grows up only while it is fed, and once grown it lays, grows fleece or gives
 //! milk again and again - also only while fed. A hungry animal simply waits for you; nothing dies
 //! of neglect on Emberholm.
@@ -116,7 +116,8 @@ pub fn collect(life: &mut Life, sc: i64, idx: usize, x: f64, y: f64, z: f64) -> 
     true
 }
 
-// The expected numbers here are what the TypeScript rules give for the same steps.
+// The expected numbers here are what the TypeScript copy of the rules gave for the same steps, while
+// there was one.
 #[cfg(test)]
 mod tests {
     use super::*;

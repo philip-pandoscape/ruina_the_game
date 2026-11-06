@@ -1,8 +1,7 @@
 // The engine's game (crates/engine/src/session.rs) through its WebAssembly (crates/engine-wasm,
-// src/session.rs): the rules for one player in the island or the yard, as the Engine runs the
-// TypeScript rules today, stepped once per fixed frame and read back in the TypeScript's shapes. The
-// Engine runs one beside its TypeScript rules when shadowing (src/engine/shadow.ts), and in time in
-// their place (the refactor's Phase 8).
+// src/session.rs): the rules for one player in the island or the yard, stepped once per fixed frame
+// and read back after each step or call in the shapes the page reads (`view`, one JSON text written
+// straight from the session's values).
 
 import type { Levels } from '../content/skills';
 import type { Build } from '../content/tuning';

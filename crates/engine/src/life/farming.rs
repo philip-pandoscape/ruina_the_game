@@ -1,4 +1,5 @@
-//! Scarecrow plots and what grows in them (src/engine/life/farming.ts). A scarecrow claims an 8 x 8 m
+//! Scarecrow plots and what grows in them (the page reads them through src/engine/life/farming.ts).
+//! A scarecrow claims an 8 x 8 m
 //! patch of open, level ground (up to three); each of its 2 m cells holds one plant, which grows in
 //! real time - faster in its own climate, faster again when watered or rained on - whether or not
 //! you are watching.
@@ -408,8 +409,8 @@ pub fn find_rare(life: &mut Life, rare: &Rare, x: f64, y: f64, z: f64) {
     }
 }
 
-// The expected numbers here (yields, growth, positions, messages) are what the TypeScript rules
-// give for the same steps on the same island.
+// The expected numbers here (yields, growth, positions, messages) are what the TypeScript copy of the
+// rules gave for the same steps on the same island, while there was one.
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;

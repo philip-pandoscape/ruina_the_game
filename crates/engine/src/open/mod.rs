@@ -68,7 +68,7 @@ impl OpenWorld {
 }
 
 /// What the open-world rules act on each step: one player, the world they are in, and whose
-/// things anything they build belongs to. The TypeScript passes its `Sim` around for the same.
+/// things anything they build belongs to.
 pub struct Sim<'a> {
     pub player: &'a mut Player,
     pub world: &'a mut OpenWorld,
@@ -97,7 +97,7 @@ impl Zone {
 /// along when the player has an island. `owner` is the character, for whatever they build.
 pub fn step_player(p: &mut Player, a: &Actions, world: &mut OpenWorld, mut life: Option<&mut Life>, owner: i64) {
     p.begin_step(a);
-    // The island has one spawn, and the TypeScript gives it to both teams.
+    // The island has one spawn, for both teams.
     let s = world.zone.recipe.spawn;
     let mut sim = Sim { player: p, world, owner };
 
@@ -111,8 +111,7 @@ pub fn step_player(p: &mut Player, a: &Actions, world: &mut OpenWorld, mut life:
             } else {
                 sim.player.respawn(Spawn { x: s.x, z: s.z, facing: s.facing });
                 // On your feet on the ground there, not inside the hill (respawn() is the
-                // battlefield's, flat at 0): the TypeScript's respawn does the same with the
-                // island's terrain.
+                // battlefield's, flat at 0).
                 let hf = sim.terrain();
                 sim.player.pos.y = colliders::ground_at(hf, &sim.world.index, s.x, s.z, hf.height(s.x, s.z) + 1.2, 1.2);
             }
@@ -149,7 +148,7 @@ pub fn step_player(p: &mut Player, a: &Actions, world: &mut OpenWorld, mut life:
     }
 
     // A cast that finished and a movement skill that started are practice for them, counted the
-    // moment the TypeScript reports them (its `cast` and `action` events), so the island's step
+    // moment they happen (the `cast` and `action` events), so the island's step
     // below picks up any level they gained. Hits are counted where they land (the server's combat.rs).
     if let Some(l) = life.as_deref_mut() {
         let p = &*sim.player;

@@ -1,6 +1,7 @@
-//! Maths the way the browser does it, for the rules the browser also runs (it predicts your moves
-//! with the TypeScript and corrects to the server, so the closer the two agree the less it ever
-//! corrects). V8's exp and atan2 are fdlibm's, as are the `libm` crate's, so those match bit for
+//! Maths the way the browser's JavaScript does it, which the rules were written in first: the golden
+//! answers were proved against it, and `libm` gives the same bits natively on the server and in the
+//! browser's WebAssembly, so the two never disagree. V8's exp and atan2 are fdlibm's, as are the
+//! `libm` crate's, so those match bit for
 //! bit; Rust's own (the C library's) differ in the last bit on a tenth to a fifth of inputs. V8's
 //! sin and cos come from elsewhere, and `libm`'s are the nearer of the two (about 1% of inputs a
 //! bit off, against 3%). Math.pow is `libm`'s pow here (the same natively
@@ -45,8 +46,8 @@ impl JsMath for f64 {
 
 // ---------- JavaScript arithmetic the rules rely on ----------
 
-/// The length of a flat vector, as the TypeScript rules take it (src/engine/math.ts len): a plain
-/// square root of the sum, not Math.hypot, so both sides get the same bits.
+/// The length of a flat vector as the rules take it: a plain square root of the sum, not
+/// Math.hypot (that is js_hypot), so the golden answers hold.
 pub fn len(x: f64, z: f64) -> f64 {
     (x * x + z * z).sqrt()
 }

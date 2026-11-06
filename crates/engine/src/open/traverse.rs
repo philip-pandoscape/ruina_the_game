@@ -143,8 +143,8 @@ fn blocked(sim: &Sim, ox: f64, oz: f64, nx: f64, nz: f64) -> bool {
     p.grounded && hf.slope(nx, nz) > gr.max_slope
 }
 
-/// Trees, rocks, buildings and the edge of the world. (The TypeScript also pushes you out of
-/// solid creatures, but only with its training option, which the server never uses.)
+/// Trees, rocks, buildings and the edge of the world. (Solid creatures push you out only offline,
+/// where the page's session plays them: crate::session.)
 pub fn collide_open(sim: &mut Sim) {
     let r = tuning().movement.player_radius;
     let idx = &sim.world.index;

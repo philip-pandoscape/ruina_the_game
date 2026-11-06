@@ -142,7 +142,7 @@ pub fn yard(seed: u32) -> Yard {
     for i in 0..YARD_SLIMES {
         let angle = (i as f64 / YARD_SLIMES as f64) * pi * 2.0 + 0.4;
         let r = 5.0 + (i % 3) as f64;
-        // (seed ^ 0x51e0) + i * 0x9e3779b1 in the TypeScript's doubles; every use reads it mod 2^32.
+        // (seed ^ 0x51e0) + i * 0x9e3779b1, as doubles; every use reads it mod 2^32.
         let s = ((seed ^ 0x51e0) as u64 + i as u64 * 0x9e37_79b1) as u32;
         spawns.push(SpawnPoint { kind: "slime".into(), x: angle.js_sin() * r, z: 4.0 + angle.js_cos() * r, seed: Some(s), ..Default::default() });
     }

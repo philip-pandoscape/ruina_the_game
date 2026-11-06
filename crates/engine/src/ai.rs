@@ -1,5 +1,6 @@
 //! The behaviour interpreter, reading shared/behaviours.json and each creature's own file
-//! (crate::creatures) - the same files src/engine/actors/brains.ts reads. A monster is data: an entry in
+//! (crate::creatures), which the page reads too for the names of a brain's states
+//! (src/engine/actors/brains.ts). A monster is data: an entry in
 //! those files and an actor pointed at it. Nothing in here knows what a slime or a goblin is.
 //!
 //! A brain only ever changes its own actor. Anything that reaches another (calling the pack,
@@ -291,7 +292,7 @@ pub enum Request {
 }
 
 /// The rest of the world, for a brain that has others to think about. An actor on its own gets
-/// one with nobody in it, which is what the TypeScript's null means.
+/// one with nobody in it.
 pub struct Ctx<'a> {
     pub peers: &'a [Peer],
     pub out: &'a mut Vec<Request>,
@@ -310,7 +311,7 @@ pub fn angle_diff(a: f64, b: f64) -> f64 {
     d
 }
 
-/// The actor's own random stream. Mirrors draw() in brain.ts exactly, including the wrapping.
+/// The actor's own random stream (mulberry32 on its seed, wrapping as JavaScript's does).
 pub fn draw(a: &mut Actor) -> f64 {
     crate::rng::mulberry32(&mut a.seed)
 }

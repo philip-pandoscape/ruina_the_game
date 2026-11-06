@@ -20,7 +20,7 @@ impl Rng {
         Rng(seed)
     }
 
-    /// The next number in [0, 1), as rng() in TypeScript.
+    /// The next number in [0, 1) (mulberry32, as JavaScript's 32-bit arithmetic does it).
     pub fn next_f64(&mut self) -> f64 {
         mulberry32(&mut self.0)
     }
@@ -30,7 +30,7 @@ impl Rng {
         self.next_f64() as f32
     }
 
-    /// Shuffles `list` in place (Fisher-Yates from the end, as the TypeScript does).
+    /// Shuffles `list` in place (Fisher-Yates from the end).
     pub fn shuffle<T>(&mut self, list: &mut [T]) {
         for i in (1..list.len()).rev() {
             let j = (self.next_f64() * (i + 1) as f64) as usize;

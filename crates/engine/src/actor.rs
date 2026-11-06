@@ -1,6 +1,5 @@
-//! Everything in the world that is not a player: monsters, NPCs, props. Mirrors src/engine/actors/actor.ts
-//! field for field, because the browser runs the same rules offline in the training yard and the
-//! two have to agree.
+//! Everything in the world that is not a player: monsters, NPCs, props. The page reads them field for
+//! field, in the shape of src/engine/actors/actor.ts, from the session's view after each step.
 
 use serde::Serialize;
 
@@ -115,7 +114,7 @@ pub struct Actor {
     pub struck: bool,
 }
 
-/// How many attacks a brain can list, each with its own cooldown (ATTACK_SLOTS in src/engine/actors/actor.ts).
+/// How many attacks a brain can list, each with its own cooldown.
 pub const ATTACK_SLOTS: usize = 4;
 
 impl Actor {
@@ -205,7 +204,7 @@ impl Actor {
     }
 
     /// Turns it into another kind where it stands (a slime growing a size). Health is left for
-    /// the caller to decide; mass is never shrunk. Mirrors becomeKind() in src/engine/actors/actor.ts.
+    /// the caller to decide; mass is never shrunk.
     pub fn become_kind(&mut self, k: &ActorKind) {
         let brain_changed = self.brain != k.brain;
         self.kind = k.id.clone();

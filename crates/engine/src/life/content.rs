@@ -4,7 +4,7 @@
 //! and the numbers for getting around on foot, in water and in the air.
 //!
 //! Lookups by id never panic: anything a browser names that doesn't exist gets a harmless
-//! placeholder, where the TypeScript would throw.
+//! placeholder.
 
 use std::collections::BTreeMap;
 use std::sync::OnceLock;
@@ -584,7 +584,7 @@ pub struct Anchor {
 }
 
 /// Anything you can ride: a cart or car ("wheeled"), a boat, or a mount. One shape for all three,
-/// with the fields the others don't use left at zero, the way the TypeScript reads them.
+/// with the fields the others don't use left at zero (src/content/vehicles.ts reads the same file).
 #[derive(Deserialize, Clone, Debug, Default)]
 #[serde(default, rename_all = "camelCase")]
 pub struct RideableDef {

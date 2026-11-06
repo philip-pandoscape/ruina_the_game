@@ -35,7 +35,7 @@ fn insert(cells: &mut BTreeMap<i64, Vec<usize>>, x: f64, z: f64, r: f64, i: usiz
     }
 }
 
-/// Indices of everything listed near (x, z), each once, in the order the TypeScript visits them.
+/// Indices of everything listed near (x, z), each once, in a fixed order (bucket by bucket).
 fn visit(cells: &BTreeMap<i64, Vec<usize>>, x: f64, z: f64, r: f64, out: &mut Vec<usize>) {
     out.clear();
     let (x0, x1, z0, z1) = span(x, z, r);
@@ -175,7 +175,7 @@ pub fn ground_at(hf: &Heightfield, index: &ColliderIndex, x: f64, z: f64, y: f64
 }
 
 /// ground_at, reaching `deck_up` for a deck rather than `step_up`: someone walking steps higher
-/// onto a deck, which is built for it (the TypeScript's groundAt with its deckUp).
+/// onto a deck, which is built for it.
 pub fn ground_at_decks(hf: &Heightfield, index: &ColliderIndex, x: f64, z: f64, y: f64, step_up: f64, deck_up: f64) -> f64 {
     let mut g = hf.height(x, z);
     let reach = y + step_up;

@@ -1,5 +1,6 @@
 //! Rain showers that water every crop on the isle, and a wind that wanders round the compass and
-//! fills (or empties) your sails (src/engine/life/weather.ts). Both run on the weather's clock: online
+//! fills (or empties) your sails (the page reads them through src/engine/life/weather.ts). Both run on
+//! the weather's clock: online
 //! the world's (the server's own, which the channel hands every island each tick), so everyone on
 //! Emberholm is rained on and sails on the same wind at the same moment; offline and in the rules'
 //! checks the island's. Nothing in them is left to the island's dice, so the same clock always has
@@ -28,8 +29,8 @@ fn slot() -> (f64, f64) {
     (slot, jitter)
 }
 
-/// A number in [0, 1) for slot `k` and what it decides (`n`): the same for everyone, in both rules
-/// (the TypeScript's dice, with Math.imul's wrapping 32-bit products).
+/// A number in [0, 1) for slot `k` and what it decides (`n`): the same for everyone (with
+/// Math.imul's wrapping 32-bit products, as src/engine/life/weather.ts throws them for the page).
 fn dice(k: i64, n: u32) -> f64 {
     let mut h = (k as i32 as u32).wrapping_mul(0x9e37_79b1) ^ n.wrapping_mul(0x85eb_ca77);
     h = (h ^ (h >> 16)).wrapping_mul(0x7feb_352d);

@@ -1,12 +1,13 @@
-//! The starter questline (src/engine/life/quests.ts): offered by NPCs once its prerequisites are
+//! The quests (the page reads them through src/engine/life/quests.ts): offered by NPCs once their
+//! prerequisites are
 //! done, advanced by events the other systems report (planted, harvested, delivered...), handed
 //! in for rewards. Milestones live alongside: they start by themselves and are done the moment
 //! their steps are.
 //!
 //! Finishing a milestone takes it off the active list, and can start others, in the middle of
-//! whatever walk of the list got it there. The TypeScript walks the list as it was when the walk
-//! began (an iterator over the old array, or a copy of it), so these walks do the same: each quest
-//! that was active then, once, if it still is when its turn comes (active_ids).
+//! whatever walk of the list got it there. A walk goes through the list as it was when the walk began
+//! (as the rules always have, so the golden answers hold): each quest that was active then, once, if
+//! it still is when its turn comes (active_ids).
 
 use super::content::{ItemCount, Objective, QuestDef, QuestStep, format_coins, has_quest, item_def, labor, objective_target, quest_def, quests, ship_designs};
 use super::state::{Plant, QuestProgress};
@@ -25,8 +26,8 @@ pub fn quest_active(life: &Life, id: &str) -> Option<usize> {
 }
 
 /// The quests active right now, to walk while the list changes under the walk. One finished along
-/// the way isn't found when its turn comes (the TypeScript finds its step past the end and passes
-/// over it); one started along the way waits for the next walk.
+/// the way isn't found when its turn comes and is passed over; one started along the way waits for
+/// the next walk.
 fn active_ids(life: &Life) -> Vec<String> {
     life.state.quests.active.iter().map(|q| q.id.clone()).collect()
 }
@@ -134,7 +135,7 @@ fn start_step(life: &mut Life, i: usize) {
 }
 
 pub fn accept(life: &mut Life, id: &str) -> bool {
-    // The TypeScript throws on a quest that doesn't exist; here it just isn't taken.
+    // A quest that doesn't exist just isn't taken.
     if !has_quest(id) {
         return false;
     }
@@ -407,7 +408,7 @@ mod tests {
         assert!(!complete(&mut life, "no-such-quest"));
         assert!(!complete(&mut life, "landfall"), "not ready");
         talk(&mut life, "hollis");
-        // Each kind of reward has to fit (one kind at a time, like the TypeScript).
+        // Each kind of reward has to fit (one kind at a time).
         fill_bag(&mut life);
         toasts(&mut life);
         assert!(!complete(&mut life, "landfall"));

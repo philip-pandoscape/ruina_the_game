@@ -1,4 +1,5 @@
-//! Trade packs, workbenches, vendors and trading posts (src/engine/life/trade.ts).
+//! Trade packs, workbenches, vendors and trading posts (the page reads them through
+//! src/engine/life/trade.ts).
 //!
 //! Pack running. A pack is made at a workbench from local goods and labor, rides on your back
 //! (slowly - no sprint, no double jump, no glider) or in a vehicle's cargo, and is sold at a
@@ -148,7 +149,7 @@ pub fn craft_pack(life: &mut Life, sim: &mut Sim, r: &RecipeDef, place: &str) ->
 
 /// An item recipe: a crafter or a workbench turns materials and coin into something for the bag.
 pub fn craft_item(life: &mut Life, r: &RecipeDef) -> bool {
-    // The TypeScript would throw on a recipe that makes nothing.
+    // A recipe that makes nothing makes nothing.
     let Some(item) = r.makes.item.as_deref() else { return false };
     let n = r.makes.n.unwrap_or(1);
     for inp in r.inputs.iter().flatten() {
@@ -212,7 +213,7 @@ pub fn drop_pack(life: &mut Life, sim: &mut Sim) -> bool {
 
 /// Picks up the pack with this id.
 pub fn pick_up(life: &mut Life, sim: &mut Sim, pack: i64) -> bool {
-    // The TypeScript's caller looks the pack up first and does nothing if it is gone.
+    // A pack that is gone can't be picked up.
     let Some(i) = pack_index(life, pack) else { return false };
     if sim.player.pack != 0 {
         life.toast("You are already carrying a pack", "bad");

@@ -461,5 +461,26 @@ the developer zone; then the engine bridge (R6.4) and Phase 8's switches.
   shown to catch a back-door import). Road routing came along into the bridge, which was all R8.12
   asked. The moved files' comments now say which Rust runs each rule.
 - **Verified:** `npm run check` (240 TypeScript tests, 157 engine and 73 server tests); the
-  conformance and integration tiers on the rig (below).
-- **Next:** measure frame time, start-up and memory against the baseline (R8.14), then Phase 10.
+  conformance tier (4); the integration tier on the rig (201 passed; the pointer-lock test fails on
+  macOS as before). Committed as ce064cc.
+
+## 2026-11-06: Measured (R8.14)
+
+- **How.** `tools/perf/measure.mjs` opens any build in Chromium, times every animation frame round
+  the page's own callbacks (so it needs nothing from the game but `__game.ready`), and reads the
+  heap after a garbage collection. Where the refactor started (beta d49c3b8, checked out and built
+  for production beside this branch's build) and this branch, three runs each, alternated, on the
+  Mac's Apple M4 at 1920 x 1080.
+- **What it found.** Start-up and frames are no worse (the island ready 19 ms sooner; 60 fps and a
+  16.8 ms 99th-percentile frame either way). Memory is a little up (the heap 1.3 MB, array buffers
+  12 MB: the engine's WebAssembly memory holds its own island). The page's work in a frame was 0.3
+  ms more, and timing an offline step's parts showed why: the rules take 3 microseconds, but the
+  engine built its 18 KB view of the step as JSON values before writing it out, 0.23 ms of a 0.28 ms
+  step.
+- **Fixed.** The view is written straight from the session's values (`Session::view_text`): a step
+  on the island costs 0.085 ms (3.3 times less), in the yard 0.031. Typed arrays in place of JSON
+  (R8.3's last open question) aren't needed.
+- **Also.** The Rust comments that described a TypeScript twin (some seventy places: "the
+  TypeScript would throw", "follows it line for line", "mirrors X in actor.ts") now say what the
+  Rust does, or where the page reads it. One rule still has a TypeScript copy for what the page shows: the skill
+  tree's fold (`src/content/skills.ts`), now R8.16.

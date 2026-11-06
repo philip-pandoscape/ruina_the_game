@@ -130,8 +130,8 @@ pub struct Player {
     pub cast_target_x: f64,
     pub cast_target_z: f64,
     pub fired_ability: u8, // the ability whose cast finished this frame, else NO_ABILITY
-    /// The movement skill that started this frame (the slide too), else NO_MOVEMENT: the
-    /// TypeScript's `action` event, which trains it in an open world.
+    /// The movement skill that started this frame (the slide too), else NO_MOVEMENT: the page's
+    /// `action` event, which trains it in an open world.
     pub started_action: u8,
     // ---- Open-world traversal (src/engine/shapes.ts). Always at rest on the battlefield. ----
     /// The trade pack on your back (an id in the life systems), 0 for none.
@@ -1042,7 +1042,7 @@ impl Player {
     }
 
     /// New skill levels (one per skills::book() entry). What the build does is worked out again
-    /// only if one actually changed, as the TypeScript's Sim.stats does. Nothing in progress is
+    /// only if one actually changed. Nothing in progress is
     /// dropped: a level only changes numbers.
     pub fn set_levels(&mut self, levels: &[u32]) {
         if same_levels(&self.levels, levels) {

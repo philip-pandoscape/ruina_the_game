@@ -1,6 +1,6 @@
-//! What pressing F does right now, and the commands everything else sends
-//! (src/engine/life/interact.ts). The focus is worked out from what is near you and in front of you,
-//! so the prompt on screen is always exactly what the next press will do.
+//! What pressing F does right now, and the commands everything else sends (their shapes for the page:
+//! src/engine/life/interact.ts and life.ts). The focus is worked out from what is near you and in
+//! front of you, so the prompt on screen is always exactly what the next press will do.
 
 use crate::jsmath::JsMath;
 use std::collections::BTreeSet;
@@ -537,7 +537,7 @@ pub fn find_focus(life: &mut Life, sim: &Sim) -> Option<Focus> {
             pick.consider(at("launch", format!("Launch the {}", design.name), None, true), score, 12.0);
             continue;
         }
-        // (A stage that isn't there is a ship the TypeScript can't show either.)
+        // (A stage that isn't there is a ship the page can't show either.)
         let Some(stage) = usize::try_from(b.stage).ok().and_then(|s| design.stages.get(s)) else { continue };
         let needs = ship_needs(b);
         if ship_stage_ready(b) {
@@ -590,7 +590,7 @@ pub fn find_focus(life: &mut Life, sim: &Sim) -> Option<Focus> {
         let (hx, hz, _) = house_pose(life, h);
         if !is_complete(h) {
             let bp = blueprint_def(&h.blueprint);
-            // (A stage that isn't there is a house the TypeScript can't show either.)
+            // (A stage that isn't there is a house the page can't show either.)
             let Some(stage) = usize::try_from(h.stage).ok().and_then(|s| bp.stages.get(s)) else { continue };
             let needs = still_needs(h);
             let site = |action: &str, label: String, detail: String, ok: bool| Focus {
@@ -904,7 +904,7 @@ fn store_or_take(life: &mut Life, store: bool, house: i64, item: &str, n: i64) {
         }
         life.take(item, n);
         let h = &mut life.state.houses[hi];
-        // (Saturating: a count no browser sends must not overflow; the TypeScript's are doubles.)
+        // (Saturating: a count no browser sends must not overflow.)
         match h.storage.iter_mut().find(|x| x.item == item) {
             Some(s) => s.n = s.n.saturating_add(n),
             None => h.storage.push(Stack { item: item.to_string(), n }),
@@ -1166,9 +1166,8 @@ pub fn keep_resting(life: &mut Life, sim: &mut Sim) {
     }
 }
 
-// The expected prompts, toasts and numbers here are what the TypeScript rules give for the same
-// steps on the same island. (Townsfolk, vehicles, packs, houses and the slipway need the modules
-// being ported alongside this one, so they are checked once everything is together.)
+// The expected prompts, toasts and numbers here are what the TypeScript copy of the rules gave for
+// the same steps on the same island, while there was one.
 #[cfg(test)]
 mod tests {
     use super::*;

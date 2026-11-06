@@ -196,8 +196,8 @@ mod tests {
     #[test]
     fn a_battle_plays_out_as_it_always_has() {
         // Combat between players, bots' brains and their moves, the battlefield's floor: a guard
-        // for the server's rules that have no TypeScript twin to be compared with (and for running
-        // them in parallel, which mustn't change a thing). If a rule changed on purpose, this is the
+        // for the server's own rules, which the engine's golden scenarios don't step (and for
+        // running them in parallel, which mustn't change a thing). If a rule changed on purpose, this is the
         // battle's new hash.
         let (ch, hash, arrows) = battle(400);
         assert_eq!(ch.bots.len(), 32);

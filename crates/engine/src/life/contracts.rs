@@ -1,4 +1,4 @@
-//! Trade contracts posted at the trading posts (src/engine/life/contracts.ts).
+//! Trade contracts posted at the trading posts (their shape for the page: src/engine/life/contracts.ts).
 //!
 //! Each trading post posts a couple of requests for specific packs ("three Flax Bales within 25
 //! minutes"). Take one on, fill it before it runs out, and the post pays bonus Charter Seals and
@@ -207,6 +207,6 @@ mod tests {
         contract_delivered(&mut life, "westwatch", "harvestCrate");
         assert!(life.state.contracts.is_none());
         assert!(!accept_contract(&mut life, 1));
-        assert_eq!(life.state.contracts, Some(ContractState::default()), "the TypeScript makes the board when you look at it");
+        assert_eq!(life.state.contracts, Some(ContractState::default()), "the board is made when you look at it");
     }
 }

@@ -1,6 +1,6 @@
 //! The browser's game (ruina_engine::session) through the plain interface: a page (or a test) makes
 //! a session, steps it once per fixed frame with what was pressed, and reads back you, the
-//! creatures, the island and what happened, as JSON in the TypeScript's shapes. Everything else the
+//! creatures, the island and what happened, as JSON in the shapes src/engine/ reads. Everything else the
 //! Engine does from outside the rules is one named call (`session_call`), so the interface stays
 //! small while what crosses it each frame stays cheap.
 
@@ -156,10 +156,10 @@ pub unsafe extern "C" fn session_take_island(h: u32, p: *const u8, n: usize) -> 
 }
 
 /// Everything the page reads after a step (`events` 1: with what happened, taken) or a call (0),
-/// as JSON (Session::view_json).
+/// as JSON (Session::view_text).
 #[unsafe(no_mangle)]
 pub extern "C" fn session_view(h: u32, events: u32) -> usize {
-    give(with(h, |s| s.view_json(events != 0).to_string()).unwrap_or_default())
+    give(with(h, |s| s.view_text(events != 0)).unwrap_or_default())
 }
 
 /// A number that changes whenever what's solid on the island changes (Session::solid_key).

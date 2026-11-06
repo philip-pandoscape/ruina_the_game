@@ -1,4 +1,5 @@
-//! Getting better (src/engine/life/progress.ts): the skills you use level up, and the tree grows with
+//! Getting better (the page reads it through src/engine/life/progress.ts): the skills you use level
+//! up, and the tree grows with
 //! what you've done.
 //!
 //! Experience. Each hit a weapon lands, each cast of an ability and each use of a movement skill

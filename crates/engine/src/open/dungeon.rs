@@ -1,6 +1,7 @@
 //! The island's dungeons and the developer zones (content/dungeons/<id>.json, built into
-//! shared/dungeons.json; docs/zones.md; src/engine/world/dungeons.ts is the browser's
-//! twin). Each party plays its own copy of one (crate::spaces). Inside, everything stands round a
+//! shared/dungeons.json; docs/zones.md; the page reads the files through
+//! src/engine/world/dungeons.ts). Each party plays its own copy of one (crate::spaces). Inside,
+//! everything stands round a
 //! spot high above the sea that nothing else in the world uses, and is solid only in a copy: a
 //! copy's OpenWorld gets the dungeon's boxes and decks, the channels never do.
 

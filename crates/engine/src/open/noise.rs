@@ -1,6 +1,7 @@
-//! The noise an island grows from (src/engine/world/terrain.ts): integer hashing rather than a random
-//! stream, so the same seed grows the same island in any language, and smooth value noise summed
-//! over octaves. Plain arithmetic in the TypeScript's order, so both give the same bits.
+//! The noise an island grows from: integer hashing rather than a random stream, so the same seed
+//! grows the same island in any language, and smooth value noise summed over octaves, in plain
+//! arithmetic. (src/engine/world/terrain.ts has the same hash and noise for the drawing's own
+//! scatter.)
 
 use crate::jsmath::{js_max, js_min};
 

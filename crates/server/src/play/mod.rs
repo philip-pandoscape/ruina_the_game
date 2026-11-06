@@ -6,8 +6,8 @@
 //! else in the channel is doing. Nothing a browser says about its own state is believed: it can
 //! only press keys and ask.
 //!
-//! The browser predicts its own player with the TypeScript twin of these rules and corrects itself
-//! to what arrives here (src/net/worldLink.ts, src/net/netPlayer.ts).
+//! The browser predicts its own player with these same rules (the engine, through its WebAssembly)
+//! and corrects itself to what arrives here (src/net/worldLink.ts, src/net/netPlayer.ts).
 
 use std::collections::{BTreeMap, HashMap};
 use std::time::{Duration, Instant};

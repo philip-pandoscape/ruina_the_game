@@ -1,4 +1,4 @@
-//! Houses on the plots at Hearthside Rise (src/engine/life/housing.ts).
+//! Houses on the plots at Hearthside Rise (the page reads them through src/engine/life/housing.ts).
 //!
 //! A blueprint claims an empty plot; then the house goes up a stage at a time as you haul each
 //! stage's material packs to the site - on your back or by cart - and put in the labor. Finished,
@@ -48,8 +48,8 @@ fn stage_of(stages: &'static [StageDef], stage: i64) -> Option<&'static StageDef
 
 /// The house's own position and facing in the world: (x, z, rot).
 pub fn house_pose(life: &Life, h: &House) -> (f64, f64, f64) {
-    // A house only ever stands on one of the zone's plots; one on a plot that has since gone
-    // (where the TypeScript would throw) stands at the origin.
+    // A house only ever stands on one of the zone's plots; one on a plot that has since gone stands
+    // at the origin.
     let (px, pz, rot) = plot_def(life, &h.plot).map_or((0.0, 0.0, 0.0), |p| (p.x, p.z, p.rot));
     let (ox, oz) = to_world(0.0, HOUSE_SETBACK, rot);
     (px + ox, pz + oz, rot)
@@ -69,7 +69,7 @@ pub fn stage_ready(h: &House) -> bool {
 }
 
 pub fn place_house(life: &mut Life, sim: &mut Sim, plot: &str, item: &str) -> bool {
-    // Only the zone's plots can be built on (the TypeScript would throw part way through).
+    // Only the zone's plots can be built on.
     if plot_def(life, plot).is_none() {
         return false;
     }
@@ -84,7 +84,7 @@ pub fn place_house(life: &mut Life, sim: &mut Sim, plot: &str, item: &str) -> bo
         life.toast("One house per settler on Emberholm (for now)", "bad");
         return false;
     }
-    // The blueprint the item places (its `places`). The TypeScript throws on one that doesn't exist.
+    // The blueprint the item places (its `places`), if there is one.
     let bp_id = item_def(item).places.as_deref().unwrap_or_default();
     if !has_blueprint(bp_id) {
         return false;

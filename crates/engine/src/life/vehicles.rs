@@ -1,11 +1,11 @@
-//! Carts, cars, boats and mounts (src/engine/life/vehicles.ts). Wheeled things keep their own world
+//! Carts, cars, boats and mounts (the page reads them through src/engine/life/vehicles.ts). Wheeled
+//! things keep their own world
 //! velocity and only grip the road sideways, so a handbrake turn really slides; boats sail on
 //! whatever wind is blowing and run aground in the shallows; mounts move like you do, faster, and
 //! turn like an animal does.
 //!
-//! The browser predicts its own rides with the TypeScript, so this follows it line for line: the
-//! same steps in the same order, with the arithmetic written the same way. The TypeScript hands
-//! vehicles around as objects; here they stay inside life.state and are named by id (or index).
+//! The browser predicts its own rides with these rules too, through the engine's WebAssembly.
+//! Vehicles stay inside life.state and are named by id (or index).
 
 use crate::jsmath::JsMath;
 use std::cmp::Ordering;
@@ -358,8 +358,7 @@ pub fn dismount(life: &mut Life, sim: &mut Sim) -> bool {
         return false;
     };
     let hf = sim.terrain();
-    // Step off on the left; failing that, any side with something to stand on. The TypeScript
-    // writes this search out again here; it is exitSpot's, try for try.
+    // Step off on the left; failing that, any side with something to stand on (exit_spot's search).
     let (x, y, z, dry) = exit_spot(sim, &life.state.vehicles[i]);
     let v = &mut life.state.vehicles[i];
     v.ridden = false;
@@ -505,8 +504,8 @@ pub fn ride_vehicle(life: &mut Life, sim: &mut Sim, a: &Actions) {
 
 pub fn step_vehicles(life: &mut Life, sim: &mut Sim, _a: &Actions) {
     let none = DriveInput { throttle: 0.0, steer: 0.0, handbrake: true, boost: false };
-    // The TypeScript walks the list as it was when the loop began: a boat breaking up swaps in a
-    // list without it, and the loop carries on through the old one, whose others are the same.
+    // The walk goes through the list as it was when the loop began: a boat breaking up leaves the
+    // list, and the loop carries on through the others as they were.
     let ids: Vec<i64> = life.state.vehicles.iter().map(|v| v.id).collect();
     for id in ids {
         let Some(i) = vehicle_index(life, id) else { continue };
@@ -797,9 +796,8 @@ fn boat(life: &mut Life, sim: &mut Sim, i: usize, d: &RideableDef, inp: &DriveIn
     }
 }
 
-/// The TypeScript stepBoat, on a boat taken off the list. True when the storm has broken it up:
-/// that is where the TypeScript calls breakUp, and what it does to the boat after that is lost
-/// with the boat.
+/// A boat's step, on a boat taken off the list. True when the storm has broken it up (the caller
+/// breaks it up), and what it does to the boat after that is lost with the boat.
 fn step_boat(life: &mut Life, sim: &Sim, v: &mut Vehicle, d: &RideableDef, inp: &DriveInput) -> bool {
     let dt = step_seconds();
     let hf = sim.terrain();
@@ -1079,7 +1077,7 @@ mod tests {
             f(&mut self.life, &mut sim)
         }
 
-        /// Frames as the TypeScript runs them: the ride with your controls, then the island's step.
+        /// Frames as the page runs them: the ride with your controls, then the island's step.
         fn frames(&mut self, n: usize, a: Actions) {
             for _ in 0..n {
                 self.with(|life, sim| {

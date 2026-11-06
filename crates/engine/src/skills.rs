@@ -1,9 +1,10 @@
 //! Skills, the tree they live in, the levels the ones you use gain, and the modifiers all of that
 //! applies.
 //!
-//! This mirrors src/content/skills.ts, and the two must agree exactly: the browser predicts with these
-//! numbers and this decides with them. That is why the fold below is in a fixed order rather than
-//! a convenient one, and why every sum is gathered before it is used.
+//! src/content/skills.ts works out the same numbers for what the page shows (the skill book, the aim
+//! circles, others' spells), so the two must agree exactly until the page reads these instead (the
+//! refactor's R8.16). That is why the fold below is in a fixed order rather than a convenient one,
+//! and why every sum is gathered before it is used.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::OnceLock;
@@ -403,7 +404,7 @@ pub fn same_levels(a: &[u32], b: &[u32]) -> bool {
 pub struct ResolvedSkills {
     pub weapon: Vec<Vec<Channel>>,  // [weapon][stat]
     pub ability: Vec<Vec<Channel>>, // [ability][stat]
-    /// [movement skill][stat] (`move` in the TypeScript).
+    /// [movement skill][stat] (`move` in the page's ResolvedSkills).
     pub moves: Vec<Vec<Channel>>,
     pub combos: BTreeSet<String>,
     pub weapons: Vec<u8>,

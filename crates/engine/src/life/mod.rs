@@ -116,8 +116,8 @@ pub enum Command {
     Warp {
         seconds: f64,
     },
-    /// The developer panel's teleport. Not an island command in the TypeScript (the browser just
-    /// moves you there); online only the server can, so the channel handles it before the island.
+    /// The developer panel's teleport. Offline the page moves you there itself; online only the
+    /// server can, so the channel handles it before the island.
     Teleport {
         x: f64,
         z: f64,
@@ -312,7 +312,7 @@ pub struct Life {
     /// True for the moment you are resting in your own bed.
     pub resting: bool,
     /// Plots other characters hold: plot id -> their name. A plot someone else holds can't be
-    /// claimed (the TypeScript's plotOwner).
+    /// claimed.
     pub plot_owners: BTreeMap<String, String>,
     /// Online: the world's clock (the server's, in seconds since 1970), set by the channel each
     /// tick, which the rain and the wind run on so that everyone has the same weather
@@ -416,7 +416,7 @@ impl Life {
         quests::notify_quests(self, &e);
     }
 
-    // ---------- The TypeScript's LifeHooks ----------
+    // ---------- What the player's step asks of the island ----------
 
     /// Steps the vehicle you are riding, with your controls.
     pub fn ride(&mut self, sim: &mut Sim, a: &Actions) {
@@ -466,8 +466,8 @@ impl Life {
         if sim.player.mode == Mode::Glide {
             self.state.stats.glide_seconds += dt;
         }
-        // The TypeScript also works out the focus here, for the prompt on screen; the server has
-        // no screen, and an interaction works it out afresh anyway.
+        // The focus, for the prompt on screen, is the page's session's to work out (crate::session);
+        // the server has no screen, and an interaction works it out afresh anyway.
     }
 
     pub fn regen_labor(&mut self, seconds: f64, resting: bool, offline: bool) {
@@ -478,7 +478,7 @@ impl Life {
 
     // ---------- Randomness: the island's own stream, saved with it ----------
 
-    /// mulberry32, exactly as the TypeScript's rand().
+    /// mulberry32 on the island's own seed.
     pub fn rand(&mut self) -> f64 {
         crate::rng::mulberry32(&mut self.state.rng)
     }

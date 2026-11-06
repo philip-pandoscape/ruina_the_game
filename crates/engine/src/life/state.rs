@@ -1,7 +1,7 @@
-//! Everything the open-world systems remember (src/engine/life/state.ts): money, labor, the bag,
-//! every trade pack, summoned vehicles, farms, houses, demand at the trading posts, quests and
-//! weather. The JSON is the same as the TypeScript's, field for field, so the islands already kept
-//! in Postgres load as they are and the browser reads what the server sends without translation.
+//! Everything the open-world systems remember: money, labor, the bag, every trade pack, summoned
+//! vehicles, farms, houses, demand at the trading posts, quests and weather. Its JSON is the page's
+//! LifeState (src/engine/life/state.ts) field for field, so the islands kept in Postgres load as they
+//! are and the browser reads what the server sends without translation.
 
 use std::collections::BTreeMap;
 

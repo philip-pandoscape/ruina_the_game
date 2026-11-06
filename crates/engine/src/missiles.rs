@@ -1,4 +1,4 @@
-//! What creatures throw and shoot, in flight (src/engine/actors/missiles.ts, step for step): aimed
+//! What creatures throw and shoot, in flight (the page draws them from the session's view): aimed
 //! where the foe is going as much as the attack leads, lobbed to come down on them, hitting the
 //! first foe whose body it passes through unless they are in a dodge's untouchable frames, and
 //! landing where it meets the ground.

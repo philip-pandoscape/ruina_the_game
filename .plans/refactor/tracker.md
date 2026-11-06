@@ -12,8 +12,7 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
 - **Phase:** 8 (one copy of the rules: the browser plays on the engine's) and 10 (one world: its
   foundations, decided 2026-11-06, D16-D19), with 9's rest beside them; 7, 11 and 12 done.
 - **Next:**
-  1. Measure (R8.14).
-  2. Phase 10's foundations, in order:
+  1. Phase 10's foundations, in order:
      - R10.14 the words;
      - R10.15 spaces;
      - R10.1 and R10.16 the world as data and the world map;
@@ -27,6 +26,7 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
      - R10.23 the client;
      - R10.24 proof at scale;
      - R10.25 the guide.
+  2. Phase 9's rest (R9.5, R9.9, the partials), R8.16, R6.11b and R6.14 beside them.
   3. Phase 13 and the merge.
 
   The multi-server version follows the merge (`.plans/world/`).
@@ -577,8 +577,10 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
   Begun (see R8.5): the session's interface (`crates/engine-wasm/src/session.rs`, `src/engine/session.ts`):
   a step takes the actions as numbers (the six buttons as bits); you, the creatures, what happened and
   the island come back as JSON in the TypeScript's shapes; every other write the Engine makes is one
-  named call (`session_call`). Left: what each frame reads as typed arrays rather than JSON, if R8.14
-  shows JSON costs a frame anything; `docs/engine.md`.
+  named call (`session_call`). Left: `docs/engine.md`. Typed arrays rather than JSON aren't needed:
+  R8.14 found the JSON was most of an offline step only while it was built as JSON values first;
+  written straight from the session's values, the 18 KB view costs 0.04 ms to write and 0.04 ms to
+  parse.
 - [x] **R8.3b** The rules' calls back into JavaScript become inputs and outputs: the world clock
   (read every step today, replays included; set once per step instead), `othersVehicles` and
   `othersAround` (set per frame), `plotOwner` (set on change), `remote` (commands returned after the
@@ -737,8 +739,34 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
   island's Life, the ground's integration), and `src/sim/` is gone. Outside code comes in by seven
   front doors (`tests/unit/boundaries.test.ts`), the comments say which Rust runs each rule, and
   `src/engine/AGENTS.md` says so.
-- [ ] **R8.14** Measure against the baseline: frame time, start-up, memory. Log it. (The download's
+- [x] **R8.14** Measure against the baseline: frame time, start-up, memory. Log it. (The download's
   size dropped, D15.)
+  Done: `tools/perf/measure.mjs` measures any build the same way (start-up to the first frame once
+  the game is ready; each frame's length and the page's own work in it, timed round its
+  animation-frame callbacks; the JavaScript heap and the memory behind array buffers after a
+  garbage collection). Where the refactor started (beta d49c3b8) against this branch, both built for
+  production, on the Mac (Apple M4, Chromium with Metal, 1920 x 1080), three runs each, alternated,
+  medians; the island offline at medium quality (the Mac's own) and high, and the yard:
+  - **Start-up:** the island ready in 621 ms against 640 (the engine grows it in its WebAssembly),
+    the yard in 144 against 121.
+  - **Frames:** 60 fps either way, the 99th-percentile frame 16.8 ms either way.
+  - **The page's work in a frame** was 0.3 ms more (island 3.37 ms against 3.02, yard 1.48 against
+    1.21): nearly all of it the engine writing its view of the step as JSON values first (0.23 of a
+    0.28 ms step; the rules themselves take 0.003). Written straight from the session's values, a
+    step costs 0.085 ms on the island and 0.031 in the yard (timed in Node, part by part).
+  - **The integration tier** on the change: 175 of 180 passed while another checkout's suite ran
+    beside it (load 92); the five that failed pass alone.
+  - **Memory:** the JavaScript heap 1.3 MB more on the island (22.5 MB), and 12 MB more behind
+    array buffers (155 MB: the engine's WebAssembly memory, which holds its own island beside the
+    page's copy for drawing).
+  Online was measured in R8.7-R8.9 (a step 0.03 ms); the old online client needs the old server, so
+  it isn't compared here.
+- [ ] **R8.16** The skill tree's numbers from the engine: the page still works out what a build's
+  skills make of its attacks and spells in TypeScript (`resolveSkills`, `gather` and the fold in
+  `src/content/skills.ts`) for what it shows (`engine.sim.stats`: the skill book, the aim circles,
+  others' spells online), a second copy of `crates/engine/src/skills.rs`'s fold. The session's view
+  should carry the engine's (when the build or the levels change) and the TypeScript fold go.
+  Found while R8.13's comments were rewritten.
 - [x] **R8.15** `crates/engine/AGENTS.md`: determinism rules, adding a system, testing it.
   Done (33bf4ea): `crates/engine/AGENTS.md`.
 
@@ -1178,7 +1206,8 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
 | 2026-11-06 | R8.13 | The check programs and the conformance specs that held the TypeScript rules to the Rust go; the docs say the rules are one copy; the battlefield spec's fighters leave through its way out | 39e253b |
 | 2026-11-06 | R8.13 | The bible explains the rules from the engine's Rust (a background agent, merged) | 5c0fd0c, dae2724 |
 | 2026-11-06 | R8.13 | The unit tests that drove the TypeScript rules drive the engine; the engine takes content at run time | 94ed5c6 |
-| 2026-11-06 | R8.13, R8.12 | `src/sim/` gone: what the page reads in `src/engine/` (`shapes.ts`, `world/`, `life/`, `actors/`), behind seven front doors | (this commit) |
+| 2026-11-06 | R8.13, R8.12 | `src/sim/` gone: what the page reads in `src/engine/` (`shapes.ts`, `world/`, `life/`, `actors/`), behind seven front doors | ce064cc |
+| 2026-11-06 | R8.14 | Measured against where the refactor started (`tools/perf/measure.mjs`); the engine's view written straight from its values, a step 3.3 times cheaper; the Rust's comments name no TypeScript twin | (this commit) |
 | 2026-11-06 | R9.14 | `docs/content.md` | 5e23680 |
 | 2026-11-06 | R10.10, R11.1, R11.2, R11.7, R11.8 | Snapshot to move machines: the battle server's Rust gone; the asset manifest, loader and first-download budget, `docs/assets.md` | a975617 |
 | 2026-11-06 | R6.10, R6.11, R6.8 | The client's moves: creature bodies into src/render/creatures/, the root files to their areas, the library under src/dev/ | 9317ff3, 5de387d, 81df3de |
