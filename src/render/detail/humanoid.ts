@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { ABILITIES, JUMP, MOVE, MOVEMENT_SKILLS, comboShape, type AttackStep } from '../../tuning';
+import { ABILITIES, JUMP, MOVE, MOVEMENT_SKILLS, WEAPONS, comboShape, type AttackStep } from '../../tuning';
 import type { DetailRig } from './rig';
 import type { PoseFeedback, PoseInput } from '../../content/pose';
 import { Body, SIDES, bump, clamp, clamp01, easeIn, easeInOut, easeOut, lerp, smooth, span, type Side } from './body';
@@ -393,7 +393,6 @@ function captured(m: Motion, joint: string, phase: number, run: number, weight: 
 
 // ---------- what the hands carry ----------
 
-const WEAPON_NAMES = ['sword', 'club', 'staff', 'bow'];
 const _up = new THREE.Vector3(0, 1, 0);
 const _drawDir = new THREE.Vector3();
 const _hilt = new THREE.Vector3();
@@ -413,7 +412,7 @@ const _qTurn = new THREE.Quaternion();
 function holdWeapon(b: Body, p: PoseInput, g: Gait): void {
   const u = clamp01(p.stow);
   if (u <= 0) return holdArmed(b, p, g);
-  const name = WEAPON_NAMES[p.weapon] ?? 'sword';
+  const name = WEAPONS[p.weapon]?.name ?? 'sword';
   const st = stowedFor(b.rig.def)[name];
   const s = DRAWING_HAND[name] ?? 'R';
   const free = b.save(b.buf(6));

@@ -72,7 +72,11 @@ export interface AttackStep {
 }
 
 export interface Weapon {
+  /** The weapon's id (sword, club, staff, bow): skills and saved builds name it by this. */
   name: string;
+  /** What players read. */
+  title: string;
+  icon: string;
   tags: string[];
   combo: AttackStep[];
   // Structural alternatives a skill can unlock, swapping one step of the combo for another.

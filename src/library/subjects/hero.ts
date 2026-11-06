@@ -19,7 +19,6 @@ import type { AnimDef, Bone, FrameInfo, Options, Phase, Posable, Snapshot, Sourc
 // (madeHero.ts); ?look=classic shows the box hero.
 
 const STEP = 1 / 60;
-const WEAPON_NAMES = ['Sword', 'Club', 'Staff', 'Bow'];
 
 /** Hero's private parts the library needs to show a kept frame again. */
 interface HeroInside {
@@ -422,11 +421,11 @@ export const heroSubject: Subject = {
       id: 'weapon',
       label: 'Weapon',
       value: '0',
-      choices: WEAPON_NAMES.map((n, i) => ({ value: String(i), label: n })),
+      choices: WEAPONS.map((w, i) => ({ value: String(i), label: w.title })),
     },
   ],
   anims(): AnimDef[] {
-    return SCENARIOS.map((s) => ({ id: s.id, label: s.label, group: s.group, frames: s.frames, fps: 60, loop: true, note: s.weapon !== undefined ? WEAPON_NAMES[s.weapon] : undefined }));
+    return SCENARIOS.map((s) => ({ id: s.id, label: s.label, group: s.group, frames: s.frames, fps: 60, loop: true, note: s.weapon !== undefined ? WEAPONS[s.weapon]?.title : undefined }));
   },
   async ready() {
     await (madeHeroNow() ? Promise.resolve() : madeHero()?.catch(() => null));

@@ -44,6 +44,8 @@
   "weapons": [
     {
       "name": "sword",
+      "title": "Sword",
+      "icon": "🗡️",
       "tags": [
         "melee",
         "attack",
@@ -117,6 +119,8 @@
     },
     {
       "name": "club",
+      "title": "Club",
+      "icon": "🔨",
       "tags": [
         "melee",
         "attack",
@@ -155,6 +159,8 @@
     },
     {
       "name": "staff",
+      "title": "Staff",
+      "icon": "🪄",
       "tags": [
         "melee",
         "attack",
@@ -179,6 +185,8 @@
     },
     {
       "name": "bow",
+      "title": "Bow",
+      "icon": "🏹",
       "tags": [
         "ranged",
         "attack",
