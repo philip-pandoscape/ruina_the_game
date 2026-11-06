@@ -1,7 +1,6 @@
 {
   "$schema": "https://unpkg.com/knip@5/schema.json",
   "entry": [
-    "src/main.ts",
     "src/library/main.ts",
     "src/render/detail/animations.ts",
     "src/render/detail/harness.ts",
@@ -20,9 +19,6 @@
     "design/**/*.ts",
     "tests/**/*.ts",
     "tools/**/*.{mjs,ts}"
-  ],
-  "ignore": [
-    "tools/refactor/moves-lib.d.mts"
   ],
   "ignoreExportsUsedInFile": true,
   "ignoreBinaries": [
