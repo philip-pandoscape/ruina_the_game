@@ -9,10 +9,29 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
 
 ## Now
 
-- **Phase:** 6 (the client in areas) and 8 (one copy of the rules), with 7, 11 and 12 done or
-  nearly, and 9 and 10 mostly landed beside them. The old battle server is gone (R10.9, R10.10).
-- **Next:** Phase 8: the Engine answers from the engine's session (R8.7-R8.9), the page reading
-  snapshots; next deleting `src/sim/` (R8.13) and measuring (R8.14); then crowds at scale (R10.8).
+- **Phase:** 8 (one copy of the rules: the browser plays on the engine's) and 10 (one world: its
+  foundations, decided 2026-11-06, D16-D19), with 9's rest beside them; 7, 11 and 12 done.
+- **Next:**
+  1. Delete `src/sim/` (R8.13). Its read side moves into `src/engine/` under the world's words
+     (R10.14).
+  2. Measure (R8.14).
+  3. Phase 10's foundations, in order:
+     - R10.14 the words;
+     - R10.15 spaces;
+     - R10.1 and R10.16 the world as data and the world map;
+     - R10.17 ids and the clock;
+     - R10.18 the tick that splits;
+     - R10.19 borders;
+     - R10.20 the server's tiers;
+     - R10.21 land and the ledger;
+     - R10.8 the wire;
+     - R10.2 and R10.22 hosting and channels;
+     - R10.23 the client;
+     - R10.24 proof at scale;
+     - R10.25 the guide.
+  4. Phase 13 and the merge.
+
+  The multi-server version follows the merge (`.plans/world/`).
 - **How:** one session does the work, with at most one sub-agent beside it, on Opus 5.5 at max
   effort, in a worktree of its own (the user's call on 2026-11-06: three at once used tokens too
   fast; one is allowed). It did the mini-games (R9.11, R8.11) and the UI gallery (R6.9).
@@ -691,6 +710,11 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
 - [ ] **R8.12** Road routing (`zone/roads.ts`, `zone/localPath.ts`, TS-only, browser-only) reads the
   island through the bridge; it stays TypeScript unless the server needs it.
 - [ ] **R8.13** Delete `src/sim/`, the check programs and the conformance specs.
+  What the page still reads (the shapes of the rules' state, the ground's sampling, the island's read
+  helpers, the roads) moves into `src/engine/` under the world's words (R10.14): no new "island"
+  names. The unit tests that drive the TypeScript rules move to the engine: through an `Engine`, or
+  as Rust tests beside the rules they test. `newContent.test.ts` needs the engine to take content
+  bundles at run time. The bible reads the engine's Rust source rather than `src/sim/`.
 - [ ] **R8.14** Measure against the baseline: frame time, start-up, memory. Log it. (The download's
   size dropped, D15.)
 - [x] **R8.15** `crates/engine/AGENTS.md`: determinism rules, adding a system, testing it.
@@ -753,9 +777,28 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
   Done (5e23680): `docs/content.md`, with what still needs code listed by the task that makes it
   data.
 
-## Phase 10: Zones, Developer Zones and Bots
+## Phase 10: One World: Regions, Channels, Instances and Bots
 
-**How (2026-11-06):** the developer zones ride on the dungeon copies, which already do what they
+**How (one world, decided 2026-11-06: D16-D19; the research is `.plans/world/research.md`):** the
+main world is one seamless world of regions defined by data, meeting across sea or land.
+
+This phase lays its foundations in one process: every boundary a multi-server world needs, crossed
+by in-process calls. The multi-server version comes after the merge (gateways, region processes, a
+directory of leases, an instance pool, large-scale PvP, hosting at scale), and it then changes
+transports, not designs.
+
+- **Borders are fixed:** each region is owned by one simulation. Ghosts and a two-phase handoff make
+  the borders seamless.
+- **Crowds:** an overcrowded region opens another channel, placing players by party, friends and
+  guild.
+- **Land:** houses, farms and plots (scarce and contested, as in ArcheAge) are the same in every
+  channel.
+- **Splitting a region's own area** waits until content needs it. The 256 m chunk is the unit of
+  authority, so it can come without a rewrite.
+
+The order is in Now, above.
+
+**How (developer zones, 2026-11-06):** the developer zones ride on the dungeon copies, which already do what they
 need: a place of its own, solid and drawn only there, players moved in and out mid-connection,
 saved as standing outside. The yard and the battlefield become places like Goblin's Dread's
 grotto (floors and walls round an origin, spawns), flagged `developer` (admins only, entered from
@@ -765,11 +808,19 @@ without a socket whose inputs a brain fills each tick (the engine's `bots`), sho
 peers marked as bots. Today's battle server, its loop and the `?server=`, `?yard`, `?raid` pages go
 once these stand. The island's generator for any zone (R10.1) waits for its port to Rust (R8.6).
 
-- [ ] **R10.1** A zone is a content folder (`content/zones/<id>/`): its recipe or layout, spawns, rules
-  flags (PvP, developer, instanced), ways in and out. The engine loads any zone; the generator builds
-  any recipe (after R9.10).
-- [ ] **R10.2** The server hosts any zone as channels and copies (today's `spaces.rs` handles channels
-  and dungeon copies: generalized), with travel between zones and where each character is saved.
+- [ ] **R10.1** The world is data.
+  - **The world:** `content/world.json` places regions on a grid of 256 m chunks (Emberholm is 6 × 6
+    round the origin).
+  - **Regions:** a region is a folder, `content/regions/<id>/` (from `content/zones/emberholm`): its
+    recipe, places, plots, nodes, outposts and the rest.
+  - **Instances:** an instance (a dungeon or developer zone) is a file, `content/instances/<id>.json`
+    (from `content/dungeons/`): its spawns, bots, ways in and out, and its flags (developer, shared).
+  - **Ids:** unique across the world, checked by contentc. That covers plots, places, and nodes, which
+    get a stable id rather than their index.
+  - **The engine** loads any region and any instance.
+- [ ] **R10.2** The server hosts the world and its instances: a simulation for each region channel
+  and each instance copy, found by id (no `emberholm()` outside tests). Players travel between them,
+  and every character is saved with its space.
 - [x] **R10.3** Developer zones: a `developer` flag; only admins may enter (the server checks); the
   admin menu lists them from the zone list.
   Done: the server's half (acaf9b5); the Admin window's zone buttons (8d1722f); the Admin menu lists
@@ -797,9 +848,16 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
   The server's half (acaf9b5): one copy for every admin, sixteen skirmishers a side, in with the first
   admin and gone with the last. The browser's arena (157e823). The old battle server's removal is
   R10.10.
-- [ ] **R10.8** Crowds at scale in every zone: the interest grid (each client is sent what's near it,
-  far things coarser), compact snapshots for many entities, players and bots stepped in parallel
-  (`rayon`). Measured: server tick time and bandwidth for N bots.
+- [ ] **R10.8** The wire for crowds.
+  - **Interest:** each client is sent only what's near it, on 32 m cells, in near, mid and far tiers.
+    The design comes from the old battle server's `interest.rs` (`git show 04da4b6`).
+  - **Encoding:** compact binary records with deltas against what the client acknowledged, priority
+    accumulators, and a byte budget per client. Entities go by per-connection handles, and positions
+    as i32 centimetres.
+  - **Who builds what:** the simulation packs the records once per cell and tick; the gate assembles
+    them for each client.
+  - **Drawing:** far players are drawn by the crowd renderer.
+  - **Measured:** server tick time and bandwidth for N bots, against the baseline.
   Measured before (2026-11-06, `scratch/stress-battlefield-before.json`): 32 bots, a tick 1.09 ms,
   an update 22.3 KB, 53 fps, the 95th-percentile frame 33.3 ms; 64 bots, 2.43 ms, 42.9 KB, 58 fps,
   16.8 ms. Far peers drawn by the crowd renderer (R10.9's last part) go with it.
@@ -818,17 +876,135 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
   and `--virtual-clients` flags and `loadtest` are gone. Left: `world.rs`'s battlefield layout (used
   only by tests now; its `World` is the spawn point the player rules respawn at) and the offline
   `?yard`/`?test` yard, which R10.11 replaces.
-- [ ] **R10.11** Offline: the browser's engine runs any zone locally for tests and development (one
-  option for tests in place of `?yard`/`?test`/`?world&test`).
+- [ ] **R10.11** Offline: the browser's engine runs any region or instance locally, for tests and
+  development (one option for tests in place of `?yard`/`?test`/`?world&test`).
 - [~] **R10.12** Tests: unit (zone loading, bot brains); integration (an admin enters the yard and the
   battlefield from the menu, a player is refused, the battlefield starts and stops with an admin
   inside); stress (thousands of bots in the battlefield: frame time, tick time, bandwidth).
   Rust: zones load, stand where players may go and apart, have ways out; bots' brains; copies,
   admins, bots coming and going, spawns, zone to zone. Integration (`admin.spec.ts`): the battlefield
   from the world, the yard from character select, the goblin camp from the Admin window, a player kept
-  out. The stress test is left (R10.8).
+  out. The stress test is left (R10.24).
 - [x] **R10.13** `docs/zones.md`: adding a zone, a developer zone, bots.
   Done (777949b).
+- [ ] **R10.14** The words.
+  - **World:** the one open world.
+  - **Region:** a world zone.
+  - **Instance:** a closed zone, a dungeon or developer zone.
+  - **Channel:** a copy of a region, opened for crowds.
+  - **Copy:** a copy of an instance, for a party.
+  - **Space:** the world, or one copy of an instance.
+  - **Chunk:** 256 m, the unit of authority.
+  - **Cell:** 32 m, the unit of interest.
+  - **Land:** what's built and planted in the world, shared by a region's channels.
+  - **Life:** a character's own state (bag, coins, quests, skills, labor).
+
+  "Island" leaves the code, the wire and the docs (`IslandView`, `takeIsland`, `islandData`,
+  `Saved`, and `characters.island` by a migration). Each name changes as its area is touched, and the
+  bible and the design pages say the same.
+- [ ] **R10.15** Spaces.
+  - Every position the server, the browser or a save keeps carries its space.
+  - Each instance has a frame of its own: its world is built from its file, not from pieces added
+    high in Emberholm's sky. That means `open/dungeon.rs`, `OpenWorld::make_dungeon`,
+    `ChannelGame::copy` and the browser's dungeon visit.
+  - The "within 760 m, apart from the others" rule goes.
+- [ ] **R10.16** The world map in the engine.
+  - **Queries:** height, surface, water and colliders are answered across regions, by chunk.
+  - **Growing:** a region is grown from its recipe when it's first needed, and dropped when it no
+    longer is. The server grows its own chunks and a band round them; the browser grows what's near
+    the player.
+  - **Borders:** neighbours across land meet with no seam; their recipes share edge constraints and
+    blend across a band. Wherever no region stands is sea.
+  - **The rules:** `Life` and the player rules take the world, not one zone.
+  - **A fixture world for the tests:** Emberholm, a region across a land border, and one across the
+    sea.
+- [ ] **R10.17** Ids and the clock.
+  - **Ids:** global 64-bit entity ids (a kind and an id) in the engine and the server.
+    - Characters keep their database id.
+    - Placed things get theirs from a database sequence.
+    - Creatures are numbered by spawn and generation.
+    - On the wire, each connection has u16 handles, so `character as u32` goes.
+  - **The clock:** ticks are numbered from a world epoch at 60 Hz, and given to the engine as an
+    input, as the world clock already is.
+- [ ] **R10.18** The tick that splits.
+  - **The rule:** within a step, an entity reads others only as they stood at its start, and affects
+    them only through events applied at the next step.
+  - **Already so:** vehicles, and player hits and heals.
+  - **To join them:** creature hits in `swing_actors`, slams, area effects, ride-alongs, and the
+    island's interactions between players.
+  - **What it buys:** stepping order stops mattering, so players, creatures and bots step in parallel
+    by cell (`rayon`) with the same result.
+  - **History:** everything that can be hit keeps the position history that lag compensation
+    rewinds.
+- [ ] **R10.19** Borders, in one process.
+  - **Ownership:** a simulation owns its chunks.
+  - **Ghosts:** neighbours exchange read-only copies of what's within about 120 m of the border, every
+    tick.
+  - **Handoff:** authority passes 24-32 m past the border, in two phases with an epoch; inputs are
+    re-routed by sequence number.
+  - **Across the border:** hits, heals and effects are events checked against the ghost's history, so
+    PvP across a border works as it does anywhere.
+  - **Vehicles** cross with their passengers and cargo as one unit.
+  - **Creatures** stay leashed to their region.
+
+  Proved two ways: Emberholm split into two simulations matches one simulation bit for bit (a golden
+  test), and the fixture world's borders are crossed on foot, by cart with a passenger, by boat and by
+  glider.
+- [ ] **R10.20** The server's tiers, in one process.
+  - **`crates/world-api`** holds the messages and ids, with no I/O:
+    - inputs with sequence numbers, and commands;
+    - records per cell, and private state;
+    - ghosts, handoffs, and events across borders;
+    - fenced writes, and ledger transfers.
+  - **`crates/server`** splits along those messages, joined by channels:
+    - **gate:** connections, sign-in, handles, interest and budgets, encoding;
+    - **sim:** region channels, instance copies, borders;
+    - **store:** fenced writes, land, plots, the ledger;
+    - **social:** parties now; friends and guilds later;
+    - **directory:** which simulation owns which chunks and channels, with leases and epochs in a
+      table (one simulation today).
+  - **Threads:** a thread per simulation.
+  - **Shared state:** nothing one tier needs lives only in another's memory: parties, who plays where,
+    mini-game tables.
+- [ ] **R10.21** Land and the ledger.
+  - **Land:** what's built and planted (houses, farms, ships on slips, things left on the ground,
+    parked vehicles) moves into tables of its own.
+    - Each row is keyed by world, space and chunk, with an owner and an epoch.
+    - One authority per region changes it, and every channel shows it.
+  - **Plots:** the database holds them, one claim per plot in the world, first come. They're
+    contested: taxes fall due, and neglected houses are demolished, freeing the land. This replaces
+    channels' residents and their eight plots.
+  - **The ledger:** trades, purchases, payouts and pots are idempotent transfers, each in one
+    transaction.
+  - **Shared state:** what the world shares (the time of day, each region's weather, trading posts'
+    demand) is kept in one place.
+  - **Saves:** a character's own life is saved when it changes, and existing saves are migrated.
+- [ ] **R10.22** Channels on their own.
+  - **Opening and merging:** a region runs as channels. Another opens when the region passes its soft
+    cap, and a quiet one merges.
+  - **Placement:** players are placed by affinity: party first, then friends, guild and language as
+    the social tier learns them. A party is kept together.
+  - **Land:** the same in every channel.
+  - **Changing channel:** not while carrying a pack, not in combat, and not more than once in a few
+    minutes.
+
+  Played with bots in one process: a crowd fills a region, a channel opens, parties stay together, and
+  a quiet channel merges.
+- [ ] **R10.23** The client in a big world.
+  - **Regions:** grown in a Web Worker ahead of you, and dropped behind you.
+  - **Precision:** the scene's origin moves with you, keeping the world-space shaders (`ground.ts`,
+    `water.ts`) precise.
+  - **Assets:** fetched by region (`src/assets/catalog.ts`).
+  - **The map:** shows the world's regions.
+
+  Crossing a border loads nothing.
+- [ ] **R10.24** Proof at scale.
+  - **Stress tier:** thousands of bots fight, cross borders and crowd regions on the world server,
+    measured against R10.8's baseline (tick time, bandwidth, frame time).
+  - **Failure tests, in one process:** a simulation stopped mid-handoff, a message delivered twice, a
+    lease lost. Nothing is duplicated or lost.
+- [ ] **R10.25** `docs/world.md`, in place of `docs/zones.md`: the world, regions, instances, channels,
+  borders and land, and how to add a region or an instance.
 
 ## Phase 11: Assets
 
@@ -976,6 +1152,7 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
 | 2026-11-06 | R8.5 | The shadow in the page; the whole integration tier played with it; the prediction's -0 fixed; the design bible loads the engine | 2e4fc44 |
 | 2026-11-06 | R8.7, R8.8, R8.9 | The switch: the Engine answers from the engine's session (you, the creatures, the yard, the island), the page reading snapshots; the shadow gone with what it compared | 8ea8ece |
 | 2026-11-06 | R9.11, R8.11, R6.9 | Mini-games from their files with the engine's rules on the board; the UI gallery (a background agent, merged) | 0e918b8, dabea21, f9517ba |
+| 2026-11-06 | D16-D19, Phase 10 | One world: seamless regions with fixed borders, channels opened by crowding, contested land; the research (`.plans/world/research.md`) and the plan revised for the foundations | (this commit) |
 | 2026-11-06 | R9.14 | `docs/content.md` | 5e23680 |
 | 2026-11-06 | R10.10, R11.1, R11.2, R11.7, R11.8 | Snapshot to move machines: the battle server's Rust gone; the asset manifest, loader and first-download budget, `docs/assets.md` | a975617 |
 | 2026-11-06 | R6.10, R6.11, R6.8 | The client's moves: creature bodies into src/render/creatures/, the root files to their areas, the library under src/dev/ | 9317ff3, 5de387d, 81df3de |

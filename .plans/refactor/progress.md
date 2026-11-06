@@ -19,7 +19,7 @@ is in [tracker.md](tracker.md), the plan in [README.md](README.md).
 | 7 Content in Folders | done |
 | 8 One Copy of the Rules | in progress: the browser plays on the engine's rules (the switch is done); deleting the TypeScript copy is next |
 | 9 Content as Data, Finished | half done: mini-games from their files; builds by id, wire indexes, weapons, abilities and looks from data to go |
-| 10 Zones, Developer Zones and Bots | zones done, the old battle server gone; crowds at scale to go |
+| 10 One World: Regions, Channels, Instances and Bots | developer zones and bots done, the old battle server gone; the world's foundations planned (D16-D19) and next |
 | 11 Assets | done; the browser's download work dropped (D15) |
 | 12 The Design Bible as a Knowledge Base | done |
 | 13 AGENTS.md, the Docs and the Merge | to do |
@@ -398,3 +398,42 @@ the developer zone; then the engine bridge (R6.4) and Phase 8's switches.
 - **Next:** delete `src/sim/` (9,668 lines, R8.13), keeping only what the page reads as views
   (types, the ground's sampling, the roads, the island's read helpers), and the conformance checks
   with it; then measure frame time, start-up and memory against the baseline (R8.14).
+
+## 2026-11-06: One World
+
+- **The question.** Ruina's main world is to be one seamless open world made of regions defined by
+  data, with Emberholm as the first. The code had grown round one zone: `emberholm()` everywhere,
+  saves and placed things with no zone, the word "island" for both the region and a character's
+  state. The user asked how the world grows, at up to 100,000 players on one world.
+- **The research** (`.plans/world/research.md`, about 75 sources, the key ones checked by hand):
+  - **Nobody runs 100,000 players in one undivided space.** The big worlds split twice: by area
+    (New World's grid of hubs at 2,500 a world, EVE's systems, Albion's clusters) and by crowd (WoW's
+    layers, Guild Wars 2's megaserver, Black Desert's channels).
+  - **Splitting a region automatically by load has a poor recent record.** Star Citizen's shards
+    still run a set number of servers (August 2026).
+  - **At scale, bandwidth costs more than CPU.** Sending each player only what's near them, in compact
+    binary, is the biggest single win.
+- **Decided (D16-D19):**
+  - **The world:** one seamless world of regions, meeting across sea or land, and massive.
+  - **Splitting it:** fixed borders, with regions placed on servers automatically.
+  - **Crowds:** an overcrowded region opens another channel, grouping players by friends, party and
+    guild.
+  - **Housing:** plots in the shared open world, scarce and contested, as in ArcheAge.
+  - **Scope:** the foundations in this refactor; the multi-server version after the merge, with
+    large-scale PvP and hosting at scale, on foundations that need no second refactor.
+- **The plan.** Phase 10 became One World, and is next after `src/sim/` goes (R8.13). It builds, in
+  one process:
+  - the world's words, and spaces for instances;
+  - regions placed on a world map by data;
+  - global ids and a world clock;
+  - a tick in which order doesn't matter;
+  - borders with ghosts and handoff, proved by Emberholm split into two simulations matching one bit
+    for bit;
+  - the server in tiers (gate, simulations, store, social, directory);
+  - land, plots and a ledger in the database;
+  - the wire for crowds;
+  - channels that open and merge by affinity;
+  - the client in a big world;
+  - a proof with thousands of bots.
+- **Merged on the way:** the switch (8ea8ece) and the sub-agent's mini-games and UI gallery (31657d3).
+

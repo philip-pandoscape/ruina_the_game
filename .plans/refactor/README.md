@@ -85,12 +85,16 @@ The repository after the refactor:
 ```text
 crates/                 Rust workspace (Cargo.toml at the root)
   engine/               the rules, one copy: movement, traversal, combat, skills, creatures and
-                        their AI, life systems, mini-game rules, the island's generator, content
-                        types and loading. Deterministic. Built natively and for WebAssembly
-  engine-wasm/          the browser's way into the engine (wasm-bindgen), thin
-  server/               the game server: net/ (HTTP, sockets, protocol), db/ (accounts,
-                        characters, islands, migrations), world/ (channels, dungeon copies,
-                        parties, interest), battle/ (the PvP battlefield), admin/
+                        their AI, life systems, mini-game rules, the world map and its regions'
+                        generator, content types and loading. Deterministic. Built natively and
+                        for WebAssembly
+  engine-wasm/          the browser's way into the engine, thin
+  world-api/            the messages between the server's tiers, ids and ticks (no I/O)
+  server/               the game server in tiers, one process until the multi-server plan:
+                        gate/ (connections, sign-in, interest, encoding), sim/ (regions'
+                        channels, instances' copies, borders), store/ (accounts, characters,
+                        land, plots, the ledger, migrations), social/ (parties; later friends
+                        and guilds), directory/ (which simulation runs what), admin/
   tools/                balance, loadtest, contentc (content compiler)
 content/                every piece of game data (today's shared/), a folder per kind and a
                         file or folder per thing; JSON Schemas generated from the engine's types
@@ -98,7 +102,7 @@ src/                    the browser client (TypeScript)
   app/                  start-up, modes (title, world, yard, battlefield), the loop, URL options, test API
   engine/               the bridge to the engine (WebAssembly) and the types it generates
   net/                  the world connection, prediction, other players, monster timelines
-  render/               three.js: the island, bodies, models, creatures, effects, the look
+  render/               three.js: the world, bodies, models, creatures, effects, the look
   ui/                   components (windows, tabs, slots, menus) and the windows built on them
   input/                keyboard, mouse, controller
   assets/               the asset manifest and loader (streaming, caching)
@@ -134,6 +138,31 @@ flowchart TB
   dev[src/dev] --> app
   net <-- WebSocket --> server
 ```
+
+### One World
+
+Decided on 2026-11-06 (D16-D19), after the research in
+[`.plans/world/research.md`](../world/research.md).
+
+The main world is one seamless open world made of regions defined by data. Emberholm is the first
+region. Regions meet across sea or land, and crossing a border loads nothing. Dungeons and the
+developer zones are instances, played in copies.
+
+The aim is up to 100,000 players on one world. No single process can carry that, so the world is
+split twice:
+- **By area.** Each region is owned by one simulation. Neighbours keep read-only ghosts of what
+  stands near their shared border, and hand authority over as things cross. A gateway keeps each
+  player's connection while the simulation behind it changes. Regions are placed on servers
+  automatically.
+- **By crowd.** A region past its soft cap opens another channel (a copy of itself), placing players
+  by party, friends and guild, and closes it again when quiet. The land is the same in every
+  channel: houses, farms, and plots that are scarce and contested, as in ArcheAge.
+
+This refactor lays the foundations in one process (Phase 10): every boundary a multi-server world
+needs, crossed by in-process calls. The multi-server version comes after the merge, and with it
+large-scale PvP and hosting at scale; it then changes transports, not designs. Splitting a region's
+own area under load comes last, and only if sieges or world bosses need it. The 256 m chunk is the
+unit of authority, so that split can come without a rewrite.
 
 ## How We Work
 
@@ -470,34 +499,71 @@ Size: large. The full list of what lives in code is in [inventory/content.md](in
 
 Done when the content guide's recipe for each kind lists data files only.
 
-## Phase 10: Zones, Developer Zones and Bots
+## Phase 10: One World: Regions, Channels, Instances and Bots
 
-Size: large. Decided in the review: the yard and the battlefield become developer zones that only
-the admin menu reaches, with no server code that exists just for them, and bots become a core part
-of the engine that any zone can use.
+Size: very large.
+- **Decided in the review:** the yard and the battlefield become developer zones that only the admin
+  menu reaches, with no server code just for them, and bots become a core part of the engine. Both
+  are done.
+- **Decided on 2026-11-06 (D16-D19,
+  [`.plans/world/research.md`](../world/research.md)):** the main world is one seamless world of
+  regions, and this phase lays its foundations in one process. Going multi-server after the merge
+  then changes transports, not designs.
 
-- **A zone is data.** Emberholm, each dungeon, the training yard and the battlefield are zones in
-  `content/zones/`, run by the same engine and hosted by the same server code (channels and copies,
-  as dungeons are today). The yard's dummy, targets and creatures are its zone's spawns.
-- **Developer zones** are zones marked for admins: only the admin menu offers them, and the server
-  refuses anyone else. The `?yard`, `?raid` and `?server=` modes go, with the battlefield's own
-  server loop, socket, protocol, interest code and bots (~1,900 lines on the server) and the client's
-  battle and raid paths (~1,100).
-- **Bots are players driven by a brain.** A bot produces the same inputs and commands a player's
-  keyboard does, so it obeys every rule players obey. A zone's data can spawn them (how many, which
-  sides, which brain). The battlefield spawns armies of them; later, bots can share any zone with
-  players.
-- **The battlefield runs only while an admin is inside it** (decided): the first admin to enter starts
-  it and its bots; when the last admin leaves, it stops.
-- **Crowds at scale in every zone**, because real raids need it: the battlefield's interest grid
-  (each player is sent only what's near) and compact snapshots move into the world server for all
-  zones, and players and bots step in parallel.
-- **Offline play and tests:** the browser's engine can run any zone locally, so the yard's and the
-  island's tests still need no server, and the raid stress test becomes the battlefield zone with N
-  bots, locally or on the server.
+The parts:
+- **The world is data.**
+  - `content/world.json` places regions on a grid of 256 m chunks.
+  - Each region (`content/regions/<id>/`, from today's `content/zones/emberholm`) grows from its
+    recipe where it stands. It meets its neighbours across sea or land with no seam.
+  - Instances (`content/instances/`, today's dungeons and developer zones) have frames of their own.
+  - The engine answers the ground across regions, growing each one when it's needed.
+- **The words.** World, region, instance, channel (a copy of a region), copy (of an instance), space,
+  chunk, cell, land (what's built and planted, shared by a region's channels), and life (a character's
+  own state). "Island" leaves the code.
+- **A tick that splits.** Within a step, everything reads others only as they stood at its start,
+  and affects them only through events applied at the next step. So:
+  - stepping order doesn't matter;
+  - players and creatures step in parallel;
+  - a region split between simulations steps as one.
+- **Borders:**
+  - ghosts;
+  - a two-phase handoff with epochs;
+  - hits across a border as events checked against history, so PvP across a border works as it does
+    anywhere;
+  - vehicles crossing with their passengers.
 
-Done when the yard and the battlefield are content folders, the server has no code only they use,
-and the stress tier fights thousands of bots in the battlefield zone.
+  Emberholm split into two simulations in one process matches one simulation bit for bit.
+- **The server in tiers.** A gate (connections, interest, encoding), simulations, a store, social
+  services and a directory, joined by the message types of a new `crates/world-api`. All in one
+  process for now, with global ids, a world clock and a thread per simulation.
+- **Land, plots and a ledger, in the database:**
+  - houses and farms are keyed by where they stand;
+  - each plot is claimed once in the world, first come, and contested (taxes, neglected houses
+    demolished);
+  - trades and payouts are one idempotent transaction;
+  - a character's own life is saved when it changes.
+- **Crowds.**
+  - Each client is sent only what's near it, in compact binary deltas within a byte budget.
+  - A region past its soft cap opens a channel, placing players by party, friends and guild, and
+    merges it again when quiet.
+- **The client in a big world.**
+  - Regions grow in a worker ahead of you and are dropped behind you.
+  - The scene's origin moves with you.
+  - Assets are fetched by region.
+- **Bots** (done) stand in for crowds: thousands of them cross, fight and fill channels in the stress
+  tier.
+
+Done when:
+- a fixture world of three regions (Emberholm, a neighbour across land, one across the sea) is
+  crossed on foot, by cart with a passenger, by boat and by glider, with nothing loading;
+- the server runs that world as several simulations in one process;
+- Emberholm split in two matches one simulation bit for bit;
+- land, plots and the ledger are the database's;
+- channels open and merge by affinity under bots;
+- nothing in the server assumes one region, one process or one side;
+- the stress tier fights thousands of bots.
+
+The multi-server version follows the merge (`.plans/world/`).
 
 ## Phase 11: Assets
 
@@ -566,6 +632,7 @@ passes. Then the branch merges into `beta`.
 | Native and WebAssembly maths differ | `libm` everywhere in the engine, enforced by clippy, plus the bit-for-bit determinism test |
 | Saved builds break when content moves | Saves move to ids in one migration, tested on copies of real saves |
 | The refactor never ends | Phases are independent landings, each valuable alone; the tracker shows what's left |
+| The world's foundations make the refactor much longer | They are what spares the game a second refactor; each lands on its own with its tests; the multi-server work stays out until after the merge |
 | Sessions lose the thread over a long run | This folder holds everything needed to resume: the plan, the tracker, the inventory, the decisions |
 
 ## Decisions
@@ -590,3 +657,7 @@ Settled with you; filled in from the review.
 | D13 | Old branches and worktrees | Tidied (F10) |
 | D14 | The design bible | Becomes a knowledge base anyone can read: every system and every thing, exactly, numbers from the game's own data (review, Phase 11 comment) |
 | D15 | The browser's download | The client will be packaged as a desktop app later (not in this refactor), so work only to keep a browser's download small is out: the service worker (R11.4), KTX2 textures (R11.5), the first-download budget test (R11.7) and the download's size in R8.14's measurements (2026-11-06) |
+| D16 | The main world | One seamless open world of regions defined by data (Emberholm the first), meeting across sea or land, and massive; dungeons and developer zones are instances (2026-11-06) |
+| D17 | Splitting the world | Fixed borders: each region simulated by one process, seamless handoff across them, regions placed on servers automatically; an overcrowded region opens another channel automatically, grouping players by friends, party and guild; splitting a region's own area waits until content needs it (2026-11-06) |
+| D18 | Housing | Plots in the shared open world, as in ArcheAge: scarce and contested, the same in every channel (2026-11-06) |
+| D19 | Scope | The foundations in this refactor (Phase 10, in one process); the multi-server version after the merge, with large-scale PvP and hosting at scale, on foundations that need no second refactor (2026-11-06) |
