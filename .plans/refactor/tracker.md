@@ -37,9 +37,10 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
   (R8.13's part); then saved builds by id with the bundle's hash on the wire (R9.1, R9.2); now looks
   from data (R9.9).
 - **Races under load (the Mac, four workers):** these lose a race now and then and pass alone:
-  `online.spec.ts:50`, `:109`, `:258`, `:617`, `party.spec.ts:121`, `combat.spec.ts:185`; and
+  `online.spec.ts:50`, `:109`, `:258`, `:617`, `combat.spec.ts:185`; and
   `game.spec.ts:43` and `dungeon-way-in.spec.ts:50` when Vite reloads the page at the start of a run
-  as it optimizes its dependencies. To look at with R1.11. The battlefield's `Cleave hits both` and
+  as it optimizes its dependencies. To look at with R1.11. `party.spec.ts:121`'s was a real one: a tick
+  from the copy you'd left, heard just before the move, put you back in it (fixed, the feed forgets it). The battlefield's `Cleave hits both` and
   `battlefield.spec.ts:375` weren't races: the battlefield takes 20 and keeps a player who has left
   for a minute, so the spec's fresh fighters filled it a few tests in. They leave through its way out
   now, and the spec passes whole.
@@ -902,7 +903,7 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
   id (a save's old ones, kept by their place in the list, are dropped as it's taken up: the spot is
   simply back); contentc holds every placed thing's id (places, townsfolk, workbenches, outposts,
   house plots, gathering spots, dungeon doors, slipways) to one thing in the whole world.
-  Folders (this commit): a region is `content/regions/<id>.json`, its recipe, and the folder beside
+  Folders (622138a): a region is `content/regions/<id>.json`, its recipe, and the folder beside
   it, `content/regions/<id>/` (from `content/zones/`), built into `shared/regions/<id>.json`; an
   instance is `content/instances/<id>.json` (from `content/dungeons/`), built into
   `shared/instances.json`, with its spawns, bots, way in (`arrive`) and out (`exit`) and its flags
@@ -1296,7 +1297,7 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
 | 2026-11-06 | R10.16 | Borders: the ground blended across them, regions meeting vertex for vertex and the open sea sloping to meet them; walked across a land border | 86e96b5 |
 | 2026-11-06 | R10.16, R10.1 | The rules take the world: what's near you from the space you're in, what's found by id from the whole world; gathering spots by id | ca6cfc2 |
 | 2026-11-06 | R10.15 | Instances in spaces of their own: a dungeon or developer zone played round its own origin over nothing, in place of the world, by the server and the browser | 55f53b3 |
-| 2026-11-06 | R10.1, R10.14 | The content's regions and instances: `content/regions/` and `content/instances/`, a region's doors, every region's ids checked; the bible's Regions | (this commit) |
+| 2026-11-06 | R10.1, R10.14 | The content's regions and instances: `content/regions/` and `content/instances/`, a region's doors, every region's ids checked; the bible's Regions | 622138a |
 | 2026-11-06 | R9.14 | `docs/content.md` | 5e23680 |
 | 2026-11-06 | R10.10, R11.1, R11.2, R11.7, R11.8 | Snapshot to move machines: the battle server's Rust gone; the asset manifest, loader and first-download budget, `docs/assets.md` | a975617 |
 | 2026-11-06 | R6.10, R6.11, R6.8 | The client's moves: creature bodies into src/render/creatures/, the root files to their areas, the library under src/dev/ | 9317ff3, 5de387d, 81df3de |
