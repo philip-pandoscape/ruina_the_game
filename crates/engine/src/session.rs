@@ -546,7 +546,7 @@ impl Session {
             farming::add_scarecrow_collider(&mut sim, &sc);
         }
         for h in life.state.houses.clone() {
-            housing::add_house_colliders(life, &mut sim, &h);
+            housing::add_house_colliders(&mut sim, &h);
         }
         // Time away.
         let saved_at = data.get("savedAt").and_then(Value::as_f64).unwrap_or(now);
@@ -679,8 +679,8 @@ impl Session {
     /// A house solid here as it is on the server: yours, or someone else's where you see it (their
     /// houses come with ids of their own, so they're never taken for yours).
     pub fn add_solid_house(&mut self, h: &House) {
-        let (Some(life), Ground::Open(world)) = (self.life.as_ref(), &mut self.ground) else { return };
-        housing::add_house_colliders(life, &mut Sim { player: &mut self.player, world, owner: 0 }, h);
+        let Ground::Open(world) = &mut self.ground else { return };
+        housing::add_house_colliders(&mut Sim { player: &mut self.player, world, owner: 0 }, h);
     }
 
     /// A scarecrow's post solid, and the ground round it tilled, as on the server.

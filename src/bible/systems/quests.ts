@@ -21,7 +21,7 @@ const RULE = {
   talk: () =>
     sourceNumber(
       interactSource,
-      /for n in &zone\.recipe\.npcs \{\s*let d = js_hypot\(n\.x - px, n\.z - pz\);\s*if d > (\d+(?:\.\d+)?) \{/,
+      /for n in here\.recipes\(\)\.flat_map\(\|r\| &r\.npcs\) \{\s*let d = js_hypot\(n\.x - px, n\.z - pz\);\s*if d > (\d+(?:\.\d+)?) \{/,
       'how near a person you talk to them',
     ),
 };

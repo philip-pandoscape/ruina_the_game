@@ -173,7 +173,7 @@ export class LifeView {
   villager(id: string): THREE.Object3D | null {
     return this.villagers.find((v) => v.id === id)?.holder ?? null;
   }
-  private nodes: Array<{ root: THREE.Object3D; i: number } | null> = [];
+  private nodes: Array<{ root: THREE.Object3D; id: string } | null> = [];
   private ghost: THREE.Mesh;
   private gliderModel: { root: THREE.Object3D; animate?: (dt: number, s: { bank: number; pitch: number; speed: number }) => void } | null = null;
   private gliderShown = '';
@@ -227,15 +227,15 @@ export class LifeView {
     const hf = life.zone.gen.terrain;
     // Resource nodes (they vanish while picked clean).
     if (!this.others)
-      life.zone.recipe.nodes.forEach((nd, i) => {
+      for (const nd of life.zone.recipe.nodes) {
         const built = tryBuild(models.buildStructure ? () => models.buildStructure!(nd.kind) : null);
         const def = structureDef(nd.kind);
         const root = built?.root ?? box(def.w, def.h, def.d, 0x8d8a85);
         root.position.set(nd.x, hf.height(nd.x, nd.z), nd.z);
         root.rotation.y = nd.rot;
         this.group.add(root);
-        this.nodes.push({ root, i });
-      });
+        this.nodes.push({ root, id: nd.id });
+      }
     // Townsfolk with their own looks (content/npcs/<id>.json `look`), standing at their posts.
     for (const n of this.others ? [] : life.zone.recipe.npcs) {
       const m = tryBuild(models.buildVillager ? () => models.buildVillager!(n.look) : null);
@@ -712,9 +712,9 @@ export class LifeView {
         this.houseKey = key;
         this.rebuildHouses();
       }
-      for (const n of this.nodes) if (n) n.root.visible = nodeReady(life, n.i);
+      for (const n of this.nodes) if (n) n.root.visible = nodeReady(life, n.id);
     }
-    if (life.state.clock % 1 < dt) for (const n of this.nodes) if (n) n.root.visible = nodeReady(life, n.i);
+    if (life.state.clock % 1 < dt) for (const n of this.nodes) if (n) n.root.visible = nodeReady(life, n.id);
 
     // Townsfolk turn to face you when you come close, and gesture while you talk.
     const hp = this.hero.root.position;

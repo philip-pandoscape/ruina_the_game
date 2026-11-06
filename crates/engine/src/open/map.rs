@@ -69,6 +69,13 @@ pub struct Region {
     raw: OnceLock<Heightfield>,
 }
 
+impl Region {
+    /// What the region is: its places, people, plots and spots, as its recipe says, grown or not.
+    pub fn recipe(&self) -> &Recipe {
+        &self.recipe
+    }
+}
+
 /// Whose ground: a region's, by its place in the map, or the open sea's (None).
 type Owner = Option<usize>;
 
@@ -122,6 +129,11 @@ impl WorldMap {
 
     pub fn regions(&self) -> &[Region] {
         &self.regions
+    }
+
+    /// Every region's recipe: the places, people, plots and spots in this world, wherever they are.
+    pub fn recipes(&self) -> impl Iterator<Item = &Recipe> {
+        self.regions.iter().map(Region::recipe)
     }
 
     pub fn region(&self, id: &str) -> Option<&Region> {

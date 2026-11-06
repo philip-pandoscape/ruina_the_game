@@ -52,7 +52,7 @@ export const trade = system({
     );
     const talkReach = sourceNumber(
       interactSource,
-      /for n in &zone\.recipe\.npcs \{\s*let d = js_hypot\(n\.x - px, n\.z - pz\);\s*if d > ([\d.]+) \{/,
+      /for n in here\.recipes\(\)\.flat_map\(\|r\| &r\.npcs\) \{\s*let d = js_hypot\(n\.x - px, n\.z - pz\);\s*if d > ([\d.]+) \{/,
       'how close to a trader you must be',
     );
     const tradePacks = PACKS.filter(isTrade);

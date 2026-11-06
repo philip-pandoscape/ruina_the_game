@@ -145,6 +145,9 @@ function world(b) {
   const out = [];
   if (!(w.blend >= 0 && w.blend <= w.chunk / 2)) out.push(`content/world.json: blend is ${w.blend}, where it's from 0 to half a chunk (${w.chunk / 2})`);
   const taken = new Map();
+  // Things in the world found by id (a gathering spot's time to come back is kept by its id): one id,
+  // one thing, whichever region it's in.
+  const named = new Map();
   let cell;
   for (const r of w.regions ?? []) {
     const where = `content/world.json: ${r.id}`;
@@ -168,6 +171,17 @@ function world(b) {
       out.push(`${where}: its grid is ${size} m a side (cells times cell), where its chunks are ${cw * w.chunk} by ${cd * w.chunk} m`);
     if (ox !== mid[0] || oz !== mid[1]) out.push(`${where}: its terrain's origin is (${ox}, ${oz}), where the middle of its chunks is (${mid[0]}, ${mid[1]})`);
     if (t.water !== w.sea?.level) out.push(`${where}: its sea level is ${t.water}, the world's ${w.sea?.level}`);
+    for (const list of ['places', 'npcs', 'workbenches', 'outposts', 'housePlots', 'nodes', 'dungeons', 'shipyards']) {
+      for (const [i, thing] of (zone[list] ?? []).entries()) {
+        if (typeof thing.id !== 'string' || !thing.id || /^\d+$/.test(thing.id)) {
+          out.push(`${where}: ${list}[${i}] has no id (a name, not a number)`);
+          continue;
+        }
+        const key = `${list}:${thing.id}`;
+        if (named.has(key)) out.push(`${where}: ${list} ${thing.id} is ${named.get(key)}'s too: an id is one thing in the whole world`);
+        named.set(key, r.id);
+      }
+    }
     cell ??= t.cell;
     if (t.cell !== cell || !Number.isInteger(w.chunk / t.cell))
       out.push(`${where}: its cell is ${t.cell} m, where every region's is ${cell} m, a whole number of them to a ${w.chunk} m chunk`);

@@ -29,7 +29,7 @@ export const contracts = system({
   body: () => {
     const reach = sourceNumber(
       interactSource,
-      /post\.is_some_and\(\|post\| near_npc\(life, sim, &post\.npc, ([\d.]+)\)\)/,
+      /post\.is_some_and\(\|post\| near_npc\(sim, &post\.npc, ([\d.]+)\)\)/,
       'how close to a trader you must be to take a contract',
     );
     const [lo, hi] = CONTRACTS.count;

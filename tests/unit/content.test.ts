@@ -107,3 +107,16 @@ test('a region the world puts where its grid is not, or on another region, fails
     }),
   ).toContain("blend is 200, where it's from 0 to half a chunk");
 });
+
+test('every gathering spot has an id, and an id is one thing in the whole world', () => {
+  expect(
+    broken('zones/emberholm/nodes.json', (nodes) => {
+      delete nodes[0].id;
+    }),
+  ).toContain('emberholm: nodes[0] has no id');
+  expect(
+    broken('zones/emberholm/nodes.json', (nodes) => {
+      nodes[1].id = nodes[0].id;
+    }),
+  ).toMatch(/emberholm: nodes \S+ is emberholm's too/);
+});

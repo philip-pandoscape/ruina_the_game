@@ -14,8 +14,9 @@ use super::{Life, LifeEvent, QuestEvent};
 use crate::open::Sim;
 use crate::open::zone::Shipyard;
 
-pub fn slip_def(life: &Life, slip: &str) -> Option<&'static Shipyard> {
-    life.zone.recipe.shipyards.iter().find(|s| s.id == slip)
+/// The slipway `slip`, wherever in the world it is.
+pub fn slip_def(slip: &str) -> Option<&'static Shipyard> {
+    crate::open::map::world_map().recipes().flat_map(|r| &r.shipyards).find(|s| s.id == slip)
 }
 
 /// Index of the ship on this slipway in life.state.ships, if any.
@@ -97,7 +98,7 @@ pub fn build_ship_stage(life: &mut Life, ship: i64) -> bool {
     life.revision += 1;
     let b = &life.state.ships[si];
     let (id, now, finished) = (b.id, b.stage, ship_finished(b));
-    if let Some(slip) = slip_def(life, &b.slip) {
+    if let Some(slip) = slip_def(&b.slip) {
         life.emit(LifeEvent::Build { house: id, stage: now, x: slip.x, z: slip.z });
     }
     life.notify(QuestEvent::new("shipStage"));

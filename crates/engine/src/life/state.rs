@@ -248,7 +248,7 @@ pub struct LifeState {
     pub buyback: Option<Vec<Buyback>>,
     /// Demand multiplier per "outpost:pack".
     pub demand: BTreeMap<String, f64>,
-    /// Gathering nodes on cooldown: node index -> world clock when it is back.
+    /// Gathering spots resting: the spot's id -> the island's clock when it is back.
     pub nodes: BTreeMap<String, f64>,
     pub quests: Quests,
     /// Experience of each skill in the skill book, by its id (crate::life::progress). An island

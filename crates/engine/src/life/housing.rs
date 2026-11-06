@@ -27,8 +27,9 @@ pub struct Need {
     pub have: i64,
 }
 
-pub fn plot_def(life: &Life, plot: &str) -> Option<&'static HousePlot> {
-    life.zone.recipe.house_plots.iter().find(|p| p.id == plot)
+/// The house plot `plot`, wherever in the world it is.
+pub fn plot_def(plot: &str) -> Option<&'static HousePlot> {
+    crate::open::map::world_map().recipes().flat_map(|r| &r.house_plots).find(|p| p.id == plot)
 }
 
 /// Index of the house on this plot in life.state.houses, if any.
@@ -47,10 +48,10 @@ fn stage_of(stages: &'static [StageDef], stage: i64) -> Option<&'static StageDef
 }
 
 /// The house's own position and facing in the world: (x, z, rot).
-pub fn house_pose(life: &Life, h: &House) -> (f64, f64, f64) {
+pub fn house_pose(h: &House) -> (f64, f64, f64) {
     // A house only ever stands on one of the zone's plots; one on a plot that has since gone stands
     // at the origin.
-    let (px, pz, rot) = plot_def(life, &h.plot).map_or((0.0, 0.0, 0.0), |p| (p.x, p.z, p.rot));
+    let (px, pz, rot) = plot_def(&h.plot).map_or((0.0, 0.0, 0.0), |p| (p.x, p.z, p.rot));
     let (ox, oz) = to_world(0.0, HOUSE_SETBACK, rot);
     (px + ox, pz + oz, rot)
 }
@@ -70,7 +71,7 @@ pub fn stage_ready(h: &House) -> bool {
 
 pub fn place_house(life: &mut Life, sim: &mut Sim, plot: &str, item: &str) -> bool {
     // Only the zone's plots can be built on.
-    if plot_def(life, plot).is_none() {
+    if plot_def(plot).is_none() {
         return false;
     }
     if house_on(life, plot).is_some() {
@@ -105,7 +106,7 @@ pub fn place_house(life: &mut Life, sim: &mut Sim, plot: &str, item: &str) -> bo
         tax_paid_until,
     });
     let i = life.state.houses.len() - 1;
-    add_house_colliders(life, sim, &life.state.houses[i]);
+    add_house_colliders(sim, &life.state.houses[i]);
     life.revision += 1;
     let first = bp.stages.first().map(|s| s.name.to_lowercase()).unwrap_or_default();
     life.toast(format!("📜 Plot claimed! Haul the {first} materials here to begin."), "quest");
@@ -147,10 +148,10 @@ pub fn build_stage(life: &mut Life, sim: &mut Sim, house: i64) -> bool {
     h.stage += 1;
     h.delivered = BTreeMap::new();
     life.state.stats.built += 1.0;
-    add_house_colliders(life, sim, &life.state.houses[hi]);
+    add_house_colliders(sim, &life.state.houses[hi]);
     life.revision += 1;
     let h = &life.state.houses[hi];
-    let (x, z, _) = house_pose(life, h);
+    let (x, z, _) = house_pose(h);
     let (id, now, complete) = (h.id, h.stage, is_complete(h));
     life.emit(LifeEvent::Build { house: id, stage: now, x, z });
     life.notify(QuestEvent::new("buildStage"));
@@ -167,10 +168,10 @@ pub fn build_stage(life: &mut Life, sim: &mut Sim, house: i64) -> bool {
 /// floor from the foundation up, the walls (with their doorway) once they are raised. The world is
 /// shared by a channel and house ids are only unique per character, so pieces are remembered in
 /// `sim.world.added` under the owner's id as well as the house's.
-pub fn add_house_colliders(life: &Life, sim: &mut Sim, h: &House) {
+pub fn add_house_colliders(sim: &mut Sim, h: &House) {
     let hf = sim.terrain();
     let def = structure_def(&blueprint_def(&h.blueprint).structure);
-    let (px, pz, rot) = house_pose(life, h);
+    let (px, pz, rot) = house_pose(h);
     let y = hf.height(px, pz);
     let owner = sim.owner;
     let key = |what: &str| format!("{owner}:{}:{what}", h.id);
@@ -221,10 +222,10 @@ pub fn add_house_colliders(life: &Life, sim: &mut Sim, h: &House) {
 }
 
 /// A point inside the house ("bed", "chest") in world space: (x, z).
-pub fn interior_point(life: &Life, h: &House, what: &str) -> (f64, f64) {
+pub fn interior_point(h: &House, what: &str) -> (f64, f64) {
     let def = structure_def(&blueprint_def(&h.blueprint).structure);
     let p = def.interior.as_ref().and_then(|spots| spots.get(what)).copied().unwrap_or(Spot { x: 0.0, z: 0.0 });
-    let (x, z, rot) = house_pose(life, h);
+    let (x, z, rot) = house_pose(h);
     let (ox, oz) = to_world(p.x, p.z, rot);
     (x + ox, z + oz)
 }
@@ -286,7 +287,7 @@ mod tests {
         assert_eq!(toasts(&mut life), ["📜 Plot claimed! Haul the foundation materials here to begin."]);
         // The ground is cleared at once; nothing is solid yet.
         let grid = sim.world.grid();
-        let (x, z, _) = house_pose(&life, &h);
+        let (x, z, _) = house_pose(&h);
         let (i, j) = grid.cell_of(x, z);
         let cell = j as usize * grid.cells + i as usize;
         assert_eq!(sim.world.clear[cell], 1);
@@ -326,7 +327,7 @@ mod tests {
         assert!(events.contains(&LifeEvent::Build { house: h.id, stage: 1, x, z }));
         assert!(events.contains(&LifeEvent::Toast { text: "🔨 Foundation done. Next: Frame.".into(), kind: "good".into() }));
         // Asking again adds nothing.
-        add_house_colliders(&life, &mut sim, &life.state.houses[0].clone());
+        add_house_colliders(&mut sim, &life.state.houses[0].clone());
         assert_eq!(sim.world.index.decks.len(), decks + 1);
         // Frame, walls (and their five pieces), roof.
         for pack in ["lumberBundle", "lumberBundle"] {
@@ -369,9 +370,9 @@ mod tests {
         assert_eq!(mine.state.houses[0].id, theirs.state.houses[0].id);
         mine.state.houses[0].stage = 3;
         theirs.state.houses[0].stage = 3;
-        add_house_colliders(&mine, &mut Sim { player: &mut p, world: &mut world, owner: 1 }, &mine.state.houses[0]);
-        add_house_colliders(&theirs, &mut Sim { player: &mut q, world: &mut world, owner: 2 }, &theirs.state.houses[0]);
-        add_house_colliders(&theirs, &mut Sim { player: &mut q, world: &mut world, owner: 2 }, &theirs.state.houses[0]);
+        add_house_colliders(&mut Sim { player: &mut p, world: &mut world, owner: 1 }, &mine.state.houses[0]);
+        add_house_colliders(&mut Sim { player: &mut q, world: &mut world, owner: 2 }, &theirs.state.houses[0]);
+        add_house_colliders(&mut Sim { player: &mut q, world: &mut world, owner: 2 }, &theirs.state.houses[0]);
         assert_eq!((world.index.decks.len(), world.index.boxes.len()), (decks + 2, boxes + 10));
     }
 
@@ -383,11 +384,11 @@ mod tests {
         assert!(place_house(&mut life, &mut sim, "rise-5", "blueprint.cottage"));
         let h = life.state.houses[0].clone();
         // rise-5 faces +Z (rot 0): local points are world offsets from the house.
-        let plot = plot_def(&life, "rise-5").unwrap();
-        assert_eq!(house_pose(&life, &h), (plot.x, plot.z - 2.5, 0.0));
+        let plot = plot_def("rise-5").unwrap();
+        assert_eq!(house_pose(&h), (plot.x, plot.z - 2.5, 0.0));
         let bed = structure_def("cottage").interior.as_ref().unwrap()["bed"];
-        assert_eq!(interior_point(&life, &h, "bed"), (plot.x + bed.x, plot.z - 2.5 + bed.z));
-        assert_eq!(interior_point(&life, &h, "nowhere"), (plot.x, plot.z - 2.5));
+        assert_eq!(interior_point(&h, "bed"), (plot.x + bed.x, plot.z - 2.5 + bed.z));
+        assert_eq!(interior_point(&h, "nowhere"), (plot.x, plot.z - 2.5));
         life.state.clock = 3.0 * DAY;
         assert_eq!(tax_due(&life, &h), (350.0, 4.0 * DAY));
         toasts(&mut life);

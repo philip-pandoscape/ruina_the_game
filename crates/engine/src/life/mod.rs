@@ -248,8 +248,9 @@ pub struct Focus {
     pub sc: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cell: Option<i64>,
+    /// The gathering spot it's at, by id.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub node: Option<i64>,
+    pub node: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub plot: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -376,6 +377,10 @@ impl Life {
     /// Replaces the whole state (loading a saved island), filling in what an older one lacks.
     pub fn load(&mut self, mut state: LifeState) {
         state.version = LIFE_VERSION;
+        // Gathering spots were kept by their place in the island's list before they had ids: those,
+        // and any spot the world no longer has, are simply back.
+        let world = crate::open::map::world_map();
+        state.nodes.retain(|id, _| world.recipes().any(|r| r.nodes.iter().any(|n| n.id == *id)));
         self.state = state;
         self.revision += 1;
         quests::start_quests(self);

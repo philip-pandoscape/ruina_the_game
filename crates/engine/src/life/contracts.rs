@@ -34,8 +34,8 @@ fn refresh(life: &mut Life, c: &mut ContractState) {
         return;
     }
     c.next_refresh = now + cfg.refresh_seconds;
-    let zone = life.zone;
-    for o in &zone.recipe.outposts {
+    // Every trading post in the world takes contracts, wherever you are.
+    for o in crate::open::map::world_map().recipes().flat_map(|r| &r.outposts) {
         let options = wanted(&o.id);
         while c.offered.iter().filter(|k| k.outpost == o.id).count() < cfg.per_outpost && !options.is_empty() {
             let pack = options[(life.rand() * options.len() as f64).floor() as usize];

@@ -28,17 +28,19 @@ use super::{Command, Focus, Life, LifeEvent, Placement, QuestEvent};
 use crate::jsmath::{js_hypot, js_max, js_min, js_round};
 use crate::open::Sim;
 use crate::open::dungeon::dungeon;
+use crate::open::map::{WorldMap, world_map};
 use crate::open::traverse::{close_glider, glider_blocked, gust, open_glider};
-use crate::open::zone::{Outpost, Zone, to_local};
+use crate::open::zone::{Outpost, to_local};
 use crate::player::Mode;
 
-fn outpost_of(life: &Life, npc: &str) -> Option<&'static Outpost> {
-    let zone: &'static Zone = life.zone;
-    zone.recipe.outposts.iter().find(|o| o.npc == npc)
+/// The trading post `npc` keeps, wherever in the world it is.
+fn outpost_of(npc: &str) -> Option<&'static Outpost> {
+    world_map().recipes().flat_map(|r| &r.outposts).find(|o| o.npc == npc)
 }
 
-pub fn node_ready(life: &Life, i: usize) -> bool {
-    life.state.nodes.get(&i.to_string()).copied().unwrap_or(0.0) <= life.state.clock
+/// Whether the gathering spot `id` has come back since it was last picked clean.
+pub fn node_ready(life: &Life, id: &str) -> bool {
+    life.state.nodes.get(id).copied().unwrap_or(0.0) <= life.state.clock
 }
 
 /// Seconds left on something, as "1m 20s".
@@ -199,7 +201,8 @@ pub fn find_focus(life: &mut Life, sim: &Sim) -> Option<Focus> {
     }
 
     let life: &Life = life;
-    let zone: &'static Zone = life.zone;
+    // What can be near you: the regions of the space you're in (none in a dungeon).
+    let here: &'static WorldMap = sim.world.map;
     let (px, pz) = (p.pos.x, p.pos.z);
     let fx = p.facing.js_sin();
     let fz = p.facing.js_cos();
@@ -207,7 +210,7 @@ pub fn find_focus(life: &mut Life, sim: &Sim) -> Option<Focus> {
     let back = carried(life, sim).map(|i| &life.state.packs[i]);
 
     // People.
-    for n in &zone.recipe.npcs {
+    for n in here.recipes().flat_map(|r| &r.npcs) {
         let d = js_hypot(n.x - px, n.z - pz);
         if d > 4.0 {
             continue;
@@ -225,7 +228,7 @@ pub fn find_focus(life: &mut Life, sim: &Sim) -> Option<Focus> {
             z: n.z,
             ..Default::default()
         };
-        if let (Some(outpost), Some(back)) = (outpost_of(life, &n.id), back) {
+        if let (Some(outpost), Some(back)) = (outpost_of(&n.id), back) {
             let def = pack_def(&back.def);
             let f = match quote(life, back, &outpost.id) {
                 Some(q) => {
@@ -270,7 +273,7 @@ pub fn find_focus(life: &mut Life, sim: &Sim) -> Option<Focus> {
     }
 
     // Workbenches.
-    for b in &zone.recipe.workbenches {
+    for b in here.recipes().flat_map(|r| &r.workbenches) {
         let d = js_hypot(b.x - px, b.z - pz);
         let name = b.name.as_deref().unwrap_or("Workbench");
         let detail = if back.is_some() { "Your back is full".into() } else { bench_makes(&b.id, &b.place) };
@@ -473,28 +476,28 @@ pub fn find_focus(life: &mut Life, sim: &Sim) -> Option<Focus> {
     }
 
     // Gathering: timber, stone, ore, herbs.
-    for (i, nd) in zone.recipe.nodes.iter().enumerate() {
+    for nd in here.recipes().flat_map(|r| &r.nodes) {
         let Some(y) = gathering().get(&nd.kind) else { continue };
         let sd = structure_def(&nd.kind);
         let d = js_max(0.0, js_hypot(nd.x - px, nd.z - pz) - sd.w / 2.0);
         if d > 2.0 {
             continue;
         }
-        let ready = node_ready(life, i);
+        let ready = node_ready(life, &nd.id);
         let (label, detail) = if ready {
             (y.verb.clone(), format!("{} Labor · {}-{} {}", num(y.labor), y.n[0], y.n[1], item_def(&y.item).name))
         } else {
             // A node is only on cooldown once it has a time to come back at.
-            let back_at = life.state.nodes.get(&i.to_string()).copied().unwrap_or(f64::NAN);
+            let back_at = life.state.nodes.get(&nd.id).copied().unwrap_or(f64::NAN);
             (format!("{} - Picked Clean", sd.name), format!("Back in {}", short_time(back_at - life.state.clock)))
         };
         let f = Focus {
             action: if ready { "gather" } else { "info" }.into(),
-            key: format!("node:{i}"),
+            key: format!("node:{}", nd.id),
             label,
             detail: Some(detail),
             ok: ready,
-            node: Some(i as i64),
+            node: Some(nd.id.clone()),
             x: nd.x,
             y: hf.height(nd.x, nd.z),
             z: nd.z,
@@ -504,7 +507,7 @@ pub fn find_focus(life: &mut Life, sim: &Sim) -> Option<Focus> {
     }
 
     // Slipways: lay a keel, haul materials, build, launch.
-    for sy in &zone.recipe.shipyards {
+    for sy in here.recipes().flat_map(|r| &r.shipyards) {
         let d = js_hypot(sy.x - px, sy.z - pz);
         if d > 12.0 {
             continue;
@@ -554,7 +557,7 @@ pub fn find_focus(life: &mut Life, sim: &Sim) -> Option<Focus> {
     }
 
     // House plots and building sites.
-    for plot in &zone.recipe.house_plots {
+    for plot in here.recipes().flat_map(|r| &r.house_plots) {
         let (lx, lz) = to_local(px - plot.x, pz - plot.z, plot.rot);
         if lx.abs() > 9.0 || lz.abs() > 9.0 {
             continue;
@@ -587,7 +590,7 @@ pub fn find_focus(life: &mut Life, sim: &Sim) -> Option<Focus> {
             pick.consider(f, d, 9.0);
             continue;
         };
-        let (hx, hz, _) = house_pose(life, h);
+        let (hx, hz, _) = house_pose(h);
         if !is_complete(h) {
             let bp = blueprint_def(&h.blueprint);
             // (A stage that isn't there is a house the page can't show either.)
@@ -619,7 +622,7 @@ pub fn find_focus(life: &mut Life, sim: &Sim) -> Option<Focus> {
             continue;
         }
         for what in ["bed", "chest"] {
-            let (ix, iz) = interior_point(life, h, what);
+            let (ix, iz) = interior_point(h, what);
             let dd = js_hypot(ix - px, iz - pz);
             let f = if what == "bed" {
                 Focus {
@@ -690,7 +693,7 @@ pub fn find_focus(life: &mut Life, sim: &Sim) -> Option<Focus> {
                 pick.consider(f, js_hypot(x - px, z - pz), inside.exit.r);
             }
             None => {
-                for door in &zone.recipe.dungeons {
+                for door in here.recipes().flat_map(|r| &r.dungeons) {
                     let Some(def) = dungeon(&door.id) else { continue };
                     let d = js_hypot(door.portal.x - px, door.portal.z - pz);
                     if (p.pos.y - door.portal.y).abs() > 3.0 {
@@ -742,9 +745,9 @@ pub fn find_focus(life: &mut Life, sim: &Sim) -> Option<Focus> {
 
 // ---------- Commands ----------
 
-fn near_npc(life: &Life, sim: &Sim, npc: &str, range: f64) -> bool {
-    let zone: &'static Zone = life.zone;
-    zone.recipe.npcs.iter().find(|x| x.id == npc).is_some_and(|n| js_hypot(n.x - sim.player.pos.x, n.z - sim.player.pos.z) <= range)
+/// Whether you're within `range` of the townsperson `npc`, in the space you're in.
+fn near_npc(sim: &Sim, npc: &str, range: f64) -> bool {
+    sim.world.map.recipes().flat_map(|r| &r.npcs).find(|x| x.id == npc).is_some_and(|n| js_hypot(n.x - sim.player.pos.x, n.z - sim.player.pos.z) <= range)
 }
 
 fn house_index(life: &Life, id: i64) -> Option<usize> {
@@ -797,27 +800,26 @@ pub fn run_command(life: &mut Life, sim: &mut Sim, c: &Command) {
         }
         Command::Use { item } => use_item(life, sim, item),
         Command::Buy { npc, item, n } => {
-            if near_npc(life, sim, npc, 6.0) {
+            if near_npc(sim, npc, 6.0) {
                 buy(life, npc, item, *n);
             }
         }
         Command::Sell { npc, item, n } => {
-            if near_npc(life, sim, npc, 6.0) {
+            if near_npc(sim, npc, 6.0) {
                 sell(life, npc, item, *n);
             }
         }
         Command::Buyback { npc, item, n } => {
-            if near_npc(life, sim, npc, 6.0) {
+            if near_npc(sim, npc, 6.0) {
                 buy_back(life, npc, item, *n);
             }
         }
         Command::Craft { recipe } => {
             // You have to be at the bench, or with the crafter, to use their recipes.
             let Some(r) = recipe_by_id(recipe) else { return };
-            let zone: &'static Zone = life.zone;
-            let near = match zone.recipe.workbenches.iter().find(|b| b.id == r.bench) {
+            let near = match sim.world.map.recipes().flat_map(|r| &r.workbenches).find(|b| b.id == r.bench) {
                 Some(bench) => js_hypot(bench.x - sim.player.pos.x, bench.z - sim.player.pos.z) <= 6.0,
-                None => near_npc(life, sim, &r.bench, 6.0),
+                None => near_npc(sim, &r.bench, 6.0),
             };
             if !near {
                 life.toast("Too far from the workbench", "bad");
@@ -829,10 +831,9 @@ pub fn run_command(life: &mut Life, sim: &mut Sim, c: &Command) {
             accept(life, quest);
         }
         Command::Contract { id } => {
-            let zone: &'static Zone = life.zone;
             let k = life.state.contracts.as_ref().and_then(|cs| cs.offered.iter().find(|x| x.id == *id));
-            let post = k.and_then(|k| zone.recipe.outposts.iter().find(|o| o.id == k.outpost));
-            if post.is_some_and(|post| near_npc(life, sim, &post.npc, 6.0)) {
+            let post = k.and_then(|k| world_map().recipes().flat_map(|r| &r.outposts).find(|o| o.id == k.outpost));
+            if post.is_some_and(|post| near_npc(sim, &post.npc, 6.0)) {
                 accept_contract(life, *id);
             }
         }
@@ -988,7 +989,7 @@ fn interact(life: &mut Life, sim: &mut Sim) {
             life.emit(LifeEvent::Open { ui: "dialog".into(), id: f.npc.clone().unwrap_or_default() });
         }
         "sell" => {
-            if let Some(outpost) = f.npc.as_deref().and_then(|npc| outpost_of(life, npc)) {
+            if let Some(outpost) = f.npc.as_deref().and_then(|npc| outpost_of(npc)) {
                 sell_pack(life, sim, &outpost.id);
             }
         }
@@ -1071,7 +1072,7 @@ fn interact(life: &mut Life, sim: &mut Sim) {
         }
         "rest" => {
             let Some(hi) = house.and_then(|h| house_index(life, h)) else { return };
-            let (bx, bz) = interior_point(life, &life.state.houses[hi], "bed");
+            let (bx, bz) = interior_point(&life.state.houses[hi], "bed");
             life.resting = true;
             life.state.home = Some(Home { x: bx, z: bz });
             sim.player.vel.x = 0.0;
@@ -1127,10 +1128,9 @@ fn interact(life: &mut Life, sim: &mut Sim) {
 
 /// F at a resource node: timber, stone, ore or herbs into your bag, and the node rests a while.
 fn gather(life: &mut Life, f: &Focus) {
-    let zone: &'static Zone = life.zone;
-    let Some((i, nd)) = f.node.and_then(|n| usize::try_from(n).ok()).and_then(|i| zone.recipe.nodes.get(i).map(|nd| (i, nd))) else { return };
+    let Some(nd) = f.node.as_deref().and_then(|id| world_map().recipes().flat_map(|r| &r.nodes).find(|n| n.id == id)) else { return };
     let Some(y) = gathering().get(&nd.kind) else { return };
-    if !node_ready(life, i) {
+    if !node_ready(life, &nd.id) {
         return;
     }
     if !life.has_room(&y.item, y.n[1]) {
@@ -1148,7 +1148,7 @@ fn gather(life: &mut Life, f: &Focus) {
         find_rare(life, rare, nd.x, f.y, nd.z);
     }
     let back = life.state.clock + y.respawn;
-    life.state.nodes.insert(i.to_string(), back);
+    life.state.nodes.insert(nd.id.clone(), back);
     life.revision += 1;
     life.emit(LifeEvent::Gather { x: nd.x, y: f.y, z: nd.z, kind: y.kind.clone() });
     // A step like "quarry 10 stone" counts the stone, not the swings.
@@ -1265,13 +1265,14 @@ mod tests {
     #[test]
     fn pressing_f_at_a_node_gathers_from_it_and_it_rests_a_while() {
         let (mut life, mut world, mut p) = island();
-        let nd = life.zone.recipe.nodes[0].clone();
+        let (nd, next) = (life.zone.recipe.nodes[0].clone(), life.zone.recipe.nodes[1].id.clone());
         let mut sim = Sim { player: &mut p, world: &mut world, owner: 1 };
         stand(&mut sim, nd.x, nd.z - 2.4, 0.0);
         let f = find_focus(&mut life, &sim).unwrap();
+        let key = format!("node:{}", nd.id);
         assert_eq!(
-            (f.action.as_str(), f.label.as_str(), f.detail.as_deref(), f.key.as_str(), f.node),
-            ("gather", "Chop Timber", Some("8 Labor · 3-5 Lumber"), "node:0", Some(0))
+            (f.action.as_str(), f.label.as_str(), f.detail.as_deref(), f.key.as_str(), f.node.as_deref()),
+            ("gather", "Chop Timber", Some("8 Labor · 3-5 Lumber"), key.as_str(), Some(nd.id.as_str()))
         );
         // On Hob's lesson, which wants ten lumber.
         life.state.quests.active = vec![QuestProgress { id: "woodcutting".into(), step: 1, counts: vec![0.0] }];
@@ -1280,12 +1281,12 @@ mod tests {
         assert_eq!(life.state.labor, 792.0);
         assert_eq!(life.drain_events(), vec![got(5, "lumber"), LifeEvent::Gather { x: nd.x, y: f.y, z: nd.z, kind: "timber".into() }]);
         assert_eq!(life.state.quests.active[0].counts, [5.0], "the lumber it gave counts, not the one swing");
-        assert_eq!(life.state.nodes.get("0"), Some(&60.0));
+        assert_eq!(life.state.nodes.get(&nd.id), Some(&60.0), "kept by the spot's id");
         assert_eq!(prompt(&mut life, &sim), says("info", "Deadfall Timber - Picked Clean", "Back in 1m 0s", false));
         run_command(&mut life, &mut sim, &Command::Interact);
         assert_eq!(life.state.bag, vec![Stack { item: "lumber".into(), n: 5 }], "picked clean");
         life.state.clock = 60.0;
-        assert!(node_ready(&life, 0) && node_ready(&life, 1));
+        assert!(node_ready(&life, &nd.id) && node_ready(&life, &next));
         // Too tired to chop.
         life.state.labor = 3.0;
         run_command(&mut life, &mut sim, &Command::Interact);

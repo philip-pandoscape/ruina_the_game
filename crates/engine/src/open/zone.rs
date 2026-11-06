@@ -290,6 +290,8 @@ pub struct HousePlot {
 
 #[derive(Deserialize, Clone, Debug)]
 pub struct Node {
+    /// Unique across the world (contentc): what its time to come back is kept by.
+    pub id: String,
     pub kind: String,
     pub x: f64,
     pub z: f64,

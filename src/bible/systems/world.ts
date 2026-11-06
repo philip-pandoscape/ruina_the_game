@@ -126,14 +126,17 @@ export const world = system({
     const stuck = tsConst(autoWalkSource, 'STUCK_STEPS');
     // What F reaches.
     const near = (re: RegExp, what: string) => sourceNumber(interactSource, re, what);
-    const fTalk = near(/for n in &zone\.recipe\.npcs \{\s*let d = js_hypot\(n\.x - px, n\.z - pz\);\s*if d > ([\d.]+) \{/, 'how near a person F reaches');
+    const fTalk = near(
+      /for n in here\.recipes\(\)\.flat_map\(\|r\| &r\.npcs\) \{\s*let d = js_hypot\(n\.x - px, n\.z - pz\);\s*if d > ([\d.]+) \{/,
+      'how near a person F reaches',
+    );
     const fBench = near(/format!\("Use \{name\}"\)[\s\S]*?pick\.consider\(f, d, ([\d.]+)\);/, 'how near a workbench F reaches');
     const fRide = near(/for v in &life\.state\.vehicles \{\s*let d = distance_to\(v, px, pz\);\s*if d > ([\d.]+) \{/, 'how near a vehicle F reaches');
     const fCell = near(/let tx = px \+ fx \* ([\d.]+);/, 'how far ahead F looks for a plot cell');
     const fCellScore = near(/Z: Change Seed", life\.count\(&seed\)\), true\), ([\d.]+), [\d.]+\);/, 'how near a plot cell counts');
     const fNode = near(/- sd\.w \/ 2\.0\);\s*if d > ([\d.]+) \{/, 'how near a gathering spot F reaches');
     const fSlip = near(
-      /for sy in &zone\.recipe\.shipyards \{\s*let d = js_hypot\(sy\.x - px, sy\.z - pz\);\s*if d > ([\d.]+) \{/,
+      /for sy in here\.recipes\(\)\.flat_map\(\|r\| &r\.shipyards\) \{\s*let d = js_hypot\(sy\.x - px, sy\.z - pz\);\s*if d > ([\d.]+) \{/,
       'how near a slipway F reaches',
     );
     const fPlot = near(/if lx\.abs\(\) > ([\d.]+) \|\| lz\.abs\(\) > [\d.]+ \{\s*continue;/, 'how near a house plot F reaches');
@@ -143,7 +146,7 @@ export const world = system({
     const fAhead = near(/let facing = if l > ([\d.]+) \{/, 'how near something counts as straight ahead');
     const fPlace = near(/let ahead = ([\d.]+);/, 'how far ahead a scarecrow is placed');
     const fTurn = near(/js_round\(p\.facing \/ \(PI \/ ([\d.]+)\)\)/, 'the turns a scarecrow is placed at');
-    const fShop = near(/Command::Buy \{ npc, item, n \} => \{\s*if near_npc\(life, sim, npc, ([\d.]+)\)/, 'how near a shopkeeper you must stay');
+    const fShop = near(/Command::Buy \{ npc, item, n \} => \{\s*if near_npc\(sim, npc, ([\d.]+)\)/, 'how near a shopkeeper you must stay');
     const fCraft = near(/js_hypot\(bench\.x - sim\.player\.pos\.x, bench\.z - sim\.player\.pos\.z\) <= ([\d.]+)/, 'how near a workbench you must stay');
     // A road's end: on another road (where it joins it), or at the place it is nearest.
     const end = (id: string, [x, z]: [number, number]) => {

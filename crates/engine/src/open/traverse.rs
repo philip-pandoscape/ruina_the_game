@@ -501,7 +501,8 @@ pub fn update_glide(sim: &mut Sim, a: &Actions) {
         g.sink
     };
 
-    let updrafts = &sim.world.zone.recipe.updrafts;
+    // Rising air in the space you're in (none in a dungeon).
+    let here = sim.world.map;
     let p = &mut *sim.player;
     // Heading: turn toward where the stick points, no faster than the wing allows.
     let mag = len(a.move_x, a.move_z).min(1.0);
@@ -532,7 +533,7 @@ pub fn update_glide(sim: &mut Sim, a: &Actions) {
     if p.airspeed < g.stall_speed {
         vy -= (g.stall_speed - p.airspeed) * 2.0;
     }
-    vy += updraft_lift(updrafts, p.pos.x, p.pos.y, p.pos.z);
+    vy += here.recipes().fold(0.0, |lift, r| lift + updraft_lift(&r.updrafts, p.pos.x, p.pos.y, p.pos.z));
     p.vel.y += (vy - p.vel.y) * (1.0 - (-gl.vertical_ease * dt).js_exp());
     p.vel.x = p.facing.js_sin() * p.airspeed;
     p.vel.z = p.facing.js_cos() * p.airspeed;

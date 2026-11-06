@@ -134,14 +134,12 @@ const benchGoal = (b: { x: number; z: number; name?: string }): Goal => ({ x: b.
 /** The nearest resource node that gives `kind` (timber, stone...), one ready to work before one picked clean. */
 function nodeFor(life: IslandRead, sim: SimRead, kind?: string): Goal | null {
   const p = sim.player.pos;
-  const nodes = life.zone.recipe.nodes;
   let best: Goal | null = null;
   let bestScore = Infinity;
-  for (let i = 0; i < nodes.length; i++) {
-    const nd = nodes[i];
+  for (const nd of life.zone.recipe.nodes) {
     const g = GATHERING[nd.kind];
     if (!g || (kind && g.kind !== kind)) continue;
-    const score = Math.hypot(nd.x - p.x, nd.z - p.z) + (nodeReady(life, i) ? 0 : 1e5);
+    const score = Math.hypot(nd.x - p.x, nd.z - p.z) + (nodeReady(life, nd.id) ? 0 : 1e5);
     if (score < bestScore) {
       bestScore = score;
       best = { x: nd.x, z: nd.z, label: structureDef(nd.kind).name };

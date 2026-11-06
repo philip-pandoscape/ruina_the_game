@@ -298,8 +298,7 @@ fn advance(life: &mut Life, id: &str) {
         }
         life.emit(LifeEvent::Quest { id: id.to_string(), what: "ready".into() });
         let who = q.turn_in.as_deref().unwrap_or(&q.giver);
-        let zone = life.zone;
-        let name = zone.recipe.npcs.iter().find(|n| n.id == who).map_or(who, |n| n.name.as_str());
+        let name = crate::open::map::world_map().recipes().flat_map(|r| &r.npcs).find(|n| n.id == who).map_or(who, |n| n.name.as_str());
         life.toast(format!("{}: return to {}", q.name, name), "quest");
         return;
     }
@@ -318,11 +317,12 @@ pub fn step_quests(life: &mut Life, sim: &mut Sim) {
     if life.state.clock % 0.25 < step_seconds() {
         // Each quest measures its own places, with its own reach and height: the foot of the
         // Windspire is the spire for one quest and not yet its top for another.
-        let zone = life.zone;
+        // Places in the space you're in: none of the world's are in a dungeon.
+        let here = sim.world.map;
         let at = |o: &Objective| {
             o.type_ == "reach"
                 && given(&o.place)
-                    .and_then(|place| zone.recipe.places.iter().find(|pl| pl.id == place))
+                    .and_then(|place| here.recipes().flat_map(|r| &r.places).find(|pl| pl.id == place))
                     .is_some_and(|pl| js_hypot(x - pl.x, z - pl.z) <= o.r.unwrap_or(20.0) && y >= o.min_y.unwrap_or(f64::NEG_INFINITY))
         };
         for id in active_ids(life) {

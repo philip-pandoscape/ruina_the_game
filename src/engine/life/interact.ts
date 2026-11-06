@@ -60,7 +60,8 @@ export interface Focus {
   slot?: number;
   sc?: number;
   cell?: number;
-  node?: number;
+  /** The gathering spot it's at, by id. */
+  node?: string;
   plot?: string;
   house?: number;
   slip?: string;
@@ -74,8 +75,9 @@ export interface Placement {
   problem: string | null;
 }
 
-export function nodeReady(life: IslandRead, i: number): boolean {
-  return (life.state.nodes[i] ?? 0) <= life.state.clock;
+/** Whether the gathering spot `id` has come back since it was last picked clean. */
+export function nodeReady(life: IslandRead, id: string): boolean {
+  return (life.state.nodes[id] ?? 0) <= life.state.clock;
 }
 
 /** Seconds left on something, as "1m 20s". */

@@ -179,8 +179,7 @@ pub fn run_recipe(life: &mut Life, sim: &mut Sim, id: &str) -> bool {
 fn craft(life: &mut Life, sim: &mut Sim, r: &RecipeDef) -> bool {
     if let Some(pack) = r.makes.pack.as_deref().filter(|p| !p.is_empty()) {
         // Made where its workbench stands; by a crafter, where the pack says it comes from.
-        let zone = life.zone;
-        let bench = zone.recipe.workbenches.iter().find(|b| b.id == r.bench);
+        let bench = crate::open::map::world_map().recipes().flat_map(|r| &r.workbenches).find(|b| b.id == r.bench);
         return craft_pack(life, sim, r, bench.map_or_else(|| pack_def(pack).origin.as_str(), |b| b.place.as_str()));
     }
     craft_item(life, r)
@@ -409,9 +408,12 @@ pub fn step_buyback(life: &mut Life, sim: &Sim) {
         return;
     }
     let (x, z) = (sim.player.pos.x, sim.player.pos.z);
-    let zone = life.zone;
-    let kept: Vec<Buyback> =
-        list.iter().filter(|b| zone.recipe.npcs.iter().find(|n| n.id == b.npc).is_some_and(|n| js_hypot(n.x - x, n.z - z) <= BUYBACK_RANGE)).cloned().collect();
+    let here = sim.world.map;
+    let kept: Vec<Buyback> = list
+        .iter()
+        .filter(|b| here.recipes().flat_map(|r| &r.npcs).find(|n| n.id == b.npc).is_some_and(|n| js_hypot(n.x - x, n.z - z) <= BUYBACK_RANGE))
+        .cloned()
+        .collect();
     if kept.len() != list.len() {
         life.state.buyback = Some(kept);
     }

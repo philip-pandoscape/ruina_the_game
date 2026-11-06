@@ -157,7 +157,7 @@ export interface LifeState {
   buyback?: Buyback[];
   /** Demand multiplier per `${outpost}:${pack}`. */
   demand: Record<string, number>;
-  /** Gathering nodes on cooldown: node index -> world clock when it is back. */
+  /** Gathering spots resting: the spot's id -> the island's clock when it is back. */
   nodes: Record<string, number>;
   quests: { active: QuestProgress[]; done: string[] };
   /** Experience of each skill in the skill book, by its id (src/engine/life/progress.ts). */

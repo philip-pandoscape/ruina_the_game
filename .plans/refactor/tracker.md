@@ -898,6 +898,10 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
   - **The engine** loads any region and any instance.
   So far: `content/world.json`, with R10.16's first step; contentc holds each region's grid to its
   chunks and refuses two regions on one chunk.
+  Ids (this commit): gathering spots have ids (`timber1`...), and their time to come back is kept by
+  id (a save's old ones, kept by their place in the list, are dropped as it's taken up: the spot is
+  simply back); contentc holds every placed thing's id (places, townsfolk, workbenches, outposts,
+  house plots, gathering spots, dungeon doors, slipways) to one thing in the whole world.
 - [ ] **R10.2** The server hosts the world and its instances: a simulation for each region channel
   and each instance copy, found by id (no `emberholm()` outside tests). Players travel between them,
   and every character is saved with its space.
@@ -1014,9 +1018,15 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
   region's cell is the same, a whole number to a chunk (contentc). A fixture of two regions across a
   land border, one island grown half by each with its own hills, is walked across; Emberholm changes
   only in its outer band, where its edge sloped as much as 23 m under the open sea's floor (the edge
-  scenario's answer moved again). Left: growing and dropping regions by need (each grows the first
-  time anything asks, and stays), `Life` across regions, the browser drawing a region placed away
-  from the origin (R10.23).
+  scenario's answer moved again).
+  The rules take the world (this commit): what can be near you (townsfolk, workbenches, gathering
+  spots, slipways, house plots, portals, places a quest asks you to reach, updrafts) comes from the
+  regions of the space you're in (`sim.world.map`), and what's found by id (an outpost, a plot, a
+  slipway, a crafter's bench, a quest's townsperson, every trading post's contracts) from the whole
+  world's (`world_map().recipes()`), so a space with no regions in it (an instance, R10.15) has none of
+  them near. Left: growing and dropping regions by need (each grows the first time anything asks, and
+  stays), farming's climate (the home island's until land moves, R10.21), the browser drawing a
+  region placed away from the origin (R10.23).
 - [ ] **R10.17** Ids and the clock.
   - **Ids:** global 64-bit entity ids (a kind and an id) in the engine and the server.
     - Characters keep their database id.
@@ -1260,6 +1270,7 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
 | 2026-11-06 | R10.16, R10.1 | The world map in the engine: `content/world.json` places regions on 256 m chunks, open sea between; the ground, water and colliders answered across regions; the edge of the world is the map's | 8c79bdd |
 | 2026-11-06 | R9.1, R9.2 | Saved builds by id; the content's hash on the wire (a background agent, merged) | 29f0696, e06eda0, cb7bfa0 |
 | 2026-11-06 | R10.16 | Borders: the ground blended across them, regions meeting vertex for vertex and the open sea sloping to meet them; walked across a land border | 86e96b5 |
+| 2026-11-06 | R10.16, R10.1 | The rules take the world: what's near you from the space you're in, what's found by id from the whole world; gathering spots by id | (this commit) |
 | 2026-11-06 | R9.14 | `docs/content.md` | 5e23680 |
 | 2026-11-06 | R10.10, R11.1, R11.2, R11.7, R11.8 | Snapshot to move machines: the battle server's Rust gone; the asset manifest, loader and first-download budget, `docs/assets.md` | a975617 |
 | 2026-11-06 | R6.10, R6.11, R6.8 | The client's moves: creature bodies into src/render/creatures/, the root files to their areas, the library under src/dev/ | 9317ff3, 5de387d, 81df3de |

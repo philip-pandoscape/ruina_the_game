@@ -225,7 +225,7 @@ pub fn plot_problem(life: &Life, sim: &Sim, x: f64, z: f64, rot: f64) -> Option<
             return Some("Overlaps another plot".into());
         }
     }
-    for p in &life.zone.recipe.house_plots {
+    for p in sim.world.map.recipes().flat_map(|r| &r.house_plots) {
         if js_hypot(p.x - x, p.z - z) < 15.0 {
             return Some("That is a house plot".into());
         }

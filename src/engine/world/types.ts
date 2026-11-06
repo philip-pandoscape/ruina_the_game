@@ -71,7 +71,8 @@ export interface ZoneRecipe {
   outposts: Array<{ id: string; npc: string; x: number; z: number }>;
   housePlots: Array<{ id: string; x: number; z: number; rot: number }>;
   farmland: { x: number; z: number; w: number; d: number };
-  nodes: Array<{ kind: string; x: number; z: number; rot: number }>;
+  /** Gathering spots, each with an id unique across the world. */
+  nodes: Array<{ id: string; kind: string; x: number; z: number; rot: number }>;
   updrafts: Updraft[];
   /** The doors of the island's dungeons (content/dungeons/<id>.json): each a portal into your party's copy. */
   dungeons?: DungeonDoor[];

@@ -73,7 +73,7 @@ export const economy = system({
     );
     const shopReach = sourceNumber(
       interactSource,
-      /Command::Buy \{ npc, item, n \} => \{\s*if near_npc\(life, sim, npc, ([\d.]+)\)/,
+      /Command::Buy \{ npc, item, n \} => \{\s*if near_npc\(sim, npc, ([\d.]+)\)/,
       'how close to a vendor you must be',
     );
     const buybackMax = rustConst(tradeSource, 'BUYBACK_MAX');

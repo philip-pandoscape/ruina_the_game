@@ -1097,13 +1097,11 @@ fn stand_on_ground(p: &mut Player, world: &OpenWorld) {
 /// Makes an island's houses and farm posts solid in the channel (each piece once).
 pub fn make_solid(world: &mut OpenWorld, owner: i64, state: &LifeState) {
     let zone = world.zone;
-    let mut life = Life::new(zone, None, None);
-    life.state = state.clone();
     let spawn = Spawn { x: zone.recipe.spawn.x, z: zone.recipe.spawn.z, facing: zone.recipe.spawn.facing };
     let mut p = Player::new(spawn, 0, Build::default());
     let mut sim = Sim { player: &mut p, world, owner };
     for h in &state.houses {
-        housing::add_house_colliders(&life, &mut sim, h);
+        housing::add_house_colliders(&mut sim, h);
     }
     for sc in &state.scarecrows {
         farming::add_scarecrow_collider(&mut sim, sc);
