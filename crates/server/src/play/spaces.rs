@@ -663,6 +663,35 @@ mod tests {
     }
 
     #[test]
+    fn an_angry_slime_in_the_yard_slams_the_player_beside_it() {
+        let (mut sp, _a, _b) = two_in_channel_one();
+        sp.enter_zone(1, "yard", true, None).unwrap();
+        let copy = sp.at[&1];
+        let g = sp.games.get_mut(&copy).unwrap();
+        let (sx, sz) = {
+            let a = g.actors.list.iter_mut().find(|a| a.kind == "slime").unwrap();
+            a.angry = 600;
+            (a.x, a.z)
+        };
+        {
+            let p = g.players.open_mut(client(1)).unwrap().0;
+            (p.pos.x, p.pos.z) = (sx + 1.5, sz);
+        }
+        let full = g.players.open_view(client(1)).unwrap().0.hp;
+        let mut saves = Vec::new();
+        for _ in 0..200 {
+            g.step(&mut saves);
+            // Stood still in a nearby spot, as a player waiting for it.
+            if g.players.open_view(client(1)).unwrap().0.hp < full {
+                return;
+            }
+        }
+        let a = g.actors.list.iter().find(|a| a.kind == "slime").unwrap();
+        let p = g.players.open_view(client(1)).unwrap().0;
+        panic!("no slam landed: slime at {:.1},{:.1} y {:.2} angry {} state {}, player at {:.1},{:.2},{:.1}", a.x, a.z, a.y, a.angry, a.state, p.pos.x, p.pos.y, p.pos.z);
+    }
+
+    #[test]
     fn the_yard_brings_its_dummy_and_slimes_and_they_stand_on_its_floor() {
         let (mut sp, _a, _b) = two_in_channel_one();
         sp.enter_zone(1, "yard", true, None).unwrap();
