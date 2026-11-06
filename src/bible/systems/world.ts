@@ -3,7 +3,7 @@
 import { CHALLENGE } from '../../content/minigames';
 import { CARRY } from '../../content/trade';
 import { GROUND } from '../../content/traversal';
-import autoWalkSource from '../../app/autoWalk.ts?raw';
+import autoWalkSource from '../../input/autoWalk.ts?raw';
 import interactSource from '../../sim/life/interact.ts?raw';
 import generateSource from '../../sim/zone/generate.ts?raw';
 import localPathSource from '../../sim/zone/localPath.ts?raw';
@@ -49,7 +49,7 @@ export const world = system({
     'src/sim/zone/roads.ts',
     'src/sim/zone/localPath.ts',
     'src/sim/life/interact.ts',
-    'src/app/autoWalk.ts',
+    'src/input/autoWalk.ts',
     'crates/engine/src/open/mod.rs',
     'crates/engine/src/open/zone.rs',
     'crates/engine/src/open/generate.rs',

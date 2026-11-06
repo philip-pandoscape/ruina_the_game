@@ -1,5 +1,5 @@
 import type * as THREE from 'three';
-import type { AutoWalk } from '../../app/autoWalk';
+import type { AutoWalk } from '../../input/autoWalk';
 import { packDef } from '../../content/trade';
 import type { Vitals } from '../hud';
 import { housePose, stillNeeds } from '../../sim/life/housing';
@@ -72,7 +72,7 @@ export interface LifeUIDeps {
   camera: () => THREE.Camera;
   yaw: () => number;
   device: () => 'keyboard' | 'gamepad';
-  /** Auto-run and travel by road (src/app/autoWalk.ts), shown on the map and under the compass. */
+  /** Auto-run and travel by road (src/input/autoWalk.ts), shown on the map and under the compass. */
   walk?: AutoWalk;
 }
 

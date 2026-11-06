@@ -1,5 +1,5 @@
 import type { World } from '../../sim/types';
-import type { AutoWalk, Refusal, WalkEvent } from '../../app/autoWalk';
+import type { AutoWalk, Refusal, WalkEvent } from '../../input/autoWalk';
 import { routeFrom, type Point } from '../../sim/zone/roads';
 import type { Handler } from '../components/window';
 import { openMenu } from '../theme/contextMenu';
@@ -10,7 +10,7 @@ import { esc } from '../../util/html';
 // Travel by road and auto-run, as the island's UI shows them. On the map a click marks a spot and
 // sets off along the roads to it (a right-click offers the rest), the arrows or the D-pad pick a
 // place and Enter or A sets off; the way is drawn on the map and the minimap. Under the compass, a
-// readout while something walks for you, saying how to stop. The walking is src/app/autoWalk.ts.
+// readout while something walks for you, saying how to stop. The walking is src/input/autoWalk.ts.
 
 interface Place {
   id: string;

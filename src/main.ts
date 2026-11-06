@@ -48,7 +48,7 @@ import type { SpaceView } from './net/worldLink';
 import { BugReporter } from './app/bugs/reporter';
 import { installLogCapture } from './app/bugs/logs';
 import { ridden } from './sim/life/vehicles';
-import { AutoWalk } from './app/autoWalk';
+import { AutoWalk } from './input/autoWalk';
 import { RIDE_CAMERA } from './content/traversal';
 import { rideable, isBoat } from './content/vehicles';
 import { angleDiff } from './sim/math';

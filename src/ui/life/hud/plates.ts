@@ -79,7 +79,7 @@ export class Hints {
     const hint = document.getElementById('hint');
     if (!hint) return;
     const parts: string[] = [];
-    // Auto-walk (src/app/autoWalk.ts): H or Num Lock, a click of the left stick at rest on a pad.
+    // Auto-walk (src/input/autoWalk.ts): H or Num Lock, a click of the left stick at rest on a pad.
     // In a cart or a boat it holds the throttle: cruising.
     const auto = this.ui.travel() ? (mode === 'ride' || mode === 'boat' ? 'Cruise' : 'Auto-Run') : '';
     const autoItem = (k: string) => (auto && mode !== 'glide' ? [item(key(k), auto)] : []);

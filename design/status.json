@@ -991,7 +991,7 @@
       "title": "Auto-run and travel by road",
       "notes": "H or Num Lock (a quick click of the left stick at rest) runs you on where the camera looks; in a cart or boat it holds the throttle. A click on the big map marks a place and follows the roads there (the road network joins where roads meet and across the town square), on foot, on a mount or in a cart; a place a few steps off the road is walked to, a far one gets you as near as the road goes. Your own movement, mounting, water or getting stuck stops it.",
       "files": [
-        "src/app/autoWalk.ts",
+        "src/input/autoWalk.ts",
         "src/sim/zone/roads.ts",
         "src/sim/zone/localPath.ts",
         "src/ui/life/travelUI.ts"
@@ -1509,7 +1509,7 @@
         "Weapons: out of sight while travelling (vehicles, mounts, glider, swimming) and with a pack on the back except for a strike; only the on-foot places to put it away are left (stow.ts).",
         "UI: the drop cap stands level with the first line's capitals; a window that closes itself after a click (a pack made, a deed used) gives the mouse back to the camera; the farm cart's icon is the cart itself, drawn in tools/icons/bake.mjs; other players' names fade out between 30 and 45 m from you; online the sky follows the server's clock.",
         "Weather: the rain and the wind run on the world's clock online too (Life.worldClock, life.world_clock), so everyone has the same; showers are a schedule on that clock rather than the island's dice, pinned to the last bit in both rules.",
-        "Getting about: H or Num Lock auto-runs (cruise in a cart or boat); a click on the map follows the roads there, the route drawn on the map and the minimap (src/sim/zone/roads.ts, src/app/autoWalk.ts).",
+        "Getting about: H or Num Lock auto-runs (cruise in a cart or boat); a click on the map follows the roads there, the route drawn on the map and the minimap (src/sim/zone/roads.ts, src/input/autoWalk.ts).",
         "Tests: riding along and bumping into a parked cart, a pack out of the cart at once 120 ms from the server, everyone sharing the hour, name plates by distance (online.spec.ts); the drop cap and the mouse coming back (ui.spec.ts); travel by road on foot, horseback, cart and roadster (travel.spec.ts); hands on the oars in the real game at 30 and 144 fps, the swim clock, weapons hidden (animation.spec.ts); no sea inside any hull (models.spec.ts); passengers and movers (Rust)."
       ]
     },

@@ -119,3 +119,4 @@ src/sim/world.ts	src/sim/yard.ts
 src/library	src/dev/library
 src/app/build.ts	src/content/build.ts
 src/render/hud.ts	src/ui/hud.ts
+src/app/autoWalk.ts	src/input/autoWalk.ts
