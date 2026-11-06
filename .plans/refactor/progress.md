@@ -13,7 +13,7 @@ is in [tracker.md](tracker.md), the plan in [README.md](README.md).
 | 1 Test Tiers | done |
 | 2 Clear Out Dead Code | in progress |
 | 3 Admin Menu | to do |
-| 4 The /find-assets Skill | to do |
+| 4 The /find-assets Skill | done |
 | 5 The Rust Workspace | to do |
 | 6 The Client in Areas | to do |
 | 7 Content in Folders | to do |

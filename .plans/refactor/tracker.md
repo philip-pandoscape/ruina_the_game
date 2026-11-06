@@ -188,22 +188,32 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
 
 ## Phase 4: The /find-assets Skill (parallel)
 
-- [ ] **R4.1** `.claude/skills/find-assets/SKILL.md`: when to use it, free first, the licence rules
+- [x] **R4.1-R4.6** Done (de8fd77): the skill; `tools/assets/sources.mjs`, `search.mjs` (Poly Haven,
+  ambientCG v3, Sketchfab with a face limit that leaves out museum scans, Freesound) and `fetch.mjs`
+  (those, Kenney's pages through their signed download link, itch.io's free downloads, any URL;
+  a fresh folder per fetch with `credit.json` and the `CREDITS.md` row); sound notes (the game has
+  no audio engine yet: the first sound brings it); AGENTS.md points to the skill. Proven by fetching
+  a Poly Haven model (Barrel_01) and texture (rock_pitted_mossy), an ambientCG texture (Rock064),
+  Kenney's 130 impact sounds and Quaternius' Universal Animation Library (Standard, 15 MB). Not yet
+  proven: Sketchfab and Freesound downloads, which need the user's `SKETCHFAB_TOKEN` and
+  `FREESOUND_API_KEY` (searches work; they say what's missing). ElevenLabs (its key is in `.env`)
+  listed as the paid maker for sounds.
+- [x] **R4.1** `.claude/skills/find-assets/SKILL.md`: when to use it, free first, the licence rules
   for a public repository, sources by kind, judging a find, showing you, importing, crediting,
   checking in the game, paid makers last with costs agreed.
-- [ ] **R4.2** `tools/assets/search.mjs`: Poly Haven (models, textures, skies), ambientCG (textures;
+- [x] **R4.2** `tools/assets/search.mjs`: Poly Haven (models, textures, skies), ambientCG (textures;
   its v3 API, as v2 gets no more updates), Sketchfab (CC0/CC-BY, downloadable), Freesound
   (`license:"Creative Commons 0"` or Attribution; needs `FREESOUND_API_KEY`; previews come with the
   key, original files need its OAuth2 sign-in, so the user's hands), listed with licence, author,
   size and preview.
-- [ ] **R4.3** `tools/assets/fetch.mjs`: downloads into a fresh `scratch/assets/<source>/<id>/` with a
+- [x] **R4.3** `tools/assets/fetch.mjs`: downloads into a fresh `scratch/assets/<source>/<id>/` with a
   `credit.json` (what, where, author, licence) ready for `CREDITS.md`; the itch.io free-download
   steps for Quaternius and Kenney packs.
-- [ ] **R4.4** Notes for sound (formats, loudness, length) and effects: the game has no sound yet, so
+- [x] **R4.4** Notes for sound (formats, loudness, length) and effects: the game has no sound yet, so
   the skill says what an audio engine part will need.
-- [ ] **R4.5** Proven end to end: a prop, a texture, a sound and an animation found and fetched (not
+- [x] **R4.5** Proven end to end: a prop, a texture, a sound and an animation found and fetched (not
   committed).
-- [ ] **R4.6** AGENTS.md "Art and assets" points to the skill; `CREDITS.md` format checked; new
+- [x] **R4.6** AGENTS.md "Art and assets" points to the skill; `CREDITS.md` format checked; new
   binaries go through Git LFS.
 
 ## Phase 5: The Rust Workspace
