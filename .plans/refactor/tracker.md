@@ -1174,8 +1174,12 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
     measured against R10.8's baseline (tick time, bandwidth, frame time).
   - **Failure tests, in one process:** a simulation stopped mid-handoff, a message delivered twice, a
     lease lost. Nothing is duplicated or lost.
-- [ ] **R10.25** `docs/world.md`, in place of `docs/zones.md`: the world, regions, instances, channels,
+- [~] **R10.25** `docs/world.md`, in place of `docs/zones.md`: the world, regions, instances, channels,
   borders and land, and how to add a region or an instance.
+  Begun (7ea3035): the words, where the regions stand, the ground through the world map, spaces,
+  channels as they are, adding a region, and its tests. Left: `docs/zones.md` folded into it (after
+  the background agents' branches, which may touch it), and channels, borders and land as R10.19 to
+  R10.22 land.
 
 ## Phase 11: Assets
 
@@ -1340,6 +1344,7 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
 | 2026-11-06 | R8.16 | The skill tree's numbers from the engine | 883e178 |
 | 2026-11-06 | R9.13 | The library's crowd subjects from the registry | 8fc8ffd |
 | 2026-11-06 | R6.11b | The developer commands in the page's command list, `LifeView.update` given the player, the library's NPCs typed: the casts round the rules' types gone | fab2924 |
+| 2026-11-06 | R10.25 | `docs/world.md` begun: the world as it stands, and adding a region | 7ea3035 |
 | 2026-11-06 | R9.9, R6.11b | Looks from data; the model library as a chunk, the `tryBuild` fallbacks gone (a background agent) | 3cffed1..40161aa, 2d5de57 |
 | 2026-11-06 | R9.14 | `docs/content.md` | 5e23680 |
 | 2026-11-06 | R10.10, R11.1, R11.2, R11.7, R11.8 | Snapshot to move machines: the battle server's Rust gone; the asset manifest, loader and first-download budget, `docs/assets.md` | a975617 |
