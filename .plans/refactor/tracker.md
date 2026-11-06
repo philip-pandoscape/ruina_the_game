@@ -9,8 +9,10 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
 
 ## Now
 
-- **Phase:** 6, the Client in Areas (Phases 0-5 done; R5.3b and R5.6 wait for Phases 10 and 8).
-- **Next:** R6.2a, the game core: `main.ts`'s rules half as a module of its own.
+- **Phase:** 6 (the client in areas) with 7 done, 8, 10 and 12 begun or done beside it; background
+  agents on the Content Library (R6.15).
+- **Next:** the developer zones' client side and the Admin menu's links (after the library agent), the
+  engine bridge (R6.4), then Phase 8's first switch.
 - **Test rig for this branch:** Postgres container `ruina-refactor-db` on 127.0.0.1:5461; the
   world server copied to `scratch/server-run/` on 7871 (`DATABASE_URL=postgres://ruina:ruina@127.0.0.1:5461/ruina
   DEV_LOGIN=1 ./ruina-server.exe --battle off --port 7871`, rebuilt (`cargo build --release`) and copied
@@ -345,17 +347,25 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
   read HUD markers assert on events instead). Model and rig builders that don't make a WebGL
   renderer when imported; the ~64 gallery tests (animation 20, species 24, creatures 6, models 14) to
   Vitest. Target from Phase 1: at least 230 TypeScript unit tests.
-- [ ] **R6.1** `src/app/options.ts`: every URL option in one list (name, what it does, developer or
+- [x] **R6.1** `src/app/options.ts`: every URL option in one list (name, what it does, developer or
   not), read once.
-- [ ] **R6.2** `src/main.ts` into `src/app/`: start-up, a module per mode, the loop, wiring, along the
+  Done (138706b, ec69498): `src/app/options.ts`, with a unit test keeping the list honest.
+- [~] **R6.2** `src/main.ts` into `src/app/`: start-up, a module per mode, the loop, wiring, along the
   seams in `inventory/architecture.md` section 1. Its 30 top-level variables become one game context
   the modes share; the use-before-declare closures (`prediction`, `frozen`, `ahead`), the patched
   `life.command` and the twice-chained `lifeUI.intercept` go.
-- [ ] **R6.3** `src/app/testApi.ts`: `window.__game` in a module of its own, typed.
+  Begun: the test API, the bug reporter's wiring and online play's are out (e5a6253, 586f27e), with the
+  scripts that move main.ts out region by region (`tools/refactor/`); main.ts is 1,900 lines (2,566).
+  The modes, the loop, aiming and drawing are left.
+- [x] **R6.3** `src/app/testApi.ts`: `window.__game` in a module of its own, typed.
+  Done (e5a6253).
 - [ ] **R6.4** `src/engine/`: the one bridge to the rules; everything else imports it, not `src/sim/`.
-- [ ] **R6.5** `src/ui/components/`: window, tabs, item slot and grid, list, tooltip, context menu,
+- [x] **R6.5** `src/ui/components/`: window, tabs, item slot and grid, list, tooltip, context menu,
   bars, buttons, per the design system.
-- [ ] **R6.6** `src/ui/life/lifeUI.ts` into one module per window on those components.
+  Done (7de96ec, a background agent): `src/ui/components/`.
+- [x] **R6.6** `src/ui/life/lifeUI.ts` into one module per window on those components.
+  Done (49f62b4, a background agent): lifeUI.ts 600 lines (2,328), a module per window in
+  `windows/` and per widget in `hud/`; the same DOM in 89 states, checked by a harness.
 - [ ] **R6.7** `src/library/app.ts` split by concern.
 - [ ] **R6.8** `src/dev/` and `dev/*.html`: every developer page; the admin list (R3.6) updated.
 - [ ] **R6.9** A UI gallery (a Content Library subject or `/dev/ui.html`): every window with made-up
@@ -370,42 +380,61 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
   can't be missing (or real lazy loading, R11.2); `worldPeers.ts:258`'s fake `Sim`; the library's and
   `animations.ts:650`'s reaching into the hero's private fields; `main.ts:505` (the TypeScript command
   list lacks Rust's `teleport`: generated from Rust in Phase 8).
-- [ ] **R6.12** The boundary test (unit tier): allowed imports per area; known exceptions listed with a
+- [x] **R6.12** The boundary test (unit tier): allowed imports per area; known exceptions listed with a
   reason.
-- [ ] **R6.13** An AGENTS.md (and a CLAUDE.md that imports it) in `src/render`, `src/ui`, `src/net`,
+  Done (ec3051e): `tests/unit/boundaries.test.ts`.
+- [~] **R6.13** An AGENTS.md (and a CLAUDE.md that imports it) in `src/render`, `src/ui`, `src/net`,
   `src/app`, `src/dev`.
+  Begun: `src/app/AGENTS.md`, `content/AGENTS.md`.
 - [ ] **R6.14** Look check: `tests/look.spec.ts` before and after, no change.
-- [ ] **R6.15** The Content Library (decided: one page for everything): the animation library grows
+- [~] **R6.15** The Content Library (decided: one page for everything): the animation library grows
   subjects for models (`models.html`: categories, anchors, budgets), buildings (`buildings.html`:
   plans, cut-away, colliders, night), species and creatures, retargeted clips beside their sources
   (`retarget.html`), and the scenarios of `animations.html`; those six pages and their `window.__x`
   APIs go, their tests moved to the library or the unit tier. Later phases add a subject per content
   kind (R9.13).
 
+  A background agent is folding the galleries into the library: models (1894d4a) and buildings
+  (2803a97) so far.
 ## Phase 7: Content in Folders
 
-- [ ] **R7.1** The layout (decided): `content/` with a folder per kind and a file or folder per thing.
-- [ ] **R7.2** `contentc` (engine types, a `crates/tools` binary): read folders, join multi-file
+- [x] **R7.1** The layout (decided): `content/` with a folder per kind and a file or folder per thing.
+  Done (80ffc5a).
+- [x] **R7.2** `contentc` (engine types, a `crates/tools` binary): read folders, join multi-file
   things, reject unknown keys and missing fields, check every cross-reference, write bundles.
-- [ ] **R7.3** Bundles in today's shapes: the TypeScript imports and the server's reads point at them;
+  Done (80ffc5a), in Node rather than Rust: `tools/content/contentc.mjs`. The engine's types only know
+  the fields the rules read, so they couldn't reject the browser's; schemas per kind do (R7.6), and the
+  engine still reads every bundle at start and in its tests.
+- [x] **R7.3** Bundles in today's shapes: the TypeScript imports and the server's reads point at them;
   the game unchanged (suite green).
-- [ ] **R7.4** Move the files: `shared/*.json` split into `content/<kind>/...` (pure moves and
+  Done: the bundles keep their paths, `shared/*.json`, so no import changed.
+- [x] **R7.4** Move the files: `shared/*.json` split into `content/<kind>/...` (pure moves and
   splits, script-checked to be the same data).
-- [ ] **R7.5** The dev server rebuilds content on a change; Docker and CI build it before the client
+  Done (80ffc5a): `tools/content/split.mjs`, checked bundle by bundle to give the same data.
+- [x] **R7.5** The dev server rebuilds content on a change; Docker and CI build it before the client
   and the server.
-- [ ] **R7.6** JSON Schemas generated into `content/_schemas/`; files name their schema for editors.
-- [ ] **R7.7** Unit tests: every file valid; a bad field and a broken reference each fail.
-- [ ] **R7.8** `content/AGENTS.md`: the layout and how to add each kind (today's recipe, with the code
+  Done: the dev server rebuilds on a change (`tools/contentBundles.ts`); the bundles are committed,
+  so Docker needs no step, and the unit tier fails while one is behind.
+- [x] **R7.6** JSON Schemas generated into `content/_schemas/`; files name their schema for editors.
+  Done: `content/_schemas/` (`npm run content:schemas`).
+- [x] **R7.7** Unit tests: every file valid; a bad field and a broken reference each fail.
+  Done: `tests/unit/content.test.ts`.
+- [x] **R7.8** `content/AGENTS.md`: the layout and how to add each kind (today's recipe, with the code
   steps that Phase 9 removes marked).
 
+  Done: `content/AGENTS.md`.
 ## Phase 8: One Copy of the Rules
 
-- [ ] **R8.1** Toolchain: `rustup target add wasm32-unknown-unknown`, `wasm-bindgen-cli` pinned to
+- [~] **R8.1** Toolchain: `rustup target add wasm32-unknown-unknown`, `wasm-bindgen-cli` pinned to
   the crate's version, `npm run engine` (and a dev-server watch), Vitest and Vite loading, Docker and
   CI.
-- [ ] **R8.2** Spike: ground height and collider queries end to end through `crates/engine-wasm`
+  Begun (2ff8375): the wasm32 target, `crates/engine-wasm`, `npm run engine`, CI; the browser's loader
+  waits for the first switch.
+- [~] **R8.2** Spike: ground height and collider queries end to end through `crates/engine-wasm`
   (the render reads ground height every frame for the shadow), measured per frame, before the
   interface is settled.
+  Begun (2ff8375): ground height, standing ground and surface through the WebAssembly in Node: the
+  island ready 10 ms after the first call, a query about 45 ns.
 - [ ] **R8.3** The interface (`docs/engine.md`): step with inputs (~17 action fields), commands in,
   events and commands out; named calls for every write JavaScript makes into the rules today
   (`inventory/rules-map.md` section 3: the server's player at reconcile, island state from ticks,
@@ -417,8 +446,10 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
   (read every step today, replays included; set once per step instead), `othersVehicles` and
   `othersAround` (set per frame), `plotOwner` (set on change), `remote` (commands returned after the
   step).
-- [ ] **R8.4** Determinism test (unit tier): the same scenario natively and in WebAssembly ends in the
+- [x] **R8.4** Determinism test (unit tier): the same scenario natively and in WebAssembly ends in the
   same state hash, bit for bit.
+  Done (2ff8375): `tests/conformance/engine.test.ts`, 60,000 ground queries' fingerprint, native and
+  WebAssembly, to the bit.
 - [ ] **R8.5** Shadow mode: in dev and tests, the engine runs beside the TypeScript rules and every
   step is compared; any difference fails the test.
 - [ ] **R8.6** Switch the ground, colliders and dungeons. Port the island's generator
@@ -488,19 +519,29 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
   any recipe (after R9.10).
 - [ ] **R10.2** The server hosts any zone as channels and copies (today's `spaces.rs` handles channels
   and dungeon copies: generalized), with travel between zones and where each character is saved.
-- [ ] **R10.3** Developer zones: a `developer` flag; only admins may enter (the server checks); the
+- [~] **R10.3** Developer zones: a `developer` flag; only admins may enter (the server checks); the
   admin menu lists them from the zone list.
-- [ ] **R10.4** The training yard as a zone (`content/zones/yard/`): its layout (today's `makeWorld`),
+  The server's half (acaf9b5): `developer` zones, admins only (`spaces.rs enter_zone`). The Admin
+  menu's entries wait for the library agent to finish with `src/dev/pages.ts`.
+- [~] **R10.4** The training yard as a zone (`content/zones/yard/`): its layout (today's `makeWorld`),
   the dummy, targets and slimes (and goblins) as spawns. The yard's own rules (hit-stop, auto-aim, the
   dummy) are engine rules any zone can switch on.
-- [ ] **R10.5** Bots in the engine: a bot is a player whose inputs and commands come from a brain
+  The server's half (acaf9b5): `content/dungeons/yard.json`, a copy each with wandering bots as moving
+  targets; the dummy and creatures in a copy need actors that stand on its floor.
+- [x] **R10.5** Bots in the engine: a bot is a player whose inputs and commands come from a brain
   (brains are data, as creatures' are), stepped by the server like a player without a socket and
   marked as a bot on the wire. First brains: a skirmisher (find a foe, fight, retreat when hurt) and
   a wanderer.
-- [ ] **R10.6** Zones spawn bots from data: how many, which sides, which brain, where.
-- [ ] **R10.7** The battlefield as a zone (`content/zones/battlefield/`): today's `makeBattlefield`
+  Done (03e5a4c, 3c1c4ca): `crates/engine/src/bots.rs` (a skirmisher, a wanderer) and
+  `crates/server/src/play/bots.rs` (bots in a channel or a copy, on the wire as peers marked as bots);
+  an admin's `Command::Bots`. Fighting across sides now works on any ground.
+- [x] **R10.6** Zones spawn bots from data: how many, which sides, which brain, where.
+  Done (acaf9b5): a zone's file lists its bots by side and brain.
+- [~] **R10.7** The battlefield as a zone (`content/zones/battlefield/`): today's `makeBattlefield`
   layout, two sides, armies of bots. It runs only while an admin is inside: the first admin in starts
   it and spawns its bots; when the last admin leaves, it stops and its bots go (decided).
+  The server's half (acaf9b5): one copy for every admin, sixteen skirmishers a side, in with the first
+  admin and gone with the last. The browser's arena and the old battle server's removal are left.
 - [ ] **R10.8** Crowds at scale in every zone: the interest grid (each client is sent what's near it,
   far things coarser), compact snapshots for many entities, players and bots stepped in parallel
   (`rayon`). Measured: server tick time and bandwidth for N bots.
@@ -536,25 +577,29 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
 
 ## Phase 12: The Design Bible as a Knowledge Base
 
-- [ ] **R12.1** The design: sections (what Ruina is; systems; the world; things; development), where
+- [x] **R12.1** The design: sections (what Ruina is; systems; the world; things; development), where
   the written explanations live (beside the content they describe; system pages in the bible's own
   folder), and how numbers get in (taken from the compiled content when the page is built, never
   copied into prose by hand).
-- [ ] **R12.2** The page: `/bible/` in the built game, open to players, linked from the title screen and
+- [x] **R12.2** The page: `/bible/` in the built game, open to players, linked from the title screen and
   the admin menu; navigation, search, links between pages.
-- [ ] **R12.3** A page per system, written from the engine's rules, with the formulas and numbers:
+- [x] **R12.3** A page per system, written from the engine's rules, with the formulas and numbers:
   moving and climbing, swimming and gliding, combat, skills and builds, creatures and their AI,
   farming and gathering, livestock, trade and pack running, contracts, housing, vehicles and the
   shipyard, quests and progress, weather and the clock, the world and its places, parties and
   dungeons, mini-games, economy and labor.
-- [ ] **R12.4** A page per thing, generated: items, recipes, vendors, creatures, NPCs, quests, skills
+- [x] **R12.4** A page per thing, generated: items, recipes, vendors, creatures, NPCs, quests, skills
   and the skill tree, weapons and abilities, vehicles, mounts and gliders, buildings, crops, animals,
   zones, dungeons.
-- [ ] **R12.5** The completeness test (unit tier): every system and every piece of content has its
+- [x] **R12.5** The completeness test (unit tier): every system and every piece of content has its
   page and its explanation.
-- [ ] **R12.6** The Development tab: today's tracker view of `design/status.json`, for admins.
-- [ ] **R12.7** Docs: how to keep the bible current when adding a system or content (AGENTS.md).
+- [x] **R12.6** The Development tab: today's tracker view of `design/status.json`, for admins.
+- [x] **R12.7** Docs: how to keep the bible current when adding a system or content (AGENTS.md).
 
+  Phase 12 done by a background agent (738e040, 6b45e97, 5594678): `/bible/`, open to players, 461
+  pages, every number from the content or the rules; `tests/unit/bible.test.ts` fails on any system,
+  thing, rules file or content key without its page. Linking it from the title screen and the Admin
+  menu is left (they were other agents' files then).
 ## Phase 13: AGENTS.md, the Docs and the Merge
 
 - [ ] **R13.1** AGENTS.md rewritten (map, boundaries, recipes, commands, tiers, rules, assets,

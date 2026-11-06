@@ -15,13 +15,13 @@ is in [tracker.md](tracker.md), the plan in [README.md](README.md).
 | 3 Admin Menu | done |
 | 4 The /find-assets Skill | done |
 | 5 The Rust Workspace | done |
-| 6 The Client in Areas | to do |
-| 7 Content in Folders | to do |
-| 8 One Copy of the Rules | to do |
+| 6 The Client in Areas | in progress |
+| 7 Content in Folders | done |
+| 8 One Copy of the Rules | begun |
 | 9 Content as Data, Finished | to do |
-| 10 Zones, Developer Zones and Bots | to do |
+| 10 Zones, Developer Zones and Bots | server done |
 | 11 Bigger Than 64 MB | to do |
-| 12 The Design Bible as a Knowledge Base | to do |
+| 12 The Design Bible as a Knowledge Base | done |
 | 13 AGENTS.md, the Docs and the Merge | to do |
 
 ## 2026-11-05: The Survey and the Review
@@ -209,3 +209,45 @@ is in [tracker.md](tracker.md), the plan in [README.md](README.md).
 - **Waiting:** golden results for the engine's own tests (before Phase 8 deletes the comparisons
   with the TypeScript), and untangling combat from the battlefield (Phase 10 deletes it).
 - **Next:** Phase 6, the client in areas.
+
+## 2026-11-06: Phases 6 to 12, Side by Side
+
+Three background agents took the parts that touch nothing else (the island's windows, the galleries,
+the knowledge base) while the main line went on.
+
+- **Phase 6, the client in areas (under way).** The island's windows on shared components
+  (`src/ui/components/`), `lifeUI.ts` from 2,328 lines to 600 with the same DOM in 89 states; every
+  URL option in one documented module; the test API, the bug reporter's and online play's wiring
+  out of `main.ts` (2,566 lines to 1,900); a unit test that fixes which areas may import which. Left:
+  the rest of `main.ts`, the bridge to the rules, the Content Library (an agent is on it).
+- **Phase 7, content in folders (done).** `content/`: a file per thing (330 files), built into the
+  bundles the game reads (`shared/`, the same data, so nothing that reads them changed) by
+  `npm run content`, and checked: each kind's schema, every cross-reference, nothing unlisted.
+  `content/AGENTS.md` says how to add each kind.
+- **Phase 8, one copy of the rules (begun).** The engine compiles to WebAssembly as it is, and its
+  ground and colliders answer exactly as natively: 60,000 queries' fingerprint, to the bit, in a test.
+  A query costs about 45 ns from JavaScript. The rules' tolerances can't reach zero while the browser
+  runs the TypeScript (V8's sin and cos aren't fdlibm's): the switch to the engine settles that.
+- **Phase 10, zones, developer zones and bots (server done).** Bots are players whose inputs a brain
+  decides (a skirmisher, a wanderer), stepped by the same rules. The yard and the battlefield are
+  developer zones built like Goblin's Dread's copies: admins only; the battlefield one copy for every
+  admin, sixteen bots a side, there only while an admin is. A bug fixed on the way: in the open world
+  nobody could land a blow on another player, because a swing ignored anyone standing more than 2 m
+  above zero. Left: entering them from the Admin menu and drawing them as arenas.
+- **Phase 12, the knowledge base (done).** `/bible/`, open to players: 461 pages, a page per system
+  written from the rules with every number taken from the content or the rules, a page per thing, a
+  test that fails on any gap. Linking it from the title screen and the Admin menu is left.
+
+**Found while writing the knowledge base: rules issues, yours to decide** (nothing changed for them):
+- Resting (`{t:"rest"}`) is accepted without a bed, in both TypeScript and Rust: three times the
+  labor regeneration anywhere.
+- F on a fruit tree in its last stage fells it, so one press destroys a picked apple tree.
+- The labor tonic caps labor at a hard-coded 1,000 instead of the content's maximum.
+- Content fields no rule reads: `plantLabor`, `witherAfterRipe`, `rain.boost`, `swim.splashSpeed`,
+  `glide.crashSpeed`, `perks.restLaborMultiplier`.
+- The yard's arrows (`training.ts`) disagree with the server's (`combat.rs`).
+- Trees block gliders at any height.
+- `design/goblins.md` is stale: its poise and stone damage don't match the data.
+
+**Flaky, not this branch:** `net-actors.spec.ts` "drawn moving, not jumping" (@gpu) and the animation
+test "turning on the spot" fail now and then under load and pass alone, as before the refactor.
