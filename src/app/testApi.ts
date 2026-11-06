@@ -600,6 +600,14 @@ export function makeTestApi(g: GameRefs) {
     throughPortal(enter: boolean, id = 'goblinsDread'): boolean {
       return g.online?.link.dungeon(id, enter) ?? false;
     },
+    /** Online: into a developer zone (the yard, the battlefield), as the Admin menu takes an admin there. */
+    enterZone(id: string): boolean {
+      return g.online?.link.zone(id) ?? false;
+    },
+    /** The players here who are bots, by id and name (they come with a developer zone, or the developer panel). */
+    bots(): Array<{ id: number; name: string }> {
+      return (g.peers?.list() ?? []).filter((p) => p.bot && p.online).map((p) => ({ id: p.id, name: p.name }));
+    },
     /** The mini-game tables drawn near you: where, who sits at them, and how many beacons are lit. */
     gameTables() {
       return g.gameTables?.list() ?? [];

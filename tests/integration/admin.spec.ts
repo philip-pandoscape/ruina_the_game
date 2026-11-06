@@ -1,4 +1,4 @@
-import { rmSync } from 'node:fs';
+import { readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
@@ -112,4 +112,40 @@ test('an admin has the Admin menu on character select and in the world, and it o
   await expect.poll(() => coins(page), { timeout: 30_000 }).toBe(before + 300);
   expect(await status(page, '/dev/library.html')).toBe(200);
   expect(await status(page, '/design/')).toBe(200);
+});
+
+test('an admin goes into the battlefield from the world, finds its bots and an arena, and comes out at its door; a player is kept out', async ({
+  page,
+  browser,
+}) => {
+  const zone = JSON.parse(readFileSync('content/dungeons/battlefield.json', 'utf8'));
+  const space = (p: Page) => p.evaluate(() => window.__game.space());
+
+  // A player asks and nothing happens: the server keeps them where they are.
+  const other = await browser.newContext();
+  const player = await other.newPage();
+  await atCharacterSelect(player, fresh('plr'));
+  await enterWorld(player);
+  expect(await player.evaluate(() => window.__game.enterZone('battlefield'))).toBe(true);
+  const ticks = await player.evaluate(() => window.__game.online()!.ticks);
+  await player.waitForFunction((t) => window.__game.online()!.ticks > t + 20, ticks);
+  expect((await space(player))?.kind).toBe('channel');
+  await other.close();
+
+  await atCharacterSelect(page, ADMIN);
+  await enterWorld(page);
+  expect(await page.evaluate(() => window.__game.enterZone('battlefield'))).toBe(true);
+  await expect.poll(async () => (await space(page))?.kind, { timeout: 30_000 }).toBe('dungeon');
+  expect(await space(page)).toMatchObject({ kind: 'dungeon', dungeon: 'battlefield' });
+  // Both sides' bots, and the arena drawn round you under the sky.
+  await expect.poll(() => page.evaluate(() => window.__game.bots().length), { timeout: 30_000 }).toBeGreaterThanOrEqual(30);
+  expect(await page.evaluate(() => window.__game.dungeon().drawn)).toBe('battlefield');
+
+  // Out through its way out, at its door on the island.
+  await page.evaluate(([x, z]) => window.__game.teleport(x, z), [zone.origin.x + zone.exit.x, zone.origin.z + zone.exit.z] as const);
+  await expect
+    .poll(() => page.evaluate(() => window.__game.throughPortal(false, 'battlefield') && window.__game.space()?.kind), { timeout: 30_000 })
+    .toBe('channel');
+  const at = await page.evaluate(() => window.__game.state().player.pos);
+  expect(Math.hypot(at.x - zone.door.outside.x, at.z - zone.door.outside.z)).toBeLessThan(5);
 });

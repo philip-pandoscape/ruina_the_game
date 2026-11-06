@@ -370,7 +370,7 @@ const party =
           const p = sim.player.pos;
           return peers
             .list()
-            .filter((o) => o.online)
+            .filter((o) => o.online && !o.bot)
             .map((o) => ({ id: o.id, name: o.name, dist: Math.hypot(o.x - p.x, o.z - p.z) }))
             .sort((a, b) => a.dist - b.dist);
         },
@@ -442,7 +442,7 @@ if (online && peers && life && minigames) {
       playing.has(id) ? 'At a Table' : mode === 'ride' ? 'Riding' : mode === 'glide' ? 'In the Air' : mode === 'swim' ? 'Swimming' : null;
     return peers
       .list()
-      .filter((p) => p.online)
+      .filter((p) => p.online && !p.bot)
       .map((p) => ({ id: p.id, name: p.name, x: p.x, y: p.y, z: p.z, busy: busy(p.id, p.mode) }));
   };
 }

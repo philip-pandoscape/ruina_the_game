@@ -1,14 +1,14 @@
 {
-  "comment": "The training yard, a developer zone (docs/admin.md): only admins go in, from the Admin menu, each party into a copy of its own (crates/server/src/play/spaces.rs enter_zone). An open arena high above the sea south-west of Emberholm, placed as a dungeon is (shared/dungeons/goblinsDread.json says how: everything round `origin`, solid only in a copy). Bots wander in it as moving targets on the other side (crates/engine/src/bots.rs), there while anyone is. `door` is where its way out lets you out on the island. Heights (top) are above origin.y.",
+  "comment": "The training yard, a developer zone (docs/admin.md): only admins go in, from the Admin menu, each party into a copy of its own (crates/server/src/play/spaces.rs enter_zone). An open arena high above the sea south-west of Emberholm, inside the 760 m from the middle that anyone can go, placed as a dungeon is (shared/dungeons/goblinsDread.json says how: everything round `origin`, solid only in a copy). Bots wander in it as moving targets on the other side (crates/engine/src/bots.rs), there while anyone is. `door` is where its way out lets you out on the island. Heights (top) are above origin.y.",
   "id": "yard",
   "name": "The Yard",
   "maxPlayers": 5,
   "developer": true,
   "style": "arena",
   "origin": {
-    "x": -600,
+    "x": -450,
     "y": 400,
-    "z": -600
+    "z": -520
   },
   "arrive": {
     "x": 0,
@@ -25,7 +25,7 @@
     "id": "yard",
     "portal": {
       "x": 0,
-      "y": -1000,
+      "y": 8,
       "z": 0,
       "r": 0
     },

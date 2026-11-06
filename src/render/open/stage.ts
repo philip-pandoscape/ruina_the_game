@@ -13,6 +13,7 @@ import { ZoneDressing } from './dressing';
 import { WorldPost } from './post';
 import { FallsView } from './falls';
 import { GrottoView } from './grotto';
+import { ArenaView } from './arenaView';
 import { DungeonView } from './dungeonView';
 import type { DungeonDef } from '../../sim/zone/dungeon';
 import { Village } from '../village/village';
@@ -138,8 +139,8 @@ export class OpenStage {
    * dusk turn gold; at night a moon lights the isle a cool blue (bright enough to play by).
    */
   setTime(hour: number, sunrise: number, sunset: number): void {
-    // Inside a dungeon there's no sky to light it: its own light, whatever the hour.
-    if (this.inside) return this.lightInside();
+    // Inside a dungeon there's no sky to light it: its own light, whatever the hour. An arena keeps the sky.
+    if (this.inside?.dark) return this.lightInside();
     const C = (hex: number) => this.c1.setHex(hex);
     const day = Math.min(1, Math.max(0, (hour - (sunrise - 0.75)) / 1.5)) * Math.min(1, Math.max(0, (sunset + 0.75 - hour) / 1.5));
     const u = (hour - sunrise) / (sunset - sunrise);
@@ -184,27 +185,31 @@ export class OpenStage {
 
   // ---------- Inside a dungeon ----------
 
-  private dungeons = new Map<string, DungeonView>();
+  private dungeons = new Map<string, DungeonView | ArenaView>();
   /** The isles on the horizon (none at low quality), put away with the rest of the island inside a dungeon. */
   private isles: THREE.Object3D | null = null;
-  private inside: DungeonView | null = null;
+  private inside: DungeonView | ArenaView | null = null;
 
   /** The dungeon you're inside a copy of, drawn (null out on the island). */
   get dungeon(): string | null {
     return this.inside?.def.id ?? null;
   }
 
-  /** Into a dungeon: its cave drawn round its origin, the island put away, the cave's own light. */
+  /**
+   * Into a dungeon: its cave drawn round its origin, the island put away, the cave's own light; or
+   * into a developer zone, its arena drawn there under the sky, the island still in view below.
+   */
   enterDungeon(def: DungeonDef): void {
     let view = this.dungeons.get(def.id);
     if (!view) {
-      view = new DungeonView(def);
+      view = def.style === 'arena' ? new ArenaView(def) : new DungeonView(def);
       this.dungeons.set(def.id, view);
       this.scene.add(view.group);
     }
     if (this.inside && this.inside !== view) this.inside.group.visible = false;
     view.group.visible = true;
     this.inside = view;
+    if (!view.dark) return;
     for (const o of this.outdoors()) o.visible = false;
     this.lightInside();
   }

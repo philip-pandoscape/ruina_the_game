@@ -89,6 +89,8 @@ export interface EstateEntry {
 export interface PeerEntry {
   id: number;
   name: string;
+  /** A bot (crates/engine/src/bots.rs): a player whose inputs a brain decides, there to fight or train with. */
+  bot?: boolean;
   p: Record<string, unknown>;
 }
 
@@ -363,6 +365,11 @@ export class WorldLink {
   /** Through a dungeon's portal (you're at it), or back out of its copy (you're at its way out). */
   dungeon(id: string, enter: boolean): boolean {
     return this.send({ t: 'dungeon', id, enter });
+  }
+
+  /** Into a developer zone (admins only; the server says no to anyone else): the yard, the battlefield. */
+  zone(id: string): boolean {
+    return this.send({ t: 'zone', id });
   }
 
   /** Invites someone playing to your party: by id, or by name (in any channel or dungeon). */

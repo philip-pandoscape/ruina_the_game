@@ -77,6 +77,8 @@ interface Sample {
 interface Peer {
   id: number;
   name: string;
+  /** A bot: no invitations or challenges for it. */
+  bot: boolean;
   hero: Hero;
   life: Life;
   view: LifeView;
@@ -144,6 +146,7 @@ export class WorldPeers {
   list(): Array<{
     id: number;
     name: string;
+    bot: boolean;
     online: boolean;
     x: number;
     y: number;
@@ -158,6 +161,7 @@ export class WorldPeers {
     return [...this.peers.values()].map((p) => ({
       id: p.id,
       name: p.name,
+      bot: p.bot,
       online: p.online,
       x: p.shown.pos.x,
       y: p.shown.pos.y,
@@ -195,6 +199,7 @@ export class WorldPeers {
     p = {
       id,
       name,
+      bot: false,
       hero,
       life,
       view,
@@ -218,6 +223,7 @@ export class WorldPeers {
       const s = e.p as Sample['p'];
       if (!s?.pos) continue;
       const p = this.peer(e.id, e.name);
+      p.bot = !!e.bot;
       const fr = Number(s.fr) || 0;
       // A newer page (they reloaded) starts its frames again from zero.
       if (p.samples.length && fr <= p.samples[p.samples.length - 1].fr - 600) p.samples = [];
