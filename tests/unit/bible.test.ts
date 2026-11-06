@@ -73,6 +73,7 @@ const PLUMBING: Record<string, string> = {
   'crates/engine/src/life/content.rs': 'reads the island’s content files for the engine',
   'crates/server/src/play/mod.rs': 'runs a channel: the rules above, fed from players’ inputs',
   'crates/server/src/play/socket.rs': 'a player’s connection to the server',
+  'crates/server/src/play/stepping.rs': 'how a channel runs its players’ steps, one after another or all at once: the same game either way',
   'crates/server/src/play/channels.rs': 'who is in which channel',
   // The developer zones, which only admins enter: no player reads about them.
   'crates/engine/src/world.rs': 'the battlefield’s ground, a developer zone',

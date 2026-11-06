@@ -24,8 +24,8 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
-use crate::open::Sim;
 use crate::open::zone::Zone;
+use crate::open::{OpenWorld, Sim};
 use crate::player::{Actions, Mode, Player};
 use content::{ItemCount, bag_slots, item_def, labor};
 use state::{LIFE_VERSION, LifeState, new_life_state};
@@ -356,6 +356,20 @@ impl Life {
         // The first quest is waiting the moment you arrive.
         quests::start_quests(&mut life);
         life
+    }
+
+    /// Makes the island's houses and farm posts solid in `world` as far as they're built, its ground
+    /// cleared (each piece once: `OpenWorld::added`), under the character `owner`. A step that builds
+    /// changes only the island, which bumps its `revision`: whoever stepped it makes the building
+    /// solid once the step is over (crate::combat once everyone in a channel has stepped, the
+    /// browser's session after its own), so the world is the same for everyone while they step.
+    pub fn make_solid(&self, world: &mut OpenWorld, owner: i64) {
+        for h in &self.state.houses {
+            housing::add_house_colliders(self, world, owner, h);
+        }
+        for sc in &self.state.scarecrows {
+            farming::add_scarecrow_collider(world, owner, sc);
+        }
     }
 
     /// Squares the player with the island after a reset or a load: a pack the island says is on

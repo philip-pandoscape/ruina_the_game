@@ -175,7 +175,7 @@ fn duel(a: &Build, b: &Build, seed: u32, max_ticks: u32, distance: f64) -> Outco
 
         players.step(&mut actors, &world, tick as u64);
         players.step_effects(&mut actors);
-        players.record_history(tick as u64);
+        players.record_history(tick as u64, &actors);
 
         let hps = [hp(&players, 0), hp(&players, 1)];
         if std::env::var("BALANCE_TRACE").is_ok() && tick % 30 == 0 {

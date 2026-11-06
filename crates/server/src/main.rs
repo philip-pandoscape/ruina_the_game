@@ -11,7 +11,9 @@
 //! ADMIN_USERS (the accounts, by name, comma-separated, that reach the developer pages and commands),
 //! DEV_LOGIN=1 (sign in by name alone, and everyone an admin unless ADMIN_USERS names some: for
 //! development; ignored on Railway),
-//! COOKIE_SECURE=1 (https without Railway).
+//! COOKIE_SECURE=1 (https without Railway),
+//! PARALLEL=on (--parallel on: each channel steps its players all at once on the machine's cores, as
+//! many as RAYON_NUM_THREADS says or all of them; play/stepping.rs).
 
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -19,7 +21,7 @@ use std::sync::Mutex;
 
 use ruina_server::db;
 use ruina_server::http::{self, AppState};
-use ruina_server::play::socket;
+use ruina_server::play::{socket, stepping};
 
 struct Args {
     port: u16,
@@ -27,13 +29,16 @@ struct Args {
     everywhere: bool,
     /// The built game (dist/) to serve, if any.
     static_dir: Option<PathBuf>,
+    /// Step each channel's players all at once (`--parallel on`).
+    parallel: bool,
 }
 
 fn parse_args() -> Args {
     let env_port = std::env::var("PORT").ok().and_then(|p| p.parse().ok());
     let static_dir = std::env::var_os("STATIC_DIR").filter(|d| !d.is_empty()).map(PathBuf::from);
     let everywhere = std::env::var("LISTEN").is_ok_and(|v| v == "all");
-    let mut a = Args { port: env_port.unwrap_or(7777), everywhere, static_dir };
+    let parallel = std::env::var("PARALLEL").is_ok_and(|v| v == "on");
+    let mut a = Args { port: env_port.unwrap_or(7777), everywhere, static_dir, parallel };
     let argv: Vec<String> = std::env::args().collect();
     let mut i = 1;
     while i + 1 < argv.len() {
@@ -48,6 +53,13 @@ fn parse_args() -> Args {
                 }
             }
             "--static" => a.static_dir = Some(PathBuf::from(v)),
+            "--parallel" => {
+                a.parallel = match v.as_str() {
+                    "on" => true,
+                    "off" => false,
+                    _ => panic!("--parallel takes on or off"),
+                }
+            }
             other => panic!("unknown argument {other}"),
         }
         i += 2;
@@ -61,6 +73,9 @@ fn main() {
     let dev_login = std::env::var("DEV_LOGIN").is_ok_and(|v| v == "1") && !on_railway;
     let secure_cookies = on_railway || std::env::var("COOKIE_SECURE").is_ok_and(|v| v == "1");
     let admin_users = http::admin_users(&std::env::var("ADMIN_USERS").unwrap_or_default());
+    // Faster from a few hundred players a channel; slower below (crates/server/src/play/stepping.rs).
+    stepping::set_parallel(args.parallel);
+    println!("players: {}", if args.parallel { "stepped all at once (--parallel on)" } else { "stepped one after another" });
     if dev_login && admin_users.is_empty() {
         println!("admins: everyone (developer sign-in is on and ADMIN_USERS names nobody)");
     } else if admin_users.is_empty() {

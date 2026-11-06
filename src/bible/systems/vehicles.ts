@@ -15,7 +15,7 @@ import { rustConst } from '../source';
 import vehiclesSource from '../../../crates/engine/src/life/vehicles.rs?raw';
 import interactSource from '../../../crates/engine/src/life/interact.rs?raw';
 import weatherSource from '../../../crates/engine/src/life/weather.rs?raw';
-import playSource from '../../../crates/server/src/play/mod.rs?raw';
+import combatSource from '../../../crates/engine/src/combat.rs?raw';
 
 /** The numbers the first groups of `pattern` find in the rules' source: throws when the source has changed shape. */
 function nums(source: string, pattern: RegExp, what: string): number[] {
@@ -108,7 +108,7 @@ const rule = () => {
     cargoBias: one(v, re(String.raw`if carrying \{ {N} \} else \{ 0\.0 \}`), 'how a pack in your arms favours the cargo bed'),
     reach: one(interactSource, re(String.raw`let d = distance_to\(v, px, pz\);\s*if d > {N} \{`), 'how near a vehicle F reaches'),
     slipReach: one(interactSource, re(String.raw`if d > {N} \{\s*continue;\s*\}\s*let y = hf\.height\(sy\.x, sy\.z\);`), 'how near a slipway F reaches'),
-    climbIn: rustConst(playSource, 'CLIMB_IN'),
+    climbIn: rustConst(combatSource, 'CLIMB_IN'),
   };
 };
 
@@ -124,7 +124,7 @@ export const vehicles = system({
   summary: 'Summoning, driving, sailing and riding; cargo and passengers; storms at sea; and building a ship on a slipway.',
   icon: '⛵',
   keywords: ['cart', 'boat', 'ship', 'sail', 'wind', 'drive', 'drift', 'handbrake', 'mount', 'horse', 'donkey', 'deed', 'whistle', 'storm', 'slipway', 'cargo'],
-  rules: ['crates/engine/src/life/vehicles.rs', 'crates/engine/src/life/shipyard.rs'],
+  rules: ['crates/engine/src/life/vehicles.rs', 'crates/engine/src/life/shipyard.rs', 'crates/engine/src/combat.rs'],
   content: ['shared/traversal.json#storm', 'shared/vehicles.json#vehicles', 'shared/vehicles.json#mounts', 'shared/shipyard.json#designs'],
   body: () => {
     const R = rule();

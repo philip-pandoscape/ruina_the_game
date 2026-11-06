@@ -92,10 +92,12 @@ impl OpenWorld {
 }
 
 /// What the open-world rules act on each step: one player, the world they are in, and whose
-/// things anything they build belongs to.
+/// things anything they build belongs to. The world is only read while a player steps: everyone in
+/// a channel steps against the same world, whatever order they go in, and what they build is made
+/// solid once the step is over (`Life::make_solid`).
 pub struct Sim<'a> {
     pub player: &'a mut Player,
-    pub world: &'a mut OpenWorld,
+    pub world: &'a OpenWorld,
     /// The character this player is (their colliders are kept apart from everyone else's).
     pub owner: i64,
 }
@@ -113,8 +115,16 @@ impl Sim<'_> {
 
 /// One step of the rules for one player in an open world, as the server runs it (no training dummy,
 /// no hit pause, no auto-aim), with the island's systems (`life`) riding
-/// along when the player has an island. `owner` is the character, for whatever they build.
-pub fn step_player(p: &mut Player, a: &Actions, world: &mut OpenWorld, mut life: Option<&mut Life>, owner: i64) {
+/// along when the player has an island. `owner` is the character, for whatever they build. The
+/// world is only read: this is `step_player_in` for callers that hold it to themselves.
+pub fn step_player(p: &mut Player, a: &Actions, world: &mut OpenWorld, life: Option<&mut Life>, owner: i64) {
+    step_player_in(p, a, world, life, owner);
+}
+
+/// The same, in a world shared with everyone else stepping in it: a channel steps each of its
+/// players against one world, in any order or all at once (crate::combat), and what they build
+/// is made solid once they all have (`Life::make_solid`).
+pub fn step_player_in(p: &mut Player, a: &Actions, world: &OpenWorld, mut life: Option<&mut Life>, owner: i64) {
     p.begin_step(a);
     // The island has one spawn, for both teams.
     let s = world.zone.recipe.spawn;

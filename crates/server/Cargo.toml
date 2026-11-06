@@ -25,3 +25,6 @@ sqlx = { version = "0.9.0", default-features = false, features = ["runtime-tokio
 tokio.workspace = true
 # One socket for IPv6 and IPv4 on every system (Windows keeps an IPv6 socket to IPv6 unless asked).
 socket2 = "0.6.5"
+# A channel's players stepped all at once on the machine's cores (play/stepping.rs), when the server
+# is started so. The engine itself stays on one thread.
+rayon = "1.12.0"

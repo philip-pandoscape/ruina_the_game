@@ -224,10 +224,16 @@ impl Session {
             }
             self.observe();
             if let (Some(life), Ground::Open(world)) = (self.life.as_mut(), &mut self.ground) {
+                let revision = life.revision;
                 let mut sim = Sim { player: &mut self.player, world, owner: 0 };
                 life.step(&mut sim, a);
                 // What F does here, for the prompt on screen (the server works it out only when F is pressed).
                 life.focus = interact::find_focus(life, &sim);
+                // Whatever the step built is solid once it's over, as the server makes it once
+                // everyone has stepped (crate::combat).
+                if life.revision != revision {
+                    life.make_solid(world, 0);
+                }
             }
             self.take_player_events();
             self.player.end_step();
@@ -541,13 +547,7 @@ impl Session {
         if let Some(s) = life.state.staked.take() {
             life.state.coins += s;
         }
-        let mut sim = Sim { player: &mut self.player, world, owner: 0 };
-        for sc in life.state.scarecrows.clone() {
-            farming::add_scarecrow_collider(&mut sim, &sc);
-        }
-        for h in life.state.houses.clone() {
-            housing::add_house_colliders(life, &mut sim, &h);
-        }
+        life.make_solid(world, 0);
         // Time away.
         let saved_at = data.get("savedAt").and_then(Value::as_f64).unwrap_or(now);
         let c = clock();
@@ -637,7 +637,11 @@ impl Session {
             self.sent = Some(life.state.clone());
             self.is_sent = false;
         }
+        let revision = life.revision;
         interact::run_command(life, &mut Sim { player: &mut self.player, world, owner: 0 }, c);
+        if life.revision != revision {
+            life.make_solid(world, 0);
+        }
     }
 
     /// Online, before your inputs run again on the server's word on you: the parts of the island
@@ -670,9 +674,13 @@ impl Session {
         s.vehicles = vehicles;
         life.resting = resting;
         life.placing = placing;
+        let revision = life.revision;
         let mut sim = Sim { player: &mut self.player, world, owner: 0 };
         for c in ahead {
             interact::run_command(life, &mut sim, c);
+        }
+        if life.revision != revision {
+            life.make_solid(world, 0);
         }
     }
 
@@ -680,13 +688,13 @@ impl Session {
     /// houses come with ids of their own, so they're never taken for yours).
     pub fn add_solid_house(&mut self, h: &House) {
         let (Some(life), Ground::Open(world)) = (self.life.as_ref(), &mut self.ground) else { return };
-        housing::add_house_colliders(life, &mut Sim { player: &mut self.player, world, owner: 0 }, h);
+        housing::add_house_colliders(life, world, 0, h);
     }
 
     /// A scarecrow's post solid, and the ground round it tilled, as on the server.
     pub fn add_solid_scarecrow(&mut self, sc: &Scarecrow) {
         let Ground::Open(world) = &mut self.ground else { return };
-        farming::add_scarecrow_collider(&mut Sim { player: &mut self.player, world, owner: 0 }, sc);
+        farming::add_scarecrow_collider(world, 0, sc);
     }
 
     /// Other players' vehicles where they're drawn, solid to you as yours are.

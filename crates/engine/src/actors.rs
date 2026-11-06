@@ -256,6 +256,10 @@ impl Actors {
         Some(a.id)
     }
 
+    pub fn get(&self, id: u32) -> Option<&Actor> {
+        self.list.iter().find(|a| a.id == id)
+    }
+
     pub fn get_mut(&mut self, id: u32) -> Option<&mut Actor> {
         self.list.iter_mut().find(|a| a.id == id)
     }
@@ -788,20 +792,28 @@ impl Actors {
         ev.push(Event::ActorGrow { id: c.id, kind: c.kind.clone(), x, y: ground(x, z), z });
     }
 
-    /// A melee swing: everything in the arc and in reach, nearest first, capped at `max`.
-    pub fn cone_hits(&self, x: f64, z: f64, facing: f64, reach: f64, arc_deg: f64, max: usize) -> Vec<u32> {
-        self.cone_hits_where(x, z, facing, reach, arc_deg, max, |_| true)
-    }
-
-    /// The same, among only the actors `keep` allows (on hills: those whose feet are near yours).
+    /// A melee swing from (x, z): everything in the arc and in reach, nearest first (of two as near,
+    /// the lower id), capped at `max`. Each one is judged where `place` says it stands, which for a
+    /// player's swing is where their screen showed it (crate::combat rewinds it), and passed over
+    /// where that's None (on hills, feet too far from yours). Each comes back with that place.
     #[allow(clippy::too_many_arguments)]
-    pub fn cone_hits_where(&self, x: f64, z: f64, facing: f64, reach: f64, arc_deg: f64, max: usize, keep: impl Fn(&Actor) -> bool) -> Vec<u32> {
-        let mut hits: Vec<(f64, u32)> = self
+    pub fn cone_hits_at(
+        &self,
+        x: f64,
+        z: f64,
+        facing: f64,
+        reach: f64,
+        arc_deg: f64,
+        max: usize,
+        place: impl Fn(&Actor) -> Option<(f64, f64)>,
+    ) -> Vec<(u32, f64, f64)> {
+        let mut hits: Vec<(f64, u32, f64, f64)> = self
             .list
             .iter()
-            .filter(|a| a.is_alive() && keep(a))
+            .filter(|a| a.is_alive())
             .filter_map(|a| {
-                let (dx, dz) = (a.x - x, a.z - z);
+                let (ax, az) = place(a)?;
+                let (dx, dz) = (ax - x, az - z);
                 let dist = len(dx, dz);
                 if dist > reach + a.radius {
                     return None;
@@ -810,12 +822,12 @@ impl Actors {
                 if !in_cone && dist > a.radius + 0.3 {
                     return None;
                 }
-                Some((dist, a.id))
+                Some((dist, a.id, ax, az))
             })
             .collect();
         hits.sort_by(|p, q| p.0.total_cmp(&q.0).then(p.1.cmp(&q.1)));
         hits.truncate(max.max(1));
-        hits.into_iter().map(|(_, id)| id).collect()
+        hits.into_iter().map(|(_, id, ax, az)| (id, ax, az)).collect()
     }
 
     /// A blast: everything whose body overlaps the circle, in the order of their ids.

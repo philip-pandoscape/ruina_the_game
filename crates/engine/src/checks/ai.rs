@@ -149,7 +149,7 @@ fn b(v: bool) -> f64 {
     if v { 1.0 } else { 0.0 }
 }
 
-fn row(a: &Actor) -> Vec<f64> {
+pub(crate) fn row(a: &Actor) -> Vec<f64> {
     let r = vec![
         a.id as f64,
         a.kind_index as f64,

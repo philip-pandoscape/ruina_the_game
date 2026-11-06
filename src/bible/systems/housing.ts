@@ -17,8 +17,8 @@ const RULE = {
   /** How many days of tax one payment covers. */
   week: () => sourceNumber(housingSource, /let week = bp\.tax_per_day \* (\d+(?:\.\d+)?);/, 'how many days a tax payment covers'),
   /** The stage from which the floor is solid, and the walls. */
-  floorFrom: () => sourceNumber(housingSource, /h\.stage >= (\d+) && sim\.world\.added\.insert\(key\("floor"\)\)/, 'the stage the floor is laid at'),
-  wallsFrom: () => sourceNumber(housingSource, /h\.stage >= (\d+) && sim\.world\.added\.insert\(key\("walls"\)\)/, 'the stage the walls go up at'),
+  floorFrom: () => sourceNumber(housingSource, /h\.stage >= (\d+) && world\.added\.insert\(key\("floor"\)\)/, 'the stage the floor is laid at'),
+  wallsFrom: () => sourceNumber(housingSource, /h\.stage >= (\d+) && world\.added\.insert\(key\("walls"\)\)/, 'the stage the walls go up at'),
   /** How near a plot's middle (along either side) its prompts reach. */
   plotReach: () => sourceNumber(interactSource, /if lx\.abs\(\) > (\d+(?:\.\d+)?) \|\| lz\.abs\(\) > \d/, 'how near a plot its prompts reach'),
   /** How near the bed and the chest you stand to use them: one reach for both. */

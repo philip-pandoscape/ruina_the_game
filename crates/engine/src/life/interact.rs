@@ -1313,7 +1313,10 @@ mod tests {
             toasts(&mut life),
             ["Walk to open, level ground and press F to place. Esc cancels.", "🧑\u{200d}🌾 Plot claimed. Walk onto the soil and press F to plant."]
         );
-        // Its tilled ground is no place for the next one.
+        // Once the step that put it down is over (the world is only changed then), its tilled
+        // ground is no place for the next one.
+        life.make_solid(&mut world, 1);
+        let mut sim = Sim { player: &mut p, world: &world, owner: 1 };
         run_command(&mut life, &mut sim, &Command::Use { item: "scarecrow".into() });
         assert_eq!(prompt(&mut life, &sim).1, "Too close to a road or building");
         run_command(&mut life, &mut sim, &Command::Interact);

@@ -10,6 +10,8 @@
 
 /// Creatures: one brain on its own, or packs and war-bands fighting.
 pub mod ai;
+/// A channel's tick: players and bots fighting, creatures among them, a passenger riding along.
+pub mod crowd;
 /// A player on the old battlefield's flat ground: movement, combos, casts, skills.
 pub mod player;
 /// A player on Emberholm: hills, cliffs, decks, water, gliders, packs.
@@ -142,6 +144,30 @@ mod golden {
             }
         }
         assert_eq!(differ, Vec::<String>::new(), "the order creatures are stepped in changed what happened");
+    }
+
+    #[test]
+    fn a_crowd_gives_the_answers_kept() {
+        assert_eq!(differ("crowdcheck", super::crowd::run), Vec::<String>::new(), "{WHY}");
+    }
+
+    #[test]
+    fn a_crowd_gives_the_same_answers_in_any_order() {
+        // Every crowd, stepped in orders of its own (the players, the bots' brains and the
+        // creatures shuffled afresh each tick) with sixteen seeds: what the order everything is
+        // stepped in changes is nothing at all (crate::combat).
+        let mut differ = Vec::new();
+        for (name, input, kept) in cases("crowdcheck") {
+            let mut scenario: Value = serde_json::from_str(&input).expect("a scenario");
+            for seed in 1..=16u32 {
+                scenario["order"] = json!(seed.wrapping_mul(0x9e37_79b1));
+                let got = fnv1a64(&super::crowd::run(&scenario.to_string()).expect("the scenario runs"));
+                if got != kept {
+                    differ.push(format!("{name}, shuffled with seed {seed}: {got}, kept {kept}"));
+                }
+            }
+        }
+        assert_eq!(differ, Vec::<String>::new(), "the order the crowd is stepped in changed what happened");
     }
 
     #[test]

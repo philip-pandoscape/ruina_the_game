@@ -26,8 +26,9 @@ server says. Nothing it says about its own state is believed; it predicts only i
   skill node, a mini-game, what caused a number) go on the wire as numbers, read on both sides from
   the same bundles, never from a list in code; the welcome's content hash keeps the two the same.
 - **Lag compensation.** Each input carries the tick everyone else is drawn at (`renderTick` × 16);
-  the server checks a swing against where its swinger saw the others (`rewound` in
-  `crates/engine/src/combat.rs`). Draw others at that tick and the two agree.
+  the server checks a swing against where its swinger saw the others, players and monsters alike
+  (the `Track` of where each stood, in `crates/engine/src/combat.rs`). Draw others at that tick (the
+  monsters are, `actorTimeline.ts`) and the two agree.
 - **Sides** are a developer zone's: on the island everyone is on one (`docs/zones.md`).
 
 ## Tests

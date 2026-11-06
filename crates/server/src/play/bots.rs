@@ -3,8 +3,12 @@
 //! shown to everyone as peers marked as bots. An admin's developer panel adds and removes them
 //! (Command::Bots); the battlefield's developer zone will bring its own.
 
+use std::collections::BTreeMap;
+
+use rayon::prelude::*;
 use serde_json::json;
 
+use super::stepping::Stepping;
 use super::{ChannelGame, TICK_HZ, client};
 use crate::bots::{Bot, Brain, FoeSeen};
 use crate::jsmath::JsMath;
@@ -95,21 +99,32 @@ impl ChannelGame {
     }
 
     /// Each bot looks at who it can fight (anyone on another side, players and bots alike) and
-    /// queues this tick's inputs: one a step, as a browser sends them.
+    /// queues this tick's inputs: one a step, as a browser sends them. Each sees everyone as the
+    /// tick begins and decides for itself alone, so they all think at once when the channel steps
+    /// its players at once (`stepping`); their inputs go in after, in the order of the bots.
     pub(super) fn drive_bots(&mut self) {
         if self.bots.is_empty() {
             return;
         }
-        let everyone: Vec<(i64, u8, FoeSeen)> = self
-            .players
-            .each_open()
-            .map(|(_, owner, p, _)| (owner, p.team, FoeSeen { x: p.pos.x, z: p.pos.z, hp: if p.down_frame >= 0 { 0.0 } else { p.hp } }))
-            .collect();
+        // Whom each side fights: everyone on the other sides, in the order of their slots.
+        let everyone: Vec<(u8, FoeSeen)> =
+            self.players.each_open().map(|(_, _, p, _)| (p.team, FoeSeen { x: p.pos.x, z: p.pos.z, hp: if p.down_frame >= 0 { 0.0 } else { p.hp } })).collect();
+        let mut foes: BTreeMap<u8, Vec<FoeSeen>> = BTreeMap::new();
+        for &(team, _) in &everyone {
+            foes.entry(team).or_insert_with(|| everyone.iter().filter(|(t, _)| *t != team).map(|(_, f)| *f).collect());
+        }
+        let players = &self.players;
+        let think = |b: &mut BotSlot| {
+            let (me, _, _) = players.open_view(client(b.id))?;
+            Some(b.brain.think(me, foes.get(&me.team).map_or(&[], Vec::as_slice)))
+        };
+        let decided: Vec<Option<Actions>> = match self.stepping {
+            Stepping::Parallel => self.bots.par_iter_mut().map(think).collect(),
+            _ => self.bots.iter_mut().map(think).collect(),
+        };
         let steps = 60 / TICK_HZ;
-        for b in &mut self.bots {
-            let Some((me, _, _)) = self.players.open_view(client(b.id)) else { continue };
-            let foes: Vec<FoeSeen> = everyone.iter().filter(|(id, team, _)| *id != b.id && *team != me.team).map(|(_, _, f)| *f).collect();
-            let a = b.brain.think(me, &foes);
+        for (b, a) in self.bots.iter_mut().zip(decided) {
+            let Some(a) = a else { continue };
             let first = b.seq + 1;
             b.seq += steps;
             // A press counts once: on the first of the tick's steps.
@@ -124,6 +139,7 @@ impl ChannelGame {
 mod tests {
     use super::*;
     use crate::open::zone::emberholm;
+    use crate::rng::Rng;
 
     #[test]
     fn bots_join_play_and_leave() {
@@ -239,25 +255,105 @@ mod tests {
     #[ignore = "a measurement, run by hand: cargo test --release -p ruina-server tick_time -- --ignored --nocapture"]
     fn tick_time_in_the_battlefield() {
         for n in [64u32, 256, 1024] {
-            let mut ch = crowded_battlefield(n);
-            assert_eq!(ch.bots.len(), n as usize);
-            let mut saves = Vec::new();
-            for _ in 0..40 {
-                ch.play_tick(1.0 / f64::from(TICK_HZ), 0.0);
+            for (how, stepping) in [("one after another", Stepping::InOrder), ("all at once", Stepping::Parallel)] {
+                let mut ch = crowded_battlefield(n);
+                ch.stepping = stepping;
+                assert_eq!(ch.bots.len(), n as usize);
+                let mut saves = Vec::new();
+                for _ in 0..40 {
+                    ch.play_tick(1.0 / f64::from(TICK_HZ), 0.0);
+                }
+                let ticks = 100;
+                let (mut rules, mut sent) = (0.0, 0.0);
+                for _ in 0..ticks {
+                    let t = std::time::Instant::now();
+                    ch.play_tick(1.0 / f64::from(TICK_HZ), 0.0);
+                    let m = std::time::Instant::now();
+                    ch.send_tick(m, &mut saves);
+                    rules += (m - t).as_secs_f64() * 1000.0;
+                    sent += m.elapsed().as_secs_f64() * 1000.0;
+                }
+                let (rules, sent) = (rules / f64::from(ticks), sent / f64::from(ticks));
+                println!(
+                    "{n:5} bots, {how:17}: the rules {rules:7.3} ms a tick, the updates {sent:7.3} ms, in all {:7.3} ms ({} blows)",
+                    rules + sent,
+                    ch.players.pvp_hits
+                );
             }
-            let ticks = 100;
-            let (mut rules, mut sent) = (0.0, 0.0);
-            for _ in 0..ticks {
-                let t = std::time::Instant::now();
-                ch.play_tick(1.0 / f64::from(TICK_HZ), 0.0);
-                let m = std::time::Instant::now();
-                ch.send_tick(m, &mut saves);
-                rules += (m - t).as_secs_f64() * 1000.0;
-                sent += m.elapsed().as_secs_f64() * 1000.0;
-            }
-            let (rules, sent) = (rules / f64::from(ticks), sent / f64::from(ticks));
-            println!("{n:5} bots: the rules {rules:7.3} ms a tick, the updates {sent:7.3} ms, in all {:7.3} ms ({} blows)", rules + sent, ch.players.pvp_hits);
         }
+    }
+
+    /// The battlefield's two sides (each weapon in turn, as in `battle`) with a war-band of goblins
+    /// and two slimes in the middle of them, played for `ticks` ticks: its players stepped as
+    /// `stepping` says and, given `shuffle`, its bots' brains and its creatures in an order shuffled
+    /// afresh before every tick. A hash of every player, creature, arrow, meteor and effect (and what
+    /// each player was told) after every tick.
+    fn melee(ticks: u32, stepping: Stepping, shuffle: Option<u32>) -> String {
+        let def = crate::open::dungeon::dungeon("battlefield").expect("the battlefield");
+        let mut ch = ChannelGame::copy(-1, def, def.door.as_ref().expect("its door"), super::super::Owner::Everyone);
+        ch.stepping = stepping;
+        ch.zone_bots_in();
+        let ids: Vec<i64> = ch.bots.iter().map(|b| b.id).collect();
+        for (k, id) in ids.into_iter().enumerate() {
+            let weapon = (k % 4) as u8;
+            let skills = crate::skills::skills_from(&[["sword", "club", "staff", "bow"][k % 4]]);
+            if let Some((p, _)) = ch.players.open_mut(client(id)) {
+                p.apply_build(Build { skills, weapon, ..Build::default() });
+            }
+        }
+        let (ox, oz) = (def.origin.x, def.origin.z);
+        // A war-band of six on each flank, in a ring.
+        for band in 1..=2u32 {
+            let cx = ox + if band == 1 { -12.0 } else { 12.0 };
+            for k in 0..6u32 {
+                let a = f64::from(k) / 6.0 * std::f64::consts::TAU;
+                ch.actors.spawn_in_band("goblin", cx + 2.0 * a.js_sin(), oz + 2.0 * a.js_cos(), 0.0, 0x90b1 + band * 16 + k, band);
+            }
+        }
+        ch.actors.spawn("slime", ox - 6.0, oz, 0x51e0);
+        ch.actors.spawn("slime", ox + 6.0, oz, 0x51e1);
+        let mut rng = shuffle.map(Rng::new);
+        let mut h: u64 = 0xcbf2_9ce4_8422_2325;
+        let mut fold = |text: String| {
+            for b in text.bytes() {
+                h = (h ^ u64::from(b)).wrapping_mul(0x0000_0100_0000_01b3);
+            }
+        };
+        for _ in 0..ticks {
+            if let Some(r) = rng.as_mut() {
+                r.shuffle(&mut ch.bots);
+                r.shuffle(&mut ch.actors.list);
+            }
+            ch.play_tick(1.0 / f64::from(TICK_HZ), 0.0);
+            for (c, _, p, _) in ch.players.each_open() {
+                let told = ch.players.slot_index(c).map(|s| crate::combat::effects_json(&ch.players, Some(s), p.pos.x, p.pos.z).2);
+                fold(json!([super::super::player_state_json(p), told]).to_string());
+            }
+            let mut creatures: Vec<&crate::actor::Actor> = ch.actors.list.iter().collect();
+            creatures.sort_by_key(|a| a.id);
+            for a in creatures {
+                fold(json!([a.id, a.x, a.y, a.z, a.facing, a.hp, a.state, a.dead_frame, a.lean_x, a.lean_z]).to_string());
+            }
+            let (arrows, meteors, events) = crate::combat::effects_json(&ch.players, None, ox, oz);
+            fold(json!([arrows, meteors, events, ch.players.pvp_hits]).to_string());
+        }
+        assert!(ch.players.pvp_hits > 20, "a fight: {} blows", ch.players.pvp_hits);
+        assert!(ch.actors.list.iter().any(|a| a.hp < a.max_hp || a.dead_frame >= 0), "the creatures were in it");
+        format!("{h:016x}")
+    }
+
+    #[test]
+    fn the_order_a_channel_steps_its_players_bots_and_creatures_in_changes_nothing() {
+        let kept = melee(200, Stepping::InOrder, None);
+        for seed in 1..=3u32 {
+            let shuffled = melee(200, Stepping::Shuffled(Rng::new(seed)), Some(seed.wrapping_mul(0x9e37_79b1)));
+            assert_eq!(shuffled, kept, "stepped in an order shuffled with seed {seed}");
+        }
+    }
+
+    #[test]
+    fn stepped_all_at_once_a_channel_plays_the_same_game() {
+        assert_eq!(melee(200, Stepping::Parallel, None), melee(200, Stepping::InOrder, None));
     }
 
     #[test]

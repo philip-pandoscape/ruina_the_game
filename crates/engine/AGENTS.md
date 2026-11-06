@@ -10,13 +10,13 @@ for one page, with every change from outside as a named call.
 | `player.rs`, `skills.rs`, `tuning.rs` | A player's step: movement, combos, abilities, vitals; the skill tree and builds, kept by id (`saved_build`, `build_from_saved`; those kept by index before read through `shared/buildsByIndex.json`); the numbers from `shared/tuning.json`. |
 | `open/` | The island: its ground and surfaces (`zone.rs`, grown from the zone's recipe by `generate.rs` the first time anything asks), colliders (`colliders.rs`), traversal (`traverse.rs`: climbing, gliding, swimming), dungeons and developer zones (`dungeon.rs`, from `shared/dungeons.json`). |
 | `actor.rs`, `actors.rs`, `ai.rs`, `pack.rs`, `missiles.rs`, `content.rs`, `creatures.rs` | Creatures: their kinds (`shared/actors.json`, `shared/creatures.json`), brains (`shared/behaviours.json` and each creature's), packs, missiles, hits. `content.rs` also has the content's hash (`shared/hash.json`), which the server sends in its welcome. |
-| `combat.rs` | Players together, as the server plays them: joining and leaving, their inputs run in order, and everything that hurts or heals (swings, arrows, meteors, heals, creatures' slams and blows), with lag compensation. |
+| `combat.rs` | Players together, as the server plays them: joining and leaving, their inputs, and everything that hurts or heals (swings, arrows, meteors, heals, creatures' slams and blows), with lag compensation against players and creatures alike; passengers riding along in someone else's vehicle. A tick in phases, each in any order (below). |
 | `bots.rs` | Bots: brains that fill a player's inputs (`docs/zones.md`). |
 | `life/` | The island's life systems: state, trade, farming, livestock, housing, the shipyard, vehicles, contracts, quests, progress, weather; commands in (`life::Command`), events out. |
 | `minigames/` | The table games: what every game shares (`mod.rs`: the content, challenges, tables, turn clocks and forfeits), and each game's rules, a module in `games/` named after it (Beacons first) that the crate's build script (`build.rs`) finds by name. A game is its place in `shared/minigames.json` on the wire; adding one: `docs/content.md`, Mini-Games. |
 | `world.rs` | A flat arena with obstacles (the old battlefield's layout), where the golden player scenarios and the balance harness step players. |
 | `rng.rs`, `jsmath.rs` | The browser's random numbers (mulberry32) and maths (fdlibm through `libm`), to the bit. |
-| `checks/` | Scenarios run through the rules (creatures, a player, a player on Emberholm), whose answers the golden tests hold by a hash of each (`crates/engine/tests/golden/`), kept from when the TypeScript copy agreed with them. |
+| `checks/` | Scenarios run through the rules (creatures, a player, a player on Emberholm, a channel's crowd), whose answers the golden tests hold by a hash of each (`crates/engine/tests/golden/`), kept from when the TypeScript copy agreed with them; the creatures' and the crowd's also stepped in shuffled orders. |
 | `session.rs`, `training.rs`, `yard.rs`, `event.rs` | The browser's game for one page (`session.rs`), the training yard's stand-in for the server (`training.rs`: a swing's blow with its hit pause and auto-aim, the yard's arrows, meteors and heals) and its layout (`yard.rs`), and what a step shows (`event.rs`). |
 
 ## Rules
@@ -31,6 +31,18 @@ for one page, with every change from outside as a named call.
   from `content/`, `content/AGENTS.md`); the engine reads the bundle, never a list of ids in code.
   What goes on the wire as a place in a list takes it from the bundle; what's kept names it by id.
 - **Only serde, serde_json and libm.** The engine builds for the server and for WebAssembly alike.
+- **The order things are stepped in changes nothing.** A tick goes in phases (`combat.rs`: vehicles
+  made solid as they stand, the players' inputs, passengers seated, arrows and meteors, the
+  creatures, where everything stood). Within a phase each player, creature, arrow or meteor reads
+  the others only as they stood when the phase began, and changes nothing but itself: what it does
+  to anyone else is handed back and applied once all of them have gone, in the order of whom it
+  lands on (a creature by its id, a player by their slot), then of whom it came from. So a phase
+  comes out the same stepped in any order, or all at once: `Players::step_by` hands each player's
+  step to the caller as a `Job` (the server runs them on its threads; the engine has none), and
+  `Actors::step` takes its creatures in any order. What a step builds changes only the island (its
+  `revision`), and is made solid once the step is over (`Life::make_solid`), so the world is the
+  same for everyone stepping in it. Anything new that reaches across players or creatures goes the
+  same way; the crowd's and the creatures' golden scenarios are run shuffled to hold it.
 
 ## Adding a System
 
