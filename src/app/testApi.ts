@@ -90,18 +90,6 @@ export function makeTestApi(g: GameRefs) {
       return g.sim.log.map((e) => ({ ...e }));
     },
     perf: g.perf,
-    crowd() {
-      if (g.net)
-        return { fighters: g.net.n, known: g.net.knownCount(), connected: g.net.connected, downloadKBps: g.net.bytesPerSec / 1024, server: g.net.stats };
-      if (!g.crowd) return null;
-      return {
-        fighters: g.crowd.n,
-        alive: g.crowd.aliveCount(),
-        kills: g.crowd.kills,
-        ticks: g.crowd.tick,
-        trianglesPerFighter: g.crowdView?.trianglesPerFighter,
-      };
-    },
     setPaused(p: boolean): void {
       g.paused = p;
       g.acc = 0;
@@ -217,7 +205,7 @@ export function makeTestApi(g: GameRefs) {
       if (!g.net) return null;
       const p = g.sim.player;
       return {
-        connected: g.net.connected,
+        connected: g.online?.link.open ?? false,
         joined: !!g.net.you,
         id: g.net.you?.id ?? null,
         team: p.team,
@@ -241,12 +229,11 @@ export function makeTestApi(g: GameRefs) {
         maxCorrection: g.prediction?.maxCorrection ?? 0,
         lastCorrection: g.prediction?.lastCorrection ?? 0,
         snapshots: g.net.snapshots,
-        // The other players (bots included): the battlefield server's, or the world's.
-        remotes: g.remotes?.list() ?? (g.peers?.present() ?? []).map((p) => ({ id: p.id, x: p.x, z: p.z, hp: p.hp, team: p.team, weapon: p.weapon })),
+        // The other players here (bots included).
+        remotes: (g.peers?.present() ?? []).map((p) => ({ id: p.id, x: p.x, z: p.z, hp: p.hp, team: p.team, weapon: p.weapon })),
         scriptLeft: g.scripted.length,
         renderTick: g.net.renderTick(performance.now()),
         lastTick: g.net.lastTick,
-        server: g.net.stats,
         /** Online: how the game you are in is running and how its fights go (admins, once a second). */
         world: g.online?.link.stats ?? null,
       };
@@ -258,10 +245,6 @@ export function makeTestApi(g: GameRefs) {
     // Feeds a list of [frames, actions] in place of the controller (live play, for tests).
     scriptInput(segments: Array<[number, Partial<Actions>]>): void {
       for (const [frames, a] of segments) for (let i = 0; i < frames; i++) g.scripted.push({ ...NO_ACTIONS, ...a });
-    },
-    // Every crowd fighter's (x, y, z, yaw) as drawn this frame; y below zero means sinking or hidden.
-    crowdRoots(): Float32Array | null {
-      return g.crowdView?.roots() ?? null;
     },
     autoAttack(on: boolean): void {
       g.autoAttack = on;
@@ -280,7 +263,7 @@ export function makeTestApi(g: GameRefs) {
     },
     // Testing: send a build without checking it first, to see the server turn it down.
     sendRawBuild(b: Build): void {
-      g.net?.sendBuild(b.skills, b.weapon, b.abilities, b.movement);
+      g.online?.link.saveBuild(b);
     },
     // Puts an actor of a kind somewhere specific, so a test does not have to wait for one to
     // wander over. `i` indexes the actors of that kind, in spawn order.
@@ -581,7 +564,6 @@ export function makeTestApi(g: GameRefs) {
     },
     setLag(ms: number): void {
       if (g.online) g.online.link.lag = ms;
-      else g.net?.setLag(ms);
     },
     /** The bug reporter: what it is doing and the last report it saved (null when it is off). */
     bugs() {

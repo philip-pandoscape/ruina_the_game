@@ -20,10 +20,6 @@ export const OPTION_DOCS: readonly OptionDoc[] = [
   { name: 'load', what: 'With world and test: the island kept in this browser (bug-report replays).', developer: true },
   { name: 'yard', what: 'The training yard, offline.', developer: true },
   { name: 'goblins=6', what: "With yard: a war-band of that many goblins in the yard's far corner (up to 24).", developer: true },
-  { name: 'raid=10000', what: 'The raid stress test: two armies of that many fighters on a big battlefield, offline.', developer: true },
-  { name: 'server=ws://host:port', what: "Plays on that server's PvP battlefield.", developer: true },
-  { name: 'team=0|1', what: 'With server: which side to join (else the server picks).', developer: true },
-  { name: 'play=0', what: 'With server: watch instead of joining.', developer: true },
   { name: 'lag=150', what: "Delays this page's connection by that many milliseconds each way, to feel a far server.", developer: true },
   { name: 'softlock=0', what: 'No automatic pick of a target to face (Tab still picks one).', developer: true },
   { name: 'as=name', what: 'On a development server: signs straight in as that name and plays its last character.', developer: true },
@@ -43,22 +39,12 @@ export const OPTION_DOCS: readonly OptionDoc[] = [
 export interface Options {
   /** Paused for automated tests, stepped frame by frame. */
   test: boolean;
-  /** The battlefield's server, to play PvP on. */
-  server: string | null;
-  /** Fighters a side in the offline raid, or 0. */
-  raid: number;
-  /** The battlefield: the raid or a battlefield server. */
-  battlefield: boolean;
   /** The training yard (also what test opens, unless world is given). */
   yard: boolean;
   /** Emberholm, the open world. */
   openWorld: boolean;
   /** Goblins in the yard. */
   goblins: number;
-  /** The battlefield side asked for, or 255 for whichever. */
-  team: number;
-  /** Join the battlefield (false: watch). */
-  play: boolean;
   /** Milliseconds added each way to this page's connection. */
   lag: number;
   softLock: boolean;
@@ -79,20 +65,12 @@ const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v
 export function readOptions(search: string = typeof location === 'undefined' ? '' : location.search): Options {
   const q = new URLSearchParams(search);
   const test = q.has('test');
-  const server = q.get('server');
-  const raid = !server && q.has('raid') ? clamp(Number(q.get('raid')) || 10000, 100, 50000) : 0;
-  const battlefield = raid > 0 || !!server;
   const yard = q.has('yard') || (test && !q.has('world'));
   return {
     test,
-    server,
-    raid,
-    battlefield,
     yard,
-    openWorld: !battlefield && !yard,
+    openWorld: !yard,
     goblins: yard ? clamp(Math.floor(Number(q.get('goblins')) || 0), 0, 24) : 0,
-    team: q.has('team') ? Number(q.get('team')) & 1 : 255,
-    play: q.get('play') !== '0',
     lag: clamp(Number(q.get('lag')) || 0, 0, 2000),
     softLock: q.get('softlock') !== '0',
     as: q.get('as'),

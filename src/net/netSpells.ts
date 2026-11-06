@@ -2,7 +2,7 @@ import type { SpellView } from '../render/spells';
 import type { GameEvent } from '../sim/types';
 import { ABILITIES, effectRadius } from '../tuning';
 import type { ResolvedSkills } from '../skills';
-import type { ArrowRecord, EffectEvent, MeteorRecord, NetCrowd } from './netCrowd';
+import type { ArrowRecord, EffectEvent, MeteorRecord, WorldFeed } from './worldFeed';
 
 // Arrows, meteors and spell effects online, timed to match the rest of the screen: other players'
 // at the moment other players are drawn (a little in the past), your own in the present. Your own
@@ -68,7 +68,7 @@ export class NetSpells {
   private latest = 0;
 
   constructor(
-    private net: NetCrowd,
+    private net: WorldFeed,
     stats: ResolvedSkills,
   ) {
     this.stats = stats;

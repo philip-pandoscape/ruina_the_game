@@ -1,24 +1,10 @@
-import { expect, test, type Browser, type BrowserContext, type Page } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { ABILITIES, comboFor, emptyMovement, HOTBAR_SLOTS, NO_ABILITY, SLIDE_SKILL, type Build, WEAPONS } from '../../src/tuning';
-import {
-  ADJACENT,
-  emptySkills,
-  LEVEL_XP,
-  resolveSkills,
-  SKILL_POINTS,
-  skillCount,
-  skillIndex,
-  skillsFrom,
-  soundTree,
-  START_POINTS,
-  withSkill,
-} from '../../src/skills';
-import { serverBuilt, TestServer } from '../support/testServer';
+import { LEVEL_XP, resolveSkills, SKILL_POINTS, skillIndex, skillsFrom, START_POINTS } from '../../src/skills';
 import type { Command } from '../../src/sim/life/life';
 import { gameReady } from '../support/game';
 
-// The classless skill system: the skill panel, every weapon and ability in the training yard, and
-// the same things online, where the server decides what hits.
+// The classless skill system: the skill panel, and every weapon and ability in the training yard.
 
 const SHOTS = 'screenshots';
 const skills = (...ids: string[]) => skillsFrom(...ids);
@@ -33,26 +19,16 @@ const build = (ids: string[], weapon: number, ability1 = NO_ABILITY, ability2 = 
   move.forEach((m, i) => (movement[i] = m));
   return { skills: skills(...ids), weapon, abilities, movement };
 };
-/** A sound set of `n` skills, grown outward from Sword Training along the tree's links. */
-const grown = (n: number) => {
-  const order = [skillIndex('sword')];
-  for (let q = 0; q < order.length && order.length < n; q++) for (const m of ADJACENT[order[q]]) if (order.length < n && !order.includes(m)) order.push(m);
-  return order.reduce((s, i) => withSkill(s, i, true), emptySkills());
-};
 const DODGE = 0; // index into MOVEMENT_SKILLS
 const NO_MOVEMENT_SLOT = 255;
 
-const SWORD = build(['sword'], 0);
-const CLEAVER = build(['sword', 'cleave'], 0);
 const ARCHER = build(['bow'], 3);
 const PIERCER = build(['bow', 'rapidFire', 'piercing'], 3);
 const MAGE = build(['staff', 'meteor'], 2, METEOR);
 const HEALER = build(['club', 'heal'], 1, HEAL);
 
 const arrowDamage = WEAPONS[3].combo[0].damage;
-const swordDamage = WEAPONS[0].combo[0].damage;
 const meteorDamage = ABILITIES[METEOR].effects[0].damage!;
-const healAmount = ABILITIES[HEAL].effects[0].amount!;
 
 function watchErrors(page: Page): string[] {
   const errors: string[] = [];
@@ -460,224 +436,5 @@ test('training yard: arrows, Meteor, Healing Circle and Whirlwind against the du
   expect(errors).toEqual([]);
 });
 
-// ---------- Online: the server decides ----------
-
-test.describe('online', () => {
-  test.skip(!serverBuilt, 'build the server first: cargo build --release');
-  const server = new TestServer(7795, ['--bots', '40']);
-  test.beforeAll(async () => server.start());
-  test.afterAll(() => server.stop());
-
-  const contexts: BrowserContext[] = [];
-  test.afterEach(async () => {
-    for (const c of contexts.splice(0)) await c.close();
-  });
-
-  // Joins a team (blue spawns at x = -2.5, red at x = 2.5, both at z = -100) with a build.
-  async function joinAs(browser: Browser, team: number, b: Build): Promise<{ page: Page; errors: string[] }> {
-    const context = await browser.newContext({ viewport: { width: 800, height: 450 } });
-    contexts.push(context);
-    const page = await context.newPage();
-    const errors = watchErrors(page);
-    await page.goto(`/?server=${encodeURIComponent(server.url)}&team=${team}`);
-    await page.waitForFunction(() => window.__game?.net()?.joined === true, null, { timeout: 10_000 });
-    await useBuild(page, b);
-    return { page, errors };
-  }
-
-  async function useBuild(page: Page, b: Build): Promise<void> {
-    expect(await page.evaluate((b) => window.__game.setBuild(b), b)).toBe(true);
-    await confirmed(page, b);
-  }
-
-  // Waits until the server's copy of this fighter uses build b.
-  const confirmed = (page: Page, b: Build) =>
-    page.waitForFunction(
-      (b) => {
-        const n = window.__game.net();
-        return String(n.skills) === String(b.skills) && n.weapon === b.weapon && String(n.abilities) === String(b.abilities);
-      },
-      b,
-      { timeout: 5000 },
-    );
-
-  const net = (page: Page) => page.evaluate(() => window.__game.net());
-  const script = (page: Page, segments: Array<[number, Record<string, unknown>]>) => page.evaluate((s) => window.__game.scriptInput(s), segments);
-  const seesPlayers = (page: Page, n: number) => page.waitForFunction((n) => window.__game.net().remotes.length >= n, n, { timeout: 5000 });
-  // Polls something on the page every frame until it's true (or times out).
-  const sometime = (page: Page, fn: string, timeout = 4000) =>
-    page.waitForFunction(fn, null, { timeout, polling: 'raf' }).then(
-      () => true,
-      () => false,
-    );
-
-  test('the server takes valid builds and turns down invalid ones', async ({ browser }) => {
-    // Sound, so only its size is wrong.
-    const tooMany = grown(SKILL_POINTS + 1);
-    expect([soundTree(tooMany), skillCount(tooMany)]).toEqual([true, SKILL_POINTS + 1]);
-    const blue = await joinAs(browser, 0, PIERCER);
-    const invalid: Array<[string, Build]> = [
-      // One more skill than the budget allows, whatever the budget currently is.
-      ['more skills than points', { ...build(['sword'], 0), skills: tooMany }],
-      ['skipping a skill', build(['sword', 'whirlwind'], 0)],
-      ['a weapon you never trained', build(['sword'], 3)],
-      ['an ability you never learned', build(['sword'], 0, METEOR)],
-      ['the same ability twice', build(['staff', 'meteor'], 2, METEOR, METEOR)],
-    ];
-    for (const [why, b] of invalid) {
-      await blue.page.evaluate((b) => window.__game.sendRawBuild(b), b);
-      await blue.page.waitForTimeout(300);
-      const n = await net(blue.page);
-      expect({ why, skills: String(n.skills), weapon: n.weapon }).toEqual({ why, skills: String(PIERCER.skills), weapon: PIERCER.weapon });
-    }
-    await useBuild(blue.page, MAGE);
-    expect(blue.errors).toEqual([]);
-  });
-
-  test('other players see your weapon', async ({ browser }) => {
-    const blue = await joinAs(browser, 0, MAGE);
-    const red = await joinAs(browser, 1, SWORD);
-    await seesPlayers(red.page, 1);
-    await red.page.waitForFunction(() => window.__game.net().remotes[0]?.weapon === 2);
-    await useBuild(blue.page, ARCHER);
-    await red.page.waitForFunction(() => window.__game.net().remotes[0]?.weapon === 3);
-    expect([...blue.errors, ...red.errors]).toEqual([]);
-  });
-
-  // Blue shoots one arrow at two red players standing together.
-  for (const [name, archer, expectedHits] of [
-    ['an arrow hits the first enemy in its path', ARCHER, 1],
-    ['Piercing Arrows go through both enemies', PIERCER, 2],
-  ] as const) {
-    test(`arrows: ${name}`, { tag: '@gpu' }, async ({ browser }) => {
-      const blue = await joinAs(browser, 0, archer);
-      const reds = [await joinAs(browser, 1, SWORD), await joinAs(browser, 1, SWORD)];
-      await seesPlayers(blue.page, 2);
-      await blue.page.evaluate(() => window.__game.setCamera({ yaw: Math.PI / 2 - 0.5, distance: 6 }));
-      await script(blue.page, [
-        [1, { attackPressed: true, aimX: 5, aimZ: 0 }],
-        [40, {}],
-      ]);
-      // Your own arrow is drawn the moment it leaves the bow.
-      const drawn = await sometime(blue.page, '(window.__game.spells().arrowsDrawn ?? 0) > 0', 2000);
-      await blue.page.screenshot({ path: `${SHOTS}/41-arrow-${expectedHits}.png` });
-      await blue.page.waitForTimeout(1200);
-      const hps = await Promise.all(reds.map(async (r) => (await net(r.page)).hp));
-      const left = await blue.page.evaluate(() => window.__game.spells().online);
-      console.log('arrows', name, JSON.stringify({ drawn, hps, left }));
-      expect(drawn).toBe(true);
-      expect(hps.filter((hp) => hp === 100 - arrowDamage).length).toBe(expectedHits);
-      expect(hps.filter((hp) => hp === 100).length).toBe(2 - expectedHits);
-      expect(left.localArrows).toBe(0); // the server's arrow took over from the one drawn straight away
-      expect([...blue.errors, ...reds.flatMap((r) => r.errors)]).toEqual([]);
-    });
-  }
-
-  // Blue runs at two red players standing together and swings once.
-  for (const [name, sword, expectedHits] of [
-    ['a sword swing hits one enemy', SWORD, 1],
-    ['Cleave hits both enemies with one swing', CLEAVER, 2],
-  ] as const) {
-    test(`melee: ${name}`, { tag: '@gpu' }, async ({ browser }) => {
-      const blue = await joinAs(browser, 0, sword);
-      const reds = [await joinAs(browser, 1, SWORD), await joinAs(browser, 1, SWORD)];
-      await seesPlayers(blue.page, 2);
-      await script(blue.page, [
-        [26, { moveX: 1 }],
-        [1, { attackPressed: true }],
-        [40, {}],
-      ]);
-      await blue.page.waitForTimeout(1500);
-      const hps = await Promise.all(reds.map(async (r) => (await net(r.page)).hp));
-      console.log('melee', name, JSON.stringify({ hps, blueX: (await net(blue.page)).x }));
-      expect(hps.filter((hp) => hp === 100 - swordDamage).length).toBe(expectedHits);
-      expect(hps.filter((hp) => hp === 100).length).toBe(2 - expectedHits);
-      expect([...blue.errors, ...reds.flatMap((r) => r.errors)]).toEqual([]);
-    });
-  }
-
-  test('Meteor: both sides see the warning circle, then the blast lands', { tag: '@gpu' }, async ({ browser }) => {
-    const blue = await joinAs(browser, 0, MAGE);
-    const red = await joinAs(browser, 1, SWORD);
-    await seesPlayers(red.page, 1);
-    for (const p of [blue.page, red.page]) await p.evaluate(() => window.__game.setCamera({ distance: 11, pitch: 0.45 }));
-    await blue.page.evaluate(() => window.__game.setCamera({ yaw: Math.PI / 2 }));
-    await red.page.evaluate(() => window.__game.setCamera({ yaw: -Math.PI / 2 }));
-    await script(blue.page, [
-      [1, { abilitySlot: 1, aimX: 5, aimZ: 0 }],
-      [150, {}],
-    ]);
-    const [blueCircle, redCircle] = await Promise.all([
-      sometime(blue.page, 'window.__game.spells().circlesDrawn > 0'),
-      sometime(red.page, 'window.__game.spells().circlesDrawn > 0'),
-    ]);
-    await red.page.screenshot({ path: `${SHOTS}/42-meteor-warning-enemy-view.png` });
-    const [blueMeteor, redMeteor] = await Promise.all([
-      sometime(blue.page, 'window.__game.spells().meteorsDrawn > 0'),
-      sometime(red.page, 'window.__game.spells().meteorsDrawn > 0'),
-    ]);
-    await red.page.screenshot({ path: `${SHOTS}/43-meteor-falling-enemy-view.png` });
-    await red.page.waitForFunction(() => window.__game.net().hp < 100, null, { timeout: 4000 });
-    const after = { red: await net(red.page), blue: await net(blue.page) };
-    console.log('meteor', JSON.stringify({ blueCircle, redCircle, blueMeteor, redMeteor, redHp: after.red.hp, blueCooldown: after.blue.cooldowns[0] }));
-    expect([blueCircle, redCircle, blueMeteor, redMeteor]).toEqual([true, true, true, true]);
-    expect(after.red.hp).toBe(100 - meteorDamage);
-    expect(after.blue.cooldowns[0]).toBeGreaterThan(0);
-    expect([...blue.errors, ...red.errors]).toEqual([]);
-  });
-
-  test('getting hit while casting interrupts the spell', { tag: '@gpu' }, async ({ browser }) => {
-    const blue = await joinAs(browser, 0, MAGE);
-    const red = await joinAs(browser, 1, SWORD);
-    await seesPlayers(red.page, 1);
-    // Blue starts a Meteor on red; red charges in and hits blue before the cast finishes.
-    await script(blue.page, [
-      [1, { abilitySlot: 1, aimX: 5, aimZ: 0 }],
-      [120, {}],
-    ]);
-    await script(red.page, [
-      [24, { moveX: -1 }],
-      [1, { attackPressed: true, aimX: -3, aimZ: 0 }],
-      [30, {}],
-    ]);
-    const interrupted = await sometime(blue.page, "document.querySelector('#castbar .label')?.textContent === 'Interrupted!'");
-    await blue.page.screenshot({ path: `${SHOTS}/44-interrupted.png` });
-    await blue.page.waitForTimeout(2500); // long enough for a meteor to have landed, had it been cast
-    const after = { blue: await net(blue.page), red: await net(red.page) };
-    console.log('interrupt', JSON.stringify({ interrupted, blueHp: after.blue.hp, redHp: after.red.hp }));
-    expect(interrupted).toBe(true);
-    expect(after.blue.hp).toBeLessThan(100);
-    expect(after.red.hp).toBe(100); // no meteor came down
-    expect([...blue.errors, ...red.errors]).toEqual([]);
-  });
-
-  test('Healing Circle heals you and allies nearby', { tag: '@gpu' }, async ({ browser }) => {
-    const healer = await joinAs(browser, 0, HEALER);
-    const ally = await joinAs(browser, 0, SWORD);
-    const red = await joinAs(browser, 1, CLEAVER);
-    await seesPlayers(red.page, 2);
-    // Red cleaves both blues twice, then walks away.
-    await script(red.page, [
-      [24, { moveX: -1 }],
-      [1, { attackPressed: true, aimX: -3, aimZ: 0 }],
-      [10, {}],
-      [1, { attackPressed: true }],
-      [30, {}],
-      [40, { moveX: 1 }],
-    ]);
-    await red.page.waitForFunction(() => window.__game.net().scriptLeft === 0);
-    await healer.page.waitForTimeout(600);
-    const before = { healer: (await net(healer.page)).hp, ally: (await net(ally.page)).hp };
-    await script(healer.page, [
-      [1, { abilitySlot: 1 }],
-      [40, {}],
-    ]);
-    await healer.page.waitForTimeout(1200);
-    const after = { healer: (await net(healer.page)).hp, ally: (await net(ally.page)).hp };
-    console.log('heal', JSON.stringify({ before, after }));
-    expect(before.ally).toBeLessThan(100);
-    expect(after.ally).toBe(Math.min(100, before.ally + healAmount));
-    expect(after.healer).toBe(Math.min(100, before.healer + healAmount));
-    expect([...healer.errors, ...ally.errors, ...red.errors]).toEqual([]);
-  });
-});
+// Online, the server decides: builds it takes, weapons seen, arrows, melee, Meteor, interrupted
+// casts and Healing Circle between players are in tests/integration/battlefield.spec.ts.

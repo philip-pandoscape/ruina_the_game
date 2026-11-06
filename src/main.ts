@@ -1,11 +1,9 @@
 import * as THREE from 'three';
 import { defaultBuild, loadBuild, parseBuild, pointsLeft, saveBuild, swapSlots, validBuild } from './build';
-import { CROWD_TICK, CrowdSim } from './crowd/crowdSim';
-import { CrowdView, type CrowdSource } from './crowd/crowdView';
 import { crouchKeySlides, Input } from './input/input';
-import { INTERP_TICKS, NetCrowd, type NetActor } from './net/netCrowd';
+import { INTERP_TICKS, WorldFeed, type NetActor } from './net/worldFeed';
 import { NetMonsters } from './net/netMonsters';
-import { Prediction, RemotePlayers } from './net/netPlayer';
+import { Prediction } from './net/netPlayer';
 import { NetSpells } from './net/netSpells';
 import { FollowCamera } from './render/camera';
 import { GRAPHICS } from './render/look';
@@ -17,13 +15,13 @@ import { isAlive } from './sim/actor';
 import { behaviour, stateProgress } from './sim/ai/brain';
 import { createTargeting } from './app/targeting';
 import { Hud } from './render/hud';
-import { BATTLEFIELD_STAGE, Stage, TRAINING_STAGE } from './render/scene';
+import { Stage, TRAINING_STAGE } from './render/scene';
 import { CIRCLE, SpellView } from './render/spells';
 import { Vfx } from './render/vfx';
 import { Sim } from './sim/sim';
 import { TrainingRange } from './sim/training';
 import { NO_ACTIONS, type Actions, type GameEvent, type PlayerState } from './sim/types';
-import { bandAround, makeBattlefield, makeWorld } from './sim/world';
+import { bandAround, makeWorld } from './sim/world';
 import { MissileView } from './render/missiles';
 import { dungeonDef } from './sim/zone/dungeon';
 import { makeZoneWorld } from './sim/zone/world';
@@ -105,7 +103,7 @@ initUiScale(document.getElementById('ui') as HTMLElement);
 // Console output and errors are kept from here on, for bug reports.
 installLogCapture();
 const opt = readOptions();
-const { test: testMode, server: serverUrl, raid: raidCount, battlefield, openWorld, team, lag: lagMs } = opt;
+const { test: testMode, openWorld, lag: lagMs } = opt;
 
 // The island's models load from the start (online, while you sign in and choose a character).
 const modelsLoading = openWorld ? loadModels().then((m) => (splash?.step('models'), m)) : null;
@@ -122,7 +120,7 @@ if (splash) {
 }
 
 const canvas = document.getElementById('game') as HTMLCanvasElement;
-const world = battlefield ? makeBattlefield() : openWorld ? makeZoneWorld() : makeWorld();
+const world = openWorld ? makeZoneWorld() : makeWorld();
 // A war-band to fight in the yard, if asked for.
 const yardGoblins = opt.goblins;
 if (yardGoblins) world.spawns.push(...bandAround('goblin', yardGoblins, 9, 10, 1));
@@ -131,9 +129,9 @@ const terrain = world.terrain ?? null;
 /** In a copy of a dungeon or a developer zone, its floor at a point (set once the visit is made, below). */
 let floorHere: ((x: number, z: number) => number | null) | null = null;
 const groundY = (x: number, z: number): number => floorHere?.(x, z) ?? (terrain ? terrain.height(x, z) : 0);
-// Online (the battlefield, or Emberholm on the game server) the server decides hits, so the local
+// Online (Emberholm on the game server, and its developer zones) the server decides hits, so the local
 // rules run without the training dummy and hit pause, and only predict your own moves.
-const serverRules = !!serverUrl || !!online;
+const serverRules = !!online;
 const sim = new Sim(world, { training: !serverRules });
 // Your skills and loadout, kept between visits: with your character on the game server in the open
 // world, in this browser elsewhere. On the battlefield, the server checks it and sends it back.
@@ -167,7 +165,7 @@ if (splash) {
   await splash.paint();
 }
 const stage: { renderer: THREE.WebGLRenderer; scene: THREE.Scene; follow(x: number, z: number, y?: number): void; resize(w: number, h: number): void } =
-  openStage ?? new Stage(canvas, world, battlefield ? BATTLEFIELD_STAGE : TRAINING_STAGE);
+  openStage ?? new Stage(canvas, world, TRAINING_STAGE);
 const hero = new Hero();
 stage.scene.add(hero.root);
 const dummy = new TrainingDummy(world.dummy.x, world.dummy.z);
@@ -201,11 +199,7 @@ if (terrain) {
       Math.max(terrain.water, Number.isFinite(near) ? groundAt(terrain, world.index, x, z, near, 0.5) : terrain.height(x, z), drawnGround(x, z, pad)),
   };
 }
-const follow = new FollowCamera(
-  innerWidth / innerHeight,
-  battlefield ? 1200 : openWorld ? GRAPHICS.viewDistance : 320,
-  battlefield ? 160 : openWorld ? 40 : 14,
-);
+const follow = new FollowCamera(innerWidth / innerHeight, openWorld ? GRAPHICS.viewDistance : 320, openWorld ? 40 : 14);
 // Over hills and water the camera must not dip into the ground or under the sea, and it pulls in
 // rather than looking through a wall.
 if (terrain)
@@ -470,7 +464,7 @@ function portraitOf(who: string): string | null {
   if (who === 'player' || who === 'body') {
     return studio.shot(who === 'player' ? 'face' : 'body', {
       weapon: sim.player.weapon,
-      team: serverUrl ? sim.player.team : 0,
+      team: sim.player.team,
       who: String(online?.welcome.character.id ?? ''),
     });
   }
@@ -668,13 +662,9 @@ const NAMES: Record<string, string> = {
   ...Object.fromEntries(actorKindIds().flatMap((id) => (kindName(id) ? [[id, kindName(id)!]] : []))),
 };
 
-// The raid's fighters come either from a local sim (?raid) or from the battle server (?server).
-const crowd = raidCount ? new CrowdSim(raidCount) : null;
-const net = serverUrl
-  ? new NetCrowd(serverUrl)
-  : online
-    ? NetCrowd.detached((seq, view, raw, stick) => online.link.sendInput(seq, view, [...raw, ...stick]))
-    : null;
+// Online, what the server says of the world (you, monsters, arrows, meteors, effects), timed to be
+// drawn; inputs go out over the world link.
+const net = online ? new WorldFeed((seq, view, raw, stick) => online.link.sendInput(seq, view, [...raw, ...stick])) : null;
 const netSpells = net ? new NetSpells(net, resolveSkills(build.skills)) : null;
 // The server's monsters: drawn between its updates, at the moment other players are drawn
 // (shownActors), and as it has them now (presentActors) for what has to be on time - warnings, and
@@ -683,48 +673,22 @@ const netMonsters = net ? new NetMonsters(groundY) : null;
 let shownActors: NetActor[] = [];
 let presentActors: NetActor[] = [];
 const shownById = new Map<number, NetActor>();
-const crowdSource: CrowdSource | null = crowd ?? (serverUrl ? net : null);
-let crowdView: CrowdView | null = null;
-function addCrowdView(n: number): void {
-  crowdView = new CrowdView(n);
-  stage.scene.add(crowdView.group);
-}
-if (crowd) addCrowdView(crowd.n);
-let crowdAcc = 0;
-let lastViewSent = 0;
-
-// Online play: your fighter is predicted locally and corrected by the server; other players are drawn
-// from the server's updates.
-const playing = !!net && opt.play;
-const prediction = net && playing ? new Prediction(sim, net) : null;
-// Other players on the battlefield; in Emberholm they're drawn with their vehicles and gliders by
-// WorldPeers instead.
-const remotes = serverUrl ? new RemotePlayers(stage.scene) : null;
+// Online play: your hero is predicted here and corrected by the server; other players are drawn
+// from the server's updates (WorldPeers, with their vehicles and gliders).
+const prediction = net ? new Prediction(sim, net) : null;
 let lastSnapshot = 0;
 let lastHp: number = COMBAT.maxHp;
-/** The side your hero's colours show: the battlefield server's sets it at once; in the world, only a developer zone's side changes it. */
-let shownTeam = serverUrl ? -1 : 0;
+/** The side your hero's colours show: only a developer zone's side changes it (on the island everyone is on one). */
+let shownTeam = 0;
 const scripted: Actions[] = []; // test hook: replaces the controller for a few frames
 let autoAttack = false; // test hook: swing at the nearest enemy you can see
 let autoCooldown = 0;
-if (net) {
-  net.onReady = (n) => {
-    addCrowdView(n);
-    if (playing) {
-      net.join(team);
-      net.sendBuild(build.skills, build.weapon, build.abilities, build.movement);
-    }
-    if (lagMs) net.setLag(lagMs);
-  };
-}
-if (net && !playing) hud.hideAbilities();
 
 // A new build from the skill panel: save it, and use it (online, the server switches you over).
 function applyBuild(b: Build): void {
   build = b;
   if (online) online.link.saveBuild(b);
   else saveBuild(b);
-  if (net) net.sendBuild(b.skills, b.weapon, b.abilities, b.movement);
   if (netSpells) netSpells.stats = resolveSkills(b.skills);
   else sim.setBuild(b);
 }
@@ -732,7 +696,6 @@ function applyBuild(b: Build): void {
 // the server's attributed events, so other people's hits don't put damage numbers on your screen.
 const showHurt = (x: number, y: number, z: number, damage: number, dirX: number, dirZ: number): void =>
   vfx.onEvent({ type: 'hit', frame: 0, index: damage >= 25 ? 2 : 0, damage, x, y, z, dirX, dirZ });
-if (remotes) remotes.onHurt = showHurt;
 if (peers) peers.onHurt = showHurt;
 
 // Which icon goes beside a floating number, from the cause the server packed into the event.
@@ -770,21 +733,11 @@ function autoAim(a: Actions): Actions {
   const me = sim.player.pos;
   let best: { x: number; z: number } | null = null;
   let bestD = 2.3;
-  for (const r of [...(remotes?.list() ?? []), ...(peers?.present() ?? [])]) {
+  for (const r of peers?.present() ?? []) {
     const d = Math.hypot(r.x - me.x, r.z - me.z);
     if (r.team !== sim.player.team && r.hp > 0 && d < bestD) {
       bestD = d;
       best = r;
-    }
-  }
-  if (!best && net) {
-    for (let i = 0; i < net.n; i++) {
-      if (!net.known[i] || net.down[i] || net.team[i] === sim.player.team) continue;
-      const d = Math.hypot(net.rx[i] - me.x, net.rz[i] - me.z);
-      if (d < bestD) {
-        bestD = d;
-        best = { x: net.rx[i], z: net.rz[i] };
-      }
     }
   }
   if (!best) return a;
@@ -804,11 +757,7 @@ function forEachEnemy(fn: (x: number, z: number) => void): void {
     const f = actorKindAt(a.kind)?.faction ?? 0;
     if (a.deadFrame < 0 && f !== 0 && f !== 2) fn(a.x, a.z);
   }
-  for (const r of remotes?.list() ?? []) if (r.team !== myTeam && r.hp > 0) fn(r.x, r.z);
   for (const p of peers?.present() ?? []) if (p.team !== myTeam && p.hp > 0) fn(p.x, p.z);
-  if (net) {
-    for (let i = 0; i < net.n; i++) if (net.known[i] && !net.down[i] && net.team[i] !== myTeam) fn(net.rx[i], net.rz[i]);
-  }
 }
 
 function enemyAt(x: number, z: number, r: number): boolean {
@@ -829,7 +778,6 @@ let lastFight = -Infinity;
 const inAFight = (): boolean => lockOn.mark() !== null || sim.frame - lastFight < STANCE_LINGER;
 function combatStance(a: Actions): Actions {
   if (a.faceX !== 0 || a.faceZ !== 0) return a; // already given (tests)
-  if (net && !playing) return a;
   const p = sim.player;
   if (p.mode === 'attack' || p.mode === 'cast') lastFight = sim.frame;
   if (!inAFight() || p.mode === 'ride' || p.mode === 'swim' || p.mode === 'glide') return a;
@@ -884,10 +832,6 @@ const lockOn = createTargeting({
   sim,
   camera: () => follow.camera,
   yaw: () => follow.yaw,
-  remotes,
-  crowdSource,
-  net,
-  playing,
   online: serverRules,
   softLock: opt.softLock,
   names: NAMES,
@@ -994,7 +938,6 @@ function targeting(a: Actions): Actions {
   // The first step after an Escape takes it, whatever happens next.
   const cancel = cancelWaiting;
   cancelWaiting = false;
-  if (net && !playing) return a;
   // An action that already carries an aim was aimed by whoever made it (the test hooks, and
   // autoAim): it casts straight away rather than arming the circle, matching aimAssist().
   if (a.aimX !== 0 || a.aimZ !== 0) return a;
@@ -1053,7 +996,6 @@ function syncNet(): void {
       hero.setTeam(shownTeam);
     }
   }
-  remotes?.receive(net.players, net.lastTick);
   netSpells?.receive(net.you?.id ?? null);
 }
 
@@ -1272,12 +1214,12 @@ function drawSpells(alpha: number, dt: number): void {
   if (net && netSpells) {
     const renderTick = net.renderTick(performance.now());
     const ahead = prediction && net.you ? (prediction.seq - net.you.ack) / (60 / net.ticksPerSecond) : 0;
-    const myId = playing ? (net.you?.id ?? null) : null;
+    const myId = net.you?.id ?? null;
     netSpells.draw(spells, renderTick, net.lastTick + ahead, myId, sim.player.team);
     for (const e of netSpells.due(renderTick, sim.frame)) showEvent(e);
-    for (const r of remotes?.shown() ?? []) castCircle(r, r.pos.x, r.pos.z, r.team !== sim.player.team, null);
+    for (const r of peers?.shownPlayers() ?? []) castCircle(r, r.pos.x, r.pos.z, r.team !== sim.player.team, null);
   }
-  if (!net || playing) castCircle(sim.player, hero.root.position.x, hero.root.position.z, false, sim.stats);
+  castCircle(sim.player, hero.root.position.x, hero.root.position.z, false, sim.stats);
   monsterWarnings();
   if (aimingSlot !== 0) {
     const y = sim.player.pos.y;
@@ -1349,8 +1291,8 @@ function refreshActors(now: number): void {
 let pinnedView: { from: THREE.Vector3; to: THREE.Vector3 } | null = null;
 
 function draw(alpha: number, cameraDt: number, animDt: number): void {
-  // Weapon out in a fight, put away a little after one (the battlefield is all fight).
-  hero.armed = battlefield || inAFight();
+  // Weapon out in a fight, put away a little after one.
+  hero.armed = inAFight();
   prediction?.ease(animDt);
   // Riding: the vehicle goes where it is this frame before you're posed in its seat, so you tilt
   // with it on a hill and your hands find its wheel or oars where they are now. Driving, yours is
@@ -1388,10 +1330,6 @@ function draw(alpha: number, cameraDt: number, animDt: number): void {
   else actorView.update(lifeView?.drawsTownsfolk ? sim.actors.all().filter((a) => a.faction !== 2) : sim.actors.all());
   if (!net) missileView.update(sim.actors.missiles);
   if (lifeView && lifeUI) lifeView.talkingTo = lifeUI.talkingTo;
-  if (crowd) crowd.render(Math.min(1, crowdAcc / CROWD_TICK));
-  if (net) net.frame(performance.now());
-  if (net) remotes?.frame(net.renderTick(performance.now()), animDt, sim.frame, 60 / net.ticksPerSecond);
-  if (crowdView && crowdSource) crowdView.update(crowdSource, animDt);
   drawSpells(alpha, animDt);
   if (!along) peers?.frame(animDt, sim.frame, follow.camera.position);
   if (life && lifeView) {
@@ -1410,10 +1348,10 @@ function draw(alpha: number, cameraDt: number, animDt: number): void {
       else if (v.grounded && def.class === 'wheeled') vfx.lifeEffect('wheels', bx, v.y, bz);
     }
   }
-  if (!net || playing) drawAbilityBar();
+  drawAbilityBar();
   // Health, MP and stamina: in the open world beside your portrait, elsewhere over the hotbar.
   const vitals = { hp: sim.player.hp, maxHp: COMBAT.maxHp, mp: sim.player.mp, maxMp: MP.max, stamina: sim.player.stamina, maxStamina: STAMINA.max };
-  hud.setVitals(!lifeUI && (!net || (prediction && net.you)) ? vitals : null, serverUrl ? sim.player.team : null);
+  hud.setVitals(!lifeUI && (!net || (prediction && net.you)) ? vitals : null, null);
   lifeUI?.setVitals(vitals);
   const pos = hero.root.position;
   if (openStage) {
@@ -1520,12 +1458,7 @@ function perf() {
     drawCalls: info.calls,
     triangles: info.triangles,
     particles: vfx.particleCount,
-    fighters: crowdSource?.n ?? 0,
-    downloadKBps: net ? +(net.bytesPerSec / 1024).toFixed(1) : null,
-    messagesPerSec: net ? +net.messagesPerSec.toFixed(1) : null,
-    server: net?.stats ?? null,
-    crowdTickMs: crowd ? +crowd.tickMs.toFixed(2) : 0,
-    crowdUploadMs: crowdView ? +crowdView.updateMs.toFixed(2) : 0,
+    server: online?.link.stats ?? null,
     gpu: gpuName(),
   };
 }
@@ -1591,8 +1524,8 @@ function frame(now: number): void {
       // an open life panel (dialog, shop, bag...).
       if (party?.menu(m)) continue;
       if (lifeUI?.menu(m)) continue;
-      if (m === 'toggle' && (!net || playing)) panel.open('book');
-      else if (m === 'tree' && (!net || playing)) panel.open('tree');
+      if (m === 'toggle') panel.open('book');
+      else if (m === 'tree') panel.open('tree');
     }
     panel.tick();
     // Just closed (B, say): whatever closed it is still held, and mustn't count as a press in the
@@ -1639,20 +1572,6 @@ function frame(now: number): void {
       steps++;
     }
     if (steps === 5) acc = 0; // don't spiral if the tab was in the background
-    if (net && !playing && now - lastViewSent > 100) {
-      lastViewSent = now;
-      net.sendView(sim.player.pos.x, sim.player.pos.z);
-    }
-    if (crowd) {
-      crowdAcc += dt;
-      let ticks = 0;
-      while (crowdAcc >= CROWD_TICK && ticks < 3) {
-        crowd.step();
-        crowdAcc -= CROWD_TICK;
-        ticks++;
-      }
-      if (ticks === 3) crowdAcc = 0;
-    }
     draw(acc / STEP, dt, dt);
     framesDrawn++;
   } else {
@@ -1666,19 +1585,12 @@ function frame(now: number): void {
     const s = perf();
     const base = `${s.fps} fps · ${s.drawCalls} draw calls · ${s.triangles.toLocaleString()} triangles`;
     const gpu = s.gpuMs !== null ? ` · GPU ${s.gpuMs} ms/frame` : '';
-    if (net) {
-      const srv = s.server;
-      const server = srv
-        ? ` · server: ${srv.realPlayers} real + ${srv.virtualPlayers.toLocaleString()} virtual players, ${srv.tickMs.toFixed(1)} ms per 50 ms tick`
-        : '';
-      hud.setStats(
-        `${base} · ${s.fighters.toLocaleString()} fighters from server · download ${s.downloadKBps} KB/s${server}` + (net.connected ? '' : ' · NOT CONNECTED'),
-      );
-    } else if (crowd) {
-      hud.setStats(`${base} · ${s.fighters.toLocaleString()} fighters · crowd sim ${s.crowdTickMs} ms/tick · CPU ${s.cpuMs} ms/frame${gpu}`);
-    } else {
-      hud.setStats(base);
-    }
+    // An admin sees how the game they're in runs on the server (its tick, players and bots).
+    const srv = s.server;
+    const server = srv
+      ? ` · server: ${srv.players} players + ${srv.bots} bots, ${srv.tickMs.toFixed(1)} ms a tick, ${(srv.bytes / 1024).toFixed(1)} KB an update`
+      : '';
+    hud.setStats(`${base}${gpu}${server}`);
   }
 }
 requestAnimationFrame(frame);
@@ -1713,12 +1625,6 @@ const refs = {
   },
   get build() {
     return build;
-  },
-  get crowd() {
-    return crowd;
-  },
-  get crowdView() {
-    return crowdView;
   },
   get cycleTarget() {
     return cycleTarget;
@@ -1826,9 +1732,6 @@ const refs = {
   get range() {
     return range;
   },
-  get remotes() {
-    return remotes;
-  },
   get reticle() {
     return reticle;
   },
@@ -1894,12 +1797,6 @@ const refs = {
   },
   get opt() {
     return opt;
-  },
-  get raidCount() {
-    return raidCount;
-  },
-  get serverUrl() {
-    return serverUrl;
   },
   get testMode() {
     return testMode;

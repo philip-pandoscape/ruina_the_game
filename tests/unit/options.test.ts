@@ -24,7 +24,7 @@ test('the options read elsewhere are read there', () => {
 test('every listed option changes what the page reads', () => {
   const plain = JSON.stringify(readOptions(''));
   // Some only mean something beside another (goblins in the yard, the island kept with world&test).
-  const beside: Record<string, string> = { goblins: 'yard&', load: 'test&world&', team: 'server=ws://x&', play: 'server=ws://x&', world: 'test&' };
+  const beside: Record<string, string> = { goblins: 'yard&', load: 'test&world&', world: 'test&' };
   for (const o of OPTION_DOCS) {
     const name = nameOf(o.name);
     const value = o.name.includes('=') ? o.name.split('=')[1].split('|')[0] : '';

@@ -1,7 +1,6 @@
-import { expect, test, type Browser, type BrowserContext, type Page } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { ABILITIES, emptyMovement, HOTBAR_SLOTS, NO_ABILITY, type Build, WEAPONS } from '../../src/tuning';
 import { skillsFrom } from '../../src/skills';
-import { serverBuilt, TestServer } from '../support/testServer';
 import { gameReady } from '../support/game';
 
 // Combat feedback and aiming: the floating numbers, the enemy the game marks for you, and
@@ -9,7 +8,6 @@ import { gameReady } from '../support/game';
 
 const SHOTS = 'screenshots';
 const skills = (...ids: string[]) => skillsFrom(...ids);
-const HEAL = 0;
 const METEOR = 1;
 // Abilities land in hotbar slots 1 and 2; the rest of the bar stays empty.
 const build = (ids: string[], weapon: number, ability1 = NO_ABILITY, ability2 = NO_ABILITY): Build => {
@@ -19,13 +17,9 @@ const build = (ids: string[], weapon: number, ability1 = NO_ABILITY, ability2 = 
   return { skills: skills(...ids), weapon, abilities, movement: emptyMovement() };
 };
 
-const SWORD = build(['sword'], 0);
-const CLEAVER = build(['sword', 'cleave'], 0);
 const MAGE = build(['staff', 'meteor'], 2, METEOR);
-const HEALER = build(['club', 'heal'], 1, HEAL);
 const swordDamage = WEAPONS[0].combo[0].damage;
 const meteorRange = ABILITIES[METEOR].maxRange!;
-const healAmount = ABILITIES[HEAL].effects[0].amount!;
 
 interface Marker {
   kind: 'hit' | 'hurt' | 'heal';
@@ -282,113 +276,5 @@ test('Escape backs out of placing a circle without casting', async ({ page }) =>
   await page.keyboard.up('Digit1').catch(() => {});
 });
 
-// ---------- Online: the server says who hit whom ----------
-
-test.describe('online', { tag: '@gpu' }, () => {
-  test.skip(!serverBuilt, 'build the server first: cargo build --release');
-  const server = new TestServer(7794, ['--bots', '0']);
-  test.beforeAll(async () => server.start());
-  test.afterAll(() => server.stop());
-
-  const contexts: BrowserContext[] = [];
-  test.afterEach(async () => {
-    for (const c of contexts.splice(0)) await c.close();
-  });
-
-  async function joinAs(browser: Browser, team: number, b: Build): Promise<{ page: Page; errors: string[] }> {
-    const context = await browser.newContext({ viewport: { width: 800, height: 450 } });
-    contexts.push(context);
-    const page = await context.newPage();
-    const errors = watchErrors(page);
-    await page.goto(`/?server=${encodeURIComponent(server.url)}&team=${team}`);
-    await page.waitForFunction(() => window.__game?.net()?.joined === true, null, { timeout: 10_000 });
-    expect(await page.evaluate((b) => window.__game.setBuild(b), b)).toBe(true);
-    await page.waitForFunction(
-      (b) => {
-        const n = window.__game.net();
-        return String(n.skills) === String(b.skills) && n.weapon === b.weapon && String(n.abilities) === String(b.abilities);
-      },
-      b,
-      { timeout: 5000 },
-    );
-    return { page, errors };
-  }
-
-  const net = (page: Page) => page.evaluate(() => window.__game.net());
-  const script = (page: Page, segments: Array<[number, Record<string, unknown>]>) => page.evaluate((s) => window.__game.scriptInput(s), segments);
-  const seesPlayers = (page: Page, n: number) => page.waitForFunction((n) => window.__game.net().remotes.length >= n, n, { timeout: 5000 });
-
-  test('a hit puts a number on the attacker and the victim, and names what caused it', async ({ browser }) => {
-    const blue = await joinAs(browser, 0, SWORD);
-    const red = await joinAs(browser, 1, SWORD);
-    await seesPlayers(blue.page, 1);
-
-    await Promise.all([forget(blue.page), forget(red.page)]);
-    // Close the 5 m gap, then one swing, exactly as the melee tests do.
-    await script(blue.page, [
-      [26, { moveX: 1 }],
-      [1, { attackPressed: true }],
-      [40, {}],
-    ]);
-    await blue.page.waitForTimeout(1800);
-
-    const mine = (await markers(blue.page)).filter((m) => m.kind === 'hit');
-    const theirs = (await markers(red.page)).filter((m) => m.kind === 'hurt');
-    console.log('hit markers', JSON.stringify({ mine, theirs, redHp: (await net(red.page)).hp }));
-
-    expect(mine.length).toBeGreaterThan(0);
-    expect(mine.some((m) => m.amount === swordDamage)).toBe(true);
-    expect(mine.every((m) => m.icon === '\u{1f5e1}\u{fe0f}')).toBe(true); // the sword that dealt it
-    expect(theirs.length).toBeGreaterThan(0);
-    expect(theirs.some((m) => m.amount === swordDamage)).toBe(true);
-    // Neither is told about the other's side of it.
-    expect((await markers(blue.page)).some((m) => m.kind === 'hurt')).toBe(false);
-    expect((await markers(red.page)).some((m) => m.kind === 'hit')).toBe(false);
-    expect([...blue.errors, ...red.errors]).toEqual([]);
-  });
-
-  test('healing an ally shows a heal number to both of them', async ({ browser }) => {
-    const healer = await joinAs(browser, 0, HEALER);
-    const ally = await joinAs(browser, 0, SWORD);
-    const red = await joinAs(browser, 1, CLEAVER);
-    await seesPlayers(red.page, 2);
-    // Red cleaves both blues, then walks off, so there is damage to heal back.
-    await script(red.page, [
-      [24, { moveX: -1 }],
-      [1, { attackPressed: true, aimX: -3, aimZ: 0 }],
-      [30, {}],
-      [40, { moveX: 1 }],
-    ]);
-    await red.page.waitForFunction(() => window.__game.net().scriptLeft === 0);
-    await healer.page.waitForTimeout(600);
-    const before = { healer: (await net(healer.page)).hp, ally: (await net(ally.page)).hp };
-    expect(before.ally).toBeLessThan(100);
-
-    await Promise.all([forget(healer.page), forget(ally.page)]);
-    await script(healer.page, [
-      [1, { abilitySlot: 1 }],
-      [40, {}],
-    ]);
-    // Wait for the numbers rather than sleeping a fixed time: the cast, the server round trip and
-    // the render tick it's held back to all vary, and a fixed wait made this flaky.
-    await healer.page.waitForFunction(() => (window.__game.combat().markers as Array<{ kind: string }>).filter((m) => m.kind === 'heal').length >= 2, null, {
-      timeout: 10_000,
-      polling: 'raf',
-    });
-    await ally.page.waitForFunction(() => (window.__game.combat().markers as Array<{ kind: string }>).some((m) => m.kind === 'heal'), null, {
-      timeout: 10_000,
-      polling: 'raf',
-    });
-
-    const healerSaw = (await markers(healer.page)).filter((m) => m.kind === 'heal');
-    const allySaw = (await markers(ally.page)).filter((m) => m.kind === 'heal');
-    console.log('heal markers', JSON.stringify({ before, healerSaw, allySaw }));
-
-    // The healer gets one per person they healed; the ally gets one for themselves.
-    expect(healerSaw.length).toBeGreaterThanOrEqual(2);
-    expect(allySaw.length).toBeGreaterThan(0);
-    expect([...healerSaw, ...allySaw].every((m) => m.icon === '\u{1f49a}')).toBe(true);
-    expect(healerSaw.every((m) => m.amount > 0 && m.amount <= healAmount)).toBe(true);
-    expect([...healer.errors, ...ally.errors, ...red.errors]).toEqual([]);
-  });
-});
+// Online, the server says who hit whom: hit and heal numbers between players are in
+// tests/integration/battlefield.spec.ts.

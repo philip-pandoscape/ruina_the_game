@@ -3,7 +3,7 @@ import type { Placement } from '../sim/life/interact';
 import type { LifeState, Vehicle, Weather } from '../sim/life/state';
 import type { Build } from '../tuning';
 import { currentAccount, ServerDown } from './account';
-import type { ArrowRecord, EffectEvent, MeteorRecord, NetActor } from './netCrowd';
+import type { ArrowRecord, EffectEvent, MeteorRecord, NetActor } from './worldFeed';
 import { resumeAfterReload } from '../app/resume';
 
 // Your connection to the game server (crates/server/src/play/socket.rs), which plays Emberholm: your

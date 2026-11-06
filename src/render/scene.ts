@@ -40,19 +40,6 @@ export const TRAINING_STAGE: StageOptions = {
   worldTree: { x: -70, z: 240, scale: 1 },
 };
 
-export const BATTLEFIELD_STAGE: StageOptions = {
-  terrain: { flatRadius: 150, hillWidth: 60, hillHeight: 18 },
-  groundSize: 760,
-  groundSegments: 152,
-  grass: 9000,
-  flowers: 1200,
-  plantRadius: 150,
-  fogNear: 90,
-  fogFar: 420,
-  yard: false,
-  worldTree: { x: -170, z: 560, scale: 2.2 },
-};
-
 // Flat play area in the middle, rolling hills beyond it.
 export function groundHeight(x: number, z: number, t: Terrain = TRAINING_STAGE.terrain): number {
   const r = Math.hypot(x, z);

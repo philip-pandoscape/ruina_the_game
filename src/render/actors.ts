@@ -6,7 +6,7 @@ import { actorKind } from '../content/actors';
 import { actorKindAt, LADDERS } from '../content/actors';
 import { isAlive, type Actor } from '../sim/actor';
 import { behaviour, stateName, stateProgress } from '../sim/ai/brain';
-import type { NetActor } from '../net/netCrowd';
+import type { NetActor } from '../net/worldFeed';
 
 // Draws every actor that has a species, whatever kind it is. One instanced crowd per species,
 // so a yard with five slimes and a yard with five hundred cost the same number of draw calls,

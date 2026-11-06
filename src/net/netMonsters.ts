@@ -4,7 +4,7 @@ import { coneHits, type Target } from '../sim/combat/hit';
 import type { GameEvent } from '../sim/types';
 import type { AttackStep } from '../tuning';
 import type { ActorTimeline } from './actorTimeline';
-import type { NetActor } from './netCrowd';
+import type { NetActor } from './worldFeed';
 
 // Monsters online, made to feel the way they do offline. The server decides every hit, so on its
 // own the browser would only learn of one when its number arrives, a round trip after the swing

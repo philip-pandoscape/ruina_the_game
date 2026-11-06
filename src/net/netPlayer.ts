@@ -1,12 +1,9 @@
 import * as THREE from 'three';
-import { Hero } from '../render/character';
 import type { Sim } from '../sim/sim';
 import { ON_FOOT, type Actions, type PlayerState } from '../sim/types';
-import { comboShape } from '../tuning';
 import { emptySkills } from '../skills';
-import { MODE_DOWN, MODES } from './netCrowd';
 import { HOTBAR_SLOTS, MOVEMENT_SKILL_CAP, MOVEMENT_SLOTS, MP, NO_ABILITY, NO_MOVEMENT, STAMINA } from '../tuning';
-import type { NetCrowd, RawInput, RemoteRecord } from './netCrowd';
+import type { RawInput, WorldFeed } from './worldFeed';
 import { TAU } from '../util/math';
 
 // ---------- Your own fighter: predict instantly, correct when the server answers ----------
@@ -74,7 +71,7 @@ export class Prediction {
 
   constructor(
     private sim: Sim,
-    private net: NetCrowd,
+    private net: WorldFeed,
   ) {}
 
   get pendingCount(): number {
@@ -168,21 +165,6 @@ export function stateFromServer(p: Record<string, unknown>): PlayerState {
   return s;
 }
 
-// ---------- Other players: drawn with the full character, a fixed moment in the past ----------
-//
-// Each update is kept with its server tick. Other players are drawn at netCrowd.renderTick(),
-// blending between the two updates around it. Because that tick is also sent with your inputs,
-// the server can rewind them to exactly what you saw when it checks your swings.
-
-interface Remote {
-  hero: Hero;
-  buffer: Array<{ tick: number; rec: RemoteRecord }>;
-  shown: PlayerState;
-  shownHp: number;
-  runPhase: number;
-  seen: number; // server tick of the newest update that included this player
-}
-
 export function blankState(): PlayerState {
   return {
     pos: { x: 0, y: 0, z: 0 },
@@ -240,120 +222,4 @@ export function blankState(): PlayerState {
     firedAbility: 255,
     ...ON_FOOT,
   };
-}
-
-function angleLerp(a: number, b: number, t: number): number {
-  let d = (b - a) % TAU;
-  if (d > Math.PI) d -= TAU;
-  if (d < -Math.PI) d += TAU;
-  return a + d * t;
-}
-
-export class RemotePlayers {
-  onHurt: ((x: number, y: number, z: number, damage: number, dirX: number, dirZ: number) => void) | null = null;
-  private remotes = new Map<number, Remote>();
-
-  constructor(private scene: THREE.Scene) {}
-
-  get count(): number {
-    return this.remotes.size;
-  }
-
-  list(): Array<{ id: number; x: number; z: number; hp: number; team: number; weapon: number }> {
-    return [...this.remotes.values()].map((r) => ({
-      id: r.buffer[r.buffer.length - 1].rec.id,
-      x: r.shown.pos.x,
-      z: r.shown.pos.z,
-      hp: r.shownHp,
-      team: r.shown.team,
-      weapon: r.shown.weapon,
-    }));
-  }
-
-  // Every other player as drawn right now (for cast warnings and aiming).
-  shown(): PlayerState[] {
-    return [...this.remotes.values()].map((r) => r.shown);
-  }
-
-  // A new update from the server, for server tick `tick`.
-  receive(records: RemoteRecord[], tick: number): void {
-    for (const rec of records) {
-      let r = this.remotes.get(rec.id);
-      if (!r) {
-        const hero = new Hero();
-        hero.setTeam(rec.team);
-        // The battlefield is all fight: weapons stay out.
-        hero.armed = true;
-        this.scene.add(hero.root);
-        const shown = blankState();
-        shown.pos = { x: rec.x, y: rec.y, z: rec.z };
-        r = { hero, buffer: [], shown, shownHp: rec.hp, runPhase: 0, seen: tick };
-        this.remotes.set(rec.id, r);
-      }
-      r.buffer.push({ tick, rec });
-      if (r.buffer.length > 40) r.buffer.shift();
-      r.seen = tick;
-    }
-    for (const [id, r] of this.remotes) {
-      if (tick - r.seen > 20) {
-        this.scene.remove(r.hero.root);
-        this.remotes.delete(id);
-      }
-    }
-  }
-
-  // Poses every other player as they were at server tick `at`.
-  frame(at: number, dt: number, frame: number, framesPerTick: number): void {
-    for (const r of this.remotes.values()) {
-      const buf = r.buffer;
-      // The two updates either side of `at` (or the nearest one if we're outside the buffer).
-      let k = buf.length - 1;
-      while (k > 0 && buf[k].tick > at) k--;
-      const a = buf[k];
-      const b = buf[Math.min(k + 1, buf.length - 1)];
-      const span = b.tick - a.tick;
-      // A jump of more than a few metres between two updates is a respawn: switch over instantly
-      // rather than sliding them across the field.
-      const teleport = Math.hypot(b.rec.x - a.rec.x, b.rec.z - a.rec.z) > 4;
-      const f = span > 0 && !teleport ? Math.min(1, Math.max(0, (at - a.tick) / span)) : 0;
-      const rec = a.rec;
-      const { shown } = r;
-      const prevY = shown.pos.y;
-      shown.pos = { x: rec.x + (b.rec.x - rec.x) * f, y: rec.y + (b.rec.y - rec.y) * f, z: rec.z + (b.rec.z - rec.z) * f };
-      shown.prevPos = { ...shown.pos };
-      shown.facing = shown.prevFacing = angleLerp(rec.yaw, b.rec.yaw, f);
-      shown.vel = { x: rec.vx, y: dt > 0 ? (shown.pos.y - prevY) / dt : 0, z: rec.vz };
-      shown.grounded = rec.grounded;
-      shown.team = rec.team;
-      shown.hp = rec.hp;
-      shown.stun = rec.stun;
-      shown.downFrame = rec.mode === MODE_DOWN ? 1 : -1;
-      shown.mode = MODES[rec.mode] ?? 'normal';
-      shown.weapon = rec.weapon;
-      shown.comboVariants = rec.comboVariants;
-      shown.actionId = rec.actionId;
-      shown.actionFrame = rec.actionFrame;
-      shown.castAbility = rec.castAbility;
-      shown.castFrame = rec.castFrame;
-      shown.castTargetX = rec.castTargetX;
-      shown.castTargetZ = rec.castTargetZ;
-      // Animation counters advance smoothly between updates.
-      const ahead = Math.max(0, Math.floor((at - a.tick) * framesPerTick));
-      const combo = comboShape(rec.weapon, rec.comboVariants);
-      const step = combo[rec.attackIndex] ?? combo[0];
-      shown.attackIndex = rec.attackIndex;
-      shown.attackFrame = Math.min(rec.attackFrame + ahead, step.startup + step.active + step.recovery);
-      shown.flipFrame = rec.flipFrame >= 0 ? rec.flipFrame + ahead : -1;
-      shown.landFrame = Math.min(999, rec.landFrame + ahead);
-      if (shown.mode === 'normal' && shown.grounded) r.runPhase += Math.hypot(rec.vx, rec.vz) * dt;
-      shown.runPhase = r.runPhase;
-      r.hero.update(shown, 1, frame);
-
-      // Show the hit when the on-screen version of them takes the damage.
-      if (rec.hp < r.shownHp && this.onHurt) {
-        this.onHurt(shown.pos.x, shown.pos.y + 1.1, shown.pos.z, r.shownHp - rec.hp, -Math.sin(shown.facing), -Math.cos(shown.facing));
-      }
-      r.shownHp = rec.hp;
-    }
-  }
 }

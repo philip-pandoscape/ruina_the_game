@@ -188,6 +188,11 @@ export class WorldPeers {
     }));
   }
 
+  /** Everyone playing here now as drawn this frame, for their cast warnings. */
+  shownPlayers(): PlayerState[] {
+    return [...this.peers.values()].filter((p) => p.online).map((p) => p.shown);
+  }
+
   /** Everyone playing here now (list() keeps those who left too, for what they built). */
   present(): ReturnType<WorldPeers['list']> {
     return this.list().filter((p) => p.online);

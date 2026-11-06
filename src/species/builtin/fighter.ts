@@ -4,7 +4,7 @@ import { bakeAuthored } from '../pose';
 import { MAT, type SpeciesDef, type Vec3 } from '../types';
 import { lerp } from '../../util/math';
 
-// The battle crowd's fighter, as species data. The geometry is the same twenty boxes it always
+// The crowd's fighter, as species data. The geometry is the same twenty boxes it always
 // was; what used to be an if-chain of hardcoded pivots and angles in the vertex shader is now
 // four baked clips, which is what lets this share a renderer with a slime.
 

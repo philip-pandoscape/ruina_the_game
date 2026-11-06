@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import type { NetCrowd } from '../../src/net/netCrowd';
+import type { WorldFeed } from '../../src/net/worldFeed';
 import { Prediction } from '../../src/net/netPlayer';
 import { Sim } from '../../src/sim/sim';
 import { NO_ACTIONS } from '../../src/sim/types';
@@ -10,7 +10,7 @@ import { makeBattlefield } from '../../src/sim/world';
 
 test('online, running the unanswered inputs again on each server update leaves the clock everything is drawn by at the speed of time', () => {
   const sim = new Sim(makeBattlefield(), { training: false });
-  const net = { renderTick: () => 0, sendInput: () => {} } as unknown as NetCrowd;
+  const net = { renderTick: () => 0, sendInput: () => {} } as unknown as WorldFeed;
   const prediction = new Prediction(sim, net);
   const state = () => JSON.parse(JSON.stringify(sim.player));
   prediction.reconcile(0, state()); // the first update places you

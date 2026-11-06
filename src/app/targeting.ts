@@ -1,11 +1,8 @@
 import type * as THREE from 'three';
-import type { CrowdSource } from '../crowd/crowdView';
-import type { NetActor, NetCrowd } from '../net/netCrowd';
+import type { NetActor } from '../net/worldFeed';
 import { actorKindAt } from '../content/actors';
-import type { RemotePlayers } from '../net/netPlayer';
 import { isAlive } from '../sim/actor';
 import { COMBAT } from '../tuning';
-import { WEAPON_NAMES } from '../ui/icons';
 import type { Sim } from '../sim/sim';
 
 // Who the game has you aimed at. Pulled out of main.ts because it owns real state of its own -
@@ -18,10 +15,6 @@ export interface TargetingDeps {
   camera(): THREE.Camera;
   /** Which way the view is facing, for judging what is near the middle of the screen. */
   yaw(): number;
-  remotes: RemotePlayers | null;
-  crowdSource: CrowdSource | null;
-  net: NetCrowd | null;
-  playing: boolean;
   /** True when a server is deciding things, which changes who is worth looking at. */
   online: boolean;
   softLock: boolean;
@@ -96,22 +89,6 @@ export function createTargeting(d: TargetingDeps) {
       if (dx * dx + dz * dz > r2) continue;
       visit(`w${p.id}`, p.x, p.y, p.z, p.hp / COMBAT.maxHp, p.name);
     }
-    for (const r of d.remotes?.list() ?? []) {
-      if (r.team === myTeam || r.hp <= 0) continue;
-      const dx = r.x - px;
-      const dz = r.z - pz;
-      if (dx * dx + dz * dz > r2) continue;
-      visit(`p${r.id}`, r.x, 0, r.z, r.hp / COMBAT.maxHp, `${WEAPON_NAMES[r.weapon] ?? 'Player'} player`);
-    }
-    if (d.net) {
-      for (let i = 0; i < d.net.n; i++) {
-        if (!d.net.known[i] || d.net.down[i] || d.net.team[i] === myTeam) continue;
-        const dx = d.net.rx[i] - px;
-        const dz = d.net.rz[i] - pz;
-        if (dx * dx + dz * dz > r2) continue;
-        visit(`b${i}`, d.net.rx[i], 0, d.net.rz[i], d.net.hp[i] / 255, 'Fighter');
-      }
-    }
   }
 
   // How far off the middle of the view something is, in radians.
@@ -124,11 +101,6 @@ export function createTargeting(d: TargetingDeps) {
   // Picks the mark for this frame: keep the one you have while it's still good, otherwise (unless
   // you locked it with Tab) take whoever is nearest the middle of the view.
   function updateTarget(): void {
-    if (d.net && !d.playing) {
-      haveMark = false;
-      targetKey = null;
-      return;
-    }
     const keepRange = tabLocked ? LOCK_RANGE : SOFT_RANGE;
     let kept = false;
     let best = '';
@@ -193,7 +165,6 @@ export function createTargeting(d: TargetingDeps) {
   // Tab: step to the next enemy, nearest first. Shift-Tab goes back. The order is rebuilt from the
   // current positions on each press, so it stays stable for as long as nobody moves past anyone.
   function cycleTarget(step: number): void {
-    if (d.net && !d.playing) return;
     const list: Array<{ key: string; d: number }> = [];
     eachEnemy(SOFT_RANGE, (key, x, _y, z) => {
       list.push({ key, d: Math.hypot(x - d.sim.player.pos.x, z - d.sim.player.pos.z) });

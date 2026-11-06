@@ -19,7 +19,7 @@ export function wireBugReports(g: GameRefs): void {
     const mark = g.lockOn.mark();
     const eye = g.follow.camera.position;
     return {
-      mode: g.openWorld ? 'open world (Emberholm)' : g.serverUrl ? 'online battle' : g.raidCount ? 'raid stress test' : 'training yard',
+      mode: g.openWorld ? 'open world (Emberholm)' : 'training yard',
       frame: g.sim.frame,
       paused: g.paused,
       device: g.input.lastDevice,

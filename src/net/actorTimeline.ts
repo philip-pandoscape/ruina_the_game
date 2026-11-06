@@ -1,4 +1,4 @@
-import type { NetActor } from './netCrowd';
+import type { NetActor } from './worldFeed';
 import { TAU } from '../util/math';
 
 // The monsters and props the server describes, kept for a moment by tick so they can be drawn
