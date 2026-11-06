@@ -1,0 +1,26 @@
+# Fetches the repository's Git LFS files (models, textures, icons, fonts...) after a checkout,
+# from a cache while none of them changed, so a run doesn't spend the account's LFS download quota
+# (GitHub Free: 10 GiB a month) on files an earlier run already fetched.
+name: LFS files
+description: Pull Git LFS files, cached by their ids
+inputs:
+  include:
+    description: Only these paths (as git lfs pull --include takes them); every LFS file when empty
+    required: false
+    default: ''
+runs:
+  using: composite
+  steps:
+    - name: List the LFS files
+      shell: bash
+      run: git lfs ls-files --long | cut -d ' ' -f1 | sort > .lfs-ids
+    - uses: actions/cache@v6
+      with:
+        path: .git/lfs/objects
+        key: lfs-${{ inputs.include }}-${{ hashFiles('.lfs-ids') }}
+        restore-keys: lfs-${{ inputs.include }}-
+    - name: Pull them
+      shell: bash
+      run: |
+        if [ -n "${{ inputs.include }}" ]; then git lfs pull --include "${{ inputs.include }}"; else git lfs pull; fi
+        rm -f .lfs-ids

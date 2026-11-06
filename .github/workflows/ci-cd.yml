@@ -34,6 +34,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+      # The build copies the models, textures and fonts in: the real files, not their LFS pointers.
+      - uses: ./.github/actions/lfs
       - uses: actions/setup-node@v7
         with:
           node-version: 24
@@ -47,6 +49,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+      # The server builds the baked island into itself (include_bytes!), and it's in LFS.
+      - uses: ./.github/actions/lfs
+        with:
+          include: server/data/emberholm.zone
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
@@ -97,6 +103,8 @@ jobs:
           --health-interval 2s --health-timeout 3s --health-retries 30
     steps:
       - uses: actions/checkout@v7
+      # The game the tests play loads the real models, textures and fonts.
+      - uses: ./.github/actions/lfs
       - uses: actions/setup-node@v7
         with:
           node-version: 24
@@ -177,6 +185,9 @@ jobs:
             echo "ready=true" >> "$GITHUB_OUTPUT"
           fi
       - uses: actions/checkout@v7
+        if: steps.key.outputs.ready == 'true'
+      # Railway builds what this uploads, so the real files go up, not their LFS pointers.
+      - uses: ./.github/actions/lfs
         if: steps.key.outputs.ready == 'true'
       - uses: actions/setup-node@v7
         if: steps.key.outputs.ready == 'true'
