@@ -25,6 +25,7 @@ The open world is **Emberholm**, a starter isle with ArcheAge-style life systems
 | `shared/creatures/`, `src/creatures/` | Creatures with folders of their own, the goblins first (`design/goblins.md`). A creature is data and a body: `shared/creatures/<name>.json` holds its kinds, attacks and brains (the format of `shared/behaviours.json`, plus its pack's tactics), and `src/creatures/<name>/` its body for the crowd renderer. Both run on shared engine parts, in TypeScript and Rust alike: senses (`src/sim/ai/senses.ts`, every player as a foe), the pack (`pack.ts` ↔ `crates/engine/src/pack.rs`: attack tokens, openings, ring places, courage), the brains' walk, strike, throw and heal acts (`brain.ts` ↔ `ai.rs`) and missiles (`src/sim/combat/missiles.ts` ↔ `missiles.rs`). A new creature is a file and a body, listed in `src/content/creatures.ts` and `crates/engine/src/creatures.rs` in the same order; a behaviour the engine can't express becomes a new engine part, never creature code. `?yard&goblins=6` puts a band in the yard |
 | `tests/` | The test tiers (`tests/AGENTS.md`, `docs/testing.md`): `unit/` (Vitest, no browser), `conformance/` (Vitest: the TypeScript rules against the Rust ones), `integration/` (Playwright: the game in a browser with its servers), `stress/` (Playwright, a real GPU), `support/` (shared helpers, the typed `window.__game`) |
 | `design/` | Design bible (`/design/` on the dev server) and the UI design system (`/design/ui.html`); `design/status.json` is the tracker and session log |
+| `bible/`, `src/bible/` | The Ruina Bible, `/bible/` in the built game, open to everyone: how the game works, exactly. A page per system (`systems/`, written from the rules files it names in `rules`, drawing on the content keys in `content`), an entry per thing (`things/`: a kind per content collection, each entry drawn from the content as it is shown), notes on things whose content doesn't describe them (`notes/<kind>.md`, a `## <id>` each), search and links between pages (`site.ts`), and for admins the Development tab (`/design/`). Prose is Markdown in md`` templates (`md.ts`) whose numbers come only from imports, formatted by `format.ts`; numbers the rules don't export are read from their source (`source.ts`). `tests/unit/bible.test.ts` holds it complete, `tests/integration/bible.spec.ts` the page |
 
 ## Commands
 
@@ -57,6 +58,11 @@ online specs need a world server with a database (`npm run up`, or the private r
   The server builds the bake into itself, so rebuild it before the conformance tests.
 - Keep `src/sim/` deterministic: its own seeded RNG, never `Math.random` or `Date.now`.
 - When a feature lands, update `design/status.json` (feature status, next steps, session log).
+- The bible (`src/bible/`) moves with the game: a new system is a page in `src/bible/systems/`
+  naming its rules files and content keys; a new piece of content of a kind the bible knows needs
+  its explanation (its own `desc`, or a note under `## <id>` in `src/bible/notes/<kind>.md`); a new
+  kind of content is a kind in `src/bible/things/`. Numbers go in through `src/bible/format.ts`,
+  never typed into prose. `tests/unit/bible.test.ts` fails on whatever is missing and says where.
 - UI follows the design system (`design/ui.html`): labels (buttons, tabs, headings, prompts, tags) in
   Title Case and sentences in sentence case (`src/ui/theme/text.ts`, checked by `tests/integration/ui.spec.ts`);
   items answer a click (pick), a double-click (their main action) and a right-click (a menu).
