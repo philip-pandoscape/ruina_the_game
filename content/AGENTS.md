@@ -39,7 +39,8 @@ How to add each kind of thing, as files alone: `docs/content.md`.
 contentc also checks every reference (an item a vendor sells, a quest's giver and the places its
 markers point at, a recipe's workbench, a person's place and bench, an item's category, a
 creature's brain, what marks out an empty house plot: `REFS` in contentc.mjs says which keys name
-which kinds), and that every made model a look names has its files in `src/render/assets/models/`.
+which kinds), that every made model a look names has its files in `src/render/assets/models/`, and
+that a cave's dressing names its own walls and pieces (`docs/zones.md`, Dressing a Cave).
 
 ## Order, the Wire and Saves
 

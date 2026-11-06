@@ -1,4 +1,5 @@
 import data from '../../../shared/instances.json' with { type: 'json' };
+import type { CaveDressing } from '../../content/looks';
 import { inRect } from './colliders';
 import { rect } from './frames';
 import type { DungeonDoor, ZoneRecipe } from './types';
@@ -46,6 +47,8 @@ export interface DungeonDef {
   bots?: Array<{ brain: string; count: number; team: number; x: number; z: number }>;
   /** How it's drawn: "cave" (the default) or "arena" (open sky). */
   style?: string;
+  /** What a cave looks like inside (src/content/looks.ts): drawing only, the rules never read it. */
+  dressing?: CaveDressing;
   /**
    * What a copy of it brings (the server's): one of a kind at a spot, or a war-band of `count` in a
    * ring round it (crates/engine/src/open/dungeon.rs ZoneSpawn).

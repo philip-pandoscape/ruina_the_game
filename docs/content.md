@@ -239,9 +239,10 @@ has, and every one the game has to something that wears it.
   (`content/regions/emberholm.json`): a circle (`r`) or a rectangle (`w`, `d`) levelled to `h` (or to
   the ground's own height there, `"auto"`) and blended out over `fall`, its `surface` painted. It's
   kept clear of trees, rocks and scarecrows unless it has `keepClear: false` (the fields, farmed).
-- **A dungeon or a developer zone**: `content/instances/<id>.json` (template `instance.json`), as
+- **A dungeon or a developer zone**: `content/instances/<id>.json` (template `dungeon.json` for a
+  dungeon, a cave with its `dressing`; `instance.json` for a developer zone, an arena), as
   `docs/zones.md` says; a dungeon's door, an entry named for it in the `doors.json` of the region
-  it's entered from. A dungeon's dressing is still code (the refactor's R9.8).
+  it's entered from.
 - **A region**: its recipe, `content/regions/<id>.json`, a folder of what it places beside it
   (`content/regions/<id>/`, the lists above), and its chunks in `content/world.json`, whose comment
   says what its grid must be. Every id in it is one thing in the whole world (contentc).

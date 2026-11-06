@@ -83,6 +83,40 @@ test("a look's field its kind's looks don't have, or a made model whose file isn
   ).toMatch(/structures\.structures\[\d+\]\.look\.model: there's no src\/render\/assets\/models\/moonwell\.glb/);
 });
 
+test("a cave without its dressing, or a dressing naming walls or pieces the instance hasn't got, fails", () => {
+  const dread = 'instances/goblinsDread.json';
+  expect(
+    broken(dread, (j) => {
+      delete j.dressing;
+    }),
+  ).toContain('content/instances/goblinsDread.json: a cave has its dressing');
+  expect(
+    broken(dread, (j) => {
+      j.dressing.hall.north = 'nowhereWall';
+    }),
+  ).toContain('dressing.hall.north is "nowhereWall", which isn\'t one of its boxes');
+  expect(
+    broken(dread, (j) => {
+      j.dressing.props[0].on = 'nowhereDeck';
+    }),
+  ).toContain('dressing.props[0] stands on "nowhereDeck", which isn\'t one of its boxes or decks');
+  expect(
+    broken(dread, (j) => {
+      delete j.dressing.light.torch;
+    }),
+  ).toContain('its dressing has torches, but no light for them');
+  expect(
+    broken(dread, (j) => {
+      j.dressing.moss = true;
+    }),
+  ).toContain('content/instances/goblinsDread.json dressing: "moss" isn\'t a field of the dressings of instances');
+  expect(
+    broken('instances/yard.json', (j) => {
+      j.dressing = { hall: {} };
+    }),
+  ).toContain("content/instances/yard.json: an arena isn't dressed");
+});
+
 test("a thing left out of its folder's order, or named for another, fails", () => {
   expect(broken('quests/_order.json', (list) => (list as string[]).slice(1))).toMatch(/content\/quests\/.+\.json: not in quests\/_order\.json/);
   expect(
