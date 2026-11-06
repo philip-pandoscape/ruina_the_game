@@ -31,10 +31,15 @@ impl ChannelGame {
     /// Up to `n` bots with `brain` in a ring round (x, z), on `team`. How many joined: the channel
     /// may be full, or at its bots' limit.
     pub fn spawn_bots(&mut self, n: u32, brain: Brain, x: f64, z: f64, team: u8) -> u32 {
+        self.spawn_bots_up_to(n, brain, x, z, team, MAX_BOTS)
+    }
+
+    /// The same, up to `cap` bots in all (the tick-time bench goes past the panel's limit).
+    fn spawn_bots_up_to(&mut self, n: u32, brain: Brain, x: f64, z: f64, team: u8, cap: usize) -> u32 {
         let hf = self.open.terrain();
         let mut joined = 0;
         for k in 0..n {
-            if self.bots.len() >= MAX_BOTS {
+            if self.bots.len() >= cap {
                 break;
             }
             self.bot_count += 1;
@@ -206,6 +211,53 @@ mod tests {
         assert!(arrows > 20, "{arrows} arrows");
         assert!(ch.players.each_open().any(|(_, _, p, _)| p.down_frame >= 0 || p.hp < 100.0), "nobody hurt");
         assert_eq!(hash, "1c5ed3eb80b27638");
+    }
+
+    /// The battlefield with `n` skirmishers, half a side, spread in rows of groups of eight facing
+    /// each other across the middle, and an admin in it receiving every update: the game as the
+    /// tick-time bench plays it.
+    fn crowded_battlefield(n: u32) -> ChannelGame {
+        let def = crate::open::dungeon::dungeon("battlefield").expect("the battlefield");
+        let mut ch = ChannelGame::copy(-1, def, def.door.as_ref().expect("its door"), super::super::Owner::Everyone);
+        let (out, rx) = tokio::sync::mpsc::channel(16);
+        // The admin's browser never reads: its updates are made and dropped, as a slow one's are.
+        std::mem::forget(rx);
+        ch.join(super::super::Arrival { character: 1, session: 1, name: "Admin".into(), out, dev: true, island: None, saved_at: None, now: 0, build: None });
+        let groups = n.div_ceil(16);
+        for team in 0..2u8 {
+            for g in 0..groups {
+                let (row, col) = (g / 8, g % 8);
+                let x = def.origin.x - 44.0 + f64::from(col) * 12.5;
+                let z = def.origin.z + if team == 0 { -1.0 } else { 1.0 } * (10.0 + f64::from(row) * 6.0);
+                ch.spawn_bots_up_to(8, Brain::Skirmisher, x, z, team, n as usize);
+            }
+        }
+        ch
+    }
+
+    #[test]
+    #[ignore = "a measurement, run by hand: cargo test --release -p ruina-server tick_time -- --ignored --nocapture"]
+    fn tick_time_in_the_battlefield() {
+        for n in [64u32, 256, 1024] {
+            let mut ch = crowded_battlefield(n);
+            assert_eq!(ch.bots.len(), n as usize);
+            let mut saves = Vec::new();
+            for _ in 0..40 {
+                ch.play_tick(1.0 / f64::from(TICK_HZ), 0.0);
+            }
+            let ticks = 100;
+            let (mut rules, mut sent) = (0.0, 0.0);
+            for _ in 0..ticks {
+                let t = std::time::Instant::now();
+                ch.play_tick(1.0 / f64::from(TICK_HZ), 0.0);
+                let m = std::time::Instant::now();
+                ch.send_tick(m, &mut saves);
+                rules += (m - t).as_secs_f64() * 1000.0;
+                sent += m.elapsed().as_secs_f64() * 1000.0;
+            }
+            let (rules, sent) = (rules / f64::from(ticks), sent / f64::from(ticks));
+            println!("{n:5} bots: the rules {rules:7.3} ms a tick, the updates {sent:7.3} ms, in all {:7.3} ms ({} blows)", rules + sent, ch.players.pvp_hits);
+        }
     }
 
     #[test]
