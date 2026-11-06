@@ -26,7 +26,7 @@ export const DEV_PAGES: readonly DevPage[] = [
     title: 'Content Library',
     url: '/dev/library.html',
     about:
-      "The content library, everything the game draws in one place: every animated thing frame by frame with the game's timing (scrub, onion-skin and pose it, lay it out as a contact sheet, and leave notes on it for Claude), library clips on the hero beside their source, close-up rigs posed joint by joint, every model side by side, the buildings cut open over their walls, and crowds of each species with their cost measured.",
+      "The content library, everything the game draws in one place: every animated thing frame by frame with the game's timing (scrub, onion-skin and pose it, lay it out as a contact sheet, and leave notes on it for Claude), library clips on the hero beside their source, close-up rigs posed joint by joint, every model side by side, the buildings cut open over their walls, crowds of each species with their cost measured, and every window of the interface in made-up states.",
     needs: 'dev-server',
   },
   { id: 'bible', kind: 'design', title: 'Design Bible', url: '/design/', about: 'The design of the whole game, system by system, and where each one stands.' },

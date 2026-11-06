@@ -9,6 +9,7 @@ import { answer, wasm, withText } from './wasm';
 interface Calls {
   minigame_layout(game: number): number;
   minigame_options(game: number, p: number, n: number): number;
+  minigame_deal(game: number, seed: number, turns: number): number;
 }
 const calls = () => wasm() as unknown as Calls;
 
@@ -45,4 +46,27 @@ export function minigameOptions<Options>(game: number, asking: Asking): Options 
   const n = withText(JSON.stringify(asking), (p, len) => calls().minigame_options(game, p, len));
   if (!n) throw new Error(`mini-game ${game} can't answer that: ${JSON.stringify(asking).slice(0, 200)}`);
   return answer<Options>(n);
+}
+
+/** A game dealt and played on by its own rules (`minigameDeal`), in the game's own terms. */
+export interface DealtGame<View> {
+  /** Whose move it is: null once it's over. */
+  toMove: number | null;
+  /** Null while it goes on; else who won (null: a draw). */
+  result: { winner: number | null } | null;
+  /** The game as each seat sees it (the table's `state` for that seat). */
+  views: [View, View];
+  /** What everyone sees of it (the table's `board`). */
+  board: unknown;
+}
+
+/**
+ * The game at `game` in the bundle dealt from `seed` and played on for `turns` turns by the server's
+ * own moves (as for a player out of time), or to its end: a made-up table for the developer pages
+ * (src/dev/ui/), which needs no game of its own named.
+ */
+export function minigameDeal<View>(game: number, seed: number, turns: number): DealtGame<View> {
+  const n = calls().minigame_deal(game, seed, turns);
+  if (!n) throw new Error(`the engine has no mini-game ${game}`);
+  return answer<DealtGame<View>>(n);
 }

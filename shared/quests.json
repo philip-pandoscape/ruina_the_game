@@ -85,7 +85,7 @@
     },
     {
       "id": "wings",
-      "name": "Wings over the Windspire",
+      "name": "Wings Over the Windspire",
       "giver": "hollis",
       "after": [
         "landfall"
@@ -343,7 +343,7 @@
     },
     {
       "id": "stonecutting",
-      "name": "Stone from Stonebreak",
+      "name": "Stone From Stonebreak",
       "giver": "quill",
       "after": [
         "firstFlight",
@@ -390,7 +390,7 @@
     },
     {
       "id": "woodcutting",
-      "name": "Timber from Thornwood",
+      "name": "Timber From Thornwood",
       "giver": "brenna",
       "after": [
         "stonecutting"

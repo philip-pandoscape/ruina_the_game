@@ -1,6 +1,6 @@
 {
   "id": "woodcutting",
-  "name": "Timber from Thornwood",
+  "name": "Timber From Thornwood",
   "giver": "brenna",
   "after": [
     "stonecutting"

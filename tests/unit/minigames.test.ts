@@ -2,7 +2,7 @@ import { readdirSync } from 'node:fs';
 import * as THREE from 'three';
 import { expect, test } from 'vitest';
 import { MINIGAMES } from '../../src/content/minigames';
-import { minigameLayout } from '../../src/engine/minigames';
+import { minigameDeal, minigameLayout } from '../../src/engine/minigames';
 import { GameTables, type ShownTable } from '../../src/render/open/gameTables';
 import { boardOf } from '../../src/ui/minigames/boards';
 import type { TableView } from '../../src/ui/minigames/tables';
@@ -68,6 +68,19 @@ test('the engine lays out every game’s board, and its boards are found by its 
     expect(tables.group.getObjectByName('gameTableBoard'), g.id).toBeDefined();
   });
   expect(() => minigameLayout(MINIGAMES.length)).toThrow();
+});
+
+test('the engine deals every game and plays it on by its own rules, as the UI gallery makes up a table', () => {
+  MINIGAMES.forEach((g, i) => {
+    const dealt = minigameDeal(i, 3, 0);
+    expect({ toMove: dealt.toMove, result: dealt.result, seats: dealt.views.length }, g.id).toEqual({ toMove: 0, result: null, seats: 2 });
+    // The table's board and each seat's view are what a board view draws.
+    expect(() => boardOf(g)!(g, i, () => {}).body({ ...yours(i, dealt.views[0] as Record<string, unknown>), board: dealt.board }), g.id).not.toThrow();
+    const over = minigameDeal(i, 3, 1000);
+    expect(over.toMove, g.id).toBeNull();
+    expect(over.result, g.id).not.toBeNull();
+  });
+  expect(() => minigameDeal(MINIGAMES.length, 3, 0)).toThrow();
 });
 
 // Beacons, the first game: its boards draw the board its rules play on, and offer what they allow.
