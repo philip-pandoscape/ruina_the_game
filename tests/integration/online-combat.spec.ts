@@ -1,4 +1,5 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test } from '@playwright/test';
+import { onlineReady as waitOnline } from '../support/game';
 
 // Fighting Emberholm's slimes on the game server, where the server decides every hit and the
 // browser only draws: the slimes move smoothly between the server's updates, their warnings lie on
@@ -22,13 +23,6 @@ test.beforeEach(() => test.skip(!serverUp, `needs the game server with a databas
 
 const fresh = (prefix: string) => `${prefix}${Date.now().toString(36)}${Math.floor(Math.random() * 1296).toString(36)}`.slice(0, 20);
 
-async function waitOnline(page: Page): Promise<void> {
-  await page.waitForFunction(() => {
-    const o = (window as any).__game?.online?.();
-    return (window as any).__game?.ready === true && o?.status === 'online' && o.ticks > 3 && o.lifeLoaded;
-  }, null, { timeout: 60_000 });
-}
-
 /** Where the island's slimes live (shared/zones/emberholm.json "slimes"), and a spot just south of them. */
 const MEADOW = { x: -30, z: -40 };
 
@@ -37,20 +31,20 @@ test('the island slimes move smoothly, warn on the ground, and flash when your s
   page.on('pageerror', (e) => errors.push(String(e)));
   await page.goto(`/?as=${fresh('slimer')}&bugs=0`);
   await waitOnline(page);
-  await page.evaluate(([x, z]) => (window as any).__game.teleport(x, z), [MEADOW.x, MEADOW.z - 18]);
+  await page.evaluate(([x, z]) => window.__game.teleport(x, z), [MEADOW.x, MEADOW.z - 18]);
   await page.waitForFunction(
     ([x, z]) => {
-      const p = (window as any).__game.state().player.pos;
+      const p = window.__game.state().player.pos;
       return Math.hypot(p.x - x, p.z - z) < 2;
     },
     [MEADOW.x, MEADOW.z - 18],
     { timeout: 30_000 },
   );
-  await page.waitForFunction(() => (window as any).__game.shownActors().filter((a: any) => a.kind === 1).length > 0, null, { timeout: 15_000 });
+  await page.waitForFunction(() => window.__game.shownActors().filter((a: any) => a.kind === 1).length > 0, null, { timeout: 15_000 });
 
   // Drawn between the server's updates: most frames that move a slime had no update of their own.
   const moved = await page.evaluate(async () => {
-    const g = (window as any).__game;
+    const g = window.__game;
     let moves = 0;
     let between = 0;
     let last: Record<number, [number, number]> = {};
@@ -77,7 +71,7 @@ test('the island slimes move smoothly, warn on the ground, and flash when your s
 
   // Walk up to the nearest slime and hit it: sparks and a flash on the guess, the number after.
   const hit = await page.evaluate(async () => {
-    const g = (window as any).__game;
+    const g = window.__game;
     const me0 = g.state().player.pos;
     const target = g
       .shownActors()
@@ -106,7 +100,7 @@ test('the island slimes move smoothly, warn on the ground, and flash when your s
 
   // Angry now, it (or its pack) comes to slam the spot you stand on; the warning lies on the meadow.
   const warned = await page.evaluate(async () => {
-    const g = (window as any).__game;
+    const g = window.__game;
     for (let i = 0; i < 1200; i++) {
       await new Promise((r) => requestAnimationFrame(r));
       if (g.spells().circlesDrawn === 0) continue;

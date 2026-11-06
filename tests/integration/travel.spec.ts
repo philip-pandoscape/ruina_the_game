@@ -2,6 +2,9 @@ import { expect, test, type Page } from '@playwright/test';
 import { SURFACE } from '../../src/sim/terrain';
 import { EMBERHOLM } from '../../src/sim/zone/world';
 import { isTitleCase } from '../../src/ui/theme/text';
+import type { Command } from '../../src/sim/life/life';
+import type { LifePress } from '../../src/ui/life/lifeUI';
+import { gameReady, onlineReady } from '../support/game';
 
 // Auto-run and travel by road (src/app/autoWalk.ts, src/sim/zone/roads.ts, src/ui/life/travelUI.ts).
 // The road network and its routes are checked here in Node; the walking, the map and the readout in
@@ -20,22 +23,22 @@ async function open(page: Page): Promise<string[]> {
   });
   page.on('pageerror', (e) => errors.push(String(e)));
   await page.goto('/?world&test');
-  await page.waitForFunction(() => (window as any).__game?.ready === true, null, { timeout: 60_000 });
-  await page.evaluate(() => (window as any).__game.reset());
+  await gameReady(page, 60_000);
+  await page.evaluate(() => window.__game.reset());
   return errors;
 }
 
 const g = (page: Page) => ({
-  advance: (frames: number, a: Record<string, unknown> = {}) => page.evaluate(([n, x]) => (window as any).__game.advance(n, x), [frames, a] as const),
-  player: () => page.evaluate(() => (window as any).__game.state().player),
-  walk: () => page.evaluate(() => (window as any).__game.walk()),
-  life: () => page.evaluate(() => (window as any).__game.life()),
-  cmd: (c: Record<string, unknown>) => page.evaluate((x) => (window as any).__game.lifeCommand(x), c),
-  press: (k: string) => page.evaluate((x) => (window as any).__game.pressLife(x), k),
-  camera: (yaw: number) => page.evaluate((y) => (window as any).__game.setCamera({ yaw: y }), yaw),
-  teleport: (x: number, z: number, facing = 0) => page.evaluate(([a, b, c]) => (window as any).__game.teleport(a, b, c), [x, z, facing] as const),
-  travelTo: (x: number, z: number, label: string) => page.evaluate(([a, b, c]) => (window as any).__game.travelTo(a, b, c), [x, z, label] as const),
-  surface: (x: number, z: number) => page.evaluate(([a, b]) => (window as any).__game.surface(a, b), [x, z] as const),
+  advance: (frames: number, a: Record<string, unknown> = {}) => page.evaluate(([n, x]) => window.__game.advance(n, x), [frames, a] as const),
+  player: () => page.evaluate(() => window.__game.state().player),
+  walk: () => page.evaluate(() => window.__game.walk()),
+  life: () => page.evaluate(() => window.__game.life()),
+  cmd: (c: Command) => page.evaluate((x) => window.__game.lifeCommand(x), c),
+  press: (k: LifePress) => page.evaluate((x) => window.__game.pressLife(x), k),
+  camera: (yaw: number) => page.evaluate((y) => window.__game.setCamera({ yaw: y }), yaw),
+  teleport: (x: number, z: number, facing = 0) => page.evaluate(([a, b, c]) => window.__game.teleport(a, b, c), [x, z, facing] as const),
+  travelTo: (x: number, z: number, label: string) => page.evaluate(([a, b, c]) => window.__game.travelTo(a, b, c), [x, z, label] as const),
+  surface: (x: number, z: number) => page.evaluate(([a, b]) => window.__game.surface(a, b), [x, z] as const),
 });
 
 const place = (id: string) => EMBERHOLM.places.find((p) => p.id === id)!;
@@ -61,7 +64,7 @@ async function untitled(page: Page, sel: string): Promise<string[]> {
 async function travel(page: Page, seconds: number): Promise<{ seconds: number; paved: number; samples: number }> {
   return page.evaluate(
     ([seconds, paved]) => {
-      const g = (window as any).__game;
+      const g = window.__game;
       let onRoad = 0;
       let samples = 0;
       let frames = 0;
@@ -112,13 +115,13 @@ test('auto-run: H runs you on where the camera looks, the mouse steering; A and 
   expect((await w.walk()).mode).toBe('run');
   // W on the real keyboard: you take over, and the readout goes.
   await page.keyboard.down('KeyW');
-  await page.evaluate(() => (window as any).__game.advanceLive(2));
+  await page.evaluate(() => window.__game.advanceLive(2));
   await page.keyboard.up('KeyW');
   expect((await w.walk()).mode).toBe('off');
   await w.advance(1);
   await expect(page.locator('#lui-walk')).toBeHidden();
   // Num Lock and H, pressed for real while the game runs, both start it; S stops it.
-  await page.evaluate(() => (window as any).__game.setPaused(false));
+  await page.evaluate(() => window.__game.setPaused(false));
   for (const key of ['NumLock', 'KeyH']) {
     await page.keyboard.press(key);
     await expect.poll(async () => (await w.walk()).mode).toBe('run');
@@ -126,7 +129,7 @@ test('auto-run: H runs you on where the camera looks, the mouse steering; A and 
     await expect.poll(async () => (await w.walk()).mode).toBe('off');
     await page.keyboard.up('KeyS');
   }
-  await page.evaluate(() => (window as any).__game.setPaused(true));
+  await page.evaluate(() => window.__game.setPaused(true));
   // The controls hint offers it.
   await expect(page.locator('#hint')).toContainText('Auto-Run');
   expect(errors).toEqual([]);
@@ -205,7 +208,7 @@ test('the map: a click on a place sets off along the roads, the way drawn on the
   await w.advance(1);
   expect(await untitled(page, '.mw.map .mw-foot .lui-btn, .mw.map .mw-foot > span:first-child')).toEqual([]);
   // On the keyboard (and the D-pad), the arrows pick the next place that way and Enter sets off.
-  await page.evaluate(() => (window as any).__game.setPaused(false));
+  await page.evaluate(() => window.__game.setPaused(false));
   await page.keyboard.press('ArrowDown');
   await expect.poll(async () => (await w.walk()).marker?.label).toBe('Lanternwick Docks');
   expect((await w.walk()).mode).toBe('off');
@@ -213,7 +216,7 @@ test('the map: a click on a place sets off along the roads, the way drawn on the
   await expect.poll(async () => (await w.walk()).marker?.label).toBe('Lanternwick');
   await page.keyboard.press('Enter');
   await expect.poll(async () => (await w.walk()).mode).toBe('travel');
-  await page.evaluate(() => (window as any).__game.setPaused(true));
+  await page.evaluate(() => window.__game.setPaused(true));
   expect(errors).toEqual([]);
 });
 
@@ -338,7 +341,7 @@ test('travel by road in a roadster: it slows in time for the square and stops at
   expect(await w.travelTo(60, -246, 'The West Road')).toBe(true);
   // Driven in the page, drawn at the end (see travel()).
   const { fastest, inSquare } = await page.evaluate(() => {
-    const g = (window as any).__game;
+    const g = window.__game;
     let fastest = 0;
     let inSquare = 0;
     for (let i = 0; i < 60 && g.walk().mode === 'travel'; i++) {
@@ -383,17 +386,14 @@ test.describe('online', () => {
     test.setTimeout(240_000);
     const name = `road${Date.now().toString(36)}${Math.floor(Math.random() * 1296).toString(36)}`.slice(0, 20);
     await page.goto(`/?as=${name}&bugs=0`);
-    await page.waitForFunction(() => {
-      const o = (window as any).__game?.online?.();
-      return (window as any).__game?.ready === true && o?.status === 'online' && o.ticks > 3 && o.lifeLoaded;
-    }, null, { timeout: 90_000 });
+    await onlineReady(page, 90_000);
     const docks = place('docks');
-    expect(await page.evaluate(([x, z, l]) => (window as any).__game.travelTo(x, z, l), [docks.x, docks.z, docks.name] as const)).toBe(true);
-    await expect.poll(() => page.evaluate(() => (window as any).__game.walk().mode), { timeout: 180_000 }).toBe('off');
+    expect(await page.evaluate(([x, z, l]) => window.__game.travelTo(x, z, l), [docks.x, docks.z, docks.name] as const)).toBe(true);
+    await expect.poll(() => page.evaluate(() => window.__game.walk().mode), { timeout: 180_000 }).toBe('off');
     await expect(page.locator('#lui-toasts')).toContainText('Arrived at Lanternwick Docks');
     // Where you stand is the server's word: it moved you there, and never had to put you right by much.
     await page.waitForTimeout(500);
-    const o = await page.evaluate(() => ({ pos: (window as any).__game.state().player.pos, ...(window as any).__game.online() }));
+    const o = await page.evaluate(() => ({ pos: window.__game.state().player.pos, ...window.__game.online() }));
     console.log('online travel', { at: [o.pos.x.toFixed(1), o.pos.z.toFixed(1)], corrections: o.corrections, maxCorrection: o.maxCorrection });
     expect(Math.hypot(o.pos.x - docks.x, o.pos.z - docks.z)).toBeLessThan(3);
     expect(o.maxCorrection).toBeLessThan(1);

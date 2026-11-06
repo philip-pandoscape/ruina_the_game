@@ -4,6 +4,7 @@ import { ABILITIES, emptyMovement, HOTBAR_SLOTS, MOVE, NO_ABILITY, SLIDE_SKILL, 
 // Sliding is an action state now, not a mode of its own.
 const sliding = (p: { mode: string; actionId: number }) => p.mode === 'action' && p.actionId === SLIDE_SKILL;
 import { skillsFrom } from '../../src/skills';
+import { gameReady } from '../support/game';
 
 // Its tests share nothing, so they spread across the workers (playwright.config.ts).
 test.describe.configure({ mode: 'parallel' });
@@ -21,11 +22,11 @@ const bar = (...a: number[]): number[] => {
 // Both abilities learned, so slots can actually be filled and swapped.
 const CASTER: Build = { skills: skills('staff', 'meteor', 'club', 'heal'), weapon: 2, abilities: bar(METEOR, HEAL), movement: emptyMovement() };
 
-const state = (page: Page) => page.evaluate(() => (window as any).__game.state().player);
-const panel = (page: Page) => page.evaluate(() => (window as any).__game.panel());
+const state = (page: Page) => page.evaluate(() => window.__game.state().player);
+const panel = (page: Page) => page.evaluate(() => window.__game.panel());
 const ready = async (page: Page) => {
   await page.goto('/?yard');
-  await page.waitForFunction(() => (window as any).__game?.ready === true);
+  await gameReady(page);
 };
 
 // A standard (Xbox) controller.
@@ -64,7 +65,7 @@ test('sprinting is faster than running, crouching is slower, and they need the g
   await ready(page);
   const topSpeed = async (extra: Record<string, unknown>) =>
     page.evaluate((e) => {
-      const g = (window as any).__game;
+      const g = window.__game;
       g.reset({});
       let speed = 0;
       let sprinting = false;
@@ -97,8 +98,8 @@ test('sprinting is faster than running, crouching is slower, and they need the g
   expect([both.crouching, both.sprinting]).toEqual([true, false]);
 
   // Neither applies in the air.
-  await page.evaluate(() => (window as any).__game.reset({}));
-  await page.evaluate(() => (window as any).__game.advance(12, { moveZ: 1, jumpPressed: true, jumpHeld: true, sprintHeld: true }));
+  await page.evaluate(() => window.__game.reset({}));
+  await page.evaluate(() => window.__game.advance(12, { moveZ: 1, jumpPressed: true, jumpHeld: true, sprintHeld: true }));
   const air = await state(page);
   expect(air.grounded).toBe(false);
   expect(air.sprinting).toBe(false);
@@ -109,7 +110,7 @@ test('a sprint needs real stick movement, not a nudge', async ({ page }) => {
   // One evaluate: sprinting is recomputed every frame, so a live frame landing between two
   // separate calls would clear it before the assertion ran.
   const seen = await page.evaluate(() => {
-    const g = (window as any).__game;
+    const g = window.__game;
     g.reset({});
     g.advance(60, { moveZ: 0.3, sprintHeld: true }); // below runThreshold
     const nudge = g.state().player.sprinting;
@@ -125,7 +126,7 @@ test('crouching eases down and back up instead of snapping', async ({ page }) =>
   // All in one go: the live frame loop keeps stepping between evaluate() calls with nothing held,
   // which would quietly let the crouch back out mid-measurement.
   const seen = await page.evaluate(() => {
-    const g = (window as any).__game;
+    const g = window.__game;
     g.reset({});
     const frame = () => g.state().player.crouchFrame;
     g.advance(2, { crouchHeld: true });
@@ -145,14 +146,14 @@ test('crouching eases down and back up instead of snapping', async ({ page }) =>
 
 test('the bar holds eight slots and each one casts what is in it', async ({ page }) => {
   await ready(page);
-  expect(await page.evaluate((b) => (window as any).__game.setBuild(b), CASTER)).toBe(true);
+  expect(await page.evaluate((b) => window.__game.setBuild(b), CASTER)).toBe(true);
   const p = await state(page);
   expect(p.abilities).toHaveLength(HOTBAR_SLOTS);
   expect(p.cooldowns).toHaveLength(HOTBAR_SLOTS);
   expect(p.abilities.slice(0, 2)).toEqual([METEOR, HEAL]);
 
   // Slot 2 holds the heal: using it must put slot 2 on cooldown and leave the others alone.
-  await page.evaluate(() => (window as any).__game.advance(60, { abilitySlot: 2 }));
+  await page.evaluate(() => window.__game.advance(60, { abilitySlot: 2 }));
   const after = await state(page);
   expect(after.cooldowns[1]).toBeGreaterThan(0);
   expect(after.cooldowns.filter((c: number) => c > 0)).toHaveLength(1);
@@ -160,12 +161,12 @@ test('the bar holds eight slots and each one casts what is in it', async ({ page
 
 test('a cast pays its MP as it goes off, and none starts without enough', async ({ page }) => {
   await ready(page);
-  expect(await page.evaluate((b) => (window as any).__game.setBuild(b), CASTER)).toBe(true);
+  expect(await page.evaluate((b) => window.__game.setBuild(b), CASTER)).toBe(true);
   const heal = ABILITIES[HEAL].mpCost!;
   const meteor = ABILITIES[METEOR].mpCost!;
   const seen = await page.evaluate(
     ([meteor]) => {
-      const g = (window as any).__game;
+      const g = window.__game;
       g.reset({});
       const full = g.state().player.mp;
       g.advance(1, { abilitySlot: 2 }); // the heal
@@ -202,16 +203,16 @@ test('a cast pays its MP as it goes off, and none starts without enough', async 
 test('health, MP and stamina sit over the hotbar, with the dodge and the guard on Q and E', async ({ page }) => {
   await ready(page);
   const duelist: Build = { skills: skills('sword', 'dodgeRoll', 'club', 'block', 'staff', 'meteor'), weapon: 0, abilities: bar(METEOR), movement: [0, 2] };
-  expect(await page.evaluate((b) => (window as any).__game.setBuild(b), duelist)).toBe(true);
-  await page.evaluate(() => (window as any).__game.advance(2));
+  expect(await page.evaluate((b) => window.__game.setBuild(b), duelist)).toBe(true);
+  await page.evaluate(() => window.__game.advance(2));
   await expect(page.locator('#player-hp')).toBeVisible();
   await expect(page.locator('#player-hp .pv-hp .label')).toHaveText('100 / 100');
   await expect(page.locator('#player-hp .pv-mp, #player-hp .pv-st')).toHaveCount(2);
   await expect(page.locator('#abilities .mslot')).toHaveCount(2);
   await expect(page.locator('#abilities .short')).toHaveCount(0);
   // Short of stamina and MP: the dodge and the meteor say so; the guard costs nothing.
-  await page.evaluate(() => (window as any).__game.setVitals({ stamina: 5, mp: 5 }));
-  await page.evaluate(() => (window as any).__game.advance(1, { movementSlot: 1, moveZ: 1 }));
+  await page.evaluate(() => window.__game.setVitals({ stamina: 5, mp: 5 }));
+  await page.evaluate(() => window.__game.advance(1, { movementSlot: 1, moveZ: 1 }));
   await expect(page.locator('#abilities .mslot[data-move="0"]')).toHaveClass(/short/);
   await expect(page.locator('#abilities .mslot[data-move="0"]')).toHaveAttribute('title', /Not Enough Stamina/);
   await expect(page.locator('#abilities .mslot[data-move="1"]')).not.toHaveClass(/short/);
@@ -222,8 +223,8 @@ test('health, MP and stamina sit over the hotbar, with the dodge and the guard o
 
 test('an empty slot does nothing at all', async ({ page }) => {
   await ready(page);
-  await page.evaluate((b) => (window as any).__game.setBuild(b), CASTER);
-  await page.evaluate(() => (window as any).__game.advance(30, { abilitySlot: 5 })); // empty
+  await page.evaluate((b) => window.__game.setBuild(b), CASTER);
+  await page.evaluate(() => window.__game.advance(30, { abilitySlot: 5 })); // empty
   const p = await state(page);
   expect(p.mode).toBe('normal');
   expect(p.cooldowns.every((c: number) => c === 0)).toBe(true);
@@ -231,17 +232,17 @@ test('an empty slot does nothing at all', async ({ page }) => {
 
 test('number keys 1-8 drive the slots', async ({ page }) => {
   await ready(page);
-  await page.evaluate((b) => (window as any).__game.setBuild(b), CASTER);
+  await page.evaluate((b) => window.__game.setBuild(b), CASTER);
   // Digit2 is the heal, which casts on the spot rather than needing a circle placed.
   await page.keyboard.press('Digit2');
-  await page.waitForFunction(() => (window as any).__game.state().player.cooldowns[1] > 0, null, { timeout: 4000, polling: 'raf' });
+  await page.waitForFunction(() => window.__game.state().player.cooldowns[1] > 0, null, { timeout: 4000, polling: 'raf' });
   expect((await state(page)).cooldowns[1]).toBeGreaterThan(0);
 });
 
 test('a trigger plus a face button picks a slot on a controller', async ({ page }) => {
   const pad = await withPad(page);
   await ready(page);
-  await page.evaluate((b) => (window as any).__game.setBuild(b), CASTER);
+  await page.evaluate((b) => window.__game.setBuild(b), CASTER);
 
   // RT + B is slot 6, which is empty: nothing should happen, and B must not slide.
   await pad.tap(PAD.RT, PAD.B);
@@ -251,16 +252,16 @@ test('a trigger plus a face button picks a slot on a controller', async ({ page 
 
   // LT + B is slot 2, the heal.
   await pad.tap(PAD.LT, PAD.B);
-  await page.waitForFunction(() => (window as any).__game.state().player.cooldowns[1] > 0, null, { timeout: 4000, polling: 'raf' });
+  await page.waitForFunction(() => window.__game.state().player.cooldowns[1] > 0, null, { timeout: 4000, polling: 'raf' });
   p = await state(page);
   expect(p.cooldowns[1]).toBeGreaterThan(0);
 
   // With no trigger held, B slides as it always did.
-  await page.evaluate(() => (window as any).__game.reset({}));
+  await page.evaluate(() => window.__game.reset({}));
   await pad.setButton(PAD.B, true);
   await page.waitForFunction(
     (slide) => {
-      const p = (window as any).__game.state().player;
+      const p = window.__game.state().player;
       return p.mode === 'action' && p.actionId === slide;
     },
     SLIDE_SKILL,
@@ -274,11 +275,11 @@ test('the left stick click sprints and the right stick click crouches', async ({
   await ready(page);
   await pad.setAxis(1, -1); // stick forward
   await pad.setButton(PAD.LS, true);
-  await page.waitForFunction(() => (window as any).__game.state().player.sprinting === true, null, { timeout: 4000, polling: 'raf' });
+  await page.waitForFunction(() => window.__game.state().player.sprinting === true, null, { timeout: 4000, polling: 'raf' });
   await pad.setButton(PAD.LS, false);
 
   await pad.setButton(PAD.RS, true);
-  await page.waitForFunction(() => (window as any).__game.state().player.crouching === true, null, { timeout: 4000, polling: 'raf' });
+  await page.waitForFunction(() => window.__game.state().player.crouching === true, null, { timeout: 4000, polling: 'raf' });
   expect((await state(page)).sprinting).toBe(false);
   await pad.setButton(PAD.RS, false);
   await pad.setAxis(1, 0);
@@ -289,11 +290,11 @@ test('the left stick click sprints and the right stick click crouches', async ({
 test('the controller assigns with Y then a trigger and a face button, and B backs out', async ({ page }) => {
   const pad = await withPad(page);
   await ready(page);
-  await page.evaluate((b) => (window as any).__game.setBuild(b), CASTER);
+  await page.evaluate((b) => window.__game.setBuild(b), CASTER);
 
   // View opens the skill book, then move the cursor onto a learned ability and press Y.
   await pad.tap(PAD.VIEW);
-  await page.waitForFunction(() => (window as any).__game.panel().open === true, null, { timeout: 4000, polling: 'raf' });
+  await page.waitForFunction(() => window.__game.panel().open === true, null, { timeout: 4000, polling: 'raf' });
 
   // One pad tap can land between polls of the frame loop, so press until it takes.
   const startAssigning = async () => {
@@ -306,7 +307,7 @@ test('the controller assigns with Y then a trigger and a face button, and B back
 
   // Put the book's cursor on Meteor.
   await page.evaluate(() => {
-    const g = (window as any).__game;
+    const g = window.__game;
     g.panelFocus({ book: 'meteor' });
   });
   await startAssigning();
@@ -314,14 +315,14 @@ test('the controller assigns with Y then a trigger and a face button, and B back
   // B backs out of assignment without changing anything.
   const before = (await panel(page)).abilities;
   await pad.tap(PAD.B);
-  await page.waitForFunction(() => (window as any).__game.panel().assigning === false, null, { timeout: 4000, polling: 'raf' });
+  await page.waitForFunction(() => window.__game.panel().assigning === false, null, { timeout: 4000, polling: 'raf' });
   expect((await panel(page)).abilities).toEqual(before);
   expect((await panel(page)).open).toBe(true); // backing out of assignment doesn't close the panel
 
   // Y again, then RT + X = slot 7.
   await startAssigning();
   await pad.tap(PAD.RT, PAD.X);
-  await page.waitForFunction(() => (window as any).__game.panel().assigning === false, null, { timeout: 4000, polling: 'raf' });
+  await page.waitForFunction(() => window.__game.panel().assigning === false, null, { timeout: 4000, polling: 'raf' });
 
   const after = (await panel(page)).abilities;
   expect(after[6]).toBe(METEOR); // RT + X is slot 7
@@ -330,9 +331,9 @@ test('the controller assigns with Y then a trigger and a face button, and B back
 
 test('dropping an ability on a slot moves it there', async ({ page }) => {
   await ready(page);
-  await page.evaluate((b) => (window as any).__game.setBuild(b), CASTER);
+  await page.evaluate((b) => window.__game.setBuild(b), CASTER);
   // The in-game bar exposes the swap directly; this is what a drag ends up calling.
-  await page.evaluate(() => (window as any).__game.swapSlots(0, 4));
+  await page.evaluate(() => window.__game.swapSlots(0, 4));
   const abilities = (await panel(page)).abilities;
   expect(abilities[4]).toBe(METEOR);
   expect(abilities[0]).toBe(NO_ABILITY);

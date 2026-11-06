@@ -2,6 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { COMBAT, emptyMovement, HOTBAR_SLOTS, NO_ABILITY, SLIME, type Build } from '../../src/tuning';
 import { skillsFrom } from '../../src/skills';
 import { actorKind } from '../../src/content/actors';
+import { gameReady } from '../support/game';
 
 // Its tests share nothing, so they spread across the workers (playwright.config.ts).
 test.describe.configure({ mode: 'parallel' });
@@ -31,22 +32,22 @@ const open = async (page: Page, live = false) => {
   const errors = watchErrors(page);
   // Paused, so only the test steps the game; `live` lets it run, for what only the frame loop does.
   await page.goto(live ? '/?yard' : '/?yard&test');
-  await page.waitForFunction(() => (window as any).__game?.ready === true);
-  await page.evaluate((v) => (window as any).__game.setBuild(v), SWORD);
+  await gameReady(page);
+  await page.evaluate((v) => window.__game.setBuild(v), SWORD);
   return errors;
 };
 
-const all = (page: Page, kind?: string) => page.evaluate((k) => (window as any).__game.actors(k) as Slime[], kind);
+const all = (page: Page, kind?: string) => page.evaluate((k) => window.__game.actors(k) as Slime[], kind);
 const slimes = (page: Page) => all(page, 'slime');
 const byId = async (page: Page, id: number) => (await all(page)).find((a) => a.id === id);
-const me = async (page: Page) => (await page.evaluate(() => (window as any).__game.state())).player as { pos: { x: number; z: number }; hp: number };
+const me = async (page: Page) => (await page.evaluate(() => window.__game.state())).player as { pos: { x: number; z: number }; hp: number };
 const place = (page: Page, i: number, x: number, z: number) =>
-  page.evaluate(([a, b, c]) => (window as any).__game.placeActor('slime', a, b, c), [i, x, z] as const);
+  page.evaluate(([a, b, c]) => window.__game.placeActor('slime', a, b, c), [i, x, z] as const);
 const advance = (page: Page, frames: number, actions: Record<string, unknown> = {}) =>
-  page.evaluate(([f, a]) => (window as any).__game.advance(f, a), [frames, actions] as const);
-const hurt = (page: Page, id: number, amount: number) => page.evaluate(([i, n]) => (window as any).__game.hurtActor(i, n), [id, amount] as const);
+  page.evaluate(([f, a]) => window.__game.advance(f, a), [frames, actions] as const);
+const hurt = (page: Page, id: number, amount: number) => page.evaluate(([i, n]) => window.__game.hurtActor(i, n), [id, amount] as const);
 const events = (page: Page, type: string) =>
-  page.evaluate((t) => ((window as any).__game.events() as Array<{ type: string }>).filter((e) => e.type === t), type);
+  page.evaluate((t) => (window.__game.events() as Array<{ type: string }>).filter((e) => e.type === t), type);
 
 /** Puts slime 0 in front of you and every other one far off, out of earshot of each other. */
 async function alone(page: Page, distance: number) {
@@ -90,7 +91,7 @@ test('hit a slime and it winds up, leaps, and slams the spot where you stood', a
   const after = await me(page);
   expect(after.hp).toBe(COMBAT.maxHp - SLAM.damage);
   expect(await events(page, 'slam')).toHaveLength(1);
-  const hurts = ((await page.evaluate(() => (window as any).__game.combat())).markers as Array<{ kind: string; amount: number }>)
+  const hurts = ((await page.evaluate(() => window.__game.combat())).markers as Array<{ kind: string; amount: number }>)
     .filter((m) => m.kind === 'hurt');
   expect(hurts.some((m) => m.amount === SLAM.damage)).toBe(true);
   expect(errors).toEqual([]);
@@ -127,7 +128,7 @@ const LADDER = { fuse: 360, alone: 1200 }; // shared/actors.json ladders[0]
 const kill = (page: Page, id: number) => hurt(page, id, 9999);
 const pieces = async (page: Page) => (await all(page, 'slimelet')).filter((s) => s.alive && !s.gone);
 const spawn = (page: Page, kind: string, x: number, z: number) =>
-  page.evaluate(([k, a, b]) => (window as any).__game.spawnActor(k, a, b) as number, [kind, x, z] as const);
+  page.evaluate(([k, a, b]) => window.__game.spawnActor(k, a, b) as number, [kind, x, z] as const);
 
 test('a slime you kill bursts into three slimelets on a fuse', async ({ page }) => {
   const errors = await open(page);
@@ -183,7 +184,7 @@ test('leave two pieces and they come back together as a great slime', async ({ p
   expect(big[0].hp).toBe(actorKind('great-slime').maxHp);
   expect(big[0].angry).toBeGreaterThan(0);
   expect(await pieces(page)).toHaveLength(0);
-  expect((await page.evaluate(() => (window as any).__game.events() as Array<{ type: string }>)).some((e) => e.type === 'actorGrow')).toBe(true);
+  expect((await page.evaluate(() => window.__game.events() as Array<{ type: string }>)).some((e) => e.type === 'actorGrow')).toBe(true);
   expect(errors).toEqual([]);
 });
 
@@ -319,7 +320,7 @@ test('a slime whose gather is on cooldown does not call; its neighbours just com
   await open(page);
   const { list } = await pack(page);
   const caller = list[0];
-  await page.evaluate((id) => (window as any).__game.setActor(id, { gatherCd: 900 }), caller.id);
+  await page.evaluate((id) => window.__game.setActor(id, { gatherCd: 900 }), caller.id);
   await hurt(page, caller.id, 1);
   await advance(page, 60);
   const now = await slimes(page);
@@ -360,12 +361,12 @@ test('the target plate shows the gather filling', async ({ page }) => {
   await place(page, 2, p.pos.x - 2, p.pos.z + 10);
   for (let i = 3; i < SLIME.count; i++) await place(page, i, 60 + i * 30, 60);
   // The training dummy stands straight ahead too; move it out of the way.
-  await page.evaluate(() => (window as any).__game.placeActor('dummy', 0, -40, -40));
+  await page.evaluate(() => window.__game.placeActor('dummy', 0, -40, -40));
   const caster = (await slimes(page))[0];
   await hurt(page, caster.id, 1);
   expect(await until(page, caster.id, 'gather', 300)).toBeDefined();
   await advance(page, 40);
-  expect((await page.evaluate(() => (window as any).__game.combat())).target?.key).toBe(`actor:${caster.id}`);
+  expect((await page.evaluate(() => window.__game.combat())).target?.key).toBe(`actor:${caster.id}`);
   const plate = await page.evaluate(() => {
     const el = document.querySelector('#target-plate') as HTMLElement;
     const cast = el.querySelector('.cast') as HTMLElement;
@@ -381,11 +382,11 @@ test('on a hillside the slam warning lies on the slope, not under it', async ({ 
   const errors = watchErrors(page);
   // The island, offline and stepped by the test: the training yard is flat, the island is not.
   await page.goto('/?world&test');
-  await page.waitForFunction(() => (window as any).__game?.ready === true, null, { timeout: 60_000 });
-  await page.evaluate((v) => (window as any).__game.setBuild(v), SWORD);
+  await gameReady(page, 60_000);
+  await page.evaluate((v) => window.__game.setBuild(v), SWORD);
   // The steepest walkable ground within reach of the spawn.
   const spot = await page.evaluate(() => {
-    const g = (window as any).__game;
+    const g = window.__game;
     const s = g.zone().spawn;
     let best = { x: s.x, z: s.z, slope: 0 };
     for (let dx = -150; dx <= 150; dx += 3) {
@@ -400,17 +401,17 @@ test('on a hillside the slam warning lies on the slope, not under it', async ({ 
     return best;
   });
   expect(spot.slope).toBeGreaterThan(0.3);
-  await page.evaluate(([x, z]) => (window as any).__game.teleport(x, z), [spot.x, spot.z]);
+  await page.evaluate(([x, z]) => window.__game.teleport(x, z), [spot.x, spot.z]);
   const p = await me(page);
   // A slime beside you, angry: it winds up to slam where you stand.
-  const id = await page.evaluate(([x, z]) => (window as any).__game.spawnActor('slime', x + 2.5, z), [p.pos.x, p.pos.z]);
+  const id = await page.evaluate(([x, z]) => window.__game.spawnActor('slime', x + 2.5, z), [p.pos.x, p.pos.z]);
   await hurt(page, id, 1);
   const winding = await until(page, id, 'windup');
   expect(winding).toBeDefined();
   await advance(page, 10);
   // Wherever you look inside the ring, it is drawn just over the ground there.
   const gaps = await page.evaluate(([tx, tz, r]) => {
-    const g = (window as any).__game;
+    const g = window.__game;
     g.render();
     const out: number[] = [];
     for (let i = 0; i < 24; i++) {

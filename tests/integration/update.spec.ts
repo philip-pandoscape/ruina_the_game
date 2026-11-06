@@ -103,8 +103,8 @@ const game = <T>(page: Page, fn: (g: any) => T) => page.evaluate(`(${fn.toString
 async function playing(page: Page, after = 3): Promise<void> {
   await page.waitForFunction(
     (n) => {
-      const o = (window as any).__game?.online?.();
-      return (window as any).__game?.ready === true && o?.status === 'online' && !o.frozen && o.ticks > n && o.lifeLoaded;
+      const o = window.__game?.online?.();
+      return window.__game?.ready === true && o?.status === 'online' && !o.frozen && o.ticks > n && o.lifeLoaded;
     },
     after,
     { timeout: 90_000 },
@@ -154,7 +154,7 @@ test("a server update while you're in a dungeon brings you back outside its door
   const door = JSON.parse(readFileSync('shared/zones/emberholm.json', 'utf8')).dungeons.find((d: { id: string }) => d.id === 'goblinsDread');
   await page.goto(`${BASE}/?as=${fresh('dun')}&bugs=0`);
   await playing(page);
-  await page.evaluate(([x, z, f]) => (window as any).__game.teleport(x, z, f), [door.outside.x, door.outside.z, door.outside.facing]);
+  await page.evaluate(([x, z, f]) => window.__game.teleport(x, z, f), [door.outside.x, door.outside.z, door.outside.facing]);
   await expect.poll(async () => {
     const p = await game(page, (g) => g.state().player.pos);
     return Math.hypot(p.x - door.outside.x, p.z - door.outside.z);
@@ -213,7 +213,7 @@ test('a page that is out of date reloads, and goes straight back into the world 
   expect((await page.request.post(`${BASE}/api/dev/stop`)).ok()).toBe(true);
   await server.exited();
   await server.start();
-  await page.waitForFunction(() => (window as any).__game?.online?.()?.status === 'online', null, { timeout: 90_000 });
+  await page.waitForFunction(() => window.__game?.online?.()?.status === 'online', null, { timeout: 90_000 });
   await playing(page);
   expect(loads).toBe(1);
   // Straight back in, without the intro or the character select screen.

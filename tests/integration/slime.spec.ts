@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { emptyMovement, HOTBAR_SLOTS, NO_ABILITY, SLIME, WEAPONS, type Build } from '../../src/tuning';
 import { skillsFrom } from '../../src/skills';
+import { gameReady } from '../support/game';
 
 // Slimes in the training yard: the first creature built out of species data to make it into the
 // game itself. They hop, they take hits from everything the player has, they die and come back.
@@ -33,17 +34,17 @@ function watchErrors(page: Page): string[] {
 const open = async (page: Page, b?: Build) => {
   const errors = watchErrors(page);
   await page.goto('/?yard&test'); // paused: only the test steps the game
-  await page.waitForFunction(() => (window as any).__game?.ready === true);
-  if (b) await page.evaluate((v) => (window as any).__game.setBuild(v), b);
+  await gameReady(page);
+  if (b) await page.evaluate((v) => window.__game.setBuild(v), b);
   return errors;
 };
 
-const slimes = (page: Page) => page.evaluate(() => (window as any).__game.actors('slime') as Actor[]);
+const slimes = (page: Page) => page.evaluate(() => window.__game.actors('slime') as Actor[]);
 const place = (page: Page, i: number, x: number, z: number) =>
-  page.evaluate(([a, b, c]) => (window as any).__game.placeActor('slime', a, b, c), [i, x, z] as const);
+  page.evaluate(([a, b, c]) => window.__game.placeActor('slime', a, b, c), [i, x, z] as const);
 const advance = (page: Page, frames: number, actions: Record<string, unknown> = {}) =>
-  page.evaluate(([f, a]) => (window as any).__game.advance(f, a), [frames, actions] as const);
-const markers = async (page: Page) => (await page.evaluate(() => (window as any).__game.combat())).markers as Array<{ kind: string; amount: number }>;
+  page.evaluate(([f, a]) => window.__game.advance(f, a), [frames, actions] as const);
+const markers = async (page: Page) => (await page.evaluate(() => window.__game.combat())).markers as Array<{ kind: string; amount: number }>;
 
 test('there are slimes in the yard, and they hop', async ({ page }) => {
   const errors = await open(page);
@@ -69,7 +70,7 @@ test('there are slimes in the yard, and they hop', async ({ page }) => {
 
 test('a slime hops toward you when you are close enough to be interesting', async ({ page }) => {
   await open(page);
-  const me = (await page.evaluate(() => (window as any).__game.state())).player;
+  const me = (await page.evaluate(() => window.__game.state())).player;
   // Just inside its aggro range, and far enough that it will want to close.
   await place(page, 0, me.pos.x, me.pos.z + SLIME.aggroRange - 1.5);
   const start = (await slimes(page))[0];
@@ -83,7 +84,7 @@ test('a slime hops toward you when you are close enough to be interesting', asyn
 
 test('a sword kills a slime, which flashes, dies, bursts, and comes back once the pieces are gone', async ({ page }) => {
   const errors = await open(page, SWORD);
-  const me = (await page.evaluate(() => (window as any).__game.state())).player;
+  const me = (await page.evaluate(() => window.__game.state())).player;
   const put = () => place(page, 0, me.pos.x, me.pos.z + swordReach * 0.6);
 
   let swings = 0;
@@ -107,9 +108,9 @@ test('a sword kills a slime, which flashes, dies, bursts, and comes back once th
   // on its feet with full health where it fell.
   await advance(page, 10);
   expect((await slimes(page))[0].alive).toBe(false);
-  const bits = await page.evaluate(() => ((window as any).__game.actors('slimelet') as Actor[]).filter((a) => a.alive));
+  const bits = await page.evaluate(() => (window.__game.actors('slimelet') as Actor[]).filter((a) => a.alive));
   expect(bits.length).toBeGreaterThan(0);
-  for (const b of bits) await page.evaluate((id) => (window as any).__game.hurtActor(id, 9999), b.id);
+  for (const b of bits) await page.evaluate((id) => window.__game.hurtActor(id, 9999), b.id);
   await advance(page, SLIME.respawnFrames + 4);
   const back = (await slimes(page))[0];
   expect(back.alive).toBe(true);
@@ -119,7 +120,7 @@ test('a sword kills a slime, which flashes, dies, bursts, and comes back once th
 
 test('hitting a slime flashes it white', async ({ page }) => {
   await open(page, SWORD);
-  const me = (await page.evaluate(() => (window as any).__game.state())).player;
+  const me = (await page.evaluate(() => window.__game.state())).player;
   await place(page, 0, me.pos.x, me.pos.z + swordReach * 0.6);
   expect((await slimes(page))[0].flash).toBeGreaterThan(10);
   await advance(page, 1, { attackPressed: true });
@@ -129,7 +130,7 @@ test('hitting a slime flashes it white', async ({ page }) => {
 
 test('an arrow hits the slime in its path', async ({ page }) => {
   await open(page, ARCHER);
-  const me = (await page.evaluate(() => (window as any).__game.state())).player;
+  const me = (await page.evaluate(() => window.__game.state())).player;
   // In front of the player but short of the training dummy, which would otherwise stop the
   // arrow first - whatever stands earliest in the path is what gets hit.
   await place(page, 0, me.pos.x, me.pos.z + 2.2);
@@ -142,7 +143,7 @@ test('an arrow hits the slime in its path', async ({ page }) => {
 
 test('a meteor catches every slime in the circle', async ({ page }) => {
   await open(page, MAGE);
-  const me = (await page.evaluate(() => (window as any).__game.state())).player;
+  const me = (await page.evaluate(() => window.__game.state())).player;
   const tx = me.pos.x;
   const tz = me.pos.z + 6;
   for (let i = 0; i < 3; i++) await place(page, i, tx + (i - 1) * 0.6, tz);
@@ -156,7 +157,7 @@ test('a meteor catches every slime in the circle', async ({ page }) => {
 
 test('looks right', async ({ page }) => {
   const errors = await open(page);
-  const me = (await page.evaluate(() => (window as any).__game.state())).player;
+  const me = (await page.evaluate(() => window.__game.state())).player;
   // Line them up in front of the camera, one of them mid-hop.
   for (let i = 0; i < SLIME.count; i++) await place(page, i, me.pos.x + (i - 2) * 1.6, me.pos.z + 5);
   await advance(page, 40);

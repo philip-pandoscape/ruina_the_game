@@ -28,23 +28,23 @@ async function joinAs(browser: Browser, team: number, extra = ''): Promise<{ pag
   });
   page.on('pageerror', (e) => errors.push(String(e)));
   await page.goto(`/?server=${encodeURIComponent(SERVER)}&team=${team}${extra}`);
-  await page.waitForFunction(() => (window as any).__game?.net()?.joined === true, null, { timeout: 10_000 });
+  await page.waitForFunction(() => window.__game?.net()?.joined === true, null, { timeout: 10_000 });
   return { page, errors };
 }
 
-const net = (page: Page) => page.evaluate(() => (window as any).__game.net());
+const net = (page: Page) => page.evaluate(() => window.__game.net());
 const script = (page: Page, segments: Array<[number, Record<string, unknown>]>) =>
-  page.evaluate((s) => (window as any).__game.scriptInput(s), segments);
-const scriptDone = (page: Page) => page.waitForFunction(() => (window as any).__game.net().scriptLeft === 0);
+  page.evaluate((s) => window.__game.scriptInput(s), segments);
+const scriptDone = (page: Page) => page.waitForFunction(() => window.__game.net().scriptLeft === 0);
 
 test('two players: blue attacks red, the server lands the hits, both screens agree', { tag: '@gpu' }, async ({ browser }) => {
   const blue = await joinAs(browser, 0);
   const red = await joinAs(browser, 1);
-  await blue.page.waitForFunction(() => (window as any).__game.net().remotes.length > 0);
-  await red.page.waitForFunction(() => (window as any).__game.net().remotes.length > 0);
+  await blue.page.waitForFunction(() => window.__game.net().remotes.length > 0);
+  await red.page.waitForFunction(() => window.__game.net().remotes.length > 0);
   // Point each camera at the other player.
-  await blue.page.evaluate(() => (window as any).__game.setCamera({ yaw: Math.PI / 2 - 0.6, distance: 6.5 }));
-  await red.page.evaluate(() => (window as any).__game.setCamera({ yaw: -Math.PI / 2 + 0.6, distance: 6.5 }));
+  await blue.page.evaluate(() => window.__game.setCamera({ yaw: Math.PI / 2 - 0.6, distance: 6.5 }));
+  await red.page.evaluate(() => window.__game.setCamera({ yaw: -Math.PI / 2 + 0.6, distance: 6.5 }));
   const start = { blue: await net(blue.page), red: await net(red.page) };
 
   // Blue runs at red and throws the three-hit combo.
@@ -122,8 +122,8 @@ test('at 300 ms ping your own moves still respond instantly and agree with the s
 test('lag compensation: at 300 ms ping, hits on your screen count on the server', { tag: '@gpu' }, async ({ browser }) => {
   const blue = await joinAs(browser, 0, '&lag=150');
   const red = await joinAs(browser, 1);
-  await blue.page.waitForFunction(() => (window as any).__game.net().remotes.length > 0);
-  await blue.page.waitForFunction(() => (window as any).__game.net().server !== null, null, { timeout: 5000 });
+  await blue.page.waitForFunction(() => window.__game.net().remotes.length > 0);
+  await blue.page.waitForFunction(() => window.__game.net().server !== null, null, { timeout: 5000 });
   const before = (await net(blue.page)).server;
 
   // Red steps in close, then strafes left and right at full speed in front of blue.
@@ -134,9 +134,9 @@ test('lag compensation: at 300 ms ping, hits on your screen count on the server'
   for (let i = 0; i < 4; i++) strafe.push([40, { moveZ: 1 }], [40, { moveZ: -1 }]);
   await script(red.page, strafe);
   // Blue swings whenever red is within reach on blue's (300 ms delayed) screen.
-  await blue.page.evaluate(() => (window as any).__game.autoAttack(true));
+  await blue.page.evaluate(() => window.__game.autoAttack(true));
   await scriptDone(red.page);
-  await blue.page.evaluate(() => (window as any).__game.autoAttack(false));
+  await blue.page.evaluate(() => window.__game.autoAttack(false));
   await blue.page.waitForTimeout(1600); // let the once-a-second server stats arrive
   const after = (await net(blue.page)).server;
   const result = {
@@ -155,10 +155,10 @@ test('lag compensation: at 300 ms ping, hits on your screen count on the server'
 
 test('bots fight real players: run into the enemy army and they turn on you', { tag: '@gpu' }, async ({ browser }) => {
   const red = await joinAs(browser, 1);
-  await red.page.waitForFunction(() => (window as any).__game.net().server !== null, null, { timeout: 5000 });
+  await red.page.waitForFunction(() => window.__game.net().server !== null, null, { timeout: 5000 });
   const before = (await net(red.page)).server;
   await red.page.evaluate(() => {
-    const g = (window as any).__game;
+    const g = window.__game;
     g.setCamera({ yaw: 0, distance: 9, pitch: 0.45 });
     g.autoAttack(true);
   });

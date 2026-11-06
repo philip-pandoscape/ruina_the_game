@@ -4,6 +4,7 @@ import { skillsFrom } from '../../src/skills';
 import { actorKind } from '../../src/content/actors';
 import { attackDef } from '../../src/content/attacks';
 import { behaviour } from '../../src/sim/ai/brain';
+import { gameReady } from '../support/game';
 
 // The basic goblin (shared/creatures/goblin.json, design/goblins.md), played in the training yard
 // where every frame is stepped by the test: easy one at a time, dangerous as a band. They notice
@@ -38,22 +39,22 @@ function watchErrors(page: Page): string[] {
 async function open(page: Page, b: Build = SWORD): Promise<string[]> {
   const errors = watchErrors(page);
   await page.goto('/?yard&test');
-  await page.waitForFunction(() => (window as any).__game?.ready === true);
-  await page.evaluate((v) => (window as any).__game.setBuild(v), b);
-  await page.evaluate(() => (window as any).__game.reset({ x: 0, z: -14, facing: 0 }));
+  await gameReady(page);
+  await page.evaluate((v) => window.__game.setBuild(v), b);
+  await page.evaluate(() => window.__game.reset({ x: 0, z: -14, facing: 0 }));
   return errors;
 }
 
-const goblins = (page: Page) => page.evaluate(() => (window as any).__game.actors('goblin') as Goblin[]);
-const me = async (page: Page) => (await page.evaluate(() => (window as any).__game.state())).player as Me;
+const goblins = (page: Page) => page.evaluate(() => window.__game.actors('goblin') as Goblin[]);
+const me = async (page: Page) => (await page.evaluate(() => window.__game.state())).player as Me;
 const band = (page: Page, n: number, x: number, z: number) =>
-  page.evaluate(([c, a, b]) => (window as any).__game.spawnBand('goblin', c, a, b) as number[], [n, x, z] as const);
+  page.evaluate(([c, a, b]) => window.__game.spawnBand('goblin', c, a, b) as number[], [n, x, z] as const);
 const advance = (page: Page, frames: number, actions: Record<string, unknown> = {}) =>
-  page.evaluate(([f, a]) => (window as any).__game.advance(f, a, false), [frames, actions] as const);
-const hurt = (page: Page, id: number, amount: number) => page.evaluate(([i, n]) => (window as any).__game.hurtActor(i, n), [id, amount] as const);
-const missiles = (page: Page) => page.evaluate(() => (window as any).__game.missiles() as Array<{ id: number }>);
+  page.evaluate(([f, a]) => window.__game.advance(f, a, false), [frames, actions] as const);
+const hurt = (page: Page, id: number, amount: number) => page.evaluate(([i, n]) => window.__game.hurtActor(i, n), [id, amount] as const);
+const missiles = (page: Page) => page.evaluate(() => window.__game.missiles() as Array<{ id: number }>);
 const events = (page: Page, type: string) =>
-  page.evaluate((t) => ((window as any).__game.events() as Array<{ type: string }>).filter((e) => e.type === t), type);
+  page.evaluate((t) => (window.__game.events() as Array<{ type: string }>).filter((e) => e.type === t), type);
 const dist = (a: { x: number; z: number }, b: { x: number; z: number }) => Math.hypot(a.x - b.x, a.z - b.z);
 
 /** Steps a few frames at a time, collecting what `look` sees each time, for `frames` frames. */
@@ -153,7 +154,7 @@ test('turn your back and the one behind you is let in', async ({ page }) => {
   // Two in front of you, one behind, all of one band.
   const ids = await band(page, 3, 0, -10.5);
   await page.evaluate(([a, b, c]) => {
-    const g = (window as any).__game;
+    const g = window.__game;
     g.setActor(a, { x: -1.2, z: -10.5, homeX: -1.2, homeZ: -10.5 });
     g.setActor(b, { x: 1.2, z: -10.5, homeX: 1.2, homeZ: -10.5 });
     g.setActor(c, { x: 0, z: -18, homeX: 0, homeZ: -18 });
@@ -207,7 +208,7 @@ test('a hurt goblin runs to the biggest group of its band', async ({ page }) => 
   const ids = await band(page, 5, 0, -4);
   // Its friends wait well back; one goblin comes at you on its own.
   await page.evaluate((list) => {
-    const g = (window as any).__game;
+    const g = window.__game;
     list.forEach((id: number, i: number) => {
       if (i === 0) g.setActor(id, { x: 0, z: -11.5, homeX: 0, homeZ: -11.5 });
       else g.setActor(id, { x: -1 + (i % 2) * 2, z: -1 - Math.floor(i / 2), homeX: -1 + (i % 2) * 2, homeZ: -1 - Math.floor(i / 2) });

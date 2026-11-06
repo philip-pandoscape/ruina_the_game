@@ -7,6 +7,8 @@ import { generateZone } from '../../src/sim/zone/generate';
 import { EMBERHOLM } from '../../src/sim/zone/world';
 import { skillsFrom } from '../../src/skills';
 import { COMBAT, emptyMovement, HOTBAR_SLOTS, NO_ABILITY, SLIDE_SKILL } from '../../src/tuning';
+import type { Command } from '../../src/sim/life/life';
+import { gameReady } from '../support/game';
 
 // Its tests share nothing, so they spread across the workers (playwright.config.ts).
 test.describe.configure({ mode: 'parallel' });
@@ -36,19 +38,19 @@ async function open(page: Page, extra = ''): Promise<string[]> {
   });
   page.on('pageerror', (e) => errors.push(String(e)));
   await page.goto(`/?world&test${extra}`);
-  await page.waitForFunction(() => (window as any).__game?.ready === true, null, { timeout: 60_000 });
-  await page.evaluate(() => (window as any).__game.reset());
+  await gameReady(page, 60_000);
+  await page.evaluate(() => window.__game.reset());
   return errors;
 }
 
 const g = (page: Page) => ({
-  advance: (frames: number, a: Actions = {}) => page.evaluate(([n, x]) => (window as any).__game.advance(n, x), [frames, a] as const),
-  player: () => page.evaluate(() => (window as any).__game.state().player),
-  life: () => page.evaluate(() => (window as any).__game.life()),
-  zone: () => page.evaluate(() => (window as any).__game.zone()),
-  cmd: (c: Record<string, unknown>) => page.evaluate((x) => (window as any).__game.lifeCommand(x), c),
-  teleport: (x: number, z: number, facing = 0) => page.evaluate(([a, b, c]) => (window as any).__game.teleport(a, b, c), [x, z, facing] as const),
-  ground: (x: number, z: number) => page.evaluate(([a, b]) => (window as any).__game.ground(a, b), [x, z] as const),
+  advance: (frames: number, a: Actions = {}) => page.evaluate(([n, x]) => window.__game.advance(n, x), [frames, a] as const),
+  player: () => page.evaluate(() => window.__game.state().player),
+  life: () => page.evaluate(() => window.__game.life()),
+  zone: () => page.evaluate(() => window.__game.zone()),
+  cmd: (c: Command) => page.evaluate((x) => window.__game.lifeCommand(x), c),
+  teleport: (x: number, z: number, facing = 0) => page.evaluate(([a, b, c]) => window.__game.teleport(a, b, c), [x, z, facing] as const),
+  ground: (x: number, z: number) => page.evaluate(([a, b]) => window.__game.ground(a, b), [x, z] as const),
 });
 
 /** Grants items through the dev command and lets a step run so they land in the bag. */
@@ -71,7 +73,7 @@ async function faceNpc(page: Page, id: string): Promise<void> {
 test('the open world loads: island, sea, townsfolk and HUD, without errors', async ({ page }) => {
   const errors = await open(page);
   const w = g(page);
-  await page.evaluate(() => (window as any).__game.setCamera({ yaw: 0.25, pitch: 0.28, distance: 9 }));
+  await page.evaluate(() => window.__game.setCamera({ yaw: 0.25, pitch: 0.28, distance: 9 }));
   await w.advance(30);
   await page.screenshot({ path: `${SHOTS}/world-01-lanternwick.png` });
   const z = await w.zone();
@@ -88,7 +90,7 @@ test('the open world loads: island, sea, townsfolk and HUD, without errors', asy
   await expect(page.locator('#hud-vitals .v-st')).toContainText('100 / 100');
   await expect(page.locator('#hud-minimap canvas')).toBeVisible();
   await expect(page.locator('#lui-quests')).toContainText('Landfall');
-  const perf = await page.evaluate(() => (window as any).__game.perf());
+  const perf = await page.evaluate(() => window.__game.perf());
   console.log('world render', { drawCalls: perf.drawCalls, triangles: perf.triangles });
   expect(perf.drawCalls).toBeGreaterThan(20);
   expect(errors).toEqual([]);
@@ -97,19 +99,19 @@ test('the open world loads: island, sea, townsfolk and HUD, without errors', asy
 test('you stand on the island, not inside it: arriving, and getting up after a knock-down', async ({ page }) => {
   // No reset here: this is the island as a fresh page starts it.
   await page.goto('/?world&test');
-  await page.waitForFunction(() => (window as any).__game?.ready === true, null, { timeout: 60_000 });
+  await gameReady(page, 60_000);
   const aboveGround = () =>
     page.evaluate(() => {
-      const game = (window as any).__game;
+      const game = window.__game;
       const p = game.state().player;
       return p.pos.y - game.ground(p.pos.x, p.pos.z);
     });
   // The spawn is on a hill, well above sea level.
   const start = await g(page).player();
-  expect(await page.evaluate(([x, z]) => (window as any).__game.ground(x, z), [start.pos.x, start.pos.z])).toBeGreaterThan(1);
+  expect(await page.evaluate(([x, z]) => window.__game.ground(x, z), [start.pos.x, start.pos.z])).toBeGreaterThan(1);
   expect(Math.abs(await aboveGround())).toBeLessThan(0.05);
   // Knocked flat, then back up at the spawn: on the hill again.
-  await page.evaluate(() => (window as any).__game.takeHit(1000, 0, 1, 0));
+  await page.evaluate(() => window.__game.takeHit(1000, 0, 1, 0));
   expect((await g(page).player()).downFrame).toBeGreaterThanOrEqual(0);
   await g(page).advance(COMBAT.downFrames + 10);
   const p = await g(page).player();
@@ -160,7 +162,7 @@ test('swimming: wade into the sea and you swim; come back out and you walk', asy
   const p = await w.player();
   expect(p.pos.y).toBeLessThan(0);
   expect(p.pos.y).toBeGreaterThan(-1.6);
-  expect(await page.evaluate(() => (window as any).__game.heroWeapon()), 'the weapon, swimming').toBe('hidden');
+  expect(await page.evaluate(() => window.__game.heroWeapon()), 'the weapon, swimming').toBe('hidden');
   await page.screenshot({ path: `${SHOTS}/world-02-swimming.png` });
   // Turn round and swim back to shore.
   let walking = false;
@@ -189,7 +191,7 @@ test('glider: jump, jump, jump again off the Windspire and glide most of the way
   expect(p.mode).toBe('glide');
   const start = { x: p.pos.x, y: p.pos.y, z: p.pos.z };
   await w.advance(120, { moveZ: -1 });
-  await page.evaluate(() => (window as any).__game.setCamera({ distance: 9 }));
+  await page.evaluate(() => window.__game.setCamera({ distance: 9 }));
   await w.advance(1, { moveZ: -1 });
   await page.screenshot({ path: `${SHOTS}/world-03-gliding.png` });
   for (let i = 0; i < 40 && (await w.player()).mode === 'glide'; i++) await w.advance(60, { moveZ: -1 });
@@ -245,8 +247,8 @@ test('glider: rising air at the foot of the Windspire lifts you; C flares it and
   expect(p.mode).toBe('glide');
   // Still picking up speed toward its cruise; flaring, it sheds it instead.
   const opened = p.airspeed;
-  const live = (n: number, drawn = true) => page.evaluate(([k, d]) => (window as any).__game.advanceLive(k, d), [n, drawn] as const);
-  const slides = () => page.evaluate((id) => (window as any).__game.events().filter((e: any) => e.type === 'action' && e.id === id).length, SLIDE_SKILL);
+  const live = (n: number, drawn = true) => page.evaluate(([k, d]) => window.__game.advanceLive(k, d), [n, drawn] as const);
+  const slides = () => page.evaluate((id) => window.__game.events().filter((e: any) => e.type === 'action' && e.id === id).length, SLIDE_SKILL);
   const before = await slides();
   await page.keyboard.down('KeyC');
   await live(45, false);
@@ -255,7 +257,7 @@ test('glider: rising air at the foot of the Windspire lifts you; C flares it and
   expect(p.airspeed).toBeLessThan(opened - 1);
   // Down to the ground in the page, drawn once there.
   await page.evaluate(() => {
-    const game = (window as any).__game;
+    const game = window.__game;
     for (let i = 0; i < 20 && !game.state().player.grounded; i++) game.advanceLive(30, false);
   });
   await live(6);
@@ -319,7 +321,7 @@ test('farming: a scarecrow plot, planting, watering, growing and harvesting', as
   // Let it ripen and harvest.
   await w.cmd({ t: 'warp', seconds: 300 });
   await w.advance(2);
-  await page.evaluate(() => (window as any).__game.setCamera({ yaw: 0.6, pitch: 0.5, distance: 8 }));
+  await page.evaluate(() => window.__game.setCamera({ yaw: 0.6, pitch: 0.5, distance: 8 }));
   await w.advance(1);
   await page.screenshot({ path: `${SHOTS}/world-04-farm.png` });
   expect((await w.life()).focus?.action).toBe('harvest');
@@ -348,15 +350,15 @@ test('farming: ground circles and the shadow under you lie on top of a plot, its
   // A Meteor aimed at the plot's near corner: its warning lies over soil, furrow ends and grass.
   const meteor = 1;
   const mage = { skills: skillsFrom('staff', 'meteor'), weapon: 2, abilities: [meteor, ...new Array(HOTBAR_SLOTS - 1).fill(NO_ABILITY)], movement: emptyMovement() };
-  expect(await page.evaluate((b) => (window as any).__game.setBuild(b), mage)).toBe(true);
+  expect(await page.evaluate((b) => window.__game.setBuild(b), mage)).toBe(true);
   const corner = at(4, -4);
   const p = await w.player();
-  await page.evaluate(([dx, dz]) => (window as any).__game.advance(1, { abilitySlot: 1, aimX: dx, aimZ: dz }), [corner.x - p.pos.x, corner.z - p.pos.z] as const);
+  await page.evaluate(([dx, dz]) => window.__game.advance(1, { abilitySlot: 1, aimX: dx, aimZ: dz }), [corner.x - p.pos.x, corner.z - p.pos.z] as const);
   await w.advance(20);
   expect((await w.player()).mode).toBe('cast');
   const seen = await page.evaluate(
     ([cx, cz, r]) => {
-      const g = (window as any).__game;
+      const g = window.__game;
       g.render();
       const out = { samples: 0, soil: 0, furrow: 0, grass: 0, missing: 0, under: [] as string[] };
       for (let x = cx - r; x <= cx + r; x += 0.1) {
@@ -387,7 +389,7 @@ test('farming: ground circles and the shadow under you lie on top of a plot, its
   expect(seen.furrow).toBeGreaterThan(20);
   expect(seen.grass).toBeGreaterThan(100);
   expect(seen.under.slice(0, 5)).toEqual([]);
-  await page.evaluate(() => (window as any).__game.setCamera({ yaw: Math.PI / 6 + 0.5, pitch: 0.75, distance: 11 }));
+  await page.evaluate(() => window.__game.setCamera({ yaw: Math.PI / 6 + 0.5, pitch: 0.75, distance: 11 }));
   await w.advance(1);
   await page.screenshot({ path: `${SHOTS}/world-05-farm-warning.png` });
   await w.advance(90);
@@ -397,7 +399,7 @@ test('farming: ground circles and the shadow under you lie on top of a plot, its
   await w.teleport(row.x, row.z, 0);
   await w.advance(2);
   const shadow = await page.evaluate(() => {
-    const g = (window as any).__game;
+    const g = window.__game;
     const q = g.state().player.pos;
     return { shadow: g.shadowHeight(), farm: g.farmGround(q.x, q.z), ground: g.ground(q.x, q.z) };
   });
@@ -429,7 +431,7 @@ test('pack running: craft a pack, carry it slowly, sell it, and watch demand fal
   const carrier = await w.player();
   expect(carrier.pack).toBeGreaterThan(0);
   // On your back, not your chest: the crate's bulk sits behind you.
-  const [worn] = await page.evaluate(() => (window as any).__game.sceneObjects('pack:'));
+  const [worn] = await page.evaluate(() => window.__game.sceneObjects('pack:'));
   const ahead = (worn.centre.x - carrier.pos.x) * Math.sin(carrier.facing) + (worn.centre.z - carrier.pos.z) * Math.cos(carrier.facing);
   expect(ahead).toBeLessThan(-0.25);
   const loaded = await run();
@@ -474,7 +476,7 @@ test('vehicles: summon a farm cart, load two packs, drive, unload', async ({ pag
   await w.advance(2);
   let cart = (await w.life()).vehicles[0];
   expect(cart?.def).toBe('farmCart');
-  const weapon = () => page.evaluate(() => (window as any).__game.heroWeapon());
+  const weapon = () => page.evaluate(() => window.__game.heroWeapon());
   // Two crates, each carried from the bench to the cart's bed (behind it).
   for (let i = 0; i < 2; i++) {
     await w.teleport(wb.x, wb.z + 2, Math.PI);
@@ -577,7 +579,7 @@ test('boats: a rowboat at the docks, and a sloop runs faster with the wind behin
   await w.cmd({ t: 'interact' });
   await w.advance(2);
   expect((await w.player()).mode).toBe('ride');
-  expect(await page.evaluate(() => (window as any).__game.heroWeapon()), 'the weapon at the helm').toBe('hidden');
+  expect(await page.evaluate(() => window.__game.heroWeapon()), 'the weapon at the helm').toBe('hidden');
   // Raise the sail and stand out to sea.
   await w.advance(420, { stickY: 1 });
   const v = (await w.life()).vehicles[0];
@@ -609,7 +611,7 @@ test('mounts: the donkey carries a pack, the horse will not', async ({ page }) =
   const p = await w.player();
   expect(p.mode).toBe('ride');
   expect(p.pack).toBeGreaterThan(0);
-  expect(await page.evaluate(() => (window as any).__game.heroWeapon()), 'the weapon in the saddle').toBe('hidden');
+  expect(await page.evaluate(() => window.__game.heroWeapon()), 'the weapon in the saddle').toBe('hidden');
   const l = await w.life();
   expect(l.vehicles.find((v: { ridden: boolean }) => v.ridden).def).toBe('donkey');
   const x0 = p.pos.x;
@@ -672,7 +674,7 @@ test('housing: claim a plot and raise a cottage from hauled material packs', asy
   expect(l.houses[0].stage).toBe(4);
   expect(l.stats.built).toBe(4);
   await w.teleport(site.x + 7, site.z + 8, plot.rot + Math.PI + 0.6);
-  await page.evaluate(() => (window as any).__game.setCamera({ yaw: Math.PI + 0.5, pitch: 0.3, distance: 12 }));
+  await page.evaluate(() => window.__game.setCamera({ yaw: Math.PI + 0.5, pitch: 0.3, distance: 12 }));
   await w.advance(2);
   await page.screenshot({ path: `${SHOTS}/world-07-cottage.png` });
   // The walls are solid: walking at the side wall from outside stops at it.
@@ -698,7 +700,7 @@ test('quests: the starter chain advances from what you do', async ({ page }) => 
   expect(l.bag.some((s: { item: string }) => s.item === 'scarecrow')).toBe(true);
   await w.cmd({ t: 'accept', quest: 'patch' });
   await w.advance(1);
-  await page.evaluate(() => (window as any).__game.closeLifePanel());
+  await page.evaluate(() => window.__game.closeLifePanel());
   await w.teleport(-150, -222, 0);
   await w.cmd({ t: 'use', item: 'scarecrow' });
   await w.advance(2);
@@ -721,9 +723,9 @@ test('stone and timber: before the house, the quests lead you to the outcrops, t
   const w = g(page);
   const z = await w.zone();
   // Moving about without drawing (CI draws in software): only the end is drawn.
-  const quiet = (frames: number) => page.evaluate((n) => (window as any).__game.advance(n, {}, false), frames);
+  const quiet = (frames: number) => page.evaluate((n) => window.__game.advance(n, {}, false), frames);
   const goTo = async (x: number, zz: number, facing: number) => {
-    await page.evaluate(([a, b, c]) => (window as any).__game.teleport(a, b, c, false), [x, zz, facing] as const);
+    await page.evaluate(([a, b, c]) => window.__game.teleport(a, b, c, false), [x, zz, facing] as const);
     await quiet(2);
   };
   const toNpc = (id: string) => {
@@ -734,8 +736,8 @@ test('stone and timber: before the house, the quests lead you to the outcrops, t
     await w.cmd({ t: 'interact' });
     await quiet(2);
   };
-  const close = () => page.evaluate(() => (window as any).__game.closeLifePanel());
-  const goal = () => page.evaluate(() => (window as any).__game.questGoal());
+  const close = () => page.evaluate(() => window.__game.closeLifePanel());
+  const goal = () => page.evaluate(() => window.__game.questGoal());
   const progress = async (id: string) => (await w.life()).quests.active.find((q: { id: string }) => q.id === id);
   const count = async (item: string) => ((await w.life()).bag as Array<{ item: string; n: number }>).filter((s) => s.item === item).reduce((n, s) => n + s.n, 0);
   const card = page.locator('.lui-card');
@@ -776,7 +778,7 @@ test('stone and timber: before the house, the quests lead you to the outcrops, t
   await card.locator('[data-act="make"][data-arg="pack.stoneBlock"]').click();
   await quiet(2);
   // Packing it closes the window (a moment later).
-  await expect.poll(() => page.evaluate(() => (window as any).__game.lifePanel())).toBeNull();
+  await expect.poll(() => page.evaluate(() => window.__game.lifePanel())).toBeNull();
   expect((await progress('stonecutting')).step).toBe(3);
   expect((await goal()).label).toBe('Brenna Stoneheart');
 
@@ -788,7 +790,7 @@ test('stone and timber: before the house, the quests lead you to the outcrops, t
   await card.locator('[data-act="quest"][data-arg="stonecutting"]').click();
   await card.locator('[data-act="complete"]').click();
   await quiet(2);
-  await page.evaluate(() => (window as any).__game.render());
+  await page.evaluate(() => window.__game.render());
   await card.locator('[data-act="quest"][data-arg="woodcutting"]').click();
   await card.locator('[data-act="accept"]').click();
   await quiet(1);
@@ -836,8 +838,8 @@ test('stone and timber: before the house, the quests lead you to the outcrops, t
   expect([l.focus.label, l.focus.detail]).toEqual(['Foundation Needs', 'Stone Block 0/2 (Stonebreak Quarry)']);
   const block = l.packs.find((p: { def: string }) => p.def === 'stoneBlock');
   expect(await goal()).toEqual({ x: block.x, z: block.z, label: 'Stone Block' });
-  await page.evaluate(() => (window as any).__game.pressLife('map'));
-  await page.evaluate(() => (window as any).__game.render());
+  await page.evaluate(() => window.__game.pressLife('map'));
+  await page.evaluate(() => window.__game.render());
   await expect(page.locator('#lui-quests')).toContainText('Build all four stages with packs from Stonebreak Quarry and Thornwood');
   await page.screenshot({ path: `${SHOTS}/world-13-building-lessons.png` });
   expect(errors).toEqual([]);
@@ -852,10 +854,10 @@ test('quest log: take a quest off the tracker and back, and give one up', async 
   await w.cmd({ t: 'complete', quest: 'landfall' });
   await w.cmd({ t: 'accept', quest: 'patch' });
   await w.advance(2);
-  await page.evaluate(() => (window as any).__game.closeLifePanel());
+  await page.evaluate(() => window.__game.closeLifePanel());
   const tracker = page.locator('#lui-quests');
   await expect(tracker).toContainText('A Patch of Earth');
-  await page.evaluate(() => (window as any).__game.pressLife('quests'));
+  await page.evaluate(() => window.__game.pressLife('quests'));
   await w.advance(1);
   const card = page.locator('.lui-card');
   const track = card.locator('[data-act="track"]');
@@ -911,7 +913,7 @@ test('merchant: buy back what you sold, until you walk off', async ({ page }) =>
   await expect(held.locator('.n')).toHaveText('4');
   expect(await sunroot()).toBe(1);
   // Walk off and come back: she has let go of the rest.
-  await page.evaluate(() => (window as any).__game.closeLifePanel());
+  await page.evaluate(() => window.__game.closeLifePanel());
   const mara = (await w.zone()).npcs.find((n: { id: string }) => n.id === 'mara');
   await w.teleport(mara.x + 20, mara.z, 0);
   await w.advance(2);
@@ -925,13 +927,13 @@ test('panels: bag, map, vehicles, quest log, shop and workbench open without err
   const errors = await open(page);
   const w = g(page);
   await grant(page, [['deed.farmCart', 1], ['seed.sunroot', 5], ['sunroot', 6], ['barley', 4]], { coins: 5000 });
-  for (const k of ['bag', 'map', 'garage', 'quests', 'dev']) {
-    await page.evaluate((x) => (window as any).__game.pressLife(x), k);
+  for (const k of ['bag', 'map', 'garage', 'quests', 'dev'] as const) {
+    await page.evaluate((x) => window.__game.pressLife(x), k);
     await w.advance(1);
-    await page.evaluate(() => (window as any).__game.render());
-    expect(await page.evaluate(() => (window as any).__game.lifePanel())).not.toBeNull();
+    await page.evaluate(() => window.__game.render());
+    expect(await page.evaluate(() => window.__game.lifePanel())).not.toBeNull();
     if (k === 'map' || k === 'bag') await page.screenshot({ path: `${SHOTS}/world-09-${k}.png` });
-    await page.evaluate(() => (window as any).__game.closeLifePanel());
+    await page.evaluate(() => window.__game.closeLifePanel());
   }
   await faceNpc(page, 'mara');
   await w.cmd({ t: 'interact' });
@@ -941,7 +943,7 @@ test('panels: bag, map, vehicles, quest log, shop and workbench open without err
   await page.locator('.lui-card [data-act="buy"]').first().click();
   await w.advance(2);
   expect((await w.life()).bag.find((s: { item: string }) => s.item === 'seed.sunroot').n).toBe(6);
-  await page.evaluate(() => (window as any).__game.closeLifePanel());
+  await page.evaluate(() => window.__game.closeLifePanel());
   const z = await w.zone();
   const wb = z.workbenches[0];
   await w.teleport(wb.x, wb.z + 2, Math.PI);
@@ -959,16 +961,16 @@ test('saving: your island comes back after a reload, with time having passed', a
   await w.teleport(120, -150, 1);
   await w.advance(2);
   const before = await w.life();
-  await page.evaluate(() => (window as any).__game.saveNow());
+  await page.evaluate(() => window.__game.saveNow());
   await page.goto('/?world&test&load');
-  await page.waitForFunction(() => (window as any).__game?.ready === true, null, { timeout: 60_000 });
+  await gameReady(page, 60_000);
   const after = await g(page).life();
   expect(after.coins).toBe(before.coins);
   expect(after.bag).toEqual(before.bag);
   expect(after.clock).toBeGreaterThanOrEqual(before.clock);
   const p = await g(page).player();
   expect(Math.hypot(p.pos.x - 120, p.pos.z + 150)).toBeLessThan(1);
-  await page.evaluate(() => (window as any).__game.clearSave());
+  await page.evaluate(() => window.__game.clearSave());
 });
 
 test('combat on the hills: an arrow finds a slime standing well above sea level', async ({ page }) => {
@@ -976,7 +978,7 @@ test('combat on the hills: an arrow finds a slime standing well above sea level'
   const w = g(page);
   // Learn the bow and take it up.
   const archer = { skills: skillsFrom('bow'), weapon: 3, abilities: new Array(HOTBAR_SLOTS).fill(NO_ABILITY), movement: emptyMovement() };
-  const ok = await page.evaluate((b) => (window as any).__game.setBuild(b), archer);
+  const ok = await page.evaluate((b) => window.__game.setBuild(b), archer);
   expect(ok).toBe(true);
   const z = await w.zone();
   const meadow = z.places.find((p: { id: string }) => p.id === 'meadow');
@@ -984,12 +986,12 @@ test('combat on the hills: an arrow finds a slime standing well above sea level'
   const me = await w.player();
   expect(me.pos.y).toBeGreaterThan(8);
   // One slime right in front, the rest out of the way.
-  const slimes = await page.evaluate(() => (window as any).__game.actors('slime'));
-  await page.evaluate(([x, zz]) => (window as any).__game.placeActor('slime', 0, x, zz), [me.pos.x, me.pos.z + 3] as const);
-  for (let i = 1; i < slimes.length; i++) await page.evaluate(([k]) => (window as any).__game.placeActor('slime', k, 60 + k * 3, 40), [i] as const);
+  const slimes = await page.evaluate(() => window.__game.actors('slime'));
+  await page.evaluate(([x, zz]) => window.__game.placeActor('slime', 0, x, zz), [me.pos.x, me.pos.z + 3] as const);
+  for (let i = 1; i < slimes.length; i++) await page.evaluate(([k]) => window.__game.placeActor('slime', k, 60 + k * 3, 40), [i] as const);
   await w.advance(1, { attackPressed: true });
   await w.advance(90);
-  const after = await page.evaluate(() => (window as any).__game.actors('slime'));
+  const after = await page.evaluate(() => window.__game.actors('slime'));
   expect(after[0].hp).toBeLessThan(slimes[0].hp);
 });
 
@@ -997,12 +999,12 @@ test('combat on the hills: sword, club and staff swings land on a slime and on t
   await open(page);
   const w = g(page);
   const game = {
-    actors: (kind: string) => page.evaluate((k) => (window as any).__game.actors(k), kind),
+    actors: (kind: string) => page.evaluate((k) => window.__game.actors(k), kind),
     place: (kind: string, i: number, x: number, z: number) =>
-      page.evaluate(([k, n, a, b]) => (window as any).__game.placeActor(k, n, a, b), [kind, i, x, z] as const),
+      page.evaluate(([k, n, a, b]) => window.__game.placeActor(k, n, a, b), [kind, i, x, z] as const),
     wield: (weapon: number, skill: string) =>
       page.evaluate(
-        (b) => (window as any).__game.setBuild(b),
+        (b) => window.__game.setBuild(b),
         { skills: skillsFrom(skill), weapon, abilities: new Array(HOTBAR_SLOTS).fill(NO_ABILITY), movement: emptyMovement() },
       ),
   };
@@ -1055,12 +1057,12 @@ test('combat on the hills: sword, club and staff swings land on a slime and on t
 test('the ledge path really climbs the Windspire on foot', async ({ page }) => {
   await open(page);
   const w = g(page);
-  const path: Array<[number, number]> = await page.evaluate(() => (window as any).__game.rampPath(0));
+  const path: Array<[number, number]> = await page.evaluate(() => window.__game.rampPath(0));
   expect(path.length).toBeGreaterThan(50);
   await w.teleport(path[0][0], path[0][1] - 6, 0);
   // Steer at a point a few metres ahead on the path, the way a player follows it.
   const result = await page.evaluate((pts) => {
-    const game = (window as any).__game;
+    const game = window.__game;
     let k = 0;
     let frames = 0;
     while (k < pts.length - 1 && frames < 60 * 120) {
@@ -1126,7 +1128,7 @@ test('shipyard: lay a keel, build the Merchant Cog in four stages, launch her an
   for (let i = 0; i < 2; i++) await haul('pack.ironCrate', 'stonecutter');
   await build();
   await atSlip();
-  await page.evaluate(() => (window as any).__game.setCamera({ yaw: -2.2, pitch: 0.3, distance: 22 }));
+  await page.evaluate(() => window.__game.setCamera({ yaw: -2.2, pitch: 0.3, distance: 22 }));
   await w.advance(2);
   await page.screenshot({ path: `${SHOTS}/world-11-cog-hull.png` });
   for (let i = 0; i < 2; i++) await haul('pack.lumberBundle', 'sawhorse');
@@ -1137,7 +1139,7 @@ test('shipyard: lay a keel, build the Merchant Cog in four stages, launch her an
   await build();
   await atSlip();
   expect((await w.life()).focus?.action).toBe('launch');
-  await page.evaluate(() => (window as any).__game.setCamera({ yaw: -2.2, pitch: 0.3, distance: 26 }));
+  await page.evaluate(() => window.__game.setCamera({ yaw: -2.2, pitch: 0.3, distance: 26 }));
   await w.advance(2);
   await page.screenshot({ path: `${SHOTS}/world-12-cog-finished.png` });
   await w.cmd({ t: 'interact' });
@@ -1177,7 +1179,7 @@ test('livestock: raise a chick on barley until it lays, and collect the eggs', a
   let cell = (await w.life()).scarecrows[0].cells[0];
   expect(cell.animal).toBe(true);
   // Drawn standing on the field, not buried under it (the model animates its own root).
-  const drawn = await page.evaluate(() => (window as any).__game.sceneObjects('animal:'));
+  const drawn = await page.evaluate(() => window.__game.sceneObjects('animal:'));
   expect(drawn.length).toBe(1);
   expect(drawn[0].y).toBeGreaterThan((await w.ground(c.x, c.z)) - 0.3);
   // Fed when it arrives: it grows up, then lays.
@@ -1331,7 +1333,7 @@ test('quests credit what you had already done, and a full bag refuses work inste
   await w.advance(2);
   await w.cmd({ t: 'complete', quest: 'landfall' });
   await w.advance(2);
-  await page.evaluate(() => (window as any).__game.closeLifePanel());
+  await page.evaluate(() => window.__game.closeLifePanel());
   await w.teleport(-150, -222, 0);
   await w.cmd({ t: 'use', item: 'scarecrow' });
   await w.advance(2);

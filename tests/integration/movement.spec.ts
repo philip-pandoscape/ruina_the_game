@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { skillsFrom } from '../../src/skills';
 import { COMBAT, emptyMovement, HOTBAR_SLOTS, MOVEMENT_SKILLS, MP, NO_ABILITY, NO_MOVEMENT, SLIDE_SKILL, STAMINA, STEP, type Build } from '../../src/tuning';
+import { gameReady } from '../support/game';
 
 // Its tests share nothing, so they spread across the workers (playwright.config.ts).
 test.describe.configure({ mode: 'parallel' });
@@ -31,17 +32,17 @@ const DUELIST: Build = {
 const ROLLER: Build = { skills: skillsFrom('sword', 'dodgeRoll'), weapon: 0, abilities: bar(), movement: moves(DODGE) };
 const STEPPER: Build = { skills: skillsFrom('bow', 'rapidFire', 'backstep'), weapon: 3, abilities: bar(), movement: moves(BACKSTEP) };
 
-const state = (page: Page) => page.evaluate(() => (window as any).__game.state().player);
+const state = (page: Page) => page.evaluate(() => window.__game.state().player);
 const ready = async (page: Page, b: Build) => {
   await page.goto('/?yard');
-  await page.waitForFunction(() => (window as any).__game?.ready === true);
-  expect(await page.evaluate((x) => (window as any).__game.setBuild(x), b)).toBe(true);
+  await gameReady(page);
+  expect(await page.evaluate((x) => window.__game.setBuild(x), b)).toBe(true);
 };
 
 test('a dodge moves you, costs stamina rather than a cooldown, and ends on its own', async ({ page }) => {
   await ready(page, ROLLER);
   const seen = await page.evaluate(() => {
-    const g = (window as any).__game;
+    const g = window.__game;
     g.reset({});
     const from = { ...g.state().player.pos };
     const full = g.state().player.stamina;
@@ -75,7 +76,7 @@ test('a dodge moves you, costs stamina rather than a cooldown, and ends on its o
 test('a dodge commits to the direction it started in', async ({ page }) => {
   await ready(page, ROLLER);
   const seen = await page.evaluate(() => {
-    const g = (window as any).__game;
+    const g = window.__game;
     g.reset({});
     const from = { ...g.state().player.pos };
     // Start rolling one way, then push hard the other way for the rest of it.
@@ -93,7 +94,7 @@ test('a dodge cannot be hit during its invulnerable frames', async ({ page }) =>
   await ready(page, ROLLER);
   const seen = await page.evaluate(
     ([from, to]) => {
-      const g = (window as any).__game;
+      const g = window.__game;
       const hitAt = (frame: number) => {
         g.reset({});
         g.advance(1, { movementSlot: 1, moveZ: 1 });
@@ -115,7 +116,7 @@ test('a guard lets only part of a hit through, and holds its ground', async ({ p
   await ready(page, DUELIST);
   const seen = await page.evaluate(
     (startup) => {
-      const g = (window as any).__game;
+      const g = window.__game;
       g.reset({});
       // Slot 2 is the block; hold it so it stays up.
       g.advance(1, { movementSlot: 2, movementHeld: 2 });
@@ -141,7 +142,7 @@ test('a guard lets only part of a hit through, and holds its ground', async ({ p
 test('a guard drops when you let go', async ({ page }) => {
   await ready(page, DUELIST);
   const seen = await page.evaluate(() => {
-    const g = (window as any).__game;
+    const g = window.__game;
     g.reset({});
     g.advance(1, { movementSlot: 2, movementHeld: 2 });
     for (let i = 0; i < 10; i++) g.advance(1, { movementHeld: 2 });
@@ -156,7 +157,7 @@ test('a guard drops when you let go', async ({ page }) => {
 test('a backstep goes the other way from where you face', async ({ page }) => {
   await ready(page, STEPPER);
   const seen = await page.evaluate(() => {
-    const g = (window as any).__game;
+    const g = window.__game;
     g.reset({ facing: 0 }); // facing +Z
     const from = { ...g.state().player.pos };
     g.advance(1, { movementSlot: 1 });
@@ -171,7 +172,7 @@ test('an empty movement slot does nothing, and dodges run on stamina: back to ba
   await ready(page, ROLLER);
   const cost = MOVEMENT_SKILLS[DODGE].staminaCost!;
   const seen = await page.evaluate((cost) => {
-    const g = (window as any).__game;
+    const g = window.__game;
     g.reset({});
     g.advance(1, { movementSlot: 2 }); // nothing bound there
     const empty = g.state().player.mode;
@@ -220,7 +221,7 @@ test('an empty movement slot does nothing, and dodges run on stamina: back to ba
 test('getting back up after a knock-down fills stamina and MP', async ({ page }) => {
   await ready(page, ROLLER);
   const seen = await page.evaluate((down) => {
-    const g = (window as any).__game;
+    const g = window.__game;
     g.reset({});
     g.advance(1, { movementSlot: 1, moveZ: 1 });
     g.advance(24, {});
@@ -240,11 +241,11 @@ test('getting back up after a knock-down fills stamina and MP', async ({ page })
 
 test('the tree is what grants a movement skill', async ({ page }) => {
   await page.goto('/?yard');
-  await page.waitForFunction(() => (window as any).__game?.ready === true);
+  await gameReady(page);
   // Binding one you never learned is refused, the same way an unlearned ability is.
   const bogus: Build = { skills: skillsFrom('sword'), weapon: 0, abilities: bar(), movement: moves(DODGE) };
-  expect(await page.evaluate((b) => (window as any).__game.setBuild(b), bogus)).toBe(false);
-  expect(await page.evaluate((b) => (window as any).__game.setBuild(b), ROLLER)).toBe(true);
+  expect(await page.evaluate((b) => window.__game.setBuild(b), bogus)).toBe(false);
+  expect(await page.evaluate((b) => window.__game.setBuild(b), ROLLER)).toBe(true);
   expect((await state(page)).movement[0]).toBe(DODGE);
   expect((await state(page)).movement[1]).toBe(NO_MOVEMENT);
 });
@@ -255,7 +256,7 @@ test('the slide runs for exactly its tuned frames and no longer', async ({ page 
   await ready(page, ROLLER);
   const frames = await page.evaluate(
     (slide) => {
-      const g = (window as any).__game;
+      const g = window.__game;
       g.reset({});
       g.advance(1, { moveZ: 1, slidePressed: true });
       let n = 0;
@@ -276,7 +277,7 @@ test('the slide runs for exactly its tuned frames and no longer', async ({ page 
 test('the slide can still be steered, unlike a dodge', async ({ page }) => {
   await ready(page, ROLLER);
   const seen = await page.evaluate(() => {
-    const g = (window as any).__game;
+    const g = window.__game;
     g.reset({});
     const from = { ...g.state().player.pos };
     g.advance(1, { moveZ: 1, slidePressed: true });
@@ -292,7 +293,7 @@ test('the slide can still be steered, unlike a dodge', async ({ page }) => {
 test('jumping out of a slide carries its speed', async ({ page }) => {
   await ready(page, ROLLER);
   const seen = await page.evaluate(() => {
-    const g = (window as any).__game;
+    const g = window.__game;
     const run = (jump: boolean) => {
       g.reset({});
       g.advance(1, { moveZ: 1, slidePressed: true });
@@ -315,11 +316,11 @@ test('the slide is built in, not something the tree hands out', async ({ page })
   await ready(page, ROLLER);
   // It can't be bound to Q or E: no node grants it, so a build naming it is refused.
   const bogus = { ...ROLLER, movement: moves(SLIDE_SKILL) };
-  expect(await page.evaluate((b) => (window as any).__game.setBuild(b), bogus)).toBe(false);
+  expect(await page.evaluate((b) => window.__game.setBuild(b), bogus)).toBe(false);
   // But everyone can still slide.
   const slid = await page.evaluate(
     (slide) => {
-      const g = (window as any).__game;
+      const g = window.__game;
       g.reset({});
       g.advance(1, { moveZ: 1, slidePressed: true });
       const p = g.state().player;
@@ -340,7 +341,7 @@ const AHEAD = { faceX: 0, faceZ: 1 };
 test('fighting, you strafe instead of turning, a little slower than running', async ({ page }) => {
   await ready(page, ROLLER);
   const seen = await page.evaluate((face) => {
-    const g = (window as any).__game;
+    const g = window.__game;
     g.reset({ facing: 0 });
     g.advance(40, { ...face, moveX: 1 });
     const p = g.state().player;
@@ -354,7 +355,7 @@ test('fighting, you strafe instead of turning, a little slower than running', as
 test('fighting, you back away slower still, facing the fight', async ({ page }) => {
   await ready(page, ROLLER);
   const seen = await page.evaluate((face) => {
-    const g = (window as any).__game;
+    const g = window.__game;
     g.reset({ facing: 0 });
     g.advance(40, { ...face, moveZ: -1 });
     const p = g.state().player;
@@ -367,7 +368,7 @@ test('fighting, you back away slower still, facing the fight', async ({ page }) 
 test('out of a fight you turn and run the way you push, as before', async ({ page }) => {
   await ready(page, ROLLER);
   const seen = await page.evaluate(() => {
-    const g = (window as any).__game;
+    const g = window.__game;
     g.reset({ facing: 0 });
     g.advance(40, { moveX: 1 });
     const p = g.state().player;
@@ -380,7 +381,7 @@ test('out of a fight you turn and run the way you push, as before', async ({ pag
 test('sprinting breaks the stance: you turn and run', async ({ page }) => {
   await ready(page, ROLLER);
   const seen = await page.evaluate((face) => {
-    const g = (window as any).__game;
+    const g = window.__game;
     g.reset({ facing: 0 });
     g.advance(40, { ...face, moveX: 1, sprintHeld: true });
     const p = g.state().player;
@@ -394,7 +395,7 @@ test('sprinting breaks the stance: you turn and run', async ({ page }) => {
 test('fighting, a dodge goes the way you push without turning you', async ({ page }) => {
   await ready(page, ROLLER);
   const seen = await page.evaluate((face) => {
-    const g = (window as any).__game;
+    const g = window.__game;
     g.reset({ facing: 0 });
     const from = { ...g.state().player.pos };
     g.advance(1, { ...face, movementSlot: 1, moveX: -1 });
@@ -412,7 +413,7 @@ test('fighting, a dodge goes the way you push without turning you', async ({ pag
 test('fighting, a double jump flies the way you push and keeps you facing the fight', async ({ page }) => {
   await ready(page, ROLLER);
   const seen = await page.evaluate((face) => {
-    const g = (window as any).__game;
+    const g = window.__game;
     g.reset({ facing: 0 });
     g.advance(1, { ...face, jumpPressed: true, jumpHeld: true });
     g.advance(12, { ...face, jumpHeld: true });

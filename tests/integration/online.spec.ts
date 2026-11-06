@@ -1,6 +1,7 @@
 import { expect, test, type Browser, type BrowserContext, type Page } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { rainAt } from '../../src/sim/life/weather';
+import { onlineReady as waitOnline } from '../support/game';
 
 // Its tests share nothing, so they spread across the workers (playwright.config.ts).
 test.describe.configure({ mode: 'parallel' });
@@ -39,14 +40,6 @@ const fresh = (prefix: string) => `${prefix}${Date.now().toString(36)}${Math.flo
 
 /** Runs `fn` in the page with the game's test API (window.__game). `fn` can't use anything from here. */
 const game = <T>(page: Page, fn: (g: any) => T) => page.evaluate(`(${fn.toString()})(window.__game)`) as Promise<T>;
-
-/** Waits until the server connection is up and the server has started sending the island. */
-async function waitOnline(page: Page): Promise<void> {
-  await page.waitForFunction(() => {
-    const o = (window as any).__game?.online?.();
-    return (window as any).__game?.ready === true && o?.status === 'online' && o.ticks > 3 && o.lifeLoaded;
-  }, null, { timeout: 60_000 });
-}
 
 /** Waits until the server has written the island to the database again (it does every 5 s). */
 async function saveAndWait(page: Page): Promise<void> {
@@ -368,7 +361,7 @@ async function pair(browser: Browser): Promise<{ a: Page; b: Page; nameA: string
 }
 
 const seen = (page: Page, name: string) =>
-  page.evaluate((n) => (window as any).__game.peers().find((p: { name: string }) => p.name === n) ?? null, name);
+  page.evaluate((n) => window.__game.peers().find((p: { name: string }) => p.name === n) ?? null, name);
 
 test('players in the same channel see each other, wherever they go', async ({ browser }) => {
   const { a, b, nameA, nameB } = await pair(browser);
@@ -377,7 +370,7 @@ test('players in the same channel see each other, wherever they go', async ({ br
 
   // Ann heads up to Hearthside Rise; Bea watches her arrive.
   await a.bringToFront();
-  await a.evaluate(() => (window as any).__game.teleport(142, -200));
+  await a.evaluate(() => window.__game.teleport(142, -200));
   await b.bringToFront();
   await expect.poll(async () => {
     const p = await seen(b, nameA);
@@ -399,18 +392,18 @@ test("a neighbour's house is drawn on your island, and their plot can't be taken
 
   // Ann claims the plot. (A window has to be in front for its game to run at full speed.)
   await a.bringToFront();
-  await a.evaluate(() => (window as any).__game.lifeCommand({ t: 'grant', item: 'blueprint.cottage', n: 1 }));
-  await a.evaluate(([x, z, f]) => (window as any).__game.teleport(x, z, f), site);
+  await a.evaluate(() => window.__game.lifeCommand({ t: 'grant', item: 'blueprint.cottage', n: 1 }));
+  await a.evaluate(([x, z, f]) => window.__game.teleport(x, z, f), site);
   await expect.poll(() => game(a, (g) => g.life().focus?.action), { timeout: 45_000 }).toBe('claim');
-  await a.evaluate(() => (window as any).__game.lifeCommand({ t: 'interact' }));
+  await a.evaluate(() => window.__game.lifeCommand({ t: 'interact' }));
   await expect.poll(() => game(a, (g) => g.life().houses.length), { timeout: 45_000 }).toBe(1);
 
   // Bea sees the building site, and the plot is Ann's.
   await b.bringToFront();
   await expect.poll(async () => (await seen(b, nameA))?.houses, { timeout: 30_000 }).toBe(1);
-  await expect.poll(() => b.evaluate((id) => (window as any).__game.online().claims[id], plot.id), { timeout: 30_000 }).toBe(nameA);
-  await b.evaluate(() => (window as any).__game.lifeCommand({ t: 'grant', item: 'blueprint.cottage', n: 1 }));
-  await b.evaluate(([x, z, f]) => (window as any).__game.teleport(x, z, f), site);
+  await expect.poll(() => b.evaluate((id) => window.__game.online().claims[id], plot.id), { timeout: 30_000 }).toBe(nameA);
+  await b.evaluate(() => window.__game.lifeCommand({ t: 'grant', item: 'blueprint.cottage', n: 1 }));
+  await b.evaluate(([x, z, f]) => window.__game.teleport(x, z, f), site);
   await expect.poll(() => game(b, (g) => g.life().focus?.label), { timeout: 45_000 }).toBe(`${nameA}'s Plot`);
 });
 
@@ -419,10 +412,10 @@ test('a friend rides along in your cart wherever you drive it, and bumps into it
   const ann = await game(a, (g) => g.online().character.id);
   // Ann brings her farm cart out on the west road.
   await a.bringToFront();
-  await a.evaluate(() => (window as any).__game.lifeCommand({ t: 'grant', item: 'deed.farmCart', n: 1 }));
-  await a.evaluate(() => (window as any).__game.teleport(150, -210, Math.PI / 2 + 0.25));
+  await a.evaluate(() => window.__game.lifeCommand({ t: 'grant', item: 'deed.farmCart', n: 1 }));
+  await a.evaluate(() => window.__game.teleport(150, -210, Math.PI / 2 + 0.25));
   await expect.poll(() => game(a, (g) => g.life().bag.some((s: { item: string }) => s.item === 'deed.farmCart')), { timeout: 60_000 }).toBe(true);
-  await a.evaluate(() => (window as any).__game.lifeCommand({ t: 'summon', item: 'deed.farmCart' }));
+  await a.evaluate(() => window.__game.lifeCommand({ t: 'summon', item: 'deed.farmCart' }));
   await expect.poll(() => game(a, (g) => g.life().vehicles.length), { timeout: 60_000 }).toBe(1);
   const cart = await game(a, (g) => g.life().vehicles[0]);
   /** A point beside a vehicle, given in its own frame (+x its left, +z ahead), out in the world. */
@@ -430,19 +423,19 @@ test('a friend rides along in your cart wherever you drive it, and bumps into it
 
   // Bea walks up to its passenger side: the prompt offers her a ride, and F puts her in.
   await b.bringToFront();
-  await b.evaluate(([x, z, f]) => (window as any).__game.teleport(x, z, f), beside(cart, -1.7, 0.95, Math.PI / 2));
+  await b.evaluate(([x, z, f]) => window.__game.teleport(x, z, f), beside(cart, -1.7, 0.95, Math.PI / 2));
   await expect.poll(() => game(b, (g) => g.life().focus?.label), { timeout: 60_000 }).toBe(`Ride with ${nameA}`);
-  await b.evaluate(() => (window as any).__game.pressLife('interact'));
+  await b.evaluate(() => window.__game.pressLife('interact'));
   const seated = () => game(b, (g) => `${g.state().player.mode}:${g.state().player.host}:${g.state().player.seat}`);
   await expect.poll(seated, { timeout: 60_000 }).toBe(`ride:${ann}:1`);
 
   // Ann climbs into the driver's seat and drives off up the road.
   await a.bringToFront();
-  await a.evaluate(([x, z, f]) => (window as any).__game.teleport(x, z, f), beside(cart, 1.7, 0.95, -Math.PI / 2));
+  await a.evaluate(([x, z, f]) => window.__game.teleport(x, z, f), beside(cart, 1.7, 0.95, -Math.PI / 2));
   await expect.poll(() => game(a, (g) => g.life().focus?.action), { timeout: 60_000 }).toBe('board');
-  await a.evaluate(() => (window as any).__game.pressLife('interact'));
+  await a.evaluate(() => window.__game.pressLife('interact'));
   await expect.poll(() => game(a, (g) => g.state().player.mode), { timeout: 60_000 }).toBe('ride');
-  await a.evaluate(() => (window as any).__game.scriptInput([[150, { stickY: 1 }], [90, { jumpHeld: true }]]));
+  await a.evaluate(() => window.__game.scriptInput([[150, { stickY: 1 }], [90, { jumpHeld: true }]]));
   await expect.poll(() => game(a, (g) => g.net().scriptLeft), { timeout: 60_000 }).toBe(0);
   const moved = await game(a, (g) => g.life().vehicles[0]);
   expect(Math.hypot(moved.x - cart.x, moved.z - cart.z), 'Ann drove her cart up the road').toBeGreaterThan(6);
@@ -454,19 +447,19 @@ test('a friend rides along in your cart wherever you drive it, and bumps into it
     return Math.hypot(p.pos.x - moved.x, p.pos.z - moved.z);
   }, { timeout: 60_000 }).toBeLessThan(1.6);
   expect(await seated()).toBe(`ride:${ann}:1`);
-  await b.evaluate(() => (window as any).__game.pressLife('interact'));
+  await b.evaluate(() => window.__game.pressLife('interact'));
   await expect.poll(seated, { timeout: 60_000 }).toBe('normal:0:0');
 
   // Parked, Ann's cart is as solid to Bea as her own would be: walking into its side, she stops at it.
   await a.bringToFront();
-  await a.evaluate(() => (window as any).__game.pressLife('interact'));
+  await a.evaluate(() => window.__game.pressLife('interact'));
   await expect.poll(() => game(a, (g) => g.state().player.mode), { timeout: 60_000 }).toBe('normal');
   const parked = await game(a, (g) => g.life().vehicles[0]);
   await b.bringToFront();
   const [sx, sz] = beside(parked, -3.4, 0, 0);
-  await b.evaluate(([x, z, f]) => (window as any).__game.teleport(x, z, f), [sx, sz, parked.heading - Math.PI / 2]);
+  await b.evaluate(([x, z, f]) => window.__game.teleport(x, z, f), [sx, sz, parked.heading - Math.PI / 2]);
   const dir = [parked.x - sx, parked.z - sz].map((c) => c / 3.4);
-  await b.evaluate(([x, z]) => (window as any).__game.scriptInput([[150, { moveX: x, moveZ: z }]]), dir);
+  await b.evaluate(([x, z]) => window.__game.scriptInput([[150, { moveX: x, moveZ: z }]]), dir);
   await expect.poll(() => game(b, (g) => g.net().scriptLeft), { timeout: 60_000 }).toBe(0);
   const bea = (await game(b, (g) => g.state().player)) as { pos: { x: number; z: number } };
   expect(Math.hypot(bea.pos.x - parked.x, bea.pos.z - parked.z), 'stopped against the side of the cart').toBeGreaterThan(1.3);
@@ -476,22 +469,22 @@ test('far from the server, a pack comes out of the cart at once and getting in d
   // 120 ms each way, about what the deployed server is from a long way off.
   await page.goto(`/?as=${fresh('far')}&bugs=0&lag=120`);
   await waitOnline(page);
-  for (const [item, n] of [['deed.farmCart', 1], ['sunroot', 12], ['barley', 8]] as const) await page.evaluate(([i, k]) => (window as any).__game.lifeCommand({ t: 'grant', item: i, n: k }), [item, n]);
+  for (const [item, n] of [['deed.farmCart', 1], ['sunroot', 12], ['barley', 8]] as const) await page.evaluate(({ i, k }) => window.__game.lifeCommand({ t: 'grant', item: i, n: k }), { i: item as string, k: n as number });
   const zone = await game(page, (g) => g.zone());
   const wb = zone.workbenches[0];
-  await page.evaluate(([x, z]) => (window as any).__game.teleport(x - 6, z + 6, 0), [wb.x, wb.z]);
+  await page.evaluate(([x, z]) => window.__game.teleport(x - 6, z + 6, 0), [wb.x, wb.z]);
   await expect.poll(() => game(page, (g) => g.life().bag.some((s: { item: string }) => s.item === 'deed.farmCart')), { timeout: 60_000 }).toBe(true);
-  await page.evaluate(() => (window as any).__game.lifeCommand({ t: 'summon', item: 'deed.farmCart' }));
+  await page.evaluate(() => window.__game.lifeCommand({ t: 'summon', item: 'deed.farmCart' }));
   await expect.poll(() => game(page, (g) => g.life().vehicles.length), { timeout: 60_000 }).toBe(1);
   const cart = await game(page, (g) => g.life().vehicles[0]);
   // A crate from the bench, into the cart's bed.
-  await page.evaluate(([x, z]) => (window as any).__game.teleport(x, z + 2, Math.PI), [wb.x, wb.z]);
-  await page.evaluate(() => (window as any).__game.lifeCommand({ t: 'craft', recipe: 'pack.harvestCrate' }));
+  await page.evaluate(([x, z]) => window.__game.teleport(x, z + 2, Math.PI), [wb.x, wb.z]);
+  await page.evaluate(() => window.__game.lifeCommand({ t: 'craft', recipe: 'pack.harvestCrate' }));
   await expect.poll(() => game(page, (g) => g.state().player.pack), { timeout: 30_000 }).toBeGreaterThan(0);
   const bed = [cart.x - Math.sin(cart.heading) * 2.6, cart.z - Math.cos(cart.heading) * 2.6, cart.heading];
-  await page.evaluate(([x, z, f]) => (window as any).__game.teleport(x, z, f), bed);
+  await page.evaluate(([x, z, f]) => window.__game.teleport(x, z, f), bed);
   await expect.poll(() => game(page, (g) => g.life().focus?.action), { timeout: 30_000 }).toBe('load');
-  await page.evaluate(() => (window as any).__game.pressLife('interact'));
+  await page.evaluate(() => window.__game.pressLife('interact'));
   await expect.poll(() => game(page, (g) => g.life().vehicles[0].cargo.filter(Boolean).length), { timeout: 30_000 }).toBe(1);
   await expect.poll(() => game(page, (g) => g.state().player.pack)).toBe(0);
   await expect.poll(() => game(page, (g) => g.life().focus?.action), { timeout: 30_000 }).toBe('unload');
@@ -499,7 +492,7 @@ test('far from the server, a pack comes out of the cart at once and getting in d
   // F: the crate is on your back at once (not a round trip later), and stays there, frame after
   // frame, while the server's answers arrive.
   const packs = await page.evaluate(async () => {
-    const g = (window as any).__game;
+    const g = window.__game;
     g.pressLife('interact');
     const seen: number[] = [];
     for (let i = 0; i < 70; i++) {
@@ -514,14 +507,14 @@ test('far from the server, a pack comes out of the cart at once and getting in d
 
   // Put it back in, then get in at the driver's side: you're in the seat at once, and the cart, drawn
   // under you, stays where it stands rather than sinking into the ground and rising again.
-  await page.evaluate(() => (window as any).__game.pressLife('interact'));
+  await page.evaluate(() => window.__game.pressLife('interact'));
   await expect.poll(() => game(page, (g) => g.state().player.pack), { timeout: 30_000 }).toBe(0);
   const side = [cart.x + Math.cos(cart.heading) * 1.9 + Math.sin(cart.heading) * 0.9, cart.z - Math.sin(cart.heading) * 1.9 + Math.cos(cart.heading) * 0.9, cart.heading];
-  await page.evaluate(([x, z, f]) => (window as any).__game.teleport(x, z, f), side);
+  await page.evaluate(([x, z, f]) => window.__game.teleport(x, z, f), side);
   await expect.poll(() => game(page, (g) => g.life().focus?.action), { timeout: 30_000 }).toBe('board');
   const resting = (await game(page, (g) => g.drawnVehicles()[0])) as { y: number };
   const ride = await page.evaluate(async () => {
-    const g = (window as any).__game;
+    const g = window.__game;
     g.pressLife('interact');
     const ys: number[] = [];
     const modes: string[] = [];
@@ -544,7 +537,7 @@ test("another player's name shows near you, fades past 30 m and is gone by 45 m"
   /** Ann goes to (x, z), and Bea waits until she sees her there. */
   const annTo = async (x: number, z: number) => {
     await a.bringToFront();
-    await a.evaluate(([x, z]) => (window as any).__game.teleport(x, z), [x, z]);
+    await a.evaluate(([x, z]) => window.__game.teleport(x, z), [x, z]);
     await b.bringToFront();
     await expect.poll(async () => {
       const p = await ann();
@@ -592,7 +585,7 @@ test("everyone in a channel sees the same time of day, the server's, whatever th
   const reading = (page: Page) =>
     page.evaluate(() => {
       const [hh, mm] = document.querySelector('#hud-clock span')!.textContent!.match(/(\d\d):(\d\d)/)!.slice(1).map(Number);
-      return { sky: (window as any).__game.dayHour() as number, hud: hh + mm / 60, at: Date.now() };
+      return { sky: window.__game.dayHour() as number, hud: hh + mm / 60, at: Date.now() };
     });
 
   // Bea skips ahead a third of a day on her island, so her island's clock and Ann's are 8 hours apart.
@@ -624,7 +617,7 @@ test("everyone in a channel has the same rain and wind, the world's, whatever th
   // Each works its weather out as it plays, and the server works out a new island's only once it
   // has played: until then it's the fresh island's. Online comes before the first frame, which in a
   // browser drawing in software (the shaders) can take seconds.
-  for (const page of [a, b]) await page.waitForFunction(() => (window as any).__game.state().frame > 30, null, { timeout: 60_000 });
+  for (const page of [a, b]) await page.waitForFunction(() => window.__game.state().frame > 30, null, { timeout: 60_000 });
   // Their islands' clocks count from when each was made, some seconds apart and nowhere near the
   // world's, so each island's own showers and wind (as it was) would be neither each other's nor the
   // world's. The server runs on this computer: the world's clock is Date.now(), and the weather is
@@ -641,7 +634,7 @@ test("everyone in a channel has the same rain and wind, the world's, whatever th
   /** A page's weather: raining or not, when (world time) its shower stops and the next one starts, the wind. */
   const weather = (page: Page) =>
     page.evaluate(() => {
-      const l = (window as any).__game.life();
+      const l = window.__game.life();
       const w = l.weather;
       const at = Date.now() / 1000;
       return { raining: l.clock < w.rainUntil, stops: at + (w.rainUntil - l.clock), next: at + (w.nextRain - l.clock), windDir: w.windDir, windSpeed: w.windSpeed, at };

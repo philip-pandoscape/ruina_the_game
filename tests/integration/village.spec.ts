@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { gameReady } from '../support/game';
 
 // The buildings you can walk into (src/content/buildings.ts, src/render/village): their plans fit
 // their footprints and the kit, the rules wall them with their doorways open, and in the game you
@@ -15,9 +16,9 @@ async function open(page: Page): Promise<string[]> {
   });
   page.on('pageerror', (e) => errors.push(String(e)));
   await page.goto('/?world&test');
-  await page.waitForFunction(() => (window as any).__game?.ready === true, null, { timeout: 60_000 });
-  await page.evaluate(() => (window as any).__game.reset());
-  await page.waitForFunction(() => (window as any).__game.assetsReady === true, null, { timeout: 90_000 });
+  await gameReady(page, 60_000);
+  await page.evaluate(() => window.__game.reset());
+  await page.waitForFunction(() => window.__game.assetsReady === true, null, { timeout: 90_000 });
   return errors;
 }
 
@@ -49,19 +50,19 @@ test('every piece and prop the buildings are made of is in the kit', async ({ pa
 test('into the inn through its door and up its stairs: cut open above you, the door open, the lamps lit', async ({ page }) => {
   const errors = await open(page);
   const w = {
-    advance: (n: number, a: Record<string, number> = {}) => page.evaluate(([f, x]) => (window as any).__game.advance(f, x), [n, a] as const),
-    indoors: () => page.evaluate(() => (window as any).__game.indoors()),
-    stats: () => page.evaluate(() => (window as any).__game.villageStats()),
+    advance: (n: number, a: Record<string, number> = {}) => page.evaluate(([f, x]) => window.__game.advance(f, x), [n, a] as const),
+    indoors: () => page.evaluate(() => window.__game.indoors()),
+    stats: () => page.evaluate(() => window.__game.villageStats()),
   };
   const stats = await w.stats();
   expect(stats.drawn, 'the village is drawn').toBeGreaterThan(10);
   expect(stats.list.some((m: { name: string }) => m.name.startsWith('doors:')), 'with doors').toBe(true);
   expect(stats.list.some((m: { name: string }) => m.name === 'fires'), 'and fires in the hearths').toBe(true);
   // The inn faces south: its plan's +X is the world's -X, its +Z the world's -Z.
-  await page.evaluate(() => (window as any).__game.teleport(-24, -226.5, 0));
+  await page.evaluate(() => window.__game.teleport(-24, -226.5, 0));
   await w.advance(50, { moveZ: 1 });
   expect(await w.indoors(), 'in through the door').toMatchObject({ id: 'inn', storey: 0 });
-  await page.evaluate(() => (window as any).__game.setCamera({ yaw: 0.6, pitch: 0.5, distance: 8 }));
+  await page.evaluate(() => window.__game.setCamera({ yaw: 0.6, pitch: 0.5, distance: 8 }));
   await w.advance(2);
   await page.screenshot({ path: `${SHOTS}/village-inn.png` });
   await w.advance(50, { moveX: -0.952, moveZ: 0.307 });

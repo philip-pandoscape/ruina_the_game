@@ -1,5 +1,6 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
+import { gameReady } from '../support/game';
 
 // The look test (src/render/look.ts): the same places at the same hours drawn in the classic look
 // (?look=classic) and in the new one (?look=new), to compare side by side. Screenshots land in
@@ -56,9 +57,9 @@ async function open(page: Page, look: string, extra = ''): Promise<string[]> {
   });
   page.on('pageerror', (e) => errors.push(String(e)));
   await page.goto(`/?world&test&look=${look}${extra}`);
-  await page.waitForFunction(() => (window as any).__game?.ready === true, null, { timeout: 60_000 });
-  await page.evaluate(() => (window as any).__game.reset());
-  await page.waitForFunction(() => (window as any).__game.assetsReady === true, null, { timeout: 60_000 });
+  await gameReady(page, 60_000);
+  await page.evaluate(() => window.__game.reset());
+  await page.waitForFunction(() => window.__game.assetsReady === true, null, { timeout: 60_000 });
   // Just the world: no HUD, windows or prompts over it.
   await page.addStyleTag({ content: 'body > *:not(#game) { visibility: hidden !important; }' });
   return errors;
@@ -66,10 +67,10 @@ async function open(page: Page, look: string, extra = ''): Promise<string[]> {
 
 /** Runs the island's clock forward to the hour. */
 async function setHour(page: Page, hour: number): Promise<void> {
-  const now: number = await page.evaluate(() => (window as any).__game.dayHour());
+  const now: number = await page.evaluate(() => window.__game.dayHour());
   const seconds = ((((hour - now) % 24) + 24) % 24) * (DAY / 24);
-  if (seconds > 1) await page.evaluate((s) => (window as any).__game.lifeCommand({ t: 'warp', seconds: s }), seconds);
-  await page.evaluate(() => (window as any).__game.advance(1));
+  if (seconds > 1) await page.evaluate((s) => window.__game.lifeCommand({ t: 'warp', seconds: s }), seconds);
+  await page.evaluate(() => window.__game.advance(1));
 }
 
 for (const look of ['classic', 'new']) {
@@ -77,21 +78,21 @@ for (const look of ['classic', 'new']) {
     const errors = await open(page, look);
     for (const s of SCENES) {
       await setHour(page, s.hour);
-      if (s.dungeon) await page.evaluate((id) => (window as any).__game.visitDungeon(id), s.dungeon);
-      await page.evaluate(([x, z, f]) => (window as any).__game.teleport(x, z, f), [s.x, s.z, s.facing] as const);
-      await page.evaluate((c) => (window as any).__game.setCamera(c), s.camera);
-      await page.evaluate(() => (window as any).__game.advance(40));
+      if (s.dungeon) await page.evaluate((id) => window.__game.visitDungeon(id), s.dungeon);
+      await page.evaluate(([x, z, f]) => window.__game.teleport(x, z, f), [s.x, s.z, s.facing] as const);
+      await page.evaluate((c) => window.__game.setCamera(c), s.camera);
+      await page.evaluate(() => window.__game.advance(40));
       await page.evaluate((v) => {
-        const g = (window as any).__game;
+        const g = window.__game;
         if (!v) return g.viewFrom(null);
-        const lift = (p: [number, number, number]) => (v.ground ? [p[0], p[1] + g.ground(p[0], p[2]), p[2]] : p);
+        const lift = (p: [number, number, number]): [number, number, number] => (v.ground ? [p[0], p[1] + g.ground(p[0], p[2]), p[2]] : p);
         g.viewFrom(lift(v.from), lift(v.to));
       }, s.view ?? null);
-      await page.waitForFunction(() => (window as any).__game.assetsReady === true, null, { timeout: 60_000 });
+      await page.waitForFunction(() => window.__game.assetsReady === true, null, { timeout: 60_000 });
       await page.screenshot({ path: `${SHOTS}/look-${s.id}-${look}.png` });
-      if (s.dungeon) await page.evaluate(() => (window as any).__game.visitDungeon(null));
+      if (s.dungeon) await page.evaluate(() => window.__game.visitDungeon(null));
     }
-    await page.evaluate(() => (window as any).__game.viewFrom(null));
+    await page.evaluate(() => window.__game.viewFrom(null));
     expect(errors).toEqual([]);
   });
 }
@@ -109,12 +110,12 @@ test.describe('at 1920 x 1080', () => {
     for (let round = 0; round < 3; round++) {
       for (const look of ['classic', 'new']) {
         await open(page, look);
-        await page.evaluate((c) => (window as any).__game.setCamera(c), SCENES[0].camera);
-        await page.evaluate(() => (window as any).__game.advance(40));
+        await page.evaluate((c) => window.__game.setCamera(c), SCENES[0].camera);
+        await page.evaluate(() => window.__game.advance(40));
         await page.waitForTimeout(2000);
         for (let i = 0; i < 12; i++) {
           await page.waitForTimeout(250);
-          const p = await page.evaluate(() => (window as any).__game.perf());
+          const p = await page.evaluate(() => window.__game.perf());
           if (p.gpuMs) ms[look].push(p.gpuMs);
           work[look] = { drawCalls: p.drawCalls, triangles: p.triangles, cpuMs: p.cpuMs };
         }
@@ -135,10 +136,10 @@ test('the new look at medium quality (integrated graphics): no occlusion, nearer
   const errors = await open(page, 'new', '&quality=medium');
   for (const s of SCENES.filter((x) => x.id === 'square-morning' || x.id === 'fields-noon')) {
     await setHour(page, s.hour);
-    await page.evaluate(([x, z, f]) => (window as any).__game.teleport(x, z, f), [s.x, s.z, s.facing] as const);
-    await page.evaluate((c) => (window as any).__game.setCamera(c), s.camera);
-    await page.evaluate(() => (window as any).__game.advance(40));
-    await page.waitForFunction(() => (window as any).__game.assetsReady === true, null, { timeout: 60_000 });
+    await page.evaluate(([x, z, f]) => window.__game.teleport(x, z, f), [s.x, s.z, s.facing] as const);
+    await page.evaluate((c) => window.__game.setCamera(c), s.camera);
+    await page.evaluate(() => window.__game.advance(40));
+    await page.waitForFunction(() => window.__game.assetsReady === true, null, { timeout: 60_000 });
     await page.screenshot({ path: `${SHOTS}/look-${s.id}-medium.png` });
   }
   expect(errors).toEqual([]);
@@ -148,9 +149,9 @@ test('the new look: its ambient occlusion on its own, by the market stalls @gpu'
   const errors = await open(page, 'new', '&lookdebug=ao');
   const s = SCENES.find((x) => x.id === 'stalls-closeup')!;
   await setHour(page, s.hour);
-  await page.evaluate(([x, z, f]) => (window as any).__game.teleport(x, z, f), [s.x, s.z, s.facing] as const);
-  await page.evaluate((c) => (window as any).__game.setCamera(c), s.camera);
-  await page.evaluate(() => (window as any).__game.advance(40));
+  await page.evaluate(([x, z, f]) => window.__game.teleport(x, z, f), [s.x, s.z, s.facing] as const);
+  await page.evaluate((c) => window.__game.setCamera(c), s.camera);
+  await page.evaluate(() => window.__game.advance(40));
   await page.screenshot({ path: `${SHOTS}/look-ao-stalls.png` });
   expect(errors).toEqual([]);
 });

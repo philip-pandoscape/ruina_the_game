@@ -2189,6 +2189,8 @@ const api = {
 };
 
 (window as unknown as { __game: typeof api }).__game = api;
+/** The test API's type, so the tests (tests/support/game.ts) call it by name and the compiler checks them. */
+export type GameApi = typeof api;
 
 // ---------- Bug reports ----------
 // \ (or clicking both sticks) records one: see src/app/bugs/reporter.ts. The dev server saves it

@@ -1,6 +1,7 @@
 import { expect, test, type Browser, type BrowserContext, type Page } from '@playwright/test';
 import { HEXES } from '../../src/content/minigames';
 import { isTitleCase } from '../../src/ui/theme/text';
+import { onlineReady as waitOnline } from '../support/game';
 
 // Mini-games online (src/ui/minigames, server/src/world_game/tables.rs): walk up to another player,
 // challenge them with F, they accept, both stakes go into the pot and a table is thrown down
@@ -42,13 +43,6 @@ interface Player {
   page: Page;
   name: string;
   id: number;
-}
-
-async function waitOnline(page: Page): Promise<void> {
-  await page.waitForFunction(() => {
-    const o = (window as any).__game?.online?.();
-    return (window as any).__game?.ready === true && o?.status === 'online' && o.ticks > 3 && o.lifeLoaded;
-  }, null, { timeout: 60_000 });
 }
 
 /**
@@ -97,7 +91,7 @@ async function standTogether(players: Player[]): Promise<{ x: number; z: number 
   ];
   for (let i = 0; i < players.length; i++) {
     await players[i].page.bringToFront();
-    await players[i].page.evaluate(([x, z, f]) => (window as any).__game.teleport(x, z, f), spots[i]);
+    await players[i].page.evaluate(([x, z, f]) => window.__game.teleport(x, z, f), spots[i]);
   }
   return at;
 }
@@ -128,7 +122,7 @@ async function untitled(page: Page, names: string[]): Promise<string[]> {
 async function move(p: Player, role: 'win' | 'lose', row: number[], last: string): Promise<string> {
   return p.page.evaluate(
     ({ role, row, last, hexes }) => {
-      const g = (window as any).__game;
+      const g = window.__game;
       const dirs = [[1, 0], [1, -1], [0, -1], [-1, 0], [-1, 1], [0, 1]];
       const index = new Map(hexes.map((h: { q: number; r: number }, i: number) => [`${h.q},${h.r}`, i]));
       const near = (i: number) => dirs.map(([dq, dr]) => index.get(`${hexes[i].q + dq},${hexes[i].r + dr}`)).filter((x) => x !== undefined) as number[];
@@ -183,7 +177,7 @@ test('a challenge accepted puts both stakes in the pot, throws a table down for 
   // Ann faces Bea: F offers to challenge her, and opens the challenge window.
   await ann.page.bringToFront();
   await expect.poll(() => game(ann.page, (g) => g.life().focus?.label), { timeout: 60_000 }).toBe(`Challenge ${bea.name}`);
-  await ann.page.evaluate(() => (window as any).__game.pressLife('interact'));
+  await ann.page.evaluate(() => window.__game.pressLife('interact'));
   const challenge = ann.page.locator('#mg-challenge');
   await expect(challenge).toBeVisible();
   // The stakes on offer are the ones Ann can cover: No Stake up to 1 silver, of her 2.
@@ -230,7 +224,7 @@ test('a challenge accepted puts both stakes in the pot, throws a table down for 
   // At the table Ann stays put, whatever she presses.
   await ann.page.bringToFront();
   const seat = (await game(ann.page, (g) => g.state().player.pos)) as { x: number; z: number };
-  await ann.page.evaluate(() => (window as any).__game.scriptInput([[90, { moveX: 0, moveZ: 1, stickY: 1 }]]));
+  await ann.page.evaluate(() => window.__game.scriptInput([[90, { moveX: 0, moveZ: 1, stickY: 1 }]]));
   await expect.poll(() => game(ann.page, (g) => g.net().scriptLeft), { timeout: 60_000 }).toBe(0);
   const after = (await game(ann.page, (g) => g.state().player.pos)) as { x: number; z: number };
   expect(Math.hypot(after.x - seat.x, after.z - seat.z), 'still in her seat').toBeLessThan(0.3);
@@ -271,11 +265,11 @@ test('a challenge accepted puts both stakes in the pot, throws a table down for 
       // Mid-game: Ann's window, and the table as Cal sees it.
       shot = true;
       await ann.page.bringToFront();
-      await ann.page.evaluate(() => (window as any).__game.render());
+      await ann.page.evaluate(() => window.__game.render());
       await ann.page.screenshot({ path: `${SHOTS}/minigames-03-game.png` });
       await cal.page.bringToFront();
-      await cal.page.evaluate(() => (window as any).__game.setCamera({ yaw: Math.PI, pitch: 0.4, distance: 3 }));
-      await cal.page.evaluate(() => (window as any).__game.render());
+      await cal.page.evaluate(() => window.__game.setCamera({ yaw: Math.PI, pitch: 0.4, distance: 3 }));
+      await cal.page.evaluate(() => window.__game.render());
       await cal.page.screenshot({ path: `${SHOTS}/minigames-04-table.png` });
       expect((await game(cal.page, (g) => g.gameTables()))[0].pegs).toBeGreaterThanOrEqual(5);
     }
@@ -306,7 +300,7 @@ test('a declined challenge leaves both purses alone, and conceding hands the pot
   // Bea says no: nothing moves, and Ann hears so.
   await ann.page.bringToFront();
   await expect.poll(() => game(ann.page, (g) => g.life().focus?.action), { timeout: 60_000 }).toBe('challenge');
-  await ann.page.evaluate((id) => (window as any).__game.challenge(id, 100), bea.id);
+  await ann.page.evaluate((id) => window.__game.challenge(id, 100), bea.id);
   await bea.page.bringToFront();
   const invite = bea.page.locator('#mg-invite');
   await expect(invite).toBeVisible({ timeout: 60_000 });
@@ -320,14 +314,14 @@ test('a declined challenge leaves both purses alone, and conceding hands the pot
 
   // Bea challenges Ann instead, who takes it; then Bea thinks better of it: Escape asks, and she concedes.
   await bea.page.bringToFront();
-  await bea.page.evaluate((id) => (window as any).__game.challenge(id, 25), ann.id);
+  await bea.page.evaluate((id) => window.__game.challenge(id, 25), ann.id);
   await ann.page.bringToFront();
   await expect(ann.page.locator('#mg-invite')).toBeVisible({ timeout: 60_000 });
-  await ann.page.evaluate(() => (window as any).__game.answerChallenge(true));
+  await ann.page.evaluate(() => window.__game.answerChallenge(true));
   await bea.page.bringToFront();
   await expect(bea.page.locator('#mg-game')).toBeVisible({ timeout: 60_000 });
   await expect.poll(() => coins(bea), { timeout: 60_000 }).toBe(175);
-  await bea.page.evaluate(() => (window as any).__game.pressLife('escape'));
+  await bea.page.evaluate(() => window.__game.pressLife('escape'));
   const foot = bea.page.locator('#mg-game .mw-foot');
   await expect(foot).toContainText(`Concede the game? ${ann.name} takes the pot.`);
   await foot.locator('[data-act="concede"]').click();

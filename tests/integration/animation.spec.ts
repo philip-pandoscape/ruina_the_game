@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { comboShape } from '../../src/tuning';
+import { gameReady } from '../support/game';
 
 // Its tests share nothing, so they spread across the workers (playwright.config.ts).
 test.describe.configure({ mode: 'parallel' });
@@ -515,9 +516,9 @@ for (const fps of [30, 144]) {
     await page.setViewportSize({ width: 480, height: 270 });
     await page.addInitScript(fixedFrameRate);
     await page.goto('/?world&test');
-    await page.waitForFunction(() => (window as any).__game?.ready === true, null, { timeout: 60_000 });
+    await gameReady(page, 60_000);
     const boarded = await page.evaluate(() => {
-      const g = (window as any).__game;
+      const g = window.__game;
       g.reset();
       g.lifeCommand({ t: 'grant', item: 'deed.rowboat', n: 1 });
       g.advance(1);
@@ -564,8 +565,8 @@ for (const fps of [30, 144]) {
       },
       [legs, fps] as const,
     );
-    const start = await page.evaluate(() => (window as any).__game.state().frame);
-    await page.waitForFunction(([s, n]) => (window as any).__game.state().frame >= s + n, [start, frames] as const, { timeout: 100_000, polling: 250 });
+    const start = await page.evaluate(() => window.__game.state().frame);
+    await page.waitForFunction(([s, n]) => window.__game.state().frame >= s + n, [start, frames] as const, { timeout: 100_000, polling: 250 });
     const gaps = await page.evaluate(() => {
       const w = window as any;
       w.__game.setPaused(true);

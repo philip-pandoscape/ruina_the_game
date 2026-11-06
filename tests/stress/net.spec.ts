@@ -12,8 +12,8 @@ test.skip(!serverBuilt, 'build the server first: cargo build --release --manifes
 test.beforeAll(async () => server.start());
 test.afterAll(() => server.stop());
 
-const crowd = (page: Page) => page.evaluate(() => (window as any).__game.crowd());
-const perf = (page: Page) => page.evaluate(() => (window as any).__game.perf());
+const crowd = (page: Page) => page.evaluate(() => window.__game.crowd());
+const perf = (page: Page) => page.evaluate(() => window.__game.perf());
 
 test('browser draws the battle streamed from the Rust server', { tag: '@gpu' }, async ({ page }) => {
   const errors: string[] = [];
@@ -23,13 +23,13 @@ test('browser draws the battle streamed from the Rust server', { tag: '@gpu' }, 
   page.on('pageerror', (e) => errors.push(String(e)));
 
   await page.goto(`/?server=${encodeURIComponent(SERVER)}&play=0`); // watch without joining
-  await page.waitForFunction(() => (window as any).__game?.crowd()?.fighters > 0);
+  await page.waitForFunction(() => window.__game?.crowd()?.fighters > 0);
   // The once-a-second message tells us about every fighter.
-  await page.waitForFunction(() => { const c = (window as any).__game.crowd(); return c.known >= c.fighters * 0.9; }, null, { timeout: 5000 });
+  await page.waitForFunction(() => { const c = window.__game.crowd(); return c.known >= c.fighters * 0.9; }, null, { timeout: 5000 });
 
   // Stand in the middle of the melee, so the server sends lots of nearby detail.
   await page.evaluate(() => {
-    const g = (window as any).__game;
+    const g = window.__game;
     g.reset({ x: 10, z: -4, facing: 0.4, camYaw: 0.9 });
     g.setCamera({ distance: 9, pitch: 0.35 });
   });
@@ -41,7 +41,7 @@ test('browser draws the battle streamed from the Rust server', { tag: '@gpu' }, 
 
   // Wide view across the battle line.
   await page.evaluate(() => {
-    const g = (window as any).__game;
+    const g = window.__game;
     g.reset({ x: 75, z: 0, facing: -Math.PI / 2, camYaw: -Math.PI / 2 });
     g.setCamera({ distance: 55, pitch: 0.42 });
   });
@@ -59,7 +59,7 @@ test('fallen fighters sink away before respawning: nobody visibly slides across 
   await page.goto(`/?server=${encodeURIComponent(SERVER)}&play=0`);
   await page.waitForFunction(
     () => {
-      const c = (window as any).__game?.crowd();
+      const c = window.__game?.crowd();
       return c && c.fighters > 0 && c.known >= c.fighters * 0.9;
     },
     null,
@@ -67,7 +67,7 @@ test('fallen fighters sink away before respawning: nobody visibly slides across 
   );
   // Watch the battle from above, so plenty of fighters fall and respawn in view.
   await page.evaluate(() => {
-    const g = (window as any).__game;
+    const g = window.__game;
     g.reset({ x: 0, z: -40, facing: 0, camYaw: 0 });
     g.setCamera({ distance: 70, pitch: 0.7 });
   });
@@ -75,7 +75,7 @@ test('fallen fighters sink away before respawning: nobody visibly slides across 
 
   // Check every fighter every frame for 6 seconds.
   const r = await page.evaluate(async () => {
-    const g = (window as any).__game;
+    const g = window.__game;
     const n: number = g.crowd().fighters;
     const fast = new Float32Array(n); // distance covered in the current run of very fast frames
     const counted = new Uint8Array(n);

@@ -2,6 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { emptyMovement, HOTBAR_SLOTS, NO_ABILITY, type Build } from '../../src/tuning';
 import { skillsFrom } from '../../src/skills';
 import { serverBuilt, TestServer } from '../support/testServer';
+import { gameReady } from '../support/game';
 
 // Monsters on a live server. The rules for them run in Rust, the browser only draws what it is
 // told, and the behaviour both sides interpret is the same shared/behaviours.json that
@@ -28,13 +29,13 @@ const join = async (page: Page) => {
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
   page.on('pageerror', (e) => errors.push(String(e)));
   await page.goto(`/?server=${encodeURIComponent(server.url)}&team=0`);
-  await page.waitForFunction(() => (window as any).__game?.ready === true);
-  await page.evaluate((b) => (window as any).__game.setBuild(b), SWORD);
+  await gameReady(page);
+  await page.evaluate((b) => window.__game.setBuild(b), SWORD);
   return errors;
 };
-const actors = (page: Page) => page.evaluate(() => ((window as any).__game.netActors?.() ?? []) as NetActor[]);
+const actors = (page: Page) => page.evaluate(() => (window.__game.netActors?.() ?? []) as NetActor[]);
 const seeActors = (page: Page, atLeast = 1) =>
-  page.waitForFunction((n) => (((window as any).__game.netActors?.() ?? []) as unknown[]).length >= n, atLeast, { timeout: 15_000, polling: 'raf' });
+  page.waitForFunction((n) => ((window.__game.netActors?.() ?? []) as unknown[]).length >= n, atLeast, { timeout: 15_000, polling: 'raf' });
 
 test('the server streams its monsters to a player who joins', async ({ page }) => {
   const errors = await join(page);
@@ -60,7 +61,7 @@ test('they move, and the browser is told which animation they are playing', asyn
   // Over a couple of seconds the server should have hopped at least one of them somewhere else.
   await page.waitForFunction(
     (before) => {
-      const now = ((window as any).__game.netActors?.() ?? []) as Array<{ id: number; x: number; z: number }>;
+      const now = (window.__game.netActors?.() ?? []) as Array<{ id: number; x: number; z: number }>;
       return now.some((a) => {
         const was = (before as Record<string, [number, number]>)[a.id];
         return was && Math.hypot(a.x - was[0], a.z - was[1]) > 0.3;
@@ -91,7 +92,7 @@ test('between the server updates they are drawn moving, not jumping from one to 
   await seeActors(page);
   // Every drawn frame for two seconds: the server's update count, and where each one is drawn.
   const frames = await page.evaluate(async () => {
-    const g = (window as any).__game;
+    const g = window.__game;
     const out: Array<{ snap: number; at: Record<number, [number, number]> }> = [];
     const t0 = performance.now();
     while (performance.now() - t0 < 2000) {
@@ -128,7 +129,7 @@ test('a hit sparks and flashes the slime the moment the swing lands, and the ser
   await join(page);
   await seeActors(page);
   const seen = await page.evaluate(async () => {
-    const g = (window as any).__game;
+    const g = window.__game;
     type Shown = { id: number; x: number; z: number; deadFrame: number; flash: number };
     const near = () => {
       const me = g.state().player.pos;
@@ -172,7 +173,7 @@ test('a player can kill one, and everyone sees it go down', async ({ page }) => 
 
   // Walk at the nearest one and keep swinging until something dies.
   const killed = await page.evaluate(async () => {
-    const g = (window as any).__game;
+    const g = window.__game;
     const near = () => {
       const list = (g.netActors?.() ?? []) as Array<{ id: number; x: number; z: number; hp: number; deadFrame: number }>;
       const me = g.state().player.pos;
@@ -206,7 +207,7 @@ test('hit one and it fights back: the server lands its slam on you', async ({ pa
 
   // Walk up to the nearest one, hit it once, then stand there and let it come for you.
   const hurt = await page.evaluate(async () => {
-    const g = (window as any).__game;
+    const g = window.__game;
     const near = () => {
       const list = (g.netActors?.() ?? []) as Array<{ id: number; x: number; z: number; deadFrame: number }>;
       const me = g.state().player.pos;

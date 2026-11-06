@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { SLIDE_SKILL, WEAPONS } from '../../src/tuning';
+import { gameReady } from '../support/game';
 
 // Sliding is an action state now, not a mode of its own.
 const sliding = (p: { mode: string; actionId: number }) => p.mode === 'action' && p.actionId === SLIDE_SKILL;
@@ -30,21 +31,21 @@ async function open(page: Page): Promise<string[]> {
   });
   page.on('pageerror', (e) => errors.push(String(e)));
   await page.goto('/?test');
-  await page.waitForFunction(() => (window as any).__game?.ready === true);
+  await gameReady(page);
   return errors;
 }
 
-const reset = (page: Page, opts: ResetOpts = {}) => page.evaluate((o) => (window as any).__game.reset(o), opts);
+const reset = (page: Page, opts: ResetOpts = {}) => page.evaluate((o) => window.__game.reset(o), opts);
 const advance = (page: Page, frames: number, actions: Actions = {}) =>
-  page.evaluate(([n, a]) => (window as any).__game.advance(n, a), [frames, actions] as const);
-const advanceLive = (page: Page, frames: number) => page.evaluate((n) => (window as any).__game.advanceLive(n), frames);
-const state = (page: Page) => page.evaluate(() => (window as any).__game.state());
-const events = (page: Page) => page.evaluate(() => (window as any).__game.events());
+  page.evaluate(([n, a]) => window.__game.advance(n, a), [frames, actions] as const);
+const advanceLive = (page: Page, frames: number) => page.evaluate((n) => window.__game.advanceLive(n), frames);
+const state = (page: Page) => page.evaluate(() => window.__game.state());
+const events = (page: Page) => page.evaluate(() => window.__game.events());
 
 // Runs a script of [frames, actions] and returns the highest point the player reached.
 const peakHeight = (page: Page, script: Script) =>
   page.evaluate((s) => {
-    const g = (window as any).__game;
+    const g = window.__game;
     g.reset();
     let maxY = 0;
     for (const [frames, actions] of s) {
@@ -61,7 +62,7 @@ test('loads and renders the scene without errors', async ({ page }) => {
   await reset(page);
   await advance(page, 30);
   await page.screenshot({ path: `${SHOTS}/01-overview.png` });
-  const perf = await page.evaluate(() => (window as any).__game.perf());
+  const perf = await page.evaluate(() => window.__game.perf());
   console.log('render stats', perf);
   expect(perf.drawCalls).toBeGreaterThan(10);
   expect(errors).toEqual([]);
@@ -121,7 +122,7 @@ test('three-hit combo lands every hit on the dummy', async ({ page }) => {
   const errors = await open(page);
   await reset(page, { x: 0, z: 1.6, facing: 0, camYaw: 0.5 });
   const result = await page.evaluate(() => {
-    const g = (window as any).__game;
+    const g = window.__game;
     for (let f = 0; f < 100; f++) g.advance(1, { attackPressed: f === 0 || f === 8 || f === 20 });
     return { hits: g.events().filter((e: any) => e.type === 'hit'), hp: g.state().dummy.hp };
   });
@@ -136,7 +137,7 @@ test('three-hit combo lands every hit on the dummy', async ({ page }) => {
   await page.screenshot({ path: `${SHOTS}/04-slash-1.png` });
   await reset(page, { x: 0, z: 1.6, facing: 0, camYaw: 0.5 });
   await page.evaluate(() => {
-    const g = (window as any).__game;
+    const g = window.__game;
     for (let f = 0; f < 100; f++) {
       g.advance(1, { attackPressed: f === 0 || f === 8 || f === 20 });
       const p = g.state().player;
@@ -191,7 +192,7 @@ test('Xbox controller: sticks and A/B/X work, rumble fires on hit', async ({ pag
   let s = await state(page);
   expect(s.player.pos.x).toBeGreaterThan(LANE.x + 1.5);
   expect(Math.abs(s.player.pos.z - LANE.z)).toBeLessThan(0.2);
-  expect(await page.evaluate(() => (window as any).__game.device())).toBe('gamepad');
+  expect(await page.evaluate(() => window.__game.device())).toBe('gamepad');
 
   // A = jump
   await tap(0);
@@ -217,11 +218,11 @@ test('Xbox controller: sticks and A/B/X work, rumble fires on hit', async ({ pag
   expect(rumbles).toBeGreaterThan(0);
 
   // Right stick turns the camera.
-  const yawBefore = await page.evaluate(() => (window as any).__game.camera().yaw);
+  const yawBefore = await page.evaluate(() => window.__game.camera().yaw);
   await setAxis(2, 1);
   await advanceLive(page, 30);
   await setAxis(2, 0);
-  const yawAfter = await page.evaluate(() => (window as any).__game.camera().yaw);
+  const yawAfter = await page.evaluate(() => window.__game.camera().yaw);
   expect(yawAfter).toBeLessThan(yawBefore - 0.5);
 
   await page.screenshot({ path: `${SHOTS}/06-controller-hud.png` });
@@ -245,7 +246,7 @@ test('keyboard: WASD moves, Space jumps', async ({ page }) => {
 
 test('keyboard: C crouches standing still, slides on the run and crouches after; K slides; C in the air never slides on landing', async ({ page }) => {
   const errors = await open(page);
-  const slides = () => page.evaluate((id) => (window as any).__game.events().filter((e: any) => e.type === 'action' && e.id === id).length, SLIDE_SKILL);
+  const slides = () => page.evaluate((id) => window.__game.events().filter((e: any) => e.type === 'action' && e.id === id).length, SLIDE_SKILL);
   // Standing still: down into a crouch, and no slide.
   await reset(page, LANE);
   await page.keyboard.down('KeyC');
@@ -287,7 +288,7 @@ test('keyboard: C crouches standing still, slides on the run and crouches after;
   await page.keyboard.up('Space');
   // A frame at a time in the page, drawn only at the end.
   await page.evaluate(() => {
-    const g = (window as any).__game;
+    const g = window.__game;
     for (let i = 0; i < 30; i++) {
       const q = g.state().player;
       if (q.vel.y < 0 && q.pos.y < 0.45) break;
@@ -298,7 +299,7 @@ test('keyboard: C crouches standing still, slides on the run and crouches after;
   const before = await slides();
   await page.keyboard.down('KeyC');
   const landed = await page.evaluate(() => {
-    const g = (window as any).__game;
+    const g = window.__game;
     for (let i = 0; i < 40; i++) {
       g.advanceLive(1, false);
       if (g.state().player.grounded) return true;
@@ -317,11 +318,11 @@ test('keyboard: C crouches standing still, slides on the run and crouches after;
 test('performance snapshot while running live', async ({ page }) => {
   const errors = await open(page);
   await reset(page);
-  await page.evaluate(() => (window as any).__game.setPaused(false));
+  await page.evaluate(() => window.__game.setPaused(false));
   await page.keyboard.down('KeyD');
   await page.waitForTimeout(3000);
   await page.keyboard.up('KeyD');
-  const perf = await page.evaluate(() => (window as any).__game.perf());
+  const perf = await page.evaluate(() => window.__game.perf());
   console.log('live perf (headless browser)', perf);
   expect(perf.drawCalls).toBeLessThan(300);
   expect(errors).toEqual([]);

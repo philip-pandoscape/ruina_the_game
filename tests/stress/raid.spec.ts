@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { gameReady } from '../support/game';
 
 // Raid stress test: thousands of fighters charging and fighting, measured live in the browser.
 
@@ -11,18 +12,18 @@ async function openRaid(page: Page, query: string): Promise<string[]> {
   });
   page.on('pageerror', (e) => errors.push(String(e)));
   await page.goto(`/?${query}`);
-  await page.waitForFunction(() => (window as any).__game?.ready === true);
+  await gameReady(page);
   return errors;
 }
 
-const perf = (page: Page) => page.evaluate(() => (window as any).__game.perf());
-const crowd = (page: Page) => page.evaluate(() => (window as any).__game.crowd());
+const perf = (page: Page) => page.evaluate(() => window.__game.perf());
+const crowd = (page: Page) => page.evaluate(() => window.__game.crowd());
 
 // Puts the player at the east edge of the battle line, camera looking west across it.
 async function sideView(page: Page, distance: number, pitch: number): Promise<void> {
   await page.evaluate(
     ([d, p]) => {
-      const g = (window as any).__game;
+      const g = window.__game;
       g.reset({ x: 75, z: 0, facing: -Math.PI / 2, camYaw: -Math.PI / 2 });
       g.setCamera({ distance: d, pitch: p });
     },
@@ -44,7 +45,7 @@ test('10,000 fighters: armies clash, fighters fall, frame rate holds', { tag: '@
 
   // Close-up in the middle of the melee.
   await page.evaluate(() => {
-    const g = (window as any).__game;
+    const g = window.__game;
     g.reset({ x: 12, z: -4, facing: 0.4, camYaw: 0.9 });
     g.setCamera({ distance: 9, pitch: 0.35 });
   });

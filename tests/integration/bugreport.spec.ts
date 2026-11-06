@@ -3,6 +3,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, readdirSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { gameReady } from '../support/game';
 
 // In-game bug reports (src/app/bugs/, tools/bugReports.ts, tools/bugs.mjs). \ starts a report and
 // \ again saves it through the dev server, which is what these tests press. The whole path runs:
@@ -117,13 +118,13 @@ async function open(page: Page): Promise<string[]> {
   });
   await page.addInitScript(standIns, VOICE);
   await page.goto('/?world&test&bugs&buglang=en-GB');
-  await page.waitForFunction(() => (window as any).__game?.ready === true, null, { timeout: 60_000 });
-  await page.evaluate(() => (window as any).__game.reset());
+  await gameReady(page, 60_000);
+  await page.evaluate(() => window.__game.reset());
   return errors;
 }
 
-const status = (page: Page) => page.evaluate(() => ((window as any).__game as Game).bugs());
-const advance = (page: Page, frames: number, a: Record<string, unknown> = {}) => page.evaluate(([n, x]) => (window as any).__game.advance(n, x), [frames, a] as const);
+const status = (page: Page) => page.evaluate(() => (window.__game as Game).bugs());
+const advance = (page: Page, frames: number, a: Record<string, unknown> = {}) => page.evaluate(([n, x]) => window.__game.advance(n, x), [frames, a] as const);
 
 /** Plays for about `ms` of real time: the reporter keeps history by the clock, not by frames. */
 async function play(page: Page, ms: number, a: Record<string, unknown>): Promise<void> {
@@ -142,7 +143,7 @@ test('a bug report keeps the moments before the key, records the voice, and save
   // Walk north for a while: that is the history the report should start with.
   await play(page, 2500, { moveZ: 1, stickY: 1 });
   expect((await status(page)).framesBuffered).toBeGreaterThan(5);
-  const atPress = await page.evaluate(() => (window as any).__game.state().player.pos);
+  const atPress = await page.evaluate(() => window.__game.state().player.pos);
 
   await page.keyboard.press('Backslash');
   await expect.poll(async () => (await advance(page, 1), (await status(page)).phase), { timeout: 10_000 }).toBe('recording');
@@ -155,7 +156,7 @@ test('a bug report keeps the moments before the key, records the voice, and save
   await expect
     .poll(
       async () => {
-        await page.evaluate(() => (window as any).__game.render());
+        await page.evaluate(() => window.__game.render());
         return (await status(page)).lastSaved;
       },
       { timeout: 30_000 },

@@ -2,6 +2,9 @@ import { expect, test, type Page } from '@playwright/test';
 import { skillsFrom } from '../../src/skills';
 import { emptyMovement, HOTBAR_SLOTS, NO_ABILITY } from '../../src/tuning';
 import { isTitleCase } from '../../src/ui/theme/text';
+import type { Command } from '../../src/sim/life/life';
+import type { LifePress } from '../../src/ui/life/lifeUI';
+import { gameReady } from '../support/game';
 
 // Its tests share nothing, so they spread across the workers (playwright.config.ts).
 test.describe.configure({ mode: 'parallel' });
@@ -19,20 +22,20 @@ async function open(page: Page): Promise<string[]> {
     if (m.type() === 'error') errors.push(m.text());
   });
   await page.goto('/?world&test');
-  await page.waitForFunction(() => (window as any).__game?.ready === true, null, { timeout: 60_000 });
-  await page.evaluate(() => (window as any).__game.reset());
+  await gameReady(page, 60_000);
+  await page.evaluate(() => window.__game.reset());
   return errors;
 }
 
 const game = (page: Page) => ({
-  advance: (n: number) => page.evaluate((k) => (window as any).__game.advance(k), n),
-  press: (k: string) => page.evaluate((x) => (window as any).__game.pressLife(x), k),
-  close: () => page.evaluate(() => (window as any).__game.closeLifePanel()),
-  cmd: (c: Record<string, unknown>) => page.evaluate((x) => (window as any).__game.lifeCommand(x), c),
-  life: () => page.evaluate(() => (window as any).__game.life()),
-  panel: () => page.evaluate(() => (window as any).__game.lifePanel()),
-  zone: () => page.evaluate(() => (window as any).__game.zone()),
-  teleport: (x: number, z: number, facing: number) => page.evaluate(([a, b, c]) => (window as any).__game.teleport(a, b, c), [x, z, facing] as const),
+  advance: (n: number) => page.evaluate((k) => window.__game.advance(k), n),
+  press: (k: LifePress) => page.evaluate((x) => window.__game.pressLife(x), k),
+  close: () => page.evaluate(() => window.__game.closeLifePanel()),
+  cmd: (c: Command) => page.evaluate((x) => window.__game.lifeCommand(x), c),
+  life: () => page.evaluate(() => window.__game.life()),
+  panel: () => page.evaluate(() => window.__game.lifePanel()),
+  zone: () => page.evaluate(() => window.__game.zone()),
+  teleport: (x: number, z: number, facing: number) => page.evaluate(([a, b, c]) => window.__game.teleport(a, b, c), [x, z, facing] as const),
 });
 
 /** Stands 1.6 m in front of an NPC, facing them. */
@@ -70,7 +73,7 @@ test('labels in every window are in Title Case', async ({ page }) => {
   await g.advance(2);
   const bad: string[] = [];
   bad.push(...(await untitled(page)));
-  for (const k of ['bag', 'character', 'quests', 'garage', 'settings', 'dev']) {
+  for (const k of ['bag', 'character', 'quests', 'garage', 'settings', 'dev'] as const) {
     await g.press(k);
     await g.advance(2);
     bad.push(...(await untitled(page)).map((l) => `${k}: ${l}`));
@@ -158,7 +161,7 @@ test('a merchant buys from your bag on a double-click', async ({ page }) => {
 test('the minimap arrow points the way you face', async ({ page }) => {
   await open(page);
   const g = game(page);
-  const { x, z } = (await page.evaluate(() => (window as any).__game.state().player)).pos;
+  const { x, z } = (await page.evaluate(() => window.__game.state().player)).pos;
   // Red under the centre of the minimap, where the arrow's tip is, when the arrow points that way.
   const tipRed = (dx: number, dy: number) =>
     page.evaluate(
@@ -231,9 +234,9 @@ test('the person you talk to looks out of the window, which starts its text belo
 test('your portrait stays as it is: running, swinging, crouching and night falling leave it be; another weapon takes a new one', async ({ page }) => {
   const errors = await open(page);
   const g = game(page);
-  const portrait = (who = 'player') => page.evaluate((k) => (window as any).__game.portrait(k), who) as Promise<{ url: string; taken: number }>;
+  const portrait = (who = 'player') => page.evaluate((k) => window.__game.portrait(k), who) as Promise<{ url: string; taken: number }>;
   // The new look's hero model arrives after the page; the studio rightly takes you again then.
-  await page.waitForFunction(() => (window as any).__game.assetsReady === true, null, { timeout: 60_000 });
+  await page.waitForFunction(() => window.__game.assetsReady === true, null, { timeout: 60_000 });
   await g.advance(2);
   const face = await portrait();
   const body = await portrait('body');
@@ -247,22 +250,22 @@ test('your portrait stays as it is: running, swinging, crouching and night falli
     expect((await portrait('body')).url === body.url, `${doing}: the same body`).toBe(true);
     expect(now.taken, `${doing}: nothing taken again`).toBe(body.taken);
   };
-  await page.evaluate(() => (window as any).__game.advance(40, { moveZ: 1, sprintHeld: true }));
+  await page.evaluate(() => window.__game.advance(40, { moveZ: 1, sprintHeld: true }));
   await same('running');
   await page.evaluate(() => {
-    const game = (window as any).__game;
+    const game = window.__game;
     game.advance(1, { attackPressed: true });
     game.advance(6);
   });
-  expect((await page.evaluate(() => (window as any).__game.state().player.mode))).toBe('attack');
+  expect((await page.evaluate(() => window.__game.state().player.mode))).toBe('attack');
   await same('swinging');
-  await page.evaluate(() => (window as any).__game.advance(20, { crouchHeld: true }));
+  await page.evaluate(() => window.__game.advance(20, { crouchHeld: true }));
   await same('crouching');
-  await page.evaluate(() => (window as any).__game.setCamera({ yaw: 2.5, pitch: 0.2, distance: 5 }));
-  const hour = (await page.evaluate(() => (window as any).__game.dayHour())) as number;
+  await page.evaluate(() => window.__game.setCamera({ yaw: 2.5, pitch: 0.2, distance: 5 }));
+  const hour = (await page.evaluate(() => window.__game.dayHour())) as number;
   await g.cmd({ t: 'warp', seconds: Math.round((((23 - hour + 24) % 24) * 1800) / 24) });
   await g.advance(2);
-  expect(await page.evaluate(() => (window as any).__game.dayHour())).toBeGreaterThan(22);
+  expect(await page.evaluate(() => window.__game.dayHour())).toBeGreaterThan(22);
   await same('at night');
   // It's a picture of you, in the colours you're drawn in: a clear sky behind (as bright as it
   // should be, not the darker numbers a picture left unconverted would have), you in the middle.
@@ -289,12 +292,12 @@ test('your portrait stays as it is: running, swinging, crouching and night falli
   expect(look.sky).toBeLessThan(0.1);
   // A new weapon is a new picture; back to the sword, the one from before.
   const club = { skills: skillsFrom('sword', 'club'), weapon: 1, abilities: new Array(HOTBAR_SLOTS).fill(NO_ABILITY), movement: emptyMovement() };
-  expect(await page.evaluate((b) => (window as any).__game.setBuild(b), club)).toBe(true);
+  expect(await page.evaluate((b) => window.__game.setBuild(b), club)).toBe(true);
   await g.advance(1);
   const clubBody = await portrait('body');
   expect(clubBody.url === body.url).toBe(false);
   expect(clubBody.taken).toBeGreaterThan(body.taken);
-  expect(await page.evaluate((b) => (window as any).__game.setBuild(b), { ...club, weapon: 0 })).toBe(true);
+  expect(await page.evaluate((b) => window.__game.setBuild(b), { ...club, weapon: 0 })).toBe(true);
   await g.advance(1);
   expect((await portrait('body')).url === body.url).toBe(true);
   expect(errors).toEqual([]);
@@ -374,7 +377,7 @@ test('a window that closes itself after a click gives the mouse back to the came
   for (const [item, n] of [['sunroot', 24], ['barley', 16], ['deed.farmCart', 1]] as const) await g.cmd({ t: 'grant', item, n });
   await g.advance(2);
   // The game running on its own, so the keys go through it as they do in play.
-  await page.evaluate(() => (window as any).__game.setPaused(false));
+  await page.evaluate(() => window.__game.setPaused(false));
   const mouse = () => page.evaluate(() => (document.pointerLockElement ? 'camera' : 'free'));
   const capture = async () => {
     await page.mouse.click(640, 300);
@@ -398,14 +401,14 @@ test('a window that closes itself after a click gives the mouse back to the came
   await make.click();
   await expect.poll(g.panel).toBeNull();
   await expect.poll(mouse).toBe('camera');
-  expect(await page.evaluate(() => (window as any).__game.state().player.pack)).toBeGreaterThan(0);
+  expect(await page.evaluate(() => window.__game.state().player.pack)).toBeGreaterThan(0);
 
   // With the bag open beside the workbench, the bag stays when the workbench closes, and keeps the
   // mouse. Closing the bag yourself (Escape) leaves it free. (The pack is set down away from the
   // bench, where F would pick it up again.)
   await g.teleport(wb.x + 12, wb.z + 12, Math.PI);
   await page.keyboard.press('KeyX');
-  await expect.poll(() => page.evaluate(() => (window as any).__game.state().player.pack)).toBe(0);
+  await expect.poll(() => page.evaluate(() => window.__game.state().player.pack)).toBe(0);
   await g.teleport(wb.x, wb.z + 2, Math.PI);
   await page.keyboard.press('KeyF');
   await expect.poll(g.panel).toBe('craft');
@@ -452,7 +455,7 @@ test('on a controller, packing at the workbench still closes it and leaves the m
   const g = game(page);
   for (const [item, n] of [['sunroot', 12], ['barley', 8]] as const) await g.cmd({ t: 'grant', item, n });
   await g.advance(2);
-  await page.evaluate(() => (window as any).__game.setPaused(false));
+  await page.evaluate(() => window.__game.setPaused(false));
   const PAD = { A: 0, B: 1, Y: 3, MENU: 9, DOWN: 13 };
   // A press lasts two frames as well as 60 ms, and so does the gap after it: the game reads the pad
   // once a frame, and a slow frame (other test pages drawing at the same time) mustn't swallow it.
@@ -477,7 +480,7 @@ test('on a controller, packing at the workbench still closes it and leaves the m
   }
   await tap(PAD.A);
   await expect.poll(g.panel).toBeNull();
-  expect(await page.evaluate(() => (window as any).__game.state().player.pack)).toBeGreaterThan(0);
+  expect(await page.evaluate(() => window.__game.state().player.pack)).toBeGreaterThan(0);
   await page.waitForTimeout(300);
   expect(await page.evaluate(() => document.pointerLockElement)).toBeNull();
   await tap(PAD.MENU);

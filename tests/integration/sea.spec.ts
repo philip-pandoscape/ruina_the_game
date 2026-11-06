@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { gameReady } from '../support/game';
 
 // The sea along the shore. Its foam is drawn by how deep the water is under each point, so it
 // depends on the point being where it really is: drawn as one 9 km sheet, the positions the GPU
@@ -7,11 +8,11 @@ import { expect, test } from '@playwright/test';
 
 test('the foam round a lagoon holds still as the camera turns @gpu', async ({ page }) => {
   await page.goto('/?world&test');
-  await page.waitForFunction(() => (window as any).__game?.ready === true, null, { timeout: 60_000 });
+  await gameReady(page, 60_000);
   // On the Windspire's shoulder, looking down over the island to the lagoon on the west coast, the
   // camera turns a fifth of a degree a frame, as a slow pan with the mouse does.
   const counts = await page.evaluate(() => {
-    const g = (window as any).__game;
+    const g = window.__game;
     g.reset();
     g.teleport(24, 264);
     const out: number[] = [];

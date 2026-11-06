@@ -2,6 +2,8 @@ import { expect, test, type Browser, type BrowserContext, type Page } from '@pla
 import { ABILITIES, comboFor, emptyMovement, HOTBAR_SLOTS, NO_ABILITY, SLIDE_SKILL, type Build, WEAPONS } from '../../src/tuning';
 import { ADJACENT, emptySkills, LEVEL_XP, resolveSkills, SKILL_POINTS, skillCount, skillIndex, skillsFrom, soundTree, START_POINTS, withSkill } from '../../src/skills';
 import { serverBuilt, TestServer } from '../support/testServer';
+import type { Command } from '../../src/sim/life/life';
+import { gameReady } from '../support/game';
 
 // The classless skill system: the skill panel, every weapon and ability in the training yard, and
 // the same things online, where the server decides what hits.
@@ -49,16 +51,16 @@ function watchErrors(page: Page): string[] {
   return errors;
 }
 
-const game = (page: Page) => page.evaluate(() => (window as any).__game.build());
+const game = (page: Page) => page.evaluate(() => window.__game.build());
 
 // ---------- The skill tree and the skill book ----------
 
-const panelState = (page: Page) => page.evaluate(() => (window as any).__game.panel());
+const panelState = (page: Page) => page.evaluate(() => window.__game.panel());
 
 test('skill tree: plan the way to a skill, learn it, give it back, and the build is remembered', async ({ page }) => {
   const errors = watchErrors(page);
   await page.goto('/?yard');
-  await page.waitForFunction(() => (window as any).__game?.ready === true);
+  await gameReady(page);
   const left = page.locator('#skills .st-chip b').first();
   const note = page.locator('#skills .st-note');
   const learn = page.locator('#skills [data-act="learn"]');
@@ -121,7 +123,7 @@ test('skill tree: plan the way to a skill, learn it, give it back, and the build
   await page.keyboard.press('Escape');
   await expect(page.locator('#skills')).toBeHidden();
   await page.reload();
-  await page.waitForFunction(() => (window as any).__game?.ready === true);
+  await gameReady(page);
   expect((await game(page)).using).toEqual(build(['sword', 'cleave', 'whirlwind'], 0));
   expect(errors).toEqual([]);
 });
@@ -129,8 +131,8 @@ test('skill tree: plan the way to a skill, learn it, give it back, and the build
 test('skill book: every skill with its level, equip a weapon, put an ability on the bar', async ({ page }) => {
   const errors = watchErrors(page);
   await page.goto('/?yard');
-  await page.waitForFunction(() => (window as any).__game?.ready === true);
-  await page.evaluate((b) => (window as any).__game.setBuild(b), build(['sword', 'club', 'heal', 'dodgeRoll'], 0));
+  await gameReady(page);
+  await page.evaluate((b) => window.__game.setBuild(b), build(['sword', 'club', 'heal', 'dodgeRoll'], 0));
   await page.keyboard.press('KeyT');
   const book = page.locator('#skills .sb');
   await expect(book).toBeVisible();
@@ -178,8 +180,8 @@ test('skill book and tree with a controller: View opens the book, A equips, a bu
   });
   const errors = watchErrors(page);
   await page.goto('/?yard');
-  await page.waitForFunction(() => (window as any).__game?.ready === true);
-  await page.evaluate((b) => (window as any).__game.setBuild(b), build(['sword', 'club'], 0));
+  await gameReady(page);
+  await page.evaluate((b) => window.__game.setBuild(b), build(['sword', 'club'], 0));
   // A press lasts at least 60 ms and two frames, so a slow frame (the first time a panel is drawn,
   // in a software-drawn browser) can't swallow it.
   const frames = (n: number) => page.evaluate((n) => new Promise<void>((done) => { const f = () => (--n <= 0 ? done() : requestAnimationFrame(f)); requestAnimationFrame(f); }), n);
@@ -204,7 +206,7 @@ test('skill book and tree with a controller: View opens the book, A equips, a bu
   // A bumper turns to the tree. A plans the way to the focused node, Y learns it.
   await tap(RB);
   await expect(page.locator('#skills .st')).toBeVisible();
-  await page.evaluate(() => (window as any).__game.panelFocus({ node: 'heal' }));
+  await page.evaluate(() => window.__game.panelFocus({ node: 'heal' }));
   await tap(A);
   expect((await panelState(page)).plan).toEqual(['heal']);
   await tap(Y);
@@ -215,7 +217,7 @@ test('skill book and tree with a controller: View opens the book, A equips, a bu
   await tap(B);
   await expect(page.locator('#skills')).toBeHidden();
   // Closing with B didn't make the fighter slide.
-  expect(await page.evaluate(() => (window as any).__game.state().player.actionId)).not.toBe(SLIDE_SKILL);
+  expect(await page.evaluate(() => window.__game.state().player.actionId)).not.toBe(SLIDE_SKILL);
   expect(errors).toEqual([]);
 });
 
@@ -225,42 +227,42 @@ test('island: the tree spends points earned from quests, and the sword levels up
   test.setTimeout(180_000);
   const errors = watchErrors(page);
   await page.goto('/?world&test');
-  await page.waitForFunction(() => (window as any).__game?.ready === true, null, { timeout: 90_000 });
-  await page.evaluate(() => (window as any).__game.reset());
-  const skillsNow = () => page.evaluate(() => (window as any).__game.skills());
-  const cmd = (c: Record<string, unknown>) => page.evaluate((x) => (window as any).__game.lifeCommand(x), c);
-  const advance = (n: number, a: Record<string, unknown> = {}) => page.evaluate(([k, x]) => (window as any).__game.advance(k, x), [n, a] as const);
+  await gameReady(page, 90_000);
+  await page.evaluate(() => window.__game.reset());
+  const skillsNow = () => page.evaluate(() => window.__game.skills());
+  const cmd = (c: Command) => page.evaluate((x) => window.__game.lifeCommand(x), c);
+  const advance = (n: number, a: Record<string, unknown> = {}) => page.evaluate(([k, x]) => window.__game.advance(k, x), [n, a] as const);
 
   // A new character has Sword Training and one point to spend.
   expect((await skillsNow()).budget).toBe(START_POINTS);
-  expect(await page.evaluate(() => (window as any).__game.learnNode('cleave'))).toBe(true);
+  expect(await page.evaluate(() => window.__game.learnNode('cleave'))).toBe(true);
   expect((await skillsNow()).left).toBe(0);
-  expect(await page.evaluate(() => (window as any).__game.learnNode('club'))).toBe(false);
+  expect(await page.evaluate(() => window.__game.learnNode('club'))).toBe(false);
   await expect(page.locator('#skills .st-note')).toContainText('needs 1 point');
   // A whole build is held to the same points: the server would turn this one down.
-  expect(await page.evaluate((b) => (window as any).__game.setBuild(b), build(['sword', 'cleave', 'club'], 0))).toBe(false);
+  expect(await page.evaluate((b) => window.__game.setBuild(b), build(['sword', 'cleave', 'club'], 0))).toBe(false);
   // Finishing Landfall earns another.
-  await page.evaluate(() => (window as any).__game.skillPanel(false));
-  const hollis = (await page.evaluate(() => (window as any).__game.zone())).npcs.find((n: { id: string }) => n.id === 'hollis');
-  await page.evaluate(([x, z, f]) => (window as any).__game.teleport(x, z, f), [hollis.x + Math.sin(hollis.facing) * 2.2, hollis.z + Math.cos(hollis.facing) * 2.2, hollis.facing + Math.PI] as const);
+  await page.evaluate(() => window.__game.skillPanel(false));
+  const hollis = (await page.evaluate(() => window.__game.zone())).npcs.find((n: { id: string }) => n.id === 'hollis');
+  await page.evaluate(([x, z, f]) => window.__game.teleport(x, z, f), [hollis.x + Math.sin(hollis.facing) * 2.2, hollis.z + Math.cos(hollis.facing) * 2.2, hollis.facing + Math.PI] as const);
   await advance(2);
   await cmd({ t: 'interact' });
   await advance(2);
   await cmd({ t: 'complete', quest: 'landfall' });
   await advance(2);
   expect((await skillsNow()).budget).toBe(START_POINTS + 1);
-  await page.evaluate(() => (window as any).__game.closeLifePanel());
-  expect(await page.evaluate(() => (window as any).__game.learnNode('club'))).toBe(true);
-  await page.evaluate(() => (window as any).__game.skillPanel(false));
+  await page.evaluate(() => window.__game.closeLifePanel());
+  expect(await page.evaluate(() => window.__game.learnNode('club'))).toBe(true);
+  await page.evaluate(() => window.__game.skillPanel(false));
 
   // On the meadow, every hit the sword lands trains it, until it reaches level 2.
-  const meadow = (await page.evaluate(() => (window as any).__game.zone())).places.find((p: { id: string }) => p.id === 'meadow');
-  await page.evaluate(([x, z]) => (window as any).__game.teleport(x, z, 0), [meadow.x, meadow.z] as const);
-  await page.evaluate((b) => (window as any).__game.setBuild(b), build(['sword', 'cleave', 'club'], 0));
+  const meadow = (await page.evaluate(() => window.__game.zone())).places.find((p: { id: string }) => p.id === 'meadow');
+  await page.evaluate(([x, z]) => window.__game.teleport(x, z, 0), [meadow.x, meadow.z] as const);
+  await page.evaluate((b) => window.__game.setBuild(b), build(['sword', 'cleave', 'club'], 0));
   await advance(30);
   for (let round = 0; round < 150 && ((await skillsNow()).xp.sword ?? 0) < LEVEL_XP[1]; round++) {
     await page.evaluate(() => {
-      const g = (window as any).__game;
+      const g = window.__game;
       const p = g.state().player.pos;
       const slimes = g.actors().filter((a: { alive: boolean; kind: string }) => a.alive && /slime/.test(a.kind));
       slimes.sort((a: { x: number; z: number }, b: { x: number; z: number }) => Math.hypot(a.x - p.x, a.z - p.z) - Math.hypot(b.x - p.x, b.z - p.z));
@@ -280,7 +282,7 @@ test('island: the tree spends points earned from quests, and the sword levels up
   expect(after.levels.club).toBe(1);
   await expect(page.locator('#lui-toasts')).toContainText('Sword reached level 2');
   // The book shows it, and the sword hits harder for it.
-  await page.evaluate(() => (window as any).__game.selectBook('sword'));
+  await page.evaluate(() => window.__game.selectBook('sword'));
   await expect(page.locator('#skills .sd-lv')).toHaveText(/Level 2/i);
   expect(errors).toEqual([]);
 });
@@ -291,18 +293,18 @@ test('island: a kept build the island has not earned the points for falls back t
   // A build tried out in the training yard, kept in this browser.
   const tried = build(['sword', 'cleave', 'whirlwind', 'club'], 1);
   await page.goto('/?yard');
-  await page.waitForFunction(() => (window as any).__game?.ready === true);
-  expect(await page.evaluate((b) => (window as any).__game.setBuild(b), tried)).toBe(true);
+  await gameReady(page);
+  expect(await page.evaluate((b) => window.__game.setBuild(b), tried)).toBe(true);
   // A new island starts with START_POINTS, not enough for it, as the server would say on joining.
   await page.goto('/?world&test');
-  await page.waitForFunction(() => (window as any).__game?.ready === true, null, { timeout: 90_000 });
-  const island = await page.evaluate(() => (window as any).__game.build());
+  await gameReady(page, 90_000);
+  const island = await page.evaluate(() => window.__game.build());
   expect(island.chosen.skills).toEqual(skills('sword'));
   expect(island.using.weapon).toBe(0);
-  expect((await page.evaluate(() => (window as any).__game.skills())).left).toBe(START_POINTS - 1);
+  expect((await page.evaluate(() => window.__game.skills())).left).toBe(START_POINTS - 1);
   // The yard still has it.
   await page.goto('/?yard');
-  await page.waitForFunction(() => (window as any).__game?.ready === true);
+  await gameReady(page);
   expect((await game(page)).chosen.skills).toEqual(tried.skills);
   expect(errors).toEqual([]);
 });
@@ -312,14 +314,14 @@ test('island: a kept build the island has not earned the points for falls back t
 test('training yard: arrows, Meteor, Healing Circle and Whirlwind against the dummy', async ({ page }) => {
   const errors = watchErrors(page);
   await page.goto('/?test');
-  await page.waitForFunction(() => (window as any).__game?.ready === true);
+  await gameReady(page);
 
   const result = await page.evaluate(
     ({ builds }) => {
-      const g = (window as any).__game;
+      const g = window.__game;
       const d = g.state().dummy;
       const out: Record<string, unknown> = {};
-      const standOff = (b: unknown, dist: number) => {
+      const standOff = (b: Build, dist: number) => {
         g.setBuild(b);
         g.reset({ x: d.x, z: d.z - dist, facing: 0, camYaw: 0 });
       };
@@ -435,13 +437,13 @@ test.describe('online', () => {
     const page = await context.newPage();
     const errors = watchErrors(page);
     await page.goto(`/?server=${encodeURIComponent(server.url)}&team=${team}`);
-    await page.waitForFunction(() => (window as any).__game?.net()?.joined === true, null, { timeout: 10_000 });
+    await page.waitForFunction(() => window.__game?.net()?.joined === true, null, { timeout: 10_000 });
     await useBuild(page, b);
     return { page, errors };
   }
 
   async function useBuild(page: Page, b: Build): Promise<void> {
-    expect(await page.evaluate((b) => (window as any).__game.setBuild(b), b)).toBe(true);
+    expect(await page.evaluate((b) => window.__game.setBuild(b), b)).toBe(true);
     await confirmed(page, b);
   }
 
@@ -449,16 +451,16 @@ test.describe('online', () => {
   const confirmed = (page: Page, b: Build) =>
     page.waitForFunction(
       (b) => {
-        const n = (window as any).__game.net();
+        const n = window.__game.net();
         return String(n.skills) === String(b.skills) && n.weapon === b.weapon && String(n.abilities) === String(b.abilities);
       },
       b,
       { timeout: 5000 },
     );
 
-  const net = (page: Page) => page.evaluate(() => (window as any).__game.net());
-  const script = (page: Page, segments: Array<[number, Record<string, unknown>]>) => page.evaluate((s) => (window as any).__game.scriptInput(s), segments);
-  const seesPlayers = (page: Page, n: number) => page.waitForFunction((n) => (window as any).__game.net().remotes.length >= n, n, { timeout: 5000 });
+  const net = (page: Page) => page.evaluate(() => window.__game.net());
+  const script = (page: Page, segments: Array<[number, Record<string, unknown>]>) => page.evaluate((s) => window.__game.scriptInput(s), segments);
+  const seesPlayers = (page: Page, n: number) => page.waitForFunction((n) => window.__game.net().remotes.length >= n, n, { timeout: 5000 });
   // Polls something on the page every frame until it's true (or times out).
   const sometime = (page: Page, fn: string, timeout = 4000) =>
     page.waitForFunction(fn, null, { timeout, polling: 'raf' }).then(
@@ -480,7 +482,7 @@ test.describe('online', () => {
       ['the same ability twice', build(['staff', 'meteor'], 2, METEOR, METEOR)],
     ];
     for (const [why, b] of invalid) {
-      await blue.page.evaluate((b) => (window as any).__game.sendRawBuild(b), b);
+      await blue.page.evaluate((b) => window.__game.sendRawBuild(b), b);
       await blue.page.waitForTimeout(300);
       const n = await net(blue.page);
       expect({ why, skills: String(n.skills), weapon: n.weapon }).toEqual({ why, skills: String(PIERCER.skills), weapon: PIERCER.weapon });
@@ -493,9 +495,9 @@ test.describe('online', () => {
     const blue = await joinAs(browser, 0, MAGE);
     const red = await joinAs(browser, 1, SWORD);
     await seesPlayers(red.page, 1);
-    await red.page.waitForFunction(() => (window as any).__game.net().remotes[0]?.weapon === 2);
+    await red.page.waitForFunction(() => window.__game.net().remotes[0]?.weapon === 2);
     await useBuild(blue.page, ARCHER);
-    await red.page.waitForFunction(() => (window as any).__game.net().remotes[0]?.weapon === 3);
+    await red.page.waitForFunction(() => window.__game.net().remotes[0]?.weapon === 3);
     expect([...blue.errors, ...red.errors]).toEqual([]);
   });
 
@@ -508,14 +510,14 @@ test.describe('online', () => {
       const blue = await joinAs(browser, 0, archer);
       const reds = [await joinAs(browser, 1, SWORD), await joinAs(browser, 1, SWORD)];
       await seesPlayers(blue.page, 2);
-      await blue.page.evaluate(() => (window as any).__game.setCamera({ yaw: Math.PI / 2 - 0.5, distance: 6 }));
+      await blue.page.evaluate(() => window.__game.setCamera({ yaw: Math.PI / 2 - 0.5, distance: 6 }));
       await script(blue.page, [[1, { attackPressed: true, aimX: 5, aimZ: 0 }], [40, {}]]);
       // Your own arrow is drawn the moment it leaves the bow.
       const drawn = await sometime(blue.page, '(window.__game.spells().arrowsDrawn ?? 0) > 0', 2000);
       await blue.page.screenshot({ path: `${SHOTS}/41-arrow-${expectedHits}.png` });
       await blue.page.waitForTimeout(1200);
       const hps = await Promise.all(reds.map(async (r) => (await net(r.page)).hp));
-      const left = await blue.page.evaluate(() => (window as any).__game.spells().online);
+      const left = await blue.page.evaluate(() => window.__game.spells().online);
       console.log('arrows', name, JSON.stringify({ drawn, hps, left }));
       expect(drawn).toBe(true);
       expect(hps.filter((hp) => hp === 100 - arrowDamage).length).toBe(expectedHits);
@@ -548,9 +550,9 @@ test.describe('online', () => {
     const blue = await joinAs(browser, 0, MAGE);
     const red = await joinAs(browser, 1, SWORD);
     await seesPlayers(red.page, 1);
-    for (const p of [blue.page, red.page]) await p.evaluate(() => (window as any).__game.setCamera({ distance: 11, pitch: 0.45 }));
-    await blue.page.evaluate(() => (window as any).__game.setCamera({ yaw: Math.PI / 2 }));
-    await red.page.evaluate(() => (window as any).__game.setCamera({ yaw: -Math.PI / 2 }));
+    for (const p of [blue.page, red.page]) await p.evaluate(() => window.__game.setCamera({ distance: 11, pitch: 0.45 }));
+    await blue.page.evaluate(() => window.__game.setCamera({ yaw: Math.PI / 2 }));
+    await red.page.evaluate(() => window.__game.setCamera({ yaw: -Math.PI / 2 }));
     await script(blue.page, [[1, { abilitySlot: 1, aimX: 5, aimZ: 0 }], [150, {}]]);
     const [blueCircle, redCircle] = await Promise.all([
       sometime(blue.page, 'window.__game.spells().circlesDrawn > 0'),
@@ -562,7 +564,7 @@ test.describe('online', () => {
       sometime(red.page, 'window.__game.spells().meteorsDrawn > 0'),
     ]);
     await red.page.screenshot({ path: `${SHOTS}/43-meteor-falling-enemy-view.png` });
-    await red.page.waitForFunction(() => (window as any).__game.net().hp < 100, null, { timeout: 4000 });
+    await red.page.waitForFunction(() => window.__game.net().hp < 100, null, { timeout: 4000 });
     const after = { red: await net(red.page), blue: await net(blue.page) };
     console.log('meteor', JSON.stringify({ blueCircle, redCircle, blueMeteor, redMeteor, redHp: after.red.hp, blueCooldown: after.blue.cooldowns[0] }));
     expect([blueCircle, redCircle, blueMeteor, redMeteor]).toEqual([true, true, true, true]);
@@ -596,7 +598,7 @@ test.describe('online', () => {
     await seesPlayers(red.page, 2);
     // Red cleaves both blues twice, then walks away.
     await script(red.page, [[24, { moveX: -1 }], [1, { attackPressed: true, aimX: -3, aimZ: 0 }], [10, {}], [1, { attackPressed: true }], [30, {}], [40, { moveX: 1 }]]);
-    await red.page.waitForFunction(() => (window as any).__game.net().scriptLeft === 0);
+    await red.page.waitForFunction(() => window.__game.net().scriptLeft === 0);
     await healer.page.waitForTimeout(600);
     const before = { healer: (await net(healer.page)).hp, ally: (await net(ally.page)).hp };
     await script(healer.page, [[1, { abilitySlot: 1 }], [40, {}]]);

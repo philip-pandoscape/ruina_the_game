@@ -1,5 +1,8 @@
 import { expect, test, type Page } from '@playwright/test';
 import { EMBERHOLM } from '../../src/sim/zone/world';
+import type { Command } from '../../src/sim/life/life';
+import type { LifePress } from '../../src/ui/life/lifeUI';
+import { gameReady } from '../support/game';
 
 // The way into Goblin's Dread (shared/dungeons/goblinsDread.json). A spring beside the Windspire's
 // launch deck spills down a slot cut in its face (src/sim/zone/generate.ts, falls), and behind the
@@ -29,19 +32,19 @@ async function open(page: Page): Promise<string[]> {
   });
   page.on('pageerror', (e) => errors.push(String(e)));
   await page.goto('/?world&test');
-  await page.waitForFunction(() => (window as any).__game?.ready === true, null, { timeout: 60_000 });
-  await page.evaluate(() => (window as any).__game.reset());
+  await gameReady(page, 60_000);
+  await page.evaluate(() => window.__game.reset());
   return errors;
 }
 
 const g = (page: Page) => ({
-  advance: (frames: number, a: Record<string, unknown> = {}) => page.evaluate(([n, x]) => (window as any).__game.advance(n, x), [frames, a] as const),
-  player: () => page.evaluate(() => (window as any).__game.state().player),
-  dungeon: () => page.evaluate(() => (window as any).__game.dungeon()),
-  falls: () => page.evaluate(() => (window as any).__game.falls()[0] as Falls),
-  cmd: (c: Record<string, unknown>) => page.evaluate((x) => (window as any).__game.lifeCommand(x), c),
-  teleport: (x: number, z: number, facing = 0) => page.evaluate(([a, b, c]) => (window as any).__game.teleport(a, b, c), [x, z, facing] as const),
-  press: (k: string) => page.evaluate((x) => (window as any).__game.pressLife(x), k),
+  advance: (frames: number, a: Record<string, unknown> = {}) => page.evaluate(([n, x]) => window.__game.advance(n, x), [frames, a] as const),
+  player: () => page.evaluate(() => window.__game.state().player),
+  dungeon: () => page.evaluate(() => window.__game.dungeon()),
+  falls: () => page.evaluate(() => window.__game.falls()[0] as Falls),
+  cmd: (c: Command) => page.evaluate((x) => window.__game.lifeCommand(x), c),
+  teleport: (x: number, z: number, facing = 0) => page.evaluate(([a, b, c]) => window.__game.teleport(a, b, c), [x, z, facing] as const),
+  press: (k: LifePress) => page.evaluate((x) => window.__game.pressLife(x), k),
 });
 
 /** Out along the falls' bearing (s) and across it (t), from the mountain's middle. */
@@ -89,7 +92,7 @@ test("a glider off the Windspire's deck flies into the falls and lands behind th
   const fly = (leg: number, near: number) =>
     page.evaluate(
       ({ route, leg, near, f }) => {
-        const game = (window as any).__game;
+        const game = window.__game;
         for (let frames = 0; frames < 60 * 60; frames += 3) {
           const p = game.state().player;
           if (p.mode !== 'glide') return { leg, frames, landed: true };
@@ -123,7 +126,7 @@ test("a glider off the Windspire's deck flies into the falls and lands behind th
     );
   const approach = await fly(0, 30);
   expect(approach.landed).toBe(false);
-  await page.evaluate(() => (window as any).__game.render());
+  await page.evaluate(() => window.__game.render());
   await page.screenshot({ path: `${SHOTS}/dungeon-00-gliding-in.png` });
   const flown = await fly(approach.leg, 0);
   // Down onto the stage, or into the back wall and down off it: either way, a moment to settle.
@@ -145,7 +148,7 @@ test("a glider off the Windspire's deck flies into the falls and lands behind th
   await w.advance(1);
   const at = await w.dungeon();
   expect(at.focus).toEqual({ action: 'enterDungeon', label: "Enter Goblin's Dread", ok: true });
-  await page.evaluate(() => (window as any).__game.setCamera({ yaw: Math.atan2(-0.342, 0.94), pitch: 0.15, distance: 6 }));
+  await page.evaluate(() => window.__game.setCamera({ yaw: Math.atan2(-0.342, 0.94), pitch: 0.15, distance: 6 }));
   await w.advance(2);
   await page.screenshot({ path: `${SHOTS}/dungeon-01-the-portal.png` });
   expect(errors).toEqual([]);
