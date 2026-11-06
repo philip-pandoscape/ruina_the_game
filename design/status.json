@@ -1281,6 +1281,18 @@
         "src/net/worldLink.ts",
         "src/main.ts"
       ]
+    },
+    {
+      "system": "tech",
+      "status": "building",
+      "title": "The first refactor: one copy of the rules, areas, content as data",
+      "notes": "Planned and reviewed on 2026-11-05 (.plans/refactor/README.md): fourteen phases on branch refactor/first, merged into beta once at the end. Test tiers (unit tests without a browser, integration before beta, stress before a release); dead code out and the toon look retired for quality settings of the new look; an admin menu (admins named in ADMIN_USERS) reaching every developer page and zone; a /find-assets skill; a Rust workspace (crates/engine, crates/server, crates/tools; the server renamed ruina-server); the client in areas with one bridge to the rules and one Content Library page; content in folders, compiled and checked by contentc; the rules in one Rust engine, run natively by the server and as WebAssembly by the browser; content as data (ids in saves and on the wire, spawns, NPCs, weapons, looks); zones as data, the yard and the battlefield as developer zones, and bots as part of the engine; assets streamed and cached for a game far bigger than 64 MB, binaries in Git LFS; the design bible as a knowledge base anyone can read; AGENTS.md rewritten. Done so far: the survey (.plans/refactor/inventory), the baseline (395 tests pass in 10.8 minutes), binaries in Git LFS, and servers that listen on this machine only so Windows never asks to let them through.",
+      "files": [
+        ".plans/refactor/README.md",
+        ".plans/refactor/tracker.md",
+        ".plans/refactor/progress.md",
+        ".plans/refactor/inventory/baseline.md"
+      ]
     }
   ],
   "next": [
@@ -1296,7 +1308,8 @@
     "Travel by road, next: sea lanes for boats; a key to clear the map marker; check the six-metre hauler across the town square.",
     "The look, next: made models for the vehicles' hulls and the trade packs (their seats, oars, rigging, straps and sealed hulls need fitting by hand); the player's cottage as a made model at each build stage; bushes and hedges along the fields; surf around the crags; a graphics setting in the Settings window instead of the automatic guess; the townsfolk as made bodies, playing the same clips; choosing a look in Create Character (skin, hair, outfit dyes); more moves from clips (a block, the roll, hits and a death from Quaternius' free set; the bow, the staff and the whirlwind from Meshy).",
     "Mini-games, next: more games at the same tables (the Rules trait in server/src/minigames takes any turn-based game for two); a controller in the game window; onlookers opening the board to watch; the table solid and monsters leaving players at a table alone; the challenge prompt winning over a nearby plot or townsperson when you face a player.",
-    "Goblin's Dread, next: the level plan from the concept art (the Warren hub; the water, wind and war wings with the jump puzzles; the sunbeam door; the chief's hall and the stolen lighthouse lens), with the goblins from the goblin session; moving platforms (waterwheels, swinging planks); water you can wade and swim in above sea level (the plunge pool, the cistern); a controller button for the Party window; party-only healing and loot."
+    "Goblin's Dread, next: the level plan from the concept art (the Warren hub; the water, wind and war wings with the jump puzzles; the sunbeam door; the chief's hall and the stolen lighthouse lens), with the goblins from the goblin session; moving platforms (waterwheels, swinging planks); water you can wade and swim in above sea level (the plunge pool, the cistern); a controller button for the Party window; party-only healing and loot.",
+    "Refactor, next (.plans/refactor/tracker.md): test tiers (Vitest for the tests that need no browser, a headless harness for the rules tests, integration and stress tiers), then dead code and the toon look, the admin menu and the /find-assets skill, before the Rust workspace and the moves."
   ],
   "questions": [
     {
@@ -1601,6 +1614,18 @@
         "Parties: invite by name or nearby (O), the party frame, leader, kick, lead, leave.",
         "Dungeon copies: one per party (or player), kept 30 minutes after everyone leaves; moving between games mid-connection (server/src/spaces.rs).",
         "Tests: tests/party.spec.ts (online), tests/dungeon-way-in.spec.ts, Rust unit tests for parties and spaces."
+      ]
+    },
+    {
+      "date": "2026-11-05",
+      "title": "The first refactor: the survey, the plan and Phase 0",
+      "summary": "Before the game grows further, a refactor of the whole codebase: surveyed with five explorers, planned in fourteen phases, reviewed by the user (one merge into beta at the end; developer zones and bots; the design bible as a knowledge base), and begun on branch refactor/first.",
+      "points": [
+        "The survey: the tests (395, of which 104 never open a page), content (half of it still code), the rules in TypeScript and Rust (agreeing only to about a millionth), dead code, and the architecture with accounts and developer pages (every player on beta can use the developer commands).",
+        "The baseline: the whole suite passes in 10.8 minutes on six workers, each test timed (tools/tests/timings.mjs).",
+        "Binaries (models, pictures, icons, fonts, the baked island) in Git LFS, fetched by CI from a cache.",
+        "The server listens on this machine only unless asked (--listen all, set in the Docker image), so starting one never brings up a Windows prompt.",
+        "Tidied: the merged branches and worktrees, their scratch work kept in the main checkout."
       ]
     }
   ]

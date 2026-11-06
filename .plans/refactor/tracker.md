@@ -9,8 +9,14 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
 
 ## Now
 
-- **Phase:** 0, Prepare and Measure.
-- **Next:** R0.3.
+- **Phase:** 1, Test Tiers.
+- **Next:** R1.1.
+- **Test rig for this branch:** Postgres container `ruina-refactor-db` on 127.0.0.1:5461; the
+  world server copied to `scratch/server-run/` on 7871 (`DATABASE_URL=postgres://ruina:ruina@127.0.0.1:5461/ruina
+  DEV_LOGIN=1 ./yggdrasil-server.exe --battle off --port 7871`); the suite with `PW_PORT=5261
+  TEST_PORT_OFFSET=60 RUINA_SERVER=http://localhost:7871
+  RUINA_DATABASE_URL=postgres://ruina:ruina@127.0.0.1:5461/ruina`. Servers listen on localhost only:
+  never start one that listens everywhere on this machine (it raises a Windows prompt).
 - **Plan reviewed 2026-11-05:** approved with changes (decisions D0-D14 in the plan). Run every phase
   to the end, one merge into `beta` at the end, progress report along the way, no waiting.
 
@@ -20,30 +26,37 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
   at d49c3b8. *Verified:* `git worktree list`.
 - [x] **R0.2** Survey the code into `inventory/`: baseline, tests, content, rules-map, debt,
   architecture. *Verified:* six files, each folded into the plan and tracker.
-- [ ] **R0.3** Per-test timings: a JSON reporter beside the list reporter in `playwright.config.ts`,
+- [x] **R0.3** Per-test timings: a JSON reporter beside the list reporter in `playwright.config.ts`,
   writing `test-results/timings.json`, and `node tools/tests/timings.mjs` to print the slowest files
-  and tests. *Done when* a run prints its 20 slowest tests.
-- [ ] **R0.4** Baseline run on this branch: `npm ci`, release build, a private Postgres and server
-  (ports clear of other sessions), the whole suite with timings. Record per-file times and any test
-  that fails before anything changes in `inventory/baseline.md`. *Done when* the table is filled in.
+  and tests. *Verified:* the baseline run printed its slowest tests and files (942d980).
+- [x] **R0.4** Baseline run on this branch: 395 passed, 1 skipped, 0 failed, 648 s on the clock
+  (1,848 s of test time). *Verified:* `inventory/baseline.md`, every test in
+  `inventory/baseline-tests.csv` (942d980).
+- [x] **R0.4b** (found on the way) The server listens on localhost only unless `--listen all` /
+  `LISTEN=all` (the Docker image sets it): Windows' firewall prompt came up for every new server
+  path, and the user is often away. *Verified:* netstat shows only 127.0.0.1 and ::1; all three
+  local names answer (e483b4b).
 - [ ] **R0.5** (you, optional) Play the five recent pushes on beta (Lanternwick's buildings, Goblin's
   Dread's way in and a party, `?yard&goblins=6`, the painted icons, `/library.html` locally). Listed
   in the progress report; nothing waits for it.
-- [ ] **R0.6** Tidy (agreed): stop the leftover Vite on 5242 (yggdrasil-dungeon) after checking it is
-  idle; check the locked `.claude/worktrees/agent-aac66e55...`'s 23 changes are all in `beta`; remove
-  the merged worktrees (`yggdrasil-improve-animations`, `yggdrasil-look`, `yggdrasil-trees`,
-  `yggdrasil-dungeon`, the agent worktree); delete the merged local branches and the remote `main`,
-  `feature/improve-animations`, `feature/improve-ui`. *Done when* `git worktree list` and
-  `git branch -a` show only live work.
+- [x] **R0.6** Tidy (agreed): stopped the leftover Vite on 5242; the locked agent worktree's 23
+  changes checked three-way against `beta` (nothing it had was missing from `beta`); the worktrees
+  `yggdrasil-improve-animations`, `yggdrasil-look`, `yggdrasil-trees`, `yggdrasil-dungeon` and the
+  agent worktree removed, their `scratch/` work (6,784 files) and the dungeon's logs moved first to
+  the main checkout's `scratch/from-<worktree>/`; merged local branches deleted; the remote `main`
+  (was 33eb2f6), `feature/improve-animations` (2edf82f) and `feature/improve-ui` (b1089bc) deleted,
+  all fully in `beta`. *Verified:* `git worktree list` shows the main checkout and this one; branches
+  `beta`, `refactor/first`, `origin/beta`, `origin/production`. Left alone: the dungeon session's
+  Postgres container `ruina-dungeon-db` (not ours).
 - [x] **R0.7** Record the review's answers in the plan's Decisions table (D0-D14).
-- [ ] **R0.8** Design bible: the refactor as a `tech` feature with status `building`, a `next` entry,
-  and a session entry. *Done when* `/design/` shows it.
-- [ ] **R0.9** Git LFS (decided): `.gitattributes` tracks the binaries (GLB, JPG, PNG, WebP, WOFF2,
-  the baked zone, concept art, icon sheets); `git lfs migrate import --no-rewrite` converts the files
-  at HEAD in one commit (no history rewrite, no force push); CI's checkouts fetch LFS files; the
-  Docker build gets them; the GitHub LFS quota checked and noted in the progress report. *Done when*
-  `git lfs ls-files` lists them and a fresh clone of the branch builds.
-- [ ] **R0.10** `progress.md` started; an entry per phase from here on.
+- [x] **R0.8** Design bible: the refactor as a `tech` feature (building), a `next` entry and a session
+  entry. *Verified:* 115 features, every file path present.
+- [x] **R0.9** Git LFS (decided): `.gitattributes` tracks models, pictures, fonts, sound, the baked
+  island and zips; 243 files converted at HEAD with `git add --renormalize` (no history rewrite, no
+  force push); CI fetches them through `.github/actions/lfs`, cached by their ids; GitHub Free
+  includes 10 GiB of LFS storage and 10 GiB of downloads a month. *Verified:* `git lfs ls-files` 243,
+  `git lfs fsck` OK (08bd2b9). Still to see: a fresh clone after the first push (R13.8).
+- [x] **R0.10** `progress.md` started; an entry per phase from here on.
 
 ## Phase 1: Test Tiers
 
@@ -474,4 +487,8 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
 |---|---|---|---|
 | 2026-11-05 | R0.1 | Branch and worktree made from `beta` d49c3b8 | (none) |
 | 2026-11-05 | R0.2 | Survey of the whole codebase in six inventory files; plan and tracker written | (see next) |
-| 2026-11-05 | R0.7 | Review answers recorded (D0-D14); plan revised: one merge at the end, Phase 10 zones and bots, Phase 12 knowledge base | (see next) |
+| 2026-11-05 | R0.7 | Review answers recorded (D0-D14); plan revised: one merge at the end, Phase 10 zones and bots, Phase 12 knowledge base | c7f1e57 |
+| 2026-11-05 | R0.9 | Binaries in Git LFS, CI fetching them from a cache | 08bd2b9 |
+| 2026-11-05 | R0.4b | The server listens on localhost only unless `--listen all` | e483b4b |
+| 2026-11-05 | R0.3, R0.4 | Timing reporter; the baseline (395 pass, 10.8 min) | 942d980 |
+| 2026-11-05 | R0.6, R0.8, R0.10 | Worktrees and branches tidied; the refactor in the design bible; Phase 0 done | (next commit) |

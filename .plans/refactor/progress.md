@@ -9,8 +9,8 @@ is in [tracker.md](tracker.md), the plan in [README.md](README.md).
 
 | Phase | State |
 |---|---|
-| 0 Prepare and Measure | in progress |
-| 1 Test Tiers | to do |
+| 0 Prepare and Measure | done |
+| 1 Test Tiers | in progress |
 | 2 Clear Out Dead Code | to do |
 | 3 Admin Menu | to do |
 | 4 The /find-assets Skill | to do |
@@ -53,3 +53,39 @@ is in [tracker.md](tracker.md), the plan in [README.md](README.md).
   library locally), so a bug found later isn't blamed on the refactor.
 - **Next:** the rest of Phase 0: the timing reporter, the baseline run, tidying branches and
   worktrees, Git LFS.
+
+## 2026-11-05: Phase 0, Prepare and Measure: done
+
+- **The baseline.** The whole suite passes on this branch before any change: **395 passed, 1 skipped
+  (by design), 0 failed, 10.8 minutes on the clock** (1,848 s of test time on 6 workers). Every test
+  now records its time (`test-results/timings.json`; `node tools/tests/timings.mjs` prints the
+  slowest), and the baseline's are kept in `inventory/baseline-tests.csv`. Online play (351 s) and
+  the open world (303 s) are two thirds of all test time; the slowest test, riding along in a
+  friend's cart, takes 58 s.
+- **No more Windows prompts.** You asked why a UAC prompt came up whenever I started a server: the
+  server listened on every network address, and Windows' firewall asks once for each new program
+  path (this branch's build and a copy for the tests were new). It now listens on this machine only
+  (`127.0.0.1` and `::1`) unless started with `--listen all` or `LISTEN=all`, which the Docker image
+  sets for Railway and `npm run up`. Checked: only the two local addresses hold the port, and
+  `localhost`, `127.0.0.1` and `::1` all reach it. This goes to `beta` with the final merge; until then
+  your own servers built from `beta` still listen everywhere.
+- **Git LFS.** 243 binaries (models, pictures, icons and their sheets, fonts, the baked island) are LFS
+  pointers from this branch on, without rewriting history. New files of those kinds go to LFS by
+  themselves. CI fetches them through a small action that caches them by id, so runs don't spend
+  the account's LFS allowance (GitHub Free: 10 GiB stored and 10 GiB downloaded a month; ours is
+  ~31 MB). The objects reach GitHub with the first push, at the merge.
+- **Tidied** (as agreed): the merged worktrees `yggdrasil-improve-animations`, `yggdrasil-look`,
+  `yggdrasil-trees`, `yggdrasil-dungeon` and the locked agent worktree are gone. The locked one's
+  23 uncommitted changes were checked three-way against `beta`: `beta` already had all of it, and
+  more. Every worktree's `scratch/` (6,784 files: the overnight Meshy and Gemini output, concept art,
+  screenshots, scripts) was moved first to `C:\GitHub\games\yggdrasil\scratch\from-<worktree>\`,
+  with the dungeon session's loose logs. Branches deleted, all fully in `beta`: locally the merged
+  ones; on GitHub `main` (was 33eb2f6), `feature/improve-animations` (2edf82f) and
+  `feature/improve-ui` (b1089bc), so any can be restored from those commits. Left alone: the dungeon
+  session's Postgres container `ruina-dungeon-db`.
+- **A slip, owned:** stopping the leftover dungeon Vite, my filter on the command line also caught my
+  own background size check and two old `tail` watchers on the dungeon's logs; nothing else was
+  touched, and my test run and server carried on.
+- **The design bible** shows the refactor as a feature in progress, with its next step and a session
+  entry.
+- **Next:** Phase 1, the test tiers.
