@@ -1270,7 +1270,7 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
 | 2026-11-06 | R10.16, R10.1 | The world map in the engine: `content/world.json` places regions on 256 m chunks, open sea between; the ground, water and colliders answered across regions; the edge of the world is the map's | 8c79bdd |
 | 2026-11-06 | R9.1, R9.2 | Saved builds by id; the content's hash on the wire (a background agent, merged) | 29f0696, e06eda0, cb7bfa0 |
 | 2026-11-06 | R10.16 | Borders: the ground blended across them, regions meeting vertex for vertex and the open sea sloping to meet them; walked across a land border | 86e96b5 |
-| 2026-11-06 | R10.16, R10.1 | The rules take the world: what's near you from the space you're in, what's found by id from the whole world; gathering spots by id | (this commit) |
+| 2026-11-06 | R10.16, R10.1 | The rules take the world: what's near you from the space you're in, what's found by id from the whole world; gathering spots by id | ca6cfc2 |
 | 2026-11-06 | R9.14 | `docs/content.md` | 5e23680 |
 | 2026-11-06 | R10.10, R11.1, R11.2, R11.7, R11.8 | Snapshot to move machines: the battle server's Rust gone; the asset manifest, loader and first-download budget, `docs/assets.md` | a975617 |
 | 2026-11-06 | R6.10, R6.11, R6.8 | The client's moves: creature bodies into src/render/creatures/, the root files to their areas, the library under src/dev/ | 9317ff3, 5de387d, 81df3de |
