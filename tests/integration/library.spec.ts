@@ -44,7 +44,8 @@ test('every character lists its animations, and each opens and plays', async ({ 
   await load(page);
   const subjects = await page.evaluate(() => (window as unknown as { __library: Lib }).__library.subjects());
   const ids = subjects.map((s) => s.id);
-  for (const want of ['hero', 'slime', 'crowd-fighter', 'chicken', 'cow', 'villager-hollis', 'mount-horse']) expect(ids).toContain(want);
+  // A creature with a body of its own (the goblin's folder) is a subject too, without a line of the library's code.
+  for (const want of ['hero', 'slime', 'crowd-fighter', 'crowd-goblin', 'chicken', 'cow', 'villager-hollis', 'mount-horse']) expect(ids).toContain(want);
   for (const s of subjects) expect(s.anims.length, s.id).toBeGreaterThan(0);
   // One animation of each kind of subject, worked out to its end without an error.
   const results = await page.evaluate(async () => {
@@ -55,6 +56,7 @@ test('every character lists its animations, and each opens and plays', async ({ 
       ['slime', 'leap'],
       ['crowd-hero', 'run'],
       ['crowd-fighter', 'attack'],
+      ['crowd-goblin', 'idle'],
       ['sheep', 'hungry'],
       ['villager-mara', 'talk'],
       ['mount-donkey', 'run'],

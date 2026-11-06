@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { actorKind, actorKindIds } from '../../../content/actors';
 import { JellyCrowd } from '../../../render/creatures/jelly';
 import { bindWorlds } from '../../../render/creatures/clips';
-import { getSpecies } from '../../../render/creatures/registry';
+import { getSpecies, speciesIds } from '../../../render/creatures/registry';
 import { MATRIX_STRIDE, type Clip, type SpeciesDef } from '../../../render/creatures/species';
 import { readBones, sideOf, writeBones } from '../pose';
 import type { AnimDef, Bone, FrameInfo, Options, Phase, Posable, Snapshot, Source, Subject, Take } from '../types';
@@ -343,29 +343,37 @@ function crowdSubject(id: string, name: string, blurb: string, file: string, mad
   };
 }
 
-export const speciesSubjects: Subject[] = [
-  slimeSubject,
-  crowdSubject(
-    'hero',
+/** What the library says of each built-in crowd body; a creature with a folder of its own is described from its folder. */
+const BUILT_IN: Readonly<Record<string, readonly [name: string, blurb: string, made: string]>> = {
+  hero: [
     'Hero, far away',
     'The crowd’s cut of the hero',
-    'src/render/creatures/builtin/hero.ts',
     "This one is the hero's own poses sampled: the clips (HERO_CLIPS in src/render/creatures/heroBody.ts) say what the hero is doing along each, and the close-up pose code (humanoid.ts) is run to bake them (src/render/creatures/fromRig.ts), so fixing the hero's close-up animation fixes these too.",
-  ),
-  crowdSubject(
-    'fighter',
-    'Fighter',
-    'Battlefield crowd; townsfolk at a distance',
-    'src/render/creatures/builtin/fighter.ts',
-    'Its four clips are authored directly as joint turns (bakeAuthored).',
-  ),
-  crowdSubject(
-    'quadruped',
-    'Four-legged beast',
-    'A test beast: four leg chains and a tail',
-    'src/render/creatures/builtin/quadruped.ts',
-    'Its clips are authored as joint turns per frame.',
-  ),
+  ],
+  fighter: ['Fighter', 'Battlefield crowd; townsfolk at a distance', 'Its four clips are authored directly as joint turns (bakeAuthored).'],
+  quadruped: ['Four-legged beast', 'A test beast: four leg chains and a tail', 'Its clips are authored as joint turns per frame.'],
+};
+
+/** A crowd body's subject, built in or a creature's folder's (src/render/creatures/folders.ts). */
+function crowdSubjectOf(id: string): Subject {
+  const known = BUILT_IN[id];
+  if (known) return crowdSubject(id, known[0], known[1], `src/render/creatures/builtin/${id}.ts`, known[2]);
+  const name = id.charAt(0).toUpperCase() + id.slice(1);
+  return crowdSubject(
+    id,
+    `${name}, far away`,
+    `The ${id}'s crowd body`,
+    `src/render/creatures/${id}/body.ts`,
+    `A creature with a folder of its own: its body and clips are src/render/creatures/${id}/, its kinds, attacks and brains content/creatures/${id}/.`,
+  );
+}
+
+/** The slime, and every other body the crowd draws (src/render/creatures/registry.ts), so a creature added with a body of its own has one here too. */
+export const speciesSubjects: Subject[] = [
+  slimeSubject,
+  ...speciesIds()
+    .filter((id) => id !== 'slime')
+    .map(crowdSubjectOf),
 ];
 
 /** Correcting a jelly slime: show its boxes while the pose is being moved. */
