@@ -1251,7 +1251,8 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
 - [x] **R13.4** The path check (unit tier): every path named in AGENTS.md, `docs/`, the skills and
   `design/status.json` exists.
   Done (9a34c1b): `tests/unit/paths.test.ts`.
-- [ ] **R13.5** README: a quick start that points to AGENTS.md and `docs/`.
+- [x] **R13.5** README: a quick start that points to AGENTS.md and `docs/`.
+  Done (3b49683): the tools, the commands, the pages and the guides; the controls are the bible's.
 - [ ] **R13.6** Memory notes on this machine updated (paths, ports, commands).
 - [ ] **R13.7** Close-out: the plan's goals checked one by one with numbers against the baseline.
 - [ ] **R13.8** The merge: `beta` merged into the branch; every tier green (unit, integration, stress);
@@ -1348,6 +1349,7 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
 | 2026-11-06 | R6.11b | The developer commands in the page's command list, `LifeView.update` given the player, the library's NPCs typed: the casts round the rules' types gone | fab2924 |
 | 2026-11-06 | R10.25 | `docs/world.md` begun: the world as it stands, and adding a region | 7ea3035 |
 | 2026-11-06 | R13.2 | `docs/deploys.md` | 5562fed |
+| 2026-11-06 | R13.5 | The README as a quick start | 3b49683 |
 | 2026-11-06 | R9.9, R6.11b | Looks from data; the model library as a chunk, the `tryBuild` fallbacks gone (a background agent) | 3cffed1..40161aa, 2d5de57 |
 | 2026-11-06 | R9.14 | `docs/content.md` | 5e23680 |
 | 2026-11-06 | R10.10, R11.1, R11.2, R11.7, R11.8 | Snapshot to move machines: the battle server's Rust gone; the asset manifest, loader and first-download budget, `docs/assets.md` | a975617 |
