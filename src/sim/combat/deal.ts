@@ -7,6 +7,7 @@ import { circleHits } from './hit';
 import type { Target } from './hit';
 import { isAlive, type Actor, type Actors } from '../actor';
 import { provoke } from '../actors/step';
+import { flinch } from '../ai/brain';
 
 export function damage(sim: Sim, t: Target, amount: number, knock = 0, index = 0, weapon?: number) : void {
   const a = sim.actors.get(t.id);
@@ -20,13 +21,15 @@ export function damage(sim: Sim, t: Target, amount: number, knock = 0, index = 0
 }
 
 /**
- * What a blow does to an actor, whoever dealt it: it loses health, flashes, angers its pack and
- * rocks. Returns whether that killed it. server/src/actors.rs Actors::damage does the same.
+ * What a blow does to an actor, whoever dealt it: it loses health, flashes, angers its pack,
+ * flinches if the blow was hard enough, and rocks. Returns whether that killed it.
+ * server/src/actors.rs Actors::damage does the same.
  */
 export function hurtActor(actors: Actors, a: Actor, amount: number, nx: number, nz: number, knock: number): boolean {
   a.hp = Math.max(0, a.hp - amount);
   a.flashFrame = 0;
   provoke(actors, a, amount);
+  if (a.hp > 0) flinch(a, amount);
   a.leanVX += nx * knock;
   a.leanVZ += nz * knock;
   if (a.hp > 0) return false;

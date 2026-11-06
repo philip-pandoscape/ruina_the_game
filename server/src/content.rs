@@ -1,6 +1,8 @@
-//! Actor kinds, read from shared/actors.json - the same file src/content/actors.ts reads. The
-//! browser's own fields (species, clips, palette, scale) are simply not declared here; serde skips
-//! them, so one file can describe both what a monster is and how it looks.
+//! Actor kinds, read from shared/actors.json - the same file src/content/actors.ts reads - and from
+//! each creature's own file (crate::creatures), with the attacks those creatures use. The
+//! browser's own fields (species, clips, palette, scale, name, cycles, look) are simply not
+//! declared here; serde skips them, so one file can describe both what a monster is and how it
+//! looks.
 
 use std::sync::OnceLock;
 
@@ -46,6 +48,9 @@ pub struct ActorKind {
     /// Whether it can call the pack and gather them in.
     #[serde(default)]
     pub gathers: bool,
+    /// A blow dealing at least this much knocks it out of what it was doing; 0 never.
+    #[serde(default)]
+    pub poise: f64,
 }
 
 /// The sizes one creature comes in, smallest first (src/content/actors.ts Ladder).
@@ -58,6 +63,40 @@ pub struct Ladder {
     pub alone: i32,
 }
 
+/// What a creature can do to a player (src/content/attacks.ts AttackDef).
+#[derive(Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct AttackDef {
+    pub id: String,
+    /// strike: a cone in front of it as its wind-up ends. throw: a lobbed missile then.
+    pub kind: String,
+    pub windup: i32,
+    pub track: i32,
+    pub damage: f64,
+    pub knock: f64,
+    pub cooldown: [f64; 2],
+    #[serde(default)]
+    pub active: i32,
+    #[serde(default)]
+    pub reach: f64,
+    #[serde(default)]
+    pub arc: f64,
+    #[serde(default)]
+    pub lift: Option<f64>,
+    #[serde(default)]
+    pub lunge: f64,
+    #[serde(default)]
+    pub speed: Option<f64>,
+    #[serde(default)]
+    pub gravity: f64,
+    #[serde(default)]
+    pub lead: f64,
+    #[serde(default)]
+    pub range: Option<f64>,
+    #[serde(default)]
+    pub radius: Option<f64>,
+}
+
 #[derive(Deserialize)]
 struct File {
     kinds: Vec<ActorKind>,
@@ -65,17 +104,39 @@ struct File {
     ladders: Vec<Ladder>,
 }
 
-static FILE: OnceLock<File> = OnceLock::new();
+#[derive(Deserialize)]
+struct CreatureFile {
+    #[serde(default)]
+    kinds: Vec<ActorKind>,
+    #[serde(default)]
+    attacks: Vec<AttackDef>,
+}
 
-fn file() -> &'static File {
-    FILE.get_or_init(|| {
+struct Content {
+    kinds: Vec<ActorKind>,
+    ladders: Vec<Ladder>,
+    attacks: Vec<AttackDef>,
+}
+
+static CONTENT: OnceLock<Content> = OnceLock::new();
+
+fn content() -> &'static Content {
+    CONTENT.get_or_init(|| {
         let raw = include_str!("../../shared/actors.json");
-        serde_json::from_str(raw).expect("shared/actors.json is malformed")
+        let file: File = serde_json::from_str(raw).expect("shared/actors.json is malformed");
+        let mut kinds = file.kinds;
+        let mut attacks = Vec::new();
+        for raw in crate::creatures::FILES {
+            let c: CreatureFile = serde_json::from_str(raw).expect("a file in shared/creatures/ is malformed");
+            kinds.extend(c.kinds);
+            attacks.extend(c.attacks);
+        }
+        Content { kinds, ladders: file.ladders, attacks }
     })
 }
 
 pub fn kinds() -> &'static Vec<ActorKind> {
-    &file().kinds
+    &content().kinds
 }
 
 pub fn kind(id: &str) -> Option<&'static ActorKind> {
@@ -92,7 +153,7 @@ pub fn kind_at(index: usize) -> Option<&'static ActorKind> {
 }
 
 pub fn ladders() -> &'static Vec<Ladder> {
-    &file().ladders
+    &content().ladders
 }
 
 pub fn ladder_at(index: i32) -> Option<&'static Ladder> {
@@ -128,4 +189,17 @@ pub fn size_for(ladder: i32, mass: f64) -> Option<&'static str> {
 
 pub fn kind_mass(id: &str) -> f64 {
     kind(id).map_or(0.0, |k| k.mass)
+}
+
+pub fn attacks() -> &'static Vec<AttackDef> {
+    &content().attacks
+}
+
+/// Index of an attack in the creatures' list, which is how a missile remembers where it came from.
+pub fn attack_index(id: &str) -> Option<usize> {
+    attacks().iter().position(|a| a.id == id)
+}
+
+pub fn attack_at(index: usize) -> Option<&'static AttackDef> {
+    attacks().get(index)
 }
