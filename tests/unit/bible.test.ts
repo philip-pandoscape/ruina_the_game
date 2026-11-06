@@ -92,6 +92,8 @@ const PLUMBING: Record<string, string> = {
 /** Keys of the content files that hold nothing a player meets, with why. */
 const NOT_EXPLAINED: Record<string, string> = {
   'shared/buildings.json#furniture': 'the furniture catalogue: each building’s entry lists its pieces',
+  'shared/buildsByIndex.json': 'the order builds were kept in before they named things by id, frozen to read old saves',
+  'shared/hash.json': 'the content’s hash, which the world’s connection compares',
 };
 
 const claimed = (path: string, claims: string[]) => claims.some((c) => path === c || (c.endsWith('/') && path.startsWith(c)));

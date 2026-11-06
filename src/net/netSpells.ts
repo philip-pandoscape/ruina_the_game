@@ -26,6 +26,18 @@ const EVENT_YOU_HEAL = 6;
 export type MarkerKind = 'hit' | 'hurt' | 'heal';
 const MARKERS: Record<number, MarkerKind> = { [EVENT_YOU_HIT]: 'hit', [EVENT_YOU_HURT]: 'hurt', [EVENT_YOU_HEAL]: 'heal' };
 
+// What caused a number, in an attributed event's kind above its low 4 bits: what sort of thing in the
+// cause's low 2 bits, and for a weapon or an ability its place in shared/tuning.json's list above
+// them (crates/server/src/combat.rs weapon_cause, ability_cause).
+export const CAUSE_WEAPON = 1;
+export const CAUSE_ABILITY = 2;
+export const CAUSE_MONSTER = 3;
+
+/** A cause's sort (CAUSE_*) and, for a weapon or an ability, its place in its list. */
+export function causeOf(cause: number): { sort: number; index: number } {
+  return { sort: cause & 3, index: cause >> 2 };
+}
+
 interface Tracked<T> {
   rec: T;
   first: number; // server tick it was first and last seen
@@ -185,7 +197,7 @@ export class NetSpells {
     const out: GameEvent[] = [];
     while (this.queued.length && this.queued[0].tick - 0.5 <= renderTick) {
       const { e } = this.queued.shift()!;
-      // The top 4 bits say what caused it; world effects leave them zero.
+      // The bits above the low 4 say what caused it (causeOf); world effects leave them zero.
       const kind = e.kind & 15;
       const cause = e.kind >> 4;
       // Damage and healing meant for you: a floating number, not a world effect, and never deduped

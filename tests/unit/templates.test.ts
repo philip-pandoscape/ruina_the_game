@@ -44,7 +44,7 @@ const FOLDER: Record<string, string> = {
 /** Kinds with no template, and why: a new one of them needs code today. */
 const NO_TEMPLATE: Record<string, string> = {
   weapons: 'R9.5: a weapon is moves, a model and an icon in code too',
-  abilities: 'R9.5: an ability is an effect, an icon and a cause on the wire in code too',
+  abilities: 'R9.5: an ability is an effect and its look in code too',
   'movement-skills': 'R9.5: a movement skill is a pose in code too',
   stats: 'a stat is a number the rules read by its name: a new one is new code',
   minigames: 'a mini-game is its rules module and its board views besides its file (docs/content.md)',

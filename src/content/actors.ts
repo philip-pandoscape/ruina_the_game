@@ -4,8 +4,9 @@ import { CREATURES } from './creatures';
 // What kinds of thing can exist in the world. The data is in shared/actors.json so the server
 // reads the same numbers; adding a monster starts there, and the rules will spawn it, hit it,
 // kill it and respawn it without knowing what it is. A creature with a folder of its own
-// (content/creatures/, shared/creatures.json) adds its kinds after these, so their indexes on the
-// wire never move.
+// (content/creatures/, shared/creatures.json) adds its kinds after these. A kind travels on the wire
+// as its place here, which the server takes from the same bundles (the world's connection checks
+// that it has the same content: src/net/worldLink.ts).
 
 const KINDS = [...(data.kinds as unknown as ActorKind[]), ...CREATURES.flatMap((c) => (c.kinds ?? []) as ActorKind[])];
 const BY_ID = new Map(KINDS.map((k) => [k.id, k]));

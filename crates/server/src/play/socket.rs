@@ -9,7 +9,8 @@
 //! /ws/world?character=<id> plays that character, if it's the signed-in account's; without one, the
 //! character the account played last.
 //!
-//!   server -> browser  (text) welcome {protocol, character, account, build, now, channel, dev, estates, claims,
+//!   server -> browser  (text) welcome {protocol, content: the content's hash (shared/hash.json), character,
+//!                            account, build, now, channel, dev, estates, claims,
 //!                            space: where you are (a channel, or your party's copy of a dungeon)}
 //!                      tick {tick, you, peers, actors, arrows, meteors, events, lifeEvents?, life?,
 //!                            tables?: the mini-game tables near you, as everyone sees them}
@@ -53,13 +54,14 @@ use tokio::sync::{Notify, mpsc, watch};
 use crate::accounts::characters;
 use crate::accounts::{Account, signed_in};
 use crate::combat::OPEN_INPUT;
+use crate::content::content_hash;
 use crate::http::{App, same_origin};
 use crate::life::Command;
 use crate::play::channels::CHANNEL_CAP;
 use crate::play::spaces::Spaces;
 use crate::play::{Arrival, ChannelGame, Save, TICK_HZ};
 use crate::player::Build;
-use crate::skills::{SKILL_WORDS, valid_build, valid_movement};
+use crate::skills::{SKILL_WORDS, allowed, saved_build};
 use crate::tuning::{HOTBAR_SLOTS, MOVEMENT_SLOTS, NO_ABILITY, NO_MOVEMENT};
 
 /// The biggest message a browser may send.
@@ -72,8 +74,9 @@ const IDLE: Duration = Duration::from_secs(60);
 const MAX_BATCH: usize = 32;
 const SEND_INPUTS: u8 = 7;
 /// What this server speaks. A page that speaks something else is out of date: it reloads
-/// (src/net/worldLink.ts WORLD_PROTOCOL).
-pub const WORLD_PROTOCOL: u32 = 10;
+/// (src/net/worldLink.ts WORLD_PROTOCOL). So does a page built from other content (content_hash, in
+/// the welcome): what goes on the wire as a place in a bundle's list would mean something else to it.
+pub const WORLD_PROTOCOL: u32 = 11;
 
 /// Where the server is in its life. Railway starts a new server for an update, then stops this one.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -464,9 +467,10 @@ async fn load_channel(app: &App, db: &PgPool, channel: i32) -> Result<(), sqlx::
     Ok(())
 }
 
-/// A build as the browser keeps it (src/content/build.ts): the learned skills, weapon, hotbar and
-/// movement slots. None if it isn't one, or isn't allowed with `budget` skill points (in the open
-/// world, what the character has earned: crate::life::progress::skill_budget).
+/// A build as it comes on the wire (src/content/build.ts): the learned skills, weapon, hotbar and
+/// movement slots, by their places in the content. None if it isn't one, or isn't allowed with
+/// `budget` skill points (in the open world, what the character has earned:
+/// crate::life::progress::skill_budget). It is kept by id (crate::skills::saved_build).
 pub fn parse_build(v: &Value, budget: u32) -> Option<Build> {
     let mut b = Build { weapon: u8::try_from(v.get("weapon")?.as_u64()?).ok()?, ..Build::default() };
     let mut skills = [0u32; SKILL_WORDS];
@@ -485,7 +489,7 @@ pub fn parse_build(v: &Value, budget: u32) -> Option<Build> {
     };
     b.abilities.copy_from_slice(&slots("abilities", HOTBAR_SLOTS, NO_ABILITY)?);
     b.movement.copy_from_slice(&slots("movement", MOVEMENT_SLOTS, NO_MOVEMENT)?);
-    (valid_build(&b.skills, b.weapon, &b.abilities, budget) && valid_movement(&b.skills, &b.movement)).then_some(b)
+    allowed(&b, budget).then_some(b)
 }
 
 async fn play(
@@ -531,6 +535,7 @@ async fn play(
         json!({
             "t": "welcome",
             "protocol": WORLD_PROTOCOL,
+            "content": content_hash(),
             "character": { "id": character, "name": name },
             "account": account.username,
             "build": build,
@@ -573,15 +578,16 @@ async fn play(
                             Err(_) => send(&mut tx, json!({ "t": "error", "text": "The server didn't understand that command." })).await?,
                         },
                         Ok(FromBrowser::Build { build }) => {
-                            // Checked against the skill points this character has earned so far.
-                            if !world.with_member(character, |ch| ch.set_build(character, &build)).unwrap_or(false) {
+                            // Checked against the skill points this character has earned so far, and
+                            // kept by id.
+                            let Some(build) = world.with_member(character, |ch| ch.set_build(character, &build)).flatten() else {
                                 send(&mut tx, json!({ "t": "error", "text": "That build isn't allowed." })).await?;
                                 continue;
-                            }
+                            };
                             let result = sqlx::query("UPDATE characters SET build = $3 WHERE id = $1 AND live_session = $2")
                                 .bind(character)
                                 .bind(session)
-                                .bind(Json(build))
+                                .bind(Json(saved_build(&build)))
                                 .execute(db)
                                 .await;
                             if let Wrote::Replaced = outcome(result, &mut tx).await? {

@@ -502,3 +502,19 @@ the developer zone; then the engine bridge (R6.4) and Phase 8's switches.
   a region with no recipe (`tests/unit/content.test.ts`).
 - **Left for R10.16.** Land borders (edge constraints and a blend), growing and dropping regions by
   need, `Life` across regions, and the browser drawing a region placed away from the origin (R10.23).
+
+## 2026-11-06: Saved Builds by Id, and the Content's Hash on the Wire (R9.1, R9.2)
+
+- **What.** A background agent's branch, merged. A build is kept by id (`{"weapon":"club","skills":[...],
+  "abilities":[...],"movement":[...]}`) in the database and the browser; indexes stay at run time and on
+  the wire, where both ends now read them from the same bundles. `shared/hash.json` hashes every
+  bundle; the server sends its own in the welcome, and a page built from other content reloads into
+  the new build (`WORLD_PROTOCOL` 11). Damage numbers' causes go as a type and a place in
+  `tuning.json`, where they were codes in code (part of R9.5).
+- **Migration.** Builds kept by index are read through the order they were kept in, frozen in
+  `shared/buildsByIndex.json`, and the server rewrites them by id as it starts, a row only if it still
+  holds what was read. Tested on saves written by c3d19c3's own server and browser. Left for the
+  user: the same on a copy of beta's database.
+- **Verified.** On its branch: `npm run check` and the integration tier (202 passed; the pointer-lock
+  test fails on macOS as before). Merged: `npm run check` (247 TypeScript tests; 168 engine, 4
+  WebAssembly and 75 server tests).

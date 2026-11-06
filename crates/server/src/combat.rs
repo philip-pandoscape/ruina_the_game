@@ -18,7 +18,7 @@ use crate::open::OpenWorld;
 use crate::open::dungeon::DungeonDef;
 use crate::open::zone::Heightfield;
 use crate::player::{Actions, Build, Player, angle_diff};
-use crate::skills::{valid_build, valid_movement};
+use crate::skills::allowed;
 use crate::tuning::{AttackStep, HOTBAR_SLOTS, NO_ABILITY, ability, effect_amount, effect_damage, effect_radius, melee_targets, pierce_targets, tuning};
 use crate::world::World;
 
@@ -39,23 +39,31 @@ const SLAM_LIFT: f64 = 1.0; // a monster's slam only catches someone on the grou
 // What an effect sent to the browser is (an event's kind), as src/net/netSpells.ts reads it: these
 // numbers are the wire's, so they never change. 1 to 3 are shown to everyone nearby (a heal's and
 // an explosion's size is its radius in tenths of a metre).
-const EVENT_HEAL: u8 = 1;
-const EVENT_EXPLOSION: u8 = 2;
-const EVENT_ARROW_HIT: u8 = 3;
+const EVENT_HEAL: u16 = 1;
+const EVENT_EXPLOSION: u16 = 2;
+const EVENT_ARROW_HIT: u16 = 3;
 // Attributed events, sent only to the player they are about, so the browser can label a number
 // without the server naming who did it: their size is the damage or healing, their position the one
-// it happened to, and the top 4 bits of the kind say what caused it (CAUSE_*), for the icon beside
-// the number.
-const EVENT_YOU_HIT: u8 = 4;
-const EVENT_YOU_HURT: u8 = 5;
-const EVENT_YOU_HEAL: u8 = 6;
+// it happened to, and the bits of the kind above the low 4 say what caused it (a cause), for the
+// icon beside the number.
+const EVENT_YOU_HIT: u16 = 4;
+const EVENT_YOU_HURT: u16 = 5;
+const EVENT_YOU_HEAL: u16 = 6;
 
-// What caused an attributed event, in the top 4 bits of its kind.
-const CAUSE_WEAPON: u8 = 1; // plus the weapon index: 1 sword, 2 club, 3 staff, 4 bow
-const CAUSE_METEOR: u8 = 5;
-const CAUSE_HEAL: u8 = 6;
-// 7 was the old battle server's bots: not used again, so an old number never means something new.
-const CAUSE_MONSTER: u8 = 8;
+// What caused an attributed event: what sort of thing it was in a cause's low 2 bits, and for a
+// weapon or an ability its place in shared/tuning.json's list above them, so the icon is the
+// content's whatever its order (src/net/netSpells.ts reads them).
+const CAUSE_WEAPON: u16 = 1;
+const CAUSE_ABILITY: u16 = 2;
+const CAUSE_MONSTER: u16 = 3;
+
+fn weapon_cause(weapon: u8) -> u16 {
+    CAUSE_WEAPON | u16::from(weapon) << 2
+}
+
+fn ability_cause(ability: u8) -> u16 {
+    CAUSE_ABILITY | u16::from(ability) << 2
+}
 
 // Inputs travel as small integers; the browser applies the same rounding to its own prediction.
 fn input_axis(v: i8) -> f64 {
@@ -168,7 +176,7 @@ struct Arrow {
     owner_slot: usize, // and their slot, for "you hit X" events
     owner_client: u32, // and who was in it, so what it does is credited to them and nobody else
     weapon: u8,        // which weapon fired it (it trains that one)
-    cause: u8,         // and for the icon on the damage number
+    cause: u16,        // and for the icon on the damage number
     team: u8,
     x: f64,
     y: f64,
@@ -187,6 +195,7 @@ struct Meteor {
     id: u16,
     owner_slot: usize, // who called it down, for "you hit X" events
     owner_client: u32, // and who was in that slot, for what it finishes off
+    cause: u16,        // the ability that called it, for the icon on the damage number
     team: u8,
     x: f64,
     z: f64,
@@ -205,7 +214,7 @@ struct PlayerHit {
     dx: f64,
     dz: f64,
     knock: f64,
-    cause: u8,
+    cause: u16,
 }
 
 // One player a Healing Circle reached.
@@ -213,10 +222,11 @@ struct HealHit {
     healer: usize,
     target: usize,
     amount: f64,
+    cause: u16,
 }
 
 struct Event {
-    kind: u8,
+    kind: u16,
     x: f64,
     y: f64,
     z: f64,
@@ -301,14 +311,14 @@ impl Players {
     /// number in their browser. Capped per tick so one meteor into a crowd can't flood a snapshot;
     /// the browser pools what does arrive anyway.
     #[allow(clippy::too_many_arguments)]
-    fn note(&mut self, slot: usize, kind: u8, cause: u8, x: f64, y: f64, z: f64, amount: f64) {
+    fn note(&mut self, slot: usize, kind: u16, cause: u16, x: f64, y: f64, z: f64, amount: f64) {
         if amount < 0.5 {
             return;
         }
         if let Some(list) = self.my_events.get_mut(slot)
             && list.len() < MAX_OWN_EVENTS
         {
-            // kind is 4..6, so the top nibble is free for what caused it.
+            // kind is 4..6, so the bits above the low 4 are free for what caused it.
             list.push(Event { kind: kind | (cause << 4), x, y, z, size: amount.round().clamp(1.0, 255.0) as u8 });
         }
     }
@@ -483,7 +493,7 @@ impl Players {
             return;
         }
         slot.build_seq = seq;
-        if valid_build(&build.skills, build.weapon, &build.abilities, tuning().skills.points) && valid_movement(&build.skills, &build.movement) {
+        if allowed(&build, tuning().skills.points) {
             slot.player.apply_build(build);
         }
     }
@@ -627,7 +637,7 @@ impl Players {
             }
         }
         let max_hp = tuning().combat.max_hp;
-        for HealHit { healer, target, amount } in heals {
+        for HealHit { healer, target, amount, cause } in heals {
             let healed = match &mut self.slots[target] {
                 Some(t) if t.player.down_frame < 0 => {
                     let before = t.player.hp;
@@ -638,9 +648,9 @@ impl Players {
             };
             // Only what the heal actually restored: topping up someone at full health shows nothing.
             if let Some((x, y, z, gained)) = healed {
-                self.note(healer, EVENT_YOU_HEAL, CAUSE_HEAL, x, y + MARKER_HEIGHT, z, gained);
+                self.note(healer, EVENT_YOU_HEAL, cause, x, y + MARKER_HEIGHT, z, gained);
                 if healer != target {
-                    self.note(target, EVENT_YOU_HEAL, CAUSE_HEAL, x, y + MARKER_HEIGHT, z, gained);
+                    self.note(target, EVENT_YOU_HEAL, cause, x, y + MARKER_HEIGHT, z, gained);
                 }
             }
         }
@@ -678,11 +688,11 @@ impl Players {
             let d = (dx * dx + dz * dz).sqrt().max(0.0001);
             let ground = self.ground_at(ax, az);
             if let Some(died) = actors.damage(id, step.damage, dx / d, dz / d, step.player_knock) {
-                self.note(slot, EVENT_YOU_HIT, CAUSE_WEAPON + weapon, died.x, died.y + ground, died.z, step.damage);
+                self.note(slot, EVENT_YOU_HIT, weapon_cause(weapon), died.x, died.y + ground, died.z, step.damage);
                 landed.push(kind_of(died.kind_index));
             } else if let Some(a) = actors.get_mut(id) {
                 let (hx, hy, hz) = (a.x, a.y + a.hit_height + ground, a.z);
-                self.note(slot, EVENT_YOU_HIT, CAUSE_WEAPON + weapon, hx, hy, hz, step.damage);
+                self.note(slot, EVENT_YOU_HIT, weapon_cause(weapon), hx, hy, hz, step.damage);
                 landed.push(None);
             }
         }
@@ -724,7 +734,7 @@ impl Players {
             }
             let (x, y, z) = rewound(o, view);
             let Some((nx, nz)) = check(x, y, z) else { continue };
-            player_hits.push(PlayerHit { attacker, victim: i, damage: step.damage, dx: nx, dz: nz, knock: step.player_knock, cause: CAUSE_WEAPON + a.weapon });
+            player_hits.push(PlayerHit { attacker, victim: i, damage: step.damage, dx: nx, dz: nz, knock: step.player_knock, cause: weapon_cause(a.weapon) });
             hits += 1;
             rewinds.push(latest - view);
             if check(o.player.pos.x, o.player.pos.y, o.player.pos.z).is_none() {
@@ -749,7 +759,7 @@ impl Players {
             owner_slot,
             owner_client,
             weapon: shooter.weapon,
-            cause: CAUSE_WEAPON + shooter.weapon,
+            cause: weapon_cause(shooter.weapon),
             team: shooter.team,
             x: shooter.pos.x + dx * 0.6,
             y: shooter.pos.y + ARROW_HEIGHT,
@@ -776,13 +786,13 @@ impl Players {
             healer.hp = (healer.hp + amount).min(tuning().combat.max_hp);
             let gained = healer.hp - before;
             let (hx, hy, hz) = (healer.pos.x, healer.pos.y, healer.pos.z);
-            self.note(caster, EVENT_YOU_HEAL, CAUSE_HEAL, hx, hy + MARKER_HEIGHT, hz, gained);
+            self.note(caster, EVENT_YOU_HEAL, ability_cause(a), hx, hy + MARKER_HEIGHT, hz, gained);
         }
         for (i, other) in self.slots.iter().enumerate() {
             let Some(o) = other else { continue };
             let (dx, dz) = (o.player.pos.x - healer.pos.x, o.player.pos.z - healer.pos.z);
             if o.player.team == healer.team && dx * dx + dz * dz <= radius * radius {
-                heals.push(HealHit { healer: caster, target: i, amount });
+                heals.push(HealHit { healer: caster, target: i, amount, cause: ability_cause(a) });
             }
         }
         self.events.push(Event { kind: EVENT_HEAL, x: healer.pos.x, y: healer.pos.y, z: healer.pos.z, size: (radius * 10.0) as u8 });
@@ -798,6 +808,7 @@ impl Players {
             id,
             owner_slot: caster_slot,
             owner_client: caster_client,
+            cause: ability_cause(a),
             team: caster.team,
             x: caster.cast_target_x,
             z: caster.cast_target_z,
@@ -912,8 +923,8 @@ impl Players {
             caught.push((i, p.pos.x, p.pos.y, p.pos.z));
         }
         for (i, x, y, z) in caught {
-            self.note(m.owner_slot, EVENT_YOU_HIT, CAUSE_METEOR, x, y + MARKER_HEIGHT, z, m.damage);
-            self.note(i, EVENT_YOU_HURT, CAUSE_METEOR, x, y + MARKER_HEIGHT, z, m.damage);
+            self.note(m.owner_slot, EVENT_YOU_HIT, m.cause, x, y + MARKER_HEIGHT, z, m.damage);
+            self.note(i, EVENT_YOU_HURT, m.cause, x, y + MARKER_HEIGHT, z, m.damage);
         }
         for id in actors.circle_hits(m.x, m.z, m.radius) {
             let Some(a) = actors.get_mut(id) else { continue };
@@ -922,7 +933,7 @@ impl Players {
             let (ax, az) = (a.x, a.z);
             let ay = a.y + a.hit_height + self.ground_at(ax, az);
             let died = actors.damage(id, m.damage, dx / d, dz / d, m.knock);
-            self.note(m.owner_slot, EVENT_YOU_HIT, CAUSE_METEOR, ax, ay, az, m.damage);
+            self.note(m.owner_slot, EVENT_YOU_HIT, m.cause, ax, ay, az, m.damage);
             // A blast trains nothing (the cast did), but what it finishes off counts.
             if let Some(kind) = died.and_then(|d| kind_of(d.kind_index)) {
                 self.credit_owner(m.owner_slot, m.owner_client, None, &[Some(kind)]);

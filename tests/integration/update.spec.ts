@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page, type WebSocketRoute } from '@playwright/test';
 import { GameServer, ownServerMissing, viteFor } from '../support/ownServer';
 import { serverBuilt } from '../support/testServer';
 
@@ -7,7 +7,8 @@ import { serverBuilt } from '../support/testServer';
 // server once the new one is up), every browser hears it's being updated, freezes its world under a
 // screen that says so, and once the new server is up carries on where it was; a page that's out of
 // date by then reloads straight back into the world. A connection that just drops freezes the same
-// way. (crates/server/src/play/socket.rs stop_world, src/net/worldLink.ts, src/main.ts.)
+// way, and a page built from other content than the server's reloads as one out of date does.
+// (crates/server/src/play/socket.rs stop_world, src/net/worldLink.ts, src/main.ts.)
 //
 // So that it can stop and start the server, this file runs its own game server, and its own Vite
 // forwarding to it, on ports of its own (tests/support/ownServer.ts). It needs a database:
@@ -184,4 +185,54 @@ test('a page that is out of date reloads, and goes straight back into the world 
   // It doesn't reload again for a build it already reloaded for.
   await page.waitForTimeout(1500);
   expect(loads).toBe(1);
+});
+
+test('a page built from other content than the server reloads into the new build, once', { tag: '@alone' }, async ({ page }) => {
+  // Every connection to the world goes through here. While `other` is above 0, that many welcomes say
+  // the server was built from other content (shared/hash.json), as a server deployed with new content
+  // says to a page from before it.
+  let other = 0;
+  const links: Array<{ ws: WebSocketRoute; dropped: boolean }> = [];
+  await page.routeWebSocket(/\/ws\/world/, (ws) => {
+    const link = { ws, dropped: false };
+    links.push(link);
+    const server = ws.connectToServer();
+    server.onMessage((m) => {
+      if (link.dropped) return;
+      if (other > 0 && typeof m === 'string' && m.includes('"welcome"') && JSON.parse(m).t === 'welcome') {
+        other--;
+        ws.send(JSON.stringify({ ...JSON.parse(m), content: 'other' }));
+      } else ws.send(m);
+    });
+  });
+  /** The connection drops as a server stopping for an update drops it, and the page connects again. */
+  const drop = async () => {
+    const link = links[links.length - 1];
+    link.dropped = true;
+    await link.ws.close({ code: 1012, reason: 'updating' });
+  };
+
+  await page.goto(`${BASE}/?as=${fresh('hash')}&bugs=0`);
+  await playing(page);
+  const who = await game(page, (g) => g.online().character);
+  let loads = 0;
+  page.on('load', () => loads++);
+
+  // Straight back into the world as the same character, in the new build.
+  other = 1;
+  await drop();
+  await page.waitForFunction(() => window.__game?.online?.()?.status === 'online', null, { timeout: 90_000 });
+  await playing(page);
+  expect(loads).toBe(1);
+  expect(await game(page, (g) => g.online().character)).toEqual(who);
+  expect(await page.evaluate(() => document.documentElement.classList.contains('splash-quick'))).toBe(true);
+
+  // Where reloading doesn't help (a world server built before the content changed, in development),
+  // it says so once it has reloaded, rather than reloading forever.
+  other = Number.POSITIVE_INFINITY;
+  await drop();
+  await expect(page.getByText('The game was updated. Reload the page to play.')).toBeVisible({ timeout: 90_000 });
+  expect(loads).toBe(2);
+  await page.waitForTimeout(1500);
+  expect(loads).toBe(2);
 });

@@ -100,7 +100,7 @@ pub struct Player {
     pub down_frame: i32,
     pub team: u8,
     // Build (skills and loadout).
-    pub weapon: u8,       // 0 sword, 1 club, 2 staff, 3 bow
+    pub weapon: u8,       // its place in shared/tuning.json's weapons
     pub skills: SkillSet, // which skills are learned (skills.rs)
     /// The level of each skill in the skill book (skills.rs book()), which adds to what it does.
     /// An open-world player's island keeps the experience behind them and sets these
@@ -194,7 +194,8 @@ pub(crate) fn turn_toward(current: f64, target: f64, max_step: f64) -> f64 {
     next.js_sin().js_atan2(next.js_cos())
 }
 
-/// A character's skills and loadout.
+/// A character's skills and loadout, by places in the content (as the wire has it; kept by id:
+/// skills::saved_build).
 #[derive(Clone, Copy, Debug)]
 pub struct Build {
     pub skills: SkillSet,

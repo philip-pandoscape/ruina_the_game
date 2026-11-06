@@ -18,6 +18,7 @@ use sqlx::{PgPool, Postgres, Transaction};
 use crate::accounts::{Account, check_name, signed_in};
 use crate::http::{ApiError, App, database};
 use crate::life::content::quests;
+use crate::skills::{allowed, build_from_saved, saved_by_id};
 use crate::tuning::tuning;
 
 /// Characters an account may hold.
@@ -39,25 +40,28 @@ pub struct Character {
     pub skill_points: u32,
     pub quests_done: u32,
     pub coins: i64,
-    /// The weapon in their build: 0 sword, 1 club, 2 staff, 3 bow.
-    pub weapon: u8,
+    /// The weapon of the build the world would give them, by id: the one kept, if their points
+    /// cover it, or the starting one.
+    pub weapon: String,
 }
 
 type Row = (i64, String, Option<i32>, Option<i64>, i64, Option<Jsonb<Value>>, Option<Jsonb<Value>>, Option<Jsonb<Value>>);
 
 impl Character {
-    fn from_row((id, name, channel, last_played, created, done, coins, weapon): Row) -> Self {
+    fn from_row((id, name, channel, last_played, created, done, coins, build): Row) -> Self {
         let done: Vec<String> = done.and_then(|Jsonb(v)| serde_json::from_value(v).ok()).unwrap_or_default();
+        let skill_points = skill_points(&done);
+        let build = build.and_then(|Jsonb(v)| build_from_saved(&v)).filter(|b| allowed(b, skill_points)).unwrap_or_default();
         Character {
             id,
             name,
             channel,
             last_played,
             created,
-            skill_points: skill_points(&done),
+            skill_points,
             quests_done: done.len() as u32,
             coins: coins.and_then(|Jsonb(v)| v.as_f64()).map_or(0, |c| c.floor() as i64),
-            weapon: weapon.and_then(|Jsonb(v)| v.as_u64()).and_then(|w| u8::try_from(w).ok()).unwrap_or(0),
+            weapon: tuning().weapons.get(build.weapon as usize).map(|w| w.name.clone()).unwrap_or_default(),
         }
     }
 }
@@ -74,13 +78,36 @@ pub async fn of_account(db: &PgPool, account: i64) -> Result<Vec<Character>, sql
     let rows: Vec<Row> = sqlx::query_as(
         "SELECT id, name, home_channel, (extract(epoch FROM last_played_at) * 1000)::bigint, \
            (extract(epoch FROM created_at) * 1000)::bigint, island->'state'->'quests'->'done', \
-           island->'state'->'coins', build->'weapon' \
+           island->'state'->'coins', build \
          FROM characters WHERE account_id = $1 ORDER BY id",
     )
     .bind(account)
     .fetch_all(db)
     .await?;
     Ok(rows.into_iter().map(Character::from_row).collect())
+}
+
+/// Rewrites the builds still kept by index, as they were before builds named things by id, by id
+/// (crate::skills::saved_by_id): how many it rewrote, and how many it left as they were. Run as the
+/// server starts (crate::db::connect). A row is rewritten only if it still holds what was read, so
+/// a build written meanwhile (by the server an update is replacing, say) is never lost: that one is
+/// rewritten the next time a server starts, and read as it is until then
+/// (crate::skills::build_from_saved reads both). One that was never a build the server would take
+/// is left as it is, and the world still gives its character the starting build.
+pub async fn keep_builds_by_id(db: &PgPool) -> Result<(u64, u64), sqlx::Error> {
+    let rows: Vec<(i64, Jsonb<Value>)> =
+        sqlx::query_as("SELECT id, build FROM characters WHERE jsonb_typeof(build->'weapon') = 'number'").fetch_all(db).await?;
+    let (mut rewritten, mut left) = (0, 0);
+    for (id, Jsonb(old)) in rows {
+        let Some(by_id) = saved_by_id(&old) else {
+            left += 1;
+            continue;
+        };
+        let done =
+            sqlx::query("UPDATE characters SET build = $2 WHERE id = $1 AND build = $3").bind(id).bind(Jsonb(by_id)).bind(Jsonb(old)).execute(db).await?;
+        rewritten += done.rows_affected();
+    }
+    Ok((rewritten, left))
 }
 
 /// Adds a character with a fresh island. None if the name is taken, whatever the case.
@@ -165,15 +192,21 @@ pub async fn delete(State(app): State<App>, headers: HeaderMap, Path(id): Path<i
 mod tests {
     use super::*;
 
-    fn row(done: Option<Value>, coins: Option<Value>, weapon: Option<Value>) -> Row {
-        (7, "Wren".into(), Some(2), Some(1_700_000_000_000), 1_600_000_000_000, done.map(Jsonb), coins.map(Jsonb), weapon.map(Jsonb))
+    fn row(done: Option<Value>, coins: Option<Value>, build: Option<Value>) -> Row {
+        (7, "Wren".into(), Some(2), Some(1_700_000_000_000), 1_600_000_000_000, done.map(Jsonb), coins.map(Jsonb), build.map(Jsonb))
+    }
+
+    /// The weapon the starting build holds.
+    fn starting_weapon() -> String {
+        tuning().weapons[crate::player::Build::default().weapon as usize].name.clone()
     }
 
     #[test]
     fn a_new_character_has_the_starting_points_and_a_sword() {
         let c = Character::from_row(row(None, None, None));
         assert_eq!(c.skill_points, tuning().skills.start_points);
-        assert_eq!((c.quests_done, c.coins, c.weapon), (0, 0, 0));
+        assert_eq!((c.quests_done, c.coins, c.weapon.as_str()), (0, 0, "sword"));
+        assert_eq!(c.weapon, starting_weapon());
         assert_eq!(c.channel, Some(2));
     }
 
@@ -183,16 +216,33 @@ mod tests {
         assert!(!with_points.is_empty(), "some quest gives skill points");
         let want: u32 = tuning().skills.start_points
             + with_points.iter().map(|id| quests().iter().find(|q| q.id == *id).and_then(|q| q.rewards.skill_points).unwrap_or(0)).sum::<u32>();
-        let c = Character::from_row(row(Some(json!(with_points)), Some(json!(1234.0)), Some(json!(3))));
+        let bow = json!({ "weapon": "bow", "skills": ["bow"], "abilities": [], "movement": [] });
+        let c = Character::from_row(row(Some(json!(with_points)), Some(json!(1234.0)), Some(bow)));
         assert_eq!(c.skill_points, want);
         assert_eq!(c.quests_done, with_points.len() as u32);
-        assert_eq!((c.coins, c.weapon), (1234, 3));
+        assert_eq!((c.coins, c.weapon.as_str()), (1234, "bow"));
+    }
+
+    #[test]
+    fn the_weapon_is_the_kept_builds_whichever_way_it_was_kept() {
+        // As today's server keeps it, and as the server kept it before (Bow Training, the bow at
+        // index 3 and node 9 of the order then).
+        let by_id = json!({ "weapon": "bow", "skills": ["bow"], "abilities": [null], "movement": [null, null] });
+        let by_index =
+            json!({ "skills": [512, 0, 0, 0, 0, 0, 0, 0], "weapon": 3, "movement": [255, 255], "abilities": [255, 255, 255, 255, 255, 255, 255, 255] });
+        for kept in [by_id, by_index] {
+            assert_eq!(Character::from_row(row(None, None, Some(kept))).weapon, "bow");
+        }
+        // More than their points cover, the world gives them the starting build, and so does this.
+        let greedy = json!({ "weapon": "bow", "skills": ["bow", "rapidFire", "piercing"], "abilities": [], "movement": [] });
+        assert!(allowed(&build_from_saved(&greedy).unwrap(), 3) && !allowed(&build_from_saved(&greedy).unwrap(), tuning().skills.start_points));
+        assert_eq!(Character::from_row(row(None, None, Some(greedy))).weapon, starting_weapon());
     }
 
     #[test]
     fn a_strange_island_reads_as_a_fresh_one() {
-        let c = Character::from_row(row(Some(json!("nonsense")), Some(json!("lots")), Some(json!(900))));
-        assert_eq!((c.quests_done, c.coins, c.weapon), (0, 0, 0));
+        let c = Character::from_row(row(Some(json!("nonsense")), Some(json!("lots")), Some(json!({ "weapon": 900, "skills": [1] }))));
+        assert_eq!((c.quests_done, c.coins, c.weapon), (0, 0, starting_weapon()));
     }
 
     #[test]

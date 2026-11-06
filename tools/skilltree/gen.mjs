@@ -4,20 +4,23 @@
 // is data, and can be edited by hand after that.
 //
 // The skills themselves (what they're called, grant and change) are read back from the file, so
-// laying it out again never loses an edit to them. The order of `nodes` is what a saved build's
-// bits mean: the fifteen skills keep the places they had before the tree grew, and everything else
-// follows them. Lay the tree out again only before anyone has spent points in the new places.
+// laying it out again never loses an edit to them. A kept build names the nodes it has learned by
+// id (crates/engine/src/skills.rs saved_build), and the nodes other than the skills are named for
+// their places: laying the tree out again renames them, so do it only before anyone has spent points
+// on them. The order of `nodes` is the wire's (a learned set's bits), which both sides read from the
+// file; it is in the content's hash (shared/hash.json), written again here.
 
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { build, write } from '../content/contentc.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const OUT = path.join(ROOT, 'shared/skilltree.json');
 const tuning = JSON.parse(fs.readFileSync(path.join(ROOT, 'shared/tuning.json'), 'utf8'));
 const previous = fs.existsSync(OUT) ? JSON.parse(fs.readFileSync(OUT, 'utf8')) : null;
 
-// The fifteen skills, in the order saved builds know them by.
+// The fifteen skills, in the order the tree has them.
 const SKILL_FIELDS = ['id', 'kind', 'tree', 'name', 'desc', 'icon', 'tags', 'grants', 'mods'];
 const pick = (n) => Object.fromEntries(SKILL_FIELDS.filter((k) => n[k] !== undefined).map((k) => [k, n[k]]));
 // The skills come from the tree this run replaces: shared/skilltree.json is where they live.
@@ -359,7 +362,7 @@ for (const x of nodes) {
   ids.set(x, x.out.id);
 }
 
-// The skills first, in their old order, then everything else by orbit and angle.
+// The skills first, in the order they had, then everything else by orbit and angle.
 const ordered = [
   ...SKILLS.map((s) => nodes.find((x) => x.skill === s.id)),
   ...nodes.filter((x) => x.kind !== 'skill').sort((p, q) => p.k - q.k || p.deg - q.deg),
@@ -367,7 +370,7 @@ const ordered = [
 const round = (v) => Math.round(v * 100) / 100;
 const out = {
   comment:
-    'The skill tree, laid out by tools/skilltree/gen.mjs (npm run skilltree) and editable by hand. The order of nodes is what a saved build means: append, never reorder. A node can be learned when it is a root or touches a node you have learned; links are the lines between them (arc: drawn along the orbit). o is the orbit (radii), a the angle in degrees clockwise from up. mods use the stats in tuning.json.',
+    "The skill tree, laid out by tools/skilltree/gen.mjs (npm run skilltree) and editable by hand. A kept build names its nodes by id, so an id is a node's for good; their order here is a learned set's bits on the wire. A node can be learned when it is a root or touches a node you have learned; links are the lines between them (arc: drawn along the orbit). o is the orbit (radii), a the angle in degrees clockwise from up. mods use the stats in tuning.json.",
   radii: RADII,
   nodes: ordered.map((x) => ({ ...x.out, ...(ROOTS.has(x.skill) ? { root: true } : {}), o: x.k, a: round(x.deg) })),
   links: [...edges.values()].map((e) => (e.arc ? [ids.get(e.a), ids.get(e.b), 1] : [ids.get(e.a), ids.get(e.b)])),
@@ -389,6 +392,9 @@ const lines = [
   '',
 ];
 fs.writeFileSync(OUT, lines.join('\n'));
+// The tree is in the content's hash: write it again.
+process.chdir(ROOT);
+write(build());
 const kinds = {};
 for (const n of out.nodes) kinds[n.kind] = (kinds[n.kind] ?? 0) + 1;
 console.log(

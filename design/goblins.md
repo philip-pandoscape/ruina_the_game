@@ -28,7 +28,7 @@ A creature is two things, and neither needs engine code of its own:
   the clips its states play), unless its kinds wear a species there is already.
 
 No list in code names the creatures: `content/creatures/_order.json` orders them, the order both
-sides read them in, because a kind travels on the wire as its index (a new one goes on the end).
+sides read them in, because a kind travels on the wire as its index.
 
 ## The engine parts
 

@@ -34,7 +34,8 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
   effort, each in a worktree of its own with its own ports and database (the user's call on
   2026-11-06: three at once used tokens too fast; one was allowed, then a second). They did the
   mini-games (R9.11, R8.11) and the UI gallery (R6.9); then the bible's reading of the engine's Rust
-  (R8.13's part); now saved builds by id with the bundle's hash on the wire (R9.1, R9.2).
+  (R8.13's part); then saved builds by id with the bundle's hash on the wire (R9.1, R9.2); now looks
+  from data (R9.9).
 - **Races under load (the Mac, four workers):** these lose a race now and then and pass alone:
   `online.spec.ts:50`, `:109`, `:258`, `:617`, `party.spec.ts:121`, `combat.spec.ts:185`; and
   `game.spec.ts:43` and `dungeon-way-in.spec.ts:50` when Vite reloads the page at the start of a run
@@ -772,9 +773,28 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
 
 ## Phase 9: Content as Data, Finished
 
-- [ ] **R9.1** Saved builds by id (weapons, abilities, movement skills, skill-tree nodes); a migration
+- [x] **R9.1** Saved builds by id (weapons, abilities, movement skills, skill-tree nodes); a migration
   converts existing saves; tested on copies of real saves.
-- [ ] **R9.2** Wire indexes from the compiled bundle; the connection compares bundle hashes.
+  Done (29f0696, e06eda0; a background agent, merged): a build is kept as
+  `{"weapon":"club","skills":[...],"abilities":[...],"movement":[...]}` in `characters.build` and the
+  browser's `ruina.build` (`crates/engine/src/skills.rs` `saved_build`, `build_from_saved`;
+  `src/content/build.ts`). Indexes stay at run time and on the wire. A build kept by index is read
+  through the order it was kept in, frozen in `shared/buildsByIndex.json` (c3d19c3's, never edited,
+  held by a hash in Rust and its values in TypeScript). The server rewrites the old rows as it starts
+  (`characters::keep_builds_by_id` from `db::connect`): only a row that still holds what was read,
+  idempotent, logged, never stopping the server. Tested on saves written by c3d19c3's own server
+  and browser (fixtures in Rust and TypeScript; a database of them migrated, every character back
+  with its build). The character list names its weapon by id. **(you)** Left: the same check on a
+  copy of beta's database, which needs Railway: restore it, start this server on it, and look for
+  "kept N builds by id" and characters back with their builds.
+- [x] **R9.2** Wire indexes from the compiled bundle; the connection compares bundle hashes.
+  Done (29f0696): `shared/hash.json`, a hash of every file in `shared/` but itself, written by
+  `npm run content` (and the dev server, and the skill tree's generator); the server sends its own in
+  the welcome, and a page built from other content reloads once into the new build and, if that
+  doesn't help, says so (`src/net/worldLink.ts`). `WORLD_PROTOCOL` 11. Every index on the wire comes
+  from a bundle's order: creature kinds, weapons, abilities, movement skills, skill nodes, combo
+  variants, mini-games. So after editing content the world server must be rebuilt before playing
+  online.
 - [~] **R9.3** Spawns in zone and dungeon data; the built-in `slimes`/`dummy` keys go; `?goblins=`
   becomes a developer option on top of data.
   Dungeons and zones have `spawns` (b318daf, 777949b: one of a kind, or a war-band of `count`); the
@@ -782,8 +802,16 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
 - [x] **R9.4** NPCs in `content/npcs/`; `FACES`, `GREETINGS`, `BENCH_OF` out of the UI.
   Done (f6055e7): a file each in `content/npcs/`, with their place, look, portrait, greeting and
   bench; `FACES`, `GREETINGS`, `BENCH_OF` and `windows/townsfolk.ts` gone.
-- [ ] **R9.5** Weapons and abilities from data (icons, moves, models, stowing); causes on the wire by
+- [~] **R9.5** Weapons and abilities from data (icons, moves, models, stowing); causes on the wire by
   kind and id.
+  Causes on the wire (29f0696): a type (weapon, ability or monster) and the thing's place in
+  `tuning.json`, where they were codes in code; a ranged weapon known by its data. Left: code that
+  knows weapons by place (`HERO_WEAPONS` in `src/render/creatures/heroBody.ts` and its uses in
+  `character.ts`, `src/render/detail/humanoid.ts`, `swings.ts`, `p.weapon === 3` in
+  `src/app/aiming.ts`, `w === 3` in `src/ui/skills/describe.ts`), so `content/weapons/_order.json`
+  can't be reordered yet; the balance harness's `tools/balance/scenario.json` names weapons by
+  place. (Re-running `tools/skilltree/gen.mjs` renames its generated nodes, whose ids come from
+  their places: only before anyone spends points on them.)
 - [x] **R9.6** Quest markers from quest data; no place ids in the UI.
   Done (2ca47bf): an objective's `marker` in its quest's file; `src/ui/life/hud/goal.ts` names no
   place; the same goal in 1,200 states before and after (`tests/unit/questGoal.test.ts`).
@@ -1219,7 +1247,7 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
 | 2026-11-06 | R8.13 | The unit tests that drove the TypeScript rules drive the engine; the engine takes content at run time | 94ed5c6 |
 | 2026-11-06 | R8.13, R8.12 | `src/sim/` gone: what the page reads in `src/engine/` (`shapes.ts`, `world/`, `life/`, `actors/`), behind seven front doors | ce064cc |
 | 2026-11-06 | R8.14 | Measured against where the refactor started (`tools/perf/measure.mjs`); the engine's view written straight from its values, a step 3.3 times cheaper; the Rust's comments name no TypeScript twin | eaa12d9 |
-| 2026-11-06 | R10.16, R10.1 | The world map in the engine: `content/world.json` places regions on 256 m chunks, open sea between; the ground, water and colliders answered across regions; the edge of the world is the map's | (this commit) |
+| 2026-11-06 | R10.16, R10.1 | The world map in the engine: `content/world.json` places regions on 256 m chunks, open sea between; the ground, water and colliders answered across regions; the edge of the world is the map's | 8c79bdd |
 | 2026-11-06 | R9.14 | `docs/content.md` | 5e23680 |
 | 2026-11-06 | R10.10, R11.1, R11.2, R11.7, R11.8 | Snapshot to move machines: the battle server's Rust gone; the asset manifest, loader and first-download budget, `docs/assets.md` | a975617 |
 | 2026-11-06 | R6.10, R6.11, R6.8 | The client's moves: creature bodies into src/render/creatures/, the root files to their areas, the library under src/dev/ | 9317ff3, 5de387d, 81df3de |
