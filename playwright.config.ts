@@ -2,7 +2,7 @@ import { defineConfig } from '@playwright/test';
 
 // The page the tests play is served by Vite on this port. PW_PORT moves it, so two checkouts can
 // run their suites at once without one testing the other's code (TEST_PORT_OFFSET moves the
-// battle servers some tests start, tests/support/testServer.ts).
+// game servers some specs start of their own, tests/support/ownServer.ts).
 const port = Number(process.env.PW_PORT) || 5199;
 
 // Here the spec files play side by side, PW_WORKERS of them at once (each file that needs a battle

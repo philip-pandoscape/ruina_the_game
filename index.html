@@ -8,11 +8,11 @@
     <link rel="icon" href="data:," />
     <script>
       // The title screen, from the very first frame: src/ui/splash.ts takes it over once the game's
-      // code arrives. It is for people only: automated tests and the battlefield (?test, ?yard,
-      // ?raid, ?server=) start straight away without it. The intro plays once per tab.
+      // code arrives. It is for people only: automated tests and the offline yard (?test, ?yard)
+      // start straight away without it. The intro plays once per tab.
       (function () {
         var q = new URLSearchParams(location.search);
-        if (q.get('server') || q.has('raid') || q.has('yard') || q.has('test')) return;
+        if (q.has('yard') || q.has('test')) return;
         var quick = false;
         try {
           quick = !!sessionStorage.getItem('ruina.introSeen');

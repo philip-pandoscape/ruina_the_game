@@ -37,8 +37,8 @@ integration test boots the game in about four seconds before it even starts.
 - A spec whose tests share nothing says so: `test.describe.configure({ mode: 'parallel' })`.
 - Tags: `@gpu` for tests that need a real GPU to keep up (CI skips them); `@alone` for tests that race
   the clock in a way other pages drawing would upset (they run one at a time, after the rest).
-- A spec that starts a battle server (`tests/support/testServer.ts`) gives it a port no other file
-  uses. Online specs make fresh accounts on the world server (`?as=<name>` signs in where
+- A spec that starts a game server of its own (`tests/support/ownServer.ts`) gives it a port no
+  other file uses. Online specs make fresh accounts on the world server (`?as=<name>` signs in where
   `DEV_LOGIN=1`).
 
 ## Running
@@ -74,7 +74,7 @@ Several checkouts and sessions run suites on one machine, so a run can be moved 
 | Setting | Default | What |
 |---|---|---|
 | `PW_PORT` | 5199 | the Vite server the integration tests play |
-| `TEST_PORT_OFFSET` | 0 | added to the battle servers' ports (7791-7795) and update.spec's own server and Vite |
+| `TEST_PORT_OFFSET` | 0 | added to the ports of the game servers some specs start of their own (`tests/support/ownServer.ts`: admin, update, download, battlefield) |
 | `PW_WORKERS` | 6 | pages side by side |
 | `RUINA_SERVER` | http://localhost:7777 | the world server the online specs and the dev server use |
 | `RUINA_DATABASE_URL` | none | the database update.spec starts its own server on |

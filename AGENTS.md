@@ -38,7 +38,7 @@ npm run format          # formats the TypeScript (biome.json) and the Rust (rust
 npm run check:beta      # + the integration tier (tests/conformance, then Playwright tests/integration): before every push to beta
 npm run check:release   # + the stress tier (tests/stress, a real GPU): before a release
 npx playwright test tests/integration/ui.spec.ts   # some of the integration tier: files, -g "title"; --last-failed after a fix
-PW_PORT=5211 TEST_PORT_OFFSET=10 npx playwright test   # beside another checkout's suite (its own Vite and battle-server ports)
+PW_PORT=5211 TEST_PORT_OFFSET=10 npx playwright test   # beside another checkout's suite (its own Vite and its specs' own game-server ports)
 npm run bake            # rebake the engine's copy of the island after changing it
 npm run image -- --out scratch/x.png --ref look.png "prompt"   # a picture from Gemini (Art and assets below)
 ```
@@ -73,8 +73,8 @@ online specs need a world server with a database (`npm run up`, or the private r
 - Tag a test `@gpu` if it needs a real GPU to keep up (several game windows, frame rates, screen
   capture): CI renders in software and skips them. Tag it `@alone` if it races the clock in a way
   other pages drawing would upset (stopping a server under players, two windows of one character):
-  those run one at a time, after the rest. A spec file that starts a battle server gives it a port no
-  other file uses (`tests/support/testServer.ts`); one whose tests share nothing says so
+  those run one at a time, after the rest. A spec file that starts a game server of its own gives it
+  a port no other file uses (`tests/support/ownServer.ts`); one whose tests share nothing says so
   (`test.describe.configure({ mode: 'parallel' })`).
 - Servers started on a development machine listen on localhost only (`--listen all` for other
   machines): nothing should ever need someone at the machine to click a Windows prompt.

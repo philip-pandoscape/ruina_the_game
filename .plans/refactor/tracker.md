@@ -9,18 +9,24 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
 
 ## Now
 
-- **Phase:** 6 (the client in areas) and 10 (zones and bots), with 7 and 12 done and 8, 9 and 11
-  begun beside them. The Content Library (R6.15) is done.
-- **Next:** the old battle server and its client paths out (R10.10, R10.9), then the engine bridge
-  (R6.4) and Phase 8's first switch.
-- **Test rig for this branch:** Postgres container `ruina-refactor-db` on 127.0.0.1:5461; a world
-  server on 7871 run from `target/release/` as a background task (`DATABASE_URL=postgres://ruina:ruina@127.0.0.1:5461/ruina
-  DEV_LOGIN=1 PORT= ./target/release/ruina-server.exe --battle off --port 7871`; stop that task, not
-  every ruina-server, before `cargo build --release` replaces the binary); the suite with
-  `PW_PORT=5261 TEST_PORT_OFFSET=60 RUINA_SERVER=http://localhost:7871
+- **Phase:** 6 (the client in areas) and 8 (one copy of the rules), with 7, 11 and 12 done or
+  nearly, and 9 and 10 mostly landed beside them. The old battle server is gone (R10.9, R10.10).
+- **Next:** the client's file moves (R6.10, R6.11, R6.8), then the engine bridge (R6.4, R6.0,
+  R6.0b) and `main.ts`'s split (R6.2, R6.2a), then Phase 8's switches; beside them the island's
+  generator in Rust (R8.6), the library's split (R6.7) and crowds at scale (R10.8).
+- **Where:** from 2026-11-06 the work goes on on the Mac laptop, in the main checkout
+  (`~/Documents/GitHub/games/ruina_the_game`, branch `refactor/first`; Git LFS installed with
+  Homebrew). The Windows worktree `C:\GitHub\games\yggdrasil-refactor` was the first machine; its last
+  state is a975617.
+- **Test rig for this branch (the Mac):** Postgres container `ruina-refactor-db` on 127.0.0.1:5461
+  (`docker run -d --rm --name ruina-refactor-db -e POSTGRES_USER=ruina -e POSTGRES_PASSWORD=ruina
+  -e POSTGRES_DB=ruina -p 127.0.0.1:5461:5432 postgres:18`); a world server on 7871 run as a
+  background task from a copy of the release binary, so a rebuild doesn't pull it out from under the
+  tests (`cp target/release/ruina-server scratch/rig/ && DATABASE_URL=postgres://ruina:ruina@127.0.0.1:5461/ruina
+  DEV_LOGIN=1 ./scratch/rig/ruina-server --port 7871`); the suite with `PW_PORT=5261
+  TEST_PORT_OFFSET=60 RUINA_SERVER=http://localhost:7871
   RUINA_DATABASE_URL=postgres://ruina:ruina@127.0.0.1:5461/ruina` and `--output=scratch/pw-*`.
-  Servers listen on localhost only: never start one that listens everywhere on this machine (it
-  raises a Windows prompt).
+  Servers listen on localhost only.
 - **Plan reviewed 2026-11-05:** approved with changes (decisions D0-D14 in the plan). Run every phase
   to the end, one merge into `beta` at the end, progress report along the way, no waiting.
 
@@ -481,7 +487,8 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
   island through the bridge; it stays TypeScript unless the server needs it.
 - [ ] **R8.13** Delete `src/sim/`, the check programs and the conformance specs.
 - [ ] **R8.14** Measure against the baseline: frame time, start-up, download size, memory. Log it.
-- [ ] **R8.15** `crates/engine/AGENTS.md`: determinism rules, adding a system, testing it.
+- [x] **R8.15** `crates/engine/AGENTS.md`: determinism rules, adding a system, testing it.
+  Done (33bf4ea): `crates/engine/AGENTS.md`.
 
 ## Phase 9: Content as Data, Finished
 
@@ -492,12 +499,19 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
   becomes a developer option on top of data.
   Dungeons and zones have `spawns` (b318daf, 777949b: one of a kind, or a war-band of `count`); the
   island's `slimes`/`dummy` keys are left.
-- [ ] **R9.4** NPCs in `content/npcs/`; `FACES`, `GREETINGS`, `BENCH_OF` out of the UI.
+- [x] **R9.4** NPCs in `content/npcs/`; `FACES`, `GREETINGS`, `BENCH_OF` out of the UI.
+  Done (f6055e7): a file each in `content/npcs/`, with their place, look, portrait, greeting and
+  bench; `FACES`, `GREETINGS`, `BENCH_OF` and `windows/townsfolk.ts` gone.
 - [ ] **R9.5** Weapons and abilities from data (icons, moves, models, stowing); causes on the wire by
   kind and id.
-- [ ] **R9.6** Quest markers from quest data; no place ids in the UI.
-- [ ] **R9.7** Item behaviours from data: placeables, rare drops, default craft place, the labor cap
+- [x] **R9.6** Quest markers from quest data; no place ids in the UI.
+  Done (2ca47bf): an objective's `marker` in its quest's file; `src/ui/life/hud/goal.ts` names no
+  place; the same goal in 1,200 states before and after (`tests/unit/questGoal.test.ts`).
+- [x] **R9.7** Item behaviours from data: placeables, rare drops, default craft place, the labor cap
   from `LABOR.max`, categories and their labels.
+  Done (5d0712d): `placeOn` and `hint` on placeables, rare finds with their own toast and effect,
+  a pack's maker, labor topped up to `labor.max`, category names in `shared/items.json`; both sides
+  (`tests/unit/items.test.ts`).
 - [~] **R9.8** Dungeons from their folder (no lists in code); each dungeon's dressing in data.
   From their folder (777949b): `content/dungeons/` built into one bundle both sides read; the goblin
   camp was added as a file alone. Goblin's Dread's dressing (`dungeonView.ts`) is still code.
@@ -507,10 +521,18 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
   load.
 - [ ] **R9.11** Mini-games: a game is a rules module plus a board view; the table framework reads the
   list from content.
-- [ ] **R9.12** A test that no content id appears in code, with an allowlist of reasons.
-- [ ] **R9.13** Templates per kind (`content/_templates/`) and fixture tests that add a creature, an
+- [x] **R9.12** A test that no content id appears in code, with an allowlist of reasons.
+  Done (41395e6): `tests/unit/contentIds.test.ts` (`tools/content/ids.mjs`), with allowances that
+  each name the task that removes them, and fail once they allow nothing.
+- [~] **R9.13** Templates per kind (`content/_templates/`) and fixture tests that add a creature, an
   NPC, an item, a quest and a vehicle as data only and play them; a Content Library subject per kind.
-- [ ] **R9.14** `docs/content.md`: a recipe per kind, data files only.
+  Done (fef19c5) but the library subject per kind: `content/_templates/` (a thing of each kind),
+  `tests/unit/templates.test.ts`, and `tests/unit/newContent.test.ts` adding a townsperson with wares
+  and a quest, an item, a vehicle and a creature as files alone and playing them. Creatures came from
+  their folder first (3d84597: `content/creatures/_order.json`, no list in code).
+- [x] **R9.14** `docs/content.md`: a recipe per kind, data files only.
+  Done (5e23680): `docs/content.md`, with what still needs code listed by the task that makes it
+  data.
 
 ## Phase 10: Zones, Developer Zones and Bots
 
@@ -559,13 +581,21 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
 - [ ] **R10.8** Crowds at scale in every zone: the interest grid (each client is sent what's near it,
   far things coarser), compact snapshots for many entities, players and bots stepped in parallel
   (`rayon`). Measured: server tick time and bandwidth for N bots.
-- [ ] **R10.9** One world client for every zone: the battle client path (`?server=`, `netCrowd.ts`'s
+- [x] **R10.9** One world client for every zone: the battle client path (`?server=`, `netCrowd.ts`'s
   battle parts, RemotePlayers) goes; far bodies drawn by the crowd renderer.
-- [ ] **R10.10** Delete the battlefield's own code: `sim.rs` (its bots), its loop in `main.rs`,
+  Done (da8fb15): `src/net/worldFeed.ts` in place of the battle client (NetCrowd); RemotePlayers,
+  the raid's crowd and `?raid`, `?server=`, `?team`, `?play` gone; the battlefield's fifteen fights
+  play in the developer zone (d0014e8, `tests/integration/battlefield.spec.ts`).
+- [~] **R10.10** Delete the battlefield's own code: `sim.rs` (its bots), its loop in `main.rs`,
   `interest.rs` (moved into the world server), `net.rs` and `/ws/battle`, its protocol, `world.rs`'s
   layout (now data), the flags `--battle`, `--bots`, `--virtual-clients`; on the client
   `crowd/crowdSim.ts`, `?raid`, `?server=`, `?yard` and `?test`'s yard; `loadtest` drives bots or
   virtual clients against a zone instead.
+  The client's half (da8fb15) and the server's (a975617): `sim.rs`, `battle/` (its loop,
+  `interest.rs`, `net.rs`, `/ws/battle`), `protocol.rs`, the `--battle`, `--bots`, `--hz`, `--slimes`
+  and `--virtual-clients` flags and `loadtest` are gone. Left: `world.rs`'s battlefield layout (used
+  only by tests now; its `World` is the spawn point the player rules respawn at) and the offline
+  `?yard`/`?test` yard, which R10.11 replaces.
 - [ ] **R10.11** Offline: the browser's engine runs any zone locally for tests and development (one
   option for tests in place of `?yard`/`?test`/`?world&test`).
 - [~] **R10.12** Tests: unit (zone loading, bot brains); integration (an admin enters the yard and the
@@ -580,21 +610,31 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
 
 ## Phase 11: Bigger Than 64 MB
 
-- [ ] **R11.1** The asset manifest: id, hashed file, size, kind, zones; built with the client.
-- [ ] **R11.2** The loader: the first download carries the title screen and start; the rest streams by
+- [x] **R11.1** The asset manifest: id, hashed file, size, kind, zones; built with the client.
+  Done (a975617): `tools/assets/manifest.ts` (a Vite plugin) writes `/asset-manifest.json`; kinds
+  and zones from `src/assets/catalog.ts`, held complete by `tests/unit/assets.test.ts`.
+- [x] **R11.2** The loader: the first download carries the title screen and start; the rest streams by
   zone and distance, low detail first, with progress. Today (`inventory/architecture.md` section 7)
   models are eager URL globs, the hero and its four weapons (~1.9 MB) load with character select's
   preview, the village kit (3.8 MB) and ground textures (2.4 MB) when the island builds, and the
   `models` chunk is only partly lazy (`models/kit.ts` and `models/glb.ts` are in the main bundle).
+  Done (a975617): `src/assets/loader.ts` (front, zone, near; six at once, nearest first) through
+  `src/render/assets.ts`; `src/app/boot.ts` is the first download, the rest of the game is fetched once a
+  character is chosen; the title screen shows what has arrived.
 - [x] **R11.3** Caching: `immutable` for hashed files, revalidation for pages and the manifest, brotli.
   Done (740f845): `/assets/` a year and immutable, everything else `no-cache` (a 304 unless
   changed), brotli beside gzip; tested on a built game's files. The manifest comes with R11.1.
 - [ ] **R11.4** Optional: a service worker that keeps assets and prefetches the next zone.
-- [ ] **R11.5** KTX2 textures where they save size or GPU memory.
+- [~] **R11.5** KTX2 textures where they save size or GPU memory.
+  Measured (a975617, `docs/assets.md`): the ground as ETC1S first (smaller and 47 MB less on the
+  GPU). Waits on KTX-Software's `toktx`, which wasn't installed on the Windows machine.
 - [x] **R11.6** Where big files live: Git LFS (decided; done in R0.9). A CDN in front later is a
   manifest setting.
-- [ ] **R11.7** A first-download budget the integration tier enforces.
-- [ ] **R11.8** `docs/assets.md`: the pipeline from a find to the manifest.
+- [x] **R11.7** A first-download budget the integration tier enforces.
+  Done (a975617): `tests/integration/download.spec.ts`, 2.4 MB to character select, 0.75 MB to
+  sign-in, nothing of the world before a character is chosen; passing on the Mac too.
+- [x] **R11.8** `docs/assets.md`: the pipeline from a find to the manifest.
+  Done (a975617): `docs/assets.md`.
 
 ## Phase 12: The Design Bible as a Knowledge Base
 
@@ -628,8 +668,9 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
 - [ ] **R13.2** `docs/`: architecture, engine, content, zones, testing, assets, deploys, admin.
 - [ ] **R13.3** The design bible's tracker: every moved path updated (moves script), the refactor's
   features done, a session entry per phase.
-- [ ] **R13.4** The path check (unit tier): every path named in AGENTS.md, `docs/`, the skills and
+- [x] **R13.4** The path check (unit tier): every path named in AGENTS.md, `docs/`, the skills and
   `design/status.json` exists.
+  Done (9a34c1b): `tests/unit/paths.test.ts`.
 - [ ] **R13.5** README: a quick start that points to AGENTS.md and `docs/`.
 - [ ] **R13.6** Memory notes on this machine updated (paths, ports, commands).
 - [ ] **R13.7** Close-out: the plan's goals checked one by one with numbers against the baseline.
@@ -685,3 +726,18 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
 | 2026-11-06 | R11.3 | Caching and brotli | 740f845 |
 | 2026-11-06 | R10.4 | The yard's dummy and slimes on its floor; combat measured from a copy's floor | b318daf |
 | 2026-11-06 | R9.8, R10.3, R10.13 | Zones are content (one bundle, no lists in code); the goblin camp; the Admin menu's zones from character select; zone to zone; docs/zones.md | 777949b |
+| 2026-11-06 | (log) | The tracker brought up to date | 1646629 |
+| 2026-11-06 | R9.4 | The island's people are content (`content/npcs/`) | f6055e7 |
+| 2026-11-06 | R9.6 | Quest markers from the quests' data | 2ca47bf |
+| 2026-11-06 | R10.7, R10.9 | The battlefield's fights in the world: sides, lag compensation (WORLD_PROTOCOL 8), the old battle server's fifteen fights | d0014e8 |
+| 2026-11-06 | R9.7 | Item behaviours from the items' data | 5d0712d |
+| 2026-11-06 | R9.12 | No content id in code, but for the reasons allowed | 41395e6 |
+| 2026-11-06 | R10.4, R10.12 | The yard's monsters on the world server (`tests/integration/yard.spec.ts`) | 98049ae |
+| 2026-11-06 | R9.13 | Creatures from their folder (`content/creatures/_order.json`) | 3d84597 |
+| 2026-11-06 | R10.9, R10.10 | The browser's battle server path and the raid gone; WorldFeed | da8fb15 |
+| 2026-11-06 | R13.4 | Every path the docs name is there | 9a34c1b |
+| 2026-11-06 | R6.13 | `src/net/AGENTS.md` | 37afeca |
+| 2026-11-06 | R9.13 | Templates and new content as data alone, played | fef19c5 |
+| 2026-11-06 | R8.15 | `crates/engine/AGENTS.md` | 33bf4ea |
+| 2026-11-06 | R9.14 | `docs/content.md` | 5e23680 |
+| 2026-11-06 | R10.10, R11.1, R11.2, R11.7, R11.8 | Snapshot to move machines: the battle server's Rust gone; the asset manifest, loader and first-download budget, `docs/assets.md` | a975617 |

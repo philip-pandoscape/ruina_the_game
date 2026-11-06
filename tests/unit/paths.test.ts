@@ -15,7 +15,23 @@ const rel = (p: string) => relative(ROOT, p).replace(/\\/g, '/');
  * The folders a path in the docs can start with: the repository's own, and `server/`, where the
  * server was before crates/ (so any mention of it is out of date).
  */
-const TOPS = ['src/', 'crates/', 'content/', 'shared/', 'tests/', 'tools/', 'docs/', 'design/', 'dev/', 'bible/', 'public/', '.plans/', '.claude/', '.github/', 'server/'];
+const TOPS = [
+  'src/',
+  'crates/',
+  'content/',
+  'shared/',
+  'tests/',
+  'tools/',
+  'docs/',
+  'design/',
+  'dev/',
+  'bible/',
+  'public/',
+  '.plans/',
+  '.claude/',
+  '.github/',
+  'server/',
+];
 
 function markdown(dir: string, out: string[] = []): string[] {
   for (const name of readdirSync(join(ROOT, dir))) {
