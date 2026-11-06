@@ -57,7 +57,6 @@ const ALLOWED: Allowance[] = [
     files: ['src/content/minigames.ts', 'src/ui/minigames/', 'crates/engine/src/minigames/', 'src/app/testApi.ts'],
     ids: ['beacons'],
   },
-  { why: 'the old PvP battle server, until R10.10 removes it', files: ['crates/server/src/battle/'] },
   {
     why: "the developer tools: the content library's subjects and films, the developer panel's gifts, the URL options and the test API's fixtures (the yard's dummy, Goblin's Dread's portal), the offline yard (R10.4)",
     files: ['src/library/', 'src/ui/life/windows/dev.ts', 'src/app/options.ts', 'src/app/testApi.ts', 'src/render/scene.ts'],

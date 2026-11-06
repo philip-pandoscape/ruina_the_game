@@ -6,9 +6,9 @@
 #   crates/engine-wasm  the engine for the browser: compiled to WebAssembly, called through plain
 #                   functions (src/engine/wasm.ts).
 #   crates/server   the game server, ruina-server: accounts, characters and islands in Postgres, the
-#                   world's channels and dungeon copies, the WebSockets, the PvP battlefield.
+#                   world's channels and dungeon copies, its WebSocket.
 #   crates/tools    programs run by hand or by the tests: the TypeScript-against-Rust checks, the
-#                   balance harness, the load test.
+#                   balance harness.
 [workspace]
 members = ["crates/engine", "crates/engine-wasm", "crates/server", "crates/tools"]
 resolver = "3"
@@ -24,7 +24,6 @@ ruina-server = { path = "crates/server" }
 futures-util = "0.3.34"
 # The browser's exp and atan2 (fdlibm, as V8's are), so the rules both sides run agree to the bit.
 libm = "0.2"
-rayon = "1.12.0"
 serde = { version = "1.0.229", features = ["derive"] }
 # float_roundtrip: numbers read exactly as JavaScript wrote them (islands, content), not a last bit off.
 serde_json = { version = "1.0.154", features = ["float_roundtrip"] }

@@ -46,8 +46,7 @@ ENV PORT=7777
 # address; run natively it listens on the machine itself only (crates/server/src/main.rs).
 ENV LISTEN=all
 EXPOSE 7777
-# No battlefield by default: it simulates thousands of fighters around the clock. Drop --battle off for one.
-CMD ["ruina-server", "--battle", "off"]
+CMD ["ruina-server"]
 
 # ---------- What Railway runs: the server plus the built game ----------
 FROM server AS app

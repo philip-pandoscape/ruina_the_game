@@ -15,7 +15,6 @@ use std::io::Read;
 
 use ruina_engine::actors::Actors;
 use ruina_engine::player::{Build, Mode};
-use ruina_engine::sim::Battle;
 use ruina_engine::skills::{EMPTY_SKILLS, node_index, set_skill};
 use ruina_engine::tuning::{HOTBAR_SLOTS, MOVEMENT_SLOTS, NO_ABILITY, NO_MOVEMENT, tuning};
 use ruina_engine::world::{SEED, battlefield};
@@ -121,9 +120,8 @@ struct Outcome {
 fn duel(a: &Build, b: &Build, seed: u32, max_ticks: u32, distance: f64) -> Outcome {
     let world = battlefield(SEED);
     let tick_ms = 1000.0 / tuning().sim_hz;
-    let mut players = Players::new(0, tick_ms);
+    let mut players = Players::new(tick_ms);
     let mut actors = Actors::new(); // a duel has no monsters in it
-    let mut battle = Battle::new(0);
     let mut rng = Rng(seed);
 
     players.join(1, 1, &world); // team 0
@@ -175,8 +173,8 @@ fn duel(a: &Build, b: &Build, seed: u32, max_ticks: u32, distance: f64) -> Outco
             let _ = actions_from(raw); // keeps the decoder in the build, and documents the shape
         }
 
-        players.step(&mut battle, &mut actors, &world, tick as u64);
-        players.step_effects(&mut battle, &mut actors);
+        players.step(&mut actors, &world, tick as u64);
+        players.step_effects(&mut actors);
         players.record_history(tick as u64);
 
         let hps = [hp(&players, 0), hp(&players, 1)];

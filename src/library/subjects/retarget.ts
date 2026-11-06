@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { clone as cloneSkinned } from 'three/addons/utils/SkeletonUtils.js';
+import { asset } from '../../assets/manifest';
 import { loadGltf } from '../../render/assets';
 import { Body } from '../../render/detail/body';
 import { wear } from '../../render/detail/fit';
@@ -23,8 +24,7 @@ import type { AnimDef, Bone, FrameInfo, Options, Phase, Posable, Snapshot, Sourc
 // worst, bone, feet }, over `seconds`. tests/integration/retarget.spec.ts holds every move's clip
 // (moves.ts) to it; the retarget-animation skill says how to use it.
 
-const urls = import.meta.glob('../../render/assets/models/*.glb', { query: '?url', import: 'default', eager: true }) as Record<string, string>;
-const fileUrl = (name: string): string | undefined => Object.entries(urls).find(([k]) => k.endsWith(`/${name}.glb`))?.[1];
+const fileUrl = (name: string): string | undefined => asset(`models/${name}`)?.url;
 
 type Gltf = { scene: THREE.Group; animations: THREE.AnimationClip[] };
 /** Each file loaded once (its scene only read, by bake(); every take shows a copy of its own). */

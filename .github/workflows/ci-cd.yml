@@ -156,7 +156,7 @@ jobs:
           DATABASE_URL: postgres://ruina:ruina@localhost:5432/ruina
           DEV_LOGIN: '1'
         run: |
-          nohup target/release/ruina-server --battle off --port 7777 > server.log 2>&1 &
+          nohup target/release/ruina-server --port 7777 > server.log 2>&1 &
           for i in $(seq 60); do curl -fs localhost:7777/api/health && exit 0; sleep 1; done
           cat server.log
           exit 1

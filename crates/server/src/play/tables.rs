@@ -765,7 +765,7 @@ mod tests {
         assert!(ch.command(7, 61, Command::Mount));
         for tick in 0..20 {
             ch.players.inputs_per_tick = 3.0;
-            ch.players.step_in(&mut ch.battle, &mut ch.actors, &ch.world, tick, Some(&mut ch.open));
+            ch.players.step_in(&mut ch.actors, &ch.world, tick, Some(&mut ch.open));
         }
         let p = ch.players.open_view(client(7)).unwrap().0;
         assert!((p.pos.x - before.x).hypot(p.pos.z - before.z) < 1e-6, "still in her seat");

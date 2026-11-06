@@ -1,6 +1,6 @@
 //! Real players on the server: joining and leaving, their builds (skills and loadout), running
 //! their inputs in order, and everything that hurts or heals: weapon swings, arrows, meteors and
-//! Healing Circles, plus bots hitting players.
+//! Healing Circles, plus monsters' slams and blows landing on players.
 //!
 //! Lag compensation: each input says which server tick the player was looking at. When a melee
 //! swing is checked, other players are rewound to where that player saw them, so a hit on your
@@ -11,18 +11,13 @@ use std::collections::{HashMap, VecDeque};
 use crate::actors::{Actors, FoeHit, Slam};
 use crate::ai::Foe;
 use crate::content::kind_at;
+use crate::jsmath::JsMath;
 use crate::life::progress::{Observed, sync_levels};
 use crate::life::{Command, Life};
 use crate::open::OpenWorld;
 use crate::open::dungeon::DungeonDef;
 use crate::open::zone::Heightfield;
 use crate::player::{Actions, Build, Player, angle_diff};
-use crate::protocol::{
-    ACTOR_ENTRY, ARROW_ENTRY, CAUSE_BOT, CAUSE_HEAL, CAUSE_METEOR, CAUSE_MONSTER, CAUSE_WEAPON, EVENT_ARROW_HIT, EVENT_ENTRY, EVENT_EXPLOSION, EVENT_HEAL,
-    EVENT_YOU_HEAL, EVENT_YOU_HIT, EVENT_YOU_HURT, METEOR_ENTRY, PLAYER_ENTRY, YOU_ENTRY, aim_axis, cm16, face_axis, input_axis, put_actor, put_player,
-    put_you,
-};
-use crate::sim::{Battle, BotHit, BotTarget};
 use crate::skills::{valid_build, valid_movement};
 use crate::tuning::{AttackStep, HOTBAR_SLOTS, NO_ABILITY, ability, effect_amount, effect_damage, effect_radius, melee_targets, pierce_targets, tuning};
 use crate::world::World;
@@ -32,18 +27,60 @@ pub const MAX_PLAYERS: usize = 4096;
 // can't speed itself up by sending extra inputs.
 const MAX_INPUTS_PER_TICK: usize = 12;
 const BODY_RADIUS: f64 = 0.45;
-const VIEW_RADIUS: f64 = 60.0; // other players within this distance get detailed updates
-const VIEW_CAP: usize = 32;
 const EFFECT_RADIUS: f64 = 90.0; // arrows, meteors and effects within this distance are sent
 const HISTORY: usize = 40; // ticks of position history kept per player (2 s at 20 Hz)
 const MAX_REWIND_TICKS: f64 = 16.0; // never rewind more than 0.8 s, however laggy the attacker
-const BOT_KNOCK: f64 = 2.5;
 const ARROW_HEIGHT: f64 = 1.3; // arrows fly at chest height
 const ARROW_RADIUS: f64 = 0.55; // how close an arrow has to pass to hit someone
 const MARKER_HEIGHT: f64 = 1.1; // floating numbers sit about head height above whoever they're about
 const MAX_OWN_EVENTS: usize = 24; // attributed events per player per tick; the rest are dropped
 const SLAM_LIFT: f64 = 1.0; // a monster's slam only catches someone on the ground, not mid-jump
 
+// What an effect sent to the browser is (an event's kind), as src/net/netSpells.ts reads it: these
+// numbers are the wire's, so they never change. 1 to 3 are shown to everyone nearby (a heal's and
+// an explosion's size is its radius in tenths of a metre).
+const EVENT_HEAL: u8 = 1;
+const EVENT_EXPLOSION: u8 = 2;
+const EVENT_ARROW_HIT: u8 = 3;
+// Attributed events, sent only to the player they are about, so the browser can label a number
+// without the server naming who did it: their size is the damage or healing, their position the one
+// it happened to, and the top 4 bits of the kind say what caused it (CAUSE_*), for the icon beside
+// the number.
+const EVENT_YOU_HIT: u8 = 4;
+const EVENT_YOU_HURT: u8 = 5;
+const EVENT_YOU_HEAL: u8 = 6;
+
+// What caused an attributed event, in the top 4 bits of its kind.
+const CAUSE_WEAPON: u8 = 1; // plus the weapon index: 1 sword, 2 club, 3 staff, 4 bow
+const CAUSE_METEOR: u8 = 5;
+const CAUSE_HEAL: u8 = 6;
+// 7 was the old battle server's bots: not used again, so an old number never means something new.
+const CAUSE_MONSTER: u8 = 8;
+
+// Inputs travel as small integers; the browser applies the same rounding to its own prediction.
+fn input_axis(v: i8) -> f64 {
+    v as f64 / 127.0
+}
+
+fn aim_axis(v: i8) -> f64 {
+    v as f64 * 0.25
+}
+
+/// The combat-stance heading byte as a direction: 0 is none, 1..=255 a heading in 255 steps.
+fn face_axis(v: u8) -> (f64, f64) {
+    if v == 0 {
+        return (0.0, 0.0);
+    }
+    let yaw = (v - 1) as f64 * std::f64::consts::TAU / 255.0;
+    (yaw.js_sin(), yaw.js_cos())
+}
+
+/// One input as a browser packs it, 8 bytes: move x and z (i8, ±127 for full), the buttons (1 jump
+/// pressed, 2 jump held, 4 attack pressed, 8 slide pressed, 16 sprint held, 32 crouch held), aim x
+/// and z (i8: the target's offset from the player in quarter metres, 0, 0 straight ahead), the slot
+/// used this frame (1..=HOTBAR_SLOTS the hotbar, past that a movement slot, 0 none), the movement
+/// skill held, and the combat stance's heading (0 to face the way you move, else 1..=255 a heading
+/// to keep facing).
 pub fn actions_from(raw: [u8; 8]) -> Actions {
     let b = raw[2];
     let (face_x, face_z) = face_axis(raw[7]);
@@ -69,7 +106,7 @@ pub fn actions_from(raw: [u8; 8]) -> Actions {
     }
 }
 
-/// Open worlds: the 10 bytes a browser packs per input: the battlefield's 8, plus the raw stick
+/// Open worlds: the 10 bytes a browser packs per input: actions_from's 8, plus the raw stick
 /// (vehicles steer with it).
 pub fn open_actions_from(raw: [u8; OPEN_INPUT]) -> Actions {
     let mut a = actions_from([raw[0], raw[1], raw[2], raw[3], raw[4], raw[5], raw[6], raw[7]]);
@@ -100,7 +137,8 @@ struct Slot {
     budget: f64,
 }
 
-/// The ground under a point: a copy's floor where it has one, the terrain, or 0 (the battlefield).
+/// The ground under a point: a copy's floor where it has one, the terrain, or 0 (a flat World, as
+/// the balance harness's duels have).
 fn ground_under(floor: Option<&'static DungeonDef>, terrain: Option<&'static Heightfield>, x: f64, z: f64) -> f64 {
     floor.and_then(|d| d.floor_at(x, z)).unwrap_or_else(|| terrain.map_or(0.0, |g| g.height(x, z)))
 }
@@ -126,7 +164,7 @@ fn rewound(slot: &Slot, view: f64) -> (f64, f64, f64) {
 
 struct Arrow {
     id: u16,
-    owner: u16,        // player id of the shooter
+    owner: u16,        // player id of the shooter (their slot)
     owner_slot: usize, // and their slot, for "you hit X" events
     owner_client: u32, // and who was in it, so what it does is credited to them and nobody else
     weapon: u8,        // which weapon fired it (it trains that one)
@@ -142,7 +180,7 @@ struct Arrow {
     damage: f64,
     knock: f64,
     pierce_left: usize, // how many more enemies it can go through
-    hit: Vec<u32>,      // who it already hit: bot index, or 1 << 31 | player slot
+    hit: Vec<u32>,      // who it already hit: 1 << 30 | actor id, or 1 << 31 | player slot
 }
 
 struct Meteor {
@@ -212,25 +250,21 @@ fn kind_of(kind_index: u8) -> Option<&'static str> {
 }
 
 pub struct Players {
-    /// Open worlds: the ground, so heights can be measured from it (the battlefield is flat at 0).
+    /// Open worlds: the ground, so heights can be measured from it (a flat World is at 0).
     pub ground: Option<&'static Heightfield>,
     /// A copy of a dungeon or a developer zone: its floor, which is the ground where it has one.
     pub floor: Option<&'static DungeonDef>,
     /// Open worlds: refill each player's input budget by this many inputs per tick. 0 (the
-    /// battlefield) runs whatever arrives, up to MAX_INPUTS_PER_TICK.
+    /// balance harness's duels) runs whatever arrives, up to MAX_INPUTS_PER_TICK.
     pub inputs_per_tick: f64,
     slots: Vec<Option<Slot>>,
     by_client: HashMap<u32, usize>,
-    entity_base: usize, // player ids come after the bots'
     tick_ms: f64,
     next_team: u8,
     pub pvp_hits: u64,
-    pub hits_on_bots: u64,
-    pub bot_hits_on_players: u64,
     pub saved_by_rewind: u64, // hits that only landed because of lag compensation
     pub heals: u64,
     pub meteors_landed: u64,
-    pub arrows_fired: u64,
     rewind_recent: f64, // recent average rewind (ticks) for player-vs-player hits
     rewind_samples: u64,
     arrows: Vec<Arrow>,
@@ -238,56 +272,30 @@ pub struct Players {
     events: Vec<Event>,         // things that happened this tick, for effects in browsers
     my_events: Vec<Vec<Event>>, // per slot: damage and healing only that player is told about
     next_effect_id: u16,
-    // Packed once per tick and shared by every snapshot.
-    packed: Vec<(usize, f64, f64, [u8; PLAYER_ENTRY])>,
-    you: Vec<Option<[u8; YOU_ENTRY]>>,
-    packed_arrows: Vec<(f64, f64, [u8; ARROW_ENTRY])>,
-    packed_actors: Vec<(f64, f64, [u8; ACTOR_ENTRY])>,
-    packed_meteors: Vec<(f64, f64, [u8; METEOR_ENTRY])>,
-    packed_events: Vec<(f64, f64, [u8; EVENT_ENTRY])>,
-    packed_my_events: Vec<Vec<[u8; EVENT_ENTRY]>>,
-    nearby_bots: Vec<usize>,
 }
 
 impl Players {
-    pub fn new(entity_base: usize, tick_ms: f64) -> Self {
-        let max = MAX_PLAYERS.min(65_535 - entity_base);
+    pub fn new(tick_ms: f64) -> Self {
         Players {
             ground: None,
             floor: None,
             inputs_per_tick: 0.0,
-            slots: (0..max).map(|_| None).collect(),
+            slots: (0..MAX_PLAYERS).map(|_| None).collect(),
             by_client: HashMap::new(),
-            entity_base,
             tick_ms,
             next_team: 1,
             pvp_hits: 0,
-            hits_on_bots: 0,
-            bot_hits_on_players: 0,
             saved_by_rewind: 0,
             heals: 0,
             meteors_landed: 0,
-            arrows_fired: 0,
             rewind_recent: 0.0,
             rewind_samples: 0,
             arrows: Vec::new(),
             meteors: Vec::new(),
             events: Vec::new(),
-            my_events: (0..max).map(|_| Vec::new()).collect(),
+            my_events: (0..MAX_PLAYERS).map(|_| Vec::new()).collect(),
             next_effect_id: 0,
-            packed: Vec::new(),
-            you: (0..max).map(|_| None).collect(),
-            packed_arrows: Vec::new(),
-            packed_actors: Vec::new(),
-            packed_meteors: Vec::new(),
-            packed_events: Vec::new(),
-            packed_my_events: (0..max).map(|_| Vec::new()).collect(),
-            nearby_bots: Vec::new(),
         }
-    }
-
-    pub fn count(&self) -> usize {
-        self.by_client.len()
     }
 
     /// Remembers something that happened *to this player or because of them*, for a floating
@@ -309,10 +317,6 @@ impl Players {
     /// Recent average rewind applied to player-vs-player hits, in milliseconds.
     pub fn rewind_ms(&self) -> f64 {
         if self.rewind_samples == 0 { 0.0 } else { self.rewind_recent * self.tick_ms }
-    }
-
-    pub fn slot_of(&self, client_id: u32) -> Option<usize> {
-        self.by_client.get(&client_id).copied()
     }
 
     pub fn position(&self, slot: usize) -> Option<(f64, f64)> {
@@ -465,14 +469,14 @@ impl Players {
     }
 
     /// Height of the ground under a point: a copy's floor where it has one, the open world's
-    /// terrain, or 0 on the battlefield.
+    /// terrain, or 0 on a flat World.
     fn ground_at(&self, x: f64, z: f64) -> f64 {
         ground_under(self.floor, self.ground, x, z)
     }
 
-    /// The battlefield: applies the build a player asked for, if it's new and allowed (within
-    /// skills.points, learned outward from a root, a weapon they've trained, abilities they've
-    /// learned).
+    /// Tools that drive the rules headlessly (bin/balance.rs): applies the build a player asked
+    /// for, if it's new and allowed (within skills.points, learned outward from a root, a weapon
+    /// they've trained, abilities they've learned).
     pub fn sync_build(&mut self, client_id: u32, seq: u32, build: Build) {
         let Some(&s) = self.by_client.get(&client_id) else { return };
         let Some(slot) = &mut self.slots[s] else { return };
@@ -497,18 +501,6 @@ impl Players {
         }
     }
 
-    /// Removes players whose connection has closed.
-    pub fn retain(&mut self, connected: impl Fn(u32) -> bool) {
-        for s in self.slots.iter_mut() {
-            if let Some(slot) = s
-                && !connected(slot.client_id)
-            {
-                self.by_client.remove(&slot.client_id);
-                *s = None;
-            }
-        }
-    }
-
     /// Inputs as (seq, view tick × 16, raw bytes).
     pub fn queue_inputs(&mut self, client_id: u32, inputs: impl Iterator<Item = (u32, u32, [u8; 8])>) {
         let Some(&s) = self.by_client.get(&client_id) else { return };
@@ -521,12 +513,12 @@ impl Players {
 
     /// Runs each player's waiting inputs in order: weapon swings land, arrows fly off, and finished
     /// casts heal or call down meteors. `tick` is the tick being worked out now.
-    pub fn step(&mut self, battle: &mut Battle, actors: &mut Actors, world: &World, tick: u64) {
-        self.step_in(battle, actors, world, tick, None);
+    pub fn step(&mut self, actors: &mut Actors, world: &World, tick: u64) {
+        self.step_in(actors, world, tick, None);
     }
 
     /// The same, in an open world: each player moves over its ground and their island steps along.
-    pub fn step_in(&mut self, battle: &mut Battle, actors: &mut Actors, world: &World, tick: u64, mut open: Option<&mut OpenWorld>) {
+    pub fn step_in(&mut self, actors: &mut Actors, world: &World, tick: u64, mut open: Option<&mut OpenWorld>) {
         self.events.clear();
         for list in &mut self.my_events {
             list.clear();
@@ -569,7 +561,7 @@ impl Players {
                 used += 1;
                 if let Some(swing) = slot.player.active_swing() {
                     if swing.projectile_speed > 0.0 {
-                        self.fire_arrow(s, slot.client_id, &slot.player, &swing, (self.entity_base + s) as u16);
+                        self.fire_arrow(s, slot.client_id, &slot.player, &swing);
                         slot.player.attack_hit = true;
                     } else {
                         let latest = tick.saturating_sub(1) as f64;
@@ -579,7 +571,7 @@ impl Players {
                         let (px, pz, facing, weapon) = (p.pos.x, p.pos.z, p.facing, p.weapon);
                         // Each hit this swing lands, in order, with what it finished off.
                         let mut landed: Vec<Option<&'static str>> = Vec::new();
-                        let fighters = self.swing(s, p, view, latest, &swing, max_targets, battle, &mut player_hits);
+                        let fighters = self.swing(s, p, view, latest, &swing, max_targets, &mut player_hits);
                         landed.resize(fighters, None);
                         // Monsters are in the arc too, and a swing that only catches one still
                         // counts as a hit. On hills (src/sim/player/attacks.ts checkHit) nothing is
@@ -608,7 +600,7 @@ impl Players {
                     let a = slot.player.fired_ability;
                     for i in 0..ability(a).effects.len() {
                         match ability(a).effects[i].kind.as_str() {
-                            "healArea" => self.heal_area(s, a, i, &mut slot.player, battle, &mut heals),
+                            "healArea" => self.heal_area(s, a, i, &mut slot.player, &mut heals),
                             "delayedArea" => self.delayed_area(s, slot.client_id, a, i, &slot.player),
                             other => debug_assert!(false, "unknown effect kind: {other}"),
                         }
@@ -655,7 +647,7 @@ impl Players {
         }
     }
 
-    /// Everything a swing catches among the actors, on top of whatever bots and players it hit.
+    /// Everything a swing catches among the actors, on top of whatever players it hit.
     /// Each one hit goes on `landed`, with its kind if the hit finished it off.
     #[allow(clippy::too_many_arguments)]
     fn swing_actors(
@@ -697,22 +689,12 @@ impl Players {
         }
     }
 
-    /// Melee: finds enemies in front of a swinging player. Other players are checked where the
-    /// attacker saw them (tick `view`); bots where they are now. Returns how many it hit.
+    /// Melee: finds enemies in front of a swinging player, each checked where the attacker saw
+    /// them (tick `view`). Returns how many it hit.
     #[allow(clippy::too_many_arguments)]
-    fn swing(
-        &mut self,
-        attacker: usize,
-        a: &Player,
-        view: f64,
-        latest: f64,
-        step: &AttackStep,
-        max_targets: usize,
-        battle: &mut Battle,
-        player_hits: &mut Vec<PlayerHit>,
-    ) -> usize {
-        // High in the air, a swing reaches nobody: two metres above the ground under you (the
-        // battlefield's floor is 0; the open world's is its terrain).
+    fn swing(&mut self, attacker: usize, a: &Player, view: f64, latest: f64, step: &AttackStep, max_targets: usize, player_hits: &mut Vec<PlayerHit>) -> usize {
+        // High in the air, a swing reaches nobody: two metres above the ground under you (a flat
+        // World's floor is 0; the open world's is its terrain).
         let floor = self.ground_at(a.pos.x, a.pos.z);
         if a.pos.y - floor > 2.0 {
             return 0;
@@ -755,32 +737,16 @@ impl Players {
             self.rewind_recent = if self.rewind_samples == 0 { r } else { self.rewind_recent * 0.8 + r * 0.2 };
             self.rewind_samples += 1;
         }
-
-        battle.bots_near(a.pos.x as f32, a.pos.z as f32, reach as f32, &mut self.nearby_bots);
-        for k in 0..self.nearby_bots.len() {
-            if hits >= max_targets {
-                break;
-            }
-            let b = self.nearby_bots[k];
-            if battle.team[b] == a.team || check(battle.x[b] as f64, 0.0, battle.z[b] as f64).is_none() {
-                continue;
-            }
-            battle.damage_bot(b, step.damage as f32);
-            self.hits_on_bots += 1;
-            hits += 1;
-            let (bx, bz) = (battle.x[b] as f64, battle.z[b] as f64);
-            self.note(attacker, EVENT_YOU_HIT, CAUSE_WEAPON + a.weapon, bx, MARKER_HEIGHT, bz, step.damage);
-        }
         hits
     }
 
-    fn fire_arrow(&mut self, owner_slot: usize, owner_client: u32, shooter: &Player, shot: &AttackStep, owner: u16) {
+    fn fire_arrow(&mut self, owner_slot: usize, owner_client: u32, shooter: &Player, shot: &AttackStep) {
         let (dx, dz) = (shooter.facing.sin(), shooter.facing.cos());
         let pierce = pierce_targets(shooter.weapon, &shooter.resolved);
         let id = self.next_id();
         self.arrows.push(Arrow {
             id,
-            owner,
+            owner: owner_slot as u16,
             owner_slot,
             owner_client,
             weapon: shooter.weapon,
@@ -798,12 +764,11 @@ impl Players {
             pierce_left: pierce,
             hit: Vec::new(),
         });
-        self.arrows_fired += 1;
     }
 
-    // Healing Circle: heals the caster and every ally (players and bots) within the radius.
+    // Healing Circle: heals the caster and every ally within the radius.
     /// healArea: restores health to the caster and every ally standing inside the circle.
-    fn heal_area(&mut self, caster: usize, a: u8, fx: usize, healer: &mut Player, battle: &mut Battle, heals: &mut Vec<HealHit>) {
+    fn heal_area(&mut self, caster: usize, a: u8, fx: usize, healer: &mut Player, heals: &mut Vec<HealHit>) {
         let e = &ability(a).effects[fx];
         let radius = effect_radius(a, e, &healer.resolved);
         let amount = effect_amount(a, e, &healer.resolved);
@@ -821,7 +786,6 @@ impl Players {
                 heals.push(HealHit { healer: caster, target: i, amount });
             }
         }
-        battle.heal_bots(healer.pos.x as f32, healer.pos.z as f32, radius as f32, healer.team, amount as f32);
         self.events.push(Event { kind: EVENT_HEAL, x: healer.pos.x, y: healer.pos.y, z: healer.pos.z, size: (radius * 10.0) as u8 });
         self.heals += 1;
     }
@@ -847,11 +811,11 @@ impl Players {
     }
 
     /// Moves arrows and lands meteors. Runs once per tick, after everyone has moved.
-    pub fn step_effects(&mut self, battle: &mut Battle, actors: &mut Actors) {
+    pub fn step_effects(&mut self, actors: &mut Actors) {
         let dt = self.tick_ms / 1000.0;
         let mut flying = Vec::with_capacity(self.arrows.len());
         for mut a in std::mem::take(&mut self.arrows) {
-            if self.advance_arrow(&mut a, battle, actors, dt) {
+            if self.advance_arrow(&mut a, actors, dt) {
                 flying.push(a);
             }
         }
@@ -863,7 +827,7 @@ impl Players {
             if m.ticks_left > 0 {
                 falling.push(m);
             } else {
-                self.explode(&m, battle, actors);
+                self.explode(&m, actors);
             }
         }
         self.meteors = falling;
@@ -871,7 +835,7 @@ impl Players {
 
     // Moves one arrow for one tick in short hops, hitting the first enemies in its path.
     // Returns false once it has run out of range or targets to pierce.
-    fn advance_arrow(&mut self, a: &mut Arrow, battle: &mut Battle, actors: &mut Actors, dt: f64) -> bool {
+    fn advance_arrow(&mut self, a: &mut Arrow, actors: &mut Actors, dt: f64) -> bool {
         let travel = (a.speed * dt).min(a.left);
         let hops = ((travel / 0.5).ceil() as usize).max(1);
         let hop = travel / hops as f64;
@@ -925,30 +889,12 @@ impl Players {
                     return false;
                 }
             }
-            battle.bots_near(a.x as f32, a.z as f32, ARROW_RADIUS as f32, &mut self.nearby_bots);
-            for k in 0..self.nearby_bots.len() {
-                let b = self.nearby_bots[k];
-                if battle.team[b] == a.team || a.hit.contains(&(b as u32)) {
-                    continue;
-                }
-                battle.damage_bot(b, a.damage as f32);
-                a.hit.push(b as u32);
-                self.hits_on_bots += 1;
-                self.events.push(Event { kind: EVENT_ARROW_HIT, x: a.x, y: a.y, z: a.z, size: a.damage as u8 });
-                let (bx, bz) = (battle.x[b] as f64, battle.z[b] as f64);
-                self.note(a.owner_slot, EVENT_YOU_HIT, a.cause, bx, MARKER_HEIGHT, bz, a.damage);
-                self.credit_owner(a.owner_slot, a.owner_client, Some(a.weapon), &[None]);
-                a.pierce_left -= 1;
-                if a.pierce_left == 0 {
-                    return false;
-                }
-            }
         }
         a.left > 0.0
     }
 
     // A meteor lands: everyone on the other team inside the blast is hurt and thrown outward.
-    fn explode(&mut self, m: &Meteor, battle: &mut Battle, actors: &mut Actors) {
+    fn explode(&mut self, m: &Meteor, actors: &mut Actors) {
         let mut caught: Vec<(usize, f64, f64, f64)> = Vec::new();
         for (i, slot) in self.slots.iter_mut().enumerate() {
             let Some(slot) = slot else { continue };
@@ -970,16 +916,6 @@ impl Players {
             self.note(m.owner_slot, EVENT_YOU_HIT, CAUSE_METEOR, x, y + MARKER_HEIGHT, z, m.damage);
             self.note(i, EVENT_YOU_HURT, CAUSE_METEOR, x, y + MARKER_HEIGHT, z, m.damage);
         }
-        battle.bots_near(m.x as f32, m.z as f32, m.radius as f32, &mut self.nearby_bots);
-        for k in 0..self.nearby_bots.len() {
-            let b = self.nearby_bots[k];
-            if battle.team[b] != m.team {
-                battle.damage_bot(b, m.damage as f32);
-                self.hits_on_bots += 1;
-                let (bx, bz) = (battle.x[b] as f64, battle.z[b] as f64);
-                self.note(m.owner_slot, EVENT_YOU_HIT, CAUSE_METEOR, bx, MARKER_HEIGHT, bz, m.damage);
-            }
-        }
         for id in actors.circle_hits(m.x, m.z, m.radius) {
             let Some(a) = actors.get_mut(id) else { continue };
             let (dx, dz) = (a.x - m.x, a.z - m.z);
@@ -996,34 +932,6 @@ impl Players {
         let ground = self.ground_at(m.x, m.z);
         self.events.push(Event { kind: EVENT_EXPLOSION, x: m.x, y: ground, z: m.z, size: (m.radius * 10.0) as u8 });
         self.meteors_landed += 1;
-    }
-
-    /// Players the bots can fight this tick (anyone not knocked down).
-    pub fn bot_targets(&self) -> Vec<BotTarget> {
-        self.slots
-            .iter()
-            .enumerate()
-            .filter_map(|(s, slot)| {
-                let p = &slot.as_ref()?.player;
-                (p.down_frame < 0).then_some(BotTarget { slot: s as u32, x: p.pos.x as f32, z: p.pos.z as f32, team: p.team })
-            })
-            .collect()
-    }
-
-    pub fn apply_bot_hits(&mut self, hits: &[BotHit]) {
-        for h in hits {
-            let struck = match self.slots.get_mut(h.slot as usize) {
-                Some(Some(slot)) => {
-                    slot.player.take_hit(h.damage as f64, h.dir_x as f64, h.dir_z as f64, BOT_KNOCK);
-                    self.bot_hits_on_players += 1;
-                    Some((slot.player.pos.x, slot.player.pos.y, slot.player.pos.z))
-                }
-                _ => None,
-            };
-            if let Some((x, y, z)) = struck {
-                self.note(h.slot as usize, EVENT_YOU_HURT, CAUSE_BOT, x, y + MARKER_HEIGHT, z, h.damage as f64);
-            }
-        }
     }
 
     /// Monsters' slams: everyone standing in one when it lands is hit, with the same dodge and
@@ -1086,32 +994,6 @@ impl Players {
             .collect()
     }
 
-    /// Freezes the actors into wire entries once a tick, shared by every client's snapshot.
-    pub fn pack_actors(&mut self, actors: &Actors) {
-        self.packed_actors.clear();
-        for a in actors.list.iter() {
-            let mut e = [0u8; ACTOR_ENTRY];
-            let progress = if a.wait > 0 { a.state_frame as f64 / a.wait as f64 } else { 0.0 };
-            put_actor(
-                &mut e,
-                a.id,
-                a.kind_index,
-                a.x,
-                a.z,
-                a.y,
-                a.facing,
-                a.state as u8,
-                progress.clamp(0.0, 1.0),
-                if a.max_hp > 0.0 { a.hp / a.max_hp } else { 0.0 },
-                // Taken out of the world (absorbed): sent as long dead, which a browser doesn't draw.
-                if a.gone { 254 } else { a.dead_frame },
-                a.target_x - a.x,
-                a.target_z - a.z,
-            );
-            self.packed_actors.push((a.x, a.z, e));
-        }
-    }
-
     pub fn record_history(&mut self, tick: u64) {
         for slot in self.slots.iter_mut().flatten() {
             let p = &slot.player.pos;
@@ -1122,82 +1004,9 @@ impl Players {
         }
     }
 
-    /// Packs every player, arrow, meteor and event once per tick, for the snapshots built in
-    /// parallel afterwards.
-    pub fn pack(&mut self) {
-        self.packed.clear();
-        let mut buf = Vec::with_capacity(YOU_ENTRY);
-        for (s, slot) in self.slots.iter().enumerate() {
-            let Some(slot) = slot else {
-                self.you[s] = None;
-                continue;
-            };
-            let id = (self.entity_base + s) as u16;
-            buf.clear();
-            put_player(&mut buf, id, &slot.player);
-            let mut entry = [0u8; PLAYER_ENTRY];
-            entry.copy_from_slice(&buf);
-            self.packed.push((s, slot.player.pos.x, slot.player.pos.z, entry));
-            buf.clear();
-            put_you(&mut buf, id, slot.last_seq, &slot.player);
-            let mut you = [0u8; YOU_ENTRY];
-            you.copy_from_slice(&buf);
-            self.you[s] = Some(you);
-        }
-
-        self.packed_arrows.clear();
-        for a in &self.arrows {
-            let mut e = [0u8; ARROW_ENTRY];
-            e[0..2].copy_from_slice(&a.id.to_le_bytes());
-            e[2..4].copy_from_slice(&a.owner.to_le_bytes());
-            e[4..6].copy_from_slice(&cm16(a.x));
-            e[6..8].copy_from_slice(&cm16(a.y));
-            e[8..10].copy_from_slice(&cm16(a.z));
-            e[10..12].copy_from_slice(&cm16(a.dx * a.speed));
-            e[12..14].copy_from_slice(&cm16(a.dz * a.speed));
-            e[14] = a.team;
-            self.packed_arrows.push((a.x, a.z, e));
-        }
-        self.packed_meteors.clear();
-        for m in &self.meteors {
-            let mut e = [0u8; METEOR_ENTRY];
-            e[0..2].copy_from_slice(&m.id.to_le_bytes());
-            e[2..4].copy_from_slice(&cm16(m.x));
-            e[4..6].copy_from_slice(&cm16(m.z));
-            e[6] = m.ticks_left.min(255) as u8;
-            e[7] = m.fall_ticks.min(255) as u8;
-            e[8] = m.team;
-            e[9] = (m.radius * 10.0).round().clamp(0.0, 255.0) as u8;
-            self.packed_meteors.push((m.x, m.z, e));
-        }
-        self.packed_events.clear();
-        for ev in &self.events {
-            let mut e = [0u8; EVENT_ENTRY];
-            e[0] = ev.kind;
-            e[1..3].copy_from_slice(&cm16(ev.x));
-            e[3..5].copy_from_slice(&cm16(ev.y));
-            e[5..7].copy_from_slice(&cm16(ev.z));
-            e[7] = ev.size;
-            self.packed_events.push((ev.x, ev.z, e));
-        }
-        for (s, list) in self.my_events.iter().enumerate() {
-            let packed = &mut self.packed_my_events[s];
-            packed.clear();
-            for ev in list {
-                let mut e = [0u8; EVENT_ENTRY];
-                e[0] = ev.kind;
-                e[1..3].copy_from_slice(&cm16(ev.x));
-                e[3..5].copy_from_slice(&cm16(ev.y));
-                e[5..7].copy_from_slice(&cm16(ev.z));
-                e[7] = ev.size;
-                packed.push(e);
-            }
-        }
-    }
-
     /// Open worlds: the arrows in flight, meteors falling and effects near (vx, vz), plus the
-    /// effects addressed to the player in `viewer`, as JSON in the shapes src/net/netCrowd.ts reads
-    /// (ArrowRecord, MeteorRecord, EffectEvent).
+    /// effects addressed to the player in `viewer`, as JSON in the shapes the browser reads
+    /// (ArrowRecord, MeteorRecord and EffectEvent in src/net/worldFeed.ts).
     pub fn effects_json(&self, viewer: Option<usize>, vx: f64, vz: f64) -> (serde_json::Value, serde_json::Value, serde_json::Value) {
         use serde_json::json;
         let near = |x: f64, z: f64| (x - vx) * (x - vx) + (z - vz) * (z - vz) <= EFFECT_RADIUS * EFFECT_RADIUS;
@@ -1222,88 +1031,5 @@ impl Players {
             events.extend(list.iter().map(event));
         }
         (serde_json::Value::Array(arrows), serde_json::Value::Array(meteors), serde_json::Value::Array(events))
-    }
-
-    /// Appends the nearby-players section, your own exact state (if you're playing), and the
-    /// arrows, meteors and effects near you.
-    pub fn write_sections(&self, out: &mut Vec<u8>, viewer: Option<usize>, vx: f64, vz: f64, scratch: &mut Vec<(f64, usize)>) {
-        scratch.clear();
-        for (k, (s, x, z, _)) in self.packed.iter().enumerate() {
-            if Some(*s) == viewer {
-                continue;
-            }
-            let (dx, dz) = (x - vx, z - vz);
-            let d2 = dx * dx + dz * dz;
-            if d2 <= VIEW_RADIUS * VIEW_RADIUS {
-                scratch.push((d2, k));
-            }
-        }
-        if scratch.len() > VIEW_CAP {
-            scratch.select_nth_unstable_by(VIEW_CAP, |a, b| a.0.total_cmp(&b.0));
-            scratch.truncate(VIEW_CAP);
-        }
-        out.push(scratch.len() as u8);
-        for &(_, k) in scratch.iter() {
-            out.extend_from_slice(&self.packed[k].3);
-        }
-        match viewer.and_then(|s| self.you[s].as_ref()) {
-            Some(you) => {
-                out.push(1);
-                out.extend_from_slice(you);
-            }
-            None => out.push(0),
-        }
-        write_near(out, &self.packed_arrows, vx, vz, 64);
-        write_near(out, &self.packed_meteors, vx, vz, 16);
-        let mine: &[[u8; EVENT_ENTRY]] = match viewer {
-            Some(s) => &self.packed_my_events[s],
-            None => &[],
-        };
-        write_events(out, &self.packed_events, mine, vx, vz, 48);
-        write_actors(out, &self.packed_actors, vx, vz, 48);
-    }
-}
-
-// The effects section: nearby effects everyone sees, then the ones addressed to this player.
-// Their positions are already known to be relevant, so they skip the distance test.
-fn write_events(out: &mut Vec<u8>, list: &[(f64, f64, [u8; EVENT_ENTRY])], mine: &[[u8; EVENT_ENTRY]], vx: f64, vz: f64, cap: usize) {
-    let near = |&&(x, z, _): &&(f64, f64, [u8; EVENT_ENTRY])| (x - vx) * (x - vx) + (z - vz) * (z - vz) <= EFFECT_RADIUS * EFFECT_RADIUS;
-    let shared = list.iter().filter(near).take(cap).count();
-    let own = mine.len().min(cap - shared);
-    out.push((shared + own) as u8);
-    for (_, _, e) in list.iter().filter(near).take(shared) {
-        out.extend_from_slice(e);
-    }
-    for e in mine.iter().take(own) {
-        out.extend_from_slice(e);
-    }
-}
-
-// Monsters and props near enough to be worth drawing. Nearest first, so a cap trims the ones
-// furthest away rather than whichever happened to spawn last.
-fn write_actors(out: &mut Vec<u8>, list: &[(f64, f64, [u8; ACTOR_ENTRY])], vx: f64, vz: f64, cap: usize) {
-    let mut near: Vec<(f64, usize)> = list
-        .iter()
-        .enumerate()
-        .filter_map(|(i, (x, z, _))| {
-            let d2 = (x - vx) * (x - vx) + (z - vz) * (z - vz);
-            (d2 <= VIEW_RADIUS * VIEW_RADIUS).then_some((d2, i))
-        })
-        .collect();
-    near.sort_by(|a, b| a.0.total_cmp(&b.0));
-    near.truncate(cap);
-    out.push(near.len() as u8);
-    for &(_, i) in near.iter() {
-        out.extend_from_slice(&list[i].2);
-    }
-}
-
-// Writes a count and then up to `cap` packed entries within EFFECT_RADIUS of (vx, vz).
-fn write_near<const N: usize>(out: &mut Vec<u8>, list: &[(f64, f64, [u8; N])], vx: f64, vz: f64, cap: usize) {
-    let near = |&&(x, z, _): &&(f64, f64, [u8; N])| (x - vx) * (x - vx) + (z - vz) * (z - vz) <= EFFECT_RADIUS * EFFECT_RADIUS;
-    let count = list.iter().filter(near).take(cap).count();
-    out.push(count as u8);
-    for (_, _, e) in list.iter().filter(near).take(cap) {
-        out.extend_from_slice(e);
     }
 }

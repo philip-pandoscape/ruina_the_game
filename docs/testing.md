@@ -83,7 +83,7 @@ A private rig for the online specs, clear of `npm run up`'s ports:
 
 ```sh
 docker run -d --rm --name ruina-<you>-db -e POSTGRES_USER=ruina -e POSTGRES_PASSWORD=ruina -e POSTGRES_DB=ruina -p 127.0.0.1:5461:5432 postgres:18
-DATABASE_URL=postgres://ruina:ruina@127.0.0.1:5461/ruina DEV_LOGIN=1 target/release/ruina-server --battle off --port 7871
+DATABASE_URL=postgres://ruina:ruina@127.0.0.1:5461/ruina DEV_LOGIN=1 target/release/ruina-server --port 7871
 PW_PORT=5261 TEST_PORT_OFFSET=60 RUINA_SERVER=http://localhost:7871 RUINA_DATABASE_URL=postgres://ruina:ruina@127.0.0.1:5461/ruina npx playwright test
 ```
 

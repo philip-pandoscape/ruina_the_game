@@ -166,7 +166,9 @@ test('a page that is out of date reloads, and goes straight back into the world 
     async (route) => {
       if (route.request().resourceType() !== 'fetch') return route.continue();
       const res = await route.fetch();
-      await route.fulfill({ response: res, body: (await res.text()).replace('/src/main.ts', '/src/main.ts?build=next') });
+      // The page's module script (src/app/boot.ts in development) named as another build would name it.
+      const next = (await res.text()).replace(/(<script type="module"[^>]* src="[^"?]+)"/, '$1?build=next"');
+      await route.fulfill({ response: res, body: next });
     },
   );
 

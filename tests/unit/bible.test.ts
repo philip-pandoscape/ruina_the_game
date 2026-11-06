@@ -83,7 +83,6 @@ const PLUMBING: Record<string, string> = {
   // The developer zones, which only admins enter: no player reads about them.
   'src/sim/world.ts': 'the training yard’s and the battlefield’s grounds, developer zones',
   'src/sim/training.ts': 'the training yard’s stand-in for the server, a developer zone',
-  'crates/engine/src/sim.rs': 'the battlefield’s two armies of bots, a developer zone',
   'crates/engine/src/world.rs': 'the battlefield’s ground, a developer zone',
 };
 

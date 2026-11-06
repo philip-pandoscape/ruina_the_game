@@ -12,6 +12,7 @@ import { leaveFor, plainUrl } from '../app/resume';
 import { signOut } from '../net/account';
 import { NetOverlay, OnlineBadge, showStopped } from '../ui/signIn';
 import { splash } from '../ui/splash';
+import { loader } from '../assets/loader';
 import type { SpaceView, WorldTick, YouState } from '../net/worldLink';
 import { addHouseColliders } from '../sim/life/housing';
 import { addScarecrowCollider } from '../sim/life/farming';
@@ -181,12 +182,15 @@ export function wireOnline(g: GameRefs): void {
     }
 
     // Into the game: the title screen fades once the first frames are drawn (the first one compiles
-    // the shaders) and your island has arrived, so it opens on your island as it is.
+    // the shaders) and your island has arrived, so it opens on your island as it is; and once what
+    // it can't be drawn without has too (the ground, the town's kit, your body: src/assets/loader.ts),
+    // saying how much meanwhile, for half a minute at most.
     if (splash) {
       const title = splash;
       title.say('Lighting the Lanterns…');
       const started = performance.now();
-      const ready = () => g.framesDrawn >= 3 && (lifeLoaded || performance.now() - started > 4000);
+      const filesIn = () => loader.pending('front', 'zone') === 0 || performance.now() - started > 30_000;
+      const ready = () => g.framesDrawn >= 3 && (lifeLoaded || performance.now() - started > 4000) && filesIn();
       const wait = () => (ready() ? void title.fadeOut() : requestAnimationFrame(wait));
       requestAnimationFrame(wait);
     }

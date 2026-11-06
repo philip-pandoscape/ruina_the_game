@@ -1,7 +1,7 @@
 //! Emberholm as the server plays it: one game per channel, 20 ticks a second. Each player's
 //! browser sends what they press (about 60 inputs a second) and what they ask their island to do
 //! (commands); here those run through the island's rules (crates/engine/src/open, crates/engine/src/life) and
-//! the same combat as the battlefield (crates/server/src/combat.rs), the channel's slimes live and fight,
+//! the players' combat (crates/server/src/combat.rs), the channel's slimes live and fight,
 //! and every browser hears back where it really is, what its island now holds, and what everyone
 //! else in the channel is doing. Nothing a browser says about its own state is believed: it can
 //! only press keys and ask.
@@ -30,7 +30,6 @@ use crate::open::{OpenWorld, Sim};
 use crate::play::channels::{Channel, estate_of};
 use crate::play::socket::parse_build;
 use crate::player::{Actions, Build, Mode, Player};
-use crate::sim::Battle;
 use crate::skills::{valid_build, valid_movement};
 use crate::world::{Spawn, World};
 
@@ -167,7 +166,6 @@ pub struct ChannelGame {
     pub open: OpenWorld,
     players: Players,
     actors: Actors,
-    battle: Battle,
     tick: u64,
     last_tick: Instant,
     /// Challenges and the tables they became (crates/server/src/play/tables.rs).
@@ -202,7 +200,7 @@ impl ChannelGame {
         let r = &zone.recipe;
         let spawn = Spawn { x: r.spawn.x, z: r.spawn.z, facing: r.spawn.facing };
         let world = World { radius: zone.radius, obstacles: Vec::new(), team_spawns: [spawn, spawn] };
-        let mut players = Players::new(0, 1000.0 / TICK_HZ as f64);
+        let mut players = Players::new(1000.0 / TICK_HZ as f64);
         players.ground = Some(&zone.terrain);
         // The island's monsters, where src/sim/zone/world.ts puts them, and the training dummy.
         let mut actors = Actors::new();
@@ -224,7 +222,6 @@ impl ChannelGame {
             open: OpenWorld::new(zone),
             players,
             actors,
-            battle: Battle::new(0),
             tick: 0,
             last_tick: Instant::now(),
             tables: Minigames::default(),
@@ -909,11 +906,11 @@ impl ChannelGame {
         }
         self.gather_movers();
         self.drive_bots();
-        self.players.step_in(&mut self.battle, &mut self.actors, &self.world, self.tick, Some(&mut self.open));
+        self.players.step_in(&mut self.actors, &self.world, self.tick, Some(&mut self.open));
         self.seat_passengers();
         // Games' clocks, payouts, and players kept in their seats.
         self.step_tables();
-        self.players.step_effects(&mut self.battle, &mut self.actors);
+        self.players.step_effects(&mut self.actors);
         let foes = self.players.foes();
         let ground = self.players.ground;
         // In a copy of a dungeon or a developer zone, its creatures stand on its floor, far over the island.
@@ -1476,7 +1473,7 @@ mod tests {
             seq += 48;
             ch.players.inputs_per_tick = 12.0;
             for tick in from..from + 4 {
-                ch.players.step_in(&mut ch.battle, &mut ch.actors, &ch.world, tick, Some(&mut ch.open));
+                ch.players.step_in(&mut ch.actors, &ch.world, tick, Some(&mut ch.open));
             }
         };
         // Seeing the present, the swing finds nobody in reach.
@@ -1513,7 +1510,7 @@ mod tests {
             ch.inputs(7, inputs.into_iter());
             ch.players.inputs_per_tick = 12.0;
             for tick in 0..frames.div_ceil(12) {
-                ch.players.step_in(&mut ch.battle, &mut ch.actors, &ch.world, tick as u64 + 1, Some(&mut ch.open));
+                ch.players.step_in(&mut ch.actors, &ch.world, tick as u64 + 1, Some(&mut ch.open));
             }
         };
         let xp = |ch: &ChannelGame, id: &str| ch.players.open_view(client(7)).unwrap().2.unwrap().state.skill_xp.get(id).copied().unwrap_or(0.0);
@@ -1593,7 +1590,7 @@ mod tests {
             ch.inputs(8, (first..=*seq).map(|s| (s, [0; OPEN_INPUT])));
             ch.players.inputs_per_tick = 3.0;
             ch.gather_movers();
-            ch.players.step_in(&mut ch.battle, &mut ch.actors, &ch.world, 1, Some(&mut ch.open));
+            ch.players.step_in(&mut ch.actors, &ch.world, 1, Some(&mut ch.open));
             ch.seat_passengers();
         }
     }

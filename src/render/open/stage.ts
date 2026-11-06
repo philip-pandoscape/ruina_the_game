@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { streamFrom } from '../../assets/loader';
 import type { World } from '../../sim/types';
 import { GRAPHICS, PALETTE, POST } from '../look';
 import { windowGlow } from '../models/glb';
@@ -261,8 +262,10 @@ export class OpenStage {
     this.post.render(camera);
   }
 
-  /** Per frame: the sea moves, clouds drift, grass follows you. */
+  /** Per frame: the sea moves, clouds drift, grass follows you, models stream in nearest the camera first. */
   update(dt: number, camera: THREE.Camera, playerX: number, playerZ: number): void {
+    // Whatever can be seen from here may load (src/assets/loader.ts), the nearest first.
+    streamFrom(camera.position.x, camera.position.z, GRAPHICS.viewDistance);
     this.time += dt;
     this.water.update(this.time);
     foliageTime.value = this.time;

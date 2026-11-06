@@ -76,9 +76,6 @@ short version of this file for coding agents.
    - the developer zones (the yard, the battlefield, the goblin camp), from the Admin menu in the world
      or on the character select screen (`docs/zones.md`)
    - http://localhost:5173/?raid=10000 for the rendering stress test (offline)
-   - http://localhost:5173/?server=ws://localhost:7777 to join the battle (add `&team=0` or `&team=1`
-     to pick a side). The battlefield needs the server started with bots: `npm run server` (Rust),
-     which runs 10,000 of them.
 
 Vite serves the game and forwards `/api` and `/ws` to the server, so the browser sees one address,
 as it does in production. A character plays in one window at a time: opening it in a second window

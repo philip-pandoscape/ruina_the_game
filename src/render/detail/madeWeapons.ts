@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import { loadModel, track } from '../assets';
+import { asset } from '../../assets/manifest';
+import { loadModel, model, track } from '../assets';
 import { baked } from '../models/glb';
 import type { BowString } from '../../content/rig';
 import type { DetailRig } from './rig';
@@ -40,10 +41,6 @@ const BOW = { gripX: -0.056, stringX: 0.062, length: 1.2 };
 /** How much of the sky's and the ground's light steel and gold give back. */
 const SHINE = 1.6;
 
-// Vite turns these into file URLs; under Node there are none.
-const urls = (
-  typeof window !== 'undefined' ? import.meta.glob('../assets/models/weapon_*.glb', { query: '?url', import: 'default', eager: true }) : {}
-) as Record<string, string>;
 const params = typeof location !== 'undefined' ? new URLSearchParams(location.search) : null;
 
 /** The made weapons, each fitted into its attachment's space, and the made bow's string. */
@@ -67,9 +64,10 @@ export function madeWeapons(): Promise<MadeWeapons> | null {
     await Promise.all(
       names.map(async (name) => {
         const [tried, tip, grip] = (params?.get(name) ?? '').split(',');
-        const url = tried || urls[`../assets/models/weapon_${name}.glb`];
-        if (!url) return;
-        const scene = await track(loadModel(url));
+        // Part of the title screen's first download: character select's hero holds one (under Node there are no files).
+        const id = `models/weapon_${name}`;
+        if (!tried && !asset(id)) return;
+        const scene = await track(tried ? loadModel(tried) : model(id, { need: 'front' }));
         if (!scene) return;
         if (name === 'bow') {
           const { parts, string } = fitBow(scene);

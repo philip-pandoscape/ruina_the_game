@@ -2,7 +2,7 @@
 //! happens and the browser predicts it alike: movement and traversal (player, open), combat and
 //! skills (player, skills, actors, missiles, tuning), creatures and their brains (actor, actors,
 //! ai, pack, content, creatures), the island's life systems (life), the mini-games (minigames) and
-//! the battlefield (sim, world). Nothing here reads a clock, starts a thread or does I/O: whoever
+//! the battlefield's layout (world). Nothing here reads a clock, starts a thread or does I/O: whoever
 //! runs the rules hands in the time and the inputs, so the same inputs give the same results.
 
 #![recursion_limit = "256"]
@@ -21,7 +21,6 @@ pub mod open;
 pub mod pack;
 pub mod player;
 pub mod rng;
-pub mod sim;
 pub mod skills;
 pub mod tuning;
 pub mod world;

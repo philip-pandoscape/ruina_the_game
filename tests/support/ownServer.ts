@@ -35,7 +35,7 @@ export class GameServer {
   }
 
   async start(): Promise<void> {
-    const proc = spawn(SERVER_EXE, ['--battle', 'off', '--port', String(this.port)], {
+    const proc = spawn(SERVER_EXE, ['--port', String(this.port)], {
       env: { ...process.env, DATABASE_URL: DB, DEV_LOGIN: '1', PORT: '', ...this.env },
       stdio: 'ignore',
     });

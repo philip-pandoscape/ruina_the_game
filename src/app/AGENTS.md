@@ -6,8 +6,9 @@ back, apart from a few types (`tests/unit/boundaries.test.ts` holds the lines).
 
 | File | What |
 |---|---|
+| `boot.ts` | The page's entry (`index.html`): the way in, which is all the first download carries; it fetches `src/main.ts` once a character is chosen (`docs/assets.md`). |
 | `options.ts` | Every option of the game page's address, documented and read once (`tests/unit/options.test.ts` keeps the list honest). |
-| `online.ts` | The way in: sign-in, character select, connecting to the world. |
+| `online.ts` | The way in: sign-in, character select, connecting to the world (once a page: `boot.ts` starts it, the game takes the same one). |
 | `onlineWiring.ts` | Playing on the server, wired up: the badge, freezing while the server is away, moving between spaces, commands run ahead, each tick. |
 | `testApi.ts` | `window.__game`, the test API; `GameApi` is its type, which `tests/support/game.ts` checks the tests' calls against. |
 | `bugWiring.ts` | The bug reporter (`bugs/`) wired to the game: what a report keeps and samples. |

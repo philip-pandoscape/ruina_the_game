@@ -30,7 +30,21 @@ export interface Online {
 /** The character played most recently. */
 const lastPlayed = (list: CharacterInfo[]) => [...list].sort((a, b) => (b.lastPlayed ?? 0) - (a.lastPlayed ?? 0) || a.id - b.id)[0] ?? null;
 
-export async function goOnline(opt: Pick<Options, 'as'>): Promise<Online> {
+let going: Promise<Online> | null = null;
+let choose = () => {};
+/**
+ * Resolves once a character is chosen (or the page goes straight in with one): the page's way in
+ * (src/app/boot.ts) fetches the rest of the game then, while the world link opens.
+ */
+export const chosen = new Promise<void>((resolve) => (choose = resolve));
+
+/** The way in, once a page: whoever asks again (the game, once its code has arrived) gets the same one. */
+export function goOnline(opt: Pick<Options, 'as'>): Promise<Online> {
+  going ??= frontDoor(opt);
+  return going;
+}
+
+async function frontDoor(opt: Pick<Options, 'as'>): Promise<Online> {
   const screen = new SignInScreen();
   const as = opt.as;
   // Straight in, the first time round: a dev sign-in, or a reload of a tab that was in the world.
@@ -73,6 +87,7 @@ export async function goOnline(opt: Pick<Options, 'as'>): Promise<Online> {
         zone = choice.zone;
       }
       entering = pick;
+      choose();
       splash?.setMode('entering');
       screen.wait(`Entering Emberholm as ${pick.name}…`);
       splash?.toward('joined', 4);

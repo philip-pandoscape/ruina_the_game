@@ -11,6 +11,8 @@ import { expect, test } from 'vitest';
 /** What each area may not import. Areas not listed (app, library, dev, bible, main.ts) may import anything. */
 const FORBIDDEN: Record<string, string[]> = {
   util: ['*'],
+  // The asset manifest and loader: beneath everything that draws, knowing files and not what's in them.
+  assets: ['sim', 'content', 'render', 'ui', 'net', 'app', 'input', 'library', 'dev', 'bible', 'crowd', 'species', 'creatures', '(root:main)'],
   sim: ['render', 'ui', 'net', 'app', 'input', 'library', 'dev', 'bible', 'crowd', 'species', 'creatures', '(root:main)'],
   content: ['sim', 'species', 'render', 'ui', 'net', 'app', 'input', 'library', 'dev', 'bible', 'crowd', 'creatures', '(root:main)'],
   input: ['render', 'ui', 'net', 'app', 'library', 'dev', 'bible', '(root:main)'],

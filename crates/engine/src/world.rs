@@ -2,7 +2,7 @@
 //! Same seed and the same random sequence give the same obstacles on both sides.
 
 use crate::jsmath::JsMath;
-use crate::sim::Rng;
+use crate::rng::Rng;
 
 #[derive(Clone, Copy)]
 pub struct Spawn {

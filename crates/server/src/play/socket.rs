@@ -835,7 +835,6 @@ mod tests {
     fn app() -> App {
         std::sync::Arc::new(crate::http::AppState {
             db: None,
-            battle: None,
             world: Hub::default(),
             dev_login: true,
             admin_users: Default::default(),

@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import { loadGltf, loadModel, track } from '../assets';
+import { asset } from '../../assets/manifest';
+import { gltf, loadModel, model, track } from '../assets';
 import { toon } from '../toon';
 import type { RigDef } from '../../content/rig';
 import { HERO_RIG } from '../../content/creatures/hero';
@@ -15,15 +16,14 @@ import { madeWeapons, type MadeWeapons } from './madeWeapons';
 
 const HEIGHT = 1.78;
 
-// Vite turns this into a file URL; under Node there is no glob and no made hero.
-const urls = (typeof window !== 'undefined' ? import.meta.glob('../assets/models/hero*.glb', { query: '?url', import: 'default', eager: true }) : {}) as Record<
-  string,
-  string
->;
-const file = (name: string): string | null => Object.entries(urls).find(([k]) => k.endsWith(`/${name}.glb`))?.[1] ?? null;
+// Its files, by id in the asset manifest (src/assets/catalog.ts): part of the title screen's first
+// download, as character select shows the hero. Under Node there are no files and no made hero.
+const file = (name: string): string | null => (asset(`models/${name}`) ? `models/${name}` : null);
+const FRONT = { need: 'front' } as const;
 /** Trying another body without shipping it: ?heroModel=/path/to/model.glb (and &heroHeight=1.7). */
 const params = typeof location !== 'undefined' ? new URLSearchParams(location.search) : null;
-const URL = params?.get('heroModel') ?? file('hero');
+const TRIED = params?.get('heroModel') ?? null;
+const BODY = file('hero');
 /** Its captured walk and run (Meshy's, on the same skeleton), which move its upper body. */
 const WALK = file('hero_walk');
 const RUN = file('hero_run');
@@ -54,11 +54,12 @@ export const madeHeroNow = (): MadeHero | null => ready;
 
 /** Loads and fits the made hero body (once); null without a model. */
 export function madeHero(): Promise<MadeHero | null> | null {
-  if (!URL) return null;
-  const clips = !params?.has('heroModel') && WALK && RUN ? [track(loadGltf(WALK)), track(loadGltf(RUN))] : [];
-  const files = params?.has('heroModel') ? [] : [...new Set(MOVES.map((x) => x.m.file))];
-  const libraries = Promise.all(files.map((f) => (file(f) ? track(loadGltf(file(f)!)) : undefined)));
-  loading ??= Promise.all([track(loadModel(URL)), madeWeapons(), libraries, ...clips]).then(([scene, made, loaded, walk, run]) => {
+  if (!TRIED && !BODY) return null;
+  const clips = !TRIED && WALK && RUN ? [track(gltf(WALK, FRONT)), track(gltf(RUN, FRONT))] : [];
+  const files = TRIED ? [] : [...new Set(MOVES.map((x) => x.m.file))];
+  const libraries = Promise.all(files.map((f) => (file(f) ? track(gltf(file(f)!, FRONT)) : undefined)));
+  const body = TRIED ? loadModel(TRIED) : model(BODY!, FRONT);
+  loading ??= Promise.all([track(body), madeWeapons(), libraries, ...clips]).then(([scene, made, loaded, walk, run]) => {
     if (!scene) return null;
     const weapons = (made as MadeWeapons | null) ?? null;
     const height = Number(params?.get('heroHeight')) || HEIGHT;

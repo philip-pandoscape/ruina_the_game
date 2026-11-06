@@ -74,7 +74,9 @@ function grainTile(): string {
 // frame wait for it.
 const FONTS = ['400 16px "Ruina Serif"', '700 16px "Ruina Serif"', 'italic 400 16px "Ruina Serif"', '700 16px "Ruina Title"'];
 
+/** Starts scaling the UI in `el` (once: the page's way in starts it, and the game asks again). */
 export function initUiScale(el: HTMLElement): void {
+  if (root === el) return;
   root = el;
   document.documentElement.style.setProperty('--grain', grainTile());
   for (const f of FONTS) document.fonts?.load(f).catch(() => {});

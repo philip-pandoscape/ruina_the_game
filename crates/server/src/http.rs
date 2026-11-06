@@ -1,5 +1,5 @@
-//! The server's one port: the account API, the two WebSockets (the open world and the PvP
-//! battlefield) and, in production, the game's own files. Railway gives a service a single port
+//! The server's one port: the account API, the open world's WebSocket and, in production, the
+//! game's own files. Railway gives a service a single port
 //! ($PORT), and serving everything from one address is also what lets the sign-in cookie reach the
 //! WebSocket. In development Vite serves the game and forwards /api and /ws here (vite.config.ts).
 //!
@@ -14,7 +14,6 @@
 //!   POST /api/dev/stop  development only (DEV_LOGIN=1), an admin signed in: stops the server as a
 //!                       deploy does (tests)
 //!   GET  /ws/world      the open world (crates/server/src/play/socket.rs); ?character=<id>
-//!   GET  /ws/battle     the PvP battlefield (crates/server/src/battle/net.rs), when the server runs one
 //!   /dev/, /design/     the developer pages, for admins only (ADMIN_USERS); "not found" to anyone else
 
 use std::collections::{HashMap, HashSet};
@@ -22,8 +21,7 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
-use axum::body::Bytes;
-use axum::extract::{Request, State, WebSocketUpgrade};
+use axum::extract::{Request, State};
 use axum::http::{HeaderMap, HeaderValue, StatusCode, header};
 use axum::middleware::{self, Next};
 use axum::response::{IntoResponse, Response};
@@ -38,20 +36,11 @@ use tower_http::compression::Compression;
 use tower_http::services::ServeDir;
 
 use crate::accounts::{self, characters};
-use crate::battle::net;
 use crate::play::socket;
 
-/// The battlefield's connections, shared with its simulation thread (crates/server/src/main.rs).
-pub struct Battle {
-    pub registry: net::Registry,
-    pub welcome: Bytes,
-}
-
 pub struct AppState {
-    /// None when no DATABASE_URL was given: the battlefield still works, accounts and the open
-    /// world don't.
+    /// None when no DATABASE_URL was given: then accounts and the open world are off.
     pub db: Option<PgPool>,
-    pub battle: Option<Battle>,
     pub world: socket::Hub,
     /// Sign in by name alone (?as=name in the browser), and everyone an admin. Never on Railway.
     pub dev_login: bool,
@@ -140,8 +129,7 @@ pub async fn serve(port: u16, everywhere: bool, state: AppState, static_dir: Opt
         .route("/api/characters", get(characters::list).post(characters::create))
         .route("/api/characters/{id}", delete(characters::delete))
         .route("/api/dev/stop", post(dev_stop))
-        .route("/ws/world", get(socket::upgrade))
-        .route("/ws/battle", get(battle));
+        .route("/ws/world", get(socket::upgrade));
     let app = Arc::new(state);
     if let Some(dir) = static_dir {
         println!("serving the game from {}", dir.display());
@@ -158,7 +146,8 @@ pub async fn serve(port: u16, everywhere: bool, state: AppState, static_dir: Opt
     } else {
         println!("listening on http://localhost:{port} (this machine only; --listen all for other machines)");
     }
-    // Small, frequent battle updates: don't let the network stack hold them back to batch them.
+    // Small, frequent updates (the world's ticks): don't let the network stack hold them back to
+    // batch them.
     let listener = listener.tap_io(|tcp| {
         let _ = tcp.set_nodelay(true);
     });
@@ -267,7 +256,7 @@ async fn stopped() {
 }
 
 async fn health(State(app): State<App>) -> Json<serde_json::Value> {
-    Json(json!({ "ok": true, "database": app.db.is_some(), "battle": app.battle.is_some(), "playing": app.world.count() }))
+    Json(json!({ "ok": true, "database": app.db.is_some(), "playing": app.world.count() }))
 }
 
 /// Development only (DEV_LOGIN=1): stops the server the way a deploy does, so tests can watch
@@ -284,14 +273,6 @@ async fn dev_stop(State(app): State<App>, headers: HeaderMap) -> Result<Json<ser
     }
     app.world.ask_to_stop();
     Ok(Json(json!({ "ok": true })))
-}
-
-async fn battle(State(app): State<App>, ws: WebSocketUpgrade) -> Response {
-    let Some(b) = &app.battle else {
-        return (StatusCode::NOT_FOUND, "this server runs no battlefield (it was started with --battle off)").into_response();
-    };
-    let (registry, welcome) = (b.registry.clone(), b.welcome.clone());
-    ws.on_upgrade(move |socket| net::handle(socket, registry, welcome))
 }
 
 /// True when a browser's request comes from a page on this same address, or from no page at all.
@@ -368,7 +349,6 @@ mod tests {
     fn state(dev_login: bool, admins: &str) -> AppState {
         AppState {
             db: None,
-            battle: None,
             world: socket::Hub::default(),
             dev_login,
             admin_users: admin_users(admins),
@@ -412,7 +392,7 @@ mod tests {
     fn a_page_on_the_same_address_may_connect() {
         assert!(same_origin(&headers(&[("origin", "http://localhost:5173"), ("host", "localhost:5173")])));
         assert!(same_origin(&headers(&[("origin", "https://ruina.up.railway.app"), ("host", "ruina.up.railway.app")])));
-        // Not from a page at all (the load test, curl).
+        // Not from a page at all (curl, a script).
         assert!(same_origin(&headers(&[("host", "localhost:7777")])));
     }
 

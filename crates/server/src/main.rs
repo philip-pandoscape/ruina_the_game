@@ -1,13 +1,8 @@
 //! The game server. On one port (crates/server/src/http.rs):
 //!   - accounts and the open world, Emberholm, kept in Postgres (when DATABASE_URL is set)
-//!   - the PvP battlefield: thousands of fighters simulated at a fixed tick rate, each connected
-//!     player streamed a personal update (unless started with --battle off)
 //!   - the game's built files (with --static or STATIC_DIR; in development Vite serves them)
 //!
-//!   cargo run --release -- --bots 10000 --virtual-clients 10000 --port 7777 --hz 20
-//!
-//! --virtual-clients N builds a personal update for N bots every tick as if they were connected
-//! players, without sending it anywhere. That measures the server cost of a full raid.
+//!   cargo run --release -- --port 7777
 //!
 //! It listens on this machine only (so Windows' firewall never asks about it) unless started with
 //! --listen all or LISTEN=all, as the Docker image is for Railway and `npm run up`.
@@ -22,23 +17,14 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Mutex;
 
+use ruina_server::db;
 use ruina_server::http::{self, AppState};
 use ruina_server::play::socket;
-use ruina_server::{battle, db};
 
 struct Args {
-    /// Run the battlefield at all (--battle off for a server that only hosts the open world).
-    battle: bool,
-    /// Fighters on the battlefield (at least 2).
-    bots: usize,
-    virtual_clients: usize,
     port: u16,
     /// Take connections at every address (`--listen all`), not only from this machine.
     everywhere: bool,
-    hz: u32,
-    /// Monsters to scatter around the players' end of the field. Off unless asked for:
-    /// putting them in by default would change every world anybody already runs.
-    slimes: usize,
     /// The built game (dist/) to serve, if any.
     static_dir: Option<PathBuf>,
 }
@@ -47,15 +33,12 @@ fn parse_args() -> Args {
     let env_port = std::env::var("PORT").ok().and_then(|p| p.parse().ok());
     let static_dir = std::env::var_os("STATIC_DIR").filter(|d| !d.is_empty()).map(PathBuf::from);
     let everywhere = std::env::var("LISTEN").is_ok_and(|v| v == "all");
-    let mut a = Args { battle: true, bots: 10_000, virtual_clients: 0, port: env_port.unwrap_or(7777), everywhere, hz: 20, slimes: 0, static_dir };
+    let mut a = Args { port: env_port.unwrap_or(7777), everywhere, static_dir };
     let argv: Vec<String> = std::env::args().collect();
     let mut i = 1;
     while i + 1 < argv.len() {
         let v = &argv[i + 1];
         match argv[i].as_str() {
-            "--battle" => a.battle = v != "off",
-            "--bots" => a.bots = v.parse().expect("--bots needs a number"),
-            "--virtual-clients" => a.virtual_clients = v.parse().expect("--virtual-clients needs a number"),
             "--port" => a.port = v.parse().expect("--port needs a number"),
             "--listen" => {
                 a.everywhere = match v.as_str() {
@@ -64,15 +47,11 @@ fn parse_args() -> Args {
                     _ => panic!("--listen takes all or local"),
                 }
             }
-            "--hz" => a.hz = v.parse().expect("--hz needs a number"),
-            "--slimes" => a.slimes = v.parse().expect("--slimes needs a number"),
             "--static" => a.static_dir = Some(PathBuf::from(v)),
             other => panic!("unknown argument {other}"),
         }
         i += 2;
     }
-    a.bots = a.bots.clamp(2, 65_535);
-    a.hz = a.hz.clamp(1, 60);
     a
 }
 
@@ -92,13 +71,6 @@ fn main() {
         println!("admins: {}", names.iter().map(|n| n.as_str()).collect::<Vec<_>>().join(", "));
     }
 
-    let battle = if args.battle {
-        Some(battle::start(args.bots, args.virtual_clients, args.hz, args.slimes))
-    } else {
-        println!("battlefield: off (--battle off)");
-        None
-    };
-
     let rt = tokio::runtime::Builder::new_multi_thread().enable_all().build().expect("start tokio");
     let result = rt.block_on(async move {
         let db = match std::env::var("DATABASE_URL") {
@@ -113,7 +85,7 @@ fn main() {
                 None
             }
         };
-        let state = AppState { db, battle, world: socket::Hub::default(), dev_login, admin_users, secure_cookies, failed_logins: Mutex::new(HashMap::new()) };
+        let state = AppState { db, world: socket::Hub::default(), dev_login, admin_users, secure_cookies, failed_logins: Mutex::new(HashMap::new()) };
         http::serve(args.port, args.everywhere, state, args.static_dir).await
     });
     if let Err(e) = result {

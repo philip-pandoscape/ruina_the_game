@@ -1,6 +1,6 @@
 [package]
 name = "ruina-tools"
-description = "Programs run by hand or by the tests: the TypeScript-against-Rust checks, the balance harness, the load test"
+description = "Programs run by hand or by the tests: the TypeScript-against-Rust checks, the balance harness"
 version.workspace = true
 edition.workspace = true
 publish = false
@@ -9,9 +9,5 @@ publish = false
 ruina-engine.workspace = true
 ruina-engine-wasm.workspace = true
 ruina-server.workspace = true
-futures-util.workspace = true
 serde.workspace = true
 serde_json.workspace = true
-tokio.workspace = true
-# The load test's client side: real WebSocket connections to a running server.
-tokio-tungstenite = "0.30.0"

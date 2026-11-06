@@ -55,7 +55,6 @@ pub enum Mode {
     Swim = 4,
     Glide = 5,
     Ride = 6,
-    // Keep MODE_DOWN in protocol.rs one past the last of these.
 }
 
 #[derive(Clone, Copy, Default, Debug)]

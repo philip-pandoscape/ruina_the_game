@@ -1,18 +1,22 @@
 import * as THREE from 'three';
-import { loadModel, track } from '../assets';
+import { asset } from '../../assets/manifest';
+import { model, track } from '../assets';
 import { toon } from '../toon';
 
 // The made models (src/render/assets/models: generated with Meshy from concept art
 // painted after the island's reference picture, then compressed). Each stands in for a procedural
 // model of the same id: the procedural one is drawn at once, and the made one replaces it when it
 // has loaded, fitted into the same box (the rules' footprint), front to +Z, foot on the ground.
+// They stream in nearest the camera first (src/assets/loader.ts).
 
-// Vite turns this into a table of file URLs; under Node (tests that import the game's modules)
-// there is no glob and the table is empty.
-const urls = (typeof window !== 'undefined' ? import.meta.glob('../assets/models/*.glb', { query: '?url', import: 'default', eager: true }) : {}) as Record<
-  string,
-  string
->;
+/** The manifest's id for a made model's file, if the manifest has it (under Node it has none). */
+const fileId = (file: string): string | null => (asset(`models/${file}`) ? `models/${file}` : null);
+
+/** Where something stands, for the loader to fetch what's nearest first. */
+const whereIs = (o: THREE.Object3D) => (): { x: number; z: number } => {
+  o.updateWorldMatrix(true, false);
+  return { x: o.matrixWorld.elements[12], z: o.matrixWorld.elements[14] };
+};
 
 export interface MadeModel {
   /** Model files to pick from by seed, without the extension. */
@@ -130,14 +134,13 @@ export function fitted(scene: THREE.Object3D, made: MadeModel, w: number, h: num
 export function madeStructure(id: string, root: THREE.Object3D, box: { w: number; h: number; d: number }, seed = 1): void {
   const made = MADE_STRUCTURES[id];
   if (!made) return;
-  const file = made.files[Math.abs(Math.floor(seed)) % made.files.length];
-  const url = urls[`../assets/models/${file}.glb`];
-  if (!url) return;
+  const file = fileId(made.files[Math.abs(Math.floor(seed)) % made.files.length]);
+  if (!file) return;
   track(
-    loadModel(url).then((scene) => {
-      const model = fitted(scene, made, made.w ?? box.w, made.h ?? box.h, made.d ?? box.d);
+    model(file, { need: 'near', at: whereIs(root) }).then((scene) => {
+      const fit = fitted(scene, made, made.w ?? box.w, made.h ?? box.h, made.d ?? box.d);
       for (const child of [...root.children]) if (!made.keep?.includes(child.name)) root.remove(child);
-      root.add(model);
+      root.add(fit);
     }),
   );
 }
@@ -168,13 +171,14 @@ export function madeProp(
   box: { w: number; h: number; d: number },
 ): Promise<{ geometry: THREE.BufferGeometry; material: THREE.Material } | null> | null {
   const made = MADE_PROPS[id];
-  const url = made && urls[`../assets/models/${made.files[0]}.glb`];
-  if (!made || !url) return null;
-  return loadModel(url).then((scene) => {
-    const model = fitted(scene, made, made.w ?? box.w, made.h ?? box.h, made.d ?? box.d);
-    model.updateMatrixWorld(true);
+  const file = made && fileId(made.files[0]);
+  if (!made || !file) return null;
+  // Props stand all over: wanted as near as can be.
+  return model(file, { need: 'near' }).then((scene) => {
+    const fit = fitted(scene, made, made.w ?? box.w, made.h ?? box.h, made.d ?? box.d);
+    fit.updateMatrixWorld(true);
     let found: { geometry: THREE.BufferGeometry; material: THREE.Material } | null = null;
-    model.traverse((o) => {
+    fit.traverse((o) => {
       const mesh = o as THREE.Mesh;
       if (found || !mesh.isMesh || Array.isArray(mesh.material)) return;
       found = { geometry: baked(mesh.geometry, mesh.matrixWorld), material: mesh.material };
@@ -190,19 +194,19 @@ export function madeProp(
  */
 export function madePack(id: string, root: THREE.Object3D): void {
   const made = MADE_PACKS[id];
-  const url = made && urls[`../assets/models/${made.files[0]}.glb`];
-  if (!made || !url) return;
+  const file = made && fileId(made.files[0]);
+  if (!made || !file) return;
   root.updateMatrixWorld(true);
   const box = new THREE.Box3().setFromObject(root);
   if (box.isEmpty()) return;
   const size = box.getSize(new THREE.Vector3());
   const centre = box.getCenter(new THREE.Vector3());
   track(
-    loadModel(url).then((scene) => {
-      const model = fitted(scene, { ...made, sink: 0 }, size.x, size.y, size.z);
-      model.position.set(centre.x, box.min.y, centre.z);
+    model(file, { need: 'near', at: whereIs(root) }).then((scene) => {
+      const fit = fitted(scene, { ...made, sink: 0 }, size.x, size.y, size.z);
+      fit.position.set(centre.x, box.min.y, centre.z);
       for (const child of [...root.children]) root.remove(child);
-      root.add(model);
+      root.add(fit);
     }),
   );
 }

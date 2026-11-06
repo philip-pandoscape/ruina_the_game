@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import { loadModel } from '../assets';
+import { asset } from '../../assets/manifest';
+import { model } from '../assets';
 import { windowGlow } from '../models/glb';
 import { toon } from '../toon';
 
@@ -12,12 +13,6 @@ import { toon } from '../toon';
 // which part of it (a storey, or the roof). While you are indoors, the materials drop that
 // building's parts above your storey from the picture, so you look down into the room; the shadow
 // pass draws them still, so the room stays in the shade of its roof.
-
-// Under Node (tests importing the game's modules) there is no glob and the table is empty.
-const urls = (typeof window !== 'undefined' ? import.meta.glob('../assets/village/*.glb', { query: '?url', import: 'default', eager: true }) : {}) as Record<
-  string,
-  string
->;
 
 /** Parts per building in `aPart`: storeys from 0, the roof last. */
 export const PARTS = 8;
@@ -138,12 +133,15 @@ function baked(geometry: THREE.BufferGeometry, matrix: THREE.Matrix4): THREE.Buf
 
 let kit: Promise<Kit> | null = null;
 
-/** Loads the kit and the props once, as one library. */
+/**
+ * Loads the kit and the props once, as one library: wanted before what stands about the island, as
+ * the town and the cottages are built of it (under Node, where there are no files, it is missing).
+ */
 export function loadKit(): Promise<Kit> {
   if (kit) return kit;
-  const files = ['kit', 'props'].map((f) => urls[`../assets/village/${f}.glb`]);
-  if (files.some((u) => !u)) return (kit = Promise.reject(new Error('the village kit is missing (src/render/assets/village/kit.glb, props.glb)')));
-  kit = Promise.all(files.map((u) => loadModel(u))).then((scenes) => {
+  const files = ['village/kit', 'village/props'];
+  if (files.some((f) => !asset(f))) return (kit = Promise.reject(new Error('the village kit is missing (src/render/assets/village/kit.glb, props.glb)')));
+  kit = Promise.all(files.map((f) => model(f, { need: 'zone' }))).then((scenes) => {
     const pieces = new Map<string, KitPart[]>();
     const materials = new Map<string, THREE.Material>();
     const boxes = new Map<string, THREE.Box3>();

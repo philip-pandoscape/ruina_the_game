@@ -1,6 +1,7 @@
 import * as THREE from 'three';
+import { asset } from '../../assets/manifest';
 import { SURFACE } from '../../sim/terrain';
-import { track } from '../assets';
+import { picture, track } from '../assets';
 
 // The ground: real textures (CC0, CREDITS.md) laid over the island's surfaces. Each
 // texture brings only its detail, its own average colour divided out, so the palette in
@@ -15,33 +16,19 @@ const SCALE: Record<(typeof LAYERS)[number], number> = { grass: 1 / 4.5, road: 1
 const COLOR_SIZE = 1024;
 const NORMAL_SIZE = 512;
 
-// Vite turns this into a table of file URLs. Tests that load the game's modules straight into Node
-// have no Vite, and no glob: there the table is empty and nothing is loaded.
-const urls = (typeof window !== 'undefined' ? import.meta.glob('../assets/ground/*.jpg', { query: '?url', import: 'default', eager: true }) : {}) as Record<
-  string,
-  string
->;
-const url = (name: string) => urls[`../assets/ground/${name}.jpg`];
-
 if (LAYERS.some((l, i) => SURFACE[l] !== i)) throw new Error('ground layers out of SURFACE order');
-
-function loadImage(src: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error(`ground texture failed: ${src}`));
-    img.src = src;
-  });
-}
 
 const toLinear = new Float32Array(256).map((_, i) => {
   const c = i / 255;
   return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
 });
 
-/** Stacks one image per surface into an array texture; with `means`, also each one's average linear colour. */
+/**
+ * Stacks one image per surface into an array texture; with `means`, also each one's average linear
+ * colour. The ground is under everything, so its textures come before what stands on it.
+ */
 async function stack(names: string[], size: number, srgb: boolean, means?: THREE.Vector3[]): Promise<THREE.DataArrayTexture> {
-  const images = await Promise.all(names.map((n) => loadImage(url(n))));
+  const images = await Promise.all(names.map((n) => picture(`ground/${n}`, { need: 'zone' })));
   const canvas = document.createElement('canvas');
   canvas.width = canvas.height = size;
   const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
@@ -204,6 +191,8 @@ export function texturedGround(material: THREE.MeshToonMaterial, rockTint: numbe
       .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>\n${fragmentNormal}`);
   };
   material.customProgramCacheKey = () => 'textured-ground';
+  // Under Node (tests importing the game's modules) there are no files: the plain colours stay.
+  if (!asset('ground/grass')) return;
   const means: THREE.Vector3[] = [];
   track(
     Promise.all([
