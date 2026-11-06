@@ -144,9 +144,9 @@ impl Spaces {
         }
     }
 
-    /// Whether someone belongs in a copy: it's their party's, or theirs on their own.
+    /// Whether someone belongs in a copy: it's their party's, theirs on their own, or everyone's.
     fn may_be_in(&self, character: i64, copy: i32) -> bool {
-        self.games.get(&copy).and_then(|g| g.copy_of()).is_some_and(|c| c.owner == self.owner_of(character))
+        self.games.get(&copy).and_then(|g| g.copy_of()).is_some_and(|c| c.owner == Owner::Everyone || c.owner == self.owner_of(character))
     }
 
     /// Through a dungeon's portal into the copy that's theirs (made now if there isn't one).
@@ -187,6 +187,40 @@ impl Spaces {
             self.send_party(pid);
         }
         Ok(())
+    }
+
+    /// Into a developer zone, from the Admin menu: admins only (`admin`, as the server decides it).
+    /// A zone everyone shares (the battlefield) has one copy for all of them; any other, one for each
+    /// party, as a dungeon has. Out again through its way out, as from a dungeon, at its own door.
+    pub fn enter_zone(&mut self, character: i64, id: &str, admin: bool) -> Result<(), String> {
+        if !admin {
+            return Err("Only an admin can go there.".into());
+        }
+        let def = dungeon(id).filter(|d| d.developer).ok_or("There's no such place.")?;
+        let door = def.door.as_ref().ok_or("That place has no way out.")?;
+        let g = self.game_ref(character).ok_or("You aren't playing.")?;
+        if g.copy_of().is_some() {
+            return Err("Leave where you are first.".into());
+        }
+        let owner = if def.shared { Owner::Everyone } else { self.owner_of(character) };
+        let key = (owner, def.id.as_str());
+        let copy = match self.copies.get(&key) {
+            Some(&c) if self.games.contains_key(&c) => c,
+            _ => {
+                self.last_copy -= 1;
+                let c = self.last_copy;
+                let mut g = ChannelGame::copy(c, def, door, owner);
+                g.saver = self.saver.clone();
+                self.games.insert(c, g);
+                self.copies.insert(key, c);
+                c
+            }
+        };
+        if self.games[&copy].headcount() >= def.max_players {
+            return Err(format!("{} is full.", def.name));
+        }
+        let at = def.arrival();
+        self.move_to(character, copy, at)
     }
 
     /// Out through a copy's portal, back to their home channel outside its door.
@@ -511,6 +545,37 @@ mod tests {
             assert_eq!(p["members"][1]["online"], true);
             assert_eq!(p["members"][1]["place"]["kind"], "channel");
         }
+    }
+
+    #[test]
+    fn only_admins_go_into_a_developer_zone_and_its_bots_are_there_while_anyone_is() {
+        let (mut sp, _a, _b) = two_in_channel_one();
+        assert_eq!(sp.enter_zone(1, "battlefield", false), Err("Only an admin can go there.".into()));
+        assert!(sp.enter_zone(1, "goblinsDread", true).is_err(), "a dungeon isn't a developer zone");
+        sp.enter_zone(1, "battlefield", true).unwrap();
+        sp.enter_zone(2, "battlefield", true).unwrap();
+        // One copy for everyone, with both sides' bots in it.
+        let copy = sp.at[&1];
+        assert!(copy < 0 && sp.at[&2] == copy);
+        assert_eq!(sp.games[&copy].bots.len(), 32);
+        // They stay while anyone is in, and go with the last one out.
+        sp.out_of_copy(1).unwrap();
+        assert_eq!(sp.games[&copy].bots.len(), 32);
+        sp.out_of_copy(2).unwrap();
+        assert!(sp.games[&copy].bots.is_empty());
+        // Out at the zone's door on the island.
+        let door = dungeon("battlefield").unwrap().door.as_ref().unwrap();
+        let (x, _, z, _) = sp.game_ref(1).unwrap().whereabouts(1).unwrap();
+        assert!((x - door.outside.x).abs() < 3.0 && (z - door.outside.z).abs() < 3.0, "{x} {z}");
+    }
+
+    #[test]
+    fn each_player_has_a_yard_of_their_own() {
+        let (mut sp, _a, _b) = two_in_channel_one();
+        sp.enter_zone(1, "yard", true).unwrap();
+        sp.enter_zone(2, "yard", true).unwrap();
+        assert_ne!(sp.at[&1], sp.at[&2]);
+        assert_eq!(sp.games[&sp.at[&1]].bots.len(), 3);
     }
 
     #[test]

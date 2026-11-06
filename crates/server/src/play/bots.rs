@@ -62,6 +62,20 @@ impl ChannelGame {
         joined
     }
 
+    /// A developer zone's bots, as its file lists them, if they aren't here already: they come in
+    /// with its first player (put) and go with its last (take).
+    pub(super) fn zone_bots_in(&mut self) {
+        let Some(c) = self.copy_of() else { return };
+        let (def, origin) = (c.def, c.def.origin);
+        if !self.bots.is_empty() || def.bots.is_empty() {
+            return;
+        }
+        for b in &def.bots {
+            let brain = Brain::named(&b.brain).unwrap_or(Brain::Skirmisher);
+            self.spawn_bots(b.count, brain, origin.x + b.x, origin.z + b.z, b.team);
+        }
+    }
+
     /// Every bot here gone.
     pub fn remove_bots(&mut self) {
         for b in std::mem::take(&mut self.bots) {

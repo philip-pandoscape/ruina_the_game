@@ -108,11 +108,13 @@ pub struct Arrival {
     pub build: Option<Value>,
 }
 
-/// Whose copy of a dungeon a game is: a party's, or someone's on their own.
+/// Whose copy of a dungeon a game is: a party's, someone's on their own, or (a developer zone
+/// everyone shares, the battlefield) everyone's allowed in.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Owner {
     Party(u64),
     Solo(i64),
+    Everyone,
 }
 
 /// What a game plays: a channel of Emberholm, or someone's copy of a dungeon (crate::play::spaces).
@@ -320,6 +322,9 @@ impl ChannelGame {
                 c.empty_since = Some(Instant::now());
             }
         }
+        if empty {
+            self.remove_bots();
+        }
         Some(Moving { member, player, life })
     }
 
@@ -349,6 +354,7 @@ impl ChannelGame {
         self.members.insert(character, member);
         if let Some(c) = self.copy_mut() {
             c.empty_since = None;
+            self.zone_bots_in();
         } else {
             let held = self.estates.held_by_others(character);
             if let Some((_, Some(life))) = self.players.open_mut(client(character)) {
@@ -471,6 +477,10 @@ impl ChannelGame {
             if empty {
                 c.empty_since = Some(Instant::now());
             }
+        }
+        // Bots stay only while someone is here to see them.
+        if empty {
+            self.remove_bots();
         }
         if keep_saved {
             return None;

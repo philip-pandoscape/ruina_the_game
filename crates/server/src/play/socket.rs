@@ -365,6 +365,10 @@ enum FromBrowser {
         id: String,
         enter: bool,
     },
+    /// Into a developer zone, from the Admin menu (admins only: spaces.rs enter_zone).
+    Zone {
+        id: String,
+    },
     /// Parties (crates/server/src/play/parties.rs): invite someone (by id, or by name), answer an invitation,
     /// leave, remove someone, hand on the lead.
     PartyInvite {
@@ -610,6 +614,12 @@ async fn play(
                         }
                         Ok(FromBrowser::Concede { table }) => {
                             if let Err(text) = world.with_member(character, |ch| ch.concede(character, table)).unwrap_or_else(|| Err("You aren't playing.".into())) {
+                                send(&mut tx, json!({ "t": "error", "text": text })).await?;
+                            }
+                        }
+                        Ok(FromBrowser::Zone { id }) => {
+                            let admin = app.is_admin(account);
+                            if let Err(text) = world.with_spaces(|sp| sp.enter_zone(character, &id, admin)) {
                                 send(&mut tx, json!({ "t": "error", "text": text })).await?;
                             }
                         }

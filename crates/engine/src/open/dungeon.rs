@@ -9,7 +9,7 @@ use serde::Deserialize;
 
 use super::OpenWorld;
 use super::colliders::ground_at;
-use super::zone::{BoxCollider, Deck, Spawn, rect};
+use super::zone::{BoxCollider, Deck, DungeonDoor, Spawn, rect};
 
 /// A box or deck as a dungeon's file gives it: around the origin, its top above the origin's height.
 #[derive(Deserialize, Clone, Copy, Debug)]
@@ -52,6 +52,32 @@ pub struct DungeonDef {
     pub fall: f64,
     pub boxes: Vec<Piece>,
     pub decks: Vec<Piece>,
+    /// A developer zone: only admins go in, from the Admin menu, as there's no portal to it on the
+    /// island (docs/admin.md).
+    #[serde(default)]
+    pub developer: bool,
+    /// One copy for everyone allowed in, instead of one for each party.
+    #[serde(default)]
+    pub shared: bool,
+    /// Where a developer zone lets you out on the island (a dungeon's door is in the island's recipe).
+    #[serde(default)]
+    pub door: Option<DungeonDoor>,
+    /// Bots in it while anyone is (crate::bots): how many, with which brain, on which side, round
+    /// where (relative to the origin).
+    #[serde(default)]
+    pub bots: Vec<ZoneBots>,
+    /// How the browser draws it: "cave" (the default) or "arena" (open sky).
+    #[serde(default)]
+    pub style: Option<String>,
+}
+
+#[derive(Deserialize, Clone, Debug)]
+pub struct ZoneBots {
+    pub brain: String,
+    pub count: u32,
+    pub team: u8,
+    pub x: f64,
+    pub z: f64,
 }
 
 /// Where a spot stands, and which way you face there.
@@ -94,7 +120,14 @@ impl DungeonDef {
 pub fn dungeons() -> &'static [DungeonDef] {
     static D: OnceLock<Vec<DungeonDef>> = OnceLock::new();
     D.get_or_init(|| {
-        vec![serde_json::from_str(include_str!("../../../../shared/dungeons/goblinsDread.json")).expect("shared/dungeons/goblinsDread.json is a dungeon")]
+        [
+            ("goblinsDread", include_str!("../../../../shared/dungeons/goblinsDread.json")),
+            ("yard", include_str!("../../../../shared/dungeons/yard.json")),
+            ("battlefield", include_str!("../../../../shared/dungeons/battlefield.json")),
+        ]
+        .into_iter()
+        .map(|(id, json)| serde_json::from_str(json).unwrap_or_else(|e| panic!("shared/dungeons/{id}.json is a dungeon: {e}")))
+        .collect()
     })
 }
 
@@ -145,11 +178,17 @@ mod tests {
     }
 
     #[test]
-    fn emberholm_has_the_door_of_every_dungeon() {
+    fn every_dungeon_has_a_way_in_and_out() {
         let doors = &emberholm().recipe.dungeons;
         for d in dungeons() {
-            let door = doors.iter().find(|x| x.id == d.id).unwrap_or_else(|| panic!("a door for {}", d.id));
-            assert!(door.portal.r > 0.0);
+            if d.developer {
+                // A developer zone: in from the Admin menu, out at its own door, none on the island.
+                assert!(d.door.is_some(), "{} lets you out somewhere", d.id);
+                assert!(!doors.iter().any(|x| x.id == d.id), "{} has no portal on the island", d.id);
+            } else {
+                let door = doors.iter().find(|x| x.id == d.id).unwrap_or_else(|| panic!("a door for {}", d.id));
+                assert!(door.portal.r > 0.0);
+            }
         }
     }
 }

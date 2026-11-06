@@ -1,4 +1,6 @@
+import battlefield from '../../../shared/dungeons/battlefield.json' with { type: 'json' };
 import goblinsDread from '../../../shared/dungeons/goblinsDread.json' with { type: 'json' };
+import yard from '../../../shared/dungeons/yard.json' with { type: 'json' };
 import type { ColliderIndex } from './colliders';
 import { rect } from './generate';
 import type { BoxCollider, Deck, DungeonDoor, ZoneRecipe } from './types';
@@ -34,10 +36,22 @@ export interface DungeonDef {
   fall: number;
   boxes: DungeonPiece[];
   decks: DungeonPiece[];
+  /** A developer zone: admins go in from the Admin menu, as there's no portal to it on the island. */
+  developer?: boolean;
+  /** One copy for everyone allowed in (the battlefield), instead of one a party. */
+  shared?: boolean;
+  /** Where a developer zone lets you out on the island (a dungeon's door is in the zone's recipe). */
+  door?: DungeonDoor;
+  /** Bots in it while anyone is (the server's; crates/engine/src/bots.rs). */
+  bots?: Array<{ brain: string; count: number; team: number; x: number; z: number }>;
+  /** How it's drawn: "cave" (the default) or "arena" (open sky). */
+  style?: string;
 }
 
 export const DUNGEONS: Record<string, DungeonDef> = {
   goblinsDread: goblinsDread as unknown as DungeonDef,
+  yard: yard as unknown as DungeonDef,
+  battlefield: battlefield as unknown as DungeonDef,
 };
 
 export function dungeonDef(id: string): DungeonDef | undefined {
