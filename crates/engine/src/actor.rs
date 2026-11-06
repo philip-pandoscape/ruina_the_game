@@ -2,11 +2,15 @@
 //! field for field, because the browser runs the same rules offline in the training yard and the
 //! two have to agree.
 
+use serde::Serialize;
+
 use crate::content::{ActorKind, kind, kind_index, kind_mass, ladder_of};
 
 pub const FACTION_HOSTILE: u8 = 1;
 
-#[derive(Clone, Debug)]
+/// Serialized as the browser reads one (src/sim/actor.ts Actor).
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Actor {
     pub id: u32,
     pub kind: String,
@@ -28,6 +32,7 @@ pub struct Actor {
     /// -1 while alive, otherwise frames since it died.
     pub dead_frame: i32,
 
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub brain: Option<String>,
     pub state: usize,
     pub state_frame: i32,
@@ -40,12 +45,16 @@ pub struct Actor {
 
     pub lean_x: f64,
     pub lean_z: f64,
+    #[serde(rename = "leanVX")]
     pub lean_vx: f64,
+    #[serde(rename = "leanVZ")]
     pub lean_vz: f64,
 
     /// Index of this actor's kind in shared/actors.json, for the wire.
+    #[serde(skip)]
     pub kind_index: u8,
     /// Its home kind's: a home actor comes back as what it was spawned as.
+    #[serde(skip)]
     pub respawn_frames: i32,
 
     // ---- creatures that come in sizes (shared/actors.json ladders) ----

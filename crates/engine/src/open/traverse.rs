@@ -211,6 +211,26 @@ pub fn collide_open(sim: &mut Sim) {
             p.vel.z -= vn * nz;
         }
     });
+    // Offline, the creatures about you are solid too (none are given online: the server's are its own).
+    if p.mode != Mode::Glide {
+        let feet = p.pos.y;
+        for i in 0..p.bodies.len() {
+            let b = p.bodies[i];
+            if feet > b.y + 1.8 {
+                continue;
+            }
+            let (ox, oz) = (p.pos.x - b.x, p.pos.z - b.z);
+            let min = b.r + r;
+            let d2 = ox * ox + oz * oz;
+            if d2 >= min * min {
+                continue;
+            }
+            let root = d2.sqrt();
+            let d = if root == 0.0 { 0.0001 } else { root };
+            p.pos.x = b.x + (ox / d) * min;
+            p.pos.z = b.z + (oz / d) * min;
+        }
+    }
     let lim = sim.world.radius;
     let rr = len(p.pos.x, p.pos.z);
     if rr > lim {

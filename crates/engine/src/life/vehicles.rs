@@ -372,7 +372,8 @@ pub fn dismount(life: &mut Life, sim: &mut Sim) -> bool {
     p.pos.x = x;
     p.pos.z = z;
     p.pos.y = if dry { y } else { hf.water - content::swim().float };
-    // (The TypeScript also resets prevPos, where the renderer blends from. The server draws nothing.)
+    // Drawn from where you got off, not slid there from your seat.
+    p.prev_pos = p.pos;
     p.grounded = dry;
     p.vel.x = 0.0;
     p.vel.y = 0.0;

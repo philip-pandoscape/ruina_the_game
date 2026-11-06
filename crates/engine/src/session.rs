@@ -1,0 +1,840 @@
+//! The game as the browser plays it (Phase 8): the rules for one player, in the island or the
+//! training yard, as src/engine/engine.ts runs src/sim/sim.ts today. You, the creatures and the
+//! training range offline (the server decides them online), the island's life, the copies of
+//! dungeons you're in; stepped once per fixed frame with what you pressed, and changed from outside
+//! only by the named calls below, each the twin of one of the Engine's. What happened comes out as
+//! events (crate::event) in the order the TypeScript raises them, and everything the page draws can
+//! be read off as the TypeScript's shapes (`player_json`, `actors_json`, `life_json`).
+//! crates/engine-wasm hands it to the browser; the headless tests run it beside the TypeScript and
+//! compare every step until the TypeScript goes.
+
+use std::collections::BTreeMap;
+
+use serde_json::{Map, Value, json};
+
+use crate::actors::{Actors, Blow, LEAN_DAMPING, LEAN_SPRING};
+use crate::ai::{Foe, Sighting};
+use crate::event::Event;
+use crate::jsmath::{JsMath, len};
+use crate::life::progress::Observed;
+use crate::life::state::{LIFE_VERSION, LifeState};
+use crate::life::{Command, Life, content::clock, farming, housing, interact, interact::short_time, trade, vehicles};
+use crate::open::colliders::{ColliderIndex, ground_at};
+use crate::open::dungeon::{DungeonDef, Spot, dungeon};
+use crate::open::zone::{Heightfield, emberholm};
+use crate::open::{OpenWorld, Sim, traverse};
+use crate::player::{Actions, Body, Build, Mode, Player, step_len};
+use crate::training::{Blows, Range, check_hit, targets};
+use crate::tuning::tuning;
+use crate::world::{Spawn, World};
+use crate::yard::{SpawnPoint, YARD_SEED, Yard, band_around, island_spawns, yard};
+
+/// A slam only catches someone standing on the ground, not someone jumping over it.
+const SLAM_LIFT: f64 = 1.0;
+
+/// The ground you play on: the yard's flat ground with its props, or an island.
+pub enum Ground {
+    Flat { yard: Yard, world: World },
+    Open(Box<OpenWorld>),
+}
+
+/// A dungeon's floors and walls as added to the island's colliders, and whether they are solid now.
+struct Solids {
+    boxes: Vec<usize>,
+    decks: Vec<usize>,
+    solid: bool,
+}
+
+pub struct Session {
+    /// Fixed steps taken so far.
+    pub frame: u32,
+    /// Offline, frames left of a hit's pause.
+    pub hitstop: i32,
+    pub player: Player,
+    /// Offline, the creatures (online the server's are drawn from its updates).
+    pub actors: Actors,
+    pub ground: Ground,
+    /// The island's life systems, on an island.
+    pub life: Option<Life>,
+    /// Online the server decides: these rules only predict your own moves.
+    pub online: bool,
+    /// Offline, the yard's arrows, meteors and heals.
+    pub range: Range,
+    /// What happened since they were last taken (`take_events`), in order, and the step each
+    /// happened in (`frames`, filled in as they're added).
+    pub events: Vec<Event>,
+    frames: Vec<u32>,
+    /// How many of `events` the island has learned from (skills trained, kills counted).
+    observed: usize,
+    /// Who stands about when the world is built (or reset).
+    pub spawns: Vec<SpawnPoint>,
+    /// Your skill levels, which every new you takes on.
+    pub levels: Vec<u32>,
+    /// Offline, fallen out of the bottom of a copy this step: put back where it's entered, facing this way.
+    pub placed: Option<f64>,
+    dungeon: Option<String>,
+    respawn_at: Option<Spot>,
+    solids: BTreeMap<String, Solids>,
+}
+
+impl Session {
+    /// The island (or the yard), you at its spawn with `build`, and offline whoever stands about it
+    /// (with a war-band of `goblins` in the yard's far corner): the Engine's constructor.
+    pub fn new(open_world: bool, online: bool, goblins: usize, build: Build) -> Session {
+        let (ground, mut spawns, spawn) = if open_world {
+            let zone = emberholm();
+            let s = zone.recipe.spawn;
+            (Ground::Open(Box::new(OpenWorld::new(zone))), island_spawns(&zone.recipe), Spawn { x: s.x, z: s.z, facing: s.facing })
+        } else {
+            let y = yard(YARD_SEED);
+            let (spawns, spawn) = (y.spawns.clone(), y.spawn);
+            let world = y.world();
+            (Ground::Flat { yard: y, world }, spawns, spawn)
+        };
+        if goblins > 0 {
+            spawns.extend(band_around("goblin", goblins, 9.0, 10.0, 1, 0x9b1d));
+        }
+        let player = Player::new(spawn, 0, Build::default());
+        let levels = player.levels.clone();
+        let mut s = Session {
+            frame: 0,
+            hitstop: 0,
+            player,
+            actors: Actors::new(),
+            ground,
+            life: None,
+            online,
+            range: Range::default(),
+            events: Vec::new(),
+            frames: Vec::new(),
+            observed: 0,
+            spawns,
+            levels,
+            placed: None,
+            dungeon: None,
+            respawn_at: None,
+            solids: BTreeMap::new(),
+        };
+        s.populate();
+        s.player.apply_build(build);
+        // Offline on the island, start standing on the ground at the spawn rather than inside the
+        // hill (online the server puts you there, the same way).
+        if !online && let Some(hf) = s.terrain() {
+            let (x, z) = (s.player.pos.x, s.player.pos.z);
+            s.settle(x, z, hf.height(x, z));
+        }
+        if open_world {
+            s.life = Some(Life::new(emberholm(), None, None));
+        }
+        s
+    }
+
+    /// The island's ground (none on the yard's flat ground).
+    pub fn terrain(&self) -> Option<&'static Heightfield> {
+        match &self.ground {
+            Ground::Open(w) => Some(w.zone.terrain_ref()),
+            Ground::Flat { .. } => None,
+        }
+    }
+
+    fn training(&self) -> bool {
+        !self.online
+    }
+
+    /// What a creature's brain sees of you: nobody while you're knocked down.
+    fn sighting(&self) -> Sighting {
+        let p = &self.player;
+        if p.down_frame >= 0 { Sighting::at(p.pos.x, p.pos.z, false) } else { p.foe(1, 0.0).sighting() }
+    }
+
+    /// Offline, whoever stands about this world, spawned afresh (Sim.reset): war-bands share a band.
+    fn populate(&mut self) {
+        self.actors.clear();
+        if !self.training() {
+            return;
+        }
+        let mut bands: BTreeMap<u32, u32> = BTreeMap::new();
+        for point in self.spawns.clone() {
+            let band = if point.band != 0 { *bands.entry(point.band).or_insert_with(|| self.actors.new_band()) } else { 0 };
+            let seen = self.sighting();
+            self.actors.spawn_at(&point, band, false, seen);
+        }
+    }
+
+    // ---------- A step ----------
+
+    /// One fixed step (Engine.step): the rules, then the yard's arrows, meteors and heals against
+    /// whatever stands about. What happened is added to `events`.
+    pub fn step(&mut self, a: &Actions) {
+        self.placed = None;
+        self.frame += 1;
+        let training = self.training();
+        self.player.remember_presses(a);
+        // Hit pause (offline): everything freezes briefly when a hit lands. Presses are kept.
+        if training && self.hitstop > 0 {
+            self.hitstop -= 1;
+        } else {
+            self.player.count_down(a);
+            self.player.aim_assist = training.then(|| targets(&self.actors, self.terrain()).iter().map(|t| (t.x, t.z)).collect());
+            self.act(a);
+            self.take_player_events();
+            if training && let Some(step) = self.player.swing_due.take() {
+                let above = self.height_above_ground();
+                let terrain = self.terrain();
+                if let Some(pause) = check_hit(&mut self.actors, terrain, &mut self.events, &mut self.player, &step, above) {
+                    self.hitstop = pause;
+                }
+            }
+            self.player.update_crouch_frame();
+            self.player.bodies.clear();
+            if training {
+                let terrain = self.terrain();
+                for a in self.actors.list.iter().filter(|a| a.solid && a.is_alive()) {
+                    let y = terrain.map_or(a.y, |hf| hf.height(a.x, a.z) + a.y);
+                    self.player.bodies.push(Body { x: a.x, z: a.z, r: a.radius, y });
+                }
+            }
+            self.integrate();
+            if self.player.mode == Mode::Attack {
+                self.player.check_shot();
+            }
+            self.take_player_events();
+            if training {
+                self.step_actors();
+            }
+            self.observe();
+            if let (Some(life), Ground::Open(world)) = (self.life.as_mut(), &mut self.ground) {
+                let mut sim = Sim { player: &mut self.player, world, owner: 0 };
+                life.step(&mut sim, a);
+                // What F does here, for the prompt on screen (the server works it out only when F is pressed).
+                life.focus = interact::find_focus(life, &sim);
+            }
+            self.take_player_events();
+            self.player.end_step();
+        }
+        self.catch_fall();
+        if training {
+            let seen = self.events.len();
+            let terrain = self.terrain();
+            let mut blows = Blows { actors: &mut self.actors, player: &self.player, terrain, events: &mut self.events };
+            self.range.step(&mut blows, seen);
+            self.observe();
+        }
+        self.stamp();
+    }
+
+    /// Notes the step the events added since the last time happened in.
+    fn stamp(&mut self) {
+        self.frames.resize(self.events.len(), self.frame);
+    }
+
+    /// What you do this step, by what you're doing (Sim.step's middle).
+    fn act(&mut self, a: &Actions) {
+        let p = &mut self.player;
+        if p.down_frame >= 0 {
+            // Knocked down: lie still, then get back up.
+            if p.update_down() {
+                self.respawn();
+            }
+            return;
+        }
+        if p.stun > 0 {
+            p.update_stun();
+            return;
+        }
+        match (p.mode, &mut self.ground) {
+            (Mode::Action, _) => p.update_action(a),
+            (Mode::Cast, _) => p.update_cast(a),
+            (Mode::Attack, _) => p.update_attack(a),
+            (Mode::Swim, Ground::Open(world)) => traverse::update_swim(&mut Sim { player: p, world, owner: 0 }, a),
+            (Mode::Glide, Ground::Open(world)) => traverse::update_glide(&mut Sim { player: p, world, owner: 0 }, a),
+            (Mode::Ride, Ground::Open(world)) => {
+                if let Some(life) = self.life.as_mut() {
+                    life.ride(&mut Sim { player: p, world, owner: 0 }, a);
+                }
+            }
+            (Mode::Normal, Ground::Open(world)) => {
+                // In the air with both jumps spent, jump again to open your glider.
+                let mut sim = Sim { player: p, world, owner: 0 };
+                let q = &*sim.player;
+                if !q.grounded && q.jump_buffer > 0 && q.jumps_used >= 2 && traverse::open_glider(&mut sim) {
+                    traverse::update_glide(&mut sim, a);
+                } else {
+                    sim.player.update_normal(a);
+                }
+            }
+            (_, Ground::Flat { .. }) => p.update_normal(a),
+        }
+    }
+
+    /// Back on your feet (respawn in src/sim/player/attacks.ts): where a copy is entered, or your
+    /// team's spawn, standing on the ground there.
+    fn respawn(&mut self) {
+        let team = match &self.ground {
+            Ground::Flat { world, .. } => world.team_spawns[self.player.team as usize & 1],
+            Ground::Open(w) => {
+                let s = w.zone.recipe.spawn;
+                Spawn { x: s.x, z: s.z, facing: s.facing }
+            }
+        };
+        let s = self.respawn_at.map_or(team, |at| Spawn { x: at.x, z: at.z, facing: at.facing });
+        self.player.respawn(s);
+        if let Ground::Open(w) = &self.ground {
+            let hf = w.terrain();
+            let near = self.respawn_at.map_or_else(|| hf.height(s.x, s.z), |at| at.y);
+            self.player.pos.y = ground_at(hf, &w.index, s.x, s.z, near + 1.2, 1.2);
+        }
+        self.player.respawned();
+    }
+
+    fn integrate(&mut self) {
+        match &mut self.ground {
+            Ground::Flat { world, .. } => self.player.integrate(world),
+            Ground::Open(world) => traverse::integrate_open(&mut Sim { player: &mut self.player, world, owner: 0 }),
+        }
+    }
+
+    /// How high your feet are over whatever is under you (water counts as a floor).
+    fn height_above_ground(&mut self) -> f64 {
+        match &mut self.ground {
+            Ground::Flat { .. } => self.player.pos.y,
+            Ground::Open(world) => traverse::height_above_ground(&Sim { player: &mut self.player, world, owner: 0 }),
+        }
+    }
+
+    fn take_player_events(&mut self) {
+        self.events.append(&mut self.player.events);
+    }
+
+    /// Offline, every creature's frame (updateActors in src/sim/actors/step.ts): their blows and
+    /// slams land on you as they happen.
+    fn step_actors(&mut self) {
+        let terrain = self.terrain();
+        let ground = move |x: f64, z: f64| terrain.map_or(0.0, |hf| hf.height(x, z));
+        let foes: Vec<Foe> = if self.player.down_frame >= 0 {
+            Vec::new()
+        } else {
+            let mut f = self.player.foe(1, 0.0);
+            f.air = self.height_above_ground();
+            vec![f]
+        };
+        let player = &mut self.player;
+        let pr = tuning().movement.player_radius;
+        let hurt = |player: &mut Player, ev: &mut Vec<Event>, damage: f64, nx: f64, nz: f64, knock: f64| {
+            let before = player.hp;
+            player.take_hit(damage, nx, nz, knock);
+            if player.hp < before {
+                ev.push(Event::Hurt { damage: before - player.hp, x: player.pos.x, y: player.pos.y + 1.6, z: player.pos.z });
+            }
+        };
+        self.actors.step_with(&foes, &ground, LEAN_SPRING, LEAN_DAMPING, step_len(), &mut self.events, &mut |b, ev| match b {
+            Blow::Slam(s) => {
+                ev.push(Event::Slam { x: s.x, y: ground(s.x, s.z), z: s.z, radius: s.radius });
+                let (dx, dz) = (player.pos.x - s.x, player.pos.z - s.z);
+                let d = len(dx, dz);
+                if player.down_frame >= 0 || d > s.radius + pr {
+                    return;
+                }
+                if player.pos.y - ground(player.pos.x, player.pos.z) > SLAM_LIFT {
+                    return;
+                }
+                let nx = if d > 0.01 { dx / d } else { player.facing.js_sin() };
+                let nz = if d > 0.01 { dz / d } else { player.facing.js_cos() };
+                hurt(player, ev, s.damage, nx, nz, s.knock);
+            }
+            Blow::Hit(h) => {
+                if h.foe == 1 {
+                    hurt(player, ev, h.damage, h.nx, h.nz, h.knock);
+                }
+            }
+        });
+    }
+
+    /// Offline, the island learns from what just happened: a hit trains the weapon that dealt it, a
+    /// cast its ability, a movement skill itself, and a kill counts for the quests.
+    fn observe(&mut self) {
+        let Some(life) = self.life.as_mut().filter(|_| !self.online) else {
+            self.observed = self.events.len();
+            return;
+        };
+        for e in &self.events[self.observed..] {
+            match e {
+                Event::Hit { weapon: Some(w), .. } => {
+                    life.observe(Observed::Hit { weapon: *w });
+                }
+                Event::Cast { ability, .. } => {
+                    life.observe(Observed::Cast { ability: *ability });
+                }
+                Event::Action { id, .. } => {
+                    life.observe(Observed::Action { id: *id });
+                }
+                Event::ActorDie { kind, killed: true, .. } => {
+                    life.observe(Observed::Defeat { kind });
+                }
+                _ => {}
+            }
+        }
+        self.observed = self.events.len();
+    }
+
+    /// What happened since the last time, in order, each with the step it happened in.
+    pub fn take_events(&mut self) -> Vec<(u32, Event)> {
+        self.stamp();
+        self.observed = 0;
+        std::mem::take(&mut self.frames).into_iter().zip(std::mem::take(&mut self.events)).collect()
+    }
+
+    /// Offline, fallen out of the bottom of a copy: back where it's entered (the server does this online).
+    fn catch_fall(&mut self) {
+        if self.online {
+            return;
+        }
+        let Some(def) = self.dungeon.as_deref().and_then(dungeon) else { return };
+        if !def.fallen_out(self.player.pos.y) {
+            return;
+        }
+        let a = def.arrival();
+        self.place(a.x, a.z, a.facing, Some(a.y));
+        self.placed = Some(a.facing);
+    }
+
+    // ---------- Named calls: the Engine's writes ----------
+
+    /// Stands you at rest on whatever is solid at (x, z) under `near`.
+    fn settle(&mut self, x: f64, z: f64, near: f64) {
+        let Ground::Open(w) = &self.ground else { return };
+        let y = ground_at(w.terrain(), &w.index, x, z, near + 1.2, 1.2);
+        let p = &mut self.player;
+        p.pos.x = x;
+        p.pos.y = y;
+        p.pos.z = z;
+        p.prev_pos = p.pos;
+        p.grounded = true;
+    }
+
+    /// Puts you at (x, z) facing `facing`, on whatever is solid under `from_y` there (by default the
+    /// ground, or the floor of the copy you're in), off whatever you were riding, gliding or
+    /// swimming in: teleports, and a dungeon's arrival and door.
+    pub fn place(&mut self, x: f64, z: f64, facing: f64, from_y: Option<f64>) {
+        let Some(hf) = self.terrain() else { return };
+        if self.player.mode == Mode::Ride
+            && let (Some(life), Ground::Open(world)) = (self.life.as_mut(), &mut self.ground)
+        {
+            vehicles::dismount(life, &mut Sim { player: &mut self.player, world, owner: 0 });
+        }
+        let near = from_y.or(self.floor_here()).unwrap_or_else(|| hf.height(x, z));
+        self.settle(x, z, near);
+        let p = &mut self.player;
+        p.vel = Default::default();
+        p.facing = facing;
+        p.prev_facing = facing;
+        if p.mode == Mode::Glide || p.mode == Mode::Swim {
+            p.mode = Mode::Normal;
+        }
+    }
+
+    /// Your skills and loadout, as the server switches them: any attack or cast in progress is dropped.
+    pub fn set_build(&mut self, b: Build) {
+        self.player.apply_build(b);
+    }
+
+    /// Your skill levels (in the yard, from what you've earned there; on the island, from your quests).
+    pub fn set_levels(&mut self, levels: &[u32]) {
+        self.levels = levels.to_vec();
+        self.player.set_levels(levels);
+    }
+
+    /// A command for the island, run on the next step.
+    pub fn command(&mut self, c: Command) {
+        if let Some(life) = self.life.as_mut() {
+            life.command(c);
+        }
+    }
+
+    /// Into a copy of a dungeon or developer zone: its floors and walls solid around you, and
+    /// knocked down in it you get up where it's entered. False if there's no such dungeon here.
+    pub fn enter_dungeon(&mut self, id: &str) -> bool {
+        let Some(def) = dungeon(id) else { return false };
+        if !matches!(self.ground, Ground::Open(_)) {
+            return false;
+        }
+        if self.dungeon.as_deref().is_some_and(|d| d != id) {
+            self.leave_dungeon();
+        }
+        let Ground::Open(w) = &mut self.ground else { return false };
+        let had = self.solids.remove(id);
+        self.solids.insert(id.to_string(), set_solid(&mut w.index, def, had, true));
+        self.dungeon = Some(id.to_string());
+        self.respawn_at = Some(def.arrival());
+        if let Some(life) = self.life.as_mut() {
+            life.dungeon = Some(id.to_string());
+        }
+        true
+    }
+
+    /// Out of the copy you're in: its floors and walls gone from your world again.
+    pub fn leave_dungeon(&mut self) {
+        let Some(id) = self.dungeon.take() else { return };
+        if let (Some(def), Ground::Open(w), Some(had)) = (dungeon(&id), &mut self.ground, self.solids.remove(&id)) {
+            self.solids.insert(id.clone(), set_solid(&mut w.index, def, Some(had), false));
+        }
+        self.respawn_at = None;
+        if let Some(life) = self.life.as_mut() {
+            life.dungeon = None;
+        }
+    }
+
+    /// The dungeon or developer zone you're in a copy of.
+    pub fn inside(&self) -> Option<&str> {
+        self.dungeon.as_deref()
+    }
+
+    /// The floor at (x, z) of the copy you're in, where it has one.
+    pub fn floor_at(&self, x: f64, z: f64) -> Option<f64> {
+        self.dungeon.as_deref().and_then(dungeon).and_then(|d| d.floor_at(x, z))
+    }
+
+    /// The floor's height in the copy you're in.
+    pub fn floor_here(&self) -> Option<f64> {
+        self.dungeon.as_deref().and_then(dungeon).map(|d| d.origin.y)
+    }
+
+    /// Which dungeons have been made solid in your world, and whether they still are (tests).
+    pub fn solidity(&self) -> BTreeMap<String, bool> {
+        self.solids.iter().map(|(k, s)| (k.clone(), s.solid)).collect()
+    }
+
+    /// Ground height under a point: a copy's floor where you're in one, the island's terrain, or 0.
+    pub fn ground_y(&self, x: f64, z: f64) -> f64 {
+        self.floor_at(x, z).unwrap_or_else(|| self.terrain().map_or(0.0, |hf| hf.height(x, z)))
+    }
+
+    /// What someone at height `near` would stand on at (x, z): the ground, a deck, a roof (0 on flat ground).
+    pub fn standing_at(&self, x: f64, z: f64, near: f64, pad: f64) -> f64 {
+        match &self.ground {
+            Ground::Open(w) => ground_at(w.terrain(), &w.index, x, z, near, pad),
+            Ground::Flat { .. } => 0.0,
+        }
+    }
+
+    /// Restores a saved island (a test's, or a bug report's): its state, the time you were away
+    /// (`now` on the clock `savedAt` was measured on, in ms), where you stood. False, changing
+    /// nothing, for a save from a newer game than this one (applySave in src/sim/life/island.ts).
+    pub fn load_island(&mut self, data: &Value, now: f64) -> bool {
+        let (Some(life), Ground::Open(world)) = (self.life.as_mut(), &mut self.ground) else { return false };
+        let Some(state) = data.get("state") else { return false };
+        if state.get("version").and_then(Value::as_i64).unwrap_or(0) > LIFE_VERSION {
+            return false;
+        }
+        let Ok(state) = serde_json::from_value::<LifeState>(state.clone()) else { return false };
+        life.load(state);
+        for v in &mut life.state.vehicles {
+            v.ridden = false;
+        }
+        // A stake still on a table when this was saved: back in the purse, as the server does.
+        if let Some(s) = life.state.staked.take() {
+            life.state.coins += s;
+        }
+        let mut sim = Sim { player: &mut self.player, world, owner: 0 };
+        for sc in life.state.scarecrows.clone() {
+            farming::add_scarecrow_collider(&mut sim, &sc);
+        }
+        for h in life.state.houses.clone() {
+            housing::add_house_colliders(life, &mut sim, &h);
+        }
+        // Time away.
+        let saved_at = data.get("savedAt").and_then(Value::as_f64).unwrap_or(now);
+        let c = clock();
+        let away = ((now - saved_at) / 1000.0).clamp(0.0, c.max_offline_seconds) * c.offline_factor;
+        if away > 1.0 {
+            life.state.clock += away;
+            farming::grow_for(life, away);
+            trade::recover_demand(life, away);
+            life.regen_labor(away, false, true);
+            if away > 60.0 {
+                life.toast(format!("Welcome back - {} passed on Emberholm while you were away", short_time(away)), "info");
+            }
+        }
+        // Where you were.
+        let hf = world.terrain();
+        let at = &data["player"];
+        let num = |k: &str| at.get(k).and_then(Value::as_f64);
+        if let (Some(x), Some(z), Some(y), Some(facing)) = (num("x"), num("z"), num("y"), num("facing"))
+            && hf.inside(x, z, 10.0)
+        {
+            let p = &mut self.player;
+            let gy = ground_at(hf, &world.index, x, z, y.max(hf.height(x, z)) + 0.5, 1.0);
+            p.pos.x = x;
+            p.pos.y = gy;
+            p.pos.z = z;
+            p.prev_pos = p.pos;
+            p.facing = facing;
+            p.prev_facing = facing;
+            p.grounded = true;
+        }
+        life.after_reset(&mut self.player);
+        true
+    }
+
+    /// Starts you over at `at` with `build`, standing on whatever is solid there, the island's and
+    /// the yard's parts with you (tests).
+    pub fn reset(&mut self, at: Spawn, build: Build) {
+        self.frame = 0;
+        self.hitstop = 0;
+        self.events.clear();
+        self.frames.clear();
+        self.observed = 0;
+        self.player = Player::new(at, 0, build);
+        self.player.set_levels(&self.levels.clone());
+        self.populate();
+        if let Ground::Open(w) = &self.ground {
+            let hf = w.terrain();
+            let (x, z) = (self.player.pos.x, self.player.pos.z);
+            self.player.pos.y = ground_at(hf, &w.index, x, z, hf.height(x, z) + 1.2, 1.2);
+            self.player.prev_pos = self.player.pos;
+        }
+        if let Some(life) = self.life.as_mut() {
+            life.after_reset(&mut self.player);
+        }
+        self.range.reset();
+    }
+
+    /// Your stamina and MP as they would be part way through a fight (tests).
+    pub fn set_vitals(&mut self, stamina: Option<f64>, mp: Option<f64>) {
+        if let Some(s) = stamina {
+            self.player.stamina = s;
+        }
+        if let Some(m) = mp {
+            self.player.mp = m;
+        }
+    }
+
+    /// Monsters that never get angry, for tests about something else that hits them.
+    pub fn calm(&mut self, on: bool) {
+        self.actors.calm = on;
+        if on {
+            for a in &mut self.actors.list {
+                a.angry = 0;
+            }
+        }
+    }
+
+    /// Puts the `i`th actor of a kind (in spawn order) at (x, z), at home there (tests).
+    pub fn place_actor(&mut self, kind: &str, i: usize, x: f64, z: f64) {
+        if let Some(a) = self.actors.list.iter_mut().filter(|a| a.kind == kind).nth(i) {
+            a.x = x;
+            a.z = z;
+            a.y = 0.0;
+            a.home_x = x;
+            a.home_z = z;
+        }
+    }
+
+    /// Sets fields on an actor (a cooldown, where it stands), by the TypeScript's names, to set up a
+    /// moment directly (tests). Returns the names it doesn't know.
+    pub fn set_actor(&mut self, id: u32, fields: &Map<String, Value>) -> Vec<String> {
+        let Some(a) = self.actors.get_mut(id) else { return Vec::new() };
+        let mut unknown = Vec::new();
+        for (k, v) in fields {
+            let n = v.as_f64().unwrap_or(0.0);
+            match k.as_str() {
+                "x" => a.x = n,
+                "y" => a.y = n,
+                "z" => a.z = n,
+                "facing" => a.facing = n,
+                "homeX" => a.home_x = n,
+                "homeZ" => a.home_z = n,
+                "hp" => a.hp = n,
+                "angry" => a.angry = n as i32,
+                "slamCd" => a.slam_cd = n as i32,
+                "gatherCd" => a.gather_cd = n as i32,
+                "fuse" => a.fuse = n as i32,
+                "calling" => a.calling = n as i32,
+                "wait" => a.wait = n as i32,
+                "charges" => a.charges = n as i32,
+                _ => unknown.push(k.clone()),
+            }
+        }
+        unknown
+    }
+
+    /// A seed for what a test makes, from the moment and how many there are.
+    fn test_seed(&self) -> u32 {
+        ((self.frame as u64 * 2_654_435_761 + self.actors.list.len() as u64 * 40503) % (1 << 32)) as u32
+    }
+
+    /// A new actor of a kind at (x, z), as if a fight had made it (it won't respawn). Returns its id.
+    pub fn spawn_actor(&mut self, kind: &str, x: f64, z: f64) -> Option<u32> {
+        let point = SpawnPoint { kind: kind.to_string(), x, z, seed: Some(self.test_seed()), ..Default::default() };
+        let seen = self.sighting();
+        self.actors.spawn_at(&point, 0, true, seen)
+    }
+
+    /// A band of `count` of a kind round (x, z), as a zone's spawns make one. Returns their ids.
+    pub fn spawn_band(&mut self, kind: &str, count: usize, x: f64, z: f64) -> Vec<u32> {
+        let seed = self.test_seed();
+        let band = self.actors.new_band();
+        let mut ids = Vec::new();
+        for point in band_around(kind, count, x, z, band, seed) {
+            let seen = self.sighting();
+            if let Some(id) = self.actors.spawn_at(&point, band, false, seen) {
+                ids.push(id);
+            }
+        }
+        ids
+    }
+
+    /// A blow from you to an actor, as if your weapon had landed it.
+    pub fn hurt_actor(&mut self, id: u32, amount: f64) {
+        let weapon = self.player.weapon;
+        let terrain = self.terrain();
+        Blows { actors: &mut self.actors, player: &self.player, terrain, events: &mut self.events }.damage(id, amount, 0.0, 0, Some(weapon));
+        self.observe();
+        self.stamp();
+    }
+
+    /// A blow landing on you from (dir_x, dir_z), as if something had hit you.
+    pub fn take_hit(&mut self, damage: f64, dir_x: f64, dir_z: f64, knock: f64) {
+        self.player.take_hit(damage, dir_x, dir_z, knock);
+    }
+
+    // ---------- What the page reads ----------
+
+    /// You, as src/sim/types.ts PlayerState has you.
+    pub fn player_json(&self) -> Value {
+        let p = &self.player;
+        let mut v = player_state_json(p);
+        v["prevPos"] = json!({ "x": p.prev_pos.x, "y": p.prev_pos.y, "z": p.prev_pos.z });
+        v["prevFacing"] = json!(p.prev_facing);
+        v
+    }
+
+    /// The creatures and what they've thrown, as src/sim/actor.ts has them.
+    pub fn actors_json(&self) -> Value {
+        json!({ "list": self.actors.list, "missiles": self.actors.missiles })
+    }
+
+    /// The island as the page shows it: its state, what F does here, what you're placing, resting.
+    pub fn life_json(&self) -> Value {
+        match &self.life {
+            Some(l) => json!({ "state": l.state, "focus": l.focus, "placing": l.placing, "resting": l.resting, "revision": l.revision }),
+            None => Value::Null,
+        }
+    }
+
+    /// The flat world as it's drawn (the yard's props, the dummy, where you start and who stands about).
+    pub fn world_json(&self) -> Value {
+        let spawn = |s: Spawn| json!({ "x": s.x, "z": s.z, "facing": s.facing });
+        match &self.ground {
+            Ground::Flat { yard, world } => json!({
+                "seed": yard.seed,
+                "radius": world.radius,
+                "obstacles": yard.props,
+                "dummy": { "x": yard.dummy.0, "z": yard.dummy.1 },
+                "spawn": spawn(yard.spawn),
+                "teamSpawns": [spawn(world.team_spawns[0]), spawn(world.team_spawns[1])],
+                "spawns": self.spawns,
+            }),
+            Ground::Open(_) => json!({ "spawns": self.spawns }),
+        }
+    }
+}
+
+/// A dungeon's floors and walls made solid in an island's colliders, or taken out again (their tops
+/// sunk out of reach, as the TypeScript's setDungeonSolid does).
+fn set_solid(index: &mut ColliderIndex, def: &DungeonDef, had: Option<Solids>, solid: bool) -> Solids {
+    let (boxes, decks) = def.colliders();
+    let mut s = had.unwrap_or_else(|| Solids {
+        boxes: boxes.iter().map(|b| index.add_box(*b)).collect(),
+        decks: decks.iter().map(|d| index.add_deck(*d)).collect(),
+        solid: true,
+    });
+    for (k, &i) in s.boxes.iter().enumerate() {
+        index.boxes[i].top = if solid { boxes[k].top } else { f64::NEG_INFINITY };
+    }
+    for (k, &i) in s.decks.iter().enumerate() {
+        index.decks[i].top = if solid { decks[k].top } else { f64::NEG_INFINITY };
+    }
+    s.solid = solid;
+    s
+}
+
+fn mode_name(m: Mode) -> &'static str {
+    match m {
+        Mode::Normal => "normal",
+        Mode::Attack => "attack",
+        Mode::Cast => "cast",
+        Mode::Action => "action",
+        Mode::Swim => "swim",
+        Mode::Glide => "glide",
+        Mode::Ride => "ride",
+    }
+}
+
+/// A player's whole state, in the shape of src/sim/types.ts PlayerState (without where they were a
+/// step ago, which only the browser keeps).
+pub fn player_state_json(p: &Player) -> Value {
+    let v3 = |x: f64, y: f64, z: f64| json!({ "x": x, "y": y, "z": z });
+    json!({
+        "pos": v3(p.pos.x, p.pos.y, p.pos.z),
+        "vel": v3(p.vel.x, p.vel.y, p.vel.z),
+        "facing": p.facing,
+        "mode": mode_name(p.mode),
+        "grounded": p.grounded,
+        "jumpsUsed": p.jumps_used,
+        "jumpCutDone": p.jump_cut_done,
+        "coyote": p.coyote,
+        "jumpBuffer": p.jump_buffer,
+        "attackBuffer": p.attack_buffer,
+        "actionBuffer": p.action_buffer,
+        "actionBufferId": p.action_buffer_id,
+        "attackIndex": p.attack_index,
+        "attackFrame": p.attack_frame,
+        "attackQueued": p.attack_queued,
+        "attackHit": p.attack_hit,
+        "flipFrame": p.flip_frame,
+        "landFrame": p.land_frame,
+        "landImpact": p.land_impact,
+        "takeoffFrame": p.takeoff_frame,
+        "runPhase": p.run_phase,
+        "hp": p.hp,
+        "stamina": p.stamina,
+        "staminaDelay": p.stamina_delay,
+        "mp": p.mp,
+        "stun": p.stun,
+        "downFrame": p.down_frame,
+        "team": p.team,
+        "weapon": p.weapon,
+        "skills": p.skills,
+        "comboVariants": p.resolved.combo_variant_bits,
+        "abilities": p.abilities,
+        "cooldowns": p.cooldowns,
+        "abilityBuffer": p.ability_buffer,
+        "abilityBufferSlot": p.ability_buffer_slot,
+        "movement": p.movement,
+        "movementCooldowns": p.movement_cooldowns,
+        "actionId": p.action_id,
+        "actionFrame": p.action_frame,
+        "actionDirX": p.action_dir_x,
+        "actionDirZ": p.action_dir_z,
+        "actionSlot": p.action_slot,
+        "sprinting": p.sprinting,
+        "crouching": p.crouching,
+        "crouchFrame": p.crouch_frame,
+        "castAbility": p.cast_ability,
+        "castSlot": p.cast_slot,
+        "castFrame": p.cast_frame,
+        "castTargetX": p.cast_target_x,
+        "castTargetZ": p.cast_target_z,
+        "firedAbility": p.fired_ability,
+        "pack": p.pack,
+        "vehicle": p.vehicle,
+        "seat": p.seat,
+        "host": p.host,
+        "glider": p.glider,
+        "airspeed": p.airspeed,
+        "bank": p.bank,
+        "modeFrame": p.mode_frame,
+        "gustFrames": p.gust_frames,
+    })
+}

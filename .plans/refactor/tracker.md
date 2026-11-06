@@ -11,11 +11,12 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
 
 - **Phase:** 6 (the client in areas) and 8 (one copy of the rules), with 7, 11 and 12 done or
   nearly, and 9 and 10 mostly landed beside them. The old battle server is gone (R10.9, R10.10).
-- **Next:** Phase 8: the interface (R8.3, R8.3b) and the
-  switches, the island's generator first (R8.6's rest); then crowds at scale (R10.8) and the UI
-  gallery (R6.9).
-- **How:** one session does the work, without background agents (the user's call on 2026-11-06:
-  three at once used tokens too fast).
+- **Next:** Phase 8: the engine's session plays the offline game and the shadow holds it to the
+  TypeScript (R8.5); next the session online (prediction, the island as the server sends it: R8.3b),
+  then the switch (R8.7-R8.9) and deleting `src/sim/` (R8.13); then crowds at scale (R10.8).
+- **How:** one session does the work, with at most one sub-agent beside it, on Opus 5.5 at max
+  effort, in a worktree of its own (the user's call on 2026-11-06: three at once used tokens too
+  fast; one is allowed). It has the mini-games (R9.11, R8.11), then the UI gallery (R6.9).
 - **Races under load (the Mac, four workers):** these lose a race now and then and pass alone:
   `online.spec.ts:109`, `:258`, `:617`, `party.spec.ts:121`, `combat.spec.ts:185`, the battlefield's
   `Cleave hits both` and `battlefield.spec.ts:375`. To look at with R1.11.
@@ -537,13 +538,18 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
   interface is settled.
   Begun (2ff8375): ground height, standing ground and surface through the WebAssembly in Node: the
   island ready 10 ms after the first call, a query about 45 ns.
-- [ ] **R8.3** The interface (`docs/engine.md`): step with inputs (~17 action fields), commands in,
+- [~] **R8.3** The interface (`docs/engine.md`): step with inputs (~17 action fields), commands in,
   events and commands out; named calls for every write JavaScript makes into the rules today
   (`inventory/rules-map.md` section 3: the server's player at reconcile, island state from ticks,
   movers, colliders, respawn point, dungeon, levels); views: typed arrays over WebAssembly memory for
   what each frame reads (~100 fields: the player's ~27, ~10 per actor, vehicles, packs, animals) and
   versioned snapshots for what changes rarely (the island's state, read by the UI); TypeScript types
   generated from Rust.
+  Begun (see R8.5): the session's interface (`crates/engine-wasm/src/session.rs`, `src/engine/session.ts`):
+  a step takes the actions as numbers (the six buttons as bits); you, the creatures, what happened and
+  the island come back as JSON in the TypeScript's shapes; every other write the Engine makes is one
+  named call (`session_call`). Left: what each frame reads as typed arrays rather than JSON, if R8.14
+  shows JSON costs a frame anything; `docs/engine.md`.
 - [ ] **R8.3b** The rules' calls back into JavaScript become inputs and outputs: the world clock
   (read every step today, replays included; set once per step instead), `othersVehicles` and
   `othersAround` (set per frame), `plotOwner` (set on change), `remote` (commands returned after the
@@ -552,8 +558,25 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
   same state hash, bit for bit.
   Done (2ff8375): `tests/conformance/engine.test.ts`, 60,000 ground queries' fingerprint, native and
   WebAssembly, to the bit.
-- [ ] **R8.5** Shadow mode: in dev and tests, the engine runs beside the TypeScript rules and every
+- [~] **R8.5** Shadow mode: in dev and tests, the engine runs beside the TypeScript rules and every
   step is compared; any difference fails the test.
+  Offline done: the engine plays the browser's offline game (`crates/engine/src/session.rs`: you, the
+  creatures, the island, the copies of dungeons, the Engine's named calls; `training.rs`: a swing's
+  blow with its hit pause and auto-aim, damage and what it shows, the yard's arrows, meteors and
+  heals; `yard.rs`: the yard's layout and who stands about it; `event.rs`: what happened, raised
+  where the TypeScript raises it, by the player, the creatures (`Actors::step_with`, blows handed over
+  in order) and the training layer). `src/engine/shadow.ts` runs it beside every Engine's TypeScript
+  rules in the tests, mirrors each named call, and compares you, the creatures, the missiles, every
+  event and the island (its state, prompt, placing) after each step and call. On for the headless
+  rules tests (`tests/support/engineSetup.ts`; `SHADOW=report` lists each test's first difference,
+  `SHADOW=0` turns it off), where all 77 match bit for bit; `tests/unit/shadow.test.ts` holds it to
+  failing. While shadowing, the TypeScript's sine, cosine, atan2, exp and pow are the engine's: V8's
+  sine and cosine are glibc's and differ from libm's in the last bit on about 1% of inputs (after the
+  switch the server and the browser both run libm, so they agree to the bit, which they don't today).
+  Found and fixed on the way: the engine's prompts had drifted from the TypeScript's (sentence case
+  where the UI's labels are Title Case, no dungeon portals, a workbench's line, the needs' places);
+  getting off a vehicle reset where you are drawn from only in the TypeScript. Left: online (the
+  prediction, with R8.3b), and the page in dev.
 - [x] **R8.6** Switch the ground, colliders and dungeons. Port the island's generator
   (`zone/generate.ts` 710, `zone/buildings.ts` 207, TS-only today) to Rust: the server makes the island
   at start, the browser through the engine; delete the bake step and `server/data/emberholm.zone`.
@@ -864,6 +887,12 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
 | 2026-11-06 | R6.13 | `src/net/AGENTS.md` | 37afeca |
 | 2026-11-06 | R9.13 | Templates and new content as data alone, played | fef19c5 |
 | 2026-11-06 | R8.15 | `crates/engine/AGENTS.md` | 33bf4ea |
+| 2026-11-06 | R6.2 | `main.ts` by concern: the drawing, the step, the loop, the camera rig | (R6.2's commits) |
+| 2026-11-06 | R6.2a | The rules tests play the game headless: 77 move from Playwright to `tests/unit/rules` | eda3f19 |
+| 2026-11-06 | R8.6 | The engine grows Emberholm from its recipe, no bake; the browser's island is the engine's, the TypeScript generator gone | dafec37, ba9c87a |
+| 2026-11-06 | R8.1, R8.6 | The image builds the game again (the bible and the crates it reads, the engine's WebAssembly) | 50d91ef |
+| 2026-11-06 | R8.5 | The engine's player and creatures say what happened (events) | 15a7ff9, 6ed236a |
+| 2026-11-06 | R8.5, R8.3 | The engine plays the browser's offline game (the session, the training layer, the yard), and the shadow holds it to the TypeScript in the 77 headless rules tests, bit for bit | (this commit) |
 | 2026-11-06 | R9.14 | `docs/content.md` | 5e23680 |
 | 2026-11-06 | R10.10, R11.1, R11.2, R11.7, R11.8 | Snapshot to move machines: the battle server's Rust gone; the asset manifest, loader and first-download budget, `docs/assets.md` | a975617 |
 | 2026-11-06 | R6.10, R6.11, R6.8 | The client's moves: creature bodies into src/render/creatures/, the root files to their areas, the library under src/dev/ | 9317ff3, 5de387d, 81df3de |

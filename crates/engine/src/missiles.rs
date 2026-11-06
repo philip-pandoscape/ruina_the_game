@@ -15,7 +15,7 @@ pub const FOE_HEIGHT: f64 = 1.8;
 /// Frames before a missile that never came down is gone.
 const LIFE: i32 = 240;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize)]
 pub struct Missile {
     pub id: u32,
     /// The actor that threw it, and the attack (an index into the creatures' attacks) it came from.

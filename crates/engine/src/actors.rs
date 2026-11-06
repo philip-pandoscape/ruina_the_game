@@ -14,6 +14,7 @@ use crate::jsmath::len;
 use crate::missiles::{Flight, Missile, launch, step_missiles};
 use crate::pack::step_packs;
 use crate::tuning::tuning;
+use crate::yard::SpawnPoint;
 
 const DEG: f64 = std::f64::consts::PI / 180.0;
 /// Ids go out on the wire as 16 bits.
@@ -104,6 +105,7 @@ pub struct Actors {
     pub missiles: Vec<Missile>,
     next_id: u32,
     next_group: u32,
+    next_band: u32,
     next_missile: u32,
     /// Testing: nothing gets angry (Actors.calm in src/sim/actor.ts).
     pub calm: bool,
@@ -172,7 +174,38 @@ impl StepOut {
 
 impl Actors {
     pub fn new() -> Self {
-        Self { list: Vec::new(), missiles: Vec::new(), next_id: 1, next_group: 1, next_missile: 1, calm: false }
+        Self { list: Vec::new(), missiles: Vec::new(), next_id: 1, next_group: 1, next_band: 1, next_missile: 1, calm: false }
+    }
+
+    /// Everything gone, and the numbering started again (Actors.clear in src/sim/actor.ts).
+    pub fn clear(&mut self) {
+        let calm = self.calm;
+        *self = Self::new();
+        self.calm = calm;
+    }
+
+    /// A fresh id for a war-band.
+    pub fn new_band(&mut self) -> u32 {
+        let b = self.next_band;
+        self.next_band = if b >= 0x7fff_ffff { 1 } else { b + 1 };
+        b
+    }
+
+    /// One standing where a world puts it (or a test does), its brain started on what it sees
+    /// (`seen`: the browser's player, as src/sim/sim.ts sighting()). With no seed of its own it takes
+    /// one from its id, as the TypeScript does. Returns its id.
+    pub fn spawn_at(&mut self, p: &SpawnPoint, band: u32, transient: bool, seen: Sighting) -> Option<u32> {
+        let k = kind(&p.kind)?;
+        let index = kind_index(&p.kind)?;
+        let id = self.allocate();
+        let seed = p.seed.unwrap_or((id as u64 * 0x9e37_79b1) as u32);
+        let mut a = Actor::of_kind(id, k, index, p.x, p.z, seed);
+        a.facing = p.facing.unwrap_or(0.0);
+        a.band = band;
+        a.transient = transient;
+        start_brain(&mut a, seen);
+        self.list.push(a);
+        Some(id)
     }
 
     // Counts up and wraps, skipping ids still in use. Mirrors Actors.allocate() in actor.ts.

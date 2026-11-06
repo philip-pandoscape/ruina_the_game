@@ -88,6 +88,11 @@ const PLUMBING: Record<string, string> = {
   'src/sim/yard.ts': 'the training yard’s and the battlefield’s grounds, developer zones',
   'src/sim/training.ts': 'the training yard’s stand-in for the server, a developer zone',
   'crates/engine/src/world.rs': 'the battlefield’s ground, a developer zone',
+  'crates/engine/src/yard.rs': 'the training yard’s ground and who stands about it, a developer zone',
+  'crates/engine/src/training.rs': 'the training yard’s stand-in for the server, a developer zone',
+  // The browser's copy of the rules, which the pages above explain where they're made.
+  'crates/engine/src/session.rs': 'the browser’s game: the rules above, stepped for one player',
+  'crates/engine/src/event.rs': 'what happened in a step, for the browser’s effects and sounds',
 };
 
 /** Keys of the content files that hold nothing a player meets, with why. */

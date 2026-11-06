@@ -142,6 +142,11 @@ pub fn recipes() -> &'static [RecipeDef] {
     &items_file().recipes
 }
 
+/// The recipes made at a bench (recipesAt in src/content/recipes.ts).
+pub fn recipes_at(bench: &str) -> impl Iterator<Item = &'static RecipeDef> {
+    recipes().iter().filter(move |r| r.bench == bench)
+}
+
 pub fn recipe(id: &str) -> Option<&'static RecipeDef> {
     recipes().iter().find(|r| r.id == id)
 }

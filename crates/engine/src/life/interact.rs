@@ -8,7 +8,7 @@ use std::f64::consts::PI;
 
 use super::content::{
     QuestDef, QuestStep, animal_def, blueprint_def, carry, claims_plot, crop_def, design_for_item, format_coins, gathering, item_def, labor as labor_settings,
-    pack_def, place_name, quest_def, recipe as recipe_by_id, rideable, ship_design, structure_def,
+    pack_def, place_name, quest_def, recipe as recipe_by_id, recipes_at, rideable, ship_design, structure_def,
 };
 use super::contracts::accept_contract;
 use super::farming::{
@@ -27,6 +27,7 @@ use super::vehicles::{board, dismount, distance_to, mount_command, nearest_ancho
 use super::{Command, Focus, Life, LifeEvent, Placement, QuestEvent};
 use crate::jsmath::{js_hypot, js_max, js_min, js_round};
 use crate::open::Sim;
+use crate::open::dungeon::dungeon;
 use crate::open::traverse::{close_glider, glider_blocked, gust, open_glider};
 use crate::open::zone::{Outpost, Zone, to_local};
 use crate::player::Mode;
@@ -86,9 +87,18 @@ fn quest_step(q: &QuestDef, step: i64) -> Option<&QuestStep> {
     usize::try_from(step).ok().and_then(|i| q.steps.get(i))
 }
 
-/// "Lumber Bundle 1/2 · Stone Block 0/2": what a stage still needs, for the prompt.
-fn needs_list(needs: &[Need]) -> String {
-    needs.iter().map(|n| format!("{} {}/{}", pack_def(&n.pack).name, n.have, n.need)).collect::<Vec<_>>().join(" · ")
+/// "Lumber Bundle 1/2 · Stone Block 0/2": what a stage still needs, for the prompt; with `place`,
+/// where each pack it still wants is made.
+fn needs_list(needs: &[Need], place: bool) -> String {
+    needs
+        .iter()
+        .map(|n| {
+            let def = pack_def(&n.pack);
+            let made = if place && n.have < n.need { format!(" ({})", place_name(&def.origin)) } else { String::new() };
+            format!("{} {}/{}{made}", def.name, n.have, n.need)
+        })
+        .collect::<Vec<_>>()
+        .join(" · ")
 }
 
 /// The seed F plants: the one you chose while you have any left, else the first in your bag.
@@ -129,6 +139,17 @@ impl Pick {
     }
 }
 
+/// What a workbench's prompt says it is for: a bench for building materials names what it makes;
+/// a trade bench names its town, as trade packs are worth what they are by where they're made.
+fn bench_makes(bench: &str, place: &str) -> String {
+    let packs: Vec<_> = recipes_at(bench).filter_map(|r| r.makes.pack.as_deref()).map(pack_def).collect();
+    if !packs.is_empty() && packs.iter().all(|pk| pk.kind.as_deref() == Some("material")) {
+        packs.iter().map(|pk| pk.name.as_str()).collect::<Vec<_>>().join(" · ")
+    } else {
+        format!("{} Packs", place_name(place))
+    }
+}
+
 /// What pressing F would do right now. While a scarecrow is being placed, this also moves it to
 /// the spot in front of you.
 pub fn find_focus(life: &mut Life, sim: &Sim) -> Option<Focus> {
@@ -139,7 +160,7 @@ pub fn find_focus(life: &mut Life, sim: &Sim) -> Option<Focus> {
         return Some(Focus {
             action: "exit".into(),
             key: "exit".into(),
-            label: if mount { "Dismount" } else { "Get out" }.into(),
+            label: if mount { "Dismount" } else { "Get Out" }.into(),
             ok: true,
             x: p.pos.x,
             y: p.pos.y,
@@ -153,6 +174,7 @@ pub fn find_focus(life: &mut Life, sim: &Sim) -> Option<Focus> {
         let z = p.pos.z + p.facing.js_cos() * ahead;
         let rot = js_round(p.facing / (PI / 12.0)) * (PI / 12.0);
         let problem = plot_problem(life, sim, x, z, rot);
+        let item = life.placing.as_ref().map(|pl| pl.item.clone()).unwrap_or_default();
         if let Some(pl) = life.placing.as_mut() {
             pl.x = x;
             pl.z = z;
@@ -163,8 +185,8 @@ pub fn find_focus(life: &mut Life, sim: &Sim) -> Option<Focus> {
         return Some(Focus {
             action: "placeScarecrow".into(),
             key: "place".into(),
-            label: problem.unwrap_or_else(|| "Place scarecrow here".into()),
-            detail: Some("Esc to cancel".into()),
+            label: problem.unwrap_or_else(|| format!("Place {} Here", item_def(&item).name)),
+            detail: Some("Esc to Cancel".into()),
             ok,
             x,
             y: hf.height(x, z),
@@ -207,10 +229,10 @@ pub fn find_focus(life: &mut Life, sim: &Sim) -> Option<Focus> {
             let def = pack_def(&back.def);
             let f = match quote(life, back, &outpost.id) {
                 Some(q) => {
-                    let seals = if truthy(q.seals) { format!(" + {} seal{}", num(q.seals), if q.seals > 1.0 { "s" } else { "" }) } else { String::new() };
-                    let fresh = if q.fresh >= 1.0 { "fresh" } else { "stale" };
+                    let seals = if truthy(q.seals) { format!(" + {} Seal{}", num(q.seals), if q.seals > 1.0 { "s" } else { "" }) } else { String::new() };
+                    let fresh = if q.fresh >= 1.0 { "Fresh" } else { "Stale" };
                     let detail = format!(
-                        "{}{seals} · demand {}% · {fresh} {}%",
+                        "{}{seals} · Demand {}% · {fresh} {}%",
                         format_coins(q.coins),
                         num(js_round(q.demand * 100.0)),
                         num(js_round((q.fresh - 1.0) * 100.0))
@@ -236,11 +258,11 @@ pub fn find_focus(life: &mut Life, sim: &Sim) -> Option<Focus> {
             quest_step(quest_def(&qp.id), qp.step).is_some_and(|st| st.objectives.iter().any(|o| o.type_ == "talk" && o.npc.as_deref() == Some(n.id.as_str())))
         });
         let tag = if !turn_in.is_empty() {
-            "quest complete!"
+            "Quest Complete!"
         } else if talk_goal {
-            "quest"
+            "Quest"
         } else if !offer.is_empty() {
-            "new quest"
+            "New Quest"
         } else {
             n.title.as_str()
         };
@@ -251,7 +273,7 @@ pub fn find_focus(life: &mut Life, sim: &Sim) -> Option<Focus> {
     for b in &zone.recipe.workbenches {
         let d = js_hypot(b.x - px, b.z - pz);
         let name = b.name.as_deref().unwrap_or("Workbench");
-        let detail = if back.is_some() { "Your back is full".into() } else { format!("{} packs", place_name(&b.place)) };
+        let detail = if back.is_some() { "Your back is full".into() } else { bench_makes(&b.id, &b.place) };
         let f = Focus {
             action: "craft".into(),
             key: format!("bench:{}", b.id),
@@ -277,7 +299,7 @@ pub fn find_focus(life: &mut Life, sim: &Sim) -> Option<Focus> {
             let f = Focus {
                 action: "pickup".into(),
                 key: format!("pack:{}", pk.id),
-                label: format!("Pick up {}", pack_def(&pk.def).name),
+                label: format!("Pick Up {}", pack_def(&pk.def).name),
                 ok: true,
                 pack: Some(pk.id),
                 x: pk.x,
@@ -319,7 +341,7 @@ pub fn find_focus(life: &mut Life, sim: &Sim) -> Option<Focus> {
             let f = at("load", format!("veh:{}:load", v.id), format!("Load {}", pack_def(&back.def).name), Some(format!("{} {used}/{slots}", def.name)), true);
             pick.consider(Focus { slot: Some(free as i64), ..f }, d, 2.2);
         } else if let Some(loaded) = unload {
-            let f = at("unload", format!("veh:{}:unload", v.id), format!("Take a pack from the {}", def.name), Some(format!("{used}/{slots} aboard")), true);
+            let f = at("unload", format!("veh:{}:unload", v.id), format!("Take a Pack from the {}", def.name), Some(format!("{used}/{slots} Aboard")), true);
             pick.consider(Focus { slot: Some(loaded as i64), ..f }, d, 2.2);
         } else {
             let mount = def.is_mount();
@@ -328,7 +350,7 @@ pub fn find_focus(life: &mut Life, sim: &Sim) -> Option<Focus> {
             let detail = if blocked {
                 Some(if mount { "Will not carry a pack" } else { "Load your pack first" }.into())
             } else if slots > 0 {
-                Some(format!("cargo {used}/{slots}"))
+                Some(format!("Cargo {used}/{slots}"))
             } else {
                 None
             };
@@ -366,31 +388,27 @@ pub fn find_focus(life: &mut Life, sim: &Sim) -> Option<Focus> {
                 Some(seed) => {
                     let def = item_def(&seed);
                     let verb = if has(&def.raises) { "Raise" } else { "Plant" };
-                    let what = def.name.replacen(" Seeds", "", 1).replacen(" Sapling", " sapling", 1);
-                    pick.consider(at("plant", format!("{verb} {what}"), format!("{} left · Z: change seed", life.count(&seed)), true), 0.5, 9.0);
+                    let what = def.name.replacen(" Seeds", "", 1);
+                    pick.consider(at("plant", format!("{verb} {what}"), format!("{} Left · Z: Change Seed", life.count(&seed)), true), 0.5, 9.0);
                 }
-                None => pick.consider(at("info", "Empty soil".into(), "Buy seeds from Mara, or young animals from Sela".into(), false), 0.5, 9.0),
+                None => pick.consider(at("info", "Empty Soil".into(), "Buy seeds from Mara, or young animals from Sela".into(), false), 0.5, 9.0),
             },
             Some(plant) if plant.is_animal() => {
                 let def = animal_def(&plant.crop);
                 let name = if grown_up(plant) { &def.name } else { &def.young };
                 let fed = life.count(&def.feed) >= def.feed_n;
                 if produce_ready(plant) {
-                    pick.consider(at("collect", def.verb.clone(), format!("{} labor", num(def.collect_labor)), true), 0.5, 9.0);
+                    pick.consider(at("collect", def.verb.clone(), format!("{} Labor", num(def.collect_labor)), true), 0.5, 9.0);
                 } else if hungry(life, plant) {
-                    pick.consider(
-                        at("feed", format!("Feed the {}", name.to_lowercase()), format!("{} {} · hungry", def.feed_n, item_def(&def.feed).name), fed),
-                        0.5,
-                        9.0,
-                    );
+                    pick.consider(at("feed", format!("Feed the {name}"), format!("{} {} · Hungry", def.feed_n, item_def(&def.feed).name), fed), 0.5, 9.0);
                 } else {
                     let left = js_max(0.0, (plant.fed_until.unwrap_or(0.0) - life.state.clock).ceil());
                     let state = if grown_up(plant) {
                         format!("{} {}%", def.produce, num(js_round(plant.produce.unwrap_or(0.0) * 100.0)))
                     } else {
-                        format!("growing {}%", num(js_round(plant.growth * 100.0)))
+                        format!("Growing {}%", num(js_round(plant.growth * 100.0)))
                     };
-                    pick.consider(at("feed", format!("Feed the {}", name.to_lowercase()), format!("{state} · fed for {}", short_time(left)), fed), 0.5, 9.0);
+                    pick.consider(at("feed", format!("Feed the {name}"), format!("{state} · Fed for {}", short_time(left)), fed), 0.5, 9.0);
                 }
             }
             Some(plant) => {
@@ -398,19 +416,19 @@ pub fn find_focus(life: &mut Life, sim: &Sim) -> Option<Focus> {
                 let stage = stage_of(plant);
                 let pct = num(js_round(plant.growth * 100.0));
                 if is_ripe(plant) && has(&def.produce) {
-                    pick.consider(at("harvest", format!("Harvest {}", def.name), format!("{} labor", num(def.harvest_labor)), true), 0.5, 9.0);
+                    pick.consider(at("harvest", format!("Harvest {}", def.name), format!("{} Labor", num(def.harvest_labor)), true), 0.5, 9.0);
                 } else if let Some(chop) = def.chop.as_ref().filter(|_| stage >= def.stages - 2) {
-                    pick.consider(at("fell", format!("Fell {}", def.name), format!("{} labor · timber", num(chop.labor)), true), 0.5, 9.0);
+                    pick.consider(at("fell", format!("Fell {}", def.name), format!("{} Labor · Timber", num(chop.labor)), true), 0.5, 9.0);
                 } else if !plant.watered && plant.growth < 1.0 {
                     pick.consider(
-                        at("water", format!("Water {}", def.name), format!("{pct}% · ripe in ~{}", short_time(seconds_to_ripe(life, plant))), true),
+                        at("water", format!("Water {}", def.name), format!("{pct}% · Ripe in ~{}", short_time(seconds_to_ripe(life, plant))), true),
                         0.5,
                         9.0,
                     );
                 } else {
-                    let watered = if plant.watered { "watered · " } else { "" };
+                    let watered = if plant.watered { "Watered · " } else { "" };
                     pick.consider(
-                        at("info", format!("{} - {pct}%", def.name), format!("{watered}ripe in ~{}", short_time(seconds_to_ripe(life, plant))), false),
+                        at("info", format!("{} - {pct}%", def.name), format!("{watered}Ripe in ~{}", short_time(seconds_to_ripe(life, plant))), false),
                         0.5,
                         9.0,
                     );
@@ -429,11 +447,11 @@ pub fn find_focus(life: &mut Life, sim: &Sim) -> Option<Focus> {
         }
         let ready = node_ready(life, i);
         let (label, detail) = if ready {
-            (y.verb.clone(), format!("{} labor", num(y.labor)))
+            (y.verb.clone(), format!("{} Labor · {}-{} {}", num(y.labor), y.n[0], y.n[1], item_def(&y.item).name))
         } else {
             // A node is only on cooldown once it has a time to come back at.
             let back_at = life.state.nodes.get(&i.to_string()).copied().unwrap_or(f64::NAN);
-            (format!("{} - picked clean", sd.name), format!("back in {}", short_time(back_at - life.state.clock)))
+            (format!("{} - Picked Clean", sd.name), format!("Back in {}", short_time(back_at - life.state.clock)))
         };
         let f = Focus {
             action: if ready { "gather" } else { "info" }.into(),
@@ -472,7 +490,7 @@ pub fn find_focus(life: &mut Life, sim: &Sim) -> Option<Focus> {
         let score = d * 0.3 + 1.2;
         let Some(bi) = ship_on(life, &sy.id) else {
             let f = match design_items_in_bag(life).into_iter().next() {
-                Some(design) => at("keel", format!("Lay the {}'s keel", design_for_item(&design).map_or("", |d| d.name.as_str())), Some(sy.name.clone()), true),
+                Some(design) => at("keel", format!("Lay the {}'s Keel", design_for_item(&design).map_or("", |d| d.name.as_str())), Some(sy.name.clone()), true),
                 None => at("info", sy.name.clone(), Some("Needs a ship design - Captain Ilsa sells them".into()), false),
             };
             pick.consider(f, score, 12.0);
@@ -487,13 +505,16 @@ pub fn find_focus(life: &mut Life, sim: &Sim) -> Option<Focus> {
         // (A stage that isn't there is a ship the TypeScript can't show either.)
         let Some(stage) = usize::try_from(b.stage).ok().and_then(|s| design.stages.get(s)) else { continue };
         let needs = ship_needs(b);
-        let list = needs_list(&needs);
         if ship_stage_ready(b) {
-            pick.consider(at("shipBuild", format!("Build the {}", stage.name.to_lowercase()), Some(format!("{} labor", num(stage.labor))), true), score, 12.0);
+            pick.consider(at("shipBuild", format!("Build the {}", stage.name), Some(format!("{} Labor", num(stage.labor))), true), score, 12.0);
         } else if let Some(back) = back.filter(|bk| needs.iter().any(|n| n.pack == bk.def && n.have < n.need)) {
-            pick.consider(at("shipDeliver", format!("Deliver {}", pack_def(&back.def).name), Some(format!("{}: {list}", stage.name)), true), score, 12.0);
+            pick.consider(
+                at("shipDeliver", format!("Deliver {}", pack_def(&back.def).name), Some(format!("{}: {}", stage.name, needs_list(&needs, false))), true),
+                score,
+                12.0,
+            );
         } else {
-            pick.consider(at("info", format!("{}: {} needs", design.name, stage.name), Some(list), false), score, 12.0);
+            pick.consider(at("info", format!("{}: {} Needs", design.name, stage.name), Some(needs_list(&needs, true)), false), score, 12.0);
         }
     }
 
@@ -520,13 +541,13 @@ pub fn find_focus(life: &mut Life, sim: &Sim) -> Option<Focus> {
             ..Default::default()
         };
         if let Some(owner) = owner {
-            pick.consider(on_plot("info", format!("{owner}'s plot"), "Already claimed", false), d, 9.0);
+            pick.consider(on_plot("info", format!("{owner}'s Plot"), "Already Claimed", false), d, 9.0);
             continue;
         }
         let Some(h) = h else {
             let f = match life.state.bag.iter().find(|s| claims_plot(&s.item)) {
-                Some(bp) => on_plot("claim", format!("Place {}", item_def(&bp.item).name), "Claims this plot", true),
-                None => on_plot("info", "Plot for claim".into(), "Needs a Cottage Blueprint - Land Registry", false),
+                Some(bp) => on_plot("claim", format!("Place {}", item_def(&bp.item).name), "Claims This Plot", true),
+                None => on_plot("info", "Plot for Claim".into(), "Needs a Cottage Blueprint - Land Registry", false),
             };
             pick.consider(f, d, 9.0);
             continue;
@@ -537,7 +558,6 @@ pub fn find_focus(life: &mut Life, sim: &Sim) -> Option<Focus> {
             // (A stage that isn't there is a house the TypeScript can't show either.)
             let Some(stage) = usize::try_from(h.stage).ok().and_then(|s| bp.stages.get(s)) else { continue };
             let needs = still_needs(h);
-            let list = needs_list(&needs);
             let site = |action: &str, label: String, detail: String, ok: bool| Focus {
                 action: action.into(),
                 key: format!("site:{}", h.id),
@@ -551,11 +571,15 @@ pub fn find_focus(life: &mut Life, sim: &Sim) -> Option<Focus> {
                 ..Default::default()
             };
             if stage_ready(h) {
-                pick.consider(site("build", format!("Build the {}", stage.name.to_lowercase()), format!("{} labor", num(stage.labor)), true), d, 9.0);
+                pick.consider(site("build", format!("Build the {}", stage.name), format!("{} Labor", num(stage.labor)), true), d, 9.0);
             } else if let Some(back) = back.filter(|bk| needs.iter().any(|n| n.pack == bk.def && n.have < n.need)) {
-                pick.consider(site("deliver", format!("Deliver {}", pack_def(&back.def).name), format!("{}: {list}", stage.name), true), d, 9.0);
+                pick.consider(
+                    site("deliver", format!("Deliver {}", pack_def(&back.def).name), format!("{}: {}", stage.name, needs_list(&needs, false)), true),
+                    d,
+                    9.0,
+                );
             } else {
-                pick.consider(site("info", format!("{} needs", stage.name), list, false), d, 9.0);
+                pick.consider(site("info", format!("{} Needs", stage.name), needs_list(&needs, true), false), d, 9.0);
             }
             continue;
         }
@@ -566,7 +590,7 @@ pub fn find_focus(life: &mut Life, sim: &Sim) -> Option<Focus> {
                 Focus {
                     action: "rest".into(),
                     key: format!("bed:{}", h.id),
-                    label: "Rest in bed".into(),
+                    label: "Rest in Bed".into(),
                     detail: Some("Labor recovers 3× faster".into()),
                     ok: true,
                     house: Some(h.id),
@@ -579,7 +603,7 @@ pub fn find_focus(life: &mut Life, sim: &Sim) -> Option<Focus> {
                 Focus {
                     action: "storage".into(),
                     key: format!("chest:{}", h.id),
-                    label: "Open storage chest".into(),
+                    label: "Open Storage Chest".into(),
                     ok: true,
                     house: Some(h.id),
                     x: ix,
@@ -592,11 +616,11 @@ pub fn find_focus(life: &mut Life, sim: &Sim) -> Option<Focus> {
         }
         let (owed, due_in) = tax_due(life, h);
         if lz.abs() > 5.0 {
-            let detail = if due_in > 0.0 { format!("paid for {}", short_time(due_in)) } else { "OVERDUE".into() };
+            let detail = if due_in > 0.0 { format!("Paid for {}", short_time(due_in)) } else { "Overdue".into() };
             let f = Focus {
                 action: "tax".into(),
                 key: format!("tax:{}", h.id),
-                label: format!("Pay property tax ({})", format_coins(owed)),
+                label: format!("Pay Property Tax ({})", format_coins(owed)),
                 detail: Some(detail),
                 ok: true,
                 house: Some(h.id),
@@ -606,6 +630,52 @@ pub fn find_focus(life: &mut Life, sim: &Sim) -> Option<Focus> {
                 ..Default::default()
             };
             pick.consider(f, d + 1.0, 9.0);
+        }
+    }
+
+    // A dungeon's portal: into your party's copy of it from its door on the island, or back out
+    // from inside (the browser takes you through; online the server does).
+    if p.mode == Mode::Normal {
+        let busy = back.map(|_| "Put your pack down first".to_string());
+        match life.dungeon.as_deref().and_then(dungeon) {
+            Some(inside) => {
+                let (x, z) = (inside.origin.x + inside.exit.x, inside.origin.z + inside.exit.z);
+                let f = Focus {
+                    action: "leaveDungeon".into(),
+                    key: format!("dungeon:{}:leave", inside.id),
+                    label: format!("Leave {}", inside.name),
+                    detail: busy,
+                    ok: back.is_none(),
+                    dungeon: Some(inside.id.clone()),
+                    x,
+                    y: p.pos.y,
+                    z,
+                    ..Default::default()
+                };
+                pick.consider(f, js_hypot(x - px, z - pz), inside.exit.r);
+            }
+            None => {
+                for door in &zone.recipe.dungeons {
+                    let Some(def) = dungeon(&door.id) else { continue };
+                    let d = js_hypot(door.portal.x - px, door.portal.z - pz);
+                    if (p.pos.y - door.portal.y).abs() > 3.0 {
+                        continue;
+                    }
+                    let f = Focus {
+                        action: "enterDungeon".into(),
+                        key: format!("dungeon:{}", door.id),
+                        label: format!("Enter {}", def.name),
+                        detail: Some(busy.clone().unwrap_or_else(|| format!("Dungeon · Up to {} Players", def.max_players))),
+                        ok: back.is_none(),
+                        dungeon: Some(door.id.clone()),
+                        x: door.portal.x,
+                        y: door.portal.y,
+                        z: door.portal.z,
+                        ..Default::default()
+                    };
+                    pick.consider(f, d, door.portal.r);
+                }
+            }
         }
     }
     pick.best
@@ -1098,35 +1168,35 @@ mod tests {
         aim(&life, &mut sim, 0);
         let f = find_focus(&mut life, &sim).unwrap();
         assert_eq!((f.key.as_str(), f.sc, f.cell), ("cell:1:0", Some(sc), Some(0)));
-        assert_eq!(prompt(&mut life, &sim), says("info", "Empty soil", "Buy seeds from Mara, or young animals from Sela", false));
+        assert_eq!(prompt(&mut life, &sim), says("info", "Empty Soil", "Buy seeds from Mara, or young animals from Sela", false));
         life.give("seed.sunroot", 5, true);
-        assert_eq!(prompt(&mut life, &sim), says("plant", "Plant Sunroot", "5 left · Z: change seed", true));
+        assert_eq!(prompt(&mut life, &sim), says("plant", "Plant Sunroot", "5 Left · Z: Change Seed", true));
         run_command(&mut life, &mut sim, &Command::Interact);
-        assert_eq!(prompt(&mut life, &sim), says("water", "Water Sunroot", "0% · ripe in ~2m 30s", true));
+        assert_eq!(prompt(&mut life, &sim), says("water", "Water Sunroot", "0% · Ripe in ~2m 30s", true));
         run_command(&mut life, &mut sim, &Command::Interact);
-        assert_eq!(prompt(&mut life, &sim), says("info", "Sunroot - 0%", "watered · ripe in ~2m 0s", false));
+        assert_eq!(prompt(&mut life, &sim), says("info", "Sunroot - 0%", "Watered · Ripe in ~2m 0s", false));
         life.state.clock += 150.0;
         grow_for(&mut life, 150.0);
-        assert_eq!(prompt(&mut life, &sim), says("harvest", "Harvest Sunroot", "2 labor", true));
+        assert_eq!(prompt(&mut life, &sim), says("harvest", "Harvest Sunroot", "2 Labor", true));
 
         life.give("animal.chick", 1, true);
         run_command(&mut life, &mut sim, &Command::Use { item: "animal.chick".into() });
         aim(&life, &mut sim, 1);
-        assert_eq!(prompt(&mut life, &sim), says("plant", "Raise Chick", "1 left · Z: change seed", true));
+        assert_eq!(prompt(&mut life, &sim), says("plant", "Raise Chick", "1 Left · Z: Change Seed", true));
         run_command(&mut life, &mut sim, &Command::Interact);
-        assert_eq!(prompt(&mut life, &sim), says("feed", "Feed the chick", "growing 0% · fed for 5m 0s", false));
+        assert_eq!(prompt(&mut life, &sim), says("feed", "Feed the Chick", "Growing 0% · Fed for 5m 0s", false));
         life.state.clock += 301.0;
         grow_for(&mut life, 301.0);
-        assert_eq!(prompt(&mut life, &sim), says("feed", "Feed the chicken", "2 Barley · hungry", false));
+        assert_eq!(prompt(&mut life, &sim), says("feed", "Feed the Chicken", "2 Barley · Hungry", false));
         life.give("barley", 4, true);
         run_command(&mut life, &mut sim, &Command::Interact);
-        assert_eq!(prompt(&mut life, &sim), says("feed", "Feed the chicken", "egg 0% · fed for 5m 0s", true));
+        assert_eq!(prompt(&mut life, &sim), says("feed", "Feed the Chicken", "egg 0% · Fed for 5m 0s", true));
         life.state.clock += 300.0;
         grow_for(&mut life, 300.0);
-        assert_eq!(prompt(&mut life, &sim), says("collect", "Collect eggs", "1 labor", true));
+        assert_eq!(prompt(&mut life, &sim), says("collect", "Collect eggs", "1 Labor", true));
         // From inside the plot, facing back toward its post.
         stand(&mut sim, -207.0, -239.0, 2.4);
-        assert_eq!(prompt(&mut life, &sim), says("plant", "Plant Sunroot", "4 left · Z: change seed", true));
+        assert_eq!(prompt(&mut life, &sim), says("plant", "Plant Sunroot", "4 Left · Z: Change Seed", true));
         assert_eq!(find_focus(&mut life, &sim).unwrap().key, "cell:1:10");
         assert_eq!(toasts(&mut life), ["F plants Chick now"]);
         // What was pressed last is kept as the focus.
@@ -1142,7 +1212,7 @@ mod tests {
         let f = find_focus(&mut life, &sim).unwrap();
         assert_eq!(
             (f.action.as_str(), f.label.as_str(), f.detail.as_deref(), f.key.as_str(), f.node),
-            ("gather", "Chop Timber", Some("8 labor"), "node:0", Some(0))
+            ("gather", "Chop Timber", Some("8 Labor · 3-5 Lumber"), "node:0", Some(0))
         );
         // On Hob's lesson, which wants ten lumber.
         life.state.quests.active = vec![QuestProgress { id: "woodcutting".into(), step: 1, counts: vec![0.0] }];
@@ -1152,7 +1222,7 @@ mod tests {
         assert_eq!(life.drain_events(), vec![got(5, "lumber"), LifeEvent::Gather { x: nd.x, y: f.y, z: nd.z, kind: "timber".into() }]);
         assert_eq!(life.state.quests.active[0].counts, [5.0], "the lumber it gave counts, not the one swing");
         assert_eq!(life.state.nodes.get("0"), Some(&60.0));
-        assert_eq!(prompt(&mut life, &sim), says("info", "Deadfall Timber - picked clean", "back in 1m 0s", false));
+        assert_eq!(prompt(&mut life, &sim), says("info", "Deadfall Timber - Picked Clean", "Back in 1m 0s", false));
         run_command(&mut life, &mut sim, &Command::Interact);
         assert_eq!(life.state.bag, vec![Stack { item: "lumber".into(), n: 5 }], "picked clean");
         life.state.clock = 60.0;
@@ -1171,7 +1241,7 @@ mod tests {
         stand(&mut sim, -208.0, -247.0, 0.1);
         run_command(&mut life, &mut sim, &Command::Use { item: "scarecrow".into() });
         assert_eq!(life.placing, Some(Placement { item: "scarecrow".into(), ..Default::default() }));
-        assert_eq!(prompt(&mut life, &sim), says("placeScarecrow", "Place scarecrow here", "Esc to cancel", true));
+        assert_eq!(prompt(&mut life, &sim), says("placeScarecrow", "Place Scarecrow Here", "Esc to Cancel", true));
         // Seven metres ahead, turned to the nearest 15 degrees.
         let pl = life.placing.clone().unwrap();
         assert!((pl.x + 207.3011660834722).abs() < 1e-9 && (pl.z + 240.03497084305383).abs() < 1e-9, "{pl:?}");
@@ -1307,7 +1377,7 @@ mod tests {
         sim.player.mode = Mode::Attack;
         assert!(find_focus(&mut life, &sim).is_none());
         sim.player.mode = Mode::Ride;
-        assert_eq!(prompt(&mut life, &sim), says("exit", "Get out", "", true));
+        assert_eq!(prompt(&mut life, &sim), says("exit", "Get Out", "", true));
         assert_eq!(serde_json::to_value(&life.state).unwrap(), before);
         assert!(life.drain_events().is_empty());
     }

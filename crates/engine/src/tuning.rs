@@ -81,6 +81,9 @@ pub struct Jump {
 pub struct Attack {
     pub buffer_frames: i32,
     pub air_gravity_scale: f64,
+    /// Offline, a swing turns toward what's nearest within this range and this many degrees.
+    pub auto_aim_range: f64,
+    pub auto_aim_deg: f64,
 }
 
 #[derive(Deserialize)]
@@ -101,6 +104,11 @@ pub struct AttackStep {
     pub lunge: f64,
     pub reach: f64,
     pub arc_deg: f64,
+    /// Offline, the frames everything freezes when the blow lands, and how hard it rocks what it hits.
+    #[serde(default)]
+    pub hitstop: i32,
+    #[serde(default)]
+    pub knock: f64,
     pub player_knock: f64,
     pub cancel_after: i32,
     #[serde(default)]

@@ -257,6 +257,9 @@ pub struct Focus {
     pub house: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub slip: Option<String>,
+    /// A dungeon's portal, going in or coming out.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub dungeon: Option<String>,
 }
 
 /// A scarecrow being walked to its spot (src/sim/life/interact.ts Placement).
@@ -286,6 +289,9 @@ pub struct Life {
     /// tick, which the rain and the wind run on so that everyone has the same weather
     /// (weather.rs). None runs them on the island's own clock (the rules' checks, tests).
     pub world_clock: Option<f64>,
+    /// The dungeon or developer zone you're in a copy of (the browser's session; the server plays
+    /// each copy as a channel of its own).
+    pub dungeon: Option<String>,
     queue: Vec<Command>,
     events: Vec<LifeEvent>,
 }
@@ -303,6 +309,7 @@ impl Life {
             resting: false,
             plot_owners: BTreeMap::new(),
             world_clock: None,
+            dungeon: None,
             queue: Vec::new(),
             events: Vec::new(),
         };

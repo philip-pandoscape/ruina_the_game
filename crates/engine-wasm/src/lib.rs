@@ -11,6 +11,8 @@
 //! engine's), the colliders of a building plan, and Emberholm's ground. The rest follows (the
 //! refactor's Phase 8).
 
+mod session;
+
 use std::cell::RefCell;
 use std::sync::OnceLock;
 
@@ -55,12 +57,12 @@ pub unsafe extern "C" fn dealloc(p: *mut u8, n: usize) {
 ///
 /// # Safety
 /// `p..p + n` lies in room `alloc` gave.
-unsafe fn text<'a>(p: *const u8, n: usize) -> &'a str {
+pub(crate) unsafe fn text<'a>(p: *const u8, n: usize) -> &'a str {
     std::str::from_utf8(unsafe { std::slice::from_raw_parts(p, n) }).unwrap_or("")
 }
 
 /// Leaves an answer at `out_ptr()` and says how long it is.
-fn give(s: String) -> usize {
+pub(crate) fn give(s: String) -> usize {
     OUT.with(|o| {
         let mut o = o.borrow_mut();
         *o = s.into_bytes();

@@ -17,6 +17,7 @@ import { bandAround, makeWorld } from '../sim/yard';
 import { groundAt } from '../sim/zone/colliders';
 import { arrivalOf, type DungeonSolids, dungeonDef, floorAt, setDungeonSolid } from '../sim/zone/dungeon';
 import { makeZoneWorld } from '../sim/zone/world';
+import { type Compared, isShadowing, Shadow } from './shadow';
 
 // The one way into the rules for everything outside them (.plans/refactor R6.4). Today it runs the
 // TypeScript rules (src/sim/); Phase 8 runs the same calls on the Rust engine compiled to
@@ -65,6 +66,8 @@ export class Engine {
   private solids = new Map<string, DungeonSolids>();
   /** Online: your island as the server last sent it, kept as it came (commands run ahead work on a copy). */
   private sent: LifeState | null = null;
+  /** In the tests, the engine's own session beside these rules, compared every step (src/engine/shadow.ts). */
+  private readonly shadow: Shadow | null;
 
   constructor(o: EngineOptions) {
     this.online = o.online;
@@ -82,6 +85,25 @@ export class Engine {
     this.range = o.online ? null : new TrainingRange(this.sim);
     this.life = o.openWorld && this.world.zone ? new Life(this.world.zone) : null;
     if (this.life) this.sim.life = this.life;
+    this.shadow = isShadowing() && !o.world && !o.online ? new Shadow({ openWorld: o.openWorld, online: o.online, goblins: o.goblins, build: o.build }) : null;
+    this.shadow?.check(this.compared(), 'start');
+  }
+
+  /** What these rules show, for the shadow to compare. */
+  private compared(): Compared {
+    const life = this.life;
+    return {
+      frame: this.sim.frame,
+      player: this.sim.player,
+      actors: this.sim.actors.all(),
+      missiles: this.sim.actors.missiles,
+      life: life ? { state: life.state, focus: life.focus, placing: life.placing, resting: life.resting } : null,
+    };
+  }
+
+  /** A named call made on the shadow too. */
+  private mirror(name: string, args: object = {}): void {
+    this.shadow?.call(name, args, () => this.compared());
   }
 
   /** You, as the rules have you now. */
@@ -126,22 +148,26 @@ export class Engine {
       this.range.step(events);
       events = events.concat(this.sim.drainEvents());
     }
+    this.shadow?.step(a, events, this.compared());
     return events;
   }
 
   /** A command for the island, run on the next step (online, it goes to the server too: the island's remote hook). */
   command(c: Command): void {
     this.life?.command(c);
+    this.mirror('command', { command: c });
   }
 
   /** Your skill levels (in the yard, from the experience earned there; on the island, from your quests). */
   setLevels(levels: Levels): void {
     this.sim.levels = levels;
+    this.mirror('setLevels', { levels });
   }
 
   /** Switches your skills and loadout, as the server does: any attack or cast in progress is dropped. */
   setBuild(b: Build): void {
     this.sim.setBuild(b);
+    this.mirror('setBuild', { build: b });
   }
 
   /**
@@ -158,6 +184,7 @@ export class Engine {
     p.facing = facing;
     p.prevFacing = facing;
     if (p.mode === 'glide' || p.mode === 'swim') p.mode = 'normal';
+    this.mirror('place', { x, z, facing, fromY });
   }
 
   /**
@@ -174,6 +201,7 @@ export class Engine {
     this.dungeon = id;
     this.world.respawnAt = arrivalOf(def);
     if (this.life) this.life.dungeon = id;
+    this.mirror('enterDungeon', { id });
     return true;
   }
 
@@ -187,6 +215,7 @@ export class Engine {
     this.dungeon = null;
     this.world.respawnAt = undefined;
     if (this.life) this.life.dungeon = null;
+    this.mirror('leaveDungeon');
   }
 
   /** The dungeon or developer zone you're in a copy of (null out in the world). */
@@ -217,7 +246,9 @@ export class Engine {
    * false, changing nothing, for a save from a newer game than this one.
    */
   loadIsland(data: Saved, now = Date.now()): boolean {
-    return !!this.life && applySave(this.life, this.sim, data, now);
+    const loaded = !!this.life && applySave(this.life, this.sim, data, now);
+    this.mirror('loadIsland', { data, now });
+    return loaded;
   }
 
   // ---------- Online: what the server says ----------
@@ -315,18 +346,21 @@ export class Engine {
     }
     this.life?.afterReset(this.sim);
     this.range?.reset();
+    this.mirror('reset', { at, build });
   }
 
   /** Your stamina and MP as they would be part way through a fight. */
   setVitals(v: { stamina?: number; mp?: number }): void {
     if (v.stamina !== undefined) this.sim.player.stamina = v.stamina;
     if (v.mp !== undefined) this.sim.player.mp = v.mp;
+    this.mirror('setVitals', v);
   }
 
   /** Monsters that never get angry, for tests about something else that hits them. */
   calm(on: boolean): void {
     this.sim.actors.calm = on;
     if (on) for (const a of this.sim.actors.all()) a.angry = 0;
+    this.mirror('calm', { on });
   }
 
   /** Puts the `i`th actor of a kind (in spawn order) at (x, z), at home there. */
@@ -338,12 +372,14 @@ export class Engine {
     a.y = 0;
     a.homeX = x;
     a.homeZ = z;
+    this.mirror('placeActor', { kind, i, x, z });
   }
 
   /** Sets fields on an actor (a cooldown, a fuse), to set up a moment directly. */
   setActor(id: number, fields: Partial<Actor>): void {
     const a = this.sim.actors.get(id);
     if (a) Object.assign(a, fields);
+    this.mirror('setActor', { id, fields });
   }
 
   /** A new actor of a kind at (x, z), as if a fight had made it (it won't respawn). Returns its id. */
@@ -351,23 +387,28 @@ export class Engine {
     const a = this.sim.actors.spawn({ kind, x, z, seed: this.testSeed() });
     a.transient = true;
     startBrain(a, this.sim.sighting());
+    this.mirror('spawnActor', { kind, x, z });
     return a.id;
   }
 
   /** A band of `count` of a kind round (x, z), as a zone's spawns make one. Returns their ids. */
   spawnBand(kind: string, count: number, x: number, z: number): number[] {
-    return this.sim.spawnBand(kind, count, x, z, this.testSeed());
+    const ids = this.sim.spawnBand(kind, count, x, z, this.testSeed());
+    this.mirror('spawnBand', { kind, count, x, z });
+    return ids;
   }
 
   /** A blow from you to an actor, as if your weapon had landed it. */
   hurtActor(id: number, amount: number): void {
     const a = this.sim.actors.get(id);
     if (a && isAlive(a)) this.sim.damage(targetOf(a), amount, 0, 0, this.sim.player.weapon);
+    this.mirror('hurtActor', { id, amount });
   }
 
   /** A blow landing on you from (dirX, dirZ), as if something had hit you. */
   takeHit(damage: number, dirX: number, dirZ: number, knock: number): void {
     this.sim.takeHit(damage, dirX, dirZ, knock);
+    this.mirror('takeHit', { damage, dirX, dirZ, knock });
   }
 
   /** A seed for what a test makes, from the moment and how many there are (the same run, the same seed). */

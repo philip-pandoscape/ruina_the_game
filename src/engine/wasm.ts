@@ -22,6 +22,28 @@ interface Exports {
   zone_clear_len(): number;
   zone_json(): number;
   building_colliders(p: number, n: number, mirror: number, x: number, z: number, rot: number, y: number): number;
+  session_new(p: number, n: number): number;
+  session_free(h: number): void;
+  session_step(
+    h: number,
+    moveX: number,
+    moveZ: number,
+    flags: number,
+    abilitySlot: number,
+    movementSlot: number,
+    movementHeld: number,
+    aimX: number,
+    aimZ: number,
+    faceX: number,
+    faceZ: number,
+    stickX: number,
+    stickY: number,
+  ): number;
+  session_events(h: number): number;
+  session_player(h: number): number;
+  session_actors(h: number): number;
+  session_life(h: number): number;
+  session_call(h: number, p: number, n: number): number;
 }
 
 let engine: Exports | null = null;
@@ -39,7 +61,8 @@ export async function loadEngine(url: string): Promise<void> {
   useEngine(instance.exports);
 }
 
-function wasm(): Exports {
+/** The loaded engine's exports, for the bridge's other modules (src/engine/session.ts). */
+export function wasm(): Exports {
   if (!engine) throw new Error("the engine isn't loaded: await loadEngine() at the page's start (src/engine/load.ts)");
   return engine;
 }
@@ -48,7 +71,7 @@ const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
 /** Calls `f` with `s` written into the engine's memory. */
-function withText<T>(s: string, f: (p: number, n: number) => T): T {
+export function withText<T>(s: string, f: (p: number, n: number) => T): T {
   const e = wasm();
   const bytes = encoder.encode(s);
   const p = e.alloc(bytes.length);
@@ -61,7 +84,7 @@ function withText<T>(s: string, f: (p: number, n: number) => T): T {
 }
 
 /** The answer an engine call left, `n` bytes of JSON. */
-function answer<T>(n: number): T {
+export function answer<T>(n: number): T {
   const e = wasm();
   return JSON.parse(decoder.decode(new Uint8Array(e.memory.buffer, e.out_ptr(), n))) as T;
 }

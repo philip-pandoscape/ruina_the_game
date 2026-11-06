@@ -6,7 +6,7 @@
 use crate::ai::{ACT_CAST, ACT_DODGE, ACT_FREE, ACT_GUARD, ACT_RECOVER, ACT_STUNNED, ACT_SWING, Foe};
 use crate::event::Event;
 use crate::jsmath::JsMath;
-use crate::jsmath::len;
+use crate::jsmath::{js_hypot, len};
 use crate::life::content::carry;
 use crate::skills::{EMPTY_SKILLS, Levels, ResolvedSkills, SkillSet, base_levels, node_index, resolve_skills, same_levels, set_skill};
 use crate::tuning::{
@@ -154,6 +154,27 @@ pub struct Player {
     /// What happened this step, in the order it happened (crate::event): taken by the browser's
     /// session after each step, cleared at the next.
     pub events: Vec<Event>,
+    /// Where you were and faced at the start of this step, for drawing between steps.
+    pub prev_pos: V3,
+    pub prev_facing: f64,
+    /// Offline, where everything worth swinging at stands, for a swing's gentle auto-aim (the
+    /// session's training: crate::training); None online, where nothing aims for you.
+    pub aim_assist: Option<Vec<(f64, f64)>>,
+    /// The swing whose blow could land this step (an active frame of a melee swing that hasn't
+    /// landed yet), for the training yard to check what it hits; the server checks for itself.
+    pub swing_due: Option<AttackStep>,
+    /// Offline, the creatures you can't walk through (crate::training).
+    pub bodies: Vec<Body>,
+}
+
+/// A creature's body you can't walk through: where it stands, how wide it is and the height of
+/// its feet (in world terms).
+#[derive(Clone, Copy, Debug)]
+pub struct Body {
+    pub x: f64,
+    pub z: f64,
+    pub r: f64,
+    pub y: f64,
 }
 
 pub fn angle_diff(a: f64, b: f64) -> f64 {
@@ -191,6 +212,9 @@ impl Default for Build {
         Build { skills, weapon: 0, abilities: [NO_ABILITY; HOTBAR_SLOTS], movement: [NO_MOVEMENT; MOVEMENT_SLOTS] }
     }
 }
+
+/// Degrees to radians (DEG in src/util/math.ts).
+pub const DEG: f64 = std::f64::consts::PI / 180.0;
 
 pub(crate) fn step_len() -> f64 {
     1.0 / tuning().sim_hz
@@ -262,6 +286,11 @@ impl Player {
             mode_frame: 0,
             gust_frames: 0,
             events: Vec::new(),
+            prev_pos: V3 { x: spawn.x, y: 0.0, z: spawn.z },
+            prev_facing: spawn.facing,
+            aim_assist: None,
+            swing_due: None,
+            bodies: Vec::new(),
         }
     }
 
@@ -472,6 +501,26 @@ impl Player {
         self.end_step();
     }
 
+    /// Out of a circle of radius `r` at (cx, cz), losing the speed into it.
+    fn push_from(&mut self, cx: f64, cz: f64, r: f64, pr: f64) {
+        let (dx, dz) = (self.pos.x - cx, self.pos.z - cz);
+        let min = r + pr;
+        let d2 = dx * dx + dz * dz;
+        if d2 >= min * min {
+            return;
+        }
+        let root = d2.sqrt();
+        let d = if root == 0.0 { 0.0001 } else { root };
+        let (nx, nz) = (dx / d, dz / d);
+        self.pos.x = cx + nx * min;
+        self.pos.z = cz + nz * min;
+        let vn = self.vel.x * nx + self.vel.z * nz;
+        if vn < 0.0 {
+            self.vel.x -= vn * nx;
+            self.vel.z -= vn * nz;
+        }
+    }
+
     /// Says you're back up where you now stand (after `respawn` and whatever puts you on the ground).
     pub(crate) fn respawned(&mut self) {
         self.events.push(Event::Respawn { x: self.pos.x, y: self.pos.y, z: self.pos.z });
@@ -507,10 +556,20 @@ impl Player {
     /// The start of every step: remember presses, count down timers, cut a short hop, and drop
     /// sprinting and crouching (only normal control sets them again).
     pub(crate) fn begin_step(&mut self, a: &Actions) {
+        self.remember_presses(a);
+        self.count_down(a);
+    }
+
+    /// The very start of a step, which even a hit pause doesn't hold up: where you were, and the
+    /// presses remembered for a few frames so slightly early inputs still count.
+    pub(crate) fn remember_presses(&mut self, a: &Actions) {
         let t = tuning();
         self.events.clear();
+        self.prev_pos = self.pos;
+        self.prev_facing = self.facing;
         self.fired_ability = NO_ABILITY;
         self.started_action = NO_MOVEMENT;
+        self.swing_due = None;
         if a.jump_pressed {
             self.jump_buffer = t.jump.buffer_frames;
         }
@@ -524,7 +583,11 @@ impl Player {
             self.ability_buffer = t.special.buffer_frames;
             self.ability_buffer_slot = a.ability_slot;
         }
+    }
 
+    /// The rest of the step's start: timers, vitals, a short hop, and sprinting and crouching dropped.
+    pub(crate) fn count_down(&mut self, a: &Actions) {
+        let t = tuning();
         self.land_frame = (self.land_frame + 1).min(999);
         self.takeoff_frame = (self.takeoff_frame + 1).min(999);
         if self.flip_frame >= 0 {
@@ -838,6 +901,24 @@ impl Player {
         if len(a.aim_x, a.aim_z) > 0.01 {
             self.facing = a.aim_x.js_atan2(a.aim_z);
         }
+        // Gentle auto-aim toward whatever is nearest and roughly in front (offline only).
+        if let Some(targets) = &self.aim_assist {
+            let t = &tuning().attack;
+            let (mut best, mut best_dist) = (None, t.auto_aim_range);
+            for &(x, z) in targets {
+                let d = js_hypot(x - self.pos.x, z - self.pos.z);
+                if d < best_dist {
+                    best = Some((x, z));
+                    best_dist = d;
+                }
+            }
+            if let Some((x, z)) = best {
+                let to = (x - self.pos.x).js_atan2(z - self.pos.z);
+                if angle_diff(self.facing, to).abs() < t.auto_aim_deg * DEG {
+                    self.facing = to;
+                }
+            }
+        }
         self.events.push(Event::Attack { index });
     }
 
@@ -1000,6 +1081,10 @@ impl Player {
             self.air_control(0.0, 0.0, 0.0);
         }
 
+        if step.projectile_speed == 0.0 && !self.attack_hit && f > active_start && f <= active_end {
+            self.swing_due = Some(step.clone());
+        }
+
         if self.attack_queued && f >= active_end + 2 {
             self.start_attack(self.attack_index + 1, a);
             return;
@@ -1134,7 +1219,7 @@ impl Player {
         self.cooldowns = [0; HOTBAR_SLOTS];
     }
 
-    fn integrate(&mut self, world: &World) {
+    pub(crate) fn integrate(&mut self, world: &World) {
         let t = tuning();
         let dt = step_len();
         if !self.grounded {
@@ -1175,21 +1260,12 @@ impl Player {
     fn collide(&mut self, world: &World) {
         let pr = tuning().movement.player_radius;
         for o in &world.obstacles {
-            let (dx, dz) = (self.pos.x - o.x, self.pos.z - o.z);
-            let min = o.r + pr;
-            let d2 = dx * dx + dz * dz;
-            if d2 >= min * min {
-                continue;
-            }
-            let root = d2.sqrt();
-            let d = if root == 0.0 { 0.0001 } else { root };
-            let (nx, nz) = (dx / d, dz / d);
-            self.pos.x = o.x + nx * min;
-            self.pos.z = o.z + nz * min;
-            let vn = self.vel.x * nx + self.vel.z * nz;
-            if vn < 0.0 {
-                self.vel.x -= vn * nx;
-                self.vel.z -= vn * nz;
+            self.push_from(o.x, o.z, o.r, pr);
+        }
+        if self.pos.y < 1.8 {
+            for i in 0..self.bodies.len() {
+                let b = self.bodies[i];
+                self.push_from(b.x, b.z, b.r, pr);
             }
         }
         let r = len(self.pos.x, self.pos.z);
