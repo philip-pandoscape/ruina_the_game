@@ -136,10 +136,6 @@ pub fn recipe(id: &str) -> Option<&'static RecipeDef> {
     recipes().iter().find(|r| r.id == id)
 }
 
-pub fn recipes_at(bench: &str) -> Vec<&'static RecipeDef> {
-    recipes().iter().filter(|r| r.bench == bench).collect()
-}
-
 // ---------- shared/trade.json ----------
 
 #[derive(Deserialize, Clone, Debug, Default)]
@@ -444,10 +440,6 @@ pub fn animals() -> &'static [AnimalDef] {
     &farming_file().animals
 }
 
-pub fn has_crop_def(id: &str) -> bool {
-    crops().iter().any(|c| c.id == id)
-}
-
 /// The crop, or a placeholder for one that doesn't exist.
 pub fn crop_def(id: &str) -> &'static CropDef {
     static UNKNOWN: OnceLock<CropDef> = OnceLock::new();
@@ -660,11 +652,6 @@ fn vehicles_file() -> &'static VehiclesFile {
     F.get_or_init(|| load("vehicles.json", include_str!("../../../shared/vehicles.json")))
 }
 
-pub fn has_rideable(id: &str) -> bool {
-    let f = vehicles_file();
-    f.vehicles.iter().chain(f.mounts.iter()).any(|d| d.id == id)
-}
-
 /// The vehicle or mount, or a placeholder (a small cart) for one that doesn't exist.
 pub fn rideable(id: &str) -> &'static RideableDef {
     static UNKNOWN: OnceLock<RideableDef> = OnceLock::new();
@@ -683,10 +670,6 @@ pub fn rideable(id: &str) -> &'static RideableDef {
             ..Default::default()
         })
     })
-}
-
-pub fn has_glider(id: &str) -> bool {
-    vehicles_file().gliders.iter().any(|g| g.id == id)
 }
 
 /// The glider, or a placeholder (one that cannot open: it needs to be higher than anything).

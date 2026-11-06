@@ -29,7 +29,6 @@ pub mod protocol;
 pub mod skills;
 pub mod sim;
 pub mod spaces;
-pub mod terrain;
 pub mod tuning;
 pub mod world;
 pub mod world_game;

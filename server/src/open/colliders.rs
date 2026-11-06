@@ -100,19 +100,6 @@ impl ColliderIndex {
         i
     }
 
-    /// Disables a box without reshuffling indices (a demolished wall).
-    pub fn remove_box(&mut self, i: usize) {
-        if let Some(b) = self.boxes.get_mut(i) {
-            b.top = f64::NEG_INFINITY;
-        }
-    }
-
-    pub fn remove_obstacle(&mut self, i: usize) {
-        if let Some(o) = self.obstacles.get_mut(i) {
-            o.r = 0.0;
-        }
-    }
-
     pub fn each_obstacle(&self, x: f64, z: f64, r: f64, mut f: impl FnMut(&Obstacle)) {
         let mut ids = Vec::new();
         visit(&self.obstacle_cells, x, z, r, &mut ids);

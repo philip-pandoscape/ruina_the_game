@@ -4,10 +4,7 @@
 
 use crate::content::{kind, kind_index, kind_mass, ladder_of, ActorKind};
 
-pub const FACTION_PLAYER: u8 = 0;
 pub const FACTION_HOSTILE: u8 = 1;
-pub const FACTION_NEUTRAL: u8 = 2;
-pub const FACTION_PROP: u8 = 3;
 
 #[derive(Clone, Debug)]
 pub struct Actor {

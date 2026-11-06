@@ -359,10 +359,6 @@ impl Life {
         self.slots_after(item, n) <= bag_slots() as i64
     }
 
-    pub fn slots_used(&self) -> usize {
-        self.state.bag.len()
-    }
-
     /// Adds to the bag; returns how many did not fit.
     pub fn give(&mut self, item: &str, n: i64, quiet: bool) -> i64 {
         if n <= 0 {
@@ -456,9 +452,6 @@ impl Life {
         true
     }
 
-    pub fn cell_size(&self) -> f64 {
-        content::farm().cell
-    }
 }
 
 #[cfg(test)]

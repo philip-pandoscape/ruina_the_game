@@ -1079,16 +1079,6 @@ impl Players {
             .collect()
     }
 
-    /// Where everyone still standing is, for the monsters to notice.
-    pub fn live_positions(&self) -> Vec<(f64, f64)> {
-        self.slots
-            .iter()
-            .filter_map(|s| s.as_ref())
-            .filter(|s| s.player.hp > 0.0)
-            .map(|s| (s.player.pos.x, s.player.pos.z))
-            .collect()
-    }
-
     /// Freezes the actors into wire entries once a tick, shared by every client's snapshot.
     pub fn pack_actors(&mut self, actors: &Actors) {
         self.packed_actors.clear();

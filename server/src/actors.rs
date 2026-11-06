@@ -106,7 +106,6 @@ pub struct Actors {
     pub missiles: Vec<Missile>,
     next_id: u32,
     next_group: u32,
-    next_band: u32,
     next_missile: u32,
     /// Testing: nothing gets angry (Actors.calm in src/sim/actor.ts).
     pub calm: bool,
@@ -167,7 +166,7 @@ impl StepOut {
 
 impl Actors {
     pub fn new() -> Self {
-        Self { list: Vec::new(), missiles: Vec::new(), next_id: 1, next_group: 1, next_band: 1, next_missile: 1, calm: false }
+        Self { list: Vec::new(), missiles: Vec::new(), next_id: 1, next_group: 1, next_missile: 1, calm: false }
     }
 
     // Counts up and wraps, skipping ids still in use. Mirrors Actors.allocate() in actor.ts.
@@ -185,13 +184,6 @@ impl Actors {
         let g = self.next_group;
         self.next_group = if g >= 0x7fff_ffff { 1 } else { g + 1 };
         g
-    }
-
-    /// A fresh id for a war-band (Actors.newBand() in actor.ts).
-    pub fn new_band(&mut self) -> u32 {
-        let b = self.next_band;
-        self.next_band = if b >= 0x7fff_ffff { 1 } else { b + 1 };
-        b
     }
 
     fn missile_id(&mut self) -> u32 {

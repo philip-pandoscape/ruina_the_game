@@ -91,13 +91,6 @@ pub fn step_wind(life: &mut Life) {
     w.wind_speed = 0.72 + 0.22 * (c / 97.0 + 0.4).js_sin();
 }
 
-/// Hour of the day, 0..24, from the world clock.
-pub fn hour_of_day(life: &Life) -> f64 {
-    let sky = &life.zone.recipe.sky;
-    let days = life.state.clock / sky.day_length_seconds + sky.start_hour / 24.0;
-    (days - days.floor()) * 24.0
-}
-
 /// How rough the sea is over water this deep right now, 0 (calm) to 1 (a full storm).
 pub fn storm_at(life: &Life, depth: f64) -> f64 {
     if !raining(life) {

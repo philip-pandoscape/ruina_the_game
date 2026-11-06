@@ -434,8 +434,6 @@ pub struct SkillTree {
 }
 
 pub const NO_ABILITY: u8 = 255;
-pub const CAST_HEAL: u8 = 1;
-pub const CAST_METEOR: u8 = 2;
 
 /// The combo for a weapon under this build. Resolved when the build changed, not now.
 pub fn combo_for(weapon: u8, r: &ResolvedSkills) -> &[AttackStep] {
