@@ -11,9 +11,11 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
 
 - **Phase:** 6 (the client in areas) and 8 (one copy of the rules), with 7, 11 and 12 done or
   nearly, and 9 and 10 mostly landed beside them. The old battle server is gone (R10.9, R10.10).
-- **Next:** the client's file moves (R6.10, R6.11, R6.8), then the engine bridge (R6.4, R6.0,
-  R6.0b) and `main.ts`'s split (R6.2, R6.2a), then Phase 8's switches; beside them the island's
-  generator in Rust (R8.6), the library's split (R6.7) and crowds at scale (R10.8).
+- **Next:** the network and drawing split (R6.0, begun as 235bc19), the engine bridge (R6.4, R6.0b)
+  and `main.ts`'s split (R6.2, R6.2a), then Phase 8's switches, the island's generator first (R8.6's
+  rest); then crowds at scale (R10.8) and the UI gallery (R6.9).
+- **How:** one session does the work, without background agents (the user's call on 2026-11-06:
+  three at once used tokens too fast).
 - **Where:** from 2026-11-06 the work goes on on the Mac laptop, in the main checkout
   (`~/Documents/GitHub/games/ruina_the_game`, branch `refactor/first`; Git LFS installed with
   Homebrew). The Windows worktree `C:\GitHub\games\yggdrasil-refactor` was the first machine; its last
@@ -319,10 +321,17 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
 - [x] **R5.5b** Bug: `world_game.rs:754` `rebuild_world` walks the estates `HashMap` (random order) and
   so inserts colliders in a different order each run. Walk them in a fixed order; a test proves two
   runs agree. Done (f8a7187): the test failed three times out of three before the fix.
-- [ ] **R5.6** Rust tests for `ai.rs`, `sim.rs`, `actors.rs`, `game.rs`: golden scenarios checked
+- [x] **R5.6** Rust tests for `ai.rs`, `sim.rs`, `actors.rs`, `game.rs`: golden scenarios checked
   against today's TypeScript results. Planned as hashes: each conformance scenario's Rust output
   hashed bit for bit and kept beside it, recorded while the conformance checks still prove it
   matches the TypeScript, so the engine keeps its own guard when Phase 8 deletes them.
+  Done (5b339a8, a background agent): `crates/engine/tests/golden/` (17 brains and packs, 11 builds,
+  18 walks on Emberholm; 139 KB), written on a run where the TypeScript agreed with every one and held
+  bit for bit by the engine's golden tests (`crates/engine/src/checks/`, 0.3 s in debug), which run
+  the check programs' own scenario code. After a change both sides make on purpose,
+  `RUINA_GOLDEN=1 npm run test:conformance` writes the new answers. The server's fighting, which has
+  no TypeScript twin, has a golden battle: the battlefield's 32 bots, 400 ticks of
+  `ChannelGame::play_tick`, everyone's state hashed every tick (0.7 s).
 - [x] **R5.7** Build speed: dev-profile settings, linker trial on Windows, `cargo build --timings`
   report; Docker caching for a workspace (`cargo-chef` or stub crates).
   Done: the dev profile (Phase 1); Docker caches the dependencies with stand-in crates; `rust-lld`
@@ -376,13 +385,23 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
 - [x] **R6.6** `src/ui/life/lifeUI.ts` into one module per window on those components.
   Done (49f62b4, a background agent): lifeUI.ts 600 lines (2,328), a module per window in
   `windows/` and per widget in `hud/`; the same DOM in 89 states, checked by a harness.
-- [ ] **R6.7** `src/library/app.ts` split by concern.
+- [x] **R6.7** `src/library/app.ts` split by concern.
+  Done (7ff6dea, a background agent): `src/dev/library/app.ts` 343 lines (2,316), what is open and
+  opening it; the parts reach each other through it: `layout.ts`, `prefs.ts`, `playback.ts`,
+  `posing.ts`, `notes.ts`, `prompts.ts`, `modals.ts`, `input.ts`, `address.ts`, `api.ts`
+  (`window.__library`, unchanged) and `panels/`. The library's specs pass as before (38).
 - [x] **R6.8** `src/dev/` and `dev/*.html`: every developer page; the admin list (R3.6) updated.
   `dev/` holds the content library alone now (R6.15); the admin list has the zones from their files
   and the pages from `src/dev/pages.ts` (777949b). `src/library/` moving under `src/dev/` is left.
   Done (81df3de): `src/library/` is `src/dev/library/`.
 - [ ] **R6.9** A UI gallery (a Content Library subject or `/dev/ui.html`): every window with made-up
   state.
+  Notes from the library's split: draw the windows in a page of their own (`dev/ui.html`, framed by
+  the library), as the game's theme sets `--accent` on `:root`, the library's `.note`, `.center` and
+  `.empty` would restyle them, and tooltips and menus need a document of their own; run a real
+  offline island (the zone's world, the rules, the island's life and its UI) and step it; made-up
+  states picked from content, never ids in code; an entry per state, `#/ui/<window>/<state>`, listed
+  as plain data so the library doesn't import `src/ui`.
 - [x] **R6.10** Creature bodies into `src/render/creatures/` (from `src/species/`, `src/creatures/`,
   `src/crowd/`, `src/content/creatures/`).
   Done (9317ff3): `src/render/creatures/` holds the species format (`species.ts`), its registry,
@@ -476,10 +495,18 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
   WebAssembly, to the bit.
 - [ ] **R8.5** Shadow mode: in dev and tests, the engine runs beside the TypeScript rules and every
   step is compared; any difference fails the test.
-- [ ] **R8.6** Switch the ground, colliders and dungeons. Port the island's generator
+- [~] **R8.6** Switch the ground, colliders and dungeons. Port the island's generator
   (`zone/generate.ts` 710, `zone/buildings.ts` 207, TS-only today) to Rust: the server makes the island
   at start, the browser through the engine; delete the bake step and `server/data/emberholm.zone`.
   Delete the TypeScript copies and the terrain conformance cases.
+  Ported (3ec5d83, a background agent): `crates/engine/src/open/generate.rs`, `noise.rs` and
+  `buildings.rs`, the recipe taking any zone. Emberholm comes out equal to the bake, held by a Rust
+  test: none of 591,361 heights differ, and the surfaces, kept-clear cells, 2,054 obstacles, 275 boxes
+  and 346 decks are identical; 98 ms in release. About 1.5% of the generator's sines and cosines
+  differ from V8's in the last bit with libm, which the f32 heights absorb. Left: the conformance
+  check over the whole output (roads, placements, falls, buildings); the island through
+  `crates/engine-wasm`; generating on first use and deleting the bake (`crates/engine/data/emberholm.zone`,
+  `parse()`, `tools/tests/bake.mjs`, `npm run bake`, the bake test), then AGENTS.md and the docs.
 - [ ] **R8.7** Switch the island's life systems (life, state, trade, farming, housing, shipyard,
   livestock, vehicles, contracts, quests, progress, weather, interact: ~3,500 TS lines, 1:1 with
   `life/`). The UI and `render/open/life.ts` read versioned snapshots; `life.command` goes in as
@@ -530,8 +557,14 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
   camp was added as a file alone. Goblin's Dread's dressing (`dungeonView.ts`) is still code.
 - [ ] **R9.9** Looks from data (made model with fit and clips, or a built-in body with settings);
   builders by id become fallbacks; the prose `look` fields become real ones.
-- [ ] **R9.10** Zones: the generator's special cases by id become data flags; more than one zone can
+- [~] **R9.10** Zones: the generator's special cases by id become data flags; more than one zone can
   load.
+  Done but the waterfall (c37c9ef, a background agent): a structure says whether its ground is
+  levelled (`pad`), whether it stands at sea level (`seaLevel`), how far round it trees and rocks are
+  kept off (`clearMargin`) and what the ground under it is (`surface`); a flatten whether its ground
+  is kept clear (`keepClear`). Both generators read them, the bake came out byte for byte the same,
+  and the generator's allowance left `tests/unit/contentIds.test.ts`. Left: the waterfall's landing
+  and totem made optional (`src/render/open/grotto.ts` reads them unconditionally).
 - [ ] **R9.11** Mini-games: a game is a rules module plus a board view; the table framework reads the
   list from content.
 - [x] **R9.12** A test that no content id appears in code, with an allowlist of reasons.
@@ -594,6 +627,9 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
 - [ ] **R10.8** Crowds at scale in every zone: the interest grid (each client is sent what's near it,
   far things coarser), compact snapshots for many entities, players and bots stepped in parallel
   (`rayon`). Measured: server tick time and bandwidth for N bots.
+  Measured before (2026-11-06, `scratch/stress-battlefield-before.json`): 32 bots, a tick 1.09 ms,
+  an update 22.3 KB, 53 fps, the 95th-percentile frame 33.3 ms; 64 bots, 2.43 ms, 42.9 KB, 58 fps,
+  16.8 ms. Far peers drawn by the crowd renderer (R10.9's last part) go with it.
 - [x] **R10.9** One world client for every zone: the battle client path (`?server=`, `netCrowd.ts`'s
   battle parts, RemotePlayers) goes; far bodies drawn by the crowd renderer.
   Done (da8fb15): `src/net/worldFeed.ts` in place of the battle client (NetCrowd); RemotePlayers,
@@ -760,3 +796,11 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
 | 2026-11-06 | R9.14 | `docs/content.md` | 5e23680 |
 | 2026-11-06 | R10.10, R11.1, R11.2, R11.7, R11.8 | Snapshot to move machines: the battle server's Rust gone; the asset manifest, loader and first-download budget, `docs/assets.md` | a975617 |
 | 2026-11-06 | R6.10, R6.11, R6.8 | The client's moves: creature bodies into src/render/creatures/, the root files to their areas, the library under src/dev/ | 9317ff3, 5de387d, 81df3de |
+| 2026-11-06 | R6.4, R6.0b | The engine bridge begins: `src/engine/engine.ts`; taking an island up from a save is the rules' | 6553617 |
+| 2026-11-06 | R6.2 | Frame stats in `src/app/perf.ts` | 367a883 |
+| 2026-11-06 | | `prune-imports.mjs` leaves unused locals alone | 903765f |
+| 2026-11-06 | D15, R11.4, R11.5, R11.7, R8.14 | A desktop app later: the browser's download work out | fa14dcd |
+| 2026-11-06 | R6.2 | Aiming in `src/app/aiming.ts` | 017c79e |
+| 2026-11-06 | R9.10, R8.6 | The generator names no structure; the island's generator in Rust, equal to the bake (a background agent) | 27e7cba, c37c9ef, 3ec5d83 |
+| 2026-11-06 | R6.7 | The library's `app.ts` by concern (a background agent) | 7ff6dea |
+| 2026-11-06 | R5.6 | The engine's golden tests (a background agent) | 5b339a8 |
