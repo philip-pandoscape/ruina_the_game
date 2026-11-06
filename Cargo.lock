@@ -1192,6 +1192,7 @@ name = "ruina-engine-wasm"
 version = "0.1.0"
 dependencies = [
  "ruina-engine",
+ "serde",
  "serde_json",
 ]
 

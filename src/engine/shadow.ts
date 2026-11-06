@@ -8,16 +8,30 @@
 import type { Actor, Missile } from '../sim/actor';
 import type { GameEvent, PlayerState } from '../sim/types';
 import { EngineSession, type SessionLife, type SessionOptions } from './session';
+import { wasm } from './wasm';
 
 let shadowing = false;
-let report: (difference: string) => void = (d) => {
+const throwIt = (d: string): void => {
   throw new Error(d);
 };
+let report: (difference: string) => void = throwIt;
 
-/** Runs the engine's session beside the TypeScript rules in every Engine made from now on; `onDifference` hears what differs (by default it throws). */
+/** The page's own maths, put back when shadowing stops. */
+const NATIVE = { sin: Math.sin, cos: Math.cos, atan2: Math.atan2, exp: Math.exp, pow: Math.pow };
+
+/**
+ * Runs the engine's session beside the TypeScript rules in every Engine made from now on;
+ * `onDifference` hears what differs (by default it throws). While it runs, the TypeScript's sine,
+ * cosine, atan2, exp and pow are the engine's (libm's): V8's differ from them in the last bit on
+ * about 1% of inputs, and what should differ is the rules (crates/engine-wasm/src/session.rs).
+ */
 export function shadowRules(on: boolean, onDifference?: (difference: string) => void): void {
   shadowing = on;
-  if (onDifference) report = onDifference;
+  report = onDifference ?? throwIt;
+  if (on) {
+    const e = wasm() as unknown as Record<'js_sin' | 'js_cos' | 'js_atan2' | 'js_exp' | 'js_pow', (...n: number[]) => number>;
+    Object.assign(Math, { sin: e.js_sin, cos: e.js_cos, atan2: e.js_atan2, exp: e.js_exp, pow: e.js_pow });
+  } else Object.assign(Math, NATIVE);
 }
 
 export const isShadowing = (): boolean => shadowing;
@@ -72,6 +86,18 @@ export class Shadow {
     const out = this.session.call<T>(name, args);
     this.compare(now(), null, name);
     return out;
+  }
+
+  /** Something done to the session that isn't a named call (the island as a tick has it), then both compared. */
+  apply(f: (s: EngineSession) => void, after: string, now: () => Compared): void {
+    if (!this.live) return;
+    f(this.session);
+    this.compare(now(), null, after);
+  }
+
+  /** Something handed to the session for its next step (what the page says), not compared. */
+  feed(f: (s: EngineSession) => void): void {
+    if (this.live) f(this.session);
   }
 
   /** Both compared as they stand (`after`: what has just happened, for the report). */

@@ -44,6 +44,8 @@ interface Exports {
   session_actors(h: number): number;
   session_life(h: number): number;
   session_call(h: number, p: number, n: number): number;
+  session_world_clock(h: number, t: number): void;
+  session_take_island(h: number, p: number, n: number): number;
 }
 
 let engine: Exports | null = null;

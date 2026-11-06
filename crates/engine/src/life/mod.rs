@@ -260,6 +260,36 @@ pub struct Focus {
     /// A dungeon's portal, going in or coming out.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub dungeon: Option<String>,
+    /// Online, whose vehicle you'd ride along in (their character).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub host: Option<i64>,
+    /// Online, the player you'd challenge to a mini-game.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub other: Option<i64>,
+}
+
+/// Another player's vehicle as you see it online: whose (their character and name), and the seats
+/// taken in it (src/sim/life/life.ts OthersVehicle).
+#[derive(Deserialize, Clone, Debug)]
+pub struct OthersVehicle {
+    pub host: i64,
+    pub name: String,
+    pub vehicle: state::Vehicle,
+    pub taken: Vec<i64>,
+}
+
+/// Another player near you online, whom the prompt can offer to challenge to a mini-game
+/// (src/sim/life/life.ts OtherPlayer).
+#[derive(Deserialize, Clone, Debug)]
+pub struct OtherPlayer {
+    pub id: i64,
+    pub name: String,
+    pub x: f64,
+    pub y: f64,
+    pub z: f64,
+    /// Why they can't be challenged right now ("Riding", "At a Table"...), or none.
+    #[serde(default)]
+    pub busy: Option<String>,
 }
 
 /// A scarecrow being walked to its spot (src/sim/life/interact.ts Placement).
@@ -292,6 +322,14 @@ pub struct Life {
     /// The dungeon or developer zone you're in a copy of (the browser's session; the server plays
     /// each copy as a channel of its own).
     pub dungeon: Option<String>,
+    /// The browser's copy of an island the server runs (crate::session online): commands go to the
+    /// server rather than running here (the page sends them), nothing is said here (only the
+    /// server's island speaks), and a step only moves on what moves with you between its updates.
+    pub remote: bool,
+    /// Online, everyone else's vehicles where they're drawn, for the prompt to offer to ride along.
+    pub others_vehicles: Vec<OthersVehicle>,
+    /// Online, everyone else in your channel, for the prompt to offer a mini-game.
+    pub others_around: Vec<OtherPlayer>,
     queue: Vec<Command>,
     events: Vec<LifeEvent>,
 }
@@ -310,6 +348,9 @@ impl Life {
             plot_owners: BTreeMap::new(),
             world_clock: None,
             dungeon: None,
+            remote: false,
+            others_vehicles: Vec::new(),
+            others_around: Vec::new(),
             queue: Vec::new(),
             events: Vec::new(),
         };
@@ -342,6 +383,10 @@ impl Life {
     }
 
     pub fn command(&mut self, c: Command) {
+        // A remote island's commands are the server's to run (the page sends them there).
+        if self.remote {
+            return;
+        }
         if self.queue.len() < 64 {
             self.queue.push(c);
         }
@@ -352,6 +397,10 @@ impl Life {
     }
 
     pub fn emit(&mut self, e: LifeEvent) {
+        // Online only the server's island speaks: what this copy predicts would say everything twice.
+        if self.remote {
+            return;
+        }
         self.events.push(e);
         if self.events.len() > 200 {
             self.events.remove(0);
@@ -389,6 +438,16 @@ impl Life {
         // Keep the glider you own on your back.
         if sim.player.glider != self.state.glider {
             sim.player.glider = self.state.glider.clone();
+        }
+        if self.remote {
+            // Between the server's updates, only what moves with you: the clock, your labor, the
+            // rain and the wind (from the world's clock, as the server works them out), your vehicles.
+            self.state.clock += dt;
+            let resting = self.resting;
+            self.regen_labor(dt, resting, false);
+            weather::step_weather(self, dt);
+            vehicles::step_vehicles(self, sim, a);
+            return;
         }
         for c in std::mem::take(&mut self.queue) {
             interact::run_command(self, sim, &c);

@@ -17,13 +17,15 @@ use crate::ai::{Foe, Sighting};
 use crate::event::Event;
 use crate::jsmath::{JsMath, len};
 use crate::life::progress::Observed;
+use crate::life::state::{House, Scarecrow, Vehicle, Weather};
 use crate::life::state::{LIFE_VERSION, LifeState};
-use crate::life::{Command, Life, content::clock, farming, housing, interact, interact::short_time, trade, vehicles};
+use crate::life::{Command, Life, OtherPlayer, OthersVehicle, Placement, content::clock, farming, housing, interact, interact::short_time, trade, vehicles};
 use crate::open::colliders::{ColliderIndex, ground_at};
 use crate::open::dungeon::{DungeonDef, Spot, dungeon};
 use crate::open::zone::{Heightfield, emberholm};
-use crate::open::{OpenWorld, Sim, traverse};
-use crate::player::{Actions, Body, Build, Mode, Player, step_len};
+use crate::open::{Mover, OpenWorld, Sim, traverse};
+use crate::player::{Actions, Body, Build, Mode, Player, V3, step_len};
+use crate::skills::resolve_skills;
 use crate::training::{Blows, Range, check_hit, targets};
 use crate::tuning::tuning;
 use crate::world::{Spawn, World};
@@ -75,6 +77,13 @@ pub struct Session {
     dungeon: Option<String>,
     respawn_at: Option<Spot>,
     solids: BTreeMap<String, Solids>,
+    /// Online, where you were drawn from when the server's word on you came (`take_player`), for a
+    /// `replay` with nothing to run again.
+    drawn_from: Option<V3>,
+    /// Online, your island as the server last sent it, while `life.state` has moved on from it
+    /// (commands run ahead of the server work on a copy); while `is_sent`, `life.state` is it.
+    sent: Option<LifeState>,
+    is_sent: bool,
 }
 
 impl Session {
@@ -114,6 +123,9 @@ impl Session {
             dungeon: None,
             respawn_at: None,
             solids: BTreeMap::new(),
+            drawn_from: None,
+            sent: None,
+            is_sent: false,
         };
         s.populate();
         s.player.apply_build(build);
@@ -124,7 +136,10 @@ impl Session {
             s.settle(x, z, hf.height(x, z));
         }
         if open_world {
-            s.life = Some(Life::new(emberholm(), None, None));
+            let mut life = Life::new(emberholm(), None, None);
+            // Online the server runs the island; this copy only keeps what moves with you moving.
+            life.remote = online;
+            s.life = Some(life);
         }
         s
     }
@@ -576,6 +591,135 @@ impl Session {
         true
     }
 
+    // ---------- Online: what the server says ----------
+
+    /// Online, the server's word on you (the first half of Engine.correct): you start again from
+    /// it, in the shape of src/sim/types.ts PlayerState; where you were drawn from is kept for
+    /// `replay`.
+    pub fn take_player(&mut self, v: &Value) {
+        self.drawn_from = Some(self.player.prev_pos);
+        take_state(&mut self.player, v);
+    }
+
+    /// Online, after the server's word on you (and the island put back as of it): the inputs it
+    /// hasn't used yet run again on top, numbered as they were the first time (the frame count is
+    /// the clock everything is drawn by) and setting nothing off (that was shown already). With
+    /// none to run you're drawn from where you were, so the last step isn't drawn twice.
+    pub fn replay(&mut self, inputs: &[Actions], world_clock: Option<f64>) {
+        let drawn_from = self.drawn_from.take();
+        self.frame = self.frame.saturating_sub(inputs.len() as u32);
+        for a in inputs {
+            self.set_world_clock(world_clock);
+            self.step(a);
+        }
+        self.take_events();
+        if inputs.is_empty()
+            && let Some(at) = drawn_from
+        {
+            self.player.prev_pos = at;
+        }
+    }
+
+    /// Online, the world's clock (the server's, in seconds since 1970) the rain and the wind run on,
+    /// for the next step.
+    pub fn set_world_clock(&mut self, t: Option<f64>) {
+        if let Some(life) = self.life.as_mut() {
+            life.world_clock = t;
+        }
+    }
+
+    /// Online, your island as a tick has it: its state, and whether you're placing something or resting.
+    pub fn take_island(&mut self, state: LifeState, placing: Option<Placement>, resting: bool) {
+        let Some(life) = self.life.as_mut() else { return };
+        life.state = state;
+        life.placing = placing;
+        life.resting = resting;
+        self.sent = None;
+        self.is_sent = true;
+    }
+
+    /// Online, a command run here at once as well as on the server (a pack picked up, a seat
+    /// taken), on a copy of the island the server sent, so that one stays as it came.
+    pub fn run_ahead(&mut self, c: &Command) {
+        let (Some(life), Ground::Open(world)) = (self.life.as_mut(), &mut self.ground) else { return };
+        if self.is_sent {
+            self.sent = Some(life.state.clone());
+            self.is_sent = false;
+        }
+        interact::run_command(life, &mut Sim { player: &mut self.player, world, owner: 0 }, c);
+    }
+
+    /// Online, before your inputs run again on the server's word on you: the parts of the island
+    /// that move with you as of that word (its clock, your labor, the weather, your vehicles, resting
+    /// and placing), and the commands the server hasn't run yet (`ahead`) run again on the island it sent.
+    #[allow(clippy::too_many_arguments)]
+    pub fn replay_island(
+        &mut self,
+        clock: f64,
+        labor: f64,
+        weather: Weather,
+        vehicles: Vec<Vehicle>,
+        resting: bool,
+        placing: Option<Placement>,
+        ahead: &[Command],
+    ) {
+        let (Some(life), Ground::Open(world)) = (self.life.as_mut(), &mut self.ground) else { return };
+        if !ahead.is_empty() {
+            if self.is_sent {
+                self.sent = Some(life.state.clone());
+                self.is_sent = false;
+            } else if let Some(sent) = &self.sent {
+                life.state = sent.clone();
+            }
+        }
+        let s = &mut life.state;
+        s.clock = clock;
+        s.labor = labor;
+        s.weather = weather;
+        s.vehicles = vehicles;
+        life.resting = resting;
+        life.placing = placing;
+        let mut sim = Sim { player: &mut self.player, world, owner: 0 };
+        for c in ahead {
+            interact::run_command(life, &mut sim, c);
+        }
+    }
+
+    /// A house solid here as it is on the server: yours, or someone else's where you see it (their
+    /// houses come with ids of their own, so they're never taken for yours).
+    pub fn add_solid_house(&mut self, h: &House) {
+        let (Some(life), Ground::Open(world)) = (self.life.as_ref(), &mut self.ground) else { return };
+        housing::add_house_colliders(life, &mut Sim { player: &mut self.player, world, owner: 0 }, h);
+    }
+
+    /// A scarecrow's post solid, and the ground round it tilled, as on the server.
+    pub fn add_solid_scarecrow(&mut self, sc: &Scarecrow) {
+        let Ground::Open(world) = &mut self.ground else { return };
+        farming::add_scarecrow_collider(&mut Sim { player: &mut self.player, world, owner: 0 }, sc);
+    }
+
+    /// Other players' vehicles where they're drawn, solid to you as yours are.
+    pub fn set_movers(&mut self, movers: Vec<Mover>) {
+        if let Ground::Open(world) = &mut self.ground {
+            world.movers = movers;
+        }
+    }
+
+    /// Online, what the prompt can offer with others: their vehicles to ride along in, themselves
+    /// to challenge, and the house plots they hold (plot id to their name).
+    pub fn set_others(&mut self, vehicles: Option<Vec<OthersVehicle>>, around: Option<Vec<OtherPlayer>>, plots: Option<BTreeMap<String, String>>) {
+        let Some(life) = self.life.as_mut() else { return };
+        if let Some(v) = vehicles {
+            life.others_vehicles = v;
+        }
+        if let Some(a) = around {
+            life.others_around = a;
+        }
+        if let Some(p) = plots {
+            life.plot_owners = p;
+        }
+    }
+
     /// Starts you over at `at` with `build`, standing on whatever is solid there, the island's and
     /// the yard's parts with you (tests).
     pub fn reset(&mut self, at: Spawn, build: Build) {
@@ -757,6 +901,122 @@ fn set_solid(index: &mut ColliderIndex, def: &DungeonDef, had: Option<Solids>, s
     }
     s.solid = solid;
     s
+}
+
+fn mode_of(s: &str) -> Option<Mode> {
+    Some(match s {
+        "normal" => Mode::Normal,
+        "attack" => Mode::Attack,
+        "cast" => Mode::Cast,
+        "action" => Mode::Action,
+        "swim" => Mode::Swim,
+        "glide" => Mode::Glide,
+        "ride" => Mode::Ride,
+        _ => return None,
+    })
+}
+
+/// Takes a player's whole state in the shape of src/sim/types.ts PlayerState (`player_state_json`'s,
+/// with where they were a step ago): what isn't there is left as it was. What the build does is
+/// worked out again from its skills.
+pub fn take_state(p: &mut Player, v: &Value) {
+    let f = |k: &str| v.get(k).and_then(Value::as_f64);
+    let i = |k: &str| v.get(k).and_then(Value::as_i64);
+    let b = |k: &str| v.get(k).and_then(Value::as_bool);
+    let v3 = |k: &str, to: &mut V3| {
+        if let Some(o) = v.get(k) {
+            let c = |a: &str| o.get(a).and_then(Value::as_f64).unwrap_or(0.0);
+            *to = V3 { x: c("x"), y: c("y"), z: c("z") };
+        }
+    };
+    v3("pos", &mut p.pos);
+    v3("vel", &mut p.vel);
+    v3("prevPos", &mut p.prev_pos);
+    macro_rules! set {
+        ($field:expr, $get:expr) => {
+            if let Some(x) = $get {
+                $field = x;
+            }
+        };
+    }
+    set!(p.facing, f("facing"));
+    set!(p.prev_facing, f("prevFacing"));
+    set!(p.mode, v.get("mode").and_then(Value::as_str).and_then(mode_of));
+    set!(p.grounded, b("grounded"));
+    set!(p.jumps_used, i("jumpsUsed").map(|n| n as i32));
+    set!(p.jump_cut_done, b("jumpCutDone"));
+    set!(p.coyote, i("coyote").map(|n| n as i32));
+    set!(p.jump_buffer, i("jumpBuffer").map(|n| n as i32));
+    set!(p.attack_buffer, i("attackBuffer").map(|n| n as i32));
+    set!(p.action_buffer, i("actionBuffer").map(|n| n as i32));
+    set!(p.action_buffer_id, i("actionBufferId").map(|n| n as u8));
+    set!(p.attack_index, i("attackIndex").map(|n| n as usize));
+    set!(p.attack_frame, i("attackFrame").map(|n| n as i32));
+    set!(p.attack_queued, b("attackQueued"));
+    set!(p.attack_hit, b("attackHit"));
+    set!(p.flip_frame, i("flipFrame").map(|n| n as i32));
+    set!(p.land_frame, i("landFrame").map(|n| n as i32));
+    set!(p.land_impact, f("landImpact"));
+    set!(p.takeoff_frame, i("takeoffFrame").map(|n| n as i32));
+    set!(p.run_phase, f("runPhase"));
+    set!(p.hp, f("hp"));
+    set!(p.stamina, f("stamina"));
+    set!(p.stamina_delay, i("staminaDelay").map(|n| n as i32));
+    set!(p.mp, f("mp"));
+    set!(p.stun, i("stun").map(|n| n as i32));
+    set!(p.down_frame, i("downFrame").map(|n| n as i32));
+    set!(p.team, i("team").map(|n| n as u8));
+    set!(p.weapon, i("weapon").map(|n| n as u8));
+    let list = |k: &str| v.get(k).and_then(Value::as_array);
+    if let Some(a) = list("skills") {
+        for (k, w) in a.iter().take(p.skills.len()).enumerate() {
+            p.skills[k] = w.as_u64().unwrap_or(0) as u32;
+        }
+    }
+    if let Some(a) = list("abilities") {
+        for (k, w) in a.iter().take(p.abilities.len()).enumerate() {
+            p.abilities[k] = w.as_u64().unwrap_or(0) as u8;
+        }
+    }
+    if let Some(a) = list("cooldowns") {
+        for (k, w) in a.iter().take(p.cooldowns.len()).enumerate() {
+            p.cooldowns[k] = w.as_i64().unwrap_or(0) as i32;
+        }
+    }
+    if let Some(a) = list("movement") {
+        for (k, w) in a.iter().take(p.movement.len()).enumerate() {
+            p.movement[k] = w.as_u64().unwrap_or(0) as u8;
+        }
+    }
+    if let Some(a) = list("movementCooldowns") {
+        p.movement_cooldowns = a.iter().map(|w| w.as_i64().unwrap_or(0) as i32).collect();
+    }
+    set!(p.ability_buffer, i("abilityBuffer").map(|n| n as i32));
+    set!(p.ability_buffer_slot, i("abilityBufferSlot").map(|n| n as u8));
+    set!(p.action_id, i("actionId").map(|n| n as u8));
+    set!(p.action_frame, i("actionFrame").map(|n| n as i32));
+    set!(p.action_dir_x, f("actionDirX"));
+    set!(p.action_dir_z, f("actionDirZ"));
+    set!(p.action_slot, i("actionSlot").map(|n| n as u8));
+    set!(p.sprinting, b("sprinting"));
+    set!(p.crouching, b("crouching"));
+    set!(p.crouch_frame, i("crouchFrame").map(|n| n as i32));
+    set!(p.cast_ability, i("castAbility").map(|n| n as u8));
+    set!(p.cast_slot, i("castSlot").map(|n| n as u8));
+    set!(p.cast_frame, i("castFrame").map(|n| n as i32));
+    set!(p.cast_target_x, f("castTargetX"));
+    set!(p.cast_target_z, f("castTargetZ"));
+    set!(p.fired_ability, i("firedAbility").map(|n| n as u8));
+    set!(p.pack, i("pack"));
+    set!(p.vehicle, i("vehicle"));
+    set!(p.seat, i("seat").map(|n| n as u8));
+    set!(p.host, i("host"));
+    set!(p.glider, v.get("glider").and_then(Value::as_str).map(str::to_string));
+    set!(p.airspeed, f("airspeed"));
+    set!(p.bank, f("bank"));
+    set!(p.mode_frame, i("modeFrame").map(|n| n as i32));
+    set!(p.gust_frames, i("gustFrames").map(|n| n as i32));
+    p.resolved = resolve_skills(&p.skills, &p.levels);
 }
 
 fn mode_name(m: Mode) -> &'static str {

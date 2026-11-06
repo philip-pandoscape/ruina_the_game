@@ -15,7 +15,7 @@ import type { SpaceView, WorldTick, YouState } from '../net/worldLink';
 import type { GameRefs } from '../main';
 import type { FocusAction } from '../engine/island';
 
-/** What F does that runs ahead online (see life.remote): packs in and out of hands and vehicles, getting in. */
+/** What F does that runs ahead online (see engine.remote): packs in and out of hands and vehicles, getting in. */
 const QUICK = new Set<FocusAction>(['pickup', 'load', 'unload', 'board']);
 
 export function wireOnline(g: GameRefs): void {
@@ -89,7 +89,7 @@ export function wireOnline(g: GameRefs): void {
 
     // Your island as the server has it, and the parts that move with you as of each update.
     let you: YouState | null = null;
-    /** Commands run here ahead of the server (see life.remote below), with the input each went with. */
+    /** Commands run here ahead of the server (see engine.remote below), with the input each went with. */
     const ahead: Array<{ seq: number; c: Command }> = [];
     let lastRev = -1;
     let lifeLoaded = false;
@@ -103,7 +103,7 @@ export function wireOnline(g: GameRefs): void {
       // taken with what's still to come run again on top.
       const quick = (c: Command): boolean =>
         c.t === 'drop' || (c.t === 'exit' && !sim.player.host) || (c.t === 'interact' && !!life.focus?.ok && QUICK.has(life.focus.action));
-      life.remote = (c) => {
+      g.engine.remote = (c) => {
         const seq = prediction.seq + 1;
         online.link.command(seq, c);
         if (!quick(c) || ahead.length >= 8) return;

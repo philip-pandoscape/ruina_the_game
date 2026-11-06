@@ -362,6 +362,41 @@ pub fn find_focus(life: &mut Life, sim: &Sim) -> Option<Focus> {
         }
     }
 
+    // Online, someone else's vehicle with a seat beside its driver's: ride along (the channel seats you).
+    for o in &life.others_vehicles {
+        let v = &o.vehicle;
+        let def = rideable(&v.def);
+        if def.seats.len() < 2 {
+            continue;
+        }
+        let d = distance_to(v, px, pz);
+        if d > 2.2 {
+            continue;
+        }
+        let room = o.taken.len() < def.seats.len() - 1;
+        let detail = if back.is_some() {
+            "Put your pack down first".to_string()
+        } else if room {
+            def.name.clone()
+        } else {
+            "No room left".to_string()
+        };
+        let f = Focus {
+            action: "ride".into(),
+            key: format!("ride:{}:{}", o.host, v.id),
+            label: format!("Ride with {}", o.name),
+            detail: Some(detail),
+            ok: back.is_none() && room,
+            host: Some(o.host),
+            vehicle: Some(v.id),
+            x: v.x,
+            y: v.y,
+            z: v.z,
+            ..Default::default()
+        };
+        pick.consider(f, d + 0.3, 2.2);
+    }
+
     // Your farm plots: whatever is in the cell in front of you.
     let tx = px + fx * 1.3;
     let tz = pz + fz * 1.3;
@@ -676,6 +711,30 @@ pub fn find_focus(life: &mut Life, sim: &Sim) -> Option<Focus> {
                     pick.consider(f, d, door.portal.r);
                 }
             }
+        }
+    }
+
+    // Online, another player near you: challenge them to a mini-game (the table is the server's).
+    // Only when F has nothing else to do here, so someone standing at a merchant's counter or on the
+    // plot beside yours never gets in the way of what you came for.
+    if pick.best.is_none() && p.mode == Mode::Normal {
+        let range = crate::minigames::content().challenge.range;
+        for o in &life.others_around {
+            let d = js_hypot(o.x - px, o.z - pz);
+            let detail = o.busy.clone().unwrap_or_else(|| if back.is_some() { "Put your pack down first" } else { "Play a Mini-Game" }.to_string());
+            let f = Focus {
+                action: "challenge".into(),
+                key: format!("challenge:{}", o.id),
+                label: format!("Challenge {}", o.name),
+                detail: Some(detail),
+                ok: o.busy.is_none() && back.is_none(),
+                other: Some(o.id),
+                x: o.x,
+                y: o.y,
+                z: o.z,
+                ..Default::default()
+            };
+            pick.consider(f, d, range);
         }
     }
     pick.best

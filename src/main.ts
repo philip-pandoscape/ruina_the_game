@@ -230,12 +230,13 @@ if (peers && openStage) peers.onGroundChanged = () => openStage.foliage.invalida
 if (peersView && openStage) peersView.onGroundChanged = () => openStage.foliage.invalidate();
 if (peersView && openStage) peersView.houseSink = (owner, houses) => openStage.village.setHouses(owner, houses);
 if (peersView) peersView.mineView = lifeView;
-if (peers && life) life.othersVehicles = () => peers.vehicles(sim.player);
+if (peers && life) engine.othersVehicles = () => peers.vehicles(sim.player);
 if (online && life) {
   const me = online.welcome.character.name;
-  life.plotOwner = (plot) => {
-    const holder = online.link.claims[plot];
-    return holder && holder !== me ? holder : null;
+  engine.plotOwners = () => {
+    const held: Record<string, string> = {};
+    for (const [plot, holder] of Object.entries(online.link.claims)) if (holder && holder !== me) held[plot] = holder;
+    return held;
   };
 }
 // Online: mini-games with the other players here (src/ui/minigames), at tables everyone in the
@@ -322,7 +323,7 @@ if (lifeUI) lifeUI.intercept = (k) => portalPress(k) || !!minigames?.intercept(k
 // ---------- end Goblin's Dread ----------
 if (peersView && gameTables) peersView.stoolFor = (id) => gameTables.seatOf(id);
 if (online && peers && life && minigames) {
-  life.othersAround = () => {
+  engine.othersAround = () => {
     if (minigames.seated) return [];
     const playing = new Set((online.link.latest?.tables ?? []).flatMap((t) => t.seats.map((s) => s.id)));
     const busy = (id: number, mode: string) =>
@@ -345,7 +346,7 @@ const skyHour = (): number => (!life ? 12 : online ? hourAt(life.zone.recipe.sky
 if (online && lifeUI) lifeUI.skyHour = skyHour;
 // The rain and the wind run on the world's clock too (the server decides the rain; the wind you sail
 // on is worked out here between its updates from the same clock).
-if (online && life) life.worldClock = () => online.link.serverNow() / 1000;
+if (online && life) engine.worldClock = () => online.link.serverNow() / 1000;
 // Faces for the UI. Yours (beside your health, in the skill tree) and all of you (the character
 // window) come from a studio of their own: you as you look, whatever you're doing, wherever you are,
 // at any hour (src/render/studio.ts). The person you're talking to is taken from the scene, kept a
@@ -388,7 +389,7 @@ if (peers && lifeUI) lifeUI.others = () => peers.list();
 if (life && online) {
   // Starting over: the old island must be gone before this page shows one.
   if (opt.fresh) await online.link.reset();
-  life.remote = (c) => online.link.command((prediction?.seq ?? 0) + 1, c);
+  engine.remote = (c) => online.link.command((prediction?.seq ?? 0) + 1, c);
   // ?lag=ms plays a local server as one far away would feel.
   online.link.lag = lagMs;
 }

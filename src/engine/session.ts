@@ -62,6 +62,17 @@ export class EngineSession {
     return answer<SessionLife | null>(wasm().session_life(this.h));
   }
 
+  /** Online, the world's clock (seconds since 1970) the rain and the wind run on, for the next step; null for the island's own. */
+  worldClock(t: number | null): void {
+    wasm().session_world_clock(this.h, t ?? Number.NaN);
+  }
+
+  /** Online, your island as a tick has it (its state as it came, whether you're placing something or resting). */
+  takeIsland(island: { state: LifeState; placing: unknown; resting: boolean }): void {
+    const e = wasm();
+    if (!withText(JSON.stringify(island), (p, n) => e.session_take_island(this.h, p, n))) throw new Error('engine session: the island could not be read');
+  }
+
   /** One of the Engine's other calls, by its name, with its arguments. */
   call<T = null>(name: string, args: object = {}): T {
     const e = wasm();

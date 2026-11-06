@@ -7,7 +7,7 @@ import { addScarecrowCollider } from '../sim/life/farming';
 import { addHouseColliders } from '../sim/life/housing';
 import { runCommand, type Placement } from '../sim/life/interact';
 import { applySave, type Saved } from '../sim/life/island';
-import { Life, type Command } from '../sim/life/life';
+import { Life, type Command, type OtherPlayer, type OthersVehicle } from '../sim/life/life';
 import type { House, LifeState, Scarecrow, Vehicle, Weather } from '../sim/life/state';
 import { dismount } from '../sim/life/vehicles';
 import { Sim } from '../sim/sim';
@@ -68,6 +68,26 @@ export class Engine {
   private sent: LifeState | null = null;
   /** In the tests, the engine's own session beside these rules, compared every step (src/engine/shadow.ts). */
   private readonly shadow: Shadow | null;
+  /** What was last handed to the shadow of what the page says about everyone else (as JSON), so it's handed over again only when it changes. */
+  private toldOthers = '';
+
+  // ---------- Online: what the rules ask the page ----------
+  // Read once before each step (and before inputs run again on the server's word on you), so the
+  // rules see the same answers all through it.
+
+  /**
+   * Online: your commands go to the server, which runs your island (crates/server/src/play), rather
+   * than running here. Null drops them (online, until the connection is wired up).
+   */
+  remote: ((c: Command) => void) | null = null;
+  /** Online: the world's clock (the server's, in seconds since 1970), which the rain and the wind run on so that everyone has the same weather; null runs them on the island's own clock. */
+  worldClock: (() => number) | null = null;
+  /** Online: everyone else's vehicles, with whose they are and which seats are taken, for the prompt to offer to ride along. */
+  othersVehicles: (() => OthersVehicle[]) | null = null;
+  /** Online: everyone else in your channel, for the prompt to offer a mini-game challenge. */
+  othersAround: (() => OtherPlayer[]) | null = null;
+  /** Online: the house plots other characters hold (plot id to their name): one someone else holds can't be claimed. */
+  plotOwners: (() => Record<string, string>) | null = null;
 
   constructor(o: EngineOptions) {
     this.online = o.online;
@@ -85,7 +105,9 @@ export class Engine {
     this.range = o.online ? null : new TrainingRange(this.sim);
     this.life = o.openWorld && this.world.zone ? new Life(this.world.zone) : null;
     if (this.life) this.sim.life = this.life;
-    this.shadow = isShadowing() && !o.world && !o.online ? new Shadow({ openWorld: o.openWorld, online: o.online, goblins: o.goblins, build: o.build }) : null;
+    // Online the island is the server's from the start: this copy runs nothing it's told.
+    if (this.life && o.online) this.life.remote = (c) => this.remote?.(c);
+    this.shadow = isShadowing() && !o.world ? new Shadow({ openWorld: o.openWorld, online: o.online, goblins: o.goblins, build: o.build }) : null;
     this.shadow?.check(this.compared(), 'start');
   }
 
@@ -99,6 +121,33 @@ export class Engine {
       missiles: this.sim.actors.missiles,
       life: life ? { state: life.state, focus: life.focus, placing: life.placing, resting: life.resting } : null,
     };
+  }
+
+  /**
+   * Online: what the rules will ask the page this step (the world's clock, everyone else's vehicles
+   * and whereabouts, the plots they hold), asked once and given to the rules as it was, and to the
+   * shadow alike.
+   */
+  private askPage(): void {
+    const life = this.life;
+    if (!life || !this.online) return;
+    const t = this.worldClock?.() ?? null;
+    const vehicles = this.othersVehicles?.() ?? [];
+    const around = this.othersAround?.() ?? [];
+    const plots = this.plotOwners?.() ?? {};
+    life.worldClock = t === null ? null : () => t;
+    life.othersVehicles = () => vehicles;
+    life.othersAround = () => around;
+    life.plotOwner = (plot) => plots[plot] ?? null;
+    const shadow = this.shadow;
+    if (!shadow) return;
+    shadow.feed((s) => {
+      s.worldClock(t);
+      const others = JSON.stringify({ vehicles, around, plots });
+      if (others === this.toldOthers) return;
+      this.toldOthers = others;
+      s.call('others', { vehicles, around, plots });
+    });
   }
 
   /** A named call made on the shadow too. */
@@ -141,6 +190,7 @@ export class Engine {
    * stands about. Returns what happened. (Online, the prediction steps the rules: src/net/netPlayer.ts.)
    */
   step(a: Actions): GameEvent[] {
+    this.askPage();
     this.sim.step(a);
     this.catchFall();
     let events = this.sim.drainEvents();
@@ -264,12 +314,15 @@ export class Engine {
   correct(server: PlayerState, inputs: readonly Actions[], restore: (() => void) | null, first = false): void {
     const drawnFrom = { ...this.sim.player.prevPos };
     this.sim.player = server;
+    this.mirror('takePlayer', { player: server });
     restore?.();
     if (first) return;
+    this.askPage();
     this.sim.frame -= inputs.length;
     for (const a of inputs) this.sim.step(a);
     this.sim.drainEvents();
     if (inputs.length === 0) this.sim.player.prevPos = drawnFrom;
+    this.mirror('replay', { inputs, worldClock: this.life?.worldClock?.() ?? null });
   }
 
   /**
@@ -283,6 +336,11 @@ export class Engine {
     life.state = island.state;
     life.placing = island.placing;
     life.resting = island.resting;
+    this.shadow?.apply(
+      (s) => s.takeIsland(island),
+      'takeIsland',
+      () => this.compared(),
+    );
   }
 
   /**
@@ -294,6 +352,7 @@ export class Engine {
     if (!life) return;
     if (this.sent && life.state === this.sent) life.state = structuredClone(this.sent);
     runCommand(life, this.sim, c);
+    this.mirror('runAhead', { command: c });
   }
 
   /**
@@ -316,21 +375,26 @@ export class Engine {
     life.resting = you.resting;
     life.placing = you.placing;
     for (const c of ahead) runCommand(life, this.sim, c);
+    const { clock, labor, weather, vehicles, resting, placing } = you;
+    this.mirror('replayIsland', { you: { clock, labor, weather, vehicles, resting, placing }, ahead });
   }
 
   /** A house solid here as it is on the server: yours, or someone else's where you see it (`owner`: their island). */
   addSolidHouse(owner: Life, house: House): void {
     addHouseColliders(owner, this.sim, house);
+    this.mirror('addSolidHouse', { house });
   }
 
   /** A scarecrow's post solid, and the ground round it tilled, as on the server. */
   addSolidScarecrow(sc: Scarecrow): void {
     addScarecrowCollider(this.sim, sc);
+    this.mirror('addSolidScarecrow', { post: sc });
   }
 
   /** Other players' vehicles where they're drawn, solid to you as yours are. */
   setOthersVehicles(movers: Mover[]): void {
     this.world.movers = movers;
+    this.mirror('movers', { movers });
   }
 
   // ---------- For tests (the test API, src/app/testApi.ts) ----------

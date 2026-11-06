@@ -12,8 +12,9 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
 - **Phase:** 6 (the client in areas) and 8 (one copy of the rules), with 7, 11 and 12 done or
   nearly, and 9 and 10 mostly landed beside them. The old battle server is gone (R10.9, R10.10).
 - **Next:** Phase 8: the engine's session plays the offline game and the shadow holds it to the
-  TypeScript (R8.5); next the session online (prediction, the island as the server sends it: R8.3b),
-  then the switch (R8.7-R8.9) and deleting `src/sim/` (R8.13); then crowds at scale (R10.8).
+  TypeScript (R8.5), offline and online (R8.3b); next the shadow in the page (the integration specs
+  played with it on), then the switch (R8.7-R8.9) and deleting `src/sim/` (R8.13); then crowds at
+  scale (R10.8).
 - **How:** one session does the work, with at most one sub-agent beside it, on Opus 5.5 at max
   effort, in a worktree of its own (the user's call on 2026-11-06: three at once used tokens too
   fast; one is allowed). It has the mini-games (R9.11, R8.11), then the UI gallery (R6.9).
@@ -550,10 +551,21 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
   the island come back as JSON in the TypeScript's shapes; every other write the Engine makes is one
   named call (`session_call`). Left: what each frame reads as typed arrays rather than JSON, if R8.14
   shows JSON costs a frame anything; `docs/engine.md`.
-- [ ] **R8.3b** The rules' calls back into JavaScript become inputs and outputs: the world clock
+- [x] **R8.3b** The rules' calls back into JavaScript become inputs and outputs: the world clock
   (read every step today, replays included; set once per step instead), `othersVehicles` and
   `othersAround` (set per frame), `plotOwner` (set on change), `remote` (commands returned after the
   step).
+  Done: the hooks are the Engine's (`engine.worldClock`, `othersVehicles`, `othersAround`,
+  `plotOwners`, `remote`; `src/main.ts` and `src/app/onlineWiring.ts` set them there), asked once
+  before each step and before inputs run again, and handed to the rules as values. The engine's
+  session takes them as inputs (`session_world_clock` each step; `others` and `movers` when they
+  change). Its island has a remote mode (`Life::remote`: commands are the server's, nothing is said,
+  a step moves on only the clock, labor, weather and vehicles) and its prompt the online offers
+  (riding along in someone's vehicle, challenging someone: `Life::others_vehicles`, `others_around`).
+  The session takes the server's word on you (`take_player`, `replay`), your island as sent
+  (`session_take_island`, `run_ahead`, `replay_island`) and what's solid on the server (houses,
+  scarecrows, others' vehicles). *Verified:* `tests/unit/shadow.test.ts` (online, 160 lagged frames
+  matched bit for bit), `npm run check`, the online and mini-game specs (23).
 - [x] **R8.4** Determinism test (unit tier): the same scenario natively and in WebAssembly ends in the
   same state hash, bit for bit.
   Done (2ff8375): `tests/conformance/engine.test.ts`, 60,000 ground queries' fingerprint, native and
@@ -575,8 +587,11 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
   switch the server and the browser both run libm, so they agree to the bit, which they don't today).
   Found and fixed on the way: the engine's prompts had drifted from the TypeScript's (sentence case
   where the UI's labels are Title Case, no dungeon portals, a workbench's line, the needs' places);
-  getting off a vehicle reset where you are drawn from only in the TypeScript. Left: online (the
-  prediction, with R8.3b), and the page in dev.
+  getting off a vehicle reset where you are drawn from only in the TypeScript. Online too (with
+  R8.3b): an online Engine's shadow takes the server's word on you, your island as it comes, commands
+  run ahead and the page's hooks, and `tests/unit/shadow.test.ts` plays 160 frames a round trip behind
+  an engine standing in for the server, matching bit for bit (`shadowRules` now swaps the maths in
+  itself). Left: the page in dev.
 - [x] **R8.6** Switch the ground, colliders and dungeons. Port the island's generator
   (`zone/generate.ts` 710, `zone/buildings.ts` 207, TS-only today) to Rust: the server makes the island
   at start, the browser through the engine; delete the bake step and `server/data/emberholm.zone`.
@@ -892,7 +907,8 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
 | 2026-11-06 | R8.6 | The engine grows Emberholm from its recipe, no bake; the browser's island is the engine's, the TypeScript generator gone | dafec37, ba9c87a |
 | 2026-11-06 | R8.1, R8.6 | The image builds the game again (the bible and the crates it reads, the engine's WebAssembly) | 50d91ef |
 | 2026-11-06 | R8.5 | The engine's player and creatures say what happened (events) | 15a7ff9, 6ed236a |
-| 2026-11-06 | R8.5, R8.3 | The engine plays the browser's offline game (the session, the training layer, the yard), and the shadow holds it to the TypeScript in the 77 headless rules tests, bit for bit | (this commit) |
+| 2026-11-06 | R8.5, R8.3 | The engine plays the browser's offline game (the session, the training layer, the yard), and the shadow holds it to the TypeScript in the 77 headless rules tests, bit for bit | ac7e7ed |
+| 2026-11-06 | R8.3b, R8.5 | The session online: the server's word on you, the island as sent, commands run ahead, the page's hooks as inputs; shadowed online | (this commit) |
 | 2026-11-06 | R9.14 | `docs/content.md` | 5e23680 |
 | 2026-11-06 | R10.10, R11.1, R11.2, R11.7, R11.8 | Snapshot to move machines: the battle server's Rust gone; the asset manifest, loader and first-download budget, `docs/assets.md` | a975617 |
 | 2026-11-06 | R6.10, R6.11, R6.8 | The client's moves: creature bodies into src/render/creatures/, the root files to their areas, the library under src/dev/ | 9317ff3, 5de387d, 81df3de |

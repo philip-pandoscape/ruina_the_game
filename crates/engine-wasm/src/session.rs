@@ -6,12 +6,17 @@
 
 use std::cell::RefCell;
 
-use ruina_engine::life::Command;
+use std::collections::BTreeMap;
+
+use ruina_engine::life::state::{House, LifeState, Scarecrow};
+use ruina_engine::life::{Command, OtherPlayer, OthersVehicle, Placement};
+use ruina_engine::open::Mover;
 use ruina_engine::player::{Actions, Build};
 use ruina_engine::session::Session;
 use ruina_engine::skills::SKILL_WORDS;
 use ruina_engine::tuning::{HOTBAR_SLOTS, MOVEMENT_SLOTS, NO_ABILITY, NO_MOVEMENT};
 use ruina_engine::world::Spawn;
+use serde::Deserialize;
 use serde_json::{Map, Value, json};
 
 use crate::{give, text};
@@ -124,6 +129,63 @@ pub extern "C" fn session_step(
     .unwrap_or(0)
 }
 
+/// Online, the world's clock (the server's, in seconds since 1970) the rain and the wind run on,
+/// for the next step; NaN for none (offline, the island's own clock).
+#[unsafe(no_mangle)]
+pub extern "C" fn session_world_clock(h: u32, t: f64) {
+    with(h, |s| s.set_world_clock(if t.is_nan() { None } else { Some(t) }));
+}
+
+/// Your island as a tick has it (src/net/worldLink.ts WorldTick.life: JSON `{state, placing,
+/// resting}`), read straight from the text: it comes up to 20 times a second. True if it could be read.
+///
+/// # Safety
+/// `p..p + n` lies in room `alloc` gave.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn session_take_island(h: u32, p: *const u8, n: usize) -> u32 {
+    #[derive(Deserialize)]
+    struct Sent {
+        state: LifeState,
+        #[serde(default)]
+        placing: Option<Placement>,
+        #[serde(default)]
+        resting: bool,
+    }
+    let Ok(sent) = serde_json::from_str::<Sent>(unsafe { text(p, n) }) else { return 0 };
+    with(h, |s| s.take_island(sent.state, sent.placing, sent.resting)).is_some() as u32
+}
+
+/// What you press in a step, in the shape of src/sim/types.ts Actions.
+fn actions_of(v: &Value) -> Actions {
+    let f = |k: &str| v.get(k).and_then(Value::as_f64).unwrap_or(0.0);
+    let b = |k: &str| v.get(k).and_then(Value::as_bool).unwrap_or(false);
+    let u = |k: &str| v.get(k).and_then(Value::as_u64).unwrap_or(0) as u8;
+    Actions {
+        move_x: f("moveX"),
+        move_z: f("moveZ"),
+        jump_pressed: b("jumpPressed"),
+        jump_held: b("jumpHeld"),
+        attack_pressed: b("attackPressed"),
+        slide_pressed: b("slidePressed"),
+        sprint_held: b("sprintHeld"),
+        crouch_held: b("crouchHeld"),
+        ability_slot: u("abilitySlot"),
+        movement_slot: u("movementSlot"),
+        movement_held: u("movementHeld"),
+        aim_x: f("aimX"),
+        aim_z: f("aimZ"),
+        face_x: f("faceX"),
+        face_z: f("faceZ"),
+        stick_x: f("stickX"),
+        stick_y: f("stickY"),
+    }
+}
+
+/// A value of the call's, read as `T` (None if it's missing or isn't one).
+fn field<T: for<'de> Deserialize<'de>>(v: &Value, k: &str) -> Option<T> {
+    v.get(k).filter(|x| !x.is_null()).and_then(|x| T::deserialize(x).ok())
+}
+
 /// Takes what happened since the last time: JSON, each event as src/sim/types.ts GameEvent has it.
 #[unsafe(no_mangle)]
 pub extern "C" fn session_events(h: u32) -> usize {
@@ -224,6 +286,48 @@ fn call(s: &mut Session, v: &Value) -> Value {
         "frame" => return json!(s.frame),
         "placed" => return json!(s.placed),
         "lifeEvents" => return json!(s.life.as_mut().map(|l| l.drain_events()).unwrap_or_default()),
+        "takePlayer" => s.take_player(&v["player"]),
+        "replay" => {
+            let inputs: Vec<Actions> = v.get("inputs").and_then(Value::as_array).into_iter().flatten().map(actions_of).collect();
+            s.replay(&inputs, num("worldClock"));
+        }
+        "runAhead" => match field::<Command>(v, "command") {
+            Some(c) => s.run_ahead(&c),
+            None => return json!({ "error": "runAhead: no command" }),
+        },
+        "replayIsland" => {
+            let you = &v["you"];
+            let f = |k: &str| you.get(k).and_then(Value::as_f64).unwrap_or(0.0);
+            let ahead: Vec<Command> = field(v, "ahead").unwrap_or_default();
+            s.replay_island(
+                f("clock"),
+                f("labor"),
+                field(you, "weather").unwrap_or_default(),
+                field(you, "vehicles").unwrap_or_default(),
+                you.get("resting").and_then(Value::as_bool).unwrap_or(false),
+                field(you, "placing"),
+                &ahead,
+            );
+        }
+        "addSolidHouse" => match field::<House>(v, "house") {
+            Some(h) => s.add_solid_house(&h),
+            None => return json!({ "error": "addSolidHouse: no house" }),
+        },
+        "addSolidScarecrow" => match field::<Scarecrow>(v, "post") {
+            Some(sc) => s.add_solid_scarecrow(&sc),
+            None => return json!({ "error": "addSolidScarecrow: no post" }),
+        },
+        "movers" => {
+            // Others' vehicles: never yours (the session's player is owner 0).
+            let movers = v.get("movers").and_then(Value::as_array).into_iter().flatten().map(|m| {
+                let g = |k: &str| m.get(k).and_then(Value::as_f64).unwrap_or(0.0);
+                Mover { owner: -1, x: g("x"), z: g("z"), r: g("r"), y: g("y"), height: g("height") }
+            });
+            s.set_movers(movers.collect());
+        }
+        "others" => {
+            s.set_others(field::<Vec<OthersVehicle>>(v, "vehicles"), field::<Vec<OtherPlayer>>(v, "around"), field::<BTreeMap<String, String>>(v, "plots"))
+        }
         other => return json!({ "error": format!("no call {other}") }),
     }
     Value::Null
