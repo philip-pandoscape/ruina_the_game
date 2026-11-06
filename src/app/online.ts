@@ -1,4 +1,16 @@
-import { currentAccount, devSignIn, listCharacters, Refused, type Account, type CharacterInfo } from '../net/account';
+import {
+  createCharacter,
+  currentAccount,
+  deleteCharacter,
+  devSignIn,
+  listCharacters,
+  Refused,
+  register,
+  signIn,
+  signOut,
+  type Account,
+  type CharacterInfo,
+} from '../net/account';
 import { Reloading, WorldLink, type Welcome } from '../net/worldLink';
 import { CharacterSelect } from '../ui/characterSelect';
 import { SignInScreen } from '../ui/signIn';
@@ -45,7 +57,7 @@ export function goOnline(opt: Pick<Options, 'as'>): Promise<Online> {
 }
 
 async function frontDoor(opt: Pick<Options, 'as'>): Promise<Online> {
-  const screen = new SignInScreen();
+  const screen = new SignInScreen({ signIn, register });
   const as = opt.as;
   // Straight in, the first time round: a dev sign-in, or a reload of a tab that was in the world.
   let resume = takeResume();
@@ -80,7 +92,7 @@ async function frontDoor(opt: Pick<Options, 'as'>): Promise<Online> {
       resume = null;
       if (!pick) {
         await splash?.afterIntro();
-        const choice = await CharacterSelect.show(account, characters, max);
+        const choice = await CharacterSelect.show({ listCharacters, createCharacter, deleteCharacter, signOut }, account, characters, max);
         // Signed out: back to signing in.
         if ('signedOut' in choice) continue;
         pick = choice.enter;

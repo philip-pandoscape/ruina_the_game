@@ -1,10 +1,34 @@
-import { createCharacter, deleteCharacter, listCharacters, signOut, type Account, type CharacterInfo } from '../net/account';
 import { adminCard } from './admin/adminMenu';
 import { HeroPreview } from '../render/heroPreview';
 import { WEAPON_ICONS, WEAPON_NAMES } from './icons';
 import { iconHtml, money } from './theme/icons';
-import { card, el, frontLayer } from './signIn';
+import { card, el, frontLayer, type Account } from './signIn';
 import { splash } from './splash';
+
+/** A character on the account, as the list shows them. */
+export interface CharacterInfo {
+  id: number;
+  name: string;
+  /** The copy of Emberholm they live in; null until they first go in. */
+  channel: number | null;
+  /** When they last went into the world (ms since the epoch), or null. */
+  lastPlayed: number | null;
+  created: number;
+  /** What their skill tree may hold: the starting points and those their quests gave. */
+  skillPoints: number;
+  questsDone: number;
+  coins: number;
+  /** The weapon in their build: 0 sword, 1 club, 2 staff, 3 bow. */
+  weapon: number;
+}
+
+/** What the screen asks of the account API. The app hands it the API (src/net/account.ts), which the screen doesn't import. */
+export interface CharactersApi {
+  listCharacters(): Promise<{ characters: CharacterInfo[]; max: number }>;
+  createCharacter(name: string): Promise<CharacterInfo>;
+  deleteCharacter(id: number, name: string): Promise<void>;
+  signOut(): Promise<void>;
+}
 
 // The character select screen, on the title screen: your characters down the right (each with its
 // own island), the chosen one big in the middle, turning slowly on a glowing circle, and Enter
@@ -52,6 +76,7 @@ export class CharacterSelect {
   private busy = false;
 
   private constructor(
+    private api: CharactersApi,
     private account: Account,
     private characters: CharacterInfo[],
     private max: number,
@@ -92,7 +117,7 @@ export class CharacterSelect {
     outBtn.onclick = async () => {
       if (this.busy) return;
       this.busy = true;
-      await signOut();
+      await this.api.signOut();
       this.finish({ signedOut: true });
     };
     addEventListener('keydown', this.onKey);
@@ -104,8 +129,8 @@ export class CharacterSelect {
   }
 
   /** Shows the screen until the player enters the world with a character, or signs out. */
-  static show(account: Account, characters: CharacterInfo[], max: number): Promise<Choice> {
-    const screen = new CharacterSelect(account, characters, max);
+  static show(api: CharactersApi, account: Account, characters: CharacterInfo[], max: number): Promise<Choice> {
+    const screen = new CharacterSelect(api, account, characters, max);
     return new Promise((resolve) => (screen.done = resolve));
   }
 
@@ -243,7 +268,7 @@ export class CharacterSelect {
   }
 
   private async refresh(select: number | null): Promise<void> {
-    const { characters, max } = await listCharacters();
+    const { characters, max } = await this.api.listCharacters();
     this.characters = characters;
     this.max = max;
     this.render(characters.find((c) => c.id === select) ?? firstChoice(characters, this.remembered()));
@@ -312,7 +337,7 @@ export class CharacterSelect {
       label: 'Name',
       action: 'Create',
       go: async (name) => {
-        const made = await createCharacter(name);
+        const made = await this.api.createCharacter(name);
         await this.refresh(made.id);
       },
     });
@@ -330,7 +355,7 @@ export class CharacterSelect {
       danger: true,
       ready: (v) => v.toLowerCase() === c.name.toLowerCase(),
       go: async (typed) => {
-        await deleteCharacter(c.id, typed);
+        await this.api.deleteCharacter(c.id, typed);
         const i = this.characters.findIndex((x) => x.id === c.id);
         await this.refresh(this.characters[i + 1]?.id ?? this.characters[i - 1]?.id ?? null);
       },

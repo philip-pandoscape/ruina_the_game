@@ -1,5 +1,5 @@
 import { BEACONS, HEXES, OLD_BEACON, SEAT_COLORS, hexCentre } from '../../content/minigames';
-import type { TableView } from '../../net/worldLink';
+import type { TableView } from './tables';
 import { iconHtml, iconUrl } from '../theme/icons';
 import type { MenuEntry } from '../theme/contextMenu';
 import { esc } from '../../util/html';

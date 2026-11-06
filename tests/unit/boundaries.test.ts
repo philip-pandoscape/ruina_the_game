@@ -22,7 +22,9 @@ const FORBIDDEN: Record<string, string[]> = {
   // drawing draws what it's handed, and the app hands one to the other.
   render: ['net', 'app', 'dev', 'bible', '(root:main)'],
   net: ['render', 'ui', 'dev', 'bible', '(root:main)'],
-  ui: ['bible', '(root:main)'],
+  // The windows show what they're handed and ask the app for what they do (R6.0): sign-in, characters,
+  // parties and mini-games declare the calls they make, and the app hands them the connection.
+  ui: ['net', 'bible', '(root:main)'],
 };
 
 /** Imports across a line today, each with what will remove it (.plans/refactor/tracker.md). */

@@ -1,6 +1,6 @@
 import './minigames.css';
 import { CHALLENGE, MINIGAMES, SEAT_COLORS, minigame, stakesFor } from '../../content/minigames';
-import type { ChallengeView, TableView, WorldLink } from '../../net/worldLink';
+import type { ChallengeView, TableLink, TableView } from './tables';
 import type { Life } from '../../sim/life/life';
 import { docksLeft, type LifePress } from '../life/lifeUI';
 import { closeMenu, openMenu } from '../theme/contextMenu';
@@ -19,7 +19,7 @@ import { esc } from '../../util/html';
 // windows show it and send what you choose. Offline there's nobody to play, and none of this runs.
 
 export interface MinigamesDeps {
-  link: WorldLink;
+  link: TableLink;
   life: Life;
   /** Which of the island's windows is open, if any (Escape closes that first). */
   openPanel: () => string | null;

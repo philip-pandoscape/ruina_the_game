@@ -1,8 +1,33 @@
-import { register, signIn, Refused, type Account } from '../net/account';
-import type { LinkStatus } from '../net/worldLink';
 import { uiRoot } from './theme/scale';
 import { splash } from './splash';
 import './theme/front.css';
+
+/** Who is signed in. */
+export interface Account {
+  id: number;
+  username: string;
+  /** Reaches the developer pages and commands (the server's ADMIN_USERS; everyone in development). */
+  admin: boolean;
+}
+
+/** What signing in asks of the account API. The app hands it the API (src/net/account.ts), which the screen doesn't import. */
+export interface SignInApi {
+  signIn(username: string, password: string): Promise<Account>;
+  register(username: string, password: string): Promise<Account>;
+}
+
+/**
+ * online: connected. updating: the server is being updated (it said so, or hung up as a service
+ * restart); reconnecting: the connection dropped. Either way the world waits until it's back.
+ * kicked: another window took this character over. signed-out: the sign-in ended meanwhile.
+ */
+export type LinkStatus = 'online' | 'updating' | 'reconnecting' | 'kicked' | 'signed-out';
+
+/** The account API turned the request down with this status (401: the name or password is wrong). */
+const refusedWith = (err: unknown): number | null => {
+  const status = (err as { status?: unknown } | null)?.status;
+  return typeof status === 'number' ? status : null;
+};
 
 // What you see of the game server: the sign-in screen on the title screen before Emberholm loads,
 // the badge in the corner while you play (who you are, whether the server is there, Characters and
@@ -44,7 +69,7 @@ export class SignInScreen {
   /** The server isn't answering: its card stays up while it's tried again. */
   private troubled = false;
 
-  constructor() {
+  constructor(private readonly api: SignInApi) {
     frontLayer().append(this.root);
   }
 
@@ -138,11 +163,12 @@ export class SignInScreen {
       submit.disabled = true;
       error.textContent = '';
       try {
-        done(await (making ? register : signIn)(name.value.trim(), password.value));
+        const { api } = this;
+        done(await (making ? api.register(name.value.trim(), password.value) : api.signIn(name.value.trim(), password.value)));
       } catch (err) {
         error.textContent = err instanceof Error ? err.message : String(err);
         submit.disabled = false;
-        if (err instanceof Refused && err.status === 401) password.select();
+        if (refusedWith(err) === 401) password.select();
       }
     };
     this.root.replaceChildren(
