@@ -31,7 +31,7 @@ rules' formulas and the terrain generator), so it is always current and there is
 - `crates/`: the Rust workspace. `crates/engine` holds the rules (the same as the browser's
   TypeScript), `crates/tools` the programs that check them against it, and `crates/server` the game
   server, `ruina-server`, one port for everything (axum): accounts; Emberholm, which it
-  plays (`crates/server/src/world_game.rs`: each channel's players from their key presses, the island's
+  plays (`crates/server/src/play/mod.rs`: each channel's players from their key presses, the island's
   rules in `crates/engine/src/open` and `crates/engine/src/life`, the slimes and the fighting), keeping islands
   in Postgres (`crates/server/migrations/`); and the PvP battlefield, which decides all hits, runs bots,
   sends each player only what's near them, and rewinds time for lag compensation

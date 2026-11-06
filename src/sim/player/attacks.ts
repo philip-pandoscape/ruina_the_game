@@ -89,7 +89,7 @@ export function updateAttack(sim: Sim, a: Actions): void {
 export function checkHit(sim: Sim, step: AttackStep): void {
   const p = sim.player;
   // Too far up in the air to reach anything. Height is measured from the ground under you: on
-  // flat ground that is just pos.y (as on the server, game.rs swing), but on hills pos.y is
+  // flat ground that is just pos.y (as on the server, combat.rs swing), but on hills pos.y is
   // height above the sea, so testing it directly would rule out every swing on the high ground.
   if (heightAboveGround(sim) > 2.0) return;
   let targets = sim.targets();

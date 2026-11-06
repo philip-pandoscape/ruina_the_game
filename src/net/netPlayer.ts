@@ -149,7 +149,7 @@ export class Prediction {
 }
 
 /**
- * A player's state as the open world's server sends it (crates/server/src/world_game.rs
+ * A player's state as the open world's server sends it (crates/server/src/play/mod.rs
  * player_state_json): the same fields as PlayerState, so only what JSON can't carry is filled in.
  */
 export function stateFromServer(p: Record<string, unknown>): PlayerState {

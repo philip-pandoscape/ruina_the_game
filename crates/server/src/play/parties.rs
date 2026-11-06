@@ -2,7 +2,7 @@
 //! in one may invite someone who isn't either (they become its leader when the answer is yes); in a
 //! party only the leader invites, kicks and hands the lead on. Whoever leaves goes; a party of one is
 //! no party. Members stay in it while they're offline. A party goes into its own copy of a dungeon
-//! together (crate::spaces). Parties live in the server's memory, like mini-games' tables: a restart
+//! together (crate::play::spaces). Parties live in the server's memory, like mini-games' tables: a restart
 //! ends them.
 
 use std::collections::HashMap;

@@ -19,7 +19,7 @@ use ruina_engine::open::zone::emberholm;
 use ruina_engine::open::{OpenWorld, Sim, step_player};
 use ruina_engine::player::{Actions, Build, Mode, Player};
 use ruina_engine::world::Spawn;
-use ruina_server::world_game::{load_island, player_state_json};
+use ruina_server::play::{load_island, player_state_json};
 use serde::Deserialize;
 use serde_json::{Value, json};
 

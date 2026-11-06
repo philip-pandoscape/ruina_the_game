@@ -1,7 +1,7 @@
 //! Emberholm as the server plays it: one game per channel, 20 ticks a second. Each player's
 //! browser sends what they press (about 60 inputs a second) and what they ask their island to do
 //! (commands); here those run through the island's rules (crates/engine/src/open, crates/engine/src/life) and
-//! the same combat as the battlefield (crates/server/src/game.rs), the channel's slimes live and fight,
+//! the same combat as the battlefield (crates/server/src/combat.rs), the channel's slimes live and fight,
 //! and every browser hears back where it really is, what its island now holds, and what everyone
 //! else in the channel is doing. Nothing a browser says about its own state is believed: it can
 //! only press keys and ask.
@@ -16,8 +16,7 @@ use serde_json::{Value, json};
 use tokio::sync::mpsc;
 
 use crate::actors::{Actors, LEAN_DAMPING, LEAN_SPRING, StepOut};
-use crate::channels::{Channel, estate_of};
-use crate::game::{OPEN_INPUT, Players, open_actions_from};
+use crate::combat::{OPEN_INPUT, Players, open_actions_from};
 use crate::life::content::clock;
 use crate::life::progress::skill_budget;
 use crate::life::state::LifeState;
@@ -27,12 +26,21 @@ use crate::open::colliders::ground_at;
 use crate::open::dungeon::{DungeonDef, Spot};
 use crate::open::zone::{DungeonDoor, Zone, emberholm};
 use crate::open::{OpenWorld, Sim};
+use crate::play::channels::{Channel, estate_of};
+use crate::play::socket::parse_build;
 use crate::player::{Actions, Build, Mode, Player};
 use crate::sim::Battle;
 use crate::skills::{valid_build, valid_movement};
 use crate::world::{Spawn, World};
-use crate::world_socket::parse_build;
 
+/// The channels' residents: everyone's estates and who holds which plot.
+pub mod channels;
+/// Parties: who plays with whom.
+pub mod parties;
+/// A player's connection: sign-in, the welcome, inputs and commands in, ticks out.
+pub mod socket;
+/// Every channel and every party's copy of a dungeon, and moving between them.
+pub mod spaces;
 /// Mini-games here: challenges, tables and the money on them.
 mod tables;
 
@@ -104,7 +112,7 @@ pub enum Owner {
     Solo(i64),
 }
 
-/// What a game plays: a channel of Emberholm, or someone's copy of a dungeon (crate::spaces).
+/// What a game plays: a channel of Emberholm, or someone's copy of a dungeon (crate::play::spaces).
 pub enum Space {
     Channel,
     Copy(CopyOf),
@@ -115,7 +123,7 @@ pub struct CopyOf {
     /// Its door in the open world: where you come out.
     pub door: &'static DungeonDoor,
     pub owner: Owner,
-    /// Since when nobody has been in it (crate::spaces closes it a while after).
+    /// Since when nobody has been in it (crate::play::spaces closes it a while after).
     pub empty_since: Option<Instant>,
     /// Whoever is in it but no longer in the party it belongs to, and when they're put out.
     pub expel: HashMap<i64, Instant>,
@@ -157,7 +165,7 @@ pub struct ChannelGame {
     battle: Battle,
     tick: u64,
     last_tick: Instant,
-    /// Challenges and the tables they became (crates/server/src/world_game/tables.rs).
+    /// Challenges and the tables they became (crates/server/src/play/tables.rs).
     pub tables: Minigames,
     /// When the channel began: games' clocks run from here.
     started: Instant,
@@ -166,7 +174,7 @@ pub struct ChannelGame {
     /// Islands to write together, in one transaction (a pot changing hands), when there's no
     /// writer to hand them to straight away (tests).
     joint: Vec<Vec<Save>>,
-    /// The server's queue of islands to write (world_socket.rs spawn_world), if it has one.
+    /// The server's queue of islands to write (socket.rs spawn_world), if it has one.
     pub saver: Option<mpsc::UnboundedSender<Vec<Save>>>,
 }
 

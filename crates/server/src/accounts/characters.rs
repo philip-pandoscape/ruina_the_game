@@ -1,7 +1,7 @@
 //! Characters: an account holds up to MAX_PER_ACCOUNT, each with its own island (kept on its row in
 //! Postgres) and a name no other character on the server has, whatever the case, since names show
 //! over heads. The browser's character select screen (src/ui/characterSelect.ts) lists them, makes
-//! new ones and deletes them; the world plays whichever it picks (crates/server/src/world_socket.rs).
+//! new ones and deletes them; the world plays whichever it picks (crates/server/src/play/socket.rs).
 //!
 //!   GET    /api/characters       yours, oldest first: {characters: [Character], max}
 //!   POST   /api/characters       {name}: a new one with a fresh island -> {character}

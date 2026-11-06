@@ -15,7 +15,7 @@ import type { ZoneData } from '../sim/zone/world';
 import { blankState } from './netPlayer';
 import type { Estate, EstateEntry, PeerEntry, WorldLink } from './worldLink';
 
-// Everyone else in your channel of Emberholm, as the server plays them (crates/server/src/world_game.rs):
+// Everyone else in your channel of Emberholm, as the server plays them (crates/server/src/play/mod.rs):
 // each player as they move (about 20 times a second, drawn a few frames behind so there is always
 // a next one to blend toward), with their glider, pack, vehicles and mounts; and everything every
 // resident has built, their houses and farms, which stay standing while they're away. Houses and

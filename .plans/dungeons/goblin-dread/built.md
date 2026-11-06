@@ -53,7 +53,7 @@ As of 2026-11-05. AGENTS.md and design/status.json have the same in brief.
 - **To add a room:** add its boxes and decks to `goblinsDread.json` and its look to `dungeonView.ts`.
   Both sides read the same file, so there's nothing to bake.
 
-## Parties (crates/server/src/parties.rs, src/ui/party/)
+## Parties (crates/server/src/play/parties.rs, src/ui/party/)
 
 - **The rules:**
   - Up to 5 members.
@@ -75,11 +75,11 @@ As of 2026-11-05. AGENTS.md and design/status.json have the same in brief.
     Party.
   - On a controller, the invitation takes A and B, and the window takes the D-pad.
 
-## Dungeon copies (crates/server/src/spaces.rs)
+## Dungeon copies (crates/server/src/play/spaces.rs)
 
 - **Spaces** holds every game: channels (ids from 1 up) and copies (ids from -1 down), plus the
   parties, where each character is, their home channel, and which copy each owner has.
-  - A copy is a `ChannelGame` whose `space` is a Copy (`crates/server/src/world_game.rs`). The same world
+  - A copy is a `ChannelGame` whose `space` is a Copy (`crates/server/src/play/mod.rs`). The same world
     thread ticks it and it saves islands the same way. It has no slimes, no estates, and its own
     actors.
 - **The rules:**
@@ -104,8 +104,8 @@ As of 2026-11-05. AGENTS.md and design/status.json have the same in brief.
 
 | Test | What it covers |
 |---|---|
-| `crates/server/src/parties.rs` | Unit tests: invitations, leading, kicking, the cap of 5, lapsing |
-| `crates/server/src/spaces.rs` | Unit tests: one copy per party, a separate copy for a player on their own, the 30-minute rule, a minute's warning before being put out, adopting a copy, reconnecting inside, Start Over |
+| `crates/server/src/play/parties.rs` | Unit tests: invitations, leading, kicking, the cap of 5, lapsing |
+| `crates/server/src/play/spaces.rs` | Unit tests: one copy per party, a separate copy for a player on their own, the 30-minute rule, a minute's warning before being put out, adopting a copy, reconnecting inside, Start Over |
 | `crates/engine/src/open/dungeon.rs` | Unit test: solid only in a copy |
 | `tests/integration/party.spec.ts` (online) | Forming a party by name; a party into one copy and someone on their own into theirs; leaving and coming back to the same copy |
 | `tests/integration/dungeon-way-in.spec.ts` | Gliding off the deck into the falls onto the stage; in and out through the portal offline; dropping off the summit lands on the hood; no tree or rock moved |

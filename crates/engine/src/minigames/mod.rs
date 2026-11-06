@@ -6,7 +6,7 @@
 //! This is the part every game shares: the content (shared/minigames.json), the challenges, and
 //! the tables with their turn clocks, forfeits and the moment each game ends. The rules of each
 //! game are a `Rules` (beacons.rs is the first); the money and the players themselves are the
-//! channel's (crates/server/src/world_game/tables.rs), which settles the pot when a table says its game
+//! channel's (crates/server/src/play/tables.rs), which settles the pot when a table says its game
 //! is over.
 
 pub mod beacons;

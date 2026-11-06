@@ -87,3 +87,14 @@ server/src/spaces.rs	crates/server/src/spaces.rs
 server/src/world_game.rs	crates/server/src/world_game.rs
 server/src/world_socket.rs	crates/server/src/world_socket.rs
 server/src/world_game	crates/server/src/world_game
+crates/server/src/accounts.rs	crates/server/src/accounts/mod.rs
+crates/server/src/characters.rs	crates/server/src/accounts/characters.rs
+crates/server/src/world_game.rs	crates/server/src/play/mod.rs
+crates/server/src/world_game/tables.rs	crates/server/src/play/tables.rs
+crates/server/src/world_socket.rs	crates/server/src/play/socket.rs
+crates/server/src/spaces.rs	crates/server/src/play/spaces.rs
+crates/server/src/parties.rs	crates/server/src/play/parties.rs
+crates/server/src/channels.rs	crates/server/src/play/channels.rs
+crates/server/src/game.rs	crates/server/src/combat.rs
+crates/server/src/net.rs	crates/server/src/battle/net.rs
+crates/server/src/interest.rs	crates/server/src/battle/interest.rs

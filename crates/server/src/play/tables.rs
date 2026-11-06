@@ -598,7 +598,7 @@ mod tests {
     use tokio::sync::mpsc;
 
     use super::super::{Arrival, ChannelGame, client, island_of, load_island, stand_on_ground};
-    use crate::game::OPEN_INPUT;
+    use crate::combat::OPEN_INPUT;
     use crate::life::{Command, Life};
     use crate::minigames::{Why, beacons, content, game_def};
     use crate::player::{Build, Mode, Player};

@@ -261,7 +261,7 @@ export interface World {
   respawnAt?: { x: number; y: number; z: number; facing: number };
   /**
    * Online: everyone else's vehicles in your channel, as circles where they are this step, which you
-   * bump into like your own. The server keeps the channel's (crates/server/src/world_game.rs); the browser
+   * bump into like your own. The server keeps the channel's (crates/server/src/play/mod.rs); the browser
    * fills in the others as it draws them (src/net/worldPeers.ts).
    */
   movers?: Mover[];

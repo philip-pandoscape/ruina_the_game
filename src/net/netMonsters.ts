@@ -93,7 +93,7 @@ export class NetMonsters {
     for (const a of present) {
       const k = actorKindAt(a.kind);
       if (!k || a.deadFrame >= 0 || k.faction === 0 || k.faction === 2) continue;
-      // On hills only feet within 2 m of yours (game.rs swing_actors).
+      // On hills only feet within 2 m of yours (combat.rs swing_actors).
       if (Math.abs(a.y + this.ground(a.x, a.z) - p.y) > 2) continue;
       targets.push({ id: a.id, x: a.x, y: a.y, z: a.z, radius: k.radius, hitHeight: k.hitHeight, hitCeiling: k.hitCeiling, faction: k.faction });
     }

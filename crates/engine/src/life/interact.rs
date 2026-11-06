@@ -750,7 +750,7 @@ pub fn run_command(life: &mut Life, sim: &mut Sim, c: &Command) {
             recover_demand(life, seconds);
             life.regen_labor(seconds, false, false);
         }
-        // The channel moves you itself (crates/server/src/world_game.rs); it never reaches an island.
+        // The channel moves you itself (crates/server/src/play/mod.rs); it never reaches an island.
         Command::Teleport { .. } | Command::Ride { .. } => {}
     }
 }

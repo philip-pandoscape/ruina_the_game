@@ -611,7 +611,7 @@ mod tests {
 
     #[test]
     fn a_step_finished_by_measuring_is_news_but_the_measuring_is_not() {
-        // The island goes to its owner's browser on the tick its revision moves (world_game.rs),
+        // The island goes to its owner's browser on the tick its revision moves (the server's play/mod.rs),
         // otherwise every couple of seconds. Time in the air counts every step: only the step that
         // finishes it should send the island, so the quest log and Hollis's mark change at once.
         let (mut life, mut world, mut p) = island(0.0);

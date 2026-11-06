@@ -10,11 +10,11 @@
 //!   POST /api/logout
 //!   POST /api/dev-login {username}   development only (DEV_LOGIN=1): signs in without a password
 //!   GET  /api/characters, POST /api/characters {name}, DELETE /api/characters/{id} {name}
-//!                       your characters (crates/server/src/characters.rs)
+//!                       your characters (crates/server/src/accounts/characters.rs)
 //!   POST /api/dev/stop  development only (DEV_LOGIN=1), an admin signed in: stops the server as a
 //!                       deploy does (tests)
-//!   GET  /ws/world      the open world (crates/server/src/world_socket.rs); ?character=<id>
-//!   GET  /ws/battle     the PvP battlefield (crates/server/src/net.rs), when the server runs one
+//!   GET  /ws/world      the open world (crates/server/src/play/socket.rs); ?character=<id>
+//!   GET  /ws/battle     the PvP battlefield (crates/server/src/battle/net.rs), when the server runs one
 //!   /dev/, /design/     the developer pages, for admins only (ADMIN_USERS); "not found" to anyone else
 
 use std::collections::{HashMap, HashSet};
@@ -37,7 +37,9 @@ use tower::ServiceBuilder;
 use tower_http::compression::Compression;
 use tower_http::services::ServeDir;
 
-use crate::{accounts, characters, net, world_socket};
+use crate::accounts::{self, characters};
+use crate::battle::net;
+use crate::play::socket;
 
 /// The battlefield's connections, shared with its simulation thread (crates/server/src/main.rs).
 pub struct Battle {
@@ -50,7 +52,7 @@ pub struct AppState {
     /// world don't.
     pub db: Option<PgPool>,
     pub battle: Option<Battle>,
-    pub world: world_socket::Hub,
+    pub world: socket::Hub,
     /// Sign in by name alone (?as=name in the browser), and everyone an admin. Never on Railway.
     pub dev_login: bool,
     /// The admins, by name (lower case): they reach the developer pages (/dev/, /design/) and the
@@ -113,7 +115,7 @@ pub async fn serve(port: u16, everywhere: bool, state: AppState, static_dir: Opt
         .route("/api/characters", get(characters::list).post(characters::create))
         .route("/api/characters/{id}", delete(characters::delete))
         .route("/api/dev/stop", post(dev_stop))
-        .route("/ws/world", get(world_socket::upgrade))
+        .route("/ws/world", get(socket::upgrade))
         .route("/ws/battle", get(battle));
     let app = Arc::new(state);
     if let Some(dir) = static_dir {
@@ -122,7 +124,7 @@ pub async fn serve(port: u16, everywhere: bool, state: AppState, static_dir: Opt
         let files = ServiceBuilder::new().layer(middleware::from_fn_with_state(app.clone(), admin_pages)).service(Compression::new(ServeDir::new(dir)));
         router = router.fallback_service(files);
     }
-    world_socket::spawn_world(app.clone());
+    socket::spawn_world(app.clone());
     let saver = app.clone();
     let asker = app.clone();
     let router = router.with_state(app);
@@ -147,7 +149,7 @@ pub async fn serve(port: u16, everywhere: bool, state: AppState, static_dir: Opt
                 _ = asker.world.stop_asked() => {}
             }
             println!("stopping: telling everyone, saving everyone's island");
-            world_socket::stop_world(&saver).await;
+            socket::stop_world(&saver).await;
         })
         .await
 }
@@ -323,7 +325,7 @@ mod tests {
         AppState {
             db: None,
             battle: None,
-            world: world_socket::Hub::default(),
+            world: socket::Hub::default(),
             dev_login,
             admin_users: admin_users(admins),
             secure_cookies: false,

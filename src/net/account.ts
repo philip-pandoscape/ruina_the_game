@@ -1,4 +1,4 @@
-// Accounts and characters on the game server (crates/server/src/accounts.rs, crates/server/src/characters.rs).
+// Accounts and characters on the game server (crates/server/src/accounts/mod.rs, crates/server/src/accounts/characters.rs).
 // Plain same-origin requests: in development Vite forwards /api to the server (vite.config.ts), and
 // in production the server serves the game itself. The session cookie is http-only, so this file
 // never sees it; the browser sends it.

@@ -1,7 +1,7 @@
 //! The open world's connection: one per player on Emberholm. src/net/worldLink.ts is the other
 //! end.
 //!
-//! Each character lives in a channel of Emberholm, and the server plays it (crates/server/src/world_game.rs):
+//! Each character lives in a channel of Emberholm, and the server plays it (crates/server/src/play/mod.rs):
 //! the browser sends only what its player presses and what they ask their island to do, and hears
 //! back, 20 times a second, where it really is, what its island holds, and everyone else in the
 //! channel. Islands are kept in Postgres, written by the server from its own copy.
@@ -16,7 +16,7 @@
 //!                      estate {id, name, estate} | claims {claims} | left {id} | saved {at}
 //!                      | challenges {sent, waiting}: your challenge out, and one waiting for your answer
 //!                      | table {table}: the game at your table as you may see it (null: you're up)
-//!                      | space {space}: you've gone into a dungeon's copy, or back out (crates/server/src/spaces.rs)
+//!                      | space {space}: you've gone into a dungeon's copy, or back out (crates/server/src/play/spaces.rs)
 //!                      | party {party|null}: your party as it is now | partyInvite {invite|null}
 //!                      | notice {text}: something to read
 //!                      | reset | kicked | error {text}
@@ -26,10 +26,10 @@
 //!                      (src/net/netPlayer.ts quantize)
 //!                      (text) cmd {s, c} | build {build} | reset
 //!                      | challenge {to, game, stake, seed?, turn?} | withdraw | answer {from, accept}
-//!                      | move {table, m} | concede {table}   (mini-games, crates/server/src/world_game/tables.rs)
+//!                      | move {table, m} | concede {table}   (mini-games, crates/server/src/play/tables.rs)
 //!                      | dungeon {id, enter}: through a dungeon's portal, or back out of it
 //!                      | partyInvite {to?, name?} | partyAnswer {from, accept} | partyLeave
-//!                      | partyKick {id} | partyLead {id}   (parties, crates/server/src/parties.rs)
+//!                      | partyKick {id} | partyLead {id}   (parties, crates/server/src/play/parties.rs)
 
 use std::collections::HashMap;
 use std::sync::Mutex;
@@ -49,17 +49,17 @@ use sqlx::PgPool;
 use sqlx::types::Json;
 use tokio::sync::{Notify, mpsc, watch};
 
+use crate::accounts::characters;
 use crate::accounts::{Account, signed_in};
-use crate::channels::CHANNEL_CAP;
-use crate::characters;
-use crate::game::OPEN_INPUT;
+use crate::combat::OPEN_INPUT;
 use crate::http::{App, same_origin};
 use crate::life::Command;
+use crate::play::channels::CHANNEL_CAP;
+use crate::play::spaces::Spaces;
+use crate::play::{Arrival, ChannelGame, Save, TICK_HZ};
 use crate::player::Build;
 use crate::skills::{SKILL_WORDS, valid_build, valid_movement};
-use crate::spaces::Spaces;
 use crate::tuning::{HOTBAR_SLOTS, MOVEMENT_SLOTS, NO_ABILITY, NO_MOVEMENT};
-use crate::world_game::{Arrival, ChannelGame, Save, TICK_HZ};
 
 /// The biggest message a browser may send.
 const MAX_MESSAGE: usize = 64 << 10;
@@ -86,7 +86,7 @@ pub enum Stage {
 }
 
 /// Which connection is playing each character (so a second window takes over from the first),
-/// the channels, dungeons and parties (crate::spaces), and whether the server is stopping.
+/// the channels, dungeons and parties (crate::play::spaces), and whether the server is stopping.
 pub struct Hub {
     live: Mutex<HashMap<i64, (i64, mpsc::Sender<()>)>>,
     spaces: Mutex<Spaces>,
@@ -337,7 +337,7 @@ enum FromBrowser {
         build: Value,
     },
     Reset,
-    /// Mini-games (crates/server/src/world_game/tables.rs): challenge someone, take it back, answer one,
+    /// Mini-games (crates/server/src/play/tables.rs): challenge someone, take it back, answer one,
     /// make a move at your table, give the game up.
     Challenge {
         to: i64,
@@ -360,12 +360,12 @@ enum FromBrowser {
     Concede {
         table: u64,
     },
-    /// Through a dungeon's portal (crates/server/src/spaces.rs), or back out of it.
+    /// Through a dungeon's portal (crates/server/src/play/spaces.rs), or back out of it.
     Dungeon {
         id: String,
         enter: bool,
     },
-    /// Parties (crates/server/src/parties.rs): invite someone (by id, or by name), answer an invitation,
+    /// Parties (crates/server/src/play/parties.rs): invite someone (by id, or by name), answer an invitation,
     /// leave, remove someone, hand on the lead.
     PartyInvite {
         #[serde(default)]

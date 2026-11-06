@@ -2,7 +2,7 @@
 //! eight house plots aren't fought over by everyone. This keeps what everyone in a channel has
 //! built (their estate: houses, farms and ships on the slipway), which stays standing when they log
 //! off, and who holds which house plot: whoever built on it first. The channel's game itself is in
-//! crates/server/src/world_game.rs.
+//! crates/server/src/play/mod.rs.
 
 use std::collections::{BTreeMap, HashMap};
 

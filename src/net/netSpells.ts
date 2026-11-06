@@ -9,7 +9,7 @@ import type { ArrowRecord, EffectEvent, MeteorRecord, NetCrowd } from './netCrow
 // arrows, meteors and heals show the instant you release or finish the cast, before the server has
 // even heard about them; when the server's copy of an arrow or meteor arrives, it takes over.
 
-const ARROW_RADIUS = 0.55; // crates/server/src/game.rs
+const ARROW_RADIUS = 0.55; // crates/server/src/combat.rs
 const EVENT_HEAL = 1;
 const EVENT_EXPLOSION = 2;
 const EVENT_ARROW_HIT = 3;

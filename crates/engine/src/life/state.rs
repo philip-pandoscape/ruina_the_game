@@ -221,7 +221,7 @@ pub struct LifeState {
     /// World seconds since this island began.
     pub clock: f64,
     pub coins: f64,
-    /// Coins on a table for a game being played (crates/server/src/world_game/tables.rs): out of the
+    /// Coins on a table for a game being played (crates/server/src/play/tables.rs): out of the
     /// purse until the game pays out. An island loaded with some still here gets them back.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub staked: Option<f64>,

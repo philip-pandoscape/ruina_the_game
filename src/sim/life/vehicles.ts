@@ -357,7 +357,7 @@ export function mountCommand(life: Life, sim: Sim): void {
 export function rideVehicle(life: Life, sim: Sim, a: Actions): void {
   const p = sim.player;
   // Riding along in someone else's: you sit where its seat goes, which whoever runs the channel
-  // works out once its owner has driven it this step (crates/server/src/world_game.rs).
+  // works out once its owner has driven it this step (crates/server/src/play/mod.rs).
   if (p.host) return;
   const v = ridden(life, sim);
   if (!v) {

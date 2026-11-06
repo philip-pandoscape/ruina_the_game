@@ -1,6 +1,6 @@
 //! Accounts and signing in: names with Argon2id password hashes in Postgres, and a session cookie
 //! that the game's pages and its WebSocket both carry. The cookie is http-only, so the page's own
-//! scripts never see it. An account holds several characters (crates/server/src/characters.rs); registering
+//! scripts never see it. An account holds several characters (crates/server/src/accounts/characters.rs); registering
 //! makes the first, named after the account.
 
 use std::sync::OnceLock;
@@ -17,6 +17,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sha2::{Digest, Sha256};
 use sqlx::PgPool;
+
+/// The characters an account holds.
+pub mod characters;
 
 use crate::http::{ApiError, App, AppState, database};
 
@@ -143,7 +146,7 @@ async fn create_account(db: &PgPool, name: &str, hash: &str) -> Result<Option<Ac
         return Ok(None);
     };
     // Returning without committing takes the account back out.
-    if crate::characters::insert(&mut tx, id, name).await?.is_none() {
+    if crate::accounts::characters::insert(&mut tx, id, name).await?.is_none() {
         return Ok(None);
     }
     tx.commit().await?;

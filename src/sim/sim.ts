@@ -329,7 +329,7 @@ export class Sim {
     this.emit(e);
   }
 
-  // A bow looses its arrow on the first active frame, from where the server fires it (game.rs).
+  // A bow looses its arrow on the first active frame, from where the server fires it (combat.rs).
 
   // ---- what the rest of the game calls -------------------------------------
   // The rules themselves live in ./player and ./combat; these keep the old surface so callers

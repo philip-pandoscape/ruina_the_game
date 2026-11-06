@@ -203,7 +203,7 @@ pub struct Ability {
     pub range: f64,
     #[serde(default)]
     pub max_range: Option<f64>,
-    /// What it actually does. The kinds are the vocabulary that costs code (see game.rs); an
+    /// What it actually does. The kinds are the vocabulary that costs code (see the server's combat.rs); an
     /// ability built out of them is only data.
     pub effects: Vec<Effect>,
 }

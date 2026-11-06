@@ -474,7 +474,7 @@ struct DriveInput {
 
 pub fn ride_vehicle(life: &mut Life, sim: &mut Sim, a: &Actions) {
     // Riding along in someone else's: you sit where its seat goes, which the channel works out once
-    // its owner has driven it this step (world_game.rs seat_passengers).
+    // its owner has driven it this step (the server's play/mod.rs seat_passengers).
     if sim.player.host != 0 {
         return;
     }

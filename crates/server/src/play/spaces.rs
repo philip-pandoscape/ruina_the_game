@@ -6,7 +6,7 @@
 //! minute. A party that forms takes over its leader's copy; one that breaks up leaves its copy to
 //! whoever was left in it.
 //!
-//! A copy is a game like a channel (crate::world_game::ChannelGame, its `space` a Copy): ticked by
+//! A copy is a game like a channel (crate::play::ChannelGame, its `space` a Copy): ticked by
 //! the same world thread, saving islands the same way (as standing outside its door). Moving between
 //! games takes the player out of one whole, with their connection and island, and into the other;
 //! their browser hears `space` and starts afresh with what it sees.
@@ -19,8 +19,8 @@ use tokio::sync::mpsc;
 
 use crate::open::dungeon::{Spot, dungeon};
 use crate::open::zone::emberholm;
-use crate::parties::{Changed, Parties};
-use crate::world_game::{Arrival, ChannelGame, Owner, Save};
+use crate::play::parties::{Changed, Parties};
+use crate::play::{Arrival, ChannelGame, Owner, Save};
 
 /// How long a copy of a dungeon is kept once the last player has left it.
 pub const COPY_KEPT: Duration = Duration::from_secs(30 * 60);
@@ -292,7 +292,7 @@ impl Spaces {
         }
     }
 
-    // ---------- Parties (crate::parties) ----------
+    // ---------- Parties (crate::play::parties) ----------
 
     /// `from` invites someone playing: by id, or by name (in any channel or dungeon).
     pub fn party_invite(&mut self, from: i64, to: Option<i64>, name: Option<&str>) -> Result<(), String> {
@@ -452,7 +452,7 @@ fn invite_json(inv: Option<(i64, &str, Instant)>) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::world_game::Arrival;
+    use crate::play::Arrival;
 
     /// Ada (1) and Bo (2) playing in channel 1, each with what their browser hears.
     fn two_in_channel_one() -> (Spaces, mpsc::Receiver<String>, mpsc::Receiver<String>) {

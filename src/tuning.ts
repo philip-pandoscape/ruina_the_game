@@ -86,7 +86,7 @@ export interface Weapon {
 
 // What an ability does, as a list of effects rather than a name the code knows. Adding a skill
 // built from these is a data change; only a genuinely new kind of thing costs code, and then in
-// both languages at once (src/sim, crates/server/src/game.rs).
+// both languages at once (src/sim, crates/server/src/combat.rs).
 export type EffectKind = 'healArea' | 'delayedArea';
 
 export interface Effect {

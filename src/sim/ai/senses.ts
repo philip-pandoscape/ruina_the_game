@@ -10,7 +10,7 @@ import type { Sighting } from './brain';
 // What a creature can tell about the players around it. Each player is a foe: where they are and
 // how fast they are going, which way they face, how hurt they are, what their weapon reaches and
 // what they are doing with it. Brains and packs decide from this alone, so the server builds the
-// same record for every player in a channel (crates/server/src/game.rs Players::foes) and a creature
+// same record for every player in a channel (crates/server/src/combat.rs Players::foes) and a creature
 // can't tell the training yard from a live island.
 
 /** What a foe is doing, as far as a creature can tell. */
