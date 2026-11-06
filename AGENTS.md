@@ -186,6 +186,8 @@ Whatever comes from outside goes in `CREDITS.md` (what, where, from, licence).
 
 ## Branches and deploys
 
+In full, with what CI runs and the service's settings: `docs/deploys.md`.
+
 - `beta` (default): push directly. CI (`.github/workflows/ci-cd.yml`) typechecks and builds the
   client and runs the Rust tests; if they pass, it deploys to https://ruinathegame-beta.up.railway.app.
   It skips the Playwright suite for a beta push (CI has no GPU, so it takes half an hour and more):
