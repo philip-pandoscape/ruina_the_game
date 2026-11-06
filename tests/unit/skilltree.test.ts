@@ -5,7 +5,6 @@ import {
   bookIndex,
   dependents,
   emptySkills,
-  gather,
   hasSkill,
   LEVEL_MODS,
   LEVEL_XP,
@@ -17,7 +16,6 @@ import {
   NODES,
   pathTo,
   reachable,
-  resolveSkills,
   ROOTS,
   SKILL_WORDS,
   skillCount,
@@ -30,6 +28,7 @@ import {
   type SkillMod,
 } from '../../src/content/skills';
 import { learnBlock, learnPath, NODE_INFO, validBuild } from '../../src/content/build';
+import { resolveSkills } from '../../src/engine/rules';
 import {
   castFramesFor,
   comboFor,
@@ -292,8 +291,9 @@ test('frames round the same way every time', () => {
 test('a modifier only counts where it is scoped to', () => {
   const s = skillsFrom('bow', 'rapidFire'); // scoped to weapon 3
   const startup = statIndex('attack.startup');
-  expect(gather(s, { weapon: 3, tags: WEAPONS[3].tags })[startup].more).toBeLessThan(1);
-  expect(gather(s, { weapon: 0, tags: WEAPONS[0].tags })[startup].more).toBe(1);
+  const r = resolveSkills(s);
+  expect(r.weapon[3][startup].more).toBeLessThan(1);
+  expect(r.weapon[0][startup].more).toBe(1);
 });
 
 test('a tag-scoped modifier only reaches skills carrying that tag', () => {

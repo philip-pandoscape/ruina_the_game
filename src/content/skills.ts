@@ -269,36 +269,6 @@ export interface Channel {
 
 const IDENTITY: Channel = { flat: 0, inc: 0, more: 1 };
 
-export function gather(s: SkillSet, ctx: ModContext, levels?: Levels): Channel[] {
-  const out: Channel[] = STATS.map(() => ({ flat: 0, inc: 0, more: 1 }));
-  // Node order, so the product below is the same sequence on both sides.
-  for (let i = 0; i < NODES.length; i++) {
-    if (!hasSkill(s, i)) continue;
-    for (const m of NODES[i].mods ?? []) {
-      if (!applies(m, ctx)) continue;
-      const c = out[statIndex(m.stat)];
-      if (m.op === 'flat') c.flat += m.value;
-      else if (m.op === 'inc') c.inc += m.value;
-      else c.more *= 1 + m.value;
-    }
-  }
-  // Then what each skill's levels add, once per level past the first. Sums only, so the order
-  // they come in doesn't matter.
-  if (levels) {
-    for (let b = 0; b < BOOK.length; b++) {
-      const extra = (levels[b] ?? 1) - 1;
-      if (extra <= 0) continue;
-      for (const m of LEVEL_MODS[BOOK[b].id] ?? []) {
-        if (!applies(m, ctx)) continue;
-        const c = out[statIndex(m.stat)];
-        if (m.op === 'flat') c.flat += m.value * extra;
-        else c.inc += m.value * extra;
-      }
-    }
-  }
-  return out;
-}
-
 export const applyChannel = (c: Channel | undefined, base: number): number => {
   const ch = c ?? IDENTITY;
   return (base + ch.flat) * (1 + ch.inc) * ch.more;
@@ -365,7 +335,9 @@ export const sameLevels = (a: Levels | undefined, b: Levels | undefined): boolea
 //
 // Gathering walks the whole tree, so it happens once when a build or a level changes and never in
 // a frame. The result is a set of channels per weapon, for swings; per ability, for casts; and per
-// movement skill, for its cooldown.
+// movement skill, for its cooldown. The engine gathers them (crates/engine/src/skills.rs
+// resolve_skills; the page asks it through src/engine/skills.ts): here are their shapes, and what a
+// set grants, which the build's checks read.
 
 export interface ResolvedSkills {
   weapon: Channel[][]; // [weapon][stat]
@@ -377,7 +349,8 @@ export interface ResolvedSkills {
   movement: number[]; // movement skills it has learned
 }
 
-export function resolveSkills(s: SkillSet, levels?: Levels): ResolvedSkills {
+/** What a learned set grants, in node order: its combo variants, weapons, abilities and movement skills. */
+export function grantsOf(s: SkillSet): Pick<ResolvedSkills, 'combos' | 'weapons' | 'abilities' | 'movement'> {
   const combos = new Set<string>();
   const weapons: number[] = [];
   const abilities: number[] = [];
@@ -391,10 +364,7 @@ export function resolveSkills(s: SkillSet, levels?: Levels): ResolvedSkills {
     if (g.ability !== undefined) abilities.push(g.ability);
     if (g.movement !== undefined) movement.push(g.movement);
   }
-  const weapon = WEAPON_TAGS.map((tags, w) => gather(s, { weapon: w, tags }, levels));
-  const ability = ABILITY_IDS.map((a) => gather(s, { skill: a.id, tags: a.tags }, levels));
-  const move = MOVEMENT_DEFS.map((m) => gather(s, { skill: m.id, tags: m.tags }, levels));
-  return { weapon, ability, move, combos, weapons, abilities, movement };
+  return { combos, weapons, abilities, movement };
 }
 
 /** What a book entry is, to ask which modifiers reach it. */

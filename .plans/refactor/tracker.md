@@ -587,7 +587,7 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
   Begun (see R8.5): the session's interface (`crates/engine-wasm/src/session.rs`, `src/engine/session.ts`):
   a step takes the actions as numbers (the six buttons as bits); you, the creatures, what happened and
   the island come back as JSON in the TypeScript's shapes; every other write the Engine makes is one
-  named call (`session_call`). `docs/engine.md` (this commit) says it export by export and call by
+  named call (`session_call`). `docs/engine.md` (0285ad3) says it export by export and call by
   call, and how to add to it. Typed arrays rather than JSON aren't needed:
   R8.14 found the JSON was most of an offline step only while it was built as JSON values first;
   written straight from the session's values, the 18 KB view costs 0.04 ms to write and 0.04 ms to

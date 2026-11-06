@@ -5,7 +5,7 @@ import {
   hasSkill,
   NODES,
   reachable,
-  resolveSkills,
+  grantsOf,
   ROOTS,
   SKILL_POINTS,
   skillCount,
@@ -48,7 +48,7 @@ export const has = (b: Build, index: number): boolean => hasSkill(b.skills, inde
 export const pointsUsed = (s: SkillSet): number => skillCount(s);
 export const pointsLeft = (s: SkillSet, budget = SKILL_POINTS): number => budget - skillCount(s);
 
-export const weaponsOf = (s: SkillSet): number[] => resolveSkills(s).weapons;
+export const weaponsOf = (s: SkillSet): number[] => grantsOf(s).weapons;
 
 // Why a skill can't be learned right now, or null if it can.
 export function learnBlock(b: Build, info: NodeInfo, budget = SKILL_POINTS): string | null {
@@ -130,7 +130,7 @@ export function swapSlots(b: Build, a: number, c: number): Build {
 
 // Keeps the loadout to things you've actually learned.
 export function fixLoadout(b: Build): Build {
-  const r = resolveSkills(b.skills);
+  const r = grantsOf(b.skills);
   const out: Build = { ...b, skills: b.skills, abilities: [...(b.abilities ?? [])], movement: [...(b.movement ?? [])] };
   while (out.movement.length < MOVEMENT_SLOTS) out.movement.push(NO_MOVEMENT);
   out.movement.length = MOVEMENT_SLOTS;
@@ -160,7 +160,7 @@ export function validBuild(b: Build, budget = SKILL_POINTS): boolean {
   if (pointsUsed(b.skills) > budget) return false;
   if (!Array.isArray(b.abilities) || b.abilities.length !== HOTBAR_SLOTS) return false;
   if (!Array.isArray(b.movement) || b.movement.length !== MOVEMENT_SLOTS) return false;
-  const r = resolveSkills(b.skills);
+  const r = grantsOf(b.skills);
   const seen = new Set<number>();
   for (const a of b.abilities) {
     if (a === NO_ABILITY) continue;

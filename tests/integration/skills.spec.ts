@@ -1,8 +1,11 @@
 import { expect, test, type Page } from '@playwright/test';
 import { ABILITIES, comboFor, emptyMovement, HOTBAR_SLOTS, NO_ABILITY, SLIDE_SKILL, type Build, WEAPONS } from '../../src/content/tuning';
-import { LEVEL_XP, resolveSkills, SKILL_POINTS, skillIndex, skillsFrom, START_POINTS } from '../../src/content/skills';
+import { LEVEL_XP, SKILL_POINTS, skillIndex, skillsFrom, START_POINTS } from '../../src/content/skills';
+import { resolveSkills } from '../../src/engine/rules';
 import type { Command } from '../../src/engine/island';
 import { gameReady } from '../support/game';
+// The engine, for the numbers a build's skills make (src/engine/skills.ts), as the unit tier loads it.
+import '../support/engineSetup';
 
 // The classless skill system: the skill panel, and every weapon and ability in the training yard.
 

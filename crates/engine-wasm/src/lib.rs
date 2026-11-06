@@ -9,11 +9,13 @@
 //!
 //! What comes through here: the browser's game (`session`), growing a zone from its recipe (the
 //! browser's island is the engine's), the colliders of a building plan, Emberholm's ground, the
-//! mini-games' boards (`minigames`), and content given in place of the compiled bundles
-//! (`content_use`, before anything is read: the tests that add content as data).
+//! mini-games' boards (`minigames`), what a build's skills make of its attacks and spells
+//! (`skills`), and content given in place of the compiled bundles (`content_use`, before anything is
+//! read: the tests that add content as data).
 
 mod minigames;
 mod session;
+mod skills;
 
 use std::cell::RefCell;
 use std::sync::OnceLock;

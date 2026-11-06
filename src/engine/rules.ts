@@ -6,6 +6,7 @@
 
 export { angleDiff } from './math';
 export { heightAboveGround } from './world/ground';
+export { resolveSkills } from './skills';
 export type { SimView } from './views';
 export { NO_ACTIONS, ON_FOOT } from './shapes';
 export type { Actions, GameEvent, Mover, Obstacle, PlayerState, SimRead, World } from './shapes';

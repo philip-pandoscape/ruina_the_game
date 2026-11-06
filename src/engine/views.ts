@@ -4,7 +4,8 @@
 // every call; nothing else writes them, and the rules never read them back. Read them afresh: what a
 // step hands over is new each time, so a part kept from an earlier step is that step's.
 
-import { BOOK, type Levels, type ResolvedSkills, resolveSkills } from '../content/skills';
+import { BOOK, type Levels, type ResolvedSkills } from '../content/skills';
+import { resolveSkills } from './skills';
 import type { Actor, Missile } from './actors/actor';
 import type { ArrowFlight, MeteorFall } from './training';
 import type { GameEvent, PlayerState, World } from './shapes';
