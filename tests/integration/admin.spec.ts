@@ -151,3 +151,54 @@ test('an admin goes into the battlefield from the world, finds its bots and an a
   const at = await page.evaluate(() => window.__game.state().player.pos);
   expect(Math.hypot(at.x - zone.door.outside.x, at.z - zone.door.outside.z)).toBeLessThan(5);
 });
+
+test('an admin in the yard finds its dummy and slimes standing on its floor, and the dummy takes their blows', { tag: '@gpu' }, async ({ page }) => {
+  const zone = JSON.parse(readFileSync('content/dungeons/yard.json', 'utf8'));
+  const kinds: string[] = JSON.parse(readFileSync('shared/actors.json', 'utf8')).kinds.map((k: { id: string }) => k.id);
+  const [DUMMY, SLIME] = [kinds.indexOf('dummy'), kinds.indexOf('slime')];
+  const at = (sp: { x: number; z: number }) => ({ x: zone.origin.x + sp.x, z: zone.origin.z + sp.z });
+
+  await atCharacterSelect(page, ADMIN);
+  await enterWorld(page);
+  expect(await page.evaluate(() => window.__game.enterZone('yard'))).toBe(true);
+  await expect.poll(() => page.evaluate(() => window.__game.space()), { timeout: 30_000 }).toMatchObject({ kind: 'dungeon', dungeon: 'yard' });
+
+  // What its file brings, each where the file puts it, the server standing them on its floor (their
+  // heights come over the ground under them, which in the yard is its floor).
+  const spawned = (kind: number) => page.evaluate((k) => window.__game.shownActors().filter((a) => a.kind === k), kind);
+  await expect
+    .poll(async () => (await spawned(SLIME)).length, { timeout: 30_000 })
+    .toBe(zone.spawns.filter((sp: { kind: string }) => sp.kind === 'slime').length);
+  const [dummy] = await spawned(DUMMY);
+  const post = at(zone.spawns.find((sp: { kind: string }) => sp.kind === 'dummy'));
+  expect(Math.hypot(dummy.x - post.x, dummy.z - post.z)).toBeLessThan(0.1);
+  expect(Math.abs(dummy.y)).toBeLessThan(0.5);
+  // Drawn there too, on the floor and not on the island far below.
+  await expect.poll(() => page.evaluate(() => window.__game.drawnDummy()?.y ?? null), { timeout: 10_000 }).toBeCloseTo(zone.origin.y, 0);
+  expect(await page.evaluate(([x, z]) => window.__game.ground(x, z), [post.x, post.z] as const)).toBeCloseTo(zone.origin.y, 1);
+
+  // Up to it and swinging: the server, measuring from the floor, lets the blows land.
+  await page.evaluate(([x, z]) => window.__game.teleport(x, z), [post.x, post.z - 1.2] as const);
+  await page.waitForFunction(
+    ([x, z]) => Math.hypot(window.__game.state().player.pos.x - x, window.__game.state().player.pos.z - z) < 0.5,
+    [post.x, post.z - 1.2] as const,
+    {
+      timeout: 30_000,
+    },
+  );
+  const hp = await page.evaluate(
+    async ([id, x, z]) => {
+      const g = window.__game;
+      for (let i = 0; i < 600; i++) {
+        const t = g.shownActors().find((a) => a.id === id);
+        if (t && (t.hp < 1 || t.deadFrame >= 0)) return t.hp;
+        const me = g.state().player.pos;
+        g.scriptInput([[1, { attackPressed: i % 20 === 0, aimX: x - me.x, aimZ: z - me.z }]]);
+        await new Promise((r) => requestAnimationFrame(r));
+      }
+      return 1;
+    },
+    [dummy.id, post.x, post.z] as const,
+  );
+  expect(hp).toBeLessThan(1);
+});

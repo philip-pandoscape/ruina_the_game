@@ -475,8 +475,13 @@ export function makeTestApi(g: GameRefs) {
       const r = g.world.zone?.gen.ramps[i] ?? [];
       return r.filter((_, k) => k % 3 === 0 || k === r.length - 1).map(([x, z]) => [x, z]);
     },
+    /** The ground things are drawn on at (x, z): the island's, or the floor of the dungeon or zone you're in. */
     ground(x: number, z: number): number {
-      return g.terrain ? g.terrain.height(x, z) : 0;
+      return g.groundY(x, z);
+    },
+    /** Where the training dummy is drawn (the rules' offline, the server's online), or null while none is. */
+    drawnDummy() {
+      return g.dummyDrawn;
     },
     /** What the ground is made of under a point (SURFACE in src/sim/terrain.ts). */
     surface(x: number, z: number): number {

@@ -8,7 +8,7 @@ use std::sync::OnceLock;
 use serde::Deserialize;
 
 use super::OpenWorld;
-use super::colliders::ground_at;
+use super::colliders::{ground_at, in_rect};
 use super::zone::{BoxCollider, Deck, DungeonDoor, Spawn, rect};
 
 /// A box or deck as a dungeon's file gives it: around the origin, its top above the origin's height.
@@ -69,6 +69,16 @@ pub struct DungeonDef {
     /// How the browser draws it: "cave" (the default) or "arena" (open sky).
     #[serde(default)]
     pub style: Option<String>,
+    /// Creatures a copy of it brings (relative to the origin): a training dummy, slimes, goblins.
+    #[serde(default)]
+    pub spawns: Vec<ZoneSpawn>,
+}
+
+#[derive(Deserialize, Clone, Debug)]
+pub struct ZoneSpawn {
+    pub kind: String,
+    pub x: f64,
+    pub z: f64,
 }
 
 #[derive(Deserialize, Clone, Debug)]
@@ -108,6 +118,20 @@ impl DungeonDef {
         let o = self.origin;
         let (ex, ez) = (o.x + self.exit.x, o.z + self.exit.z);
         ((x - ex).powi(2) + (z - ez).powi(2)).sqrt() <= self.exit.r + 1.0 && (y - o.y).abs() < 6.0
+    }
+
+    /// The floor at (x, z) (in the world), if it has one there: the top of the highest of its low
+    /// pieces (a floor, a deck; walls and rails aren't floor) whose footprint holds the point. What a
+    /// creature in a copy of it stands on.
+    pub fn floor_at(&self, x: f64, z: f64) -> Option<f64> {
+        let o = self.origin;
+        self.boxes
+            .iter()
+            .chain(&self.decks)
+            .filter(|p| p.top <= 0.6)
+            .filter(|p| in_rect(&rect(o.x + p.x, o.z + p.z, p.hw, p.hd, p.rot, 0.0), x, z, 0.0))
+            .map(|p| o.y + p.top)
+            .max_by(f64::total_cmp)
     }
 
     /// Whether someone has fallen out of it.

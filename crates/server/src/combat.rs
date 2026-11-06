@@ -14,6 +14,7 @@ use crate::content::kind_at;
 use crate::life::progress::{Observed, sync_levels};
 use crate::life::{Command, Life};
 use crate::open::OpenWorld;
+use crate::open::dungeon::DungeonDef;
 use crate::open::zone::Heightfield;
 use crate::player::{Actions, Build, Player, angle_diff};
 use crate::protocol::{
@@ -100,6 +101,11 @@ struct Slot {
 }
 
 // Where `slot` stood at (fractional) tick `view`, from its history.
+/// The ground under a point: a copy's floor where it has one, the terrain, or 0 (the battlefield).
+fn ground_under(floor: Option<&'static DungeonDef>, terrain: Option<&'static Heightfield>, x: f64, z: f64) -> f64 {
+    floor.and_then(|d| d.floor_at(x, z)).unwrap_or_else(|| terrain.map_or(0.0, |g| g.height(x, z)))
+}
+
 fn rewound(slot: &Slot, view: f64) -> (f64, f64, f64) {
     let h = &slot.history;
     let Some(&last) = h.back() else {
@@ -208,6 +214,8 @@ fn kind_of(kind_index: u8) -> Option<&'static str> {
 pub struct Players {
     /// Open worlds: the ground, so heights can be measured from it (the battlefield is flat at 0).
     pub ground: Option<&'static Heightfield>,
+    /// A copy of a dungeon or a developer zone: its floor, which is the ground where it has one.
+    pub floor: Option<&'static DungeonDef>,
     /// Open worlds: refill each player's input budget by this many inputs per tick. 0 (the
     /// battlefield) runs whatever arrives, up to MAX_INPUTS_PER_TICK.
     pub inputs_per_tick: f64,
@@ -246,6 +254,7 @@ impl Players {
         let max = MAX_PLAYERS.min(65_535 - entity_base);
         Players {
             ground: None,
+            floor: None,
             inputs_per_tick: 0.0,
             slots: (0..max).map(|_| None).collect(),
             by_client: HashMap::new(),
@@ -452,9 +461,10 @@ impl Players {
         self.by_client.get(&client_id).copied()
     }
 
-    /// Height of the ground under a point: the open world's terrain, or 0 on the battlefield.
+    /// Height of the ground under a point: a copy's floor where it has one, the open world's
+    /// terrain, or 0 on the battlefield.
     fn ground_at(&self, x: f64, z: f64) -> f64 {
-        self.ground.map_or(0.0, |g| g.height(x, z))
+        ground_under(self.floor, self.ground, x, z)
     }
 
     /// The battlefield: applies the build a player asked for, if it's new and allowed (within
@@ -658,8 +668,11 @@ impl Players {
         feet: Option<f64>,
         landed: &mut Vec<Option<&'static str>>,
     ) {
+        let (floor, terrain) = (self.floor, self.ground);
         let hits = match (self.ground, feet) {
-            (Some(g), Some(y)) => actors.cone_hits_where(x, z, facing, step.reach, step.arc_deg, max, |a| (a.y + g.height(a.x, a.z) - y).abs() <= 2.0),
+            (Some(_), Some(y)) => {
+                actors.cone_hits_where(x, z, facing, step.reach, step.arc_deg, max, |a| (a.y + ground_under(floor, terrain, a.x, a.z) - y).abs() <= 2.0)
+            }
             _ => actors.cone_hits(x, z, facing, step.reach, step.arc_deg, max),
         };
         for id in hits {
@@ -697,7 +710,7 @@ impl Players {
     ) -> usize {
         // High in the air, a swing reaches nobody: two metres above the ground under you (the
         // battlefield's floor is 0; the open world's is its terrain).
-        let floor = self.ground.map_or(0.0, |g| g.height(a.pos.x, a.pos.z));
+        let floor = self.ground_at(a.pos.x, a.pos.z);
         if a.pos.y - floor > 2.0 {
             return 0;
         }
@@ -969,7 +982,7 @@ impl Players {
             let (dx, dz) = (a.x - m.x, a.z - m.z);
             let d = (dx * dx + dz * dz).sqrt().max(1e-3);
             let (ax, az) = (a.x, a.z);
-            let ay = a.y + a.hit_height + self.ground.map_or(0.0, |g| g.height(ax, az));
+            let ay = a.y + a.hit_height + self.ground_at(ax, az);
             let died = actors.damage(id, m.damage, dx / d, dz / d, m.knock);
             self.note(m.owner_slot, EVENT_YOU_HIT, CAUSE_METEOR, ax, ay, az, m.damage);
             // A blast trains nothing (the cast did), but what it finishes off counts.
@@ -1014,12 +1027,13 @@ impl Players {
     /// guard rules as any other blow. Mirrors updateActors() in src/sim/actors/step.ts.
     pub fn apply_slams(&mut self, slams: &[Slam]) {
         let body = tuning().movement.player_radius;
+        let (floor, terrain) = (self.floor, self.ground);
         for s in slams {
             let mut struck: Vec<(usize, f64, f64, f64, f64)> = Vec::new();
             for (i, slot) in self.slots.iter_mut().enumerate() {
                 let Some(slot) = slot else { continue };
                 let p = &mut slot.player;
-                let ground = self.ground.map_or(0.0, |g| g.height(p.pos.x, p.pos.z));
+                let ground = ground_under(floor, terrain, p.pos.x, p.pos.z);
                 if p.down_frame >= 0 || p.pos.y - ground > SLAM_LIFT {
                     continue;
                 }

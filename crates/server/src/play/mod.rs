@@ -236,7 +236,13 @@ impl ChannelGame {
     pub fn copy(id: i32, def: &'static DungeonDef, door: &'static DungeonDoor, owner: Owner) -> Self {
         let mut ch = ChannelGame::new(id);
         ch.actors = Actors::new();
+        // What its file says lives in it (a developer zone's training dummy, slimes).
+        for (i, s) in def.spawns.iter().enumerate() {
+            ch.actors.spawn(&s.kind, def.origin.x + s.x, def.origin.z + s.z, 0x20ae ^ (i as u32).wrapping_mul(0x9e37_79b1));
+        }
         ch.open.make_dungeon(def);
+        // Heights in a fight are measured from its floor, far over the island.
+        ch.players.floor = Some(def);
         ch.estates.loaded = true;
         ch.space = Space::Copy(CopyOf { def, door, owner, empty_since: Some(Instant::now()), expel: HashMap::new() });
         ch
@@ -876,7 +882,9 @@ impl ChannelGame {
         self.players.step_effects(&mut self.battle, &mut self.actors);
         let foes = self.players.foes();
         let ground = self.players.ground;
-        let ground_at = move |x: f64, z: f64| ground.map_or(0.0, |g| g.height(x, z));
+        // In a copy of a dungeon or a developer zone, its creatures stand on its floor, far over the island.
+        let floor = self.copy_of().map(|c| c.def);
+        let ground_at = move |x: f64, z: f64| floor.and_then(|d| d.floor_at(x, z)).unwrap_or_else(|| ground.map_or(0.0, |g| g.height(x, z)));
         let mut done = StepOut::default();
         for _ in 0..(60 / TICK_HZ) {
             done.extend(self.actors.step(&foes, &ground_at, LEAN_SPRING, LEAN_DAMPING, 1.0 / 60.0));

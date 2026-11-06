@@ -12,7 +12,7 @@ import { GRAPHICS } from './render/look';
 import { Hero } from './render/character';
 import { TrainingDummy } from './render/dummy';
 import { ActorView } from './render/actors';
-import { actorKindAt, actorKindIds, findKind, kindName } from './content/actors';
+import { actorKindAt, actorKindIds, actorKindIndex, findKind, kindName } from './content/actors';
 import { isAlive } from './sim/actor';
 import { behaviour, stateProgress } from './sim/ai/brain';
 import { createTargeting } from './app/targeting';
@@ -129,7 +129,9 @@ const yardGoblins = opt.goblins;
 if (yardGoblins) world.spawns.push(...bandAround('goblin', yardGoblins, 9, 10, 1));
 const terrain = world.terrain ?? null;
 /** Ground height under a point: the island's terrain, or 0 on the flat training grounds. */
-const groundY = (x: number, z: number): number => (terrain ? terrain.height(x, z) : 0);
+/** In a copy of a dungeon or a developer zone, its floor at a point (set once the visit is made, below). */
+let floorHere: ((x: number, z: number) => number | null) | null = null;
+const groundY = (x: number, z: number): number => floorHere?.(x, z) ?? (terrain ? terrain.height(x, z) : 0);
 // Online (the battlefield, or Emberholm on the game server) the server decides hits, so the local
 // rules run without the training dummy and hit pause, and only predict your own moves.
 const serverRules = !!serverUrl || !!online;
@@ -171,10 +173,12 @@ const hero = new Hero();
 stage.scene.add(hero.root);
 const dummy = new TrainingDummy(world.dummy.x, world.dummy.z);
 dummy.root.position.y = groundY(world.dummy.x, world.dummy.z);
-// Training only: online the server owns what lives in the world.
 const actorView = new ActorView(actorKindIds(), 64, terrain ? groundY : null);
 const dummyActor = () => sim.actorOfKind('dummy');
+// Online the server owns what lives in the world: its dummy is drawn where it has one (the
+// island's, a yard's), and the rules' own only offline.
 dummy.root.visible = !serverRules;
+const DUMMY_KIND = actorKindIndex('dummy');
 stage.scene.add(dummy.root);
 stage.scene.add(actorView.group);
 // What creatures throw, in flight. Offline only for now: online the server flies them.
@@ -432,6 +436,8 @@ if (lifeUI && life) {
     return before?.(k) ?? false;
   };
 }
+// What's drawn on the ground in a copy (its creatures, effects) stands on its floor.
+if (visit) floorHere = (x, z) => visit.floorAt(x, z);
 // ---------- end Goblin's Dread ----------
 if (peers && gameTables) peers.stoolFor = (id) => gameTables.seatOf(id);
 if (online && peers && life && minigames) {
@@ -1359,6 +1365,19 @@ function draw(alpha: number, cameraDt: number, animDt: number): void {
     const now = performance.now();
     refreshActors(now);
     actorView.fromNetwork(shownActors, (id) => netMonsters?.flash(id, now) ?? 0);
+    // The dummy nearest you, where the server has it (the crowd draws what has a species; it has none).
+    let near: NetActor | null = null;
+    for (const a of shownActors)
+      if (
+        a.kind === DUMMY_KIND &&
+        (!near || Math.hypot(a.x - sim.player.pos.x, a.z - sim.player.pos.z) < Math.hypot(near.x - sim.player.pos.x, near.z - sim.player.pos.z))
+      )
+        near = a;
+    dummy.root.visible = !!near;
+    if (near) {
+      dummy.root.position.set(near.x, near.y + groundY(near.x, near.z), near.z);
+      dummy.fromNetwork(netMonsters?.flash(near.id, now) ?? 0, near.deadFrame);
+    }
   }
   // Townsfolk with their own models are drawn by the life view instead of the crowd.
   else actorView.update(lifeView?.drawsTownsfolk ? sim.actors.all().filter((a) => a.faction !== 2) : sim.actors.all());
@@ -1704,6 +1723,13 @@ const refs = {
   },
   get dummyActor() {
     return dummyActor;
+  },
+  /** Where the training dummy is drawn, or null while none is. */
+  get dummyDrawn() {
+    return dummy.root.visible ? { x: dummy.root.position.x, y: dummy.root.position.y, z: dummy.root.position.z } : null;
+  },
+  get groundY() {
+    return groundY;
   },
   get follow() {
     return follow;

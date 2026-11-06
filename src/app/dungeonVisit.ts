@@ -1,7 +1,7 @@
 import type { Life } from '../sim/life/life';
 import type { Sim } from '../sim/sim';
 import type { OpenStage } from '../render/open/stage';
-import { arrivalOf, dungeonDef, dungeonDoor, inWorld, setDungeonSolid, type DungeonSolids } from '../sim/zone/dungeon';
+import { arrivalOf, dungeonDef, dungeonDoor, floorAt, inWorld, setDungeonSolid, type DungeonSolids } from '../sim/zone/dungeon';
 
 // Going into a copy of a dungeon and out again, as this browser sees it: the dungeon's boxes and
 // decks made solid in your world (and taken away again after), its cave drawn and the island put
@@ -74,6 +74,12 @@ export class DungeonVisit {
     const a = arrivalOf(def);
     this.d.place(a.x, a.y, a.z, a.facing);
     return true;
+  }
+
+  /** The floor at (x, z) of the dungeon you're in, where it has one (null out on the island, or off its floor). */
+  floorAt(x: number, z: number): number | null {
+    const def = this.inside ? dungeonDef(this.inside) : undefined;
+    return def ? floorAt(def, x, z) : null;
   }
 
   /** The floor's height inside the dungeon you're in (null out on the island). */

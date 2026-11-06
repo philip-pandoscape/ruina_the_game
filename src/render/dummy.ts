@@ -47,18 +47,30 @@ export class TrainingDummy {
     part(p, disc(0.05), red, 0, 1.02, 0.21, { castShadow: false });
   }
 
+  /** As the rules have it here: leaning the way it was hit, white as a blow lands, broken a moment. */
   update(d: Actor): void {
-    // Lean toward the direction it was hit.
-    this.pivot.rotation.set(d.leanZ, 0, -d.leanX);
+    this.pose(d.leanX, d.leanZ, Math.max(0, 1 - d.flashFrame / 8), isAlive(d) ? -1 : d.deadFrame);
+  }
 
-    const flash = Math.max(0, 1 - d.flashFrame / 8);
+  /**
+   * As the server has it (online, where the browser only draws what it says): how white it is (0..1)
+   * and how many frames since it broke (-1 standing). The server doesn't say which way it leans.
+   */
+  fromNetwork(glow: number, deadFrame: number): void {
+    this.pose(0, 0, glow, deadFrame);
+  }
+
+  private pose(leanX: number, leanZ: number, flash: number, deadFrame: number): void {
+    // Lean toward the direction it was hit.
+    this.pivot.rotation.set(leanZ, 0, -leanX);
+
     for (const m of this.flashMats) m.emissive.setScalar(flash * 0.65);
     const squish = 1 - 0.1 * flash;
     this.parts.scale.set(1 + 0.06 * flash, squish, 1 + 0.06 * flash);
 
-    if (!isAlive(d)) {
+    if (deadFrame >= 0) {
       // Broken: gone for a moment, then springs back up.
-      const back = Math.max(0, (d.deadFrame - (DUMMY.resetFrames - 12)) / 12);
+      const back = Math.max(0, (deadFrame - (DUMMY.resetFrames - 12)) / 12);
       const s = back * back * (3 - 2 * back);
       this.parts.scale.set(s, s, s);
     }

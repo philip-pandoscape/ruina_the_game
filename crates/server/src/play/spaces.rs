@@ -579,6 +579,26 @@ mod tests {
     }
 
     #[test]
+    fn the_yard_brings_its_dummy_and_slimes_and_they_stand_on_its_floor() {
+        let (mut sp, _a, _b) = two_in_channel_one();
+        sp.enter_zone(1, "yard", true).unwrap();
+        let copy = sp.at[&1];
+        let kinds: Vec<String> = sp.games[&copy].actors.list.iter().map(|a| a.kind.clone()).collect();
+        assert_eq!(kinds.iter().filter(|k| *k == "dummy").count(), 1);
+        assert_eq!(kinds.iter().filter(|k| *k == "slime").count(), 3);
+        let mut saves = Vec::new();
+        for _ in 0..40 {
+            sp.games.get_mut(&copy).unwrap().step(&mut saves);
+        }
+        // A creature's height is above the ground under it, which in the copy is the yard's floor.
+        let yard = dungeon("yard").unwrap();
+        for a in &sp.games[&copy].actors.list {
+            assert_eq!(yard.floor_at(a.x, a.z), Some(yard.origin.y), "{} is over the yard's floor", a.kind);
+            assert!(a.y.abs() < 1.0, "{} stands on it ({} above it)", a.kind, a.y);
+        }
+    }
+
+    #[test]
     fn a_party_goes_into_one_copy_and_someone_else_into_their_own() {
         let (mut sp, mut a, mut b) = two_in_channel_one();
         let pid = party(&mut sp);

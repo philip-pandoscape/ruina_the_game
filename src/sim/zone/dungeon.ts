@@ -1,7 +1,7 @@
 import battlefield from '../../../shared/dungeons/battlefield.json' with { type: 'json' };
 import goblinsDread from '../../../shared/dungeons/goblinsDread.json' with { type: 'json' };
 import yard from '../../../shared/dungeons/yard.json' with { type: 'json' };
-import type { ColliderIndex } from './colliders';
+import { inRect, type ColliderIndex } from './colliders';
 import { rect } from './generate';
 import type { BoxCollider, Deck, DungeonDoor, ZoneRecipe } from './types';
 
@@ -74,6 +74,22 @@ export function inWorld(def: DungeonDef, x: number, z: number, y = 0): { x: numb
 export function dungeonColliders(def: DungeonDef): { boxes: BoxCollider[]; decks: Deck[] } {
   const place = (p: DungeonPiece) => rect(def.origin.x + p.x, def.origin.z + p.z, p.hw, p.hd, p.rot, def.origin.y + p.top);
   return { boxes: def.boxes.map(place), decks: def.decks.map(place) };
+}
+
+/**
+ * The floor at (x, z) in the world, if a copy of the dungeon has one there: the top of the highest of
+ * its low pieces (a floor, a deck; walls and rails aren't floor) whose footprint holds the point.
+ * What its creatures stand on (crates/engine/src/open/dungeon.rs floor_at).
+ */
+export function floorAt(def: DungeonDef, x: number, z: number): number | null {
+  let best: number | null = null;
+  for (const p of [...def.boxes, ...def.decks]) {
+    if (p.top > 0.6) continue;
+    if (!inRect(rect(def.origin.x + p.x, def.origin.z + p.z, p.hw, p.hd, p.rot, 0), x, z)) continue;
+    const top = def.origin.y + p.top;
+    if (best === null || top > best) best = top;
+  }
+  return best;
 }
 
 /** Where you stand on arriving: on the floor at `arrive`, facing the way it says. */
