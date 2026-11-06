@@ -18,6 +18,12 @@ export function iconHtml(emoji: string, itemId?: string, px = 32): string {
   return url ? `<img class="ico" src="${url}" width="${px}" height="${px}" alt="" draggable="false">` : `<span class="emoji">${esc(emoji)}</span>`;
 }
 
+/** An emoji: a pictograph, with the variation selectors and joiners that make one out of several. */
+const EMOJI = /\p{Extended_Pictographic}(?:\u{FE0F}|\u{200D}\p{Extended_Pictographic}\u{FE0F}?)*/gu;
+
+/** Text with its emoji drawn as painted icons where there are any. */
+export const withIcons = (text: string, px = 16): string => esc(text).replace(EMOJI, (e) => (iconUrl(e) ? iconHtml(e, undefined, px) : e));
+
 /** One of the HUD's own icons, `px` wide. */
 export function uiIcon(name: IconName, px = 24): string {
   return `<img class="uic" src="${ICON_URLS[name]}" width="${px}" height="${px}" alt="" draggable="false">`;
