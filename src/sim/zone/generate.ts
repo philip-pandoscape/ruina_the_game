@@ -248,7 +248,7 @@ export function generateZone(z: ZoneRecipe): Generated {
       if (dist <= 0.01 && i < t.cells && j < t.cells) {
         const cx = x + hf.cell / 2;
         const cz = zz + hf.cell / 2;
-        if (f.id !== 'fields') markClear(cx, cz);
+        if (f.keepClear !== false) markClear(cx, cz);
         if (surfCode >= 0) {
           const inSurf = isRect ? true : Math.hypot(cx - f.x, cz - f.z) <= (f.surfaceR ?? f.r!);
           if (inSurf) paint(cx, cz, surfCode);
@@ -266,7 +266,7 @@ export function generateZone(z: ZoneRecipe): Generated {
   for (const s of z.structures) {
     const def = structureDef(s.id);
     const deckish = def.deck !== undefined;
-    if (!deckish && def.id !== 'farmPlot' && def.id !== 'scarecrow') {
+    if (!deckish && def.pad !== false) {
       const pad = hf.height(s.x, s.z);
       const reach = Math.hypot(def.w, def.d) / 2 + 3;
       eachVertexNear(hf, s.x, s.z, reach + 2, (i, j, x, zz) => {
@@ -390,7 +390,7 @@ export function generateZone(z: ZoneRecipe): Generated {
   // ---------- Buildings: colliders, decks, and what to draw where ----------
   for (const s of z.structures) {
     const def = structureDef(s.id);
-    const y = def.deck !== undefined ? (s.id === 'dock' ? t.water : hf.height(s.x, s.z)) : hf.height(s.x, s.z);
+    const y = def.seaLevel ? t.water : hf.height(s.x, s.z);
     placements.push({ kind: 'structure', id: s.id, x: s.x, y, z: s.z, rot: s.rot, tint: s.tint, seed: s.seed, decor: s.decor, mirror: s.mirror });
     const plan = def.collider === 'building' ? placedPlan(s.id, s.mirror) : undefined;
     if (plan) {
@@ -402,9 +402,11 @@ export function generateZone(z: ZoneRecipe): Generated {
     } else addCollider(def, s.x, s.z, s.rot, y, boxes, obstacles);
     if (def.deck !== undefined) decks.push(rect(s.x, s.z, def.w / 2, def.d / 2, s.rot, y + def.deck));
     // Keep trees out of the way of everything built.
-    const margin = def.id === 'farmPlot' ? 1 : (z.scatter.clearOfStructure ?? 4);
+    const margin = def.clearMargin ?? z.scatter.clearOfStructure ?? 4;
     forCellsInRect(hf, s.x, s.z, def.w / 2 + margin, def.d / 2 + margin, s.rot, (cx, cz) => markClear(cx, cz));
-    if (def.id === 'farmPlot') forCellsInRect(hf, s.x, s.z, def.w / 2, def.d / 2, s.rot, (cx, cz) => setCellSurface(cx, cz, SURFACE.soil));
+    // Some say what the ground under them is (tilled soil under a farm plot).
+    const ground = surfaceCode(def.surface);
+    if (ground >= 0) forCellsInRect(hf, s.x, s.z, def.w / 2, def.d / 2, s.rot, (cx, cz) => setCellSurface(cx, cz, ground));
   }
   for (const p of z.housePlots) forCellsInRect(hf, p.x, p.z, 9, 9, p.rot, (cx, cz) => markClear(cx, cz));
   for (const nd of z.nodes) {
@@ -609,6 +611,11 @@ export function generateZone(z: ZoneRecipe): Generated {
 }
 
 // ---------- helpers ----------
+
+/** A surface's code by its name (SURFACE), or -1 for none or a name there's no surface of. */
+function surfaceCode(name: string | undefined): number {
+  return name !== undefined && Object.hasOwn(SURFACE, name) ? SURFACE[name as keyof typeof SURFACE] : -1;
+}
 
 function eachVertexNear(hf: Heightfield, cx: number, cz: number, r: number, fn: (i: number, j: number, x: number, z: number) => void): void {
   const i0 = Math.max(0, Math.floor((cx - r - hf.min) / hf.cell));

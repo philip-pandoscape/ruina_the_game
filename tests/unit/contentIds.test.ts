@@ -50,7 +50,6 @@ const ALLOWED: Allowance[] = [
     files: ['src/sim/zone/world.ts', 'src/sim/yard.ts', 'src/main.ts', 'crates/server/src/play/mod.rs'],
     ids: ['slime', 'dummy', 'goblin'],
   },
-  { why: "the island's generator special-cases some structures by id until zones are data (R9.10)", files: ['src/sim/zone/generate.ts'] },
   {
     why: 'the mini-games are wired one by one until the table framework reads them from content (R9.11)',
     files: ['src/content/minigames.ts', 'src/ui/minigames/', 'crates/engine/src/minigames/', 'src/app/testApi.ts'],
