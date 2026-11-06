@@ -954,7 +954,7 @@ export class LifeUI {
     if (this.untrackedFor !== this.playerName) {
       this.untrackedFor = this.playerName;
       try {
-        this.untrackedSet = new Set(JSON.parse(localStorage.getItem(`yggdrasil.untracked.${this.playerName}`) ?? '[]') as string[]);
+        this.untrackedSet = new Set(JSON.parse(localStorage.getItem(`ruina.untracked.${this.playerName}`) ?? '[]') as string[]);
       } catch {
         this.untrackedSet = new Set();
       }
@@ -967,7 +967,7 @@ export class LifeUI {
     if (on) u.delete(id);
     else u.add(id);
     try {
-      localStorage.setItem(`yggdrasil.untracked.${this.playerName}`, JSON.stringify([...u]));
+      localStorage.setItem(`ruina.untracked.${this.playerName}`, JSON.stringify([...u]));
     } catch {
       /* storage unavailable */
     }

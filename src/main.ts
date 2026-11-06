@@ -74,6 +74,10 @@ import { initUiScale } from './ui/theme/scale';
 import { Portraits } from './render/portrait';
 import { Studio } from './render/studio';
 import { DungeonVisit } from './app/dungeonVisit';
+import { migrateStorage } from './app/storage';
+
+// What this browser kept under the game's old name moves to its new one, before anything reads it.
+migrateStorage(localStorage);
 
 // The UI is laid out on a virtual screen and scaled to the window; start that before anything
 // builds UI.
@@ -554,7 +558,7 @@ function rideCamera(dt: number, now: number): void {
 input.onDeviceChange = (d) => hud.setDevice(d);
 // The training yard keeps the experience of its skills in this browser; the open world keeps it
 // with your island (src/sim/life/progress.ts).
-const YARD_XP = 'yggdrasil.skillxp';
+const YARD_XP = 'ruina.skillxp';
 const yardXp: Record<string, number> = (() => {
   try {
     const v = JSON.parse(localStorage.getItem(YARD_XP) ?? '{}');

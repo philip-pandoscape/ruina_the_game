@@ -165,7 +165,7 @@ export function validBuild(b: Build, budget = SKILL_POINTS): boolean {
 
 // In the open world your build is kept on the game server with your character. The training yard
 // and the battlefield, which are developer tools, keep theirs in this browser.
-const STORAGE_KEY = 'yggdrasil.build';
+const STORAGE_KEY = 'ruina.build';
 
 export function defaultBuild(): Build {
   return { ...DEFAULT_BUILD, skills: [...DEFAULT_BUILD.skills], abilities: emptyHotbar(), movement: emptyMovement() };
