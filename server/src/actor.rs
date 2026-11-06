@@ -2,7 +2,7 @@
 //! field for field, because the browser runs the same rules offline in the training yard and the
 //! two have to agree.
 
-use crate::content::{kind, kind_index, kind_mass, ladder_of, ActorKind};
+use crate::content::{ActorKind, kind, kind_index, kind_mass, ladder_of};
 
 pub const FACTION_HOSTILE: u8 = 1;
 
@@ -221,9 +221,10 @@ impl Actor {
     /// Back on its feet where it was spawned, as what it was spawned as.
     pub fn revive(&mut self) {
         if self.kind != self.home_kind
-            && let Some(k) = kind(&self.home_kind) {
-                self.become_kind(k);
-            }
+            && let Some(k) = kind(&self.home_kind)
+        {
+            self.become_kind(k);
+        }
         self.mass = kind_mass(&self.home_kind);
         self.hp = self.max_hp;
         self.dead_frame = -1;

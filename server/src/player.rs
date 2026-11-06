@@ -3,13 +3,13 @@
 //! moves, so the two must stay identical. tests/conformance/player.test.ts runs both and compares them.
 //! Open worlds reuse these pieces from crate::open::step_player (tests/conformance/world.test.ts).
 
-use crate::ai::{Foe, ACT_CAST, ACT_DODGE, ACT_FREE, ACT_GUARD, ACT_RECOVER, ACT_STUNNED, ACT_SWING};
+use crate::ai::{ACT_CAST, ACT_DODGE, ACT_FREE, ACT_GUARD, ACT_RECOVER, ACT_STUNNED, ACT_SWING, Foe};
 use crate::jsmath::JsMath;
 use crate::life::content::carry;
-use crate::skills::{base_levels, node_index, resolve_skills, same_levels, set_skill, Levels, ResolvedSkills, SkillSet, EMPTY_SKILLS};
+use crate::skills::{EMPTY_SKILLS, Levels, ResolvedSkills, SkillSet, base_levels, node_index, resolve_skills, same_levels, set_skill};
 use crate::tuning::{
-    ability, ability_cooldown, ability_mp_for, cast_frames_for, combo_for, movement_action, movement_cooldown_for, movement_stamina_for, slide_skill,
-    tuning, AttackStep, HOTBAR_SLOTS, MOVEMENT_SLOTS, NO_ABILITY, NO_MOVEMENT,
+    AttackStep, HOTBAR_SLOTS, MOVEMENT_SLOTS, NO_ABILITY, NO_MOVEMENT, ability, ability_cooldown, ability_mp_for, cast_frames_for, combo_for, movement_action,
+    movement_cooldown_for, movement_stamina_for, slide_skill, tuning,
 };
 use crate::world::{Spawn, World};
 
@@ -99,7 +99,7 @@ pub struct Player {
     pub down_frame: i32,
     pub team: u8,
     // Build (skills and loadout).
-    pub weapon: u8,  // 0 sword, 1 club, 2 staff, 3 bow
+    pub weapon: u8,       // 0 sword, 1 club, 2 staff, 3 bow
     pub skills: SkillSet, // which skills are learned (skills.rs)
     /// The level of each skill in the skill book (skills.rs book()), which adds to what it does.
     /// An open-world player's island keeps the experience behind them and sets these
@@ -107,8 +107,8 @@ pub struct Player {
     pub levels: Levels,
     /// Resolved once when the build or a level changes, never in a frame.
     pub resolved: ResolvedSkills,
-    pub abilities: [u8; HOTBAR_SLOTS], // one per hotbar slot (NO_ABILITY = empty)
-    pub cooldowns: [i32; HOTBAR_SLOTS],  // frames until each slot can be used again
+    pub abilities: [u8; HOTBAR_SLOTS],  // one per hotbar slot (NO_ABILITY = empty)
+    pub cooldowns: [i32; HOTBAR_SLOTS], // frames until each slot can be used again
     pub ability_buffer: i32,
     pub ability_buffer_slot: u8, // 1..=HOTBAR_SLOTS, 0 when nothing is buffered
     pub movement: [u8; MOVEMENT_SLOTS],
@@ -124,7 +124,7 @@ pub struct Player {
     pub crouching: bool,
     pub crouch_frame: i32,
     pub cast_ability: u8, // the ability being cast, NO_ABILITY when not casting
-    pub cast_slot: u8, // which hotbar slot the cast came from, 1..=HOTBAR_SLOTS
+    pub cast_slot: u8,    // which hotbar slot the cast came from, 1..=HOTBAR_SLOTS
     pub cast_frame: i32,
     pub cast_target_x: f64,
     pub cast_target_z: f64,
@@ -375,13 +375,14 @@ impl Player {
             }
             // Jumping out of a slide is a long jump that keeps most of its speed.
             if let Some(carry) = jump_carry
-                && self.jump_buffer > 0 {
-                    self.end_action();
-                    self.vel.x *= carry;
-                    self.vel.z *= carry;
-                    self.try_jump(a);
-                    return;
-                }
+                && self.jump_buffer > 0
+            {
+                self.end_action();
+                self.vel.x *= carry;
+                self.vel.z *= carry;
+                self.try_jump(a);
+                return;
+            }
             if ground_only && !self.grounded {
                 self.end_action();
                 return;
@@ -418,13 +419,17 @@ impl Player {
         let Some(def) = movement_action(self.action_id) else { return 1.0 };
         let f = self.action_frame;
         if let (Some(from), Some(to)) = (def.invuln_from, def.invuln_to)
-            && f >= from && f <= to {
-                return 0.0;
-            }
+            && f >= from
+            && f <= to
+        {
+            return 0.0;
+        }
         if let Some(scale) = def.damage_taken
-            && f > def.startup && f <= def.startup + def.active {
-                return scale;
-            }
+            && f > def.startup
+            && f <= def.startup + def.active
+        {
+            return scale;
+        }
         1.0
     }
 
@@ -573,11 +578,7 @@ impl Player {
 
     /// Eases the body down into a crouch and back up.
     pub(crate) fn update_crouch_frame(&mut self) {
-        self.crouch_frame = if self.crouching {
-            (self.crouch_frame + 1).min(tuning().movement.crouch_enter_frames)
-        } else {
-            (self.crouch_frame - 1).max(0)
-        };
+        self.crouch_frame = if self.crouching { (self.crouch_frame + 1).min(tuning().movement.crouch_enter_frames) } else { (self.crouch_frame - 1).max(0) };
     }
 
     /// The end of every step: buffered presses that were not used run out.
@@ -626,11 +627,7 @@ impl Player {
     fn stance_speed(facing: f64, dx: f64, dz: f64) -> f64 {
         let m = &tuning().movement;
         let ahead = dx * facing.js_sin() + dz * facing.js_cos();
-        if ahead >= 0.0 {
-            m.strafe_speed + (1.0 - m.strafe_speed) * ahead
-        } else {
-            m.strafe_speed + (m.back_speed - m.strafe_speed) * -ahead
-        }
+        if ahead >= 0.0 { m.strafe_speed + (1.0 - m.strafe_speed) * ahead } else { m.strafe_speed + (m.back_speed - m.strafe_speed) * -ahead }
     }
 
     fn try_jump(&mut self, a: &Actions) -> bool {
@@ -1145,7 +1142,7 @@ impl Player {
 mod tests {
     use super::*;
     use crate::skills::{book_index, skills_from};
-    use crate::world::{battlefield, SEED};
+    use crate::world::{SEED, battlefield};
 
     #[test]
     fn a_dodge_costs_stamina_by_its_level_instead_of_cooling_down() {

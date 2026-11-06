@@ -12,20 +12,20 @@
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use tokio::sync::mpsc;
 
-use crate::actors::{Actors, StepOut, LEAN_DAMPING, LEAN_SPRING};
-use crate::channels::{estate_of, Channel};
-use crate::game::{open_actions_from, Players, OPEN_INPUT};
+use crate::actors::{Actors, LEAN_DAMPING, LEAN_SPRING, StepOut};
+use crate::channels::{Channel, estate_of};
+use crate::game::{OPEN_INPUT, Players, open_actions_from};
 use crate::life::content::clock;
 use crate::life::progress::skill_budget;
 use crate::life::state::LifeState;
-use crate::life::{farming, housing, trade, vehicles, Command, Life};
+use crate::life::{Command, Life, farming, housing, trade, vehicles};
 use crate::minigames::Minigames;
 use crate::open::colliders::ground_at;
 use crate::open::dungeon::{DungeonDef, Spot};
-use crate::open::zone::{emberholm, DungeonDoor, Zone};
+use crate::open::zone::{DungeonDoor, Zone, emberholm};
 use crate::open::{OpenWorld, Sim};
 use crate::player::{Actions, Build, Mode, Player};
 use crate::sim::Battle;
@@ -375,11 +375,12 @@ impl ChannelGame {
             let mut player = Player::new(Spawn { x: zone.recipe.spawn.x, z: zone.recipe.spawn.z, facing: zone.recipe.spawn.facing }, 0, Build::default());
             stand_on_ground(&mut player, &self.open);
             if let Some(island) = &a.island
-                && let Err(e) = load_island(&mut life, &mut player, &mut self.open, a.character, island, a.saved_at.unwrap_or(a.now), a.now) {
-                    eprintln!("character {}: the saved island can't be read ({e}); it is kept as it is, and this visit isn't saved", a.character);
-                    life.toast("Your island couldn't be loaded. It's kept safe on the server, but nothing from this visit will be saved.", "bad");
-                    keep_saved = true;
-                }
+                && let Err(e) = load_island(&mut life, &mut player, &mut self.open, a.character, island, a.saved_at.unwrap_or(a.now), a.now)
+            {
+                eprintln!("character {}: the saved island can't be read ({e}); it is kept as it is, and this visit isn't saved", a.character);
+                life.toast("Your island couldn't be loaded. It's kept safe on the server, but nothing from this visit will be saved.", "bad");
+                keep_saved = true;
+            }
             // The build they kept, if the skill points their island has earned still cover it.
             if let Some(b) = a.build.as_ref().and_then(|v| parse_build(v, skill_budget(&life.state))) {
                 player.apply_build(b);
@@ -496,10 +497,11 @@ impl ChannelGame {
             return;
         }
         if p.mode == Mode::Ride
-            && let Some(life) = life {
-                let mut sim = Sim { player: p, world: &mut self.open, owner: character };
-                vehicles::dismount(life, &mut sim);
-            }
+            && let Some(life) = life
+        {
+            let mut sim = Sim { player: p, world: &mut self.open, owner: character };
+            vehicles::dismount(life, &mut sim);
+        }
         let y = ground_at(hf, &self.open.index, x, z, floor.unwrap_or_else(|| hf.height(x, z)) + 1.2, 1.2);
         p.pos.x = x;
         p.pos.y = y;
@@ -602,7 +604,12 @@ impl ChannelGame {
         }
         let Some(v) = self.vehicle_of(host, vehicle) else { return false };
         let def = crate::life::content::rideable(&v.def);
-        let taken: Vec<usize> = self.players.each_open().filter(|(_, _, p, _)| p.mode == Mode::Ride && p.host == host && p.vehicle == vehicle).map(|(_, _, p, _)| p.seat as usize).collect();
+        let taken: Vec<usize> = self
+            .players
+            .each_open()
+            .filter(|(_, _, p, _)| p.mode == Mode::Ride && p.host == host && p.vehicle == vehicle)
+            .map(|(_, _, p, _)| p.seat as usize)
+            .collect();
         let owner_name = self.members.get(&host).map(|m| m.name.clone()).unwrap_or_default();
         let Some((p, life)) = self.players.open_mut(client(character)) else { return false };
         let say = |life: Option<&mut Life>, text: String| {
@@ -672,7 +679,12 @@ impl ChannelGame {
     /// Everyone riding along sits where their seat has gone this tick, now their host has driven;
     /// whoever's vehicle (or host) has gone steps off where they are.
     fn seat_passengers(&mut self) {
-        let riders: Vec<(i64, i64, i64, usize)> = self.players.each_open().filter(|(_, _, p, _)| p.mode == Mode::Ride && p.host != 0).map(|(_, who, p, _)| (who, p.host, p.vehicle, p.seat as usize)).collect();
+        let riders: Vec<(i64, i64, i64, usize)> = self
+            .players
+            .each_open()
+            .filter(|(_, _, p, _)| p.mode == Mode::Ride && p.host != 0)
+            .map(|(_, who, p, _)| (who, p.host, p.vehicle, p.seat as usize))
+            .collect();
         for (who, host, vehicle, seat) in riders {
             let v = self.vehicle_of(host, vehicle).filter(|v| seat < crate::life::content::rideable(&v.def).seats.len());
             match v {
@@ -751,9 +763,10 @@ impl ChannelGame {
         }
         for (id, e) in &self.estates.estates {
             if !self.members.contains_key(id)
-                && let Ok(s) = serde_json::from_value::<LifeState>(e.estate.clone()) {
-                    lists.push((*id, s));
-                }
+                && let Ok(s) = serde_json::from_value::<LifeState>(e.estate.clone())
+            {
+                lists.push((*id, s));
+            }
         }
         for (owner, s) in lists {
             make_solid(&mut self.open, owner, &s);
@@ -875,10 +888,9 @@ impl ChannelGame {
                     saves.push(Save { character: id, session, island: outside_of(island_of(p, life, &mut self.open, id), outside), out: Some(out.clone()) });
                 }
             }
-            if save_due
-                && let Some(m) = self.members.get_mut(&id) {
-                    m.last_save = now;
-                }
+            if save_due && let Some(m) = self.members.get_mut(&id) {
+                m.last_save = now;
+            }
             let mut msg = json!({
                 "t": "tick",
                 "tick": self.tick,
@@ -913,17 +925,18 @@ impl ChannelGame {
         let ids: Vec<i64> = self.members.keys().copied().collect();
         for id in ids {
             if let Some((p, _)) = self.players.open_mut(client(id))
-                && def.fallen_out(p.pos.y) {
-                    p.pos.x = at.x;
-                    p.pos.y = at.y;
-                    p.pos.z = at.z;
-                    p.facing = at.facing;
-                    p.vel = Default::default();
-                    if p.mode == Mode::Glide || p.mode == Mode::Swim {
-                        p.mode = Mode::Normal;
-                    }
-                    p.grounded = true;
+                && def.fallen_out(p.pos.y)
+            {
+                p.pos.x = at.x;
+                p.pos.y = at.y;
+                p.pos.z = at.z;
+                p.facing = at.facing;
+                p.vel = Default::default();
+                if p.mode == Mode::Glide || p.mode == Mode::Swim {
+                    p.mode = Mode::Normal;
                 }
+                p.grounded = true;
+            }
         }
     }
 }
@@ -1023,13 +1036,14 @@ pub fn load_island(life: &mut Life, p: &mut Player, world: &mut OpenWorld, owner
     let at = &island["player"];
     let num = |k: &str| at.get(k).and_then(Value::as_f64).filter(|v| v.is_finite());
     if let (Some(x), Some(z), Some(y), Some(facing)) = (num("x"), num("z"), num("y"), num("facing"))
-        && hf.inside(x, z, 10.0) {
-            p.pos.x = x;
-            p.pos.z = z;
-            p.pos.y = ground_at(hf, &world.index, x, z, y.max(hf.height(x, z)) + 0.5, 1.0);
-            p.facing = facing;
-            p.grounded = true;
-        }
+        && hf.inside(x, z, 10.0)
+    {
+        p.pos.x = x;
+        p.pos.z = z;
+        p.pos.y = ground_at(hf, &world.index, x, z, y.max(hf.height(x, z)) + 0.5, 1.0);
+        p.facing = facing;
+        p.grounded = true;
+    }
     Ok(())
 }
 
@@ -1507,7 +1521,16 @@ mod tests {
             p.pack = 12;
         }
         assert!(!ch.ride_along(8, 7, id), "a pack in his arms");
-        let toasts: Vec<String> = ch.players.open_mut(client(8)).unwrap().1.unwrap().drain_events().into_iter().filter_map(|e| if let crate::life::LifeEvent::Toast { text, .. } = e { Some(text) } else { None }).collect();
+        let toasts: Vec<String> = ch
+            .players
+            .open_mut(client(8))
+            .unwrap()
+            .1
+            .unwrap()
+            .drain_events()
+            .into_iter()
+            .filter_map(|e| if let crate::life::LifeEvent::Toast { text, .. } = e { Some(text) } else { None })
+            .collect();
         assert_eq!(toasts, ["Put your pack down first - there's no room for it in Ada's farm cart"]);
         ch.players.open_mut(client(8)).unwrap().0.pack = 0;
         assert!(!ch.ride_along(8, 7, 999), "no such cart");

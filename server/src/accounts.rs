@@ -6,19 +6,19 @@
 use std::sync::OnceLock;
 use std::time::{Duration, Instant};
 
+use argon2::Argon2;
 use argon2::password_hash::rand_core::{OsRng, RngCore};
 use argon2::password_hash::{PasswordHash, PasswordHasher, PasswordVerifier, SaltString};
-use argon2::Argon2;
-use axum::extract::State;
-use axum::http::{header, HeaderMap, StatusCode};
-use axum::response::{IntoResponse, Response};
 use axum::Json;
+use axum::extract::State;
+use axum::http::{HeaderMap, StatusCode, header};
+use axum::response::{IntoResponse, Response};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sha2::{Digest, Sha256};
 use sqlx::PgPool;
 
-use crate::http::{database, ApiError, App, AppState};
+use crate::http::{ApiError, App, AppState, database};
 
 pub const COOKIE: &str = "ruina_session";
 const SESSION_DAYS: i32 = 30;

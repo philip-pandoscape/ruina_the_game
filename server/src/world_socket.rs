@@ -37,26 +37,26 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use argon2::password_hash::rand_core::{OsRng, RngCore};
 use axum::body::Bytes;
-use axum::extract::ws::{close_code, CloseFrame, Message, WebSocket, WebSocketUpgrade};
+use axum::extract::ws::{CloseFrame, Message, WebSocket, WebSocketUpgrade, close_code};
 use axum::extract::{Query, State};
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
 use futures_util::stream::SplitSink;
 use futures_util::{SinkExt, StreamExt};
 use serde::Deserialize;
-use serde_json::{json, Value};
-use sqlx::types::Json;
+use serde_json::{Value, json};
 use sqlx::PgPool;
-use tokio::sync::{mpsc, watch, Notify};
+use sqlx::types::Json;
+use tokio::sync::{Notify, mpsc, watch};
 
-use crate::accounts::{signed_in, Account};
-use crate::characters;
+use crate::accounts::{Account, signed_in};
 use crate::channels::CHANNEL_CAP;
+use crate::characters;
 use crate::game::OPEN_INPUT;
-use crate::http::{same_origin, App};
+use crate::http::{App, same_origin};
 use crate::life::Command;
 use crate::player::Build;
-use crate::skills::{valid_build, valid_movement, SKILL_WORDS};
+use crate::skills::{SKILL_WORDS, valid_build, valid_movement};
 use crate::spaces::Spaces;
 use crate::tuning::{HOTBAR_SLOTS, MOVEMENT_SLOTS, NO_ABILITY, NO_MOVEMENT};
 use crate::world_game::{Arrival, ChannelGame, Save, TICK_HZ};
@@ -512,17 +512,8 @@ async fn play(
 
     // Into the channel's game.
     let (out, mut outbox) = mpsc::channel::<String>(256);
-    let arrival = Arrival {
-        character,
-        session,
-        name: name.clone(),
-        out,
-        dev: app.is_admin(account),
-        island: island.map(|j| j.0),
-        saved_at,
-        now,
-        build: build_json,
-    };
+    let arrival =
+        Arrival { character, session, name: name.clone(), out, dev: app.is_admin(account), island: island.map(|j| j.0), saved_at, now, build: build_json };
     // The build they play with comes back: the one kept, if what they've earned still covers it.
     // Into their home channel, or back into the copy of a dungeon they were in.
     let (estates, claims, build, space) = world.with_spaces(|sp| sp.arrive(channel, arrival));

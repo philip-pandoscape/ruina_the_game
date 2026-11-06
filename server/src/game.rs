@@ -11,21 +11,19 @@ use std::collections::{HashMap, VecDeque};
 use crate::actors::{Actors, FoeHit, Slam};
 use crate::ai::Foe;
 use crate::content::kind_at;
-use crate::life::progress::{sync_levels, Observed};
+use crate::life::progress::{Observed, sync_levels};
 use crate::life::{Command, Life};
-use crate::open::zone::Heightfield;
 use crate::open::OpenWorld;
-use crate::player::{angle_diff, Actions, Build, Player};
+use crate::open::zone::Heightfield;
+use crate::player::{Actions, Build, Player, angle_diff};
 use crate::protocol::{
-    aim_axis, cm16, face_axis, input_axis, put_player, put_you, ARROW_ENTRY, EVENT_ARROW_HIT, EVENT_ENTRY, EVENT_EXPLOSION, EVENT_HEAL,
-    CAUSE_BOT, CAUSE_HEAL, CAUSE_METEOR, CAUSE_MONSTER, CAUSE_WEAPON, EVENT_YOU_HEAL, EVENT_YOU_HIT, EVENT_YOU_HURT,
-    METEOR_ENTRY, PLAYER_ENTRY, YOU_ENTRY, put_actor, ACTOR_ENTRY};
+    ACTOR_ENTRY, ARROW_ENTRY, CAUSE_BOT, CAUSE_HEAL, CAUSE_METEOR, CAUSE_MONSTER, CAUSE_WEAPON, EVENT_ARROW_HIT, EVENT_ENTRY, EVENT_EXPLOSION, EVENT_HEAL,
+    EVENT_YOU_HEAL, EVENT_YOU_HIT, EVENT_YOU_HURT, METEOR_ENTRY, PLAYER_ENTRY, YOU_ENTRY, aim_axis, cm16, face_axis, input_axis, put_actor, put_player,
+    put_you,
+};
 use crate::sim::{Battle, BotHit, BotTarget};
 use crate::skills::{valid_build, valid_movement};
-use crate::tuning::{
-    ability, effect_amount, effect_damage, effect_radius, melee_targets, pierce_targets, tuning, AttackStep, HOTBAR_SLOTS,
-    NO_ABILITY,
-};
+use crate::tuning::{AttackStep, HOTBAR_SLOTS, NO_ABILITY, ability, effect_amount, effect_damage, effect_radius, melee_targets, pierce_targets, tuning};
 use crate::world::World;
 
 pub const MAX_PLAYERS: usize = 4096;
@@ -87,7 +85,7 @@ struct Slot {
     player: Player,
     last_seq: u32,
     build_seq: u32,
-    queue: VecDeque<(u32, f64, Actions)>,     // (seq, view tick, input)
+    queue: VecDeque<(u32, f64, Actions)>,    // (seq, view tick, input)
     history: VecDeque<(u64, f64, f64, f64)>, // (tick, x, y, z) at the end of each tick
     // ---- Open worlds: the character's island, and what they asked it to do ----
     /// The character (whose houses and farms these are).
@@ -122,7 +120,7 @@ fn rewound(slot: &Slot, view: f64) -> (f64, f64, f64) {
 
 struct Arrow {
     id: u16,
-    owner: u16,       // player id of the shooter
+    owner: u16,        // player id of the shooter
     owner_slot: usize, // and their slot, for "you hit X" events
     owner_client: u32, // and who was in it, so what it does is credited to them and nobody else
     weapon: u8,        // which weapon fired it (it trains that one)
@@ -229,7 +227,7 @@ pub struct Players {
     rewind_samples: u64,
     arrows: Vec<Arrow>,
     meteors: Vec<Meteor>,
-    events: Vec<Event>, // things that happened this tick, for effects in browsers
+    events: Vec<Event>,         // things that happened this tick, for effects in browsers
     my_events: Vec<Vec<Event>>, // per slot: damage and healing only that player is told about
     next_effect_id: u16,
     // Packed once per tick and shared by every snapshot.
@@ -292,19 +290,16 @@ impl Players {
             return;
         }
         if let Some(list) = self.my_events.get_mut(slot)
-            && list.len() < MAX_OWN_EVENTS {
-                // kind is 4..6, so the top nibble is free for what caused it.
-                list.push(Event { kind: kind | (cause << 4), x, y, z, size: amount.round().clamp(1.0, 255.0) as u8 });
-            }
+            && list.len() < MAX_OWN_EVENTS
+        {
+            // kind is 4..6, so the top nibble is free for what caused it.
+            list.push(Event { kind: kind | (cause << 4), x, y, z, size: amount.round().clamp(1.0, 255.0) as u8 });
+        }
     }
 
     /// Recent average rewind applied to player-vs-player hits, in milliseconds.
     pub fn rewind_ms(&self) -> f64 {
-        if self.rewind_samples == 0 {
-            0.0
-        } else {
-            self.rewind_recent * self.tick_ms
-        }
+        if self.rewind_samples == 0 { 0.0 } else { self.rewind_recent * self.tick_ms }
     }
 
     pub fn slot_of(&self, client_id: u32) -> Option<usize> {
@@ -419,9 +414,10 @@ impl Players {
     pub fn queue_command(&mut self, client_id: u32, seq: u32, c: Command) {
         let Some(&s) = self.by_client.get(&client_id) else { return };
         if let Some(slot) = &mut self.slots[s]
-            && slot.commands.len() < 64 {
-                slot.commands.push_back((seq, c));
-            }
+            && slot.commands.len() < 64
+        {
+            slot.commands.push_back((seq, c));
+        }
     }
 
     /// Open worlds: a player, the last input they've had run, and their island.
@@ -492,10 +488,11 @@ impl Players {
     pub fn retain(&mut self, connected: impl Fn(u32) -> bool) {
         for s in self.slots.iter_mut() {
             if let Some(slot) = s
-                && !connected(slot.client_id) {
-                    self.by_client.remove(&slot.client_id);
-                    *s = None;
-                }
+                && !connected(slot.client_id)
+            {
+                self.by_client.remove(&slot.client_id);
+                *s = None;
+            }
         }
     }
 
@@ -727,15 +724,7 @@ impl Players {
             }
             let (x, y, z) = rewound(o, view);
             let Some((nx, nz)) = check(x, y, z) else { continue };
-            player_hits.push(PlayerHit {
-                attacker,
-                victim: i,
-                damage: step.damage,
-                dx: nx,
-                dz: nz,
-                knock: step.player_knock,
-                cause: CAUSE_WEAPON + a.weapon,
-            });
+            player_hits.push(PlayerHit { attacker, victim: i, damage: step.damage, dx: nx, dz: nz, knock: step.player_knock, cause: CAUSE_WEAPON + a.weapon });
             hits += 1;
             rewinds.push(latest - view);
             if check(o.player.pos.x, o.player.pos.y, o.player.pos.z).is_none() {

@@ -6,8 +6,8 @@
 
 pub mod accounts;
 pub mod actor;
-pub mod ai;
 pub mod actors;
+pub mod ai;
 pub mod channels;
 pub mod characters;
 pub mod content;
@@ -26,8 +26,8 @@ pub mod pack;
 pub mod parties;
 pub mod player;
 pub mod protocol;
-pub mod skills;
 pub mod sim;
+pub mod skills;
 pub mod spaces;
 pub mod tuning;
 pub mod world;

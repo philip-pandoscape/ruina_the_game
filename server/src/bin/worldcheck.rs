@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 use yggdrasil_server::open::colliders::ground_at;
 use yggdrasil_server::open::traverse::gust;
 use yggdrasil_server::open::zone::emberholm;
-use yggdrasil_server::open::{step_player, OpenWorld, Sim};
+use yggdrasil_server::open::{OpenWorld, Sim, step_player};
 use yggdrasil_server::player::{Actions, Build, Player};
 use yggdrasil_server::world::Spawn;
 

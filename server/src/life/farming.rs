@@ -3,13 +3,13 @@
 //! real time - faster in its own climate, faster again when watered or rained on - whether or not
 //! you are watching.
 
-use super::content::{climate_factor, crop_def, farm, item_def, js_max, js_min, CropDef};
+use super::content::{CropDef, climate_factor, crop_def, farm, item_def, js_max, js_min};
 use super::livestock::step_animal;
 use super::state::{Plant, Scarecrow};
 use super::weather::raining;
 use super::{Life, LifeEvent, QuestEvent};
-use crate::open::zone::{surface, to_local, to_world, Obstacle, ObstacleKind};
 use crate::open::Sim;
+use crate::open::zone::{Obstacle, ObstacleKind, surface, to_local, to_world};
 
 /// Half the plot's side (TS HALF).
 fn half() -> f64 {
@@ -275,10 +275,14 @@ pub fn add_scarecrow_collider(sim: &mut Sim, sc: &Scarecrow) {
             let i = ((sc.x + ox - hf.min) / hf.cell).floor();
             let j = ((sc.z + oz - hf.min) / hf.cell).floor();
             let cells = hf.cells as f64;
-            if i >= 0.0 && j >= 0.0 && i < cells && j < cells
-                && let Some(c) = clear.get_mut(j as usize * hf.cells + i as usize) {
-                    *c = 1;
-                }
+            if i >= 0.0
+                && j >= 0.0
+                && i < cells
+                && j < cells
+                && let Some(c) = clear.get_mut(j as usize * hf.cells + i as usize)
+            {
+                *c = 1;
+            }
             b += hf.cell / 2.0;
         }
         a += hf.cell / 2.0;
@@ -300,7 +304,8 @@ pub fn plant(life: &mut Life, sc: i64, idx: usize, seed_item: &str) -> bool {
         life.toast(format!("No {} left", def.name), "bad");
         return false;
     }
-    life.state.scarecrows[k].cells[idx] = Some(Plant { crop: crop.to_string(), growth: 0.0, watered: false, picked: false, animal: None, fed_until: None, produce: None });
+    life.state.scarecrows[k].cells[idx] =
+        Some(Plant { crop: crop.to_string(), growth: 0.0, watered: false, picked: false, animal: None, fed_until: None, produce: None });
     life.revision += 1;
     life.notify(QuestEvent { crop: Some(crop.to_string()), ..QuestEvent::new("plant") });
     true
@@ -398,8 +403,8 @@ pub fn fell(life: &mut Life, sc: i64, idx: usize, y: f64) -> bool {
 pub(crate) mod tests {
     use super::*;
     use crate::life::state::{QuestProgress, Stack};
-    use crate::open::zone::emberholm;
     use crate::open::OpenWorld;
+    use crate::open::zone::emberholm;
     use crate::player::{Build, Player};
     use crate::world::Spawn;
 
@@ -573,7 +578,10 @@ pub(crate) mod tests {
         assert!(fell(&mut life, sc, 5, 2.0) && fell(&mut life, sc, 6, 2.0));
         assert_eq!(life.state.bag, stacks(&[("apple", 6), ("lumber", 12)]));
         let timber = |x: f64| LifeEvent::Gather { x, y: 2.0, z: -241.0, kind: "timber".into() };
-        assert_eq!(life.drain_events(), vec![got(6, "apple"), LifeEvent::Harvest { x: -209.0, y: 2.0, z: -241.0 }, got(5, "lumber"), timber(-209.0), got(7, "lumber"), timber(-207.0)]);
+        assert_eq!(
+            life.drain_events(),
+            vec![got(6, "apple"), LifeEvent::Harvest { x: -209.0, y: 2.0, z: -241.0 }, got(5, "lumber"), timber(-209.0), got(7, "lumber"), timber(-207.0)]
+        );
         assert_eq!(life.state.rng, 567901804);
         assert!(plant_at(&life, sc, 5).is_none() && plant_at(&life, sc, 6).is_none());
     }

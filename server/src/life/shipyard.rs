@@ -6,13 +6,13 @@
 
 use std::collections::BTreeMap;
 
-use super::content::{design_for_item, item_def, pack_def, ship_design, ShipStageDef};
+use super::content::{ShipStageDef, design_for_item, item_def, pack_def, ship_design};
 use super::housing::Need;
 use super::state::ShipBuild;
 use super::trade::{carried, consume_carried};
 use super::{Life, LifeEvent, QuestEvent};
-use crate::open::zone::Shipyard;
 use crate::open::Sim;
+use crate::open::zone::Shipyard;
 
 pub fn slip_def(life: &Life, slip: &str) -> Option<&'static Shipyard> {
     life.zone.recipe.shipyards.iter().find(|s| s.id == slip)
@@ -205,7 +205,13 @@ mod tests {
     #[test]
     fn the_labor_and_the_room_for_the_deed_come_first() {
         let (mut life, _, _) = island(0.0);
-        life.state.ships.push(ShipBuild { id: 40, slip: SLIP.into(), design: "cog".into(), stage: 0, delivered: BTreeMap::from([("lumberBundle".to_string(), 3)]) });
+        life.state.ships.push(ShipBuild {
+            id: 40,
+            slip: SLIP.into(),
+            design: "cog".into(),
+            stage: 0,
+            delivered: BTreeMap::from([("lumberBundle".to_string(), 3)]),
+        });
         life.state.labor = 10.0;
         toasts(&mut life);
         assert!(!build_ship_stage(&mut life, 40));

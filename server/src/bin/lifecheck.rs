@@ -14,11 +14,11 @@
 use std::io::Read;
 
 use serde::Deserialize;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use yggdrasil_server::life::{Command, Life};
 use yggdrasil_server::open::colliders::ground_at;
 use yggdrasil_server::open::zone::emberholm;
-use yggdrasil_server::open::{step_player, OpenWorld, Sim};
+use yggdrasil_server::open::{OpenWorld, Sim, step_player};
 use yggdrasil_server::player::{Actions, Build, Mode, Player};
 use yggdrasil_server::world::Spawn;
 use yggdrasil_server::world_game::{load_island, player_state_json};
@@ -88,7 +88,11 @@ fn main() {
     let zone = emberholm();
     let mut world = OpenWorld::new(zone);
     let mut life = Life::new(zone, script.coins, script.labor);
-    let s = script.spawn.map(|s| Spawn { x: s.x, z: s.z, facing: s.facing }).unwrap_or(Spawn { x: zone.recipe.spawn.x, z: zone.recipe.spawn.z, facing: zone.recipe.spawn.facing });
+    let s = script.spawn.map(|s| Spawn { x: s.x, z: s.z, facing: s.facing }).unwrap_or(Spawn {
+        x: zone.recipe.spawn.x,
+        z: zone.recipe.spawn.z,
+        facing: zone.recipe.spawn.facing,
+    });
     let mut p = Player::new(s, 0, Build::default());
     // Stand on the ground there, as the browser's api.reset() does.
     let hf = &zone.terrain;

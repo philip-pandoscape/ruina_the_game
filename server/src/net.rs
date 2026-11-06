@@ -2,7 +2,7 @@
 //! gets a small outgoing queue; the simulation thread drops updates for players who can't keep up
 //! instead of letting the queue grow.
 
-use std::sync::atomic::{AtomicU32, AtomicU64, AtomicU8, Ordering};
+use std::sync::atomic::{AtomicU8, AtomicU32, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -13,7 +13,7 @@ use tokio::sync::mpsc;
 
 use crate::player::Build;
 use crate::protocol::{MSG_ATTACH, MSG_BUILD, MSG_INPUT, MSG_JOIN, MSG_LAG, MSG_VIEW};
-use crate::skills::{SKILL_WORDS, EMPTY_SKILLS};
+use crate::skills::{EMPTY_SKILLS, SKILL_WORDS};
 use crate::tuning::{HOTBAR_SLOTS, MOVEMENT_SLOTS, NO_ABILITY, NO_MOVEMENT};
 
 pub const QUEUE: usize = 32;
@@ -34,7 +34,7 @@ pub struct ClientHandle {
     // only when someone edits their skills, so a short lock costs nothing.
     pub build: Arc<Mutex<Build>>,
     pub build_seq: Arc<AtomicU32>, // counts up each time the browser sends a new build
-    pub lag_ms: Arc<AtomicU32>, // testing only: extra delay each way
+    pub lag_ms: Arc<AtomicU32>,    // testing only: extra delay each way
     pub inputs: Arc<Mutex<Vec<RawInput>>>,
 }
 

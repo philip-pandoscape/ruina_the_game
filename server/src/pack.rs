@@ -4,7 +4,7 @@
 //! where on the ring around the foe to wait. Nothing here changes position.
 
 use crate::actor::Actor;
-use crate::ai::{angle_diff, brain_of, holds_token, off_facing, Foe, PackDef, ACT_CAST, ACT_RECOVER, ACT_STUNNED};
+use crate::ai::{ACT_CAST, ACT_RECOVER, ACT_STUNNED, Foe, PackDef, angle_diff, brain_of, holds_token, off_facing};
 use crate::jsmath::JsMath;
 
 /// How close the rest of its band has to be for a goblin to count as part of a group to run to.
@@ -57,7 +57,8 @@ pub fn step_packs(list: &mut [Actor], foes: &[Foe]) {
             if !same_band(list, a, o) || list[o].afraid {
                 continue;
             }
-            let n = members.iter().filter(|&&q| q != o && list[q].band == list[o].band && len(list[q].x - list[o].x, list[q].z - list[o].z) <= GROUP).count() as i64;
+            let n = members.iter().filter(|&&q| q != o && list[q].band == list[o].band && len(list[q].x - list[o].x, list[q].z - list[o].z) <= GROUP).count()
+                as i64;
             if n > best_count {
                 best = Some(o);
                 best_count = n;
@@ -94,16 +95,18 @@ pub fn step_packs(list: &mut [Actor], foes: &[Foe]) {
         // An opening makes room for one more, and the nearest that has it goes first. One more in
         // all: a foe stunned for a while doesn't let a new one in every frame.
         let exposed = f.act == ACT_RECOVER || f.act == ACT_CAST || f.act == ACT_STUNNED;
-        let opener = waiting.iter().copied().find(|&a| {
-            dist(&list[a]) <= p.opening_range && (exposed || off_facing(f.facing, f.x, f.z, list[a].x, list[a].z) > p.back_arc * DEG)
-        });
+        let opener = waiting
+            .iter()
+            .copied()
+            .find(|&a| dist(&list[a]) <= p.opening_range && (exposed || off_facing(f.facing, f.x, f.z, list[a].x, list[a].z) > p.back_arc * DEG));
         let mut left = p.tokens[fighting.len().min(p.tokens.len()) - 1] + i32::from(opener.is_some()) - held;
         if let Some(a) = opener
-            && left > 0 {
-                list[a].token = true;
-                list[a].opening = true;
-                left -= 1;
-            }
+            && left > 0
+        {
+            list[a].token = true;
+            list[a].opening = true;
+            left -= 1;
+        }
         for &a in &waiting {
             if left <= 0 {
                 break;

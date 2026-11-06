@@ -25,11 +25,11 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
-use crate::open::zone::Zone;
 use crate::open::Sim;
+use crate::open::zone::Zone;
 use crate::player::{Actions, Mode, Player};
-use content::{bag_slots, item_def, labor, ItemCount};
-use state::{new_life_state, LifeState, LIFE_VERSION};
+use content::{ItemCount, bag_slots, item_def, labor};
+use state::{LIFE_VERSION, LifeState, new_life_state};
 
 /// One fixed step of the rules (src/tuning.ts STEP).
 pub fn step_seconds() -> f64 {
@@ -47,22 +47,60 @@ pub enum Command {
     Glider,
     Exit,
     CycleSeed,
-    Use { item: String },
-    Buy { npc: String, item: String, n: i64 },
-    Sell { npc: String, item: String, n: i64 },
-    Buyback { npc: String, item: String, n: i64 },
-    Craft { recipe: String },
-    Accept { quest: String },
-    Complete { quest: String },
-    Abandon { quest: String },
-    Summon { item: String },
-    Recall { vehicle: i64 },
+    Use {
+        item: String,
+    },
+    Buy {
+        npc: String,
+        item: String,
+        n: i64,
+    },
+    Sell {
+        npc: String,
+        item: String,
+        n: i64,
+    },
+    Buyback {
+        npc: String,
+        item: String,
+        n: i64,
+    },
+    Craft {
+        recipe: String,
+    },
+    Accept {
+        quest: String,
+    },
+    Complete {
+        quest: String,
+    },
+    Abandon {
+        quest: String,
+    },
+    Summon {
+        item: String,
+    },
+    Recall {
+        vehicle: i64,
+    },
     CancelPlace,
-    Store { house: i64, item: String, n: i64 },
-    Take { house: i64, item: String, n: i64 },
-    PayTax { house: i64 },
+    Store {
+        house: i64,
+        item: String,
+        n: i64,
+    },
+    Take {
+        house: i64,
+        item: String,
+        n: i64,
+    },
+    PayTax {
+        house: i64,
+    },
     Rest,
-    Contract { id: i64 },
+    Contract {
+        id: i64,
+    },
     Gust,
     Grant {
         #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -76,7 +114,9 @@ pub enum Command {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         labor: Option<f64>,
     },
-    Warp { seconds: f64 },
+    Warp {
+        seconds: f64,
+    },
     /// The developer panel's teleport. Not an island command in the TypeScript (the browser just
     /// moves you there); online only the server can, so the channel handles it before the island.
     Teleport {
@@ -87,7 +127,10 @@ pub enum Command {
     },
     /// Ride along in another player's vehicle (`host` is their character). Their vehicle isn't on
     /// your island, so the channel seats you before it gets there.
-    Ride { host: i64, vehicle: i64 },
+    Ride {
+        host: i64,
+        vehicle: i64,
+    },
 }
 
 impl Command {
@@ -102,16 +145,50 @@ impl Command {
 #[serde(tag = "t", rename_all = "camelCase")]
 pub enum LifeEvent {
     /// kind: good, bad, info, coin or quest.
-    Toast { text: String, kind: String },
+    Toast {
+        text: String,
+        kind: String,
+    },
     /// ui: dialog, shop, craft or storage.
-    Open { ui: String, id: String },
-    Sold { pack: String, coins: f64, seals: f64, demand: f64, fresh: f64, outpost: String },
-    Harvest { x: f64, y: f64, z: f64 },
-    Build { house: i64, stage: i64, x: f64, z: f64 },
-    Gather { x: f64, y: f64, z: f64, kind: String },
+    Open {
+        ui: String,
+        id: String,
+    },
+    Sold {
+        pack: String,
+        coins: f64,
+        seals: f64,
+        demand: f64,
+        fresh: f64,
+        outpost: String,
+    },
+    Harvest {
+        x: f64,
+        y: f64,
+        z: f64,
+    },
+    Build {
+        house: i64,
+        stage: i64,
+        x: f64,
+        z: f64,
+    },
+    Gather {
+        x: f64,
+        y: f64,
+        z: f64,
+        kind: String,
+    },
     /// what: accepted, step, ready or done.
-    Quest { id: String, what: String },
-    Thunder { x: f64, y: f64, z: f64 },
+    Quest {
+        id: String,
+        what: String,
+    },
+    Thunder {
+        x: f64,
+        y: f64,
+        z: f64,
+    },
 }
 
 /// Something quests count (src/sim/life/quests.ts QuestEvent).
@@ -207,7 +284,18 @@ impl Life {
     /// A new island, with the start-of-game money and labor (tests can be generous).
     pub fn new(zone: &'static Zone, coins: Option<f64>, start_labor: Option<f64>) -> Life {
         let state = new_life_state(coins.unwrap_or(200.0), start_labor.unwrap_or(labor().start), zone.recipe.seed);
-        let mut life = Life { state, zone, focus: None, placing: None, revision: 0, resting: false, plot_owners: HashMap::new(), world_clock: None, queue: Vec::new(), events: Vec::new() };
+        let mut life = Life {
+            state,
+            zone,
+            focus: None,
+            placing: None,
+            revision: 0,
+            resting: false,
+            plot_owners: HashMap::new(),
+            world_clock: None,
+            queue: Vec::new(),
+            events: Vec::new(),
+        };
         // The first quest is waiting the moment you arrive.
         quests::start_quests(&mut life);
         life
@@ -451,7 +539,6 @@ impl Life {
         s.labor -= labor;
         true
     }
-
 }
 
 #[cfg(test)]

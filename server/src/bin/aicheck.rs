@@ -15,7 +15,7 @@ use std::io::Read;
 use serde::{Deserialize, Serialize};
 use yggdrasil_server::actor::Actor;
 use yggdrasil_server::actors::Actors;
-use yggdrasil_server::ai::{start_brain, step_brain, Foe, Sighting};
+use yggdrasil_server::ai::{Foe, Sighting, start_brain, step_brain};
 use yggdrasil_server::jsmath::JsMath;
 
 #[derive(Deserialize)]
@@ -142,11 +142,7 @@ fn player_at(f: usize) -> (f64, f64) {
 }
 
 fn b(v: bool) -> f64 {
-    if v {
-        1.0
-    } else {
-        0.0
-    }
+    if v { 1.0 } else { 0.0 }
 }
 
 fn row(a: &Actor) -> Vec<f64> {
@@ -257,17 +253,7 @@ fn main() {
     for f in 0..s.frames {
         let (px, pz) = player_at(f);
         step_brain(&mut a, Sighting::at(px, pz, s.player));
-        frames.push([
-            a.x,
-            a.y,
-            a.z,
-            a.facing,
-            a.state as f64,
-            a.state_frame as f64,
-            a.wait as f64,
-            a.move_x,
-            a.move_z,
-        ]);
+        frames.push([a.x, a.y, a.z, a.facing, a.state as f64, a.state_frame as f64, a.wait as f64, a.move_x, a.move_z]);
     }
     println!("{}", serde_json::to_string(&Out { frames }).unwrap());
 }

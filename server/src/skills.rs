@@ -8,7 +8,7 @@
 use std::collections::{BTreeMap, HashSet};
 use std::sync::OnceLock;
 
-use crate::tuning::{skill_tree, tuning, AttackStep, SkillMod, SkillNode, NO_ABILITY, NO_MOVEMENT};
+use crate::tuning::{AttackStep, NO_ABILITY, NO_MOVEMENT, SkillMod, SkillNode, skill_tree, tuning};
 
 /// A learned set travels as this many 32-bit words, so the wire size never depends on the tree.
 /// Must match maxNodes in shared/tuning.json (checked when the tuning is loaded).
@@ -244,9 +244,10 @@ fn applies(m: &SkillMod, c: &ModContext) -> bool {
         return false;
     }
     if let Some(skill) = &m.skill
-        && c.skill != Some(skill.as_str()) {
-            return false;
-        }
+        && c.skill != Some(skill.as_str())
+    {
+        return false;
+    }
     m.tags.iter().all(|t| c.tags.contains(t))
 }
 
@@ -324,10 +325,8 @@ pub fn book() -> &'static [BookSkill] {
         let t = tuning();
         let mut out = Vec::new();
         for w in 0..t.weapons.len() {
-            let id = nodes()
-                .iter()
-                .find(|n| n.grants.as_ref().is_some_and(|g| g.weapon == Some(w as u8)))
-                .map_or_else(|| format!("weapon{w}"), |n| n.id.clone());
+            let id =
+                nodes().iter().find(|n| n.grants.as_ref().is_some_and(|g| g.weapon == Some(w as u8))).map_or_else(|| format!("weapon{w}"), |n| n.id.clone());
             out.push(BookSkill { id, kind: BookKind::Weapon, index: w as u8 });
         }
         for (i, a) in t.abilities.iter().enumerate() {
@@ -464,22 +463,11 @@ fn granted(s: &SkillSet) -> Grants {
 pub fn resolve_skills(s: &SkillSet, levels: &[u32]) -> ResolvedSkills {
     let t = tuning();
     let Grants { combos, weapons, abilities, movement } = granted(s);
-    let weapon: Vec<Vec<Channel>> = t
-        .weapons
-        .iter()
-        .enumerate()
-        .map(|(w, def)| gather(s, &ModContext { tags: &def.tags, weapon: Some(w as u8), skill: None }, levels))
-        .collect();
-    let ability: Vec<Vec<Channel>> = t
-        .abilities
-        .iter()
-        .map(|a| gather(s, &ModContext { tags: &a.tags, weapon: None, skill: Some(&a.id) }, levels))
-        .collect();
-    let moves: Vec<Vec<Channel>> = t
-        .movement_skills
-        .iter()
-        .map(|m| gather(s, &ModContext { tags: &m.tags, weapon: None, skill: Some(&m.id) }, levels))
-        .collect();
+    let weapon: Vec<Vec<Channel>> =
+        t.weapons.iter().enumerate().map(|(w, def)| gather(s, &ModContext { tags: &def.tags, weapon: Some(w as u8), skill: None }, levels)).collect();
+    let ability: Vec<Vec<Channel>> = t.abilities.iter().map(|a| gather(s, &ModContext { tags: &a.tags, weapon: None, skill: Some(&a.id) }, levels)).collect();
+    let moves: Vec<Vec<Channel>> =
+        t.movement_skills.iter().map(|m| gather(s, &ModContext { tags: &m.tags, weapon: None, skill: Some(&m.id) }, levels)).collect();
     let mut bits = 0u8;
     for (i, id) in variant_ids().iter().enumerate() {
         if combos.contains(id) {
@@ -543,7 +531,7 @@ pub fn valid_movement(skills: &SkillSet, movement: &[u8]) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::tuning::{movement_cooldown_for, movement_stamina_for, HOTBAR_SLOTS};
+    use crate::tuning::{HOTBAR_SLOTS, movement_cooldown_for, movement_stamina_for};
 
     fn at(id: &str) -> usize {
         node_index(id).unwrap_or_else(|| panic!("no node {id}"))
@@ -582,7 +570,23 @@ mod tests {
         assert!(n.len() <= MAX_NODES);
         // The first fifteen are the old skills in their old order, so builds saved before the tree
         // grew still mean the same skills.
-        let old = ["sword", "cleave", "whirlwind", "club", "heal", "swiftMending", "staff", "meteor", "quickIncantation", "bow", "rapidFire", "piercing", "dodgeRoll", "backstep", "block"];
+        let old = [
+            "sword",
+            "cleave",
+            "whirlwind",
+            "club",
+            "heal",
+            "swiftMending",
+            "staff",
+            "meteor",
+            "quickIncantation",
+            "bow",
+            "rapidFire",
+            "piercing",
+            "dodgeRoll",
+            "backstep",
+            "block",
+        ];
         assert_eq!(ids(&(0..15).collect::<Vec<_>>()), old);
         assert_eq!(ids(roots()), ["sword", "club", "staff", "bow"]);
         // Neighbours are listed both ways round and in ascending order.

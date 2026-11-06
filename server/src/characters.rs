@@ -7,16 +7,16 @@
 //!   POST   /api/characters       {name}: a new one with a fresh island -> {character}
 //!   DELETE /api/characters/{id}  {name}: gone for good, island and all (its name typed to confirm)
 
+use axum::Json;
 use axum::extract::{Path, State};
 use axum::http::{HeaderMap, StatusCode};
-use axum::Json;
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use sqlx::types::Json as Jsonb;
 use sqlx::{PgPool, Postgres, Transaction};
 
-use crate::accounts::{check_name, signed_in, Account};
-use crate::http::{database, ApiError, App};
+use crate::accounts::{Account, check_name, signed_in};
+use crate::http::{ApiError, App, database};
 use crate::life::content::quests;
 use crate::tuning::tuning;
 

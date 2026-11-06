@@ -10,12 +10,12 @@
 
 use std::collections::HashSet;
 
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
-use super::{client, island_of, ChannelGame, Save};
-use crate::life::content::format_coins;
+use super::{ChannelGame, Save, client, island_of};
 use crate::life::Life;
-use crate::minigames::{content, game_def, new_game, Challenge, Seat, Spot, Table, Why};
+use crate::life::content::format_coins;
+use crate::minigames::{Challenge, Seat, Spot, Table, Why, content, game_def, new_game};
 use crate::open::colliders::ground_at;
 use crate::player::Mode;
 
@@ -155,7 +155,11 @@ impl ChannelGame {
 
     /// Something for `id` to read: at once if they're here, when they're back if they're away.
     pub(crate) fn toast(&mut self, id: i64, text: impl Into<String>, kind: &str) {
-        let life = if self.members.contains_key(&id) { self.players.open_mut(client(id)).and_then(|(_, l)| l) } else { self.lingering.get_mut(&id).map(|l| &mut *l.life) };
+        let life = if self.members.contains_key(&id) {
+            self.players.open_mut(client(id)).and_then(|(_, l)| l)
+        } else {
+            self.lingering.get_mut(&id).map(|l| &mut *l.life)
+        };
         if let Some(life) = life {
             life.toast(text, kind);
         }
@@ -218,7 +222,17 @@ impl ChannelGame {
             return Err("You don't have that much to stake.".into());
         }
         let dev = self.members.get(&from).is_some_and(|m| m.dev);
-        self.tables.challenges.push(Challenge { from, from_name, to, to_name, game: def, stake, expires: now + c.invite_seconds, seed: seed.filter(|_| dev), turn: turn.filter(|t| dev && t.is_finite() && *t > 0.0) });
+        self.tables.challenges.push(Challenge {
+            from,
+            from_name,
+            to,
+            to_name,
+            game: def,
+            stake,
+            expires: now + c.invite_seconds,
+            seed: seed.filter(|_| dev),
+            turn: turn.filter(|t| dev && t.is_finite() && *t > 0.0),
+        });
         self.tell_challenges(from);
         self.tell_challenges(to);
         Ok(())
@@ -238,7 +252,9 @@ impl ChannelGame {
     /// accepted once that's put right stays open).
     pub fn answer(&mut self, to: i64, from: i64, accept: bool) -> Result<(), String> {
         let now = self.game_clock();
-        let Some(i) = self.tables.challenges.iter().position(|c| c.from == from && c.to == to) else { return Err("That challenge isn't open any more.".into()) };
+        let Some(i) = self.tables.challenges.iter().position(|c| c.from == from && c.to == to) else {
+            return Err("That challenge isn't open any more.".into());
+        };
         let (game, stake, seed, turn, from_name, to_name) = {
             let c = &self.tables.challenges[i];
             (c.game, c.stake, c.seed, c.turn, c.from_name.clone(), c.to_name.clone())
@@ -333,7 +349,8 @@ impl ChannelGame {
     /// Keeps everyone at a table in their seat: puts the players of table `start` there, facing
     /// it, as its game starts, and anyone else at a table back there if something pushed them out.
     fn pin_seated(&mut self, start: Option<u64>) {
-        let seats: Vec<(i64, Spot, usize, bool)> = self.tables.tables.iter().flat_map(|t| (0..2).map(move |k| (t.seats[k].id, t.at, k, Some(t.id) == start))).collect();
+        let seats: Vec<(i64, Spot, usize, bool)> =
+            self.tables.tables.iter().flat_map(|t| (0..2).map(move |k| (t.seats[k].id, t.at, k, Some(t.id) == start))).collect();
         for (id, at, k, sit_down) in seats {
             let (x, z, facing) = at.seat(k);
             let Some((p, _)) = self.players.open_mut(client(id)) else { continue };
@@ -476,7 +493,9 @@ impl ChannelGame {
         for s in 0..2 {
             let them = &names[1 - s];
             let (text, kind) = match (over.why, winner) {
-                (Why::Aborted, _) => (format!("The game of {game} was called off.{}", if held[s] > 0.0 { " Your stake is back in your purse." } else { "" }), "info"),
+                (Why::Aborted, _) => {
+                    (format!("The game of {game} was called off.{}", if held[s] > 0.0 { " Your stake is back in your purse." } else { "" }), "info")
+                }
                 (_, None) => (format!("A draw at {game}.{}", if held[s] > 0.0 { " Your stake is back in your purse." } else { "" }), "info"),
                 (Why::Conceded, Some(w)) if w == s => (format!("{them} conceded - you win at {game}!{yours}"), "coin"),
                 (Why::Conceded, Some(_)) => (format!("You conceded. {them} wins at {game}{won}."), "bad"),
@@ -537,7 +556,8 @@ impl ChannelGame {
         self.pin_seated(None);
         // A finished game's table goes a little after, and its players are free.
         let clear = content().table.clear_seconds;
-        let (gone, keep): (Vec<Table>, Vec<Table>) = std::mem::take(&mut self.tables.tables).into_iter().partition(|t| t.over.is_some_and(|o| now - o.at >= clear));
+        let (gone, keep): (Vec<Table>, Vec<Table>) =
+            std::mem::take(&mut self.tables.tables).into_iter().partition(|t| t.over.is_some_and(|o| now - o.at >= clear));
         self.tables.tables = keep;
         for t in gone {
             for s in &t.seats {
@@ -574,13 +594,13 @@ impl ChannelGame {
 
 #[cfg(test)]
 mod tests {
-    use serde_json::{json, Value};
+    use serde_json::{Value, json};
     use tokio::sync::mpsc;
 
-    use super::super::{client, island_of, load_island, stand_on_ground, Arrival, ChannelGame};
+    use super::super::{Arrival, ChannelGame, client, island_of, load_island, stand_on_ground};
     use crate::game::OPEN_INPUT;
     use crate::life::{Command, Life};
-    use crate::minigames::{beacons, content, game_def, Why};
+    use crate::minigames::{Why, beacons, content, game_def};
     use crate::player::{Build, Mode, Player};
     use crate::world::Spawn;
 
@@ -614,7 +634,15 @@ mod tests {
     }
 
     fn toasts(ch: &mut ChannelGame, id: i64) -> Vec<String> {
-        ch.players.open_mut(client(id)).unwrap().1.unwrap().drain_events().into_iter().filter_map(|e| if let crate::life::LifeEvent::Toast { text, .. } = e { Some(text) } else { None }).collect()
+        ch.players
+            .open_mut(client(id))
+            .unwrap()
+            .1
+            .unwrap()
+            .drain_events()
+            .into_iter()
+            .filter_map(|e| if let crate::life::LifeEvent::Toast { text, .. } = e { Some(text) } else { None })
+            .collect()
     }
 
     /// Everything a browser has been sent since last asked, parsed.
@@ -773,13 +801,17 @@ mod tests {
                     None => json!({ "k": "draw", "from": "deck" }),
                 }
             } else if seat == 1 {
-                let on_row = legal.iter().find_map(|l| l["hexes"].as_array().unwrap().iter().find(|h| row.contains(&(h.as_u64().unwrap() as usize))).map(|h| (l["cards"].clone(), h.clone())));
+                let on_row = legal.iter().find_map(|l| {
+                    l["hexes"].as_array().unwrap().iter().find(|h| row.contains(&(h.as_u64().unwrap() as usize))).map(|h| (l["cards"].clone(), h.clone()))
+                });
                 match on_row {
                     Some((cards, hex)) => json!({ "k": "light", "cards": cards, "hex": hex }),
                     None => json!({ "k": "swap", "card": 0 }),
                 }
             } else {
-                let away = legal.iter().find_map(|l| l["hexes"].as_array().unwrap().iter().find(|h| b.cells[h.as_u64().unwrap() as usize].1 >= 2).map(|h| (l["cards"].clone(), h.clone())));
+                let away = legal.iter().find_map(|l| {
+                    l["hexes"].as_array().unwrap().iter().find(|h| b.cells[h.as_u64().unwrap() as usize].1 >= 2).map(|h| (l["cards"].clone(), h.clone()))
+                });
                 match away {
                     Some((cards, hex)) => json!({ "k": "light", "cards": cards, "hex": hex }),
                     None => json!({ "k": "swap", "card": 0 }),
@@ -960,7 +992,8 @@ mod tests {
         'find: for i in 0..400 {
             for j in 0..400 {
                 let (x, z) = (-600.0 + i as f64 * 3.0, -600.0 + j as f64 * 3.0);
-                if hf.inside(x, z, 10.0) && hf.height(x, z) < hf.water - 1.0 && hf.height(x + 2.0, z) < hf.water - 1.0 && hf.height(x - 2.0, z) < hf.water - 1.0 {
+                if hf.inside(x, z, 10.0) && hf.height(x, z) < hf.water - 1.0 && hf.height(x + 2.0, z) < hf.water - 1.0 && hf.height(x - 2.0, z) < hf.water - 1.0
+                {
                     (sx, sz) = (x, z);
                     break 'find;
                 }

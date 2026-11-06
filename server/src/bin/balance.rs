@@ -15,12 +15,12 @@ use std::io::Read;
 
 use serde::{Deserialize, Serialize};
 use yggdrasil_server::actors::Actors;
-use yggdrasil_server::game::{actions_from, Players};
+use yggdrasil_server::game::{Players, actions_from};
 use yggdrasil_server::player::{Build, Mode};
 use yggdrasil_server::sim::Battle;
-use yggdrasil_server::skills::{node_index, set_skill, EMPTY_SKILLS};
+use yggdrasil_server::skills::{EMPTY_SKILLS, node_index, set_skill};
 use yggdrasil_server::tuning::{HOTBAR_SLOTS, MOVEMENT_SLOTS, NO_ABILITY, NO_MOVEMENT, tuning};
-use yggdrasil_server::world::{battlefield, SEED};
+use yggdrasil_server::world::{SEED, battlefield};
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -109,16 +109,11 @@ fn to_build(b: &BuildIn) -> Build {
     }
     let mut abilities = [NO_ABILITY; HOTBAR_SLOTS];
     for (slot, id) in b.abilities.iter().take(HOTBAR_SLOTS).enumerate() {
-        abilities[slot] =
-            tuning().abilities.iter().position(|a| &a.id == id).unwrap_or_else(|| panic!("unknown ability: {id}")) as u8;
+        abilities[slot] = tuning().abilities.iter().position(|a| &a.id == id).unwrap_or_else(|| panic!("unknown ability: {id}")) as u8;
     }
     let mut movement = [NO_MOVEMENT; MOVEMENT_SLOTS];
     for (slot, id) in b.movement.iter().take(MOVEMENT_SLOTS).enumerate() {
-        movement[slot] = tuning()
-            .movement_skills
-            .iter()
-            .position(|m| &m.id == id)
-            .unwrap_or_else(|| panic!("unknown movement skill: {id}")) as u8;
+        movement[slot] = tuning().movement_skills.iter().position(|m| &m.id == id).unwrap_or_else(|| panic!("unknown movement skill: {id}")) as u8;
     }
     Build { skills, weapon: b.weapon, abilities, movement }
 }
@@ -170,9 +165,7 @@ fn duel(a: &Build, b: &Build, seed: u32, max_ticks: u32, distance: f64) -> Outco
             // after a swing ends, so the mode is what says whether another one can start.
             let attack = !closing && p.mode != Mode::Attack && p.down_frame < 0;
             // Spend the first slot that is ready; aim is the enemy, in quarter metres.
-            let slot = (0..HOTBAR_SLOTS)
-                .find(|&i| p.abilities[i] != NO_ABILITY && p.cooldowns[i] <= 0)
-                .map_or(0, |i| i as u8 + 1);
+            let slot = (0..HOTBAR_SLOTS).find(|&i| p.abilities[i] != NO_ABILITY && p.cooldowns[i] <= 0).map_or(0, |i| i as u8 + 1);
 
             let q = |v: f64| (v.clamp(-127.0, 127.0)) as i8 as u8;
             let buttons = if attack { 4u8 } else { 0 };
@@ -204,7 +197,11 @@ fn duel(a: &Build, b: &Build, seed: u32, max_ticks: u32, distance: f64) -> Outco
             eprintln!(
                 "t{tick} a=({ax:.1},{az:.1}) b=({bx:.1},{bz:.1}) d={:.2} hp={:.0}/{:.0} mode={:?} af={} cd={:?}",
                 ((ax - bx).powi(2) + (az - bz).powi(2)).sqrt(),
-                hps[0], hps[1], pa.mode, pa.attack_frame, &pa.cooldowns[..2]
+                hps[0],
+                hps[1],
+                pa.mode,
+                pa.attack_frame,
+                &pa.cooldowns[..2]
             );
         }
         if hps[0] <= 0.0 || hps[1] <= 0.0 {
@@ -285,8 +282,7 @@ fn main() {
             });
         }
     }
-    let mut overall: Vec<(String, f64)> =
-        wins.into_iter().map(|(k, (w, n))| (k, if n > 0.0 { w / n } else { 0.5 })).collect();
+    let mut overall: Vec<(String, f64)> = wins.into_iter().map(|(k, (w, n))| (k, if n > 0.0 { w / n } else { 0.5 })).collect();
     overall.sort_by(|a, b| b.1.total_cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
 
     let report = Report { tick_hz: hz, duels_per_pairing: s.duels, pairings, overall };
@@ -294,15 +290,14 @@ fn main() {
     eprintln!("{:<10} {:<10} {:>7} {:>7} {:>8} {:>8} {:>6}", "A", "B", "A win%", "TTK s", "A dmg", "B dmg", "draws");
     for p in &report.pairings {
         let ttk = if p.mean_seconds.is_nan() { "-".to_string() } else { format!("{:.1}", p.mean_seconds) };
-        eprintln!(
-            "{:<10} {:<10} {:>6.0}% {:>7} {:>8.1} {:>8.1} {:>6}",
-            p.a, p.b, p.a_win_rate * 100.0, ttk, p.a_damage, p.b_damage, p.draws
-        );
+        eprintln!("{:<10} {:<10} {:>6.0}% {:>7} {:>8.1} {:>8.1} {:>6}", p.a, p.b, p.a_win_rate * 100.0, ttk, p.a_damage, p.b_damage, p.draws);
     }
     eprintln!("\nwin rate over decided duels:");
     for (name, rate) in &report.overall {
         eprintln!("  {name:<10} {:>5.1}%", rate * 100.0);
     }
-    eprintln!("\nBoth sides walk in and swing, so this is the paper matchup, not the played one:\na build that wants to kite or space will read worse here than it plays.");
+    eprintln!(
+        "\nBoth sides walk in and swing, so this is the paper matchup, not the played one:\na build that wants to kite or space will read worse here than it plays."
+    );
     println!("{}", serde_json::to_string_pretty(&report).expect("serialize"));
 }

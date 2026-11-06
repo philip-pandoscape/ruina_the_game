@@ -14,7 +14,7 @@ use super::content::quests;
 use super::state::LifeState;
 use super::{Life, QuestEvent};
 use crate::player::Player;
-use crate::skills::{book, book_of, level_of, levels_from, BookKind};
+use crate::skills::{BookKind, book, book_of, level_of, levels_from};
 use crate::tuning::tuning;
 
 /// Something the player did that the skill behind it learns from, or a creature they finished
@@ -90,10 +90,7 @@ pub fn observe(life: &mut Life, e: Observed) -> bool {
 /// experience. Cheap when nothing changed, which is nearly always.
 pub fn sync_levels(life: &Life, p: &mut Player) {
     let xp = &life.state.skill_xp;
-    let same = book()
-        .iter()
-        .enumerate()
-        .all(|(i, b)| p.levels.get(i).copied().unwrap_or(1) == level_of(xp.get(b.id.as_str()).copied().unwrap_or(0.0)));
+    let same = book().iter().enumerate().all(|(i, b)| p.levels.get(i).copied().unwrap_or(1) == level_of(xp.get(b.id.as_str()).copied().unwrap_or(0.0)));
     if !same {
         p.set_levels(&levels_from(xp));
     }
@@ -101,10 +98,7 @@ pub fn sync_levels(life: &Life, p: &mut Player) {
 
 /// Skill points the quests and milestones you've finished have given you.
 pub fn points_earned(state: &LifeState) -> u32 {
-    quests()
-        .iter()
-        .filter_map(|q| q.rewards.skill_points.filter(|&n| n != 0 && state.quests.done.contains(&q.id)))
-        .sum()
+    quests().iter().filter_map(|q| q.rewards.skill_points.filter(|&n| n != 0 && state.quests.done.contains(&q.id))).sum()
 }
 
 /// How many skill points you may have in the tree in the open world.
@@ -115,9 +109,9 @@ pub fn skill_budget(state: &LifeState) -> u32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::life::LifeEvent;
     use crate::life::quests::{complete, quest_active, quest_done, quests_at};
     use crate::life::trade::testing::{island, toasts};
-    use crate::life::LifeEvent;
     use crate::skills::{book_index, levels_from};
 
     fn finish_landfall(life: &mut Life) {

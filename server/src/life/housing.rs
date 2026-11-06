@@ -6,12 +6,12 @@
 
 use std::collections::BTreeMap;
 
-use super::content::{blueprint_def, format_coins, has_blueprint, js_max, pack_def, structure_def, Spot, StageDef};
+use super::content::{Spot, StageDef, blueprint_def, format_coins, has_blueprint, js_max, pack_def, structure_def};
 use super::state::House;
 use super::trade::{carried, consume_carried};
 use super::{Life, LifeEvent, QuestEvent};
-use crate::open::zone::{rect, to_world, HousePlot};
 use crate::open::Sim;
+use crate::open::zone::{HousePlot, rect, to_world};
 
 pub const DAY: f64 = 86400.0;
 
@@ -94,7 +94,15 @@ pub fn place_house(life: &mut Life, sim: &mut Sim, plot: &str, item: &str) -> bo
     }
     let id = life.next_id();
     let tax_paid_until = life.state.clock + bp.grace_days * DAY;
-    life.state.houses.push(House { id, plot: plot.to_string(), blueprint: bp.id.clone(), stage: 0, delivered: BTreeMap::new(), storage: Vec::new(), tax_paid_until });
+    life.state.houses.push(House {
+        id,
+        plot: plot.to_string(),
+        blueprint: bp.id.clone(),
+        stage: 0,
+        delivered: BTreeMap::new(),
+        storage: Vec::new(),
+        tax_paid_until,
+    });
     let i = life.state.houses.len() - 1;
     add_house_colliders(life, sim, &life.state.houses[i]);
     life.revision += 1;
@@ -175,10 +183,14 @@ pub fn add_house_colliders(life: &Life, sim: &mut Sim, h: &House) {
                 let (ox, oz) = to_world(a, b, rot);
                 let i = ((px + ox - hf.min) / hf.cell).floor();
                 let j = ((pz + oz - hf.min) / hf.cell).floor();
-                if i >= 0.0 && j >= 0.0 && i < hf.cells as f64 && j < hf.cells as f64
-                    && let Some(c) = clear.get_mut(j as usize * hf.cells + i as usize) {
-                        *c = 1;
-                    }
+                if i >= 0.0
+                    && j >= 0.0
+                    && i < hf.cells as f64
+                    && j < hf.cells as f64
+                    && let Some(c) = clear.get_mut(j as usize * hf.cells + i as usize)
+                {
+                    *c = 1;
+                }
                 b += hf.cell / 2.0;
             }
             a += hf.cell / 2.0;

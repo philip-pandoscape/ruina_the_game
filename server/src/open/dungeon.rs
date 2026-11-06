@@ -7,9 +7,9 @@ use std::sync::OnceLock;
 
 use serde::Deserialize;
 
-use super::colliders::ground_at;
-use super::zone::{rect, BoxCollider, Deck, Spawn};
 use super::OpenWorld;
+use super::colliders::ground_at;
+use super::zone::{BoxCollider, Deck, Spawn, rect};
 
 /// A box or deck as a dungeon's file gives it: around the origin, its top above the origin's height.
 #[derive(Deserialize, Clone, Copy, Debug)]

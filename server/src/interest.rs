@@ -1,7 +1,7 @@
 //! Builds each player's personal update. Fighters near the player are sent every tick with full
 //! detail; fighters further out are sent less often; everyone else arrives in the shared FAR message.
 
-use crate::protocol::{put_mid, put_near, MID_ENTRY, MSG_SNAPSHOT, NEAR_ENTRY};
+use crate::protocol::{MID_ENTRY, MSG_SNAPSHOT, NEAR_ENTRY, put_mid, put_near};
 use crate::sim::Battle;
 
 pub const NEAR_RADIUS: f32 = 30.0;
@@ -123,16 +123,7 @@ fn gather(b: &Battle, g: &InterestGrid, vx: f32, vz: f32, max_r: f32, want: usiz
 
 /// Writes one SNAPSHOT message for a player standing at (vx, vz) into `out`.
 #[allow(clippy::too_many_arguments)]
-pub fn build_snapshot(
-    b: &Battle,
-    g: &InterestGrid,
-    rec: &Records,
-    vx: f32,
-    vz: f32,
-    mid_tick: bool,
-    s: &mut Scratch,
-    out: &mut Vec<u8>,
-) {
+pub fn build_snapshot(b: &Battle, g: &InterestGrid, rec: &Records, vx: f32, vz: f32, mid_tick: bool, s: &mut Scratch, out: &mut Vec<u8>) {
     out.clear();
     out.push(MSG_SNAPSHOT);
     out.extend_from_slice(&(b.tick as u32).to_le_bytes());

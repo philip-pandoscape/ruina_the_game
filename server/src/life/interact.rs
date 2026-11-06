@@ -7,12 +7,16 @@ use std::collections::HashSet;
 use std::f64::consts::PI;
 
 use super::content::{
-    animal_def, blueprint_def, carry, crop_def, design_for_item, format_coins, gathering, item_def, js_max, js_min, js_round, pack_def, place_name, quest_def, recipe as recipe_by_id,
-    rideable, ship_design, structure_def, QuestDef, QuestStep,
+    QuestDef, QuestStep, animal_def, blueprint_def, carry, crop_def, design_for_item, format_coins, gathering, item_def, js_max, js_min, js_round, pack_def,
+    place_name, quest_def, recipe as recipe_by_id, rideable, ship_design, structure_def,
 };
 use super::contracts::accept_contract;
-use super::farming::{add_scarecrow, cell_at, cell_centre, fell, grow_for, harvest, is_ripe, plant, plant_at, plot_problem, scarecrow_index, seconds_to_ripe, stage_of, water};
-use super::housing::{build_stage, deliver_material, house_on, house_pose, interior_point, is_complete, pay_tax, place_house, stage_ready, still_needs, tax_due, Need, DAY};
+use super::farming::{
+    add_scarecrow, cell_at, cell_centre, fell, grow_for, harvest, is_ripe, plant, plant_at, plot_problem, scarecrow_index, seconds_to_ripe, stage_of, water,
+};
+use super::housing::{
+    DAY, Need, build_stage, deliver_material, house_on, house_pose, interior_point, is_complete, pay_tax, place_house, stage_ready, still_needs, tax_due,
+};
 use super::livestock::{collect, feed, grown_up, hungry, produce_ready, raise};
 use super::quests::{abandon, accept, complete, quests_at};
 use super::shipyard::{build_ship_stage, deliver_ship_material, design_items_in_bag, launch, lay_keel, ship_finished, ship_needs, ship_on, ship_stage_ready};
@@ -20,9 +24,9 @@ use super::state::{Home, Stack};
 use super::trade::{buy, buy_back, carried, drop_pack, load_pack, pack_index, pick_up, quote, recover_demand, run_recipe, sell, sell_pack, unload_pack};
 use super::vehicles::{board, dismount, distance_to, mount_command, nearest_anchor, pack_blocks, recall, ridden, summon, vehicle_index};
 use super::{Command, Focus, Life, LifeEvent, Placement, QuestEvent};
-use crate::open::traverse::{close_glider, glider_blocked, gust, open_glider};
-use crate::open::zone::{to_local, Outpost, Zone};
 use crate::open::Sim;
+use crate::open::traverse::{close_glider, glider_blocked, gust, open_glider};
+use crate::open::zone::{Outpost, Zone, to_local};
 use crate::player::Mode;
 
 fn outpost_of(life: &Life, npc: &str) -> Option<&'static Outpost> {
@@ -130,7 +134,16 @@ pub fn find_focus(life: &mut Life, sim: &Sim) -> Option<Focus> {
     let hf = sim.terrain();
     if p.mode == Mode::Ride {
         let mount = ridden(life, sim).is_some_and(|i| rideable(&life.state.vehicles[i].def).is_mount());
-        return Some(Focus { action: "exit".into(), key: "exit".into(), label: if mount { "Dismount" } else { "Get out" }.into(), ok: true, x: p.pos.x, y: p.pos.y, z: p.pos.z, ..Default::default() });
+        return Some(Focus {
+            action: "exit".into(),
+            key: "exit".into(),
+            label: if mount { "Dismount" } else { "Get out" }.into(),
+            ok: true,
+            x: p.pos.x,
+            y: p.pos.y,
+            z: p.pos.z,
+            ..Default::default()
+        });
     }
     if life.placing.is_some() {
         let ahead = 7.0;
@@ -176,14 +189,30 @@ pub fn find_focus(life: &mut Life, sim: &Sim) -> Option<Focus> {
             continue;
         }
         let y = hf.height(n.x, n.z);
-        let at = |action: &str, label: String, detail: String, ok: bool| Focus { action: action.into(), key: format!("npc:{}", n.id), label, detail: Some(detail), ok, npc: Some(n.id.clone()), x: n.x, y, z: n.z, ..Default::default() };
+        let at = |action: &str, label: String, detail: String, ok: bool| Focus {
+            action: action.into(),
+            key: format!("npc:{}", n.id),
+            label,
+            detail: Some(detail),
+            ok,
+            npc: Some(n.id.clone()),
+            x: n.x,
+            y,
+            z: n.z,
+            ..Default::default()
+        };
         if let (Some(outpost), Some(back)) = (outpost_of(life, &n.id), back) {
             let def = pack_def(&back.def);
             let f = match quote(life, back, &outpost.id) {
                 Some(q) => {
                     let seals = if truthy(q.seals) { format!(" + {} seal{}", num(q.seals), if q.seals > 1.0 { "s" } else { "" }) } else { String::new() };
                     let fresh = if q.fresh >= 1.0 { "fresh" } else { "stale" };
-                    let detail = format!("{}{seals} · demand {}% · {fresh} {}%", format_coins(q.coins), num(js_round(q.demand * 100.0)), num(js_round((q.fresh - 1.0) * 100.0)));
+                    let detail = format!(
+                        "{}{seals} · demand {}% · {fresh} {}%",
+                        format_coins(q.coins),
+                        num(js_round(q.demand * 100.0)),
+                        num(js_round((q.fresh - 1.0) * 100.0))
+                    );
                     at("sell", format!("Sell {}", def.name), detail, true)
                 }
                 None => {
@@ -201,12 +230,9 @@ pub fn find_focus(life: &mut Life, sim: &Sim) -> Option<Focus> {
             continue;
         }
         let (offer, turn_in) = quests_at(life, &n.id);
-        let talk_goal = life
-            .state
-            .quests
-            .active
-            .iter()
-            .any(|qp| quest_step(quest_def(&qp.id), qp.step).is_some_and(|st| st.objectives.iter().any(|o| o.type_ == "talk" && o.npc.as_deref() == Some(n.id.as_str()))));
+        let talk_goal = life.state.quests.active.iter().any(|qp| {
+            quest_step(quest_def(&qp.id), qp.step).is_some_and(|st| st.objectives.iter().any(|o| o.type_ == "talk" && o.npc.as_deref() == Some(n.id.as_str())))
+        });
         let tag = if !turn_in.is_empty() {
             "quest complete!"
         } else if talk_goal {
@@ -224,7 +250,18 @@ pub fn find_focus(life: &mut Life, sim: &Sim) -> Option<Focus> {
         let d = (b.x - px).hypot(b.z - pz);
         let name = b.name.as_deref().unwrap_or("Workbench");
         let detail = if back.is_some() { "Your back is full".into() } else { format!("{} packs", place_name(&b.place)) };
-        let f = Focus { action: "craft".into(), key: format!("bench:{}", b.id), label: format!("Use {name}"), detail: Some(detail), ok: true, bench: Some(b.id.clone()), x: b.x, y: hf.height(b.x, b.z), z: b.z, ..Default::default() };
+        let f = Focus {
+            action: "craft".into(),
+            key: format!("bench:{}", b.id),
+            label: format!("Use {name}"),
+            detail: Some(detail),
+            ok: true,
+            bench: Some(b.id.clone()),
+            x: b.x,
+            y: hf.height(b.x, b.z),
+            z: b.z,
+            ..Default::default()
+        };
         pick.consider(f, d, 3.4);
     }
 
@@ -235,7 +272,17 @@ pub fn find_focus(life: &mut Life, sim: &Sim) -> Option<Focus> {
                 continue;
             }
             let d = (pk.x - px).hypot(pk.z - pz);
-            let f = Focus { action: "pickup".into(), key: format!("pack:{}", pk.id), label: format!("Pick up {}", pack_def(&pk.def).name), ok: true, pack: Some(pk.id), x: pk.x, y: pk.y, z: pk.z, ..Default::default() };
+            let f = Focus {
+                action: "pickup".into(),
+                key: format!("pack:{}", pk.id),
+                label: format!("Pick up {}", pack_def(&pk.def).name),
+                ok: true,
+                pack: Some(pk.id),
+                x: pk.x,
+                y: pk.y,
+                z: pk.z,
+                ..Default::default()
+            };
             pick.consider(f, d, carry().pickup_range);
         }
     }
@@ -252,7 +299,18 @@ pub fn find_focus(life: &mut Life, sim: &Sim) -> Option<Focus> {
         let loaded = v.cargo.iter().position(|&c| c != 0);
         let used = v.cargo.iter().filter(|&&c| c != 0).count();
         let slots = def.cargo.len();
-        let at = |action: &str, key: String, label: String, detail: Option<String>, ok: bool| Focus { action: action.into(), key, label, detail, ok, vehicle: Some(v.id), x: v.x, y: v.y, z: v.z, ..Default::default() };
+        let at = |action: &str, key: String, label: String, detail: Option<String>, ok: bool| Focus {
+            action: action.into(),
+            key,
+            label,
+            detail,
+            ok,
+            vehicle: Some(v.id),
+            x: v.x,
+            y: v.y,
+            z: v.z,
+            ..Default::default()
+        };
         let load = if a.kind == "cargo" && slots > 0 { back.zip(free) } else { None };
         let unload = if a.kind == "cargo" && back.is_none() { loaded } else { None };
         if let Some((back, free)) = load {
@@ -272,7 +330,11 @@ pub fn find_focus(life: &mut Life, sim: &Sim) -> Option<Focus> {
             } else {
                 None
             };
-            pick.consider(at("board", format!("veh:{}", v.id), format!("{} {}", if mount { "Ride" } else { "Drive" }, def.name), detail, !blocked), d + 0.3, 2.2);
+            pick.consider(
+                at("board", format!("veh:{}", v.id), format!("{} {}", if mount { "Ride" } else { "Drive" }, def.name), detail, !blocked),
+                d + 0.3,
+                2.2,
+            );
         }
     }
 
@@ -314,7 +376,11 @@ pub fn find_focus(life: &mut Life, sim: &Sim) -> Option<Focus> {
                 if produce_ready(plant) {
                     pick.consider(at("collect", def.verb.clone(), format!("{} labor", num(def.collect_labor)), true), 0.5, 9.0);
                 } else if hungry(life, plant) {
-                    pick.consider(at("feed", format!("Feed the {}", name.to_lowercase()), format!("{} {} · hungry", def.feed_n, item_def(&def.feed).name), fed), 0.5, 9.0);
+                    pick.consider(
+                        at("feed", format!("Feed the {}", name.to_lowercase()), format!("{} {} · hungry", def.feed_n, item_def(&def.feed).name), fed),
+                        0.5,
+                        9.0,
+                    );
                 } else {
                     let left = js_max(0.0, (plant.fed_until.unwrap_or(0.0) - life.state.clock).ceil());
                     let state = if grown_up(plant) {
@@ -334,10 +400,18 @@ pub fn find_focus(life: &mut Life, sim: &Sim) -> Option<Focus> {
                 } else if let Some(chop) = def.chop.as_ref().filter(|_| stage >= def.stages - 2) {
                     pick.consider(at("fell", format!("Fell {}", def.name), format!("{} labor · timber", num(chop.labor)), true), 0.5, 9.0);
                 } else if !plant.watered && plant.growth < 1.0 {
-                    pick.consider(at("water", format!("Water {}", def.name), format!("{pct}% · ripe in ~{}", short_time(seconds_to_ripe(life, plant))), true), 0.5, 9.0);
+                    pick.consider(
+                        at("water", format!("Water {}", def.name), format!("{pct}% · ripe in ~{}", short_time(seconds_to_ripe(life, plant))), true),
+                        0.5,
+                        9.0,
+                    );
                 } else {
                     let watered = if plant.watered { "watered · " } else { "" };
-                    pick.consider(at("info", format!("{} - {pct}%", def.name), format!("{watered}ripe in ~{}", short_time(seconds_to_ripe(life, plant))), false), 0.5, 9.0);
+                    pick.consider(
+                        at("info", format!("{} - {pct}%", def.name), format!("{watered}ripe in ~{}", short_time(seconds_to_ripe(life, plant))), false),
+                        0.5,
+                        9.0,
+                    );
                 }
             }
         }
@@ -359,7 +433,18 @@ pub fn find_focus(life: &mut Life, sim: &Sim) -> Option<Focus> {
             let back_at = life.state.nodes.get(&i.to_string()).copied().unwrap_or(f64::NAN);
             (format!("{} - picked clean", sd.name), format!("back in {}", short_time(back_at - life.state.clock)))
         };
-        let f = Focus { action: if ready { "gather" } else { "info" }.into(), key: format!("node:{i}"), label, detail: Some(detail), ok: ready, node: Some(i as i64), x: nd.x, y: hf.height(nd.x, nd.z), z: nd.z, ..Default::default() };
+        let f = Focus {
+            action: if ready { "gather" } else { "info" }.into(),
+            key: format!("node:{i}"),
+            label,
+            detail: Some(detail),
+            ok: ready,
+            node: Some(i as i64),
+            x: nd.x,
+            y: hf.height(nd.x, nd.z),
+            z: nd.z,
+            ..Default::default()
+        };
         pick.consider(f, d, 2.0);
     }
 
@@ -370,7 +455,18 @@ pub fn find_focus(life: &mut Life, sim: &Sim) -> Option<Focus> {
             continue;
         }
         let y = hf.height(sy.x, sy.z);
-        let at = |action: &str, label: String, detail: Option<String>, ok: bool| Focus { action: action.into(), key: format!("slip:{}", sy.id), label, detail, ok, slip: Some(sy.id.clone()), x: sy.x, y, z: sy.z, ..Default::default() };
+        let at = |action: &str, label: String, detail: Option<String>, ok: bool| Focus {
+            action: action.into(),
+            key: format!("slip:{}", sy.id),
+            label,
+            detail,
+            ok,
+            slip: Some(sy.id.clone()),
+            x: sy.x,
+            y,
+            z: sy.z,
+            ..Default::default()
+        };
         let score = d * 0.3 + 1.2;
         let Some(bi) = ship_on(life, &sy.id) else {
             let f = match design_items_in_bag(life).into_iter().next() {
@@ -409,7 +505,18 @@ pub fn find_focus(life: &mut Life, sim: &Sim) -> Option<Focus> {
         let y = hf.height(plot.x, plot.z);
         let d = lx.hypot(lz) * 0.25 + 1.5;
         let owner = if h.is_some() { None } else { life.plot_owners.get(&plot.id).filter(|o| !o.is_empty()) };
-        let on_plot = |action: &str, label: String, detail: &str, ok: bool| Focus { action: action.into(), key: format!("plot:{}", plot.id), label, detail: Some(detail.into()), ok, plot: Some(plot.id.clone()), x: plot.x, y, z: plot.z, ..Default::default() };
+        let on_plot = |action: &str, label: String, detail: &str, ok: bool| Focus {
+            action: action.into(),
+            key: format!("plot:{}", plot.id),
+            label,
+            detail: Some(detail.into()),
+            ok,
+            plot: Some(plot.id.clone()),
+            x: plot.x,
+            y,
+            z: plot.z,
+            ..Default::default()
+        };
         if let Some(owner) = owner {
             pick.consider(on_plot("info", format!("{owner}'s plot"), "Already claimed", false), d, 9.0);
             continue;
@@ -429,7 +536,18 @@ pub fn find_focus(life: &mut Life, sim: &Sim) -> Option<Focus> {
             let Some(stage) = usize::try_from(h.stage).ok().and_then(|s| bp.stages.get(s)) else { continue };
             let needs = still_needs(h);
             let list = needs_list(&needs);
-            let site = |action: &str, label: String, detail: String, ok: bool| Focus { action: action.into(), key: format!("site:{}", h.id), label, detail: Some(detail), ok, house: Some(h.id), x: hx, y, z: hz, ..Default::default() };
+            let site = |action: &str, label: String, detail: String, ok: bool| Focus {
+                action: action.into(),
+                key: format!("site:{}", h.id),
+                label,
+                detail: Some(detail),
+                ok,
+                house: Some(h.id),
+                x: hx,
+                y,
+                z: hz,
+                ..Default::default()
+            };
             if stage_ready(h) {
                 pick.consider(site("build", format!("Build the {}", stage.name.to_lowercase()), format!("{} labor", num(stage.labor)), true), d, 9.0);
             } else if let Some(back) = back.filter(|bk| needs.iter().any(|n| n.pack == bk.def && n.have < n.need)) {
@@ -443,16 +561,48 @@ pub fn find_focus(life: &mut Life, sim: &Sim) -> Option<Focus> {
             let (ix, iz) = interior_point(life, h, what);
             let dd = (ix - px).hypot(iz - pz);
             let f = if what == "bed" {
-                Focus { action: "rest".into(), key: format!("bed:{}", h.id), label: "Rest in bed".into(), detail: Some("Labor recovers 3× faster".into()), ok: true, house: Some(h.id), x: ix, y: y + 0.3, z: iz, ..Default::default() }
+                Focus {
+                    action: "rest".into(),
+                    key: format!("bed:{}", h.id),
+                    label: "Rest in bed".into(),
+                    detail: Some("Labor recovers 3× faster".into()),
+                    ok: true,
+                    house: Some(h.id),
+                    x: ix,
+                    y: y + 0.3,
+                    z: iz,
+                    ..Default::default()
+                }
             } else {
-                Focus { action: "storage".into(), key: format!("chest:{}", h.id), label: "Open storage chest".into(), ok: true, house: Some(h.id), x: ix, y: y + 0.3, z: iz, ..Default::default() }
+                Focus {
+                    action: "storage".into(),
+                    key: format!("chest:{}", h.id),
+                    label: "Open storage chest".into(),
+                    ok: true,
+                    house: Some(h.id),
+                    x: ix,
+                    y: y + 0.3,
+                    z: iz,
+                    ..Default::default()
+                }
             };
             pick.consider(f, dd, 1.8);
         }
         let (owed, due_in) = tax_due(life, h);
         if lz.abs() > 5.0 {
             let detail = if due_in > 0.0 { format!("paid for {}", short_time(due_in)) } else { "OVERDUE".into() };
-            let f = Focus { action: "tax".into(), key: format!("tax:{}", h.id), label: format!("Pay property tax ({})", format_coins(owed)), detail: Some(detail), ok: true, house: Some(h.id), x: plot.x, y, z: plot.z, ..Default::default() };
+            let f = Focus {
+                action: "tax".into(),
+                key: format!("tax:{}", h.id),
+                label: format!("Pay property tax ({})", format_coins(owed)),
+                detail: Some(detail),
+                ok: true,
+                house: Some(h.id),
+                x: plot.x,
+                y,
+                z: plot.z,
+                ..Default::default()
+            };
             pick.consider(f, d + 1.0, 9.0);
         }
     }
@@ -860,11 +1010,12 @@ fn gather(life: &mut Life, f: &Focus) {
     let n = life.rand_int(y.n[0], y.n[1]);
     life.give(&y.item, n, false);
     if let Some(rare) = &y.rare
-        && life.rand() < rare.chance {
-            life.give(&rare.item, 1, false);
-            life.toast("⚡ A thunderstruck log!", "coin");
-            life.emit(LifeEvent::Thunder { x: nd.x, y: f.y, z: nd.z });
-        }
+        && life.rand() < rare.chance
+    {
+        life.give(&rare.item, 1, false);
+        life.toast("⚡ A thunderstruck log!", "coin");
+        life.emit(LifeEvent::Thunder { x: nd.x, y: f.y, z: nd.z });
+    }
     let back = life.state.clock + y.respawn;
     life.state.nodes.insert(i.to_string(), back);
     life.revision += 1;
@@ -915,7 +1066,18 @@ mod tests {
 
     #[test]
     fn short_times_read_like_the_browsers() {
-        let cases = [(0.0, "0s"), (0.2, "1s"), (59.2, "1m 0s"), (61.0, "1m 1s"), (3599.0, "59m 59s"), (3725.0, "1h 2m"), (86400.0, "1d 0h"), (90061.0, "1d 1h"), (-3.0, "0s"), (f64::NAN, "NaNs")];
+        let cases = [
+            (0.0, "0s"),
+            (0.2, "1s"),
+            (59.2, "1m 0s"),
+            (61.0, "1m 1s"),
+            (3599.0, "59m 59s"),
+            (3725.0, "1h 2m"),
+            (86400.0, "1d 0h"),
+            (90061.0, "1d 1h"),
+            (-3.0, "0s"),
+            (f64::NAN, "NaNs"),
+        ];
         for (s, want) in cases {
             assert_eq!(short_time(s), want, "{s}");
         }
@@ -976,7 +1138,10 @@ mod tests {
         let mut sim = Sim { player: &mut p, world: &mut world, owner: 1 };
         stand(&mut sim, nd.x, nd.z - 2.4, 0.0);
         let f = find_focus(&mut life, &sim).unwrap();
-        assert_eq!((f.action.as_str(), f.label.as_str(), f.detail.as_deref(), f.key.as_str(), f.node), ("gather", "Chop Timber", Some("8 labor"), "node:0", Some(0)));
+        assert_eq!(
+            (f.action.as_str(), f.label.as_str(), f.detail.as_deref(), f.key.as_str(), f.node),
+            ("gather", "Chop Timber", Some("8 labor"), "node:0", Some(0))
+        );
         // On Hob's lesson, which wants ten lumber.
         life.state.quests.active = vec![QuestProgress { id: "woodcutting".into(), step: 1, counts: vec![0.0] }];
         run_command(&mut life, &mut sim, &Command::Interact);
@@ -1013,7 +1178,10 @@ mod tests {
         let sc = &life.state.scarecrows;
         assert!(sc.len() == 1 && (sc[0].x, sc[0].z, sc[0].rot) == (pl.x, pl.z, 0.0));
         assert!(life.placing.is_none() && life.count("scarecrow") == 1);
-        assert_eq!(toasts(&mut life), ["Walk to open, level ground and press F to place. Esc cancels.", "🧑\u{200d}🌾 Plot claimed. Walk onto the soil and press F to plant."]);
+        assert_eq!(
+            toasts(&mut life),
+            ["Walk to open, level ground and press F to place. Esc cancels.", "🧑\u{200d}🌾 Plot claimed. Walk onto the soil and press F to plant."]
+        );
         // Its tilled ground is no place for the next one.
         run_command(&mut life, &mut sim, &Command::Use { item: "scarecrow".into() });
         assert_eq!(prompt(&mut life, &sim).1, "Too close to a road or building");
@@ -1032,7 +1200,16 @@ mod tests {
         let (mut life, mut world, mut p) = island();
         let mut sim = Sim { player: &mut p, world: &mut world, owner: 1 };
         stand(&mut sim, -150.0, -214.0, 1.0);
-        for (item, n) in [("seed.flax", 2), ("seed.sunroot", 1), ("animal.calf", 1), ("glider.wayfarer", 1), ("tonic.labor", 2), ("blueprint.cottage", 1), ("design.cog", 1), ("scarecrow", 1)] {
+        for (item, n) in [
+            ("seed.flax", 2),
+            ("seed.sunroot", 1),
+            ("animal.calf", 1),
+            ("glider.wayfarer", 1),
+            ("tonic.labor", 2),
+            ("blueprint.cottage", 1),
+            ("design.cog", 1),
+            ("scarecrow", 1),
+        ] {
             life.give(item, n, true);
         }
         let used = |item: &str| Command::Use { item: item.into() };

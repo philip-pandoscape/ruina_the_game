@@ -29,7 +29,8 @@
     "image": "node tools/images/gemini.mjs",
     "skilltree": "node tools/skilltree/gen.mjs",
     "deadcode": "knip --no-progress",
-    "lint:rust": "node tools/cargo.mjs clippy --manifest-path server/Cargo.toml --all-targets -- -D warnings"
+    "lint:rust": "node tools/cargo.mjs fmt --manifest-path server/Cargo.toml --check && node tools/cargo.mjs clippy --manifest-path server/Cargo.toml --all-targets -- -D warnings",
+    "format:rust": "node tools/cargo.mjs fmt --manifest-path server/Cargo.toml"
   },
   "type": "module",
   "dependencies": {

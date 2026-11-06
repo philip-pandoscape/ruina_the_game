@@ -279,26 +279,28 @@ impl Battle {
                 let before = self.attack_t[i];
                 self.attack_t[i] += dt / ATTACK_TIME;
                 let t = self.target[i];
-                if before < 0.45 && self.attack_t[i] >= 0.45
-                    && let Some((tx, tz)) = self.target_pos(t, players, &lookup) {
-                        let (ddx, ddz) = (tx - self.x[i], tz - self.z[i]);
-                        let d = (ddx * ddx + ddz * ddz).sqrt();
-                        if d < REACH + 0.4 {
-                            let tu = t as usize;
-                            if tu < self.n {
-                                self.hp[tu] -= DAMAGE;
-                                if self.hp[tu] <= 0.0 {
-                                    self.hp[tu] = 0.0;
-                                    self.dead_t[tu] = DEAD_TIME;
-                                    self.attack_t[tu] = -1.0;
-                                    self.kills += 1;
-                                }
-                            } else {
-                                let dd = d.max(1e-6);
-                                hits.push(BotHit { slot: (tu - self.n) as u32, damage: DAMAGE_ON_PLAYERS, dir_x: ddx / dd, dir_z: ddz / dd });
+                if before < 0.45
+                    && self.attack_t[i] >= 0.45
+                    && let Some((tx, tz)) = self.target_pos(t, players, &lookup)
+                {
+                    let (ddx, ddz) = (tx - self.x[i], tz - self.z[i]);
+                    let d = (ddx * ddx + ddz * ddz).sqrt();
+                    if d < REACH + 0.4 {
+                        let tu = t as usize;
+                        if tu < self.n {
+                            self.hp[tu] -= DAMAGE;
+                            if self.hp[tu] <= 0.0 {
+                                self.hp[tu] = 0.0;
+                                self.dead_t[tu] = DEAD_TIME;
+                                self.attack_t[tu] = -1.0;
+                                self.kills += 1;
                             }
+                        } else {
+                            let dd = d.max(1e-6);
+                            hits.push(BotHit { slot: (tu - self.n) as u32, damage: DAMAGE_ON_PLAYERS, dir_x: ddx / dd, dir_z: ddz / dd });
                         }
                     }
+                }
                 if self.attack_t[i] >= 1.0 {
                     self.attack_t[i] = -1.0;
                 }

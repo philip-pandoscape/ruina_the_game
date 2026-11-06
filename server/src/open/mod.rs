@@ -10,8 +10,8 @@ pub mod zone;
 
 use std::collections::HashSet;
 
-use crate::life::progress::Observed;
 use crate::life::Life;
+use crate::life::progress::Observed;
 use crate::player::{Actions, Mode, Player};
 use crate::tuning::{NO_ABILITY, NO_MOVEMENT};
 use crate::world::Spawn;

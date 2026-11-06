@@ -21,9 +21,9 @@ use std::collections::HashMap;
 use std::sync::OnceLock;
 
 use serde::Deserialize;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
-use super::{game_raw, Rules};
+use super::{Rules, game_raw};
 
 const RADIUS: i32 = 3;
 /// The six neighbours of a hex, in axial coordinates.
@@ -248,7 +248,12 @@ impl Beacons {
             return Err("That hex is already lit.".into());
         }
         if !self.hexes_for(seat, cards).contains(&hex) {
-            return Err(if cards.len() == 1 { "One card lights a hex of its own good. Two of a kind light any hex." } else { "Two cards have to be of the same good." }.into());
+            return Err(if cards.len() == 1 {
+                "One card lights a hex of its own good. Two of a kind light any hex."
+            } else {
+                "Two cards have to be of the same good."
+            }
+            .into());
         }
         let mut order = cards.to_vec();
         order.sort_unstable_by(|a, b| b.cmp(a));
@@ -729,7 +734,14 @@ mod tests {
     #[test]
     fn nonsense_from_a_browser_is_refused() {
         let mut g = Beacons::new(1);
-        for m in [json!("light"), json!({ "k": "light" }), json!({ "k": "light", "cards": [0], "hex": 99 }), json!({ "k": "draw", "from": "sky" }), json!({ "k": "fly" }), json!({ "k": "light", "cards": [0, 1, 2], "hex": 0 })] {
+        for m in [
+            json!("light"),
+            json!({ "k": "light" }),
+            json!({ "k": "light", "cards": [0], "hex": 99 }),
+            json!({ "k": "draw", "from": "sky" }),
+            json!({ "k": "fly" }),
+            json!({ "k": "light", "cards": [0, 1, 2], "hex": 0 }),
+        ] {
             assert!(g.play(0, &m).is_err(), "{m}");
         }
         assert_eq!(g.to_move(), Some(0));

@@ -27,16 +27,16 @@ use std::time::{Duration, Instant};
 use axum::body::Bytes;
 use rayon::prelude::*;
 use tokio::sync::mpsc::Sender;
-use yggdrasil_server::actors::{Actors, StepOut, LEAN_DAMPING, LEAN_SPRING};
+use yggdrasil_server::actors::{Actors, LEAN_DAMPING, LEAN_SPRING, StepOut};
 use yggdrasil_server::game::Players;
 use yggdrasil_server::http::{self, AppState};
-use yggdrasil_server::interest::{build_snapshot, InterestGrid, Records, Scratch, MID_EVERY};
-use yggdrasil_server::net::{unpack_view, Registry};
+use yggdrasil_server::interest::{InterestGrid, MID_EVERY, Records, Scratch, build_snapshot};
+use yggdrasil_server::net::{Registry, unpack_view};
 use yggdrasil_server::protocol::{self, StatsMsg};
 use yggdrasil_server::sim::{Battle, BotHit, FIELD};
 use yggdrasil_server::{db, world_socket};
 
-use yggdrasil_server::world::{battlefield, SEED};
+use yggdrasil_server::world::{SEED, battlefield};
 
 struct Args {
     /// Run the battlefield at all (--battle off for a server that only hosts the open world).
@@ -117,10 +117,7 @@ fn main() {
         );
         let sim_registry = registry.clone();
         let (bots, virt, hz, slimes) = (args.bots, args.virtual_clients, args.hz, args.slimes);
-        std::thread::Builder::new()
-            .name("sim".into())
-            .spawn(move || run(bots, virt, hz, slimes, sim_registry))
-            .expect("start sim thread");
+        std::thread::Builder::new().name("sim".into()).spawn(move || run(bots, virt, hz, slimes, sim_registry)).expect("start sim thread");
         Some(http::Battle { registry, welcome })
     } else {
         println!("battlefield: off (--battle off)");
@@ -141,15 +138,8 @@ fn main() {
                 None
             }
         };
-        let state = AppState {
-            db,
-            battle,
-            world: world_socket::Hub::default(),
-            dev_login,
-            admin_users,
-            secure_cookies,
-            failed_logins: Mutex::new(HashMap::new()),
-        };
+        let state =
+            AppState { db, battle, world: world_socket::Hub::default(), dev_login, admin_users, secure_cookies, failed_logins: Mutex::new(HashMap::new()) };
         http::serve(args.port, args.everywhere, state, args.static_dir).await
     });
     if let Err(e) = result {
@@ -229,9 +219,7 @@ fn run(bots: usize, virtual_clients: usize, hz: u32, slimes: usize, registry: Re
                     players.queue_inputs(c.id, q.drain(..ready).map(|(_, seq, view, raw)| (seq, view, raw)));
                 }
             }
-            reg.iter()
-                .map(|c| (c.id, c.tx.clone(), c.attach.load(Ordering::Relaxed), c.view.load(Ordering::Relaxed)))
-                .collect()
+            reg.iter().map(|c| (c.id, c.tx.clone(), c.attach.load(Ordering::Relaxed), c.view.load(Ordering::Relaxed))).collect()
         };
         players.retain(|id| connected.contains(&id));
 

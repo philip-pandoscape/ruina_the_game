@@ -24,7 +24,7 @@ use std::time::Instant;
 
 use axum::body::Bytes;
 use axum::extract::{Request, State, WebSocketUpgrade};
-use axum::http::{header, HeaderMap, StatusCode};
+use axum::http::{HeaderMap, StatusCode, header};
 use axum::middleware::{self, Next};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{delete, get, post};
@@ -75,11 +75,7 @@ impl AppState {
     /// nobody. Naming admins on a development server leaves everyone else a player, to see the
     /// game as players do.
     pub fn is_admin(&self, account: &accounts::Account) -> bool {
-        if self.admin_users.is_empty() {
-            self.dev_login
-        } else {
-            self.admin_users.contains(&account.username.to_lowercase())
-        }
+        if self.admin_users.is_empty() { self.dev_login } else { self.admin_users.contains(&account.username.to_lowercase()) }
     }
 
     /// The account as the browser is told about it: whether it's an admin, filled in.
@@ -123,9 +119,7 @@ pub async fn serve(port: u16, everywhere: bool, state: AppState, static_dir: Opt
     if let Some(dir) = static_dir {
         println!("serving the game from {}", dir.display());
         // The developer pages (/dev/, /design/) only to an admin's session; "not found" to anyone else.
-        let files = ServiceBuilder::new()
-            .layer(middleware::from_fn_with_state(app.clone(), admin_pages))
-            .service(Compression::new(ServeDir::new(dir)));
+        let files = ServiceBuilder::new().layer(middleware::from_fn_with_state(app.clone(), admin_pages)).service(Compression::new(ServeDir::new(dir)));
         router = router.fallback_service(files);
     }
     world_socket::spawn_world(app.clone());

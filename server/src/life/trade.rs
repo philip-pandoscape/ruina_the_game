@@ -5,14 +5,14 @@
 //! trading post somewhere else. Farther routes pay more; each sale lowers that post's demand for
 //! that pack, which recovers with time; a fresh pack earns a bonus that sours the longer it sits.
 
-use crate::jsmath::JsMath;
-use super::content::{self, format_coins, item_def, js_hypot, js_max, js_min, js_round, pack_def, place_name, recipe, route, vendor_for, RecipeDef};
+use super::content::{self, RecipeDef, format_coins, item_def, js_hypot, js_max, js_min, js_round, pack_def, place_name, recipe, route, vendor_for};
 use super::contracts::contract_delivered;
 use super::state::{Buyback, Pack};
 use super::vehicles::vehicle_index;
 use super::{Life, LifeEvent, QuestEvent};
-use crate::open::colliders::ground_at;
+use crate::jsmath::JsMath;
 use crate::open::Sim;
+use crate::open::colliders::ground_at;
 use crate::player::Mode;
 
 // ---------- Prices ----------
@@ -96,7 +96,19 @@ fn remove_pack(life: &mut Life, id: i64) {
 pub fn make_pack(life: &mut Life, def: &str, origin: &str) -> i64 {
     let id = life.next_id();
     let made = life.state.clock;
-    life.state.packs.push(Pack { id, def: def.to_string(), made, origin: origin.to_string(), at: "back".into(), x: 0.0, y: 0.0, z: 0.0, rot: 0.0, vehicle: 0, slot: 0 });
+    life.state.packs.push(Pack {
+        id,
+        def: def.to_string(),
+        made,
+        origin: origin.to_string(),
+        at: "back".into(),
+        x: 0.0,
+        y: 0.0,
+        z: 0.0,
+        rot: 0.0,
+        vehicle: 0,
+        slot: 0,
+    });
     life.revision += 1;
     id
 }
@@ -391,7 +403,8 @@ pub fn step_buyback(life: &mut Life, sim: &Sim) {
     }
     let (x, z) = (sim.player.pos.x, sim.player.pos.z);
     let zone = life.zone;
-    let kept: Vec<Buyback> = list.iter().filter(|b| zone.recipe.npcs.iter().find(|n| n.id == b.npc).is_some_and(|n| js_hypot(n.x - x, n.z - z) <= BUYBACK_RANGE)).cloned().collect();
+    let kept: Vec<Buyback> =
+        list.iter().filter(|b| zone.recipe.npcs.iter().find(|n| n.id == b.npc).is_some_and(|n| js_hypot(n.x - x, n.z - z) <= BUYBACK_RANGE)).cloned().collect();
     if kept.len() != list.len() {
         life.state.buyback = Some(kept);
     }
@@ -401,8 +414,8 @@ pub fn step_buyback(life: &mut Life, sim: &Sim) {
 #[cfg(test)]
 pub(crate) mod testing {
     use crate::life::{Life, LifeEvent};
-    use crate::open::zone::emberholm;
     use crate::open::OpenWorld;
+    use crate::open::zone::emberholm;
     use crate::player::{Build, Player};
 
     /// A new island (with this much money), its world, and a player standing at the spawn.
@@ -560,7 +573,14 @@ mod tests {
         assert!((demand_at(&life, "westwatch", "harvestCrate") - 1.05).abs() < 1e-12);
         assert!(life.state.packs.is_empty() && sim.player.pack == 0);
         let events = life.drain_events();
-        assert!(events.contains(&LifeEvent::Sold { pack: "harvestCrate".into(), coins: 329.0, seals: 1.0, demand: q.demand, fresh: q.fresh, outpost: "westwatch".into() }));
+        assert!(events.contains(&LifeEvent::Sold {
+            pack: "harvestCrate".into(),
+            coins: 329.0,
+            seals: 1.0,
+            demand: q.demand,
+            fresh: q.fresh,
+            outpost: "westwatch".into()
+        }));
         assert!(events.contains(&LifeEvent::Toast { text: "Sold Lanternwick Harvest Crate: 3s 29c + 1 seal".into(), kind: "coin".into() }));
         // The next one there fetches less.
         sim.player.pack = make_pack(&mut life, "harvestCrate", "lanternwick");

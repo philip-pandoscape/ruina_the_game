@@ -7,12 +7,12 @@ use std::io::Read;
 
 use serde::{Deserialize, Serialize};
 use yggdrasil_server::player::{Actions, Build, Player};
-use yggdrasil_server::skills::{resolve_skills, EMPTY_SKILLS, SKILL_WORDS};
+use yggdrasil_server::skills::{EMPTY_SKILLS, SKILL_WORDS, resolve_skills};
 use yggdrasil_server::tuning::{
-    ability_mp_for, cast_frames_for, combo_for, effect_amount, effect_damage, effect_radius, melee_targets, movement_cooldown_for, movement_stamina_for,
-    pierce_targets, tuning, HOTBAR_SLOTS, MOVEMENT_SKILL_CAP, MOVEMENT_SLOTS, NO_ABILITY, NO_MOVEMENT,
+    HOTBAR_SLOTS, MOVEMENT_SKILL_CAP, MOVEMENT_SLOTS, NO_ABILITY, NO_MOVEMENT, ability_mp_for, cast_frames_for, combo_for, effect_amount, effect_damage,
+    effect_radius, melee_targets, movement_cooldown_for, movement_stamina_for, pierce_targets, tuning,
 };
-use yggdrasil_server::world::{battlefield, Spawn, SEED};
+use yggdrasil_server::world::{SEED, Spawn, battlefield};
 
 #[derive(Deserialize)]
 struct Script {
@@ -175,10 +175,27 @@ fn main() {
         p.step(&a, &world);
         let mut frame = Vec::with_capacity(FRAME_LEN);
         frame.extend_from_slice(&[
-            p.pos.x, p.pos.y, p.pos.z, p.vel.x, p.vel.y, p.vel.z, p.facing, p.hp, p.mode as i32 as f64,
-            p.cast_frame as f64, p.fired_ability as f64, p.cast_target_x, p.cast_target_z,
-            p.sprinting as i32 as f64, p.crouching as i32 as f64, p.crouch_frame as f64,
-            p.action_id as f64, p.action_frame as f64, p.stamina, p.mp, p.stamina_delay as f64,
+            p.pos.x,
+            p.pos.y,
+            p.pos.z,
+            p.vel.x,
+            p.vel.y,
+            p.vel.z,
+            p.facing,
+            p.hp,
+            p.mode as i32 as f64,
+            p.cast_frame as f64,
+            p.fired_ability as f64,
+            p.cast_target_x,
+            p.cast_target_z,
+            p.sprinting as i32 as f64,
+            p.crouching as i32 as f64,
+            p.crouch_frame as f64,
+            p.action_id as f64,
+            p.action_frame as f64,
+            p.stamina,
+            p.mp,
+            p.stamina_delay as f64,
         ]);
         frame.extend(p.cooldowns.iter().map(|&c| c as f64));
         frame.extend((0..MOVEMENT_SKILL_CAP).map(|i| p.movement_cooldowns.get(i).copied().unwrap_or(0) as f64));

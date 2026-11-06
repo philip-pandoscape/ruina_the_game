@@ -79,12 +79,7 @@ pub const PLAYER_ENTRY: usize = 31;
 // id + ack + 16 f64s; 16 fixed i16s plus one cooldown per hotbar slot and one per possible
 // movement skill; the learned set; 17 fixed u8s plus the hotbar and the movement slots. Kept as
 // arithmetic so changing a count can't silently desync the wire format (src/net/netCrowd.ts).
-pub const YOU_ENTRY: usize = 2
-    + 4
-    + 16 * 8
-    + (16 + HOTBAR_SLOTS + MOVEMENT_SKILL_CAP) * 2
-    + SKILL_WORDS * 4
-    + (17 + HOTBAR_SLOTS + MOVEMENT_SLOTS);
+pub const YOU_ENTRY: usize = 2 + 4 + 16 * 8 + (16 + HOTBAR_SLOTS + MOVEMENT_SKILL_CAP) * 2 + SKILL_WORDS * 4 + (17 + HOTBAR_SLOTS + MOVEMENT_SLOTS);
 pub const ARROW_ENTRY: usize = 15;
 pub const METEOR_ENTRY: usize = 10;
 pub const EVENT_ENTRY: usize = 8;
@@ -166,15 +161,42 @@ pub fn put_you(out: &mut Vec<u8>, id: u16, ack: u32, p: &Player) {
     out.extend_from_slice(&id.to_le_bytes());
     out.extend_from_slice(&ack.to_le_bytes());
     for v in [
-        p.pos.x, p.pos.y, p.pos.z, p.vel.x, p.vel.y, p.vel.z, p.facing, p.action_dir_x, p.action_dir_z, p.land_impact, p.run_phase, p.hp,
-        p.cast_target_x, p.cast_target_z, p.stamina, p.mp,
+        p.pos.x,
+        p.pos.y,
+        p.pos.z,
+        p.vel.x,
+        p.vel.y,
+        p.vel.z,
+        p.facing,
+        p.action_dir_x,
+        p.action_dir_z,
+        p.land_impact,
+        p.run_phase,
+        p.hp,
+        p.cast_target_x,
+        p.cast_target_z,
+        p.stamina,
+        p.mp,
     ] {
         out.extend_from_slice(&v.to_le_bytes());
     }
     for v in [
-        p.jumps_used, p.coyote, p.jump_buffer, p.attack_buffer, p.action_buffer, p.attack_frame,
-        p.flip_frame, p.land_frame, p.takeoff_frame, p.stun, p.down_frame, p.ability_buffer, p.cast_frame, p.crouch_frame,
-        p.action_frame, p.stamina_delay,
+        p.jumps_used,
+        p.coyote,
+        p.jump_buffer,
+        p.attack_buffer,
+        p.action_buffer,
+        p.attack_frame,
+        p.flip_frame,
+        p.land_frame,
+        p.takeoff_frame,
+        p.stun,
+        p.down_frame,
+        p.ability_buffer,
+        p.cast_frame,
+        p.crouch_frame,
+        p.action_frame,
+        p.stamina_delay,
     ] {
         out.extend_from_slice(&(v.clamp(-32768, 32767) as i16).to_le_bytes());
     }
@@ -364,7 +386,7 @@ pub fn put_actor(
 mod tests {
     use super::*;
     use crate::player::Build;
-    use crate::world::{battlefield, SEED};
+    use crate::world::{SEED, battlefield};
 
     #[test]
     fn your_own_state_fills_its_entry_with_stamina_and_mp_where_the_browser_reads_them() {

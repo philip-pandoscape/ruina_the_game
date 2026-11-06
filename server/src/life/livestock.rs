@@ -56,8 +56,15 @@ pub fn raise(life: &mut Life, sc: i64, idx: usize, item: &str) -> bool {
     }
     // Arrives fed, so it starts growing straight away.
     let fed_until = life.state.clock + animal_def(animal).feed_seconds;
-    life.state.scarecrows[k].cells[idx] =
-        Some(Plant { crop: animal.to_string(), growth: 0.0, watered: false, picked: false, animal: Some(true), fed_until: Some(fed_until), produce: Some(0.0) });
+    life.state.scarecrows[k].cells[idx] = Some(Plant {
+        crop: animal.to_string(),
+        growth: 0.0,
+        watered: false,
+        picked: false,
+        animal: Some(true),
+        fed_until: Some(fed_until),
+        produce: Some(0.0),
+    });
     life.revision += 1;
     life.notify(QuestEvent { crop: Some(animal.to_string()), ..QuestEvent::new("raise") });
     true

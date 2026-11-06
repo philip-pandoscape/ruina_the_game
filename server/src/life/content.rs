@@ -283,7 +283,10 @@ pub fn has_pack_def(id: &str) -> bool {
 /// The pack, or a placeholder for one that doesn't exist.
 pub fn pack_def(id: &str) -> &'static PackDef {
     static UNKNOWN: OnceLock<PackDef> = OnceLock::new();
-    packs().iter().find(|p| p.id == id).unwrap_or_else(|| UNKNOWN.get_or_init(|| PackDef { id: "unknown".into(), name: "Unknown pack".into(), ..Default::default() }))
+    packs()
+        .iter()
+        .find(|p| p.id == id)
+        .unwrap_or_else(|| UNKNOWN.get_or_init(|| PackDef { id: "unknown".into(), name: "Unknown pack".into(), ..Default::default() }))
 }
 
 pub fn route(from: &str, to: &str) -> Option<&'static RouteDef> {
@@ -443,16 +446,24 @@ pub fn animals() -> &'static [AnimalDef] {
 /// The crop, or a placeholder for one that doesn't exist.
 pub fn crop_def(id: &str) -> &'static CropDef {
     static UNKNOWN: OnceLock<CropDef> = OnceLock::new();
-    crops().iter().find(|c| c.id == id).unwrap_or_else(|| {
-        UNKNOWN.get_or_init(|| CropDef { id: "unknown".into(), name: "Unknown".into(), grow_seconds: 1e9, stages: 2, ..Default::default() })
-    })
+    crops()
+        .iter()
+        .find(|c| c.id == id)
+        .unwrap_or_else(|| UNKNOWN.get_or_init(|| CropDef { id: "unknown".into(), name: "Unknown".into(), grow_seconds: 1e9, stages: 2, ..Default::default() }))
 }
 
 /// The animal, or a placeholder for one that doesn't exist.
 pub fn animal_def(id: &str) -> &'static AnimalDef {
     static UNKNOWN: OnceLock<AnimalDef> = OnceLock::new();
     animals().iter().find(|a| a.id == id).unwrap_or_else(|| {
-        UNKNOWN.get_or_init(|| AnimalDef { id: "unknown".into(), name: "Unknown".into(), grow_seconds: 1e9, produce_seconds: 1e9, feed_seconds: 1.0, ..Default::default() })
+        UNKNOWN.get_or_init(|| AnimalDef {
+            id: "unknown".into(),
+            name: "Unknown".into(),
+            grow_seconds: 1e9,
+            produce_seconds: 1e9,
+            feed_seconds: 1.0,
+            ..Default::default()
+        })
     })
 }
 
@@ -676,7 +687,14 @@ pub fn rideable(id: &str) -> &'static RideableDef {
 pub fn glider_def(id: &str) -> &'static GliderDef {
     static UNKNOWN: OnceLock<GliderDef> = OnceLock::new();
     vehicles_file().gliders.iter().find(|g| g.id == id).unwrap_or_else(|| {
-        UNKNOWN.get_or_init(|| GliderDef { id: "unknown".into(), name: "Unknown".into(), min_height: 1e9, cruise_speed: 1.0, flare_speed: 1.0, ..Default::default() })
+        UNKNOWN.get_or_init(|| GliderDef {
+            id: "unknown".into(),
+            name: "Unknown".into(),
+            min_height: 1e9,
+            cruise_speed: 1.0,
+            flare_speed: 1.0,
+            ..Default::default()
+        })
     })
 }
 
@@ -822,7 +840,15 @@ fn structures_file() -> &'static StructuresFile {
 pub fn structure_def(id: &str) -> &'static StructureDef {
     static UNKNOWN: OnceLock<StructureDef> = OnceLock::new();
     structures_file().structures.iter().find(|s| s.id == id).unwrap_or_else(|| {
-        UNKNOWN.get_or_init(|| StructureDef { id: "unknown".into(), name: "Unknown".into(), w: 1.0, d: 1.0, h: 1.0, collider: "none".into(), ..Default::default() })
+        UNKNOWN.get_or_init(|| StructureDef {
+            id: "unknown".into(),
+            name: "Unknown".into(),
+            w: 1.0,
+            d: 1.0,
+            h: 1.0,
+            collider: "none".into(),
+            ..Default::default()
+        })
     })
 }
 
@@ -912,7 +938,10 @@ pub fn has_quest(id: &str) -> bool {
 /// The quest, or a placeholder with no steps for one that doesn't exist.
 pub fn quest_def(id: &str) -> &'static QuestDef {
     static UNKNOWN: OnceLock<QuestDef> = OnceLock::new();
-    quests().iter().find(|q| q.id == id).unwrap_or_else(|| UNKNOWN.get_or_init(|| QuestDef { id: "unknown".into(), name: "Unknown".into(), ..Default::default() }))
+    quests()
+        .iter()
+        .find(|q| q.id == id)
+        .unwrap_or_else(|| UNKNOWN.get_or_init(|| QuestDef { id: "unknown".into(), name: "Unknown".into(), ..Default::default() }))
 }
 
 // ---------- JavaScript arithmetic the rules rely on ----------
@@ -969,8 +998,8 @@ pub fn js_max(a: f64, b: f64) -> f64 {
 
 /// Maps whose order is the order they were written in the file (JavaScript's Object.entries).
 pub mod indexmap_like {
-    use serde::de::{Deserializer, MapAccess, Visitor};
     use serde::Deserialize;
+    use serde::de::{Deserializer, MapAccess, Visitor};
 
     #[derive(Clone, Debug, Default)]
     pub struct Ordered(pub Vec<(String, i64)>);

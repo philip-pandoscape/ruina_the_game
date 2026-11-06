@@ -14,10 +14,10 @@
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use tokio::sync::mpsc;
 
-use crate::open::dungeon::{dungeon, Spot};
+use crate::open::dungeon::{Spot, dungeon};
 use crate::open::zone::emberholm;
 use crate::parties::{Changed, Parties};
 use crate::world_game::{Arrival, ChannelGame, Owner, Save};
@@ -84,9 +84,12 @@ impl Spaces {
         self.home.insert(character, home);
         let mut into = home;
         if let Some(&was) = self.at.get(&character)
-            && was < 0 && self.games.contains_key(&was) && self.may_be_in(character, was) {
-                into = was;
-            }
+            && was < 0
+            && self.games.contains_key(&was)
+            && self.may_be_in(character, was)
+        {
+            into = was;
+        }
         self.channel(home);
         // Anything of theirs left behind in another game (they left a copy a moment ago, and it isn't theirs now).
         for (id, g) in self.games.iter_mut() {
@@ -313,10 +316,12 @@ impl Spaces {
         self.tell(to, &invite_json(None));
         let changed = changed?;
         // A party just formed takes over its leader's copies of dungeons, as in World of Warcraft.
-        if accept && new_party
-            && let Some(&pid) = changed.parties.first() {
-                self.hand_copies(Owner::Solo(from), Owner::Party(pid));
-            }
+        if accept
+            && new_party
+            && let Some(&pid) = changed.parties.first()
+        {
+            self.hand_copies(Owner::Solo(from), Owner::Party(pid));
+        }
         self.apply(changed);
         Ok(())
     }
@@ -623,7 +628,8 @@ mod tests {
         let door = emberholm().recipe.dungeons.iter().find(|d| d.id == "goblinsDread").unwrap();
         assert_eq!(island["player"]["x"].as_f64(), Some(door.outside.x));
         let (out, mut rx) = mpsc::channel(256);
-        let (_, _, _, space) = sp.arrive(1, Arrival { character: 1, session: 5, name: "Ada".into(), out, dev: false, island: Some(island), saved_at: Some(0), now: 0, build: None });
+        let (_, _, _, space) = sp
+            .arrive(1, Arrival { character: 1, session: 5, name: "Ada".into(), out, dev: false, island: Some(island), saved_at: Some(0), now: 0, build: None });
         assert_eq!(space["kind"], "dungeon");
         assert_eq!(sp.at[&1], copy);
         assert!(said(&heard(&mut rx), "party").len() == 1);

@@ -15,7 +15,7 @@ use std::collections::HashMap;
 use std::sync::OnceLock;
 
 use serde::Deserialize;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 // ---------- Content ----------
 
@@ -298,16 +298,17 @@ impl Table {
             }
         }
         if let Some(s) = self.rules.to_move()
-            && now - self.turn_began >= self.turn_seconds {
-                self.seats[s].timeouts += 1;
-                if self.seats[s].timeouts >= self.game.timeouts_to_forfeit {
-                    self.end(Some(1 - s), Why::Timeouts, now);
-                    return true;
-                }
-                self.rules.auto(s);
-                changed = true;
-                self.after_move(now);
+            && now - self.turn_began >= self.turn_seconds
+        {
+            self.seats[s].timeouts += 1;
+            if self.seats[s].timeouts >= self.game.timeouts_to_forfeit {
+                self.end(Some(1 - s), Why::Timeouts, now);
+                return true;
             }
+            self.rules.auto(s);
+            changed = true;
+            self.after_move(now);
+        }
         if changed {
             self.version += 1;
         }
@@ -338,12 +339,7 @@ impl Table {
     pub fn view(&self, seat: usize, now: f64) -> Value {
         let mut v = self.shown();
         v["you"] = json!(seat);
-        v["seats"] = Value::Array(
-            self.seats
-                .iter()
-                .map(|s| json!({ "id": s.id, "name": s.name, "timeouts": s.timeouts, "away": s.away.is_some() }))
-                .collect(),
-        );
+        v["seats"] = Value::Array(self.seats.iter().map(|s| json!({ "id": s.id, "name": s.name, "timeouts": s.timeouts, "away": s.away.is_some() })).collect());
         v["game"] = json!(self.game.id);
         v["turnSeconds"] = json!(self.turn_seconds);
         v["ms"] = json!((self.time_left(now) * 1000.0).round());

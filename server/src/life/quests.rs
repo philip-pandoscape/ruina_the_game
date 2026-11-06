@@ -8,9 +8,12 @@
 //! began (an iterator over the old array, or a copy of it), so these walks do the same: each quest
 //! that was active then, once, if it still is when its turn comes (active_ids).
 
-use super::content::{js_hypot, format_coins, has_quest, item_def, js_max, js_min, labor, objective_target, quest_def, quests, ship_designs, ItemCount, Objective, QuestDef, QuestStep};
+use super::content::{
+    ItemCount, Objective, QuestDef, QuestStep, format_coins, has_quest, item_def, js_hypot, js_max, js_min, labor, objective_target, quest_def, quests,
+    ship_designs,
+};
 use super::state::{Plant, QuestProgress};
-use super::{step_seconds, Life, LifeEvent, QuestEvent};
+use super::{Life, LifeEvent, QuestEvent, step_seconds};
 use crate::open::Sim;
 use crate::player::Mode;
 
@@ -361,7 +364,10 @@ mod tests {
         let events = life.drain_events();
         assert_eq!(
             events,
-            [LifeEvent::Quest { id: "landfall".into(), what: "accepted".into() }, LifeEvent::Toast { text: "New quest: Landfall".into(), kind: "quest".into() }]
+            [
+                LifeEvent::Quest { id: "landfall".into(), what: "accepted".into() },
+                LifeEvent::Toast { text: "New quest: Landfall".into(), kind: "quest".into() }
+            ]
         );
         assert!(!is_ready(&life, "landfall"));
         let (offer, turn_in) = quests_at(&life, "hollis");
@@ -438,7 +444,10 @@ mod tests {
         toasts(&mut life);
         assert!(accept(&mut life, "patch"));
         assert!(is_ready(&life, "patch"));
-        assert_eq!(toasts(&mut life), ["New quest: A Patch of Earth", "A Patch of Earth: Plant seeds in your plot", "A Patch of Earth: return to Reeve Hollis"]);
+        assert_eq!(
+            toasts(&mut life),
+            ["New quest: A Patch of Earth", "A Patch of Earth: Plant seeds in your plot", "A Patch of Earth: return to Reeve Hollis"]
+        );
         // Its reward includes labor, never past the most you can hold.
         life.state.labor = 950.0;
         assert!(complete(&mut life, "patch"));
@@ -637,10 +646,8 @@ mod tests {
         let (mut life, _, _) = island(0.0);
         life.state.quests.done.extend(["landfall", "patch", "harvest", "packwright", "westward"].map(String::from));
         // Pack Mule one delivery short, then Wheels on its deliveries to Westwatch.
-        life.state.quests.active = vec![
-            QuestProgress { id: "packMule".into(), step: 0, counts: vec![4.0] },
-            QuestProgress { id: "wheels".into(), step: 2, counts: vec![0.0] },
-        ];
+        life.state.quests.active =
+            vec![QuestProgress { id: "packMule".into(), step: 0, counts: vec![4.0] }, QuestProgress { id: "wheels".into(), step: 2, counts: vec![0.0] }];
         toasts(&mut life);
         life.notify(QuestEvent { outpost: Some("westwatch".into()), pack: Some("flaxBale".into()), ..QuestEvent::new("deliver") });
         assert!(quest_done(&life, "packMule"));
@@ -668,9 +675,18 @@ mod tests {
         assert_eq!(step(&life, "wings"), 1);
         assert_eq!(toasts(&mut life), ["✔ Milestone: Wayfarer - 1 skill point", "Wings over the Windspire: Speak with Ysolde Windward at the glider launch"]);
         // A defeat or a level is only counted by what names it.
-        assert!(matches(&Objective { type_: "defeat".into(), kind: Some("slime".into()), ..Default::default() }, &QuestEvent { kind: Some("slime".into()), ..QuestEvent::new("defeat") }));
-        assert!(!matches(&Objective { type_: "defeat".into(), kind: Some("slime".into()), ..Default::default() }, &QuestEvent { kind: Some("slimelet".into()), ..QuestEvent::new("defeat") }));
-        assert!(matches(&Objective { type_: "defeat".into(), ..Default::default() }, &QuestEvent { kind: Some("slimelet".into()), ..QuestEvent::new("defeat") }));
+        assert!(matches(
+            &Objective { type_: "defeat".into(), kind: Some("slime".into()), ..Default::default() },
+            &QuestEvent { kind: Some("slime".into()), ..QuestEvent::new("defeat") }
+        ));
+        assert!(!matches(
+            &Objective { type_: "defeat".into(), kind: Some("slime".into()), ..Default::default() },
+            &QuestEvent { kind: Some("slimelet".into()), ..QuestEvent::new("defeat") }
+        ));
+        assert!(matches(
+            &Objective { type_: "defeat".into(), ..Default::default() },
+            &QuestEvent { kind: Some("slimelet".into()), ..QuestEvent::new("defeat") }
+        ));
         assert!(!matches(&Objective { type_: "skillLevel".into(), ..Default::default() }, &QuestEvent::new("defeat")));
     }
 
@@ -680,10 +696,8 @@ mod tests {
         life.state.quests.done.extend(["landfall", "patch", "livestock", "firstFlight", "westward"].map(String::from));
         // Rancher waiting on three animals that are already in the pens, and the house quest on a
         // plot already claimed and half built.
-        life.state.quests.active = vec![
-            QuestProgress { id: "rancher".into(), step: 0, counts: vec![0.0] },
-            QuestProgress { id: "home".into(), step: 0, counts: vec![0.0] },
-        ];
+        life.state.quests.active =
+            vec![QuestProgress { id: "rancher".into(), step: 0, counts: vec![0.0] }, QuestProgress { id: "home".into(), step: 0, counts: vec![0.0] }];
         let chick = || Some(Plant { crop: "chick".into(), animal: Some(true), ..Default::default() });
         life.state.scarecrows.push(Scarecrow { id: 9, x: 0.0, z: 0.0, rot: 0.0, cells: vec![chick(), chick(), chick(), None] });
         life.state.houses.push(crate::life::state::House { id: 5, plot: "rise-1".into(), blueprint: "cottage".into(), stage: 2, ..Default::default() });
@@ -720,7 +734,10 @@ mod tests {
         let events = life.drain_events();
         assert_eq!(
             events,
-            [LifeEvent::Quest { id: "patch".into(), what: "abandoned".into() }, LifeEvent::Toast { text: "Quest abandoned: A Patch of Earth".into(), kind: "info".into() }]
+            [
+                LifeEvent::Quest { id: "patch".into(), what: "abandoned".into() },
+                LifeEvent::Toast { text: "Quest abandoned: A Patch of Earth".into(), kind: "info".into() }
+            ]
         );
         assert!(ids(&quests_at(&life, "hollis").0).contains(&"patch".to_string()));
         assert!(accept(&mut life, "patch"));

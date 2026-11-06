@@ -67,9 +67,5 @@ pub fn battlefield(seed: u32) -> World {
     }
 
     let half_pi = std::f64::consts::FRAC_PI_2;
-    World {
-        radius: 140.0,
-        obstacles,
-        team_spawns: [Spawn { x: -2.5, z: -100.0, facing: half_pi }, Spawn { x: 2.5, z: -100.0, facing: -half_pi }],
-    }
+    World { radius: 140.0, obstacles, team_spawns: [Spawn { x: -2.5, z: -100.0, facing: half_pi }, Spawn { x: 2.5, z: -100.0, facing: -half_pi }] }
 }

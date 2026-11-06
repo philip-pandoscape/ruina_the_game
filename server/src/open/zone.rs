@@ -52,8 +52,20 @@ impl Heightfield {
         let mut gx = (x - self.min) / c;
         let mut gz = (z - self.min) / c;
         let last = self.cells as f64 - 1e-6;
-        gx = if gx < 0.0 { 0.0 } else if gx > last { last } else { gx };
-        gz = if gz < 0.0 { 0.0 } else if gz > last { last } else { gz };
+        gx = if gx < 0.0 {
+            0.0
+        } else if gx > last {
+            last
+        } else {
+            gx
+        };
+        gz = if gz < 0.0 {
+            0.0
+        } else if gz > last {
+            last
+        } else {
+            gz
+        };
         let i = gx.floor() as usize;
         let j = gz.floor() as usize;
         let fx = gx - i as f64;

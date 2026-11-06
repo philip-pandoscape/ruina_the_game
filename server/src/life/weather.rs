@@ -5,9 +5,9 @@
 //! checks the island's. Nothing in them is left to the island's dice, so the same clock always has
 //! the same weather, here and in the browser.
 
-use crate::jsmath::JsMath;
-use super::content::{farm, storm};
 use super::Life;
+use super::content::{farm, storm};
+use crate::jsmath::JsMath;
 
 pub fn raining(life: &Life) -> bool {
     life.state.clock < life.state.weather.rain_until

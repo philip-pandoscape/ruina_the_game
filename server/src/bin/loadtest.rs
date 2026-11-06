@@ -3,8 +3,8 @@
 //!
 //!   cargo run --release --bin loadtest -- --clients 1000 --seconds 15
 
-use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
 
 use futures_util::{SinkExt, StreamExt};
@@ -118,7 +118,11 @@ async fn main() {
     let mid_updates = (b.mid_updates - a.mid_updates).max(1) as f64;
     println!("connections: {connected} ok, {} failed, {} closed early", c.failed.load(Ordering::Relaxed), c.closed.load(Ordering::Relaxed));
     println!("per connection: {:.0} KB/s ({:.2} Mbit/s), {:.1} messages/s", bytes / 1024.0, bytes * 8.0 / 1e6, per(b.msgs - a.msgs));
-    println!("fighters per update: {:.0} nearby (every tick), {:.0} mid-range (every 4th tick)", (b.near - a.near) as f64 / snapshots, (b.mid - a.mid) as f64 / mid_updates);
+    println!(
+        "fighters per update: {:.0} nearby (every tick), {:.0} mid-range (every 4th tick)",
+        (b.near - a.near) as f64 / snapshots,
+        (b.mid - a.mid) as f64 / mid_updates
+    );
     println!("all connections together: {:.1} MB/s received", (b.bytes - a.bytes) as f64 / secs / 1e6);
     std::process::exit(0);
 }

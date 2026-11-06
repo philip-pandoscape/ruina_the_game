@@ -12,14 +12,14 @@ use std::cmp::Ordering;
 use std::collections::BTreeMap;
 use std::f64::consts::PI;
 
-use super::content::{self, item_def, js_sign, rideable, Anchor, ItemDef, RideableDef, js_hypot as hypot};
+use super::content::{self, Anchor, ItemDef, RideableDef, item_def, js_hypot as hypot, js_sign, rideable};
 use super::state::Vehicle;
 use super::weather::storm_at;
-use super::{step_seconds, Life, QuestEvent};
+use super::{Life, QuestEvent, step_seconds};
 use crate::open::colliders::{ground_at, push_out_of_box};
-use crate::open::zone::{surface, to_local, to_world, Heightfield};
+use crate::open::zone::{Heightfield, surface, to_local, to_world};
 use crate::open::{Mover, Sim};
-use crate::player::{angle_diff, Actions, Mode};
+use crate::player::{Actions, Mode, angle_diff};
 use crate::tuning::tuning;
 
 const TAU: f64 = PI * 2.0;
@@ -52,11 +52,7 @@ fn truthy(a: f64) -> bool {
 
 /// JavaScript's `a || b` on numbers.
 fn or(a: f64, b: f64) -> f64 {
-    if truthy(a) {
-        a
-    } else {
-        b
-    }
+    if truthy(a) { a } else { b }
 }
 
 /// src/sim/math.ts len(): a plain square root.
@@ -594,14 +590,7 @@ fn circles(v: &Vehicle, def: &RideableDef) -> ([Circle; 3], usize) {
     let off = def.length / 2.0 - r;
     let fx = v.heading.js_sin();
     let fz = v.heading.js_cos();
-    (
-        [
-            Circle { x: v.x + fx * off, z: v.z + fz * off, r },
-            Circle { x: v.x - fx * off, z: v.z - fz * off, r },
-            Circle { x: v.x, z: v.z, r },
-        ],
-        3,
-    )
+    ([Circle { x: v.x + fx * off, z: v.z + fz * off, r }, Circle { x: v.x - fx * off, z: v.z - fz * off, r }, Circle { x: v.x, z: v.z, r }], 3)
 }
 
 /// One shove out of something solid; what was driving into it bounces back a little.
@@ -929,7 +918,8 @@ fn break_up(life: &mut Life, sim: &mut Sim, id: i64) {
     life.state.repairs.get_or_insert_with(BTreeMap::new).insert(def.id.clone(), back);
     life.revision += 1;
     let floating = cargo.iter().filter(|&&c| c != 0).count();
-    let afloat = if floating != 0 { format!(" {floating} pack{} floating where she went down.", if floating > 1 { "s are" } else { " is" }) } else { String::new() };
+    let afloat =
+        if floating != 0 { format!(" {floating} pack{} floating where she went down.", if floating > 1 { "s are" } else { " is" }) } else { String::new() };
     life.toast(format!("💥 Your {} broke up in the swell!{afloat}", def.name.to_lowercase()), "bad");
 }
 
@@ -1048,10 +1038,10 @@ pub fn distance_to(v: &Vehicle, x: f64, z: f64) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::life::state::Pack;
     use crate::life::LifeEvent;
-    use crate::open::zone::{emberholm, Obstacle, ObstacleKind};
+    use crate::life::state::Pack;
     use crate::open::OpenWorld;
+    use crate::open::zone::{Obstacle, ObstacleKind, emberholm};
     use crate::player::{Build, Player, V3};
     use crate::world::Spawn;
 

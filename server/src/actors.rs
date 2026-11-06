@@ -6,10 +6,10 @@
 //! and heals they ask for.
 
 use crate::actor::Actor;
-use crate::ai::{angle_diff, brain_of, draw, flinch, force_state, rest_state, start_brain, step_brain_in, Ctx, Foe, Peer, Request, Sighting};
+use crate::ai::{Ctx, Foe, Peer, Request, Sighting, angle_diff, brain_of, draw, flinch, force_state, rest_state, start_brain, step_brain_in};
 use crate::content::{attack_at, kind, kind_index, kind_mass, ladder_at, ladders, size_for, size_up};
 use crate::jsmath::JsMath;
-use crate::missiles::{launch, step_missiles, Flight, Missile};
+use crate::missiles::{Flight, Missile, launch, step_missiles};
 use crate::pack::step_packs;
 use crate::tuning::tuning;
 
@@ -260,7 +260,17 @@ impl Actors {
             if !a.is_alive() || a.gone {
                 continue;
             }
-            peers.push(Peer { id: a.id, x: a.x, z: a.z, radius: a.radius, ladder: a.ladder, calling: a.calling, rally_to: a.rally_to, group: a.group, band: a.band });
+            peers.push(Peer {
+                id: a.id,
+                x: a.x,
+                z: a.z,
+                radius: a.radius,
+                ladder: a.ladder,
+                calling: a.calling,
+                rally_to: a.rally_to,
+                group: a.group,
+                band: a.band,
+            });
             if a.ladder >= 0 {
                 live[a.ladder as usize] += a.mass;
             }
@@ -305,10 +315,12 @@ impl Actors {
                 }
                 let calm_beyond = brain_of(a).and_then(|b| b.anger.as_ref()).map(|g| g.calm_beyond);
                 if let Some(calm) = calm_beyond
-                    && a.angry > 0 && len(a.x - a.home_x, a.z - a.home_z) > calm {
-                        a.angry = 0;
-                        a.rally_to = 0;
-                    }
+                    && a.angry > 0
+                    && len(a.x - a.home_x, a.z - a.home_z) > calm
+                {
+                    a.angry = 0;
+                    a.rally_to = 0;
+                }
                 if a.fuse > 0 {
                     a.fuse -= 1;
                     if a.fuse == 0 {
@@ -698,11 +710,7 @@ impl Actors {
 
     /// A blast: everything whose body overlaps the circle.
     pub fn circle_hits(&self, x: f64, z: f64, radius: f64) -> Vec<u32> {
-        self.list
-            .iter()
-            .filter(|a| a.is_alive() && len(a.x - x, a.z - z) <= radius + a.radius)
-            .map(|a| a.id)
-            .collect()
+        self.list.iter().filter(|a| a.is_alive() && len(a.x - x, a.z - z) <= radius + a.radius).map(|a| a.id).collect()
     }
 
     /// A projectile at a point in flight: the first thing it touches.

@@ -6,7 +6,7 @@ use std::sync::OnceLock;
 
 use serde::Deserialize;
 
-use crate::skills::{stat_base, stat_index, Channel, ResolvedSkills, MAX_NODES};
+use crate::skills::{Channel, MAX_NODES, ResolvedSkills, stat_base, stat_index};
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -148,10 +148,7 @@ pub fn tuning() -> &'static Tuning {
         assert_eq!(t.hotbar.slots, HOTBAR_SLOTS, "hotbar.slots in shared/tuning.json must match HOTBAR_SLOTS");
         assert_eq!(t.skills.max_nodes, MAX_NODES, "skills.maxNodes in shared/tuning.json must match SKILL_WORDS");
         assert_eq!(t.movement_slots, MOVEMENT_SLOTS, "movementSlots in shared/tuning.json must match MOVEMENT_SLOTS");
-        assert!(
-            t.movement_skills.len() <= MOVEMENT_SKILL_CAP,
-            "more movement skills than MOVEMENT_SKILL_CAP: raise it here and in src/tuning.ts together"
-        );
+        assert!(t.movement_skills.len() <= MOVEMENT_SKILL_CAP, "more movement skills than MOVEMENT_SKILL_CAP: raise it here and in src/tuning.ts together");
         t
     })
 }
@@ -402,13 +399,7 @@ pub fn ability_mp_for(a: u8, r: &ResolvedSkills) -> f64 {
 /// The slide everyone has. Looked up by id so reordering the data can't silently rebind it.
 pub fn slide_skill() -> u8 {
     static I: OnceLock<u8> = OnceLock::new();
-    *I.get_or_init(|| {
-        tuning()
-            .movement_skills
-            .iter()
-            .position(|m| m.id == "slide")
-            .expect("shared/tuning.json needs a movement skill with id \"slide\"") as u8
-    })
+    *I.get_or_init(|| tuning().movement_skills.iter().position(|m| m.id == "slide").expect("shared/tuning.json needs a movement skill with id \"slide\"") as u8)
 }
 
 #[derive(Deserialize)]
@@ -497,10 +488,7 @@ fn stat_ability_mp() -> usize {
 
 /// How many enemies one swing of this weapon reaches.
 pub fn melee_targets(weapon: u8, r: &ResolvedSkills) -> usize {
-    channel(r.weapon.get(weapon as usize), stat_melee_targets())
-        .apply(stat_base(stat_melee_targets()))
-        .round()
-        .max(1.0) as usize
+    channel(r.weapon.get(weapon as usize), stat_melee_targets()).apply(stat_base(stat_melee_targets())).round().max(1.0) as usize
 }
 
 /// How many enemies an arrow from this weapon goes through.
@@ -520,4 +508,3 @@ pub fn cast_frames_for(a: u8, r: &ResolvedSkills) -> i32 {
     let ab = ability(a);
     channel(r.ability.get(a as usize), stat_cast_frames()).frames(ab.cast_frames).max(1)
 }
-

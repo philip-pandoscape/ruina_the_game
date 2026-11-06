@@ -4,13 +4,13 @@
 //! The TypeScript's events (landing, splashes, the glider opening) are for the screen; the server
 //! has none, so they are left out.
 
-use crate::jsmath::JsMath;
-use crate::life::content::js_hypot;
+use super::Sim;
 use super::colliders::{ground_at, ground_at_decks, in_rect, push_out_of_box};
 use super::zone::Updraft;
-use super::Sim;
+use crate::jsmath::JsMath;
+use crate::life::content::js_hypot;
 use crate::life::content::{carry, glide, glider_def, ground, js_round, swim};
-use crate::player::{angle_diff, len, step_len, turn_toward, Actions, Mode, Player};
+use crate::player::{Actions, Mode, Player, angle_diff, len, step_len, turn_toward};
 use crate::tuning::{combo_for, tuning};
 
 const PI: f64 = std::f64::consts::PI;
@@ -460,8 +460,20 @@ pub fn update_glide(sim: &mut Sim, a: &Actions) {
     // Attitude: dive for speed, flare to slow down and bleed speed into height.
     let dive = a.sprint_held;
     let flare = a.crouch_held && !dive;
-    let target_speed = if dive { g.dive_speed } else if flare { g.flare_speed } else { g.cruise_speed };
-    let target_sink = if dive { g.dive_sink } else if flare { g.flare_sink } else { g.sink };
+    let target_speed = if dive {
+        g.dive_speed
+    } else if flare {
+        g.flare_speed
+    } else {
+        g.cruise_speed
+    };
+    let target_sink = if dive {
+        g.dive_sink
+    } else if flare {
+        g.flare_sink
+    } else {
+        g.sink
+    };
 
     let updrafts = &sim.world.zone.recipe.updrafts;
     let p = &mut *sim.player;
@@ -506,7 +518,7 @@ pub fn update_glide(sim: &mut Sim, a: &Actions) {
 mod tests {
     use super::*;
     use crate::open::zone::emberholm;
-    use crate::open::{step_player, OpenWorld};
+    use crate::open::{OpenWorld, step_player};
     use crate::player::{Build, Player};
     use crate::world::Spawn;
 
