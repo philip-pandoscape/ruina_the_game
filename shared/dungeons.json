@@ -1,0 +1,529 @@
+{
+  "comment": "Built from content/dungeons.json by tools/content/contentc.mjs (npm run content): edit there, not here. The island's dungeons and the developer zones (docs/zones.md), a file each in content/dungeons/: floors and walls round an origin high above the sea, solid and drawn only in a copy of it, where you come in and its way out, and what a copy brings (creatures, bots). Read by src/sim/zone/dungeon.ts and crates/engine/src/open/dungeon.rs; a dungeon's door on the island is in the island's recipe (dungeons), a developer zone's in its own file (door).",
+  "dungeons": [
+    {
+      "comment": "Goblin's Dread, the goblin lair inside the Windspire: an instanced dungeon. Each party plays its own copy (crates/server/src/play/spaces.rs); a copy lives on for 30 minutes after the last player leaves it. Its portal stands on a ledge hidden behind the Windspire's waterfall (emberholm.json dungeons). Inside, everything is placed relative to `origin`, a spot high above the sea north of the island that only a copy of the dungeon has anything at: its boxes and decks are solid there and nowhere else (src/sim/zone/dungeon.ts, crates/engine/src/open/dungeon.rs). Boxes are solid below their top (floors and walls); decks are floors you can walk under. `arrive` is where you come in, `exit` the portal back out (F within r), `fall`: below origin.y + fall you are back at `arrive`. Heights (top) are above origin.y. Map convention as Emberholm's: north is +Z, east is -X; facing 0 looks north.",
+      "id": "goblinsDread",
+      "name": "Goblin's Dread",
+      "maxPlayers": 5,
+      "origin": {
+        "x": 0,
+        "y": 400,
+        "z": 640
+      },
+      "arrive": {
+        "x": 0,
+        "z": 1.5,
+        "facing": 0
+      },
+      "exit": {
+        "x": 0,
+        "z": -3.5,
+        "r": 2.5
+      },
+      "fall": -30,
+      "boxes": [
+        {
+          "id": "floor",
+          "x": 0,
+          "z": 17,
+          "hw": 17,
+          "hd": 27,
+          "rot": 0,
+          "top": 0
+        },
+        {
+          "id": "curtain",
+          "x": 0,
+          "z": -7,
+          "hw": 15,
+          "hd": 1,
+          "rot": 0,
+          "top": 14
+        },
+        {
+          "id": "westWall",
+          "x": 15,
+          "z": 11,
+          "hw": 1,
+          "hd": 19,
+          "rot": 0,
+          "top": 14
+        },
+        {
+          "id": "eastWall",
+          "x": -15,
+          "z": 11,
+          "hw": 1,
+          "hd": 19,
+          "rot": 0,
+          "top": 14
+        },
+        {
+          "id": "northWallWest",
+          "x": 9.5,
+          "z": 30,
+          "hw": 5.5,
+          "hd": 1,
+          "rot": 0,
+          "top": 14
+        },
+        {
+          "id": "northWallEast",
+          "x": -9.5,
+          "z": 30,
+          "hw": 5.5,
+          "hd": 1,
+          "rot": 0,
+          "top": 14
+        },
+        {
+          "id": "tunnelWest",
+          "x": 4,
+          "z": 36,
+          "hw": 1,
+          "hd": 6,
+          "rot": 0,
+          "top": 14
+        },
+        {
+          "id": "tunnelEast",
+          "x": -4,
+          "z": 36,
+          "hw": 1,
+          "hd": 6,
+          "rot": 0,
+          "top": 14
+        },
+        {
+          "id": "tunnelEnd",
+          "x": 0,
+          "z": 43,
+          "hw": 5,
+          "hd": 1,
+          "rot": 0,
+          "top": 14
+        },
+        {
+          "id": "barricade",
+          "x": 0,
+          "z": 40.6,
+          "hw": 3,
+          "hd": 0.6,
+          "rot": 0,
+          "top": 2.6
+        },
+        {
+          "id": "lookout",
+          "x": 8.5,
+          "z": 12,
+          "hw": 1.3,
+          "hd": 1.3,
+          "rot": 0,
+          "top": 5.5
+        },
+        {
+          "id": "totem",
+          "x": -6.5,
+          "z": 6.5,
+          "hw": 0.45,
+          "hd": 0.45,
+          "rot": 0,
+          "top": 3.2
+        }
+      ],
+      "decks": [
+        {
+          "id": "landing",
+          "x": 0,
+          "z": 4,
+          "hw": 5,
+          "hd": 4,
+          "rot": 0,
+          "top": 0.5
+        }
+      ]
+    },
+    {
+      "comment": "The training yard, a developer zone (docs/admin.md): only admins go in, from the Admin menu, each party into a copy of its own (crates/server/src/play/spaces.rs enter_zone). An open arena high above the sea south-west of Emberholm, inside the 760 m from the middle that anyone can go, placed as a dungeon is (content/dungeons/goblinsDread.json says how: everything round `origin`, solid only in a copy). The training dummy and a few slimes live in it (spawns), and bots wander in it as moving targets on the other side (crates/engine/src/bots.rs), there while anyone is. `door` is where its way out lets you out on the island. Heights (top) are above origin.y.",
+      "id": "yard",
+      "name": "The Yard",
+      "about": "A yard of your own: the training dummy, slimes, and wandering bots on the other side to try your weapons and skills on.",
+      "maxPlayers": 5,
+      "developer": true,
+      "style": "arena",
+      "origin": {
+        "x": -450,
+        "y": 400,
+        "z": -520
+      },
+      "arrive": {
+        "x": 0,
+        "z": -18,
+        "facing": 0
+      },
+      "exit": {
+        "x": 0,
+        "z": -24,
+        "r": 2.5
+      },
+      "fall": -30,
+      "door": {
+        "id": "yard",
+        "portal": {
+          "x": 0,
+          "y": 8,
+          "z": 0,
+          "r": 0
+        },
+        "outside": {
+          "x": 0,
+          "z": -264,
+          "facing": 0
+        }
+      },
+      "boxes": [
+        {
+          "id": "floor",
+          "x": 0,
+          "z": 0,
+          "hw": 30,
+          "hd": 30,
+          "rot": 0,
+          "top": 0
+        },
+        {
+          "id": "southRail",
+          "x": 0,
+          "z": -30.5,
+          "hw": 30.5,
+          "hd": 0.5,
+          "rot": 0,
+          "top": 1.1
+        },
+        {
+          "id": "northRail",
+          "x": 0,
+          "z": 30.5,
+          "hw": 30.5,
+          "hd": 0.5,
+          "rot": 0,
+          "top": 1.1
+        },
+        {
+          "id": "westRail",
+          "x": 30.5,
+          "z": 0,
+          "hw": 0.5,
+          "hd": 30,
+          "rot": 0,
+          "top": 1.1
+        },
+        {
+          "id": "eastRail",
+          "x": -30.5,
+          "z": 0,
+          "hw": 0.5,
+          "hd": 30,
+          "rot": 0,
+          "top": 1.1
+        },
+        {
+          "id": "post1",
+          "x": 8,
+          "z": 6,
+          "hw": 0.4,
+          "hd": 0.4,
+          "rot": 0,
+          "top": 1.8
+        },
+        {
+          "id": "post2",
+          "x": -8,
+          "z": 6,
+          "hw": 0.4,
+          "hd": 0.4,
+          "rot": 0,
+          "top": 1.8
+        },
+        {
+          "id": "ramp",
+          "x": 14,
+          "z": -10,
+          "hw": 3,
+          "hd": 4,
+          "rot": 0.6,
+          "top": 1.2
+        }
+      ],
+      "decks": [],
+      "bots": [
+        {
+          "brain": "wanderer",
+          "count": 3,
+          "team": 1,
+          "x": 0,
+          "z": 10
+        }
+      ],
+      "spawns": [
+        {
+          "kind": "dummy",
+          "x": 0,
+          "z": 2
+        },
+        {
+          "kind": "slime",
+          "x": -14,
+          "z": 14
+        },
+        {
+          "kind": "slime",
+          "x": -17,
+          "z": 16
+        },
+        {
+          "kind": "slime",
+          "x": -12,
+          "z": 18
+        }
+      ]
+    },
+    {
+      "comment": "The battlefield, a developer zone (docs/admin.md): only admins go in, from the Admin menu, all into one copy (`shared`). Two sides of bots fight across it (crates/engine/src/bots.rs): they come in with the first admin and go when the last one leaves, so it costs nothing while nobody is there. Placed as a dungeon is (content/dungeons/goblinsDread.json says how), an open arena high above the sea south-east of Emberholm, inside the 760 m from the middle that anyone can go; admins join the near side. `door` is where its way out lets you out on the island. Heights (top) are above origin.y.",
+      "id": "battlefield",
+      "name": "The Battlefield",
+      "about": "One battlefield for every admin: sixteen bots a side, fighting, there only while an admin's in it.",
+      "maxPlayers": 20,
+      "developer": true,
+      "shared": true,
+      "style": "arena",
+      "origin": {
+        "x": 420,
+        "y": 400,
+        "z": -460
+      },
+      "arrive": {
+        "x": 0,
+        "z": -50,
+        "facing": 0
+      },
+      "exit": {
+        "x": 0,
+        "z": -56,
+        "r": 2.5
+      },
+      "fall": -30,
+      "door": {
+        "id": "battlefield",
+        "portal": {
+          "x": 0,
+          "y": 8,
+          "z": 0,
+          "r": 0
+        },
+        "outside": {
+          "x": 0,
+          "z": -264,
+          "facing": 0
+        }
+      },
+      "boxes": [
+        {
+          "id": "floor",
+          "x": 0,
+          "z": 0,
+          "hw": 60,
+          "hd": 60,
+          "rot": 0,
+          "top": 0
+        },
+        {
+          "id": "southRail",
+          "x": 0,
+          "z": -60.5,
+          "hw": 60.5,
+          "hd": 0.5,
+          "rot": 0,
+          "top": 1.1
+        },
+        {
+          "id": "northRail",
+          "x": 0,
+          "z": 60.5,
+          "hw": 60.5,
+          "hd": 0.5,
+          "rot": 0,
+          "top": 1.1
+        },
+        {
+          "id": "westRail",
+          "x": 60.5,
+          "z": 0,
+          "hw": 0.5,
+          "hd": 60,
+          "rot": 0,
+          "top": 1.1
+        },
+        {
+          "id": "eastRail",
+          "x": -60.5,
+          "z": 0,
+          "hw": 0.5,
+          "hd": 60,
+          "rot": 0,
+          "top": 1.1
+        },
+        {
+          "id": "rockWest",
+          "x": 18,
+          "z": 5,
+          "hw": 3,
+          "hd": 2,
+          "rot": 0.4,
+          "top": 2.5
+        },
+        {
+          "id": "rockEast",
+          "x": -20,
+          "z": -4,
+          "hw": 2.5,
+          "hd": 3,
+          "rot": 1.1,
+          "top": 2.2
+        }
+      ],
+      "decks": [],
+      "bots": [
+        {
+          "brain": "skirmisher",
+          "count": 16,
+          "team": 0,
+          "x": 0,
+          "z": -25
+        },
+        {
+          "brain": "skirmisher",
+          "count": 16,
+          "team": 1,
+          "x": 0,
+          "z": 25
+        }
+      ]
+    },
+    {
+      "comment": "The goblin camp, a developer zone (docs/zones.md): only admins go in, from the Admin menu, each party into a copy of its own. A war-band of goblins (content/creatures/goblin/) stands round its fire at the north end, to fight or to watch working together: they spot you, close in turns, circle, stab, throw and drink when hurt (src/sim/ai/pack.ts, crates/engine/src/pack.rs). An open arena high above the sea north-west of Emberholm, placed as a dungeon is (content/dungeons/goblinsDread.json says how), inside the 760 m from the middle that anyone can go. `door` is where its way out lets you out on the island. Heights (top) are above origin.y.",
+      "id": "goblinCamp",
+      "name": "The Goblin Camp",
+      "about": "A war-band of goblins round their fire, to fight or to watch working together: they spot you, take turns to close in, circle, stab, throw and drink when hurt.",
+      "maxPlayers": 5,
+      "developer": true,
+      "style": "arena",
+      "origin": {
+        "x": -450,
+        "y": 400,
+        "z": 520
+      },
+      "arrive": {
+        "x": 0,
+        "z": -18,
+        "facing": 0
+      },
+      "exit": {
+        "x": 0,
+        "z": -24,
+        "r": 2.5
+      },
+      "fall": -30,
+      "door": {
+        "id": "goblinCamp",
+        "portal": {
+          "x": 0,
+          "y": 8,
+          "z": 0,
+          "r": 0
+        },
+        "outside": {
+          "x": 0,
+          "z": -264,
+          "facing": 0
+        }
+      },
+      "boxes": [
+        {
+          "id": "floor",
+          "x": 0,
+          "z": 0,
+          "hw": 30,
+          "hd": 30,
+          "rot": 0,
+          "top": 0
+        },
+        {
+          "id": "southRail",
+          "x": 0,
+          "z": -30.5,
+          "hw": 30.5,
+          "hd": 0.5,
+          "rot": 0,
+          "top": 1.1
+        },
+        {
+          "id": "northRail",
+          "x": 0,
+          "z": 30.5,
+          "hw": 30.5,
+          "hd": 0.5,
+          "rot": 0,
+          "top": 1.1
+        },
+        {
+          "id": "westRail",
+          "x": 30.5,
+          "z": 0,
+          "hw": 0.5,
+          "hd": 30,
+          "rot": 0,
+          "top": 1.1
+        },
+        {
+          "id": "eastRail",
+          "x": -30.5,
+          "z": 0,
+          "hw": 0.5,
+          "hd": 30,
+          "rot": 0,
+          "top": 1.1
+        },
+        {
+          "id": "rock1",
+          "x": -9,
+          "z": 4,
+          "hw": 1.6,
+          "hd": 1.2,
+          "rot": 0.4,
+          "top": 1.4
+        },
+        {
+          "id": "rock2",
+          "x": 11,
+          "z": -2,
+          "hw": 1.2,
+          "hd": 1.8,
+          "rot": -0.3,
+          "top": 1.2
+        }
+      ],
+      "decks": [],
+      "spawns": [
+        {
+          "kind": "goblin",
+          "x": 0,
+          "z": 16,
+          "band": true,
+          "count": 6
+        }
+      ]
+    }
+  ]
+}

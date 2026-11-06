@@ -71,7 +71,7 @@ export interface ZoneRecipe {
   farmland: { x: number; z: number; w: number; d: number };
   nodes: Array<{ kind: string; x: number; z: number; rot: number }>;
   updrafts: Updraft[];
-  /** The doors of the island's dungeons (shared/dungeons/<id>.json): each a portal into your party's copy. */
+  /** The doors of the island's dungeons (content/dungeons/<id>.json): each a portal into your party's copy. */
   dungeons?: DungeonDoor[];
   forests: Array<{ x: number; z: number; r: number; density: number }>;
   scatter: { trees: number; rocks: number; clearOfRoad?: number; clearOfStructure?: number };

@@ -198,9 +198,14 @@ impl Spaces {
         }
         let def = dungeon(id).filter(|d| d.developer).ok_or("There's no such place.")?;
         let door = def.door.as_ref().ok_or("That place has no way out.")?;
-        let g = self.game_ref(character).ok_or("You aren't playing.")?;
-        if g.copy_of().is_some() {
-            return Err("Leave where you are first.".into());
+        // Somewhere beside the island already (a dungeon, another zone): out of it first, as through
+        // its door; there already, nothing to do.
+        let here: Option<&'static str> = self.game_ref(character).ok_or("You aren't playing.")?.copy_of().map(|c| c.def).map(|d| d.id.as_str());
+        if here == Some(def.id.as_str()) {
+            return Ok(());
+        }
+        if here.is_some() {
+            self.out_of_copy(character)?;
         }
         let owner = if def.shared { Owner::Everyone } else { self.owner_of(character) };
         let key = (owner, def.id.as_str());
@@ -570,12 +575,38 @@ mod tests {
     }
 
     #[test]
+    fn an_admin_goes_from_one_zone_straight_into_another() {
+        let (mut sp, _a, _b) = two_in_channel_one();
+        sp.enter_zone(1, "yard", true).unwrap();
+        let yard = sp.at[&1];
+        // Asking for the place you're in changes nothing.
+        sp.enter_zone(1, "yard", true).unwrap();
+        assert_eq!(sp.at[&1], yard);
+        sp.enter_zone(1, "goblinCamp", true).unwrap();
+        let camp = sp.at[&1];
+        assert!(camp < 0 && camp != yard);
+        assert_eq!(sp.games[&camp].copy_of().map(|c| c.def.id.as_str()), Some("goblinCamp"));
+        // Out of the yard as through its door: its bots go with its last player.
+        assert!(sp.games[&yard].bots.is_empty());
+    }
+
+    #[test]
     fn each_player_has_a_yard_of_their_own() {
         let (mut sp, _a, _b) = two_in_channel_one();
         sp.enter_zone(1, "yard", true).unwrap();
         sp.enter_zone(2, "yard", true).unwrap();
         assert_ne!(sp.at[&1], sp.at[&2]);
         assert_eq!(sp.games[&sp.at[&1]].bots.len(), 3);
+    }
+
+    #[test]
+    fn the_goblin_camp_brings_a_war_band() {
+        let (mut sp, _a, _b) = two_in_channel_one();
+        sp.enter_zone(1, "goblinCamp", true).unwrap();
+        let copy = sp.at[&1];
+        let goblins: Vec<_> = sp.games[&copy].actors.list.iter().filter(|a| a.kind == "goblin").collect();
+        assert_eq!(goblins.len(), 6);
+        assert!(goblins.iter().all(|a| a.band != 0 && a.band == goblins[0].band), "one band");
     }
 
     #[test]

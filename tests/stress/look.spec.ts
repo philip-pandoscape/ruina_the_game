@@ -23,7 +23,7 @@ interface Scene {
   camera: { yaw: number; pitch: number; distance: number };
   /** A parked camera instead, for views from the air: where it is and what it looks at (heights above the ground when `ground`). */
   view?: { from: [number, number, number]; to: [number, number, number]; ground?: boolean };
-  /** Inside a copy of this dungeon (shared/dungeons), its floor under you. */
+  /** Inside a copy of this dungeon (content/dungeons), its floor under you. */
   dungeon?: string;
 }
 

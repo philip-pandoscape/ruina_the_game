@@ -1,0 +1,6 @@
+{
+  "comment": "The island's dungeons and the developer zones (docs/zones.md), a file each in content/dungeons/: floors and walls round an origin high above the sea, solid and drawn only in a copy of it, where you come in and its way out, and what a copy brings (creatures, bots). Read by src/sim/zone/dungeon.ts and crates/engine/src/open/dungeon.rs; a dungeon's door on the island is in the island's recipe (dungeons), a developer zone's in its own file (door).",
+  "dungeons": {
+    "$things": "dungeons"
+  }
+}

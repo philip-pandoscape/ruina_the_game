@@ -39,11 +39,11 @@ const walk = (root, d = root, out = []) => {
   return out;
 };
 
-/** The templates: content/*.json and content/{creatures,dungeons,zones}/*.json, as under shared/. */
+/** The templates: content/*.json and content/{creatures,zones}/*.json, as under shared/. */
 function templates(root) {
   const out = [];
   for (const e of readdirSync(root)) if (e.endsWith('.json')) out.push(e);
-  for (const d of ['creatures', 'dungeons', 'zones']) {
+  for (const d of ['creatures', 'zones']) {
     const dir = join(root, d);
     if (existsSync(dir)) for (const e of readdirSync(dir)) if (e.endsWith('.json')) out.push(`${d}/${e}`);
   }
@@ -176,7 +176,7 @@ function ids(b) {
     ]),
     quest: list('quests.json', 'quests'),
     structure: list('structures.json', 'structures'),
-    dungeon: new Set([...b.keys()].filter((p) => p.startsWith('dungeons/')).map((p) => b.get(p).id)),
+    dungeon: list('dungeons.json', 'dungeons'),
   };
 }
 

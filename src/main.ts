@@ -40,8 +40,6 @@ import { readOptions } from './app/options';
 import { makeTestApi } from './app/testApi';
 import { wireOnline } from './app/onlineWiring';
 import { wireBugReports } from './app/bugWiring';
-import { currentAccount } from './net/account';
-import { addAdminButton } from './ui/admin/adminMenu';
 import { splash } from './ui/splash';
 import { WorldPeers } from './net/worldPeers';
 import { MinigamesUI } from './ui/minigames/minigames';
@@ -297,13 +295,6 @@ const input = new Input(canvas);
 input.crouchSlides = () => crouchKeySlides(sim.player);
 const hud = new Hud();
 hud.setDevice(input.lastDevice);
-// Admins (the server says who) reach the developer zones and pages from the yard and the
-// battlefield too: a button in the corner. Nobody signed in, or no server, and there's none.
-if (!openWorld && !testMode)
-  void currentAccount().then(
-    (a) => a?.admin && addAdminButton(),
-    () => {},
-  );
 
 // Records bug reports (\ or both sticks); set up at the end of this file, once everything exists.
 let bugs: BugReporter | null = null;

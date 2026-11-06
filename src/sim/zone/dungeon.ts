@@ -1,11 +1,10 @@
-import battlefield from '../../../shared/dungeons/battlefield.json' with { type: 'json' };
-import goblinsDread from '../../../shared/dungeons/goblinsDread.json' with { type: 'json' };
-import yard from '../../../shared/dungeons/yard.json' with { type: 'json' };
+import data from '../../../shared/dungeons.json' with { type: 'json' };
 import { inRect, type ColliderIndex } from './colliders';
 import { rect } from './generate';
 import type { BoxCollider, Deck, DungeonDoor, ZoneRecipe } from './types';
 
-// The island's dungeons (shared/dungeons/<id>.json). Each party plays its own copy of one, which the
+// The island's dungeons and the developer zones (content/dungeons/<id>.json, built into
+// shared/dungeons.json; docs/zones.md). Each party plays its own copy of one, which the
 // server keeps apart from the open world (crates/server/src/play/spaces.rs); inside, everything stands round a
 // spot high above the sea that nothing else in the world uses, and is solid only in a copy: the
 // browser adds a dungeon's boxes and decks to its world while you're inside one and takes them away
@@ -48,13 +47,15 @@ export interface DungeonDef {
   bots?: Array<{ brain: string; count: number; team: number; x: number; z: number }>;
   /** How it's drawn: "cave" (the default) or "arena" (open sky). */
   style?: string;
+  /**
+   * What a copy of it brings (the server's): one of a kind at a spot, or a war-band of `count` in a
+   * ring round it (crates/engine/src/open/dungeon.rs ZoneSpawn).
+   */
+  spawns?: Array<{ kind: string; x: number; z: number; band?: boolean; count?: number }>;
 }
 
-export const DUNGEONS: Record<string, DungeonDef> = {
-  goblinsDread: goblinsDread as unknown as DungeonDef,
-  yard: yard as unknown as DungeonDef,
-  battlefield: battlefield as unknown as DungeonDef,
-};
+/** Every dungeon and developer zone, by id, in the order content/dungeons/_order.json lists them. */
+export const DUNGEONS: Record<string, DungeonDef> = Object.fromEntries((data.dungeons as unknown as DungeonDef[]).map((d) => [d.id, d]));
 
 export function dungeonDef(id: string): DungeonDef | undefined {
   return DUNGEONS[id];

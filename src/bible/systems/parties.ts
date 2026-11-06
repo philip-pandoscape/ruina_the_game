@@ -68,7 +68,7 @@ export const parties = system({
   icon: '🛡️',
   keywords: ['party', 'group', 'invite', 'leader', 'dungeon', 'instance', 'copy', 'portal', 'goblin'],
   rules: ['src/sim/zone/dungeon.ts', 'crates/engine/src/open/dungeon.rs', 'crates/server/src/play/parties.rs', 'crates/server/src/play/spaces.rs'],
-  content: ['shared/dungeons/*.json', 'shared/zones/*.json#dungeons'],
+  content: ['shared/dungeons.json#dungeons', 'shared/zones/*.json#dungeons'],
   body: () => {
     const R = rule();
     // The developer zones (the yard, the battlefield) are dungeons too, for admins only: players don't read about them.

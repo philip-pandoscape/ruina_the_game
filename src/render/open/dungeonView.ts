@@ -18,7 +18,7 @@ import {
 } from './goblinKit';
 import { bev, cone, faceted, jiggle, makeRng, merge, PAL, tint, vary, xf } from '../models/kit';
 
-// The inside of a copy of a dungeon (shared/dungeons/<id>.json), drawn round its origin only while
+// The inside of a copy of a dungeon (content/dungeons/<id>.json), drawn round its origin only while
 // you're in one (src/app/dungeonVisit.ts): for Goblin's Dread, the inner grotto behind the
 // Windspire's waterfall. Rock all round, the back of the falls glowing and rippling across its south
 // end with the portal back out, the goblins' landing stage, catch nets, their lookout on its stilts

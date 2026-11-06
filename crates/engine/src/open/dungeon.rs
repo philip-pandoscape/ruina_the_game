@@ -1,4 +1,5 @@
-//! The island's dungeons (shared/dungeons/<id>.json; src/sim/zone/dungeon.ts is the browser's
+//! The island's dungeons and the developer zones (content/dungeons/<id>.json, built into
+//! shared/dungeons.json; docs/zones.md; src/sim/zone/dungeon.ts is the browser's
 //! twin). Each party plays its own copy of one (crate::spaces). Inside, everything stands round a
 //! spot high above the sea that nothing else in the world uses, and is solid only in a copy: a
 //! copy's OpenWorld gets the dungeon's boxes and decks, the channels never do.
@@ -6,6 +7,8 @@
 use std::sync::OnceLock;
 
 use serde::Deserialize;
+
+use crate::jsmath::JsMath;
 
 use super::OpenWorld;
 use super::colliders::{ground_at, in_rect};
@@ -74,11 +77,37 @@ pub struct DungeonDef {
     pub spawns: Vec<ZoneSpawn>,
 }
 
+/// One of a kind at a spot, or a war-band of them (`band`: `count` in a ring round it, fighting
+/// together as a pack, as bandAround() in src/sim/world.ts lays one out).
 #[derive(Deserialize, Clone, Debug)]
 pub struct ZoneSpawn {
     pub kind: String,
     pub x: f64,
     pub z: f64,
+    #[serde(default)]
+    pub band: bool,
+    #[serde(default = "one")]
+    pub count: u32,
+}
+
+fn one() -> u32 {
+    1
+}
+
+impl ZoneSpawn {
+    /// Where each one stands (relative to the origin), which way it faces, and its seed: a band in a
+    /// ring round the spot facing out (bandAround() in src/sim/world.ts), anything else on the spot.
+    pub fn points(&self, seed: u32) -> Vec<(f64, f64, f64, u32)> {
+        let n = self.count.max(1);
+        (0..n)
+            .map(|i| {
+                let angle = f64::from(i) / f64::from(n) * std::f64::consts::TAU;
+                let r = if n > 1 { 1.2 + 0.4 * f64::from(i % 2) } else { 0.0 };
+                let (sin, cos) = (angle.js_sin(), angle.js_cos());
+                (self.x + sin * r, self.z + cos * r, angle, seed.wrapping_add((i + 1).wrapping_mul(0x9e37_79b1)))
+            })
+            .collect()
+    }
 }
 
 #[derive(Deserialize, Clone, Debug)]
@@ -141,17 +170,17 @@ impl DungeonDef {
 }
 
 /// Every dungeon there is.
+/// Every dungeon and developer zone, from shared/dungeons.json (built from content/dungeons/).
 pub fn dungeons() -> &'static [DungeonDef] {
+    #[derive(Deserialize)]
+    struct Bundle {
+        dungeons: Vec<DungeonDef>,
+    }
     static D: OnceLock<Vec<DungeonDef>> = OnceLock::new();
     D.get_or_init(|| {
-        [
-            ("goblinsDread", include_str!("../../../../shared/dungeons/goblinsDread.json")),
-            ("yard", include_str!("../../../../shared/dungeons/yard.json")),
-            ("battlefield", include_str!("../../../../shared/dungeons/battlefield.json")),
-        ]
-        .into_iter()
-        .map(|(id, json)| serde_json::from_str(json).unwrap_or_else(|e| panic!("shared/dungeons/{id}.json is a dungeon: {e}")))
-        .collect()
+        let b: Bundle =
+            serde_json::from_str(include_str!("../../../../shared/dungeons.json")).unwrap_or_else(|e| panic!("shared/dungeons.json is malformed: {e}"));
+        b.dungeons
     })
 }
 
@@ -199,6 +228,22 @@ mod tests {
         assert!(def.at_exit(def.origin.x + def.exit.x, def.origin.y, def.origin.z + def.exit.z));
         assert!(!def.at_exit(a.x + 30.0, a.y, a.z));
         assert!(def.fallen_out(def.origin.y + def.fall - 1.0) && !def.fallen_out(def.origin.y));
+    }
+
+    #[test]
+    fn every_dungeon_stands_where_players_may_go_and_apart_from_the_others() {
+        use crate::jsmath::js_hypot;
+        // How far its pieces reach from its origin, round each piece's middle.
+        let reach = |d: &DungeonDef| d.boxes.iter().chain(&d.decks).map(|p| js_hypot(p.x, p.z) + js_hypot(p.hw, p.hd)).fold(0.0, f64::max);
+        let world = OpenWorld::new(emberholm());
+        for d in dungeons() {
+            let far = js_hypot(d.origin.x, d.origin.z) + reach(d);
+            assert!(far < world.radius, "{} reaches {far:.0} m from the middle, past the {} m players are kept within", d.id, world.radius);
+            for e in dungeons().iter().filter(|e| e.id < d.id) {
+                let gap = js_hypot(d.origin.x - e.origin.x, d.origin.z - e.origin.z) - reach(d) - reach(e);
+                assert!(gap > 20.0, "{} and {} are {gap:.0} m apart", d.id, e.id);
+            }
+        }
     }
 
     #[test]

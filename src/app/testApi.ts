@@ -3,6 +3,7 @@
 // online play. It reaches the game through `g`, the references src/main.ts hands it.
 import * as THREE from 'three';
 import { pointsLeft, swapSlots, validBuild } from '../build';
+import { actorKindAt } from '../content/actors';
 import { assetsReady } from '../render/assets';
 import { isPine } from '../render/open/foliage';
 import { type WeaponAt } from '../render/character';
@@ -289,10 +290,10 @@ export function makeTestApi(g: GameRefs) {
     netActors() {
       return g.net?.actors ?? [];
     },
-    /** The server's monsters as drawn this frame (between its updates), with how white each one is. */
+    /** The server's monsters as drawn this frame (between its updates), with their kind's id and how white each one is. */
     shownActors() {
       const now = performance.now();
-      return g.shownActors.map((a) => ({ ...a, flash: g.netMonsters?.flash(a.id, now) ?? 0 }));
+      return g.shownActors.map((a) => ({ ...a, kindId: actorKindAt(a.kind)?.id ?? '', flash: g.netMonsters?.flash(a.id, now) ?? 0 }));
     },
     /** Online hit effects so far: swings guessed to land, the server's confirmations (and how many matched a guess or came late), flashes, and slams and deaths shown. */
     netFx() {

@@ -18,7 +18,8 @@ const ADMIN = fresh('boss');
 const BUILT = join(tmpdir(), `ruina-admin-${process.pid}`);
 const server = new GameServer(7787, { ADMIN_USERS: ADMIN, STATIC_DIR: BUILT });
 
-// One server for both tests, so one at a time.
+// One server for all of them, so one at a time, in one worker (none is tagged @gpu or @alone, which
+// would put it in a worker of its own, starting a second server on the same port).
 test.describe.configure({ mode: 'serial' });
 
 test.beforeAll(async () => {
@@ -90,7 +91,7 @@ test('an admin has the Admin menu on character select and in the world, and it o
   await page.locator('.cs-account').getByRole('button', { name: 'Admin' }).click();
   const card = page.locator('.adm-card');
   await expect(card.getByRole('heading', { name: 'Admin' })).toBeVisible();
-  for (const name of ['The Yard', 'The Battlefield', 'Animation Library', 'Design Bible'])
+  for (const name of ['The Yard', 'The Battlefield', 'The Goblin Camp', 'Content Library', 'Design Bible', 'Ruina Bible'])
     await expect(card.getByRole('button', { name, exact: true })).toBeVisible();
   // A page opens in a tab of its own.
   const [tab] = await Promise.all([page.context().waitForEvent('page'), card.getByRole('button', { name: 'UI Design System' }).click()]);
@@ -102,7 +103,7 @@ test('an admin has the Admin menu on character select and in the world, and it o
   await enterWorld(page);
   await page.locator('#hud-menu [data-press="admin"]').click();
   expect(await panel(page)).toBe('admin');
-  await expect(page.locator('.mw').getByRole('button', { name: 'Animation Library' })).toBeVisible();
+  await expect(page.locator('.mw').getByRole('button', { name: 'Content Library' })).toBeVisible();
   // The developer zones, a button each, from the world.
   await expect(page.locator('.mw').getByRole('button', { name: 'The Battlefield', exact: true }).first()).toBeVisible();
   await page.locator('.mw').getByRole('button', { name: 'Developer Tools' }).click();
@@ -148,28 +149,33 @@ test('an admin goes into the battlefield from the world, finds its bots and an a
   await expect
     .poll(() => page.evaluate(() => window.__game.throughPortal(false, 'battlefield') && window.__game.space()?.kind), { timeout: 30_000 })
     .toBe('channel');
-  const at = await page.evaluate(() => window.__game.state().player.pos);
-  expect(Math.hypot(at.x - zone.door.outside.x, at.z - zone.door.outside.z)).toBeLessThan(5);
+  // Where the server puts you comes a moment after it says where you are.
+  const fromDoor = async () => {
+    const at = await page.evaluate(() => window.__game.state().player.pos);
+    return Math.hypot(at.x - zone.door.outside.x, at.z - zone.door.outside.z);
+  };
+  await expect.poll(fromDoor, { timeout: 10_000 }).toBeLessThan(5);
 });
 
-test('an admin in the yard finds its dummy and slimes standing on its floor, and the dummy takes their blows', { tag: '@gpu' }, async ({ page }) => {
+test('an admin in the yard finds its dummy and slimes standing on its floor, and the dummy takes their blows', async ({ page }) => {
   const zone = JSON.parse(readFileSync('content/dungeons/yard.json', 'utf8'));
-  const kinds: string[] = JSON.parse(readFileSync('shared/actors.json', 'utf8')).kinds.map((k: { id: string }) => k.id);
-  const [DUMMY, SLIME] = [kinds.indexOf('dummy'), kinds.indexOf('slime')];
   const at = (sp: { x: number; z: number }) => ({ x: zone.origin.x + sp.x, z: zone.origin.z + sp.z });
 
+  // Straight in from the character select screen: the Admin card's zone takes the chosen character
+  // into the world and on into the yard.
   await atCharacterSelect(page, ADMIN);
-  await enterWorld(page);
-  expect(await page.evaluate(() => window.__game.enterZone('yard'))).toBe(true);
+  await page.locator('.cs-account').getByRole('button', { name: 'Admin' }).click();
+  await page.locator('.adm-card').getByRole('button', { name: 'The Yard', exact: true }).click();
+  await onlineReady(page);
   await expect.poll(() => page.evaluate(() => window.__game.space()), { timeout: 30_000 }).toMatchObject({ kind: 'dungeon', dungeon: 'yard' });
 
   // What its file brings, each where the file puts it, the server standing them on its floor (their
   // heights come over the ground under them, which in the yard is its floor).
-  const spawned = (kind: number) => page.evaluate((k) => window.__game.shownActors().filter((a) => a.kind === k), kind);
+  const spawned = (kind: string) => page.evaluate((k) => window.__game.shownActors().filter((a) => a.kindId === k), kind);
   await expect
-    .poll(async () => (await spawned(SLIME)).length, { timeout: 30_000 })
+    .poll(async () => (await spawned('slime')).length, { timeout: 30_000 })
     .toBe(zone.spawns.filter((sp: { kind: string }) => sp.kind === 'slime').length);
-  const [dummy] = await spawned(DUMMY);
+  const [dummy] = await spawned('dummy');
   const post = at(zone.spawns.find((sp: { kind: string }) => sp.kind === 'dummy'));
   expect(Math.hypot(dummy.x - post.x, dummy.z - post.z)).toBeLessThan(0.1);
   expect(Math.abs(dummy.y)).toBeLessThan(0.5);
@@ -201,4 +207,24 @@ test('an admin in the yard finds its dummy and slimes standing on its floor, and
     [dummy.id, post.x, post.z] as const,
   );
   expect(hp).toBeLessThan(1);
+});
+
+test('an admin goes into the goblin camp from the Admin window and finds its war-band round the fire', async ({ page }) => {
+  const zone = JSON.parse(readFileSync('content/dungeons/goblinCamp.json', 'utf8'));
+  const band = zone.spawns.find((sp: { kind: string }) => sp.kind === 'goblin');
+  await atCharacterSelect(page, ADMIN);
+  await enterWorld(page);
+  // Back in the yard the last test left them in (its copy is kept): the camp takes them straight out of it.
+  await expect.poll(() => page.evaluate(() => window.__game.space()), { timeout: 10_000 }).toMatchObject({ kind: 'dungeon', dungeon: 'yard' });
+  await page.locator('#hud-menu [data-press="admin"]').click();
+  await page.locator('.mw').getByRole('button', { name: 'The Goblin Camp', exact: true }).click();
+  await expect.poll(() => page.evaluate(() => window.__game.space()), { timeout: 30_000 }).toMatchObject({ kind: 'dungeon', dungeon: 'goblinCamp' });
+  expect(await page.evaluate(() => window.__game.dungeon().drawn)).toBe('goblinCamp');
+  // The whole band, round the spot its file gives, on the camp's floor.
+  const goblins = () => page.evaluate(() => window.__game.shownActors().filter((a) => a.kindId === 'goblin'));
+  await expect.poll(async () => (await goblins()).length, { timeout: 30_000 }).toBe(band.count);
+  for (const g of await goblins()) {
+    expect(Math.hypot(g.x - (zone.origin.x + band.x), g.z - (zone.origin.z + band.z))).toBeLessThan(8);
+    expect(Math.abs(g.y)).toBeLessThan(0.5);
+  }
 });

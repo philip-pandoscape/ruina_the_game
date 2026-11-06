@@ -39,7 +39,7 @@ rules' formulas and the terrain generator), so it is always current and there is
 - `shared/zones/`, `shared/{vehicles,trade,farming,housing,items,quests,structures,traversal}.json`:
   the open world's content. `src/sim/zone/` grows the island from a zone recipe, `src/sim/life/`
   runs trade, farming, housing, vehicles and quests, `src/render/open/` and `src/render/models/`
-  draw it (preview every model at http://localhost:5173/dev/models.html), `src/ui/life/` is its HUD
+  draw it (every model side by side in the content library, http://localhost:5173/dev/library.html#/models), `src/ui/life/` is its HUD
   and windows, in the look `src/ui/theme/` gives the whole UI
 - `tests/`: Playwright tests that play the real game in a browser, plus checks that the TypeScript and
   Rust rules agree frame by frame
@@ -69,11 +69,12 @@ short version of this file for coding agents.
      account if it's new), so you can play several in different windows. `?fresh` starts your island
      over. When the server is updated the world freezes under a notice and carries on by itself.
    - http://localhost:5173/?yard for the training yard (offline)
-   - http://localhost:5173/dev/animations.html for the hero's animations, each played with the game's
-     own timing: slow motion, any camera, and a floor to judge the feet by (`src/render/detail/`)
-   - http://localhost:5173/dev/library.html, the animation library: every character's animations frame by
-     frame, with notes, poses corrected by moving the bones, and **Create Prompt** to hand them to
-     Claude (`src/library/`, the `animation-review` skill)
+   - http://localhost:5173/dev/library.html, the content library: everything the game draws in one
+     place, every animation frame by frame with the game's own timing, notes, poses corrected by moving
+     the bones and **Create Prompt** to hand them to Claude, and every model, building and crowd
+     (`src/library/`, the `animation-review` skill)
+   - the developer zones (the yard, the battlefield, the goblin camp), from the Admin menu in the world
+     or on the character select screen (`docs/zones.md`)
    - http://localhost:5173/?raid=10000 for the rendering stress test (offline)
    - http://localhost:5173/?server=ws://localhost:7777 to join the battle (add `&team=0` or `&team=1`
      to pick a side). The battlefield needs the server started with bots: `npm run server` (Rust),

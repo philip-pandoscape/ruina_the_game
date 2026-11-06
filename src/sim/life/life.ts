@@ -246,7 +246,7 @@ export class Life implements LifeHooks {
   othersAround: (() => OtherPlayer[]) | null = null;
 
   /**
-   * The dungeon you're inside a copy of (shared/dungeons/<id>.json), null out on the island: the
+   * The dungeon you're inside a copy of (content/dungeons/<id>.json), null out on the island: the
    * portals' prompts read it (src/app/dungeonVisit.ts keeps it). Not part of the island.
    */
   dungeon: string | null = null;

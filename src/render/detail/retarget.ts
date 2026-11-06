@@ -10,7 +10,7 @@ import type { Body } from './body';
 // where the point between the source's hip joints goes, sized by leg length, and the clip's own
 // travel across the ground is taken off, so the rules carry the body and the feet a clip plants are
 // held where they stand (character.ts). Baked once, played by the pose code by the rules' frames
-// (humanoid.ts). The same method shown against each clip's source: /dev/retarget.html.
+// (humanoid.ts). The same method shown against each clip's source: the content library's retarget subject (/dev/library.html#/retarget).
 
 /** The bones a humanoid clip moves, by what they are. */
 const CANON = [

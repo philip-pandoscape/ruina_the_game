@@ -25,7 +25,7 @@ const FORBIDDEN: Record<string, string[]> = {
 /** Imports across a line today, each with what will remove it (.plans/refactor/tracker.md). */
 const KNOWN: Record<string, string> = {
   'content/actors.ts -> sim': "R6.0: content's actor kinds and the rules' actor record lean on each other",
-  'content/creatures/hero.ts -> species': 'R6.0: the hero\'s content builds a three.js body',
+  'content/creatures/hero.ts -> species': "R6.0: the hero's content builds a three.js body",
 };
 
 const files: string[] = [];

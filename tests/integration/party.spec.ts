@@ -12,7 +12,7 @@ import { onlineReady as waitOnline } from '../support/game';
 const SERVER = process.env.RUINA_SERVER ?? 'http://localhost:7777';
 const ZONE = JSON.parse(readFileSync('shared/zones/emberholm.json', 'utf8'));
 const DOOR = ZONE.dungeons.find((d: { id: string }) => d.id === 'goblinsDread');
-const DUNGEON = JSON.parse(readFileSync('shared/dungeons/goblinsDread.json', 'utf8'));
+const DUNGEON = JSON.parse(readFileSync('content/dungeons/goblinsDread.json', 'utf8'));
 
 let serverUp = false;
 test.beforeAll(async () => {

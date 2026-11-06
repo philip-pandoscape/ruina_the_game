@@ -1,6 +1,6 @@
 /* The Admin menu (src/ui/admin/adminMenu.ts): developer zones and pages, a button each with what
    it's for. In the world it is a window (.mw, whose headings it uses); over the character select
-   screen, the yard and the battlefield, a card. Sizes are on the UI's virtual screen. */
+   screen, a card. Sizes are on the UI's virtual screen. */
 
 .adm-row { display: flex; align-items: baseline; gap: 10px; margin: 0 0 7px; }
 .adm-row .lui-btn { flex: 0 0 168px; text-align: center; }
@@ -9,12 +9,8 @@
   color: #fff3dc; background: rgba(122, 31, 38, 0.72); white-space: nowrap; }
 
 /* The card: wider than the front door's, its list scrolling when the screen is short. */
-.adm-modal { z-index: 60; }
 .fd-modal .fd-card.adm-card { width: 600px; }
 .adm-list { max-height: calc(100vh / var(--ui-s, 1) - 260px); overflow-y: auto; margin: 0 -8px 12px 0; padding-right: 8px; }
 .adm-list .h { display: flex; align-items: center; gap: 8px; margin: 10px 0 6px; font: 700 15px var(--font-title); color: var(--title); letter-spacing: 0.05em; }
 .adm-list .h::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, rgba(110, 70, 30, 0.5), transparent); }
 .adm-list .h:first-child { margin-top: 0; }
-
-/* The button in the corner of the yard and the battlefield. */
-#hud-admin { position: absolute; top: 12px; right: 12px; z-index: 5; pointer-events: auto; }

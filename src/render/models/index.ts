@@ -1,6 +1,6 @@
 // Procedural 3D models for the island: vehicles, mounts, gliders, trade packs, crops, buildings
 // and props. Everything faces +Z with +Y up and its right-hand side at -X; sizes come from the
-// shared/*.json data. See src/render/models/harness.ts (dev/models.html) to look at them.
+// shared/*.json data. The content library shows them all (/dev/library.html#/models).
 
 export { buildVehicle, type VehicleAnim, type VehicleModel } from './vehicles';
 export { buildMount, type MountAnim, type MountModel } from './mounts';

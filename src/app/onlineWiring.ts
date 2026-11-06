@@ -172,6 +172,13 @@ export function wireOnline(g: GameRefs): void {
     else if (link.latest) onTick(link.latest);
     online.lifeLoaded = () => lifeLoaded;
     stopIf(link.status);
+    // A developer zone chosen on the character select screen: on into it once the island is here
+    // (the server checks it's an admin's).
+    const zone = online.zone;
+    if (zone) {
+      const go = () => (lifeLoaded ? void link.zone(zone) : requestAnimationFrame(go));
+      requestAnimationFrame(go);
+    }
 
     // Into the game: the title screen fades once the first frames are drawn (the first one compiles
     // the shaders) and your island has arrived, so it opens on your island as it is.

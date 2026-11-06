@@ -14,6 +14,8 @@ const N = 20_000;
 test('the WebAssembly engine answers exactly as the native one', (ctx) => {
   ctx.skip(!existsSync(WASM) || !existsSync(PROBE), 'build them first: npm run engine && cargo build --release --bin engineprobe');
   const engine = new WebAssembly.Instance(new WebAssembly.Module(readFileSync(WASM)), {}).exports as { probe(n: number, seed: number): bigint };
-  const native = execFileSync(PROBE, [String(N), ...SEEDS.map(String)], { encoding: 'utf8' }).trim().split(/\s+/);
+  const native = execFileSync(PROBE, [String(N), ...SEEDS.map(String)], { encoding: 'utf8' })
+    .trim()
+    .split(/\s+/);
   expect(SEEDS.map((s) => BigInt.asUintN(64, engine.probe(N, s)).toString())).toEqual(native);
 });

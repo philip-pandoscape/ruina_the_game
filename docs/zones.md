@@ -1,0 +1,90 @@
+# Zones
+
+Where the game is played. Today that's one open world, the island of Emberholm, and the places
+beside it that a party plays in a copy of its own: the dungeons, and the developer zones admins use
+to try things out. Each of those is a file; nothing in code lists them.
+
+| What | Where | Played in |
+|---|---|---|
+| The island | `content/zones/emberholm.json` and `content/zones/emberholm/` (its recipe, places, people, buildings) | Channels: everyone on the island, a channel each so none gets crowded (`crates/server/src/play/spaces.rs`) |
+| A dungeon | `content/dungeons/<id>.json`, its door in the island's recipe (`dungeons`) | A copy for each party, entered through its portal on the island |
+| A developer zone | `content/dungeons/<id>.json` with `developer: true` | A copy for each party (or one for everyone: `shared`), entered from the Admin menu ([admin.md](admin.md)) |
+
+## How a Copy Works
+
+A dungeon or developer zone is floors and walls round an `origin` high above the sea, which nothing
+else in the world uses. They're solid only in a copy of it: the server's copy gets its pieces
+(`crates/engine/src/open/dungeon.rs`, `OpenWorld::make_dungeon`), and so does the browser while you're
+in one (`src/sim/zone/dungeon.ts`, `src/app/dungeonVisit.ts`), so the island's channels never meet
+them.
+
+- **Going in** moves you between games on the server mid-connection, island and all
+  (`Spaces::move_to`); the browser hears where it is (`onSpace`) and draws the place: a cave
+  (`src/render/open/dungeonView.ts`, the island put away) or an open arena (`arenaView.ts`, under the
+  sky).
+- **A copy is kept** 30 minutes after the last player leaves, as World of Warcraft keeps an instance;
+  whoever is in it but no longer in its party is put out after a minute.
+- **Saving**: an island in a copy is saved as standing outside its door, so a restart puts you there.
+- **Falling** below `origin.y + fall`, or being knocked down, gets you up where you came in.
+- **Creatures** a copy brings (`spawns`) stand on its floor: their heights, and every height in a fight,
+  are measured from the copy's floor where it has one (`DungeonDef::floor_at`, the highest piece no
+  more than 0.6 m tall under a point; `floorAt` in the browser).
+
+## A Zone's File
+
+Everything round `origin`; heights (`top`) above `origin.y`. `content/_schemas/dungeons.schema.json`
+holds the fields.
+
+| Field | What |
+|---|---|
+| `id`, `name` | Its id (the file's name) and what it's called |
+| `about` | A developer zone's line in the Admin menu |
+| `maxPlayers` | How many a copy holds |
+| `origin` | Where it stands: high above the sea, every piece within the 760 m of the middle players are kept to, and apart from the others (the engine's tests check both) |
+| `arrive`, `exit`, `fall` | Where you come in and which way you face; the way out (F within `r` of it); how far below the floor you can fall |
+| `boxes`, `decks` | Its pieces: `x`, `z`, half-sizes `hw`, `hd`, a turn `rot` and a `top`. A box is solid to its top; a deck is a floor you can walk under |
+| `style` | `"cave"` (the default) or `"arena"` (open sky) |
+| `developer` | Admins only, in from the Admin menu |
+| `shared` | One copy for everyone allowed in, instead of one a party (the battlefield) |
+| `door` | A developer zone's way out onto the island (`outside`, in the world); a dungeon's is in the island's recipe |
+| `spawns` | Creatures a copy brings: a `kind` (`shared/actors.json`, or a creature's kinds) at `x`, `z`; with `band: true`, a war-band of `count` in a ring round the spot, fighting as a pack |
+| `bots` | Bots in it while anyone is: `count` of a `brain` on a `team`, round `x`, `z` |
+
+## Adding One
+
+**A developer zone** is its file alone:
+
+1. Copy `content/dungeons/yard.json` to `content/dungeons/<id>.json`; give it an `id`, `name`,
+   `about` and an `origin` clear of the others; lay out its pieces, spawns and bots.
+2. Its id in `content/dungeons/_order.json`, then `npm run content`.
+3. `cargo test --release --workspace` checks it stands where players may go, apart from the others,
+   and has a way out; the Admin menu lists it from then on.
+
+**A dungeon** is its file, a door on the island and, today, its dressing in code:
+
+1. Its file and its id in `_order.json`, as above, without `developer`.
+2. Its door in `content/zones/emberholm.json` (`dungeons`): the portal on the island (`portal`, with
+   a radius `r`) and where you come out (`outside`).
+3. What it looks like beyond its pieces (rock, torches, props) is drawn by `dungeonView.ts` for
+   Goblin's Dread; a dungeon's dressing as data is the refactor's R9.8.
+
+## Bots
+
+A bot is a player without a socket whose inputs a brain fills each tick (`crates/engine/src/bots.rs`:
+a skirmisher finds a foe, fights and falls back when hurt; a wanderer walks about). The server steps
+them like players (`crates/server/src/play/bots.rs`), and browsers see them as other players marked
+`bot`. A zone's bots come in with its first player and go with the last, so an empty battlefield costs
+nothing; an admin can add more anywhere with the `bots` command (`n`, `brain`, `team`; `n: 0` sends
+them away). A new kind of bot is a brain in `bots.rs` and its name in `Brain::named`.
+
+## Testing
+
+- `crates/engine/src/open/dungeon.rs`: every dungeon loads, has a way in and out, and stands where
+  players may go, apart from the others.
+- `crates/server/src/play/spaces.rs`: copies made, kept and let go; admins in, players kept out; the
+  yard's creatures on its floor; the goblin camp's war-band.
+- `tests/integration/admin.spec.ts`: an admin goes into the battlefield (its bots, the arena, out at
+  its door) and into the yard from character select (its dummy and slimes on the floor, blows landing);
+  a player is kept out.
+- `tests/integration/dungeon-way-in.spec.ts`, `tests/integration/party.spec.ts`: Goblin's Dread's way in,
+  parties into one copy.

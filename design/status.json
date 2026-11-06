@@ -1128,7 +1128,7 @@
       "system": "look",
       "status": "done",
       "title": "Moves from animation libraries",
-      "notes": "Any of the hero's moves can be its own keyframes or a clip from an animation library, retargeted onto it bone for bone (retarget.ts): each joint's rest lined up with its source bone's, every turn copied, the body following the source's hip joints sized by leg length, the clip's own travel taken off so the rules carry the body and the feet it plants are held. Bone tables for Meshy, Quaternius and Mixamo. moves.ts picks per weapon: the sword plays Quaternius' sword combo and the club its heavy combo (CC0); Meshy's Triple Combo Attack, split at its three strikes, is the other sword set (?swordMoves=keyed|meshy|quaternius). A strike lands on the rules' first active frame at up to 1.5x the clip's pace. /dev/retarget.html shows a clip on the hero beside its source, and tests/integration/retarget.spec.ts holds every move's clip to within a degree of it; the retarget-animation skill (.claude/skills) says how to bring in another.",
+      "notes": "Any of the hero's moves can be its own keyframes or a clip from an animation library, retargeted onto it bone for bone (retarget.ts): each joint's rest lined up with its source bone's, every turn copied, the body following the source's hip joints sized by leg length, the clip's own travel taken off so the rules carry the body and the feet it plants are held. Bone tables for Meshy, Quaternius and Mixamo. moves.ts picks per weapon: the sword plays Quaternius' sword combo and the club its heavy combo (CC0); Meshy's Triple Combo Attack, split at its three strikes, is the other sword set (?swordMoves=keyed|meshy|quaternius). A strike lands on the rules' first active frame at up to 1.5x the clip's pace. The content library shows a clip on the hero beside its source (/dev/library.html#/retarget), and tests/integration/retarget.spec.ts holds every move's clip to within a degree of it; the retarget-animation skill (.claude/skills) says how to bring in another.",
       "files": [
         "src/render/detail/retarget.ts",
         "src/render/detail/moves.ts",
@@ -1251,9 +1251,9 @@
       "system": "world",
       "status": "done",
       "title": "Goblin's Dread, the first dungeon: its inner grotto",
-      "notes": "An instanced dungeon (shared/dungeons/goblinsDread.json): its floors and walls stand round a spot high above the sea north of the island and are solid only in a copy of it (src/sim/zone/dungeon.ts, crates/engine/src/open/dungeon.rs), drawn with the island put away (src/render/open/dungeonView.ts: rock shell, the back of the falls glowing at the south end with the way out, landing stage, lookout with a pot gong, totem, torches, the tunnel north to a goblin barricade). Cave light: no sun, a cool fill and the daylight through the falls. Anyone knocked down or falling out gets up where it's entered. The rest of the lair (the Warren, its three wings, the chief's hall) is the concept art's plan, not built yet.",
+      "notes": "An instanced dungeon (content/dungeons/goblinsDread.json): its floors and walls stand round a spot high above the sea north of the island and are solid only in a copy of it (src/sim/zone/dungeon.ts, crates/engine/src/open/dungeon.rs), drawn with the island put away (src/render/open/dungeonView.ts: rock shell, the back of the falls glowing at the south end with the way out, landing stage, lookout with a pot gong, totem, torches, the tunnel north to a goblin barricade). Cave light: no sun, a cool fill and the daylight through the falls. Anyone knocked down or falling out gets up where it's entered. The rest of the lair (the Warren, its three wings, the chief's hall) is the concept art's plan, not built yet.",
       "files": [
-        "shared/dungeons/goblinsDread.json",
+        "content/dungeons/goblinsDread.json",
         "src/sim/zone/dungeon.ts",
         "src/render/open/dungeonView.ts",
         "src/app/dungeonVisit.ts",

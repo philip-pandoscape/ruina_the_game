@@ -1,0 +1,114 @@
+{
+  "comment": "The goblin camp, a developer zone (docs/zones.md): only admins go in, from the Admin menu, each party into a copy of its own. A war-band of goblins (content/creatures/goblin/) stands round its fire at the north end, to fight or to watch working together: they spot you, close in turns, circle, stab, throw and drink when hurt (src/sim/ai/pack.ts, crates/engine/src/pack.rs). An open arena high above the sea north-west of Emberholm, placed as a dungeon is (content/dungeons/goblinsDread.json says how), inside the 760 m from the middle that anyone can go. `door` is where its way out lets you out on the island. Heights (top) are above origin.y.",
+  "id": "goblinCamp",
+  "name": "The Goblin Camp",
+  "about": "A war-band of goblins round their fire, to fight or to watch working together: they spot you, take turns to close in, circle, stab, throw and drink when hurt.",
+  "maxPlayers": 5,
+  "developer": true,
+  "style": "arena",
+  "origin": {
+    "x": -450,
+    "y": 400,
+    "z": 520
+  },
+  "arrive": {
+    "x": 0,
+    "z": -18,
+    "facing": 0
+  },
+  "exit": {
+    "x": 0,
+    "z": -24,
+    "r": 2.5
+  },
+  "fall": -30,
+  "door": {
+    "id": "goblinCamp",
+    "portal": {
+      "x": 0,
+      "y": 8,
+      "z": 0,
+      "r": 0
+    },
+    "outside": {
+      "x": 0,
+      "z": -264,
+      "facing": 0
+    }
+  },
+  "boxes": [
+    {
+      "id": "floor",
+      "x": 0,
+      "z": 0,
+      "hw": 30,
+      "hd": 30,
+      "rot": 0,
+      "top": 0
+    },
+    {
+      "id": "southRail",
+      "x": 0,
+      "z": -30.5,
+      "hw": 30.5,
+      "hd": 0.5,
+      "rot": 0,
+      "top": 1.1
+    },
+    {
+      "id": "northRail",
+      "x": 0,
+      "z": 30.5,
+      "hw": 30.5,
+      "hd": 0.5,
+      "rot": 0,
+      "top": 1.1
+    },
+    {
+      "id": "westRail",
+      "x": 30.5,
+      "z": 0,
+      "hw": 0.5,
+      "hd": 30,
+      "rot": 0,
+      "top": 1.1
+    },
+    {
+      "id": "eastRail",
+      "x": -30.5,
+      "z": 0,
+      "hw": 0.5,
+      "hd": 30,
+      "rot": 0,
+      "top": 1.1
+    },
+    {
+      "id": "rock1",
+      "x": -9,
+      "z": 4,
+      "hw": 1.6,
+      "hd": 1.2,
+      "rot": 0.4,
+      "top": 1.4
+    },
+    {
+      "id": "rock2",
+      "x": 11,
+      "z": -2,
+      "hw": 1.2,
+      "hd": 1.8,
+      "rot": -0.3,
+      "top": 1.2
+    }
+  ],
+  "decks": [],
+  "spawns": [
+    {
+      "kind": "goblin",
+      "x": 0,
+      "z": 16,
+      "band": true,
+      "count": 6
+    }
+  ]
+}

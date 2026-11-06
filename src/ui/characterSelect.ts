@@ -13,7 +13,8 @@ import { splash } from './splash';
 //
 // Keys: Up and Down choose, Enter goes in. Double-clicking a character goes in too.
 
-export type Choice = { enter: CharacterInfo } | { signedOut: true };
+/** In with a character (and, for an admin, straight into a developer zone), or signed out. */
+export type Choice = { enter: CharacterInfo; zone?: string } | { signedOut: true };
 
 const lastKey = (account: number) => `ruina.lastCharacter.${account}`;
 
@@ -56,9 +57,20 @@ export class CharacterSelect {
     private max: number,
   ) {
     const outBtn = el('button', { className: 'lui-btn small', type: 'button', textContent: 'Sign Out' });
-    // Admins (the server says who) reach the developer zones and pages from here.
+    // Admins (the server says who) reach the developer zones and pages from here: a zone takes the
+    // chosen character into the world and on into it.
     const adminBtn = account.admin ? el('button', { className: 'lui-btn small cs-admin', type: 'button', textContent: 'Admin' }) : null;
-    if (adminBtn) adminBtn.onclick = () => this.openModal(adminCard(() => this.closeModal()));
+    if (adminBtn)
+      adminBtn.onclick = () =>
+        this.openModal(
+          adminCard(
+            () => this.closeModal(),
+            (zone) => {
+              this.closeModal();
+              this.enter(zone);
+            },
+          ),
+        );
     this.list.setAttribute('role', 'listbox');
     this.list.setAttribute('aria-label', 'Characters');
     const panel = el(
@@ -208,12 +220,12 @@ export class CharacterSelect {
     }
   };
 
-  private enter(): void {
+  private enter(zone?: string): void {
     const c = this.selected;
     if (!c || this.busy || this.modal) return;
     this.busy = true;
     localStorage.setItem(lastKey(this.account.id), String(c.id));
-    this.finish({ enter: c });
+    this.finish(zone ? { enter: c, zone } : { enter: c });
   }
 
   private finish(choice: Choice): void {

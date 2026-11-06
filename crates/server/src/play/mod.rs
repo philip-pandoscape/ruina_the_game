@@ -236,9 +236,17 @@ impl ChannelGame {
     pub fn copy(id: i32, def: &'static DungeonDef, door: &'static DungeonDoor, owner: Owner) -> Self {
         let mut ch = ChannelGame::new(id);
         ch.actors = Actors::new();
-        // What its file says lives in it (a developer zone's training dummy, slimes).
+        // What its file says lives in it (a developer zone's training dummy, slimes, a war-band).
         for (i, s) in def.spawns.iter().enumerate() {
-            ch.actors.spawn(&s.kind, def.origin.x + s.x, def.origin.z + s.z, 0x20ae ^ (i as u32).wrapping_mul(0x9e37_79b1));
+            let band = if s.band { i as u32 + 1 } else { 0 };
+            for (x, z, facing, seed) in s.points(0x20ae ^ (i as u32).wrapping_mul(0x9e37_79b1)) {
+                let (x, z) = (def.origin.x + x, def.origin.z + z);
+                if band > 0 {
+                    ch.actors.spawn_in_band(&s.kind, x, z, facing, seed, band);
+                } else {
+                    ch.actors.spawn(&s.kind, x, z, seed);
+                }
+            }
         }
         ch.open.make_dungeon(def);
         // Heights in a fight are measured from its floor, far over the island.

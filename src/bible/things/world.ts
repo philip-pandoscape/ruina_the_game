@@ -298,7 +298,7 @@ export const dungeons = kind<DungeonDef>({
   noun: 'Dungeon',
   icon: '🕳️',
   summary: 'Places a party enters together, each party in a copy of its own.',
-  sources: ['shared/dungeons/*.json', 'shared/zones/*.json#dungeons'],
+  sources: ['shared/dungeons.json#dungeons', 'shared/zones/*.json#dungeons'],
   systems: ['parties'],
   // The developer zones (the yard, the battlefield) are dungeons too, entered from the Admin menu: not for players' eyes.
   all: () => Object.values(DUNGEONS).filter((d) => !d.developer),

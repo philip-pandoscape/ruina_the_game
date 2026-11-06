@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "dungeons",
+  "type": "object",
+  "properties": {
+    "comment": {
+      "type": "string"
+    },
+    "id": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "about": {
+      "type": "string"
+    },
+    "maxPlayers": {
+      "type": "number"
+    },
+    "developer": {
+      "type": "boolean"
+    },
+    "shared": {
+      "type": "boolean"
+    },
+    "style": {
+      "type": "string"
+    },
+    "origin": {
+      "type": "object"
+    },
+    "arrive": {
+      "type": "object"
+    },
+    "exit": {
+      "type": "object"
+    },
+    "fall": {
+      "type": "number"
+    },
+    "door": {
+      "type": "object"
+    },
+    "boxes": {
+      "type": "array"
+    },
+    "decks": {
+      "type": "array"
+    },
+    "bots": {
+      "type": "array"
+    },
+    "spawns": {
+      "type": "array"
+    }
+  },
+  "required": [
+    "comment",
+    "id",
+    "name",
+    "maxPlayers",
+    "origin",
+    "arrive",
+    "exit",
+    "fall",
+    "boxes",
+    "decks"
+  ],
+  "additionalProperties": false
+}

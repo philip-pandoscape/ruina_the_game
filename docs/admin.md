@@ -19,10 +19,11 @@ The server tells the browser in `/api/me` and at sign-in (`admin: true`) and in 
 
 ## What They Get
 
-- **The Admin menu.** A button in character select's account row, beside Sign Out; a button on the
-  world's menu bar (bottom right, before Settings); a button in the corner of the yard and the
-  battlefield. It lists every developer zone and page, each opening in a new tab, and in the world
-  it opens Developer Tools too. `src/ui/admin/adminMenu.ts`; the list is `src/dev/pages.ts`.
+- **The Admin menu.** A button in character select's account row, beside Sign Out, and one on the
+  world's menu bar (bottom right, before Settings). It lists the developer zones, which take you in
+  (from character select, with the character chosen there), then every developer page, each opening
+  in a new tab; in the world it opens Developer Tools too. `src/ui/admin/adminMenu.ts`; the zones are
+  their own files, the pages `src/dev/pages.ts`.
 - **Developer Tools** (the backquote key, or the Admin menu): gifts, island time, teleports, the
   dungeons' doors, starting the island over, recording a bug report. Online these are commands the
   server runs only for an admin (`grant`, `warp`, `teleport`, `reset`), and so are seeded and timed
@@ -33,20 +34,27 @@ The server tells the browser in `/api/me` and at sign-in (`admin: true`) and in 
 - **`POST /api/dev/stop`** on a development server: the server stops as a deploy stops it
   (`tests/integration/update.spec.ts`).
 
-## The Zones and Pages
+## The Zones
 
-`src/dev/pages.ts` holds one entry per zone or page: its title, where it opens, what it's for, and
-what it needs beyond the game's own files:
+The developer zones are places beside the island that only admins go into, each a file in
+`content/dungeons/` marked `developer` ([zones.md](zones.md) says how to add one):
 
-- `dev-server`: it saves through the development server's plugins (the content library's notes,
-  bug reports). On beta it works but can't keep anything as files, and says so: the library keeps
-  its notes in the browser, the bug reporter explains why it can't save.
-- `battlefield`: the server's PvP battlefield, on unless the server was started with
-  `--battle off`.
+- **The Yard**: the training dummy, slimes, and bots wandering about as moving targets; a copy for
+  each party.
+- **The Battlefield**: two sides of sixteen bots fighting across an arena, one copy for every admin,
+  its bots there only while an admin is.
+- **The Goblin Camp**: a war-band of goblins round their fire, to fight or to watch working together.
 
-The yard and the battlefield are pages of the game itself today (`/?yard`, `/?server=...`); they
-become developer zones inside the world, reachable from the Admin menu only, in the refactor's
-Phase 10.
+The server decides who goes in (`enter_zone`, `crates/server/src/play/spaces.rs`): a player who
+asks stays where they are.
+
+## The Pages
+
+`src/dev/pages.ts` holds one entry per page: its title, where it opens, what it's for, and whether it
+needs the development server: `dev-server` pages save through its plugins (the content library's
+notes, bug reports). On beta they work but can't keep anything as files, and say so: the library
+keeps its notes in the browser, the bug reporter explains why it can't save. The players' own bible
+(`/bible/`, open to everyone) is listed beside the design.
 
 Everything the game draws is looked at in one page, the content library (`/dev/library.html`,
 `src/library/`): every animated thing frame by frame, library clips on the hero beside their source,

@@ -23,6 +23,8 @@ export interface Online {
   welcome: Welcome;
   /** Whether the server's island has arrived yet (set up by the game once it's listening). */
   lifeLoaded?: () => boolean;
+  /** A developer zone an admin chose on the character select screen, to go on into once in the world. */
+  zone?: string;
 }
 
 /** The character played most recently. */
@@ -59,6 +61,7 @@ export async function goOnline(opt: Pick<Options, 'as'>): Promise<Online> {
       const { characters, max } = await listCharacters();
       screen.clear();
       let pick = straight ? (characters.find((c) => c.id === resume) ?? (as ? lastPlayed(characters) : null)) : null;
+      let zone: string | undefined;
       straight = false;
       resume = null;
       if (!pick) {
@@ -67,6 +70,7 @@ export async function goOnline(opt: Pick<Options, 'as'>): Promise<Online> {
         // Signed out: back to signing in.
         if ('signedOut' in choice) continue;
         pick = choice.enter;
+        zone = choice.zone;
       }
       entering = pick;
       splash?.setMode('entering');
@@ -76,7 +80,7 @@ export async function goOnline(opt: Pick<Options, 'as'>): Promise<Online> {
       splash?.step('joined');
       screen.close();
       playingAs(welcome.character.id);
-      return { account, link, welcome };
+      return { account, link, welcome, zone };
     } catch (e) {
       // The server is newer than this page, which is reloading to come straight back in.
       if (e instanceof Reloading) {

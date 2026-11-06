@@ -841,7 +841,7 @@ part('the file map', () => {
       ['<code>src/sim/life/</code>', 'Trade, farming, housing, vehicles, quests, weather and what F does.'],
       [
         '<code>src/render/open/</code> · <code>src/render/models/</code>',
-        'The open-world scene and the procedural models (preview at <code>/models.html</code>).',
+        'The open-world scene and the procedural models (every one in the content library, <code>/dev/library.html#/models</code>).',
       ],
       ['<code>src/ui/life/</code>', 'The open-world HUD and panels.'],
       ['<code>src/app/save.ts</code>', 'Saving the island in the browser, and time passing while away.'],
