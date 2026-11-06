@@ -16,5 +16,7 @@ export default defineConfig({
     },
     // The bug reporter wraps console.log and friends; keep DevTools pointing at the real callers.
     sourcemapIgnoreList: (source, map) => source.includes('node_modules') || /src[\\/]app[\\/]bugs[\\/]logs\.ts/.test(`${source} ${map}`),
+    // scratch/ holds unpacked asset kits (thousands of files): nothing there needs watching.
+    watch: { ignored: ['**/scratch/**'] },
   },
 });

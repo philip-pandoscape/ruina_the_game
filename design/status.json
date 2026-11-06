@@ -1165,9 +1165,36 @@
         "src/render/studio.ts",
         "src/render/portrait.ts"
       ]
+    },
+    {
+      "system": "world",
+      "status": "done",
+      "title": "Lanternwick rebuilt from a village kit: every building one you can walk into",
+      "notes": "The town's buildings are plans of Quaternius' Medieval Village MegaKit (shared/buildings.json): stone and timber-framed townhouses, rowhouses gabled to the street and longhouses, the Lantern & Gull, the Land Registry, the wainwright's workshop, the stable, the shipwright's shed and the trading posts, 18 in Lanternwick where there were 8, lining its roads. Each is walled, floored and stair-stepped by the rules from its plan (doorways open, upper floors and treads as decks, furniture solid), baked for the server; walk in through a door (it swings open), up the stairs to the floor above. Indoors the house is drawn cut open above your storey, its roof still shading the room, lit warm by its hearth, lamps and windows, and the camera looks down into it from within its walls. Rooms are furnished from Quaternius' Fantasy Props MegaKit (beds, tables laid with plates and candles, bookcases, the inn's bar and kegs, the registry's desk and lectern, the workshop's cart and anvil) plus rugs, straw and hearth fires made in code. The whole town is a handful of merged meshes; furniture is drawn only near it.",
+      "files": [
+        "shared/buildings.json",
+        "src/content/buildings.ts",
+        "src/sim/zone/buildings.ts",
+        "src/render/village/",
+        "tools/models/village.mjs",
+        "buildings.html",
+        "tests/village.spec.ts"
+      ]
+    },
+    {
+      "system": "housing",
+      "status": "done",
+      "title": "Cottages built from the village kit, stage by stage",
+      "notes": "A cottage on a Hearthside plot is the kit's too (plan \"cottage\", 6 x 8, gabled to the front): its floor, then an open timber frame, then plaster walls with their door and windows, then the tiled roof, chimney and furniture (hearth, bed, chest, a table laid). You walk in and it opens like the town's houses; other players' cottages the same.",
+      "files": [
+        "src/render/open/life.ts",
+        "src/render/village/village.ts",
+        "shared/structures.json"
+      ]
     }
   ],
   "next": [
+    "Village, next: the townsfolk at work indoors (Quill behind his desk, an innkeeper at the bar) once quests and travel can lead you through doors; interior walls between rooms; jettied upper storeys, balconies and dormers from the kit; slate roofs; the lighthouse and windmill rebuilt from the kit; sitting on benches and lying in beds.",
     "Animation, next: other players drawn on our 60-a-second frame clock step in sixtieths above 60 fps; reins on the horse; keep the cape off a staff or bow on the back; a footrest for the hauler's driver; give the townsfolk (src/render/models/villagers.ts) the hero's gait.",
     "Shared world, next: trading-post demand and gathering nodes shared by a channel (the time of day, rain and wind are shared now; these are still each island's own); choosing a channel (to join a friend in another one); others' parked vehicles while they're away.",
     "World server, next: islands in proper tables rather than one document each, if querying them (trading-post history, guild storage) needs it; bandwidth: send other players less often when they are far away.",
@@ -1413,6 +1440,19 @@
         "Weapons: Meshy's sword, club, staff and bow where the box ones were, shining with the sky's light, carried at the hip and across the back.",
         "Moves: Quaternius' sword combo and heavy combo on the sword and club, Meshy's Triple Combo Attack as the sword's other set; retarget.ts, moves.ts, /retarget.html, tests/retarget.spec.ts, the retarget-animation skill.",
         "Tools: npm run image (Gemini), tools/models/weaponprep.mjs, tools/models/clips.mjs."
+      ]
+    },
+    {
+      "date": "2026-11-05",
+      "title": "Lanternwick rebuilt: buildings you can walk into",
+      "summary": "The town rebuilt from Quaternius' Medieval Village MegaKit, every building enterable and furnished from his Fantasy Props MegaKit; 18 buildings where there were 8.",
+      "points": [
+        "Plans as data (shared/buildings.json): walls as strings of 2 m modules, storeys, stairs, roof, furniture; the same plan gives the rules their walls and floors and the picture its pieces.",
+        "Rules: doorways in the walls, upper floors and stair treads as decks, upstairs walls and furniture as decks too (solid up there, walked under below), a roof to land on; baked for the server, which plays them the same (world-conformance: into the inn and up its stairs).",
+        "Drawing: the town merged into a few meshes per neighbourhood; the house you are in cut open above your storey by its vertices, its roof still casting its shadow; warm indoor light, four shared lamps that follow you, doors that swing open, hearth fires.",
+        "Camera: indoors it looks down into the room from within the walls and never slips into a house through its door.",
+        "Player cottages from the kit, stage by stage. Meshy's building models retired.",
+        "Tools: tools/models/village.mjs packs the kits; /buildings.html shows each plan, cut open, with its colliders."
       ]
     }
   ]

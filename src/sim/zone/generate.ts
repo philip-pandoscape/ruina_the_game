@@ -2,6 +2,8 @@ import { fbm, Heightfield, lerp, smoothstep, SURFACE } from '../terrain';
 import { makeRng, range } from '../../rng';
 import type { Obstacle } from '../types';
 import { structureDef, propDef, type StructureDef } from '../../content/structures';
+import { placedPlan, type BuildingPlan } from '../../content/buildings';
+import { buildingColliders } from './buildings';
 import type { BoxCollider, Deck, ZoneRecipe, ZonePlacement } from './types';
 
 // Grows a zone from its recipe (shared/zones/*.json): coastline, cliffs, hills, mountains with a
@@ -24,6 +26,20 @@ export interface Generated {
   clear: Uint8Array;
   /** Static decoration placed from the recipe, resolved to heights. */
   placements: ZonePlacement[];
+  /** The buildings you can walk into (src/content/buildings.ts), with their plans and the boxes that are their walls. */
+  buildings: PlacedBuilding[];
+}
+
+export interface PlacedBuilding {
+  id: string;
+  plan: BuildingPlan;
+  x: number;
+  y: number;
+  z: number;
+  rot: number;
+  mirror: boolean;
+  /** Its solid parts in the zone's lists (the camera sees through the walls of the one you are in). */
+  boxes: BoxCollider[];
 }
 
 export function generateZone(z: ZoneRecipe): Generated {
@@ -240,6 +256,7 @@ export function generateZone(z: ZoneRecipe): Generated {
 
   // ---------- Structure pads: each building sits on level ground ----------
   const placements: ZonePlacement[] = [];
+  const buildings: PlacedBuilding[] = [];
   const boxes: BoxCollider[] = [];
   const decks: Deck[] = [];
   const obstacles: Obstacle[] = [];
@@ -371,8 +388,15 @@ export function generateZone(z: ZoneRecipe): Generated {
   for (const s of z.structures) {
     const def = structureDef(s.id);
     const y = def.deck !== undefined ? (s.id === 'dock' ? t.water : hf.height(s.x, s.z)) : hf.height(s.x, s.z);
-    placements.push({ kind: 'structure', id: s.id, x: s.x, y, z: s.z, rot: s.rot, tint: s.tint, seed: s.seed, decor: s.decor });
-    addCollider(def, s.x, s.z, s.rot, y, boxes, obstacles);
+    placements.push({ kind: 'structure', id: s.id, x: s.x, y, z: s.z, rot: s.rot, tint: s.tint, seed: s.seed, decor: s.decor, mirror: s.mirror });
+    const plan = def.collider === 'building' ? placedPlan(s.id, s.mirror) : undefined;
+    if (plan) {
+      const solid = buildingColliders(plan, s.x, s.z, s.rot, y);
+      boxes.push(...solid.boxes);
+      decks.push(...solid.decks);
+      obstacles.push(...solid.obstacles);
+      buildings.push({ id: s.id, plan, x: s.x, y, z: s.z, rot: s.rot, mirror: !!s.mirror, boxes: solid.boxes });
+    } else addCollider(def, s.x, s.z, s.rot, y, boxes, obstacles);
     if (def.deck !== undefined) decks.push(rect(s.x, s.z, def.w / 2, def.d / 2, s.rot, y + def.deck));
     // Keep trees out of the way of everything built.
     const margin = def.id === 'farmPlot' ? 1 : (z.scatter.clearOfStructure ?? 4);
@@ -468,7 +492,7 @@ export function generateZone(z: ZoneRecipe): Generated {
       }
     }
 
-  return { terrain: hf, obstacles, boxes, decks, roads, ramps, clear, placements };
+  return { terrain: hf, obstacles, boxes, decks, roads, ramps, clear, placements, buildings };
 }
 
 // ---------- helpers ----------

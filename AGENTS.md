@@ -12,6 +12,7 @@ The open world is **Emberholm**, a starter isle with ArcheAge-style life systems
 | `src/sim/` | Game rules: fixed 60 Hz steps, deterministic, no DOM. `src/sim/life/` (trade, farming, housing, vehicles, quests) changes only through queued commands |
 | `src/render/`, `src/ui/` | Presentation. Reads the rules' state, never changes it |
 | `src/render/look.ts` | The look: the new one (default) or the old toon one (`?look=classic`, and software WebGL), each with its palette; `?quality=medium` (auto on integrated graphics). Screen effects in `src/render/open/post.ts`; textured ground `open/ground.ts`; made models (Meshy, compressed, in `src/render/assets/models/`) swapped in for the procedural ones by id and fitted into their footprints, `models/glb.ts`, so the rules never see them; `tests/look.spec.ts` shoots both looks |
+| `src/render/village/`, `shared/buildings.json` | Buildings you can walk into, built from Quaternius' village kit: plans (`src/content/buildings.ts`) on its 2 m grid, 3 m a storey, walls written as strings of modules (door, window, arch...), stairs, roof, furniture. The rules wall, floor and stair-step each one from its plan (`src/sim/zone/buildings.ts`: doorways open, upper floors and treads as decks, furniture solid; baked for the server like the rest of the island). `assemble.ts` lays out the kit's pieces; `village.ts` draws the town in a few merged meshes, cuts the house you are in open above your storey (its roof still shading the room), keeps the camera in its walls, swings doors open as anyone comes up to them and lights the lamps and hearths nearest you; `furnish.ts` the furniture (props, rugs, straw, fire). Players' cottages are its too, stage by stage. `/buildings.html` shows each plan (`?cut=0` from inside, `?colliders=1` the rules over it) |
 | `src/render/detail/` | Close-up bodies. `humanoid.ts` poses every humanoid as a pure function of `PoseInput` (the crowd bakes its clips from it), with `body.ts` (two-bone IK), `gait.ts` (planted feet at any speed and heading), `swings.ts` (weapon keyframes), `stow.ts` (where weapons are put away); `src/render/character.ts` adds the stateful parts (transitions, foot holds, trails, bowstring, drawing and putting away the weapon). `/animations.html` plays them all; `tests/animation.spec.ts` measures them. The new look's hero wears a made body (`madeHero.ts`, `assets/models/hero.glb`): `fit.ts` measures the hero rig off the model's skeleton, moves its skin onto our joints, adds a palm and finger joints to each hand and closes them round what they hold (`gripHands`), so the same poses move it; it carries made weapons (`madeWeapons.ts`) where the box hero's were. Its moves can also be clips from animation libraries, retargeted onto it bone for bone (`retarget.ts`; which move plays which clip: `moves.ts`, `?swordMoves=keyed|meshy|quaternius` to compare); `/retarget.html` shows a clip on the hero beside its source and `tests/retarget.spec.ts` holds every one to it |
 | `src/ui/` | The Parchment & Timber look. `theme/`: the CSS, the UI laid out on a 1029 px virtual screen and scaled to the window (`scale.ts`), fonts, tooltips, right-click menus (`contextMenu.ts`), the writing rule (`text.ts`), pixel icons baked from Twemoji (`npm run icons`). `life/lifeUI.ts`: the island's HUD and its windows docked at the sides. `skills/`: the skill book (T) and the skill tree (N). Skill points are counted from finished quests (`src/sim/life/progress.ts`), never stored. `minigames/`: challenging another player (F on them), the invitation, and the game window at your table (Beacons' board), all showing what the server sends |
 | `src/main.ts` | Wires it all up; URL options at the top (`?lag=ms` plays a local server as a far one feels); `window.__game` is the test API. Riding, the vehicle is placed before its rider is posed in its seat (`LifeView.placeRide`). Online, picking packs up and putting them down, loading, unloading and getting in run ahead in the browser until the server has run them too |
@@ -40,8 +41,9 @@ npm run image -- --out scratch/x.png --ref look.png "prompt"   # a picture from 
   TypeScript **and** Rust together; `tests/conformance.spec.ts`, `tests/world-conformance.spec.ts`
   and `tests/life-conformance.spec.ts` compare them. Online the server decides; the browser only
   predicts its own moves and shows what the server says.
-- After changing the island (`shared/zones/`, `src/sim/zone/`), rebake the server's copy:
-  `BAKE=1 npx playwright test tests/terrain.spec.ts`.
+- After changing the island (`shared/zones/`, `src/sim/zone/`, the building plans in
+  `shared/buildings.json`), rebake the server's copy: `BAKE=1 npx playwright test tests/terrain.spec.ts`.
+  The server builds the bake into itself, so rebuild it before the conformance tests.
 - Keep `src/sim/` deterministic: its own seeded RNG, never `Math.random` or `Date.now`.
 - When a feature lands, update `design/status.json` (feature status, next steps, session log).
 - UI follows the design system (`design/ui.html`): labels (buttons, tabs, headings, prompts, tags) in
@@ -59,6 +61,14 @@ quality for the saving. Concepts come first for whatever is made: paint them and
 by side, with today's look) before making models. Meshy credits and Gemini billing are the user's
 money, so say what a batch makes, what it costs and what free option it beats before running it.
 Whatever comes from outside goes in `CREDITS.md` (what, where, from, licence).
+
+- **The village kit.** Buildings are plans, not models: walls, floors, roofs, stairs, doors and
+  windows from Quaternius' Medieval Village MegaKit, furniture from his Fantasy Props MegaKit (both
+  CC0; the free Standard zips from quaternius.itch.io). `node tools/models/village.mjs <MegaKit
+  glTF folder> <Props glTF folder>` packs the pieces it lists into `src/render/assets/village/kit.glb`
+  and `props.glb` (WebP at 1024, meshopt, the heaviest simplified). A new building is a plan in
+  `shared/buildings.json` and a structure with `collider: 'building'`; a new piece of furniture an
+  entry in its catalogue.
 
 - **Free assets.** CC0 (or a licence that asks for no more than a credit), never anything taken
   from another game, fan art of one included.

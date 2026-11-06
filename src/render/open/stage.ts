@@ -11,6 +11,7 @@ import { SkyView, seaFar, SKY_HORIZON } from './sky';
 import { FoliageView } from './foliage';
 import { ZoneDressing } from './dressing';
 import { WorldPost } from './post';
+import { Village } from '../village/village';
 import type { Models } from './models';
 
 // Everything around the player in an open world: lights, sky, sea, ground, trees and buildings.
@@ -28,6 +29,8 @@ export class OpenStage {
   readonly sky: SkyView;
   readonly foliage: FoliageView;
   readonly dressing: ZoneDressing;
+  /** The buildings you can walk into (src/render/village). */
+  readonly village: Village;
   readonly hemi: THREE.HemisphereLight;
   /** The new look's screen effects; null in the classic look, which draws straight to the screen. */
   readonly post: WorldPost | null;
@@ -77,7 +80,8 @@ export class OpenStage {
     this.water = new WaterView(hf);
     this.foliage = new FoliageView(hf, world.obstacles, zone.gen.clear, world.seed);
     this.dressing = new ZoneDressing(world, models);
-    this.scene.add(this.sky.group, this.terrain.group, this.water.mesh, this.foliage.group, this.dressing.group);
+    this.village = new Village(zone.gen.buildings);
+    this.scene.add(this.sky.group, this.terrain.group, this.water.mesh, this.foliage.group, this.dressing.group, this.village.group);
     this.post = NEW_LOOK ? new WorldPost(this.renderer, this.scene) : null;
     if (this.post) this.post.base = hf.water;
     // Other isles on the horizon, past where anyone can go (src/render/open/horizon.ts).
@@ -121,6 +125,8 @@ export class OpenStage {
     if (this.scene.fog) (this.scene.fog as THREE.Fog).color.copy(horizon);
     this.sky.setLight(top, horizon, sun, sunCol, night, moon);
     this.water.setBrightness(1 - night * 0.55, gold);
+    // Lamps and hearths indoors burn all day; they only stand out after dark.
+    this.village.lampLevel = 0.55 + 0.45 * night;
     // The new look's sea reflects the sky a little above the horizon, and the sun (or moon) glints on it.
     if (NEW_LOOK) this.water.setSky(this.sunDir, night > 0.6 ? C(light.moon) : sunCol, horizon.clone().lerp(top, 0.3), 1 - night * 0.7);
     if (this.post) {

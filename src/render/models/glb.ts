@@ -25,22 +25,16 @@ export interface MadeModel {
   sink?: number;
   /** Children of the procedural model to keep (the windmill's turning sails). */
   keep?: string[];
-  /** Its painted windows (warm and bright in the texture) light up after dark. */
-  windows?: boolean;
 }
 
-/** How much the made buildings' windows glow: 0 by day, up to 1 at night (OpenStage.setTime). */
+/** How much windows glow: 0 by day, up to 1 at night (OpenStage.setTime; the village's glass reads it). */
 export const windowGlow = { value: 0 };
 
-/** Structures with a made model, by id (shared/structures.json). */
+/**
+ * Structures with a made model, by id (shared/structures.json). The buildings you can walk into
+ * are the village kit's instead (src/render/village).
+ */
 export const MADE_STRUCTURES: Record<string, MadeModel> = {
-  townhouse: { files: ['townhouse_red', 'townhouse_slate'], sink: 0.2, windows: true },
-  inn: { files: ['inn'], sink: 0.2, windows: true },
-  registrar: { files: ['registrar'], sink: 0.2, windows: true },
-  tradingPost: { files: ['tradingPost'], sink: 0.2, windows: true },
-  stable: { files: ['stable'], sink: 0.15 },
-  workshop: { files: ['workshop'], sink: 0.2, windows: true },
-  boathouse: { files: ['boathouse'], sink: 0.2 },
   lighthouse: { files: ['lighthouse'], w: 5.6, d: 5.6, sink: 0.3, keep: ['glow'] },
   windmill: { files: ['windmill'], w: 5.4, d: 5.4, h: 10.6, sink: 0.2, keep: ['sails'] },
   stall: { files: ['stall_red', 'stall_blue'], sink: 0.05 },
@@ -92,35 +86,13 @@ export const MADE_PACKS: Record<string, MadeModel> = Object.fromEntries(
 const materials = new Map<string, THREE.Material>();
 
 /** The made model's own material, lit the way everything else on the island is. */
-function islandMaterial(m: THREE.Material, windows: boolean): THREE.Material {
-  const key = `${m.uuid}:${windows}`;
-  let out = materials.get(key);
+function islandMaterial(m: THREE.Material): THREE.Material {
+  let out = materials.get(m.uuid);
   if (!out) {
     const src = m as THREE.MeshStandardMaterial;
-    const mat = toon(0xffffff, { map: src.map ?? null, side: THREE.DoubleSide });
-    if (windows) litWindows(mat);
-    materials.set(key, (out = mat));
+    materials.set(m.uuid, (out = toon(0xffffff, { map: src.map ?? null, side: THREE.DoubleSide })));
   }
   return out;
-}
-
-/** After dark, the texture's warm bright panes (the concept art painted them lit) glow. */
-function litWindows(mat: THREE.MeshToonMaterial): void {
-  mat.onBeforeCompile = (shader) => {
-    shader.uniforms.uWindowGlow = windowGlow;
-    shader.fragmentShader = shader.fragmentShader
-      .replace('#include <common>', '#include <common>\nuniform float uWindowGlow;')
-      .replace(
-        '#include <emissivemap_fragment>',
-        `#include <emissivemap_fragment>
-        {
-          vec3 t = diffuseColor.rgb;
-          float warm = smoothstep(0.35, 0.6, t.r) * smoothstep(0.2, 0.42, t.g) * (1.0 - smoothstep(0.2, 0.42, t.b)) * smoothstep(1.8, 3.0, t.r / max(t.b, 0.02));
-          totalEmissiveRadiance += vec3(1.0, 0.72, 0.38) * warm * uWindowGlow * 2.2;
-        }`,
-      );
-  };
-  mat.customProgramCacheKey = () => 'made-windows';
 }
 
 /** A copy of the model turned, scaled into the box w x h x d, centred, its foot at y = -sink. */
@@ -142,8 +114,7 @@ export function fitted(scene: THREE.Object3D, made: MadeModel, w: number, h: num
   holder.traverse((o) => {
     const mesh = o as THREE.Mesh;
     if (!mesh.isMesh) return;
-    const windows = made.windows ?? false;
-    mesh.material = Array.isArray(mesh.material) ? mesh.material.map((m) => islandMaterial(m, windows)) : islandMaterial(mesh.material, windows);
+    mesh.material = Array.isArray(mesh.material) ? mesh.material.map((m) => islandMaterial(m)) : islandMaterial(mesh.material);
     mesh.castShadow = true;
     mesh.receiveShadow = true;
   });

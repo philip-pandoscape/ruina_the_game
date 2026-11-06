@@ -30,6 +30,7 @@ import { makeZoneWorld } from './sim/zone/world';
 import { OpenStage } from './render/open/stage';
 import { loadModels } from './render/open/models';
 import { groundAt } from './sim/zone/colliders';
+import type { BoxCollider } from './sim/zone/types';
 import { Life, type Command } from './sim/life/life';
 import { runCommand, type FocusAction } from './sim/life/interact';
 import type { LifeState } from './sim/life/state';
@@ -195,7 +196,21 @@ if (terrain) {
 const follow = new FollowCamera(innerWidth / innerHeight, battlefield ? 1200 : openWorld ? 2600 : 320, battlefield ? 160 : openWorld ? 40 : 14);
 // Over hills and water the camera must not dip into the ground or under the sea, and it pulls in
 // rather than looking through a wall.
-if (terrain) follow.groundAt = (x, z) => Math.max(terrain.water + 0.35, terrain.height(x, z) + 0.45);
+if (terrain)
+  follow.groundAt = (x, z) => {
+    // Indoors, not below the floor of the storey you are on.
+    const inside = openStage?.village.indoors;
+    let floor = -Infinity;
+    if (inside) {
+      const b = inside.building;
+      const c = Math.cos(b.rot);
+      const s = Math.sin(b.rot);
+      const lx = (x - b.x) * c - (z - b.z) * s;
+      const lz = (x - b.x) * s + (z - b.z) * c;
+      if (Math.abs(lx) < b.plan.w / 2 && Math.abs(lz) < b.plan.d / 2) floor = inside.floor + 0.45;
+    }
+    return Math.max(terrain.water + 0.35, terrain.height(x, z) + 0.45, floor);
+  };
 if (world.index) {
   const idx = world.index;
   follow.blocker = (fx, fy, fz, cx, cy, cz) => {
@@ -203,11 +218,10 @@ if (world.index) {
     const mx = (fx + cx) / 2;
     const mz = (fz + cz) / 2;
     const reach = Math.hypot(cx - fx, cz - fz) / 2 + 1;
-    const home = lifeView?.inside ?? null;
-    idx.eachBox(mx, mz, reach, (b) => {
-      if (b.top < -1e8) return;
-      // Indoors the walls are cut down, so they do not block the view.
-      if (home && Math.hypot(b.x - home.x, b.z - home.z) < Math.hypot(home.hw, home.hd) + 0.5) return;
+    const village = openStage?.village ?? null;
+    const indoors = village?.indoors ?? null;
+    /** Where along the segment it first meets a box (padded), unless it passes over the box's top. */
+    const meet = (b: BoxCollider, top: number, pad: number) => {
       // The segment in the box's own frame, clipped against its padded footprint.
       const ax = fx - b.x;
       const az = fz - b.z;
@@ -215,7 +229,7 @@ if (world.index) {
       const bz = cz - b.z;
       const la = [ax * b.cos - az * b.sin, ax * b.sin + az * b.cos];
       const lb = [bx * b.cos - bz * b.sin, bx * b.sin + bz * b.cos];
-      const half = [b.hw + 0.25, b.hd + 0.25];
+      const half = [b.hw + pad, b.hd + pad];
       let t0 = 0;
       let t1 = 1;
       for (let k = 0; k < 2; k++) {
@@ -231,9 +245,18 @@ if (world.index) {
         if (t0 > t1) return;
       }
       // Passing over the roof is fine.
-      if (fy + (cy - fy) * t0 > b.top) return;
+      if (fy + (cy - fy) * t0 > top) return;
       best = Math.min(best, t0);
+    };
+    idx.eachBox(mx, mz, reach, (b) => {
+      if (b.top < -1e8) return;
+      // The building you are in holds the camera with its whole walls, below (indoors.shell).
+      if (indoors && village?.inIndoors(b.x, b.z)) return;
+      meet(b, b.top, 0.25);
     });
+    // Every building's walls, doorways and all: the camera never slips into one through its door, and
+    // indoors the room keeps it in up to where the house is cut open.
+    village?.eachShell(mx, mz, reach, (w, top) => meet(w, top, 0.2));
     return Math.max(0.12, best - 0.03);
   };
 }
@@ -266,6 +289,8 @@ if (terrain) {
 }
 const lifeView = life ? new LifeView(stage.scene, life, models, hero) : null;
 if (lifeView && openStage) lifeView.onGroundChanged = () => openStage.foliage.invalidate();
+// Your houses are drawn by the village, from its kit, as far as each is built.
+if (lifeView && openStage) lifeView.houseSink = (houses) => openStage.village.setHouses('mine', houses);
 // Auto-run (H) and travel by road from the map: it only makes the controls, so it works online too.
 const walker = life ? new AutoWalk({ sim, world, life }) : null;
 const lifeUI = life ? new LifeUI({ life, sim, world, camera: () => follow.camera, yaw: () => follow.yaw, device: () => input.lastDevice, walk: walker ?? undefined }) : null;
@@ -273,6 +298,7 @@ const lifeUI = life ? new LifeUI({ life, sim, world, camera: () => follow.camera
 // offers the developer panel.
 const peers = online && life && world.zone ? new WorldPeers(stage.scene, world.zone, models, sim, life, online.welcome.character.id, online.link) : null;
 if (peers && openStage) peers.onGroundChanged = () => openStage.foliage.invalidate();
+if (peers && openStage) peers.houseSink = (owner, houses) => openStage.village.setHouses(owner, houses);
 if (peers) peers.mineView = lifeView;
 if (peers && life) life.othersVehicles = () => peers.vehicles(sim.player);
 if (online && life) {
@@ -1141,6 +1167,10 @@ function drawAbilityBar(): void {
 
 function followSim(dt: number): void {
   const p = sim.player.pos;
+  if (openStage) {
+    openStage.village.locate(p.x, p.y, p.z);
+    follow.indoors = openStage.village.indoors !== null;
+  }
   follow.update(simPos.set(p.x, p.y, p.z), dt);
 }
 
@@ -1215,6 +1245,12 @@ function draw(alpha: number, cameraDt: number, animDt: number): void {
   hud.setVitals(!lifeUI && (!net || (prediction && net.you)) ? vitals : null, serverUrl ? sim.player.team : null);
   lifeUI?.setVitals(vitals);
   const pos = hero.root.position;
+  if (openStage) {
+    // Which building you are in (it is drawn cut open, and holds the camera), its doors and lamps.
+    openStage.village.locate(pos.x, pos.y, pos.z);
+    openStage.village.update(animDt, peers ? [pos, ...peers.list()] : [pos], pos, follow.camera.position);
+    follow.indoors = openStage.village.indoors !== null;
+  }
   if (cameraDt > 0) follow.update(pos, cameraDt);
   if (pinnedView) {
     follow.camera.position.copy(pinnedView.from);
@@ -1821,6 +1857,15 @@ const api = {
   /** Where your vehicles are drawn this frame. */
   drawnVehicles() {
     return lifeView?.drawnVehicles() ?? [];
+  },
+  /** The building you are in (src/render/village), and which storey: null outdoors. */
+  indoors() {
+    const i = openStage?.village.indoors;
+    return i ? { id: i.building.id, x: i.building.x, z: i.building.z, storey: i.storey } : null;
+  },
+  /** What the village draws: its meshes, how many triangles each, and whether it is drawn now. */
+  villageStats() {
+    return openStage?.village.stats() ?? null;
   },
   /** The life systems' state, as plain data. */
   life() {

@@ -560,6 +560,81 @@
     },
     {
       "id": "townhouse",
+      "x": 10,
+      "z": -205,
+      "rot": -1.5708,
+      "seed": 4
+    },
+    {
+      "id": "rowhouse",
+      "x": 10,
+      "z": -193,
+      "rot": -1.5708,
+      "seed": 5
+    },
+    {
+      "id": "townhouse",
+      "x": -10,
+      "z": -206,
+      "rot": 1.5708,
+      "seed": 6,
+      "mirror": true
+    },
+    {
+      "id": "rowhouse",
+      "x": -10,
+      "z": -194,
+      "rot": 1.5708,
+      "seed": 7,
+      "mirror": true
+    },
+    {
+      "id": "townhouse",
+      "x": 48,
+      "z": -238,
+      "rot": 3.14159,
+      "seed": 8,
+      "mirror": true
+    },
+    {
+      "id": "longhouse",
+      "x": 47,
+      "z": -259,
+      "rot": 0,
+      "seed": 9
+    },
+    {
+      "id": "rowhouse",
+      "x": -58,
+      "z": -244,
+      "rot": 3.14159,
+      "seed": 10
+    },
+    {
+      "id": "rowhouse",
+      "x": 12,
+      "z": -284,
+      "rot": -1.5708,
+      "seed": 11,
+      "mirror": true
+    },
+    {
+      "id": "townhouse",
+      "x": -12,
+      "z": -286,
+      "rot": 1.5708,
+      "seed": 12
+    },
+    {
+      "id": "longhouse",
+      "x": -12,
+      "z": -301,
+      "rot": 1.5708,
+      "seed": 13,
+      "mirror": true
+    },
+    {
+      "id": "townhouse",
       "x": 33,
       "z": -268,
       "rot": -1.5708,
@@ -956,8 +1031,8 @@
       "id": "quill",
       "name": "Registrar Quill",
       "title": "Land & Deeds",
-      "x": 28.5,
-      "z": -236,
+      "x": 26.5,
+      "z": -237.6,
       "facing": -1.5708,
       "kind": "npc-elder"
     },
