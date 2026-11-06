@@ -1193,8 +1193,9 @@
         "src/sim/zone/buildings.ts",
         "src/render/village/",
         "tools/models/village.mjs",
-        "dev/buildings.html",
-        "tests/integration/village.spec.ts"
+        "src/library/galleries/buildings.ts",
+        "tests/integration/village.spec.ts",
+        "tests/integration/buildings.spec.ts"
       ]
     },
     {
