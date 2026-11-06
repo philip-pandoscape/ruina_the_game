@@ -11,9 +11,9 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
 
 - **Phase:** 6 (the client in areas) and 8 (one copy of the rules), with 7, 11 and 12 done or
   nearly, and 9 and 10 mostly landed beside them. The old battle server is gone (R10.9, R10.10).
-- **Next:** the network and drawing split (R6.0, begun as 235bc19), the engine bridge (R6.4, R6.0b)
-  and `main.ts`'s split (R6.2, R6.2a), then Phase 8's switches, the island's generator first (R8.6's
-  rest); then crowds at scale (R10.8) and the UI gallery (R6.9).
+- **Next:** `main.ts`'s split (R6.2, R6.2a), then Phase 8: the interface (R8.3, R8.3b) and the
+  switches, the island's generator first (R8.6's rest); then crowds at scale (R10.8) and the UI
+  gallery (R6.9).
 - **How:** one session does the work, without background agents (the user's call on 2026-11-06:
   three at once used tokens too fast).
 - **Races under load (the Mac, four workers):** these lose a race now and then and pass alone:
@@ -371,10 +371,17 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
   `npm run check`; the integration tier 241 of 245 (7eb599f): `online.spec.ts:109` and `:258` lost
   races under four workers and pass alone, `ui.spec.ts:405` needs pointer lock, which macOS's
   headless browser doesn't give, one skipped.
-- [ ] **R6.0b** Changes to the rules' state from outside become named calls on the bridge: `main.ts`
+- [x] **R6.0b** Changes to the rules' state from outside become named calls on the bridge: `main.ts`
   375-391, 499-521, 1760-1955, 2387-2431; `app/dungeonVisit.ts` 38-39, 58-59; `app/save.ts` 62-87;
   `net/netPlayer.ts` 108-124 (swaps `sim.player`); `net/worldPeers.ts` 195, 202, 264 (colliders,
   movers).
+  Done: putting you somewhere, your build, a dungeon's floors and walls, an island loaded (6553617);
+  the server's word on you, solid houses, scarecrows and others' vehicles, and the test API's writes
+  (89ace09); the island online, taken from ticks, commands run ahead and run again, and your levels
+  (9a319e4). The prediction, the peers, the online wiring and the test API write nothing of the
+  rules' own. Left to their tasks: the rules' hooks back into JavaScript (`worldClock`,
+  `othersVehicles`, `othersAround`, `plotOwner`, `remote`: R8.3b) and the patched `life.command`
+  (R6.2). *Verified:* the integration tier 241 of 245 (the races under load, macOS's pointer lock).
 - [ ] **R6.2a** (from R1.5-R1.7) The game core: `main.ts`'s rules half (the world, the rules, the
   yard, the island's life, stepping, events) in `src/app/` as a module with no drawing, used by the
   page and by a headless harness for Node; move the ~82 rules tests onto it (movement 19, goblin 8,
@@ -396,7 +403,13 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
   rules (6553617): main.ts is 1,518 lines. The modes, the loop and drawing are left.
 - [x] **R6.3** `src/app/testApi.ts`: `window.__game` in a module of its own, typed.
   Done (e5a6253).
-- [ ] **R6.4** `src/engine/`: the one bridge to the rules; everything else imports it, not `src/sim/`.
+- [x] **R6.4** `src/engine/`: the one bridge to the rules; everything else imports it, not `src/sim/`.
+  Done: `src/engine/engine.ts` holds the rules for the page with every outside write a named call
+  (6553617, 89ace09, 9a319e4), and `rules.ts`, `zone.ts`, `island.ts` and `creatures.ts` name what
+  the rest takes from them, 111 names by Phase 8's domains (56ad5ee); the boundary test forbids
+  importing `src/sim/` anywhere else (the bible may read its source as text). `src/engine/AGENTS.md`.
+  `engine.sim` and `engine.life` stay public for the island's UI and drawing and the test API, which
+  take the rules whole until R8.7 hands them snapshots.
 - [x] **R6.5** `src/ui/components/`: window, tabs, item slot and grid, list, tooltip, context menu,
   bars, buttons, per the design system.
   Done (7de96ec, a background agent): `src/ui/components/`.
@@ -823,3 +836,7 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
 | 2026-11-06 | R9.10, R8.6 | The generator names no structure; the island's generator in Rust, equal to the bake (a background agent) | 27e7cba, c37c9ef, 3ec5d83 |
 | 2026-11-06 | R6.7 | The library's `app.ts` by concern (a background agent) | 7ff6dea |
 | 2026-11-06 | R5.6 | The engine's golden tests (a background agent) | 5b339a8 |
+| 2026-11-06 | R6.0 | Everyone else drawn by the drawing (1acd45f); the windows don't call the network (465e613); areas that leaned on each other both ways, one way (37ac866, 2ed6607, dae798f, eb11517, 7eb599f) | 1acd45f..7eb599f |
+| 2026-11-06 | R6.13 | `src/render`, `src/ui` and `src/dev` guides | 6ae1345 |
+| 2026-11-06 | R6.0b | The server's word on you, solid things and the test API's writes as calls; the island online | 89ace09, 9a319e4 |
+| 2026-11-06 | R6.4 | The bridge is the one way to the rules | 56ad5ee |
