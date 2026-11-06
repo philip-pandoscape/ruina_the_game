@@ -2,7 +2,7 @@ import { fbm, Heightfield, lerp, smoothstep, SURFACE } from '../terrain';
 import { makeRng, range } from '../../rng';
 import type { Obstacle } from '../types';
 import { structureDef, propDef, type StructureDef } from '../../content/structures';
-import type { BoxCollider, Deck, ZoneRecipe, ZonePlacement } from './types';
+import type { BoxCollider, Deck, WaterfallInfo, ZoneRecipe, ZonePlacement } from './types';
 
 // Grows a zone from its recipe (shared/zones/*.json): coastline, cliffs, hills, mountains with a
 // path carved up their face, flattened town squares, graded roads, then the trees and rocks, the
@@ -10,6 +10,8 @@ import type { BoxCollider, Deck, ZoneRecipe, ZonePlacement } from './types';
 // time - the rules and the renderer both build from this.
 
 const TAU = Math.PI * 2;
+/** Half the width of the runnel a waterfall's spring spills to the lip along (src/render/open/falls.ts draws its water). */
+export const RUNNEL = 2.2;
 
 export interface Generated {
   terrain: Heightfield;
@@ -24,6 +26,8 @@ export interface Generated {
   clear: Uint8Array;
   /** Static decoration placed from the recipe, resolved to heights. */
   placements: ZonePlacement[];
+  /** The waterfalls, as cut. */
+  falls: WaterfallInfo[];
 }
 
 export function generateZone(z: ZoneRecipe): Generated {
@@ -468,7 +472,116 @@ export function generateZone(z: ZoneRecipe): Generated {
       }
     }
 
-  return { terrain: hf, obstacles, boxes, decks, roads, ramps, clear, placements };
+  // ---------- Waterfalls: a slot cut down the face for the water to fall free ----------
+  // Cut last, so every tree and rock elsewhere stands where it always did (they're scattered from
+  // one stream of random numbers, cell by cell): only what stood in the slot or a pool goes.
+  const falls: WaterfallInfo[] = [];
+  for (const f of t.falls ?? []) {
+    const m = mountainAt.get(f.mountain);
+    if (!m) continue;
+    const ux = Math.cos(f.bearing);
+    const uz = Math.sin(f.bearing);
+    const vx = -uz;
+    const vz = ux;
+    const along = (x: number, zz: number) => (x - m.x) * ux + (zz - m.z) * uz;
+    const across = (x: number, zz: number) => (x - m.x) * vx + (zz - m.z) * vz;
+    const half = f.width / 2;
+    const shelfEnd = f.lip + f.shelf.depth;
+    const floorAt = (s: number) => lerp(f.floor[0], f.floor[1], Math.min(1, Math.max(0, (s - shelfEnd) / (f.foot - shelfEnd))));
+    const sx = m.x + ux * f.spring.at;
+    const sz = m.z + uz * f.spring.at;
+    const springLevel = hf.height(sx, sz) - 0.06;
+    const lipY = springLevel;
+    const px = m.x + ux * f.plunge.at;
+    const pz = m.z + uz * f.plunge.at;
+    // A little under the floor at the pool's lowest edge (the floor falls toward the foot).
+    const plungeLevel = floorAt(f.plunge.at + f.plunge.along) - 0.1;
+    const inPlunge = (x: number, zz: number) => Math.hypot((along(x, zz) - f.plunge.at) / f.plunge.along, across(x, zz) / f.plunge.across);
+    eachVertexNear(hf, m.x, m.z, f.foot + 12, (i, j, x, zz) => {
+      const k = j * n + i;
+      const s = along(x, zz);
+      const tt = Math.abs(across(x, zz));
+      // The spring: a shallow basin, its water just below the summit, and a runnel to the lip.
+      const ds = Math.hypot(x - sx, zz - sz);
+      if (ds < f.spring.r + 1) H[k] = Math.min(H[k], springLevel - f.spring.depth * (1 - smoothstep(f.spring.r * 0.55, f.spring.r, ds)));
+      if (s > f.spring.at && s < f.lip + 0.5 && tt < RUNNEL) H[k] = Math.min(H[k], springLevel - 0.16);
+      // The slot: sheer at the back, the ledge, then down to its floor; its walls blend into the face.
+      if (s >= f.lip && s <= f.foot + 2 && tt <= half + f.blend) {
+        const w = (1 - smoothstep(half, half + f.blend, tt)) * (1 - smoothstep(f.foot - 1, f.foot + 2, s));
+        const target = s <= shelfEnd ? f.shelf.top : floorAt(s);
+        if (w > 0 && target < H[k]) H[k] = lerp(H[k], target, w);
+      }
+      // The plunge pool, in the slot's floor.
+      const e = inPlunge(x, zz);
+      if (e < 1.15) H[k] = Math.min(H[k], plungeLevel - f.plunge.depth * (1 - smoothstep(0.6, 1, e)));
+    });
+    // Nothing grows, stands or lies about in the slot or the pools; their ground is bare.
+    const inSlot = (x: number, zz: number, pad: number) => {
+      const s = along(x, zz);
+      return s >= f.lip - pad && s <= f.foot + 2 + pad && Math.abs(across(x, zz)) <= half + f.blend + pad;
+    };
+    for (let j = 0; j < t.cells; j++)
+      for (let i = 0; i < t.cells; i++) {
+        const x = hf.vx(i) + hf.cell / 2;
+        const zz = hf.vx(j) + hf.cell / 2;
+        if (Math.abs(x - m.x) > f.foot + 14 || Math.abs(zz - m.z) > f.foot + 14) continue;
+        const cell = j * t.cells + i;
+        const spring = Math.hypot(x - sx, zz - sz) < f.spring.r + 0.8 || (along(x, zz) > f.spring.at && along(x, zz) < f.lip + 0.5 && Math.abs(across(x, zz)) < RUNNEL);
+        const plunge = inPlunge(x, zz) < 1.1;
+        if (spring || plunge) {
+          clear[cell] = 1;
+          surf[cell] = SURFACE.sand;
+        } else if (inSlot(x, zz, 0.5)) {
+          clear[cell] = 1;
+          surf[cell] = SURFACE.rock;
+        }
+      }
+    for (let k = obstacles.length - 1; k >= 0; k--) {
+      const o = obstacles[k];
+      if (inSlot(o.x, o.z, 1.5) || Math.hypot(o.x - sx, o.z - sz) < f.spring.r + 1.5 || inPlunge(o.x, o.z) < 1.3) obstacles.splice(k, 1);
+    }
+    // The hood over the ledge: solid on top, open underneath for whoever glides in under it. Below
+    // it, the goblins' landing stage (a deck you glide down onto) and their totem (a post).
+    const turn = Math.PI / 2 - f.bearing;
+    const at = (s: number, tt: number): [number, number] => [m.x + ux * s + vx * tt, m.z + uz * s + vz * tt];
+    const roofTop = f.shelf.top + f.roof.above;
+    const r0 = f.lip - 0.5;
+    const r1 = f.lip + f.roof.depth;
+    decks.push(rect(...at((r0 + r1) / 2, 0), half, (r1 - r0) / 2, turn, roofTop));
+    const l0 = f.lip + f.landing.from;
+    const l1 = f.lip + f.landing.to;
+    const landingTop = f.shelf.top + f.landing.above;
+    decks.push(rect(...at((l0 + l1) / 2, 0), f.landing.half, (l1 - l0) / 2, turn, landingTop));
+    const totemTop = f.shelf.top + f.totem.above;
+    boxes.push(rect(...at(f.lip + f.totem.at, f.totem.across), 0.35, 0.35, turn, totemTop));
+    // The ledge's walls, as clean as the hood over them: the ground's cut is a slope a cell wide
+    // (two metres), which whoever hits the back wall would otherwise slide down and off the side.
+    boxes.push(rect(...at(f.lip + 1, 0), half + 1.2, 1.6, turn, roofTop));
+    for (const side of [-1, 1]) boxes.push(rect(...at((f.lip - 1 + l1) / 2, side * (half + 0.9)), 1.2, (l1 - f.lip + 1) / 2, turn, roofTop));
+    falls.push({
+      id: f.id,
+      cx: m.x,
+      cz: m.z,
+      ux,
+      uz,
+      vx,
+      vz,
+      lip: f.lip,
+      lipY,
+      foot: f.foot,
+      width: f.width,
+      speed: f.speed,
+      shelf: { s0: f.lip, s1: shelfEnd, top: f.shelf.top },
+      roof: { s0: r0, s1: r1, top: roofTop },
+      landing: { s0: l0, s1: l1, half: f.landing.half, top: landingTop },
+      totem: { s: f.lip + f.totem.at, t: f.totem.across, top: totemTop },
+      floor: [f.floor[0], f.floor[1]],
+      spring: { x: sx, z: sz, at: f.spring.at, r: f.spring.r, level: springLevel },
+      plunge: { x: px, z: pz, s: f.plunge.at, along: f.plunge.along, across: f.plunge.across, level: plungeLevel },
+    });
+  }
+
+  return { terrain: hf, obstacles, boxes, decks, roads, ramps, clear, placements, falls };
 }
 
 // ---------- helpers ----------

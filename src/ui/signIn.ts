@@ -161,7 +161,16 @@ export class OnlineBadge {
     this.set('online');
   }
 
+  /** Who you are and where (a channel, or a dungeon's copy), as the badge reads while online. */
+  rename(name: string): void {
+    this.name = name;
+    this.set(this.status);
+  }
+
+  private status: LinkStatus = 'online';
+
   set(status: LinkStatus): void {
+    this.status = status;
     this.root.className = status === 'online' ? '' : status === 'reconnecting' || status === 'updating' ? 'reconnecting' : 'stopped';
     this.label.textContent = status === 'reconnecting' ? `${this.name} · Reconnecting` : status === 'updating' ? `${this.name} · Updating` : this.name;
     this.root.title = status === 'online' ? 'Connected to the game server; your island is saved there' : '';

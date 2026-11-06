@@ -24,7 +24,8 @@ use crate::life::state::LifeState;
 use crate::life::{farming, housing, trade, vehicles, Command, Life};
 use crate::minigames::Minigames;
 use crate::open::colliders::ground_at;
-use crate::open::zone::{emberholm, Zone};
+use crate::open::dungeon::{DungeonDef, Spot};
+use crate::open::zone::{emberholm, DungeonDoor, Zone};
 use crate::open::{OpenWorld, Sim};
 use crate::player::{Actions, Build, Mode, Player};
 use crate::sim::Battle;
@@ -96,6 +97,38 @@ pub struct Arrival {
     pub build: Option<Value>,
 }
 
+/// Whose copy of a dungeon a game is: a party's, or someone's on their own.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum Owner {
+    Party(u64),
+    Solo(i64),
+}
+
+/// What a game plays: a channel of Emberholm, or someone's copy of a dungeon (crate::spaces).
+pub enum Space {
+    Channel,
+    Copy(CopyOf),
+}
+
+pub struct CopyOf {
+    pub def: &'static DungeonDef,
+    /// Its door in the open world: where you come out.
+    pub door: &'static DungeonDoor,
+    pub owner: Owner,
+    /// Since when nobody has been in it (crate::spaces closes it a while after).
+    pub empty_since: Option<Instant>,
+    /// Whoever is in it but no longer in the party it belongs to, and when they're put out.
+    pub expel: HashMap<i64, Instant>,
+}
+
+/// Someone on their way from one game to another (into a dungeon, or back out): their connection,
+/// their player and their island, as they were.
+pub struct Moving {
+    member: Member,
+    player: Player,
+    life: Box<Life>,
+}
+
 /// Someone who left in the last minute, with their island as they left it.
 struct Lingering {
     at: Instant,
@@ -109,6 +142,8 @@ struct Lingering {
 
 pub struct ChannelGame {
     pub id: i32,
+    /// A channel, or a copy of a dungeon.
+    pub space: Space,
     /// Who left in the last minute, with their island as they left it: newer than any save that
     /// might still be on its way to the database, so a quick reload picks up exactly there.
     lingering: HashMap<i64, Lingering>,
@@ -160,6 +195,7 @@ impl ChannelGame {
         actors.spawn("dummy", r.dummy.x, r.dummy.z, 1);
         ChannelGame {
             id,
+            space: Space::Channel,
             lingering: HashMap::new(),
             estates: Channel::default(),
             members: HashMap::new(),
@@ -175,6 +211,134 @@ impl ChannelGame {
             skew: 0.0,
             joint: Vec::new(),
             saver: None,
+        }
+    }
+
+    /// A copy of a dungeon, for `owner`: its floors and walls solid, nobody in it yet.
+    pub fn copy(id: i32, def: &'static DungeonDef, door: &'static DungeonDoor, owner: Owner) -> Self {
+        let mut ch = ChannelGame::new(id);
+        ch.actors = Actors::new();
+        ch.open.make_dungeon(def);
+        ch.estates.loaded = true;
+        ch.space = Space::Copy(CopyOf { def, door, owner, empty_since: Some(Instant::now()), expel: HashMap::new() });
+        ch
+    }
+
+    pub fn copy_of(&self) -> Option<&CopyOf> {
+        match &self.space {
+            Space::Copy(c) => Some(c),
+            Space::Channel => None,
+        }
+    }
+
+    pub fn copy_mut(&mut self) -> Option<&mut CopyOf> {
+        match &mut self.space {
+            Space::Copy(c) => Some(c),
+            Space::Channel => None,
+        }
+    }
+
+    /// Players in it, and anyone who left a moment ago and may come straight back.
+    pub fn headcount(&self) -> usize {
+        self.members.len() + self.lingering.values().filter(|l| l.at.elapsed() < LINGER).count()
+    }
+
+    /// Where someone in a copy comes in.
+    pub fn arrival(&self) -> Option<Spot> {
+        self.copy_of().map(|c| self.open.respawn.unwrap_or_else(|| c.def.arrival()))
+    }
+
+    /// In a copy, an island is saved as standing outside its door: a copy is gone after a restart,
+    /// and its owner comes back to the open world there.
+    fn outside(&self) -> Option<Spot> {
+        let c = self.copy_of()?;
+        let o = &c.door.outside;
+        let hf = self.open.terrain();
+        Some(Spot { x: o.x, y: ground_at(hf, &self.open.index, o.x, o.z, c.door.portal.y + 1.2, 1.2), z: o.z, facing: o.facing })
+    }
+
+    /// Someone here as they are: where they stand, how, and whether they're free to go somewhere
+    /// else (not riding, carrying a pack, down or at a mini-game's table).
+    pub fn whereabouts(&self, character: i64) -> Option<(f64, f64, f64, bool)> {
+        let (p, _, _) = self.players.open_view(client(character))?;
+        let free = p.mode != Mode::Ride && p.pack == 0 && p.down_frame < 0 && !self.tables.seated(character);
+        Some((p.pos.x, p.pos.y, p.pos.z, free))
+    }
+
+    /// Forgets someone who left a moment ago (they've come back somewhere else).
+    pub fn forget_lingering(&mut self, character: i64) {
+        self.lingering.remove(&character);
+    }
+
+    /// Tests: stands someone at (x, y, z), just there.
+    #[cfg(test)]
+    pub fn place(&mut self, character: i64, x: f64, y: f64, z: f64) {
+        if let Some((p, _)) = self.players.open_mut(client(character)) {
+            p.pos.x = x;
+            p.pos.y = y;
+            p.pos.z = z;
+            p.grounded = true;
+        }
+    }
+
+    /// A message for someone's browser.
+    pub fn send_to(&self, character: i64, text: &str) -> bool {
+        self.members.get(&character).is_some_and(|m| m.out.try_send(text.to_string()).is_ok())
+    }
+
+    /// Someone leaves this game for another, taken out whole with their connection, as they are.
+    pub fn take(&mut self, character: i64) -> Option<Moving> {
+        if !self.members.contains_key(&character) || self.players.open_view(client(character)).is_none() {
+            return None;
+        }
+        self.drop_off(character);
+        self.left_tables(character);
+        let member = self.members.remove(&character)?;
+        let (player, life) = self.players.leave(client(character))?;
+        let life = life?;
+        self.send_all(&json!({ "t": "left", "id": character }).to_string(), None);
+        let empty = self.members.is_empty();
+        if let Some(c) = self.copy_mut() {
+            c.expel.remove(&character);
+            if empty {
+                c.empty_since = Some(Instant::now());
+            }
+        }
+        Some(Moving { member, player, life })
+    }
+
+    /// Someone arrives from another game, standing at `at` (on whatever is there to stand on).
+    pub fn put(&mut self, character: i64, m: Moving, at: Spot) {
+        let Moving { mut member, mut player, life } = m;
+        player.vel = Default::default();
+        if matches!(player.mode, Mode::Glide | Mode::Swim) {
+            player.mode = Mode::Normal;
+        }
+        player.pos.x = at.x;
+        player.pos.z = at.z;
+        player.facing = at.facing;
+        let hf = self.open.terrain();
+        player.pos.y = ground_at(hf, &self.open.index, at.x, at.z, at.y + 1.2, 1.2);
+        player.grounded = true;
+        if self.copy_of().is_none() {
+            make_solid(&mut self.open, character, &life.state);
+        }
+        let now = Instant::now();
+        member.life_due = 3;
+        member.last_life = now - LIFE_EVERY;
+        member.last_rev = u64::MAX;
+        member.estate_rev = u64::MAX;
+        self.lingering.remove(&character);
+        self.players.join_open(client(character), character, player, life);
+        self.members.insert(character, member);
+        if let Some(c) = self.copy_mut() {
+            c.empty_since = None;
+        } else {
+            let held = self.estates.held_by_others(character);
+            if let Some((_, Some(life))) = self.players.open_mut(client(character)) {
+                life.plot_owners = held;
+            }
+            self.refresh_estate(character);
         }
     }
 
@@ -222,10 +386,23 @@ impl ChannelGame {
                 player.apply_build(b);
             }
             life.after_reset(&mut player);
-            make_solid(&mut self.open, a.character, &life.state);
+            if let Some(at) = self.arrival() {
+                // Back in a copy they were in: where it's entered (the island was saved outside).
+                player.pos.x = at.x;
+                player.pos.y = at.y;
+                player.pos.z = at.z;
+                player.facing = at.facing;
+                player.vel = Default::default();
+                player.grounded = true;
+            } else {
+                make_solid(&mut self.open, a.character, &life.state);
+            }
             self.players.join_open(c, a.character, player, Box::new(life));
         }
         let now = Instant::now();
+        if let Some(c) = self.copy_mut() {
+            c.empty_since = None;
+        }
         self.members.insert(
             a.character,
             Member {
@@ -269,8 +446,16 @@ impl ChannelGame {
         self.left_tables(character);
         let (player, life) = self.players.leave(client(character))?;
         let mut life = life?;
-        let island = island_of(&player, &mut life, &mut self.open, character);
+        let outside = self.outside();
+        let island = outside_of(island_of(&player, &mut life, &mut self.open, character), outside);
         self.send_all(&json!({ "t": "left", "id": character }).to_string(), None);
+        let empty = self.members.is_empty();
+        if let Some(c) = self.copy_mut() {
+            c.expel.remove(&character);
+            if empty {
+                c.empty_since = Some(Instant::now());
+            }
+        }
         if keep_saved {
             return None;
         }
@@ -301,9 +486,11 @@ impl ChannelGame {
         self.rebuild_world();
     }
 
-    /// The developer panel's teleport: off whatever you were riding, onto the ground there.
+    /// The developer panel's teleport: off whatever you were riding, onto the ground there (in a
+    /// dungeon's copy, its floor).
     fn teleport(&mut self, character: i64, x: f64, z: f64, facing: Option<f64>) {
         self.drop_off(character);
+        let floor = self.arrival().map(|a| a.y);
         let Some((p, life)) = self.players.open_mut(client(character)) else { return };
         let hf = self.open.terrain();
         if !x.is_finite() || !z.is_finite() || !hf.inside(x, z, 0.0) {
@@ -315,7 +502,7 @@ impl ChannelGame {
                 vehicles::dismount(life, &mut sim);
             }
         }
-        let y = ground_at(hf, &self.open.index, x, z, hf.height(x, z) + 1.2, 1.2);
+        let y = ground_at(hf, &self.open.index, x, z, floor.unwrap_or_else(|| hf.height(x, z)) + 1.2, 1.2);
         p.pos.x = x;
         p.pos.y = y;
         p.pos.z = z;
@@ -334,13 +521,14 @@ impl ChannelGame {
     pub fn islands_now(&mut self) -> Vec<Save> {
         self.abort_tables();
         let ids: Vec<(i64, i64, bool)> = self.members.iter().map(|(id, m)| (*id, m.session, m.keep_saved)).collect();
+        let outside = self.outside();
         let mut out = Vec::new();
         for (id, session, keep_saved) in ids {
             if keep_saved {
                 continue;
             }
             if let Some((p, Some(life))) = self.players.open_mut(client(id)) {
-                let island = island_of(p, life, &mut self.open, id);
+                let island = outside_of(island_of(p, life, &mut self.open, id), outside);
                 out.push(Save { character: id, session, island, out: None });
             }
         }
@@ -575,8 +763,12 @@ impl ChannelGame {
         }
     }
 
-    /// Works out a member's estate again if their island changed shape, and tells everyone.
+    /// Works out a member's estate again if their island changed shape, and tells everyone (a copy
+    /// of a dungeon has nobody's estate in it).
     fn refresh_estate(&mut self, character: i64) {
+        if self.copy_of().is_some() {
+            return;
+        }
         let Some((_, _, Some(life))) = self.players.open_view(client(character)) else { return };
         let rev = life.revision;
         let Some(m) = self.members.get(&character) else { return };
@@ -638,8 +830,10 @@ impl ChannelGame {
             slams.extend(self.actors.step(&seen, LEAN_SPRING, LEAN_DAMPING, 1.0 / 60.0));
         }
         self.players.apply_slams(&slams);
+        self.catch_fallers();
 
         let ids: Vec<i64> = self.members.keys().copied().collect();
+        let outside = self.outside();
         for id in &ids {
             self.refresh_estate(*id);
         }
@@ -678,7 +872,7 @@ impl ChannelGame {
             if let Some((p, Some(life))) = self.players.open_mut(c) {
                 life_events = life.drain_events();
                 if save_due {
-                    saves.push(Save { character: id, session, island: island_of(p, life, &mut self.open, id), out: Some(out.clone()) });
+                    saves.push(Save { character: id, session, island: outside_of(island_of(p, life, &mut self.open, id), outside), out: Some(out.clone()) });
                 }
             }
             if save_due {
@@ -709,6 +903,39 @@ impl ChannelGame {
             let _ = out.try_send(msg.to_string());
         }
     }
+}
+
+impl ChannelGame {
+    /// In a copy of a dungeon, anyone who falls out of it is back where it's entered.
+    fn catch_fallers(&mut self) {
+        let Some(c) = self.copy_of() else { return };
+        let def = c.def;
+        let Some(at) = self.arrival() else { return };
+        let ids: Vec<i64> = self.members.keys().copied().collect();
+        for id in ids {
+            if let Some((p, _)) = self.players.open_mut(client(id)) {
+                if def.fallen_out(p.pos.y) {
+                    p.pos.x = at.x;
+                    p.pos.y = at.y;
+                    p.pos.z = at.z;
+                    p.facing = at.facing;
+                    p.vel = Default::default();
+                    if p.mode == Mode::Glide || p.mode == Mode::Swim {
+                        p.mode = Mode::Normal;
+                    }
+                    p.grounded = true;
+                }
+            }
+        }
+    }
+}
+
+/// An island as saved, standing at `outside` instead if it's given (a copy's door).
+fn outside_of(mut island: Value, outside: Option<Spot>) -> Value {
+    if let Some(o) = outside {
+        island["player"] = json!({ "x": o.x, "y": o.y, "z": o.z, "facing": o.facing });
+    }
+    island
 }
 
 /// Puts a passenger in seat `seat` of a vehicle, facing the way it faces and moving with it.

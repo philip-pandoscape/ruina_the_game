@@ -178,11 +178,13 @@ export function takeHit(sim: Sim, damage: number, dirX: number, dirZ: number, kn
 
 export function respawn(sim: Sim) : void {
   const p = sim.player;
-  const s = sim.world.teamSpawns[p.team] ?? sim.world.spawn;
+  const at = sim.world.respawnAt;
+  const s = at ?? sim.world.teamSpawns[p.team] ?? sim.world.spawn;
   // Back on your feet on the ground there: on the island that's the terrain (or a roof) under the
-  // spawn, as when you first arrive; the training grounds and the battlefield are flat at 0.
+  // spawn, as when you first arrive; in a dungeon, its floor where it's entered; the training
+  // grounds and the battlefield are flat at 0.
   const hf = sim.world.terrain;
-  const y = hf ? groundAt(hf, sim.world.index, s.x, s.z, hf.height(s.x, s.z) + 1.2, 1.2) : 0;
+  const y = hf ? groundAt(hf, sim.world.index, s.x, s.z, (at ? at.y : hf.height(s.x, s.z)) + 1.2, 1.2) : 0;
   p.pos = { x: s.x, y, z: s.z };
   p.vel = { x: 0, y: 0, z: 0 };
   p.facing = s.facing;

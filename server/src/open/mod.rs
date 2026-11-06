@@ -4,6 +4,7 @@
 //! tests/world-conformance.spec.ts runs both and compares them frame by frame.
 
 pub mod colliders;
+pub mod dungeon;
 pub mod traverse;
 pub mod zone;
 
@@ -30,6 +31,8 @@ pub struct OpenWorld {
     /// Everyone's vehicles as they stood when this tick began, which everyone but their owner bumps
     /// into (src/sim/types.ts World.movers).
     pub movers: Vec<Mover>,
+    /// Where someone knocked down gets up again, if not at the island's spawn (a dungeon's copy).
+    pub respawn: Option<dungeon::Spot>,
 }
 
 /// One circle of a vehicle, with whose it is, the height it stands at and how tall it is.
@@ -52,6 +55,7 @@ impl OpenWorld {
             radius: zone.radius,
             added: HashSet::new(),
             movers: Vec::new(),
+            respawn: None,
         }
     }
 
@@ -95,13 +99,20 @@ pub fn step_player(p: &mut Player, a: &Actions, world: &mut OpenWorld, mut life:
     let mut sim = Sim { player: p, world, owner };
 
     if sim.player.down_frame >= 0 {
-        // Knocked down: lie still, then get back up at the island's spawn.
+        // Knocked down: lie still, then get back up at the island's spawn (in a dungeon, where you
+        // came in).
         if sim.player.update_down() {
-            sim.player.respawn(Spawn { x: s.x, z: s.z, facing: s.facing });
-            // On your feet on the ground there, not inside the hill (respawn() is the battlefield's,
-            // flat at 0): the TypeScript's respawn does the same with the island's terrain.
-            let hf = sim.terrain();
-            sim.player.pos.y = colliders::ground_at(hf, &sim.world.index, s.x, s.z, hf.height(s.x, s.z) + 1.2, 1.2);
+            if let Some(r) = sim.world.respawn {
+                sim.player.respawn(Spawn { x: r.x, z: r.z, facing: r.facing });
+                sim.player.pos.y = r.y;
+            } else {
+                sim.player.respawn(Spawn { x: s.x, z: s.z, facing: s.facing });
+                // On your feet on the ground there, not inside the hill (respawn() is the
+                // battlefield's, flat at 0): the TypeScript's respawn does the same with the
+                // island's terrain.
+                let hf = sim.terrain();
+                sim.player.pos.y = colliders::ground_at(hf, &sim.world.index, s.x, s.z, hf.height(s.x, s.z) + 1.2, 1.2);
+            }
         }
     } else if sim.player.stun > 0 {
         sim.player.update_stun();

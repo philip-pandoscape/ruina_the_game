@@ -9,12 +9,16 @@
 //! /ws/world?character=<id> plays that character, if it's the signed-in account's; without one, the
 //! character the account played last.
 //!
-//!   server -> browser  (text) welcome {protocol, character, account, build, now, channel, dev, estates, claims}
+//!   server -> browser  (text) welcome {protocol, character, account, build, now, channel, dev, estates, claims,
+//!                            space: where you are (a channel, or your party's copy of a dungeon)}
 //!                      tick {tick, you, peers, actors, arrows, meteors, events, lifeEvents?, life?,
 //!                            tables?: the mini-game tables near you, as everyone sees them}
 //!                      estate {id, name, estate} | claims {claims} | left {id} | saved {at}
 //!                      | challenges {sent, waiting}: your challenge out, and one waiting for your answer
 //!                      | table {table}: the game at your table as you may see it (null: you're up)
+//!                      | space {space}: you've gone into a dungeon's copy, or back out (server/src/spaces.rs)
+//!                      | party {party|null}: your party as it is now | partyInvite {invite|null}
+//!                      | notice {text}: something to read
 //!                      | reset | kicked | error {text}
 //!                      | updating: the server is stopping for an update; once the island is
 //!                        written, the connection closes with 1012 (service restart)
@@ -23,6 +27,9 @@
 //!                      (text) cmd {s, c} | build {build} | reset
 //!                      | challenge {to, game, stake, seed?, turn?} | withdraw | answer {from, accept}
 //!                      | move {table, m} | concede {table}   (mini-games, server/src/world_game/tables.rs)
+//!                      | dungeon {id, enter}: through a dungeon's portal, or back out of it
+//!                      | partyInvite {to?, name?} | partyAnswer {from, accept} | partyLeave
+//!                      | partyKick {id} | partyLead {id}   (parties, server/src/parties.rs)
 
 use std::collections::HashMap;
 use std::sync::Mutex;
@@ -50,6 +57,7 @@ use crate::http::{same_origin, App};
 use crate::life::Command;
 use crate::player::Build;
 use crate::skills::{valid_build, valid_movement, SKILL_WORDS};
+use crate::spaces::Spaces;
 use crate::tuning::{HOTBAR_SLOTS, MOVEMENT_SLOTS, NO_ABILITY, NO_MOVEMENT};
 use crate::world_game::{Arrival, ChannelGame, Save, TICK_HZ};
 
@@ -64,7 +72,7 @@ const MAX_BATCH: usize = 32;
 const SEND_INPUTS: u8 = 7;
 /// What this server speaks. A page that speaks something else is out of date: it reloads
 /// (src/net/worldLink.ts WORLD_PROTOCOL).
-pub const WORLD_PROTOCOL: u32 = 6;
+pub const WORLD_PROTOCOL: u32 = 7;
 
 /// Where the server is in its life. Railway starts a new server for an update, then stops this one.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -78,10 +86,10 @@ pub enum Stage {
 }
 
 /// Which connection is playing each character (so a second window takes over from the first),
-/// the channels, and whether the server is stopping.
+/// the channels, dungeons and parties (crate::spaces), and whether the server is stopping.
 pub struct Hub {
     live: Mutex<HashMap<i64, (i64, mpsc::Sender<()>)>>,
-    channels: Mutex<HashMap<i32, ChannelGame>>,
+    spaces: Mutex<Spaces>,
     stage: watch::Sender<Stage>,
     /// Asked to stop the way SIGTERM asks (the developer endpoint, for tests).
     stop: Notify,
@@ -93,7 +101,7 @@ pub struct Hub {
 
 impl Default for Hub {
     fn default() -> Self {
-        Hub { live: Mutex::default(), channels: Mutex::default(), stage: watch::channel(Stage::Running).0, stop: Notify::new(), saver: Mutex::default() }
+        Hub { live: Mutex::default(), spaces: Mutex::default(), stage: watch::channel(Stage::Running).0, stop: Notify::new(), saver: Mutex::default() }
     }
 }
 
@@ -121,14 +129,23 @@ impl Hub {
         self.live.lock().unwrap().contains_key(&character)
     }
 
-    fn with_channel<T>(&self, id: i32, f: impl FnOnce(&mut ChannelGame) -> T) -> T {
+    /// Everyone's games, the dungeons' copies and the parties, locked for one change.
+    fn with_spaces<T>(&self, f: impl FnOnce(&mut Spaces) -> T) -> T {
         // A connection that failed halfway through a change mustn't stop everyone else's.
-        let mut channels = self.channels.lock().unwrap_or_else(|e| e.into_inner());
-        f(channels.entry(id).or_insert_with(|| {
-            let mut ch = ChannelGame::new(id);
-            ch.saver = self.saver();
-            ch
-        }))
+        let mut spaces = self.spaces.lock().unwrap_or_else(|e| e.into_inner());
+        if spaces.saver.is_none() {
+            spaces.saver = self.saver();
+        }
+        f(&mut spaces)
+    }
+
+    fn with_channel<T>(&self, id: i32, f: impl FnOnce(&mut ChannelGame) -> T) -> T {
+        self.with_spaces(|sp| f(sp.channel(id)))
+    }
+
+    /// The game a character is playing in right now (a channel, or a dungeon's copy), if any.
+    fn with_member<T>(&self, character: i64, f: impl FnOnce(&mut ChannelGame) -> T) -> Option<T> {
+        self.with_spaces(|sp| sp.game_of(character).map(f))
     }
 
     fn saver(&self) -> Option<mpsc::UnboundedSender<Vec<Save>>> {
@@ -138,10 +155,12 @@ impl Hub {
     /// A character is gone for good (deleted): their estate comes down in their channel, if that
     /// channel is running (one that isn't reads its residents without them when it starts).
     pub fn remove_resident(&self, channel: i32, character: i64) {
-        let mut channels = self.channels.lock().unwrap_or_else(|e| e.into_inner());
-        if let Some(ch) = channels.get_mut(&channel) {
+        let mut spaces = self.spaces.lock().unwrap_or_else(|e| e.into_inner());
+        if let Some(ch) = spaces.games.get_mut(&channel) {
             ch.remove_resident(character);
         }
+        // Out of their party too.
+        spaces.forget(character);
     }
 
     pub fn stage(&self) -> Stage {
@@ -189,8 +208,11 @@ pub fn spawn_world(app: App) {
             let mut saves = Vec::new();
             loop {
                 {
-                    let mut channels = hub.world.channels.lock().unwrap_or_else(|e| e.into_inner());
-                    for ch in channels.values_mut() {
+                    let mut spaces = hub.world.spaces.lock().unwrap_or_else(|e| e.into_inner());
+                    if spaces.saver.is_none() {
+                        spaces.saver = Some(saves_tx.clone());
+                    }
+                    for ch in spaces.games.values_mut() {
                         if ch.has_players() || ch.has_tables() {
                             // One channel's bad moment mustn't stop all the others.
                             let id = ch.id;
@@ -203,6 +225,10 @@ pub fn spawn_world(app: App) {
                         for batch in ch.take_joint() {
                             let _ = saves_tx.send(batch);
                         }
+                    }
+                    // Copies of dungeons long empty close; whoever is in one that isn't theirs is put out.
+                    if std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| spaces.sweep(Instant::now()))).is_err() {
+                        eprintln!("the dungeons' sweep failed");
                     }
                     // Queued with the channels still locked, so they're in the order they were taken.
                     for s in saves.drain(..) {
@@ -242,8 +268,8 @@ pub async fn stop_world(app: &App) {
 pub async fn save_everyone(app: &App) {
     let Some(db) = app.db.clone() else { return };
     let saves: Vec<Save> = {
-        let mut channels = app.world.channels.lock().unwrap_or_else(|e| e.into_inner());
-        channels.values_mut().flat_map(|ch| ch.islands_now()).collect()
+        let mut spaces = app.world.spaces.lock().unwrap_or_else(|e| e.into_inner());
+        spaces.games.values_mut().flat_map(|ch| ch.islands_now()).collect()
     };
     let mut written = 0;
     for s in saves {
@@ -334,16 +360,39 @@ enum FromBrowser {
     Concede {
         table: u64,
     },
+    /// Through a dungeon's portal (server/src/spaces.rs), or back out of it.
+    Dungeon {
+        id: String,
+        enter: bool,
+    },
+    /// Parties (server/src/parties.rs): invite someone (by id, or by name), answer an invitation,
+    /// leave, remove someone, hand on the lead.
+    PartyInvite {
+        #[serde(default)]
+        to: Option<i64>,
+        #[serde(default)]
+        name: Option<String>,
+    },
+    PartyAnswer {
+        from: i64,
+        accept: bool,
+    },
+    PartyLeave,
+    PartyKick {
+        id: i64,
+    },
+    PartyLead {
+        id: i64,
+    },
 }
 
 type Tx = SplitSink<WebSocket, Message>;
 
-/// Takes the player out of the channel however the connection ends (unless a newer window has
+/// Takes the player out of their game however the connection ends (unless a newer window has
 /// taken their seat), and saves the island they leave behind.
 struct Seat {
     app: App,
     db: PgPool,
-    channel: i32,
     character: i64,
     session: i64,
 }
@@ -353,8 +402,8 @@ impl Drop for Seat {
         // Into the queue with everything else, while the channel is still locked: a game paid out
         // a moment later is written after this, never under it.
         let saver = self.app.world.saver();
-        let island = self.app.world.with_channel(self.channel, |ch| {
-            let island = ch.leave(self.character, self.session)?;
+        let island = self.app.world.with_spaces(|sp| {
+            let island = sp.depart(self.character, self.session)?;
             let save = Save { character: self.character, session: self.session, island, out: None };
             match &saver {
                 Some(tx) => tx.send(vec![save]).err().map(|e| e.0.into_iter().next().unwrap().island),
@@ -446,6 +495,7 @@ async fn play(
 
     let channel = home_channel(db, character).await.map_err(|e| e.to_string())?;
     load_channel(app, db, channel).await.map_err(|e| e.to_string())?;
+    let world = &app.world;
 
     // Taking the character over: from here on only this connection's saves are written, so a
     // window it replaced can't write over it.
@@ -475,8 +525,9 @@ async fn play(
         build: build_json,
     };
     // The build they play with comes back: the one kept, if what they've earned still covers it.
-    let (estates, claims, build) = app.world.with_channel(channel, |ch| ch.join(arrival));
-    let _seat = Seat { app: app.clone(), db: db.clone(), channel, character, session };
+    // Into their home channel, or back into the copy of a dungeon they were in.
+    let (estates, claims, build, space) = world.with_spaces(|sp| sp.arrive(channel, arrival));
+    let _seat = Seat { app: app.clone(), db: db.clone(), character, session };
     send(
         &mut tx,
         json!({
@@ -490,6 +541,7 @@ async fn play(
             "dev": app.dev_tools,
             "estates": estates,
             "claims": claims,
+            "space": space,
         }),
     )
     .await?;
@@ -510,13 +562,13 @@ async fn play(
                 match msg {
                     Some(Ok(Message::Binary(b))) => {
                         if let Some(list) = read_inputs(&b) {
-                            app.world.with_channel(channel, |ch| ch.inputs(character, list.into_iter()));
+                            world.with_member(character, |ch| ch.inputs(character, list.into_iter()));
                         }
                     }
                     Some(Ok(Message::Text(text))) => match serde_json::from_str::<FromBrowser>(text.as_str()) {
                         Ok(FromBrowser::Cmd { s, c }) => match serde_json::from_value::<Command>(c) {
                             Ok(c) => {
-                                if !app.world.with_channel(channel, |ch| ch.command(character, s, c)) {
+                                if !world.with_member(character, |ch| ch.command(character, s, c)).unwrap_or(false) {
                                     send(&mut tx, json!({ "t": "error", "text": "That isn't allowed here." })).await?;
                                 }
                             }
@@ -524,7 +576,7 @@ async fn play(
                         },
                         Ok(FromBrowser::Build { build }) => {
                             // Checked against the skill points this character has earned so far.
-                            if !app.world.with_channel(channel, |ch| ch.set_build(character, &build)) {
+                            if !world.with_member(character, |ch| ch.set_build(character, &build)).unwrap_or(false) {
                                 send(&mut tx, json!({ "t": "error", "text": "That build isn't allowed." })).await?;
                                 continue;
                             }
@@ -539,7 +591,7 @@ async fn play(
                             }
                         }
                         Ok(FromBrowser::Reset) => {
-                            let Some(fresh) = app.world.with_channel(channel, |ch| ch.reset(character)) else { continue };
+                            let Some(fresh) = world.with_spaces(|sp| sp.reset(character)) else { continue };
                             match outcome(write_island(db, character, session, fresh).await, &mut tx).await? {
                                 Wrote::Yes => send(&mut tx, json!({ "t": "reset" })).await?,
                                 Wrote::Replaced => return replaced(&mut tx).await,
@@ -547,23 +599,56 @@ async fn play(
                             }
                         }
                         Ok(FromBrowser::Challenge { to, game, stake, seed, turn }) => {
-                            if let Err(text) = app.world.with_channel(channel, |ch| ch.challenge_timed(character, to, &game, stake, seed, turn)) {
+                            if let Err(text) = world.with_member(character, |ch| ch.challenge_timed(character, to, &game, stake, seed, turn)).unwrap_or_else(|| Err("You aren't playing.".into())) {
                                 send(&mut tx, json!({ "t": "error", "text": text })).await?;
                             }
                         }
-                        Ok(FromBrowser::Withdraw) => app.world.with_channel(channel, |ch| ch.withdraw(character)),
+                        Ok(FromBrowser::Withdraw) => {
+                            world.with_member(character, |ch| ch.withdraw(character));
+                        }
                         Ok(FromBrowser::Answer { from, accept }) => {
-                            if let Err(text) = app.world.with_channel(channel, |ch| ch.answer(character, from, accept)) {
+                            if let Err(text) = world.with_member(character, |ch| ch.answer(character, from, accept)).unwrap_or_else(|| Err("You aren't playing.".into())) {
                                 send(&mut tx, json!({ "t": "error", "text": text })).await?;
                             }
                         }
                         Ok(FromBrowser::Move { table, m }) => {
-                            if let Err(text) = app.world.with_channel(channel, |ch| ch.table_move(character, table, &m)) {
+                            if let Err(text) = world.with_member(character, |ch| ch.table_move(character, table, &m)).unwrap_or_else(|| Err("You aren't playing.".into())) {
                                 send(&mut tx, json!({ "t": "error", "text": text })).await?;
                             }
                         }
                         Ok(FromBrowser::Concede { table }) => {
-                            if let Err(text) = app.world.with_channel(channel, |ch| ch.concede(character, table)) {
+                            if let Err(text) = world.with_member(character, |ch| ch.concede(character, table)).unwrap_or_else(|| Err("You aren't playing.".into())) {
+                                send(&mut tx, json!({ "t": "error", "text": text })).await?;
+                            }
+                        }
+                        Ok(FromBrowser::Dungeon { id, enter }) => {
+                            let done = world.with_spaces(|sp| if enter { sp.enter_dungeon(character, &id) } else { sp.leave_dungeon(character) });
+                            if let Err(text) = done {
+                                send(&mut tx, json!({ "t": "error", "text": text })).await?;
+                            }
+                        }
+                        Ok(FromBrowser::PartyInvite { to, name }) => {
+                            if let Err(text) = world.with_spaces(|sp| sp.party_invite(character, to, name.as_deref())) {
+                                send(&mut tx, json!({ "t": "error", "text": text })).await?;
+                            }
+                        }
+                        Ok(FromBrowser::PartyAnswer { from, accept }) => {
+                            if let Err(text) = world.with_spaces(|sp| sp.party_answer(character, from, accept)) {
+                                send(&mut tx, json!({ "t": "error", "text": text })).await?;
+                            }
+                        }
+                        Ok(FromBrowser::PartyLeave) => {
+                            if let Err(text) = world.with_spaces(|sp| sp.party_leave(character)) {
+                                send(&mut tx, json!({ "t": "error", "text": text })).await?;
+                            }
+                        }
+                        Ok(FromBrowser::PartyKick { id }) => {
+                            if let Err(text) = world.with_spaces(|sp| sp.party_kick(character, id)) {
+                                send(&mut tx, json!({ "t": "error", "text": text })).await?;
+                            }
+                        }
+                        Ok(FromBrowser::PartyLead { id }) => {
+                            if let Err(text) = world.with_spaces(|sp| sp.party_lead(character, id)) {
                                 send(&mut tx, json!({ "t": "error", "text": text })).await?;
                             }
                         }
@@ -784,7 +869,7 @@ mod tests {
     fn deleting_a_character_leaves_channels_nobody_started_alone() {
         let hub = Hub::default();
         hub.remove_resident(4, 99);
-        assert!(hub.channels.lock().unwrap().is_empty(), "no channel made just to delete from it");
+        assert!(hub.spaces.lock().unwrap().games.is_empty(), "no channel made just to delete from it");
         assert!(!hub.is_playing(99));
     }
 }

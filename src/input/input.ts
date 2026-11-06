@@ -97,7 +97,7 @@ const MENU_PAD: Array<[number, MenuPress]> = [
 ];
 
 // Open-world keys: interact, drop a pack, mount, glider, change seed, auto-walk, and the panels.
-export type LifeKey = 'interact' | 'drop' | 'mount' | 'glider' | 'seed' | 'autorun' | 'bag' | 'map' | 'garage' | 'quests' | 'character' | 'escape' | 'dev';
+export type LifeKey = 'interact' | 'drop' | 'mount' | 'glider' | 'seed' | 'autorun' | 'bag' | 'map' | 'garage' | 'quests' | 'character' | 'party' | 'escape' | 'dev';
 const LIFE_KEYS: Record<string, LifeKey> = {
   KeyF: 'interact',
   KeyX: 'drop',
@@ -113,6 +113,7 @@ const LIFE_KEYS: Record<string, LifeKey> = {
   KeyV: 'garage',
   KeyL: 'quests',
   KeyP: 'character',
+  KeyO: 'party',
   Escape: 'escape',
   Backquote: 'dev',
 };

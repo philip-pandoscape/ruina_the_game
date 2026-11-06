@@ -20,15 +20,19 @@ import { resumeAfterReload } from '../app/resume';
 // speaks another protocol, or a new build of the game is out), it reloads and comes straight back
 // into the world with the same character (src/app/resume.ts).
 //
-//   server → browser  (text) welcome {protocol, character, account, build, now, channel, dev, estates, claims}
+//   server → browser  (text) welcome {protocol, character, account, build, now, channel, dev, estates, claims, space}
 //                     tick {tick, you, peers, actors, arrows, meteors, events, lifeEvents?, life?, tables?}
 //                     estate {id, name, estate} | claims {claims} | left {id} | saved {at}
 //                     | challenges {sent, waiting} | table {table}   (mini-games, src/ui/minigames)
+//                     | space {space}: into a dungeon's copy, or back out (server/src/spaces.rs)
+//                     | party {party} | partyInvite {invite} | notice {text}   (parties, src/ui/party)
 //                     | reset | kicked | error {text} | updating
 //   browser → server  (binary) inputs: 7, count, then per input a u32 sequence number and 10 bytes
 //                     (text) cmd {s, c} | build {build} | reset
 //                     | challenge {to, game, stake, seed?, turn?} | withdraw | answer {from, accept}
 //                     | move {table, m} | concede {table}
+//                     | dungeon {id, enter} | partyInvite {to?, name?} | partyAnswer {from, accept}
+//                     | partyLeave | partyKick {id} | partyLead {id}
 
 export interface Welcome {
   character: { id: number; name: string };
@@ -44,6 +48,28 @@ export interface Welcome {
   estates: EstateEntry[];
   /** House plot -> the name of whoever holds it. */
   claims: Record<string, string>;
+  /** Where you are: your channel, or (coming back to it) your party's copy of a dungeon. */
+  space?: SpaceView;
+}
+
+/** Where you play: a channel of Emberholm, or a copy of a dungeon (server/src/spaces.rs space_json). */
+export type SpaceView = { kind: 'channel'; channel: number } | { kind: 'dungeon'; dungeon: string; name: string; copy: number };
+
+/** Your party as the server keeps it (server/src/spaces.rs party_json). */
+export interface PartyView {
+  id: number;
+  leader: number;
+  /** In the order they joined; `place` is where they play (null while they're offline). */
+  members: Array<{ id: number; name: string; online: boolean; place: SpaceView | null }>;
+  /** The party's copies of dungeons: how many are inside, and in how many seconds one closes if nobody is. */
+  dungeons: Array<{ id: string; name: string; inside: number; closesIn: number | null }>;
+}
+
+/** An invitation to someone's party, waiting for your answer (`ms` left when it was sent). */
+export interface PartyInviteView {
+  from: number;
+  name: string;
+  ms: number;
 }
 
 /** Someone's houses, farms and ships on the slipway, as the server shares them. */
@@ -160,7 +186,7 @@ const RETRY_MS = { updating: [500, 1000, 1500, 2000], reconnecting: [500, 1000, 
 /** A WebSocket closed as a service restart: the server is being updated. */
 const SERVICE_RESTART = 1012;
 /** What this page speaks; the server says what it speaks in its welcome (server/src/world_socket.rs). */
-const WORLD_PROTOCOL = 6;
+const WORLD_PROTOCOL = 7;
 const RELOADED = 'ruina.reloaded-for-server';
 const RELOADED_BUILD = 'ruina.reloaded-for-build';
 const SEND_INPUTS = 7;
@@ -188,6 +214,19 @@ export class WorldLink {
   /** Your challenges as last heard, and when they came. */
   challenges: Challenges = { sent: null, waiting: null };
   challengesHeard = 0;
+  /** Where you play now: your channel, or a dungeon's copy (src/app/online.ts follows it). */
+  space: SpaceView = { kind: 'channel', channel: 0 };
+  /** You've gone into a dungeon's copy, or back out: everything you saw is somewhere else now. */
+  onSpace: ((s: SpaceView) => void) | null = null;
+  /** Your party (null: none), the invitation waiting for your answer, and when each came. */
+  party: PartyView | null = null;
+  partyHeard = 0;
+  invite: PartyInviteView | null = null;
+  inviteHeard = 0;
+  onParty: ((p: PartyView | null) => void) | null = null;
+  onInvite: ((i: PartyInviteView | null) => void) | null = null;
+  /** Something the server wants the player to read (not a problem: a party joined, say). */
+  onNotice: ((text: string) => void) | null = null;
   private resetDone: Array<() => void> = [];
   /** The channel as last heard, kept here so nothing is missed before the game is ready to draw it. */
   readonly peers = new Map<number, PeerEntry>();
@@ -227,6 +266,7 @@ export class WorldLink {
     for (const e of w.estates ?? []) this.estates.set(e.id, e);
     this.claims = w.claims ?? {};
     this.clock = { server: w.now, heard };
+    this.space = w.space ?? { kind: 'channel', channel: w.channel };
     // A game or a challenge that's still on comes again from the server, after its welcome.
     const hadTable = this.table !== null;
     const hadChallenges = !!(this.challenges.sent || this.challenges.waiting);
@@ -318,6 +358,37 @@ export class WorldLink {
     return this.send({ t: 'concede', table });
   }
 
+  // ---------- Dungeons and parties (server/src/spaces.rs, server/src/parties.rs) ----------
+
+  /** Through a dungeon's portal (you're at it), or back out of its copy (you're at its way out). */
+  dungeon(id: string, enter: boolean): boolean {
+    return this.send({ t: 'dungeon', id, enter });
+  }
+
+  /** Invites someone playing to your party: by id, or by name (in any channel or dungeon). */
+  partyInvite(who: { to: number } | { name: string }): boolean {
+    return this.send({ t: 'partyInvite', ...who });
+  }
+
+  /** Answers the invitation from `from`. */
+  partyAnswer(from: number, accept: boolean): boolean {
+    return this.send({ t: 'partyAnswer', from, accept });
+  }
+
+  partyLeave(): boolean {
+    return this.send({ t: 'partyLeave' });
+  }
+
+  /** The leader removes someone from the party. */
+  partyKick(id: number): boolean {
+    return this.send({ t: 'partyKick', id });
+  }
+
+  /** The leader hands the lead to someone else. */
+  partyLead(id: number): boolean {
+    return this.send({ t: 'partyLead', id });
+  }
+
   /** Starts the island over on the server. Resolves once it's done (or after 3 s). */
   reset(): Promise<void> {
     return new Promise((resolve) => {
@@ -393,7 +464,23 @@ export class WorldLink {
       this.challenges = { sent: c.sent ?? null, waiting: c.waiting ?? null };
       this.challengesHeard = performance.now();
       this.onChallenges?.(this.challenges);
-    }
+    } else if (msg.t === 'space') {
+      const s = (msg as { space?: SpaceView }).space;
+      if (!s) return;
+      // Everyone you could see is somewhere else now; whoever is here comes in the next ticks.
+      this.peers.clear();
+      this.latest = null;
+      this.space = s;
+      this.onSpace?.(s);
+    } else if (msg.t === 'party') {
+      this.party = (msg as { party?: PartyView | null }).party ?? null;
+      this.partyHeard = performance.now();
+      this.onParty?.(this.party);
+    } else if (msg.t === 'partyInvite') {
+      this.invite = (msg as { invite?: PartyInviteView | null }).invite ?? null;
+      this.inviteHeard = performance.now();
+      this.onInvite?.(this.invite);
+    } else if (msg.t === 'notice') this.onNotice?.(msg.text ?? '');
   }
 
   /** The connection closed (`code`: the WebSocket's close code). Keeps trying until it's back. */

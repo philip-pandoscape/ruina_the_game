@@ -11,7 +11,30 @@ import { SkyView, seaFar, SKY_HORIZON } from './sky';
 import { FoliageView } from './foliage';
 import { ZoneDressing } from './dressing';
 import { WorldPost } from './post';
+import { FallsView } from './falls';
+import { GrottoView } from './grotto';
+import { DungeonView } from './dungeonView';
+import type { DungeonDef } from '../../sim/zone/dungeon';
 import type { Models } from './models';
+import type { DungeonDoor, WaterfallInfo } from '../../sim/zone/types';
+
+/** Whether a crag `r` across at (x, z) would cover a waterfall's slot or the water falling down it. */
+function overFalls(falls: WaterfallInfo[], x: number, z: number, r: number): boolean {
+  return falls.some((f) => {
+    const s = (x - f.cx) * f.ux + (z - f.cz) * f.uz;
+    const t = (x - f.cx) * f.vx + (z - f.cz) * f.vz;
+    return s > f.lip - r - 2 && s < f.foot + r && Math.abs(t) < f.width / 2 + 1.6 + r;
+  });
+}
+
+/** The dungeon door whose portal stands on a waterfall's ledge, if one does. */
+function doorOn(f: WaterfallInfo, doors: DungeonDoor[]): DungeonDoor | undefined {
+  return doors.find((d) => {
+    const s = (d.portal.x - f.cx) * f.ux + (d.portal.z - f.cz) * f.uz;
+    const t = (d.portal.x - f.cx) * f.vx + (d.portal.z - f.cz) * f.vz;
+    return s >= f.shelf.s0 - 1 && s <= f.shelf.s1 && Math.abs(t) < f.width / 2;
+  });
+}
 
 // Everything around the player in an open world: lights, sky, sea, ground, trees and buildings.
 // Same surface as the training Stage (renderer, scene, follow, resize) so main.ts drives either.
@@ -28,6 +51,9 @@ export class OpenStage {
   readonly sky: SkyView;
   readonly foliage: FoliageView;
   readonly dressing: ZoneDressing;
+  /** The island's waterfalls, and the goblins' ledges behind them. */
+  readonly falls: FallsView;
+  readonly grottos: GrottoView[];
   readonly hemi: THREE.HemisphereLight;
   /** The new look's screen effects; null in the classic look, which draws straight to the screen. */
   readonly post: WorldPost | null;
@@ -75,13 +101,16 @@ export class OpenStage {
     this.sky = new SkyView(SUN_DIR);
     this.terrain = new TerrainView(hf);
     this.water = new WaterView(hf);
-    this.foliage = new FoliageView(hf, world.obstacles, zone.gen.clear, world.seed);
+    const falls = zone.gen.falls ?? [];
+    this.foliage = new FoliageView(hf, world.obstacles, zone.gen.clear, world.seed, (x, z, r) => overFalls(falls, x, z, r));
     this.dressing = new ZoneDressing(world, models);
-    this.scene.add(this.sky.group, this.terrain.group, this.water.mesh, this.foliage.group, this.dressing.group);
+    this.falls = new FallsView(falls);
+    this.grottos = falls.map((f) => new GrottoView(f, doorOn(f, zone.recipe.dungeons ?? [])));
+    this.scene.add(this.sky.group, this.terrain.group, this.water.mesh, this.foliage.group, this.dressing.group, this.falls.group, ...this.grottos.map((g) => g.group));
     this.post = NEW_LOOK ? new WorldPost(this.renderer, this.scene) : null;
     if (this.post) this.post.base = hf.water;
     // Other isles on the horizon, past where anyone can go (src/render/open/horizon.ts).
-    if (NEW_LOOK) this.scene.add(horizonIsles(hf.min + hf.size / 2, hf.min + hf.size / 2, hf.water));
+    if (NEW_LOOK) this.scene.add((this.isles = horizonIsles(hf.min + hf.size / 2, hf.min + hf.size / 2, hf.water)));
   }
 
   /** Keeps the sun's shadow box centred on the player, wherever they are and however high. */
@@ -96,6 +125,8 @@ export class OpenStage {
    * dusk turn gold; at night a moon lights the isle a cool blue (bright enough to play by).
    */
   setTime(hour: number, sunrise: number, sunset: number): void {
+    // Inside a dungeon there's no sky to light it: its own light, whatever the hour.
+    if (this.inside) return this.lightInside();
     const C = (hex: number) => this.c1.setHex(hex);
     const day = Math.min(1, Math.max(0, (hour - (sunrise - 0.75)) / 1.5)) * Math.min(1, Math.max(0, (sunset + 0.75 - hour) / 1.5));
     const u = (hour - sunrise) / (sunset - sunrise);
@@ -121,6 +152,7 @@ export class OpenStage {
     if (this.scene.fog) (this.scene.fog as THREE.Fog).color.copy(horizon);
     this.sky.setLight(top, horizon, sun, sunCol, night, moon);
     this.water.setBrightness(1 - night * 0.55, gold);
+    this.falls.setBrightness(1 - night * 0.6);
     // The new look's sea reflects the sky a little above the horizon, and the sun (or moon) glints on it.
     if (NEW_LOOK) this.water.setSky(this.sunDir, night > 0.6 ? C(light.moon) : sunCol, horizon.clone().lerp(top, 0.3), 1 - night * 0.7);
     if (this.post) {
@@ -136,6 +168,65 @@ export class OpenStage {
       glowMaterial().color.setScalar(1.1 + night * 1.6);
       windowGlow.value = Math.max(0, night - 0.25) / 0.75;
     }
+  }
+
+  // ---------- Inside a dungeon ----------
+
+  private dungeons = new Map<string, DungeonView>();
+  /** The isles on the horizon (the new look), put away with the rest of the island inside a dungeon. */
+  private isles: THREE.Object3D | null = null;
+  private inside: DungeonView | null = null;
+
+  /** The dungeon you're inside a copy of, drawn (null out on the island). */
+  get dungeon(): string | null {
+    return this.inside?.def.id ?? null;
+  }
+
+  /** Into a dungeon: its cave drawn round its origin, the island put away, the cave's own light. */
+  enterDungeon(def: DungeonDef): void {
+    let view = this.dungeons.get(def.id);
+    if (!view) {
+      view = new DungeonView(def);
+      this.dungeons.set(def.id, view);
+      this.scene.add(view.group);
+    }
+    if (this.inside && this.inside !== view) this.inside.group.visible = false;
+    view.group.visible = true;
+    this.inside = view;
+    for (const o of this.outdoors()) o.visible = false;
+    this.lightInside();
+  }
+
+  /** Back out on the island: the cave put away, the island drawn again, lit by the sky (the next setTime). */
+  leaveDungeon(): void {
+    if (this.inside) this.inside.group.visible = false;
+    this.inside = null;
+    for (const o of this.outdoors()) o.visible = true;
+    (this.scene.background as THREE.Color).set(SKY_HORIZON);
+  }
+
+  private outdoors(): THREE.Object3D[] {
+    return [this.sky.group, this.terrain.group, this.water.mesh, this.foliage.group, this.dressing.group, this.falls.group, ...this.grottos.map((g) => g.group), ...(this.isles ? [this.isles] : [])];
+  }
+
+  /**
+   * A cave's light: a dim cool fill, and the daylight through the falls at its south end as the one
+   * light that casts shadows; its torches are in its own colours (dungeonView.ts).
+   */
+  private lightInside(): void {
+    const dark = this.c2.setHex(0x07090b);
+    this.hemi.color.setHex(0x6d8a96);
+    this.hemi.groundColor.setHex(0x3b2b1f);
+    this.hemi.intensity = 0.55;
+    this.sunDir.set(0, 0.4, -1).normalize();
+    this.sun.color.setHex(0xa6dbe4);
+    this.sun.intensity = NEW_LOOK ? 1.1 : 0.9;
+    (this.scene.background as THREE.Color).copy(dark);
+    if (this.scene.fog) {
+      const fog = this.scene.fog as THREE.Fog;
+      fog.color.copy(dark);
+    }
+    if (this.post) this.post.setAtmosphere({ fog: dark, seaFar: dark, sun: this.c1.setHex(0xa6dbe4), sunDir: this.sunDir, sunGlow: 0, exposure: POST.exposure });
   }
 
   resize(width: number, height: number): void {
@@ -156,5 +247,11 @@ export class OpenStage {
     this.sky.update(this.time, camera.position.x, camera.position.z);
     this.foliage.update(playerX, playerZ);
     this.dressing.update(this.time);
+    const fov = (camera as THREE.PerspectiveCamera).fov ?? 50;
+    this.falls.update(this.time, this.renderer.getDrawingBufferSize(this.bufferSize).y, fov);
+    for (const g of this.grottos) g.update(this.time);
+    this.inside?.update(this.time);
   }
+
+  private bufferSize = new THREE.Vector2();
 }

@@ -201,6 +201,11 @@ export class WorldPeers {
     if (changed) this.onGroundChanged?.();
   }
 
+  /** You've gone somewhere else (into a dungeon's copy, or back out): everyone you saw is gone from view. */
+  everyoneLeft(): void {
+    for (const id of this.peers.keys()) this.left(id);
+  }
+
   private left(id: number): void {
     const p = this.peers.get(id);
     if (!p) return;

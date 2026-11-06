@@ -1,4 +1,5 @@
 import { spawn, type ChildProcess } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
 import { SERVER_EXE, serverBuilt } from './testServer';
 
@@ -138,6 +139,32 @@ test('a server update freezes the world and says so, and play carries on where i
   expect(await game(page, (g) => g.online().character)).toEqual(who);
   expect(await game(page, (g) => g.life().coins)).toBe(start + 300);
   expect(await standsStill(page, 600)).toBe(false);
+});
+
+test("a server update while you're in a dungeon brings you back outside its door, the cave put away", async ({ page }) => {
+  // A restarted server has no copies of dungeons: it saved your island as standing outside the door.
+  const door = JSON.parse(readFileSync('shared/zones/emberholm.json', 'utf8')).dungeons.find((d: { id: string }) => d.id === 'goblinsDread');
+  await page.goto(`${BASE}/?as=${fresh('dun')}&bugs=0`);
+  await playing(page);
+  await page.evaluate(([x, z, f]) => (window as any).__game.teleport(x, z, f), [door.outside.x, door.outside.z, door.outside.facing]);
+  await expect.poll(async () => {
+    const p = await game(page, (g) => g.state().player.pos);
+    return Math.hypot(p.x - door.outside.x, p.z - door.outside.z);
+  }, { timeout: 30_000 }).toBeLessThan(1);
+  await game(page, (g) => g.throughPortal(true));
+  await expect.poll(() => game(page, (g) => g.dungeon().inside), { timeout: 30_000 }).toBe('goblinsDread');
+
+  expect((await page.request.post(`${BASE}/api/dev/stop`)).ok()).toBe(true);
+  await server.exited();
+  const heard = await game(page, (g) => g.online().ticks);
+  await server.start();
+  await playing(page, heard + 3);
+  expect(await game(page, (g) => g.space().kind)).toBe('channel');
+  expect(await game(page, (g) => g.dungeon().inside)).toBe(null);
+  await expect.poll(async () => {
+    const p = await game(page, (g) => g.state().player.pos);
+    return Math.hypot(p.x - door.outside.x, p.z - door.outside.z);
+  }, { timeout: 30_000 }).toBeLessThan(2);
 });
 
 test('a dropped connection freezes the world, and play comes back by itself', async ({ page }) => {

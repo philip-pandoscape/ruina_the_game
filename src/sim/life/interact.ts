@@ -19,6 +19,7 @@ import { buildShipStage, deliverShipMaterial, designItemsInBag, launch, layKeel,
 import { shipDesign, designForItem } from '../../content/shipyard';
 import { questDef } from '../../content/quests';
 import { CHALLENGE } from '../../content/minigames';
+import { dungeonDef, inWorld } from '../zone/dungeon';
 
 // What pressing F does right now, and the commands everything else sends. The focus is worked out
 // every step from what is near you and in front of you, so the prompt on screen is always exactly
@@ -28,7 +29,7 @@ export type FocusAction =
   | 'talk' | 'sell' | 'craft' | 'pickup' | 'board' | 'ride' | 'load' | 'unload' | 'exit'
   | 'plant' | 'water' | 'harvest' | 'fell' | 'gather' | 'claim' | 'deliver' | 'build'
   | 'rest' | 'storage' | 'tax' | 'placeScarecrow' | 'keel' | 'shipDeliver' | 'shipBuild' | 'launch' | 'feed' | 'collect' | 'info'
-  | 'challenge';
+  | 'challenge' | 'enterDungeon' | 'leaveDungeon';
 
 export interface Focus {
   action: FocusAction;
@@ -47,6 +48,8 @@ export interface Focus {
   host?: number;
   /** A challenge: the other player (their character). */
   other?: number;
+  /** A dungeon's portal: which dungeon (shared/dungeons). */
+  dungeon?: string;
   slot?: number;
   sc?: number;
   cell?: number;
@@ -325,6 +328,23 @@ export function findFocus(life: Life, sim: Sim): Focus | null {
     }
     const t = taxDue(life, h);
     if (Math.abs(lz) > 5) consider({ action: 'tax', key: `tax:${h.id}`, label: `Pay Property Tax (${formatCoins(t.owed)})`, detail: t.dueIn > 0 ? `Paid for ${shortTime(t.dueIn)}` : 'Overdue', ok: true, house: h.id, x: plot.x, y, z: plot.z }, d + 1, 9);
+  }
+
+  // A dungeon's portal: into your party's copy of it from its door on the island, or back out
+  // from inside (src/app/dungeonVisit.ts takes you through; online the server does).
+  if (p.mode === 'normal') {
+    const inside = life.dungeon ? dungeonDef(life.dungeon) : undefined;
+    if (inside) {
+      const at = inWorld(inside, inside.exit.x, inside.exit.z);
+      const d = Math.hypot(at.x - p.pos.x, at.z - p.pos.z);
+      consider({ action: 'leaveDungeon', key: `dungeon:${inside.id}:leave`, label: `Leave ${inside.name}`, detail: back ? 'Put your pack down first' : undefined, ok: !back, dungeon: inside.id, x: at.x, y: p.pos.y, z: at.z }, d, inside.exit.r);
+    } else
+      for (const door of life.zone.recipe.dungeons ?? []) {
+        const def = dungeonDef(door.id);
+        const d = Math.hypot(door.portal.x - p.pos.x, door.portal.z - p.pos.z);
+        if (!def || Math.abs(p.pos.y - door.portal.y) > 3) continue;
+        consider({ action: 'enterDungeon', key: `dungeon:${door.id}`, label: `Enter ${def.name}`, detail: back ? 'Put your pack down first' : `Dungeon · Up to ${def.maxPlayers} Players`, ok: !back, dungeon: door.id, x: door.portal.x, y: door.portal.y, z: door.portal.z }, d, door.portal.r);
+      }
   }
 
   // Online, another player close by: challenge them to a mini-game (src/ui/minigames asks the

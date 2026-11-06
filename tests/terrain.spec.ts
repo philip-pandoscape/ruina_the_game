@@ -66,10 +66,18 @@ test("the server's copy of the island is current", () => {
 
 test('the server and the browser agree on the ground', () => {
   test.skip(!existsSync(CHECK), 'build the server first: cargo build --release --manifest-path server/Cargo.toml');
-  const hf = generateZone(EMBERHOLM).terrain;
+  const gen = generateZone(EMBERHOLM);
+  const hf = gen.terrain;
   const rng = makeRng(20261104);
   const points: Array<[number, number]> = [];
   for (let i = 0; i < 2000; i++) points.push([hf.min - 20 + rng() * (hf.size + 40), hf.min - 20 + rng() * (hf.size + 40)]);
+  // And densely over the waterfalls' slots, ledges and pools, a small patch the scatter above may miss.
+  for (const f of gen.falls)
+    for (let k = 0; k < 400; k++) {
+      const s = f.lip - 8 + rng() * (f.foot - f.lip + 12);
+      const t = (rng() - 0.5) * (f.width + 8);
+      points.push([f.cx + f.ux * s + f.vx * t, f.cz + f.uz * s + f.vz * t]);
+    }
   // Heights, slopes and surfaces at each point.
   const server = JSON.parse(execFileSync(CHECK, { input: JSON.stringify(points) }).toString()) as Array<[number, number, number]>;
   let worst = 0;

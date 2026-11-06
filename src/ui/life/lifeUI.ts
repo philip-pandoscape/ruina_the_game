@@ -31,13 +31,14 @@ import { closeMenu, menuPress, openMenu, type MenuEntry } from '../theme/context
 import type { Vitals } from '../../render/hud';
 import type { AutoWalk } from '../../app/autoWalk';
 import { TravelUI } from './travelUI';
+import { dungeonDef } from '../../sim/zone/dungeon';
 
 // The open world's HUD and windows. Everything here only reads the life state and queues commands;
 // nothing in the UI changes the world directly. Windows dock at the side and leave the world
 // running (the map is the one that takes over), the bag docks on the right, and the person you talk
 // to looks out of the corner of the window.
 
-export type LifePress = 'interact' | 'drop' | 'mount' | 'glider' | 'seed' | 'autorun' | 'bag' | 'map' | 'garage' | 'quests' | 'character' | 'settings' | 'escape' | 'dev';
+export type LifePress = 'interact' | 'drop' | 'mount' | 'glider' | 'seed' | 'autorun' | 'bag' | 'map' | 'garage' | 'quests' | 'character' | 'party' | 'settings' | 'escape' | 'dev';
 
 export interface LifeUIDeps {
   life: Life;
@@ -226,6 +227,19 @@ export class LifeUI {
       this.travel = new TravelUI({ walk: d.walk, world: d.world, places: () => this.life.zone.recipe.places, player, device: d.device, toast: (t, k) => this.toast(t, k) });
       this.travel.attachMap(this.bigMap);
     }
+  }
+
+  /**
+   * Adds a button to the menu at the bottom right, before Settings (the Party window, online): it
+   * presses `press` as its key does.
+   */
+  addMenuButton(press: LifePress, icon: string, label: string, key: string): void {
+    const b = document.createElement('div');
+    b.className = 'hud-mbtn';
+    b.dataset.press = press;
+    b.title = `${label}${key ? ` (${key})` : ''}`;
+    b.innerHTML = `${icon}${key ? `<span class="k">${key}</span>` : ''}<span class="lbl">${label}</span>`;
+    this.menuEl.insertBefore(b, this.menuEl.querySelector('[data-press="settings"]'));
   }
 
   /** The NPC whose dialog, shop or workshop is open, if any. */
@@ -519,7 +533,9 @@ export class LifeUI {
 
     this.updateVitals();
     this.updatePortrait();
-    if (this.frameNo % 2 === 0) this.drawMinimap();
+    // Inside a dungeon the island's map has nothing to show of where you are.
+    this.minimap.style.display = this.life.dungeon ? 'none' : '';
+    if (this.frameNo % 2 === 0 && !this.life.dungeon) this.drawMinimap();
     this.updateClock();
     this.updateCompass();
     this.updateBanner(dt);
@@ -908,9 +924,13 @@ export class LifeUI {
         here = pl.id;
       }
     }
+    // Inside a dungeon, its name: nowhere on the island is here.
+    const dungeon = this.life.dungeon ? dungeonDef(this.life.dungeon) : undefined;
+    if (dungeon) here = `dungeon:${dungeon.id}`;
     if (here && here !== this.bannerPlace) {
-      const pl = this.life.zone.recipe.places.find((x) => x.id === here)!;
-      this.banner.innerHTML = `<div class="name">${esc(pl.name)}</div><div class="sub">${esc(this.life.zone.recipe.name)}</div>`;
+      const pl = this.life.zone.recipe.places.find((x) => x.id === here);
+      const [name, sub] = dungeon ? [dungeon.name, 'Dungeon'] : [pl?.name ?? '', this.life.zone.recipe.name];
+      this.banner.innerHTML = `<div class="name">${esc(name)}</div><div class="sub">${esc(sub)}</div>`;
       this.banner.classList.add('show');
       this.bannerTime = 0;
     }
@@ -1868,7 +1888,9 @@ export class LifeUI {
 
   private devView(): View {
     const life = this.life;
-    const places = life.zone.recipe.places.map((pl) => `<button class="lui-btn small" data-act="tp" data-arg="${pl.id}">${esc(pl.name)}</button>`).join('');
+    // The dungeons' doors too (they're no place on the map: the way in is a secret).
+    const doors = (life.zone.recipe.dungeons ?? []).map((d) => `<button class="lui-btn small" data-act="tp" data-arg="door:${d.id}">${esc(dungeonDef(d.id)?.name ?? d.id)} Door</button>`);
+    const places = life.zone.recipe.places.map((pl) => `<button class="lui-btn small" data-act="tp" data-arg="${pl.id}">${esc(pl.name)}</button>`).join('') + doors.join('');
     return {
       title: 'Developer Tools',
       sub: 'For trying things out quickly. ` toggles this window.',
@@ -1906,8 +1928,12 @@ export class LifeUI {
         },
         warp: (s) => life.command({ t: 'warp', seconds: Number(s) }),
         tp: (id) => {
-          const pl = life.zone.recipe.places.find((x) => x.id === id)!;
-          this.onTeleport?.(pl.x, pl.z);
+          const door = id.startsWith('door:') ? life.zone.recipe.dungeons?.find((d) => d.id === id.slice(5)) : undefined;
+          if (door) this.onTeleport?.(door.outside.x, door.outside.z, door.outside.facing + Math.PI);
+          else {
+            const pl = life.zone.recipe.places.find((x) => x.id === id)!;
+            this.onTeleport?.(pl.x, pl.z);
+          }
           this.finish();
         },
         reset: () => this.onReset?.(),
@@ -1922,7 +1948,7 @@ export class LifeUI {
   }
 
   /** Set by the app: move the player somewhere (dev panel). */
-  onTeleport: ((x: number, z: number) => void) | null = null;
+  onTeleport: ((x: number, z: number, facing?: number) => void) | null = null;
   onReset: (() => void) | null = null;
   /** Set by the app online: leave the world for the character select screen (Settings offers it). */
   onExitToSelect: (() => void) | null = null;

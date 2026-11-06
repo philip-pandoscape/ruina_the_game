@@ -78,6 +78,12 @@ export class ActorTimeline {
   /** Counts every note ever made, so a reader can tell which ones it has seen. */
   hurtCount = 0;
 
+  /** Forgets everything heard (you've gone somewhere else: a dungeon's copy, or back out of it). */
+  reset(): void {
+    this.snaps = [];
+    this.hurts.length = 0;
+  }
+
   /** A new update from the server: what it says is out there as of `tick`, arriving at `now`. */
   push(tick: number, actors: readonly NetActor[], now: number): void {
     let last: Snapshot | undefined = this.snaps[this.snaps.length - 1];

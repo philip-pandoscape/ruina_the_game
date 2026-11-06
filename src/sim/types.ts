@@ -237,6 +237,11 @@ export interface World {
   /** The recipe and everything generated from it. */
   zone?: ZoneData;
   /**
+   * Where someone knocked down gets up again instead of the island's spawn: in a copy of a dungeon,
+   * where it's entered (server/src/open/dungeon.rs make_dungeon does the same).
+   */
+  respawnAt?: { x: number; y: number; z: number; facing: number };
+  /**
    * Online: everyone else's vehicles in your channel, as circles where they are this step, which you
    * bump into like your own. The server keeps the channel's (server/src/world_game.rs); the browser
    * fills in the others as it draws them (src/net/worldPeers.ts).

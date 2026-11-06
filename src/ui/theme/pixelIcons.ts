@@ -62,6 +62,7 @@ const ICONS: Record<string, Icon> = {
   map: { rows: ['............', '############', '#cccssss#c##', '#cccssssc#c#', '#cccssss#c##', '#cccssssccc#', '#cccss#sccc#', '#ccc#sssccc#', '#cccssssccc#', '#c#cssssccc#', '#cccssssccc#', '############'] },
   scroll: { rows: ['.##########.', '#ssssssssss#', '.#cccccccc#.', '.#c######c#.', '.#cccccccc#.', '.#c#####cc#.', '.#cccccccc#.', '.#c####ccc#.', '.#cccccccc#.', '#ssssssssss#', '.##########.', '............'] },
   star: { rows: ['.....#......', '....#c#.....', '....#c#.....', '#####c#####.', '#ccccccccc#.', '.#ccccccc#..', '..#ccccc#...', '..#cc#cc#...', '.#cc#.#cc#..', '.#c#...#c#..', '.##.....##..', '............'] },
+  party: { rows: ['..##....##..', '.#cc#..#cc#.', '.#cc#..#cc#.', '..##....##..', '.####..####.', '#cccc##cccc#', '#cccc##cccc#', '#c#cc##cc#c#', '#c#cc##cc#c#', '..#c#..#c#..', '..#c#..#c#..', '..###..###..'] },
   person: { rows: ['....####....', '...#cccc#...', '...#cccc#...', '...#cccc#...', '....####....', '..########..', '.#cccccccc#.', '#cc#cccc#cc#', '#cc#cccc#cc#', '...#cc#c#...', '...#cc#c#...', '...##.###...'] },
   gear: { rows: ['.....##.....', '..#.#cc#.#..', '.#c#cccc#c#.', '..#cc##cc#..', '.#cc#..#cc#.', '#cc#....#cc#', '#cc#....#cc#', '.#cc#..#cc#.', '..#cc##cc#..', '.#c#cccc#c#.', '..#.#cc#.#..', '.....##.....'] },
   wheel: { rows: wheelRows() },

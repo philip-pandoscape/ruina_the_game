@@ -246,6 +246,12 @@ export class Life implements LifeHooks {
   othersAround: (() => OtherPlayer[]) | null = null;
 
   /**
+   * The dungeon you're inside a copy of (shared/dungeons/<id>.json), null out on the island: the
+   * portals' prompts read it (src/app/dungeonVisit.ts keeps it). Not part of the island.
+   */
+  dungeon: string | null = null;
+
+  /**
    * Online: the world's clock (the server's, in seconds since 1970), which the rain and the wind run
    * on so that everyone has the same weather (weather.ts); null runs them on the island's own clock.
    */

@@ -23,6 +23,15 @@ export class FollowCamera {
    * the way, 0..1 (buildings in an open world); null when nothing ever blocks it.
    */
   blocker: ((fx: number, fy: number, fz: number, cx: number, cy: number, cz: number) => number) | null = null;
+  /**
+   * A hood of rock over the player (the goblins' ledge behind the falls): how high the eye may go
+   * under it, and whether a point is still under it. Null in the open. There the ground's height is
+   * no floor to lift the eye to - the ground behind is the cliff above the hood - so the eye stays
+   * under the hood instead, pulled in short of any rock between it and the player.
+   */
+  ceiling: ((x: number, y: number, z: number) => { eye: number; under: (x: number, z: number) => boolean } | null) | null = null;
+  /** The bare ground's height (no padding), for the pull-in under a hood. */
+  terrainAt: ((x: number, z: number) => number) | null = null;
   private reach = 1; // eased: snaps in when blocked, drifts back out when clear
 
   constructor(aspect: number, far = 320, private maxDistance = 14) {
@@ -110,7 +119,21 @@ export class FollowCamera {
     const cx = look.x - Math.sin(this.yaw) * flat;
     const cz = look.z - Math.cos(this.yaw) * flat;
     const floor = this.groundAt ? this.groundAt(cx, cz) : 0.4;
-    cam.position.set(cx, Math.max(floor, look.y + distance * Math.sin(pitch)), cz);
+    const hood = this.ceiling?.(look.x, look.y, look.z) ?? null;
+    if (hood && this.terrainAt) {
+      const cy = Math.min(look.y + distance * Math.sin(pitch), hood.eye);
+      let t = 1;
+      for (let k = 1; k <= 32; k++) {
+        const u = k / 32;
+        const x = look.x + (cx - look.x) * u;
+        const z = look.z + (cz - look.z) * u;
+        if (!hood.under(x, z) || this.terrainAt(x, z) + 0.35 > look.y + (cy - look.y) * u) {
+          t = Math.max(0.08, (k - 1.5) / 32);
+          break;
+        }
+      }
+      cam.position.set(look.x + (cx - look.x) * t, look.y + (cy - look.y) * t, look.z + (cz - look.z) * t);
+    } else cam.position.set(cx, Math.max(floor, look.y + distance * Math.sin(pitch)), cz);
     if (this.blocker) {
       const free = this.blocker(look.x, look.y, look.z, cam.position.x, cam.position.y, cam.position.z);
       this.reach = free < this.reach ? free : this.reach + (free - this.reach) * (1 - Math.exp(-4 * dt));

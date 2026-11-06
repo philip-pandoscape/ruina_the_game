@@ -1165,6 +1165,60 @@
         "src/render/studio.ts",
         "src/render/portrait.ts"
       ]
+    },
+    {
+      "system": "world",
+      "status": "done",
+      "title": "The Windspire's waterfall, and the way into Goblin's Dread",
+      "notes": "A spring pool beside the launch deck spills over the lip and falls free down a slot cut in the south-west face into a plunge pool at the foot (recipe `falls`, cut after the tree and rock scatter so nothing else on the island moves). Behind the curtain, 85 m up, a ledge under a hood of rock: you only get there by gliding in (dropping off the summit lands you on the hood). On it the goblins' landing stage, catch nets, a totem, lanterns, cave drawings, and the portal: F takes you into your party's copy of Goblin's Dread. The pools are under half a metre deep in the rules (no wading or swimming yet).",
+      "files": [
+        "shared/zones/emberholm.json",
+        "src/sim/zone/generate.ts",
+        "src/render/open/falls.ts",
+        "src/render/open/grotto.ts",
+        "src/render/open/goblinKit.ts",
+        "src/render/camera.ts",
+        "tests/dungeon-way-in.spec.ts"
+      ]
+    },
+    {
+      "system": "world",
+      "status": "done",
+      "title": "Goblin's Dread, the first dungeon: its inner grotto",
+      "notes": "An instanced dungeon (shared/dungeons/goblinsDread.json): its floors and walls stand round a spot high above the sea north of the island and are solid only in a copy of it (src/sim/zone/dungeon.ts, server/src/open/dungeon.rs), drawn with the island put away (src/render/open/dungeonView.ts: rock shell, the back of the falls glowing at the south end with the way out, landing stage, lookout with a pot gong, totem, torches, the tunnel north to a goblin barricade). Cave light: no sun, a cool fill and the daylight through the falls. Anyone knocked down or falling out gets up where it's entered. The rest of the lair (the Warren, its three wings, the chief's hall) is the concept art's plan, not built yet.",
+      "files": [
+        "shared/dungeons/goblinsDread.json",
+        "src/sim/zone/dungeon.ts",
+        "src/render/open/dungeonView.ts",
+        "src/app/dungeonVisit.ts",
+        "server/src/open/dungeon.rs"
+      ]
+    },
+    {
+      "system": "tech",
+      "status": "done",
+      "title": "Parties",
+      "notes": "Up to five players, as groups in World of Warcraft: anyone not in a party invites someone who isn't either and leads the party made when they accept; in a party only the leader invites, removes someone or hands on the lead; anyone leaves; a party of one is no party; offline members stay in it. Invite by name (any channel or dungeon) or from the players near you in the Party window (O, or the menu's Party button); an invitation asks in a window of its own for a minute. The party frame under your portrait shows the others' health while they're near and where they are when they're not, and the party's copy of a dungeon. Kept in the server's memory (a restart ends parties).",
+      "files": [
+        "server/src/parties.rs",
+        "server/src/spaces.rs",
+        "src/ui/party/partyUI.ts",
+        "src/net/worldLink.ts",
+        "tests/party.spec.ts"
+      ]
+    },
+    {
+      "system": "tech",
+      "status": "done",
+      "title": "Dungeon copies (instances)",
+      "notes": "Through a dungeon's portal your party goes into its own copy (someone on their own, into theirs), a game like a channel (ChannelGame with a Copy space) ticked by the same world thread. A copy is kept 30 minutes after the last player leaves it, and whoever comes back within that finds it as they left it; whoever is in a copy but no longer in its party is warned and put out after a minute; a party that forms takes over its leader's copy, and one that breaks up leaves it to whoever was left. A copy holds the dungeon's maxPlayers. Moving between games takes the player out whole, with their connection and island, and their browser hears `space` (WORLD_PROTOCOL 7). Islands in a copy are saved as standing outside its door, so a restart puts you back on the ledge; reconnecting within the half hour puts you back inside.",
+      "files": [
+        "server/src/spaces.rs",
+        "server/src/world_game.rs",
+        "server/src/world_socket.rs",
+        "src/net/worldLink.ts",
+        "src/main.ts"
+      ]
     }
   ],
   "next": [
@@ -1172,12 +1226,13 @@
     "Shared world, next: trading-post demand and gathering nodes shared by a channel (the time of day, rain and wind are shared now; these are still each island's own); choosing a channel (to join a friend in another one); others' parked vehicles while they're away.",
     "World server, next: islands in proper tables rather than one document each, if querying them (trading-post history, guild storage) needs it; bandwidth: send other players less often when they are far away.",
     "Skills, next: balance the tree (its numbers are first guesses: a keystone is 8 to 13 points from nothing, Emberholm gives 31 in all); notables and keystones that do new things, not only bigger numbers; life skills (farming, crafting, sailing) that level by use the same way.",
-    "Quests, next: Share (the quest log's third button in the prototype) once there are parties to share with.",
+    "Quests, next: Share (the quest log's third button in the prototype), now that there are parties to share with.",
     "After the beta playtest: appearance for characters (they differ only by weapon); steps or a ramp for the western pier, now that a deck too high to step onto is a wall; stamina for sprinting, if wanted; other players' hits sparking on monsters, not only flashing.",
     "Riding along, next: walking a moving ship's deck; the owner seeing (and turning out) who rides with them; vehicles bumping into each other, not only into people.",
     "Travel by road, next: sea lanes for boats; a key to clear the map marker; check the six-metre hauler across the town square.",
     "The look, next: made models for the vehicles' hulls and the trade packs (their seats, oars, rigging, straps and sealed hulls need fitting by hand); the player's cottage as a made model at each build stage; bushes and hedges along the fields; surf around the crags; a graphics setting in the Settings window instead of the automatic guess; the townsfolk as made bodies, playing the same clips; choosing a look in Create Character (skin, hair, outfit dyes); more moves from clips (a block, the roll, hits and a death from Quaternius' free set; the bow, the staff and the whirlwind from Meshy).",
-    "Mini-games, next: more games at the same tables (the Rules trait in server/src/minigames takes any turn-based game for two); a controller in the game window; onlookers opening the board to watch; the table solid and monsters leaving players at a table alone; the challenge prompt winning over a nearby plot or townsperson when you face a player."
+    "Mini-games, next: more games at the same tables (the Rules trait in server/src/minigames takes any turn-based game for two); a controller in the game window; onlookers opening the board to watch; the table solid and monsters leaving players at a table alone; the challenge prompt winning over a nearby plot or townsperson when you face a player.",
+    "Goblin's Dread, next: the level plan from the concept art (the Warren hub; the water, wind and war wings with the jump puzzles; the sunbeam door; the chief's hall and the stolen lighthouse lens), with the goblins from the goblin session; moving platforms (waterwheels, swinging planks); water you can wade and swim in above sea level (the plunge pool, the cistern); a controller button for the Party window; party-only healing and loot."
   ],
   "questions": [
     {
@@ -1413,6 +1468,18 @@
         "Weapons: Meshy's sword, club, staff and bow where the box ones were, shining with the sky's light, carried at the hip and across the back.",
         "Moves: Quaternius' sword combo and heavy combo on the sword and club, Meshy's Triple Combo Attack as the sword's other set; retarget.ts, moves.ts, /retarget.html, tests/retarget.spec.ts, the retarget-animation skill.",
         "Tools: npm run image (Gemini), tools/models/weaponprep.mjs, tools/models/clips.mjs."
+      ]
+    },
+    {
+      "date": "2026-11-05",
+      "title": "Goblin's Dread: the way in, parties and dungeon copies",
+      "summary": "Concept art for the first dungeon (a goblin lair inside the Windspire, entered by gliding into its waterfall: 15 Nano Banana Pro paintings, all kept), then the way in, parties and World of Warcraft-style instances, built so you can try the glide in before the rest of the lair is planned.",
+      "points": [
+        "The Windspire's waterfall: a spring by the launch deck, a slot cut in the face, a ledge behind the curtain only a glider reaches, the portal on it.",
+        "Goblin's Dread's inner grotto, solid and drawn only in a copy of it, high above the sea.",
+        "Parties: invite by name or nearby (O), the party frame, leader, kick, lead, leave.",
+        "Dungeon copies: one per party (or player), kept 30 minutes after everyone leaves; moving between games mid-connection (server/src/spaces.rs).",
+        "Tests: tests/party.spec.ts (online), tests/dungeon-way-in.spec.ts, Rust unit tests for parties and spaces."
       ]
     }
   ]

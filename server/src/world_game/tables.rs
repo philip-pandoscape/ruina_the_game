@@ -154,7 +154,7 @@ impl ChannelGame {
     }
 
     /// Something for `id` to read: at once if they're here, when they're back if they're away.
-    fn toast(&mut self, id: i64, text: impl Into<String>, kind: &str) {
+    pub(crate) fn toast(&mut self, id: i64, text: impl Into<String>, kind: &str) {
         let life = if self.members.contains_key(&id) { self.players.open_mut(client(id)).and_then(|(_, l)| l) } else { self.lingering.get_mut(&id).map(|l| &mut *l.life) };
         if let Some(life) = life {
             life.toast(text, kind);

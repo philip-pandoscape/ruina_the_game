@@ -305,6 +305,18 @@ export class NetCrowd implements CrowdSource {
     return n;
   }
 
+  /**
+   * Open worlds: you've gone into another game (a dungeon's copy, or back out), whose ticks count
+   * from somewhere else: what came before is forgotten, and the clock lines up again on the next.
+   */
+  resetWorld(): void {
+    this.tickOffset = null;
+    this.actors = [];
+    this.arrows = [];
+    this.meteors = [];
+    this.actorTimeline.reset();
+  }
+
   /** Open worlds: one tick from the server (already turned into the battlefield's shapes). */
   applyWorld(tick: number, you: { id: number; ack: number; player: PlayerState }, arrows: ArrowRecord[], meteors: MeteorRecord[], events: EffectEvent[], actors: NetActor[]): void {
     this.noteTick(tick, performance.now());

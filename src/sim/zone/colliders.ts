@@ -53,6 +53,12 @@ export class ColliderIndex {
     if (o) o.r = 0;
   }
 
+  /** Disables a deck the same way (a dungeon's floors, once you've left it). */
+  removeDeck(i: number): void {
+    const d = this.decks[i];
+    if (d) d.top = -Infinity;
+  }
+
   private key(bx: number, bz: number): number {
     return (bx + 2048) * 4096 + (bz + 2048);
   }

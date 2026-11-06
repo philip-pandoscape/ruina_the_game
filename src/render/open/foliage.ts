@@ -239,6 +239,8 @@ export class FoliageView {
     obstacles: readonly Obstacle[],
     private clear: Uint8Array,
     seed: number,
+    /** Somewhere no crag may cover (a waterfall's slot): true if a crag `r` across at (x, z) would. */
+    private keepOff: (x: number, z: number, r: number) => boolean = () => false,
   ) {
     const geo = geometries();
     const rng = makeRng(seed + 1);
@@ -384,6 +386,7 @@ export class FoliageView {
         for (let a = 0; a < 8 && ok; a++) ok = steep(jx + Math.cos(a * 0.785) * 5, jz + Math.sin(a * 0.785) * 5, 1.15);
         if (!ok || hash2(x, z, seed + 419) > 0.6) continue;
         const scale = 5 + hash2(x, z, seed + 421) * 7;
+        if (this.keepOff(jx, jz, scale * 1.1)) continue;
         items.push({ kind: 'rock', x: jx, z: jz, r: 0, scale, rot: hash2(x, z, seed + 431) * Math.PI * 2 });
       }
     if (!items.length) return;

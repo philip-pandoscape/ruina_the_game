@@ -20,6 +20,8 @@ interface Scene {
   camera: { yaw: number; pitch: number; distance: number };
   /** A parked camera instead, for views from the air: where it is and what it looks at (heights above the ground when `ground`). */
   view?: { from: [number, number, number]; to: [number, number, number]; ground?: boolean };
+  /** Inside a copy of this dungeon (shared/dungeons), its floor under you. */
+  dungeon?: string;
 }
 
 // In order of the hour, so the clock only ever runs forward a little.
@@ -29,6 +31,10 @@ const SCENES: Scene[] = [
   { id: 'aerial-isle', x: 0, z: -264, facing: 0, hour: 9.7, camera: { yaw: 0, pitch: 0.2, distance: 9 }, view: { from: [420, 330, -760], to: [0, 0, -60] } },
   { id: 'stalls-closeup', x: 6, z: -250, facing: 0.6, hour: 10, camera: { yaw: 0.6, pitch: 0.16, distance: 6 } },
   { id: 'windspire-cliffs', x: 40, z: 110, facing: 0, hour: 10.5, camera: { yaw: 0, pitch: 0.2, distance: 9 }, view: { from: [95, 26, 70], to: [40, 70, 250] } },
+  // The falls down the Windspire's face (Goblin's Dread's way in), the goblins' ledge behind them, and the inside.
+  { id: 'falls-lanternwick', x: 40, z: 120, facing: 0, hour: 10.6, camera: { yaw: 0, pitch: 0.2, distance: 9 }, view: { from: [76, 62, 112], to: [52, 92, 220] } },
+  { id: 'falls-ledge', x: 50.74, z: 220.49, facing: 5.93, hour: 10.7, camera: { yaw: 5.93, pitch: 0.16, distance: 6 } },
+  { id: 'dungeon-grotto', x: 0, z: 641.5, facing: 0, hour: 10.8, camera: { yaw: 0, pitch: 0.24, distance: 9 }, dungeon: 'goblinsDread' },
   { id: 'windspire-vista', x: 40, z: 227, facing: Math.PI, hour: 11, camera: { yaw: Math.PI, pitch: 0.12, distance: 7 } },
   { id: 'tree-closeup', x: 10, z: -24, facing: 0, hour: 11.2, camera: { yaw: 0, pitch: 0.2, distance: 9 }, view: { from: [12, 3.2, -23], to: [1.6, 6, -10.8], ground: true } },
   { id: 'woods-thornwood', x: -262, z: 116, facing: 0, hour: 11.5, camera: { yaw: 0, pitch: 0.2, distance: 9 }, view: { from: [-258, 3.5, 112], to: [-290, 7, 140], ground: true } },
@@ -71,6 +77,7 @@ for (const look of ['classic', 'new']) {
     const errors = await open(page, look);
     for (const s of SCENES) {
       await setHour(page, s.hour);
+      if (s.dungeon) await page.evaluate((id) => (window as any).__game.visitDungeon(id), s.dungeon);
       await page.evaluate(([x, z, f]) => (window as any).__game.teleport(x, z, f), [s.x, s.z, s.facing] as const);
       await page.evaluate((c) => (window as any).__game.setCamera(c), s.camera);
       await page.evaluate(() => (window as any).__game.advance(40));
@@ -82,6 +89,7 @@ for (const look of ['classic', 'new']) {
       }, s.view ?? null);
       await page.waitForFunction(() => (window as any).__game.assetsReady === true, null, { timeout: 60_000 });
       await page.screenshot({ path: `${SHOTS}/look-${s.id}-${look}.png` });
+      if (s.dungeon) await page.evaluate(() => (window as any).__game.visitDungeon(null));
     }
     await page.evaluate(() => (window as any).__game.viewFrom(null));
     expect(errors).toEqual([]);

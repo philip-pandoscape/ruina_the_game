@@ -441,6 +441,52 @@
         ]
       }
     ],
+    "falls": [
+      {
+        "id": "windspireFalls",
+        "mountain": "windspire",
+        "bearing": -1.2217,
+        "lip": 26,
+        "foot": 74,
+        "width": 10,
+        "blend": 1.6,
+        "floor": [
+          33.5,
+          33.0
+        ],
+        "shelf": {
+          "top": 85,
+          "depth": 8
+        },
+        "roof": {
+          "above": 7,
+          "depth": 8.6
+        },
+        "landing": {
+          "from": 3.6,
+          "to": 8.6,
+          "half": 3,
+          "above": 0.5
+        },
+        "totem": {
+          "at": 3.2,
+          "across": 3.3,
+          "above": 2.6
+        },
+        "spring": {
+          "at": 21.2,
+          "r": 2.7,
+          "depth": 0.38
+        },
+        "plunge": {
+          "at": 43.5,
+          "along": 7,
+          "across": 4.4,
+          "depth": 0.42
+        },
+        "speed": 4
+      }
+    ],
     "sandBelow": 2.3,
     "rockSlope": 1.05
   },
@@ -1205,6 +1251,22 @@
       "r": 11,
       "top": 150,
       "strength": 11
+    }
+  ],
+  "dungeons": [
+    {
+      "id": "goblinsDread",
+      "portal": {
+        "x": 49.714,
+        "y": 85,
+        "z": 223.313,
+        "r": 2.2
+      },
+      "outside": {
+        "x": 50.74,
+        "z": 220.494,
+        "facing": 2.7925
+      }
     }
   ],
   "forests": [

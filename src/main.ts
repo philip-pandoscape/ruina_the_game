@@ -29,7 +29,8 @@ import { makeBattlefield, makeWorld } from './sim/world';
 import { makeZoneWorld } from './sim/zone/world';
 import { OpenStage } from './render/open/stage';
 import { loadModels } from './render/open/models';
-import { groundAt } from './sim/zone/colliders';
+import { groundAt, inRect } from './sim/zone/colliders';
+import type { Deck } from './sim/zone/types';
 import { Life, type Command } from './sim/life/life';
 import { runCommand, type FocusAction } from './sim/life/interact';
 import type { LifeState } from './sim/life/state';
@@ -43,8 +44,10 @@ import { NetOverlay, OnlineBadge, showStopped } from './ui/signIn';
 import { splash } from './ui/splash';
 import { WorldPeers } from './net/worldPeers';
 import { MinigamesUI } from './ui/minigames/minigames';
+import { PartyUI } from './ui/party/partyUI';
+import { pixelIcon } from './ui/theme/pixelIcons';
 import { GameTables, seatedState } from './render/open/gameTables';
-import type { WorldTick, YouState } from './net/worldLink';
+import type { SpaceView, WorldTick, YouState } from './net/worldLink';
 import { addHouseColliders } from './sim/life/housing';
 import { addScarecrowCollider } from './sim/life/farming';
 import { BugReporter } from './app/bugs/reporter';
@@ -69,6 +72,7 @@ import './ui/theme/skills.css';
 import { initUiScale } from './ui/theme/scale';
 import { Portraits } from './render/portrait';
 import { Studio } from './render/studio';
+import { DungeonVisit } from './app/dungeonVisit';
 
 // The UI is laid out on a virtual screen and scaled to the window; start that before anything
 // builds UI.
@@ -196,6 +200,24 @@ const follow = new FollowCamera(innerWidth / innerHeight, battlefield ? 1200 : o
 // Over hills and water the camera must not dip into the ground or under the sea, and it pulls in
 // rather than looking through a wall.
 if (terrain) follow.groundAt = (x, z) => Math.max(terrain.water + 0.35, terrain.height(x, z) + 0.45);
+// Goblin's Dread: under the hood of rock over the ledge behind the Windspire's falls the ground
+// behind you is the cliff above the hood, so the eye stays under the hood instead (camera.ts).
+if (terrain && world.index) {
+  const idx = world.index;
+  follow.terrainAt = (x, z) => terrain.height(x, z);
+  follow.ceiling = (x, y, z) => {
+    const found: { d: Deck | null } = { d: null };
+    idx.eachDeck(x, z, 0.5, (d) => {
+      if (d.top > y + 1 && d.top < y + 12 && inRect(d, x, z) && (!found.d || d.top < found.d.top)) found.d = d;
+    });
+    const hood = found.d;
+    if (!hood) return null;
+    const eye = hood.top - 2.1;
+    // Only a hood with room for the eye under it, above the ground and the sea (not a pier over a swimmer).
+    if (eye < Math.max(terrain.water, terrain.height(x, z)) + 1.2) return null;
+    return { eye, under: (px, pz) => inRect(hood, px, pz, 0.6) };
+  };
+}
 if (world.index) {
   const idx = world.index;
   follow.blocker = (fx, fy, fz, cx, cy, cz) => {
@@ -290,7 +312,80 @@ const minigames =
   online && life && lifeUI
     ? new MinigamesUI({ link: online.link, life, openPanel: () => lifeUI.openPanel, freeMouse: () => document.pointerLockElement && document.exitPointerLock() })
     : null;
-if (minigames && lifeUI) lifeUI.intercept = (k) => minigames.intercept(k);
+// Online: parties (src/ui/party): invite someone by name or from the players near you (O), and go
+// into a dungeon's copy together.
+const party =
+  online && lifeUI && peers
+    ? new PartyUI({
+        link: online.link,
+        me: online.welcome.character.id,
+        openPanel: () => lifeUI.openPanel,
+        freeMouse: () => document.pointerLockElement && document.exitPointerLock(),
+        nearby: () => {
+          const p = sim.player.pos;
+          return peers
+            .list()
+            .filter((o) => o.online)
+            .map((o) => ({ id: o.id, name: o.name, dist: Math.hypot(o.x - p.x, o.z - p.z) }))
+            .sort((a, b) => a.dist - b.dist);
+        },
+      })
+    : null;
+if (party && lifeUI) lifeUI.addMenuButton('party', pixelIcon('party', 24), 'Party', 'O');
+if (lifeUI && (minigames || party)) lifeUI.intercept = (k) => !!minigames?.intercept(k) || !!party?.intercept(k);
+// ---------- Goblin's Dread: into a copy of a dungeon and out again (src/app/dungeonVisit.ts) ----------
+const visit = life
+  ? new DungeonVisit({
+      sim,
+      life,
+      stage: openStage,
+      place: (x, y, z, facing) => {
+        // Online the server moves you; this puts you there at once, as it says you've gone, rather
+        // than a moment later with its next tick.
+        if (!terrain) return;
+        walker?.stop();
+        if (sim.player.mode === 'ride') dismount(life, sim);
+        const p = sim.player;
+        const gy = groundAt(terrain, world.index, x, z, y + 1.2, 1.2);
+        p.pos = { x, y: gy, z };
+        p.prevPos = { x, y: gy, z };
+        p.vel = { x: 0, y: 0, z: 0 };
+        p.facing = facing;
+        p.prevFacing = facing;
+        if (p.mode === 'glide' || p.mode === 'swim') p.mode = 'normal';
+        p.grounded = true;
+        follow.reset(facing);
+      },
+      indoors: (inside) => {
+        if (lifeView) lifeView.indoors = inside;
+      },
+    })
+  : null;
+/**
+ * F at a dungeon's portal (its prompt: interact.ts enterDungeon / leaveDungeon). Offline the browser
+ * takes you through itself; online the server takes you, with your party, into your copy.
+ */
+function onPortal(enter: boolean, dungeon: string): void {
+  if (!visit) return;
+  if (online) {
+    online.link.dungeon(dungeon, enter);
+    return;
+  }
+  if (enter) visit.enterDungeonHere(dungeon, true);
+  else visit.leaveDungeonHere(true);
+}
+if (lifeUI && life) {
+  const before = lifeUI.intercept;
+  lifeUI.intercept = (k) => {
+    const f = life.focus;
+    if (k === 'interact' && (f?.action === 'enterDungeon' || f?.action === 'leaveDungeon')) {
+      if (f.ok && f.dungeon) onPortal(f.action === 'enterDungeon', f.dungeon);
+      return true;
+    }
+    return before?.(k) ?? false;
+  };
+}
+// ---------- end Goblin's Dread ----------
 if (peers && gameTables) peers.stoolFor = (id) => gameTables.seatOf(id);
 if (online && peers && life && minigames) {
   life.othersAround = () => {
@@ -379,7 +474,9 @@ function teleport(x: number, z: number, facing = sim.player.facing): void {
   }
   if (life && sim.player.mode === 'ride') dismount(life, sim);
   const p = sim.player;
-  const y = groundAt(terrain, world.index, x, z, terrain.height(x, z) + 1.2, 1.2);
+  // Inside a dungeon the floor is its own, far over the island's ground.
+  const floor = visit?.floorHere() ?? terrain.height(x, z);
+  const y = groundAt(terrain, world.index, x, z, floor + 1.2, 1.2);
   p.pos = { x, y, z };
   p.prevPos = { x, y, z };
   p.vel = { x: 0, y: 0, z: 0 };
@@ -390,7 +487,7 @@ function teleport(x: number, z: number, facing = sim.player.facing): void {
   follow.reset(follow.yaw);
 }
 if (lifeUI) {
-  lifeUI.onTeleport = (x, z) => teleport(x, z);
+  lifeUI.onTeleport = (x, z, facing) => teleport(x, z, facing);
   lifeUI.onReset = async () => {
     if (online) await online.link.reset();
     else clearLife();
@@ -926,6 +1023,8 @@ function stepOnce(actions: Actions): void {
   } else {
     sim.step(actions);
   }
+  // Offline, fallen out of the bottom of a dungeon: back where you came in (the server does it online).
+  if (!online) visit?.catchFall();
   let events = sim.drainEvents();
   if (range) {
     // Training: arrows, meteors and heals against the dummy.
@@ -1198,6 +1297,7 @@ function draw(alpha: number, cameraDt: number, animDt: number): void {
     lifeView.update(sim, animDt, follow.camera.position);
     lifeUI?.update(animDt);
     minigames?.update();
+    party?.update();
     // Wakes behind boats, dust behind fast wheels.
     for (const v of life.state.vehicles) {
       const speed = Math.abs(v.speed);
@@ -1353,7 +1453,7 @@ function frame(now: number): void {
     // A window open on a controller has the pad: its stick and buttons drive the window, so you
     // stand still. With a keyboard and mouse you can walk with a window open (walking away from
     // whoever you're talking to closes it). The skill panel and the map take every device.
-    const padToMenu = panel.isOpen || (!!lifeUI?.takesPad && input.lastDevice === 'gamepad');
+    const padToMenu = panel.isOpen || ((!!lifeUI?.takesPad || !!party?.takesPad) && input.lastDevice === 'gamepad');
     // Open-world keys first, so a panel they open takes this frame's input. The skill book and
     // tree sit over everything while they're open, so the world's keys wait.
     if (lifeUI) {
@@ -1372,7 +1472,9 @@ function frame(now: number): void {
         panel.menu(m);
         continue;
       }
-      // An open life panel (dialog, shop, bag...) takes the D-pad and A / B next.
+      // A party invitation or the Party window takes the D-pad and A / B first (src/ui/party), then
+      // an open life panel (dialog, shop, bag...).
+      if (party?.menu(m)) continue;
       if (lifeUI?.menu(m)) continue;
       if (m === 'toggle' && (!net || playing)) panel.open('book');
       else if (m === 'tree' && (!net || playing)) panel.open('tree');
@@ -1851,6 +1953,19 @@ const api = {
     const r = world.zone.recipe;
     return JSON.parse(JSON.stringify({ places: r.places, npcs: r.npcs, outposts: r.outposts, workbenches: r.workbenches, housePlots: r.housePlots, updrafts: r.updrafts, nodes: r.nodes, spawn: r.spawn, ramps: world.zone.gen.ramps.map((pts) => [pts[0], pts[pts.length - 1]]) }));
   },
+  /** Dungeons: which one you're inside a copy of, whether each is solid in your world, its exit, and what F does now. */
+  dungeon() {
+    return { ...(visit?.state() ?? { inside: null, solid: {}, exit: null }), drawn: openStage?.dungeon ?? null, focus: life?.focus ? { action: life.focus.action, label: life.focus.label, ok: life.focus.ok } : null };
+  },
+  /** Offline: straight into a copy of a dungeon (at its arrival point), or back out to its door (null). */
+  visitDungeon(id: string | null): boolean {
+    if (!visit || online) return false;
+    return id ? visit.enterDungeonHere(id, true) : visit.leaveDungeonHere(true);
+  },
+  /** The waterfalls as the generator cut them (src/sim/zone/generate.ts). */
+  falls() {
+    return JSON.parse(JSON.stringify(world.zone?.gen.falls ?? []));
+  },
   /** A carved mountain path as points from bottom to top (every few metres). */
   rampPath(i = 0): Array<[number, number]> {
     const r = world.zone?.gen.ramps[i] ?? [];
@@ -1951,6 +2066,30 @@ const api = {
   /** The mini-game windows, your challenges and your table's game as the server last sent them (null offline). */
   minigames() {
     return minigames ? JSON.parse(JSON.stringify(minigames.state())) : null;
+  },
+  /** Your party as the server sent it, the invitation waiting for you, and which of its windows show. */
+  party() {
+    return party ? JSON.parse(JSON.stringify(party.state())) : null;
+  },
+  /** Invites someone to your party by name (as the Party window does). */
+  partyInvite(name: string): boolean {
+    return online?.link.partyInvite({ name }) ?? false;
+  },
+  /** Answers the invitation waiting for you. */
+  partyAnswer(accept: boolean): boolean {
+    const inv = online?.link.invite;
+    return !!inv && (online?.link.partyAnswer(inv.from, accept) ?? false);
+  },
+  partyLeave(): boolean {
+    return online?.link.partyLeave() ?? false;
+  },
+  /** Where you play now: your channel, or a dungeon's copy (server/src/spaces.rs). */
+  space() {
+    return online ? { ...online.link.space } : null;
+  },
+  /** Online: through a dungeon's portal (you must be at it), or back out of its copy (at its way out), as F does there. */
+  throughPortal(enter: boolean, id = 'goblinsDread'): boolean {
+    return online?.link.dungeon(id, enter) ?? false;
   },
   /** The mini-game tables drawn near you: where, who sits at them, and how many beacons are lit. */
   gameTables() {
@@ -2063,6 +2202,16 @@ if (testMode ? params.has('bugs') : params.get('bugs') !== '0') {
   }
 }
 
+// ---------- Dungeons, online ----------
+// You're in a dungeon's copy, or back in the open world (server/src/spaces.rs): the server moved you
+// there, and this follows (src/app/dungeonVisit.ts): the dungeon solid around you and drawn only
+// while you're in it, and getting up after a knockdown where it's entered.
+function onlineSpace(s: SpaceView): void {
+  if (s.kind === 'dungeon') {
+    if (visit?.inside !== s.dungeon) visit?.enterDungeonHere(s.dungeon, true);
+  } else visit?.leaveDungeonHere(true);
+}
+
 // ---------- The game server ----------
 // Set up last, once everything it touches exists. The badge shows who you are and whether the
 // server is there, with Characters (back to the character select screen) and Sign Out. While the
@@ -2073,7 +2222,8 @@ if (testMode ? params.has('bugs') : params.get('bugs') !== '0') {
 if (online) {
   const { link } = online;
   const exitToSelect = () => leaveFor(plainUrl());
-  const badge = new OnlineBadge(`${online.welcome.character.name} · Emberholm ${online.welcome.channel}`, {
+  const where = (s: SpaceView) => `${online.welcome.character.name} · ${s.kind === 'dungeon' ? s.name : `Emberholm ${s.channel}`}`;
+  const badge = new OnlineBadge(where(link.space), {
     characters: exitToSelect,
     signOut: async () => {
       await signOut();
@@ -2112,12 +2262,29 @@ if (online) {
     }
   };
   link.onStatus = stopIf;
-  // A new connection counts inputs from scratch: start again from the server's next word.
+  // A new connection counts inputs from scratch: start again from the server's next word. It may
+  // put you somewhere else, too: a restarted server has no dungeon copies, and puts you outside the
+  // door of the one you were in.
   link.onReconnect = () => {
     prediction?.resync();
     ahead.length = 0;
+    peers?.everyoneLeft();
+    net?.resetWorld();
+    badge.rename(where(link.space));
+    onlineSpace(link.space);
   };
   link.onError = (text) => life?.fromServer({ t: 'toast', text, kind: 'bad' });
+  link.onNotice = (text) => life?.fromServer({ t: 'toast', text, kind: 'info' });
+  // Into a dungeon's copy, or back out of it (server/src/spaces.rs): another game, with its own ticks
+  // and its own people. As after a reconnection, start again from what the server says next.
+  link.onSpace = (s) => {
+    prediction?.resync();
+    ahead.length = 0;
+    peers?.everyoneLeft();
+    net?.resetWorld();
+    badge.rename(where(s));
+    onlineSpace(s);
+  };
 
   // Your island as the server has it, and the parts that move with you as of each update.
   let you: YouState | null = null;
@@ -2190,6 +2357,8 @@ if (online) {
     if (life) for (const e of t.lifeEvents ?? []) life.fromServer(e);
   };
   link.onTick = onTick;
+  // Back in a dungeon's copy you were in (the connection came back while it was still there).
+  onlineSpace(link.space);
   // Whatever came while the page was still loading: the newest island, then the newest tick.
   if (link.latestLife && link.latest && !link.latest.life) onTick({ ...link.latest, life: link.latestLife });
   else if (link.latest) onTick(link.latest);

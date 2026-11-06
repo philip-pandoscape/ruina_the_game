@@ -165,6 +165,30 @@ pub struct Spawn {
     pub facing: f64,
 }
 
+/// Where a dungeon's portal stands in the open world (F within `r` of it takes you in), and where
+/// you come out of it again, facing away from it (src/sim/zone/types.ts DungeonDoor).
+#[derive(Deserialize, Clone, Debug)]
+pub struct DungeonDoor {
+    pub id: String,
+    pub portal: Portal,
+    pub outside: Spawn,
+}
+
+#[derive(Deserialize, Clone, Copy, Debug)]
+pub struct Portal {
+    pub x: f64,
+    pub y: f64,
+    pub z: f64,
+    pub r: f64,
+}
+
+impl Portal {
+    /// Whether someone standing at (x, y, z) is at it (within its reach, with a step's slack).
+    pub fn reaches(&self, x: f64, y: f64, z: f64) -> bool {
+        ((x - self.x).powi(2) + (z - self.z).powi(2)).sqrt() <= self.r + 1.0 && (y - self.y).abs() < 4.0
+    }
+}
+
 #[derive(Deserialize, Clone, Debug)]
 pub struct Place {
     pub id: String,
@@ -279,6 +303,9 @@ pub struct Recipe {
     pub updrafts: Vec<Updraft>,
     #[serde(default)]
     pub shipyards: Vec<Shipyard>,
+    /// The doors of the island's dungeons (open/dungeon.rs).
+    #[serde(default)]
+    pub dungeons: Vec<DungeonDoor>,
     pub sky: Sky,
     pub slimes: Slimes,
     pub dummy: Point,

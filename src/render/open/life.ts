@@ -168,6 +168,8 @@ export class LifeView {
   private houseKey = '';
   private rain: THREE.Points;
   private rainOn = 0;
+  /** Under a roof of rock (inside a dungeon): no rain falls here. */
+  indoors = false;
   private updrafts: THREE.Group;
   private time = 0;
   private cropGeoCache = new Map<string, THREE.BufferGeometry>();
@@ -843,7 +845,8 @@ export class LifeView {
     }
 
     // Rain, fading in and out.
-    const raining = life.state.clock < life.state.weather.rainUntil;
+    // No rain under a roof of rock (inside a dungeon: src/app/dungeonVisit.ts sets indoors).
+    const raining = life.state.clock < life.state.weather.rainUntil && !this.indoors;
     this.rainOn += ((raining ? 1 : 0) - this.rainOn) * Math.min(1, dt * 0.8);
     const rm = this.rain.material as THREE.PointsMaterial;
     rm.opacity = this.rainOn * 0.7;
