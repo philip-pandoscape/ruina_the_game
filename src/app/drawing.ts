@@ -29,6 +29,7 @@ import {
   STAMINA,
   STEP,
 } from '../content/tuning';
+import { groundAt } from '../engine/zone';
 import type { GameRefs } from '../main';
 
 export function makeDrawing(g: GameRefs) {
@@ -37,17 +38,13 @@ export function makeDrawing(g: GameRefs) {
     NAMES,
     actorView,
     aiming,
-    blob,
-    blobMat,
     castOf,
     causeIcon,
     drawnGround,
     dummy,
     dummyActor,
-    dummyTop,
     follow,
     gameTables,
-    groundUnder,
     groundY,
     hero,
     hud,
@@ -56,7 +53,6 @@ export function makeDrawing(g: GameRefs) {
     lifeUI,
     lifeView,
     lockOn,
-    markPos,
     minigames,
     missileView,
     net,
@@ -72,13 +68,29 @@ export function makeDrawing(g: GameRefs) {
     prediction,
     serverRules,
     shownById,
-    simPos,
     skillPoints,
     skyHour,
     spells,
     stage,
     vfx,
+    terrain,
+    world,
   } = g;
+
+  // What the player would land on right now (terrain, a deck, a roof), for the shadow blob.
+  function groundUnder(x: number, z: number, y: number): number {
+    return terrain ? groundAt(terrain, world.index, x, z, y, 0.05) : 0;
+  }
+
+  // Soft round shadow right under the player, so you can always see where you'll land.
+  const blobMat = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.22, depthWrite: false });
+  const blob = new THREE.Mesh(new THREE.CircleGeometry(0.42, 24).rotateX(-Math.PI / 2), blobMat);
+  blob.renderOrder = 1;
+  stage.scene.add(blob);
+
+  const simPos = new THREE.Vector3();
+  const dummyTop = new THREE.Vector3();
+  const markPos = new THREE.Vector3();
   function showEvent(e: GameEvent): void {
     vfx.onEvent(e);
     if (e.type === 'hit') {
@@ -327,7 +339,7 @@ export function makeDrawing(g: GameRefs) {
         const def = rideable(v.def);
         const bx = v.x - Math.sin(v.heading) * def.length * 0.5;
         const bz = v.z - Math.cos(v.heading) * def.length * 0.5;
-        if (isBoat(def)) vfx.lifeEffect('wake', bx, g.terrain!.water, bz);
+        if (isBoat(def)) vfx.lifeEffect('wake', bx, terrain!.water, bz);
         else if (v.grounded && def.class === 'wheeled') vfx.lifeEffect('wheels', bx, v.y, bz);
       }
     }
@@ -357,7 +369,7 @@ export function makeDrawing(g: GameRefs) {
     }
 
     // On a farm the shadow lies on its soil, which is drawn a little over the ground you stand on.
-    const under = g.terrain ? Math.max(g.terrain.water, groundUnder(pos.x, pos.z, pos.y), drawnGround(pos.x, pos.z, 0.42)) : 0;
+    const under = terrain ? Math.max(terrain.water, groundUnder(pos.x, pos.z, pos.y), drawnGround(pos.x, pos.z, 0.42)) : 0;
     const lift = Math.max(0.35, Math.min(1, 1 - (pos.y - under) * 0.18));
     blob.position.set(pos.x, under + 0.03, pos.z);
     blob.visible = g.sim.player.mode !== 'swim';
@@ -390,6 +402,8 @@ export function makeDrawing(g: GameRefs) {
     hud.layout(follow.camera, innerWidth, innerHeight, dummyTop, (dAct?.hp ?? 0) / DUMMY.hp, !serverRules && !plateOnDummy);
   }
   return {
+    /** The shadow under you. */
+    blob,
     draw,
     followSim,
     get pinnedView() {

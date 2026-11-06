@@ -350,7 +350,7 @@ export function makeTestApi(g: GameRefs) {
     },
     /** Testing: where the shadow under you is drawn. */
     shadowHeight(): number {
-      return g.blob.position.y;
+      return g.drawing.blob.position.y;
     },
     /** A portrait the UI shows (an image URL): 'player' (your face), 'body' (all of you) or an NPC's id; and how many of yours the studio has taken. */
     portrait(who: string) {

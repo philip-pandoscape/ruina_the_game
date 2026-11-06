@@ -17,7 +17,8 @@ for (const f of files) {
   for (const m of out.matchAll(/^([^(\n]+)\((\d+),(\d+)\): error (TS6133|TS6192|TS6196): (.*)$/gm)) {
     if (m[1].replace(/\\/g, '/') !== f) continue;
     const line = Number(m[2]) - 1;
-    if (m[4] === 'TS6192') wholeLines.add(line);
+    // An unused namespace or default import is its whole statement.
+    if (m[4] === 'TS6192' || /^import (\* as \w+|\w+) from /.test(lines[line])) wholeLines.add(line);
     else {
       const name = /'([^']+)'/.exec(m[5])?.[1];
       if (name) names.set(line, [...(names.get(line) ?? []), name]);

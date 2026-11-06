@@ -13,9 +13,13 @@ import { splash } from '../ui/splash';
 import { loader } from '../assets/loader';
 import type { SpaceView, WorldTick, YouState } from '../net/worldLink';
 import type { GameRefs } from '../main';
+import type { FocusAction } from '../engine/island';
+
+/** What F does that runs ahead online (see life.remote): packs in and out of hands and vehicles, getting in. */
+const QUICK = new Set<FocusAction>(['pickup', 'load', 'unload', 'board']);
 
 export function wireOnline(g: GameRefs): void {
-  const { QUICK, life, lifeUI, lifeView, net, online, onlineSpace, peers, prediction, sim } = g;
+  const { life, lifeUI, lifeView, net, online, onlineSpace, peers, prediction, sim } = g;
   if (online) {
     const { link } = online;
     const exitToSelect = () => leaveFor(plainUrl());

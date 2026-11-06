@@ -13,9 +13,9 @@ import { TrainingDummy } from './render/dummy';
 import { ActorView } from './render/actors';
 import { actorKindAt, actorKindIds, actorKindIndex, kindName } from './content/actors';
 import { isAlive, behaviour, stateProgress } from './engine/creatures';
-import { NO_ACTIONS, type Actions, type GameEvent, angleDiff, heightAboveGround } from './engine/rules';
+import { type Actions, type GameEvent, angleDiff } from './engine/rules';
 import { dungeonDef, groundAt, inRect, type BoxCollider, type Deck } from './engine/zone';
-import { type Life, type FocusAction, ridden, hourAt, hourOfDay, skillBudget, trainedBy, type Command } from './engine/island';
+import { type Life, ridden, hourAt, hourOfDay, skillBudget, trainedBy, type Command } from './engine/island';
 import { Aiming } from './app/aiming';
 import { Hud } from './ui/hud';
 import { Stage, TRAINING_STAGE } from './render/scene';
@@ -31,6 +31,7 @@ import { clearLife, savedIsland } from './app/save';
 import { goOnline } from './app/online';
 import { readOptions } from './app/options';
 import { makeTestApi } from './app/testApi';
+import { makeStep } from './app/step';
 import { startLoop } from './app/loop';
 import { makeDrawing } from './app/drawing';
 import { wireOnline } from './app/onlineWiring';
@@ -50,9 +51,9 @@ import { RIDE_CAMERA } from './content/traversal';
 import { rideable, isBoat } from './content/vehicles';
 import { ABILITY_ICONS, WEAPON_ICONS } from './ui/icons';
 import type { MarkerKind } from './ui/hud';
-import { BOOK, levelOf, levelsFrom, NODES, resolveSkills, sameLevels, SKILL_POINTS } from './content/skills';
+import { BOOK, levelOf, levelsFrom, NODES, resolveSkills, SKILL_POINTS } from './content/skills';
 import { SkillsPanel } from './ui/skills/panel';
-import { MOVEMENT_SKILLS, comboFor, COMBAT, meleeTargets, STEP, type Build } from './content/tuning';
+import { type Build } from './content/tuning';
 import './ui/theme/theme.css';
 import './ui/theme/hud.css';
 import './ui/theme/windows.css';
@@ -632,10 +633,6 @@ const netMonsters = net ? new NetMonsters(groundY) : null;
 let shownActors: NetActor[] = [];
 let presentActors: NetActor[] = [];
 const shownById = new Map<number, NetActor>();
-let lastSnapshot = 0;
-let lastHp: number = COMBAT.maxHp;
-/** The side your hero's colours show: only a developer zone's side changes it (on the island everyone is on one). */
-let shownTeam = 0;
 const scripted: Actions[] = []; // test hook: replaces the controller for a few frames
 
 // A new build from the skill panel: save it, and use it (online, the server switches you over).
@@ -690,127 +687,12 @@ const aiming = new Aiming({
 const lockOn = aiming.lockOn;
 
 // Picks up a new server update: correct your prediction and refresh the other players.
-function syncNet(): void {
-  if (!net || net.snapshots === lastSnapshot) return;
-  lastSnapshot = net.snapshots;
-  if (prediction && net.you) {
-    prediction.reconcile(net.you.ack, net.you.player);
-    const hp = net.you.player.hp;
-    if (hp < lastHp) {
-      follow.shake(0.35);
-      input.rumble(0.7, 0.5, 120);
-    }
-    lastHp = hp;
-    // Sides are the battlefield's (and a developer zone's); on Emberholm everyone is on one.
-    if (shownTeam !== net.you.player.team) {
-      shownTeam = net.you.player.team;
-      hero.setTeam(shownTeam);
-    }
-  }
-  netSpells?.receive(net.you?.id ?? null);
-}
-
-// What the player would land on right now (terrain, a deck, a roof), for the shadow blob.
-function groundUnder(x: number, z: number, y: number): number {
-  return terrain ? groundAt(terrain, world.index, x, z, y, 0.05) : 0;
-}
-
-// Soft round shadow right under the player, so you can always see where you'll land.
-const blobMat = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.22, depthWrite: false });
-const blob = new THREE.Mesh(new THREE.CircleGeometry(0.42, 24).rotateX(-Math.PI / 2), blobMat);
-blob.renderOrder = 1;
-stage.scene.add(blob);
-
 function resize(): void {
   stage.resize(innerWidth, innerHeight);
   follow.resize(innerWidth / innerHeight);
 }
 addEventListener('resize', resize);
 resize();
-
-const simPos = new THREE.Vector3();
-/** What F does that runs ahead online (see life.remote): packs in and out of hands and vehicles, getting in. */
-const QUICK = new Set<FocusAction>(['pickup', 'load', 'unload', 'board']);
-const dummyTop = new THREE.Vector3();
-const markPos = new THREE.Vector3();
-
-// One fixed sim step, plus the effects its events trigger.
-function stepOnce(actions: Actions): void {
-  // At a mini-game's table you stay in your seat, as the server keeps you there: nothing you press
-  // moves you, and nothing walks you off.
-  if (minigames?.seated) {
-    actions = NO_ACTIONS;
-    walker?.stop();
-  }
-  let events: GameEvent[];
-  if (prediction) {
-    if (!net?.you) return; // wait until the server has placed us
-    events = prediction.step(actions);
-  } else {
-    // Offline the rules decide, the yard's arrows, meteors and heals among them.
-    events = engine.step(actions);
-  }
-  if (netSpells) {
-    // Online: your own arrows, meteors and heals show straight away.
-    const local = events.flatMap((e) => netSpells.local(e));
-    events = events.concat(
-      local,
-      netSpells.step(STEP, sim.frame, (x, z, r) => aiming.enemyAt(x, z, r)),
-    );
-  }
-  if (prediction && netMonsters) {
-    // Online: your swing connecting with a monster sparks and shakes the moment it strikes.
-    const p = sim.player;
-    const attacking = p.mode === 'attack';
-    const swing = attacking ? (comboFor(p.weapon, sim.stats)[p.attackIndex] ?? null) : null;
-    const hits = netMonsters.swing(
-      {
-        attacking,
-        attackIndex: p.attackIndex,
-        attackFrame: p.attackFrame,
-        step: swing,
-        x: p.pos.x,
-        y: p.pos.y,
-        z: p.pos.z,
-        facing: p.facing,
-        above: swing ? heightAboveGround(sim) : 0,
-        max: meleeTargets(p.weapon, sim.stats),
-      },
-      presentActors,
-      shownById,
-      sim.frame,
-      performance.now(),
-    );
-    // The swing pauses on the hit as it does offline, in the drawing only.
-    if (hits.length && swing) hero.hitPause(swing.hitstop, p.attackIndex);
-    events = events.concat(hits);
-  }
-  for (const e of events) drawing.showEvent(e);
-  if (!life && !net) {
-    for (const e of events) yardTrain(e);
-    const lv = levelsFrom(yardXp);
-    if (!sameLevels(lv, sim.levels)) engine.setLevels(lv);
-  }
-  const le = life ? life.drainEvents() : [];
-  bugs?.step(sim.frame, actions, events, le);
-  if (life) {
-    lifeUI?.onEvents(le);
-    for (const e of le) {
-      if (e.t === 'harvest') vfx.lifeEffect('harvest', e.x, e.y, e.z);
-      else if (e.t === 'gather') vfx.lifeEffect(e.kind, e.x, e.y, e.z);
-      else if (e.t === 'build') vfx.lifeEffect('build', e.x, groundY(e.x, e.z), e.z);
-      else if (e.t === 'thunder') vfx.lifeEffect('thunder', e.x, e.y, e.z);
-      else if (e.t === 'sold') vfx.lifeEffect('coins', sim.player.pos.x, sim.player.pos.y, sim.player.pos.z);
-    }
-  }
-  const p = sim.player;
-  // Dust while sliding. Which action that is comes from its pose, not from a mode of its own.
-  if (p.mode === 'action' && MOVEMENT_SKILLS[p.actionId]?.action.pose === 'slide' && sim.frame % 2 === 0) {
-    vfx.slideDust(p.pos.x, p.pos.z, p.actionDirX, p.actionDirZ);
-  }
-  vfx.step(STEP);
-  hud.step(STEP);
-}
 
 // ---------- What the modules reach the game through ----------
 
@@ -833,9 +715,6 @@ const refs = {
   },
   set autoAttack(v) {
     aiming.autoAttack = v;
-  },
-  get blob() {
-    return blob;
   },
   get bugs() {
     return bugs;
@@ -983,7 +862,7 @@ const refs = {
     return stage;
   },
   get stepOnce() {
-    return stepOnce;
+    return step.stepOnce;
   },
   get studio() {
     return studio;
@@ -1027,9 +906,6 @@ const refs = {
   get testMode() {
     return testMode;
   },
-  get QUICK() {
-    return QUICK;
-  },
   get framesDrawn() {
     return loop.framesDrawn;
   },
@@ -1051,9 +927,6 @@ const refs = {
   get aiming() {
     return aiming;
   },
-  get blobMat() {
-    return blobMat;
-  },
   get castOf() {
     return castOf;
   },
@@ -1065,15 +938,6 @@ const refs = {
   },
   get dummy() {
     return dummy;
-  },
-  get dummyTop() {
-    return dummyTop;
-  },
-  get groundUnder() {
-    return groundUnder;
-  },
-  get markPos() {
-    return markPos;
   },
   get missileView() {
     return missileView;
@@ -1099,9 +963,6 @@ const refs = {
   get shownById() {
     return shownById;
   },
-  get simPos() {
-    return simPos;
-  },
   get drawing() {
     return drawing;
   },
@@ -1115,7 +976,10 @@ const refs = {
     return rideCamera;
   },
   get syncNet() {
-    return syncNet;
+    return step.syncNet;
+  },
+  get yardTrain() {
+    return yardTrain;
   },
 };
 export type GameRefs = typeof refs;
@@ -1131,6 +995,10 @@ const perfs = new Perf(
 // ---------- Drawing a frame (src/app/drawing.ts) ----------
 
 const drawing = makeDrawing(refs);
+
+// ---------- One step of the rules, and what it shows (src/app/step.ts) ----------
+
+const step = makeStep(refs);
 
 // ---------- Main loop ----------
 
