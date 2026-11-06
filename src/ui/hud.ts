@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import type { Device } from '../input/input';
-import { iconHtml } from '../ui/theme/icons';
+import { iconHtml } from './theme/icons';
 
 const key = (label: string, cls = '') => `<span class="key ${cls}">${label}</span>`;
 const item = (keys: string, action: string) => `<span>${keys}${action}</span>`;

@@ -2,7 +2,7 @@ import { itemDef } from '../../../content/items';
 import { LABOR, packDef } from '../../../content/trade';
 import { glider as gliderDef } from '../../../content/vehicles';
 import { pointsLeft } from '../../../content/build';
-import type { Vitals } from '../../../render/hud';
+import type { Vitals } from '../../hud';
 import { skillBudget } from '../../../sim/life/progress';
 import { carried } from '../../../sim/life/trade';
 import { esc } from '../../../util/html';

@@ -925,7 +925,7 @@
         "src/sim/player/vitals.ts",
         "crates/engine/src/player.rs",
         "shared/tuning.json",
-        "src/render/hud.ts",
+        "src/ui/hud.ts",
         "src/ui/life/lifeUI.ts"
       ]
     },

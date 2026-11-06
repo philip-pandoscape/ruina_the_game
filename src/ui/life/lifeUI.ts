@@ -1,7 +1,7 @@
 import type * as THREE from 'three';
 import type { AutoWalk } from '../../app/autoWalk';
 import { packDef } from '../../content/trade';
-import type { Vitals } from '../../render/hud';
+import type { Vitals } from '../hud';
 import { housePose, stillNeeds } from '../../sim/life/housing';
 import type { Life, LifeEvent } from '../../sim/life/life';
 import type { Sim } from '../../sim/sim';

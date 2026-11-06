@@ -15,7 +15,7 @@ import { actorKindAt, actorKindIds, actorKindIndex, findKind, kindName } from '.
 import { isAlive } from './sim/actor';
 import { behaviour, stateProgress } from './sim/ai/brain';
 import { Aiming } from './app/aiming';
-import { Hud } from './render/hud';
+import { Hud } from './ui/hud';
 import { Stage, TRAINING_STAGE } from './render/scene';
 import { CIRCLE, SpellView } from './render/spells';
 import { Vfx } from './render/vfx';
@@ -54,7 +54,7 @@ import { rideable, isBoat } from './content/vehicles';
 import { angleDiff } from './sim/math';
 import { hourAt, hourOfDay } from './sim/life/weather';
 import { ABILITY_ICONS, WEAPON_ICONS, WEAPON_NAMES } from './ui/icons';
-import type { MarkerKind } from './render/hud';
+import type { MarkerKind } from './ui/hud';
 import { BOOK, levelOf, levelsFrom, NODES, resolveSkills, sameLevels, SKILL_POINTS, type ResolvedSkills } from './content/skills';
 import { SkillsPanel } from './ui/skills/panel';
 import { skillBudget, trainedBy } from './sim/life/progress';

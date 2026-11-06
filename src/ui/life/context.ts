@@ -1,5 +1,5 @@
 import type * as THREE from 'three';
-import type { Vitals } from '../../render/hud';
+import type { Vitals } from '../hud';
 import type { Life } from '../../sim/life/life';
 import type { Sim } from '../../sim/sim';
 import type { World } from '../../sim/types';
