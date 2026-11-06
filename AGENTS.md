@@ -74,6 +74,11 @@ online specs need a world server with a database (`npm run up`, or the private r
 
 ## Art and assets
 
+Finding and fetching free assets (models, textures, skies, animations, sounds, music, effects,
+fonts), checking their licences, crediting and bringing them in: the `find-assets` skill
+(`.claude/skills/find-assets/SKILL.md`, with `tools/assets/search.mjs` and `tools/assets/fetch.mjs`).
+The repository is public: only CC0 and CC BY files go in it.
+
 Free first: before making a model, texture or animation, look for a free one (below) and judge it in
 the game's look beside what we would make. Make one only when nothing free is as good; never trade
 quality for the saving. Concepts come first for whatever is made: paint them and show the user (side
