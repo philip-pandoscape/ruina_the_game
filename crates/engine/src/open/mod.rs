@@ -3,8 +3,11 @@
 //! (src/sim/player/traverse.ts, src/sim/zone/*); these are their Rust twins, and
 //! tests/conformance/world.test.ts runs both and compares them frame by frame.
 
+pub mod buildings;
 pub mod colliders;
 pub mod dungeon;
+pub mod generate;
+pub mod noise;
 pub mod traverse;
 pub mod zone;
 

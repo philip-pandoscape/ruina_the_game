@@ -52,6 +52,8 @@ export const world = system({
     'src/app/autoWalk.ts',
     'crates/engine/src/open/mod.rs',
     'crates/engine/src/open/zone.rs',
+    'crates/engine/src/open/generate.rs',
+    'crates/engine/src/open/noise.rs',
     'crates/engine/src/life/interact.rs',
   ],
   content: ['shared/zones/*.json#terrain', 'shared/zones/*.json#forests', 'shared/zones/*.json#scatter', 'shared/zones/*.json#spawn'],

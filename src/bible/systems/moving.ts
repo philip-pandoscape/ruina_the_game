@@ -36,6 +36,7 @@ export const movingAndClimbing = system({
     'crates/engine/src/player.rs',
     'crates/engine/src/open/traverse.rs',
     'crates/engine/src/open/colliders.rs',
+    'crates/engine/src/open/buildings.rs',
   ],
   content: [
     'shared/tuning.json#simHz',

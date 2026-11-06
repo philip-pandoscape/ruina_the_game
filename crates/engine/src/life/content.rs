@@ -842,11 +842,33 @@ pub struct StructureDef {
     pub floor: Option<f64>,
     pub deck: Option<f64>,
     pub interior: Option<BTreeMap<String, Spot>>,
+    /// How the island sits it (open/generate.rs): `pad` false sets it on the ground as it lies;
+    /// `sea_level` stands it at sea level; `clear_margin` is how far round it trees and rocks are
+    /// kept off; `surface` is what the ground under it is made of.
+    pub pad: Option<bool>,
+    pub sea_level: Option<bool>,
+    pub clear_margin: Option<f64>,
+    pub surface: Option<String>,
+}
+
+/// A prop the island is dressed with (a lamp, a barrel, a fence): its footprint and how it blocks
+/// you ("box", "post" of radius `r`, or "none").
+#[derive(Deserialize, Clone, Debug, Default)]
+#[serde(default)]
+pub struct PropDef {
+    pub id: String,
+    pub w: f64,
+    pub d: f64,
+    pub h: f64,
+    pub collider: String,
+    pub r: Option<f64>,
 }
 
 #[derive(Deserialize)]
 struct StructuresFile {
     structures: Vec<StructureDef>,
+    #[serde(default)]
+    props: Vec<PropDef>,
 }
 
 fn structures_file() -> &'static StructuresFile {
@@ -868,6 +890,16 @@ pub fn structure_def(id: &str) -> &'static StructureDef {
             ..Default::default()
         })
     })
+}
+
+/// The prop, or a placeholder (1 m, no collider) for one that doesn't exist.
+pub fn prop_def(id: &str) -> &'static PropDef {
+    static UNKNOWN: OnceLock<PropDef> = OnceLock::new();
+    structures_file()
+        .props
+        .iter()
+        .find(|p| p.id == id)
+        .unwrap_or_else(|| UNKNOWN.get_or_init(|| PropDef { id: "unknown".into(), w: 1.0, d: 1.0, h: 1.0, collider: "none".into(), r: None }))
 }
 
 // ---------- shared/quests.json ----------

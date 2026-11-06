@@ -263,7 +263,7 @@ pub fn add_scarecrow_collider(sim: &mut Sim, sc: &Scarecrow) {
         return;
     }
     let (px, pz) = scarecrow_post(sc.x, sc.z, sc.rot);
-    sim.world.index.add_obstacle(Obstacle { kind: ObstacleKind::Post, x: px, z: pz, r: 0.25 });
+    sim.world.index.add_obstacle(Obstacle { kind: ObstacleKind::Post, x: px, z: pz, r: 0.25, scale: 1.0, rot: sc.rot });
     // Tilled ground: no grass, no new trees.
     let hf = sim.terrain();
     let half = half();
