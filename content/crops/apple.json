@@ -31,5 +31,7 @@
       "effect": "thunder"
     }
   },
-  "look": "Tree. Sapling: thin stick with a few leaves. Young: small tree 2 m. Grown: full round-canopy tree 4.5 m. Ripe: same tree with bright red apples dotted through the canopy."
+  "look": {
+    "body": "apple"
+  }
 }

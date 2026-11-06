@@ -4,5 +4,13 @@
   "d": 0.15,
   "h": 1,
   "collider": "box",
-  "look": "Split-rail fence segment 2 m long along X, posts at both ends."
+  "look": {
+    "body": "fence",
+    "model": {
+      "files": [
+        "fence"
+      ],
+      "sink": 0.08
+    }
+  }
 }

@@ -32,7 +32,9 @@
           "z": 1.6
         }
       },
-      "look": "Player house, built from the village kit in stages (shared/buildings.json plan \"cottage\"): a floor, its timber frame, plaster walls with a door in the middle of the front (+Z), a tiled roof gabled to the front and a chimney; inside a hearth, a bed, a chest, a table and bench. Its walls are the rules' \"walls\" collider, the door the plan's middle front module."
+      "look": {
+        "body": "cottage"
+      }
     },
     {
       "id": "townhouse",
@@ -41,7 +43,9 @@
       "d": 6,
       "h": 11.2,
       "collider": "building",
-      "look": "Built from the village kit (shared/buildings.json plan of the same id): two storeys, rough stone below and timber-framed plaster above, red tiles, a hearth and a laid table downstairs, a bedroom up the stairs."
+      "look": {
+        "body": "townhouse"
+      }
     },
     {
       "id": "rowhouse",
@@ -49,8 +53,7 @@
       "w": 6,
       "d": 8,
       "h": 11,
-      "collider": "building",
-      "look": "Built from the village kit (shared/buildings.json plan of the same id): narrow, gabled to the street, two storeys of timber and plaster: a shop below, a bedroom above."
+      "collider": "building"
     },
     {
       "id": "longhouse",
@@ -58,8 +61,7 @@
       "w": 10,
       "d": 6,
       "h": 8,
-      "collider": "building",
-      "look": "Built from the village kit (shared/buildings.json plan of the same id): one long stone room under one roof: a hearth at one end, beds at the other."
+      "collider": "building"
     },
     {
       "id": "inn",
@@ -68,7 +70,9 @@
       "d": 8,
       "h": 12.2,
       "collider": "building",
-      "look": "Built from the village kit (shared/buildings.json plan of the same id): a stone common room with a hearth, a bar and its kegs, tables and chandeliers; guest beds upstairs."
+      "look": {
+        "body": "inn"
+      }
     },
     {
       "id": "stall",
@@ -79,7 +83,20 @@
       "collider": "box",
       "colliderD": 0.8,
       "colliderZ": 0.6,
-      "look": "Open market stall: wooden counter across the front, four posts, striped canvas awning (colour variant by opts.tint), produce crates on the counter."
+      "look": {
+        "body": "stall",
+        "model": {
+          "files": [
+            "stall_red",
+            "stall_blue"
+          ],
+          "tints": [
+            15158332,
+            3447003
+          ],
+          "sink": 0.05
+        }
+      }
     },
     {
       "id": "workbench",
@@ -88,7 +105,15 @@
       "d": 1.3,
       "h": 1.6,
       "collider": "box",
-      "look": "Heavy oak workbench with a vice, hanging tools on a back rail, a half-packed crate, rope coil, a ledger. Reads clearly as 'pack crafting station'."
+      "look": {
+        "body": "workbench",
+        "model": {
+          "files": [
+            "workbench"
+          ],
+          "sink": 0.03
+        }
+      }
     },
     {
       "id": "tradingPost",
@@ -97,7 +122,9 @@
       "d": 8,
       "h": 9.2,
       "collider": "building",
-      "look": "Built from the village kit (shared/buildings.json plan of the same id): a counter, shelves of goods, crates and barrels, a hearth."
+      "look": {
+        "body": "tradingPost"
+      }
     },
     {
       "id": "dock",
@@ -108,7 +135,9 @@
       "collider": "none",
       "deck": 1.4,
       "seaLevel": true,
-      "look": "Wooden pier: plank deck 4 wide x 16 long whose top is 1.4 above the model origin (sea level), thick round piles every 4 m going down to -3, bollards on the edges, a rope coil. Origin at the centre of the deck footprint."
+      "look": {
+        "body": "dock"
+      }
     },
     {
       "id": "lighthouse",
@@ -118,7 +147,20 @@
       "h": 21,
       "collider": "post",
       "r": 2.8,
-      "look": "Tapered round tower, white with red bands, stone base, gallery railing near the top, glowing lamp room (emissive warm yellow), conical red roof."
+      "look": {
+        "body": "lighthouse",
+        "model": {
+          "files": [
+            "lighthouse"
+          ],
+          "w": 5.6,
+          "d": 5.6,
+          "sink": 0.3,
+          "keep": [
+            "glow"
+          ]
+        }
+      }
     },
     {
       "id": "windmill",
@@ -128,7 +170,21 @@
       "h": 13,
       "collider": "post",
       "r": 2.6,
-      "look": "Stone tower windmill tapering upward, wooden cap, four lattice sails (radius 6) on a hub facing +Z at height 9. Expose the sail hub as an object the caller can spin about Z."
+      "look": {
+        "body": "windmill",
+        "model": {
+          "files": [
+            "windmill"
+          ],
+          "w": 5.4,
+          "d": 5.4,
+          "h": 10.6,
+          "sink": 0.2,
+          "keep": [
+            "sails"
+          ]
+        }
+      }
     },
     {
       "id": "well",
@@ -138,7 +194,15 @@
       "h": 2.6,
       "collider": "post",
       "r": 1,
-      "look": "Round stone well with a little shingled roof on two posts, crank and bucket."
+      "look": {
+        "body": "well",
+        "model": {
+          "files": [
+            "well"
+          ],
+          "sink": 0.1
+        }
+      }
     },
     {
       "id": "stable",
@@ -147,7 +211,9 @@
       "d": 6,
       "h": 8,
       "collider": "building",
-      "look": "Built from the village kit (shared/buildings.json plan of the same id): open arches to the yard, lattice walls, hay stacked along the back."
+      "look": {
+        "body": "stable"
+      }
     },
     {
       "id": "workshop",
@@ -156,7 +222,9 @@
       "d": 6,
       "h": 8,
       "collider": "building",
-      "look": "Built from the village kit (shared/buildings.json plan of the same id): wide arched doors, a cart on the floor, a workbench, an anvil and a grindstone."
+      "look": {
+        "body": "workshop"
+      }
     },
     {
       "id": "boathouse",
@@ -165,7 +233,9 @@
       "d": 10,
       "h": 9.2,
       "collider": "building",
-      "look": "Built from the village kit (shared/buildings.json plan of the same id): open to the slip, crates, rope and a workbench."
+      "look": {
+        "body": "boathouse"
+      }
     },
     {
       "id": "registrar",
@@ -174,7 +244,9 @@
       "d": 8,
       "h": 9.2,
       "collider": "building",
-      "look": "Built from the village kit (shared/buildings.json plan of the same id): a stone hall, the clerk's desk facing the arched door between candelabras, bookcases of deeds, banners."
+      "look": {
+        "body": "registrar"
+      }
     },
     {
       "id": "launchDeck",
@@ -184,7 +256,9 @@
       "h": 4,
       "collider": "none",
       "deck": 0.6,
-      "look": "Wooden deck 6 x 8 whose top is 0.6 above the origin, sturdy legs, rails on the back and sides but OPEN at the front (+Z) edge where you jump off, a windsock pole, a small sign with a wing glyph."
+      "look": {
+        "body": "launchDeck"
+      }
     },
     {
       "id": "noticeBoard",
@@ -193,7 +267,15 @@
       "d": 0.4,
       "h": 2.4,
       "collider": "box",
-      "look": "Two posts and a small roof over a board with pinned papers."
+      "look": {
+        "body": "noticeBoard",
+        "model": {
+          "files": [
+            "noticeBoard"
+          ],
+          "sink": 0.05
+        }
+      }
     },
     {
       "id": "housePlot",
@@ -202,7 +284,9 @@
       "d": 16,
       "h": 1.2,
       "collider": "none",
-      "look": "Unclaimed land marker: four corner stakes with string between them and a small 'Plot for claim' sign at the front. Very light; the ground shows through."
+      "look": {
+        "body": "housePlot"
+      }
     },
     {
       "id": "scarecrow",
@@ -213,7 +297,15 @@
       "collider": "post",
       "r": 0.25,
       "pad": false,
-      "look": "Farm-plot scarecrow: cross pole, sack head with a straw hat, patched shirt, straw tufts."
+      "look": {
+        "body": "scarecrow",
+        "model": {
+          "files": [
+            "scarecrow"
+          ],
+          "sink": 0.1
+        }
+      }
     },
     {
       "id": "farmPlot",
@@ -225,7 +317,9 @@
       "pad": false,
       "clearMargin": 1,
       "surface": "soil",
-      "look": "8 x 8 patch of dark tilled soil with furrows running along Z, a low rim; sits 0.02-0.08 above the origin so it reads over grass."
+      "look": {
+        "body": "farmPlot"
+      }
     },
     {
       "id": "oreNode",
@@ -235,7 +329,15 @@
       "h": 1.8,
       "collider": "post",
       "r": 1.2,
-      "look": "Grey boulder cluster with rusty-orange iron veins and a few bright crystals."
+      "look": {
+        "body": "oreNode",
+        "model": {
+          "files": [
+            "oreNode"
+          ],
+          "sink": 0.2
+        }
+      }
     },
     {
       "id": "stoneNode",
@@ -245,7 +347,15 @@
       "h": 1.6,
       "collider": "post",
       "r": 1.2,
-      "look": "Pale grey quarry rock with chisel marks and a few loose blocks."
+      "look": {
+        "body": "stoneNode",
+        "model": {
+          "files": [
+            "stoneNode"
+          ],
+          "sink": 0.2
+        }
+      }
     },
     {
       "id": "timberNode",
@@ -255,7 +365,15 @@
       "h": 1,
       "collider": "post",
       "r": 0.9,
-      "look": "Pile of three fallen logs with bark, mossy ends, an axe stuck in one."
+      "look": {
+        "body": "timberNode",
+        "model": {
+          "files": [
+            "timberNode"
+          ],
+          "sink": 0.1
+        }
+      }
     },
     {
       "id": "herbNode",
@@ -264,7 +382,15 @@
       "d": 1.2,
       "h": 0.7,
       "collider": "none",
-      "look": "Low leafy herb clump with tiny white and purple flowers."
+      "look": {
+        "body": "herbNode",
+        "model": {
+          "files": [
+            "herbNode"
+          ],
+          "sink": 0.05
+        }
+      }
     }
   ],
   "props": [
@@ -274,7 +400,15 @@
       "d": 0.15,
       "h": 1,
       "collider": "box",
-      "look": "Split-rail fence segment 2 m long along X, posts at both ends."
+      "look": {
+        "body": "fence",
+        "model": {
+          "files": [
+            "fence"
+          ],
+          "sink": 0.08
+        }
+      }
     },
     {
       "id": "lamp",
@@ -283,7 +417,15 @@
       "h": 3.2,
       "collider": "post",
       "r": 0.15,
-      "look": "Iron lamp post with a glass lantern (emissive warm)."
+      "look": {
+        "body": "lamp",
+        "model": {
+          "files": [
+            "lamp"
+          ],
+          "sink": 0.05
+        }
+      }
     },
     {
       "id": "signpost",
@@ -292,7 +434,15 @@
       "h": 2.7,
       "collider": "post",
       "r": 0.15,
-      "look": "Wooden post with three arrow boards at different angles."
+      "look": {
+        "body": "signpost",
+        "model": {
+          "files": [
+            "signpost"
+          ],
+          "sink": 0.1
+        }
+      }
     },
     {
       "id": "bench",
@@ -300,7 +450,15 @@
       "d": 0.6,
       "h": 0.9,
       "collider": "box",
-      "look": "Wooden park bench."
+      "look": {
+        "body": "bench",
+        "model": {
+          "files": [
+            "bench"
+          ],
+          "sink": 0.02
+        }
+      }
     },
     {
       "id": "barrel",
@@ -309,7 +467,15 @@
       "h": 0.95,
       "collider": "post",
       "r": 0.35,
-      "look": "Banded wooden barrel."
+      "look": {
+        "body": "barrel",
+        "model": {
+          "files": [
+            "barrel"
+          ],
+          "sink": 0.02
+        }
+      }
     },
     {
       "id": "crates",
@@ -317,7 +483,15 @@
       "d": 1.2,
       "h": 1.4,
       "collider": "box",
-      "look": "Stack of three crates."
+      "look": {
+        "body": "crates",
+        "model": {
+          "files": [
+            "crates"
+          ],
+          "sink": 0.02
+        }
+      }
     },
     {
       "id": "haycart",
@@ -325,7 +499,16 @@
       "d": 2.8,
       "h": 1.8,
       "collider": "box",
-      "look": "Small two-wheeled decor cart piled with hay."
+      "look": {
+        "body": "haycart",
+        "model": {
+          "files": [
+            "haycart"
+          ],
+          "yaw": 1.5707963267948966,
+          "sink": 0.02
+        }
+      }
     },
     {
       "id": "bollard",
@@ -333,7 +516,15 @@
       "d": 0.35,
       "h": 0.6,
       "collider": "none",
-      "look": "Mooring bollard."
+      "look": {
+        "body": "bollard",
+        "model": {
+          "files": [
+            "bollard"
+          ],
+          "sink": 0.02
+        }
+      }
     }
   ]
 }

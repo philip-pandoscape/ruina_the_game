@@ -13,5 +13,11 @@
     }
   ],
   "kind": "trade",
-  "look": "A round bale of cream fleece bound in sacking with two ropes, tufts escaping, straps on the back."
+  "look": {
+    "model": {
+      "files": [
+        "pack_fleeceBale"
+      ]
+    }
+  }
 }

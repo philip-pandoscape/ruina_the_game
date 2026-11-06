@@ -16,6 +16,13 @@
       "n": 4
     }
   ],
-  "look": "Wooden slatted crate ~0.7 x 0.55 x 0.55 with leather shoulder straps on the back face, golden tubers and barley ears peeking over the top, a stamped lantern mark on the side.",
+  "look": {
+    "body": "harvestCrate",
+    "model": {
+      "files": [
+        "pack_harvestCrate"
+      ]
+    }
+  },
   "kind": "trade"
 }

@@ -1,6 +1,7 @@
 import structures from '../../../shared/structures.json' with { type: 'json' };
 import farming from '../../../shared/farming.json' with { type: 'json' };
 import trade from '../../../shared/trade.json' with { type: 'json' };
+import type { Look } from '../../content/looks';
 
 // The slices of shared/*.json the models are built to. Sizes come from here, never from
 // constants in the model code, so a footprint changed in the data changes the building too.
@@ -13,7 +14,8 @@ export interface StructureData {
   d: number;
   h: number;
   collider: string;
-  look: string;
+  /** Its body and made model: src/content/looks.ts. */
+  look?: Look;
   wall?: number;
   door?: number;
   floor?: number;
@@ -33,13 +35,13 @@ export interface CropData {
   name: string;
   kind: 'crop' | 'tree';
   stages: number;
-  look: string;
+  look?: Look;
 }
 
 export interface PackData {
   id: string;
   name: string;
-  look: string;
+  look?: Look;
 }
 
 export const STRUCTURES = structures.structures as unknown as StructureData[];

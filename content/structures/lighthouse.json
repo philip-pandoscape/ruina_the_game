@@ -6,5 +6,18 @@
   "h": 21,
   "collider": "post",
   "r": 2.8,
-  "look": "Tapered round tower, white with red bands, stone base, gallery railing near the top, glowing lamp room (emissive warm yellow), conical red roof."
+  "look": {
+    "body": "lighthouse",
+    "model": {
+      "files": [
+        "lighthouse"
+      ],
+      "w": 5.6,
+      "d": 5.6,
+      "sink": 0.3,
+      "keep": [
+        "glow"
+      ]
+    }
+  }
 }

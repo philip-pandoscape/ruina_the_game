@@ -21,5 +21,11 @@
     }
   ],
   "kind": "trade",
-  "look": "A wicker hamper with a hinged lid: eggs in straw, a stoppered milk jug, golden tubers, straps on the back."
+  "look": {
+    "model": {
+      "files": [
+        "pack_hamper"
+      ]
+    }
+  }
 }

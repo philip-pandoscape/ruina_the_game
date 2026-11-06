@@ -6,6 +6,7 @@ import { PAL, Parts, TAU, cone, cyl, ico, jiggle, makeRng, octa, rod, vary, vcMa
 // coloured BufferGeometry per (id, stage), origin at the base centre, cached. Draw thousands
 // with an InstancedMesh and toon(0xffffff, { vertexColors: true }). Stage 0 is just planted, the
 // last stage is ripe. Crops stay inside ~1.6 m of their 2 m cell; trees grow up to ~4 m across.
+// Each is drawn with the body its look names (BODIES), or as a plain leafy clump if it names none.
 
 const cache = new Map<string, THREE.BufferGeometry>();
 
@@ -24,7 +25,8 @@ export function cropGeometry(id: string, stage: number): THREE.BufferGeometry {
   if (!g) {
     const p = new Parts();
     const rng = makeRng(id.length * 131 + s * 17 + id.charCodeAt(0));
-    const build = BUILD[id] ?? generic;
+    const body = CROPS.find((c) => c.id === id)?.look?.body;
+    const build = (body && BODIES[body]) || plain;
     build(p, s / Math.max(1, last), s, rng);
     g = p.build();
     g.name = `crop:${key}`;
@@ -303,10 +305,15 @@ const pine: Build = (p, _g, s, rng) => {
   }
 };
 
-const generic: Build = (p, g, s, rng) => {
+/** A crop whose look names no body: a leafy clump that grows. */
+const plain: Build = (p, g, s, rng) => {
   if (s === 0) return planted(p, PAL.white);
   mound(p, 0.3, 0.1);
   blob(p, 0.15 + g * 0.3, [0, 0.12 + g * 0.3, 0], PAL.leaf, rng);
 };
 
-const BUILD: Record<string, Build> = { sunroot, barley, flax, emberberry, apple, pine };
+/** The crops' and trees' bodies, by name: a crop's look names one. */
+const BODIES: Record<string, Build> = { sunroot, barley, flax, emberberry, apple, pine };
+
+/** The bodies a look can name. */
+export const cropBodies = (): string[] => Object.keys(BODIES);

@@ -42,9 +42,9 @@ is about start-up time and graphics memory.
    and on a zone the game doesn't have.
 5. **Load it** by id, with what it's needed for, and draw something in its place until it arrives:
    `model(id, wanted)`, `gltf(id, wanted)` (animations too) or `picture(id, wanted)` from
-   `src/render/assets.ts`. A made model that stands in for a procedural one needs only an entry in
-   `MADE_STRUCTURES`, `MADE_PROPS` or `MADE_PACKS` (`src/render/models/glb.ts`), which loads it as it
-   comes near.
+   `src/render/assets.ts`. A made model that stands in for a procedural body needs only a `model` in the
+   thing's look (its content file, `docs/content.md`, Looks), which `src/render/models/glb.ts`
+   loads as it comes near.
 6. **Check it in the game** (the skill's last step).
 
 ## The Manifest

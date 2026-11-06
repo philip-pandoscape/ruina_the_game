@@ -22,7 +22,16 @@
       "type": "number"
     },
     "look": {
-      "type": "string"
+      "type": "object",
+      "properties": {
+        "body": {
+          "type": "string"
+        },
+        "model": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
     }
   },
   "required": [
@@ -30,8 +39,7 @@
     "w",
     "d",
     "h",
-    "collider",
-    "look"
+    "collider"
   ],
   "additionalProperties": false
 }

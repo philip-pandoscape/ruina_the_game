@@ -6,5 +6,7 @@
   "h": 2.6,
   "collider": "post",
   "r": 1,
-  "look": "What it looks like."
+  "look": {
+    "body": "well"
+  }
 }

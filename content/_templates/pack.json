@@ -12,6 +12,8 @@
       "n": 6
     }
   ],
-  "look": "What it looks like on your back.",
+  "look": {
+    "body": "ciderCask"
+  },
   "kind": "trade"
 }

@@ -5,5 +5,13 @@
   "h": 2.7,
   "collider": "post",
   "r": 0.15,
-  "look": "Wooden post with three arrow boards at different angles."
+  "look": {
+    "body": "signpost",
+    "model": {
+      "files": [
+        "signpost"
+      ],
+      "sink": 0.1
+    }
+  }
 }

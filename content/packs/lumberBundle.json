@@ -13,5 +13,13 @@
       "n": 10
     }
   ],
-  "look": "Ten rough planks ~1.0 long stacked and lashed with two ropes, carrying straps on one face."
+  "look": {
+    "body": "lumberBundle",
+    "model": {
+      "files": [
+        "pack_lumberBundle"
+      ],
+      "yaw": -1.5707963267948966
+    }
+  }
 }

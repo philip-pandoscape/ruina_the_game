@@ -5,5 +5,7 @@
   "d": 6,
   "h": 8,
   "collider": "building",
-  "look": "Built from the village kit (shared/buildings.json plan of the same id): wide arched doors, a cart on the floor, a workbench, an anvil and a grindstone."
+  "look": {
+    "body": "workshop"
+  }
 }

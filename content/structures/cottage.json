@@ -29,5 +29,7 @@
       "z": 1.6
     }
   },
-  "look": "Player house, built from the village kit in stages (shared/buildings.json plan \"cottage\"): a floor, its timber frame, plaster walls with a door in the middle of the front (+Z), a tiled roof gabled to the front and a chimney; inside a hearth, a bed, a chest, a table and bench. Its walls are the rules' \"walls\" collider, the door the plan's middle front module."
+  "look": {
+    "body": "cottage"
+  }
 }

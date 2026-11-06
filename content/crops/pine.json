@@ -31,5 +31,7 @@
       "effect": "thunder"
     }
   },
-  "look": "Conifer. Sapling: tiny cone of needles. Young: 2 m pine. Grown: 5 m pine. Ripe: same 6 m pine with cones (the 'ready to fell' look)."
+  "look": {
+    "body": "pine"
+  }
 }

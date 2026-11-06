@@ -28,7 +28,16 @@
       "type": "array"
     },
     "look": {
-      "type": "string"
+      "type": "object",
+      "properties": {
+        "body": {
+          "type": "string"
+        },
+        "model": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
     },
     "kind": {
       "type": "string"
@@ -43,7 +52,6 @@
     "labor",
     "fee",
     "inputs",
-    "look",
     "kind"
   ],
   "additionalProperties": false

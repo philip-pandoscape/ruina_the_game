@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { structureData, type StructureData } from './data';
 import { grainify } from './detail';
-import { madeStructure } from './glb';
+import { madeFile, madeStructure } from './glb';
 import {
   PAL,
   Parts,
@@ -36,7 +36,8 @@ import { propParts } from './props';
 // Buildings and world dressing, built to the footprints in shared/structures.json: w along X,
 // d along Z, facing +Z, origin on the ground at the footprint centre (docks: at sea level).
 // Each is one merged vertex-coloured mesh plus at most one unlit mesh for lit windows and lamps
-// (and the windmill's sails), with shadows on.
+// (and the windmill's sails), with shadows on. A structure is drawn with the body its look names
+// (BODIES), or a plain block with a roof if it names none.
 
 export interface StructureOpts {
   /** Colour variant (market stall awning). */
@@ -58,6 +59,8 @@ interface Ctx {
   root: THREE.Group;
   rng: () => number;
   opts: StructureOpts;
+  /** The glow brightens and dims, as a lighthouse's lamp does: a body sets it. */
+  pulse: boolean;
 }
 
 type Builder = (c: Ctx) => ((t: number) => void) | void;
@@ -337,8 +340,16 @@ function ladder(p: Parts, a: V3, b: V3, rungs: number): void {
   }
 }
 
-function prop(p: Parts, id: string, at: V3, yaw = 0, seed = 1): void {
-  p.take(propParts(id, seed), at, [0, yaw, 0]);
+/** The props a building is dressed with (by body), at the size they're drawn there. */
+const PIECES: Record<string, { w: number; h: number; d: number }> = {
+  barrel: { w: 0.7, h: 0.95, d: 0.7 },
+  bench: { w: 1.8, h: 0.9, d: 0.6 },
+  crates: { w: 1.6, h: 1.4, d: 1.2 },
+  lamp: { w: 0.4, h: 3.2, d: 0.4 },
+};
+
+function prop(p: Parts, body: string, at: V3, yaw = 0, seed = 1): void {
+  p.take(propParts(body, PIECES[body], seed), at, [0, yaw, 0]);
 }
 
 function lantern(c: Ctx, at: V3, s = 1): void {
@@ -1155,6 +1166,7 @@ const dock: Builder = (c) => {
 
 const lighthouse: Builder = (c) => {
   const { d, body: p, glow, rng } = c;
+  c.pulse = true;
   const R = d.w / 2;
   const base = 1.2;
   p.add(cyl(R - 0.15, R, base, 10), PAL.stone, [0, base / 2, 0]);
@@ -2028,7 +2040,8 @@ const herbNode: Builder = (c) => {
   }
 };
 
-const BUILDERS: Record<string, Builder> = {
+/** The structures' bodies, by name: a structure's look names one. */
+const BODIES: Record<string, Builder> = {
   cottage,
   townhouse,
   inn,
@@ -2054,8 +2067,11 @@ const BUILDERS: Record<string, Builder> = {
   herbNode,
 };
 
-/** A plain block with a roof, for any structure id without its own build. */
-const generic: Builder = (c) => {
+/** The bodies a look can name. */
+export const structureBodies = (): string[] => Object.keys(BODIES);
+
+/** A plain block with a roof, for a structure whose look names no body. */
+const plain: Builder = (c) => {
   const { d, body: p, rng } = c;
   p.add(box(d.w * 0.9, d.h * 0.55, d.d * 0.9), PAL.plaster, [0, d.h * 0.275, 0]);
   gable(
@@ -2077,31 +2093,28 @@ const generic: Builder = (c) => {
   );
 };
 
-/** The made stalls come with a red awning or a blue one: whichever is nearer the tint asked for. */
-function stallVariant(tint: number): number {
-  const hsl = { h: 0, s: 0, l: 0 };
-  new THREE.Color(tint).getHSL(hsl);
-  return hsl.h > 0.42 && hsl.h < 0.8 ? 1 : 0;
-}
-
 /**
- * Builds a structure from its data id. Options: `stage` (cottage 0..4), `tint` (stall awning),
- * `seed` (variation). Windmill sails are a child named 'sails' that animate() turns about Z.
+ * Builds a structure from its data id: the body its look names, and its made model in the body's
+ * place once that has loaded. Options: `stage` (cottage 0..4), `tint` (stall awning), `seed`
+ * (variation). Windmill sails are a child named 'sails' that animate() turns about Z.
  */
 export function buildStructure(id: string, opts: StructureOpts = {}): StructureModel {
-  const d = structureData(id) ?? { id, w: 3, d: 3, h: 3, collider: 'box', look: '' };
+  const d = structureData(id) ?? { id, w: 3, d: 3, h: 3, collider: 'box' };
   const root = new THREE.Group();
   root.name = `structure:${id}`;
-  const c: Ctx = { d, body: new Parts(), glow: new Parts(), root, rng: makeRng((opts.seed ?? 1) * 977 + id.length * 13), opts };
-  const animate = (BUILDERS[id] ?? generic)(c) ?? undefined;
+  const c: Ctx = { d, body: new Parts(), glow: new Parts(), root, rng: makeRng((opts.seed ?? 1) * 977 + id.length * 13), opts, pulse: false };
+  const body = d.look?.body;
+  const animate = ((body && BODIES[body]) || plain)(c) ?? undefined;
   if (!c.body.empty) mesh(root, c.body.build(), { name: 'body' });
-  // A made model is swapped in where there is one (src/render/models/glb.ts); a cottage
-  // still being built, or a stall in another colour, keeps its own.
   grainify(root);
-  if ((opts.stage ?? 4) >= 4) madeStructure(id, root, d, id === 'stall' && opts.tint !== undefined ? stallVariant(opts.tint) : opts.seed);
+  // The made model stands for the finished structure (src/render/models/glb.ts): a cottage still
+  // being built keeps its body. A stall's is the file painted nearest its awning's tint.
+  const made = d.look?.model;
+  const done = opts.stage === undefined || opts.stage >= (d.stages?.length ?? 1) - 1;
+  if (made && done) madeStructure(made, madeFile(made, opts.seed, opts.tint), root, d);
   let lamp: THREE.MeshBasicMaterial | null = null;
   if (!c.glow.empty) {
-    if (id === 'lighthouse') lamp = glowMaterial().clone();
+    if (c.pulse) lamp = glowMaterial().clone();
     mesh(root, c.glow.build(), { mat: lamp ?? glowMaterial(), shadow: false, name: 'glow' });
   }
   if (lamp) {

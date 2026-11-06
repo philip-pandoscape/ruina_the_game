@@ -1,13 +1,15 @@
 import * as THREE from 'three';
 import { asset } from '../../assets/manifest';
+import type { MadeModel } from '../../content/looks';
 import { model, track } from '../assets';
 import { toon } from '../toon';
 
 // The made models (src/render/assets/models: generated with Meshy from concept art
-// painted after the island's reference picture, then compressed). Each stands in for a procedural
-// model of the same id: the procedural one is drawn at once, and the made one replaces it when it
-// has loaded, fitted into the same box (the rules' footprint), front to +Z, foot on the ground.
-// They stream in nearest the camera first (src/assets/loader.ts).
+// painted after the island's reference picture, then compressed). A thing's look names its made
+// model and how it is fitted (content: src/content/looks.ts MadeModel): its body is drawn at once,
+// and the made model replaces it when it has loaded, fitted into the same box (the rules'
+// footprint), front to +Z, foot on the ground. They stream in nearest the camera first
+// (src/assets/loader.ts).
 
 /** The manifest's id for a made model's file, if the manifest has it (under Node it has none). */
 const fileId = (file: string): string | null => (asset(`models/${file}`) ? `models/${file}` : null);
@@ -18,76 +20,37 @@ const whereIs = (o: THREE.Object3D) => (): { x: number; z: number } => {
   return { x: o.matrixWorld.elements[12], z: o.matrixWorld.elements[14] };
 };
 
-export interface MadeModel {
-  /** Model files to pick from by seed, without the extension. */
-  files: string[];
-  /** The box it is fitted into (metres); missing sides come from the structure's data. */
-  w?: number;
-  h?: number;
-  d?: number;
-  /** Turn about Y (radians) before fitting, for a model whose front isn't +Z. */
-  yaw?: number;
-  /** How far it sinks into the ground, so it sits on a slope without a gap under it. */
-  sink?: number;
-  /** Children of the procedural model to keep (the windmill's turning sails). */
-  keep?: string[];
-}
-
 /** How much windows glow: 0 by day, up to 1 at night (OpenStage.setTime; the village's glass reads it). */
 export const windowGlow = { value: 0 };
 
+/** The island's loose rocks (src/render/open/foliage.ts), made: each the box of a rock at scale 1. */
+export const ROCKS = {
+  granite: { files: ['boulder_granite'], w: 1.7, h: 1.15, d: 1.7, sink: 0.3 },
+  coast: { files: ['boulder_coast'], w: 1.6, h: 1.3, d: 1.6, sink: 0.3 },
+} satisfies Record<string, MadeModel>;
+
 /**
- * Structures with a made model, by id (shared/structures.json). The buildings you can walk into
- * are the village kit's instead (src/render/village).
+ * Which of a made model's files a placement of it gets: the one painted nearest its tint in hue,
+ * where its files have tints and the placement one; otherwise one picked by its seed.
  */
-export const MADE_STRUCTURES: Record<string, MadeModel> = {
-  lighthouse: { files: ['lighthouse'], w: 5.6, d: 5.6, sink: 0.3, keep: ['glow'] },
-  windmill: { files: ['windmill'], w: 5.4, d: 5.4, h: 10.6, sink: 0.2, keep: ['sails'] },
-  stall: { files: ['stall_red', 'stall_blue'], sink: 0.05 },
-  well: { files: ['well'], sink: 0.1 },
-  noticeBoard: { files: ['noticeBoard'], sink: 0.05 },
-  workbench: { files: ['workbench'], sink: 0.03 },
-  scarecrow: { files: ['scarecrow'], sink: 0.1 },
-  oreNode: { files: ['oreNode'], sink: 0.2 },
-  stoneNode: { files: ['stoneNode'], sink: 0.2 },
-  timberNode: { files: ['timberNode'], sink: 0.1 },
-  herbNode: { files: ['herbNode'], sink: 0.05 },
-};
-
-/** Props with a made model, by id: drawn many times over as one instanced mesh per kind. */
-export const MADE_PROPS: Record<string, MadeModel> = {
-  barrel: { files: ['barrel'], sink: 0.02 },
-  crates: { files: ['crates'], sink: 0.02 },
-  bench: { files: ['bench'], sink: 0.02 },
-  lamp: { files: ['lamp'], sink: 0.05 },
-  signpost: { files: ['signpost'], sink: 0.1 },
-  // The made cart is long across X; the prop is long along Z.
-  haycart: { files: ['haycart'], yaw: Math.PI / 2, sink: 0.02 },
-  bollard: { files: ['bollard'], sink: 0.02 },
-  fence: { files: ['fence'], sink: 0.08 },
-  // The island's loose rocks (src/render/open/foliage.ts): the box of a rock at scale 1.
-  boulderGranite: { files: ['boulder_granite'], w: 1.7, h: 1.15, d: 1.7, sink: 0.3 },
-  boulderCoast: { files: ['boulder_coast'], w: 1.6, h: 1.3, d: 1.6, sink: 0.3 },
-};
-
-/** Trade packs with a made model, by pack id (shared/trade.json): their straps face +Z, as the procedural ones' do. */
-export const MADE_PACKS: Record<string, MadeModel> = Object.fromEntries(
-  // How far each made pack turns to bring its straps round to +Z.
-  (
-    [
-      ['harvestCrate', 0],
-      ['flaxBale', Math.PI],
-      ['emberPreserves', Math.PI],
-      ['ciderCask', -Math.PI / 2],
-      ['fleeceBale', 0],
-      ['hamper', 0],
-      ['lumberBundle', -Math.PI / 2],
-      ['stoneBlock', Math.PI],
-      ['ironCrate', -Math.PI / 2],
-      ['sailcloth', Math.PI],
-    ] as const
-  ).map(([id, yaw]) => [id, { files: [`pack_${id}`], yaw }]),
-);
+export function madeFile(made: MadeModel, seed = 1, tint?: number): string {
+  const tints = made.tints;
+  if (tint !== undefined && tints?.length === made.files.length) {
+    const hsl = { h: 0, s: 0, l: 0 };
+    const hue = (c: number) => new THREE.Color(c).getHSL(hsl).h;
+    const want = hue(tint);
+    const apart = (c: number) => {
+      const d = Math.abs(hue(c) - want);
+      return Math.min(d, 1 - d);
+    };
+    let best = 0;
+    tints.forEach((t, i) => {
+      if (apart(t) < apart(tints[best])) best = i;
+    });
+    return made.files[best];
+  }
+  return made.files[Math.abs(Math.floor(seed)) % made.files.length];
+}
 
 const materials = new Map<string, THREE.Material>();
 
@@ -128,16 +91,14 @@ export function fitted(scene: THREE.Object3D, made: MadeModel, w: number, h: num
 }
 
 /**
- * Swaps a made model in for a procedural structure once it has loaded. `root` keeps its place in
- * the scene; only its children change.
+ * Swaps a made model (its `file`) in for a structure's body once it has loaded. `root` keeps its
+ * place in the scene; only its children change.
  */
-export function madeStructure(id: string, root: THREE.Object3D, box: { w: number; h: number; d: number }, seed = 1): void {
-  const made = MADE_STRUCTURES[id];
-  if (!made) return;
-  const file = fileId(made.files[Math.abs(Math.floor(seed)) % made.files.length]);
-  if (!file) return;
+export function madeStructure(made: MadeModel, file: string, root: THREE.Object3D, box: { w: number; h: number; d: number }): void {
+  const id = fileId(file);
+  if (!id) return;
   track(
-    model(file, { need: 'near', at: whereIs(root) }).then((scene) => {
+    model(id, { need: 'near', at: whereIs(root) }).then((scene) => {
       const fit = fitted(scene, made, made.w ?? box.w, made.h ?? box.h, made.d ?? box.d);
       for (const child of [...root.children]) if (!made.keep?.includes(child.name)) root.remove(child);
       root.add(fit);
@@ -164,13 +125,12 @@ export function baked(geometry: THREE.BufferGeometry, matrix: THREE.Matrix4): TH
 
 /**
  * A made prop as one geometry and material, fitted into the box, for an instanced mesh. Null when
- * there is no made model for it.
+ * there is no made model (or, under Node, no file to load).
  */
 export function madeProp(
-  id: string,
+  made: MadeModel | undefined,
   box: { w: number; h: number; d: number },
 ): Promise<{ geometry: THREE.BufferGeometry; material: THREE.Material } | null> | null {
-  const made = MADE_PROPS[id];
   const file = made && fileId(made.files[0]);
   if (!made || !file) return null;
   // Props stand all over: wanted as near as can be.
@@ -188,12 +148,11 @@ export function madeProp(
 }
 
 /**
- * Swaps a made pack in for a procedural one once it has loaded: the same box, in the same place
- * against the carrier's back (the procedural pack's own bounds), so carrying, loading and stowing
- * see no difference.
+ * Swaps a made pack in for a pack's body once it has loaded: the same box, in the same place
+ * against the carrier's back (the body's own bounds), so carrying, loading and stowing see no
+ * difference.
  */
-export function madePack(id: string, root: THREE.Object3D): void {
-  const made = MADE_PACKS[id];
+export function madePack(made: MadeModel | undefined, root: THREE.Object3D): void {
   const file = made && fileId(made.files[0]);
   if (!made || !file) return;
   root.updateMatrixWorld(true);

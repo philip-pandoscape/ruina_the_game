@@ -88,7 +88,7 @@ export class ZoneDressing {
       const def = propDef(id);
       const mesh = instanced(models.propGeometry(id), items, true);
       // The made model, when there is one, takes over the same instances once loaded.
-      const made = madeProp(id, def);
+      const made = madeProp(def.look?.model, def);
       if (made)
         track(
           made.then((m) => {

@@ -13,7 +13,7 @@ look. It reads the rules' state and whatever it's handed, and never changes the 
 | `creatures/` | Creature bodies for the crowd renderer: the species format, its registry, baked clips, jelly, the goblin and bodies with folders of their own. |
 | `actors.ts`, `missiles.ts`, `dummy.ts` | Monsters by species (one instanced crowd each), what they throw, the training dummy. |
 | `spells.ts`, `vfx.ts` | Ground circles, arrows and meteors; slash trails, sparks and dust. |
-| `models/`, `assets.ts`, `assets/` | Procedural models and the made ones swapped in for them (`models/glb.ts`), files by id through the loader, the files themselves. |
+| `models/`, `assets.ts`, `assets/` | Procedural models (each kind's bodies, by the names looks give them) and the made ones swapped in for them (`models/glb.ts`), files by id through the loader, the files themselves. |
 | `portrait.ts`, `studio.ts`, `heroPreview.ts` | Portraits for the windows, and the hero on character select (handed the UI's scale). |
 
 ## Rules
@@ -24,8 +24,10 @@ look. It reads the rules' state and whatever it's handed, and never changes the 
   itself (`ShownActor`, `ShownTable`, `ShownPeer`), and the app hands it the real thing.
 - **Reads, never writes.** Drawing doesn't change the rules' state; a change it wants is a command
   through the app.
-- **Made models** are swapped in by id and fitted into the footprint of the procedural model they
-  replace, so the rules, colliders and server never see them (root `AGENTS.md`, Art and assets).
+- **Looks are content**: a thing's look (`src/content/looks.ts`) names the body it is drawn with
+  (a builder in `models/`, found by that name) and the made model fitted over it, so the rules,
+  colliders and server never see them (root `AGENTS.md`, Art and assets). A thing that names no
+  look gets its kind's plain body.
 
 ## Tests
 

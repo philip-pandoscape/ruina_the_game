@@ -10,5 +10,5 @@ export { buildAnimal, ANIMAL_IDS, type AnimalId, type AnimalAnim, type AnimalMod
 export { buildVillager, VILLAGER_IDS, type VillagerAnim, type VillagerModel } from './villagers';
 export { cropGeometry, cropStages, buildCrop } from './crops';
 export { buildStructure, type StructureModel, type StructureOpts } from './structures';
-export { propGeometry, propGlowGeometry } from './props';
+export { propGeometry } from './props';
 export { PAL, vcMaterial, clothMaterial, glowMaterial, tint, faceted, merge, Parts } from './kit';

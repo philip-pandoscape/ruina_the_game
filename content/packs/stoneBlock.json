@@ -13,5 +13,13 @@
       "n": 10
     }
   ],
-  "look": "A squared pale building stone ~0.6 cube in a wooden carrying frame with straps."
+  "look": {
+    "body": "stoneBlock",
+    "model": {
+      "files": [
+        "pack_stoneBlock"
+      ],
+      "yaw": 3.141592653589793
+    }
+  }
 }

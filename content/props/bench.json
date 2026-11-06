@@ -4,5 +4,13 @@
   "d": 0.6,
   "h": 0.9,
   "collider": "box",
-  "look": "Wooden park bench."
+  "look": {
+    "body": "bench",
+    "model": {
+      "files": [
+        "bench"
+      ],
+      "sink": 0.02
+    }
+  }
 }

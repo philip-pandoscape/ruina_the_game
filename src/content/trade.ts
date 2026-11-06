@@ -1,4 +1,5 @@
 import data from '../../shared/trade.json' with { type: 'json' };
+import type { Look } from './looks';
 
 // Pack running, labor and money, as content (shared/trade.json).
 
@@ -14,7 +15,8 @@ export interface PackDef {
   /** Copper charged by the workbench to make one. */
   fee: number;
   inputs: Array<{ item: string; n: number }>;
-  look: string;
+  /** What it is drawn as (src/content/looks.ts): no body, a plain sack. */
+  look?: Look;
   /** 'trade' packs sell at another town's trader; 'material' ones are hauled to a building site. */
   kind?: string;
 }
