@@ -16,6 +16,14 @@ import { GRAPHICS, LOOK_DEBUG_AO, POST } from '../look';
 // Which of them the quality draws is in src/render/look.ts (GRAPHICS).
 // The sky dome is left as it is (it already fades to the horizon colour the haze uses).
 
+/**
+ * How far the scene's depth reaches: a hair short of the far plane (render), so that only what
+ * nothing was drawn over keeps the cleared depth the haze takes for sky. Otherwise whatever sits in
+ * the depth buffer's last step before the far plane (crown clumps on a ridge at the end of a short
+ * view) reads as sky and is left unhazed among hazed neighbours.
+ */
+const DEPTH_SPAN = 1 - 1e-6;
+
 const quadVertex = /* glsl */ `
   varying vec2 vUv;
   void main() {
@@ -53,6 +61,7 @@ const atmosphereFragment = /* glsl */ `
       gl_FragColor = src;
       return;
     }
+    depth /= ${DEPTH_SPAN.toFixed(7)};
     vec4 view = uProjInv * vec4(vUv * 2.0 - 1.0, depth * 2.0 - 1.0, 1.0);
     vec3 world = (uCamWorld * vec4(view.xyz / view.w, 1.0)).xyz;
     vec3 ray = world - uCamPos;
@@ -269,7 +278,11 @@ export class WorldPost {
     r.info.autoReset = false;
     r.info.reset();
     r.setRenderTarget(sceneTarget);
+    // The scene's depth stops a hair short of the far plane (DEPTH_SPAN).
+    const gl = r.getContext();
+    gl.depthRange(0, DEPTH_SPAN);
     r.render(this.scene, camera);
+    gl.depthRange(0, 1);
     this.ao?.render(r, null as unknown as THREE.WebGLRenderTarget, sceneTarget, 0, false);
 
     const u = this.atmosphereMat.uniforms;
