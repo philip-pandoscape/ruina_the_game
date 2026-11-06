@@ -1,11 +1,14 @@
 // Moves a range of main.ts's top-level statements (lines from-to, nothing in it used outside) into
 // `export function <fn>(g: GameRefs)` in <module>, its uses of main.ts's names becoming g.<name>, and
 // main.ts calling it there; the refs object main.ts hands its modules gains what the region needs.
-//   node tools/refactor/move-region.mjs <from> <to> <module path> <function name> "<header comment>"
+// With <object>, the names the region declares that the rest of main.ts uses are given out: the
+// function returns them (a `let` as a getter and setter), main.ts keeps what it returns as
+// `const <object>`, and its uses of them become <object>.<name>. `refs` must come before the region.
+//   node tools/refactor/move-region.mjs <from> <to> <module path> <function name> "<header comment>" [<object>]
 import { readFileSync, writeFileSync } from 'node:fs';
 import { parseSync } from 'oxc-parser';
 
-const [fromS, toS, modPath, fnName, header] = process.argv.slice(2);
+const [fromS, toS, modPath, fnName, header, outObj] = process.argv.slice(2);
 const from = Number(fromS);
 const to = Number(toS);
 const file = 'src/main.ts';
@@ -88,6 +91,40 @@ function walk(node, parent, key, shadow, depthFn) {
 const regionLocals = new Set(region.flatMap(declared));
 for (const st of region) walk(st, { type: 'Program' }, 'body', regionLocals, 0);
 
+// What the rest of main.ts uses of the region's names: given out through <object>.
+const outEdits = []; // { s, e, name, short }
+const lets = new Set();
+for (const st of region) if (st.type === 'VariableDeclaration' && st.kind === 'let') for (const n of declared(st)) lets.add(n);
+{
+  const walkOut = (node, parent, key, shadow) => {
+    if (!node || typeof node.type !== 'string') return;
+    if (/^TS/.test(node.type) && !/TSAsExpression|TSNonNullExpression|TSSatisfiesExpression|TSTypeAssertion/.test(node.type)) return;
+    const scoped = /Function/.test(node.type) || node.type === 'BlockStatement' || /^For/.test(node.type) || node.type === 'CatchClause';
+    const sh = scoped ? new Set([...shadow, ...locals(node)]) : shadow;
+    if (node.type === 'Identifier' && regionLocals.has(node.name) && !sh.has(node.name)) {
+      const isRef =
+        !(parent.type === 'MemberExpression' && key === 'property' && !parent.computed) &&
+        !(parent.type === 'Property' && key === 'key' && !parent.computed && !parent.shorthand) &&
+        !(/MethodDefinition|PropertyDefinition/.test(parent.type) && key === 'key') &&
+        !(parent.type === 'VariableDeclarator' && key === 'id') &&
+        !(/Function|ClassDeclaration/.test(parent.type) && (key === 'params' || key === 'id')) &&
+        !/Labeled|Break|Continue/.test(parent.type);
+      if (isRef && !outEdits.some((x) => x.s === node.start))
+        outEdits.push({ s: node.start, e: node.end, name: node.name, short: parent.type === 'Property' && parent.shorthand });
+    }
+    for (const [k, v] of Object.entries(node)) {
+      if (skipKeys.has(k)) continue;
+      if (Array.isArray(v)) for (const c of v) walkOut(c, node, k, sh);
+      else if (v && typeof v.type === 'string') walkOut(v, node, k, sh);
+    }
+  };
+  for (const st of program.body)
+    if (!(st.start >= regionStart && st.end <= regionEnd) && st.type !== 'ImportDeclaration') walkOut(st, { type: 'Program' }, 'body', new Set());
+}
+const given = [...new Set(outEdits.map((x) => x.name))].sort();
+if (given.length && !outObj) throw new Error(`the rest of main.ts uses ${given.join(' ')}: name an <object> to give them out through`);
+if (outObj && text.indexOf('const refs = {\n') > regionStart) throw new Error('refs must come before the region');
+
 // The region's text, rewritten.
 let body = text.slice(regionStart, regionEnd);
 for (const { s, e, name, short } of [...edits].sort((a, b) => b.s - a.s)) {
@@ -115,12 +152,14 @@ writeFileSync(
     .map((l) => `// ${l}`)
     .join(
       '\n',
-    )}\n${imports.join('\n')}\nimport type { GameRefs } from '${up}main';\n\nexport ${topAwait ? 'async ' : ''}function ${fnName}(g: GameRefs): ${topAwait ? 'Promise<void>' : 'void'} {\n${indent}\n}\n`,
+    )}\n${imports.join('\n')}\nimport type { GameRefs } from '${up}main';\n\nexport ${topAwait ? 'async ' : ''}function ${fnName}(g: GameRefs)${given.length ? '' : `: ${topAwait ? 'Promise<void>' : 'void'}`} {\n${indent}\n${given.length ? `  return {\n${given.map((n) => (lets.has(n) ? `    get ${n}() {\n      return ${n};\n    },\n    set ${n}(v) {\n      ${n} = v;\n    },` : `    ${n},`)).join('\n')}\n  };\n` : ''}}\n`,
 );
 
 // main.ts: the call in the region's place, the refs object widened.
-const call = `${topAwait ? 'await ' : ''}${fnName}(refs);`;
-let main = text.slice(0, regionStart) + call + text.slice(regionEnd);
+const call = `${given.length ? `const ${outObj} = ` : ''}${topAwait ? 'await ' : ''}${fnName}(refs);`;
+let main = text;
+const all = [...outEdits.map((x) => ({ ...x, out: true })), { s: regionStart, e: regionEnd, region: true }].sort((a, b) => b.s - a.s);
+for (const x of all) main = main.slice(0, x.s) + (x.region ? call : x.short ? `${x.name}: ${outObj}.${x.name}` : `${outObj}.${x.name}`) + main.slice(x.e);
 const refsStart = main.indexOf('const refs = {\n');
 const refsEnd = main.indexOf('\n};\n', refsStart);
 if (refsStart < 0 || refsEnd < 0) throw new Error('no refs object');
@@ -137,5 +176,5 @@ const modSpec = `./${modPath.replace(/^src\//, '').replace(/\.ts$/, '')}`;
 main = main.replace("import { makeTestApi } from './app/testApi';", `import { makeTestApi } from './app/testApi';\nimport { ${fnName} } from '${modSpec}';`);
 writeFileSync(file, main);
 console.log(
-  `${fnName}: ${region.length} statements, ${used.length} names through refs (${add.length} new getters/setters), assigned: ${[...assigned].join(' ') || 'none'}, await: ${topAwait}`,
+  `${fnName}: ${region.length} statements, ${used.length} names through refs (${add.length} new getters/setters), assigned: ${[...assigned].join(' ') || 'none'}, await: ${topAwait}${given.length ? `, given out through ${outObj}: ${given.join(' ')}` : ''}`,
 );

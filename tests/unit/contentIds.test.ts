@@ -47,7 +47,7 @@ const ALLOWED: Allowance[] = [
   },
   {
     why: "the island's own slimes and training dummy are spawned by code until spawns are data (R9.3), and ?goblins= puts a band in the yard",
-    files: ['src/sim/zone/world.ts', 'src/sim/yard.ts', 'src/main.ts', 'src/engine/engine.ts', 'crates/server/src/play/mod.rs'],
+    files: ['src/sim/zone/world.ts', 'src/sim/yard.ts', 'src/main.ts', 'src/app/drawing.ts', 'src/engine/engine.ts', 'crates/server/src/play/mod.rs'],
     ids: ['slime', 'dummy', 'goblin'],
   },
   {

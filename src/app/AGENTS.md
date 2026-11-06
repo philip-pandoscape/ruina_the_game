@@ -15,6 +15,8 @@ peers to their drawing).
 | `testApi.ts` | `window.__game`, the test API; `GameApi` is its type, which `tests/support/game.ts` checks the tests' calls against. |
 | `bugWiring.ts` | The bug reporter (`bugs/`) wired to the game: what a report keeps and samples. |
 | `dungeonVisit.ts` | Into a copy of a dungeon and out again. |
+| `drawing.ts` | Drawing a frame: the world as the rules have it at the moment shown (between two steps), the effects of what happened, spells' circles, monsters' warnings, the ability bar, the camera, everyone else. |
+| `loop.ts` | The main loop: the rules stepped at 60 Hz for the time that has passed, with what you pressed for each step, then a frame drawn; tests pause it and step it a frame at a time. |
 | `aiming.ts`, `targeting.ts` | Aiming: the mark (a soft lock you override with Tab), the circle a ground-aimed spell is placed with, aim assist, the combat stance. |
 | `perf.ts` | How the game runs: frame times, the page's and the graphics card's share, draw calls; the HUD's stats line and the stress tests read it. |
 | `save.ts`, `savedBuild.ts`, `storage.ts`, `resume.ts` | The island and the build kept in the browser offline, browser storage under the game's name, coming back after a reload. |
@@ -22,13 +24,17 @@ peers to their drawing).
 ## How the modules reach the game
 
 `src/main.ts` builds the game as one long start-up and hands its modules a `refs` object
-(`GameRefs`): a getter for each thing they use, read when they use it, and a setter for the few
-they assign. A module takes `g: GameRefs` and writes `g.sim`, `g.life`; a module that runs once, where
-its code used to run, may take main.ts's constants into locals at its top (`const { sim, life } = g`),
-which keeps TypeScript's narrowing inside its closures. Moving more of main.ts out goes the same way:
-`tools/refactor/` has the scripts that do it (`region.mjs` says what a range of main.ts takes in
-and gives out, `move-region.mjs` moves it, `localize-consts.mjs` and `prune-imports.mjs` tidy up); they work from oxc's syntax tree, so a
-name a function declares for itself is never taken for main.ts's.
+(`GameRefs`): a getter for each thing they use, read when they use it, and a setter for the few they
+assign. It is declared before the first module built from it (the drawing), so the start-up reads:
+the game's parts, `refs`, then the modules that run on them. A module that keeps state the rest of
+main.ts uses gives it out through what it returns (`drawing.showEvent`, `loop.paused`). A module
+takes `g: GameRefs` and writes `g.sim`, `g.life`; a module that runs once, where its code used to
+run, may take main.ts's constants into locals at its top (`const { sim, life } = g`), which keeps
+TypeScript's narrowing inside its closures. Moving more of main.ts out goes the same way:
+`tools/refactor/` has the scripts that do it (`region.mjs` says what a range of main.ts takes in and
+gives out, `move-region.mjs` moves it, giving out what the rest uses through an object,
+`localize-consts.mjs` and `prune-imports.mjs` tidy up); they work from oxc's syntax tree, so a name
+a function declares for itself is never taken for main.ts's.
 
 ## Tests
 
