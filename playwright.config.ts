@@ -39,7 +39,11 @@ export default defineConfig({
   fullyParallel: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   grepInvert: process.env.CI ? /@gpu/ : undefined,
-  reporter: process.env.CI ? [['list'], ['github']] : [['list']],
+  // Every run also keeps each test's time in test-results/timings.json; `node tools/tests/timings.mjs`
+  // prints the slowest tests and files from it.
+  reporter: process.env.CI
+    ? [['list'], ['github'], ['json', { outputFile: 'test-results/timings.json' }]]
+    : [['list'], ['json', { outputFile: 'test-results/timings.json' }]],
   use: {
     baseURL: `http://localhost:${port}`,
     channel: process.platform === 'win32' ? 'msedge' : undefined,

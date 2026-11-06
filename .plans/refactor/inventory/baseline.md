@@ -1,7 +1,53 @@
 # Baseline: where the refactor starts (measured 2026-11-05 on beta d49c3b8)
 
-Measured on the development machine (Windows 11, i9 laptop) unless it says otherwise. Phase 0
-re-measures the suite with a timing reporter (R0.3) and adds the per-test numbers here.
+Measured on the development machine (Windows 11, i9 laptop) unless it says otherwise.
+
+## The suite, test by test (R0.4)
+
+The whole Playwright suite on `refactor/first` before any change, with the timing reporter (R0.3),
+6 workers, a private Postgres and server: **395 passed, 1 skipped (library-review, which needs a
+review file), 0 failed, in 648 s (10.8 min) on the clock and 1,848 s of test time.** Every test's
+time is in [baseline-tests.csv](baseline-tests.csv); `node tools/tests/timings.mjs` prints the same
+for any later run.
+
+| Slowest tests | File | s |
+|---|---|---|
+| a friend rides along in your cart wherever you drive it, and bumps into it parked | online | 58.5 |
+| a party goes through Goblin's Dread's portal into one copy, and someone on their own into theirs | party | 56.6 |
+| what each look costs the graphics card a frame (1920 x 1080) @gpu | look | 48.2 |
+| speed at different army sizes | raid | 42.1 |
+| a challenge accepted puts both stakes in the pot... @gpu | minigames | 36.6 |
+| a neighbour's house is drawn on your island, and their plot can't be taken | online | 33.6 |
+| another player's name shows near you, fades past 30 m and is gone by 45 m | online | 30.5 |
+| everyone in a channel has the same rain and wind | online | 30.0 |
+| the ledge path really climbs the Windspire on foot | world | 27.0 |
+| everyone in a channel sees the same time of day | online | 26.4 |
+| two players form a party by name and see each other in the party frame | party | 25.6 |
+| rowing in the game at 144 fps, the hands stay on the oars | animation | 23.3 |
+| starting over throws the island away on the server too | online | 21.4 |
+| an account holds several characters, each with an island of its own | online | 21.0 |
+| shipyard: lay a keel, build the Merchant Cog in four stages, launch her and sail | world | 20.7 |
+
+| Slowest files | Tests | s |
+|---|---|---|
+| online.spec.ts | 21 | 350.9 |
+| world.spec.ts | 30 | 303.2 |
+| animation.spec.ts | 23 | 95.5 |
+| party.spec.ts | 3 | 91.2 |
+| ui.spec.ts | 10 | 91.2 |
+| skills.spec.ts | 15 | 85.8 |
+| look.spec.ts | 5 | 76.7 |
+| travel.spec.ts | 11 | 74.9 |
+| life-conformance.spec.ts | 14 | 63.9 |
+| minigames.spec.ts | 2 | 56.8 |
+| raid.spec.ts | 2 | 53.8 |
+| slime-pack.spec.ts | 18 | 43.2 |
+| movement.spec.ts | 19 | 39.6 |
+| combat.spec.ts | 10 | 36.2 |
+| models.spec.ts | 16 | 34.6 |
+
+The online and open-world files are two thirds of the test time; the tests that need no browser
+(life-conformance alone is 64 s) still pay for the web server and a worker each.
 
 ## Code
 
