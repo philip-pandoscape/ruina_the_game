@@ -44,7 +44,7 @@ export interface LifeHooks {
 export interface SimOptions {
   // Training: the dummy is a target, hits pause the action briefly, and attacks auto-aim.
   // Networked play turns these off, because the server decides what gets hit.
-  // server/src/player.rs must follow the same rules (tests/conformance/player.test.ts checks it).
+  // crates/engine/src/player.rs must follow the same rules (tests/conformance/player.test.ts checks it).
   training: boolean;
 }
 
@@ -185,7 +185,7 @@ export class Sim {
     return list;
   }
 
-  // Switches skills and loadout, the way the server does (server/src/player.rs apply_build): any
+  // Switches skills and loadout, the way the server does (crates/engine/src/player.rs apply_build): any
   // attack or cast in progress is dropped.
   setBuild(b: Build): void {
     const p = this.player;

@@ -8,7 +8,7 @@ const SHOTS = 'screenshots';
 const server = new TestServer(7793, ['--bots', '10000']);
 const SERVER = server.url;
 
-test.skip(!serverBuilt, 'build the server first: cargo build --release --manifest-path server/Cargo.toml');
+test.skip(!serverBuilt, 'build the server first: cargo build --release');
 test.beforeAll(async () => server.start());
 test.afterAll(() => server.stop());
 

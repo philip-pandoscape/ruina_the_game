@@ -2,7 +2,7 @@
 // dead long enough, and everything a pack of them does together - a dying one bursting into
 // pieces, a caller gathering the others in, a burst group reforming one size up, a war-band
 // sharing out who strikes and where the rest wait (src/sim/ai/pack.ts), and the blows, throws
-// and heals they ask for. server/src/actors.rs runs the same frame the same way;
+// and heals they ask for. crates/engine/src/actors.rs runs the same frame the same way;
 // tests/conformance/ai.test.ts compares whole packs of them frame by frame.
 
 import type { Sim } from '../sim';

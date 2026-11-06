@@ -4,7 +4,7 @@ import type { Sim } from './sim';
 import type { GameEvent } from './types';
 
 // The training yard has no server, so this stands in for it: arrows fly, meteors fall and Healing
-// Circle goes off, with the same numbers the server uses (server/src/game.rs), against the dummy.
+// Circle goes off, with the same numbers the server uses (crates/server/src/game.rs), against the dummy.
 
 const ARROW_PAD = 0.25; // how close an arrow has to pass to count
 const ARROW_KNOCK = 3; // how hard it rocks whatever it hits

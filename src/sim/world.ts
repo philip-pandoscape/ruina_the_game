@@ -89,7 +89,7 @@ export function makeBattlefield(seed = WORLD.seed): World {
   const rng = makeRng(seed + 11);
   const obstacles: Obstacle[] = [];
   const radius = 140;
-  // Plain multiply and square root, so server/src/world.rs produces exactly the same layout.
+  // Plain multiply and square root, so crates/engine/src/world.rs produces exactly the same layout.
   const fits = (x: number, z: number, r: number, clearance: number) =>
     obstacles.every((o) => {
       const dx = o.x - x;

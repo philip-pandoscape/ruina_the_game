@@ -4,7 +4,7 @@ An original browser MMORPG prototype: third-person 3D action combat with platfor
 (run, slide, double jump), classless skill trees, Xbox controller support, and a Rust game server
 that plays the open world itself (every rule, from movement to trade, runs there), keeps players'
 accounts and islands in Postgres, and is built for 10,000-player PvP raids. The game is called
-Ruina; the Rust crate and server binary keep the working name *yggdrasil*.
+Ruina; only the repository keeps the working name *yggdrasil*.
 
 The open world starts on **Emberholm**, a starter isle with ArcheAge-style life systems: gliders,
 carts, a roadster, boats that sail on the wind, mounts, trade packs you carry to faraway trading
@@ -21,17 +21,19 @@ else is drawn by `design/bible.ts` from the game's own modules (the content in `
 rules' formulas and the terrain generator), so it is always current and there is nothing to rebuild.
 
 - `src/`: browser client (Three.js + TypeScript, built with Vite)
-- `src/skills.ts` and `server/src/skills.rs`: the skill tree, the levels skills gain by use, and the
+- `src/skills.ts` and `crates/engine/src/skills.rs`: the skill tree, the levels skills gain by use, and the
   modifiers both apply, mirrored in both languages. The tree is data in `shared/skilltree.json`
   (laid out by `tools/skilltree/gen.mjs`), points and levels in `shared/tuning.json`; adding a
   skill should not mean writing code.
   An ability is targeting plus a list of *effects*, and a movement skill is an *action state* with
   a startup / active / recovery timeline. Those two vocabularies are the only things that cost
   code, and then in both languages at once.
-- `server/`: the Rust game server, one port for everything (axum): accounts; Emberholm, which it
-  plays (`server/src/world_game.rs`: each channel's players from their key presses, the island's
-  rules in `server/src/open` and `server/src/life`, the slimes and the fighting), keeping islands
-  in Postgres (`server/migrations/`); and the PvP battlefield, which decides all hits, runs bots,
+- `crates/`: the Rust workspace. `crates/engine` holds the rules (the same as the browser's
+  TypeScript), `crates/tools` the programs that check them against it, and `crates/server` the game
+  server, `ruina-server`, one port for everything (axum): accounts; Emberholm, which it
+  plays (`crates/server/src/world_game.rs`: each channel's players from their key presses, the island's
+  rules in `crates/engine/src/open` and `crates/engine/src/life`, the slimes and the fighting), keeping islands
+  in Postgres (`crates/server/migrations/`); and the PvP battlefield, which decides all hits, runs bots,
   sends each player only what's near them, and rewinds time for lag compensation
 - `shared/tuning.json`: gameplay numbers, read by both the browser and the server
 - `shared/zones/`, `shared/{vehicles,trade,farming,housing,items,quests,structures,traversal}.json`:
@@ -52,12 +54,12 @@ Work on `beta`; see [Branches, CI and deploys](#branches-ci-and-deploys). `AGENT
 short version of this file for coding agents.
 4. Optional, for the battlefield and the tests that compare the TypeScript and Rust rules: Rust
    (`curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`), then
-   `cargo build --release --manifest-path server/Cargo.toml`
+   `cargo build --release`
 
 ## Run
 
 1. `npm run up` starts Postgres and the game server in Docker (`docker-compose.yml`), building the
-   server first if its code changed. Run it again after changing anything in `server/`.
+   server first if its code changed. Run it again after changing anything in `crates/`.
    `npm run logs` follows the server's output, `npm run psql` opens the database, `npm run down` stops both.
 2. `npm run dev`, then open
    - http://localhost:5173/ for the open world, Emberholm. The title screen, then sign in or make an
@@ -102,7 +104,7 @@ play one card to light an unlit hex of its good with your beacon, or two of a ki
 hex, the Old Beacon too, or swap a card; then draw back up to four from the face-up Harbour or the
 deck. Four of your beacons in a straight row wins. Each turn has 40 seconds (the server plays for
 you when it runs out; three in a row forfeits). The server runs the game
-(`server/src/minigames`) and only ever moves money between the two purses at the table.
+(`crates/engine/src/minigames`) and only ever moves money between the two purses at the table.
 
 **The server decides:** your browser sends only what you press (about 60 times a second) and what
 you ask your island to do (talk, plant, buy, craft, drive...). The server runs every rule on its own

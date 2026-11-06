@@ -15,14 +15,14 @@ import { applySave, islandData, type Island } from '../../src/app/save';
 import { LEVEL_XP } from '../../src/skills';
 import { QUESTS } from '../../src/content/quests';
 
-// Online, the game server runs your island (server/src/life, server/src/open) and the browser shows
+// Online, the game server runs your island (crates/engine/src/life, crates/engine/src/open) and the browser shows
 // what it decides, predicting only your own moves and vehicles in between. If the two sets of
 // rules ever disagree, the island would jump about or a command would do something else than the
 // prompt said. This plays the same scripted sessions (walking about, talking, farming, crafting,
 // pack running, driving, riding, gliding, swimming, building) through the TypeScript and through
-// server/src/bin/lifecheck.rs, and checks the player and the whole island at checkpoints.
+// crates/tools/src/bin/lifecheck.rs, and checks the player and the whole island at checkpoints.
 
-const LIFECHECK = `server/target/release/lifecheck${process.platform === 'win32' ? '.exe' : ''}`;
+const LIFECHECK = `target/release/lifecheck${process.platform === 'win32' ? '.exe' : ''}`;
 
 interface Segment {
   frames: number;
@@ -197,7 +197,7 @@ function besideVehicle(v: Vehicle, lx: number, lz: number): { x: number; z: numb
   return { x, z, facing: Math.atan2(v.x - x, v.z - z) };
 }
 
-test('the rain falls on the same clock in both rules, to the last bit (server/src/life/weather.rs pins the same showers)', () => {
+test('the rain falls on the same clock in both rules, to the last bit (crates/engine/src/life/weather.rs pins the same showers)', () => {
   // (t, raining, start, end, next): online t is the server's clock, so these are what everyone gets.
   const showers: Array<[number, boolean, number, number, number]> = [
     [0, false, 240, 370.96530275652185, 240],
@@ -214,7 +214,7 @@ test('the rain falls on the same clock in both rules, to the last bit (server/sr
   for (const [t, raining, start, end, next] of showers) expect(rainAt(t), `at ${t}`).toEqual({ raining, start, end, next });
 });
 
-// Skipped until the server is built (cargo build --release --manifest-path server/Cargo.toml).
+// Skipped until the server is built (cargo build --release).
 describe.skipIf(!existsSync(LIFECHECK))('the island on the server matches the browser', () => {
   test('the first quest, a farm plot, planting, harvesting and the grocer', () => {
     const hollis = npc('hollis');

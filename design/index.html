@@ -457,7 +457,7 @@ kbd { font: 600 0.74rem/1 var(--mono); padding: 3px 6px; border-radius: 5px; bor
         <div class="box"><b>Content</b><small>Every number and placement: vehicles, crops, packs, quests, zones, structures.</small><code>shared/*.json</code></div>
         <div class="box"><b>Rules</b><small>Fixed 60 Hz steps. Movement and combat in the Sim; trade, farms, houses and vehicles in Life, changed only by queued commands.</small><code>src/sim/ · src/sim/life/</code></div>
         <div class="box"><b>Presentation</b><small>Three.js scene, procedural and made models, DOM HUD and panels. Reads the rules' state; never changes it.</small><code>src/render/ · src/ui/</code></div>
-        <div class="box"><b>World server</b><small>Plays Emberholm: each channel's players from their key presses, their islands from their commands, the slimes and every hit, with the rules ported to Rust and checked against the browser's. Islands kept in Postgres, accounts, plot claims; nothing trusts the browser.</small><code>server/</code></div>
+        <div class="box"><b>World server</b><small>Plays Emberholm: each channel's players from their key presses, their islands from their commands, the slimes and every hit, with the rules ported to Rust and checked against the browser's. Islands kept in Postgres, accounts, plot claims; nothing trusts the browser.</small><code>crates/server/</code></div>
       </div>
       <div class="table-wrap"><table id="fileTable"></table></div>
       <div class="next" data-next="tech"></div>

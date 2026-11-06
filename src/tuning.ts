@@ -86,7 +86,7 @@ export interface Weapon {
 
 // What an ability does, as a list of effects rather than a name the code knows. Adding a skill
 // built from these is a data change; only a genuinely new kind of thing costs code, and then in
-// both languages at once (src/sim, server/src/game.rs).
+// both languages at once (src/sim, crates/server/src/game.rs).
 export type EffectKind = 'healArea' | 'delayedArea';
 
 export interface Effect {
@@ -122,7 +122,7 @@ export const isGroundTargeted = (ability: number): boolean => ABILITIES[ability]
 //
 // A dodge, a backstep, a block: an action state with a startup / active / recovery timeline and
 // a few things that can happen during it. New ones are data; only a new field here costs code,
-// and then in src/sim/sim.ts and server/src/player.rs together.
+// and then in src/sim/sim.ts and crates/engine/src/player.rs together.
 export interface ActionDef {
   startup: number;
   active: number;
@@ -160,7 +160,7 @@ export interface MovementSkill {
 export const MOVEMENT_SKILLS = shared.movementSkills as unknown as MovementSkill[];
 export const MOVEMENT_SLOTS = shared.movementSlots as number;
 // Room for this many movement skills, so the wire size doesn't move every time one is added.
-// Raise it here and in server/src/tuning.rs together.
+// Raise it here and in crates/engine/src/tuning.rs together.
 export const MOVEMENT_SKILL_CAP = 16;
 if (MOVEMENT_SKILLS.length > MOVEMENT_SKILL_CAP) throw new Error('more movement skills than MOVEMENT_SKILL_CAP');
 export const NO_MOVEMENT = 255;
@@ -345,7 +345,7 @@ export const LEAN = {
 
 // Slimes in the training yard and on the meadow. They leave you alone until you hit one; then
 // the pack fights back. What they do is data (shared/actors.json, shared/behaviours.json) that
-// the browser and the server both run (src/sim/actors/step.ts, server/src/actors.rs). These are
+// the browser and the server both run (src/sim/actors/step.ts, crates/engine/src/actors.rs). These are
 // the numbers the yard and its tests are laid out with.
 export const SLIME = {
   count: 5,

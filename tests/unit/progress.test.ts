@@ -10,7 +10,7 @@ import { bookIndex, LEVEL_XP, levelsFrom, START_POINTS } from '../../src/skills'
 import { SLIDE_SKILL } from '../../src/tuning';
 
 // Getting better on the island: skill points from the quests and milestones you finish, and skills
-// that level up as you use them (src/sim/life/progress.ts). server/src/life does the same.
+// that level up as you use them (src/sim/life/progress.ts). crates/engine/src/life does the same.
 
 let zone: ZoneData;
 beforeAll(() => {

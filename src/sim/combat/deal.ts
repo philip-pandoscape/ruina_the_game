@@ -23,7 +23,7 @@ export function damage(sim: Sim, t: Target, amount: number, knock = 0, index = 0
 /**
  * What a blow does to an actor, whoever dealt it: it loses health, flashes, angers its pack,
  * flinches if the blow was hard enough, and rocks. Returns whether that killed it.
- * server/src/actors.rs Actors::damage does the same.
+ * crates/engine/src/actors.rs Actors::damage does the same.
  */
 export function hurtActor(actors: Actors, a: Actor, amount: number, nx: number, nz: number, knock: number): boolean {
   a.hp = Math.max(0, a.hp - amount);

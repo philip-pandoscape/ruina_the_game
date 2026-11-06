@@ -241,7 +241,7 @@ function show(q) {
     const dirty = r.git.changed?.length ? `, with ${r.git.changed.length} uncommitted change${r.git.changed.length === 1 ? '' : 's'} (${clip(r.git.changed.join(', '), 160)})` : '';
     out.push(`Code: commit ${r.git.commit.slice(0, 9)} on ${r.git.branch}${dirty}.`);
     if (head && head !== r.git.commit) {
-      const since = git(['diff', '--stat', '--stat-width=100', r.git.commit, '--', 'src', 'shared', 'server/src', 'index.html']).split('\n').filter(Boolean);
+      const since = git(['diff', '--stat', '--stat-width=100', r.git.commit, '--', 'src', 'shared', 'crates', 'index.html']).split('\n').filter(Boolean);
       if (since.length) out.push(`  The code has changed since (vs your working tree): ${since.pop()?.trim()}. It may already be fixed; check these:`, ...since.slice(0, 12).map((l) => `   ${l.trim()}`));
     }
   }

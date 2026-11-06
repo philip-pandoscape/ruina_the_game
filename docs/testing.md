@@ -53,7 +53,7 @@ npx playwright test tests/integration/ui.spec.ts -g "title"   # some of it
 npx playwright test --last-failed      # what failed last time
 npm run test:stress                    # the stress tier, one at a time
 node tools/tests/timings.mjs           # the last Playwright run's slowest tests and files
-npm run bake                           # rebake server/data/emberholm.zone after changing the island
+npm run bake                           # rebake crates/engine/data/emberholm.zone after changing the island
 ```
 
 Every Playwright run writes each test's time to `test-results/timings.json`. The refactor's baseline
@@ -64,7 +64,7 @@ Switches for looking closer when something disagrees:
 | Variable | What it prints |
 |---|---|
 | `LIFE_SUMMARY=1` | `tests/conformance/life.test.ts`: each case's island at the end (modes, coins, bag, packs, vehicles, crops, houses, quests, toasts) |
-| `BALANCE_TRACE=1` | `npm run balance` (`server/src/bin/balance.rs`): every duel's fighters every half second (positions, distance, health, mode, cooldowns) |
+| `BALANCE_TRACE=1` | `npm run balance` (`crates/tools/src/bin/balance.rs`): every duel's fighters every half second (positions, distance, health, mode, cooldowns) |
 | `BAKE=1` | `tests/conformance/terrain.test.ts` writes the island's bake instead of only checking it (`npm run bake` sets it) |
 
 ### Ports and a private test rig
@@ -83,7 +83,7 @@ A private rig for the online specs, clear of `npm run up`'s ports:
 
 ```sh
 docker run -d --rm --name ruina-<you>-db -e POSTGRES_USER=ruina -e POSTGRES_PASSWORD=ruina -e POSTGRES_DB=ruina -p 127.0.0.1:5461:5432 postgres:18
-DATABASE_URL=postgres://ruina:ruina@127.0.0.1:5461/ruina DEV_LOGIN=1 server/target/release/yggdrasil-server --battle off --port 7871
+DATABASE_URL=postgres://ruina:ruina@127.0.0.1:5461/ruina DEV_LOGIN=1 target/release/ruina-server --battle off --port 7871
 PW_PORT=5261 TEST_PORT_OFFSET=60 RUINA_SERVER=http://localhost:7871 RUINA_DATABASE_URL=postgres://ruina:ruina@127.0.0.1:5461/ruina npx playwright test
 ```
 

@@ -15,16 +15,16 @@ import { JUMP, MOVE, STEP } from '../../src/tuning';
 
 // Emberholm's rules, browser against server: the browser predicts your own moves with
 // src/sim/player/traverse.ts (hills, cliffs, decks, wading, swimming, gliders, trade packs) and the
-// server decides with server/src/open (step_player). If they disagree, your character would
+// server decides with crates/engine/src/open (step_player). If they disagree, your character would
 // visibly jump back. This runs the same inputs through both, on the real island, and checks they
 // stay in the same place frame by frame. Each script also checks that it really does what it says
 // (that the swim really swims), so a change to the island can't quietly empty one out.
 
-const WORLDCHECK = `server/target/release/worldcheck${process.platform === 'win32' ? '.exe' : ''}`;
-/** Modes by number, as server/src/player.rs Mode numbers them. */
+const WORLDCHECK = `target/release/worldcheck${process.platform === 'win32' ? '.exe' : ''}`;
+/** Modes by number, as crates/engine/src/player.rs Mode numbers them. */
 const MODES: Record<Mode, number> = { normal: 0, attack: 1, cast: 2, action: 3, swim: 4, glide: 5, ride: 6 };
 
-// One recorded frame, in the order both sides write it (see server/src/bin/worldcheck.rs).
+// One recorded frame, in the order both sides write it (see crates/tools/src/bin/worldcheck.rs).
 const F = {
   x: 0, y: 1, z: 2, vx: 3, vy: 4, vz: 5, facing: 6, airspeed: 7, bank: 8, landImpact: 9, runPhase: 10, hp: 11,
   mode: 12, grounded: 13, jumpsUsed: 14, jumpCutDone: 15, coyote: 16, jumpBuffer: 17, flipFrame: 18, landFrame: 19,
@@ -719,7 +719,7 @@ for (const [name, make] of Object.entries(CASES)) {
     // Whatever a script is about, nobody walks through a deck.
     neverThroughADeck(ts.frames);
 
-    ctx.skip(!existsSync(WORLDCHECK), 'build it first: cargo build --release --manifest-path server/Cargo.toml --bin worldcheck');
+    ctx.skip(!existsSync(WORLDCHECK), 'build it first: cargo build --release --bin worldcheck');
     const rust = JSON.parse(execFileSync(WORLDCHECK, { input: JSON.stringify(script), maxBuffer: 64 * 1024 * 1024 }).toString()) as {
       start: number[];
       frames: Frame[];

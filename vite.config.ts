@@ -11,7 +11,7 @@ const gameServer = process.env.RUINA_SERVER ?? 'http://localhost:7777';
 
 /**
  * Every page the build makes: the game, the developer pages in dev/ and the design in design/
- * (served on beta and production to admins only, server/src/http.rs). A new page in either folder
+ * (served on beta and production to admins only, crates/server/src/http.rs). A new page in either folder
  * is built without a word here.
  */
 const pages = (folder: string): Array<[string, string]> =>

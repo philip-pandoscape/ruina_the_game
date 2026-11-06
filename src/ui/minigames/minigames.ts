@@ -15,7 +15,7 @@ import { esc } from '../../util/html';
 // answer; if they accept, the server takes both stakes into the pot and throws a table down between
 // you (src/render/open/gameTables.ts), and the game window opens for both of you. At the table you
 // stay seated: the world's keys wait, and Escape (or Concede) offers to give the game up. The winner
-// takes the pot. Everything here is what the server says (server/src/world_game/tables.rs): the
+// takes the pot. Everything here is what the server says (crates/server/src/world_game/tables.rs): the
 // windows show it and send what you choose. Offline there's nobody to play, and none of this runs.
 
 export interface MinigamesDeps {

@@ -3,9 +3,9 @@ import { existsSync } from 'node:fs';
 import { createConnection } from 'node:net';
 
 // Each test file runs its own battle server on its own port, so tests never join (or depend on) a
-// server you're playing on. Build it first:  cargo build --release --manifest-path server/Cargo.toml
+// server you're playing on. Build it first:  cargo build --release
 
-export const SERVER_EXE = `server/target/release/yggdrasil-server${process.platform === 'win32' ? '.exe' : ''}`;
+export const SERVER_EXE = `target/release/ruina-server${process.platform === 'win32' ? '.exe' : ''}`;
 export const serverBuilt = existsSync(SERVER_EXE);
 
 const portOpen = (port: number) =>

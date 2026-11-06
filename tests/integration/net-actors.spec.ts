@@ -19,7 +19,7 @@ interface NetActor {
 const server = new TestServer(7791, ['--bots', '600', '--slimes', String(SLIMES), '--hz', '20']);
 
 test.beforeAll(async () => {
-  test.skip(!serverBuilt, 'build it first: cargo build --release --manifest-path server/Cargo.toml');
+  test.skip(!serverBuilt, 'build it first: cargo build --release');
   await server.start();
 });
 test.afterAll(async () => server.stop());

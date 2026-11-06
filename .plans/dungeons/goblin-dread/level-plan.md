@@ -136,7 +136,7 @@ The numbers match the cutaway painting.
 | Need | For | Today |
 |---|---|---|
 | Goblins in a copy, spawned per copy and staying dead in it | Every fight | Split-Eye goblins exist on beta; copies have their own actors (`ChannelGame::copy`), but nothing spawns in them yet |
-| Monsters that collide with walls | Any walled room | Monsters ignore colliders (`server/src/actors.rs`, `src/sim/actors/step.ts`) |
+| Monsters that collide with walls | Any walled room | Monsters ignore colliders (`crates/engine/src/actors.rs`, `src/sim/actors/step.ts`) |
 | Moving platforms you stand on (waterwheels, swinging planks, pistons, rafts) | Wheelworks, Cistern | Vehicles are movers you bump into; nothing carries a player yet |
 | Water above sea level that you wade and swim in | The river, the Cistern, the plunge pool | Rules water is sea level only (`Heightfield.water`); the pools are under 0.5 m in the rules |
 | Updrafts inside a dungeon | Updraft Shaft | Updrafts come from the island's recipe (`emberholm.json`); a dungeon needs its own |

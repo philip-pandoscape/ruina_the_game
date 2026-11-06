@@ -4,10 +4,10 @@ import { rect } from './generate';
 import type { BoxCollider, Deck, DungeonDoor, ZoneRecipe } from './types';
 
 // The island's dungeons (shared/dungeons/<id>.json). Each party plays its own copy of one, which the
-// server keeps apart from the open world (server/src/spaces.rs); inside, everything stands round a
+// server keeps apart from the open world (crates/server/src/spaces.rs); inside, everything stands round a
 // spot high above the sea that nothing else in the world uses, and is solid only in a copy: the
 // browser adds a dungeon's boxes and decks to its world while you're inside one and takes them away
-// again when you leave (server/src/open/dungeon.rs does the same for a copy).
+// again when you leave (crates/engine/src/open/dungeon.rs does the same for a copy).
 
 /** A box or deck as a dungeon's file gives it: around `origin`, its top above `origin.y`. */
 export interface DungeonPiece {

@@ -2,7 +2,7 @@
 // where a tuning value is written in them.
 import { TAU, DEG } from '../util/math';
 
-// Plain square root instead of Math.hypot, so Rust (server/src/player.rs) gets identical results.
+// Plain square root instead of Math.hypot, so Rust (crates/engine/src/player.rs) gets identical results.
 export const len = (x: number, z: number) => Math.sqrt(x * x + z * z);
 
 // Shortest signed angle from a to b.

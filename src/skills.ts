@@ -4,7 +4,7 @@ import treeData from '../shared/skilltree.json' with { type: 'json' };
 // Skills, the tree they live in, the levels the ones you use gain, and the modifiers all of that
 // applies.
 //
-// Everything here is mirrored by server/src/skills.rs, and the two must agree exactly: the browser
+// Everything here is mirrored by crates/engine/src/skills.rs, and the two must agree exactly: the browser
 // predicts with these numbers and the server decides with them. That is why the fold order below
 // is fixed rather than convenient, and why modifiers are summed per stage before being combined.
 

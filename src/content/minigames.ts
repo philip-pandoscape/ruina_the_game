@@ -1,7 +1,7 @@
 import data from '../../shared/minigames.json' with { type: 'json' };
 
 // Mini-games two players play at a table thrown down between them, for a pot (shared/minigames.json).
-// The game server plays them (server/src/minigames); the browser shows what it sends and sends
+// The game server plays them (crates/engine/src/minigames); the browser shows what it sends and sends
 // what you choose (src/ui/minigames/), so there are no rules here, only what the screen needs.
 
 export interface GoodDef {

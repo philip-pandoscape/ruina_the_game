@@ -11,7 +11,7 @@ import { ABILITIES, MOVEMENT_SKILLS, WEAPONS } from '../../tuning';
 // Experience. Each hit a weapon lands, each cast of an ability and each use of a movement skill adds
 // one to that skill (state.skillXp, kept with your island), and a level comes at each step of the
 // curve in tuning.json skills.levels. A level-up is a quest event too, for the milestones that count
-// them. server/src/life counts the same things the same way.
+// them. crates/engine/src/life counts the same things the same way.
 //
 // Skill points. Everyone starts with START_POINTS, and each quest or milestone you finish adds its
 // skillPoints. They're worked out from the quests you've done rather than kept, so they can never

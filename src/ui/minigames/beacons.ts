@@ -4,7 +4,7 @@ import { iconHtml, iconUrl } from '../theme/icons';
 import type { MenuEntry } from '../theme/contextMenu';
 import { esc } from '../../util/html';
 
-// Beacons at your table (the rules are the server's: server/src/minigames/beacons.rs): the hex
+// Beacons at your table (the rules are the server's: crates/engine/src/minigames/beacons.rs): the hex
 // board, your hand, the Harbour and the deck, and what to do next. Pick a card (or two of a kind)
 // and the hexes it can light glow; pick one of those to light it; then take cards from the Harbour
 // or the deck until you hold four again. Only what the server sends is shown, and what you pick

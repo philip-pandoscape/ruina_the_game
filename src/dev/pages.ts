@@ -1,7 +1,7 @@
 // Everything an admin can reach that players can't: the developer zones (the game set up for
 // trying things out) and the developer pages (galleries, harnesses, the design). One entry each;
 // the Admin menu (src/ui/admin/adminMenu.ts) lists them, and the server sends /dev/ and /design/
-// only to an admin's session (server/src/http.rs). A new page is an entry here and its HTML in dev/.
+// only to an admin's session (crates/server/src/http.rs). A new page is an entry here and its HTML in dev/.
 
 export type DevPageKind = 'zone' | 'page' | 'design';
 

@@ -7,7 +7,7 @@ import { serverBuilt } from '../support/testServer';
 // server once the new one is up), every browser hears it's being updated, freezes its world under a
 // screen that says so, and once the new server is up carries on where it was; a page that's out of
 // date by then reloads straight back into the world. A connection that just drops freezes the same
-// way. (server/src/world_socket.rs stop_world, src/net/worldLink.ts, src/main.ts.)
+// way. (crates/server/src/world_socket.rs stop_world, src/net/worldLink.ts, src/main.ts.)
 //
 // So that it can stop and start the server, this file runs its own game server, and its own Vite
 // forwarding to it, on ports of its own (tests/support/ownServer.ts). It needs a database:

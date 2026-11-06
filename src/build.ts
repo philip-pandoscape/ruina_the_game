@@ -18,7 +18,7 @@ import {
 import { DEFAULT_BUILD, emptyHotbar, emptyMovement, HOTBAR_SLOTS, MOVEMENT_SKILLS, MOVEMENT_SLOTS, NO_ABILITY, NO_MOVEMENT, type Build } from './tuning';
 
 // Picking a build: learning outward through the tree, and filling the hotbar from what you've
-// learned. server/src/skills.rs checks the same rules, so a build that passes here is accepted
+// learned. crates/engine/src/skills.rs checks the same rules, so a build that passes here is accepted
 // there. How many points you may spend depends on where you are: the training yard and the
 // battlefield allow SKILL_POINTS; the open world allows what you've earned (src/sim/life/quests.ts).
 

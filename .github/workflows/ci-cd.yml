@@ -59,42 +59,41 @@ jobs:
       # The server builds the baked island into itself (include_bytes!), and it's in LFS.
       - uses: ./.github/actions/lfs
         with:
-          include: server/data/emberholm.zone
+          include: crates/engine/data/emberholm.zone
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy, rustfmt
+      # The workspace at the root, its target/ beside it (rust-cache's default).
       - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: server
       # The one format (rustfmt.toml), and clippy's default lints as errors: the code holds none
       # today, and keeps it that way.
       - name: Lints
         run: |
-          cargo fmt --manifest-path server/Cargo.toml --check
-          cargo clippy --locked --manifest-path server/Cargo.toml --all-targets -- -D warnings
-      # In debug, with the dependencies optimized (server/Cargo.toml): quicker to build than a
+          cargo fmt --all --check
+          cargo clippy --locked --workspace --all-targets -- -D warnings
+      # In debug, with the dependencies optimized (the workspace's Cargo.toml): quicker to build than a
       # release test binary, which took most of this job's time while the tests run in seconds.
       - name: Unit tests
-        run: cargo test --locked --manifest-path server/Cargo.toml
+        run: cargo test --locked --workspace
       # The integration tier runs the server and checks the browser's rules against the Rust ones;
       # a push to beta doesn't play it (Railway builds its own server from the Dockerfile), so it
       # doesn't need these either.
       - name: Build
         if: github.event_name != 'push' || github.ref_name != 'beta'
-        run: cargo build --release --locked --manifest-path server/Cargo.toml
+        run: cargo build --release --locked
       - uses: actions/upload-artifact@v7
         if: github.event_name != 'push' || github.ref_name != 'beta'
         with:
           name: server-binaries
           retention-days: 3
           path: |
-            server/target/release/yggdrasil-server
-            server/target/release/simcheck
-            server/target/release/aicheck
-            server/target/release/balance
-            server/target/release/terraincheck
-            server/target/release/worldcheck
-            server/target/release/lifecheck
+            target/release/ruina-server
+            target/release/simcheck
+            target/release/aicheck
+            target/release/balance
+            target/release/terraincheck
+            target/release/worldcheck
+            target/release/lifecheck
 
   # The suite plays the real game in a browser that draws in software here, so it's split across
   # four runners. They share the tests out by count, not time, so the one with the open world's
@@ -134,8 +133,8 @@ jobs:
       - uses: actions/download-artifact@v8
         with:
           name: server-binaries
-          path: server/target/release
-      - run: chmod +x server/target/release/*
+          path: target/release
+      - run: chmod +x target/release/*
       # The TypeScript rules against the Rust ones, through the check programs (tests/conformance):
       # no browser, so once, on the first runner.
       - name: TypeScript against Rust
@@ -148,7 +147,7 @@ jobs:
           DATABASE_URL: postgres://ruina:ruina@localhost:5432/ruina
           DEV_LOGIN: '1'
         run: |
-          nohup server/target/release/yggdrasil-server --battle off --port 7777 > server.log 2>&1 &
+          nohup target/release/ruina-server --battle off --port 7777 > server.log 2>&1 &
           for i in $(seq 60); do curl -fs localhost:7777/api/health && exit 0; sleep 1; done
           cat server.log
           exit 1

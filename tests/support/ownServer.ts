@@ -12,7 +12,7 @@ const OFFSET = Number(process.env.TEST_PORT_OFFSET) || 0;
 
 /** Why a spec with a server of its own can't run here, or null if it can. */
 export function ownServerMissing(built: boolean): string | null {
-  if (!built) return 'needs the server built: cargo build --release --manifest-path server/Cargo.toml';
+  if (!built) return 'needs the server built: cargo build --release';
   if (!DB) return 'needs a database for its own game server: set RUINA_DATABASE_URL (npm run up starts one at postgres://ruina:ruina@127.0.0.1:5433/ruina)';
   return null;
 }

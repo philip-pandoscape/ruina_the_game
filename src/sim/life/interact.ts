@@ -494,7 +494,7 @@ export function runCommand(life: Life, sim: Sim, c: Command): void {
       return;
     case 'ride':
       // Someone else's vehicle is never on your island: online the channel seats you
-      // (server/src/world_game.rs), and alone there is nobody to ride with.
+      // (crates/server/src/world_game.rs), and alone there is nobody to ride with.
       return;
   }
 }

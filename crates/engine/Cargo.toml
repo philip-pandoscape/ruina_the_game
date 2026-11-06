@@ -1,0 +1,12 @@
+[package]
+name = "ruina-engine"
+description = "Ruina's rules, as the browser's TypeScript runs them: the same numbers from the same inputs"
+version.workspace = true
+edition.workspace = true
+
+# Nothing that reads a clock, starts a thread or touches a disk or a network: the rules are a pure
+# function of their inputs, so the server and the browser can run them alike.
+[dependencies]
+libm.workspace = true
+serde.workspace = true
+serde_json.workspace = true

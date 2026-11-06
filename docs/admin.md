@@ -28,7 +28,7 @@ The server tells the browser in `/api/me` and at sign-in (`admin: true`) and in 
   server runs only for an admin (`grant`, `warp`, `teleport`, `reset`), and so are seeded and timed
   mini-game challenges.
 - **The developer pages**, `/dev/` and `/design/`: the server answers anyone else "not found", as
-  if they weren't there (`admin_pages`, `server/src/http.rs`). On `npm run dev`, Vite serves them to
+  if they weren't there (`admin_pages`, `crates/server/src/http.rs`). On `npm run dev`, Vite serves them to
   anyone on this machine.
 - **`POST /api/dev/stop`** on a development server: the server stops as a deploy stops it
   (`tests/integration/update.spec.ts`).

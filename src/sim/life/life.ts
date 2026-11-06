@@ -95,7 +95,7 @@ export class Life implements LifeHooks {
   private queue: Command[] = [];
   private events: LifeEvent[] = [];
   /**
-   * Online, the game server runs the island (server/src/life): commands go to it instead of running
+   * Online, the game server runs the island (crates/engine/src/life): commands go to it instead of running
    * here, what it says happened arrives through fromServer(), and step() only keeps moving what
    * moves with you (the clock, your labor, your vehicles) between its updates.
    */

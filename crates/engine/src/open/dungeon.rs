@@ -1,0 +1,155 @@
+//! The island's dungeons (shared/dungeons/<id>.json; src/sim/zone/dungeon.ts is the browser's
+//! twin). Each party plays its own copy of one (crate::spaces). Inside, everything stands round a
+//! spot high above the sea that nothing else in the world uses, and is solid only in a copy: a
+//! copy's OpenWorld gets the dungeon's boxes and decks, the channels never do.
+
+use std::sync::OnceLock;
+
+use serde::Deserialize;
+
+use super::OpenWorld;
+use super::colliders::ground_at;
+use super::zone::{BoxCollider, Deck, Spawn, rect};
+
+/// A box or deck as a dungeon's file gives it: around the origin, its top above the origin's height.
+#[derive(Deserialize, Clone, Copy, Debug)]
+pub struct Piece {
+    pub x: f64,
+    pub z: f64,
+    pub hw: f64,
+    pub hd: f64,
+    pub rot: f64,
+    pub top: f64,
+}
+
+#[derive(Deserialize, Clone, Copy, Debug)]
+pub struct Origin {
+    pub x: f64,
+    pub y: f64,
+    pub z: f64,
+}
+
+/// The portal back out: F within `r` of it.
+#[derive(Deserialize, Clone, Copy, Debug)]
+pub struct Exit {
+    pub x: f64,
+    pub z: f64,
+    pub r: f64,
+}
+
+#[derive(Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct DungeonDef {
+    pub id: String,
+    pub name: String,
+    /// How many players a copy holds.
+    pub max_players: usize,
+    pub origin: Origin,
+    /// Where you come in (around the origin, on its floor).
+    pub arrive: Spawn,
+    pub exit: Exit,
+    /// Below origin.y + fall you're put back where you came in.
+    pub fall: f64,
+    pub boxes: Vec<Piece>,
+    pub decks: Vec<Piece>,
+}
+
+/// Where a spot stands, and which way you face there.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Spot {
+    pub x: f64,
+    pub y: f64,
+    pub z: f64,
+    pub facing: f64,
+}
+
+impl DungeonDef {
+    /// Its boxes and decks, where they stand in the world.
+    pub fn colliders(&self) -> (Vec<BoxCollider>, Vec<Deck>) {
+        let o = self.origin;
+        let place = |p: &Piece| rect(o.x + p.x, o.z + p.z, p.hw, p.hd, p.rot, o.y + p.top);
+        (self.boxes.iter().map(place).collect(), self.decks.iter().map(place).collect())
+    }
+
+    /// Where you stand on arriving (the floor's height there is found once it's solid).
+    pub fn arrival(&self) -> Spot {
+        let o = self.origin;
+        Spot { x: o.x + self.arrive.x, y: o.y, z: o.z + self.arrive.z, facing: self.arrive.facing }
+    }
+
+    /// Whether you're at the portal back out: within its reach (a step's slack), on its floor.
+    pub fn at_exit(&self, x: f64, y: f64, z: f64) -> bool {
+        let o = self.origin;
+        let (ex, ez) = (o.x + self.exit.x, o.z + self.exit.z);
+        ((x - ex).powi(2) + (z - ez).powi(2)).sqrt() <= self.exit.r + 1.0 && (y - o.y).abs() < 6.0
+    }
+
+    /// Whether someone has fallen out of it.
+    pub fn fallen_out(&self, y: f64) -> bool {
+        y < self.origin.y + self.fall
+    }
+}
+
+/// Every dungeon there is.
+pub fn dungeons() -> &'static [DungeonDef] {
+    static D: OnceLock<Vec<DungeonDef>> = OnceLock::new();
+    D.get_or_init(|| {
+        vec![serde_json::from_str(include_str!("../../../../shared/dungeons/goblinsDread.json")).expect("shared/dungeons/goblinsDread.json is a dungeon")]
+    })
+}
+
+pub fn dungeon(id: &str) -> Option<&'static DungeonDef> {
+    dungeons().iter().find(|d| d.id == id)
+}
+
+impl OpenWorld {
+    /// Makes a world a copy of a dungeon: its floors and walls solid, and anyone knocked down in it
+    /// back on their feet where they came in, not at the island's spawn far below.
+    pub fn make_dungeon(&mut self, def: &DungeonDef) {
+        let (boxes, decks) = def.colliders();
+        for b in boxes {
+            self.index.add_box(b);
+        }
+        for d in decks {
+            self.index.add_deck(d);
+        }
+        let a = def.arrival();
+        let hf = self.terrain();
+        let y = ground_at(hf, &self.index, a.x, a.z, a.y + 1.2, 1.2);
+        self.respawn = Some(Spot { y, ..a });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::open::zone::emberholm;
+
+    #[test]
+    fn goblins_dread_is_solid_only_in_a_copy() {
+        let def = dungeon("goblinsDread").expect("Goblin's Dread");
+        assert_eq!(def.name, "Goblin's Dread");
+        assert!(def.max_players >= 1);
+        let a = def.arrival();
+        let mut world = OpenWorld::new(emberholm());
+        let hf = world.terrain();
+        // Nothing there in the open world: you'd be over the sea, far below.
+        assert!(ground_at(hf, &world.index, a.x, a.z, a.y + 1.2, 1.2) < a.y - 100.0);
+        assert!(world.respawn.is_none());
+        world.make_dungeon(def);
+        let floor = world.respawn.expect("a copy has a place to get up again").y;
+        assert!((floor - def.origin.y).abs() < 1.0, "on the floor where you arrive: {floor}");
+        assert!(def.at_exit(def.origin.x + def.exit.x, def.origin.y, def.origin.z + def.exit.z));
+        assert!(!def.at_exit(a.x + 30.0, a.y, a.z));
+        assert!(def.fallen_out(def.origin.y + def.fall - 1.0) && !def.fallen_out(def.origin.y));
+    }
+
+    #[test]
+    fn emberholm_has_the_door_of_every_dungeon() {
+        let doors = &emberholm().recipe.dungeons;
+        for d in dungeons() {
+            let door = doors.iter().find(|x| x.id == d.id).unwrap_or_else(|| panic!("a door for {}", d.id));
+            assert!(door.portal.r > 0.0);
+        }
+    }
+}

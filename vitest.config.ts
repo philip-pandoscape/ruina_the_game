@@ -4,7 +4,7 @@ import { defineConfig } from 'vitest/config';
 //   unit         tests/unit: the rules, content, tools and anything else that runs without a page.
 //                Fast, no server, no drawing: `npm run test:unit` (with the Rust tests).
 //   conformance  tests/conformance: the TypeScript rules checked against the Rust ones through the
-//                check programs in server/target/release (build them first), part of the
+//                check programs in target/release (build them first), part of the
 //                integration tier until the rules are one copy (.plans/refactor, Phase 8).
 // Each test file runs in a worker of its own, side by side with the others: the rules are
 // deterministic and keep no state between files.

@@ -14,7 +14,7 @@ import { FOE_ACT, type Foe } from './senses';
 //   places bunched up behind it.
 //
 // So one goblin alone fights you fair and square, and ten of them wear you down from all sides.
-// Nothing here changes position; the brains act on it. server/src/pack.rs does the same.
+// Nothing here changes position; the brains act on it. crates/engine/src/pack.rs does the same.
 
 /** How close the rest of its band has to be for a goblin to count as part of a group to run to. */
 const GROUP = 5;

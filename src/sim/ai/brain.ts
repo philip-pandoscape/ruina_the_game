@@ -6,7 +6,7 @@ import { angleDiff, len } from '../math';
 
 // The behaviour interpreter. Monsters and NPCs do not get their own code: they get an entry in
 // shared/behaviours.json (or their own file in shared/creatures/), and this walks it.
-// server/src/ai.rs walks the same files the same way, so the training yard offline and the
+// crates/engine/src/ai.rs walks the same files the same way, so the training yard offline and the
 // server online agree frame for frame.
 //
 // A brain only ever changes its own actor. Anything that reaches another (calling the pack,
@@ -726,7 +726,7 @@ export function restState(a: Actor): void {
 /**
  * A blow landed on it: one at or above its kind's poise knocks it out of whatever it was doing
  * into its brain's flinch, spilling a drink it had at its lips. Mirrors Actors::damage in
- * server/src/actors.rs.
+ * crates/engine/src/actors.rs.
  */
 export function flinch(a: Actor, amount: number): void {
   const k = kindOf(a);

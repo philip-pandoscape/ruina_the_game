@@ -28,14 +28,14 @@ import {
 } from '../../src/tuning';
 import { BOOK, resolveSkills, skillsFrom, type Levels } from '../../src/skills';
 
-// The browser predicts your moves with src/sim/sim.ts; the server decides with server/src/player.rs.
+// The browser predicts your moves with src/sim/sim.ts; the server decides with crates/engine/src/player.rs.
 // If they ever disagree, your character would visibly jump back. This runs the same inputs through
 // both, for several different builds, and checks they end up in the same place frame by frame.
 
-const SIMCHECK = `server/target/release/simcheck${process.platform === 'win32' ? '.exe' : ''}`;
+const SIMCHECK = `target/release/simcheck${process.platform === 'win32' ? '.exe' : ''}`;
 const MODES = { normal: 0, attack: 1, cast: 2, action: 3 } as const;
 
-// One recorded frame, in the order both sides write it (see Out in server/src/bin/simcheck.rs).
+// One recorded frame, in the order both sides write it (see Out in crates/tools/src/bin/simcheck.rs).
 // Named rather than numbered, because getting these out of step silently weakens the whole check.
 const F = {
   x: 0, y: 1, z: 2, vx: 3, vy: 4, vz: 5, facing: 6, hp: 7,
@@ -227,7 +227,7 @@ function buildScript() {
 
 for (const [name, build] of Object.entries(BUILDS)) {
   test(`TypeScript and Rust rules agree frame by frame: ${name}`, (ctx) => {
-    ctx.skip(!existsSync(SIMCHECK), 'build it first: cargo build --release --manifest-path server/Cargo.toml --bin simcheck');
+    ctx.skip(!existsSync(SIMCHECK), 'build it first: cargo build --release --bin simcheck');
     const s = buildScript();
 
     // TypeScript (what the browser predicts)

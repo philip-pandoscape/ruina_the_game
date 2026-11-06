@@ -88,7 +88,7 @@ initUiScale(document.getElementById('ui') as HTMLElement);
 // URL options:
 //   ?test          start paused so automated tests can step the game frame by frame
 //   ?raid=10000    raid stress test: two armies of fighters on a big battlefield
-//   ?server=ws://localhost:7777   play on the Rust battle server's battlefield (server/)
+//   ?server=ws://localhost:7777   play on the Rust battle server's battlefield (crates/server/)
 //     &team=0|1    which side to join (default: whichever the server picks)
 //     &play=0      just watch instead of joining
 //     &lag=150     testing: ask the server to delay this connection by 150 ms each way
@@ -484,7 +484,7 @@ function portraitOf(who: string): string | null {
 }
 if (lifeUI) lifeUI.portraitOf = portraitOf;
 if (peers && lifeUI) lifeUI.others = () => peers.list();
-// Online the game server runs your island and keeps it (server/src/world_game.rs): your commands go
+// Online the game server runs your island and keeps it (crates/server/src/world_game.rs): your commands go
 // to it, and what it says your island holds replaces this copy as it arrives. ?fresh starts it
 // over. Automated tests run the island here instead, starting fresh every time unless they ask for
 // the one kept in this browser (?world&test&load, which is how bug reports are replayed).
@@ -2165,7 +2165,7 @@ const api = {
   partyLeave(): boolean {
     return online?.link.partyLeave() ?? false;
   },
-  /** Where you play now: your channel, or a dungeon's copy (server/src/spaces.rs). */
+  /** Where you play now: your channel, or a dungeon's copy (crates/server/src/spaces.rs). */
   space() {
     return online ? { ...online.link.space } : null;
   },
@@ -2287,7 +2287,7 @@ if (testMode ? params.has('bugs') : params.get('bugs') !== '0') {
 }
 
 // ---------- Dungeons, online ----------
-// You're in a dungeon's copy, or back in the open world (server/src/spaces.rs): the server moved you
+// You're in a dungeon's copy, or back in the open world (crates/server/src/spaces.rs): the server moved you
 // there, and this follows (src/app/dungeonVisit.ts): the dungeon solid around you and drawn only
 // while you're in it, and getting up after a knockdown where it's entered.
 function onlineSpace(s: SpaceView): void {
@@ -2359,7 +2359,7 @@ if (online) {
   };
   link.onError = (text) => life?.fromServer({ t: 'toast', text, kind: 'bad' });
   link.onNotice = (text) => life?.fromServer({ t: 'toast', text, kind: 'info' });
-  // Into a dungeon's copy, or back out of it (server/src/spaces.rs): another game, with its own ticks
+  // Into a dungeon's copy, or back out of it (crates/server/src/spaces.rs): another game, with its own ticks
   // and its own people. As after a reconnection, start again from what the server says next.
   link.onSpace = (s) => {
     prediction?.resync();

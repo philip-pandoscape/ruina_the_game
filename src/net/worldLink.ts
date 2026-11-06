@@ -6,7 +6,7 @@ import { currentAccount, ServerDown } from './account';
 import type { ArrowRecord, EffectEvent, MeteorRecord, NetActor } from './netCrowd';
 import { resumeAfterReload } from '../app/resume';
 
-// Your connection to the game server (server/src/world_socket.rs), which plays Emberholm: your
+// Your connection to the game server (crates/server/src/world_socket.rs), which plays Emberholm: your
 // browser sends what you press (about 60 inputs a second) and what you ask your island to do
 // (commands), and the server runs them through the island's rules, keeps the island in Postgres,
 // and answers 20 times a second with where you really are, what your island holds, and what
@@ -24,7 +24,7 @@ import { resumeAfterReload } from '../app/resume';
 //                     tick {tick, you, peers, actors, arrows, meteors, events, lifeEvents?, life?, tables?}
 //                     estate {id, name, estate} | claims {claims} | left {id} | saved {at}
 //                     | challenges {sent, waiting} | table {table}   (mini-games, src/ui/minigames)
-//                     | space {space}: into a dungeon's copy, or back out (server/src/spaces.rs)
+//                     | space {space}: into a dungeon's copy, or back out (crates/server/src/spaces.rs)
 //                     | party {party} | partyInvite {invite} | notice {text}   (parties, src/ui/party)
 //                     | reset | kicked | error {text} | updating
 //   browser → server  (binary) inputs: 7, count, then per input a u32 sequence number and 10 bytes
@@ -52,10 +52,10 @@ export interface Welcome {
   space?: SpaceView;
 }
 
-/** Where you play: a channel of Emberholm, or a copy of a dungeon (server/src/spaces.rs space_json). */
+/** Where you play: a channel of Emberholm, or a copy of a dungeon (crates/server/src/spaces.rs space_json). */
 export type SpaceView = { kind: 'channel'; channel: number } | { kind: 'dungeon'; dungeon: string; name: string; copy: number };
 
-/** Your party as the server keeps it (server/src/spaces.rs party_json). */
+/** Your party as the server keeps it (crates/server/src/spaces.rs party_json). */
 export interface PartyView {
   id: number;
   leader: number;
@@ -123,7 +123,7 @@ export interface WorldTick {
   tables?: TableShown[];
 }
 
-/** A mini-game's table as everyone in the world sees it (server/src/minigames Table::shown). */
+/** A mini-game's table as everyone in the world sees it (crates/engine/src/minigames Table::shown). */
 export interface TableShown {
   id: number;
   game: string;
@@ -155,7 +155,7 @@ export interface TableView extends Omit<TableShown, 'seats'> {
   state: Record<string, unknown>;
 }
 
-/** A challenge as the server tells it to both players (server/src/minigames Challenge::json). */
+/** A challenge as the server tells it to both players (crates/engine/src/minigames Challenge::json). */
 export interface ChallengeView {
   from: number;
   fromName: string;
@@ -185,7 +185,7 @@ export type LinkStatus = 'online' | 'updating' | 'reconnecting' | 'kicked' | 'si
 const RETRY_MS = { updating: [500, 1000, 1500, 2000], reconnecting: [500, 1000, 2000, 4000] };
 /** A WebSocket closed as a service restart: the server is being updated. */
 const SERVICE_RESTART = 1012;
-/** What this page speaks; the server says what it speaks in its welcome (server/src/world_socket.rs). */
+/** What this page speaks; the server says what it speaks in its welcome (crates/server/src/world_socket.rs). */
 const WORLD_PROTOCOL = 7;
 const RELOADED = 'ruina.reloaded-for-server';
 const RELOADED_BUILD = 'ruina.reloaded-for-build';
@@ -324,7 +324,7 @@ export class WorldLink {
     return this.send({ t: 'build', build });
   }
 
-  // ---------- Mini-games (server/src/world_game/tables.rs) ----------
+  // ---------- Mini-games (crates/server/src/world_game/tables.rs) ----------
 
   /**
    * Tests: how long each turn lasts (seconds) in a game this browser challenges someone to, on a
@@ -358,7 +358,7 @@ export class WorldLink {
     return this.send({ t: 'concede', table });
   }
 
-  // ---------- Dungeons and parties (server/src/spaces.rs, server/src/parties.rs) ----------
+  // ---------- Dungeons and parties (crates/server/src/spaces.rs, crates/server/src/parties.rs) ----------
 
   /** Through a dungeon's portal (you're at it), or back out of its copy (you're at its way out). */
   dungeon(id: string, enter: boolean): boolean {

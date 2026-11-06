@@ -6,7 +6,7 @@ import { STORM } from '../../content/traversal';
 // fills (or empties) your sails. Both run on the weather's clock: online the world's, the server's
 // own, so everyone on Emberholm is rained on and sails on the same wind at the same moment; offline
 // (and in the rules' tests) the island's. Nothing in them is left to the island's dice, so the same
-// clock always has the same weather, here and on the server (server/src/life/weather.rs).
+// clock always has the same weather, here and on the server (crates/engine/src/life/weather.rs).
 
 export const raining = (life: Life): boolean => life.state.clock < life.state.weather.rainUntil;
 

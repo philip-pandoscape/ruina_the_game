@@ -7,7 +7,7 @@ import { len } from '../math';
 // What creatures throw and shoot, in flight: a stone, later an arrow or a bolt. It is aimed where
 // its foe is going (as much as the attack leads), lobbed to come down on them, and it hits the
 // first foe whose body it passes through, unless they are in a dodge's untouchable frames, when it
-// flies on. It lands where it meets the ground. server/src/missiles.rs flies the same ones.
+// flies on. It lands where it meets the ground. crates/engine/src/missiles.rs flies the same ones.
 
 /** How tall a foe's body is, from the feet, for what a missile can hit. */
 export const FOE_HEIGHT = 1.8;

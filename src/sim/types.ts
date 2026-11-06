@@ -125,7 +125,7 @@ export interface PlayerState {
   castTargetX: number; // where a meteor will land
   castTargetZ: number;
   firedAbility: number; // the ability whose cast finished this frame (the server acts on it), else 255
-  // ---- Open-world traversal (server/src/open/traverse.rs plays the same). ----
+  // ---- Open-world traversal (crates/engine/src/open/traverse.rs plays the same). ----
   /** The trade pack on your back (an id in the life systems), 0 for none. */
   pack: number;
   /** What you are riding (a vehicle id in the life systems), 0 on foot; and which seat. */
@@ -243,12 +243,12 @@ export interface World {
   zone?: ZoneData;
   /**
    * Where someone knocked down gets up again instead of the island's spawn: in a copy of a dungeon,
-   * where it's entered (server/src/open/dungeon.rs make_dungeon does the same).
+   * where it's entered (crates/engine/src/open/dungeon.rs make_dungeon does the same).
    */
   respawnAt?: { x: number; y: number; z: number; facing: number };
   /**
    * Online: everyone else's vehicles in your channel, as circles where they are this step, which you
-   * bump into like your own. The server keeps the channel's (server/src/world_game.rs); the browser
+   * bump into like your own. The server keeps the channel's (crates/server/src/world_game.rs); the browser
    * fills in the others as it draws them (src/net/worldPeers.ts).
    */
   movers?: Mover[];

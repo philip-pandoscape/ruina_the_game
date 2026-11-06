@@ -20,29 +20,34 @@ RUN npm run build
 # ---------- The server ----------
 FROM rust:1-trixie AS build
 WORKDIR /app
-# The dependencies first, on their own, so changing the server's code doesn't rebuild them all.
-COPY server/Cargo.toml server/Cargo.lock server/
-RUN mkdir -p server/src \
- && echo 'fn main() {}' > server/src/main.rs \
- && touch server/src/lib.rs \
- && cargo build --release --locked --manifest-path server/Cargo.toml --bin yggdrasil-server \
- && rm -rf server/src
+# The dependencies first, on their own, so changing our code doesn't rebuild them all: the
+# workspace's manifests with stand-ins for its crates' code, built once and kept as a layer.
+COPY Cargo.toml Cargo.lock ./
+COPY crates/engine/Cargo.toml crates/engine/
+COPY crates/server/Cargo.toml crates/server/
+COPY crates/tools/Cargo.toml crates/tools/
+RUN mkdir -p crates/engine/src crates/server/src crates/tools/src/bin \
+ && touch crates/engine/src/lib.rs crates/server/src/lib.rs \
+ && echo 'fn main() {}' > crates/server/src/main.rs \
+ && echo 'fn main() {}' > crates/tools/src/bin/stand_in.rs \
+ && cargo build --release --locked --bin ruina-server \
+ && rm -rf crates/engine/src crates/server/src crates/tools/src
 COPY shared shared
-COPY server server
-# COPY keeps the files' old timestamps; make sure cargo sees the real code as newer than the stub.
-RUN touch server/src/main.rs server/src/lib.rs \
- && cargo build --release --locked --manifest-path server/Cargo.toml --bin yggdrasil-server
+COPY crates crates
+# COPY keeps the files' old timestamps; make sure cargo sees the real code as newer than the stand-ins.
+RUN touch crates/engine/src/lib.rs crates/server/src/main.rs crates/server/src/lib.rs \
+ && cargo build --release --locked --bin ruina-server
 
 FROM debian:trixie-slim AS server
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/*
-COPY --from=build /app/server/target/release/yggdrasil-server /usr/local/bin/yggdrasil-server
+COPY --from=build /app/target/release/ruina-server /usr/local/bin/ruina-server
 ENV PORT=7777
 # In a container the port is passed on from outside, so the server takes connections at every
-# address; run natively it listens on the machine itself only (server/src/main.rs).
+# address; run natively it listens on the machine itself only (crates/server/src/main.rs).
 ENV LISTEN=all
 EXPOSE 7777
 # No battlefield by default: it simulates thousands of fighters around the clock. Drop --battle off for one.
-CMD ["yggdrasil-server", "--battle", "off"]
+CMD ["ruina-server", "--battle", "off"]
 
 # ---------- What Railway runs: the server plus the built game ----------
 FROM server AS app

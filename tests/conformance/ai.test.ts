@@ -10,14 +10,14 @@ import { hurtActor } from '../../src/sim/combat/deal';
 import { len } from '../../src/sim/math';
 
 // Monster behaviour is data in shared/behaviours.json and shared/creatures/, read by
-// src/sim/ai/brain.ts offline and server/src/ai.rs online. If the two ever drift, a monster would
+// src/sim/ai/brain.ts offline and crates/engine/src/ai.rs online. If the two ever drift, a monster would
 // move differently in the training yard than it does on a server. This runs every behaviour
 // through both and checks they agree frame by frame - each brain on its own, then whole packs of
 // real kinds fighting, where calling, gathering, bursting and reforming all happen, and war-bands
 // of goblins fight scripted players: sharing out tokens, circling, stabbing, throwing stones,
 // running and drinking.
 
-const AICHECK = `server/target/release/aicheck${process.platform === 'win32' ? '.exe' : ''}`;
+const AICHECK = `target/release/aicheck${process.platform === 'win32' ? '.exe' : ''}`;
 const FRAMES = 900; // fifteen seconds, enough for many state changes and random draws
 
 // The same path the Rust side works out for itself, so the scenario stays small.
@@ -59,7 +59,7 @@ describe('TypeScript and Rust run the same behaviours', () => {
   for (const b of BEHAVIOURS) {
     for (const present of [true, false]) {
       test(`${b.id}${present ? '' : ' with nobody about'}`, (ctx) => {
-        ctx.skip(!existsSync(AICHECK), 'build it first: cargo build --release --manifest-path server/Cargo.toml --bin aicheck');
+        ctx.skip(!existsSync(AICHECK), 'build it first: cargo build --release --bin aicheck');
         const seed = 0x51e0 + b.id.length * 7919;
         const r = rust<{ frames: number[][] }>({ brain: b.id, seed, x: 2.5, z: 3.5, frames: FRAMES, player: present });
         const ts = runTs(b.id, seed, 2.5, 3.5, present);
@@ -88,7 +88,7 @@ interface Hit { frame: number; x: number; z: number; damage: number }
 /**
  * A scripted player: walks back and forth between two points every `period` frames, facing a
  * point, swinging and dodging on a beat. Exact arithmetic only (and atan2, which both sides share
- * bit for bit), so server/src/bin/aicheck.rs works out the very same foe.
+ * bit for bit), so crates/tools/src/bin/aicheck.rs works out the very same foe.
  */
 interface FoeScript {
   id: number;
@@ -310,7 +310,7 @@ const PACKS: Record<string, Pack> = {
 describe('TypeScript and Rust run the same packs', () => {
   for (const [name, s] of Object.entries(PACKS)) {
     test(name, (ctx) => {
-      ctx.skip(!existsSync(AICHECK), 'build it first: cargo build --release --manifest-path server/Cargo.toml --bin aicheck');
+      ctx.skip(!existsSync(AICHECK), 'build it first: cargo build --release --bin aicheck');
       const ts = runPackTs(s);
       const { expect: want, ...scenario } = s;
       comparePacks(name, ts, rust<PackRun>(scenario));

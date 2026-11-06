@@ -3,12 +3,12 @@ import { HEXES } from '../../src/content/minigames';
 import { isTitleCase } from '../../src/ui/theme/text';
 import { onlineReady as waitOnline } from '../support/game';
 
-// Mini-games online (src/ui/minigames, server/src/world_game/tables.rs): walk up to another player,
+// Mini-games online (src/ui/minigames, crates/server/src/world_game/tables.rs): walk up to another player,
 // challenge them with F, they accept, both stakes go into the pot and a table is thrown down
 // between them that everyone in the channel sees; they play Beacons there and the winner takes the
 // pot. A refusal leaves both purses alone, and conceding hands the pot over. These play the real
 // game against the real server with developer sign-in (`npm run up`, or RUINA_SERVER=...), and are
-// skipped without one. The rules themselves are tested in Rust (server/src/minigames).
+// skipped without one. The rules themselves are tested in Rust (crates/engine/src/minigames).
 //
 // The game steps only as fast as it draws, and CI draws in software, so waits on the server's
 // answers are generous; the game itself is played through the test hooks a move at a time.

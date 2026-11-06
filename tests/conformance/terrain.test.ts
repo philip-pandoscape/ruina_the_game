@@ -7,8 +7,8 @@ import { EMBERHOLM } from '../../src/sim/zone/world';
 import { generateZone } from '../../src/sim/zone/generate';
 
 // The server runs the island's rules on the same island as the browser: it reads Emberholm from
-// server/data/emberholm.zone, baked from the TypeScript generator (src/sim/zone/generate.ts), and
-// samples the ground on the same triangles (server/src/open/zone.rs). After changing the island
+// crates/engine/data/emberholm.zone, baked from the TypeScript generator (src/sim/zone/generate.ts), and
+// samples the ground on the same triangles (crates/engine/src/open/zone.rs). After changing the island
 // or its generator, rebake:
 //   npm run bake
 //
@@ -17,9 +17,9 @@ import { generateZone } from '../../src/sim/zone/generate';
 // clear" flags; u32 count + obstacles (u8 kind, f64 x, z, r); then u32 count + boxes and u32 count
 // + decks (f64 x, z, hw, hd, rot, cos, sin, top). Little-endian throughout.
 
-const FILE = 'server/data/emberholm.zone';
-const CHECK = `server/target/release/terraincheck${process.platform === 'win32' ? '.exe' : ''}`;
-/** Obstacle kinds by number, in the order server/src/open/zone.rs reads them. */
+const FILE = 'crates/engine/data/emberholm.zone';
+const CHECK = `target/release/terraincheck${process.platform === 'win32' ? '.exe' : ''}`;
+/** Obstacle kinds by number, in the order crates/engine/src/open/zone.rs reads them. */
 const KINDS = ['tree', 'rock', 'crate', 'hay', 'post'];
 
 function bake(): Buffer {
@@ -65,7 +65,7 @@ test("the server's copy of the island is current", () => {
 });
 
 test('the server and the browser agree on the ground', (ctx) => {
-  ctx.skip(!existsSync(CHECK), 'build the server first: cargo build --release --manifest-path server/Cargo.toml');
+  ctx.skip(!existsSync(CHECK), 'build the server first: cargo build --release');
   const gen = generateZone(EMBERHOLM);
   const hf = gen.terrain;
   const rng = makeRng(20261104);

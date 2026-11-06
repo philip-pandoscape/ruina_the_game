@@ -132,7 +132,7 @@ export interface LifeState {
   clock: number;
   coins: number;
   /**
-   * Coins on a table for a mini-game being played online (server/src/world_game/tables.rs): out of
+   * Coins on a table for a mini-game being played online (crates/server/src/world_game/tables.rs): out of
    * the purse until the game pays out. An island loaded with some still here gets them back.
    */
   staked?: number;

@@ -8,7 +8,7 @@ import { TAU } from '../util/math';
 // The raw per-input bytes: move_x, move_z, buttons, aim_x, aim_z, slot, movement held, face.
 export type RawInput = [number, number, number, number, number, number, number, number];
 
-// Receives the battle from the Rust server (server/src/protocol.rs describes the bytes) and
+// Receives the battle from the Rust server (crates/server/src/protocol.rs describes the bytes) and
 // smoothly moves each fighter between updates. Nearby fighters arrive 20 times a second,
 // mid-range ones 5 times, and everyone else once a second. Also carries real players: the
 // others near you, and your own exact state for correcting the browser's prediction.
@@ -24,7 +24,7 @@ const SEND_LAG = 5;
 const SEND_BUILD = 6;
 
 const PLAYER_ENTRY = 31;
-// Must match YOU_ENTRY in server/src/protocol.rs: id + ack + 16 f64 + (16 + a cooldown per hotbar
+// Must match YOU_ENTRY in crates/server/src/protocol.rs: id + ack + 16 f64 + (16 + a cooldown per hotbar
 // slot and per possible movement skill) i16 + the learned set + (17 + hotbar + movement slots) u8.
 const YOU_F64S = 16;
 const YOU_I16S = 16 + HOTBAR_SLOTS + MOVEMENT_SKILL_CAP;
@@ -32,10 +32,10 @@ const YOU_U8S = 17 + HOTBAR_SLOTS + MOVEMENT_SLOTS;
 const YOU_ENTRY = 2 + 4 + YOU_F64S * 8 + YOU_I16S * 2 + SKILL_WORDS * 4 + YOU_U8S;
 const ARROW_ENTRY = 15;
 const METEOR_ENTRY = 10;
-// Must match ACTOR_ENTRY in server/src/protocol.rs.
+// Must match ACTOR_ENTRY in crates/server/src/protocol.rs.
 const ACTOR_ENTRY = 19;
 const EVENT_ENTRY = 8;
-// Order must match Mode in server/src/player.rs; MODE_DOWN sits one past the last of these.
+// Order must match Mode in crates/engine/src/player.rs; MODE_DOWN sits one past the last of these.
 export const MODES: Mode[] = ['normal', 'attack', 'cast', 'action', 'swim', 'glide', 'ride'];
 export const MODE_DOWN = 7;
 

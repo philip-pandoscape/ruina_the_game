@@ -2,7 +2,7 @@
 .claude
 node_modules
 dist
-server/target
+target
 test-results
 playwright-report
 screenshots

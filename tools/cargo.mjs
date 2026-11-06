@@ -2,7 +2,7 @@
 // shells), else from where rustup puts it ($CARGO_HOME/bin, or ~/.cargo/bin), which some Windows
 // shells don't have on their PATH.
 //
-//   node tools/cargo.mjs test --manifest-path server/Cargo.toml
+//   node tools/cargo.mjs test --workspace
 
 import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';

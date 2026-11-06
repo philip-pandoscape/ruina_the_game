@@ -34,7 +34,7 @@ export function quantize(a: Actions): { actions: Actions; raw: RawInput; stick: 
     (a.slidePressed ? 8 : 0) |
     (a.sprintHeld ? 16 : 0) |
     (a.crouchHeld ? 32 : 0);
-  // Combat stance heading in 255 steps, 0 for none (face_axis in server/src/protocol.rs).
+  // Combat stance heading in 255 steps, 0 for none (face_axis in crates/server/src/protocol.rs).
   const facing = Math.hypot(a.faceX, a.faceZ) >= 0.5 ? (((Math.atan2(a.faceX, a.faceZ) % TAU) + TAU) % TAU) : -1;
   const face = facing < 0 ? 0 : 1 + (Math.round(facing / (TAU / 255)) % 255);
   const yaw = ((face - 1) * TAU) / 255;
@@ -154,7 +154,7 @@ export class Prediction {
 }
 
 /**
- * A player's state as the open world's server sends it (server/src/world_game.rs
+ * A player's state as the open world's server sends it (crates/server/src/world_game.rs
  * player_state_json): the same fields as PlayerState, so only what JSON can't carry is filled in.
  */
 export function stateFromServer(p: Record<string, unknown>): PlayerState {

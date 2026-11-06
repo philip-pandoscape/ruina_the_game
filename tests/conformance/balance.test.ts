@@ -2,15 +2,15 @@ import { execFileSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { expect, test } from 'vitest';
 
-// End to end, through the real rules: the balance harness (server/src/bin/balance.rs) runs builds
+// End to end, through the real rules: the balance harness (crates/tools/src/bin/balance.rs) runs builds
 // against each other under the server's own hit resolution, so this is the last link in the chain
 // from the skill tree's data (tests/unit/skilltree.test.ts) to a fight: a modifier in the data
 // actually changes who wins.
 
-const BALANCE = `server/target/release/balance${process.platform === 'win32' ? '.exe' : ''}`;
+const BALANCE = `target/release/balance${process.platform === 'win32' ? '.exe' : ''}`;
 
 test('a skill upgrade beats the build it upgrades, measured through the server rules', (ctx) => {
-  ctx.skip(!existsSync(BALANCE), 'build it first: cargo build --release --manifest-path server/Cargo.toml --bin balance');
+  ctx.skip(!existsSync(BALANCE), 'build it first: cargo build --release --bin balance');
   const scenario = {
     duels: 6,
     seed: 3,
