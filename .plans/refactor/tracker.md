@@ -523,11 +523,15 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
   Done: `content/AGENTS.md`.
 ## Phase 8: One Copy of the Rules
 
-- [~] **R8.1** Toolchain: `rustup target add wasm32-unknown-unknown`, `wasm-bindgen-cli` pinned to
+- [x] **R8.1** Toolchain: `rustup target add wasm32-unknown-unknown`, `wasm-bindgen-cli` pinned to
   the crate's version, `npm run engine` (and a dev-server watch), Vitest and Vite loading, Docker and
   CI.
   Begun (2ff8375): the wasm32 target, `crates/engine-wasm`, `npm run engine`, CI; the browser's loader
   waits for the first switch.
+  Done with R8.6 (ba9c87a): no binding generator (plain C functions, text through memory, so no
+  `wasm-bindgen-cli` to pin); the browser's loader (`src/engine/load.ts`, Vite's `?url`), Vitest's
+  (`tests/support/engineSetup.ts`), `npm run dev`, `build`, the unit tier and Playwright's server build
+  it first, and CI's client job and Docker build it.
 - [~] **R8.2** Spike: ground height and collider queries end to end through `crates/engine-wasm`
   (the render reads ground height every frame for the shadow), measured per frame, before the
   interface is settled.
@@ -550,7 +554,7 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
   WebAssembly, to the bit.
 - [ ] **R8.5** Shadow mode: in dev and tests, the engine runs beside the TypeScript rules and every
   step is compared; any difference fails the test.
-- [~] **R8.6** Switch the ground, colliders and dungeons. Port the island's generator
+- [x] **R8.6** Switch the ground, colliders and dungeons. Port the island's generator
   (`zone/generate.ts` 710, `zone/buildings.ts` 207, TS-only today) to Rust: the server makes the island
   at start, the browser through the engine; delete the bake step and `server/data/emberholm.zone`.
   Delete the TypeScript copies and the terrain conformance cases.
@@ -562,6 +566,18 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
   check over the whole output (roads, placements, falls, buildings); the island through
   `crates/engine-wasm`; generating on first use and deleting the bake (`crates/engine/data/emberholm.zone`,
   `parse()`, `tools/tests/bake.mjs`, `npm run bake`, the bake test), then AGENTS.md and the docs.
+  Done: the engine grows Emberholm from its recipe on first use and the bake is gone (dafec37: 3.6 MB
+  of island, its reader, `npm run bake` and its test; the WebAssembly 4.1 MB to 0.7); the browser grows
+  its island through the engine's WebAssembly and the TypeScript generator is gone (ba9c87a:
+  `generate.ts` and `buildings.ts`, 917 lines; `src/engine/wasm.ts` and `load.ts`, loaded at the start
+  of the game, the bible and the library, and from the file in the tests). The island grows in
+  90-145 ms (the TypeScript took 330-810). `terraincheck --zone` holds the WebAssembly's island to
+  the native one, all of it. CI's client job and the image build the WebAssembly; the image also
+  gained the bible and the crates it reads (missing since Phase 12) and engine-wasm's stand-in.
+  Decided: the ground's sampling, the colliders and the dungeons' floors switch with their caller,
+  the player step (R8.9): moved alone they would be TypeScript calling into the engine for every
+  query only until the step itself moves. *Verified:* conformance (64), `npm run check`, the game,
+  bible, library, village, sea, travel, online and dungeon specs (63).
 - [ ] **R8.7** Switch the island's life systems (life, state, trade, farming, housing, shipyard,
   livestock, vehicles, contracts, quests, progress, weather, interact: ~3,500 TS lines, 1:1 with
   `life/`). The UI and `render/open/life.ts` read versioned snapshots; `life.command` goes in as

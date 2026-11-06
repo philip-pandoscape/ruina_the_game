@@ -26,6 +26,10 @@ COPY shared shared
 COPY tools tools
 COPY design design
 COPY tests tests
+# The bible (open to everyone), which reads some of its numbers from the engine's and the server's
+# source (src/bible/source.ts).
+COPY bible bible
+COPY crates crates
 RUN npx tsc --noEmit && npx vite build
 
 # ---------- The server ----------
