@@ -22,7 +22,7 @@ The open world is **Emberholm**, a starter isle with ArcheAge-style life systems
 | `server/` | Rust server. It plays Emberholm: `world_game.rs` runs each channel (players from their inputs, the island's rules, slimes, combat via `game.rs`), `world_socket.rs` is the connection; `spaces.rs` holds every channel and every party's copy of a dungeon (a copy is a channel game whose space is a Copy: entered through the dungeon's portal, kept 30 minutes after the last player leaves, as World of Warcraft keeps an instance), moves players between them mid-connection and keeps the parties (`parties.rs`); riding along in someone else's vehicle is the channel's (the player's `host`, `seat_passengers`), as their vehicles aren't on your island; so are mini-games (`world_game/tables.rs`: challenges, the tables and the money on them, a pot only ever moving between the two islands at the table, written together; `minigames/` the tables' clocks and each game's rules, Beacons first); `open/` the island's ground, colliders and traversal (baked from the TS generator into `server/data/emberholm.zone` by `tests/conformance/terrain.test.ts`; the Windspire's waterfall and the ledge behind it are cut by the generator's `falls`), a dungeon's floors and walls solid only in a copy of it (`open/dungeon.rs`, `src/sim/zone/dungeon.ts`), `life/` trade, farming, housing, vehicles and quests. Accounts and islands in Postgres (`server/migrations/`, applied on start). The PvP battlefield. `player.rs`, `skills.rs`, `open/`, `life/` mirror the TS rules |
 | `shared/*.json` | Content and tuning, read by both sides. New content is data, not code. `shared/dungeons/`: each dungeon's floors and walls round its origin, where you come in and its way out (its portal is in the island's recipe, `dungeons`; the plan so far is in `.plans/dungeons/`) |
 | `shared/creatures/`, `src/creatures/` | Creatures with folders of their own, the goblins first (`design/goblins.md`). A creature is data and a body: `shared/creatures/<name>.json` holds its kinds, attacks and brains (the format of `shared/behaviours.json`, plus its pack's tactics), and `src/creatures/<name>/` its body for the crowd renderer. Both run on shared engine parts, in TypeScript and Rust alike: senses (`src/sim/ai/senses.ts`, every player as a foe), the pack (`pack.ts` ↔ `server/src/pack.rs`: attack tokens, openings, ring places, courage), the brains' walk, strike, throw and heal acts (`brain.ts` ↔ `ai.rs`) and missiles (`src/sim/combat/missiles.ts` ↔ `missiles.rs`). A new creature is a file and a body, listed in `src/content/creatures.ts` and `server/src/creatures.rs` in the same order; a behaviour the engine can't express becomes a new engine part, never creature code. `?yard&goblins=6` puts a band in the yard |
-| `tests/` | Playwright tests that play the real game, plus TS/Rust conformance |
+| `tests/` | The test tiers (`tests/AGENTS.md`, `docs/testing.md`): `unit/` (Vitest, no browser), `conformance/` (Vitest: the TypeScript rules against the Rust ones), `integration/` (Playwright: the game in a browser with its servers), `stress/` (Playwright, a real GPU), `support/` (shared helpers, the typed `window.__game`) |
 | `design/` | Design bible (`/design/` on the dev server) and the UI design system (`/design/ui.html`); `design/status.json` is the tracker and session log |
 
 ## Commands
@@ -31,14 +31,18 @@ The open world is **Emberholm**, a starter isle with ArcheAge-style life systems
 npm run up              # Postgres + game server in Docker (rebuilds the server); npm run down stops
 npm run dev             # http://localhost:5173  (?as=name signs in on dev and plays its last character, ?yard, ?world&test)
 npm run typecheck
-npx playwright test     # all (or npm test), ~12 min; tests/integration/online.spec.ts, tests/integration/minigames.spec.ts and tests/integration/party.spec.ts need `npm run up`; tests/integration/update.spec.ts needs RUINA_DATABASE_URL
-npx playwright test tests/integration/ui.spec.ts   # some of it: files, -g "title"
-npx playwright test --last-failed      # after a fix, what failed last time, not the whole suite again
+npm run check           # typecheck + the unit tier (Vitest tests/unit, cargo test): seconds, run after every change
+npm run check:beta      # + the integration tier (tests/conformance, then Playwright tests/integration): before every push to beta
+npm run check:release   # + the stress tier (tests/stress, a real GPU): before a release
+npx playwright test tests/integration/ui.spec.ts   # some of the integration tier: files, -g "title"; --last-failed after a fix
 PW_PORT=5211 TEST_PORT_OFFSET=10 npx playwright test   # beside another checkout's suite (its own Vite and battle-server ports)
-PW_WORKERS=4 npx playwright test   # fewer test pages side by side (6 by default)
-cargo test --release --manifest-path server/Cargo.toml   # needs Rust; CI runs it anyway
+npm run bake            # rebake the server's copy of the island after changing it
 npm run image -- --out scratch/x.png --ref look.png "prompt"   # a picture from Gemini (Art and assets below)
 ```
+
+The tiers, where a new test goes, the shared helpers and a private test rig: `docs/testing.md`. The
+online specs need a world server with a database (`npm run up`, or the private rig there);
+`tests/integration/update.spec.ts` needs `RUINA_DATABASE_URL`.
 
 ## Rules
 
@@ -54,15 +58,18 @@ npm run image -- --out scratch/x.png --ref look.png "prompt"   # a picture from 
 - UI follows the design system (`design/ui.html`): labels (buttons, tabs, headings, prompts, tags) in
   Title Case and sentences in sentence case (`src/ui/theme/text.ts`, checked by `tests/integration/ui.spec.ts`);
   items answer a click (pick), a double-click (their main action) and a right-click (a menu).
+- Tests go in the lowest tier that can show the thing works (`docs/testing.md`): `tests/unit` for
+  logic (no browser), `tests/integration` for the game in a page, `tests/stress` for speed and crowds.
+  Integration tests open the game with `tests/support/game.ts` and drive it through the typed
+  `window.__game`, a frame at a time; they never wait a fixed time for the game to notice something.
 - Tag a test `@gpu` if it needs a real GPU to keep up (several game windows, frame rates, screen
-  capture). CI renders in software and skips them; run them locally before pushing such changes.
-- Locally the tests run side by side, six pages at once (`playwright.config.ts`), and `@gpu` and
-  `@alone` tests one at a time: the whole suite plays them after the rest, a run of some of it beside
-  the rest. Tag a test `@alone` if it races the clock in a way other pages drawing would upset
-  (stopping a server under players, two windows of one character). A spec file that starts a battle
-  server gives it a port no other file uses (`tests/support/testServer.ts`); one whose tests share nothing
-  says so (`test.describe.configure({ mode: 'parallel' })`). A test never waits a fixed time for the
-  game to notice something (a key, a pad button): it waits for frames.
+  capture): CI renders in software and skips them. Tag it `@alone` if it races the clock in a way
+  other pages drawing would upset (stopping a server under players, two windows of one character):
+  those run one at a time, after the rest. A spec file that starts a battle server gives it a port no
+  other file uses (`tests/support/testServer.ts`); one whose tests share nothing says so
+  (`test.describe.configure({ mode: 'parallel' })`).
+- Servers started on a development machine listen on localhost only (`--listen all` for other
+  machines): nothing should ever need someone at the machine to click a Windows prompt.
 - Never commit `.env` (Railway keys, `GEMINI_API_KEY`). Commit messages carry no AI attribution.
 
 ## Art and assets

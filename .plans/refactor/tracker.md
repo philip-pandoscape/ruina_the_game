@@ -60,27 +60,28 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
 
 ## Phase 1: Test Tiers
 
-- [ ] **R1.1** Vitest 4.1 (`vitest.config.ts`): Node, `tests/unit/**/*.test.ts`, resolves `src/` and
-  JSON imports as Vite does. `npm run test:unit` runs it with `cargo test`.
-- [ ] **R1.2** Folders: `tests/unit/`, `tests/integration/`, `tests/stress/`, `tests/support/`
-  (`testServer.ts` and shared helpers). Pure moves first.
-- [ ] **R1.2b** Shared test helpers in `tests/support/`: one way to boot a page and wait until the game
-  is ready (18 specs write their own; the ready wait is copied 38 times), and a typed `window.__game`
-  (586 `as any` casts in 30 test files today).
-- [ ] **R1.3** Move the browserless tests to Vitest: skilltree 25, progress 6, input 3, travel 3,
-  village 2, sea 1, dungeon-way-in 1, animation 1, net-actors 1. *Done when* Playwright no longer
-  lists them and Vitest runs them green.
-- [ ] **R1.4** The conformance specs (simcheck, worldcheck, lifecheck, aicheck, terraincheck,
-  balance: 61 tests) run under Vitest too, in a `conformance` group of the integration tier (they
-  need the release check programs). They are deleted in R8.13.
-- [ ] **R1.5** A headless game harness: the rules half of `stepOnce` and the rules side of
-  `window.__game` (`state`, `advance`, `reset`, `teleport`, `setBuild`, `life`, `lifeCommand`,
-  `actors`, `events`, `ground`, `zone`...) callable in Node for the yard and the island.
-- [ ] **R1.6** Move the ~82 rules tests onto that harness: movement 19, goblin 8, slime-pack 16, slime
-  6, hotbar 6, game 3, skills 1, world 20, dungeon-way-in 2, travel 1. Tests that read HUD markers
-  assert on events instead. Screenshots kept for people move to an integration "looks" test.
-- [ ] **R1.7** Model and rig builders that don't make a WebGL renderer when imported; move the ~64
-  gallery tests (animation 20, species 24, creatures 6, models 14) to Vitest.
+- [x] **R1.1** Vitest 4.1.12 (`vitest.config.ts`): projects `unit` (`tests/unit`) and `conformance`
+  (`tests/conformance`), Node. *Verified:* 57bbd61.
+- [x] **R1.2** Folders: `tests/unit/`, `tests/conformance/`, `tests/integration/`, `tests/stress/`,
+  `tests/support/`; moved with the moves script (pulled forward from R5.0), the specs' paths rewritten
+  everywhere; Playwright plays `tests/integration`, `playwright.stress.config.ts` plays
+  `tests/stress`. *Verified:* 1e0bf67; the moves script missed template-string URLs
+  (``new URL(`../shared/${f}`, import.meta.url)``) in two specs, found by the first integration run,
+  fixed in the specs and in the script with a test.
+- [x] **R1.2b** Shared test helpers (`tests/support/game.ts`): `openGame`, `gameReady` (38 copies
+  replaced), `onlineReady` (5); `window.__game` typed from `src/main.ts`'s `GameApi` for the tests
+  (526 calls; nothing "possibly null" to a test, names and arguments checked; the specs' command and
+  key helpers take the game's own `Command` and `LifePress`). *Verified:* typecheck clean (cd3081b).
+- [x] **R1.3** The browserless tests on Vitest: progress, skill tree, keyboard (whole files) and the
+  Node tests cut out of travel (roads), village (buildings), sea, dungeon-way-in (falls), animation
+  (prediction) and net-actors (timeline): 53 unit tests in 3.3 s (0c60593, ad6b747).
+- [x] **R1.4** The conformance specs on Vitest (`tests/conformance`: player, world, life, ai, terrain,
+  and the balance check cut out of the skill tree): 63 tests in 39 s, where life-conformance alone
+  took 64 s under Playwright. `npm run bake` replaces `BAKE=1 npx playwright test ...` (7 s).
+- [-] **R1.5, R1.6, R1.7** The headless game harness (~82 rules tests) and renderer-free model
+  builders (~64 gallery tests) moved to Phase 6 as R6.2a: both need `main.ts`'s rules half pulled out
+  into a module of its own, which is the first step of splitting `main.ts`; doing it here would mean
+  doing that surgery twice.
 - [ ] **R1.8** Playwright projects: `integration` (default) and `stress`. The 11 stress tests move
   (raid 2, net 2, look 5, game "performance snapshot", pvp "bots fight real players"), and the
   three-window tests (minigames, five skills-online) are considered for it. `@gpu`/`@alone` keep
@@ -258,6 +259,13 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
   375-391, 499-521, 1760-1955, 2387-2431; `app/dungeonVisit.ts` 38-39, 58-59; `app/save.ts` 62-87;
   `net/netPlayer.ts` 108-124 (swaps `sim.player`); `net/worldPeers.ts` 195, 202, 264 (colliders,
   movers).
+- [ ] **R6.2a** (from R1.5-R1.7) The game core: `main.ts`'s rules half (the world, the rules, the
+  yard, the island's life, stepping, events) in `src/app/` as a module with no drawing, used by the
+  page and by a headless harness for Node; move the ~82 rules tests onto it (movement 19, goblin 8,
+  slime-pack 16, slime 6, hotbar 6, game 3, skills 1, world 20, dungeon-way-in 2, travel 1; tests that
+  read HUD markers assert on events instead). Model and rig builders that don't make a WebGL
+  renderer when imported; the ~64 gallery tests (animation 20, species 24, creatures 6, models 14) to
+  Vitest. Target from Phase 1: at least 230 TypeScript unit tests.
 - [ ] **R6.1** `src/app/options.ts`: every URL option in one list (name, what it does, developer or
   not), read once.
 - [ ] **R6.2** `src/main.ts` into `src/app/`: start-up, a module per mode, the loop, wiring, along the

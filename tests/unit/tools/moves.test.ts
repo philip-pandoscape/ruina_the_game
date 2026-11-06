@@ -127,6 +127,18 @@ describe('whole files', () => {
     );
   });
 
+  test('a URL built from a folder and a name follows the folder, or the file that wrote it', () => {
+    // A spec reading data files next to the repository root moved a folder deeper (the bug the
+    // first run of the integration tier found: the moved specs looked for tests/shared).
+    const ctx = contextFor([{ from: 'tests/progress.spec.ts', to: 'tests/integration/progress.spec.ts' }], files);
+    const text = 'readFileSync(new URL(`../shared/${file}`, import.meta.url)); readFileSync(new URL(`../${path}`, import.meta.url));';
+    expect(rewriteFile(text, 'tests/progress.spec.ts', ctx)).toBe(
+      'readFileSync(new URL(`../../shared/${file}`, import.meta.url)); readFileSync(new URL(`../../${path}`, import.meta.url));',
+    );
+    const moved = contextFor([{ from: 'shared', to: 'content' }], files);
+    expect(rewriteFile('new URL(`../shared/${file}`, import.meta.url)', 'tests/progress.spec.ts', moved)).toBe('new URL(`../content/${file}`, import.meta.url)');
+  });
+
   test('Rust includes, CSS urls and HTML root paths', () => {
     const ctx = contextFor([{ from: 'shared', to: 'content' }, { from: 'src/ui/theme/fonts', to: 'src/assets/fonts' }, { from: 'src/main.ts', to: 'src/app/main.ts' }], files);
     expect(rewriteFile('const ITEMS: &str = include_str!("../../shared/items.json");', 'server/src/content.rs', ctx)).toBe(

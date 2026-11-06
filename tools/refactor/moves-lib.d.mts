@@ -28,6 +28,7 @@ export function resolveSpecifier(fromFile: string, specPath: string, exists: (fi
 export function respecify(fromFile: string, fromNew: string, spec: string, map: Map<string, string>, exists: (file: string) => boolean): string;
 export function folderPlace(dir: string, moves: Move[], map: Map<string, string>, files: Set<string>): string;
 export function reglob(fromFile: string, fromNew: string, pattern: string, moves: Move[], map: Map<string, string>, files: Set<string>): string;
+export function refolder(fromFile: string, fromNew: string, dirSpec: string, moves: Move[], map: Map<string, string>, files: Set<string>): string;
 export function rewriteScript(text: string, fromFile: string, fromNew: string, ctx: MoveContext): string;
 export function rewriteRust(text: string, fromFile: string, fromNew: string, ctx: MoveContext): string;
 export function rewriteCss(text: string, fromFile: string, fromNew: string, ctx: MoveContext): string;

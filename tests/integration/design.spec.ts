@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 // change to the content or the rules can break it without breaking the game. Every part must draw
 // without a console error and show what the data and the tracker hold.
 
-const json = (path: string) => JSON.parse(readFileSync(new URL(`../${path}`, import.meta.url), 'utf8'));
+const json = (path: string) => JSON.parse(readFileSync(new URL(`../../${path}`, import.meta.url), 'utf8'));
 
 test('the design bible draws from the game data without errors', async ({ page }) => {
   const errors: string[] = [];

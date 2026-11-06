@@ -42,7 +42,7 @@ interface Anchor {
   pose?: string;
 }
 
-const data = (file: string) => JSON.parse(readFileSync(new URL(`../shared/${file}`, import.meta.url), 'utf8'));
+const data = (file: string) => JSON.parse(readFileSync(new URL(`../../shared/${file}`, import.meta.url), 'utf8'));
 
 async function open(page: Page, query: string, errors: string[] = []) {
   if (!errors.length) {

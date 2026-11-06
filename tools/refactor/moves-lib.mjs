@@ -147,6 +147,8 @@ export function reglob(fromFile, fromNew, pattern, moves, map, files) {
 // require(), new URL(..., import.meta.url). Only relative specifiers ('./', '../') are rewritten.
 const SPECIFIER = /(\bfrom\s*|\bimport\s*\(\s*|\bimport\s+|\brequire\s*\(\s*)(['"])(\.{1,2}\/[^'"\n]*)\2/g;
 const URL_SPECIFIER = /(\bnew\s+URL\s*\(\s*)(['"])(\.{1,2}\/[^'"\n]*)\2(\s*,\s*import\.meta\.url)/g;
+// new URL(`../shared/${file}`, import.meta.url): the fixed part before the first ${...} is a folder.
+const URL_TEMPLATE = /(\bnew\s+URL\s*\(\s*`)(\.{1,2}\/(?:[^`$\n]*\/)?)(\$\{[^`\n]*`\s*,\s*import\.meta\.url)/g;
 const GLOB_CALL = /import\.meta\.glob(?:<[^>]*>)?\s*\(\s*(\[[^\]]*\]|(['"])[^'"\n]*\2)/g;
 const GLOB_STRING = /(['"])(\.{1,2}\/[^'"\n]*)\1/g;
 // Rust includes, CSS urls, and root paths in HTML attributes.
@@ -160,7 +162,18 @@ export function rewriteScript(text, fromFile, fromNew, ctx) {
   let out = text.replace(GLOB_CALL, (call) => call.replace(GLOB_STRING, (s, quote, pattern) => `${quote}${reglob(fromFile, fromNew, pattern, moves, map, files)}${quote}`));
   out = out.replace(SPECIFIER, (m, lead, quote, spec) => `${lead}${quote}${respecify(fromFile, fromNew, spec, map, exists)}${quote}`);
   out = out.replace(URL_SPECIFIER, (m, lead, quote, spec, tail) => `${lead}${quote}${respecify(fromFile, fromNew, spec, map, exists)}${quote}${tail}`);
+  out = out.replace(URL_TEMPLATE, (m, lead, dirSpec, tail) => `${lead}${refolder(fromFile, fromNew, dirSpec, moves, map, files)}${tail}`);
   return out;
+}
+
+/** A folder written relative to `fromFile` (ending in '/'), after the moves: the folder may have moved, or the file. */
+export function refolder(fromFile, fromNew, dirSpec, moves, map, files) {
+  const dirOld = path.normalize(path.join(path.dirname(fromFile), dirSpec));
+  const clean = dirOld === '.' || dirOld === './' ? '' : dirOld.replace(/\/$/, '');
+  const dirNew = clean === '' ? '' : folderPlace(clean, moves, map, files);
+  if (dirNew === clean && fromNew === fromFile) return dirSpec;
+  const rel = path.relative(path.dirname(fromNew), dirNew === '' ? '.' : dirNew) || '.';
+  return `${rel.startsWith('.') ? rel : `./${rel}`}/`;
 }
 
 /** Rewrites `include_str!`/`include_bytes!` paths in Rust (relative to the .rs file). */
