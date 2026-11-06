@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 test.describe.configure({ mode: 'parallel' });
 
 // The procedural models (src/render/models) in the content library's model gallery
-// (/dev/library.html#/models/<category>, src/library/galleries/models.ts). Every category must build
+// (/dev/library.html#/models/<category>, src/dev/library/galleries/models.ts). Every category must build
 // without a console error and inside its triangle budget, and the parts the rules lean on - wheels on
 // the ground, hulls down to their draft, seats, cargo slots, decks and the cottage's walls - must be
 // where shared/*.json says. The screenshots in screenshots/ are for a human. That crops and props

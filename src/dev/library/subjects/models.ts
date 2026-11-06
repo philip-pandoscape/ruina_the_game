@@ -1,9 +1,9 @@
 import * as THREE from 'three';
-import emberholm from '../../../shared/zones/emberholm.json' with { type: 'json' };
-import { ANIMAL_IDS, buildAnimal, restartIdles as restartAnimals, type AnimalId, type AnimalModel } from '../../render/models/animals';
-import { VILLAGER_IDS, buildVillager, restartIdles as restartVillagers, type VillagerModel } from '../../render/models/villagers';
-import { buildMount, type MountModel } from '../../render/models/mounts';
-import { MOUNTS } from '../../content/vehicles';
+import emberholm from '../../../../shared/zones/emberholm.json' with { type: 'json' };
+import { ANIMAL_IDS, buildAnimal, restartIdles as restartAnimals, type AnimalId, type AnimalModel } from '../../../render/models/animals';
+import { VILLAGER_IDS, buildVillager, restartIdles as restartVillagers, type VillagerModel } from '../../../render/models/villagers';
+import { buildMount, type MountModel } from '../../../render/models/mounts';
+import { MOUNTS } from '../../../content/vehicles';
 import { NodeTrack, readBones, sideOf, writeBones } from '../pose';
 import type { AnimDef, Bone, FrameInfo, Options, Phase, Posable, Snapshot, Source, Subject, Take } from '../types';
 

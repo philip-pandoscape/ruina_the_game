@@ -1,19 +1,19 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import emberholm from '../../../shared/zones/emberholm.json' with { type: 'json' };
-import { GLIDERS, MOUNTS, VEHICLES, isBoat } from '../../content/vehicles';
-import { part, toon } from '../../render/toon';
-import { CROPS, PACKS, PROPS, STRUCTURES } from '../../render/models/data';
-import { ANIMAL_IDS, buildAnimal } from '../../render/models/animals';
-import { buildVillager } from '../../render/models/villagers';
-import { PAL, cost, vcMaterial } from '../../render/models/kit';
-import { buildCrop, cropStages } from '../../render/models/crops';
-import { buildGlider } from '../../render/models/gliders';
-import { buildMount } from '../../render/models/mounts';
-import { buildPack } from '../../render/models/packs';
-import { propGeometry } from '../../render/models/props';
-import { buildStructure } from '../../render/models/structures';
-import { buildVehicle } from '../../render/models/vehicles';
+import emberholm from '../../../../shared/zones/emberholm.json' with { type: 'json' };
+import { GLIDERS, MOUNTS, VEHICLES, isBoat } from '../../../content/vehicles';
+import { part, toon } from '../../../render/toon';
+import { CROPS, PACKS, PROPS, STRUCTURES } from '../../../render/models/data';
+import { ANIMAL_IDS, buildAnimal } from '../../../render/models/animals';
+import { buildVillager } from '../../../render/models/villagers';
+import { PAL, cost, vcMaterial } from '../../../render/models/kit';
+import { buildCrop, cropStages } from '../../../render/models/crops';
+import { buildGlider } from '../../../render/models/gliders';
+import { buildMount } from '../../../render/models/mounts';
+import { buildPack } from '../../../render/models/packs';
+import { propGeometry } from '../../../render/models/props';
+import { buildStructure } from '../../../render/models/structures';
+import { buildVehicle } from '../../../render/models/vehicles';
 import { h } from '../dom';
 import type { AnimDef, Gallery, Options, Subject } from '../types';
 
@@ -723,7 +723,7 @@ export const modelsSubject: Subject = {
       },
       { path: 'src/render/models/kit.ts', what: 'the blocks, palette (PAL) and cost()' },
       { path: 'shared/vehicles.json, shared/structures.json, shared/trade.json, shared/farming.json', what: 'footprints, seats, cargo slots, decks, draft' },
-      { path: 'src/library/galleries/models.ts', what: 'this gallery: layout, anchors, the numbers and probes the tests read' },
+      { path: 'src/dev/library/galleries/models.ts', what: 'this gallery: layout, anchors, the numbers and probes the tests read' },
     ],
     conventions: 'Models face +Z with their origin on the ground (a boat at sea level). Seats are green, cargo slots orange, footprint corners red (Anchors).',
     checks: [

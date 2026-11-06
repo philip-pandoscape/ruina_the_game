@@ -103,7 +103,7 @@
       "notes": "Low-poly toon models built in code to the data's exact footprints and anchors: 20 structures (the cottage in 5 build stages), 6 vehicles, 2 mounts, 2 gliders, 9 packs, 6 crops in 4 stages, 3 kinds of livestock (young and grown), 12 villagers and 8 props. Merged per model for few draw calls; tests check wheels, waterlines, seat heights and the cottage doorway.",
       "files": [
         "src/render/models/",
-        "src/library/galleries/models.ts",
+        "src/dev/library/galleries/models.ts",
         "tests/integration/models.spec.ts",
         "tests/unit/models.test.ts"
       ]
@@ -761,8 +761,8 @@
         "src/render/detail/blend.ts",
         "src/render/character.ts",
         "src/render/models/vehicles.ts",
-        "src/library/subjects/film.ts",
-        "src/library/bench/hero.ts",
+        "src/dev/library/subjects/film.ts",
+        "src/dev/library/bench/hero.ts",
         "tests/unit/animation.test.ts",
         "tests/integration/animation.spec.ts"
       ]
@@ -909,7 +909,7 @@
       "notes": "/dev/library.html shows every animated thing: the hero (each film in scenarios.ts, in the made body or the box one, any weapon), slimes in every size (as jelly or boxes), the crowd's far-away bodies, the farm animals, the twelve townsfolk and the mounts. Pick one, then an animation; play it at any speed, step it a frame at a time, scrub, loop a stretch, look from any side, with its skeleton, onion skins and the paths of its hands and feet. The timeline shows what the rules have the body doing when (a swing's wind-up, strike and recovery, the air, a landing). Notes go on the whole animation, a stretch of frames or one frame; on a frame you can move the bones (turn a joint, or take a hand or a foot and bend the limb to reach it) and keep the corrected pose with a picture of before and after. Create Prompt turns the open notes into one prompt for Claude: what moves each body and where, every note with the rules' state on its frames, and for corrected poses the bones' turns in degrees, where the hands and feet went in centimetres, and the pictures. The notes are kept by the dev server in reviews/animations/ (tools/animReviews.ts), so they outlive the reload a code change brings; corrected poses then show as green ghosts on their frames, with how close the animation now comes. tests/integration/library-review.spec.ts measures every correction against the code (REVIEW=.../review.json), and the animation-review skill says how to work through a review.",
       "files": [
         "dev/library.html",
-        "src/library/",
+        "src/dev/library/",
         "tools/animReviews.ts",
         "tests/integration/library.spec.ts",
         "tests/integration/library-review.spec.ts",
@@ -1132,7 +1132,7 @@
       "files": [
         "src/render/detail/retarget.ts",
         "src/render/detail/moves.ts",
-        "src/library/subjects/retarget.ts",
+        "src/dev/library/subjects/retarget.ts",
         "tests/integration/retarget.spec.ts",
         "tools/models/clips.mjs",
         ".claude/skills/retarget-animation/SKILL.md"
@@ -1195,7 +1195,7 @@
         "src/sim/zone/buildings.ts",
         "src/render/village/",
         "tools/models/village.mjs",
-        "src/library/galleries/buildings.ts",
+        "src/dev/library/galleries/buildings.ts",
         "tests/integration/village.spec.ts",
         "tests/integration/buildings.spec.ts"
       ]
@@ -1570,7 +1570,7 @@
       "title": "An animation library for reviewing animations with Claude",
       "summary": "A place to go through every character's animations frame by frame and tell Claude what to change: notes on an animation, a stretch of frames or a frame, poses corrected by moving the bones, and a prompt made from them that carries the code's whereabouts, the numbers and the pictures. Once Claude has changed the code, the corrections stay on screen as ghosts to compare against.",
       "points": [
-        "/dev/library.html (src/library/): the hero, slimes, crowd bodies, farm animals, townsfolk and mounts, each through an adapter (subjects/) that keeps every frame of an animation so it can be scrubbed, ghosted and posed.",
+        "/dev/library.html (src/dev/library/): the hero, slimes, crowd bodies, farm animals, townsfolk and mounts, each through an adapter (subjects/) that keeps every frame of an animation so it can be scrubbed, ghosted and posed.",
         "Pose correction: a rotation gizmo per joint, two-bone IK for hands and feet, scale for squash and stretch, undo, exact angles; kept with a picture of before and after.",
         "Create Prompt: open notes in one prompt (prompt.ts); notes, pictures and prompts kept in reviews/animations/ by the dev server (tools/animReviews.ts).",
         "Checking a fix: green ghosts of the corrections on their frames and a meter of how close the animation comes; tests/integration/library-review.spec.ts measures them all (degrees and centimetres) and draws the frames as they are now.",

@@ -129,7 +129,7 @@ export function buildPrompt(notes: Note[], ctx: PromptContext): string {
   out.push(
     `# Animation review: ${plural(open.length, 'note')} on ${plural(anims.size, 'animation')}`,
     '',
-    "I went through Ruina's animations in the animation library (`/dev/library.html`, src/library/) and left notes: on whole animations, on stretches of frames, and on single frames" +
+    "I went through Ruina's animations in the animation library (`/dev/library.html`, src/dev/library/) and left notes: on whole animations, on stretches of frames, and on single frames" +
       (fixes ? `, ${plural(fixes, 'of them', 'of them')} with the pose corrected by hand to show where the bones should have been` : '') +
       '. Please change the animation code so that each note below is dealt with.',
     '',

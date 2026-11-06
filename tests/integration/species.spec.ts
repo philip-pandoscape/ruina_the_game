@@ -4,7 +4,7 @@ import { expect, test, type Page } from '@playwright/test';
 test.describe.configure({ mode: 'parallel' });
 
 // Species drawn as the crowd draws them, on the content library's crowd bench
-// (/dev/library.html#/crowds/<species>/<clip>, src/library/galleries/crowds.ts): any number of a
+// (/dev/library.html#/crowds/<species>/<clip>, src/dev/library/galleries/crowds.ts): any number of a
 // species in the same two draw calls, and pictures of each, one close up and a crowd of them, for a
 // human to look at afterwards (screenshots/). Everything that is numbers off the baked clips (the
 // budget, the clips, how each one moves, the hero baked as it poses) needs no drawing:

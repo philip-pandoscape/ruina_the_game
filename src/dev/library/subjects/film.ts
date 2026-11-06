@@ -1,10 +1,10 @@
 import type * as THREE from 'three';
-import { Hero } from '../../render/character';
-import { pose, type PoseFeedback, type PoseInput } from '../../content/pose';
-import { GLIDERS, MOUNTS, VEHICLES } from '../../content/vehicles';
-import { buildGlider, buildMount, buildVehicle } from '../../render/models';
-import type { Holds } from '../../render/models/vehicles';
-import type { Moment, Scenario } from '../../render/detail/scenarios';
+import { Hero } from '../../../render/character';
+import { pose, type PoseFeedback, type PoseInput } from '../../../content/pose';
+import { GLIDERS, MOUNTS, VEHICLES } from '../../../content/vehicles';
+import { buildGlider, buildMount, buildVehicle } from '../../../render/models';
+import type { Holds } from '../../../render/models/vehicles';
+import type { Moment, Scenario } from '../../../render/detail/scenarios';
 
 // The hero playing one of its films (src/render/detail/scenarios.ts: what the rules report frame by
 // frame) through the game's own Hero (src/render/character.ts), a frame at a time at 60 fps, moving

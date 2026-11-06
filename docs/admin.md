@@ -57,7 +57,7 @@ keeps its notes in the browser, the bug reporter explains why it can't save. The
 (`/bible/`, open to everyone) is listed beside the design.
 
 Everything the game draws is looked at in one page, the content library (`/dev/library.html`,
-`src/library/`): every animated thing frame by frame, library clips on the hero beside their source,
+`src/dev/library/`): every animated thing frame by frame, library clips on the hero beside their source,
 close-up rigs, and the galleries of models, buildings and crowds. Its address names what is open
 (`#/<subject>/<animation or entry>?<options>&f=<frame>`), so a link goes straight to it. A new kind
 of thing to look at is a subject or a gallery there, not a page of its own.

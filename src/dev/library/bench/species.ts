@@ -1,12 +1,12 @@
 import * as THREE from 'three';
-import { SpeciesCrowd } from '../../render/creatures/crowd';
-import { bindWorlds } from '../../render/creatures/clips';
-import { getSpecies } from '../../render/creatures/registry';
-import { MATRIX_STRIDE, clipByName, type SpeciesDef } from '../../render/creatures/species';
-import { HERO_CLIPS, HERO_RIG } from '../../render/creatures/heroBody';
-import { pose } from '../../content/pose';
-import { poseHumanoid } from '../../render/detail/humanoid';
-import { DetailRig } from '../../render/detail/rig';
+import { SpeciesCrowd } from '../../../render/creatures/crowd';
+import { bindWorlds } from '../../../render/creatures/clips';
+import { getSpecies } from '../../../render/creatures/registry';
+import { MATRIX_STRIDE, clipByName, type SpeciesDef } from '../../../render/creatures/species';
+import { HERO_CLIPS, HERO_RIG } from '../../../render/creatures/heroBody';
+import { pose } from '../../../content/pose';
+import { poseHumanoid } from '../../../render/detail/humanoid';
+import { DetailRig } from '../../../render/detail/rig';
 
 // A species measured from its baked clips (src/species/): what it is made of, where its joints and
 // its boxes are on any frame of any clip, and the close-up poses a clip was baked from, to hold the

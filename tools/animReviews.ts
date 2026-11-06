@@ -3,7 +3,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { join, relative, resolve, sep } from 'node:path';
 import type { Plugin } from 'vite';
 
-// The dev server's half of the animation library (/dev/library.html, src/library/store.ts): the notes
+// The dev server's half of the animation library (/dev/library.html, src/dev/library/store.ts): the notes
 // on animations, the pictures of pose corrections and the prompts made from them are kept in
 // reviews/animations/ (git-ignored), where Claude can read them and where they outlive a reload.
 //

@@ -1,6 +1,6 @@
 import type * as THREE from 'three';
 
-// The content library's own vocabulary (/dev/library.html, src/library/main.ts). Everything it shows
+// The content library's own vocabulary (/dev/library.html, src/dev/library/main.ts). Everything it shows
 // is a Subject. One that moves (the hero, a slime, a cow, a villager, a library clip on the hero)
 // lists its animations and makes a Take of one: the animation played through once, every frame kept,
 // so any frame can be shown at once, scrubbed backwards, drawn as a ghost or corrected by hand. How a

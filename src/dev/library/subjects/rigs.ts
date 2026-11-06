@@ -1,7 +1,7 @@
 import * as THREE from 'three';
-import { creatureIds, creatureRig } from '../../render/creatures/closeUps';
-import type { RigDef } from '../../content/rig';
-import { DetailRig } from '../../render/detail/rig';
+import { creatureIds, creatureRig } from '../../../render/creatures/closeUps';
+import type { RigDef } from '../../../content/rig';
+import { DetailRig } from '../../../render/detail/rig';
 import { readBones, sideOf, writeBones } from '../pose';
 import type { Bone, FrameInfo, Options, Phase, Posable, Snapshot, Source, Subject, Take } from '../types';
 
@@ -140,7 +140,7 @@ function rigSubject(id: string): Subject {
         { path: `src/content/creatures/${id}.ts`, what: 'the rig: joints, parts, materials, weapons' },
         { path: 'src/render/creatures/closeUps.ts', what: 'every close-up body, by id' },
         { path: 'src/render/detail/rig.ts', what: 'building it' },
-        { path: 'src/library/bench/rigs.ts', what: 'measuring it: rest positions, turning joints' },
+        { path: 'src/dev/library/bench/rigs.ts', what: 'measuring it: rest positions, turning joints' },
       ],
       conventions:
         "Model space: x to the body's left, y up, z ahead; the ground is y = 0. A joint hangs down its parent's -Y at rest; knees fold the shin back with positive X, elbows the forearm forward with negative X.",

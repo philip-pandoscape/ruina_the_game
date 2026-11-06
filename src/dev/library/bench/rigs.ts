@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { creatureRig } from '../../render/creatures/closeUps';
-import { DetailRig } from '../../render/detail/rig';
+import { creatureRig } from '../../../render/creatures/closeUps';
+import { DetailRig } from '../../../render/detail/rig';
 
 // A close-up body built straight from its content (src/content/creatures/), measured: what it is
 // made of, where every joint rests, and where they go when one is turned, so a test can check it

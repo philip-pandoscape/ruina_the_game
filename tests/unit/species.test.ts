@@ -1,8 +1,8 @@
 import { describe, expect, test } from 'vitest';
 import { getSpecies } from '../../src/render/creatures/registry';
-import { jointWorld, posedBounds, poseWorld, speciesInfo } from '../../src/library/bench/species';
+import { jointWorld, posedBounds, poseWorld, speciesInfo } from '../../src/dev/library/bench/species';
 
-// Per-species tests, on the baked clips' numbers (src/library/bench/species.ts): no drawing, so they
+// Per-species tests, on the baked clips' numbers (src/dev/library/bench/species.ts): no drawing, so they
 // need no page. Adding a monster means adding a row to SPECIES and, if it moves in a way worth
 // guaranteeing, one motion test below - not a new harness. Drawn by the crowd (any number of them in
 // two draw calls, and pictures of each): tests/integration/species.spec.ts, on the content library's

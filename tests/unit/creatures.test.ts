@@ -1,11 +1,11 @@
 import { expect, test } from 'vitest';
 import { creatureIds } from '../../src/render/creatures/closeUps';
-import { RigBench } from '../../src/library/bench/rigs';
+import { RigBench } from '../../src/dev/library/bench/rigs';
 
 // Close-up bodies. These are content (src/content/creatures), so what a test can check is that the
 // content still describes a whole creature: every joint the poses turn is present, the hierarchy
 // hangs together, and the weapons are where the hand is. Built and measured without drawing
-// (src/library/bench/rigs.ts); drawn, in the content library: tests/integration/creatures.spec.ts.
+// (src/dev/library/bench/rigs.ts); drawn, in the content library: tests/integration/creatures.spec.ts.
 
 // Every channel src/render/character.ts turns. If a rig stops offering one, the poses would
 // throw at runtime the first time that animation played; this catches it at build time instead.

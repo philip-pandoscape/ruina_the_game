@@ -1,14 +1,14 @@
 import * as THREE from 'three';
 import { clone as cloneSkinned } from 'three/addons/utils/SkeletonUtils.js';
-import { asset } from '../../assets/manifest';
-import { loadGltf } from '../../render/assets';
-import { Body } from '../../render/detail/body';
-import { wear } from '../../render/detail/fit';
-import { madeHero, madeHeroNow, type MadeHero } from '../../render/detail/madeHero';
-import { dressWeapons } from '../../render/detail/madeWeapons';
-import { HERO_MOVES } from '../../render/detail/moves';
-import { bake, JOINT, LIBRARIES, libraryOf, poseFromClip, RATE, type Baked, type Canon } from '../../render/detail/retarget';
-import { DetailRig } from '../../render/detail/rig';
+import { asset } from '../../../assets/manifest';
+import { loadGltf } from '../../../render/assets';
+import { Body } from '../../../render/detail/body';
+import { wear } from '../../../render/detail/fit';
+import { madeHero, madeHeroNow, type MadeHero } from '../../../render/detail/madeHero';
+import { dressWeapons } from '../../../render/detail/madeWeapons';
+import { HERO_MOVES } from '../../../render/detail/moves';
+import { bake, JOINT, LIBRARIES, libraryOf, poseFromClip, RATE, type Baked, type Canon } from '../../../render/detail/retarget';
+import { DetailRig } from '../../../render/detail/rig';
 import { NodeTrack, readBones, sideOf, writeBones } from '../pose';
 import type { AnimDef, Bone, FrameInfo, Options, Phase, Posable, Snapshot, Source, Subject, Take } from '../types';
 
@@ -465,7 +465,7 @@ export const retargetSubject: Subject = {
       { path: 'src/render/detail/madeHero.ts', what: "the made hero and its moves' bakes" },
       { path: 'src/render/detail/fit.ts', what: 'the made body on our rig: palms, fingers, gripHands' },
       { path: 'src/render/assets/models/hero_*.glb', what: 'the clip files (cut with tools/models/clips.mjs)' },
-      { path: 'src/library/subjects/retarget.ts', what: 'this check: the source beside the hero, every frame measured' },
+      { path: 'src/dev/library/subjects/retarget.ts', what: 'this check: the source beside the hero, every frame measured' },
     ],
     conventions:
       "Model space: x to the body's left, y up, z ahead. The hero stands a metre to the left of the source; a bone's error is the angle between its direction on the hero and its source bone's, with the source's turn away from its rest taken off.",

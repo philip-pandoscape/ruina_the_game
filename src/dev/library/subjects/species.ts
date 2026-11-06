@@ -1,9 +1,9 @@
 import * as THREE from 'three';
-import { actorKind, actorKindIds } from '../../content/actors';
-import { JellyCrowd } from '../../render/creatures/jelly';
-import { bindWorlds } from '../../render/creatures/clips';
-import { getSpecies } from '../../render/creatures/registry';
-import { MATRIX_STRIDE, type Clip, type SpeciesDef } from '../../render/creatures/species';
+import { actorKind, actorKindIds } from '../../../content/actors';
+import { JellyCrowd } from '../../../render/creatures/jelly';
+import { bindWorlds } from '../../../render/creatures/clips';
+import { getSpecies } from '../../../render/creatures/registry';
+import { MATRIX_STRIDE, type Clip, type SpeciesDef } from '../../../render/creatures/species';
 import { readBones, sideOf, writeBones } from '../pose';
 import type { AnimDef, Bone, FrameInfo, Options, Phase, Posable, Snapshot, Source, Subject, Take } from '../types';
 

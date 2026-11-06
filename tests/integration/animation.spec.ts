@@ -4,7 +4,7 @@ import { gameReady } from '../support/game';
 // The hero's animations in the game itself, where the hero and what it rides are drawn together, at
 // a set frame rate. The films measured on their own (planted feet, floor clearance, joint limits,
 // trails, the bowstring, grips, holds): tests/unit/animation.test.ts, which plays them through the
-// real close-up hero without a page (src/library/bench/hero.ts); the content library plays them too
+// real close-up hero without a page (src/dev/library/bench/hero.ts); the content library plays them too
 // (/dev/library.html#/hero/<film>).
 
 /**

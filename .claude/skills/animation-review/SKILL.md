@@ -5,7 +5,7 @@ description: Work through notes left in the content library (/dev/library.html) 
 
 # Animation review
 
-The user reviews animations in the content library (`/dev/library.html`, `src/library/`): they play an
+The user reviews animations in the content library (`/dev/library.html`, `src/dev/library/`): they play an
 animation, leave notes on all of it, on a stretch of frames or on one frame, and on a frame they can
 move the bones to where they should be. **Create Prompt** turns the open notes into a prompt. This
 skill is how to act on one.

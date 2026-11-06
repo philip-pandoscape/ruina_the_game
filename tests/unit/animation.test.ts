@@ -1,8 +1,8 @@
 import { describe, expect, test } from 'vitest';
 import { comboShape } from '../../src/content/tuning';
-import * as a from '../../src/library/bench/hero';
+import * as a from '../../src/dev/library/bench/hero';
 
-// The hero's animations, measured rather than eyeballed (src/library/bench/hero.ts): each of the
+// The hero's animations, measured rather than eyeballed (src/dev/library/bench/hero.ts): each of the
 // films in src/render/detail/scenarios.ts played through the real close-up hero - poses, easing
 // between states, feet held where they're planted - and where everything went reported. No drawing
 // and no page: in Node the hero wears its box body (the made one needs a browser to load), the body

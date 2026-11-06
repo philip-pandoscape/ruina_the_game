@@ -72,7 +72,7 @@ short version of this file for coding agents.
    - http://localhost:5173/dev/library.html, the content library: everything the game draws in one
      place, every animation frame by frame with the game's own timing, notes, poses corrected by moving
      the bones and **Create Prompt** to hand them to Claude, and every model, building and crowd
-     (`src/library/`, the `animation-review` skill)
+     (`src/dev/library/`, the `animation-review` skill)
    - the developer zones (the yard, the battlefield, the goblin camp), from the Admin menu in the world
      or on the character select screen (`docs/zones.md`)
    - http://localhost:5173/?raid=10000 for the rendering stress test (offline)

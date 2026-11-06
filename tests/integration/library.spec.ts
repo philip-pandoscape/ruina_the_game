@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 
-// The content library (/dev/library.html, src/library/): every character's animations open and play,
+// The content library (/dev/library.html, src/dev/library/): every character's animations open and play,
 // a corrected pose becomes a note with a picture and the bones it moved, notes outlive a reload (kept
 // by the dev server), and the prompt carries what Claude needs. Notes made here go to
 // test-results/anim-reviews/ (?test), never to reviews/.

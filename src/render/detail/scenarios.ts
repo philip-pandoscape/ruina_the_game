@@ -4,7 +4,7 @@ import { SWIM } from '../../content/traversal';
 import { lungeSpeed } from './humanoid';
 import { TAU } from '../../util/math';
 
-// Little films of the hero, for the content library (/dev/library.html#/hero, src/library/subjects/
+// Little films of the hero, for the content library (/dev/library.html#/hero, src/dev/library/subjects/
 // film.ts) and the tests that check the motion. Each one is what the rules would report frame by
 // frame - running speed, which way you're going, a jump's rise and fall, which swing of a combo is
 // on which frame - so the library plays the poses the way the game does, transitions and all,

@@ -1,11 +1,11 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { buildingPlan, buildingPlanIds, mirrorPlan, STOREY } from '../../content/buildings';
-import { buildingColliders } from '../../sim/zone/buildings';
-import type { PlacedBuilding } from '../../sim/zone/generate';
-import { assetsReady } from '../../render/assets';
-import { windowGlow } from '../../render/models/glb';
-import { Village } from '../../render/village/village';
+import { buildingPlan, buildingPlanIds, mirrorPlan, STOREY } from '../../../content/buildings';
+import { buildingColliders } from '../../../sim/zone/buildings';
+import type { PlacedBuilding } from '../../../sim/zone/generate';
+import { assetsReady } from '../../../render/assets';
+import { windowGlow } from '../../../render/models/glb';
+import { Village } from '../../../render/village/village';
 import { h } from '../dom';
 import type { AnimDef, Gallery, Options, Subject } from '../types';
 

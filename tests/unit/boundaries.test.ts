@@ -8,17 +8,17 @@ import { expect, test } from 'vitest';
 // beneath everything. An import across a line not allowed here fails this test; the few that
 // already cross one are listed below with the task that removes them.
 
-/** What each area may not import. Areas not listed (app, library, dev, bible, main.ts) may import anything. */
+/** What each area may not import. Areas not listed (app, dev, bible, main.ts) may import anything. */
 const FORBIDDEN: Record<string, string[]> = {
   util: ['*'],
   // The asset manifest and loader: beneath everything that draws, knowing files and not what's in them.
-  assets: ['sim', 'content', 'render', 'ui', 'net', 'app', 'input', 'library', 'dev', 'bible', '(root:main)'],
-  sim: ['render', 'ui', 'net', 'app', 'input', 'library', 'dev', 'bible', '(root:main)'],
-  content: ['sim', 'render', 'ui', 'net', 'app', 'input', 'library', 'dev', 'bible', '(root:main)'],
-  input: ['render', 'ui', 'net', 'app', 'library', 'dev', 'bible', '(root:main)'],
-  render: ['app', 'library', 'dev', 'bible', '(root:main)'],
-  net: ['ui', 'library', 'dev', 'bible', '(root:main)'],
-  ui: ['library', 'bible', '(root:main)'],
+  assets: ['sim', 'content', 'render', 'ui', 'net', 'app', 'input', 'dev', 'bible', '(root:main)'],
+  sim: ['render', 'ui', 'net', 'app', 'input', 'dev', 'bible', '(root:main)'],
+  content: ['sim', 'render', 'ui', 'net', 'app', 'input', 'dev', 'bible', '(root:main)'],
+  input: ['render', 'ui', 'net', 'app', 'dev', 'bible', '(root:main)'],
+  render: ['app', 'dev', 'bible', '(root:main)'],
+  net: ['ui', 'dev', 'bible', '(root:main)'],
+  ui: ['bible', '(root:main)'],
 };
 
 /** Imports across a line today, each with what will remove it (.plans/refactor/tracker.md). */

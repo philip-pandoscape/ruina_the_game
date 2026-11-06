@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { SpeciesCrowd } from '../../render/creatures/crowd';
-import { getSpecies, speciesIds } from '../../render/creatures/registry';
-import type { SpeciesDef } from '../../render/creatures/species';
+import { SpeciesCrowd } from '../../../render/creatures/crowd';
+import { getSpecies, speciesIds } from '../../../render/creatures/registry';
+import type { SpeciesDef } from '../../../render/creatures/species';
 import { jointPositions, jointWorld, posedBounds, poseWorld, speciesInfo } from '../bench/species';
 import { h } from '../dom';
 import type { AnimDef, Gallery, Options, Subject } from '../types';
@@ -385,7 +385,7 @@ export const crowdsSubject: Subject = {
       { path: 'src/render/creatures/builtin/', what: "each species' skeleton, boxes and clips" },
       { path: 'src/render/creatures/clips.ts', what: 'baking clips to matrices' },
       { path: 'src/render/creatures/crowd.ts', what: 'drawing them, an instance each' },
-      { path: 'src/library/bench/species.ts', what: 'their joints and silhouettes measured on any frame' },
+      { path: 'src/dev/library/bench/species.ts', what: 'their joints and silhouettes measured on any frame' },
     ],
     conventions: "A body faces +Z with its root on the ground; a clip's matrices map the bind pose to the posed one, joint by joint.",
     checks: [

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { QUALITY } from '../render/look';
+import { QUALITY } from '../../render/look';
 import type { Options, Subject } from './types';
 
 // Small portraits for the library's list: each subject that moves on its idle (or first) animation,

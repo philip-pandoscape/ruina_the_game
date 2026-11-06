@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 test.describe.configure({ mode: 'parallel' });
 
 // The buildings you can walk into in the content library's buildings gallery
-// (/dev/library.html#/buildings/<plan>, src/library/galleries/buildings.ts): every plan is drawn from
+// (/dev/library.html#/buildings/<plan>, src/dev/library/galleries/buildings.ts): every plan is drawn from
 // the village kit without an error, cut open, with the rules' walls over it, mirrored and by night.
 // The plans themselves: tests/unit/buildings.test.ts; walking in, in the game: village.spec.ts. The
 // screenshots in screenshots/ are for a human.

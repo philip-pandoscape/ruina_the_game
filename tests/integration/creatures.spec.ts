@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import { creatureIds } from '../../src/render/creatures/closeUps';
 
 // Close-up bodies drawn as their content builds them, on the content library's creature bench
-// (/dev/library.html#/rig-<id>/rest, src/library/subjects/rigs.ts): each rig with each weapon in its
+// (/dev/library.html#/rig-<id>/rest, src/dev/library/subjects/rigs.ts): each rig with each weapon in its
 // hand, without an error, its joints there to pose. The pictures in screenshots/ are for a human.
 // That the content describes a whole creature (every joint the poses turn, the weapons in the right
 // hands, a skeleton that hangs together) needs no drawing: tests/unit/creatures.test.ts.
