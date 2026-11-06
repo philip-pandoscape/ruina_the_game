@@ -1,0 +1,16 @@
+{
+  "id": "craft.newItem",
+  "bench": "newPerson",
+  "inputs": [
+    {
+      "item": "herbs",
+      "n": 2
+    }
+  ],
+  "coins": 10,
+  "labor": 5,
+  "makes": {
+    "item": "newItem",
+    "n": 1
+  }
+}

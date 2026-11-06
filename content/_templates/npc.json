@@ -1,0 +1,13 @@
+{
+  "id": "newPerson",
+  "name": "New Person",
+  "title": "What They Do",
+  "place": "lanternwick",
+  "x": 0,
+  "z": -258,
+  "facing": 3.14159,
+  "kind": "npc-merchant",
+  "look": "newPerson",
+  "portrait": "🙂",
+  "greeting": "What they say when you talk to them."
+}

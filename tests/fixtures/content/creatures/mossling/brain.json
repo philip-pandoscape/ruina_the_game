@@ -1,0 +1,100 @@
+[
+  {
+    "id": "mossling",
+    "comment": "Waits until it sees a foe, runs at them and nips, and runs at them again; a pack of them share the work as goblins do.",
+    "sight": 10,
+    "keepAway": 0,
+    "leash": 20,
+    "notices": true,
+    "anger": {
+      "frames": 600,
+      "radius": 8,
+      "calmBeyond": 30
+    },
+    "attacks": [
+      "mossling-nip"
+    ],
+    "flinch": "flinch",
+    "pack": {
+      "tokens": [
+        1,
+        1,
+        2,
+        2,
+        3
+      ],
+      "ring": 1.4,
+      "spread": 55,
+      "openingRange": 4.5,
+      "backArc": 110,
+      "friendRadius": 6,
+      "friendWorth": 0.15,
+      "foeWorth": 0.3,
+      "braveAt": 0.3,
+      "calmAt": 0.5,
+      "switchAt": 2.5
+    },
+    "states": [
+      {
+        "name": "idle",
+        "act": "wait",
+        "frames": [
+          40,
+          90
+        ],
+        "next": "idle",
+        "interrupt": [
+          {
+            "if": "angry",
+            "to": "close"
+          }
+        ]
+      },
+      {
+        "name": "close",
+        "act": "walk",
+        "toward": "foe",
+        "stop": 0.9,
+        "speed": 4,
+        "frames": [
+          60,
+          60
+        ],
+        "next": [
+          {
+            "if": "!angry",
+            "to": "idle"
+          },
+          {
+            "to": "close"
+          }
+        ],
+        "interrupt": [
+          {
+            "if": "near:1.4",
+            "to": "nip"
+          }
+        ]
+      },
+      {
+        "name": "nip",
+        "act": "strike",
+        "attack": "mossling-nip",
+        "frames": [
+          30,
+          30
+        ],
+        "next": "close"
+      },
+      {
+        "name": "flinch",
+        "act": "wait",
+        "frames": [
+          14,
+          14
+        ],
+        "next": "close"
+      }
+    ]
+  }
+]

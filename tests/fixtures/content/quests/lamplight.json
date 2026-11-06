@@ -1,0 +1,53 @@
+{
+  "id": "lamplight",
+  "name": "Lamplight",
+  "giver": "wren",
+  "after": [],
+  "intro": "The lamps along the harbour road want filling before dusk, and my old legs want a rest. Get yourself a trap, drive the road down to the docks, and tell me it's lit.",
+  "steps": [
+    {
+      "text": "Summon a pony trap (Wren sells the deed)",
+      "objectives": [
+        {
+          "type": "summon",
+          "vehicle": "ponyTrap",
+          "marker": {
+            "place": "lanternwick",
+            "label": "Wren's Oil Cart"
+          }
+        }
+      ]
+    },
+    {
+      "text": "Drive down to the docks",
+      "objectives": [
+        {
+          "type": "reach",
+          "place": "docks",
+          "r": 25
+        }
+      ]
+    },
+    {
+      "text": "Tell Wren the harbour road is lit",
+      "objectives": [
+        {
+          "type": "talk",
+          "npc": "wren"
+        }
+      ]
+    }
+  ],
+  "turnIn": "wren",
+  "outro": "Lit end to end! Keep the trap; a lamplighter's errand-runner needs wheels.",
+  "rewards": {
+    "skillPoints": 1,
+    "coins": 60,
+    "items": [
+      {
+        "item": "lampOil",
+        "n": 2
+      }
+    ]
+  }
+}

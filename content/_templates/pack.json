@@ -1,0 +1,17 @@
+{
+  "id": "newPack",
+  "name": "New Pack",
+  "icon": "🛢️",
+  "origin": "lanternwick",
+  "base": 360,
+  "labor": 25,
+  "fee": 25,
+  "inputs": [
+    {
+      "item": "newItem",
+      "n": 6
+    }
+  ],
+  "look": "What it looks like on your back.",
+  "kind": "trade"
+}

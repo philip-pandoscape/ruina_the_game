@@ -1,0 +1,14 @@
+{
+  "npc": "newPerson",
+  "name": "New Person's Stall",
+  "sells": [
+    {
+      "item": "newItem",
+      "price": 10
+    }
+  ],
+  "buys": [
+    "newItem"
+  ],
+  "buyRate": 0.6
+}

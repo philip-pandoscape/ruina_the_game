@@ -1,0 +1,38 @@
+{
+  "id": "newActor",
+  "faction": 1,
+  "maxHp": 40,
+  "radius": 0.42,
+  "hitHeight": 0.5,
+  "hitCeiling": 1.7,
+  "solid": false,
+  "brain": "slime",
+  "respawnFrames": 210,
+  "species": "slime",
+  "clips": {
+    "idle": "idle",
+    "move": "hop",
+    "chase": "hop",
+    "windup": "windup",
+    "leap": "leap",
+    "call": "hop",
+    "rally": "hop",
+    "gather": "gather",
+    "dazed": "dazed",
+    "dead": "die"
+  },
+  "palette": {
+    "teamA": 6266964,
+    "teamB": 4951114
+  },
+  "mass": 4,
+  "scale": 1,
+  "slam": {
+    "range": 3.5,
+    "leap": 4,
+    "radius": 1.2,
+    "damage": 8,
+    "knock": 5
+  },
+  "gathers": true
+}

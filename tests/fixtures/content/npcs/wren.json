@@ -1,0 +1,13 @@
+{
+  "id": "wren",
+  "name": "Wren Tallow",
+  "title": "Lamplighter",
+  "place": "lanternwick",
+  "x": 0,
+  "z": -258,
+  "facing": 3.14159,
+  "kind": "npc-merchant",
+  "look": "wren",
+  "portrait": "🕯️",
+  "greeting": "Every lamp in Lanternwick is mine to light. Oil is dear, but the dark is dearer."
+}
