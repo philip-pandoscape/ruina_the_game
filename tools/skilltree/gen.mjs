@@ -20,7 +20,9 @@ const previous = fs.existsSync(OUT) ? JSON.parse(fs.readFileSync(OUT, 'utf8')) :
 // The fifteen skills, in the order saved builds know them by.
 const SKILL_FIELDS = ['id', 'kind', 'tree', 'name', 'desc', 'icon', 'tags', 'grants', 'mods'];
 const pick = (n) => Object.fromEntries(SKILL_FIELDS.filter((k) => n[k] !== undefined).map((k) => [k, n[k]]));
-const SKILLS = (previous ? previous.nodes.filter((n) => n.kind === 'skill') : tuning.skills.nodes.map((n) => ({ ...n, kind: 'skill' }))).map(pick);
+// The skills come from the tree this run replaces: shared/skilltree.json is where they live.
+if (!previous) throw new Error('shared/skilltree.json is missing: the fifteen skills are read from it');
+const SKILLS = previous.nodes.filter((n) => n.kind === 'skill').map(pick);
 
 // ---------- Layout ----------
 

@@ -15,7 +15,6 @@ pub struct Tuning {
     #[serde(rename = "move")]
     pub movement: Move,
     pub jump: Jump,
-    pub slide: Slide,
     pub attack: Attack,
     pub special: SpecialSettings,
     pub weapons: Vec<Weapon>,
@@ -75,14 +74,6 @@ pub struct Jump {
     pub buffer_frames: i32,
     pub double_jump_steer: f64,
     pub flip_frames: i32,
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Slide {
-    /// Only what the browser still reads for the sliding pose; the rules live in the
-    /// "slide" movement skill.
-    pub frames: i32,
 }
 
 #[derive(Deserialize)]

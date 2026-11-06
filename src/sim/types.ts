@@ -125,7 +125,7 @@ export interface PlayerState {
   castTargetX: number; // where a meteor will land
   castTargetZ: number;
   firedAbility: number; // the ability whose cast finished this frame (the server acts on it), else 255
-  // ---- Open-world traversal. Offline worlds only for now: the server's mirror has none of it. ----
+  // ---- Open-world traversal (server/src/open/traverse.rs plays the same). ----
   /** The trade pack on your back (an id in the life systems), 0 for none. */
   pack: number;
   /** What you are riding (a vehicle id in the life systems), 0 on foot; and which seat. */

@@ -213,9 +213,12 @@ game state, and the island save (so the bug can be replayed on the same island).
 
 ## Tests
 
-`npm test` runs everything. Tests that need a server start their own on ports 7791–7794, so they never
-join a game you're playing. `npm run typecheck` checks types. `tests/integration/world.spec.ts` plays the open
-world (`/?world&test`) and `tests/integration/models.spec.ts` checks every procedural model.
+Three tiers, explained in `docs/testing.md`: `npm run check` after every change (types, dead code,
+lints and the unit tests, in seconds), `npm run check:beta` before a push to beta (the game in a
+browser, with its servers), `npm run check:release` before a release (frame rates and crowds, on a
+real GPU). Tests that need a battle server start their own on ports 7791–7795, so they never join a
+game you're playing. `tests/integration/world.spec.ts` plays the open world (`/?world&test`) and
+`tests/integration/models.spec.ts` checks every procedural model.
 
 ## Balance
 

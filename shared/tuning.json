@@ -30,9 +30,6 @@
     "doubleJumpSteer": 1,
     "flipFrames": 23
   },
-  "slide": {
-    "frames": 26
-  },
   "attack": {
     "bufferFrames": 8,
     "autoAimRange": 3.2,
