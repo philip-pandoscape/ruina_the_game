@@ -146,6 +146,8 @@ export interface Gallery {
   frame(dt: number): void;
   /** Numbers about what is shown, for the side panel: a heading and rows of name and value. */
   numbers?(): Array<{ heading: string; rows: Array<[string, string]> }>;
+  /** Things to do to it, as buttons over its numbers (measure what a frame costs). */
+  actions?(): Array<{ label: string; run(): unknown }>;
   /** What tests and tools call, as window.__library.gallery(). */
   readonly api: Record<string, unknown>;
   dispose(): void;

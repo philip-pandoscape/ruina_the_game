@@ -1261,6 +1261,28 @@ export class App {
     const pane = this.el.pane;
     const scroll = pane.scrollTop;
     pane.replaceChildren();
+    const acts = this.gallery?.actions?.() ?? [];
+    if (acts.length)
+      pane.append(
+        h(
+          'div',
+          { class: 'tools' },
+          ...acts.map((a) =>
+            h(
+              'button',
+              {
+                class: 'btn small',
+                onclick: async () => {
+                  toast(`${a.label}…`);
+                  await a.run();
+                  this.renderNumbers();
+                },
+              },
+              a.label,
+            ),
+          ),
+        ),
+      );
     for (const t of this.gallery?.numbers?.() ?? [])
       pane.append(h('h3', {}, t.heading), h('dl', { class: 'kv' }, ...t.rows.flatMap(([k, v]) => [h('dt', {}, k), h('dd', {}, v)])));
     pane.scrollTop = scroll;

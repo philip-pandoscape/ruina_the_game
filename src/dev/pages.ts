@@ -46,7 +46,7 @@ export const DEV_PAGES: readonly DevPage[] = [
     title: 'Animation Library',
     url: '/dev/library.html',
     about:
-      'Everything the game draws, in one place: every animated thing frame by frame (scrub, onion-skin and pose it, and leave notes on it for Claude), every model side by side, and the buildings cut open over their walls.',
+      'Everything the game draws, in one place: every animated thing frame by frame (scrub, onion-skin and pose it, and leave notes on it for Claude), every model side by side, the buildings cut open over their walls, and crowds of each species with their cost measured.',
     needs: 'dev-server',
   },
   {
@@ -69,13 +69,6 @@ export const DEV_PAGES: readonly DevPage[] = [
     title: 'Creature Harness',
     url: '/dev/creatures.html',
     about: 'Close-up bodies built from their content and posed joint by joint.',
-  },
-  {
-    id: 'species',
-    kind: 'page',
-    title: 'Species Harness',
-    url: '/dev/species.html',
-    about: 'One species at a time: its clips, its joints and a crowd of it, with the cost measured.',
   },
   { id: 'bible', kind: 'design', title: 'Design Bible', url: '/design/', about: 'The design of the whole game, system by system, and where each one stands.' },
   {
