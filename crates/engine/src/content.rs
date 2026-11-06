@@ -122,7 +122,7 @@ static CONTENT: OnceLock<Content> = OnceLock::new();
 
 fn content() -> &'static Content {
     CONTENT.get_or_init(|| {
-        let raw = include_str!("../../../shared/actors.json");
+        let raw = crate::bundles::bundle("actors.json", include_str!("../../../shared/actors.json"));
         let file: File = serde_json::from_str(raw).expect("shared/actors.json is malformed");
         let mut kinds = file.kinds;
         let mut attacks = Vec::new();

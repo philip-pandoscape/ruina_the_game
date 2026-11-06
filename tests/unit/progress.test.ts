@@ -1,95 +1,21 @@
-import { beforeAll, expect, test } from 'vitest';
-import { Life } from '../../src/sim/life/life';
-import { complete } from '../../src/sim/life/quests';
-import { migrateLifeState, type LifeState } from '../../src/sim/life/state';
-import { observe, pointsEarned, skillBudget, train, trainedBy } from '../../src/sim/life/progress';
-import { EMBERHOLM, type ZoneData } from '../../src/sim/zone/world';
-import { generateZone } from '../../src/sim/zone/world';
+import { expect, test } from 'vitest';
 import { QUESTS } from '../../src/content/quests';
-import { bookIndex, LEVEL_XP, levelsFrom, START_POINTS } from '../../src/content/skills';
+import { bookIndex, START_POINTS } from '../../src/content/skills';
 import { SLIDE_SKILL } from '../../src/content/tuning';
+import { newLifeState, skillBudget, trainedBy } from '../../src/engine/island';
 
-// Getting better on the island: skill points from the quests and milestones you finish, and skills
-// that level up as you use them (src/sim/life/progress.ts). crates/engine/src/life does the same.
-
-let zone: ZoneData;
-beforeAll(() => {
-  zone = { recipe: EMBERHOLM, gen: generateZone(EMBERHOLM) };
-});
-const fresh = () => new Life(zone);
-const toasts = (life: Life) => life.drainEvents().flatMap((e) => (e.t === 'toast' ? [e.text] : []));
-const finishLandfall = (life: Life) => {
-  life.notify({ type: 'talk', npc: 'hollis' });
-  expect(complete(life, 'landfall')).toBe(true);
-};
+// What the page works out for itself about getting better on the island: the skill points you have,
+// counted from the quests and milestones you've finished (never stored), and which skill something
+// you did trains (the yard's practice, src/app/yardPractice.ts). Points given, skills levelling up
+// and milestones are the engine's, tested beside it (crates/engine/src/life/progress.rs).
 
 test('every quest and milestone gives skill points, and you have what the ones you finished gave', () => {
   for (const q of QUESTS) expect(q.rewards.skillPoints ?? 0, q.id).toBeGreaterThan(0);
-  const life = fresh();
-  expect(skillBudget(life.state)).toBe(START_POINTS);
-  finishLandfall(life);
-  const landfall = QUESTS.find((q) => q.id === 'landfall')!.rewards.skillPoints!;
-  expect(pointsEarned(life.state)).toBe(landfall);
-  expect(skillBudget(life.state)).toBe(START_POINTS + landfall);
-  expect(toasts(life)).toContain(`✔ Landfall complete - ${landfall} skill point${landfall > 1 ? 's' : ''}, 50c, Scarecrow, 8 Sunroot Seeds, 6 Barley Seeds`);
-  // Milestones start quietly.
-  expect(toasts(life)).toEqual([]);
-});
-
-test('points are counted from finished quests, so an island saved before they existed has them too', () => {
-  const life = fresh();
-  const old = JSON.parse(JSON.stringify(life.state)) as Partial<LifeState>;
-  delete old.skillXp; // saved before skills levelled
-  old.quests = { active: [], done: ['landfall', 'patch', 'wings'] };
-  const s = migrateLifeState(old as LifeState);
-  expect(s.skillXp).toEqual({});
-  expect(pointsEarned(s)).toBe(['landfall', 'patch', 'wings'].reduce((n, id) => n + QUESTS.find((q) => q.id === id)!.rewards.skillPoints!, 0));
-});
-
-test('milestones start by themselves and finish themselves, with nobody to hand them to', () => {
-  const life = fresh();
-  expect(life.state.quests.active.map((q) => q.id)).not.toContain('slimeHunter');
-  finishLandfall(life);
-  expect(life.state.quests.active.map((q) => q.id)).toEqual(expect.arrayContaining(['wayfarer', 'slimeHunter', 'practisedHand']));
-  toasts(life);
-  const before = skillBudget(life.state);
-  // Only the creature it names counts.
-  life.notify({ type: 'defeat', kind: 'great-slime' });
-  expect(life.state.quests.active.find((q) => q.id === 'slimeHunter')!.counts[0]).toBe(0);
-  for (let i = 0; i < 15; i++) life.notify({ type: 'defeat', kind: 'slime' });
-  expect(life.state.quests.done).toContain('slimeHunter');
-  expect(life.state.quests.active.map((q) => q.id)).not.toContain('slimeHunter');
-  expect(skillBudget(life.state)).toBe(before + 1);
-  expect(toasts(life)).toContain('✔ Milestone: Slime Hunter - 1 skill point');
-});
-
-test('a creature you finish off is a defeat; one that dissolves on its own is not', () => {
-  const life = fresh();
-  finishLandfall(life);
-  const hunted = () => life.state.quests.active.find((q) => q.id === 'slimeHunter')!.counts[0];
-  const death = (killed: boolean) => ({ type: 'actorDie', frame: 0, id: 7, kind: 'slime', x: 0, y: 0, z: 0, killed }) as const;
-  observe(life, death(false));
-  expect(hunted()).toBe(0);
-  observe(life, death(true));
-  expect(hunted()).toBe(1);
-});
-
-test('skills level up as you use them, say so, and count toward Practised Hand', () => {
-  const life = fresh();
-  finishLandfall(life);
-  toasts(life);
-  const sword = bookIndex('sword');
-  train(life, sword, LEVEL_XP[1] - 1);
-  expect(levelsFrom(life.state.skillXp)[sword]).toBe(1);
-  expect(toasts(life)).toEqual([]);
-  train(life, sword);
-  expect(levelsFrom(life.state.skillXp)[sword]).toBe(2);
-  expect(toasts(life)).toEqual(['Sword reached level 2']);
-  expect(life.state.quests.active.find((q) => q.id === 'practisedHand')!.counts[0]).toBe(1);
-  // Four more levels finish the milestone (a jump of several levels counts them all).
-  train(life, sword, LEVEL_XP[5] - life.state.skillXp.sword);
-  expect(levelsFrom(life.state.skillXp)[sword]).toBe(6);
-  expect(life.state.quests.done).toContain('practisedHand');
+  const s = newLifeState({ coins: 0, labor: 0, seed: 0 });
+  expect(skillBudget(s)).toBe(START_POINTS);
+  const done = QUESTS.slice(0, 3);
+  s.quests = { active: [], done: done.map((q) => q.id) };
+  expect(skillBudget(s)).toBe(START_POINTS + done.reduce((n, q) => n + (q.rewards.skillPoints ?? 0), 0));
 });
 
 test('what trains what: a hit the weapon that landed it, a cast the ability, a use the movement skill', () => {

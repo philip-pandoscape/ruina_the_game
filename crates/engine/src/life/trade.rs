@@ -171,7 +171,11 @@ pub fn craft_item(life: &mut Life, r: &RecipeDef) -> bool {
 }
 
 pub fn run_recipe(life: &mut Life, sim: &mut Sim, id: &str) -> bool {
-    let Some(r) = recipe(id) else { return false };
+    recipe(id).is_some_and(|r| craft(life, sim, r))
+}
+
+/// Makes what a recipe makes: a pack, or something for the bag.
+fn craft(life: &mut Life, sim: &mut Sim, r: &RecipeDef) -> bool {
     if let Some(pack) = r.makes.pack.as_deref().filter(|p| !p.is_empty()) {
         // Made where its workbench stands; by a crafter, where the pack says it comes from.
         let zone = life.zone;
@@ -441,7 +445,7 @@ pub(crate) mod testing {
 mod tests {
     use super::testing::{island, toasts};
     use super::*;
-    use crate::life::content::{packs, recipes};
+    use crate::life::content::{Makes, labor, packs, recipes};
     use crate::life::state::Vehicle;
 
     #[test]
@@ -503,6 +507,26 @@ mod tests {
         assert!(sell(&mut life, "mara", "sunroot", 1));
         let list = held(&life);
         assert_eq!((list.len(), list[0].item.as_str(), list[11].item.as_str()), (12, "old1", "sunroot"));
+    }
+
+    #[test]
+    fn a_pack_a_crafter_makes_with_no_workbench_comes_from_where_the_pack_says_it_is_made() {
+        let pack = &packs()[0];
+        let r = RecipeDef {
+            id: "test.crafterPack".into(),
+            bench: "test.crafter".into(),
+            makes: Makes { pack: Some(pack.id.clone()), ..Default::default() },
+            ..Default::default()
+        };
+        let (mut life, mut world, mut p) = island(1e6);
+        let mut sim = Sim { player: &mut p, world: &mut world, owner: 1 };
+        for inp in &pack.inputs {
+            life.give(&inp.item, inp.n, true);
+        }
+        life.state.labor = labor().max;
+        sim.player.grounded = true;
+        assert!(craft(&mut life, &mut sim, &r));
+        assert_eq!(life.state.packs.iter().map(|pk| pk.origin.as_str()).collect::<Vec<_>>(), [pack.origin.as_str()]);
     }
 
     #[test]

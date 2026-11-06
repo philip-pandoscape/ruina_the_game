@@ -65,7 +65,7 @@ const RULES = [
 /** Rules files no player meets, by name: the bots that fill the developer zones (.plans/refactor, Phase 10), and the checks the tests run the rules through. */
 const PLUMBING_NAMES: Array<[RegExp, string]> = [
   [/^crates\/.*\/bots\.rs$/, 'bots for the developer zones, which no player meets yet'],
-  [/^crates\/engine\/src\/checks\//, 'the rules run through the conformance checks’ scenarios, for the tests'],
+  [/^crates\/engine\/src\/checks\//, 'scenarios run through the rules, whose answers the golden tests hold'],
 ];
 
 /** Rules files that hold no rule a player meets, with why. */
@@ -74,6 +74,7 @@ const PLUMBING: Record<string, string> = {
   'crates/engine/src/jsmath.rs': 'the browser’s maths, to the bit, so both sides agree',
   'crates/engine/src/rng.rs': 'the seeded random numbers both sides share',
   'crates/engine/src/content.rs': 'reads the content files for the engine',
+  'crates/engine/src/bundles.rs': 'the content files the engine reads: built in, or given in their place for the tests',
   'crates/engine/src/creatures.rs': 'lists the creature files in the browser’s order',
   'crates/engine/src/life/content.rs': 'reads the island’s content files for the engine',
   'crates/server/src/play/mod.rs': 'runs a channel: the rules above, fed from players’ inputs',

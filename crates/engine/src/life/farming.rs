@@ -437,6 +437,20 @@ pub(crate) mod tests {
         (p.pos.x, p.pos.y, p.pos.z, p.facing) = (x, y, z, facing);
     }
 
+    /// Sets the island's random numbers so that the draw after the next `skip` comes up under
+    /// `chance`: whatever is that rare is found.
+    pub(crate) fn lucky(life: &mut Life, skip: usize, chance: f64) {
+        life.state.rng = (0u32..)
+            .find(|&seed| {
+                let mut r = seed;
+                for _ in 0..skip {
+                    crate::rng::mulberry32(&mut r);
+                }
+                crate::rng::mulberry32(&mut r) < chance
+            })
+            .expect("a lucky seed");
+    }
+
     /// The "+6 🌾 Barley" a bag gives when something goes in.
     pub(crate) fn got(n: i64, item: &str) -> LifeEvent {
         let def = item_def(item);
@@ -595,6 +609,27 @@ pub(crate) mod tests {
         );
         assert_eq!(life.state.rng, 567901804);
         assert!(plant_at(&life, sc, 5).is_none() && plant_at(&life, sc, 6).is_none());
+    }
+
+    #[test]
+    fn a_felled_tree_gives_the_rare_find_its_crop_names_with_its_toast_and_its_effect() {
+        let tree =
+            crate::life::content::crops().iter().find(|c| c.chop.as_ref().is_some_and(|ch| ch.rare.is_some())).expect("a tree with something rare in it");
+        let chop = tree.chop.as_ref().unwrap();
+        let rare = chop.rare.as_ref().unwrap();
+        let (mut life, _, _) = island();
+        let cells = vec![Some(Plant { picked: true, ..crop(&tree.id, 1.0) })];
+        life.state.scarecrows.push(Scarecrow { id: 7, x: -150.0, z: -210.0, rot: 0.0, cells });
+        life.state.labor = crate::life::content::labor().max;
+        // The yield is drawn first, then the rare find.
+        lucky(&mut life, 1, rare.chance);
+        assert!(fell(&mut life, 7, 0, 2.0));
+        assert_eq!(life.count(&rare.item), 1);
+        let events = life.drain_events();
+        assert!(events.iter().any(|e| matches!(e, LifeEvent::Toast { text, .. } if *text == rare.toast)));
+        assert_eq!(events.iter().any(|e| matches!(e, LifeEvent::Thunder { .. })), rare.effect.as_deref() == Some("thunder"));
+        // What it counts as for a quest is its own too.
+        assert!(events.iter().any(|e| matches!(e, LifeEvent::Gather { kind, .. } if *kind == chop.kind)));
     }
 
     #[test]

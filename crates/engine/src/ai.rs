@@ -176,7 +176,7 @@ static BEHAVIOURS: OnceLock<Vec<Behaviour>> = OnceLock::new();
 
 pub fn behaviours() -> &'static Vec<Behaviour> {
     BEHAVIOURS.get_or_init(|| {
-        let raw = include_str!("../../../shared/behaviours.json");
+        let raw = crate::bundles::bundle("behaviours.json", include_str!("../../../shared/behaviours.json"));
         let file: File = serde_json::from_str(raw).expect("shared/behaviours.json is malformed");
         let mut all = file.behaviours;
         for c in crate::creatures::files() {

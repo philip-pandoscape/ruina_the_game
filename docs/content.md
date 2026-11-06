@@ -242,7 +242,8 @@ A new one of these needs code today, each named for the refactor's task that mak
 - `tests/unit/templates.test.ts`: every kind added as data has a template, each fits its kind, and
   copied in together they build.
 - `tests/unit/newContent.test.ts`: a townsperson with wares and a quest, an item, a vehicle and a
-  creature added as files alone (`tests/fixtures/content/`) and played through the game's rules.
+  creature added as files alone (`tests/fixtures/content/`) and played through the engine, given
+  the bundles they build in place of its own (`useContent`, `src/engine/wasm.ts`).
 - `tests/unit/contentIds.test.ts`: no content id in code, but for the reasons it lists
   (`node tools/content/ids.mjs` lists them).
 - `tests/unit/bible.test.ts`: every thing has its entry in the bible, and an explanation.

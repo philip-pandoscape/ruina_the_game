@@ -178,8 +178,8 @@ pub fn dungeons() -> &'static [DungeonDef] {
     }
     static D: OnceLock<Vec<DungeonDef>> = OnceLock::new();
     D.get_or_init(|| {
-        let b: Bundle =
-            serde_json::from_str(include_str!("../../../../shared/dungeons.json")).unwrap_or_else(|e| panic!("shared/dungeons.json is malformed: {e}"));
+        let b: Bundle = serde_json::from_str(crate::bundles::bundle("dungeons.json", include_str!("../../../../shared/dungeons.json")))
+            .unwrap_or_else(|e| panic!("shared/dungeons.json is malformed: {e}"));
         b.dungeons
     })
 }

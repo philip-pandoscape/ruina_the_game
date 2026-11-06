@@ -1,5 +1,6 @@
-//! Ruina's rules, the same ones the browser's TypeScript runs (src/sim/), so the server decides what
-//! happens and the browser predicts it alike: movement and traversal (player, open), combat and
+//! Ruina's rules, one copy: the server runs them natively to decide what happens, and the browser
+//! runs them compiled to WebAssembly (crates/engine-wasm) to predict it and to play offline (the
+//! browser's game is session): movement and traversal (player, open), combat and
 //! skills (player, skills, actors, missiles, tuning), creatures and their brains (actor, actors,
 //! ai, pack, content, creatures), the island's life systems (life), the mini-games (minigames) and
 //! the battlefield's layout (world). Nothing here reads a clock, starts a thread or does I/O: whoever
@@ -11,6 +12,7 @@ pub mod actor;
 pub mod actors;
 pub mod ai;
 pub mod bots;
+pub mod bundles;
 /// Scenarios run through the rules, whose answers the golden tests hold.
 pub mod checks;
 pub mod content;

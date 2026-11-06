@@ -106,7 +106,7 @@ struct ItemsFile {
 
 fn items_file() -> &'static ItemsFile {
     static F: OnceLock<ItemsFile> = OnceLock::new();
-    F.get_or_init(|| load("items.json", include_str!("../../../../shared/items.json")))
+    F.get_or_init(|| load("items.json", crate::bundles::bundle("items.json", include_str!("../../../../shared/items.json"))))
 }
 
 pub fn bag_slots() -> usize {
@@ -260,7 +260,7 @@ struct TradeFile {
 
 fn trade_file() -> &'static TradeFile {
     static F: OnceLock<TradeFile> = OnceLock::new();
-    F.get_or_init(|| load("trade.json", include_str!("../../../../shared/trade.json")))
+    F.get_or_init(|| load("trade.json", crate::bundles::bundle("trade.json", include_str!("../../../../shared/trade.json"))))
 }
 
 pub fn clock() -> &'static Clock {
@@ -450,7 +450,7 @@ struct FarmingFile {
 
 fn farming_file() -> &'static FarmingFile {
     static F: OnceLock<FarmingFile> = OnceLock::new();
-    F.get_or_init(|| load("farming.json", include_str!("../../../../shared/farming.json")))
+    F.get_or_init(|| load("farming.json", crate::bundles::bundle("farming.json", include_str!("../../../../shared/farming.json"))))
 }
 
 pub fn farm() -> &'static Farm {
@@ -557,7 +557,7 @@ struct TraversalFile {
 
 fn traversal_file() -> &'static TraversalFile {
     static F: OnceLock<TraversalFile> = OnceLock::new();
-    F.get_or_init(|| load("traversal.json", include_str!("../../../../shared/traversal.json")))
+    F.get_or_init(|| load("traversal.json", crate::bundles::bundle("traversal.json", include_str!("../../../../shared/traversal.json"))))
 }
 
 pub fn ground() -> &'static Ground {
@@ -683,7 +683,7 @@ struct VehiclesFile {
 
 fn vehicles_file() -> &'static VehiclesFile {
     static F: OnceLock<VehiclesFile> = OnceLock::new();
-    F.get_or_init(|| load("vehicles.json", include_str!("../../../../shared/vehicles.json")))
+    F.get_or_init(|| load("vehicles.json", crate::bundles::bundle("vehicles.json", include_str!("../../../../shared/vehicles.json"))))
 }
 
 /// The vehicle or mount, or a placeholder (a small cart) for one that doesn't exist.
@@ -759,7 +759,7 @@ struct HousingFile {
 
 fn housing_file() -> &'static HousingFile {
     static F: OnceLock<HousingFile> = OnceLock::new();
-    F.get_or_init(|| load("housing.json", include_str!("../../../../shared/housing.json")))
+    F.get_or_init(|| load("housing.json", crate::bundles::bundle("housing.json", include_str!("../../../../shared/housing.json"))))
 }
 
 pub fn blueprints() -> &'static [BlueprintDef] {
@@ -804,7 +804,7 @@ struct ShipyardFile {
 
 fn shipyard_file() -> &'static ShipyardFile {
     static F: OnceLock<ShipyardFile> = OnceLock::new();
-    F.get_or_init(|| load("shipyard.json", include_str!("../../../../shared/shipyard.json")))
+    F.get_or_init(|| load("shipyard.json", crate::bundles::bundle("shipyard.json", include_str!("../../../../shared/shipyard.json"))))
 }
 
 pub fn ship_designs() -> &'static [ShipDesignDef] {
@@ -878,7 +878,7 @@ struct StructuresFile {
 
 fn structures_file() -> &'static StructuresFile {
     static F: OnceLock<StructuresFile> = OnceLock::new();
-    F.get_or_init(|| load("structures.json", include_str!("../../../../shared/structures.json")))
+    F.get_or_init(|| load("structures.json", crate::bundles::bundle("structures.json", include_str!("../../../../shared/structures.json"))))
 }
 
 /// The structure, or a placeholder (1 m, no collider) for one that doesn't exist.
@@ -979,7 +979,7 @@ struct QuestsFile {
 
 fn quests_file() -> &'static QuestsFile {
     static F: OnceLock<QuestsFile> = OnceLock::new();
-    F.get_or_init(|| load("quests.json", include_str!("../../../../shared/quests.json")))
+    F.get_or_init(|| load("quests.json", crate::bundles::bundle("quests.json", include_str!("../../../../shared/quests.json"))))
 }
 
 pub fn quests() -> &'static [QuestDef] {

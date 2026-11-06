@@ -13,6 +13,7 @@
 use super::content::quests;
 use super::state::LifeState;
 use super::{Life, QuestEvent};
+use crate::event::Event;
 use crate::player::Player;
 use crate::skills::{BookKind, book, book_of, level_of, levels_from};
 use crate::tuning::tuning;
@@ -29,6 +30,21 @@ pub enum Observed<'a> {
     Action { id: u8 },
     /// A creature of this kind was finished off.
     Defeat { kind: &'a str },
+}
+
+impl<'a> Observed<'a> {
+    /// What the island learns from something that happened, if anything: a hit trains the weapon
+    /// that dealt it, a cast its ability, a movement skill itself, and a creature finished off
+    /// counts for the quests (one that dissolves on its own doesn't).
+    pub fn of(e: &'a Event) -> Option<Self> {
+        match e {
+            Event::Hit { weapon: Some(w), .. } => Some(Observed::Hit { weapon: *w }),
+            Event::Cast { ability, .. } => Some(Observed::Cast { ability: *ability }),
+            Event::Action { id, .. } => Some(Observed::Action { id: *id }),
+            Event::ActorDie { kind, killed: true, .. } => Some(Observed::Defeat { kind }),
+            _ => None,
+        }
+    }
 }
 
 /// Which skill in the book (an index into skills::book()) it trains, if any.
@@ -117,6 +133,17 @@ mod tests {
     fn finish_landfall(life: &mut Life) {
         life.notify(QuestEvent { npc: Some("hollis".into()), ..QuestEvent::new("talk") });
         assert!(complete(life, "landfall"));
+    }
+
+    #[test]
+    fn a_creature_finished_off_is_a_defeat_and_one_that_dissolves_on_its_own_is_not() {
+        let die = |killed| Event::ActorDie { id: 7, kind: "slime".into(), x: 0.0, y: 0.0, z: 0.0, killed };
+        let (dissolved, finished) = (die(false), die(true));
+        assert!(Observed::of(&dissolved).is_none());
+        assert!(matches!(Observed::of(&finished), Some(Observed::Defeat { kind: "slime" })));
+        // A blast's hit has no weapon: its cast already counted.
+        let blast = Event::Hit { index: 0, damage: 12.0, x: 0.0, y: 0.0, z: 0.0, dir_x: 0.0, dir_z: 1.0, weapon: None };
+        assert!(Observed::of(&blast).is_none());
     }
 
     fn counts(life: &Life, id: &str) -> Vec<f64> {

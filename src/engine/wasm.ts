@@ -22,6 +22,7 @@ interface Exports {
   zone_clear_len(): number;
   zone_json(): number;
   building_colliders(p: number, n: number, mirror: number, x: number, z: number, rot: number, y: number): number;
+  content_use(p: number, n: number): number;
   session_new(p: number, n: number): number;
   session_free(h: number): void;
   session_step(
@@ -94,6 +95,16 @@ export function withText<T>(s: string, f: (p: number, n: number) => T): T {
 export function answer<T>(n: number): T {
   const e = wasm();
   return JSON.parse(decoder.decode(new Uint8Array(e.memory.buffer, e.out_ptr(), n))) as T;
+}
+
+/**
+ * Content bundles for the engine to read in place of the ones built into it, each by its path under
+ * shared/ ("items.json", "zones/emberholm.json"): before anything has asked the engine anything (the
+ * tests that add content as data alone, tests/unit/newContent.test.ts).
+ */
+export function useContent(bundles: Record<string, unknown>): void {
+  const e = wasm();
+  if (!withText(JSON.stringify(bundles), (p, n) => e.content_use(p, n))) throw new Error('the engine has read its content already, or these are not bundles');
 }
 
 /** A zone as the engine grows it: the ground's arrays, and the rest as the engine writes it. */

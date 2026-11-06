@@ -372,22 +372,8 @@ impl Session {
             self.observed = self.events.len();
             return;
         };
-        for e in &self.events[self.observed..] {
-            match e {
-                Event::Hit { weapon: Some(w), .. } => {
-                    life.observe(Observed::Hit { weapon: *w });
-                }
-                Event::Cast { ability, .. } => {
-                    life.observe(Observed::Cast { ability: *ability });
-                }
-                Event::Action { id, .. } => {
-                    life.observe(Observed::Action { id: *id });
-                }
-                Event::ActorDie { kind, killed: true, .. } => {
-                    life.observe(Observed::Defeat { kind });
-                }
-                _ => {}
-            }
+        for o in self.events[self.observed..].iter().filter_map(Observed::of) {
+            life.observe(o);
         }
         self.observed = self.events.len();
     }

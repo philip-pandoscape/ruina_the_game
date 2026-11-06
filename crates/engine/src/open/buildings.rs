@@ -107,7 +107,7 @@ struct BuildingsFile {
 fn file() -> &'static BuildingsFile {
     static F: OnceLock<BuildingsFile> = OnceLock::new();
     F.get_or_init(|| {
-        serde_json::from_str(include_str!("../../../../shared/buildings.json"))
+        serde_json::from_str(crate::bundles::bundle("buildings.json", include_str!("../../../../shared/buildings.json")))
             .unwrap_or_else(|e| panic!("shared/buildings.json doesn't match crates/engine/src/open/buildings.rs: {e}"))
     })
 }

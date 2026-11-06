@@ -398,8 +398,3 @@ export const AIM = {
 export const GAMEPAD = {
   deadzone: 0.18,
 };
-
-export const WORLD = {
-  seed: 1337,
-  radius: 32, // invisible wall around the training yard
-};

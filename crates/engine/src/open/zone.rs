@@ -383,7 +383,8 @@ impl Zone {
 
 /// Emberholm's recipe (shared/zones/emberholm.json, built from content/zones/).
 pub fn emberholm_recipe() -> Recipe {
-    serde_json::from_str(include_str!("../../../../shared/zones/emberholm.json")).expect("shared/zones/emberholm.json is a zone recipe")
+    serde_json::from_str(crate::bundles::bundle("zones/emberholm.json", include_str!("../../../../shared/zones/emberholm.json")))
+        .expect("shared/zones/emberholm.json is a zone recipe")
 }
 
 /// Emberholm, the starter isle, grown the first time anything asks.

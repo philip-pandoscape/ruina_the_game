@@ -1172,7 +1172,8 @@ pub fn keep_resting(life: &mut Life, sim: &mut Sim) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::life::farming::tests::{got, island, stand};
+    use crate::life::content::{ItemDef, items};
+    use crate::life::farming::tests::{got, island, lucky, stand};
     use crate::life::state::{QuestProgress, Stack};
 
     /// What the prompt says: (action, label, detail, ok).
@@ -1324,6 +1325,86 @@ mod tests {
         assert_eq!(life.placing.as_ref().unwrap().rot, 2.0 * (PI / 12.0));
         run_command(&mut life, &mut sim, &Command::CancelPlace);
         assert!(life.placing.is_none());
+    }
+
+    /// The toasts among what was said since the last look.
+    fn toasts_among(life: &mut Life) -> Vec<String> {
+        life.drain_events().into_iter().filter_map(|e| if let LifeEvent::Toast { text, .. } = e { Some(text) } else { None }).collect()
+    }
+
+    #[test]
+    fn a_placeable_is_placed_where_its_data_says_and_using_it_says_what_its_hint_says() {
+        let placeables: Vec<&ItemDef> = items().iter().filter(|i| i.cat == "placeable").collect();
+        let mut on: Vec<&str> = placeables.iter().map(|i| i.place_on.as_deref().unwrap_or("")).collect();
+        on.sort_unstable();
+        assert_eq!(on, ["ground", "plot", "slipway"]);
+        // Where the island's farmland is, from its recipe.
+        let recipe: serde_json::Value = serde_json::from_str(include_str!("../../../../shared/zones/emberholm.json")).expect("the recipe");
+        let fields = (recipe["farmland"]["x"].as_f64().expect("farmland x"), recipe["farmland"]["z"].as_f64().expect("farmland z"));
+        for it in placeables {
+            let (mut life, mut world, mut p) = island();
+            let mut sim = Sim { player: &mut p, world: &mut world, owner: 1 };
+            life.give(&it.id, 1, true);
+            life.drain_events();
+            run_command(&mut life, &mut sim, &Command::Use { item: it.id.clone() });
+            assert_eq!(toasts_among(&mut life), [it.hint.clone().unwrap_or_default()], "{}", it.id);
+            // Only what is set down on open ground is walked out in front of you, and says what it is.
+            let ground = it.place_on.as_deref() == Some("ground");
+            assert_eq!(life.placing.as_ref().map(|pl| pl.item.as_str()), ground.then_some(it.id.as_str()), "{}", it.id);
+            if ground {
+                let facing = sim.player.facing;
+                stand(&mut sim, fields.0, fields.1, facing);
+                let f = find_focus(&mut life, &sim).expect("a place for it");
+                assert_eq!((f.action.as_str(), f.label, f.ok), ("placeScarecrow", format!("Place {} Here", it.name), true));
+            }
+        }
+    }
+
+    #[test]
+    fn a_house_plot_is_claimed_with_whatever_item_claims_one_for_the_blueprint_it_names() {
+        let (mut life, mut world, mut p) = island();
+        let mut sim = Sim { player: &mut p, world: &mut world, owner: 1 };
+        let deed = items().iter().find(|i| i.place_on.as_deref() == Some("plot")).expect("an item that claims a plot");
+        let zone = life.zone;
+        let plot = &zone.recipe.house_plots[0];
+        life.give(&deed.id, 1, true);
+        let facing = sim.player.facing;
+        stand(&mut sim, plot.x, plot.z + 3.0, facing);
+        let f = find_focus(&mut life, &sim).expect("the plot");
+        assert_eq!((f.action.as_str(), f.label), ("claim", format!("Place {}", deed.name)));
+        run_command(&mut life, &mut sim, &Command::Interact);
+        assert_eq!(life.state.houses.iter().map(|h| h.blueprint.as_str()).collect::<Vec<_>>(), [deed.places.as_deref().unwrap_or("")]);
+        assert_eq!(life.count(&deed.id), 0);
+    }
+
+    #[test]
+    fn a_gathering_spot_gives_the_rare_find_its_data_names_with_its_toast() {
+        let (kind, spot) = gathering().iter().find(|(_, g)| g.rare.is_some()).expect("a gathering spot with something rare");
+        let rare = spot.rare.as_ref().unwrap();
+        let (mut life, mut world, mut p) = island();
+        let mut sim = Sim { player: &mut p, world: &mut world, owner: 1 };
+        let zone = life.zone;
+        let nd = zone.recipe.nodes.iter().find(|n| &n.kind == kind).expect("a spot of that kind");
+        stand(&mut sim, nd.x, nd.z + 1.2, PI);
+        // The haul is drawn first, then the rare find.
+        lucky(&mut life, 1, rare.chance);
+        run_command(&mut life, &mut sim, &Command::Interact);
+        assert_eq!(life.count(&rare.item), 1);
+        assert!(toasts_among(&mut life).contains(&rare.toast));
+    }
+
+    #[test]
+    fn a_tonic_or_the_developer_panel_tops_labor_up_to_the_most_labor_there_is() {
+        let tonic = items().iter().find(|i| i.use_.as_ref().and_then(|u| u.labor).is_some_and(|l| l > 0.0)).expect("a labor tonic");
+        let (mut life, mut world, mut p) = island();
+        let mut sim = Sim { player: &mut p, world: &mut world, owner: 1 };
+        let max = labor_settings().max;
+        life.state.labor = max - 1.0;
+        life.give(&tonic.id, 1, true);
+        run_command(&mut life, &mut sim, &Command::Use { item: tonic.id.clone() });
+        assert_eq!(life.state.labor, max);
+        run_command(&mut life, &mut sim, &Command::Grant { item: None, n: None, coins: None, seals: None, labor: Some(5000.0) });
+        assert_eq!(life.state.labor, max);
     }
 
     #[test]

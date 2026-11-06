@@ -7,9 +7,10 @@
 //! room `alloc` gives and hands over where and how long; an answer in text (JSON) is left at
 //! `out_ptr()`, its length returned. Big arrays (the island's heights) are read where they lie.
 //!
-//! What comes through here so far: growing a zone from its recipe (the browser's island is the
-//! engine's), the colliders of a building plan, and Emberholm's ground. The rest follows (the
-//! refactor's Phase 8).
+//! What comes through here: the browser's game (`session`), growing a zone from its recipe (the
+//! browser's island is the engine's), the colliders of a building plan, Emberholm's ground, the
+//! mini-games' boards (`minigames`), and content given in place of the compiled bundles
+//! (`content_use`, before anything is read: the tests that add content as data).
 
 mod minigames;
 mod session;
@@ -75,6 +76,19 @@ pub(crate) fn give(s: String) -> usize {
 #[unsafe(no_mangle)]
 pub extern "C" fn out_ptr() -> *const u8 {
     OUT.with(|o| o.borrow().as_ptr())
+}
+
+/// Content bundles to read in place of the compiled ones: at `p` (`n` bytes), a JSON object of each
+/// bundle by its path under shared/ ("items.json", "zones/emberholm.json"). Only before anything has
+/// been read; 1 if taken, 0 if not (too late, or not such an object).
+///
+/// # Safety
+/// `p..p + n` lies in room `alloc` gave.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn content_use(p: *const u8, n: usize) -> u32 {
+    let Ok(serde_json::Value::Object(given)) = serde_json::from_str(unsafe { text(p, n) }) else { return 0 };
+    let bundles = given.into_iter().map(|(path, b)| (path, b.to_string())).collect();
+    u32::from(ruina_engine::bundles::give(bundles))
 }
 
 /// Grows the zone the recipe at `p` (JSON, `n` bytes) describes, for the `zone_*` calls to read:

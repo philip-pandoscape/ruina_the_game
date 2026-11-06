@@ -88,7 +88,8 @@ struct File {
 pub fn content() -> &'static Content {
     static C: OnceLock<Content> = OnceLock::new();
     C.get_or_init(|| {
-        let mut f: File = serde_json::from_str(include_str!("../../../../shared/minigames.json")).expect("shared/minigames.json is valid");
+        let mut f: File = serde_json::from_str(crate::bundles::bundle("minigames.json", include_str!("../../../../shared/minigames.json")))
+            .expect("shared/minigames.json is valid");
         for (i, g) in f.games.iter_mut().enumerate() {
             g.index = i;
             assert!(module_of(&g.id).is_some(), "content/minigames/{0}.json has no rules: crates/engine/src/minigames/games/{0}.rs", g.id);

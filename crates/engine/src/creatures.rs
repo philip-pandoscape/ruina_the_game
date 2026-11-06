@@ -9,7 +9,8 @@ use std::sync::OnceLock;
 pub fn files() -> &'static [serde_json::Value] {
     static FILES: OnceLock<Vec<serde_json::Value>> = OnceLock::new();
     FILES.get_or_init(|| {
-        let bundle: serde_json::Value = serde_json::from_str(include_str!("../../../shared/creatures.json")).expect("shared/creatures.json is malformed");
+        let bundle: serde_json::Value = serde_json::from_str(crate::bundles::bundle("creatures.json", include_str!("../../../shared/creatures.json")))
+            .expect("shared/creatures.json is malformed");
         bundle["creatures"].as_array().cloned().expect("shared/creatures.json has its creatures")
     })
 }

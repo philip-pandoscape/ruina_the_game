@@ -152,7 +152,8 @@ static TUNING: OnceLock<Tuning> = OnceLock::new();
 
 pub fn tuning() -> &'static Tuning {
     TUNING.get_or_init(|| {
-        let t: Tuning = serde_json::from_str(include_str!("../../../shared/tuning.json")).expect("shared/tuning.json is valid");
+        let t: Tuning =
+            serde_json::from_str(crate::bundles::bundle("tuning.json", include_str!("../../../shared/tuning.json"))).expect("shared/tuning.json is valid");
         assert_eq!(t.hotbar.slots, HOTBAR_SLOTS, "hotbar.slots in shared/tuning.json must match HOTBAR_SLOTS");
         assert_eq!(t.skills.max_nodes, MAX_NODES, "skills.maxNodes in shared/tuning.json must match SKILL_WORDS");
         assert_eq!(t.movement_slots, MOVEMENT_SLOTS, "movementSlots in shared/tuning.json must match MOVEMENT_SLOTS");
@@ -169,7 +170,8 @@ static SKILL_TREE: OnceLock<SkillTreeFile> = OnceLock::new();
 /// The skill tree (shared/skilltree.json, the same file the browser lays its panel out from).
 pub fn skill_tree() -> &'static SkillTreeFile {
     SKILL_TREE.get_or_init(|| {
-        let t: SkillTreeFile = serde_json::from_str(include_str!("../../../shared/skilltree.json")).expect("shared/skilltree.json is valid");
+        let t: SkillTreeFile = serde_json::from_str(crate::bundles::bundle("skilltree.json", include_str!("../../../shared/skilltree.json")))
+            .expect("shared/skilltree.json is valid");
         assert!(t.nodes.len() <= MAX_NODES, "the skill tree has outgrown SKILL_WORDS: raise it here and in src/content/skills.ts together");
         t
     })
