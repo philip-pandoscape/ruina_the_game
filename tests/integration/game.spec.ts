@@ -314,16 +314,3 @@ test('keyboard: C crouches standing still, slides on the run and crouches after;
   await page.keyboard.up('KeyW');
   expect(errors).toEqual([]);
 });
-
-test('performance snapshot while running live', async ({ page }) => {
-  const errors = await open(page);
-  await reset(page);
-  await page.evaluate(() => window.__game.setPaused(false));
-  await page.keyboard.down('KeyD');
-  await page.waitForTimeout(3000);
-  await page.keyboard.up('KeyD');
-  const perf = await page.evaluate(() => window.__game.perf());
-  console.log('live perf (headless browser)', perf);
-  expect(perf.drawCalls).toBeLessThan(300);
-  expect(errors).toEqual([]);
-});

@@ -26,3 +26,12 @@ tokio = { version = "1.54.1", features = ["rt-multi-thread", "macros", "net", "s
 socket2 = "0.6.5"
 # The load test's client side.
 tokio-tungstenite = "0.30.0"
+
+# Debug builds and the tests (npm run test:rust): our own code unoptimized, so a change rebuilds
+# quickly; the dependencies optimized, built once and kept, so the tests run fast on them. Line
+# tables are all a backtrace needs, and less debug info makes the build and its link quicker.
+[profile.dev]
+debug = "line-tables-only"
+
+[profile.dev.package."*"]
+opt-level = 2
