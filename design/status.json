@@ -1130,7 +1130,7 @@
       "files": [
         "src/render/detail/retarget.ts",
         "src/render/detail/moves.ts",
-        "src/render/detail/retargetView.ts",
+        "src/library/subjects/retarget.ts",
         "tests/integration/retarget.spec.ts",
         "tools/models/clips.mjs",
         ".claude/skills/retarget-animation/SKILL.md"

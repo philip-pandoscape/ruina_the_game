@@ -46,7 +46,7 @@ export const DEV_PAGES: readonly DevPage[] = [
     title: 'Animation Library',
     url: '/dev/library.html',
     about:
-      'Everything the game draws, in one place: every animated thing frame by frame (scrub, onion-skin and pose it, and leave notes on it for Claude), close-up rigs posed joint by joint, every model side by side, the buildings cut open over their walls, and crowds of each species with their cost measured.',
+      'Everything the game draws, in one place: every animated thing frame by frame (scrub, onion-skin and pose it, and leave notes on it for Claude), library clips on the hero beside their source, close-up rigs posed joint by joint, every model side by side, the buildings cut open over their walls, and crowds of each species with their cost measured.',
     needs: 'dev-server',
   },
   {
@@ -55,13 +55,6 @@ export const DEV_PAGES: readonly DevPage[] = [
     title: 'Hero Animations',
     url: '/dev/animations.html',
     about: "The hero's moves one at a time, on a floor sliding at their speed.",
-  },
-  {
-    id: 'retarget',
-    kind: 'page',
-    title: 'Retargeting Check',
-    url: '/dev/retarget.html',
-    about: 'A library clip on the made hero beside its source, every bone measured against it.',
   },
   { id: 'bible', kind: 'design', title: 'Design Bible', url: '/design/', about: 'The design of the whole game, system by system, and where each one stands.' },
   {

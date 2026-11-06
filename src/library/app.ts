@@ -477,6 +477,11 @@ export class App {
     this.dirty = true;
   }
 
+  /** Draws the frame again (after something outside the loop worked frames out). */
+  redraw(): void {
+    this.dirty = true;
+  }
+
   play(): void {
     if (this.editor.active) return;
     if (this.take && !this.prefs.loop) {

@@ -48,6 +48,7 @@ const api = {
       while (!t.bake(240)) {
         /* bake */
       }
+    app.redraw();
   },
   bones: () => app.take?.bones.map((b) => b.name) ?? [],
   edit: () => app.enterEdit(),

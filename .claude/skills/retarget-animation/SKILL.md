@@ -83,9 +83,11 @@ humanoid's.
 
 ## 5. Check it
 
-1. `/dev/retarget.html?file=hero_<name>&clip=A~B` (add `&mesh=/scratch/<skinned source>.glb` to
-   show the source skinned rather than as bones): the hero as the game bakes and poses it, beside the
-   source. `window.__retarget.seek(t)` gives each moment's error.
+1. The content library's retargeting check, `/dev/library.html#/retarget/hero_<name>:A~B` (add
+   `?mesh=/scratch/<skinned source>.glb` to show the source skinned rather than as bones, or
+   `?url=/scratch/<file>.glb` for a file not in the game yet): the hero as the game bakes and poses
+   it, beside the source, each frame's error under the picture, to scrub, step and leave notes on.
+   `window.__library.take().measureAt(t)` gives each moment's error.
 2. `npx playwright test tests/integration/retarget.spec.ts`: every move's clip, every frame: bones within 0.1°
    on average and 1° at worst, ankles no more than 2.5 cm under where they stand. `RECORD=1` keeps
    the frames under `test-results/retarget/` for a GIF.
