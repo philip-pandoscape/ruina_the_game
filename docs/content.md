@@ -44,7 +44,7 @@ own a thing is drawn with a plain one, until looks are data (the refactor's R9.9
 | Field | What |
 |---|---|
 | `name`, `title` | Who they are and what they do |
-| `place` | The place they belong to (`content/zones/emberholm/places.json`) |
+| `place` | The place they belong to (`content/regions/emberholm/places.json`) |
 | `x`, `z`, `facing` | Where they stand on the island, and which way they face |
 | `kind` | Their actor kind (`content/actors/`: `npc-elder`, `npc-merchant`, `npc-crafter`, `npc-sailor`): solid, never anyone's target, and how the crowd draws them from afar |
 | `look` | The body they are drawn with close up: one of the built townsfolk, by name, or any other name for a plain villager dressed from it |
@@ -59,8 +59,8 @@ What they do besides talk is other things naming them:
   what they buy, and at what part of an item's worth.
 - **Work to order**: recipes with them as the `bench` (below).
 - **Quests**: quests naming them as `giver` or `turnIn` (below).
-- **A trading post**: an entry in `content/zones/emberholm/outposts.json` naming them as its
-  `npc` (template `zone/outposts.json`), with a market of the same id (`content/markets/`) and
+- **A trading post**: an entry in `content/regions/emberholm/outposts.json` naming them as its
+  `npc` (template `region/outposts.json`), with a market of the same id (`content/markets/`) and
   routes to it in `content/trade.json`.
 
 Then the bible's note on them (`src/bible/notes/npcs.md`).
@@ -129,7 +129,7 @@ A new type of objective is a new mechanic: code.
 - **A kind of gathering spot**: `content/gathering/<structure>.json` (template `gathering.json`),
   named after the structure it is drawn as (`content/structures/`): what it gives, for what labor,
   how long it rests, what it counts as for a quest, and its `rare` find. The spots themselves are
-  entries in `content/zones/emberholm/nodes.json` (template `zone/nodes.json`).
+  entries in `content/regions/emberholm/nodes.json` (template `region/nodes.json`).
 - **A trade or material pack**: `content/packs/<id>.json` (template `pack.json`), with a recipe at
   the workbench of its `origin` that makes it.
 - **A market**: `content/markets/<id>.json` (template `market.json`); a trading post there is an
@@ -155,7 +155,7 @@ A new type of objective is a new mechanic: code.
 
 - **A structure** (a building's footprint and collider, a well, a dock): `content/structures/<id>.json`
   (template `structure.json`); placed on the island by an entry in
-  `content/zones/emberholm/structures.json` (template `zone/structures.json`). How the island sits
+  `content/regions/emberholm/structures.json` (template `region/structures.json`). How the island sits
   it is its data too: the ground under it is levelled to a pad unless it has a `deck` or
   `pad: false` (a farm plot, a scarecrow); `seaLevel: true` stands it at sea level (a pier);
   `clearMargin` is how far round it trees and rocks are kept off; `surface` is what the ground
@@ -164,7 +164,7 @@ A new type of objective is a new mechanic: code.
   the village kit's grid (`src/render/village/`), and a structure with `collider: building`. Its
   furniture, by piece: `content/furniture/<name>.json` (template `furniture.json`).
 - **A prop** (a lamp, a barrel, a fence): `content/props/<id>.json` (template `prop.json`); placed by
-  an entry in `content/zones/emberholm/props.json` (template `zone/props.json`): at a spot, in a ring,
+  an entry in `content/regions/emberholm/props.json` (template `region/props.json`): at a spot, in a ring,
   along a road or on a line.
 
 
@@ -188,20 +188,24 @@ A new type of objective is a new mechanic: code.
 
 A new act or condition for brains is a new engine part: code, never a creature's own.
 
-## Places and Zones
+## Places, Regions and Instances
 
-- **A place** on the island: an entry in `content/zones/emberholm/places.json` (template
-  `zone/places.json`): its name, kind and icon on the map, and where it is.
-- **A workbench**: an entry in `content/zones/emberholm/workbenches.json` (template
-  `zone/workbenches.json`), at a place; its recipes name it as their `bench`.
-- **A house plot**: an entry in `content/zones/emberholm/housePlots.json` (template
-  `zone/housePlots.json`).
+- **A place** in a region: an entry in its `places.json`, Emberholm's `content/regions/emberholm/places.json` (template
+  `region/places.json`): its name, kind and icon on the map, and where it is.
+- **A workbench**: an entry in `content/regions/emberholm/workbenches.json` (template
+  `region/workbenches.json`), at a place; its recipes name it as their `bench`.
+- **A house plot**: an entry in `content/regions/emberholm/housePlots.json` (template
+  `region/housePlots.json`).
 - **Level ground** (a town square, a quay, the fields): a `flatten` in the recipe's `terrain`
-  (`content/zones/emberholm.json`): a circle (`r`) or a rectangle (`w`, `d`) levelled to `h` (or to
+  (`content/regions/emberholm.json`): a circle (`r`) or a rectangle (`w`, `d`) levelled to `h` (or to
   the ground's own height there, `"auto"`) and blended out over `fall`, its `surface` painted. It's
   kept clear of trees, rocks and scarecrows unless it has `keepClear: false` (the fields, farmed).
-- **A dungeon or a developer zone**: `content/dungeons/<id>.json` (template `dungeon.json`), as
-  `docs/zones.md` says. A dungeon's dressing is still code (the refactor's R9.8).
+- **A dungeon or a developer zone**: `content/instances/<id>.json` (template `instance.json`), as
+  `docs/zones.md` says; a dungeon's door, an entry named for it in the `doors.json` of the region
+  it's entered from. A dungeon's dressing is still code (the refactor's R9.8).
+- **A region**: its recipe, `content/regions/<id>.json`, a folder of what it places beside it
+  (`content/regions/<id>/`, the lists above), and its chunks in `content/world.json`, whose comment
+  says what its grid must be. Every id in it is one thing in the whole world (contentc).
 
 ## Mini-Games
 

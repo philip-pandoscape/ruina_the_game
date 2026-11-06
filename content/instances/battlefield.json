@@ -1,5 +1,5 @@
 {
-  "comment": "The battlefield, a developer zone (docs/admin.md): only admins go in, from the Admin menu, all into one copy (`shared`). Two sides of bots fight across it (crates/engine/src/bots.rs): they come in with the first admin and go when the last one leaves, so it costs nothing while nobody is there. An open arena in a space of its own (content/dungeons/goblinsDread.json says how); admins join the near side. `door` is where its way out lets you out in the world. Heights (top) are above its origin.",
+  "comment": "The battlefield, a developer zone (docs/admin.md): only admins go in, from the Admin menu, all into one copy (`shared`). Two sides of bots fight across it (crates/engine/src/bots.rs): they come in with the first admin and go when the last one leaves, so it costs nothing while nobody is there. An open arena in a space of its own (content/instances/goblinsDread.json says how); admins join the near side. `door` is where its way out lets you out in the world. Heights (top) are above its origin.",
   "id": "battlefield",
   "name": "The Battlefield",
   "about": "One battlefield for every admin: sixteen bots a side, fighting, there only while an admin's in it.",

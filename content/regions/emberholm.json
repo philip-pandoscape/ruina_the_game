@@ -497,25 +497,25 @@
     "facing": 0
   },
   "places": {
-    "$file": "zones/emberholm/places.json"
+    "$file": "regions/emberholm/places.json"
   },
   "structures": {
-    "$file": "zones/emberholm/structures.json"
+    "$file": "regions/emberholm/structures.json"
   },
   "props": {
-    "$file": "zones/emberholm/props.json"
+    "$file": "regions/emberholm/props.json"
   },
   "npcs": {
     "$things": "npcs"
   },
   "workbenches": {
-    "$file": "zones/emberholm/workbenches.json"
+    "$file": "regions/emberholm/workbenches.json"
   },
   "outposts": {
-    "$file": "zones/emberholm/outposts.json"
+    "$file": "regions/emberholm/outposts.json"
   },
   "housePlots": {
-    "$file": "zones/emberholm/housePlots.json"
+    "$file": "regions/emberholm/housePlots.json"
   },
   "farmland": {
     "x": -152,
@@ -524,16 +524,16 @@
     "d": 84
   },
   "nodes": {
-    "$file": "zones/emberholm/nodes.json"
+    "$file": "regions/emberholm/nodes.json"
   },
   "updrafts": {
-    "$file": "zones/emberholm/updrafts.json"
+    "$file": "regions/emberholm/updrafts.json"
   },
-  "dungeons": {
-    "$file": "zones/emberholm/dungeons.json"
+  "doors": {
+    "$file": "regions/emberholm/doors.json"
   },
   "forests": {
-    "$file": "zones/emberholm/forests.json"
+    "$file": "regions/emberholm/forests.json"
   },
   "scatter": {
     "trees": 0.0016,
@@ -558,6 +558,6 @@
     "sunset": 20
   },
   "shipyards": {
-    "$file": "zones/emberholm/shipyards.json"
+    "$file": "regions/emberholm/shipyards.json"
   }
 }

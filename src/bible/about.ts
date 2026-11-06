@@ -37,7 +37,7 @@ This book says how all of it works, exactly. Every number in it is the game's ow
 ${blockHtml(
   `<div class="cards">${[
     card('systems/moving', 'Systems', 'How each part of the game works: moving, fighting, farming, trading, building and the rest, with the formulas.'),
-    card('zones', 'The World', `${Z.name}, its ${Z.places.length} places, its ${Z.npcs.length} people and the creatures that live there.`),
+    card('regions', 'The World', `${Z.name}, its ${Z.places.length} places, its ${Z.npcs.length} people and the creatures that live there.`),
     card(
       'items',
       'Things',

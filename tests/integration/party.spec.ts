@@ -10,9 +10,9 @@ import { onlineReady as waitOnline } from '../support/game';
 // server of your own). Without it they're skipped.
 
 const SERVER = process.env.RUINA_SERVER ?? 'http://localhost:7777';
-const ZONE = JSON.parse(readFileSync('shared/zones/emberholm.json', 'utf8'));
-const DOOR = ZONE.dungeons.find((d: { id: string }) => d.id === 'goblinsDread');
-const DUNGEON = JSON.parse(readFileSync('content/dungeons/goblinsDread.json', 'utf8'));
+const ZONE = JSON.parse(readFileSync('shared/regions/emberholm.json', 'utf8'));
+const DOOR = ZONE.doors.find((d: { id: string }) => d.id === 'goblinsDread');
+const DUNGEON = JSON.parse(readFileSync('content/instances/goblinsDread.json', 'utf8'));
 
 let serverUp = false;
 test.beforeAll(async () => {

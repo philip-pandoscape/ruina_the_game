@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import emberholm from '../../../../shared/zones/emberholm.json' with { type: 'json' };
+import emberholm from '../../../../shared/regions/emberholm.json' with { type: 'json' };
 import { GLIDERS, MOUNTS, VEHICLES, isBoat } from '../../../content/vehicles';
 import { part, toon } from '../../../render/toon';
 import { CROPS, PACKS, PROPS, STRUCTURES } from '../../../render/models/data';

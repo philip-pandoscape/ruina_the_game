@@ -5,7 +5,7 @@ import { card, el } from '../signIn';
 import './admin.css';
 
 // The Admin menu, for admins only (the server says who is one: ADMIN_USERS, or everyone on a
-// development server): the developer zones (content/dungeons/, `developer`), which take you there
+// development server): the developer zones (content/instances/, `developer`), which take you there
 // in the world, then the developer pages and the design (src/dev/pages.ts), each in a new tab so
 // whatever this one is doing carries on. It is a window in the world (the menu bar's Admin button,
 // src/ui/life/windows/admin.ts, which adds Developer Tools at its top) and a card over the character

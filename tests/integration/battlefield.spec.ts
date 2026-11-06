@@ -3,7 +3,7 @@ import { ADJACENT, emptySkills, skillCount, skillIndex, SKILL_POINTS, skillsFrom
 import { ABILITIES, emptyMovement, HOTBAR_SLOTS, NO_ABILITY, type Build, WEAPONS } from '../../src/content/tuning';
 import { battlefield, net, script, scriptDone, seesPlayers, sometime, useBuild } from '../support/battlefield';
 
-// Players fighting players on the battlefield (content/dungeons/battlefield.json), the developer
+// Players fighting players on the battlefield (content/instances/battlefield.json), the developer
 // zone for it: two admins on opposite sides, the server deciding every blow, lag compensation for a
 // far player, the builds it takes, what each side sees of spells, arrows and swings, and its bots
 // turning on a player. These were the old battle server's tests (pvp, combat's and skills' online

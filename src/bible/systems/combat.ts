@@ -70,7 +70,7 @@ export const combat = system({
     'shared/tuning.json#stamina',
     'shared/tuning.json#mp',
     'shared/tuning.json#hotbar',
-    'shared/zones/*.json#dummy',
+    'shared/regions/*.json#dummy',
   ],
   body: () => {
     const ground = ABILITIES.find((a) => a.target === 'ground');

@@ -4,7 +4,7 @@ import { skillsFrom } from '../../src/content/skills';
 import { emptyMovement, HOTBAR_SLOTS, NO_ABILITY, type Build } from '../../src/content/tuning';
 import { onlineReady } from '../support/game';
 
-// The yard's monsters on the game server (content/dungeons/yard.json, a developer zone): the rules
+// The yard's monsters on the game server (content/instances/yard.json, a developer zone): the rules
 // for them run in Rust, the browser only draws what it is told, and the behaviour both sides
 // interpret is the same shared/behaviours.json that tests/conformance/ai.test.ts pins down. This
 // checks the whole path: spawned, streamed, hittable, fighting back. Each player has a yard of their
@@ -13,7 +13,7 @@ import { onlineReady } from '../support/game';
 // on the island's slimes.
 
 const SERVER = process.env.RUINA_SERVER ?? 'http://localhost:7777';
-const YARD = JSON.parse(readFileSync('content/dungeons/yard.json', 'utf8')) as { spawns: Array<{ kind: string }> };
+const YARD = JSON.parse(readFileSync('content/instances/yard.json', 'utf8')) as { spawns: Array<{ kind: string }> };
 const SWORD: Build = { skills: skillsFrom('sword'), weapon: 0, abilities: new Array<number>(HOTBAR_SLOTS).fill(NO_ABILITY), movement: emptyMovement() };
 
 let serverUp = false;

@@ -23,7 +23,7 @@ test.beforeEach(() => test.skip(!serverUp, `needs the game server with a databas
 
 const fresh = (prefix: string) => `${prefix}${Date.now().toString(36)}${Math.floor(Math.random() * 1296).toString(36)}`.slice(0, 20);
 
-/** Where the island's slimes live (shared/zones/emberholm.json "slimes"), and a spot just south of them. */
+/** Where the island's slimes live (shared/regions/emberholm.json "slimes"), and a spot just south of them. */
 const MEADOW = { x: -30, z: -40 };
 
 test('the island slimes move smoothly, warn on the ground, and flash when your swing lands', { tag: '@gpu' }, async ({ page }) => {

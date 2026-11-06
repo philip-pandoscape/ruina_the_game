@@ -41,11 +41,11 @@ const walk = (root, d = root, out = []) => {
   return out;
 };
 
-/** The templates: content/*.json and content/zones/*.json, as under shared/. */
+/** The templates: content/*.json and content/regions/*.json, as under shared/. */
 function templates(root) {
   const out = [];
   for (const e of readdirSync(root)) if (e.endsWith('.json')) out.push(e);
-  for (const d of ['zones']) {
+  for (const d of ['regions']) {
     const dir = join(root, d);
     if (existsSync(dir)) for (const e of readdirSync(dir)) if (e.endsWith('.json')) out.push(`${d}/${e}`);
   }
@@ -133,7 +133,7 @@ export function build(root = CONTENT) {
 // ---------- The world ----------
 
 /**
- * What's wrong with where the world puts its regions (content/world.json): each is a zone, its grid
+ * What's wrong with where the world puts its regions (content/world.json): each has a recipe, its grid
  * covers exactly its chunks (its terrain's origin at their middle, its size theirs: a region's
  * recipe is written where it stands), its sea is the world's, and no chunk is two regions'. Every
  * region's cell is the same, a whole number to a chunk, so two regions' grids meet vertex for vertex
@@ -148,12 +148,13 @@ function world(b) {
   // Things in the world found by id (a gathering spot's time to come back is kept by its id): one id,
   // one thing, whichever region it's in.
   const named = new Map();
+  const instances = new Set((b.get('instances.json')?.instances ?? []).map((d) => d.id));
   let cell;
   for (const r of w.regions ?? []) {
     const where = `content/world.json: ${r.id}`;
-    const zone = b.get(`zones/${r.id}.json`);
+    const zone = b.get(`regions/${r.id}.json`);
     if (!zone) {
-      out.push(`${where}: there's no content/zones/${r.id}.json`);
+      out.push(`${where}: there's no content/regions/${r.id}.json`);
       continue;
     }
     const { x, z, w: cw, d: cd } = r.chunks ?? {};
@@ -171,12 +172,14 @@ function world(b) {
       out.push(`${where}: its grid is ${size} m a side (cells times cell), where its chunks are ${cw * w.chunk} by ${cd * w.chunk} m`);
     if (ox !== mid[0] || oz !== mid[1]) out.push(`${where}: its terrain's origin is (${ox}, ${oz}), where the middle of its chunks is (${mid[0]}, ${mid[1]})`);
     if (t.water !== w.sea?.level) out.push(`${where}: its sea level is ${t.water}, the world's ${w.sea?.level}`);
-    for (const list of ['places', 'npcs', 'workbenches', 'outposts', 'housePlots', 'nodes', 'dungeons', 'shipyards']) {
+    for (const list of ['places', 'npcs', 'workbenches', 'outposts', 'housePlots', 'nodes', 'doors', 'shipyards']) {
       for (const [i, thing] of (zone[list] ?? []).entries()) {
         if (typeof thing.id !== 'string' || !thing.id || /^\d+$/.test(thing.id)) {
           out.push(`${where}: ${list}[${i}] has no id (a name, not a number)`);
           continue;
         }
+        // A door is named for the instance it opens into.
+        if (list === 'doors' && !instances.has(thing.id)) out.push(`${where}: doors ${thing.id} opens into no instance (content/instances/${thing.id}.json)`);
         const key = `${list}:${thing.id}`;
         if (named.has(key)) out.push(`${where}: ${list} ${thing.id} is ${named.get(key)}'s too: an id is one thing in the whole world`);
         named.set(key, r.id);
@@ -250,8 +253,9 @@ function fits(thing, schema, where) {
 /** The ids of each kind of thing, as the bundles hold them. */
 function ids(b) {
   const list = (bundle, key, id = 'id') => new Set((b.get(bundle)?.[key] ?? []).map((x) => x[id]));
-  const zone = b.get('zones/emberholm.json') ?? {};
-  const inZone = (key) => new Set((zone[key] ?? []).map((x) => x.id));
+  // What every region places (content/regions/), whichever it's in.
+  const regions = [...b].filter(([path]) => path.startsWith('regions/')).map(([, region]) => region ?? {});
+  const inRegions = (key) => new Set(regions.flatMap((region) => (region[key] ?? []).map((x) => x.id)));
   return {
     item: list('items.json', 'items'),
     category: new Set(Object.keys(b.get('items.json')?.categories ?? {})),
@@ -260,11 +264,11 @@ function ids(b) {
     effect: new Set(['thunder']),
     blueprint: list('housing.json', 'blueprints'),
     shipDesign: list('shipyard.json', 'designs'),
-    npc: inZone('npcs'),
-    workbench: inZone('workbenches'),
-    place: inZone('places'),
-    outpost: inZone('outposts'),
-    shipyard: inZone('shipyards'),
+    npc: inRegions('npcs'),
+    workbench: inRegions('workbenches'),
+    place: inRegions('places'),
+    outpost: inRegions('outposts'),
+    shipyard: inRegions('shipyards'),
     pack: list('trade.json', 'packs'),
     market: list('trade.json', 'places'),
     crop: list('farming.json', 'crops'),
@@ -275,7 +279,7 @@ function ids(b) {
     ]),
     quest: list('quests.json', 'quests'),
     structure: list('structures.json', 'structures'),
-    dungeon: list('dungeons.json', 'dungeons'),
+    instance: list('instances.json', 'instances'),
   };
 }
 
@@ -299,16 +303,15 @@ const REFS = [
   { bundles: /^quests\.json$/, key: 'workbench', kind: 'workbench' },
   { bundles: /^quests\.json$/, key: 'shipyard', kind: 'shipyard' },
   // A townsperson's place and the workbench they stand at; a workbench's place; a trading post's trader.
-  { bundles: /^zones\/.*$/, key: 'place', kind: 'place' },
-  { bundles: /^zones\/.*$/, key: 'bench', kind: 'workbench' },
-  { bundles: /^zones\/.*$/, key: 'npc', kind: 'npc' },
+  { bundles: /^regions\/.*$/, key: 'place', kind: 'place' },
+  { bundles: /^regions\/.*$/, key: 'bench', kind: 'workbench' },
+  { bundles: /^regions\/.*$/, key: 'npc', kind: 'npc' },
   { bundles: /^(quests|items)\.json$/, key: 'pack', kind: 'pack' },
   // A workbench, or a townsperson who takes the work on (commissions).
   { bundles: /^items\.json$/, key: 'bench', kind: ['workbench', 'npc'] },
   { bundles: /^trade\.json$/, key: 'from', kind: 'market' },
   { bundles: /^trade\.json$/, key: 'to', kind: 'market' },
   { bundles: /^(actors|creatures)\.json$/, key: 'brain', kind: 'behaviour' },
-  { bundles: /^zones\/.*$/, key: 'dungeon', kind: 'dungeon' },
 ];
 
 function references(bundles) {

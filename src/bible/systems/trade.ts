@@ -42,7 +42,7 @@ export const trade = system({
     'shared/trade.json#freshness',
     'shared/trade.json#packs',
     'shared/trade.json#routes',
-    'shared/zones/*.json#outposts',
+    'shared/regions/*.json#outposts',
   ],
   body: () => {
     const benchReach = sourceNumber(

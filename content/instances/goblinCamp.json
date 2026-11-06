@@ -1,5 +1,5 @@
 {
-  "comment": "The goblin camp, a developer zone (docs/zones.md): only admins go in, from the Admin menu, each party into a copy of its own. A war-band of goblins (content/creatures/goblin/) stands round its fire at the north end, to fight or to watch working together: they spot you, close in turns, circle, stab, throw and drink when hurt (crates/engine/src/pack.rs). An open arena in a space of its own (content/dungeons/goblinsDread.json says how). `door` is where its way out lets you out in the world. Heights (top) are above its origin.",
+  "comment": "The goblin camp, a developer zone (docs/zones.md): only admins go in, from the Admin menu, each party into a copy of its own. A war-band of goblins (content/creatures/goblin/) stands round its fire at the north end, to fight or to watch working together: they spot you, close in turns, circle, stab, throw and drink when hurt (crates/engine/src/pack.rs). An open arena in a space of its own (content/instances/goblinsDread.json says how). `door` is where its way out lets you out in the world. Heights (top) are above its origin.",
   "id": "goblinCamp",
   "name": "The Goblin Camp",
   "about": "A war-band of goblins round their fire, to fight or to watch working together: they spot you, take turns to close in, circle, stab, throw and drink when hurt.",

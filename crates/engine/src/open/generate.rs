@@ -1,4 +1,4 @@
-//! Grows a zone from its recipe (shared/zones/*.json, built from content/zones/): coastline, cliffs,
+//! Grows a region from its recipe (shared/regions/*.json, built from content/regions/): coastline, cliffs,
 //! hills, mountains with a path carved up their face, flattened town squares, graded roads, then the
 //! trees and rocks, the buildings' colliders and the decks you can walk on, and last the waterfalls.
 //! Same recipe, same seed, same island, every time: the server grows it natively and the browser

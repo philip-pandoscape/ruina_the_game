@@ -1,5 +1,5 @@
-//! The world's instances: its dungeons and the developer zones (content/dungeons/<id>.json, built
-//! into shared/dungeons.json; docs/zones.md; the page reads the files through
+//! The world's instances: its dungeons and the developer zones (content/instances/<id>.json, built
+//! into shared/instances.json; docs/zones.md; the page reads the files through
 //! src/engine/world/dungeons.ts). Each party plays its own copy of one (crate::spaces), a space of
 //! its own: everything in it stands round its own origin, in a frame no region shares, over nothing
 //! (its map has no regions and no sea: OpenWorld::instance), and its floors and walls are the only
@@ -187,22 +187,28 @@ const VOID_MARGIN: f64 = 64.0;
 const VOID_DEPTH: f64 = 100.0;
 
 /// Every dungeon there is.
-/// Every dungeon and developer zone, from shared/dungeons.json (built from content/dungeons/).
+/// Every dungeon and developer zone, from shared/instances.json (built from content/instances/).
 pub fn dungeons() -> &'static [DungeonDef] {
     #[derive(Deserialize)]
     struct Bundle {
-        dungeons: Vec<DungeonDef>,
+        instances: Vec<DungeonDef>,
     }
     static D: OnceLock<Vec<DungeonDef>> = OnceLock::new();
     D.get_or_init(|| {
-        let b: Bundle = serde_json::from_str(crate::bundles::bundle("dungeons.json", include_str!("../../../../shared/dungeons.json")))
-            .unwrap_or_else(|e| panic!("shared/dungeons.json is malformed: {e}"));
-        b.dungeons
+        let b: Bundle = serde_json::from_str(crate::bundles::bundle("instances.json", include_str!("../../../../shared/instances.json")))
+            .unwrap_or_else(|e| panic!("shared/instances.json is malformed: {e}"));
+        b.instances
     })
 }
 
 pub fn dungeon(id: &str) -> Option<&'static DungeonDef> {
     dungeons().iter().find(|d| d.id == id)
+}
+
+/// A dungeon's door in the world, in whichever region it stands (a developer zone's is its own,
+/// `door`, and none is in the world).
+pub fn door_into(id: &str) -> Option<&'static DungeonDoor> {
+    super::map::world_map().recipes().flat_map(|r| &r.doors).find(|d| d.id == id)
 }
 
 impl OpenWorld {
@@ -222,6 +228,7 @@ impl OpenWorld {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::open::map::world_map;
     use crate::open::zone::emberholm;
 
     #[test]
@@ -260,7 +267,7 @@ mod tests {
 
     #[test]
     fn every_dungeon_has_a_way_in_and_out() {
-        let doors = &emberholm().recipe.dungeons;
+        let doors: Vec<&DungeonDoor> = world_map().recipes().flat_map(|r| &r.doors).collect();
         for d in dungeons() {
             if d.developer {
                 // A developer zone: in from the Admin menu, out at its own door, none on the island.

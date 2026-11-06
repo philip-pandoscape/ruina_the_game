@@ -23,7 +23,9 @@ export function contentIds(root = '.') {
   const bundle = (f) => JSON.parse(readFileSync(join(root, 'shared', f), 'utf8'));
   const ids = (list) => (list ?? []).map((x) => x.id);
   const items = bundle('items.json');
-  const zone = bundle('zones/emberholm.json');
+  // What every region places (shared/world.json), whichever it's in.
+  const regions = bundle('world.json').regions.map((r) => bundle(`regions/${r.id}.json`));
+  const placed = (key) => regions.flatMap((r) => ids(r[key]));
   const trade = bundle('trade.json');
   const farming = bundle('farming.json');
   const vehicles = bundle('vehicles.json');
@@ -34,11 +36,11 @@ export function contentIds(root = '.') {
     item: ids(items.items),
     recipe: ids(items.recipes),
     quest: ids(bundle('quests.json').quests),
-    npc: ids(zone.npcs),
-    place: [...ids(zone.places), ...ids(trade.places)],
-    workbench: ids(zone.workbenches),
-    'house plot': ids(zone.housePlots),
-    slipway: ids(zone.shipyards),
+    npc: placed('npcs'),
+    place: [...placed('places'), ...ids(trade.places)],
+    workbench: placed('workbenches'),
+    'house plot': placed('housePlots'),
+    slipway: placed('shipyards'),
     pack: ids(trade.packs),
     crop: ids(farming.crops),
     animal: ids(farming.animals),
@@ -49,7 +51,7 @@ export function contentIds(root = '.') {
     'ship design': ids(bundle('shipyard.json').designs),
     creature: [...ids(bundle('actors.json').kinds), ...creatures.flatMap((c) => ids(c.kinds))],
     brain: [...ids(bundle('behaviours.json').behaviours), ...creatures.flatMap((c) => ids(c.behaviours))],
-    dungeon: ids(bundle('dungeons.json').dungeons),
+    instance: ids(bundle('instances.json').instances),
     weapon: ids(tuning.weapons),
     ability: ids(tuning.abilities),
     'movement skill': ids(tuning.movementSkills),

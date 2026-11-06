@@ -110,7 +110,7 @@ export class OpenStage {
     this.dressing = new ZoneDressing(world, models);
     this.village = new Village(zone.gen.buildings);
     this.falls = new FallsView(falls);
-    this.grottos = falls.map((f) => new GrottoView(f, doorOn(f, zone.recipe.dungeons ?? [])));
+    this.grottos = falls.map((f) => new GrottoView(f, doorOn(f, zone.recipe.doors ?? [])));
     this.scene.add(
       this.sky.group,
       this.terrain.group,

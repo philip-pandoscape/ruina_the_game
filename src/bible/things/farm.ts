@@ -119,7 +119,7 @@ export const gathering = kind<Spot>({
   noun: 'Resource',
   icon: '⛏️',
   summary: 'Timber, stone, ore and herbs: where they are on the island, what working them gives, and how soon they come back.',
-  sources: ['shared/farming.json#gathering', 'shared/zones/*.json#nodes'],
+  sources: ['shared/farming.json#gathering', 'shared/regions/*.json#nodes'],
   systems: ['farming'],
   all: () => SPOTS,
   key: (g) => g.id,

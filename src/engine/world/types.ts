@@ -1,4 +1,4 @@
-// The shape of a zone recipe (shared/zones/*.json) and of what the generator builds from it.
+// The shape of a zone recipe (shared/regions/*.json) and of what the generator builds from it.
 
 export interface ZoneRecipe {
   id: string;
@@ -74,8 +74,8 @@ export interface ZoneRecipe {
   /** Gathering spots, each with an id unique across the world. */
   nodes: Array<{ id: string; kind: string; x: number; z: number; rot: number }>;
   updrafts: Updraft[];
-  /** The doors of the island's dungeons (content/dungeons/<id>.json): each a portal into your party's copy. */
-  dungeons?: DungeonDoor[];
+  /** The doors into the dungeons in it, each named for its instance (content/instances/<id>.json): a portal into your party's copy. */
+  doors?: DungeonDoor[];
   forests: Array<{ x: number; z: number; r: number; density: number }>;
   scatter: { trees: number; rocks: number; clearOfRoad?: number; clearOfStructure?: number };
   slimes: { x: number; z: number; count: number; r: number };

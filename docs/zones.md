@@ -1,14 +1,15 @@
 # Zones
 
-Where the game is played. Today that's one open world, the island of Emberholm, and the places
-beside it that a party plays in a copy of its own: the dungeons, and the developer zones admins use
-to try things out. Each of those is a file; nothing in code lists them.
+Where the game is played: one open world of regions (`content/world.json` places each on its
+chunks; today Emberholm, the starter isle, is the only one), and the instances beside it that a party
+plays in a copy of its own: the dungeons, and the developer zones admins use to try things out. Each
+of those is files; nothing in code lists them.
 
 | What | Where | Played in |
 |---|---|---|
-| The island | `content/zones/emberholm.json` and `content/zones/emberholm/` (its recipe, places and buildings; its people are `content/npcs/`) | Channels: everyone on the island, a channel each so none gets crowded (`crates/server/src/play/spaces.rs`) |
-| A dungeon | `content/dungeons/<id>.json`, its door in the island's recipe (`dungeons`) | A copy for each party, entered through its portal on the island |
-| A developer zone | `content/dungeons/<id>.json` with `developer: true` | A copy for each party (or one for everyone: `shared`), entered from the Admin menu ([admin.md](admin.md)) |
+| A region | `content/regions/<id>.json` (its recipe) and `content/regions/<id>/` (its places, buildings, gathering spots, doors and the rest; its people are `content/npcs/`) | Channels: everyone in the world, a channel each so none gets crowded (`crates/server/src/play/spaces.rs`) |
+| A dungeon | `content/instances/<id>.json`, its door in the region it's entered from (`content/regions/<region>/doors.json`) | A copy for each party, entered through its portal in the world |
+| A developer zone | `content/instances/<id>.json` with `developer: true` | A copy for each party (or one for everyone: `shared`), entered from the Admin menu ([admin.md](admin.md)) |
 
 ## How a Copy Works
 
@@ -31,10 +32,10 @@ it in the world.
   are measured from the copy's floor where it has one (`DungeonDef::floor_at`, the highest piece no
   more than 0.6 m tall under a point; `floorAt` in the browser).
 
-## A Zone's File
+## An Instance's File
 
 Everything round its own origin, heights (`top`) above it: an instance's space is its own, so where
-one stands says nothing about where another does. `content/_schemas/dungeons.schema.json` holds the
+one stands says nothing about where another does. `content/_schemas/instances.schema.json` holds the
 fields.
 
 | Field | What |
@@ -47,7 +48,7 @@ fields.
 | `style` | `"cave"` (the default) or `"arena"` (open sky) |
 | `developer` | Admins only, in from the Admin menu |
 | `shared` | One copy for everyone allowed in, instead of one a party (the battlefield) |
-| `door` | A developer zone's way out onto the island (`outside`, in the world); a dungeon's is in the island's recipe |
+| `door` | A developer zone's way out into the world (`outside`, in the world); a dungeon's is in its region's `doors.json` |
 | `spawns` | Creatures a copy brings: a `kind` (`shared/actors.json`, or a creature's kinds) at `x`, `z`; with `band: true`, a war-band of `count` in a ring round the spot, fighting as a pack |
 | `bots` | Bots in it while anyone is: `count` of a `brain` on a `team`, round `x`, `z` |
 
@@ -55,17 +56,18 @@ fields.
 
 **A developer zone** is its file alone:
 
-1. Copy `content/dungeons/yard.json` to `content/dungeons/<id>.json`; give it an `id`, `name` and
+1. Copy `content/instances/yard.json` to `content/instances/<id>.json`; give it an `id`, `name` and
    `about`; lay out its pieces, spawns and bots round its origin.
-2. Its id in `content/dungeons/_order.json`, then `npm run content`.
+2. Its id in `content/instances/_order.json`, then `npm run content`.
 3. `cargo test --release --workspace` checks it has a floor where you come in, its pieces within its
    edge, and a way out; the Admin menu lists it from then on.
 
-**A dungeon** is its file, a door on the island and, today, its dressing in code:
+**A dungeon** is its file, a door in the world and, today, its dressing in code:
 
 1. Its file and its id in `_order.json`, as above, without `developer`.
-2. Its door in `content/zones/emberholm.json` (`dungeons`): the portal on the island (`portal`, with
-   a radius `r`) and where you come out (`outside`).
+2. Its door in the region it's entered from, `content/regions/<region>/doors.json`, named for the
+   dungeon (`id`): the portal (`portal`, with a radius `r`) and where you come out (`outside`), in the
+   world's coordinates. contentc holds a door to a dungeon of its name.
 3. What it looks like beyond its pieces (rock, torches, props) is drawn by `dungeonView.ts` for
    Goblin's Dread; a dungeon's dressing as data is the refactor's R9.8.
 
@@ -80,8 +82,8 @@ them away). A new kind of bot is a brain in `bots.rs` and its name in `Brain::na
 
 ## Testing
 
-- `crates/engine/src/open/dungeon.rs`: every dungeon loads, has a way in and out, and stands where
-  players may go, apart from the others.
+- `crates/engine/src/open/dungeon.rs`: every instance loads, has a floor where you come in and its
+  pieces within its edge, and every dungeon a door in the world and a way out.
 - `crates/server/src/play/spaces.rs`: copies made, kept and let go; admins in, players kept out; the
   yard's creatures on its floor; the goblin camp's war-band.
 - `tests/integration/admin.spec.ts`: an admin goes into the battlefield (its bots, the arena, out at

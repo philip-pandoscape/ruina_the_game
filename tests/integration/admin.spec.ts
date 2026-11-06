@@ -121,7 +121,7 @@ test('an admin goes into the battlefield from the world, finds its bots and an a
   page,
   browser,
 }) => {
-  const zone = JSON.parse(readFileSync('content/dungeons/battlefield.json', 'utf8'));
+  const zone = JSON.parse(readFileSync('content/instances/battlefield.json', 'utf8'));
   const space = (p: Page) => p.evaluate(() => window.__game.space());
 
   // A player asks and nothing happens: the server keeps them where they are.
@@ -158,7 +158,7 @@ test('an admin goes into the battlefield from the world, finds its bots and an a
 });
 
 test('an admin in the yard finds its dummy and slimes standing on its floor, and the dummy takes their blows', async ({ page }) => {
-  const zone = JSON.parse(readFileSync('content/dungeons/yard.json', 'utf8'));
+  const zone = JSON.parse(readFileSync('content/instances/yard.json', 'utf8'));
   const at = (sp: { x: number; z: number }) => ({ x: sp.x, z: sp.z });
 
   // Straight in from the character select screen: the Admin card's zone takes the chosen character
@@ -210,7 +210,7 @@ test('an admin in the yard finds its dummy and slimes standing on its floor, and
 });
 
 test('an admin goes into the goblin camp from the Admin window and finds its war-band round the fire', async ({ page }) => {
-  const zone = JSON.parse(readFileSync('content/dungeons/goblinCamp.json', 'utf8'));
+  const zone = JSON.parse(readFileSync('content/instances/goblinCamp.json', 'utf8'));
   const band = zone.spawns.find((sp: { kind: string }) => sp.kind === 'goblin');
   await atCharacterSelect(page, ADMIN);
   await enterWorld(page);

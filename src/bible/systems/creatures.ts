@@ -240,7 +240,7 @@ export const creatures = system({
   icon: '👺',
   keywords: ['monster', 'monsters', 'enemy', 'enemies', 'ai', 'brain', 'slime', 'goblin', 'pack', 'aggro', 'respawn', 'boss'],
   rules: ['crates/engine/src/actor.rs', 'crates/engine/src/actors.rs', 'crates/engine/src/ai.rs', 'crates/engine/src/pack.rs', 'crates/engine/src/missiles.rs'],
-  content: ['shared/behaviours.json#behaviours', 'shared/creatures.json#creatures', 'shared/zones/*.json#slimes'],
+  content: ['shared/behaviours.json#behaviours', 'shared/creatures.json#creatures', 'shared/regions/*.json#slimes'],
   body: () => {
     const slime = brain('slime');
     const slimelet = brain('slimelet');

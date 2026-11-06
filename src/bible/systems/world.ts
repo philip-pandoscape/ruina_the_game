@@ -79,10 +79,10 @@ export const world = system({
     'shared/world.json#blend',
     'shared/world.json#sea',
     'shared/world.json#regions',
-    'shared/zones/*.json#terrain',
-    'shared/zones/*.json#forests',
-    'shared/zones/*.json#scatter',
-    'shared/zones/*.json#spawn',
+    'shared/regions/*.json#terrain',
+    'shared/regions/*.json#forests',
+    'shared/regions/*.json#scatter',
+    'shared/regions/*.json#spawn',
   ],
   body: () => {
     const t = Z.terrain;
@@ -93,7 +93,7 @@ export const world = system({
     const ramp = t.ramps[0];
     const pit = t.pits[0];
     const fall = t.falls?.[0];
-    const door = Z.dungeons?.[0];
+    const door = Z.doors?.[0];
     // The generator's own numbers.
     const cliffRise = sourceNumber(generateSource, /c\.h \* smoothstep\(0\.0, ([\d.]+), d\)/, 'how fast a sea cliff rears up');
     const grade = sourceNumber(generateSource, /let grade = ([\d.]+);/, 'how steep a road may climb');
@@ -160,13 +160,13 @@ export const world = system({
       worldMap.regions.map(({ id, chunks: c }) => {
         const [mx, mz] = [(c.x + c.w / 2) * chunk, (c.z + c.d / 2) * chunk];
         const middle = mx === 0 && mz === 0 ? phrase`the world's origin` : phrase`${metres(mx, 0)}, ${metres(mz, 0)} from the world's origin`;
-        return phrase`${link(`zones/${id}`)} on ${num(c.w, 0)} by ${num(c.d, 0)} chunks (${metres(c.w * chunk, 0)} by ${metres(c.d * chunk, 0)}), its middle at ${middle}`;
+        return phrase`${link(`regions/${id}`)} on ${num(c.w, 0)} by ${num(c.d, 0)} chunks (${metres(c.w * chunk, 0)} by ${metres(c.d * chunk, 0)}), its middle at ${middle}`;
       }),
     );
     const roadLength = (pts: Array<[number, number]>) => pts.reduce((s, [x, z], i) => (i ? s + Math.hypot(x - pts[i - 1][0], z - pts[i - 1][1]) : 0), 0);
 
     return md`
-Every region of the world is grown from a recipe: a list of where its coast runs, its hills and mountains, the places flattened for towns and fields, its roads, buildings and people (${link('zones/emberholm', Z.name)} is the first). The same recipe and the same seed grow the same region every time, to the last tree. Your browser grows it from the recipe; the server plays on an exact copy of what it grew, so a foot planted in one is planted in the other.
+Every region of the world is grown from a recipe: a list of where its coast runs, its hills and mountains, the places flattened for towns and fields, its roads, buildings and people (${link('regions/emberholm', Z.name)} is the first). The same recipe and the same seed grow the same region every time, to the last tree. Your browser grows it from the recipe; the server plays on an exact copy of what it grew, so a foot planted in one is planted in the other.
 
 ## The World
 

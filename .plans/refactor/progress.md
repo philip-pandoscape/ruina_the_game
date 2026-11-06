@@ -553,3 +553,16 @@ the developer zone; then the engine bridge (R6.4) and Phase 8's switches.
   island and apart went with it.
 - **Moved on purpose.** The battlefield's replay hash in the server's tests (everyone round its own
   origin now).
+
+## 2026-11-06: The Content as the World Has It (R10.1)
+
+- **Regions and instances.** A region is its recipe, `content/regions/<id>.json`, and the folder of
+  what it places beside it; an instance is a file in `content/instances/`. The bundles follow
+  (`shared/regions/<id>.json`, `shared/instances.json`), and the words with them: the bible's Zones
+  are Regions, and the templates are a region's lists and an instance.
+- **Doors.** The doors into a region's dungeons are its `doors.json`, each named for the instance it
+  opens into (contentc holds it to one). The server finds a door in whichever region it stands, where
+  it looked in Emberholm alone.
+- **Every region's ids.** contentc's references and the content-ids tool read the ids of every
+  region the world places, not Emberholm's alone, so a second region's townsfolk, places and benches
+  are found by the content that names them.

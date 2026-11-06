@@ -86,7 +86,7 @@ export const housing = system({
   icon: '🏡',
   keywords: ['house', 'home', 'cottage', 'plot', 'blueprint', 'tax', 'bed', 'chest', 'storage', 'build'],
   rules: ['crates/engine/src/life/housing.rs'],
-  content: ['shared/housing.json#blueprints', 'shared/zones/*.json#housePlots'],
+  content: ['shared/housing.json#blueprints', 'shared/regions/*.json#housePlots'],
   body: () => {
     const bp = BLUEPRINTS[0];
     const sale = VENDORS.flatMap((v) => v.sells.map((s) => ({ v, s }))).filter(({ s }) => claimsPlot(s.item));

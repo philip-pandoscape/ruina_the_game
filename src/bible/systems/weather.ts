@@ -48,7 +48,7 @@ export const weather = system({
   icon: '🌦️',
   keywords: ['rain', 'wind', 'day', 'night', 'time', 'hour', 'sun', 'storm', 'offline', 'away', 'clock', 'shower'],
   rules: ['crates/engine/src/life/weather.rs', 'crates/engine/src/life/mod.rs', 'crates/server/src/play/mod.rs'],
-  content: ['shared/trade.json#clock', 'shared/farming.json#rain', 'shared/zones/*.json#sky'],
+  content: ['shared/trade.json#clock', 'shared/farming.json#rain', 'shared/regions/*.json#sky'],
   body: () => {
     const sky = EMBERHOLM.sky;
     const rain = FARM.rain;

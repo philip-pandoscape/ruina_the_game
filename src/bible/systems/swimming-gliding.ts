@@ -32,7 +32,7 @@ export const swimmingAndGliding = system({
     'shared/traversal.json#glide',
     'shared/traversal.json#camera',
     'shared/vehicles.json#gliders',
-    'shared/zones/*.json#updrafts',
+    'shared/regions/*.json#updrafts',
   ],
   body: () => {
     const keep = sourceNumber(

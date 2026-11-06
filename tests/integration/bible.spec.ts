@@ -95,7 +95,7 @@ test('the island page draws the island as the game grows it, and a place page ma
       for (let i = 0; i < d.length; i += 4 * 97) seen.add((d[i] << 16) | (d[i + 1] << 8) | d[i + 2]);
       return seen.size;
     });
-  await go(page, 'zones/emberholm');
+  await go(page, 'regions/emberholm');
   await expect(page.locator('#page canvas.map[data-drawn]')).toHaveCount(1, { timeout: 30_000 });
   expect(await colours(), 'land and water in many shades, not a blank canvas').toBeGreaterThan(50);
   await go(page, 'places/windspire');

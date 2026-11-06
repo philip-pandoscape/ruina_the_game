@@ -183,7 +183,7 @@ export const ships = kind<ShipDesignDef>({
   noun: 'Ship Design',
   icon: '⛵',
   summary: 'Ships too big to buy: built stage by stage on a slipway from hauled material packs.',
-  sources: ['shared/shipyard.json#designs', 'shared/zones/*.json#shipyards'],
+  sources: ['shared/shipyard.json#designs', 'shared/regions/*.json#shipyards'],
   systems: ['vehicles'],
   all: () => SHIP_DESIGNS,
   key: (d) => d.id,

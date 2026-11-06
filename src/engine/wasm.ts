@@ -99,7 +99,7 @@ export function answer<T>(n: number): T {
 
 /**
  * Content bundles for the engine to read in place of the ones built into it, each by its path under
- * shared/ ("items.json", "zones/emberholm.json"): before anything has asked the engine anything (the
+ * shared/ ("items.json", "regions/emberholm.json"): before anything has asked the engine anything (the
  * tests that add content as data alone, tests/unit/newContent.test.ts).
  */
 export function useContent(bundles: Record<string, unknown>): void {

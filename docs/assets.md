@@ -57,7 +57,7 @@ Built with the client: `npx vite build` writes `dist/asset-manifest.json` beside
 | `assets[].file` | The built file, named after what's in it (`assets/hero-Lp91RHMo.glb`) |
 | `assets[].size` | Its bytes |
 | `assets[].kind` | `model`, `animation`, `texture`, `icon`, `font` (and `sound`, `music` once there are any) |
-| `assets[].zones` | Where it's used: `front` (the title screen, sign-in and character select: the first download), `*` (every zone a player can be in: their own body and gear), `emberholm` (the island, and the arenas drawn over it), a dungeon or zone by its id (`content/dungeons/`), `dev` (only the developer pages, or a developer's address option) |
+| `assets[].zones` | Where it's used: `front` (the title screen, sign-in and character select: the first download), `*` (every zone a player can be in: their own body and gear), `emberholm` (the island, and the arenas drawn over it), a dungeon or zone by its id (`content/instances/`), `dev` (only the developer pages, or a developer's address option) |
 | `code.first` | The scripts and style sheets the game's page starts with (`src/app/boot.ts` and what it imports) |
 | `code.later` | Those it fetches on the way into the world (`src/main.ts` and the rest) |
 

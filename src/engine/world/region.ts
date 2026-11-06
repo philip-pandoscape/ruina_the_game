@@ -1,4 +1,4 @@
-import emberholm from '../../../shared/zones/emberholm.json' with { type: 'json' };
+import emberholm from '../../../shared/regions/emberholm.json' with { type: 'json' };
 import { placedPlan, type BuildingPlan } from '../../content/buildings';
 import { growZone } from '../wasm';
 import { Heightfield } from './terrain';
@@ -63,7 +63,7 @@ interface Grown {
 }
 
 /**
- * Grows a zone from its recipe (shared/zones/*.json): coastline, cliffs, hills, mountains with a
+ * Grows a zone from its recipe (shared/regions/*.json): coastline, cliffs, hills, mountains with a
  * path carved up their face, flattened town squares, graded roads, then the trees and rocks, the
  * buildings' colliders and the decks you can walk on. The engine grows it (crates/engine/src/open/
  * generate.rs, through its WebAssembly), the same island the server plays: same recipe, same island.

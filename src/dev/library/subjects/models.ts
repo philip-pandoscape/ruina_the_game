@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import emberholm from '../../../../shared/zones/emberholm.json' with { type: 'json' };
+import emberholm from '../../../../shared/regions/emberholm.json' with { type: 'json' };
 import { ANIMAL_IDS, buildAnimal, restartIdles as restartAnimals, type AnimalId, type AnimalModel } from '../../../render/models/animals';
 import { VILLAGER_IDS, buildVillager, restartIdles as restartVillagers, type VillagerModel } from '../../../render/models/villagers';
 import { buildMount, type MountModel } from '../../../render/models/mounts';
@@ -268,7 +268,7 @@ function villagerSubject(id: string): Subject {
         'Built like the box hero from rounded blocks: five merged meshes on pivots (legs, body, head, armL, armR) and animate(dt, {time, talking}) in src/render/models/villagers.ts breathes, looks about and gestures, more when talking (easing in over a moment). Each one may add its own touches (a prop that moves).',
       files: [
         { path: 'src/render/models/villagers.ts', what: `${npc?.name ?? id}'s build (const ${id}) and the shared animate() in villager()` },
-        { path: 'shared/zones/emberholm.json', what: 'where they stand (npcs)' },
+        { path: 'shared/regions/emberholm.json', what: 'where they stand (npcs)' },
       ],
       conventions:
         'Faces +Z, origin at the feet. Arms hang from armL/armR pivots at the shoulders: rotation.x negative lifts the arm forward; rotation.z spreads it out (+ for the left).',

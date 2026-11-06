@@ -58,7 +58,7 @@
       "title": "Zone recipes generate the island",
       "notes": "Coastline, bays, sea cliffs, rolling hills, the Windspire with a ledge path cut along its contour lines, a quarry pit, flattened town ground, graded roads, surfaces. Same seed, same island.",
       "files": [
-        "shared/zones/emberholm.json",
+        "shared/regions/emberholm.json",
         "crates/engine/src/open/generate.rs",
         "src/engine/world/terrain.ts"
       ]
@@ -69,7 +69,7 @@
       "title": "Emberholm, the starter isle",
       "notes": "Lanternwick and its docks, Barleybrook Fields, Hearthside Rise, Windspire, Westwatch (land route), Gullrock (sea route), Thornwood, Stonebreak Quarry, Slime Meadow, Sunscale Strand; 12 townsfolk.",
       "files": [
-        "shared/zones/emberholm.json"
+        "shared/regions/emberholm.json"
       ]
     },
     {
@@ -116,7 +116,7 @@
       "files": [
         "src/render/open/stage.ts",
         "src/render/open/sky.ts",
-        "shared/zones/emberholm.json"
+        "shared/regions/emberholm.json"
       ]
     },
     {
@@ -168,7 +168,7 @@
       "title": "Rising air",
       "notes": "Updraft columns lift an open glider; visible as spiralling wisps at the Windspire's foot.",
       "files": [
-        "shared/zones/emberholm.json",
+        "shared/regions/emberholm.json",
         "src/render/open/life.ts"
       ]
     },
@@ -374,7 +374,7 @@
       "notes": "Deadfall timber, stone, iron ore and wild herbs, each with a respawn; timber can turn up a thunderstruck log.",
       "files": [
         "src/engine/life/interact.ts",
-        "shared/zones/emberholm.json"
+        "shared/regions/emberholm.json"
       ]
     },
     {
@@ -1243,7 +1243,7 @@
       "title": "The Windspire's waterfall, and the way into Goblin's Dread",
       "notes": "A spring pool beside the launch deck spills over the lip and falls free down a slot cut in the south-west face into a plunge pool at the foot (recipe `falls`, cut after the tree and rock scatter so nothing else on the island moves). Behind the curtain, 85 m up, a ledge under a hood of rock: you only get there by gliding in (dropping off the summit lands you on the hood). On it the goblins' landing stage, catch nets, a totem, lanterns, cave drawings, and the portal: F takes you into your party's copy of Goblin's Dread. The pools are under half a metre deep in the rules (no wading or swimming yet).",
       "files": [
-        "shared/zones/emberholm.json",
+        "shared/regions/emberholm.json",
         "crates/engine/src/open/generate.rs",
         "src/render/open/falls.ts",
         "src/render/open/grotto.ts",
@@ -1258,7 +1258,7 @@
       "title": "Goblin's Dread, the first dungeon: its inner grotto",
       "notes": "An instanced dungeon (content/dungeons/goblinsDread.json): a space of its own, its floors and walls round its own origin over nothing, played only in a copy of it (src/engine/world/dungeons.ts, crates/engine/src/open/dungeon.rs OpenWorld::instance), drawn with the island put away (src/render/open/dungeonView.ts: rock shell, the back of the falls glowing at the south end with the way out, landing stage, lookout with a pot gong, totem, torches, the tunnel north to a goblin barricade). Cave light: no sun, a cool fill and the daylight through the falls. Anyone knocked down or falling out gets up where it's entered. The rest of the lair (the Warren, its three wings, the chief's hall) is the concept art's plan, not built yet.",
       "files": [
-        "content/dungeons/goblinsDread.json",
+        "content/instances/goblinsDread.json",
         "src/engine/world/dungeons.ts",
         "src/render/open/dungeonView.ts",
         "src/app/dungeonVisit.ts",
@@ -1670,7 +1670,8 @@
         "Saved builds name their weapon, skills and abilities by id (R9.1), and old saves are rewritten as the server starts; the server sends a hash of the content in its welcome, and a page built from other content reloads into the new build (R9.2).",
         "Borders with no seam (R10.16): near a chunk's edge the ground is shared with what's across it, weighed smoothly over 64 m, so two regions meet vertex for vertex and a region's coast slopes down to the open sea's floor; a fixture of two regions across a land border is walked across.",
         "The island's rules take the world (R10.16): what's near you comes from the space you're in, what's found by id from the whole world; gathering spots have ids (R10.1).",
-        "Instances in spaces of their own (R10.15): a dungeon or developer zone is played round its own origin over nothing, in place of the world (the server's copy, and the browser while you're inside), where it was pieces high in Emberholm's sky; the rule keeping them within 760 m of the island and apart went with it."
+        "Instances in spaces of their own (R10.15): a dungeon or developer zone is played round its own origin over nothing, in place of the world (the server's copy, and the browser while you're inside), where it was pieces high in Emberholm's sky; the rule keeping them within 760 m of the island and apart went with it.",
+        "The content as the world has it (R10.1): a region is content/regions/<id>.json and the folder beside it, an instance content/instances/<id>.json; the doors into a region's dungeons are its doors.json, found in whichever region they stand; every region's ids are checked, and the bible's Zones are Regions."
       ]
     }
   ]

@@ -55,7 +55,7 @@ export interface Focus {
   host?: number;
   /** A challenge: the other player (their character). */
   other?: number;
-  /** A dungeon's portal: which dungeon (content/dungeons). */
+  /** A dungeon's portal: which dungeon (content/instances). */
   dungeon?: string;
   slot?: number;
   sc?: number;

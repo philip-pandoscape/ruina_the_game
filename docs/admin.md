@@ -37,7 +37,7 @@ The server tells the browser in `/api/me` and at sign-in (`admin: true`) and in 
 ## The Zones
 
 The developer zones are places beside the island that only admins go into, each a file in
-`content/dungeons/` marked `developer` ([zones.md](zones.md) says how to add one):
+`content/instances/` marked `developer` ([zones.md](zones.md) says how to add one):
 
 - **The Yard**: the training dummy, slimes, and bots wandering about as moving targets; a copy for
   each party.

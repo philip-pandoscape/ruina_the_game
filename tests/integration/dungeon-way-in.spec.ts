@@ -5,7 +5,7 @@ import { arrivalOf, DUNGEONS, EMBERHOLM } from '../../src/engine/zone';
 import type { LifePress } from '../../src/ui/life/lifeUI';
 import { gameReady } from '../support/game';
 
-// The way into Goblin's Dread (content/dungeons/goblinsDread.json). A spring beside the Windspire's
+// The way into Goblin's Dread (content/instances/goblinsDread.json). A spring beside the Windspire's
 // launch deck spills down a slot cut in its face (crates/engine/src/open/generate.rs, falls), and behind the
 // falling water a ledge under a hood of rock holds the goblins' landing stage and the portal: you get
 // there by gliding into the falls. Offline (?world&test) the browser takes you through the portal
@@ -52,7 +52,7 @@ const g = (page: Page) => ({
 test("through the portal into a copy of Goblin's Dread and back out, nothing of it left solid", async ({ page }) => {
   const errors = await open(page);
   const w = g(page);
-  const door = EMBERHOLM.dungeons![0];
+  const door = EMBERHOLM.doors![0];
   // On the stage in front of the portal, facing it.
   const facing = door.outside.facing + Math.PI;
   await w.teleport(door.portal.x + (door.outside.x - door.portal.x) * 0.6, door.portal.z + (door.outside.z - door.portal.z) * 0.6, facing);

@@ -693,7 +693,7 @@ pub fn find_focus(life: &mut Life, sim: &Sim) -> Option<Focus> {
                 pick.consider(f, js_hypot(x - px, z - pz), inside.exit.r);
             }
             None => {
-                for door in here.recipes().flat_map(|r| &r.dungeons) {
+                for door in here.recipes().flat_map(|r| &r.doors) {
                     let Some(def) = dungeon(&door.id) else { continue };
                     let d = js_hypot(door.portal.x - px, door.portal.z - pz);
                     if (p.pos.y - door.portal.y).abs() > 3.0 {
@@ -1339,7 +1339,7 @@ mod tests {
         on.sort_unstable();
         assert_eq!(on, ["ground", "plot", "slipway"]);
         // Where the island's farmland is, from its recipe.
-        let recipe: serde_json::Value = serde_json::from_str(include_str!("../../../../shared/zones/emberholm.json")).expect("the recipe");
+        let recipe: serde_json::Value = serde_json::from_str(include_str!("../../../../shared/regions/emberholm.json")).expect("the recipe");
         let fields = (recipe["farmland"]["x"].as_f64().expect("farmland x"), recipe["farmland"]["z"].as_f64().expect("farmland z"));
         for it in placeables {
             let (mut life, mut world, mut p) = island();

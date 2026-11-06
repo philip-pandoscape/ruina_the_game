@@ -100,7 +100,7 @@ test('a region the world puts where its grid is not, or on another region, fails
     broken('world.json', (w) => {
       w.regions[0].id = 'nowhere';
     }),
-  ).toContain("there's no content/zones/nowhere.json");
+  ).toContain("there's no content/regions/nowhere.json");
   expect(
     broken('world.json', (w) => {
       w.blend = 200;
@@ -110,12 +110,12 @@ test('a region the world puts where its grid is not, or on another region, fails
 
 test('every gathering spot has an id, and an id is one thing in the whole world', () => {
   expect(
-    broken('zones/emberholm/nodes.json', (nodes) => {
+    broken('regions/emberholm/nodes.json', (nodes) => {
       delete nodes[0].id;
     }),
   ).toContain('emberholm: nodes[0] has no id');
   expect(
-    broken('zones/emberholm/nodes.json', (nodes) => {
+    broken('regions/emberholm/nodes.json', (nodes) => {
       nodes[1].id = nodes[0].id;
     }),
   ).toMatch(/emberholm: nodes \S+ is emberholm's too/);

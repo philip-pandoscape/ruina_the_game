@@ -80,7 +80,7 @@ pub extern "C" fn out_ptr() -> *const u8 {
 }
 
 /// Content bundles to read in place of the compiled ones: at `p` (`n` bytes), a JSON object of each
-/// bundle by its path under shared/ ("items.json", "zones/emberholm.json"). Only before anything has
+/// bundle by its path under shared/ ("items.json", "regions/emberholm.json"). Only before anything has
 /// been read; 1 if taken, 0 if not (too late, or not such an object).
 ///
 /// # Safety

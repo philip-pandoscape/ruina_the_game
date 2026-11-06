@@ -67,7 +67,7 @@ export const parties = system({
   icon: '🛡️',
   keywords: ['party', 'group', 'invite', 'leader', 'dungeon', 'instance', 'copy', 'portal', 'goblin'],
   rules: ['crates/engine/src/open/dungeon.rs', 'crates/server/src/play/parties.rs', 'crates/server/src/play/spaces.rs'],
-  content: ['shared/dungeons.json#dungeons', 'shared/zones/*.json#dungeons'],
+  content: ['shared/instances.json#instances', 'shared/regions/*.json#doors'],
   body: () => {
     const R = rule();
     // The developer zones (the yard, the battlefield) are dungeons too, for admins only: players don't read about them.
@@ -130,7 +130,7 @@ To leave, F at the portal back out (the server allows ${metres(R.exitSlack)} mor
       table(
         ['Dungeon', 'Holds', 'Its Door', 'Door Reach', 'Way Out Reach', 'Fall'],
         list.map((d) => {
-          const door = EMBERHOLM.dungeons?.find((x) => x.id === d.id);
+          const door = EMBERHOLM.doors?.find((x) => x.id === d.id);
           const near = door ? nearest(door.portal.x, door.portal.z) : '';
           return [
             link(`dungeons/${d.id}`),

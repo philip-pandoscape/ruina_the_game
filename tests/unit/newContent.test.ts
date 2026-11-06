@@ -48,7 +48,7 @@ vi.mock('../../shared/items.json', () => ({ default: fixture.bundles['items.json
 vi.mock('../../shared/quests.json', () => ({ default: fixture.bundles['quests.json'] }));
 vi.mock('../../shared/vehicles.json', () => ({ default: fixture.bundles['vehicles.json'] }));
 vi.mock('../../shared/creatures.json', () => ({ default: fixture.bundles['creatures.json'] }));
-vi.mock('../../shared/zones/emberholm.json', () => ({ default: fixture.bundles['zones/emberholm.json'] }));
+vi.mock('../../shared/regions/emberholm.json', () => ({ default: fixture.bundles['regions/emberholm.json'] }));
 
 import { defaultBuild } from '../../src/content/build';
 import { itemDef } from '../../src/content/items';
@@ -104,7 +104,7 @@ test('the new things are content like any other: each in its kind, every referen
   expect(fixture.added.length).toBeGreaterThanOrEqual(10);
   const has = (bundle: string, key: string, id: string) =>
     (fixture.bundles[bundle][key] as Array<{ id?: string; npc?: string }>).some((x) => (x.id ?? x.npc) === id);
-  expect(has('zones/emberholm.json', 'npcs', 'wren')).toBe(true);
+  expect(has('regions/emberholm.json', 'npcs', 'wren')).toBe(true);
   expect(has('items.json', 'vendors', 'wren')).toBe(true);
   expect(has('items.json', 'items', 'lampOil')).toBe(true);
   expect(has('quests.json', 'quests', 'lamplight')).toBe(true);

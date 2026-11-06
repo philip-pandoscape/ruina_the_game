@@ -1,6 +1,6 @@
-# Zones
+# Regions
 
-Each open world, in words. Its numbers, places and people are on its entry.
+Each region of the world, in words. Its numbers, places and people are on its entry.
 
 ## emberholm
 

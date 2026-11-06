@@ -16,7 +16,7 @@ export type AssetKind = 'model' | 'animation' | 'texture' | 'icon' | 'font' | 's
  * The places a file is used:
  *   front      the title screen, sign-in and character select: the first download
  *   *          every zone a player can be in (their own body and gear)
- *   emberholm  the island (and the arenas drawn over it); a dungeon or zone in content/dungeons by its id
+ *   emberholm  the island (and the arenas drawn over it); a dungeon or developer zone in content/instances by its id
  *   dev        only the developer pages, or an address option for developers
  */
 export type Zone = string;

@@ -1,0 +1,6 @@
+{
+  "comment": "The world's instances, its dungeons and developer zones (docs/zones.md), a file each in content/instances/: each a space of its own, its floors and walls round its own origin over nothing, played only in a copy of it, where you come in and its way out, and what a copy brings (creatures, bots). Read by src/engine/world/dungeons.ts and crates/engine/src/open/dungeon.rs; a dungeon's door in the world is in its region's (content/regions/<id>/doors.json), a developer zone's in its own file (door).",
+  "instances": {
+    "$things": "instances"
+  }
+}

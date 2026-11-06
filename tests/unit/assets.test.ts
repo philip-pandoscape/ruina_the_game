@@ -32,9 +32,9 @@ describe('the catalogue', () => {
   });
 
   test('names only zones the game has', () => {
-    const zones = readdirSync('shared/zones').map((f) => f.replace(/\.json$/, ''));
-    const dungeons = (JSON.parse(readFileSync('shared/dungeons.json', 'utf8')) as { dungeons: Array<{ id: string }> }).dungeons.map((d) => d.id);
-    const known = new Set(['front', '*', 'dev', ...zones, ...dungeons]);
+    const regions = readdirSync('shared/regions').map((f) => f.replace(/\.json$/, ''));
+    const instances = (JSON.parse(readFileSync('shared/instances.json', 'utf8')) as { instances: Array<{ id: string }> }).instances.map((d) => d.id);
+    const known = new Set(['front', '*', 'dev', ...regions, ...instances]);
     expect(RULES.flatMap((r) => r.zones.filter((z) => !known.has(z)).map((z) => `${r.match}: ${z}`))).toEqual([]);
   });
 

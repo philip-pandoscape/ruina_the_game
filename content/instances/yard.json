@@ -1,5 +1,5 @@
 {
-  "comment": "The training yard, a developer zone (docs/admin.md): only admins go in, from the Admin menu, each party into a copy of its own (crates/server/src/play/spaces.rs enter_zone). An open arena in a space of its own (content/dungeons/goblinsDread.json says how: everything round its own origin, played only in a copy). The training dummy and a few slimes live in it (spawns), and bots wander in it as moving targets on the other side (crates/engine/src/bots.rs), there while anyone is. `door` is where its way out lets you out in the world. Heights (top) are above its origin.",
+  "comment": "The training yard, a developer zone (docs/admin.md): only admins go in, from the Admin menu, each party into a copy of its own (crates/server/src/play/spaces.rs enter_zone). An open arena in a space of its own (content/instances/goblinsDread.json says how: everything round its own origin, played only in a copy). The training dummy and a few slimes live in it (spawns), and bots wander in it as moving targets on the other side (crates/engine/src/bots.rs), there while anyone is. `door` is where its way out lets you out in the world. Heights (top) are above its origin.",
   "id": "yard",
   "name": "The Yard",
   "about": "A yard of your own: the training dummy, slimes, and wandering bots on the other side to try your weapons and skills on.",

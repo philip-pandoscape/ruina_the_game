@@ -11,21 +11,22 @@ How to add each kind of thing, as files alone: `docs/content.md`.
 ## The Layout
 
 - **A template per bundle**, at the bundle's path: `content/items.json` for `shared/items.json`,
-  `content/zones/emberholm.json`, `content/creatures.json`, `content/dungeons.json`. It holds the
+  `content/regions/emberholm.json`, `content/creatures.json`, `content/instances.json`. It holds the
   bundle's settings as they are, and markers where its things go:
   - `{"$things": "items"}`: every thing in `content/items/`, in the order `content/items/_order.json`
     lists them. Each names itself by `id` (or by the field the marker says:
     `{"$things": "vendors", "id": "npc"}`), and its file is named after it.
   - `{"$things": "furniture", "as": "map"}`: the same as an object keyed by the files' names.
-  - `{"$file": "zones/emberholm/places.json"}`: a part of a thing in a file of its own.
+  - `{"$file": "regions/emberholm/places.json"}`: a part of a thing in a file of its own.
 - **A folder per kind**: `npcs/`, `items/`, `vendors/`, `recipes/`, `quests/`, `crops/`, `animals/`,
   `climates/`, `gathering/`, `packs/`, `markets/`, `weapons/`, `abilities/`, `stats/`,
   `movement-skills/`, `vehicles/`, `mounts/`, `gliders/`, `structures/`, `props/`, `buildings/`,
   `furniture/`, `blueprints/`, `ship-designs/`, `actors/`, `ladders/`, `behaviours/`, `creatures/`,
-  `dungeons/`, `minigames/`.
+  `instances/`, `minigames/`.
 - **A thing in several files**: a creature (`creatures/goblin.json` naming its parts in
-  `creatures/goblin/`: its kinds, its attacks, its brain) and the island (`zones/emberholm/`: its
-  places, buildings and the rest, round its recipe; its people are `npcs/`).
+  `creatures/goblin/`: its kinds, its attacks, its brain) and a region (`regions/emberholm.json`, its
+  recipe, and `regions/emberholm/`: its places, buildings, gathering spots, the doors into its
+  dungeons and the rest; its people are `npcs/`). `world.json` places each region on its chunks.
 - **`_templates/`**: a thing of each kind to copy for a new one (`docs/content.md` says where each
   goes); no bundle takes them. `tests/unit/templates.test.ts` keeps them fitting their kinds.
 - **`_schemas/`**: each kind's JSON Schema (`npm run content:schemas` writes them from the things

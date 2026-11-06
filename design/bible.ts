@@ -831,7 +831,7 @@ part('the file map', () => {
     $('#fileTable'),
     ['Where', 'What lives there'],
     [
-      ['<code>shared/zones/emberholm.json</code>', 'The starter isle: terrain recipe, roads, buildings, NPCs, plots, nodes, updrafts.'],
+      ['<code>shared/regions/emberholm.json</code>', 'The starter isle: terrain recipe, roads, buildings, NPCs, plots, nodes, updrafts.'],
       [
         '<code>shared/vehicles.json</code> · <code>trade.json</code> · <code>farming.json</code> · <code>housing.json</code> · <code>items.json</code> · <code>quests.json</code>',
         'Every life-system number and recipe.',

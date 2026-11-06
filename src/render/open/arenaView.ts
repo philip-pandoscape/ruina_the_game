@@ -3,7 +3,7 @@ import type { DungeonDef, DungeonPiece } from '../../engine/zone';
 import { toon } from '../toon';
 import { portalVeil } from './goblinKit';
 
-// A developer zone drawn as an open arena (content/dungeons/<id>.json with `style: "arena"`: the
+// A developer zone drawn as an open arena (content/instances/<id>.json with `style: "arena"`: the
 // yard, the battlefield): its floor, rails, posts and rocks as sand, timber and stone under the
 // island's own sky, and its way out as a portal. Like a dungeon's cave it's drawn only while you're
 // in a copy of it (stage.ts enterDungeon); unlike a cave it keeps the world's light, so it isn't

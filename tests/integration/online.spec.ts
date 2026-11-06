@@ -616,7 +616,7 @@ test("another player's name shows near you, fades past 30 m and is gone by 45 m"
 
 test("everyone in a channel sees the same time of day, the server's, whatever their islands' clocks say", async ({ browser }) => {
   const { a, b } = await pair(browser);
-  const sky = JSON.parse(readFileSync('shared/zones/emberholm.json', 'utf8')).sky;
+  const sky = JSON.parse(readFileSync('shared/regions/emberholm.json', 'utf8')).sky;
   /** The hour of the day by the server's clock: it runs on this computer, so Date.now() is its clock. */
   const world = (ms: number) => {
     const days = ms / 1000 / sky.dayLengthSeconds + sky.startHour / 24;

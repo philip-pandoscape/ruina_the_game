@@ -14,8 +14,8 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
 - **Next:**
   1. Phase 10's foundations, in order:
      - R10.14 the words (as each area is touched);
-     - R10.1 and R10.16 the world as data and the world map (the map, borders and the rules taking
-       the world are in; the content's folders and growing by need are left);
+     - R10.16 the world map (the map, borders and the rules taking the world are in; growing and
+       dropping regions by need is left);
      - R10.17 ids and the clock;
      - R10.18 the tick that splits;
      - R10.19 borders;
@@ -886,7 +886,7 @@ without a socket whose inputs a brain fills each tick (the engine's `bots`), sho
 peers marked as bots. Today's battle server, its loop and the `?server=`, `?yard`, `?raid` pages go
 once these stand. The island's generator for any zone (R10.1) waits for its port to Rust (R8.6).
 
-- [~] **R10.1** The world is data.
+- [x] **R10.1** The world is data.
   - **The world:** `content/world.json` places regions on a grid of 256 m chunks (Emberholm is 6 × 6
     round the origin).
   - **Regions:** a region is a folder, `content/regions/<id>/` (from `content/zones/emberholm`): its
@@ -902,6 +902,16 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
   id (a save's old ones, kept by their place in the list, are dropped as it's taken up: the spot is
   simply back); contentc holds every placed thing's id (places, townsfolk, workbenches, outposts,
   house plots, gathering spots, dungeon doors, slipways) to one thing in the whole world.
+  Folders (this commit): a region is `content/regions/<id>.json`, its recipe, and the folder beside
+  it, `content/regions/<id>/` (from `content/zones/`), built into `shared/regions/<id>.json`; an
+  instance is `content/instances/<id>.json` (from `content/dungeons/`), built into
+  `shared/instances.json`, with its spawns, bots, way in (`arrive`) and out (`exit`) and its flags
+  (`developer`, `shared`). The doors into a region's dungeons are its `doors.json` (the recipe's
+  `doors`, where it said `dungeons`), each named for the instance it opens into, which contentc
+  holds it to; the server finds a door in whichever region it stands (`door_into`), not only in
+  Emberholm. contentc and the content-ids tool read every region's ids, not Emberholm's alone. The
+  engine builds in every region in `shared/regions/` and every instance; the browser knows only
+  Emberholm until R10.23. The bible's Zones are Regions (`#/regions/emberholm`).
 - [ ] **R10.2** The server hosts the world and its instances: a simulation for each region channel
   and each instance copy, found by id (no `emberholm()` outside tests). Players travel between them,
   and every character is saved with its space.
@@ -1286,6 +1296,7 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
 | 2026-11-06 | R10.16 | Borders: the ground blended across them, regions meeting vertex for vertex and the open sea sloping to meet them; walked across a land border | 86e96b5 |
 | 2026-11-06 | R10.16, R10.1 | The rules take the world: what's near you from the space you're in, what's found by id from the whole world; gathering spots by id | ca6cfc2 |
 | 2026-11-06 | R10.15 | Instances in spaces of their own: a dungeon or developer zone played round its own origin over nothing, in place of the world, by the server and the browser | 55f53b3 |
+| 2026-11-06 | R10.1, R10.14 | The content's regions and instances: `content/regions/` and `content/instances/`, a region's doors, every region's ids checked; the bible's Regions | (this commit) |
 | 2026-11-06 | R9.14 | `docs/content.md` | 5e23680 |
 | 2026-11-06 | R10.10, R11.1, R11.2, R11.7, R11.8 | Snapshot to move machines: the battle server's Rust gone; the asset manifest, loader and first-download budget, `docs/assets.md` | a975617 |
 | 2026-11-06 | R6.10, R6.11, R6.8 | The client's moves: creature bodies into src/render/creatures/, the root files to their areas, the library under src/dev/ | 9317ff3, 5de387d, 81df3de |

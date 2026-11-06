@@ -24,7 +24,7 @@ use super::noise::smoothstep;
 use super::zone::{Heightfield, Recipe, Zone, surface};
 
 mod built {
-    include!(concat!(env!("OUT_DIR"), "/zones.rs"));
+    include!(concat!(env!("OUT_DIR"), "/regions.rs"));
 }
 
 /// Where a region stands: its first chunk, and how many chunks it spans along x (`w`) and z (`d`).
@@ -370,12 +370,12 @@ fn vertex_or_height(hf: &Heightfield, x: f64, z: f64) -> f64 {
     if gx == gx.floor() && gz == gz.floor() { hf.heights()[gz as usize * hf.n + gx as usize] as f64 } else { hf.height(x, z) }
 }
 
-/// A zone's recipe as built into the engine (shared/zones/<id>.json), or as given in its place
+/// A region's recipe as built into the engine (shared/regions/<id>.json), or as given in its place
 /// (crate::bundles), by its id.
-pub fn zone_recipe(id: &str) -> Option<Recipe> {
-    let (_, compiled) = built::ZONES.iter().find(|(z, _)| *z == id)?;
-    let text = crate::bundles::bundle(&format!("zones/{id}.json"), compiled);
-    Some(serde_json::from_str(text).unwrap_or_else(|e| panic!("shared/zones/{id}.json is a zone recipe: {e}")))
+pub fn region_recipe(id: &str) -> Option<Recipe> {
+    let (_, compiled) = built::REGIONS.iter().find(|(z, _)| *z == id)?;
+    let text = crate::bundles::bundle(&format!("regions/{id}.json"), compiled);
+    Some(serde_json::from_str(text).unwrap_or_else(|e| panic!("shared/regions/{id}.json is a region's recipe: {e}")))
 }
 
 /// The world (shared/world.json), each region grown the first time anything asks.
@@ -383,7 +383,7 @@ pub fn world_map() -> &'static WorldMap {
     static W: OnceLock<WorldMap> = OnceLock::new();
     W.get_or_init(|| {
         let text = crate::bundles::bundle("world.json", include_str!("../../../../shared/world.json"));
-        WorldMap::from_json(text, zone_recipe).unwrap_or_else(|e| panic!("shared/world.json: {e}"))
+        WorldMap::from_json(text, region_recipe).unwrap_or_else(|e| panic!("shared/world.json: {e}"))
     })
 }
 
@@ -429,7 +429,7 @@ mod tests {
             let file = r#"{ "chunk": 256, "blend": 64, "sea": { "level": 0, "depth": 30 }, "regions": [
                 { "id": "emberholm", "chunks": { "x": -3, "z": -3, "w": 6, "d": 6 } },
                 { "id": "islet", "chunks": { "x": 4, "z": -1, "w": 2, "d": 2 } } ] }"#;
-            WorldMap::from_json(file, |id| if id == "islet" { Some(islet()) } else { zone_recipe(id) }).expect("a world")
+            WorldMap::from_json(file, |id| if id == "islet" { Some(islet()) } else { region_recipe(id) }).expect("a world")
         })
     }
 
@@ -471,7 +471,7 @@ mod tests {
             WorldMap::from_json(file, |id| match id {
                 "fells" => Some(small_region("fells", 11, 1280.0, 1536.0, 190.0, 9.0)),
                 "downs" => Some(small_region("downs", 23, 1792.0, 1536.0, 190.0, 3.0)),
-                _ => zone_recipe(id),
+                _ => region_recipe(id),
             })
             .expect("a world")
         })
@@ -547,7 +547,7 @@ mod tests {
     fn a_region_s_ground_is_its_own_but_within_the_blend_of_its_edge() {
         let w = world_map();
         let blended = &w.zone(w.region("emberholm").expect("Emberholm")).terrain;
-        let grown = generate(&zone_recipe("emberholm").expect("Emberholm")).terrain;
+        let grown = generate(&region_recipe("emberholm").expect("Emberholm")).terrain;
         let n = grown.n;
         let band = (w.blend / grown.cell) as usize;
         let mut changed = 0;
@@ -625,7 +625,7 @@ mod tests {
         let file = r#"{ "chunk": 256, "blend": 64, "sea": { "level": 0, "depth": 30 }, "regions": [
             { "id": "emberholm", "chunks": { "x": -3, "z": -3, "w": 6, "d": 6 } },
             { "id": "emberholm", "chunks": { "x": 2, "z": 0, "w": 2, "d": 2 } } ] }"#;
-        let e = WorldMap::from_json(file, zone_recipe).err().expect("refused");
+        let e = WorldMap::from_json(file, region_recipe).err().expect("refused");
         assert!(e.contains("chunk (2, 0) is another region's"), "{e}");
     }
 }

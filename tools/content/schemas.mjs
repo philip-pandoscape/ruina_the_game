@@ -21,7 +21,7 @@ export function kinds(root = CONTENT) {
     Object.values(v).forEach(look);
   };
   const tops = readdirSync(root).filter((f) => f.endsWith('.json'));
-  for (const d of ['zones']) for (const f of readdirSync(join(root, d)).filter((x) => x.endsWith('.json'))) tops.push(`${d}/${f}`);
+  for (const d of ['regions']) for (const f of readdirSync(join(root, d)).filter((x) => x.endsWith('.json'))) tops.push(`${d}/${f}`);
   for (const t of tops) look(JSON.parse(readFileSync(join(root, t), 'utf8')));
   return [...found].sort();
 }

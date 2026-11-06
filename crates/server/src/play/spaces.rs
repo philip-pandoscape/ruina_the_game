@@ -17,8 +17,7 @@ use std::time::{Duration, Instant};
 use serde_json::{Value, json};
 use tokio::sync::mpsc;
 
-use crate::open::dungeon::{Spot, dungeon};
-use crate::open::zone::emberholm;
+use crate::open::dungeon::{Spot, door_into, dungeon};
 use crate::play::parties::{Changed, Parties};
 use crate::play::{Arrival, ChannelGame, Owner, Save, client};
 
@@ -152,7 +151,7 @@ impl Spaces {
     /// Through a dungeon's portal into the copy that's theirs (made now if there isn't one).
     pub fn enter_dungeon(&mut self, character: i64, id: &str) -> Result<(), String> {
         let def = dungeon(id).ok_or("There's no such place.")?;
-        let door = emberholm().recipe.dungeons.iter().find(|d| d.id == def.id).ok_or("There's no way into that from here.")?;
+        let door = door_into(&def.id).ok_or("There's no way into that from here.")?;
         let g = self.game_ref(character).ok_or("You aren't playing.")?;
         if g.copy_of().is_some() {
             return Err("You're in a dungeon already.".into());
@@ -502,6 +501,7 @@ fn invite_json(inv: Option<(i64, &str, Instant)>) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::open::zone::emberholm;
     use crate::play::Arrival;
 
     /// Ada (1) and Bo (2) playing in channel 1, each with what their browser hears.
@@ -532,7 +532,7 @@ mod tests {
 
     /// Stands someone at Goblin's Dread's portal.
     fn at_the_portal(sp: &mut Spaces, who: i64) {
-        let door = emberholm().recipe.dungeons.iter().find(|d| d.id == "goblinsDread").unwrap();
+        let door = door_into("goblinsDread").unwrap();
         let p = door.portal;
         sp.game_of(who).unwrap().place(who, p.x, p.y, p.z);
     }
@@ -763,7 +763,7 @@ mod tests {
         at_the_exit(&mut sp, 1);
         sp.leave_dungeon(1).unwrap();
         assert_eq!(sp.at[&1], 1, "back in channel 1");
-        let door = emberholm().recipe.dungeons.iter().find(|d| d.id == "goblinsDread").unwrap();
+        let door = door_into("goblinsDread").unwrap();
         let (x, _, z, _) = sp.game_of(1).unwrap().whereabouts(1).unwrap();
         assert!((x - door.outside.x).abs() < 1e-9 && (z - door.outside.z).abs() < 1e-9, "outside the door");
         // Kept for half an hour; back in before then, it's the same copy.
@@ -826,7 +826,7 @@ mod tests {
         let copy = sp.at[&1];
         let island = sp.depart(1, 1).expect("an island to save");
         // Saved as standing outside the door, in case the copy is gone by the time they're back.
-        let door = emberholm().recipe.dungeons.iter().find(|d| d.id == "goblinsDread").unwrap();
+        let door = door_into("goblinsDread").unwrap();
         assert_eq!(island["player"]["x"].as_f64(), Some(door.outside.x));
         let (out, mut rx) = mpsc::channel(256);
         let (_, _, _, space) = sp

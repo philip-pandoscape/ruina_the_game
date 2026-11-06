@@ -1,6 +1,6 @@
 // The pages an admin can reach that players can't (the content library, the design), and the
 // players' own bible beside them. One entry each; the Admin menu (src/ui/admin/adminMenu.ts) lists
-// them after the developer zones (those are content: content/dungeons/, `developer`), and the server
+// them after the developer zones (those are content: content/instances/, `developer`), and the server
 // sends /dev/ and /design/ only to an admin's session (crates/server/src/http.rs). A new page is an
 // entry here and its HTML in dev/.
 

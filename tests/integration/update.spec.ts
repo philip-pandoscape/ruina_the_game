@@ -102,7 +102,7 @@ test('a server update freezes the world and says so, and play carries on where i
 
 test("a server update while you're in a dungeon brings you back outside its door, the cave put away", { tag: '@alone' }, async ({ page }) => {
   // A restarted server has no copies of dungeons: it saved your island as standing outside the door.
-  const door = JSON.parse(readFileSync('shared/zones/emberholm.json', 'utf8')).dungeons.find((d: { id: string }) => d.id === 'goblinsDread');
+  const door = JSON.parse(readFileSync('shared/regions/emberholm.json', 'utf8')).doors.find((d: { id: string }) => d.id === 'goblinsDread');
   await page.goto(`${BASE}/?as=${fresh('dun')}&bugs=0`);
   await playing(page);
   await page.evaluate(([x, z, f]) => window.__game.teleport(x, z, f), [door.outside.x, door.outside.z, door.outside.facing]);

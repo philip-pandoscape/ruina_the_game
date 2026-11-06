@@ -7,14 +7,14 @@ import { onlineReady } from './game';
 import { GameServer, ownServerMissing } from './ownServer';
 import { serverBuilt } from './testServer';
 
-// Fighting other players on the battlefield (content/dungeons/battlefield.json), the developer zone
+// Fighting other players on the battlefield (content/instances/battlefield.json), the developer zone
 // two sides of bots fight across: players on opposite sides, the server deciding every blow. A spec
 // that uses it runs a world server of its own (the battlefield is one copy for every admin, so
 // specs sharing a server would share it), serving the game built as beta has it; on a development
 // server everyone is an admin, so anyone may go in. It needs a database (RUINA_DATABASE_URL), and
 // skips without one.
 
-export const ZONE = JSON.parse(readFileSync('content/dungeons/battlefield.json', 'utf8')) as {
+export const ZONE = JSON.parse(readFileSync('content/instances/battlefield.json', 'utf8')) as {
   exit: { x: number; z: number };
 };
 

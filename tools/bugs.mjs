@@ -454,7 +454,7 @@ function whisperModel() {
 
 /** Names from the game, so whisper spells them right. */
 function vocabulary() {
-  const zone = readJson(join(ROOT, 'shared', 'zones', 'emberholm.json'), {});
+  const zone = readJson(join(ROOT, 'shared', 'regions', 'emberholm.json'), {});
   const names = [...(zone.places ?? []).map((p) => p.name), ...(zone.npcs ?? []).map((n) => n.name)].filter(Boolean);
   return ['Emberholm', ...new Set(names), 'glider', 'roadster', 'sloop', 'cog', 'scarecrow', 'labor', 'trade pack', 'hotbar', 'dummy', 'slime'].join(', ');
 }

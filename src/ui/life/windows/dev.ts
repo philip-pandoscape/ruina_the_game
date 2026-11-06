@@ -15,7 +15,7 @@ export function devView(ui: IslandUI): View {
   const life = ui.life;
   const app = ui.app;
   // The dungeons' doors too (they're no place on the map: the way in is a secret).
-  const doors = (life.zone.recipe.dungeons ?? []).map((d) => small(`${esc(dungeonDef(d.id)?.name ?? d.id)} Door`, 'tp', `door:${d.id}`));
+  const doors = (life.zone.recipe.doors ?? []).map((d) => small(`${esc(dungeonDef(d.id)?.name ?? d.id)} Door`, 'tp', `door:${d.id}`));
   const places = life.zone.recipe.places.map((pl) => small(esc(pl.name), 'tp', pl.id)).join('') + doors.join('');
   return {
     title: 'Developer Tools',
@@ -72,7 +72,7 @@ export function devView(ui: IslandUI): View {
       },
       warp: (s) => ui.command({ t: 'warp', seconds: Number(s) }),
       tp: (id) => {
-        const door = id.startsWith('door:') ? life.zone.recipe.dungeons?.find((d) => d.id === id.slice(5)) : undefined;
+        const door = id.startsWith('door:') ? life.zone.recipe.doors?.find((d) => d.id === id.slice(5)) : undefined;
         if (door) app.onTeleport?.(door.outside.x, door.outside.z, door.outside.facing + Math.PI);
         else {
           const pl = life.zone.recipe.places.find((x) => x.id === id)!;

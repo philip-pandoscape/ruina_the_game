@@ -1,4 +1,4 @@
-// The world: its zones, the places on them, their people, the creatures, and the dungeons.
+// The world: its regions, the places in them, their people, the creatures, and the dungeons.
 
 import { actorKind, actorKindIds, LADDERS } from '../../content/actors';
 import type { AttackDef } from '../../content/attacks';
@@ -22,7 +22,7 @@ const COPY_KEPT = (): number => rustConst(spaces, 'COPY_KEPT');
 const EXPEL_AFTER = (): number => rustConst(spaces, 'EXPEL_AFTER');
 const PARTY_MAX = (): number => rustConst(parties, 'PARTY_MAX');
 
-const ZONES: ZoneRecipe[] = [ZONE];
+const REGIONS: ZoneRecipe[] = [ZONE];
 
 // ---------- the map ----------
 
@@ -47,33 +47,33 @@ function drawMap(root: HTMLElement, all: boolean, mark?: string): void {
 const placeName = (id: string): string => ZONE.places.find((p) => p.id === id)?.name ?? id;
 const linksTo = (paths: string[]): Html | null => (paths.length ? raw(paths.map((p) => link(p).html).join(', ')) : null);
 
-// ---------- zones ----------
+// ---------- regions ----------
 
-export const zones = kind<ZoneRecipe>({
-  id: 'zones',
+export const regions = kind<ZoneRecipe>({
+  id: 'regions',
   section: 'world',
-  title: 'Zones',
-  noun: 'Zone',
+  title: 'Regions',
+  noun: 'Region',
   icon: '🗺️',
-  summary: 'The open worlds you play in: each an island grown from a recipe of coast, hills, roads and places.',
+  summary: 'The lands of the one world you play in: each grown from a recipe of coast, hills, roads and places.',
   sources: [
-    'shared/zones/*.json#id',
-    'shared/zones/*.json#name',
-    'shared/zones/*.json#subtitle',
-    'shared/zones/*.json#seed',
-    'shared/zones/*.json#climate',
-    'shared/zones/*.json#spawn',
-    'shared/zones/*.json#forests',
-    'shared/zones/*.json#scatter',
-    'shared/zones/*.json#farmland',
+    'shared/regions/*.json#id',
+    'shared/regions/*.json#name',
+    'shared/regions/*.json#subtitle',
+    'shared/regions/*.json#seed',
+    'shared/regions/*.json#climate',
+    'shared/regions/*.json#spawn',
+    'shared/regions/*.json#forests',
+    'shared/regions/*.json#scatter',
+    'shared/regions/*.json#farmland',
   ],
   systems: ['world', 'weather'],
-  all: () => ZONES,
+  all: () => REGIONS,
   key: (z) => z.id,
   name: (z) => z.name,
   iconOf: () => '🏝️',
   line: (z) => z.subtitle,
-  explain: (z) => note('zones', z.id),
+  explain: (z) => note('regions', z.id),
   facts: (z) => [
     ['Also called', z.subtitle],
     ['Climate', z.climate.charAt(0).toUpperCase() + z.climate.slice(1)],
@@ -83,7 +83,7 @@ export const zones = kind<ZoneRecipe>({
     ['People', z.npcs.length],
     ['House plots', z.housePlots.length],
     ['Gathering spots', z.nodes.length],
-    ['Dungeons', z.dungeons?.length ?? 0],
+    ['Dungeons', z.doors?.length ?? 0],
     ['Trees', phrase`about one to every ${num(1 / z.scatter.trees, 0)} m² of open grass, thicker in its ${count(z.forests.length, 'forest')}`],
     ['Rocks', phrase`about one to every ${num(1 / z.scatter.rocks, 0)} m² of grass, more on rock and sand`],
   ],
@@ -114,7 +114,7 @@ export const places = kind<ZonePlace>({
   noun: 'Place',
   icon: '📍',
   summary: 'The named places of the island: the village, the farmland, the crag, the trading posts and the wilds.',
-  sources: ['shared/zones/*.json#places', 'shared/zones/*.json#outposts', 'shared/trade.json#places'],
+  sources: ['shared/regions/*.json#places', 'shared/regions/*.json#outposts', 'shared/trade.json#places'],
   systems: ['world', 'trade'],
   all: () => ZONE.places,
   key: (p) => p.id,
@@ -129,7 +129,7 @@ export const places = kind<ZonePlace>({
     const benches = ZONE.workbenches.filter((b) => b.place === p.id);
     const post = ZONE.outposts.find((o) => o.id === p.id);
     const spots = ZONE.nodes.filter((n) => near(n.x, n.z));
-    const doors = (ZONE.dungeons ?? []).filter((d) => near(d.portal.x, d.portal.z));
+    const doors = (ZONE.doors ?? []).filter((d) => near(d.portal.x, d.portal.z));
     return [
       ['Kind', p.kind.charAt(0).toUpperCase() + p.kind.slice(1)],
       ['People', people.length ? raw(people.map((n) => npcLink(n.id).html).join(', ')) : null],
@@ -169,7 +169,7 @@ export const npcs = kind<ZoneNpc>({
   noun: 'Person',
   icon: '🧑',
   summary: 'The townsfolk of the island: who they are, where they stand, what they sell, make and ask of you.',
-  sources: ['shared/zones/*.json#npcs'],
+  sources: ['shared/regions/*.json#npcs'],
   systems: ['quests', 'economy'],
   all: () => ZONE.npcs,
   key: (n) => n.id,
@@ -299,7 +299,7 @@ export const dungeons = kind<DungeonDef>({
   noun: 'Dungeon',
   icon: '🕳️',
   summary: 'Places a party enters together, each party in a copy of its own.',
-  sources: ['shared/dungeons.json#dungeons', 'shared/zones/*.json#dungeons'],
+  sources: ['shared/instances.json#instances', 'shared/regions/*.json#doors'],
   systems: ['parties'],
   // The developer zones (the yard, the battlefield) are dungeons too, entered from the Admin menu: not for players' eyes.
   all: () => Object.values(DUNGEONS).filter((d) => !d.developer),
@@ -309,7 +309,7 @@ export const dungeons = kind<DungeonDef>({
   line: (d) => `A dungeon for up to ${d.maxPlayers} players.`,
   explain: (d) => note('dungeons', d.id),
   facts: (d) => {
-    const door = ZONE.dungeons?.find((x) => x.id === d.id);
+    const door = ZONE.doors?.find((x) => x.id === d.id);
     return [
       ['A copy holds', count(d.maxPlayers, 'player')],
       ['Its door', door ? phrase`${metres(door.portal.y)} up, near ${placeLink(nearestPlace(door.portal.x, door.portal.z).id)}` : null],

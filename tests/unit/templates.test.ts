@@ -38,7 +38,7 @@ const FOLDER: Record<string, string> = {
   ladder: 'ladders',
   behaviour: 'behaviours',
   creature: 'creatures',
-  dungeon: 'dungeons',
+  instance: 'instances',
 };
 
 /** Kinds with no template, and why: a new one of them needs code today. */
@@ -84,14 +84,14 @@ test('every template fits its kind', () => {
     }
     for (const k of schema.required) if (!(k in t)) wrong.push(`${f}: no ${k}, which every one of ${folder} has`);
   }
-  // An entry for each of the island's lists, with the fields its entries have.
-  const zone = (list: string) => read(`content/zones/emberholm/${list}.json`) as Array<Record<string, unknown>>;
-  for (const f of readdirSync(join(T, 'zone'))) {
-    const list = zone(f.replace(/\.json$/, ''));
-    const t = read(join(T, 'zone', f));
+  // An entry for each of a region's lists, with the fields Emberholm's entries have.
+  const region = (list: string) => read(`content/regions/emberholm/${list}.json`) as Array<Record<string, unknown>>;
+  for (const f of readdirSync(join(T, 'region'))) {
+    const list = region(f.replace(/\.json$/, ''));
+    const t = read(join(T, 'region', f));
     const fields = new Set(list.flatMap((x) => Object.keys(x)));
-    for (const k of Object.keys(t)) if (!fields.has(k)) wrong.push(`zone/${f}: ${k} isn't a field of its entries`);
-    for (const k of fields) if (list.every((x) => k in x) && !(k in t)) wrong.push(`zone/${f}: no ${k}, which every entry has`);
+    for (const k of Object.keys(t)) if (!fields.has(k)) wrong.push(`region/${f}: ${k} isn't a field of its entries`);
+    for (const k of fields) if (list.every((x) => k in x) && !(k in t)) wrong.push(`region/${f}: no ${k}, which every entry has`);
   }
   expect(wrong).toEqual([]);
 });
@@ -128,11 +128,11 @@ test('copied in together, the templates build: every reference they make is foun
   for (const [id, own] of Object.entries(COMPANIONS)) add('items', id, { ...item, id, ...own });
   mkdirSync(join(root, 'creatures/newCreature'), { recursive: true });
   for (const part of readdirSync(join(T, 'creature'))) cpSync(join(T, 'creature', part), join(root, 'creatures/newCreature', part));
-  for (const f of readdirSync(join(T, 'zone'))) {
-    const p = join(root, 'zones/emberholm', f);
-    writeFileSync(p, JSON.stringify([...read(p), read(join(T, 'zone', f))]));
+  for (const f of readdirSync(join(T, 'region'))) {
+    const p = join(root, 'regions/emberholm', f);
+    writeFileSync(p, JSON.stringify([...read(p), read(join(T, 'region', f))]));
   }
   const bundles = build(root);
-  expect((bundles.get('zones/emberholm.json') as { npcs: Array<{ id: string }> }).npcs.some((n) => n.id === 'newPerson')).toBe(true);
+  expect((bundles.get('regions/emberholm.json') as { npcs: Array<{ id: string }> }).npcs.some((n) => n.id === 'newPerson')).toBe(true);
   expect((bundles.get('creatures.json') as { creatures: Array<{ id: string }> }).creatures.map((c) => c.id)).toContain('newCreature');
 });

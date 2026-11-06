@@ -86,7 +86,7 @@ export const farming = system({
     'shared/farming.json#witherAfterRipe',
     'shared/farming.json#crops',
     'shared/farming.json#gathering',
-    'shared/zones/*.json#nodes',
+    'shared/regions/*.json#nodes',
   ],
   body: () => {
     const r = rules();

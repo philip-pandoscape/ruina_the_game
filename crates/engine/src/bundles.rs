@@ -9,7 +9,7 @@ use std::sync::OnceLock;
 static GIVEN: OnceLock<BTreeMap<String, String>> = OnceLock::new();
 
 /// Gives bundles to read in place of the compiled ones, each by its path under shared/
-/// ("items.json", "zones/emberholm.json"). Only before the first read: false once anything has been
+/// ("items.json", "regions/emberholm.json"). Only before the first read: false once anything has been
 /// read, or bundles were given already.
 pub fn give(bundles: BTreeMap<String, String>) -> bool {
     GIVEN.set(bundles).is_ok()

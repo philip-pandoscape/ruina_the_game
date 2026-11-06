@@ -1,10 +1,10 @@
-import data from '../../../shared/dungeons.json' with { type: 'json' };
+import data from '../../../shared/instances.json' with { type: 'json' };
 import { inRect } from './colliders';
 import { rect } from './frames';
 import type { DungeonDoor, ZoneRecipe } from './types';
 
-// The world's instances: its dungeons and the developer zones (content/dungeons/<id>.json, built
-// into shared/dungeons.json; docs/zones.md). Each party plays its own copy of one, a space of its
+// The world's instances: its dungeons and the developer zones (content/instances/<id>.json, built
+// into shared/instances.json; docs/zones.md). Each party plays its own copy of one, a space of its
 // own (crates/server/src/play/spaces.rs; offline the Engine plays it in place of the world while
 // you're inside, src/engine/engine.ts): everything in it stands round its own origin, over nothing,
 // and its floors and walls are all that's solid there (crates/engine/src/open/dungeon.rs). These
@@ -53,16 +53,16 @@ export interface DungeonDef {
   spawns?: Array<{ kind: string; x: number; z: number; band?: boolean; count?: number }>;
 }
 
-/** Every dungeon and developer zone, by id, in the order content/dungeons/_order.json lists them. */
-export const DUNGEONS: Record<string, DungeonDef> = Object.fromEntries((data.dungeons as unknown as DungeonDef[]).map((d) => [d.id, d]));
+/** Every dungeon and developer zone, by id, in the order content/instances/_order.json lists them. */
+export const DUNGEONS: Record<string, DungeonDef> = Object.fromEntries((data.instances as unknown as DungeonDef[]).map((d) => [d.id, d]));
 
 export function dungeonDef(id: string): DungeonDef | undefined {
   return DUNGEONS[id];
 }
 
-/** A dungeon's door in the open world (its portal, and where you come out), from the zone's recipe. */
+/** A dungeon's door in the open world (its portal, and where you come out), from its region's recipe. */
 export function dungeonDoor(recipe: ZoneRecipe, id: string): DungeonDoor | undefined {
-  return recipe.dungeons?.find((d) => d.id === id);
+  return recipe.doors?.find((d) => d.id === id);
 }
 
 /**

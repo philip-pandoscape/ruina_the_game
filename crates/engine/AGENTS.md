@@ -8,7 +8,7 @@ for one page, with every change from outside as a named call.
 | Module | What |
 |---|---|
 | `player.rs`, `skills.rs`, `tuning.rs` | A player's step: movement, combos, abilities, vitals; the skill tree and builds, kept by id (`saved_build`, `build_from_saved`; those kept by index before read through `shared/buildsByIndex.json`); the numbers from `shared/tuning.json`. |
-| `open/` | The island: its ground and surfaces (`zone.rs`, grown from the zone's recipe by `generate.rs` the first time anything asks), colliders (`colliders.rs`), traversal (`traverse.rs`: climbing, gliding, swimming), dungeons and developer zones (`dungeon.rs`, from `shared/dungeons.json`). |
+| `open/` | The world: its map of regions on chunks (`map.rs`, from `shared/world.json`), each region's ground and surfaces (`zone.rs`, grown from its recipe, `shared/regions/<id>.json`, by `generate.rs` the first time anything asks), colliders (`colliders.rs`), traversal (`traverse.rs`: climbing, gliding, swimming), and the instances, dungeons and developer zones, each a space of its own (`dungeon.rs`, from `shared/instances.json`). |
 | `actor.rs`, `actors.rs`, `ai.rs`, `pack.rs`, `missiles.rs`, `content.rs`, `creatures.rs` | Creatures: their kinds (`shared/actors.json`, `shared/creatures.json`), brains (`shared/behaviours.json` and each creature's), packs, missiles, hits. `content.rs` also has the content's hash (`shared/hash.json`), which the server sends in its welcome. |
 | `bots.rs` | Bots: brains that fill a player's inputs (`docs/zones.md`). |
 | `life/` | The island's life systems: state, trade, farming, livestock, housing, the shipyard, vehicles, contracts, quests, progress, weather; commands in (`life::Command`), events out. |

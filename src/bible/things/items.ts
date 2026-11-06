@@ -224,7 +224,7 @@ export const workbenches = kind<Bench>({
   noun: 'Workbench',
   icon: '🧰',
   summary: 'Where local goods are packed into trade packs and building materials.',
-  sources: ['shared/zones/*.json#workbenches'],
+  sources: ['shared/regions/*.json#workbenches'],
   systems: ['trade'],
   all: () => ZONE.workbenches as Bench[],
   key: (b) => b.id,

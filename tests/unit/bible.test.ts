@@ -122,7 +122,7 @@ test('every key of every content file is drawn on by a system or a kind of thing
   const keys: string[] = [];
   for (const f of files('shared', '.json')) {
     const data = JSON.parse(readFileSync(join(ROOT, f), 'utf8')) as Record<string, unknown>;
-    // A file in a folder of its own kind (zones, dungeons, creatures) stands for all of them.
+    // A file in a folder of its own kind (regions, creatures) stands for all of them.
     const name = /^shared\/[^/]+\//.test(f) ? f.replace(/[^/]+\.json$/, '*.json') : f;
     for (const k of Object.keys(data)) if (k !== 'comment') keys.push(`${name}#${k}`);
   }

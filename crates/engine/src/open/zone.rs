@@ -1,4 +1,4 @@
-//! A zone as the rules see it: its recipe (shared/zones/, built from content/zones/) and what the
+//! A zone as the rules see it: its recipe (shared/regions/, built from content/regions/) and what the
 //! generator (generate.rs) grows from it: the ground, what each patch of it is made of, which cells
 //! are kept clear, and the trees, rocks, walls and decks. Emberholm is grown the first time anything
 //! asks (about a tenth of a second). The browser grows it with this same code, through the
@@ -367,9 +367,9 @@ pub struct Recipe {
     pub updrafts: Vec<Updraft>,
     #[serde(default)]
     pub shipyards: Vec<Shipyard>,
-    /// The doors of the island's dungeons (open/dungeon.rs).
+    /// The doors into the dungeons in it (open/dungeon.rs), each named for the instance it opens into.
     #[serde(default)]
-    pub dungeons: Vec<DungeonDoor>,
+    pub doors: Vec<DungeonDoor>,
     pub sky: Sky,
     pub slimes: Slimes,
     pub dummy: Point,
@@ -403,9 +403,9 @@ impl Zone {
     }
 }
 
-/// Emberholm's recipe (shared/zones/emberholm.json, built from content/zones/).
+/// Emberholm's recipe (shared/regions/emberholm.json, built from content/regions/).
 pub fn emberholm_recipe() -> Recipe {
-    super::map::zone_recipe("emberholm").expect("shared/zones/emberholm.json")
+    super::map::region_recipe("emberholm").expect("shared/regions/emberholm.json")
 }
 
 /// Emberholm, the starter isle and the world's first region, grown the first time anything asks.

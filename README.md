@@ -37,7 +37,7 @@ rules' formulas and the terrain generator), so it is always current and there is
   in Postgres (`crates/server/migrations/`); and the PvP battlefield, which decides all hits, runs bots,
   sends each player only what's near them, and rewinds time for lag compensation
 - `shared/tuning.json`: gameplay numbers, read by both the browser and the server
-- `shared/zones/`, `shared/{vehicles,trade,farming,housing,items,quests,structures,traversal}.json`:
+- `shared/regions/`, `shared/{vehicles,trade,farming,housing,items,quests,structures,traversal}.json`:
   the open world's content. The engine grows the island from a zone recipe
   (`crates/engine/src/open/generate.rs`) and runs trade, farming, housing, vehicles and quests
   (`crates/engine/src/life/`); `src/render/open/` and `src/render/models/`

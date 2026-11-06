@@ -8,10 +8,10 @@ import { items, recipes, vendors, workbenches } from './items';
 import { blueprints, buildings, minigames, quests } from './places';
 import { gliders, mounts, ships, vehicles } from './rides';
 import { packs } from './trade';
-import { creatures, dungeons, npcs, places, zones } from './world';
+import { creatures, dungeons, npcs, places, regions } from './world';
 
 export const KINDS: ReadonlyArray<KindDef<any>> = [
-  zones,
+  regions,
   places,
   npcs,
   creatures,
