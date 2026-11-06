@@ -47,12 +47,12 @@ export function ridesView(ui: IslandUI): View {
     body: listHtml(rows || '<p>You own no vehicles yet. Bertram (carts and cars), Captain Ilsa (boats) and Sela (mounts) are in Lanternwick.</p>'),
     handlers: {
       summon: (item) => {
-        life.command({ t: 'summon', item });
+        ui.command({ t: 'summon', item });
         ui.finish();
       },
-      recall: (id) => life.command({ t: 'recall', vehicle: Number(id) }),
+      recall: (id) => ui.command({ t: 'recall', vehicle: Number(id) }),
       mount: () => {
-        life.command({ t: 'mount' });
+        ui.command({ t: 'mount' });
         ui.finish();
       },
     },

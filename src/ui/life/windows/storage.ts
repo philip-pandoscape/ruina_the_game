@@ -34,8 +34,8 @@ export function storageView(ui: IslandUI, houseId: number): View {
     h: 520,
     body: `<div class="lui-cols"><div><div class="h">Your Bag</div>${listHtml(list(life.state.bag, 'store'))}</div><div><div class="h">Chest</div>${listHtml(list(h.storage, 'take'))}</div></div>`,
     handlers: {
-      store: (item) => life.command({ t: 'store', house: houseId, item, n: life.count(item) }),
-      take: (item) => life.command({ t: 'take', house: houseId, item, n: 9999 }),
+      store: (item) => ui.command({ t: 'store', house: houseId, item, n: life.count(item) }),
+      take: (item) => ui.command({ t: 'take', house: houseId, item, n: 9999 }),
     },
   };
 }

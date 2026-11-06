@@ -2,7 +2,7 @@ import type * as THREE from 'three';
 import type { AutoWalk } from '../../input/autoWalk';
 import { packDef } from '../../content/trade';
 import type { Vitals } from '../hud';
-import { housePose, stillNeeds, type Life, type LifeEvent } from '../../engine/island';
+import { housePose, stillNeeds, type Command, type Life, type LifeEvent } from '../../engine/island';
 import type { Sim, World } from '../../engine/rules';
 import { DockedWindow, type View } from '../components/window';
 import { closeMenu, menuPress } from '../theme/contextMenu';
@@ -65,6 +65,8 @@ export type LifePress =
 
 export interface LifeUIDeps {
   life: Life;
+  /** Gives the island a command (the app notes it for bug reports and passes it to the rules). */
+  command: (c: Command) => void;
   sim: Sim;
   world: World;
   camera: () => THREE.Camera;
@@ -128,6 +130,7 @@ export class LifeUI {
     const root = uiRoot();
     this.ui = {
       life: d.life,
+      command: (c) => this.command(c),
       sim: d.sim,
       world: d.world,
       app: this,
@@ -230,6 +233,11 @@ export class LifeUI {
     return this.d.life;
   }
 
+  /** Gives the island a command: the app passes it on to the rules (online, to the server too). */
+  command(c: Command): void {
+    this.d.command(c);
+  }
+
   /** Your health, MP and stamina, for the vitals beside your portrait and the character window. */
   setVitals(v: Vitals): void {
     this.vit = v;
@@ -246,7 +254,7 @@ export class LifeUI {
     if (k === 'escape') {
       if (this.panel) return this.close();
       if (this.bagOpen) return this.closeBag();
-      if (life.placing) return life.command({ t: 'cancelPlace' });
+      if (life.placing) return this.command({ t: 'cancelPlace' });
       return;
     }
     // The map takes over; with anything else open the world keys still work.
@@ -258,21 +266,21 @@ export class LifeUI {
         const f = life.focus;
         // Doing something here means stopping here (the glider's gust aside).
         this.travel?.interrupt(p.mode === 'glide');
-        if (p.mode === 'ride') life.command({ t: 'exit' });
-        else if (p.mode === 'glide') life.command({ t: 'gust' });
+        if (p.mode === 'ride') this.command({ t: 'exit' });
+        else if (p.mode === 'glide') this.command({ t: 'gust' });
         // Someone else's vehicle isn't on your island: say whose, and the channel seats you.
-        else if (f?.action === 'ride' && f.host && f.vehicle) life.command({ t: 'ride', host: f.host, vehicle: f.vehicle });
-        else life.command({ t: 'interact' });
+        else if (f?.action === 'ride' && f.host && f.vehicle) this.command({ t: 'ride', host: f.host, vehicle: f.vehicle });
+        else this.command({ t: 'interact' });
         return;
       }
       case 'drop':
-        return life.command({ t: 'drop' });
+        return this.command({ t: 'drop' });
       case 'mount':
-        return life.command({ t: 'mount' });
+        return this.command({ t: 'mount' });
       case 'glider':
-        return life.command({ t: 'glider' });
+        return this.command({ t: 'glider' });
       case 'seed':
-        return life.command({ t: 'cycleSeed' });
+        return this.command({ t: 'cycleSeed' });
       case 'bag':
         return this.bagOpen ? this.closeBag() : this.openBag();
       case 'map':

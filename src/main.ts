@@ -15,7 +15,7 @@ import { actorKindAt, actorKindIds, actorKindIndex, findKind, kindName } from '.
 import { isAlive, behaviour, stateProgress } from './engine/creatures';
 import { NO_ACTIONS, type Actions, type GameEvent, type PlayerState, angleDiff, heightAboveGround } from './engine/rules';
 import { dungeonDef, groundAt, inRect, type BoxCollider, type Deck } from './engine/zone';
-import { type Life, type FocusAction, ridden, hourAt, hourOfDay, skillBudget, trainedBy } from './engine/island';
+import { type Life, type FocusAction, ridden, hourAt, hourOfDay, skillBudget, trainedBy, type Command } from './engine/island';
 import { Aiming } from './app/aiming';
 import { Hud } from './ui/hud';
 import { Stage, TRAINING_STAGE } from './render/scene';
@@ -26,7 +26,7 @@ import { OpenStage } from './render/open/stage';
 import { loadModels } from './render/open/models';
 import { Engine } from './engine/engine';
 import { LifeView, sitIn } from './render/open/life';
-import { LifeUI } from './ui/life/lifeUI';
+import { LifeUI, type LifePress } from './ui/life/lifeUI';
 import { clearLife, savedIsland } from './app/save';
 import { goOnline } from './app/online';
 import { readOptions } from './app/options';
@@ -118,6 +118,19 @@ let build: Build = online ? (parseBuild(online.welcome.build, Infinity) ?? defau
 // without the training dummy and hit pause, and only predict your own moves.
 const engine = new Engine({ openWorld, online: !!online, goblins: opt.goblins, build });
 const { world, terrain, sim, range } = engine;
+
+// Online, what the server says of the world (you, monsters, arrows, meteors, effects), timed to be
+// drawn; inputs go out over the world link.
+const net = online ? new WorldFeed((seq, view, raw, stick) => online.link.sendInput(seq, view, [...raw, ...stick])) : null;
+const netSpells = net ? new NetSpells(net, resolveSkills(build.skills)) : null;
+// Online play: your hero is predicted here and corrected by the server; other players are drawn
+// from the server's updates (WorldPeers, with their vehicles and gliders).
+const prediction = net ? new Prediction(engine, net) : null;
+/**
+ * Online, while the server is away (being updated, or the connection dropped): no rules steps,
+ * nothing pressed counts, and the last frame stays up under the screen that says so.
+ */
+let frozen = false;
 const serverRules = engine.online;
 /** Ground height under a point: a copy's floor where you're in one, the island's terrain, or 0 on the flat training grounds. */
 const groundY = (x: number, z: number): number => engine.groundY(x, z);
@@ -270,14 +283,11 @@ let bugs: BugReporter | null = null;
 
 // ---------- The open world's life systems: trade, farming, housing, vehicles, quests ----------
 const life = engine.life;
-if (life) {
-  // Every command the island is given goes into a bug report's event log.
-  const command = life.command.bind(life);
-  life.command = (c) => {
-    const { t, ...rest } = c;
-    bugs?.note('command', { type: t, ...rest });
-    command(c);
-  };
+/** Gives the island a command, noted in a bug report's event log: the windows' commands come through here. */
+function islandCommand(c: Command): void {
+  const { t, ...rest } = c;
+  bugs?.note('command', { type: t, ...rest });
+  engine.command(c);
 }
 input.worldMode = !!life;
 if (terrain) {
@@ -291,7 +301,16 @@ if (lifeView && openStage) lifeView.houseSink = (houses) => openStage.village.se
 // Auto-run (H) and travel by road from the map: it only makes the controls, so it works online too.
 const walker = life ? new AutoWalk({ sim, world, life }) : null;
 const lifeUI = life
-  ? new LifeUI({ life, sim, world, camera: () => follow.camera, yaw: () => follow.yaw, device: () => input.lastDevice, walk: walker ?? undefined })
+  ? new LifeUI({
+      life,
+      command: islandCommand,
+      sim,
+      world,
+      camera: () => follow.camera,
+      yaw: () => follow.yaw,
+      device: () => input.lastDevice,
+      walk: walker ?? undefined,
+    })
   : null;
 // Online: everyone else in your channel of Emberholm, the plots they hold, and whether this server
 // offers the developer panel.
@@ -345,7 +364,6 @@ const party =
 if (party && lifeUI) lifeUI.addMenuButton('party', uiIcon('party', 34), 'Party', 'O');
 // The Admin menu, for admins only (the server says who): Developer Tools, the developer zones and pages.
 if (online?.welcome.dev && lifeUI) lifeUI.addMenuButton('admin', uiIcon('mallet', 34), 'Admin', '');
-if (lifeUI && (minigames || party)) lifeUI.intercept = (k) => !!minigames?.intercept(k) || !!party?.intercept(k);
 // ---------- Goblin's Dread: into a copy of a dungeon and out again (src/app/dungeonVisit.ts) ----------
 const visit = life
   ? new DungeonVisit({
@@ -383,17 +401,15 @@ function onPortal(enter: boolean, dungeon: string): void {
   if (enter) visit.enterDungeonHere(dungeon, true);
   else visit.leaveDungeonHere(true);
 }
-if (lifeUI && life) {
-  const before = lifeUI.intercept;
-  lifeUI.intercept = (k) => {
-    const f = life.focus;
-    if (k === 'interact' && (f?.action === 'enterDungeon' || f?.action === 'leaveDungeon')) {
-      if (f.ok && f.dungeon) onPortal(f.action === 'enterDungeon', f.dungeon);
-      return true;
-    }
-    return before?.(k) ?? false;
-  };
+/** F at a dungeon's portal or its way out: through it (online, the server takes you). */
+function portalPress(k: LifePress): boolean {
+  const f = life?.focus;
+  if (k !== 'interact' || (f?.action !== 'enterDungeon' && f?.action !== 'leaveDungeon')) return false;
+  if (f.ok && f.dungeon) onPortal(f.action === 'enterDungeon', f.dungeon);
+  return true;
 }
+// A key the island's windows would take goes first to a dungeon's portal, then a mini-game, then the party window.
+if (lifeUI) lifeUI.intercept = (k) => portalPress(k) || !!minigames?.intercept(k) || !!party?.intercept(k);
 // ---------- end Goblin's Dread ----------
 if (peersView && gameTables) peersView.stoolFor = (id) => gameTables.seatOf(id);
 if (online && peers && life && minigames) {
@@ -624,10 +640,6 @@ const NAMES: Record<string, string> = {
   ...Object.fromEntries(actorKindIds().flatMap((id) => (kindName(id) ? [[id, kindName(id)!]] : []))),
 };
 
-// Online, what the server says of the world (you, monsters, arrows, meteors, effects), timed to be
-// drawn; inputs go out over the world link.
-const net = online ? new WorldFeed((seq, view, raw, stick) => online.link.sendInput(seq, view, [...raw, ...stick])) : null;
-const netSpells = net ? new NetSpells(net, resolveSkills(build.skills)) : null;
 // The server's monsters: drawn between its updates, at the moment other players are drawn
 // (shownActors), and as it has them now (presentActors) for what has to be on time - warnings, and
 // guessing whether your swing connects. NetMonsters gives online hits their sparks and flashes.
@@ -635,9 +647,6 @@ const netMonsters = net ? new NetMonsters(groundY) : null;
 let shownActors: NetActor[] = [];
 let presentActors: NetActor[] = [];
 const shownById = new Map<number, NetActor>();
-// Online play: your hero is predicted here and corrected by the server; other players are drawn
-// from the server's updates (WorldPeers, with their vehicles and gliders).
-const prediction = net ? new Prediction(engine, net) : null;
 let lastSnapshot = 0;
 let lastHp: number = COMBAT.maxHp;
 /** The side your hero's colours show: only a developer zone's side changes it (on the island everyone is on one). */
@@ -1138,11 +1147,6 @@ const perfs = new Perf(
 // ---------- Main loop ----------
 
 let paused = testMode;
-/**
- * Online, while the server is away (being updated, or the connection dropped): no rules steps,
- * nothing pressed counts, and the last frame stays up under the screen that says so.
- */
-let frozen = false;
 let acc = 0;
 let last = performance.now();
 let lastStats = 0;
@@ -1407,6 +1411,9 @@ const refs = {
   },
   get engine() {
     return engine;
+  },
+  get islandCommand() {
+    return islandCommand;
   },
   get sim() {
     return sim;

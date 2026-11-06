@@ -118,11 +118,11 @@ export class BagWindow {
       const v = vendorFor(p.id);
       const who = life.zone.recipe.npcs.find((n) => n.id === p.id)?.name.split(' ')[0] ?? 'They';
       if (v?.buys.includes(item)) {
-        trade.push({ label: 'Sell One', run: () => life.command({ t: 'sell', npc: p.id, item, n: 1 }) });
-        if (st.n > 1) trade.push({ label: 'Sell All', run: () => life.command({ t: 'sell', npc: p.id, item, n: 9999 }) });
+        trade.push({ label: 'Sell One', run: () => this.ui.command({ t: 'sell', npc: p.id, item, n: 1 }) });
+        if (st.n > 1) trade.push({ label: 'Sell All', run: () => this.ui.command({ t: 'sell', npc: p.id, item, n: 9999 }) });
       } else trade.push({ label: 'Sell', disabled: `${who} doesn't buy this` });
     } else if (p?.kind === 'storage') {
-      trade.push({ label: 'Store in Chest', run: () => life.command({ t: 'store', house: Number(p.id), item, n: life.count(item) }) });
+      trade.push({ label: 'Store in Chest', run: () => this.ui.command({ t: 'store', house: Number(p.id), item, n: life.count(item) }) });
     } else if (def.cat === 'produce' || def.cat === 'material') {
       out.push({ label: 'Sell', disabled: 'Talk to a merchant who buys it' });
     }
@@ -133,7 +133,7 @@ export class BagWindow {
   }
 
   private use(item: string): void {
-    this.ui.life.command({ t: 'use', item });
+    this.ui.command({ t: 'use', item });
     const cat = itemDef(item).cat;
     // Out of the way of the world: you walk off to place it, or get on what you called.
     if (cat === 'deed' || cat === 'placeable' || cat === 'mount') this.ui.finish(true);

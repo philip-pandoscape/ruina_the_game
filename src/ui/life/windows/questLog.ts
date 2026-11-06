@@ -94,7 +94,7 @@ export class QuestLog {
         },
         abandon: (id) => {
           this.abandonAsk = '';
-          life.command({ t: 'abandon', quest: id });
+          ui.command({ t: 'abandon', quest: id });
           ui.redraw();
         },
         track: (id) => {

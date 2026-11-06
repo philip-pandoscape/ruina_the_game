@@ -1,5 +1,4 @@
 import { itemDef, vendorFor } from '../../../content/items';
-import type { Life } from '../../../engine/island';
 import { esc } from '../../../util/html';
 import { buttonHtml } from '../../components/button';
 import { slotHtml } from '../../components/slot';
@@ -77,7 +76,7 @@ export function shopView(ui: IslandUI, npcId: string, tab: ShopTab): View {
     .filter(Boolean)
     .join(', ');
   const menu = (act: 'buy' | 'sell' | 'buyback') => (item: string, b: HTMLElement, e: MouseEvent) =>
-    shopMenu(life, npcId, act, item, b.hasAttribute('disabled'), e.clientX, e.clientY);
+    shopMenu(ui, npcId, act, item, b.hasAttribute('disabled'), e.clientX, e.clientY);
   return {
     title: v.name,
     sub: esc(n.title),
@@ -90,11 +89,11 @@ export function shopView(ui: IslandUI, npcId: string, tab: ShopTab): View {
     foot: `<span>${money(s.coins)}&nbsp; ${uiIcon('seal', 18)} <b>${s.seals}</b></span><span style="display:flex;gap:12px">${buttonHtml('Sell All Produce', 'sellall', { small: true })}${buttonHtml('Back', 'back', { small: true })}</span>`,
     handlers: {
       tab: (t) => ui.open({ kind: 'shop', id: npcId, tab: t as ShopTab }),
-      buy: (item, e) => life.command({ t: 'buy', npc: npcId, item, n: e?.shiftKey && itemDef(item).stack > 1 ? 5 : 1 }),
-      sell: (item, e) => life.command({ t: 'sell', npc: npcId, item, n: e?.shiftKey ? 9999 : 1 }),
-      buyback: (item, e) => life.command({ t: 'buyback', npc: npcId, item, n: e?.shiftKey ? 9999 : 1 }),
+      buy: (item, e) => ui.command({ t: 'buy', npc: npcId, item, n: e?.shiftKey && itemDef(item).stack > 1 ? 5 : 1 }),
+      sell: (item, e) => ui.command({ t: 'sell', npc: npcId, item, n: e?.shiftKey ? 9999 : 1 }),
+      buyback: (item, e) => ui.command({ t: 'buyback', npc: npcId, item, n: e?.shiftKey ? 9999 : 1 }),
       sellall: () => {
-        for (const i of v.buys) if (life.count(i) > 0 && itemDef(i).cat === 'produce') life.command({ t: 'sell', npc: npcId, item: i, n: 9999 });
+        for (const i of v.buys) if (life.count(i) > 0 && itemDef(i).cat === 'produce') ui.command({ t: 'sell', npc: npcId, item: i, n: 9999 });
       },
       back: () => ui.open({ kind: 'dialog', id: npcId }),
     },
@@ -103,9 +102,9 @@ export function shopView(ui: IslandUI, npcId: string, tab: ShopTab): View {
 }
 
 /** A merchant's item, right-clicked: buy or sell one, or a handful. */
-function shopMenu(life: Life, npc: string, act: 'buy' | 'sell' | 'buyback', item: string, cant: boolean, x: number, y: number): void {
+function shopMenu(ui: IslandUI, npc: string, act: 'buy' | 'sell' | 'buyback', item: string, cant: boolean, x: number, y: number): void {
   const def = itemDef(item);
-  const go = (t: 'buy' | 'sell' | 'buyback', n: number) => () => life.command({ t, npc, item, n });
+  const go = (t: 'buy' | 'sell' | 'buyback', n: number) => () => ui.command({ t, npc, item, n });
   const broke = cant ? 'Not enough money' : undefined;
   const entries: MenuEntry[] =
     act === 'buy'

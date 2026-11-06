@@ -40,18 +40,18 @@ export function dialogView(ui: IslandUI, npcId: string, questId?: string, trade?
     quest: (id) => ui.open({ kind: 'dialog', id: npcId, quest: id }),
     back: () => ui.open({ kind: 'dialog', id: npcId }),
     accept: (id) => {
-      life.command({ t: 'accept', quest: id });
+      ui.command({ t: 'accept', quest: id });
       ui.open({ kind: 'dialog', id: npcId });
     },
     complete: (id) => {
-      life.command({ t: 'complete', quest: id });
+      ui.command({ t: 'complete', quest: id });
       ui.open({ kind: 'dialog', id: npcId });
     },
     shop: () => ui.open({ kind: 'shop', id: npcId, tab: 'buy' }),
     trade: () => ui.open({ kind: 'dialog', id: npcId, trade: true }),
     craft: (id) => ui.open({ kind: 'craft', id }),
-    contract: (id) => life.command({ t: 'contract', id: Number(id) }),
-    sellpack: () => life.command({ t: 'interact' }),
+    contract: (id) => ui.command({ t: 'contract', id: Number(id) }),
+    sellpack: () => ui.command({ t: 'interact' }),
   };
   // One quest and nothing else to talk about: open it straight away.
   const only = [...qa.turnIn, ...qa.offer];

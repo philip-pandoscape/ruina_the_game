@@ -394,7 +394,7 @@ export function makeTestApi(g: GameRefs) {
     },
     /** Queues a life command (it runs on the next sim step). */
     lifeCommand(c: Parameters<Life['command']>[0]): void {
-      g.life?.command(c);
+      g.islandCommand(c);
     },
     /**
      * Online, an admin's bots: `n` more of `brain` (skirmisher, wanderer) round you on side `team`,

@@ -129,6 +129,11 @@ export class Engine {
     return events;
   }
 
+  /** A command for the island, run on the next step (online, it goes to the server too: the island's remote hook). */
+  command(c: Command): void {
+    this.life?.command(c);
+  }
+
   /** Your skill levels (in the yard, from the experience earned there; on the island, from your quests). */
   setLevels(levels: Levels): void {
     this.sim.levels = levels;

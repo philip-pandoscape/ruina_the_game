@@ -41,10 +41,10 @@ export function devView(ui: IslandUI): View {
       ${app.onBugReport ? `<div class="h">Bug Report</div>${small('Record a Bug Report', 'bug')}<div class="note">Or press <b>${esc(app.bugKey())}</b> any time (click both sticks on a controller). It keeps the last 30 seconds of play, then records your voice and the screen until you press it again.</div>` : ''}</div>`,
     handlers: {
       grant: (what) => {
-        const g = (item: string, n = 1) => life.command({ t: 'grant', item, n });
-        if (what === 'coins') life.command({ t: 'grant', coins: 10000 });
-        if (what === 'seals') life.command({ t: 'grant', seals: 10 });
-        if (what === 'labor') life.command({ t: 'grant', labor: 500 });
+        const g = (item: string, n = 1) => ui.command({ t: 'grant', item, n });
+        if (what === 'coins') ui.command({ t: 'grant', coins: 10000 });
+        if (what === 'seals') ui.command({ t: 'grant', seals: 10 });
+        if (what === 'labor') ui.command({ t: 'grant', labor: 500 });
         if (what === 'seeds')
           ['seed.sunroot', 'seed.barley', 'seed.flax', 'seed.emberberry'].forEach((s) => g(s, 20)),
             g('sapling.apple', 4),
@@ -68,9 +68,9 @@ export function devView(ui: IslandUI): View {
             'glider.swiftwing',
           ].forEach((i) => life.count(i) || g(i));
         if (what === 'house') g('blueprint.cottage'), g('scarecrow', 2), g('design.cog');
-        if (what === 'rides' && !life.state.glider) life.command({ t: 'use', item: 'glider.wayfarer' });
+        if (what === 'rides' && !life.state.glider) ui.command({ t: 'use', item: 'glider.wayfarer' });
       },
-      warp: (s) => life.command({ t: 'warp', seconds: Number(s) }),
+      warp: (s) => ui.command({ t: 'warp', seconds: Number(s) }),
       tp: (id) => {
         const door = id.startsWith('door:') ? life.zone.recipe.dungeons?.find((d) => d.id === id.slice(5)) : undefined;
         if (door) app.onTeleport?.(door.outside.x, door.outside.z, door.outside.facing + Math.PI);

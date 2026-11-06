@@ -65,7 +65,7 @@ export function craftView(ui: IslandUI, benchOrNpc: string): View {
     foot: `<span>${money(life.state.coins)}&nbsp; ${uiIcon('labor', 18)} <b>${Math.floor(life.state.labor)}</b> Labor</span>${buttonHtml('Close', 'close')}`,
     handlers: {
       make: (id) => {
-        life.command({ t: 'craft', recipe: id });
+        ui.command({ t: 'craft', recipe: id });
         if (recipeDef(id)?.makes.pack) setTimeout(() => ui.finish(), 60);
       },
     },
