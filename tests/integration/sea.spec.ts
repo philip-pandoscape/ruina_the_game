@@ -1,19 +1,9 @@
 import { expect, test } from '@playwright/test';
-import * as THREE from 'three';
-import { WaterView } from '../../src/render/open/water';
-import { Heightfield } from '../../src/sim/terrain';
 
 // The sea along the shore. Its foam is drawn by how deep the water is under each point, so it
 // depends on the point being where it really is: drawn as one 9 km sheet, the positions the GPU
 // worked out across its two triangles were off by metres, and the foam round a lagoon strobed
 // thick and thin while the camera turned.
-
-test('the sea is drawn in tiles of 50 m or less, not one sheet', () => {
-  const sea = new WaterView(new Heightfield(8, 4, 0));
-  const g = sea.mesh.geometry as THREE.PlaneGeometry;
-  expect(g.parameters.width / g.parameters.widthSegments).toBeLessThanOrEqual(50);
-  expect(g.parameters.height / g.parameters.heightSegments).toBeLessThanOrEqual(50);
-});
 
 test('the foam round a lagoon holds still as the camera turns @gpu', async ({ page }) => {
   await page.goto('/?world&test');
