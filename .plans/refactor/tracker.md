@@ -1243,7 +1243,9 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
 
 - [ ] **R13.1** AGENTS.md rewritten (map, boundaries, recipes, commands, tiers, rules, assets,
   deploys, other sessions), linking to `docs/` and the area AGENTS.md files.
-- [ ] **R13.2** `docs/`: architecture, engine, content, zones, testing, assets, deploys, admin.
+- [~] **R13.2** `docs/`: architecture, engine, content, zones, testing, assets, deploys, admin.
+  Written so far: engine (0285ad3), content (5e23680), testing, assets, admin, zones, world
+  (R10.25, begun) and deploys (5562fed). Left: `docs/architecture.md`, after the server's tiers (R10.20).
 - [ ] **R13.3** The design bible's tracker: every moved path updated (moves script), the refactor's
   features done, a session entry per phase.
 - [x] **R13.4** The path check (unit tier): every path named in AGENTS.md, `docs/`, the skills and
@@ -1345,6 +1347,7 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
 | 2026-11-06 | R9.13 | The library's crowd subjects from the registry | 8fc8ffd |
 | 2026-11-06 | R6.11b | The developer commands in the page's command list, `LifeView.update` given the player, the library's NPCs typed: the casts round the rules' types gone | fab2924 |
 | 2026-11-06 | R10.25 | `docs/world.md` begun: the world as it stands, and adding a region | 7ea3035 |
+| 2026-11-06 | R13.2 | `docs/deploys.md` | 5562fed |
 | 2026-11-06 | R9.9, R6.11b | Looks from data; the model library as a chunk, the `tryBuild` fallbacks gone (a background agent) | 3cffed1..40161aa, 2d5de57 |
 | 2026-11-06 | R9.14 | `docs/content.md` | 5e23680 |
 | 2026-11-06 | R10.10, R11.1, R11.2, R11.7, R11.8 | Snapshot to move machines: the battle server's Rust gone; the asset manifest, loader and first-download budget, `docs/assets.md` | a975617 |
