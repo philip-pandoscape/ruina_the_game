@@ -14,6 +14,8 @@ const FORBIDDEN: Record<string, string[]> = {
   // The asset manifest and loader: beneath everything that draws, knowing files and not what's in them.
   assets: ['sim', 'content', 'render', 'ui', 'net', 'app', 'input', 'dev', 'bible', '(root:main)'],
   sim: ['render', 'ui', 'net', 'app', 'input', 'dev', 'bible', '(root:main)'],
+  // The bridge to the rules (src/engine/): the rules and content beneath it, nothing that draws, talks or shows.
+  engine: ['render', 'ui', 'net', 'app', 'input', 'dev', 'bible', '(root:main)'],
   content: ['sim', 'render', 'ui', 'net', 'app', 'input', 'dev', 'bible', '(root:main)'],
   input: ['render', 'ui', 'net', 'app', 'dev', 'bible', '(root:main)'],
   render: ['app', 'dev', 'bible', '(root:main)'],

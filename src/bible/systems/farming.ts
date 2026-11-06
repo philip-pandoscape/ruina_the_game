@@ -74,7 +74,13 @@ export const farming = system({
     'herbs',
     'thunderstruck',
   ],
-  rules: ['src/sim/life/farming.ts', 'crates/engine/src/life/farming.rs', 'src/sim/life/interact.ts', 'crates/engine/src/life/interact.rs', 'src/app/save.ts'],
+  rules: [
+    'src/sim/life/farming.ts',
+    'crates/engine/src/life/farming.rs',
+    'src/sim/life/interact.ts',
+    'crates/engine/src/life/interact.rs',
+    'src/sim/life/island.ts',
+  ],
   content: [
     'shared/farming.json#cell',
     'shared/farming.json#scarecrowCells',

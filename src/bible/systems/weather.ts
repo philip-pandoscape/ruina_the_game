@@ -1,6 +1,6 @@
 // Weather and the Clock: written from its rules (`rules` below); every number from the content and the rules.
 
-import saveSource from '../../app/save.ts?raw';
+import saveSource from '../../sim/life/island.ts?raw';
 import { FARM } from '../../content/farming';
 import { CLOCK, LABOR } from '../../content/trade';
 import { STORM } from '../../content/traversal';
@@ -48,7 +48,7 @@ export const weather = system({
   summary: 'The world clock, day and night, rain and wind, and time passing while you are away.',
   icon: '🌦️',
   keywords: ['rain', 'wind', 'day', 'night', 'time', 'hour', 'sun', 'storm', 'offline', 'away', 'clock', 'shower'],
-  rules: ['src/sim/life/weather.ts', 'src/sim/life/life.ts', 'src/app/save.ts', 'crates/engine/src/life/weather.rs', 'crates/server/src/play/mod.rs'],
+  rules: ['src/sim/life/weather.ts', 'src/sim/life/life.ts', 'src/sim/life/island.ts', 'crates/engine/src/life/weather.rs', 'crates/server/src/play/mod.rs'],
   content: ['shared/trade.json#clock', 'shared/farming.json#rain', 'shared/zones/*.json#sky'],
   body: () => {
     const sky = EMBERHOLM.sky;

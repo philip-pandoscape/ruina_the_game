@@ -11,7 +11,7 @@ import { dismount } from '../../src/sim/life/vehicles';
 import { rainAt } from '../../src/sim/life/weather';
 import { toWorld } from '../../src/sim/zone/generate';
 import type { Vehicle } from '../../src/sim/life/state';
-import { applySave, islandData, type Island } from '../../src/app/save';
+import { applySave, islandData, type Island } from '../../src/sim/life/island';
 import { LEVEL_XP } from '../../src/content/skills';
 import { QUESTS } from '../../src/content/quests';
 

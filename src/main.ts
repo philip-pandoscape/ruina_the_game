@@ -18,22 +18,19 @@ import { Hud } from './render/hud';
 import { Stage, TRAINING_STAGE } from './render/scene';
 import { CIRCLE, SpellView } from './render/spells';
 import { Vfx } from './render/vfx';
-import { Sim } from './sim/sim';
-import { TrainingRange } from './sim/training';
 import { NO_ACTIONS, type Actions, type GameEvent, type PlayerState } from './sim/types';
-import { bandAround, makeWorld } from './sim/yard';
 import { MissileView } from './render/missiles';
 import { dungeonDef } from './sim/zone/dungeon';
-import { makeZoneWorld } from './sim/zone/world';
 import { OpenStage } from './render/open/stage';
 import { loadModels } from './render/open/models';
 import { groundAt, inRect } from './sim/zone/colliders';
 import type { BoxCollider, Deck } from './sim/zone/types';
-import { Life } from './sim/life/life';
+import type { Life } from './sim/life/life';
+import { Engine } from './engine/engine';
 import { type FocusAction } from './sim/life/interact';
 import { LifeView, sitIn } from './render/open/life';
 import { LifeUI } from './ui/life/lifeUI';
-import { clearLife, loadLife } from './app/save';
+import { clearLife, savedIsland } from './app/save';
 import { goOnline } from './app/online';
 import { readOptions } from './app/options';
 import { makeTestApi } from './app/testApi';
@@ -48,7 +45,7 @@ import { GameTables, seatedState } from './render/open/gameTables';
 import type { SpaceView } from './net/worldLink';
 import { BugReporter } from './app/bugs/reporter';
 import { installLogCapture } from './app/bugs/logs';
-import { dismount, ridden } from './sim/life/vehicles';
+import { ridden } from './sim/life/vehicles';
 import { AutoWalk } from './app/autoWalk';
 import { RIDE_CAMERA } from './content/traversal';
 import { rideable, isBoat } from './content/vehicles';
@@ -120,33 +117,20 @@ if (splash) {
 }
 
 const canvas = document.getElementById('game') as HTMLCanvasElement;
-const world = openWorld ? makeZoneWorld() : makeWorld();
-// A war-band to fight in the yard, if asked for.
-const yardGoblins = opt.goblins;
-if (yardGoblins) world.spawns.push(...bandAround('goblin', yardGoblins, 9, 10, 1));
-const terrain = world.terrain ?? null;
-/** Ground height under a point: the island's terrain, or 0 on the flat training grounds. */
-/** In a copy of a dungeon or a developer zone, its floor at a point (set once the visit is made, below). */
-let floorHere: ((x: number, z: number) => number | null) | null = null;
-const groundY = (x: number, z: number): number => floorHere?.(x, z) ?? (terrain ? terrain.height(x, z) : 0);
-// Online (Emberholm on the game server, and its developer zones) the server decides hits, so the local
-// rules run without the training dummy and hit pause, and only predict your own moves.
-const serverRules = !!online;
-const sim = new Sim(world, { training: !serverRules });
 // Your skills and loadout, kept between visits: with your character on the game server in the open
-// world, in this browser elsewhere. On the battlefield, the server checks it and sends it back.
-// The welcome's is the build the server applied, already held to the points your island has earned
-// (which this page doesn't know until the island arrives), so it's only checked for shape here.
+// world, in this browser elsewhere. The welcome's is the build the server applied, already held to
+// the points your island has earned (which this page doesn't know until the island arrives), so
+// it's only checked for shape here.
 let build: Build = online ? (parseBuild(online.welcome.build, Infinity) ?? defaultBuild()) : loadBuild();
-sim.setBuild(build);
-if (terrain && !serverRules) {
-  // Offline on the island, start standing on the ground at the spawn rather than inside the hill
-  // (online the server puts you there, the same way).
-  const p = sim.player;
-  p.pos.y = groundAt(terrain, world.index, p.pos.x, p.pos.z, terrain.height(p.pos.x, p.pos.z) + 1.2, 1.2);
-  p.prevPos = { ...p.pos };
-}
-const range = serverRules ? null : new TrainingRange(sim);
+// The rules, reached only through the engine (src/engine/): the island or the yard (with a war-band
+// of goblins, if asked for), you in it, and offline the yard's arrows and meteors. Online (Emberholm
+// on the game server, and its developer zones) the server decides hits, so the rules here run
+// without the training dummy and hit pause, and only predict your own moves.
+const engine = new Engine({ openWorld, online: !!online, goblins: opt.goblins, build });
+const { world, terrain, sim, range } = engine;
+const serverRules = engine.online;
+/** Ground height under a point: a copy's floor where you're in one, the island's terrain, or 0 on the flat training grounds. */
+const groundY = (x: number, z: number): number => engine.groundY(x, z);
 if (splash) {
   splash.step('world');
   splash.say(splash.has('models') ? 'Planting the Forests…' : 'Loading Models…');
@@ -295,8 +279,7 @@ hud.setDevice(input.lastDevice);
 let bugs: BugReporter | null = null;
 
 // ---------- The open world's life systems: trade, farming, housing, vehicles, quests ----------
-const life = openWorld && world.zone ? new Life(world.zone) : null;
-if (life) sim.life = life;
+const life = engine.life;
 if (life) {
   // Every command the island is given goes into a bug report's event log.
   const command = life.command.bind(life);
@@ -373,24 +356,14 @@ if (lifeUI && (minigames || party)) lifeUI.intercept = (k) => !!minigames?.inter
 // ---------- Goblin's Dread: into a copy of a dungeon and out again (src/app/dungeonVisit.ts) ----------
 const visit = life
   ? new DungeonVisit({
-      sim,
-      life,
+      engine,
       stage: openStage,
       place: (x, y, z, facing) => {
         // Online the server moves you; this puts you there at once, as it says you've gone, rather
         // than a moment later with its next tick.
         if (!terrain) return;
         walker?.stop();
-        if (sim.player.mode === 'ride') dismount(life, sim);
-        const p = sim.player;
-        const gy = groundAt(terrain, world.index, x, z, y + 1.2, 1.2);
-        p.pos = { x, y: gy, z };
-        p.prevPos = { x, y: gy, z };
-        p.vel = { x: 0, y: 0, z: 0 };
-        p.facing = facing;
-        p.prevFacing = facing;
-        if (p.mode === 'glide' || p.mode === 'swim') p.mode = 'normal';
-        p.grounded = true;
+        engine.place(x, z, facing, y);
         follow.reset(facing);
       },
       indoors: (inside) => {
@@ -398,6 +371,12 @@ const visit = life
       },
     })
   : null;
+// Offline, fallen out of the bottom of a copy, the rules put you back where it's entered: the
+// camera and auto-run follow.
+engine.onPlaced = (facing) => {
+  walker?.stop();
+  follow.reset(facing);
+};
 /**
  * F at a dungeon's portal (its prompt: interact.ts enterDungeon / leaveDungeon). Offline the browser
  * takes you through itself; online the server takes you, with your party, into your copy.
@@ -422,8 +401,6 @@ if (lifeUI && life) {
     return before?.(k) ?? false;
   };
 }
-// What's drawn on the ground in a copy (its creatures, effects) stands on its floor.
-if (visit) floorHere = (x, z) => visit.floorAt(x, z);
 // ---------- end Goblin's Dread ----------
 if (peers && gameTables) peers.stoolFor = (id) => gameTables.seatOf(id);
 if (online && peers && life && minigames) {
@@ -497,17 +474,20 @@ if (life && online) {
   // ?lag=ms plays a local server as one far away would feel.
   online.link.lag = lagMs;
 }
-if (life && testMode && opt.load) loadLife(life, sim);
+if (life && testMode && opt.load) {
+  const saved = savedIsland();
+  if (saved) engine.loadIsland(saved);
+}
 // The island's skill points hold your build to what you've earned, as the server does on joining:
 // a build they can't cover falls back to Sword Training. Online the welcome already says what the
 // server chose, except when ?fresh has just started the island, and its points, over.
 if (life && (!online || opt.fresh) && !validBuild(build, skillBudget(life.state))) {
   build = defaultBuild();
-  sim.setBuild(build);
+  engine.setBuild(build);
 }
 
 /** Moves you somewhere (the dev panel and tests), off whatever you were riding. */
-function teleport(x: number, z: number, facing = sim.player.facing): void {
+function teleport(x: number, z: number, facing = engine.player.facing): void {
   if (!terrain) return;
   // Somewhere else entirely: whatever was walking you there has nothing left to follow.
   walker?.stop();
@@ -516,18 +496,8 @@ function teleport(x: number, z: number, facing = sim.player.facing): void {
     online.link.command((prediction?.seq ?? 0) + 1, { t: 'teleport', x, z, facing } as unknown as Parameters<Life['command']>[0]);
     return;
   }
-  if (life && sim.player.mode === 'ride') dismount(life, sim);
-  const p = sim.player;
   // Inside a dungeon the floor is its own, far over the island's ground.
-  const floor = visit?.floorHere() ?? terrain.height(x, z);
-  const y = groundAt(terrain, world.index, x, z, floor + 1.2, 1.2);
-  p.pos = { x, y, z };
-  p.prevPos = { x, y, z };
-  p.vel = { x: 0, y: 0, z: 0 };
-  p.facing = facing;
-  p.prevFacing = facing;
-  if (p.mode === 'glide' || p.mode === 'swim') p.mode = 'normal';
-  p.grounded = true;
+  engine.place(x, z, facing);
   follow.reset(follow.yaw);
 }
 if (lifeUI) {
@@ -690,7 +660,7 @@ function applyBuild(b: Build): void {
   if (online) online.link.saveBuild(b);
   else saveBuild(b);
   if (netSpells) netSpells.stats = resolveSkills(b.skills);
-  else sim.setBuild(b);
+  else engine.setBuild(b);
 }
 // Flinch and sparks for any hit on another player you can see. The number itself only comes from
 // the server's attributed events, so other people's hits don't put damage numbers on your screen.
@@ -1031,19 +1001,14 @@ function stepOnce(actions: Actions): void {
     actions = NO_ACTIONS;
     walker?.stop();
   }
+  let events: GameEvent[];
   if (prediction) {
     if (!net?.you) return; // wait until the server has placed us
     prediction.step(actions);
+    events = sim.drainEvents();
   } else {
-    sim.step(actions);
-  }
-  // Offline, fallen out of the bottom of a dungeon: back where you came in (the server does it online).
-  if (!online) visit?.catchFall();
-  let events = sim.drainEvents();
-  if (range) {
-    // Training: arrows, meteors and heals against the dummy.
-    range.step(events);
-    events = events.concat(sim.drainEvents());
+    // Offline the rules decide, the yard's arrows, meteors and heals among them.
+    events = engine.step(actions);
   }
   if (netSpells) {
     // Online: your own arrows, meteors and heals show straight away.

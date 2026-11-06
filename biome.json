@@ -1,5 +1,6 @@
 {
   "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+  "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
   "files": {
     "includes": ["src/**/*.ts", "tests/**/*.ts", "tools/**/*.ts", "tools/**/*.mjs", "design/**/*.ts", "*.config.ts", "!src/ui/theme/icons.gen.ts"]
   },

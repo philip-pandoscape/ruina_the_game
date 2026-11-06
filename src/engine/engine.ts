@@ -1,0 +1,210 @@
+import type { Build } from '../content/tuning';
+import { applySave, type Saved } from '../sim/life/island';
+import { Life } from '../sim/life/life';
+import { dismount } from '../sim/life/vehicles';
+import { Sim } from '../sim/sim';
+import { TrainingRange } from '../sim/training';
+import type { Actions, GameEvent, PlayerState, World } from '../sim/types';
+import { bandAround, makeWorld } from '../sim/yard';
+import { groundAt } from '../sim/zone/colliders';
+import { arrivalOf, type DungeonSolids, dungeonDef, floorAt, setDungeonSolid } from '../sim/zone/dungeon';
+import { makeZoneWorld } from '../sim/zone/world';
+
+// The one way into the rules for everything outside them (.plans/refactor R6.4). Today it runs the
+// TypeScript rules (src/sim/); Phase 8 runs the same calls on the Rust engine compiled to
+// WebAssembly (crates/engine-wasm), and nothing that uses it should notice. So whatever changes the
+// rules' state from outside is a call here, named for what it does (R6.0b): putting you somewhere,
+// your build, a copy's floors and walls, an island loaded. What it hands out (you, the island's
+// state) is for reading.
+//
+// `sim` and `life` are still public while the modules that take them directly (the island's UI and
+// drawing, the network's prediction and peers, the test API) move over to this (R6.4).
+
+export interface EngineOptions {
+  /** The open world (Emberholm) rather than the training yard. */
+  openWorld: boolean;
+  /**
+   * Played on the game server, which decides hits: the rules here only predict your own moves,
+   * without the training dummy, hit pause or the yard's arrows and meteors.
+   */
+  online: boolean;
+  /** A war-band of that many goblins in the yard's far corner (`?goblins=`). */
+  goblins?: number;
+  /** Your skills and loadout to start with. */
+  build: Build;
+}
+
+export class Engine {
+  readonly world: World;
+  /** The island's ground (null on the yard's flat ground). */
+  readonly terrain: World['terrain'] | null;
+  /** Online: the server decides; these rules only predict your own moves. */
+  readonly online: boolean;
+  readonly sim: Sim;
+  /** Offline: the yard's arrows, meteors and heals, against whatever stands about. */
+  readonly range: TrainingRange | null;
+  /** The island's life systems (trade, farming, housing, vehicles, quests), in the open world. */
+  readonly life: Life | null;
+  /**
+   * Called when a step puts you somewhere by itself (offline, fallen out of the bottom of a copy:
+   * back where it's entered), with the way you face, so the camera and auto-run can follow.
+   */
+  onPlaced: ((facing: number) => void) | null = null;
+  /** The dungeon or developer zone you're in a copy of, null out in the world. */
+  private dungeon: string | null = null;
+  private solids = new Map<string, DungeonSolids>();
+
+  constructor(o: EngineOptions) {
+    this.online = o.online;
+    this.world = o.openWorld ? makeZoneWorld() : makeWorld();
+    if (o.goblins) this.world.spawns.push(...bandAround('goblin', o.goblins, 9, 10, 1));
+    this.terrain = this.world.terrain ?? null;
+    this.sim = new Sim(this.world, { training: !o.online });
+    this.sim.setBuild(o.build);
+    // Offline on the island, start standing on the ground at the spawn rather than inside the hill
+    // (online the server puts you there, the same way).
+    if (this.terrain && !o.online) {
+      const p = this.sim.player;
+      this.settle(p, p.pos.x, p.pos.z, this.terrain.height(p.pos.x, p.pos.z));
+    }
+    this.range = o.online ? null : new TrainingRange(this.sim);
+    this.life = o.openWorld && this.world.zone ? new Life(this.world.zone) : null;
+    if (this.life) this.sim.life = this.life;
+  }
+
+  /** You, as the rules have you now. */
+  get player(): PlayerState {
+    return this.sim.player;
+  }
+
+  /** Fixed steps taken so far. */
+  get frame(): number {
+    return this.sim.frame;
+  }
+
+  /** Ground height under a point: a copy's floor where you're in one, the island's terrain, or 0 on the yard's flat ground. */
+  groundY(x: number, z: number): number {
+    return this.floorAt(x, z) ?? (this.terrain ? this.terrain.height(x, z) : 0);
+  }
+
+  /** What someone at height `near` would stand on at (x, z): the ground, a deck, a roof (0 on the yard's flat ground). */
+  standingAt(x: number, z: number, near: number, pad: number): number {
+    return this.terrain ? groundAt(this.terrain, this.world.index, x, z, near, pad) : 0;
+  }
+
+  /**
+   * One fixed step offline: the rules, then the yard's arrows, meteors and heals against whatever
+   * stands about. Returns what happened. (Online, the prediction steps the rules: src/net/netPlayer.ts.)
+   */
+  step(a: Actions): GameEvent[] {
+    this.sim.step(a);
+    this.catchFall();
+    let events = this.sim.drainEvents();
+    if (this.range) {
+      this.range.step(events);
+      events = events.concat(this.sim.drainEvents());
+    }
+    return events;
+  }
+
+  /** Switches your skills and loadout, as the server does: any attack or cast in progress is dropped. */
+  setBuild(b: Build): void {
+    this.sim.setBuild(b);
+  }
+
+  /**
+   * Puts you at (x, z) facing `facing`, standing on whatever is solid under `fromY` there (by default
+   * the ground, or the floor of the copy you're in), off whatever you were riding, gliding or
+   * swimming in: teleports, and a dungeon's arrival and door.
+   */
+  place(x: number, z: number, facing: number, fromY?: number): void {
+    if (!this.terrain) return;
+    if (this.life && this.sim.player.mode === 'ride') dismount(this.life, this.sim);
+    const p = this.sim.player;
+    this.settle(p, x, z, fromY ?? this.floorHere() ?? this.terrain.height(x, z));
+    p.vel = { x: 0, y: 0, z: 0 };
+    p.facing = facing;
+    p.prevFacing = facing;
+    if (p.mode === 'glide' || p.mode === 'swim') p.mode = 'normal';
+  }
+
+  /**
+   * Into a copy of a dungeon or developer zone: its floors and walls solid around you, and knocked
+   * down in it you get up where it's entered (as the server has it: crates/engine/src/open/dungeon.rs);
+   * the island's prompts and weather know you're inside. False if there's no such dungeon here.
+   */
+  enterDungeon(id: string): boolean {
+    const def = dungeonDef(id);
+    const index = this.world.index;
+    if (!def || !index) return false;
+    if (this.dungeon && this.dungeon !== id) this.leaveDungeon();
+    this.solids.set(id, setDungeonSolid(index, def, this.solids.get(id) ?? null, true));
+    this.dungeon = id;
+    this.world.respawnAt = arrivalOf(def);
+    if (this.life) this.life.dungeon = id;
+    return true;
+  }
+
+  /** Out of the copy you're in: its floors and walls gone from your world again. */
+  leaveDungeon(): void {
+    const id = this.dungeon;
+    if (!id) return;
+    const def = dungeonDef(id);
+    const had = this.solids.get(id);
+    if (def && this.world.index && had) setDungeonSolid(this.world.index, def, had, false);
+    this.dungeon = null;
+    this.world.respawnAt = undefined;
+    if (this.life) this.life.dungeon = null;
+  }
+
+  /** The dungeon or developer zone you're in a copy of (null out in the world). */
+  get inside(): string | null {
+    return this.dungeon;
+  }
+
+  /** The floor at (x, z) of the copy you're in, where it has one (null out in the world, or off its floor). */
+  floorAt(x: number, z: number): number | null {
+    const def = this.dungeon ? dungeonDef(this.dungeon) : undefined;
+    return def ? floorAt(def, x, z) : null;
+  }
+
+  /** The floor's height in the copy you're in (null out in the world). */
+  floorHere(): number | null {
+    const def = this.dungeon ? dungeonDef(this.dungeon) : undefined;
+    return def ? def.origin.y : null;
+  }
+
+  /** Which dungeons have been made solid in your world, and whether they still are (tests). */
+  solidity(): Record<string, boolean> {
+    return Object.fromEntries([...this.solids].map(([k, s]) => [k, s.solid]));
+  }
+
+  /**
+   * Restores a saved island (an automated test's, or a bug report's) into these rules: its state,
+   * the time you were away, where you stood. `now` is the clock `savedAt` was measured on. Returns
+   * false, changing nothing, for a save from a newer game than this one.
+   */
+  loadIsland(data: Saved, now = Date.now()): boolean {
+    return !!this.life && applySave(this.life, this.sim, data, now);
+  }
+
+  /** Offline, fallen out of the bottom of a copy: back where it's entered (the server does this online). */
+  private catchFall(): void {
+    if (this.online || !this.dungeon) return;
+    const def = dungeonDef(this.dungeon);
+    if (!def || this.sim.player.pos.y >= def.origin.y + def.fall) return;
+    const a = arrivalOf(def);
+    this.place(a.x, a.z, a.facing, a.y);
+    this.onPlaced?.(a.facing);
+  }
+
+  /** Stands `p` at rest on whatever is solid at (x, z) under `near`. */
+  private settle(p: PlayerState, x: number, z: number, near: number): void {
+    const terrain = this.terrain;
+    if (!terrain) return;
+    const y = groundAt(terrain, this.world.index, x, z, near + 1.2, 1.2);
+    p.pos = { x, y, z };
+    p.prevPos = { x, y, z };
+    p.grounded = true;
+  }
+}
