@@ -6,7 +6,7 @@ to try things out. Each of those is a file; nothing in code lists them.
 
 | What | Where | Played in |
 |---|---|---|
-| The island | `content/zones/emberholm.json` and `content/zones/emberholm/` (its recipe, places, people, buildings) | Channels: everyone on the island, a channel each so none gets crowded (`crates/server/src/play/spaces.rs`) |
+| The island | `content/zones/emberholm.json` and `content/zones/emberholm/` (its recipe, places and buildings; its people are `content/npcs/`) | Channels: everyone on the island, a channel each so none gets crowded (`crates/server/src/play/spaces.rs`) |
 | A dungeon | `content/dungeons/<id>.json`, its door in the island's recipe (`dungeons`) | A copy for each party, entered through its portal on the island |
 | A developer zone | `content/dungeons/<id>.json` with `developer: true` | A copy for each party (or one for everyone: `shared`), entered from the Admin menu ([admin.md](admin.md)) |
 
