@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { asset } from '../../assets/manifest';
-import { SURFACE } from '../../sim/terrain';
+import { SURFACE } from '../../engine/zone';
 import { picture, track } from '../assets';
 
 // The ground: real textures (CC0, CREDITS.md) laid over the island's surfaces. Each

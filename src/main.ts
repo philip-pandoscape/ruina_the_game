@@ -12,23 +12,19 @@ import { Hero } from './render/character';
 import { TrainingDummy } from './render/dummy';
 import { ActorView } from './render/actors';
 import { actorKindAt, actorKindIds, actorKindIndex, findKind, kindName } from './content/actors';
-import { isAlive } from './sim/actor';
-import { behaviour, stateProgress } from './sim/ai/brain';
+import { isAlive, behaviour, stateProgress } from './engine/creatures';
+import { NO_ACTIONS, type Actions, type GameEvent, type PlayerState, angleDiff, heightAboveGround } from './engine/rules';
+import { dungeonDef, groundAt, inRect, type BoxCollider, type Deck } from './engine/zone';
+import { type Life, type FocusAction, ridden, hourAt, hourOfDay, skillBudget, trainedBy } from './engine/island';
 import { Aiming } from './app/aiming';
 import { Hud } from './ui/hud';
 import { Stage, TRAINING_STAGE } from './render/scene';
 import { CIRCLE, SpellView } from './render/spells';
 import { Vfx } from './render/vfx';
-import { NO_ACTIONS, type Actions, type GameEvent, type PlayerState } from './sim/types';
 import { MissileView } from './render/missiles';
-import { dungeonDef } from './sim/zone/dungeon';
 import { OpenStage } from './render/open/stage';
 import { loadModels } from './render/open/models';
-import { groundAt, inRect } from './sim/zone/colliders';
-import type { BoxCollider, Deck } from './sim/zone/types';
-import type { Life } from './sim/life/life';
 import { Engine } from './engine/engine';
-import { type FocusAction } from './sim/life/interact';
 import { LifeView, sitIn } from './render/open/life';
 import { LifeUI } from './ui/life/lifeUI';
 import { clearLife, savedIsland } from './app/save';
@@ -47,17 +43,13 @@ import { GameTables, seatedState } from './render/open/gameTables';
 import type { SpaceView } from './net/worldLink';
 import { BugReporter } from './app/bugs/reporter';
 import { installLogCapture } from './app/bugs/logs';
-import { ridden } from './sim/life/vehicles';
 import { AutoWalk } from './input/autoWalk';
 import { RIDE_CAMERA } from './content/traversal';
 import { rideable, isBoat } from './content/vehicles';
-import { angleDiff } from './sim/math';
-import { hourAt, hourOfDay } from './sim/life/weather';
 import { ABILITY_ICONS, WEAPON_ICONS, WEAPON_NAMES } from './ui/icons';
 import type { MarkerKind } from './ui/hud';
 import { BOOK, levelOf, levelsFrom, NODES, resolveSkills, sameLevels, SKILL_POINTS, type ResolvedSkills } from './content/skills';
 import { SkillsPanel } from './ui/skills/panel';
-import { skillBudget, trainedBy } from './sim/life/progress';
 import {
   ABILITIES,
   abilityMpFor,
@@ -76,7 +68,6 @@ import {
   STEP,
   type Build,
 } from './content/tuning';
-import { heightAboveGround } from './sim/player/traverse';
 import './ui/theme/theme.css';
 import './ui/theme/hud.css';
 import './ui/theme/windows.css';

@@ -1,7 +1,6 @@
 // Parties and Dungeons: written from its rules (`rules` below); every number from the content and the rules.
 
-import { DUNGEONS } from '../../sim/zone/dungeon';
-import { EMBERHOLM } from '../../sim/zone/world';
+import { DUNGEONS, EMBERHOLM } from '../../engine/zone';
 import { count, duration, metres } from '../format';
 import { join, system, table } from '../kit';
 import { link, md, raw } from '../md';

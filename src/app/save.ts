@@ -1,6 +1,5 @@
-import type { Life } from '../sim/life/life';
-import type { Sim } from '../sim/sim';
-import { islandData, type Saved } from '../sim/life/island';
+import { type Life, islandData, type Saved } from '../engine/island';
+import type { Sim } from '../engine/rules';
 
 // Your island between visits, in this browser: only for automated tests and bug-report replays
 // (?world&test&load), never for players, whose islands live on the game server (kept in Postgres).

@@ -4,7 +4,7 @@ import { CLIMATES, CROPS, type CropDef, climateFactor, FARM, GATHERING } from '.
 import { BAG_SLOTS, ITEMS, VENDORS } from '../../content/items';
 import { QUESTS } from '../../content/quests';
 import { CLOCK } from '../../content/trade';
-import { EMBERHOLM as Z } from '../../sim/zone/world';
+import { EMBERHOLM as Z } from '../../engine/zone';
 import { coins, count, degrees, duration, key, metres, pct, range, slopeDegrees, times } from '../format';
 import { system, table } from '../kit';
 import { type Html, link, md, phrase, raw } from '../md';

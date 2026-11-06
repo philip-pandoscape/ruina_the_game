@@ -17,7 +17,7 @@ server says. Nothing it says about its own state is believed; it predicts only i
 
 ## Rules
 
-- **Boundaries.** net may use the rules (`src/sim/`) and content, never drawing (`src/render/`), the
+- **Boundaries.** net may use the rules (through the bridge, `src/engine/`) and content, never drawing (`src/render/`), the
   UI, the library, the developer pages or the bible (`tests/unit/boundaries.test.ts`). It keeps what
   the server says; the app hands it to what draws it (drawing doesn't import net either).
 - **The protocol is both sides'.** A change to what the server sends or takes is made in

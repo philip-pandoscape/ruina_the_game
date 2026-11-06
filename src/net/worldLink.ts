@@ -1,6 +1,4 @@
-import type { Command, LifeEvent } from '../sim/life/life';
-import type { Placement } from '../sim/life/interact';
-import type { LifeState, Vehicle, Weather } from '../sim/life/state';
+import type { Command, LifeEvent, Placement, LifeState, Vehicle, Weather } from '../engine/island';
 import type { Build } from '../content/tuning';
 import { currentAccount, ServerDown } from './account';
 import type { ArrowRecord, EffectEvent, MeteorRecord, NetActor } from './worldFeed';

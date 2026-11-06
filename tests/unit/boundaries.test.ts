@@ -8,7 +8,10 @@ import { expect, test } from 'vitest';
 // beneath everything. An import across a line not allowed here fails this test; the few that
 // already cross one are listed below with the task that removes them.
 
-/** What each area may not import. Areas not listed (app, dev, bible, main.ts) may import anything. */
+/**
+ * What each area may not import. Only the bridge (src/engine/) imports the rules (src/sim/): every
+ * other area reaches them through it (R6.4), so Phase 8 can answer it from the Rust engine.
+ */
 const FORBIDDEN: Record<string, string[]> = {
   util: ['*'],
   // The asset manifest and loader: beneath everything that draws, knowing files and not what's in them.
@@ -17,16 +20,20 @@ const FORBIDDEN: Record<string, string[]> = {
   // The bridge to the rules (src/engine/): the rules and content beneath it, nothing that draws, talks or shows.
   engine: ['render', 'ui', 'net', 'app', 'input', 'dev', 'bible', '(root:main)'],
   content: ['sim', 'render', 'ui', 'net', 'app', 'input', 'dev', 'bible', '(root:main)'],
-  input: ['render', 'ui', 'net', 'app', 'dev', 'bible', '(root:main)'],
+  input: ['sim', 'render', 'ui', 'net', 'app', 'dev', 'bible', '(root:main)'],
   // Drawing and the network don't know each other (R6.0): the network keeps what the server says, the
   // drawing draws what it's handed, and the app hands one to the other.
   // Drawing doesn't reach into the windows either (R6.0): what a window draws in three.js it hosts
   // (the hero preview), handed what it needs.
-  render: ['net', 'ui', 'app', 'dev', 'bible', '(root:main)'],
-  net: ['render', 'ui', 'dev', 'bible', '(root:main)'],
+  render: ['sim', 'net', 'ui', 'app', 'dev', 'bible', '(root:main)'],
+  net: ['sim', 'render', 'ui', 'dev', 'bible', '(root:main)'],
   // The windows show what they're handed and ask the app for what they do (R6.0): sign-in, characters,
   // parties and mini-games declare the calls they make, and the app hands them the connection.
-  ui: ['net', 'app', 'bible', '(root:main)'],
+  ui: ['sim', 'net', 'app', 'bible', '(root:main)'],
+  app: ['sim'],
+  dev: ['sim'],
+  bible: ['sim'],
+  '(root:main)': ['sim'],
 };
 
 /** Imports across a line today, each with what will remove it (.plans/refactor/tracker.md). */
@@ -54,6 +61,8 @@ test("no area imports what it mustn't", () => {
     const forbidden = FORBIDDEN[from];
     if (!forbidden) continue;
     for (const m of readFileSync(f, 'utf8').matchAll(/^(?:import|export)\s+(?:type\s+)?[^'"]*?from\s+'(\.[^']+)'/gm)) {
+      // The bible reads the rules' source as text, for numbers they don't export (src/bible/source.ts).
+      if (m[1].endsWith('?raw')) continue;
       const target = normalize(join(dirname(f), m[1]));
       const to = areaOf(target.endsWith('.ts') ? target : `${target}.ts`);
       if (to === from || !(forbidden.includes('*') || forbidden.includes(to))) continue;

@@ -1,7 +1,6 @@
 import * as THREE from 'three';
-import type { Life } from '../../sim/life/life';
-import type { Sim } from '../../sim/sim';
-import type { PlayerState } from '../../sim/types';
+import type { Life } from '../../engine/island';
+import type { Sim, PlayerState } from '../../engine/rules';
 import { Hero } from '../character';
 import type { HouseView } from '../village/village';
 import { LifeView, sitIn, type Seated } from './life';

@@ -4,7 +4,7 @@ import { ITEMS } from '../../content/items';
 import { type QuestDef, QUESTS } from '../../content/quests';
 import { LABOR } from '../../content/trade';
 import { START_POINTS } from '../../content/skills';
-import { EMBERHOLM } from '../../sim/zone/world';
+import { EMBERHOLM } from '../../engine/zone';
 import { coins, count, duration, metres } from '../format';
 import { join, system, table } from '../kit';
 import { type Html, link, md, phrase, raw } from '../md';

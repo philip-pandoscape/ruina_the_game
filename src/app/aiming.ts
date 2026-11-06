@@ -4,8 +4,8 @@ import type { Engine } from '../engine/engine';
 import type { CombatInput, Input } from '../input/input';
 import type { NetActor } from '../net/worldFeed';
 import type { FollowCamera } from '../render/camera';
-import { isAlive } from '../sim/actor';
-import type { Actions } from '../sim/types';
+import { isAlive } from '../engine/creatures';
+import type { Actions } from '../engine/rules';
 import { createTargeting, type Targeting } from './targeting';
 
 // Aiming: who you're aimed at, the circle a ground-aimed spell is placed with, aim assist and the

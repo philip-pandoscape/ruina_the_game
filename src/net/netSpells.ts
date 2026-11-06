@@ -1,4 +1,4 @@
-import type { GameEvent } from '../sim/types';
+import type { GameEvent } from '../engine/rules';
 import { ABILITIES, effectRadius } from '../content/tuning';
 import type { ResolvedSkills } from '../content/skills';
 import type { ArrowRecord, EffectEvent, MeteorRecord, WorldFeed } from './worldFeed';

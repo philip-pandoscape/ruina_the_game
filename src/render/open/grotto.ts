@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import type { DungeonDoor, WaterfallInfo } from '../../sim/zone/types';
+import type { DungeonDoor, WaterfallInfo } from '../../engine/zone';
 import { barrel, boulder, drawings, flicker, lantern, net, plankDeck, portalVeil, rockArch, rockSlab, totem, type Flickers } from './goblinKit';
 import { merge, mesh, PAL, rod, tint, xf } from '../models/kit';
 

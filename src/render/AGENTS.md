@@ -18,7 +18,7 @@ look. It reads the rules' state and whatever it's handed, and never changes the 
 
 ## Rules
 
-- **Boundaries** (`tests/unit/boundaries.test.ts`): render may use the rules (`src/sim/`), content,
+- **Boundaries** (`tests/unit/boundaries.test.ts`): render may use the rules (through the bridge, `src/engine/`), content,
   input and the asset loader. It never imports the network, the UI, the app or the developer pages:
   what it draws of the server's world (monsters, tables, other players) comes in shapes it declares
   itself (`ShownActor`, `ShownTable`, `ShownPeer`), and the app hands it the real thing.

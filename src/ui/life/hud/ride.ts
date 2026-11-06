@@ -1,11 +1,8 @@
 import { packDef } from '../../../content/trade';
 import { glider as gliderDef, isBoat, isMount, rideable } from '../../../content/vehicles';
-import { carried } from '../../../sim/life/trade';
-import { ridden, sailEfficiency } from '../../../sim/life/vehicles';
-import { stormAt } from '../../../sim/life/weather';
-import { angleDiff } from '../../../sim/math';
-import { heightAboveGround } from '../../../sim/player/traverse';
-import { SURFACE } from '../../../sim/terrain';
+import { carried, ridden, sailEfficiency, stormAt } from '../../../engine/island';
+import { angleDiff, heightAboveGround } from '../../../engine/rules';
+import { SURFACE } from '../../../engine/zone';
 import { iconHtml, withIcons } from '../../theme/icons';
 import { el } from '../../components/dom';
 import type { IslandUI } from '../context';

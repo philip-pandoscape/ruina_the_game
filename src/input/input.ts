@@ -1,4 +1,4 @@
-import type { Actions, PlayerState } from '../sim/types';
+import type { Actions, PlayerState } from '../engine/rules';
 import { CAMERA, GAMEPAD } from '../content/tuning';
 import { MouseFilter } from './mouseFilter';
 

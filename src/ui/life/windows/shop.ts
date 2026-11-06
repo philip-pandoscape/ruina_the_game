@@ -1,5 +1,5 @@
 import { itemDef, vendorFor } from '../../../content/items';
-import type { Life } from '../../../sim/life/life';
+import type { Life } from '../../../engine/island';
 import { esc } from '../../../util/html';
 import { buttonHtml } from '../../components/button';
 import { slotHtml } from '../../components/slot';

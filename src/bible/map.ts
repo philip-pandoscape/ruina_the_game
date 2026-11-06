@@ -5,9 +5,7 @@
 // The island and its waters are 1280 m square around the origin. North (+Z) is up and east (-X) is
 // to the right, so a world point lands ((HALF - x) / SPAN, (HALF - z) / SPAN) of the way across.
 
-import { generateZone } from '../sim/zone/generate';
-import { EMBERHOLM as Z } from '../sim/zone/world';
-import { SURFACE } from '../sim/terrain';
+import { generateZone, EMBERHOLM as Z, SURFACE } from '../engine/zone';
 
 const HALF = 640;
 const SPAN = HALF * 2;

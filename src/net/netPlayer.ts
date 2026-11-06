@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import type { Engine } from '../engine/engine';
-import { ON_FOOT, type Actions, type GameEvent, type PlayerState } from '../sim/types';
+import { ON_FOOT, type Actions, type GameEvent, type PlayerState } from '../engine/rules';
 import { emptySkills } from '../content/skills';
 import { HOTBAR_SLOTS, MOVEMENT_SKILL_CAP, MOVEMENT_SLOTS, MP, NO_ABILITY, NO_MOVEMENT, STAMINA } from '../content/tuning';
 import type { RawInput, WorldFeed } from './worldFeed';

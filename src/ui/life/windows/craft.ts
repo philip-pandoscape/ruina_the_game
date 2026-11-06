@@ -1,6 +1,6 @@
 import { itemDef, recipe as recipeDef, recipesAt } from '../../../content/items';
 import { packDef, placeName, route } from '../../../content/trade';
-import { demandAt, freshness } from '../../../sim/life/trade';
+import { demandAt, freshness } from '../../../engine/island';
 import { esc } from '../../../util/html';
 import { buttonHtml } from '../../components/button';
 import { listHtml, rowHtml } from '../../components/list';

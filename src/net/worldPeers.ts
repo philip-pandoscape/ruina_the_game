@@ -1,10 +1,7 @@
-import { Life, type OthersVehicle } from '../sim/life/life';
-import type { House, Pack, Scarecrow, ShipBuild, Vehicle } from '../sim/life/state';
-import { angleDiff } from '../sim/math';
+import { Life, type OthersVehicle, type House, type Pack, type Scarecrow, type ShipBuild, type Vehicle, vehicleBodies } from '../engine/island';
+import { angleDiff, type Mover, type PlayerState } from '../engine/rules';
+import type { ZoneData } from '../engine/zone';
 import type { Engine } from '../engine/engine';
-import type { Mover, PlayerState } from '../sim/types';
-import { vehicleBodies } from '../sim/life/vehicles';
-import type { ZoneData } from '../sim/zone/world';
 import { blankState } from './netPlayer';
 import type { Estate, EstateEntry, PeerEntry, WorldLink } from './worldLink';
 

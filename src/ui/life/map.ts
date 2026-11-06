@@ -1,5 +1,5 @@
-import { SURFACE } from '../../sim/terrain';
-import type { World } from '../../sim/types';
+import { SURFACE } from '../../engine/zone';
+import type { World } from '../../engine/rules';
 import { uiImage } from '../theme/icons';
 
 // Drawing the island's maps, the minimap (hud/minimap.ts) and the map window (windows/map.ts): the

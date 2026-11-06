@@ -3,8 +3,8 @@
 import { ITEMS, RECIPES, VENDORS } from '../../content/items';
 import { CARRY, CLOCK, DEMAND, FRESHNESS, type PackDef, PACKS, placeName, ROUTES } from '../../content/trade';
 import { MOUNTS } from '../../content/vehicles';
-import { freshness } from '../../sim/life/trade';
-import { EMBERHOLM as Z } from '../../sim/zone/world';
+import { freshness } from '../../engine/island';
+import { EMBERHOLM as Z } from '../../engine/zone';
 import { change, coins, count, duration, key, metres, num, pct, speed, times } from '../format';
 import { system, table } from '../kit';
 import { type Html, link, md, phrase, raw } from '../md';

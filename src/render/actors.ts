@@ -4,8 +4,7 @@ import { JellyCrowd } from './creatures/jelly';
 import { getSpecies } from './creatures/registry';
 import { actorKind } from '../content/actors';
 import { actorKindAt, LADDERS } from '../content/actors';
-import { isAlive, type Actor } from '../sim/actor';
-import { behaviour, stateName, stateProgress } from '../sim/ai/brain';
+import { isAlive, type Actor, behaviour, stateName, stateProgress } from '../engine/creatures';
 
 /** A monster as the server has it, as much as drawing it needs (src/net/worldFeed.ts's NetActor). */
 export interface ShownActor {

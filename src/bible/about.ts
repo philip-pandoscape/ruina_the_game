@@ -7,7 +7,7 @@ import { LABOR } from '../content/trade';
 import { GLIDERS, MOUNTS, VEHICLES } from '../content/vehicles';
 import { NODES } from '../content/skills';
 import { HOTBAR_SLOTS, MOVEMENT_SLOTS, SIM_HZ, WEAPONS } from '../content/tuning';
-import { EMBERHOLM as Z } from '../sim/zone/world';
+import { EMBERHOLM as Z } from '../engine/zone';
 import { coins, count, framesAsSeconds, key, num, speed } from './format';
 import { about, type AboutDef, table } from './kit';
 import { blockHtml, md, raw } from './md';

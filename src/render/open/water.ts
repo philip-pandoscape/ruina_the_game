@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import type { Heightfield } from '../../sim/terrain';
+import type { Heightfield } from '../../engine/zone';
 import { GRAPHICS, PALETTE } from '../look';
 
 // The sea: one big flat plane, coloured by how deep the water is over the seabed (a texture baked

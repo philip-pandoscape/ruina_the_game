@@ -1,7 +1,6 @@
 import * as THREE from 'three';
 import { STOREY, turn, WALL, type BuildingPlan, type FurnitureDef } from '../../content/buildings';
-import type { PlacedBuilding } from '../../sim/zone/generate';
-import type { BoxCollider } from '../../sim/zone/types';
+import type { PlacedBuilding, BoxCollider } from '../../engine/zone';
 import { track } from '../assets';
 import { assemble, at, type Assembled } from './assemble';
 import { batch, kitItem, type BatchItem } from './batch';

@@ -1,9 +1,7 @@
 import { recipesAt, vendorFor } from '../../../content/items';
 import { questDef } from '../../../content/quests';
 import { CONTRACTS, PACKS, packDef, placeName, route } from '../../../content/trade';
-import { shortTime } from '../../../sim/life/interact';
-import { questsAt } from '../../../sim/life/quests';
-import { carried, demandAt, freshness, quote } from '../../../sim/life/trade';
+import { shortTime, questsAt, carried, demandAt, freshness, quote } from '../../../engine/island';
 import { esc } from '../../../util/html';
 import { buttonHtml } from '../../components/button';
 import { listHtml, rowHtml } from '../../components/list';

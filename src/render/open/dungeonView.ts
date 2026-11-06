@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import type { DungeonDef, DungeonPiece } from '../../sim/zone/dungeon';
+import type { DungeonDef, DungeonPiece } from '../../engine/zone';
 import {
   barrel,
   barricade,

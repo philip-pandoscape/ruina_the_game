@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import type { World } from '../../sim/types';
+import type { World } from '../../engine/rules';
 import { structureDef, propDef } from '../../content/structures';
 import { track } from '../assets';
 import { grainMaterial } from '../models/detail';

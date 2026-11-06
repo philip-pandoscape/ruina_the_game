@@ -1,4 +1,4 @@
-import { dungeonDef } from '../../../sim/zone/dungeon';
+import { dungeonDef } from '../../../engine/zone';
 import { esc } from '../../../util/html';
 import { buttonHtml } from '../../components/button';
 import type { View } from '../../components/window';

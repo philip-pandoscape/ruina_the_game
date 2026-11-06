@@ -2,7 +2,7 @@
 
 import { actorKind } from '../../content/actors';
 import { statBase, STATS } from '../../content/skills';
-import { EMBERHOLM } from '../../sim/zone/world';
+import { EMBERHOLM } from '../../engine/zone';
 import {
   ABILITIES,
   ATTACK,

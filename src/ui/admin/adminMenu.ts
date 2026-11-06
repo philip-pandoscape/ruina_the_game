@@ -1,5 +1,5 @@
 import { DEV_PAGES, type DevPage } from '../../dev/pages';
-import { DUNGEONS } from '../../sim/zone/dungeon';
+import { DUNGEONS } from '../../engine/zone';
 import { esc } from '../../util/html';
 import { card, el } from '../signIn';
 import './admin.css';

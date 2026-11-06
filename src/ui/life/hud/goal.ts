@@ -3,11 +3,8 @@ import { claimsPlot, RECIPES, VENDORS } from '../../../content/items';
 import { type Objective, objectiveTarget, type QuestMarker, questDef } from '../../../content/quests';
 import { structureDef } from '../../../content/structures';
 import { packDef, placeName } from '../../../content/trade';
-import { housePose, isComplete, stageReady, stillNeeds } from '../../../sim/life/housing';
-import { nodeReady } from '../../../sim/life/interact';
-import type { Life } from '../../../sim/life/life';
-import { shipFinished, shipNeeds, shipOn, shipStageReady } from '../../../sim/life/shipyard';
-import type { Sim } from '../../../sim/sim';
+import { housePose, isComplete, stageReady, stillNeeds, nodeReady, type Life, shipFinished, shipNeeds, shipOn, shipStageReady } from '../../../engine/island';
+import type { Sim } from '../../../engine/rules';
 
 // Where the quest you're on leads you: the ring on both maps, the marker on the compass, and what
 // `LifeUI.goal` tells the tests. What an objective names leads first (the person to talk to, the

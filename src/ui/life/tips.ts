@@ -1,7 +1,7 @@
 import { cropDef, CLIMATES } from '../../content/farming';
 import { CATEGORIES, itemDef, vendorFor } from '../../content/items';
 import { packDef, placeName } from '../../content/trade';
-import { shortTime } from '../../sim/life/interact';
+import { shortTime } from '../../engine/island';
 import { esc } from '../../util/html';
 import { WEAPON_NAMES } from '../icons';
 import { money } from '../theme/icons';

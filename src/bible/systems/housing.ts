@@ -3,8 +3,8 @@
 import { BLUEPRINTS, type BlueprintDef } from '../../content/housing';
 import { claimsPlot, ITEMS, RECIPES, VENDORS } from '../../content/items';
 import { CLOCK, LABOR, packDef } from '../../content/trade';
-import { DAY, HOUSE_SETBACK } from '../../sim/life/housing';
-import { EMBERHOLM } from '../../sim/zone/world';
+import { DAY, HOUSE_SETBACK } from '../../engine/island';
+import { EMBERHOLM } from '../../engine/zone';
 import { coins, count, duration, metres, speed } from '../format';
 import { join, system, table } from '../kit';
 import { type Html, link, md, phrase, raw } from '../md';

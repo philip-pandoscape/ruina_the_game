@@ -2,10 +2,8 @@
 
 import { actorKind, actorKindIds, LADDERS } from '../../content/actors';
 import { type AttackDef, attackDef } from '../../content/attacks';
-import { FACTION } from '../../sim/actor';
-import { type Behaviour, BEHAVIOURS, type BehaviourState, type Guard } from '../../sim/ai/brain';
-import { FOE_HEIGHT } from '../../sim/combat/missiles';
-import { EMBERHOLM } from '../../sim/zone/world';
+import { FACTION, type Behaviour, BEHAVIOURS, type BehaviourState, type Guard, FOE_HEIGHT } from '../../engine/creatures';
+import { EMBERHOLM } from '../../engine/zone';
 import { count, duration, frames, framesAsSeconds, metres, num, pct, speed } from '../format';
 import { system, table } from '../kit';
 import { esc } from '../../util/html';

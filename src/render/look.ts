@@ -1,4 +1,4 @@
-import { SURFACE } from '../sim/terrain';
+import { SURFACE } from '../engine/zone';
 
 // How the world looks: Emberholm after its reference picture. Smooth light without outlines, haze
 // that thins with height and warms toward the sun, ambient occlusion, bloom, a colour grade,

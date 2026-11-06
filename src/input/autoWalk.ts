@@ -1,10 +1,7 @@
-import type { Actions, World } from '../sim/types';
-import type { Sim } from '../sim/sim';
-import type { Life } from '../sim/life/life';
-import { RoadNetwork, routeNearest, routePoint, routeTight, type Route } from '../sim/zone/roads';
-import { ridden } from '../sim/life/vehicles';
+import { type Actions, type World, type Sim, angleDiff } from '../engine/rules';
+import { type Life, ridden } from '../engine/island';
+import { RoadNetwork, routeNearest, routePoint, routeTight, type Route } from '../engine/zone';
 import { isBoat, isMount, isWheeled, rideable, type WheeledDef } from '../content/vehicles';
-import { angleDiff } from '../sim/math';
 
 // Walking for you: auto-run (straight on the way the camera looks, the mouse still steering) and
 // travel by road (along a route to a spot marked on the map). Both only make the controls the rules

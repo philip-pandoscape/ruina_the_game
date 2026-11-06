@@ -1,8 +1,7 @@
 import type * as THREE from 'three';
 import type { Vitals } from '../hud';
-import type { Life } from '../../sim/life/life';
-import type { Sim } from '../../sim/sim';
-import type { World } from '../../sim/types';
+import type { Life } from '../../engine/island';
+import type { Sim, World } from '../../engine/rules';
 import type { Goal } from './hud/goal';
 import type { TravelUI } from './travelUI';
 

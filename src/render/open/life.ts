@@ -1,10 +1,21 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import type { Life } from '../../sim/life/life';
-import type { Sim } from '../../sim/sim';
+import {
+  type Life,
+  type Scarecrow,
+  type Vehicle,
+  cellCentre,
+  scarecrowPost,
+  stageOf,
+  housePose,
+  isComplete,
+  nodeReady,
+  sailEfficiency,
+  stormAt,
+} from '../../engine/island';
+import { type Sim, type PlayerState, angleDiff } from '../../engine/rules';
+import { toLocal, toWorld, type Heightfield } from '../../engine/zone';
 import type { Hero, SeatPose } from '../character';
-import type { PlayerState } from '../../sim/types';
-import type { Scarecrow, Vehicle } from '../../sim/life/state';
 import { rideable, glider as gliderDef, isBoat, isMount, isWheeled, type RideableDef } from '../../content/vehicles';
 import { packDef } from '../../content/trade';
 import { FARM, cropDef } from '../../content/farming';
@@ -12,18 +23,10 @@ import { structureDef } from '../../content/structures';
 import { blueprintDef } from '../../content/housing';
 import { buildingPlan } from '../../content/buildings';
 import type { HouseView } from '../village/village';
-import { cellCentre, scarecrowPost, stageOf } from '../../sim/life/farming';
-import { housePose, isComplete } from '../../sim/life/housing';
-import { nodeReady } from '../../sim/life/interact';
-import { sailEfficiency } from '../../sim/life/vehicles';
-import { stormAt } from '../../sim/life/weather';
-import { angleDiff } from '../../sim/math';
 import { toon } from '../toon';
 import { tryBuild, type Models, type VehicleAnim } from './models';
 import type { Holds } from '../models/vehicles';
-import { toLocal, toWorld } from '../../sim/zone/generate';
 import { shipDesign } from '../../content/shipyard';
-import type { Heightfield } from '../../sim/terrain';
 
 // Draws what the life systems own: vehicles and mounts, every trade pack (on a back, in a cart,
 // on the ground), scarecrow plots and what grows in them, houses as far as they are built, the

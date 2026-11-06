@@ -1,6 +1,5 @@
 import * as THREE from 'three';
-import type { PlayerState } from '../sim/types';
-import { angleDiff } from '../sim/math';
+import { type PlayerState, angleDiff } from '../engine/rules';
 import { ABILITIES, COMBAT, comboShape, JUMP, MOVE, MOVEMENT_SKILLS, NO_ABILITY, STEP } from '../content/tuning';
 import { DetailRig } from './detail/rig';
 import { Body, SIDES, type Side } from './detail/body';

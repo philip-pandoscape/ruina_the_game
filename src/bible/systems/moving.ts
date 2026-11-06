@@ -8,7 +8,7 @@ import locomotionSource from '../../sim/player/locomotion.ts?raw';
 import traverseSource from '../../sim/player/traverse.ts?raw';
 import buildingsSource from '../../sim/zone/buildings.ts?raw';
 import zoneWorldSource from '../../sim/zone/world.ts?raw';
-import { EMBERHOLM } from '../../sim/zone/world';
+import { EMBERHOLM } from '../../engine/zone';
 import { ATTACK, JUMP, MOVE, MOVEMENT_SKILLS, SIM_HZ, STEP } from '../../content/tuning';
 import { accel, count, duration, frames, metres, num, pct, slopeDegrees, speed, speedKmh, turnRate } from '../format';
 import { system, table } from '../kit';

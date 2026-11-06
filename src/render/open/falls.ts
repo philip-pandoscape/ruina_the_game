@@ -1,6 +1,5 @@
 import * as THREE from 'three';
-import { RUNNEL } from '../../sim/zone/generate';
-import type { WaterfallInfo } from '../../sim/zone/types';
+import { RUNNEL, type WaterfallInfo } from '../../engine/zone';
 
 // The island's waterfalls (src/sim/zone/generate.ts cuts their slots): the spring pool spills down a
 // runnel to the lip, the water falls free in a curtain that fans out as it drops, and lands in the

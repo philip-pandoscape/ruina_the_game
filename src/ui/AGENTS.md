@@ -17,7 +17,7 @@ handed and ask for what they do; they never change the rules' state themselves.
 
 ## Rules
 
-- **Boundaries** (`tests/unit/boundaries.test.ts`): the UI may use content, the rules' state, input
+- **Boundaries** (`tests/unit/boundaries.test.ts`): the UI may use content, the rules' state (through the bridge, `src/engine/`), input
   and drawing (the hero preview). It never imports the network or the app: sign-in, character
   select, the party and the mini-game windows declare the calls they make and the shapes they show
   (`SignInApi`, `CharactersApi`, `PartyLink`, `TableLink`), and the app hands them the account API

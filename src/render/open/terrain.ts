@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { Heightfield, SURFACE, valueNoise } from '../../sim/terrain';
+import { Heightfield, SURFACE, valueNoise } from '../../engine/zone';
 import { GRAPHICS, PALETTE } from '../look';
 import { toon } from '../toon';
 import { splatWeights, texturedGround } from './ground';

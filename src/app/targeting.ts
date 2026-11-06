@@ -1,7 +1,7 @@
 import type * as THREE from 'three';
 import type { NetActor } from '../net/worldFeed';
 import { actorKindAt } from '../content/actors';
-import { isAlive } from '../sim/actor';
+import { isAlive } from '../engine/creatures';
 import { COMBAT } from '../content/tuning';
 import type { Engine } from '../engine/engine';
 

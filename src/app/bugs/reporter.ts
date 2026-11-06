@@ -1,5 +1,5 @@
-import type { LifeEvent } from '../../sim/life/life';
-import type { Actions, GameEvent } from '../../sim/types';
+import type { LifeEvent } from '../../engine/island';
+import type { Actions, GameEvent } from '../../engine/rules';
 import { FrameGrabber, hudText, screenshot, type Screenshot } from './capture';
 import { errors, logs, recordError } from './logs';
 import { BugOverlay, type Keys } from './overlay';

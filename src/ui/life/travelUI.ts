@@ -1,6 +1,6 @@
-import type { World } from '../../sim/types';
+import type { World } from '../../engine/rules';
+import { routeFrom, type Point } from '../../engine/zone';
 import type { AutoWalk, Refusal, WalkEvent } from '../../input/autoWalk';
-import { routeFrom, type Point } from '../../sim/zone/roads';
 import type { Handler } from '../components/window';
 import { openMenu } from '../theme/contextMenu';
 import { uiIcon } from '../theme/icons';

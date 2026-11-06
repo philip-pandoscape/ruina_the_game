@@ -1,5 +1,5 @@
 import { ActorTimeline } from './actorTimeline';
-import type { PlayerState } from '../sim/types';
+import type { PlayerState } from '../engine/rules';
 
 // What the game server says of the world around you, timed to be drawn. The world link
 // (src/net/worldLink.ts) brings each tick and src/app/onlineWiring.ts turns it into these shapes:

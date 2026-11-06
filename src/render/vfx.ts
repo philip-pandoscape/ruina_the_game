@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { makeRng, range } from '../util/rng';
-import type { GameEvent } from '../sim/types';
+import type { GameEvent } from '../engine/rules';
 import { MOVEMENT_SKILLS } from '../content/tuning';
 import { toon } from './toon';
 

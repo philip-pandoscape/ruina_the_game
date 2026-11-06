@@ -1,11 +1,10 @@
 // The bug reporter wired to the game (src/app/bugs/reporter.ts records a report: \ or clicking both
 // sticks): what a report keeps of the game's state, sampled as it plays, and the hooks it calls.
 // It reaches the game through `g`, the references src/main.ts hands it.
-import { isAlive } from '../sim/actor';
-import { stateName } from '../sim/ai/brain';
+import { isAlive, stateName } from '../engine/creatures';
+import { ridden } from '../engine/island';
 import { saveData } from './save';
 import { BugReporter } from './bugs/reporter';
-import { ridden } from '../sim/life/vehicles';
 import { COMBAT } from '../content/tuning';
 import type { GameRefs } from '../main';
 

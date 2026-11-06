@@ -1,6 +1,6 @@
 import { CLIMATES } from '../../../content/farming';
-import { hourOfDay, raining } from '../../../sim/life/weather';
-import { angleDiff } from '../../../sim/math';
+import { hourOfDay, raining } from '../../../engine/island';
+import { angleDiff } from '../../../engine/rules';
 import { el } from '../../components/dom';
 import { withIcons } from '../../theme/icons';
 import type { IslandUI } from '../context';

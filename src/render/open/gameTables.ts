@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { BEACONS, HEXES, OLD_BEACON, SEAT_COLORS, TABLE, hexCentre } from '../../content/minigames';
-import type { PlayerState } from '../../sim/types';
+import type { PlayerState } from '../../engine/rules';
 import { PAL, Parts, TAU, box, cyl, mesh, mix } from '../models/kit';
 import type { Seated } from './life';
 

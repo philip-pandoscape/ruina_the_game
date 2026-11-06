@@ -1,6 +1,6 @@
 import type { Engine } from '../engine/engine';
 import type { OpenStage } from '../render/open/stage';
-import { arrivalOf, dungeonDef, dungeonDoor, inWorld } from '../sim/zone/dungeon';
+import { arrivalOf, dungeonDef, dungeonDoor, inWorld } from '../engine/zone';
 
 // Going into a copy of a dungeon and out again, as this browser sees it: the dungeon's floors and
 // walls made solid in your world and taken away again after (the engine's: Engine.enterDungeon),

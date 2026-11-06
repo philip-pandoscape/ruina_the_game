@@ -3,8 +3,7 @@
 
 import { ITEMS, RECIPES, type RecipeDef, VENDORS } from '../../content/items';
 import { PACKS, packDef } from '../../content/trade';
-import { EMBERHOLM } from '../../sim/zone/world';
-import type { ZonePlace } from '../../sim/zone/types';
+import { EMBERHOLM, type ZonePlace } from '../../engine/zone';
 import { type Html, link, raw } from '../md';
 import { coins, listOf } from '../format';
 import { icon } from '../kit';

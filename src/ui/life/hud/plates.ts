@@ -1,8 +1,7 @@
 import * as THREE from 'three';
 import { questDef } from '../../../content/quests';
 import { isBoat, isMount, rideable } from '../../../content/vehicles';
-import { questsAt } from '../../../sim/life/quests';
-import { ridden } from '../../../sim/life/vehicles';
+import { questsAt, ridden } from '../../../engine/island';
 import { esc } from '../../../util/html';
 import { el } from '../../components/dom';
 import { uiIcon } from '../../theme/icons';

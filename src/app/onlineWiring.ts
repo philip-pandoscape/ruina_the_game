@@ -5,7 +5,7 @@
 // stops for good if another window takes this character or the sign-in ends. It reaches the game
 // through `g`, the references src/main.ts hands it.
 import { stateFromServer } from '../net/netPlayer';
-import { type Command } from '../sim/life/life';
+import type { Command } from '../engine/island';
 import { leaveFor, plainUrl } from '../app/resume';
 import { signOut } from '../net/account';
 import { NetOverlay, OnlineBadge, showStopped } from '../ui/signIn';

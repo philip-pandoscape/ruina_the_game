@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
-import { isAlive, type Actor } from '../sim/actor';
+import { isAlive, type Actor } from '../engine/creatures';
 import { DUMMY } from '../content/tuning';
 import { part, toon } from './toon';
 

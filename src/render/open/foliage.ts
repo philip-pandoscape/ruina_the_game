@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { makeRng, range } from '../../util/rng';
-import type { Obstacle } from '../../sim/types';
-import { hash2, SURFACE, type Heightfield } from '../../sim/terrain';
+import type { Obstacle } from '../../engine/rules';
+import { hash2, SURFACE, type Heightfield } from '../../engine/zone';
 import { track } from '../assets';
 import { GRAPHICS, PALETTE } from '../look';
 import { madeProp } from '../models/glb';

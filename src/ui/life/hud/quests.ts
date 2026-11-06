@@ -1,7 +1,6 @@
 import { objectiveTarget, QUESTS, questDef } from '../../../content/quests';
 import { packDef, placeName } from '../../../content/trade';
-import { shortTime } from '../../../sim/life/interact';
-import { questsAt } from '../../../sim/life/quests';
+import { shortTime, questsAt } from '../../../engine/island';
 import { esc } from '../../../util/html';
 import { progressHtml } from '../../components/bars';
 import { el } from '../../components/dom';

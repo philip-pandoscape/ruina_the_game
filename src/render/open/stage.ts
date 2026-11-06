@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { streamFrom } from '../../assets/loader';
-import type { World } from '../../sim/types';
+import type { World } from '../../engine/rules';
+import type { DungeonDef, DungeonDoor, WaterfallInfo } from '../../engine/zone';
 import { GRAPHICS, PALETTE, POST } from '../look';
 import { windowGlow } from '../models/glb';
 import { glowMaterial } from '../models/kit';
@@ -16,10 +17,8 @@ import { FallsView } from './falls';
 import { GrottoView } from './grotto';
 import { ArenaView } from './arenaView';
 import { DungeonView } from './dungeonView';
-import type { DungeonDef } from '../../sim/zone/dungeon';
 import { Village } from '../village/village';
 import type { Models } from './models';
-import type { DungeonDoor, WaterfallInfo } from '../../sim/zone/types';
 
 /** Whether a crag `r` across at (x, z) would cover a waterfall's slot or the water falling down it. */
 function overFalls(falls: WaterfallInfo[], x: number, z: number, r: number): boolean {

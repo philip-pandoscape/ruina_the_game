@@ -1,4 +1,4 @@
-import { angleDiff } from '../../../sim/math';
+import { angleDiff } from '../../../engine/rules';
 import { esc } from '../../../util/html';
 import { el } from '../../components/dom';
 import { iconHtml } from '../../theme/icons';

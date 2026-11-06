@@ -2,7 +2,7 @@
 
 import { QUESTS } from '../../content/quests';
 import { CONTRACTS, PACKS, placeName, route } from '../../content/trade';
-import { EMBERHOLM as Z } from '../../sim/zone/world';
+import { EMBERHOLM as Z } from '../../engine/zone';
 import { coins, count, duration, key, listOf, metres, num, pct, range } from '../format';
 import { system, table } from '../kit';
 import { link, md, phrase } from '../md';
