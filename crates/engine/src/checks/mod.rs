@@ -1,26 +1,25 @@
-//! The checks' scenarios, run through the rules: each takes a scenario as the conformance tests write
-//! it (JSON) and gives back what happened, frame by frame (JSON). The check programs in crates/tools
-//! print it for tests/conformance/ to compare with the TypeScript's; the golden tests below hold it to
-//! the answers that comparison proved, so the engine keeps its guard when the TypeScript rules and
-//! their comparisons go (the refactor's Phase 8).
+//! Scenarios run through the rules: each takes a scenario (JSON) and gives back what happened, frame
+//! by frame (JSON). The golden tests below hold each answer to a hash, so a rule can't change
+//! unnoticed. The hashes were first proved against the TypeScript copy of the rules, which the
+//! conformance tier compared with these bit for bit until the browser played on the engine itself
+//! (the refactor's Phase 8).
 //!
 //! The golden scenarios are in tests/golden/ (one file per check): each case's scenario, and a hash of
-//! what the rules gave back when the TypeScript last agreed with it. They're written by the
-//! conformance tier (tests/conformance/golden.ts): `RUINA_GOLDEN=1 npm run test:conformance`, after a
-//! change it has just passed on (a rule changed on both sides, the island rebaked).
+//! what the rules give back. After a change made on purpose (a rule changed, the island grown
+//! differently), `RUINA_GOLDEN=1 cargo test --release -p ruina-engine golden` keeps the new answers.
 
-/// Creatures: one brain on its own, or packs and war-bands fighting (aicheck).
+/// Creatures: one brain on its own, or packs and war-bands fighting.
 pub mod ai;
-/// A player on the old battlefield's flat ground: movement, combos, casts, skills (simcheck).
+/// A player on the old battlefield's flat ground: movement, combos, casts, skills.
 pub mod player;
-/// A player on Emberholm: hills, cliffs, decks, water, gliders, packs (worldcheck).
+/// A player on Emberholm: hills, cliffs, decks, water, gliders, packs.
 pub mod world;
 
 #[cfg(test)]
 mod tests {
     use serde_json::{Map, Value, json};
 
-    /// FNV-1a, 64 bits, over the text's bytes, as tests/conformance/golden.ts hashes what a check printed.
+    /// FNV-1a, 64 bits, over the text's bytes: the hash a golden case keeps of what its check gave back.
     fn fnv1a64(text: &str) -> String {
         let mut h: u64 = 0xcbf2_9ce4_8422_2325;
         for b in text.bytes() {
@@ -30,7 +29,9 @@ mod tests {
         format!("{h:016x}")
     }
 
-    /// A step as the fixtures keep it (a row of numbers, golden.ts STEP), as the scenario's own JSON.
+    /// A step as the golden files keep it, as the scenario's own JSON. The row: moveX, moveZ, the
+    /// buttons (a bit each: jump pressed, jump held, attack, slide, sprint, crouch), ability slot,
+    /// movement slot, movement held, aimX, aimZ, faceX, faceZ, stickX, stickY.
     fn step(row: &[Value]) -> Value {
         let n = |i: usize| row[i].clone();
         let buttons = row[2].as_u64().expect("the buttons");
@@ -47,7 +48,7 @@ mod tests {
         Value::Object(s)
     }
 
-    /// Every case of a check: its name, its scenario as the check program reads it, and the hash kept.
+    /// Every case of a check: its name, its scenario as the check reads it, and the hash kept.
     fn cases(check: &str) -> Vec<(String, String, String)> {
         let path = format!("{}/tests/golden/{check}.json", env!("CARGO_MANIFEST_DIR"));
         let file: Value = serde_json::from_str(&std::fs::read_to_string(&path).expect("the golden file")).expect("golden JSON");
@@ -117,23 +118,23 @@ mod tests {
                        keep the new answers with RUINA_GOLDEN=1 cargo test --release -p ruina-engine golden";
 
     #[test]
-    fn creatures_give_the_answers_the_typescript_agreed_with() {
+    fn creatures_give_the_answers_kept() {
         assert_eq!(differ("aicheck", super::ai::run), Vec::<String>::new(), "{WHY}");
     }
 
     #[test]
-    fn a_player_gives_the_answers_the_typescript_agreed_with() {
+    fn a_player_gives_the_answers_kept() {
         assert_eq!(differ("simcheck", super::player::run), Vec::<String>::new(), "{WHY}");
     }
 
     #[test]
-    fn a_player_on_the_island_gives_the_answers_the_typescript_agreed_with() {
+    fn a_player_on_emberholm_gives_the_answers_kept() {
         assert_eq!(differ("worldcheck", super::world::run), Vec::<String>::new(), "{WHY}");
     }
 
     #[test]
-    fn the_hash_is_the_conformance_tiers() {
-        // tests/conformance/golden.ts gives these for the same texts.
+    fn the_hash_is_fnv1a_64() {
+        // The hashes kept were made by the TypeScript's FNV-1a over the same texts; these are its.
         assert_eq!(fnv1a64(""), "cbf29ce484222325");
         assert_eq!(fnv1a64("{\"frames\":[]}"), "d0a940566ed844c1");
     }

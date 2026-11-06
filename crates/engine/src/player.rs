@@ -1,7 +1,7 @@
-//! Player movement and combat rules: a port of src/sim/sim.ts in networked mode (no training
-//! dummy, no hit pause, no auto-aim). The browser runs the TypeScript version to predict your own
-//! moves, so the two must stay identical. tests/conformance/player.test.ts runs both and compares them.
-//! Open worlds reuse these pieces from crate::open::step_player (tests/conformance/world.test.ts).
+//! Player movement and combat rules, as the server runs them (no training dummy, no hit pause, no
+//! auto-aim: the yard's stand-ins for those are training.rs). The browser runs the same code through
+//! the WebAssembly to predict your own moves. Open worlds reuse these pieces from
+//! crate::open::step_player.
 
 use crate::ai::{ACT_CAST, ACT_DODGE, ACT_FREE, ACT_GUARD, ACT_RECOVER, ACT_STUNNED, ACT_SWING, Foe};
 use crate::event::Event;

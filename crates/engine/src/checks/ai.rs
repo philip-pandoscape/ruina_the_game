@@ -1,5 +1,4 @@
-//! The creatures' check (aicheck, tests/conformance/ai.test.ts): runs behaviours through the rules
-//! and gives back every frame.
+//! The creatures' check: runs behaviours through the rules and gives back every frame.
 //!
 //! Two kinds of scenario. One brain on its own: `brain`, `seed`, `x`, `z`, `frames`, `player`.
 //! A whole pack (`pack` is present): real kinds from shared/actors.json and shared/creatures.json
@@ -39,8 +38,8 @@ fn one() -> f64 {
 }
 
 /// A scripted player: walks back and forth between two points, facing a point, swinging and
-/// dodging on a beat. Only exact arithmetic (and atan2, which both sides share bit for bit), so
-/// the browser works out the very same foe (foeAt in tests/conformance/ai.test.ts).
+/// dodging on a beat. Only exact arithmetic (and atan2, bit for bit everywhere), so a scenario's
+/// foe is the same wherever it runs.
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct FoeScript {
@@ -228,7 +227,7 @@ fn run_pack(s: &Scenario, spawns: &[Spawn]) -> PackOut {
     out
 }
 
-/// Runs a scenario (JSON, as the conformance test writes it) and gives back every frame (JSON).
+/// Runs a scenario (JSON) and gives back every frame (JSON).
 pub fn run(input: &str) -> serde_json::Result<String> {
     let s: Scenario = serde_json::from_str(input)?;
     if let Some(spawns) = &s.pack {

@@ -42,4 +42,5 @@ steppers no longer run, until R8.13 of the refactor (`.plans/refactor/`) moves i
 `tests/unit/prediction.test.ts` (the server's word on you), `tests/unit/online.test.ts` (an online
 Engine against an engine standing in for the server: corrections, commands run ahead, others'
 vehicles, plots and players), the integration tier broadly (every spec plays through the bridge),
-and `tests/conformance/` (the TypeScript rules against the Rust ones, until R8.13 deletes them).
+and `tests/conformance/` (the WebAssembly against the native engine, and the browser's ground
+sampling against the engine's).

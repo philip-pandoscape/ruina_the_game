@@ -5,7 +5,7 @@ Three tiers; the full guide is [docs/testing.md](../docs/testing.md).
 | Folder | Tier | Runner | Run |
 |---|---|---|---|
 | `unit/` | unit: logic without a browser or server; `unit/rules/` plays the game headless (`support/headless.ts`) | Vitest (`vitest.config.ts`, project `unit`) | `npm run test:unit` (with the Rust tests) |
-| `conformance/` | integration: the TypeScript rules against the Rust ones | Vitest (project `conformance`) | `npm run test:conformance` |
+| `conformance/` | integration: the WebAssembly and the browser's ground sampling against the native engine; the balance harness | Vitest (project `conformance`) | `npm run test:conformance` |
 | `integration/` | integration: the game in a browser, with its servers | Playwright (`playwright.config.ts`) | `npm run test:integration` |
 | `stress/` | stress: speed, crowds, many windows; a real GPU | Playwright (`playwright.stress.config.ts`) | `npm run test:stress` |
 | `support/` | helpers: `game.ts` (open the game, wait for it, the typed `window.__game`), `headless.ts` (the game in Node for `unit/rules/`: a `page` whose `evaluate` runs on it), `ownServer.ts` (a game server of a spec's own, on a port of its own), `battlefield.ts` (fighters in the battlefield zone) | | |

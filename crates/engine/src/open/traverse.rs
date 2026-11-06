@@ -1,8 +1,6 @@
 //! Getting around an open world: walking over hills (and not up cliffs), wading and swimming,
-//! and flying a glider. A port of src/sim/player/traverse.ts: the same arithmetic in the same
-//! order, so the browser's prediction and the server agree (tests/conformance/world.test.ts).
-//! The TypeScript's events (landing, splashes, the glider opening) are for the screen; the server
-//! has none, so they are left out.
+//! and flying a glider. The browser's prediction runs the same code through the WebAssembly, so it
+//! and the server agree to the bit.
 
 use super::Sim;
 use super::colliders::{ground_at, ground_at_decks, in_rect, push_out_of_box};
@@ -540,8 +538,8 @@ pub fn update_glide(sim: &mut Sim, a: &Actions) {
     p.vel.z = p.facing.js_cos() * p.airspeed;
 }
 
-// The frame-by-frame match with the TypeScript is tests/conformance/world.test.ts; these only check
-// that the server's rules hold up on their own.
+// The golden scenarios of checks/world.rs hold traversal's answers frame by frame; these check that
+// its rules hold up on their own.
 #[cfg(test)]
 mod tests {
     use super::*;

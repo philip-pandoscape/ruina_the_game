@@ -40,7 +40,9 @@ export function islandData(life: IslandRead, sim: SimRead): Island {
 /**
  * Restores a saved island into a fresh Life and Sim. `now` is the clock `savedAt` was measured
  * on (the server's, online), for the time you were away. Returns false, changing nothing, for a
- * save from a newer game than this one.
+ * save from a newer game than this one. Nothing runs it now; the bible reads its source until it
+ * reads the engine's (R8.13).
+ * @public
  */
 export function applySave(life: Life, sim: Sim, data: Saved, now: number): boolean {
   // Older saves are migrated forward; only a save from a newer game than this one is refused.

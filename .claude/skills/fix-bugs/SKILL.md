@@ -52,8 +52,8 @@ Reproduce before fixing whenever you can; a fix you never saw fail is a guess.
 
 Fix the cause, not the symptom, and keep to the project's rules:
 
-- The flat training/battlefield rules must stay byte-identical to the Rust server; `tests/conformance/player.test.ts` guards this. After changing the Rust (`crates/`), rebuild first with `~/.cargo/bin/cargo build --release` (cargo isn't on PATH).
-- Open-world state changes only inside `Life.step`, through `life.command(...)`.
+- The rules are the engine's alone (`crates/engine`): the server runs them and the browser runs the same code compiled to WebAssembly. A rule changed on purpose changes the engine's golden answers: keep the new ones with `RUINA_GOLDEN=1 cargo test --release -p ruina-engine golden`. After changing the Rust (`crates/`), rebuild the WebAssembly (`npm run engine`) and the server first with `~/.cargo/bin/cargo build --release` (cargo isn't on PATH).
+- Open-world state changes only inside the engine's `Life::step` (`crates/engine/src/life/`), through commands; the browser sends them as the Engine's named calls (`src/engine/engine.ts`).
 - Content is data in `shared/*.json`. When the data is what's wrong, fix the data.
 - Run `npm run typecheck`, the specs covering what you touched, and the new test. Run the whole suite (`npm test`) when the change is broad.
 

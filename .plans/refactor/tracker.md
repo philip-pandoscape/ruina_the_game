@@ -32,12 +32,18 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
   4. Phase 13 and the merge.
 
   The multi-server version follows the merge (`.plans/world/`).
-- **How:** one session does the work, with at most one sub-agent beside it, on Opus 5.5 at max
-  effort, in a worktree of its own (the user's call on 2026-11-06: three at once used tokens too
-  fast; one is allowed). It did the mini-games (R9.11, R8.11) and the UI gallery (R6.9).
+- **How:** one session does the work, with at most two sub-agents beside it, on Opus 5.5 at max
+  effort, each in a worktree of its own with its own ports and database (the user's call on
+  2026-11-06: three at once used tokens too fast; one was allowed, then a second). They did the
+  mini-games (R9.11, R8.11) and the UI gallery (R6.9); now the bible's reading of the engine's Rust
+  (R8.13's part) and saved builds by id with the bundle's hash on the wire (R9.1, R9.2).
 - **Races under load (the Mac, four workers):** these lose a race now and then and pass alone:
-  `online.spec.ts:109`, `:258`, `:617`, `party.spec.ts:121`, `combat.spec.ts:185`, the battlefield's
-  `Cleave hits both` and `battlefield.spec.ts:375`. To look at with R1.11.
+  `online.spec.ts:50`, `:109`, `:258`, `:617`, `party.spec.ts:121`, `combat.spec.ts:185`; and
+  `game.spec.ts:43` and `dungeon-way-in.spec.ts:50` when Vite reloads the page at the start of a run
+  as it optimizes its dependencies. To look at with R1.11. The battlefield's `Cleave hits both` and
+  `battlefield.spec.ts:375` weren't races: the battlefield takes 20 and keeps a player who has left
+  for a minute, so the spec's fresh fighters filled it a few tests in. They leave through its way out
+  now, and the spec passes whole.
 - **Where:** from 2026-11-06 the work goes on on the Mac laptop, in the main checkout
   (`~/Documents/GitHub/games/ruina_the_game`, branch `refactor/first`; Git LFS installed with
   Homebrew). The Windows worktree `C:\GitHub\games\yggdrasil-refactor` was the first machine; its last
@@ -709,12 +715,18 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
   off a deck the browser doesn't see.
 - [ ] **R8.12** Road routing (`zone/roads.ts`, `zone/localPath.ts`, TS-only, browser-only) reads the
   island through the bridge; it stays TypeScript unless the server needs it.
-- [ ] **R8.13** Delete `src/sim/`, the check programs and the conformance specs.
+- [~] **R8.13** Delete `src/sim/`, the check programs and the conformance specs.
   What the page still reads (the shapes of the rules' state, the ground's sampling, the island's read
   helpers, the roads) moves into `src/engine/` under the world's words (R10.14): no new "island"
   names. The unit tests that drive the TypeScript rules move to the engine: through an `Engine`, or
   as Rust tests beside the rules they test. `newContent.test.ts` needs the engine to take content
   bundles at run time. The bible reads the engine's Rust source rather than `src/sim/`.
+  The check programs (`aicheck`, `simcheck`, `worldcheck`, `lifecheck`) and the conformance specs that
+  ran them went, with `golden.ts`: the engine's golden tests hold the answers they proved
+  (`RUINA_GOLDEN=1 cargo test --release -p ruina-engine golden` keeps new ones), and the conformance
+  tier holds the WebAssembly to the native engine, the browser's ground sampling and the balance
+  harness. The docs, CI and the engine's comments say the rules are one copy. The bible's part is a
+  background agent's.
 - [ ] **R8.14** Measure against the baseline: frame time, start-up, memory. Log it. (The download's
   size dropped, D15.)
 - [x] **R8.15** `crates/engine/AGENTS.md`: determinism rules, adding a system, testing it.
@@ -1152,7 +1164,8 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
 | 2026-11-06 | R8.5 | The shadow in the page; the whole integration tier played with it; the prediction's -0 fixed; the design bible loads the engine | 2e4fc44 |
 | 2026-11-06 | R8.7, R8.8, R8.9 | The switch: the Engine answers from the engine's session (you, the creatures, the yard, the island), the page reading snapshots; the shadow gone with what it compared | 8ea8ece |
 | 2026-11-06 | R9.11, R8.11, R6.9 | Mini-games from their files with the engine's rules on the board; the UI gallery (a background agent, merged) | 0e918b8, dabea21, f9517ba |
-| 2026-11-06 | D16-D19, Phase 10 | One world: seamless regions with fixed borders, channels opened by crowding, contested land; the research (`.plans/world/research.md`) and the plan revised for the foundations | (this commit) |
+| 2026-11-06 | D16-D19, Phase 10 | One world: seamless regions with fixed borders, channels opened by crowding, contested land; the research (`.plans/world/research.md`) and the plan revised for the foundations | c3d19c3 |
+| 2026-11-06 | R8.13 | The check programs and the conformance specs that held the TypeScript rules to the Rust go; the docs say the rules are one copy; the battlefield spec's fighters leave through its way out | (this commit) |
 | 2026-11-06 | R9.14 | `docs/content.md` | 5e23680 |
 | 2026-11-06 | R10.10, R11.1, R11.2, R11.7, R11.8 | Snapshot to move machines: the battle server's Rust gone; the asset manifest, loader and first-download budget, `docs/assets.md` | a975617 |
 | 2026-11-06 | R6.10, R6.11, R6.8 | The client's moves: creature bodies into src/render/creatures/, the root files to their areas, the library under src/dev/ | 9317ff3, 5de387d, 81df3de |

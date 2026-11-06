@@ -6,7 +6,7 @@ time, the middle one before every push to `beta`, the slow one before a release.
 | Tier | What | Needs | Run | When |
 |---|---|---|---|---|
 | **Unit** | `tests/unit/` (Vitest, in Node) and the Rust tests (`cargo test`) | nothing: no browser, no server, no drawing | `npm run test:unit` (TypeScript and Rust), `npm run check` (typecheck too) | after every change |
-| **Integration** | `tests/conformance/` (Vitest: the TypeScript rules against the Rust ones) and `tests/integration/` (Playwright: the game in a browser) | the release Rust programs (built by the script), a world server with Postgres for the online specs | `npm run test:conformance`, `npm run test:integration`; `npm run check:beta` runs everything up to here | before every push to `beta` |
+| **Integration** | `tests/conformance/` (Vitest: the WebAssembly and the browser's ground sampling against the native engine; the balance harness) and `tests/integration/` (Playwright: the game in a browser) | the release Rust programs (built by the script), a world server with Postgres for the online specs | `npm run test:conformance`, `npm run test:integration`; `npm run check:beta` runs everything up to here | before every push to `beta` |
 | **Stress** | `tests/stress/` (Playwright, `playwright.stress.config.ts`, one test at a time) | a real GPU | `npm run test:stress`; `npm run check:release` runs every tier | before a release to `production` |
 
 ## Where a new test goes
@@ -14,15 +14,14 @@ time, the middle one before every push to `beta`, the slow one before a release.
 - **It checks logic: rules, content, maths, a tool, text.** A unit test, `tests/unit/<area>.test.ts`.
   Import the module and call it. No `window`, no WebGL, no server, no waiting on time. The rules are
   deterministic, so a unit test is too.
-- **It checks the TypeScript rules give what the Rust ones do.** `tests/conformance/` (these go away
-  when the rules are one copy: `.plans/refactor`, Phase 8). The engine keeps its own guard for
-  then: the golden tests (`crates/engine/src/checks/mod.rs`) run every creature, player and
-  open-world scenario the conformance tier proves and hold the Rust to those answers bit for bit, by
-  a hash of each kept in `crates/engine/tests/golden/`. After a change both sides make on purpose (a
-  rule changed in TypeScript and Rust, the island grown differently), `RUINA_GOLDEN=1 npm run test:conformance`
-  writes the new answers, once the comparison has passed on them. The server's fighting, which has no
-  TypeScript twin, has a golden battle of its own (`a_battle_plays_out_as_it_always_has` in
-  `crates/server/src/play/bots.rs`).
+- **It checks the rules' answers.** A Rust test beside the rule (`#[cfg(test)]` in
+  `crates/engine`): the rules are one copy, the engine's. A scenario stepped through the rules goes
+  in `crates/engine/src/checks/`, and the golden tests (`checks/mod.rs`) hold its answer bit for bit
+  by a hash kept in `crates/engine/tests/golden/`. After a change made on purpose,
+  `RUINA_GOLDEN=1 cargo test --release -p ruina-engine golden` keeps the new answers. The server's
+  fighting has a golden battle of its own (`a_battle_plays_out_as_it_always_has` in
+  `crates/server/src/play/bots.rs`). `tests/conformance/` holds the WebAssembly to the native engine
+  and the browser's ground sampling to the engine's.
 - **It plays the game: you, the island, creatures, stepping frame by frame, but nothing drawn.** A
   rules test, `tests/unit/rules/<area>.test.ts`: written as for a page (`page.goto('/?yard')`, then
   `page.evaluate` over `window.__game`), it runs headless in Node (`tests/support/headless.ts`): the
@@ -63,7 +62,7 @@ it even starts.
 npm run check                          # typecheck + unit tier (TypeScript and Rust)
 npx vitest run --project unit          # the TypeScript unit tests alone (seconds)
 npx vitest run tests/unit/roads.test.ts   # one file
-npm run test:conformance               # builds the Rust check programs, then compares
+npm run test:conformance               # builds the engine natively and as WebAssembly, then holds one to the other
 npx playwright test                    # the integration tier (needs servers for the online specs)
 npx playwright test tests/integration/ui.spec.ts -g "title"   # some of it
 npx playwright test --last-failed      # what failed last time
@@ -78,9 +77,8 @@ Switches for looking closer when something disagrees:
 
 | Variable | What it prints |
 |---|---|
-| `LIFE_SUMMARY=1` | `tests/conformance/life.test.ts`: each case's island at the end (modes, coins, bag, packs, vehicles, crops, houses, quests, toasts) |
 | `BALANCE_TRACE=1` | `npm run balance` (`crates/tools/src/bin/balance.rs`): every duel's fighters every half second (positions, distance, health, mode, cooldowns) |
-| `RUINA_GOLDEN=1` | `tests/conformance/` (ai, player, world) writes each scenario it proves, with a hash of the Rust's answer, for the engine's golden tests (`crates/engine/tests/golden/`) |
+| `RUINA_GOLDEN=1` | `cargo test --release -p ruina-engine golden` keeps the golden scenarios' new answers (`crates/engine/tests/golden/`) after a change made on purpose |
 
 ### Ports and a private test rig
 

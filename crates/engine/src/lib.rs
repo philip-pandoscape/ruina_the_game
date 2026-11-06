@@ -11,7 +11,7 @@ pub mod actor;
 pub mod actors;
 pub mod ai;
 pub mod bots;
-/// The checks' scenarios (the conformance tier's, and the engine's golden tests).
+/// Scenarios run through the rules, whose answers the golden tests hold.
 pub mod checks;
 pub mod content;
 pub mod creatures;

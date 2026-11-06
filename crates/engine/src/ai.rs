@@ -364,7 +364,7 @@ fn face_foe(a: &mut Actor, seen: Sighting) {
     }
 }
 
-// The original wander, kept exactly, draw for draw: the conformance tests pin it.
+// The original wander, kept exactly, draw for draw: the golden creature scenarios pin it.
 fn wander(a: &mut Actor, b: &Behaviour, seen: Sighting, most: f64) {
     let dx = seen.x - a.x;
     let dz = seen.z - a.z;

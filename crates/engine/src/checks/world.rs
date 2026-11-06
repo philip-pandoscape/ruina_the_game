@@ -1,5 +1,5 @@
-//! The open world's check (worldcheck, tests/conformance/world.test.ts): a scripted list of inputs
-//! run through the open-world rules on Emberholm, every frame given back.
+//! The open world's check: a scripted list of inputs run through the open-world rules on Emberholm,
+//! every frame given back.
 //!
 //! Script: { spawn: { x, z, facing }, glider: "" or a glider id, pack: 0 or a pack id,
 //! steps: [Actions, camelCase], gusts: [frames to use the glider's gust before stepping] }.
@@ -65,7 +65,7 @@ struct StepIn {
     face_z: f64,
 }
 
-// Per frame, in the order of F in tests/conformance/world.test.ts: x, y, z, vx, vy, vz, facing,
+// Per frame: x, y, z, vx, vy, vz, facing,
 // airspeed, bank, land impact, run phase, hp, then mode (player.rs Mode), grounded, jumps used,
 // jump cut done, coyote, jump buffer, flip frame, land frame, takeoff frame, sprinting, crouching,
 // crouch frame, mode frame, gust frames, action id, action frame, attack index, attack frame,
@@ -83,7 +83,7 @@ fn flag(b: bool) -> f64 {
     if b { 1.0 } else { 0.0 }
 }
 
-/// Runs a script (JSON, as the conformance test writes it) and gives back every frame (JSON).
+/// Runs a script (JSON) and gives back every frame (JSON).
 pub fn run(input: &str) -> serde_json::Result<String> {
     let script: Script = serde_json::from_str(input)?;
     let mut world = OpenWorld::new(emberholm());

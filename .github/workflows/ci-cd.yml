@@ -1,7 +1,7 @@
 # Every push to beta or production, and every pull request into them, is checked by the test tiers
 # (tests/AGENTS.md): the unit tier always (the client typechecks, builds and passes its unit tests;
-# the Rust tests pass), the integration tier where it's asked for (the TypeScript rules against the
-# Rust ones, then the Playwright suite playing the game against a real server and database).
+# the Rust tests pass), the integration tier where it's asked for (the engine's WebAssembly against
+# the native engine, then the Playwright suite playing the game against a real server and database).
 # A push that passes is deployed to the Railway environment of the same name and checked live.
 # A push to beta skips the integration tier, which takes half an hour and more here without a GPU:
 # it runs on the developer's machine before every push. Pull requests, production and a manual run
@@ -86,7 +86,7 @@ jobs:
       # release test binary, which took most of this job's time while the tests run in seconds.
       - name: Unit tests
         run: cargo test --locked --workspace
-      # The integration tier runs the server and checks the browser's rules against the Rust ones;
+      # The integration tier runs the server and holds the engine's WebAssembly to the native engine;
       # a push to beta doesn't play it (Railway builds its own server from the Dockerfile), so it
       # doesn't need these either.
       - name: Build
@@ -101,12 +101,8 @@ jobs:
           retention-days: 3
           path: |
             target/release/ruina-server
-            target/release/simcheck
-            target/release/aicheck
             target/release/balance
             target/release/terraincheck
-            target/release/worldcheck
-            target/release/lifecheck
             target/release/engineprobe
             target/wasm32-unknown-unknown/release/ruina_engine_wasm.wasm
 
@@ -150,9 +146,9 @@ jobs:
           name: server-binaries
           path: target
       - run: chmod +x target/release/*
-      # The TypeScript rules against the Rust ones, through the check programs (tests/conformance):
-      # no browser, so once, on the first runner.
-      - name: TypeScript against Rust
+      # The engine's WebAssembly and the browser's ground sampling against the native engine, and the
+      # balance harness (tests/conformance): no browser, so once, on the first runner.
+      - name: WebAssembly against native
         if: matrix.shard == 1
         run: npx vitest run --project conformance
       - name: Install the browser

@@ -1,11 +1,10 @@
-//! The open-world systems on the server: trade, farming, housing, vehicles and quests, a port of
-//! src/sim/life/*.ts. Players' islands change only here: the browser sends key presses and
-//! commands, the server runs them through these rules, and what comes out is what is kept in
-//! Postgres and shown to everyone. tests/conformance/life.test.ts runs the same commands through
-//! the TypeScript and checks both end up with the same island.
+//! The open-world systems: trade, farming, housing, vehicles and quests. Players' islands change
+//! only here: the browser sends key presses and commands, the server runs them through these rules,
+//! and what comes out is what is kept in Postgres and shown to everyone. The browser runs the same
+//! rules through the WebAssembly to run its commands ahead and to play offline.
 //!
-//! Like the TypeScript, a Life changes only inside step(), from the commands queued since the last
-//! one, so the same commands on the same frames always give the same island.
+//! A Life changes only inside step(), from the commands queued since the last one, so the same
+//! commands on the same frames always give the same island.
 
 pub mod content;
 pub mod contracts;
@@ -31,7 +30,7 @@ use crate::player::{Actions, Mode, Player};
 use content::{ItemCount, bag_slots, item_def, labor};
 use state::{LIFE_VERSION, LifeState, new_life_state};
 
-/// One fixed step of the rules (src/content/tuning.ts STEP).
+/// One fixed step of the rules (shared/tuning.json's simHz).
 pub fn step_seconds() -> f64 {
     1.0 / crate::tuning::tuning().sim_hz
 }

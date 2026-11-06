@@ -16,6 +16,7 @@ import { serverBuilt } from './testServer';
 
 export const ZONE = JSON.parse(readFileSync('content/dungeons/battlefield.json', 'utf8')) as {
   origin: { x: number; y: number; z: number };
+  exit: { x: number; z: number };
 };
 
 /** Where each side stands to start: a few metres apart across the arena's south end, as the old battle server's spawns were. */
@@ -61,7 +62,12 @@ export function battlefield(base: number) {
     test.skip(!!missing, missing ?? '');
   });
   test.afterEach(async () => {
-    for (const c of contexts.splice(0)) await c.close();
+    const done = contexts.splice(0);
+    // Out through the way out first: someone whose window closes is kept in the battlefield for a
+    // minute (LINGER, crates/server/src/play/mod.rs) and it takes 20 (maxPlayers), so fresh fighters
+    // left to linger fill it a few tests on.
+    await Promise.all(done.flatMap((c) => c.pages()).map(leave));
+    for (const c of done) await c.close();
   });
 
   /**
@@ -113,6 +119,18 @@ export async function stand(page: Page, x: number, z: number, facing = 0): Promi
   );
   // Being put there was the server's doing, a correction of its own: count them from here.
   await page.evaluate(() => window.__game.clearCorrections());
+}
+
+/** Out of the battlefield through its way out, if still in it; a window that can't is left to close as it is. */
+async function leave(page: Page): Promise<void> {
+  try {
+    if ((await page.evaluate(() => window.__game.space()?.kind)) !== 'dungeon') return;
+    await stand(page, ZONE.exit.x, ZONE.exit.z);
+    expect(await page.evaluate(() => window.__game.throughPortal(false, 'battlefield'))).toBe(true);
+    await page.waitForFunction(() => window.__game.space()?.kind !== 'dungeon', null, { timeout: 5_000 });
+  } catch {
+    // Dead, frozen or gone: it lingers, as before.
+  }
 }
 
 /** Sends the battlefield's bots away, and waits until they've gone (they come back with the next player into it empty). */

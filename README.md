@@ -28,21 +28,23 @@ rules' formulas and the terrain generator), so it is always current and there is
   An ability is targeting plus a list of *effects*, and a movement skill is an *action state* with
   a startup / active / recovery timeline. Those two vocabularies are the only things that cost
   code, and then in both languages at once.
-- `crates/`: the Rust workspace. `crates/engine` holds the rules (the same as the browser's
-  TypeScript), `crates/tools` the programs that check them against it, and `crates/server` the game
-  server, `ruina-server`, one port for everything (axum): accounts; Emberholm, which it
+- `crates/`: the Rust workspace. `crates/engine` holds the rules, one copy: the server runs them,
+  and the browser runs the same code compiled to WebAssembly (`crates/engine-wasm`, reached through
+  `src/engine/`). `crates/tools` holds the programs the conformance tier runs and the balance harness,
+  and `crates/server` the game server, `ruina-server`, one port for everything (axum): accounts; Emberholm, which it
   plays (`crates/server/src/play/mod.rs`: each channel's players from their key presses, the island's
   rules in `crates/engine/src/open` and `crates/engine/src/life`, the slimes and the fighting), keeping islands
   in Postgres (`crates/server/migrations/`); and the PvP battlefield, which decides all hits, runs bots,
   sends each player only what's near them, and rewinds time for lag compensation
 - `shared/tuning.json`: gameplay numbers, read by both the browser and the server
 - `shared/zones/`, `shared/{vehicles,trade,farming,housing,items,quests,structures,traversal}.json`:
-  the open world's content. `src/sim/zone/` grows the island from a zone recipe, `src/sim/life/`
-  runs trade, farming, housing, vehicles and quests, `src/render/open/` and `src/render/models/`
+  the open world's content. The engine grows the island from a zone recipe
+  (`crates/engine/src/open/generate.rs`) and runs trade, farming, housing, vehicles and quests
+  (`crates/engine/src/life/`); `src/render/open/` and `src/render/models/`
   draw it (every model side by side in the content library, http://localhost:5173/dev/library.html#/models), `src/ui/life/` is its HUD
   and windows, in the look `src/ui/theme/` gives the whole UI
-- `tests/`: Playwright tests that play the real game in a browser, plus checks that the TypeScript and
-  Rust rules agree frame by frame
+- `tests/`: the test tiers (`tests/AGENTS.md`): unit tests, Playwright tests that play the real game
+  in a browser, and checks that the engine's WebAssembly answers as the native engine does
 
 ## Setup
 
@@ -109,9 +111,8 @@ you ask your island to do (talk, plant, buy, craft, drive...). The server runs e
 copy: where you are (hills, cliffs, walls, water, gliders, vehicles), every hit, and everything on
 your island (bag, coins, labor, farms, houses, packs, quests), and keeps the island in Postgres
 from that copy. It answers 20 times a second; meanwhile your browser predicts your own moves with
-the same rules (in TypeScript) and corrects itself to the answer, so play feels instant.
-`tests/conformance/world.test.ts` and `tests/conformance/life.test.ts` check the two sets of rules
-agree. The developer panel (give items, skip time, teleport) exists only where the server allows it
+the same rules (the engine, compiled to WebAssembly) and corrects itself to the answer, so play
+feels instant. The developer panel (give items, skip time, teleport) exists only where the server allows it
 (development and beta, not production). Automated tests (`?test`) run the island offline, in the
 browser, except `tests/integration/online.spec.ts` and `tests/integration/minigames.spec.ts`, which need `npm run up`, and
 `tests/integration/update.spec.ts`, which starts and stops a game server of its own on the database in
@@ -128,7 +129,7 @@ browser, except `tests/integration/online.spec.ts` and `tests/integration/miniga
 Both branches are protected against force-pushes and deletion. `.github/workflows/ci-cd.yml` runs
 on every push and pull request to them: the client typechecks and builds, the Rust server's tests
 pass, and the whole Playwright suite plays the game against a real server and Postgres (with the
-battlefield and the TypeScript/Rust conformance tests, which need the Rust binaries). A push that
+battlefield and the conformance tests, which need the Rust binaries). A push that
 passes is uploaded to the Railway environment of the same name with `railway up`, and the job
 waits until `/api/health` answers from the new deployment. For now a push to `beta` skips the
 Playwright suite (half an hour and more on CI's runners, which have no GPU), so beta deploys a few

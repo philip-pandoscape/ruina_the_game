@@ -1,6 +1,6 @@
 [package]
 name = "ruina-tools"
-description = "Programs run by hand or by the tests: the TypeScript-against-Rust checks, the balance harness"
+description = "Programs run by hand or by the tests: the WebAssembly's and the ground's checks against the native engine, the balance harness"
 version.workspace = true
 edition.workspace = true
 publish = false

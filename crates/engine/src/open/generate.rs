@@ -1,10 +1,10 @@
 //! Grows a zone from its recipe (shared/zones/*.json, built from content/zones/): coastline, cliffs,
 //! hills, mountains with a path carved up their face, flattened town squares, graded roads, then the
 //! trees and rocks, the buildings' colliders and the decks you can walk on, and last the waterfalls.
-//! Same recipe, same seed, same island, every time. A port of src/sim/zone/generate.ts, step for
-//! step and in its order, so the two grow the same island to the bit (tests/conformance/zone.test.ts
-//! holds them to it); the maths is the browser's (jsmath.rs), and heights are kept as single
-//! floats, as the browser's Float32Array keeps them.
+//! Same recipe, same seed, same island, every time: the server grows it natively and the browser
+//! through the WebAssembly (zone_grow), and tests/conformance/terrain.test.ts holds the two to the
+//! bit. The maths is the browser's (jsmath.rs), and heights are kept as single floats, as the
+//! browser's Float32Array keeps them.
 
 use std::collections::BTreeMap;
 use std::f64::consts::{FRAC_PI_2, PI};
@@ -1335,8 +1335,8 @@ mod tests {
 
     #[test]
     fn emberholm_grows_whole() {
-        // tests/conformance/terrain.test.ts holds all of it to the TypeScript generator; here, that
-        // it grows at all: land at the spawn, trees and rocks, buildings with their walls, a road.
+        // tests/conformance/terrain.test.ts holds all of it to the WebAssembly's; here, that it
+        // grows at all: land at the spawn, trees and rocks, buildings with their walls, a road.
         let g = generate(&emberholm_recipe());
         let s = emberholm_recipe().spawn;
         assert!(g.terrain.height(s.x, s.z) > g.terrain.water, "the spawn is on dry land");

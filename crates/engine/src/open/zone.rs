@@ -1,8 +1,8 @@
 //! A zone as the rules see it: its recipe (shared/zones/, built from content/zones/) and what the
 //! generator (generate.rs) grows from it: the ground, what each patch of it is made of, which cells
 //! are kept clear, and the trees, rocks, walls and decks. Emberholm is grown the first time anything
-//! asks (about a tenth of a second). The browser grows the same island (src/sim/zone/generate.ts,
-//! until it runs this), held to it by tests/conformance/terrain.test.ts.
+//! asks (about a tenth of a second). The browser grows it with this same code, through the
+//! WebAssembly (zone_grow); tests/conformance/terrain.test.ts holds the two to each other.
 
 use crate::jsmath::JsMath;
 use std::sync::OnceLock;

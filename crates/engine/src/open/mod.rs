@@ -1,7 +1,7 @@
-//! Open worlds on the server: Emberholm's ground, colliders and getting around it, and the world
-//! each channel plays in. The browser predicts your own moves with the TypeScript rules
-//! (src/sim/player/traverse.ts, src/sim/zone/*); these are their Rust twins, and
-//! tests/conformance/world.test.ts runs both and compares them frame by frame.
+//! Open worlds: Emberholm's ground, colliders and getting around it, and the world each channel
+//! plays in. The server runs them natively; the browser runs the same code through the WebAssembly
+//! to predict your own moves and to play offline. The golden scenarios of checks/world.rs hold
+//! their answers.
 
 pub mod buildings;
 pub mod colliders;

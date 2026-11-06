@@ -189,7 +189,7 @@
         "crates/engine/src/open/traverse.rs",
         "crates/engine/src/open/colliders.rs",
         "crates/engine/src/open/zone.rs",
-        "tests/conformance/world.test.ts",
+        "crates/engine/src/checks/world.rs",
         "tests/conformance/terrain.test.ts"
       ]
     },
@@ -792,7 +792,7 @@
         "crates/engine/src/player.rs",
         "crates/server/src/combat.rs",
         "tests/unit/rules/movement.test.ts",
-        "tests/conformance/player.test.ts"
+        "crates/engine/src/checks/player.rs"
       ]
     },
     {
@@ -1230,7 +1230,7 @@
         "crates/engine/src/ai.rs",
         "crates/engine/src/actors.rs",
         "tests/unit/rules/goblin.test.ts",
-        "tests/conformance/ai.test.ts"
+        "crates/engine/src/checks/ai.rs"
       ]
     },
     {

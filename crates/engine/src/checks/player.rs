@@ -1,6 +1,6 @@
-//! The player's check (simcheck, tests/conformance/player.test.ts): a scripted list of inputs run
-//! through the player rules on the old battlefield's flat ground, every frame given back, with
-//! what the skill tree resolved to for the build.
+//! The player's check: a scripted list of inputs run through the player rules on the old
+//! battlefield's flat ground, every frame given back, with what the skill tree resolved to for the
+//! build.
 
 use serde::{Deserialize, Serialize};
 
@@ -89,7 +89,7 @@ struct HitIn {
     knock: f64,
 }
 
-// Per frame, in the order of F in tests/conformance/player.test.ts: x, y, z, vx, vy, vz, facing, hp, mode
+// Per frame: x, y, z, vx, vy, vz, facing, hp, mode
 // (player.rs Mode), cast frame, cast that finished this frame, cast target x / z, sprinting,
 // crouching, crouch frame, action id, action frame, stamina, MP, stamina delay, then one cooldown
 // per hotbar slot and one per possible movement skill.
@@ -119,7 +119,7 @@ struct Stats {
     effects: Vec<Vec<[f64; 3]>>,
 }
 
-/// Runs a script (JSON, as the conformance test writes it) and gives back every frame (JSON).
+/// Runs a script (JSON) and gives back every frame (JSON).
 pub fn run(input: &str) -> serde_json::Result<String> {
     let script: Script = serde_json::from_str(input)?;
     let world = battlefield(SEED);
