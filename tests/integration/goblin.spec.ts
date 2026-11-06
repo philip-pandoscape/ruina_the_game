@@ -67,6 +67,21 @@ async function watch<T>(page: Page, frames: number, look: () => Promise<T>, ever
   return out;
 }
 
+test('?goblins=6 puts a war-band of six in the yard\'s far corner', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto('/?yard&test&goblins=6');
+  await gameReady(page);
+  const band = await goblins(page);
+  expect(band).toHaveLength(6);
+  // One band, round (9, 10), all of them alive and not yet angry.
+  expect(new Set(band.map((g) => g.band)).size).toBe(1);
+  for (const g of band) {
+    expect(dist(g, { x: 9, z: 10 })).toBeLessThan(2);
+    expect(g.alive && g.angry === 0).toBe(true);
+  }
+  expect(errors).toEqual([]);
+});
+
 test('a goblin notices you, shrieks, and wakes its band', async ({ page }) => {
   const errors = await open(page);
   await band(page, 4, 0, -2);
