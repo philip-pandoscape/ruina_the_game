@@ -115,7 +115,7 @@ export const blueprints = kind<BlueprintDef>({
   explain: (b) => note('blueprints', b.id),
   facts: (b) => {
     // The item that claims a plot for this house, and who sells it.
-    const deed = ITEMS.find((i) => i.placeOn === 'housePlot' && i.places === b.id);
+    const deed = ITEMS.find((i) => i.placeOn === 'plot' && i.places === b.id);
     const sale = VENDORS.flatMap((v) => v.sells.map((s) => ({ v, s }))).find(({ s }) => s.item === deed?.id);
     const packs: Record<string, number> = {};
     let labor = 0;

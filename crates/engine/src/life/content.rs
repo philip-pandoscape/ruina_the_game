@@ -39,7 +39,7 @@ pub struct ItemDef {
     /// Livestock: the animal this young one grows into.
     pub raises: Option<String>,
     /// A placeable: what it places (a house blueprint, a ship design, a scarecrow), where
-    /// (`place_on`: "ground", "housePlot" or "slipway") and what using it tells you (`hint`).
+    /// (`place_on`: "ground", "plot" (a house plot) or "slipway") and what using it tells you (`hint`).
     pub places: Option<String>,
     pub place_on: Option<String>,
     pub hint: Option<String>,
@@ -123,7 +123,7 @@ pub fn has_item_def(id: &str) -> bool {
 
 /// Whether an item claims a house plot (a house blueprint).
 pub fn claims_plot(id: &str) -> bool {
-    item_def(id).place_on.as_deref() == Some("housePlot")
+    item_def(id).place_on.as_deref() == Some("plot")
 }
 
 /// The item, or a placeholder for one that doesn't exist.

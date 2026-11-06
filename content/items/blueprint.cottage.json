@@ -6,7 +6,7 @@
   "stack": 1,
   "value": 300,
   "places": "cottage",
-  "placeOn": "housePlot",
+  "placeOn": "plot",
   "hint": "Take it to an empty plot at Hearthside Rise and press F there",
   "desc": "Claims an empty plot at Hearthside Rise. Build it in four stages by hauling materials to the site."
 }

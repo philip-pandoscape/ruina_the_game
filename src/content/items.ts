@@ -16,7 +16,7 @@ export interface ItemCategory {
  * Where a placeable is placed: anywhere on open, level ground (a farm plot's scarecrow), on an empty
  * house plot (a house blueprint), or at a slipway (a ship design).
  */
-export type PlaceOn = 'ground' | 'housePlot' | 'slipway';
+export type PlaceOn = 'ground' | 'plot' | 'slipway';
 
 export interface ItemDef {
   id: string;
@@ -73,7 +73,7 @@ export function itemDef(id: string): ItemDef {
 }
 
 /** Whether an item claims a house plot (a house blueprint); false for one that isn't there. */
-export const claimsPlot = (id: string): boolean => BY_ID.get(id)?.placeOn === 'housePlot';
+export const claimsPlot = (id: string): boolean => BY_ID.get(id)?.placeOn === 'plot';
 
 export const vendorFor = (npc: string): VendorDef | undefined => VENDORS.find((v) => v.npc === npc);
 export const recipesAt = (bench: string): RecipeDef[] => RECIPES.filter((r) => r.bench === bench);

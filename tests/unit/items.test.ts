@@ -31,7 +31,7 @@ const toasts = (life: Life) => life.drainEvents().flatMap((e) => (e.t === 'toast
 
 test('a placeable is placed where its data says, and using it says what its hint says', () => {
   const placeables = ITEMS.filter((i) => i.cat === 'placeable');
-  expect(placeables.map((i) => i.placeOn).sort()).toEqual(['ground', 'housePlot', 'slipway']);
+  expect(placeables.map((i) => i.placeOn).sort()).toEqual(['ground', 'plot', 'slipway']);
   for (const it of placeables) {
     const { life, sim } = island();
     life.give(it.id, 1, true);
@@ -50,7 +50,7 @@ test('a placeable is placed where its data says, and using it says what its hint
 
 test('a house plot is claimed with whatever item claims one, for the blueprint it names', () => {
   const { life, sim } = island();
-  const deed = ITEMS.find((i) => i.placeOn === 'housePlot')!;
+  const deed = ITEMS.find((i) => i.placeOn === 'plot')!;
   const plot = world.zone!.recipe.housePlots[0];
   life.give(deed.id, 1, true);
   sim.player.pos = { x: plot.x, y: world.terrain!.height(plot.x, plot.z), z: plot.z + 3 };
