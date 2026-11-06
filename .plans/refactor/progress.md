@@ -566,3 +566,16 @@ the developer zone; then the engine bridge (R6.4) and Phase 8's switches.
 - **Every region's ids.** contentc's references and the content-ids tool read the ids of every
   region the world places, not Emberholm's alone, so a second region's townsfolk, places and benches
   are found by the content that names them.
+
+## 2026-11-06: Looks From Data (R9.9), and a Race Found (a background agent's branch)
+
+- **Looks.** What a thing is drawn as is its `look`, in its content file: a body built into the
+  game, by name, and a made model fitted over it. Structures, props, crops, packs, farm animals,
+  vehicles, mounts, gliders, townsfolk (colours, build, hair and an outfit) and creatures (the slimes'
+  jelly, what floats in it, the monarch's crown, the dummy's straw) all name theirs; the drawing
+  chooses nothing by id, and a thing with no look gets its kind's plain body. Every model's
+  fingerprint was the same before and after, and the island's pictures differ only by the run-to-run
+  noise.
+- **The party spec's race** was a real glitch: moving between games, a tick from the game you'd left,
+  heard just before the move, was taken as the server's word on you and put you back at its spot for
+  a tick. The feed forgets it now.

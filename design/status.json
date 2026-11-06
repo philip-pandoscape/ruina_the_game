@@ -1671,7 +1671,8 @@
         "Borders with no seam (R10.16): near a chunk's edge the ground is shared with what's across it, weighed smoothly over 64 m, so two regions meet vertex for vertex and a region's coast slopes down to the open sea's floor; a fixture of two regions across a land border is walked across.",
         "The island's rules take the world (R10.16): what's near you comes from the space you're in, what's found by id from the whole world; gathering spots have ids (R10.1).",
         "Instances in spaces of their own (R10.15): a dungeon or developer zone is played round its own origin over nothing, in place of the world (the server's copy, and the browser while you're inside), where it was pieces high in Emberholm's sky; the rule keeping them within 760 m of the island and apart went with it.",
-        "The content as the world has it (R10.1): a region is content/regions/<id>.json and the folder beside it, an instance content/instances/<id>.json; the doors into a region's dungeons are its doors.json, found in whichever region they stand; every region's ids are checked, and the bible's Zones are Regions."
+        "The content as the world has it (R10.1): a region is content/regions/<id>.json and the folder beside it, an instance content/instances/<id>.json; the doors into a region's dungeons are its doors.json, found in whichever region they stand; every region's ids are checked, and the bible's Zones are Regions.",
+        "Looks from data (R9.9): what a thing is drawn as is its look, in its content file: a body built into the game by name and a made model fitted over it, for structures, props, crops, packs, animals, vehicles, mounts, gliders, townsfolk and creatures; the drawing chooses nothing by id, and nothing looks different."
       ]
     }
   ]

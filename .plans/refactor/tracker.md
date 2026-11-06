@@ -34,8 +34,9 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
   effort, each in a worktree of its own with its own ports and database (the user's call on
   2026-11-06: three at once used tokens too fast; one was allowed, then a second). They did the
   mini-games (R9.11, R8.11) and the UI gallery (R6.9); then the bible's reading of the engine's Rust
-  (R8.13's part); then saved builds by id with the bundle's hash on the wire (R9.1, R9.2); now looks
-  from data (R9.9).
+  (R8.13's part); then saved builds by id with the bundle's hash on the wire (R9.1, R9.2); then looks
+  from data (R9.9); now the tick that splits (R10.18) and Phase 9's client leftovers (R9.10, R9.8 and
+  R9.5's client part).
 - **Races under load (the Mac, four workers):** these lose a race now and then and pass alone:
   `online.spec.ts:50`, `:109`, `:258`, `:617`, `combat.spec.ts:185`; and
   `game.spec.ts:43` and `dungeon-way-in.spec.ts:50` when Vite reloads the page at the start of a run
@@ -502,10 +503,12 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
   readers of tuning.json and skilltree.json, which outlast `src/sim/`), `build.ts` to `src/app/`,
   `src/sim/world.ts` to `src/sim/yard.ts`. The other names that don't say what they are come with
   the splits that touch them.
-- [ ] **R6.11b** Workarounds out: the 15 `tryBuild(...) ?? standIn` fallbacks for a models folder that
+- [~] **R6.11b** Workarounds out: the 15 `tryBuild(...) ?? standIn` fallbacks for a models folder that
   can't be missing (or real lazy loading, R11.2); `worldPeers.ts:258`'s fake `Sim`; the library's and
   `animations.ts:650`'s reaching into the hero's private fields; `main.ts:505` (the TypeScript command
   list lacks Rust's `teleport`: generated from Rust in Phase 8).
+  The fallbacks went (3cffed1, merged in 2d5de57): the model library is imported as a chunk
+  (`loadModels`, `ModelKit`) and handed over in the open world. The rest is left.
 - [x] **R6.12** The boundary test (unit tier): allowed imports per area; known exceptions listed with a
   reason.
   Done (ec3051e): `tests/unit/boundaries.test.ts`.
@@ -824,8 +827,20 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
 - [~] **R9.8** Dungeons from their folder (no lists in code); each dungeon's dressing in data.
   From their folder (777949b): `content/dungeons/` built into one bundle both sides read; the goblin
   camp was added as a file alone. Goblin's Dread's dressing (`dungeonView.ts`) is still code.
-- [ ] **R9.9** Looks from data (made model with fit and clips, or a built-in body with settings);
+- [x] **R9.9** Looks from data (made model with fit and clips, or a built-in body with settings);
   builders by id become fallbacks; the prose `look` fields become real ones.
+  Done (a background agent, merged in 2d5de57): a thing's `look` (src/content/looks.ts) names the body
+  it's drawn with, from its kind's bodies by name (`BODIES` in src/render/models/), and a made model
+  fitted over it (its files, fit, `yaw`, `sink`, `keep`, a stall's `tints`), where the drawing chose
+  builders by id and `glb.ts` kept `MADE_STRUCTURES`, `MADE_PROPS` and `MADE_PACKS`: structures, props,
+  crops, packs, farm animals, vehicles, mounts, gliders, townsfolk (colours, build, hair and an outfit
+  by name: `OUTFITS`), creatures (`body: jelly`, `inside`, `crown`, `dies: straw`); the scarecrow is
+  what its item places, a free plot's marker `housing.json`'s `plotMarker`. A thing with no look gets
+  its kind's plain body. contentc holds looks to their kinds' fields and finds made models' files;
+  `tests/unit/looks.test.ts` holds every body, outfit and thing inside to one the game has. Every
+  model's fingerprint (294) was the same before and after. Left by design: a look has no `clips` until
+  a made model of these kinds has some; the loose rocks' made models stay in code (no content names
+  them); a new body is code.
 - [~] **R9.10** Zones: the generator's special cases by id become data flags; more than one zone can
   load.
   Done but the waterfall (c37c9ef, a background agent): a structure says whether its ground is
@@ -1298,6 +1313,8 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
 | 2026-11-06 | R10.16, R10.1 | The rules take the world: what's near you from the space you're in, what's found by id from the whole world; gathering spots by id | ca6cfc2 |
 | 2026-11-06 | R10.15 | Instances in spaces of their own: a dungeon or developer zone played round its own origin over nothing, in place of the world, by the server and the browser | 55f53b3 |
 | 2026-11-06 | R10.1, R10.14 | The content's regions and instances: `content/regions/` and `content/instances/`, a region's doors, every region's ids checked; the bible's Regions | 622138a |
+| 2026-11-06 | — | A space change forgets the last game's word on you (the party spec's race) | f46a20d |
+| 2026-11-06 | R9.9, R6.11b | Looks from data; the model library as a chunk, the `tryBuild` fallbacks gone (a background agent) | 3cffed1..40161aa, 2d5de57 |
 | 2026-11-06 | R9.14 | `docs/content.md` | 5e23680 |
 | 2026-11-06 | R10.10, R11.1, R11.2, R11.7, R11.8 | Snapshot to move machines: the battle server's Rust gone; the asset manifest, loader and first-download budget, `docs/assets.md` | a975617 |
 | 2026-11-06 | R6.10, R6.11, R6.8 | The client's moves: creature bodies into src/render/creatures/, the root files to their areas, the library under src/dev/ | 9317ff3, 5de387d, 81df3de |
