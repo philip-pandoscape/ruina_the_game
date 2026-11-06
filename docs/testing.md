@@ -59,6 +59,14 @@ npm run bake                           # rebake server/data/emberholm.zone after
 Every Playwright run writes each test's time to `test-results/timings.json`. The refactor's baseline
 (395 tests, 10.8 minutes before the tiers) is in `.plans/refactor/inventory/baseline-tests.csv`.
 
+Switches for looking closer when something disagrees:
+
+| Variable | What it prints |
+|---|---|
+| `LIFE_SUMMARY=1` | `tests/conformance/life.test.ts`: each case's island at the end (modes, coins, bag, packs, vehicles, crops, houses, quests, toasts) |
+| `BALANCE_TRACE=1` | `npm run balance` (`server/src/bin/balance.rs`): every duel's fighters every half second (positions, distance, health, mode, cooldowns) |
+| `BAKE=1` | `tests/conformance/terrain.test.ts` writes the island's bake instead of only checking it (`npm run bake` sets it) |
+
 ### Ports and a private test rig
 
 Several checkouts and sessions run suites on one machine, so a run can be moved off the shared ports:
