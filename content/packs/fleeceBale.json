@@ -1,0 +1,17 @@
+{
+  "id": "fleeceBale",
+  "name": "Emberholm Fleece Bale",
+  "icon": "🧶",
+  "origin": "lanternwick",
+  "base": 380,
+  "labor": 25,
+  "fee": 25,
+  "inputs": [
+    {
+      "item": "wool",
+      "n": 8
+    }
+  ],
+  "kind": "trade",
+  "look": "A round bale of cream fleece bound in sacking with two ropes, tufts escaping, straps on the back."
+}

@@ -1,7 +1,7 @@
 {
-  "comment": "Pack running, labor and money. Read by src/content/trade.ts. Coins are copper (100 = 1 silver, 10000 = 1 gold). A trade pack is crafted at a zone's specialty workbench from local produce plus labor, carried on your back (slowly), and sold at a trading post in another place: farther and riskier routes pay more, and every sale lowers that post's demand for that pack until it recovers. Material packs (kind 'material') are how building materials travel: crafted where the materials are gathered, hauled to a building site, never sold. `contracts`: each trading post posts requests for specific packs; fill one before it expires for bonus seals and coin on top of the normal price.",
+  "comment": "Built from content/trade.json by tools/content/contentc.mjs (npm run content): edit there, not here. Pack running, labor and money. Read by src/content/trade.ts. Coins are copper (100 = 1 silver, 10000 = 1 gold). A trade pack is crafted at a zone's specialty workbench from local produce plus labor, carried on your back (slowly), and sold at a trading post in another place: farther and riskier routes pay more, and every sale lowers that post's demand for that pack until it recovers. Material packs (kind 'material') are how building materials travel: crafted where the materials are gathered, hauled to a building site, never sold. `contracts`: each trading post posts requests for specific packs; fill one before it expires for bonus seals and coin on top of the normal price.",
   "clock": {
-    "offlineFactor": 1.0,
+    "offlineFactor": 1,
     "maxOfflineSeconds": 43200
   },
   "labor": {
@@ -244,7 +244,7 @@
     {
       "from": "lanternwick",
       "to": "westwatch",
-      "factor": 1.0,
+      "factor": 1,
       "seals": 1
     },
     {

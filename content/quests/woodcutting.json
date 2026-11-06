@@ -1,0 +1,47 @@
+{
+  "id": "woodcutting",
+  "name": "Timber from Thornwood",
+  "giver": "brenna",
+  "after": [
+    "stonecutting"
+  ],
+  "intro": "Stone's half a house. The other half is timber, and Hob Ashgrove cuts it at his camp on the edge of Thornwood, where the east road ends. He'll show you how to chop the deadfall and bundle it, and his woodpile sells lumber if you'd rather pay than chop. Once you've a bundle tied, tell Registrar Quill you're ready to build.",
+  "steps": [
+    {
+      "text": "Speak with Hob Ashgrove at his camp in Thornwood, where the east road ends",
+      "objectives": [
+        {
+          "type": "talk",
+          "npc": "hob"
+        }
+      ]
+    },
+    {
+      "text": "Chop 10 lumber from the deadfall timber around his camp (F)",
+      "objectives": [
+        {
+          "type": "gather",
+          "kind": "timber",
+          "n": 10
+        }
+      ]
+    },
+    {
+      "text": "Tie a Lumber Bundle at Hob's Sawhorse",
+      "objectives": [
+        {
+          "type": "craftPack",
+          "pack": "lumberBundle",
+          "n": 1
+        }
+      ]
+    }
+  ],
+  "turnIn": "quill",
+  "outro": "Stone from Stonebreak, timber from Thornwood: now you know what a house is made of. A cottage takes three Stone Blocks, five Lumber Bundles and an Iron Fittings Crate - more hauling than you'd think, so take your cart. Here's a Charter Seal toward your blueprint.",
+  "rewards": {
+    "skillPoints": 1,
+    "coins": 60,
+    "seals": 1
+  }
+}

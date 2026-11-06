@@ -1,0 +1,22 @@
+{
+  "id": "block",
+  "name": "Block",
+  "icon": "🛡️",
+  "desc": "Raise a guard while you hold it. Hits land for a quarter.",
+  "tags": [
+    "movement",
+    "defensive",
+    "guard"
+  ],
+  "cooldownFrames": 18,
+  "action": {
+    "startup": 3,
+    "active": 40,
+    "recovery": 7,
+    "speed": 0,
+    "direction": "facing",
+    "hold": true,
+    "damageTaken": 0.25,
+    "pose": "block"
+  }
+}

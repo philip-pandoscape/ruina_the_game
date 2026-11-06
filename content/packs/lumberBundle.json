@@ -1,0 +1,17 @@
+{
+  "id": "lumberBundle",
+  "name": "Lumber Bundle",
+  "icon": "🪵",
+  "kind": "material",
+  "origin": "thornwood",
+  "base": 0,
+  "labor": 10,
+  "fee": 0,
+  "inputs": [
+    {
+      "item": "lumber",
+      "n": 10
+    }
+  ],
+  "look": "Ten rough planks ~1.0 long stacked and lashed with two ropes, carrying straps on one face."
+}

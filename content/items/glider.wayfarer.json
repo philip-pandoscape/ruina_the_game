@@ -1,0 +1,10 @@
+{
+  "id": "glider.wayfarer",
+  "name": "Wayfarer Glider",
+  "icon": "🪁",
+  "cat": "glider",
+  "stack": 1,
+  "value": 0,
+  "glider": "wayfarer",
+  "desc": "Jump, double jump, then jump again to open it."
+}

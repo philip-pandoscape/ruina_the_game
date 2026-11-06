@@ -1,0 +1,41 @@
+{
+  "id": "patch",
+  "name": "A Patch of Earth",
+  "giver": "hollis",
+  "after": [
+    "landfall"
+  ],
+  "intro": "Out east past the stables are Barleybrook Fields - open, level ground. Set your scarecrow anywhere the soil is flat and free, and get those seeds in the ground. They'll grow whether you watch them or not.",
+  "steps": [
+    {
+      "text": "Place your scarecrow on open, level ground (Barleybrook Fields is ideal)",
+      "objectives": [
+        {
+          "type": "placeScarecrow",
+          "n": 1
+        }
+      ]
+    },
+    {
+      "text": "Plant seeds in your plot",
+      "objectives": [
+        {
+          "type": "plant",
+          "n": 8
+        }
+      ]
+    }
+  ],
+  "outro": "Now they grow. Sunroot's quick; barley takes its time. Water them if you like - it hurries them along - and pray for rain.",
+  "rewards": {
+    "skillPoints": 1,
+    "coins": 40,
+    "items": [
+      {
+        "item": "seed.flax",
+        "n": 6
+      }
+    ],
+    "labor": 100
+  }
+}

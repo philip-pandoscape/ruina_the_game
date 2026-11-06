@@ -1,0 +1,9 @@
+{
+  "id": "registrar",
+  "name": "Land Registry",
+  "w": 10,
+  "d": 8,
+  "h": 9.2,
+  "collider": "building",
+  "look": "Built from the village kit (shared/buildings.json plan of the same id): a stone hall, the clerk's desk facing the arched door between candelabras, bookcases of deeds, banners."
+}

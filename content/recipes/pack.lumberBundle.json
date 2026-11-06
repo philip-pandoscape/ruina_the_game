@@ -1,0 +1,7 @@
+{
+  "id": "pack.lumberBundle",
+  "bench": "sawhorse",
+  "makes": {
+    "pack": "lumberBundle"
+  }
+}

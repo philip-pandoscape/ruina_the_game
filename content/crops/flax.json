@@ -1,0 +1,19 @@
+{
+  "id": "flax",
+  "name": "Flax",
+  "kind": "crop",
+  "climate": "temperate",
+  "icon": "💠",
+  "growSeconds": 220,
+  "stages": 4,
+  "seed": "seed.flax",
+  "produce": "flax",
+  "yield": [
+    3,
+    5
+  ],
+  "seedChance": 0.3,
+  "harvestLabor": 2,
+  "plantLabor": 0,
+  "look": "Slender upright stems. Ripe: many pale-blue five-petal flowers on top."
+}

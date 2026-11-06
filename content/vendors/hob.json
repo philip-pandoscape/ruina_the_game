@@ -1,0 +1,15 @@
+{
+  "npc": "hob",
+  "name": "Hob's Woodpile",
+  "sells": [
+    {
+      "item": "lumber",
+      "price": 9
+    }
+  ],
+  "buys": [
+    "lumber",
+    "thunderLog"
+  ],
+  "buyRate": 0.6
+}

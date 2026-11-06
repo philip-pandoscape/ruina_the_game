@@ -1,0 +1,10 @@
+{
+  "id": "lighthouse",
+  "name": "Lighthouse",
+  "w": 6,
+  "d": 6,
+  "h": 21,
+  "collider": "post",
+  "r": 2.8,
+  "look": "Tapered round tower, white with red bands, stone base, gallery railing near the top, glowing lamp room (emissive warm yellow), conical red roof."
+}

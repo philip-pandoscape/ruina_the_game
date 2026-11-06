@@ -1,0 +1,9 @@
+{
+  "id": "farmPlot",
+  "name": "Tilled Plot",
+  "w": 8,
+  "d": 8,
+  "h": 0.15,
+  "collider": "none",
+  "look": "8 x 8 patch of dark tilled soil with furrows running along Z, a low rim; sits 0.02-0.08 above the origin so it reads over grass."
+}

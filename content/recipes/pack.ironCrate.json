@@ -1,0 +1,7 @@
+{
+  "id": "pack.ironCrate",
+  "bench": "stonecutter",
+  "makes": {
+    "pack": "ironCrate"
+  }
+}

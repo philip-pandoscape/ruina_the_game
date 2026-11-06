@@ -1,0 +1,13 @@
+{
+  "id": "dummy",
+  "faction": 3,
+  "maxHp": 100,
+  "radius": 0.4,
+  "hitHeight": 1.1,
+  "hitCeiling": 2.2,
+  "solid": true,
+  "brain": null,
+  "respawnFrames": 60,
+  "species": null,
+  "clips": {}
+}

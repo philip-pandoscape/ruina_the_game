@@ -1,0 +1,21 @@
+{
+  "id": "dodgeRoll",
+  "name": "Dodge Roll",
+  "icon": "🤼",
+  "desc": "Roll the way you are moving. Most of it cannot be hit.",
+  "tags": [
+    "movement",
+    "defensive"
+  ],
+  "staminaCost": 30,
+  "action": {
+    "startup": 2,
+    "active": 13,
+    "recovery": 9,
+    "speed": 13,
+    "direction": "input",
+    "invulnFrom": 2,
+    "invulnTo": 13,
+    "pose": "roll"
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "id": "wings",
+  "name": "Wings over the Windspire",
+  "giver": "hollis",
+  "after": [
+    "landfall"
+  ],
+  "intro": "While your crops grow: see that crag to the north? The Windspire. A path climbs its face to the top, where Ysolde Windward makes wings. Tell her Hollis sent you.",
+  "steps": [
+    {
+      "text": "Climb the ledge path to the top of the Windspire",
+      "objectives": [
+        {
+          "type": "reach",
+          "place": "windspire",
+          "r": 30,
+          "minY": 115
+        }
+      ]
+    },
+    {
+      "text": "Speak with Ysolde Windward at the glider launch",
+      "objectives": [
+        {
+          "type": "talk",
+          "npc": "ysolde"
+        }
+      ]
+    }
+  ],
+  "turnIn": "ysolde",
+  "outro": "Hollis sent you? Then take this - a Wayfarer, my own make. Run off the deck, jump, jump again in the air, then once more to open it. Sprint to dive, crouch to flare. Ride the warm air at the cliff's foot to climb.",
+  "rewards": {
+    "skillPoints": 1,
+    "items": [
+      {
+        "item": "glider.wayfarer",
+        "n": 1
+      }
+    ],
+    "equipGlider": "wayfarer"
+  }
+}

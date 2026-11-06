@@ -1,0 +1,9 @@
+{
+  "id": "boathouse",
+  "name": "Shipwright's Shed",
+  "w": 8,
+  "d": 10,
+  "h": 9.2,
+  "collider": "building",
+  "look": "Built from the village kit (shared/buildings.json plan of the same id): open to the slip, crates, rope and a workbench."
+}

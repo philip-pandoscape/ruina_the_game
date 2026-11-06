@@ -1,0 +1,10 @@
+{
+  "id": "deed.roadster",
+  "name": "Roadster Deed",
+  "icon": "🏎️",
+  "cat": "deed",
+  "stack": 1,
+  "value": 0,
+  "vehicle": "roadster",
+  "desc": "Summon your roadster. Fast; 1 pack slot. Handbrake to drift, Shift to boost."
+}

@@ -1,0 +1,8 @@
+{
+  "id": "fence",
+  "w": 2,
+  "d": 0.15,
+  "h": 1,
+  "collider": "box",
+  "look": "Split-rail fence segment 2 m long along X, posts at both ends."
+}

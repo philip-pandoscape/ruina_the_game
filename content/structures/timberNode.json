@@ -1,0 +1,10 @@
+{
+  "id": "timberNode",
+  "name": "Deadfall Timber",
+  "w": 3.6,
+  "d": 1.6,
+  "h": 1,
+  "collider": "post",
+  "r": 0.9,
+  "look": "Pile of three fallen logs with bark, mossy ends, an axe stuck in one."
+}

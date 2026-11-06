@@ -1,0 +1,7 @@
+{
+  "id": "pack.harvestCrate",
+  "bench": "lanternwickBench",
+  "makes": {
+    "pack": "harvestCrate"
+  }
+}

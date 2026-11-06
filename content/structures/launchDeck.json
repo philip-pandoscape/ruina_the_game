@@ -1,0 +1,10 @@
+{
+  "id": "launchDeck",
+  "name": "Glider Launch",
+  "w": 6,
+  "d": 8,
+  "h": 4,
+  "collider": "none",
+  "deck": 0.6,
+  "look": "Wooden deck 6 x 8 whose top is 0.6 above the origin, sturdy legs, rails on the back and sides but OPEN at the front (+Z) edge where you jump off, a windsock pole, a small sign with a wing glyph."
+}

@@ -1,0 +1,198 @@
+{
+  "simHz": 60,
+  "move": {
+    "walkSpeed": 3.2,
+    "runSpeed": 7.5,
+    "runThreshold": 0.55,
+    "groundAccel": 70,
+    "groundDecel": 55,
+    "airAccel": 22,
+    "airDrag": 6,
+    "turnSpeed": 20,
+    "playerRadius": 0.35,
+    "sprintSpeed": 10.5,
+    "sprintAccel": 40,
+    "crouchSpeed": 1.6,
+    "crouchHeight": 0.55,
+    "crouchEnterFrames": 6,
+    "strafeSpeed": 0.85,
+    "backSpeed": 0.65
+  },
+  "jump": {
+    "velocity": 9.2,
+    "doubleJumpVelocity": 8.6,
+    "gravityUp": 26,
+    "gravityDown": 42,
+    "maxFall": 28,
+    "shortHopCut": 0.45,
+    "coyoteFrames": 6,
+    "bufferFrames": 6,
+    "doubleJumpSteer": 1,
+    "flipFrames": 23
+  },
+  "attack": {
+    "bufferFrames": 8,
+    "autoAimRange": 3.2,
+    "autoAimDeg": 70,
+    "airGravityScale": 0.35
+  },
+  "special": {
+    "bufferFrames": 6,
+    "cancelCooldownFrames": 30,
+    "interruptCooldownFrames": 60
+  },
+  "weapons": {
+    "$things": "weapons",
+    "id": "name"
+  },
+  "abilities": {
+    "$things": "abilities"
+  },
+  "skills": {
+    "comment": "The tree itself is shared/skilltree.json. points: what the training yard and the battlefield (developer tools) may spend. In the open world you have startPoints plus the skillPoints of every quest and milestone you have finished. levels: the skills in your skill book level up as you use them; xp is the total experience each level needs, and per is what every level past the first adds (flat and inc only, so the order they are summed in never matters).",
+    "points": 30,
+    "startPoints": 2,
+    "maxNodes": 256,
+    "trees": [
+      {
+        "name": "Swordsmanship",
+        "color": "#e0782a"
+      },
+      {
+        "name": "Restoration",
+        "color": "#3fa34d"
+      },
+      {
+        "name": "Pyromancy",
+        "color": "#d2433a"
+      },
+      {
+        "name": "Archery",
+        "color": "#3f7fd0"
+      }
+    ],
+    "levels": {
+      "xp": [
+        0,
+        20,
+        60,
+        120,
+        200,
+        300,
+        420,
+        560,
+        720,
+        900
+      ],
+      "per": {
+        "sword": [
+          {
+            "stat": "attack.damage",
+            "op": "inc",
+            "value": 0.03,
+            "weapon": 0
+          }
+        ],
+        "club": [
+          {
+            "stat": "attack.damage",
+            "op": "inc",
+            "value": 0.03,
+            "weapon": 1
+          }
+        ],
+        "staff": [
+          {
+            "stat": "attack.damage",
+            "op": "inc",
+            "value": 0.03,
+            "weapon": 2
+          }
+        ],
+        "bow": [
+          {
+            "stat": "attack.damage",
+            "op": "inc",
+            "value": 0.03,
+            "weapon": 3
+          }
+        ],
+        "heal": [
+          {
+            "stat": "ability.amount",
+            "op": "inc",
+            "value": 0.05,
+            "skill": "heal"
+          }
+        ],
+        "meteor": [
+          {
+            "stat": "ability.damage",
+            "op": "inc",
+            "value": 0.05,
+            "skill": "meteor"
+          }
+        ],
+        "dodgeRoll": [
+          {
+            "stat": "movement.stamina",
+            "op": "inc",
+            "value": -0.03,
+            "skill": "dodgeRoll"
+          }
+        ],
+        "backstep": [
+          {
+            "stat": "movement.stamina",
+            "op": "inc",
+            "value": -0.03,
+            "skill": "backstep"
+          }
+        ],
+        "block": [
+          {
+            "stat": "movement.cooldown",
+            "op": "inc",
+            "value": -0.03,
+            "skill": "block"
+          }
+        ],
+        "slide": [
+          {
+            "stat": "movement.cooldown",
+            "op": "inc",
+            "value": -0.03,
+            "skill": "slide"
+          }
+        ]
+      }
+    }
+  },
+  "combat": {
+    "maxHp": 100,
+    "stunFrames": 14,
+    "knockUp": 3,
+    "downFrames": 180
+  },
+  "stamina": {
+    "comment": "Dodging spends it: each movement skill's staminaCost, paid as it starts, and none starts without enough. It refills at regenPerSecond once regenDelayFrames have passed since it was last spent. Getting back up after a knock-down fills it.",
+    "max": 100,
+    "regenPerSecond": 25,
+    "regenDelayFrames": 30
+  },
+  "mp": {
+    "comment": "Casting spends it: each ability's mpCost, paid when the cast goes off (a cancelled or interrupted cast costs nothing), and none starts without enough. It refills at regenPerSecond. Getting back up after a knock-down fills it.",
+    "max": 100,
+    "regenPerSecond": 5
+  },
+  "hotbar": {
+    "slots": 8
+  },
+  "stats": {
+    "$things": "stats"
+  },
+  "movementSkills": {
+    "$things": "movement-skills"
+  },
+  "movementSlots": 2
+}

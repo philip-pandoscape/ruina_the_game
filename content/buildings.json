@@ -1,0 +1,10 @@
+{
+  "comment": "Buildings you can walk into, built from the village kit (src/render/village) on its 2 m grid, 3 m a storey. Read by src/content/buildings.ts: the zone generator makes their colliders from these plans, the renderer their walls, roofs and rooms. A plan's id is its structure's (shared/structures.json, collider 'building', the same w and d). Frame: origin at the middle of the footprint on the ground, front +Z, +X on your right as you face the front. Walls are strings of 2 m modules read left to right from outside: '.' wall, 'W' wide window, 'R' arched wide window, 'w' narrow window, 'D' door, 'O' arched door, 'A' open arch, 'G' timber lattice, '_' open. Stairs climb from their foot (x, z) toward -Z turned by rot (-1.5708 climbs toward +X), a module wide and two long, up from storey to storey + 1. Items are furniture (below) at (x, z) on a storey, turned by rot, y above the floor when they stand on something. Furniture: footprint w x d, height h, collider 'box', 'post' (radius r) or 'none'; light is a warm light it gives (y above its foot, intensity, distance).",
+  "furniture": {
+    "$things": "furniture",
+    "as": "map"
+  },
+  "plans": {
+    "$things": "buildings"
+  }
+}

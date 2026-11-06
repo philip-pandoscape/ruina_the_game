@@ -1,0 +1,26 @@
+{
+  "id": "packMule",
+  "name": "Pack Mule",
+  "giver": "",
+  "after": [
+    "westward"
+  ],
+  "auto": true,
+  "milestone": true,
+  "intro": "One delivery is luck. Five is a trade.",
+  "steps": [
+    {
+      "text": "Deliver 5 trade packs",
+      "objectives": [
+        {
+          "type": "deliver",
+          "n": 5
+        }
+      ]
+    }
+  ],
+  "outro": "The posts know your face.",
+  "rewards": {
+    "skillPoints": 1
+  }
+}

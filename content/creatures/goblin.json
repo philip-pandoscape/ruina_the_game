@@ -1,0 +1,12 @@
+{
+  "comment": "The basic goblin of the Split-Eye war-band (design/goblins.md), read by src/content/creatures.ts and crates/engine/src/creatures.rs. Everything here is data for the shared engine parts: kinds as in shared/actors.json, attacks (a strike is a cone in front of it, a throw a lobbed missile; frames at 60 a second, cooldown a [min, max] range drawn on use), and brains as in shared/behaviours.json with the pack's tactics. Rules fields matter to both sides; name, species, clips, cycles and look are only how the browser draws it.",
+  "kinds": {
+    "$file": "creatures/goblin/kinds.json"
+  },
+  "attacks": {
+    "$file": "creatures/goblin/attacks.json"
+  },
+  "behaviours": {
+    "$file": "creatures/goblin/brain.json"
+  }
+}

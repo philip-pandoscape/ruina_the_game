@@ -1,0 +1,10 @@
+{
+  "id": "animal.calf",
+  "name": "Calf",
+  "icon": "🐮",
+  "cat": "seed",
+  "stack": 5,
+  "raises": "cow",
+  "value": 150,
+  "desc": "Raise it in a plot cell. Feed it barley; milk the grown cow."
+}

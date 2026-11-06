@@ -1,0 +1,19 @@
+{
+  "npc": "brenna",
+  "name": "Quarry Stores",
+  "sells": [
+    {
+      "item": "stone",
+      "price": 9
+    },
+    {
+      "item": "ironOre",
+      "price": 22
+    }
+  ],
+  "buys": [
+    "stone",
+    "ironOre"
+  ],
+  "buyRate": 0.6
+}

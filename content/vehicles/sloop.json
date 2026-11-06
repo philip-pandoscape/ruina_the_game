@@ -1,0 +1,86 @@
+{
+  "id": "sloop",
+  "name": "Sloop",
+  "class": "boat",
+  "icon": "⛵",
+  "desc": "A single-masted sailer with a six-pack hold. Fast with the wind behind her, stubborn against it.",
+  "length": 9,
+  "width": 3.2,
+  "height": 10.5,
+  "radius": 3.2,
+  "hp": 1500,
+  "draft": 1.1,
+  "maxSpeed": 15,
+  "reverseSpeed": 1.5,
+  "accel": 2.2,
+  "brake": 1.6,
+  "drag": 0.25,
+  "rolling": 0.2,
+  "turnRate": 0.75,
+  "turnAtRest": 0.25,
+  "grip": 2.2,
+  "sail": 1,
+  "mast": {
+    "x": 0,
+    "z": 1.2,
+    "height": 9
+  },
+  "seats": [
+    {
+      "x": 0,
+      "y": 1.25,
+      "z": -3.6,
+      "pose": "helm"
+    },
+    {
+      "x": 0.8,
+      "y": 1.15,
+      "z": 2.4,
+      "pose": "sit"
+    },
+    {
+      "x": -0.8,
+      "y": 1.15,
+      "z": 2.4,
+      "pose": "sit"
+    },
+    {
+      "x": 0,
+      "y": 1.15,
+      "z": 3.3,
+      "pose": "sit"
+    }
+  ],
+  "cargo": [
+    {
+      "x": 0.55,
+      "y": 1.05,
+      "z": -0.6
+    },
+    {
+      "x": -0.55,
+      "y": 1.05,
+      "z": -0.6
+    },
+    {
+      "x": 0.55,
+      "y": 1.05,
+      "z": -1.4
+    },
+    {
+      "x": -0.55,
+      "y": 1.05,
+      "z": -1.4
+    },
+    {
+      "x": 0.55,
+      "y": 1.05,
+      "z": -2.2
+    },
+    {
+      "x": -0.55,
+      "y": 1.05,
+      "z": -2.2
+    }
+  ]
+}

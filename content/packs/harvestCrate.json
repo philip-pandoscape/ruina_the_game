@@ -1,0 +1,21 @@
+{
+  "id": "harvestCrate",
+  "name": "Lanternwick Harvest Crate",
+  "icon": "📦",
+  "origin": "lanternwick",
+  "base": 260,
+  "labor": 20,
+  "fee": 20,
+  "inputs": [
+    {
+      "item": "sunroot",
+      "n": 6
+    },
+    {
+      "item": "barley",
+      "n": 4
+    }
+  ],
+  "look": "Wooden slatted crate ~0.7 x 0.55 x 0.55 with leather shoulder straps on the back face, golden tubers and barley ears peeking over the top, a stamped lantern mark on the side.",
+  "kind": "trade"
+}

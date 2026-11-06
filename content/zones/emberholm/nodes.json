@@ -1,0 +1,98 @@
+[
+  {
+    "kind": "timberNode",
+    "x": -258,
+    "z": 66,
+    "rot": 0.4
+  },
+  {
+    "kind": "timberNode",
+    "x": -228,
+    "z": 74,
+    "rot": 1.9
+  },
+  {
+    "kind": "timberNode",
+    "x": -276,
+    "z": 30,
+    "rot": 2.6
+  },
+  {
+    "kind": "timberNode",
+    "x": -300,
+    "z": 96,
+    "rot": 0.9
+  },
+  {
+    "kind": "timberNode",
+    "x": -214,
+    "z": 112,
+    "rot": 2.2
+  },
+  {
+    "kind": "timberNode",
+    "x": -320,
+    "z": 58,
+    "rot": 1.3
+  },
+  {
+    "kind": "stoneNode",
+    "x": 206,
+    "z": 168,
+    "rot": 0.3
+  },
+  {
+    "kind": "stoneNode",
+    "x": 226,
+    "z": 160,
+    "rot": 1.4
+  },
+  {
+    "kind": "stoneNode",
+    "x": 214,
+    "z": 186,
+    "rot": 2.4
+  },
+  {
+    "kind": "stoneNode",
+    "x": 236,
+    "z": 180,
+    "rot": 0.8
+  },
+  {
+    "kind": "oreNode",
+    "x": 230,
+    "z": 194,
+    "rot": 1.1
+  },
+  {
+    "kind": "oreNode",
+    "x": 200,
+    "z": 186,
+    "rot": 2.9
+  },
+  {
+    "kind": "herbNode",
+    "x": -60,
+    "z": -120,
+    "rot": 0
+  },
+  {
+    "kind": "herbNode",
+    "x": -96,
+    "z": -60,
+    "rot": 1
+  },
+  {
+    "kind": "herbNode",
+    "x": 70,
+    "z": -90,
+    "rot": 2
+  },
+  {
+    "kind": "herbNode",
+    "x": -200,
+    "z": 10,
+    "rot": 0.5
+  }
+]

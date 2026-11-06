@@ -1,0 +1,26 @@
+{
+  "id": "contractHand",
+  "name": "Contract Hand",
+  "giver": "",
+  "after": [
+    "contracts"
+  ],
+  "auto": true,
+  "milestone": true,
+  "intro": "Dunmore keeps a ledger of who delivers what they promise.",
+  "steps": [
+    {
+      "text": "Complete 5 trade contracts",
+      "objectives": [
+        {
+          "type": "contract",
+          "n": 5
+        }
+      ]
+    }
+  ],
+  "outro": "Your name is good on any ledger.",
+  "rewards": {
+    "skillPoints": 1
+  }
+}

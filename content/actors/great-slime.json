@@ -1,0 +1,42 @@
+{
+  "id": "great-slime",
+  "faction": 1,
+  "solid": false,
+  "brain": "slime",
+  "respawnFrames": -1,
+  "species": "slime",
+  "clips": {
+    "idle": "idle",
+    "move": "hop",
+    "chase": "hop",
+    "windup": "windup",
+    "leap": "leap",
+    "call": "hop",
+    "rally": "hop",
+    "gather": "gather",
+    "dazed": "dazed",
+    "dead": "die"
+  },
+  "maxHp": 120,
+  "radius": 0.68,
+  "hitHeight": 0.8,
+  "hitCeiling": 2.2,
+  "mass": 10,
+  "scale": 1.6,
+  "palette": {
+    "teamA": 4165482,
+    "teamB": 3109718
+  },
+  "slam": {
+    "range": 4.2,
+    "leap": 4.5,
+    "radius": 2,
+    "damage": 16,
+    "knock": 6.5
+  },
+  "burst": {
+    "into": "slimelet",
+    "count": 5
+  },
+  "gathers": true
+}

@@ -1,0 +1,9 @@
+{
+  "id": "sunroot",
+  "name": "Sunroot",
+  "icon": "🥔",
+  "cat": "produce",
+  "stack": 200,
+  "value": 2,
+  "desc": "Earthy golden tubers."
+}

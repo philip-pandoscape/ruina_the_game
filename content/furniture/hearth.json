@@ -1,0 +1,44 @@
+{
+  "w": 1.7,
+  "d": 0.85,
+  "h": 3,
+  "collider": "box",
+  "parts": [
+    {
+      "model": "Prop_Chimney2",
+      "z": -0.05,
+      "scale": [
+        1.75,
+        1,
+        0.85
+      ]
+    },
+    {
+      "model": "DoorFrame_Round_Brick",
+      "z": 0.36,
+      "scale": [
+        0.72,
+        0.56,
+        1
+      ]
+    },
+    {
+      "model": "@fire",
+      "z": 0.38
+    },
+    {
+      "model": "Pot_1_Lid",
+      "x": 0.6,
+      "z": 0.62,
+      "rot": 0.4
+    }
+  ],
+  "light": {
+    "y": 0.55,
+    "z": 0.75,
+    "intensity": 6,
+    "distance": 9,
+    "color": 16749130,
+    "flicker": true
+  }
+}

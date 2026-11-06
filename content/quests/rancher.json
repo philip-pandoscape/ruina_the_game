@@ -1,0 +1,26 @@
+{
+  "id": "rancher",
+  "name": "Rancher",
+  "giver": "",
+  "after": [
+    "livestock"
+  ],
+  "auto": true,
+  "milestone": true,
+  "intro": "A lamb is a start. A flock is a farm.",
+  "steps": [
+    {
+      "text": "Raise 3 animals",
+      "objectives": [
+        {
+          "type": "raise",
+          "n": 3
+        }
+      ]
+    }
+  ],
+  "outro": "Your pens are never quiet now.",
+  "rewards": {
+    "skillPoints": 1
+  }
+}

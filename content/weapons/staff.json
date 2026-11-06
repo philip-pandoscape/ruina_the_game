@@ -1,0 +1,26 @@
+{
+  "name": "staff",
+  "title": "Staff",
+  "icon": "🪄",
+  "tags": [
+    "melee",
+    "attack",
+    "blunt"
+  ],
+  "combo": [
+    {
+      "startup": 5,
+      "active": 4,
+      "recovery": 16,
+      "damage": 8,
+      "lunge": 2,
+      "reach": 1.9,
+      "arcDeg": 100,
+      "hitstop": 3,
+      "knock": 2.5,
+      "playerKnock": 3,
+      "shake": 0.2,
+      "cancelAfter": 8
+    }
+  ]
+}

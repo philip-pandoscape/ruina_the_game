@@ -1,0 +1,29 @@
+{
+  "id": "meteor",
+  "name": "Meteor",
+  "icon": "☄️",
+  "desc": "Call a fireball down on a spot. Getting hit while casting interrupts it.",
+  "tags": [
+    "pyromancy",
+    "fire",
+    "area",
+    "spell",
+    "damage"
+  ],
+  "target": "ground",
+  "range": 9,
+  "maxRange": 16,
+  "castFrames": 72,
+  "cooldownFrames": 150,
+  "mpCost": 25,
+  "castPose": "raiseStaff",
+  "effects": [
+    {
+      "kind": "delayedArea",
+      "delayFrames": 30,
+      "radius": 3.5,
+      "damage": 35,
+      "knock": 6
+    }
+  ]
+}

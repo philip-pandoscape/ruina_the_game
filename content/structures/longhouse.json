@@ -1,0 +1,9 @@
+{
+  "id": "longhouse",
+  "name": "Longhouse",
+  "w": 10,
+  "d": 6,
+  "h": 8,
+  "collider": "building",
+  "look": "Built from the village kit (shared/buildings.json plan of the same id): one long stone room under one roof: a hearth at one end, beds at the other."
+}

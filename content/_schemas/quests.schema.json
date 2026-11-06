@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "quests",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "giver": {
+      "type": "string"
+    },
+    "after": {
+      "type": "array"
+    },
+    "auto": {
+      "type": "boolean"
+    },
+    "milestone": {
+      "type": "boolean"
+    },
+    "intro": {
+      "type": "string"
+    },
+    "steps": {
+      "type": "array"
+    },
+    "outro": {
+      "type": "string"
+    },
+    "rewards": {
+      "type": "object"
+    },
+    "turnIn": {
+      "type": "string"
+    },
+    "startItems": {
+      "type": "array"
+    }
+  },
+  "required": [
+    "id",
+    "name",
+    "giver",
+    "after",
+    "intro",
+    "steps",
+    "outro",
+    "rewards"
+  ],
+  "additionalProperties": false
+}

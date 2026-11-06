@@ -1,0 +1,9 @@
+{
+  "id": "workbench",
+  "name": "Specialty Workbench",
+  "w": 2.8,
+  "d": 1.3,
+  "h": 1.6,
+  "collider": "box",
+  "look": "Heavy oak workbench with a vice, hanging tools on a back rail, a half-packed crate, rope coil, a ledger. Reads clearly as 'pack crafting station'."
+}

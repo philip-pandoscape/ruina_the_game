@@ -1,0 +1,10 @@
+{
+  "id": "seed.flax",
+  "name": "Flax Seeds",
+  "icon": "🌱",
+  "cat": "seed",
+  "stack": 99,
+  "plants": "flax",
+  "value": 6,
+  "desc": "Fibre for bales and sailcloth."
+}

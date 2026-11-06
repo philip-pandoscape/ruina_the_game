@@ -1,0 +1,10 @@
+{
+  "id": "deed.sloop",
+  "name": "Sloop Deed",
+  "icon": "⛵",
+  "cat": "deed",
+  "stack": 1,
+  "value": 0,
+  "vehicle": "sloop",
+  "desc": "Summon your sloop at the water's edge. 6 pack slots; sails with the wind."
+}

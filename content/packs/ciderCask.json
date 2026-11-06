@@ -1,0 +1,17 @@
+{
+  "id": "ciderCask",
+  "name": "Redcap Cider Cask",
+  "icon": "🛢️",
+  "origin": "lanternwick",
+  "base": 360,
+  "labor": 25,
+  "fee": 25,
+  "inputs": [
+    {
+      "item": "apple",
+      "n": 8
+    }
+  ],
+  "look": "Small banded oak cask ~0.6 long lying in a carrying frame with straps, a red apple painted on the head.",
+  "kind": "trade"
+}

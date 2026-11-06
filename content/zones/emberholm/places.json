@@ -1,0 +1,90 @@
+[
+  {
+    "id": "lanternwick",
+    "name": "Lanternwick",
+    "kind": "village",
+    "icon": "🏮",
+    "x": 0,
+    "z": -250
+  },
+  {
+    "id": "docks",
+    "name": "Lanternwick Docks",
+    "kind": "docks",
+    "icon": "⚓",
+    "x": 2,
+    "z": -338
+  },
+  {
+    "id": "barleybrook",
+    "name": "Barleybrook Fields",
+    "kind": "farmland",
+    "icon": "🌾",
+    "x": -152,
+    "z": -214
+  },
+  {
+    "id": "hearthside",
+    "name": "Hearthside Rise",
+    "kind": "housing",
+    "icon": "🏡",
+    "x": 142,
+    "z": -200
+  },
+  {
+    "id": "windspire",
+    "name": "Windspire",
+    "kind": "landmark",
+    "icon": "🪁",
+    "x": 40,
+    "z": 232
+  },
+  {
+    "id": "westwatch",
+    "name": "Westwatch Trading Post",
+    "kind": "outpost",
+    "icon": "⚖️",
+    "x": 418,
+    "z": -18
+  },
+  {
+    "id": "gullrock",
+    "name": "Gullrock Exchange",
+    "kind": "outpost",
+    "icon": "⚖️",
+    "x": -552,
+    "z": -422
+  },
+  {
+    "id": "thornwood",
+    "name": "Thornwood",
+    "kind": "forest",
+    "icon": "🌲",
+    "x": -290,
+    "z": 140
+  },
+  {
+    "id": "quarry",
+    "name": "Stonebreak Quarry",
+    "kind": "quarry",
+    "icon": "⛏️",
+    "x": 214,
+    "z": 168
+  },
+  {
+    "id": "meadow",
+    "name": "Slime Meadow",
+    "kind": "meadow",
+    "icon": "🟢",
+    "x": -30,
+    "z": -40
+  },
+  {
+    "id": "strand",
+    "name": "Sunscale Strand",
+    "kind": "beach",
+    "icon": "🏖️",
+    "x": -262,
+    "z": -300
+  }
+]

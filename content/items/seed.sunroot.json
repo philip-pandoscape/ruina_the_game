@@ -1,0 +1,10 @@
+{
+  "id": "seed.sunroot",
+  "name": "Sunroot Seeds",
+  "icon": "🌱",
+  "cat": "seed",
+  "stack": 99,
+  "plants": "sunroot",
+  "value": 4,
+  "desc": "Plant in a farm plot. Ripens fast; the backbone of a Harvest Crate."
+}

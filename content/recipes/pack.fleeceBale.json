@@ -1,0 +1,7 @@
+{
+  "id": "pack.fleeceBale",
+  "bench": "lanternwickBench",
+  "makes": {
+    "pack": "fleeceBale"
+  }
+}

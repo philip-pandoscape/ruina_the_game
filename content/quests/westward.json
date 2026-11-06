@@ -1,0 +1,33 @@
+{
+  "id": "westward",
+  "name": "Westward Bound",
+  "giver": "tamsin",
+  "after": [
+    "packwright"
+  ],
+  "intro": "Westwatch Trading Post sits on the western headland - follow the west road past Hearthside Rise and up the cliffs. Dunmore pays well for Lanternwick goods. Every crate you sell there drops his price a little, so watch the demand.",
+  "steps": [
+    {
+      "text": "Deliver a trade pack to Dunmore Vell at Westwatch",
+      "objectives": [
+        {
+          "type": "deliver",
+          "outpost": "westwatch",
+          "n": 1
+        }
+      ]
+    }
+  ],
+  "turnIn": "dunmore",
+  "outro": "Lanternwick sunroot! The cooks will weep. If you mean to make a habit of this, old Bertram in the village builds carts - four crates at a time beats one on your back.",
+  "rewards": {
+    "skillPoints": 2,
+    "coins": 60,
+    "items": [
+      {
+        "item": "deed.farmCart",
+        "n": 1
+      }
+    ]
+  }
+}

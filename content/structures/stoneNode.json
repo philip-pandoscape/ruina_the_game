@@ -1,0 +1,10 @@
+{
+  "id": "stoneNode",
+  "name": "Stone Outcrop",
+  "w": 2.8,
+  "d": 2.4,
+  "h": 1.6,
+  "collider": "post",
+  "r": 1.2,
+  "look": "Pale grey quarry rock with chisel marks and a few loose blocks."
+}

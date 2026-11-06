@@ -1,0 +1,28 @@
+{
+  "npc": "sela",
+  "name": "Brightmane Stables",
+  "sells": [
+    {
+      "item": "whistle.donkey",
+      "price": 120
+    },
+    {
+      "item": "whistle.horse",
+      "price": 600
+    },
+    {
+      "item": "animal.chick",
+      "price": 30
+    },
+    {
+      "item": "animal.lamb",
+      "price": 80
+    },
+    {
+      "item": "animal.calf",
+      "price": 150
+    }
+  ],
+  "buys": [],
+  "buyRate": 0
+}

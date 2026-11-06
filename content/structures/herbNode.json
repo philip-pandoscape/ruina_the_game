@@ -1,0 +1,9 @@
+{
+  "id": "herbNode",
+  "name": "Wild Herbs",
+  "w": 1.2,
+  "d": 1.2,
+  "h": 0.7,
+  "collider": "none",
+  "look": "Low leafy herb clump with tiny white and purple flowers."
+}

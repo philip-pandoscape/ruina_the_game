@@ -1,0 +1,34 @@
+{
+  "comment": "Mini-games two players play at a table thrown down between them: walk up to someone, challenge them (F), name the game and the stake, and if they accept the stakes go into the pot, the table appears for everyone in the channel, and the winner takes the pot. Read by src/content/minigames.ts and crates/engine/src/minigames. Distances are metres, times real seconds, stakes copper (100 = 1 silver, 10000 = 1 gold). `stakes` are the amounts that can be offered (0 is No Stake); `range` is how close you have to be to challenge. `table.seat` is how far each player sits from the table's middle; a player away (disconnected) for `awaySeconds` forfeits; a finished game's table stays `clearSeconds` before it goes. Beacons: 37 hexes in a hexagon of radius 3; `layout` gives each hex's good (an index into `goods`, -1 for the Old Beacon in the middle), row by row from the top (r = -3 to 3, q rising along each row, axial coordinates), every good on six hexes and never beside itself. `perGood` cards of each good make the deck; `hand` cards each, `harbour` face up.",
+  "challenge": {
+    "range": 4,
+    "inviteSeconds": 30,
+    "declineCooldown": 10,
+    "stakes": [
+      0,
+      10,
+      25,
+      50,
+      100,
+      250,
+      500,
+      1000,
+      2500,
+      5000,
+      10000,
+      25000
+    ]
+  },
+  "table": {
+    "seat": 0.95,
+    "awaySeconds": 30,
+    "clearSeconds": 5
+  },
+  "colors": [
+    "#d9473b",
+    "#3a78c8"
+  ],
+  "games": {
+    "$things": "minigames"
+  }
+}

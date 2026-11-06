@@ -1,0 +1,11 @@
+{
+  "id": "stall",
+  "name": "Market Stall",
+  "w": 3.2,
+  "d": 2.4,
+  "h": 3,
+  "collider": "box",
+  "colliderD": 0.8,
+  "colliderZ": 0.6,
+  "look": "Open market stall: wooden counter across the front, four posts, striped canvas awning (colour variant by opts.tint), produce crates on the counter."
+}

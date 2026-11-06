@@ -1,0 +1,19 @@
+{
+  "id": "sunroot",
+  "name": "Sunroot",
+  "kind": "crop",
+  "climate": "temperate",
+  "icon": "🥔",
+  "growSeconds": 150,
+  "stages": 4,
+  "seed": "seed.sunroot",
+  "produce": "sunroot",
+  "yield": [
+    3,
+    5
+  ],
+  "seedChance": 0.35,
+  "harvestLabor": 2,
+  "plantLabor": 0,
+  "look": "Potato-like plant. Seed: small dirt mound with a marker twig. Sprout: two round leaves. Young: bushy dark-green leaves. Ripe: fuller bush with small yellow star flowers and two golden tubers showing at the soil."
+}

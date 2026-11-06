@@ -1,0 +1,21 @@
+{
+  "id": "emberPreserves",
+  "name": "Emberberry Preserves",
+  "icon": "🫙",
+  "origin": "lanternwick",
+  "base": 420,
+  "labor": 30,
+  "fee": 30,
+  "inputs": [
+    {
+      "item": "emberberry",
+      "n": 8
+    },
+    {
+      "item": "apple",
+      "n": 2
+    }
+  ],
+  "look": "Small crate with straw packing holding rows of glass jars of glowing orange-red jam with cloth lids.",
+  "kind": "trade"
+}

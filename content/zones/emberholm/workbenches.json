@@ -1,0 +1,23 @@
+[
+  {
+    "id": "lanternwickBench",
+    "name": "Specialty Workbench",
+    "place": "lanternwick",
+    "x": 12,
+    "z": -263
+  },
+  {
+    "id": "sawhorse",
+    "name": "Hob's Sawhorse",
+    "place": "thornwood",
+    "x": -236,
+    "z": 50
+  },
+  {
+    "id": "stonecutter",
+    "name": "Stonecutter's Table",
+    "place": "quarry",
+    "x": 192,
+    "z": 156
+  }
+]

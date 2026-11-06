@@ -1,0 +1,9 @@
+{
+  "id": "housePlot",
+  "name": "House Plot",
+  "w": 16,
+  "d": 16,
+  "h": 1.2,
+  "collider": "none",
+  "look": "Unclaimed land marker: four corner stakes with string between them and a small 'Plot for claim' sign at the front. Very light; the ground shows through."
+}

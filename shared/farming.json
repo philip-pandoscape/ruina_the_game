@@ -1,5 +1,5 @@
 {
-  "comment": "Crops, trees and the weather that grows them. Read by src/content/farming.ts. Times are real seconds of world time (the world clock keeps running while you are away, at the offline rate in trade.json's clock section). A plant passes through `stages` looks; the last is ripe. Growth runs faster in its own climate and slower elsewhere, faster still when watered or rained on. `gathering` is what each resource node in a zone gives, for how much labor, and how long it takes to come back. `animals` are raised in plot cells like crops: fed instead of watered (they only grow and produce while fed), and collected again and again once grown.",
+  "comment": "Built from content/farming.json by tools/content/contentc.mjs (npm run content): edit there, not here. Crops, trees and the weather that grows them. Read by src/content/farming.ts. Times are real seconds of world time (the world clock keeps running while you are away, at the offline rate in trade.json's clock section). A plant passes through `stages` looks; the last is ripe. Growth runs faster in its own climate and slower elsewhere, faster still when watered or rained on. `gathering` is what each resource node in a zone gives, for how much labor, and how long it takes to come back. `animals` are raised in plot cells like crops: fed instead of watered (they only grow and produce while fed), and collected again and again once grown.",
   "cell": 2,
   "scarecrowCells": 4,
   "maxScarecrows": 3,
@@ -21,7 +21,7 @@
       "icon": "❄️"
     }
   },
-  "climateMatch": 1.0,
+  "climateMatch": 1,
   "climateMismatch": 0.7,
   "water": {
     "boost": 1.25,
@@ -132,7 +132,7 @@
         4,
         6
       ],
-      "seedChance": 0.0,
+      "seedChance": 0,
       "harvestLabor": 3,
       "plantLabor": 0,
       "chop": {
@@ -160,7 +160,7 @@
         0,
         0
       ],
-      "seedChance": 0.0,
+      "seedChance": 0,
       "harvestLabor": 0,
       "plantLabor": 0,
       "chop": {

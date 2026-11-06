@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "packs",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "icon": {
+      "type": "string"
+    },
+    "origin": {
+      "type": "string"
+    },
+    "base": {
+      "type": "number"
+    },
+    "labor": {
+      "type": "number"
+    },
+    "fee": {
+      "type": "number"
+    },
+    "inputs": {
+      "type": "array"
+    },
+    "look": {
+      "type": "string"
+    },
+    "kind": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "name",
+    "icon",
+    "origin",
+    "base",
+    "labor",
+    "fee",
+    "inputs",
+    "look",
+    "kind"
+  ],
+  "additionalProperties": false
+}

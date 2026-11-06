@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "actors",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "faction": {
+      "type": "number"
+    },
+    "maxHp": {
+      "type": "number"
+    },
+    "radius": {
+      "type": "number"
+    },
+    "hitHeight": {
+      "type": "number"
+    },
+    "hitCeiling": {
+      "type": "number"
+    },
+    "solid": {
+      "type": "boolean"
+    },
+    "brain": {
+      "type": [
+        "null",
+        "string"
+      ]
+    },
+    "respawnFrames": {
+      "type": "number"
+    },
+    "species": {
+      "type": [
+        "null",
+        "string"
+      ]
+    },
+    "clips": {
+      "type": "object"
+    },
+    "mass": {
+      "type": "number"
+    },
+    "scale": {
+      "type": "number"
+    },
+    "palette": {
+      "type": "object"
+    },
+    "slam": {
+      "type": "object"
+    },
+    "burst": {
+      "type": "object"
+    },
+    "gathers": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "id",
+    "faction",
+    "maxHp",
+    "radius",
+    "hitHeight",
+    "hitCeiling",
+    "solid",
+    "brain",
+    "respawnFrames",
+    "species",
+    "clips"
+  ],
+  "additionalProperties": false
+}

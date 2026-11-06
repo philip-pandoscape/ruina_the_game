@@ -1,0 +1,20 @@
+{
+  "id": "craft.roadster",
+  "bench": "bertram",
+  "inputs": [
+    {
+      "item": "lumber",
+      "n": 10
+    },
+    {
+      "item": "ironOre",
+      "n": 12
+    }
+  ],
+  "coins": 1200,
+  "labor": 40,
+  "makes": {
+    "item": "deed.roadster",
+    "n": 1
+  }
+}

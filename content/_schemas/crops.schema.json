@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "crops",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "kind": {
+      "type": "string"
+    },
+    "climate": {
+      "type": "string"
+    },
+    "icon": {
+      "type": "string"
+    },
+    "growSeconds": {
+      "type": "number"
+    },
+    "stages": {
+      "type": "number"
+    },
+    "regrowSeconds": {
+      "type": "number"
+    },
+    "seed": {
+      "type": "string"
+    },
+    "produce": {
+      "type": [
+        "null",
+        "string"
+      ]
+    },
+    "yield": {
+      "type": "array"
+    },
+    "seedChance": {
+      "type": "number"
+    },
+    "harvestLabor": {
+      "type": "number"
+    },
+    "plantLabor": {
+      "type": "number"
+    },
+    "chop": {
+      "type": "object"
+    },
+    "look": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "name",
+    "kind",
+    "climate",
+    "icon",
+    "growSeconds",
+    "stages",
+    "seed",
+    "produce",
+    "yield",
+    "seedChance",
+    "harvestLabor",
+    "plantLabor",
+    "look"
+  ],
+  "additionalProperties": false
+}

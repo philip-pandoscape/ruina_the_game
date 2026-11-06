@@ -33,7 +33,9 @@
     "format:rust": "node tools/cargo.mjs fmt --all",
     "lint": "biome check .",
     "format": "biome format --write . && npm run format:rust",
-    "engine": "node tools/cargo.mjs build -p ruina-engine-wasm --target wasm32-unknown-unknown --release"
+    "engine": "node tools/cargo.mjs build -p ruina-engine-wasm --target wasm32-unknown-unknown --release",
+    "content": "node tools/content/contentc.mjs",
+    "content:schemas": "node tools/content/schemas.mjs"
   },
   "type": "module",
   "dependencies": {

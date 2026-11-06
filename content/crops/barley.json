@@ -1,0 +1,19 @@
+{
+  "id": "barley",
+  "name": "Barley",
+  "kind": "crop",
+  "climate": "temperate",
+  "icon": "🌾",
+  "growSeconds": 200,
+  "stages": 4,
+  "seed": "seed.barley",
+  "produce": "barley",
+  "yield": [
+    4,
+    6
+  ],
+  "seedChance": 0.35,
+  "harvestLabor": 2,
+  "plantLabor": 0,
+  "look": "Grain clump. Sprout: a few thin green blades. Young: knee-high green stalks. Ripe: waist-high golden stalks with drooping bearded ears."
+}

@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "minigames",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "icon": {
+      "type": "string"
+    },
+    "blurb": {
+      "type": "string"
+    },
+    "players": {
+      "type": "string"
+    },
+    "turnSeconds": {
+      "type": "number"
+    },
+    "timeoutsToForfeit": {
+      "type": "number"
+    },
+    "hand": {
+      "type": "number"
+    },
+    "harbour": {
+      "type": "number"
+    },
+    "perGood": {
+      "type": "number"
+    },
+    "row": {
+      "type": "number"
+    },
+    "goods": {
+      "type": "array"
+    },
+    "layout": {
+      "type": "array"
+    }
+  },
+  "required": [
+    "id",
+    "name",
+    "icon",
+    "blurb",
+    "players",
+    "turnSeconds",
+    "timeoutsToForfeit",
+    "hand",
+    "harbour",
+    "perGood",
+    "row",
+    "goods",
+    "layout"
+  ],
+  "additionalProperties": false
+}

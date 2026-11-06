@@ -1,0 +1,14 @@
+{
+  "comment": "Things that live in your bag, who sells them, and what workbenches make. Read by src/content/items.ts. Prices are copper (100c = 1s, 100s = 1g). Trade and material packs are not items: they ride on your back or in a vehicle (shared/trade.json).",
+  "bagSlots": 30,
+  "items": {
+    "$things": "items"
+  },
+  "vendors": {
+    "$things": "vendors",
+    "id": "npc"
+  },
+  "recipes": {
+    "$things": "recipes"
+  }
+}

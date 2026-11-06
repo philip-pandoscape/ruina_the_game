@@ -1,0 +1,9 @@
+{
+  "id": "rowhouse",
+  "name": "Rowhouse",
+  "w": 6,
+  "d": 8,
+  "h": 11,
+  "collider": "building",
+  "look": "Built from the village kit (shared/buildings.json plan of the same id): narrow, gabled to the street, two storeys of timber and plaster: a shop below, a bedroom above."
+}

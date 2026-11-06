@@ -1,0 +1,106 @@
+{
+  "id": "hauler",
+  "name": "Hauler",
+  "class": "wheeled",
+  "icon": "🚚",
+  "desc": "A slow steam-truck with an eight-pack bed. A guild convoy's centrepiece.",
+  "length": 6,
+  "width": 2.4,
+  "height": 2.7,
+  "radius": 1.7,
+  "hp": 2000,
+  "maxSpeed": 11,
+  "reverseSpeed": 3.5,
+  "offroad": 0.75,
+  "accel": 3.2,
+  "brake": 9,
+  "drag": 0.3,
+  "rolling": 0.7,
+  "turnRate": 1.1,
+  "grip": 10,
+  "driftGrip": 4,
+  "climb": 0.55,
+  "boostSpeed": 0,
+  "seats": [
+    {
+      "x": 0.48,
+      "y": 1.6,
+      "z": 1.95,
+      "pose": "drive"
+    },
+    {
+      "x": -0.48,
+      "y": 1.6,
+      "z": 1.95,
+      "pose": "sit"
+    }
+  ],
+  "cargo": [
+    {
+      "x": 0.5,
+      "y": 1.32,
+      "z": 0.55
+    },
+    {
+      "x": -0.5,
+      "y": 1.32,
+      "z": 0.55
+    },
+    {
+      "x": 0.5,
+      "y": 1.32,
+      "z": -0.25
+    },
+    {
+      "x": -0.5,
+      "y": 1.32,
+      "z": -0.25
+    },
+    {
+      "x": 0.5,
+      "y": 1.32,
+      "z": -1.05
+    },
+    {
+      "x": -0.5,
+      "y": 1.32,
+      "z": -1.05
+    },
+    {
+      "x": 0.5,
+      "y": 1.32,
+      "z": -1.85
+    },
+    {
+      "x": -0.5,
+      "y": 1.32,
+      "z": -1.85
+    }
+  ],
+  "wheels": [
+    {
+      "x": 1.08,
+      "z": 1.9,
+      "r": 0.62,
+      "steer": true
+    },
+    {
+      "x": -1.08,
+      "z": 1.9,
+      "r": 0.62,
+      "steer": true
+    },
+    {
+      "x": 1.08,
+      "z": -1.7,
+      "r": 0.62,
+      "steer": false
+    },
+    {
+      "x": -1.08,
+      "z": -1.7,
+      "r": 0.62,
+      "steer": false
+    }
+  ]
+}

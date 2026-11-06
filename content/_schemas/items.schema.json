@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "items",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "icon": {
+      "type": "string"
+    },
+    "cat": {
+      "type": "string"
+    },
+    "stack": {
+      "type": "number"
+    },
+    "raises": {
+      "type": "string"
+    },
+    "value": {
+      "type": "number"
+    },
+    "desc": {
+      "type": "string"
+    },
+    "places": {
+      "type": "string"
+    },
+    "vehicle": {
+      "type": "string"
+    },
+    "glider": {
+      "type": "string"
+    },
+    "plants": {
+      "type": "string"
+    },
+    "use": {
+      "type": "object"
+    },
+    "mount": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "name",
+    "icon",
+    "cat",
+    "stack",
+    "value",
+    "desc"
+  ],
+  "additionalProperties": false
+}

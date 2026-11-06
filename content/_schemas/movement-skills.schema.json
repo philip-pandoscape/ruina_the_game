@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "movement-skills",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "icon": {
+      "type": "string"
+    },
+    "desc": {
+      "type": "string"
+    },
+    "tags": {
+      "type": "array"
+    },
+    "staminaCost": {
+      "type": "number"
+    },
+    "action": {
+      "type": "object"
+    },
+    "cooldownFrames": {
+      "type": "number"
+    },
+    "builtin": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "id",
+    "name",
+    "icon",
+    "desc",
+    "tags",
+    "action"
+  ],
+  "additionalProperties": false
+}

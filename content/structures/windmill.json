@@ -1,0 +1,10 @@
+{
+  "id": "windmill",
+  "name": "Windmill",
+  "w": 6,
+  "d": 6,
+  "h": 13,
+  "collider": "post",
+  "r": 2.6,
+  "look": "Stone tower windmill tapering upward, wooden cap, four lattice sails (radius 6) on a hub facing +Z at height 9. Expose the sail hub as an object the caller can spin about Z."
+}

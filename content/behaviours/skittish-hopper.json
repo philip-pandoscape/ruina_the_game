@@ -1,0 +1,32 @@
+{
+  "id": "skittish-hopper",
+  "sight": 9,
+  "keepAway": 2,
+  "leash": 7,
+  "states": [
+    {
+      "name": "idle",
+      "act": "wait",
+      "frames": [
+        20,
+        70
+      ],
+      "next": "move"
+    },
+    {
+      "name": "move",
+      "act": "advance",
+      "frames": [
+        42,
+        42
+      ],
+      "gait": {
+        "distance": 1.15,
+        "height": 0.5,
+        "airStart": 0.18,
+        "airSpan": 0.6
+      },
+      "next": "idle"
+    }
+  ]
+}

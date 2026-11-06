@@ -1,0 +1,14 @@
+[
+  {
+    "id": "westwatch",
+    "npc": "dunmore",
+    "x": 418.5,
+    "z": -16
+  },
+  {
+    "id": "gullrock",
+    "npc": "pell",
+    "x": -551.5,
+    "z": -421.5
+  }
+]

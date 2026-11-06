@@ -1,0 +1,36 @@
+{
+  "id": "firstFlight",
+  "name": "First Flight",
+  "giver": "ysolde",
+  "after": [
+    "wings"
+  ],
+  "intro": "Off you go. Glide all the way down to Lanternwick - stay up as long as you can.",
+  "steps": [
+    {
+      "text": "Glide for 20 seconds",
+      "objectives": [
+        {
+          "type": "glide",
+          "seconds": 20
+        }
+      ]
+    },
+    {
+      "text": "Land in Lanternwick and report to Reeve Hollis",
+      "objectives": [
+        {
+          "type": "talk",
+          "npc": "hollis"
+        }
+      ]
+    }
+  ],
+  "turnIn": "hollis",
+  "outro": "Ha! I saw you come over the rooftops. Ysolde will be insufferable. Here - a Charter Seal for your trouble. Seals are what the Registry trades land for.",
+  "rewards": {
+    "skillPoints": 1,
+    "coins": 60,
+    "seals": 1
+  }
+}

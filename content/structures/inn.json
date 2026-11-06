@@ -1,0 +1,9 @@
+{
+  "id": "inn",
+  "name": "The Lantern & Gull",
+  "w": 14,
+  "d": 8,
+  "h": 12.2,
+  "collider": "building",
+  "look": "Built from the village kit (shared/buildings.json plan of the same id): a stone common room with a hearth, a bar and its kegs, tables and chandeliers; guest beds upstairs."
+}

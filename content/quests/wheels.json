@@ -1,0 +1,45 @@
+{
+  "id": "wheels",
+  "name": "Wheels of Commerce",
+  "giver": "bertram",
+  "after": [
+    "westward"
+  ],
+  "intro": "Dunmore sent word you'd be by - and paid for the cart up front, the old softie. Open your bag (I) and summon it, or press V. Carry packs to the bed to load them, and unload at the other end. Two crates to Westwatch, if you please.",
+  "steps": [
+    {
+      "text": "Summon your farm cart",
+      "objectives": [
+        {
+          "type": "summon",
+          "vehicle": "farmCart"
+        }
+      ]
+    },
+    {
+      "text": "Load trade packs into the cart",
+      "objectives": [
+        {
+          "type": "load",
+          "n": 2
+        }
+      ]
+    },
+    {
+      "text": "Deliver two trade packs to Westwatch",
+      "objectives": [
+        {
+          "type": "deliver",
+          "outpost": "westwatch",
+          "n": 2
+        }
+      ]
+    }
+  ],
+  "outro": "Now you're a trader. Sela at the stables can sell you a donkey for the hills, and Captain Ilsa down at the docks has something for the sea.",
+  "rewards": {
+    "skillPoints": 2,
+    "coins": 150,
+    "seals": 1
+  }
+}

@@ -1,5 +1,5 @@
 {
-  "comment": "What kinds of thing can exist in the world, read by src/content/actors.ts and crates/engine/src/content.rs. The rules fields (hp, radius, brain, mass, burst, slam, gathers) matter to both; species/clips/palette/scale are only how the browser draws it, and the server ignores them. Faction 2 (neutral) is townsfolk: solid, never targeted, never hurt. A kind travels on the wire as its index here, so new kinds go on the end.",
+  "comment": "Built from content/actors.json by tools/content/contentc.mjs (npm run content): edit there, not here. What kinds of thing can exist in the world, read by src/content/actors.ts and crates/engine/src/content.rs. The rules fields (hp, radius, brain, mass, burst, slam, gathers) matter to both; species/clips/palette/scale are only how the browser draws it, and the server ignores them. Faction 2 (neutral) is townsfolk: solid, never targeted, never hurt. A kind travels on the wire as its index here, so new kinds go on the end.",
   "kinds": [
     {
       "id": "dummy",

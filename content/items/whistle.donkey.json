@@ -1,0 +1,10 @@
+{
+  "id": "whistle.donkey",
+  "name": "Donkey Whistle",
+  "icon": "🫏",
+  "cat": "mount",
+  "stack": 1,
+  "value": 0,
+  "mount": "donkey",
+  "desc": "Press R to call your donkey. It carries your trade pack for you."
+}

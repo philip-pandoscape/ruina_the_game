@@ -1,5 +1,5 @@
 {
-  "comment": "Everything you can ride: land vehicles, boats, mounts and gliders. Read by src/content/vehicles.ts (and the server, later). Local frame: the vehicle faces +Z, +Y is up, and its right-hand side is -X (the same way the hero faces +Z). Distances in metres, speeds in m/s, rates per second. seats/cargo/wheels are anchor points the 3D models are built around, so moving one here moves it in both the rules and the art.",
+  "comment": "Built from content/vehicles.json by tools/content/contentc.mjs (npm run content): edit there, not here. Everything you can ride: land vehicles, boats, mounts and gliders. Read by src/content/vehicles.ts (and the server, later). Local frame: the vehicle faces +Z, +Y is up, and its right-hand side is -X (the same way the hero faces +Z). Distances in metres, speeds in m/s, rates per second. seats/cargo/wheels are anchor points the 3D models are built around, so moving one here moves it in both the rules and the art.",
   "vehicles": [
     {
       "id": "farmCart",
@@ -13,15 +13,15 @@
       "radius": 1.25,
       "hp": 600,
       "maxSpeed": 8.5,
-      "reverseSpeed": 3.0,
+      "reverseSpeed": 3,
       "offroad": 0.8,
       "accel": 4.5,
-      "brake": 10.0,
+      "brake": 10,
       "drag": 0.35,
       "rolling": 0.6,
       "turnRate": 1.5,
-      "grip": 9.0,
-      "driftGrip": 3.0,
+      "grip": 9,
+      "driftGrip": 3,
       "climb": 0.62,
       "boostSpeed": 0,
       "seats": [
@@ -98,18 +98,18 @@
       "height": 1.25,
       "radius": 1.2,
       "hp": 800,
-      "maxSpeed": 23.0,
-      "reverseSpeed": 6.0,
+      "maxSpeed": 23,
+      "reverseSpeed": 6,
       "offroad": 0.6,
-      "accel": 10.0,
-      "brake": 18.0,
+      "accel": 10,
+      "brake": 18,
       "drag": 0.18,
       "rolling": 0.5,
       "turnRate": 2.1,
-      "grip": 7.0,
+      "grip": 7,
       "driftGrip": 1.2,
       "climb": 0.7,
-      "boostSpeed": 29.0,
+      "boostSpeed": 29,
       "seats": [
         {
           "x": 0.38,
@@ -126,7 +126,7 @@
       ],
       "cargo": [
         {
-          "x": 0.0,
+          "x": 0,
           "y": 0.86,
           "z": -1.55
         }
@@ -164,21 +164,21 @@
       "class": "wheeled",
       "icon": "🚚",
       "desc": "A slow steam-truck with an eight-pack bed. A guild convoy's centrepiece.",
-      "length": 6.0,
+      "length": 6,
       "width": 2.4,
       "height": 2.7,
       "radius": 1.7,
       "hp": 2000,
-      "maxSpeed": 11.0,
+      "maxSpeed": 11,
       "reverseSpeed": 3.5,
       "offroad": 0.75,
       "accel": 3.2,
-      "brake": 9.0,
+      "brake": 9,
       "drag": 0.3,
       "rolling": 0.7,
       "turnRate": 1.1,
-      "grip": 10.0,
-      "driftGrip": 4.0,
+      "grip": 10,
+      "driftGrip": 4,
       "climb": 0.55,
       "boostSpeed": 0,
       "seats": [
@@ -279,22 +279,22 @@
       "maxSpeed": 6.5,
       "reverseSpeed": 2.5,
       "accel": 2.6,
-      "brake": 3.0,
+      "brake": 3,
       "drag": 0.5,
       "rolling": 0.3,
       "turnRate": 1.4,
       "turnAtRest": 0.8,
-      "grip": 3.0,
+      "grip": 3,
       "sail": 0,
       "seats": [
         {
-          "x": 0.0,
+          "x": 0,
           "y": 0.38,
           "z": 0.05,
           "pose": "row"
         },
         {
-          "x": 0.0,
+          "x": 0,
           "y": 0.38,
           "z": 1.1,
           "pose": "sit"
@@ -302,12 +302,12 @@
       ],
       "cargo": [
         {
-          "x": 0.0,
+          "x": 0,
           "y": 0.3,
           "z": -0.85
         },
         {
-          "x": 0.0,
+          "x": 0,
           "y": 0.3,
           "z": -1.35
         }
@@ -331,13 +331,13 @@
       "class": "boat",
       "icon": "⛵",
       "desc": "A single-masted sailer with a six-pack hold. Fast with the wind behind her, stubborn against it.",
-      "length": 9.0,
+      "length": 9,
       "width": 3.2,
       "height": 10.5,
       "radius": 3.2,
       "hp": 1500,
       "draft": 1.1,
-      "maxSpeed": 15.0,
+      "maxSpeed": 15,
       "reverseSpeed": 1.5,
       "accel": 2.2,
       "brake": 1.6,
@@ -348,13 +348,13 @@
       "grip": 2.2,
       "sail": 1,
       "mast": {
-        "x": 0.0,
+        "x": 0,
         "z": 1.2,
-        "height": 9.0
+        "height": 9
       },
       "seats": [
         {
-          "x": 0.0,
+          "x": 0,
           "y": 1.25,
           "z": -3.6,
           "pose": "helm"
@@ -372,7 +372,7 @@
           "pose": "sit"
         },
         {
-          "x": 0.0,
+          "x": 0,
           "y": 1.15,
           "z": 3.3,
           "pose": "sit"
@@ -417,14 +417,14 @@
       "class": "boat",
       "icon": "🚢",
       "desc": "A broad-beamed trader with a sixteen-pack hold and a square sail. Built at a shipyard, crewed by friends, hunted by pirates.",
-      "length": 16.0,
+      "length": 16,
       "width": 5.4,
-      "height": 15.0,
+      "height": 15,
       "radius": 5.5,
       "hp": 6000,
-      "draft": 2.0,
+      "draft": 2,
       "maxSpeed": 10.5,
-      "reverseSpeed": 1.0,
+      "reverseSpeed": 1,
       "accel": 1.1,
       "brake": 0.9,
       "drag": 0.2,
@@ -434,27 +434,27 @@
       "grip": 1.8,
       "sail": 1,
       "mast": {
-        "x": 0.0,
-        "z": 1.0,
+        "x": 0,
+        "z": 1,
         "height": 13.5
       },
       "seats": [
         {
-          "x": 0.0,
+          "x": 0,
           "y": 3.45,
-          "z": -6.0,
+          "z": -6,
           "pose": "helm"
         },
         {
           "x": 1.9,
           "y": 2.3,
-          "z": 3.0,
+          "z": 3,
           "pose": "sit"
         },
         {
           "x": -1.9,
           "y": 2.3,
-          "z": 3.0,
+          "z": 3,
           "pose": "sit"
         },
         {
@@ -470,7 +470,7 @@
           "pose": "sit"
         },
         {
-          "x": 0.0,
+          "x": 0,
           "y": 2.3,
           "z": 5.6,
           "pose": "sit"
@@ -540,22 +540,22 @@
         {
           "x": 0.6,
           "y": 2.25,
-          "z": -4.0
+          "z": -4
         },
         {
           "x": -0.6,
           "y": 2.25,
-          "z": -4.0
+          "z": -4
         },
         {
           "x": 1.8,
           "y": 2.25,
-          "z": -4.0
+          "z": -4
         },
         {
           "x": -1.8,
           "y": 2.25,
-          "z": -4.0
+          "z": -4
         }
       ]
     }
@@ -572,17 +572,17 @@
       "height": 1.3,
       "radius": 0.55,
       "hp": 300,
-      "walkSpeed": 3.0,
+      "walkSpeed": 3,
       "runSpeed": 8.5,
-      "gallopSpeed": 10.0,
+      "gallopSpeed": 10,
       "packSpeed": 7.5,
-      "accel": 14.0,
+      "accel": 14,
       "turnRate": 4.5,
       "jump": 6.5,
       "canCarryPack": true,
       "seats": [
         {
-          "x": 0.0,
+          "x": 0,
           "y": 1.18,
           "z": 0.08,
           "pose": "ride"
@@ -590,7 +590,7 @@
       ],
       "cargo": [
         {
-          "x": 0.0,
+          "x": 0,
           "y": 1.32,
           "z": -0.52
         }
@@ -611,13 +611,13 @@
       "runSpeed": 12.5,
       "gallopSpeed": 16.5,
       "packSpeed": 0,
-      "accel": 16.0,
-      "turnRate": 4.0,
-      "jump": 8.0,
+      "accel": 16,
+      "turnRate": 4,
+      "jump": 8,
       "canCarryPack": false,
       "seats": [
         {
-          "x": 0.0,
+          "x": 0,
           "y": 1.6,
           "z": 0.05,
           "pose": "ride"
@@ -633,8 +633,8 @@
       "icon": "🪁",
       "desc": "Canvas on an ash frame. Forgiving, slow to sink, and enough to get you off any cliff in one piece.",
       "span": 5.2,
-      "cruiseSpeed": 13.0,
-      "diveSpeed": 21.0,
+      "cruiseSpeed": 13,
+      "diveSpeed": 21,
       "flareSpeed": 8.5,
       "sink": 2.3,
       "diveSink": 7.5,
@@ -657,12 +657,12 @@
       "desc": "Lacquered ribs and oiled silk. Faster and twitchier, and it banks like a swallow.",
       "span": 4.6,
       "cruiseSpeed": 17.5,
-      "diveSpeed": 27.0,
-      "flareSpeed": 10.0,
+      "diveSpeed": 27,
+      "flareSpeed": 10,
       "sink": 2.6,
       "diveSink": 8.5,
       "flareSink": 1.4,
-      "stallSpeed": 8.0,
+      "stallSpeed": 8,
       "turnRate": 2.2,
       "speedEase": 1.8,
       "zoomLift": 0.6,

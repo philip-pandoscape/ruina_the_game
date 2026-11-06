@@ -1,0 +1,9 @@
+{
+  "id": "lamp",
+  "w": 0.4,
+  "d": 0.4,
+  "h": 3.2,
+  "collider": "post",
+  "r": 0.15,
+  "look": "Iron lamp post with a glass lantern (emissive warm)."
+}

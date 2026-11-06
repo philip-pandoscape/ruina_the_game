@@ -1,0 +1,120 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "vehicles",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "class": {
+      "type": "string"
+    },
+    "icon": {
+      "type": "string"
+    },
+    "desc": {
+      "type": "string"
+    },
+    "length": {
+      "type": "number"
+    },
+    "width": {
+      "type": "number"
+    },
+    "height": {
+      "type": "number"
+    },
+    "radius": {
+      "type": "number"
+    },
+    "hp": {
+      "type": "number"
+    },
+    "draft": {
+      "type": "number"
+    },
+    "maxSpeed": {
+      "type": "number"
+    },
+    "reverseSpeed": {
+      "type": "number"
+    },
+    "accel": {
+      "type": "number"
+    },
+    "brake": {
+      "type": "number"
+    },
+    "drag": {
+      "type": "number"
+    },
+    "rolling": {
+      "type": "number"
+    },
+    "turnRate": {
+      "type": "number"
+    },
+    "turnAtRest": {
+      "type": "number"
+    },
+    "grip": {
+      "type": "number"
+    },
+    "sail": {
+      "type": "number"
+    },
+    "mast": {
+      "type": "object"
+    },
+    "seats": {
+      "type": "array"
+    },
+    "cargo": {
+      "type": "array"
+    },
+    "offroad": {
+      "type": "number"
+    },
+    "driftGrip": {
+      "type": "number"
+    },
+    "climb": {
+      "type": "number"
+    },
+    "boostSpeed": {
+      "type": "number"
+    },
+    "wheels": {
+      "type": "array"
+    },
+    "oars": {
+      "type": "array"
+    }
+  },
+  "required": [
+    "id",
+    "name",
+    "class",
+    "icon",
+    "desc",
+    "length",
+    "width",
+    "height",
+    "radius",
+    "hp",
+    "maxSpeed",
+    "reverseSpeed",
+    "accel",
+    "brake",
+    "drag",
+    "rolling",
+    "turnRate",
+    "grip",
+    "seats",
+    "cargo"
+  ],
+  "additionalProperties": false
+}

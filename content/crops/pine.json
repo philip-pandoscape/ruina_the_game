@@ -1,0 +1,28 @@
+{
+  "id": "pine",
+  "name": "Highland Pine",
+  "kind": "tree",
+  "climate": "frost",
+  "icon": "🌲",
+  "growSeconds": 480,
+  "stages": 4,
+  "regrowSeconds": 0,
+  "seed": "sapling.pine",
+  "produce": null,
+  "yield": [
+    0,
+    0
+  ],
+  "seedChance": 0,
+  "harvestLabor": 0,
+  "plantLabor": 0,
+  "chop": {
+    "item": "lumber",
+    "yield": [
+      7,
+      10
+    ],
+    "labor": 8
+  },
+  "look": "Conifer. Sapling: tiny cone of needles. Young: 2 m pine. Grown: 5 m pine. Ripe: same 6 m pine with cones (the 'ready to fell' look)."
+}

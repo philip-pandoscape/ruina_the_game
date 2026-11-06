@@ -1,0 +1,40 @@
+{
+  "id": "home",
+  "name": "A Place to Call Home",
+  "giver": "quill",
+  "after": [
+    "woodcutting"
+  ],
+  "intro": "Land on Emberholm is granted by blueprint. A Cottage Blueprint costs three silver and three Charter Seals; place it on any empty plot at Hearthside Rise. Then build it in four stages: three Stone Blocks and an Iron Fittings Crate from the Stonecutter's Table at Stonebreak Quarry, and five Lumber Bundles from Hob's Sawhorse in Thornwood. Haul them to the site on your back or by cart.",
+  "steps": [
+    {
+      "text": "Place a Cottage Blueprint on a plot at Hearthside Rise",
+      "objectives": [
+        {
+          "type": "placeHouse",
+          "n": 1
+        }
+      ]
+    },
+    {
+      "text": "Build all four stages with packs from Stonebreak Quarry and Thornwood",
+      "objectives": [
+        {
+          "type": "buildStage",
+          "n": 4
+        }
+      ]
+    }
+  ],
+  "outro": "Signed, sealed, and yours - so long as the taxes are paid. Welcome home, neighbour.",
+  "rewards": {
+    "skillPoints": 3,
+    "coins": 300,
+    "items": [
+      {
+        "item": "tonic.labor",
+        "n": 2
+      }
+    ]
+  }
+}

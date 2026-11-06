@@ -1,0 +1,10 @@
+{
+  "id": "oreNode",
+  "name": "Ore Outcrop",
+  "w": 2.8,
+  "d": 2.4,
+  "h": 1.8,
+  "collider": "post",
+  "r": 1.2,
+  "look": "Grey boulder cluster with rusty-orange iron veins and a few bright crystals."
+}

@@ -1,0 +1,17 @@
+{
+  "w": 1.18,
+  "d": 0.34,
+  "h": 0.4,
+  "collider": "none",
+  "parts": [
+    {
+      "model": "Shelf_Simple"
+    },
+    {
+      "model": "BookGroup_Medium_1",
+      "y": 0.11,
+      "z": 0.2,
+      "scale": 0.95
+    }
+  ]
+}

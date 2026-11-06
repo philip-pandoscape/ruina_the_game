@@ -1,0 +1,10 @@
+{
+  "id": "deed.rowboat",
+  "name": "Rowboat Deed",
+  "icon": "🚣",
+  "cat": "deed",
+  "stack": 1,
+  "value": 0,
+  "vehicle": "rowboat",
+  "desc": "Summon your rowboat at the water's edge. 2 pack slots."
+}

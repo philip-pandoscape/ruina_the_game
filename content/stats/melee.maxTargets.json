@@ -1,0 +1,5 @@
+{
+  "id": "melee.maxTargets",
+  "base": 1,
+  "desc": "How many enemies one melee swing can hit"
+}

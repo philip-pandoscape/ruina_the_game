@@ -1,5 +1,5 @@
 {
-  "comment": "Shipyards: big ships are not bought, they are built. A design claims a slipway; each stage is finished by hauling its material packs to the slip and putting in the labor; the last stage launches the ship and hands you its deed. `reveal` is how far up the hull (metres above the waterline) is drawn once that stage is done. Read by src/content/shipyard.ts.",
+  "comment": "Built from content/shipyard.json by tools/content/contentc.mjs (npm run content): edit there, not here. Shipyards: big ships are not bought, they are built. A design claims a slipway; each stage is finished by hauling its material packs to the slip and putting in the labor; the last stage launches the ship and hands you its deed. `reveal` is how far up the hull (metres above the waterline) is drawn once that stage is done. Read by src/content/shipyard.ts.",
   "designs": [
     {
       "id": "cog",

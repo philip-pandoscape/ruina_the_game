@@ -1,0 +1,17 @@
+{
+  "npc": "quill",
+  "name": "Land Registry",
+  "sells": [
+    {
+      "item": "scarecrow",
+      "price": 40
+    },
+    {
+      "item": "blueprint.cottage",
+      "price": 300,
+      "seals": 3
+    }
+  ],
+  "buys": [],
+  "buyRate": 0
+}

@@ -1,0 +1,17 @@
+{
+  "id": "flaxBale",
+  "name": "Windspire Flax Bale",
+  "icon": "🧺",
+  "origin": "lanternwick",
+  "base": 300,
+  "labor": 25,
+  "fee": 20,
+  "inputs": [
+    {
+      "item": "flax",
+      "n": 8
+    }
+  ],
+  "look": "Tight bundle of pale flax fibre ~0.75 x 0.5 x 0.5 wrapped in sacking and bound with three ropes, blue flax flowers tucked under the rope, straps.",
+  "kind": "trade"
+}

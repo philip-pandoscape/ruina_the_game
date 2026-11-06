@@ -1,0 +1,10 @@
+{
+  "id": "blueprint.cottage",
+  "name": "Cottage Blueprint",
+  "icon": "📜",
+  "cat": "placeable",
+  "stack": 1,
+  "value": 300,
+  "places": "cottage",
+  "desc": "Claims an empty plot at Hearthside Rise. Build it in four stages by hauling materials to the site."
+}

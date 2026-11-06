@@ -1,5 +1,5 @@
 {
-  "comment": "Emberholm, the starter isle. Everything here is placement and terrain recipe; src/sim/zone/generate.ts turns it into a heightfield, colliders and decks, and src/render/open/stage.ts dresses it. Map convention: north is +Z and east is -X (so a structure with rot 0 faces north, PI faces south, +PI/2 faces west, -PI/2 faces east). Heights in metres above sea level.",
+  "comment": "Built from content/zones/emberholm.json by tools/content/contentc.mjs (npm run content): edit there, not here. Emberholm, the starter isle. Everything here is placement and terrain recipe; src/sim/zone/generate.ts turns it into a heightfield, colliders and decks, and src/render/open/stage.ts dresses it. Map convention: north is +Z and east is -X (so a structure with rot 0 faces north, PI faces south, +PI/2 faces west, -PI/2 faces east). Heights in metres above sea level.",
   "id": "emberholm",
   "name": "Emberholm",
   "subtitle": "The isle beneath the world tree",
@@ -143,7 +143,7 @@
         "z": -250,
         "r": 58,
         "fall": 34,
-        "h": 6.0,
+        "h": 6,
         "surface": "plaza",
         "surfaceR": 31
       },
@@ -165,7 +165,7 @@
         "w": 128,
         "d": 92,
         "fall": 30,
-        "h": 5.0
+        "h": 5
       },
       {
         "id": "hearthside",
@@ -174,7 +174,7 @@
         "w": 104,
         "d": 74,
         "fall": 28,
-        "h": 11.0
+        "h": 11
       },
       {
         "id": "westwatch",
@@ -182,7 +182,7 @@
         "z": -18,
         "r": 30,
         "fall": 22,
-        "h": 24.0,
+        "h": 24,
         "surface": "plaza",
         "surfaceR": 13
       },
@@ -452,7 +452,7 @@
         "blend": 1.6,
         "floor": [
           33.5,
-          33.0
+          33
         ],
         "shelf": {
           "top": 85,
@@ -1384,7 +1384,7 @@
     "dayLengthSeconds": 1800,
     "startHour": 8.5,
     "sunrise": 5.5,
-    "sunset": 20.0
+    "sunset": 20
   },
   "shipyards": [
     {
