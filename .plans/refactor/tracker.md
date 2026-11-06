@@ -772,12 +772,15 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
     page's copy for drawing).
   Online was measured in R8.7-R8.9 (a step 0.03 ms); the old online client needs the old server, so
   it isn't compared here.
-- [ ] **R8.16** The skill tree's numbers from the engine: the page still works out what a build's
+- [x] **R8.16** The skill tree's numbers from the engine: the page still works out what a build's
   skills make of its attacks and spells in TypeScript (`resolveSkills`, `gather` and the fold in
   `src/content/skills.ts`) for what it shows (`engine.sim.stats`: the skill book, the aim circles,
   others' spells online), a second copy of `crates/engine/src/skills.rs`'s fold. The session's view
   should carry the engine's (when the build or the levels change) and the TypeScript fold go.
   Found while R8.13's comments were rewritten.
+  Done (883e178): the engine's fold through `skills_resolve` (src/engine/skills.ts), asked when a build or
+  its levels change; the TypeScript fold went, and what a set grants stays a read of the tree
+  (`grantsOf`, for the build's checks).
 - [x] **R8.15** `crates/engine/AGENTS.md`: determinism rules, adding a system, testing it.
   Done (33bf4ea): `crates/engine/AGENTS.md`.
 
@@ -1320,6 +1323,8 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
 | 2026-11-06 | R10.15 | Instances in spaces of their own: a dungeon or developer zone played round its own origin over nothing, in place of the world, by the server and the browser | 55f53b3 |
 | 2026-11-06 | R10.1, R10.14 | The content's regions and instances: `content/regions/` and `content/instances/`, a region's doors, every region's ids checked; the bible's Regions | 622138a |
 | 2026-11-06 | — | A space change forgets the last game's word on you (the party spec's race) | f46a20d |
+| 2026-11-06 | R8.3, R8.2, R2.11 | `docs/engine.md`; the spike and the formatting closed | 0285ad3 |
+| 2026-11-06 | R8.16 | The skill tree's numbers from the engine | 883e178 |
 | 2026-11-06 | R9.9, R6.11b | Looks from data; the model library as a chunk, the `tryBuild` fallbacks gone (a background agent) | 3cffed1..40161aa, 2d5de57 |
 | 2026-11-06 | R9.14 | `docs/content.md` | 5e23680 |
 | 2026-11-06 | R10.10, R11.1, R11.2, R11.7, R11.8 | Snapshot to move machines: the battle server's Rust gone; the asset manifest, loader and first-download budget, `docs/assets.md` | a975617 |
