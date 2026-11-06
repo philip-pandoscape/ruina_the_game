@@ -4,7 +4,7 @@
 use std::collections::{HashMap, HashSet};
 
 use super::zone::{BoxCollider, Deck, Heightfield, Obstacle};
-use crate::life::content::js_hypot;
+use crate::jsmath::js_hypot;
 
 const BUCKET: f64 = 16.0;
 

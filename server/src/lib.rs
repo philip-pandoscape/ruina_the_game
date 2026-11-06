@@ -26,6 +26,7 @@ pub mod pack;
 pub mod parties;
 pub mod player;
 pub mod protocol;
+pub mod rng;
 pub mod sim;
 pub mod skills;
 pub mod spaces;

@@ -7,8 +7,8 @@ use std::collections::HashSet;
 use std::f64::consts::PI;
 
 use super::content::{
-    QuestDef, QuestStep, animal_def, blueprint_def, carry, crop_def, design_for_item, format_coins, gathering, item_def, js_max, js_min, js_round, pack_def,
-    place_name, quest_def, recipe as recipe_by_id, rideable, ship_design, structure_def,
+    QuestDef, QuestStep, animal_def, blueprint_def, carry, crop_def, design_for_item, format_coins, gathering, item_def, pack_def, place_name, quest_def,
+    recipe as recipe_by_id, rideable, ship_design, structure_def,
 };
 use super::contracts::accept_contract;
 use super::farming::{
@@ -24,6 +24,7 @@ use super::state::{Home, Stack};
 use super::trade::{buy, buy_back, carried, drop_pack, load_pack, pack_index, pick_up, quote, recover_demand, run_recipe, sell, sell_pack, unload_pack};
 use super::vehicles::{board, dismount, distance_to, mount_command, nearest_anchor, pack_blocks, recall, ridden, summon, vehicle_index};
 use super::{Command, Focus, Life, LifeEvent, Placement, QuestEvent};
+use crate::jsmath::{js_max, js_min, js_round};
 use crate::open::Sim;
 use crate::open::traverse::{close_glider, glider_blocked, gust, open_glider};
 use crate::open::zone::{Outpost, Zone, to_local};

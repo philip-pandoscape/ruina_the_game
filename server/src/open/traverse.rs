@@ -8,9 +8,9 @@ use super::Sim;
 use super::colliders::{ground_at, ground_at_decks, in_rect, push_out_of_box};
 use super::zone::Updraft;
 use crate::jsmath::JsMath;
-use crate::life::content::js_hypot;
-use crate::life::content::{carry, glide, glider_def, ground, js_round, swim};
-use crate::player::{Actions, Mode, Player, angle_diff, len, step_len, turn_toward};
+use crate::jsmath::{js_hypot, js_round, len};
+use crate::life::content::{carry, glide, glider_def, ground, swim};
+use crate::player::{Actions, Mode, Player, angle_diff, step_len, turn_toward};
 use crate::tuning::{combo_for, tuning};
 
 const PI: f64 = std::f64::consts::PI;

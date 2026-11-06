@@ -12,10 +12,12 @@ use std::cmp::Ordering;
 use std::collections::BTreeMap;
 use std::f64::consts::PI;
 
-use super::content::{self, Anchor, ItemDef, RideableDef, item_def, js_hypot as hypot, js_sign, rideable};
+use super::content::{self, Anchor, ItemDef, RideableDef, item_def, rideable};
 use super::state::Vehicle;
 use super::weather::storm_at;
 use super::{Life, QuestEvent, step_seconds};
+use crate::jsmath::len;
+use crate::jsmath::{js_hypot as hypot, js_sign};
 use crate::open::colliders::{ground_at, push_out_of_box};
 use crate::open::zone::{Heightfield, surface, to_local, to_world};
 use crate::open::{Mover, Sim};
@@ -53,11 +55,6 @@ fn truthy(a: f64) -> bool {
 /// JavaScript's `a || b` on numbers.
 fn or(a: f64, b: f64) -> f64 {
     if truthy(a) { a } else { b }
-}
-
-/// src/sim/math.ts len(): a plain square root.
-fn len(x: f64, z: f64) -> f64 {
-    (x * x + z * z).sqrt()
 }
 
 /// src/sim/math.ts turnToward().

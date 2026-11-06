@@ -3,11 +3,12 @@
 //! real time - faster in its own climate, faster again when watered or rained on - whether or not
 //! you are watching.
 
-use super::content::{CropDef, climate_factor, crop_def, farm, item_def, js_max, js_min};
+use super::content::{CropDef, climate_factor, crop_def, farm, item_def};
 use super::livestock::step_animal;
 use super::state::{Plant, Scarecrow};
 use super::weather::raining;
 use super::{Life, LifeEvent, QuestEvent};
+use crate::jsmath::{js_max, js_min};
 use crate::open::Sim;
 use crate::open::zone::{Obstacle, ObstacleKind, surface, to_local, to_world};
 

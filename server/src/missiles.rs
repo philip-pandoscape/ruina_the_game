@@ -7,6 +7,7 @@ use crate::actor::Actor;
 use crate::ai::Foe;
 use crate::content::AttackDef;
 use crate::jsmath::JsMath;
+use crate::jsmath::len;
 use crate::tuning::tuning;
 
 /// How tall a foe's body is, from the feet, for what a missile can hit.
@@ -31,10 +32,6 @@ pub struct Missile {
     pub damage: f64,
     pub knock: f64,
     pub age: i32,
-}
-
-fn len(x: f64, z: f64) -> f64 {
-    (x * x + z * z).sqrt()
 }
 
 /// Lets one go from a creature at a foe.

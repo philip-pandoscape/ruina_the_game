@@ -3,10 +3,11 @@
 //! milk again and again - also only while fed. A hungry animal simply waits for you; nothing dies
 //! of neglect on Emberholm.
 
-use super::content::{animal_def, item_def, js_max, js_min};
+use super::content::{animal_def, item_def};
 use super::farming::{plant_at, plant_at_mut, scarecrow_index};
 use super::state::Plant;
 use super::{Life, LifeEvent, QuestEvent};
+use crate::jsmath::{js_max, js_min};
 
 pub fn is_animal(p: Option<&Plant>) -> bool {
     p.is_some_and(|p| p.is_animal())

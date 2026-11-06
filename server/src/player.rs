@@ -5,6 +5,7 @@
 
 use crate::ai::{ACT_CAST, ACT_DODGE, ACT_FREE, ACT_GUARD, ACT_RECOVER, ACT_STUNNED, ACT_SWING, Foe};
 use crate::jsmath::JsMath;
+use crate::jsmath::len;
 use crate::life::content::carry;
 use crate::skills::{EMPTY_SKILLS, Levels, ResolvedSkills, SkillSet, base_levels, node_index, resolve_skills, same_levels, set_skill};
 use crate::tuning::{
@@ -150,10 +151,6 @@ pub struct Player {
     pub mode_frame: i32,
     /// Frames until the glider's gust can be used again.
     pub gust_frames: i32,
-}
-
-pub(crate) fn len(x: f64, z: f64) -> f64 {
-    (x * x + z * z).sqrt()
 }
 
 pub fn angle_diff(a: f64, b: f64) -> f64 {

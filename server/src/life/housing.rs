@@ -6,10 +6,11 @@
 
 use std::collections::BTreeMap;
 
-use super::content::{Spot, StageDef, blueprint_def, format_coins, has_blueprint, js_max, pack_def, structure_def};
+use super::content::{Spot, StageDef, blueprint_def, format_coins, has_blueprint, pack_def, structure_def};
 use super::state::House;
 use super::trade::{carried, consume_carried};
 use super::{Life, LifeEvent, QuestEvent};
+use crate::jsmath::js_max;
 use crate::open::Sim;
 use crate::open::zone::{HousePlot, rect, to_world};
 

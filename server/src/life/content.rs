@@ -9,6 +9,7 @@
 use std::collections::BTreeMap;
 use std::sync::OnceLock;
 
+use crate::jsmath::js_round;
 use serde::Deserialize;
 
 fn load<T: for<'de> Deserialize<'de>>(name: &str, text: &str) -> T {
@@ -944,58 +945,6 @@ pub fn quest_def(id: &str) -> &'static QuestDef {
         .unwrap_or_else(|| UNKNOWN.get_or_init(|| QuestDef { id: "unknown".into(), name: "Unknown".into(), ..Default::default() }))
 }
 
-// ---------- JavaScript arithmetic the rules rely on ----------
-
-/// Math.round: halves go up (toward +infinity), unlike f64::round.
-pub fn js_round(x: f64) -> f64 {
-    (x + 0.5).floor()
-}
-
-/// Math.hypot of two numbers, exactly as V8 works it out (scaled by the larger, with compensated
-/// summation). f64::hypot rounds differently in about a third of cases, and the rules compare
-/// these distances against thresholds, so a different last bit can be a different decision.
-pub fn js_hypot(a: f64, b: f64) -> f64 {
-    if a.is_infinite() || b.is_infinite() {
-        return f64::INFINITY;
-    }
-    if a.is_nan() || b.is_nan() {
-        return f64::NAN;
-    }
-    let (a, b) = (a.abs(), b.abs());
-    let max = if b > a { b } else { a };
-    if max == 0.0 {
-        return 0.0;
-    }
-    let (mut sum, mut compensation) = (0.0f64, 0.0f64);
-    for v in [a, b] {
-        let n = v / max;
-        let summand = n * n - compensation;
-        let preliminary = sum + summand;
-        compensation = (preliminary - sum) - summand;
-        sum = preliminary;
-    }
-    sum.sqrt() * max
-}
-
-/// Math.sign: 0 for 0 (f64::signum gives 1 for +0).
-pub fn js_sign(x: f64) -> f64 {
-    if x > 0.0 {
-        1.0
-    } else if x < 0.0 {
-        -1.0
-    } else {
-        x
-    }
-}
-
-/// Math.min / Math.max over two numbers, with JavaScript's NaN handling (NaN wins).
-pub fn js_min(a: f64, b: f64) -> f64 {
-    if a.is_nan() || b.is_nan() { f64::NAN } else { a.min(b) }
-}
-pub fn js_max(a: f64, b: f64) -> f64 {
-    if a.is_nan() || b.is_nan() { f64::NAN } else { a.max(b) }
-}
-
 /// Maps whose order is the order they were written in the file (JavaScript's Object.entries).
 pub mod indexmap_like {
     use serde::Deserialize;
@@ -1064,12 +1013,5 @@ mod tests {
     fn unknown_ids_are_harmless() {
         assert_eq!(item_def("no-such-thing").stack, 1);
         assert_eq!(rideable("no-such-thing").seats.len(), 1);
-    }
-
-    #[test]
-    fn javascript_rounding() {
-        assert_eq!(js_round(-2.5), -2.0);
-        assert_eq!(js_round(2.5), 3.0);
-        assert_eq!(js_sign(0.0), 0.0);
     }
 }

@@ -5,12 +5,13 @@
 //! trading post somewhere else. Farther routes pay more; each sale lowers that post's demand for
 //! that pack, which recovers with time; a fresh pack earns a bonus that sours the longer it sits.
 
-use super::content::{self, RecipeDef, format_coins, item_def, js_hypot, js_max, js_min, js_round, pack_def, place_name, recipe, route, vendor_for};
+use super::content::{self, RecipeDef, format_coins, item_def, pack_def, place_name, recipe, route, vendor_for};
 use super::contracts::contract_delivered;
 use super::state::{Buyback, Pack};
 use super::vehicles::vehicle_index;
 use super::{Life, LifeEvent, QuestEvent};
 use crate::jsmath::JsMath;
+use crate::jsmath::{js_hypot, js_max, js_min, js_round};
 use crate::open::Sim;
 use crate::open::colliders::ground_at;
 use crate::player::Mode;

@@ -4,9 +4,10 @@
 //! minutes"). Take one on, fill it before it runs out, and the post pays bonus Charter Seals and
 //! coin on top of each pack's normal price. Pack running with a goal.
 
-use super::content::{contracts, format_coins, js_max, js_round, pack_def, packs, place_name, route};
+use super::content::{contracts, format_coins, pack_def, packs, place_name, route};
 use super::state::{Contract, ContractState};
 use super::{Life, QuestEvent};
+use crate::jsmath::{js_max, js_round};
 
 /// Packs a trading post will buy (any trade pack with a route to it).
 fn wanted(outpost: &str) -> Vec<&'static str> {

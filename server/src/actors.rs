@@ -9,6 +9,7 @@ use crate::actor::Actor;
 use crate::ai::{Ctx, Foe, Peer, Request, Sighting, angle_diff, brain_of, draw, flinch, force_state, rest_state, start_brain, step_brain_in};
 use crate::content::{attack_at, kind, kind_index, kind_mass, ladder_at, ladders, size_for, size_up};
 use crate::jsmath::JsMath;
+use crate::jsmath::len;
 use crate::missiles::{Flight, Missile, launch, step_missiles};
 use crate::pack::step_packs;
 use crate::tuning::tuning;
@@ -22,10 +23,6 @@ const CLEAR_AFTER: i32 = 60;
 const TOUCH: f64 = 0.35;
 /// The rules' fixed step: brains count in 60ths of a second, whatever the server's tick.
 const STEP: f64 = 1.0 / 60.0;
-
-fn len(x: f64, z: f64) -> f64 {
-    (x * x + z * z).sqrt()
-}
 
 /// What a brain at a point sees: the nearest foe.
 fn nearest_at(foes: &[Foe], x: f64, z: f64) -> Sighting {

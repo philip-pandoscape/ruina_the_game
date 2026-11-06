@@ -405,11 +405,7 @@ impl Life {
 
     /// mulberry32, exactly as the TypeScript's rand().
     pub fn rand(&mut self) -> f64 {
-        self.state.rng = self.state.rng.wrapping_add(0x6D2B_79F5);
-        let mut t = self.state.rng;
-        t = (t ^ (t >> 15)).wrapping_mul(t | 1);
-        t ^= t.wrapping_add((t ^ (t >> 7)).wrapping_mul(t | 61));
-        (t ^ (t >> 14)) as f64 / 4_294_967_296.0
+        crate::rng::mulberry32(&mut self.state.rng)
     }
 
     pub fn rand_int(&mut self, lo: i64, hi: i64) -> i64 {

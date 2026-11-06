@@ -6,14 +6,11 @@
 use crate::actor::Actor;
 use crate::ai::{ACT_CAST, ACT_RECOVER, ACT_STUNNED, Foe, PackDef, angle_diff, brain_of, holds_token, off_facing};
 use crate::jsmath::JsMath;
+use crate::jsmath::len;
 
 /// How close the rest of its band has to be for a goblin to count as part of a group to run to.
 const GROUP: f64 = 5.0;
 const DEG: f64 = std::f64::consts::PI / 180.0;
-
-fn len(x: f64, z: f64) -> f64 {
-    (x * x + z * z).sqrt()
-}
 
 fn pack_of(a: &Actor) -> Option<&'static PackDef> {
     brain_of(a).and_then(|b| b.pack.as_ref())

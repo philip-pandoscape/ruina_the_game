@@ -17,30 +17,7 @@ const CELL: f32 = 2.0;
 const HALF: f32 = 160.0;
 const GRID: i32 = 160; // (HALF * 2 / CELL)
 
-// mulberry32, same as src/rng.ts
-pub struct Rng(u32);
-
-impl Rng {
-    pub fn new(seed: u32) -> Self {
-        Rng(seed)
-    }
-
-    // Same value as rng() in TypeScript, at full precision.
-    pub fn next_f64(&mut self) -> f64 {
-        self.0 = self.0.wrapping_add(0x6D2B_79F5);
-        let mut t = self.0;
-        t = (t ^ (t >> 15)).wrapping_mul(t | 1);
-        t ^= t.wrapping_add((t ^ (t >> 7)).wrapping_mul(t | 61));
-        (t ^ (t >> 14)) as f64 / 4_294_967_296.0
-    }
-
-    // The battlefield's own generator, as the browser's crowd has it; one generator for every
-    // rule comes with the engine crate (.plans/refactor, R5.2b).
-    #[allow(clippy::should_implement_trait)]
-    pub fn next(&mut self) -> f32 {
-        self.next_f64() as f32
-    }
-}
+pub use crate::rng::Rng;
 
 /// A real player the bots can fight: which player slot, where, and which side.
 pub struct BotTarget {
@@ -121,10 +98,10 @@ impl Battle {
             let side = if team == 0 { -1.0 } else { 1.0 };
             let stagger = if row % 2 == 1 { SPACING / 2.0 } else { 0.0 };
             b.team[i] = team;
-            b.x[i] = (col as f32 - (cols as f32 - 1.0) / 2.0) * SPACING + stagger + (b.rng.next() - 0.5) * 0.9;
-            b.z[i] = side * (FRONT + row as f32 * SPACING + (b.rng.next() - 0.5) * 0.9);
+            b.x[i] = (col as f32 - (cols as f32 - 1.0) / 2.0) * SPACING + stagger + (b.rng.next_f32() - 0.5) * 0.9;
+            b.z[i] = side * (FRONT + row as f32 * SPACING + (b.rng.next_f32() - 0.5) * 0.9);
             b.yaw[i] = if team == 0 { 0.0 } else { std::f32::consts::PI };
-            b.cooldown[i] = b.rng.next();
+            b.cooldown[i] = b.rng.next_f32();
         }
         b
     }
@@ -181,8 +158,8 @@ impl Battle {
     fn respawn(&mut self, i: usize) {
         let side = if self.team[i] == 0 { -1.0 } else { 1.0 };
         let width = self.cols as f32 * SPACING;
-        self.x[i] = (self.rng.next() - 0.5) * width;
-        self.z[i] = side * (FRONT + self.rows as f32 * SPACING + self.rng.next() * 10.0);
+        self.x[i] = (self.rng.next_f32() - 0.5) * width;
+        self.z[i] = side * (FRONT + self.rows as f32 * SPACING + self.rng.next_f32() * 10.0);
         self.yaw[i] = if self.team[i] == 0 { 0.0 } else { std::f32::consts::PI };
         self.vx[i] = 0.0;
         self.vz[i] = 0.0;
@@ -335,7 +312,7 @@ impl Battle {
                     if self.attack_t[i] < 0.0 && self.cooldown[i] <= 0.0 {
                         self.attack_t[i] = 0.0;
                         self.swings[i] = self.swings[i].wrapping_add(1);
-                        self.cooldown[i] = 1.1 + self.rng.next() * 0.6;
+                        self.cooldown[i] = 1.1 + self.rng.next_f32() * 0.6;
                     }
                 }
             } else {

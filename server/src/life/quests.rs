@@ -8,12 +8,10 @@
 //! began (an iterator over the old array, or a copy of it), so these walks do the same: each quest
 //! that was active then, once, if it still is when its turn comes (active_ids).
 
-use super::content::{
-    ItemCount, Objective, QuestDef, QuestStep, format_coins, has_quest, item_def, js_hypot, js_max, js_min, labor, objective_target, quest_def, quests,
-    ship_designs,
-};
+use super::content::{ItemCount, Objective, QuestDef, QuestStep, format_coins, has_quest, item_def, labor, objective_target, quest_def, quests, ship_designs};
 use super::state::{Plant, QuestProgress};
 use super::{Life, LifeEvent, QuestEvent, step_seconds};
+use crate::jsmath::{js_hypot, js_max, js_min};
 use crate::open::Sim;
 use crate::player::Mode;
 

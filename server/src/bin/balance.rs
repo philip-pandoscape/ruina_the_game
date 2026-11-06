@@ -21,6 +21,8 @@ use yggdrasil_server::sim::Battle;
 use yggdrasil_server::skills::{EMPTY_SKILLS, node_index, set_skill};
 use yggdrasil_server::tuning::{HOTBAR_SLOTS, MOVEMENT_SLOTS, NO_ABILITY, NO_MOVEMENT, tuning};
 use yggdrasil_server::world::{SEED, battlefield};
+// mulberry32, the generator the world uses, so a run is repeatable from its seed.
+use yggdrasil_server::rng::Rng;
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -89,18 +91,6 @@ struct Report {
     overall: Vec<(String, f64)>,
 }
 
-/// mulberry32, the same generator the world uses, so a run is repeatable from its seed.
-struct Rng(u32);
-impl Rng {
-    fn next(&mut self) -> f64 {
-        self.0 = self.0.wrapping_add(0x6d2b79f5);
-        let mut t = self.0;
-        t = (t ^ (t >> 15)).wrapping_mul(t | 1);
-        t ^= t.wrapping_add((t ^ (t >> 7)).wrapping_mul(t | 61));
-        ((t ^ (t >> 14)) as f64) / 4294967296.0
-    }
-}
-
 fn to_build(b: &BuildIn) -> Build {
     let mut skills = EMPTY_SKILLS;
     for id in &b.skills {
@@ -157,7 +147,7 @@ fn duel(a: &Build, b: &Build, seed: u32, max_ticks: u32, distance: f64) -> Outco
             let Some(p) = players.player(me) else { continue };
 
             // Enough jitter that sixteen duels aren't one duel sixteen times.
-            let wobble = (rng.next() - 0.5) * 0.25;
+            let wobble = (rng.next_f64() - 0.5) * 0.25;
             let (nx, nz) = (dx / dist + wobble, dz / dist);
             let reach = 2.2;
             let closing = dist > reach;
