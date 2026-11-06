@@ -1,8 +1,10 @@
 # src/app
 
 The game's start and wiring: what `src/main.ts` sets up and connects, in modules of their own. App
-code may import any area (it's where they meet); nothing but `src/main.ts` and the tests imports it
-back, apart from a few types (`tests/unit/boundaries.test.ts` holds the lines).
+code may import any area (it's where they meet); nothing but `src/main.ts`, the developer pages and
+the tests imports it back (`tests/unit/boundaries.test.ts` holds the lines). The other areas don't
+know each other's insides: the app hands each what it needs (the world connection to the windows, the
+peers to their drawing).
 
 | File | What |
 |---|---|
@@ -13,7 +15,9 @@ back, apart from a few types (`tests/unit/boundaries.test.ts` holds the lines).
 | `testApi.ts` | `window.__game`, the test API; `GameApi` is its type, which `tests/support/game.ts` checks the tests' calls against. |
 | `bugWiring.ts` | The bug reporter (`bugs/`) wired to the game: what a report keeps and samples. |
 | `dungeonVisit.ts` | Into a copy of a dungeon and out again. |
-| `autoWalk.ts`, `targeting.ts`, `save.ts`, `storage.ts`, `resume.ts` | Auto-run and road travel, picking a target, the island kept in the browser offline, browser storage under the game's name, coming back after a reload. |
+| `aiming.ts`, `targeting.ts` | Aiming: the mark (a soft lock you override with Tab), the circle a ground-aimed spell is placed with, aim assist, the combat stance. |
+| `perf.ts` | How the game runs: frame times, the page's and the graphics card's share, draw calls; the HUD's stats line and the stress tests read it. |
+| `save.ts`, `savedBuild.ts`, `storage.ts`, `resume.ts` | The island and the build kept in the browser offline, browser storage under the game's name, coming back after a reload. |
 
 ## How the modules reach the game
 

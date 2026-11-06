@@ -26,7 +26,7 @@ const FORBIDDEN: Record<string, string[]> = {
   net: ['render', 'ui', 'dev', 'bible', '(root:main)'],
   // The windows show what they're handed and ask the app for what they do (R6.0): sign-in, characters,
   // parties and mini-games declare the calls they make, and the app hands them the connection.
-  ui: ['net', 'bible', '(root:main)'],
+  ui: ['net', 'app', 'bible', '(root:main)'],
 };
 
 /** Imports across a line today, each with what will remove it (.plans/refactor/tracker.md). */
