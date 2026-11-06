@@ -87,6 +87,7 @@ import { initUiScale } from './ui/theme/scale';
 import { Portraits } from './render/portrait';
 import { Studio } from './render/studio';
 import { DungeonVisit } from './app/dungeonVisit';
+import { Perf } from './app/perf';
 import { migrateStorage } from './app/storage';
 
 // What this browser kept under the game's old name moves to its new one, before anything reads it.
@@ -1346,11 +1347,11 @@ function draw(alpha: number, cameraDt: number, animDt: number): void {
   blob.scale.setScalar(lift);
   blobMat.opacity = 0.22 * lift;
 
-  const timing = gpuTimerBegin();
+  const timing = perfs.gpuBegin();
   portraits.flush();
   if (openStage) openStage.render(follow.camera);
   else stage.renderer.render(stage.scene, follow.camera);
-  if (timing) gpuTimerEnd();
+  if (timing) perfs.gpuEnd();
   bugs?.afterRender();
   const dAct = dummyActor();
   const markNow = lockOn.mark();
@@ -1372,61 +1373,13 @@ function draw(alpha: number, cameraDt: number, animDt: number): void {
   hud.layout(follow.camera, innerWidth, innerHeight, dummyTop, (dAct?.hp ?? 0) / DUMMY.hp, !serverRules && !plateOnDummy);
 }
 
-// ---------- Performance numbers ----------
+// ---------- Performance numbers (src/app/perf.ts) ----------
 
-const frameTimes: number[] = [];
-let cpuMs = 0;
-
-// Measures how long the graphics card spends drawing each frame (when the browser allows it).
-// Unlike fps, this isn't capped at 60, so it shows how much headroom is left.
-const gl = stage.renderer.getContext() as WebGL2RenderingContext;
-const timerExt = gl.getExtension('EXT_disjoint_timer_query_webgl2');
-let gpuQuery: WebGLQuery | null = null;
-let gpuMs = 0;
-
-function gpuTimerBegin(): boolean {
-  if (!timerExt) return false;
-  if (gpuQuery) {
-    if (!gl.getQueryParameter(gpuQuery, gl.QUERY_RESULT_AVAILABLE)) return false;
-    if (!gl.getParameter(timerExt.GPU_DISJOINT_EXT)) {
-      const ms = gl.getQueryParameter(gpuQuery, gl.QUERY_RESULT) / 1e6;
-      gpuMs = gpuMs === 0 ? ms : gpuMs * 0.9 + ms * 0.1;
-    }
-    gl.deleteQuery(gpuQuery);
-  }
-  gpuQuery = gl.createQuery();
-  gl.beginQuery(timerExt.TIME_ELAPSED_EXT, gpuQuery);
-  return true;
-}
-
-function gpuTimerEnd(): void {
-  if (timerExt) gl.endQuery(timerExt.TIME_ELAPSED_EXT);
-}
-
-function gpuName(): string {
-  const gl = stage.renderer.getContext();
-  const ext = gl.getExtension('WEBGL_debug_renderer_info');
-  return String(ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER));
-}
-
-function perf() {
-  const sorted = [...frameTimes].sort((a, b) => a - b);
-  const avg = sorted.length ? sorted.reduce((s, v) => s + v, 0) / sorted.length : 0;
-  const p95 = sorted.length ? sorted[Math.floor(sorted.length * 0.95)] : 0;
-  const info = stage.renderer.info.render;
-  return {
-    avgMs: +avg.toFixed(2),
-    p95Ms: +p95.toFixed(2),
-    fps: avg > 0 ? Math.round(1000 / avg) : 0,
-    cpuMs: +cpuMs.toFixed(2),
-    gpuMs: timerExt ? +gpuMs.toFixed(2) : null,
-    drawCalls: info.calls,
-    triangles: info.triangles,
-    particles: vfx.particleCount,
-    server: online?.link.stats ?? null,
-    gpu: gpuName(),
-  };
-}
+const perfs = new Perf(
+  stage.renderer,
+  () => vfx.particleCount,
+  () => online?.link.stats ?? null,
+);
 
 // ---------- Main loop ----------
 
@@ -1456,8 +1409,7 @@ function frame(now: number): void {
   requestAnimationFrame(frame);
   const dt = Math.min(0.1, (now - last) / 1000);
   last = now;
-  frameTimes.push(dt * 1000);
-  if (frameTimes.length > 240) frameTimes.shift();
+  perfs.frame(dt * 1000);
   const cpuStart = performance.now();
 
   if (frozen) {
@@ -1543,19 +1495,11 @@ function frame(now: number): void {
     draw(1, 0, 0);
     framesDrawn++;
   }
-  cpuMs = cpuMs * 0.95 + (performance.now() - cpuStart) * 0.05;
+  perfs.cpuSpent(performance.now() - cpuStart);
 
   if (now - lastStats > 250) {
     lastStats = now;
-    const s = perf();
-    const base = `${s.fps} fps · ${s.drawCalls} draw calls · ${s.triangles.toLocaleString()} triangles`;
-    const gpu = s.gpuMs !== null ? ` · GPU ${s.gpuMs} ms/frame` : '';
-    // An admin sees how the game they're in runs on the server (its tick, players and bots).
-    const srv = s.server;
-    const server = srv
-      ? ` · server: ${srv.players} players + ${srv.bots} bots, ${srv.tickMs.toFixed(1)} ms a tick, ${(srv.bytes / 1024).toFixed(1)} KB an update`
-      : '';
-    hud.setStats(`${base}${gpu}${server}`);
+    hud.setStats(perfs.line());
   }
 }
 requestAnimationFrame(frame);
@@ -1680,7 +1624,7 @@ const refs = {
     return peers;
   },
   get perf() {
-    return perf;
+    return () => perfs.numbers();
   },
   get pinnedView() {
     return pinnedView;
