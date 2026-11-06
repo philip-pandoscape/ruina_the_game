@@ -11,7 +11,7 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
 
 - **Phase:** 6 (the client in areas) and 8 (one copy of the rules), with 7, 11 and 12 done or
   nearly, and 9 and 10 mostly landed beside them. The old battle server is gone (R10.9, R10.10).
-- **Next:** the headless game core (R6.2a), then Phase 8: the interface (R8.3, R8.3b) and the
+- **Next:** Phase 8: the interface (R8.3, R8.3b) and the
   switches, the island's generator first (R8.6's rest); then crowds at scale (R10.8) and the UI
   gallery (R6.9).
 - **How:** one session does the work, without background agents (the user's call on 2026-11-06:
@@ -382,13 +382,23 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
   rules' own. Left to their tasks: the rules' hooks back into JavaScript (`worldClock`,
   `othersVehicles`, `othersAround`, `plotOwner`, `remote`: R8.3b) and the patched `life.command`
   (R6.2). *Verified:* the integration tier 241 of 245 (the races under load, macOS's pointer lock).
-- [ ] **R6.2a** (from R1.5-R1.7) The game core: `main.ts`'s rules half (the world, the rules, the
+- [x] **R6.2a** (from R1.5-R1.7) The game core: `main.ts`'s rules half (the world, the rules, the
   yard, the island's life, stepping, events) in `src/app/` as a module with no drawing, used by the
   page and by a headless harness for Node; move the ~82 rules tests onto it (movement 19, goblin 8,
   slime-pack 16, slime 6, hotbar 6, game 3, skills 1, world 20, dungeon-way-in 2, travel 1; tests that
   read HUD markers assert on events instead). Model and rig builders that don't make a WebGL
   renderer when imported; the ~64 gallery tests (animation 20, species 24, creatures 6, models 14) to
   Vitest. Target from Phase 1: at least 230 TypeScript unit tests.
+  Done (eda3f19): the rules half is the engine (`src/engine/engine.ts`), the step (`src/app/step.ts`)
+  and the yard's practice (`src/app/yardPractice.ts`), none of which draws; `tests/support/headless.ts`
+  starts them in Node as `main.ts` does offline, with drawing and windows standing in, and runs the
+  test API on them unchanged. A spec's tests move as they are (`tools/refactor/port-spec.mjs`, then
+  `split-specs.mjs` sends each test to the tier it runs in): 77 rules tests now run headless in
+  `tests/unit/rules/` in about a second; 43 need a page (windows, keyboard and controller, the scene,
+  the server) and stay. The gallery tests were already in Vitest (animation 20, species 13, creatures
+  6, models 1); the model geometry specs (5, measured through the gallery page) stay in a page.
+  *Verified:* the unit tier has 236 TypeScript tests (`npm run check`); the page-tier remainder of
+  the split specs passes (43).
 - [x] **R6.1** `src/app/options.ts`: every URL option in one list (name, what it does, developer or
   not), read once.
   Done (138706b, ec69498): `src/app/options.ts`, with a unit test keeping the list honest.
