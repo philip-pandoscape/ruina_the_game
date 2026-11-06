@@ -93,6 +93,56 @@ export interface Actor {
   /** Where a slam it is winding up will land. */
   targetX: number;
   targetZ: number;
+
+  // ---- creatures that fight as a pack (src/sim/ai/pack.ts) ----
+  /** The foe it is after (a player, by foe id), or 0. */
+  target: number;
+  /** The war-band it fights with, or 0 on its own. */
+  band: number;
+  /** The pack lets it strike its foe now. */
+  token: boolean;
+  /** It was let in because the foe left an opening (back turned, recovering, casting, stunned). */
+  opening: boolean;
+  /** Its courage has run out: it wants to get away, to its friends or home. */
+  afraid: boolean;
+  /** Where on the ring around its foe it should stand while it waits. */
+  slotX: number;
+  slotZ: number;
+  /** Where it runs to when afraid: the biggest group of its band, or home. */
+  rallyX: number;
+  rallyZ: number;
+  /** Where a wander is heading. */
+  destX: number;
+  destZ: number;
+  /** Heals it carries (a goblin's stolen potion). */
+  charges: number;
+  /** Frames before each of its brain's attacks can be used again, in the brain's order. */
+  cds: number[];
+  /** The current state's blow or throw has gone. */
+  struck: boolean;
+}
+
+/** How many attacks a brain can list, each with its own cooldown. */
+export const ATTACK_SLOTS = 4;
+
+/** Something thrown or shot by a creature, in flight (src/sim/combat/missiles.ts). */
+export interface Missile {
+  id: number;
+  /** The actor that threw it, and the attack (an index into ATTACKS) it came from. */
+  owner: ActorId;
+  attack: number;
+  x: number;
+  y: number;
+  z: number;
+  vx: number;
+  vy: number;
+  vz: number;
+  gravity: number;
+  radius: number;
+  damage: number;
+  knock: number;
+  /** Frames since it was thrown. */
+  age: number;
 }
 
 export interface ActorSpawn {
@@ -142,6 +192,12 @@ export interface ActorKind {
   slam?: SlamDef;
   /** Whether it can call the pack and gather them in. */
   gathers?: boolean;
+  /** A blow dealing at least this much knocks it out of what it was doing (its brain's flinch). */
+  poise?: number;
+  /** What its target plate calls it. Drawing only. */
+  name?: string;
+  /** Clips that play by distance walked, not by state: metres one cycle covers. Drawing only. */
+  cycles?: Record<string, number>;
 }
 
 export const isAlive = (a: Actor): boolean => a.deadFrame < 0;
@@ -154,6 +210,10 @@ export class Actors {
   private byId = new Map<ActorId, Actor>();
   private nextId: ActorId = 1;
   private nextGroup = 1;
+  private nextBand = 1;
+  private nextMissile = 1;
+  /** What creatures have thrown, still in the air. */
+  missiles: Missile[] = [];
   /** Testing: nothing gets angry, so a test that hits a monster isn't hit back. */
   calm = false;
 
@@ -164,6 +224,23 @@ export class Actors {
     this.byId.clear();
     this.nextId = 1;
     this.nextGroup = 1;
+    this.nextBand = 1;
+    this.nextMissile = 1;
+    this.missiles = [];
+  }
+
+  /** A fresh id for a war-band. */
+  newBand(): number {
+    const b = this.nextBand;
+    this.nextBand = b >= 0x7fffffff ? 1 : b + 1;
+    return b;
+  }
+
+  /** A fresh id for a missile. */
+  missileId(): number {
+    const m = this.nextMissile;
+    this.nextMissile = m >= 0x7fffffff ? 1 : m + 1;
+    return m;
   }
 
   // Counts up and wraps, skipping ids still in use, so a long fight never runs out and an id is
@@ -233,6 +310,20 @@ export class Actors {
       stride: 0,
       targetX: s.x,
       targetZ: s.z,
+      target: 0,
+      band: 0,
+      token: false,
+      opening: false,
+      afraid: false,
+      slotX: s.x,
+      slotZ: s.z,
+      rallyX: s.x,
+      rallyZ: s.z,
+      destX: s.x,
+      destZ: s.z,
+      charges: 0,
+      cds: new Array<number>(ATTACK_SLOTS).fill(0),
+      struck: false,
     };
     this.list.push(a);
     this.byId.set(id, a);
@@ -283,6 +374,14 @@ export class Actors {
     a.reform = '';
     a.pulled = 0;
     a.stride = 0;
+    a.target = 0;
+    a.token = false;
+    a.opening = false;
+    a.afraid = false;
+    a.slotX = a.rallyX = a.destX = a.x;
+    a.slotZ = a.rallyZ = a.destZ = a.z;
+    a.cds.fill(0);
+    a.struck = false;
   }
 }
 

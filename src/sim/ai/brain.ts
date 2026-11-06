@@ -1,14 +1,18 @@
 import data from '../../../shared/behaviours.json' with { type: 'json' };
 import { isAlive, kindOf, type Actor, type ActorId } from '../actor';
-import { len } from '../math';
+import { attackDef } from '../../content/attacks';
+import { CREATURES } from '../../content/creatures';
+import { angleDiff, len } from '../math';
 
 // The behaviour interpreter. Monsters and NPCs do not get their own code: they get an entry in
-// shared/behaviours.json, and this walks it. server/src/ai.rs walks the same file the same way,
-// so the training yard offline and the server online agree frame for frame.
+// shared/behaviours.json (or their own file in shared/creatures/), and this walks it.
+// server/src/ai.rs walks the same files the same way, so the training yard offline and the
+// server online agree frame for frame.
 //
 // A brain only ever changes its own actor. Anything that reaches another (calling the pack,
-// pulling them in, a slam landing on you) it asks for, and src/sim/actors/step.ts does it once
-// every brain has had its turn, so the order actors are stepped in can't change the outcome.
+// pulling them in, a slam landing on you, a stab, a thrown stone) it asks for, and
+// src/sim/actors/step.ts does it once every brain has had its turn, so the order actors are
+// stepped in can't change the outcome.
 
 export interface Gait {
   /** Metres covered by one cycle of the state. */
@@ -20,12 +24,20 @@ export interface Gait {
   airSpan: number;
 }
 
-/** What a transition can wait for. Anything else never holds. */
-export type Condition = 'called' | 'angry' | 'threatened' | 'canCall' | 'slam' | 'allies' | 'callOver' | 'broken' | 'fuseLow';
+/**
+ * What a transition can wait for: one of these names, `!` in front to turn it round, and for
+ * some a number or an attack after a colon (`near:1.7`, `ready:goblin-stone`). Anything else
+ * never holds.
+ *
+ * The slimes': called, angry, threatened, canCall, slam, allies, callOver, broken, fuseLow.
+ * A pack's (src/sim/ai/pack.ts): token, opening, afraid. Its foe: near:m, far:m, foeMelee,
+ * foeRanged, foeSwinging. Its own: hurt:fraction, ready:attack, canHeal.
+ */
+export type Condition = string;
 
-/** Go to `to` if `if` holds; with no `if`, always. The first that holds wins. */
+/** Go to `to` if `if` holds (all of them, for a list); with no `if`, always. The first that holds wins. */
 export interface Guard {
-  if?: Condition;
+  if?: Condition | Condition[];
   to: string;
 }
 
@@ -33,28 +45,67 @@ export interface Guard {
  * Where an advance heads. wander: toward you if you are in sight, home if it has strayed, anywhere
  * otherwise. player: at you. away: from you. keep: the way it was already set going. caller: to
  * whoever it is rallying to. ally: to its nearest kin. group: to the middle of its burst group.
+ *
+ * Where a walk heads, worked out again every frame: foe (stopping `stop` short), slot (its place on
+ * the pack's ring), rally (its friends, or home), home, away (straight from its foe), wander (a
+ * spot near home picked on the way in).
  */
-export type Toward = 'wander' | 'player' | 'away' | 'keep' | 'caller' | 'ally' | 'group';
+export type Toward = 'wander' | 'player' | 'away' | 'keep' | 'caller' | 'ally' | 'group' | 'foe' | 'slot' | 'rally' | 'home';
 
 export interface BehaviourState {
   name: string;
   /**
    * wait: stand. advance: hop or walk along the gait. windup: stand, having picked where a slam
    * will land. leap: jump there, and slam on landing. channel: stand and gather the pack in.
+   * walk: go somewhere at `speed`, steering every frame. strike: wind up `attack` and land it in
+   * a cone in front. throw: wind up `attack` and let the missile go. heal: drink, for the whole
+   * state; it heals at the end (a blow that makes it flinch spills it).
    */
-  act: 'wait' | 'advance' | 'windup' | 'leap' | 'channel';
+  act: 'wait' | 'advance' | 'windup' | 'leap' | 'channel' | 'walk' | 'strike' | 'throw' | 'heal';
   /** [min, max] frames, drawn on entry. */
   frames: [number, number];
   gait?: Gait;
   toward?: Toward;
-  /** For toward 'player': how far short of you it stops. Defaults to the behaviour's keepAway. */
+  /** For toward 'player': how far short of you it stops. Defaults to the behaviour's keepAway. A walk's distance short of where it is going. */
   stop?: number;
   /** Entering this state calls the pack. */
   calls?: boolean;
+  /** A walk's pace, metres a second. */
+  speed?: number;
+  /** 'foe': keeps facing its foe (circling, backing off, drinking) rather than the way it moves. */
+  face?: 'foe';
+  /** A strike's or throw's attack (shared/creatures/). */
+  attack?: string;
+  /** While here it holds its pack's attack token. */
+  token?: boolean;
   /** Checked every frame; the first that holds cuts the state short. */
   interrupt?: Guard[];
   /** Where it goes when the state runs out: a state name, or guards. */
   next: string | Guard[];
+}
+
+/** How a war-band fights together (src/sim/ai/pack.ts). */
+export interface PackDef {
+  /** How many of the band may strike one foe at once, by how many are fighting it (1, 2, 3...); the last holds for more. */
+  tokens: number[];
+  /** The ring it waits on: this far outside the foe's weapon's reach. */
+  ring: number;
+  /** Degrees between places on the ring, at most; they bunch up behind the foe. */
+  spread: number;
+  /** An opening (the foe's back, recovery, cast or stun) lets one more in from this close. */
+  openingRange: number;
+  /** Degrees off the foe's facing beyond which it counts as behind them. */
+  backArc: number;
+  /** Friends and foes within this count toward courage. */
+  friendRadius: number;
+  /** Courage = health (0..1) + friendWorth per friend - foeWorth per foe. */
+  friendWorth: number;
+  foeWorth: number;
+  /** Afraid below braveAt, and not again until calmAt. */
+  braveAt: number;
+  calmAt: number;
+  /** It sticks with its foe unless another is this many metres closer. */
+  switchAt: number;
 }
 
 export interface Behaviour {
@@ -69,7 +120,7 @@ export interface Behaviour {
   anger?: { frames: number; radius: number; calmBeyond: number };
   /** [min, max] frames between slams. */
   slamCooldown?: [number, number];
-  /** Calling the pack: kin within `radius`, at least `need` of them, only if it was hit in the last `struckWithin` frames; it gives up after `giveUp`. */
+  /** Calling the pack: kin within `radius`, at least `need` of them, only if it was hit in the last `struck` frames; it gives up after `giveUp`. */
   call?: { radius: number; need: number; struckWithin: number; giveUp: number };
   /** Gathering: kin within `radius` slide in at `pull` m/s; losing `breakAt` of its health breaks it; then `cooldown` frames. */
   gather?: { radius: number; pull: number; breakAt: number; cooldown: number };
@@ -77,10 +128,21 @@ export interface Behaviour {
   regroupAt?: number;
   /** Angry and you are this close: it feels threatened (and, a burst piece, runs). */
   fleeWithin?: number;
+  /** Seeing a foe within sight angers it (and its kin), if the foe is within its leash of home. */
+  notices?: boolean;
+  /** The attacks its states use, each with its own cooldown, in this order. */
+  attacks?: string[];
+  /** The state a blow at or above its kind's poise knocks it into. */
+  flinch?: string;
+  /** It carries `charges` heals of `amount` (a fraction of its health), for when it is below `below`. */
+  heal?: { amount: number; charges: number; below: number };
+  pack?: PackDef;
   states: BehaviourState[];
 }
 
-export const BEHAVIOURS: Behaviour[] = (data.behaviours as unknown as Behaviour[]).map((b) => ({
+const loaded = [...(data.behaviours as unknown as Behaviour[]), ...CREATURES.flatMap((c) => (c.behaviours ?? []) as Behaviour[])];
+
+export const BEHAVIOURS: Behaviour[] = loaded.map((b) => ({
   ...b,
   states: b.states.map((s) => ({ ...s, frames: [s.frames[0], s.frames[1]] as [number, number] })),
 }));
@@ -97,12 +159,42 @@ export function draw(a: Actor): number {
   return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
 }
 
+/**
+ * What a brain can see of the foe it is after (src/sim/ai/senses.ts): where they are, and what it
+ * can tell about them. `present` is false when there is nobody to notice - the brain then just
+ * wanders.
+ */
 export interface Sighting {
   x: number;
   z: number;
-  /** False when there is nobody to notice - the brain then just wanders. */
   present: boolean;
+  /** The foe's id, 1 and up (0 for nobody). */
+  id: number;
+  facing: number;
+  /** Health left, 0..1. */
+  hp: number;
+  /** How far its weapon's swings reach; 0 for a bow. */
+  reach: number;
+  ranged: boolean;
+  /** What it is doing (FOE_ACT in senses.ts). */
+  act: number;
 }
+
+/** Someone standing at a point, as far as a brain can tell: empty-handed and doing nothing. */
+export const sightingAt = (x: number, z: number, present: boolean): Sighting => ({
+  x,
+  z,
+  present,
+  id: present ? 1 : 0,
+  facing: 0,
+  hp: 1,
+  reach: 0,
+  ranged: false,
+  act: 0,
+});
+
+/** Nobody about. */
+export const NOBODY: Sighting = sightingAt(0, 0, false);
 
 /** Another actor as the brains see it: where everyone standing was when the frame began. */
 export interface Peer {
@@ -114,6 +206,7 @@ export interface Peer {
   calling: number;
   rallyTo: ActorId;
   group: number;
+  band: number;
 }
 
 /** Something a brain asks the world to do, because it reaches beyond its own actor. */
@@ -124,7 +217,10 @@ export type Request =
   | { t: 'slam'; id: ActorId }
   | { t: 'gatherStart'; id: ActorId }
   | { t: 'broke'; id: ActorId }
-  | { t: 'fuseOut'; id: ActorId };
+  | { t: 'fuseOut'; id: ActorId }
+  | { t: 'strike'; id: ActorId; attack: string }
+  | { t: 'throw'; id: ActorId; attack: string }
+  | { t: 'heal'; id: ActorId };
 
 /** The rest of the world, for a brain that has others to think about. Null for one on its own. */
 export interface BrainCtx {
@@ -164,6 +260,13 @@ function peer(ctx: BrainCtx | null, id: ActorId): Peer | undefined {
   if (!ctx || id === 0) return undefined;
   for (const p of ctx.peers) if (p.id === id) return p;
   return undefined;
+}
+
+/** Turns to look at its foe. */
+function faceFoe(a: Actor, seen: Sighting): void {
+  const dx = seen.x - a.x;
+  const dz = seen.z - a.z;
+  if (len(dx, dz) > 1e-6) a.facing = Math.atan2(dx, dz);
 }
 
 // The original wander: toward you if you're in sight and not too close, home if it has strayed,
@@ -227,6 +330,25 @@ function enter(a: Actor, b: Behaviour, index: number, seen: Sighting, ctx: Brain
   if (s.act === 'channel') {
     a.taken = 0;
     ctx?.out.push({ t: 'gatherStart', id: a.id });
+    return;
+  }
+  if (s.act === 'strike' || s.act === 'throw') {
+    a.struck = false;
+    if (seen.present) faceFoe(a, seen);
+    return;
+  }
+  if (s.act === 'heal') {
+    a.taken = 0;
+    return;
+  }
+  if (s.act === 'walk') {
+    if (s.toward === 'wander') {
+      // A spot somewhere near home, picked once, so it strolls rather than dithers.
+      const angle = draw(a) * Math.PI * 2;
+      const r = draw(a) * b.leash * 0.5;
+      a.destX = a.homeX + Math.sin(angle) * r;
+      a.destZ = a.homeZ + Math.cos(angle) * r;
+    }
     return;
   }
   if (s.act !== 'advance') return;
@@ -297,6 +419,119 @@ function enter(a: Actor, b: Behaviour, index: number, seen: Sighting, ctx: Brain
   a.facing = Math.atan2(a.moveX, a.moveZ);
 }
 
+// A frame of walking: work out where it is going now (its foe and its ring place move), step
+// toward it at the state's pace, keep off the rest of its band, and look where it should.
+function walk(a: Actor, s: BehaviourState, seen: Sighting, ctx: BrainCtx | null): void {
+  const step = (s.speed ?? 0) / 60;
+  let mx = 0;
+  let mz = 0;
+  if (s.toward === 'away') {
+    const dx = a.x - seen.x;
+    const dz = a.z - seen.z;
+    const d = len(dx, dz);
+    if (seen.present && d > 1e-6) {
+      mx = (dx / d) * step;
+      mz = (dz / d) * step;
+    }
+  } else {
+    let tx = a.x;
+    let tz = a.z;
+    let stop = 0;
+    if (s.toward === 'foe') {
+      if (seen.present) {
+        tx = seen.x;
+        tz = seen.z;
+        stop = s.stop ?? 0;
+      }
+    } else if (s.toward === 'slot') {
+      tx = a.slotX;
+      tz = a.slotZ;
+      stop = 0.1;
+    } else if (s.toward === 'rally') {
+      tx = a.rallyX;
+      tz = a.rallyZ;
+      stop = s.stop ?? 0;
+    } else if (s.toward === 'home') {
+      tx = a.homeX;
+      tz = a.homeZ;
+      stop = s.stop ?? 0;
+    } else if (s.toward === 'wander') {
+      tx = a.destX;
+      tz = a.destZ;
+      stop = 0.2;
+    }
+    const dx = tx - a.x;
+    const dz = tz - a.z;
+    const d = len(dx, dz);
+    if (d > stop + 1e-6) {
+      const m = Math.min(step, d - stop);
+      mx = (dx / d) * m;
+      mz = (dz / d) * m;
+    }
+  }
+  a.x += mx;
+  a.z += mz;
+
+  // Keep a body's width apart from the rest of the band, so a ring of them doesn't stack up.
+  if (a.band !== 0) {
+    for (const p of ctx?.peers ?? []) {
+      if (p.id === a.id || p.band !== a.band) continue;
+      const dx = a.x - p.x;
+      const dz = a.z - p.z;
+      const d = len(dx, dz);
+      const apart = a.radius + p.radius + 0.2;
+      if (d >= apart || d < 1e-6) continue;
+      const push = (apart - d) * 0.5;
+      a.x += (dx / d) * push;
+      a.z += (dz / d) * push;
+    }
+  }
+
+  if (s.face === 'foe' && seen.present) faceFoe(a, seen);
+  else if (len(mx, mz) > 1e-6) a.facing = Math.atan2(mx, mz);
+}
+
+/** Puts an attack's cooldown on, drawn from its range. */
+function coolDown(a: Actor, b: Behaviour, attack: string, range: [number, number]): void {
+  const i = b.attacks?.indexOf(attack) ?? -1;
+  if (i >= 0 && i < a.cds.length) a.cds[i] = drawFrames(a, range);
+}
+
+// A frame of a strike: it tracks you early in the wind-up, then commits; the blow goes on the
+// frame the wind-up ends, and it lunges after it.
+function strike(a: Actor, b: Behaviour, s: BehaviourState, seen: Sighting, ctx: BrainCtx | null): void {
+  const atk = s.attack ? attackDef(s.attack) : undefined;
+  if (!atk || !s.attack) return;
+  if (seen.present && a.stateFrame < atk.track) faceFoe(a, seen);
+  if (a.stateFrame === atk.windup && !a.struck) {
+    a.struck = true;
+    ctx?.out.push({ t: 'strike', id: a.id, attack: s.attack });
+    coolDown(a, b, s.attack, atk.cooldown);
+  }
+  const active = atk.active ?? 0;
+  if (active > 0 && a.stateFrame >= atk.windup && a.stateFrame < atk.windup + active) {
+    // Not into the foe, though: it stops at arm's length.
+    const close = seen.present && len(seen.x - a.x, seen.z - a.z) <= a.radius + 0.45;
+    if (!close) {
+      const m = (atk.lunge ?? 0) / active;
+      a.x += Math.sin(a.facing) * m;
+      a.z += Math.cos(a.facing) * m;
+    }
+  }
+}
+
+// A frame of a throw: it aims at you through most of the wind-up and lets go as it ends.
+function throwing(a: Actor, b: Behaviour, s: BehaviourState, seen: Sighting, ctx: BrainCtx | null): void {
+  const atk = s.attack ? attackDef(s.attack) : undefined;
+  if (!atk || !s.attack) return;
+  if (seen.present && a.stateFrame < atk.track) faceFoe(a, seen);
+  if (a.stateFrame === atk.windup && !a.struck) {
+    a.struck = true;
+    ctx?.out.push({ t: 'throw', id: a.id, attack: s.attack });
+    coolDown(a, b, s.attack, atk.cooldown);
+  }
+}
+
 function canCall(a: Actor, b: Behaviour, seen: Sighting, ctx: BrainCtx | null): boolean {
   const c = b.call;
   if (!ctx || !c || !b.gather || !kindOf(a)?.gathers) return false;
@@ -312,10 +547,12 @@ function canCall(a: Actor, b: Behaviour, seen: Sighting, ctx: BrainCtx | null): 
   return answer >= c.need;
 }
 
-function holds(cond: Condition | undefined, a: Actor, b: Behaviour, seen: Sighting, ctx: BrainCtx | null): boolean {
-  switch (cond) {
-    case undefined:
-      return true;
+function holdsOne(cond: string, a: Actor, b: Behaviour, seen: Sighting, ctx: BrainCtx | null): boolean {
+  if (cond.startsWith('!')) return !holdsOne(cond.slice(1), a, b, seen, ctx);
+  const colon = cond.indexOf(':');
+  const name = colon < 0 ? cond : cond.slice(0, colon);
+  const arg = colon < 0 ? '' : cond.slice(colon + 1);
+  switch (name) {
     case 'called':
       return a.rallyTo !== 0;
     case 'angry':
@@ -341,8 +578,41 @@ function holds(cond: Condition | undefined, a: Actor, b: Behaviour, seen: Sighti
       return !!b.gather && a.taken >= b.gather.breakAt * a.maxHp;
     case 'fuseLow':
       return a.group !== 0 && a.fuse >= 0 && a.fuse <= (b.regroupAt ?? 0);
+    case 'token':
+      return a.token;
+    case 'opening':
+      return a.opening;
+    case 'afraid':
+      return a.afraid;
+    case 'near':
+      return seen.present && len(seen.x - a.x, seen.z - a.z) <= Number(arg);
+    case 'far':
+      return seen.present && len(seen.x - a.x, seen.z - a.z) > Number(arg);
+    case 'hurt':
+      return a.hp <= Number(arg) * a.maxHp;
+    case 'foeMelee':
+      return seen.present && !seen.ranged && seen.reach > 0;
+    case 'foeRanged':
+      return seen.present && seen.ranged;
+    case 'foeSwinging':
+      return seen.present && seen.act === 1;
+    case 'ready': {
+      const i = b.attacks?.indexOf(arg) ?? -1;
+      return i >= 0 && i < a.cds.length && a.cds[i] <= 0;
+    }
+    case 'canHeal':
+      return !!b.heal && a.charges > 0 && a.hp <= b.heal.below * a.maxHp;
   }
   return false;
+}
+
+function holds(cond: Condition | Condition[] | undefined, a: Actor, b: Behaviour, seen: Sighting, ctx: BrainCtx | null): boolean {
+  if (cond === undefined) return true;
+  if (Array.isArray(cond)) {
+    for (const c of cond) if (!holdsOne(c, a, b, seen, ctx)) return false;
+    return true;
+  }
+  return holdsOne(cond, a, b, seen, ctx);
 }
 
 /**
@@ -389,6 +659,14 @@ export function stepBrain(a: Actor, seen: Sighting, ctx: BrainCtx | null = null)
     a.y = Math.sin(now * Math.PI) * s.gait.height;
   } else if (s.act === 'channel') {
     ctx?.out.push({ t: 'pull', id: a.id });
+  } else if (s.act === 'walk') {
+    walk(a, s, seen, ctx);
+  } else if (s.act === 'strike') {
+    strike(a, b, s, seen, ctx);
+  } else if (s.act === 'throw') {
+    throwing(a, b, s, seen, ctx);
+  } else if (s.face === 'foe' && seen.present) {
+    faceFoe(a, seen);
   }
 
   a.stateFrame++;
@@ -400,6 +678,9 @@ export function stepBrain(a: Actor, seen: Sighting, ctx: BrainCtx | null = null)
     } else if (s.act === 'channel') {
       ctx?.out.push({ t: 'absorb', id: a.id });
       a.gatherCd = b.gather?.cooldown ?? 0;
+    } else if (s.act === 'heal') {
+      ctx?.out.push({ t: 'heal', id: a.id });
+      a.charges = Math.max(0, a.charges - 1);
     }
     const next = typeof s.next === 'string' ? stateIndex(b, s.next) : pick(s.next, true, a, b, seen, ctx);
     enter(a, b, next < 0 ? 0 : next, seen, ctx);
@@ -415,11 +696,12 @@ export function stateName(a: Actor): string {
 /** How far through its current state the actor is, 0..1. */
 export const stateProgress = (a: Actor): number => Math.min(1, a.stateFrame / Math.max(1, a.wait));
 
-/** Puts a freshly spawned or revived actor into the first state of its brain. */
+/** Puts a freshly spawned or revived actor into the first state of its brain, with what it carries. */
 export function startBrain(a: Actor, seen: Sighting): void {
   if (!a.brain) return;
   const b = BY_ID.get(a.brain);
   if (!b) return;
+  a.charges = b.heal?.charges ?? 0;
   enter(a, b, 0, seen, null);
 }
 
@@ -440,3 +722,26 @@ export function restState(a: Actor): void {
   a.wait = 1;
   a.y = 0;
 }
+
+/**
+ * A blow landed on it: one at or above its kind's poise knocks it out of whatever it was doing
+ * into its brain's flinch, spilling a drink it had at its lips. Mirrors Actors::damage in
+ * server/src/actors.rs.
+ */
+export function flinch(a: Actor, amount: number): void {
+  const k = kindOf(a);
+  const b = a.brain ? BY_ID.get(a.brain) : undefined;
+  if (!isAlive(a) || !k?.poise || amount < k.poise || !b?.flinch) return;
+  if (b.states[a.state]?.act === 'heal') a.charges = Math.max(0, a.charges - 1);
+  forceState(a, b.flinch, NOBODY);
+}
+
+/** Whether the actor's current state holds its pack's attack token. */
+export function holdsToken(a: Actor): boolean {
+  const b = a.brain ? BY_ID.get(a.brain) : undefined;
+  return !!b?.states[a.state]?.token;
+}
+
+/** How far round from `facing` a point is, for the pack's sense of in front and behind. */
+export const offFacing = (facing: number, fromX: number, fromZ: number, toX: number, toZ: number): number =>
+  Math.abs(angleDiff(facing, Math.atan2(toX - fromX, toZ - fromZ)));

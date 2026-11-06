@@ -13,7 +13,7 @@ import { FollowCamera } from './render/camera';
 import { Hero, type WeaponAt } from './render/character';
 import { TrainingDummy } from './render/dummy';
 import { ActorView } from './render/actors';
-import { actorKindAt, actorKindIds, findKind } from './content/actors';
+import { actorKindAt, actorKindIds, findKind, kindName } from './content/actors';
 import { isAlive, type Actor } from './sim/actor';
 import { behaviour, startBrain, stateName, stateProgress } from './sim/ai/brain';
 import { targetOf } from './sim/combat/hit';
@@ -25,7 +25,8 @@ import { Vfx } from './render/vfx';
 import { Sim } from './sim/sim';
 import { TrainingRange } from './sim/training';
 import { NO_ACTIONS, type Actions, type GameEvent, type PlayerState } from './sim/types';
-import { makeBattlefield, makeWorld } from './sim/world';
+import { bandAround, makeBattlefield, makeWorld } from './sim/world';
+import { MissileView } from './render/missiles';
 import { makeZoneWorld } from './sim/zone/world';
 import { OpenStage } from './render/open/stage';
 import { loadModels } from './render/open/models';
@@ -90,6 +91,7 @@ initUiScale(document.getElementById('ui') as HTMLElement);
 //                  play the character it played last
 //     &fresh       start your island over
 //   ?yard          the old training yard, offline (also what ?test opens, unless ?world is given too)
+//     &goblins=6   a war-band of goblins in the yard's far corner (design/goblins.md)
 //   ?world&test    the open world, offline and paused for automated tests (&load: the island
 //                  kept in this browser, for bug-report replays)
 //   &look=classic  the open world in its old bright toon look; &look=new forces the new one, which is
@@ -125,6 +127,9 @@ if (splash) {
 
 const canvas = document.getElementById('game') as HTMLCanvasElement;
 const world = battlefield ? makeBattlefield() : openWorld ? makeZoneWorld() : makeWorld();
+// A war-band to fight in the yard, if asked for.
+const yardGoblins = yardMode ? Math.max(0, Math.min(24, Math.floor(Number(params.get('goblins')) || 0))) : 0;
+if (yardGoblins) world.spawns.push(...bandAround('goblin', yardGoblins, 9, 10, 1));
 const terrain = world.terrain ?? null;
 /** Ground height under a point: the island's terrain, or 0 on the flat training grounds. */
 const groundY = (x: number, z: number): number => (terrain ? terrain.height(x, z) : 0);
@@ -175,6 +180,9 @@ const dummyActor = () => sim.actorOfKind('dummy');
 dummy.root.visible = !serverRules;
 stage.scene.add(dummy.root);
 stage.scene.add(actorView.group);
+// What creatures throw, in flight. Offline only for now: online the server flies them.
+const missileView = new MissileView();
+stage.scene.add(missileView.group);
 const vfx = new Vfx(stage.scene);
 const spells = new SpellView(stage.scene, vfx);
 /**
@@ -503,6 +511,8 @@ const NAMES: Record<string, string> = {
   slime: 'Slime',
   'great-slime': 'Great Slime',
   'slime-monarch': 'Slime Monarch',
+  // Creatures with files of their own name themselves (shared/creatures/).
+  ...Object.fromEntries(actorKindIds().flatMap((id) => (kindName(id) ? [[id, kindName(id)!]] : []))),
 };
 
 // The raid's fighters come either from a local sim (?raid) or from the battle server (?server).
@@ -1187,6 +1197,7 @@ function draw(alpha: number, cameraDt: number, animDt: number): void {
   }
   // Townsfolk with their own models are drawn by the life view instead of the crowd.
   else actorView.update(lifeView?.drawsTownsfolk ? sim.actors.all().filter((a) => a.faction !== 2) : sim.actors.all());
+  if (!net) missileView.update(sim.actors.missiles);
   if (lifeView && lifeUI) lifeView.talkingTo = lifeUI.talkingTo;
   if (crowd) crowd.render(Math.min(1, crowdAcc / CROWD_TICK));
   if (net) net.frame(performance.now());
@@ -1763,7 +1774,25 @@ const api = {
         gatherCd: a.gatherCd,
         targetX: +a.targetX.toFixed(3),
         targetZ: +a.targetZ.toFixed(3),
+        target: a.target,
+        band: a.band,
+        token: a.token,
+        opening: a.opening,
+        afraid: a.afraid,
+        slotX: +a.slotX.toFixed(3),
+        slotZ: +a.slotZ.toFixed(3),
+        charges: a.charges,
+        cds: [...a.cds],
+        facing: +a.facing.toFixed(4),
       }));
+  },
+  // Testing: a war-band of `count` of a kind round (x, z), fighting together. Returns their ids.
+  spawnBand(kind: string, count: number, x: number, z: number): number[] {
+    return sim.spawnBand(kind, count, x, z, (sim.frame * 2654435761 + sim.actors.all().length * 40503) >>> 0);
+  },
+  // What creatures have thrown, still in the air.
+  missiles() {
+    return sim.actors.missiles.map((m) => ({ id: m.id, owner: m.owner, x: +m.x.toFixed(3), y: +m.y.toFixed(3), z: +m.z.toFixed(3), age: m.age }));
   },
   // Testing: a blow from you to one actor, by id, as if a weapon had landed it.
   hurtActor(id: number, amount: number): void {

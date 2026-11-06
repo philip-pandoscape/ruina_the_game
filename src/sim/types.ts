@@ -176,6 +176,9 @@ export type GameEvent =
   // A monster's slam landed, and whether it caught you.
   | { type: 'slam'; frame: number; x: number; y: number; z: number; radius: number }
   | { type: 'hurt'; frame: number; damage: number; x: number; y: number; z: number }
+  // Something a creature threw came down on the ground; a creature drank and got back `amount` health.
+  | { type: 'missileLand'; frame: number; x: number; y: number; z: number }
+  | { type: 'actorHeal'; frame: number; id: number; x: number; y: number; z: number; amount: number }
   | { type: 'respawn'; frame: number; x: number; y: number; z: number }
   // A movement or hotbar slot was pressed without the stamina or MP its skill costs.
   | { type: 'short'; frame: number; what: 'stamina' | 'mp' }
@@ -200,6 +203,8 @@ export interface ActorSpawnPoint {
   z: number;
   facing?: number;
   seed?: number;
+  /** Spawn points with the same band number fight together as one war-band. */
+  band?: number;
 }
 
 export interface Obstacle {

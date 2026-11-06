@@ -3,6 +3,7 @@
 //! moves, so the two must stay identical. tests/conformance.spec.ts runs both and compares them.
 //! Open worlds reuse these pieces from crate::open::step_player (tests/world-conformance.spec.ts).
 
+use crate::ai::{Foe, ACT_CAST, ACT_DODGE, ACT_FREE, ACT_GUARD, ACT_RECOVER, ACT_STUNNED, ACT_SWING};
 use crate::jsmath::JsMath;
 use crate::life::content::carry;
 use crate::skills::{base_levels, node_index, resolve_skills, same_levels, set_skill, Levels, ResolvedSkills, SkillSet, EMPTY_SKILLS};
@@ -962,6 +963,55 @@ impl Player {
         }
         if f >= total {
             self.mode = Mode::Normal;
+        }
+    }
+
+    /// What a creature can tell about this player, as foe `id` (foesOf in src/sim/ai/senses.ts):
+    /// where they are and going, how hurt, what their weapon reaches, and what they are doing.
+    pub fn foe(&self, id: u32, ground: f64) -> Foe {
+        let combo = combo_for(self.weapon, &self.resolved);
+        let (mut reach, mut ranged) = (0.0f64, false);
+        for s in combo {
+            if s.projectile_speed > 0.0 {
+                ranged = true;
+            } else {
+                reach = reach.max(s.reach);
+            }
+        }
+        Foe {
+            id,
+            x: self.pos.x,
+            y: self.pos.y,
+            z: self.pos.z,
+            vx: self.vel.x,
+            vz: self.vel.z,
+            facing: self.facing,
+            hp: self.hp / tuning().combat.max_hp,
+            reach,
+            ranged,
+            act: self.foe_act(combo),
+            invuln: self.incoming_scale() <= 0.0,
+            air: self.pos.y - ground,
+        }
+    }
+
+    /// What this player is doing, as a creature reads it (foeAct in src/sim/ai/senses.ts).
+    fn foe_act(&self, combo: &[AttackStep]) -> u8 {
+        if self.stun > 0 {
+            return ACT_STUNNED;
+        }
+        match self.mode {
+            Mode::Attack => match combo.get(self.attack_index) {
+                Some(s) if self.attack_frame <= s.startup + s.active => ACT_SWING,
+                _ => ACT_RECOVER,
+            },
+            Mode::Cast => ACT_CAST,
+            Mode::Action => match movement_action(self.action_id) {
+                Some(d) if d.hold => ACT_GUARD,
+                Some(d) if d.invuln_from.is_some() => ACT_DODGE,
+                _ => ACT_FREE,
+            },
+            _ => ACT_FREE,
         }
     }
 

@@ -1180,9 +1180,31 @@
         "src/render/studio.ts",
         "src/render/portrait.ts"
       ]
+    },
+    {
+      "system": "combat",
+      "status": "done",
+      "title": "Goblins: the basic goblin and the creature engine",
+      "notes": "The first of the Split-Eye war-band (design/goblins.md), in the training yard (?yard&goblins=6). A creature is data and a body: shared/creatures/goblin.json (its kind, a stab and a stone throw, and a brain in the behaviours' format) and src/creatures/goblin/ (a box body until its model is made), run by engine parts any creature can use, in TypeScript and Rust alike: senses (every player as a foe: weapon reach, bow or not, swinging, recovering, casting, guarding, dodging, stunned), a pack step (attack tokens per foe, one more for an opening such as your back or your recovery, ring places just outside your weapon's reach bunched up behind you, courage from health, friends and foes, and where to run), brain acts walk, strike, throw and heal with conditions that take arguments, missiles in flight, and a flinch for blows at or above a kind's poise. One goblin dies to a sword combo and barely scratches you; six wear you down while only three or four strike at once. Against a sword they wait outside its reach and throw stones; against a bow they come right up. Hurt and alone it runs home and drinks its stolen potion out of reach (a blow spills it); hurt in a band it runs to the biggest group. Not online yet: the server runs the same rules but places no goblins.",
+      "files": [
+        "shared/creatures/goblin.json",
+        "src/creatures/goblin/body.ts",
+        "src/sim/ai/senses.ts",
+        "src/sim/ai/pack.ts",
+        "src/sim/ai/brain.ts",
+        "src/sim/combat/missiles.ts",
+        "src/sim/actors/step.ts",
+        "server/src/pack.rs",
+        "server/src/missiles.rs",
+        "server/src/ai.rs",
+        "server/src/actors.rs",
+        "tests/goblin.spec.ts",
+        "tests/ai-conformance.spec.ts"
+      ]
     }
   ],
   "next": [
+    "Goblins, next (design/goblins.md): online at Thornwood (a band at the southern edge, the server placing it, missiles on the wire, a WORLD_PROTOCOL bump); then the grunt made with Meshy beside the best free goblin (bagatir, CC BY 4.0) for the user to pick; then the rest of the war-band (archer, shaman, hobgoblin, lookout, trapper, wolf rider, Chief Gristlecrown), the Split-Eye camp and its quests, with captives to rescue.",
     "Animation, next: other players drawn on our 60-a-second frame clock step in sixtieths above 60 fps; reins on the horse; keep the cape off a staff or bow on the back; a footrest for the hauler's driver; give the townsfolk (src/render/models/villagers.ts) the hero's gait.",
     "Shared world, next: trading-post demand and gathering nodes shared by a channel (the time of day, rain and wind are shared now; these are still each island's own); choosing a channel (to join a friend in another one); others' parked vehicles while they're away.",
     "World server, next: islands in proper tables rather than one document each, if querying them (trading-post history, guild storage) needs it; bandwidth: send other players less often when they are far away.",
@@ -1451,6 +1473,16 @@
         "Create Prompt: open notes in one prompt (prompt.ts); notes, pictures and prompts kept in reviews/animations/ by the dev server (tools/animReviews.ts).",
         "Checking a fix: green ghosts of the corrections on their frames and a meter of how close the animation comes; tests/library-review.spec.ts measures them all (degrees and centimetres) and draws the frames as they are now.",
         "animals.ts and villagers.ts gained restartIdles(), so a model built in the library starts its idle where the last one did."
+      ]
+    },
+    {
+      "date": "2026-11-05",
+      "title": "Goblins: the plan, concept art and the basic goblin",
+      "summary": "A plan for goblin war-bands that are easy one at a time and dangerous in a group, with Gemini concept art and a search for free assets; the user chose to start with the basic goblin, built on engine parts any creature can use, with the goblin in its own folder.",
+      "points": [
+        "Plan and concept art: design/goblins.md and design/goblins/ (lineup, ambush, camp, attack tells, night raid). Decisions: Thornwood camp only, no raids, captives to rescue, the agreed difficulty, the grunt to be tested with Meshy beside a free model.",
+        "Creature engine: senses, a pack step, walk/strike/throw/heal acts, conditions with arguments, missiles and flinches, in TypeScript and Rust, compared frame by frame (three goblin scenarios in tests/ai-conformance.spec.ts).",
+        "The basic goblin: shared/creatures/goblin.json and src/creatures/goblin/, fought in the yard with ?yard&goblins=6; tests/goblin.spec.ts plays its behaviours."
       ]
     },
     {
