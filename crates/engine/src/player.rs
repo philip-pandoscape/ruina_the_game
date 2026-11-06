@@ -52,7 +52,7 @@ pub enum Mode {
     Cast = 2,
     /// A data-driven movement skill: a dodge, a guard, or the slide everyone has.
     Action = 3,
-    /// Open worlds only (src/sim/player/traverse.ts and src/sim/life/vehicles.ts).
+    /// Open worlds only (src/engine/world/ground.ts and src/engine/life/vehicles.ts).
     Swim = 4,
     Glide = 5,
     Ride = 6,
@@ -133,7 +133,7 @@ pub struct Player {
     /// The movement skill that started this frame (the slide too), else NO_MOVEMENT: the
     /// TypeScript's `action` event, which trains it in an open world.
     pub started_action: u8,
-    // ---- Open-world traversal (src/sim/types.ts). Always at rest on the battlefield. ----
+    // ---- Open-world traversal (src/engine/shapes.ts). Always at rest on the battlefield. ----
     /// The trade pack on your back (an id in the life systems), 0 for none.
     pub pack: i64,
     /// What you are riding (a vehicle id in the life systems), 0 on foot; and which seat.
@@ -473,7 +473,7 @@ impl Player {
         (self.attack_frame > s.startup && self.attack_frame <= s.startup + s.active).then(|| s.clone())
     }
 
-    /// One step of the rules on the flat battlefield (src/sim/sim.ts step() in networked mode).
+    /// One step of the rules on the flat battlefield, as the server runs them.
     /// Open worlds step through crate::open::step_player, which shares every piece of this but the
     /// modes only they have and the ground.
     pub fn step(&mut self, a: &Actions, world: &World) {
@@ -527,7 +527,7 @@ impl Player {
     }
 
     /// A bow looses its arrow on the first frame after the swing's startup, from in front of you at
-    /// chest height (src/sim/player/attacks.ts checkShot): what flies it is the caller's business.
+    /// chest height: what flies it is the caller's business.
     pub(crate) fn check_shot(&mut self) {
         if self.mode != Mode::Attack {
             return;
@@ -623,7 +623,7 @@ impl Player {
     }
 
     /// What a pressed movement or hotbar slot is short of, if its skill costs more stamina or MP
-    /// than you have (src/sim/player/vitals.ts shortFor).
+    /// than you have.
     fn short_for(&self, a: &Actions) -> Option<&'static str> {
         let slot = a.movement_slot as usize;
         let m = if (1..=MOVEMENT_SLOTS).contains(&slot) { self.movement[slot - 1] } else { NO_MOVEMENT };
@@ -639,7 +639,7 @@ impl Player {
     }
 
     /// Once a step: stamina refills once a moment has passed since it was last spent; MP always
-    /// does (src/sim/player/vitals.ts regenVitals).
+    /// does.
     fn regen_vitals(&mut self) {
         let t = tuning();
         if self.stamina_delay > 0 {
@@ -1106,7 +1106,7 @@ impl Player {
         }
     }
 
-    /// What a creature can tell about this player, as foe `id` (foesOf in src/sim/ai/senses.ts):
+    /// What a creature can tell about this player, as foe `id`:
     /// where they are and going, how hurt, what their weapon reaches, and what they are doing.
     pub fn foe(&self, id: u32, ground: f64) -> Foe {
         let combo = combo_for(self.weapon, &self.resolved);
@@ -1135,7 +1135,7 @@ impl Player {
         }
     }
 
-    /// What this player is doing, as a creature reads it (foeAct in src/sim/ai/senses.ts).
+    /// What this player is doing, as a creature reads it.
     fn foe_act(&self, combo: &[AttackStep]) -> u8 {
         if self.stun > 0 {
             return ACT_STUNNED;

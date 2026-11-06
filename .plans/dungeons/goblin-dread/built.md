@@ -18,7 +18,7 @@ As of 2026-11-05. AGENTS.md and design/status.json have the same in brief.
     the back wall doesn't slide off.
 - **The portal** (`dungeons` in the island's recipe):
   - At (49.714, 85, 223.313), reach 2.2 m. F there shows "Enter Goblin's Dread" (TS-only focus in
-    `src/sim/life/interact.ts`).
+    `src/engine/life/interact.ts`).
   - You come out at (50.74, 220.494) facing the curtain (`outside`). That's just beyond the portal's
     reach, so you don't step straight back in.
 - **The pools are visual only:** under 0.5 m deep in the rules, so there's no wading or swimming.
@@ -37,7 +37,7 @@ As of 2026-11-05. AGENTS.md and design/status.json have the same in brief.
   `origin` (0, 400, 640), a spot high above the sea north of the island that nothing else uses.
   - These colliders are solid only in a copy. The server adds them to a copy's OpenWorld
     (`crates/engine/src/open/dungeon.rs`, `make_dungeon`). The browser switches them on while you're inside
-    and off when you leave (`src/sim/zone/dungeon.ts` `setDungeonSolid`, driven by
+    and off when you leave (`src/engine/world/dungeons.ts` `setDungeonSolid`, driven by
     `src/app/dungeonVisit.ts`).
   - So they're never invisible walls in the open world.
 - **What's in it:** `arrive` (where you come in), `exit` (F within r leaves, "Leave Goblin's Dread"),

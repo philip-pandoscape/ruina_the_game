@@ -20,7 +20,7 @@ import { DEFAULT_BUILD, emptyHotbar, emptyMovement, HOTBAR_SLOTS, MOVEMENT_SKILL
 // Picking a build: learning outward through the tree, and filling the hotbar from what you've
 // learned. crates/engine/src/skills.rs checks the same rules, so a build that passes here is accepted
 // there. How many points you may spend depends on where you are: the training yard and the
-// battlefield allow SKILL_POINTS; the open world allows what you've earned (src/sim/life/quests.ts).
+// battlefield allow SKILL_POINTS; the open world allows what you've earned (src/engine/life/quests.ts).
 
 export interface NodeInfo {
   index: number;

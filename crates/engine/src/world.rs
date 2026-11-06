@@ -1,5 +1,5 @@
-//! The raid battlefield layout, ported from makeBattlefield() in src/sim/yard.ts.
-//! Same seed and the same random sequence give the same obstacles on both sides.
+//! The old raid battlefield's layout: the flat ground the golden player scenarios and the balance
+//! harness step players on. Same seed, same random sequence, same obstacles.
 
 use crate::jsmath::JsMath;
 use crate::rng::Rng;

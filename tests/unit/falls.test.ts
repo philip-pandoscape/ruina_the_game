@@ -1,8 +1,7 @@
 import { expect, test } from 'vitest';
-import { generateZone } from '../../src/sim/zone/world';
-import { EMBERHOLM } from '../../src/sim/zone/world';
+import { EMBERHOLM, generateZone } from '../../src/engine/zone';
 
-// The Windspire's waterfall (src/sim/zone/generate.ts, falls) is cut after the trees and rocks are
+// The Windspire's waterfall (crates/engine/src/open/generate.rs, falls) is cut after the trees and rocks are
 // scattered, so nothing else on the island moves. The way in, in the game: tests/integration/dungeon-way-in.spec.ts.
 
 test('cutting the falls moves no tree or rock anywhere else on the island', () => {

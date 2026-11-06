@@ -137,8 +137,8 @@ export function buildPrompt(notes: Note[], ctx: PromptContext): string {
     '',
     "- Read each note with its frames: the timeline bands say what the rules have the body doing on them (a swing's wind-up, strike and recovery, the air, a landing). Frame numbers count from 0.",
     "- A corrected pose is the target for that frame. Change the code that makes the pose (not the bones of one frame) so the animation passes through it, and blend into and out of it so the frames around it stay smooth. Small differences that don't change how it reads are fine; the direction and size of the change matter.",
-    "- Fix how it looks, not the rules' timing: frame counts (startup, active, recovery), speeds and the films in src/render/detail/scenarios.ts are game rules or stand for them; changing a rule means TypeScript and Rust together (AGENTS.md). If a note can only be met by changing timing, say so instead.",
-    '- Keep src/sim/ untouched and the render code presentation only. Another session may be working on the animations: keep your changes to what the notes ask for.',
+    "- Fix how it looks, not the rules' timing: frame counts (startup, active, recovery), speeds and the films in src/render/detail/scenarios.ts are game rules or stand for them; changing a rule is the engine's (crates/engine, AGENTS.md). If a note can only be met by changing timing, say so instead.",
+    '- Keep the rules (crates/engine) untouched and the render code presentation only. Another session may be working on the animations: keep your changes to what the notes ask for.',
     `- The library reloads by itself when you save, and shows my corrected poses as green ghosts on their frames, so I can compare at once${ctx.origin ? ` (${ctx.origin}/dev/library.html)` : ''}.`,
     '',
   );

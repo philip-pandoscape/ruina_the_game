@@ -1,13 +1,11 @@
 import '../support/engineSetup';
 import { expect, test, type Page } from '@playwright/test';
 import { SAVE_KEY } from '../../src/app/save';
-import { Life } from '../../src/sim/life/life';
-import { sailEfficiency } from '../../src/sim/life/vehicles';
-import { generateZone } from '../../src/sim/zone/world';
-import { EMBERHOLM } from '../../src/sim/zone/world';
+import { type Command, newLifeState, sailEfficiency } from '../../src/engine/island';
+import { EMBERHOLM } from '../../src/engine/zone';
 import { skillsFrom } from '../../src/content/skills';
+import { LABOR } from '../../src/content/trade';
 import { emptyMovement, HOTBAR_SLOTS, NO_ABILITY, SLIDE_SKILL } from '../../src/content/tuning';
-import type { Command } from '../../src/sim/life/life';
 import { gameReady } from '../support/game';
 
 // Its tests share nothing, so they spread across the workers (playwright.config.ts).
@@ -521,7 +519,7 @@ test('quests: the starter chain advances from what you do', async ({ page }) => 
 test('stone and timber: before the house, the quests lead you to the outcrops, the deadfall and the benches', async ({ page }) => {
   // An island that has done everything before the house, kept in this browser for ?load.
   const quill = EMBERHOLM.npcs.find((n) => n.id === 'quill')!;
-  const state = JSON.parse(JSON.stringify(new Life({ recipe: EMBERHOLM, gen: generateZone(EMBERHOLM) }).state));
+  const state = newLifeState({ coins: 200, labor: LABOR.start, seed: EMBERHOLM.seed });
   state.quests = { active: [], done: ['landfall', 'patch', 'wings', 'firstFlight', 'harvest', 'packwright', 'westward'] };
   state.labor = 1000;
   const saved = { savedAt: Date.now(), state, player: { x: quill.x - 1.6, y: 0, z: quill.z, facing: Math.PI / 2 } };

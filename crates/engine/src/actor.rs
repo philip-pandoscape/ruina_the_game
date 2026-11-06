@@ -1,4 +1,4 @@
-//! Everything in the world that is not a player: monsters, NPCs, props. Mirrors src/sim/actor.ts
+//! Everything in the world that is not a player: monsters, NPCs, props. Mirrors src/engine/actors/actor.ts
 //! field for field, because the browser runs the same rules offline in the training yard and the
 //! two have to agree.
 
@@ -8,7 +8,7 @@ use crate::content::{ActorKind, kind, kind_index, kind_mass, ladder_of};
 
 pub const FACTION_HOSTILE: u8 = 1;
 
-/// Serialized as the browser reads one (src/sim/actor.ts Actor).
+/// Serialized as the browser reads one (src/engine/actors/actor.ts Actor).
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Actor {
@@ -115,7 +115,7 @@ pub struct Actor {
     pub struck: bool,
 }
 
-/// How many attacks a brain can list, each with its own cooldown (ATTACK_SLOTS in src/sim/actor.ts).
+/// How many attacks a brain can list, each with its own cooldown (ATTACK_SLOTS in src/engine/actors/actor.ts).
 pub const ATTACK_SLOTS: usize = 4;
 
 impl Actor {
@@ -205,7 +205,7 @@ impl Actor {
     }
 
     /// Turns it into another kind where it stands (a slime growing a size). Health is left for
-    /// the caller to decide; mass is never shrunk. Mirrors becomeKind() in src/sim/actor.ts.
+    /// the caller to decide; mass is never shrunk. Mirrors becomeKind() in src/engine/actors/actor.ts.
     pub fn become_kind(&mut self, k: &ActorKind) {
         let brain_changed = self.brain != k.brain;
         self.kind = k.id.clone();

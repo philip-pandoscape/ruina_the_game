@@ -45,7 +45,7 @@ impl JsMath for f64 {
 
 // ---------- JavaScript arithmetic the rules rely on ----------
 
-/// The length of a flat vector, as the TypeScript rules take it (src/sim/math.ts len): a plain
+/// The length of a flat vector, as the TypeScript rules take it (src/engine/math.ts len): a plain
 /// square root of the sum, not Math.hypot, so both sides get the same bits.
 pub fn len(x: f64, z: f64) -> f64 {
     (x * x + z * z).sqrt()

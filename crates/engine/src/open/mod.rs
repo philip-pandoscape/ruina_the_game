@@ -32,7 +32,7 @@ pub struct OpenWorld {
     /// Built pieces already made solid, as "owner:what" keys, so each is added once.
     pub added: BTreeSet<String>,
     /// Everyone's vehicles as they stood when this tick began, which everyone but their owner bumps
-    /// into (src/sim/types.ts World.movers).
+    /// into (src/engine/shapes.ts World.movers).
     pub movers: Vec<Mover>,
     /// Where someone knocked down gets up again, if not at the island's spawn (a dungeon's copy).
     pub respawn: Option<dungeon::Spot>,
@@ -92,8 +92,8 @@ impl Zone {
     }
 }
 
-/// One step of the rules for one player in an open world: src/sim/sim.ts step() as the server runs
-/// it (no training dummy, no hit pause, no auto-aim), with the island's systems (`life`) riding
+/// One step of the rules for one player in an open world, as the server runs it (no training dummy,
+/// no hit pause, no auto-aim), with the island's systems (`life`) riding
 /// along when the player has an island. `owner` is the character, for whatever they build.
 pub fn step_player(p: &mut Player, a: &Actions, world: &mut OpenWorld, mut life: Option<&mut Life>, owner: i64) {
     p.begin_step(a);
@@ -130,7 +130,7 @@ pub fn step_player(p: &mut Player, a: &Actions, world: &mut OpenWorld, mut life:
             Mode::Ride => match life.as_deref_mut() {
                 Some(l) => l.ride(&mut sim, a),
                 // Nothing to ride without the island's vehicles: back on foot, as
-                // src/sim/life/vehicles.ts rideVehicle does when the vehicle is gone.
+                // src/engine/life/vehicles.ts rideVehicle does when the vehicle is gone.
                 None => {
                     sim.player.mode = Mode::Normal;
                     sim.player.vehicle = 0;

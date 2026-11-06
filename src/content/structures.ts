@@ -28,7 +28,7 @@ export interface StructureDef {
   seaLevel?: boolean;
   /** How far round it the island keeps trees and rocks off (the zone's scatter.clearOfStructure if not given). */
   clearMargin?: number;
-  /** What the ground under it is made of (src/sim/terrain.ts SURFACE: tilled soil under a farm plot). */
+  /** What the ground under it is made of (src/engine/world/terrain.ts SURFACE: tilled soil under a farm plot). */
   surface?: string;
   look: string;
   stages?: string[];

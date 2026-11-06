@@ -225,10 +225,9 @@ struct Event {
 
 /// The hits a player landed with `weapon` (None: a blast, which trains nothing; its cast already
 /// did), in the order they landed, each with the kind of creature it finished off if it did. Only
-/// a player with an island learns from them (src/sim/life/progress.ts observe): practice for the
-/// weapon, and a defeat for the quests, hit then death for each in turn as src/sim/combat/deal.ts
-/// reports them. A level gained changes the player's numbers from the next step on, as the
-/// TypeScript's would after its island's step.
+/// a player with an island learns from them (`Observed`, crate::life::progress): practice for the
+/// weapon, and a defeat for the quests, hit then death for each in turn. A level gained changes the
+/// player's numbers from the next step on.
 fn credit(life: &mut Life, p: &mut Player, weapon: Option<u8>, landed: &[Option<&str>]) {
     let mut levelled = false;
     for died in landed {
@@ -574,7 +573,7 @@ impl Players {
                         let fighters = self.swing(s, p, view, latest, &swing, max_targets, &mut player_hits);
                         landed.resize(fighters, None);
                         // Monsters are in the arc too, and a swing that only catches one still
-                        // counts as a hit. On hills (src/sim/player/attacks.ts checkHit) nothing is
+                        // counts as a hit. On hills nothing is
                         // in reach from more than 2 m up, and only feet within 2 m of yours.
                         let feet = open.as_deref().map(|ow| {
                             let hf = ow.terrain();
@@ -935,7 +934,7 @@ impl Players {
     }
 
     /// Monsters' slams: everyone standing in one when it lands is hit, with the same dodge and
-    /// guard rules as any other blow. Mirrors updateActors() in src/sim/actors/step.ts.
+    /// guard rules as any other blow.
     pub fn apply_slams(&mut self, slams: &[Slam]) {
         let body = tuning().movement.player_radius;
         let (floor, terrain) = (self.floor, self.ground);
@@ -967,7 +966,7 @@ impl Players {
     }
 
     /// Creatures' blows and missiles that reached a player: the same dodge and guard rules as any
-    /// other blow (hitFoe in src/sim/actors/step.ts). A foe id is a slot index plus one.
+    /// other blow. A foe id is a slot index plus one.
     pub fn apply_foe_hits(&mut self, hits: &[FoeHit]) {
         for h in hits {
             let Some(i) = (h.foe as usize).checked_sub(1) else { continue };
@@ -982,7 +981,7 @@ impl Players {
         }
     }
 
-    /// Everyone still standing, as the creatures see them (foesOf in src/sim/ai/senses.ts): foe
+    /// Everyone still standing, as the creatures see them: foe
     /// ids are slot indexes plus one.
     pub fn foes(&self) -> Vec<Foe> {
         self.slots

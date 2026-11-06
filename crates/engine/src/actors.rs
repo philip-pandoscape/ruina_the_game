@@ -1,6 +1,6 @@
-//! The world's actors on the server: monsters, NPCs and props. Mirrors src/sim/actor.ts,
-//! src/sim/actors/step.ts and src/sim/combat/hit.ts, so the training yard offline and a live
-//! server agree about where a slime is, what a swing reaches, and what a pack does together:
+//! The world's actors: monsters, NPCs and props, as the server runs them and the browser's session
+//! does offline, so the training yard offline and a live server agree about where a slime is, what
+//! a swing reaches, and what a pack does together:
 //! bursting into pieces, a caller gathering the others in, a burst group reforming one size up, a
 //! war-band sharing out who strikes and where the rest wait (crate::pack), and the blows, throws
 //! and heals they ask for.
@@ -51,7 +51,7 @@ fn see_for(foes: &[Foe], a: &Actor) -> Sighting {
     }
 }
 
-/// Which foe a creature pays attention to (pickFoe in src/sim/ai/senses.ts).
+/// Which foe a creature pays attention to.
 fn pick_foe<'a>(a: &Actor, foes: &'a [Foe], sticky: f64) -> Option<&'a Foe> {
     let mut best: Option<&Foe> = None;
     let mut best_dist = f64::INFINITY;
@@ -107,7 +107,7 @@ pub struct Actors {
     next_group: u32,
     next_band: u32,
     next_missile: u32,
-    /// Testing: nothing gets angry (Actors.calm in src/sim/actor.ts).
+    /// Testing: nothing gets angry (Actors.calm in src/engine/actors/actor.ts).
     pub calm: bool,
 }
 
@@ -177,7 +177,7 @@ impl Actors {
         Self { list: Vec::new(), missiles: Vec::new(), next_id: 1, next_group: 1, next_band: 1, next_missile: 1, calm: false }
     }
 
-    /// Everything gone, and the numbering started again (Actors.clear in src/sim/actor.ts).
+    /// Everything gone, and the numbering started again (Actors.clear in src/engine/actors/actor.ts).
     pub fn clear(&mut self) {
         let calm = self.calm;
         *self = Self::new();
@@ -192,8 +192,7 @@ impl Actors {
     }
 
     /// One standing where a world puts it (or a test does), its brain started on what it sees
-    /// (`seen`: the browser's player, as src/sim/sim.ts sighting()). With no seed of its own it takes
-    /// one from its id, as the TypeScript does. Returns its id.
+    /// (`seen`: the player). With no seed of its own it takes one from its id. Returns its id.
     pub fn spawn_at(&mut self, p: &SpawnPoint, band: u32, transient: bool, seen: Sighting) -> Option<u32> {
         let k = kind(&p.kind)?;
         let index = kind_index(&p.kind)?;
@@ -247,7 +246,7 @@ impl Actors {
         Some(a.id)
     }
 
-    /// Spawns one into a war-band, facing `facing` (spawnBand() in src/sim/sim.ts).
+    /// Spawns one into a war-band, facing `facing`.
     pub fn spawn_in_band(&mut self, kind_id: &str, x: f64, z: f64, facing: f64, seed: u32, band: u32) -> Option<u32> {
         let i = self.spawn_index(kind_id, x, z, seed)?;
         let a = &mut self.list[i];
@@ -265,7 +264,7 @@ impl Actors {
         self.list.iter().position(|a| a.id == id)
     }
 
-    /// One frame of every actor (src/sim/actors/step.ts stepActors): its brain, its lean,
+    /// One frame of every actor: its brain, its lean,
     /// bringing it back when it has been down long enough, and what the pack does together.
     /// `foes` is every player the actors can notice; `ground` the height of the ground, for
     /// missiles. Returns the slams that landed and the blows and missiles that reached a foe,
@@ -283,8 +282,8 @@ impl Actors {
 
     /// The same frame, with what it shows (crate::event: pieces bursting, calls, gathering,
     /// healing, missiles landing, growing) added to `ev` as it happens, and every slam and blow
-    /// handed to `on_blow` the moment it lands, with `ev` for what that shows (src/sim/actors/step.ts
-    /// stepActors with its world). Returns where missiles came down.
+    /// handed to `on_blow` the moment it lands, with `ev` for what that shows. Returns where missiles
+    /// came down.
     #[allow(clippy::too_many_arguments)]
     pub fn step_with(
         &mut self,
@@ -822,7 +821,7 @@ impl Actors {
     }
 
     /// Takes a hit travelling along (nx, nz). Returns a death if that finished it. Being hit
-    /// angers it and its kin close by (provoke() in src/sim/actors/step.ts), and a hard enough
+    /// angers it and its kin close by, and a hard enough
     /// blow makes it flinch.
     pub fn damage(&mut self, id: u32, amount: f64, nx: f64, nz: f64, knock: f64) -> Option<Death> {
         let i = self.index_of(id)?;

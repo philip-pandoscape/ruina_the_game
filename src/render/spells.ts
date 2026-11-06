@@ -68,7 +68,7 @@ function streakGeometry(): THREE.BufferGeometry {
 /**
  * What ground circles lie on in an open world: its height anywhere, and the grid the terrain's
  * heights are kept on. A circle's mesh is cut along the same lines and split the same way as the
- * terrain's triangles (src/sim/terrain.ts height()), so on open ground it lies exactly on the drawn
+ * terrain's triangles (src/engine/world/terrain.ts height()), so on open ground it lies exactly on the drawn
  * surface, however steep the hill.
  */
 export interface CircleGround {

@@ -3,7 +3,7 @@ import type { DungeonDoor, WaterfallInfo } from '../../engine/zone';
 import { barrel, boulder, drawings, flicker, lantern, net, plankDeck, portalVeil, rockArch, rockSlab, totem, type Flickers } from './goblinKit';
 import { merge, mesh, PAL, rod, tint, xf } from '../models/kit';
 
-// The ledge hidden behind the Windspire's waterfall (src/sim/zone/generate.ts cuts it): a hood of
+// The ledge hidden behind the Windspire's waterfall (crates/engine/src/open/generate.rs cuts it): a hood of
 // rock over it, the goblins' landing stage of planks on barrels jutting out over the drop, catch
 // nets slung along the walls, their totem, two lanterns whose glow shows through the falling water,
 // pictures daubed round the portal, and the portal itself, a dark swirl in a rock arch, into

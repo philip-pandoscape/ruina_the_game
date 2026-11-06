@@ -1,5 +1,5 @@
 //! What happened in a step, for whoever shows it: the browser's effects, sounds and numbers, and
-//! the experience a skill gains (src/sim/types.ts GameEvent: the same kinds and fields, written as
+//! the experience a skill gains (src/engine/shapes.ts GameEvent: the same kinds and fields, written as
 //! the browser reads them). The rules raise them where things happen (a jump, a swing landing); the
 //! browser's session (crate::session) takes each step's and hands them over with the step's frame.
 //! The server, which tells its browsers what happened in its own words (crates/server/src/combat.rs),

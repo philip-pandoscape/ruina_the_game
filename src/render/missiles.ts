@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 
-// What creatures throw, drawn where the rules have it (src/sim/combat/missiles.ts): a tumbling
+// What creatures throw, drawn where the rules have it (src/engine/actors/missiles.ts): a tumbling
 // stone, the only look so far. One instanced mesh, however many are in the air.
 
 export interface ShownMissile {

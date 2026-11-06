@@ -1,6 +1,6 @@
 import { expect, test, type Browser, type BrowserContext, type Page } from '@playwright/test';
 import { readFileSync } from 'node:fs';
-import { rainAt } from '../../src/sim/life/weather';
+import { rainAt } from '../../src/engine/island';
 import { onlineReady as waitOnline } from '../support/game';
 
 // Its tests share nothing, so they spread across the workers (playwright.config.ts).
@@ -671,7 +671,7 @@ test("everyone in a channel has the same rain and wind, the world's, whatever th
   // Their islands' clocks count from when each was made, some seconds apart and nowhere near the
   // world's, so each island's own showers and wind (as it was) would be neither each other's nor the
   // world's. The server runs on this computer: the world's clock is Date.now(), and the weather is
-  // the schedule's (src/sim/life/weather.ts). What a page shows can be a few seconds behind the
+  // the schedule's (src/engine/life/weather.ts). What a page shows can be a few seconds behind the
   // server (more where it draws in software), so wait until no shower starts or stops for a while.
   const quiet = 15;
   for (;;) {

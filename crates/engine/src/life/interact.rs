@@ -1,5 +1,5 @@
 //! What pressing F does right now, and the commands everything else sends
-//! (src/sim/life/interact.ts). The focus is worked out from what is near you and in front of you,
+//! (src/engine/life/interact.ts). The focus is worked out from what is near you and in front of you,
 //! so the prompt on screen is always exactly what the next press will do.
 
 use crate::jsmath::JsMath;

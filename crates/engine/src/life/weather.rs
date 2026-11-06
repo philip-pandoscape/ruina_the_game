@@ -1,5 +1,5 @@
 //! Rain showers that water every crop on the isle, and a wind that wanders round the compass and
-//! fills (or empties) your sails (src/sim/life/weather.ts). Both run on the weather's clock: online
+//! fills (or empties) your sails (src/engine/life/weather.ts). Both run on the weather's clock: online
 //! the world's (the server's own, which the channel hands every island each tick), so everyone on
 //! Emberholm is rained on and sails on the same wind at the same moment; offline and in the rules'
 //! checks the island's. Nothing in them is left to the island's dice, so the same clock always has
@@ -107,7 +107,7 @@ mod tests {
     use crate::life::LifeEvent;
     use crate::open::zone::emberholm;
 
-    /// rainAt as src/sim/life/weather.ts works it out, to the last bit: (t, raining, start, end, next).
+    /// rainAt as src/engine/life/weather.ts works it out, to the last bit: (t, raining, start, end, next).
     const BROWSER: [(f64, bool, f64, f64, f64); 10] = [
         (0.0, false, 240.0, 370.96530275652185, 240.0),
         (239.0, false, 240.0, 370.96530275652185, 240.0),

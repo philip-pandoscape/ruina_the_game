@@ -42,28 +42,6 @@ export interface Ladder {
 
 export const LADDERS = ((data as { ladders?: Ladder[] }).ladders ?? []) as Ladder[];
 
-/** Which ladder a kind is on, or -1. */
-export const ladderOf = (kind: string): number => LADDERS.findIndex((l) => l.kinds.includes(kind));
-
-/** One size up from `kind`; the top size stays itself. */
-export function sizeUp(kind: string): string {
-  const l = LADDERS[ladderOf(kind)];
-  if (!l) return kind;
-  const i = l.kinds.indexOf(kind);
-  return l.kinds[Math.min(i + 1, l.kinds.length - 1)];
-}
-
-/** The biggest size on a ladder that `mass` reaches, or '' if it reaches none. */
-export function sizeFor(ladder: number, mass: number): string {
-  const l = LADDERS[ladder];
-  let best = '';
-  if (!l) return best;
-  for (const id of l.kinds) if ((BY_ID.get(id)?.mass ?? 0) <= mass) best = id;
-  return best;
-}
-
-export const kindMass = (id: string): number => BY_ID.get(id)?.mass ?? 0;
-
 /** A slam: where it lands and what it does to whoever is standing there. */
 export interface SlamDef {
   /** It winds up when you are this close. */

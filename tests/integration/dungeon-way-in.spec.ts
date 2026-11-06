@@ -1,11 +1,11 @@
 import { expect, test, type Page } from '@playwright/test';
-import { EMBERHOLM } from '../../src/sim/zone/world';
-import type { Command } from '../../src/sim/life/life';
+import type { Command } from '../../src/engine/island';
+import { EMBERHOLM } from '../../src/engine/zone';
 import type { LifePress } from '../../src/ui/life/lifeUI';
 import { gameReady } from '../support/game';
 
 // The way into Goblin's Dread (content/dungeons/goblinsDread.json). A spring beside the Windspire's
-// launch deck spills down a slot cut in its face (src/sim/zone/generate.ts, falls), and behind the
+// launch deck spills down a slot cut in its face (crates/engine/src/open/generate.rs, falls), and behind the
 // falling water a ledge under a hood of rock holds the goblins' landing stage and the portal: you get
 // there by gliding into the falls. Offline (?world&test) the browser takes you through the portal
 // itself (src/app/dungeonVisit.ts); online the server takes you, with your party, into your copy.

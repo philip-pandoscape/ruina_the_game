@@ -54,7 +54,7 @@ export function shopView(ui: IslandUI, npcId: string, tab: ShopTab): View {
       .join('');
     if (!have.length) grid = `<div class="m-empty" style="grid-column:1/-1">Nothing ${esc(n.name.split(' ')[0])} wants in your bag.</div>`;
   } else {
-    // What you sold here, held at what it fetched until you walk off (src/sim/life/trade.ts).
+    // What you sold here, held at what it fetched until you walk off (src/engine/life/trade.ts).
     const held = (s.buyback ?? []).filter((b) => b.npc === npcId);
     grid = held
       .map((b) => {

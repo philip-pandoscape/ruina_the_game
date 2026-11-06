@@ -32,17 +32,18 @@ sides read them in, because a kind travels on the wire as its index (a new one g
 
 ## The engine parts
 
-Each part is a rule in TypeScript and Rust alike, compared frame by frame by
-`tests/conformance/ai.test.ts`.
+Each part is a rule in the engine (`crates/engine`), one copy that the server runs natively and
+the browser through its WebAssembly; the engine's golden tests (`crates/engine/tests/golden/`) hold
+what its scenarios come to.
 
-| Part | TypeScript | Rust | What it does |
-|---|---|---|---|
-| Senses | `src/sim/ai/senses.ts` | `crates/engine/src/ai.rs` (`Sighting`) | Every player as a creature sees them (a *foe*): where, how fast, facing, health, the reach of their weapon or a bow, and what they are doing (swinging, recovering, casting, guarding, dodging, stunned). A creature keeps the foe it is after until another is clearly closer |
-| Brains | `src/sim/ai/brain.ts` | `crates/engine/src/ai.rs` | The state machine interpreter. New acts: `walk` (steered every frame toward the foe, a ring place, a rally point, home or away), `strike`, `throw`, `heal`. Guards take conditions with arguments (`near:2`, `hurt:0.4`, `ready:goblin-stone`), negation (`!afraid`) and lists (all must hold) |
-| Pack | `src/sim/ai/pack.ts` | `crates/engine/src/pack.rs` | Before the brains, each frame: attack tokens per foe (only a few strike at once), openings (your back, your recovery, a cast, a stun), ring places around the foe just outside its weapon's reach, courage (health, friends near, foes near) and where to rally (the biggest group, else home) |
-| Missiles | `src/sim/combat/missiles.ts` | `crates/engine/src/missiles.rs` | Thrown and shot things in flight: gravity, hitting a foe (a dodge's invulnerable frames let it pass), landing |
-| Hits on foes | `src/sim/actors/step.ts` | `crates/engine/src/actors.rs` | A strike is a cone in front of the creature; a hit on a player goes through the usual hit rules (dodge and guard) |
-| Flinch | `src/sim/combat/deal.ts` | `crates/engine/src/actors.rs` | A blow at or above a kind's poise knocks it out of what it was doing |
+| Part | Rust | What it does |
+|---|---|---|
+| Senses | `crates/engine/src/ai.rs` (`Sighting`) | Every player as a creature sees them (a *foe*): where, how fast, facing, health, the reach of their weapon or a bow, and what they are doing (swinging, recovering, casting, guarding, dodging, stunned). A creature keeps the foe it is after until another is clearly closer |
+| Brains | `crates/engine/src/ai.rs` | The state machine interpreter. New acts: `walk` (steered every frame toward the foe, a ring place, a rally point, home or away), `strike`, `throw`, `heal`. Guards take conditions with arguments (`near:2`, `hurt:0.4`, `ready:goblin-stone`), negation (`!afraid`) and lists (all must hold) |
+| Pack | `crates/engine/src/pack.rs` | Before the brains, each frame: attack tokens per foe (only a few strike at once), openings (your back, your recovery, a cast, a stun), ring places around the foe just outside its weapon's reach, courage (health, friends near, foes near) and where to rally (the biggest group, else home) |
+| Missiles | `crates/engine/src/missiles.rs` | Thrown and shot things in flight: gravity, hitting a foe (a dodge's invulnerable frames let it pass), landing |
+| Hits on foes | `crates/engine/src/actors.rs` | A strike is a cone in front of the creature; a hit on a player goes through the usual hit rules (dodge and guard) |
+| Flinch | `crates/engine/src/actors.rs` | A blow at or above a kind's poise knocks it out of what it was doing |
 
 ## The basic goblin
 

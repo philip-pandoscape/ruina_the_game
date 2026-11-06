@@ -12,10 +12,8 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
 - **Phase:** 8 (one copy of the rules: the browser plays on the engine's) and 10 (one world: its
   foundations, decided 2026-11-06, D16-D19), with 9's rest beside them; 7, 11 and 12 done.
 - **Next:**
-  1. Delete `src/sim/` (R8.13). Its read side moves into `src/engine/` under the world's words
-     (R10.14).
-  2. Measure (R8.14).
-  3. Phase 10's foundations, in order:
+  1. Measure (R8.14).
+  2. Phase 10's foundations, in order:
      - R10.14 the words;
      - R10.15 spaces;
      - R10.1 and R10.16 the world as data and the world map;
@@ -29,14 +27,14 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
      - R10.23 the client;
      - R10.24 proof at scale;
      - R10.25 the guide.
-  4. Phase 13 and the merge.
+  3. Phase 13 and the merge.
 
   The multi-server version follows the merge (`.plans/world/`).
 - **How:** one session does the work, with at most two sub-agents beside it, on Opus 5.5 at max
   effort, each in a worktree of its own with its own ports and database (the user's call on
   2026-11-06: three at once used tokens too fast; one was allowed, then a second). They did the
-  mini-games (R9.11, R8.11) and the UI gallery (R6.9); now the bible's reading of the engine's Rust
-  (R8.13's part) and saved builds by id with the bundle's hash on the wire (R9.1, R9.2).
+  mini-games (R9.11, R8.11) and the UI gallery (R6.9); then the bible's reading of the engine's Rust
+  (R8.13's part); now saved builds by id with the bundle's hash on the wire (R9.1, R9.2).
 - **Races under load (the Mac, four workers):** these lose a race now and then and pass alone:
   `online.spec.ts:50`, `:109`, `:258`, `:617`, `party.spec.ts:121`, `combat.spec.ts:185`; and
   `game.spec.ts:43` and `dungeon-way-in.spec.ts:50` when Vite reloads the page at the start of a run
@@ -713,9 +711,11 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
   `minigameOptions`); the view no longer carries legal moves (WORLD_PROTOCOL 10). Moves aren't shown
   before the server answers: turns wait on a player, the answer comes within a tick, and draws come
   off a deck the browser doesn't see.
-- [ ] **R8.12** Road routing (`zone/roads.ts`, `zone/localPath.ts`, TS-only, browser-only) reads the
+- [x] **R8.12** Road routing (`zone/roads.ts`, `zone/localPath.ts`, TS-only, browser-only) reads the
   island through the bridge; it stays TypeScript unless the server needs it.
-- [~] **R8.13** Delete `src/sim/`, the check programs and the conformance specs.
+  Done with R8.13's move: `src/engine/world/roads.ts` and `localPath.ts`, inside the bridge, reached
+  through `zone.ts`, reading the World the engine grows; TypeScript, browser-only, with no Rust twin.
+- [x] **R8.13** Delete `src/sim/`, the check programs and the conformance specs.
   What the page still reads (the shapes of the rules' state, the ground's sampling, the island's read
   helpers, the roads) moves into `src/engine/` under the world's words (R10.14): no new "island"
   names. The unit tests that drive the TypeScript rules move to the engine: through an `Engine`, or
@@ -727,6 +727,16 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
   tier holds the WebAssembly to the native engine, the browser's ground sampling and the balance
   harness. The docs, CI and the engine's comments say the rules are one copy. The bible's part is a
   background agent's.
+  Done (39e253b, dae2724, 94ed5c6 and the move). The unit tests that drove the TypeScript rules
+  drive the engine: their rules as Rust tests beside them (`interact.rs`, `farming.rs`, `trade.rs`,
+  `progress.rs`), `newContent.test.ts` through an `Engine` with its content given at run time
+  (`crates/engine/src/bundles.rs`, `content_use`, `useContent`). The bible reads the Rust. Then the
+  move: what the page reads went into `src/engine/` (30 files: `shapes.ts`, `math.ts`,
+  `training.ts`, `world/`, `life/`, `actors/`; `.plans/refactor/moves.tsv`), everything they held
+  that nothing reads was cut (188 declarations: the steppers, the generator's TypeScript, the
+  island's Life, the ground's integration), and `src/sim/` is gone. Outside code comes in by seven
+  front doors (`tests/unit/boundaries.test.ts`), the comments say which Rust runs each rule, and
+  `src/engine/AGENTS.md` says so.
 - [ ] **R8.14** Measure against the baseline: frame time, start-up, memory. Log it. (The download's
   size dropped, D15.)
 - [x] **R8.15** `crates/engine/AGENTS.md`: determinism rules, adding a system, testing it.
@@ -1165,7 +1175,10 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
 | 2026-11-06 | R8.7, R8.8, R8.9 | The switch: the Engine answers from the engine's session (you, the creatures, the yard, the island), the page reading snapshots; the shadow gone with what it compared | 8ea8ece |
 | 2026-11-06 | R9.11, R8.11, R6.9 | Mini-games from their files with the engine's rules on the board; the UI gallery (a background agent, merged) | 0e918b8, dabea21, f9517ba |
 | 2026-11-06 | D16-D19, Phase 10 | One world: seamless regions with fixed borders, channels opened by crowding, contested land; the research (`.plans/world/research.md`) and the plan revised for the foundations | c3d19c3 |
-| 2026-11-06 | R8.13 | The check programs and the conformance specs that held the TypeScript rules to the Rust go; the docs say the rules are one copy; the battlefield spec's fighters leave through its way out | (this commit) |
+| 2026-11-06 | R8.13 | The check programs and the conformance specs that held the TypeScript rules to the Rust go; the docs say the rules are one copy; the battlefield spec's fighters leave through its way out | 39e253b |
+| 2026-11-06 | R8.13 | The bible explains the rules from the engine's Rust (a background agent, merged) | 5c0fd0c, dae2724 |
+| 2026-11-06 | R8.13 | The unit tests that drove the TypeScript rules drive the engine; the engine takes content at run time | 94ed5c6 |
+| 2026-11-06 | R8.13, R8.12 | `src/sim/` gone: what the page reads in `src/engine/` (`shapes.ts`, `world/`, `life/`, `actors/`), behind seven front doors | (this commit) |
 | 2026-11-06 | R9.14 | `docs/content.md` | 5e23680 |
 | 2026-11-06 | R10.10, R11.1, R11.2, R11.7, R11.8 | Snapshot to move machines: the battle server's Rust gone; the asset manifest, loader and first-download budget, `docs/assets.md` | a975617 |
 | 2026-11-06 | R6.10, R6.11, R6.8 | The client's moves: creature bodies into src/render/creatures/, the root files to their areas, the library under src/dev/ | 9317ff3, 5de387d, 81df3de |

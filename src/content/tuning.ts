@@ -85,8 +85,8 @@ export interface Weapon {
 }
 
 // What an ability does, as a list of effects rather than a name the code knows. Adding a skill
-// built from these is a data change; only a genuinely new kind of thing costs code, and then in
-// both languages at once (src/sim, crates/server/src/combat.rs).
+// built from these is a data change; only a genuinely new kind of thing costs code (the engine's,
+// crates/engine/src/player.rs, and the server's fighting, crates/server/src/combat.rs).
 export type EffectKind = 'healArea' | 'delayedArea';
 
 export interface Effect {
@@ -122,7 +122,7 @@ export const isGroundTargeted = (ability: number): boolean => ABILITIES[ability]
 //
 // A dodge, a backstep, a block: an action state with a startup / active / recovery timeline and
 // a few things that can happen during it. New ones are data; only a new field here costs code,
-// and then in src/sim/sim.ts and crates/engine/src/player.rs together.
+// and then in crates/engine/src/player.rs.
 export interface ActionDef {
   startup: number;
   active: number;
@@ -164,7 +164,6 @@ export const MOVEMENT_SLOTS = shared.movementSlots as number;
 export const MOVEMENT_SKILL_CAP = 16;
 if (MOVEMENT_SKILLS.length > MOVEMENT_SKILL_CAP) throw new Error('more movement skills than MOVEMENT_SKILL_CAP');
 export const NO_MOVEMENT = 255;
-export const movementAction = (m: number): ActionDef | null => MOVEMENT_SKILLS[m]?.action ?? null;
 // The slide everyone has. Looked up by id so reordering the data can't silently rebind it.
 export const SLIDE_SKILL = MOVEMENT_SKILLS.findIndex((m) => m.id === 'slide');
 if (SLIDE_SKILL < 0) throw new Error('shared/tuning.json needs a movement skill with id "slide"');
@@ -239,14 +238,6 @@ const comboCache = new WeakMap<ResolvedSkills, AttackStep[][]>();
 // than their whole skill tree: one bit each, in the order the variants appear in the data.
 const VARIANT_IDS: string[] = WEAPONS.flatMap((w) => ((w.variants ?? []) as ComboVariant[]).map((v) => v.id));
 if (VARIANT_IDS.length > 8) throw new Error('more than 8 combo variants: widen the field in put_player');
-
-export function variantBits(r: ResolvedSkills): number {
-  let bits = 0;
-  VARIANT_IDS.forEach((id, i) => {
-    if (r.combos.has(id)) bits |= 1 << i;
-  });
-  return bits;
-}
 
 // The shape of a weapon's combo for a given set of variants: right steps, base numbers. Used for
 // drawing someone else, where the exact frame counts of their build don't matter.
@@ -332,16 +323,10 @@ export const DUMMY = {
   resetFrames: 60,
 };
 
-// How anything that rocks when hit settles back upright. Props use it; creatures leave it alone.
-export const LEAN = {
-  spring: 140,
-  damping: 7,
-};
-
 // Slimes in the training yard and on the meadow. They leave you alone until you hit one; then
 // the pack fights back. What they do is data (shared/actors.json, shared/behaviours.json) that
-// the browser and the server both run (src/sim/actors/step.ts, crates/engine/src/actors.rs). These are
-// the numbers the yard and its tests are laid out with.
+// the engine runs (crates/engine/src/actors.rs). These are the numbers the yard and its tests are
+// laid out with.
 export const SLIME = {
   count: 5,
   hp: 40,

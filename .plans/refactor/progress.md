@@ -437,3 +437,29 @@ the developer zone; then the engine bridge (R6.4) and Phase 8's switches.
   - a proof with thousands of bots.
 - **Merged on the way:** the switch (8ea8ece) and the sub-agent's mini-games and UI gallery (31657d3).
 
+## 2026-11-06: The TypeScript Copy Gone (R8.13, R8.12)
+
+- **The comparisons went first** (39e253b). The check programs and the conformance specs held the
+  TypeScript rules to the Rust; with one copy there is nothing to compare. The engine's golden tests
+  keep the answers they proved, and the conformance tier now holds the WebAssembly to the native
+  engine and the browser's ground sampling to the engine's. The battlefield spec failed whole runs
+  because fighters whose windows closed lingered a minute in a battlefield that takes 20; they now
+  leave by its way out.
+- **The bible reads the Rust** (a background agent, 5c0fd0c, merged in dae2724). Every number a
+  system page reads from the rules' source comes from `crates/`; all 461 pages were rendered before
+  and after, and only the housing page's house limit reads differently.
+- **The tests that drove the TypeScript rules drive the engine** (94ed5c6). Their rules became Rust
+  tests beside the code they test; `newContent.test.ts` plays a new townsperson, item, vehicle,
+  quest and creature through an `Engine`, which needed the engine to take content at run time
+  (`crates/engine/src/bundles.rs`: built in, or given before anything is read).
+- **The move.** What the page reads went into `src/engine/`, 30 files: the shapes of the rules'
+  state (`shapes.ts`), the ground, regions, dungeons and roads (`world/`), the island's read helpers
+  (`life/`) and creatures as read back (`actors/`). Whatever nothing read was cut, 188 declarations
+  (the steppers, the generator's TypeScript, the island's Life, the ground's integration), found by
+  a tree-shaker over the TypeScript (oxc) and checked by tsc and knip. `src/sim/` is gone. Outside
+  code reaches the folder only by its seven front doors (`tests/unit/boundaries.test.ts`, which was
+  shown to catch a back-door import). Road routing came along into the bridge, which was all R8.12
+  asked. The moved files' comments now say which Rust runs each rule.
+- **Verified:** `npm run check` (240 TypeScript tests, 157 engine and 73 server tests); the
+  conformance and integration tiers on the rig (below).
+- **Next:** measure frame time, start-up and memory against the baseline (R8.14), then Phase 10.

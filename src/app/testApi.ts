@@ -441,7 +441,7 @@ export function makeTestApi(g: GameRefs) {
       if (!g.visit || g.online) return false;
       return id ? g.visit.enterDungeonHere(id, true) : g.visit.leaveDungeonHere(true);
     },
-    /** The waterfalls as the generator cut them (src/sim/zone/generate.ts). */
+    /** The waterfalls as the generator cut them. */
     falls() {
       return JSON.parse(JSON.stringify(g.world.zone?.gen.falls ?? []));
     },
@@ -458,7 +458,7 @@ export function makeTestApi(g: GameRefs) {
     drawnDummy() {
       return g.dummyDrawn;
     },
-    /** What the ground is made of under a point (SURFACE in src/sim/terrain.ts). */
+    /** What the ground is made of under a point (SURFACE in src/engine/world/terrain.ts). */
     surface(x: number, z: number): number {
       return g.terrain ? g.terrain.surfaceAt(x, z) : 0;
     },

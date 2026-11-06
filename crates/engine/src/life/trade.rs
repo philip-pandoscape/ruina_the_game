@@ -1,4 +1,4 @@
-//! Trade packs, workbenches, vendors and trading posts (src/sim/life/trade.ts).
+//! Trade packs, workbenches, vendors and trading posts (src/engine/life/trade.ts).
 //!
 //! Pack running. A pack is made at a workbench from local goods and labor, rides on your back
 //! (slowly - no sprint, no double jump, no glider) or in a vehicle's cargo, and is sold at a

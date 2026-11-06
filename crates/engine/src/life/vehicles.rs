@@ -1,4 +1,4 @@
-//! Carts, cars, boats and mounts (src/sim/life/vehicles.ts). Wheeled things keep their own world
+//! Carts, cars, boats and mounts (src/engine/life/vehicles.ts). Wheeled things keep their own world
 //! velocity and only grip the road sideways, so a handbrake turn really slides; boats sail on
 //! whatever wind is blowing and run aground in the shallows; mounts move like you do, faster, and
 //! turn like an animal does.
@@ -57,7 +57,7 @@ fn or(a: f64, b: f64) -> f64 {
     if truthy(a) { a } else { b }
 }
 
-/// src/sim/math.ts turnToward().
+/// src/engine/math.ts turnToward().
 fn turn_toward(current: f64, target: f64, max_step: f64) -> f64 {
     let d = angle_diff(current, target);
     let next = current + (-max_step).max(max_step.min(d));

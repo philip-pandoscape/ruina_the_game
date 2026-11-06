@@ -1,21 +1,22 @@
 // The island's life systems: trade, farming, housing, the shipyard, vehicles, quests, weather, progress, saves.
 //
-// What outside the rules uses of them, through the bridge (.plans/refactor R6.4): nothing else
-// imports src/sim/ (tests/unit/boundaries.test.ts). Phase 8 answers these from the engine.
+// What outside the rules uses of them: the bridge's front door for them, naming exactly what is used
+// (tests/unit/boundaries.test.ts). The rules are the engine's; what's read here is the shapes of what
+// it hands back and the helpers that read them.
 
-export { cellCentre, scarecrowPost, stageOf } from '../sim/life/farming';
-export { DAY, HOUSE_SETBACK, housePose, isComplete, stageReady, stillNeeds } from '../sim/life/housing';
-export { nodeReady, shortTime } from '../sim/life/interact';
-export type { FocusAction, Placement } from '../sim/life/interact';
-export { islandData } from '../sim/life/island';
-export type { Saved } from '../sim/life/island';
+export { cellCentre, scarecrowPost, stageOf } from './life/farming';
+export { DAY, HOUSE_SETBACK, housePose, isComplete, stageReady, stillNeeds } from './life/housing';
+export { nodeReady, shortTime } from './life/interact';
+export type { FocusAction, Placement } from './life/interact';
+export { islandData } from './life/save';
+export type { Saved } from './life/save';
 export { IslandView } from './islandView';
-export type { Command, IslandRead, LifeEvent, OthersVehicle } from '../sim/life/life';
-export { skillBudget, trainedBy } from '../sim/life/progress';
-export { isReady, questsAt } from '../sim/life/quests';
-export { shipFinished, shipNeeds, shipOn, shipStageReady } from '../sim/life/shipyard';
-export { newLifeState } from '../sim/life/state';
-export type { House, LifeState, Pack, Scarecrow, ShipBuild, Vehicle, Weather } from '../sim/life/state';
-export { BUYBACK_RANGE, carried, demandAt, freshness, quote } from '../sim/life/trade';
-export { ridden, sailEfficiency, vehicleBodies } from '../sim/life/vehicles';
-export { hourAt, hourOfDay, rainAt, raining, stormAt } from '../sim/life/weather';
+export type { Command, IslandRead, LifeEvent, OthersVehicle } from './life/life';
+export { skillBudget, trainedBy } from './life/progress';
+export { isReady, questsAt } from './life/quests';
+export { shipFinished, shipNeeds, shipOn, shipStageReady } from './life/shipyard';
+export { newLifeState } from './life/state';
+export type { House, LifeState, Pack, Scarecrow, ShipBuild, Vehicle, Weather } from './life/state';
+export { BUYBACK_RANGE, carried, demandAt, freshness, quote } from './life/trade';
+export { ridden, sailEfficiency, vehicleBodies } from './life/vehicles';
+export { hourAt, hourOfDay, rainAt, raining, stormAt } from './life/weather';

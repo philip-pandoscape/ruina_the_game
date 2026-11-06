@@ -1,6 +1,6 @@
 import data from '../../shared/vehicles.json' with { type: 'json' };
 
-// Everything you can ride, as content. The rules (src/sim/life/vehicles.ts) and the 3D models
+// Everything you can ride, as content. The rules (src/engine/life/vehicles.ts) and the 3D models
 // (src/render/models/*) both read these definitions, so a seat moved in shared/vehicles.json moves
 // where you sit *and* where the bench is drawn.
 //

@@ -1,4 +1,4 @@
-//! Trade contracts posted at the trading posts (src/sim/life/contracts.ts).
+//! Trade contracts posted at the trading posts (src/engine/life/contracts.ts).
 //!
 //! Each trading post posts a couple of requests for specific packs ("three Flax Bales within 25
 //! minutes"). Take one on, fill it before it runs out, and the post pays bonus Charter Seals and

@@ -3,7 +3,7 @@ import { test, type Page } from '../../support/headless';
 import { structureDef } from '../../../src/content/structures';
 import { skillsFrom } from '../../../src/content/skills';
 import { COMBAT, emptyMovement, HOTBAR_SLOTS, NO_ABILITY } from '../../../src/content/tuning';
-import type { Command } from '../../../src/sim/life/life';
+import type { Command } from '../../../src/engine/island';
 import { gameReady } from '../../support/headless';
 
 // The open world (Emberholm): terrain, swimming, gliding, farming, pack running, vehicles, mounts,

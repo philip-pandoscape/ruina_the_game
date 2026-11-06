@@ -1,5 +1,5 @@
 //! The island's dungeons and the developer zones (content/dungeons/<id>.json, built into
-//! shared/dungeons.json; docs/zones.md; src/sim/zone/dungeon.ts is the browser's
+//! shared/dungeons.json; docs/zones.md; src/engine/world/dungeons.ts is the browser's
 //! twin). Each party plays its own copy of one (crate::spaces). Inside, everything stands round a
 //! spot high above the sea that nothing else in the world uses, and is solid only in a copy: a
 //! copy's OpenWorld gets the dungeon's boxes and decks, the channels never do.
@@ -78,7 +78,7 @@ pub struct DungeonDef {
 }
 
 /// One of a kind at a spot, or a war-band of them (`band`: `count` in a ring round it, fighting
-/// together as a pack, as bandAround() in src/sim/yard.ts lays one out).
+/// together as a pack, as crate::yard::band_around lays one out).
 #[derive(Deserialize, Clone, Debug)]
 pub struct ZoneSpawn {
     pub kind: String,
@@ -96,7 +96,7 @@ fn one() -> u32 {
 
 impl ZoneSpawn {
     /// Where each one stands (relative to the origin), which way it faces, and its seed: a band in a
-    /// ring round the spot facing out (bandAround() in src/sim/yard.ts), anything else on the spot.
+    /// ring round the spot facing out, anything else on the spot.
     pub fn points(&self, seed: u32) -> Vec<(f64, f64, f64, u32)> {
         let n = self.count.max(1);
         (0..n)

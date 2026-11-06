@@ -1,5 +1,5 @@
 //! Everything solid in an open world, bucketed on a coarse grid so a query only looks at what is
-//! nearby. A port of src/sim/zone/colliders.ts: the same buckets, visited in the same order.
+//! nearby. A port of src/engine/world/colliders.ts: the same buckets, visited in the same order.
 
 use std::collections::{BTreeMap, BTreeSet};
 

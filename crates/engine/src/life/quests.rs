@@ -1,4 +1,4 @@
-//! The starter questline (src/sim/life/quests.ts): offered by NPCs once its prerequisites are
+//! The starter questline (src/engine/life/quests.ts): offered by NPCs once its prerequisites are
 //! done, advanced by events the other systems report (planted, harvested, delivered...), handed
 //! in for rewards. Milestones live alongside: they start by themselves and are done the moment
 //! their steps are.

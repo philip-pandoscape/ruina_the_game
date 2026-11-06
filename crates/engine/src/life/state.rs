@@ -1,4 +1,4 @@
-//! Everything the open-world systems remember (src/sim/life/state.ts): money, labor, the bag,
+//! Everything the open-world systems remember (src/engine/life/state.ts): money, labor, the bag,
 //! every trade pack, summoned vehicles, farms, houses, demand at the trading posts, quests and
 //! weather. The JSON is the same as the TypeScript's, field for field, so the islands already kept
 //! in Postgres load as they are and the browser reads what the server sends without translation.
@@ -170,7 +170,7 @@ pub struct Stats {
     pub built: f64,
 }
 
-/// A trading post's request for packs (src/sim/life/contracts.ts).
+/// A trading post's request for packs (src/engine/life/contracts.ts).
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
 #[serde(default)]
 #[serde(rename_all = "camelCase")]

@@ -1,5 +1,5 @@
 //! The behaviour interpreter, reading shared/behaviours.json and each creature's own file
-//! (crate::creatures) - the same files src/sim/ai/brain.ts reads. A monster is data: an entry in
+//! (crate::creatures) - the same files src/engine/actors/brains.ts reads. A monster is data: an entry in
 //! those files and an actor pointed at it. Nothing in here knows what a slime or a goblin is.
 //!
 //! A brain only ever changes its own actor. Anything that reaches another (calling the pack,
@@ -114,7 +114,7 @@ pub struct Heal {
     pub below: f64,
 }
 
-/// How a war-band fights together (crate::pack; PackDef in src/sim/ai/brain.ts).
+/// How a war-band fights together (crate::pack; PackDef in src/engine/actors/brains.ts).
 #[derive(Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct PackDef {
@@ -196,7 +196,7 @@ pub fn brain_of(a: &Actor) -> Option<&'static Behaviour> {
     a.brain.as_deref().and_then(behaviour)
 }
 
-/// What a foe is doing, as far as a creature can tell (FOE_ACT in src/sim/ai/senses.ts).
+/// What a foe is doing, as far as a creature can tell.
 pub const ACT_FREE: u8 = 0;
 pub const ACT_SWING: u8 = 1;
 pub const ACT_RECOVER: u8 = 2;
@@ -205,7 +205,7 @@ pub const ACT_GUARD: u8 = 4;
 pub const ACT_DODGE: u8 = 5;
 pub const ACT_STUNNED: u8 = 6;
 
-/// A player as a creature sees them (Foe in src/sim/ai/senses.ts).
+/// A player as a creature sees them.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Foe {
     /// 1 and up; a creature's target is a foe id, 0 for none.
@@ -274,7 +274,7 @@ pub struct Peer {
     pub band: u32,
 }
 
-/// Something a brain asks the world to do (src/sim/ai/brain.ts Request). An attack travels as its
+/// Something a brain asks the world to do (src/engine/actors/brains.ts Request). An attack travels as its
 /// index in crate::content::attacks.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Request {
@@ -297,7 +297,7 @@ pub struct Ctx<'a> {
     pub out: &'a mut Vec<Request>,
 }
 
-/// Shortest signed angle from a to b (angleDiff in src/sim/math.ts).
+/// Shortest signed angle from a to b (angleDiff in src/engine/math.ts).
 pub fn angle_diff(a: f64, b: f64) -> f64 {
     let tau = std::f64::consts::PI * 2.0;
     let mut d = (b - a) % tau;
@@ -848,7 +848,7 @@ pub fn rest_state(a: &mut Actor) {
 }
 
 /// A blow landed on it: one at or above its kind's poise knocks it into its brain's flinch,
-/// spilling a drink it had at its lips (flinch() in src/sim/ai/brain.ts).
+/// spilling a drink it had at its lips (flinch() in src/engine/actors/brains.ts).
 pub fn flinch(a: &mut Actor, amount: f64) {
     let Some(k) = kind(&a.kind) else { return };
     let Some(b) = brain_of(a) else { return };

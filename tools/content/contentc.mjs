@@ -167,7 +167,7 @@ function ids(b) {
   return {
     item: list('items.json', 'items'),
     category: new Set(Object.keys(b.get('items.json')?.categories ?? {})),
-    // The rules' ways of placing a thing and of showing a rare find (src/sim/life/interact.ts, farming.ts).
+    // The rules' ways of placing a thing and of showing a rare find (src/engine/life/interact.ts, farming.ts).
     placement: new Set(['ground', 'plot', 'slipway']),
     effect: new Set(['thunder']),
     blueprint: list('housing.json', 'blueprints'),

@@ -2,39 +2,38 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, normalize, relative } from 'node:path';
 import { expect, test } from 'vitest';
 
-// Which of src/'s areas (AGENTS.md's layout) may import which. The rules (sim/) are pure: they
-// know nothing of drawing, the page, the network or the UI, so the server's engine can stand in for
-// them and the tests can run them without a browser; content is data, read by everything; util is
+// Which of src/'s areas (AGENTS.md's layout) may import which. The rules are the engine's
+// (crates/engine), and the client reaches them only through the bridge (src/engine/), which knows
+// nothing of drawing, the page, the network or the UI; content is data, read by everything; util is
 // beneath everything. An import across a line not allowed here fails this test; the few that
 // already cross one are listed below with the task that removes them.
 
-/**
- * What each area may not import. Only the bridge (src/engine/) imports the rules (src/sim/): every
- * other area reaches them through it (R6.4), so Phase 8 can answer it from the Rust engine.
- */
+/** What each area may not import. */
 const FORBIDDEN: Record<string, string[]> = {
   util: ['*'],
   // The asset manifest and loader: beneath everything that draws, knowing files and not what's in them.
-  assets: ['sim', 'content', 'render', 'ui', 'net', 'app', 'input', 'dev', 'bible', '(root:main)'],
-  sim: ['render', 'ui', 'net', 'app', 'input', 'dev', 'bible', '(root:main)'],
-  // The bridge to the rules (src/engine/): the rules and content beneath it, nothing that draws, talks or shows.
+  assets: ['engine', 'content', 'render', 'ui', 'net', 'app', 'input', 'dev', 'bible', '(root:main)'],
+  // The bridge to the rules (src/engine/): content beneath it, nothing that draws, talks or shows.
   engine: ['render', 'ui', 'net', 'app', 'input', 'dev', 'bible', '(root:main)'],
-  content: ['sim', 'render', 'ui', 'net', 'app', 'input', 'dev', 'bible', '(root:main)'],
-  input: ['sim', 'render', 'ui', 'net', 'app', 'dev', 'bible', '(root:main)'],
+  content: ['engine', 'render', 'ui', 'net', 'app', 'input', 'dev', 'bible', '(root:main)'],
+  input: ['render', 'ui', 'net', 'app', 'dev', 'bible', '(root:main)'],
   // Drawing and the network don't know each other (R6.0): the network keeps what the server says, the
   // drawing draws what it's handed, and the app hands one to the other.
   // Drawing doesn't reach into the windows either (R6.0): what a window draws in three.js it hosts
   // (the hero preview), handed what it needs.
-  render: ['sim', 'net', 'ui', 'app', 'dev', 'bible', '(root:main)'],
-  net: ['sim', 'render', 'ui', 'dev', 'bible', '(root:main)'],
+  render: ['net', 'ui', 'app', 'dev', 'bible', '(root:main)'],
+  net: ['render', 'ui', 'dev', 'bible', '(root:main)'],
   // The windows show what they're handed and ask the app for what they do (R6.0): sign-in, characters,
   // parties and mini-games declare the calls they make, and the app hands them the connection.
-  ui: ['sim', 'net', 'app', 'bible', '(root:main)'],
-  app: ['sim'],
-  dev: ['sim'],
-  bible: ['sim'],
-  '(root:main)': ['sim'],
+  ui: ['net', 'app', 'bible', '(root:main)'],
 };
+
+/**
+ * The bridge's front doors: what the rest of the client may import from src/engine/. What's behind
+ * them (the shapes, the world's ground and roads, a life's and the creatures' read helpers, the
+ * session, the WebAssembly) is reached through them, so each names exactly what is used.
+ */
+const FRONT = ['engine', 'load', 'minigames', 'rules', 'zone', 'island', 'creatures'];
 
 /** Imports across a line today, each with what will remove it (.plans/refactor/tracker.md). */
 const KNOWN: Record<string, string> = {};
@@ -74,4 +73,18 @@ test("no area imports what it mustn't", () => {
   expect(crossings).toEqual([]);
   // A known crossing that's gone comes off the list.
   expect(Object.keys(KNOWN).filter((k) => !seen.has(k))).toEqual([]);
+});
+
+test('the rest of the client reaches the rules through the bridge’s front doors', () => {
+  const behind: string[] = [];
+  for (const f of files) {
+    if (areaOf(f) === 'engine') continue;
+    for (const m of readFileSync(f, 'utf8').matchAll(/^(?:import|export)\s+(?:type\s+)?[^'"]*?from\s+'(\.[^']+)'/gm)) {
+      if (m[1].endsWith('?raw')) continue;
+      const target = relative('src', normalize(join(dirname(f), m[1]))).replace(/\\/g, '/');
+      if (!target.startsWith('engine/')) continue;
+      if (!FRONT.includes(target.slice('engine/'.length).replace(/\.ts$/, ''))) behind.push(`${relative('src', f).replace(/\\/g, '/')} -> ${target}`);
+    }
+  }
+  expect(behind).toEqual([]);
 });

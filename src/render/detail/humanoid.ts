@@ -638,7 +638,7 @@ function frameAt(step: AttackStep, at: number): number {
   return step.startup + step.active + (at - 2) * step.recovery;
 }
 
-/** Speed the lunge gives you on frame f of a swing, as src/sim/player/attacks.ts sets it. */
+/** Speed the lunge gives you on frame f of a swing, as the rules set it (crates/engine/src/player.rs). */
 export function lungeSpeed(step: AttackStep, f: number): number {
   if (f <= step.startup) return step.lunge * 0.5;
   if (f <= step.startup + step.active) return step.lunge;

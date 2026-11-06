@@ -22,7 +22,6 @@ const ALLOWED: Allowance[] = [
     why: "words of the code's own that some content shares: harvest (an objective, an event and its effect), heal (a brain's act, a hit's marker), home (where a brain runs to, where you wake), block (a guard, and CSS), stone (a wall of the village kit, a gathering's effect, a colour), herbs and wheels (effects), pine (the island's wild pines)",
     ids: ['harvest', 'heal', 'home', 'block', 'stone', 'herbs', 'wheels', 'pine'],
   },
-  { why: 'the bench a focus is at, a field of it', files: ['src/sim/life/interact.ts'], ids: ['bench'] },
   { why: 'a word the bug reporter leaves out of what you said', files: ['src/app/bugs/reporter.ts'], ids: ['well'] },
   { why: 'written by npm run icons from tools/icons/catalog.mjs: the items that have pictures of their own, by id', files: ['src/ui/theme/icons.gen.ts'] },
   {
@@ -48,8 +47,7 @@ const ALLOWED: Allowance[] = [
   {
     why: "the island's own slimes and training dummy are spawned by code until spawns are data (R9.3), and ?goblins= puts a band in the yard",
     files: [
-      'src/sim/zone/world.ts',
-      'src/sim/yard.ts',
+      'src/engine/world/region.ts',
       'src/main.ts',
       'src/app/drawing.ts',
       'src/engine/engine.ts',

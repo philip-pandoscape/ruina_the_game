@@ -1,4 +1,4 @@
-//! The pack (src/sim/ai/pack.ts, step for step). Before the brains take their turn, every creature
+//! The pack. Before the brains take their turn, every creature
 //! whose brain has a `pack` is told what its band has worked out together this frame: whether its
 //! nerve holds, where to run if it doesn't, whether it may strike its foe now (a token), and if not
 //! where on the ring around the foe to wait. Nothing here changes position.

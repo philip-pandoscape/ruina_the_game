@@ -15,7 +15,7 @@ to try things out. Each of those is a file; nothing in code lists them.
 A dungeon or developer zone is floors and walls round an `origin` high above the sea, which nothing
 else in the world uses. They're solid only in a copy of it: the server's copy gets its pieces
 (`crates/engine/src/open/dungeon.rs`, `OpenWorld::make_dungeon`), and so does the browser while you're
-in one (`src/sim/zone/dungeon.ts`, `src/app/dungeonVisit.ts`), so the island's channels never meet
+in one (`src/engine/world/dungeons.ts`, `src/app/dungeonVisit.ts`), so the island's channels never meet
 them.
 
 - **Going in** moves you between games on the server mid-connection, island and all

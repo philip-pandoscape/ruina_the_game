@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 
 use super::generate::{Forest, PropPlacement, Scatter, StructurePlacement, Terrain};
 
-/// What a patch of ground is made of (src/sim/terrain.ts SURFACE).
+/// What a patch of ground is made of (src/engine/world/terrain.ts SURFACE).
 pub mod surface {
     pub const GRASS: u8 = 0;
     pub const ROAD: u8 = 1;
@@ -22,7 +22,7 @@ pub mod surface {
     pub const FOREST: u8 = 6;
 }
 
-/// The ground: a regular grid of heights plus a surface type per cell (src/sim/terrain.ts).
+/// The ground: a regular grid of heights plus a surface type per cell (src/engine/world/terrain.ts).
 pub struct Heightfield {
     /// Cells per side.
     pub cells: usize,
@@ -137,7 +137,7 @@ impl Heightfield {
     }
 }
 
-/// Something round and solid the world was built with (src/sim/types.ts Obstacle).
+/// Something round and solid the world was built with (src/engine/shapes.ts Obstacle).
 #[derive(Clone, Copy, Debug, PartialEq, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum ObstacleKind {
@@ -162,7 +162,7 @@ pub struct Obstacle {
 }
 
 /// A solid oriented rectangle (a building, a wall, a counter), infinitely tall below `top`; or,
-/// as a deck, a walkable platform whose ground is at `top` (src/sim/zone/types.ts BoxCollider).
+/// as a deck, a walkable platform whose ground is at `top` (src/engine/world/types.ts BoxCollider).
 #[derive(Clone, Copy, Debug, Serialize)]
 pub struct BoxCollider {
     pub x: f64,
@@ -177,18 +177,18 @@ pub struct BoxCollider {
 
 pub type Deck = BoxCollider;
 
-/// A rectangle facing `rot`, as the generator builds them (src/sim/zone/generate.ts rect()).
+/// A rectangle facing `rot`, as the generator builds them.
 pub fn rect(x: f64, z: f64, hw: f64, hd: f64, rot: f64, top: f64) -> BoxCollider {
     BoxCollider { x, z, hw, hd, rot, cos: rot.js_cos(), sin: rot.js_sin(), top }
 }
 
-/// A world offset into a structure's own frame (src/sim/zone/generate.ts toLocal()).
+/// A world offset into a structure's own frame.
 pub fn to_local(dx: f64, dz: f64, rot: f64) -> (f64, f64) {
     let (c, s) = (rot.js_cos(), rot.js_sin());
     (dx * c - dz * s, dx * s + dz * c)
 }
 
-/// A structure-local point back out into the world (src/sim/zone/generate.ts toWorld()).
+/// A structure-local point back out into the world.
 pub fn to_world(lx: f64, lz: f64, rot: f64) -> (f64, f64) {
     let (c, s) = (rot.js_cos(), rot.js_sin());
     (lx * c + lz * s, -lx * s + lz * c)
@@ -204,7 +204,7 @@ pub struct Spawn {
 }
 
 /// Where a dungeon's portal stands in the open world (F within `r` of it takes you in), and where
-/// you come out of it again, facing away from it (src/sim/zone/types.ts DungeonDoor).
+/// you come out of it again, facing away from it (src/engine/world/types.ts DungeonDoor).
 #[derive(Deserialize, Clone, Debug)]
 pub struct DungeonDoor {
     pub id: String,
@@ -367,13 +367,13 @@ pub struct Zone {
     pub obstacles: Vec<Obstacle>,
     pub boxes: Vec<BoxCollider>,
     pub decks: Vec<Deck>,
-    /// How far from the middle anything can go (src/sim/zone/world.ts: half the island, less 8 m).
+    /// How far from the middle anything can go (src/engine/world/region.ts: half the island, less 8 m).
     pub radius: f64,
 }
 
 impl Zone {
-    /// Grows the zone its recipe describes (src/sim/zone/generate.ts in the browser, until it runs
-    /// this too): about a tenth of a second for Emberholm.
+    /// Grows the zone its recipe describes (the browser too, through the WebAssembly): about a tenth
+    /// of a second for Emberholm.
     pub fn grow(recipe: Recipe) -> Zone {
         let g = super::generate::generate(&recipe);
         let radius = g.terrain.size() / 2.0 - 8.0;

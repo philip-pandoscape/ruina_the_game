@@ -186,7 +186,7 @@ pub struct RoadRecipe {
     pub points: Vec<[f64; 2]>,
 }
 
-/// A waterfall down a mountain's face (src/sim/zone/types.ts WaterfallRecipe): distances are out from
+/// A waterfall down a mountain's face (src/engine/world/types.ts WaterfallRecipe): distances are out from
 /// the mountain's middle along `bearing`.
 #[derive(Deserialize, Clone, Debug)]
 pub struct FallsRecipe {
@@ -393,7 +393,7 @@ pub struct PlungeInfo {
     pub level: f64,
 }
 
-/// A waterfall as the generator cut it (src/sim/zone/types.ts WaterfallInfo): the mountain's middle,
+/// A waterfall as the generator cut it (src/engine/world/types.ts WaterfallInfo): the mountain's middle,
 /// the unit vectors out along the bearing (u) and across it (v), and where everything is.
 #[derive(Serialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]

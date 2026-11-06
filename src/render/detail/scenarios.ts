@@ -20,7 +20,7 @@ export interface Moment {
   facing?: number;
   /**
    * What the vehicle's controls are doing (throttle and steering, -1..1, as the rules have them in
-   * src/sim/life/vehicles.ts): what its model moves to (the oars' stroke, the wheel). Left out, the
+   * src/engine/life/vehicles.ts): what its model moves to (the oars' stroke, the wheel). Left out, the
    * effort and the bank stand in for them.
    */
   controls?: { throttle: number; steer: number };
@@ -350,7 +350,7 @@ const travel = (frames: number, mode: string, at: (t: number) => Partial<PoseInp
 /** How hard the stroke goes at a speed, as the close-up hero reads it (character.ts inputFromPlayer). */
 const effortAt = (speed: number): number => Math.min(1, Math.abs(speed) / 6);
 
-/** Swimming, speeding up or slowing down at the rules' rate (src/sim/player/traverse.ts updateSwim). */
+/** Swimming, speeding up or slowing down at the rules' rate (src/engine/world/ground.ts updateSwim). */
 const swimRamp = (from: number, to: number): Segment => {
   const frames = Math.max(1, Math.ceil((Math.abs(to - from) / SWIM.accel) * HZ));
   return {
@@ -364,7 +364,7 @@ const swimRamp = (from: number, to: number): Segment => {
 
 /**
  * At the oars, with the boat's controls going where `legs` say (throttle, steering, frames), eased
- * the way the rules ease them (src/sim/life/vehicles.ts stepBoat): rowing ahead, turning, backing
+ * the way the rules ease them (src/engine/life/vehicles.ts stepBoat): rowing ahead, turning, backing
  * water, turning on the spot, starting and stopping.
  */
 function rowing(legs: Array<[throttle: number, steer: number, frames: number]>): Segment {

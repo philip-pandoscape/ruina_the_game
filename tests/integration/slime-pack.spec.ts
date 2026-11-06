@@ -7,7 +7,7 @@ import { gameReady } from '../support/game';
 // Its tests share nothing, so they spread across the workers (playwright.config.ts).
 test.describe.configure({ mode: 'parallel' });
 
-// Slimes as a pack (shared/behaviours.json "slime", src/sim/actors/step.ts): they leave you alone
+// Slimes as a pack (shared/behaviours.json "slime", crates/engine/src/actors.rs): they leave you alone
 // until you hit one, then the pack comes for you - winding up, leaping, and slamming the spot you
 // were standing on. Played in the training yard, where every frame is stepped by the test.
 

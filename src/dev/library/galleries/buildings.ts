@@ -211,14 +211,14 @@ export const buildingsSubject: Subject = {
   gallery: (host, plan, o) => new BuildingsGallery(host, plan, o),
   source: () => ({
     system:
-      "Plans, not models (shared/buildings.json, src/content/buildings.ts): walls written as strings of the kit's 2 m modules (door, window, arch...) storey by storey, 3 m a storey, stairs, a roof and furniture, laid out from Quaternius' Medieval Village MegaKit by assemble.ts and drawn by village.ts in a few merged meshes, the house you are in cut open above your storey. The rules wall, floor and stair-step each one from the same plan (src/sim/zone/buildings.ts), shown here over it.",
+      "Plans, not models (shared/buildings.json, src/content/buildings.ts): walls written as strings of the kit's 2 m modules (door, window, arch...) storey by storey, 3 m a storey, stairs, a roof and furniture, laid out from Quaternius' Medieval Village MegaKit by assemble.ts and drawn by village.ts in a few merged meshes, the house you are in cut open above your storey. The rules wall, floor and stair-step each one from the same plan, shown here over it.",
     files: [
       { path: 'shared/buildings.json', what: 'the plans and the furniture catalogue' },
       { path: 'src/content/buildings.ts', what: 'reading plans: modules, openings, stairwells, mirroring' },
       { path: 'src/render/village/assemble.ts', what: "laying out the kit's pieces" },
       { path: 'src/render/village/village.ts', what: 'drawing the town: cut-away, doors, lamps' },
       { path: 'src/render/village/furnish.ts', what: 'furniture, rugs, straw, fire' },
-      { path: 'src/sim/zone/buildings.ts', what: "the rules' walls, decks and posts" },
+      { path: 'crates/engine/src/open/buildings.rs', what: "the rules' walls, decks and posts" },
     ],
     conventions:
       'A plan faces +Z with its middle at its origin; storey 0 is the ground floor. Red boxes are walls, blue decks (floors, treads), yellow rings posts and furniture.',

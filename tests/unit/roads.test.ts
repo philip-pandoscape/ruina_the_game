@@ -1,10 +1,7 @@
 import { expect, test } from 'vitest';
-import { SURFACE } from '../../src/sim/terrain';
-import { EMBERHOLM, makeZoneWorld } from '../../src/sim/zone/world';
-import { RoadNetwork, routePoint, TAIL_MAX, type Route } from '../../src/sim/zone/roads';
-import { inRect } from '../../src/sim/zone/colliders';
+import { EMBERHOLM, inRect, makeZoneWorld, RoadNetwork, type Route, routePoint, SURFACE, TAIL_MAX } from '../../src/engine/zone';
 
-// Auto-run's road network and its routes (src/sim/zone/roads.ts), checked without a page. Walking
+// Auto-run's road network and its routes (src/engine/world/roads.ts), checked without a page. Walking
 // them in the game, the map and the readout: tests/integration/travel.spec.ts.
 
 const PAVED = new Set<number>([SURFACE.road, SURFACE.plaza]);

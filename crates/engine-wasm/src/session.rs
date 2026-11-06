@@ -83,7 +83,7 @@ pub extern "C" fn session_free(h: u32) {
     });
 }
 
-/// One fixed step with what was pressed (src/sim/types.ts Actions). `flags`: jump pressed 1, jump
+/// One fixed step with what was pressed (src/engine/shapes.ts Actions). `flags`: jump pressed 1, jump
 /// held 2, attack pressed 4, slide pressed 8, sprint held 16, crouch held 32. Returns how many
 /// events are waiting.
 #[unsafe(no_mangle)]
@@ -185,7 +185,7 @@ pub extern "C" fn session_clear_len(h: u32) -> usize {
     with(h, |s| s.clear().len()).unwrap_or(0)
 }
 
-/// What you press in a step, in the shape of src/sim/types.ts Actions.
+/// What you press in a step, in the shape of src/engine/shapes.ts Actions.
 fn actions_of(v: &Value) -> Actions {
     let f = |k: &str| v.get(k).and_then(Value::as_f64).unwrap_or(0.0);
     let b = |k: &str| v.get(k).and_then(Value::as_bool).unwrap_or(false);
@@ -216,7 +216,7 @@ fn field<T: for<'de> Deserialize<'de>>(v: &Value, k: &str) -> Option<T> {
     v.get(k).filter(|x| !x.is_null()).and_then(|x| T::deserialize(x).ok())
 }
 
-/// Takes what happened since the last time: JSON, each event as src/sim/types.ts GameEvent has it.
+/// Takes what happened since the last time: JSON, each event as src/engine/shapes.ts GameEvent has it.
 #[unsafe(no_mangle)]
 pub extern "C" fn session_events(h: u32) -> usize {
     let list = with(h, |s| {
@@ -234,7 +234,7 @@ pub extern "C" fn session_events(h: u32) -> usize {
     give(serde_json::to_string(&list.unwrap_or_default()).unwrap_or_default())
 }
 
-/// You, as src/sim/types.ts PlayerState has you (JSON).
+/// You, as src/engine/shapes.ts PlayerState has you (JSON).
 #[unsafe(no_mangle)]
 pub extern "C" fn session_player(h: u32) -> usize {
     give(with(h, |s| s.player_json().to_string()).unwrap_or_default())

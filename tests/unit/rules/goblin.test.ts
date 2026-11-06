@@ -4,7 +4,7 @@ import { COMBAT, emptyMovement, HOTBAR_SLOTS, NO_ABILITY, type Build } from '../
 import { skillsFrom } from '../../../src/content/skills';
 import { actorKind } from '../../../src/content/actors';
 import { attackDef } from '../../../src/content/attacks';
-import { behaviour } from '../../../src/sim/ai/brain';
+import { behaviour } from '../../../src/engine/creatures';
 import { gameReady } from '../../support/headless';
 
 // The basic goblin (content/creatures/goblin/, design/goblins.md), played in the training yard

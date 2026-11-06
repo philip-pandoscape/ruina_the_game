@@ -5,7 +5,7 @@ import { skillsFrom } from '../../../src/content/skills';
 import { actorKind } from '../../../src/content/actors';
 import { gameReady } from '../../support/headless';
 
-// Slimes as a pack (shared/behaviours.json "slime", src/sim/actors/step.ts): they leave you alone
+// Slimes as a pack (shared/behaviours.json "slime", crates/engine/src/actors.rs): they leave you alone
 // until you hit one, then the pack comes for you - winding up, leaping, and slamming the spot you
 // were standing on. Played in the training yard, where every frame is stepped by the test.
 

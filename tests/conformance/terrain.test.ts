@@ -2,12 +2,12 @@ import { execFileSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { expect, test } from 'vitest';
 import { makeRng } from '../../src/util/rng';
-import { EMBERHOLM, generateZone } from '../../src/sim/zone/world';
+import { EMBERHOLM, generateZone } from '../../src/engine/zone';
 
 // The server and the browser play the same island: the engine grows it from its recipe
 // (crates/engine/src/open/generate.rs), natively on the server and in the browser through its
 // WebAssembly (generateZone, src/engine/wasm.ts). Here the browser's is held to the server's, all
-// of what grows and handed over, and the ground as the TypeScript rules sample it (src/sim/terrain.ts)
+// of what grows and handed over, and the ground as the TypeScript rules sample it (src/engine/world/terrain.ts)
 // to the engine's sampling, until the browser's rules are the engine's too.
 
 const CHECK = `target/release/terraincheck${process.platform === 'win32' ? '.exe' : ''}`;

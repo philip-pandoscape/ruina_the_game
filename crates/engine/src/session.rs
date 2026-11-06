@@ -1,9 +1,9 @@
-//! The game as the browser plays it (Phase 8): the rules for one player, in the island or the
-//! training yard, as src/engine/engine.ts runs src/sim/sim.ts today. You, the creatures and the
+//! The game as the browser plays it: the rules for one player, in the island or the training yard,
+//! as src/engine/engine.ts runs them. You, the creatures and the
 //! training range offline (the server decides them online), the island's life, the copies of
 //! dungeons you're in; stepped once per fixed frame with what you pressed, and changed from outside
 //! only by the named calls below, each the twin of one of the Engine's. What happened comes out as
-//! events (crate::event) in the order the TypeScript raises them, and everything the page draws can
+//! events (crate::event) in the order they happen, and everything the page draws can
 //! be read off as the TypeScript's shapes (`player_json`, `actors_json`, `life_json`).
 //! crates/engine-wasm hands it to the browser; the headless tests run it beside the TypeScript and
 //! compare every step until the TypeScript goes.
@@ -282,7 +282,7 @@ impl Session {
         }
     }
 
-    /// Back on your feet (respawn in src/sim/player/attacks.ts): where a copy is entered, or your
+    /// Back on your feet: where a copy is entered, or your
     /// team's spawn, standing on the ground there.
     fn respawn(&mut self) {
         let team = match &self.ground {
@@ -321,7 +321,7 @@ impl Session {
         self.events.append(&mut self.player.events);
     }
 
-    /// Offline, every creature's frame (updateActors in src/sim/actors/step.ts): their blows and
+    /// Offline, every creature's frame: their blows and
     /// slams land on you as they happen.
     fn step_actors(&mut self) {
         let terrain = self.terrain();
@@ -520,7 +520,7 @@ impl Session {
 
     /// Restores a saved island (a test's, or a bug report's): its state, the time you were away
     /// (`now` on the clock `savedAt` was measured on, in ms), where you stood. False, changing
-    /// nothing, for a save from a newer game than this one (applySave in src/sim/life/island.ts).
+    /// nothing, for a save from a newer game than this one (applySave in src/engine/life/save.ts).
     pub fn load_island(&mut self, data: &Value, now: f64) -> bool {
         let (Some(life), Ground::Open(world)) = (self.life.as_mut(), &mut self.ground) else { return false };
         let Some(state) = data.get("state") else { return false };
@@ -580,7 +580,7 @@ impl Session {
     // ---------- Online: what the server says ----------
 
     /// Online, the server's word on you (the first half of Engine.correct): you start again from
-    /// it, in the shape of src/sim/types.ts PlayerState; where you were drawn from is kept for
+    /// it, in the shape of src/engine/shapes.ts PlayerState; where you were drawn from is kept for
     /// `replay`.
     pub fn take_player(&mut self, v: &Value) {
         self.drawn_from = Some(self.player.prev_pos);
@@ -830,7 +830,7 @@ impl Session {
 
     // ---------- What the page reads ----------
 
-    /// You, as src/sim/types.ts PlayerState has you.
+    /// You, as src/engine/shapes.ts PlayerState has you.
     pub fn player_json(&self) -> Value {
         let p = &self.player;
         let mut v = player_state_json(p);
@@ -860,7 +860,7 @@ impl Session {
         h
     }
 
-    /// Everything solid on the island as it stands, in src/sim/zone/types.ts's shapes (`{obstacles,
+    /// Everything solid on the island as it stands, in src/engine/world/types.ts's shapes (`{obstacles,
     /// boxes, decks}`; null on the yard's flat ground).
     pub fn colliders_json(&self) -> Value {
         let Ground::Open(w) = &self.ground else { return Value::Null };
@@ -875,8 +875,8 @@ impl Session {
         }
     }
 
-    /// The creatures and what they've thrown, as src/sim/actor.ts has them, and offline the yard's
-    /// arrows and meteors in flight (src/sim/training.ts).
+    /// The creatures and what they've thrown, as src/engine/actors/actor.ts has them, and offline the yard's
+    /// arrows and meteors in flight (src/engine/training.ts).
     pub fn actors_json(&self) -> Value {
         json!({ "list": self.actors.list, "missiles": self.actors.missiles, "arrows": self.range.arrows, "meteors": self.range.meteors })
     }
@@ -973,7 +973,7 @@ fn mode_of(s: &str) -> Option<Mode> {
     })
 }
 
-/// Takes a player's whole state in the shape of src/sim/types.ts PlayerState (`player_state_json`'s,
+/// Takes a player's whole state in the shape of src/engine/shapes.ts PlayerState (`player_state_json`'s,
 /// with where they were a step ago): what isn't there is left as it was. What the build does is
 /// worked out again from its skills.
 pub fn take_state(p: &mut Player, v: &Value) {
@@ -1088,7 +1088,7 @@ fn mode_name(m: Mode) -> &'static str {
     }
 }
 
-/// A player's whole state, in the shape of src/sim/types.ts PlayerState (without where they were a
+/// A player's whole state, in the shape of src/engine/shapes.ts PlayerState (without where they were a
 /// step ago, which only the browser keeps).
 pub fn player_state_json(p: &Player) -> Value {
     let v3 = |x: f64, y: f64, z: f64| json!({ "x": x, "y": y, "z": z });

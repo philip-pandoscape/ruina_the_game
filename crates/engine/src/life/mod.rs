@@ -35,7 +35,7 @@ pub fn step_seconds() -> f64 {
     1.0 / crate::tuning::tuning().sim_hz
 }
 
-/// What a browser can ask the island to do (src/sim/life/life.ts Command). `grant` and `warp` are
+/// What a browser can ask the island to do (src/engine/life/life.ts Command). `grant` and `warp` are
 /// the developer panel's, and only run where the server allows the panel.
 #[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
 #[serde(tag = "t", rename_all = "camelCase")]
@@ -149,7 +149,7 @@ impl Command {
     }
 }
 
-/// Something that happened, for the browser to show (src/sim/life/life.ts LifeEvent).
+/// Something that happened, for the browser to show (src/engine/life/life.ts LifeEvent).
 #[derive(Serialize, Clone, Debug, PartialEq)]
 #[serde(tag = "t", rename_all = "camelCase")]
 pub enum LifeEvent {
@@ -200,7 +200,7 @@ pub enum LifeEvent {
     },
 }
 
-/// Something quests count (src/sim/life/quests.ts QuestEvent).
+/// Something quests count (src/engine/life/quests.ts QuestEvent).
 #[derive(Clone, Debug, Default)]
 pub struct QuestEvent {
     pub type_: String,
@@ -221,7 +221,7 @@ impl QuestEvent {
     }
 }
 
-/// What pressing F does right now (src/sim/life/interact.ts Focus).
+/// What pressing F does right now (src/engine/life/interact.ts Focus).
 #[derive(Serialize, Clone, Debug, Default, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct Focus {
@@ -268,7 +268,7 @@ pub struct Focus {
 }
 
 /// Another player's vehicle as you see it online: whose (their character and name), and the seats
-/// taken in it (src/sim/life/life.ts OthersVehicle).
+/// taken in it (src/engine/life/life.ts OthersVehicle).
 #[derive(Deserialize, Clone, Debug)]
 pub struct OthersVehicle {
     pub host: i64,
@@ -278,7 +278,7 @@ pub struct OthersVehicle {
 }
 
 /// Another player near you online, whom the prompt can offer to challenge to a mini-game
-/// (src/sim/life/life.ts OtherPlayer).
+/// (src/engine/life/life.ts OtherPlayer).
 #[derive(Deserialize, Clone, Debug)]
 pub struct OtherPlayer {
     pub id: i64,
@@ -291,7 +291,7 @@ pub struct OtherPlayer {
     pub busy: Option<String>,
 }
 
-/// A scarecrow being walked to its spot (src/sim/life/interact.ts Placement).
+/// A scarecrow being walked to its spot (src/engine/life/interact.ts Placement).
 #[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq)]
 pub struct Placement {
     pub item: String,

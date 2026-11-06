@@ -4,10 +4,10 @@
 // the engine (crates/engine/src/life), offline in this page's session and online on the server, so
 // nothing here changes the island: a command goes to whoever runs it.
 
-import type { Focus, Placement } from '../sim/life/interact';
-import type { Command, LifeEvent } from '../sim/life/life';
-import type { LifeState } from '../sim/life/state';
-import type { ZoneData } from '../sim/zone/world';
+import type { Focus, Placement } from './life/interact';
+import type { Command, LifeEvent } from './life/life';
+import type { LifeState } from './life/state';
+import type { ZoneData } from './world/region';
 
 /** How many things the island has said that are kept for the page to show (the oldest go first). */
 const KEPT = 200;

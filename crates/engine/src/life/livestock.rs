@@ -1,4 +1,4 @@
-//! Farm animals in scarecrow plots (src/sim/life/livestock.ts), raised in plot cells like crops: a
+//! Farm animals in scarecrow plots (src/engine/life/livestock.ts), raised in plot cells like crops: a
 //! chick, lamb or calf grows up only while it is fed, and once grown it lays, grows fleece or gives
 //! milk again and again - also only while fed. A hungry animal simply waits for you; nothing dies
 //! of neglect on Emberholm.

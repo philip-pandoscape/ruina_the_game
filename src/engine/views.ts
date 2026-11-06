@@ -5,9 +5,9 @@
 // step hands over is new each time, so a part kept from an earlier step is that step's.
 
 import { BOOK, type Levels, type ResolvedSkills, resolveSkills } from '../content/skills';
-import type { Actor, Missile } from '../sim/actor';
-import type { ArrowFlight, MeteorFall } from '../sim/training';
-import type { GameEvent, PlayerState, World } from '../sim/types';
+import type { Actor, Missile } from './actors/actor';
+import type { ArrowFlight, MeteorFall } from './training';
+import type { GameEvent, PlayerState, World } from './shapes';
 
 /** The creatures as the engine last showed them (offline: online the server's are drawn from its updates). */
 export class ActorsView {

@@ -5,9 +5,9 @@ The bridge to the rules: the only way to them from the rest of the client
 compiled to WebAssembly (`crates/engine-wasm`): the `Engine` plays the page's game in the engine's
 session (`crates/engine/src/session.rs`: you, the creatures, the yard, the island, copies of
 dungeons) and, after each step or call, reads back what the page shows. The island grows in the
-engine too (`zone_grow`). What the page reads of the rules besides (the shapes of their state, the
-ground's sampling, the island's read helpers, the roads) is still TypeScript in `src/sim/`, whose
-steppers no longer run, until R8.13 of the refactor (`.plans/refactor/`) moves it here.
+engine too (`zone_grow`). What the page reads of the rules besides is TypeScript here, read-only:
+the shapes of their state (`shapes.ts`), the world's ground, regions, instances and roads (`world/`),
+the read helpers of a life (`life/`) and of creatures (`actors/`). None of it steps the rules.
 
 | File | What |
 |---|---|
@@ -17,16 +17,25 @@ steppers no longer run, until R8.13 of the refactor (`.plans/refactor/`) moves i
 | `islandView.ts` | `IslandView` (`engine.life`): the island as the page reads it (its state, prompt, placing, resting, revision, the dungeon you're in, what it said, item counts); its commands go to the Engine. |
 | `wasm.ts` | The engine's WebAssembly: loaded once per page, then asked synchronously (text through its memory, big arrays copied out). `growZone` grows a zone from its recipe; `buildingSolids` gives a building plan's colliders. |
 | `load.ts` | The engine's file for a page (`startEngine()`): every page that reaches the island awaits it first (the game, the bible, the content library). The tests load it from the file (`tests/support/engineSetup.ts`). |
-| `rules.ts` | The rules' common shapes and helpers: the world, you, what you press and what happens. |
-| `zone.ts` | The island's ground and what stands on it: terrain, zones, buildings, colliders, roads, dungeons. |
-| `island.ts` | The island's life systems: trade, farming, housing, the shipyard, vehicles, quests, weather, saves. |
-| `creatures.ts` | Creatures: actors, their brains and behaviours, hits and missiles. |
+| `rules.ts` | Front door: the rules' common shapes and helpers: the world, you, what you press and what happens. |
+| `zone.ts` | Front door: the island's ground and what stands on it: terrain, zones, buildings, colliders, roads, dungeons. |
+| `island.ts` | Front door: the island's life systems: trade, farming, housing, the shipyard, vehicles, quests, weather, saves. |
+| `creatures.ts` | Front door: creatures: actors, their brains and behaviours, hits and missiles. |
+| `shapes.ts`, `math.ts`, `training.ts` | The shapes the engine's session reads back (you, what you press, the world, what happened, the yard's arrows and meteors) and the angles they're read with. |
+| `world/` | The ground and what stands on it, read: the height grid (`terrain.ts`), the colliders' index and sampling (`colliders.ts`, `ground.ts`, `frames.ts`), a zone's recipe and what the engine grows from it (`types.ts`, `region.ts`: Emberholm, the first region), the dungeons' files (`dungeons.ts`), the roads and short walks for travel by road (`roads.ts`, `localPath.ts`: the page's own, with no Rust twin). |
+| `life/` | A life's state (`state.ts`, the engine's shape) and the read helpers of each system: what a pack sells for, a crop's stage, a house's needs, the weather at an hour, the quests an NPC has, the commands the page sends (`life.ts`). |
+| `actors/` | Creatures as read back (`actor.ts`), the behaviours' states for drawing (`brains.ts`), and the cone of a swing for the online guess at a blow (`hits.ts`). |
 | `minigames.ts` | The mini-games' rules for their boards (`crates/engine-wasm/src/minigames.rs`): how each game's board is laid out, and what a player may do now from what they see (so a board offers just what the server would take), from the same rules module the server plays it by. |
 
 ## Rules
 
-- **Only the bridge imports `src/sim/`.** Everything else imports from here. The bible may read the
-  rules' source as text (`?raw`, for numbers they don't export).
+- **Outside code comes in by the front doors.** `engine.ts`, `load.ts`, `minigames.ts`, `rules.ts`,
+  `zone.ts`, `island.ts` and `creatures.ts`; the rest of the folder is reached only through them
+  (`tests/unit/boundaries.test.ts`). The bible reads the engine's Rust as text (`?raw`, for numbers
+  the rules don't export).
+- **Nothing here steps the rules.** A rule is the engine's and changes there, in one place; what's
+  here reads what the engine hands back. A helper that would decide something the engine decides is
+  a call to the engine instead.
 - **Writes are named calls.** Nothing outside the rules assigns to their state: a change from outside
   is a method on `Engine`, named for what it does, which the engine's session answers (a named
   `session_call`). What the rest reads (`player`, `actors`, the island's state) is for reading, and

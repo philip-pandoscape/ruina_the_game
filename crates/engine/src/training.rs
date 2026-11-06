@@ -1,8 +1,7 @@
 //! What the browser plays offline that the server decides online (Phase 8): a swing's blow landing
 //! on whatever stands in front of you (with its hit pause), damage dealt to creatures and what it
 //! shows, and the training range: arrows flying, meteors falling and heals going off against
-//! whatever stands about (src/sim/combat/hit.ts, deal.ts, src/sim/player/attacks.ts checkHit and
-//! src/sim/training.ts). The numbers are the server's (crates/server/src/combat.rs); the session
+//! whatever stands about. The numbers are the server's (crates/server/src/combat.rs); the session
 //! (crate::session) runs these in its offline steps.
 
 use serde::Serialize;
@@ -14,7 +13,7 @@ use crate::open::zone::Heightfield;
 use crate::player::{DEG, Player, angle_diff};
 use crate::tuning::{AttackStep, ability, effect_damage, effect_radius, melee_targets, tuning};
 
-/// Townsfolk: never anyone's target (FACTION.neutral in src/sim/actor.ts).
+/// Townsfolk: never anyone's target (FACTION.neutral in src/engine/actors/actor.ts).
 const NEUTRAL: u8 = 2;
 /// How close an arrow has to pass to count, and how hard it rocks what it hits.
 const ARROW_PAD: f64 = 0.25;
@@ -23,7 +22,7 @@ const METEOR_KNOCK: f64 = 9.0;
 /// A delayed area with no delay of its own falls after this many frames.
 const METEOR_FALL: i32 = 30;
 
-/// Something an attack could land on right now, with its heights in world terms (src/sim/combat/hit.ts Target).
+/// Something an attack could land on right now, with its heights in world terms (src/engine/actors/hits.ts Target).
 #[derive(Clone, Copy, Debug)]
 pub struct Target {
     pub id: u32,
@@ -35,7 +34,7 @@ pub struct Target {
     pub hit_ceiling: f64,
 }
 
-/// Everything standing that an attack could land on (Sim.targets in src/sim/sim.ts): on an island
+/// Everything standing that an attack could land on: on an island
 /// their heights are raised onto the ground under them.
 pub fn targets(actors: &Actors, terrain: Option<&Heightfield>) -> Vec<Target> {
     let mut out = Vec::new();
@@ -100,7 +99,7 @@ pub fn point_hit(targets: &[Target], x: f64, y: f64, z: f64, pad: f64) -> Option
     best
 }
 
-/// Where a blow lands, and the creatures it lands on (src/sim/combat/deal.ts): the player who dealt
+/// Where a blow lands, and the creatures it lands on: the player who dealt
 /// it, the ground for its heights, and the step's events.
 pub struct Blows<'a> {
     pub actors: &'a mut Actors,
@@ -161,7 +160,7 @@ impl Blows<'_> {
     }
 }
 
-/// A swing's blow, on a frame it could land (src/sim/player/attacks.ts checkHit): whatever is in
+/// A swing's blow, on a frame it could land: whatever is in
 /// its arc and reach takes it, and everything pauses a moment. `above` is how high you are over
 /// the ground; returns the frames of hit pause, if it landed.
 pub fn check_hit(
@@ -194,7 +193,7 @@ pub fn check_hit(
     Some(step.hitstop)
 }
 
-/// An arrow in flight on the training range (src/sim/training.ts ArrowFlight).
+/// An arrow in flight on the training range (src/engine/training.ts ArrowFlight).
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Arrow {
@@ -212,7 +211,7 @@ pub struct Arrow {
     pub spent: bool,
 }
 
-/// A meteor on its way down (src/sim/training.ts MeteorFall).
+/// A meteor on its way down (src/engine/training.ts MeteorFall).
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Meteor {
@@ -225,7 +224,7 @@ pub struct Meteor {
     pub damage: f64,
 }
 
-/// The training range (src/sim/training.ts TrainingRange): the server's arrows, meteors and heals,
+/// The training range (src/engine/training.ts TrainingRange): the server's arrows, meteors and heals,
 /// played in the browser against whatever stands about.
 #[derive(Default)]
 pub struct Range {

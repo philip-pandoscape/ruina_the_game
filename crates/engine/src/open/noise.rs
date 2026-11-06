@@ -1,4 +1,4 @@
-//! The noise an island grows from (src/sim/terrain.ts): integer hashing rather than a random
+//! The noise an island grows from (src/engine/world/terrain.ts): integer hashing rather than a random
 //! stream, so the same seed grows the same island in any language, and smooth value noise summed
 //! over octaves. Plain arithmetic in the TypeScript's order, so both give the same bits.
 
@@ -73,7 +73,7 @@ mod tests {
 
     #[test]
     fn the_same_numbers_as_the_browser() {
-        // src/sim/terrain.ts in Node 24: hash2(3, -7, 7342), valueNoise(12.25, -3.5, 7362),
+        // src/engine/world/terrain.ts in Node 24: hash2(3, -7, 7342), valueNoise(12.25, -3.5, 7362),
         // fbm(1.7, 2.9, 4, 7362), and hash2(4294967297, 2147483648, -5), whose numbers wrap.
         assert_eq!(hash2(3, -7, 7342), 0.8172645743470639);
         assert_eq!(value_noise(12.25, -3.5, 7362), 0.550675879141636);

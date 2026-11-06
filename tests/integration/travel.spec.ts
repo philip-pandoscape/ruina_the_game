@@ -1,12 +1,11 @@
 import { expect, test, type Page } from '@playwright/test';
-import { SURFACE } from '../../src/sim/terrain';
-import { EMBERHOLM } from '../../src/sim/zone/world';
+import type { Command } from '../../src/engine/island';
+import { EMBERHOLM, SURFACE } from '../../src/engine/zone';
 import { isTitleCase } from '../../src/ui/theme/text';
-import type { Command } from '../../src/sim/life/life';
 import type { LifePress } from '../../src/ui/life/lifeUI';
 import { gameReady, onlineReady } from '../support/game';
 
-// Auto-run and travel by road (src/input/autoWalk.ts, src/sim/zone/roads.ts, src/ui/life/travelUI.ts).
+// Auto-run and travel by road (src/input/autoWalk.ts, src/engine/world/roads.ts, src/ui/life/travelUI.ts).
 // The road network and its routes are checked here in Node; the walking, the map and the readout in
 // the open world offline, driven through window.__game a frame at a time like the other specs; and
 // one trip on the game server, at the end, when one is running.

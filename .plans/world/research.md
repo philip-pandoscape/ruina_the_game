@@ -735,7 +735,7 @@ and channels. Going multi-process then changes transports, not designs.
      `{space, x, y, z}`.
    - Give each dungeon and developer zone a frame of its own instead of a place in Emberholm's sky. A copy
      builds its own world from the zone file rather than adding pieces to the island's (`open/dungeon.rs`,
-     `OpenWorld::make_dungeon`, `play/mod.rs` `ChannelGame::copy`, `src/sim/zone/dungeon.ts`).
+     `OpenWorld::make_dungeon`, `play/mod.rs` `ChannelGame::copy`, `src/engine/world/dungeons.ts`).
    - This retires the "within 760 m, apart from the others" rule in `docs/zones.md` and its engine checks.
    - The overworld frame is metres in f64, y up, origin at Emberholm's centre, so nothing on the island moves.
 2. **Regions placed by data on a chunk grid.**

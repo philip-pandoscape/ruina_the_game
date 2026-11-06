@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { ABILITIES, comboFor, emptyMovement, HOTBAR_SLOTS, NO_ABILITY, SLIDE_SKILL, type Build, WEAPONS } from '../../src/content/tuning';
 import { LEVEL_XP, resolveSkills, SKILL_POINTS, skillIndex, skillsFrom, START_POINTS } from '../../src/content/skills';
-import type { Command } from '../../src/sim/life/life';
+import type { Command } from '../../src/engine/island';
 import { gameReady } from '../support/game';
 
 // The classless skill system: the skill panel, and every weapon and ability in the training yard.

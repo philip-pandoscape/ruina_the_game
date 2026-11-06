@@ -6,13 +6,13 @@
 
 import type { Levels } from '../content/skills';
 import type { Build } from '../content/tuning';
-import type { Actor, Missile } from '../sim/actor';
-import type { Focus, Placement } from '../sim/life/interact';
-import type { LifeEvent } from '../sim/life/life';
-import type { LifeState } from '../sim/life/state';
-import type { ArrowFlight, MeteorFall } from '../sim/training';
-import type { Actions, GameEvent, Obstacle, PlayerState } from '../sim/types';
-import type { BoxCollider, Deck } from '../sim/zone/types';
+import type { Actor, Missile } from './actors/actor';
+import type { Focus, Placement } from './life/interact';
+import type { LifeEvent } from './life/life';
+import type { LifeState } from './life/state';
+import type { ArrowFlight, MeteorFall } from './training';
+import type { Actions, GameEvent, Obstacle, PlayerState } from './shapes';
+import type { BoxCollider, Deck } from './world/types';
 import { answer, wasm, withText } from './wasm';
 
 export interface SessionOptions {

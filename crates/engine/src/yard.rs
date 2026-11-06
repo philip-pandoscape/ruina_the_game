@@ -1,7 +1,6 @@
-//! The worlds the browser plays offline, laid out as src/sim/yard.ts and src/sim/zone/world.ts lay
-//! them out: the training yard (its props, trees and rocks, the dummy and the slimes) and who
-//! stands about the island when it's played without the server. Same seed, same layout, to the bit
-//! (the browser's session, crate::session, plays them; its shadow test holds them to the TypeScript).
+//! The worlds the browser plays offline: the training yard (its props, trees and rocks, the dummy
+//! and the slimes) and who stands about the island when it's played without the server. Same seed,
+//! same layout, to the bit (the browser's session, crate::session, plays them).
 
 use serde::{Deserialize, Serialize};
 
@@ -16,7 +15,7 @@ pub const YARD_RADIUS: f64 = 32.0;
 /// How many slimes hop about the yard (SLIME.count in src/content/tuning.ts).
 pub const YARD_SLIMES: usize = 5;
 
-/// Something standing in a world when it is built (src/sim/types.ts ActorSpawnPoint).
+/// Something standing in a world when it is built (src/engine/shapes.ts ActorSpawnPoint).
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct SpawnPoint {
     pub kind: String,
@@ -35,7 +34,7 @@ fn is_zero(n: &u32) -> bool {
     *n == 0
 }
 
-/// One prop of a flat world as it is drawn and bumped into (src/sim/types.ts Obstacle).
+/// One prop of a flat world as it is drawn and bumped into (src/engine/shapes.ts Obstacle).
 #[derive(Clone, Debug, Serialize)]
 pub struct Prop {
     pub kind: &'static str,
@@ -65,7 +64,7 @@ impl Yard {
 }
 
 /// `count` of a kind in a ring round (x, z), facing out, as spawn points that share `band`
-/// (bandAround in src/sim/yard.ts).
+///.
 pub fn band_around(kind: &str, count: usize, x: f64, z: f64, band: u32, seed: u32) -> Vec<SpawnPoint> {
     (0..count)
         .map(|i| {
@@ -83,7 +82,7 @@ pub fn band_around(kind: &str, count: usize, x: f64, z: f64, band: u32, seed: u3
         .collect()
 }
 
-/// The training yard (makeWorld in src/sim/yard.ts): props by the dummy, a ring of trees, rocks
+/// The training yard: props by the dummy, a ring of trees, rocks
 /// scattered everywhere but by the spawn and the dummy, the dummy and the slimes.
 pub fn yard(seed: u32) -> Yard {
     let mut rng = Rng::new(seed);
@@ -150,7 +149,7 @@ pub fn yard(seed: u32) -> Yard {
     Yard { seed, radius: YARD_RADIUS, props, dummy, spawn, spawns }
 }
 
-/// Who stands about an island played without the server (makeZoneWorld in src/sim/zone/world.ts):
+/// Who stands about an island played without the server (makeZoneWorld in src/engine/world/region.ts):
 /// its slimes in a ring round their meadow, the dummy, and the townsfolk at their posts.
 pub fn island_spawns(r: &Recipe) -> Vec<SpawnPoint> {
     let s = &r.slimes;

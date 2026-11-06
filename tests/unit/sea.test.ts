@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest';
 import * as THREE from 'three';
 import { WaterView } from '../../src/render/open/water';
-import { Heightfield } from '../../src/sim/terrain';
+import { Heightfield } from '../../src/engine/zone';
 
 // The sea along the shore is drawn in tiles, so the positions the GPU works out stay where they
 // really are (tests/integration/sea.spec.ts checks the foam on screen).

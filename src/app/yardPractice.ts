@@ -1,5 +1,5 @@
 // The training yard's practice: the experience of the skills you use there, kept in this browser
-// (the open world keeps it with your island, src/sim/life/progress.ts). Without browser storage (a
+// (the open world keeps it with your island, src/engine/life/progress.ts). Without browser storage (a
 // private window, or the headless game in Node) it starts from nothing and isn't kept.
 import { BOOK, levelOf } from '../content/skills';
 import { trainedBy } from '../engine/island';

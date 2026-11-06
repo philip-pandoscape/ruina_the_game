@@ -1,5 +1,5 @@
 {
-  "comment": "Emberholm, the starter isle. Everything here is placement and terrain recipe; src/sim/zone/generate.ts turns it into a heightfield, colliders and decks, and src/render/open/stage.ts dresses it. Map convention: north is +Z and east is -X (so a structure with rot 0 faces north, PI faces south, +PI/2 faces west, -PI/2 faces east). Heights in metres above sea level. A terrain flatten levels its ground and keeps it clear of trees, rocks and scarecrows, unless keepClear is false (the fields, open to farming).",
+  "comment": "Emberholm, the starter isle. Everything here is placement and terrain recipe; the engine (crates/engine/src/open/generate.rs) turns it into a heightfield, colliders and decks, and src/render/open/stage.ts dresses it. Map convention: north is +Z and east is -X (so a structure with rot 0 faces north, PI faces south, +PI/2 faces west, -PI/2 faces east). Heights in metres above sea level. A terrain flatten levels its ground and keeps it clear of trees, rocks and scarecrows, unless keepClear is false (the fields, open to farming).",
   "id": "emberholm",
   "name": "Emberholm",
   "subtitle": "The isle beneath the world tree",

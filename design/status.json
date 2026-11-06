@@ -60,7 +60,7 @@
       "files": [
         "shared/zones/emberholm.json",
         "crates/engine/src/open/generate.rs",
-        "src/sim/terrain.ts"
+        "src/engine/world/terrain.ts"
       ]
     },
     {
@@ -93,7 +93,7 @@
       "files": [
         "shared/structures.json",
         "src/render/open/dressing.ts",
-        "src/sim/zone/colliders.ts"
+        "src/engine/world/colliders.ts"
       ]
     },
     {
@@ -123,13 +123,15 @@
       "system": "world",
       "status": "planned",
       "title": "More zones and a sea between continents",
-      "notes": "Zone streaming, a second continent, a contested open sea and an island outpost that pays best and is hardest to reach."
+      "notes": "Zone streaming, a second continent, a contested open sea and an island outpost that pays best and is hardest to reach.",
+      "files": []
     },
     {
       "system": "world",
       "status": "idea",
       "title": "Terrain level of detail",
-      "notes": "Coarser chunks in the distance if draw cost grows with more zones."
+      "notes": "Coarser chunks in the distance if draw cost grows with more zones.",
+      "files": []
     },
     {
       "system": "traversal",
@@ -137,7 +139,7 @@
       "title": "Walking over terrain",
       "notes": "Feet follow the ground; slopes steeper than 46 degrees and ledges over 0.45 m block you; walking off a ledge drops you; standing on a cliff face slides you off. The Windspire ledge path is tested to be climbable on foot, bottom to top.",
       "files": [
-        "src/sim/player/traverse.ts",
+        "src/engine/world/ground.ts",
         "shared/traversal.json"
       ]
     },
@@ -147,7 +149,7 @@
       "title": "Wading and swimming",
       "notes": "Shallow water slows you; deep water swims you at the surface (sprint to swim faster); walk out where it shallows, or jump at a dock edge to haul yourself out.",
       "files": [
-        "src/sim/player/traverse.ts"
+        "src/engine/world/ground.ts"
       ]
     },
     {
@@ -156,7 +158,7 @@
       "title": "Gliders",
       "notes": "Jump, double jump, jump again to open; steer toward the stick; sprint to dive, crouch to flare (speed shed in a flare comes back as height). Wayfarer and Swiftwing. Cannot open with a pack on.",
       "files": [
-        "src/sim/player/traverse.ts",
+        "src/engine/world/ground.ts",
         "shared/vehicles.json"
       ]
     },
@@ -176,7 +178,7 @@
       "title": "Glider gusts",
       "notes": "F in flight gives a burst of speed and lift on a cooldown (Wayfarer 30 s, Swiftwing 16 s), so you can claw back height or stretch a glide. Being knocked out of the air when hit is still to come.",
       "files": [
-        "src/sim/player/traverse.ts",
+        "src/engine/world/ground.ts",
         "shared/vehicles.json"
       ]
     },
@@ -184,7 +186,7 @@
       "system": "traversal",
       "status": "done",
       "title": "Traversal on the server",
-      "notes": "The server decides where everyone is. The engine grows the island from its recipe (crates/engine/src/open/generate.rs), the same island the browser grows (tests/conformance/terrain.test.ts compares all of it); crates/engine/src/open ports the colliders, walking over hills and cliffs, wading, swimming and gliding (traverse.ts), and runs each player's key presses through them. The browser predicts its own player with the TypeScript and corrects to the server's answer; tests/conformance/world.test.ts compares the two frame by frame.",
+      "notes": "The server decides where everyone is. The engine grows the island from its recipe (crates/engine/src/open/generate.rs), the same island the browser grows (tests/conformance/terrain.test.ts compares all of it); crates/engine/src/open ports the colliders, walking over hills and cliffs, wading, swimming and gliding (traverse.ts), and runs each player's key presses through them. The browser predicts its own player with the same engine compiled to WebAssembly and corrects to the server's answer.",
       "files": [
         "crates/engine/src/open/traverse.rs",
         "crates/engine/src/open/colliders.rs",
@@ -199,7 +201,7 @@
       "title": "Wheeled driving model",
       "notes": "Each vehicle keeps its own world velocity and only grips sideways, so handbrake turns slide; road vs offroad caps, sand drag, slopes pull, can leave the ground and land; trees, rocks and walls stop you.",
       "files": [
-        "src/sim/life/vehicles.ts"
+        "src/engine/life/vehicles.ts"
       ]
     },
     {
@@ -217,7 +219,7 @@
       "title": "Rowboat and Sloop",
       "notes": "Boats run aground in water shallower than their draft. The sloop's W/S trims the sail; speed follows the angle to the wind.",
       "files": [
-        "src/sim/life/vehicles.ts"
+        "src/engine/life/vehicles.ts"
       ]
     },
     {
@@ -226,7 +228,7 @@
       "title": "Donkey and Horse",
       "notes": "R calls and rides your mount. Only the donkey carries a pack (at pack pace); the horse gallops with Shift.",
       "files": [
-        "src/sim/life/vehicles.ts"
+        "src/engine/life/vehicles.ts"
       ]
     },
     {
@@ -235,8 +237,8 @@
       "title": "Summon, board, cargo",
       "notes": "Deeds summon vehicles (boats at the nearest deep water). Walk to the seat to drive, to the bed to load or unload. Loaded vehicles cannot be sent home. A pack on your back keeps you out of a cart's or boat's seat: load it into the bed first (only a donkey carries you with one). Seats are where the model's seats are however the vehicle tilts, and the rider tilts with it; online, picking up, loading, unloading and getting in run at once in the browser and again on top of the server's answers until it has run them too.",
       "files": [
-        "src/sim/life/vehicles.ts",
-        "src/sim/life/interact.ts"
+        "src/engine/life/vehicles.ts",
+        "src/engine/life/interact.ts"
       ]
     },
     {
@@ -246,7 +248,7 @@
       "notes": "Captain Ilsa sells the Merchant Cog Design (10s + 6 seals). Lay its keel on the Lanternwick slipway, then haul lumber bundles, iron crates and sailcloth (woven from flax at the Lanternwick bench) through four stages: keel, hull, deck, rigging. The hull visibly rises inside scaffolding; launching hands you the deed. 16 pack slots and a square sail.",
       "files": [
         "shared/shipyard.json",
-        "src/sim/life/shipyard.ts",
+        "src/engine/life/shipyard.ts",
         "src/render/open/life.ts"
       ]
     },
@@ -254,7 +256,8 @@
       "system": "vehicles",
       "status": "planned",
       "title": "Damage, repair and theft",
-      "notes": "Boats now take hull damage in storms and break up (cargo floats, 90 s repair). Carts and cars still only take damage from hard landings; an owner’s mark, theft and salvage are still to come."
+      "notes": "Boats now take hull damage in storms and break up (cargo floats, 90 s repair). Carts and cars still only take damage from hard landings; an owner’s mark, theft and salvage are still to come.",
+      "files": []
     },
     {
       "system": "vehicles",
@@ -265,14 +268,15 @@
         "crates/server/src/play/mod.rs",
         "src/net/worldPeers.ts",
         "src/render/open/life.ts",
-        "src/sim/life/vehicles.ts"
+        "src/engine/life/vehicles.ts"
       ]
     },
     {
       "system": "vehicles",
       "status": "planned",
       "title": "Walking the deck of a moving ship",
-      "notes": "Standing and walking about on a sloop or cog while she sails, rather than only sitting in her seats."
+      "notes": "Standing and walking about on a sloop or cog while she sails, rather than only sitting in her seats.",
+      "files": []
     },
     {
       "system": "trade",
@@ -281,7 +285,7 @@
       "notes": "Four trade packs from the Lanternwick workbench; lumber bundles at Hob's sawhorse; stone blocks and iron crates at the stonecutter.",
       "files": [
         "shared/trade.json",
-        "src/sim/life/trade.ts"
+        "src/engine/life/trade.ts"
       ]
     },
     {
@@ -290,8 +294,8 @@
       "title": "Carrying a pack",
       "notes": "On your back: 55% speed, no sprint, no double jump, no glider, lower jump. X drops it; F picks it up. Packs keep where they are in saves.",
       "files": [
-        "src/sim/player/locomotion.ts",
-        "src/sim/life/trade.ts"
+        "crates/engine/src/player.rs",
+        "src/engine/life/trade.ts"
       ]
     },
     {
@@ -300,7 +304,7 @@
       "title": "Trading posts, routes and prices",
       "notes": "Westwatch (land, ×1.0, 1 seal) and Gullrock (sea, ×1.5, 3 seals). Price = base × route × demand × freshness.",
       "files": [
-        "src/sim/life/trade.ts"
+        "src/engine/life/trade.ts"
       ]
     },
     {
@@ -316,13 +320,15 @@
       "system": "trade",
       "status": "planned",
       "title": "Piracy",
-      "notes": "Packs drop on death for anyone to take; a fence for stolen goods; the crafter keeps a cut when someone else delivers their pack."
+      "notes": "Packs drop on death for anyone to take; a fence for stolen goods; the crafter keeps a cut when someone else delivers their pack.",
+      "files": []
     },
     {
       "system": "trade",
       "status": "idea",
       "title": "Delayed payment with interest",
-      "notes": "ArcheAge paid hours later with interest. Probably not worth the confusion; listed so the decision is explicit."
+      "notes": "ArcheAge paid hours later with interest. Probably not worth the confusion; listed so the decision is explicit.",
+      "files": []
     },
     {
       "system": "farming",
@@ -330,7 +336,7 @@
       "title": "Scarecrow plots",
       "notes": "8 × 8 m on open, level, grassy ground clear of roads, buildings and trees; up to three.",
       "files": [
-        "src/sim/life/farming.ts"
+        "src/engine/life/farming.ts"
       ]
     },
     {
@@ -348,8 +354,8 @@
       "title": "Climate, watering and rain",
       "notes": "Out-of-climate crops grow at 70%; watering or rain speeds a stage by 25%.",
       "files": [
-        "src/sim/life/farming.ts",
-        "src/sim/life/weather.ts"
+        "src/engine/life/farming.ts",
+        "src/engine/life/weather.ts"
       ]
     },
     {
@@ -367,7 +373,7 @@
       "title": "Gathering nodes",
       "notes": "Deadfall timber, stone, iron ore and wild herbs, each with a respawn; timber can turn up a thunderstruck log.",
       "files": [
-        "src/sim/life/interact.ts",
+        "src/engine/life/interact.ts",
         "shared/zones/emberholm.json"
       ]
     },
@@ -378,14 +384,15 @@
       "notes": "Chicks, lambs and calves from Sela, raised in plot cells: they grow up and then lay eggs, grow wool or give milk again and again, but only while fed on barley. Nothing dies of neglect; a hungry animal just waits. Eggs and milk go into a Farmhouse Hamper, wool into a Fleece Bale.",
       "files": [
         "shared/farming.json",
-        "src/sim/life/livestock.ts"
+        "crates/engine/src/life/livestock.rs"
       ]
     },
     {
       "system": "farming",
       "status": "planned",
       "title": "Larceny",
-      "notes": "Crops on unprotected land can be taken; footprints, reports and a crime score."
+      "notes": "Crops on unprotected land can be taken; footprints, reports and a crime score.",
+      "files": []
     },
     {
       "system": "housing",
@@ -393,7 +400,7 @@
       "title": "Plots and blueprints",
       "notes": "Eight plots at Hearthside Rise; a Cottage Blueprint (3s + 3 seals) claims one. One house per settler for now.",
       "files": [
-        "src/sim/life/housing.ts",
+        "src/engine/life/housing.ts",
         "shared/housing.json"
       ]
     },
@@ -403,7 +410,7 @@
       "title": "Building in stages from hauled packs",
       "notes": "Foundation, frame, walls, roof: each needs its material packs delivered to the site and labor to finish.",
       "files": [
-        "src/sim/life/housing.ts"
+        "src/engine/life/housing.ts"
       ]
     },
     {
@@ -412,7 +419,7 @@
       "title": "A home that does something",
       "notes": "Solid walls and a doorway, a floor you stand on, a bed (labor ×3 while resting), a storage chest, property tax paid at the plot.",
       "files": [
-        "src/sim/life/housing.ts",
+        "src/engine/life/housing.ts",
         "src/ui/life/lifeUI.ts"
       ]
     },
@@ -420,13 +427,15 @@
       "system": "housing",
       "status": "planned",
       "title": "Neglect and plot recycling",
-      "notes": "Unpaid tax leads to demolition after a grace period; freed plots go out by lottery, not to the fastest clicker."
+      "notes": "Unpaid tax leads to demolition after a grace period; freed plots go out by lottery, not to the fastest clicker.",
+      "files": []
     },
     {
       "system": "housing",
       "status": "planned",
       "title": "More houses, furniture, friends helping",
-      "notes": "Farmhouse, manor, aquafarm; placeable furniture; other players delivering packs to your site."
+      "notes": "Farmhouse, manor, aquafarm; placeable furniture; other players delivering packs to your site.",
+      "files": []
     },
     {
       "system": "economy",
@@ -435,7 +444,7 @@
       "notes": "Copper/silver/gold, seals from trade routes for land; labor regenerates 12 a minute online (6 offline), cap 1,000.",
       "files": [
         "shared/trade.json",
-        "src/sim/life/life.ts"
+        "src/engine/life/life.ts"
       ]
     },
     {
@@ -451,13 +460,15 @@
       "system": "economy",
       "status": "planned",
       "title": "Player market and mail",
-      "notes": "An auction house per region, mail with attachments."
+      "notes": "An auction house per region, mail with attachments.",
+      "files": []
     },
     {
       "system": "economy",
       "status": "planned",
       "title": "Proficiencies",
-      "notes": "Using labor in a trade levels it: lower labor costs, better yields, new recipes."
+      "notes": "Using labor in a trade levels it: lower labor costs, better yields, new recipes.",
+      "files": []
     },
     {
       "system": "quests",
@@ -466,7 +477,7 @@
       "notes": "Thirteen quests that teach farming, livestock, gliding, packing, contracts, carts, boats, building a house and building a ship, advanced by what you actually do. Anything you already did before taking a quest (a plot placed, a house raised, a ship launched) counts the moment you accept it.",
       "files": [
         "shared/quests.json",
-        "src/sim/life/quests.ts"
+        "src/engine/life/quests.ts"
       ]
     },
     {
@@ -475,7 +486,7 @@
       "title": "Trade contracts",
       "notes": "Each trading post keeps two contracts on its board: so many packs of a kind within 25 minutes, for bonus seals and coin. Hold two at once; lapsed ones are replaced every ten minutes.",
       "files": [
-        "src/sim/life/contracts.ts",
+        "src/engine/life/contracts.ts",
         "shared/trade.json"
       ]
     },
@@ -500,8 +511,8 @@
         "src/ui/theme/windows.css",
         "src/ui/theme/tooltip.ts",
         "src/render/portrait.ts",
-        "src/sim/life/quests.ts",
-        "src/sim/life/trade.ts"
+        "src/engine/life/quests.ts",
+        "src/engine/life/trade.ts"
       ]
     },
     {
@@ -519,7 +530,7 @@
       "title": "Platform-fighter movement and weapons",
       "notes": "Run, sprint, crouch, slide, double jump; sword, club, staff, bow combos. Built before this session.",
       "files": [
-        "src/sim/player/",
+        "crates/engine/src/player.rs",
         "shared/tuning.json"
       ]
     },
@@ -543,7 +554,7 @@
       "system": "combat",
       "status": "done",
       "title": "Battle server",
-      "notes": "Rust server with 10,000 bots, prediction and lag compensation, conformance-tested against the browser rules. Built before this session.",
+      "notes": "Rust server with 10,000 bots, prediction and lag compensation, on the engine the browser runs too. Built before this session.",
       "files": [
         "crates/server/"
       ]
@@ -554,9 +565,8 @@
       "title": "Combat on terrain",
       "notes": "Arrows, meteors, damage numbers and hit sparks use the ground height under each creature. Swings measure how high you are from the ground under you (in the flat yard that is still just your height, as on the server), and on hills they only reach things whose feet are within 2 m of yours, so a slime down a cliff is out of reach. The slimes and the practice dummy on the hillside meadow (18 m up) can be fought with every weapon.",
       "files": [
-        "src/sim/sim.ts",
-        "src/sim/player/attacks.ts",
-        "src/sim/combat/deal.ts",
+        "crates/engine/src/session.rs",
+        "crates/engine/src/training.rs",
         "src/render/vfx.ts"
       ]
     },
@@ -566,8 +576,8 @@
       "title": "Life systems as a deterministic command model",
       "notes": "All open-world changes happen inside a sim step from queued commands (interact, buy, craft, summon...), which is the shape server requests will take.",
       "files": [
-        "src/sim/life/life.ts",
-        "src/sim/life/interact.ts"
+        "src/engine/life/life.ts",
+        "src/engine/life/interact.ts"
       ]
     },
     {
@@ -656,7 +666,7 @@
       "system": "tech",
       "status": "done",
       "title": "A world server",
-      "notes": "The server plays Emberholm. Browsers send only key presses (60 a second, binary) and commands (talk, plant, buy, craft, summon, drive...); each channel's game on the server (crates/server/src/play/mod.rs, 20 ticks a second) runs them through the island's rules ported to Rust (crates/engine/src/open: ground, colliders, traversal; crates/engine/src/life: trade, farming, livestock, housing, shipyard, vehicles, quests, contracts, weather), the battlefield's combat, and the channel's own slimes, then tells each browser where it is, what its island holds, and what everyone else is doing. The browser predicts its own moves and vehicles with the TypeScript and corrects itself; tests/conformance/world.test.ts and tests/conformance/life.test.ts keep the two agreeing. Islands are one JSON document per character in Postgres, written only by the server. Phases: (1) accounts and islands on the server, (2) movement on the server, (3) life on the server, (4) one shared Emberholm in channels, (5) live on Railway: all done.",
+      "notes": "The server plays Emberholm. Browsers send only key presses (60 a second, binary) and commands (talk, plant, buy, craft, summon, drive...); each channel's game on the server (crates/server/src/play/mod.rs, 20 ticks a second) runs them through the island's rules ported to Rust (crates/engine/src/open: ground, colliders, traversal; crates/engine/src/life: trade, farming, livestock, housing, shipyard, vehicles, quests, contracts, weather), the battlefield's combat, and the channel's own slimes, then tells each browser where it is, what its island holds, and what everyone else is doing. The browser predicts its own moves and vehicles with the same engine compiled to WebAssembly and corrects itself. Islands are one JSON document per character in Postgres, written only by the server. Phases: (1) accounts and islands on the server, (2) movement on the server, (3) life on the server, (4) one shared Emberholm in channels, (5) live on Railway: all done.",
       "files": [
         "crates/server/src/play/mod.rs",
         "crates/server/src/play/socket.rs",
@@ -706,7 +716,7 @@
       "title": "Weather and wind",
       "notes": "Rain showers every 7 to 13 minutes water every field; the wind wanders round the compass and drives the sloop.",
       "files": [
-        "src/sim/life/weather.ts"
+        "src/engine/life/weather.ts"
       ]
     },
     {
@@ -715,8 +725,8 @@
       "title": "Storms at sea",
       "notes": "In the rain, open water deeper than 5 m turns rough: the swell shoves boats about and wears down the hull (a rowboat in under a minute of full storm, a cog hardly at all). A boat that breaks up spills its cargo, which floats where she sank for you to swim out and recover; she is back after a 90-second repair.",
       "files": [
-        "src/sim/life/vehicles.ts",
-        "src/sim/life/weather.ts",
+        "src/engine/life/vehicles.ts",
+        "src/engine/life/weather.ts",
         "shared/traversal.json"
       ]
     },
@@ -734,14 +744,13 @@
       "system": "combat",
       "status": "done",
       "title": "Slime pack fight",
-      "notes": "Four sizes on a ladder (slimelet, slime, great slime, slime monarch), each its own kind with mass, health, scale and slam. Slimes leave you alone until you hit one. Then: the one you hit calls (if its gather is ready) and the pack within 14 m rushes to it; with two within 8 m it gathers for 2.5 s (green swirl, cast bar on its plate), pulling them in and growing to the size their mass reaches, at full health; a quarter of its health in damage breaks the cast and dazes it, and if the caller dies the nearest rallying slime takes over. Anything angry in range winds up, leaps and slams where you stood (red ring). A kill bursts into 3/5/7 slimelets on a 6 s fuse that run while you are close and huddle otherwise; two or more left reform one size up from what you killed. A lone survivor dissolves; no creature passes 40 alive, and home slimes respawn only within the starting mass. Brains are data with guarded transitions, interrupts and requests the world carries out, the same in TypeScript and Rust, compared pack by pack in ai-conformance.",
+      "notes": "Four sizes on a ladder (slimelet, slime, great slime, slime monarch), each its own kind with mass, health, scale and slam. Slimes leave you alone until you hit one. Then: the one you hit calls (if its gather is ready) and the pack within 14 m rushes to it; with two within 8 m it gathers for 2.5 s (green swirl, cast bar on its plate), pulling them in and growing to the size their mass reaches, at full health; a quarter of its health in damage breaks the cast and dazes it, and if the caller dies the nearest rallying slime takes over. Anything angry in range winds up, leaps and slams where you stood (red ring). A kill bursts into 3/5/7 slimelets on a 6 s fuse that run while you are close and huddle otherwise; two or more left reform one size up from what you killed. A lone survivor dissolves; no creature passes 40 alive, and home slimes respawn only within the starting mass. Brains are data with guarded transitions, interrupts and requests the world carries out, in the engine (crates/engine), whose golden tests hold what its scenarios come to.",
       "files": [
         "shared/actors.json",
         "shared/behaviours.json",
-        "src/sim/ai/brain.ts",
-        "src/sim/actors/step.ts",
-        "crates/engine/src/ai.rs",
+        "src/engine/actors/brains.ts",
         "crates/engine/src/actors.rs",
+        "crates/engine/src/ai.rs",
         "tests/integration/slime-pack.spec.ts",
         "src/render/vfx.ts",
         "src/render/creatures/builtin/slime.ts"
@@ -785,10 +794,9 @@
       "system": "combat",
       "status": "done",
       "title": "Combat stance: strafing, backing off, dodging any way",
-      "notes": "With an enemy marked, or for 1.5 s after a swing or cast, you keep facing where the camera looks: the stick strafes (85% speed) and backs off (65%), and dodges and double jumps go wherever you push without turning you; attacks and unaimed casts go off ahead. Sprinting turns and runs. A facing intent in the input (one byte on the wire: battlefield inputs are 16 bytes, open-world ones 10) and the same rule in TypeScript and Rust, checked frame by frame.",
+      "notes": "With an enemy marked, or for 1.5 s after a swing or cast, you keep facing where the camera looks: the stick strafes (85% speed) and backs off (65%), and dodges and double jumps go wherever you push without turning you; attacks and unaimed casts go off ahead. Sprinting turns and runs. A facing intent in the input (one byte on the wire: battlefield inputs are 16 bytes, open-world ones 10) and the rule in the engine, the server's and the browser's alike.",
       "files": [
         "src/main.ts",
-        "src/sim/player/locomotion.ts",
         "crates/engine/src/player.rs",
         "crates/server/src/combat.rs",
         "tests/unit/rules/movement.test.ts",
@@ -825,7 +833,7 @@
       "notes": "No character levels: you start with 2 points (skills.startPoints) and every quest and milestone you finish gives more (rewards.skillPoints: 21 from the thirteen quests, 8 from the milestones). They are counted from the quests you have done rather than kept, so islands saved before they existed have theirs too. The server checks every build against them, and so does the browser; the training yard and the battlefield allow skills.points. The amounts stay as they are for now (decided 2026-11-04), to be retuned once the island has been played through.",
       "files": [
         "shared/quests.json",
-        "src/sim/life/progress.ts",
+        "src/engine/life/progress.ts",
         "crates/engine/src/life/quests.rs"
       ]
     },
@@ -836,7 +844,7 @@
       "notes": "Each weapon gains experience for every hit it lands, each ability for every cast, each movement skill for every use, and levels up along tuning.json skills.levels (ten levels). A level adds a little to what it does (damage, healing, quicker recovery), the island keeps the experience, and the server counts it online. A level-up says so and counts toward the Practised Hand milestone.",
       "files": [
         "shared/tuning.json",
-        "src/sim/life/progress.ts",
+        "src/engine/life/progress.ts",
         "src/content/skills.ts",
         "crates/engine/src/skills.rs"
       ]
@@ -848,7 +856,7 @@
       "notes": "Quests with nobody to hand them to: they start when their prerequisites are done and finish the moment their steps are, each worth a skill point. Green Thumb (30 harvests), Sky Legs (two minutes gliding), Pack Mule (5 deliveries), Rancher (3 animals), Contract Hand (5 contracts), Wayfarer (every corner of the island), Slime Hunter (15 slimes) and Practised Hand (5 skill levels). The quest log has a part for them; the quest scroll leaves them out.",
       "files": [
         "shared/quests.json",
-        "src/sim/life/quests.ts"
+        "src/engine/life/quests.ts"
       ]
     },
     {
@@ -857,7 +865,7 @@
       "title": "Abandoning a quest",
       "notes": "The quest log's Abandon (asked once more) takes a quest off your list with its progress, and its giver offers it again. Milestones and the quests that start by themselves can't be abandoned; one that handed you something to start with takes it back, and can't be abandoned once you've used it. Both rules (abandon, quests.rs).",
       "files": [
-        "src/sim/life/quests.ts",
+        "src/engine/life/quests.ts",
         "crates/engine/src/life/quests.rs",
         "src/ui/life/lifeUI.ts"
       ]
@@ -868,7 +876,7 @@
       "title": "Buyback",
       "notes": "A merchant holds what you sold them, at what they paid (the last twelve sales), and sells it back from the stall's Buyback tab until you walk 12 m off. Both rules (state.buyback, trade.rs).",
       "files": [
-        "src/sim/life/trade.ts",
+        "src/engine/life/trade.ts",
         "crates/engine/src/life/trade.rs",
         "src/ui/life/lifeUI.ts"
       ]
@@ -922,7 +930,6 @@
       "title": "Stamina and MP",
       "notes": "Every fighter has health, MP and stamina (and labor on the island). Dodge Roll and Backstep cost stamina instead of a cooldown; Healing Circle and Meteor cost MP, paid when the cast goes off. Values in shared/tuning.json (stamina, mp, staminaCost, mpCost). Shown beside your portrait, over the hotbar off the island, and on the Q and E slots, which shade when you can not afford them.",
       "files": [
-        "src/sim/player/vitals.ts",
         "crates/engine/src/player.rs",
         "shared/tuning.json",
         "src/ui/hud.ts",
@@ -935,7 +942,7 @@
       "title": "Walking onto platforms",
       "notes": "Decks (the glider launch, piers) are walked up onto as high as ground.deckStep, and one you can neither step onto nor pass under is solid from the side, so you no longer walk under the launch deck. The body eases up over the step.",
       "files": [
-        "src/sim/player/traverse.ts",
+        "src/engine/world/ground.ts",
         "crates/engine/src/open/traverse.rs",
         "shared/traversal.json"
       ]
@@ -992,8 +999,8 @@
       "notes": "H or Num Lock (a quick click of the left stick at rest) runs you on where the camera looks; in a cart or boat it holds the throttle. A click on the big map marks a place and follows the roads there (the road network joins where roads meet and across the town square), on foot, on a mount or in a cart; a place a few steps off the road is walked to, a far one gets you as near as the road goes. Your own movement, mounting, water or getting stuck stops it.",
       "files": [
         "src/input/autoWalk.ts",
-        "src/sim/zone/roads.ts",
-        "src/sim/zone/localPath.ts",
+        "src/engine/world/roads.ts",
+        "src/engine/world/localPath.ts",
         "src/ui/life/travelUI.ts"
       ]
     },
@@ -1004,7 +1011,7 @@
       "notes": "Online the sky, the HUD clock, the rain and the wind follow the server's clock (the welcome's now in the browser; the channel hands it to every island each tick), so everyone in Emberholm sees the same hour and is rained on and sails on the same wind. Showers are a schedule on that clock (a slot each, started and lasting as a hash of the slot falls), the same to the last bit in both rules. Each island's own clock still runs its crops, labor and contracts; skipping time in the developer panel moves only that.",
       "files": [
         "src/net/worldLink.ts",
-        "src/sim/life/weather.ts",
+        "src/engine/life/weather.ts",
         "crates/engine/src/life/weather.rs",
         "src/main.ts"
       ]
@@ -1170,7 +1177,7 @@
       "notes": "Two lessons before \"A Place to Call Home\": Quill sends you to Brenna at Stonebreak Quarry to quarry stone from the outcrops and cut a Stone Block at the Stonecutter's Table, and she sends you to Hob in Thornwood to chop deadfall and tie a Lumber Bundle at his sawhorse. A gather step counts what a swing gives, not the swings (both rules). The quest marker leads to the nearest ready outcrop or deadfall, the bench that makes a pack, or the site when you carry what it needs; build sites say where each pack they want is made.",
       "files": [
         "shared/quests.json",
-        "src/sim/life/quests.ts",
+        "src/engine/life/quests.ts",
         "crates/engine/src/life/quests.rs",
         "src/ui/life/lifeUI.ts"
       ]
@@ -1216,19 +1223,16 @@
       "system": "combat",
       "status": "done",
       "title": "Goblins: the basic goblin and the creature engine",
-      "notes": "The first of the Split-Eye war-band (design/goblins.md), in the training yard (?yard&goblins=6). A creature is data and a body: shared/creatures/goblin.json (its kind, a stab and a stone throw, and a brain in the behaviours' format) and src/render/creatures/goblin/ (a box body until its model is made), run by engine parts any creature can use, in TypeScript and Rust alike: senses (every player as a foe: weapon reach, bow or not, swinging, recovering, casting, guarding, dodging, stunned), a pack step (attack tokens per foe, one more for an opening such as your back or your recovery, ring places just outside your weapon's reach bunched up behind you, courage from health, friends and foes, and where to run), brain acts walk, strike, throw and heal with conditions that take arguments, missiles in flight, and a flinch for blows at or above a kind's poise. One goblin dies to a sword combo and barely scratches you; six wear you down while only three or four strike at once. Against a sword they wait outside its reach and throw stones; against a bow they come right up. Hurt and alone it runs home and drinks its stolen potion out of reach (a blow spills it); hurt in a band it runs to the biggest group. Not online yet: the server runs the same rules but places no goblins.",
+      "notes": "The first of the Split-Eye war-band (design/goblins.md), in the training yard (?yard&goblins=6). A creature is data and a body: shared/creatures/goblin.json (its kind, a stab and a stone throw, and a brain in the behaviours' format) and src/render/creatures/goblin/ (a box body until its model is made), run by engine parts any creature can use (crates/engine): senses (every player as a foe: weapon reach, bow or not, swinging, recovering, casting, guarding, dodging, stunned), a pack step (attack tokens per foe, one more for an opening such as your back or your recovery, ring places just outside your weapon's reach bunched up behind you, courage from health, friends and foes, and where to run), brain acts walk, strike, throw and heal with conditions that take arguments, missiles in flight, and a flinch for blows at or above a kind's poise. One goblin dies to a sword combo and barely scratches you; six wear you down while only three or four strike at once. Against a sword they wait outside its reach and throw stones; against a bow they come right up. Hurt and alone it runs home and drinks its stolen potion out of reach (a blow spills it); hurt in a band it runs to the biggest group. Not online yet: the server runs the same rules but places no goblins.",
       "files": [
         "content/creatures/goblin.json",
         "src/render/creatures/goblin/body.ts",
-        "src/sim/ai/senses.ts",
-        "src/sim/ai/pack.ts",
-        "src/sim/ai/brain.ts",
-        "src/sim/combat/missiles.ts",
-        "src/sim/actors/step.ts",
-        "crates/engine/src/pack.rs",
-        "crates/engine/src/missiles.rs",
         "crates/engine/src/ai.rs",
+        "crates/engine/src/pack.rs",
+        "src/engine/actors/brains.ts",
+        "src/engine/actors/missiles.ts",
         "crates/engine/src/actors.rs",
+        "crates/engine/src/missiles.rs",
         "tests/unit/rules/goblin.test.ts",
         "crates/engine/src/checks/ai.rs"
       ]
@@ -1252,10 +1256,10 @@
       "system": "world",
       "status": "done",
       "title": "Goblin's Dread, the first dungeon: its inner grotto",
-      "notes": "An instanced dungeon (content/dungeons/goblinsDread.json): its floors and walls stand round a spot high above the sea north of the island and are solid only in a copy of it (src/sim/zone/dungeon.ts, crates/engine/src/open/dungeon.rs), drawn with the island put away (src/render/open/dungeonView.ts: rock shell, the back of the falls glowing at the south end with the way out, landing stage, lookout with a pot gong, totem, torches, the tunnel north to a goblin barricade). Cave light: no sun, a cool fill and the daylight through the falls. Anyone knocked down or falling out gets up where it's entered. The rest of the lair (the Warren, its three wings, the chief's hall) is the concept art's plan, not built yet.",
+      "notes": "An instanced dungeon (content/dungeons/goblinsDread.json): its floors and walls stand round a spot high above the sea north of the island and are solid only in a copy of it (src/engine/world/dungeons.ts, crates/engine/src/open/dungeon.rs), drawn with the island put away (src/render/open/dungeonView.ts: rock shell, the back of the falls glowing at the south end with the way out, landing stage, lookout with a pot gong, totem, torches, the tunnel north to a goblin barricade). Cave light: no sun, a cool fill and the daylight through the falls. Anyone knocked down or falling out gets up where it's entered. The rest of the lair (the Warren, its three wings, the chief's hall) is the concept art's plan, not built yet.",
       "files": [
         "content/dungeons/goblinsDread.json",
-        "src/sim/zone/dungeon.ts",
+        "src/engine/world/dungeons.ts",
         "src/render/open/dungeonView.ts",
         "src/app/dungeonVisit.ts",
         "crates/engine/src/open/dungeon.rs"
@@ -1317,7 +1321,7 @@
     "The look, next: made models for the vehicles' hulls and the trade packs (their seats, oars, rigging, straps and sealed hulls need fitting by hand); the player's cottage as a made model at each build stage; bushes and hedges along the fields; surf around the crags; a graphics setting in the Settings window instead of the automatic guess; the townsfolk as made bodies, playing the same clips; choosing a look in Create Character (skin, hair, outfit dyes); more moves from clips (a block, the roll, hits and a death from Quaternius' free set; the bow, the staff and the whirlwind from Meshy).",
     "Mini-games, next: more games at the same tables (the Rules trait in crates/engine/src/minigames takes any turn-based game for two); a controller in the game window; onlookers opening the board to watch; the table solid and monsters leaving players at a table alone; the challenge prompt winning over a nearby plot or townsperson when you face a player.",
     "Goblin's Dread, next: the level plan from the concept art (the Warren hub; the water, wind and war wings with the jump puzzles; the sunbeam door; the chief's hall and the stolen lighthouse lens), with the goblins from the goblin session; moving platforms (waterwheels, swinging planks); water you can wade and swim in above sea level (the plunge pool, the cistern); a controller button for the Party window; party-only healing and loot.",
-    "Refactor, next (.plans/refactor/tracker.md): delete the TypeScript copy of the rules (src/sim/, R8.13) and measure (R8.14); then Phase 10, One World: the foundations of one seamless world of regions (spaces for instances, regions on a world map, global ids and a world clock, a tick that splits, borders with ghosts and handoff, the server in tiers, land, plots and a ledger, the wire for crowds, channels by affinity, the client in a big world), in one process; the multi-server version after the merge into beta (D16-D19, .plans/world/research.md)."
+    "Refactor, next (.plans/refactor/tracker.md): measure (R8.14); then Phase 10, One World: the foundations of one seamless world of regions (spaces for instances, regions on a world map, global ids and a world clock, a tick that splits, borders with ghosts and handoff, the server in tiers, land, plots and a ledger, the wire for crowds, channels by affinity, the client in a big world), in one process; the multi-server version after the merge into beta (D16-D19, .plans/world/research.md)."
   ],
   "questions": [
     {
@@ -1510,7 +1514,7 @@
         "Weapons: out of sight while travelling (vehicles, mounts, glider, swimming) and with a pack on the back except for a strike; only the on-foot places to put it away are left (stow.ts).",
         "UI: the drop cap stands level with the first line's capitals; a window that closes itself after a click (a pack made, a deed used) gives the mouse back to the camera; the farm cart's icon is the cart itself, drawn in tools/icons/bake.mjs; other players' names fade out between 30 and 45 m from you; online the sky follows the server's clock.",
         "Weather: the rain and the wind run on the world's clock online too (Life.worldClock, life.world_clock), so everyone has the same; showers are a schedule on that clock rather than the island's dice, pinned to the last bit in both rules.",
-        "Getting about: H or Num Lock auto-runs (cruise in a cart or boat); a click on the map follows the roads there, the route drawn on the map and the minimap (src/sim/zone/roads.ts, src/input/autoWalk.ts).",
+        "Getting about: H or Num Lock auto-runs (cruise in a cart or boat); a click on the map follows the roads there, the route drawn on the map and the minimap (src/engine/world/roads.ts, src/input/autoWalk.ts).",
         "Tests: riding along and bumping into a parked cart, a pack out of the cart at once 120 ms from the server, everyone sharing the hour, name plates by distance (online.spec.ts); the drop cap and the mouse coming back (ui.spec.ts); travel by road on foot, horseback, cart and roadster (travel.spec.ts); hands on the oars in the real game at 30 and 144 fps, the swim clock, weapons hidden (animation.spec.ts); no sea inside any hull (models.spec.ts); passengers and movers (Rust)."
       ]
     },
@@ -1652,14 +1656,15 @@
     {
       "date": "2026-11-06",
       "title": "The first refactor: one copy of the rules",
-      "summary": "Phases 5 to 12 of the refactor side by side, on branch refactor/first: the Rust in a workspace, the client in areas, content in folders, the developer zones on the world server, the Ruina Bible, and the browser playing on the engine's rules (Phase 8's switch), so the server and the browser run one copy of them.",
+      "summary": "Phases 5 to 12 of the refactor side by side, on branch refactor/first: the Rust in a workspace, the client in areas, content in folders, the developer zones on the world server, the Ruina Bible, and the browser playing on the engine's rules (Phase 8's switch), so the server and the browser run one copy of them; the TypeScript copy (src/sim/) is gone.",
       "points": [
         "The engine grows Emberholm from its recipe, on the server and, through its WebAssembly, in the browser: no bake, and the TypeScript generator is gone.",
         "The browser plays on the engine: the Engine (src/engine/) steps the engine's session (crates/engine/src/session.rs) and reads back you, the creatures, the yard and the island after each step; online it takes the server's word on you and replays your inputs inside the engine.",
         "Before the switch, a shadow ran the engine beside the TypeScript rules in every test and page and compared them bit for bit; it found the prompts drifted, getting off a vehicle handled two ways, and the prediction's -0 that turned you the wrong way round.",
         "The developer zones (the yard, the battlefield, the goblin camp) are copies on the world server, with bots in the engine; the old battle server is gone.",
         "Content in folders (content/, a file per thing, checked and built by npm run content); new content as data alone, played in a test.",
-        "The Ruina Bible at /bible/: how the game works, exactly, a page per system and an entry per thing, its numbers taken from the rules and the content."
+        "The Ruina Bible at /bible/: how the game works, exactly, a page per system and an entry per thing, its numbers taken from the rules and the content.",
+        "The TypeScript copy of the rules is deleted (src/sim/, R8.13): the check programs and conformance specs that compared it went first, the unit tests that drove it drive the engine (the engine takes content at run time, so a test can give it new content), the bible reads the engine's Rust, and what the page still reads (the shapes of the rules' state, the ground's sampling, the roads, the island's read helpers) moved into src/engine/ behind seven front doors."
       ]
     }
   ]

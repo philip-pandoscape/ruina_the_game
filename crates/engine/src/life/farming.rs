@@ -1,4 +1,4 @@
-//! Scarecrow plots and what grows in them (src/sim/life/farming.ts). A scarecrow claims an 8 x 8 m
+//! Scarecrow plots and what grows in them (src/engine/life/farming.ts). A scarecrow claims an 8 x 8 m
 //! patch of open, level ground (up to three); each of its 2 m cells holds one plant, which grows in
 //! real time - faster in its own climate, faster again when watered or rained on - whether or not
 //! you are watching.

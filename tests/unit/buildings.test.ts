@@ -14,9 +14,7 @@ import {
   WALL,
 } from '../../src/content/buildings';
 import { structureDef, structureIds } from '../../src/content/structures';
-import { generateZone } from '../../src/sim/zone/world';
-import { inRect } from '../../src/sim/zone/colliders';
-import { EMBERHOLM } from '../../src/sim/zone/world';
+import { EMBERHOLM, generateZone, inRect } from '../../src/engine/zone';
 
 // The buildings you can walk into (src/content/buildings.ts): their plans fit their footprints, and
 // the rules wall them with their doorways open. Walking in, in the game: tests/integration/village.spec.ts.

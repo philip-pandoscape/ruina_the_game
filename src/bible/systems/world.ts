@@ -8,8 +8,8 @@ import interactSource from '../../../crates/engine/src/life/interact.rs?raw';
 import generateSource from '../../../crates/engine/src/open/generate.rs?raw';
 // Travel by road is the browser's alone (the engine has no twin of the road network), so its numbers
 // are the road network's TypeScript.
-import localPathSource from '../../sim/zone/localPath.ts?raw';
-import roadsSource from '../../sim/zone/roads.ts?raw';
+import localPathSource from '../../engine/world/localPath.ts?raw';
+import roadsSource from '../../engine/world/roads.ts?raw';
 import { ON_ROAD, TAIL_MAX, EMBERHOLM, makeZoneWorld } from '../../engine/zone';
 import { count, degrees, frames, key, metres, num, pct, slopeDegrees } from '../format';
 import { system, table } from '../kit';

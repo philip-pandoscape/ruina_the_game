@@ -2,7 +2,7 @@ import data from '../../shared/items.json' with { type: 'json' };
 
 // Bag items, vendors and workbench recipes (shared/items.json).
 
-/** What using an item does is the rules' for its category (src/sim/life/interact.ts useItem): a new one is new code. */
+/** What using an item does is the rules' for its category (src/engine/life/interact.ts useItem): a new one is new code. */
 export type ItemCat = 'seed' | 'produce' | 'material' | 'consumable' | 'placeable' | 'glider' | 'deed' | 'mount';
 
 /** What a category of item is called: in a tooltip, as a heading, and using one in the bag (none: it isn't used). */

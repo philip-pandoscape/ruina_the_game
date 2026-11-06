@@ -10,7 +10,7 @@ import type { NetActor } from './worldFeed';
 // passed through the slime on screen: no sparks, no shake, no flash. Here:
 //
 // - Your swing is checked against the monsters as the server last placed them, with the server's
-//   own rule (src/sim/player/attacks.ts checkHit), the moment it strikes. A hit sparks, shakes and
+//   own rule, the moment it strikes. A hit sparks, shakes and
 //   flashes then and there, on the slime as it is drawn; the server's number follows. A hit the
 //   server saw and this guess missed gets the same show when its word arrives, late but whole.
 // - Health going down on anything, from anyone's blow, flashes it at the moment that blow is drawn.
@@ -251,7 +251,7 @@ export class NetMonsters {
     this.counts.flashed++;
   }
 
-  /** A 'hit' on a drawn monster, as src/sim/combat/deal.ts makes one: on its near side, at its middle. */
+  /** A 'hit' on a drawn monster, as the rules make one: on its near side, at its middle. */
   private hitAt(a: NetActor, fromX: number, fromZ: number, index: number, damage: number, frame: number): GameEvent {
     const k = actorKindAt(a.kind);
     const dx = a.x - fromX;

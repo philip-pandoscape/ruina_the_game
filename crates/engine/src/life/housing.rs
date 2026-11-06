@@ -1,4 +1,4 @@
-//! Houses on the plots at Hearthside Rise (src/sim/life/housing.ts).
+//! Houses on the plots at Hearthside Rise (src/engine/life/housing.ts).
 //!
 //! A blueprint claims an empty plot; then the house goes up a stage at a time as you haul each
 //! stage's material packs to the site - on your back or by cart - and put in the labor. Finished,

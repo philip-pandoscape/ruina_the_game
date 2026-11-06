@@ -101,7 +101,7 @@ function hash(...n: number[]): number {
 }
 
 /**
- * The pieces of a plan. `stage` builds a house only so far (src/sim/life/housing.ts stages:
+ * The pieces of a plan. `stage` builds a house only so far (src/engine/life/housing.ts stages:
  * 1 the floor, 2 its timber frame, 3 the walls, 4 the roof and the furnishing).
  */
 export function assemble(plan: BuildingPlan, seed = 1, stage = 4): Assembled {
@@ -170,7 +170,7 @@ export function assemble(plan: BuildingPlan, seed = 1, stage = 4): Assembled {
   return out;
 }
 
-/** Rails round a stairwell's open edges, upstairs (as the rules have them: src/sim/zone/buildings.ts). */
+/** Rails round a stairwell's open edges, upstairs (as the rules have them: crates/engine/src/open/buildings.rs). */
 function railings(plan: BuildingPlan, st: NonNullable<BuildingPlan['stairs']>[number], put: (piece: string, m: THREE.Matrix4, part: number) => void): void {
   const well = stairwell(st);
   const y = (st.storey + 1) * STOREY;

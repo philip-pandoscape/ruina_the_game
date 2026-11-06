@@ -87,9 +87,3 @@ export interface AnimalDef {
 }
 
 export const ANIMALS = (data.animals ?? []) as unknown as AnimalDef[];
-
-export function animalDef(id: string): AnimalDef {
-  const a = ANIMALS.find((x) => x.id === id);
-  if (!a) throw new Error(`unknown animal "${id}"`);
-  return a;
-}

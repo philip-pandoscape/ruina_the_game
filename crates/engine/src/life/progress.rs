@@ -1,4 +1,4 @@
-//! Getting better (src/sim/life/progress.ts): the skills you use level up, and the tree grows with
+//! Getting better (src/engine/life/progress.ts): the skills you use level up, and the tree grows with
 //! what you've done.
 //!
 //! Experience. Each hit a weapon lands, each cast of an ability and each use of a movement skill
@@ -19,7 +19,7 @@ use crate::skills::{BookKind, book, book_of, level_of, levels_from};
 use crate::tuning::tuning;
 
 /// Something the player did that the skill behind it learns from, or a creature they finished
-/// off: the events src/sim/life/progress.ts observes.
+/// off: the events src/engine/life/progress.ts observes.
 #[derive(Clone, Copy, Debug)]
 pub enum Observed<'a> {
     /// A hit landed with this weapon: a swing, or an arrow it loosed.

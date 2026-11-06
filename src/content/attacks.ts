@@ -1,8 +1,8 @@
 import { CREATURES } from './creatures';
 
 // What a creature can do to a player, from the creatures' files (shared/creatures.json). A brain
-// state names one (act strike or throw); src/sim/actors/step.ts lands it, and
-// crates/engine/src/content.rs reads the same entries.
+// state names one (act strike or throw); the engine lands it (crates/engine/src/actors.rs), reading
+// the same entries (crates/engine/src/content.rs).
 
 export interface AttackDef {
   id: string;
@@ -44,4 +44,3 @@ export const ATTACKS: readonly AttackDef[] = CREATURES.flatMap((c) => (c.attacks
 const BY_ID = new Map(ATTACKS.map((a) => [a.id, a]));
 
 export const attackDef = (id: string): AttackDef | undefined => BY_ID.get(id);
-export const attackIndex = (id: string): number => ATTACKS.findIndex((a) => a.id === id);

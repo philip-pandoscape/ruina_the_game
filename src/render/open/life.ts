@@ -610,7 +610,7 @@ export class LifeView {
     if (!v) return null;
     const s = this.shownVehicle(v);
     const seat = s.def.seats[0];
-    // The rules seat the driver at anchorWorld(v, seat) (src/sim/life/vehicles.ts): turned the
+    // The rules seat the driver at anchorWorld(v, seat) (src/engine/life/vehicles.ts): turned the
     // same way, the vehicle's middle is that far back from where the driver is drawn.
     const heading = p.prevFacing + angleDiff(p.prevFacing, p.facing) * alpha;
     _q.setFromEuler(_e.set(-v.pitch, heading, v.roll, 'YXZ'));

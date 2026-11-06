@@ -1,4 +1,4 @@
-//! Ships built on slipways (src/sim/life/shipyard.ts).
+//! Ships built on slipways (src/engine/life/shipyard.ts).
 //!
 //! Big ships are built the way houses are: a design claims the slip, then each stage is finished
 //! by hauling its material packs there and putting in the labor. The last stage launches her: the

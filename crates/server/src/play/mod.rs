@@ -202,7 +202,7 @@ impl ChannelGame {
         let world = World { radius: zone.radius, obstacles: Vec::new(), team_spawns: [spawn, spawn] };
         let mut players = Players::new(1000.0 / TICK_HZ as f64);
         players.ground = Some(&zone.terrain);
-        // The island's monsters, where src/sim/zone/world.ts puts them, and the training dummy.
+        // The island's monsters, where src/engine/world/region.ts puts them, and the training dummy.
         let mut actors = Actors::new();
         let s = r.slimes;
         for i in 0..s.count {
@@ -1109,7 +1109,7 @@ pub fn make_solid(world: &mut OpenWorld, owner: i64, state: &LifeState) {
     }
 }
 
-/// Seconds as "1m 20s" (src/sim/life/interact.ts shortTime).
+/// Seconds as "1m 20s" (src/engine/life/interact.ts shortTime).
 fn short_time(s: f64) -> String {
     let s = s.ceil().max(0.0) as i64;
     let day = housing::DAY as i64;
@@ -1210,7 +1210,7 @@ pub fn build_json(b: &Build) -> Value {
     json!({ "skills": b.skills, "weapon": b.weapon, "abilities": b.abilities, "movement": b.movement })
 }
 
-/// A player's whole state, in the shape of src/sim/types.ts PlayerState, for the browser to
+/// A player's whole state, in the shape of src/engine/shapes.ts PlayerState, for the browser to
 /// correct its prediction from.
 pub fn player_state_json(p: &Player) -> Value {
     json!({
