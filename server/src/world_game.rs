@@ -768,6 +768,9 @@ impl ChannelGame {
                 lists.push((*id, s));
             }
         }
+        // By owner: the estates are kept in a HashMap, whose order differs from one run to the next,
+        // and colliders added in another order are found in another order.
+        lists.sort_by_key(|(owner, _)| *owner);
         for (owner, s) in lists {
             make_solid(&mut self.open, owner, &s);
         }
@@ -1278,6 +1281,24 @@ mod tests {
             assert!(v.get(k).is_some(), "{k}");
         }
         assert_eq!(v["mode"], "normal");
+    }
+
+    #[test]
+    fn a_rebuild_makes_everyone_solid_in_the_same_order_whatever_order_they_came_in() {
+        // Residents away, each with a scarecrow of their own, written in in two different orders.
+        let solids = |order: &[i64]| {
+            let mut ch = ChannelGame::new(1);
+            for &id in order {
+                let estate = json!({ "houses": [], "scarecrows": [{ "id": 1, "x": id as f64 * 3.0, "z": -20.0, "rot": 0.0 }], "ships": [] });
+                ch.estates.set_estate(id, &format!("R{id}"), estate);
+            }
+            ch.rebuild_world();
+            ch.open.index.obstacles.iter().map(|o| (o.x, o.z, o.r)).collect::<Vec<_>>()
+        };
+        let first = solids(&[3, 1, 4, 2, 5, 9, 6, 8, 7]);
+        assert_eq!(first, solids(&[7, 8, 6, 9, 5, 2, 4, 1, 3]));
+        // And each of them is in it: the island's own obstacles and nine scarecrows' posts.
+        assert_eq!(first.len(), ChannelGame::new(1).open.index.obstacles.len() + 9);
     }
 
     /// A channel with one character in it, `build` as they kept it.
