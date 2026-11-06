@@ -9,9 +9,12 @@
 //! --virtual-clients N builds a personal update for N bots every tick as if they were connected
 //! players, without sending it anywhere. That measures the server cost of a full raid.
 //!
-//! Environment: PORT (Railway sets it; --port wins), DATABASE_URL, STATIC_DIR, DEV_LOGIN=1 (sign in
-//! by name alone, for development; ignored on Railway), DEV_TOOLS=1 (the in-game developer panel;
-//! on with DEV_LOGIN), COOKIE_SECURE=1 (https without Railway).
+//! It listens on this machine only (so Windows' firewall never asks about it) unless started with
+//! --listen all or LISTEN=all, as the Docker image is for Railway and `npm run up`.
+//!
+//! Environment: PORT (Railway sets it; --port wins), LISTEN (all | local), DATABASE_URL, STATIC_DIR,
+//! DEV_LOGIN=1 (sign in by name alone, for development; ignored on Railway), DEV_TOOLS=1 (the in-game
+//! developer panel; on with DEV_LOGIN), COOKIE_SECURE=1 (https without Railway).
 
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
@@ -40,6 +43,8 @@ struct Args {
     bots: usize,
     virtual_clients: usize,
     port: u16,
+    /// Take connections at every address (`--listen all`), not only from this machine.
+    everywhere: bool,
     hz: u32,
     /// Monsters to scatter around the players' end of the field. Off unless asked for:
     /// putting them in by default would change every world anybody already runs.
@@ -51,7 +56,8 @@ struct Args {
 fn parse_args() -> Args {
     let env_port = std::env::var("PORT").ok().and_then(|p| p.parse().ok());
     let static_dir = std::env::var_os("STATIC_DIR").filter(|d| !d.is_empty()).map(PathBuf::from);
-    let mut a = Args { battle: true, bots: 10_000, virtual_clients: 0, port: env_port.unwrap_or(7777), hz: 20, slimes: 0, static_dir };
+    let everywhere = std::env::var("LISTEN").is_ok_and(|v| v == "all");
+    let mut a = Args { battle: true, bots: 10_000, virtual_clients: 0, port: env_port.unwrap_or(7777), everywhere, hz: 20, slimes: 0, static_dir };
     let argv: Vec<String> = std::env::args().collect();
     let mut i = 1;
     while i + 1 < argv.len() {
@@ -61,6 +67,13 @@ fn parse_args() -> Args {
             "--bots" => a.bots = v.parse().expect("--bots needs a number"),
             "--virtual-clients" => a.virtual_clients = v.parse().expect("--virtual-clients needs a number"),
             "--port" => a.port = v.parse().expect("--port needs a number"),
+            "--listen" => {
+                a.everywhere = match v.as_str() {
+                    "all" => true,
+                    "local" => false,
+                    _ => panic!("--listen takes all or local"),
+                }
+            }
             "--hz" => a.hz = v.parse().expect("--hz needs a number"),
             "--slimes" => a.slimes = v.parse().expect("--slimes needs a number"),
             "--static" => a.static_dir = Some(PathBuf::from(v)),
@@ -126,7 +139,7 @@ fn main() {
             secure_cookies,
             failed_logins: Mutex::new(HashMap::new()),
         };
-        http::serve(args.port, state, args.static_dir).await
+        http::serve(args.port, args.everywhere, state, args.static_dir).await
     });
     if let Err(e) = result {
         eprintln!("server error: {e}");

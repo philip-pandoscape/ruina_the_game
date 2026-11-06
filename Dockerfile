@@ -35,6 +35,9 @@ FROM debian:trixie-slim AS server
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/*
 COPY --from=build /app/server/target/release/yggdrasil-server /usr/local/bin/yggdrasil-server
 ENV PORT=7777
+# In a container the port is passed on from outside, so the server takes connections at every
+# address; run natively it listens on the machine itself only (server/src/main.rs).
+ENV LISTEN=all
 EXPOSE 7777
 # No battlefield by default: it simulates thousands of fighters around the clock. Drop --battle off for one.
 CMD ["yggdrasil-server", "--battle", "off"]

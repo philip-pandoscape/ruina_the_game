@@ -59,7 +59,7 @@ pub struct AppState {
 
 pub type App = Arc<AppState>;
 
-pub async fn serve(port: u16, state: AppState, static_dir: Option<PathBuf>) -> std::io::Result<()> {
+pub async fn serve(port: u16, everywhere: bool, state: AppState, static_dir: Option<PathBuf>) -> std::io::Result<()> {
     let mut router = Router::new()
         .route("/api/health", get(health))
         .route("/api/me", get(accounts::me))
@@ -82,8 +82,12 @@ pub async fn serve(port: u16, state: AppState, static_dir: Option<PathBuf>) -> s
     let asker = app.clone();
     let router = router.with_state(app);
 
-    let listener = listen_everywhere(port)?;
-    println!("listening on http://localhost:{port}");
+    let listener = Listeners::open(port, everywhere)?;
+    if everywhere {
+        println!("listening on http://localhost:{port} (and every address this machine has)");
+    } else {
+        println!("listening on http://localhost:{port} (this machine only; --listen all for other machines)");
+    }
     // Small, frequent battle updates: don't let the network stack hold them back to batch them.
     let listener = listener.tap_io(|tcp| {
         let _ = tcp.set_nodelay(true);
@@ -101,6 +105,53 @@ pub async fn serve(port: u16, state: AppState, static_dir: Option<PathBuf>) -> s
             world_socket::stop_world(&saver).await;
         })
         .await
+}
+
+/// Where the server takes its connections: one socket at every address, or this machine's own two
+/// (IPv4 and IPv6). Accepts from whichever has a connection waiting.
+pub struct Listeners(Vec<TcpListener>);
+
+impl Listeners {
+    /// Every address (`everywhere`: Railway, and inside Docker, where the port is passed on from
+    /// outside), or this machine only. On this machine only, Windows' firewall has nothing to ask
+    /// about, so starting a server (the tests start several) brings up no prompt.
+    pub fn open(port: u16, everywhere: bool) -> std::io::Result<Listeners> {
+        if everywhere {
+            return Ok(Listeners(vec![listen_everywhere(port)?]));
+        }
+        // IPv6's loopback too where there is one: `localhost` is ::1 first on Windows and in Node.
+        let mut all = vec![std::net::TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, port))?];
+        if let Ok(v6) = std::net::TcpListener::bind((std::net::Ipv6Addr::LOCALHOST, port)) {
+            all.push(v6);
+        }
+        let mut open = Vec::with_capacity(all.len());
+        for l in all {
+            l.set_nonblocking(true)?;
+            open.push(TcpListener::from_std(l)?);
+        }
+        Ok(Listeners(open))
+    }
+}
+
+impl axum::serve::Listener for Listeners {
+    type Io = tokio::net::TcpStream;
+    type Addr = std::net::SocketAddr;
+
+    async fn accept(&mut self) -> (Self::Io, Self::Addr) {
+        loop {
+            let waiting = self.0.iter().map(|l| Box::pin(l.accept()));
+            match futures_util::future::select_all(waiting).await.0 {
+                Ok(conn) => return conn,
+                // As axum's own listener does: an accept that fails (out of file handles, say) is
+                // tried again a moment later rather than stopping the server.
+                Err(_) => tokio::time::sleep(std::time::Duration::from_millis(50)).await,
+            }
+        }
+    }
+
+    fn local_addr(&self) -> std::io::Result<Self::Addr> {
+        self.0[0].local_addr()
+    }
 }
 
 /// Listens on `port` at every address: IPv6 and IPv4 alike where the machine has IPv6 (Railway's
