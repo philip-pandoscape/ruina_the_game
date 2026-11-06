@@ -3,7 +3,8 @@
 // main.ts calling it there; the refs object main.ts hands its modules gains what the region needs.
 // With <object>, the names the region declares that the rest of main.ts uses are given out: the
 // function returns them (a `let` as a getter and setter), main.ts keeps what it returns as
-// `const <object>`, and its uses of them become <object>.<name>. `refs` must come before the region.
+// `const <object>`, and its uses of them become <object>.<name>. `refs` must come before the region
+// (a region that needs only a few of main.ts's names may rather take them as arguments, by hand).
 //   node tools/refactor/move-region.mjs <from> <to> <module path> <function name> "<header comment>" [<object>]
 import { readFileSync, writeFileSync } from 'node:fs';
 import { parseSync } from 'oxc-parser';
@@ -123,7 +124,8 @@ for (const st of region) if (st.type === 'VariableDeclaration' && st.kind === 'l
 }
 const given = [...new Set(outEdits.map((x) => x.name))].sort();
 if (given.length && !outObj) throw new Error(`the rest of main.ts uses ${given.join(' ')}: name an <object> to give them out through`);
-if (outObj && text.indexOf('const refs = {\n') > regionStart) throw new Error('refs must come before the region');
+// The call hands over refs, so refs must be set by then.
+if (text.indexOf('const refs = {\n') > regionStart) throw new Error('refs must come before the region');
 
 // The region's text, rewritten.
 let body = text.slice(regionStart, regionEnd);
