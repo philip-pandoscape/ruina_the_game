@@ -401,6 +401,10 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
   The modes, the loop, aiming and drawing are left.
   Then frame stats (367a883) and aiming (017c79e) out, and the engine bridge in its place for the
   rules (6553617): main.ts is 1,518 lines. The modes, the loop and drawing are left.
+  The named tangles are gone (e94c533): the island's commands come through the app (no patched
+  `life.command`), one composed `lifeUI.intercept`, and `prediction`, `frozen` and the feed declared
+  before the closures that use them. Left: drawing a frame and the loop (lines 831-1262 take 51 names
+  from the rest of main.ts), which want the game context the modes share rather than more getters.
 - [x] **R6.3** `src/app/testApi.ts`: `window.__game` in a module of its own, typed.
   Done (e5a6253).
 - [x] **R6.4** `src/engine/`: the one bridge to the rules; everything else imports it, not `src/sim/`.
