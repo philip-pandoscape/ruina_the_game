@@ -28,8 +28,8 @@ The steps are the same for every kind; the recipes below say what each kind's fi
    nothing more is needed.
 
 Pictures and models are assets, not content: an item's `icon` is an emoji the painted icons stand
-for (`tools/icons/catalog.mjs`; a new one is painted and `npm run icons`). Without a model of its
-own a thing is drawn with a plain one, until looks are data (the refactor's R9.9).
+for (`tools/icons/catalog.mjs`; a new one is painted and `npm run icons`). What a thing is drawn as
+is its `look` (Looks, below).
 
 ## People
 
@@ -115,18 +115,18 @@ A new type of objective is a new mechanic: code.
 ## Farming, Gathering and Trade
 
 - **A crop or tree**: `content/crops/<id>.json` (template `crop.json`), with its seed item
-  (`plants` it) and its produce item. A tree's `chop` is what felling it gives, what that counts as
-  for a quest (`kind`), and its `rare` find: an `item`, its `chance`, the `toast` that tells you and
-  its `effect` (`thunder`: a lightning strike).
+  (`plants` it), its produce item and its `look`. A tree's `chop` is what felling it gives, what
+  that counts as for a quest (`kind`), and its `rare` find: an `item`, its `chance`, the `toast` that
+  tells you and its `effect` (`thunder`: a lightning strike).
 - **A farm animal**: `content/animals/<id>.json` (template `animal.json`), with its young as an item
-  (`cat: seed`, `raises` it), its feed and its produce.
+  (`cat: seed`, `raises` it), its feed, its produce and its `look`.
 - **A climate**: `content/climates/<id>.json` (template `climate.json`).
 - **A kind of gathering spot**: `content/gathering/<structure>.json` (template `gathering.json`),
   named after the structure it is drawn as (`content/structures/`): what it gives, for what labor,
   how long it rests, what it counts as for a quest, and its `rare` find. The spots themselves are
   entries in `content/zones/emberholm/nodes.json` (template `zone/nodes.json`).
 - **A trade or material pack**: `content/packs/<id>.json` (template `pack.json`), with a recipe at
-  the workbench of its `origin` that makes it.
+  the workbench of its `origin` that makes it, and its `look`.
 - **A market**: `content/markets/<id>.json` (template `market.json`); a trading post there is an
   outpost (People, above), and the routes between markets are `content/trade.json`'s.
 
@@ -134,12 +134,12 @@ A new type of objective is a new mechanic: code.
 
 - **A vehicle**: `content/vehicles/<id>.json` (template `vehicle.json`): its `class` (`wheeled` or
   `boat`; what it is to drive comes from the class and its numbers), size, speeds, seats, cargo
-  slots and wheels or oars. And its deed: an item with `cat: deed` and `vehicle: <id>`, sold, made by
-  a recipe, or given by a quest.
-- **A mount**: `content/mounts/<id>.json` (template `mount.json`), and its whistle: an item with
-  `cat: mount` and `mount: <id>`.
-- **A glider**: `content/gliders/<id>.json` (template `glider.json`), and its item: `cat: glider`,
-  `glider: <id>`.
+  slots, wheels or oars, and its `look`. And its deed: an item with `cat: deed` and `vehicle: <id>`,
+  sold, made by a recipe, or given by a quest.
+- **A mount**: `content/mounts/<id>.json` (template `mount.json`), with its `look`, and its
+  whistle: an item with `cat: mount` and `mount: <id>`.
+- **A glider**: `content/gliders/<id>.json` (template `glider.json`), with its `look`, and its
+  item: `cat: glider`, `glider: <id>`.
 - **A ship built on a slipway**: `content/ship-designs/<id>.json` (template `ship-design.json`): its
   stages and the packs each needs, the vehicle it launches as, its design item (`cat: placeable`,
   `placeOn: slipway`) and the deed you get once it's launched.
@@ -154,11 +154,14 @@ A new type of objective is a new mechanic: code.
   it is its data too: the ground under it is levelled to a pad unless it has a `deck` or
   `pad: false` (a farm plot, a scarecrow); `seaLevel: true` stands it at sea level (a pier);
   `clearMargin` is how far round it trees and rocks are kept off; `surface` is what the ground
-  under it becomes (`soil` under a farm plot).
+  under it becomes (`soil` under a farm plot). Its `look` is what it is drawn as.
 - **A walk-in building**: a plan in `content/buildings/<id>.json` (template `building.json`), on
-  the village kit's grid (`src/render/village/`), and a structure with `collider: building`. Its
+  the village kit's grid (`src/render/village/`), and a structure with `collider: building`: the
+  plan is what is drawn, and the structure's look only where it isn't (a cottage's site before its
+  foundation, the content library). Its
   furniture, by piece: `content/furniture/<name>.json` (template `furniture.json`).
-- **A prop** (a lamp, a barrel, a fence): `content/props/<id>.json` (template `prop.json`); placed by
+- **A prop** (a lamp, a barrel, a fence): `content/props/<id>.json` (template `prop.json`), with its
+  `look`; placed by
   an entry in `content/zones/emberholm/props.json` (template `zone/props.json`): at a spot, in a ring,
   along a road or on a line.
 
@@ -168,7 +171,8 @@ A new type of objective is a new mechanic: code.
 - **A creature of a kind the engine knows** (a slime's sizes, a training dummy): an actor kind in
   `content/actors/<id>.json` (template `actor.json`), wearing a species there is a body for (`hero`,
   `fighter`, `slime`, `quadruped`, `goblin`), with a brain from `content/behaviours/` (template
-  `behaviour.json`); a creature that comes in sizes has a ladder (`content/ladders/`, template
+  `behaviour.json`), the `name` its target plate shows and its `look` (Looks, below); a creature
+  that comes in sizes has a ladder (`content/ladders/`, template
   `ladder.json`). A kind travels on the wire as its index, so a new one goes on the end of
   `content/actors/_order.json`.
 - **A creature with its own attacks and brain** (the goblins): `content/creatures/<id>.json` naming
@@ -181,6 +185,42 @@ A new type of objective is a new mechanic: code.
 - **Where they are**: a dungeon's or a zone's `spawns` (`docs/zones.md`).
 
 A new act or condition for brains is a new engine part: code, never a creature's own.
+
+## Looks
+
+What a thing is drawn as is its `look`, in its file (`src/content/looks.ts`); the rules never read
+it. A thing with no look is drawn with its kind's plain body: a block with a roof, a crate, a leafy
+clump, a sack, a sheep, a cart or a boat made from its numbers, a horse, the canvas glider, a
+villager dressed from their id, a creature's species as it is. A structure's, prop's, crop's,
+pack's, farm animal's, vehicle's, mount's or glider's look is:
+
+- **A body built into the game**, by name (`body`): the bodies of its kind, each named for what it
+  was first built for, are the `BODIES` of `src/render/models/` (`structures.ts`, `props.ts`,
+  `crops.ts`, `packs.ts`, `animals.ts`, `vehicles.ts`, `mounts.ts`, `gliders.ts`). A new thing can
+  wear any of its kind's: a second well, a pony drawn as the donkey. A new body is code.
+- **A made model** (`model`), drawn in the body's place once it has loaded: its `files` in
+  `src/render/assets/models/`, without the extension (with more than one, a placement's seed picks,
+  or its tint, if the model gives the colour each file is painted in `tints`), fitted into the
+  thing's size (`w`, `h`, `d` where it fills another box), turned `yaw` radians first if its front
+  isn't +Z, sunk `sink` metres into the ground, and keeping the parts of the body named in `keep`
+  (the windmill's turning sails). Structures, props and packs swap one in; a new one is an asset
+  (`docs/assets.md`), not code.
+
+A townsperson's look is the townsfolk's body built and dressed: their colours as `#rrggbb` (`skin`,
+`shirt`, `sleeve`, `gloves`, `pants`, `boots`, a `skirt` with its `trim` in place of trousers, coat
+`tails`, a `belt` or `null` for none, `hair`), their build (`w`, `d`, `h`, `arm`, `leg`: 1 is the
+hero's; `hunch`), hair `style`, `beard` and `blush`, how their arms `rest` and which are `free` to
+gesture, and an `outfit` by name, what they wear over it and hold (the `OUTFITS` of
+`src/render/models/villagers.ts`: the elder's staff, the grocer's basket).
+
+A creature's `species`, `palette`, `scale`, `clips` and `cycles` say most of what it looks like;
+its look adds `body: jelly`, the slimes' jelly over its species' skeleton, with what floats
+`inside` it (`leaf`, `pebble`, `coins`, `dagger`, `gems`) and a `crown`, and `dies: straw`, a burst
+of straw as it goes down (the training dummy's).
+
+contentc holds a look to the fields its kind's looks have and finds a made model's files;
+`tests/unit/looks.test.ts` holds every body, outfit and thing inside a look names to one the game
+has, and every one the game has to something that wears it.
 
 ## Places and Zones
 
@@ -246,4 +286,5 @@ A new one of these needs code today, each named for the refactor's task that mak
   the bundles they build in place of its own (`useContent`, `src/engine/wasm.ts`).
 - `tests/unit/contentIds.test.ts`: no content id in code, but for the reasons it lists
   (`node tools/content/ids.mjs` lists them).
+- `tests/unit/looks.test.ts`: every look names a body, outfit and inside the game has.
 - `tests/unit/bible.test.ts`: every thing has its entry in the bible, and an explanation.

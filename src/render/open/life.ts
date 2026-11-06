@@ -18,7 +18,8 @@ import { toLocal, toWorld, type Heightfield } from '../../engine/zone';
 import type { Hero, SeatPose } from '../character';
 import { rideable, glider as gliderDef, isBoat, isMount, type RideableDef } from '../../content/vehicles';
 import { FARM, cropDef } from '../../content/farming';
-import { blueprintDef } from '../../content/housing';
+import { PLOT_MARKER, blueprintDef } from '../../content/housing';
+import { groundPlaced } from '../../content/items';
 import { buildingPlan } from '../../content/buildings';
 import type { HouseView } from '../village/village';
 import { toon } from '../toon';
@@ -300,11 +301,15 @@ export class LifeView {
       const top = this.plotTops.get(key) ?? Math.max(standsOver(hf, soil), standsOver(hf, furrows));
       tops.set(key, top);
       this.plotGround.push({ x: sc.x, z: sc.z, rot: sc.rot, half, top });
-      const post = scarecrowPost(sc);
-      const sc3 = this.models.buildStructure('scarecrow').root;
-      sc3.position.set(post.x, hf.height(post.x, post.z), post.z);
-      sc3.rotation.y = sc.rot + Math.PI;
-      this.plots.add(sc3);
+      // Its scarecrow, the structure the item that set it down places, at the corner post.
+      const scarecrow = groundPlaced();
+      if (scarecrow) {
+        const post = scarecrowPost(sc);
+        const root = this.models.buildStructure(scarecrow).root;
+        root.position.set(post.x, hf.height(post.x, post.z), post.z);
+        root.rotation.y = sc.rot + Math.PI;
+        this.plots.add(root);
+      }
       sc.cells.forEach((pl, idx) => {
         if (!pl) return;
         const c = cellCentre(sc, idx);
@@ -396,10 +401,13 @@ export class LifeView {
         continue;
       }
       if (!h || !bp || !pose) {
-        const root = this.models.buildStructure('housePlot').root;
-        root.position.set(plot.x, hf.height(plot.x, plot.z), plot.z);
-        root.rotation.y = plot.rot;
-        this.houses.add(root);
+        // Unclaimed: marked out (shared/housing.json plotMarker).
+        if (PLOT_MARKER) {
+          const root = this.models.buildStructure(PLOT_MARKER).root;
+          root.position.set(plot.x, hf.height(plot.x, plot.z), plot.z);
+          root.rotation.y = plot.rot;
+          this.houses.add(root);
+        }
         continue;
       }
       const root = this.models.buildStructure(bp.structure, { stage: h.stage }).root;

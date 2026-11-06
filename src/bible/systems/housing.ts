@@ -1,6 +1,6 @@
 // Housing: written from its rules (`rules` below); every number from the content and the rules.
 
-import { BLUEPRINTS, type BlueprintDef } from '../../content/housing';
+import { BLUEPRINTS, PLOT_MARKER, type BlueprintDef } from '../../content/housing';
 import { claimsPlot, ITEMS, RECIPES, VENDORS } from '../../content/items';
 import { CLOCK, LABOR, packDef } from '../../content/trade';
 import { DAY, HOUSE_SETBACK } from '../../engine/island';
@@ -86,7 +86,7 @@ export const housing = system({
   icon: '🏡',
   keywords: ['house', 'home', 'cottage', 'plot', 'blueprint', 'tax', 'bed', 'chest', 'storage', 'build'],
   rules: ['crates/engine/src/life/housing.rs'],
-  content: ['shared/housing.json#blueprints', 'shared/zones/*.json#housePlots'],
+  content: ['shared/housing.json#blueprints', 'shared/housing.json#plotMarker', 'shared/zones/*.json#housePlots'],
   body: () => {
     const bp = BLUEPRINTS[0];
     const sale = VENDORS.flatMap((v) => v.sells.map((s) => ({ v, s }))).filter(({ s }) => claimsPlot(s.item));
@@ -113,7 +113,9 @@ A blueprint is an item in your bag. ${raw(
 
 ## Claiming a Plot
 
-${EMBERHOLM.name} has ${count(EMBERHOLM.housePlots.length, 'house plot')} at [[places/hearthside]], each ${metres(bp.plot)} square. Walk onto one with a blueprint in your bag: within ${metres(
+${EMBERHOLM.name} has ${count(EMBERHOLM.housePlots.length, 'house plot')} at [[places/hearthside]], each ${metres(bp.plot)} square${
+        PLOT_MARKER ? phrase` and, until it is claimed, marked out as a ${link(`buildings/${PLOT_MARKER}`)}` : ''
+      }. Walk onto one with a blueprint in your bag: within ${metres(
         RULE.plotReach(),
       )} of its middle along either side, F offers to place it. Pressing it checks, in this order:
 

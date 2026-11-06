@@ -203,6 +203,8 @@ const REFS = [
   // An item's category, and for a placeable what it places and where.
   { bundles: /^items\.json$/, key: 'cat', kind: 'category' },
   { bundles: /^items\.json$/, key: 'places', kind: ['blueprint', 'shipDesign', 'structure'] },
+  // What marks out an unclaimed house plot.
+  { bundles: /^housing\.json$/, key: 'plotMarker', kind: 'structure' },
   { bundles: /^items\.json$/, key: 'placeOn', kind: 'placement' },
   // What a rare find looks like where it's found.
   { bundles: /^farming\.json$/, key: 'effect', kind: 'effect' },

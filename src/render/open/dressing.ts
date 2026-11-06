@@ -40,8 +40,8 @@ export class ZoneDressing {
       built.root.rotation.y = p.rot;
       this.group.add(built.root);
       if (built.animate) this.animated.push(built.animate.bind(built));
-      // Fields worked by the villagers: rows of ripe crops on the tilled plots.
-      if (p.id === 'farmPlot' && p.decor) {
+      // Fields worked by the villagers: rows of ripe crops on the tilled plots their placements plant.
+      if (p.decor) {
         const cell = 2;
         p.decor.forEach((crop, row) => {
           for (let col = 0; col < 4; col++) {
