@@ -15,7 +15,7 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
   snapshots; next deleting `src/sim/` (R8.13) and measuring (R8.14); then crowds at scale (R10.8).
 - **How:** one session does the work, with at most one sub-agent beside it, on Opus 5.5 at max
   effort, in a worktree of its own (the user's call on 2026-11-06: three at once used tokens too
-  fast; one is allowed). It has the mini-games (R9.11, R8.11), then the UI gallery (R6.9).
+  fast; one is allowed). It did the mini-games (R9.11, R8.11) and the UI gallery (R6.9).
 - **Races under load (the Mac, four workers):** these lose a race now and then and pass alone:
   `online.spec.ts:109`, `:258`, `:617`, `party.spec.ts:121`, `combat.spec.ts:185`, the battlefield's
   `Cleave hits both` and `battlefield.spec.ts:375`. To look at with R1.11.
@@ -448,7 +448,7 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
   `dev/` holds the content library alone now (R6.15); the admin list has the zones from their files
   and the pages from `src/dev/pages.ts` (777949b). `src/library/` moving under `src/dev/` is left.
   Done (81df3de): `src/library/` is `src/dev/library/`.
-- [ ] **R6.9** A UI gallery (a Content Library subject or `/dev/ui.html`): every window with made-up
+- [x] **R6.9** A UI gallery (a Content Library subject or `/dev/ui.html`): every window with made-up
   state.
   Notes from the library's split: draw the windows in a page of their own (`dev/ui.html`, framed by
   the library), as the game's theme sets `--accent` on `:root`, the library's `.note`, `.center` and
@@ -456,6 +456,13 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
   offline island (the zone's world, the rules, the island's life and its UI) and step it; made-up
   states picked from content, never ids in code; an entry per state, `#/ui/<window>/<state>`, listed
   as plain data so the library doesn't import `src/ui`.
+  Done (f9517ba, a background agent): the UI gallery, `/dev/ui.html#/<window>/<state>`
+  (`src/dev/ui/`), framed by the content library as `#/ui/<window>/<state>` (`galleries/ui.ts`): 32
+  made-up states of 17 windows on a real offline island, made up from the content by what things
+  are, never ids, the entries plain data (`entries.ts`) so the library doesn't import `src/ui`.
+  `uiGallery.spec` holds each state to no error, drawn and labelled in Title Case; it found three
+  quest names out of Title Case ("over", "from"), renamed in content. Not in it yet: the screens
+  before the world (title, sign-in, character select) and the combat HUD.
 - [x] **R6.10** Creature bodies into `src/render/creatures/` (from `src/species/`, `src/creatures/`,
   `src/crowd/`, `src/content/creatures/`).
   Done (9317ff3): `src/render/creatures/` holds the species format (`species.ts`), its registry,
@@ -673,8 +680,14 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
   Done with R8.7: the session steps you, and a correction is one `takePlayer` and one `replay` of
   the unanswered inputs inside the engine. The copy and the conformance specs go with R8.13.
 - [-] **R8.10** The raid's crowd: not ported; bot players replace it (R10.5, R10.10).
-- [ ] **R8.11** Mini-game rules in the browser from the engine (the board shows what the same rules
+- [x] **R8.11** Mini-game rules in the browser from the engine (the board shows what the same rules
   allow).
+  Done (dabea21, a background agent): the browser works out none of a game's rules. A rules module
+  says what a player may do from what they see (`RulesModule::options`; Beacons' `Seen` shares the
+  server's checks of every move), asked through the WebAssembly (`minigame_options`,
+  `minigameOptions`); the view no longer carries legal moves (WORLD_PROTOCOL 10). Moves aren't shown
+  before the server answers: turns wait on a player, the answer comes within a tick, and draws come
+  off a deck the browser doesn't see.
 - [ ] **R8.12** Road routing (`zone/roads.ts`, `zone/localPath.ts`, TS-only, browser-only) reads the
   island through the bridge; it stays TypeScript unless the server needs it.
 - [ ] **R8.13** Delete `src/sim/`, the check programs and the conformance specs.
@@ -718,8 +731,15 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
   is kept clear (`keepClear`). Both generators read them, the bake came out byte for byte the same,
   and the generator's allowance left `tests/unit/contentIds.test.ts`. Left: the waterfall's landing
   and totem made optional (`src/render/open/grotto.ts` reads them unconditionally).
-- [ ] **R9.11** Mini-games: a game is a rules module plus a board view; the table framework reads the
+- [x] **R9.11** Mini-games: a game is a rules module plus a board view; the table framework reads the
   list from content.
+  Done (0e918b8, a background agent): a mini-game is its file (`content/minigames/<id>.json`, its own
+  settings under `rules`), its rules module (`crates/engine/src/minigames/games/<id>.rs`, found by the
+  engine's build script) and its boards (`src/ui/minigames/boards/<id>.ts`,
+  `src/render/open/gameBoards/<id>.ts`, found by the game's id), with no list of games in code on
+  either side; a game travels as its index in `shared/minigames.json` (WORLD_PROTOCOL 9); the board's
+  layout comes from the engine through the WebAssembly (`minigame_layout`); the mini-games' content-id
+  allowance is gone; `docs/content.md` says how to add a game.
 - [x] **R9.12** A test that no content id appears in code, with an allowlist of reasons.
   Done (41395e6): `tests/unit/contentIds.test.ts` (`tools/content/ids.mjs`), with allowances that
   each name the task that removes them, and fail once they allow nothing.
@@ -954,7 +974,8 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
 | 2026-11-06 | R8.5, R8.3 | The engine plays the browser's offline game (the session, the training layer, the yard), and the shadow holds it to the TypeScript in the 77 headless rules tests, bit for bit | ac7e7ed |
 | 2026-11-06 | R8.3b, R8.5 | The session online: the server's word on you, the island as sent, commands run ahead, the page's hooks as inputs; shadowed online | d250c74 |
 | 2026-11-06 | R8.5 | The shadow in the page; the whole integration tier played with it; the prediction's -0 fixed; the design bible loads the engine | 2e4fc44 |
-| 2026-11-06 | R8.7, R8.8, R8.9 | The switch: the Engine answers from the engine's session (you, the creatures, the yard, the island), the page reading snapshots; the shadow gone with what it compared | (this commit) |
+| 2026-11-06 | R8.7, R8.8, R8.9 | The switch: the Engine answers from the engine's session (you, the creatures, the yard, the island), the page reading snapshots; the shadow gone with what it compared | 8ea8ece |
+| 2026-11-06 | R9.11, R8.11, R6.9 | Mini-games from their files with the engine's rules on the board; the UI gallery (a background agent, merged) | 0e918b8, dabea21, f9517ba |
 | 2026-11-06 | R9.14 | `docs/content.md` | 5e23680 |
 | 2026-11-06 | R10.10, R11.1, R11.2, R11.7, R11.8 | Snapshot to move machines: the battle server's Rust gone; the asset manifest, loader and first-download budget, `docs/assets.md` | a975617 |
 | 2026-11-06 | R6.10, R6.11, R6.8 | The client's moves: creature bodies into src/render/creatures/, the root files to their areas, the library under src/dev/ | 9317ff3, 5de387d, 81df3de |

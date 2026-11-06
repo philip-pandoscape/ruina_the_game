@@ -10,7 +10,7 @@ handed and ask for what they do; they never change the rules' state themselves.
 | `hud.ts` | The combat HUD: key hints, hotbar, weapon, floating numbers, the target plate, the stats line. |
 | `life/` | The island's HUD and its windows docked at the sides (`lifeUI.ts`, `windows/`, `hud/`), the map and road travel (`map.ts`, `travelUI.ts`). |
 | `skills/` | The skill book (T) and the skill tree (N). |
-| `party/`, `minigames/` | The party frame and window (O); challenges and the game window at your table (Beacons' board). |
+| `party/`, `minigames/` | The party frame and window (O); challenges and the game window at your table, the game's board in it a view of its own (`minigames/boards/<id>.ts`, found by the game's id; `docs/content.md`, Mini-Games). |
 | `splash.ts`, `signIn.ts`, `characterSelect.ts` | The title screen, signing in, choosing a character. |
 | `admin/` | The Admin menu (admins only): the developer zones and pages. |
 | `icons.ts` | Icons and names for weapons and abilities. |
@@ -31,4 +31,5 @@ handed and ask for what they do; they never change the rules' state themselves.
 ## Tests
 
 `tests/integration/ui.spec.ts` (the windows, the writing rule), `hotbar.spec.ts`, `skills.spec.ts`,
-`party.spec.ts`, `minigames.spec.ts`, and the sign-in and characters in `online.spec.ts`.
+`party.spec.ts`, `minigames.spec.ts` (and every game's boards, `tests/unit/minigames.test.ts`), and the
+sign-in and characters in `online.spec.ts`.

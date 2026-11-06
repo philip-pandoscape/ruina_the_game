@@ -547,7 +547,7 @@ mod tests {
         toasts(&mut life);
         assert!(complete(&mut life, "woodcutting"));
         assert_eq!((life.state.coins, life.state.seals), (120.0, 1.0));
-        assert_eq!(toasts(&mut life), ["✔ Timber from Thornwood complete - 1 skill point, 60c, 1 seal"]);
+        assert_eq!(toasts(&mut life), ["✔ Timber From Thornwood complete - 1 skill point, 60c, 1 seal"]);
         assert_eq!(ids(&quests_at(&life, "quill").0), ["home"]);
     }
 
@@ -671,7 +671,7 @@ mod tests {
         step_quests(&mut life, &mut sim);
         assert!(quest_done(&life, "wayfarer"));
         assert_eq!(step(&life, "wings"), 1);
-        assert_eq!(toasts(&mut life), ["✔ Milestone: Wayfarer - 1 skill point", "Wings over the Windspire: Speak with Ysolde Windward at the glider launch"]);
+        assert_eq!(toasts(&mut life), ["✔ Milestone: Wayfarer - 1 skill point", "Wings Over the Windspire: Speak with Ysolde Windward at the glider launch"]);
         // A defeat or a level is only counted by what names it.
         assert!(matches(
             &Objective { type_: "defeat".into(), kind: Some("slime".into()), ..Default::default() },

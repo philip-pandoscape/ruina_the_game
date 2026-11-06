@@ -1,5 +1,6 @@
-/* Mini-games (src/ui/minigames): the challenge window, the invitation, and the game at your table.
-   Built from the window parts in windows.css; sizes are the UI's virtual pixels. */
+/* Mini-games (src/ui/minigames): the challenge window, the invitation, and the game at your table
+   (each game's board has its own styles, beside its board view in boards/). Built from the window
+   parts in windows.css; sizes are the UI's virtual pixels. */
 
 .mg-win .mw-body { padding-top: 12px; }
 .mw.mg-invite { left: 50%; top: 58px; transform: translateX(-50%); width: 430px; }
@@ -32,33 +33,6 @@
 .mg-clock small { display: block; margin-top: 2px; font: 600 11px var(--font); color: var(--ink-2); }
 .mg-hint { min-height: 38px; margin: 4px 0 2px; font-size: 13.5px; line-height: 1.4; color: var(--ink); text-align: center; }
 .mg-hint b { color: var(--title); }
-.mg-board { display: block; margin: 0 auto; }
-.mg-board .hx polygon { stroke: #3d2614; stroke-width: 1.5; }
-.mg-board .hx.old polygon { stroke: #e0b84a; stroke-width: 2.5; }
-.mg-board .hx.can { cursor: pointer; }
-.mg-board .hx.can polygon { stroke: #f5b843; stroke-width: 3.5; filter: drop-shadow(0 0 3px rgba(255, 200, 80, 0.9)); }
-.mg-board .hx.can:hover polygon { stroke: #fff1b8; }
-.mg-board .hx.row polygon { stroke: #f2c94c; stroke-width: 4; }
-.mg-board .hx.dim { opacity: 0.45; }
-.mg-board image { pointer-events: none; }
-.mg-board .beacon { stroke: #2b1a0e; stroke-width: 2; pointer-events: none; }
-.mg-board .glint { fill: rgba(255, 255, 255, 0.55); pointer-events: none; }
-.mg-cards { display: flex; align-items: flex-end; gap: 8px; }
-.mg-cards.hand { justify-content: center; }
-.mg-card { position: relative; flex: none; width: 58px; height: 76px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border-radius: 7px; cursor: default;
-  font: 700 11.5px var(--font); color: var(--ink-strong); background: linear-gradient(180deg, #fff7e2, #ecd6a8); border: 2px solid #6e4a2a;
-  box-shadow: 0 0 0 1px #2b1a0e, inset 0 5px 0 var(--c, #c9a06a), 0 3px 6px rgba(0, 0, 0, 0.25); transition: transform 0.08s; }
-.mg-card img { width: 32px; height: 32px; }
-.mg-card.can { cursor: pointer; }
-.mg-card.can:hover { transform: translateY(-3px); }
-.mg-card.picked { transform: translateY(-8px); border-color: var(--title); box-shadow: 0 0 0 2px #f5b843, inset 0 5px 0 var(--c, #c9a06a), 0 6px 12px rgba(0, 0, 0, 0.35); }
-.mg-card.take { box-shadow: 0 0 0 2px #f5b843, 0 0 10px rgba(255, 200, 80, 0.85), inset 0 5px 0 var(--c, #c9a06a); cursor: pointer; }
-.mg-card.back { color: #fbe7c0; background: repeating-linear-gradient(45deg, #7a1f26 0 6px, #641f26 6px 12px); }
-.mg-card.back b { font-size: 18px; }
-.mg-card.empty { opacity: 0.35; }
-.mg-row2 { display: flex; align-items: flex-end; justify-content: space-between; gap: 14px; margin-top: 2px; }
-.mg-row2 > div { display: flex; flex-direction: column; gap: 4px; }
-.mg-row2 .h { margin-top: 4px; }
 .mg-log { margin-top: 6px; min-height: 18px; font-size: 12.5px; color: var(--ink-2); text-align: center; }
 .mg-result { margin: 6px 0 4px; text-align: center; }
 .mg-result .big { font: 700 26px/1.1 var(--font-title); color: var(--title); text-shadow: var(--title-shadow); }

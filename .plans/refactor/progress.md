@@ -18,7 +18,7 @@ is in [tracker.md](tracker.md), the plan in [README.md](README.md).
 | 6 The Client in Areas | in progress |
 | 7 Content in Folders | done |
 | 8 One Copy of the Rules | in progress: the browser plays on the engine's rules (the switch is done); deleting the TypeScript copy is next |
-| 9 Content as Data, Finished | begun |
+| 9 Content as Data, Finished | half done: mini-games from their files; builds by id, wire indexes, weapons, abilities and looks from data to go |
 | 10 Zones, Developer Zones and Bots | zones done, the old battle server gone; crowds at scale to go |
 | 11 Assets | done; the browser's download work dropped (D15) |
 | 12 The Design Bible as a Knowledge Base | done |
@@ -388,6 +388,13 @@ the developer zone; then the engine bridge (R6.4) and Phase 8's switches.
   integration tier found two slips (a reset kept the old log; levels the island raised didn't reach
   the page), both fixed. A step costs 0.03 ms online and 0.3 ms offline on the island, most of it
   reading the island back.
+- **The sub-agent's work, merged (R9.11, R8.11, R6.9).** A mini-game is now its file, its rules
+  module in the engine and its board views, with no list of games anywhere in code; the board offers
+  just what the server would take, asking the same rules through the WebAssembly. The UI gallery
+  (`/dev/ui.html`, framed by the content library) draws 32 made-up states of 17 windows on a real
+  offline island; it found three quest names out of Title Case, renamed ("Wings Over the
+  Windspire", "Stone From Stonebreak", "Timber From Thornwood"; the user may prefer "over" and
+  "from" kept small).
 - **Next:** delete `src/sim/` (9,668 lines, R8.13), keeping only what the page reads as views
   (types, the ground's sampling, the roads, the island's read helpers), and the conformance checks
   with it; then measure frame time, start-up and memory against the baseline (R8.14).

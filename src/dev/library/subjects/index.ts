@@ -7,6 +7,7 @@ import { rigSubjects } from './rigs';
 import { buildingsSubject } from '../galleries/buildings';
 import { crowdsSubject } from '../galleries/crowds';
 import { modelsSubject } from '../galleries/models';
+import { uiSubject } from '../galleries/ui';
 
 // Everything the library can show, in the order it lists them. A new character (a goblin, a
 // villager with a rig) is an adapter like hero.ts and a line here; a new gallery is one like
@@ -21,6 +22,7 @@ export const SUBJECTS: Subject[] = [
   modelsSubject,
   buildingsSubject,
   crowdsSubject,
+  uiSubject,
 ];
 
 export const subjectById = (id: string): Subject | undefined => SUBJECTS.find((s) => s.id === id);

@@ -1,5 +1,6 @@
 import type { Command, LifeEvent, Placement, LifeState, Vehicle, Weather } from '../engine/island';
 import type { Build } from '../content/tuning';
+import { MINIGAMES } from '../content/minigames';
 import { currentAccount, ServerDown } from './account';
 import type { ArrowRecord, EffectEvent, MeteorRecord, NetActor } from './worldFeed';
 
@@ -28,7 +29,7 @@ import type { ArrowRecord, EffectEvent, MeteorRecord, NetActor } from './worldFe
 //                     tick (× 16) everyone else is drawn at, and 10 bytes
 //                     (text) cmd {s, c} | build {build} | reset
 //                     | challenge {to, game, stake, seed?, turn?} | withdraw | answer {from, accept}
-//                     | move {table, m} | concede {table}
+//                     | move {table, m} | concede {table}   (a game is its place in shared/minigames.json)
 //                     | dungeon {id, enter} | partyInvite {to?, name?} | partyAnswer {from, accept}
 //                     | partyLeave | partyKick {id} | partyLead {id}
 
@@ -145,7 +146,8 @@ export interface WorldStats {
 /** A mini-game's table as everyone in the world sees it (crates/engine/src/minigames Table::shown). */
 export interface TableShown {
   id: number;
-  game: string;
+  /** The game: its place in shared/minigames.json. */
+  game: number;
   /** Its middle on the ground, and the way from seat 0 to seat 1 (x = sin, z = cos). */
   x: number;
   y: number;
@@ -155,8 +157,8 @@ export interface TableShown {
   seats: Array<{ id: number; name: string }>;
   /** Each player's stake (copper). */
   stake: number;
-  /** Beacons: who lit each hex (0 nobody, 1 seat 0, 2 seat 1) and the winning row. */
-  board: { lit: number[]; row: number[] };
+  /** The board as anyone may see it, in the game's own terms (its board views read it). */
+  board: unknown;
   /** Once the game is over: who won (null: nobody) and why. */
   over?: { winner: number | null; why: 'rules' | 'conceded' | 'timeouts' | 'away' | 'aborted' };
 }
@@ -170,7 +172,7 @@ export interface TableView extends Omit<TableShown, 'seats'> {
   /** What was left on the clock of the player to move when this was sent. */
   ms: number;
   toMove: number | null;
-  /** The game's own state (Beacons: src/ui/minigames/beacons.ts BeaconsState). */
+  /** The game as its rules show it to you, in its own terms (its board view's: src/ui/minigames/boards/). */
   state: Record<string, unknown>;
 }
 
@@ -180,7 +182,8 @@ export interface ChallengeView {
   fromName: string;
   to: number;
   toName: string;
-  game: string;
+  /** The game: its place in shared/minigames.json. */
+  game: number;
   /** Each player's stake (copper). */
   stake: number;
   /** Time left to answer when this was sent. */
@@ -205,7 +208,7 @@ const RETRY_MS = { updating: [500, 1000, 1500, 2000], reconnecting: [500, 1000, 
 /** A WebSocket closed as a service restart: the server is being updated. */
 const SERVICE_RESTART = 1012;
 /** What this page speaks; the server says what it speaks in its welcome (crates/server/src/play/socket.rs). */
-const WORLD_PROTOCOL = 8;
+const WORLD_PROTOCOL = 10;
 const RELOADED = 'ruina.reloaded-for-server';
 const RELOADED_BUILD = 'ruina.reloaded-for-build';
 const SEND_INPUTS = 7;
@@ -359,10 +362,16 @@ export class WorldLink {
    */
   challengeTurn: number | null = null;
 
-  /** Challenges another player here to `game` for `stake` copper each (development servers: `seed` deals a known game). */
+  /**
+   * Challenges another player here to the game `game` names (its id) for `stake` copper each
+   * (development servers: `seed` deals a known game). On the wire the game is its place in
+   * shared/minigames.json, as the server sends it back.
+   */
   challenge(to: number, game: string, stake: number, seed?: number): boolean {
+    const index = MINIGAMES.findIndex((g) => g.id === game);
+    if (index < 0) return false;
     const turn = this.challengeTurn;
-    return this.send({ t: 'challenge', to, game, stake, ...(seed !== undefined ? { seed } : {}), ...(turn !== null ? { turn } : {}) });
+    return this.send({ t: 'challenge', to, game: index, stake, ...(seed !== undefined ? { seed } : {}), ...(turn !== null ? { turn } : {}) });
   }
 
   /** Takes your challenge back. */

@@ -58,9 +58,13 @@ keeps its notes in the browser, the bug reporter explains why it can't save. The
 
 Everything the game draws is looked at in one page, the content library (`/dev/library.html`,
 `src/dev/library/`): every animated thing frame by frame, library clips on the hero beside their source,
-close-up rigs, and the galleries of models, buildings and crowds. Its address names what is open
+close-up rigs, and the galleries of models, buildings, crowds and the interface. Its address names what is open
 (`#/<subject>/<animation or entry>?<options>&f=<frame>`), so a link goes straight to it. A new kind
-of thing to look at is a subject or a gallery there, not a page of its own.
+of thing to look at is a subject or a gallery there, not a page of its own. The interface is the one
+gallery the library frames rather than draws (`#/ui/<window>/<state>`): its windows are drawn by
+`/dev/ui.html` (`src/dev/ui/`), on a real offline island, because the game's theme sets its colours on
+the whole document and tooltips and menus need a document to themselves. The Admin menu doesn't list
+that page; the library is the way to it.
 
 ## Adding a Page
 

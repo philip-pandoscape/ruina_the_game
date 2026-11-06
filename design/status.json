@@ -1158,8 +1158,9 @@
       "title": "Beacons, the first mini-game",
       "notes": "A card-and-board game made for Ruina (the user asked for Sequence; we don't recreate existing games, so this is an original one in the same genre). 37 hexes in a hexagon, six island goods on six hexes each and never beside themselves, the Old Beacon in the middle; 48 cards. Play a card to light an unlit hex of its good, two of a kind to light any hex (the Old Beacon too), or swap a card; then draw back to four from the face-up Harbour or the deck. Four of yours in a straight row wins. 40 s a turn (the server plays for you when it runs out; three in a row forfeits).",
       "files": [
-        "crates/engine/src/minigames/beacons.rs",
-        "src/ui/minigames/beacons.ts"
+        "crates/engine/src/minigames/games/beacons.rs",
+        "src/ui/minigames/boards/beacons.ts",
+        "src/render/open/gameBoards/beacons.ts"
       ]
     },
     {

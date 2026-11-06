@@ -1,5 +1,8 @@
+import { readFileSync } from 'node:fs';
 import { expect, test, type Browser, type BrowserContext, type Page } from '@playwright/test';
-import { HEXES } from '../../src/content/minigames';
+import { MINIGAMES } from '../../src/content/minigames';
+import { minigameLayout, minigameOptions } from '../../src/engine/minigames';
+import { useEngine } from '../../src/engine/wasm';
 import { isTitleCase } from '../../src/ui/theme/text';
 import { onlineReady as waitOnline } from '../support/game';
 
@@ -16,8 +19,14 @@ import { onlineReady as waitOnline } from '../support/game';
 const SERVER = process.env.RUINA_SERVER ?? 'http://localhost:7777';
 const SHOTS = 'screenshots';
 
+/** Beacons: its place in the bundle, and its board as its rules lay it out (beacons.rs `layout`), asked of the engine's WebAssembly as the page asks it (`npm run engine` builds it, as Playwright's web server does). */
+const BEACONS = MINIGAMES.findIndex((g) => g.id === 'beacons');
+let HEXES: Array<{ q: number; r: number; good: number | null }> = [];
+
 let serverUp = false;
 test.beforeAll(async () => {
+  useEngine(new WebAssembly.Instance(new WebAssembly.Module(readFileSync('target/wasm32-unknown-unknown/release/ruina_engine_wasm.wasm')), {}).exports);
+  HEXES = minigameLayout<{ hexes: typeof HEXES }>(BEACONS).hexes;
   try {
     const r = await fetch(`${SERVER}/api/health`);
     serverUp = r.ok && (await r.json()).database === true;
@@ -121,6 +130,37 @@ async function untitled(page: Page, names: string[]): Promise<string[]> {
   return labels.filter((l) => !isTitleCase(names.reduce((s, n) => s.split(n).join('Name'), l)));
 }
 
+/** A hex's six neighbours on Beacons' board. */
+function near(i: number): number[] {
+  const dirs = [
+    [1, 0],
+    [1, -1],
+    [0, -1],
+    [-1, 0],
+    [-1, 1],
+    [0, 1],
+  ];
+  return dirs.map(([dq, dr]) => HEXES.findIndex((h) => h.q === HEXES[i].q + dq && h.r === HEXES[i].r + dr)).filter((x) => x >= 0);
+}
+
+/** Every way the player at table `t` could light a hex, as their window finds them (from the engine): the hexes each card, and each pair of cards, lights. */
+function lights(t: TableSeen): Array<{ cards: number[]; hexes: number[] }> {
+  const n = t.state.hand?.length ?? 0;
+  const picks: number[][] = [];
+  for (let a = 0; a < n; a++) picks.push([a]);
+  for (let a = 0; a < n; a++) for (let b = a + 1; b < n; b++) picks.push([a, b]);
+  const offered = (cards: number[]) => minigameOptions<{ hexes: number[] }>(BEACONS, { you: t.you, toMove: t.toMove, view: t.state, picked: cards }).hexes;
+  return picks.map((cards) => ({ cards, hexes: offered(cards) })).filter((l) => l.hexes.length);
+}
+
+/** Your table as the page last heard it, as much as the moves below read. */
+interface TableSeen {
+  you: number;
+  toMove: number | null;
+  over?: unknown;
+  state: { lit: number[]; draws: number; harbour: Array<number | null>; hand?: number[] };
+}
+
 /**
  * A move by `p` in the game at their table, if it's their turn and the game has moved on since
  * `last` (what they saw when they last moved). The winner works on `row`, taking the Harbour cards
@@ -129,56 +169,39 @@ async function untitled(page: Page, names: string[]): Promise<string[]> {
  * page last heard it from the server, so this works with the page in the background too.
  */
 async function move(p: Player, role: 'win' | 'lose', row: number[], last: string): Promise<string> {
-  return p.page.evaluate(
-    ({ role, row, last, hexes }) => {
-      const g = window.__game;
-      const dirs = [
-        [1, 0],
-        [1, -1],
-        [0, -1],
-        [-1, 0],
-        [-1, 1],
-        [0, 1],
-      ];
-      const index = new Map(hexes.map((h: { q: number; r: number }, i: number) => [`${h.q},${h.r}`, i]));
-      const near = (i: number) => dirs.map(([dq, dr]) => index.get(`${hexes[i].q + dq},${hexes[i].r + dr}`)).filter((x) => x !== undefined) as number[];
-      const t = g.minigames()?.table;
-      if (!t || t.over) return 'over';
-      const s = t.state;
-      const key = `${t.toMove}:${s.draws}:${s.lit.join('')}:${(s.hand ?? []).join('')}`;
-      if (t.toMove !== t.you || key === last) return 'wait';
-      const want = row.filter((h) => s.lit[h] === 0);
-      let m: Record<string, unknown> | null = null;
-      if (s.draws > 0) {
-        const i = role === 'win' ? s.harbour.findIndex((x: number | null) => x !== null && want.some((h) => hexes[h].good === x)) : -1;
-        m = i >= 0 ? { k: 'draw', from: 'harbour', i } : { k: 'draw', from: 'deck' };
-      } else if (role === 'win') {
-        const legal = [...(s.legal ?? [])].sort((a: { cards: number[] }, b: { cards: number[] }) => a.cards.length - b.cards.length);
-        for (const l of legal) {
-          const h = l.hexes.find((x: number) => want.includes(x));
-          if (h !== undefined) {
-            m = { k: 'light', cards: l.cards, hex: h };
-            break;
-          }
-        }
-      } else {
-        let best = Infinity;
-        for (const l of s.legal ?? []) {
-          for (const h of l.hexes) {
-            if (row.includes(h)) continue;
-            const score = near(h).filter((n) => s.lit[n] === t.you + 1).length * 10 + l.cards.length;
-            if (score < best) {
-              best = score;
-              m = { k: 'light', cards: l.cards, hex: h };
-            }
-          }
+  const t = (await game(p.page, (g) => g.minigames()?.table)) as TableSeen | null;
+  if (!t || t.over) return 'over';
+  const s = t.state;
+  const key = `${t.toMove}:${s.draws}:${s.lit.join('')}:${(s.hand ?? []).join('')}`;
+  if (t.toMove !== t.you || key === last) return 'wait';
+  const want = row.filter((h) => s.lit[h] === 0);
+  let m: Record<string, unknown> | null = null;
+  if (s.draws > 0) {
+    const i = role === 'win' ? s.harbour.findIndex((x) => x !== null && want.some((h) => HEXES[h].good === x)) : -1;
+    m = i >= 0 ? { k: 'draw', from: 'harbour', i } : { k: 'draw', from: 'deck' };
+  } else if (role === 'win') {
+    for (const l of lights(t).sort((a, b) => a.cards.length - b.cards.length)) {
+      const h = l.hexes.find((x) => want.includes(x));
+      if (h !== undefined) {
+        m = { k: 'light', cards: l.cards, hex: h };
+        break;
+      }
+    }
+  } else {
+    let best = Infinity;
+    for (const l of lights(t)) {
+      for (const h of l.hexes) {
+        if (row.includes(h)) continue;
+        const score = near(h).filter((n) => s.lit[n] === t.you + 1).length * 10 + l.cards.length;
+        if (score < best) {
+          best = score;
+          m = { k: 'light', cards: l.cards, hex: h };
         }
       }
-      g.tableMove(m ?? { k: 'swap', card: 0 });
-      return key;
-    },
-    { role, row, last, hexes: HEXES.map((h) => ({ q: h.q, r: h.r, good: h.good })) },
-  );
+    }
+  }
+  await p.page.evaluate((m) => window.__game.tableMove(m), m ?? { k: 'swap', card: 0 });
+  return key;
 }
 
 // Three game windows at once: a browser drawing in software (CI's) can't keep up with them.
@@ -289,7 +312,7 @@ test('a challenge accepted puts both stakes in the pot, throws a table down for 
       await cal.page.evaluate(() => window.__game.setCamera({ yaw: Math.PI, pitch: 0.4, distance: 3 }));
       await cal.page.evaluate(() => window.__game.render());
       await cal.page.screenshot({ path: `${SHOTS}/minigames-04-table.png` });
-      expect((await game(cal.page, (g) => g.gameTables()))[0].pegs).toBeGreaterThanOrEqual(5);
+      expect((await game(cal.page, (g) => g.gameTables()))[0].pieces).toBeGreaterThanOrEqual(5);
     }
   }
 

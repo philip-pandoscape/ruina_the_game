@@ -21,6 +21,7 @@ steppers no longer run, until R8.13 of the refactor (`.plans/refactor/`) moves i
 | `zone.ts` | The island's ground and what stands on it: terrain, zones, buildings, colliders, roads, dungeons. |
 | `island.ts` | The island's life systems: trade, farming, housing, the shipyard, vehicles, quests, weather, saves. |
 | `creatures.ts` | Creatures: actors, their brains and behaviours, hits and missiles. |
+| `minigames.ts` | The mini-games' rules for their boards (`crates/engine-wasm/src/minigames.rs`): how each game's board is laid out, and what a player may do now from what they see (so a board offers just what the server would take), from the same rules module the server plays it by. |
 
 ## Rules
 

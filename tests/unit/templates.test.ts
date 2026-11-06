@@ -47,7 +47,7 @@ const NO_TEMPLATE: Record<string, string> = {
   abilities: 'R9.5: an ability is an effect, an icon and a cause on the wire in code too',
   'movement-skills': 'R9.5: a movement skill is a pose in code too',
   stats: 'a stat is a number the rules read by its name: a new one is new code',
-  minigames: 'R9.11: a mini-game is its rules and its board in code',
+  minigames: 'a mini-game is its rules module and its board views besides its file (docs/content.md)',
 };
 
 /** The items other templates name besides newItem, as a person adds them with theirs (docs/content.md). */

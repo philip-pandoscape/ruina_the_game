@@ -68,7 +68,7 @@ export async function loadEngine(url: string): Promise<void> {
   useEngine(instance.exports);
 }
 
-/** The loaded engine's exports, for the bridge's other modules (src/engine/session.ts). */
+/** The loaded engine's exports, for the bridge's other modules (src/engine/session.ts, minigames.ts). */
 export function wasm(): Exports {
   if (!engine) throw new Error("the engine isn't loaded: await loadEngine() at the page's start (src/engine/load.ts)");
   return engine;

@@ -1,6 +1,6 @@
 {
   "id": "stonecutting",
-  "name": "Stone from Stonebreak",
+  "name": "Stone From Stonebreak",
   "giver": "quill",
   "after": [
     "firstFlight",

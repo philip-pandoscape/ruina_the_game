@@ -1,6 +1,6 @@
 {
   "id": "wings",
-  "name": "Wings over the Windspire",
+  "name": "Wings Over the Windspire",
   "giver": "hollis",
   "after": [
     "landfall"

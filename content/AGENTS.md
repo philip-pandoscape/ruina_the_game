@@ -49,6 +49,8 @@ creature's brain: `REFS` in contentc.mjs says which keys name which kinds).
   template in `_templates/`, and `npm run content:schemas`. A reference to it: a line in `REFS`.
 - **A new bundle**: its template here at its path under `shared/`, its import in `src/content/` and
   its `include_str!` in the engine.
+- **A new mini-game** is its file in `minigames/` (its own settings under `rules`) and code: its
+  rules module in the engine and its board views, each named after it (`docs/content.md`).
 
 The code names kinds of thing and what they do, never one thing by its id: the unit tier fails on
 a content id in code (`tests/unit/contentIds.test.ts`; `node tools/content/ids.mjs` lists them)

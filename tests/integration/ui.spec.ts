@@ -1,10 +1,10 @@
 import { expect, test, type Page } from '@playwright/test';
 import { skillsFrom } from '../../src/content/skills';
 import { emptyMovement, HOTBAR_SLOTS, NO_ABILITY } from '../../src/content/tuning';
-import { isTitleCase } from '../../src/ui/theme/text';
 import type { Command } from '../../src/sim/life/life';
 import type { LifePress } from '../../src/ui/life/lifeUI';
 import { gameReady } from '../support/game';
+import { untitled } from '../support/labels';
 
 // Its tests share nothing, so they spread across the workers (playwright.config.ts).
 test.describe.configure({ mode: 'parallel' });
@@ -44,39 +44,6 @@ async function faceNpc(page: Page, id: string): Promise<void> {
   const n = (await g.zone()).npcs.find((x: { id: string }) => x.id === id);
   await g.teleport(n.x + Math.sin(n.facing) * 1.6, n.z + Math.cos(n.facing) * 1.6, n.facing + Math.PI);
   await g.advance(2);
-}
-
-/** Every label in the open windows and the HUD that isn't in Title Case. */
-async function untitled(page: Page): Promise<string[]> {
-  const labels = await page.evaluate(() => {
-    const sel = [
-      '.lui-btn',
-      '.mw-bar',
-      '.mw .h',
-      '.g-opts li > span',
-      '.g-opts li > small',
-      '.m-tab',
-      '.ctx-i',
-      '.ctx-h',
-      '.hud-mbtn .lbl',
-      '#hint > span',
-      '#lui-prompt > span:not(.key):not(.detail)',
-      '.ch-slot > span',
-      '.ch-stats .r > span',
-      '.ql-zone > span:first-child',
-      '.set-row > span',
-    ].join(',');
-    return [...document.querySelectorAll<HTMLElement>(sel)]
-      .filter((e) => e.offsetParent !== null)
-      .map((e) => {
-        // The label itself: without key caps, counts and nested notes.
-        const c = e.cloneNode(true) as HTMLElement;
-        c.querySelectorAll('.key, .k, small, b, .mny, svg, img').forEach((x) => x.remove());
-        return c.textContent!.replace(/\s+/g, ' ').trim();
-      })
-      .filter(Boolean);
-  });
-  return labels.filter((l) => !isTitleCase(l));
 }
 
 test('labels in every window are in Title Case', async ({ page }) => {

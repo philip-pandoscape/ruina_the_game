@@ -14,8 +14,9 @@
 //! Four of your beacons in an unbroken straight row, along any of the board's three directions,
 //! wins. Every hex lit with no row is a draw. The challenged player moves first (seat 0).
 //!
-//! On the wire hexes are numbered row by row from the top (shared/minigames.json `layout`), cards
-//! by their place in your hand, goods by their place in `goods`.
+//! The numbers and the board are content (content/minigames/beacons.json `rules`), which the tables
+//! hand this module, named after the game (`RULES`). On the wire hexes are numbered row by row from
+//! the top (`layout`), cards by their place in your hand, goods by their place in `goods`.
 
 use std::collections::BTreeMap;
 use std::sync::OnceLock;
@@ -23,10 +24,9 @@ use std::sync::OnceLock;
 use serde::Deserialize;
 use serde_json::{Value, json};
 
-use super::{Rules, game_raw};
+use crate::minigames::{Asking, GameDef, Rules, RulesModule};
 use crate::rng::Rng;
 
-const RADIUS: i32 = 3;
 /// The six neighbours of a hex, in axial coordinates.
 const DIRS: [(i32, i32); 6] = [(1, 0), (1, -1), (0, -1), (-1, 0), (-1, 1), (0, 1)];
 /// The three ways a row can run (each with its opposite).
@@ -34,8 +34,63 @@ const AXES: [(i32, i32); 3] = [(1, 0), (0, 1), (1, -1)];
 /// Public moves kept for the players to see what just happened.
 const LOG: usize = 6;
 
+/// Beacons for the tables: how a game is dealt, its board as the board views draw it, and what a
+/// player may do now, as their board view offers it.
+pub const RULES: RulesModule = RulesModule { deal, layout, options };
+
+fn deal(game: &'static GameDef, seed: u32) -> Box<dyn Rules> {
+    Box::new(Beacons::new(setup(game), seed))
+}
+
+/// The board: each hex's axial coordinates and the good it shows (null for the Old Beacon), in the
+/// order hexes are numbered, and which one is the Old Beacon.
+fn layout(game: &'static GameDef) -> Value {
+    let s = setup(game);
+    let hexes: Vec<Value> = s.board.cells.iter().enumerate().map(|(i, &(q, r))| json!({ "q": q, "r": r, "good": s.good_at(i) })).collect();
+    json!({ "hexes": hexes, "centre": s.board.centre })
+}
+
+/// What the player asking may do now (`Seen::options`), from the game as the server shows it to
+/// them and the cards they've picked (places in their hand).
+fn options(game: &'static GameDef, asking: &Asking) -> Result<Value, String> {
+    let s = setup(game);
+    let v: PlayerView = serde_json::from_value(asking.view.clone()).map_err(|e| format!("That isn't a view of Beacons: {e}"))?;
+    if v.lit.len() != s.board.cells.len() {
+        return Err("That isn't a view of Beacons' board.".into());
+    }
+    let picked: Vec<usize> = if asking.picked.is_null() {
+        Vec::new()
+    } else {
+        serde_json::from_value(asking.picked.clone()).map_err(|_| "Cards are picked by their places in the hand.".to_string())?
+    };
+    let seen = Seen {
+        setup: s,
+        lit: &v.lit,
+        hand: &v.hand,
+        harbour: &v.harbour,
+        stock: v.deck + v.discards,
+        over: asking.to_move.is_none(),
+        turn: asking.to_move == Some(asking.you),
+        draws: v.draws,
+    };
+    Ok(seen.options(&picked))
+}
+
+/// A player's view of the game (`Beacons::view` for their seat), as much as `options` reads.
+#[derive(Deserialize)]
+struct PlayerView {
+    lit: Vec<u8>,
+    #[serde(default)]
+    hand: Vec<u8>,
+    harbour: Vec<Option<u8>>,
+    deck: usize,
+    discards: usize,
+    draws: usize,
+}
+
+/// Beacons' own part of its content (`rules`).
 #[derive(Deserialize, Debug)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Def {
     pub hand: usize,
     pub harbour: usize,
@@ -43,11 +98,6 @@ pub struct Def {
     pub row: usize,
     pub goods: Vec<Value>,
     pub layout: Vec<i32>,
-}
-
-pub fn def() -> &'static Def {
-    static D: OnceLock<Def> = OnceLock::new();
-    D.get_or_init(|| serde_json::from_value(game_raw("beacons").expect("Beacons in shared/minigames.json").clone()).expect("Beacons' content reads"))
 }
 
 /// The board's shape: each hex's axial coordinates (q, r), and the hex at each.
@@ -58,22 +108,21 @@ pub struct Board {
     pub centre: usize,
 }
 
-pub fn board() -> &'static Board {
-    static B: OnceLock<Board> = OnceLock::new();
-    B.get_or_init(|| {
+impl Board {
+    /// A hexagon `radius` hexes from its middle to its edge, numbered row by row from the top (r
+    /// rising), q rising along each row.
+    fn hexagon(radius: i32) -> Board {
         let mut cells = Vec::new();
-        for r in -RADIUS..=RADIUS {
-            for q in (-RADIUS).max(-RADIUS - r)..=RADIUS.min(RADIUS - r) {
+        for r in -radius..=radius {
+            for q in (-radius).max(-radius - r)..=radius.min(radius - r) {
                 cells.push((q, r));
             }
         }
         let index: BTreeMap<(i32, i32), usize> = cells.iter().enumerate().map(|(i, c)| (*c, i)).collect();
         let centre = index[&(0, 0)];
         Board { cells, index, centre }
-    })
-}
+    }
 
-impl Board {
     pub fn at(&self, q: i32, r: i32) -> Option<usize> {
         self.index.get(&(q, r)).copied()
     }
@@ -84,9 +133,31 @@ impl Board {
     }
 }
 
-/// The good shown on hex `i`, None for the Old Beacon.
-pub fn good_at(i: usize) -> Option<u8> {
-    u8::try_from(def().layout[i]).ok()
+/// Beacons as its content sets it up: its numbers, and the board its layout covers.
+pub struct Setup {
+    pub def: Def,
+    pub board: Board,
+}
+
+impl Setup {
+    /// The good shown on hex `i`, None for the Old Beacon.
+    pub fn good_at(&self, i: usize) -> Option<u8> {
+        u8::try_from(self.def.layout[i]).ok()
+    }
+}
+
+/// Beacons' setup, read from its content the first time it's needed. This module is the one game's
+/// alone (the tables find it by the game's id), so it's read once.
+pub fn setup(game: &GameDef) -> &'static Setup {
+    static S: OnceLock<Setup> = OnceLock::new();
+    S.get_or_init(|| {
+        let def: Def = serde_json::from_value(game.rules.clone()).unwrap_or_else(|e| panic!("content/minigames/{}.json `rules`: {e}", game.id));
+        // A hexagon r hexes from its middle to its edge has 3r(r + 1) + 1 of them.
+        let hexes = |r: i32| (3 * r * (r + 1) + 1) as usize;
+        let radius = (0..).find(|&r| hexes(r) >= def.layout.len()).expect("a hexagon");
+        assert_eq!(hexes(radius), def.layout.len(), "content/minigames/{}.json: the layout covers a hexagon, row by row", game.id);
+        Setup { def, board: Board::hexagon(radius) }
+    })
 }
 
 #[derive(Deserialize)]
@@ -104,7 +175,149 @@ enum Move {
     },
 }
 
+/// What a player at the table sees that decides what they may do: the board, their own hand, the
+/// Harbour, how many cards are left to draw, whose turn it is and how many cards they still draw.
+/// The server checks every move against it (`Beacons::play`), and the browser's board view asks it
+/// what to offer (`options`, through the engine's WebAssembly), so the board offers just what the
+/// server would take.
+struct Seen<'a> {
+    setup: &'static Setup,
+    lit: &'a [u8],
+    hand: &'a [u8],
+    harbour: &'a [Option<u8>],
+    /// The cards left to draw: the deck, and the discards shuffled into a new one when it runs out.
+    stock: usize,
+    over: bool,
+    /// It's this player's turn.
+    turn: bool,
+    /// Cards still to draw this turn; 0 before playing.
+    draws: usize,
+}
+
+impl Seen<'_> {
+    fn may_move(&self) -> Result<(), String> {
+        if self.over {
+            return Err("This game is over.".into());
+        }
+        if !self.turn {
+            return Err("It isn't your turn.".into());
+        }
+        Ok(())
+    }
+
+    /// Hexes the cards at `cards` in the hand could light: one card, the unlit hexes of its good; a
+    /// pair of one good, every unlit hex. Empty for anything else.
+    fn hexes_for(&self, cards: &[usize]) -> Vec<usize> {
+        let hand = self.hand;
+        let unlit = (0..self.lit.len()).filter(|&i| self.lit[i] == 0);
+        match cards {
+            [a] if *a < hand.len() => unlit.filter(|&i| self.setup.good_at(i) == Some(hand[*a])).collect(),
+            [a, b] if a != b && *a < hand.len() && *b < hand.len() && hand[*a] == hand[*b] => unlit.collect(),
+            _ => Vec::new(),
+        }
+    }
+
+    /// Every way the hand could light a hex now: (cards, hexes), singles first, then pairs.
+    fn lights(&self) -> Vec<(Vec<usize>, Vec<usize>)> {
+        let n = self.hand.len();
+        let mut out = Vec::new();
+        for a in 0..n {
+            let h = self.hexes_for(&[a]);
+            if !h.is_empty() {
+                out.push((vec![a], h));
+            }
+        }
+        for a in 0..n {
+            for b in a + 1..n {
+                let h = self.hexes_for(&[a, b]);
+                if !h.is_empty() {
+                    out.push((vec![a, b], h));
+                }
+            }
+        }
+        out
+    }
+
+    fn may_light(&self, cards: &[usize], hex: usize) -> Result<(), String> {
+        self.may_move()?;
+        if self.draws > 0 {
+            return Err("Draw your cards first.".into());
+        }
+        if cards.is_empty() || cards.len() > 2 {
+            return Err("Play one card, or two of a kind.".into());
+        }
+        if hex >= self.lit.len() || self.lit[hex] != 0 {
+            return Err("That hex is already lit.".into());
+        }
+        if !self.hexes_for(cards).contains(&hex) {
+            return Err(if cards.len() == 1 {
+                "One card lights a hex of its own good. Two of a kind light any hex."
+            } else {
+                "Two cards have to be of the same good."
+            }
+            .into());
+        }
+        Ok(())
+    }
+
+    fn may_swap(&self, card: usize) -> Result<(), String> {
+        self.may_move()?;
+        if self.draws > 0 {
+            return Err("Draw your cards first.".into());
+        }
+        if card >= self.hand.len() {
+            return Err("There's no such card in your hand.".into());
+        }
+        Ok(())
+    }
+
+    /// Drawing the Harbour's card `i` (Some), or the deck's top card (None).
+    fn may_draw(&self, from_harbour: Option<usize>) -> Result<(), String> {
+        self.may_move()?;
+        if self.draws == 0 {
+            return Err("Play a card or swap one first.".into());
+        }
+        match from_harbour {
+            Some(i) if !matches!(self.harbour.get(i), Some(Some(_))) => Err("There's no card there.".into()),
+            None if self.stock == 0 => Err("The deck is empty.".into()),
+            _ => Ok(()),
+        }
+    }
+
+    /// What the board view may offer: whether it's time to play or to draw; what each card in the
+    /// hand can do (light a hex alone, make a pair with another card, be swapped); which hexes the
+    /// picked cards (places in the hand) light, and whether they're a swap; and which Harbour cards,
+    /// and whether the deck, may be drawn. Each answer is one of the checks above, asked of every
+    /// hex, card and slot, so the board offers just what the server would take.
+    fn options(&self, picked: &[usize]) -> Value {
+        // The hexes `cards` light: those of `hexes_for` (which every hex `may_light` takes is
+        // among) that the check takes.
+        let lights = |cards: &[usize]| -> Vec<usize> { self.hexes_for(cards).into_iter().filter(|&h| self.may_light(cards, h).is_ok()).collect() };
+        let n = self.hand.len();
+        let cards: Vec<Value> = (0..n)
+            .map(|c| {
+                json!({
+                    "light": !lights(&[c]).is_empty(),
+                    "pair": (0..n).find(|&d| d != c && !lights(&[c, d]).is_empty()),
+                    "swap": self.may_swap(c).is_ok(),
+                })
+            })
+            .collect();
+        let moving = self.may_move().is_ok();
+        json!({
+            "play": moving && self.draws == 0,
+            "draw": moving && self.draws > 0,
+            "cards": cards,
+            "hexes": lights(picked),
+            "swap": matches!(picked, [c] if self.may_swap(*c).is_ok()),
+            "harbour": (0..self.harbour.len()).map(|i| self.may_draw(Some(i)).is_ok()).collect::<Vec<_>>(),
+            "deck": self.may_draw(None).is_ok(),
+        })
+    }
+}
+
 pub struct Beacons {
+    setup: &'static Setup,
     rng: Rng,
     /// The top is the end.
     deck: Vec<u8>,
@@ -126,18 +339,19 @@ pub struct Beacons {
 }
 
 impl Beacons {
-    pub fn new(seed: u32) -> Beacons {
-        let d = def();
+    pub fn new(setup: &'static Setup, seed: u32) -> Beacons {
+        let d = &setup.def;
         let mut rng = Rng(if seed == 0 { 1 } else { seed });
         let mut deck: Vec<u8> = (0..d.goods.len() as u8).flat_map(|g| std::iter::repeat_n(g, d.per_good)).collect();
         rng.shuffle(&mut deck);
         let mut g = Beacons {
+            setup,
             rng,
             deck,
             discards: Vec::new(),
             hands: [Vec::new(), Vec::new()],
             harbour: Vec::new(),
-            lit: vec![0; board().cells.len()],
+            lit: vec![0; setup.board.cells.len()],
             turn: 0,
             turns: 1,
             draws: 0,
@@ -174,68 +388,22 @@ impl Beacons {
         }
     }
 
-    fn mine(&self, seat: usize) -> Result<(), String> {
-        if self.over.is_some() {
-            return Err("This game is over.".into());
+    /// What `seat` sees of the game, which their moves are checked against.
+    fn seen(&self, seat: usize) -> Seen<'_> {
+        Seen {
+            setup: self.setup,
+            lit: &self.lit,
+            hand: self.hands.get(seat).map_or(&[], Vec::as_slice),
+            harbour: &self.harbour,
+            stock: self.deck.len() + self.discards.len(),
+            over: self.over.is_some(),
+            turn: seat == self.turn,
+            draws: self.draws,
         }
-        if seat != self.turn {
-            return Err("It isn't your turn.".into());
-        }
-        Ok(())
-    }
-
-    /// Hexes the cards at `cards` in `seat`'s hand could light: one card, the unlit hexes of its
-    /// good; a pair of one good, every unlit hex. Empty for anything else.
-    fn hexes_for(&self, seat: usize, cards: &[usize]) -> Vec<usize> {
-        let hand = &self.hands[seat];
-        let unlit = (0..self.lit.len()).filter(|&i| self.lit[i] == 0);
-        match cards {
-            [a] if *a < hand.len() => unlit.filter(|&i| good_at(i) == Some(hand[*a])).collect(),
-            [a, b] if a != b && *a < hand.len() && *b < hand.len() && hand[*a] == hand[*b] => unlit.collect(),
-            _ => Vec::new(),
-        }
-    }
-
-    /// Every way `seat` could light a hex now: (cards, hexes), singles first, then pairs.
-    fn lights(&self, seat: usize) -> Vec<(Vec<usize>, Vec<usize>)> {
-        let n = self.hands[seat].len();
-        let mut out = Vec::new();
-        for a in 0..n {
-            let h = self.hexes_for(seat, &[a]);
-            if !h.is_empty() {
-                out.push((vec![a], h));
-            }
-        }
-        for a in 0..n {
-            for b in a + 1..n {
-                let h = self.hexes_for(seat, &[a, b]);
-                if !h.is_empty() {
-                    out.push((vec![a, b], h));
-                }
-            }
-        }
-        out
     }
 
     fn light(&mut self, seat: usize, cards: &[usize], hex: usize) -> Result<(), String> {
-        self.mine(seat)?;
-        if self.draws > 0 {
-            return Err("Draw your cards first.".into());
-        }
-        if cards.is_empty() || cards.len() > 2 {
-            return Err("Play one card, or two of a kind.".into());
-        }
-        if hex >= self.lit.len() || self.lit[hex] != 0 {
-            return Err("That hex is already lit.".into());
-        }
-        if !self.hexes_for(seat, cards).contains(&hex) {
-            return Err(if cards.len() == 1 {
-                "One card lights a hex of its own good. Two of a kind light any hex."
-            } else {
-                "Two cards have to be of the same good."
-            }
-            .into());
-        }
+        self.seen(seat).may_light(cards, hex)?;
         let mut order = cards.to_vec();
         order.sort_unstable_by(|a, b| b.cmp(a));
         let mut goods = Vec::new();
@@ -258,13 +426,7 @@ impl Beacons {
     }
 
     fn swap(&mut self, seat: usize, card: usize) -> Result<(), String> {
-        self.mine(seat)?;
-        if self.draws > 0 {
-            return Err("Draw your cards first.".into());
-        }
-        if card >= self.hands[seat].len() {
-            return Err("There's no such card in your hand.".into());
-        }
+        self.seen(seat).may_swap(card)?;
         let g = self.hands[seat].remove(card);
         self.discards.push(g);
         self.draws = 1;
@@ -273,20 +435,16 @@ impl Beacons {
     }
 
     fn draw(&mut self, seat: usize, from_harbour: Option<usize>) -> Result<(), String> {
-        self.mine(seat)?;
-        if self.draws == 0 {
-            return Err("Play a card or swap one first.".into());
-        }
+        self.seen(seat).may_draw(from_harbour)?;
         let card = match from_harbour {
             Some(i) => {
-                let Some(Some(g)) = self.harbour.get(i).copied() else { return Err("There's no card there.".into()) };
-                let refill = self.top();
-                self.harbour[i] = refill;
+                let g = self.harbour[i].take().expect("may_draw found a card there");
+                self.harbour[i] = self.top();
                 self.note(json!({ "seat": seat, "k": "harbour", "good": g }));
                 g
             }
             None => {
-                let Some(g) = self.top() else { return Err("The deck is empty.".into()) };
+                let g = self.top().expect("may_draw found cards to draw");
                 self.note(json!({ "seat": seat, "k": "deck" }));
                 g
             }
@@ -302,7 +460,7 @@ impl Beacons {
 
     /// The row of four or more of one player's beacons through `hex`, if lighting it made one.
     fn row_through(&self, hex: usize) -> Option<Vec<usize>> {
-        let b = board();
+        let b = &self.setup.board;
         let mark = self.lit[hex];
         let (q, r) = b.cells[hex];
         for (dq, dr) in AXES {
@@ -317,7 +475,7 @@ impl Beacons {
                     k += 1;
                 }
             }
-            if run.len() >= def().row {
+            if run.len() >= self.setup.def.row {
                 run.sort_unstable();
                 return Some(run);
             }
@@ -329,7 +487,8 @@ impl Beacons {
     /// beacons is better, and the Old Beacon is worth having.
     fn worth(&self, seat: usize, hex: usize) -> usize {
         let mark = seat as u8 + 1;
-        board().neighbours(hex).filter(|&n| self.lit[n] == mark).count() * 2 + usize::from(hex == board().centre)
+        let b = &self.setup.board;
+        b.neighbours(hex).filter(|&n| self.lit[n] == mark).count() * 2 + usize::from(hex == b.centre)
     }
 }
 
@@ -358,12 +517,12 @@ impl Rules for Beacons {
     /// Out of time: the best-placed single card (else the best-placed pair, else a swap of the
     /// first card), then cards from the deck.
     fn auto(&mut self, seat: usize) {
-        if self.mine(seat).is_err() {
+        if self.seen(seat).may_move().is_err() {
             return;
         }
         if self.draws == 0 {
             let mut best: Option<(usize, Vec<usize>, usize)> = None;
-            for (cards, hexes) in self.lights(seat) {
+            for (cards, hexes) in self.seen(seat).lights() {
                 for h in hexes {
                     // Singles before pairs: a pair spends two cards.
                     let score = self.worth(seat, h) * 2 + usize::from(cards.len() == 1);
@@ -406,9 +565,6 @@ impl Rules for Beacons {
         });
         if let Some(s) = seat {
             v["hand"] = json!(self.hands[s]);
-            if self.over.is_none() && self.turn == s && self.draws == 0 {
-                v["legal"] = Value::Array(self.lights(s).into_iter().map(|(cards, hexes)| json!({ "cards": cards, "hexes": hexes })).collect());
-            }
         }
         v
     }
@@ -421,10 +577,16 @@ impl Rules for Beacons {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::minigames::game_called;
+
+    /// Beacons as its content sets it up.
+    fn beacons() -> &'static Setup {
+        setup(game_called("beacons").unwrap())
+    }
 
     /// A game with hands and a deck chosen by the test (the rest of the state as dealt).
     fn rigged(hands: [Vec<u8>; 2], deck: Vec<u8>, harbour: Vec<u8>) -> Beacons {
-        let mut g = Beacons::new(7);
+        let mut g = Beacons::new(beacons(), 7);
         g.hands = hands;
         g.deck = deck;
         g.harbour = harbour.into_iter().map(Some).collect();
@@ -434,23 +596,53 @@ mod tests {
 
     /// The hexes showing good `g`.
     fn of_good(g: u8) -> Vec<usize> {
-        (0..board().cells.len()).filter(|&i| good_at(i) == Some(g)).collect()
+        (0..beacons().board.cells.len()).filter(|&i| beacons().good_at(i) == Some(g)).collect()
+    }
+
+    fn centre() -> usize {
+        beacons().board.centre
+    }
+
+    /// What the board view of the player in `seat` is offered with the cards `picked` picked, from
+    /// what they see (as the browser asks it).
+    fn ask(g: &Beacons, seat: usize, picked: Value) -> Value {
+        let asking = Asking { you: seat, to_move: g.to_move(), view: g.view(Some(seat)), picked };
+        options(game_called("beacons").unwrap(), &asking).unwrap()
+    }
+
+    /// A copy of the game, to try a move on.
+    fn copy(g: &Beacons) -> Beacons {
+        Beacons {
+            setup: g.setup,
+            rng: Rng(g.rng.0),
+            deck: g.deck.clone(),
+            discards: g.discards.clone(),
+            hands: g.hands.clone(),
+            harbour: g.harbour.clone(),
+            lit: g.lit.clone(),
+            turn: g.turn,
+            turns: g.turns,
+            draws: g.draws,
+            over: g.over,
+            row: g.row.clone(),
+            log: g.log.clone(),
+        }
     }
 
     #[test]
     fn the_board_has_six_of_each_good_never_side_by_side_and_the_old_beacon_in_the_middle() {
-        let b = board();
+        let b = &beacons().board;
         assert_eq!(b.cells.len(), 37);
         assert_eq!(b.cells[b.centre], (0, 0));
-        assert_eq!(def().layout.len(), 37);
-        assert_eq!(good_at(b.centre), None);
+        assert_eq!(beacons().def.layout.len(), 37);
+        assert_eq!(beacons().good_at(b.centre), None);
         for g in 0..6u8 {
             assert_eq!(of_good(g).len(), 6, "good {g}");
         }
         for i in 0..37 {
-            let Some(g) = good_at(i) else { continue };
+            let Some(g) = beacons().good_at(i) else { continue };
             for n in b.neighbours(i) {
-                assert_ne!(good_at(n), Some(g), "hexes {i} and {n} show the same good side by side");
+                assert_ne!(beacons().good_at(n), Some(g), "hexes {i} and {n} show the same good side by side");
             }
         }
         // Six neighbours inside, fewer on the rim.
@@ -459,8 +651,25 @@ mod tests {
     }
 
     #[test]
+    fn the_layout_the_board_views_draw_is_the_board_the_rules_play_on() {
+        let game = game_called("beacons").unwrap();
+        let l = (RULES.layout)(game);
+        let b = &beacons().board;
+        assert_eq!(l["centre"], b.centre);
+        let hexes = l["hexes"].as_array().unwrap();
+        assert_eq!(hexes.len(), b.cells.len());
+        for (i, h) in hexes.iter().enumerate() {
+            assert_eq!((h["q"].as_i64().unwrap() as i32, h["r"].as_i64().unwrap() as i32), b.cells[i], "hex {i}");
+            assert_eq!(h["good"].as_u64().map(|g| g as u8), beacons().good_at(i), "hex {i}");
+        }
+        // Row by row from the top, q rising along each.
+        assert_eq!((b.cells[0], b.cells[36]), ((0, -3), (0, 3)));
+        assert!(hexes[b.centre]["good"].is_null(), "the Old Beacon shows no good");
+    }
+
+    #[test]
     fn the_deal_is_four_each_three_in_the_harbour_and_the_rest_in_the_deck() {
-        let g = Beacons::new(42);
+        let g = Beacons::new(beacons(), 42);
         assert_eq!(g.hands[0].len(), 4);
         assert_eq!(g.hands[1].len(), 4);
         assert_eq!(g.harbour.iter().flatten().count(), 3);
@@ -473,8 +682,8 @@ mod tests {
             assert_eq!(all.iter().filter(|&&c| c == good).count(), 8);
         }
         // The same seed deals the same game; another deals another.
-        assert_eq!(Beacons::new(42).deck, g.deck);
-        assert_ne!(Beacons::new(43).deck, g.deck);
+        assert_eq!(Beacons::new(beacons(), 42).deck, g.deck);
+        assert_ne!(Beacons::new(beacons(), 43).deck, g.deck);
         assert_eq!(g.to_move(), Some(0), "the challenged player moves first");
     }
 
@@ -487,22 +696,29 @@ mod tests {
         // A single stone card: only stone hexes.
         assert!(g.play(0, &json!({ "k": "light", "cards": [1], "hex": mine })).is_err(), "grain on a stone hex");
         assert!(g.play(0, &json!({ "k": "light", "cards": [0], "hex": other })).is_err(), "stone on an ore hex");
-        assert!(g.play(0, &json!({ "k": "light", "cards": [0], "hex": board().centre })).is_err(), "one card can't light the Old Beacon");
+        assert!(g.play(0, &json!({ "k": "light", "cards": [0], "hex": centre() })).is_err(), "one card can't light the Old Beacon");
         assert!(g.play(0, &json!({ "k": "light", "cards": [0, 1], "hex": other })).is_err(), "two different goods aren't a pair");
         assert!(g.play(0, &json!({ "k": "light", "cards": [0, 0], "hex": other })).is_err(), "the same card twice isn't a pair");
         assert!(g.play(0, &json!({ "k": "light", "cards": [9], "hex": mine })).is_err(), "no such card");
         assert!(g.play(1, &json!({ "k": "light", "cards": [0, 1], "hex": other })).is_err(), "not Bea's turn");
-        // The legal moves say the same.
-        let legal = g.view(Some(0))["legal"].clone();
-        let single = legal.as_array().unwrap().iter().find(|l| l["cards"] == json!([0])).unwrap();
+        // Ann's board view is offered the same, from what she sees.
+        let single = ask(&g, 0, json!([0]));
         assert_eq!(single["hexes"], json!(of_good(stone)));
-        let pair = legal.as_array().unwrap().iter().find(|l| l["cards"] == json!([0, 2])).unwrap();
-        assert_eq!(pair["hexes"].as_array().unwrap().len(), 37);
-        assert!(g.view(Some(1)).get("legal").is_none(), "only the player to move gets moves");
+        assert_eq!(single["cards"][0], json!({ "light": true, "pair": 2, "swap": true }));
+        assert_eq!(single["cards"][1]["pair"], Value::Null, "one grain card: no pair");
+        assert_eq!((single["play"].clone(), single["draw"].clone()), (json!(true), json!(false)));
+        assert_eq!(ask(&g, 0, json!([0, 2]))["hexes"].as_array().unwrap().len(), 37);
+        assert_eq!(ask(&g, 0, json!([0, 1]))["hexes"], json!([]), "two different goods aren't a pair");
+        let bea = ask(&g, 1, json!([0]));
+        assert_eq!(
+            (bea["play"].clone(), bea["hexes"].clone(), bea["cards"][0]["swap"].clone()),
+            (json!(false), json!([]), json!(false)),
+            "only the player to move"
+        );
         assert!(g.view(None).get("hand").is_none(), "onlookers don't see a hand");
         // The pair lights the Old Beacon.
-        g.play(0, &json!({ "k": "light", "cards": [0, 2], "hex": board().centre })).unwrap();
-        assert_eq!(g.lit[board().centre], 1);
+        g.play(0, &json!({ "k": "light", "cards": [0, 2], "hex": centre() })).unwrap();
+        assert_eq!(g.lit[centre()], 1);
         assert_eq!(g.hands[0], vec![0, 1]);
         assert_eq!(g.discards, vec![stone, stone]);
         assert_eq!(g.draws, 2, "two played, two to draw");
@@ -512,7 +728,7 @@ mod tests {
         g.draw(0, None).unwrap();
         g.play(1, &json!({ "k": "swap", "card": 0 })).unwrap();
         g.draw(1, None).unwrap();
-        assert!(g.play(0, &json!({ "k": "light", "cards": [2, 3], "hex": board().centre })).is_err());
+        assert!(g.play(0, &json!({ "k": "light", "cards": [2, 3], "hex": centre() })).is_err());
     }
 
     #[test]
@@ -557,6 +773,119 @@ mod tests {
     }
 
     #[test]
+    fn drawing_is_offered_from_the_harbour_cards_there_and_from_the_deck_while_any_card_is_left() {
+        let mut g = rigged([vec![0, 1, 2, 3], vec![3, 3, 4, 5]], vec![], vec![1, 2, 3]);
+        g.play(0, &json!({ "k": "swap", "card": 0 })).unwrap();
+        // The deck is empty, but the discards make a new one.
+        let o = ask(&g, 0, Value::Null);
+        assert_eq!((o["play"].clone(), o["draw"].clone(), o["deck"].clone()), (json!(false), json!(true), json!(true)));
+        assert_eq!(o["harbour"], json!([true, true, true]));
+        assert_eq!(o["cards"][0], json!({ "light": false, "pair": null, "swap": false }), "draw first");
+        // Nothing left to draw from, and a gap in the Harbour.
+        g.discards.clear();
+        g.harbour[1] = None;
+        let o = ask(&g, 0, Value::Null);
+        assert_eq!((o["deck"].clone(), o["harbour"].clone()), (json!(false), json!([true, false, true])));
+        assert!(g.play(0, &json!({ "k": "draw", "from": "deck" })).is_err());
+        assert!(g.play(0, &json!({ "k": "draw", "from": "harbour", "i": 1 })).is_err());
+        // Nor is anything offered to Bea, or once the game is over.
+        assert_eq!(ask(&g, 1, Value::Null)["harbour"], json!([false, false, false]));
+        let over = Asking { you: 0, to_move: None, view: g.view(Some(0)), picked: Value::Null };
+        assert_eq!(options(game_called("beacons").unwrap(), &over).unwrap()["draw"], json!(false));
+    }
+
+    #[test]
+    fn the_board_view_is_offered_just_the_moves_the_server_takes() {
+        // Whole games, moved on a card at a time: at every step, for both players, whatever the
+        // options offer is a move `play` takes, and whatever they don't, one it refuses.
+        for seed in [1, 2] {
+            let mut g = Beacons::new(beacons(), seed);
+            let mut steps = 0;
+            while g.result().is_none() {
+                steps += 1;
+                assert!(steps < 500, "the game never ended");
+                for seat in 0..2 {
+                    let takes = |m: Value| copy(&g).play(seat, &m).is_ok();
+                    let o = ask(&g, seat, Value::Null);
+                    let n = g.hands[seat].len();
+                    let at = format!("seed {seed}, step {steps}, seat {seat}");
+                    for i in 0..g.harbour.len() {
+                        assert_eq!(o["harbour"][i], json!(takes(json!({ "k": "draw", "from": "harbour", "i": i }))), "{at}, Harbour {i}");
+                    }
+                    assert_eq!(o["deck"], json!(takes(json!({ "k": "draw", "from": "deck" }))), "{at}");
+                    assert_eq!(o["play"], json!(takes(json!({ "k": "swap", "card": 0 }))), "{at}");
+                    if g.to_move() != Some(seat) {
+                        // Not their turn: no card can do anything.
+                        let none = json!({ "light": false, "pair": null, "swap": false });
+                        assert!(o["cards"].as_array().unwrap().iter().all(|c| *c == none), "{at}");
+                        continue;
+                    }
+                    // Every hex each card, and each pair of cards (either way round), would light.
+                    let lights = |cards: &[usize]| (0..g.lit.len()).filter(|&h| takes(json!({ "k": "light", "cards": cards, "hex": h }))).collect::<Vec<_>>();
+                    for a in 0..n {
+                        let alone = lights(&[a]);
+                        let single = ask(&g, seat, json!([a]));
+                        assert_eq!(single["hexes"], json!(alone), "{at}, card {a}");
+                        assert_eq!(single["swap"], json!(takes(json!({ "k": "swap", "card": a }))), "{at}, card {a}");
+                        let mut pair = None;
+                        for b in (0..n).filter(|&b| b != a) {
+                            let both = lights(&[a, b]);
+                            assert_eq!(ask(&g, seat, json!([a, b]))["hexes"], json!(both), "{at}, cards {a} and {b}");
+                            if pair.is_none() && !both.is_empty() {
+                                pair = Some(b);
+                            }
+                        }
+                        let c = &o["cards"][a];
+                        assert_eq!(
+                            (c["light"].clone(), c["pair"].clone(), c["swap"].clone()),
+                            (json!(!alone.is_empty()), json!(pair), single["swap"].clone()),
+                            "{at}, card {a}"
+                        );
+                    }
+                }
+                // On a step: a card lit (each way in turn) or swapped, or a card drawn (the Harbour's
+                // slots and the deck in turn).
+                let seat = g.to_move().unwrap();
+                let m = if g.draws > 0 {
+                    let i = steps % 4;
+                    if i < 3 && g.harbour[i].is_some() { json!({ "k": "draw", "from": "harbour", "i": i }) } else { json!({ "k": "draw", "from": "deck" }) }
+                } else {
+                    let ways = g.seen(seat).lights();
+                    match ways.get(steps % (ways.len() + 1)) {
+                        Some((cards, hexes)) => json!({ "k": "light", "cards": cards, "hex": hexes[steps % hexes.len()] }),
+                        None => json!({ "k": "swap", "card": steps % g.hands[seat].len() }),
+                    }
+                };
+                g.play(seat, &m).unwrap();
+            }
+            assert!(steps > 20, "seed {seed}: a whole game, not a few moves");
+            // Over: nothing is offered.
+            for seat in 0..2 {
+                let o = ask(&g, seat, json!([0]));
+                assert_eq!(
+                    (o["play"].clone(), o["draw"].clone(), o["hexes"].clone(), o["deck"].clone()),
+                    (json!(false), json!(false), json!([]), json!(false))
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn what_a_player_sees_has_to_be_a_view_of_beacons() {
+        let game = game_called("beacons").unwrap();
+        let g = Beacons::new(beacons(), 5);
+        let with = |view: Value, picked: Value| options(game, &Asking { you: 0, to_move: Some(0), view, picked });
+        assert!(with(g.view(Some(0)), json!([1, 2])).is_ok());
+        assert!(with(json!({ "lit": [0, 0] }), Value::Null).is_err(), "not a view");
+        let mut short = g.view(Some(0));
+        short["lit"] = json!([0, 0, 0]);
+        assert!(with(short, Value::Null).is_err(), "not this board");
+        assert!(with(g.view(Some(0)), json!("the first")).is_err(), "cards are picked by their places");
+        // Cards that aren't in the hand light nothing.
+        assert_eq!(with(g.view(Some(0)), json!([7])).unwrap()["hexes"], json!([]));
+    }
+
+    #[test]
     fn a_swap_is_a_whole_turn_discard_one_and_draw_one() {
         let mut g = rigged([vec![0, 1, 2, 3], vec![3, 3, 4, 5]], vec![4, 4], vec![1, 2, 3]);
         assert!(g.play(0, &json!({ "k": "swap", "card": 4 })).is_err());
@@ -585,11 +914,11 @@ mod tests {
 
     #[test]
     fn four_in_a_row_wins_along_each_of_the_three_directions() {
-        let b = board();
+        let b = &beacons().board;
         for (dq, dr) in AXES {
             // A row of four through the middle, the last one lit by the move.
             let row: Vec<usize> = (-1..=2).map(|k| b.at(dq * k, dr * k).unwrap()).collect();
-            let mut g = Beacons::new(3);
+            let mut g = Beacons::new(beacons(), 3);
             light_all(&mut g, 0, &row[..3]);
             pair_on(&mut g, row[3]);
             assert_eq!(g.result(), Some(Some(0)), "along ({dq}, {dr})");
@@ -599,7 +928,7 @@ mod tests {
             assert_eq!(g.to_move(), None);
             assert_eq!(g.draws, 0, "nothing to draw once the game is won");
             // Filling the gap in the middle of a row counts too.
-            let mut g = Beacons::new(3);
+            let mut g = Beacons::new(beacons(), 3);
             light_all(&mut g, 0, &[row[0], row[2], row[3]]);
             pair_on(&mut g, row[1]);
             assert_eq!(g.result(), Some(Some(0)));
@@ -608,31 +937,31 @@ mod tests {
 
     #[test]
     fn three_in_a_row_a_broken_row_or_a_bent_one_does_not_win() {
-        let b = board();
+        let b = &beacons().board;
         let at = |q, r| b.at(q, r).unwrap();
         // Three.
-        let mut g = Beacons::new(3);
+        let mut g = Beacons::new(beacons(), 3);
         light_all(&mut g, 0, &[at(-1, 0), at(0, 0)]);
         pair_on(&mut g, at(1, 0));
         assert_eq!(g.result(), None);
         // Four in a line with the other player's beacon in it.
-        let mut g = Beacons::new(3);
+        let mut g = Beacons::new(beacons(), 3);
         light_all(&mut g, 0, &[at(-2, 0), at(-1, 0), at(1, 0)]);
         light_all(&mut g, 1, &[at(0, 0)]);
         pair_on(&mut g, at(2, 0));
         assert_eq!(g.result(), None);
         // Four with a gap.
-        let mut g = Beacons::new(3);
+        let mut g = Beacons::new(beacons(), 3);
         light_all(&mut g, 0, &[at(-3, 0), at(-2, 0), at(-1, 0)]);
         pair_on(&mut g, at(1, 0));
         assert_eq!(g.result(), None);
         // Four touching, but bent.
-        let mut g = Beacons::new(3);
+        let mut g = Beacons::new(beacons(), 3);
         light_all(&mut g, 0, &[at(-1, 0), at(0, 0), at(1, 0)]);
         pair_on(&mut g, at(1, 1));
         assert_eq!(g.result(), None);
         // Four of the other player's don't win for you either.
-        let mut g = Beacons::new(3);
+        let mut g = Beacons::new(beacons(), 3);
         light_all(&mut g, 1, &[at(-1, 0), at(0, 0), at(1, 0)]);
         pair_on(&mut g, at(2, 0));
         assert_eq!(g.result(), None);
@@ -642,9 +971,9 @@ mod tests {
     fn every_hex_lit_without_a_row_is_a_draw() {
         // Along every direction (q - r) mod 3 runs 0, 1, 2, 0, ...: give seat 0 the hexes where
         // it's 0 and seat 1 the rest, and nobody ever has more than two in a row.
-        let b = board();
+        let b = &beacons().board;
         let owner = |i: usize| if (b.cells[i].0 - b.cells[i].1).rem_euclid(3) == 0 { 0 } else { 1 };
-        let mut g = Beacons::new(3);
+        let mut g = Beacons::new(beacons(), 3);
         let last = 20;
         for i in 0..37 {
             if i != last {
@@ -673,7 +1002,7 @@ mod tests {
         g.auto(0);
         assert_eq!(g.to_move(), Some(1));
         // Part way through drawing, it finishes the drawing.
-        g.play(1, &json!({ "k": "light", "cards": [0, 1], "hex": board().centre })).unwrap();
+        g.play(1, &json!({ "k": "light", "cards": [0, 1], "hex": centre() })).unwrap();
         g.play(1, &json!({ "k": "draw", "from": "deck" })).unwrap();
         g.auto(1);
         assert_eq!(g.hands[1].len(), 4);
@@ -685,12 +1014,12 @@ mod tests {
         let mut g = rigged([vec![0, 1, 2, 3], vec![3, 3, 4, 5]], vec![5, 4], vec![1, 2, 3]);
         // Every hex lit but the Old Beacon: only a pair could light it, and there's no pair.
         for i in 0..37 {
-            if i != board().centre {
+            if i != centre() {
                 g.lit[i] = 2;
             }
         }
         g.auto(0);
-        assert_eq!(g.lit[board().centre], 0);
+        assert_eq!(g.lit[centre()], 0);
         assert_eq!(g.hands[0], vec![1, 2, 3, 4], "the first card swapped for the deck's top");
         assert_eq!(g.to_move(), Some(1));
     }
@@ -698,7 +1027,7 @@ mod tests {
     #[test]
     fn a_whole_game_of_server_moves_ends_with_a_winner_or_a_draw() {
         for seed in 1..40 {
-            let mut g = Beacons::new(seed);
+            let mut g = Beacons::new(beacons(), seed);
             let mut moves = 0;
             while let Some(s) = g.to_move() {
                 g.auto(s);
@@ -714,7 +1043,7 @@ mod tests {
 
     #[test]
     fn nonsense_from_a_browser_is_refused() {
-        let mut g = Beacons::new(1);
+        let mut g = Beacons::new(beacons(), 1);
         for m in [
             json!("light"),
             json!({ "k": "light" }),

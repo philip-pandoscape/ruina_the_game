@@ -60,11 +60,6 @@ const ALLOWED: Allowance[] = [
     ids: ['slime', 'dummy', 'goblin'],
   },
   {
-    why: 'the mini-games are wired one by one until the table framework reads them from content (R9.11)',
-    files: ['src/content/minigames.ts', 'src/ui/minigames/', 'crates/engine/src/minigames/', 'src/app/testApi.ts'],
-    ids: ['beacons'],
-  },
-  {
     why: "the developer tools: the content library's subjects and films, the developer panel's gifts, the URL options and the test API's fixtures (the yard's dummy, Goblin's Dread's portal), the offline yard (R10.4)",
     files: ['src/dev/library/', 'src/ui/life/windows/dev.ts', 'src/app/options.ts', 'src/app/testApi.ts', 'src/render/scene.ts'],
   },
