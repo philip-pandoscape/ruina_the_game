@@ -25,7 +25,8 @@
 //!   browser -> server  (binary) inputs: 7, count, then per input a u32 sequence number and 10 bytes
 //!                      (src/net/netPlayer.ts quantize)
 //!                      (text) cmd {s, c} | build {build} | reset
-//!                      | challenge {to, game, stake, seed?, turn?} | withdraw | answer {from, accept}
+//!                      | challenge {to, game, stake, seed?, turn?} (game: its place in shared/minigames.json)
+//!                      | withdraw | answer {from, accept}
 //!                      | move {table, m} | concede {table}   (mini-games, crates/server/src/play/tables.rs)
 //!                      | dungeon {id, enter}: through a dungeon's portal, or back out of it
 //!                      | partyInvite {to?, name?} | partyAnswer {from, accept} | partyLeave
@@ -72,7 +73,7 @@ const MAX_BATCH: usize = 32;
 const SEND_INPUTS: u8 = 7;
 /// What this server speaks. A page that speaks something else is out of date: it reloads
 /// (src/net/worldLink.ts WORLD_PROTOCOL).
-pub const WORLD_PROTOCOL: u32 = 8;
+pub const WORLD_PROTOCOL: u32 = 9;
 
 /// Where the server is in its life. Railway starts a new server for an update, then stops this one.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -341,7 +342,7 @@ enum FromBrowser {
     /// make a move at your table, give the game up.
     Challenge {
         to: i64,
-        game: String,
+        game: usize,
         stake: f64,
         #[serde(default)]
         seed: Option<u32>,
@@ -598,7 +599,7 @@ async fn play(
                             }
                         }
                         Ok(FromBrowser::Challenge { to, game, stake, seed, turn }) => {
-                            if let Err(text) = world.with_member(character, |ch| ch.challenge_timed(character, to, &game, stake, seed, turn)).unwrap_or_else(|| Err("You aren't playing.".into())) {
+                            if let Err(text) = world.with_member(character, |ch| ch.challenge_timed(character, to, game, stake, seed, turn)).unwrap_or_else(|| Err("You aren't playing.".into())) {
                                 send(&mut tx, json!({ "t": "error", "text": text })).await?;
                             }
                         }

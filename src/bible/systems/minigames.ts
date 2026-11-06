@@ -1,12 +1,13 @@
 // Mini-Games: written from its rules (`rules` below); every number from the content and the rules.
 
-import { BEACONS, CHALLENGE, HEXES, MINIGAMES, type MiniGameDef, SEAT_COLORS, TABLE } from '../../content/minigames';
+import { CHALLENGE, MINIGAMES, type MiniGameDef, SEAT_COLORS, TABLE } from '../../content/minigames';
+import { minigameLayout } from '../../engine/minigames';
 import { coins, count, duration, listOf, metres } from '../format';
-import { join, system, table } from '../kit';
-import { link, md, phrase, raw } from '../md';
+import { described, join, system, table } from '../kit';
+import { type Html, link, md, phrase, raw } from '../md';
 import { rustConst, sourceNumber } from '../source';
 import tablesSource from '../../../crates/server/src/play/tables.rs?raw';
-import beaconsSource from '../../../crates/engine/src/minigames/beacons.rs?raw';
+import beaconsSource from '../../../crates/engine/src/minigames/games/beacons.rs?raw';
 
 /** The numbers the tables' and Beacons' rules keep in their source, read as the page is drawn. */
 const rule = () => ({
@@ -16,15 +17,84 @@ const rule = () => ({
   pin: rustConst(tablesSource, 'PIN'),
   seatRise: sourceNumber(tablesSource, /\(sy - y\)\.abs\(\) > (\d+(?:\.\d+)?)/, 'how level the ground under a table must be'),
   /** The server's own move for a player out of time: what a beacon beside your own is worth, and a single card over a pair. */
-  besideWorth: sourceNumber(beaconsSource, /\.count\(\) \* (\d+) \+ usize::from\(hex == board\(\)\.centre\)/, 'what a beacon beside your own is worth'),
+  besideWorth: sourceNumber(beaconsSource, /\.count\(\) \* (\d+) \+ usize::from\(hex == b\.centre\)/, 'what a beacon beside your own is worth'),
   scoreScale: sourceNumber(beaconsSource, /self\.worth\(seat, h\) \* (\d+) \+ usize::from\(cards\.len\(\) == 1\)/, 'how the server weighs its own moves'),
 });
 
 /** A seat's colour, as a dot of it. */
 const dot = (seat: number) => raw(`<span style="color:${(SEAT_COLORS[seat] ?? '').replace(/[^#\w]/g, '')}">●</span>`);
 
-/** Beacons' own part of the content: the deck's size per good is read from the same file the server reads. */
-const perGood = (g: MiniGameDef): number => (g as MiniGameDef & { perGood?: number }).perGood ?? 0;
+/** A colour, as a swatch of it. */
+const swatch = (color: string) =>
+  raw(`<span style="display:inline-block;width:14px;height:14px;border-radius:3px;vertical-align:-2px;background:${color.replace(/[^#\w]/g, '')}"></span>`);
+
+/** Beacons' own part of its file (content/minigames/beacons.json `rules`), as the page reads it. */
+interface BeaconsRules {
+  hand: number;
+  harbour: number;
+  perGood: number;
+  row: number;
+  goods: Array<{ name: string; icon: string; color: string }>;
+  layout: number[];
+}
+
+/** The board Beacons' rules lay out (beacons.rs `layout`): its hexes, and which is the Old Beacon. */
+interface BeaconsLayout {
+  hexes: Array<{ q: number; r: number; good: number | null }>;
+  centre: number;
+}
+
+/** Beacons' rules, from its file and from its rules module (the board, and how the server plays a turn for you). */
+function beacons(g: MiniGameDef, index: number): Html {
+  const R = rule();
+  const b = g.rules as BeaconsRules;
+  const board = minigameLayout<BeaconsLayout>(index);
+  const radius = Math.max(...board.hexes.map((h) => Math.max(Math.abs(h.q), Math.abs(h.r), Math.abs(h.q + h.r))));
+  const deck = b.goods.length * b.perGood;
+  const onBoard = (good: number) => board.hexes.filter((h) => h.good === good).length;
+  return join(
+    md`
+## ${g.name}
+
+${phrase`${link(`minigames/${g.id}`)}`} is played on a board of ${count(board.hexes.length, 'hex', 'hexes')}, a hexagon ${radius} hexes from its middle to its edge. Each hex shows one of ${count(
+      b.goods.length,
+      'good',
+    )} and no two alike are side by side; the hex in the middle is the Old Beacon, which shows none. The deck holds ${count(deck, 'card')}, ${b.perGood} of each good. Each player holds ${count(
+      b.hand,
+      'card',
+    )}, and ${count(b.harbour, 'card')} lie face up as the Harbour.
+`,
+    table(
+      ['Good', 'Colour', 'Hexes', 'Cards'],
+      b.goods.map((x, i) => [raw(`${x.icon} ${x.name.replace(/[&<>]/g, '')}`), swatch(x.color), onBoard(i), b.perGood]),
+      [2, 3],
+    ),
+    md`
+A turn is one of these:
+
+1. **One card:** light any unlit hex of that card's good with one of your beacons.
+2. **Two cards of the same good:** light any unlit hex at all. This is the only way to light the Old Beacon.
+3. **A swap:** discard one card and draw one.
+
+Then draw back up: one card for each card you played, each from the Harbour (the deck fills its place at once) or the top of the deck. When the deck runs out, the cards played so far are shuffled into a new one. Then it is the other player's turn.
+
+${count(b.row, 'beacon')} of yours in an unbroken straight row, along any of the board's three directions, wins at once. Every hex lit with no such row is a draw.
+
+When your time runs out, the server plays your turn as well as it can: the best-placed single card, else the best-placed pair, else a swap of your first card, then cards from the deck.
+
+$$
+a hex's worth = ${R.besideWorth} × your beacons beside it + 1 for the Old Beacon
+the server's choice = the move with the most: worth × ${R.scoreScale} + 1 for a single card
+$$
+`,
+  );
+}
+
+/**
+ * Each game's own rules, by its id: the page explains the table for every game, and these what is
+ * played at it. A game this doesn't know yet is given its blurb.
+ */
+const GAMES: Record<string, (g: MiniGameDef, index: number) => Html> = { beacons };
 
 export const minigames = system({
   id: 'minigames',
@@ -32,15 +102,11 @@ export const minigames = system({
   summary: 'Challenging another player, the stakes and the pot, the table, and the rules of each game.',
   icon: '🎲',
   keywords: ['game', 'challenge', 'stake', 'pot', 'table', 'beacons', 'wager', 'board', 'cards', 'concede'],
-  rules: ['crates/engine/src/minigames/mod.rs', 'crates/engine/src/minigames/beacons.rs', 'crates/server/src/play/tables.rs'],
+  rules: ['crates/engine/src/minigames/', 'crates/server/src/play/tables.rs'],
   content: ['shared/minigames.json#challenge', 'shared/minigames.json#table', 'shared/minigames.json#colors', 'shared/minigames.json#games'],
   body: () => {
     const R = rule();
     const stakes = CHALLENGE.stakes;
-    const b = BEACONS;
-    const radius = Math.max(...HEXES.map((h) => Math.max(Math.abs(h.q), Math.abs(h.r), Math.abs(h.q + h.r))));
-    const deck = b.goods.length * perGood(b);
-    const onBoard = (g: number) => b.layout.filter((x) => x === g).length;
     return join(
       md`
 Online, two players can sit down to a game for a pot. Walk up to another player and challenge them, naming the game and the stake; if they accept, both stakes go into the pot, a table appears between you for everyone nearby to see, and you play it out there. The winner takes the pot. There ${MINIGAMES.length === 1 ? 'is' : 'are'} ${count(MINIGAMES.length, 'game')} so far: ${raw(
@@ -96,39 +162,8 @@ The winner takes the pot. A draw gives each stake back, and so does a game calle
         TABLE.clearSeconds,
       )} with the result on it, then goes, and you are free.
 
-## Beacons
-
-${phrase`${link('minigames/beacons')}`} is played on a board of ${count(HEXES.length, 'hex', 'hexes')}, a hexagon ${radius} hexes from its middle to its edge. Each hex shows one of ${count(
-        b.goods.length,
-        'good',
-      )} and no two alike are side by side; the hex in the middle is the Old Beacon, which shows none. The deck holds ${count(deck, 'card')}, ${perGood(b)} of each good. Each player holds ${count(
-        b.hand,
-        'card',
-      )}, and ${count(b.harbour, 'card')} lie face up as the Harbour.
 `,
-      table(
-        ['Good', 'Hexes', 'Cards'],
-        b.goods.map((g, i) => [raw(`${g.icon} ${g.name.replace(/[&<>]/g, '')}`), onBoard(i), perGood(b)]),
-        [1, 2],
-      ),
-      md`
-A turn is one of these:
-
-1. **One card:** light any unlit hex of that card's good with one of your beacons.
-2. **Two cards of the same good:** light any unlit hex at all. This is the only way to light the Old Beacon.
-3. **A swap:** discard one card and draw one.
-
-Then draw back up: one card for each card you played, each from the Harbour (the deck fills its place at once) or the top of the deck. When the deck runs out, the cards played so far are shuffled into a new one. Then it is the other player's turn.
-
-${count(b.row, 'beacon')} of yours in an unbroken straight row, along any of the board's three directions, wins at once. Every hex lit with no such row is a draw.
-
-When your time runs out, the server plays your turn as well as it can: the best-placed single card, else the best-placed pair, else a swap of your first card, then cards from the deck.
-
-$$
-a hex's worth = ${R.besideWorth} × your beacons beside it + 1 for the Old Beacon
-the server's choice = the move with the most: worth × ${R.scoreScale} + 1 for a single card
-$$
-`,
+      ...MINIGAMES.map((g, i) => GAMES[g.id]?.(g, i) ?? join(md`## ${g.name}`, described(g.blurb))),
     );
   },
 });

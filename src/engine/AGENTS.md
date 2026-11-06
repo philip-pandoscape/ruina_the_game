@@ -15,6 +15,7 @@ nothing that uses the bridge should notice. The island already grows in the engi
 | `zone.ts` | The island's ground and what stands on it: terrain, zones, buildings, colliders, roads, dungeons. |
 | `island.ts` | The island's life systems: trade, farming, housing, the shipyard, vehicles, quests, weather, saves. |
 | `creatures.ts` | Creatures: actors, their brains and behaviours, hits and missiles. |
+| `minigames.ts` | The mini-games' rules for their boards (`crates/engine-wasm/src/minigames.rs`): how each game's board is laid out, from the same rules module the server plays it by. |
 
 ## Rules
 

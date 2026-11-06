@@ -24,23 +24,8 @@
     "timeoutsToForfeit": {
       "type": "number"
     },
-    "hand": {
-      "type": "number"
-    },
-    "harbour": {
-      "type": "number"
-    },
-    "perGood": {
-      "type": "number"
-    },
-    "row": {
-      "type": "number"
-    },
-    "goods": {
-      "type": "array"
-    },
-    "layout": {
-      "type": "array"
+    "rules": {
+      "type": "object"
     }
   },
   "required": [
@@ -51,12 +36,7 @@
     "players",
     "turnSeconds",
     "timeoutsToForfeit",
-    "hand",
-    "harbour",
-    "perGood",
-    "row",
-    "goods",
-    "layout"
+    "rules"
   ],
   "additionalProperties": false
 }

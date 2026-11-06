@@ -11,7 +11,7 @@ refactor's Phase 8). Until then the two copies are held to each other by the con
 | `actor.rs`, `actors.rs`, `ai.rs`, `pack.rs`, `missiles.rs`, `content.rs`, `creatures.rs` | Creatures: their kinds (`shared/actors.json`, `shared/creatures.json`), brains (`shared/behaviours.json` and each creature's), packs, missiles, hits. |
 | `bots.rs` | Bots: brains that fill a player's inputs (`docs/zones.md`). |
 | `life/` | The island's life systems: state, trade, farming, livestock, housing, the shipyard, vehicles, contracts, quests, progress, weather; commands in (`life::Command`), events out. |
-| `minigames/` | The table games' rules (Beacons first). |
+| `minigames/` | The table games: what every game shares (`mod.rs`: the content, challenges, tables, turn clocks and forfeits), and each game's rules, a module in `games/` named after it (Beacons first) that the crate's build script (`build.rs`) finds by name. A game is its place in `shared/minigames.json` on the wire; adding one: `docs/content.md`, Mini-Games. |
 | `world.rs` | A flat arena with obstacles (the old battlefield's layout), where the player conformance check and the balance harness step players. |
 | `rng.rs`, `jsmath.rs` | The browser's random numbers (mulberry32) and maths (fdlibm through `libm`), to the bit. |
 | `checks/` | The conformance checks' scenarios run through the rules (creatures, a player, a player on the island), which the check programs print and the golden tests hold to the answers the TypeScript agreed with. |

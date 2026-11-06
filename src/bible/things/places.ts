@@ -302,26 +302,12 @@ export const minigames = kind<MiniGameDef>({
     ['Players', g.players],
     ['A turn', duration(g.turnSeconds)],
     ['Forfeit after', count(g.timeoutsToForfeit, 'missed turn')],
-    ['Hand', count(g.hand, 'card')],
-    ['Harbour', g.harbour ? count(g.harbour, 'card') : null],
-    ['Row to win', g.row || null],
-    ['Goods', g.goods.length],
     ['Stakes', phrase`${coins(CHALLENGE.stakes.filter((s) => s > 0)[0] ?? 0)} to ${coins(CHALLENGE.stakes[CHALLENGE.stakes.length - 1])}, or none`],
   ],
   body: (g) =>
-    join(
-      md`## The Goods`,
-      table(
-        ['Good', 'Colour'],
-        g.goods.map((x) => [
-          raw(`${x.icon} ${x.name.replace(/[&<>]/g, '')}`),
-          raw(`<span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:${x.color.replace(/[^#\w]/g, '')}"></span>`),
-        ]),
-      ),
-      md`Challenge someone within ${metres(CHALLENGE.range)} of you; they have ${duration(CHALLENGE.inviteSeconds)} to answer. A player away from the table for ${duration(
-        TABLE.awaySeconds,
-      )} forfeits. [[systems/minigames]] has the rules of the table and of ${g.name}.`,
-    ),
+    md`Challenge someone within ${metres(CHALLENGE.range)} of you; they have ${duration(CHALLENGE.inviteSeconds)} to answer. A player away from the table for ${duration(
+      TABLE.awaySeconds,
+    )} forfeits. [[systems/minigames]] has the rules of the table and of ${g.name}.`,
   columns: [
     ['Players', (g) => g.players],
     ['A Turn', (g) => duration(g.turnSeconds)],

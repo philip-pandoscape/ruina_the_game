@@ -1,5 +1,5 @@
 {
-  "comment": "Built from content/minigames.json by tools/content/contentc.mjs (npm run content): edit there, not here. Mini-games two players play at a table thrown down between them: walk up to someone, challenge them (F), name the game and the stake, and if they accept the stakes go into the pot, the table appears for everyone in the channel, and the winner takes the pot. Read by src/content/minigames.ts and crates/engine/src/minigames. Distances are metres, times real seconds, stakes copper (100 = 1 silver, 10000 = 1 gold). `stakes` are the amounts that can be offered (0 is No Stake); `range` is how close you have to be to challenge. `table.seat` is how far each player sits from the table's middle; a player away (disconnected) for `awaySeconds` forfeits; a finished game's table stays `clearSeconds` before it goes. Beacons: 37 hexes in a hexagon of radius 3; `layout` gives each hex's good (an index into `goods`, -1 for the Old Beacon in the middle), row by row from the top (r = -3 to 3, q rising along each row, axial coordinates), every good on six hexes and never beside itself. `perGood` cards of each good make the deck; `hand` cards each, `harbour` face up.",
+  "comment": "Built from content/minigames.json by tools/content/contentc.mjs (npm run content): edit there, not here. Mini-games two players play at a table thrown down between them: walk up to someone, challenge them (F), name the game and the stake, and if they accept the stakes go into the pot, the table appears for everyone in the channel, and the winner takes the pot. Read by src/content/minigames.ts and crates/engine/src/minigames. Distances are metres, times real seconds, stakes copper (100 = 1 silver, 10000 = 1 gold). `stakes` are the amounts that can be offered (0 is No Stake); `range` is how close you have to be to challenge. `table.seat` is how far each player sits from the table's middle; a player away (disconnected) for `awaySeconds` forfeits; a finished game's table stays `clearSeconds` before it goes. `colors` are the seats' (seat 0 was challenged and moves first). Each game is a file in content/minigames/, listed in its _order.json, which is also how a game goes on the wire (its place there): its name, icon, blurb and players, how long a turn lasts and how many turns in a row may run out before that player forfeits, and `rules`, the game's own part, read by its rules module (crates/engine/src/minigames/games/<id>.rs) and shown by its board view (src/ui/minigames/boards/<id>.ts). Beacons' rules: 37 hexes in a hexagon of radius 3; `layout` gives each hex's good (an index into `goods`, -1 for the Old Beacon in the middle), row by row from the top (r = -3 to 3, q rising along each row, axial coordinates), every good on six hexes and never beside itself. `perGood` cards of each good make the deck; `hand` cards each, `harbour` face up; `row` beacons in a row win.",
   "challenge": {
     "range": 4,
     "inviteSeconds": 30,
@@ -37,87 +37,89 @@
       "players": "Two Players · About Five Minutes",
       "turnSeconds": 40,
       "timeoutsToForfeit": 3,
-      "hand": 4,
-      "harbour": 3,
-      "perGood": 8,
-      "row": 4,
-      "goods": [
-        {
-          "id": "grain",
-          "name": "Grain",
-          "icon": "🌾",
-          "color": "#e0b84a"
-        },
-        {
-          "id": "fish",
-          "name": "Fish",
-          "icon": "🐟",
-          "color": "#5b9bc8"
-        },
-        {
-          "id": "timber",
-          "name": "Timber",
-          "icon": "🪵",
-          "color": "#a8743f"
-        },
-        {
-          "id": "stone",
-          "name": "Stone",
-          "icon": "🪨",
-          "color": "#a9a398"
-        },
-        {
-          "id": "wool",
-          "name": "Wool",
-          "icon": "🧶",
-          "color": "#efe3c8"
-        },
-        {
-          "id": "ore",
-          "name": "Ore",
-          "icon": "⛓️",
-          "color": "#8e5040"
-        }
-      ],
-      "layout": [
-        4,
-        3,
-        2,
-        5,
-        2,
-        1,
-        0,
-        4,
-        1,
-        5,
-        0,
-        3,
-        1,
-        5,
-        4,
-        1,
-        4,
-        5,
-        -1,
-        2,
-        0,
-        3,
-        2,
-        0,
-        2,
-        4,
-        3,
-        1,
-        3,
-        1,
-        3,
-        2,
-        0,
-        0,
-        5,
-        4,
-        5
-      ]
+      "rules": {
+        "hand": 4,
+        "harbour": 3,
+        "perGood": 8,
+        "row": 4,
+        "goods": [
+          {
+            "id": "grain",
+            "name": "Grain",
+            "icon": "🌾",
+            "color": "#e0b84a"
+          },
+          {
+            "id": "fish",
+            "name": "Fish",
+            "icon": "🐟",
+            "color": "#5b9bc8"
+          },
+          {
+            "id": "timber",
+            "name": "Timber",
+            "icon": "🪵",
+            "color": "#a8743f"
+          },
+          {
+            "id": "stone",
+            "name": "Stone",
+            "icon": "🪨",
+            "color": "#a9a398"
+          },
+          {
+            "id": "wool",
+            "name": "Wool",
+            "icon": "🧶",
+            "color": "#efe3c8"
+          },
+          {
+            "id": "ore",
+            "name": "Ore",
+            "icon": "⛓️",
+            "color": "#8e5040"
+          }
+        ],
+        "layout": [
+          4,
+          3,
+          2,
+          5,
+          2,
+          1,
+          0,
+          4,
+          1,
+          5,
+          0,
+          3,
+          1,
+          5,
+          4,
+          1,
+          4,
+          5,
+          -1,
+          2,
+          0,
+          3,
+          2,
+          0,
+          2,
+          4,
+          3,
+          1,
+          3,
+          1,
+          3,
+          2,
+          0,
+          0,
+          5,
+          4,
+          5
+        ]
+      }
     }
   ]
 }

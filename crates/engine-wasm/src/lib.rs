@@ -11,6 +11,8 @@
 //! engine's), the colliders of a building plan, and Emberholm's ground. The rest follows (the
 //! refactor's Phase 8).
 
+mod minigames;
+
 use std::cell::RefCell;
 use std::sync::OnceLock;
 

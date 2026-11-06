@@ -3,13 +3,18 @@
 //! into the pot, a table appears between them for everyone in the channel to see, and the two play
 //! it out there. The winner takes the pot; a draw, or a game called off, gives each stake back.
 //!
-//! This is the part every game shares: the content (shared/minigames.json), the challenges, and
-//! the tables with their turn clocks, forfeits and the moment each game ends. The rules of each
-//! game are a `Rules` (beacons.rs is the first); the money and the players themselves are the
+//! This is the part every game shares: the content (shared/minigames.json, built from
+//! content/minigames/), the challenges, and the tables with their turn clocks, forfeits and the
+//! moment each game ends. It names no game. Each game's own rules are a module in games/, named
+//! after the game and found by the crate's build script (build.rs), so a new game is its content
+//! file, its rules module and its board views (in the game window, src/ui/minigames/boards/, and on
+//! the table, src/render/open/gameBoards/), with no list of games to add it to: its `RULES` (a
+//! `RulesModule`) deals a game of it and lays out its board, the latter for the browser's board
+//! views through the engine's WebAssembly
+//! (crates/engine-wasm/src/minigames.rs). A game goes on the wire as its place in the bundle (its
+//! folder's _order.json), as a creature's kind does. The money and the players themselves are the
 //! channel's (crates/server/src/play/tables.rs), which settles the pot when a table says its game
 //! is over.
-
-pub mod beacons;
 
 use std::collections::BTreeMap;
 use std::sync::OnceLock;
@@ -18,6 +23,11 @@ use serde::Deserialize;
 use serde_json::{Value, json};
 
 use crate::jsmath::JsMath;
+
+/// Each game's rules, a module named after the game: written by build.rs from what is in games/.
+pub mod games {
+    include!(concat!(env!("OUT_DIR"), "/minigames.rs"));
+}
 
 // ---------- Content ----------
 
@@ -54,6 +64,11 @@ pub struct GameDef {
     pub turn_seconds: f64,
     /// Turns in a row whose clock runs out before that player forfeits.
     pub timeouts_to_forfeit: u8,
+    /// The game's own part of its file, which its rules module reads (and its board view shows).
+    pub rules: Value,
+    /// Its place in the bundle (content/minigames/_order.json): how it goes on the wire.
+    #[serde(skip)]
+    pub index: usize,
 }
 
 #[derive(Debug)]
@@ -61,40 +76,64 @@ pub struct Content {
     pub challenge: ChallengeDef,
     pub table: TableDef,
     pub games: Vec<GameDef>,
-    /// Each game's own part of the file, for its rules to read.
-    pub raw: Vec<Value>,
 }
 
 #[derive(Deserialize)]
 struct File {
     challenge: ChallengeDef,
     table: TableDef,
-    games: Vec<Value>,
+    games: Vec<GameDef>,
 }
 
 pub fn content() -> &'static Content {
     static C: OnceLock<Content> = OnceLock::new();
     C.get_or_init(|| {
-        let f: File = serde_json::from_str(include_str!("../../../../shared/minigames.json")).expect("shared/minigames.json is valid");
-        let games = f.games.iter().map(|g| serde_json::from_value::<GameDef>(g.clone()).expect("a mini-game has an id, a name and a turn clock")).collect();
-        Content { challenge: f.challenge, table: f.table, games, raw: f.games }
+        let mut f: File = serde_json::from_str(include_str!("../../../../shared/minigames.json")).expect("shared/minigames.json is valid");
+        for (i, g) in f.games.iter_mut().enumerate() {
+            g.index = i;
+            assert!(module_of(&g.id).is_some(), "content/minigames/{0}.json has no rules: crates/engine/src/minigames/games/{0}.rs", g.id);
+        }
+        Content { challenge: f.challenge, table: f.table, games: f.games }
     })
 }
 
-pub fn game_def(id: &str) -> Option<&'static GameDef> {
+/// The game at `index` in the bundle (as a game goes on the wire), if there is one.
+pub fn game(index: usize) -> Option<&'static GameDef> {
+    content().games.get(index)
+}
+
+/// The game called `id`: for the tests and tools, as the code names no game.
+pub fn game_called(id: &str) -> Option<&'static GameDef> {
     content().games.iter().find(|g| g.id == id)
 }
 
-/// The game's own part of shared/minigames.json.
-pub fn game_raw(id: &str) -> Option<&'static Value> {
-    content().raw.iter().find(|g| g.get("id").and_then(Value::as_str) == Some(id))
+fn module_of(id: &str) -> Option<&'static RulesModule> {
+    games::MODULES.iter().find(|(name, _)| *name == id).map(|(_, m)| *m)
 }
 
-/// A new game of `id`, dealt from `seed`. None for a game this server doesn't know.
-pub fn new_game(id: &str, seed: u32) -> Option<Box<dyn Rules>> {
-    match id {
-        "beacons" => Some(Box::new(beacons::Beacons::new(seed))),
-        _ => None,
+/// What a game's rules module (games/<id>.rs) gives the tables, as its `RULES`.
+pub struct RulesModule {
+    /// A new game as its content sets it up, dealt from `seed`.
+    pub deal: fn(&'static GameDef, u32) -> Box<dyn Rules>,
+    /// The board as these rules lay it out, for the board views to draw (JSON, in the game's own
+    /// terms: Beacons gives each hex's place and good). The browser asks it through the engine's
+    /// WebAssembly, so the board is drawn as the rules have it.
+    pub layout: fn(&'static GameDef) -> Value,
+}
+
+impl GameDef {
+    fn module(&self) -> &'static RulesModule {
+        module_of(&self.id).expect("every game has its rules (content() checks)")
+    }
+
+    /// A new game of this, dealt from `seed`.
+    pub fn deal(&'static self, seed: u32) -> Box<dyn Rules> {
+        (self.module().deal)(self, seed)
+    }
+
+    /// Its board as its rules lay it out (`RulesModule::layout`).
+    pub fn layout(&'static self) -> Value {
+        (self.module().layout)(self)
     }
 }
 
@@ -317,11 +356,12 @@ impl Table {
         changed
     }
 
-    /// What everyone in the world sees of the table (src/net/worldLink.ts TableShown).
+    /// What everyone in the world sees of the table (src/net/worldLink.ts TableShown): the game by
+    /// its place in the bundle, and its board as the rules show it to anyone.
     pub fn shown(&self) -> Value {
         let mut v = json!({
             "id": self.id,
-            "game": self.game.id,
+            "game": self.game.index,
             "x": self.at.x,
             "y": self.at.y,
             "z": self.at.z,
@@ -342,7 +382,6 @@ impl Table {
         let mut v = self.shown();
         v["you"] = json!(seat);
         v["seats"] = Value::Array(self.seats.iter().map(|s| json!({ "id": s.id, "name": s.name, "timeouts": s.timeouts, "away": s.away.is_some() })).collect());
-        v["game"] = json!(self.game.id);
         v["turnSeconds"] = json!(self.turn_seconds);
         v["ms"] = json!((self.time_left(now) * 1000.0).round());
         v["toMove"] = json!(if self.over.is_some() { None } else { self.rules.to_move() });
@@ -369,14 +408,15 @@ pub struct Challenge {
 }
 
 impl Challenge {
-    /// As the browser shows it (src/net/worldLink.ts ChallengeView).
+    /// As the browser shows it (src/net/worldLink.ts ChallengeView): the game by its place in the
+    /// bundle.
     pub fn json(&self, now: f64) -> Value {
         json!({
             "from": self.from,
             "fromName": self.from_name,
             "to": self.to,
             "toName": self.to_name,
-            "game": self.game.id,
+            "game": self.game.index,
             "stake": self.stake,
             "ms": ((self.expires - now).max(0.0) * 1000.0).round(),
         })
@@ -482,7 +522,7 @@ mod tests {
     }
 
     fn table() -> Table {
-        let game = game_def("beacons").unwrap();
+        let game = game(0).unwrap();
         Table::new(1, game, 50.0, [Seat::new(7, "Ann"), Seat::new(8, "Bea")], Spot::default(), Box::new(Coin { turn: 0, turns: 1, won: None }), 0.0)
     }
 
@@ -491,10 +531,26 @@ mod tests {
         let c = content();
         assert_eq!(c.challenge.range, 4.0);
         assert_eq!(c.challenge.stakes[0], 0.0, "No Stake comes first");
-        let b = game_def("beacons").unwrap();
+        let b = game_called("beacons").unwrap();
         assert_eq!((b.turn_seconds, b.timeouts_to_forfeit), (40.0, 3));
-        assert!(new_game("beacons", 1).is_some());
-        assert!(new_game("chess", 1).is_none());
+        assert!(game_called("chess").is_none());
+        // A game is known by its place in the bundle, as it goes on the wire.
+        assert!(std::ptr::eq(game(b.index).unwrap(), b));
+        assert!(game(c.games.len()).is_none());
+    }
+
+    #[test]
+    fn every_game_has_its_rules_module_and_every_rules_module_its_game() {
+        let ids: Vec<&str> = content().games.iter().map(|g| g.id.as_str()).collect();
+        let modules: Vec<&str> = games::MODULES.iter().map(|(id, _)| *id).collect();
+        let mut sorted = ids.clone();
+        sorted.sort_unstable();
+        assert_eq!(sorted, modules, "content/minigames/<id>.json and crates/engine/src/minigames/games/<id>.rs come in pairs");
+        for g in &content().games {
+            // Each deals a game whose first player is to move, and lays out its board.
+            assert_eq!(g.deal(1).to_move(), Some(0), "{}", g.id);
+            assert!(g.layout().is_object(), "{}", g.id);
+        }
     }
 
     #[test]

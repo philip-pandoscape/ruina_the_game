@@ -1,5 +1,8 @@
+import { readFileSync } from 'node:fs';
 import { expect, test, type Browser, type BrowserContext, type Page } from '@playwright/test';
-import { HEXES } from '../../src/content/minigames';
+import { MINIGAMES } from '../../src/content/minigames';
+import { minigameLayout } from '../../src/engine/minigames';
+import { useEngine } from '../../src/engine/wasm';
 import { isTitleCase } from '../../src/ui/theme/text';
 import { onlineReady as waitOnline } from '../support/game';
 
@@ -16,8 +19,13 @@ import { onlineReady as waitOnline } from '../support/game';
 const SERVER = process.env.RUINA_SERVER ?? 'http://localhost:7777';
 const SHOTS = 'screenshots';
 
+/** Beacons' board as its rules lay it out (beacons.rs `layout`), asked of the engine's WebAssembly as the page asks it (`npm run engine` builds it, as Playwright's web server does). */
+let HEXES: Array<{ q: number; r: number; good: number | null }> = [];
+
 let serverUp = false;
 test.beforeAll(async () => {
+  useEngine(new WebAssembly.Instance(new WebAssembly.Module(readFileSync('target/wasm32-unknown-unknown/release/ruina_engine_wasm.wasm')), {}).exports);
+  HEXES = minigameLayout<{ hexes: typeof HEXES }>(MINIGAMES.findIndex((g) => g.id === 'beacons')).hexes;
   try {
     const r = await fetch(`${SERVER}/api/health`);
     serverUp = r.ok && (await r.json()).database === true;
@@ -289,7 +297,7 @@ test('a challenge accepted puts both stakes in the pot, throws a table down for 
       await cal.page.evaluate(() => window.__game.setCamera({ yaw: Math.PI, pitch: 0.4, distance: 3 }));
       await cal.page.evaluate(() => window.__game.render());
       await cal.page.screenshot({ path: `${SHOTS}/minigames-04-table.png` });
-      expect((await game(cal.page, (g) => g.gameTables()))[0].pegs).toBeGreaterThanOrEqual(5);
+      expect((await game(cal.page, (g) => g.gameTables()))[0].pieces).toBeGreaterThanOrEqual(5);
     }
   }
 

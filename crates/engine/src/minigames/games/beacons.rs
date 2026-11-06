@@ -14,8 +14,9 @@
 //! Four of your beacons in an unbroken straight row, along any of the board's three directions,
 //! wins. Every hex lit with no row is a draw. The challenged player moves first (seat 0).
 //!
-//! On the wire hexes are numbered row by row from the top (shared/minigames.json `layout`), cards
-//! by their place in your hand, goods by their place in `goods`.
+//! The numbers and the board are content (content/minigames/beacons.json `rules`), which the tables
+//! hand this module, named after the game (`RULES`). On the wire hexes are numbered row by row from
+//! the top (`layout`), cards by their place in your hand, goods by their place in `goods`.
 
 use std::collections::BTreeMap;
 use std::sync::OnceLock;
@@ -23,10 +24,9 @@ use std::sync::OnceLock;
 use serde::Deserialize;
 use serde_json::{Value, json};
 
-use super::{Rules, game_raw};
+use crate::minigames::{GameDef, Rules, RulesModule};
 use crate::rng::Rng;
 
-const RADIUS: i32 = 3;
 /// The six neighbours of a hex, in axial coordinates.
 const DIRS: [(i32, i32); 6] = [(1, 0), (1, -1), (0, -1), (-1, 0), (-1, 1), (0, 1)];
 /// The three ways a row can run (each with its opposite).
@@ -34,8 +34,24 @@ const AXES: [(i32, i32); 3] = [(1, 0), (0, 1), (1, -1)];
 /// Public moves kept for the players to see what just happened.
 const LOG: usize = 6;
 
+/// Beacons for the tables: how a game is dealt, and its board as the board views draw it.
+pub const RULES: RulesModule = RulesModule { deal, layout };
+
+fn deal(game: &'static GameDef, seed: u32) -> Box<dyn Rules> {
+    Box::new(Beacons::new(setup(game), seed))
+}
+
+/// The board: each hex's axial coordinates and the good it shows (null for the Old Beacon), in the
+/// order hexes are numbered, and which one is the Old Beacon.
+fn layout(game: &'static GameDef) -> Value {
+    let s = setup(game);
+    let hexes: Vec<Value> = s.board.cells.iter().enumerate().map(|(i, &(q, r))| json!({ "q": q, "r": r, "good": s.good_at(i) })).collect();
+    json!({ "hexes": hexes, "centre": s.board.centre })
+}
+
+/// Beacons' own part of its content (`rules`).
 #[derive(Deserialize, Debug)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Def {
     pub hand: usize,
     pub harbour: usize,
@@ -43,11 +59,6 @@ pub struct Def {
     pub row: usize,
     pub goods: Vec<Value>,
     pub layout: Vec<i32>,
-}
-
-pub fn def() -> &'static Def {
-    static D: OnceLock<Def> = OnceLock::new();
-    D.get_or_init(|| serde_json::from_value(game_raw("beacons").expect("Beacons in shared/minigames.json").clone()).expect("Beacons' content reads"))
 }
 
 /// The board's shape: each hex's axial coordinates (q, r), and the hex at each.
@@ -58,22 +69,21 @@ pub struct Board {
     pub centre: usize,
 }
 
-pub fn board() -> &'static Board {
-    static B: OnceLock<Board> = OnceLock::new();
-    B.get_or_init(|| {
+impl Board {
+    /// A hexagon `radius` hexes from its middle to its edge, numbered row by row from the top (r
+    /// rising), q rising along each row.
+    fn hexagon(radius: i32) -> Board {
         let mut cells = Vec::new();
-        for r in -RADIUS..=RADIUS {
-            for q in (-RADIUS).max(-RADIUS - r)..=RADIUS.min(RADIUS - r) {
+        for r in -radius..=radius {
+            for q in (-radius).max(-radius - r)..=radius.min(radius - r) {
                 cells.push((q, r));
             }
         }
         let index: BTreeMap<(i32, i32), usize> = cells.iter().enumerate().map(|(i, c)| (*c, i)).collect();
         let centre = index[&(0, 0)];
         Board { cells, index, centre }
-    })
-}
+    }
 
-impl Board {
     pub fn at(&self, q: i32, r: i32) -> Option<usize> {
         self.index.get(&(q, r)).copied()
     }
@@ -84,9 +94,31 @@ impl Board {
     }
 }
 
-/// The good shown on hex `i`, None for the Old Beacon.
-pub fn good_at(i: usize) -> Option<u8> {
-    u8::try_from(def().layout[i]).ok()
+/// Beacons as its content sets it up: its numbers, and the board its layout covers.
+pub struct Setup {
+    pub def: Def,
+    pub board: Board,
+}
+
+impl Setup {
+    /// The good shown on hex `i`, None for the Old Beacon.
+    pub fn good_at(&self, i: usize) -> Option<u8> {
+        u8::try_from(self.def.layout[i]).ok()
+    }
+}
+
+/// Beacons' setup, read from its content the first time it's needed. This module is the one game's
+/// alone (the tables find it by the game's id), so it's read once.
+pub fn setup(game: &GameDef) -> &'static Setup {
+    static S: OnceLock<Setup> = OnceLock::new();
+    S.get_or_init(|| {
+        let def: Def = serde_json::from_value(game.rules.clone()).unwrap_or_else(|e| panic!("content/minigames/{}.json `rules`: {e}", game.id));
+        // A hexagon r hexes from its middle to its edge has 3r(r + 1) + 1 of them.
+        let hexes = |r: i32| (3 * r * (r + 1) + 1) as usize;
+        let radius = (0..).find(|&r| hexes(r) >= def.layout.len()).expect("a hexagon");
+        assert_eq!(hexes(radius), def.layout.len(), "content/minigames/{}.json: the layout covers a hexagon, row by row", game.id);
+        Setup { def, board: Board::hexagon(radius) }
+    })
 }
 
 #[derive(Deserialize)]
@@ -105,6 +137,7 @@ enum Move {
 }
 
 pub struct Beacons {
+    setup: &'static Setup,
     rng: Rng,
     /// The top is the end.
     deck: Vec<u8>,
@@ -126,18 +159,19 @@ pub struct Beacons {
 }
 
 impl Beacons {
-    pub fn new(seed: u32) -> Beacons {
-        let d = def();
+    pub fn new(setup: &'static Setup, seed: u32) -> Beacons {
+        let d = &setup.def;
         let mut rng = Rng(if seed == 0 { 1 } else { seed });
         let mut deck: Vec<u8> = (0..d.goods.len() as u8).flat_map(|g| std::iter::repeat_n(g, d.per_good)).collect();
         rng.shuffle(&mut deck);
         let mut g = Beacons {
+            setup,
             rng,
             deck,
             discards: Vec::new(),
             hands: [Vec::new(), Vec::new()],
             harbour: Vec::new(),
-            lit: vec![0; board().cells.len()],
+            lit: vec![0; setup.board.cells.len()],
             turn: 0,
             turns: 1,
             draws: 0,
@@ -190,7 +224,7 @@ impl Beacons {
         let hand = &self.hands[seat];
         let unlit = (0..self.lit.len()).filter(|&i| self.lit[i] == 0);
         match cards {
-            [a] if *a < hand.len() => unlit.filter(|&i| good_at(i) == Some(hand[*a])).collect(),
+            [a] if *a < hand.len() => unlit.filter(|&i| self.setup.good_at(i) == Some(hand[*a])).collect(),
             [a, b] if a != b && *a < hand.len() && *b < hand.len() && hand[*a] == hand[*b] => unlit.collect(),
             _ => Vec::new(),
         }
@@ -302,7 +336,7 @@ impl Beacons {
 
     /// The row of four or more of one player's beacons through `hex`, if lighting it made one.
     fn row_through(&self, hex: usize) -> Option<Vec<usize>> {
-        let b = board();
+        let b = &self.setup.board;
         let mark = self.lit[hex];
         let (q, r) = b.cells[hex];
         for (dq, dr) in AXES {
@@ -317,7 +351,7 @@ impl Beacons {
                     k += 1;
                 }
             }
-            if run.len() >= def().row {
+            if run.len() >= self.setup.def.row {
                 run.sort_unstable();
                 return Some(run);
             }
@@ -329,7 +363,8 @@ impl Beacons {
     /// beacons is better, and the Old Beacon is worth having.
     fn worth(&self, seat: usize, hex: usize) -> usize {
         let mark = seat as u8 + 1;
-        board().neighbours(hex).filter(|&n| self.lit[n] == mark).count() * 2 + usize::from(hex == board().centre)
+        let b = &self.setup.board;
+        b.neighbours(hex).filter(|&n| self.lit[n] == mark).count() * 2 + usize::from(hex == b.centre)
     }
 }
 
@@ -421,10 +456,16 @@ impl Rules for Beacons {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::minigames::game_called;
+
+    /// Beacons as its content sets it up.
+    fn beacons() -> &'static Setup {
+        setup(game_called("beacons").unwrap())
+    }
 
     /// A game with hands and a deck chosen by the test (the rest of the state as dealt).
     fn rigged(hands: [Vec<u8>; 2], deck: Vec<u8>, harbour: Vec<u8>) -> Beacons {
-        let mut g = Beacons::new(7);
+        let mut g = Beacons::new(beacons(), 7);
         g.hands = hands;
         g.deck = deck;
         g.harbour = harbour.into_iter().map(Some).collect();
@@ -434,23 +475,27 @@ mod tests {
 
     /// The hexes showing good `g`.
     fn of_good(g: u8) -> Vec<usize> {
-        (0..board().cells.len()).filter(|&i| good_at(i) == Some(g)).collect()
+        (0..beacons().board.cells.len()).filter(|&i| beacons().good_at(i) == Some(g)).collect()
+    }
+
+    fn centre() -> usize {
+        beacons().board.centre
     }
 
     #[test]
     fn the_board_has_six_of_each_good_never_side_by_side_and_the_old_beacon_in_the_middle() {
-        let b = board();
+        let b = &beacons().board;
         assert_eq!(b.cells.len(), 37);
         assert_eq!(b.cells[b.centre], (0, 0));
-        assert_eq!(def().layout.len(), 37);
-        assert_eq!(good_at(b.centre), None);
+        assert_eq!(beacons().def.layout.len(), 37);
+        assert_eq!(beacons().good_at(b.centre), None);
         for g in 0..6u8 {
             assert_eq!(of_good(g).len(), 6, "good {g}");
         }
         for i in 0..37 {
-            let Some(g) = good_at(i) else { continue };
+            let Some(g) = beacons().good_at(i) else { continue };
             for n in b.neighbours(i) {
-                assert_ne!(good_at(n), Some(g), "hexes {i} and {n} show the same good side by side");
+                assert_ne!(beacons().good_at(n), Some(g), "hexes {i} and {n} show the same good side by side");
             }
         }
         // Six neighbours inside, fewer on the rim.
@@ -459,8 +504,25 @@ mod tests {
     }
 
     #[test]
+    fn the_layout_the_board_views_draw_is_the_board_the_rules_play_on() {
+        let game = game_called("beacons").unwrap();
+        let l = (RULES.layout)(game);
+        let b = &beacons().board;
+        assert_eq!(l["centre"], b.centre);
+        let hexes = l["hexes"].as_array().unwrap();
+        assert_eq!(hexes.len(), b.cells.len());
+        for (i, h) in hexes.iter().enumerate() {
+            assert_eq!((h["q"].as_i64().unwrap() as i32, h["r"].as_i64().unwrap() as i32), b.cells[i], "hex {i}");
+            assert_eq!(h["good"].as_u64().map(|g| g as u8), beacons().good_at(i), "hex {i}");
+        }
+        // Row by row from the top, q rising along each.
+        assert_eq!((b.cells[0], b.cells[36]), ((0, -3), (0, 3)));
+        assert!(hexes[b.centre]["good"].is_null(), "the Old Beacon shows no good");
+    }
+
+    #[test]
     fn the_deal_is_four_each_three_in_the_harbour_and_the_rest_in_the_deck() {
-        let g = Beacons::new(42);
+        let g = Beacons::new(beacons(), 42);
         assert_eq!(g.hands[0].len(), 4);
         assert_eq!(g.hands[1].len(), 4);
         assert_eq!(g.harbour.iter().flatten().count(), 3);
@@ -473,8 +535,8 @@ mod tests {
             assert_eq!(all.iter().filter(|&&c| c == good).count(), 8);
         }
         // The same seed deals the same game; another deals another.
-        assert_eq!(Beacons::new(42).deck, g.deck);
-        assert_ne!(Beacons::new(43).deck, g.deck);
+        assert_eq!(Beacons::new(beacons(), 42).deck, g.deck);
+        assert_ne!(Beacons::new(beacons(), 43).deck, g.deck);
         assert_eq!(g.to_move(), Some(0), "the challenged player moves first");
     }
 
@@ -487,7 +549,7 @@ mod tests {
         // A single stone card: only stone hexes.
         assert!(g.play(0, &json!({ "k": "light", "cards": [1], "hex": mine })).is_err(), "grain on a stone hex");
         assert!(g.play(0, &json!({ "k": "light", "cards": [0], "hex": other })).is_err(), "stone on an ore hex");
-        assert!(g.play(0, &json!({ "k": "light", "cards": [0], "hex": board().centre })).is_err(), "one card can't light the Old Beacon");
+        assert!(g.play(0, &json!({ "k": "light", "cards": [0], "hex": centre() })).is_err(), "one card can't light the Old Beacon");
         assert!(g.play(0, &json!({ "k": "light", "cards": [0, 1], "hex": other })).is_err(), "two different goods aren't a pair");
         assert!(g.play(0, &json!({ "k": "light", "cards": [0, 0], "hex": other })).is_err(), "the same card twice isn't a pair");
         assert!(g.play(0, &json!({ "k": "light", "cards": [9], "hex": mine })).is_err(), "no such card");
@@ -501,8 +563,8 @@ mod tests {
         assert!(g.view(Some(1)).get("legal").is_none(), "only the player to move gets moves");
         assert!(g.view(None).get("hand").is_none(), "onlookers don't see a hand");
         // The pair lights the Old Beacon.
-        g.play(0, &json!({ "k": "light", "cards": [0, 2], "hex": board().centre })).unwrap();
-        assert_eq!(g.lit[board().centre], 1);
+        g.play(0, &json!({ "k": "light", "cards": [0, 2], "hex": centre() })).unwrap();
+        assert_eq!(g.lit[centre()], 1);
         assert_eq!(g.hands[0], vec![0, 1]);
         assert_eq!(g.discards, vec![stone, stone]);
         assert_eq!(g.draws, 2, "two played, two to draw");
@@ -512,7 +574,7 @@ mod tests {
         g.draw(0, None).unwrap();
         g.play(1, &json!({ "k": "swap", "card": 0 })).unwrap();
         g.draw(1, None).unwrap();
-        assert!(g.play(0, &json!({ "k": "light", "cards": [2, 3], "hex": board().centre })).is_err());
+        assert!(g.play(0, &json!({ "k": "light", "cards": [2, 3], "hex": centre() })).is_err());
     }
 
     #[test]
@@ -585,11 +647,11 @@ mod tests {
 
     #[test]
     fn four_in_a_row_wins_along_each_of_the_three_directions() {
-        let b = board();
+        let b = &beacons().board;
         for (dq, dr) in AXES {
             // A row of four through the middle, the last one lit by the move.
             let row: Vec<usize> = (-1..=2).map(|k| b.at(dq * k, dr * k).unwrap()).collect();
-            let mut g = Beacons::new(3);
+            let mut g = Beacons::new(beacons(), 3);
             light_all(&mut g, 0, &row[..3]);
             pair_on(&mut g, row[3]);
             assert_eq!(g.result(), Some(Some(0)), "along ({dq}, {dr})");
@@ -599,7 +661,7 @@ mod tests {
             assert_eq!(g.to_move(), None);
             assert_eq!(g.draws, 0, "nothing to draw once the game is won");
             // Filling the gap in the middle of a row counts too.
-            let mut g = Beacons::new(3);
+            let mut g = Beacons::new(beacons(), 3);
             light_all(&mut g, 0, &[row[0], row[2], row[3]]);
             pair_on(&mut g, row[1]);
             assert_eq!(g.result(), Some(Some(0)));
@@ -608,31 +670,31 @@ mod tests {
 
     #[test]
     fn three_in_a_row_a_broken_row_or_a_bent_one_does_not_win() {
-        let b = board();
+        let b = &beacons().board;
         let at = |q, r| b.at(q, r).unwrap();
         // Three.
-        let mut g = Beacons::new(3);
+        let mut g = Beacons::new(beacons(), 3);
         light_all(&mut g, 0, &[at(-1, 0), at(0, 0)]);
         pair_on(&mut g, at(1, 0));
         assert_eq!(g.result(), None);
         // Four in a line with the other player's beacon in it.
-        let mut g = Beacons::new(3);
+        let mut g = Beacons::new(beacons(), 3);
         light_all(&mut g, 0, &[at(-2, 0), at(-1, 0), at(1, 0)]);
         light_all(&mut g, 1, &[at(0, 0)]);
         pair_on(&mut g, at(2, 0));
         assert_eq!(g.result(), None);
         // Four with a gap.
-        let mut g = Beacons::new(3);
+        let mut g = Beacons::new(beacons(), 3);
         light_all(&mut g, 0, &[at(-3, 0), at(-2, 0), at(-1, 0)]);
         pair_on(&mut g, at(1, 0));
         assert_eq!(g.result(), None);
         // Four touching, but bent.
-        let mut g = Beacons::new(3);
+        let mut g = Beacons::new(beacons(), 3);
         light_all(&mut g, 0, &[at(-1, 0), at(0, 0), at(1, 0)]);
         pair_on(&mut g, at(1, 1));
         assert_eq!(g.result(), None);
         // Four of the other player's don't win for you either.
-        let mut g = Beacons::new(3);
+        let mut g = Beacons::new(beacons(), 3);
         light_all(&mut g, 1, &[at(-1, 0), at(0, 0), at(1, 0)]);
         pair_on(&mut g, at(2, 0));
         assert_eq!(g.result(), None);
@@ -642,9 +704,9 @@ mod tests {
     fn every_hex_lit_without_a_row_is_a_draw() {
         // Along every direction (q - r) mod 3 runs 0, 1, 2, 0, ...: give seat 0 the hexes where
         // it's 0 and seat 1 the rest, and nobody ever has more than two in a row.
-        let b = board();
+        let b = &beacons().board;
         let owner = |i: usize| if (b.cells[i].0 - b.cells[i].1).rem_euclid(3) == 0 { 0 } else { 1 };
-        let mut g = Beacons::new(3);
+        let mut g = Beacons::new(beacons(), 3);
         let last = 20;
         for i in 0..37 {
             if i != last {
@@ -673,7 +735,7 @@ mod tests {
         g.auto(0);
         assert_eq!(g.to_move(), Some(1));
         // Part way through drawing, it finishes the drawing.
-        g.play(1, &json!({ "k": "light", "cards": [0, 1], "hex": board().centre })).unwrap();
+        g.play(1, &json!({ "k": "light", "cards": [0, 1], "hex": centre() })).unwrap();
         g.play(1, &json!({ "k": "draw", "from": "deck" })).unwrap();
         g.auto(1);
         assert_eq!(g.hands[1].len(), 4);
@@ -685,12 +747,12 @@ mod tests {
         let mut g = rigged([vec![0, 1, 2, 3], vec![3, 3, 4, 5]], vec![5, 4], vec![1, 2, 3]);
         // Every hex lit but the Old Beacon: only a pair could light it, and there's no pair.
         for i in 0..37 {
-            if i != board().centre {
+            if i != centre() {
                 g.lit[i] = 2;
             }
         }
         g.auto(0);
-        assert_eq!(g.lit[board().centre], 0);
+        assert_eq!(g.lit[centre()], 0);
         assert_eq!(g.hands[0], vec![1, 2, 3, 4], "the first card swapped for the deck's top");
         assert_eq!(g.to_move(), Some(1));
     }
@@ -698,7 +760,7 @@ mod tests {
     #[test]
     fn a_whole_game_of_server_moves_ends_with_a_winner_or_a_draw() {
         for seed in 1..40 {
-            let mut g = Beacons::new(seed);
+            let mut g = Beacons::new(beacons(), seed);
             let mut moves = 0;
             while let Some(s) = g.to_move() {
                 g.auto(s);
@@ -714,7 +776,7 @@ mod tests {
 
     #[test]
     fn nonsense_from_a_browser_is_refused() {
-        let mut g = Beacons::new(1);
+        let mut g = Beacons::new(beacons(), 1);
         for m in [
             json!("light"),
             json!({ "k": "light" }),

@@ -39,7 +39,7 @@ export async function loadEngine(url: string): Promise<void> {
   useEngine(instance.exports);
 }
 
-function wasm(): Exports {
+export function wasm(): Exports {
   if (!engine) throw new Error("the engine isn't loaded: await loadEngine() at the page's start (src/engine/load.ts)");
   return engine;
 }
@@ -61,7 +61,7 @@ function withText<T>(s: string, f: (p: number, n: number) => T): T {
 }
 
 /** The answer an engine call left, `n` bytes of JSON. */
-function answer<T>(n: number): T {
+export function answer<T>(n: number): T {
   const e = wasm();
   return JSON.parse(decoder.decode(new Uint8Array(e.memory.buffer, e.out_ptr(), n))) as T;
 }

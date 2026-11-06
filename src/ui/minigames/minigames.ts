@@ -1,13 +1,13 @@
 import './minigames.css';
-import { CHALLENGE, MINIGAMES, SEAT_COLORS, minigame, stakesFor } from '../../content/minigames';
-import type { ChallengeView, TableLink, TableView } from './tables';
+import { CHALLENGE, MINIGAMES, type MiniGameDef, SEAT_COLORS, minigame, stakesFor } from '../../content/minigames';
+import type { BoardView, ChallengeView, TableLink, TableView } from './tables';
 import type { Life } from '../../engine/island';
 import { docksLeft, type LifePress } from '../life/lifeUI';
 import { closeMenu, openMenu } from '../theme/contextMenu';
 import { iconHtml, money } from '../theme/icons';
 import { uiRoot } from '../theme/scale';
 import { addTipSource, hideTip } from '../theme/tooltip';
-import { BeaconsPanel } from './beacons';
+import { boardOf } from './boards';
 import { esc } from '../../util/html';
 
 // Mini-games, online: walk up to another player and press F to challenge them (the game and the
@@ -17,6 +17,10 @@ import { esc } from '../../util/html';
 // stay seated: the world's keys wait, and Escape (or Concede) offers to give the game up. The winner
 // takes the pot. Everything here is what the server says (crates/server/src/play/tables.rs): the
 // windows show it and send what you choose. Offline there's nobody to play, and none of this runs.
+//
+// These windows know no game: the games are the content's (MINIGAMES), and the game window draws a
+// table's game with that game's board view (./boards/<game>.ts), which the window's own clicks
+// (close, done, keep, concede) pass by.
 
 export interface MinigamesDeps {
   link: TableLink;
@@ -56,7 +60,8 @@ export class MinigamesUI {
   private game = el('mw left mg-win mg-game', 'mg-game');
   /** Who you're about to challenge (their window is open). */
   private target: { id: number; name: string } | null = null;
-  private gameId = MINIGAMES[0]?.id ?? 'beacons';
+  /** The game picked in the challenge window. */
+  private gameId = MINIGAMES[0]?.id ?? '';
   private stake = 0;
   /** Your challenge went out: when it's answered (or lapses) its window closes. */
   private waiting = false;
@@ -67,7 +72,8 @@ export class MinigamesUI {
   /** The table whose window last opened, to free the pointer once per game. */
   private opened = -1;
   private sig = { setup: '', invite: '', game: '' };
-  private beacons: BeaconsPanel;
+  /** Each game's board view, made when a table of it first comes. */
+  private boards = new Map<number, BoardView>();
 
   constructor(private d: MinigamesDeps) {
     for (const w of [this.setup, this.invite, this.game]) {
@@ -75,18 +81,20 @@ export class MinigamesUI {
       uiRoot().append(w);
     }
     this.game.addEventListener('dblclick', (e) => {
-      const b = (e.target as HTMLElement).closest('[data-act="card"]') as HTMLElement | null;
+      const b = (e.target as HTMLElement).closest('[data-act]') as HTMLElement | null;
       const t = this.d.link.table;
-      if (!b || !t) return;
-      this.beacons.pair(t, Number(b.dataset.arg));
+      const view = t && this.boardFor(t);
+      if (!b || !t || !view) return;
+      view.dblclick(t, b.dataset.act!, b.dataset.arg ?? '');
       this.render(true);
     });
     this.game.addEventListener('contextmenu', (e) => {
       e.preventDefault();
-      const b = (e.target as HTMLElement).closest('[data-act="card"]') as HTMLElement | null;
+      const b = (e.target as HTMLElement).closest('[data-act]') as HTMLElement | null;
       const t = this.d.link.table;
-      if (!b || !t) return;
-      const m = this.beacons.menu(t, Number(b.dataset.arg));
+      const view = t && this.boardFor(t);
+      const m = b && t && view ? view.menu(t, b.dataset.act!, b.dataset.arg ?? '') : null;
+      if (!m) return;
       openMenu(
         e.clientX,
         e.clientY,
@@ -94,13 +102,29 @@ export class MinigamesUI {
         m.entries.map((x) => ({ ...x, run: () => (x.run?.(), this.render(true)) })),
       );
     });
-    addTipSource((tip) => (tip.startsWith('mg:good:') ? BeaconsPanel.tip(Number(tip.slice(8))) : null));
-    this.beacons = new BeaconsPanel((m) => {
+    // A board's tooltips (data-tip="mg:<key>"), from the board of the game at your table.
+    addTipSource((tip) => {
       const t = this.d.link.table;
-      if (t) this.d.link.move(t.id, m);
+      return tip.startsWith('mg:') && t ? (this.boardFor(t)?.tip(tip.slice(3)) ?? null) : null;
     });
     d.link.onTable = () => this.render(true);
     d.link.onChallenges = () => this.render(true);
+  }
+
+  /** The board view of the game at table `t`: its game's (./boards/<game>.ts), made the first time. */
+  private boardFor(t: TableView): BoardView | null {
+    let view = this.boards.get(t.game);
+    if (!view) {
+      const def = MINIGAMES[t.game];
+      const make = def && boardOf(def);
+      if (!def || !make) return null;
+      view = make(def, t.game, (m) => {
+        const now = this.d.link.table;
+        if (now) this.d.link.move(now.id, m);
+      });
+      this.boards.set(t.game, view);
+    }
+    return view;
   }
 
   /** At a table: you can't walk off, and the world's keys wait. */
@@ -229,16 +253,17 @@ export class MinigamesUI {
     if (!force && sig === this.sig.setup && !this.setup.hidden) return;
     this.sig.setup = sig;
     const name = this.target.name;
-    const g = minigame(this.gameId) ?? MINIGAMES[0];
+    const g: MiniGameDef | undefined = (sent ? MINIGAMES[sent.game] : minigame(this.gameId)) ?? MINIGAMES[0];
+    const icon = g ? iconHtml(g.icon, undefined, 40) : '';
     let html: string;
     if (sent) {
       const stake = sent.stake ? `for ${money(sent.stake, 14)} each` : 'with no stake';
       html = frame(
         `Challenge ${sent.toName}`,
         '',
-        `<p class="mg-say">Waiting for <b>${esc(sent.toName)}</b> to answer your challenge to <b>${esc(minigame(sent.game)?.name ?? sent.game)}</b> ${stake}.</p><div class="mg-time"><i></i></div><p class="note" data-clock></p>`,
+        `<p class="mg-say">Waiting for <b>${esc(sent.toName)}</b> to answer your challenge to <b>${esc(g?.name ?? '')}</b> ${stake}.</p><div class="mg-time"><i></i></div><p class="note" data-clock></p>`,
         `<span></span><button class="lui-btn" data-act="withdraw">Withdraw</button>`,
-        iconHtml(g.icon, undefined, 40),
+        icon,
       );
     } else {
       const games = MINIGAMES.map(
@@ -255,7 +280,7 @@ export class MinigamesUI {
         `<div class="h">Game</div><div class="mg-games">${games}</div><div class="h">Stake</div><div class="mg-stakes">${stakes}</div>` +
           `<p class="note" style="margin-top:10px">You each put the stake in the pot, and the winner takes it all. A draw gives each stake back. ${esc(name)} has ${CHALLENGE.inviteSeconds} seconds to answer.</p>`,
         `<button class="lui-btn" data-act="cancel">Cancel</button><button class="lui-btn gold" data-act="send">Send Challenge</button>`,
-        iconHtml(g.icon, undefined, 40),
+        icon,
       );
     }
     this.setup.className = 'mw left mg-win has-portrait';
@@ -280,12 +305,12 @@ export class MinigamesUI {
     if (!force && sig === this.sig.invite && !this.invite.hidden) return;
     const fresh = this.invite.hidden;
     this.sig.invite = sig;
-    const g = minigame(w.game);
+    const g = MINIGAMES[w.game];
     const stake = w.stake ? `for ${money(w.stake, 14)} each` : 'for no stake';
     this.invite.innerHTML = frame(
       'A Challenge',
       '',
-      `<p class="mg-say"><b>${esc(w.fromName)}</b> challenges you to <b>${esc(g?.name ?? w.game)}</b> ${stake}.</p>` +
+      `<p class="mg-say"><b>${esc(w.fromName)}</b> challenges you to <b>${esc(g?.name ?? '')}</b> ${stake}.</p>` +
         `<p class="note">${esc(g?.blurb ?? '')}${w.stake ? ' The winner takes the pot.' : ''}</p>` +
         (short ? `<p class="note" style="color:var(--bad)">You don't have enough to match the stake.</p>` : '') +
         `<div class="mg-time"><i></i></div><p class="note" data-clock></p>`,
@@ -313,15 +338,16 @@ export class MinigamesUI {
       }
       return;
     }
-    this.beacons.seen(t);
-    const sig = `${t.id}|${link.tableHeard}|${this.beacons.picked.join()}|${this.conceding}`;
+    const view = this.boardFor(t);
+    view?.seen(t);
+    const sig = `${t.id}|${link.tableHeard}|${view?.key ?? ''}|${this.conceding}`;
     if (!force && sig === this.sig.game && !this.game.hidden) return;
     this.sig.game = sig;
     if (this.opened !== t.id) {
       this.opened = t.id;
       this.d.freeMouse();
     }
-    const g = minigame(t.game);
+    const g = MINIGAMES[t.game];
     const me = t.you;
     const them = t.seats[1 - me]?.name ?? '';
     const pot = t.stake * 2;
@@ -334,32 +360,30 @@ export class MinigamesUI {
     const turnLabel = t.over ? '' : t.toMove === me ? 'Your Turn' : `${them}'s Turn`;
     const clockHtml = t.over ? '' : `<div class="mg-clock" data-clock>${clock(t.ms)}<small>${esc(turnLabel)}</small></div>`;
     let top = `<div class="mg-seats">${seat(0)}${clockHtml}${seat(1)}</div>`;
-    if (t.over) top += this.result(t);
-    else top += `<div class="mg-hint">${this.beacons.hint(t)}</div>`;
-    const body = top + this.beacons.board(t) + this.beacons.cards(t) + `<div class="mg-log">${this.beacons.log(t)}</div>`;
+    if (t.over) top += this.result(t, view);
+    else top += `<div class="mg-hint">${view?.hint(t) ?? ''}</div>`;
+    const board = view ? view.body(t) + `<div class="mg-log">${view.log(t)}</div>` : `<p class="note">This game can't be shown here.</p>`;
     let foot: string;
     if (t.over) foot = `<span></span><button class="lui-btn" data-act="done">Close</button>`;
     else if (this.conceding) {
       foot = `<span class="mg-confirm">Concede the game? ${pot ? `${esc(them)} takes the pot.` : `${esc(them)} wins.`}</span><button class="lui-btn small" data-act="keep">Keep Playing</button><button class="lui-btn" data-act="concede">Concede</button>`;
-    } else {
-      const swap = this.beacons.canSwap(t);
-      foot = `<button class="lui-btn" data-act="swap"${swap ? '' : ' disabled'} title="${swap ? 'Discard the picked card and draw one: your whole turn' : 'Pick the card to swap first'}">Swap a Card</button><button class="lui-btn" data-act="concede">Concede</button>`;
-    }
+    } else foot = `${view?.buttons(t) ?? ''}<button class="lui-btn" data-act="concede">Concede</button>`;
     const keep = this.game.querySelector('.mw-body')?.scrollTop ?? 0;
-    this.game.innerHTML = frame(g?.name ?? t.game, pot ? `Pot ${money(pot, 13)}` : 'No Stake', body, foot);
+    this.game.innerHTML = frame(g?.name ?? '', pot ? `Pot ${money(pot, 13)}` : 'No Stake', top + board, foot);
     const nb = this.game.querySelector('.mw-body');
     if (nb) nb.scrollTop = keep;
     this.game.hidden = false;
   }
 
-  /** How the game ended, for both players. */
-  private result(t: TableView): string {
+  /** How the game ended, for both players: by the rules in the game's own words (its board view's), or for a reason every game has. */
+  private result(t: TableView, view: BoardView | null): string {
     const o = t.over!;
     const me = t.you;
     const them = esc(t.seats[1 - me]?.name ?? '');
     const pot = t.stake * 2;
     const potText = pot ? ` The pot of ${money(pot, 14)} is yours.` : '';
     const back = t.stake ? ' Each stake goes back to its player.' : '';
+    const byRules = view?.ended(t) ?? '';
     let big: string;
     let line: string;
     if (o.why === 'aborted') {
@@ -367,18 +391,14 @@ export class MinigamesUI {
       line = `The game was called off.${back}`;
     } else if (o.winner === null) {
       big = 'A Draw';
-      line = `Every hex is lit and nobody has a row.${back}`;
+      line = `${byRules}${back}`;
     } else if (o.winner === me) {
       big = 'You Won';
       line =
-        { rules: 'Four in a row!', conceded: `${them} conceded.`, timeouts: `${them} ran out of time too often.`, away: `${them} was away too long.` }[o.why] +
-        potText;
+        { rules: byRules, conceded: `${them} conceded.`, timeouts: `${them} ran out of time too often.`, away: `${them} was away too long.` }[o.why] + potText;
     } else {
       big = `${them} Won`;
-      line =
-        { rules: `${them} lit four in a row.`, conceded: 'You conceded.', timeouts: 'You ran out of time too often.', away: 'You were away too long.' }[
-          o.why
-        ] ?? '';
+      line = { rules: byRules, conceded: 'You conceded.', timeouts: 'You ran out of time too often.', away: 'You were away too long.' }[o.why] ?? '';
     }
     return `<div class="mg-result"><div class="big">${big}</div><p>${line}</p></div>`;
   }
@@ -411,23 +431,23 @@ export class MinigamesUI {
           link.concede(t.id);
           this.conceding = false;
         } else this.conceding = true;
-      } else if (act === 'swap') this.beacons.swap(t);
-      else this.beacons.click(t, act, arg);
+      } else this.boardFor(t)?.click(t, act, arg);
     }
     this.render(true);
   }
 
   // ---------- For tests ----------
 
-  /** What the windows show, and the game as the server last sent it. */
+  /** What the windows show, the game as the server last sent it, and what its board holds (Beacons: the cards picked). */
   state() {
     const link = this.d.link;
+    const t = link.table;
     return {
       seated: this.seated,
       windows: { challenge: !this.setup.hidden, invite: !this.invite.hidden, game: !this.game.hidden },
       challenges: link.challenges,
-      table: link.table,
-      picked: [...this.beacons.picked],
+      table: t,
+      board: t ? (this.boardFor(t)?.state() ?? null) : null,
     };
   }
 }

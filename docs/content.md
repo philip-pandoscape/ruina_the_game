@@ -197,13 +197,39 @@ A new act or condition for brains is a new engine part: code, never a creature's
 - **A dungeon or a developer zone**: `content/dungeons/<id>.json` (template `dungeon.json`), as
   `docs/zones.md` says. A dungeon's dressing is still code (the refactor's R9.8).
 
+## Mini-Games
+
+A game two players play at a table (Beacons) is its rules and its boards as well as its file: code,
+but each a module named after the game and found by that name, with no list of games to add it to.
+
+- **Its file**: `content/minigames/<id>.json`: its name, icon and blurb (the blurb is the bible's
+  explanation), how many play, a turn's time and how many turns run out in a row lose; and under
+  `rules`, whatever its rules module reads (Beacons': the hand, the Harbour, the deck, the row that
+  wins, the goods and the board). Its id goes on the end of `content/minigames/_order.json`: a game
+  goes on the wire as its place there.
+- **Its rules**: `crates/engine/src/minigames/games/<id>.rs`, with a `RULES` (a `RulesModule`):
+  `deal` starts a game of it from its file and a seed (a `Rules`: whose turn it is, a move checked
+  and played, the server's move for a player out of time, the game as each seat and onlookers may
+  see it, how it ended), and `layout` gives the board for the browser to draw, through the engine's
+  WebAssembly. The engine's build script finds the module by its name (`crates/engine/build.rs`),
+  and the server plays it at the tables.
+- **Its boards**: in the game window, `src/ui/minigames/boards/<id>.ts` exporting `board` (a
+  `MakeBoardView`, `src/ui/minigames/tables.ts`): the board, the hint and what the player picks, sent
+  to the server as moves in the game's own terms; and on the table in the world,
+  `src/render/open/gameBoards/<id>.ts` exporting `board` (a `TableBoard`,
+  `src/render/open/gameTables.ts`): the board and its pieces, for everyone round it.
+- **The bible**: its rules on the Mini-Games page (`src/bible/systems/minigames.ts`, a section a
+  game; one it has no section for shows its blurb).
+
+`tests/unit/minigames.test.ts` fails on a game missing one of its modules, or a module without its
+game; the rules are tested in Rust beside them.
+
 ## Not Yet Data
 
 A new one of these needs code today, each named for the refactor's task that makes it data:
 
 - **Weapons, abilities and movement skills** (R9.5): their moves, models, icons and where they are
   put away are code, and causes go on the wire by index.
-- **Mini-games** (R9.11): a game's rules and its board.
 - **Stats** in the skill tree are numbers the rules read by name; nodes are written by
   `tools/skilltree/gen.mjs`.
 

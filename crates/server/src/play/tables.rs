@@ -15,7 +15,7 @@ use serde_json::{Value, json};
 use super::{ChannelGame, Save, client, island_of};
 use crate::life::Life;
 use crate::life::content::format_coins;
-use crate::minigames::{Challenge, Seat, Spot, Table, Why, content, game_def, new_game};
+use crate::minigames::{Challenge, Seat, Spot, Table, Why, content};
 use crate::open::colliders::ground_at;
 use crate::player::Mode;
 
@@ -177,18 +177,19 @@ impl ChannelGame {
         self.tell(id, &self.tables.challenges_json(id, self.game_clock()));
     }
 
-    /// `from` challenges `to` to `game` for `stake` copper each. On development servers `seed`
-    /// deals a known game. Err: why not, for `from`.
-    pub fn challenge(&mut self, from: i64, to: i64, game: &str, stake: f64, seed: Option<u32>) -> Result<(), String> {
+    /// `from` challenges `to` to the game at `game` in the bundle (as it comes on the wire) for
+    /// `stake` copper each. On development servers `seed` deals a known game. Err: why not, for
+    /// `from`.
+    pub fn challenge(&mut self, from: i64, to: i64, game: usize, stake: f64, seed: Option<u32>) -> Result<(), String> {
         self.challenge_timed(from, to, game, stake, seed, None)
     }
 
     /// A challenge whose game gives each turn `turn` seconds, on development servers (tests in a
     /// browser that draws in software, too slow for the game's own clock).
-    pub fn challenge_timed(&mut self, from: i64, to: i64, game: &str, stake: f64, seed: Option<u32>, turn: Option<f64>) -> Result<(), String> {
+    pub fn challenge_timed(&mut self, from: i64, to: i64, game: usize, stake: f64, seed: Option<u32>, turn: Option<f64>) -> Result<(), String> {
         let c = &content().challenge;
         let now = self.game_clock();
-        let Some(def) = game_def(game) else { return Err("There's no such game.".into()) };
+        let Some(def) = crate::minigames::game(game) else { return Err("There's no such game.".into()) };
         if from == to {
             return Err("You can't challenge yourself.".into());
         }
@@ -293,7 +294,7 @@ impl ChannelGame {
         }
         let Some(spot) = self.table_spot(to, from) else { return Err("There's no room for a table here - find open, level ground.".into()) };
         let id = self.tables.next_id();
-        let rules = new_game(&game.id, seed.unwrap_or_else(|| fresh_seed(id))).ok_or("There's no such game.")?;
+        let rules = game.deal(seed.unwrap_or_else(|| fresh_seed(id)));
         // Agreed: into the pot with the stakes, and down with the table. The challenged player
         // has seat 0 and moves first.
         close(self);
@@ -600,9 +601,15 @@ mod tests {
     use super::super::{Arrival, ChannelGame, client, island_of, load_island, stand_on_ground};
     use crate::combat::OPEN_INPUT;
     use crate::life::{Command, Life};
-    use crate::minigames::{Why, beacons, content, game_def};
+    use crate::minigames::games::beacons::setup;
+    use crate::minigames::{GameDef, Why, content, game_called};
     use crate::player::{Build, Mode, Player};
     use crate::world::Spawn;
+
+    /// The game these tests play (a challenge names it by its place in the bundle).
+    fn beacons() -> &'static GameDef {
+        game_called("beacons").unwrap()
+    }
 
     /// Ann (7) and Bea (8) standing two metres apart on the green by the spawn, with 200 copper
     /// each, and what each of their browsers hears.
@@ -661,7 +668,7 @@ mod tests {
 
     /// Ann challenges Bea for `stake` and Bea accepts: the table's id.
     fn sit_down(ch: &mut ChannelGame, stake: f64) -> u64 {
-        ch.challenge(7, 8, "beacons", stake, Some(5)).unwrap();
+        ch.challenge(7, 8, beacons().index, stake, Some(5)).unwrap();
         ch.answer(8, 7, true).unwrap();
         ch.tables.tables.last().unwrap().id
     }
@@ -669,15 +676,15 @@ mod tests {
     #[test]
     fn a_challenge_accepted_puts_both_stakes_in_the_pot_and_a_table_between_them() {
         let (mut ch, mut rx_a, mut rx_b) = ann_and_bea();
-        ch.challenge(7, 8, "beacons", 50.0, None).unwrap();
+        ch.challenge(7, 8, beacons().index, 50.0, None).unwrap();
         // Bea is asked, Ann waits.
         let to_bea = heard(&mut rx_b).into_iter().find(|m| m["t"] == "challenges").unwrap();
         assert_eq!(to_bea["waiting"]["fromName"], "Ann");
         assert_eq!(to_bea["waiting"]["stake"], 50.0);
         assert_eq!(heard(&mut rx_a).into_iter().find(|m| m["t"] == "challenges").unwrap()["sent"]["toName"], "Bea");
         // Nobody else gets asked meanwhile, by either of them.
-        assert!(ch.challenge(7, 8, "beacons", 10.0, None).is_err());
-        assert!(ch.challenge(8, 7, "beacons", 10.0, None).is_err());
+        assert!(ch.challenge(7, 8, beacons().index, 10.0, None).is_err());
+        assert!(ch.challenge(8, 7, beacons().index, 10.0, None).is_err());
         assert_eq!((coins(&ch, 7), coins(&ch, 8)), (200.0, 200.0), "nothing taken until it's accepted");
         ch.answer(8, 7, true).unwrap();
         assert_eq!((coins(&ch, 7), coins(&ch, 8)), (150.0, 150.0));
@@ -711,15 +718,15 @@ mod tests {
     #[test]
     fn a_declined_or_unanswered_challenge_leaves_both_purses_alone() {
         let (mut ch, _, _) = ann_and_bea();
-        ch.challenge(7, 8, "beacons", 100.0, None).unwrap();
+        ch.challenge(7, 8, beacons().index, 100.0, None).unwrap();
         ch.answer(8, 7, false).unwrap();
         assert_eq!(toasts(&mut ch, 7), ["Bea declined your challenge."]);
         assert!(ch.tables.challenges.is_empty() && ch.tables.tables.is_empty());
         assert_eq!((coins(&ch, 7), coins(&ch, 8)), (200.0, 200.0));
         // Not straight away again...
-        assert_eq!(ch.challenge(7, 8, "beacons", 100.0, None), Err("Bea said no just now.".into()));
+        assert_eq!(ch.challenge(7, 8, beacons().index, 100.0, None), Err("Bea said no just now.".into()));
         // ...but Bea may ask Ann, who lets it lapse.
-        ch.challenge(8, 7, "beacons", 25.0, None).unwrap();
+        ch.challenge(8, 7, beacons().index, 25.0, None).unwrap();
         ch.skew += content().challenge.invite_seconds + 0.1;
         ch.step_tables();
         assert!(ch.tables.challenges.is_empty());
@@ -731,22 +738,22 @@ mod tests {
     #[test]
     fn a_challenge_needs_both_on_foot_close_together_and_able_to_pay() {
         let (mut ch, _, _) = ann_and_bea();
-        assert!(ch.challenge(7, 8, "beacons", 30.0, None).is_err(), "not a stake on offer");
-        assert!(ch.challenge(7, 8, "beacons", 250.0, None).is_err(), "more than Ann has");
-        assert!(ch.challenge(7, 8, "chess", 0.0, None).is_err());
-        assert!(ch.challenge(7, 7, "beacons", 0.0, None).is_err());
-        assert!(ch.challenge(7, 9, "beacons", 0.0, None).is_err(), "nobody by that name");
+        assert!(ch.challenge(7, 8, beacons().index, 30.0, None).is_err(), "not a stake on offer");
+        assert!(ch.challenge(7, 8, beacons().index, 250.0, None).is_err(), "more than Ann has");
+        assert!(ch.challenge(7, 8, content().games.len(), 0.0, None).is_err());
+        assert!(ch.challenge(7, 7, beacons().index, 0.0, None).is_err());
+        assert!(ch.challenge(7, 9, beacons().index, 0.0, None).is_err(), "nobody by that name");
         ch.players.open_mut(client(8)).unwrap().0.pack = 4;
-        assert_eq!(ch.challenge(7, 8, "beacons", 0.0, None), Err("Bea has a pack on their back.".into()));
+        assert_eq!(ch.challenge(7, 8, beacons().index, 0.0, None), Err("Bea has a pack on their back.".into()));
         ch.players.open_mut(client(8)).unwrap().0.pack = 0;
         ch.players.open_mut(client(7)).unwrap().0.mode = Mode::Swim;
-        assert_eq!(ch.challenge(7, 8, "beacons", 0.0, None), Err("Get out of the water first.".into()));
+        assert_eq!(ch.challenge(7, 8, beacons().index, 0.0, None), Err("Get out of the water first.".into()));
         ch.players.open_mut(client(7)).unwrap().0.mode = Mode::Normal;
         ch.players.open_mut(client(8)).unwrap().0.pos.x += 9.0;
-        assert_eq!(ch.challenge(7, 8, "beacons", 0.0, None), Err("Walk up to Bea first.".into()));
+        assert_eq!(ch.challenge(7, 8, beacons().index, 0.0, None), Err("Walk up to Bea first.".into()));
         ch.players.open_mut(client(8)).unwrap().0.pos.x -= 9.0;
         // Bea spends her money meanwhile: she can't accept, and the challenge stays for her to decline.
-        ch.challenge(7, 8, "beacons", 100.0, None).unwrap();
+        ch.challenge(7, 8, beacons().index, 100.0, None).unwrap();
         ch.players.open_mut(client(8)).unwrap().1.unwrap().state.coins = 60.0;
         assert_eq!(ch.answer(8, 7, true), Err("You don't have enough to match the stake.".into()));
         assert_eq!(ch.tables.challenges.len(), 1);
@@ -775,7 +782,7 @@ mod tests {
     /// Plays Bea's and Ann's turns from the browser's side until Ann (seat 1) wins: Ann works on
     /// a row, Bea plays well away from it. Returns the moves made.
     fn play_until_ann_wins(ch: &mut ChannelGame, table: u64) -> usize {
-        let b = beacons::board();
+        let b = &setup(beacons()).board;
         // Ann's row: the four hexes from (-3, 0) to (0, 0) along the middle row... the Old Beacon
         // takes a pair, so a row on the left half of the middle row.
         let row: Vec<usize> = (-3..=0).map(|q| b.at(q, 0).unwrap()).collect();
@@ -794,7 +801,7 @@ mod tests {
             let draws = v["draws"].as_u64().unwrap();
             let m = if draws > 0 {
                 // Ann takes a Harbour card that's good for her row, if there is one.
-                let want: Vec<u64> = row.iter().filter(|&&h| v["lit"][h] == 0).filter_map(|&h| beacons::good_at(h).map(u64::from)).collect();
+                let want: Vec<u64> = row.iter().filter(|&&h| v["lit"][h] == 0).filter_map(|&h| setup(beacons()).good_at(h).map(u64::from)).collect();
                 let pick = v["harbour"].as_array().unwrap().iter().position(|g| seat == 1 && g.as_u64().is_some_and(|g| want.contains(&g)));
                 match pick {
                     Some(i) => json!({ "k": "draw", "from": "harbour", "i": i }),
@@ -872,7 +879,7 @@ mod tests {
     fn three_turns_run_out_in_a_row_and_that_player_forfeits() {
         let (mut ch, _, _) = ann_and_bea();
         let table = sit_down(&mut ch, 10.0);
-        let turn = game_def("beacons").unwrap().turn_seconds;
+        let turn = beacons().turn_seconds;
         // Bea (first) lets her clock run out three times; Ann plays each time it's her turn.
         for round in 0..3 {
             ch.skew += turn + 0.1;
@@ -1005,7 +1012,7 @@ mod tests {
             p.pos.z = sz;
             p.pos.y = hf.height(sx + dx, sz);
         }
-        ch.challenge(7, 8, "beacons", 10.0, None).unwrap();
+        ch.challenge(7, 8, beacons().index, 10.0, None).unwrap();
         assert!(ch.answer(8, 7, true).unwrap_err().starts_with("There's no room for a table here"));
         assert_eq!((coins(&ch, 7), coins(&ch, 8)), (200.0, 200.0));
         assert_eq!(ch.tables.challenges.len(), 1, "still open, if they move somewhere better");
@@ -1014,8 +1021,8 @@ mod tests {
     #[test]
     fn a_development_server_gives_a_test_the_turn_it_asks_for_and_nobody_else() {
         let (mut ch, _rx_a, _rx_b) = ann_and_bea();
-        let turn = game_def("beacons").unwrap().turn_seconds;
-        ch.challenge_timed(7, 8, "beacons", 0.0, None, Some(600.0)).unwrap();
+        let turn = beacons().turn_seconds;
+        ch.challenge_timed(7, 8, beacons().index, 0.0, None, Some(600.0)).unwrap();
         ch.answer(8, 7, true).unwrap();
         let t = ch.tables.tables.last().unwrap();
         assert_eq!(t.turn_seconds, 600.0);
@@ -1023,7 +1030,7 @@ mod tests {
         // Off a development server it's the game's clock, whatever the challenge asks.
         let (mut ch, _rx_a, _rx_b) = ann_and_bea();
         ch.members.get_mut(&7).unwrap().dev = false;
-        ch.challenge_timed(7, 8, "beacons", 0.0, None, Some(600.0)).unwrap();
+        ch.challenge_timed(7, 8, beacons().index, 0.0, None, Some(600.0)).unwrap();
         ch.answer(8, 7, true).unwrap();
         assert_eq!(ch.tables.tables.last().unwrap().turn_seconds, turn);
     }
