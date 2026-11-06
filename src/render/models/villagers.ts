@@ -21,7 +21,6 @@ export interface VillagerModel {
 
 export const VILLAGER_IDS = ['hollis', 'mara', 'tamsin', 'bertram', 'sela', 'ilsa', 'quill', 'ysolde', 'dunmore', 'pell', 'hob', 'brenna'];
 
-const OUTLINE = 0.018;
 const ease = (a: number, b: number, v: number) => {
   const t = clamp((v - a) / (b - a), 0, 1);
   return t * t * (3 - 2 * t);
@@ -171,17 +170,17 @@ function villager(id: string, look: Look, extra?: Extra): VillagerModel {
   if (look.beard) beard(hp, look.beard.c, look.beard.kind);
 
   const anim = extra?.(k, root, body);
-  mesh(root, legs.build(), { outline: OUTLINE, name: 'legs' });
-  mesh(body, torso.build(), { outline: OUTLINE, name: 'torso' });
+  mesh(root, legs.build(), { name: 'legs' });
+  mesh(body, torso.build(), { name: 'torso' });
   const headPivot = pivot(body, 0, 0.53 * h, 0, 'head');
-  mesh(headPivot, head.build(), { outline: OUTLINE, name: 'head' });
+  mesh(headPivot, head.build(), { name: 'head' });
   if (!k.glow.empty) mesh(headPivot, k.glow.build(), { mat: glowMaterial(), shadow: false, name: 'glow' });
   const left = pivot(body, 0.31 * w, 0.46 * h, 0, 'armL');
   const right = pivot(body, -0.31 * w, 0.46 * h, 0, 'armR');
   left.rotation.copy(restL);
   right.rotation.copy(restR);
-  mesh(left, armL.build(), { outline: OUTLINE, name: 'armL' });
-  mesh(right, armR.build(), { outline: OUTLINE, name: 'armR' });
+  mesh(left, armL.build(), { name: 'armL' });
+  mesh(right, armR.build(), { name: 'armR' });
 
   const free = new Set(look.free ?? ['l', 'r']);
   const hunch = look.hunch ?? 0;
@@ -464,7 +463,7 @@ const ysolde = () =>
         k.head.add(cyl(0.058, 0.058, 0.02, 8), 0x7fd3c8, [sx * 0.11, 0.4, 0.28], [Math.PI / 2, 0, 0]);
       }
       const scarf = pivot(body, 0.08, 0.5 * k.h, -0.16, 'scarf');
-      mesh(scarf, new Parts().add(box(0.12, 0.42, 0.04), PAL.red, [0, -0.2, -0.02]).add(box(0.13, 0.06, 0.05), 0xf2c84b, [0, -0.39, -0.02]).build(), { outline: OUTLINE });
+      mesh(scarf, new Parts().add(box(0.12, 0.42, 0.04), PAL.red, [0, -0.2, -0.02]).add(box(0.13, 0.06, 0.05), 0xf2c84b, [0, -0.39, -0.02]).build());
       return (t, talk) => {
         scarf.rotation.x = 0.35 + Math.sin(t * 2.6) * 0.12 + talk * 0.1;
         scarf.rotation.z = Math.sin(t * 1.9) * 0.15;

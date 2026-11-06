@@ -61,7 +61,7 @@ test('10,000 fighters: armies clash, fighters fall, frame rate holds', { tag: '@
 test('speed at different army sizes', async ({ page }) => {
   test.setTimeout(240_000);
   const rows: Record<string, unknown>[] = [];
-  for (const query of ['raid=1000', 'raid=5000', 'raid=10000', 'raid=10000&outline=0', 'raid=20000']) {
+  for (const query of ['raid=1000', 'raid=5000', 'raid=10000', 'raid=20000']) {
     const errors = await openRaid(page, query);
     await sideView(page, 55, 0.42);
     await page.waitForTimeout(7000); // past the charge, into the melee

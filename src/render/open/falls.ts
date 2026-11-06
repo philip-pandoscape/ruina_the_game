@@ -1,7 +1,6 @@
 import * as THREE from 'three';
 import { RUNNEL } from '../../sim/zone/generate';
 import type { WaterfallInfo } from '../../sim/zone/types';
-import { NEW_LOOK } from '../look';
 
 // The island's waterfalls (src/sim/zone/generate.ts cuts their slots): the spring pool spills down a
 // runnel to the lip, the water falls free in a curtain that fans out as it drops, and lands in the
@@ -272,8 +271,8 @@ export class FallsView {
       const u: Record<string, THREE.IUniform> = {
         uTime: { value: 0 },
         uBright: { value: 1 },
-        uShallow: { value: new THREE.Color(NEW_LOOK ? 0x4fa9a4 : 0x63d6cf) },
-        uDeep: { value: new THREE.Color(NEW_LOOK ? 0x1f5f6a : 0x2c8fb4) },
+        uShallow: { value: new THREE.Color(0x4fa9a4) },
+        uDeep: { value: new THREE.Color(0x1f5f6a) },
         uFoam: { value: new THREE.Color(0xf2f7f8) },
         uSky: { value: new THREE.Color(0xbcd6e4) },
         uCentre: { value: new THREE.Vector3(x, level, z) },
@@ -288,7 +287,7 @@ export class FallsView {
       geo.rotateX(-Math.PI / 2);
       geo.scale(along, 1, wide);
       geo.rotateY(Math.atan2(-f.uz, f.ux));
-      const mat = new THREE.ShaderMaterial({ uniforms: u, vertexShader: poolVertex, fragmentShader: poolFragment, transparent: true, depthWrite: NEW_LOOK });
+      const mat = new THREE.ShaderMaterial({ uniforms: u, vertexShader: poolVertex, fragmentShader: poolFragment, transparent: true, depthWrite: true });
       const mesh = new THREE.Mesh(geo, mat);
       mesh.position.set(x, level, z);
       mesh.renderOrder = 2;

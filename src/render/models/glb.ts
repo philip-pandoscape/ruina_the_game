@@ -1,9 +1,8 @@
 import * as THREE from 'three';
 import { loadModel, track } from '../assets';
-import { NEW_LOOK } from '../look';
 import { toon } from '../toon';
 
-// The new look's made models (src/render/assets/models: generated with Meshy from concept art
+// The made models (src/render/assets/models: generated with Meshy from concept art
 // painted after the island's reference picture, then compressed). Each stands in for a procedural
 // model of the same id: the procedural one is drawn at once, and the made one replaces it when it
 // has loaded, fitted into the same box (the rules' footprint), front to +Z, foot on the ground.
@@ -126,7 +125,6 @@ export function fitted(scene: THREE.Object3D, made: MadeModel, w: number, h: num
  * the scene; only its children change.
  */
 export function madeStructure(id: string, root: THREE.Object3D, box: { w: number; h: number; d: number }, seed = 1): void {
-  if (!NEW_LOOK) return;
   const made = MADE_STRUCTURES[id];
   if (!made) return;
   const file = made.files[Math.abs(Math.floor(seed)) % made.files.length];
@@ -160,10 +158,9 @@ export function baked(geometry: THREE.BufferGeometry, matrix: THREE.Matrix4): TH
 
 /**
  * A made prop as one geometry and material, fitted into the box, for an instanced mesh. Null when
- * there is no made model for it (or in the classic look).
+ * there is no made model for it.
  */
 export function madeProp(id: string, box: { w: number; h: number; d: number }): Promise<{ geometry: THREE.BufferGeometry; material: THREE.Material } | null> | null {
-  if (!NEW_LOOK) return null;
   const made = MADE_PROPS[id];
   const url = made && urls[`../assets/models/${made.files[0]}.glb`];
   if (!made || !url) return null;
@@ -186,7 +183,6 @@ export function madeProp(id: string, box: { w: number; h: number; d: number }): 
  * see no difference.
  */
 export function madePack(id: string, root: THREE.Object3D): void {
-  if (!NEW_LOOK) return;
   const made = MADE_PACKS[id];
   const url = made && urls[`../assets/models/${made.files[0]}.glb`];
   if (!made || !url) return;

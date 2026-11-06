@@ -157,7 +157,7 @@ export class GameTables {
     root.name = `gameTable:${t.id}`;
     root.position.set(t.x, t.y, t.z);
     root.rotation.y = t.rot;
-    mesh(root, tableGeometry(), { name: 'gameTableBody', outline: 0.012 });
+    mesh(root, tableGeometry(), { name: 'gameTableBody' });
     this.group.add(root);
     const holds = [-1, 1].map((side) => {
       const z = side * (TABLE_R - HANDS_IN);

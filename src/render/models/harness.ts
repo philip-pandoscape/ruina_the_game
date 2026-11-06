@@ -281,14 +281,14 @@ const items: Item[] = [];
 const pick = params.get('label');
 for (const c of cats) items.push(...BUILD[c]().filter((it) => (!only || it.id === only) && (!pick || it.label.includes(pick))));
 
-/** Size of the model itself: no outlines and (unless asked) no reference figure. */
+/** Size of the model itself, without the reference figure unless asked. */
 function measure(obj: THREE.Object3D, withFigures = false): THREE.Box3 {
   obj.updateMatrixWorld(true);
   const box = new THREE.Box3();
   const v3 = new THREE.Vector3();
   obj.traverse((o) => {
     const m = o as THREE.Mesh;
-    if (!m.isMesh || m.name === 'outline' || !m.visible) return;
+    if (!m.isMesh || !m.visible) return;
     if (!withFigures) for (let p: THREE.Object3D | null = m; p; p = p.parent) if (p.userData.figure) return;
     // Exact: transform every vertex (a rotated box's bounds would overstate it).
     const pos = m.geometry.getAttribute('position');
@@ -509,7 +509,7 @@ function ray(label: string, from: [number, number, number], dir: [number, number
   const origin = new THREE.Vector3(...from).applyMatrix4(obj.matrixWorld);
   const d = new THREE.Vector3(...dir).transformDirection(obj.matrixWorld);
   const caster = new THREE.Raycaster(origin, d);
-  const hits = caster.intersectObject(obj, true).filter((h) => h.object.name !== 'outline' && !(h.object as THREE.Mesh).userData.figure);
+  const hits = caster.intersectObject(obj, true).filter((h) => !(h.object as THREE.Mesh).userData.figure);
   if (!hits.length) return null;
   const local = hits[0].point.clone().applyMatrix4(obj.matrixWorld.clone().invert());
   return local.toArray().map((v) => +v.toFixed(4));

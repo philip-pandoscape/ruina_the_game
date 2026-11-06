@@ -2,10 +2,12 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
 import { gameReady } from '../support/game';
 
-// The look test (src/render/look.ts): the same places at the same hours drawn in the classic look
-// (?look=classic) and in the new one (?look=new), to compare side by side. Screenshots land in
-// screenshots/look-<scene>-<look>.png without the HUD, frame times in screenshots/look-perf-<look>.json.
-// Tagged @gpu: it captures the screen and times frames.
+// The look test (src/render/look.ts): the same places at the same hours drawn at each quality
+// (?quality=high, medium and low), to compare side by side. Screenshots land in
+// screenshots/look-<scene>-<quality>.png without the HUD, what each quality costs a frame in
+// screenshots/look-perf.json. Tagged @gpu: it captures the screen and times frames.
+
+const QUALITIES = ['high', 'medium', 'low'] as const;
 
 const SHOTS = 'screenshots';
 const DAY = JSON.parse(readFileSync('shared/zones/emberholm.json', 'utf8')).sky.dayLengthSeconds as number;
@@ -50,13 +52,13 @@ const SCENES: Scene[] = [
   { id: 'square-night', x: 0, z: -264, facing: 0, hour: 22.5, camera: { yaw: 0.25, pitch: 0.28, distance: 9 } },
 ];
 
-async function open(page: Page, look: string, extra = ''): Promise<string[]> {
+async function open(page: Page, quality: string, extra = ''): Promise<string[]> {
   const errors: string[] = [];
   page.on('console', (m) => {
     if (m.type() === 'error') errors.push(m.text());
   });
   page.on('pageerror', (e) => errors.push(String(e)));
-  await page.goto(`/?world&test&look=${look}${extra}`);
+  await page.goto(`/?world&test&quality=${quality}${extra}`);
   await gameReady(page, 60_000);
   await page.evaluate(() => window.__game.reset());
   await page.waitForFunction(() => window.__game.assetsReady === true, null, { timeout: 60_000 });
@@ -73,9 +75,9 @@ async function setHour(page: Page, hour: number): Promise<void> {
   await page.evaluate(() => window.__game.advance(1));
 }
 
-for (const look of ['classic', 'new']) {
-  test(`the look test, ${look}: the same places at the same hours @gpu`, async ({ page }) => {
-    const errors = await open(page, look);
+for (const quality of QUALITIES) {
+  test(`the look test, ${quality} quality: the same places at the same hours @gpu`, async ({ page }) => {
+    const errors = await open(page, quality);
     for (const s of SCENES) {
       await setHour(page, s.hour);
       if (s.dungeon) await page.evaluate((id) => window.__game.visitDungeon(id), s.dungeon);
@@ -89,7 +91,7 @@ for (const look of ['classic', 'new']) {
         g.viewFrom(lift(v.from), lift(v.to));
       }, s.view ?? null);
       await page.waitForFunction(() => window.__game.assetsReady === true, null, { timeout: 60_000 });
-      await page.screenshot({ path: `${SHOTS}/look-${s.id}-${look}.png` });
+      await page.screenshot({ path: `${SHOTS}/look-${s.id}-${quality}.png` });
       if (s.dungeon) await page.evaluate(() => window.__game.visitDungeon(null));
     }
     await page.evaluate(() => window.__game.viewFrom(null));
@@ -100,24 +102,24 @@ for (const look of ['classic', 'new']) {
 test.describe('at 1920 x 1080', () => {
   test.use({ viewport: { width: 1920, height: 1080 } });
 
-  test('what each look costs the graphics card a frame @gpu', async ({ page }) => {
+  test('what each quality costs the graphics card a frame @gpu', async ({ page }) => {
     // Paused, the page still draws every frame, so standing in the square times the drawing alone.
-    // Other programs on the card make single readings jumpy, so each look is loaded three times,
-    // in turn, and read every quarter second; the lowest reading is the look's own cost.
-    test.setTimeout(240_000);
-    const ms: Record<string, number[]> = { classic: [], new: [] };
+    // Other programs on the card make single readings jumpy, so each quality is loaded three times,
+    // in turn, and read every quarter second; the lowest reading is the quality's own cost.
+    test.setTimeout(360_000);
+    const ms: Record<string, number[]> = { high: [], medium: [], low: [] };
     const work: Record<string, { drawCalls: number; triangles: number; cpuMs: number }> = {};
     for (let round = 0; round < 3; round++) {
-      for (const look of ['classic', 'new']) {
-        await open(page, look);
+      for (const quality of QUALITIES) {
+        await open(page, quality);
         await page.evaluate((c) => window.__game.setCamera(c), SCENES[0].camera);
         await page.evaluate(() => window.__game.advance(40));
         await page.waitForTimeout(2000);
         for (let i = 0; i < 12; i++) {
           await page.waitForTimeout(250);
           const p = await page.evaluate(() => window.__game.perf());
-          if (p.gpuMs) ms[look].push(p.gpuMs);
-          work[look] = { drawCalls: p.drawCalls, triangles: p.triangles, cpuMs: p.cpuMs };
+          if (p.gpuMs) ms[quality].push(p.gpuMs);
+          work[quality] = { drawCalls: p.drawCalls, triangles: p.triangles, cpuMs: p.cpuMs };
         }
       }
     }
@@ -125,28 +127,15 @@ test.describe('at 1920 x 1080', () => {
       const s = [...xs].sort((a, b) => a - b);
       return { lowest: +s[0].toFixed(2), median: +s[Math.floor(s.length / 2)].toFixed(2), readings: s.length };
     };
-    const result = { viewport: '1920x1080', gpuMsPerFrame: { classic: sum(ms.classic), new: sum(ms.new) }, lastFrame: work };
+    const result = { viewport: '1920x1080', gpuMsPerFrame: Object.fromEntries(QUALITIES.map((q) => [q, sum(ms[q])])), lastFrame: work };
     console.log('look cost', JSON.stringify(result));
     writeFileSync(`${SHOTS}/look-perf.json`, JSON.stringify(result, null, 2));
-    expect(ms.new.length).toBeGreaterThan(0);
+    for (const q of QUALITIES) expect(ms[q].length).toBeGreaterThan(0);
   });
 });
 
-test('the new look at medium quality (integrated graphics): no occlusion, nearer shadows @gpu', async ({ page }) => {
-  const errors = await open(page, 'new', '&quality=medium');
-  for (const s of SCENES.filter((x) => x.id === 'square-morning' || x.id === 'fields-noon')) {
-    await setHour(page, s.hour);
-    await page.evaluate(([x, z, f]) => window.__game.teleport(x, z, f), [s.x, s.z, s.facing] as const);
-    await page.evaluate((c) => window.__game.setCamera(c), s.camera);
-    await page.evaluate(() => window.__game.advance(40));
-    await page.waitForFunction(() => window.__game.assetsReady === true, null, { timeout: 60_000 });
-    await page.screenshot({ path: `${SHOTS}/look-${s.id}-medium.png` });
-  }
-  expect(errors).toEqual([]);
-});
-
-test('the new look: its ambient occlusion on its own, by the market stalls @gpu', async ({ page }) => {
-  const errors = await open(page, 'new', '&lookdebug=ao');
+test('the ambient occlusion on its own, by the market stalls @gpu', async ({ page }) => {
+  const errors = await open(page, 'high', '&lookdebug=ao');
   const s = SCENES.find((x) => x.id === 'stalls-closeup')!;
   await setHour(page, s.hour);
   await page.evaluate(([x, z, f]) => window.__game.teleport(x, z, f), [s.x, s.z, s.facing] as const);

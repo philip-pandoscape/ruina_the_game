@@ -1,11 +1,10 @@
 import * as THREE from 'three';
 import { loadModel, track } from '../assets';
-import { NEW_LOOK } from '../look';
 import { baked } from '../models/glb';
 import type { BowString } from '../../content/rig';
 import type { DetailRig } from './rig';
 
-// The new look's weapons: made models (src/render/assets/models/weapon_*.glb) in the made hero's
+// The hero's weapons: made models (src/render/assets/models/weapon_*.glb) in the made hero's
 // hands in place of the box hero's. Each goes where the box hero's went - its grip at the hand, the
 // weapon down the hand's -Y, as long - so reaches, trails and stowing work as they did. The bow's
 // limbs run along the hand's Z with the string's side toward +Y; its string is the game's own, to
@@ -54,12 +53,12 @@ export interface MadeWeapons {
 let loading: Promise<MadeWeapons> | null = null;
 
 /**
- * Loads and fits the made weapons (once); null in the classic look, and with ?heroWeapons=box (the
- * box hero's, to compare). Trying another model without shipping it: ?sword=/path/model.glb,tip,grip
+ * Loads and fits the made weapons (once); null with ?heroWeapons=box (the box hero's, to
+ * compare). Trying another model without shipping it: ?sword=/path/model.glb,tip,grip
  * (tip 1 if it points up; grip as in LONG).
  */
 export function madeWeapons(): Promise<MadeWeapons> | null {
-  if (!NEW_LOOK || params?.get('heroWeapons') === 'box') return null;
+  if (params?.get('heroWeapons') === 'box') return null;
   loading ??= (async () => {
     const out: MadeWeapons = { parts: {} };
     const names: WeaponName[] = ['sword', 'club', 'staff', 'bow'];

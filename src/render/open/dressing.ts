@@ -62,7 +62,7 @@ export class ZoneDressing {
   constructor(world: World, models: Models) {
     const zone = world.zone;
     if (!zone) return;
-    // Built things take the new look's grain; crops keep plain colours.
+    // Built things take the grain of what they're made of; crops keep plain colours.
     const plainMat = toon(0xffffff, { vertexColors: true });
     const mat = grainMaterial(plainMat);
     const standIns: THREE.BufferGeometry[] = [];
@@ -142,7 +142,7 @@ export class ZoneDressing {
       const def = propDef(id);
       const geo = tryBuild(models.propGeometry ? () => models.propGeometry!(id) : null) ?? standIn(def.w, def.h, def.d, 0x8d5a3b, 0x734828);
       const mesh = instanced(geo, items, true);
-      // The new look's made model, when it has one, takes over the same instances once loaded.
+      // The made model, when there is one, takes over the same instances once loaded.
       const made = madeProp(id, def);
       if (made)
         track(

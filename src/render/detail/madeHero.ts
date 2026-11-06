@@ -1,6 +1,5 @@
 import * as THREE from 'three';
 import { loadGltf, loadModel, track } from '../assets';
-import { NEW_LOOK } from '../look';
 import { toon } from '../toon';
 import type { RigDef } from '../../content/rig';
 import { HERO_RIG } from '../../content/creatures/hero';
@@ -10,9 +9,9 @@ import { bake, type Baked } from './retarget';
 import { HERO_MOVES, HERO_MOVE_SETS, WEAPON_KEYS, type MoveClip } from './moves';
 import { madeWeapons, type MadeWeapons } from './madeWeapons';
 
-// The new look's hero body: a made, rigged model (src/render/assets/models/hero.glb, from Meshy)
-// worn on the hero rig, the rig measured to it (fit.ts). Fitted once; every hero wears the same
-// one. The classic look, and a game without the file, keep the box hero.
+// The hero's body: a made, rigged model (src/render/assets/models/hero.glb, from Meshy) worn on the
+// hero rig, the rig measured to it (fit.ts). Fitted once; every hero wears the same one. Until it
+// has loaded, and for good if it can't, the box hero stands in.
 
 const HEIGHT = 1.78;
 
@@ -46,9 +45,9 @@ let ready: MadeHero | null = null;
 /** The made hero body, once it has loaded (null until then, and for good without one). */
 export const madeHeroNow = (): MadeHero | null => ready;
 
-/** Loads and fits the made hero body (once); null in the classic look or without a model. */
+/** Loads and fits the made hero body (once); null without a model. */
 export function madeHero(): Promise<MadeHero | null> | null {
-  if (!NEW_LOOK || !URL) return null;
+  if (!URL) return null;
   const clips = !params?.has('heroModel') && WALK && RUN ? [track(loadGltf(WALK)), track(loadGltf(RUN))] : [];
   const files = params?.has('heroModel') ? [] : [...new Set(MOVES.map((x) => x.m.file))];
   const libraries = Promise.all(files.map((f) => (file(f) ? track(loadGltf(file(f)!)) : undefined)));
@@ -57,7 +56,7 @@ export function madeHero(): Promise<MadeHero | null> | null {
     const weapons = (made as MadeWeapons | null) ?? null;
     const height = Number(params?.get('heroHeight')) || HEIGHT;
     const fitted = fit(scene as THREE.Group, height, HERO_RIG);
-    // Shaded as the rest of the new look is: the painted texture, the island's soft toon light.
+    // Shaded as the rest of the island is: the painted texture in its soft light.
     const src = (Array.isArray(fitted.material) ? fitted.material[0] : fitted.material) as THREE.MeshStandardMaterial;
     fitted.material = toon(0xffffff, { map: src.map ?? null });
     const def: RigDef = { ...HERO_RIG, joints: fitted.joints, parts: hull(fitted.joints, fitted.feet.ankle), feet: fitted.feet, bow: weapons?.bow };

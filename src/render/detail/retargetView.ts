@@ -46,7 +46,7 @@ grid.position.y = 0.002;
 scene.add(grid);
 
 const [source, shown, made] = await Promise.all([loadGltf(clipUrl), q.get('mesh') ? loadGltf(q.get('mesh')!) : null, madeHero()]);
-if (!made) throw new Error('retarget view: the made hero did not load (the new look, with hero.glb)');
+if (!made) throw new Error('retarget view: the made hero did not load (hero.glb)');
 const clips = clipNames.map((n) => {
   const c = source.animations.find((a) => a.name === n);
   if (!c) throw new Error(`retarget view: no clip ${n} (${source.animations.map((a) => a.name).join(', ')})`);

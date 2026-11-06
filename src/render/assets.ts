@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 
-// Files the new look loads after the world is up (ground textures, models). The world is drawn
+// Files loaded after the world is up (ground textures, models). The world is drawn
 // at once in its plain shapes and colours, and each piece is swapped in as it arrives; the tests
 // wait for all of them (window.__game.assetsReady) before they look.
 

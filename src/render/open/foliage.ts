@@ -4,22 +4,24 @@ import { makeRng, range } from '../../rng';
 import type { Obstacle } from '../../sim/types';
 import { hash2, SURFACE, type Heightfield } from '../../sim/terrain';
 import { track } from '../assets';
-import { NEW_LOOK, PALETTE } from '../look';
+import { GRAPHICS, PALETTE } from '../look';
 import { madeProp } from '../models/glb';
 import { bushClumps, clumpDepthMaterial, clumpMaterial, clumpTexture, crownClumps, type CrownShape, pineClumps, type PineShape, tuftTexture } from './canopy';
 import { barkTexture, solidMaterial } from './leaves';
 import { toon } from '../toon';
 
 // Trees and rocks across a whole island, and grass around wherever you are. Trees are instanced
-// per 256 m chunk rather than all in one mesh, so the camera culls the chunks it cannot see.
+// per 128 m chunk rather than all in one mesh, so the camera culls the chunks it cannot see. How
+// far round you the grass and the undergrowth reach, and how near trees take their full shape,
+// is the quality's (src/render/look.ts).
 
-const CHUNK = NEW_LOOK ? 128 : 256;
-const GRASS_RADIUS = 64;
+const CHUNK = 128;
+const GRASS_RADIUS = GRAPHICS.grassReach;
 const GRASS_CELL = 1.25;
 const GRASS_CAP = 9000;
 const FLOWER_CAP = 1400;
-/** The new look's undergrowth: low bushes in a field around you, one chance per cell. */
-const BUSH_RADIUS = 150;
+/** The undergrowth: low bushes in a field around you, one chance per cell. */
+const BUSH_RADIUS = GRAPHICS.bushReach;
 const BUSH_CELL = 5;
 const BUSH_CAP = 2600;
 
@@ -29,56 +31,16 @@ function faceted(geo: THREE.BufferGeometry): THREE.BufferGeometry {
   return g;
 }
 
-interface Geos {
-  trunk: THREE.BufferGeometry;
-  round: THREE.BufferGeometry;
-  pine: THREE.BufferGeometry;
-  rock: THREE.BufferGeometry;
-}
-
-// The new look's soft light: a canopy's normals point out from its middle, so it shades like a ball
-// of leaves rather than a cut gem; grass takes the light of the ground it grows from.
-function puffy(g: THREE.BufferGeometry): THREE.BufferGeometry {
-  if (!NEW_LOOK) return g;
-  const p = g.attributes.position;
-  const n = g.attributes.normal;
-  const v = new THREE.Vector3();
-  for (let i = 0; i < p.count; i++) {
-    v.fromBufferAttribute(p, i).normalize();
-    n.setXYZ(i, v.x, v.y, v.z);
-  }
-  n.needsUpdate = true;
-  return g;
-}
-
+// Grass takes the light of the ground it grows from: its normals all point straight up.
 function upright(g: THREE.BufferGeometry): THREE.BufferGeometry {
-  if (!NEW_LOOK) return g;
   const n = g.attributes.normal;
   for (let i = 0; i < n.count; i++) n.setXYZ(i, 0, 1, 0);
   n.needsUpdate = true;
   return g;
 }
 
-function geometries(): Geos {
-  const trunk = faceted(new THREE.CylinderGeometry(0.2, 0.3, 1.9, 6));
-  trunk.translate(0, 0.95, 0);
-  const a = puffy(new THREE.IcosahedronGeometry(1.35, 0));
-  a.translate(0, 2.6, 0);
-  const b = puffy(new THREE.IcosahedronGeometry(0.95, 0));
-  b.translate(0.4, 3.5, 0.15);
-  const c = puffy(new THREE.IcosahedronGeometry(0.8, 0));
-  c.translate(-0.55, 3.0, -0.35);
-  const round = mergeGeometries([a, b, c]);
-  const cones = [
-    [1.35, 1.7, 1.75],
-    [1.05, 1.5, 2.65],
-    [0.7, 1.3, 3.45],
-  ].map(([r, h, y]) => {
-    const g = faceted(new THREE.ConeGeometry(r, h, 7));
-    g.translate(0, y, 0);
-    return g;
-  });
-  const pine = mergeGeometries(cones);
+/** A loose rock, drawn until the made boulder for it has loaded. */
+function rockGeometry(): THREE.BufferGeometry {
   const rock = new THREE.DodecahedronGeometry(0.75, 0);
   const rp = rock.attributes.position;
   for (let i = 0; i < rp.count; i++) {
@@ -91,10 +53,10 @@ function geometries(): Geos {
   }
   rock.computeVertexNormals();
   rock.translate(0, 0.3, 0);
-  return { trunk, round, pine, rock };
+  return rock;
 }
 
-// ---------- the new look's trees ----------
+// ---------- trees ----------
 // Full-size trees: a broadleaf about 10 m tall (or a taller, narrower one) and a pine about 13 m
 // tall, their crowns soft masses of leaf clumps or needle tufts that turn to face the camera
 // (src/render/open/canopy.ts). The trunk's foot keeps the width of the tree's collider. Near the
@@ -200,13 +162,28 @@ interface TreeLods {
   pine: Lod;
 }
 
+/**
+ * Each tree's near and far shape. The quality can thin the far crowns (GRAPHICS.farClumps: fewer
+ * clumps, each bigger, so the crown stays as full), and where no tree is ever near enough for its
+ * near shape (GRAPHICS.treeNear 0) the far shape stands in for both.
+ */
 function treeLods(): TreeLods {
+  const k = GRAPHICS.farClumps;
+  const grow = 1 / Math.sqrt(k);
+  const far = {
+    trunk: trunkGeo(6.2, 5, false),
+    pineTrunk: trunkGeo(11.5, 5, false),
+    round: crownClumps(ROUND, 0.42 * k, [1.05 * grow, 1.45 * grow], 42),
+    oval: crownClumps(OVAL, 0.42 * k, [1.0 * grow, 1.4 * grow], 48),
+    pine: pineClumps(PINE, 3 * k, [0.85 * grow, 1.2 * grow], 44),
+  };
+  const near = GRAPHICS.treeNear > 0;
   return {
-    trunk: [trunkGeo(6.2, 8, true), trunkGeo(6.2, 5, false)],
-    pineTrunk: [trunkGeo(11.5, 7, false), trunkGeo(11.5, 5, false)],
-    round: [crownClumps(ROUND, 2.4, [0.45, 0.7], 41), crownClumps(ROUND, 0.42, [1.05, 1.45], 42)],
-    oval: [crownClumps(OVAL, 2.4, [0.44, 0.66], 47), crownClumps(OVAL, 0.42, [1.0, 1.4], 48)],
-    pine: [pineClumps(PINE, 15, [0.4, 0.62], 43), pineClumps(PINE, 3, [0.85, 1.2], 44)],
+    trunk: [near ? trunkGeo(6.2, 8, true) : far.trunk, far.trunk],
+    pineTrunk: [near ? trunkGeo(11.5, 7, false) : far.pineTrunk, far.pineTrunk],
+    round: [near ? crownClumps(ROUND, 2.4, [0.45, 0.7], 41) : far.round, far.round],
+    oval: [near ? crownClumps(OVAL, 2.4, [0.44, 0.66], 47) : far.oval, far.oval],
+    pine: [near ? pineClumps(PINE, 15, [0.4, 0.62], 43) : far.pine, far.pine],
   };
 }
 
@@ -216,7 +193,7 @@ export function isPine(x: number, z: number, height: number): boolean {
 }
 
 /** Within this far of a tree chunk's middle, its trees are drawn in full detail. */
-const TREE_NEAR = 320;
+const TREE_NEAR = GRAPHICS.treeNear;
 /** Blossom trees, pink, near the town square, as in the island's reference picture. */
 const BLOSSOM = [0xf2b5c8, 0xeaa0bb, 0xf6c7d6, 0xe7a6c0];
 const TOWN = { x: 0, z: -264, r: 190 };
@@ -225,7 +202,7 @@ export class FoliageView {
   readonly group = new THREE.Group();
   private grass: THREE.InstancedMesh;
   private flowers: THREE.InstancedMesh;
-  private bushes: THREE.InstancedMesh | null = null;
+  private bushes: THREE.InstancedMesh;
   private grassAt = { x: Infinity, z: Infinity };
   private m = new THREE.Matrix4();
   private q = new THREE.Quaternion();
@@ -242,7 +219,7 @@ export class FoliageView {
     /** Somewhere no crag may cover (a waterfall's slot): true if a crag `r` across at (x, z) would. */
     private keepOff: (x: number, z: number, r: number) => boolean = () => false,
   ) {
-    const geo = geometries();
+    const rock = rockGeometry();
     const rng = makeRng(seed + 1);
     const greens = PALETTE.leaves.map((h) => new THREE.Color(h));
     const pick = () => greens[Math.floor(rng() * greens.length)].clone().offsetHSL(0, 0, range(rng, -0.04, 0.04));
@@ -257,58 +234,50 @@ export class FoliageView {
       if (!list) chunks.set(k, (list = []));
       list.push(o);
     }
-    const lods = NEW_LOOK ? treeLods() : null;
-    const barkMat = NEW_LOOK ? solidMaterial(barkTexture('broadleaf')) : mat;
-    const pineBarkMat = NEW_LOOK ? solidMaterial(barkTexture('pine')) : mat;
-    const leaves = NEW_LOOK ? { mat: clumpMaterial(clumpTexture()), depth: clumpDepthMaterial(clumpTexture()) } : null;
+    const lods = treeLods();
+    const barkMat = solidMaterial(barkTexture('broadleaf'));
+    const pineBarkMat = solidMaterial(barkTexture('pine'));
+    const leaves = { mat: clumpMaterial(clumpTexture()), depth: clumpDepthMaterial(clumpTexture()) };
     // A pine's clumps are boughs seen end on: twice as wide as they are tall.
     const BOUGH: [number, number] = [1.5, 0.75];
-    const needleTufts = NEW_LOOK ? { mat: clumpMaterial(tuftTexture(), BOUGH), depth: clumpDepthMaterial(tuftTexture(), BOUGH) } : null;
+    const needleTufts = { mat: clumpMaterial(tuftTexture(), BOUGH), depth: clumpDepthMaterial(tuftTexture(), BOUGH) };
     for (const list of chunks.values()) {
       const trees = list.filter((o) => o.kind === 'tree');
       const pine = (o: Obstacle) => isPine(o.x, o.z, hf.height(o.x, o.z));
       const pines = trees.filter(pine);
       const rounds = trees.filter((o) => !pine(o));
       const rocks = list.filter((o) => o.kind === 'rock');
-      if (lods && leaves && needleTufts) {
-        const blossom = (o: Obstacle) => Math.hypot(o.x - TOWN.x, o.z - TOWN.z) < TOWN.r && hash2(Math.round(o.x * 10), Math.round(o.z * 10), 131) < 0.35;
-        // The bark texture brings its own colour; trunks only vary its brightness a little.
-        const bark = () => new THREE.Color(1, 1, 1).multiplyScalar(range(rng, 0.82, 1.05));
-        const leafColour = new Map<Obstacle, THREE.Color>();
-        const leafy = (o: Obstacle) => {
-          let c = leafColour.get(o);
-          if (!c) leafColour.set(o, (c = blossom(o) ? new THREE.Color(BLOSSOM[Math.floor(rng() * BLOSSOM.length)]) : pick()));
-          return c;
-        };
-        const needles = (o: Obstacle) => {
-          let c = leafColour.get(o);
-          if (!c) leafColour.set(o, (c = pick().offsetHSL(0.06, -0.08, 0.02)));
-          return c;
-        };
-        this.placeLod(lods.trunk, barkMat, rounds, bark);
-        this.placeLod(lods.pineTrunk, pineBarkMat, pines, bark);
-        // Four in ten broadleaf trees grow the taller, oval crown.
-        const oval = (o: Obstacle) => hash2(Math.round(o.x * 10), Math.round(o.z * 10), 191) < 0.4;
-        this.placeLod(lods.round, leaves.mat, rounds.filter((o) => !oval(o)), leafy, crownShape, leaves.depth);
-        this.placeLod(lods.oval, leaves.mat, rounds.filter(oval), leafy, crownShape, leaves.depth);
-        this.placeLod(lods.pine, needleTufts.mat, pines, needles, pineShape, needleTufts.depth);
-      } else {
-        this.place(geo.trunk, mat, trees, () => new THREE.Color(PALETTE.trunk));
-        this.place(geo.round, mat, rounds, pick);
-        this.place(geo.pine, mat, pines, () => pick().offsetHSL(0.02, -0.05, -0.06));
-      }
-      if (NEW_LOOK) {
-        // Made boulders once they load: granite inland, sharp grey-brown rock by the shore.
-        const coast = (o: Obstacle) => hf.height(o.x, o.z) < 6 || hash2(Math.round(o.x * 10), Math.round(o.z * 10), 149) < 0.3;
-        this.madeRocks('boulderCoast', rocks.filter(coast), geo.rock, mat, rng);
-        this.madeRocks('boulderGranite', rocks.filter((o) => !coast(o)), geo.rock, mat, rng);
-      } else this.place(geo.rock, mat, rocks, () => new THREE.Color(PALETTE.rock).offsetHSL(0, 0, range(rng, -0.06, 0.06)), 0.75);
+      const blossom = (o: Obstacle) => Math.hypot(o.x - TOWN.x, o.z - TOWN.z) < TOWN.r && hash2(Math.round(o.x * 10), Math.round(o.z * 10), 131) < 0.35;
+      // The bark texture brings its own colour; trunks only vary its brightness a little.
+      const bark = () => new THREE.Color(1, 1, 1).multiplyScalar(range(rng, 0.82, 1.05));
+      const leafColour = new Map<Obstacle, THREE.Color>();
+      const leafy = (o: Obstacle) => {
+        let c = leafColour.get(o);
+        if (!c) leafColour.set(o, (c = blossom(o) ? new THREE.Color(BLOSSOM[Math.floor(rng() * BLOSSOM.length)]) : pick()));
+        return c;
+      };
+      const needles = (o: Obstacle) => {
+        let c = leafColour.get(o);
+        if (!c) leafColour.set(o, (c = pick().offsetHSL(0.06, -0.08, 0.02)));
+        return c;
+      };
+      this.placeLod(lods.trunk, barkMat, rounds, bark);
+      this.placeLod(lods.pineTrunk, pineBarkMat, pines, bark);
+      // Four in ten broadleaf trees grow the taller, oval crown.
+      const oval = (o: Obstacle) => hash2(Math.round(o.x * 10), Math.round(o.z * 10), 191) < 0.4;
+      this.placeLod(lods.round, leaves.mat, rounds.filter((o) => !oval(o)), leafy, crownShape, leaves.depth);
+      this.placeLod(lods.oval, leaves.mat, rounds.filter(oval), leafy, crownShape, leaves.depth);
+      this.placeLod(lods.pine, needleTufts.mat, pines, needles, pineShape, needleTufts.depth);
+      // Made boulders once they load: granite inland, sharp grey-brown rock by the shore.
+      const coast = (o: Obstacle) => hf.height(o.x, o.z) < 6 || hash2(Math.round(o.x * 10), Math.round(o.z * 10), 149) < 0.3;
+      this.madeRocks('boulderCoast', rocks.filter(coast), rock, mat, rng);
+      this.madeRocks('boulderGranite', rocks.filter((o) => !coast(o)), rock, mat, rng);
     }
 
-    // The new look breaks up cliffs with crags: big jagged rocks set into slopes far too steep to walk
-    // (well past the rules' steepest), and only where all around is as steep, so nothing ever stands
-    // on a path. Drawing only: no rule knows of them.
-    if (NEW_LOOK) this.crags(seed);
+    // Crags break up the cliffs: big jagged rocks set into slopes far too steep to walk (well past
+    // the rules' steepest), and only where all around is as steep, so nothing ever stands on a path.
+    // Drawing only: no rule knows of them.
+    this.crags(seed);
 
     // Grass and flowers: a field around the player that moves with them.
     const blade = faceted(new THREE.ConeGeometry(0.07, 0.42, 3));
@@ -330,25 +299,23 @@ export class FoliageView {
     this.flowers.frustumCulled = false;
     this.flowers.count = 0;
     this.group.add(this.grass, this.flowers);
-    if (NEW_LOOK) {
-      // Knee- to waist-high: something to wade through, not a wall. Drawing only.
-      const shape: CrownShape = {
-        lumps: [
-          [0, 0.42, 0, 0.62],
-          [0.5, 0.32, 0.15, 0.48],
-          [-0.45, 0.3, -0.2, 0.45],
-          [0.1, 0.3, -0.48, 0.42],
-        ],
-        middle: new THREE.Vector3(0, 0.4, 0),
-      };
-      this.bushes = new THREE.InstancedMesh(bushClumps(shape, 7, [0.24, 0.38], 53), clumpMaterial(clumpTexture()), BUSH_CAP);
-      this.bushes.customDepthMaterial = clumpDepthMaterial(clumpTexture());
-      this.bushes.frustumCulled = false;
-      this.bushes.castShadow = true;
-      this.bushes.receiveShadow = true;
-      this.bushes.count = 0;
-      this.group.add(this.bushes);
-    }
+    // Knee- to waist-high: something to wade through, not a wall. Drawing only.
+    const shape: CrownShape = {
+      lumps: [
+        [0, 0.42, 0, 0.62],
+        [0.5, 0.32, 0.15, 0.48],
+        [-0.45, 0.3, -0.2, 0.45],
+        [0.1, 0.3, -0.48, 0.42],
+      ],
+      middle: new THREE.Vector3(0, 0.4, 0),
+    };
+    this.bushes = new THREE.InstancedMesh(bushClumps(shape, 7, [0.24, 0.38], 53), clumpMaterial(clumpTexture()), BUSH_CAP);
+    this.bushes.customDepthMaterial = clumpDepthMaterial(clumpTexture());
+    this.bushes.frustumCulled = false;
+    this.bushes.castShadow = true;
+    this.bushes.receiveShadow = true;
+    this.bushes.count = 0;
+    this.group.add(this.bushes);
   }
 
   private place(geo: THREE.BufferGeometry, mat: THREE.Material, items: Obstacle[], color: (o: Obstacle) => THREE.Color, squashY = 1, stretch?: Stretch): THREE.InstancedMesh | null {
@@ -459,7 +426,7 @@ export class FoliageView {
   /** Bushes around (x, z): on grass and in woods, off paths, plots and slopes, thicker in the woods. */
   private layBushes(x: number, z: number): void {
     const hf = this.hf;
-    const bushes = this.bushes!;
+    const bushes = this.bushes;
     const greens = PALETTE.leaves;
     let n = 0;
     const r = BUSH_RADIUS;
@@ -551,7 +518,7 @@ export class FoliageView {
       }
     this.grass.count = g;
     this.flowers.count = f;
-    if (this.bushes) this.layBushes(x, z);
+    this.layBushes(x, z);
     this.grass.instanceMatrix.needsUpdate = true;
     this.flowers.instanceMatrix.needsUpdate = true;
     if (this.grass.instanceColor) this.grass.instanceColor.needsUpdate = true;

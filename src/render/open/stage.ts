@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import type { World } from '../../sim/types';
-import { NEW_LOOK, PALETTE, POST } from '../look';
+import { GRAPHICS, PALETTE, POST } from '../look';
 import { windowGlow } from '../models/glb';
 import { glowMaterial } from '../models/kit';
 import { TerrainView } from './terrain';
@@ -39,7 +39,8 @@ function doorOn(f: WaterfallInfo, doors: DungeonDoor[]): DungeonDoor | undefined
 
 // Everything around the player in an open world: lights, sky, sea, ground, trees and buildings.
 // Same surface as the training Stage (renderer, scene, follow, resize) so main.ts drives either.
-// In the new look (src/render/look.ts) the frame goes through WorldPost's screen effects.
+// The frame goes through WorldPost's screen effects; how much of everything is drawn is the
+// quality's (src/render/look.ts).
 
 const SUN_DIR = new THREE.Vector3(14, 24, 9).normalize();
 
@@ -58,8 +59,8 @@ export class OpenStage {
   /** The buildings you can walk into (src/render/village). */
   readonly village: Village;
   readonly hemi: THREE.HemisphereLight;
-  /** The new look's screen effects; null in the classic look, which draws straight to the screen. */
-  readonly post: WorldPost | null;
+  /** The screen effects. */
+  readonly post: WorldPost;
   private time = 0;
   private sunDir = SUN_DIR.clone();
   private c1 = new THREE.Color();
@@ -69,25 +70,24 @@ export class OpenStage {
     const hf = world.terrain!;
     const zone = world.zone!;
     const light = PALETTE.light;
-    // The new look draws into its own multisampled buffer, so the canvas needs no antialiasing.
-    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: !NEW_LOOK, powerPreference: 'high-performance' });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    // The scene is drawn into a buffer of its own (multisampled, above low quality), so the canvas
+    // needs no antialiasing.
+    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, GRAPHICS.pixelRatio));
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFShadowMap;
     // Portraits are drawn straight to the canvas; this keeps their colours close to the graded frame.
-    if (NEW_LOOK) this.renderer.toneMapping = THREE.NeutralToneMapping;
+    this.renderer.toneMapping = THREE.NeutralToneMapping;
     // Ships under construction are drawn cut off at the height built so far.
     this.renderer.localClippingEnabled = true;
     this.scene.background = new THREE.Color(SKY_HORIZON);
-    // The new look's haze comes from the depth buffer instead (post.ts).
-    this.scene.fog = NEW_LOOK ? null : new THREE.Fog(SKY_HORIZON, 160, 1150);
+    // No fog in the scene: the haze is laid on from the depth buffer (post.ts).
 
     this.hemi = new THREE.HemisphereLight(light.sky, light.ground, light.fill);
     this.scene.add(this.hemi);
     this.sun = new THREE.DirectionalLight(light.sun, light.sunIntensity);
     this.sun.castShadow = true;
-    const reach = NEW_LOOK ? POST.shadow.reach : 30;
-    const mapSize = NEW_LOOK ? POST.shadow.mapSize : 2048;
+    const { reach, mapSize, softness } = GRAPHICS.shadow;
     this.sun.shadow.mapSize.set(mapSize, mapSize);
     const cam = this.sun.shadow.camera;
     cam.left = -reach;
@@ -98,7 +98,7 @@ export class OpenStage {
     cam.far = 220;
     this.sun.shadow.bias = -0.0005;
     this.sun.shadow.normalBias = 0.04;
-    if (NEW_LOOK) this.sun.shadow.radius = POST.shadow.softness;
+    this.sun.shadow.radius = softness;
     this.scene.add(this.sun, this.sun.target);
 
     this.sky = new SkyView(SUN_DIR);
@@ -111,10 +111,10 @@ export class OpenStage {
     this.falls = new FallsView(falls);
     this.grottos = falls.map((f) => new GrottoView(f, doorOn(f, zone.recipe.dungeons ?? [])));
     this.scene.add(this.sky.group, this.terrain.group, this.water.mesh, this.foliage.group, this.dressing.group, this.village.group, this.falls.group, ...this.grottos.map((g) => g.group));
-    this.post = NEW_LOOK ? new WorldPost(this.renderer, this.scene) : null;
-    if (this.post) this.post.base = hf.water;
+    this.post = new WorldPost(this.renderer, this.scene);
+    this.post.base = hf.water;
     // Other isles on the horizon, past where anyone can go (src/render/open/horizon.ts).
-    if (NEW_LOOK) this.scene.add((this.isles = horizonIsles(hf.min + hf.size / 2, hf.min + hf.size / 2, hf.water)));
+    if (GRAPHICS.isles) this.scene.add((this.isles = horizonIsles(hf.min + hf.size / 2, hf.min + hf.size / 2, hf.water)));
   }
 
   /** Keeps the sun's shadow box centred on the player, wherever they are and however high. */
@@ -153,33 +153,30 @@ export class OpenStage {
     const horizon = new THREE.Color(SKY_HORIZON).lerp(C(sky.goldHorizon), gold * 0.85).lerp(C(sky.nightHorizon), night);
     const top = new THREE.Color(sky.top).lerp(C(sky.goldTop), gold * 0.6).lerp(C(sky.nightTop), night);
     (this.scene.background as THREE.Color).copy(horizon);
-    if (this.scene.fog) (this.scene.fog as THREE.Fog).color.copy(horizon);
     this.sky.setLight(top, horizon, sun, sunCol, night, moon);
     this.water.setBrightness(1 - night * 0.55, gold);
     this.falls.setBrightness(1 - night * 0.6);
     // Lamps and hearths indoors burn all day; they only stand out after dark.
     this.village.lampLevel = 0.55 + 0.45 * night;
-    // The new look's sea reflects the sky a little above the horizon, and the sun (or moon) glints on it.
-    if (NEW_LOOK) this.water.setSky(this.sunDir, night > 0.6 ? C(light.moon) : sunCol, horizon.clone().lerp(top, 0.3), 1 - night * 0.7);
-    if (this.post) {
-      this.post.setAtmosphere({
-        fog: horizon,
-        seaFar: seaFar(horizon, night),
-        sun: night > 0.6 ? C(light.moon) : sunCol,
-        sunDir: this.sunDir,
-        sunGlow: POST.fog.sunGlow * (1 - night * 0.8),
-        exposure: POST.exposure * (1 + night * 0.5),
-      });
-      // Lit windows and lanterns glow brighter than white after dark, so the bloom catches them.
-      glowMaterial().color.setScalar(1.1 + night * 1.6);
-      windowGlow.value = Math.max(0, night - 0.25) / 0.75;
-    }
+    // The sea reflects the sky a little above the horizon, and the sun (or moon) glints on it.
+    this.water.setSky(this.sunDir, night > 0.6 ? C(light.moon) : sunCol, horizon.clone().lerp(top, 0.3), 1 - night * 0.7);
+    this.post.setAtmosphere({
+      fog: horizon,
+      seaFar: seaFar(horizon, night),
+      sun: night > 0.6 ? C(light.moon) : sunCol,
+      sunDir: this.sunDir,
+      sunGlow: POST.fog.sunGlow * (1 - night * 0.8),
+      exposure: POST.exposure * (1 + night * 0.5),
+    });
+    // Lit windows and lanterns glow brighter than white after dark, so the bloom catches them.
+    glowMaterial().color.setScalar(1.1 + night * 1.6);
+    windowGlow.value = Math.max(0, night - 0.25) / 0.75;
   }
 
   // ---------- Inside a dungeon ----------
 
   private dungeons = new Map<string, DungeonView>();
-  /** The isles on the horizon (the new look), put away with the rest of the island inside a dungeon. */
+  /** The isles on the horizon (none at low quality), put away with the rest of the island inside a dungeon. */
   private isles: THREE.Object3D | null = null;
   private inside: DungeonView | null = null;
 
@@ -226,23 +223,18 @@ export class OpenStage {
     this.hemi.intensity = 0.55;
     this.sunDir.set(0, 0.4, -1).normalize();
     this.sun.color.setHex(0xa6dbe4);
-    this.sun.intensity = NEW_LOOK ? 1.1 : 0.9;
+    this.sun.intensity = 1.1;
     (this.scene.background as THREE.Color).copy(dark);
-    if (this.scene.fog) {
-      const fog = this.scene.fog as THREE.Fog;
-      fog.color.copy(dark);
-    }
-    if (this.post) this.post.setAtmosphere({ fog: dark, seaFar: dark, sun: this.c1.setHex(0xa6dbe4), sunDir: this.sunDir, sunGlow: 0, exposure: POST.exposure });
+    this.post.setAtmosphere({ fog: dark, seaFar: dark, sun: this.c1.setHex(0xa6dbe4), sunDir: this.sunDir, sunGlow: 0, exposure: POST.exposure });
   }
 
   resize(width: number, height: number): void {
     this.renderer.setSize(width, height, false);
   }
 
-  /** Draws the frame: through the new look's screen effects, or straight to the screen. */
+  /** Draws the frame, through the screen effects. */
   render(camera: THREE.PerspectiveCamera): void {
-    if (this.post) this.post.render(camera);
-    else this.renderer.render(this.scene, camera);
+    this.post.render(camera);
   }
 
   /** Per frame: the sea moves, clouds drift, grass follows you. */

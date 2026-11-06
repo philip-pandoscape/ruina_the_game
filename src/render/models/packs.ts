@@ -12,8 +12,6 @@ export const PACK_SIZE = { w: 0.56, h: 0.7, d: 0.5 } as const;
 /** Every pack in shared/trade.json (trade goods and raw materials). */
 export const PACK_IDS: string[] = PACKS.map((p) => p.id);
 
-const OUTLINE = 0.012;
-
 /** Two shoulder straps on the +Z face: flat on the face, with a loop standing off it. */
 function straps(p: Parts, h: number, spread = 0.14): void {
   for (const x of [-spread, spread]) {
@@ -299,10 +297,10 @@ export function buildPack(id: string): THREE.Group {
     default:
       plainSack(body);
   }
-  mesh(root, body.build(), { outline: OUTLINE });
-  if (!glow.empty) mesh(root, glow.build(), { mat: glowMaterial(), outline: OUTLINE, shadow: false });
+  mesh(root, body.build());
+  if (!glow.empty) mesh(root, glow.build(), { mat: glowMaterial(), shadow: false });
   grainify(root);
-  // The new look's made pack takes over when it loads (src/render/models/glb.ts).
+  // The made pack takes over when it loads (src/render/models/glb.ts).
   madePack(id, root);
   return root;
 }

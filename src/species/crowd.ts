@@ -1,11 +1,10 @@
 import * as THREE from 'three';
-import { OUTLINES } from '../render/look';
 import { toon } from '../render/toon';
 import { buildPoseTexture } from './pose';
 import { buildProxyGeometry, proxyTriangles } from './proxy';
 import { clipRows, type Clip, type SpeciesDef } from './types';
 
-// Draws any number of one species in two or three draw calls, whatever its skeleton is. A vertex
+// Draws any number of one species in one draw call, whatever its skeleton is. A vertex
 // knows which joint drives it; the pose texture knows where that joint is on a given frame of a
 // given clip. Nothing in the shader knows what a leg is, which is what lets the same code draw a
 // slime, a quadruped and a rig with fingers.
@@ -20,8 +19,6 @@ export interface CrowdPalette {
 }
 
 export interface SpeciesCrowdOptions {
-  outlines?: boolean;
-  outlineThickness?: number;
   /** Blend between the two nearest baked frames. Off costs three fewer texture reads a vertex. */
   smooth?: boolean;
   /** Adds a per-instance hit flash. Off by default, so a crowd that never flashes pays nothing. */
@@ -31,8 +28,8 @@ export interface SpeciesCrowdOptions {
   scale?: number;
 }
 
-// aRoot = (x, y, z, yaw); aPose = (row, nextRow, mix, team 0/1). Shared with the new look's
-// jelly slimes (jelly.ts), which pose their own shapes with the same clips.
+// aRoot = (x, y, z, yaw); aPose = (row, nextRow, mix, team 0/1). Shared with the jelly slimes
+// (jelly.ts), which pose their own shapes with the same clips.
 export const SPECIES_GLSL = /* glsl */ `
 attribute vec4 aRoot;
 attribute vec4 aPose;
@@ -197,49 +194,6 @@ export class SpeciesCrowd {
     bodies.frustumCulled = false;
     this.group.add(bodies);
     this.meshes.push(bodies);
-
-    if (opts.outlines !== false && OUTLINES) {
-      const outline = new THREE.ShaderMaterial({
-        uniforms: THREE.UniformsUtils.merge([
-          THREE.UniformsLib.fog,
-          { uColor: { value: new THREE.Color(0x1d2733) }, uThickness: { value: opts.outlineThickness ?? 0.02 } },
-        ]),
-        vertexShader: /* glsl */ `
-          #include <common>
-          ${defines}${SPECIES_GLSL}
-          #include <fog_pars_vertex>
-          uniform float uThickness;
-          void main() {
-            mat4 cPose = speciesPose();
-            vec3 n = speciesNormal(normal, cPose);
-            vec3 p = speciesTransform(position, cPose) + n * uThickness;
-            vec4 mvPosition = modelViewMatrix * vec4(p, 1.0);
-            gl_Position = projectionMatrix * mvPosition;
-            #include <fog_vertex>
-          }
-        `,
-        fragmentShader: /* glsl */ `
-          uniform vec3 uColor;
-          #include <common>
-          #include <fog_pars_fragment>
-          void main() {
-            gl_FragColor = vec4(uColor, 1.0);
-            #include <colorspace_fragment>
-            #include <fog_fragment>
-          }
-        `,
-        side: THREE.BackSide,
-        fog: true,
-      });
-      // The pose uniforms are shared objects, so both materials move together.
-      outline.uniforms.uPose = uniforms.uPose;
-      outline.uniforms.uPoseSize = uniforms.uPoseSize;
-      outline.uniforms.uScale = uniforms.uScale;
-      const hulls = new THREE.Mesh(geo, outline);
-      hulls.frustumCulled = false;
-      this.group.add(hulls);
-      this.meshes.push(hulls);
-    }
   }
 
   setCount(n: number): void {

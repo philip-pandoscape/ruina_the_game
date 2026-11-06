@@ -27,7 +27,6 @@ import {
   type Rgb,
   type V3,
 } from './kit';
-import { NEW_LOOK } from '../look';
 import { toon } from '../toon';
 import { grainify } from './detail';
 import { clamp, lerp } from '../../util/math';
@@ -85,25 +84,24 @@ const smooth = (t: number) => {
   return k * k * (3 - 2 * k);
 };
 
-/** What a vehicle is assembled into: outlined body, thin un-outlined trim, lit glass. */
+/** What a vehicle is assembled into: its body, thin trim, lit glass. */
 interface Build {
   root: THREE.Group;
   body: Parts;
   trim: Parts;
   glow: Parts;
   anims: Animator[];
-  outline: number;
   holds: Holds;
 }
 
-function start(def: VehicleDef, outline: number): Build {
+function start(def: VehicleDef): Build {
   const root = new THREE.Group();
   root.name = `vehicle:${def.id}`;
-  return { root, body: new Parts(), trim: new Parts(), glow: new Parts(), anims: [], outline, holds: {} };
+  return { root, body: new Parts(), trim: new Parts(), glow: new Parts(), anims: [], holds: {} };
 }
 
 function finish(b: Build): VehicleModel {
-  if (!b.body.empty) mesh(b.root, b.body.build(), { outline: b.outline, name: 'body' });
+  if (!b.body.empty) mesh(b.root, b.body.build(), { name: 'body' });
   if (!b.trim.empty) mesh(b.root, b.trim.build(), { name: 'trim' });
   if (!b.glow.empty) mesh(b.root, b.glow.build(), { mat: glowMaterial(), shadow: false, name: 'glow' });
   return {
@@ -133,9 +131,8 @@ function steeringWheel(
   // Tipped back by the column's rake: the wheel's axis runs down the column.
   mount.rotation.x = Math.atan2(at[1] - foot[1], foot[2] - at[2]);
   const spin = pivot(mount, 0, 0, 0);
-  // The rim outlined like the body and the spokes plain like the trim, as when the wheel was part
-  // of them: the same triangles as the fixed wheel, which keeps the hauler inside its budget.
-  mesh(spin, new Parts().add(tor(r, look.tube, ...look.segs), look.rim).build(), { outline: b.outline * 0.7 });
+  // The rim and the spokes: the same triangles as the fixed wheel, which keeps the hauler inside its budget.
+  mesh(spin, new Parts().add(tor(r, look.tube, ...look.segs), look.rim).build());
   const spokes = new Parts();
   for (let k = 0; k < look.spokes; k++) {
     const a = (k / look.spokes) * TAU + (look.from ?? 0);
@@ -204,7 +201,7 @@ function wheels(b: Build, list: Wheel[], look: WheelLook): void {
     const yaw = pivot(b.root, w.x, w.r, w.z, 'wheel');
     const roll = pivot(yaw, 0, 0, 0, 'spin');
     const g = wheelGeometry(w.r, look, w.x >= 0 ? 1 : -1);
-    mesh(roll, g.solid, { outline: b.outline });
+    mesh(roll, g.solid);
     if (g.thin) mesh(roll, g.thin);
     spin.push(roll);
     if (w.steer) steer.push(yaw);
@@ -471,7 +468,7 @@ function helm(b: Build, at: V3, r: number, pedestal: number): void {
     const a = (k / 8) * TAU;
     p.add(beam([0, 0, 0], [Math.cos(a) * r * 1.22, Math.sin(a) * r * 1.22, 0], 0.03), PAL.wood);
   }
-  mesh(g, p.build(), { outline: b.outline * 0.7 });
+  mesh(g, p.build());
   // Steering left turns its top to the left (+X, the helmsman's left), and the hands go with the rim.
   b.holds.hands = [1, -1].map((side) => hold(g, Math.cos(Math.PI / 2 - side * 0.9) * r * 0.93, Math.sin(Math.PI / 2 - side * 0.9) * r * 0.93, 0)) as [THREE.Object3D, THREE.Object3D];
   b.anims.push((_dt, s) => (g.rotation.z = -clamp(s.steer, -1, 1) * 1.1));
@@ -483,14 +480,14 @@ function rudder(b: Build, at: V3, top: number, bottom: number, chord: number, co
   const p = new Parts();
   p.add(extrude([[0, bottom], [-chord, bottom + 0.15], [-chord, top - 0.25], [-chord * 0.35, top], [0, top]], 0.1), colour, undefined, [0, Math.PI / 2, 0]);
   p.add(cyl(0.05, 0.05, top - bottom + 0.2, 6), PAL.woodDark, [0, (top + bottom) / 2, 0]);
-  mesh(g, p.build(), { outline: b.outline });
+  mesh(g, p.build());
   b.anims.push((_dt, s) => (g.rotation.y = -clamp(s.steer, -1, 1) * 0.5));
 }
 
 // ---------- the farm cart ----------
 
 function farmCart(def: WheeledDef): VehicleModel {
-  const b = start(def, 0.022);
+  const b = start(def);
   const { body, trim } = b;
   const paint = 0x4f9a55;
   const paintDark = 0x3f8046;
@@ -586,7 +583,7 @@ function farmCart(def: WheeledDef): VehicleModel {
 // ---------- the roadster ----------
 
 function roadster(def: WheeledDef): VehicleModel {
-  const b = start(def, 0.02);
+  const b = start(def);
   const { body, trim, glow } = b;
   const red = 0xd8473c;
   const redDark = 0xb33a31;
@@ -746,7 +743,7 @@ function oars(b: Build, def: BoatDef): void {
     const sweep = pivot(base, 0, 0, 0);
     const dip = pivot(sweep, 0, 0, 0);
     const feather = pivot(dip, 0, 0, 0);
-    mesh(feather, oarGeo, { outline: b.outline * 0.8 });
+    mesh(feather, oarGeo);
     sides.push({ sweep, dip, feather, side, drive: 0 });
     // The rower's hand on the outer end of the grip (0.62-0.78 inboard of the lock), wherever the
     // stroke has it, so the two hands don't meet in the middle.
@@ -787,10 +784,10 @@ function sloopRig(b: Build, mastZ: number, deck: number, mastTop: number, bowspr
   const spars = new Parts();
   spars.add(rod([0, 0, -0.1], [0, 0, -boomLen], 0.07, 8, 0.055), PAL.woodLight);
   spars.add(cyl(0.11, 0.11, 0.18, 8), PAL.woodDark, [0, 0, 0]);
-  mesh(g, spars.build(), { outline: b.outline });
+  mesh(g, spars.build());
   const gaff = pivot(g, 0, 0, 0, 'gaff');
   const gaffLen = boomLen * 0.72;
-  mesh(gaff, new Parts().add(rod([0, 0, -0.08], [0, 0, -gaffLen], 0.055, 6, 0.045), PAL.woodLight).build(), { outline: b.outline });
+  mesh(gaff, new Parts().add(rod([0, 0, -0.08], [0, 0, -gaffLen], 0.055, 6, 0.045), PAL.woodLight).build());
   const main = new Cloth(7, 8, (_i, j) => (j === 0 ? 0xc0392b : j % 2 ? PAL.canvas : 0xece0c2));
   const mm = mesh(g, main.geometry, { mat: clothMaterial(), name: 'mainsail', receive: false });
   mm.castShadow = true;
@@ -848,7 +845,7 @@ function sloopRig(b: Build, mastZ: number, deck: number, mastTop: number, bowspr
 }
 
 function rowboat(def: BoatDef): VehicleModel {
-  const b = start(def, 0.02);
+  const b = start(def);
   const { body, trim } = b;
   const L = def.length / 2;
   const rows = 8;
@@ -909,7 +906,7 @@ function rowboat(def: BoatDef): VehicleModel {
 }
 
 function sloop(def: BoatDef): VehicleModel {
-  const b = start(def, 0.03);
+  const b = start(def);
   const { body, trim } = b;
   const L = def.length / 2;
   const rows = 8;
@@ -1002,7 +999,7 @@ function sloop(def: BoatDef): VehicleModel {
 // ---------- the hauler (a steam truck) ----------
 
 function hauler(def: WheeledDef): VehicleModel {
-  const b = start(def, 0.026);
+  const b = start(def);
   const { body, trim, glow } = b;
   const green = 0x2f6e52;
   const greenDark = 0x24563f;
@@ -1133,7 +1130,7 @@ function hauler(def: WheeledDef): VehicleModel {
 // ---------- the merchant cog ----------
 
 function cog(def: BoatDef): VehicleModel {
-  const b = start(def, 0.04);
+  const b = start(def);
   const { body, trim } = b;
   const L = def.length / 2;
   const rows = 8;
@@ -1233,7 +1230,7 @@ function cog(def: BoatDef): VehicleModel {
   const nestY = top - 2.0;
   body.add(lathe([[0.2, nestY - 0.35], [0.62, nestY], [0.62, nestY + 0.55], [0.55, nestY + 0.55], [0.55, nestY + 0.05], [0.2, nestY + 0.05]], 10), (c) => (c.y > nestY + 0.3 ? PAL.red : PAL.woodDark), [mast.x, 0, mast.z]);
   trim.add(rod([mast.x, top, mast.z], [mast.x, def.height - 0.1, mast.z], 0.04, 5), PAL.woodDark);
-  flag(b, [mast.x, def.height - 0.15, mast.z], 1.6, 0.9, (_i, j) => (NEW_LOOK ? (j ? PAL.cream : 0x2f4f8a) : j ? PAL.yellow : PAL.red));
+  flag(b, [mast.x, def.height - 0.15, mast.z], 1.6, 0.9, (_i, j) => (j ? PAL.cream : 0x2f4f8a));
   const stays: Array<[V3, V3]> = [
     [[0, top - 0.6, mast.z + 0.1], sprit],
     [[0, top - 0.6, mast.z - 0.1], [0, castleY + 0.8, z0 + 0.3]],
@@ -1263,11 +1260,11 @@ function cog(def: BoatDef): VehicleModel {
   const yardY = nestY - 0.6;
   const yard = pivot(b.root, mast.x, yardY, mast.z + 0.3, 'yard');
   const halfYard = def.width * 0.85;
-  mesh(yard, new Parts().add(rod([-halfYard, 0, 0], [halfYard, 0, 0], 0.13, 8, 0.13), PAL.woodLight).build(), { outline: b.outline });
+  mesh(yard, new Parts().add(rod([-halfYard, 0, 0], [halfYard, 0, 0], 0.13, 8, 0.13), PAL.woodLight).build());
   const stripes = 8;
-  // The new look flies the island's colours, as the reference picture's ship does: a cream sail
-  // with a broad blue band.
-  const sail = new Cloth(stripes, 6, (i) => (NEW_LOOK ? (i === 3 || i === 4 ? 0x2f4f8a : PAL.cream) : i % 2 ? PAL.cream : 0xc8382e));
+  // She flies the island's colours, as the reference picture's ship does: a cream sail with a
+  // broad blue band.
+  const sail = new Cloth(stripes, 6, (i) => (i === 3 || i === 4 ? 0x2f4f8a : PAL.cream));
   const sm = mesh(yard, sail.geometry, { mat: clothMaterial(), name: 'sail', receive: false });
   sm.castShadow = true;
   const drop = yardY - (deck + 2.6);
@@ -1296,7 +1293,7 @@ function cog(def: BoatDef): VehicleModel {
 // ---------- fallbacks (any vehicle without its own build) ----------
 
 function genericWheeled(def: WheeledDef): VehicleModel {
-  const b = start(def, 0.025);
+  const b = start(def);
   const r = Math.max(...def.wheels.map((w) => w.r));
   const hw = Math.min(...def.wheels.map((w) => Math.abs(w.x))) - 0.12;
   b.body.add(bev(hw * 2, 0.4, def.length * 0.92, 0.06), 0x6a8caf, [0, r + 0.25, 0]);
@@ -1307,7 +1304,7 @@ function genericWheeled(def: WheeledDef): VehicleModel {
 }
 
 function genericBoat(def: BoatDef): VehicleModel {
-  const b = start(def, 0.03);
+  const b = start(def);
   const L = def.length / 2;
   const rows = 6;
   const deck = Math.min(...def.cargo.map((c) => c.y), ...def.seats.map((s) => s.y)) - 0.35;
@@ -1364,7 +1361,7 @@ const BUILDERS: Record<string, (def: never) => VehicleModel> = {
 export function buildVehicle(def: VehicleDef): VehicleModel {
   const custom = BUILDERS[def.id] as ((d: VehicleDef) => VehicleModel) | undefined;
   const model = custom ? custom(def) : def.class === 'boat' ? genericBoat(def) : genericWheeled(def);
-  // The new look gives planks, iron and canvas their grain (src/render/models/detail.ts).
+  // Planks, iron and canvas take their grain (src/render/models/detail.ts).
   grainify(model.root);
   return model;
 }

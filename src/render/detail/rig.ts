@@ -66,7 +66,7 @@ export class DetailRig {
     const mat = this.materials.get(p.mat);
     if (!mat) throw new Error(`rig ${this.def.id}: part on "${p.joint}" wants material "${p.mat}", which is not in the palette`);
     const [x, y, z] = p.pos ?? [0, 0, 0];
-    const mesh = part(parent, g, mat, x, y, z, { outline: p.outline, castShadow: p.castShadow });
+    const mesh = part(parent, g, mat, x, y, z, { castShadow: p.castShadow });
     if (p.hidden) mesh.visible = false;
     this.built.push({ joint: p.joint, mat: p.mat, mesh });
   }

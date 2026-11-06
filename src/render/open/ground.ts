@@ -2,11 +2,12 @@ import * as THREE from 'three';
 import { SURFACE } from '../../sim/terrain';
 import { track } from '../assets';
 
-// The new look's ground: real textures (CC0, CREDITS.md) laid over the island's surfaces. Each
+// The ground: real textures (CC0, CREDITS.md) laid over the island's surfaces. Each
 // texture brings only its detail, its own average colour divided out, so the palette in
 // src/render/look.ts still decides the colours and textures from different sources sit together.
 // Steep slopes turn to rock whatever their surface, projected from three sides so cliffs don't
-// smear. Until the textures arrive the ground is drawn in its plain colours, as in the classic look.
+// smear. Until the textures arrive, and at low quality without them, the ground is drawn in its
+// plain colours.
 
 const LAYERS = ['grass', 'road', 'sand', 'rock', 'soil', 'plaza', 'forest'] as const;
 /** Texture repeats per metre, per surface. */

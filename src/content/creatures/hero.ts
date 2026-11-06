@@ -19,30 +19,30 @@ function sword(): PartDef[] {
     g.scale(1, 1, 0.33);
   };
   return [
-    { joint: 'handR', shape: { kind: 'cylinder', top: 0.028, bottom: 0.028, h: 0.18 }, mat: 'leather', outline: 0.012 },
-    { joint: 'handR', shape: { kind: 'sphere', r: 0.04, widthSeg: 8, heightSeg: 6 }, mat: 'gold', pos: [0, 0.1, 0], outline: 0.012 },
-    { joint: 'handR', shape: box(0.26, 0.05, 0.07, 0.02), mat: 'gold', pos: [0, -0.1, 0], outline: 0.012 },
-    { joint: 'handR', shape: box(0.075, 0.86, 0.025, 0.012), mat: 'steel', pos: [0, -0.55, 0], outline: 0.012 },
-    { joint: 'handR', shape: { kind: 'cone', r: 0.053, h: 0.12 }, mat: 'steel', pos: [0, -1.04, 0], outline: 0.012, tweak: tip },
+    { joint: 'handR', shape: { kind: 'cylinder', top: 0.028, bottom: 0.028, h: 0.18 }, mat: 'leather' },
+    { joint: 'handR', shape: { kind: 'sphere', r: 0.04, widthSeg: 8, heightSeg: 6 }, mat: 'gold', pos: [0, 0.1, 0] },
+    { joint: 'handR', shape: box(0.26, 0.05, 0.07, 0.02), mat: 'gold', pos: [0, -0.1, 0] },
+    { joint: 'handR', shape: box(0.075, 0.86, 0.025, 0.012), mat: 'steel', pos: [0, -0.55, 0] },
+    { joint: 'handR', shape: { kind: 'cone', r: 0.053, h: 0.12 }, mat: 'steel', pos: [0, -1.04, 0], tweak: tip },
   ];
 }
 
 function club(): PartDef[] {
   const studs: PartDef[] = ([[0.09, -0.5, 0.03], [-0.07, -0.42, 0.07], [0.02, -0.58, -0.09], [-0.05, -0.33, -0.08]] as const).map(
-    (pos) => ({ joint: 'handR', shape: { kind: 'ico', r: 0.035 }, mat: 'gold', pos, outline: false }),
+    (pos) => ({ joint: 'handR', shape: { kind: 'ico', r: 0.035 }, mat: 'gold', pos }),
   );
   return [
-    { joint: 'handR', shape: { kind: 'cylinder', top: 0.03, bottom: 0.035, h: 0.34 }, mat: 'darkWood', pos: [0, -0.06, 0], outline: 0.012 },
-    { joint: 'handR', shape: { kind: 'cylinder', top: 0.1, bottom: 0.065, h: 0.42, sides: 9 }, mat: 'wood', pos: [0, -0.42, 0], outline: 0.015 },
+    { joint: 'handR', shape: { kind: 'cylinder', top: 0.03, bottom: 0.035, h: 0.34 }, mat: 'darkWood', pos: [0, -0.06, 0] },
+    { joint: 'handR', shape: { kind: 'cylinder', top: 0.1, bottom: 0.065, h: 0.42, sides: 9 }, mat: 'wood', pos: [0, -0.42, 0] },
     ...studs,
   ];
 }
 
 function staff(): PartDef[] {
   return [
-    { joint: 'handR', shape: { kind: 'cylinder', top: 0.026, bottom: 0.03, h: 1.6, sides: 7 }, mat: 'darkWood', pos: [0, -0.3, 0], outline: 0.012 },
-    { joint: 'handR', shape: { kind: 'torus', r: 0.09, tube: 0.02 }, mat: 'gold', pos: [0, -1.12, 0], outline: false },
-    { joint: 'handR', shape: { kind: 'ico', r: 0.085, detail: 1 }, mat: 'orb', pos: [0, -1.2, 0], outline: 0.012, castShadow: false },
+    { joint: 'handR', shape: { kind: 'cylinder', top: 0.026, bottom: 0.03, h: 1.6, sides: 7 }, mat: 'darkWood', pos: [0, -0.3, 0] },
+    { joint: 'handR', shape: { kind: 'torus', r: 0.09, tube: 0.02 }, mat: 'gold', pos: [0, -1.12, 0] },
+    { joint: 'handR', shape: { kind: 'ico', r: 0.085, detail: 1 }, mat: 'orb', pos: [0, -1.2, 0], castShadow: false },
   ];
 }
 
@@ -68,7 +68,6 @@ function bow(): PartDef[] {
     shape: { kind: 'cylinder', top: 0.006, bottom: 0.006, h: half, sides: 4 },
     mat: 'string',
     pos: [...HERO_BOW.nock],
-    outline: false,
     castShadow: false,
     // From the nock (the part's origin) out along +Z or -Z to a tip.
     tweak: (g) => {
@@ -81,7 +80,6 @@ function bow(): PartDef[] {
       joint: 'handL',
       shape: { kind: 'torus', r: 0.55, tube: 0.026, tubularSeg: 18, arc: (TAU / 360) * 120 },
       mat: 'wood',
-      outline: 0.012,
       tweak: (g) => {
         g.rotateZ(-(5 * Math.PI) / 6);
         g.rotateY(Math.PI / 2);
@@ -95,8 +93,8 @@ function bow(): PartDef[] {
 
 function arrow(): PartDef[] {
   return [
-    { joint: 'handL', shape: { kind: 'cylinder', top: 0.012, bottom: 0.012, h: 0.8, sides: 5 }, mat: 'shaft', pos: [0, -0.1, 0], outline: false, castShadow: false },
-    { joint: 'handL', shape: { kind: 'cone', r: 0.03, h: 0.08 }, mat: 'steel', pos: [0, -0.52, 0], outline: false, tweak: (g) => g.rotateZ(Math.PI) },
+    { joint: 'handL', shape: { kind: 'cylinder', top: 0.012, bottom: 0.012, h: 0.8, sides: 5 }, mat: 'shaft', pos: [0, -0.1, 0], castShadow: false },
+    { joint: 'handL', shape: { kind: 'cone', r: 0.03, h: 0.08 }, mat: 'steel', pos: [0, -0.52, 0], tweak: (g) => g.rotateZ(Math.PI) },
   ];
 }
 
@@ -157,22 +155,22 @@ export const HERO_RIG: RigDef = {
     { joint: 'kneeR', shape: box(0.155, 0.27, 0.17, 0.05), mat: 'boots', pos: [0, -0.115, 0] },
     { joint: 'footR', shape: box(0.19, 0.12, 0.27, 0.04), mat: 'boots', pos: [0, -0.02, 0.05] },
     { joint: 'torso', shape: box(0.46, 0.44, 0.3, 0.08), mat: 'tunic', pos: [0, 0.23, 0] },
-    { joint: 'torso', shape: box(0.48, 0.07, 0.32, 0.03), mat: 'leather', pos: [0, 0.04, 0], outline: 0.015 },
-    { joint: 'torso', shape: box(0.09, 0.08, 0.04, 0.02), mat: 'gold', pos: [0, 0.04, 0.165], outline: false },
+    { joint: 'torso', shape: box(0.48, 0.07, 0.32, 0.03), mat: 'leather', pos: [0, 0.04, 0] },
+    { joint: 'torso', shape: box(0.09, 0.08, 0.04, 0.02), mat: 'gold', pos: [0, 0.04, 0.165] },
     { joint: 'head', shape: box(0.5, 0.46, 0.46, 0.12), mat: 'skin' },
     { joint: 'head', shape: box(0.55, 0.17, 0.5, 0.07), mat: 'hair', pos: [0, 0.2, -0.01] },
     { joint: 'head', shape: box(0.55, 0.36, 0.15, 0.06), mat: 'hair', pos: [0, 0.05, -0.19] },
-    { joint: 'eyes', shape: box(0.07, 0.11, 0.02, 0.01), mat: 'dark', pos: [0.11, 0, 0], outline: false, castShadow: false },
-    { joint: 'eyes', shape: box(0.07, 0.11, 0.02, 0.01), mat: 'dark', pos: [-0.11, 0, 0], outline: false, castShadow: false },
-    { joint: 'cape', shape: box(0.42, 0.28, 0.04, 0.02), mat: 'cape', pos: [0, -0.13, 0], outline: 0.015 },
-    { joint: 'capeTail', shape: box(0.42, 0.26, 0.04, 0.02), mat: 'cape', pos: [0, -0.12, 0], outline: 0.015 },
+    { joint: 'eyes', shape: box(0.07, 0.11, 0.02, 0.01), mat: 'dark', pos: [0.11, 0, 0], castShadow: false },
+    { joint: 'eyes', shape: box(0.07, 0.11, 0.02, 0.01), mat: 'dark', pos: [-0.11, 0, 0], castShadow: false },
+    { joint: 'cape', shape: box(0.42, 0.28, 0.04, 0.02), mat: 'cape', pos: [0, -0.13, 0] },
+    { joint: 'capeTail', shape: box(0.42, 0.26, 0.04, 0.02), mat: 'cape', pos: [0, -0.12, 0] },
     // Sleeves to the elbow, leather bracers to the wrist.
     { joint: 'armL', shape: box(0.145, 0.27, 0.155, 0.05), mat: 'tunic', pos: [0, -0.1, 0] },
     { joint: 'elbowL', shape: box(0.13, 0.23, 0.14, 0.045), mat: 'leather', pos: [0, -0.095, 0] },
-    { joint: 'handL', shape: { kind: 'sphere', r: 0.075 }, mat: 'skin', outline: 0.015 },
+    { joint: 'handL', shape: { kind: 'sphere', r: 0.075 }, mat: 'skin' },
     { joint: 'armR', shape: box(0.145, 0.27, 0.155, 0.05), mat: 'tunic', pos: [0, -0.1, 0] },
     { joint: 'elbowR', shape: box(0.13, 0.23, 0.14, 0.045), mat: 'leather', pos: [0, -0.095, 0] },
-    { joint: 'handR', shape: { kind: 'sphere', r: 0.075 }, mat: 'skin', outline: 0.015 },
+    { joint: 'handR', shape: { kind: 'sphere', r: 0.075 }, mat: 'skin' },
   ],
   attachments: {
     sword: { joint: 'handR', exclusive: true, parts: sword() },

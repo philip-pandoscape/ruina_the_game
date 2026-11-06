@@ -1080,8 +1080,8 @@
     {
       "system": "look",
       "status": "done",
-      "title": "Quality and the classic look",
-      "notes": "The new look is the default. WebGL drawn in software (CI) gets the classic look; integrated graphics get medium quality (no occlusion, nearer shadows). ?look=classic|new and ?quality=medium|high override. At 1920 x 1080 on an RTX 4090 laptop the square costs about 6.5 ms of GPU a frame against 3.3 ms in the classic look (tests/stress/look.spec.ts).",
+      "title": "Quality settings",
+      "notes": "One look; the old toon look (?look=classic) is retired. How much of it is drawn is the quality (src/render/look.ts, GRAPHICS): high on a graphics card; medium on integrated graphics (no occlusion, nearer shadows); low where WebGL is drawn in software (CI) or there is no WebGL2: of the screen effects only the haze and the grade, the frame at three quarters of the window's size, plain ground colours, small shadows that hills don't cast, every tree in its far shape with half the clumps, a 1200 m view, undergrowth and grass nearer, fewer and plainer clouds, no horizon isles, sea glints or grain. ?quality=low|medium|high overrides. In SwiftShader at 1280 x 720 low draws a frame in 285 to 370 ms where the toon look took 235 to 600 and high takes 2.1 to 3.5 s. On an Intel UHD Graphics chip at 1920 x 1080 the square costs 51.6 ms of GPU a frame at high, 33.1 at medium and 14.4 at low (the toon look took 14.6). tests/stress/look.spec.ts shoots each quality at the same places and hours.",
       "files": [
         "src/render/look.ts",
         "tests/stress/look.spec.ts"
@@ -1091,7 +1091,7 @@
       "system": "look",
       "status": "done",
       "title": "Jelly slimes",
-      "notes": "In the new look slimes are glossy jelly gumdrops (src/species/jelly.ts): a see-through shell, bright at the rim, with a window gloss and a glint of the sun, what each kind carries showing inside, a soft pool of shadow that shrinks as it hops, and a face whose mood follows what it is doing (winding up, dazed, dying). They play the same clips as the box slimes, so the crowd, the rules and the server never see the difference; ?look=classic keeps the boxes.",
+      "notes": "Slimes are glossy jelly gumdrops (src/species/jelly.ts): a see-through shell, bright at the rim, with a window gloss and a glint of the sun, what each kind carries showing inside, a soft pool of shadow that shrinks as it hops, and a face whose mood follows what it is doing (winding up, dazed, dying). They play the same clips as the box slimes, so the crowd, the rules and the server never see the difference; the animation library can still show the boxes (Look: Boxes).",
       "files": [
         "src/species/jelly.ts",
         "src/render/actors.ts"

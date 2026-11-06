@@ -1,7 +1,6 @@
 import * as THREE from 'three';
 import { SpeciesCrowd } from '../species/crowd';
 import { JellyCrowd } from '../species/jelly';
-import { NEW_LOOK } from './look';
 import { getSpecies } from '../species/registry';
 import { actorKind } from '../content/actors';
 import { actorKindAt, LADDERS } from '../content/actors';
@@ -77,16 +76,11 @@ export class ActorView {
       const kind = actorKind(id);
       if (!kind.species || this.packs.has(packKey(kind))) continue;
       const species = getSpecies(kind.species);
-      // The new look's slimes are jelly (src/species/jelly.ts), on the same skeleton and clips.
+      // Slimes are jelly (src/species/jelly.ts), on the same skeleton and clips.
       const crowd =
-        NEW_LOOK && species.id === 'slime'
+        species.id === 'slime'
           ? new JellyCrowd(species, capacity, { kind: kind.id, palette: kind.palette, scale: kind.scale })
-          : new SpeciesCrowd(species, capacity, {
-              tint: true,
-              outlineThickness: 0.015,
-              palette: kind.palette,
-              scale: kind.scale,
-            });
+          : new SpeciesCrowd(species, capacity, { tint: true, palette: kind.palette, scale: kind.scale });
       crowd.setCount(capacity);
       this.group.add(crowd.group);
       const clipIndex = new Map<string, number>();

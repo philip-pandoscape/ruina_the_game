@@ -1,6 +1,5 @@
 import * as THREE from 'three';
 import { actorKind, actorKindIds } from '../../content/actors';
-import { NEW_LOOK } from '../../render/look';
 import { JellyCrowd } from '../../species/jelly';
 import { bindWorlds } from '../../species/pose';
 import { getSpecies } from '../../species/registry';
@@ -9,7 +8,7 @@ import { readBones, sideOf, writeBones } from '../pose';
 import type { AnimDef, Bone, FrameInfo, Options, Phase, Posable, Snapshot, Source, Subject, Take } from '../types';
 
 // Species in the library: bodies the crowd draws from baked clips (src/species/): the slimes in
-// every size (in the new look, as jelly: src/species/jelly.ts), and the far-away bodies of the
+// every size (as jelly: src/species/jelly.ts), and the far-away bodies of the
 // battlefield's crowds. A clip is a matrix per joint per frame; here each frame is turned back into
 // joints you can see and move, with the species' boxes hung off them.
 
@@ -140,7 +139,7 @@ class SpeciesTake implements Take {
     const h = def.height * look.scale;
     this.framing = { target: [0, Math.max(0.25, h * 0.5), 0] as [number, number, number], distance: Math.max(2.4, h * 4.4), height: h };
     if (look.jelly && look.kind) {
-      // The new look's jelly, drawn by the game's own crowd code from the same clip.
+      // The jelly, drawn by the game's own crowd code from the same clip.
       this.jelly = new JellyCrowd(def, 1, { kind: look.kind, palette: look.palette, scale: look.scale });
       this.jelly.place(0, 0, 0, 0, 0);
       this.root.add(this.jelly.group);
@@ -251,10 +250,10 @@ const slimeSubject: Subject = {
   id: 'slime',
   name: 'Slime',
   group: 'Mobs',
-  blurb: NEW_LOOK ? 'Jelly slimes, every size' : 'Box slimes, every size',
+  blurb: 'Jelly slimes, every size',
   options: [
     { id: 'size', label: 'Size', value: 'slime', choices: SLIME_SIZES },
-    { id: 'look', label: 'Look', value: NEW_LOOK ? 'jelly' : 'box', choices: [{ value: 'jelly', label: 'Jelly' }, { value: 'box', label: 'Boxes' }] },
+    { id: 'look', label: 'Look', value: 'jelly', choices: [{ value: 'jelly', label: 'Jelly' }, { value: 'box', label: 'Boxes' }] },
   ],
   anims: () => speciesAnims('slime'),
   take(animId: string, opts: Options): Take {
@@ -267,10 +266,10 @@ const slimeSubject: Subject = {
   },
   source: (): Source => ({
     system:
-      "Baked clips: each clip is authored in code as a function of (joint, frame) returning a joint's offset from its bind pose (position, rotation, scale), then baked to a matrix per joint per frame (`bakeAuthored` in src/species/pose.ts) and drawn by the crowd shader. A slime's motion is almost all squash and stretch: scale on `core` and `top`, the root lifted for hops and leaps, the buds sliding out. Every size shares the same clips, scaled (shared/actors.json). The new look draws them as jelly over the same skeleton (src/species/jelly.ts, which lifts each frame so the jelly's base sits on the ground).",
+      "Baked clips: each clip is authored in code as a function of (joint, frame) returning a joint's offset from its bind pose (position, rotation, scale), then baked to a matrix per joint per frame (`bakeAuthored` in src/species/pose.ts) and drawn by the crowd shader. A slime's motion is almost all squash and stretch: scale on `core` and `top`, the root lifted for hops and leaps, the buds sliding out. Every size shares the same clips, scaled (shared/actors.json). The game draws them as jelly over the same skeleton (src/species/jelly.ts, which lifts each frame so the jelly's base sits on the ground); the Boxes look shows the boxes the clips move.",
     files: [
       { path: 'src/species/builtin/slime.ts', what: 'the skeleton, its boxes, and every clip (idle, hop, die, windup, leap, gather, dazed)' },
-      { path: 'src/species/jelly.ts', what: 'the new look: the jelly drawn over the same joints, faces by clip' },
+      { path: 'src/species/jelly.ts', what: 'the jelly drawn over the same joints, faces by clip' },
       { path: 'src/species/pose.ts', what: 'bakeAuthored: how a clip function becomes matrices' },
       { path: 'shared/actors.json', what: "which clip plays for which of a slime's moments (move, chase, windup, leap, …), sizes" },
       { path: 'shared/behaviours.json', what: "the leap's gait (apex height, when it leaves and meets the ground): the rules; the leap clip matches it" },

@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-import { NEW_LOOK } from '../look';
 import { bev, box, cone, cyl, faceted, glowMaterial, jiggle, lathe, makeRng, merge, mesh, PAL, ring, rod, sph, tint, vary, xf, type V3 } from '../models/kit';
 
 // What the goblins of Goblin's Dread build with, for the grotto behind the Windspire's falls
@@ -9,7 +8,7 @@ import { bev, box, cone, cyl, faceted, glowMaterial, jiggle, lathe, makeRng, mer
 // kit's way (src/render/models/kit.ts): shapes placed, coloured per face and merged into one mesh.
 
 /** The rock the goblins' caves are cut in: the island's own greys, mossy on top. */
-const ROCK = NEW_LOOK ? { top: 0x8f877d, side: 0x746c63, moss: 0x5d7240, dark: 0x5a534c } : { top: 0xa3a39b, side: 0x85857f, moss: 0x6f9c4a, dark: 0x6d6d68 };
+const ROCK = { top: 0x8f877d, side: 0x746c63, moss: 0x5d7240, dark: 0x5a534c };
 
 /** A rough slab of rock: a box jiggled out of true, faces in the island's rock colours, moss on top. `flatTop` keeps the top no higher than that (something walked on). */
 export function rockSlab(w: number, h: number, d: number, seed: number, flatTop?: number): THREE.BufferGeometry {

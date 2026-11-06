@@ -93,7 +93,7 @@ function wayfarer(def: GliderDef, root: THREE.Group): GliderModel['animate'] {
     for (const to of [nose, tail, [mid[0], mid[1] - 0.04, mid[2]] as V3]) trim.add(rod(bar, to, 0.006, 3), 0x5a4a3a);
   }
   controlFrame(frame, trim, { tube: wood, fitting: PAL.brass, grip: PAL.leatherDark });
-  mesh(wing, frame.build(), { outline: 0.02 });
+  mesh(wing, frame.build());
   mesh(wing, trim.build());
 
   // Canvas: warm stripes, a couple of patches, stretched between keel and leading edge.
@@ -183,7 +183,7 @@ function swiftwing(def: GliderDef, root: THREE.Group): GliderModel['animate'] {
     const bar: V3 = [sx * 0.5, BAR - HANG, BAR_Z];
     for (const to of [nose, tailEnd, le(0.45, 0)]) trim.add(rod(bar, [sx * Math.abs(to[0]), to[1], to[2]], 0.005, 3), 0x3a3a3a);
   }
-  mesh(wing, frame.build(), { outline: 0.018 });
+  mesh(wing, frame.build());
   mesh(wing, trim.build());
   const halfGeo = half1.build();
   // Silk: teal with white feather tips and a pale band near the leading edge.
@@ -194,7 +194,7 @@ function swiftwing(def: GliderDef, root: THREE.Group): GliderModel['animate'] {
     g.scale.x = sx;
     const m = mesh(g, cloth.geometry, { mat: clothMaterial(), name: 'sail', receive: false });
     m.castShadow = true;
-    mesh(g, halfGeo, { outline: 0.016 });
+    mesh(g, halfGeo);
     tips.push(ribbon(g, le(1, 0), PAL.gold));
   }
   const shape = (time: number, ripple: number, flex: number) =>

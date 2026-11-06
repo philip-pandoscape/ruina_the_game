@@ -235,13 +235,17 @@ test('your portrait stays as it is: running, swinging, crouching and night falli
   const errors = await open(page);
   const g = game(page);
   const portrait = (who = 'player') => page.evaluate((k) => window.__game.portrait(k), who) as Promise<{ url: string; taken: number }>;
-  // The new look's hero model arrives after the page; the studio rightly takes you again then.
+  // The hero's made model arrives after the page; the studio rightly takes you again then.
   await page.waitForFunction(() => window.__game.assetsReady === true, null, { timeout: 60_000 });
   await g.advance(2);
   const face = await portrait();
   const body = await portrait('body');
   expect(face.url).toMatch(/^data:image\/png/);
-  // Shown beside your health.
+  // Shown beside your health. The HUD looks at your portrait every 30 frames drawn: drawn here, as a
+  // browser drawing in software (CI's) gets through only a few a second on its own.
+  await page.evaluate(() => {
+    for (let i = 0; i < 30; i++) window.__game.advance(1);
+  });
   await expect(page.locator('#hud-portrait .frame img')).toHaveAttribute('src', face.url);
   // Whatever you're doing, wherever the camera is, at any hour: the same picture, not taken again.
   const same = async (doing: string) => {

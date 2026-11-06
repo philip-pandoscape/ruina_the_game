@@ -1,9 +1,8 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
-import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { makeRng } from '../../rng';
-import { OUTLINES } from '../look';
-import { outlineMaterial, toon } from '../toon';
+import { toon } from '../toon';
 import { TAU } from '../../util/math';
 
 // The toolkit every procedural model in this folder is built with. Models are assembled from
@@ -409,7 +408,7 @@ let vcMat: THREE.MeshToonMaterial | null = null;
 let vcClothMat: THREE.MeshToonMaterial | null = null;
 let glowMat: THREE.MeshBasicMaterial | null = null;
 
-/** The one material for vertex-coloured models: the shared toon look, colour from the vertices. */
+/** The one material for vertex-coloured models: the shared light, colour from the vertices. */
 export function vcMaterial(): THREE.MeshToonMaterial {
   return (vcMat ??= toon(0xffffff, { vertexColors: true }));
 }
@@ -424,49 +423,20 @@ export function glowMaterial(): THREE.MeshBasicMaterial {
   return (glowMat ??= new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false }));
 }
 
-const hulls = new WeakMap<THREE.BufferGeometry, THREE.BufferGeometry>();
-
-/**
- * The inverted-hull outline needs normals that agree at shared corners, or a faceted shape's
- * outline splits open at every edge. This welds the corners and smooths the normals, for the
- * hull only - the visible mesh keeps its crisp facets.
- */
-export function hullOf(geo: THREE.BufferGeometry): THREE.BufferGeometry {
-  let h = hulls.get(geo);
-  if (!h) {
-    const g = new THREE.BufferGeometry();
-    g.setAttribute('position', geo.getAttribute('position').clone());
-    if (geo.index) g.setIndex(geo.index.clone());
-    h = mergeVertices(g, 1e-3);
-    h.computeVertexNormals();
-    hulls.set(geo, h);
-  }
-  return h;
-}
-
 export interface MeshOpts {
-  /** Outline thickness in metres, or false for none (the default). */
-  outline?: number | false;
   shadow?: boolean;
   receive?: boolean;
   mat?: THREE.Material;
   name?: string;
 }
 
-/** Adds a mesh (vertex-coloured toon unless told otherwise), with an optional dark outline. */
+/** Adds a mesh: vertex-coloured in the shared material unless told otherwise. */
 export function mesh(parent: THREE.Object3D, geo: THREE.BufferGeometry, opts: MeshOpts = {}): THREE.Mesh {
   const m = new THREE.Mesh(geo, opts.mat ?? vcMaterial());
   m.castShadow = opts.shadow ?? true;
   m.receiveShadow = opts.receive ?? true;
   if (opts.name) m.name = opts.name;
   parent.add(m);
-  if (opts.outline && OUTLINES) {
-    const hull = new THREE.Mesh(hullOf(geo), outlineMaterial(opts.outline));
-    hull.castShadow = false;
-    hull.receiveShadow = false;
-    hull.name = 'outline';
-    m.add(hull);
-  }
   return m;
 }
 
@@ -479,7 +449,7 @@ export function pivot(parent: THREE.Object3D, x = 0, y = 0, z = 0, name?: string
   return g;
 }
 
-/** Triangles and draw calls an object costs (outlines included), for budgets and the harness. */
+/** Triangles and draw calls an object costs, for budgets and the harness. */
 export function cost(obj: THREE.Object3D): { triangles: number; draws: number } {
   let tris = 0;
   let draws = 0;

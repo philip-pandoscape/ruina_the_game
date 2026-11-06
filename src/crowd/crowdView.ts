@@ -46,7 +46,7 @@ export class CrowdView {
   private time = 0;
   private rows: { idle: number; run: number; attack: number; down: number };
 
-  constructor(private n: number, outlines = true) {
+  constructor(private n: number) {
     this.phase = new Float32Array(n);
     this.localSwing = new Float32Array(n).fill(-1);
     this.lastSwing = new Uint16Array(n);
@@ -54,7 +54,7 @@ export class CrowdView {
     this.spawnedAt = new Float32Array(n).fill(-100);
 
     const species = getSpecies('fighter');
-    this.crowd = new SpeciesCrowd(species, n, { outlines, outlineThickness: 0.02 });
+    this.crowd = new SpeciesCrowd(species, n);
     this.crowd.setCount(n);
     this.group.add(this.crowd.group);
     this.trianglesPerFighter = this.crowd.trianglesPerInstance;

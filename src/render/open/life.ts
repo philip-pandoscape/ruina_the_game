@@ -509,10 +509,6 @@ export class LifeView {
         ship.traverse((o) => {
           const mesh = o as THREE.Mesh;
           if (!mesh.isMesh) return;
-          if ((mesh.material as THREE.Material).type === 'ShaderMaterial') {
-            mesh.visible = b.stage >= design.stages.length; // outlines only once she is whole
-            return;
-          }
           const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
           const clipped = mats.map((mt) => {
             const c = (mt as THREE.Material).clone();

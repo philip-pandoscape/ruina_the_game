@@ -22,13 +22,13 @@ interface Loaded {
 
 type Vec = [number, number, number];
 
-const harness = async (page: Page, look: 'new' | 'classic' = 'new') => {
+const harness = async (page: Page) => {
   const errors: string[] = [];
   page.on('console', (m) => {
     if (m.type() === 'error') errors.push(m.text());
   });
   page.on('pageerror', (e) => errors.push(String(e)));
-  await page.goto(`/species.html?look=${look}`);
+  await page.goto('/species.html');
   await page.waitForFunction(() => typeof (window as any).__species === 'object');
   return errors;
 };
@@ -49,7 +49,7 @@ const SPECIES = [
   { id: 'quadruped', joints: 18, boxes: 19, clips: ['idle', 'walk', 'run'], still: 'idle' },
 ] as const;
 
-// The crowd budget the box-art fighter set: 240 triangles of body, doubled by its outline hull.
+// The crowd budget the box-art fighter set: 240 triangles of body, and a little room.
 const CROWD_TRIANGLE_BUDGET = 300;
 
 test.describe('species contract', () => {
@@ -66,21 +66,15 @@ test.describe('species contract', () => {
       expect(errors).toEqual([]);
     });
 
-    test(`${spec.id} draws any number of itself in three calls`, async ({ page }) => {
-      // Body, outline hull, ground; the new look (src/render/look.ts) draws no outlines, so one call
-      // fewer. Instancing means the count does not move with the crowd.
-      for (const [look, calls] of [
-        ['classic', 3],
-        ['new', 2],
-      ] as const) {
-        await harness(page, look);
-        await load(page, spec.id, 2000);
-        const one = await page.evaluate((c) => (window as any).__species.grid(1, c), spec.still);
-        const many = await page.evaluate((c) => (window as any).__species.grid(2000, c), spec.still);
-        expect(one.draws).toBe(calls);
-        expect(many.draws).toBe(calls);
-        expect(many.triangles).toBeGreaterThan(one.triangles * 1000);
-      }
+    test(`${spec.id} draws any number of itself in two calls`, async ({ page }) => {
+      // The bodies and the ground. Instancing means the count does not move with the crowd.
+      await harness(page);
+      await load(page, spec.id, 2000);
+      const one = await page.evaluate((c) => (window as any).__species.grid(1, c), spec.still);
+      const many = await page.evaluate((c) => (window as any).__species.grid(2000, c), spec.still);
+      expect(one.draws).toBe(2);
+      expect(many.draws).toBe(2);
+      expect(many.triangles).toBeGreaterThan(one.triangles * 1000);
     });
 
     test(`${spec.id} holds still when it should`, async ({ page }) => {

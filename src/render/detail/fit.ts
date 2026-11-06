@@ -613,14 +613,13 @@ export function hull(joints: readonly JointDef[], ankle: number): PartDef[] {
     shape: { kind: 'box', w, h, d, r: Math.min(w, h, d) * 0.3 },
     mat: 'skin',
     pos,
-    outline: false,
     castShadow: false,
     hidden: true,
   });
   const parts: PartDef[] = [
     box('hips', 0.34, 0.22, 0.22, [0, -0.04, 0]),
     box('torso', 0.36, neck, 0.24, [0, neck / 2, 0]),
-    { joint: 'head', shape: { kind: 'sphere', r: 0.11 }, mat: 'skin', pos: [0, 0.1, 0.02], outline: false, castShadow: false, hidden: true },
+    { joint: 'head', shape: { kind: 'sphere', r: 0.11 }, mat: 'skin', pos: [0, 0.1, 0.02], castShadow: false, hidden: true },
   ];
   for (const s of ['L', 'R']) {
     parts.push(
@@ -629,7 +628,7 @@ export function hull(joints: readonly JointDef[], ankle: number): PartDef[] {
       box(`foot${s}`, 0.1, ankle + 0.03, 0.26, [0, -ankle + (ankle + 0.03) / 2, 0.04]),
       box(`arm${s}`, 0.1, upper, 0.1, [0, -upper / 2, 0]),
       box(`elbow${s}`, 0.08, fore, 0.08, [0, -fore / 2, 0]),
-      { joint: `hand${s}`, shape: { kind: 'sphere', r: 0.05 }, mat: 'skin', pos: [0, -0.08, 0], outline: false, castShadow: false, hidden: true },
+      { joint: `hand${s}`, shape: { kind: 'sphere', r: 0.05 }, mat: 'skin', pos: [0, -0.08, 0], castShadow: false, hidden: true },
     );
   }
   return parts;

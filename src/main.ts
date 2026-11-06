@@ -10,6 +10,7 @@ import { NetSpells } from './net/netSpells';
 import { assetsReady } from './render/assets';
 import { isPine } from './render/open/foliage';
 import { FollowCamera } from './render/camera';
+import { GRAPHICS } from './render/look';
 import { Hero, type WeaponAt } from './render/character';
 import { TrainingDummy } from './render/dummy';
 import { ActorView } from './render/actors';
@@ -86,7 +87,6 @@ initUiScale(document.getElementById('ui') as HTMLElement);
 // URL options:
 //   ?test          start paused so automated tests can step the game frame by frame
 //   ?raid=10000    raid stress test: two armies of fighters on a big battlefield
-//   &outline=0     raid without character outlines (to compare speed)
 //   ?server=ws://localhost:7777   play on the Rust battle server's battlefield (server/)
 //     &team=0|1    which side to join (default: whichever the server picks)
 //     &play=0      just watch instead of joining
@@ -102,9 +102,8 @@ initUiScale(document.getElementById('ui') as HTMLElement);
 //     &goblins=6   a war-band of goblins in the yard's far corner (design/goblins.md)
 //   ?world&test    the open world, offline and paused for automated tests (&load: the island
 //                  kept in this browser, for bug-report replays)
-//   &look=classic  the open world in its old bright toon look; &look=new forces the new one, which is
-//                  the default unless WebGL is drawn in software (src/render/look.ts); &lookdebug=ao
-//                  shows the new look's ambient occlusion alone
+//   &quality=low|medium|high  how much of the look to draw, instead of what the graphics chip
+//                  picks (src/render/look.ts); &lookdebug=ao shows the ambient occlusion alone
 //   ?bugs=0        no bug reporter (\ records a bug report; tests turn it on with &bugs)
 //   &bugspeech=0   bug reports without live transcription; &buglang=en-GB to change its language
 // Console output and errors are kept from here on, for bug reports.
@@ -208,7 +207,7 @@ if (terrain) {
     height: (x, z, near, pad) => Math.max(terrain.water, Number.isFinite(near) ? groundAt(terrain, world.index, x, z, near, 0.5) : terrain.height(x, z), drawnGround(x, z, pad)),
   };
 }
-const follow = new FollowCamera(innerWidth / innerHeight, battlefield ? 1200 : openWorld ? 2600 : 320, battlefield ? 160 : openWorld ? 40 : 14);
+const follow = new FollowCamera(innerWidth / innerHeight, battlefield ? 1200 : openWorld ? GRAPHICS.viewDistance : 320, battlefield ? 160 : openWorld ? 40 : 14);
 // Over hills and water the camera must not dip into the ground or under the sea, and it pulls in
 // rather than looking through a wall.
 if (terrain)
@@ -655,7 +654,7 @@ const shownById = new Map<number, NetActor>();
 const crowdSource: CrowdSource | null = crowd ?? (serverUrl ? net : null);
 let crowdView: CrowdView | null = null;
 function addCrowdView(n: number): void {
-  crowdView = new CrowdView(n, params.get('outline') !== '0');
+  crowdView = new CrowdView(n);
   stage.scene.add(crowdView.group);
 }
 if (crowd) addCrowdView(crowd.n);
@@ -1618,7 +1617,7 @@ requestAnimationFrame(frame);
 
 const api = {
   ready: true,
-  /** The new look's textures and models have all arrived (src/render/assets.ts). */
+  /** The textures and models that load after the page have all arrived (src/render/assets.ts). */
   get assetsReady(): boolean {
     return assetsReady();
   },

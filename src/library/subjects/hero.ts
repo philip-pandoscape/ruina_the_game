@@ -8,15 +8,13 @@ import type { Holds } from '../../render/models/vehicles';
 import { SCENARIOS, scenario, type Moment, type Scenario } from '../../render/detail/scenarios';
 import { madeHero, madeHeroNow } from '../../render/detail/madeHero';
 import { HERO_MOVES, HERO_MOVE_SETS } from '../../render/detail/moves';
-import { NEW_LOOK } from '../../render/look';
 import { ABILITIES, MOVEMENT_SKILLS, MOVE, WEAPONS } from '../../tuning';
 import { NodeTrack, readBones, readJoint, sideOf, writeBones, writeJoint } from '../pose';
 import type { AnimDef, Bone, FrameInfo, Options, Phase, Posable, Snapshot, Source, Subject, Take } from '../types';
 
 // The hero in the library: each of the films in src/render/detail/scenarios.ts (what the rules
 // report frame by frame) played through the game's own Hero (src/render/character.ts), exactly as
-// /animations.html plays them, every frame kept. The new look's hero wears its made body
-// (madeHero.ts); ?look=classic shows the box hero.
+// /animations.html plays them, every frame kept. The hero wears its made body (madeHero.ts).
 
 const STEP = 1 / 60;
 
@@ -415,7 +413,7 @@ export const heroSubject: Subject = {
   id: 'hero',
   name: 'Hero',
   group: 'Heroes',
-  blurb: NEW_LOOK ? 'The player, in the made body (new look)' : 'The player, box body (classic look)',
+  blurb: 'The player, in the made body',
   options: [
     {
       id: 'weapon',
@@ -444,8 +442,8 @@ export const heroSubject: Subject = {
         'On top of that the stateful Hero (src/render/character.ts) eases between states (Inertia), holds planted feet where they were put down (holdFeet), draws and sheathes the weapon, closes made hands round what they hold (gripHands), and draws trails and the bowstring.',
         'The library plays the films in src/render/detail/scenarios.ts (the rules\' frame counts, speeds and timings, frame by frame at 60 fps) through that same Hero, exactly as /animations.html does.',
         made
-          ? `This is the new look's made body (madeHero.ts, src/render/assets/models/hero.glb, rig measured by fit.ts): its walk and run upper body come from Meshy's captured cycles (mocap.ts), and some combo swings are animation-library clips retargeted bone for bone (retarget.ts; which clip each weapon's combo plays: moves.ts — sets in use: ${sets}; 'keyed' means the code keyframes in swings.ts). A note on a swing that plays a clip may mean changing the clip choice, its cut (parts/from/to) or the retarget rather than swings.ts.`
-          : 'This is the classic look\'s box hero (src/content/creatures/hero.ts): every move comes from the code keyframes.',
+          ? `This is the made body (madeHero.ts, src/render/assets/models/hero.glb, rig measured by fit.ts): its walk and run upper body come from Meshy's captured cycles (mocap.ts), and some combo swings are animation-library clips retargeted bone for bone (retarget.ts; which clip each weapon's combo plays: moves.ts — sets in use: ${sets}; 'keyed' means the code keyframes in swings.ts). A note on a swing that plays a clip may mean changing the clip choice, its cut (parts/from/to) or the retarget rather than swings.ts.`
+          : 'This is the box hero (src/content/creatures/hero.ts), standing in while the made body loads (or because it could not): every move comes from the code keyframes.',
       ].join(' '),
       files: [
         { path: 'src/render/detail/humanoid.ts', what: 'poseHumanoid: every pose (gait, swings, actions, casts, hits, travel) from a PoseInput' },

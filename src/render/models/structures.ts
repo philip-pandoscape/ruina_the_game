@@ -36,7 +36,7 @@ import { propParts } from './props';
 // Buildings and world dressing, built to the footprints in shared/structures.json: w along X,
 // d along Z, facing +Z, origin on the ground at the footprint centre (docks: at sea level).
 // Each is one merged vertex-coloured mesh plus at most one unlit mesh for lit windows and lamps
-// (and the windmill's sails), with shadows on and no outlines.
+// (and the windmill's sails), with shadows on.
 
 export interface StructureOpts {
   /** Colour variant (market stall awning). */
@@ -1468,7 +1468,7 @@ export function buildStructure(id: string, opts: StructureOpts = {}): StructureM
   const c: Ctx = { d, body: new Parts(), glow: new Parts(), root, rng: makeRng((opts.seed ?? 1) * 977 + id.length * 13), opts };
   const animate = (BUILDERS[id] ?? generic)(c) ?? undefined;
   if (!c.body.empty) mesh(root, c.body.build(), { name: 'body' });
-  // The new look swaps in a made model where there is one (src/render/models/glb.ts); a cottage
+  // A made model is swapped in where there is one (src/render/models/glb.ts); a cottage
   // still being built, or a stall in another colour, keeps its own.
   grainify(root);
   if ((opts.stage ?? 4) >= 4) madeStructure(id, root, d, id === 'stall' && opts.tint !== undefined ? stallVariant(opts.tint) : opts.seed);

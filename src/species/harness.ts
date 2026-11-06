@@ -109,10 +109,10 @@ const api = {
   list: () => speciesIds(),
 
   /** Loads a species and builds a crowd of `capacity`, returning everything worth asserting on. */
-  load(id: string, capacity = 1, opts: { smooth?: boolean; outlines?: boolean } = {}) {
+  load(id: string, capacity = 1, opts: { smooth?: boolean } = {}) {
     teardown();
     species = getSpecies(id);
-    crowd = new SpeciesCrowd(species, capacity, { smooth: opts.smooth, outlines: opts.outlines });
+    crowd = new SpeciesCrowd(species, capacity, { smooth: opts.smooth });
     scene.add(crowd.group);
     crowd.setCount(0);
     label.textContent = `${id}  joints=${species.joints.length}  boxes=${species.proxy.length}  tris=${crowd.trianglesPerInstance}`;

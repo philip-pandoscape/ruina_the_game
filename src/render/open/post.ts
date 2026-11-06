@@ -2,14 +2,18 @@ import * as THREE from 'three';
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { FullScreenQuad } from 'three/addons/postprocessing/Pass.js';
-import { LOOK_DEBUG_AO, POST, QUALITY } from '../look';
+import { GRAPHICS, LOOK_DEBUG_AO, POST } from '../look';
 
-// The new look's screen effects (?look=new, src/render/look.ts). Each frame:
-//   1. the scene is drawn into a multisampled, high-range buffer that keeps its depth;
-//   2. ambient occlusion is worked out from that depth alone (three's GTAO; no second scene draw);
+// The screen effects. Each frame:
+//   1. the scene is drawn into a high-range buffer that keeps its depth (multisampled, above low
+//      quality);
+//   2. ambient occlusion is worked out from that depth alone (three's GTAO; no second scene draw;
+//      at high quality only);
 //   3. one pass darkens the occluded corners and lays haze over the distance: fog that is thick
 //      over the sea, thins with height, and glows toward the sun;
-//   4. bloom on whatever is brighter than white, then tone mapping and the colour grade, to the screen.
+//   4. bloom on whatever is brighter than white (above low quality), then tone mapping and the
+//      colour grade, to the screen.
+// Which of them the quality draws is in src/render/look.ts (GRAPHICS).
 // The sky dome is left as it is (it already fades to the horizon colour the haze uses).
 
 const quadVertex = /* glsl */ `
@@ -235,19 +239,19 @@ export class WorldPost {
     this.ao?.dispose();
     this.bloom?.dispose();
     const depth = new THREE.DepthTexture(w, h);
-    this.sceneTarget = new THREE.WebGLRenderTarget(w, h, { type: THREE.HalfFloatType, samples: 4, depthTexture: depth });
+    this.sceneTarget = new THREE.WebGLRenderTarget(w, h, { type: THREE.HalfFloatType, samples: GRAPHICS.multisample ? 4 : 0, depthTexture: depth });
     this.litTarget = new THREE.WebGLRenderTarget(w, h, { type: THREE.HalfFloatType, depthBuffer: false });
     // Occlusion is soft and slow-changing, so it is worked out at half size (a quarter of the cost)
     // from the full-size depth, and smoothed back up where it is laid on.
-    // At medium quality there is no occlusion pass at all: the haze pass reads plain white instead.
-    this.ao = QUALITY === 'high' ? new GTAOPass(this.scene, camera, Math.ceil(w / 2), Math.ceil(h / 2), { depthTexture: depth }) : null;
+    // Below high quality there is no occlusion pass at all: the haze pass reads plain white instead.
+    this.ao = GRAPHICS.occlusion ? new GTAOPass(this.scene, camera, Math.ceil(w / 2), Math.ceil(h / 2), { depthTexture: depth }) : null;
     if (this.ao) {
       this.ao.output = GTAOPass.OUTPUT.Off;
       this.ao.updateGtaoMaterial({ radius: POST.ao.radius, distanceExponent: 2, thickness: 2, scale: POST.ao.darken, samples: 16, screenSpaceRadius: false });
       this.ao.updatePdMaterial({ radius: 4, rings: 2, samples: 16 });
     }
     const b = POST.bloom;
-    this.bloom = new UnrealBloomPass(new THREE.Vector2(w, h), b.strength, b.radius, b.threshold);
+    this.bloom = GRAPHICS.bloom ? new UnrealBloomPass(new THREE.Vector2(w, h), b.strength, b.radius, b.threshold) : null;
     const u = this.atmosphereMat.uniforms;
     u.tColor.value = this.sceneTarget.texture;
     u.tDepth.value = this.sceneTarget.depthTexture;
@@ -276,7 +280,7 @@ export class WorldPost {
     u.uFar.value = camera.far;
     r.setRenderTarget(litTarget);
     this.atmosphere.render(r);
-    this.bloom!.render(r, null as unknown as THREE.WebGLRenderTarget, litTarget, 0, false);
+    this.bloom?.render(r, null as unknown as THREE.WebGLRenderTarget, litTarget, 0, false);
 
     r.setRenderTarget(null);
     this.finish.render(r);

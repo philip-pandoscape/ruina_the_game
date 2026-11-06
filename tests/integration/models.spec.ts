@@ -13,7 +13,7 @@ const SHOTS = 'screenshots';
 const CATS = ['vehicles', 'mounts', 'gliders', 'packs', 'crops', 'structures', 'props', 'livestock', 'villagers'] as const;
 type Cat = (typeof CATS)[number];
 
-/** Triangles per model, outlines included. */
+/** Triangles per model. */
 const BUDGET: Record<Cat, number> = {
   vehicles: 6000,
   structures: 8000,

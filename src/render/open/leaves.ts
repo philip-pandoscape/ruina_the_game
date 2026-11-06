@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { track } from '../assets';
 import { toon } from '../toon';
 
-// The new look's trees: the wind's clock, the trunks' bark (CC0, Poly Haven: bark_brown_02,
+// The trees: the wind's clock, the trunks' bark (CC0, Poly Haven: bark_brown_02,
 // pine_bark) and the material for a tree's solid parts. The crowns are src/render/open/canopy.ts.
 
 /** The wind's clock for the swaying crowns (seconds), advanced by OpenStage. */

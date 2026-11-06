@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { Heightfield, SURFACE, valueNoise } from '../../sim/terrain';
-import { NEW_LOOK, PALETTE } from '../look';
+import { GRAPHICS, PALETTE } from '../look';
 import { toon } from '../toon';
 import { splatWeights, texturedGround } from './ground';
 
@@ -20,8 +20,8 @@ export class TerrainView {
 
   constructor(private hf: Heightfield) {
     this.material = toon(0xffffff, { vertexColors: true });
-    // The new look lays real textures over the surfaces (src/render/open/ground.ts).
-    if (NEW_LOOK) texturedGround(this.material, GROUND[SURFACE.rock][0]);
+    // Real textures laid over the surfaces (src/render/open/ground.ts), above low quality.
+    if (GRAPHICS.groundTextures) texturedGround(this.material, GROUND[SURFACE.rock][0]);
     const per = Math.ceil(hf.cells / CHUNK);
     for (let cj = 0; cj < per; cj++)
       for (let ci = 0; ci < per; ci++) {
@@ -83,8 +83,8 @@ export class TerrainView {
     const pos = new Float32Array(vx * vz * 3);
     const nor = new Float32Array(vx * vz * 3);
     const col = new Float32Array(vx * vz * 3);
-    const splatA = NEW_LOOK ? new Float32Array(vx * vz * 4) : null;
-    const splatB = NEW_LOOK ? new Float32Array(vx * vz * 4) : null;
+    const splatA = GRAPHICS.groundTextures ? new Float32Array(vx * vz * 4) : null;
+    const splatB = GRAPHICS.groundTextures ? new Float32Array(vx * vz * 4) : null;
     const around: number[] = [];
     const wa = [0, 0, 0, 0];
     const wb = [0, 0, 0, 0];
@@ -161,8 +161,8 @@ export class TerrainView {
     geo.computeBoundingBox();
     const mesh = new THREE.Mesh(geo, this.material);
     mesh.receiveShadow = true;
-    // In the new look hills shade the ground behind them too, which shows when the sun is low.
-    mesh.castShadow = NEW_LOOK;
+    // Hills shade the ground behind them too, which shows when the sun is low (not at low quality).
+    mesh.castShadow = GRAPHICS.shadow.hills;
     mesh.matrixAutoUpdate = false;
     return mesh;
   }

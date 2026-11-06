@@ -4,7 +4,7 @@ import { toon } from '../toon';
 import { foliageTime } from './leaves';
 import { TAU } from '../../util/math';
 
-// The new look's crowns: soft, painterly masses of foliage, as in the island's reference picture.
+// The crowns: soft, painterly masses of foliage, as in the island's reference picture.
 // Each crown is a few hundred small clumps of leaves (or tufts of needles, for the pines) scattered
 // over the surface of a rough shape, every clump turned to face the camera, so the crown never shows
 // a flat card edge on. Each clump is lit with the normal of the shape at that point, so the whole

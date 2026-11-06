@@ -1,14 +1,14 @@
 import * as THREE from 'three';
 import { track } from '../assets';
-import { NEW_LOOK } from '../look';
+import { GRAPHICS } from '../look';
 import { toon } from '../toon';
 
-// The new look's grain for built things drawn in vertex colours (buildings, vehicles, docks, props,
-// packs): each surface takes the grain its colour suggests: warm browns get wood planks, greys and
-// stone colours get rubble stone, the rest (plaster, canvas, paint) a faint plaster tooth. Projected
-// from three sides in world space, so no model needs texture coordinates. One texture holds all
-// three, a channel each (CC0, Poly Haven: brown_planks_05, stone_wall, plastered_wall). Creatures
-// keep the plain vertex-colour material.
+// The grain of built things drawn in vertex colours (buildings, vehicles, docks, props, packs),
+// above low quality (src/render/look.ts): each surface takes the grain its colour suggests: warm
+// browns get wood planks, greys and stone colours get rubble stone, the rest (plaster, canvas,
+// paint) a faint plaster tooth. Projected from three sides in world space, so no model needs
+// texture coordinates. One texture holds all three, a channel each (CC0, Poly Haven:
+// brown_planks_05, stone_wall, plastered_wall). Creatures keep the plain vertex-colour material.
 
 /** Each channel's average, so the grain multiplies colours without darkening them on the whole. */
 const MEAN = [0.771, 0.555, 0.638];
@@ -92,16 +92,16 @@ function withGrain(material: THREE.MeshToonMaterial): THREE.MeshToonMaterial {
 let built: THREE.MeshToonMaterial | null = null;
 let builtCloth: THREE.MeshToonMaterial | null = null;
 
-/** Vertex colours with the grain of what they're made of (new look); else just vertex colours. */
+/** Vertex colours with the grain of what they're made of; at low quality just vertex colours. */
 export function grainMaterial(plain: THREE.MeshToonMaterial): THREE.MeshToonMaterial {
-  if (!NEW_LOOK) return plain;
+  if (!GRAPHICS.grain) return plain;
   if (plain.side === THREE.DoubleSide) return (builtCloth ??= withGrain(toon(0xffffff, { vertexColors: true, side: THREE.DoubleSide })));
   return (built ??= withGrain(toon(0xffffff, { vertexColors: true })));
 }
 
 /** Gives a built model (not a creature) the grain: its plain vertex-colour meshes take the grain material. */
 export function grainify(root: THREE.Object3D): void {
-  if (!NEW_LOOK) return;
+  if (!GRAPHICS.grain) return;
   root.traverse((o) => {
     const m = o as THREE.Mesh;
     if (!m.isMesh) return;

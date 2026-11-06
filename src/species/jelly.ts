@@ -5,7 +5,7 @@ import { buildPoseTexture } from './pose';
 import { MATRIX_STRIDE, clipRows, type SpeciesDef } from './types';
 import { TAU } from '../util/math';
 
-// The new look's slimes (src/render/look.ts): a gumdrop of glossy jelly the sun shines through,
+// The slimes as the game draws them: a gumdrop of glossy jelly the sun shines through,
 // whatever it swallowed floating inside, and a face painted on its front that
 // changes with what it is doing. The same skeleton and baked clips as the box slime
 // (builtin/slime.ts), so they move exactly as the rules expect; four draw calls per size (the soft
