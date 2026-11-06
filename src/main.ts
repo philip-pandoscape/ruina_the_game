@@ -540,6 +540,8 @@ function teleport(x: number, z: number, facing = sim.player.facing): void {
 }
 if (lifeUI) {
   lifeUI.onTeleport = (x, z, facing) => teleport(x, z, facing);
+  // Admins go into the developer zones from the Admin window (the server checks it's an admin).
+  if (online?.welcome.dev) lifeUI.onEnterZone = (id) => online.link.zone(id);
   lifeUI.onReset = async () => {
     if (online) await online.link.reset();
     else clearLife();

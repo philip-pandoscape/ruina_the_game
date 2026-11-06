@@ -31,6 +31,7 @@ export interface AppHooks {
   onExitToSelect: (() => void) | null;
   onBugReport: (() => void) | null;
   bugKey: () => string;
+  onEnterZone: ((id: string) => void) | null;
 }
 
 export interface IslandUI {

@@ -103,6 +103,8 @@ test('an admin has the Admin menu on character select and in the world, and it o
   await page.locator('#hud-menu [data-press="admin"]').click();
   expect(await panel(page)).toBe('admin');
   await expect(page.locator('.mw').getByRole('button', { name: 'Animation Library' })).toBeVisible();
+  // The developer zones, a button each, from the world.
+  await expect(page.locator('.mw').getByRole('button', { name: 'The Battlefield', exact: true }).first()).toBeVisible();
   await page.locator('.mw').getByRole('button', { name: 'Developer Tools' }).click();
   expect(await panel(page)).toBe('dev');
 

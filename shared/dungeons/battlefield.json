@@ -2,6 +2,7 @@
   "comment": "Built from content/dungeons/battlefield.json by tools/content/contentc.mjs (npm run content): edit there, not here. The battlefield, a developer zone (docs/admin.md): only admins go in, from the Admin menu, all into one copy (`shared`). Two sides of bots fight across it (crates/engine/src/bots.rs): they come in with the first admin and go when the last one leaves, so it costs nothing while nobody is there. Placed as a dungeon is (shared/dungeons/goblinsDread.json says how), an open arena high above the sea south-east of Emberholm, inside the 760 m from the middle that anyone can go; admins join the near side. `door` is where its way out lets you out on the island. Heights (top) are above origin.y.",
   "id": "battlefield",
   "name": "The Battlefield",
+  "about": "One battlefield for every admin: sixteen bots a side, fighting, there only while an admin's in it.",
   "maxPlayers": 20,
   "developer": true,
   "shared": true,

@@ -38,6 +38,8 @@ export interface DungeonDef {
   decks: DungeonPiece[];
   /** A developer zone: admins go in from the Admin menu, as there's no portal to it on the island. */
   developer?: boolean;
+  /** What a developer zone is for, as the Admin menu says it. */
+  about?: string;
   /** One copy for everyone allowed in (the battlefield), instead of one a party. */
   shared?: boolean;
   /** Where a developer zone lets you out on the island (a dungeon's door is in the zone's recipe). */

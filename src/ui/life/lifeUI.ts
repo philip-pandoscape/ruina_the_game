@@ -586,6 +586,8 @@ export class LifeUI {
   others: () => Array<{ name: string; online: boolean; x: number; z: number }> = () => [];
   /** Set by the app when bug reports are on: start (or finish) one. */
   onBugReport: (() => void) | null = null;
+  /** Set by the app online, for admins: into a developer zone (the yard, the battlefield). */
+  onEnterZone: ((id: string) => void) | null = null;
   /** How this keyboard labels the bug report key. */
   bugKey: () => string = () => '\\';
 
