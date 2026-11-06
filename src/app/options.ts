@@ -9,6 +9,8 @@ interface OptionDoc {
   name: string;
   what: string;
   developer: boolean;
+  /** Read by another module, not readOptions: the look reads its own (the developer pages share it). */
+  readBy?: string;
 }
 
 /** Every option of the game's page (`?name` or `&name=value`). */
@@ -26,8 +28,13 @@ export const OPTION_DOCS: readonly OptionDoc[] = [
   { name: 'softlock=0', what: 'No automatic pick of a target to face (Tab still picks one).', developer: true },
   { name: 'as=name', what: 'On a development server: signs straight in as that name and plays its last character.', developer: true },
   { name: 'fresh', what: 'Starts your island over.', developer: true },
-  { name: 'quality=low|medium|high', what: 'How much of the look to draw, instead of what the graphics chip picks (src/render/look.ts).', developer: false },
-  { name: 'lookdebug=ao', what: 'Shows the ambient occlusion alone.', developer: true },
+  {
+    name: 'quality=low|medium|high',
+    what: 'How much of the look to draw, instead of what the graphics chip picks.',
+    developer: false,
+    readBy: 'src/render/look.ts',
+  },
+  { name: 'lookdebug=ao', what: 'Shows the ambient occlusion alone.', developer: true, readBy: 'src/render/look.ts' },
   { name: 'bugs=0', what: 'No bug reporter (\\ records a bug report; with test it is off unless bugs is given).', developer: true },
   { name: 'bugspeech=0', what: 'Bug reports without live transcription.', developer: true },
   { name: 'buglang=en-GB', what: "The bug reporter's transcription language (else the browser's).", developer: true },
