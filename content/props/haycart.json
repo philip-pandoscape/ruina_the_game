@@ -4,5 +4,14 @@
   "d": 2.8,
   "h": 1.8,
   "collider": "box",
-  "look": "Small two-wheeled decor cart piled with hay."
+  "look": {
+    "body": "haycart",
+    "model": {
+      "files": [
+        "haycart"
+      ],
+      "yaw": 1.5707963267948966,
+      "sink": 0.02
+    }
+  }
 }

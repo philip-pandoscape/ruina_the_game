@@ -4,5 +4,13 @@
   "d": 0.35,
   "h": 0.6,
   "collider": "none",
-  "look": "Mooring bollard."
+  "look": {
+    "body": "bollard",
+    "model": {
+      "files": [
+        "bollard"
+      ],
+      "sink": 0.02
+    }
+  }
 }

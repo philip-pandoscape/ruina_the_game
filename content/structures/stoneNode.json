@@ -6,5 +6,13 @@
   "h": 1.6,
   "collider": "post",
   "r": 1.2,
-  "look": "Pale grey quarry rock with chisel marks and a few loose blocks."
+  "look": {
+    "body": "stoneNode",
+    "model": {
+      "files": [
+        "stoneNode"
+      ],
+      "sink": 0.2
+    }
+  }
 }

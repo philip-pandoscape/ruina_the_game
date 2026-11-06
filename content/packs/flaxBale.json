@@ -12,6 +12,14 @@
       "n": 8
     }
   ],
-  "look": "Tight bundle of pale flax fibre ~0.75 x 0.5 x 0.5 wrapped in sacking and bound with three ropes, blue flax flowers tucked under the rope, straps.",
+  "look": {
+    "body": "flaxBale",
+    "model": {
+      "files": [
+        "pack_flaxBale"
+      ],
+      "yaw": 3.141592653589793
+    }
+  },
   "kind": "trade"
 }

@@ -1342,7 +1342,7 @@ function cog(def: BoatDef): VehicleModel {
   rudder(b, [0, 0, z0 - 0.1], castleY + 0.1, -def.draft + 0.3, 0.75, 0x6b4a2e);
   // Yard and square sail, braced round with `boom`, bellying forward as it fills.
   const yardY = nestY - 0.6;
-  const yard = pivot(b.root, mast.x, yardY, mast.z + 0.3, 'yard');
+  const yard = pivot(b.root, mast.x, yardY, mast.z + 0.3, 'sailYard');
   const halfYard = def.width * 0.85;
   mesh(yard, new Parts().add(rod([-halfYard, 0, 0], [halfYard, 0, 0], 0.13, 8, 0.13), PAL.woodLight).build());
   const stripes = 8;
@@ -1417,7 +1417,7 @@ function genericBoat(def: BoatDef): VehicleModel {
   if (def.mast) {
     b.body.add(rod([def.mast.x, deck, def.mast.z], [def.mast.x, def.mast.height, def.mast.z], 0.15, 8, 0.1), PAL.woodLight);
     const sail = new Cloth(4, 4, (i) => (i % 2 ? PAL.canvas : PAL.red));
-    const yard = pivot(b.root, def.mast.x, def.mast.height * 0.8, def.mast.z + 0.2, 'yard');
+    const yard = pivot(b.root, def.mast.x, def.mast.height * 0.8, def.mast.z + 0.2, 'sailYard');
     mesh(yard, sail.geometry, { mat: clothMaterial() });
     const hw = def.width * 0.7;
     const hs = def.mast.height * 0.45;
@@ -1432,7 +1432,8 @@ function genericBoat(def: BoatDef): VehicleModel {
 
 // ---------- entry point ----------
 
-const BUILDERS: Record<string, (def: never) => VehicleModel> = {
+/** The vehicles' bodies, by name: a vehicle's look names one. */
+const BODIES: Record<string, (def: never) => VehicleModel> = {
   farmCart,
   roadster,
   hauler,
@@ -1441,9 +1442,13 @@ const BUILDERS: Record<string, (def: never) => VehicleModel> = {
   cog,
 };
 
-/** Builds the model for a vehicle definition; unknown ids get a generic body from the data. */
+/** The bodies a look can name. */
+export const vehicleBodies = (): string[] => Object.keys(BODIES);
+
+/** Builds the model for a vehicle: the body its look names, or one made from its numbers if it names none. */
 export function buildVehicle(def: VehicleDef): VehicleModel {
-  const custom = BUILDERS[def.id] as ((d: VehicleDef) => VehicleModel) | undefined;
+  const body = def.look?.body;
+  const custom = (body ? BODIES[body] : undefined) as ((d: VehicleDef) => VehicleModel) | undefined;
   const model = custom ? custom(def) : def.class === 'boat' ? genericBoat(def) : genericWheeled(def);
   // Planks, iron and canvas take their grain (src/render/models/detail.ts).
   grainify(model.root);

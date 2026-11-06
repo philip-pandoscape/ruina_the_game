@@ -75,6 +75,9 @@ export function itemDef(id: string): ItemDef {
 /** Whether an item claims a house plot (a house blueprint); false for one that isn't there. */
 export const claimsPlot = (id: string): boolean => BY_ID.get(id)?.placeOn === 'plot';
 
+/** The structure the item set down on open ground places: a farm plot's scarecrow, at its corner. */
+export const groundPlaced = (): string | undefined => ITEMS.find((i) => i.placeOn === 'ground')?.places;
+
 export const vendorFor = (npc: string): VendorDef | undefined => VENDORS.find((v) => v.npc === npc);
 export const recipesAt = (bench: string): RecipeDef[] => RECIPES.filter((r) => r.bench === bench);
 export const recipe = (id: string): RecipeDef | undefined => RECIPES.find((r) => r.id === id);

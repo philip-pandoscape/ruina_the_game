@@ -6,5 +6,19 @@
   "h": 13,
   "collider": "post",
   "r": 2.6,
-  "look": "Stone tower windmill tapering upward, wooden cap, four lattice sails (radius 6) on a hub facing +Z at height 9. Expose the sail hub as an object the caller can spin about Z."
+  "look": {
+    "body": "windmill",
+    "model": {
+      "files": [
+        "windmill"
+      ],
+      "w": 5.4,
+      "d": 5.4,
+      "h": 10.6,
+      "sink": 0.2,
+      "keep": [
+        "sails"
+      ]
+    }
+  }
 }

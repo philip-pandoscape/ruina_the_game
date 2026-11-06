@@ -15,5 +15,7 @@
   "seedChance": 0.35,
   "harvestLabor": 2,
   "plantLabor": 0,
-  "look": "Grain clump. Sprout: a few thin green blades. Young: knee-high green stalks. Ripe: waist-high golden stalks with drooping bearded ears."
+  "look": {
+    "body": "barley"
+  }
 }

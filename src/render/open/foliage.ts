@@ -5,7 +5,8 @@ import type { Obstacle } from '../../engine/rules';
 import { hash2, SURFACE, type Heightfield } from '../../engine/zone';
 import { track } from '../assets';
 import { GRAPHICS, PALETTE } from '../look';
-import { madeProp } from '../models/glb';
+import { ROCKS, madeProp } from '../models/glb';
+import type { MadeModel } from '../../content/looks';
 import { bushClumps, clumpDepthMaterial, clumpMaterial, clumpTexture, crownClumps, type CrownShape, pineClumps, type PineShape, tuftTexture } from './canopy';
 import { barkTexture, solidMaterial } from './leaves';
 import { toon } from '../toon';
@@ -283,9 +284,9 @@ export class FoliageView {
       this.placeLod(lods.pine, needleTufts.mat, pines, needles, pineShape, needleTufts.depth);
       // Made boulders once they load: granite inland, sharp grey-brown rock by the shore.
       const coast = (o: Obstacle) => hf.height(o.x, o.z) < 6 || hash2(Math.round(o.x * 10), Math.round(o.z * 10), 149) < 0.3;
-      this.madeRocks('boulderCoast', rocks.filter(coast), rock, mat, rng);
+      this.madeRocks(ROCKS.coast, rocks.filter(coast), rock, mat, rng);
       this.madeRocks(
-        'boulderGranite',
+        ROCKS.granite,
         rocks.filter((o) => !coast(o)),
         rock,
         mat,
@@ -383,7 +384,7 @@ export class FoliageView {
         items.push({ kind: 'rock', x: jx, z: jz, r: 0, scale, rot: hash2(x, z, seed + 431) * Math.PI * 2 });
       }
     if (!items.length) return;
-    const made = madeProp('boulderCoast', { w: 1.6, h: 1.2, d: 1.6 });
+    const made = madeProp(ROCKS.coast, { w: 1.6, h: 1.2, d: 1.6 });
     if (!made) return;
     track(
       made.then((m) => {
@@ -412,9 +413,9 @@ export class FoliageView {
   }
 
   /** Rocks drawn plain at once, then as a made boulder (src/render/models/glb.ts) when it arrives. */
-  private madeRocks(id: string, items: Obstacle[], plainGeo: THREE.BufferGeometry, plainMat: THREE.Material, rng: () => number): void {
+  private madeRocks(rock: MadeModel, items: Obstacle[], plainGeo: THREE.BufferGeometry, plainMat: THREE.Material, rng: () => number): void {
     const plain = this.place(plainGeo, plainMat, items, () => new THREE.Color(PALETTE.rock).offsetHSL(0, 0, range(rng, -0.06, 0.06)), 0.75);
-    const made = plain && madeProp(id, { w: 1.6, h: 1.2, d: 1.6 });
+    const made = plain && madeProp(rock, { w: 1.6, h: 1.2, d: 1.6 });
     if (!plain || !made) return;
     const tints = items.map(() => new THREE.Color().setScalar(range(rng, 0.86, 1.04)));
     track(

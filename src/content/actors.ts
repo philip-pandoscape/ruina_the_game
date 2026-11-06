@@ -1,5 +1,6 @@
 import data from '../../shared/actors.json' with { type: 'json' };
 import { CREATURES } from './creatures';
+import type { CreatureLook } from './looks';
 
 // What kinds of thing can exist in the world. The data is in shared/actors.json so the server
 // reads the same numbers; adding a monster starts there, and the rules will spawn it, hit it,
@@ -88,4 +89,6 @@ export interface ActorKind {
   name?: string;
   /** Clips that play by distance walked, not by state: metres one cycle covers. Drawing only. */
   cycles?: Record<string, number>;
+  /** Drawn as jelly, with what is inside it; how it falls apart (src/content/looks.ts). Drawing only. */
+  look?: CreatureLook;
 }

@@ -1,11 +1,13 @@
 import * as THREE from 'three';
 import emberholm from '../../../../shared/regions/emberholm.json' with { type: 'json' };
-import { ANIMAL_IDS, buildAnimal, restartIdles as restartAnimals, type AnimalId, type AnimalModel } from '../../../render/models/animals';
-import { VILLAGER_IDS, buildVillager, restartIdles as restartVillagers, type VillagerModel } from '../../../render/models/villagers';
+import { buildAnimal, restartIdles as restartAnimals, type AnimalModel } from '../../../render/models/animals';
+import { buildVillager, restartIdles as restartVillagers, type VillagerModel } from '../../../render/models/villagers';
 import { buildMount, type MountModel } from '../../../render/models/mounts';
 import { MOUNTS } from '../../../content/vehicles';
+import { ANIMALS } from '../../../content/farming';
 import { NodeTrack, readBones, sideOf, writeBones } from '../pose';
 import type { AnimDef, Bone, FrameInfo, Options, Phase, Posable, Snapshot, Source, Subject, Take } from '../types';
+import type { ZoneNpc } from '../../../engine/zone';
 
 // Things built as models with an animate() of their own (src/render/models/): the farm animals,
 // Emberholm's townsfolk and the mounts. Their moving parts are named pivots (body, head, armL,
@@ -164,9 +166,13 @@ class ModelTake implements Take {
 
 // ---------- farm animals ----------
 
-const ANIMAL_NAMES: Record<AnimalId, [string, string]> = { chicken: ['Chicken', 'Chick'], sheep: ['Sheep', 'Lamb'], cow: ['Cow', 'Calf'] };
+/** An animal's name, grown and young (shared/farming.json). */
+const animalNames = (id: string): [string, string] => {
+  const a = ANIMALS.find((x) => x.id === id);
+  return [a?.name ?? id, a?.young ?? id];
+};
 
-function animalModel(id: AnimalId, young: boolean, hungry: boolean, ready: boolean): Model {
+function animalModel(id: string, young: boolean, hungry: boolean, ready: boolean): Model {
   restartAnimals();
   const m: AnimalModel = buildAnimal(id, young ? 0 : 1);
   return { root: m.root, step: (dt, t) => m.animate(dt, { time: t, hungry, ready }) };
@@ -178,13 +184,13 @@ const ANIMAL_ANIMS: Array<{ id: string; label: string; hungry: boolean; ready: b
   { id: 'ready', label: 'Ready to collect', hungry: false, ready: true, note: 'An egg, a fleece or milk to collect (adults)' },
 ];
 
-function animalSubject(id: AnimalId): Subject {
+function animalSubject(id: string): Subject {
   const seconds = 14;
   return {
     id,
-    name: ANIMAL_NAMES[id][0],
+    name: animalNames(id)[0],
     group: 'Creatures',
-    blurb: `Farm animal (young: ${ANIMAL_NAMES[id][1].toLowerCase()})`,
+    blurb: `Farm animal (young: ${animalNames(id)[1].toLowerCase()})`,
     options: [
       {
         id: 'age',
@@ -192,7 +198,7 @@ function animalSubject(id: AnimalId): Subject {
         value: 'adult',
         choices: [
           { value: 'adult', label: 'Adult' },
-          { value: 'young', label: ANIMAL_NAMES[id][1] },
+          { value: 'young', label: animalNames(id)[1] },
         ],
       },
     ],
@@ -229,11 +235,11 @@ function animalSubject(id: AnimalId): Subject {
 
 // ---------- townsfolk ----------
 
-const NPCS = (emberholm as unknown as { npcs: Array<{ id: string; name: string; title: string }> }).npcs;
+const NPCS = (emberholm as unknown as { npcs: ZoneNpc[] }).npcs;
 
 function villagerModel(id: string, talking: boolean): Model {
   restartVillagers();
-  const m: VillagerModel = buildVillager(id);
+  const m: VillagerModel = buildVillager(id, NPCS.find((n) => n.id === id)?.look);
   return { root: m.root, step: (dt, t) => m.animate(dt, { time: t, talking }) };
 }
 
@@ -338,4 +344,8 @@ function mountSubject(id: string): Subject {
   };
 }
 
-export const modelSubjects: Subject[] = [...ANIMAL_IDS.map(animalSubject), ...VILLAGER_IDS.map(villagerSubject), ...MOUNTS.map((m) => mountSubject(m.id))];
+export const modelSubjects: Subject[] = [
+  ...ANIMALS.map((a) => animalSubject(a.id)),
+  ...NPCS.map((n) => villagerSubject(n.id)),
+  ...MOUNTS.map((m) => mountSubject(m.id)),
+];

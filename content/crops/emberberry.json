@@ -15,5 +15,7 @@
   "seedChance": 0.25,
   "harvestLabor": 3,
   "plantLabor": 0,
-  "look": "Low round bush with glossy leaves. Ripe: clusters of glowing orange-red berries (slightly emissive)."
+  "look": {
+    "body": "emberberry"
+  }
 }

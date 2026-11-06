@@ -6,5 +6,13 @@
   "h": 1.8,
   "collider": "post",
   "r": 1.2,
-  "look": "Grey boulder cluster with rusty-orange iron veins and a few bright crystals."
+  "look": {
+    "body": "oreNode",
+    "model": {
+      "files": [
+        "oreNode"
+      ],
+      "sink": 0.2
+    }
+  }
 }

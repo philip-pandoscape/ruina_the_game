@@ -82,5 +82,8 @@
       "r": 0.5,
       "steer": false
     }
-  ]
+  ],
+  "look": {
+    "body": "farmCart"
+  }
 }

@@ -23,6 +23,9 @@ export interface BlueprintDef {
 
 export const BLUEPRINTS = data.blueprints as unknown as BlueprintDef[];
 
+/** The structure an unclaimed house plot is marked out with. */
+export const PLOT_MARKER: string | undefined = (data as { plotMarker?: string }).plotMarker;
+
 export function blueprintDef(id: string): BlueprintDef {
   const b = BLUEPRINTS.find((x) => x.id === id);
   if (!b) throw new Error(`unknown blueprint "${id}"`);

@@ -58,7 +58,9 @@
       "seedChance": 0.35,
       "harvestLabor": 2,
       "plantLabor": 0,
-      "look": "Potato-like plant. Seed: small dirt mound with a marker twig. Sprout: two round leaves. Young: bushy dark-green leaves. Ripe: fuller bush with small yellow star flowers and two golden tubers showing at the soil."
+      "look": {
+        "body": "sunroot"
+      }
     },
     {
       "id": "barley",
@@ -77,7 +79,9 @@
       "seedChance": 0.35,
       "harvestLabor": 2,
       "plantLabor": 0,
-      "look": "Grain clump. Sprout: a few thin green blades. Young: knee-high green stalks. Ripe: waist-high golden stalks with drooping bearded ears."
+      "look": {
+        "body": "barley"
+      }
     },
     {
       "id": "flax",
@@ -96,7 +100,9 @@
       "seedChance": 0.3,
       "harvestLabor": 2,
       "plantLabor": 0,
-      "look": "Slender upright stems. Ripe: many pale-blue five-petal flowers on top."
+      "look": {
+        "body": "flax"
+      }
     },
     {
       "id": "emberberry",
@@ -115,7 +121,9 @@
       "seedChance": 0.25,
       "harvestLabor": 3,
       "plantLabor": 0,
-      "look": "Low round bush with glossy leaves. Ripe: clusters of glowing orange-red berries (slightly emissive)."
+      "look": {
+        "body": "emberberry"
+      }
     },
     {
       "id": "apple",
@@ -150,7 +158,9 @@
           "effect": "thunder"
         }
       },
-      "look": "Tree. Sapling: thin stick with a few leaves. Young: small tree 2 m. Grown: full round-canopy tree 4.5 m. Ripe: same tree with bright red apples dotted through the canopy."
+      "look": {
+        "body": "apple"
+      }
     },
     {
       "id": "pine",
@@ -185,7 +195,9 @@
           "effect": "thunder"
         }
       },
-      "look": "Conifer. Sapling: tiny cone of needles. Young: 2 m pine. Grown: 5 m pine. Ripe: same 6 m pine with cones (the 'ready to fell' look)."
+      "look": {
+        "body": "pine"
+      }
     }
   ],
   "gathering": {
@@ -258,7 +270,10 @@
       ],
       "produceSeconds": 120,
       "collectLabor": 1,
-      "verb": "Collect eggs"
+      "verb": "Collect eggs",
+      "look": {
+        "body": "chicken"
+      }
     },
     {
       "id": "sheep",
@@ -277,7 +292,10 @@
       ],
       "produceSeconds": 200,
       "collectLabor": 2,
-      "verb": "Shear wool"
+      "verb": "Shear wool",
+      "look": {
+        "body": "sheep"
+      }
     },
     {
       "id": "cow",
@@ -296,7 +314,10 @@
       ],
       "produceSeconds": 220,
       "collectLabor": 2,
-      "verb": "Milk the cow"
+      "verb": "Milk the cow",
+      "look": {
+        "body": "cow"
+      }
     }
   ]
 }

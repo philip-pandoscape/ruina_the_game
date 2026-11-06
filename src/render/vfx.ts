@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { makeRng, range } from '../util/rng';
 import type { GameEvent } from '../engine/rules';
 import { MOVEMENT_SKILLS } from '../content/tuning';
+import { findKind } from '../content/actors';
 import { toon } from './toon';
 
 // ---------- Slash trail ----------
@@ -445,8 +446,8 @@ export class Vfx {
         break;
       }
       case 'actorDie': {
-        // Straw for a dummy; anything else bursts in its own colour once content says so.
-        if (e.kind !== 'dummy') {
+        // Straw for a kind whose look says so (the training dummy); anything else a puff of dust.
+        if (findKind(e.kind)?.look?.dies !== 'straw') {
           this.puff(e.x, Math.max(0.2, e.y), e.z, 10, 2.2, 0.26);
           break;
         }

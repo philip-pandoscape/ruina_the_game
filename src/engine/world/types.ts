@@ -1,4 +1,6 @@
-// The shape of a zone recipe (shared/regions/*.json) and of what the generator builds from it.
+// The shape of a region's recipe (shared/regions/*.json) and of what the generator builds from it.
+
+import type { VillagerLook } from '../../content/looks';
 
 export interface ZoneRecipe {
   id: string;
@@ -107,8 +109,8 @@ export interface ZoneNpc {
   facing: number;
   /** Their actor kind (content/actors/): solid townsfolk, and how the crowd draws them from afar. */
   kind: string;
-  /** The body they're drawn with close up: a townsperson's build (src/render/models/villagers.ts), else a plain villager dressed from this name. */
-  look: string;
+  /** How they're drawn close up: their colours, build, hair and outfit (src/content/looks.ts); with none, a plain villager dressed from their id. */
+  look?: VillagerLook;
   /** Their face as an emoji, until their portrait is taken. */
   portrait: string;
   /** What they say when you talk to them. */

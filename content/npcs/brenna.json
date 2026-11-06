@@ -7,7 +7,29 @@
   "z": 148,
   "facing": 3.14159,
   "kind": "npc-crafter",
-  "look": "brenna",
+  "look": {
+    "outfit": "quarrymaster",
+    "skin": "#8d5524",
+    "w": 1.18,
+    "d": 1.15,
+    "arm": 1.15,
+    "shirt": "#8a8070",
+    "rolled": true,
+    "pants": "#5a564e",
+    "boots": "#2e2a26",
+    "hair": "#2b1d14",
+    "style": "bun",
+    "rest": {
+      "r": [
+        -0.45,
+        0,
+        -0.1
+      ]
+    },
+    "free": [
+      "l"
+    ]
+  },
   "portrait": "⛏️",
   "greeting": "Stone and iron, raw or ready. Ten stone makes a block at the cutting table. Mind your back.",
   "bench": "stonecutter"

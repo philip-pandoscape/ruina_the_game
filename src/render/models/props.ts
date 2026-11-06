@@ -4,7 +4,8 @@ import { PAL, Parts, TAU, beam, box, cone, cyl, ico, jiggle, lathe, makeRng, mix
 
 // Small props for dressing the world, as single vertex-coloured geometries (origin at the base
 // centre, facing +Z) so the zone builder can scatter hundreds with InstancedMesh and
-// toon(0xffffff, { vertexColors: true }). Sizes follow the `props` list in shared/structures.json.
+// toon(0xffffff, { vertexColors: true }). Sizes follow the `props` list in shared/structures.json,
+// and each is drawn with the body its look names (BODIES), or as a crate its size if it names none.
 
 const cache = new Map<string, THREE.BufferGeometry>();
 
@@ -12,63 +13,50 @@ const cache = new Map<string, THREE.BufferGeometry>();
 export function propGeometry(id: string): THREE.BufferGeometry {
   let g = cache.get(id);
   if (!g) {
-    g = propParts(id).build();
+    const d = propData(id);
+    g = propParts(d?.look?.body, d ?? { w: 1, d: 1, h: 1 }, 1, id).build();
     g.name = `prop:${id}`;
     cache.set(id, g);
   }
   return g;
 }
 
-/**
- * The lamp's glass alone, a hair larger than in propGeometry, for drawing over it with an unlit
- * material at night. Null for props with nothing that glows.
- */
-export function propGlowGeometry(id: string): THREE.BufferGeometry | null {
-  if (id !== 'lamp') return null;
-  const key = `${id}:glow`;
-  let g = cache.get(key);
-  if (!g) {
-    g = new Parts().add(box(0.2, 0.28, 0.2), PAL.glow, [0, LAMP_GLASS_Y, 0], undefined, 1.03).build();
-    cache.set(key, g);
-  }
-  return g;
-}
-
 const LAMP_GLASS_Y = 2.93;
 
-/** The prop's pieces before merging, for buildings that want a barrel or a bench of their own. */
-export function propParts(id: string, seed = 1): Parts {
+interface Size {
+  w: number;
+  h: number;
+  d: number;
+}
+
+type Body = (p: Parts, size: Size, rng: () => number) => void;
+
+/** The props' bodies, by name: a prop's look names one. */
+const BODIES: Record<string, Body> = {
+  fence: (p, s, rng) => fence(p, s.w, s.h, rng),
+  lamp: (p) => lamp(p),
+  signpost: (p, s) => signpost(p, s.h),
+  bench: (p, s) => bench(p, s.w),
+  barrel: (p, s, rng) => barrel(p, s.w / 2, s.h, rng),
+  crates: (p, _s, rng) => crates(p, rng),
+  haycart: (p, _s, rng) => haycart(p, rng),
+  bollard: (p, s) => bollard(p, s.h),
+};
+
+/** The bodies a look can name. */
+export const propBodies = (): string[] => Object.keys(BODIES);
+
+/** A prop whose look names no body: a crate its size. */
+const plain: Body = (p, s) => p.add(box(s.w, s.h, s.d), PAL.crate, [0, s.h / 2, 0]);
+
+/**
+ * A prop's pieces before merging: `body` at `size`, varied by `seed` and by `name` (the
+ * prop it is, or the body's own name for a building's barrel or bench).
+ */
+export function propParts(body: string | undefined, size: Size, seed = 1, name = body ?? ''): Parts {
   const p = new Parts();
-  const rng = makeRng(seed * 7919 + id.length * 31);
-  const d = propData(id) ?? { w: 1, d: 1, h: 1 };
-  switch (id) {
-    case 'fence':
-      fence(p, d.w, d.h, rng);
-      break;
-    case 'lamp':
-      lamp(p);
-      break;
-    case 'signpost':
-      signpost(p, d.h);
-      break;
-    case 'bench':
-      bench(p, d.w);
-      break;
-    case 'barrel':
-      barrel(p, d.w / 2, d.h, rng);
-      break;
-    case 'crates':
-      crates(p, rng);
-      break;
-    case 'haycart':
-      haycart(p, rng);
-      break;
-    case 'bollard':
-      bollard(p, d.h);
-      break;
-    default:
-      p.add(box(d.w, d.h, d.d), PAL.crate, [0, d.h / 2, 0]);
-  }
+  const rng = makeRng(seed * 7919 + name.length * 31);
+  ((body && BODIES[body]) || plain)(p, size, rng);
   return p;
 }
 

@@ -7,7 +7,17 @@
   "z": -263,
   "facing": 0,
   "kind": "npc-merchant",
-  "look": "sela",
+  "look": {
+    "outfit": "stablemaster",
+    "skin": "#ffdbac",
+    "shirt": "#2f6f5f",
+    "gloves": "#7d4b2a",
+    "pants": "#c8a878",
+    "boots": "#3a2618",
+    "tallBoots": true,
+    "hair": "#c0502a",
+    "style": "braid"
+  },
   "portrait": "👩‍🦰",
   "greeting": "A donkey will carry your pack and complain the whole way. A horse will outrun the wind and carry nothing."
 }

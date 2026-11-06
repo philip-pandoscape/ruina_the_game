@@ -4,7 +4,7 @@ import type { SimView, PlayerState } from '../../engine/rules';
 import { Hero } from '../character';
 import type { HouseView } from '../village/village';
 import { LifeView, sitIn, type Seated } from './life';
-import type { Models } from './models';
+import type { ModelKit } from './models';
 
 // Everyone else in your channel of Emberholm, drawn: a body for each player as they move, with their
 // name over their head, and their island (houses, farms, ships, vehicles, packs and glider) by a
@@ -66,7 +66,7 @@ export class PeersView {
   /** `me`: your own id, for anyone riding along with you. */
   constructor(
     private scene: THREE.Scene,
-    private models: Models,
+    private models: ModelKit,
     private source: PeerSource,
     private me: number,
   ) {}

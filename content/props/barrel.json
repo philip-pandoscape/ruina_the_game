@@ -5,5 +5,13 @@
   "h": 0.95,
   "collider": "post",
   "r": 0.35,
-  "look": "Banded wooden barrel."
+  "look": {
+    "body": "barrel",
+    "model": {
+      "files": [
+        "barrel"
+      ],
+      "sink": 0.02
+    }
+  }
 }

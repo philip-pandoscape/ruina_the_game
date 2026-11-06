@@ -31,12 +31,15 @@ How to add each kind of thing, as files alone: `docs/content.md`.
   goes); no bundle takes them. `tests/unit/templates.test.ts` keeps them fitting their kinds.
 - **`_schemas/`**: each kind's JSON Schema (`npm run content:schemas` writes them from the things
   there). contentc holds every thing to its kind's: no field the kind doesn't have, none every one
-  of them has left out, the right types. Point an editor at them (VS Code: `json.schemas`, mapping
-  `content/items/*.json` to `content/_schemas/items.schema.json`) to have them checked as you type.
+  of them has left out, the right types; and a thing's look the same, field by field (a look is
+  never required: without one a thing is drawn plain). Point an editor at them (VS Code:
+  `json.schemas`, mapping `content/items/*.json` to `content/_schemas/items.schema.json`) to have
+  them checked as you type.
 
 contentc also checks every reference (an item a vendor sells, a quest's giver and the places its
 markers point at, a recipe's workbench, a person's place and bench, an item's category, a
-creature's brain: `REFS` in contentc.mjs says which keys name which kinds).
+creature's brain, what marks out an empty house plot: `REFS` in contentc.mjs says which keys name
+which kinds), and that every made model a look names has its files in `src/render/assets/models/`.
 
 ## Order, the Wire and Saves
 

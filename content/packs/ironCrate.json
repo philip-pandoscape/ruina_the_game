@@ -13,5 +13,13 @@
       "n": 6
     }
   ],
-  "look": "Small heavy iron-banded crate full of nails, hinges and brackets, straps."
+  "look": {
+    "body": "ironCrate",
+    "model": {
+      "files": [
+        "pack_ironCrate"
+      ],
+      "yaw": -1.5707963267948966
+    }
+  }
 }

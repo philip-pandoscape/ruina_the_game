@@ -15,5 +15,8 @@
   ],
   "produceSeconds": 120,
   "collectLabor": 1,
-  "verb": "Collect eggs"
+  "verb": "Collect eggs",
+  "look": {
+    "body": "chicken"
+  }
 }

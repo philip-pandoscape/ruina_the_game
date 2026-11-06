@@ -2,9 +2,10 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import emberholm from '../../../../shared/regions/emberholm.json' with { type: 'json' };
 import { GLIDERS, MOUNTS, VEHICLES, isBoat } from '../../../content/vehicles';
+import { ANIMALS } from '../../../content/farming';
 import { part, toon } from '../../../render/toon';
 import { CROPS, PACKS, PROPS, STRUCTURES } from '../../../render/models/data';
-import { ANIMAL_IDS, buildAnimal } from '../../../render/models/animals';
+import { buildAnimal } from '../../../render/models/animals';
 import { buildVillager } from '../../../render/models/villagers';
 import { PAL, cost, vcMaterial } from '../../../render/models/kit';
 import { buildCrop, cropStages } from '../../../render/models/crops';
@@ -16,6 +17,7 @@ import { buildStructure } from '../../../render/models/structures';
 import { buildVehicle } from '../../../render/models/vehicles';
 import { h } from '../dom';
 import type { AnimDef, Gallery, Options, Subject } from '../types';
+import type { ZoneNpc } from '../../../engine/zone';
 
 // Every procedural model (src/render/models), side by side next to a 1.9 m figure, as the model
 // gallery always drew them: a category at a time or all of them, one close up, turned, with the
@@ -69,7 +71,7 @@ interface Stat {
   max: number[];
 }
 
-const NPCS = (emberholm as unknown as { npcs: Array<{ id: string; title?: string }> }).npcs;
+const NPCS = (emberholm as unknown as { npcs: ZoneNpc[] }).npcs;
 
 /** A plain 1.9 m person in the hero's colours, for scale. */
 function figure(): THREE.Group {
@@ -219,7 +221,7 @@ const LIVESTOCK = [
 ];
 
 function livestock(): Item[] {
-  return ANIMAL_IDS.flatMap((id) =>
+  return ANIMALS.map((a) => a.id).flatMap((id) =>
     LIVESTOCK.map((st, i) => {
       const m = buildAnimal(id, st.stage);
       const g = new THREE.Group();
@@ -243,7 +245,7 @@ function livestock(): Item[] {
 
 function villagers(): Item[] {
   return NPCS.map((n, i) => {
-    const m = buildVillager(n.id);
+    const m = buildVillager(n.id, n.look);
     const talking = i % 2 === 1;
     return {
       id: n.id,
@@ -277,7 +279,7 @@ const COUNT: Record<Cat, () => number> = {
   crops: () => CROPS.reduce((n, c) => n + cropStages(c.id).length, 0),
   structures: () => STRUCTURES.reduce((n, s) => n + Math.max(1, s.stages?.length ?? 0), 0),
   props: () => PROPS.length,
-  livestock: () => ANIMAL_IDS.length * LIVESTOCK.length,
+  livestock: () => ANIMALS.length * LIVESTOCK.length,
   villagers: () => NPCS.length,
 };
 

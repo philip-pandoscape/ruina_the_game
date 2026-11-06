@@ -1,4 +1,5 @@
 import data from '../../shared/farming.json' with { type: 'json' };
+import type { Look } from './looks';
 
 // Crops, trees, climates and weather (shared/farming.json).
 
@@ -20,7 +21,8 @@ export interface CropDef {
   plantLabor: number;
   /** A tree felled: what it gives, for what labor, what that counts as for a quest (a gathering kind), and what rare thing may be in it. */
   chop?: { item: string; yield: [number, number]; labor: number; kind: string; rare?: RareFind };
-  look: string;
+  /** What it is drawn as at each stage (src/content/looks.ts): no body, a plain leafy clump. */
+  look?: Look;
 }
 
 /** Something rare found now and then: in a felled tree, at a gathering spot. */
@@ -84,6 +86,8 @@ export interface AnimalDef {
   produceSeconds: number;
   collectLabor: number;
   verb: string;
+  /** What it is drawn as, young and grown (src/content/looks.ts): no body, a sheep's. */
+  look?: Look;
 }
 
 export const ANIMALS = (data.animals ?? []) as unknown as AnimalDef[];

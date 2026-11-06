@@ -70,6 +70,19 @@ test("a reference to something that isn't there fails", () => {
   ).toContain('there\'s no workbench or npc "nowhereBench"');
 });
 
+test("a look's field its kind's looks don't have, or a made model whose file isn't there, fails", () => {
+  expect(
+    broken('structures/well.json', (j) => {
+      j.look.colour = 'moss';
+    }),
+  ).toContain('content/structures/well.json look: "colour" isn\'t a field of the looks of structures');
+  expect(
+    broken('structures/well.json', (j) => {
+      j.look.model.files = ['moonwell'];
+    }),
+  ).toMatch(/structures\.structures\[\d+\]\.look\.model: there's no src\/render\/assets\/models\/moonwell\.glb/);
+});
+
 test("a thing left out of its folder's order, or named for another, fails", () => {
   expect(broken('quests/_order.json', (list) => (list as string[]).slice(1))).toMatch(/content\/quests\/.+\.json: not in quests\/_order\.json/);
   expect(

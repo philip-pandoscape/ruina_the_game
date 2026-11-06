@@ -3,6 +3,7 @@
   "kinds": [
     {
       "id": "dummy",
+      "name": "Training Dummy",
       "faction": 3,
       "maxHp": 100,
       "radius": 0.4,
@@ -12,10 +13,14 @@
       "brain": null,
       "respawnFrames": 60,
       "species": null,
-      "clips": {}
+      "clips": {},
+      "look": {
+        "dies": "straw"
+      }
     },
     {
       "id": "slime",
+      "name": "Slime",
       "faction": 1,
       "maxHp": 40,
       "radius": 0.42,
@@ -54,7 +59,14 @@
         "into": "slimelet",
         "count": 3
       },
-      "gathers": true
+      "gathers": true,
+      "look": {
+        "body": "jelly",
+        "inside": [
+          "leaf",
+          "pebble"
+        ]
+      }
     },
     {
       "id": "npc-elder",
@@ -134,6 +146,7 @@
     },
     {
       "id": "slimelet",
+      "name": "Slimelet",
       "faction": 1,
       "solid": false,
       "brain": "slimelet",
@@ -158,10 +171,15 @@
       "palette": {
         "teamA": 9425274,
         "teamB": 7978854
+      },
+      "look": {
+        "body": "jelly",
+        "inside": []
       }
     },
     {
       "id": "great-slime",
+      "name": "Great Slime",
       "faction": 1,
       "solid": false,
       "brain": "slime",
@@ -200,10 +218,18 @@
         "into": "slimelet",
         "count": 5
       },
-      "gathers": true
+      "gathers": true,
+      "look": {
+        "body": "jelly",
+        "inside": [
+          "coins",
+          "dagger"
+        ]
+      }
     },
     {
       "id": "slime-monarch",
+      "name": "Slime Monarch",
       "faction": 1,
       "solid": false,
       "brain": "slime",
@@ -241,6 +267,13 @@
       "burst": {
         "into": "slimelet",
         "count": 7
+      },
+      "look": {
+        "body": "jelly",
+        "inside": [
+          "gems"
+        ],
+        "crown": true
       }
     }
   ],

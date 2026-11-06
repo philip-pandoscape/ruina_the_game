@@ -15,5 +15,8 @@
   ],
   "produceSeconds": 220,
   "collectLabor": 2,
-  "verb": "Milk the cow"
+  "verb": "Milk the cow",
+  "look": {
+    "body": "cow"
+  }
 }

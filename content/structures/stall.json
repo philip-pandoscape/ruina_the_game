@@ -7,5 +7,18 @@
   "collider": "box",
   "colliderD": 0.8,
   "colliderZ": 0.6,
-  "look": "Open market stall: wooden counter across the front, four posts, striped canvas awning (colour variant by opts.tint), produce crates on the counter."
+  "look": {
+    "body": "stall",
+    "model": {
+      "files": [
+        "stall_red",
+        "stall_blue"
+      ],
+      "tints": [
+        15158332,
+        3447003
+      ],
+      "sink": 0.05
+    }
+  }
 }

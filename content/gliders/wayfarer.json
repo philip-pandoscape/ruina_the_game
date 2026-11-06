@@ -19,5 +19,8 @@
     "speed": 3.5,
     "lift": 4.5,
     "cooldownSeconds": 30
+  },
+  "look": {
+    "body": "wayfarer"
   }
 }

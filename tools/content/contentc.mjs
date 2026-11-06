@@ -10,8 +10,9 @@
 //
 // It checks what a person editing content gets wrong: a thing missing from its folder's _order.json
 // or listed there with no file, a file named other than its thing's id, the same id twice, a
-// reference to something that doesn't exist (REFS below), a file in content/ no bundle takes. And it
-// writes shared/hash.json, a hash of all of shared/, which the world's connection compares (hashOf).
+// reference to something that doesn't exist (REFS below), a file in content/ no bundle takes, a
+// made model a look names whose file isn't there. And it writes shared/hash.json, a hash of all of
+// shared/, which the world's connection compares (hashOf).
 //
 //   node tools/content/contentc.mjs           builds shared/
 //   node tools/content/contentc.mjs --check   checks, and that shared/ is what content/ builds (CI)
@@ -123,7 +124,7 @@ export function build(root = CONTENT) {
   }
   // The schemas, and the templates a new thing is copied from (content/_templates/), are no bundle's.
   for (const f of walk(root)) if (!used.has(f) && !/^_(schemas|templates)\//.test(f) && !f.endsWith('.md')) errors.push(`content/${f}: no bundle takes it`);
-  errors.push(...references(bundles));
+  errors.push(...references(bundles), ...madeModels(bundles));
   errors.push(...world(bundles));
   if (errors.length) throw new ContentError(errors.join('\n'));
   bundles.set(HASH, hashOf(bundles));
@@ -231,20 +232,24 @@ function schemaOf(root, folder) {
 }
 const typeOf = (v) => (v === null ? 'null' : Array.isArray(v) ? 'array' : typeof v === 'number' ? 'number' : typeof v);
 
-/** What's wrong with a thing against its kind's schema: unknown fields, missing ones, wrong types. */
-function fits(thing, schema, where) {
+/**
+ * What's wrong with a thing against its kind's schema: unknown fields, missing ones, wrong types;
+ * and the same of a field the schema gives fields of its own (a look).
+ */
+function fits(thing, schema, where, title = schema?.title) {
   if (!schema || !thing || typeof thing !== 'object') return [];
   const out = [];
   for (const [k, v] of Object.entries(thing)) {
     const p = schema.properties?.[k];
     if (!p) {
-      out.push(`${where}: ${JSON.stringify(k)} isn't a field of ${schema.title} (they have ${Object.keys(schema.properties ?? {}).join(', ')})`);
+      out.push(`${where}: ${JSON.stringify(k)} isn't a field of ${title} (they have ${Object.keys(schema.properties ?? {}).join(', ')})`);
       continue;
     }
     const allowed = Array.isArray(p.type) ? p.type : [p.type];
-    if (!allowed.includes(typeOf(v))) out.push(`${where}: ${k} is a ${typeOf(v)}, where ${schema.title} have a ${allowed.join(' or ')}`);
+    if (!allowed.includes(typeOf(v))) out.push(`${where}: ${k} is a ${typeOf(v)}, where ${title} have a ${allowed.join(' or ')}`);
+    else if (p.properties && typeOf(v) === 'object') out.push(...fits(v, p, `${where} ${k}`, `the ${k}s of ${title}`));
   }
-  for (const k of schema.required ?? []) if (!(k in thing)) out.push(`${where}: no ${k}, which every one of ${schema.title} has`);
+  for (const k of schema.required ?? []) if (!(k in thing)) out.push(`${where}: no ${k}, which every one of ${title} has`);
   return out;
 }
 
@@ -290,6 +295,8 @@ const REFS = [
   // An item's category, and for a placeable what it places and where.
   { bundles: /^items\.json$/, key: 'cat', kind: 'category' },
   { bundles: /^items\.json$/, key: 'places', kind: ['blueprint', 'shipDesign', 'structure'] },
+  // What marks out an unclaimed house plot.
+  { bundles: /^housing\.json$/, key: 'plotMarker', kind: 'structure' },
   { bundles: /^items\.json$/, key: 'placeOn', kind: 'placement' },
   // What a rare find looks like where it's found.
   { bundles: /^farming\.json$/, key: 'effect', kind: 'effect' },
@@ -336,6 +343,40 @@ function references(bundles) {
     visit(value, path.replace(/\.json$/, ''));
   }
   return errors;
+}
+
+// ---------- Made models ----------
+
+/** Where the made models' files are, and the fields a made model has (src/content/looks.ts MadeModel). */
+const MODELS = 'src/render/assets/models';
+const MODEL_FIELDS = { files: 'array', tints: 'array', w: 'number', h: 'number', d: 'number', yaw: 'number', sink: 'number', keep: 'array' };
+
+/** What's wrong with the made models looks name: a field a made model doesn't have, a file that isn't there. */
+function madeModels(bundles) {
+  const errors = [];
+  const visit = (v, where) => {
+    if (Array.isArray(v)) return v.forEach((x, i) => visit(x, `${where}[${i}]`));
+    if (!v || typeof v !== 'object') return;
+    if (typeOf(v.look) === 'object' && v.look.model !== undefined) errors.push(...madeModel(v.look.model, `${where}.look.model`));
+    for (const [k, x] of Object.entries(v)) visit(x, `${where}.${k}`);
+  };
+  for (const [path, value] of bundles) visit(value, path.replace(/\.json$/, ''));
+  return errors;
+}
+
+/** What's wrong with one made model. */
+function madeModel(m, where) {
+  if (typeOf(m) !== 'object') return [`${where}: a made model is an object: its files, and how it is fitted`];
+  const out = [];
+  for (const [k, v] of Object.entries(m)) {
+    const want = MODEL_FIELDS[k];
+    if (!want) out.push(`${where}: ${JSON.stringify(k)} isn't a field of a made model (they have ${Object.keys(MODEL_FIELDS).join(', ')})`);
+    else if (typeOf(v) !== want) out.push(`${where}: ${k} is a ${typeOf(v)}, where a made model has a ${want}`);
+  }
+  if (!Array.isArray(m.files) || !m.files.length) out.push(`${where}: no files`);
+  else for (const f of m.files) if (!existsSync(join(MODELS, `${f}.glb`))) out.push(`${where}: there's no ${MODELS}/${f}.glb`);
+  if (Array.isArray(m.tints) && m.tints.length !== m.files?.length) out.push(`${where}: a tint for each of its files`);
+  return out;
 }
 
 // ---------- Writing ----------

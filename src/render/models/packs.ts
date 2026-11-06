@@ -6,7 +6,8 @@ import { madePack } from './glb';
 
 // Trade packs: what you craft at a workbench and carry on your back to a trading post.
 // Origin: bottom-centre of the strap face. The straps face +Z (they press against the
-// carrier's back) and the pack extends toward -Z. Roughly 0.56 wide, 0.7 tall, 0.5 deep.
+// carrier's back) and the pack extends toward -Z. Roughly 0.56 wide, 0.7 tall, 0.5 deep. Each is
+// drawn with the body its look names (BODIES), or as a plain sack if it names none.
 
 export const PACK_SIZE = { w: 0.56, h: 0.7, d: 0.5 } as const;
 /** Every pack in shared/trade.json (trade goods and raw materials). */
@@ -278,41 +279,32 @@ function plainSack(p: Parts): void {
   straps(p, 0.62);
 }
 
-/** A carried trade pack; unknown ids get a plain sack so new content still draws. */
+/** The packs' bodies, by name: a pack's look names one. What glows goes in `glow`. */
+const BODIES: Record<string, (body: Parts, glow: Parts) => void> = {
+  harvestCrate,
+  flaxBale,
+  emberPreserves,
+  ciderCask,
+  lumberBundle,
+  stoneBlock,
+  ironCrate,
+};
+
+/** The bodies a look can name. */
+export const packBodies = (): string[] => Object.keys(BODIES);
+
+/** A carried trade pack: the body its look names (a plain sack if none), and its made model once loaded. */
 export function buildPack(id: string): THREE.Group {
   const root = new THREE.Group();
   root.name = `pack:${id}`;
   const body = new Parts();
   const glow = new Parts();
-  switch (id) {
-    case 'harvestCrate':
-      harvestCrate(body);
-      break;
-    case 'flaxBale':
-      flaxBale(body);
-      break;
-    case 'emberPreserves':
-      emberPreserves(body, glow);
-      break;
-    case 'ciderCask':
-      ciderCask(body);
-      break;
-    case 'lumberBundle':
-      lumberBundle(body);
-      break;
-    case 'stoneBlock':
-      stoneBlock(body);
-      break;
-    case 'ironCrate':
-      ironCrate(body);
-      break;
-    default:
-      plainSack(body);
-  }
+  const look = PACKS.find((p) => p.id === id)?.look;
+  ((look?.body && BODIES[look.body]) || plainSack)(body, glow);
   mesh(root, body.build());
   if (!glow.empty) mesh(root, glow.build(), { mat: glowMaterial(), shadow: false });
   grainify(root);
   // The made pack takes over when it loads (src/render/models/glb.ts).
-  madePack(id, root);
+  madePack(look?.model, root);
   return root;
 }

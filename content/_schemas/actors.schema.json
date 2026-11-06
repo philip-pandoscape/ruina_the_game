@@ -6,6 +6,9 @@
     "id": {
       "type": "string"
     },
+    "name": {
+      "type": "string"
+    },
     "faction": {
       "type": "number"
     },
@@ -41,6 +44,24 @@
     },
     "clips": {
       "type": "object"
+    },
+    "look": {
+      "type": "object",
+      "properties": {
+        "dies": {
+          "type": "string"
+        },
+        "body": {
+          "type": "string"
+        },
+        "inside": {
+          "type": "array"
+        },
+        "crown": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
     },
     "mass": {
       "type": "number"

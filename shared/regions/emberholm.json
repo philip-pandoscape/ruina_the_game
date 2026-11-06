@@ -1029,7 +1029,30 @@
       "z": -244.5,
       "facing": 2.6,
       "kind": "npc-elder",
-      "look": "hollis",
+      "look": {
+        "outfit": "elder",
+        "skin": "#ffdbac",
+        "hunch": 0.12,
+        "shirt": "#6a4a9a",
+        "pants": "#6a4a9a",
+        "boots": "#4a3426",
+        "skirt": "#6a4a9a",
+        "trim": "#f2c94c",
+        "belt": "#f2c94c",
+        "hair": "#f2f2ee",
+        "style": "bald",
+        "beard": "long",
+        "rest": {
+          "r": [
+            -0.3,
+            0,
+            -0.12
+          ]
+        },
+        "free": [
+          "l"
+        ]
+      },
       "portrait": "🧓",
       "greeting": "Lanternwick prospers when its people do. Plant, pack, haul - and keep your boots dry."
     },
@@ -1042,7 +1065,29 @@
       "z": -238.6,
       "facing": 0,
       "kind": "npc-merchant",
-      "look": "mara",
+      "look": {
+        "outfit": "grocer",
+        "skin": "#f1c27d",
+        "shirt": "#4f8f4a",
+        "sleeve": "#4f8f4a",
+        "pants": "#4f8f4a",
+        "boots": "#5a3a28",
+        "skirt": "#4f8f4a",
+        "belt": null,
+        "hair": "#8a4a2a",
+        "style": "bun",
+        "blush": true,
+        "rest": {
+          "l": [
+            -0.35,
+            0,
+            0.18
+          ]
+        },
+        "free": [
+          "r"
+        ]
+      },
       "portrait": "👩‍🌾",
       "greeting": "Seeds for sowing, coin for your crops. Sunroot's quick, emberberry's dear - and slow on this isle."
     },
@@ -1055,7 +1100,16 @@
       "z": -265.6,
       "facing": 0,
       "kind": "npc-crafter",
-      "look": "tamsin",
+      "look": {
+        "outfit": "packer",
+        "skin": "#e0ac69",
+        "shirt": "#eedfc0",
+        "rolled": true,
+        "pants": "#6b4a32",
+        "boots": "#3d2a1e",
+        "hair": "#a0522d",
+        "style": "ponytail"
+      },
       "portrait": "🧑‍🔧",
       "greeting": "The bench is yours whenever you've the goods. Remember: a pack sold where it's made is worth nothing.",
       "bench": "lanternwickBench"
@@ -1069,7 +1123,20 @@
       "z": -258.5,
       "facing": 0,
       "kind": "npc-crafter",
-      "look": "bertram",
+      "look": {
+        "outfit": "wainwright",
+        "skin": "#f1c27d",
+        "w": 1.32,
+        "d": 1.3,
+        "arm": 1.3,
+        "shirt": "#5a7aa0",
+        "rolled": true,
+        "pants": "#4a3f36",
+        "boots": "#3a2a20",
+        "hair": "#6b4226",
+        "style": "short",
+        "beard": "bushy"
+      },
       "portrait": "🧔",
       "greeting": "A cart for the patient, a roadster for the bold, a hauler for the ambitious. Bring timber and iron."
     },
@@ -1082,7 +1149,17 @@
       "z": -263,
       "facing": 0,
       "kind": "npc-merchant",
-      "look": "sela",
+      "look": {
+        "outfit": "stablemaster",
+        "skin": "#ffdbac",
+        "shirt": "#2f6f5f",
+        "gloves": "#7d4b2a",
+        "pants": "#c8a878",
+        "boots": "#3a2618",
+        "tallBoots": true,
+        "hair": "#c0502a",
+        "style": "braid"
+      },
       "portrait": "👩‍🦰",
       "greeting": "A donkey will carry your pack and complain the whole way. A horse will outrun the wind and carry nothing."
     },
@@ -1095,7 +1172,28 @@
       "z": -326.5,
       "facing": 3.14159,
       "kind": "npc-sailor",
-      "look": "ilsa",
+      "look": {
+        "outfit": "captain",
+        "skin": "#e0ac69",
+        "shirt": "#2a3a6a",
+        "pants": "#2a2f3a",
+        "boots": "#1f1c1c",
+        "tallBoots": true,
+        "tails": "#2a3a6a",
+        "belt": "#1f1c1c",
+        "hair": "#2b1d14",
+        "style": "ponytail",
+        "rest": {
+          "r": [
+            -0.7,
+            0,
+            -0.1
+          ]
+        },
+        "free": [
+          "l"
+        ]
+      },
       "portrait": "🧑‍✈️",
       "greeting": "Rowboats for the bay, a sloop for the open sea. Sail with the wind at your back and you'll fly."
     },
@@ -1108,7 +1206,30 @@
       "z": -237.6,
       "facing": -1.5708,
       "kind": "npc-elder",
-      "look": "quill",
+      "look": {
+        "outfit": "clerk",
+        "skin": "#ffdbac",
+        "h": 1.08,
+        "leg": 1.08,
+        "w": 0.92,
+        "shirt": "#2f3340",
+        "pants": "#2a2d36",
+        "boots": "#1c1c22",
+        "tails": "#2f3340",
+        "belt": null,
+        "hair": "#9aa0a8",
+        "style": "short",
+        "rest": {
+          "l": [
+            0,
+            0,
+            0.02
+          ]
+        },
+        "free": [
+          "r"
+        ]
+      },
       "portrait": "🧐",
       "greeting": "Land is granted by blueprint, and kept by paying your tax. Hearthside Rise has plots for claim."
     },
@@ -1121,7 +1242,17 @@
       "z": 238,
       "facing": 3.14159,
       "kind": "npc-sailor",
-      "look": "ysolde",
+      "look": {
+        "outfit": "wingwright",
+        "skin": "#f1c27d",
+        "shirt": "#8a5a34",
+        "pants": "#7a7458",
+        "boots": "#3a2618",
+        "tallBoots": true,
+        "belt": "#3a2618",
+        "hair": "#e8c46a",
+        "style": "short"
+      },
       "portrait": "🧝",
       "greeting": "Jump, jump again, then once more to open your wings. The warm air at the cliff's foot will lift you."
     },
@@ -1134,7 +1265,28 @@
       "z": -16,
       "facing": -1.5708,
       "kind": "npc-merchant",
-      "look": "dunmore",
+      "look": {
+        "outfit": "trader",
+        "skin": "#c68642",
+        "w": 1.12,
+        "d": 1.22,
+        "shirt": "#f6ecd2",
+        "pants": "#5a4030",
+        "boots": "#2e2018",
+        "hair": "#3a2a1e",
+        "style": "short",
+        "beard": "moustache",
+        "rest": {
+          "l": [
+            -0.55,
+            0,
+            0.1
+          ]
+        },
+        "free": [
+          "r"
+        ]
+      },
       "portrait": "🧑‍💼",
       "greeting": "Westwatch buys what the east grows. Prices fall as I fill my storeroom - they recover with time."
     },
@@ -1147,7 +1299,29 @@
       "z": -421.5,
       "facing": 0.785,
       "kind": "npc-merchant",
-      "look": "pell",
+      "look": {
+        "outfit": "factor",
+        "skin": "#ffdbac",
+        "w": 0.9,
+        "h": 1.04,
+        "shirt": "#3a2a4a",
+        "pants": "#2a2433",
+        "boots": "#16141a",
+        "tails": "#3a2a4a",
+        "belt": null,
+        "hair": "#1f1a16",
+        "style": "short",
+        "rest": {
+          "r": [
+            -0.25,
+            0,
+            -0.18
+          ]
+        },
+        "free": [
+          "l"
+        ]
+      },
       "portrait": "🎩",
       "greeting": "Gullrock's a long row from anywhere. That's why I pay in seals as well as silver."
     },
@@ -1160,7 +1334,29 @@
       "z": 42,
       "facing": 3.14159,
       "kind": "npc-crafter",
-      "look": "hob",
+      "look": {
+        "outfit": "woodcutter",
+        "skin": "#e0ac69",
+        "w": 1.12,
+        "shirt": "#b83a30",
+        "rolled": true,
+        "sleeve": "#b83a30",
+        "pants": "#4a4a38",
+        "boots": "#3a2a1e",
+        "hair": "#5a3a24",
+        "style": "short",
+        "beard": "stubble",
+        "rest": {
+          "r": [
+            -0.9,
+            0,
+            -0.15
+          ]
+        },
+        "free": [
+          "l"
+        ]
+      },
       "portrait": "🪓",
       "greeting": "Fell the deadfall for timber, bundle ten at my sawhorse, and haul it wherever you build.",
       "bench": "sawhorse"
@@ -1174,7 +1370,29 @@
       "z": 148,
       "facing": 3.14159,
       "kind": "npc-crafter",
-      "look": "brenna",
+      "look": {
+        "outfit": "quarrymaster",
+        "skin": "#8d5524",
+        "w": 1.18,
+        "d": 1.15,
+        "arm": 1.15,
+        "shirt": "#8a8070",
+        "rolled": true,
+        "pants": "#5a564e",
+        "boots": "#2e2a26",
+        "hair": "#2b1d14",
+        "style": "bun",
+        "rest": {
+          "r": [
+            -0.45,
+            0,
+            -0.1
+          ]
+        },
+        "free": [
+          "l"
+        ]
+      },
       "portrait": "⛏️",
       "greeting": "Stone and iron, raw or ready. Ten stone makes a block at the cutting table. Mind your back.",
       "bench": "stonecutter"

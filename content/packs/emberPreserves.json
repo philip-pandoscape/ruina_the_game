@@ -16,6 +16,14 @@
       "n": 2
     }
   ],
-  "look": "Small crate with straw packing holding rows of glass jars of glowing orange-red jam with cloth lids.",
+  "look": {
+    "body": "emberPreserves",
+    "model": {
+      "files": [
+        "pack_emberPreserves"
+      ],
+      "yaw": 3.141592653589793
+    }
+  },
   "kind": "trade"
 }

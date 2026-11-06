@@ -15,5 +15,8 @@
   ],
   "produceSeconds": 200,
   "collectLabor": 2,
-  "verb": "Shear wool"
+  "verb": "Shear wool",
+  "look": {
+    "body": "sheep"
+  }
 }

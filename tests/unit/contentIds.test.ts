@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { expect, test } from 'vitest';
 import { contentIds, type Hit, rustStrings, scan, tsStrings } from '../../tools/content/ids.mjs';
 
@@ -17,6 +18,24 @@ interface Allowance {
   ids?: string[];
 }
 
+/**
+ * The bodies the content names: every look's (a building's, a prop's, a crop's, a pack's, an
+ * animal's, a ride's) and every creature's species.
+ */
+function bodies(): string[] {
+  const found = new Set<string>();
+  const visit = (v: unknown): void => {
+    if (Array.isArray(v)) return v.forEach(visit);
+    if (!v || typeof v !== 'object') return;
+    const o = v as { look?: { body?: unknown }; species?: unknown };
+    if (typeof o.look?.body === 'string') found.add(o.look.body);
+    if (typeof o.species === 'string') found.add(o.species);
+    Object.values(v).forEach(visit);
+  };
+  for (const b of ['structures', 'farming', 'trade', 'vehicles', 'actors', 'creatures']) visit(JSON.parse(readFileSync(`shared/${b}.json`, 'utf8')));
+  return [...found];
+}
+
 const ALLOWED: Allowance[] = [
   {
     why: "words of the code's own that some content shares: harvest (an objective, an event and its effect), heal (a brain's act, a hit's marker), home (where a brain runs to, where you wake), block (a guard, and CSS), stone (a wall of the village kit, a gathering's effect, a colour), herbs and wheels (effects), pine (the island's wild pines)",
@@ -25,24 +44,18 @@ const ALLOWED: Allowance[] = [
   { why: 'a word the bug reporter leaves out of what you said', files: ['src/app/bugs/reporter.ts'], ids: ['well'] },
   { why: 'written by npm run icons from tools/icons/catalog.mjs: the items that have pictures of their own, by id', files: ['src/ui/theme/icons.gen.ts'] },
   {
-    why: 'looks are code until they are data (R9.9): a builder, a made model, a body or a colour for each thing by its id, with a plain one for the rest',
-    files: [
-      'src/render/models/',
-      'src/render/open/dressing.ts',
-      'src/render/open/life.ts',
-      'src/render/actors.ts',
-      'src/render/vfx.ts',
-      'src/render/creatures/',
-    ],
+    why: "the bodies the game is drawn with, each named for what it draws: a thing's look names its body (src/content/looks.ts), a creature's species its skeleton, and the code finds the body by that name",
+    files: ['src/render/models/', 'src/render/creatures/'],
+    ids: bodies(),
   },
   {
     why: "weapons, abilities and movement skills are code until they are data (R9.5): the close-up bodies' moves and films (src/render/detail/, the animation session's), the default build, the slide every build has, and what a skill's tooltip says",
     files: ['src/render/detail/', 'src/render/character.ts', 'src/content/tuning.ts', 'crates/engine/src/tuning.rs', 'src/input/input.ts', 'src/ui/skills/'],
   },
   {
-    why: "src/main.ts and the step it runs, until they're data: the slimes' and the dummy's name plates (R9.9), the slide's dust (R9.5), and the battlefield's option",
-    files: ['src/main.ts', 'src/app/step.ts'],
-    ids: ['slimelet', 'great-slime', 'slime-monarch', 'slide', 'battlefield'],
+    why: "the step src/main.ts runs, until it's data: the slide's dust (R9.5)",
+    files: ['src/app/step.ts'],
+    ids: ['slide'],
   },
   {
     why: "the island's own slimes and training dummy are spawned by code until spawns are data (R9.3), and ?goblins= puts a band in the yard",

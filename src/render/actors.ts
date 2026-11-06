@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { SpeciesCrowd } from './creatures/crowd';
 import { JellyCrowd } from './creatures/jelly';
 import { getSpecies } from './creatures/registry';
-import { actorKind } from '../content/actors';
+import { actorKind, type ActorKind } from '../content/actors';
 import { actorKindAt, LADDERS } from '../content/actors';
 import { isAlive, type Actor, behaviour, stateName, stateProgress } from '../engine/creatures';
 
@@ -28,10 +28,10 @@ export interface ShownActor {
 
 const HIDDEN_Y = -1000; // where an actor waits out its respawn
 
-// One crowd per body, colouring and size: villagers in different clothes share the body, not the
-// paint, and a creature's sizes share the body but not the scale.
-const packKey = (k: { species: string | null; palette?: { teamA: number; teamB: number }; scale?: number }): string =>
-  `${k.species}:${k.palette ? `${k.palette.teamA}:${k.palette.teamB}` : ''}:${k.scale ?? 1}`;
+// One crowd per body, colouring, size and look: villagers in different clothes share the body, not
+// the paint, and a creature's sizes share the body but not the scale or what floats inside them.
+const packKey = (k: ActorKind): string =>
+  `${k.species}:${k.palette ? `${k.palette.teamA}:${k.palette.teamB}` : ''}:${k.scale ?? 1}:${k.look ? JSON.stringify(k.look) : ''}`;
 
 /** The neutral shape both the local rules and the server's snapshots are turned into. */
 interface Shown {
@@ -94,10 +94,12 @@ export class ActorView {
       const kind = actorKind(id);
       if (!kind.species || this.packs.has(packKey(kind))) continue;
       const species = getSpecies(kind.species);
-      // Slimes are jelly (src/render/creatures/jelly.ts), on the same skeleton and clips.
+      // A kind whose look is jelly (the slimes: src/render/creatures/jelly.ts) is drawn as that, on
+      // its species' skeleton and clips.
+      const look = kind.look;
       const crowd =
-        species.id === 'slime'
-          ? new JellyCrowd(species, capacity, { kind: kind.id, palette: kind.palette, scale: kind.scale })
+        look?.body === 'jelly'
+          ? new JellyCrowd(species, capacity, { inside: look.inside, crown: look.crown, palette: kind.palette, scale: kind.scale })
           : new SpeciesCrowd(species, capacity, { tint: true, palette: kind.palette, scale: kind.scale });
       crowd.setCount(capacity);
       this.group.add(crowd.group);

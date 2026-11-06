@@ -1,4 +1,4 @@
 {
   "comment": "Written by tools/content/contentc.mjs (npm run content): a hash of every file in shared/ but this one. The server sends it in the world's welcome, and a page built from other content reloads into the new build (crates/server/src/play/socket.rs, src/net/worldLink.ts).",
-  "content": "0cb0e75049ece699"
+  "content": "1a2e9eb7d86e4a67"
 }

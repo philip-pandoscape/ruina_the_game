@@ -16,16 +16,15 @@ import {
 import { type SimView, type PlayerState, angleDiff } from '../../engine/rules';
 import { toLocal, toWorld, type Heightfield } from '../../engine/zone';
 import type { Hero, SeatPose } from '../character';
-import { rideable, glider as gliderDef, isBoat, isMount, isWheeled, type RideableDef } from '../../content/vehicles';
-import { packDef } from '../../content/trade';
+import { rideable, glider as gliderDef, isBoat, isMount, type RideableDef } from '../../content/vehicles';
 import { FARM, cropDef } from '../../content/farming';
-import { structureDef } from '../../content/structures';
-import { blueprintDef } from '../../content/housing';
+import { PLOT_MARKER, blueprintDef } from '../../content/housing';
+import { groundPlaced } from '../../content/items';
 import { buildingPlan } from '../../content/buildings';
 import type { HouseView } from '../village/village';
 import { toon } from '../toon';
-import { tryBuild, type Models, type VehicleAnim } from './models';
-import type { Holds } from '../models/vehicles';
+import type { ModelKit } from './models';
+import type { Holds, VehicleAnim } from '../models/vehicles';
 import { shipDesign } from '../../content/shipyard';
 
 // Draws what the life systems own: vehicles and mounts, every trade pack (on a back, in a cart,
@@ -58,41 +57,6 @@ interface Shown {
   holds?: Holds;
   def: RideableDef;
   cargo: THREE.Object3D[];
-}
-
-const box = (w: number, h: number, d: number, color: number, y = h / 2): THREE.Mesh => {
-  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), toon(color));
-  m.position.y = y;
-  m.castShadow = true;
-  m.receiveShadow = true;
-  return m;
-};
-
-/** A plain model of anything rideable, for when the model library has none. */
-function standInVehicle(def: RideableDef): THREE.Group {
-  const g = new THREE.Group();
-  if (isBoat(def)) {
-    const hull = box(def.width, 0.9, def.length, 0x8d5a3b, 0);
-    g.add(hull);
-    if (def.sail) {
-      const mast = box(0.2, def.mast?.height ?? 6, 0.2, 0x734828, (def.mast?.height ?? 6) / 2);
-      mast.position.z = def.mast?.z ?? 0;
-      g.add(mast);
-    }
-  } else if (isMount(def)) {
-    g.add(box(def.width, def.height * 0.45, def.length * 0.8, def.id === 'horse' ? 0x6b4a33 : 0x8f8478, def.height * 0.62));
-    const head = box(def.width * 0.6, def.height * 0.35, def.length * 0.3, 0x5a4636, def.height * 0.9);
-    head.position.z = def.length * 0.45;
-    g.add(head);
-  } else {
-    g.add(box(def.width, def.height * 0.45, def.length, def.id === 'roadster' ? 0xc4553f : 0xa8743f, def.height * 0.4));
-    for (const w of isWheeled(def) ? def.wheels : []) {
-      const wheel = new THREE.Mesh(new THREE.CylinderGeometry(w.r, w.r, 0.25, 12).rotateZ(Math.PI / 2), toon(0x333333));
-      wheel.position.set(w.x, w.r, w.z);
-      g.add(wheel);
-    }
-  }
-  return g;
 }
 
 /** Everything the farm plots are drawn from: where each is, and what is in each cell at what stage. */
@@ -134,15 +98,6 @@ function standsOver(hf: Heightfield, geo: THREE.BufferGeometry, steps = 6): numb
   return top + 0.01;
 }
 
-function standInPack(id: string): THREE.Group {
-  const g = new THREE.Group();
-  const kind = (packDef(id) as { kind?: string }).kind;
-  const m = box(0.6, 0.55, 0.5, kind === 'material' ? 0x9a9a94 : 0xb07a45);
-  m.position.z = -0.25;
-  g.add(m);
-  return g;
-}
-
 export class LifeView {
   readonly group = new THREE.Group();
   private vehicles = new Map<number, Shown>();
@@ -156,7 +111,7 @@ export class LifeView {
    * which also cuts them open when you are inside); without one they are drawn here.
    */
   houseSink: ((houses: HouseView[]) => void) | null = null;
-  /** Townsfolk drawn with their own models (empty when the library has none: the crowd stand-ins are used). */
+  /** The townsfolk, drawn here with their own models (none for someone else's island). */
   private villagers: Array<{
     holder: THREE.Group;
     animate: (dt: number, s: { time: number; talking: boolean }) => void;
@@ -217,7 +172,7 @@ export class LifeView {
   constructor(
     scene: THREE.Scene,
     private life: IslandView,
-    private models: Models,
+    private models: ModelKit,
     private hero: Hero,
     opts: { others?: boolean } = {},
   ) {
@@ -228,18 +183,15 @@ export class LifeView {
     // Resource nodes (they vanish while picked clean).
     if (!this.others)
       for (const nd of life.zone.recipe.nodes) {
-        const built = tryBuild(models.buildStructure ? () => models.buildStructure!(nd.kind) : null);
-        const def = structureDef(nd.kind);
-        const root = built?.root ?? box(def.w, def.h, def.d, 0x8d8a85);
+        const root = models.buildStructure(nd.kind).root;
         root.position.set(nd.x, hf.height(nd.x, nd.z), nd.z);
         root.rotation.y = nd.rot;
         this.group.add(root);
         this.nodes.push({ root, id: nd.id });
       }
-    // Townsfolk with their own looks (content/npcs/<id>.json `look`), standing at their posts.
+    // The townsfolk as their looks say (content/npcs/<id>.json `look`), standing at their posts.
     for (const n of this.others ? [] : life.zone.recipe.npcs) {
-      const m = tryBuild(models.buildVillager ? () => models.buildVillager!(n.look) : null);
-      if (!m) continue;
+      const m = models.buildVillager(n.id, n.look);
       const holder = new THREE.Group();
       holder.add(m.root);
       holder.position.set(n.x, hf.height(n.x, n.z), n.z);
@@ -247,11 +199,7 @@ export class LifeView {
       this.group.add(holder);
       this.villagers.push({ holder, animate: m.animate.bind(m), id: n.id, facing: n.facing, x: n.x, z: n.z });
     }
-    this.drawsTownsfolk = this.villagers.length === life.zone.recipe.npcs.length;
-    if (!this.drawsTownsfolk) {
-      for (const v of this.villagers) this.group.remove(v.holder);
-      this.villagers = [];
-    }
+    this.drawsTownsfolk = !this.others;
 
     // Placement ghost: the 8 x 8 plot outline, green when it fits, red when it does not.
     const half = (FARM.scarecrowCells * FARM.cell) / 2;
@@ -294,15 +242,7 @@ export class LifeView {
     const key = `${id}:${stage}`;
     let g = this.cropGeoCache.get(key);
     if (!g) {
-      g = tryBuild(this.models.cropGeometry ? () => this.models.cropGeometry!(id, stage) : null) ?? undefined;
-      if (!g) {
-        g = new THREE.ConeGeometry(0.25 + stage * 0.1, 0.2 + stage * 0.35, 6).translate(0, 0.1 + stage * 0.17, 0).toNonIndexed();
-        const c = new THREE.Color(stage >= 3 ? 0xe2c158 : 0x4caf50);
-        const col = new Float32Array(g.attributes.position.count * 3);
-        for (let i = 0; i < col.length; i += 3) col.set([c.r, c.g, c.b], i);
-        g.setAttribute('color', new THREE.BufferAttribute(col, 3));
-        g.computeVertexNormals();
-      }
+      g = this.models.cropGeometry(id, stage);
       this.cropGeoCache.set(key, g);
     }
     return g;
@@ -360,27 +300,28 @@ export class LifeView {
       const top = this.plotTops.get(key) ?? Math.max(standsOver(hf, soil), standsOver(hf, furrows));
       tops.set(key, top);
       this.plotGround.push({ x: sc.x, z: sc.z, rot: sc.rot, half, top });
-      const post = scarecrowPost(sc);
-      const built = tryBuild(this.models.buildStructure ? () => this.models.buildStructure!('scarecrow') : null);
-      const sc3 = built?.root ?? box(0.5, 2.2, 0.3, 0xe2c158);
-      sc3.position.set(post.x, hf.height(post.x, post.z), post.z);
-      sc3.rotation.y = sc.rot + Math.PI;
-      this.plots.add(sc3);
+      // Its scarecrow, the structure the item that set it down places, at the corner post.
+      const scarecrow = groundPlaced();
+      if (scarecrow) {
+        const post = scarecrowPost(sc);
+        const root = this.models.buildStructure(scarecrow).root;
+        root.position.set(post.x, hf.height(post.x, post.z), post.z);
+        root.rotation.y = sc.rot + Math.PI;
+        this.plots.add(root);
+      }
       sc.cells.forEach((pl, idx) => {
         if (!pl) return;
         const c = cellCentre(sc, idx);
         if (pl.animal) {
           const grown = pl.growth >= 1 ? 1 : 0;
-          const m = tryBuild(this.models.buildAnimal ? () => this.models.buildAnimal!(pl.crop, grown) : null);
-          const size = (pl.crop === 'cow' ? 1.4 : pl.crop === 'sheep' ? 0.9 : 0.4) * (grown ? 1 : 0.6);
-          const model = m?.root ?? box(size * 0.7, size, size, pl.crop === 'cow' ? 0x8d6e5a : pl.crop === 'sheep' ? 0xf3efe6 : 0xffffff);
+          const m = this.models.buildAnimal(pl.crop, grown);
           // The model animates its own root (a skip, a peck), so it lives inside a holder we place.
           const root = new THREE.Group();
-          root.add(model);
+          root.add(m.root);
           root.position.set(c.x, hf.height(c.x, c.z) + 0.05, c.z);
           root.rotation.y = sc.rot + idx * 1.3;
           this.plots.add(root);
-          this.animals.push({ root, sc: sc.id, idx, animate: m?.animate.bind(m), phase: idx * 0.7 });
+          this.animals.push({ root, sc: sc.id, idx, animate: m.animate.bind(m), phase: idx * 0.7 });
           return;
         }
         const stage = stageOf(pl);
@@ -459,16 +400,16 @@ export class LifeView {
         continue;
       }
       if (!h || !bp || !pose) {
-        const built = tryBuild(this.models.buildStructure ? () => this.models.buildStructure!('housePlot') : null);
-        const root = built?.root ?? box(0.2, 1, 0.2, 0xa8743f);
-        root.position.set(plot.x, hf.height(plot.x, plot.z), plot.z);
-        root.rotation.y = plot.rot;
-        this.houses.add(root);
+        // Unclaimed: marked out (shared/housing.json plotMarker).
+        if (PLOT_MARKER) {
+          const root = this.models.buildStructure(PLOT_MARKER).root;
+          root.position.set(plot.x, hf.height(plot.x, plot.z), plot.z);
+          root.rotation.y = plot.rot;
+          this.houses.add(root);
+        }
         continue;
       }
-      const def = structureDef(bp.structure);
-      const built = tryBuild(this.models.buildStructure ? () => this.models.buildStructure!(bp.structure, { stage: h.stage }) : null);
-      const root = built?.root ?? box(def.w, h.stage === 0 ? 0.1 : (def.h * h.stage) / bp.stages.length, def.d, isComplete(h) ? 0xf3e7c9 : 0xc8995f);
+      const root = this.models.buildStructure(bp.structure, { stage: h.stage }).root;
       root.position.set(pose.x, hf.height(pose.x, pose.z), pose.z);
       root.rotation.y = pose.rot;
       this.houses.add(root);
@@ -522,10 +463,9 @@ export class LifeView {
       if (b) {
         const design = shipDesign(b.design);
         const def = rideable(design.vehicle);
-        const m = tryBuild(this.models.buildVehicle && !isMount(def) ? () => this.models.buildVehicle!(def as never) : null);
         const reveal = b.stage > 0 ? design.stages[b.stage - 1].reveal : -1.6;
         const plane = new THREE.Plane(new THREE.Vector3(0, -1, 0), 0);
-        const ship = m?.root ?? standInVehicle(def);
+        const ship = isMount(def) ? this.models.buildMount(def).root : this.models.buildVehicle(def).root;
         ship.position.set(0, deckY, 0);
         ship.traverse((o) => {
           const mesh = o as THREE.Mesh;
@@ -573,17 +513,15 @@ export class LifeView {
     let mount: Shown['mount'];
     let holds: Shown['holds'];
     if (isMount(def)) {
-      const m = tryBuild(this.models.buildMount ? () => this.models.buildMount!(def) : null);
-      root = m && m.root.children.length ? m.root : standInVehicle(def);
-      if (m && m.root.children.length) {
-        mount = m.animate.bind(m);
-        holds = m.holds;
-      }
+      const m = this.models.buildMount(def);
+      root = m.root;
+      mount = m.animate.bind(m);
+      holds = m.holds;
     } else {
-      const m = tryBuild(this.models.buildVehicle ? () => this.models.buildVehicle!(def) : null);
-      root = m?.root ?? standInVehicle(def);
-      if (m) animate = m.animate.bind(m);
-      holds = m?.holds;
+      const m = this.models.buildVehicle(def);
+      root = m.root;
+      animate = m.animate.bind(m);
+      holds = m.holds;
     }
     root.rotation.order = 'YXZ';
     this.group.add(root);
@@ -593,7 +531,7 @@ export class LifeView {
   }
 
   private packModel(id: string): THREE.Object3D {
-    return tryBuild(this.models.buildPack ? () => this.models.buildPack!(id) : null) ?? standInPack(id);
+    return this.models.buildPack(id);
   }
 
   /**
@@ -812,15 +750,8 @@ export class LifeView {
       if (this.gliderShown !== p.glider) {
         if (this.gliderModel) this.gliderModel.root.parent?.remove(this.gliderModel.root);
         const def = gliderDef(p.glider);
-        const m = tryBuild(this.models.buildGlider ? () => this.models.buildGlider!(def) : null);
-        if (m) this.gliderModel = { root: m.root, animate: m.animate.bind(m) };
-        else {
-          const wing = new THREE.Mesh(new THREE.ConeGeometry(def.span / 2, 2.2, 3).rotateX(Math.PI / 2).scale(1, 0.1, 1), toon(0xf3e7c9));
-          wing.position.y = 2.5;
-          const g = new THREE.Group();
-          g.add(wing);
-          this.gliderModel = { root: g };
-        }
+        const m = this.models.buildGlider(def);
+        this.gliderModel = { root: m.root, animate: m.animate.bind(m) };
         this.gliderShown = p.glider;
       }
       const g = this.gliderModel!;

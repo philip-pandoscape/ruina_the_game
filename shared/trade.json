@@ -49,7 +49,14 @@
           "n": 4
         }
       ],
-      "look": "Wooden slatted crate ~0.7 x 0.55 x 0.55 with leather shoulder straps on the back face, golden tubers and barley ears peeking over the top, a stamped lantern mark on the side.",
+      "look": {
+        "body": "harvestCrate",
+        "model": {
+          "files": [
+            "pack_harvestCrate"
+          ]
+        }
+      },
       "kind": "trade"
     },
     {
@@ -66,7 +73,15 @@
           "n": 8
         }
       ],
-      "look": "Tight bundle of pale flax fibre ~0.75 x 0.5 x 0.5 wrapped in sacking and bound with three ropes, blue flax flowers tucked under the rope, straps.",
+      "look": {
+        "body": "flaxBale",
+        "model": {
+          "files": [
+            "pack_flaxBale"
+          ],
+          "yaw": 3.141592653589793
+        }
+      },
       "kind": "trade"
     },
     {
@@ -87,7 +102,15 @@
           "n": 2
         }
       ],
-      "look": "Small crate with straw packing holding rows of glass jars of glowing orange-red jam with cloth lids.",
+      "look": {
+        "body": "emberPreserves",
+        "model": {
+          "files": [
+            "pack_emberPreserves"
+          ],
+          "yaw": 3.141592653589793
+        }
+      },
       "kind": "trade"
     },
     {
@@ -104,7 +127,15 @@
           "n": 8
         }
       ],
-      "look": "Small banded oak cask ~0.6 long lying in a carrying frame with straps, a red apple painted on the head.",
+      "look": {
+        "body": "ciderCask",
+        "model": {
+          "files": [
+            "pack_ciderCask"
+          ],
+          "yaw": -1.5707963267948966
+        }
+      },
       "kind": "trade"
     },
     {
@@ -122,7 +153,13 @@
         }
       ],
       "kind": "trade",
-      "look": "A round bale of cream fleece bound in sacking with two ropes, tufts escaping, straps on the back."
+      "look": {
+        "model": {
+          "files": [
+            "pack_fleeceBale"
+          ]
+        }
+      }
     },
     {
       "id": "hamper",
@@ -147,7 +184,13 @@
         }
       ],
       "kind": "trade",
-      "look": "A wicker hamper with a hinged lid: eggs in straw, a stoppered milk jug, golden tubers, straps on the back."
+      "look": {
+        "model": {
+          "files": [
+            "pack_hamper"
+          ]
+        }
+      }
     },
     {
       "id": "lumberBundle",
@@ -164,7 +207,15 @@
           "n": 10
         }
       ],
-      "look": "Ten rough planks ~1.0 long stacked and lashed with two ropes, carrying straps on one face."
+      "look": {
+        "body": "lumberBundle",
+        "model": {
+          "files": [
+            "pack_lumberBundle"
+          ],
+          "yaw": -1.5707963267948966
+        }
+      }
     },
     {
       "id": "stoneBlock",
@@ -181,7 +232,15 @@
           "n": 10
         }
       ],
-      "look": "A squared pale building stone ~0.6 cube in a wooden carrying frame with straps."
+      "look": {
+        "body": "stoneBlock",
+        "model": {
+          "files": [
+            "pack_stoneBlock"
+          ],
+          "yaw": 3.141592653589793
+        }
+      }
     },
     {
       "id": "ironCrate",
@@ -198,7 +257,15 @@
           "n": 6
         }
       ],
-      "look": "Small heavy iron-banded crate full of nails, hinges and brackets, straps."
+      "look": {
+        "body": "ironCrate",
+        "model": {
+          "files": [
+            "pack_ironCrate"
+          ],
+          "yaw": -1.5707963267948966
+        }
+      }
     },
     {
       "id": "sailcloth",
@@ -215,7 +282,14 @@
           "n": 10
         }
       ],
-      "look": "A thick roll of pale woven sailcloth tied with cord, on a carrying frame with straps."
+      "look": {
+        "model": {
+          "files": [
+            "pack_sailcloth"
+          ],
+          "yaw": 3.141592653589793
+        }
+      }
     }
   ],
   "places": [

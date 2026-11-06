@@ -11,20 +11,17 @@ import { TAU } from '../../util/math';
 // (builtin/slime.ts), so they move exactly as the rules expect; four draw calls per size (the soft
 // pool of light under it, what's inside, the jelly's far side, its near side) however many are out.
 
-/** What a size of slime carries inside, and what it wears. */
+/** What can float inside a slime: an actor kind's look names some (shared/actors.json). */
+export const INSIDES = ['leaf', 'pebble', 'coins', 'dagger', 'gems'] as const;
+
+/**
+ * What a size of slime carries inside, and what it wears. Things inside are authored at about their
+ * real size, divided by the kind's scale, so a great slime's coins are coin-sized.
+ */
 interface JellyLook {
-  inside: Array<'leaf' | 'pebble' | 'coins' | 'dagger' | 'gems'>;
+  inside: readonly string[];
   crown?: boolean;
 }
-
-// By actor kind (shared/actors.json). Things inside are authored at about their real size, divided
-// by the kind's scale, so a great slime's coins are coin-sized.
-const LOOKS: Record<string, JellyLook> = {
-  slimelet: { inside: [] },
-  slime: { inside: ['leaf', 'pebble'] },
-  'great-slime': { inside: ['coins', 'dagger'] },
-  'slime-monarch': { inside: ['gems'], crown: true },
-};
 
 /** Faces by clip: 1 set to pounce, 2 dazed, 3 dead; anything else is the usual face. */
 const MOODS: Record<string, number> = { windup: 1, leap: 1, gather: 1, dazed: 2, die: 3 };
@@ -238,8 +235,9 @@ vec2 jFace(vec3 p, vec3 n, float mood) {
 `;
 
 export interface JellyOptions {
-  /** The actor kind (shared/actors.json), for what floats inside. */
-  kind: string;
+  /** What floats inside, and whether it wears a crown (the actor kind's look). */
+  inside?: readonly string[];
+  crown?: boolean;
   palette?: { teamA: number; teamB: number };
   scale?: number;
 }
@@ -299,7 +297,7 @@ export class JellyCrowd {
       return geo;
     };
     const shellGeo = withInstances(tag(shellGeometry(), core, 1, 0xffffff));
-    const look = LOOKS[opts.kind] ?? LOOKS.slime;
+    const look: JellyLook = { inside: opts.inside ?? [], crown: opts.crown };
     const insideGeo = withInstances(insideGeometry(look, opts.scale ?? 1, core));
 
     const pool = new THREE.Mesh(withInstances(tag(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), 0, 0, 0xffffff)), this.poolMaterial());

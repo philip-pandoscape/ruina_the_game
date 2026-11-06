@@ -6,5 +6,13 @@
   "h": 1,
   "collider": "post",
   "r": 0.9,
-  "look": "Pile of three fallen logs with bark, mossy ends, an axe stuck in one."
+  "look": {
+    "body": "timberNode",
+    "model": {
+      "files": [
+        "timberNode"
+      ],
+      "sink": 0.1
+    }
+  }
 }

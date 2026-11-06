@@ -5,5 +5,13 @@
   "d": 0.4,
   "h": 2.4,
   "collider": "box",
-  "look": "Two posts and a small roof over a board with pinned papers."
+  "look": {
+    "body": "noticeBoard",
+    "model": {
+      "files": [
+        "noticeBoard"
+      ],
+      "sink": 0.05
+    }
+  }
 }

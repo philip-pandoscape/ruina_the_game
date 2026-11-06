@@ -13,5 +13,12 @@
       "n": 10
     }
   ],
-  "look": "A thick roll of pale woven sailcloth tied with cord, on a carrying frame with straps."
+  "look": {
+    "model": {
+      "files": [
+        "pack_sailcloth"
+      ],
+      "yaw": 3.141592653589793
+    }
+  }
 }

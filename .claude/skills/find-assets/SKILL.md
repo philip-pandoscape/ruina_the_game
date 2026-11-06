@@ -103,9 +103,8 @@ user's to do.
 
 - **Models:** compress into the game (AGENTS.md, Meshy, has the full command):
   `npx @gltf-transform/cli optimize <in.gltf> src/render/assets/models/<id>.glb --compress meshopt --texture-compress webp --texture-size 512 ...`
-  (1024 for buildings). Then an entry in `MADE_STRUCTURES`, `MADE_PROPS` or `MADE_PACKS`
-  (`src/render/models/glb.ts`) swaps it in for the procedural model with that id, fitted to its
-  footprint. A building piece or furniture from a kit: `tools/models/village.mjs`.
+  (1024 for buildings). Then a `model` in the thing's look (its content file: `docs/content.md`,
+  Looks) swaps it in for the procedural body, fitted to its footprint (`src/render/models/glb.ts`). A building piece or furniture from a kit: `tools/models/village.mjs`.
 - **Textures:** the maps the shader reads, as 1K JPG, in `src/render/assets/` (ground in
   `ground/`); greyscale where the palette gives the colour.
 - **Skies:** an HDRI where the sky code reads it (`src/render/open/sky.ts`).

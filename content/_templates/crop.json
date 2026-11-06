@@ -15,5 +15,7 @@
   "seedChance": 0.35,
   "harvestLabor": 2,
   "plantLabor": 0,
-  "look": "What each stage looks like."
+  "look": {
+    "body": "sunroot"
+  }
 }

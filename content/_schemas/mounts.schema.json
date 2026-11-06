@@ -62,6 +62,15 @@
     },
     "cargo": {
       "type": "array"
+    },
+    "look": {
+      "type": "object",
+      "properties": {
+        "body": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
     }
   },
   "required": [

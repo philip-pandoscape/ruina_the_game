@@ -1,5 +1,6 @@
 {
   "id": "slimelet",
+  "name": "Slimelet",
   "faction": 1,
   "solid": false,
   "brain": "slimelet",
@@ -24,5 +25,9 @@
   "palette": {
     "teamA": 9425274,
     "teamB": 7978854
+  },
+  "look": {
+    "body": "jelly",
+    "inside": []
   }
 }

@@ -28,7 +28,88 @@
       "type": "string"
     },
     "look": {
-      "type": "string"
+      "type": "object",
+      "properties": {
+        "outfit": {
+          "type": "string"
+        },
+        "skin": {
+          "type": "string"
+        },
+        "w": {
+          "type": "number"
+        },
+        "d": {
+          "type": "number"
+        },
+        "arm": {
+          "type": "number"
+        },
+        "shirt": {
+          "type": "string"
+        },
+        "rolled": {
+          "type": "boolean"
+        },
+        "pants": {
+          "type": "string"
+        },
+        "boots": {
+          "type": "string"
+        },
+        "hair": {
+          "type": "string"
+        },
+        "style": {
+          "type": "string"
+        },
+        "beard": {
+          "type": "string"
+        },
+        "rest": {
+          "type": "object"
+        },
+        "free": {
+          "type": "array"
+        },
+        "sleeve": {
+          "type": "string"
+        },
+        "hunch": {
+          "type": "number"
+        },
+        "skirt": {
+          "type": "string"
+        },
+        "trim": {
+          "type": "string"
+        },
+        "belt": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "tallBoots": {
+          "type": "boolean"
+        },
+        "tails": {
+          "type": "string"
+        },
+        "blush": {
+          "type": "boolean"
+        },
+        "h": {
+          "type": "number"
+        },
+        "leg": {
+          "type": "number"
+        },
+        "gloves": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
     },
     "portrait": {
       "type": "string"
@@ -49,7 +130,6 @@
     "z",
     "facing",
     "kind",
-    "look",
     "portrait",
     "greeting"
   ],

@@ -5,5 +5,13 @@
   "h": 3.2,
   "collider": "post",
   "r": 0.15,
-  "look": "Iron lamp post with a glass lantern (emissive warm)."
+  "look": {
+    "body": "lamp",
+    "model": {
+      "files": [
+        "lamp"
+      ],
+      "sink": 0.05
+    }
+  }
 }

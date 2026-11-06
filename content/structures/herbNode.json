@@ -5,5 +5,13 @@
   "d": 1.2,
   "h": 0.7,
   "collider": "none",
-  "look": "Low leafy herb clump with tiny white and purple flowers."
+  "look": {
+    "body": "herbNode",
+    "model": {
+      "files": [
+        "herbNode"
+      ],
+      "sink": 0.05
+    }
+  }
 }

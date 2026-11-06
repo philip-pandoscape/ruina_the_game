@@ -15,5 +15,7 @@
   "seedChance": 0.3,
   "harvestLabor": 2,
   "plantLabor": 0,
-  "look": "Slender upright stems. Ripe: many pale-blue five-petal flowers on top."
+  "look": {
+    "body": "flax"
+  }
 }

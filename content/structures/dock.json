@@ -7,5 +7,7 @@
   "collider": "none",
   "deck": 1.4,
   "seaLevel": true,
-  "look": "Wooden pier: plank deck 4 wide x 16 long whose top is 1.4 above the model origin (sea level), thick round piles every 4 m going down to -3, bollards on the edges, a rope coil. Origin at the centre of the deck footprint."
+  "look": {
+    "body": "dock"
+  }
 }

@@ -19,5 +19,8 @@
     "speed": 7,
     "lift": 6.5,
     "cooldownSeconds": 16
+  },
+  "look": {
+    "body": "swiftwing"
   }
 }

@@ -52,7 +52,13 @@
       "type": "object"
     },
     "look": {
-      "type": "string"
+      "type": "object",
+      "properties": {
+        "body": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
     }
   },
   "required": [
@@ -68,8 +74,7 @@
     "yield",
     "seedChance",
     "harvestLabor",
-    "plantLabor",
-    "look"
+    "plantLabor"
   ],
   "additionalProperties": false
 }
