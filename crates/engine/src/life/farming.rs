@@ -182,6 +182,7 @@ pub fn plot_problem(life: &Life, sim: &Sim, x: f64, z: f64, rot: f64) -> Option<
     }
     let half = half();
     let clear = &sim.world.clear;
+    let grid = sim.world.grid();
     let mut lo = f64::INFINITY;
     let mut hi = f64::NEG_INFINITY;
     let mut a = -1.0;
@@ -207,9 +208,8 @@ pub fn plot_problem(life: &Life, sim: &Sim, x: f64, z: f64, rot: f64) -> Option<
             if surf != surface::GRASS && surf != surface::FOREST && surf != surface::SOIL {
                 return Some(if surf == surface::ROAD || surf == surface::PLAZA { "Not on a road" } else { "The soil here is no good" }.into());
             }
-            let ci = ((px - hf.min) / hf.cell).floor();
-            let cj = ((pz - hf.min) / hf.cell).floor();
-            let k = cj * hf.cells as f64 + ci;
+            let (ci, cj) = grid.cell_of(px, pz);
+            let k = cj * grid.cells as f64 + ci;
             if k >= 0.0 && clear.get(k as usize).is_some_and(|&c| c != 0) {
                 return Some("Too close to a road or building".into());
             }
@@ -266,7 +266,7 @@ pub fn add_scarecrow_collider(sim: &mut Sim, sc: &Scarecrow) {
     let (px, pz) = scarecrow_post(sc.x, sc.z, sc.rot);
     sim.world.index.add_obstacle(Obstacle { kind: ObstacleKind::Post, x: px, z: pz, r: 0.25, scale: 1.0, rot: sc.rot });
     // Tilled ground: no grass, no new trees.
-    let hf = sim.terrain();
+    let grid = sim.world.grid();
     let half = half();
     let clear = &mut sim.world.clear;
     let mut a = -half - 1.0;
@@ -274,20 +274,19 @@ pub fn add_scarecrow_collider(sim: &mut Sim, sc: &Scarecrow) {
         let mut b = -half - 1.0;
         while b <= half + 1.0 {
             let (ox, oz) = to_world(a, b, sc.rot);
-            let i = ((sc.x + ox - hf.min) / hf.cell).floor();
-            let j = ((sc.z + oz - hf.min) / hf.cell).floor();
-            let cells = hf.cells as f64;
+            let (i, j) = grid.cell_of(sc.x + ox, sc.z + oz);
+            let cells = grid.cells as f64;
             if i >= 0.0
                 && j >= 0.0
                 && i < cells
                 && j < cells
-                && let Some(c) = clear.get_mut(j as usize * hf.cells + i as usize)
+                && let Some(c) = clear.get_mut(j as usize * grid.cells + i as usize)
             {
                 *c = 1;
             }
-            b += hf.cell / 2.0;
+            b += grid.cell / 2.0;
         }
-        a += hf.cell / 2.0;
+        a += grid.cell / 2.0;
     }
 }
 

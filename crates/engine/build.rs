@@ -3,6 +3,9 @@
 //! Writes $OUT_DIR/minigames.rs, which src/minigames/mod.rs brings in as `games`: a `mod` for each
 //! and `MODULES`, each one's `RULES` by its game's id.
 //!
+//! And the zones' recipes: every shared/zones/<id>.json, built in by its id ($OUT_DIR/zones.rs,
+//! which src/open/map.rs brings in), so a region is its files and no list of zones is kept either.
+//!
 //! `cargo fmt` reaches a crate's files through their `mod` lines and so can't see these;
 //! tools/cargo.mjs hands it the folder's files by name.
 
@@ -34,4 +37,26 @@ fn main() {
     }
     out += "];\n";
     fs::write(PathBuf::from(env::var("OUT_DIR").expect("cargo sets OUT_DIR")).join("minigames.rs"), out).expect("$OUT_DIR/minigames.rs written");
+    zones();
+}
+
+/// Every zone's recipe in shared/zones/, by its id: `ZONES`, for the world map.
+fn zones() {
+    let dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").expect("cargo sets CARGO_MANIFEST_DIR")).join("../../shared/zones");
+    println!("cargo::rerun-if-changed={}", dir.display());
+    let mut ids: Vec<String> = fs::read_dir(&dir)
+        .expect("shared/zones: the zones' recipes (npm run content)")
+        .map(|e| e.expect("a file in shared/zones").path())
+        .filter(|p| p.extension().is_some_and(|x| x == "json"))
+        .map(|p| p.file_stem().expect("a file name").to_string_lossy().into_owned())
+        .collect();
+    ids.sort();
+    let mut out = String::from("/// Every zone's recipe, as built into the engine, by its id.\npub static ZONES: &[(&str, &str)] = &[\n");
+    for id in &ids {
+        let path = dir.join(format!("{id}.json"));
+        println!("cargo::rerun-if-changed={}", path.display());
+        out += &format!("    ({id:?}, include_str!({:?})),\n", path.display().to_string());
+    }
+    out += "];\n";
+    fs::write(PathBuf::from(env::var("OUT_DIR").expect("cargo sets OUT_DIR")).join("zones.rs"), out).expect("$OUT_DIR/zones.rs written");
 }

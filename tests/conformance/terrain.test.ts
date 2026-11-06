@@ -52,7 +52,7 @@ test('the browser grows the island the server does: ground, colliders, roads, pl
   const gen = generateZone(EMBERHOLM);
   const hf = gen.terrain;
   const rust = JSON.parse(execFileSync(CHECK, ['--zone'], { maxBuffer: 1 << 26 }).toString());
-  expect([rust.cells, rust.cell, rust.water, rust.min]).toEqual([hf.cells, hf.cell, hf.water, hf.min]);
+  expect([rust.cells, rust.cell, rust.water, rust.minX, rust.minZ]).toEqual([hf.cells, hf.cell, hf.water, hf.min, hf.min]);
   // Heights are kept as f32 on both sides: to the bit.
   let heights = 0;
   hf.heights.forEach((h, i) => {

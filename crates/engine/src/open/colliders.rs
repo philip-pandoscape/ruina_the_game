@@ -3,7 +3,8 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use super::zone::{BoxCollider, Deck, Heightfield, Obstacle};
+use super::map::WorldMap;
+use super::zone::{BoxCollider, Deck, Obstacle};
 use crate::jsmath::js_hypot;
 
 const BUCKET: f64 = 16.0;
@@ -170,13 +171,13 @@ pub fn push_out_of_box(b: &BoxCollider, x: f64, z: f64, r: f64) -> Option<(f64, 
 
 /// The ground under a point for something whose feet are at `y`: the terrain, or a deck or a
 /// box top it is standing on (anything at most `step_up` above its feet).
-pub fn ground_at(hf: &Heightfield, index: &ColliderIndex, x: f64, z: f64, y: f64, step_up: f64) -> f64 {
+pub fn ground_at(hf: &WorldMap, index: &ColliderIndex, x: f64, z: f64, y: f64, step_up: f64) -> f64 {
     ground_at_decks(hf, index, x, z, y, step_up, step_up)
 }
 
 /// ground_at, reaching `deck_up` for a deck rather than `step_up`: someone walking steps higher
 /// onto a deck, which is built for it.
-pub fn ground_at_decks(hf: &Heightfield, index: &ColliderIndex, x: f64, z: f64, y: f64, step_up: f64, deck_up: f64) -> f64 {
+pub fn ground_at_decks(hf: &WorldMap, index: &ColliderIndex, x: f64, z: f64, y: f64, step_up: f64, deck_up: f64) -> f64 {
     let mut g = hf.height(x, z);
     let reach = y + step_up;
     let deck_reach = y + deck_up;

@@ -9,7 +9,7 @@ use serde::Serialize;
 use crate::actors::Actors;
 use crate::event::Event;
 use crate::jsmath::{JsMath, js_hypot, len};
-use crate::open::zone::Heightfield;
+use crate::open::map::WorldMap;
 use crate::player::{DEG, Player, angle_diff};
 use crate::tuning::{AttackStep, ability, effect_damage, effect_radius, melee_targets, tuning};
 
@@ -36,7 +36,7 @@ pub struct Target {
 
 /// Everything standing that an attack could land on: on an island
 /// their heights are raised onto the ground under them.
-pub fn targets(actors: &Actors, terrain: Option<&Heightfield>) -> Vec<Target> {
+pub fn targets(actors: &Actors, terrain: Option<&WorldMap>) -> Vec<Target> {
     let mut out = Vec::new();
     for a in &actors.list {
         if !a.is_alive() || a.faction == NEUTRAL {
@@ -104,7 +104,7 @@ pub fn point_hit(targets: &[Target], x: f64, y: f64, z: f64, pad: f64) -> Option
 pub struct Blows<'a> {
     pub actors: &'a mut Actors,
     pub player: &'a Player,
-    pub terrain: Option<&'a Heightfield>,
+    pub terrain: Option<&'a WorldMap>,
     pub events: &'a mut Vec<Event>,
 }
 
@@ -163,14 +163,7 @@ impl Blows<'_> {
 /// A swing's blow, on a frame it could land: whatever is in
 /// its arc and reach takes it, and everything pauses a moment. `above` is how high you are over
 /// the ground; returns the frames of hit pause, if it landed.
-pub fn check_hit(
-    actors: &mut Actors,
-    terrain: Option<&Heightfield>,
-    events: &mut Vec<Event>,
-    player: &mut Player,
-    step: &AttackStep,
-    above: f64,
-) -> Option<i32> {
+pub fn check_hit(actors: &mut Actors, terrain: Option<&WorldMap>, events: &mut Vec<Event>, player: &mut Player, step: &AttackStep, above: f64) -> Option<i32> {
     // Too far up in the air to reach anything.
     if above > 2.0 {
         return None;

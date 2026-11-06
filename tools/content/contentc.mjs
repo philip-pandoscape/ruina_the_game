@@ -122,8 +122,47 @@ export function build(root = CONTENT) {
   // The schemas, and the templates a new thing is copied from (content/_templates/), are no bundle's.
   for (const f of walk(root)) if (!used.has(f) && !/^_(schemas|templates)\//.test(f) && !f.endsWith('.md')) errors.push(`content/${f}: no bundle takes it`);
   errors.push(...references(bundles));
+  errors.push(...world(bundles));
   if (errors.length) throw new ContentError(errors.join('\n'));
   return bundles;
+}
+
+// ---------- The world ----------
+
+/**
+ * What's wrong with where the world puts its regions (content/world.json): each is a zone, its grid
+ * covers exactly its chunks (its terrain's origin at their middle, its size theirs: a region's
+ * recipe is written where it stands), its sea is the world's, and no chunk is two regions'.
+ */
+function world(b) {
+  const w = b.get('world.json');
+  if (!w) return [];
+  const out = [];
+  const taken = new Map();
+  for (const r of w.regions ?? []) {
+    const where = `content/world.json: ${r.id}`;
+    const zone = b.get(`zones/${r.id}.json`);
+    if (!zone) {
+      out.push(`${where}: there's no content/zones/${r.id}.json`);
+      continue;
+    }
+    const { x, z, w: cw, d: cd } = r.chunks ?? {};
+    for (let i = x; i < x + cw; i++)
+      for (let j = z; j < z + cd; j++) {
+        const k = `${i},${j}`;
+        if (taken.has(k)) out.push(`${where}: chunk (${i}, ${j}) is ${taken.get(k)}'s too`);
+        taken.set(k, r.id);
+      }
+    const t = zone.terrain ?? {};
+    const size = t.cells * t.cell;
+    const [ox, oz] = t.origin ?? [0, 0];
+    const mid = [(x + cw / 2) * w.chunk, (z + cd / 2) * w.chunk];
+    if (cw !== cd || size !== cw * w.chunk)
+      out.push(`${where}: its grid is ${size} m a side (cells times cell), where its chunks are ${cw * w.chunk} by ${cd * w.chunk} m`);
+    if (ox !== mid[0] || oz !== mid[1]) out.push(`${where}: its terrain's origin is (${ox}, ${oz}), where the middle of its chunks is (${mid[0]}, ${mid[1]})`);
+    if (t.water !== w.sea?.level) out.push(`${where}: its sea level is ${t.water}, the world's ${w.sea?.level}`);
+  }
+  return out;
 }
 
 // ---------- Schemas ----------

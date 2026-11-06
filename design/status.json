@@ -1665,7 +1665,8 @@
         "Content in folders (content/, a file per thing, checked and built by npm run content); new content as data alone, played in a test.",
         "The Ruina Bible at /bible/: how the game works, exactly, a page per system and an entry per thing, its numbers taken from the rules and the content.",
         "The TypeScript copy of the rules is deleted (src/sim/, R8.13): the check programs and conformance specs that compared it went first, the unit tests that drove it drive the engine (the engine takes content at run time, so a test can give it new content), the bible reads the engine's Rust, and what the page still reads (the shapes of the rules' state, the ground's sampling, the roads, the island's read helpers) moved into src/engine/ behind seven front doors.",
-        "Measured against where the refactor started (tools/perf/measure.mjs, R8.14): start-up and frames no worse, a little more memory, and an offline step 3.3 times cheaper once the engine wrote its view of each step straight from its values."
+        "Measured against where the refactor started (tools/perf/measure.mjs, R8.14): start-up and frames no worse, a little more memory, and an offline step 3.3 times cheaper once the engine wrote its view of each step straight from its values.",
+        "The world map in the engine (R10.16, R10.1): content/world.json places regions on 256 m chunks with open sea between, the engine answers the ground, the water and the colliders across regions, and the edge of the world is the edge of the map. A fixture of two regions across open sea is crossed swimming."
       ]
     }
   ]

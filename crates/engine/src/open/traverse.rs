@@ -229,13 +229,13 @@ pub fn collide_open(sim: &mut Sim) {
             p.pos.z = b.z + (oz / d) * min;
         }
     }
-    let lim = sim.world.radius;
-    let rr = len(p.pos.x, p.pos.z);
-    if rr > lim {
-        p.pos.x *= lim / rr;
-        p.pos.z *= lim / rr;
-    }
+    let (x, z) = sim.world.map.keep_inside(p.pos.x, p.pos.z, EDGE);
+    p.pos.x = x;
+    p.pos.z = z;
 }
+
+/// How far in from the edge of the world you're kept.
+pub const EDGE: f64 = 8.0;
 
 /// Ground contact after moving: stay on it, step off it, land on it, or fall into the sea.
 fn settle(sim: &mut Sim) {

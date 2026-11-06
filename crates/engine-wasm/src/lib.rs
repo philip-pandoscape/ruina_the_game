@@ -154,7 +154,8 @@ pub extern "C" fn zone_json() -> usize {
                 "cells": t.cells,
                 "cell": t.cell,
                 "water": t.water,
-                "min": t.min,
+                "minX": t.min_x,
+                "minZ": t.min_z,
                 "obstacles": g.obstacles,
                 "boxes": g.boxes,
                 "decks": g.decks,
@@ -216,7 +217,8 @@ pub extern "C" fn probe(n: u32, seed: u32) -> u64 {
             hash = (hash ^ u64::from(b)).wrapping_mul(0x0100_0000_01b3);
         }
     };
-    let r = island().radius;
+    // Over the first region and a little past it: the ground where players may go.
+    let r = island().zone.radius;
     for _ in 0..n {
         let x = (rng.next_f64() * 2.0 - 1.0) * r;
         let z = (rng.next_f64() * 2.0 - 1.0) * r;

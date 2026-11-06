@@ -6,12 +6,14 @@ import { GROUND } from '../../content/traversal';
 import autoWalkSource from '../../input/autoWalk.ts?raw';
 import interactSource from '../../../crates/engine/src/life/interact.rs?raw';
 import generateSource from '../../../crates/engine/src/open/generate.rs?raw';
+import traverseSource from '../../../crates/engine/src/open/traverse.rs?raw';
+import worldMap from '../../../shared/world.json' with { type: 'json' };
 // Travel by road is the browser's alone (the engine has no twin of the road network), so its numbers
 // are the road network's TypeScript.
 import localPathSource from '../../engine/world/localPath.ts?raw';
 import roadsSource from '../../engine/world/roads.ts?raw';
 import { ON_ROAD, TAIL_MAX, EMBERHOLM, makeZoneWorld } from '../../engine/zone';
-import { count, degrees, frames, key, metres, num, pct, slopeDegrees } from '../format';
+import { count, degrees, frames, key, listOf, metres, num, pct, slopeDegrees } from '../format';
 import { system, table } from '../kit';
 import { link, md, phrase, raw } from '../md';
 import { sourceNumber, tsConst } from '../source';
@@ -40,18 +42,47 @@ const place = (x: number, z: number) => link(`places/${nearestPlace(x, z).id}`);
 export const world = system({
   id: 'world',
   title: 'The World and Its Places',
-  summary: 'How an island is grown from its recipe: coast, hills, mountains, roads and places; what you can walk on; and what F does where.',
+  summary:
+    'Where the regions stand in the world, and how each is grown from its recipe: coast, hills, mountains, roads and places; what you can walk on; and what F does where.',
   icon: '🗺️',
-  keywords: ['island', 'map', 'terrain', 'ground', 'road', 'roads', 'travel', 'auto-run', 'interact', 'F key', 'coast', 'mountain', 'forest', 'trees'],
+  keywords: [
+    'island',
+    'region',
+    'world map',
+    'chunk',
+    'edge of the world',
+    'map',
+    'terrain',
+    'ground',
+    'road',
+    'roads',
+    'travel',
+    'auto-run',
+    'interact',
+    'F key',
+    'coast',
+    'mountain',
+    'forest',
+    'trees',
+  ],
   rules: [
     'crates/engine/src/open/mod.rs',
+    'crates/engine/src/open/map.rs',
     'crates/engine/src/open/zone.rs',
     'crates/engine/src/open/generate.rs',
     'crates/engine/src/open/noise.rs',
     'crates/engine/src/life/interact.rs',
     'src/input/autoWalk.ts',
   ],
-  content: ['shared/zones/*.json#terrain', 'shared/zones/*.json#forests', 'shared/zones/*.json#scatter', 'shared/zones/*.json#spawn'],
+  content: [
+    'shared/world.json#chunk',
+    'shared/world.json#sea',
+    'shared/world.json#regions',
+    'shared/zones/*.json#terrain',
+    'shared/zones/*.json#forests',
+    'shared/zones/*.json#scatter',
+    'shared/zones/*.json#spawn',
+  ],
   body: () => {
     const t = Z.terrain;
     const gen = makeZoneWorld(Z).zone!.gen;
@@ -118,10 +149,24 @@ export const world = system({
       const on = gen.roads.find((o) => o.id !== id && o.points.some(([ax, az], i) => i > 0 && segmentDistance(x, z, o.points[i - 1], [ax, az]) <= join));
       return on ? phrase`the ${on.id.charAt(0).toUpperCase() + on.id.slice(1)} road` : place(x, z);
     };
+    // Where the regions stand, and how far in from the world's edge you're kept.
+    const chunk = worldMap.chunk;
+    const edge = sourceNumber(traverseSource, /pub const EDGE: f64 = ([\d.]+);/, 'how far in from the edge of the world you are kept');
+    const regions = listOf(
+      worldMap.regions.map(({ id, chunks: c }) => {
+        const [mx, mz] = [(c.x + c.w / 2) * chunk, (c.z + c.d / 2) * chunk];
+        const middle = mx === 0 && mz === 0 ? phrase`the world's origin` : phrase`${metres(mx, 0)}, ${metres(mz, 0)} from the world's origin`;
+        return phrase`${link(`zones/${id}`)} on ${num(c.w, 0)} by ${num(c.d, 0)} chunks (${metres(c.w * chunk, 0)} by ${metres(c.d * chunk, 0)}), its middle at ${middle}`;
+      }),
+    );
     const roadLength = (pts: Array<[number, number]>) => pts.reduce((s, [x, z], i) => (i ? s + Math.hypot(x - pts[i - 1][0], z - pts[i - 1][1]) : 0), 0);
 
     return md`
-Every island is grown from a recipe: a list of where its coast runs, its hills and mountains, the places flattened for towns and fields, its roads, buildings and people (${link('zones/emberholm', Z.name)} is the first). The same recipe and the same seed grow the same island every time, to the last tree. Your browser grows it from the recipe; the server plays on an exact copy of what it grew, so a foot planted in one is planted in the other.
+Every region of the world is grown from a recipe: a list of where its coast runs, its hills and mountains, the places flattened for towns and fields, its roads, buildings and people (${link('zones/emberholm', Z.name)} is the first). The same recipe and the same seed grow the same region every time, to the last tree. Your browser grows it from the recipe; the server plays on an exact copy of what it grew, so a foot planted in one is planted in the other.
+
+## The World
+
+The world is laid out on a grid of chunks, each ${metres(chunk, 0)} a side, and each region stands on a block of them: ${regions}. Wherever no region stands is open sea, ${metres(worldMap.sea.depth, 0)} deep, so you can swim or sail from one region to the next. The edge of the world is the edge of every region's chunks together, a rectangle round them all, and you are kept ${metres(edge, 0)} inside it.
 
 ## The Ground
 

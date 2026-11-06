@@ -31,6 +31,10 @@ pub struct Terrain {
     pub cells: usize,
     pub cell: f64,
     pub water: f64,
+    /// Where the middle of the grid stands in the world (x, z): Emberholm's is the world's origin. A
+    /// region's recipe is written in world coordinates, so nothing in it moves when it's placed.
+    #[serde(default)]
+    pub origin: [f64; 2],
     pub island: Island,
     #[serde(default)]
     pub bays: Vec<Circle>,
@@ -447,35 +451,40 @@ struct Grid {
     n: usize,
     cells: usize,
     cell: f64,
-    min: f64,
+    min_x: f64,
+    min_z: f64,
 }
 
 impl Grid {
     fn vx(&self, i: usize) -> f64 {
-        self.min + i as f64 * self.cell
+        self.min_x + i as f64 * self.cell
+    }
+
+    fn vz(&self, j: usize) -> f64 {
+        self.min_z + j as f64 * self.cell
     }
 
     /// Every vertex in the square reaching `r` round (cx, cz), row by row: (i, j, x, z).
     fn each_vertex_near(&self, cx: f64, cz: f64, r: f64, mut f: impl FnMut(usize, usize, f64, f64)) {
         let last = (self.n - 1) as f64;
-        let i0 = js_max(0.0, ((cx - r - self.min) / self.cell).floor());
-        let i1 = js_min(last, ((cx + r - self.min) / self.cell).ceil());
-        let j0 = js_max(0.0, ((cz - r - self.min) / self.cell).floor());
-        let j1 = js_min(last, ((cz + r - self.min) / self.cell).ceil());
+        let i0 = js_max(0.0, ((cx - r - self.min_x) / self.cell).floor());
+        let i1 = js_min(last, ((cx + r - self.min_x) / self.cell).ceil());
+        let j0 = js_max(0.0, ((cz - r - self.min_z) / self.cell).floor());
+        let j1 = js_min(last, ((cz + r - self.min_z) / self.cell).ceil());
         if !(i0 <= i1 && j0 <= j1) {
             return;
         }
         for j in j0 as usize..=j1 as usize {
             for i in i0 as usize..=i1 as usize {
-                f(i, j, self.vx(i), self.vx(j));
+                f(i, j, self.vx(i), self.vz(j));
             }
         }
     }
 
     /// The cell under a world point, if it's on the grid.
     fn cell_of(&self, x: f64, z: f64) -> Option<usize> {
-        let i = ((x - self.min) / self.cell).floor();
-        let j = ((z - self.min) / self.cell).floor();
+        let i = ((x - self.min_x) / self.cell).floor();
+        let j = ((z - self.min_z) / self.cell).floor();
         let cells = self.cells as f64;
         if i >= 0.0 && j >= 0.0 && i < cells && j < cells { Some(j as usize * self.cells + i as usize) } else { None }
     }
@@ -524,8 +533,8 @@ fn or(v: f64, otherwise: f64) -> f64 {
 /// Grows the zone a recipe describes.
 pub fn generate(z: &Recipe) -> Generated {
     let t = &z.terrain;
-    let mut hf = Heightfield::new(t.cells, t.cell, t.water);
-    let g = Grid { n: hf.n, cells: hf.cells, cell: hf.cell, min: hf.min };
+    let mut hf = Heightfield::new(t.cells, t.cell, t.water, t.origin[0], t.origin[1]);
+    let g = Grid { n: hf.n, cells: hf.cells, cell: hf.cell, min_x: hf.min_x, min_z: hf.min_z };
     let n = g.n;
     let seed = z.seed as i32;
 
@@ -572,7 +581,7 @@ pub fn generate(z: &Recipe) -> Generated {
     {
         let h_ = hf.heights_mut();
         for j in 0..n {
-            let zz = g.vx(j);
+            let zz = g.vz(j);
             for i in 0..n {
                 let x = g.vx(i);
                 let d = landness(x, zz);
@@ -886,10 +895,10 @@ pub fn generate(z: &Recipe) -> Generated {
         }
         let pad = half + shoulder + 2.0;
         let last = (n - 1) as f64;
-        let i0 = js_max(0.0, ((min_x - pad - g.min) / g.cell).floor());
-        let i1 = js_min(last, ((max_x + pad - g.min) / g.cell).ceil());
-        let j0 = js_max(0.0, ((min_z - pad - g.min) / g.cell).floor());
-        let j1 = js_min(last, ((max_z + pad - g.min) / g.cell).ceil());
+        let i0 = js_max(0.0, ((min_x - pad - g.min_x) / g.cell).floor());
+        let i1 = js_min(last, ((max_x + pad - g.min_x) / g.cell).ceil());
+        let j0 = js_max(0.0, ((min_z - pad - g.min_z) / g.cell).floor());
+        let j1 = js_min(last, ((max_z + pad - g.min_z) / g.cell).ceil());
         if !(i0 <= i1 && j0 <= j1) {
             continue;
         }
@@ -897,7 +906,7 @@ pub fn generate(z: &Recipe) -> Generated {
         for j in j0 as usize..=j1 as usize {
             for i in i0 as usize..=i1 as usize {
                 let x = g.vx(i);
-                let zz = g.vx(j);
+                let zz = g.vz(j);
                 let (nd, nh) = nearest(x, zz);
                 if nd > half + shoulder {
                     continue;
@@ -924,7 +933,7 @@ pub fn generate(z: &Recipe) -> Generated {
         for i in 0..cells {
             let c = j * cells + i;
             let x = g.vx(i) + g.cell / 2.0;
-            let zz = g.vx(j) + g.cell / 2.0;
+            let zz = g.vz(j) + g.cell / 2.0;
             if painted[c] >= 0 {
                 hf.surface[c] = painted[c] as u8;
                 continue;
@@ -1082,8 +1091,8 @@ pub fn generate(z: &Recipe) -> Generated {
     let across = (span / big_g).floor() as usize;
     for gj in 0..across {
         for gi in 0..across {
-            let x = g.min + (gi as f64 + rng.next_f64()) * big_g;
-            let zz = g.min + (gj as f64 + rng.next_f64()) * big_g;
+            let x = g.min_x + (gi as f64 + rng.next_f64()) * big_g;
+            let zz = g.min_z + (gj as f64 + rng.next_f64()) * big_g;
             let roll = rng.next_f64();
             let scale = 0.8 + (1.45 - 0.8) * rng.next_f64();
             let rot = rng.next_f64() * TAU;
@@ -1180,7 +1189,7 @@ pub fn generate(z: &Recipe) -> Generated {
         for j in 0..cells {
             for i in 0..cells {
                 let x = g.vx(i) + g.cell / 2.0;
-                let zz = g.vx(j) + g.cell / 2.0;
+                let zz = g.vz(j) + g.cell / 2.0;
                 if (x - m.x).abs() > f.foot + 14.0 || (zz - m.z).abs() > f.foot + 14.0 {
                     continue;
                 }

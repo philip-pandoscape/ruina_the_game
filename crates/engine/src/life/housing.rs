@@ -176,25 +176,25 @@ pub fn add_house_colliders(life: &Life, sim: &mut Sim, h: &House) {
     let key = |what: &str| format!("{owner}:{}:{what}", h.id);
     if sim.world.added.insert(key("ground")) {
         // Keep the footprint (and a metre round it) clear of trees and scarecrows.
+        let grid = sim.world.grid();
         let clear = &mut sim.world.clear;
         let mut a = -def.w / 2.0 - 1.0;
         while a <= def.w / 2.0 + 1.0 {
             let mut b = -def.d / 2.0 - 1.0;
             while b <= def.d / 2.0 + 1.0 {
                 let (ox, oz) = to_world(a, b, rot);
-                let i = ((px + ox - hf.min) / hf.cell).floor();
-                let j = ((pz + oz - hf.min) / hf.cell).floor();
+                let (i, j) = grid.cell_of(px + ox, pz + oz);
                 if i >= 0.0
                     && j >= 0.0
-                    && i < hf.cells as f64
-                    && j < hf.cells as f64
-                    && let Some(c) = clear.get_mut(j as usize * hf.cells + i as usize)
+                    && i < grid.cells as f64
+                    && j < grid.cells as f64
+                    && let Some(c) = clear.get_mut(j as usize * grid.cells + i as usize)
                 {
                     *c = 1;
                 }
-                b += hf.cell / 2.0;
+                b += grid.cell / 2.0;
             }
-            a += hf.cell / 2.0;
+            a += grid.cell / 2.0;
         }
     }
     if h.stage >= 1 && sim.world.added.insert(key("floor")) {
@@ -285,9 +285,10 @@ mod tests {
         assert_eq!(life.count("blueprint.cottage"), 0);
         assert_eq!(toasts(&mut life), ["📜 Plot claimed! Haul the foundation materials here to begin."]);
         // The ground is cleared at once; nothing is solid yet.
-        let hf = sim.terrain();
+        let grid = sim.world.grid();
         let (x, z, _) = house_pose(&life, &h);
-        let cell = ((z - hf.min) / hf.cell).floor() as usize * hf.cells + ((x - hf.min) / hf.cell).floor() as usize;
+        let (i, j) = grid.cell_of(x, z);
+        let cell = j as usize * grid.cells + i as usize;
         assert_eq!(sim.world.clear[cell], 1);
         assert!(sim.world.added.contains(&format!("7:{}:ground", h.id)));
         assert_eq!((sim.world.index.decks.len(), sim.world.index.boxes.len()), (decks, boxes));
@@ -320,7 +321,7 @@ mod tests {
         let floor = sim.world.index.decks[decks];
         let def = structure_def("cottage");
         assert_eq!((floor.x, floor.z, floor.hw, floor.hd), (x, z, def.w / 2.0, def.d / 2.0));
-        assert_eq!(floor.top, hf.height(x, z) + def.floor.unwrap());
+        assert_eq!(floor.top, sim.terrain().height(x, z) + def.floor.unwrap());
         let events = life.drain_events();
         assert!(events.contains(&LifeEvent::Build { house: h.id, stage: 1, x, z }));
         assert!(events.contains(&LifeEvent::Toast { text: "🔨 Foundation done. Next: Frame.".into(), kind: "good".into() }));
@@ -338,7 +339,8 @@ mod tests {
         }
         assert!(build_stage(&mut life, &mut sim, h.id));
         assert_eq!(sim.world.index.boxes.len(), boxes + 5);
-        assert!(sim.world.index.boxes[boxes..].iter().all(|b| b.top == hf.height(x, z) + def.h));
+        let ground = sim.terrain().height(x, z);
+        assert!(sim.world.index.boxes[boxes..].iter().all(|b| b.top == ground + def.h));
         for pack in ["ironCrate", "lumberBundle"] {
             assert!(haul(&mut life, &mut sim, h.id, pack));
         }

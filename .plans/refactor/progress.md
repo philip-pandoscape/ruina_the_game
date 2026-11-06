@@ -484,3 +484,21 @@ the developer zone; then the engine bridge (R6.4) and Phase 8's switches.
   TypeScript would throw", "follows it line for line", "mirrors X in actor.ts") now say what the
   Rust does, or where the page reads it. One rule still has a TypeScript copy for what the page shows: the skill
   tree's fold (`src/content/skills.ts`), now R8.16.
+
+## 2026-11-06: The World Map (R10.16, R10.1)
+
+- **What.** The engine knows the world as a map of regions, not one island. `content/world.json`
+  places each region on a grid of 256 m chunks (Emberholm is 6 x 6 round the origin); wherever no
+  region stands is open sea. `crates/engine/src/open/map.rs` reads it into a `WorldMap` that answers
+  height, slope, surface and depth anywhere, growing each region from its recipe the first time
+  anything asks. `OpenWorld` stands on the map, with every region's colliders; a region's terrain
+  has an `origin`, so its recipe is written in world coordinates.
+- **What moved.** The edge of the world is now the edge of the map's chunks, a square, where it was
+  a circle of 760 m round Emberholm. That is the one golden answer that changed ("swimming to the
+  edge of the world"), kept on purpose. Every other answer on Emberholm is the same bit for bit.
+- **Proved.** A fixture world of two regions, Emberholm and an islet four chunks east across open
+  sea: each stands where the map puts it, both are solid at once, and a player swims from one to the
+  other. contentc refuses a region whose grid doesn't cover its chunks, two regions on one chunk, and
+  a region with no recipe (`tests/unit/content.test.ts`).
+- **Left for R10.16.** Land borders (edge constraints and a blend), growing and dropping regions by
+  need, `Life` across regions, and the browser drawing a region placed away from the origin (R10.23).

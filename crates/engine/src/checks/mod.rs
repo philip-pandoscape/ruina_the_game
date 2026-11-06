@@ -15,8 +15,9 @@ pub mod player;
 /// A player on Emberholm: hills, cliffs, decks, water, gliders, packs.
 pub mod world;
 
+/// Named so `cargo test golden` picks out these and nothing else.
 #[cfg(test)]
-mod tests {
+mod golden {
     use serde_json::{Map, Value, json};
 
     /// FNV-1a, 64 bits, over the text's bytes: the hash a golden case keeps of what its check gave back.

@@ -49,7 +49,9 @@ interface Grown {
   cells: number;
   cell: number;
   water: number;
-  min: number;
+  /** The grid's corner (vertex 0, 0) in the world. */
+  minX: number;
+  minZ: number;
   obstacles: Obstacle[];
   boxes: BoxCollider[];
   decks: Deck[];
@@ -70,7 +72,10 @@ export function generateZone(recipe: ZoneRecipe): Generated {
   const g = growZone<Grown>(recipe);
   const r = g.rest;
   const terrain = new Heightfield(r.cells, r.cell, r.water);
-  if (terrain.min !== r.min || terrain.heights.length !== g.heights.length) throw new Error("the engine's grid isn't the heightfield's");
+  // The page's grid is centred on the world's origin, as Emberholm's is: drawing a region placed
+  // elsewhere waits for the client in a big world (the refactor's R10.23).
+  if (terrain.min !== r.minX || terrain.min !== r.minZ || terrain.heights.length !== g.heights.length)
+    throw new Error("the engine's grid isn't the heightfield's");
   terrain.heights.set(g.heights);
   terrain.surface.set(g.surface);
   const buildings = r.buildings.map((b): PlacedBuilding => {

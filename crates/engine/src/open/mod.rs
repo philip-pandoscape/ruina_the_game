@@ -7,6 +7,7 @@ pub mod buildings;
 pub mod colliders;
 pub mod dungeon;
 pub mod generate;
+pub mod map;
 pub mod noise;
 pub mod traverse;
 pub mod zone;
@@ -19,16 +20,19 @@ use crate::player::{Actions, Mode, Player};
 use crate::tuning::{NO_ABILITY, NO_MOVEMENT};
 use crate::world::Spawn;
 use colliders::ColliderIndex;
+use map::{WorldMap, world_map};
 use zone::{Heightfield, Zone};
 
-/// One copy of an island as a channel plays it: the zone as grown, plus everything solid that
-/// residents have built since (house floors and walls, scarecrow posts), shared by everyone in it.
+/// The world as a channel plays it: the map of its regions and the ground they answer, the region
+/// the channel is a copy of (`zone`, whose life it plays), and everything solid: every region's
+/// colliders, plus what residents have built since (house floors and walls, scarecrow posts),
+/// shared by everyone in it.
 pub struct OpenWorld {
+    pub map: &'static WorldMap,
     pub zone: &'static Zone,
     pub index: ColliderIndex,
-    /// Cells kept free of trees and scarecrows: the zone's, plus ground cleared for houses.
+    /// Cells of `zone`'s grid kept free of trees and scarecrows: the zone's, plus ground cleared for houses.
     pub clear: Vec<u8>,
-    pub radius: f64,
     /// Built pieces already made solid, as "owner:what" keys, so each is added once.
     pub added: BTreeSet<String>,
     /// Everyone's vehicles as they stood when this tick began, which everyone but their owner bumps
@@ -50,19 +54,39 @@ pub struct Mover {
 }
 
 impl OpenWorld {
+    /// A copy of one of the world's regions (shared/world.json).
     pub fn new(zone: &'static Zone) -> Self {
+        Self::on(world_map(), zone)
+    }
+
+    /// A copy of one of `map`'s regions, with every region grown and solid.
+    pub fn on(map: &'static WorldMap, zone: &'static Zone) -> Self {
+        map.grow_all();
+        let (mut obstacles, mut boxes, mut decks) = (Vec::new(), Vec::new(), Vec::new());
+        for r in map.regions() {
+            let z = r.zone();
+            obstacles.extend_from_slice(&z.obstacles);
+            boxes.extend_from_slice(&z.boxes);
+            decks.extend_from_slice(&z.decks);
+        }
         OpenWorld {
+            map,
             zone,
-            index: ColliderIndex::new(zone.obstacles.clone(), zone.boxes.clone(), zone.decks.clone()),
+            index: ColliderIndex::new(obstacles, boxes, decks),
             clear: zone.clear.clone(),
-            radius: zone.radius,
             added: BTreeSet::new(),
             movers: Vec::new(),
             respawn: None,
         }
     }
 
-    pub fn terrain(&self) -> &'static Heightfield {
+    /// The ground, across every region and the sea between them.
+    pub fn terrain(&self) -> &'static WorldMap {
+        self.map
+    }
+
+    /// The grid of the region this world is a copy of (its cleared cells are on it).
+    pub fn grid(&self) -> &'static Heightfield {
         &self.zone.terrain
     }
 }
@@ -77,18 +101,13 @@ pub struct Sim<'a> {
 }
 
 impl Sim<'_> {
-    pub fn terrain(&self) -> &'static Heightfield {
-        self.world.zone.terrain_ref()
+    /// The ground, across every region and the sea between them.
+    pub fn terrain(&self) -> &'static WorldMap {
+        self.world.map
     }
 
     pub fn zone(&self) -> &'static Zone {
         self.world.zone
-    }
-}
-
-impl Zone {
-    pub fn terrain_ref(&'static self) -> &'static Heightfield {
-        &self.terrain
     }
 }
 

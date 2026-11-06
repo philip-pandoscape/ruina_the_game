@@ -5,7 +5,6 @@
 //! WebAssembly (zone_grow); tests/conformance/terrain.test.ts holds the two to each other.
 
 use crate::jsmath::JsMath;
-use std::sync::OnceLock;
 
 use serde::{Deserialize, Serialize};
 
@@ -32,23 +31,35 @@ pub struct Heightfield {
     pub cell: f64,
     /// Sea level; anything lower is under water.
     pub water: f64,
-    /// World X/Z of vertex (0, 0).
-    pub min: f64,
+    /// World X and Z of vertex (0, 0).
+    pub min_x: f64,
+    pub min_z: f64,
     heights: Vec<f32>,
     /// One per cell.
     pub surface: Vec<u8>,
 }
 
 impl Heightfield {
-    /// A flat grid at height 0, all grass: `cells` a side, `cell` metres each, centred on the origin.
-    pub fn new(cells: usize, cell: f64, water: f64) -> Self {
+    /// A flat grid at height 0, all grass: `cells` a side, `cell` metres each, centred on (cx, cz).
+    pub fn new(cells: usize, cell: f64, water: f64, cx: f64, cz: f64) -> Self {
         let n = cells + 1;
-        Heightfield { cells, n, cell, water, min: -(cells as f64 * cell) / 2.0, heights: vec![0.0; n * n], surface: vec![surface::GRASS; cells * cells] }
+        let half = (cells as f64 * cell) / 2.0;
+        Heightfield { cells, n, cell, water, min_x: cx - half, min_z: cz - half, heights: vec![0.0; n * n], surface: vec![surface::GRASS; cells * cells] }
     }
 
-    /// World position of vertex `i` along either axis.
+    /// World X of vertex column `i`.
     pub fn vx(&self, i: usize) -> f64 {
-        self.min + i as f64 * self.cell
+        self.min_x + i as f64 * self.cell
+    }
+
+    /// World Z of vertex row `j`.
+    pub fn vz(&self, j: usize) -> f64 {
+        self.min_z + j as f64 * self.cell
+    }
+
+    /// The column and row of the cell under a point, which may lie outside the grid.
+    pub fn cell_of(&self, x: f64, z: f64) -> (f64, f64) {
+        (((x - self.min_x) / self.cell).floor(), ((z - self.min_z) / self.cell).floor())
     }
 
     /// The heights, a row of vertices at a time ((cells + 1) squared).
@@ -64,15 +75,19 @@ impl Heightfield {
         self.cells as f64 * self.cell
     }
 
-    pub fn max(&self) -> f64 {
-        self.min + self.size()
+    pub fn max_x(&self) -> f64 {
+        self.min_x + self.size()
+    }
+
+    pub fn max_z(&self) -> f64 {
+        self.min_z + self.size()
     }
 
     /// The four heights of the quad under a point and where in it the point is.
     fn quad(&self, x: f64, z: f64) -> (f64, f64, f64, f64, f64, f64) {
         let c = self.cell;
-        let mut gx = (x - self.min) / c;
-        let mut gz = (z - self.min) / c;
+        let mut gx = (x - self.min_x) / c;
+        let mut gz = (z - self.min_z) / c;
         let last = self.cells as f64 - 1e-6;
         gx = if gx < 0.0 {
             0.0
@@ -119,8 +134,7 @@ impl Heightfield {
 
     /// Surface type of the cell under a point (water counts as whatever the seabed is).
     pub fn surface_at(&self, x: f64, z: f64) -> u8 {
-        let i = ((x - self.min) / self.cell).floor();
-        let j = ((z - self.min) / self.cell).floor();
+        let (i, j) = self.cell_of(x, z);
         if i < 0.0 || j < 0.0 || i >= self.cells as f64 || j >= self.cells as f64 {
             return surface::SAND;
         }
@@ -133,7 +147,7 @@ impl Heightfield {
     }
 
     pub fn inside(&self, x: f64, z: f64, margin: f64) -> bool {
-        x >= self.min + margin && x <= self.max() - margin && z >= self.min + margin && z <= self.max() - margin
+        x >= self.min_x + margin && x <= self.max_x() - margin && z >= self.min_z + margin && z <= self.max_z() - margin
     }
 }
 
@@ -383,14 +397,12 @@ impl Zone {
 
 /// Emberholm's recipe (shared/zones/emberholm.json, built from content/zones/).
 pub fn emberholm_recipe() -> Recipe {
-    serde_json::from_str(crate::bundles::bundle("zones/emberholm.json", include_str!("../../../../shared/zones/emberholm.json")))
-        .expect("shared/zones/emberholm.json is a zone recipe")
+    super::map::zone_recipe("emberholm").expect("shared/zones/emberholm.json")
 }
 
-/// Emberholm, the starter isle, grown the first time anything asks.
+/// Emberholm, the starter isle and the world's first region, grown the first time anything asks.
 pub fn emberholm() -> &'static Zone {
-    static Z: OnceLock<Zone> = OnceLock::new();
-    Z.get_or_init(|| Zone::grow(emberholm_recipe()))
+    super::map::world_map().region("emberholm").expect("Emberholm is a region of the world (shared/world.json)").zone()
 }
 
 #[cfg(test)]

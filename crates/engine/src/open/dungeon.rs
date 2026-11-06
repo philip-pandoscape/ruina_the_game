@@ -238,8 +238,13 @@ mod tests {
         let reach = |d: &DungeonDef| d.boxes.iter().chain(&d.decks).map(|p| js_hypot(p.x, p.z) + js_hypot(p.hw, p.hd)).fold(0.0, f64::max);
         let world = OpenWorld::new(emberholm());
         for d in dungeons() {
-            let far = js_hypot(d.origin.x, d.origin.z) + reach(d);
-            assert!(far < world.radius, "{} reaches {far:.0} m from the middle, past the {} m players are kept within", d.id, world.radius);
+            let r = reach(d) + crate::open::traverse::EDGE;
+            assert!(
+                world.map.inside(d.origin.x, d.origin.z, r),
+                "{} reaches past where players are kept, {} m in from the edge of the world",
+                d.id,
+                crate::open::traverse::EDGE
+            );
             for e in dungeons().iter().filter(|e| e.id < d.id) {
                 let gap = js_hypot(d.origin.x - e.origin.x, d.origin.z - e.origin.z) - reach(d) - reach(e);
                 assert!(gap > 20.0, "{} and {} are {gap:.0} m apart", d.id, e.id);

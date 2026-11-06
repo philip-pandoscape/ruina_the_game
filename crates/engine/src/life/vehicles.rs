@@ -19,7 +19,8 @@ use super::{Life, QuestEvent, step_seconds};
 use crate::jsmath::len;
 use crate::jsmath::{js_hypot as hypot, js_sign};
 use crate::open::colliders::{ground_at, push_out_of_box};
-use crate::open::zone::{Heightfield, surface, to_local, to_world};
+use crate::open::map::WorldMap;
+use crate::open::zone::{surface, to_local, to_world};
 use crate::open::{Mover, Sim};
 use crate::player::{Actions, Mode, angle_diff};
 use crate::tuning::tuning;
@@ -641,17 +642,13 @@ fn collide(sim: &Sim, v: &mut Vehicle, def: &RideableDef, solid_decks: bool) -> 
             }
         }
     }
-    let lim = sim.world.radius - 4.0;
-    let r = len(v.x, v.z);
-    if r > lim {
-        v.x *= lim / r;
-        v.z *= lim / r;
-    }
+    // Kept a little further in from the edge of the world than you are.
+    (v.x, v.z) = sim.world.map.keep_inside(v.x, v.z, crate::open::traverse::EDGE + 4.0);
     impact
 }
 
 /// Visual tilt from the ground under the wheels or hooves.
-fn settle_tilt(hf: &Heightfield, v: &mut Vehicle, def: &RideableDef, dt: f64) {
+fn settle_tilt(hf: &WorldMap, v: &mut Vehicle, def: &RideableDef, dt: f64) {
     let fx = v.heading.js_sin();
     let fz = v.heading.js_cos();
     let hl = def.length * 0.4;

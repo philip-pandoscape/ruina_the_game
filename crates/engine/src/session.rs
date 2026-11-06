@@ -26,7 +26,8 @@ use crate::life::{
 use crate::missiles::Missile;
 use crate::open::colliders::{ColliderIndex, ground_at};
 use crate::open::dungeon::{DungeonDef, Spot, dungeon};
-use crate::open::zone::{Heightfield, emberholm};
+use crate::open::map::WorldMap;
+use crate::open::zone::emberholm;
 use crate::open::{Mover, OpenWorld, Sim, traverse};
 use crate::player::{Actions, Body, Build, Mode, Player, V3, step_len};
 use crate::skills::{Levels, resolve_skills};
@@ -148,10 +149,10 @@ impl Session {
         s
     }
 
-    /// The island's ground (none on the yard's flat ground).
-    pub fn terrain(&self) -> Option<&'static Heightfield> {
+    /// The world's ground (none on the yard's flat ground).
+    pub fn terrain(&self) -> Option<&'static WorldMap> {
         match &self.ground {
-            Ground::Open(w) => Some(w.zone.terrain_ref()),
+            Ground::Open(w) => Some(w.map),
             Ground::Flat { .. } => None,
         }
     }

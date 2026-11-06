@@ -78,3 +78,27 @@ test("a thing left out of its folder's order, or named for another, fails", () =
     }),
   ).toContain('content/items/sunroot.json: its id is "moonroot", but the file is named sunroot');
 });
+
+test('a region the world puts where its grid is not, or on another region, fails', () => {
+  // Its grid must cover exactly its chunks: Emberholm's is 6 x 6 round the origin.
+  expect(
+    broken('world.json', (w) => {
+      w.regions[0].chunks.x = -2;
+    }),
+  ).toContain("emberholm: its terrain's origin is (0, 0), where the middle of its chunks is (256, 0)");
+  expect(
+    broken('world.json', (w) => {
+      w.regions[0].chunks.w = 5;
+    }),
+  ).toContain('its grid is 1536 m a side');
+  expect(
+    broken('world.json', (w) => {
+      w.regions.push({ id: 'emberholm', chunks: { x: 2, z: 2, w: 6, d: 6 } });
+    }),
+  ).toContain("chunk (2, 2) is emberholm's too");
+  expect(
+    broken('world.json', (w) => {
+      w.regions[0].id = 'nowhere';
+    }),
+  ).toContain("there's no content/zones/nowhere.json");
+});

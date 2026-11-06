@@ -858,7 +858,7 @@ without a socket whose inputs a brain fills each tick (the engine's `bots`), sho
 peers marked as bots. Today's battle server, its loop and the `?server=`, `?yard`, `?raid` pages go
 once these stand. The island's generator for any zone (R10.1) waits for its port to Rust (R8.6).
 
-- [ ] **R10.1** The world is data.
+- [~] **R10.1** The world is data.
   - **The world:** `content/world.json` places regions on a grid of 256 m chunks (Emberholm is 6 × 6
     round the origin).
   - **Regions:** a region is a folder, `content/regions/<id>/` (from `content/zones/emberholm`): its
@@ -868,6 +868,8 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
   - **Ids:** unique across the world, checked by contentc. That covers plots, places, and nodes, which
     get a stable id rather than their index.
   - **The engine** loads any region and any instance.
+  So far: `content/world.json`, with R10.16's first step; contentc holds each region's grid to its
+  chunks and refuses two regions on one chunk.
 - [ ] **R10.2** The server hosts the world and its instances: a simulation for each region channel
   and each instance copy, found by id (no `emberholm()` outside tests). Players travel between them,
   and every character is saved with its space.
@@ -958,7 +960,7 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
     high in Emberholm's sky. That means `open/dungeon.rs`, `OpenWorld::make_dungeon`,
     `ChannelGame::copy` and the browser's dungeon visit.
   - The "within 760 m, apart from the others" rule goes.
-- [ ] **R10.16** The world map in the engine.
+- [~] **R10.16** The world map in the engine.
   - **Queries:** height, surface, water and colliders are answered across regions, by chunk.
   - **Growing:** a region is grown from its recipe when it's first needed, and dropped when it no
     longer is. The server grows its own chunks and a band round them; the browser grows what's near
@@ -968,6 +970,15 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
   - **The rules:** `Life` and the player rules take the world, not one zone.
   - **A fixture world for the tests:** Emberholm, a region across a land border, and one across the
     sea.
+  So far (this commit): `crates/engine/src/open/map.rs`, the `WorldMap` read from `content/world.json`.
+  Regions stand on 256 m chunks, each grown from its recipe the first time anything asks. Height,
+  slope, surface and depth are answered across regions, with open sea `sea.depth` deep where none
+  stands, and the edge of the world is the edge of every region's chunks together (a square where it
+  was a circle of 760 m: the one golden answer that moved). `OpenWorld` stands on the map with every
+  region's colliders. A region's terrain has an `origin`, so its recipe is in world coordinates. A
+  fixture of two regions, an islet four chunks east of Emberholm across open sea, is crossed
+  swimming. Left: land borders (edge constraints, blending), growing and dropping regions by need,
+  `Life` across regions, the browser drawing a region placed away from the origin (R10.23).
 - [ ] **R10.17** Ids and the clock.
   - **Ids:** global 64-bit entity ids (a kind and an id) in the engine and the server.
     - Characters keep their database id.
@@ -1207,7 +1218,8 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
 | 2026-11-06 | R8.13 | The bible explains the rules from the engine's Rust (a background agent, merged) | 5c0fd0c, dae2724 |
 | 2026-11-06 | R8.13 | The unit tests that drove the TypeScript rules drive the engine; the engine takes content at run time | 94ed5c6 |
 | 2026-11-06 | R8.13, R8.12 | `src/sim/` gone: what the page reads in `src/engine/` (`shapes.ts`, `world/`, `life/`, `actors/`), behind seven front doors | ce064cc |
-| 2026-11-06 | R8.14 | Measured against where the refactor started (`tools/perf/measure.mjs`); the engine's view written straight from its values, a step 3.3 times cheaper; the Rust's comments name no TypeScript twin | (this commit) |
+| 2026-11-06 | R8.14 | Measured against where the refactor started (`tools/perf/measure.mjs`); the engine's view written straight from its values, a step 3.3 times cheaper; the Rust's comments name no TypeScript twin | eaa12d9 |
+| 2026-11-06 | R10.16, R10.1 | The world map in the engine: `content/world.json` places regions on 256 m chunks, open sea between; the ground, water and colliders answered across regions; the edge of the world is the map's | (this commit) |
 | 2026-11-06 | R9.14 | `docs/content.md` | 5e23680 |
 | 2026-11-06 | R10.10, R11.1, R11.2, R11.7, R11.8 | Snapshot to move machines: the battle server's Rust gone; the asset manifest, loader and first-download budget, `docs/assets.md` | a975617 |
 | 2026-11-06 | R6.10, R6.11, R6.8 | The client's moves: creature bodies into src/render/creatures/, the root files to their areas, the library under src/dev/ | 9317ff3, 5de387d, 81df3de |
