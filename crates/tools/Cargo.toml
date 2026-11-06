@@ -7,6 +7,7 @@ publish = false
 
 [dependencies]
 ruina-engine.workspace = true
+ruina-engine-wasm.workspace = true
 ruina-server.workspace = true
 futures-util.workspace = true
 serde.workspace = true

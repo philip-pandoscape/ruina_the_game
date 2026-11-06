@@ -1197,6 +1197,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruina-engine-wasm"
+version = "0.1.0"
+dependencies = [
+ "ruina-engine",
+]
+
+[[package]]
 name = "ruina-server"
 version = "0.1.0"
 dependencies = [
@@ -1221,6 +1228,7 @@ version = "0.1.0"
 dependencies = [
  "futures-util",
  "ruina-engine",
+ "ruina-engine-wasm",
  "ruina-server",
  "serde",
  "serde_json",

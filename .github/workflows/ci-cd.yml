@@ -66,6 +66,8 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy, rustfmt
+          # The engine for the browser (crates/engine-wasm).
+          targets: wasm32-unknown-unknown
       # The workspace at the root, its target/ beside it (rust-cache's default).
       - uses: Swatinem/rust-cache@v2
       # The one format (rustfmt.toml), and clippy's default lints as errors: the code holds none
@@ -83,7 +85,9 @@ jobs:
       # doesn't need these either.
       - name: Build
         if: github.event_name != 'push' || github.ref_name != 'beta'
-        run: cargo build --release --locked
+        run: |
+          cargo build --release --locked
+          cargo build --release --locked -p ruina-engine-wasm --target wasm32-unknown-unknown
       - uses: actions/upload-artifact@v7
         if: github.event_name != 'push' || github.ref_name != 'beta'
         with:
@@ -97,6 +101,8 @@ jobs:
             target/release/terraincheck
             target/release/worldcheck
             target/release/lifecheck
+            target/release/engineprobe
+            target/wasm32-unknown-unknown/release/ruina_engine_wasm.wasm
 
   # The suite plays the real game in a browser that draws in software here, so it's split across
   # four runners. They share the tests out by count, not time, so the one with the open world's
@@ -136,7 +142,7 @@ jobs:
       - uses: actions/download-artifact@v8
         with:
           name: server-binaries
-          path: target/release
+          path: target
       - run: chmod +x target/release/*
       # The TypeScript rules against the Rust ones, through the check programs (tests/conformance):
       # no browser, so once, on the first runner.
