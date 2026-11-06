@@ -12,6 +12,7 @@ import { GLIDE, GROUND, SWIM } from '../../src/content/traversal';
 import { CARRY } from '../../src/content/trade';
 import { glider as gliderDef } from '../../src/content/vehicles';
 import { JUMP, MOVE, STEP } from '../../src/content/tuning';
+import { golden } from './golden';
 
 // Emberholm's rules, browser against server: the browser predicts your own moves with
 // src/sim/player/traverse.ts (hills, cliffs, decks, wading, swimming, gliders, trade packs) and the
@@ -21,6 +22,8 @@ import { JUMP, MOVE, STEP } from '../../src/content/tuning';
 // (that the swim really swims), so a change to the island can't quietly empty one out.
 
 const WORLDCHECK = `target/release/worldcheck${process.platform === 'win32' ? '.exe' : ''}`;
+/** Each case, once it agrees, kept for the engine's golden tests (./golden.ts). */
+const keep = golden('worldcheck');
 /** Modes by number, as crates/engine/src/player.rs Mode numbers them. */
 const MODES: Record<Mode, number> = { normal: 0, attack: 1, cast: 2, action: 3, swim: 4, glide: 5, ride: 6 };
 
@@ -842,7 +845,8 @@ for (const [name, make] of Object.entries(CASES)) {
     neverThroughADeck(ts.frames);
 
     ctx.skip(!existsSync(WORLDCHECK), 'build it first: cargo build --release --bin worldcheck');
-    const rust = JSON.parse(execFileSync(WORLDCHECK, { input: JSON.stringify(script), maxBuffer: 64 * 1024 * 1024 }).toString()) as {
+    const printed = execFileSync(WORLDCHECK, { input: JSON.stringify(script), maxBuffer: 64 * 1024 * 1024 }).toString();
+    const rust = JSON.parse(printed) as {
       start: number[];
       frames: Frame[];
     };
@@ -884,5 +888,6 @@ for (const [name, make] of Object.entries(CASES)) {
     console.log(`${name}: ${ts.frames.length} frames | largest difference ${largest} | state mismatches ${mismatches}`);
     expect(mismatches).toBe(0);
     expect(worst).toBeLessThan(TOLERANCE);
+    keep(name, script, printed);
   });
 }

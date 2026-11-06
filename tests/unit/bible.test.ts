@@ -63,8 +63,11 @@ const RULES = [
   'crates/server/src/combat.rs',
 ];
 
-/** Rules files no player meets yet, by name: the bots that fill the developer zones (.plans/refactor, Phase 10). */
-const PLUMBING_NAMES: Array<[RegExp, string]> = [[/^crates\/.*\/bots\.rs$/, 'bots for the developer zones, which no player meets yet']];
+/** Rules files no player meets, by name: the bots that fill the developer zones (.plans/refactor, Phase 10), and the checks the tests run the rules through. */
+const PLUMBING_NAMES: Array<[RegExp, string]> = [
+  [/^crates\/.*\/bots\.rs$/, 'bots for the developer zones, which no player meets yet'],
+  [/^crates\/engine\/src\/checks\//, 'the rules run through the conformance checks’ scenarios, for the tests'],
+];
 
 /** Rules files that hold no rule a player meets, with why. */
 const PLUMBING: Record<string, string> = {

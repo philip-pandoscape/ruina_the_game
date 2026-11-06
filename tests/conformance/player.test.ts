@@ -27,12 +27,15 @@ import {
   WEAPONS,
 } from '../../src/content/tuning';
 import { BOOK, resolveSkills, skillsFrom, type Levels } from '../../src/content/skills';
+import { golden } from './golden';
 
 // The browser predicts your moves with src/sim/sim.ts; the server decides with crates/engine/src/player.rs.
 // If they ever disagree, your character would visibly jump back. This runs the same inputs through
 // both, for several different builds, and checks they end up in the same place frame by frame.
 
 const SIMCHECK = `target/release/simcheck${process.platform === 'win32' ? '.exe' : ''}`;
+/** Each build's case, once it agrees, kept for the engine's golden tests (./golden.ts). */
+const keep = golden('simcheck');
 const MODES = { normal: 0, attack: 1, cast: 2, action: 3 } as const;
 
 // One recorded frame, in the order both sides write it (see Out in crates/tools/src/bin/simcheck.rs).
@@ -312,7 +315,8 @@ for (const [name, build] of Object.entries(BUILDS)) {
     }
 
     const input = JSON.stringify({ spawn: s.spawn, team: s.team, build, steps: s.steps, hits: s.hits, levels: lv ?? [], start });
-    const rust = JSON.parse(execFileSync(SIMCHECK, { input, maxBuffer: 64 * 1024 * 1024 }).toString()) as {
+    const printed = execFileSync(SIMCHECK, { input, maxBuffer: 64 * 1024 * 1024 }).toString();
+    const rust = JSON.parse(printed) as {
       frames: number[][];
       obstacles: number[][];
       stats: {
@@ -389,5 +393,6 @@ for (const [name, build] of Object.entries(BUILDS)) {
     expect(worldDiff).toBeLessThan(1e-9);
     expect(stateMismatch).toBe(0);
     expect(posDiff).toBeLessThan(1e-6);
+    keep(name, input, printed);
   });
 }

@@ -14,6 +14,7 @@ refactor's Phase 8). Until then the two copies are held to each other by the con
 | `minigames/` | The table games' rules (Beacons first). |
 | `world.rs` | A flat arena with obstacles (the old battlefield's layout), where the player conformance check and the balance harness step players. |
 | `rng.rs`, `jsmath.rs` | The browser's random numbers (mulberry32) and maths (fdlibm through `libm`), to the bit. |
+| `checks/` | The conformance checks' scenarios run through the rules (creatures, a player, a player on the island), which the check programs print and the golden tests hold to the answers the TypeScript agreed with. |
 
 ## Rules
 
@@ -37,7 +38,11 @@ refactor's Phase 8). Until then the two copies are held to each other by the con
 
 ## Tests
 
-- `cargo test --release --workspace`: the engine's own tests and the server's.
+- `cargo test --release --workspace`: the engine's own tests and the server's. Among them the golden
+  tests (`checks/mod.rs`): every creature, player and island scenario the conformance tier proves,
+  held to a hash of its answer (`crates/engine/tests/golden/`), so a rule can't change unnoticed once the
+  TypeScript copy is gone. A change made on both sides on purpose writes new answers with
+  `RUINA_GOLDEN=1 npm run test:conformance`.
 - `npm run test:conformance`: builds the engine and its WebAssembly, then compares the two copies
   (player, creatures, the island, life systems, ground) and holds the WebAssembly to the native
   engine bit for bit (`tests/conformance/engine.test.ts`).

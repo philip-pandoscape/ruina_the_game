@@ -895,12 +895,22 @@ impl ChannelGame {
         let now = Instant::now();
         let elapsed = (now - self.last_tick).as_secs_f64().min(1.0);
         self.last_tick = now;
+        // Everyone's weather runs on the world's clock, so it's the same weather for all of them.
+        let world = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0.0, |d| d.as_secs_f64());
+        self.play_tick(elapsed, world);
+        self.send_tick(now, saves);
+        let took = now.elapsed().as_secs_f64() * 1000.0;
+        self.step_ms = if self.step_ms == 0.0 { took } else { self.step_ms * 0.9 + took * 0.1 };
+    }
+
+    /// A tick of the rules, `elapsed` seconds after the last, with the world's clock at `world`
+    /// (seconds since 1970): everyone's inputs run, their islands step, arrows fly, monsters move
+    /// and slam. No clock is read here, so the same game given the same ticks plays the same.
+    pub fn play_tick(&mut self, elapsed: f64, world: f64) {
         self.tick += 1;
         // Each player may run as many inputs as real time allows (a hair more, so a browser whose
         // clock runs a little fast never builds up a queue), and no more.
         self.players.inputs_per_tick = elapsed * 61.0;
-        // Everyone's weather runs on the world's clock, so it's the same weather for all of them.
-        let world = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0.0, |d| d.as_secs_f64());
         for (_, life) in self.players.each_life_mut() {
             life.world_clock = Some(world);
         }
@@ -925,7 +935,10 @@ impl ChannelGame {
         // Where everyone stood as this tick ends: swings are checked against what their swinger saw.
         self.players.record_history(self.tick);
         self.catch_fallers();
+    }
 
+    /// Every browser hears what happened this tick (`now`); islands due a save are added to `saves`.
+    fn send_tick(&mut self, now: Instant, saves: &mut Vec<Save>) {
         let ids: Vec<i64> = self.members.keys().copied().collect();
         let outside = self.outside();
         for id in &ids {
@@ -1022,8 +1035,6 @@ impl ChannelGame {
             }
             let _ = out.try_send(text);
         }
-        let took = now.elapsed().as_secs_f64() * 1000.0;
-        self.step_ms = if self.step_ms == 0.0 { took } else { self.step_ms * 0.9 + took * 0.1 };
     }
 }
 

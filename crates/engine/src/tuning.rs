@@ -148,7 +148,10 @@ pub fn tuning() -> &'static Tuning {
         assert_eq!(t.hotbar.slots, HOTBAR_SLOTS, "hotbar.slots in shared/tuning.json must match HOTBAR_SLOTS");
         assert_eq!(t.skills.max_nodes, MAX_NODES, "skills.maxNodes in shared/tuning.json must match SKILL_WORDS");
         assert_eq!(t.movement_slots, MOVEMENT_SLOTS, "movementSlots in shared/tuning.json must match MOVEMENT_SLOTS");
-        assert!(t.movement_skills.len() <= MOVEMENT_SKILL_CAP, "more movement skills than MOVEMENT_SKILL_CAP: raise it here and in src/content/tuning.ts together");
+        assert!(
+            t.movement_skills.len() <= MOVEMENT_SKILL_CAP,
+            "more movement skills than MOVEMENT_SKILL_CAP: raise it here and in src/content/tuning.ts together"
+        );
         t
     })
 }
