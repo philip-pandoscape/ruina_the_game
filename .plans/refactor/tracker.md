@@ -9,8 +9,8 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
 
 ## Now
 
-- **Phase:** 1, Test Tiers.
-- **Next:** R1.1.
+- **Phase:** 2, Clear Out Dead Code.
+- **Next:** R2.1.
 - **Test rig for this branch:** Postgres container `ruina-refactor-db` on 127.0.0.1:5461; the
   world server copied to `scratch/server-run/` on 7871 (`DATABASE_URL=postgres://ruina:ruina@127.0.0.1:5461/ruina
   DEV_LOGIN=1 ./yggdrasil-server.exe --battle off --port 7871`); the suite with `PW_PORT=5261
@@ -82,25 +82,32 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
   builders (~64 gallery tests) moved to Phase 6 as R6.2a: both need `main.ts`'s rules half pulled out
   into a module of its own, which is the first step of splitting `main.ts`; doing it here would mean
   doing that surgery twice.
-- [ ] **R1.8** Playwright projects: `integration` (default) and `stress`. The 11 stress tests move
-  (raid 2, net 2, look 5, game "performance snapshot", pvp "bots fight real players"), and the
-  three-window tests (minigames, five skills-online) are considered for it. `@gpu`/`@alone` keep
-  their meaning.
-- [ ] **R1.9** Scripts: `test:unit`, `test:rust`, `test:integration`, `test:conformance`,
-  `test:stress`, `test:all`; `check` (typecheck + unit), `check:beta` (+ integration),
-  `check:release` (+ stress).
-- [ ] **R1.10** Rust tests in debug with optimized dependencies (`[profile.dev.package."*"]`), not
-  `--release`. *Done when* an edit-and-test loop is measured and recorded.
-- [ ] **R1.11** Faster integration: boot once per worker and reset between tests where safe; keep each
-  worker's browser profile (shader cache); measure each change, keep what helps.
-- [ ] **R1.12** CI: the unit tier on every push, before the beta deploy; integration on pull requests
-  to `production` and manual runs, sharded by time; stress on request (`workflow_dispatch` input)
-  and before releases.
+- [x] **R1.8** The stress tier: `playwright.stress.config.ts` plays `tests/stress` one test at a time:
+  raid, net and look (whole files) and the yard's live performance snapshot (cut out of game.spec).
+  pvp's "bots fight real players" (already `@gpu`) moves in Phase 10, which replaces the
+  battlefield's bots. The three-window tests stay integration (`@gpu`, one at a time): they test
+  behaviour, not speed. *Verified:* perf.spec passes from the stress config.
+- [x] **R1.9** Scripts: `test` (= unit), `test:unit`, `test:rust`, `test:conformance` (builds the check
+  programs first), `test:integration`, `test:stress`, `test:all`, `check`, `check:beta`,
+  `check:release`, `bake`; cargo through `tools/cargo.mjs` where the PATH lacks it.
+- [x] **R1.10** Rust tests in debug with optimized dependencies and line-table debug info: a real edit
+  to a rules file tested in 7 s (library) / 12 s (all), from 51 s debug / 106 s release; one-off
+  110 s to optimize the dependencies (c85dfb3).
+- [-] **R1.11** Faster integration (boot once per worker, keep the shader cache): moved after R6.2a,
+  when ~82 rules tests and ~64 gallery tests have left the integration tier and what remains is
+  mostly UI and online play; measure then, and keep what helps.
+- [x] **R1.12** CI: the unit tier on every push (Vitest in the client job, Rust tests in debug); the
+  release build, conformance (shard 1) and Playwright only where the integration tier runs (pull
+  requests, production, manual); stress stays local (it needs a real GPU). Time-based sharding not
+  needed while CI plays the integration tier only for releases. *To verify:* the first CI run after
+  the merge (R13.8).
 - [-] **R1.13** A `pre-push` hook: not asked for; the full tiers run before the one merge anyway.
-- [ ] **R1.14** `docs/testing.md` and the AGENTS.md test section: the tiers, where a new test goes,
-  tags, ports, private servers.
-- [ ] **R1.15** Measure and log: unit tier time (target: about a minute), integration tier time
-  (target: under today's 12 minutes), against R0.4.
+- [x] **R1.14** `docs/testing.md`, `tests/AGENTS.md` (and `tests/CLAUDE.md` importing it), AGENTS.md's
+  commands, test rules and layout row (4183398).
+- [x] **R1.15** Measured against R0.4: unit tier ~3 s (TypeScript, 54 tests) + 12 s (Rust, after an
+  edit), conformance 39 s (63), integration 281 tests in 8.7 min all passing (from 395 in 10.8 min),
+  stress 10 tests. Targets met (a minute for the unit tier; under 12 minutes for integration) except
+  "at least 230 TypeScript unit tests", which moved with R6.2a.
 
 ## Phase 2: Clear Out Dead Code
 
@@ -500,3 +507,4 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
 | 2026-11-05 | R0.4b | The server listens on localhost only unless `--listen all` | e483b4b |
 | 2026-11-05 | R0.3, R0.4 | Timing reporter; the baseline (395 pass, 10.8 min) | 942d980 |
 | 2026-11-05 | R0.6, R0.8, R0.10 | Worktrees and branches tidied; the refactor in the design bible; Phase 0 done | (next commit) |
+| 2026-11-05 | R1.1-R1.15 | Test tiers: Vitest unit and conformance, integration and stress folders, typed test API, CI, docs; Rust tests 7 s | 57bbd61..c85dfb3 |

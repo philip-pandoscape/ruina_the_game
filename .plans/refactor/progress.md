@@ -10,8 +10,8 @@ is in [tracker.md](tracker.md), the plan in [README.md](README.md).
 | Phase | State |
 |---|---|
 | 0 Prepare and Measure | done |
-| 1 Test Tiers | in progress |
-| 2 Clear Out Dead Code | to do |
+| 1 Test Tiers | done |
+| 2 Clear Out Dead Code | in progress |
 | 3 Admin Menu | to do |
 | 4 The /find-assets Skill | to do |
 | 5 The Rust Workspace | to do |
@@ -89,3 +89,35 @@ is in [tracker.md](tracker.md), the plan in [README.md](README.md).
 - **The design bible** shows the refactor as a feature in progress, with its next step and a session
   entry.
 - **Next:** Phase 1, the test tiers.
+
+## 2026-11-05: Phase 1, Test Tiers: done
+
+| | Before | After |
+|---|---|---|
+| A quick check after a change | the whole suite, ~11 min | `npm run check`: typecheck (~12 s), 54 TypeScript unit tests (~3 s), the Rust tests (~12 s) |
+| Rust: edit a rules file, test it | 51 s debug, 106 s release | **7 s** (the library), 12 s (everything); the tests run in 0.25 s |
+| TypeScript against Rust | in Playwright, life-conformance alone 64 s | `npm run test:conformance`: all 63 in 39 s, no browser |
+| The integration tier | (the whole suite) 395 tests, 10.8 min | 281 tests, 8.7 min, all pass (the rest now in seconds in the unit tier) |
+| The island's bake | `BAKE=1 npx playwright test ...` | `npm run bake`, 7 s |
+
+- **Tiers in folders:** `tests/unit` and `tests/conformance` on Vitest, `tests/integration` on
+  Playwright, `tests/stress` on a Playwright config of its own (one test at a time, a real GPU),
+  `tests/support` for helpers. Scripts: `npm run check` (after every change), `check:beta` (before a
+  push to `beta`), `check:release` (before a release); `test:unit`, `test:rust`, `test:conformance`,
+  `test:integration`, `test:stress`, `test:all`, and `npm test` is now the unit tier.
+- **Typed tests:** `window.__game` is typed for the tests from `src/main.ts` (526 calls, which were
+  all `any`), so when Phase 6 reshapes `main.ts`, a test calling something renamed fails the
+  typecheck instead of failing at run time. One shared wait for the game (38 copies) and one for
+  online play (5).
+- **CI:** the unit tier on every push (Vitest in the client job; Rust tests in debug, no longer a
+  release test build); the release build only where the integration tier runs.
+- **The moves tool** (pulled forward from Phase 5): `tools/refactor/moves.mjs` moved the tests and
+  rewrote every path to them (docs, skills, the design bible, the library's prompts). The first
+  integration run caught one thing it missed (template-string URLs in two specs); fixed, with a test.
+- **Changed on the way:** the headless harness for ~82 rules tests and renderer-free model builders
+  for ~64 gallery tests move to the start of Phase 6 (R6.2a). Both need `main.ts`'s rules half as a
+  module of its own, which is Phase 6's first step; doing it now would mean doing it twice. The pvp
+  "bots fight real players" test waits for Phase 10, which replaces the battlefield's bots.
+- **Docs:** `docs/testing.md` (the tiers, where a new test goes, the helpers, running, ports, a
+  private rig), `tests/AGENTS.md`, and AGENTS.md's commands and test rules.
+- **Next:** Phase 2, clearing out dead code (and retiring the toon look).
