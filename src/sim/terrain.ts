@@ -14,9 +14,6 @@ export const SURFACE = {
   plaza: 5,
   forest: 6,
 } as const;
-export type SurfaceKind = (typeof SURFACE)[keyof typeof SURFACE];
-
-export const SURFACE_NAMES = ['grass', 'road', 'sand', 'rock', 'soil', 'plaza', 'forest'];
 
 export class Heightfield {
   /** Cells per side. */

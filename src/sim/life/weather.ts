@@ -86,15 +86,6 @@ export function hourOfDay(life: Life): number {
   return hourAt(life.zone.recipe.sky, life.state.clock);
 }
 
-/** How much daylight there is, 0 (night) to 1 (full day), easing through dawn and dusk. */
-export function daylight(life: Life): number {
-  const { sunrise, sunset } = life.zone.recipe.sky;
-  const h = hourOfDay(life);
-  const up = Math.min(1, Math.max(0, (h - (sunrise - 0.75)) / 1.5));
-  const down = Math.min(1, Math.max(0, ((sunset + 0.75) - h) / 1.5));
-  return Math.min(up, down);
-}
-
 /** How rough the sea is over water this deep right now, 0 (calm) to 1 (a full storm). */
 export function stormAt(life: Life, depth: number): number {
   if (!raining(life)) return 0;

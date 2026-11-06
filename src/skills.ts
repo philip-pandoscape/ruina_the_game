@@ -73,7 +73,6 @@ export const skillIndex = (id: string): number => {
   if (i === undefined) throw new Error(`unknown skill: ${id}`);
   return i;
 };
-export const nodeAt = (i: number): SkillNode | undefined => NODES[i];
 
 /** The lines between nodes, as index pairs; arc means it is drawn along its orbit. */
 export const LINKS: ReadonlyArray<{ a: number; b: number; arc: boolean }> = tree.links.map(([a, b, arc]) => ({ a: skillIndex(a), b: skillIndex(b), arc: !!arc }));
@@ -130,8 +129,6 @@ export function skillsFrom(...ids: string[]): SkillSet {
   for (const id of ids) out = withSkill(out, skillIndex(id), true);
   return out;
 }
-
-export const learnedIds = (s: SkillSet): string[] => NODES.filter((_, i) => hasSkill(s, i)).map((n) => n.id);
 
 // Normalises anything that came off the wire or out of storage to the right width.
 export function toSkillSet(v: unknown): SkillSet {
@@ -396,12 +393,9 @@ export function resolveSkills(s: SkillSet, levels?: Levels): ResolvedSkills {
   return { weapon, ability, move, combos, weapons, abilities, movement };
 }
 
-export const abilityTags = (a: number): readonly string[] => ABILITY_IDS[a]?.tags ?? [];
-
 /** What a book entry is, to ask which modifiers reach it. */
 export function bookContext(b: BookSkill): ModContext {
   if (b.kind === 'weapon') return { weapon: b.index, tags: WEAPON_TAGS[b.index] ?? [] };
   if (b.kind === 'ability') return { skill: ABILITY_IDS[b.index]?.id, tags: ABILITY_IDS[b.index]?.tags ?? [] };
   return { skill: MOVEMENT_DEFS[b.index]?.id, tags: MOVEMENT_DEFS[b.index]?.tags ?? [] };
 }
-export const abilityId = (a: number): string => ABILITY_IDS[a]?.id ?? '';

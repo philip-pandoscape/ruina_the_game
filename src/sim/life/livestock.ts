@@ -7,8 +7,6 @@ import { itemDef } from '../../content/items';
 // and once grown it lays, grows fleece or gives milk again and again - also only while fed. A
 // hungry animal simply waits for you; nothing dies of neglect on Emberholm.
 
-export const isAnimal = (p: Plant | null | undefined): boolean => !!p?.animal;
-
 export const hungry = (life: Life, p: Plant): boolean => (p.fedUntil ?? 0) <= life.state.clock;
 export const grownUp = (p: Plant): boolean => p.growth >= 1;
 export const produceReady = (p: Plant): boolean => grownUp(p) && (p.produce ?? 0) >= 1;

@@ -45,4 +45,3 @@ const BY_ID = new Map(ATTACKS.map((a) => [a.id, a]));
 
 export const attackDef = (id: string): AttackDef | undefined => BY_ID.get(id);
 export const attackIndex = (id: string): number => ATTACKS.findIndex((a) => a.id === id);
-export const attackAt = (index: number): AttackDef | undefined => ATTACKS[index];

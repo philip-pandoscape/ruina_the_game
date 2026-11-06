@@ -54,7 +54,6 @@ export function itemDef(id: string): ItemDef {
   return d;
 }
 
-export const hasItemDef = (id: string): boolean => BY_ID.has(id);
 export const vendorFor = (npc: string): VendorDef | undefined => VENDORS.find((v) => v.npc === npc);
 export const recipesAt = (bench: string): RecipeDef[] => RECIPES.filter((r) => r.bench === bench);
 export const recipe = (id: string): RecipeDef | undefined => RECIPES.find((r) => r.id === id);

@@ -47,8 +47,6 @@ export function compact(s: Snapshot): Snapshot {
   return { joints, extra: s.extra };
 }
 
-export const cloneSnapshot = (s: Snapshot): Snapshot => ({ joints: Object.fromEntries(Object.entries(s.joints).map(([k, j]) => [k, [...j]])), extra: s.extra ? { ...s.extra } : undefined });
-
 /**
  * Every node under a root, kept frame by frame as flat numbers (position, quaternion, scale and
  * whether it's shown), so a take's frames can be shown again in any order. Nodes added later (a

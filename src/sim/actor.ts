@@ -7,9 +7,6 @@ import { findKind, ladderOf } from '../content/actors';
 
 export type ActorId = number;
 
-/** The player is a target like any other, but it is not an Actor; this stands in for it. */
-export const PLAYER_ID: ActorId = 0;
-
 export const FACTION = { player: 0, hostile: 1, neutral: 2, prop: 3 } as const;
 
 export interface Actor {

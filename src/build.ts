@@ -3,9 +3,7 @@ import {
   dependents,
   emptySkills,
   hasSkill,
-  learnedIds,
   NODES,
-  pathTo,
   reachable,
   resolveSkills,
   ROOTS,
@@ -14,11 +12,10 @@ import {
   soundTree,
   toSkillSet,
   withSkill,
-  type ResolvedSkills,
   type SkillNode,
   type SkillSet,
 } from './skills';
-import { ABILITIES, DEFAULT_BUILD, emptyHotbar, emptyMovement, HOTBAR_SLOTS, MOVEMENT_SKILLS, MOVEMENT_SLOTS, NO_ABILITY, NO_MOVEMENT, type Build } from './tuning';
+import { DEFAULT_BUILD, emptyHotbar, emptyMovement, HOTBAR_SLOTS, MOVEMENT_SKILLS, MOVEMENT_SLOTS, NO_ABILITY, NO_MOVEMENT, type Build } from './tuning';
 
 // Picking a build: learning outward through the tree, and filling the hotbar from what you've
 // learned. server/src/skills.rs checks the same rules, so a build that passes here is accepted
@@ -38,9 +35,7 @@ export const has = (b: Build, index: number): boolean => hasSkill(b.skills, inde
 export const pointsUsed = (s: SkillSet): number => skillCount(s);
 export const pointsLeft = (s: SkillSet, budget = SKILL_POINTS): number => budget - skillCount(s);
 
-export const resolve = (b: Build): ResolvedSkills => resolveSkills(b.skills);
 export const weaponsOf = (s: SkillSet): number[] => resolveSkills(s).weapons;
-export const abilitiesOf = (s: SkillSet): number[] => resolveSkills(s).abilities;
 
 // Why a skill can't be learned right now, or null if it can.
 export function learnBlock(b: Build, info: NodeInfo, budget = SKILL_POINTS): string | null {
@@ -52,11 +47,6 @@ export function learnBlock(b: Build, info: NodeInfo, budget = SKILL_POINTS): str
   }
   if (pointsLeft(b.skills, budget) <= 0) return 'No skill points left';
   return null;
-}
-
-/** The nodes it takes to get to this one from what you've learned, and what they'd cost. */
-export function planTo(b: Build, info: NodeInfo): number[] {
-  return pathTo(b.skills, info.index);
 }
 
 /** Learns a whole planned path, nearest first; null if any step isn't allowed. */
@@ -173,18 +163,6 @@ export function validBuild(b: Build, budget = SKILL_POINTS): boolean {
   return r.weapons.includes(b.weapon);
 }
 
-// The next choice for a slot: empty, then each learned ability that isn't already on the bar.
-export function cycleSlot(b: Build, slot: number): Build {
-  if (slot < 0 || slot >= HOTBAR_SLOTS) return b;
-  const current = b.abilities[slot];
-  const elsewhere = b.abilities.filter((_, i) => i !== slot);
-  const options = [NO_ABILITY, ...abilitiesOf(b.skills).filter((a) => !elsewhere.includes(a))];
-  const next = options[(options.indexOf(current) + 1) % options.length];
-  return assignSlot(b, slot, next);
-}
-
-export const abilityName = (a: number) => (a === NO_ABILITY ? 'Empty' : ABILITIES[a].name);
-
 // In the open world your build is kept on the game server with your character. The training yard
 // and the battlefield, which are developer tools, keep theirs in this browser.
 const STORAGE_KEY = 'yggdrasil.build';
@@ -248,8 +226,6 @@ export function saveBuild(b: Build): void {
   }
 }
 
-export const learnedSkillIds = learnedIds;
-
 
 // Puts a movement skill in a Q / E slot (or clears it). Like the hotbar, it moves rather than
 // duplicates.
@@ -264,12 +240,3 @@ export function assignMovement(b: Build, slot: number, skill: number): Build {
 }
 
 export const movementName = (m: number) => (m === NO_MOVEMENT ? 'Empty' : (MOVEMENT_SKILLS[m]?.name ?? 'Empty'));
-
-// The next choice for a movement slot: empty, then each learned skill not already bound.
-export function cycleMovement(b: Build, slot: number): Build {
-  if (slot < 0 || slot >= MOVEMENT_SLOTS) return b;
-  const elsewhere = b.movement.filter((_, i) => i !== slot);
-  const options = [NO_MOVEMENT, ...resolveSkills(b.skills).movement.filter((m) => !elsewhere.includes(m))];
-  const next = options[(options.indexOf(b.movement[slot]) + 1) % options.length];
-  return assignMovement(b, slot, next);
-}

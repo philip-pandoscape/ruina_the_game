@@ -45,7 +45,6 @@ export const SIM_HZ = shared.simHz;
 export const STEP = 1 / SIM_HZ;
 export const MOVE = shared.move;
 export const JUMP = shared.jump;
-export const SLIDE = shared.slide;
 export const COMBAT = shared.combat;
 export const SPECIAL = shared.special;
 /** Every fighter's stamina: dodges spend it, and it refills a moment after the last one. */
@@ -165,7 +164,6 @@ export const movementAction = (m: number): ActionDef | null => MOVEMENT_SKILLS[m
 // The slide everyone has. Looked up by id so reordering the data can't silently rebind it.
 export const SLIDE_SKILL = MOVEMENT_SKILLS.findIndex((m) => m.id === 'slide');
 if (SLIDE_SKILL < 0) throw new Error('shared/tuning.json needs a movement skill with id "slide"');
-export const actionFrames = (a: ActionDef): number => a.startup + a.active + a.recovery;
 export const emptyMovement = (): number[] => new Array<number>(MOVEMENT_SLOTS).fill(NO_MOVEMENT);
 
 // How far a ground-aimed ability reaches, or null if it isn't aimed at the ground at all.
@@ -240,7 +238,6 @@ const comboCache = new WeakMap<ResolvedSkills, AttackStep[][]>();
 // than their whole skill tree: one bit each, in the order the variants appear in the data.
 const VARIANT_IDS: string[] = WEAPONS.flatMap((w) => ((w.variants ?? []) as ComboVariant[]).map((v) => v.id));
 if (VARIANT_IDS.length > 8) throw new Error('more than 8 combo variants: widen the field in put_player');
-export const COMBO_VARIANTS = VARIANT_IDS;
 
 export function variantBits(r: ResolvedSkills): number {
   let bits = 0;

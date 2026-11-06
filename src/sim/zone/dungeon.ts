@@ -65,11 +65,6 @@ export function arrivalOf(def: DungeonDef): { x: number; y: number; z: number; f
   return { ...inWorld(def, def.arrive.x, def.arrive.z), facing: def.arrive.facing };
 }
 
-/** Whether (x, y, z) is inside a dungeon's space at all (round its origin, above where you'd fall out). */
-export function inDungeon(def: DungeonDef, x: number, y: number, z: number): boolean {
-  return Math.hypot(x - def.origin.x, z - def.origin.z) < 400 && y > def.origin.y + def.fall - 200;
-}
-
 /** A dungeon's boxes and decks in a world's index (their places in its lists), solid or not. */
 export interface DungeonSolids {
   def: DungeonDef;

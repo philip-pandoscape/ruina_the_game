@@ -109,11 +109,6 @@ export const mul = (c: Rgb, f: number): THREE.Color => color(c).multiplyScalar(f
 export const mix = (a: Rgb, b: Rgb, t: number): THREE.Color => color(a).lerp(color(b), t);
 /** A colour nudged lighter or darker by a seeded random amount, for natural variation. */
 export const vary = (c: Rgb, rng: () => number, amount = 0.08): THREE.Color => mul(c, 1 + (rng() * 2 - 1) * amount);
-/** Bands along an axis: alternates the colours every `size` metres. */
-export const bands =
-  (axis: 'x' | 'y' | 'z', size: number, ...cols: Rgb[]): ColorFn =>
-  (c) =>
-    cols[((Math.floor(c[axis] / size) % cols.length) + cols.length) % cols.length];
 
 // ---------- geometry primitives ----------
 

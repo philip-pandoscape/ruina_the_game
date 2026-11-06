@@ -430,5 +430,3 @@ export class Body {
     return Math.max(0, need);
   }
 }
-
-export const V = (x = 0, y = 0, z = 0): THREE.Vector3 => new THREE.Vector3(x, y, z);

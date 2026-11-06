@@ -129,7 +129,6 @@ const EARTHY: Palette = {
 };
 
 export const PALETTE: Palette = NEW_LOOK ? EARTHY : CLASSIC;
-export const PALETTES: Record<LookName, Palette> = { classic: CLASSIC, new: EARTHY };
 
 /** Dark outlines around characters, buildings and vehicles: the classic look only. */
 export const OUTLINES = !NEW_LOOK;

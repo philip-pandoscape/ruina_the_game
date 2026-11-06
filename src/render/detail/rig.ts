@@ -6,7 +6,7 @@ import type { PartDef, RigDef, ShapeDef } from '../../content/rig';
 // Turns a rig description into meshes. The description itself lives in src/content/rig.ts, so
 // content never has to reach into the renderer.
 
-export type { JointDef, MaterialDef, PartDef, RigDef, ShapeDef, Vec3 } from '../../content/rig';
+export type { PartDef, RigDef } from '../../content/rig';
 
 function geometry(s: ShapeDef): THREE.BufferGeometry {
   switch (s.kind) {

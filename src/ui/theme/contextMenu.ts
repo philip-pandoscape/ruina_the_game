@@ -60,10 +60,6 @@ export function closeMenu(): void {
   menu = null;
 }
 
-export function menuOpen(): boolean {
-  return menu !== null;
-}
-
 /**
  * A controller (or the arrow keys) driving the open menu: move the highlight, choose, or back out.
  * Returns false when no menu is open.

@@ -53,4 +53,3 @@ export function propDef(id: string): PropDef {
 }
 
 export const structureIds = (): string[] => [...STRUCTURES.keys()];
-export const propIds = (): string[] => [...PROPS.keys()];

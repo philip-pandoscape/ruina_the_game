@@ -58,12 +58,6 @@ export class RigBuilder {
   }
 }
 
-/** A quaternion from an axis-angle, for authoring joint rest poses. */
-export const turn = (axis: Vec3, radians: number): Quat => {
-  const q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(...axis).normalize(), radians);
-  return [q.x, q.y, q.z, q.w];
-};
-
 /** A joint's bind rotation nudged about an axis - the usual shape of an authored pose track. */
 export const swing = (rest: Quat, axis: Vec3, radians: number): Quat => {
   const q = new THREE.Quaternion(...rest).multiply(

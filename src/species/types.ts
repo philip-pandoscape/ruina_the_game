@@ -11,7 +11,6 @@ export type Quat = readonly [number, number, number, number]; // x, y, z, w
 
 /** How the crowd renderer tints a box. Per-instance variation hangs off these. */
 export const MAT = { fixed: 0, team: 1, hair: 2, skin: 3 } as const;
-export const MAT_COUNT = 4;
 
 /** Floats per joint per frame in a baked clip: a 3x4 matrix, row-major. */
 export const MATRIX_STRIDE = 12;
@@ -59,7 +58,6 @@ export interface SpeciesDef {
   readonly clips: readonly Clip[];
 }
 
-export const jointCount = (s: SpeciesDef): number => s.joints.length;
 export const clipByName = (s: SpeciesDef, name: string): Clip | undefined => s.clips.find((c) => c.name === name);
 
 /** Total frames across every clip: the height of the species' pose texture. */

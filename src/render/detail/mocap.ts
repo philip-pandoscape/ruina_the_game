@@ -1,6 +1,5 @@
 import * as THREE from 'three';
 import type { JointDef, RigDef } from '../../content/rig';
-import type { DetailRig } from './rig';
 import { jointFor } from './fit';
 import type { Baked, Strike } from './retarget';
 
@@ -98,39 +97,6 @@ export function bakeCycle(scene: THREE.Object3D, clip: THREE.AnimationClip, join
   }
   mixer.stopAllAction();
   return { joints: driven, frames, turns, lift, ankles, offset };
-}
-
-/**
- * Turns the rig's joints toward the cycle at a stride phase (radians, as PoseInput.phase: 0 the
- * left foot landing), by `weight` (0 leaves them as they are). Only the joints in `only`, if given.
- * Each joint's turn is relative to its nearest driven ancestor, so apply parents and children
- * together, or the children's turns land on whatever the parent was left at.
- */
-export function playCycle(rig: DetailRig, c: Cycle, phase: number, weight: number, only?: ReadonlySet<string>): void {
-  if (weight <= 0) return;
-  const u = ((((phase / (Math.PI * 2) + c.offset) % 1) + 1) % 1) * c.frames;
-  const f0 = Math.floor(u) % c.frames;
-  const f1 = (f0 + 1) % c.frames;
-  const k = u - Math.floor(u);
-  const n = c.joints.length;
-  c.joints.forEach((name, i) => {
-    if (only && !only.has(name)) return;
-    _q.fromArray(c.turns, (f0 * n + i) * 4);
-    _q2.fromArray(c.turns, (f1 * n + i) * 4);
-    _q.slerp(_q2, k);
-    const g = rig.joint(name);
-    if (weight >= 1) g.quaternion.copy(_q);
-    else g.quaternion.slerp(_q, weight);
-  });
-}
-
-/** The cycle's hips lift at a stride phase, metres. */
-export function cycleLift(c: Cycle, phase: number): number {
-  const u = ((((phase / (Math.PI * 2) + c.offset) % 1) + 1) % 1) * c.frames;
-  const f0 = Math.floor(u) % c.frames;
-  const f1 = (f0 + 1) % c.frames;
-  const k = u - Math.floor(u);
-  return c.lift[f0] * (1 - k) + c.lift[f1] * k;
 }
 
 /** A made body's captured motion, which the pose code reads by the rig it poses. */

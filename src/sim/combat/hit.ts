@@ -1,4 +1,4 @@
-import { FACTION, isAlive, PLAYER_ID, type Actor, type ActorId } from '../actor';
+import { FACTION, isAlive, type Actor, type ActorId } from '../actor';
 
 // One place that answers "what did this hit". Melee cones, projectile points and blast circles
 // all come through here, so a new weapon does not have to learn about every kind of target and
@@ -109,5 +109,3 @@ export function nearest(targets: readonly Target[], x: number, z: number, within
   }
   return best;
 }
-
-export const isPlayer = (t: Target): boolean => t.id === PLAYER_ID;

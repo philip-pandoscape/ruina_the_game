@@ -107,15 +107,3 @@ export function batch(items: BatchItem[], materials: (name: string) => THREE.Mat
   }
   return out;
 }
-
-/** A plain box geometry with an aPart tag, coloured, for furniture with no model yet. */
-export function standInGeometry(w: number, h: number, d: number, color: number): THREE.BufferGeometry {
-  const g = new THREE.BoxGeometry(w, h, d);
-  g.translate(0, h / 2, 0);
-  const c = new THREE.Color(color);
-  const n = g.getAttribute('position').count;
-  const col = new Float32Array(n * 3);
-  for (let i = 0; i < n; i++) col.set([c.r, c.g, c.b], i * 3);
-  g.setAttribute('color', new THREE.BufferAttribute(col, 3));
-  return g;
-}

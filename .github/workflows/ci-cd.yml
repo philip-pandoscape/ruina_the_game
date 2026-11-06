@@ -45,6 +45,9 @@ jobs:
       - run: npm ci
       - name: Unit tests
         run: npx vitest run --project unit
+      # Code nothing uses fails the check (knip.json lists every page, test and tool it starts from).
+      - name: Dead code
+        run: npx knip --no-progress
       - name: Typecheck and build
         run: npm run build
 

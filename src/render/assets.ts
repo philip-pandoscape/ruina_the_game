@@ -27,14 +27,6 @@ export function assetsReady(): boolean {
   return pending === 0;
 }
 
-export function assetFailures(): string[] {
-  return failed;
-}
-
-export function resetAssetFailures(): void {
-  failed = [];
-}
-
 const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
 const models = new Map<string, Promise<THREE.Group>>();
 

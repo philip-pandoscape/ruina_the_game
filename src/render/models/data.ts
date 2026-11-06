@@ -46,8 +46,6 @@ export const STRUCTURES = structures.structures as unknown as StructureData[];
 export const PROPS = structures.props as unknown as PropData[];
 export const CROPS = farming.crops as unknown as CropData[];
 export const PACKS = trade.packs as unknown as PackData[];
-/** Side of one farm cell in metres. */
-export const CELL = farming.cell as number;
 
 export const structureData = (id: string): StructureData | undefined => STRUCTURES.find((s) => s.id === id);
 export const propData = (id: string): PropData | undefined => PROPS.find((s) => s.id === id);

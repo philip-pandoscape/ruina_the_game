@@ -20,11 +20,6 @@ const factories = new Map<string, Factory>([
 ]);
 const cache = new Map<string, SpeciesDef>();
 
-export function registerSpecies(id: string, make: Factory): void {
-  factories.set(id, make);
-  cache.delete(id);
-}
-
 export function getSpecies(id: string): SpeciesDef {
   const hit = cache.get(id);
   if (hit) return hit;

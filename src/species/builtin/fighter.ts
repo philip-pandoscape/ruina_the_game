@@ -9,7 +9,6 @@ import { MAT, type SpeciesDef, type Vec3 } from '../types';
 
 export const FIGHTER_RUN_FRAMES = 48;
 export const FIGHTER_ATTACK_FRAMES = 32;
-export const FIGHTER_CLIP = { idle: 0, run: 1, attack: 2, down: 3 } as const;
 
 const PANTS = 0x2f3e46;
 const BOOTS = 0x4a3426;

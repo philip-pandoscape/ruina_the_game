@@ -66,57 +66,6 @@ export function bakeAuthored(
   return { name: meta.name, fps: meta.fps ?? 30, loop: meta.loop ?? true, frames: meta.frames, matrices };
 }
 
-/**
- * Bakes an imported clip by stepping a mixer and reading the bones, so whatever the source rig
- * does - translation, scale, a hips track - lands in the matrices without being interpreted.
- */
-export function bakeImported(
-  mesh: THREE.SkinnedMesh,
-  rigRoot: THREE.Object3D,
-  source: THREE.AnimationClip,
-  boneOfJoint: readonly number[],
-  opts: { fps?: number; loop?: boolean; scale?: number; name?: string } = {},
-): Clip {
-  const fps = opts.fps ?? 30;
-  const scale = opts.scale ?? 1;
-  const frames = Math.max(1, Math.round(source.duration * fps));
-  const n = boneOfJoint.length;
-  const skel = mesh.skeleton;
-  const S = new THREE.Matrix4().makeScale(scale, scale, scale);
-  const Sinv = new THREE.Matrix4().makeScale(1 / scale, 1 / scale, 1 / scale);
-  const matrices = new Float32Array(frames * n * MATRIX_STRIDE);
-  const mixer = new THREE.AnimationMixer(rigRoot);
-  const action = mixer.clipAction(source);
-  action.play();
-  const m = new THREE.Matrix4();
-  for (let f = 0; f < frames; f++) {
-    mixer.setTime(0);
-    mixer.update((f / fps) % Math.max(source.duration, 1e-6));
-    rigRoot.updateMatrixWorld(true);
-    for (let i = 0; i < n; i++) {
-      const b = boneOfJoint[i];
-      m.multiplyMatrices(mesh.bindMatrixInverse, skel.bones[b].matrixWorld)
-        .multiply(skel.boneInverses[b])
-        .multiply(mesh.bindMatrix);
-      writeMatrix(matrices, (f * n + i) * MATRIX_STRIDE, SCRATCH.multiplyMatrices(S, m).multiply(Sinv));
-    }
-  }
-  action.stop();
-  return { name: opts.name ?? source.name, fps, loop: opts.loop ?? true, frames, matrices };
-}
-
-/** A one-frame clip that holds the bind pose: every joint's matrix is the identity. */
-export function restClip(jointCount: number, name = 'rest'): Clip {
-  const matrices = new Float32Array(jointCount * MATRIX_STRIDE);
-  for (let i = 0; i < jointCount; i++) {
-    const at = i * MATRIX_STRIDE;
-    matrices[at] = 1;
-    matrices[at + 5] = 1;
-    matrices[at + 10] = 1;
-  }
-  return { name, fps: 30, loop: true, frames: 1, matrices };
-}
-
 export interface PoseTexture {
   texture: THREE.DataTexture;
   /** Row each clip starts on, in clip order. */

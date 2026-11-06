@@ -231,13 +231,6 @@ export function splashPoint(f: WaterfallInfo): THREE.Vector3 {
   return new THREE.Vector3(f.cx + f.ux * s, f.plunge.level, f.cz + f.uz * s);
 }
 
-/** How far out along the bearing the falling water is as it passes a height (for whatever sits behind it). */
-export function curtainAt(f: WaterfallInfo, y: number): number {
-  const level = f.spring.level - 0.03;
-  const tau = Math.sqrt((2 * Math.max(0, level - y)) / G);
-  return f.lip + f.speed * tau;
-}
-
 export class FallsView {
   readonly group = new THREE.Group();
   private uniforms: Array<Record<string, THREE.IUniform>> = [];
