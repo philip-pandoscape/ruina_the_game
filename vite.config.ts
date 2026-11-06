@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite';
 import { bugReports } from './tools/bugReports.ts';
+import { animReviews } from './tools/animReviews.ts';
 
 // The game server (docker compose up, see README). Vite serves the game and forwards the account
 // API and the WebSockets to it, so the browser sees one address, as it does in production where the
@@ -7,9 +8,12 @@ import { bugReports } from './tools/bugReports.ts';
 const gameServer = process.env.RUINA_SERVER ?? 'http://localhost:7777';
 
 export default defineConfig({
-  // Saves the bug reports the game records (press \ while playing) into bugs/.
-  plugins: [bugReports()],
+  // Saves the bug reports the game records (press \ while playing) into bugs/, and the animation
+  // library's notes, correction pictures and prompts (/library.html) into reviews/animations/.
+  plugins: [bugReports(), animReviews()],
   server: {
+    // The library writes its notes as you make them; they are not code to reload for.
+    watch: { ignored: ['**/reviews/**'] },
     proxy: {
       '/api': gameServer,
       '/ws': { target: gameServer, ws: true },

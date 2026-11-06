@@ -900,6 +900,20 @@
       ]
     },
     {
+      "system": "tech",
+      "status": "done",
+      "title": "Animation library: review animations and send Claude the fixes",
+      "notes": "/library.html shows every animated thing: the hero (each film in scenarios.ts, in the made body or the box one, any weapon), slimes in every size (as jelly or boxes), the crowd's far-away bodies, the farm animals, the twelve townsfolk and the mounts. Pick one, then an animation; play it at any speed, step it a frame at a time, scrub, loop a stretch, look from any side, with its skeleton, onion skins and the paths of its hands and feet. The timeline shows what the rules have the body doing when (a swing's wind-up, strike and recovery, the air, a landing). Notes go on the whole animation, a stretch of frames or one frame; on a frame you can move the bones (turn a joint, or take a hand or a foot and bend the limb to reach it) and keep the corrected pose with a picture of before and after. Create Prompt turns the open notes into one prompt for Claude: what moves each body and where, every note with the rules' state on its frames, and for corrected poses the bones' turns in degrees, where the hands and feet went in centimetres, and the pictures. The notes are kept by the dev server in reviews/animations/ (tools/animReviews.ts), so they outlive the reload a code change brings; corrected poses then show as green ghosts on their frames, with how close the animation now comes. tests/library-review.spec.ts measures every correction against the code (REVIEW=.../review.json), and the animation-review skill says how to work through a review.",
+      "files": [
+        "library.html",
+        "src/library/",
+        "tools/animReviews.ts",
+        "tests/library.spec.ts",
+        "tests/library-review.spec.ts",
+        ".claude/skills/animation-review/SKILL.md"
+      ]
+    },
+    {
       "system": "combat",
       "status": "done",
       "title": "Stamina and MP",
@@ -1425,6 +1439,18 @@
         "Cut out by tools/icons/bake.mjs: the background keyed out from the sheet edges and from holes it shows through (between spokes, inside a ring), soft where paint fades into it, never inside an inked contour; a glow over the key keeps the hue of the paint beside it instead of turning the key's opposite. 128 px WebP, under 1 MB together. The bake fails if content names an emoji no icon stands for.",
         "The HUD's own pixel icons (src/ui/theme/pixelIcons.ts) are gone: uiIcon(name) draws the painted heart, mana, stamina, labor, coins, seal, menu buttons, quest marks (! on offer, ? to hand in, a grey ? under way), talk bubble, lock, craft, star, book, compass and flag. Name plates show the mark itself; the maps put it on a dark disc so it stands off the ground, and the big map draws places, houses and vehicles as painted icons rather than emoji text.",
         "Sanctuary's icon key is 🔷 (it shared 💠 with flax); a few items have pictures of their own (seed sacks by crop, saplings, the lamb, the thunderstruck log, the cottage blueprint, the Swiftwing glider). Twemoji is no longer used, so its SVGs and credit are gone."
+      ]
+    },
+    {
+      "date": "2026-11-05",
+      "title": "An animation library for reviewing animations with Claude",
+      "summary": "A place to go through every character's animations frame by frame and tell Claude what to change: notes on an animation, a stretch of frames or a frame, poses corrected by moving the bones, and a prompt made from them that carries the code's whereabouts, the numbers and the pictures. Once Claude has changed the code, the corrections stay on screen as ghosts to compare against.",
+      "points": [
+        "/library.html (src/library/): the hero, slimes, crowd bodies, farm animals, townsfolk and mounts, each through an adapter (subjects/) that keeps every frame of an animation so it can be scrubbed, ghosted and posed.",
+        "Pose correction: a rotation gizmo per joint, two-bone IK for hands and feet, scale for squash and stretch, undo, exact angles; kept with a picture of before and after.",
+        "Create Prompt: open notes in one prompt (prompt.ts); notes, pictures and prompts kept in reviews/animations/ by the dev server (tools/animReviews.ts).",
+        "Checking a fix: green ghosts of the corrections on their frames and a meter of how close the animation comes; tests/library-review.spec.ts measures them all (degrees and centimetres) and draws the frames as they are now.",
+        "animals.ts and villagers.ts gained restartIdles(), so a model built in the library starts its idle where the last one did."
       ]
     },
     {

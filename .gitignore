@@ -12,3 +12,4 @@ scratch/
 
 # Helpers working copies
 .claude/worktrees/
+/reviews/

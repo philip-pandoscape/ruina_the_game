@@ -69,6 +69,9 @@ short version of this file for coding agents.
    - http://localhost:5173/?yard for the training yard (offline)
    - http://localhost:5173/animations.html for the hero's animations, each played with the game's
      own timing: slow motion, any camera, and a floor to judge the feet by (`src/render/detail/`)
+   - http://localhost:5173/library.html, the animation library: every character's animations frame by
+     frame, with notes, poses corrected by moving the bones, and **Create Prompt** to hand them to
+     Claude (`src/library/`, the `animation-review` skill)
    - http://localhost:5173/?raid=10000 for the rendering stress test (offline)
    - http://localhost:5173/?server=ws://localhost:7777 to join the battle (add `&team=0` or `&team=1`
      to pick a side). The battlefield needs the server started with bots: `npm run server` (Rust),
