@@ -9,7 +9,8 @@ export interface StructureDef {
   w: number;
   d: number;
   h: number;
-  collider: 'box' | 'walls' | 'none' | 'post';
+  /** 'building': walls, floors, stairs and furniture from its plan (shared/buildings.json). */
+  collider: 'box' | 'walls' | 'none' | 'post' | 'building';
   /** For 'box': a collider shallower than the footprint, offset along Z (open-fronted stalls). */
   colliderD?: number;
   colliderZ?: number;

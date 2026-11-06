@@ -109,6 +109,25 @@ export function hudText(skip: Element[]): string {
   return out.join('\n').slice(0, 30_000);
 }
 
+const inlined = new Map<string, string>();
+/** A loaded picture as a data URL (kept, as the icons repeat), or null if it can't be read yet. */
+function asData(img: HTMLImageElement): string | null {
+  const hit = inlined.get(img.src);
+  if (hit) return hit;
+  if (!img.complete || !img.naturalWidth) return null;
+  try {
+    const c = document.createElement('canvas');
+    c.width = img.naturalWidth;
+    c.height = img.naturalHeight;
+    c.getContext('2d')!.drawImage(img, 0, 0);
+    const url = c.toDataURL('image/webp', 0.9);
+    inlined.set(img.src, url);
+    return url;
+  } catch {
+    return null; // a picture from elsewhere
+  }
+}
+
 /** The page's HTML overlay as an SVG image, ready to be drawn over the 3D view. */
 function overlaySvg(w: number, h: number, skip: Element[]): string {
   const css = Array.from(document.querySelectorAll('style'))
@@ -116,6 +135,16 @@ function overlaySvg(w: number, h: number, skip: Element[]): string {
     .join('\n')
     .replaceAll(']]>', ']] >');
   const body = document.body.cloneNode(true) as HTMLElement;
+  // An SVG drawn as an image loads nothing from outside it, so pictures from files (the icons, the
+  // portraits) go across as data.
+  const liveImages = Array.from(document.body.querySelectorAll('img'));
+  Array.from(body.querySelectorAll('img')).forEach((copy, i) => {
+    const live = liveImages[i];
+    if (!live || live.src.startsWith('data:')) return;
+    const data = asData(live);
+    if (data) copy.setAttribute('src', data);
+    else copy.remove();
+  });
   // Canvases in the HUD (the map) can't be serialized; carry their pixels across as images.
   const liveCanvases = Array.from(document.body.querySelectorAll('canvas'));
   const copies = Array.from(body.querySelectorAll('canvas'));

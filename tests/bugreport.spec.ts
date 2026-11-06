@@ -67,16 +67,25 @@ function standIns(voiceB64: string | null): void {
     private timers: number[] = [];
     start(): void {
       w.__fakeSpeechLang = this.lang;
-      const say = (i: number, text: string, isFinal: boolean, ms: number) =>
+      // Each result comes a while after the one before it was heard, as speech does, so a page
+      // that stalls (starting a report does, for a second or so) can't hear two at once.
+      const script: Array<[number, string, boolean, number]> = [
+        [0, 'the cart rolled', false, 300],
+        [0, 'the cart rolled off the pier', true, 500],
+        [1, 'and sank', false, 500],
+      ];
+      const say = (k: number) => {
+        if (k >= script.length) return;
+        const [i, text, isFinal, ms] = script[k];
         this.timers.push(
           window.setTimeout(() => {
             this.results[i] = result(text, isFinal, isFinal ? 0.93 : 0);
             this.onresult?.({ resultIndex: i, results: this.results });
+            say(k + 1);
           }, ms),
         );
-      say(0, 'the cart rolled', false, 300);
-      say(0, 'the cart rolled off the pier', true, 800);
-      say(1, 'and sank', false, 1300);
+      };
+      say(0);
     }
     stop(): void {
       for (const t of this.timers) clearTimeout(t);

@@ -8,7 +8,8 @@
 
 use std::collections::{HashMap, VecDeque};
 
-use crate::actors::{Actors, Slam};
+use crate::actors::{Actors, FoeHit, Slam};
+use crate::ai::Foe;
 use crate::content::kind_at;
 use crate::life::progress::{sync_levels, Observed};
 use crate::life::{Command, Life};
@@ -1048,6 +1049,34 @@ impl Players {
                 self.note(i, EVENT_YOU_HURT, CAUSE_MONSTER, x, y + MARKER_HEIGHT, z, taken);
             }
         }
+    }
+
+    /// Creatures' blows and missiles that reached a player: the same dodge and guard rules as any
+    /// other blow (hitFoe in src/sim/actors/step.ts). A foe id is a slot index plus one.
+    pub fn apply_foe_hits(&mut self, hits: &[FoeHit]) {
+        for h in hits {
+            let Some(i) = (h.foe as usize).checked_sub(1) else { continue };
+            let Some(Some(slot)) = self.slots.get_mut(i) else { continue };
+            let p = &mut slot.player;
+            let before = p.hp;
+            p.take_hit(h.damage, h.nx, h.nz, h.knock);
+            if p.hp < before {
+                let (x, y, z, taken) = (p.pos.x, p.pos.y, p.pos.z, before - p.hp);
+                self.note(i, EVENT_YOU_HURT, CAUSE_MONSTER, x, y + MARKER_HEIGHT, z, taken);
+            }
+        }
+    }
+
+    /// Everyone still standing, as the creatures see them (foesOf in src/sim/ai/senses.ts): foe
+    /// ids are slot indexes plus one.
+    pub fn foes(&self) -> Vec<Foe> {
+        self.slots
+            .iter()
+            .enumerate()
+            .filter_map(|(i, s)| s.as_ref().map(|s| (i, s)))
+            .filter(|(_, s)| s.player.hp > 0.0 && s.player.down_frame < 0)
+            .map(|(i, s)| s.player.foe(i as u32 + 1, self.ground_at(s.player.pos.x, s.player.pos.z)))
+            .collect()
     }
 
     /// Where everyone still standing is, for the monsters to notice.

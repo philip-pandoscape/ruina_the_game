@@ -1,11 +1,15 @@
 import { expect, test, type Page } from '@playwright/test';
 import { SAVE_KEY } from '../src/app/save';
+import { structureDef } from '../src/content/structures';
 import { Life } from '../src/sim/life/life';
 import { sailEfficiency } from '../src/sim/life/vehicles';
 import { generateZone } from '../src/sim/zone/generate';
 import { EMBERHOLM } from '../src/sim/zone/world';
 import { skillsFrom } from '../src/skills';
 import { COMBAT, emptyMovement, HOTBAR_SLOTS, NO_ABILITY, SLIDE_SKILL } from '../src/tuning';
+
+// Its tests share nothing, so they spread across the workers (playwright.config.ts).
+test.describe.configure({ mode: 'parallel' });
 
 // The open world (Emberholm): terrain, swimming, gliding, farming, pack running, vehicles, mounts,
 // housing, quests and saving. Like the other specs these drive the real game through
@@ -674,7 +678,7 @@ test('housing: claim a plot and raise a cottage from hauled material packs', asy
   // The walls are solid: walking at the side wall from outside stops at it.
   await w.teleport(plot.x + 7, plot.z - 2.5, -Math.PI / 2);
   await w.advance(90, { moveX: -1 });
-  expect((await w.player()).pos.x).toBeGreaterThan(plot.x + 3.6);
+  expect((await w.player()).pos.x).toBeGreaterThan(plot.x + structureDef('cottage').w / 2);
 });
 
 test('quests: the starter chain advances from what you do', async ({ page }) => {

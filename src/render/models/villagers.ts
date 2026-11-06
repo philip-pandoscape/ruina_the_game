@@ -86,6 +86,10 @@ function soft(p: Parts, w: number, h: number, d: number, c: Rgb, at: V3, r?: V3,
 }
 
 let born = 0;
+/** The next townsfolk built start their idle as the first one did (the animation library compares frames across builds). */
+export const restartIdles = (): void => {
+  born = 0;
+};
 
 function villager(id: string, look: Look, extra?: Extra): VillagerModel {
   const root = new THREE.Group();

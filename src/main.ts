@@ -13,7 +13,7 @@ import { FollowCamera } from './render/camera';
 import { Hero, type WeaponAt } from './render/character';
 import { TrainingDummy } from './render/dummy';
 import { ActorView } from './render/actors';
-import { actorKindAt, actorKindIds, findKind } from './content/actors';
+import { actorKindAt, actorKindIds, findKind, kindName } from './content/actors';
 import { isAlive, type Actor } from './sim/actor';
 import { behaviour, startBrain, stateName, stateProgress } from './sim/ai/brain';
 import { targetOf } from './sim/combat/hit';
@@ -25,12 +25,13 @@ import { Vfx } from './render/vfx';
 import { Sim } from './sim/sim';
 import { TrainingRange } from './sim/training';
 import { NO_ACTIONS, type Actions, type GameEvent, type PlayerState } from './sim/types';
-import { makeBattlefield, makeWorld } from './sim/world';
+import { bandAround, makeBattlefield, makeWorld } from './sim/world';
+import { MissileView } from './render/missiles';
 import { makeZoneWorld } from './sim/zone/world';
 import { OpenStage } from './render/open/stage';
 import { loadModels } from './render/open/models';
 import { groundAt, inRect } from './sim/zone/colliders';
-import type { Deck } from './sim/zone/types';
+import type { BoxCollider, Deck } from './sim/zone/types';
 import { Life, type Command } from './sim/life/life';
 import { runCommand, type FocusAction } from './sim/life/interact';
 import type { LifeState } from './sim/life/state';
@@ -45,7 +46,7 @@ import { splash } from './ui/splash';
 import { WorldPeers } from './net/worldPeers';
 import { MinigamesUI } from './ui/minigames/minigames';
 import { PartyUI } from './ui/party/partyUI';
-import { pixelIcon } from './ui/theme/pixelIcons';
+import { uiIcon } from './ui/theme/icons';
 import { GameTables, seatedState } from './render/open/gameTables';
 import type { SpaceView, WorldTick, YouState } from './net/worldLink';
 import { addHouseColliders } from './sim/life/housing';
@@ -94,6 +95,7 @@ initUiScale(document.getElementById('ui') as HTMLElement);
 //                  play the character it played last
 //     &fresh       start your island over
 //   ?yard          the old training yard, offline (also what ?test opens, unless ?world is given too)
+//     &goblins=6   a war-band of goblins in the yard's far corner (design/goblins.md)
 //   ?world&test    the open world, offline and paused for automated tests (&load: the island
 //                  kept in this browser, for bug-report replays)
 //   &look=classic  the open world in its old bright toon look; &look=new forces the new one, which is
@@ -129,6 +131,9 @@ if (splash) {
 
 const canvas = document.getElementById('game') as HTMLCanvasElement;
 const world = battlefield ? makeBattlefield() : openWorld ? makeZoneWorld() : makeWorld();
+// A war-band to fight in the yard, if asked for.
+const yardGoblins = yardMode ? Math.max(0, Math.min(24, Math.floor(Number(params.get('goblins')) || 0))) : 0;
+if (yardGoblins) world.spawns.push(...bandAround('goblin', yardGoblins, 9, 10, 1));
 const terrain = world.terrain ?? null;
 /** Ground height under a point: the island's terrain, or 0 on the flat training grounds. */
 const groundY = (x: number, z: number): number => (terrain ? terrain.height(x, z) : 0);
@@ -179,6 +184,9 @@ const dummyActor = () => sim.actorOfKind('dummy');
 dummy.root.visible = !serverRules;
 stage.scene.add(dummy.root);
 stage.scene.add(actorView.group);
+// What creatures throw, in flight. Offline only for now: online the server flies them.
+const missileView = new MissileView();
+stage.scene.add(missileView.group);
 const vfx = new Vfx(stage.scene);
 const spells = new SpellView(stage.scene, vfx);
 /**
@@ -199,7 +207,21 @@ if (terrain) {
 const follow = new FollowCamera(innerWidth / innerHeight, battlefield ? 1200 : openWorld ? 2600 : 320, battlefield ? 160 : openWorld ? 40 : 14);
 // Over hills and water the camera must not dip into the ground or under the sea, and it pulls in
 // rather than looking through a wall.
-if (terrain) follow.groundAt = (x, z) => Math.max(terrain.water + 0.35, terrain.height(x, z) + 0.45);
+if (terrain)
+  follow.groundAt = (x, z) => {
+    // Indoors, not below the floor of the storey you are on.
+    const inside = openStage?.village.indoors;
+    let floor = -Infinity;
+    if (inside) {
+      const b = inside.building;
+      const c = Math.cos(b.rot);
+      const s = Math.sin(b.rot);
+      const lx = (x - b.x) * c - (z - b.z) * s;
+      const lz = (x - b.x) * s + (z - b.z) * c;
+      if (Math.abs(lx) < b.plan.w / 2 && Math.abs(lz) < b.plan.d / 2) floor = inside.floor + 0.45;
+    }
+    return Math.max(terrain.water + 0.35, terrain.height(x, z) + 0.45, floor);
+  };
 // Goblin's Dread: under the hood of rock over the ledge behind the Windspire's falls the ground
 // behind you is the cliff above the hood, so the eye stays under the hood instead (camera.ts).
 if (terrain && world.index) {
@@ -225,11 +247,10 @@ if (world.index) {
     const mx = (fx + cx) / 2;
     const mz = (fz + cz) / 2;
     const reach = Math.hypot(cx - fx, cz - fz) / 2 + 1;
-    const home = lifeView?.inside ?? null;
-    idx.eachBox(mx, mz, reach, (b) => {
-      if (b.top < -1e8) return;
-      // Indoors the walls are cut down, so they do not block the view.
-      if (home && Math.hypot(b.x - home.x, b.z - home.z) < Math.hypot(home.hw, home.hd) + 0.5) return;
+    const village = openStage?.village ?? null;
+    const indoors = village?.indoors ?? null;
+    /** Where along the segment it first meets a box (padded), unless it passes over the box's top. */
+    const meet = (b: BoxCollider, top: number, pad: number) => {
       // The segment in the box's own frame, clipped against its padded footprint.
       const ax = fx - b.x;
       const az = fz - b.z;
@@ -237,7 +258,7 @@ if (world.index) {
       const bz = cz - b.z;
       const la = [ax * b.cos - az * b.sin, ax * b.sin + az * b.cos];
       const lb = [bx * b.cos - bz * b.sin, bx * b.sin + bz * b.cos];
-      const half = [b.hw + 0.25, b.hd + 0.25];
+      const half = [b.hw + pad, b.hd + pad];
       let t0 = 0;
       let t1 = 1;
       for (let k = 0; k < 2; k++) {
@@ -253,9 +274,18 @@ if (world.index) {
         if (t0 > t1) return;
       }
       // Passing over the roof is fine.
-      if (fy + (cy - fy) * t0 > b.top) return;
+      if (fy + (cy - fy) * t0 > top) return;
       best = Math.min(best, t0);
+    };
+    idx.eachBox(mx, mz, reach, (b) => {
+      if (b.top < -1e8) return;
+      // The building you are in holds the camera with its whole walls, below (indoors.shell).
+      if (indoors && village?.inIndoors(b.x, b.z)) return;
+      meet(b, b.top, 0.25);
     });
+    // Every building's walls, doorways and all: the camera never slips into one through its door, and
+    // indoors the room keeps it in up to where the house is cut open.
+    village?.eachShell(mx, mz, reach, (w, top) => meet(w, top, 0.2));
     return Math.max(0.12, best - 0.03);
   };
 }
@@ -288,6 +318,8 @@ if (terrain) {
 }
 const lifeView = life ? new LifeView(stage.scene, life, models, hero) : null;
 if (lifeView && openStage) lifeView.onGroundChanged = () => openStage.foliage.invalidate();
+// Your houses are drawn by the village, from its kit, as far as each is built.
+if (lifeView && openStage) lifeView.houseSink = (houses) => openStage.village.setHouses('mine', houses);
 // Auto-run (H) and travel by road from the map: it only makes the controls, so it works online too.
 const walker = life ? new AutoWalk({ sim, world, life }) : null;
 const lifeUI = life ? new LifeUI({ life, sim, world, camera: () => follow.camera, yaw: () => follow.yaw, device: () => input.lastDevice, walk: walker ?? undefined }) : null;
@@ -295,6 +327,7 @@ const lifeUI = life ? new LifeUI({ life, sim, world, camera: () => follow.camera
 // offers the developer panel.
 const peers = online && life && world.zone ? new WorldPeers(stage.scene, world.zone, models, sim, life, online.welcome.character.id, online.link) : null;
 if (peers && openStage) peers.onGroundChanged = () => openStage.foliage.invalidate();
+if (peers && openStage) peers.houseSink = (owner, houses) => openStage.village.setHouses(owner, houses);
 if (peers) peers.mineView = lifeView;
 if (peers && life) life.othersVehicles = () => peers.vehicles(sim.player);
 if (online && life) {
@@ -331,7 +364,7 @@ const party =
         },
       })
     : null;
-if (party && lifeUI) lifeUI.addMenuButton('party', pixelIcon('party', 24), 'Party', 'O');
+if (party && lifeUI) lifeUI.addMenuButton('party', uiIcon('party', 34), 'Party', 'O');
 if (lifeUI && (minigames || party)) lifeUI.intercept = (k) => !!minigames?.intercept(k) || !!party?.intercept(k);
 // ---------- Goblin's Dread: into a copy of a dungeon and out again (src/app/dungeonVisit.ts) ----------
 const visit = life
@@ -600,6 +633,8 @@ const NAMES: Record<string, string> = {
   slime: 'Slime',
   'great-slime': 'Great Slime',
   'slime-monarch': 'Slime Monarch',
+  // Creatures with files of their own name themselves (shared/creatures/).
+  ...Object.fromEntries(actorKindIds().flatMap((id) => (kindName(id) ? [[id, kindName(id)!]] : []))),
 };
 
 // The raid's fighters come either from a local sim (?raid) or from the battle server (?server).
@@ -1240,6 +1275,10 @@ function drawAbilityBar(): void {
 
 function followSim(dt: number): void {
   const p = sim.player.pos;
+  if (openStage) {
+    openStage.village.locate(p.x, p.y, p.z);
+    follow.indoors = openStage.village.indoors !== null;
+  }
   follow.update(simPos.set(p.x, p.y, p.z), dt);
 }
 
@@ -1286,6 +1325,7 @@ function draw(alpha: number, cameraDt: number, animDt: number): void {
   }
   // Townsfolk with their own models are drawn by the life view instead of the crowd.
   else actorView.update(lifeView?.drawsTownsfolk ? sim.actors.all().filter((a) => a.faction !== 2) : sim.actors.all());
+  if (!net) missileView.update(sim.actors.missiles);
   if (lifeView && lifeUI) lifeView.talkingTo = lifeUI.talkingTo;
   if (crowd) crowd.render(Math.min(1, crowdAcc / CROWD_TICK));
   if (net) net.frame(performance.now());
@@ -1315,6 +1355,12 @@ function draw(alpha: number, cameraDt: number, animDt: number): void {
   hud.setVitals(!lifeUI && (!net || (prediction && net.you)) ? vitals : null, serverUrl ? sim.player.team : null);
   lifeUI?.setVitals(vitals);
   const pos = hero.root.position;
+  if (openStage) {
+    // Which building you are in (it is drawn cut open, and holds the camera), its doors and lamps.
+    openStage.village.locate(pos.x, pos.y, pos.z);
+    openStage.village.update(animDt, peers ? [pos, ...peers.list()] : [pos], pos, follow.camera.position);
+    follow.indoors = openStage.village.indoors !== null;
+  }
   if (cameraDt > 0) follow.update(pos, cameraDt);
   if (pinnedView) {
     follow.camera.position.copy(pinnedView.from);
@@ -1865,7 +1911,25 @@ const api = {
         gatherCd: a.gatherCd,
         targetX: +a.targetX.toFixed(3),
         targetZ: +a.targetZ.toFixed(3),
+        target: a.target,
+        band: a.band,
+        token: a.token,
+        opening: a.opening,
+        afraid: a.afraid,
+        slotX: +a.slotX.toFixed(3),
+        slotZ: +a.slotZ.toFixed(3),
+        charges: a.charges,
+        cds: [...a.cds],
+        facing: +a.facing.toFixed(4),
       }));
+  },
+  // Testing: a war-band of `count` of a kind round (x, z), fighting together. Returns their ids.
+  spawnBand(kind: string, count: number, x: number, z: number): number[] {
+    return sim.spawnBand(kind, count, x, z, (sim.frame * 2654435761 + sim.actors.all().length * 40503) >>> 0);
+  },
+  // What creatures have thrown, still in the air.
+  missiles() {
+    return sim.actors.missiles.map((m) => ({ id: m.id, owner: m.owner, x: +m.x.toFixed(3), y: +m.y.toFixed(3), z: +m.z.toFixed(3), age: m.age }));
   },
   // Testing: a blow from you to one actor, by id, as if a weapon had landed it.
   hurtActor(id: number, amount: number): void {
@@ -1923,6 +1987,15 @@ const api = {
   /** Where your vehicles are drawn this frame. */
   drawnVehicles() {
     return lifeView?.drawnVehicles() ?? [];
+  },
+  /** The building you are in (src/render/village), and which storey: null outdoors. */
+  indoors() {
+    const i = openStage?.village.indoors;
+    return i ? { id: i.building.id, x: i.building.x, z: i.building.z, storey: i.storey } : null;
+  },
+  /** What the village draws: its meshes, how many triangles each, and whether it is drawn now. */
+  villageStats() {
+    return openStage?.village.stats() ?? null;
   },
   /** The life systems' state, as plain data. */
   life() {

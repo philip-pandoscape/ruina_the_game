@@ -5,6 +5,7 @@ import { makeRng } from '../src/rng';
 import { Sim } from '../src/sim/sim';
 import { NO_ACTIONS, type Actions, type Mode } from '../src/sim/types';
 import { makeZoneWorld } from '../src/sim/zone/world';
+import { structureDef } from '../src/content/structures';
 import { groundAt, inRect, pushOutOfBox } from '../src/sim/zone/colliders';
 import { gust } from '../src/sim/player/traverse';
 import { GLIDE, GROUND, SWIM } from '../src/content/traversal';
@@ -441,7 +442,7 @@ const CASES: Record<string, () => Case> = {
     return {
       script: s,
       verify: (fr) => {
-        const wall = -30 + 4.5 + MOVE.playerRadius; // the house at (-30, -264), its east face
+        const wall = -30 + structureDef('workshop').w / 2 + MOVE.playerRadius; // the workshop at (-30, -264), its east face
         expect(fr.slice(tooLow, open).every((f) => mode(f) === MODES.normal && f[F.jumpsUsed] === 2), 'too low to open').toBe(true);
         expect(mode(fr[open]), 'then high enough').toBe(MODES.glide);
         const hit = anyFrame(fr, open, fr.length, (f) => mode(f) === MODES.glide && f[F.vx] === 0 && Math.abs(f[F.x] - wall) < 1e-6);
@@ -510,8 +511,9 @@ const CASES: Record<string, () => Case> = {
     };
   },
 
-  // From the south edge of Lanternwick, glide down onto the roof of the building by the docks
-  // (its top is ground too), walk across it and off its far edge to the quay below.
+  // From the south edge of Lanternwick, glide down onto the roof of the shipwright's shed by the docks
+  // (a deck over it, halfway up its slope: src/sim/zone/buildings.ts), walk across it and off its far
+  // edge to the quay below.
   'landing on a roof': () => {
     const { s, hold, jump } = writer({ x: 34, z: -301, facing: Math.PI }, { glider: 'wayfarer' });
     hold(10, { moveZ: -1 });
@@ -527,7 +529,7 @@ const CASES: Record<string, () => Case> = {
       verify: (fr) => {
         const w = world();
         const hf = w.terrain!;
-        const roof = w.index!.boxes.find((b) => b.x === 34 && b.z === -318)!.top;
+        const roof = w.index!.decks.find((d) => d.x === 34 && d.z === -318)!.top;
         const land = change(fr, 'glide', 'normal');
         expect(fr[land][F.grounded], 'landed').toBe(1);
         expect(fr[land][F.y], 'on the roof').toBeCloseTo(roof, 6);
@@ -535,6 +537,40 @@ const CASES: Record<string, () => Case> = {
         const off = anyFrame(fr, land, fr.length, (f) => f[F.grounded] === 0);
         expect(fr[off][F.y], 'walked off its edge').toBeCloseTo(roof, 6);
         expect(fr[fr.length - 1][F.y], 'down to the quay').toBeLessThan(2);
+      },
+    };
+  },
+
+  // Into the Lantern & Gull (src/content/buildings.ts: a plan of the village kit) through its door,
+  // across the common room to the foot of its stairs, up them to the guest beds, into one of them,
+  // along the upper floor to the front wall, back to the stairs and down them again.
+  'into the inn and up its stairs': () => {
+    // The inn faces south: its plan's +X is the world's -X, its +Z the world's -Z.
+    const { s, hold } = writer({ x: -24, z: -226.5, facing: 0 });
+    hold(50, { moveZ: 1 });
+    hold(50, { moveX: -0.952, moveZ: 0.307 });
+    hold(12, { moveZ: 1 });
+    const climb = s.steps.length;
+    hold(70, { moveX: 1 });
+    const along = s.steps.length;
+    hold(40, { moveZ: -1 });
+    hold(40, { moveZ: 1 });
+    const down = s.steps.length;
+    hold(80, { moveX: -1 });
+    return {
+      script: s,
+      verify: (fr) => {
+        const w = world();
+        const floor = w.terrain!.height(-24, -220);
+        const inside = fr.findIndex((f) => w.index!.boxes.some((b) => f[F.y] < b.top - 0.05 && pushOutOfBox(b, f[F.x], f[F.z], MOVE.playerRadius - 1e-6)));
+        expect(inside, 'never inside a wall').toBe(-1);
+        expect(anyFrame(fr, 0, climb, (f) => f[F.z] > -222), 'in through the door').toBeGreaterThan(0);
+        const upstairs = anyFrame(fr, climb, along, (f) => Math.abs(f[F.y] - (floor + 3)) < 1e-6 && f[F.grounded] === 1);
+        expect(upstairs, 'up the stairs to the floor above').toBeGreaterThan(0);
+        // (The inn is turned 3.14159, not quite pi: what is left of its push across is a hair, not 0.)
+        expect(anyFrame(fr, upstairs, along, (f) => Math.abs(f[F.vx]) < 1e-3 && Math.abs(f[F.y] - (floor + 3)) < 1e-6), 'into a bed up there').toBeGreaterThan(0);
+        expect(fr.slice(along, down).every((f) => Math.abs(f[F.y] - (floor + 3)) < 1e-6), 'walking the upper floor, never through it').toBe(true);
+        expect(fr[fr.length - 1][F.y], 'and back down the stairs').toBeCloseTo(floor, 6);
       },
     };
   },

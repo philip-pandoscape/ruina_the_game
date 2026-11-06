@@ -1,0 +1,697 @@
+{
+  "comment": "Buildings you can walk into, built from the village kit (src/render/village) on its 2 m grid, 3 m a storey. Read by src/content/buildings.ts: the zone generator makes their colliders from these plans, the renderer their walls, roofs and rooms. A plan's id is its structure's (shared/structures.json, collider 'building', the same w and d). Frame: origin at the middle of the footprint on the ground, front +Z, +X on your right as you face the front. Walls are strings of 2 m modules read left to right from outside: '.' wall, 'W' wide window, 'R' arched wide window, 'w' narrow window, 'D' door, 'O' arched door, 'A' open arch, 'G' timber lattice, '_' open. Stairs climb from their foot (x, z) toward -Z turned by rot (-1.5708 climbs toward +X), a module wide and two long, up from storey to storey + 1. Items are furniture (below) at (x, z) on a storey, turned by rot, y above the floor when they stand on something. Furniture: footprint w x d, height h, collider 'box', 'post' (radius r) or 'none'; light is a warm light it gives (y above its foot, intensity, distance).",
+  "furniture": {
+    "bed": { "w": 1.9, "d": 2.4, "h": 0.8, "collider": "box", "model": "Bed_Twin1" },
+    "bedGreen": { "w": 1.9, "d": 2.4, "h": 0.8, "collider": "box", "model": "Bed_Twin2" },
+    "chair": { "w": 0.6, "d": 0.6, "h": 1.12, "collider": "none", "model": "Chair_1" },
+    "stool": { "w": 0.5, "d": 0.5, "h": 0.58, "collider": "none", "model": "Stool" },
+    "bench": { "w": 2.8, "d": 0.55, "h": 0.53, "collider": "box", "model": "Bench" },
+    "table": { "w": 2.85, "d": 1.1, "h": 0.81, "collider": "box", "model": "Table_Large" },
+    "dining": {
+      "w": 2.9,
+      "d": 2.3,
+      "h": 0.81,
+      "collider": "box",
+      "parts": [
+        { "model": "Table_Large" },
+        { "model": "Bench", "z": 0.9 },
+        { "model": "Bench", "z": -0.9 },
+        { "model": "Table_Plate", "x": -0.8, "z": 0.28, "y": 0.81 },
+        { "model": "Table_Plate", "x": 0.7, "z": -0.28, "y": 0.81 },
+        { "model": "Table_Spoon", "x": -0.55, "z": 0.3, "y": 0.81 },
+        { "model": "Mug", "x": -0.4, "z": 0.32, "y": 0.81 },
+        { "model": "Mug", "x": 1.05, "z": -0.3, "y": 0.81, "rot": 2.2 },
+        { "model": "CandleStick_Triple", "x": 0.1, "y": 0.81 }
+      ],
+      "light": { "x": 0.1, "y": 1.35, "intensity": 1.6, "distance": 5, "color": 16759414, "flicker": true }
+    },
+    "tavernTable": {
+      "w": 2.9,
+      "d": 2.3,
+      "h": 0.81,
+      "collider": "box",
+      "parts": [
+        { "model": "Table_Large" },
+        { "model": "Bench", "z": 0.9 },
+        { "model": "Bench", "z": -0.9 },
+        { "model": "Mug", "x": -0.9, "z": 0.25, "y": 0.81 },
+        { "model": "Mug", "x": -0.2, "z": -0.3, "y": 0.81, "rot": 1.4 },
+        { "model": "Mug", "x": 0.85, "z": 0.2, "y": 0.81, "rot": 3 },
+        { "model": "Table_Plate", "x": 0.3, "z": 0.25, "y": 0.81 },
+        { "model": "Bottle_1", "x": 0.55, "z": -0.1, "y": 0.81 },
+        { "model": "CandleStick", "x": -0.5, "z": 0, "y": 0.81 }
+      ],
+      "light": { "x": -0.5, "y": 1, "intensity": 1.2, "distance": 4.5, "color": 16759414, "flicker": true }
+    },
+    "desk": {
+      "w": 2.85,
+      "d": 1.1,
+      "h": 0.81,
+      "collider": "box",
+      "parts": [
+        { "model": "Table_Large" },
+        { "model": "Book_Stack_1", "x": -1, "z": -0.15, "y": 0.81 },
+        { "model": "Book_7", "x": -0.3, "z": 0.1, "y": 0.81, "rot": 0.3 },
+        { "model": "Scroll_1", "x": 0.25, "z": 0.2, "y": 0.81, "rot": 0.8 },
+        { "model": "Scroll_2", "x": 0.5, "z": -0.1, "y": 0.81, "rot": -0.4 },
+        { "model": "Coin_Pile", "x": 0.95, "z": 0.15, "y": 0.81 },
+        { "model": "CandleStick", "x": 1.1, "z": -0.3, "y": 0.81 },
+        { "model": "Chair_1", "z": -0.75 }
+      ],
+      "light": { "x": 1.1, "z": -0.3, "y": 1, "intensity": 1.2, "distance": 4.5, "color": 16759414, "flicker": true }
+    },
+    "workbench": {
+      "w": 2.05,
+      "d": 1.05,
+      "h": 0.9,
+      "collider": "box",
+      "parts": [
+        { "model": "Workbench" },
+        { "model": "Workbench_Drawers" },
+        { "model": "Rope_1", "x": -0.6, "y": 0.89 },
+        { "model": "Bucket_Metal", "x": 0.75, "z": 0.75 }
+      ]
+    },
+    "bookcase": { "w": 1.46, "d": 0.42, "h": 2.53, "collider": "box", "model": "Bookcase_2" },
+    "cabinet": { "w": 1.36, "d": 0.36, "h": 1, "collider": "box", "model": "Cabinet" },
+    "chest": { "w": 1.28, "d": 0.76, "h": 0.69, "collider": "box", "model": "Chest_Wood" },
+    "nightstand": { "w": 0.7, "d": 0.4, "h": 1.21, "collider": "box", "model": "Nightstand_Shelf" },
+    "barrel": { "w": 0.7, "d": 0.7, "h": 0.9, "collider": "post", "r": 0.35, "model": "Barrel" },
+    "barrelApples": { "w": 0.7, "d": 0.7, "h": 0.9, "collider": "post", "r": 0.35, "model": "Barrel_Apples" },
+    "barrelRack": { "w": 1.36, "d": 0.74, "h": 1.25, "collider": "box", "model": "Barrel_Holder" },
+    "crate": { "w": 1.08, "d": 1.16, "h": 1.2, "collider": "box", "model": "Crate_Wooden" },
+    "crates": {
+      "w": 1.1,
+      "d": 1.2,
+      "h": 2.1,
+      "collider": "box",
+      "parts": [
+        { "model": "Crate_Wooden" },
+        { "model": "Crate_Metal", "y": 1.19, "rot": 0.4, "scale": 0.9 }
+      ]
+    },
+    "crateSmall": { "w": 0.86, "d": 0.86, "h": 0.87, "collider": "box", "model": "Crate_Metal" },
+    "produce": {
+      "w": 0.75,
+      "d": 0.45,
+      "h": 0.45,
+      "collider": "none",
+      "parts": [
+        { "model": "FarmCrate_Apple" },
+        { "model": "FarmCrate_Carrot", "y": 0.22, "rot": 0.2 }
+      ]
+    },
+    "sacks": {
+      "w": 1,
+      "d": 0.6,
+      "h": 0.8,
+      "collider": "none",
+      "parts": [
+        { "model": "Bag", "x": -0.25 },
+        { "model": "Bag", "x": 0.3, "rot": 0.8, "scale": 0.9 }
+      ]
+    },
+    "chandelier": {
+      "w": 1.3,
+      "d": 1.3,
+      "h": 1.42,
+      "collider": "none",
+      "model": "Chandelier",
+      "light": { "y": -1.05, "intensity": 4, "distance": 9, "color": 16759414, "flicker": true }
+    },
+    "candleStand": {
+      "w": 0.74,
+      "d": 0.74,
+      "h": 1.3,
+      "collider": "post",
+      "r": 0.25,
+      "model": "CandleStick_Stand",
+      "light": { "y": 1.4, "intensity": 2, "distance": 6, "color": 16759414, "flicker": true }
+    },
+    "candles": {
+      "w": 0.44,
+      "d": 0.14,
+      "h": 0.46,
+      "collider": "none",
+      "model": "CandleStick_Triple",
+      "light": { "y": 0.55, "intensity": 1.3, "distance": 4.5, "color": 16759414, "flicker": true }
+    },
+    "candle": {
+      "w": 0.26,
+      "d": 0.18,
+      "h": 0.16,
+      "collider": "none",
+      "model": "CandleStick",
+      "light": { "y": 0.25, "intensity": 0.9, "distance": 3.5, "color": 16759414, "flicker": true }
+    },
+    "lantern": {
+      "w": 0.36,
+      "d": 1.3,
+      "h": 1.42,
+      "collider": "none",
+      "model": "Lantern_Wall",
+      "light": { "y": 0.45, "z": 1.08, "intensity": 2.2, "distance": 7, "color": 16759414 }
+    },
+    "torch": {
+      "w": 0.22,
+      "d": 0.39,
+      "h": 0.65,
+      "collider": "none",
+      "model": "Torch_Metal",
+      "light": { "y": 0.45, "z": 0.3, "intensity": 2.2, "distance": 7, "color": 16749130, "flicker": true }
+    },
+    "hearth": {
+      "w": 1.7,
+      "d": 0.85,
+      "h": 3,
+      "collider": "box",
+      "parts": [
+        {
+          "model": "Prop_Chimney2",
+          "z": -0.05,
+          "scale": [1.75, 1, 0.85]
+        },
+        {
+          "model": "DoorFrame_Round_Brick",
+          "z": 0.36,
+          "scale": [0.72, 0.56, 1]
+        },
+        { "model": "@fire", "z": 0.38 },
+        { "model": "Pot_1_Lid", "x": 0.6, "z": 0.62, "rot": 0.4 }
+      ],
+      "light": { "y": 0.55, "z": 0.75, "intensity": 6, "distance": 9, "color": 16749130, "flicker": true }
+    },
+    "cauldron": { "w": 0.98, "d": 0.94, "h": 0.81, "collider": "post", "r": 0.48, "model": "Cauldron" },
+    "anvil": { "w": 0.93, "d": 0.82, "h": 1.07, "collider": "box", "model": "Anvil_Log" },
+    "whetstone": { "w": 1.14, "d": 0.9, "h": 1.17, "collider": "box", "model": "Whetstone" },
+    "weaponStand": { "w": 1.38, "d": 0.98, "h": 1.11, "collider": "box", "model": "WeaponStand" },
+    "wagon": { "w": 1.95, "d": 4, "h": 1.53, "collider": "box", "model": "Prop_Wagon" },
+    "lectern": { "w": 0.5, "d": 0.52, "h": 1.44, "collider": "post", "r": 0.26, "model": "BookStand" },
+    "stall": { "w": 1.84, "d": 0.94, "h": 2.62, "collider": "box", "model": "Stall_Empty" },
+    "shelfBottles": { "w": 1.14, "d": 0.3, "h": 0.65, "collider": "none", "model": "Shelf_Small_Bottles" },
+    "shelfArch": { "w": 1.24, "d": 0.31, "h": 1.58, "collider": "none", "model": "Shelf_Arch" },
+    "shelf": {
+      "w": 1.18,
+      "d": 0.34,
+      "h": 0.4,
+      "collider": "none",
+      "parts": [
+        { "model": "Shelf_Simple" },
+        { "model": "Pot_1", "x": -0.35, "y": 0.11, "z": 0.18, "scale": 0.6 },
+        { "model": "Vase_4", "x": 0.1, "y": 0.11, "z": 0.18, "scale": 0.55 },
+        { "model": "Mug", "x": 0.4, "y": 0.11, "z": 0.18 }
+      ]
+    },
+    "bookshelf": {
+      "w": 1.18,
+      "d": 0.34,
+      "h": 0.4,
+      "collider": "none",
+      "parts": [
+        { "model": "Shelf_Simple" },
+        { "model": "BookGroup_Medium_1", "y": 0.11, "z": 0.2, "scale": 0.95 }
+      ]
+    },
+    "pegRack": { "w": 1.18, "d": 0.1, "h": 0.34, "collider": "none", "model": "Peg_Rack" },
+    "shield": { "w": 0.62, "d": 0.18, "h": 0.62, "collider": "none", "model": "Shield_Wooden" },
+    "banner": { "w": 1.61, "d": 0.2, "h": 2.4, "collider": "none", "model": "Banner_1" },
+    "bannerShort": { "w": 1.61, "d": 0.2, "h": 2.1, "collider": "none", "model": "Banner_2" },
+    "books": { "w": 1.08, "d": 0.25, "h": 0.29, "collider": "none", "model": "BookGroup_Medium_2" },
+    "bookStack": { "w": 0.29, "d": 0.23, "h": 0.21, "collider": "none", "model": "Book_Stack_2" },
+    "pot": { "w": 0.54, "d": 0.48, "h": 0.26, "collider": "none", "model": "Pot_1_Lid" },
+    "mug": { "w": 0.19, "d": 0.14, "h": 0.18, "collider": "none", "model": "Mug" },
+    "plate": { "w": 0.34, "d": 0.34, "h": 0.02, "collider": "none", "model": "Table_Plate" },
+    "bottles": { "w": 0.21, "d": 0.06, "h": 0.15, "collider": "none", "model": "SmallBottles_1" },
+    "potions": {
+      "w": 0.4,
+      "d": 0.15,
+      "h": 0.26,
+      "collider": "none",
+      "parts": [
+        { "model": "Potion_1", "x": -0.12 },
+        { "model": "Potion_2" },
+        { "model": "Potion_4", "x": 0.13 }
+      ]
+    },
+    "bucket": { "w": 0.44, "d": 0.38, "h": 0.29, "collider": "none", "model": "Bucket_Wooden_1" },
+    "vase": { "w": 0.7, "d": 0.7, "h": 0.52, "collider": "post", "r": 0.3, "model": "Vase_2" },
+    "rope": { "w": 0.8, "d": 0.85, "h": 0.12, "collider": "none", "model": "Rope_2" },
+    "tools": {
+      "w": 1,
+      "d": 0.3,
+      "h": 1.2,
+      "collider": "none",
+      "parts": [
+        { "model": "Pickaxe_Bronze", "x": -0.25, "y": 0.7, "rot": 0.1 },
+        { "model": "Axe_Bronze", "x": 0.3, "y": 0.9, "rot": 1.45 }
+      ]
+    },
+    "coins": { "w": 0.2, "d": 0.16, "h": 0.07, "collider": "none", "model": "Coin_Pile_2" },
+    "rug": { "w": 2.6, "d": 1.7, "h": 0.02, "collider": "none", "make": "rug", "variant": 0 },
+    "rugBlue": { "w": 2.6, "d": 1.7, "h": 0.02, "collider": "none", "make": "rug", "variant": 1 },
+    "rugBrown": { "w": 2, "d": 1.4, "h": 0.02, "collider": "none", "make": "rug", "variant": 2 },
+    "rugRunner": { "w": 3.6, "d": 1.1, "h": 0.02, "collider": "none", "make": "rug", "variant": 3 },
+    "hay": { "w": 1.1, "d": 0.7, "h": 0.6, "collider": "box", "make": "hay" },
+    "hayStack": {
+      "w": 1.2,
+      "d": 1.4,
+      "h": 1.2,
+      "collider": "box",
+      "parts": [
+        { "model": "@hay", "z": -0.36 },
+        { "model": "@hay", "z": 0.36 },
+        { "model": "@hay", "y": 0.6, "rot": 0.15 }
+      ]
+    },
+    "scroll": { "w": 0.24, "d": 0.07, "h": 0.06, "collider": "none", "model": "Scroll_1" }
+  },
+  "plans": [
+    {
+      "id": "townhouse",
+      "w": 8,
+      "d": 6,
+      "storeys": [
+        {
+          "walls": "stone",
+          "floor": "Floor_Brick",
+          "front": "W D W .",
+          "right": ". W .",
+          "back": ". W W .",
+          "left": ". . W"
+        },
+        {
+          "walls": "plaster",
+          "floor": "Floor_WoodDark",
+          "front": "W W . W",
+          "right": ". w .",
+          "back": "W . . W",
+          "left": ". w ."
+        }
+      ],
+      "roof": {
+        "ridge": "x",
+        "chimneys": [
+          { "x": -3.4, "z": 0.3 }
+        ]
+      },
+      "stairs": [
+        { "storey": 0, "x": -2, "z": -2, "rot": -1.5707963267948966 }
+      ],
+      "items": [
+        { "id": "hearth", "x": -3.25, "z": 0.3, "rot": 1.5708 },
+        { "id": "rug", "x": -1.75, "z": 0.6, "rot": 1.5708 },
+        { "id": "dining", "x": 1.7, "z": 1.05 },
+        { "id": "produce", "x": -3.25, "z": 1.7, "rot": 1.5708 },
+        { "id": "barrel", "x": 3.25, "z": -2.3 },
+        { "id": "barrelApples", "x": 3.25, "z": -1.5 },
+        { "id": "shelf", "x": 3, "z": 2.68, "rot": 3.1416, "y": 1.55 },
+        { "id": "sacks", "x": -3.25, "z": -2.2, "rot": 1.5708 },
+        { "id": "cabinet", "x": 3.5, "z": -0.25, "rot": -1.5708 },
+        { "id": "candles", "x": 3.5, "z": -0.25, "rot": -1.5708, "y": 1 },
+        { "id": "bed", "x": -2.5, "z": 1.45, "rot": 3.1416, "storey": 1 },
+        { "id": "nightstand", "x": -0.9, "z": 2.48, "rot": 3.1416, "storey": 1 },
+        { "id": "chest", "x": -2.5, "z": -0.35, "rot": 3.1416, "storey": 1 },
+        { "id": "bookcase", "x": -3.47, "z": -1.9, "rot": 1.5708, "storey": 1 },
+        { "id": "cabinet", "x": 3.5, "z": 1.6, "rot": -1.5708, "storey": 1 },
+        { "id": "candles", "x": 3.5, "z": 1.6, "rot": -1.5708, "y": 1, "storey": 1 },
+        { "id": "chair", "x": 2.55, "z": 2.05, "rot": 2.3, "storey": 1 },
+        { "id": "rugBlue", "x": 0.9, "z": 1.15, "storey": 1 },
+        { "id": "bookshelf", "x": 3.68, "z": 0.2, "rot": -1.5708, "y": 1.6, "storey": 1 },
+        { "id": "lantern", "x": 3.66, "z": -2, "rot": -1.5708, "y": 1.45, "storey": 1 }
+      ]
+    },
+    {
+      "id": "rowhouse",
+      "w": 6,
+      "d": 8,
+      "storeys": [
+        {
+          "walls": "plaster",
+          "floor": "Floor_WoodLight",
+          "front": "W D W",
+          "right": ". W . .",
+          "back": ". W .",
+          "left": ". . W ."
+        },
+        {
+          "walls": "plaster",
+          "floor": "Floor_WoodDark",
+          "front": "w W w",
+          "right": ". W . W",
+          "back": "W . W",
+          "left": ". w . ."
+        }
+      ],
+      "roof": {
+        "ridge": "z",
+        "chimneys": [
+          { "x": 1.2, "z": -3.4 }
+        ]
+      },
+      "stairs": [
+        { "storey": 0, "x": -2, "z": 2, "rot": 0 }
+      ],
+      "items": [
+        { "id": "cabinet", "x": 2.5, "z": 1, "rot": -1.5708 },
+        { "id": "shelfBottles", "x": 2.67, "z": 1, "rot": -1.5708, "y": 1.5 },
+        { "id": "potions", "x": 2.5, "z": 1, "rot": -1.5708, "y": 1 },
+        { "id": "hearth", "x": 1, "z": -3.25 },
+        { "id": "cauldron", "x": 1, "z": -2.2 },
+        { "id": "table", "x": 0.9, "z": 0, "rot": 1.5708 },
+        { "id": "stool", "x": 0.2, "z": -0.6 },
+        { "id": "stool", "x": 1.6, "z": 0.5 },
+        { "id": "candles", "x": 0.9, "z": 0.3, "rot": 1.5708, "y": 0.81 },
+        { "id": "crates", "x": 2.35, "z": -2.6 },
+        { "id": "vase", "x": -2.4, "z": -3.2 },
+        { "id": "rugBrown", "x": 0.3, "z": 2.3 },
+        { "id": "bedGreen", "x": 1.6, "z": -2.65, "rot": 1.5708, "storey": 1 },
+        { "id": "chest", "x": 1.8, "z": -0.6, "rot": -1.5708, "storey": 1 },
+        { "id": "nightstand", "x": 2.65, "z": -1, "rot": -1.5708, "storey": 1 },
+        { "id": "table", "x": -0.2, "z": 2.6, "storey": 1 },
+        { "id": "chair", "x": -0.2, "z": 1.85, "rot": 3.1416, "storey": 1 },
+        { "id": "candles", "x": 0.3, "z": 2.6, "y": 0.81, "storey": 1 },
+        { "id": "bookcase", "x": 2.48, "z": 2, "rot": -1.5708, "storey": 1 },
+        { "id": "rug", "x": 0.5, "z": -0.9, "rot": 1.5708, "storey": 1 },
+        { "id": "lantern", "x": -2.67, "z": -3, "rot": 1.5708, "y": 1.45, "storey": 1 }
+      ]
+    },
+    {
+      "id": "longhouse",
+      "w": 10,
+      "d": 6,
+      "storeys": [
+        {
+          "walls": "stone",
+          "floor": "Floor_UnevenBrick",
+          "front": ". W D W .",
+          "right": ". W .",
+          "back": "W . W . W",
+          "left": ". . ."
+        }
+      ],
+      "roof": {
+        "ridge": "x",
+        "chimneys": [
+          { "x": -4.4, "z": 0 }
+        ]
+      },
+      "items": [
+        { "id": "hearth", "x": -4.25, "z": 0, "rot": 1.5708 },
+        { "id": "rug", "x": -2.6, "z": 0, "rot": 1.5708 },
+        { "id": "cauldron", "x": -3.4, "z": 1.6 },
+        { "id": "dining", "x": 0.6, "z": 0.6 },
+        { "id": "bed", "x": 3.6, "z": -1.3, "rot": -1.5708 },
+        { "id": "bedGreen", "x": 3.6, "z": 1.5, "rot": -1.5708 },
+        { "id": "chest", "x": 2, "z": -2.25 },
+        { "id": "barrel", "x": -4.2, "z": -2.2 },
+        { "id": "barrel", "x": -4.2, "z": 2.2 },
+        { "id": "sacks", "x": -2.4, "z": -2.35 },
+        { "id": "shelf", "x": -1, "z": -2.68, "y": 1.6 },
+        { "id": "lantern", "x": 1, "z": -2.68, "y": 1.5 }
+      ]
+    },
+    {
+      "id": "inn",
+      "w": 14,
+      "d": 8,
+      "storeys": [
+        {
+          "walls": "stone",
+          "floor": "Floor_Brick",
+          "front": "W . R O R . W",
+          "right": ". W W .",
+          "back": ". W . D . W .",
+          "left": ". . W ."
+        },
+        {
+          "walls": "plaster",
+          "floor": "Floor_WoodDark",
+          "front": "W . W W W . W",
+          "right": ". w w .",
+          "back": "W . W . W . W",
+          "left": ". w . ."
+        }
+      ],
+      "roof": {
+        "ridge": "x",
+        "chimneys": [
+          { "x": -6.4, "z": -1 },
+          { "x": 3, "z": 1.2 }
+        ]
+      },
+      "stairs": [
+        { "storey": 0, "x": 5, "z": -3, "rot": 1.5707963267948966 }
+      ],
+      "items": [
+        { "id": "hearth", "x": -6.25, "z": -1, "rot": 1.5708 },
+        { "id": "rug", "x": -5.4, "z": -1, "rot": 1.5708 },
+        { "id": "chair", "x": -5.3, "z": 1.25, "rot": -2 },
+        { "id": "chair", "x": -5.3, "z": -3, "rot": -1 },
+        { "id": "candleStand", "x": -6.1, "z": 3.1 },
+        { "id": "tavernTable", "x": -2.8, "z": 2.1 },
+        { "id": "tavernTable", "x": -2.8, "z": -1.3 },
+        { "id": "tavernTable", "x": 2.2, "z": 1.9 },
+        { "id": "cabinet", "x": 4.6, "z": 0.95, "rot": -1.5708 },
+        { "id": "cabinet", "x": 4.6, "z": 2.35, "rot": -1.5708 },
+        { "id": "mug", "x": 4.55, "z": 0.7, "y": 1 },
+        { "id": "mug", "x": 4.6, "z": 1.6, "rot": 1.2, "y": 1 },
+        { "id": "candles", "x": 4.6, "z": 2.3, "rot": -1.5708, "y": 1 },
+        { "id": "barrelRack", "x": 6.25, "z": 1.5, "rot": -1.5708 },
+        { "id": "barrel", "x": 6.25, "z": 3.25 },
+        { "id": "barrel", "x": 5.5, "z": 3.3 },
+        { "id": "shelfBottles", "x": 6.66, "z": -0.6, "rot": -1.5708, "y": 1.5 },
+        { "id": "crates", "x": -6.1, "z": -3.1 },
+        { "id": "chandelier", "x": -2.8, "z": 2.1, "y": 2.98 },
+        { "id": "chandelier", "x": 2.2, "z": 1.9, "rot": 0.5, "y": 2.98 },
+        { "id": "banner", "x": -6.68, "z": 2.7, "rot": 1.5708, "y": 2.6 },
+        { "id": "shield", "x": -3, "z": -3.68, "y": 1.9 },
+        { "id": "shield", "x": 0.6, "z": -3.68, "y": 1.9 },
+        { "id": "bed", "x": -5.6, "z": 2.45, "rot": 3.1416, "storey": 1 },
+        { "id": "chest", "x": -5.6, "z": 0.75, "rot": 3.1416, "storey": 1 },
+        { "id": "bedGreen", "x": -2.6, "z": 2.45, "rot": 3.1416, "storey": 1 },
+        { "id": "chest", "x": -2.6, "z": 0.75, "rot": 3.1416, "storey": 1 },
+        { "id": "bed", "x": 0.6, "z": 2.45, "rot": 3.1416, "storey": 1 },
+        { "id": "nightstand", "x": 2, "z": 3.48, "rot": 3.1416, "storey": 1 },
+        { "id": "bedGreen", "x": 3.6, "z": 2.45, "rot": 3.1416, "storey": 1 },
+        { "id": "chest", "x": 3.6, "z": 0.75, "rot": 3.1416, "storey": 1 },
+        { "id": "bed", "x": -5.6, "z": -2.55, "storey": 1 },
+        { "id": "nightstand", "x": -4.2, "z": -3.48, "storey": 1 },
+        { "id": "bedGreen", "x": -2.6, "z": -2.55, "storey": 1 },
+        { "id": "rugRunner", "x": -1, "z": -0.5, "storey": 1 },
+        { "id": "cabinet", "x": 6.5, "z": 1.6, "rot": -1.5708, "storey": 1 },
+        { "id": "candles", "x": 6.5, "z": 1.6, "rot": -1.5708, "y": 1, "storey": 1 },
+        { "id": "lantern", "x": 0, "z": -3.66, "y": 1.5, "storey": 1 },
+        { "id": "lantern", "x": -6.66, "z": 0, "rot": 1.5708, "y": 1.5, "storey": 1 }
+      ]
+    },
+    {
+      "id": "registrar",
+      "w": 10,
+      "d": 8,
+      "storeys": [
+        {
+          "walls": "stone",
+          "floor": "Floor_RedBrick",
+          "front": "W R O R W",
+          "right": ". W W .",
+          "back": ". W . W .",
+          "left": ". W W ."
+        }
+      ],
+      "roof": {
+        "ridge": "x",
+        "chimneys": [
+          { "x": 4.4, "z": -1 }
+        ]
+      },
+      "items": [
+        { "id": "desk", "x": 0, "z": -1.4 },
+        { "id": "rugRunner", "x": 0, "z": 1.6, "rot": 1.5708 },
+        { "id": "bookcase", "x": -3.4, "z": -3.48 },
+        { "id": "bookcase", "x": -1.6, "z": -3.48 },
+        { "id": "bookcase", "x": 1.6, "z": -3.48 },
+        { "id": "cabinet", "x": 3.4, "z": -3.5 },
+        { "id": "scroll", "x": 3.2, "z": -3.5, "y": 1 },
+        { "id": "chest", "x": 4.2, "z": -1.6, "rot": -1.5708 },
+        { "id": "lectern", "x": -3.6, "z": 1.6, "rot": 0.6 },
+        { "id": "candleStand", "x": -1.6, "z": -2.4 },
+        { "id": "candleStand", "x": 1.6, "z": -2.4 },
+        { "id": "banner", "x": -4.68, "z": -1, "rot": 1.5708, "y": 2.6 },
+        { "id": "banner", "x": 4.68, "z": 1, "rot": -1.5708, "y": 2.6 },
+        { "id": "chair", "x": -2.6, "z": 2.6, "rot": 0.4 },
+        { "id": "chair", "x": 2.6, "z": 2.6, "rot": -0.4 },
+        { "id": "vase", "x": 4.2, "z": 3.2 }
+      ]
+    },
+    {
+      "id": "workshop",
+      "w": 10,
+      "d": 6,
+      "storeys": [
+        {
+          "walls": "stone",
+          "floor": "Floor_UnevenBrick",
+          "front": "W A A . W",
+          "right": ". W .",
+          "back": ". W . W .",
+          "left": ". W ."
+        }
+      ],
+      "roof": {
+        "ridge": "x",
+        "chimneys": [
+          { "x": 4.4, "z": -0.8 }
+        ]
+      },
+      "items": [
+        { "id": "wagon", "x": -1, "z": -0.4, "rot": 1.5708 },
+        { "id": "workbench", "x": 2.8, "z": -2.1 },
+        { "id": "pegRack", "x": 2.8, "z": -2.68, "y": 1.7 },
+        { "id": "tools", "x": 1, "z": -2.6, "y": 0.4 },
+        { "id": "anvil", "x": 3.9, "z": 0.4 },
+        { "id": "whetstone", "x": 3.6, "z": 1.9, "rot": -0.4 },
+        { "id": "crates", "x": -4, "z": -2 },
+        { "id": "barrel", "x": -4.1, "z": -0.6 },
+        { "id": "barrel", "x": -3.3, "z": -0.3 },
+        { "id": "lantern", "x": -4.66, "z": 1.2, "rot": 1.5708, "y": 1.5 },
+        { "id": "lantern", "x": 4.66, "z": -1.2, "rot": -1.5708, "y": 1.5 },
+        { "id": "rope", "x": -3.6, "z": 2.2 }
+      ]
+    },
+    {
+      "id": "stable",
+      "w": 10,
+      "d": 6,
+      "storeys": [
+        {
+          "walls": "plaster",
+          "floor": "Floor_WoodLight",
+          "front": "A A A A A",
+          "right": "G . G",
+          "back": ". G . G .",
+          "left": "G . G"
+        }
+      ],
+      "roof": { "ridge": "x" },
+      "items": [
+        { "id": "hayStack", "x": -4, "z": -2 },
+        { "id": "hay", "x": -2.6, "z": -2.35 },
+        { "id": "hayStack", "x": 3.9, "z": -2, "rot": 3.1416 },
+        { "id": "hay", "x": 2.5, "z": -2.4, "rot": 0.2 },
+        { "id": "hay", "x": 0.4, "z": -2.35 },
+        { "id": "bucket", "x": -1.1, "z": -2.4 },
+        { "id": "bucket", "x": 1.5, "z": -2.3 },
+        { "id": "barrel", "x": 4.2, "z": 0.4 },
+        { "id": "sacks", "x": -4.2, "z": 0.6, "rot": 1.5708 },
+        { "id": "lantern", "x": 0, "z": -2.68, "y": 1.6 }
+      ]
+    },
+    {
+      "id": "boathouse",
+      "w": 8,
+      "d": 10,
+      "storeys": [
+        {
+          "walls": "plaster",
+          "floor": "Floor_WoodDark",
+          "front": "A A A A",
+          "right": ". W . W .",
+          "back": ". W W .",
+          "left": ". W . W ."
+        }
+      ],
+      "roof": { "ridge": "z" },
+      "items": [
+        { "id": "workbench", "x": -2.4, "z": -4.1 },
+        { "id": "pegRack", "x": -2.4, "z": -4.68, "y": 1.7 },
+        { "id": "tools", "x": -0.6, "z": -4.62, "y": 0.4 },
+        { "id": "whetstone", "x": -0.4, "z": -3.6, "rot": 0.3 },
+        { "id": "crates", "x": 2.9, "z": -3.9 },
+        { "id": "crateSmall", "x": 1.6, "z": -4.1, "rot": 0.3 },
+        { "id": "barrelRack", "x": 3.3, "z": -1.6, "rot": -1.5708 },
+        { "id": "barrel", "x": 3.3, "z": 0.3 },
+        { "id": "chest", "x": -3.2, "z": -2, "rot": 1.5708 },
+        { "id": "rope", "x": -2.9, "z": 0.2 },
+        { "id": "rope", "x": 2.8, "z": 2.4, "rot": 1.2 },
+        { "id": "rope", "x": -2.6, "z": 3.3, "rot": 2.4 },
+        { "id": "bucket", "x": 3.2, "z": 1.3 },
+        { "id": "sacks", "x": -3.2, "z": 1.8, "rot": 1.5708 },
+        { "id": "crate", "x": 3, "z": 4, "rot": 0.2 },
+        { "id": "lantern", "x": -3.66, "z": -2, "rot": 1.5708, "y": 1.6 },
+        { "id": "lantern", "x": 3.66, "z": 1, "rot": -1.5708, "y": 1.6 },
+        { "id": "shield", "x": -3.68, "z": 3, "rot": 1.5708, "y": 1.9 }
+      ]
+    },
+    {
+      "id": "tradingPost",
+      "w": 10,
+      "d": 8,
+      "storeys": [
+        {
+          "walls": "stone",
+          "floor": "Floor_WoodDark",
+          "front": "W . D . W",
+          "right": ". W W .",
+          "back": ". W . W .",
+          "left": ". W W ."
+        }
+      ],
+      "roof": {
+        "ridge": "x",
+        "chimneys": [
+          { "x": -4.4, "z": -1.5 }
+        ]
+      },
+      "items": [
+        { "id": "cabinet", "x": 1.6, "z": -0.6 },
+        { "id": "cabinet", "x": -0.4, "z": -0.6 },
+        { "id": "coins", "x": 1.3, "z": -0.6, "y": 1 },
+        { "id": "candles", "x": -0.6, "z": -0.6, "y": 1 },
+        { "id": "shelfBottles", "x": -2.2, "z": -3.68, "y": 1.4 },
+        { "id": "shelf", "x": 0.6, "z": -3.68, "y": 1.5 },
+        { "id": "crates", "x": 3.9, "z": -2.8 },
+        { "id": "crates", "x": 3.9, "z": 2.8 },
+        { "id": "crate", "x": 2.6, "z": 3, "rot": 0.3 },
+        { "id": "barrel", "x": -4.1, "z": 3.1 },
+        { "id": "barrelApples", "x": -4.1, "z": 2.3 },
+        { "id": "produce", "x": -3, "z": 3.25 },
+        { "id": "sacks", "x": -4, "z": -0.5, "rot": 1.5708 },
+        { "id": "chest", "x": -2.6, "z": -3.2 },
+        { "id": "hearth", "x": -4.25, "z": -1.5, "rot": 1.5708 },
+        { "id": "lantern", "x": 4.66, "z": 0, "rot": -1.5708, "y": 1.5 }
+      ]
+    },
+    {
+      "id": "cottage",
+      "w": 6,
+      "d": 8,
+      "storeys": [
+        {
+          "walls": "plaster",
+          "floor": "Floor_WoodLight",
+          "front": "W D W",
+          "right": ". W . .",
+          "back": ". W .",
+          "left": ". . W ."
+        }
+      ],
+      "roof": {
+        "ridge": "z",
+        "chimneys": [
+          { "x": -2.4, "z": -1 }
+        ]
+      },
+      "items": [
+        { "id": "hearth", "x": -2.25, "z": -1, "rot": 1.5708 },
+        { "id": "rug", "x": -0.6, "z": -1, "rot": 1.5708 },
+        { "id": "bed", "x": 1.6, "z": -2.4, "rot": 3.1416 },
+        { "id": "chest", "x": -1.6, "z": -3.3 },
+        { "id": "table", "x": 1.65, "z": 1.6, "rot": 1.5708 },
+        { "id": "bench", "x": 0.75, "z": 1.6, "rot": 1.5708 },
+        { "id": "candles", "x": 1.65, "z": 1.6, "rot": 1.5708, "y": 0.81 },
+        { "id": "shelf", "x": 2.68, "z": 0, "rot": -1.5708, "y": 1.6 },
+        { "id": "barrel", "x": -2.3, "z": 2.9 }
+      ]
+    }
+  ]
+}

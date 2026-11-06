@@ -1,6 +1,9 @@
 import { expect, test, type Page } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 
+// Its tests share nothing, so they spread across the workers (playwright.config.ts).
+test.describe.configure({ mode: 'parallel' });
+
 // The procedural models (src/render/models) in their gallery, models.html. Every category must
 // build without a console error and inside its triangle budget, and the parts the rules lean on
 // - wheels on the ground, hulls down to their draft, seats, cargo slots, decks and the cottage's

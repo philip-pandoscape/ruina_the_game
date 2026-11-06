@@ -1,11 +1,13 @@
 import data from '../../shared/actors.json' with { type: 'json' };
 import type { ActorKind } from '../sim/actor';
+import { CREATURES } from './creatures';
 
 // What kinds of thing can exist in the world. The data is in shared/actors.json so the server
 // reads the same numbers; adding a monster starts there, and the rules will spawn it, hit it,
-// kill it and respawn it without knowing what it is.
+// kill it and respawn it without knowing what it is. A creature with a file of its own
+// (shared/creatures/) adds its kinds after these, so their indexes on the wire never move.
 
-const KINDS = data.kinds as unknown as ActorKind[];
+const KINDS = [...(data.kinds as unknown as ActorKind[]), ...CREATURES.flatMap((c) => (c.kinds ?? []) as ActorKind[])];
 const BY_ID = new Map(KINDS.map((k) => [k.id, k]));
 
 export function actorKind(id: string): ActorKind {
@@ -18,6 +20,9 @@ export function actorKind(id: string): ActorKind {
 export const findKind = (id: string): ActorKind | undefined => BY_ID.get(id);
 
 export const actorKindIds = (): string[] => KINDS.map((k) => k.id);
+
+/** What a kind is called on its target plate, if its file names it. */
+export const kindName = (id: string): string | undefined => BY_ID.get(id)?.name;
 
 /** Index of a kind in the shared list, which is how the wire refers to it. */
 export const actorKindIndex = (id: string): number => KINDS.findIndex((k) => k.id === id);

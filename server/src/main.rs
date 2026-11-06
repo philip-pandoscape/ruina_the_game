@@ -22,7 +22,7 @@ use std::time::{Duration, Instant};
 use axum::body::Bytes;
 use rayon::prelude::*;
 use tokio::sync::mpsc::Sender;
-use yggdrasil_server::actors::{Actors, LEAN_DAMPING, LEAN_SPRING};
+use yggdrasil_server::actors::{Actors, StepOut, LEAN_DAMPING, LEAN_SPRING};
 use yggdrasil_server::game::Players;
 use yggdrasil_server::http::{self, AppState};
 use yggdrasil_server::interest::{build_snapshot, InterestGrid, Records, Scratch, MID_EVERY};
@@ -219,12 +219,13 @@ fn run(bots: usize, virtual_clients: usize, hz: u32, slimes: usize, registry: Re
         // Monsters move after the players, on the same tick, reading where everyone ended up.
         // Their brains count 60ths of a second, as in the browser, so a tick runs as many of
         // those as it lasts; then their slams land on whoever is standing in them.
-        let seen: Vec<(f64, f64)> = players.live_positions();
-        let mut slams = Vec::new();
+        let foes = players.foes();
+        let mut done = StepOut::default();
         for _ in 0..monster_steps {
-            slams.extend(actors.step(&seen, LEAN_SPRING, LEAN_DAMPING, 1.0 / 60.0));
+            done.extend(actors.step(&foes, &|_, _| 0.0, LEAN_SPRING, LEAN_DAMPING, 1.0 / 60.0));
         }
-        players.apply_slams(&slams);
+        players.apply_slams(&done.slams);
+        players.apply_foe_hits(&done.hits);
         players.record_history(battle.tick);
         let t1 = Instant::now();
         grid.rebuild(&battle);

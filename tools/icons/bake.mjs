@@ -1,189 +1,384 @@
-// Bakes the game's pixel icons: every "icon" emoji in shared/*.json, plus the extras below, drawn
-// from Twemoji (CC-BY 4.0, see tools/icons/twemoji/LICENSE-GRAPHICS.txt) at 16 x 16, with a hard
-// edge, a shaded lower-right and a one-pixel outline in the UI's ink. Seed packets show the crop
-// they grow; a few icons are drawn for the game instead (DRAWN). Writes src/ui/theme/icons.gen.ts.
-// Run: npm run icons (needs the network the first time a new emoji appears, to fetch its SVG; the
-// SVGs are kept in tools/icons/twemoji/).
+// Cuts the painted icon sheets (tools/icons/sheets, painted by tools/icons/paint.mjs from
+// tools/icons/catalog.mjs) into the game's icons: the flat background keyed out (soft where the paint
+// fades into it, never inside an object's inked contour), each icon trimmed, centred and shrunk to
+// SIZE px. Writes src/ui/theme/icons/<name>.webp and src/ui/theme/icons.gen.ts, and fails if content
+// (shared/*.json) names an emoji no icon stands for.
+// Run: npm run icons (add --contact to also write scratch/icons-contact.png: every icon on the UI's
+// parchment and timber at the sizes the UI draws them).
 import fs from 'node:fs';
 import path from 'node:path';
 import { chromium } from '@playwright/test';
+import { BACKGROUNDS, SHEETS, gridOf } from './catalog.mjs';
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1')), '../..');
-const SVG_DIR = path.join(ROOT, 'tools/icons/twemoji');
-const OUT = path.join(ROOT, 'src/ui/theme/icons.gen.ts');
+const SHEET_DIR = path.join(ROOT, 'tools/icons/sheets');
+const OUT_DIR = path.join(ROOT, 'src/ui/theme/icons');
+const GEN = path.join(ROOT, 'src/ui/theme/icons.gen.ts');
+/** Pixels a side: crisp at the largest the UI draws an icon (48 px) on a 1440p screen. */
+const SIZE = 128;
+/** How much of the square the icon's longer side fills. */
+const FILL = 0.92;
 
-// Icons the UI needs beyond what content names: empty equipment slots, skill tree notables and
-// keystones, and better art for a couple of skills.
-const EXTRA = ['🪖', '👕', '🧤', '👖', '🥾', '🛡️', '🔨', '🐎', '📦', '🪁', '🗡️', '🪄', '🏹', '⚔️', '💪', '💥', '🌪️', '💧', '🍀', '🌿', '💚', '🔥', '🌋', '☀️', '🧠', '🎯', '👁️', '🐾', '💨', '🌟', '🧿', '❄️', '🗝️', '🏃', '📖', '⚙️'];
-// Seed packets: the band colour for the crop each seed grows.
-const BANDS = { sunroot: ['#6aa84f', '#3f7a2e'], barley: ['#d9a53a', '#a8741c'], flax: ['#4a86c8', '#2e5c94'], emberberry: ['#c8423a', '#8e2a24'] };
-// Icons drawn for the game rather than taken from Twemoji, under the emoji content names them by:
-// colour pixels on 14 x 14 ('.' is clear), finished like the rest (shaded lower-right, outlined in
-// ink). The emoji still shows wherever text can't hold the art (the big map writes emoji as text).
-const DRAWN = {
-  // The farm cart as it is in the world (src/render/models/vehicles.ts), facing left: lantern and
-  // seat at the front, the green bed with its cream trim, red spoked wheels, the pennant at the back.
-  '🚜': {
-    pal: { g: '#5aab5f', G: '#3f8046', c: '#f2e2b0', d: '#734828', D: '#4f3121', r: '#d8603f', R: '#a83c28', y: '#e0ac3a', f: '#d9473b', l: '#ffd47e' },
-    rows: [
-      '...........dff',
-      '...........dff',
-      '...........df.',
-      '...yD......d..',
-      'D..yD..D...d.D',
-      'lyyyDggggggggg',
-      'DgggDccccccccc',
-      'DGGGGGGGGGGGGG',
-      '.rrrrDDDDrrrr.',
-      'rR..RrDDrR..Rr',
-      'r.RR.r..r.RR.r',
-      'r.RR.r..r.RR.r',
-      'rR..Rr..rR..Rr',
-      '.rrrr....rrrr.',
-    ],
-  },
-};
-
-const codeOf = (e) => [...e].map((c) => c.codePointAt(0).toString(16)).filter((x) => x !== 'fe0f').join('-');
-
-function collect() {
-  const icons = new Set(EXTRA);
-  const walk = (v) => {
-    if (Array.isArray(v)) v.forEach(walk);
-    else if (v && typeof v === 'object') for (const [k, x] of Object.entries(v)) k === 'icon' && typeof x === 'string' ? icons.add(x) : walk(x);
-  };
-  const files = (d) => fs.readdirSync(d, { withFileTypes: true }).flatMap((f) => (f.isDirectory() ? files(path.join(d, f.name)) : f.name.endsWith('.json') ? [path.join(d, f.name)] : []));
-  for (const f of files(path.join(ROOT, 'shared'))) walk(JSON.parse(fs.readFileSync(f, 'utf8')));
-  return [...icons].filter((e) => /\p{Extended_Pictographic}/u.test(e));
-}
-
-async function svgFor(code) {
-  const file = path.join(SVG_DIR, `${code}.svg`);
-  if (!fs.existsSync(file)) {
-    const res = await fetch(`https://raw.githubusercontent.com/jdecked/twemoji/main/assets/svg/${code}.svg`);
-    if (!res.ok) throw new Error(`no Twemoji SVG for ${code} (${res.status})`);
-    fs.writeFileSync(file, await res.text());
+// Which icon an emoji (without its U+FE0F) or an item stands for.
+const bare = (e) => e.replace(/️/g, '');
+const byEmoji = {};
+const byItem = {};
+for (const ic of SHEETS.flatMap((s) => s.icons)) {
+  for (const e of ic.emoji ?? []) {
+    if (byEmoji[bare(e)]) throw new Error(`${e} is both ${byEmoji[bare(e)]} and ${ic.name}`);
+    byEmoji[bare(e)] = ic.name;
   }
-  return `data:image/svg+xml;base64,${fs.readFileSync(file).toString('base64')}`;
+  for (const it of ic.items ?? []) byItem[it] = ic.name;
 }
 
-const emojis = collect();
-fs.mkdirSync(SVG_DIR, { recursive: true });
-const svgs = {};
-const fromTwemoji = emojis.filter((e) => !DRAWN[e]);
-for (const e of fromTwemoji) svgs[e] = await svgFor(codeOf(e));
-// Keep only the SVGs in use, so the folder says exactly what the game draws.
-const used = new Set(fromTwemoji.map((e) => `${codeOf(e)}.svg`));
-for (const f of fs.readdirSync(SVG_DIR)) if (f.endsWith('.svg') && !used.has(f)) fs.unlinkSync(path.join(SVG_DIR, f));
-const items = JSON.parse(fs.readFileSync(path.join(ROOT, 'shared/items.json'), 'utf8')).items;
-const packets = items.filter((i) => i.id.startsWith('seed.') && i.plants && items.some((p) => p.id === i.plants)).map((i) => ({ id: i.id, crop: items.find((p) => p.id === i.plants).icon, band: BANDS[i.plants] ?? ['#8a5a32', '#5a3720'] }));
+// Every emoji content names needs a picture.
+const named = new Set();
+const walk = (v) => {
+  if (Array.isArray(v)) v.forEach(walk);
+  else if (v && typeof v === 'object') for (const [k, x] of Object.entries(v)) k === 'icon' && typeof x === 'string' ? named.add(x) : walk(x);
+};
+const jsons = (d) => fs.readdirSync(d, { withFileTypes: true }).flatMap((f) => (f.isDirectory() ? jsons(path.join(d, f.name)) : f.name.endsWith('.json') ? [path.join(d, f.name)] : []));
+for (const f of jsons(path.join(ROOT, 'shared'))) walk(JSON.parse(fs.readFileSync(f, 'utf8')));
+const unpainted = [...named].filter((e) => /\p{Extended_Pictographic}/u.test(e) && !byEmoji[bare(e)]);
+if (unpainted.length) throw new Error(`Content names emoji with no icon: ${unpainted.join(' ')} (add them to tools/icons/catalog.mjs)`);
 
-const drawn = Object.fromEntries(Object.entries(DRAWN).filter(([e]) => emojis.includes(e)));
+const missing = SHEETS.filter((s) => !fs.existsSync(path.join(SHEET_DIR, `${s.id}.webp`))).map((s) => s.id);
+if (missing.length) throw new Error(`Sheets not painted yet: ${missing.join(', ')} (node tools/icons/paint.mjs)`);
 
 const browser = await chromium.launch({ channel: process.platform === 'win32' ? 'msedge' : undefined });
 const page = await browser.newPage();
 await page.setContent('<!doctype html><body></body>');
-const result = await page.evaluate(async ({ svgs, packets, drawn }) => {
-  const load = async (url) => {
+
+const icons = {};
+for (const sheet of SHEETS) {
+  const url = `data:image/webp;base64,${fs.readFileSync(path.join(SHEET_DIR, `${sheet.id}.webp`)).toString('base64')}`;
+  const cut = await page.evaluate(cutSheet, { url, n: sheet.icons.length, grid: gridOf(sheet.icons.length), key: BACKGROUNDS[sheet.bg].rgb, size: SIZE, fill: FILL });
+  sheet.icons.forEach((ic, i) => {
+    if (!cut[i]) throw new Error(`${sheet.id}: nothing painted in cell ${i + 1} (${ic.name})`);
+    icons[ic.name] = cut[i];
+  });
+}
+
+fs.rmSync(OUT_DIR, { recursive: true, force: true });
+fs.mkdirSync(OUT_DIR, { recursive: true });
+for (const [name, data] of Object.entries(icons)) fs.writeFileSync(path.join(OUT_DIR, `${name}.webp`), Buffer.from(data.split(',')[1], 'base64'));
+
+if (process.argv.includes('--contact')) {
+  const png = await page.evaluate(contact, Object.entries(icons));
+  fs.mkdirSync(path.join(ROOT, 'scratch'), { recursive: true });
+  fs.writeFileSync(path.join(ROOT, 'scratch/icons-contact.png'), Buffer.from(png.split(',')[1], 'base64'));
+}
+await browser.close();
+
+const names = Object.keys(icons).sort();
+const sorted = (o) => Object.fromEntries(Object.entries(o).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)));
+fs.writeFileSync(
+  GEN,
+  `// Generated by tools/icons/bake.mjs from the painted sheets in tools/icons/sheets (tools/icons/catalog.mjs). Do not edit.\n` +
+    `// Each icon is a ${SIZE} x ${SIZE} WebP in ./icons. EMOJI_ICONS names the icon for an emoji content uses (written without\n` +
+    `// U+FE0F); ITEM_ICONS overrides it for an item with a picture of its own.\n\n` +
+    `export const ICON_URLS = {\n${names.map((n) => `  ${JSON.stringify(n)}: new URL('./icons/${n}.webp', import.meta.url).href,`).join('\n')}\n};\n\n` +
+    `export type IconName = keyof typeof ICON_URLS;\n\n` +
+    `export const EMOJI_ICONS: Record<string, IconName> = ${JSON.stringify(sorted(byEmoji), null, 1)};\n\n` +
+    `export const ITEM_ICONS: Record<string, IconName> = ${JSON.stringify(sorted(byItem), null, 1)};\n`,
+);
+const bytes = names.reduce((t, n) => t + fs.statSync(path.join(OUT_DIR, `${n}.webp`)).size, 0);
+console.log(`baked ${names.length} icons (${Math.round(bytes / 1024)} KB) into ${path.relative(ROOT, OUT_DIR)}, and ${path.relative(ROOT, GEN)}`);
+
+// ---------- In the page ----------
+
+/** One sheet cut into its icons, as WebP data URLs in cell order. */
+async function cutSheet({ url, n, grid, key, size, fill }) {
+  const img = new Image();
+  img.src = url;
+  await img.decode();
+  const W = img.naturalWidth;
+  const H = img.naturalHeight;
+  const cv = document.createElement('canvas');
+  cv.width = W;
+  cv.height = H;
+  const g = cv.getContext('2d', { willReadFrequently: true });
+  g.drawImage(img, 0, 0);
+  const im = g.getImageData(0, 0, W, H);
+  const px = im.data;
+  const N = W * H;
+
+  // The background as it was painted: the middle value of the sheet's outer edge, near the key, a
+  // channel all but full or empty taken as exactly so (else a speck of noise above 254 reads as paint).
+  const edge = [[], [], []];
+  for (let i = 0; i < W; i += 3) for (const y of [1, H - 2]) for (let c = 0; c < 3; c++) edge[c].push(px[(y * W + i) * 4 + c]);
+  for (let i = 0; i < H; i += 3) for (const x of [1, W - 2]) for (let c = 0; c < 3; c++) edge[c].push(px[(i * W + x) * 4 + c]);
+  const K = edge.map((v, c) => {
+    const near = v.filter((x) => Math.abs(x - key[c]) < 90).sort((a, b) => a - b);
+    const k = near.length ? near[near.length >> 1] : key[c];
+    return k > 235 ? 255 : k < 20 ? 0 : k;
+  });
+  /** How far a channel strays from the background before it counts. */
+  const NOISE = 6;
+
+  // Outside: every pixel the background reaches without crossing paint, from the sheet's edge or
+  // from background showing through a hole (between a wheel's spokes, inside a ring). Paint fades
+  // into it at edges and glows; inside an inked contour nothing is background, whatever its colour.
+  const OPEN = 0.42;
+  const SEED = 0.3;
+  const dist = new Float32Array(N);
+  for (let p = 0; p < N; p++) dist[p] = Math.hypot(px[p * 4] - K[0], px[p * 4 + 1] - K[1], px[p * 4 + 2] - K[2]) / 441.7;
+  const out = new Uint8Array(N);
+  const stack = [];
+  const reach = (p) => {
+    if (!out[p] && dist[p] < OPEN) {
+      out[p] = 1;
+      stack.push(p);
+    }
+  };
+  for (let x = 0; x < W; x++) reach(x), reach((H - 1) * W + x);
+  for (let y = 0; y < H; y++) reach(y * W), reach(y * W + W - 1);
+  for (let p = 0; p < N; p++) if (dist[p] < SEED) reach(p);
+  while (stack.length) {
+    const p = stack.pop();
+    const x = p % W;
+    if (x > 0) reach(p - 1);
+    if (x < W - 1) reach(p + 1);
+    if (p >= W) reach(p - W);
+    if (p < N - W) reach(p + W);
+  }
+
+  // Soft: outside, or paint touching it. The rest is solid paint.
+  const soft = new Uint8Array(N);
+  for (let p = 0; p < N; p++) {
+    const x = p % W;
+    soft[p] = out[p] || (x > 0 && out[p - 1]) || (x < W - 1 && out[p + 1]) || (p >= W && out[p - W]) || (p < N - W && out[p + W]) ? 1 : 0;
+  }
+
+  // The colour of the solid paint nearest every pixel, at half size: the solid pixels averaged down
+  // a pyramid, then each empty pixel filled from the level above.
+  const levels = [];
+  {
+    let w = W >> 1;
+    let h = H >> 1;
+    let r = new Float32Array(w * h);
+    let gg = new Float32Array(w * h);
+    let b = new Float32Array(w * h);
+    let n = new Float32Array(w * h);
+    for (let p = 0; p < N; p++) {
+      if (soft[p]) continue;
+      const x = p % W;
+      const q = ((p - x) / W >> 1) * w + (x >> 1);
+      r[q] += px[p * 4];
+      gg[q] += px[p * 4 + 1];
+      b[q] += px[p * 4 + 2];
+      n[q]++;
+    }
+    levels.push({ w, h, r, g: gg, b, n });
+    while (w > 1 || h > 1) {
+      const w2 = Math.max(1, (w + 1) >> 1);
+      const h2 = Math.max(1, (h + 1) >> 1);
+      const up = { w: w2, h: h2, r: new Float32Array(w2 * h2), g: new Float32Array(w2 * h2), b: new Float32Array(w2 * h2), n: new Float32Array(w2 * h2) };
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          const i = y * w + x;
+          const j = (y >> 1) * w2 + (x >> 1);
+          up.r[j] += r[i];
+          up.g[j] += gg[i];
+          up.b[j] += b[i];
+          up.n[j] += n[i];
+        }
+      }
+      levels.push(up);
+      ({ w, h, r, g: gg, b, n } = up);
+    }
+    for (const l of levels) for (let i = 0; i < l.n.length; i++) if (l.n[i]) (l.r[i] /= l.n[i]), (l.g[i] /= l.n[i]), (l.b[i] /= l.n[i]);
+    for (let k = levels.length - 2; k >= 0; k--) {
+      const l = levels[k];
+      const u = levels[k + 1];
+      for (let y = 0; y < l.h; y++) {
+        for (let x = 0; x < l.w; x++) {
+          const i = y * l.w + x;
+          if (l.n[i]) continue;
+          const j = (y >> 1) * u.w + (x >> 1);
+          l.r[i] = u.r[j];
+          l.g[i] = u.g[j];
+          l.b[i] = u.b[j];
+        }
+      }
+    }
+  }
+  const near = levels[0];
+
+  // Alpha: soft paint as transparent as its colour allows, its colour pushed back off the background
+  // so no fringe of the key is left. Pushed off it, a painted glow (which mixes over the key into
+  // colours of neither) turns the key's opposite (green off magenta, pink off green): there it takes
+  // the hue of the paint beside it at its own brightness, or, beside dull paint, just loses the tint.
+  // The rest is solid.
+  const lum = (r, g, b) => 0.3 * r + 0.59 * g + 0.11 * b;
+  const anti = K.map((k) => (255 - 2 * k) / (255 * Math.sqrt(3)));
+  const alpha = new Float32Array(N);
+  for (let p = 0; p < N; p++) {
+    if (!soft[p]) {
+      alpha[p] = 1;
+      continue;
+    }
+    let a = 0;
+    for (let c = 0; c < 3; c++) {
+      const d = px[p * 4 + c] - K[c];
+      const room = d > 0 ? 255 - K[c] : K[c];
+      if (room > 0) a = Math.max(a, Math.max(0, Math.abs(d) - NOISE) / room);
+    }
+    a = Math.min(1, a);
+    if (a < 0.04) a = 0;
+    alpha[p] = a;
+    if (!a) {
+      px[p * 4] = px[p * 4 + 1] = px[p * 4 + 2] = 0;
+      continue;
+    }
+    const f = [0, 1, 2].map((c) => Math.max(0, Math.min(255, K[c] + (px[p * 4 + c] - K[c]) / a)));
+    const x = p % W;
+    const q = ((p - x) / W >> 1) * near.w + (x >> 1);
+    const hue = [near.r[q], near.g[q], near.b[q]];
+    const lh = lum(...hue);
+    const k = lh > 1 ? lum(...f) / lh : 0;
+    const mean = (f[0] + f[1] + f[2]) / 3;
+    const tint = (f[0] - mean) * anti[0] + (f[1] - mean) * anti[1] + (f[2] - mean) * anti[2];
+    const t = Math.min(1, Math.max(0, tint / 40)) * (1 - a * a);
+    const w = k ? Math.min(1, Math.max(0, (Math.max(...hue) - Math.min(...hue) - 30) / 60)) : 0;
+    for (let c = 0; c < 3; c++) {
+      const fixed = Math.min(255, hue[c] * k) * w + Math.max(0, Math.min(255, f[c] - tint * anti[c])) * (1 - w);
+      px[p * 4 + c] = Math.round(fixed * t + f[c] * (1 - t));
+    }
+  }
+  for (let p = 0; p < N; p++) px[p * 4 + 3] = Math.round(alpha[p] * 255);
+
+  // Each icon: the solid blobs whose middle is in its cell, and the soft paint around them.
+  const cw = W / grid.cols;
+  const ch = H / grid.rows;
+  const cellAt = (x, y) => Math.min(grid.rows - 1, Math.floor(y / ch)) * grid.cols + Math.min(grid.cols - 1, Math.floor(x / cw));
+  const owner = new Int16Array(N).fill(-1);
+  const seen = new Uint8Array(N);
+  for (let p0 = 0; p0 < N; p0++) {
+    if (seen[p0] || alpha[p0] < 0.5) continue;
+    const blob = [];
+    seen[p0] = 1;
+    stack.push(p0);
+    let sx = 0;
+    let sy = 0;
+    while (stack.length) {
+      const p = stack.pop();
+      blob.push(p);
+      const x = p % W;
+      const y = (p - x) / W;
+      sx += x;
+      sy += y;
+      for (const q of [x > 0 ? p - 1 : -1, x < W - 1 ? p + 1 : -1, y > 0 ? p - W : -1, y < H - 1 ? p + W : -1]) {
+        if (q >= 0 && !seen[q] && alpha[q] >= 0.5) {
+          seen[q] = 1;
+          stack.push(q);
+        }
+      }
+    }
+    // Specks of a few pixels are noise in the background, not paint.
+    if (blob.length < 40) {
+      for (const p of blob) alpha[p] = 0;
+      continue;
+    }
+    const cell = cellAt(sx / blob.length, sy / blob.length);
+    for (const p of blob) owner[p] = cell;
+  }
+  for (let p = 0; p < N; p++) if (owner[p] < 0 && alpha[p] > 0) owner[p] = cellAt(p % W, Math.floor(p / W));
+
+  const result = [];
+  for (let cell = 0; cell < n; cell++) {
+    let x0 = W;
+    let y0 = H;
+    let x1 = -1;
+    let y1 = -1;
+    for (let p = 0; p < N; p++) {
+      if (owner[p] !== cell || alpha[p] < 0.06) continue;
+      const x = p % W;
+      const y = (p - x) / W;
+      if (x < x0) x0 = x;
+      if (x > x1) x1 = x;
+      if (y < y0) y0 = y;
+      if (y > y1) y1 = y;
+    }
+    if (x1 < 0) {
+      result.push(null);
+      continue;
+    }
+    const w = x1 - x0 + 1;
+    const h = y1 - y0 + 1;
+    const crop = document.createElement('canvas');
+    crop.width = w;
+    crop.height = h;
+    const cg = crop.getContext('2d');
+    const ci = cg.createImageData(w, h);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const p = (y + y0) * W + (x + x0);
+        if (owner[p] !== cell || !alpha[p]) continue;
+        ci.data[(y * w + x) * 4] = px[p * 4];
+        ci.data[(y * w + x) * 4 + 1] = px[p * 4 + 1];
+        ci.data[(y * w + x) * 4 + 2] = px[p * 4 + 2];
+        ci.data[(y * w + x) * 4 + 3] = px[p * 4 + 3];
+      }
+    }
+    cg.putImageData(ci, 0, 0);
+    // Shrink by halves while that stays above the final size (each step a clean average), then to size.
+    const target = size * fill;
+    let src = crop;
+    while (Math.max(src.width, src.height) / 2 >= target) {
+      const half = document.createElement('canvas');
+      half.width = Math.max(1, Math.round(src.width / 2));
+      half.height = Math.max(1, Math.round(src.height / 2));
+      const hg = half.getContext('2d');
+      hg.imageSmoothingQuality = 'high';
+      hg.drawImage(src, 0, 0, half.width, half.height);
+      src = half;
+    }
+    const scale = target / Math.max(w, h);
+    const dw = w * scale;
+    const dh = h * scale;
+    const outC = document.createElement('canvas');
+    outC.width = outC.height = size;
+    const og = outC.getContext('2d');
+    og.imageSmoothingQuality = 'high';
+    og.drawImage(src, (size - dw) / 2, (size - dh) / 2, dw, dh);
+    result.push(outC.toDataURL('image/webp', 0.92));
+  }
+  return result;
+}
+
+/** Every icon on parchment (48, 32, 20 px) and on timber (48, 20, 14 px), with its name. */
+async function contact(list) {
+  const cols = 6;
+  const cellW = 230;
+  const cellH = 74;
+  const c = document.createElement('canvas');
+  c.width = cols * cellW;
+  c.height = Math.ceil(list.length / cols) * cellH;
+  const g = c.getContext('2d');
+  g.fillStyle = '#2a1a0f';
+  g.fillRect(0, 0, c.width, c.height);
+  g.imageSmoothingQuality = 'high';
+  for (let i = 0; i < list.length; i++) {
+    const [name, url] = list[i];
     const img = new Image();
     img.src = url;
     await img.decode();
-    return img;
-  };
-  // Every icon's finish: the art's lower-right edges shaded, and a one-pixel outline in ink.
-  function finish(od, solid, size, shade = true, ink = [43, 26, 14]) {
-    if (shade) {
-      for (let p = 0; p < size * size; p++) {
-        if (!solid[p]) continue;
-        const x = p % size;
-        const y = Math.floor(p / size);
-        if (y + 1 >= size || !solid[p + size] || x + 1 >= size || !solid[p + 1]) for (let c = 0; c < 3; c++) od.data[p * 4 + c] = Math.round(od.data[p * 4 + c] * 0.72);
-      }
-    }
-    for (let p = 0; p < size * size; p++) {
-      if (solid[p]) continue;
-      const x = p % size;
-      const y = Math.floor(p / size);
-      if ((x > 0 && solid[p - 1]) || (x < size - 1 && solid[p + 1]) || (y > 0 && solid[p - size]) || (y < size - 1 && solid[p + size])) od.data.set([...ink, 255], p * 4);
-    }
+    const x = (i % cols) * cellW;
+    const y = Math.floor(i / cols) * cellH;
+    g.fillStyle = '#ecd9b0';
+    g.fillRect(x + 2, y + 2, 118, cellH - 4);
+    g.fillStyle = '#5a3720';
+    g.fillRect(x + 120, y + 2, cellW - 122, cellH - 4);
+    g.drawImage(img, x + 6, y + 6, 48, 48);
+    g.drawImage(img, x + 58, y + 6, 32, 32);
+    g.drawImage(img, x + 94, y + 6, 20, 20);
+    g.drawImage(img, x + 124, y + 6, 48, 48);
+    g.drawImage(img, x + 176, y + 6, 20, 20);
+    g.drawImage(img, x + 200, y + 6, 14, 14);
+    g.fillStyle = '#2b1a0e';
+    g.font = '11px sans-serif';
+    g.fillText(name, x + 6, y + cellH - 8);
   }
-  async function pixel(url, { size = 16, inner = 14, levels = 7, cut = 120, shade = true, ink = [43, 26, 14] } = {}) {
-    const img = await load(url);
-    const big = document.createElement('canvas');
-    big.width = big.height = inner * 8;
-    big.getContext('2d').drawImage(img, 0, 0, inner * 8, inner * 8);
-    const small = document.createElement('canvas');
-    small.width = small.height = inner;
-    const sg = small.getContext('2d');
-    sg.imageSmoothingQuality = 'high';
-    sg.drawImage(big, 0, 0, inner, inner);
-    const src = sg.getImageData(0, 0, inner, inner).data;
-    const out = document.createElement('canvas');
-    out.width = out.height = size;
-    const og = out.getContext('2d');
-    const od = og.createImageData(size, size);
-    const solid = new Uint8Array(size * size);
-    const off = Math.floor((size - inner) / 2);
-    const q = (v) => Math.round(Math.round((v / 255) * (levels - 1)) * (255 / (levels - 1)));
-    for (let y = 0; y < inner; y++) {
-      for (let x = 0; x < inner; x++) {
-        const i = (y * inner + x) * 4;
-        if (src[i + 3] < cut) continue;
-        const p = (y + off) * size + (x + off);
-        od.data.set([q(src[i]), q(src[i + 1]), q(src[i + 2]), 255], p * 4);
-        solid[p] = 1;
-      }
-    }
-    finish(od, solid, size, shade, ink);
-    og.putImageData(od, 0, 0);
-    return out;
-  }
-  // Art drawn for the game: its rows of colour pixels in the middle of a 16 x 16 tile, finished the same.
-  function draw({ pal, rows }) {
-    const size = 16;
-    const out = document.createElement('canvas');
-    out.width = out.height = size;
-    const og = out.getContext('2d');
-    const od = og.createImageData(size, size);
-    const solid = new Uint8Array(size * size);
-    rows.forEach((row, y) =>
-      [...row].forEach((ch, x) => {
-        if (ch === '.') return;
-        const p = (y + 1) * size + (x + 1);
-        od.data.set([...rgb(pal[ch]), 255], p * 4);
-        solid[p] = 1;
-      }),
-    );
-    finish(od, solid, size);
-    og.putImageData(od, 0, 0);
-    return out;
-  }
-  const PACKET = ['................', '..############..', '..#bBbBbBbBbB#..', '..#bbbbbbbbbb#..', '..#pwwwwwwwwp#..', '..#pwwwwwwwwp#..', '..#pwwwwwwwwp#..', '..#pwwwwwwwwp#..', '..#pwwwwwwwwp#..', '..#pwwwwwwwwp#..', '..#pwwwwwwwwp#..', '..#pwwwwwwwwp#..', '..#ppppppppPP#..', '..#PPPPPPPPPP#..', '..############..', '................'];
-  const rgb = (s) => [parseInt(s.slice(1, 3), 16), parseInt(s.slice(3, 5), 16), parseInt(s.slice(5, 7), 16)];
-  const out = { emoji: {}, item: {} };
-  for (const [e, url] of Object.entries(svgs)) out.emoji[e] = (await pixel(url)).toDataURL('image/png');
-  for (const [e, art] of Object.entries(drawn)) out.emoji[e] = draw(art).toDataURL('image/png');
-  for (const p of packets) {
-    const pal = { '#': [58, 36, 18], b: rgb(p.band[0]), B: rgb(p.band[1]), p: [236, 215, 168], P: [201, 164, 108], w: [255, 246, 223] };
-    const c = document.createElement('canvas');
-    c.width = c.height = 16;
-    const g = c.getContext('2d');
-    const img = g.createImageData(16, 16);
-    PACKET.forEach((row, y) => [...row].forEach((ch, x) => ch !== '.' && img.data.set([...pal[ch], 255], (y * 16 + x) * 4)));
-    g.putImageData(img, 0, 0);
-    g.drawImage(await pixel(svgs[p.crop], { size: 8, inner: 7, shade: false }), 4, 4);
-    out.item[p.id] = c.toDataURL('image/png');
-  }
-  return out;
-}, { svgs, packets, drawn });
-await browser.close();
-
-const sorted = (o) => Object.fromEntries(Object.entries(o).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)));
-fs.writeFileSync(
-  OUT,
-  `// Generated by tools/icons/bake.mjs from Twemoji (CC-BY 4.0, https://github.com/jdecked/twemoji), with a few drawn for the game. Do not edit.\n` +
-    `// Each is a 16 x 16 PNG. EMOJI_ICONS is keyed by the emoji content uses; ITEM_ICONS overrides by item id.\n\n` +
-    `export const EMOJI_ICONS: Record<string, string> = ${JSON.stringify(sorted(result.emoji), null, 1)};\n\n` +
-    `export const ITEM_ICONS: Record<string, string> = ${JSON.stringify(sorted(result.item), null, 1)};\n`,
-);
-console.log(`baked ${Object.keys(result.emoji).length} emoji and ${Object.keys(result.item).length} seed packets into ${path.relative(ROOT, OUT)}`);
+  return c.toDataURL('image/png');
+}

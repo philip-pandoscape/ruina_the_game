@@ -18,7 +18,9 @@ import {
 import { BOOK, emptySkills, resolveSkills, sameLevels, type Levels, type ResolvedSkills, type SkillSet } from '../skills';
 import { Actors, type Actor } from './actor';
 import { actorKind } from '../content/actors';
-import { startBrain, type Sighting } from './ai/brain';
+import { sightingAt, startBrain, type Sighting } from './ai/brain';
+import { foesOf, sightingOf } from './ai/senses';
+import { bandAround } from './world';
 import { liveTargets, type Target } from './combat/hit';
 import { ON_FOOT, type Actions, type GameEvent, type PlayerState, type Spawn, type World } from './types';
 import { integrate, updateNormal, accelerateToward, airControl } from './player/locomotion';
@@ -129,8 +131,14 @@ export class Sim {
     };
     this.actors.clear();
     if (this.opts.training) {
+      // Spawn points that share a band number fight together, each band with an id of its own.
+      const bands = new Map<number, number>();
       for (const point of this.world.spawns) {
         const a = this.actors.spawn(point);
+        if (point.band) {
+          if (!bands.has(point.band)) bands.set(point.band, this.actors.newBand());
+          a.band = bands.get(point.band)!;
+        }
         startBrain(a, this.sighting());
       }
     }
@@ -138,7 +146,22 @@ export class Sim {
 
   /** What a brain can see of the player this frame. Someone knocked down is nobody's target. */
   sighting(): Sighting {
-    return { x: this.player.pos.x, z: this.player.pos.z, present: this.player.downFrame < 0 };
+    const f = foesOf(this)[0];
+    return f ? sightingOf(f) : sightingAt(this.player.pos.x, this.player.pos.z, false);
+  }
+
+  /**
+   * A war-band of `count` of a kind in a ring round (x, z), fighting together (src/sim/ai/pack.ts).
+   * They are home actors: they come back where they stood. Returns their ids.
+   */
+  spawnBand(kind: string, count: number, x: number, z: number, seed = 0x9b1d): number[] {
+    const band = this.actors.newBand();
+    return bandAround(kind, count, x, z, band, seed).map((point) => {
+      const a = this.actors.spawn(point);
+      a.band = band;
+      startBrain(a, this.sighting());
+      return a.id;
+    });
   }
 
   /** The first actor of a kind, for the few callers that want a specific one by name. */

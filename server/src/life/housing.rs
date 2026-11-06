@@ -306,8 +306,9 @@ mod tests {
         assert_eq!((built.stage, built.delivered.len(), life.state.labor, life.state.stats.built), (1, 0, 780.0, 1.0));
         assert_eq!((sim.world.index.decks.len(), sim.world.index.boxes.len()), (decks + 1, boxes));
         let floor = sim.world.index.decks[decks];
-        assert_eq!((floor.x, floor.z, floor.hw, floor.hd), (x, z, 4.0, 3.5));
-        assert_eq!(floor.top, hf.height(x, z) + 0.25);
+        let def = structure_def("cottage");
+        assert_eq!((floor.x, floor.z, floor.hw, floor.hd), (x, z, def.w / 2.0, def.d / 2.0));
+        assert_eq!(floor.top, hf.height(x, z) + def.floor.unwrap());
         let events = life.drain_events();
         assert!(events.contains(&LifeEvent::Build { house: h.id, stage: 1, x, z }));
         assert!(events.contains(&LifeEvent::Toast { text: "🔨 Foundation done. Next: Frame.".into(), kind: "good".into() }));
@@ -325,7 +326,7 @@ mod tests {
         }
         assert!(build_stage(&mut life, &mut sim, h.id));
         assert_eq!(sim.world.index.boxes.len(), boxes + 5);
-        assert!(sim.world.index.boxes[boxes..].iter().all(|b| b.top == hf.height(x, z) + 6.6));
+        assert!(sim.world.index.boxes[boxes..].iter().all(|b| b.top == hf.height(x, z) + def.h));
         for pack in ["ironCrate", "lumberBundle"] {
             assert!(haul(&mut life, &mut sim, h.id, pack));
         }
@@ -370,7 +371,8 @@ mod tests {
         // rise-5 faces +Z (rot 0): local points are world offsets from the house.
         let plot = plot_def(&life, "rise-5").unwrap();
         assert_eq!(house_pose(&life, &h), (plot.x, plot.z - 2.5, 0.0));
-        assert_eq!(interior_point(&life, &h, "bed"), (plot.x + 2.5, plot.z - 2.5 - 2.0));
+        let bed = structure_def("cottage").interior.as_ref().unwrap()["bed"];
+        assert_eq!(interior_point(&life, &h, "bed"), (plot.x + bed.x, plot.z - 2.5 + bed.z));
         assert_eq!(interior_point(&life, &h, "nowhere"), (plot.x, plot.z - 2.5));
         life.state.clock = 3.0 * DAY;
         assert_eq!(tax_due(&life, &h), (350.0, 4.0 * DAY));

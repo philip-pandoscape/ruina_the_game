@@ -52,7 +52,8 @@ export interface ZoneRecipe {
   };
   spawn: { x: number; z: number; facing: number };
   places: ZonePlace[];
-  structures: Array<{ id: string; x: number; z: number; rot: number; tint?: number; seed?: number; decor?: string[] }>;
+  /** mirror: a building drawn and built left for right (src/content/buildings.ts mirrorPlan). */
+  structures: Array<{ id: string; x: number; z: number; rot: number; tint?: number; seed?: number; decor?: string[]; mirror?: boolean }>;
   props: Array<{
     id: string;
     x?: number;
@@ -212,4 +213,5 @@ export interface ZonePlacement {
   tint?: number;
   seed?: number;
   decor?: string[];
+  mirror?: boolean;
 }

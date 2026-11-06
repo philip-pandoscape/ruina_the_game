@@ -5,6 +5,9 @@ import { ABILITIES, emptyMovement, HOTBAR_SLOTS, MOVE, NO_ABILITY, SLIDE_SKILL, 
 const sliding = (p: { mode: string; actionId: number }) => p.mode === 'action' && p.actionId === SLIDE_SKILL;
 import { skillsFrom } from '../src/skills';
 
+// Its tests share nothing, so they spread across the workers (playwright.config.ts).
+test.describe.configure({ mode: 'parallel' });
+
 // The eight-slot hotbar, and the sprint and crouch that share the movement keys with it.
 
 const skills = (...ids: string[]) => skillsFrom(...ids);

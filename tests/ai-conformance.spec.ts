@@ -1,18 +1,21 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
-import { BEHAVIOURS, behaviour, startBrain, stepBrain, type Sighting } from '../src/sim/ai/brain';
+import { BEHAVIOURS, behaviour, sightingAt, startBrain, stepBrain, type Sighting } from '../src/sim/ai/brain';
+import type { Foe } from '../src/sim/ai/senses';
 import { Actors, isAlive, type Actor } from '../src/sim/actor';
 import { actorKind, actorKindAt, actorKindIndex } from '../src/content/actors';
 import { stepActors } from '../src/sim/actors/step';
 import { hurtActor } from '../src/sim/combat/deal';
 import { len } from '../src/sim/math';
 
-// Monster behaviour is data in shared/behaviours.json, read by src/sim/ai/brain.ts offline and
-// server/src/ai.rs online. If the two ever drift, a monster would move differently in the
-// training yard than it does on a server. This runs every behaviour through both and checks
-// they agree frame by frame - each brain on its own, then whole packs of real kinds fighting,
-// where calling, gathering, bursting and reforming all happen.
+// Monster behaviour is data in shared/behaviours.json and shared/creatures/, read by
+// src/sim/ai/brain.ts offline and server/src/ai.rs online. If the two ever drift, a monster would
+// move differently in the training yard than it does on a server. This runs every behaviour
+// through both and checks they agree frame by frame - each brain on its own, then whole packs of
+// real kinds fighting, where calling, gathering, bursting and reforming all happen, and war-bands
+// of goblins fight scripted players: sharing out tokens, circling, stabbing, throwing stones,
+// running and drinking.
 
 const AICHECK = `server/target/release/aicheck${process.platform === 'win32' ? '.exe' : ''}`;
 const FRAMES = 900; // fifteen seconds, enough for many state changes and random draws
@@ -39,7 +42,7 @@ function runTs(brain: string, seed: number, x: number, z: number, present: boole
   const a = blank(x, z, seed, brain);
   const seen = (f: number): Sighting => {
     const [px, pz] = playerAt(f);
-    return { x: px, z: pz, present };
+    return sightingAt(px, pz, present);
   };
   startBrain(a, seen(0));
   const out: number[][] = [];
@@ -80,24 +83,77 @@ test.describe('TypeScript and Rust run the same behaviours', () => {
 
 // ---------- whole packs ----------
 
-interface Spawn { kind: string; x: number; z: number; seed: number }
+interface Spawn { kind: string; x: number; z: number; seed: number; band?: number }
 interface Hit { frame: number; x: number; z: number; damage: number }
+/**
+ * A scripted player: walks back and forth between two points every `period` frames, facing a
+ * point, swinging and dodging on a beat. Exact arithmetic only (and atan2, which both sides share
+ * bit for bit), so server/src/bin/aicheck.rs works out the very same foe.
+ */
+interface FoeScript {
+  id: number;
+  from: [number, number];
+  to: [number, number];
+  period?: number;
+  look: [number, number];
+  reach?: number;
+  ranged?: boolean;
+  /** [every, swinging for, recovering for] frames; every 0 never swings. */
+  swing?: [number, number, number];
+  /** [every, from, to] frames of a dodge's untouchable window. */
+  dodge?: [number, number, number];
+  hp?: number;
+}
 interface Pack {
   pack: Spawn[];
   frames: number;
   hits: Hit[];
-  /** What the fight has to have got up to, so a pass proves something: kinds seen, states entered, slams. */
-  expect: { kinds: string[]; states: string[]; slams: boolean };
+  foes?: FoeScript[];
+  /** What the fight has to have got up to, so a pass proves something: kinds seen, states entered (and never entered), slams, blows on foes, missiles. */
+  expect: { kinds: string[]; states: string[]; slams: boolean; hits?: boolean; missiles?: boolean; never?: string[] };
 }
-interface PackRun { frames: number[][][]; slams: number[][][] }
+interface PackRun { frames: number[][][]; slams: number[][][]; hits: number[][][]; missiles: number[][][] }
 
 const ROW = ['id', 'kind', 'x', 'y', 'z', 'facing', 'state', 'stateFrame', 'wait', 'hp', 'mass', 'deadFrame',
-  'angry', 'rallyTo', 'calling', 'fuse', 'group', 'gone', 'pulled', 'stride'];
+  'angry', 'rallyTo', 'calling', 'fuse', 'group', 'gone', 'pulled', 'stride',
+  'target', 'band', 'token', 'opening', 'afraid', 'slotX', 'slotZ', 'rallyX', 'rallyZ', 'destX', 'destZ', 'charges', 'cd0', 'cd1', 'struck'];
 
 const row = (a: Actor): number[] => [
   a.id, actorKindIndex(a.kind), a.x, a.y, a.z, a.facing, a.state, a.stateFrame, a.wait, a.hp, a.mass, a.deadFrame,
   a.angry, a.rallyTo, a.calling, a.fuse, a.group, a.gone ? 1 : 0, a.pulled, a.stride,
+  a.target, a.band, a.token ? 1 : 0, a.opening ? 1 : 0, a.afraid ? 1 : 0, a.slotX, a.slotZ, a.rallyX, a.rallyZ, a.destX, a.destZ,
+  a.charges, a.cds[0], a.cds[1], a.struck ? 1 : 0,
 ];
+
+function foeAt(s: FoeScript, f: number): Foe {
+  const period = s.period ?? 1;
+  const t = (f % period) / period;
+  const k = t < 0.5 ? 2 * t : 2 - 2 * t;
+  const dir = t < 0.5 ? 2 : -2;
+  const x = s.from[0] + (s.to[0] - s.from[0]) * k;
+  const z = s.from[1] + (s.to[1] - s.from[1]) * k;
+  const vx = ((s.to[0] - s.from[0]) * dir) / period * 60;
+  const vz = ((s.to[1] - s.from[1]) * dir) / period * 60;
+  let act = 0;
+  let invuln = false;
+  const swing = s.swing ?? [0, 0, 0];
+  const dodge = s.dodge ?? [0, 0, 0];
+  if (swing[0] > 0) {
+    const c = f % swing[0];
+    if (c < swing[1]) act = 1;
+    else if (c < swing[1] + swing[2]) act = 2;
+  }
+  if (act === 0 && dodge[0] > 0) {
+    const c = f % dodge[0];
+    if (c >= dodge[1] && c < dodge[2]) {
+      act = 5;
+      invuln = true;
+    }
+  }
+  return { id: s.id, x, y: 0, z, vx, vz, facing: Math.atan2(s.look[0] - x, s.look[1] - z), hp: s.hp ?? 1, reach: s.reach ?? 0, ranged: s.ranged ?? false, act, invuln, air: 0 };
+}
+
+const plainFoe = (x: number, z: number): Foe => ({ id: 1, x, y: 0, z, vx: 0, vz: 0, facing: 0, hp: 1, reach: 0, ranged: false, act: 0, invuln: false, air: 0 });
 
 // The same fight, run by the browser's rules: hits land on whoever stands nearest a point, struck
 // from where the player is, then every actor takes its frame.
@@ -105,11 +161,13 @@ function runPackTs(s: Pack): PackRun {
   const actors = new Actors(actorKind);
   for (const p of s.pack) {
     const a = actors.spawn({ kind: p.kind, x: p.x, z: p.z, seed: p.seed });
-    startBrain(a, { x: p.x, z: p.z, present: false });
+    a.band = p.band ?? 0;
+    startBrain(a, sightingAt(p.x, p.z, false));
   }
-  const out: PackRun = { frames: [], slams: [] };
+  const out: PackRun = { frames: [], slams: [], hits: [], missiles: [] };
   for (let f = 0; f < s.frames; f++) {
-    const [px, pz] = playerAt(f);
+    const foes = s.foes ? s.foes.map((fs) => foeAt(fs, f)) : [plainFoe(...playerAt(f))];
+    const [px, pz] = [foes[0].x, foes[0].z];
     for (const h of s.hits.filter((v) => v.frame === f)) {
       let best: Actor | undefined;
       let bestDist = Infinity;
@@ -127,16 +185,20 @@ function runPackTs(s: Pack): PackRun {
       }
     }
     const slams: number[][] = [];
+    const hits: number[][] = [];
     stepActors({
       actors,
-      seen: { x: px, z: pz, present: true },
+      foes,
       frame: f,
       ground: () => 0,
       emit: () => {},
       slam: (x, z, radius, damage) => slams.push([x, z, radius, damage]),
+      hitFoe: (id, damage, nx, nz, knock) => hits.push([id, damage, nx, nz, knock]),
     });
     out.frames.push(actors.all().map(row));
     out.slams.push(slams);
+    out.hits.push(hits);
+    out.missiles.push(actors.missiles.map((m) => [m.id, m.x, m.y, m.z, m.vy]));
   }
   return out;
 }
@@ -159,6 +221,11 @@ function comparePacks(name: string, ts: PackRun, r: PackRun): void {
     const b = JSON.stringify(r.slams[f].map((s) => s.map((v) => v)));
     if (ts.slams[f].length !== r.slams[f].length || ts.slams[f].some((s, j) => s.some((v, k) => Math.abs(v - r.slams[f][j][k]) > 1e-9))) {
       throw new Error(`${name} frame ${f}: slams ${a} here and ${b} on the server`);
+    }
+    for (const [what, mine, theirs] of [['blows on foes', ts.hits[f], r.hits[f]], ['missiles', ts.missiles[f], r.missiles[f]]] as const) {
+      if (mine.length !== theirs.length || mine.some((s, j) => s.some((v, k) => Math.abs(v - theirs[j][k]) > 1e-9))) {
+        throw new Error(`${name} frame ${f}: ${what} ${JSON.stringify(mine)} here and ${JSON.stringify(theirs)} on the server`);
+      }
     }
   }
 }
@@ -201,6 +268,43 @@ const PACKS: Record<string, Pack> = {
     hits: [{ frame: 30, x: 2, z: 11, damage: 1 }, ...hitsAt(2, 11, 150, 420, 9, 3)],
     expect: { kinds: ['slime'], states: ['call', 'rally', 'gather', 'dazed'], slams: false },
   },
+  // A war-band against a swordsman pacing in front of it, swinging every second and a half and
+  // dodging now and then, cutting down whoever comes nearest: they notice him, share out who
+  // strikes, circle and throw stones, flinch when struck and run when hurt.
+  'a goblin band against a swordsman': {
+    pack: ring('goblin', 6, 0, 7, 2, 0x6b1d).map((p) => ({ ...p, band: 1 })),
+    frames: 2400,
+    foes: [{ id: 1, from: [-4, 1], to: [4, 1], period: 360, look: [0, 7], reach: 2.1, swing: [90, 9, 14], dodge: [210, 150, 163] }],
+    hits: hitsAt(0, 2.5, 200, 1400, 30, 12),
+    expect: {
+      kinds: ['goblin'],
+      states: ['spot', 'engage', 'circle', 'close', 'stab', 'backoff', 'throw', 'retreat', 'flinch'],
+      slams: false,
+      hits: true,
+      missiles: true,
+    },
+  },
+  // Two bands and two foes, one of them an archer: nobody throws stones at someone with no reach,
+  // they go in close.
+  'two bands, a swordsman and an archer': {
+    pack: [...ring('goblin', 4, -6, 6, 1.6, 0x2a2a).map((p) => ({ ...p, band: 1 })), ...ring('goblin', 3, 6, 6, 1.4, 0x3b3b).map((p) => ({ ...p, band: 2 }))],
+    frames: 1800,
+    foes: [
+      { id: 1, from: [-6, 0], to: [-2, 2], period: 300, look: [-6, 6], reach: 2.1, swing: [80, 9, 14] },
+      { id: 2, from: [6, -1], to: [3, 1], period: 420, look: [6, 6], ranged: true },
+    ],
+    hits: [...hitsAt(-5, 2, 300, 900, 40, 12), ...hitsAt(5, 1, 400, 1000, 45, 12)],
+    expect: { kinds: ['goblin'], states: ['spot', 'circle', 'close', 'stab', 'throw', 'flinch'], slams: false, hits: true, missiles: true },
+  },
+  // A lone goblin worn down by a swordsman who keeps coming and going: it runs home and, once
+  // he is far enough off, drinks its potion.
+  'a lone goblin drinks when it gets clear': {
+    pack: [{ kind: 'goblin', x: 0, z: 9, seed: 0x5eed, band: 0 }],
+    frames: 1800,
+    foes: [{ id: 1, from: [0, -2], to: [0, 6], period: 500, look: [0, 9], reach: 2.1, swing: [100, 9, 14] }],
+    hits: [{ frame: 260, x: 0, z: 6, damage: 12 }, { frame: 330, x: 0, z: 6, damage: 6 }],
+    expect: { kinds: ['goblin'], states: ['spot', 'close', 'stab', 'flinch', 'retreat', 'drink'], slams: false, hits: true },
+  },
 };
 
 test.describe('TypeScript and Rust run the same packs', () => {
@@ -222,7 +326,10 @@ test.describe('TypeScript and Rust run the same packs', () => {
       }
       for (const k of want.kinds) expect(kinds, `${name} never had a ${k}`).toContain(actorKindIndex(k));
       for (const st of want.states) expect(states, `${name} never went into ${st}`).toContain(st);
+      for (const st of want.never ?? []) expect(states, `${name} went into ${st}`).not.toContain(st);
       if (want.slams) expect(ts.slams.some((f) => f.length > 0), `${name} never slammed`).toBe(true);
+      if (want.hits) expect(ts.hits.some((f) => f.length > 0), `${name} never landed a blow on a foe`).toBe(true);
+      if (want.missiles) expect(ts.missiles.some((f) => f.length > 0), `${name} never threw anything`).toBe(true);
     });
   }
 });

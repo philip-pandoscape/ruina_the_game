@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { Hero } from '../render/character';
 import { LifeView, sitIn, type Seated } from '../render/open/life';
+import type { HouseView } from '../render/village/village';
 import type { Models } from '../render/open/models';
 import { addScarecrowCollider } from '../sim/life/farming';
 import { addHouseColliders } from '../sim/life/housing';
@@ -85,6 +86,8 @@ export class WorldPeers {
   mineView: LifeView | null = null;
   /** Where someone sits at a mini-game's table, if they're at one (src/render/open/gameTables.ts). */
   stoolFor: ((id: number) => Seated | null) | null = null;
+  /** Where everyone's houses are drawn (the island's Village), by owner. */
+  houseSink: ((owner: string, houses: HouseView[]) => void) | null = null;
 
   constructor(
     private scene: THREE.Scene,
@@ -140,6 +143,7 @@ export class WorldPeers {
     life.state.weather = this.mine.state.weather;
     const view = new LifeView(this.scene, life, this.models, hero, { others: true });
     view.onGroundChanged = () => this.onGroundChanged?.();
+    view.houseSink = (houses) => this.houseSink?.(`peer:${id}`, houses);
     const label = nameTag(name);
     label.position.set(0, 2.45, 0);
     hero.root.add(label);

@@ -33,6 +33,10 @@ export class FollowCamera {
   /** The bare ground's height (no padding), for the pull-in under a hood. */
   terrainAt: ((x: number, z: number) => number) | null = null;
   private reach = 1; // eased: snaps in when blocked, drifts back out when clear
+  /** Whether you are indoors this frame (the view then looks down into the room). */
+  indoors = false;
+  private inside = 0; // eased toward indoors
+  private lift = 0; // eased extra pitch that looks over the wall behind you indoors
 
   constructor(aspect: number, far = 320, private maxDistance = 14) {
     this.camera = new THREE.PerspectiveCamera(CAMERA.fov, aspect, 0.1, far);
@@ -78,6 +82,8 @@ export class FollowCamera {
     this.aim = 0;
     this.aimWanted = 0;
     this.hasLead = false;
+    this.inside = this.indoors ? 1 : 0;
+    this.lift = 0;
   }
 
   // Follows the target smoothly. Vertical follow is looser so jumps don't jerk the view.
@@ -102,9 +108,12 @@ export class FollowCamera {
       this.aim = 0;
       this.hasLead = false;
     }
+    this.inside += ((this.indoors ? 1 : 0) - this.inside) * (1 - Math.exp(-CAMERA.indoorEase * dt));
     // The player's own pitch and zoom are left alone; only what's used this frame is blended.
-    const pitch = this.pitch + (CAMERA.aimPitch - this.pitch) * this.aim;
-    const distance = this.distance * (1 + (CAMERA.aimZoom - 1) * this.aim);
+    let pitch = this.pitch + (CAMERA.aimPitch - this.pitch) * this.aim;
+    let distance = this.distance * (1 + (CAMERA.aimZoom - 1) * this.aim);
+    pitch += (Math.max(pitch, CAMERA.indoorPitch) - pitch) * this.inside;
+    distance += (Math.min(distance, CAMERA.indoorDistance) - distance) * this.inside;
     // Leaning must not write back into the smoothed follow position, or it would drift toward
     // the circle and stay there.
     const look = this.look.copy(this.focus);
@@ -113,6 +122,20 @@ export class FollowCamera {
       look.x += (this.lead.x - look.x) * k;
       look.z += (this.lead.z - look.z) * k;
     }
+
+    // Indoors, with a wall behind you, look down from higher over it rather than pull in behind your head.
+    let lift = 0;
+    if (this.inside > 0.01 && this.blocker) {
+      for (let k = 0; k <= 6; k++) {
+        const p = Math.min(1.45, pitch + k * 0.11);
+        const f = distance * Math.cos(p);
+        lift = p - pitch;
+        if (this.blocker(look.x, look.y, look.z, look.x - Math.sin(this.yaw) * f, look.y + distance * Math.sin(p), look.z - Math.cos(this.yaw) * f) > 0.97) break;
+      }
+      lift *= this.inside;
+    }
+    this.lift += (lift - this.lift) * (1 - Math.exp(-6 * dt));
+    pitch += this.lift;
 
     const flat = distance * Math.cos(pitch);
     const cam = this.camera;

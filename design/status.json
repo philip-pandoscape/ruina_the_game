@@ -796,11 +796,12 @@
       "system": "ui",
       "status": "done",
       "title": "Parchment & Timber look",
-      "notes": "Parchment panels in timber frames with brass trim and rivets, two bundled typefaces (TeX Gyre Pagella, Alegreya SC) and 16-pixel icons for every item, ability and badge, redrawn from Twemoji by tools/icons/bake.mjs (npm run icons). CREDITS.md and the Settings window name the sources.",
+      "notes": "Parchment panels in timber frames with brass trim and rivets, two bundled typefaces (TeX Gyre Pagella, Alegreya SC) and painted icons for every item, skill, place and the HUD's own (hearts, coins, menu buttons, quest marks): 135 of them, painted nine to a sheet with Gemini (tools/icons/paint.mjs, from tools/icons/catalog.mjs) and cut out by tools/icons/bake.mjs (npm run icons) as 128 px WebP. CREDITS.md and the Settings window name the sources.",
       "files": [
         "src/ui/theme/theme.css",
-        "src/ui/theme/pixelIcons.ts",
         "src/ui/theme/icons.ts",
+        "tools/icons/catalog.mjs",
+        "tools/icons/paint.mjs",
         "tools/icons/bake.mjs",
         "CREDITS.md"
       ]
@@ -896,6 +897,20 @@
         "src/app/resume.ts",
         "tests/update.spec.ts",
         "railway.json"
+      ]
+    },
+    {
+      "system": "tech",
+      "status": "done",
+      "title": "Animation library: review animations and send Claude the fixes",
+      "notes": "/library.html shows every animated thing: the hero (each film in scenarios.ts, in the made body or the box one, any weapon), slimes in every size (as jelly or boxes), the crowd's far-away bodies, the farm animals, the twelve townsfolk and the mounts. Pick one, then an animation; play it at any speed, step it a frame at a time, scrub, loop a stretch, look from any side, with its skeleton, onion skins and the paths of its hands and feet. The timeline shows what the rules have the body doing when (a swing's wind-up, strike and recovery, the air, a landing). Notes go on the whole animation, a stretch of frames or one frame; on a frame you can move the bones (turn a joint, or take a hand or a foot and bend the limb to reach it) and keep the corrected pose with a picture of before and after. Create Prompt turns the open notes into one prompt for Claude: what moves each body and where, every note with the rules' state on its frames, and for corrected poses the bones' turns in degrees, where the hands and feet went in centimetres, and the pictures. The notes are kept by the dev server in reviews/animations/ (tools/animReviews.ts), so they outlive the reload a code change brings; corrected poses then show as green ghosts on their frames, with how close the animation now comes. tests/library-review.spec.ts measures every correction against the code (REVIEW=.../review.json), and the animation-review skill says how to work through a review.",
+      "files": [
+        "library.html",
+        "src/library/",
+        "tools/animReviews.ts",
+        "tests/library.spec.ts",
+        "tests/library-review.spec.ts",
+        ".claude/skills/animation-review/SKILL.md"
       ]
     },
     {
@@ -1169,6 +1184,53 @@
     {
       "system": "world",
       "status": "done",
+      "title": "Lanternwick rebuilt from a village kit: every building one you can walk into",
+      "notes": "The town's buildings are plans of Quaternius' Medieval Village MegaKit (shared/buildings.json): stone and timber-framed townhouses, rowhouses gabled to the street and longhouses, the Lantern & Gull, the Land Registry, the wainwright's workshop, the stable, the shipwright's shed and the trading posts, 18 in Lanternwick where there were 8, lining its roads. Each is walled, floored and stair-stepped by the rules from its plan (doorways open, upper floors and treads as decks, furniture solid), baked for the server; walk in through a door (it swings open), up the stairs to the floor above. Indoors the house is drawn cut open above your storey, its roof still shading the room, lit warm by its hearth, lamps and windows, and the camera looks down into it from within its walls. Rooms are furnished from Quaternius' Fantasy Props MegaKit (beds, tables laid with plates and candles, bookcases, the inn's bar and kegs, the registry's desk and lectern, the workshop's cart and anvil) plus rugs, straw and hearth fires made in code. The whole town is a handful of merged meshes; furniture is drawn only near it.",
+      "files": [
+        "shared/buildings.json",
+        "src/content/buildings.ts",
+        "src/sim/zone/buildings.ts",
+        "src/render/village/",
+        "tools/models/village.mjs",
+        "buildings.html",
+        "tests/village.spec.ts"
+      ]
+    },
+    {
+      "system": "housing",
+      "status": "done",
+      "title": "Cottages built from the village kit, stage by stage",
+      "notes": "A cottage on a Hearthside plot is the kit's too (plan \"cottage\", 6 x 8, gabled to the front): its floor, then an open timber frame, then plaster walls with their door and windows, then the tiled roof, chimney and furniture (hearth, bed, chest, a table laid). You walk in and it opens like the town's houses; other players' cottages the same.",
+      "files": [
+        "src/render/open/life.ts",
+        "src/render/village/village.ts",
+        "shared/structures.json"
+      ]
+    },
+    {
+      "system": "combat",
+      "status": "done",
+      "title": "Goblins: the basic goblin and the creature engine",
+      "notes": "The first of the Split-Eye war-band (design/goblins.md), in the training yard (?yard&goblins=6). A creature is data and a body: shared/creatures/goblin.json (its kind, a stab and a stone throw, and a brain in the behaviours' format) and src/creatures/goblin/ (a box body until its model is made), run by engine parts any creature can use, in TypeScript and Rust alike: senses (every player as a foe: weapon reach, bow or not, swinging, recovering, casting, guarding, dodging, stunned), a pack step (attack tokens per foe, one more for an opening such as your back or your recovery, ring places just outside your weapon's reach bunched up behind you, courage from health, friends and foes, and where to run), brain acts walk, strike, throw and heal with conditions that take arguments, missiles in flight, and a flinch for blows at or above a kind's poise. One goblin dies to a sword combo and barely scratches you; six wear you down while only three or four strike at once. Against a sword they wait outside its reach and throw stones; against a bow they come right up. Hurt and alone it runs home and drinks its stolen potion out of reach (a blow spills it); hurt in a band it runs to the biggest group. Not online yet: the server runs the same rules but places no goblins.",
+      "files": [
+        "shared/creatures/goblin.json",
+        "src/creatures/goblin/body.ts",
+        "src/sim/ai/senses.ts",
+        "src/sim/ai/pack.ts",
+        "src/sim/ai/brain.ts",
+        "src/sim/combat/missiles.ts",
+        "src/sim/actors/step.ts",
+        "server/src/pack.rs",
+        "server/src/missiles.rs",
+        "server/src/ai.rs",
+        "server/src/actors.rs",
+        "tests/goblin.spec.ts",
+        "tests/ai-conformance.spec.ts"
+      ]
+    },
+    {
+      "system": "world",
+      "status": "done",
       "title": "The Windspire's waterfall, and the way into Goblin's Dread",
       "notes": "A spring pool beside the launch deck spills over the lip and falls free down a slot cut in the south-west face into a plunge pool at the foot (recipe `falls`, cut after the tree and rock scatter so nothing else on the island moves). Behind the curtain, 85 m up, a ledge under a hood of rock: you only get there by gliding in (dropping off the summit lands you on the hood). On it the goblins' landing stage, catch nets, a totem, lanterns, cave drawings, and the portal: F takes you into your party's copy of Goblin's Dread. The pools are under half a metre deep in the rules (no wading or swimming yet).",
       "files": [
@@ -1222,6 +1284,8 @@
     }
   ],
   "next": [
+    "Village, next: the townsfolk at work indoors (Quill behind his desk, an innkeeper at the bar) once quests and travel can lead you through doors; interior walls between rooms; jettied upper storeys, balconies and dormers from the kit; slate roofs; the lighthouse and windmill rebuilt from the kit; sitting on benches and lying in beds.",
+    "Goblins, next (design/goblins.md): online at Thornwood (a band at the southern edge, the server placing it, missiles on the wire, a WORLD_PROTOCOL bump); then the grunt made with Meshy beside the best free goblin (bagatir, CC BY 4.0) for the user to pick; then the rest of the war-band (archer, shaman, hobgoblin, lookout, trapper, wolf rider, Chief Gristlecrown), the Split-Eye camp and its quests, with captives to rescue.",
     "Animation, next: other players drawn on our 60-a-second frame clock step in sixtieths above 60 fps; reins on the horse; keep the cape off a staff or bow on the back; a footrest for the hauler's driver; give the townsfolk (src/render/models/villagers.ts) the hero's gait.",
     "Shared world, next: trading-post demand and gathering nodes shared by a channel (the time of day, rain and wind are shared now; these are still each island's own); choosing a channel (to join a friend in another one); others' parked vehicles while they're away.",
     "World server, next: islands in proper tables rather than one document each, if querying them (trading-post history, guild storage) needs it; bandwidth: send other players less often when they are far away.",
@@ -1468,6 +1532,63 @@
         "Weapons: Meshy's sword, club, staff and bow where the box ones were, shining with the sky's light, carried at the hip and across the back.",
         "Moves: Quaternius' sword combo and heavy combo on the sword and club, Meshy's Triple Combo Attack as the sword's other set; retarget.ts, moves.ts, /retarget.html, tests/retarget.spec.ts, the retarget-animation skill.",
         "Tools: npm run image (Gemini), tools/models/weaponprep.mjs, tools/models/clips.mjs."
+      ]
+    },
+    {
+      "date": "2026-11-05",
+      "title": "Painted icons",
+      "summary": "The user asked for the UI's low-resolution pixel images to go, keeping the Parchment & Timber look but with high-quality icons. Every icon is now painted: items, packs, vehicles, skills, places and the HUD's own, 135 in one consistent hand-painted style, sharp at any UI size.",
+      "points": [
+        "Painted with Gemini (Nano Banana Pro) nine to a 2K sheet on a flat key colour, the first sheet the style reference for the rest (tools/icons/paint.mjs); tools/icons/catalog.mjs says what each icon shows and which emoji or item it stands for. 20 images in all, about $2.70, with four sheets painted again (a background not as asked, gliders painted as birds, a dragon cut off by its cell, tiles behind the icons).",
+        "Cut out by tools/icons/bake.mjs: the background keyed out from the sheet edges and from holes it shows through (between spokes, inside a ring), soft where paint fades into it, never inside an inked contour; a glow over the key keeps the hue of the paint beside it instead of turning the key's opposite. 128 px WebP, under 1 MB together. The bake fails if content names an emoji no icon stands for.",
+        "The HUD's own pixel icons (src/ui/theme/pixelIcons.ts) are gone: uiIcon(name) draws the painted heart, mana, stamina, labor, coins, seal, menu buttons, quest marks (! on offer, ? to hand in, a grey ? under way), talk bubble, lock, craft, star, book, compass and flag. Name plates show the mark itself; the maps put it on a dark disc so it stands off the ground, and the big map draws places, houses and vehicles as painted icons rather than emoji text.",
+        "Sanctuary's icon key is 🔷 (it shared 💠 with flax); a few items have pictures of their own (seed sacks by crop, saplings, the lamb, the thunderstruck log, the cottage blueprint, the Swiftwing glider). Twemoji is no longer used, so its SVGs and credit are gone."
+      ]
+    },
+    {
+      "date": "2026-11-05",
+      "title": "An animation library for reviewing animations with Claude",
+      "summary": "A place to go through every character's animations frame by frame and tell Claude what to change: notes on an animation, a stretch of frames or a frame, poses corrected by moving the bones, and a prompt made from them that carries the code's whereabouts, the numbers and the pictures. Once Claude has changed the code, the corrections stay on screen as ghosts to compare against.",
+      "points": [
+        "/library.html (src/library/): the hero, slimes, crowd bodies, farm animals, townsfolk and mounts, each through an adapter (subjects/) that keeps every frame of an animation so it can be scrubbed, ghosted and posed.",
+        "Pose correction: a rotation gizmo per joint, two-bone IK for hands and feet, scale for squash and stretch, undo, exact angles; kept with a picture of before and after.",
+        "Create Prompt: open notes in one prompt (prompt.ts); notes, pictures and prompts kept in reviews/animations/ by the dev server (tools/animReviews.ts).",
+        "Checking a fix: green ghosts of the corrections on their frames and a meter of how close the animation comes; tests/library-review.spec.ts measures them all (degrees and centimetres) and draws the frames as they are now.",
+        "animals.ts and villagers.ts gained restartIdles(), so a model built in the library starts its idle where the last one did."
+      ]
+    },
+    {
+      "date": "2026-11-05",
+      "title": "Goblins: the plan, concept art and the basic goblin",
+      "summary": "A plan for goblin war-bands that are easy one at a time and dangerous in a group, with Gemini concept art and a search for free assets; the user chose to start with the basic goblin, built on engine parts any creature can use, with the goblin in its own folder.",
+      "points": [
+        "Plan and concept art: design/goblins.md and design/goblins/ (lineup, ambush, camp, attack tells, night raid). Decisions: Thornwood camp only, no raids, captives to rescue, the agreed difficulty, the grunt to be tested with Meshy beside a free model.",
+        "Creature engine: senses, a pack step, walk/strike/throw/heal acts, conditions with arguments, missiles and flinches, in TypeScript and Rust, compared frame by frame (three goblin scenarios in tests/ai-conformance.spec.ts).",
+        "The basic goblin: shared/creatures/goblin.json and src/creatures/goblin/, fought in the yard with ?yard&goblins=6; tests/goblin.spec.ts plays its behaviours."
+      ]
+    },
+    {
+      "date": "2026-11-05",
+      "title": "A faster suite",
+      "summary": "The whole Playwright suite, the only browser check before a push to beta, took half an hour here: it ran one test at a time, and every test starts the game afresh in a new browser (about 4 s). It now runs side by side, six pages at once, and the tests that need the machine to themselves after the rest, one at a time: 12 minutes, all 366 passing.",
+      "points": [
+        "playwright.config.ts: six workers; the biggest spec files spread their tests out (test.describe.configure); @gpu and @alone tests run one at a time, after the rest in a run of the whole suite, beside the rest in a run of some of it.",
+        "@alone: tests that race the clock, stopping a server under players (update.spec) or two windows of one character; update.spec warms its own Vite before its first test.",
+        "Tests that lost races under load now wait for frames: a controller press is held for two frames, the bug report's stand-in speech comes phrase after phrase, and the reporter waits up to 5 s for the frame after the press.",
+        "Why the rest of the time goes: about 4 s per test starting the game (the scene's shaders, building the island), and other checkouts' suites sharing the laptop."
+      ]
+    },
+    {
+      "date": "2026-11-05",
+      "title": "Lanternwick rebuilt: buildings you can walk into",
+      "summary": "The town rebuilt from Quaternius' Medieval Village MegaKit, every building enterable and furnished from his Fantasy Props MegaKit; 18 buildings where there were 8.",
+      "points": [
+        "Plans as data (shared/buildings.json): walls as strings of 2 m modules, storeys, stairs, roof, furniture; the same plan gives the rules their walls and floors and the picture its pieces.",
+        "Rules: doorways in the walls, upper floors and stair treads as decks, upstairs walls and furniture as decks too (solid up there, walked under below), a roof to land on; baked for the server, which plays them the same (world-conformance: into the inn and up its stairs).",
+        "Drawing: the town merged into a few meshes per neighbourhood; the house you are in cut open above your storey by its vertices, its roof still casting its shadow; warm indoor light, four shared lamps that follow you, doors that swing open, hearth fires.",
+        "Camera: indoors it looks down into the room from within the walls and never slips into a house through its door.",
+        "Player cottages from the kit, stage by stage. Meshy's building models retired.",
+        "Tools: tools/models/village.mjs packs the kits; /buildings.html shows each plan, cut open, with its colliders."
       ]
     },
     {

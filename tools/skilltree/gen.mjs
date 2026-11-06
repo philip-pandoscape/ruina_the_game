@@ -126,7 +126,7 @@ const DISCIPLINES = [
     ],
     keystone: [
       { name: 'Lifebinder', icon: '🧿', mods: [heal(0.45), dmg(-0.25, WEAPONS)] },
-      { name: 'Sanctuary', icon: '💠', mods: [area(0.4, HEAL), cooldownLonger(0.25, HEAL)] },
+      { name: 'Sanctuary', icon: '🔷', mods: [area(0.4, HEAL), cooldownLonger(0.25, HEAL)] },
     ],
   },
   {

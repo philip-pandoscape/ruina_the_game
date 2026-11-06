@@ -34,6 +34,10 @@ const inside = (p: number, a: number, b: number, e: number) => ease(a - e, a, p)
 const toward = (v: number, target: number, dt: number, rate: number) => v + (target - v) * Math.min(1, dt * rate);
 
 let born = 0;
+/** The next animals built start their idle as the first one did (the animation library compares frames across builds). */
+export const restartIdles = (): void => {
+  born = 0;
+};
 
 function soft(p: Parts, w: number, h: number, d: number, c: Rgb, at: V3, r?: V3, round = 0.06): void {
   p.add(bev(w, h, d, Math.min(round, w / 2, h / 2, d / 2), 1), c, at, r, undefined, { smooth: true });

@@ -2,6 +2,9 @@ import { expect, test, type Page } from '@playwright/test';
 import { skillsFrom } from '../src/skills';
 import { COMBAT, emptyMovement, HOTBAR_SLOTS, MOVEMENT_SKILLS, MP, NO_ABILITY, NO_MOVEMENT, SLIDE_SKILL, STAMINA, STEP, type Build } from '../src/tuning';
 
+// Its tests share nothing, so they spread across the workers (playwright.config.ts).
+test.describe.configure({ mode: 'parallel' });
+
 // Movement skills: the data-driven action states on Q / E (LB / RB). A dodge commits to a
 // direction and cannot be hit for part of it, and costs stamina rather than having a cooldown; a
 // guard stays up while you hold it and lets only part of a hit through.

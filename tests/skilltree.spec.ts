@@ -34,6 +34,9 @@ import {
 import { learnBlock, learnPath, NODE_INFO, validBuild } from '../src/build';
 import { castFramesFor, comboFor, emptyHotbar, emptyMovement, meleeTargets, movementCooldownFor, movementStaminaFor, MOVEMENT_SKILLS, pierceTargets, WEAPONS, type Build } from '../src/tuning';
 
+// Its tests share nothing, so they spread across the workers (playwright.config.ts).
+test.describe.configure({ mode: 'parallel' });
+
 const BALANCE = `server/target/release/balance${process.platform === 'win32' ? '.exe' : ''}`;
 
 // The skill architecture itself: the set, the graph, and the modifier fold. These are the

@@ -1,11 +1,17 @@
 //! The world's actors on the server: monsters, NPCs and props. Mirrors src/sim/actor.ts,
 //! src/sim/actors/step.ts and src/sim/combat/hit.ts, so the training yard offline and a live
 //! server agree about where a slime is, what a swing reaches, and what a pack does together:
-//! bursting into pieces, a caller gathering the others in, a burst group reforming one size up.
+//! bursting into pieces, a caller gathering the others in, a burst group reforming one size up, a
+//! war-band sharing out who strikes and where the rest wait (crate::pack), and the blows, throws
+//! and heals they ask for.
 
 use crate::actor::Actor;
-use crate::ai::{brain_of, draw, force_state, rest_state, start_brain, step_brain_in, Ctx, Peer, Request, Sighting};
-use crate::content::{kind, kind_index, kind_mass, ladder_at, ladders, size_for, size_up};
+use crate::ai::{angle_diff, brain_of, draw, flinch, force_state, rest_state, start_brain, step_brain_in, Ctx, Foe, Peer, Request, Sighting};
+use crate::content::{attack_at, kind, kind_index, kind_mass, ladder_at, ladders, size_for, size_up};
+use crate::jsmath::JsMath;
+use crate::missiles::{launch, step_missiles, Flight, Missile};
+use crate::pack::step_packs;
+use crate::tuning::tuning;
 
 const DEG: f64 = std::f64::consts::PI / 180.0;
 /// Ids go out on the wire as 16 bits.
@@ -21,38 +27,61 @@ fn len(x: f64, z: f64) -> f64 {
     (x * x + z * z).sqrt()
 }
 
-fn angle_diff(a: f64, b: f64) -> f64 {
-    let tau = std::f64::consts::PI * 2.0;
-    let mut d = (b - a) % tau;
-    if d > std::f64::consts::PI {
-        d -= tau;
-    }
-    if d < -std::f64::consts::PI {
-        d += tau;
-    }
-    d
-}
-
-/// The nearest player to a point, which is who a brain there pays attention to.
-fn sighting(players: &[(f64, f64)], x: f64, z: f64) -> Sighting {
-    let mut seen = Sighting { x, z, present: false };
+/// What a brain at a point sees: the nearest foe.
+fn nearest_at(foes: &[Foe], x: f64, z: f64) -> Sighting {
+    let mut seen = Sighting::at(x, z, false);
     let mut best = f64::INFINITY;
-    for &(px, pz) in players {
-        let d = len(px - x, pz - z);
+    for f in foes {
+        let d = len(f.x - x, f.z - z);
         if d < best {
             best = d;
-            seen = Sighting { x: px, z: pz, present: true };
+            seen = f.sighting();
         }
     }
     seen
+}
+
+/// What an actor's brain sees: a pack creature its chosen foe, anything else the nearest.
+fn see_for(foes: &[Foe], a: &Actor) -> Sighting {
+    if brain_of(a).and_then(|b| b.pack.as_ref()).is_none() {
+        return nearest_at(foes, a.x, a.z);
+    }
+    match foes.iter().find(|f| f.id == a.target) {
+        Some(f) => f.sighting(),
+        None => Sighting::at(a.x, a.z, false),
+    }
+}
+
+/// Which foe a creature pays attention to (pickFoe in src/sim/ai/senses.ts).
+fn pick_foe<'a>(a: &Actor, foes: &'a [Foe], sticky: f64) -> Option<&'a Foe> {
+    let mut best: Option<&Foe> = None;
+    let mut best_dist = f64::INFINITY;
+    let mut kept: Option<&Foe> = None;
+    let mut kept_dist = f64::INFINITY;
+    for f in foes {
+        let d = len(f.x - a.x, f.z - a.z);
+        if d < best_dist {
+            best = Some(f);
+            best_dist = d;
+        }
+        if f.id == a.target {
+            kept = Some(f);
+            kept_dist = d;
+        }
+    }
+    if sticky > 0.0 && kept.is_some() && kept_dist <= best_dist + sticky {
+        return kept;
+    }
+    best
 }
 
 fn anger_of(a: &Actor) -> i32 {
     brain_of(a).and_then(|b| b.anger.as_ref()).map_or(0, |g| g.frames)
 }
 
+/// Kin: the same creature in another size, or the same war-band.
 fn kin(a: &Actor, o: &Actor) -> bool {
-    a.id != o.id && a.ladder >= 0 && o.ladder == a.ladder && o.is_alive() && !o.gone
+    a.id != o.id && ((a.ladder >= 0 && o.ladder == a.ladder) || (a.band != 0 && o.band == a.band)) && o.is_alive() && !o.gone
 }
 
 /// Out of the world without dying: no death, no burst, and a home actor waits to respawn.
@@ -73,8 +102,14 @@ pub const LEAN_DAMPING: f64 = 7.0;
 
 pub struct Actors {
     pub list: Vec<Actor>,
+    /// What creatures have thrown, still in the air.
+    pub missiles: Vec<Missile>,
     next_id: u32,
     next_group: u32,
+    next_band: u32,
+    next_missile: u32,
+    /// Testing: nothing gets angry (Actors.calm in src/sim/actor.ts).
+    pub calm: bool,
 }
 
 impl Default for Actors {
@@ -102,9 +137,37 @@ pub struct Slam {
     pub knock: f64,
 }
 
+/// A creature's blow or missile reached a foe (not in a dodge's untouchable frames), travelling
+/// along (nx, nz): what it does to them is the caller's business.
+#[derive(Clone, Copy, Debug)]
+pub struct FoeHit {
+    pub foe: u32,
+    pub damage: f64,
+    pub nx: f64,
+    pub nz: f64,
+    pub knock: f64,
+}
+
+/// What a frame of actors did to the world beyond them.
+#[derive(Default)]
+pub struct StepOut {
+    pub slams: Vec<Slam>,
+    pub hits: Vec<FoeHit>,
+    /// Missiles that came down on the ground: (x, y, z).
+    pub landed: Vec<(f64, f64, f64)>,
+}
+
+impl StepOut {
+    pub fn extend(&mut self, other: StepOut) {
+        self.slams.extend(other.slams);
+        self.hits.extend(other.hits);
+        self.landed.extend(other.landed);
+    }
+}
+
 impl Actors {
     pub fn new() -> Self {
-        Self { list: Vec::new(), next_id: 1, next_group: 1 }
+        Self { list: Vec::new(), missiles: Vec::new(), next_id: 1, next_group: 1, next_band: 1, next_missile: 1, calm: false }
     }
 
     // Counts up and wraps, skipping ids still in use. Mirrors Actors.allocate() in actor.ts.
@@ -124,6 +187,19 @@ impl Actors {
         g
     }
 
+    /// A fresh id for a war-band (Actors.newBand() in actor.ts).
+    pub fn new_band(&mut self) -> u32 {
+        let b = self.next_band;
+        self.next_band = if b >= 0x7fff_ffff { 1 } else { b + 1 };
+        b
+    }
+
+    fn missile_id(&mut self) -> u32 {
+        let m = self.next_missile;
+        self.next_missile = if m >= 0x7fff_ffff { 1 } else { m + 1 };
+        m
+    }
+
     /// Adds one, standing still, and returns where it is in the list. Its brain isn't started.
     fn spawn_index(&mut self, kind_id: &str, x: f64, z: f64, seed: u32) -> Option<usize> {
         let k = kind(kind_id)?;
@@ -136,7 +212,17 @@ impl Actors {
     pub fn spawn(&mut self, kind_id: &str, x: f64, z: f64, seed: u32) -> Option<u32> {
         let i = self.spawn_index(kind_id, x, z, seed)?;
         let a = &mut self.list[i];
-        start_brain(a, Sighting { x, z, present: false });
+        start_brain(a, Sighting::at(x, z, false));
+        Some(a.id)
+    }
+
+    /// Spawns one into a war-band, facing `facing` (spawnBand() in src/sim/sim.ts).
+    pub fn spawn_in_band(&mut self, kind_id: &str, x: f64, z: f64, facing: f64, seed: u32, band: u32) -> Option<u32> {
+        let i = self.spawn_index(kind_id, x, z, seed)?;
+        let a = &mut self.list[i];
+        a.facing = facing;
+        a.band = band;
+        start_brain(a, Sighting::at(x, z, false));
         Some(a.id)
     }
 
@@ -150,10 +236,11 @@ impl Actors {
 
     /// One frame of every actor (src/sim/actors/step.ts stepActors): its brain, its lean,
     /// bringing it back when it has been down long enough, and what the pack does together.
-    /// `players` is where everyone is, so a brain can notice the nearest. Returns the slams that
-    /// landed, for the caller to find who was standing in them.
-    pub fn step(&mut self, players: &[(f64, f64)], spring: f64, damping: f64, dt: f64) -> Vec<Slam> {
-        let mut slams = Vec::new();
+    /// `foes` is every player the actors can notice; `ground` the height of the ground, for
+    /// missiles. Returns the slams that landed and the blows and missiles that reached a foe,
+    /// for the caller to deal with.
+    pub fn step(&mut self, foes: &[Foe], ground: &dyn Fn(f64, f64) -> f64, spring: f64, damping: f64, dt: f64) -> StepOut {
+        let mut res = StepOut::default();
 
         // Whatever was killed since the last frame: a caller hands its call on, and anything
         // that bursts does.
@@ -163,11 +250,11 @@ impl Actors {
                 continue;
             }
             if self.list[i].calling >= 0 {
-                self.hand_over(i, players);
+                self.hand_over(i, foes);
             }
             self.list[i].calling = -1;
             self.list[i].rally_to = 0;
-            self.burst(i, players);
+            self.burst(i, foes);
         }
 
         // What every brain can see of the others, and how much of each creature is about.
@@ -181,11 +268,26 @@ impl Actors {
             if !a.is_alive() || a.gone {
                 continue;
             }
-            peers.push(Peer { id: a.id, x: a.x, z: a.z, radius: a.radius, ladder: a.ladder, calling: a.calling, rally_to: a.rally_to, group: a.group });
+            peers.push(Peer { id: a.id, x: a.x, z: a.z, radius: a.radius, ladder: a.ladder, calling: a.calling, rally_to: a.rally_to, group: a.group, band: a.band });
             if a.ladder >= 0 {
                 live[a.ladder as usize] += a.mass;
             }
         }
+
+        // Who each pack creature is after, whether it has noticed them, and then what its band
+        // works out together.
+        for i in 0..self.list.len() {
+            let a = &self.list[i];
+            let Some(b) = brain_of(a) else { continue };
+            let Some(p) = b.pack.as_ref() else { continue };
+            if !a.is_alive() || a.gone {
+                continue;
+            }
+            let f = pick_foe(a, foes, p.switch_at).copied();
+            self.list[i].target = f.map_or(0, |f| f.id);
+            self.notice(i, f.as_ref());
+        }
+        step_packs(&mut self.list, foes);
 
         let mut out: Vec<Request> = Vec::new();
         for i in 0..self.list.len() {
@@ -200,6 +302,11 @@ impl Actors {
                 }
                 if a.gather_cd > 0 {
                     a.gather_cd -= 1;
+                }
+                for c in a.cds.iter_mut() {
+                    if *c > 0 {
+                        *c -= 1;
+                    }
                 }
                 if a.calling >= 0 {
                     a.calling += 1;
@@ -220,7 +327,7 @@ impl Actors {
                 if a.pulled > 0 {
                     a.pulled -= 1;
                 } else {
-                    let seen = sighting(players, a.x, a.z);
+                    let seen = see_for(foes, a);
                     let mut ctx = Ctx { peers: &peers, out: &mut out };
                     step_brain_in(a, seen, &mut ctx);
                 }
@@ -232,7 +339,7 @@ impl Actors {
                     let room = a.ladder < 0 || live[a.ladder as usize] + m <= budget[a.ladder as usize];
                     if room {
                         a.revive();
-                        let seen = sighting(players, a.x, a.z);
+                        let seen = nearest_at(foes, a.x, a.z);
                         start_brain(a, seen);
                         if a.ladder >= 0 {
                             live[a.ladder as usize] += m;
@@ -252,6 +359,7 @@ impl Actors {
         for r in out {
             let id = match r {
                 Request::Call(id) | Request::Pull(id) | Request::Absorb(id) | Request::Slam(id) | Request::FuseOut(id) => id,
+                Request::Strike(id, _) | Request::Throw(id, _) | Request::Heal(id) => id,
                 Request::GatherStart(_) | Request::Broke(_) => continue, // effects only, for the browser
             };
             let Some(i) = self.index_of(id) else { continue };
@@ -265,11 +373,22 @@ impl Actors {
                 Request::Slam(_) => {
                     let a = &self.list[i];
                     if let Some(s) = kind(&a.kind).and_then(|k| k.slam.as_ref()) {
-                        slams.push(Slam { x: a.x, z: a.z, radius: s.radius, damage: s.damage, knock: s.knock });
+                        res.slams.push(Slam { x: a.x, z: a.z, radius: s.radius, damage: s.damage, knock: s.knock });
                     }
                 }
-                Request::FuseOut(_) => self.fuse_out(i, players),
+                Request::FuseOut(_) => self.fuse_out(i, foes),
+                Request::Strike(_, attack) => self.strike_foes(i, attack, foes, &mut res.hits),
+                Request::Throw(_, attack) => self.throw_at(i, attack, foes, ground),
+                Request::Heal(_) => self.heal(i),
                 Request::GatherStart(_) | Request::Broke(_) => {}
+            }
+        }
+
+        // Everything thrown, in flight.
+        for f in step_missiles(&mut self.missiles, foes, ground) {
+            match f {
+                Flight::Hit { foe, damage, knock, nx, nz } => res.hits.push(FoeHit { foe, damage, nx, nz, knock }),
+                Flight::Landed { x, y, z } => res.landed.push((x, y, z)),
             }
         }
 
@@ -286,11 +405,93 @@ impl Actors {
         }
 
         self.list.retain(|a| !(a.transient && (a.gone || a.dead_frame >= CLEAR_AFTER)));
-        slams
+        res
+    }
+
+    // A creature that watches for trouble sees a foe in range of its home: it is angry, and so is
+    // its band near it.
+    fn notice(&mut self, i: usize, f: Option<&Foe>) {
+        let Some(f) = f else { return };
+        let Some(b) = brain_of(&self.list[i]) else { return };
+        let Some(anger) = b.anger.as_ref() else { return };
+        if !b.notices || self.calm {
+            return;
+        }
+        let a = &self.list[i];
+        if len(f.x - a.x, f.z - a.z) > b.sight || len(f.x - a.home_x, f.z - a.home_z) > b.leash {
+            return;
+        }
+        self.list[i].angry = anger.frames;
+        let a = self.list[i].clone();
+        for o in self.list.iter_mut() {
+            if !kin(&a, o) || len(o.x - a.x, o.z - a.z) > anger.radius {
+                continue;
+            }
+            if brain_of(o).and_then(|b| b.anger.as_ref()).is_some() {
+                o.angry = o.angry.max(anger_of(o));
+            }
+        }
+    }
+
+    // A strike lands: every foe in the cone in front of it and in reach, unless they are jumping
+    // clear of it or in a dodge's untouchable frames.
+    fn strike_foes(&self, i: usize, attack: usize, foes: &[Foe], hits: &mut Vec<FoeHit>) {
+        let Some(atk) = attack_at(attack) else { return };
+        let a = &self.list[i];
+        let body = tuning().movement.player_radius;
+        let reach = atk.reach + body;
+        let half = (atk.arc / 2.0) * DEG;
+        for f in foes {
+            if f.invuln {
+                continue;
+            }
+            let (dx, dz) = (f.x - a.x, f.z - a.z);
+            let d = len(dx, dz);
+            if d > reach {
+                continue;
+            }
+            if angle_diff(a.facing, dx.js_atan2(dz)).abs() > half && d > body + 0.3 {
+                continue;
+            }
+            if atk.lift.is_some_and(|lift| f.air > lift) {
+                continue;
+            }
+            let (nx, nz) = if d > 0.01 { (dx / d, dz / d) } else { (a.facing.js_sin(), a.facing.js_cos()) };
+            hits.push(FoeHit { foe: f.id, damage: atk.damage, nx, nz, knock: atk.knock });
+        }
+    }
+
+    // A throw lets go: at the foe it is after, or the nearest.
+    fn throw_at(&mut self, i: usize, attack: usize, foes: &[Foe], ground: &dyn Fn(f64, f64) -> f64) {
+        let Some(atk) = attack_at(attack) else { return };
+        let a = &self.list[i];
+        let mut foe = foes.iter().filter(|f| f.id == a.target).last();
+        if foe.is_none() {
+            let mut best = f64::INFINITY;
+            for f in foes {
+                let d = len(f.x - a.x, f.z - a.z);
+                if d < best {
+                    foe = Some(f);
+                    best = d;
+                }
+            }
+        }
+        let Some(foe) = foe.copied() else { return };
+        let ground_y = ground(a.x, a.z);
+        let id = self.missile_id();
+        let m = launch(id, &self.list[i], atk, attack, &foe, ground_y);
+        self.missiles.push(m);
+    }
+
+    // A drink went down: it is back on its feet by its brain's heal.
+    fn heal(&mut self, i: usize) {
+        let a = &mut self.list[i];
+        let Some(h) = brain_of(a).and_then(|b| b.heal.as_ref()) else { return };
+        a.hp = a.max_hp.min(a.hp + h.amount * a.max_hp);
     }
 
     // The caller fell: the nearest of those rallying to it that could gather takes the call over.
-    fn hand_over(&mut self, dead: usize, players: &[(f64, f64)]) {
+    fn hand_over(&mut self, dead: usize, foes: &[Foe]) {
         let (did, dx, dz) = (self.list[dead].id, self.list[dead].x, self.list[dead].z);
         let mut next: Option<usize> = None;
         let mut next_dist = f64::INFINITY;
@@ -320,12 +521,12 @@ impl Actors {
         let Some(j) = next else { return };
         let c = &mut self.list[j];
         c.calling = 0;
-        let seen = sighting(players, c.x, c.z);
+        let seen = nearest_at(foes, c.x, c.z);
         force_state(c, "call", seen);
     }
 
     // Dying into pieces: they scatter, and have the fuse to be killed in before they reform.
-    fn burst(&mut self, i: usize, players: &[(f64, f64)]) {
+    fn burst(&mut self, i: usize, foes: &[Foe]) {
         let Some(k) = kind(&self.list[i].kind) else { return };
         let Some(b) = k.burst.as_ref() else { return };
         let ladder = self.list[i].ladder;
@@ -339,6 +540,7 @@ impl Actors {
         let reform = size_up(&k.id);
         let base = draw(&mut self.list[i]) * std::f64::consts::PI * 2.0;
         let (x, z, seed) = (self.list[i].x, self.list[i].z, self.list[i].seed);
+        let seen = nearest_at(foes, x, z);
         for n in 0..count {
             let s = seed ^ ((n as u32 + 1).wrapping_mul(0x9e37_79b1));
             let Some(ci) = self.spawn_index(&b.into, x, z, s) else { continue };
@@ -352,7 +554,7 @@ impl Actors {
             c.move_x = angle.sin();
             c.move_z = angle.cos();
             c.stride = 2.0 + draw(c);
-            start_brain(c, sighting(players, x, z));
+            start_brain(c, seen);
         }
     }
 
@@ -433,7 +635,7 @@ impl Actors {
 
     // A fuse ran out. Two or more of the group left: they come back together, one size up. One
     // left: it's alone, and dissolves in a while. Alone already: it's gone.
-    fn fuse_out(&mut self, i: usize, players: &[(f64, f64)]) {
+    fn fuse_out(&mut self, i: usize, foes: &[Foe]) {
         let group = self.list[i].group;
         if group == 0 {
             let a = &mut self.list[i];
@@ -470,7 +672,7 @@ impl Actors {
         c.transient = true;
         c.angry = anger_of(c);
         c.gather_cd = brain_of(c).and_then(|b| b.gather.as_ref()).map_or(0, |g| g.cooldown) / 2;
-        start_brain(c, sighting(players, x, z));
+        start_brain(c, nearest_at(foes, x, z));
     }
 
     /// A melee swing: everything in the arc and in reach, nearest first, capped at `max`.
@@ -531,7 +733,8 @@ impl Actors {
     }
 
     /// Takes a hit travelling along (nx, nz). Returns a death if that finished it. Being hit
-    /// angers it and its kin close by (provoke() in src/sim/actors/step.ts).
+    /// angers it and its kin close by (provoke() in src/sim/actors/step.ts), and a hard enough
+    /// blow makes it flinch.
     pub fn damage(&mut self, id: u32, amount: f64, nx: f64, nz: f64, knock: f64) -> Option<Death> {
         let i = self.index_of(id)?;
         if !self.list[i].is_alive() {
@@ -544,6 +747,9 @@ impl Actors {
         }
         self.provoke(i, amount);
         let a = &mut self.list[i];
+        if a.hp > 0.0 {
+            flinch(a, amount);
+        }
         a.lean_vx += nx * knock;
         a.lean_vz += nz * knock;
         if a.hp > 0.0 {
@@ -555,6 +761,9 @@ impl Actors {
 
     fn provoke(&mut self, i: usize, amount: f64) {
         self.list[i].taken += amount;
+        if self.calm {
+            return;
+        }
         let Some(anger) = brain_of(&self.list[i]).and_then(|b| b.anger.as_ref()) else { return };
         self.list[i].angry = anger.frames;
         if anger.radius <= 0.0 {

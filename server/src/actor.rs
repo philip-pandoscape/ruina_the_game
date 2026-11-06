@@ -80,7 +80,37 @@ pub struct Actor {
     pub stride: f64,
     pub target_x: f64,
     pub target_z: f64,
+
+    // ---- creatures that fight as a pack (crate::pack) ----
+    /// The foe it is after (a player, by foe id), or 0.
+    pub target: u32,
+    /// The war-band it fights with, or 0 on its own.
+    pub band: u32,
+    /// The pack lets it strike its foe now.
+    pub token: bool,
+    /// It was let in because the foe left an opening.
+    pub opening: bool,
+    /// Its courage has run out: it wants to get away, to its friends or home.
+    pub afraid: bool,
+    /// Where on the ring around its foe it waits.
+    pub slot_x: f64,
+    pub slot_z: f64,
+    /// Where it runs to when afraid.
+    pub rally_x: f64,
+    pub rally_z: f64,
+    /// Where a wander is heading.
+    pub dest_x: f64,
+    pub dest_z: f64,
+    /// Heals it carries.
+    pub charges: i32,
+    /// Frames before each of its brain's attacks can be used again, in the brain's order.
+    pub cds: [i32; ATTACK_SLOTS],
+    /// The current state's blow or throw has gone.
+    pub struck: bool,
 }
+
+/// How many attacks a brain can list, each with its own cooldown (ATTACK_SLOTS in src/sim/actor.ts).
+pub const ATTACK_SLOTS: usize = 4;
 
 impl Actor {
     pub fn new(id: u32, kind: &str, x: f64, z: f64, seed: u32) -> Self {
@@ -133,6 +163,20 @@ impl Actor {
             stride: 0.0,
             target_x: x,
             target_z: z,
+            target: 0,
+            band: 0,
+            token: false,
+            opening: false,
+            afraid: false,
+            slot_x: x,
+            slot_z: z,
+            rally_x: x,
+            rally_z: z,
+            dest_x: x,
+            dest_z: z,
+            charges: 0,
+            cds: [0; ATTACK_SLOTS],
+            struck: false,
         }
     }
 
@@ -210,6 +254,18 @@ impl Actor {
         self.reform.clear();
         self.pulled = 0;
         self.stride = 0.0;
+        self.target = 0;
+        self.token = false;
+        self.opening = false;
+        self.afraid = false;
+        self.slot_x = self.x;
+        self.rally_x = self.x;
+        self.dest_x = self.x;
+        self.slot_z = self.z;
+        self.rally_z = self.z;
+        self.dest_z = self.z;
+        self.cds = [0; ATTACK_SLOTS];
+        self.struck = false;
     }
 
     pub fn is_alive(&self) -> bool {

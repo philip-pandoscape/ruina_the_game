@@ -10,6 +10,8 @@ import { packDef } from '../../content/trade';
 import { FARM, cropDef } from '../../content/farming';
 import { structureDef } from '../../content/structures';
 import { blueprintDef } from '../../content/housing';
+import { buildingPlan } from '../../content/buildings';
+import type { HouseView } from '../village/village';
 import { cellCentre, scarecrowPost, stageOf } from '../../sim/life/farming';
 import { housePose, isComplete } from '../../sim/life/housing';
 import { nodeReady } from '../../sim/life/interact';
@@ -146,8 +148,11 @@ export class LifeView {
   private houses = new THREE.Group();
   private slips = new THREE.Group();
   private shipKey = '';
-  /** Finished houses you can walk into: their footprint, and the plane that cuts the walls down. */
-  private homes: Array<{ x: number; z: number; rot: number; hw: number; hd: number; floor: number; plane: THREE.Plane }> = [];
+  /**
+   * Where houses built from the village kit are drawn (src/render/village: the island's Village,
+   * which also cuts them open when you are inside); without one they are drawn here.
+   */
+  houseSink: ((houses: HouseView[]) => void) | null = null;
   /** Townsfolk drawn with their own models (empty when the library has none: the crowd stand-ins are used). */
   private villagers: Array<{ holder: THREE.Group; animate: (dt: number, s: { time: number; talking: boolean }) => void; id: string; facing: number; x: number; z: number }> = [];
   /** True when the townsfolk are drawn here, so the crowd renderer should leave them out. */
@@ -158,8 +163,6 @@ export class LifeView {
   villager(id: string): THREE.Object3D | null {
     return this.villagers.find((v) => v.id === id)?.holder ?? null;
   }
-  /** The house you are standing in, if any (the camera stops treating its walls as solid). */
-  inside: { x: number; z: number; rot: number; hw: number; hd: number } | null = null;
   private nodes: Array<{ root: THREE.Object3D; i: number } | null> = [];
   private ghost: THREE.Mesh;
   private gliderModel: { root: THREE.Object3D; animate?: (dt: number, s: { bank: number; pitch: number; speed: number }) => void } | null = null;
@@ -423,9 +426,18 @@ export class LifeView {
   private rebuildHouses(): void {
     const hf = this.life.zone.gen.terrain;
     for (const c of [...this.houses.children]) this.houses.remove(c);
+    const kit: HouseView[] = [];
     for (const plot of this.life.zone.recipe.housePlots) {
       const h = this.life.state.houses.find((x) => x.plot === plot.id);
-      if (!h) {
+      const bp = h ? blueprintDef(h.blueprint) : null;
+      const pose = h ? housePose(this.life, h) : null;
+      // From the foundation up a house is the village kit's, built as far as its stages go.
+      const plan = bp ? buildingPlan(bp.structure) : undefined;
+      if (h && pose && plan && h.stage >= 1 && this.houseSink) {
+        kit.push({ id: `${plot.id}`, plan, x: pose.x, y: hf.height(pose.x, pose.z), z: pose.z, rot: pose.rot, stage: isComplete(h) ? 4 : h.stage });
+        continue;
+      }
+      if (!h || !bp || !pose) {
         const built = tryBuild(this.models.buildStructure ? () => this.models.buildStructure!('housePlot') : null);
         const root = built?.root ?? box(0.2, 1, 0.2, 0xa8743f);
         root.position.set(plot.x, hf.height(plot.x, plot.z), plot.z);
@@ -433,46 +445,14 @@ export class LifeView {
         this.houses.add(root);
         continue;
       }
-      const bp = blueprintDef(h.blueprint);
-      const pose = housePose(this.life, h);
       const def = structureDef(bp.structure);
       const built = tryBuild(this.models.buildStructure ? () => this.models.buildStructure!(bp.structure, { stage: h.stage }) : null);
       const root = built?.root ?? box(def.w, h.stage === 0 ? 0.1 : (def.h * h.stage) / bp.stages.length, def.d, isComplete(h) ? 0xf3e7c9 : 0xc8995f);
-      const y = hf.height(pose.x, pose.z);
-      root.position.set(pose.x, y, pose.z);
+      root.position.set(pose.x, hf.height(pose.x, pose.z), pose.z);
       root.rotation.y = pose.rot;
       this.houses.add(root);
-      if (isComplete(h)) {
-        // Its own copies of the materials, so cutting its walls down leaves every other model whole.
-        const plane = new THREE.Plane(new THREE.Vector3(0, -1, 0), 1e6);
-        root.traverse((o) => {
-          const mesh = o as THREE.Mesh;
-          if (!mesh.isMesh) return;
-          const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-          const cut = mats.map((mt) => {
-            const c = (mt as THREE.Material).clone();
-            c.clippingPlanes = [plane];
-            return c;
-          });
-          mesh.material = Array.isArray(mesh.material) ? cut : cut[0];
-        });
-        this.homes.push({ x: pose.x, z: pose.z, rot: pose.rot, hw: def.w / 2, hd: def.d / 2, floor: y + (def.floor ?? 0.25), plane });
-      }
     }
-  }
-
-  /** Walls down while you are indoors, the way a dollhouse opens. */
-  private updateIndoors(px: number, py: number, pz: number): void {
-    this.inside = null;
-    for (const h of this.homes) {
-      const dx = px - h.x;
-      const dz = pz - h.z;
-      const lx = dx * Math.cos(h.rot) - dz * Math.sin(h.rot);
-      const lz = dx * Math.sin(h.rot) + dz * Math.cos(h.rot);
-      const indoors = Math.abs(lx) < h.hw - 0.2 && Math.abs(lz) < h.hd - 0.2 && py > h.floor - 0.6 && py < h.floor + 3;
-      h.plane.constant = indoors ? h.floor + 1.3 : 1e6;
-      if (indoors) this.inside = { x: h.x, z: h.z, rot: h.rot, hw: h.hw, hd: h.hd };
-    }
+    this.houseSink?.(kit);
   }
 
   /** Slipways: the cradle and crane, and a ship rising on it as far as it has been built. */
@@ -709,14 +689,11 @@ export class LifeView {
       const key = life.state.houses.map((h) => `${h.plot}:${h.stage}`).join(',');
       if (key !== this.houseKey || this.houses.children.length === 0) {
         this.houseKey = key;
-        this.homes = [];
         this.rebuildHouses();
       }
       for (const n of this.nodes) if (n) n.root.visible = nodeReady(life, n.i);
     }
     if (life.state.clock % 1 < dt) for (const n of this.nodes) if (n) n.root.visible = nodeReady(life, n.i);
-
-    if (!this.others) this.updateIndoors(this.hero.root.position.x, this.hero.root.position.y, this.hero.root.position.z);
 
     // Townsfolk turn to face you when you come close, and gesture while you talk.
     const hp = this.hero.root.position;

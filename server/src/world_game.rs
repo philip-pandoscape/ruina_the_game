@@ -15,7 +15,7 @@ use std::time::{Duration, Instant};
 use serde_json::{json, Value};
 use tokio::sync::mpsc;
 
-use crate::actors::{Actors, LEAN_DAMPING, LEAN_SPRING};
+use crate::actors::{Actors, StepOut, LEAN_DAMPING, LEAN_SPRING};
 use crate::channels::{estate_of, Channel};
 use crate::game::{open_actions_from, Players, OPEN_INPUT};
 use crate::life::content::clock;
@@ -824,12 +824,15 @@ impl ChannelGame {
         // Games' clocks, payouts, and players kept in their seats.
         self.step_tables();
         self.players.step_effects(&mut self.battle, &mut self.actors);
-        let seen = self.players.live_positions();
-        let mut slams = Vec::new();
+        let foes = self.players.foes();
+        let ground = self.players.ground;
+        let ground_at = move |x: f64, z: f64| ground.map_or(0.0, |g| g.height(x, z));
+        let mut done = StepOut::default();
         for _ in 0..(60 / TICK_HZ) {
-            slams.extend(self.actors.step(&seen, LEAN_SPRING, LEAN_DAMPING, 1.0 / 60.0));
+            done.extend(self.actors.step(&foes, &ground_at, LEAN_SPRING, LEAN_DAMPING, 1.0 / 60.0));
         }
-        self.players.apply_slams(&slams);
+        self.players.apply_slams(&done.slams);
+        self.players.apply_foe_hits(&done.hits);
         self.catch_fallers();
 
         let ids: Vec<i64> = self.members.keys().copied().collect();

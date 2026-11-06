@@ -384,6 +384,11 @@ export const CAMERA = {
   aimZoom: 1.7, // multiplies the distance you've chosen
   aimLead: 0.42, // how far the view slides from you toward the circle
   aimEase: 7.0, // how fast it moves in and out, per second
+  // Indoors (src/render/village) the building is drawn cut open above your storey: the view looks
+  // down into the room from at least this pitch, no further off than this, easing in and out.
+  indoorPitch: 0.78,
+  indoorDistance: 7,
+  indoorEase: 4.0,
 };
 
 // Moving the ground-aim circle: a cursor you push around, not a camera raycast (the camera always

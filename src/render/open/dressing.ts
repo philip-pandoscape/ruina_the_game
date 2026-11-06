@@ -47,13 +47,6 @@ function standIn(w: number, h: number, d: number, wall: number, roof: number, de
 }
 
 const STAND_IN_COLOURS: Record<string, [number, number]> = {
-  inn: [0xf3e7c9, 0xc4553f],
-  townhouse: [0xf3e7c9, 0x5d7a9c],
-  registrar: [0xd6d0c3, 0x4f78ab],
-  workshop: [0xc8995f, 0x734828],
-  stable: [0xa8743f, 0x734828],
-  boathouse: [0x9d8d7a, 0x4f3121],
-  tradingPost: [0xa8743f, 0x5d7a9c],
   lighthouse: [0xffffff, 0xc4553f],
   windmill: [0xbcb6aa, 0x734828],
   oreNode: [0x8c8a85, 0x8c8a85],
@@ -85,6 +78,8 @@ export class ZoneDressing {
         continue;
       }
       const def = structureDef(p.id);
+      // Buildings you can walk into are the village's (src/render/village).
+      if (def.collider === 'building') continue;
       const built = tryBuild(models.buildStructure ? () => models.buildStructure!(p.id, { tint: p.tint, seed: p.seed, stage: 4 }) : null);
       if (built) {
         built.root.position.set(p.x, p.y, p.z);

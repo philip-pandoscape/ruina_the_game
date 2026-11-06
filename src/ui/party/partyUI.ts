@@ -3,7 +3,7 @@ import type { PartyView, SpaceView, WorldLink } from '../../net/worldLink';
 import { COMBAT } from '../../tuning';
 import type { LifePress } from '../life/lifeUI';
 import { closeMenu, openMenu, type MenuEntry } from '../theme/contextMenu';
-import { pixelIcon } from '../theme/pixelIcons';
+import { uiIcon } from '../theme/icons';
 import { uiRoot } from '../theme/scale';
 
 // Parties, online (server/src/parties.rs): a few players who play together, as groups do in World
@@ -214,10 +214,10 @@ export class PartyUI {
     if (!force && sig === this.sig.frame && !this.frame.hidden) return;
     this.sig.frame = sig;
     this.frame.innerHTML =
-      `<div class="pf-head" data-act="window" title="Party (O)">${pixelIcon('party', 16)}<span>Party</span><small>${p.members.length}</small></div>` +
+      `<div class="pf-head" data-act="window" title="Party (O)">${uiIcon('party', 20)}<span>Party</span><small>${p.members.length}</small></div>` +
       rows
         .map(({ m, hp }) => {
-          const crown = m.id === p.leader ? `<i class="crown" title="Leader">♛</i>` : '';
+          const crown = m.id === p.leader ? `<i class="crown" title="Leader">${uiIcon('crown', 14)}</i>` : '';
           const away = !m.online ? ' off' : hp === null ? ' far' : '';
           const bar = hp === null ? `<span class="tag">${esc(placeTag(m.place))}</span>` : `<span class="bar"><i style="width:${hp}%"></i></span>`;
           return `<div class="pf-row${away}" data-member="${m.id}">${crown}<b>${esc(m.name)}</b>${bar}</div>`;
@@ -268,7 +268,7 @@ export class PartyUI {
       ? p.members
           .map((m) => {
             const you = m.id === this.d.me;
-            const crown = m.id === p.leader ? `<i class="crown" title="Leader">♛</i>` : '';
+            const crown = m.id === p.leader ? `<i class="crown" title="Leader">${uiIcon('crown', 16)}</i>` : '';
             return `<div class="lui-row pw-member" data-member="${m.id}">${crown}<b>${esc(m.name)}${you ? ' <small>(You)</small>' : ''}</b><span class="tag">${esc(placeTag(m.online ? m.place : null))}</span></div>`;
           })
           .join('')

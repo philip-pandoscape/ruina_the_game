@@ -1,16 +1,21 @@
 // One frame for every actor in the world: its brain, its lean, bringing it back when it has been
 // dead long enough, and everything a pack of them does together - a dying one bursting into
-// pieces, a caller gathering the others in, a burst group reforming one size up.
-// server/src/actors.rs runs the same frame the same way; tests/ai-conformance.spec.ts compares
-// whole packs of them frame by frame.
+// pieces, a caller gathering the others in, a burst group reforming one size up, a war-band
+// sharing out who strikes and where the rest wait (src/sim/ai/pack.ts), and the blows, throws
+// and heals they ask for. server/src/actors.rs runs the same frame the same way;
+// tests/ai-conformance.spec.ts compares whole packs of them frame by frame.
 
 import type { Sim } from '../sim';
 import type { GameEvent } from '../types';
 import { LEAN, MOVE, STEP } from '../../tuning';
 import { actorKind, findKind, kindMass, LADDERS, sizeFor, sizeUp } from '../../content/actors';
+import { attackDef, attackIndex } from '../../content/attacks';
 import { becomeKind, isAlive, type Actor, type Actors } from '../actor';
-import { behaviour, draw, forceState, restState, startBrain, stepBrain, type BrainCtx, type Peer, type Sighting } from '../ai/brain';
-import { len } from '../math';
+import { behaviour, draw, forceState, restState, sightingAt, startBrain, stepBrain, type Behaviour, type BrainCtx, type Peer, type Sighting } from '../ai/brain';
+import { foesOf, pickFoe, sightingOf, type Foe } from '../ai/senses';
+import { stepPacks } from '../ai/pack';
+import { launch, stepMissiles } from '../combat/missiles';
+import { DEG, angleDiff, len } from '../math';
 
 /** Frames a dead piece of a burst lies there (its death clip plays out) before it is cleared away. */
 const CLEAR_AFTER = 60;
@@ -22,22 +27,30 @@ const SLAM_LIFT = 1.0;
 /** Everything a frame of actors needs from the world around them. */
 export interface ActorWorld {
   actors: Actors;
-  seen: Sighting;
+  /** Every player the actors can notice (src/sim/ai/senses.ts). */
+  foes: readonly Foe[];
   frame: number;
-  /** Ground height, for where effects appear. */
+  /** Ground height, for where effects appear and where missiles land. */
   ground(x: number, z: number): number;
   emit(e: GameEvent): void;
   /** A slam landed here; whoever stands in it is the world's business. */
   slam(x: number, z: number, radius: number, damage: number, knock: number): void;
+  /** A creature's blow or missile reached a foe, travelling along (nx, nz). What it does to them is the world's business. */
+  hitFoe(id: number, damage: number, nx: number, nz: number, knock: number): void;
 }
 
 /** The training yard and the open world: one player, the rules' own events. */
 export function updateActors(sim: Sim): void {
   const p = sim.player;
   const ground = (x: number, z: number): number => (sim.world.terrain ? sim.world.terrain.height(x, z) : 0);
+  const hurt = (damage: number, nx: number, nz: number, knock: number): void => {
+    const before = p.hp;
+    sim.takeHit(damage, nx, nz, knock);
+    if (p.hp < before) sim.emit({ type: 'hurt', frame: sim.frame, damage: before - p.hp, x: p.pos.x, y: p.pos.y + 1.6, z: p.pos.z });
+  };
   stepActors({
     actors: sim.actors,
-    seen: sim.sighting(),
+    foes: foesOf(sim),
     frame: sim.frame,
     ground,
     emit: (e) => sim.emit(e),
@@ -50,14 +63,40 @@ export function updateActors(sim: Sim): void {
       if (p.pos.y - ground(p.pos.x, p.pos.z) > SLAM_LIFT) return;
       const nx = d > 0.01 ? dx / d : Math.sin(p.facing);
       const nz = d > 0.01 ? dz / d : Math.cos(p.facing);
-      const before = p.hp;
-      sim.takeHit(damage, nx, nz, knock);
-      if (p.hp < before) sim.emit({ type: 'hurt', frame: sim.frame, damage: before - p.hp, x: p.pos.x, y: p.pos.y + 1.6, z: p.pos.z });
+      hurt(damage, nx, nz, knock);
+    },
+    hitFoe: (id, damage, nx, nz, knock) => {
+      if (id === 1) hurt(damage, nx, nz, knock);
     },
   });
 }
 
-const kin = (a: Actor, o: Actor): boolean => o !== a && a.ladder >= 0 && o.ladder === a.ladder && isAlive(o) && !o.gone;
+/** Kin: the same creature in another size, or the same war-band. */
+const kin = (a: Actor, o: Actor): boolean =>
+  o !== a && ((a.ladder >= 0 && o.ladder === a.ladder) || (a.band !== 0 && o.band === a.band)) && isAlive(o) && !o.gone;
+
+/** What a brain at a point sees: the nearest foe. */
+function nearestAt(foes: readonly Foe[], x: number, z: number): Sighting {
+  let best: Foe | undefined;
+  let bestDist = Infinity;
+  for (const f of foes) {
+    const d = len(f.x - x, f.z - z);
+    if (d < bestDist) {
+      best = f;
+      bestDist = d;
+    }
+  }
+  return best ? sightingOf(best) : sightingAt(x, z, false);
+}
+
+const brainOf = (a: Actor): Behaviour | undefined => (a.brain ? behaviour(a.brain) : undefined);
+
+/** What an actor's brain sees: a pack creature its chosen foe, anything else the nearest. */
+function seeFor(foes: readonly Foe[], a: Actor): Sighting {
+  if (!brainOf(a)?.pack) return nearestAt(foes, a.x, a.z);
+  for (const f of foes) if (f.id === a.target) return sightingOf(f);
+  return sightingAt(a.x, a.z, false);
+}
 
 /**
  * Being hit angers it, and every one of its kin close by. Called by everything that deals damage
@@ -72,6 +111,19 @@ export function provoke(actors: Actors, a: Actor, amount: number): void {
   if (anger.radius <= 0) return;
   for (const o of actors.all()) {
     if (!kin(a, o) || len(o.x - a.x, o.z - a.z) > anger.radius) continue;
+    const theirs = o.brain ? behaviour(o.brain)?.anger : undefined;
+    if (theirs) o.angry = Math.max(o.angry, theirs.frames);
+  }
+}
+
+// A creature that watches for trouble sees a foe in range of its home: it is angry, and so is
+// its band near it, as if one of them had been hit.
+function notice(actors: Actors, a: Actor, b: Behaviour, f: Foe | undefined): void {
+  if (!b.notices || !b.anger || actors.calm || !f) return;
+  if (len(f.x - a.x, f.z - a.z) > b.sight || len(f.x - a.homeX, f.z - a.homeZ) > b.leash) return;
+  a.angry = b.anger.frames;
+  for (const o of actors.all()) {
+    if (!kin(a, o) || len(o.x - a.x, o.z - a.z) > b.anger.radius) continue;
     const theirs = o.brain ? behaviour(o.brain)?.anger : undefined;
     if (theirs) o.angry = Math.max(o.angry, theirs.frames);
   }
@@ -101,9 +153,20 @@ export function stepActors(w: ActorWorld): void {
   for (const a of list) {
     if (a.ladder >= 0 && !a.transient) budget[a.ladder] += kindMass(a.homeKind);
     if (!isAlive(a) || a.gone) continue;
-    peers.push({ id: a.id, x: a.x, z: a.z, radius: a.radius, ladder: a.ladder, calling: a.calling, rallyTo: a.rallyTo, group: a.group });
+    peers.push({ id: a.id, x: a.x, z: a.z, radius: a.radius, ladder: a.ladder, calling: a.calling, rallyTo: a.rallyTo, group: a.group, band: a.band });
     if (a.ladder >= 0) live[a.ladder] += a.mass;
   }
+
+  // Who each pack creature is after, whether it has noticed them, and then what its band works
+  // out together.
+  for (const a of list) {
+    const b = brainOf(a);
+    if (!b?.pack || !isAlive(a) || a.gone) continue;
+    const f = pickFoe(a, w.foes, b.pack.switchAt);
+    a.target = f ? f.id : 0;
+    notice(w.actors, a, b, f);
+  }
+  stepPacks(list, w.foes);
 
   const ctx: BrainCtx = { peers, out: [] };
   const n = list.length;
@@ -114,6 +177,7 @@ export function stepActors(w: ActorWorld): void {
       if (a.angry > 0) a.angry--;
       if (a.slamCd > 0) a.slamCd--;
       if (a.gatherCd > 0) a.gatherCd--;
+      for (let c = 0; c < a.cds.length; c++) if (a.cds[c] > 0) a.cds[c]--;
       if (a.calling >= 0) a.calling++;
       const calmBeyond = a.brain ? behaviour(a.brain)?.anger?.calmBeyond : undefined;
       if (a.angry > 0 && calmBeyond !== undefined && len(a.x - a.homeX, a.z - a.homeZ) > calmBeyond) {
@@ -122,7 +186,7 @@ export function stepActors(w: ActorWorld): void {
       }
       if (a.fuse > 0 && --a.fuse === 0) ctx.out.push({ t: 'fuseOut', id: a.id });
       if (a.pulled > 0) a.pulled--;
-      else stepBrain(a, w.seen, ctx);
+      else stepBrain(a, seeFor(w.foes, a), ctx);
     } else {
       a.deadFrame++;
       if (!a.transient) {
@@ -133,7 +197,7 @@ export function stepActors(w: ActorWorld): void {
           const m = k.mass ?? 0;
           if (a.ladder < 0 || live[a.ladder] + m <= budget[a.ladder]) {
             w.actors.revive(a);
-            startBrain(a, w.seen);
+            startBrain(a, nearestAt(w.foes, a.x, a.z));
             if (a.ladder >= 0) live[a.ladder] += m;
           }
         }
@@ -164,7 +228,18 @@ export function stepActors(w: ActorWorld): void {
     } else if (r.t === 'broke') {
       w.emit({ type: 'gatherBroken', frame: w.frame, id: a.id, x: a.x, y: w.ground(a.x, a.z) + a.hitHeight, z: a.z });
     } else if (r.t === 'fuseOut') fuseOut(w, a);
+    else if (r.t === 'strike') strikeFoes(w, a, r.attack);
+    else if (r.t === 'throw') throwAt(w, a, r.attack);
+    else if (r.t === 'heal') heal(w, a);
   }
+
+  // Everything thrown, in flight.
+  stepMissiles(w.actors, {
+    foes: w.foes,
+    ground: w.ground,
+    hit: (m, f, nx, nz) => w.hitFoe(f.id, m.damage, nx, nz, m.knock),
+    land: (m) => w.emit({ type: 'missileLand', frame: w.frame, x: m.x, y: m.y, z: m.z }),
+  });
 
   // A rally ends when its caller stops calling, whatever the reason.
   for (const a of list) {
@@ -174,6 +249,55 @@ export function stepActors(w: ActorWorld): void {
   }
 
   w.actors.removeWhere((a) => a.transient && (a.gone || a.deadFrame >= CLEAR_AFTER));
+}
+
+// A strike lands: every foe in the cone in front of it and in reach, unless they are jumping
+// clear of it or in a dodge's untouchable frames.
+function strikeFoes(w: ActorWorld, a: Actor, id: string): void {
+  const atk = attackDef(id);
+  if (!atk) return;
+  const reach = (atk.reach ?? 0) + MOVE.playerRadius;
+  const half = ((atk.arc ?? 0) / 2) * DEG;
+  for (const f of w.foes) {
+    if (f.invuln) continue;
+    const dx = f.x - a.x;
+    const dz = f.z - a.z;
+    const d = len(dx, dz);
+    if (d > reach) continue;
+    if (Math.abs(angleDiff(a.facing, Math.atan2(dx, dz))) > half && d > MOVE.playerRadius + 0.3) continue;
+    if (atk.lift !== undefined && f.air > atk.lift) continue;
+    const nx = d > 0.01 ? dx / d : Math.sin(a.facing);
+    const nz = d > 0.01 ? dz / d : Math.cos(a.facing);
+    w.hitFoe(f.id, atk.damage, nx, nz, atk.knock);
+  }
+}
+
+// A throw lets go: at the foe it is after, or the nearest.
+function throwAt(w: ActorWorld, a: Actor, id: string): void {
+  const atk = attackDef(id);
+  if (!atk) return;
+  let foe: Foe | undefined;
+  for (const f of w.foes) if (f.id === a.target) foe = f;
+  if (!foe) {
+    let bestDist = Infinity;
+    for (const f of w.foes) {
+      const d = len(f.x - a.x, f.z - a.z);
+      if (d < bestDist) {
+        foe = f;
+        bestDist = d;
+      }
+    }
+  }
+  if (foe) launch(w.actors, a, atk, attackIndex(id), foe, w.ground(a.x, a.z));
+}
+
+// A drink went down: it is back on its feet by its brain's heal.
+function heal(w: ActorWorld, a: Actor): void {
+  const h = a.brain ? behaviour(a.brain)?.heal : undefined;
+  if (!h) return;
+  const was = a.hp;
+  a.hp = Math.min(a.maxHp, a.hp + h.amount * a.maxHp);
+  w.emit({ type: 'actorHeal', frame: w.frame, id: a.id, x: a.x, y: w.ground(a.x, a.z) + a.hitHeight, z: a.z, amount: a.hp - was });
 }
 
 // The caller fell: the nearest of those rallying to it that could gather takes the call over, and
@@ -194,7 +318,7 @@ function handOver(w: ActorWorld, dead: Actor): void {
   for (const o of w.actors.all()) if (o.rallyTo === dead.id) o.rallyTo = next && o !== next ? next.id : 0;
   if (!next) return;
   next.calling = 0;
-  forceState(next, 'call', w.seen);
+  forceState(next, 'call', nearestAt(w.foes, next.x, next.z));
 }
 
 // Dying into pieces: they scatter, and have the fuse to be killed in before they reform.
@@ -209,6 +333,7 @@ function burst(w: ActorWorld, a: Actor): void {
   const group = w.actors.newGroup();
   const reform = sizeUp(a.kind);
   const base = draw(a) * Math.PI * 2;
+  const seen = nearestAt(w.foes, a.x, a.z);
   for (let i = 0; i < count; i++) {
     const seed = (a.seed ^ Math.imul(i + 1, 0x9e3779b1)) >>> 0;
     const c = w.actors.spawn({ kind: k.burst.into, x: a.x, z: a.z, seed });
@@ -221,7 +346,7 @@ function burst(w: ActorWorld, a: Actor): void {
     c.moveX = Math.sin(angle);
     c.moveZ = Math.cos(angle);
     c.stride = 2 + draw(c);
-    startBrain(c, w.seen);
+    startBrain(c, seen);
   }
   w.emit({ type: 'actorBurst', frame: w.frame, kind: a.kind, count, x: a.x, y: w.ground(a.x, a.z) + a.hitHeight, z: a.z });
 }
@@ -334,6 +459,6 @@ function fuseOut(w: ActorWorld, a: Actor): void {
   c.transient = true;
   c.angry = angerOf(c);
   c.gatherCd = Math.floor((c.brain ? behaviour(c.brain)?.gather?.cooldown ?? 0 : 0) / 2);
-  startBrain(c, w.seen);
+  startBrain(c, nearestAt(w.foes, x, z));
   w.emit({ type: 'actorGrow', frame: w.frame, id: c.id, kind: c.kind, x, y: w.ground(x, z), z });
 }

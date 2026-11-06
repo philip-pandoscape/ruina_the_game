@@ -59,10 +59,13 @@ class GameServer {
 const server = new GameServer();
 let vite: { close(): Promise<void> } | null = null;
 
+// Tagged @alone: it stops and starts the server under pages that are playing, so it runs after the
+// other files, one test at a time (playwright.config.ts).
 test.describe.configure({ mode: 'serial' });
 
-test.beforeAll(async () => {
+test.beforeAll(async ({ browser }) => {
   if (!DB || !serverBuilt) return;
+  test.setTimeout(240_000);
   await server.start();
   const { createServer } = await import('vite');
   const target = `http://localhost:${GAME_PORT}`;
@@ -75,6 +78,11 @@ test.beforeAll(async () => {
   });
   await dev.listen();
   vite = dev;
+  // A Vite of its own compiles the whole game for its first page, which takes most of a minute on
+  // a busy machine: here, rather than in the first test's time.
+  const warm = await browser.newPage();
+  await warm.goto(`${BASE}/?bugs=0`, { timeout: 180_000 });
+  await warm.close();
 });
 
 test.afterAll(async () => {
@@ -111,7 +119,7 @@ async function standsStill(page: Page, ms = 1000): Promise<boolean> {
   return before.frame === after.frame && before.seq === after.seq;
 }
 
-test('a server update freezes the world and says so, and play carries on where it was on the new server', async ({ page }) => {
+test('a server update freezes the world and says so, and play carries on where it was on the new server', { tag: '@alone' }, async ({ page }) => {
   await page.goto(`${BASE}/?as=${fresh('upd')}&bugs=0`);
   await playing(page);
   const who = await game(page, (g) => g.online().character);
@@ -141,7 +149,7 @@ test('a server update freezes the world and says so, and play carries on where i
   expect(await standsStill(page, 600)).toBe(false);
 });
 
-test("a server update while you're in a dungeon brings you back outside its door, the cave put away", async ({ page }) => {
+test("a server update while you're in a dungeon brings you back outside its door, the cave put away", { tag: '@alone' }, async ({ page }) => {
   // A restarted server has no copies of dungeons: it saved your island as standing outside the door.
   const door = JSON.parse(readFileSync('shared/zones/emberholm.json', 'utf8')).dungeons.find((d: { id: string }) => d.id === 'goblinsDread');
   await page.goto(`${BASE}/?as=${fresh('dun')}&bugs=0`);
@@ -167,7 +175,7 @@ test("a server update while you're in a dungeon brings you back outside its door
   }, { timeout: 30_000 }).toBeLessThan(2);
 });
 
-test('a dropped connection freezes the world, and play comes back by itself', async ({ page }) => {
+test('a dropped connection freezes the world, and play comes back by itself', { tag: '@alone' }, async ({ page }) => {
   await page.goto(`${BASE}/?as=${fresh('drop')}&bugs=0`);
   await playing(page);
 
@@ -186,7 +194,7 @@ test('a dropped connection freezes the world, and play comes back by itself', as
   expect(await standsStill(page, 600)).toBe(false);
 });
 
-test('a page that is out of date reloads, and goes straight back into the world as the same character', async ({ page }) => {
+test('a page that is out of date reloads, and goes straight back into the world as the same character', { tag: '@alone' }, async ({ page }) => {
   await page.goto(`${BASE}/?as=${fresh('new')}&bugs=0`);
   await playing(page);
   const who = await game(page, (g) => g.online().character);
