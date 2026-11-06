@@ -72,7 +72,7 @@
   background: var(--inset) padding-box, linear-gradient(180deg, rgba(140, 95, 45, 0.35), rgba(110, 70, 30, 0.45)) border-box; transition: transform 0.12s; }
 .cs-row:hover { transform: translateX(-3px); background: linear-gradient(180deg, rgba(255, 246, 220, 0.6), rgba(240, 220, 175, 0.45)) padding-box, linear-gradient(180deg, rgba(160, 110, 50, 0.55), rgba(120, 75, 30, 0.6)) border-box; }
 .cs-row .ib { width: 46px; height: 46px; }
-.cs-row .ib > img, .cs-row .ib > .pxi { width: 32px; height: 32px; }
+.cs-row .ib > img { width: 32px; height: 32px; }
 .cs-row .n { display: block; font: 700 19px/1.15 var(--font-title); letter-spacing: 0.03em; color: var(--ink-strong); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cs-row .d { display: block; margin-top: 2px; font-size: 13px; color: var(--ink-2); white-space: nowrap; }
 .cs-row .when { align-self: start; margin-top: 4px; font-size: 12px; color: var(--ink-2); white-space: nowrap; }

@@ -6,6 +6,9 @@ import { NO_ACTIONS } from '../src/sim/types';
 import { makeBattlefield } from '../src/sim/world';
 import { comboShape } from '../src/tuning';
 
+// Its tests share nothing, so they spread across the workers (playwright.config.ts).
+test.describe.configure({ mode: 'parallel' });
+
 // The hero's animations, measured rather than eyeballed. The gallery (animations.html) plays each
 // of the films in src/render/detail/scenarios.ts through the real close-up hero - poses, easing
 // between states, feet held where they're planted - and reports where everything went. No GPU

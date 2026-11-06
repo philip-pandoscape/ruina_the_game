@@ -3,6 +3,9 @@ import { skillsFrom } from '../src/skills';
 import { emptyMovement, HOTBAR_SLOTS, NO_ABILITY } from '../src/tuning';
 import { isTitleCase } from '../src/ui/theme/text';
 
+// Its tests share nothing, so they spread across the workers (playwright.config.ts).
+test.describe.configure({ mode: 'parallel' });
+
 // The interface's own rules (design/ui.html): labels in Title Case, items answering a double-click
 // and a right-click, the minimap pointing the way you face, portraits of whoever you talk to, and
 // windows and HUD that don't cover each other. Offline, in the open world.
@@ -451,11 +454,16 @@ test('on a controller, packing at the workbench still closes it and leaves the m
   await g.advance(2);
   await page.evaluate(() => (window as any).__game.setPaused(false));
   const PAD = { A: 0, B: 1, Y: 3, MENU: 9, DOWN: 13 };
+  // A press lasts two frames as well as 60 ms, and so does the gap after it: the game reads the pad
+  // once a frame, and a slow frame (other test pages drawing at the same time) mustn't swallow it.
+  const frames = (n: number) => page.evaluate((n) => new Promise<void>((done) => { const f = () => (--n <= 0 ? done() : requestAnimationFrame(f)); requestAnimationFrame(f); }), n);
   const tap = async (i: number) => {
     await page.evaluate((b) => Object.assign((window as any).__pad.buttons[b], { pressed: true, value: 1 }), i);
-    await page.waitForTimeout(120);
+    await page.waitForTimeout(60);
+    await frames(2);
     await page.evaluate((b) => Object.assign((window as any).__pad.buttons[b], { pressed: false, value: 0 }), i);
-    await page.waitForTimeout(120);
+    await page.waitForTimeout(60);
+    await frames(2);
   };
   const wb = (await g.zone()).workbenches[0];
   await g.teleport(wb.x, wb.z + 2, Math.PI);

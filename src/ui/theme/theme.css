@@ -1,5 +1,5 @@
 /* Ruina's UI look, "Parchment & Timber": parchment cards in dark wood frames with brass rivets,
-   burgundy for buttons and titles, pixel icons. The UI is laid out on a virtual screen 1029 px
+   burgundy for buttons and titles, painted icons. The UI is laid out on a virtual screen 1029 px
    tall and scaled to the window (src/ui/theme/scale.ts), so every size here is in those units.
    Fonts: TeX Gyre Pagella (body, GUST Font License) and Alegreya SC (titles, SIL OFL), bundled. */
 
@@ -63,8 +63,7 @@
 /* Big panels get their own compositing layer, so the HUD changing every frame never repaints them. */
 .mw, #skills .panel, .tt, #ruina-net .fd-card, .fd-front .fd-card { will-change: transform; }
 #ui * { box-sizing: border-box; }
-.pxi { display: block; flex: none; image-rendering: pixelated; }
-img.icon16 { image-rendering: pixelated; }
+.uic { display: block; flex: none; }
 .hud-text { text-shadow: var(--text-outline); }
 
 /* ---------- Buttons and keys ---------- */
@@ -86,16 +85,16 @@ img.icon16 { image-rendering: pixelated; }
 /* ---------- Item buttons and money ---------- */
 .ib { position: relative; flex: none; width: 44px; height: 44px; display: grid; place-items: center; border: 2px solid transparent; border-radius: 6px;
   background: var(--slot) padding-box, var(--slot-frame) border-box; box-shadow: 0 0 0 1.5px #2b1a0e, inset 0 0 0 1px #2b1a0e; }
-.ib > img, .ib > .pxi { width: 32px; height: 32px; image-rendering: pixelated; }
+.ib > img { width: 32px; height: 32px; }
 .ib > .emoji { font-size: 24px; line-height: 1; }
 .ib .n { position: absolute; right: 3px; bottom: 1px; font: 700 11px/1 var(--font); color: #fff6e2; text-shadow: var(--text-outline); }
-.ib.big { width: 56px; height: 56px; } .ib.big > img, .ib.big > .pxi { width: 48px; height: 48px; }
+.ib.big { width: 56px; height: 56px; } .ib.big > img { width: 48px; height: 48px; }
 .ib.sm { width: 38px; height: 38px; }
 .ib.empty { background: var(--slot-empty) padding-box, var(--slot-empty-frame) border-box; }
 .ib.ghost > img { filter: brightness(0) opacity(0.2); }
 .ib.sel, .ib.hl { background: var(--slot-sel) padding-box, var(--brass) border-box; box-shadow: 0 0 0 1.5px #2b1a0e, 0 0 12px var(--glow), inset 0 0 0 1px #2b1a0e; }
 .mny { display: inline-flex; align-items: center; gap: 3px; font-weight: 700; white-space: nowrap; }
-.mny .pxi { margin: 0 5px 0 2px; }
+.mny .uic { margin: 0 5px 0 2px; }
 
 /* ---------- Tooltips ---------- */
 .tt { position: absolute; z-index: 40; width: 260px; padding: 9px 12px 10px; color: #f3e2c0; font-family: var(--font); pointer-events: none;

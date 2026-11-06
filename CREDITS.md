@@ -5,7 +5,6 @@ licences:
 
 | What | Where it is | From | Licence |
 |---|---|---|---|
-| Item, skill and badge icons | `src/ui/theme/icons.gen.ts`, drawn by `tools/icons/bake.mjs` from the SVGs in `tools/icons/twemoji/` | [Twemoji](https://github.com/jdecked/twemoji), by Twitter, Inc. and other contributors | [CC-BY 4.0](https://creativecommons.org/licenses/by/4.0/) (`tools/icons/twemoji/LICENSE-GRAPHICS.txt`). The icons are redrawn as 16-pixel pixel art, outlined and shaded. |
 | Body type: TeX Gyre Pagella | `src/ui/theme/fonts/pagella-*.woff2` | [GUST e-foundry](https://www.gust.org.pl/projects/e-foundry/tex-gyre) | GUST Font License (`src/ui/theme/fonts/GUST-FONT-LICENSE.txt`) |
 | Title type: Alegreya SC | `src/ui/theme/fonts/alegreya-sc-700.woff2` | [The Alegreya Project Authors](https://github.com/huertatipografica/Alegreya) (Juan Pablo del Peral, Huerta Tipográfica) | SIL Open Font License 1.1 (`src/ui/theme/fonts/ALEGREYA-SC-OFL.txt`) |
 | Ground textures: grass | `src/render/assets/ground/grass*.jpg` | [ambientCG](https://ambientcg.com/view?id=Grass004) (Grass004) | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) |
@@ -20,5 +19,9 @@ The made models in `src/render/assets/models/` (the lighthouse, the windmill, st
 his weapons and his Meshy animation clips: `hero_walk`, `hero_run`, `hero_moves_meshy`) are the project's
 own: generated with [Meshy](https://www.meshy.ai) on a paid plan from concept art it painted for Ruina, then
 compressed with [glTF Transform](https://gltf-transform.dev).
+
+The icons in `src/ui/theme/icons/` (items, skills, places and the HUD's own) are the project's own: painted
+for Ruina with Google's Gemini image model (Nano Banana Pro, on a paid plan) by `tools/icons/paint.mjs`, and
+cut out of their sheets by `tools/icons/bake.mjs`.
 
 The game says so too, in its Settings window.

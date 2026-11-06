@@ -168,7 +168,7 @@
     {"id":"rs-6-39","kind":"notable","tree":1,"name":"Bastion","icon":"🏰","mods":[{"stat":"movement.cooldown","op":"more","value":-0.25,"skill":"block"}],"o":6,"a":39.38},
     {"id":"rs-6-40","kind":"small","tree":1,"name":"Healing","mods":[{"stat":"ability.amount","op":"inc","value":0.06,"skill":"heal"}],"o":6,"a":45},
     {"id":"rs-6-41","kind":"small","tree":1,"name":"Club Damage","mods":[{"stat":"attack.damage","op":"inc","value":0.04,"weapon":1}],"o":6,"a":50.63},
-    {"id":"rs-6-42","kind":"keystone","tree":1,"name":"Sanctuary","icon":"💠","mods":[{"stat":"ability.radius","op":"inc","value":0.4,"skill":"heal"},{"stat":"ability.cooldown","op":"more","value":0.25,"skill":"heal"}],"o":6,"a":56.25},
+    {"id":"rs-6-42","kind":"keystone","tree":1,"name":"Sanctuary","icon":"🔷","mods":[{"stat":"ability.radius","op":"inc","value":0.4,"skill":"heal"},{"stat":"ability.cooldown","op":"more","value":0.25,"skill":"heal"}],"o":6,"a":56.25},
     {"id":"rs-6-46","kind":"small","tree":1,"name":"Healing Reach","mods":[{"stat":"ability.radius","op":"inc","value":0.05,"skill":"heal"}],"o":6,"a":78.75},
     {"id":"br-6-48","kind":"small","tree":-1,"name":"Arcane Lore","mods":[{"stat":"ability.damage","op":"inc","value":0.03}],"o":6,"a":90},
     {"id":"py-6-50","kind":"small","tree":2,"name":"Fire Damage","mods":[{"stat":"ability.damage","op":"inc","value":0.05,"tags":["fire"]}],"o":6,"a":101.25},

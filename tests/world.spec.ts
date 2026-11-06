@@ -8,6 +8,9 @@ import { EMBERHOLM } from '../src/sim/zone/world';
 import { skillsFrom } from '../src/skills';
 import { COMBAT, emptyMovement, HOTBAR_SLOTS, NO_ABILITY, SLIDE_SKILL } from '../src/tuning';
 
+// Its tests share nothing, so they spread across the workers (playwright.config.ts).
+test.describe.configure({ mode: 'parallel' });
+
 // The open world (Emberholm): terrain, swimming, gliding, farming, pack running, vehicles, mounts,
 // housing, quests and saving. Like the other specs these drive the real game through
 // window.__game (src/main.ts), paused, a frame at a time. Screenshots land in screenshots/.

@@ -796,11 +796,12 @@
       "system": "ui",
       "status": "done",
       "title": "Parchment & Timber look",
-      "notes": "Parchment panels in timber frames with brass trim and rivets, two bundled typefaces (TeX Gyre Pagella, Alegreya SC) and 16-pixel icons for every item, ability and badge, redrawn from Twemoji by tools/icons/bake.mjs (npm run icons). CREDITS.md and the Settings window name the sources.",
+      "notes": "Parchment panels in timber frames with brass trim and rivets, two bundled typefaces (TeX Gyre Pagella, Alegreya SC) and painted icons for every item, skill, place and the HUD's own (hearts, coins, menu buttons, quest marks): 135 of them, painted nine to a sheet with Gemini (tools/icons/paint.mjs, from tools/icons/catalog.mjs) and cut out by tools/icons/bake.mjs (npm run icons) as 128 px WebP. CREDITS.md and the Settings window name the sources.",
       "files": [
         "src/ui/theme/theme.css",
-        "src/ui/theme/pixelIcons.ts",
         "src/ui/theme/icons.ts",
+        "tools/icons/catalog.mjs",
+        "tools/icons/paint.mjs",
         "tools/icons/bake.mjs",
         "CREDITS.md"
       ]
@@ -1440,6 +1441,28 @@
         "Weapons: Meshy's sword, club, staff and bow where the box ones were, shining with the sky's light, carried at the hip and across the back.",
         "Moves: Quaternius' sword combo and heavy combo on the sword and club, Meshy's Triple Combo Attack as the sword's other set; retarget.ts, moves.ts, /retarget.html, tests/retarget.spec.ts, the retarget-animation skill.",
         "Tools: npm run image (Gemini), tools/models/weaponprep.mjs, tools/models/clips.mjs."
+      ]
+    },
+    {
+      "date": "2026-11-05",
+      "title": "Painted icons",
+      "summary": "The user asked for the UI's low-resolution pixel images to go, keeping the Parchment & Timber look but with high-quality icons. Every icon is now painted: items, packs, vehicles, skills, places and the HUD's own, 135 in one consistent hand-painted style, sharp at any UI size.",
+      "points": [
+        "Painted with Gemini (Nano Banana Pro) nine to a 2K sheet on a flat key colour, the first sheet the style reference for the rest (tools/icons/paint.mjs); tools/icons/catalog.mjs says what each icon shows and which emoji or item it stands for. 20 images in all, about $2.70, with four sheets painted again (a background not as asked, gliders painted as birds, a dragon cut off by its cell, tiles behind the icons).",
+        "Cut out by tools/icons/bake.mjs: the background keyed out from the sheet edges and from holes it shows through (between spokes, inside a ring), soft where paint fades into it, never inside an inked contour; a glow over the key keeps the hue of the paint beside it instead of turning the key's opposite. 128 px WebP, under 1 MB together. The bake fails if content names an emoji no icon stands for.",
+        "The HUD's own pixel icons (src/ui/theme/pixelIcons.ts) are gone: uiIcon(name) draws the painted heart, mana, stamina, labor, coins, seal, menu buttons, quest marks (! on offer, ? to hand in, a grey ? under way), talk bubble, lock, craft, star, book, compass and flag. Name plates show the mark itself; the maps put it on a dark disc so it stands off the ground, and the big map draws places, houses and vehicles as painted icons rather than emoji text.",
+        "Sanctuary's icon key is 🔷 (it shared 💠 with flax); a few items have pictures of their own (seed sacks by crop, saplings, the lamb, the thunderstruck log, the cottage blueprint, the Swiftwing glider). Twemoji is no longer used, so its SVGs and credit are gone."
+      ]
+    },
+    {
+      "date": "2026-11-05",
+      "title": "A faster suite",
+      "summary": "The whole Playwright suite, the only browser check before a push to beta, took half an hour here: it ran one test at a time, and every test starts the game afresh in a new browser (about 4 s). It now runs side by side, six pages at once, and the tests that need the machine to themselves after the rest, one at a time: 12 minutes, all 366 passing.",
+      "points": [
+        "playwright.config.ts: six workers; the biggest spec files spread their tests out (test.describe.configure); @gpu and @alone tests run one at a time, after the rest in a run of the whole suite, beside the rest in a run of some of it.",
+        "@alone: tests that race the clock, stopping a server under players (update.spec) or two windows of one character; update.spec warms its own Vite before its first test.",
+        "Tests that lost races under load now wait for frames: a controller press is held for two frames, the bug report's stand-in speech comes phrase after phrase, and the reporter waits up to 5 s for the frame after the press.",
+        "Why the rest of the time goes: about 4 s per test starting the game (the scene's shaders, building the island), and other checkouts' suites sharing the laptop."
       ]
     },
     {
