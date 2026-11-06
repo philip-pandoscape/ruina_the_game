@@ -1,5 +1,6 @@
-import { expect, test, type Page } from '@playwright/test';
-import { skillsFrom } from '../../src/content/skills';
+import { expect } from 'vitest';
+import { test, type Page } from '../../support/headless';
+import { skillsFrom } from '../../../src/content/skills';
 import {
   COMBAT,
   emptyMovement,
@@ -12,11 +13,8 @@ import {
   STAMINA,
   STEP,
   type Build,
-} from '../../src/content/tuning';
-import { gameReady } from '../support/game';
-
-// Its tests share nothing, so they spread across the workers (playwright.config.ts).
-test.describe.configure({ mode: 'parallel' });
+} from '../../../src/content/tuning';
+import { gameReady } from '../../support/headless';
 
 // Movement skills: the data-driven action states on Q / E (LB / RB). A dodge commits to a
 // direction and cannot be hit for part of it, and costs stamina rather than having a cooldown; a

@@ -23,13 +23,22 @@ time, the middle one before every push to `beta`, the slow one before a release.
   writes the new answers, once the comparison has passed on them. The server's fighting, which has no
   TypeScript twin, has a golden battle of its own (`a_battle_plays_out_as_it_always_has` in
   `crates/server/src/play/bots.rs`).
+- **It plays the game: you, the island, creatures, stepping frame by frame, but nothing drawn.** A
+  rules test, `tests/unit/rules/<area>.test.ts`: written as for a page (`page.goto('/?yard')`, then
+  `page.evaluate` over `window.__game`), it runs headless in Node (`tests/support/headless.ts`): the
+  rules, the island's life, auto-walk and the camera's maths for real, the step and the test API as
+  the page runs them, drawing and windows standing in. Its `test` gives each test a `page` as
+  Playwright's does, so moving a test between this tier and the next is moving it between files
+  (`tools/refactor/port-spec.mjs`, `split-specs.mjs`). What only a page has (the windows, the
+  keyboard or a controller, the scene, the server) throws when reached, naming it.
 - **It needs the game running in a page: the HUD, windows, input, drawing, online play.** An
   integration test, `tests/integration/<area>.spec.ts`.
 - **It measures speed, or needs the machine to itself (frame rates, thousands of fighters, several
   windows).** A stress test, `tests/stress/`.
 
-Prefer the lowest tier that can show the thing works: a unit test runs in milliseconds, an
-integration test boots the game in about four seconds before it even starts.
+Prefer the lowest tier that can show the thing works: a unit test runs in milliseconds (the 77 rules
+tests together in about a second), an integration test boots the game in about four seconds before
+it even starts.
 
 ## Writing an integration test
 

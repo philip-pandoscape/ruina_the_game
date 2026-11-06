@@ -791,7 +791,7 @@
         "src/sim/player/locomotion.ts",
         "crates/engine/src/player.rs",
         "crates/server/src/combat.rs",
-        "tests/integration/movement.spec.ts",
+        "tests/unit/rules/movement.test.ts",
         "tests/conformance/player.test.ts"
       ]
     },
@@ -1228,7 +1228,7 @@
         "crates/engine/src/missiles.rs",
         "crates/engine/src/ai.rs",
         "crates/engine/src/actors.rs",
-        "tests/integration/goblin.spec.ts",
+        "tests/unit/rules/goblin.test.ts",
         "tests/conformance/ai.test.ts"
       ]
     },
@@ -1584,7 +1584,7 @@
       "points": [
         "Plan and concept art: design/goblins.md and design/goblins/ (lineup, ambush, camp, attack tells, night raid). Decisions: Thornwood camp only, no raids, captives to rescue, the agreed difficulty, the grunt to be tested with Meshy beside a free model.",
         "Creature engine: senses, a pack step, walk/strike/throw/heal acts, conditions with arguments, missiles and flinches, in TypeScript and Rust, compared frame by frame (three goblin scenarios in tests/conformance/ai.test.ts).",
-        "The basic goblin: shared/creatures/goblin.json and src/render/creatures/goblin/, fought in the yard with ?yard&goblins=6; tests/integration/goblin.spec.ts plays its behaviours."
+        "The basic goblin: shared/creatures/goblin.json and src/render/creatures/goblin/, fought in the yard with ?yard&goblins=6; tests/unit/rules/goblin.test.ts plays its behaviours."
       ]
     },
     {

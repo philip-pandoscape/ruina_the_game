@@ -1,19 +1,17 @@
-import { expect, test, type Page } from '@playwright/test';
-import { COMBAT, emptyMovement, HOTBAR_SLOTS, NO_ABILITY, type Build } from '../../src/content/tuning';
-import { skillsFrom } from '../../src/content/skills';
-import { actorKind } from '../../src/content/actors';
-import { attackDef } from '../../src/content/attacks';
-import { behaviour } from '../../src/sim/ai/brain';
-import { gameReady } from '../support/game';
+import { expect } from 'vitest';
+import { test, type Page } from '../../support/headless';
+import { COMBAT, emptyMovement, HOTBAR_SLOTS, NO_ABILITY, type Build } from '../../../src/content/tuning';
+import { skillsFrom } from '../../../src/content/skills';
+import { actorKind } from '../../../src/content/actors';
+import { attackDef } from '../../../src/content/attacks';
+import { behaviour } from '../../../src/sim/ai/brain';
+import { gameReady } from '../../support/headless';
 
 // The basic goblin (content/creatures/goblin/, design/goblins.md), played in the training yard
 // where every frame is stepped by the test: easy one at a time, dangerous as a band. They notice
 // you and wake each other, only a few strike at once while the rest circle just outside your
 // reach, they read your weapon, slip in when you turn your back, and run to their friends (or off
 // to drink a stolen potion) when hurt.
-
-// Its tests share nothing, so they spread across the workers (playwright.config.ts).
-test.describe.configure({ mode: 'parallel' });
 
 const build = (tree: string, weapon: number): Build => ({
   skills: skillsFrom(tree),

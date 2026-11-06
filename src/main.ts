@@ -15,7 +15,7 @@ import { actorKindAt, actorKindIds, actorKindIndex, kindName } from './content/a
 import { isAlive, behaviour, stateProgress } from './engine/creatures';
 import { type Actions, type GameEvent, angleDiff } from './engine/rules';
 import { dungeonDef, groundAt } from './engine/zone';
-import { type Life, ridden, hourAt, hourOfDay, skillBudget, trainedBy, type Command } from './engine/island';
+import { type Life, ridden, hourAt, hourOfDay, skillBudget, type Command } from './engine/island';
 import { Aiming } from './app/aiming';
 import { Hud } from './ui/hud';
 import { Stage, TRAINING_STAGE } from './render/scene';
@@ -31,6 +31,7 @@ import { clearLife, savedIsland } from './app/save';
 import { goOnline } from './app/online';
 import { readOptions } from './app/options';
 import { makeTestApi } from './app/testApi';
+import { YardPractice } from './app/yardPractice';
 import { rigCamera } from './app/cameraRig';
 import { makeStep } from './app/step';
 import { startLoop } from './app/loop';
@@ -52,7 +53,7 @@ import { RIDE_CAMERA } from './content/traversal';
 import { rideable, isBoat } from './content/vehicles';
 import { ABILITY_ICONS, WEAPON_ICONS } from './ui/icons';
 import type { MarkerKind } from './ui/hud';
-import { BOOK, levelOf, levelsFrom, NODES, resolveSkills, SKILL_POINTS } from './content/skills';
+import { levelsFrom, NODES, resolveSkills, SKILL_POINTS } from './content/skills';
 import { SkillsPanel } from './ui/skills/panel';
 import { type Build } from './content/tuning';
 import './ui/theme/theme.css';
@@ -453,33 +454,10 @@ function rideCamera(dt: number, now: number): void {
   }
 }
 input.onDeviceChange = (d) => hud.setDevice(d);
-// The training yard keeps the experience of its skills in this browser; the open world keeps it
-// with your island (src/sim/life/progress.ts).
-const YARD_XP = 'ruina.skillxp';
-const yardXp: Record<string, number> = (() => {
-  try {
-    const v = JSON.parse(localStorage.getItem(YARD_XP) ?? '{}');
-    return v && typeof v === 'object' ? v : {};
-  } catch {
-    return {};
-  }
-})();
-let yardSaved = 0;
-function yardTrain(e: GameEvent): void {
-  const b = trainedBy(e);
-  if (b < 0) return;
-  const id = BOOK[b].id;
-  const before = levelOf(yardXp[id] ?? 0);
-  yardXp[id] = (yardXp[id] ?? 0) + 1;
-  if (levelOf(yardXp[id]) > before || performance.now() - yardSaved > 3000) {
-    yardSaved = performance.now();
-    try {
-      localStorage.setItem(YARD_XP, JSON.stringify(yardXp));
-    } catch {
-      /* storage unavailable */
-    }
-  }
-}
+// The training yard keeps the experience of its skills in this browser (src/app/yardPractice.ts).
+const yardPractice = new YardPractice();
+const yardXp = yardPractice.xp;
+const yardTrain = (e: GameEvent): void => yardPractice.train(e);
 if (!life) engine.setLevels(levelsFrom(yardXp));
 /**
  * Points you may have in the tree: earned on the island, a training budget elsewhere, and the whole
