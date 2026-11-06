@@ -130,13 +130,14 @@ if (splash) {
   splash.step('world');
   splash.say(splash.has('models') ? 'Planting the Forests…' : 'Loading Models…');
 }
-const models = modelsLoading ? await modelsLoading : {};
+// Loaded in the open world, where they draw the island; elsewhere there are none.
+const models = modelsLoading ? await modelsLoading : null;
 if (splash) {
   splash.say('Planting the Forests…');
   splash.toward('stage', 4);
   await splash.paint();
 }
-const openStage = openWorld ? new OpenStage(canvas, world, models) : null;
+const openStage = models ? new OpenStage(canvas, world, models) : null;
 if (splash) {
   splash.step('stage');
   splash.say('Waking the Townsfolk…');
@@ -203,7 +204,7 @@ if (terrain) {
   vfx.ground = groundY;
   vfx.raised = (x, z, r) => drawnGround(x, z, r) - terrain.height(x, z);
 }
-const lifeView = life ? new LifeView(stage.scene, life, models, hero) : null;
+const lifeView = life && models ? new LifeView(stage.scene, life, models, hero) : null;
 if (lifeView && openStage) lifeView.onGroundChanged = () => openStage.foliage.invalidate();
 // Your houses are drawn by the village, from its kit, as far as each is built.
 if (lifeView && openStage) lifeView.houseSink = (houses) => openStage.village.setHouses('mine', houses);
@@ -225,7 +226,7 @@ const lifeUI = life
 // offers the developer panel.
 const peers = online && life && world.zone ? new WorldPeers(world.zone, engine, life, online.welcome.character.id, online.link) : null;
 // ...and drawn: a body and a name each, and what of their island everyone sees (src/render/open/peersView.ts).
-const peersView = online && peers ? new PeersView(stage.scene, models, peers, online.welcome.character.id) : null;
+const peersView = online && peers && models ? new PeersView(stage.scene, models, peers, online.welcome.character.id) : null;
 if (peers && openStage) peers.onGroundChanged = () => openStage.foliage.invalidate();
 if (peersView && openStage) peersView.onGroundChanged = () => openStage.foliage.invalidate();
 if (peersView && openStage) peersView.houseSink = (owner, houses) => openStage.village.setHouses(owner, houses);

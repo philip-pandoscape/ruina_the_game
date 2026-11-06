@@ -18,7 +18,7 @@ import { GrottoView } from './grotto';
 import { ArenaView } from './arenaView';
 import { DungeonView } from './dungeonView';
 import { Village } from '../village/village';
-import type { Models } from './models';
+import type { ModelKit } from './models';
 
 /** Whether a crag `r` across at (x, z) would cover a waterfall's slot or the water falling down it. */
 function overFalls(falls: WaterfallInfo[], x: number, z: number, r: number): boolean {
@@ -67,7 +67,7 @@ export class OpenStage {
   private c1 = new THREE.Color();
   private c2 = new THREE.Color();
 
-  constructor(canvas: HTMLCanvasElement, world: World, models: Models) {
+  constructor(canvas: HTMLCanvasElement, world: World, models: ModelKit) {
     const hf = world.terrain!;
     const zone = world.zone!;
     const light = PALETTE.light;

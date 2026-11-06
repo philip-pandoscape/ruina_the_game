@@ -352,7 +352,7 @@ function cow(young: boolean): AnimalModel {
 }
 
 /** Builds a farm animal: stage 0 is young (chick, lamb, calf), 1 is adult. */
-export function buildAnimal(id: AnimalId, stage: number): AnimalModel {
+export function buildAnimal(id: string, stage: number): AnimalModel {
   const young = stage < 1;
   switch (id) {
     case 'chicken':
