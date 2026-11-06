@@ -1,230 +1,138 @@
 # ruina_the_game
 
-An original browser MMORPG prototype: third-person 3D action combat with platform-fighter movement
-(run, slide, double jump), classless skill trees, Xbox controller support, and a Rust game server
-that plays the open world itself (every rule, from movement to trade, runs there), keeps players'
-accounts and islands in Postgres, and is built for 10,000-player PvP raids. The game is called
-Ruina; only the repository keeps the working name *yggdrasil*.
+Ruina is an original browser MMORPG prototype. It has:
 
-The open world starts on **Emberholm**, a starter isle with ArcheAge-style life systems: gliders,
-carts, a roadster, boats that sail on the wind, mounts, trade packs you carry to faraway trading
-posts, scarecrow farms, and houses you build from hauled materials.
+- third-person action combat with platform-fighter movement (run, slide, double jump);
+- classless skill trees, and controller support;
+- ArcheAge-style life systems: gliders, carts, boats that sail on the wind, mounts, trade packs
+  carried to far-off trading posts, farms, and houses built from hauled materials.
 
-**UI design system:** how the interface looks, reads and behaves (the look, Title Case labels, the
-screen layout, every component drawn with the game's own styles, and how items answer a click,
-double-click and right-click) is at http://localhost:5173/design/ui.html (`design/ui.html`).
+A Rust game server plays the world itself: every rule, from movement to trade, runs there, and it
+keeps players' accounts and characters in Postgres. The world is meant to be one seamless open
+world of regions. **Emberholm**, a starter isle, is the first. Only the repository keeps the
+game's working name, *yggdrasil*.
 
-**Design bible:** the root design document lives in `design/`: every system, live numbers from the
-game's data, an interactive map, and the implementation tracker (`design/status.json`). Run
-`npm run dev` and open http://localhost:5173/design/. The prose is `design/index.html`; everything
-else is drawn by `design/bible.ts` from the game's own modules (the content in `shared/*.json`, the
-rules' formulas and the terrain generator), so it is always current and there is nothing to rebuild.
+## Quick Start
 
-- `src/`: browser client (Three.js + TypeScript, built with Vite)
-- `src/content/skills.ts` and `crates/engine/src/skills.rs`: the skill tree, the levels skills gain by use, and the
-  modifiers both apply, mirrored in both languages. The tree is data in `shared/skilltree.json`
-  (laid out by `tools/skilltree/gen.mjs`), points and levels in `shared/tuning.json`; adding a
-  skill should not mean writing code.
-  An ability is targeting plus a list of *effects*, and a movement skill is an *action state* with
-  a startup / active / recovery timeline. Those two vocabularies are the only things that cost
-  code, and then in both languages at once.
-- `crates/`: the Rust workspace. `crates/engine` holds the rules, one copy: the server runs them,
-  and the browser runs the same code compiled to WebAssembly (`crates/engine-wasm`, reached through
-  `src/engine/`). `crates/tools` holds the programs the conformance tier runs and the balance harness,
-  and `crates/server` the game server, `ruina-server`, one port for everything (axum): accounts; Emberholm, which it
-  plays (`crates/server/src/play/mod.rs`: each channel's players from their key presses, the island's
-  rules in `crates/engine/src/open` and `crates/engine/src/life`, the slimes and the fighting), keeping islands
-  in Postgres (`crates/server/migrations/`); and the PvP battlefield, which decides all hits, runs bots,
-  sends each player only what's near them, and rewinds time for lag compensation
-- `shared/tuning.json`: gameplay numbers, read by both the browser and the server
-- `shared/regions/`, `shared/{vehicles,trade,farming,housing,items,quests,structures,traversal}.json`:
-  the open world's content. The engine grows the island from a zone recipe
-  (`crates/engine/src/open/generate.rs`) and runs trade, farming, housing, vehicles and quests
-  (`crates/engine/src/life/`); `src/render/open/` and `src/render/models/`
-  draw it (every model side by side in the content library, http://localhost:5173/dev/library.html#/models), `src/ui/life/` is its HUD
-  and windows, in the look `src/ui/theme/` gives the whole UI
-- `tests/`: the test tiers (`tests/AGENTS.md`): unit tests, Playwright tests that play the real game
-  in a browser, and checks that the engine's WebAssembly answers as the native engine does
+You need [Docker](https://www.docker.com/products/docker-desktop/), Node.js 22.12 or newer, and
+Rust with its WebAssembly target:
 
-## Setup
+```sh
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+rustup target add wasm32-unknown-unknown
+npm install
+npx playwright install chromium   # the browser the tests use (on Windows they use Edge)
+npm run up                        # Postgres and the game server, in Docker
+npm run dev                       # builds the engine's WebAssembly, then serves the game
+```
 
-1. [Docker](https://www.docker.com/products/docker-desktop/) and Node.js 22.12 or newer
-2. `npm install`
-3. `npx playwright install chromium` (the browser the tests use; on Windows they use Edge instead)
+Then open http://localhost:5173/. Sign in or make an account, then pick or make a character (up to
+six). In development, `?as=name` signs straight in as `name` and plays its last character, so you
+can play several characters in different windows.
 
-Work on `beta`; see [Branches, CI and deploys](#branches-ci-and-deploys). `AGENTS.md` is the
-short version of this file for coding agents.
-4. Optional, for the battlefield and the tests that compare the TypeScript and Rust rules: Rust
-   (`curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`), then
-   `cargo build --release`
+| Page | What |
+|---|---|
+| http://localhost:5173/ | The world. `?fresh` starts your character's life over; `?yard` opens the training yard, offline. |
+| http://localhost:5173/bible/ | The Ruina Bible: how the game works, exactly, with every control on a keyboard and on a controller. |
+| http://localhost:5173/dev/library.html | The content library: everything the game draws, every animation frame by frame (admins). |
+| http://localhost:5173/design/ | The design bible's Development tab and its tracker (admins); the UI design system is `design/ui.html`. |
 
-## Run
-
-1. `npm run up` starts Postgres and the game server in Docker (`docker-compose.yml`), building the
-   server first if its code changed. Run it again after changing anything in `crates/`.
-   `npm run logs` follows the server's output, `npm run psql` opens the database, `npm run down` stops both.
-2. `npm run dev`, then open
-   - http://localhost:5173/ for the open world, Emberholm. The title screen, then sign in or make an
-     account, then pick or create a character (up to six, each with its own island, kept on the
-     server). Characters on the badge, or Settings > Exit to Character Select, goes back there.
-     `?as=name` signs straight in as `name` and plays its last character (development only, a new
-     account if it's new), so you can play several in different windows. `?fresh` starts your island
-     over. When the server is updated the world freezes under a notice and carries on by itself.
-   - http://localhost:5173/?yard for the training yard (offline)
-   - http://localhost:5173/dev/library.html, the content library: everything the game draws in one
-     place, every animation frame by frame with the game's own timing, notes, poses corrected by moving
-     the bones and **Create Prompt** to hand them to Claude, and every model, building and crowd
-     (`src/dev/library/`, the `animation-review` skill)
-   - the developer zones (the yard, the battlefield, the goblin camp), from the Admin menu in the world
-     or on the character select screen (`docs/zones.md`)
-   - http://localhost:5173/?raid=10000 for the rendering stress test (offline)
+The Admin menu, in the world or on character select, takes you into the developer zones: the
+training yard, the battlefield and the goblin camp. In development everyone is an admin.
 
 Vite serves the game and forwards `/api` and `/ws` to the server, so the browser sees one address,
-as it does in production. A character plays in one window at a time: opening it in a second window
-stops the first.
+as it does in production. Other commands:
 
-**Playing together:** Emberholm runs as channels, copies of the island each home to up to 24
-characters (the badge in the corner says which). Everyone in your channel sees everyone else move,
-glide, sail and ride, with a name over their head while they're within about 45 m, fights the same
-slimes, has the same time of day, rain and wind (the server's clock), and sees what every resident
-has built: houses and farms stay standing while their owner is away, their walls are solid, and a
-house plot belongs to whoever claimed it first. Their vehicles are solid too, and you can ride along
-in one: beside a friend's cart or boat, F climbs into its free seat ("Ride with ..."), and F again
-gets you out.
+- `npm run up` again after changing anything in `crates/`;
+- `npm run logs` follows the server's output;
+- `npm run psql` opens the database;
+- `npm run down` stops both.
 
-**Mini-games:** walk up to another player on foot and F offers to challenge them ("Challenge ...").
-Pick the game and the stake (No Stake, or up to what you can afford) and send it; they have 30
-seconds to accept or decline. If they accept, both stakes go into the pot and a table is thrown
-down between you, with a stool each, for everyone in the channel to see. You play at it (you can't
-walk off until it's over; Escape or Concede gives the game up) and the winner takes the pot; a
-draw gives each stake back, and so does a game the server calls off (when it's updated). Leave
-for more than 30 seconds and you forfeit. The first game is **Beacons**, made for Ruina: a board
-of 37 hexes, each showing one of six island goods (the middle one is the Old Beacon). On your turn
-play one card to light an unlit hex of its good with your beacon, or two of a kind to light any
-hex, the Old Beacon too, or swap a card; then draw back up to four from the face-up Harbour or the
-deck. Four of your beacons in a straight row wins. Each turn has 40 seconds (the server plays for
-you when it runs out; three in a row forfeits). The server runs the game
-(`crates/engine/src/minigames`) and only ever moves money between the two purses at the table.
+## Where to Read Next
 
-**The server decides:** your browser sends only what you press (about 60 times a second) and what
-you ask your island to do (talk, plant, buy, craft, drive...). The server runs every rule on its own
-copy: where you are (hills, cliffs, walls, water, gliders, vehicles), every hit, and everything on
-your island (bag, coins, labor, farms, houses, packs, quests), and keeps the island in Postgres
-from that copy. It answers 20 times a second; meanwhile your browser predicts your own moves with
-the same rules (the engine, compiled to WebAssembly) and corrects itself to the answer, so play
-feels instant. The developer panel (give items, skip time, teleport) exists only where the server allows it
-(development and beta, not production). Automated tests (`?test`) run the island offline, in the
-browser, except `tests/integration/online.spec.ts` and `tests/integration/minigames.spec.ts`, which need `npm run up`, and
-`tests/integration/update.spec.ts`, which starts and stops a game server of its own on the database in
-`RUINA_DATABASE_URL`. To run the suite beside another checkout's, give it its own ports:
-`PW_PORT=5211 TEST_PORT_OFFSET=10`.
+`AGENTS.md` is the map of the code: what is where, the commands, the rules every change keeps,
+assets, and deploys. It's written for coding agents and people alike. The guides go deeper:
 
-## Branches, CI and deploys
+| Guide | What |
+|---|---|
+| `docs/engine.md` | The rules, one copy in Rust, and how the server and the browser reach them |
+| `docs/content.md` | Adding content as files alone: items, quests, creatures, buildings, regions |
+| `docs/world.md` | The world: regions on chunks, its ground, spaces and channels |
+| `docs/zones.md` | Dungeons and developer zones, their copies, and bots |
+| `docs/testing.md` | The test tiers, and where a new test goes |
+| `docs/assets.md` | Models, textures and sounds, from a find to the screen |
+| `docs/admin.md` | The Admin menu, and the developer pages and commands |
+| `docs/deploys.md` | Branches, CI and Railway |
 
-| Branch | How changes get in | Deploys to |
-|---|---|---|
-| `beta` (default) | Push directly | https://ruinathegame-beta.up.railway.app |
-| `production` | Pull request (usually from `beta`), with CI passing | https://ruinathegame-production.up.railway.app |
+## How It Plays Online
 
-Both branches are protected against force-pushes and deletion. `.github/workflows/ci-cd.yml` runs
-on every push and pull request to them: the client typechecks and builds, the Rust server's tests
-pass, and the whole Playwright suite plays the game against a real server and Postgres (with the
-battlefield and the conformance tests, which need the Rust binaries). A push that
-passes is uploaded to the Railway environment of the same name with `railway up`, and the job
-waits until `/api/health` answers from the new deployment. For now a push to `beta` skips the
-Playwright suite (half an hour and more on CI's runners, which have no GPU), so beta deploys a few
-minutes after the push: run the suite locally before pushing. Pull requests, `production` and a
-manual run of the workflow still play it.
+**The server decides.**
 
-**Railway** (project `intuitive-enthusiasm`): environments `beta` and `production`, each with the
-game service and its own Postgres. The game's `DATABASE_URL` refers to that environment's
-database, and `PORT` is 8080. The `Dockerfile`'s last stage is the whole game (the server serving
-the built client, the account API and both WebSockets); `railway.json` tells Railway to build it
-and health-check `/api/health`. The server applies database migrations itself when it starts, and
-developer sign-in (`?as=`) is always off on Railway.
+- Your browser sends only what you press, 60 times a second, and what you ask to do (talk, plant,
+  buy, craft, drive).
+- The server runs every rule and answers 20 times a second.
+- Meanwhile, your browser predicts your own moves with the same rules (the engine, compiled to
+  WebAssembly), so play feels instant.
 
-**Keys:** each GitHub environment (`beta`, `production`) holds `RAILWAY_TOKEN`, that Railway
-environment's project token, and accepts deployments only from its own branch. Local copies live
-in `.env` (git-ignored) as `RAILWAY_BETA_API_KEY` and `RAILWAY_PRODUCTION_API_KEY`.
+**Channels.** Emberholm runs as channels, each home to up to 24 characters. In yours, everyone:
 
-## Controls
+- sees everyone else move, ride and build;
+- fights the same creatures, under the same sky;
+- can ride along in a friend's vehicle, or challenge them to a mini-game at a table, for a stake.
 
-| | Keyboard and mouse | Xbox controller |
-|---|---|---|
-| Move / camera | WASD / mouse (click to capture) | Left / right stick |
-| Sprint | Hold Shift | Click left stick |
-| Crouch (held through a slide, you come out of it crouched) | Hold C | Click right stick |
-| Jump (twice for a double jump) | Space | A |
-| Attack | Left click or J | X |
-| Slide | C on the run, or K | B |
-| Hotbar (hold to aim a ground cast) | 1 – 8 | LT or RT + A/B/X/Y |
-| Movement skills (dodge, backstep, block) | Q, E | LB, RB |
-| Next target | Tab (Shift-Tab goes back) | D-pad right / left |
-| Skill book (your skills, their levels, the hotbar) | T | View |
-| Skill tree (learning) | N | A bumper, from the skill book |
-| Report a bug (press again to save it) | \ (Backspace twice throws it away) | Click both sticks |
+A character plays in one window at a time. When the server is updated, the world freezes under a
+notice and carries on by itself.
 
-**Fighting** (an enemy marked, or for a moment after you swing or cast) you keep facing where the
-camera looks: the stick strafes and backs off, a little slower than running ahead, and dodges and
-double jumps go whichever way you push without turning you. Sprint to turn and run. Out of a
-fight you turn and run the way you push. Your weapon comes out for a fight and goes away a few
-seconds after it (sword and club at the hip, staff and bow on the back); swing, shoot or cast and
-it's in your hand at once. Swimming, gliding, riding, or at the wheel, the oars or the helm, it's
-out of sight; with a trade pack on your back it only shows for a strike.
+## Bug Reports
 
-In the open world:
+Press `\` (the key next to Return), or click both sticks, the moment something goes wrong.
 
-| | Keyboard and mouse | Xbox controller |
-|---|---|---|
-| Interact (talk, plant, harvest, load, drive, build, ride along in a friend's vehicle, challenge another player to a mini-game) | F | Y |
-| At a mini-game's table: pick a card (two of a kind for a pair), click a glowing hex, take from the Harbour or the deck; right-click a card for more; give up | Mouse; Escape | |
-| Open the glider (in the air, after the double jump) / fold it | Space again, or G | A |
-| Glider: dive / flare | Shift / C | Click left / right stick |
-| Drive: throttle, steer, handbrake, boost | W S, A D, Space, Shift | Left stick, A |
-| Sail: raise / lower the sail | W / S | Left stick |
-| Call or dismiss your mount | R | D-pad down |
-| Auto-run, straight on where the camera looks (A, D strafe; W or S stop it); in a cart or a boat it holds the throttle | H or Num Lock | Click the left stick with it at rest |
-| Travel by road: pick a place on the map and you follow the roads there (moving yourself stops it; H sets off again) | Click it on the map (right-click for more) | D-pad on the map, then A |
-| Drop the pack on your back | X | |
-| Change the seed you plant | Z | |
-| Bag, map, vehicles, quest log | I, M, V, L | Menu, D-pad up |
-| Character (your gear) | P | |
-| Developer tools (give items, skip time, teleport) | ` | |
+1. The game keeps the last 30 seconds of play, then records your voice and the screen while you
+   say what happened and show it.
+2. Press `\` again to save it. The dev server writes the report to `bugs/<when>-<what>/`
+   (git-ignored).
+3. Type `/fix-bugs` in Claude Code to work through the open reports. For each one, it reproduces
+   the bug, fixes it, adds a test, and moves the report to `bugs/closed/`.
 
-## Bug reports
+`node tools/bugs.mjs` lists the reports from the terminal. A report holds:
 
-Press `\` (the key next to Return; or click both sticks) the moment something goes wrong. The game
-keeps the last 30 seconds of play, then records your voice and the screen while you say what
-happened and show it. Press `\` again to save it. The dev server writes the report to
-`bugs/<when>-<what>/` (git-ignored). Type `/fix-bugs` in Claude Code and it works through the open
-reports: it reads the transcript, looks at the frames, reproduces the bug, fixes it, adds a test,
-and moves the report to `bugs/closed/`.
+- the transcript and the recording;
+- a screenshot with the HUD, and frames from before the press;
+- the console and the game's events;
+- the player's path and inputs;
+- the save, so the bug can be replayed on the same character.
 
-A report holds: the transcript, `voice.wav`, a video, a screenshot with the HUD, frames from 30 s
-before the press, console output and errors, game events, the player's path and inputs, the full
-game state, and the island save (so the bug can be replayed on the same island).
-`node tools/bugs.mjs` lists and summarizes them from the terminal.
-
-- Live transcription uses the browser's speech recognition (Chrome runs it on Google's servers).
-  `?bugspeech=0` turns it off; `node tools/bugs.mjs transcribe <id>` transcribes `voice.wav`
-  locally with whisper.cpp instead (`brew install whisper-cpp` plus a model).
-- `?bugs=0` turns the reporter off. It's off in automated tests unless the URL asks for `&bugs`.
-- Saving needs the dev server (`npm run dev`). A server started before `vite.config.ts` existed
-  has to be restarted once.
+`?bugs=0` turns the reporter off. `?bugspeech=0` turns off live transcription (the browser's speech
+recognition). `node tools/bugs.mjs transcribe <id>` transcribes the recording locally with
+whisper.cpp.
 
 ## Tests
 
-Three tiers, explained in `docs/testing.md`: `npm run check` after every change (types, dead code,
-lints and the unit tests, in seconds), `npm run check:beta` before a push to beta (the game in a
-browser, with its servers), `npm run check:release` before a release (frame rates and crowds, on a
-real GPU). Tests that need a battle server start their own on ports 7791–7795, so they never join a
-game you're playing. `tests/integration/world.spec.ts` plays the open world (`/?world&test`) and
-`tests/integration/models.spec.ts` checks every procedural model.
+| When | Run | What it holds |
+|---|---|---|
+| After every change | `npm run check` | Types, format and lints, dead code, and the unit tests: seconds |
+| Before a push to `beta` | `npm run check:beta` | Adds the game in a browser, with its servers |
+| Before a release | `npm run check:release` | Adds frame rates and crowds, on a real GPU |
+
+`docs/testing.md` says what each tier holds and where a new test goes. The online tests need
+`npm run up`. To run the suite beside another checkout's, give it ports of its own:
+`PW_PORT=5211 TEST_PORT_OFFSET=10`.
 
 ## Balance
 
-`npm run balance` runs the builds in `tools/balance/scenario.json` against each other under the server's own hit
-resolution and prints a win-rate, time-to-kill and damage table (JSON on stdout for diffing, the
-table on stderr to read). Both fighters are driven by the same plain policy — walk in and swing —
-so it measures the paper matchup, not the played one: anything that wants to kite or space will
-read worse there than it plays. Use it to catch regressions and outliers, not to settle design.
+`npm run balance` runs the builds in `tools/balance/scenario.json` against each other under the
+server's own rules. It prints a table of win rates, times to kill and damage: the table on stderr
+to read, and JSON on stdout to compare.
+
+Both fighters follow the same plain policy (walk in and swing), so it measures the matchup on
+paper, not as played. Anything that kites or keeps its distance reads worse there than it plays.
+Use it to catch regressions and outliers, not to settle design.
+
+## Branches
+
+| Branch | How changes get in | Deploys to |
+|---|---|---|
+| `beta` (the default) | Push directly | https://ruinathegame-beta.up.railway.app |
+| `production` | Pull request from `beta`, with CI passing | https://ruinathegame-production.up.railway.app |
+
+What CI runs, Railway, and how a deploy reaches players: `docs/deploys.md`.
