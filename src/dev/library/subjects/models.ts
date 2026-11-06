@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-import emberholm from '../../../../shared/regions/emberholm.json' with { type: 'json' };
 import { buildAnimal, restartIdles as restartAnimals, type AnimalModel } from '../../../render/models/animals';
 import { buildVillager, restartIdles as restartVillagers, type VillagerModel } from '../../../render/models/villagers';
 import { buildMount, type MountModel } from '../../../render/models/mounts';
@@ -7,7 +6,7 @@ import { MOUNTS } from '../../../content/vehicles';
 import { ANIMALS } from '../../../content/farming';
 import { NodeTrack, readBones, sideOf, writeBones } from '../pose';
 import type { AnimDef, Bone, FrameInfo, Options, Phase, Posable, Snapshot, Source, Subject, Take } from '../types';
-import type { ZoneNpc } from '../../../engine/zone';
+import { EMBERHOLM } from '../../../engine/zone';
 
 // Things built as models with an animate() of their own (src/render/models/): the farm animals,
 // Emberholm's townsfolk and the mounts. Their moving parts are named pivots (body, head, armL,
@@ -235,7 +234,7 @@ function animalSubject(id: string): Subject {
 
 // ---------- townsfolk ----------
 
-const NPCS = (emberholm as unknown as { npcs: ZoneNpc[] }).npcs;
+const NPCS = EMBERHOLM.npcs;
 
 function villagerModel(id: string, talking: boolean): Model {
   restartVillagers();

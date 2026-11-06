@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import type { IslandView } from '../../engine/island';
-import type { SimView, PlayerState } from '../../engine/rules';
+import type { PlayerState } from '../../engine/rules';
 import { Hero } from '../character';
 import type { HouseView } from '../village/village';
 import { LifeView, sitIn, type Seated } from './life';
@@ -116,7 +116,7 @@ export class PeersView {
       const b = this.body(p);
       if (p.drawn) this.pose(p, b, dt, frame);
       else b.hero.root.visible = false;
-      b.view.update({ player: p.shown } as unknown as SimView, dt, cameraPos);
+      b.view.update(p.shown, dt, cameraPos);
       plateFor(b.label, p.away);
     }
   }

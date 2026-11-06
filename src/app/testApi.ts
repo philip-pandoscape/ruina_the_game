@@ -401,8 +401,7 @@ export function makeTestApi(g: GameRefs) {
      * or with `n` 0 every bot here sent away (the server's; crates/server/src/play/bots.rs).
      */
     sendBots(n: number, brain?: string, team?: number): boolean {
-      const c = { t: 'bots', n, brain, team } as unknown as Parameters<IslandView['command']>[0];
-      return g.online?.link.command((g.prediction?.seq ?? 0) + 1, c) ?? false;
+      return g.online?.link.command((g.prediction?.seq ?? 0) + 1, { t: 'bots', n, brain, team }) ?? false;
     },
     /** Jumps the player to (x, z) on the ground (`drawn` false leaves drawing it to the caller, as advance's does). */
     teleport(x: number, z: number, facing?: number, drawn = true): void {

@@ -1,6 +1,5 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import emberholm from '../../../../shared/regions/emberholm.json' with { type: 'json' };
 import { GLIDERS, MOUNTS, VEHICLES, isBoat } from '../../../content/vehicles';
 import { ANIMALS } from '../../../content/farming';
 import { part, toon } from '../../../render/toon';
@@ -17,7 +16,7 @@ import { buildStructure } from '../../../render/models/structures';
 import { buildVehicle } from '../../../render/models/vehicles';
 import { h } from '../dom';
 import type { AnimDef, Gallery, Options, Subject } from '../types';
-import type { ZoneNpc } from '../../../engine/zone';
+import { EMBERHOLM } from '../../../engine/zone';
 
 // Every procedural model (src/render/models), side by side next to a 1.9 m figure, as the model
 // gallery always drew them: a category at a time or all of them, one close up, turned, with the
@@ -71,7 +70,7 @@ interface Stat {
   max: number[];
 }
 
-const NPCS = (emberholm as unknown as { npcs: ZoneNpc[] }).npcs;
+const NPCS = EMBERHOLM.npcs;
 
 /** A plain 1.9 m person in the hero's colours, for scale. */
 function figure(): THREE.Group {

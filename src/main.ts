@@ -15,7 +15,7 @@ import { actorKindAt, actorKindIds, actorKindIndex, kindName } from './content/a
 import { isAlive, behaviour, stateProgress } from './engine/creatures';
 import { type Actions, type GameEvent, angleDiff, resolveSkills } from './engine/rules';
 import { dungeonDef, groundAt } from './engine/zone';
-import { type IslandView, ridden, hourAt, hourOfDay, skillBudget, type Command } from './engine/island';
+import { ridden, hourAt, hourOfDay, skillBudget, type Command } from './engine/island';
 import { Aiming } from './app/aiming';
 import { Hud } from './ui/hud';
 import { Stage, TRAINING_STAGE } from './render/scene';
@@ -419,7 +419,7 @@ function teleport(x: number, z: number, facing = engine.player.facing): void {
   walker?.stop();
   // Online only the server can move you.
   if (online) {
-    online.link.command((prediction?.seq ?? 0) + 1, { t: 'teleport', x, z, facing } as unknown as Parameters<IslandView['command']>[0]);
+    online.link.command((prediction?.seq ?? 0) + 1, { t: 'teleport', x, z, facing });
     return;
   }
   // Inside a dungeon its floors are all there is, over nothing.

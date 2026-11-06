@@ -13,7 +13,7 @@ import {
   sailEfficiency,
   stormAt,
 } from '../../engine/island';
-import { type SimView, type PlayerState, angleDiff } from '../../engine/rules';
+import { type PlayerState, angleDiff } from '../../engine/rules';
 import { toLocal, toWorld, type Heightfield } from '../../engine/zone';
 import type { Hero, SeatPose } from '../character';
 import { rideable, glider as gliderDef, isBoat, isMount, type RideableDef } from '../../content/vehicles';
@@ -620,11 +620,11 @@ export class LifeView {
     if (s.mount) s.mount(dt, { speed: Math.abs(v.speed), grounded: v.grounded });
   }
 
-  update(sim: SimView, dt: number, cameraPos: THREE.Vector3): void {
+  /** Draws the island's things as they are this frame; `p` is the one whose island it is (the pack on their back, the vehicle they drive). */
+  update(p: PlayerState, dt: number, cameraPos: THREE.Vector3): void {
     this.time += dt;
     const life = this.life;
     const hf = life.zone.gen.terrain;
-    const p = sim.player;
 
     if (life.revision !== this.builtRevision) {
       this.builtRevision = life.revision;

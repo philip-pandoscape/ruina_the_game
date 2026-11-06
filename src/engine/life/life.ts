@@ -33,6 +33,10 @@ export type Command =
   | { t: 'gust' }
   | { t: 'grant'; item?: string; n?: number; coins?: number; seals?: number; labor?: number }
   | { t: 'warp'; seconds: number }
+  /** The developer panel's teleport: online the channel moves you (offline the page does it itself). */
+  | { t: 'teleport'; x: number; z: number; facing?: number }
+  /** The developer panel's bots: `n` more round you (`brain`, a skirmisher by default; `team`, yours by default), or with `n` 0 every bot here gone. */
+  | { t: 'bots'; n: number; brain?: string; team?: number }
   /** Ride along in another player's vehicle (`host` is their character): the channel seats you. */
   | { t: 'ride'; host: number; vehicle: number };
 

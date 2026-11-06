@@ -329,7 +329,7 @@ export function makeDrawing(g: GameRefs) {
     drawSpells(alpha, animDt);
     if (!along) framePeers(animDt);
     if (life && lifeView) {
-      lifeView.update(g.sim, animDt, follow.camera.position);
+      lifeView.update(g.sim.player, animDt, follow.camera.position);
       lifeUI?.update(animDt);
       minigames?.update();
       party?.update();
