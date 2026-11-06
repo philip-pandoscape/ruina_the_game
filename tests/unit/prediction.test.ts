@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import type { WorldFeed } from '../../src/net/worldFeed';
+import { WorldFeed } from '../../src/net/worldFeed';
 import { Prediction, quantize } from '../../src/net/netPlayer';
 import { defaultBuild } from '../../src/content/build';
 import { Engine } from '../../src/engine/engine';
@@ -32,4 +32,19 @@ test('inputs are rounded as the server rebuilds them: a stick nudged just left o
   expect(Object.is(actions.aimX, 0)).toBe(true);
   expect(Object.is(actions.stickX, 0)).toBe(true);
   expect(Math.atan2(actions.moveX, actions.moveZ)).toBe(Math.PI);
+});
+
+test("moved into another game, the last word heard from the one you left doesn't take you back there", () => {
+  // The server moves you between games (into a dungeon's copy, back out) and says so; the page
+  // stands you where it put you (src/app/onlineWiring.ts onSpace). A tick from the game you left,
+  // heard just before that, was taken as the server's word on you at the next step, so you were put
+  // back at that game's spot (its own frame, far off in the world) until the next tick came.
+  const feed = new WorldFeed(() => {});
+  const engine = new Engine({ openWorld: false, online: true, build: defaultBuild() });
+  const inCopy = { ...JSON.parse(JSON.stringify(engine.player)), pos: { x: 0, y: 0.5, z: -3.5 } };
+  feed.applyWorld(40, { id: 1, ack: 12, player: inCopy }, [], [], [], []);
+  expect(feed.you?.player.pos.z).toBe(-3.5);
+  feed.resetWorld();
+  // Nothing of yours is left to take in until the new game's first tick.
+  expect(feed.you).toBeNull();
 });

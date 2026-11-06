@@ -89,9 +89,12 @@ export class WorldFeed {
 
   /**
    * You've gone into another game (a dungeon's copy, or back out), whose ticks count from
-   * somewhere else: what came before is forgotten, and the clock lines up again on the next.
+   * somewhere else: what came before is forgotten, and the clock lines up again on the next. So is
+   * the last game's word on you: the page has put you where the server says you are now, and its
+   * last tick from the game you left, heard just before, would take you back there.
    */
   resetWorld(): void {
+    this.you = null;
     this.tickOffset = null;
     this.actors = [];
     this.arrows = [];
