@@ -34,7 +34,7 @@
 {"name":"random play on the hills","input":{"spawn":{"x":104,"z":226,"facing":0},"glider":"swiftwing","pack":0,"steps":10,"gusts":[]},"hash":"1166311fed4d5e54"},
 {"name":"random play on the shore","input":{"spawn":{"x":-282,"z":-300,"facing":-1.5707963267948966},"glider":"wayfarer","pack":0,"steps":11,"gusts":[]},"hash":"d147aa9fc7e5165b"},
 {"name":"running over hills","input":{"spawn":{"x":84,"z":184,"facing":2.356194490192345},"glider":"","pack":0,"steps":12,"gusts":[]},"hash":"7043bcddaec5b811"},
-{"name":"swimming to the edge of the world","input":{"spawn":{"x":3,"z":-752,"facing":3.141592653589793},"glider":"","pack":0,"steps":13,"gusts":[]},"hash":"3a0d102c9f952786"},
+{"name":"swimming to the edge of the world","input":{"spawn":{"x":3,"z":-752,"facing":3.141592653589793},"glider":"","pack":0,"steps":13,"gusts":[]},"hash":"1a9c3c0a19c51e0b"},
 {"name":"wading and swimming off the beach","input":{"spawn":{"x":-228,"z":-300,"facing":-1.5707963267948966},"glider":"","pack":0,"steps":14,"gusts":[]},"hash":"d2883cf27726c397"},
 {"name":"walking into a cliff and along it","input":{"spawn":{"x":120,"z":228,"facing":-1.5707963267948966},"glider":"","pack":0,"steps":15,"gusts":[]},"hash":"94bedce3be3a43d9"},
 {"name":"walking into buildings","input":{"spawn":{"x":0,"z":-264,"facing":-1.5707963267948966},"glider":"","pack":0,"steps":16,"gusts":[]},"hash":"1b8cb5e02fb93183"},

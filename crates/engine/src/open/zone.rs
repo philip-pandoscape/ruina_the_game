@@ -22,6 +22,7 @@ pub mod surface {
 }
 
 /// The ground: a regular grid of heights plus a surface type per cell (src/engine/world/terrain.ts).
+#[derive(Clone)]
 pub struct Heightfield {
     /// Cells per side.
     pub cells: usize,
@@ -390,6 +391,11 @@ impl Zone {
     /// of a second for Emberholm.
     pub fn grow(recipe: Recipe) -> Zone {
         let g = super::generate::generate(&recipe);
+        Zone::of(recipe, g)
+    }
+
+    /// The zone a recipe grew into.
+    pub fn of(recipe: Recipe, g: super::generate::Generated) -> Zone {
         let radius = g.terrain.size() / 2.0 - 8.0;
         Zone { recipe, terrain: g.terrain, clear: g.clear, obstacles: g.obstacles, boxes: g.boxes, decks: g.decks, radius }
     }
@@ -402,7 +408,8 @@ pub fn emberholm_recipe() -> Recipe {
 
 /// Emberholm, the starter isle and the world's first region, grown the first time anything asks.
 pub fn emberholm() -> &'static Zone {
-    super::map::world_map().region("emberholm").expect("Emberholm is a region of the world (shared/world.json)").zone()
+    let map = super::map::world_map();
+    map.zone(map.region("emberholm").expect("Emberholm is a region of the world (shared/world.json)"))
 }
 
 #[cfg(test)]

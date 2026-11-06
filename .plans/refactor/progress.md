@@ -518,3 +518,21 @@ the developer zone; then the engine bridge (R6.4) and Phase 8's switches.
 - **Verified.** On its branch: `npm run check` and the integration tier (202 passed; the pointer-lock
   test fails on macOS as before). Merged: `npm run check` (247 TypeScript tests; 168 engine, 4
   WebAssembly and 75 server tests).
+
+## 2026-11-06: Borders With No Seam (R10.16)
+
+- **How.** Near a chunk's edge the ground is shared with what's across it: weights step smoothly
+  from one chunk to the next over 64 m either side and always sum to one, and the ground there is each
+  side's as its recipe grew it (a region's held at its edge past it, the open sea's its floor),
+  weighed together. Where every weight is one region's, its ground is its own to the bit. A region
+  bakes this into its grid as it grows, and the browser's grid and the conformance tool's come from the
+  same call, so what's drawn is what's walked on. Since the ground at a point is the same sum
+  whichever side works it out, two regions' edges are the same heights; the open sea near a region
+  slopes to meet it.
+- **Proved.** A fixture of two regions across a land border, one island grown half by each from its
+  own recipe (they differ by more than half a metre along the border grown alone): blended, the
+  border's heights are the same numbers on both sides, the ground never jumps, and a player walks
+  from one into the other. A region meets the open sea with no seam.
+- **What moved.** Emberholm's outer 64 m band, where its edge was as shallow as 6.8 m beside the
+  open sea's 30 m floor (an underwater cliff of up to 23 m): it slopes down to meet it now. One
+  golden answer moved, the edge scenario again.

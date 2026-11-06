@@ -1,16 +1,17 @@
 //! Prints the engine's island for tests/conformance/terrain.test.ts to check against the browser's:
 //!   terraincheck            stdin [[x, z], ...] -> stdout [[height, slope, surface], ...]
-//!   terraincheck --zone     stdout: Emberholm as the engine grows it from its recipe, all of it
+//!   terraincheck --zone     stdout: Emberholm as the engine grows it from its recipe where the world
+//!                           places it, all of it
 //!                           (ground, colliders, roads, ramps, placements, waterfalls, buildings)
 use std::io::Read;
 
-use ruina_engine::open::generate::generate;
+use ruina_engine::open::map::world_map;
 use ruina_engine::open::zone::{emberholm, emberholm_recipe};
 use serde_json::json;
 
 fn main() {
     if std::env::args().any(|a| a == "--zone") {
-        let g = generate(&emberholm_recipe());
+        let g = world_map().generate(&emberholm_recipe());
         let t = &g.terrain;
         let out = json!({
             "cells": t.cells,

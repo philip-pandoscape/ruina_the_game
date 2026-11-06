@@ -76,6 +76,7 @@ export const world = system({
   ],
   content: [
     'shared/world.json#chunk',
+    'shared/world.json#blend',
     'shared/world.json#sea',
     'shared/world.json#regions',
     'shared/zones/*.json#terrain',
@@ -166,7 +167,7 @@ Every region of the world is grown from a recipe: a list of where its coast runs
 
 ## The World
 
-The world is laid out on a grid of chunks, each ${metres(chunk, 0)} a side, and each region stands on a block of them: ${regions}. Wherever no region stands is open sea, ${metres(worldMap.sea.depth, 0)} deep, so you can swim or sail from one region to the next. The edge of the world is the edge of every region's chunks together, a rectangle round them all, and you are kept ${metres(edge, 0)} inside it.
+The world is laid out on a grid of chunks, each ${metres(chunk, 0)} a side, and each region stands on a block of them: ${regions}. Wherever no region stands is open sea, ${metres(worldMap.sea.depth, 0)} deep, so you can swim or sail from one region to the next. Where two regions meet, or a region meets the open sea, the ground either side of the border is shared over ${metres(worldMap.blend, 0)}: each side's as its recipe grew it, weighed together more and more evenly toward the border, so it meets with no seam, and so a region's coast slopes down to the open sea's floor. The edge of the world is the edge of every region's chunks together, a rectangle round them all, and you are kept ${metres(edge, 0)} inside it.
 
 ## The Ground
 

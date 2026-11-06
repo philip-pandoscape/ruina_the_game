@@ -21,7 +21,8 @@ use std::sync::OnceLock;
 use ruina_engine::open::OpenWorld;
 use ruina_engine::open::buildings::{building_colliders as solids_of, placed_plan};
 use ruina_engine::open::colliders::ground_at;
-use ruina_engine::open::generate::{Generated, generate};
+use ruina_engine::open::generate::Generated;
+use ruina_engine::open::map::world_map;
 use ruina_engine::open::zone::{Recipe, emberholm};
 
 /// Emberholm with its colliders, made the first time anything asks.
@@ -101,7 +102,8 @@ pub unsafe extern "C" fn zone_grow(p: *const u8, n: usize) -> u32 {
     let Ok(recipe) = serde_json::from_str::<Recipe>(unsafe { text(p, n) }) else {
         return 0;
     };
-    let g = generate(&recipe);
+    // As the world places it: a region's ground blended along its borders, as the rules have it.
+    let g = world_map().generate(&recipe);
     GROWN.with(|z| *z.borrow_mut() = Some(g));
     1
 }

@@ -101,4 +101,9 @@ test('a region the world puts where its grid is not, or on another region, fails
       w.regions[0].id = 'nowhere';
     }),
   ).toContain("there's no content/zones/nowhere.json");
+  expect(
+    broken('world.json', (w) => {
+      w.blend = 200;
+    }),
+  ).toContain("blend is 200, where it's from 0 to half a chunk");
 });

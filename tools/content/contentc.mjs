@@ -135,13 +135,17 @@ export function build(root = CONTENT) {
 /**
  * What's wrong with where the world puts its regions (content/world.json): each is a zone, its grid
  * covers exactly its chunks (its terrain's origin at their middle, its size theirs: a region's
- * recipe is written where it stands), its sea is the world's, and no chunk is two regions'.
+ * recipe is written where it stands), its sea is the world's, and no chunk is two regions'. Every
+ * region's cell is the same, a whole number to a chunk, so two regions' grids meet vertex for vertex
+ * where their ground is blended; the blend is at most half a chunk.
  */
 function world(b) {
   const w = b.get('world.json');
   if (!w) return [];
   const out = [];
+  if (!(w.blend >= 0 && w.blend <= w.chunk / 2)) out.push(`content/world.json: blend is ${w.blend}, where it's from 0 to half a chunk (${w.chunk / 2})`);
   const taken = new Map();
+  let cell;
   for (const r of w.regions ?? []) {
     const where = `content/world.json: ${r.id}`;
     const zone = b.get(`zones/${r.id}.json`);
@@ -164,6 +168,9 @@ function world(b) {
       out.push(`${where}: its grid is ${size} m a side (cells times cell), where its chunks are ${cw * w.chunk} by ${cd * w.chunk} m`);
     if (ox !== mid[0] || oz !== mid[1]) out.push(`${where}: its terrain's origin is (${ox}, ${oz}), where the middle of its chunks is (${mid[0]}, ${mid[1]})`);
     if (t.water !== w.sea?.level) out.push(`${where}: its sea level is ${t.water}, the world's ${w.sea?.level}`);
+    cell ??= t.cell;
+    if (t.cell !== cell || !Number.isInteger(w.chunk / t.cell))
+      out.push(`${where}: its cell is ${t.cell} m, where every region's is ${cell} m, a whole number of them to a ${w.chunk} m chunk`);
   }
   return out;
 }

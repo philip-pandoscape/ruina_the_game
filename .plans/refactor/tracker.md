@@ -1005,8 +1005,18 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
   was a circle of 760 m: the one golden answer that moved). `OpenWorld` stands on the map with every
   region's colliders. A region's terrain has an `origin`, so its recipe is in world coordinates. A
   fixture of two regions, an islet four chunks east of Emberholm across open sea, is crossed
-  swimming. Left: land borders (edge constraints, blending), growing and dropping regions by need,
-  `Life` across regions, the browser drawing a region placed away from the origin (R10.23).
+  swimming.
+  Borders (this commit): near a chunk's edge the ground is shared with what's across it, weights
+  stepping smoothly over `blend` (64 m) either side and summing to one, each side's ground as its
+  recipe grew it (the open sea's its floor). Each region bakes it into its grid as it grows (the
+  browser's `zone_grow` and the conformance tool the same, `WorldMap::generate`), so two regions'
+  edges are the same heights to the bit, and the open sea near a region slopes to meet it. Every
+  region's cell is the same, a whole number to a chunk (contentc). A fixture of two regions across a
+  land border, one island grown half by each with its own hills, is walked across; Emberholm changes
+  only in its outer band, where its edge sloped as much as 23 m under the open sea's floor (the edge
+  scenario's answer moved again). Left: growing and dropping regions by need (each grows the first
+  time anything asks, and stays), `Life` across regions, the browser drawing a region placed away
+  from the origin (R10.23).
 - [ ] **R10.17** Ids and the clock.
   - **Ids:** global 64-bit entity ids (a kind and an id) in the engine and the server.
     - Characters keep their database id.
@@ -1248,6 +1258,8 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
 | 2026-11-06 | R8.13, R8.12 | `src/sim/` gone: what the page reads in `src/engine/` (`shapes.ts`, `world/`, `life/`, `actors/`), behind seven front doors | ce064cc |
 | 2026-11-06 | R8.14 | Measured against where the refactor started (`tools/perf/measure.mjs`); the engine's view written straight from its values, a step 3.3 times cheaper; the Rust's comments name no TypeScript twin | eaa12d9 |
 | 2026-11-06 | R10.16, R10.1 | The world map in the engine: `content/world.json` places regions on 256 m chunks, open sea between; the ground, water and colliders answered across regions; the edge of the world is the map's | 8c79bdd |
+| 2026-11-06 | R9.1, R9.2 | Saved builds by id; the content's hash on the wire (a background agent, merged) | 29f0696, e06eda0, cb7bfa0 |
+| 2026-11-06 | R10.16 | Borders: the ground blended across them, regions meeting vertex for vertex and the open sea sloping to meet them; walked across a land border | (this commit) |
 | 2026-11-06 | R9.14 | `docs/content.md` | 5e23680 |
 | 2026-11-06 | R10.10, R11.1, R11.2, R11.7, R11.8 | Snapshot to move machines: the battle server's Rust gone; the asset manifest, loader and first-download budget, `docs/assets.md` | a975617 |
 | 2026-11-06 | R6.10, R6.11, R6.8 | The client's moves: creature bodies into src/render/creatures/, the root files to their areas, the library under src/dev/ | 9317ff3, 5de387d, 81df3de |

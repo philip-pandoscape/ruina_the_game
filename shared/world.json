@@ -1,6 +1,7 @@
 {
-  "comment": "Built from content/world.json by tools/content/contentc.mjs (npm run content): edit there, not here. The world: where each region stands on a grid of chunks (the unit a simulation owns), and the sea between them. A region is a zone (content/zones/<id>.json) whose recipe is written in world coordinates and whose grid covers exactly its chunks: its terrain's origin at their middle, its cells times its cell their size. Emberholm, the first region, is 6 x 6 chunks round the world's origin. Wherever no region stands is open sea, `sea.depth` metres deep; the edge of the world is the edge of every region's chunks together.",
+  "comment": "Built from content/world.json by tools/content/contentc.mjs (npm run content): edit there, not here. The world: where each region stands on a grid of chunks (the unit a simulation owns), and the sea between them. A region is a zone (content/zones/<id>.json) whose recipe is written in world coordinates and whose grid covers exactly its chunks: its terrain's origin at their middle, its cells times its cell their size. Emberholm, the first region, is 6 x 6 chunks round the world's origin. Wherever no region stands is open sea, `sea.depth` metres deep; the edge of the world is the edge of every region's chunks together. Where two regions meet, or a region meets the open sea, the ground either side of the border is blended over `blend` metres so it meets with no seam: every region's cell is the same size, a whole number of them to a chunk.",
   "chunk": 256,
+  "blend": 64,
   "sea": {
     "level": 0,
     "depth": 30

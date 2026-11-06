@@ -64,7 +64,7 @@ impl OpenWorld {
         map.grow_all();
         let (mut obstacles, mut boxes, mut decks) = (Vec::new(), Vec::new(), Vec::new());
         for r in map.regions() {
-            let z = r.zone();
+            let z = map.zone(r);
             obstacles.extend_from_slice(&z.obstacles);
             boxes.extend_from_slice(&z.boxes);
             decks.extend_from_slice(&z.decks);
