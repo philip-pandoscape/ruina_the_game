@@ -7,7 +7,9 @@
 use crate::jsmath::JsMath;
 use std::sync::OnceLock;
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
+
+use super::generate::{Forest, PropPlacement, Scatter, StructurePlacement, Terrain};
 
 /// What a patch of ground is made of (src/sim/terrain.ts SURFACE).
 pub mod surface {
@@ -38,6 +40,26 @@ pub struct Heightfield {
 }
 
 impl Heightfield {
+    /// A flat grid at height 0, all grass: `cells` a side, `cell` metres each, centred on the origin.
+    pub fn new(cells: usize, cell: f64, water: f64) -> Self {
+        let n = cells + 1;
+        Heightfield { cells, n, cell, water, min: -(cells as f64 * cell) / 2.0, heights: vec![0.0; n * n], surface: vec![surface::GRASS; cells * cells] }
+    }
+
+    /// World position of vertex `i` along either axis.
+    pub fn vx(&self, i: usize) -> f64 {
+        self.min + i as f64 * self.cell
+    }
+
+    /// The heights, a row of vertices at a time ((cells + 1) squared).
+    pub fn heights(&self) -> &[f32] {
+        &self.heights
+    }
+
+    pub(crate) fn heights_mut(&mut self) -> &mut [f32] {
+        &mut self.heights
+    }
+
     pub fn size(&self) -> f64 {
         self.cells as f64 * self.cell
     }
@@ -116,7 +138,8 @@ impl Heightfield {
 }
 
 /// Something round and solid the world was built with (src/sim/types.ts Obstacle).
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize)]
+#[serde(rename_all = "lowercase")]
 pub enum ObstacleKind {
     Tree,
     Rock,
@@ -126,18 +149,21 @@ pub enum ObstacleKind {
     Post,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Serialize)]
 pub struct Obstacle {
     pub kind: ObstacleKind,
     pub x: f64,
     pub z: f64,
     /// Collision radius; 0 once removed.
     pub r: f64,
+    /// How big it's drawn and which way it's turned (a tree's, a rock's); the rules don't read them.
+    pub scale: f64,
+    pub rot: f64,
 }
 
 /// A solid oriented rectangle (a building, a wall, a counter), infinitely tall below `top`; or,
 /// as a deck, a walkable platform whose ground is at `top` (src/sim/zone/types.ts BoxCollider).
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Serialize)]
 pub struct BoxCollider {
     pub x: f64,
     pub z: f64,
@@ -305,6 +331,15 @@ pub struct Recipe {
     pub name: String,
     pub seed: u32,
     pub climate: String,
+    /// The ground the generator grows (open/generate.rs), and what it places on it.
+    pub terrain: Terrain,
+    #[serde(default)]
+    pub structures: Vec<StructurePlacement>,
+    #[serde(default)]
+    pub props: Vec<PropPlacement>,
+    #[serde(default)]
+    pub forests: Vec<Forest>,
+    pub scatter: Scatter,
     pub spawn: Spawn,
     pub places: Vec<Place>,
     pub npcs: Vec<Npc>,
@@ -392,7 +427,8 @@ pub fn parse(b: &[u8], recipe: Recipe) -> Option<Zone> {
             3 => ObstacleKind::Hay,
             _ => ObstacleKind::Post,
         };
-        obstacles.push(Obstacle { kind, x: r.f64()?, z: r.f64()?, r: r.f64()? });
+        // The bake keeps what the rules read: not how big each is drawn, nor its turn.
+        obstacles.push(Obstacle { kind, x: r.f64()?, z: r.f64()?, r: r.f64()?, scale: 1.0, rot: 0.0 });
     }
     let boxes = r.rects()?;
     let decks = r.rects()?;

@@ -43,6 +43,8 @@ export interface ZoneRecipe {
       surface?: string;
       surfaceR?: number;
       seaFall?: number;
+      /** false: its ground stays open to trees, rocks and scarecrows (the fields); otherwise it's kept clear of them. */
+      keepClear?: boolean;
     }>;
     roads: Array<{ id: string; width: number; points: Array<[number, number]> }>;
     /** Waterfalls down a mountain's face (each cut after the trees and rocks are placed, so none of them move). */

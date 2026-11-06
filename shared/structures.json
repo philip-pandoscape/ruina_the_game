@@ -1,5 +1,5 @@
 {
-  "comment": "Built from content/structures.json by tools/content/contentc.mjs (npm run content): edit there, not here. Buildings and props the world is dressed with. w (along X) and d (along Z) are the footprint in metres, h the overall height. Each faces +Z (its front, door or counter side). collider: 'box' blocks the whole footprint, 'walls' blocks only the outer walls (with a door gap at the front, so you can walk in), 'none' is walkable decoration, 'post' a small round blocker of radius r. deck: a walkable platform top at this height (docks, launch decks), which the rules treat as ground. Read by src/content/structures.ts and the zone builder; the models in src/render/models/structures.ts are built to these exact sizes.",
+  "comment": "Built from content/structures.json by tools/content/contentc.mjs (npm run content): edit there, not here. Buildings and props the world is dressed with. w (along X) and d (along Z) are the footprint in metres, h the overall height. Each faces +Z (its front, door or counter side). collider: 'box' blocks the whole footprint, 'walls' blocks only the outer walls (with a door gap at the front, so you can walk in), 'none' is walkable decoration, 'post' a small round blocker of radius r. deck: a walkable platform top at this height (docks, launch decks), which the rules treat as ground. The island levels the ground under each to a pad unless it has a deck or pad is false (a farm plot, a scarecrow); seaLevel stands it at sea level rather than on the ground (a pier on its piles); clearMargin is how far round it trees and rocks are kept off (the zone's scatter.clearOfStructure if not given); surface is what the ground under it is made of (soil under a farm plot). Read by src/content/structures.ts and the zone builder; the models in src/render/models/structures.ts are built to these exact sizes.",
   "structures": [
     {
       "id": "cottage",
@@ -107,6 +107,7 @@
       "h": 1.6,
       "collider": "none",
       "deck": 1.4,
+      "seaLevel": true,
       "look": "Wooden pier: plank deck 4 wide x 16 long whose top is 1.4 above the model origin (sea level), thick round piles every 4 m going down to -3, bollards on the edges, a rope coil. Origin at the centre of the deck footprint."
     },
     {
@@ -211,6 +212,7 @@
       "h": 2.3,
       "collider": "post",
       "r": 0.25,
+      "pad": false,
       "look": "Farm-plot scarecrow: cross pole, sack head with a straw hat, patched shirt, straw tufts."
     },
     {
@@ -220,6 +222,9 @@
       "d": 8,
       "h": 0.15,
       "collider": "none",
+      "pad": false,
+      "clearMargin": 1,
+      "surface": "soil",
       "look": "8 x 8 patch of dark tilled soil with furrows running along Z, a low rim; sits 0.02-0.08 above the origin so it reads over grass."
     },
     {

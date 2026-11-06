@@ -22,6 +22,14 @@ export interface StructureDef {
   floor?: number;
   /** A walkable platform top this high above the origin. */
   deck?: number;
+  /** false: set on the ground as it lies (a farm plot, a scarecrow); otherwise the ground under it is levelled to a pad. */
+  pad?: boolean;
+  /** Stands at sea level rather than on the ground (a pier on its piles). */
+  seaLevel?: boolean;
+  /** How far round it the island keeps trees and rocks off (the zone's scatter.clearOfStructure if not given). */
+  clearMargin?: number;
+  /** What the ground under it is made of (src/sim/terrain.ts SURFACE: tilled soil under a farm plot). */
+  surface?: string;
   look: string;
   stages?: string[];
   interior?: Record<string, { x: number; z: number }>;

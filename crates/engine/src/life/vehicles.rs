@@ -1227,7 +1227,7 @@ mod tests {
         assert_eq!(w.summon("deed.farmCart"), None);
         assert_eq!(w.toasts(), ["Stand on solid ground to summon", "Stand on solid ground to summon"]);
         w.p.mode = Mode::Normal;
-        w.world.index.add_obstacle(Obstacle { kind: ObstacleKind::Rock, x: 0.0, z: -200.0, r: 30.0 });
+        w.world.index.add_obstacle(Obstacle { kind: ObstacleKind::Rock, x: 0.0, z: -200.0, r: 30.0, scale: 1.0, rot: 0.0 });
         assert_eq!(w.summon("deed.farmCart"), None);
         assert_eq!(w.toasts(), ["No room here"]);
         assert!(w.life.state.vehicles.is_empty());

@@ -208,7 +208,8 @@ mod tests {
 
     #[test]
     fn something_in_two_buckets_is_visited_once() {
-        let idx = ColliderIndex::new(vec![Obstacle { kind: super::super::zone::ObstacleKind::Rock, x: 16.0, z: 0.0, r: 3.0 }], vec![], vec![]);
+        let rock = Obstacle { kind: super::super::zone::ObstacleKind::Rock, x: 16.0, z: 0.0, r: 3.0, scale: 1.0, rot: 0.0 };
+        let idx = ColliderIndex::new(vec![rock], vec![], vec![]);
         let mut n = 0;
         idx.each_obstacle(14.0, 0.0, 4.0, |_| n += 1);
         assert_eq!(n, 1);

@@ -149,7 +149,11 @@ A new type of objective is a new mechanic: code.
 
 - **A structure** (a building's footprint and collider, a well, a dock): `content/structures/<id>.json`
   (template `structure.json`); placed on the island by an entry in
-  `content/zones/emberholm/structures.json` (template `zone/structures.json`).
+  `content/zones/emberholm/structures.json` (template `zone/structures.json`). How the island sits
+  it is its data too: the ground under it is levelled to a pad unless it has a `deck` or
+  `pad: false` (a farm plot, a scarecrow); `seaLevel: true` stands it at sea level (a pier);
+  `clearMargin` is how far round it trees and rocks are kept off; `surface` is what the ground
+  under it becomes (`soil` under a farm plot).
 - **A walk-in building**: a plan in `content/buildings/<id>.json` (template `building.json`), on
   the village kit's grid (`src/render/village/`), and a structure with `collider: building`. Its
   furniture, by piece: `content/furniture/<name>.json` (template `furniture.json`).
@@ -186,6 +190,10 @@ A new act or condition for brains is a new engine part: code, never a creature's
   `zone/workbenches.json`), at a place; its recipes name it as their `bench`.
 - **A house plot**: an entry in `content/zones/emberholm/housePlots.json` (template
   `zone/housePlots.json`).
+- **Level ground** (a town square, a quay, the fields): a `flatten` in the recipe's `terrain`
+  (`content/zones/emberholm.json`): a circle (`r`) or a rectangle (`w`, `d`) levelled to `h` (or to
+  the ground's own height there, `"auto"`) and blended out over `fall`, its `surface` painted. It's
+  kept clear of trees, rocks and scarecrows unless it has `keepClear: false` (the fields, farmed).
 - **A dungeon or a developer zone**: `content/dungeons/<id>.json` (template `dungeon.json`), as
   `docs/zones.md` says. A dungeon's dressing is still code (the refactor's R9.8).
 

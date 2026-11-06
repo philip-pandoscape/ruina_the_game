@@ -688,7 +688,10 @@ mod tests {
         }
         let a = g.actors.list.iter().find(|a| a.kind == "slime").unwrap();
         let p = g.players.open_view(client(1)).unwrap().0;
-        panic!("no slam landed: slime at {:.1},{:.1} y {:.2} angry {} state {}, player at {:.1},{:.2},{:.1}", a.x, a.z, a.y, a.angry, a.state, p.pos.x, p.pos.y, p.pos.z);
+        panic!(
+            "no slam landed: slime at {:.1},{:.1} y {:.2} angry {} state {}, player at {:.1},{:.2},{:.1}",
+            a.x, a.z, a.y, a.angry, a.state, p.pos.x, p.pos.y, p.pos.z
+        );
     }
 
     #[test]

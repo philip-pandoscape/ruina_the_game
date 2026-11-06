@@ -42,6 +42,18 @@
     "deck": {
       "type": "number"
     },
+    "seaLevel": {
+      "type": "boolean"
+    },
+    "pad": {
+      "type": "boolean"
+    },
+    "clearMargin": {
+      "type": "number"
+    },
+    "surface": {
+      "type": "string"
+    },
     "r": {
       "type": "number"
     },
