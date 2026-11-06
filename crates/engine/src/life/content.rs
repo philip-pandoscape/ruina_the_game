@@ -38,7 +38,11 @@ pub struct ItemDef {
     pub plants: Option<String>,
     /// Livestock: the animal this young one grows into.
     pub raises: Option<String>,
+    /// A placeable: what it places (a house blueprint, a ship design, a scarecrow), where
+    /// (`place_on`: "ground", "housePlot" or "slipway") and what using it tells you (`hint`).
     pub places: Option<String>,
+    pub place_on: Option<String>,
+    pub hint: Option<String>,
     pub glider: Option<String>,
     pub vehicle: Option<String>,
     pub mount: Option<String>,
@@ -115,6 +119,11 @@ pub fn items() -> &'static [ItemDef] {
 
 pub fn has_item_def(id: &str) -> bool {
     items().iter().any(|i| i.id == id)
+}
+
+/// Whether an item claims a house plot (a house blueprint).
+pub fn claims_plot(id: &str) -> bool {
+    item_def(id).place_on.as_deref() == Some("housePlot")
 }
 
 /// The item, or a placeholder for one that doesn't exist.
@@ -331,6 +340,8 @@ pub struct Rain {
     pub lasts_seconds: [f64; 2],
 }
 
+/// A tree felled: what it gives, for what labor, what that counts as for a quest (a gathering kind),
+/// and what rare thing may be in it.
 #[derive(Deserialize, Clone, Debug, Default)]
 #[serde(default)]
 pub struct Chop {
@@ -338,6 +349,8 @@ pub struct Chop {
     #[serde(rename = "yield")]
     pub yield_: [i64; 2],
     pub labor: f64,
+    pub kind: String,
+    pub rare: Option<Rare>,
 }
 
 #[derive(Deserialize, Clone, Debug, Default)]
@@ -363,11 +376,15 @@ pub struct CropDef {
     pub chop: Option<Chop>,
 }
 
+/// Something rare found now and then (in a felled tree, at a gathering spot): the item, the toast
+/// that tells you, and what it looks like where it was found ("thunder": a lightning strike).
 #[derive(Deserialize, Clone, Debug, Default)]
 #[serde(default)]
 pub struct Rare {
     pub item: String,
     pub chance: f64,
+    pub toast: String,
+    pub effect: Option<String>,
 }
 
 /// What a resource node gives when worked.

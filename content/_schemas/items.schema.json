@@ -30,6 +30,12 @@
     "places": {
       "type": "string"
     },
+    "placeOn": {
+      "type": "string"
+    },
+    "hint": {
+      "type": "string"
+    },
     "vehicle": {
       "type": "string"
     },

@@ -3,7 +3,7 @@
 //! real time - faster in its own climate, faster again when watered or rained on - whether or not
 //! you are watching.
 
-use super::content::{CropDef, climate_factor, crop_def, farm, item_def};
+use super::content::{CropDef, Rare, climate_factor, crop_def, farm, item_def};
 use super::livestock::step_animal;
 use super::state::{Plant, Scarecrow};
 use super::weather::raining;
@@ -366,7 +366,8 @@ pub fn harvest(life: &mut Life, sc: i64, idx: usize, y: f64) -> bool {
     true
 }
 
-/// Fells a grown tree for timber - with a small chance it was struck by lightning.
+/// Fells a grown tree for what its crop's `chop` gives - with a chance of something rare in it (a
+/// log struck by lightning).
 pub fn fell(life: &mut Life, sc: i64, idx: usize, y: f64) -> bool {
     let Some(k) = scarecrow_index(life, sc) else { return false };
     let Some(p) = life.state.scarecrows[k].cells.get(idx).and_then(|c| c.as_ref()) else { return false };
@@ -385,17 +386,26 @@ pub fn fell(life: &mut Life, sc: i64, idx: usize, y: f64) -> bool {
     let n = life.rand_int(chop.yield_[0], chop.yield_[1]);
     life.give(&chop.item, n, false);
     let (cx, cz) = cell_centre(&life.state.scarecrows[k], idx);
-    if life.rand() < 0.06 {
-        life.give("thunderLog", 1, false);
-        life.toast("⚡ A thunderstruck log! Lightning split this tree long ago.", "coin");
-        life.emit(LifeEvent::Thunder { x: cx, y, z: cz });
+    if let Some(rare) = &chop.rare
+        && life.rand() < rare.chance
+    {
+        find_rare(life, rare, cx, y, cz);
     }
     life.state.scarecrows[k].cells[idx] = None;
     life.revision += 1;
-    life.emit(LifeEvent::Gather { x: cx, y, z: cz, kind: "timber".into() });
+    life.emit(LifeEvent::Gather { x: cx, y, z: cz, kind: chop.kind.clone() });
     // Timber you grow counts for a step like "chop 10 lumber" as much as deadfall does.
-    life.notify(QuestEvent { kind: Some("timber".into()), amount: Some(n as f64), ..QuestEvent::new("gather") });
+    life.notify(QuestEvent { kind: Some(chop.kind.clone()), amount: Some(n as f64), ..QuestEvent::new("gather") });
     true
+}
+
+/// Something rare found where you felled or gathered: into your bag, with its toast and its effect there.
+pub fn find_rare(life: &mut Life, rare: &Rare, x: f64, y: f64, z: f64) {
+    life.give(&rare.item, 1, false);
+    life.toast(rare.toast.as_str(), "coin");
+    if rare.effect.as_deref() == Some("thunder") {
+        life.emit(LifeEvent::Thunder { x, y, z });
+    }
 }
 
 // The expected numbers here (yields, growth, positions, messages) are what the TypeScript rules

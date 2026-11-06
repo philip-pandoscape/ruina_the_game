@@ -6,7 +6,7 @@
 
 use std::collections::BTreeMap;
 
-use super::content::{Spot, StageDef, blueprint_def, format_coins, has_blueprint, pack_def, structure_def};
+use super::content::{Spot, StageDef, blueprint_def, format_coins, has_blueprint, item_def, pack_def, structure_def};
 use super::state::House;
 use super::trade::{carried, consume_carried};
 use super::{Life, LifeEvent, QuestEvent};
@@ -84,12 +84,12 @@ pub fn place_house(life: &mut Life, sim: &mut Sim, plot: &str, item: &str) -> bo
         life.toast("One house per settler on Emberholm (for now)", "bad");
         return false;
     }
-    let bp_id = item.replacen("blueprint.", "", 1);
-    // The TypeScript throws on a blueprint that doesn't exist.
-    if !has_blueprint(&bp_id) {
+    // The blueprint the item places (its `places`). The TypeScript throws on one that doesn't exist.
+    let bp_id = item_def(item).places.as_deref().unwrap_or_default();
+    if !has_blueprint(bp_id) {
         return false;
     }
-    let bp = blueprint_def(&bp_id);
+    let bp = blueprint_def(bp_id);
     if !life.take(item, 1) {
         return false;
     }

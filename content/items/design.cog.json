@@ -6,5 +6,7 @@
   "stack": 1,
   "value": 0,
   "places": "cog",
+  "placeOn": "slipway",
+  "hint": "Take it to the Lanternwick slipway beside the shipwright and press F there",
   "desc": "Lay down at the Lanternwick slipway, then build her in four stages from hauled lumber, iron and sailcloth packs."
 }

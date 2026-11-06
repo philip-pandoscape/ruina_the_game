@@ -2,7 +2,7 @@
 
 import { buildingPlan, MODULE, STOREY } from '../../content/buildings';
 import { BLUEPRINTS, type BlueprintDef } from '../../content/housing';
-import { VENDORS } from '../../content/items';
+import { ITEMS, VENDORS } from '../../content/items';
 import { CHALLENGE, MINIGAMES, type MiniGameDef, TABLE } from '../../content/minigames';
 import { type Objective, objectiveTarget, type QuestDef, QUESTS } from '../../content/quests';
 import { type PropDef, propDef, type StructureDef, structureDef, structureIds } from '../../content/structures';
@@ -114,7 +114,9 @@ export const blueprints = kind<BlueprintDef>({
   line: (b) => `A house built in ${b.stages.length} stages.`,
   explain: (b) => note('blueprints', b.id),
   facts: (b) => {
-    const sale = VENDORS.flatMap((v) => v.sells.map((s) => ({ v, s }))).find(({ s }) => s.item === `blueprint.${b.id}`);
+    // The item that claims a plot for this house, and who sells it.
+    const deed = ITEMS.find((i) => i.placeOn === 'housePlot' && i.places === b.id);
+    const sale = VENDORS.flatMap((v) => v.sells.map((s) => ({ v, s }))).find(({ s }) => s.item === deed?.id);
     const packs: Record<string, number> = {};
     let labor = 0;
     for (const s of b.stages) {

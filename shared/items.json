@@ -1,6 +1,46 @@
 {
-  "comment": "Built from content/items.json by tools/content/contentc.mjs (npm run content): edit there, not here. Things that live in your bag, who sells them, and what workbenches make. Read by src/content/items.ts. Prices are copper (100c = 1s, 100s = 1g). Trade and material packs are not items: they ride on your back or in a vehicle (shared/trade.json).",
+  "comment": "Built from content/items.json by tools/content/contentc.mjs (npm run content): edit there, not here. Things that live in your bag, who sells them, and what workbenches make. Read by src/content/items.ts. Prices are copper (100c = 1s, 100s = 1g). Trade and material packs are not items: they ride on your back or in a vehicle (shared/trade.json). `categories`: what each kind of item is called (`name` in a tooltip, `group` as a heading) and what using one is called in the bag (`verb`); what using it does is the rules' (src/sim/life/interact.ts useItem), so a new category is new code. A placeable says where it is placed (`placeOn`: ground, a farm plot's scarecrow; housePlot, a house blueprint; slipway, a ship design) and what using it tells you (`hint`).",
   "bagSlots": 30,
+  "categories": {
+    "seed": {
+      "name": "Seed",
+      "group": "Seeds and Young",
+      "verb": "Plant This"
+    },
+    "produce": {
+      "name": "Produce",
+      "group": "Produce"
+    },
+    "material": {
+      "name": "Material",
+      "group": "Materials"
+    },
+    "consumable": {
+      "name": "Consumable",
+      "group": "Consumables",
+      "verb": "Use"
+    },
+    "placeable": {
+      "name": "Placeable",
+      "group": "Placeables",
+      "verb": "Place"
+    },
+    "glider": {
+      "name": "Glider",
+      "group": "Gliders",
+      "verb": "Equip"
+    },
+    "deed": {
+      "name": "Vehicle Deed",
+      "group": "Deeds",
+      "verb": "Summon"
+    },
+    "mount": {
+      "name": "Mount",
+      "group": "Mounts",
+      "verb": "Call"
+    }
+  },
   "items": [
     {
       "id": "seed.sunroot",
@@ -172,6 +212,8 @@
       "stack": 5,
       "value": 40,
       "places": "scarecrow",
+      "placeOn": "ground",
+      "hint": "Walk to open, level ground and press F to place. Esc cancels.",
       "desc": "Claims an 8×8 m farm plot wherever the ground is open and level. Up to three."
     },
     {
@@ -182,6 +224,8 @@
       "stack": 1,
       "value": 300,
       "places": "cottage",
+      "placeOn": "housePlot",
+      "hint": "Take it to an empty plot at Hearthside Rise and press F there",
       "desc": "Claims an empty plot at Hearthside Rise. Build it in four stages by hauling materials to the site."
     },
     {
@@ -282,6 +326,8 @@
       "stack": 1,
       "value": 0,
       "places": "cog",
+      "placeOn": "slipway",
+      "hint": "Take it to the Lanternwick slipway beside the shipwright and press F there",
       "desc": "Lay down at the Lanternwick slipway, then build her in four stages from hauled lumber, iron and sailcloth packs."
     },
     {

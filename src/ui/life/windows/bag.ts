@@ -1,4 +1,4 @@
-import { BAG_SLOTS, itemDef, vendorFor } from '../../../content/items';
+import { BAG_SLOTS, CATEGORIES, itemDef, vendorFor } from '../../../content/items';
 import { packDef } from '../../../content/trade';
 import { carried } from '../../../sim/life/trade';
 import { gridHtml, slotHtml } from '../../components/slot';
@@ -107,13 +107,11 @@ export class BagWindow {
     const item = st.item;
     const def = itemDef(item);
     const out: MenuEntry[] = [];
-    const use = (label: string): MenuEntry => ({ label, run: () => this.use(item) });
-    if (def.cat === 'seed') out.push(s.seed === item ? { label: 'Planting This', disabled: 'F plants this seed already' } : use('Plant This'));
-    else if (def.cat === 'placeable') out.push(use('Place'));
-    else if (def.cat === 'glider') out.push(s.glider === def.glider ? { label: 'Equipped', disabled: 'This is the glider you fly' } : use('Equip'));
-    else if (def.cat === 'deed') out.push(use('Summon'));
-    else if (def.cat === 'mount') out.push(use('Call'));
-    else if (def.cat === 'consumable') out.push(use('Use'));
+    // Using it, as its category calls that (shared/items.json `categories`), unless it is in use already.
+    const verb = CATEGORIES[def.cat]?.verb;
+    if (def.cat === 'seed' && s.seed === item) out.push({ label: 'Planting This', disabled: 'F plants this seed already' });
+    else if (def.cat === 'glider' && s.glider === def.glider) out.push({ label: 'Equipped', disabled: 'This is the glider you fly' });
+    else if (verb) out.push({ label: verb, run: () => this.use(item) });
     const p = this.ui.panel();
     const trade: MenuEntry[] = [];
     if (p?.kind === 'shop') {

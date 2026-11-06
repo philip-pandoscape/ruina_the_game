@@ -1,7 +1,7 @@
 import type { Life } from './life';
 import type { Sim } from '../sim';
 import type { Plant, Scarecrow } from './state';
-import { climateFactor, cropDef, FARM } from '../../content/farming';
+import { climateFactor, cropDef, FARM, type RareFind } from '../../content/farming';
 import { itemDef } from '../../content/items';
 import { SURFACE } from '../terrain';
 import { raining } from './weather';
@@ -215,29 +215,33 @@ export function harvest(life: Life, sc: Scarecrow, idx: number, y: number): bool
   return true;
 }
 
-/** Fells a grown tree for timber - with a small chance it was struck by lightning. */
+/** Fells a grown tree for what its crop's `chop` gives - with a chance of something rare in it (a log struck by lightning). */
 export function fell(life: Life, sc: Scarecrow, idx: number, y: number): boolean {
   const p = sc.cells[idx];
   if (!p) return false;
   const def = cropDef(p.crop);
-  if (!def.chop || stageOf(p) < def.stages - 2) return false;
-  if (!life.hasRoom(def.chop.item, def.chop.yield[1])) {
+  const chop = def.chop;
+  if (!chop || stageOf(p) < def.stages - 2) return false;
+  if (!life.hasRoom(chop.item, chop.yield[1])) {
     life.toast('Your bag is full', 'bad');
     return false;
   }
-  if (!life.afford({ labor: def.chop.labor }, 'fell a tree')) return false;
-  const n = life.randInt(def.chop.yield[0], def.chop.yield[1]);
-  life.give(def.chop.item, n);
+  if (!life.afford({ labor: chop.labor }, 'fell a tree')) return false;
+  const n = life.randInt(chop.yield[0], chop.yield[1]);
+  life.give(chop.item, n);
   const c = cellCentre(sc, idx);
-  if (life.rand() < 0.06) {
-    life.give('thunderLog', 1);
-    life.toast('⚡ A thunderstruck log! Lightning split this tree long ago.', 'coin');
-    life.emit({ t: 'thunder', x: c.x, y, z: c.z });
-  }
+  if (chop.rare && life.rand() < chop.rare.chance) findRare(life, chop.rare, c.x, y, c.z);
   sc.cells[idx] = null;
   life.revision++;
-  life.emit({ t: 'gather', x: c.x, y, z: c.z, kind: 'timber' });
+  life.emit({ t: 'gather', x: c.x, y, z: c.z, kind: chop.kind });
   // Timber you grow counts for a step like "chop 10 lumber" as much as deadfall does.
-  life.notify({ type: 'gather', kind: 'timber', amount: n });
+  life.notify({ type: 'gather', kind: chop.kind, amount: n });
   return true;
+}
+
+/** Something rare found where you felled or gathered: into your bag, with its toast and its effect there. */
+export function findRare(life: Life, rare: RareFind, x: number, y: number, z: number): void {
+  life.give(rare.item, 1);
+  life.toast(rare.toast, 'coin');
+  if (rare.effect === 'thunder') life.emit({ t: 'thunder', x, y, z });
 }

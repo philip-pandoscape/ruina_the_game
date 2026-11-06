@@ -18,8 +18,19 @@ export interface CropDef {
   seedChance: number;
   harvestLabor: number;
   plantLabor: number;
-  chop?: { item: string; yield: [number, number]; labor: number };
+  /** A tree felled: what it gives, for what labor, what that counts as for a quest (a gathering kind), and what rare thing may be in it. */
+  chop?: { item: string; yield: [number, number]; labor: number; kind: string; rare?: RareFind };
   look: string;
+}
+
+/** Something rare found now and then: in a felled tree, at a gathering spot. */
+export interface RareFind {
+  item: string;
+  chance: number;
+  /** What tells you. */
+  toast: string;
+  /** What it looks like where it was found: thunder, a lightning strike. */
+  effect?: 'thunder';
 }
 
 export const FARM = {
@@ -41,7 +52,7 @@ export interface GatherDef {
   verb: string;
   respawn: number;
   kind: string;
-  rare?: { item: string; chance: number };
+  rare?: RareFind;
 }
 export const GATHERING = data.gathering as unknown as Record<string, GatherDef>;
 export const CROPS = data.crops as unknown as CropDef[];

@@ -24,7 +24,6 @@ function rules() {
     apart: f(/HALF \* 2 \+ ([\d.]+)\) return 'Overlaps another plot'/, 'the gap between plots'),
     housePlot: f(/p\.z - z\) < ([\d.]+)\) return 'That is a house plot'/, 'how far a plot keeps from a house plot'),
     clearance: f(/Math\.abs\(lx\) < HALF \+ o\.r \+ ([\d.]+)/, 'how far a plot keeps from trees and rocks'),
-    thunder: f(/life\.rand\(\) < ([\d.]+)\) \{\s*life\.give\('thunderLog'/, 'the chance a felled tree gives a thunderstruck log'),
     ahead: tsConst(interactSource, 'ahead'),
     turns: i(/pl\.rot = Math\.round\(p\.facing \/ \(Math\.PI \/ (\d+)\)\)/, 'the turns a plot is placed at'),
     cellAhead: i(/const tx = p\.pos\.x \+ fx \* ([\d.]+);/, 'how far ahead of you F finds a plot cell'),
@@ -91,11 +90,13 @@ export const farming = system({
   ],
   body: () => {
     const r = rules();
-    const sc = ITEMS.find((i) => i.places === 'scarecrow');
+    const sc = ITEMS.find((i) => i.placeOn === 'ground');
     const scSold = sc ? sellers(sc.id) : null;
     const scGivers = sc ? questsGiving(sc.id) : [];
     const fieldCrops = CROPS.filter((c) => c.kind !== 'tree');
     const trees = CROPS.filter((c) => c.kind === 'tree');
+    // What a felled tree may have in it: each tree's own (content/crops/), the same for every tree today.
+    const felledRare = trees.map((c) => c.chop?.rare).find((x) => x);
     const seeds = ITEMS.filter((i) => i.plants);
     const example = fieldCrops.find((c) => c.climate === Z.climate) ?? CROPS[0];
     const spots = Object.entries(GATHERING);
@@ -225,9 +226,9 @@ A tree that gives timber can be felled once it reaches its last-but-one stage. F
       'F',
     )} on it fells it whenever it isn't ripe, so a fruit tree that has been picked is felled, not watered, if you press ${key(
       'F',
-    )} on it: leave it be and it fruits again. Felling takes its labor and room in your bag for the most it could give, gives its timber, and empties the cell; ${pct(
-      r.thunder,
-    )} of felled trees give a ${link('items/thunderLog')} as well. Felled timber counts for a quest's gathering step, as deadfall does.
+    )} on it: leave it be and it fruits again. Felling takes its labor and room in your bag for the most it could give, gives its timber, and empties the cell${
+      felledRare ? phrase`; ${pct(felledRare.chance)} of felled trees give a ${link(`items/${felledRare.item}`)} as well` : ''
+    }. Felled timber counts for a quest's gathering step, as deadfall does.
 
 ${table(
   ['Tree', 'Climate', 'Grows Here', 'Fruits Again', 'Felled For'],

@@ -2,6 +2,7 @@ import type { Life } from './life';
 import type { Sim } from '../sim';
 import type { House } from './state';
 import { blueprintDef } from '../../content/housing';
+import { itemDef } from '../../content/items';
 import { structureDef } from '../../content/structures';
 import { packDef, formatCoins } from '../../content/trade';
 import { carried, consumeCarried } from './trade';
@@ -55,8 +56,8 @@ export function placeHouse(life: Life, sim: Sim, plot: string, item: string): bo
     life.toast('One house per settler on Emberholm (for now)', 'bad');
     return false;
   }
-  const bpId = item.replace('blueprint.', '');
-  const bp = blueprintDef(bpId);
+  // The blueprint the item places (its `places`).
+  const bp = blueprintDef(itemDef(item).places ?? '');
   if (!life.take(item, 1)) return false;
   const h: House = { id: life.nextId(), plot, blueprint: bp.id, stage: 0, delivered: {}, storage: [], taxPaidUntil: life.state.clock + bp.graceDays * DAY };
   life.state.houses.push(h);

@@ -172,10 +172,11 @@ pub fn craft_item(life: &mut Life, r: &RecipeDef) -> bool {
 
 pub fn run_recipe(life: &mut Life, sim: &mut Sim, id: &str) -> bool {
     let Some(r) = recipe(id) else { return false };
-    if r.makes.pack.as_deref().is_some_and(|p| !p.is_empty()) {
+    if let Some(pack) = r.makes.pack.as_deref().filter(|p| !p.is_empty()) {
+        // Made where its workbench stands; by a crafter, where the pack says it comes from.
         let zone = life.zone;
         let bench = zone.recipe.workbenches.iter().find(|b| b.id == r.bench);
-        return craft_pack(life, sim, r, bench.map_or("lanternwick", |b| b.place.as_str()));
+        return craft_pack(life, sim, r, bench.map_or_else(|| pack_def(pack).origin.as_str(), |b| b.place.as_str()));
     }
     craft_item(life, r)
 }

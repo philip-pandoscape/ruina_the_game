@@ -7,12 +7,13 @@ use std::collections::BTreeSet;
 use std::f64::consts::PI;
 
 use super::content::{
-    QuestDef, QuestStep, animal_def, blueprint_def, carry, crop_def, design_for_item, format_coins, gathering, item_def, pack_def, place_name, quest_def,
-    recipe as recipe_by_id, rideable, ship_design, structure_def,
+    QuestDef, QuestStep, animal_def, blueprint_def, carry, claims_plot, crop_def, design_for_item, format_coins, gathering, item_def, labor as labor_settings,
+    pack_def, place_name, quest_def, recipe as recipe_by_id, rideable, ship_design, structure_def,
 };
 use super::contracts::accept_contract;
 use super::farming::{
-    add_scarecrow, cell_at, cell_centre, fell, grow_for, harvest, is_ripe, plant, plant_at, plot_problem, scarecrow_index, seconds_to_ripe, stage_of, water,
+    add_scarecrow, cell_at, cell_centre, fell, find_rare, grow_for, harvest, is_ripe, plant, plant_at, plot_problem, scarecrow_index, seconds_to_ripe,
+    stage_of, water,
 };
 use super::housing::{
     DAY, Need, build_stage, deliver_material, house_on, house_pose, interior_point, is_complete, pay_tax, place_house, stage_ready, still_needs, tax_due,
@@ -523,7 +524,7 @@ pub fn find_focus(life: &mut Life, sim: &Sim) -> Option<Focus> {
             continue;
         }
         let Some(h) = h else {
-            let f = match life.state.bag.iter().find(|s| s.item.starts_with("blueprint.")) {
+            let f = match life.state.bag.iter().find(|s| claims_plot(&s.item)) {
                 Some(bp) => on_plot("claim", format!("Place {}", item_def(&bp.item).name), "Claims this plot", true),
                 None => on_plot("info", "Plot for claim".into(), "Needs a Cottage Blueprint - Land Registry", false),
             };
@@ -740,7 +741,7 @@ pub fn run_command(life: &mut Life, sim: &mut Sim, c: &Command) {
                 life.state.seals += seals;
             }
             if let Some(labor) = labor.filter(|&l| truthy(l)) {
-                life.state.labor = js_min(1000.0, life.state.labor + labor);
+                life.state.labor = js_min(labor_settings().max, life.state.labor + labor);
             }
         }
         Command::Warp { seconds } => {
@@ -802,14 +803,16 @@ fn use_item(life: &mut Life, sim: &mut Sim, item: &str) {
             life.state.seed = item.to_string();
             life.toast(format!("F plants {} now", def.name), "info");
         }
-        "placeable" => match def.places.as_deref() {
-            Some("scarecrow") => {
+        // Set down on open ground ahead of you (a farm plot's scarecrow); a house blueprint or a ship
+        // design is placed with F at a house plot or a slipway, as its hint says.
+        "placeable" => {
+            if def.place_on.as_deref() == Some("ground") {
                 life.placing = Some(Placement { item: item.to_string(), x: 0.0, z: 0.0, rot: 0.0, problem: None });
-                life.toast("Walk to open, level ground and press F to place. Esc cancels.", "info");
             }
-            Some("cog") => life.toast("Take it to the Lanternwick slipway beside the shipwright and press F there", "info"),
-            _ => life.toast("Take it to an empty plot at Hearthside Rise and press F there", "info"),
-        },
+            if let Some(hint) = def.hint.as_deref().filter(|h| !h.is_empty()) {
+                life.toast(hint, "info");
+            }
+        }
         "glider" => {
             let glider = def.glider.clone().unwrap_or_default();
             life.state.glider = glider.clone();
@@ -826,7 +829,7 @@ fn use_item(life: &mut Life, sim: &mut Sim, item: &str) {
         "consumable" => {
             if let Some(labor) = def.use_.as_ref().and_then(|u| u.labor).filter(|&l| truthy(l)) {
                 life.take(item, 1);
-                life.state.labor = js_min(1000.0, life.state.labor + labor);
+                life.state.labor = js_min(labor_settings().max, life.state.labor + labor);
                 life.toast(format!("+{} labor", num(labor)), "good");
             }
         }
@@ -922,7 +925,7 @@ fn interact(life: &mut Life, sim: &mut Sim) {
         }
         "gather" => gather(life, &f),
         "claim" => {
-            let bp = life.state.bag.iter().find(|s| s.item.starts_with("blueprint.")).map(|s| s.item.clone());
+            let bp = life.state.bag.iter().find(|s| claims_plot(&s.item)).map(|s| s.item.clone());
             if let Some(bp) = bp {
                 place_house(life, sim, &f.plot.clone().unwrap_or_default(), &bp);
             }
@@ -1013,9 +1016,7 @@ fn gather(life: &mut Life, f: &Focus) {
     if let Some(rare) = &y.rare
         && life.rand() < rare.chance
     {
-        life.give(&rare.item, 1, false);
-        life.toast("⚡ A thunderstruck log!", "coin");
-        life.emit(LifeEvent::Thunder { x: nd.x, y: f.y, z: nd.z });
+        find_rare(life, rare, nd.x, f.y, nd.z);
     }
     let back = life.state.clock + y.respawn;
     life.state.nodes.insert(i.to_string(), back);

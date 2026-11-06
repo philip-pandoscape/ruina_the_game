@@ -1,5 +1,5 @@
 import { GATHERING } from '../../../content/farming';
-import { RECIPES, VENDORS } from '../../../content/items';
+import { claimsPlot, RECIPES, VENDORS } from '../../../content/items';
 import { type Objective, objectiveTarget, type QuestMarker, questDef } from '../../../content/quests';
 import { structureDef } from '../../../content/structures';
 import { packDef, placeName } from '../../../content/trade';
@@ -87,9 +87,9 @@ function objectiveGoal(life: Life, sim: Sim, o: Objective): Goal | null {
       return isComplete(h) ? site : fetchFor(life, sim, stillNeeds(h), stageReady(h), site);
     }
     // No blueprint to place yet: whoever sells them.
-    const vendor = VENDORS.find((v) => v.sells.some((x) => x.item.startsWith('blueprint.')));
+    const vendor = VENDORS.find((v) => v.sells.some((x) => claimsPlot(x.item)));
     const seller = vendor ? r.npcs.find((x) => x.id === vendor.npc) : undefined;
-    if (seller && !s.bag.some((x) => x.item.startsWith('blueprint.'))) return { x: seller.x, z: seller.z, label: seller.name };
+    if (seller && !s.bag.some((x) => claimsPlot(x.item))) return { x: seller.x, z: seller.z, label: seller.name };
   }
   // Where the quest says: a place, a trading post, a workbench or a slipway. A pack with no bench
   // to make it is made at the island's first.

@@ -1,7 +1,7 @@
 // Items, the recipes that make things, the vendors who sell and buy them, and the workbenches.
 
 import { ANIMALS, CROPS, GATHERING } from '../../content/farming';
-import { BAG_SLOTS, type ItemCat, type ItemDef, ITEMS, RECIPES, type RecipeDef, VENDORS, type VendorDef } from '../../content/items';
+import { BAG_SLOTS, CATEGORIES, type ItemCat, type ItemDef, ITEMS, RECIPES, type RecipeDef, VENDORS, type VendorDef } from '../../content/items';
 import { QUESTS } from '../../content/quests';
 import { PACKS } from '../../content/trade';
 import { VEHICLES } from '../../content/vehicles';
@@ -25,16 +25,8 @@ import {
   ZONE,
 } from './refs';
 
-const CATEGORY: Record<ItemCat, string> = {
-  seed: 'Seeds and Young',
-  produce: 'Produce',
-  material: 'Materials',
-  consumable: 'Consumables',
-  placeable: 'Placeables',
-  glider: 'Gliders',
-  deed: 'Deeds',
-  mount: 'Mounts',
-};
+/** A category's heading (shared/items.json `categories`). */
+const CATEGORY = (cat: ItemCat): string => CATEGORIES[cat]?.group ?? cat;
 
 const bullets = (list: Html[]): Html => blockHtml(`<ul>${list.map((f) => `<li>${f.html}</li>`).join('')}</ul>`);
 
@@ -76,21 +68,21 @@ export const items = kind<ItemDef>({
   noun: 'Item',
   icon: '🎒',
   summary: 'Everything that lives in your bag: seeds, produce, materials, deeds, whistles and the rest.',
-  sources: ['shared/items.json#items', 'shared/items.json#bagSlots'],
+  sources: ['shared/items.json#items', 'shared/items.json#bagSlots', 'shared/items.json#categories'],
   systems: ['economy', 'farming', 'trade'],
   all: () => ITEMS,
   key: (it) => it.id,
   name: (it) => it.name,
   iconOf: (it) => it.icon,
   itemId: (it) => it.id,
-  group: (it) => CATEGORY[it.cat],
+  group: (it) => CATEGORY(it.cat),
   line: (it) => it.desc,
   explain: (it) => described(it.desc),
   facts: (it) => {
     const offers = offersOf(it.id);
     const buyers = VENDORS.filter((v) => v.buys.includes(it.id));
     return [
-      ['Kind', CATEGORY[it.cat]],
+      ['Kind', CATEGORY(it.cat)],
       ['Stacks to', it.stack],
       ['Worth', coins(it.value)],
       ['Sold by', offers.length ? raw(offers.map((o) => `${npcLink(o.vendor.npc).html}: ${priceHtml(o.price, o.seals).html}`).join('<br>')) : null],

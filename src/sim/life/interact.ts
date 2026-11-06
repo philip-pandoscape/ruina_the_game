@@ -1,15 +1,15 @@
 import type { Life, Command } from './life';
 import type { Sim } from '../sim';
-import { CARRY, formatCoins, packDef, placeName } from '../../content/trade';
+import { CARRY, formatCoins, LABOR, packDef, placeName } from '../../content/trade';
 import { animalDef, cropDef, GATHERING } from '../../content/farming';
 import { collect, feed, grownUp, hungry, produceReady, raise } from './livestock';
-import { itemDef, recipe as recipeById, recipesAt } from '../../content/items';
+import { claimsPlot, itemDef, recipe as recipeById, recipesAt } from '../../content/items';
 import { blueprintDef } from '../../content/housing';
 import { structureDef } from '../../content/structures';
 import { rideable, isMount } from '../../content/vehicles';
 import { toLocal } from '../zone/generate';
 import { closeGlider, gliderBlocked, gust, openGlider } from '../player/traverse';
-import { addScarecrow, cellAt, cellCentre, fell, harvest, isRipe, plant, plotProblem, secondsToRipe, stageOf, water, growFor } from './farming';
+import { addScarecrow, cellAt, cellCentre, fell, findRare, harvest, isRipe, plant, plotProblem, secondsToRipe, stageOf, water, growFor } from './farming';
 import { buy, buyBack, carried, dropPack, pickUp, quote, recoverDemand, runRecipe, sell, loadPack, unloadPack, sellPack } from './trade';
 import { board, dismount, distanceTo, mountCommand, nearestAnchor, packBlocks, recall, ridden, summon } from './vehicles';
 import { buildStage, deliverMaterial, houseOn, housePose, interiorPoint, isComplete, payTax, placeHouse, stageReady, stillNeeds, taxDue, DAY } from './housing';
@@ -148,7 +148,7 @@ export function findFocus(life: Life, sim: Sim): Focus | null {
     return {
       action: 'placeScarecrow',
       key: 'place',
-      label: pl.problem ? pl.problem : 'Place Scarecrow Here',
+      label: pl.problem ? pl.problem : `Place ${itemDef(pl.item).name} Here`,
       detail: 'Esc to Cancel',
       ok: !pl.problem,
       x: pl.x,
@@ -504,7 +504,7 @@ export function findFocus(life: Life, sim: Sim): Focus | null {
       continue;
     }
     if (!h) {
-      const bp = life.state.bag.find((s) => s.item.startsWith('blueprint.'));
+      const bp = life.state.bag.find((s) => claimsPlot(s.item));
       consider(
         bp
           ? {
@@ -762,7 +762,7 @@ export function runCommand(life: Life, sim: Sim, c: Command): void {
       if (c.item) life.give(c.item, c.n ?? 1);
       if (c.coins) life.state.coins += c.coins;
       if (c.seals) life.state.seals += c.seals;
-      if (c.labor) life.state.labor = Math.min(1000, life.state.labor + c.labor);
+      if (c.labor) life.state.labor = Math.min(LABOR.max, life.state.labor + c.labor);
       return;
     case 'warp':
       life.state.clock += c.seconds;
@@ -786,11 +786,10 @@ function useItem(life: Life, sim: Sim, item: string): void {
       life.toast(`F plants ${def.name} now`, 'info');
       return;
     case 'placeable':
-      if (def.places === 'scarecrow') {
-        life.placing = { item, x: 0, z: 0, rot: 0, problem: null };
-        life.toast('Walk to open, level ground and press F to place. Esc cancels.', 'info');
-      } else if (def.places === 'cog') life.toast('Take it to the Lanternwick slipway beside the shipwright and press F there', 'info');
-      else life.toast('Take it to an empty plot at Hearthside Rise and press F there', 'info');
+      // Set down on open ground ahead of you (a farm plot's scarecrow); a house blueprint or a ship
+      // design is placed with F at a house plot or a slipway, as its hint says.
+      if (def.placeOn === 'ground') life.placing = { item, x: 0, z: 0, rot: 0, problem: null };
+      if (def.hint) life.toast(def.hint, 'info');
       return;
     case 'glider':
       life.state.glider = def.glider!;
@@ -805,7 +804,7 @@ function useItem(life: Life, sim: Sim, item: string): void {
     case 'consumable':
       if (def.use?.labor) {
         life.take(item, 1);
-        life.state.labor = Math.min(1000, life.state.labor + def.use.labor);
+        life.state.labor = Math.min(LABOR.max, life.state.labor + def.use.labor);
         life.toast(`+${def.use.labor} labor`, 'good');
       }
       return;
@@ -901,11 +900,7 @@ function interact(life: Life, sim: Sim): void {
       if (!life.afford({ labor: y.labor }, y.verb.toLowerCase())) return;
       const n = life.randInt(y.n[0], y.n[1]);
       life.give(y.item, n);
-      if (y.rare && life.rand() < y.rare.chance) {
-        life.give(y.rare.item, 1);
-        life.toast('⚡ A thunderstruck log!', 'coin');
-        life.emit({ t: 'thunder', x: nd.x, y: f.y, z: nd.z });
-      }
+      if (y.rare && life.rand() < y.rare.chance) findRare(life, y.rare, nd.x, f.y, nd.z);
       life.state.nodes[f.node!] = life.state.clock + y.respawn;
       life.revision++;
       life.emit({ t: 'gather', x: nd.x, y: f.y, z: nd.z, kind: y.kind });
@@ -914,7 +909,7 @@ function interact(life: Life, sim: Sim): void {
       return;
     }
     case 'claim': {
-      const bp = life.state.bag.find((s) => s.item.startsWith('blueprint.'));
+      const bp = life.state.bag.find((s) => claimsPlot(s.item));
       if (bp) placeHouse(life, sim, f.plot!, bp.item);
       return;
     }

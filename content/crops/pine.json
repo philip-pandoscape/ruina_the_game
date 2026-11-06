@@ -22,7 +22,14 @@
       7,
       10
     ],
-    "labor": 8
+    "labor": 8,
+    "kind": "timber",
+    "rare": {
+      "item": "thunderLog",
+      "chance": 0.06,
+      "toast": "⚡ A thunderstruck log! Lightning split this tree long ago.",
+      "effect": "thunder"
+    }
   },
   "look": "Conifer. Sapling: tiny cone of needles. Young: 2 m pine. Grown: 5 m pine. Ripe: same 6 m pine with cones (the 'ready to fell' look)."
 }

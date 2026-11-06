@@ -73,7 +73,6 @@ export const economy = system({
     const silver = worthOf('s');
     const gold = worthOf('g');
     const startCoins = sourceNumber(lifeSource, /coins: opts\.coins \?\? (\d+)/, 'the coins a new character starts with');
-    const tonicCap = sourceNumber(interactSource, /Math\.min\(([\d.]+), life\.state\.labor \+ def\.use\.labor\)/, 'the most labor a tonic tops you up to');
     const restSpeed = sourceNumber(
       interactSource,
       /Math\.hypot\(p\.vel\.x, p\.vel\.z\) > ([\d.]+) \|\| p\.mode !== 'normal'\) life\.resting = false/,
@@ -144,7 +143,7 @@ Time away counts up to ${duration(CLOCK.maxOfflineSeconds)} at a time. To rest, 
       restSpeed,
     )} or do anything but stand, and the bed becomes your home. ${
       tonic
-        ? phrase`A ${link(`items/${tonic.id}`, tonic.name)} gives ${num(tonic.use?.labor ?? 0)} labor at once, though never past ${num(tonicCap)}${
+        ? phrase`A ${link(`items/${tonic.id}`, tonic.name)} gives ${num(tonic.use?.labor ?? 0)} labor at once, though never past ${num(LABOR.max)}${
             tonicRecipe
               ? phrase`; ${maker(tonicRecipe.bench)} makes them, from ${raw(
                   (tonicRecipe.inputs ?? []).map((i) => phrase`${i.n} ${link(`items/${i.item}`, itemName(i.item))}`.html).join(', '),

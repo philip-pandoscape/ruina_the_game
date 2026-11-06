@@ -1,7 +1,7 @@
 // Housing: written from its rules (`rules` below); every number from the content and the rules.
 
 import { BLUEPRINTS, type BlueprintDef } from '../../content/housing';
-import { ITEMS, RECIPES, VENDORS } from '../../content/items';
+import { claimsPlot, ITEMS, RECIPES, VENDORS } from '../../content/items';
 import { CLOCK, LABOR, packDef } from '../../content/trade';
 import { DAY, HOUSE_SETBACK } from '../../sim/life/housing';
 import { EMBERHOLM } from '../../sim/zone/world';
@@ -87,7 +87,7 @@ export const housing = system({
   content: ['shared/housing.json#blueprints', 'shared/zones/*.json#housePlots'],
   body: () => {
     const bp = BLUEPRINTS[0];
-    const sale = VENDORS.flatMap((v) => v.sells.map((s) => ({ v, s }))).filter(({ s }) => s.item.startsWith('blueprint.'));
+    const sale = VENDORS.flatMap((v) => v.sells.map((s) => ({ v, s }))).filter(({ s }) => claimsPlot(s.item));
     const week = RULE.week();
     return join(
       md`

@@ -10,6 +10,8 @@
   "kind": "timber",
   "rare": {
     "item": "thunderLog",
-    "chance": 0.04
+    "chance": 0.04,
+    "toast": "⚡ A thunderstruck log!",
+    "effect": "thunder"
   }
 }

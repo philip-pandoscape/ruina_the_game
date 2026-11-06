@@ -1,5 +1,5 @@
 import { cropDef, CLIMATES } from '../../content/farming';
-import { itemDef, vendorFor } from '../../content/items';
+import { CATEGORIES, itemDef, vendorFor } from '../../content/items';
 import { packDef, placeName } from '../../content/trade';
 import { shortTime } from '../../sim/life/interact';
 import { esc } from '../../util/html';
@@ -9,18 +9,8 @@ import type { IslandUI } from './context';
 
 // The island's tooltips (src/ui/theme/tooltip.ts): what an item, a trade pack, an empty slot or
 // your weapon is, for anything in the HUD or a window whose data-tip is item:, pack:, slot: or
-// weapon: followed by its id.
-
-const CAT: Record<string, string> = {
-  seed: 'Seed',
-  produce: 'Produce',
-  material: 'Material',
-  consumable: 'Consumable',
-  placeable: 'Placeable',
-  glider: 'Glider',
-  deed: 'Vehicle Deed',
-  mount: 'Mount',
-};
+// weapon: followed by its id. What an item's category is called is content (shared/items.json
+// `categories`).
 
 /** The tooltip for a data-tip, or null when it isn't one of the island's. */
 export function islandTip(ui: IslandUI, tip: string): string | null {
@@ -54,7 +44,7 @@ export function islandTip(ui: IslandUI, tip: string): string | null {
         : it.value
           ? `<div class="row"><span class="muted">Worth</span>${money(it.value, 12)}</div>`
           : '';
-    return `<h5>${esc(it.name)}</h5><div class="ty">${CAT[it.cat] ?? it.cat}${it.stack > 1 ? ` · Stacks to ${it.stack}` : ''}</div><p>${esc(it.desc)}</p>${extra}${sells ? `<hr>${sells}` : ''}`;
+    return `<h5>${esc(it.name)}</h5><div class="ty">${CATEGORIES[it.cat]?.name ?? it.cat}${it.stack > 1 ? ` · Stacks to ${it.stack}` : ''}</div><p>${esc(it.desc)}</p>${extra}${sells ? `<hr>${sells}` : ''}`;
   }
   if (kind === 'pack') {
     try {

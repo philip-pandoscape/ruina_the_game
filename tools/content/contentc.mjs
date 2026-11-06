@@ -166,6 +166,12 @@ function ids(b) {
   const inZone = (key) => new Set((zone[key] ?? []).map((x) => x.id));
   return {
     item: list('items.json', 'items'),
+    category: new Set(Object.keys(b.get('items.json')?.categories ?? {})),
+    // The rules' ways of placing a thing and of showing a rare find (src/sim/life/interact.ts, farming.ts).
+    placement: new Set(['ground', 'housePlot', 'slipway']),
+    effect: new Set(['thunder']),
+    blueprint: list('housing.json', 'blueprints'),
+    shipDesign: list('shipyard.json', 'designs'),
     npc: inZone('npcs'),
     workbench: inZone('workbenches'),
     place: inZone('places'),
@@ -189,6 +195,12 @@ function ids(b) {
 const REFS = [
   { bundles: /^(items|quests|trade|farming|housing|shipyard|vehicles)\.json$/, key: 'item', kind: 'item' },
   { bundles: /^items\.json$/, key: 'npc', kind: 'npc' },
+  // An item's category, and for a placeable what it places and where.
+  { bundles: /^items\.json$/, key: 'cat', kind: 'category' },
+  { bundles: /^items\.json$/, key: 'places', kind: ['blueprint', 'shipDesign', 'structure'] },
+  { bundles: /^items\.json$/, key: 'placeOn', kind: 'placement' },
+  // What a rare find looks like where it's found.
+  { bundles: /^farming\.json$/, key: 'effect', kind: 'effect' },
   { bundles: /^quests\.json$/, key: 'giver', kind: 'npc' },
   { bundles: /^quests\.json$/, key: 'turnIn', kind: 'npc' },
   // An objective's person, place or trading post, and where its marker points (a place, a trading

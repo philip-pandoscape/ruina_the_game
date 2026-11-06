@@ -129,8 +129,9 @@ export function runRecipe(life: Life, sim: Sim, id: string): boolean {
   const r = recipeDef(id);
   if (!r) return false;
   if (r.makes.pack) {
+    // Made where its workbench stands; by a crafter, where the pack says it comes from.
     const bench = life.zone.recipe.workbenches.find((b) => b.id === r.bench);
-    return craftPack(life, sim, r, bench?.place ?? 'lanternwick');
+    return craftPack(life, sim, r, bench?.place ?? packDef(r.makes.pack).origin);
   }
   return craftItem(life, r);
 }

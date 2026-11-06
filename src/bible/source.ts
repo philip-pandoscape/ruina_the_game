@@ -1,12 +1,12 @@
 // Numbers the rules hold in their source without exporting them (how long the server keeps a
-// dungeon's copy, the chance of a thunderstruck log), read from that source as the bible is built,
+// dungeon's copy, the steepest ground a farm plot takes), read from that source as the bible is built,
 // so they are the rules' own and change when they do. Import the source with `?raw`:
 //
 //   import spaces from '../../../crates/server/src/play/spaces.rs?raw';
 //   rustConst(spaces, 'COPY_KEPT')                         // a Rust const, Durations in seconds
 //   import farming from '../../sim/life/farming.ts?raw';
 //   tsConst(farming, 'HALF')                               // a TypeScript const of plain numbers
-//   sourceNumber(farming, /life\.rand\(\) < ([\d.]+)/, 'the chance of a thunderstruck log')
+//   sourceNumber(farming, /hf\.slope\(px, pz\) > ([\d.]+)\)/, 'the steepest ground a plot takes')
 //
 // A number that is gone, or no longer a plain number, throws: the completeness test draws every page
 // (tests/unit/bible.test.ts), so it fails until the page is brought up to date.

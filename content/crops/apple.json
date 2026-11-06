@@ -22,7 +22,14 @@
       4,
       6
     ],
-    "labor": 8
+    "labor": 8,
+    "kind": "timber",
+    "rare": {
+      "item": "thunderLog",
+      "chance": 0.06,
+      "toast": "⚡ A thunderstruck log! Lightning split this tree long ago.",
+      "effect": "thunder"
+    }
   },
   "look": "Tree. Sapling: thin stick with a few leaves. Young: small tree 2 m. Grown: full round-canopy tree 4.5 m. Ripe: same tree with bright red apples dotted through the canopy."
 }
