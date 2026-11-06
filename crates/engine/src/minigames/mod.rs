@@ -9,8 +9,8 @@
 //! after the game and found by the crate's build script (build.rs), so a new game is its content
 //! file, its rules module and its board views (in the game window, src/ui/minigames/boards/, and on
 //! the table, src/render/open/gameBoards/), with no list of games to add it to: its `RULES` (a
-//! `RulesModule`) deals a game of it and lays out its board, the latter for the browser's board
-//! views through the engine's WebAssembly
+//! `RulesModule`) deals a game of it, lays out its board and says what a player may do now, the
+//! last two for the browser's board views through the engine's WebAssembly
 //! (crates/engine-wasm/src/minigames.rs). A game goes on the wire as its place in the bundle (its
 //! folder's _order.json), as a creature's kind does. The money and the players themselves are the
 //! channel's (crates/server/src/play/tables.rs), which settles the pot when a table says its game
@@ -119,6 +119,26 @@ pub struct RulesModule {
     /// terms: Beacons gives each hex's place and good). The browser asks it through the engine's
     /// WebAssembly, so the board is drawn as the rules have it.
     pub layout: fn(&'static GameDef) -> Value,
+    /// What the player asking may do now, for their board view to offer (JSON, in the game's own
+    /// terms): the checks the server makes of that player's moves, asked of what they see, so the
+    /// board offers just what the server would take. The browser asks it through the engine's
+    /// WebAssembly too. Err if what they see isn't a view of this game.
+    pub options: fn(&'static GameDef, &Asking) -> Result<Value, String>,
+}
+
+/// What a player asks of a game's rules from their board view (`RulesModule::options`).
+#[derive(Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct Asking {
+    /// Their seat.
+    pub you: usize,
+    /// Whose move it is at the table: None once the game is over, however it ended.
+    pub to_move: Option<usize>,
+    /// The game as the server shows it to them (`Rules::view` for their seat).
+    pub view: Value,
+    /// What they've picked so far, in the game's own terms (Beacons: places in the hand).
+    #[serde(default)]
+    pub picked: Value,
 }
 
 impl GameDef {
@@ -134,6 +154,11 @@ impl GameDef {
     /// Its board as its rules lay it out (`RulesModule::layout`).
     pub fn layout(&'static self) -> Value {
         (self.module().layout)(self)
+    }
+
+    /// What a player may do now, as their board view asks (`RulesModule::options`).
+    pub fn options(&'static self, asking: &Asking) -> Result<Value, String> {
+        (self.module().options)(self, asking)
     }
 }
 
@@ -152,8 +177,8 @@ pub trait Rules: Send {
     fn auto(&mut self, seat: usize);
     /// Some once the rules have ended the game: Some(seat) won, None a draw.
     fn result(&self) -> Option<Option<usize>>;
-    /// What `seat` may see (their own hand, and their legal moves when it's their turn), or with
-    /// None, what anyone may.
+    /// What `seat` may see (their own hand), or with None, what anyone may. What they may do with
+    /// it, their board view asks of the same rules (`RulesModule::options`).
     fn view(&self, seat: Option<usize>) -> Value;
     /// What the table shows everyone in the world (the 3D board).
     fn board(&self) -> Value;
@@ -547,9 +572,16 @@ mod tests {
         sorted.sort_unstable();
         assert_eq!(sorted, modules, "content/minigames/<id>.json and crates/engine/src/minigames/games/<id>.rs come in pairs");
         for g in &content().games {
-            // Each deals a game whose first player is to move, and lays out its board.
-            assert_eq!(g.deal(1).to_move(), Some(0), "{}", g.id);
+            // Each deals a game whose first player is to move, lays out its board, and says what a
+            // player may do from what they see of it.
+            let rules = g.deal(1);
+            assert_eq!(rules.to_move(), Some(0), "{}", g.id);
             assert!(g.layout().is_object(), "{}", g.id);
+            for you in 0..2 {
+                let asking = Asking { you, to_move: Some(0), view: rules.view(Some(you)), picked: Value::Null };
+                assert!(g.options(&asking).is_ok_and(|o| o.is_object()), "{} for seat {you}", g.id);
+            }
+            assert!(g.options(&Asking { you: 0, to_move: Some(0), view: json!({}), picked: Value::Null }).is_err(), "{}: no view, no options", g.id);
         }
     }
 

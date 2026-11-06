@@ -81,6 +81,8 @@ export interface BoardMenu {
  * view of its game (src/ui/minigames/boards/<game>.ts, found by the game's id). The window draws the
  * seats, the clock, how the game ended and Concede; the board view everything of the game's own, from
  * the table as the server sent it, and sends what the player chooses as moves in the game's terms.
+ * What it offers (what may be picked, played or drawn) it asks of the game's rules through the
+ * engine (src/engine/minigames.ts `minigameOptions`), the checks the server makes of the moves.
  * What it draws answers clicks through `data-act` and `data-arg`, and asks for tooltips with
  * `data-tip="mg:<key>"`.
  */

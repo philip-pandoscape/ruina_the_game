@@ -602,11 +602,19 @@ mod tests {
     use crate::combat::OPEN_INPUT;
     use crate::life::{Command, Life};
     use crate::minigames::games::beacons::setup;
-    use crate::minigames::{GameDef, Why, content, game_called};
+    use crate::minigames::{Asking, GameDef, Why, content, game_called};
     use crate::player::{Build, Mode, Player};
     use crate::world::Spawn;
 
     /// The game these tests play (a challenge names it by its place in the bundle).
+    /// What a player's board view is offered with `picked` picked, from their view of the table
+    /// (`Table::view`), as the browser asks the engine.
+    fn offered(view: &Value, picked: Value) -> Value {
+        let asking =
+            Asking { you: view["you"].as_u64().unwrap() as usize, to_move: view["toMove"].as_u64().map(|s| s as usize), view: view["state"].clone(), picked };
+        beacons().options(&asking).unwrap()
+    }
+
     fn beacons() -> &'static GameDef {
         game_called("beacons").unwrap()
     }
@@ -704,9 +712,9 @@ mod tests {
         let view = last_view(&mut rx_b).unwrap();
         assert_eq!(view["you"], 0);
         assert_eq!(view["state"]["hand"].as_array().unwrap().len(), 4);
-        assert!(view["state"]["legal"].is_array(), "Bea moves first");
+        assert_eq!(offered(&view, Value::Null)["play"], true, "Bea moves first");
         let ann = last_view(&mut rx_a).unwrap();
-        assert!(ann["state"].get("legal").is_none());
+        assert_eq!(offered(&ann, Value::Null)["play"], false);
         assert_ne!(ann["state"]["hand"], view["state"]["hand"], "each sees only their own hand (seed 5 deals them differently)");
         let at = ch.tables.tables[0].at;
         let shown = ChannelGame::tables_near(&ch.tables_shown(), at.x, at.z);
@@ -796,8 +804,14 @@ mod tests {
             assert!(moves < 400, "the game never ended");
             let seat = t.rules.to_move().unwrap();
             let id = t.seats[seat].id;
-            let v = t.rules.view(Some(seat));
-            let legal = v["legal"].as_array().cloned().unwrap_or_default();
+            let v = t.view(seat, 0.0);
+            // Every way to light a hex, as their board view finds them: what each card, and each
+            // pair of cards, lights.
+            let n = v["state"]["hand"].as_array().unwrap().len();
+            let lights = |cards: Vec<usize>| json!({ "hexes": offered(&v, json!(cards))["hexes"], "cards": cards });
+            let pairs = (0..n).flat_map(|a| (a + 1..n).map(move |b| vec![a, b]));
+            let legal: Vec<Value> = (0..n).map(|a| vec![a]).chain(pairs).map(lights).collect();
+            let v = &v["state"];
             let draws = v["draws"].as_u64().unwrap();
             let m = if draws > 0 {
                 // Ann takes a Harbour card that's good for her row, if there is one.

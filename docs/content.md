@@ -210,12 +210,14 @@ but each a module named after the game and found by that name, with no list of g
 - **Its rules**: `crates/engine/src/minigames/games/<id>.rs`, with a `RULES` (a `RulesModule`):
   `deal` starts a game of it from its file and a seed (a `Rules`: whose turn it is, a move checked
   and played, the server's move for a player out of time, the game as each seat and onlookers may
-  see it, how it ended), and `layout` gives the board for the browser to draw, through the engine's
-  WebAssembly. The engine's build script finds the module by its name (`crates/engine/build.rs`),
-  and the server plays it at the tables.
+  see it, how it ended); `layout` gives the board for the browser to draw; and `options` says what a
+  player may do now from what they see (the checks their moves meet), for their board to offer. The
+  browser asks the last two through the engine's WebAssembly. The engine's build script finds the
+  module by its name (`crates/engine/build.rs`), and the server plays it at the tables.
 - **Its boards**: in the game window, `src/ui/minigames/boards/<id>.ts` exporting `board` (a
   `MakeBoardView`, `src/ui/minigames/tables.ts`): the board, the hint and what the player picks, sent
-  to the server as moves in the game's own terms; and on the table in the world,
+  to the server as moves in the game's own terms, offering only what its rules' `options` allow
+  (`src/engine/minigames.ts`), never working the rules out itself; and on the table in the world,
   `src/render/open/gameBoards/<id>.ts` exporting `board` (a `TableBoard`,
   `src/render/open/gameTables.ts`): the board and its pieces, for everyone round it.
 - **The bible**: its rules on the Mini-Games page (`src/bible/systems/minigames.ts`, a section a

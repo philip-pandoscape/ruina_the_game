@@ -48,7 +48,7 @@ const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
 /** Calls `f` with `s` written into the engine's memory. */
-function withText<T>(s: string, f: (p: number, n: number) => T): T {
+export function withText<T>(s: string, f: (p: number, n: number) => T): T {
   const e = wasm();
   const bytes = encoder.encode(s);
   const p = e.alloc(bytes.length);

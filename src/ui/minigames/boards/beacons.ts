@@ -1,6 +1,6 @@
 import './beacons.css';
 import { type MiniGameDef, SEAT_COLORS } from '../../../content/minigames';
-import { minigameLayout } from '../../../engine/minigames';
+import { minigameLayout, minigameOptions } from '../../../engine/minigames';
 import { esc } from '../../../util/html';
 import { hexCentre } from '../../../util/hex';
 import { iconHtml, iconUrl } from '../../theme/icons';
@@ -10,7 +10,9 @@ import type { BoardMenu, BoardView, MakeBoardView, TableView } from '../tables';
 // board, your hand, the Harbour and the deck, and what to do next. Pick a card (or two of a kind)
 // and the hexes it can light glow; pick one of those to light it; then take cards from the Harbour
 // or the deck until you hold four again. Only what the server sends is shown, and what you pick
-// goes to it as a move; it answers with the game as it now stands.
+// goes to it as a move; it answers with the game as it now stands. What may be picked, lit, swapped
+// and drawn the board asks of the same rules, through the engine (`options`), and works out none of
+// it itself: it offers just what the server would take.
 
 /** Beacons' own part of its content (`rules`), as much as its board shows. */
 interface BeaconsRules {
@@ -41,8 +43,24 @@ export interface BeaconsState {
   log: BeaconsLog[];
   /** Your own hand (goods). */
   hand?: number[];
-  /** Your turn, before you've played: each way to light a hex (cards: places in your hand). */
-  legal?: Array<{ cards: number[]; hexes: number[] }>;
+}
+
+/** What you may do now, as Beacons' rules say from what you see (beacons.rs `Seen::options`). */
+interface BeaconsOptions {
+  /** Your turn to play: light a hex, or swap a card. */
+  play: boolean;
+  /** Your turn to draw back up. */
+  draw: boolean;
+  /** Each card in your hand: whether it lights a hex alone, the card it makes a pair with, whether it can be swapped. */
+  cards: Array<{ light: boolean; pair: number | null; swap: boolean }>;
+  /** The hexes the picked cards light. */
+  hexes: number[];
+  /** The picked card can be swapped. */
+  swap: boolean;
+  /** Each Harbour card: whether you may take it. */
+  harbour: boolean[];
+  /** Whether you may draw from the deck. */
+  deck: boolean;
 }
 
 type BeaconsLog =
@@ -55,7 +73,6 @@ type BeaconsLog =
 const SIZE = 27;
 /** Small numbers in words, for the row that wins ("Four in a row!"). */
 const WORDS = ['No', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten'];
-const sameCards = (a: number[], b: number[]) => a.length === b.length && [...a].sort().every((x, i) => x === [...b].sort()[i]);
 
 /** A colour part way to the board's parchment. */
 function tint(hex: string, t: number): string {
@@ -74,10 +91,12 @@ class BeaconsBoard implements BoardView {
   private name: string;
   private rules: BeaconsRules;
   private layout: BeaconsLayout;
+  /** The last answer to `options`, and what it was asked of. */
+  private asked: { state: unknown; toMove: number | null; picked: string; options: BeaconsOptions } | null = null;
 
   constructor(
     game: MiniGameDef,
-    index: number,
+    private index: number,
     private send: (m: Record<string, unknown>) => void,
   ) {
     this.name = game.name;
@@ -110,33 +129,28 @@ class BeaconsBoard implements BoardView {
     }
   }
 
-  private mine(v: TableView): boolean {
-    return !v.over && v.toMove === v.you;
-  }
-
-  /** Your turn, and you haven't played yet. */
-  private playing(v: TableView): boolean {
-    return this.mine(v) && this.s(v).draws === 0;
-  }
-
-  /** Your turn, drawing back up. */
-  private drawing(v: TableView): boolean {
-    return this.mine(v) && this.s(v).draws > 0;
+  /** What you may do now with the cards `picked` picked, as the rules say from what you see (asked of the engine once a view and a pick). */
+  private options(v: TableView, picked: number[] = this.picked): BeaconsOptions {
+    const key = picked.join();
+    const a = this.asked;
+    if (a && a.state === v.state && a.toMove === v.toMove && a.picked === key) return a.options;
+    const options = minigameOptions<BeaconsOptions>(this.index, { you: v.you, toMove: v.over ? null : v.toMove, view: v.state, picked });
+    if (picked === this.picked) this.asked = { state: v.state, toMove: v.toMove, picked: key, options };
+    return options;
   }
 
   /** The hexes the picked cards can light. */
   private targets(v: TableView): Set<number> {
-    if (!this.playing(v) || !this.picked.length) return new Set();
-    const l = this.s(v).legal?.find((x) => sameCards(x.cards, this.picked));
-    return new Set(l?.hexes ?? []);
+    return new Set(this.picked.length ? this.options(v).hexes : []);
   }
 
   hint(v: TableView): string {
     const s = this.s(v);
     const them = esc(v.seats[1 - v.you]?.name ?? '');
     if (v.over) return '';
-    if (!this.mine(v)) return s.draws > 0 ? `${them} is drawing.` : `${them} is thinking.`;
-    if (s.draws > 0) return `Draw ${s.draws === 1 ? 'one more card' : `${s.draws} cards`}: take one from the <b>Harbour</b> or the top of the <b>deck</b>.`;
+    const o = this.options(v);
+    if (!o.play && !o.draw) return s.draws > 0 ? `${them} is drawing.` : `${them} is thinking.`;
+    if (o.draw) return `Draw ${s.draws === 1 ? 'one more card' : `${s.draws} cards`}: take one from the <b>Harbour</b> or the top of the <b>deck</b>.`;
     const hand = s.hand ?? [];
     if (!this.picked.length)
       return 'Your turn. Pick a card, then a glowing hex to light with it. <b>Two of a kind</b> light any hex, even the Old Beacon. Or swap a card.';
@@ -155,7 +169,7 @@ class BeaconsBoard implements BoardView {
   private board(v: TableView): string {
     const s = this.s(v);
     const can = this.targets(v);
-    const picking = this.picked.length > 0 && this.playing(v);
+    const picking = this.picked.length > 0 && this.options(v).play;
     const row = new Set(s.row ?? []);
     const hexes = this.layout.hexes;
     // The board's size: the widest row and the rows, with room for the rim.
@@ -201,19 +215,22 @@ class BeaconsBoard implements BoardView {
   /** Your hand, the Harbour and the deck. */
   private cards(v: TableView): string {
     const s = this.s(v);
-    const playing = this.playing(v);
-    const drawing = this.drawing(v);
+    const o = this.options(v);
     const card = (g: number, attrs: string, cls: string) => {
       const d = this.good(g);
       return `<div class="mg-card ${cls}" ${attrs} style="--c:${d?.color ?? '#c9a06a'}" data-tip="mg:good:${g}">${iconHtml(d?.icon ?? '❔', undefined, 32)}<span>${esc(d?.name ?? '')}</span></div>`;
     };
+    const pickable = (i: number) => {
+      const c = o.cards[i];
+      return !!c && (c.light || c.pair !== null || c.swap);
+    };
     const hand = (s.hand ?? [])
-      .map((g, i) => card(g, `data-act="card" data-arg="${i}"`, `${playing ? 'can' : ''}${this.picked.includes(i) ? ' picked' : ''}`))
+      .map((g, i) => card(g, `data-act="card" data-arg="${i}"`, `${pickable(i) ? 'can' : ''}${this.picked.includes(i) ? ' picked' : ''}`))
       .join('');
     const harbour = (s.harbour ?? [])
-      .map((g, i) => (g === null ? `<div class="mg-card empty"></div>` : card(g, `data-act="harbour" data-arg="${i}"`, drawing ? 'take' : '')))
+      .map((g, i) => (g === null ? `<div class="mg-card empty"></div>` : card(g, `data-act="harbour" data-arg="${i}"`, o.harbour[i] ? 'take' : '')))
       .join('');
-    const deck = `<div class="mg-card back${drawing && s.deck + s.discards > 0 ? ' take' : ''}" data-act="deck" title="The deck"><b>${s.deck}</b><span>Cards</span></div>`;
+    const deck = `<div class="mg-card back${o.deck ? ' take' : ''}" data-act="deck" title="The deck"><b>${s.deck}</b><span>Cards</span></div>`;
     return (
       `<div class="h">Your Hand</div><div class="mg-cards hand">${hand}</div>` +
       `<div class="mg-row2"><div><div class="h">Harbour</div><div class="mg-cards">${harbour}</div></div><div><div class="h">Deck</div><div class="mg-cards">${deck}</div></div></div>`
@@ -237,7 +254,7 @@ class BeaconsBoard implements BoardView {
   }
 
   buttons(v: TableView): string {
-    const swap = this.canSwap(v);
+    const swap = this.options(v).swap;
     return `<button class="lui-btn" data-act="swap"${swap ? '' : ' disabled'} title="${swap ? 'Discard the picked card and draw one: your whole turn' : 'Pick the card to swap first'}">Swap a Card</button>`;
   }
 
@@ -250,46 +267,41 @@ class BeaconsBoard implements BoardView {
   }
 
   click(v: TableView, act: string, arg: string): void {
-    const s = this.s(v);
+    const o = this.options(v);
     const i = Number(arg);
     if (act === 'card') {
-      if (this.playing(v)) this.pick(v, i);
+      if (o.play) this.pick(v, i);
     } else if (act === 'hex') {
       if (this.targets(v).has(i)) {
         this.send({ k: 'light', cards: [...this.picked], hex: i });
         this.picked = [];
       }
     } else if (act === 'harbour') {
-      if (this.drawing(v) && s.harbour?.[i] !== null && s.harbour?.[i] !== undefined) this.send({ k: 'draw', from: 'harbour', i });
+      if (o.harbour[i]) this.send({ k: 'draw', from: 'harbour', i });
     } else if (act === 'deck') {
-      if (this.drawing(v)) this.send({ k: 'draw', from: 'deck' });
+      if (o.deck) this.send({ k: 'draw', from: 'deck' });
     } else if (act === 'swap') this.swap(v);
   }
 
   /** A double-click on a card: it and its pair, if you hold two of a kind. */
   dblclick(v: TableView, act: string, arg: string): void {
-    if (act !== 'card' || !this.playing(v)) return;
+    const o = this.options(v);
+    if (act !== 'card' || !o.play) return;
     const i = Number(arg);
-    const hand = this.s(v).hand ?? [];
-    const j = hand.findIndex((g, k) => k !== i && g === hand[i]);
-    this.picked = j >= 0 ? [i, j] : [i];
+    const j = o.cards[i]?.pair ?? null;
+    this.picked = j === null ? [i] : [i, j];
   }
 
-  /** Picks card `i`: one card, or a second of the same good for a pair. Picking it again puts it back. */
+  /** Picks card `i`: one card, or a second that the rules take as a pair with the first. Picking it again puts it back. */
   private pick(v: TableView, i: number): void {
-    const hand = this.s(v).hand ?? [];
     if (this.picked.includes(i)) this.picked = this.picked.filter((k) => k !== i);
-    else if (this.picked.length === 1 && hand[this.picked[0]] === hand[i]) this.picked = [this.picked[0], i];
+    else if (this.picked.length === 1 && this.options(v, [this.picked[0], i]).hexes.length) this.picked = [this.picked[0], i];
     else this.picked = [i];
   }
 
   /** Swap the one card picked: the whole turn. */
-  private canSwap(v: TableView): boolean {
-    return this.playing(v) && this.picked.length === 1;
-  }
-
   private swap(v: TableView): void {
-    if (!this.canSwap(v)) return;
+    if (!this.options(v).swap) return;
     this.send({ k: 'swap', card: this.picked[0] });
     this.picked = [];
   }
@@ -301,30 +313,30 @@ class BeaconsBoard implements BoardView {
   menu(v: TableView, act: string, arg: string): BoardMenu | null {
     if (act !== 'card') return null;
     const i = Number(arg);
-    const s = this.s(v);
-    const hand = s.hand ?? [];
-    const g = hand[i];
-    const wait = this.playing(v) ? undefined : 'Wait for your turn';
-    const single = s.legal?.find((x) => sameCards(x.cards, [i]));
-    const j = hand.findIndex((x, k) => k !== i && x === g);
+    const o = this.options(v);
+    const c = o.cards[i];
+    if (!c) return null;
+    const g = (this.s(v).hand ?? [])[i];
+    const wait = o.play ? undefined : 'Wait for your turn';
+    const j = c.pair;
     return {
       title: this.goodName(g),
       entries: [
         {
           label: 'Light a Hex',
-          primary: j < 0,
-          disabled: wait ?? (single ? undefined : `No unlit ${this.goodName(g)} hex left`),
+          primary: j === null,
+          disabled: wait ?? (c.light ? undefined : `No unlit ${this.goodName(g)} hex left`),
           run: () => (this.picked = [i]),
         },
         {
           label: 'Light Any Hex With the Pair',
-          primary: j >= 0,
-          disabled: wait ?? (j >= 0 ? undefined : 'You need two of a kind'),
-          run: () => (this.picked = [i, j]),
+          primary: j !== null,
+          disabled: wait ?? (j !== null ? undefined : 'You need two of a kind'),
+          run: () => (this.picked = j === null ? [i] : [i, j]),
         },
         {
           label: 'Swap This Card',
-          disabled: wait,
+          disabled: wait ?? (c.swap ? undefined : "This card can't be swapped now"),
           run: () => {
             this.picked = [i];
             this.swap(v);

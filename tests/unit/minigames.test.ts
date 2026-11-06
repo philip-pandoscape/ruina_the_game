@@ -70,7 +70,7 @@ test('the engine lays out every game’s board, and its boards are found by its 
   expect(() => minigameLayout(MINIGAMES.length)).toThrow();
 });
 
-// Beacons, the first game: its boards draw the board its rules play on.
+// Beacons, the first game: its boards draw the board its rules play on, and offer what they allow.
 
 const BEACONS = MINIGAMES.findIndex((g) => g.id === 'beacons');
 interface Layout {
@@ -93,7 +93,6 @@ test('Beacons’ window draws every hex its rules lay out, the Old Beacon where 
     row: [],
     log: [],
     hand: [0, 0, 1, 2],
-    legal: [],
   });
   const html = boardOf(game)!(game, BEACONS, () => {}).body(t);
   const hexes = [...html.matchAll(/<g class="hx([^"]*)" data-act="hex" data-arg="(\d+)"/g)];
@@ -113,4 +112,89 @@ test('Beacons’ table in the world has a peg for every lit beacon', () => {
   expect(tables.list()[0].pieces).toBe(lit.filter(Boolean).length);
   tables.update([shown(BEACONS, { lit: layout.hexes.map(() => 0), row: [] })]);
   expect(tables.list()[0].pieces).toBe(0);
+});
+
+/** Beacons as the server shows it to you, your turn to play (`state` over it): the board unlit, two of the first good in your hand. */
+function playing(state: Record<string, unknown> = {}): TableView {
+  const unlit = minigameLayout<Layout>(BEACONS).hexes.map(() => 0);
+  return yours(BEACONS, {
+    lit: unlit,
+    cards: [4, 4],
+    harbour: [3, 4, 5],
+    deck: 20,
+    discards: 2,
+    turn: 0,
+    draws: 0,
+    row: [],
+    log: [],
+    hand: [0, 0, 1, 2],
+    ...state,
+  });
+}
+
+/** The hexes the window makes glow. */
+const glowing = (html: string) => [...html.matchAll(/<g class="hx[^"]*\bcan\b[^"]*" data-act="hex" data-arg="(\d+)"/g)].map((m) => Number(m[1]));
+
+test('Beacons’ window offers what its rules allow, asked of the engine: the hexes a card or a pair lights, the pair, the swap', () => {
+  const game = MINIGAMES[BEACONS];
+  const layout = minigameLayout<Layout>(BEACONS);
+  const sent: Array<Record<string, unknown>> = [];
+  const view = boardOf(game)!(game, BEACONS, (m) => sent.push(m));
+  const t = playing();
+  view.seen(t);
+  // One card: the hexes of its good glow, and it can be swapped.
+  view.click(t, 'card', '0');
+  expect(glowing(view.body(t))).toEqual(layout.hexes.flatMap((h, i) => (h.good === 0 ? [i] : [])));
+  expect(view.buttons(t)).not.toContain('disabled');
+  // A second of its good makes a pair: every hex glows, the Old Beacon too; a pair isn't a swap.
+  view.click(t, 'card', '1');
+  expect(view.state()).toEqual({ picked: [0, 1] });
+  expect(glowing(view.body(t))).toEqual(layout.hexes.map((_, i) => i));
+  expect(view.buttons(t)).toContain('disabled');
+  // A card of another good doesn't pair with it: it's picked alone.
+  view.click(t, 'card', '2');
+  expect(view.state()).toEqual({ picked: [2] });
+  // A double-click picks a card with its pair, and a glowing hex lights them.
+  view.dblclick(t, 'card', '1');
+  expect(view.state()).toEqual({ picked: [1, 0] });
+  view.click(t, 'hex', String(layout.centre));
+  expect(sent).toEqual([{ k: 'light', cards: [1, 0], hex: layout.centre }]);
+});
+
+test('Beacons’ window offers the Harbour’s cards, and the deck while there is a card left to draw, as its rules say', () => {
+  const game = MINIGAMES[BEACONS];
+  const sent: Array<Record<string, unknown>> = [];
+  const view = boardOf(game)!(game, BEACONS, (m) => sent.push(m));
+  // Drawing back up with the deck run dry: the discards make a new one.
+  const t = playing({ draws: 1, hand: [0, 1, 2], harbour: [3, null, 4], deck: 0, discards: 5 });
+  view.seen(t);
+  expect(view.body(t)).toMatch(/class="mg-card back take" data-act="deck"/);
+  // Nothing left at all: no deck to draw from, nor the Harbour's empty place, nor a card to play.
+  const dry = playing({ draws: 1, hand: [0, 1, 2], harbour: [3, null, 4], deck: 0, discards: 0 });
+  view.seen(dry);
+  expect(view.body(dry)).toMatch(/class="mg-card back" data-act="deck"/);
+  view.click(dry, 'deck', '');
+  view.click(dry, 'harbour', '1');
+  view.click(dry, 'card', '0');
+  expect(sent).toEqual([]);
+  view.click(dry, 'harbour', '2');
+  expect(sent).toEqual([{ k: 'draw', from: 'harbour', i: 2 }]);
+});
+
+test('Beacons’ window offers nothing on the other player’s turn, or once the game is over', () => {
+  const game = MINIGAMES[BEACONS];
+  const sent: Array<Record<string, unknown>> = [];
+  const view = boardOf(game)!(game, BEACONS, (m) => sent.push(m));
+  const theirs: TableView = { ...playing(), toMove: 1 };
+  view.seen(theirs);
+  view.click(theirs, 'card', '0');
+  expect(view.state()).toEqual({ picked: [] });
+  expect(view.hint(theirs)).toBe('Bea is thinking.');
+  expect(view.menu(theirs, 'card', '0')?.entries.map((e) => e.disabled)).toEqual(['Wait for your turn', 'Wait for your turn', 'Wait for your turn']);
+  const over: TableView = { ...playing(), toMove: null, over: { winner: 1, why: 'conceded' } };
+  view.seen(over);
+  view.click(over, 'card', '0');
+  view.click(over, 'deck', '');
+  expect(view.state()).toEqual({ picked: [] });
+  expect(sent).toEqual([]);
 });
