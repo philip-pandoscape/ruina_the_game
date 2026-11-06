@@ -185,6 +185,8 @@ export class App {
     this.bindPointer();
     this.bindKeys();
     store.on(() => this.notesChanged());
+    // A link pasted into this tab opens what it names.
+    window.addEventListener('hashchange', () => void this.route());
     this.renderAll();
     requestAnimationFrame((t) => this.loop(t));
   }
@@ -342,11 +344,14 @@ export class App {
   // ---------- playing ----------
 
   private galleryFrames = 0;
+  /** Frames drawn so far: what tests wait on, never a fixed time. */
+  frameCount = 0;
 
   private loop(now: number): void {
     requestAnimationFrame((t) => this.loop(t));
     const dt = Math.min(0.1, (now - this.lastT) / 1000);
     this.lastT = now;
+    this.frameCount++;
     if (this.gallery) {
       this.gallery.frame(dt);
       // Its numbers can change as it goes (a cost measured, a model loaded): kept current twice a second.

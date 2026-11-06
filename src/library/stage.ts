@@ -63,7 +63,7 @@ export const BACKDROPS: Record<Backdrop, Look> = {
     floor: { checks: ['#8fa36b', '#86995f'], line: 'rgba(40, 50, 30, 0.35)', inset: 0 },
     water: 0.55,
   },
-  // The creature bench (dev/creatures.html, folded in here): a dark room, no floor.
+  // The creature bench, as the creature harness drew a rig: a dark room, no floor.
   bench: {
     sky: 0x1a1b20,
     fog: null,
