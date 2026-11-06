@@ -132,8 +132,8 @@ in the repository. CC BY needs the author's name as they ask for it.
 
 Look at it where it's used, at the distances it's seen, by day and night: screenshots through the
 game's test API (`window.__game`), `npx playwright test -c playwright.stress.config.ts look.spec.ts`
-for the island's set views, the animation library (`/dev/library.html`) for anything that moves. Show
-the user the result beside what it replaced before calling it done.
+for the island's set views, the content library (`/dev/library.html`) for anything that moves, the
+models and the buildings. Show the user the result beside what it replaced before calling it done.
 
 ## 9. Paid makers, last
 

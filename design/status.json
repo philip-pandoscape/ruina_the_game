@@ -761,7 +761,9 @@
         "src/render/detail/blend.ts",
         "src/render/character.ts",
         "src/render/models/vehicles.ts",
-        "src/render/detail/animations.ts",
+        "src/library/subjects/film.ts",
+        "src/library/bench/hero.ts",
+        "tests/unit/animation.test.ts",
         "tests/integration/animation.spec.ts"
       ]
     },

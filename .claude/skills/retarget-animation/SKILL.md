@@ -91,10 +91,16 @@ humanoid's.
 2. `npx playwright test tests/integration/retarget.spec.ts`: every move's clip, every frame: bones within 0.1°
    on average and 1° at worst, ankles no more than 2.5 cm under where they stand. `RECORD=1` keeps
    the frames under `test-results/retarget/` for a GIF.
-3. `/dev/animations.html` (`?swordMoves=keyed|meshy|quaternius` to compare sets): the move in the
-   game's timing, with the trail, the feet held and the fingers round the weapon. Step it with
-   `window.__anims.sheet(id, { frames: [f] })` and screenshot each frame for a GIF.
-4. `npx playwright test tests/integration/animation.spec.ts` (and the game and combat suites).
+3. The hero's films in the content library, `/dev/library.html#/hero/<film>?weapon=0`
+   (`/dev/library.html?swordMoves=keyed|meshy|quaternius#/hero/sword` to compare sets): the move in
+   the game's timing, with the trail, the feet held and the fingers round the weapon. Step it a frame
+   at a time (`window.__library.seek(f)`) and screenshot the picture
+   (`page.locator('.viewport').screenshot()`) for a GIF; `window.__library.sheet({ frames: [...] })`
+   lays frames out side by side in one picture (H).
+4. `npx vitest run tests/unit/animation.test.ts` (the films measured: feet, floor, joints, trails,
+   grips; on the box hero, as in Node the made body doesn't load; `window.__library.measure` has the
+   same measurements on the made body), `npx playwright test tests/integration/animation.spec.ts`
+   (the hands on the oars in the game), and the game and combat suites.
 
 Show the user the clip against its source and in the game, side by side with what it replaces,
 before you call it done.

@@ -2,6 +2,8 @@ import './library.css';
 import { App } from './app';
 import { store, type Note } from './store';
 import { SUBJECTS } from './subjects';
+import * as heroBench from './bench/hero';
+import type { SheetOptions } from './sheet';
 
 // /dev/library.html: the content library, the one developer page for everything the game draws. See
 // app.ts for what it does and AGENTS.md for where it fits. window.__library lets the tests (the
@@ -50,6 +52,11 @@ const api = {
       }
     app.redraw();
   },
+  /** A contact sheet of the animation on screen (frames, or count spread over from..to); returns its frames. */
+  sheet: (o: SheetOptions = {}) => app.showSheet(o),
+  endSheet: () => app.endSheet(),
+  /** The hero's films measured as the tests measure them, on the body the hero wears here (bench/hero.ts). */
+  measure: heroBench,
   bones: () => app.take?.bones.map((b) => b.name) ?? [],
   edit: () => app.enterEdit(),
   /** Picks a bone and turns it about its own axis (degrees), as the gizmo would. */

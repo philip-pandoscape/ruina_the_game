@@ -165,3 +165,47 @@ test('the library is laid out and answers the keyboard', async ({ page }) => {
   await page.keyboard.press('Escape');
   await expect(page.locator('.modal')).toHaveCount(0);
 });
+
+test("the hero's films: outdoors as their page drew them, laid out as a contact sheet, and measured on the made body", async ({ page }) => {
+  test.setTimeout(120_000);
+  await load(page, '#/hero/sword?weapon=0');
+  const L = await lib(page);
+  // Every film in src/render/detail/scenarios.ts, as the measurements list them.
+  const films = await page.evaluate((L) => {
+    const lib = L as unknown as { subjects(): Array<{ id: string; anims: Array<{ id: string }> }>; measure: { list(): Array<{ id: string }> } };
+    return {
+      listed: lib
+        .subjects()
+        .find((s) => s.id === 'hero')!
+        .anims.map((a) => a.id),
+      measured: lib.measure.list().map((f) => f.id),
+    };
+  }, L);
+  expect(films.listed).toEqual(films.measured);
+  // Outdoors, on grass under the sky; and back in the studio.
+  const backdrop = () => page.evaluate(() => (window as unknown as { __library: { app: { stage: { backdrop: string } } } }).__library.app.stage.backdrop);
+  await page.keyboard.press('b');
+  await expect.poll(backdrop).toBe('outdoors');
+  await page.locator('.viewport').screenshot({ path: 'screenshots/library-hero-outdoors.png' });
+  await page.keyboard.press('b');
+  await expect.poll(backdrop).toBe('studio');
+  // Six frames of the swing side by side, until anything else is asked.
+  const sheet = await page.evaluate(() => {
+    const lib = (window as unknown as { __library: { sheet(o: { count: number }): number[]; app: { sheet: { active: boolean } } } }).__library;
+    return { frames: lib.sheet({ count: 6 }), active: lib.app.sheet.active };
+  });
+  expect(sheet.frames).toHaveLength(6);
+  expect(sheet.active).toBe(true);
+  await page.locator('.viewport').screenshot({ path: 'screenshots/library-hero-sheet.png' });
+  await page.evaluate((L) => L.seek(3), L);
+  expect(await page.evaluate(() => (window as unknown as { __library: { app: { sheet: { active: boolean } } } }).__library.app.sheet.active)).toBe(false);
+  // The measurements the unit tier runs on the box hero, here on the body the hero wears.
+  const run = await page.evaluate(() =>
+    (window as unknown as { __library: { measure: { joints(id: string, f: number): { joints: Record<string, number[]> } } } }).__library.measure.joints(
+      'run',
+      10,
+    ),
+  );
+  expect(run.joints.head.every(Number.isFinite)).toBe(true);
+  expect(run.joints.head[1]).toBeGreaterThan(1.2);
+});

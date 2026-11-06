@@ -3,6 +3,7 @@ import { Stage, VIEWS, type View } from './stage';
 import { GHOST, SIDE_COLOURS, Skeleton, Trails, defaultMarks } from './overlay';
 import { Editor } from './editor';
 import { Ghosts } from './ghosts';
+import { Sheet, type SheetOptions } from './sheet';
 import { PHASE_COLOURS, Timeline, type Marker } from './timeline';
 import { newId, noteKey, store, type Note, type NoteKind, type PoseFix } from './store';
 import { buildPrompt, linkTo } from './prompt';
@@ -40,6 +41,8 @@ const SPEEDS = [0.05, 0.1, 0.25, 0.5, 1, 1.5, 2];
 
 interface Prefs {
   skeleton: boolean;
+  /** Takes drawn on the studio's backdrop drawn outdoors instead, on grass under the sky. */
+  outdoors: boolean;
   swoosh: boolean;
   onion: boolean;
   trails: boolean;
@@ -51,7 +54,18 @@ interface Prefs {
 }
 
 function loadPrefs(): Prefs {
-  const base: Prefs = { skeleton: true, swoosh: true, onion: false, trails: false, ghosts: true, loop: true, view: 'three', speed: 1, onionCount: 2 };
+  const base: Prefs = {
+    skeleton: true,
+    outdoors: false,
+    swoosh: true,
+    onion: false,
+    trails: false,
+    ghosts: true,
+    loop: true,
+    view: 'three',
+    speed: 1,
+    onionCount: 2,
+  };
   try {
     return { ...base, ...(JSON.parse(localStorage.getItem(PREFS) ?? '{}') as Partial<Prefs>) };
   } catch {
@@ -65,6 +79,8 @@ export class App {
   readonly trails = new Trails();
   readonly editor: Editor;
   readonly ghosts: Ghosts;
+  /** The contact sheet, when one is laid out instead of the take. */
+  readonly sheet: Sheet;
   readonly timeline = new Timeline();
   prefs = loadPrefs();
 
@@ -172,6 +188,7 @@ export class App {
       if (this.tab === 'pose') this.renderPose();
     });
     this.ghosts = new Ghosts(this.stage);
+    this.sheet = new Sheet(this.stage);
     this.stage.controls.addEventListener('change', () => this.saveCamera());
 
     this.timeline.onSeek = (f) => this.seek(f);
@@ -248,6 +265,7 @@ export class App {
       }
       this.leaveEdit();
     }
+    this.endSheet();
     const options = this.defaults(subject, given);
     const anims = subject.anims(options);
     const anim = anims.find((a) => a.id === aid) ?? (aid ? subject.find?.(aid, options) : null) ?? anims[0];
@@ -287,7 +305,7 @@ export class App {
       this.trails.clear();
       this.skeleton.setBody(take, take.framing.height);
     }
-    this.stage.setBackdrop(take.backdrop ?? 'studio');
+    this.applyBackdrop();
     const saved = this.savedCamera();
     if (opts.keepCamera && sameSubject) {
       /* keep the camera where it is */
@@ -414,7 +432,9 @@ export class App {
     const take = this.take!;
     take.setDecor?.(this.prefs.swoosh && !this.editor.active);
     if (!this.editor.active) take.show(this.frame);
-    this.stage.setGround(take.ground(this.frame));
+    const ground = take.ground(this.frame);
+    // A contact sheet's bodies each stand where they are laid out: the floor stays put under them.
+    this.stage.setGround(this.sheet.active ? { ...ground, x: 0, z: 0 } : ground);
     this.updateGhosts();
     take.root.updateMatrixWorld(true);
     this.skeleton.visible = this.prefs.skeleton || this.editor.active;
@@ -482,8 +502,43 @@ export class App {
     this.dirty = true;
   }
 
+  /**
+   * A contact sheet of the animation: eight frames side by side (or those asked for), spread over the
+   * picked stretch or the whole of it, drawn in place of the take until anything else is asked.
+   */
+  showSheet(o: SheetOptions = {}): number[] {
+    const take = this.take;
+    if (!take || !this.subject || !this.anim || this.editor.active) return [];
+    this.pause();
+    const range = this.range ? { from: this.range[0], to: this.range[1] + 1 } : {};
+    const frames = this.sheet.show(this.subject, this.anim.id, this.options, take.frames, take.framing, take.framing.distance > 5, this.stage.view, {
+      ...range,
+      ...o,
+    });
+    take.root.visible = false;
+    this.stage.overlay.visible = false;
+    this.stage.ghosts.visible = false;
+    this.dirty = true;
+    this.renderViewBar();
+    return frames;
+  }
+
+  endSheet(): void {
+    if (!this.sheet.active) return;
+    this.sheet.clear();
+    if (this.take) {
+      this.take.root.visible = true;
+      this.stage.frame(this.take.framing, this.stage.view);
+    }
+    this.stage.overlay.visible = true;
+    this.stage.ghosts.visible = true;
+    this.dirty = true;
+    this.renderViewBar();
+  }
+
   play(): void {
     if (this.editor.active) return;
+    this.endSheet();
     if (this.take && !this.prefs.loop) {
       const hi = this.range ? this.range[1] : this.take.frames - 1;
       if (this.frame >= hi) this.frame = this.range ? this.range[0] : 0;
@@ -506,6 +561,7 @@ export class App {
   seek(f: number): void {
     const take = this.take;
     if (!take) return;
+    this.endSheet();
     if (this.editor.active) {
       if (this.editor.dirty) {
         toast('Save or discard the correction first (Esc discards)', 'warn');
@@ -1069,6 +1125,16 @@ export class App {
       t('trails', 'trails', 'Paths of the hands, feet and blade through the whole animation (J)'),
       t('ghosts', 'ghost', 'Corrected poses as green ghosts on their frames (G)'),
       t('swoosh', 'spark', 'The swoosh a swing draws in the game (W)'),
+      t('outdoors', 'sun', 'Outdoors: on grass under the sky (B)'),
+      h(
+        'button',
+        {
+          class: `icon-btn${this.sheet.active ? ' on' : ''}`,
+          title: 'Contact sheet: eight frames side by side, of the picked stretch or the whole (H)',
+          onclick: () => (this.sheet.active ? this.endSheet() : this.showSheet()),
+        },
+        icon('film'),
+      ),
     );
     const legend: HTMLElement[] = [];
     if (this.prefs.onion)
@@ -1080,15 +1146,22 @@ export class App {
     this.el.legend.style.display = legend.length ? '' : 'none';
   }
 
+  /** The take's own backdrop, or the studio (outdoors, if asked). */
+  private applyBackdrop(): void {
+    if (this.take) this.stage.setBackdrop(this.take.backdrop ?? (this.prefs.outdoors ? 'outdoors' : 'studio'));
+  }
+
   togglePref(key: keyof Prefs): void {
     (this.prefs as unknown as Record<string, unknown>)[key] = !this.prefs[key];
     this.savePrefs();
+    if (key === 'outdoors') this.applyBackdrop();
     if (key === 'trails' && this.prefs.trails && !this.trails.built) this.buildTrails();
     this.dirty = true;
     this.renderViewBar();
   }
 
   setView(v: View): void {
+    this.endSheet();
     this.prefs.view = v;
     this.savePrefs();
     this.stage.setView(v);
@@ -1884,6 +1957,8 @@ export class App {
         row('O', 'Onion skin'),
         row('J', 'Paths of hands and feet'),
         row('W', 'The swing’s swoosh'),
+        row('B', 'Outdoors or in the studio'),
+        row('H', 'Contact sheet: eight frames side by side'),
         row('G', 'Correction ghosts (when not posing)'),
         h('h4', {}, 'Notes'),
         row('N', 'Note on this frame (or the stretch)'),
@@ -2033,6 +2108,13 @@ export class App {
         return true;
       case 'w':
         this.togglePref('swoosh');
+        return true;
+      case 'b':
+        this.togglePref('outdoors');
+        return true;
+      case 'h':
+        if (this.sheet.active) this.endSheet();
+        else this.showSheet();
         return true;
       case 'f':
         if (this.take) this.stage.frame(this.take.framing, this.stage.view);

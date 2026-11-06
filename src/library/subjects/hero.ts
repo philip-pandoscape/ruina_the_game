@@ -2,21 +2,20 @@ import * as THREE from 'three';
 import { Hero, type WeaponAt } from '../../render/character';
 import { pose, type PoseFeedback, type PoseInput } from '../../content/pose';
 import { HERO_RIG, HERO_WEAPONS } from '../../content/creatures/hero';
-import { GLIDERS, MOUNTS, VEHICLES } from '../../content/vehicles';
-import { buildGlider, buildMount, buildVehicle } from '../../render/models';
-import type { Holds } from '../../render/models/vehicles';
 import { SCENARIOS, scenario, type Moment, type Scenario } from '../../render/detail/scenarios';
 import { madeHero, madeHeroNow } from '../../render/detail/madeHero';
 import { HERO_MOVES, HERO_MOVE_SETS } from '../../render/detail/moves';
 import { ABILITIES, MOVEMENT_SKILLS, MOVE, WEAPONS } from '../../tuning';
 import { NodeTrack, readBones, readJoint, sideOf, writeBones, writeJoint } from '../pose';
 import type { AnimDef, Bone, FrameInfo, Options, Phase, Posable, Snapshot, Source, Subject, Take } from '../types';
+import { Film } from './film';
 
 // The hero in the library: each of the films in src/render/detail/scenarios.ts (what the rules
-// report frame by frame) played through the game's own Hero (src/render/character.ts), exactly as
-// /dev/animations.html plays them, every frame kept. The hero wears its made body (madeHero.ts).
-
-const STEP = 1 / 60;
+// report frame by frame) played through the game's own Hero (src/render/character.ts) with the
+// game's timing (film.ts, as the measurements play them: bench/hero.ts), every frame kept. The hero
+// wears its made body (madeHero.ts). Drawn in the library's studio, or outdoors on grass as the
+// hero's animation page showed them (the Outdoors toggle). A whole motion in one picture: the
+// library's contact sheet.
 
 /** Hero's private parts the library needs to show a kept frame again. */
 interface HeroInside {
@@ -27,59 +26,6 @@ interface HeroInside {
   weaponShown: number;
 }
 const inside = (h: Hero): HeroInside => h as unknown as HeroInside;
-
-// ---------- what the hero rides, flies or sits in (as /dev/animations.html has them) ----------
-
-interface Prop {
-  root: THREE.Object3D;
-  animate(dt: number, m: Moment, input: PoseInput): void;
-  water?: number;
-  holds?: Holds;
-  driver?: string;
-}
-
-function makeProp(kind: Scenario['prop'], hero: Hero): Prop | null {
-  if (!kind) return null;
-  if (kind === 'glider') {
-    const g = buildGlider(GLIDERS[0]);
-    hero.root.add(g.root);
-    return {
-      root: g.root,
-      animate: (dt, m, input) => g.animate(dt, { bank: input.bank * 0.6, pitch: Math.max(-0.35, Math.min(0.3, (input.rise * 9.2) / 12)), speed: m.speed }),
-    };
-  }
-  if (kind === 'horse') {
-    const def = MOUNTS.find((x) => x.id === 'horse')!;
-    const h = buildMount(def);
-    hero.root.add(h.root);
-    return { root: h.root, animate: (dt, m) => h.animate(dt, { speed: m.speed, grounded: true }), holds: h.holds, driver: 'ride' };
-  }
-  const id = kind === 'cart' ? 'farmCart' : kind;
-  const def = VEHICLES.find((x) => x.id === id)!;
-  const v = buildVehicle(def);
-  let t = 0;
-  hero.root.add(v.root);
-  const boat = def.class === 'boat';
-  return {
-    root: v.root,
-    water: boat ? 0 : undefined,
-    holds: v.holds,
-    driver: def.seats[0].pose,
-    animate: (dt, m, input) => {
-      t += dt;
-      v.animate(dt, { speed: m.speed, steer: m.controls?.steer ?? input.bank, throttle: m.controls?.throttle ?? input.effort, sail: 0.8, boom: 0.3, time: t });
-    },
-  };
-}
-
-/** Puts a ridden thing so the seat the hero uses is at the hero's origin; returns the seat's height. */
-function seatProp(prop: Prop, kind: Scenario['prop'], input: PoseInput): number {
-  if (!kind || kind === 'glider') return 0;
-  const def = kind === 'horse' ? MOUNTS.find((x) => x.id === 'horse')! : VEHICLES.find((x) => x.id === (kind === 'cart' ? 'farmCart' : kind))!;
-  const seat = def.seats.find((s) => s.pose === input.travel) ?? def.seats[0];
-  prop.root.position.set(-seat.x, -seat.y, -seat.z);
-  return seat.y;
-}
 
 // ---------- the hero's bones ----------
 
@@ -164,7 +110,8 @@ interface Kept {
 
 class HeroTake implements Take {
   readonly root = new THREE.Group();
-  readonly hero = new Hero();
+  readonly film: Film;
+  readonly hero: Hero;
   readonly space: THREE.Object3D;
   readonly bones: Bone[];
   readonly points = POINTS;
@@ -173,11 +120,8 @@ class HeroTake implements Take {
   readonly loop = true;
   readonly phases: Phase[];
   readonly framing;
-  private prop: Prop | null;
   private track: NodeTrack;
   private kept: Kept[] = [];
-  private distance = 0;
-  private travelled: [number, number] = [0, 0];
   private index = new Map<string, number>();
   private shownFrame = -1;
   private decor = true;
@@ -187,9 +131,10 @@ class HeroTake implements Take {
     readonly weapon: number,
   ) {
     this.root.name = `take:${s.id}`;
+    this.film = new Film(s, weapon);
+    this.hero = this.film.hero;
     this.root.add(this.hero.root);
     this.space = this.hero.root;
-    this.prop = makeProp(s.prop, this.hero);
     this.bones = heroBones(this.hero);
     this.frames = s.frames;
     this.track = new NodeTrack(this.root);
@@ -204,27 +149,16 @@ class HeroTake implements Take {
   }
 
   private stepOne(): void {
-    const f = this.kept.length;
-    const m = this.s.at(f);
-    const input = pose({ time: (this.s.start ?? 0) + f * STEP, ...m.input, weapon: this.s.weapon ?? this.weapon });
-    if (input.run > 0) this.distance += Math.abs(m.speed) * STEP;
-    const facing = m.facing ?? 0;
-    const h = facing + (m.input.heading ?? 0);
-    this.travelled[0] += m.speed * Math.sin(h) * STEP;
-    this.travelled[1] += m.speed * Math.cos(h) * STEP;
     // The hero really moves over the ground while it's worked out, so a planted foot stays put on it.
-    const seat = this.prop ? seatProp(this.prop, this.s.prop, input) : 0;
-    this.hero.root.position.set(this.travelled[0], (m.lift ?? 0) + seat, this.travelled[1]);
-    this.hero.root.rotation.y = facing;
-    this.prop?.animate(STEP, m, input);
-    this.hero.seatHolds = this.prop?.holds && input.travel === this.prop.driver ? this.prop.holds : null;
-    const fb = this.hero.drive(input, this.distance, STEP);
+    const film = this.film;
+    film.step();
+    const fb = film.fb!;
     this.kept.push({
-      m,
-      input,
+      m: film.last!,
+      input: film.input,
       fb: { arrow: fb.arrow, draw: fb.draw, plant: [fb.plant[0], fb.plant[1]], trail: fb.trail ? { ...fb.trail } : null },
       at: inside(this.hero).weaponAt,
-      travelled: [this.travelled[0], this.travelled[1]],
+      travelled: [film.travelled[0], film.travelled[1]],
       buf: this.track.capture(),
     });
   }
@@ -314,8 +248,8 @@ class HeroTake implements Take {
   ground(frame: number): { x: number; z: number; y: number; water: number | null; floor: boolean } {
     const k = this.ensure(Math.max(0, Math.min(this.frames - 1, Math.round(frame))));
     const swim = this.s.id.startsWith('swim') || this.s.id === 'tread';
-    const boat = this.prop?.water !== undefined;
-    return { x: k.travelled[0], z: k.travelled[1], y: swim ? -1.5 : 0, water: swim ? 1.2 : boat ? (this.prop?.water ?? 0) : null, floor: !boat };
+    const boat = this.film.prop?.water !== undefined;
+    return { x: k.travelled[0], z: k.travelled[1], y: swim ? -1.5 : 0, water: swim ? 1.2 : boat ? (this.film.prop?.water ?? 0) : null, floor: !boat };
   }
 
   ghost(): Posable {
@@ -449,7 +383,7 @@ export const heroSubject: Subject = {
       system: [
         "Procedural: every pose is worked out in code, a pure function of a PoseInput (what the rules say the body is doing on a frame: speed, heading, which swing and which frame of it, a jump's rise, a hit) — `poseHumanoid` in src/render/detail/humanoid.ts.",
         'On top of that the stateful Hero (src/render/character.ts) eases between states (Inertia), holds planted feet where they were put down (holdFeet), draws and sheathes the weapon, closes made hands round what they hold (gripHands), and draws trails and the bowstring.',
-        "The library plays the films in src/render/detail/scenarios.ts (the rules' frame counts, speeds and timings, frame by frame at 60 fps) through that same Hero, exactly as /dev/animations.html does.",
+        "The library plays the films in src/render/detail/scenarios.ts (the rules' frame counts, speeds and timings, frame by frame at 60 fps) through that same Hero (src/library/subjects/film.ts), as the measurements play them (src/library/bench/hero.ts).",
         made
           ? `This is the made body (madeHero.ts, src/render/assets/models/hero.glb, rig measured by fit.ts): its walk and run upper body come from Meshy's captured cycles (mocap.ts), and some combo swings are animation-library clips retargeted bone for bone (retarget.ts; which clip each weapon's combo plays: moves.ts — sets in use: ${sets}; 'keyed' means the code keyframes in swings.ts). A note on a swing that plays a clip may mean changing the clip choice, its cut (parts/from/to) or the retarget rather than swings.ts.`
           : 'This is the box hero (src/content/creatures/hero.ts), standing in while the made body loads (or because it could not): every move comes from the code keyframes.',
@@ -480,9 +414,10 @@ export const heroSubject: Subject = {
         "Model space: x to the body's left, y up, z ahead; the ground is y = 0. A bone hangs down its parent's -Y at rest. Arms: yaw about +Y, then pitch about +X (0 hangs down, -90° points forward, -180° straight up), then twist; elbows bend the forearm forward with negative X. Legs: pitch about +X (negative swings forward), spread about +Z, twist about +Y; knees bend the shin back with positive X; feet: positive pitch points the toes. Torso and hips: positive pitch leans forward, positive yaw turns left. Joints named @sword/@club/@staff/@bow/@arrow are what the hands hold (placed by gripHands and stow.ts).",
       checks: [
         {
-          command: 'npx playwright test tests/integration/animation.spec.ts',
-          what: 'planted feet, floor clearance, joint limits, trails on the blade, the bowstring, grips',
+          command: 'npx vitest run tests/unit/animation.test.ts',
+          what: 'planted feet, floor clearance, joint limits, trails on the blade, the bowstring, grips (the films measured on the box hero)',
         },
+        { command: 'npx playwright test tests/integration/animation.spec.ts', what: 'the hands on the oars in the game itself, at 30 and 144 fps' },
         ...(made ? [{ command: 'npx playwright test tests/integration/retarget.spec.ts', what: 'library clips held to their source' }] : []),
       ],
     };

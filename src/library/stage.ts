@@ -19,6 +19,9 @@ export const VIEWS: Array<{ id: View; label: string; key: string }> = [
   { id: 'top', label: 'Above', key: '6' },
 ];
 
+/** The way from the body to the camera in a view, a unit long. */
+export const viewDirection = (view: View): THREE.Vector3 => new THREE.Vector3(...VIEW_DIR[view]).normalize();
+
 /** Where the camera sits for each view, looking at the body (which faces +Z, its left toward +X). */
 const VIEW_DIR: Record<View, Vec3> = {
   three: [-0.72, 0.32, 0.78],
@@ -52,7 +55,7 @@ export const BACKDROPS: Record<Backdrop, Look> = {
     floor: { checks: ['#3d434f', '#373c47'], line: 'rgba(160, 175, 200, 0.18)', inset: 1 },
     water: 0.5,
   },
-  // The hero's films as their own page showed them (dev/animations.html, folded in here): sky, and
+  // Outdoors, as the hero's animation page drew its films before the library took them in: sky, and
   // grass checks a metre a tile.
   outdoors: {
     sky: 0x9fc9dc,
@@ -73,7 +76,8 @@ export const BACKDROPS: Record<Backdrop, Look> = {
     floor: null,
     water: 0.5,
   },
-  // The retargeting check (dev/retarget.html, folded in here): a pale sky, a field with a metre grid.
+  // The retargeting check, as its page drew it before the library took it in: a pale sky, a field with
+  // a metre grid.
   retarget: {
     sky: 0xd9e2e6,
     fog: null,

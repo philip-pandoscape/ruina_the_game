@@ -1,11 +1,11 @@
 ---
 name: animation-review
-description: Work through notes left in the animation library (/dev/library.html) - notes on whole animations, stretches of frames, and single frames with poses corrected by moving the bones - by changing the animation code until the corrected poses are met, measured against them. Use when the user pastes a prompt starting "# Animation review", types /animation-review, or asks to fix the animations they reviewed or noted in the library.
+description: Work through notes left in the content library (/dev/library.html) - notes on whole animations, stretches of frames, and single frames with poses corrected by moving the bones - by changing the animation code until the corrected poses are met, measured against them. Use when the user pastes a prompt starting "# Animation review", types /animation-review, or asks to fix the animations they reviewed or noted in the library.
 ---
 
 # Animation review
 
-The user reviews animations in the animation library (`/dev/library.html`, `src/library/`): they play an
+The user reviews animations in the content library (`/dev/library.html`, `src/library/`): they play an
 animation, leave notes on all of it, on a stretch of frames or on one frame, and on a frame they can
 move the bones to where they should be. **Create Prompt** turns the open notes into a prompt. This
 skill is how to act on one.
@@ -51,8 +51,8 @@ The prompt gives absolute paths; use them (the review may be in another checkout
 6. Measure again (step 2) until each corrected bone is within a few degrees and each moved joint
    within 2-3 cm, or you can say why not. Look at the `-now` pictures.
 7. Run what holds the animation together: `npm run typecheck` and the checks the prompt lists for
-   that character (for the hero `tests/integration/animation.spec.ts`, and `tests/integration/retarget.spec.ts` if a clip
-   changed).
+   that character (for the hero `npx vitest run tests/unit/animation.test.ts` and
+   `tests/integration/animation.spec.ts`, and `tests/integration/retarget.spec.ts` if a clip changed).
 8. Report note by note: what you changed (file, function), how close each correction is now (from the
    check), and anything you couldn't meet. The user looks in the library (it reloads by itself; the
    green ghosts show where the code still differs, and each note shows a meter of how close it is) and

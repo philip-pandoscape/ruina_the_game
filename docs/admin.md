@@ -38,7 +38,7 @@ The server tells the browser in `/api/me` and at sign-in (`admin: true`) and in 
 `src/dev/pages.ts` holds one entry per zone or page: its title, where it opens, what it's for, and
 what it needs beyond the game's own files:
 
-- `dev-server`: it saves through the development server's plugins (the animation library's notes,
+- `dev-server`: it saves through the development server's plugins (the content library's notes,
   bug reports). On beta it works but can't keep anything as files, and says so: the library keeps
   its notes in the browser, the bug reporter explains why it can't save.
 - `battlefield`: the server's PvP battlefield, on unless the server was started with
@@ -47,6 +47,12 @@ what it needs beyond the game's own files:
 The yard and the battlefield are pages of the game itself today (`/?yard`, `/?server=...`); they
 become developer zones inside the world, reachable from the Admin menu only, in the refactor's
 Phase 10.
+
+Everything the game draws is looked at in one page, the content library (`/dev/library.html`,
+`src/library/`): every animated thing frame by frame, library clips on the hero beside their source,
+close-up rigs, and the galleries of models, buildings and crowds. Its address names what is open
+(`#/<subject>/<animation or entry>?<options>&f=<frame>`), so a link goes straight to it. A new kind
+of thing to look at is a subject or a gallery there, not a page of its own.
 
 ## Adding a Page
 
