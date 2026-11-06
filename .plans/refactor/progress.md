@@ -15,11 +15,11 @@ is in [tracker.md](tracker.md), the plan in [README.md](README.md).
 | 3 Admin Menu | done |
 | 4 The /find-assets Skill | done |
 | 5 The Rust Workspace | done |
-| 6 The Client in Areas | in progress |
+| 6 The Client in Areas | nearly done: the library's reach into the hero (after R9.5's client part) and the look check (R6.14) left |
 | 7 Content in Folders | done |
-| 8 One Copy of the Rules | in progress: the browser plays on the engine's rules (the switch is done); deleting the TypeScript copy is next |
-| 9 Content as Data, Finished | half done: mini-games from their files; builds by id, wire indexes, weapons, abilities and looks from data to go |
-| 10 One World: Regions, Channels, Instances and Bots | developer zones and bots done, the old battle server gone; the world's foundations planned (D16-D19) and next |
+| 8 One Copy of the Rules | done |
+| 9 Content as Data, Finished | most done: builds by id, the bundle's hash on the wire, looks from data and the library's subjects landed; the client's weapons by place (R9.5), Goblin's Dread's dressing (R9.8) and the waterfall's optional parts (R9.10) with a background agent; the slimes and dummy as spawns (R9.3) after R10.18 |
+| 10 One World: Regions, Channels, Instances and Bots | the world's foundations under way: the world map, borders with no seam, the rules taking the world, instances in spaces of their own, the content as regions and instances; the tick that splits (R10.18) with a background agent; growing and dropping regions and the rest after it |
 | 11 Assets | done; the browser's download work dropped (D15) |
 | 12 The Design Bible as a Knowledge Base | done |
 | 13 AGENTS.md, the Docs and the Merge | to do |
@@ -579,3 +579,19 @@ the developer zone; then the engine bridge (R6.4) and Phase 8's switches.
 - **The party spec's race** was a real glitch: moving between games, a tick from the game you'd left,
   heard just before the move, was taken as the server's word on you and put you back at its spot for
   a tick. The feed forgets it now.
+
+## 2026-11-06: The Engine's Guide, the Skill Tree's Numbers, and the Last Casts (R8.3, R8.16, R9.13, R6.11b)
+
+- **`docs/engine.md`** says how the engine is one copy of the rules (determinism, the golden tests,
+  conformance, content as data), how the server steps it, and how the browser reaches it, export by
+  export and call by call, with how to add a write, a read or a system. Phase 8 is done with it.
+- **The skill tree's numbers** (what a build's skills make of its attacks, spells and movement) are
+  the engine's own fold, asked through the WebAssembly when a build or its levels change; the
+  TypeScript copy of it went.
+- **The library's crowd subjects** come from the creatures' registry, so a creature added with a body
+  of its own is there with no line of the library's code (the goblin's, missing before, now is).
+- **The casts round the rules' types** went: the developer panel's teleport and bots are in the
+  page's command list, the island's drawing takes the player whose island it draws (the others' had
+  been handed a made-up sim), and the library reads Emberholm's people typed. The library's reach
+  into the hero's private parts waits for R9.5's client part.
+

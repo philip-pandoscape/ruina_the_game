@@ -510,7 +510,14 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
   `animations.ts:650`'s reaching into the hero's private fields; `main.ts:505` (the TypeScript command
   list lacks Rust's `teleport`: generated from Rust in Phase 8).
   The fallbacks went (3cffed1, merged in 2d5de57): the model library is imported as a chunk
-  (`loadModels`, `ModelKit`) and handed over in the open world. The rest is left.
+  (`loadModels`, `ModelKit`) and handed over in the open world. The casts went (fab2924): the page's
+  command list has the developer panel's `teleport` and `bots` (written beside the engine's
+  `life::Command`, not generated), `LifeView.update` takes the player whose island it draws (the fake
+  `Sim` had moved to `peersView.ts`), and the library reads Emberholm's people from `EMBERHOLM`.
+  Left: the library reaching into the hero's private parts (`HeroInside` in
+  `src/dev/library/subjects/hero.ts`: the weapon shown and where it is, putting it there, the trails,
+  the pose's feedback; `holds` in `bench/hero.ts`; `animations.ts` became the library's), after R9.5's
+  client part, which changes how the hero knows its weapon.
 - [x] **R6.12** The boundary test (unit tier): allowed imports per area; known exceptions listed with a
   reason.
   Done (ec3051e): `tests/unit/boundaries.test.ts`.
@@ -1329,6 +1336,7 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
 | 2026-11-06 | R8.3, R8.2, R2.11 | `docs/engine.md`; the spike and the formatting closed | 0285ad3 |
 | 2026-11-06 | R8.16 | The skill tree's numbers from the engine | 883e178 |
 | 2026-11-06 | R9.13 | The library's crowd subjects from the registry | 8fc8ffd |
+| 2026-11-06 | R6.11b | The developer commands in the page's command list, `LifeView.update` given the player, the library's NPCs typed: the casts round the rules' types gone | fab2924 |
 | 2026-11-06 | R9.9, R6.11b | Looks from data; the model library as a chunk, the `tryBuild` fallbacks gone (a background agent) | 3cffed1..40161aa, 2d5de57 |
 | 2026-11-06 | R9.14 | `docs/content.md` | 5e23680 |
 | 2026-11-06 | R10.10, R11.1, R11.2, R11.7, R11.8 | Snapshot to move machines: the battle server's Rust gone; the asset manifest, loader and first-download budget, `docs/assets.md` | a975617 |
