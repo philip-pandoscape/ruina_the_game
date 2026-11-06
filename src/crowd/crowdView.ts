@@ -4,6 +4,7 @@ import { FIGHTER_ATTACK_FRAMES, FIGHTER_RUN_FRAMES } from '../species/builtin/fi
 import { getSpecies } from '../species/registry';
 import { clipRows } from '../species/types';
 import { ATTACK_TIME, CROWD_SPEED } from './crowdSim';
+import { TAU } from '../util/math';
 
 // Draws thousands of fighters in three draw calls. The fighter is an ordinary species now, so
 // the posing lives in src/species rather than here; what is left is the battle's own bookkeeping
@@ -29,8 +30,6 @@ const SINK_AFTER = 1.1;
 const SINK_TIME = 0.6;
 const SINK_DEPTH = 1.8;
 const RISE_TIME = 0.35;
-
-const TAU = Math.PI * 2;
 
 export class CrowdView {
   readonly group = new THREE.Group();

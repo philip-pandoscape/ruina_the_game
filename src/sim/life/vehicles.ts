@@ -11,12 +11,11 @@ import { angleDiff, len, turnToward } from '../math';
 import { MOVE, STEP } from '../../tuning';
 import { GROUND, STORM, SWIM } from '../../content/traversal';
 import { stormAt } from './weather';
+import { TAU } from '../../util/math';
 
 // Carts, cars, boats and mounts. Wheeled things keep their own world velocity and only grip the
 // road sideways, so a handbrake turn really slides; boats sail on whatever wind is blowing and run
 // aground in the shallows; mounts move like you do, faster, and turn like an animal does.
-
-const TAU = Math.PI * 2;
 const G = 9.81 * 1.6;
 
 const wrap = (a: number) => (a > Math.PI ? a - TAU : a < -Math.PI ? a + TAU : a);

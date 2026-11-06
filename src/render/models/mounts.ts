@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import type { MountDef } from '../../content/vehicles';
 import { PAL, Parts, bev, box, cone, cyl, mesh, octa, pivot, rod, tor, type Rgb, type V3 } from './kit';
 import type { Holds } from './vehicles';
+import { TAU, clamp, lerp } from '../../util/math';
 
 // Mounts: a horse and a donkey built from soft blocks like the hero. Four legs hang from hip
 // pivots with a knee pivot halfway down; animate() runs a walk that blends into a gallop as
@@ -21,11 +22,7 @@ export interface MountModel {
   /** Where the rider's feet go: the stirrup irons, left then right, riding along with the body. */
   holds: Holds;
 }
-
-const TAU = Math.PI * 2;
 const OUTLINE = 0.018;
-const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
-const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 const smooth = (a: number, b: number, v: number) => {
   const t = clamp((v - a) / (b - a), 0, 1);
   return t * t * (3 - 2 * t);

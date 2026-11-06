@@ -8,6 +8,7 @@ import { iconHtml, money } from '../theme/icons';
 import { uiRoot } from '../theme/scale';
 import { addTipSource, hideTip } from '../theme/tooltip';
 import { BeaconsPanel } from './beacons';
+import { esc } from '../../util/html';
 
 // Mini-games, online: walk up to another player and press F to challenge them (the game and the
 // stake, in the challenge window); they're asked in a window of their own and have a while to
@@ -29,7 +30,6 @@ export interface MinigamesDeps {
 /** The island's windows that dock where the game window does (or take over, as the map does): while one is open, the game steps aside. */
 const LEFT_PANELS = new Set(['dialog', 'shop', 'craft', 'storage', 'log', 'character', 'garage', 'settings', 'dev', 'map']);
 
-const esc = (s: string) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 
 function el(cls: string, id: string): HTMLDivElement {
   const e = document.createElement('div');

@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { clamp01, lerp, smooth } from './body';
+import { clamp } from '../../util/math';
 
 // How a humanoid's feet move over the ground at a given speed. A stride cycle is a left step and
 // a right step; each foot spends part of it planted (the stance) and the rest swinging forward.
@@ -79,7 +80,6 @@ export function directional(heading: number): { back: number; ahead: number; beh
   return { back, ahead: h, behind, pelvisAhead: 0.6 * clamp(h, -1.9, 1.9), pelvisBehind: 0.45 * behind };
 }
 
-const clamp = (v: number, a: number, b: number): number => Math.max(a, Math.min(b, v));
 
 /** 0 for a walk, 1 for a run: how much flight there is, how the feet land. */
 export const runGait = (speed: number, stride: Stride = BOX_STRIDE): number => smooth((speed - stride.runFrom) / (stride.runTo - stride.runFrom));

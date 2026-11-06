@@ -13,8 +13,7 @@ import { angleDiff, len, turnToward } from '../math';
 import { MOVE } from '../../tuning';
 import type { Actions, PlayerState } from '../types';
 import type { Updraft } from '../zone/types';
-
-const TAU = Math.PI * 2;
+import { TAU } from '../../util/math';
 
 // ---------- Integration over terrain ----------
 

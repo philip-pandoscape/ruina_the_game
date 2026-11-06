@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type { DetailRig } from './rig';
 import { BOX_STRIDE, MADE_STRIDE, type Stride } from './gait';
+import { clamp, lerp } from '../../util/math';
 
 // Handles on a humanoid rig, and the two ways to pose a limb: by its angles (forward kinematics)
 // or by where its end should be (inverse kinematics, analytic two-bone). Everything is measured in
@@ -40,9 +41,7 @@ const DOWN = new THREE.Vector3(0, -1, 0);
 const Y_AXIS = new THREE.Vector3(0, 1, 0);
 const _e = new THREE.Euler();
 
-export const clamp = (v: number, a: number, b: number): number => Math.max(a, Math.min(b, v));
 export const clamp01 = (t: number): number => clamp(t, 0, 1);
-export const lerp = (a: number, b: number, t: number): number => a + (b - a) * t;
 export const smooth = (t: number): number => {
   const k = clamp01(t);
   return k * k * (3 - 2 * k);
@@ -430,3 +429,5 @@ export class Body {
     return Math.max(0, need);
   }
 }
+
+export { clamp, lerp };

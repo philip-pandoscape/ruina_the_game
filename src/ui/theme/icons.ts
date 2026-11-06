@@ -2,10 +2,10 @@
 // names by emoji (items, packs, vehicles, skills, places), the HUD's own by name (hearts, menu
 // buttons, quest marks), and money drawn as gold, silver and copper coins.
 import { EMOJI_ICONS, ICON_URLS, ITEM_ICONS, type IconName } from './icons.gen';
+import { esc } from '../../util/html';
 
 export type { IconName };
 
-const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 
 /** The painted icon for an emoji (or an item, for those with a picture of their own), if there is one. */
 export function iconUrl(emoji: string, itemId?: string): string | null {

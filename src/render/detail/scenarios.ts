@@ -2,6 +2,7 @@ import { ABILITIES, ATTACK, COMBAT, JUMP, MOVE, MOVEMENT_SKILLS, comboShape, typ
 import type { PoseInput } from '../../content/pose';
 import { SWIM } from '../../content/traversal';
 import { lungeSpeed } from './humanoid';
+import { TAU } from '../../util/math';
 
 // Little films of the hero, for the animation gallery (animations.html) and the tests that check
 // the motion. Each one is what the rules would report frame by frame - running speed, which way
@@ -39,7 +40,6 @@ export interface Scenario {
 }
 
 const HZ = 60;
-const TAU = Math.PI * 2;
 const RUN = MOVE.runSpeed;
 const WALK = MOVE.walkSpeed;
 const DEG = Math.PI / 180;

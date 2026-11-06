@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { RigBuilder } from '../../species/authoring';
 import { bakeAuthored, type LocalPose } from '../../species/pose';
 import { MAT, type Quat, type SpeciesDef, type Vec3 } from '../../species/types';
+import { TAU } from '../../util/math';
 
 // The goblin's body until its model is made (design/goblins.md): boxes on an eight-joint rig,
 // drawn by the same instanced crowd as everything else. A metre tall, hunched, with a big head,
@@ -72,7 +73,6 @@ const blend = (a: Pose, b: Pose, t: number): Pose => {
   for (const k of Object.keys(a) as (keyof Pose)[]) out[k] = mix(a[k], b[k], t);
   return out;
 };
-const TAU = Math.PI * 2;
 
 /** The crouched, dagger-forward stance it fights from. */
 const READY: Pose = { ...REST, lean: 0.55, head: -0.1, armL: -0.45, armR: -0.75, legL: -0.18, legR: 0.22, armOut: 0.2 };

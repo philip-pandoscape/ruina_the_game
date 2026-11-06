@@ -7,6 +7,7 @@ import { emptySkills } from '../skills';
 import { MODE_DOWN, MODES } from './netCrowd';
 import { HOTBAR_SLOTS, MOVEMENT_SKILL_CAP, MOVEMENT_SLOTS, MP, NO_ABILITY, NO_MOVEMENT, STAMINA } from '../tuning';
 import type { NetCrowd, RawInput, RemoteRecord } from './netCrowd';
+import { TAU } from '../util/math';
 
 // ---------- Your own fighter: predict instantly, correct when the server answers ----------
 
@@ -14,13 +15,13 @@ import type { NetCrowd, RawInput, RemoteRecord } from './netCrowd';
 // rounded values, so the browser and the server run identical inputs. Aim is in quarter metres.
 // The raw stick (vehicles steer with it) only goes to open worlds, as two more bytes.
 export function quantize(a: Actions): { actions: Actions; raw: RawInput; stick: [number, number] } {
-  const clamp = (v: number) => Math.max(-127, Math.min(127, Math.round(v)));
-  const qx = clamp(a.moveX * 127);
-  const qz = clamp(a.moveZ * 127);
-  const ax = clamp(a.aimX * 4);
-  const az = clamp(a.aimZ * 4);
-  const sx = clamp(a.stickX * 127);
-  const sy = clamp(a.stickY * 127);
+  const toByte = (v: number) => Math.max(-127, Math.min(127, Math.round(v)));
+  const qx = toByte(a.moveX * 127);
+  const qz = toByte(a.moveZ * 127);
+  const ax = toByte(a.aimX * 4);
+  const az = toByte(a.aimZ * 4);
+  const sx = toByte(a.stickX * 127);
+  const sy = toByte(a.stickY * 127);
   const slot = a.abilitySlot >= 1 && a.abilitySlot <= HOTBAR_SLOTS ? a.abilitySlot : 0;
   // One byte carries both: hotbar slots first, then the movement slots after them.
   const move = a.movementSlot >= 1 && a.movementSlot <= MOVEMENT_SLOTS ? a.movementSlot : 0;
@@ -56,7 +57,6 @@ export function quantize(a: Actions): { actions: Actions; raw: RawInput; stick: 
     stick: [sx & 255, sy & 255],
   };
 }
-const TAU = Math.PI * 2;
 
 function clonePlayer(p: PlayerState): PlayerState {
   return { ...p, pos: { ...p.pos }, prevPos: { ...p.prevPos }, vel: { ...p.vel } };
@@ -241,7 +241,6 @@ export function blankState(): PlayerState {
 }
 
 function angleLerp(a: number, b: number, t: number): number {
-  const TAU = Math.PI * 2;
   let d = (b - a) % TAU;
   if (d > Math.PI) d -= TAU;
   if (d < -Math.PI) d += TAU;

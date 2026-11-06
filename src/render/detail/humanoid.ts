@@ -10,6 +10,7 @@ import { playPlanted, poseFromClip, strikeTime } from './retarget';
 import { gliderGrip } from '../models/gliders';
 import { DRAWING_HAND, stowedFor } from './stow';
 import { HERO_BOW } from '../../content/creatures/hero';
+import { TAU } from '../../util/math';
 
 // How a humanoid moves. Every playable race and humanoid NPC shares this - they differ in how
 // they are built (src/content/creatures), not in how they walk. Poses only ever touch named
@@ -19,8 +20,6 @@ import { HERO_BOW } from '../../content/creatures/hero';
 // Limbs are posed two ways (src/render/detail/body.ts): by angle, for swinging arms and tucked
 // legs, and by where the hand or foot should be, for planted feet, hands on a wheel or a bowstring.
 // Planted feet travel back under the body at exactly the ground speed, so they never skate.
-
-const TAU = Math.PI * 2;
 const HZ = 60;
 
 const _a = new THREE.Vector3();

@@ -17,10 +17,7 @@ import { madeHero, madeHeroNow, type MadeHero } from './detail/madeHero';
 import { dressWeapons } from './detail/madeWeapons';
 import { gripHands, wear, type Grip } from './detail/fit';
 import type { RigDef } from '../content/rig';
-
-const TAU = Math.PI * 2;
-const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
-const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+import { TAU, clamp, lerp } from '../util/math';
 
 /** Which way a horizontal direction goes relative to a facing: 0 ahead, + to the left. */
 function headingOf(x: number, z: number, facing: number): number {

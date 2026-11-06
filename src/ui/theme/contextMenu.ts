@@ -3,6 +3,7 @@
 // click anywhere else, Escape, or the window losing focus. The look is in theme.css (.ctx).
 import { toUi, uiRoot, uiSize } from './scale';
 import { hideTip } from './tooltip';
+import { esc } from '../../util/html';
 
 export interface MenuEntry {
   /** In Title Case, like every label (design/ui.html). */
@@ -16,7 +17,6 @@ export interface MenuEntry {
 
 let menu: HTMLDivElement | null = null;
 
-const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 
 /** Opens a menu titled `title` at a point on screen (CSS px, as a mouse event gives it). */
 export function openMenu(clientX: number, clientY: number, title: string, entries: MenuEntry[]): void {

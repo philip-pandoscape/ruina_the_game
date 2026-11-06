@@ -3,12 +3,11 @@ import { comboShape } from '../../tuning';
 import { MAT } from '../../species/types';
 import type { ClipDriver } from '../pose';
 import type { BowString, PartDef, RigDef } from '../rig';
+import { TAU } from '../../util/math';
 
 // The player character's build: what it is made of and how it hangs together. The motion that
 // drives it lives in src/render/character.ts, because every humanoid race shares it - a second
 // race is another file like this one, not another renderer.
-
-const TAU = Math.PI * 2;
 
 const box = (w: number, h: number, d: number, r = 0.05) => ({ kind: 'box', w, h, d, r }) as const;
 

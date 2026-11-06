@@ -30,6 +30,7 @@ import {
 import { NEW_LOOK } from '../look';
 import { toon } from '../toon';
 import { grainify } from './detail';
+import { clamp, lerp } from '../../util/math';
 
 // Vehicles: wheeled carts and cars, and boats. Built around the anchors in shared/vehicles.json
 // (seats, cargo slots, wheels, oars, masts), so the rules and the art agree on where things are.
@@ -79,8 +80,6 @@ function hold(parent: THREE.Object3D, x: number, y: number, z: number): THREE.Ob
 
 type Animator = (dt: number, s: VehicleAnim) => void;
 
-const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
-const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 const smooth = (t: number) => {
   const k = clamp(t, 0, 1);
   return k * k * (3 - 2 * k);

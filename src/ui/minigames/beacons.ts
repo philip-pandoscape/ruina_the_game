@@ -2,6 +2,7 @@ import { BEACONS, HEXES, OLD_BEACON, SEAT_COLORS, hexCentre } from '../../conten
 import type { TableView } from '../../net/worldLink';
 import { iconHtml, iconUrl } from '../theme/icons';
 import type { MenuEntry } from '../theme/contextMenu';
+import { esc } from '../../util/html';
 
 // Beacons at your table (the rules are the server's: server/src/minigames/beacons.rs): the hex
 // board, your hand, the Harbour and the deck, and what to do next. Pick a card (or two of a kind)
@@ -34,7 +35,6 @@ export type BeaconsLog = { seat: number; k: 'light'; goods: number[]; hex: numbe
 
 /** A board hex, middle to corner (virtual px). */
 const SIZE = 27;
-const esc = (s: string) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 const good = (g: number) => BEACONS.goods[g];
 const goodName = (g: number) => good(g)?.name ?? '?';
 const sameCards = (a: number[], b: number[]) => a.length === b.length && [...a].sort().every((x, i) => x === [...b].sort()[i]);

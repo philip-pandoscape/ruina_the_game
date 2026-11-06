@@ -3,6 +3,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { SPECIES_GLSL, instanced, writeFrame } from './crowd';
 import { buildPoseTexture } from './pose';
 import { MATRIX_STRIDE, clipRows, type SpeciesDef } from './types';
+import { TAU } from '../util/math';
 
 // The new look's slimes (src/render/look.ts): a gumdrop of glossy jelly the sun shines through,
 // whatever it swallowed floating inside, and a face painted on its front that
@@ -27,8 +28,6 @@ const LOOKS: Record<string, JellyLook> = {
 
 /** Faces by clip: 1 set to pounce, 2 dazed, 3 dead; anything else is the usual face. */
 const MOODS: Record<string, number> = { windup: 1, leap: 1, gather: 1, dazed: 2, die: 3 };
-
-const TAU = Math.PI * 2;
 /** The gumdrop's widest radius and height, in the slime's bind space (metres at scale 1). */
 const R = 0.38;
 const H = 0.62;

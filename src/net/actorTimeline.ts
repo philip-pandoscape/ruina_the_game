@@ -1,4 +1,5 @@
 import type { NetActor } from './netCrowd';
+import { TAU } from '../util/math';
 
 // The monsters and props the server describes, kept for a moment by tick so they can be drawn
 // between its updates instead of jumping from one to the next. The server answers 20 times a
@@ -30,8 +31,6 @@ export interface HurtNote {
   tick: number;
   at: number;
 }
-
-const TAU = Math.PI * 2;
 
 function turn(a: number, b: number, k: number): number {
   let d = (b - a) % TAU;

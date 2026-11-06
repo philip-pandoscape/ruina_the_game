@@ -5,13 +5,12 @@ import { structureDef, propDef, type StructureDef } from '../../content/structur
 import { placedPlan, type BuildingPlan } from '../../content/buildings';
 import { buildingColliders } from './buildings';
 import type { BoxCollider, Deck, WaterfallInfo, ZoneRecipe, ZonePlacement } from './types';
+import { TAU } from '../../util/math';
 
 // Grows a zone from its recipe (shared/zones/*.json): coastline, cliffs, hills, mountains with a
 // path carved up their face, flattened town squares, graded roads, then the trees and rocks, the
 // buildings' colliders and the decks you can walk on. Same recipe, same seed, same island, every
 // time - the rules and the renderer both build from this.
-
-const TAU = Math.PI * 2;
 /** Half the width of the runnel a waterfall's spring spills to the lip along (src/render/open/falls.ts draws its water). */
 export const RUNNEL = 2.2;
 

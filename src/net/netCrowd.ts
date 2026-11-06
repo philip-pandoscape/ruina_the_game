@@ -3,6 +3,7 @@ import { ActorTimeline } from './actorTimeline';
 import { ON_FOOT, type Mode, type PlayerState } from '../sim/types';
 import { resolveSkills, SKILL_WORDS } from '../skills';
 import { HOTBAR_SLOTS, MOVEMENT_SKILL_CAP, MOVEMENT_SLOTS, NO_ABILITY, NO_MOVEMENT, variantBits } from '../tuning';
+import { TAU } from '../util/math';
 
 // The raw per-input bytes: move_x, move_z, buttons, aim_x, aim_z, slot, movement held, face.
 export type RawInput = [number, number, number, number, number, number, number, number];
@@ -192,7 +193,6 @@ const FLAG_TEAM = 1;
 const FLAG_DOWN = 2;
 const NEAR_ENTRY = 10;
 const MID_ENTRY = 8;
-const TAU = Math.PI * 2;
 
 // How long to take moving to each new position: a little longer than the gap between updates,
 // so fighters keep moving smoothly instead of stopping and starting.

@@ -5,6 +5,7 @@ import type { LifePress } from '../life/lifeUI';
 import { closeMenu, openMenu, type MenuEntry } from '../theme/contextMenu';
 import { uiIcon } from '../theme/icons';
 import { uiRoot } from '../theme/scale';
+import { esc } from '../../util/html';
 
 // Parties, online (server/src/parties.rs): a few players who play together, as groups do in World
 // of Warcraft, and go into a dungeon's copy together (server/src/spaces.rs). The party frame under
@@ -31,7 +32,6 @@ const LEFT_PANELS = new Set(['dialog', 'shop', 'craft', 'storage', 'log', 'chara
 /** Players this near are listed to invite. */
 const NEAR = 40;
 
-const esc = (s: string) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 
 function el(cls: string, id: string): HTMLDivElement {
   const e = document.createElement('div');

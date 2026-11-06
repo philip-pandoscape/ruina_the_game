@@ -4,6 +4,7 @@ import { routeFrom, type Point } from '../../sim/zone/roads';
 import { openMenu } from '../theme/contextMenu';
 import { uiIcon } from '../theme/icons';
 import { uiRoot } from '../theme/scale';
+import { esc } from '../../util/html';
 
 // Travel by road and auto-run, as the island's UI shows them. On the map a click marks a spot and
 // sets off along the roads to it (a right-click offers the rest), the arrows or the D-pad pick a
@@ -40,7 +41,6 @@ const SPOT = 'Marked Spot';
 const GOLD = '#ffd166';
 const INK = 'rgba(43, 26, 14, 0.85)';
 
-const esc = (s: string) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 
 export class TravelUI {
   private readout = document.createElement('div');

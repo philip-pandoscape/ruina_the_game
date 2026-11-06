@@ -24,6 +24,7 @@ import { EMBERHOLM as Z } from '../src/sim/zone/world';
 import { generateZone } from '../src/sim/zone/generate';
 import { SURFACE } from '../src/sim/terrain';
 import type { ZonePlace } from '../src/sim/zone/types';
+import { esc } from '../src/util/html';
 
 // ---------- the tracker (design/status.json) ----------
 
@@ -51,8 +52,6 @@ const $ = <T extends Element = HTMLElement>(sel: string, root: ParentNode = docu
   if (!el) throw new Error(`no ${sel} on the page`);
   return el;
 };
-const ENTITIES: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' };
-const esc = (s: unknown): string => String(s ?? '').replace(/[&<>"]/g, (c) => ENTITIES[c]);
 const mmss = (sec: number): string => (sec >= 3600 ? (sec / 3600).toFixed(1) + ' h' : sec >= 60 ? Math.round(sec / 60) + ' min' : Math.round(sec) + ' s');
 const degrees = (slope: number): number => Math.round((Math.atan(slope) * 180) / Math.PI);
 const itemName = (id: string): string => ITEMS.find((i) => i.id === id)?.name ?? id;

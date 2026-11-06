@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { PAL, Parts, bev, box, cone, cyl, ico, jiggle, mesh, pivot, tor, type Rgb, type V3 } from './kit';
+import { clamp, lerp } from '../../util/math';
 
 // Farm livestock for a 2 m x 2 m cell: chickens, sheep and cows, young (stage 0) or adult (1).
 // Origin on the ground under the animal's middle, facing +Z. animate() keeps them alive - pecking,
@@ -22,8 +23,6 @@ export interface AnimalModel {
   animate(dt: number, s: AnimalAnim): void;
 }
 
-const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
-const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 const ease = (a: number, b: number, v: number) => {
   const t = clamp((v - a) / (b - a), 0, 1);
   return t * t * (3 - 2 * t);

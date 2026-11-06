@@ -8,6 +8,7 @@ import { buildGlider, buildMount, buildVehicle } from '../models';
 import { gliderGrip } from '../models/gliders';
 import type { Holds } from '../models/vehicles';
 import { SCENARIOS, scenario, type Moment, type Scenario } from './scenarios';
+import { TAU } from '../../util/math';
 
 // The hero's animations, one at a time, for looking at and for tests to measure.
 //   /animations.html                   pick one on the left; drag to orbit, wheel to zoom
@@ -18,7 +19,6 @@ import { SCENARIOS, scenario, type Moment, type Scenario } from './scenarios';
 // stay put on the grid. window.__anims draws contact sheets and reports where the joints are.
 
 const STEP = 1 / 60;
-const TAU = Math.PI * 2;
 const params = new URLSearchParams(location.search);
 
 // ---------- scene ----------

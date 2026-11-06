@@ -1,3 +1,4 @@
+import { lerp } from '../util/math';
 // The ground under an open world: a regular grid of heights plus a surface type per cell.
 //
 // The rules and the renderer read the *same* grid, split into triangles the same way (each quad
@@ -179,4 +180,4 @@ export const smoothstep = (a: number, b: number, x: number): number => {
   return t * t * (3 - 2 * t);
 };
 
-export const lerp = (a: number, b: number, t: number): number => a + (b - a) * t;
+export { lerp };

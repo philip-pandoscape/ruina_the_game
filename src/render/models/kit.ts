@@ -4,6 +4,7 @@ import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometr
 import { makeRng } from '../../rng';
 import { OUTLINES } from '../look';
 import { outlineMaterial, toon } from '../toon';
+import { TAU } from '../../util/math';
 
 // The toolkit every procedural model in this folder is built with. Models are assembled from
 // simple shapes that are placed, given a flat colour per face and merged, so a whole building is
@@ -12,7 +13,6 @@ import { outlineMaterial, toon } from '../toon';
 //
 // Conventions: metres; +Y is up; a model faces +Z and its right-hand side is -X.
 
-export const TAU = Math.PI * 2;
 export { makeRng };
 
 export type V3 = readonly [number, number, number];
@@ -559,3 +559,5 @@ export class Cloth {
     this.geometry.computeBoundingSphere();
   }
 }
+
+export { TAU };

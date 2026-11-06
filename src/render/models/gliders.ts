@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import type { GliderDef } from '../../content/vehicles';
 import { Cloth, PAL, Parts, beam, clothMaterial, cone, cyl, extrude, mesh, octa, pivot, rod, tor, type Rgb, type V3 } from './kit';
 import { grainify } from './detail';
+import { clamp } from '../../util/math';
 
 // Gliders. Origin is the pilot's feet: the hero hangs below the wing with hands up on the
 // control bar (y ~2.0); the wing sits at y ~2.4-2.7 and spans the data's `span`.
@@ -25,7 +26,6 @@ export interface GliderModel {
 const HANG = 2.45;
 const BAR = 1.8;
 const BAR_Z = 0.45;
-const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 
 /**
  * Where a hand holds the control bar (side +1 left, -1 right), in the glider's frame (the pilot's

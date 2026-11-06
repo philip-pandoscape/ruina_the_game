@@ -1,3 +1,4 @@
+import { esc } from '../../util/html';
 // The little card in the top-left corner while a bug report is being made. It is left out of the
 // report's own pictures (the frames are the 3D view only; screenshots skip it).
 
@@ -34,7 +35,6 @@ const CSS = /* css */ `
 @keyframes bug-pulse { 50% { opacity: 0.35; } }
 `;
 
-const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 
 function clock(ms: number): string {
   const s = Math.max(0, Math.floor(ms / 1000));

@@ -1,4 +1,5 @@
 import { makeRng } from '../rng';
+import { TAU } from '../util/math';
 
 // Two armies fighting, simulated the way a game server would: flat typed arrays, a spatial
 // grid so each fighter only looks at nearby fighters, and 10 ticks per second.
@@ -288,7 +289,6 @@ export class CrowdSim {
 
   // Blends between the last two ticks (alpha 0..1) into the draw arrays.
   render(alpha: number): void {
-    const TAU = Math.PI * 2;
     const { x, z, prevX, prevZ, yaw, prevYaw, hp, rx, rz, ryaw, rspeed, down } = this;
     for (let i = 0; i < this.n; i++) {
       const mx = x[i] - prevX[i];

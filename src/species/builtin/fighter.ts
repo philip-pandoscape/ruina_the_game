@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { RigBuilder } from '../authoring';
 import { bakeAuthored } from '../pose';
 import { MAT, type SpeciesDef, type Vec3 } from '../types';
+import { lerp } from '../../util/math';
 
 // The battle crowd's fighter, as species data. The geometry is the same twenty boxes it always
 // was; what used to be an if-chain of hardcoded pivots and angles in the vertex shader is now
@@ -28,7 +29,6 @@ const smoothstep = (a: number, b: number, x: number) => {
   const t = Math.min(1, Math.max(0, (x - a) / (b - a)));
   return t * t * (3 - 2 * t);
 };
-const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 
 /** The overhead chop: wind up behind the head, strike forward, settle back. */
 export function chopAngle(atk: number): number {

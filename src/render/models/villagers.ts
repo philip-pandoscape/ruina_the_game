@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { PAL, Parts, bev, box, cone, cyl, extrude, glowMaterial, ico, mesh, mix, octa, pivot, rod, sph, tor, type Rgb, type V3 } from './kit';
+import { clamp } from '../../util/math';
 
 // The townsfolk of Emberholm, built like the hero (src/content/creatures/hero.ts): chunky
 // rounded blocks, a big head, ~1.7-1.9 m tall, facing +Z with the origin at the feet. Each is
@@ -21,7 +22,6 @@ export interface VillagerModel {
 export const VILLAGER_IDS = ['hollis', 'mara', 'tamsin', 'bertram', 'sela', 'ilsa', 'quill', 'ysolde', 'dunmore', 'pell', 'hob', 'brenna'];
 
 const OUTLINE = 0.018;
-const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 const ease = (a: number, b: number, v: number) => {
   const t = clamp((v - a) / (b - a), 0, 1);
   return t * t * (3 - 2 * t);

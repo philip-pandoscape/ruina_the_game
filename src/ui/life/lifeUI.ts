@@ -31,6 +31,7 @@ import type { Vitals } from '../../render/hud';
 import type { AutoWalk } from '../../app/autoWalk';
 import { TravelUI } from './travelUI';
 import { dungeonDef } from '../../sim/zone/dungeon';
+import { esc } from '../../util/html';
 
 // The open world's HUD and windows. Everything here only reads the life state and queues commands;
 // nothing in the UI changes the world directly. Windows dock at the side and leave the world
@@ -96,7 +97,6 @@ function clock(h: number, sky: { sunrise: number; sunset: number }): string {
   return `${icon} ${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
 }
 
-const esc = (s: string) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 const EMOJI = /\p{Extended_Pictographic}(?:️|‍\p{Extended_Pictographic}️?)*/gu;
 /** Text with its emoji drawn as painted icons where there are any. */
 const withIcons = (text: string, px = 16) => esc(text).replace(EMOJI, (e) => (iconUrl(e) ? iconHtml(e, undefined, px) : e));

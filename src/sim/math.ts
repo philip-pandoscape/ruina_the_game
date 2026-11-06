@@ -1,8 +1,7 @@
+import { TAU, DEG } from '../util/math';
 // Small shared maths the rules lean on. Angles are radians; the sim never uses degrees except
 // where a tuning value is written in them.
 
-export const TAU = Math.PI * 2;
-export const DEG = Math.PI / 180;
 
 // Shortest signed angle from a to b.
 // Plain square root instead of Math.hypot, so Rust (server/src/player.rs) gets identical results.
@@ -21,3 +20,4 @@ export function turnToward(current: number, target: number, maxStep: number): nu
   return Math.atan2(Math.sin(next), Math.cos(next));
 }
 
+export { TAU, DEG };

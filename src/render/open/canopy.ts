@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { makeRng, range } from '../../rng';
 import { toon } from '../toon';
 import { foliageTime } from './leaves';
+import { TAU } from '../../util/math';
 
 // The new look's crowns: soft, painterly masses of foliage, as in the island's reference picture.
 // Each crown is a few hundred small clumps of leaves (or tufts of needles, for the pines) scattered
@@ -9,8 +10,6 @@ import { foliageTime } from './leaves';
 // a flat card edge on. Each clump is lit with the normal of the shape at that point, so the whole
 // crown shades as one rounded mass: sunlit on top, dark underneath and inside, glowing a little
 // where the sun shines through. Far off, fewer and bigger clumps make the same shape.
-
-const TAU = Math.PI * 2;
 
 function canvas(size: number): [HTMLCanvasElement, CanvasRenderingContext2D] {
   const c = document.createElement('canvas');
