@@ -20,7 +20,9 @@ const FORBIDDEN: Record<string, string[]> = {
   input: ['render', 'ui', 'net', 'app', 'dev', 'bible', '(root:main)'],
   // Drawing and the network don't know each other (R6.0): the network keeps what the server says, the
   // drawing draws what it's handed, and the app hands one to the other.
-  render: ['net', 'app', 'dev', 'bible', '(root:main)'],
+  // Drawing doesn't reach into the windows either (R6.0): what a window draws in three.js it hosts
+  // (the hero preview), handed what it needs.
+  render: ['net', 'ui', 'app', 'dev', 'bible', '(root:main)'],
   net: ['render', 'ui', 'dev', 'bible', '(root:main)'],
   // The windows show what they're handed and ask the app for what they do (R6.0): sign-in, characters,
   // parties and mini-games declare the calls they make, and the app hands them the connection.
