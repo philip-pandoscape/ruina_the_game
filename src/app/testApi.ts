@@ -241,12 +241,19 @@ export function makeTestApi(g: GameRefs) {
         maxCorrection: g.prediction?.maxCorrection ?? 0,
         lastCorrection: g.prediction?.lastCorrection ?? 0,
         snapshots: g.net.snapshots,
-        remotes: g.remotes?.list() ?? [],
+        // The other players (bots included): the battlefield server's, or the world's.
+        remotes: g.remotes?.list() ?? (g.peers?.present() ?? []).map((p) => ({ id: p.id, x: p.x, z: p.z, hp: p.hp, team: p.team, weapon: p.weapon })),
         scriptLeft: g.scripted.length,
         renderTick: g.net.renderTick(performance.now()),
         lastTick: g.net.lastTick,
         server: g.net.stats,
+        /** Online: how the game you are in is running and how its fights go (admins, once a second). */
+        world: g.online?.link.stats ?? null,
       };
+    },
+    /** Counts the prediction's corrections afresh from here (after a teleport, which is one). */
+    clearCorrections(): void {
+      g.prediction?.clearCorrections();
     },
     // Feeds a list of [frames, actions] in place of the controller (live play, for tests).
     scriptInput(segments: Array<[number, Partial<Actions>]>): void {
@@ -430,6 +437,14 @@ export function makeTestApi(g: GameRefs) {
     lifeCommand(c: Parameters<Life['command']>[0]): void {
       g.life?.command(c);
     },
+    /**
+     * Online, an admin's bots: `n` more of `brain` (skirmisher, wanderer) round you on side `team`,
+     * or with `n` 0 every bot here sent away (the server's; crates/server/src/play/bots.rs).
+     */
+    sendBots(n: number, brain?: string, team?: number): boolean {
+      const c = { t: 'bots', n, brain, team } as unknown as Parameters<Life['command']>[0];
+      return g.online?.link.command((g.prediction?.seq ?? 0) + 1, c) ?? false;
+    },
     /** Jumps the player to (x, z) on the ground (`drawn` false leaves drawing it to the caller, as advance's does). */
     teleport(x: number, z: number, facing?: number, drawn = true): void {
       g.teleport(x, z, facing);
@@ -607,12 +622,13 @@ export function makeTestApi(g: GameRefs) {
       return g.online?.link.dungeon(id, enter) ?? false;
     },
     /** Online: into a developer zone (the yard, the battlefield), as the Admin menu takes an admin there. */
-    enterZone(id: string): boolean {
-      return g.online?.link.zone(id) ?? false;
+    /** Into a developer zone (admins only), on side `team` where sides are taken; asked again there, onto that side. */
+    enterZone(id: string, team?: number): boolean {
+      return g.online?.link.zone(id, team) ?? false;
     },
     /** The players here who are bots, by id and name (they come with a developer zone, or the developer panel). */
-    bots(): Array<{ id: number; name: string }> {
-      return (g.peers?.list() ?? []).filter((p) => p.bot && p.online).map((p) => ({ id: p.id, name: p.name }));
+    bots(): Array<{ id: number; name: string; team: number; hp: number }> {
+      return (g.peers?.list() ?? []).filter((p) => p.bot && p.online).map((p) => ({ id: p.id, name: p.name, team: p.team, hp: p.hp }));
     },
     /** The mini-game tables drawn near you: where, who sits at them, and how many beacons are lit. */
     gameTables() {

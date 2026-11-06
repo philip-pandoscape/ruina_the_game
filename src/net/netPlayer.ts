@@ -136,6 +136,13 @@ export class Prediction {
     }
   }
 
+  /** Tests: counts corrections afresh from here (a teleport is one, by the server's own hand). */
+  clearCorrections(): void {
+    this.corrections = 0;
+    this.maxCorrection = 0;
+    this.lastCorrection = 0;
+  }
+
   ease(dt: number): void {
     this.offset.multiplyScalar(Math.exp(-dt * 12));
   }

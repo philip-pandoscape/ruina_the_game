@@ -20,7 +20,7 @@ use tokio::sync::mpsc;
 use crate::open::dungeon::{Spot, dungeon};
 use crate::open::zone::emberholm;
 use crate::play::parties::{Changed, Parties};
-use crate::play::{Arrival, ChannelGame, Owner, Save};
+use crate::play::{Arrival, ChannelGame, Owner, Save, client};
 
 /// How long a copy of a dungeon is kept once the last player has left it.
 pub const COPY_KEPT: Duration = Duration::from_secs(30 * 60);
@@ -192,7 +192,7 @@ impl Spaces {
     /// Into a developer zone, from the Admin menu: admins only (`admin`, as the server decides it).
     /// A zone everyone shares (the battlefield) has one copy for all of them; any other, one for each
     /// party, as a dungeon has. Out again through its way out, as from a dungeon, at its own door.
-    pub fn enter_zone(&mut self, character: i64, id: &str, admin: bool) -> Result<(), String> {
+    pub fn enter_zone(&mut self, character: i64, id: &str, admin: bool, team: Option<u8>) -> Result<(), String> {
         if !admin {
             return Err("Only an admin can go there.".into());
         }
@@ -202,6 +202,7 @@ impl Spaces {
         // its door; there already, nothing to do.
         let here: Option<&'static str> = self.game_ref(character).ok_or("You aren't playing.")?.copy_of().map(|c| c.def).map(|d| d.id.as_str());
         if here == Some(def.id.as_str()) {
+            self.take_side(character, team);
             return Ok(());
         }
         if here.is_some() {
@@ -225,7 +226,17 @@ impl Spaces {
             return Err(format!("{} is full.", def.name));
         }
         let at = def.arrival();
-        self.move_to(character, copy, at)
+        self.move_to(character, copy, at)?;
+        self.take_side(character, team);
+        Ok(())
+    }
+
+    /// In a developer zone, onto a side (0 or 1; the first if none is asked for). Everyone on the
+    /// island is on its one side, so this only matters where bots or other admins fight across sides.
+    fn take_side(&mut self, character: i64, team: Option<u8>) {
+        if let Some((p, _)) = self.game_of(character).and_then(|g| g.players.open_mut(client(character))) {
+            p.team = team.unwrap_or(0).min(1);
+        }
     }
 
     /// Out through a copy's portal, back to their home channel outside its door.
@@ -555,10 +566,10 @@ mod tests {
     #[test]
     fn only_admins_go_into_a_developer_zone_and_its_bots_are_there_while_anyone_is() {
         let (mut sp, _a, _b) = two_in_channel_one();
-        assert_eq!(sp.enter_zone(1, "battlefield", false), Err("Only an admin can go there.".into()));
-        assert!(sp.enter_zone(1, "goblinsDread", true).is_err(), "a dungeon isn't a developer zone");
-        sp.enter_zone(1, "battlefield", true).unwrap();
-        sp.enter_zone(2, "battlefield", true).unwrap();
+        assert_eq!(sp.enter_zone(1, "battlefield", false, None), Err("Only an admin can go there.".into()));
+        assert!(sp.enter_zone(1, "goblinsDread", true, None).is_err(), "a dungeon isn't a developer zone");
+        sp.enter_zone(1, "battlefield", true, None).unwrap();
+        sp.enter_zone(2, "battlefield", true, None).unwrap();
         // One copy for everyone, with both sides' bots in it.
         let copy = sp.at[&1];
         assert!(copy < 0 && sp.at[&2] == copy);
@@ -572,17 +583,59 @@ mod tests {
         let door = dungeon("battlefield").unwrap().door.as_ref().unwrap();
         let (x, _, z, _) = sp.game_ref(1).unwrap().whereabouts(1).unwrap();
         assert!((x - door.outside.x).abs() < 3.0 && (z - door.outside.z).abs() < 3.0, "{x} {z}");
+        // Sent away by an admin, they stay away while anyone is in: someone else coming in doesn't
+        // bring them back. The first one into it empty does.
+        sp.enter_zone(1, "battlefield", true, None).unwrap();
+        assert_eq!(sp.games[&copy].bots.len(), 32);
+        sp.games.get_mut(&copy).unwrap().remove_bots();
+        sp.enter_zone(2, "battlefield", true, None).unwrap();
+        assert!(sp.games[&copy].bots.is_empty());
+        sp.out_of_copy(1).unwrap();
+        sp.out_of_copy(2).unwrap();
+        sp.enter_zone(1, "battlefield", true, None).unwrap();
+        assert_eq!(sp.games[&copy].bots.len(), 32);
+    }
+
+    #[test]
+    fn admins_fight_on_the_side_they_pick_and_are_on_the_islands_one_side_back_out() {
+        let (mut sp, _a, _b) = two_in_channel_one();
+        let team = |sp: &Spaces, c: i64| sp.games[&sp.at[&c]].players.open_view(client(c)).map(|(p, _, _)| p.team);
+        sp.enter_zone(1, "battlefield", true, Some(1)).unwrap();
+        sp.enter_zone(2, "battlefield", true, None).unwrap();
+        assert_eq!((team(&sp, 1), team(&sp, 2)), (Some(1), Some(0)));
+        // Onto the other side, there.
+        sp.enter_zone(2, "battlefield", true, Some(1)).unwrap();
+        assert_eq!(team(&sp, 2), Some(1));
+        // Back on the island, everyone is on its one side.
+        sp.out_of_copy(1).unwrap();
+        assert_eq!(team(&sp, 1), Some(0));
+    }
+
+    #[test]
+    fn any_build_goes_in_a_developer_zone_and_only_an_earned_one_back_on_the_island() {
+        let (mut sp, _a, _b) = two_in_channel_one();
+        let all = crate::skills::skills_from(&["sword", "cleave", "whirlwind"]);
+        let wanted = crate::play::build_json(&crate::player::Build { skills: all, ..crate::player::Build::default() });
+        // On the island a newcomer hasn't the points for it.
+        assert!(!sp.game_of(1).unwrap().set_build(1, &wanted));
+        sp.enter_zone(1, "yard", true, None).unwrap();
+        assert!(sp.game_of(1).unwrap().set_build(1, &wanted));
+        let skills = |sp: &mut Spaces| sp.game_of(1).unwrap().players.open_view(client(1)).unwrap().0.skills;
+        assert_eq!(skills(&mut sp), all);
+        // Back out, it's the build the island has earned.
+        sp.out_of_copy(1).unwrap();
+        assert_eq!(skills(&mut sp), crate::player::Build::default().skills);
     }
 
     #[test]
     fn an_admin_goes_from_one_zone_straight_into_another() {
         let (mut sp, _a, _b) = two_in_channel_one();
-        sp.enter_zone(1, "yard", true).unwrap();
+        sp.enter_zone(1, "yard", true, None).unwrap();
         let yard = sp.at[&1];
         // Asking for the place you're in changes nothing.
-        sp.enter_zone(1, "yard", true).unwrap();
+        sp.enter_zone(1, "yard", true, None).unwrap();
         assert_eq!(sp.at[&1], yard);
-        sp.enter_zone(1, "goblinCamp", true).unwrap();
+        sp.enter_zone(1, "goblinCamp", true, None).unwrap();
         let camp = sp.at[&1];
         assert!(camp < 0 && camp != yard);
         assert_eq!(sp.games[&camp].copy_of().map(|c| c.def.id.as_str()), Some("goblinCamp"));
@@ -593,8 +646,8 @@ mod tests {
     #[test]
     fn each_player_has_a_yard_of_their_own() {
         let (mut sp, _a, _b) = two_in_channel_one();
-        sp.enter_zone(1, "yard", true).unwrap();
-        sp.enter_zone(2, "yard", true).unwrap();
+        sp.enter_zone(1, "yard", true, None).unwrap();
+        sp.enter_zone(2, "yard", true, None).unwrap();
         assert_ne!(sp.at[&1], sp.at[&2]);
         assert_eq!(sp.games[&sp.at[&1]].bots.len(), 3);
     }
@@ -602,7 +655,7 @@ mod tests {
     #[test]
     fn the_goblin_camp_brings_a_war_band() {
         let (mut sp, _a, _b) = two_in_channel_one();
-        sp.enter_zone(1, "goblinCamp", true).unwrap();
+        sp.enter_zone(1, "goblinCamp", true, None).unwrap();
         let copy = sp.at[&1];
         let goblins: Vec<_> = sp.games[&copy].actors.list.iter().filter(|a| a.kind == "goblin").collect();
         assert_eq!(goblins.len(), 6);
@@ -612,7 +665,7 @@ mod tests {
     #[test]
     fn the_yard_brings_its_dummy_and_slimes_and_they_stand_on_its_floor() {
         let (mut sp, _a, _b) = two_in_channel_one();
-        sp.enter_zone(1, "yard", true).unwrap();
+        sp.enter_zone(1, "yard", true, None).unwrap();
         let copy = sp.at[&1];
         let kinds: Vec<String> = sp.games[&copy].actors.list.iter().map(|a| a.kind.clone()).collect();
         assert_eq!(kinds.iter().filter(|k| *k == "dummy").count(), 1);

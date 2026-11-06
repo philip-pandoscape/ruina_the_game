@@ -100,12 +100,12 @@ struct Slot {
     budget: f64,
 }
 
-// Where `slot` stood at (fractional) tick `view`, from its history.
 /// The ground under a point: a copy's floor where it has one, the terrain, or 0 (the battlefield).
 fn ground_under(floor: Option<&'static DungeonDef>, terrain: Option<&'static Heightfield>, x: f64, z: f64) -> f64 {
     floor.and_then(|d| d.floor_at(x, z)).unwrap_or_else(|| terrain.map_or(0.0, |g| g.height(x, z)))
 }
 
+// Where `slot` stood at (fractional) tick `view`, from its history.
 fn rewound(slot: &Slot, view: f64) -> (f64, f64, f64) {
     let h = &slot.history;
     let Some(&last) = h.back() else {
@@ -398,12 +398,15 @@ impl Players {
         Some((slot.player, slot.life))
     }
 
-    /// Open worlds: inputs as (seq, actions). There's no view tick: monsters aren't rewound.
-    pub fn queue_actions(&mut self, client_id: u32, inputs: impl Iterator<Item = (u32, Actions)>) {
+    /// Open worlds: inputs as (seq, view tick, actions). The view tick is the (fractional) tick the
+    /// player saw everyone else at, so a swing at another player or a bot is checked against where
+    /// they were then (`rewound`); `f64::INFINITY` sees the present (bots, tests). Monsters aren't
+    /// rewound.
+    pub fn queue_actions(&mut self, client_id: u32, inputs: impl Iterator<Item = (u32, f64, Actions)>) {
         let Some(&s) = self.by_client.get(&client_id) else { return };
         if let Some(slot) = &mut self.slots[s] {
-            for (seq, a) in inputs {
-                slot.queue.push_back((seq, 0.0, a));
+            for (seq, view, a) in inputs {
+                slot.queue.push_back((seq, view, a));
             }
         }
     }

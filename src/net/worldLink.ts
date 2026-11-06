@@ -27,7 +27,8 @@ import { resumeAfterReload } from '../app/resume';
 //                     | space {space}: into a dungeon's copy, or back out (crates/server/src/play/spaces.rs)
 //                     | party {party} | partyInvite {invite} | notice {text}   (parties, src/ui/party)
 //                     | reset | kicked | error {text} | updating
-//   browser → server  (binary) inputs: 7, count, then per input a u32 sequence number and 10 bytes
+//   browser → server  (binary) inputs: 7, count, then per input a u32 sequence number, the u32
+//                     tick (× 16) everyone else is drawn at, and 10 bytes
 //                     (text) cmd {s, c} | build {build} | reset
 //                     | challenge {to, game, stake, seed?, turn?} | withdraw | answer {from, accept}
 //                     | move {table, m} | concede {table}
@@ -123,6 +124,25 @@ export interface WorldTick {
   life?: { rev: number; state: LifeState; placing: Placement | null; resting: boolean };
   /** Mini-game tables near you, as everyone sees them (none: no table near). */
   tables?: TableShown[];
+  /** Once a second, for admins: how the game you're in is running and how its fights go. */
+  stats?: WorldStats;
+}
+
+/** How a game on the server is running (crates/server/src/play/mod.rs, once a second to admins). */
+export interface WorldStats {
+  tick: number;
+  players: number;
+  bots: number;
+  /** How long a tick takes to run, ms (smoothed). */
+  tickMs: number;
+  /** The size of the update this came with, bytes. */
+  bytes: number;
+  /** Blows between players (bots included) since the game began; those only lag compensation landed; how far back it looked (ms, recent). */
+  pvpHits: number;
+  savedByRewind: number;
+  rewindMs: number;
+  heals: number;
+  meteorsLanded: number;
 }
 
 /** A mini-game's table as everyone in the world sees it (crates/engine/src/minigames Table::shown). */
@@ -188,7 +208,7 @@ const RETRY_MS = { updating: [500, 1000, 1500, 2000], reconnecting: [500, 1000, 
 /** A WebSocket closed as a service restart: the server is being updated. */
 const SERVICE_RESTART = 1012;
 /** What this page speaks; the server says what it speaks in its welcome (crates/server/src/play/socket.rs). */
-const WORLD_PROTOCOL = 7;
+const WORLD_PROTOCOL = 8;
 const RELOADED = 'ruina.reloaded-for-server';
 const RELOADED_BUILD = 'ruina.reloaded-for-build';
 const SEND_INPUTS = 7;
@@ -241,6 +261,8 @@ export class WorldLink {
   /** The newest tick, and the newest whole island, for whatever arrives before the game is listening. */
   latest: WorldTick | null = null;
   latestLife: WorldTick['life'] | null = null;
+  /** The newest stats the server sent (admins only, once a second). */
+  stats: WorldStats | null = null;
   /** The server said it is stopping for an update. */
   private updating = false;
   /**
@@ -299,14 +321,19 @@ export class WorldLink {
     return this.status === 'online' && this.ws.readyState === WebSocket.OPEN;
   }
 
-  /** One frame of what you pressed: its sequence number and the 10 bytes netPlayer.ts packs. */
-  sendInput(seq: number, raw: readonly number[]): boolean {
+  /**
+   * One frame of what you pressed: its sequence number, the server tick (× 16) everyone else is
+   * drawn at on this screen (so the server checks your swings against where you saw them), and the
+   * 10 bytes netPlayer.ts packs.
+   */
+  sendInput(seq: number, view: number, raw: readonly number[]): boolean {
     if (!this.open) return false;
-    const msg = new DataView(new ArrayBuffer(2 + 4 + OPEN_INPUT));
+    const msg = new DataView(new ArrayBuffer(2 + 8 + OPEN_INPUT));
     msg.setUint8(0, SEND_INPUTS);
     msg.setUint8(1, 1);
     msg.setUint32(2, seq, true);
-    for (let k = 0; k < OPEN_INPUT; k++) msg.setUint8(6 + k, (raw[k] ?? 0) & 255);
+    msg.setUint32(6, view, true);
+    for (let k = 0; k < OPEN_INPUT; k++) msg.setUint8(10 + k, (raw[k] ?? 0) & 255);
     this.out(msg.buffer);
     return true;
   }
@@ -367,9 +394,12 @@ export class WorldLink {
     return this.send({ t: 'dungeon', id, enter });
   }
 
-  /** Into a developer zone (admins only; the server says no to anyone else): the yard, the battlefield. */
-  zone(id: string): boolean {
-    return this.send({ t: 'zone', id });
+  /**
+   * Into a developer zone (admins only; the server says no to anyone else): the yard, the battlefield,
+   * on side `team` (0 or 1) where sides are taken; asked again there, onto that side.
+   */
+  zone(id: string, team?: number): boolean {
+    return this.send(team === undefined ? { t: 'zone', id } : { t: 'zone', id, team });
   }
 
   /** Invites someone playing to your party: by id, or by name (in any channel or dungeon). */
@@ -437,6 +467,7 @@ export class WorldLink {
       this.ticks++;
       this.latest = t;
       if (t.life) this.latestLife = t.life;
+      if (t.stats) this.stats = t.stats;
       for (const e of t.peers ?? []) this.peers.set(e.id, e);
       this.onPeers?.(t.peers ?? []);
       this.onTick?.(t);

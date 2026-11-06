@@ -52,6 +52,7 @@ const SHOWN = [
   'crouching',
   'crouchFrame',
   'hp',
+  'team',
 ] as const;
 
 /**
@@ -93,6 +94,10 @@ interface Peer {
   solid: Set<string>;
   /** When we last heard from them (ms, performance.now()). */
   heard: number;
+  /** The side their colours show (0 until a developer zone puts them on another). */
+  team: number;
+  /** Their health as last drawn, to show a blow as it lands on screen. */
+  hp: number;
 }
 
 /** Everyone reports 20 times a second, even standing still; this long without a word, they've gone. */
@@ -122,6 +127,8 @@ export class WorldPeers {
   stoolFor: ((id: number) => Seated | null) | null = null;
   /** Where everyone's houses are drawn (the island's Village), by owner. */
   houseSink: ((owner: string, houses: HouseView[]) => void) | null = null;
+  /** A blow landing on someone as drawn here: where, how much, and the way it pushes them. */
+  onHurt: ((x: number, y: number, z: number, damage: number, dirX: number, dirZ: number) => void) | null = null;
 
   constructor(
     private scene: THREE.Scene,
@@ -157,6 +164,9 @@ export class WorldPeers {
     vehicles: number;
     away: number;
     plate: number;
+    team: number;
+    hp: number;
+    weapon: number;
   }> {
     return [...this.peers.values()].map((p) => ({
       id: p.id,
@@ -172,7 +182,15 @@ export class WorldPeers {
       vehicles: p.life.state.vehicles.length,
       away: +p.away.toFixed(1),
       plate: p.label.visible && p.hero.root.visible ? +(p.label.material as THREE.SpriteMaterial).opacity.toFixed(3) : 0,
+      team: p.shown.team,
+      hp: p.shown.hp,
+      weapon: p.shown.weapon,
     }));
+  }
+
+  /** Everyone playing here now (list() keeps those who left too, for what they built). */
+  present(): ReturnType<WorldPeers['list']> {
+    return this.list().filter((p) => p.online);
   }
 
   /** How far the farm ground drawn for anyone here stands over the terrain within `pad` metres of (x, z) (LifeView.raisedAt). */
@@ -212,6 +230,8 @@ export class WorldPeers {
       estateKey: '',
       solid: new Set(),
       heard: 0,
+      team: 0,
+      hp: Infinity,
     };
     this.peers.set(id, p);
     return p;
@@ -365,6 +385,15 @@ export class WorldPeers {
     sh.vel = { ...b.p.vel };
     sh.glider = (b.p.glider as string) ?? '';
     sh.host = Number(sh.host) || 0;
+    sh.team = Number(sh.team) || 0;
+    // Sides are a developer zone's: there, everyone wears their side's colours.
+    if (sh.team !== p.team) {
+      p.team = sh.team;
+      p.hero.setTeam(sh.team);
+    }
+    // A blow shows the moment the drawn them takes it.
+    if (sh.hp < p.hp) this.onHurt?.(sh.pos.x, sh.pos.y + 1.1, sh.pos.z, p.hp - sh.hp, -Math.sin(sh.facing), -Math.cos(sh.facing));
+    p.hp = sh.hp;
 
     // Their vehicles glide between updates the same way; packs ride on whatever carries them.
     const before = new Map((a.p.vehicles ?? []).map((v) => [v.id, v]));

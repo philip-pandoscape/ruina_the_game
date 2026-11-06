@@ -72,7 +72,7 @@ const MAX_BATCH: usize = 32;
 const SEND_INPUTS: u8 = 7;
 /// What this server speaks. A page that speaks something else is out of date: it reloads
 /// (src/net/worldLink.ts WORLD_PROTOCOL).
-pub const WORLD_PROTOCOL: u32 = 7;
+pub const WORLD_PROTOCOL: u32 = 8;
 
 /// Where the server is in its life. Railway starts a new server for an update, then stops this one.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -365,9 +365,12 @@ enum FromBrowser {
         id: String,
         enter: bool,
     },
-    /// Into a developer zone, from the Admin menu (admins only: spaces.rs enter_zone).
+    /// Into a developer zone, from the Admin menu (admins only: spaces.rs enter_zone), on a side
+    /// (the battlefield's), or onto another side there.
     Zone {
         id: String,
+        #[serde(default)]
+        team: Option<u8>,
     },
     /// Parties (crates/server/src/play/parties.rs): invite someone (by id, or by name), answer an invitation,
     /// leave, remove someone, hand on the lead.
@@ -556,7 +559,7 @@ async fn play(
                 match msg {
                     Some(Ok(Message::Binary(b))) => {
                         if let Some(list) = read_inputs(&b) {
-                            world.with_member(character, |ch| ch.inputs(character, list.into_iter()));
+                            world.with_member(character, |ch| ch.inputs_seen(character, list.into_iter()));
                         }
                     }
                     Some(Ok(Message::Text(text))) => match serde_json::from_str::<FromBrowser>(text.as_str()) {
@@ -617,9 +620,9 @@ async fn play(
                                 send(&mut tx, json!({ "t": "error", "text": text })).await?;
                             }
                         }
-                        Ok(FromBrowser::Zone { id }) => {
+                        Ok(FromBrowser::Zone { id, team }) => {
                             let admin = app.is_admin(account);
-                            if let Err(text) = world.with_spaces(|sp| sp.enter_zone(character, &id, admin)) {
+                            if let Err(text) = world.with_spaces(|sp| sp.enter_zone(character, &id, admin, team)) {
                                 send(&mut tx, json!({ "t": "error", "text": text })).await?;
                             }
                         }
@@ -683,24 +686,26 @@ async fn play(
     Ok(())
 }
 
-/// A batch of inputs: 7, the count, then per input a u32 sequence number (little-endian) and its
-/// OPEN_INPUT bytes. None if it isn't one.
-fn read_inputs(b: &[u8]) -> Option<Vec<(u32, [u8; OPEN_INPUT])>> {
+/// A batch of inputs: 7, the count, then per input a u32 sequence number and the u32 tick (× 16)
+/// the browser drew everyone else at (little-endian), and its OPEN_INPUT bytes. None if it isn't one.
+fn read_inputs(b: &[u8]) -> Option<Vec<(u32, u32, [u8; OPEN_INPUT])>> {
+    const EACH: usize = 8 + OPEN_INPUT;
     if b.len() < 2 || b[0] != SEND_INPUTS {
         return None;
     }
     let n = b[1] as usize;
-    if n == 0 || n > MAX_BATCH || b.len() != 2 + n * (4 + OPEN_INPUT) {
+    if n == 0 || n > MAX_BATCH || b.len() != 2 + n * EACH {
         return None;
     }
     Some(
         (0..n)
             .map(|k| {
-                let at = 2 + k * (4 + OPEN_INPUT);
+                let at = 2 + k * EACH;
                 let seq = u32::from_le_bytes(b[at..at + 4].try_into().unwrap());
+                let view = u32::from_le_bytes(b[at + 4..at + 8].try_into().unwrap());
                 let mut raw = [0u8; OPEN_INPUT];
-                raw.copy_from_slice(&b[at + 4..at + 4 + OPEN_INPUT]);
-                (seq, raw)
+                raw.copy_from_slice(&b[at + 8..at + EACH]);
+                (seq, view, raw)
             })
             .collect(),
     )
@@ -800,12 +805,14 @@ mod tests {
         let mut b = vec![SEND_INPUTS, 2];
         for seq in [5u32, 6] {
             b.extend(seq.to_le_bytes());
+            b.extend((seq * 16 + 8).to_le_bytes());
             b.extend([127u8, 0, 1, 0, 0, 0, 0, 0, 0, 127]);
         }
         let list = read_inputs(&b).unwrap();
         assert_eq!(list.len(), 2);
         assert_eq!(list[1].0, 6);
-        assert_eq!(list[0].1[9], 127);
+        assert_eq!(list[1].1, 104);
+        assert_eq!(list[0].2[9], 127);
         assert!(read_inputs(&b[..b.len() - 1]).is_none());
         assert!(read_inputs(&[SEND_INPUTS, 0]).is_none());
     }

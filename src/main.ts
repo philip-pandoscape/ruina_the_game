@@ -25,6 +25,7 @@ import { TrainingRange } from './sim/training';
 import { NO_ACTIONS, type Actions, type GameEvent, type PlayerState } from './sim/types';
 import { bandAround, makeBattlefield, makeWorld } from './sim/world';
 import { MissileView } from './render/missiles';
+import { dungeonDef } from './sim/zone/dungeon';
 import { makeZoneWorld } from './sim/zone/world';
 import { OpenStage } from './render/open/stage';
 import { loadModels } from './render/open/models';
@@ -57,7 +58,7 @@ import { angleDiff } from './sim/math';
 import { hourAt, hourOfDay } from './sim/life/weather';
 import { ABILITY_ICONS, WEAPON_ICONS, WEAPON_NAMES } from './ui/icons';
 import type { MarkerKind } from './render/hud';
-import { BOOK, levelOf, levelsFrom, resolveSkills, sameLevels, SKILL_POINTS, type ResolvedSkills } from './skills';
+import { BOOK, levelOf, levelsFrom, NODES, resolveSkills, sameLevels, SKILL_POINTS, type ResolvedSkills } from './skills';
 import { SkillsPanel } from './ui/skills/panel';
 import { skillBudget, trainedBy } from './sim/life/progress';
 import {
@@ -603,8 +604,15 @@ function yardTrain(e: GameEvent): void {
   }
 }
 if (!life) sim.levels = levelsFrom(yardXp);
-/** Points you may have in the tree: earned on the island, a training budget elsewhere. */
-const skillPoints = () => (life ? skillBudget(life.state) : SKILL_POINTS);
+/**
+ * Points you may have in the tree: earned on the island, a training budget elsewhere, and the whole
+ * tree in a developer zone, which is for trying weapons and skills (the server allows the same).
+ */
+const skillPoints = (): number => {
+  const zone = visit?.inside ? dungeonDef(visit.inside) : undefined;
+  if (zone?.developer) return NODES.length;
+  return life ? skillBudget(life.state) : SKILL_POINTS;
+};
 const panel = new SkillsPanel(build, {
   budget: skillPoints,
   budgetNote: () => (life ? 'Earned from quests and milestones' : 'Training yard: points to try builds with'),
@@ -662,7 +670,11 @@ const NAMES: Record<string, string> = {
 
 // The raid's fighters come either from a local sim (?raid) or from the battle server (?server).
 const crowd = raidCount ? new CrowdSim(raidCount) : null;
-const net = serverUrl ? new NetCrowd(serverUrl) : online ? NetCrowd.detached((seq, raw, stick) => online.link.sendInput(seq, [...raw, ...stick])) : null;
+const net = serverUrl
+  ? new NetCrowd(serverUrl)
+  : online
+    ? NetCrowd.detached((seq, view, raw, stick) => online.link.sendInput(seq, view, [...raw, ...stick]))
+    : null;
 const netSpells = net ? new NetSpells(net, resolveSkills(build.skills)) : null;
 // The server's monsters: drawn between its updates, at the moment other players are drawn
 // (shownActors), and as it has them now (presentActors) for what has to be on time - warnings, and
@@ -690,7 +702,8 @@ const prediction = net && playing ? new Prediction(sim, net) : null;
 const remotes = serverUrl ? new RemotePlayers(stage.scene) : null;
 let lastSnapshot = 0;
 let lastHp: number = COMBAT.maxHp;
-let shownTeam = -1;
+/** The side your hero's colours show: the battlefield server's sets it at once; in the world, only a developer zone's side changes it. */
+let shownTeam = serverUrl ? -1 : 0;
 const scripted: Actions[] = []; // test hook: replaces the controller for a few frames
 let autoAttack = false; // test hook: swing at the nearest enemy you can see
 let autoCooldown = 0;
@@ -715,13 +728,12 @@ function applyBuild(b: Build): void {
   if (netSpells) netSpells.stats = resolveSkills(b.skills);
   else sim.setBuild(b);
 }
-if (remotes) {
-  // Flinch and sparks for any hit you can see. The number itself only comes from the server's
-  // attributed events, so other people's hits don't put damage numbers on your screen.
-  remotes.onHurt = (x, y, z, damage, dirX, dirZ) => {
-    vfx.onEvent({ type: 'hit', frame: 0, index: damage >= 25 ? 2 : 0, damage, x, y, z, dirX, dirZ });
-  };
-}
+// Flinch and sparks for any hit on another player you can see. The number itself only comes from
+// the server's attributed events, so other people's hits don't put damage numbers on your screen.
+const showHurt = (x: number, y: number, z: number, damage: number, dirX: number, dirZ: number): void =>
+  vfx.onEvent({ type: 'hit', frame: 0, index: damage >= 25 ? 2 : 0, damage, x, y, z, dirX, dirZ });
+if (remotes) remotes.onHurt = showHurt;
+if (peers) peers.onHurt = showHurt;
 
 // Which icon goes beside a floating number, from the cause the server packed into the event.
 function causeIcon(cause: number): string {
@@ -758,7 +770,7 @@ function autoAim(a: Actions): Actions {
   const me = sim.player.pos;
   let best: { x: number; z: number } | null = null;
   let bestD = 2.3;
-  for (const r of remotes?.list() ?? []) {
+  for (const r of [...(remotes?.list() ?? []), ...(peers?.present() ?? [])]) {
     const d = Math.hypot(r.x - me.x, r.z - me.z);
     if (r.team !== sim.player.team && r.hp > 0 && d < bestD) {
       bestD = d;
@@ -793,6 +805,7 @@ function forEachEnemy(fn: (x: number, z: number) => void): void {
     if (a.deadFrame < 0 && f !== 0 && f !== 2) fn(a.x, a.z);
   }
   for (const r of remotes?.list() ?? []) if (r.team !== myTeam && r.hp > 0) fn(r.x, r.z);
+  for (const p of peers?.present() ?? []) if (p.team !== myTeam && p.hp > 0) fn(p.x, p.z);
   if (net) {
     for (let i = 0; i < net.n; i++) if (net.known[i] && !net.down[i] && net.team[i] !== myTeam) fn(net.rx[i], net.rz[i]);
   }
@@ -879,6 +892,7 @@ const lockOn = createTargeting({
   softLock: opt.softLock,
   names: NAMES,
   netActors: () => shownActors,
+  peers: () => peers?.present() ?? [],
 });
 const updateTarget = () => lockOn.update();
 const cycleTarget = (step: number) => lockOn.cycle(step);
@@ -1033,8 +1047,8 @@ function syncNet(): void {
       input.rumble(0.7, 0.5, 120);
     }
     lastHp = hp;
-    // Team colours are the battlefield's; on Emberholm everyone is on the same side.
-    if (serverUrl && shownTeam !== net.you.player.team) {
+    // Sides are the battlefield's (and a developer zone's); on Emberholm everyone is on one.
+    if (shownTeam !== net.you.player.team) {
       shownTeam = net.you.player.team;
       hero.setTeam(shownTeam);
     }

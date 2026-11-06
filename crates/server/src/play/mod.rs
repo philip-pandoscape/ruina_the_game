@@ -184,7 +184,12 @@ pub struct ChannelGame {
     /// Bots playing here (bots.rs), and how many have ever joined (their ids and names count on).
     bots: Vec<bots::BotSlot>,
     bot_count: u32,
+    /// How long a tick takes to run (ms, smoothed), for the admins' stats.
+    step_ms: f64,
 }
+
+/// Ticks between the stats an admin is sent (once a second).
+const STATS_EVERY: u64 = TICK_HZ as u64;
 
 /// A player's id on the wire (Players numbers its clients with u32).
 fn client(character: i64) -> u32 {
@@ -229,6 +234,7 @@ impl ChannelGame {
             saver: None,
             bots: Vec::new(),
             bot_count: 0,
+            step_ms: 0.0,
         }
     }
 
@@ -346,6 +352,14 @@ impl ChannelGame {
     pub fn put(&mut self, character: i64, m: Moving, at: Spot) {
         let Moving { mut member, mut player, life } = m;
         player.vel = Default::default();
+        if self.copy_of().is_none() {
+            // Sides are a developer zone's (spaces.rs take_side): on the island everyone is on one.
+            player.team = 0;
+            // So is trying any build (set_build): here it stays only if this island has earned it.
+            if !valid_build(&player.skills, player.weapon, &player.abilities, skill_budget(&life.state)) || !valid_movement(&player.skills, &player.movement) {
+                player.apply_build(Build::default());
+            }
+        }
         if matches!(player.mode, Mode::Glide | Mode::Swim) {
             player.mode = Mode::Normal;
         }
@@ -367,8 +381,12 @@ impl ChannelGame {
         self.players.join_open(client(character), character, player, life);
         self.members.insert(character, member);
         if let Some(c) = self.copy_mut() {
-            c.empty_since = None;
-            self.zone_bots_in();
+            // The first one into an empty copy brings its bots; after that, whatever an admin did
+            // with them (sent them away, added more) stands while anyone is in it.
+            let first = c.empty_since.take().is_some();
+            if first {
+                self.zone_bots_in();
+            }
         } else {
             let held = self.estates.held_by_others(character);
             if let Some((_, Some(life))) = self.players.open_mut(client(character)) {
@@ -586,11 +604,17 @@ impl ChannelGame {
         !self.members.is_empty()
     }
 
-    /// Inputs from a browser: (sequence number, the OPEN_INPUT bytes the browser packed). At a
-    /// table you stay in your seat: what you press counts as nothing.
-    pub fn inputs(&mut self, character: i64, list: impl Iterator<Item = (u32, [u8; OPEN_INPUT])>) {
+    /// Inputs from a browser: (sequence number, the tick × 16 it drew everyone else at, the
+    /// OPEN_INPUT bytes it packed). At a table you stay in your seat: what you press counts as nothing.
+    pub fn inputs_seen(&mut self, character: i64, list: impl Iterator<Item = (u32, u32, [u8; OPEN_INPUT])>) {
         let seated = self.tables.seated(character);
-        self.players.queue_actions(client(character), list.map(|(seq, raw)| (seq, if seated { Actions::default() } else { open_actions_from(raw) })));
+        let actions = |raw| if seated { Actions::default() } else { open_actions_from(raw) };
+        self.players.queue_actions(client(character), list.map(|(seq, view, raw)| (seq, f64::from(view) / 16.0, actions(raw))));
+    }
+
+    /// Inputs that see everyone where they are now (the tests').
+    pub fn inputs(&mut self, character: i64, list: impl Iterator<Item = (u32, [u8; OPEN_INPUT])>) {
+        self.inputs_seen(character, list.map(|(seq, raw)| (seq, u32::MAX, raw)));
     }
 
     /// A command for someone's island, given on input `seq`. The developer panel's only count where
@@ -765,8 +789,10 @@ impl ChannelGame {
     /// A new build (skills and loadout) as the browser sent it: used if it is one, and the skill
     /// points this character has earned cover it. False if it isn't allowed.
     pub fn set_build(&mut self, character: i64, build: &Value) -> bool {
+        // A developer zone is for trying weapons and skills: any build the tree allows.
+        let trying = self.copy_of().is_some_and(|c| c.def.developer);
         let Some((p, life)) = self.players.open_mut(client(character)) else { return false };
-        let budget = life.map_or(crate::tuning::tuning().skills.start_points, |l| skill_budget(&l.state));
+        let budget = if trying { u32::MAX } else { life.map_or(crate::tuning::tuning().skills.start_points, |l| skill_budget(&l.state)) };
         let Some(b) = parse_build(build, budget) else { return false };
         p.apply_build(b);
         true
@@ -899,6 +925,8 @@ impl ChannelGame {
         }
         self.players.apply_slams(&done.slams);
         self.players.apply_foe_hits(&done.hits);
+        // Where everyone stood as this tick ends: swings are checked against what their swinger saw.
+        self.players.record_history(self.tick);
         self.catch_fallers();
 
         let ids: Vec<i64> = self.members.keys().copied().collect();
@@ -919,6 +947,21 @@ impl ChannelGame {
         }
         // The tables thrown down for games, as everyone sees them.
         let tables = self.tables_shown();
+        // Once a second, for admins: how this game is running and how its fights go.
+        let stats = self.tick.is_multiple_of(STATS_EVERY).then(|| {
+            let pl = &self.players;
+            json!({
+                "tick": self.tick,
+                "players": self.members.len(),
+                "bots": self.bots.len(),
+                "tickMs": self.step_ms,
+                "pvpHits": pl.pvp_hits,
+                "savedByRewind": pl.saved_by_rewind,
+                "rewindMs": pl.rewind_ms(),
+                "heals": pl.heals,
+                "meteorsLanded": pl.meteors_landed,
+            })
+        });
 
         for id in ids {
             let c = client(id);
@@ -970,8 +1013,20 @@ impl ChannelGame {
             if !near.is_empty() {
                 msg["tables"] = Value::Array(near);
             }
-            let _ = out.try_send(msg.to_string());
+            let mut text = msg.to_string();
+            if let Some(s) = &stats
+                && self.members.get(&id).is_some_and(|m| m.dev)
+            {
+                // With the size of this very update, before the stats were added to it.
+                let mut s = s.clone();
+                s["bytes"] = json!(text.len());
+                msg["stats"] = s;
+                text = msg.to_string();
+            }
+            let _ = out.try_send(text);
         }
+        let took = now.elapsed().as_secs_f64() * 1000.0;
+        self.step_ms = if self.step_ms == 0.0 { took } else { self.step_ms * 0.9 + took * 0.1 };
     }
 }
 
@@ -1254,6 +1309,7 @@ fn presence_json(p: &Player, life: Option<&Life>, fr: u64) -> Value {
         "runPhase": p.run_phase,
         "stun": p.stun,
         "downFrame": p.down_frame,
+        "team": p.team,
         "weapon": p.weapon,
         "comboVariants": p.resolved.combo_variant_bits,
         "actionId": p.action_id,
@@ -1385,6 +1441,50 @@ mod tests {
         // The island's own islanders keep theirs.
         let (_, build) = channel_with(Some(build_json(&Build::default())));
         assert_eq!(build, build_json(&Build::default()));
+    }
+
+    #[test]
+    fn a_swing_lands_where_its_swinger_saw_the_other_player() {
+        // Two players on opposite sides (a developer zone's), a step apart, facing each other.
+        let mut ch = ChannelGame::new(1);
+        for (id, name) in [(7, "Ada"), (8, "Bo")] {
+            let (out, _) = mpsc::channel(16);
+            ch.join(Arrival { character: id, session: 1, name: name.into(), out, dev: false, island: None, saved_at: None, now: 0, build: None });
+        }
+        let (x, z) = {
+            let p = ch.players.open_view(client(7)).unwrap().0;
+            (p.pos.x, p.pos.z)
+        };
+        let place = |ch: &mut ChannelGame, id: i64, dz: f64, facing: f64| {
+            let p = ch.players.open_mut(client(id)).unwrap().0;
+            (p.pos.x, p.pos.z, p.facing) = (x, z + dz, facing);
+            stand_on_ground(p, &ch.open);
+        };
+        place(&mut ch, 7, 0.0, 0.0);
+        place(&mut ch, 8, 1.2, std::f64::consts::PI);
+        ch.players.open_mut(client(8)).unwrap().0.team = 1;
+        ch.players.record_history(10);
+        // Then Bo steps well away; Ada's screen, a round trip behind, still shows them close.
+        place(&mut ch, 8, 7.0, std::f64::consts::PI);
+        ch.players.record_history(11);
+        const ATTACK: [u8; OPEN_INPUT] = [0, 0, 4, 0, 0, 0, 0, 0, 0, 0];
+        let hp = |ch: &ChannelGame| ch.players.open_view(client(8)).unwrap().0.hp;
+        let full = hp(&ch);
+        let mut seq = 0u32;
+        let mut swing = |ch: &mut ChannelGame, view: u32, from: u64| {
+            ch.inputs_seen(7, (1..=48).map(|k| (seq + k, view, if k == 1 { ATTACK } else { [0; OPEN_INPUT] })));
+            seq += 48;
+            ch.players.inputs_per_tick = 12.0;
+            for tick in from..from + 4 {
+                ch.players.step_in(&mut ch.battle, &mut ch.actors, &ch.world, tick, Some(&mut ch.open));
+            }
+        };
+        // Seeing the present, the swing finds nobody in reach.
+        swing(&mut ch, u32::MAX, 12);
+        assert_eq!(hp(&ch), full);
+        // Seeing tick 10, it lands where Ada saw Bo.
+        swing(&mut ch, 10 * 16, 16);
+        assert!(hp(&ch) < full, "the rewound swing lands: {} of {full}", hp(&ch));
     }
 
     #[test]

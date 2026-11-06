@@ -272,7 +272,7 @@ export class NetCrowd implements CrowdSource {
   private lastFine = new Float64Array(0);
   private ws: WebSocket | null = null;
   /** Open worlds: where inputs go instead of a battlefield socket (src/net/worldLink.ts). */
-  private sender: ((seq: number, raw: RawInput, stick: [number, number]) => void) | null = null;
+  private sender: ((seq: number, view: number, raw: RawInput, stick: [number, number]) => void) | null = null;
   private bytes = 0;
   private messages = 0;
   private rateStart = performance.now();
@@ -298,7 +298,7 @@ export class NetCrowd implements CrowdSource {
    * inputs go to `send`, and what the server says arrives through applyWorld(). Everything that
    * reads a NetCrowd (prediction, other players' spells, the monsters) works the same.
    */
-  static detached(send: (seq: number, raw: RawInput, stick: [number, number]) => void): NetCrowd {
+  static detached(send: (seq: number, view: number, raw: RawInput, stick: [number, number]) => void): NetCrowd {
     const n = new NetCrowd(null);
     n.sender = send;
     n.connected = n.everConnected = true;
@@ -366,7 +366,7 @@ export class NetCrowd implements CrowdSource {
   // and the rounded stick, buttons and aim bytes.
   sendInput(seq: number, view: number, raw: RawInput, stick: [number, number] = [0, 0]): void {
     if (this.sender) {
-      this.sender(seq, raw, stick);
+      this.sender(seq, view, raw, stick);
       return;
     }
     const msg = new DataView(new ArrayBuffer(2 + 8 + raw.length));

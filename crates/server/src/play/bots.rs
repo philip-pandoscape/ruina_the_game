@@ -63,7 +63,7 @@ impl ChannelGame {
     }
 
     /// A developer zone's bots, as its file lists them, if they aren't here already: they come in
-    /// with its first player (put) and go with its last (take).
+    /// with the first player into it while it's empty (put) and go with its last (take).
     pub(super) fn zone_bots_in(&mut self) {
         let Some(c) = self.copy_of() else { return };
         let (def, origin) = (c.def, c.def.origin);
@@ -109,7 +109,8 @@ impl ChannelGame {
             b.seq += steps;
             // A press counts once: on the first of the tick's steps.
             let held = Actions { attack_pressed: false, jump_pressed: false, slide_pressed: false, ability_slot: 0, movement_slot: 0, ..a };
-            self.players.queue_actions(client(b.id), (0..steps).map(|k| (first + k, if k == 0 { a } else { held })));
+            // A bot sees everyone where they are: nothing to rewind.
+            self.players.queue_actions(client(b.id), (0..steps).map(|k| (first + k, f64::INFINITY, if k == 0 { a } else { held })));
         }
     }
 }

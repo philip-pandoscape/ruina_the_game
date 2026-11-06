@@ -29,6 +29,8 @@ export interface TargetingDeps {
   names: Record<string, string>;
   /** Online: the server's monsters, where they're drawn on this screen. */
   netActors?: () => readonly NetActor[];
+  /** Online: everyone else in the world (players and bots), where they're drawn, with their side. */
+  peers?: () => ReadonlyArray<{ id: number; name: string; x: number; y: number; z: number; team: number; hp: number }>;
 }
 
 export function createTargeting(d: TargetingDeps) {
@@ -85,6 +87,14 @@ export function createTargeting(d: TargetingDeps) {
         if (dx * dx + dz * dz > r2) continue;
         visit(`actor:${a.id}`, a.x, a.y, a.z, a.hp, d.names[kind.id] ?? kind.id);
       }
+    }
+    // Players and bots on the other side (a developer zone's: on the island everyone is on one).
+    for (const p of d.peers?.() ?? []) {
+      if (p.team === myTeam || p.hp <= 0) continue;
+      const dx = p.x - px;
+      const dz = p.z - pz;
+      if (dx * dx + dz * dz > r2) continue;
+      visit(`w${p.id}`, p.x, p.y, p.z, p.hp / COMBAT.maxHp, p.name);
     }
     for (const r of d.remotes?.list() ?? []) {
       if (r.team === myTeam || r.hp <= 0) continue;
