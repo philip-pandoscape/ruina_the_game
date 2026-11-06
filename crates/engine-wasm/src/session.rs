@@ -155,6 +155,36 @@ pub unsafe extern "C" fn session_take_island(h: u32, p: *const u8, n: usize) -> 
     with(h, |s| s.take_island(sent.state, sent.placing, sent.resting)).is_some() as u32
 }
 
+/// Everything the page reads after a step (`events` 1: with what happened, taken) or a call (0),
+/// as JSON (Session::view_json).
+#[unsafe(no_mangle)]
+pub extern "C" fn session_view(h: u32, events: u32) -> usize {
+    give(with(h, |s| s.view_json(events != 0).to_string()).unwrap_or_default())
+}
+
+/// A number that changes whenever what's solid on the island changes (Session::solid_key).
+#[unsafe(no_mangle)]
+pub extern "C" fn session_solid_key(h: u32) -> u32 {
+    with(h, |s| s.solid_key()).unwrap_or(0)
+}
+
+/// Everything solid on the island as it stands (JSON `{obstacles, boxes, decks}`).
+#[unsafe(no_mangle)]
+pub extern "C" fn session_colliders(h: u32) -> usize {
+    give(with(h, |s| s.colliders_json().to_string()).unwrap_or_default())
+}
+
+/// The island's cells kept clear of trees and scarecrows, where they lie (`session_clear_len` of them).
+#[unsafe(no_mangle)]
+pub extern "C" fn session_clear_ptr(h: u32) -> *const u8 {
+    with(h, |s| s.clear().as_ptr()).unwrap_or(std::ptr::null())
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn session_clear_len(h: u32) -> usize {
+    with(h, |s| s.clear().len()).unwrap_or(0)
+}
+
 /// What you press in a step, in the shape of src/sim/types.ts Actions.
 fn actions_of(v: &Value) -> Actions {
     let f = |k: &str| v.get(k).and_then(Value::as_f64).unwrap_or(0.0);

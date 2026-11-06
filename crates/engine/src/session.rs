@@ -853,9 +853,46 @@ impl Session {
         v
     }
 
-    /// The creatures and what they've thrown, as src/sim/actor.ts has them.
+    /// A number that changes whenever what's solid changes (a house or a scarecrow made solid, a
+    /// dungeon's floors and walls put in or taken out), so the page knows to read the colliders
+    /// again (`colliders_json`, `clear`) for its camera and drawing.
+    pub fn solid_key(&self) -> u32 {
+        let Ground::Open(w) = &self.ground else { return 0 };
+        let mut h: u32 = 0x811c_9dc5;
+        let mut mix = |n: usize| {
+            for b in (n as u64).to_le_bytes() {
+                h = (h ^ b as u32).wrapping_mul(0x0100_0193);
+            }
+        };
+        mix(w.added.len());
+        mix(w.index.obstacles.len());
+        mix(w.index.boxes.len());
+        mix(w.index.decks.len());
+        for (k, s) in self.solids.values().enumerate() {
+            mix(k * 2 + s.solid as usize);
+        }
+        h
+    }
+
+    /// Everything solid on the island as it stands, in src/sim/zone/types.ts's shapes (`{obstacles,
+    /// boxes, decks}`; null on the yard's flat ground).
+    pub fn colliders_json(&self) -> Value {
+        let Ground::Open(w) = &self.ground else { return Value::Null };
+        json!({ "obstacles": w.index.obstacles, "boxes": w.index.boxes, "decks": w.index.decks })
+    }
+
+    /// The island's cells kept clear of trees and scarecrows (the zone's, and ground cleared for houses).
+    pub fn clear(&self) -> &[u8] {
+        match &self.ground {
+            Ground::Open(w) => &w.clear,
+            Ground::Flat { .. } => &[],
+        }
+    }
+
+    /// The creatures and what they've thrown, as src/sim/actor.ts has them, and offline the yard's
+    /// arrows and meteors in flight (src/sim/training.ts).
     pub fn actors_json(&self) -> Value {
-        json!({ "list": self.actors.list, "missiles": self.actors.missiles })
+        json!({ "list": self.actors.list, "missiles": self.actors.missiles, "arrows": self.range.arrows, "meteors": self.range.meteors })
     }
 
     /// The island as the page shows it: its state, what F does here, what you're placing, resting.
@@ -864,6 +901,39 @@ impl Session {
             Some(l) => json!({ "state": l.state, "focus": l.focus, "placing": l.placing, "resting": l.resting, "revision": l.revision }),
             None => Value::Null,
         }
+    }
+
+    /// Everything the page reads after a step or a call, in one: the step count and the hit pause,
+    /// you, the creatures and the yard's arrows and meteors (offline), the island, what the island
+    /// said (taken), whether a fall put you somewhere (and facing which way), a number that changes
+    /// when what's solid does (`solid_key`), and with `events` what happened (taken).
+    pub fn view_json(&mut self, events: bool) -> Value {
+        let happened: Vec<Value> = if events {
+            self.take_events()
+                .into_iter()
+                .map(|(frame, e)| {
+                    let mut v = serde_json::to_value(e).unwrap_or(Value::Null);
+                    if let Value::Object(m) = &mut v {
+                        m.insert("frame".into(), json!(frame));
+                    }
+                    v
+                })
+                .collect()
+        } else {
+            Vec::new()
+        };
+        let said = self.life.as_mut().map(|l| l.drain_events()).unwrap_or_default();
+        json!({
+            "frame": self.frame,
+            "hitstop": self.hitstop,
+            "player": self.player_json(),
+            "actors": self.actors_json(),
+            "life": self.life_json(),
+            "said": said,
+            "placed": self.placed,
+            "solid": self.solid_key(),
+            "events": happened,
+        })
     }
 
     /// The flat world as it's drawn (the yard's props, the dummy, where you start and who stands about).

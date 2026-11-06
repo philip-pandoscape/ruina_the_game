@@ -12,9 +12,9 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
 - **Phase:** 6 (the client in areas) and 8 (one copy of the rules), with 7, 11 and 12 done or
   nearly, and 9 and 10 mostly landed beside them. The old battle server is gone (R10.9, R10.10).
 - **Next:** Phase 8: the engine's session plays the offline game and the shadow holds it to the
-  TypeScript (R8.5), offline and online (R8.3b); next the shadow in the page (the integration specs
-  played with it on), then the switch (R8.7-R8.9) and deleting `src/sim/` (R8.13); then crowds at
-  scale (R10.8).
+  TypeScript (R8.5), offline and online (R8.3b), in the headless tests and in every page of the
+  integration tier; next the switch (R8.7-R8.9: the Engine answers from the session) and deleting
+  `src/sim/` (R8.13); then crowds at scale (R10.8).
 - **How:** one session does the work, with at most one sub-agent beside it, on Opus 5.5 at max
   effort, in a worktree of its own (the user's call on 2026-11-06: three at once used tokens too
   fast; one is allowed). It has the mini-games (R9.11, R8.11), then the UI gallery (R6.9).
@@ -570,7 +570,7 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
   same state hash, bit for bit.
   Done (2ff8375): `tests/conformance/engine.test.ts`, 60,000 ground queries' fingerprint, native and
   WebAssembly, to the bit.
-- [~] **R8.5** Shadow mode: in dev and tests, the engine runs beside the TypeScript rules and every
+- [x] **R8.5** Shadow mode: in dev and tests, the engine runs beside the TypeScript rules and every
   step is compared; any difference fails the test.
   Offline done: the engine plays the browser's offline game (`crates/engine/src/session.rs`: you, the
   creatures, the island, the copies of dungeons, the Engine's named calls; `training.rs`: a swing's
@@ -591,7 +591,16 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
   R8.3b): an online Engine's shadow takes the server's word on you, your island as it comes, commands
   run ahead and the page's hooks, and `tests/unit/shadow.test.ts` plays 160 frames a round trip behind
   an engine standing in for the server, matching bit for bit (`shadowRules` now swaps the maths in
-  itself). Left: the page in dev.
+  itself). The page too: the dev server started with `SHADOW=1` runs it in every page it serves and
+  keeps each page's first difference in `scratch/shadow-page.txt` (`tools/shadowReports.ts`). The
+  whole integration tier played that way (163 passed; the rest are the known races, slower with
+  twice the rules in every page, and the pointer lock macOS's headless browser lacks) found one
+  difference, twice: the prediction's input rounding made a stick nudged left of straight back -0,
+  which the server, rebuilding it from a byte, has as 0, so turning to face straight back went the
+  other way (fixed in `quantize`, with a unit test). Also found: the design bible grew its island
+  without loading the engine (since R8.6), and the shadow was handed a save after the TypeScript had
+  moved its clock on in place. *Verified:* the travel and yard specs shadowed again (12, no
+  differences), `npm run check`.
 - [x] **R8.6** Switch the ground, colliders and dungeons. Port the island's generator
   (`zone/generate.ts` 710, `zone/buildings.ts` 207, TS-only today) to Rust: the server makes the island
   at start, the browser through the engine; delete the bake step and `server/data/emberholm.zone`.
@@ -620,6 +629,18 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
   livestock, vehicles, contracts, quests, progress, weather, interact: ~3,500 TS lines, 1:1 with
   `life/`). The UI and `render/open/life.ts` read versioned snapshots; `life.command` goes in as
   commands. Delete the copy and life-conformance.
+  How (decided 2026-11-06, with R8.8 and R8.9: the session steps all three together, so they switch
+  together): the Engine answers from the engine's session, and after each step or call the page's
+  snapshots are read back from it: you (`engine.player`), the creatures and the yard's arrows and
+  meteors (offline), and the island as an `IslandView` with the read surface the page uses (its
+  zone, state, prompt, placing, resting, revision, the dungeon you're in, item counts, its events,
+  commands). `engine.sim` stays as a view object with what 24 files read (you, the frame, your
+  skills' numbers, levels, the creatures, the world, the hit pause, the log) until they move to the
+  Engine's own names. The camera's and the drawing's copy of the colliders (`world.index`, the clear
+  cells) is read back from the session whenever what's solid changes (`session_solid_key`,
+  `session_colliders`, `session_clear_ptr`), so the geometry has one copy too. The island's helpers
+  the page calls (prices, freshness, quests at a giver, house stages, the weather's hour...) move
+  out of `src/sim/` as views over the snapshots, typed to what they read; the steppers go.
 - [ ] **R8.8** Switch creatures: actor, actors/step, brain, pack, senses, missiles, hit, deal (offline
   yard and offline monsters; online, `netMonsters.ts`'s `coneHits` and `behaviour()`). Delete the copy
   and ai-conformance.
@@ -908,7 +929,8 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
 | 2026-11-06 | R8.1, R8.6 | The image builds the game again (the bible and the crates it reads, the engine's WebAssembly) | 50d91ef |
 | 2026-11-06 | R8.5 | The engine's player and creatures say what happened (events) | 15a7ff9, 6ed236a |
 | 2026-11-06 | R8.5, R8.3 | The engine plays the browser's offline game (the session, the training layer, the yard), and the shadow holds it to the TypeScript in the 77 headless rules tests, bit for bit | ac7e7ed |
-| 2026-11-06 | R8.3b, R8.5 | The session online: the server's word on you, the island as sent, commands run ahead, the page's hooks as inputs; shadowed online | (this commit) |
+| 2026-11-06 | R8.3b, R8.5 | The session online: the server's word on you, the island as sent, commands run ahead, the page's hooks as inputs; shadowed online | d250c74 |
+| 2026-11-06 | R8.5 | The shadow in the page; the whole integration tier played with it; the prediction's -0 fixed; the design bible loads the engine | (this commit) |
 | 2026-11-06 | R9.14 | `docs/content.md` | 5e23680 |
 | 2026-11-06 | R10.10, R11.1, R11.2, R11.7, R11.8 | Snapshot to move machines: the battle server's Rust gone; the asset manifest, loader and first-download budget, `docs/assets.md` | a975617 |
 | 2026-11-06 | R6.10, R6.11, R6.8 | The client's moves: creature bodies into src/render/creatures/, the root files to their areas, the library under src/dev/ | 9317ff3, 5de387d, 81df3de |

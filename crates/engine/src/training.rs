@@ -5,6 +5,8 @@
 //! src/sim/training.ts). The numbers are the server's (crates/server/src/combat.rs); the session
 //! (crate::session) runs these in its offline steps.
 
+use serde::Serialize;
+
 use crate::actors::Actors;
 use crate::event::Event;
 use crate::jsmath::{JsMath, js_hypot, len};
@@ -192,8 +194,9 @@ pub fn check_hit(
     Some(step.hitstop)
 }
 
-/// An arrow in flight on the training range.
-#[derive(Clone, Debug)]
+/// An arrow in flight on the training range (src/sim/training.ts ArrowFlight).
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Arrow {
     pub x: f64,
     pub y: f64,
@@ -209,8 +212,9 @@ pub struct Arrow {
     pub spent: bool,
 }
 
-/// A meteor on its way down.
-#[derive(Clone, Debug)]
+/// A meteor on its way down (src/sim/training.ts MeteorFall).
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Meteor {
     pub x: f64,
     pub z: f64,

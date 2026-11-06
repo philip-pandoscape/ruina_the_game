@@ -17,9 +17,9 @@ is in [tracker.md](tracker.md), the plan in [README.md](README.md).
 | 5 The Rust Workspace | done |
 | 6 The Client in Areas | in progress |
 | 7 Content in Folders | done |
-| 8 One Copy of the Rules | begun |
+| 8 One Copy of the Rules | in progress: the engine plays the browser's game beside the TypeScript, offline and online, matching it bit for bit; the switch is next |
 | 9 Content as Data, Finished | begun |
-| 10 Zones, Developer Zones and Bots | zones done; the old battle server still to go |
+| 10 Zones, Developer Zones and Bots | zones done, the old battle server gone; crowds at scale to go |
 | 11 Assets | done; the browser's download work dropped (D15) |
 | 12 The Design Bible as a Knowledge Base | done |
 | 13 AGENTS.md, the Docs and the Merge | to do |
@@ -340,3 +340,40 @@ the developer zone; then the engine bridge (R6.4) and Phase 8's switches.
 - **Tests:** `npm run check` and conformance (64) pass. The integration tier passes 241 of 245. Of
   the rest, three are races under load that pass alone and one needs pointer lock, which macOS's
   headless browser doesn't give. The races are listed in the tracker.
+
+## 2026-11-06: The Island Grows in the Engine, and the Engine Plays the Browser's Game
+
+- **The island grows in the engine alone (R8.6, done).** The server grows Emberholm from its recipe
+  the first time anything asks, and the bake (3.6 MB of island, its reader and `npm run bake`) is
+  gone. The browser grows the same island through the engine's WebAssembly, so the TypeScript
+  generator (917 lines) is gone too. The island grows in 90-145 ms where the TypeScript took 330-810,
+  and the engine's file shrank from 4.1 MB to 0.7. The Docker image builds the WebAssembly, and it
+  regained the bible's pages, which it had been missing since the bible came in.
+- **`main.ts` gave up its last tangles (R6.2, R6.2a).** It is in modules now (the drawing, the
+  loop, a step, the camera rig, the online wiring), reached through one set of game references.
+- **The engine says what happened.** Its player, its creatures and the yard's training layer raise
+  the events the browser draws (a jump, a landing, a swing, an arrow loosed, a blow, a burst, a
+  splash), in the TypeScript's order and shapes.
+- **The engine plays the browser's game, offline and online (R8.3, R8.3b, R8.5).**
+  `crates/engine/src/session.rs` is the game as the Engine runs it: you, the creatures, the island,
+  the copies of dungeons, and every named call the Engine takes. Online, it takes the server's word
+  on you and replays your unanswered inputs, takes your island as the server sends it, and runs
+  commands ahead of the server. Its island gained the online prompts it lacked: riding along in
+  someone's vehicle, and challenging someone. The page's hooks into the rules (the world's clock,
+  others' vehicles and players, the plots they hold, where commands go) are the Engine's now, asked
+  once a step.
+- **The shadow holds it to the TypeScript.** In the tests, every Engine runs the engine's session
+  beside its TypeScript rules and compares you, the creatures, what happened and the island after
+  every step and call. The 77 headless rules tests and an online test (160 frames a round trip
+  behind a server) match bit for bit. On the way it found that the engine's prompts had drifted
+  from the TypeScript's, that getting off a vehicle was handled differently in each, and that V8's
+  sine and cosine differ from the engine's in the last bit on about 1% of inputs. After the switch
+  the server and the browser will run the same maths, which they don't today. The shadow can now
+  run in the game's page too (`SHADOW=1` on the dev server), so the whole integration tier can be
+  played with the two compared.
+- **A sub-agent is back, one at a time** (the user's word), on Opus 5.5 at max effort in a worktree
+  of its own. It has the mini-games (the board shows what the engine's rules allow), then the UI
+  gallery.
+- **Next:** the switch. The Engine answers from the engine's session, the page reads snapshots of
+  you, the creatures and the island, and `src/sim/` (9,668 lines) goes, keeping only what the page
+  reads as views (types, the ground's sampling, the roads).

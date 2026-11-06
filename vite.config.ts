@@ -5,6 +5,7 @@ import { bugReports } from './tools/bugReports.ts';
 import { animReviews } from './tools/animReviews.ts';
 import { contentBundles } from './tools/contentBundles.ts';
 import { assetManifest } from './tools/assets/manifest.ts';
+import { shadowReports } from './tools/shadowReports.ts';
 
 // The game server (docker compose up, see README). Vite serves the game and forwards the account
 // API and the WebSockets to it, so the browser sees one address, as it does in production where the
@@ -26,7 +27,7 @@ export default defineConfig({
   // library's notes, correction pictures and prompts (/dev/library.html) into reviews/animations/;
   // builds the content's bundles again when content/ changes; writes the asset manifest
   // (/asset-manifest.json, docs/assets.md) with every build.
-  plugins: [bugReports(), animReviews(), contentBundles(), assetManifest()],
+  plugins: [bugReports(), animReviews(), contentBundles(), assetManifest(), shadowReports()],
   build: {
     rollupOptions: {
       input: Object.fromEntries([['main', resolve(import.meta.dirname, 'index.html')], ...pages('dev'), ...pages('design'), ...pages('bible')]),

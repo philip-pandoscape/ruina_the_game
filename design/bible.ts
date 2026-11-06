@@ -24,6 +24,7 @@ import { EMBERHOLM as Z } from '../src/sim/zone/world';
 import { drawIsland, growIsland, type Island, LAYER_NAMES, type Layers, toMap } from '../src/bible/map';
 import type { ZonePlace } from '../src/sim/zone/types';
 import { esc } from '../src/util/html';
+import { startEngine } from '../src/engine/load';
 
 // ---------- the tracker (design/status.json) ----------
 
@@ -1030,11 +1031,12 @@ part('the open questions and the log', () => {
 });
 
 // ---------- the island ----------
-// Growing the island takes the generator a few hundred milliseconds, so the rest of the page goes
-// up first. data-ready on <html> says everything has been drawn (the tests wait for it).
+// Growing the island takes the engine (src/engine/load.ts) a hundred milliseconds or so, so the rest
+// of the page goes up first. data-ready on <html> says everything has been drawn (the tests wait for it).
 
 requestAnimationFrame(() =>
-  setTimeout(() => {
+  setTimeout(async () => {
+    await startEngine().catch((e) => console.error('design bible: could not load the engine:', e));
     part('the map', () => {
       const isle = growIsland();
       island = isle;

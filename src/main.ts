@@ -32,6 +32,7 @@ import { goOnline } from './app/online';
 import { readOptions } from './app/options';
 import { makeTestApi } from './app/testApi';
 import { startEngine } from './engine/load';
+import { shadowRules } from './engine/shadow';
 import { YardPractice } from './app/yardPractice';
 import { rigCamera } from './app/cameraRig';
 import { makeStep } from './app/step';
@@ -108,6 +109,15 @@ let build: Build = online ? (parseBuild(online.welcome.build, Infinity) ?? defau
 // on the game server, and its developer zones) the server decides hits, so the rules here run
 // without the training dummy and hit pause, and only predict your own moves.
 await engineLoading;
+// In development, the dev server started with SHADOW=1 runs the engine's own session beside the
+// TypeScript rules in every page (src/engine/shadow.ts, tools/shadowReports.ts): a page's first
+// difference goes to the dev server, which keeps it in scratch/shadow-page.txt.
+if (import.meta.env.VITE_SHADOW === '1') {
+  shadowRules(true, (d) => {
+    console.warn(d);
+    void fetch('/__shadow', { method: 'POST', body: `${location.pathname}${location.search}\n${d}` });
+  });
+}
 const engine = new Engine({ openWorld, online: !!online, goblins: opt.goblins, build });
 const { world, terrain, sim, range } = engine;
 

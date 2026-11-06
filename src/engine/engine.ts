@@ -296,8 +296,10 @@ export class Engine {
    * false, changing nothing, for a save from a newer game than this one.
    */
   loadIsland(data: Saved, now = Date.now()): boolean {
+    // The save as it came: loading it moves its clock on by the time away, in place.
+    const saved = this.shadow ? structuredClone(data) : data;
     const loaded = !!this.life && applySave(this.life, this.sim, data, now);
-    this.mirror('loadIsland', { data, now });
+    this.mirror('loadIsland', { data: saved, now });
     return loaded;
   }
 

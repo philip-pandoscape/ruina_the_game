@@ -12,7 +12,9 @@ import { TAU } from '../util/math';
 // rounded values, so the browser and the server run identical inputs. Aim is in quarter metres.
 // The raw stick (vehicles steer with it) only goes to open worlds, as two more bytes.
 export function quantize(a: Actions): { actions: Actions; raw: RawInput; stick: [number, number] } {
-  const toByte = (v: number) => Math.max(-127, Math.min(127, Math.round(v)));
+  // `|| 0`: Math.round of a small negative number is -0, which the server, rebuilding it from a
+  // byte, has as 0; turning to face straight back, -0 turns the other way.
+  const toByte = (v: number) => Math.max(-127, Math.min(127, Math.round(v))) || 0;
   const qx = toByte(a.moveX * 127);
   const qz = toByte(a.moveZ * 127);
   const ax = toByte(a.aimX * 4);
