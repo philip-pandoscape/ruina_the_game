@@ -1,7 +1,7 @@
 import './party.css';
 import type { PartyView, SpaceView, WorldLink } from '../../net/worldLink';
 import { COMBAT } from '../../tuning';
-import type { LifePress } from '../life/lifeUI';
+import { docksLeft, type LifePress } from '../life/lifeUI';
 import { closeMenu, openMenu, type MenuEntry } from '../theme/contextMenu';
 import { uiIcon } from '../theme/icons';
 import { uiRoot } from '../theme/scale';
@@ -27,11 +27,8 @@ export interface PartyDeps {
   nearby: () => Array<{ id: number; name: string; dist: number }>;
 }
 
-/** The island's windows that dock on the left, where the party frame is. */
-const LEFT_PANELS = new Set(['dialog', 'shop', 'craft', 'storage', 'log', 'character', 'garage', 'settings', 'dev', 'map']);
 /** Players this near are listed to invite. */
 const NEAR = 40;
-
 
 function el(cls: string, id: string): HTMLDivElement {
   const e = document.createElement('div');
@@ -200,7 +197,7 @@ export class PartyUI {
 
   private renderFrame(force: boolean): void {
     const p = this.party();
-    const covered = LEFT_PANELS.has(this.d.openPanel() ?? '') || !this.win.hidden;
+    const covered = docksLeft(this.d.openPanel()) || !this.win.hidden;
     if (!p || covered) {
       this.frame.hidden = true;
       return;

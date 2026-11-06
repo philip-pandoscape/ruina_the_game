@@ -1,4 +1,5 @@
 import { createCharacter, deleteCharacter, listCharacters, signOut, type Account, type CharacterInfo } from '../net/account';
+import { adminCard } from './admin/adminMenu';
 import { HeroPreview } from '../render/heroPreview';
 import { WEAPON_ICONS, WEAPON_NAMES } from './icons';
 import { iconHtml, money } from './theme/icons';
@@ -55,6 +56,9 @@ export class CharacterSelect {
     private max: number,
   ) {
     const outBtn = el('button', { className: 'lui-btn small', type: 'button', textContent: 'Sign Out' });
+    // Admins (the server says who) reach the developer zones and pages from here.
+    const adminBtn = account.admin ? el('button', { className: 'lui-btn small cs-admin', type: 'button', textContent: 'Admin' }) : null;
+    if (adminBtn) adminBtn.onclick = () => this.openModal(adminCard(() => this.closeModal()));
     this.list.setAttribute('role', 'listbox');
     this.list.setAttribute('aria-label', 'Characters');
     const panel = el(
@@ -68,7 +72,7 @@ export class CharacterSelect {
       this.stage,
       panel,
       el('div', { className: 'cs-enter' }, this.enterBtn, el('div', { className: 'tip', textContent: 'Double-click a character to enter, or press Enter.' })),
-      el('div', { className: 'cs-account' }, 'Signed in as ', el('b', { textContent: account.username }), outBtn),
+      el('div', { className: 'cs-account' }, 'Signed in as ', el('b', { textContent: account.username }), ...(adminBtn ? [adminBtn] : []), outBtn),
     );
     this.enterBtn.onclick = () => this.enter();
     this.createBtn.onclick = () => this.create();

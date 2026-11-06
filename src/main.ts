@@ -41,7 +41,8 @@ import { LifeUI } from './ui/life/lifeUI';
 import { clearLife, loadLife, saveData, saveLife } from './app/save';
 import { goOnline } from './app/online';
 import { leaveFor, plainUrl } from './app/resume';
-import { signOut } from './net/account';
+import { currentAccount, signOut } from './net/account';
+import { addAdminButton } from './ui/admin/adminMenu';
 import { NetOverlay, OnlineBadge, showStopped } from './ui/signIn';
 import { splash } from './ui/splash';
 import { WorldPeers } from './net/worldPeers';
@@ -298,6 +299,9 @@ const input = new Input(canvas);
 input.crouchSlides = () => crouchKeySlides(sim.player);
 const hud = new Hud();
 hud.setDevice(input.lastDevice);
+// Admins (the server says who) reach the developer zones and pages from the yard and the
+// battlefield too: a button in the corner. Nobody signed in, or no server, and there's none.
+if (!openWorld && !testMode) void currentAccount().then((a) => a?.admin && addAdminButton(), () => {});
 
 // Records bug reports (\ or both sticks); set up at the end of this file, once everything exists.
 let bugs: BugReporter | null = null;
@@ -368,6 +372,8 @@ const party =
       })
     : null;
 if (party && lifeUI) lifeUI.addMenuButton('party', uiIcon('party', 34), 'Party', 'O');
+// The Admin menu, for admins only (the server says who): Developer Tools, the developer zones and pages.
+if (online?.welcome.dev && lifeUI) lifeUI.addMenuButton('admin', uiIcon('mallet', 34), 'Admin', '');
 if (lifeUI && (minigames || party)) lifeUI.intercept = (k) => !!minigames?.intercept(k) || !!party?.intercept(k);
 // ---------- Goblin's Dread: into a copy of a dungeon and out again (src/app/dungeonVisit.ts) ----------
 const visit = life

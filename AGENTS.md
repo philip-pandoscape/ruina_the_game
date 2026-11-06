@@ -176,4 +176,5 @@ Whatever comes from outside goes in `CREDITS.md` (what, where, from, licence).
   Nothing a browser says about its own state is believed. The developer commands (`grant`, `warp`,
   `teleport`, starting an island over: the developer panel) and the developer pages (`/dev/`,
   `/design/`) answer admins only: the accounts `ADMIN_USERS` names, or everyone where `DEV_LOGIN=1`
-  (development; never on Railway). `DEV_TOOLS` no longer opens them to everyone.
+  and `ADMIN_USERS` names nobody (development; never on Railway). They reach them through the
+  Admin menu (`src/ui/admin/`, the pages listed in `src/dev/pages.ts`; `docs/admin.md`).

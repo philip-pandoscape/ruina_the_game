@@ -73,7 +73,7 @@ test('labels in every window are in Title Case', async ({ page }) => {
   await g.advance(2);
   const bad: string[] = [];
   bad.push(...(await untitled(page)));
-  for (const k of ['bag', 'character', 'quests', 'garage', 'settings', 'dev'] as const) {
+  for (const k of ['bag', 'character', 'quests', 'garage', 'settings', 'dev', 'admin'] as const) {
     await g.press(k);
     await g.advance(2);
     bad.push(...(await untitled(page)).map((l) => `${k}: ${l}`));

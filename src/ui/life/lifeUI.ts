@@ -27,6 +27,7 @@ import { iconHtml, iconImage, iconUrl, money, uiIcon, uiImage } from '../theme/i
 import { setUserScale, uiRoot, userScale, UI_SCALE_MAX, UI_SCALE_MIN } from '../theme/scale';
 import { addTipSource, hideTip, tipFor, wireTips } from '../theme/tooltip';
 import { closeMenu, menuPress, openMenu, type MenuEntry } from '../theme/contextMenu';
+import { adminListHtml, openDevPage } from '../admin/adminMenu';
 import type { Vitals } from '../../render/hud';
 import type { AutoWalk } from '../../app/autoWalk';
 import { TravelUI } from './travelUI';
@@ -38,7 +39,7 @@ import { esc } from '../../util/html';
 // running (the map is the one that takes over), the bag docks on the right, and the person you talk
 // to looks out of the corner of the window.
 
-export type LifePress = 'interact' | 'drop' | 'mount' | 'glider' | 'seed' | 'autorun' | 'bag' | 'map' | 'garage' | 'quests' | 'character' | 'party' | 'settings' | 'escape' | 'dev';
+export type LifePress = 'interact' | 'drop' | 'mount' | 'glider' | 'seed' | 'autorun' | 'bag' | 'map' | 'garage' | 'quests' | 'character' | 'party' | 'settings' | 'escape' | 'dev' | 'admin';
 
 export interface LifeUIDeps {
   life: Life;
@@ -56,7 +57,13 @@ type Panel =
   | { kind: 'shop'; id: string; tab: ShopTab }
   | { kind: 'craft'; id: string }
   | { kind: 'storage'; id: string }
-  | { kind: 'map' | 'garage' | 'dev' | 'log' | 'character' | 'settings' };
+  | { kind: 'map' | 'garage' | 'dev' | 'admin' | 'log' | 'character' | 'settings' };
+
+/**
+ * Whether the window open (`LifeUI.openPanel`) docks on the left, where the party frame and a
+ * mini-game's window go: every one of them but the bag.
+ */
+export const docksLeft = (open: string | null): boolean => open !== null && open !== 'bag';
 
 type ShopTab = 'buy' | 'sell' | 'buyback';
 
@@ -291,7 +298,7 @@ export class LifeUI {
       return;
     }
     // The map takes over; with anything else open the world keys still work.
-    if (this.modal && !['bag', 'map', 'garage', 'dev', 'quests', 'character', 'settings', 'autorun'].includes(k)) return;
+    if (this.modal && !['bag', 'map', 'garage', 'dev', 'admin', 'quests', 'character', 'settings', 'autorun'].includes(k)) return;
     switch (k) {
       case 'autorun':
         return this.travel?.toggle();
@@ -328,6 +335,8 @@ export class LifeUI {
         return this.toggle({ kind: 'settings' });
       case 'dev':
         return this.devTools ? this.toggle({ kind: 'dev' }) : undefined;
+      case 'admin':
+        return this.devTools ? this.toggle({ kind: 'admin' }) : undefined;
     }
   }
 
@@ -1262,6 +1271,8 @@ export class LifeUI {
         return this.garageView();
       case 'dev':
         return this.devView();
+      case 'admin':
+        return this.adminView();
       case 'log':
         return this.logView();
       case 'character':
@@ -1881,6 +1892,23 @@ export class LifeUI {
     g.restore();
   }
 
+  /** The Admin window, for admins only: Developer Tools, then every developer zone and page. */
+  private adminView(): View {
+    return {
+      title: 'Admin',
+      sub: 'For admins only. The zones and pages open in a new tab.',
+      w: 600,
+      h: 640,
+      body:
+        '<div class="lui-admin"><div class="h">In the World</div><div class="adm-row"><button class="lui-btn small" data-act="devtools">Developer Tools</button>' +
+        `<span class="adm-about">Gifts, island time, teleports, starting the island over and bug reports. <b>\`</b> opens it too.</span></div>${adminListHtml()}</div>`,
+      handlers: {
+        devtools: () => this.open({ kind: 'dev' }),
+        devpage: (id) => openDevPage(id),
+      },
+    };
+  }
+
   private devView(): View {
     const life = this.life;
     // The dungeons' doors too (they're no place on the map: the way in is a secret).
@@ -1947,7 +1975,7 @@ export class LifeUI {
   onReset: (() => void) | null = null;
   /** Set by the app online: leave the world for the character select screen (Settings offers it). */
   onExitToSelect: (() => void) | null = null;
-  /** Whether the developer panel opens (online, the server decides: development and beta only). */
+  /** Whether the developer panel and the Admin window open: online, for admins only (the server says, in its welcome); offline, always. */
   devTools = true;
   /**
    * Set by the app online: the hour of the day the sky shows, from the server's clock, the same for

@@ -2,7 +2,7 @@ import './minigames.css';
 import { CHALLENGE, MINIGAMES, SEAT_COLORS, minigame, stakesFor } from '../../content/minigames';
 import type { ChallengeView, TableView, WorldLink } from '../../net/worldLink';
 import type { Life } from '../../sim/life/life';
-import type { LifePress } from '../life/lifeUI';
+import { docksLeft, type LifePress } from '../life/lifeUI';
 import { closeMenu, openMenu } from '../theme/contextMenu';
 import { iconHtml, money } from '../theme/icons';
 import { uiRoot } from '../theme/scale';
@@ -26,10 +26,6 @@ export interface MinigamesDeps {
   /** The pointer is the camera's: let go of it, to use a window. */
   freeMouse: () => void;
 }
-
-/** The island's windows that dock where the game window does (or take over, as the map does): while one is open, the game steps aside. */
-const LEFT_PANELS = new Set(['dialog', 'shop', 'craft', 'storage', 'log', 'character', 'garage', 'settings', 'dev', 'map']);
-
 
 function el(cls: string, id: string): HTMLDivElement {
   const e = document.createElement('div');
@@ -295,7 +291,7 @@ export class MinigamesUI {
   private renderGame(force: boolean): void {
     const link = this.d.link;
     const t = link.table;
-    const covered = LEFT_PANELS.has(this.d.openPanel() ?? '');
+    const covered = docksLeft(this.d.openPanel());
     if (!t || t.id === this.dismissed || covered) {
       if (!t) {
         this.conceding = false;

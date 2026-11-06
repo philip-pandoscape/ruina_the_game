@@ -1,0 +1,124 @@
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { expect, test, type Page } from '@playwright/test';
+import { onlineReady } from '../support/game';
+import { GameServer, ownServerMissing, viteFor } from '../support/ownServer';
+import { serverBuilt } from '../support/testServer';
+
+// Admins (docs/admin.md): the Admin menu shows for the accounts ADMIN_USERS names and for nobody
+// else, and the server keeps the developer pages and commands from players. Every other online spec
+// plays on a development server where everyone is an admin, so this file runs a game server of its
+// own with ADMIN_USERS set, and its own Vite forwarding to it (tests/support/ownServer.ts). The
+// server also serves a stand-in for the built game, so its guard on /dev/ and /design/ can be
+// asked. It needs a database (RUINA_DATABASE_URL); without one it's skipped.
+
+const fresh = (prefix: string) => `${prefix}${Date.now().toString(36)}${Math.floor(Math.random() * 1296).toString(36)}`.slice(0, 20);
+const ADMIN = fresh('boss');
+const STATIC = join(tmpdir(), `ruina-admin-${process.pid}`);
+const server = new GameServer(7787, { ADMIN_USERS: ADMIN, STATIC_DIR: STATIC });
+let vite: { base: string; close(): Promise<void> } | null = null;
+
+// One server for both tests, so one at a time.
+test.describe.configure({ mode: 'serial' });
+
+test.beforeAll(async ({ browser }) => {
+  if (ownServerMissing(serverBuilt)) return;
+  test.setTimeout(240_000);
+  // The built game, as far as the guard cares: a page anyone may have, and the admins' pages.
+  mkdirSync(join(STATIC, 'dev'), { recursive: true });
+  mkdirSync(join(STATIC, 'design'), { recursive: true });
+  writeFileSync(join(STATIC, 'index.html'), '<!doctype html><title>Ruina</title>');
+  writeFileSync(join(STATIC, 'dev', 'page.html'), '<!doctype html><title>A Developer Page</title>');
+  writeFileSync(join(STATIC, 'design', 'index.html'), '<!doctype html><title>The Design</title>');
+  await server.start();
+  vite = await viteFor(server, 5291, 'node_modules/.vite-admin-test');
+  // A Vite of its own compiles the whole game for its first page: here, not in the first test's time.
+  const warm = await browser.newPage();
+  await warm.goto(`${vite.base}/?bugs=0`, { timeout: 180_000 });
+  await warm.close();
+});
+
+test.afterAll(async () => {
+  server.kill();
+  await vite?.close();
+  rmSync(STATIC, { recursive: true, force: true });
+});
+
+test.beforeEach(() => {
+  const missing = ownServerMissing(serverBuilt);
+  test.skip(!!missing, missing ?? '');
+});
+
+/** Signed in as `name` (made if new, with a character named after it), on the character select screen. */
+async function atCharacterSelect(page: Page, name: string): Promise<void> {
+  expect((await page.request.post(`${vite!.base}/api/dev-login`, { data: { username: name } })).ok()).toBe(true);
+  await page.goto(`${vite!.base}/?bugs=0`);
+  await expect(page.locator('.cs-account').getByRole('button', { name: 'Sign Out' })).toBeVisible({ timeout: 60_000 });
+}
+
+/** Into the world with the character chosen. */
+async function enterWorld(page: Page): Promise<void> {
+  await page.getByRole('button', { name: 'Enter World' }).click();
+  await onlineReady(page);
+}
+
+const coins = (page: Page) => page.evaluate(() => window.__game.life().coins);
+const panel = (page: Page) => page.evaluate(() => window.__game.lifePanel());
+
+/** The status of a request to the game server itself (not through Vite), with this page's sign-in. */
+const status = async (page: Page, path: string, method: 'get' | 'post' = 'get') => (await page.request[method](`${server.url}${path}`)).status();
+
+test('a player sees no Admin menu, and the server keeps the developer pages and commands from them', async ({ page }) => {
+  await atCharacterSelect(page, fresh('plr'));
+  await expect(page.locator('.cs-account').getByRole('button', { name: 'Admin' })).toHaveCount(0);
+
+  await enterWorld(page);
+  await expect(page.locator('#hud-menu [data-press="settings"]')).toBeVisible();
+  await expect(page.locator('#hud-menu [data-press="admin"]')).toHaveCount(0);
+  for (const key of ['dev', 'admin'] as const) {
+    await page.evaluate((k) => window.__game.pressLife(k), key);
+    expect(await panel(page)).toBeNull();
+  }
+
+  // The server ignores their developer commands: a second and a half of its ticks later, nothing.
+  const before = await coins(page);
+  await page.evaluate(() => window.__game.lifeCommand({ t: 'grant', coins: 300 }));
+  const ticks = await page.evaluate(() => window.__game.online()!.ticks);
+  await page.waitForFunction((t) => window.__game.online()!.ticks > t + 30, ticks);
+  expect(await coins(page)).toBe(before);
+
+  // Its developer pages aren't there for them, nor is stopping it; the game's own files are.
+  expect(await status(page, '/')).toBe(200);
+  expect(await status(page, '/dev/page.html')).toBe(404);
+  expect(await status(page, '/design/')).toBe(404);
+  expect(await status(page, '/api/dev/stop', 'post')).toBe(403);
+});
+
+test('an admin has the Admin menu on character select and in the world, and it opens Developer Tools', async ({ page }) => {
+  await atCharacterSelect(page, ADMIN);
+  await page.locator('.cs-account').getByRole('button', { name: 'Admin' }).click();
+  const card = page.locator('.adm-card');
+  await expect(card.getByRole('heading', { name: 'Admin' })).toBeVisible();
+  for (const name of ['The Yard', 'The Battlefield', 'Animation Library', 'Design Bible']) await expect(card.getByRole('button', { name, exact: true })).toBeVisible();
+  // A page opens in a tab of its own.
+  const [tab] = await Promise.all([page.context().waitForEvent('page'), card.getByRole('button', { name: 'UI Design System' }).click()]);
+  await tab.waitForURL('**/design/ui.html');
+  await tab.close();
+  await card.getByRole('button', { name: 'Close' }).click();
+  await expect(card).toHaveCount(0);
+
+  await enterWorld(page);
+  await page.locator('#hud-menu [data-press="admin"]').click();
+  expect(await panel(page)).toBe('admin');
+  await expect(page.locator('.mw').getByRole('button', { name: 'Animation Library' })).toBeVisible();
+  await page.locator('.mw').getByRole('button', { name: 'Developer Tools' }).click();
+  expect(await panel(page)).toBe('dev');
+
+  // The server takes their developer commands, and has their pages.
+  const before = await coins(page);
+  await page.evaluate(() => window.__game.lifeCommand({ t: 'grant', coins: 300 }));
+  await expect.poll(() => coins(page), { timeout: 30_000 }).toBe(before + 300);
+  expect(await status(page, '/dev/page.html')).toBe(200);
+  expect(await status(page, '/design/')).toBe(200);
+});
