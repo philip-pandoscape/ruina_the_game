@@ -517,7 +517,7 @@ async fn play(
         session,
         name: name.clone(),
         out,
-        dev: app.dev_tools,
+        dev: app.is_admin(account),
         island: island.map(|j| j.0),
         saved_at,
         now,
@@ -537,7 +537,7 @@ async fn play(
             "build": build,
             "now": now,
             "channel": channel,
-            "dev": app.dev_tools,
+            "dev": app.is_admin(account),
             "estates": estates,
             "claims": claims,
             "space": space,
@@ -589,6 +589,8 @@ async fn play(
                                 return replaced(&mut tx).await;
                             }
                         }
+                        // Starting an island over is a developer command: an admin's only.
+                        Ok(FromBrowser::Reset) if !app.is_admin(account) => {}
                         Ok(FromBrowser::Reset) => {
                             let Some(fresh) = world.with_spaces(|sp| sp.reset(character)) else { continue };
                             match outcome(write_island(db, character, session, fresh).await, &mut tx).await? {
@@ -828,7 +830,7 @@ mod tests {
             battle: None,
             world: Hub::default(),
             dev_login: true,
-            dev_tools: true,
+            admin_users: Default::default(),
             secure_cookies: false,
             failed_logins: Mutex::new(HashMap::new()),
         })

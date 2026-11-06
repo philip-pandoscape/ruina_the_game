@@ -164,14 +164,16 @@ Whatever comes from outside goes in `CREDITS.md` (what, where, from, licence).
   https://ruinathegame-production.up.railway.app.
 - Railway project `intuitive-enthusiasm`: environments `beta` and `production`, each with its own
   Postgres. The game service gets `DATABASE_URL` (a reference to that environment's database) and `PORT=8080`;
-  beta also `DEV_TOOLS=1` (the in-game developer panel, off in production).
+  and `ADMIN_USERS` (the accounts, by name, that reach the developer pages and commands: `philip`).
 - An account holds up to six characters (`/api/characters`, `server/src/characters.rs`); the world
-  plays the one `/ws/world?character=<id>` names, or the last played. `/api/me` is `{id, username}`.
+  plays the one `/ws/world?character=<id>` names, or the last played. `/api/me` is `{id, username, admin}`.
 - Deploys: the stopping server tells every player `{t:"updating"}`, saves every island, then closes
   with 1012 (`railway.json` gives it 20 s); pages freeze, reconnect, and reload straight back into the
   world when a new build or `WORLD_PROTOCOL` is out. `POST /api/dev/stop` does the same where
-  `DEV_LOGIN=1` (`tests/integration/update.spec.ts`).
+  `DEV_LOGIN=1`, for a signed-in admin (`tests/integration/update.spec.ts`).
 - Online the server plays Emberholm: browsers send key presses (binary, 60 a second) and commands,
   the server runs every rule and keeps the islands in Postgres, and answers 20 times a second.
-  Nothing a browser says about its own state is believed. `grant`, `warp` and `teleport` (the
-  developer panel) only work where `DEV_TOOLS=1` or `DEV_LOGIN=1`.
+  Nothing a browser says about its own state is believed. The developer commands (`grant`, `warp`,
+  `teleport`, starting an island over: the developer panel) and the developer pages (`/dev/`,
+  `/design/`) answer admins only: the accounts `ADMIN_USERS` names, or everyone where `DEV_LOGIN=1`
+  (development; never on Railway). `DEV_TOOLS` no longer opens them to everyone.

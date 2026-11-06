@@ -13,8 +13,9 @@
 //! --listen all or LISTEN=all, as the Docker image is for Railway and `npm run up`.
 //!
 //! Environment: PORT (Railway sets it; --port wins), LISTEN (all | local), DATABASE_URL, STATIC_DIR,
-//! DEV_LOGIN=1 (sign in by name alone, for development; ignored on Railway), DEV_TOOLS=1 (the in-game
-//! developer panel; on with DEV_LOGIN), COOKIE_SECURE=1 (https without Railway).
+//! ADMIN_USERS (the accounts, by name, comma-separated, that reach the developer pages and commands),
+//! DEV_LOGIN=1 (sign in by name alone, and everyone an admin: for development; ignored on Railway),
+//! COOKIE_SECURE=1 (https without Railway).
 
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
@@ -91,7 +92,16 @@ fn main() {
     let on_railway = std::env::var_os("RAILWAY_PROJECT_ID").is_some();
     let dev_login = std::env::var("DEV_LOGIN").is_ok_and(|v| v == "1") && !on_railway;
     let secure_cookies = on_railway || std::env::var("COOKIE_SECURE").is_ok_and(|v| v == "1");
-    let dev_tools = dev_login || std::env::var("DEV_TOOLS").is_ok_and(|v| v == "1");
+    let admin_users = http::admin_users(&std::env::var("ADMIN_USERS").unwrap_or_default());
+    if dev_login {
+        println!("admins: everyone (developer sign-in is on)");
+    } else if admin_users.is_empty() {
+        println!("admins: none (ADMIN_USERS is not set)");
+    } else {
+        let mut names: Vec<&String> = admin_users.iter().collect();
+        names.sort();
+        println!("admins: {}", names.iter().map(|n| n.as_str()).collect::<Vec<_>>().join(", "));
+    }
 
     let battle = if args.battle {
         let registry: Registry = Arc::new(Mutex::new(Vec::new()));
@@ -135,7 +145,7 @@ fn main() {
             battle,
             world: world_socket::Hub::default(),
             dev_login,
-            dev_tools,
+            admin_users,
             secure_cookies,
             failed_logins: Mutex::new(HashMap::new()),
         };

@@ -6,6 +6,8 @@
 export interface Account {
   id: number;
   username: string;
+  /** Reaches the developer pages and commands (the server's ADMIN_USERS; everyone in development). */
+  admin: boolean;
 }
 
 /** One of an account's characters, as the character select screen shows it. */

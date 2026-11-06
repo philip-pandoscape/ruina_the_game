@@ -11,6 +11,8 @@ sha2 = "0.10.9"
 # the WebSockets.
 axum = { version = "0.8.9", features = ["ws"] }
 tower-http = { version = "0.7.1", features = ["fs", "compression-gzip"] }
+# The same tower axum is built on: a guard in front of the game's files (the developer pages).
+tower = "0.5.3"
 futures-util = "0.3.34"
 rayon = "1.12.0"
 # The browser's exp and atan2 (fdlibm, as V8's are), so the rules both sides run agree to the bit.

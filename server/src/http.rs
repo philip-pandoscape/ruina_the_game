@@ -11,18 +11,21 @@
 //!   POST /api/dev-login {username}   development only (DEV_LOGIN=1): signs in without a password
 //!   GET  /api/characters, POST /api/characters {name}, DELETE /api/characters/{id} {name}
 //!                       your characters (server/src/characters.rs)
-//!   POST /api/dev/stop  development only (DEV_LOGIN=1): stops the server as a deploy does (tests)
+//!   POST /api/dev/stop  development only (DEV_LOGIN=1), an admin signed in: stops the server as a
+//!                       deploy does (tests)
 //!   GET  /ws/world      the open world (server/src/world_socket.rs); ?character=<id>
 //!   GET  /ws/battle     the PvP battlefield (server/src/net.rs), when the server runs one
+//!   /dev/, /design/     the developer pages, for admins only (ADMIN_USERS); "not found" to anyone else
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
 use axum::body::Bytes;
-use axum::extract::{State, WebSocketUpgrade};
+use axum::extract::{Request, State, WebSocketUpgrade};
 use axum::http::{header, HeaderMap, StatusCode};
+use axum::middleware::{self, Next};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{delete, get, post};
 use axum::serve::ListenerExt;
@@ -30,6 +33,7 @@ use axum::{Json, Router};
 use serde_json::json;
 use sqlx::PgPool;
 use tokio::net::TcpListener;
+use tower::ServiceBuilder;
 use tower_http::compression::Compression;
 use tower_http::services::ServeDir;
 
@@ -47,10 +51,11 @@ pub struct AppState {
     pub db: Option<PgPool>,
     pub battle: Option<Battle>,
     pub world: world_socket::Hub,
-    /// Sign in by name alone (?as=name in the browser). Never on Railway.
+    /// Sign in by name alone (?as=name in the browser), and everyone an admin. Never on Railway.
     pub dev_login: bool,
-    /// The developer panel in the game (grants, warping time, teleports): development and beta only.
-    pub dev_tools: bool,
+    /// The admins, by name (lower case): they reach the developer pages (/dev/, /design/) and the
+    /// developer commands (grants, warping time, teleports, starting an island over). ADMIN_USERS.
+    pub admin_users: HashSet<String>,
     /// Mark the cookie Secure (served over https).
     pub secure_cookies: bool,
     /// Wrong passwords per name lately, to slow down guessing.
@@ -58,6 +63,42 @@ pub struct AppState {
 }
 
 pub type App = Arc<AppState>;
+
+/// ADMIN_USERS as a set of names, lower case (names are unique regardless of case).
+pub fn admin_users(list: &str) -> HashSet<String> {
+    list.split(',').map(|n| n.trim().to_lowercase()).filter(|n| !n.is_empty()).collect()
+}
+
+impl AppState {
+    /// Whether an account may use the developer pages and commands: one ADMIN_USERS names, or
+    /// anyone where developer sign-in is on (development; never on Railway).
+    pub fn is_admin(&self, account: &accounts::Account) -> bool {
+        self.dev_login || self.admin_users.contains(&account.username.to_lowercase())
+    }
+
+    /// The account as the browser is told about it: whether it's an admin, filled in.
+    pub fn told(&self, mut account: accounts::Account) -> accounts::Account {
+        account.admin = self.is_admin(&account);
+        account
+    }
+}
+
+/// The developer pages, /dev/ and /design/, for admins only: anyone else gets "not found", as if
+/// they weren't there. The game's own files pass straight through.
+async fn admin_pages(State(app): State<App>, request: Request, next: Next) -> Response {
+    let path = request.uri().path();
+    let guarded = ["/dev", "/design"].iter().any(|p| path == *p || path.starts_with(&format!("{p}/")));
+    if guarded {
+        let admin = match &app.db {
+            Some(db) => matches!(accounts::signed_in(request.headers(), db).await, Ok(Some(a)) if app.is_admin(&a)),
+            None => app.dev_login,
+        };
+        if !admin {
+            return (StatusCode::NOT_FOUND, "Not found").into_response();
+        }
+    }
+    next.run(request).await
+}
 
 pub async fn serve(port: u16, everywhere: bool, state: AppState, static_dir: Option<PathBuf>) -> std::io::Result<()> {
     let mut router = Router::new()
@@ -72,11 +113,15 @@ pub async fn serve(port: u16, everywhere: bool, state: AppState, static_dir: Opt
         .route("/api/dev/stop", post(dev_stop))
         .route("/ws/world", get(world_socket::upgrade))
         .route("/ws/battle", get(battle));
+    let app = Arc::new(state);
     if let Some(dir) = static_dir {
         println!("serving the game from {}", dir.display());
-        router = router.fallback_service(Compression::new(ServeDir::new(dir)));
+        // The developer pages (/dev/, /design/) only to an admin's session; "not found" to anyone else.
+        let files = ServiceBuilder::new()
+            .layer(middleware::from_fn_with_state(app.clone(), admin_pages))
+            .service(Compression::new(ServeDir::new(dir)));
+        router = router.fallback_service(files);
     }
-    let app = Arc::new(state);
     world_socket::spawn_world(app.clone());
     let saver = app.clone();
     let asker = app.clone();
@@ -202,9 +247,15 @@ async fn health(State(app): State<App>) -> Json<serde_json::Value> {
 
 /// Development only (DEV_LOGIN=1): stops the server the way a deploy does, so tests can watch
 /// browsers ride out an update. Whoever runs the server starts it again.
-async fn dev_stop(State(app): State<App>) -> Result<Json<serde_json::Value>, ApiError> {
+async fn dev_stop(State(app): State<App>, headers: HeaderMap) -> Result<Json<serde_json::Value>, ApiError> {
     if !app.dev_login {
         return Err(ApiError(StatusCode::NOT_FOUND, "Developer tools are off on this server."));
+    }
+    let db = app.db.as_ref().ok_or(ApiError(StatusCode::SERVICE_UNAVAILABLE, "No database on this server."))?;
+    match accounts::signed_in(&headers, db).await? {
+        Some(a) if app.is_admin(&a) => {}
+        Some(_) => return Err(ApiError(StatusCode::FORBIDDEN, "Only an admin can stop the server.")),
+        None => return Err(ApiError(StatusCode::UNAUTHORIZED, "Sign in first.")),
     }
     app.world.ask_to_stop();
     Ok(Json(json!({ "ok": true })))
@@ -266,6 +317,41 @@ mod tests {
             h.insert(*k, HeaderValue::from_static(v));
         }
         h
+    }
+
+    fn state(dev_login: bool, admins: &str) -> AppState {
+        AppState {
+            db: None,
+            battle: None,
+            world: world_socket::Hub::default(),
+            dev_login,
+            admin_users: admin_users(admins),
+            secure_cookies: false,
+            failed_logins: Mutex::new(HashMap::new()),
+        }
+    }
+
+    fn account(name: &str) -> accounts::Account {
+        accounts::Account { id: 1, username: name.into(), admin: false }
+    }
+
+    #[test]
+    fn admins_are_the_names_admin_users_gives_whatever_their_case() {
+        let app = state(false, " Philip, ana ,,");
+        assert_eq!(app.admin_users.len(), 2);
+        assert!(app.is_admin(&account("philip")));
+        assert!(app.is_admin(&account("PHILIP")));
+        assert!(app.is_admin(&account("Ana")));
+        assert!(!app.is_admin(&account("bo")));
+        // What the browser is told carries it.
+        assert!(app.told(account("Philip")).admin);
+        assert!(!app.told(account("bo")).admin);
+    }
+
+    #[test]
+    fn nobody_is_an_admin_without_admin_users_but_everyone_is_with_developer_sign_in() {
+        assert!(!state(false, "").is_admin(&account("philip")));
+        assert!(state(true, "").is_admin(&account("anyone")));
     }
 
     #[test]

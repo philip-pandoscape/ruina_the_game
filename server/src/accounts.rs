@@ -31,6 +31,9 @@ const FAILURE_WINDOW: Duration = Duration::from_secs(600);
 pub struct Account {
     pub id: i64,
     pub username: String,
+    /// Reaches the developer pages and commands (ADMIN_USERS; AppState::is_admin). Filled in by
+    /// AppState::told where the browser is told about the account.
+    pub admin: bool,
 }
 
 #[derive(Deserialize)]
@@ -48,7 +51,7 @@ pub struct DevLogin {
 /// normal, and a 401 would show up as an error in the browser's console.)
 pub async fn me(State(app): State<App>, headers: HeaderMap) -> Result<Json<Option<Account>>, ApiError> {
     let db = database(&app)?;
-    Ok(Json(signed_in(&headers, db).await?))
+    Ok(Json(signed_in(&headers, db).await?.map(|a| app.told(a))))
 }
 
 pub async fn register(State(app): State<App>, Json(c): Json<Credentials>) -> Result<Response, ApiError> {
@@ -120,7 +123,7 @@ pub async fn signed_in(headers: &HeaderMap, db: &PgPool) -> Result<Option<Accoun
             .bind(token_hash(&token))
             .fetch_optional(db)
             .await?;
-    Ok(row.map(|(id, username)| Account { id, username }))
+    Ok(row.map(|(id, username)| Account { id, username, admin: false }))
 }
 
 /// Makes the account and its first character, named after it, together. None if the name is taken
@@ -144,12 +147,12 @@ async fn create_account(db: &PgPool, name: &str, hash: &str) -> Result<Option<Ac
         return Ok(None);
     }
     tx.commit().await?;
-    Ok(Some(Account { id, username: name.to_string() }))
+    Ok(Some(Account { id, username: name.to_string(), admin: false }))
 }
 
 async fn account_by_id(db: &PgPool, id: i64) -> Result<Account, sqlx::Error> {
     let (id, username): (i64, String) = sqlx::query_as("SELECT id, username FROM accounts WHERE id = $1").bind(id).fetch_one(db).await?;
-    Ok(Account { id, username })
+    Ok(Account { id, username, admin: false })
 }
 
 async fn start_session(app: &AppState, db: &PgPool, account: Account) -> Result<Response, ApiError> {
@@ -161,7 +164,7 @@ async fn start_session(app: &AppState, db: &PgPool, account: Account) -> Result<
         .execute(db)
         .await?;
     let cookie = session_cookie(app, &token, SESSION_DAYS as i64 * 86_400);
-    Ok(([(header::SET_COOKIE, cookie)], Json(account)).into_response())
+    Ok(([(header::SET_COOKIE, cookie)], Json(app.told(account))).into_response())
 }
 
 fn session_cookie(app: &AppState, token: &str, max_age: i64) -> String {
