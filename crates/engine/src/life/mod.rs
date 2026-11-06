@@ -131,12 +131,22 @@ pub enum Command {
         host: i64,
         vehicle: i64,
     },
+    /// The developer panel's bots: `n` more round you with `brain` (crate::bots; a skirmisher by
+    /// default) on `team` (yours by default), or with `n` 0 every bot here gone. Channel-wide, like
+    /// teleporting: the channel handles it before the island.
+    Bots {
+        n: u32,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        brain: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        team: Option<u8>,
+    },
 }
 
 impl Command {
-    /// The developer panel's commands: giving yourself things, skipping time, teleporting.
+    /// The developer panel's commands: giving yourself things, skipping time, teleporting, bots.
     pub fn is_dev(&self) -> bool {
-        matches!(self, Command::Grant { .. } | Command::Warp { .. } | Command::Teleport { .. })
+        matches!(self, Command::Grant { .. } | Command::Warp { .. } | Command::Teleport { .. } | Command::Bots { .. })
     }
 }
 

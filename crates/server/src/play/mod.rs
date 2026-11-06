@@ -16,6 +16,7 @@ use serde_json::{Value, json};
 use tokio::sync::mpsc;
 
 use crate::actors::{Actors, LEAN_DAMPING, LEAN_SPRING, StepOut};
+use crate::bots::Brain;
 use crate::combat::{OPEN_INPUT, Players, open_actions_from};
 use crate::life::content::clock;
 use crate::life::progress::skill_budget;
@@ -33,6 +34,8 @@ use crate::sim::Battle;
 use crate::skills::{valid_build, valid_movement};
 use crate::world::{Spawn, World};
 
+/// Bots: players without a socket, their inputs decided by their brains.
+mod bots;
 /// The channels' residents: everyone's estates and who holds which plot.
 pub mod channels;
 /// Parties: who plays with whom.
@@ -176,6 +179,9 @@ pub struct ChannelGame {
     joint: Vec<Vec<Save>>,
     /// The server's queue of islands to write (socket.rs spawn_world), if it has one.
     pub saver: Option<mpsc::UnboundedSender<Vec<Save>>>,
+    /// Bots playing here (bots.rs), and how many have ever joined (their ids and names count on).
+    bots: Vec<bots::BotSlot>,
+    bot_count: u32,
 }
 
 /// A player's id on the wire (Players numbers its clients with u32).
@@ -219,6 +225,8 @@ impl ChannelGame {
             skew: 0.0,
             joint: Vec::new(),
             saver: None,
+            bots: Vec::new(),
+            bot_count: 0,
         }
     }
 
@@ -577,6 +585,16 @@ impl ChannelGame {
             self.teleport(character, x, z, facing);
             return true;
         }
+        if let Command::Bots { n, brain, team } = c {
+            if n == 0 {
+                self.remove_bots();
+            } else if let Some((p, _, _)) = self.players.open_view(client(character)) {
+                let (x, z, team) = (p.pos.x, p.pos.z, team.unwrap_or(p.team));
+                let brain = brain.as_deref().and_then(Brain::named).unwrap_or(Brain::Skirmisher);
+                self.spawn_bots(n, brain, x, z, team);
+            }
+            return true;
+        }
         if let Command::Ride { host, vehicle } = c {
             self.ride_along(character, host, vehicle);
             return true;
@@ -840,6 +858,7 @@ impl ChannelGame {
             life.world_clock = Some(world);
         }
         self.gather_movers();
+        self.drive_bots();
         self.players.step_in(&mut self.battle, &mut self.actors, &self.world, self.tick, Some(&mut self.open));
         self.seat_passengers();
         // Games' clocks, payouts, and players kept in their seats.
@@ -866,8 +885,11 @@ impl ChannelGame {
         let fr = self.tick * (60 / TICK_HZ) as u64;
         let mut presences: Vec<(i64, Value)> = Vec::new();
         for (_, owner, p, life) in self.players.each_open() {
-            let Some(m) = self.members.get(&owner) else { continue };
-            presences.push((owner, json!({ "id": owner, "name": m.name, "p": presence_json(p, life, fr) })));
+            if let Some(m) = self.members.get(&owner) {
+                presences.push((owner, json!({ "id": owner, "name": m.name, "p": presence_json(p, life, fr) })));
+            } else if let Some(name) = self.bot_name(owner) {
+                presences.push((owner, json!({ "id": owner, "name": name, "bot": true, "p": presence_json(p, life, fr) })));
+            }
         }
         // The tables thrown down for games, as everyone sees them.
         let tables = self.tables_shown();

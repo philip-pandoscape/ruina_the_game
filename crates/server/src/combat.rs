@@ -695,7 +695,10 @@ impl Players {
         battle: &mut Battle,
         player_hits: &mut Vec<PlayerHit>,
     ) -> usize {
-        if a.pos.y > 2.0 {
+        // High in the air, a swing reaches nobody: two metres above the ground under you (the
+        // battlefield's floor is 0; the open world's is its terrain).
+        let floor = self.ground.map_or(0.0, |g| g.height(a.pos.x, a.pos.z));
+        if a.pos.y - floor > 2.0 {
             return 0;
         }
         let reach = step.reach + BODY_RADIUS;

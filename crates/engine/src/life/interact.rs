@@ -751,7 +751,7 @@ pub fn run_command(life: &mut Life, sim: &mut Sim, c: &Command) {
             life.regen_labor(seconds, false, false);
         }
         // The channel moves you itself (crates/server/src/play/mod.rs); it never reaches an island.
-        Command::Teleport { .. } | Command::Ride { .. } => {}
+        Command::Teleport { .. } | Command::Ride { .. } | Command::Bots { .. } => {}
     }
 }
 
