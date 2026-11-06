@@ -1,10 +1,9 @@
 import { FACTION, isAlive, type Actor, type ActorId } from '../actor';
+import { angleDiff, DEG } from '../math';
 
 // One place that answers "what did this hit". Melee cones, projectile points and blast circles
 // all come through here, so a new weapon does not have to learn about every kind of target and
 // a new monster does not have to be added to every weapon.
-
-const DEG = Math.PI / 180;
 
 export interface Target {
   id: ActorId;
@@ -16,13 +15,6 @@ export interface Target {
   hitCeiling: number;
   faction: number;
 }
-
-const angleDiff = (a: number, b: number): number => {
-  let d = (b - a) % (Math.PI * 2);
-  if (d > Math.PI) d -= Math.PI * 2;
-  if (d < -Math.PI) d += Math.PI * 2;
-  return d;
-};
 
 export const targetOf = (a: Actor): Target => ({
   id: a.id,
