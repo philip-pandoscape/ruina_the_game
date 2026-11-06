@@ -66,7 +66,18 @@ test('speed at different army sizes', async ({ page }) => {
     await sideView(page, 55, 0.42);
     await page.waitForTimeout(7000); // past the charge, into the melee
     const p = await perf(page);
-    rows.push({ setup: query, fps: p.fps, avgMs: p.avgMs, p95Ms: p.p95Ms, cpuMs: p.cpuMs, gpuMs: p.gpuMs, crowdTickMs: p.crowdTickMs, crowdUploadMs: p.crowdUploadMs, drawCalls: p.drawCalls, triangles: p.triangles });
+    rows.push({
+      setup: query,
+      fps: p.fps,
+      avgMs: p.avgMs,
+      p95Ms: p.p95Ms,
+      cpuMs: p.cpuMs,
+      gpuMs: p.gpuMs,
+      crowdTickMs: p.crowdTickMs,
+      crowdUploadMs: p.crowdUploadMs,
+      drawCalls: p.drawCalls,
+      triangles: p.triangles,
+    });
     expect(errors).toEqual([]);
   }
   console.log('GPU:', (await perf(page)).gpu);

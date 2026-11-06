@@ -10,9 +10,18 @@ const SCRATCH = new THREE.Matrix4();
 /** Writes a 3x4 row-major block into a baked clip's buffer. */
 export function writeMatrix(out: Float32Array, at: number, m: THREE.Matrix4): void {
   const e = m.elements; // three stores column-major
-  out[at + 0] = e[0]; out[at + 1] = e[4]; out[at + 2] = e[8]; out[at + 3] = e[12];
-  out[at + 4] = e[1]; out[at + 5] = e[5]; out[at + 6] = e[9]; out[at + 7] = e[13];
-  out[at + 8] = e[2]; out[at + 9] = e[6]; out[at + 10] = e[10]; out[at + 11] = e[14];
+  out[at + 0] = e[0];
+  out[at + 1] = e[4];
+  out[at + 2] = e[8];
+  out[at + 3] = e[12];
+  out[at + 4] = e[1];
+  out[at + 5] = e[5];
+  out[at + 6] = e[9];
+  out[at + 7] = e[13];
+  out[at + 8] = e[2];
+  out[at + 9] = e[6];
+  out[at + 10] = e[10];
+  out[at + 11] = e[14];
 }
 
 export interface LocalPose {
@@ -25,11 +34,7 @@ export interface LocalPose {
 export function bindWorlds(joints: readonly Joint[]): THREE.Matrix4[] {
   const out: THREE.Matrix4[] = [];
   joints.forEach((j, i) => {
-    const local = new THREE.Matrix4().compose(
-      new THREE.Vector3(...j.pos),
-      new THREE.Quaternion(...j.rot),
-      new THREE.Vector3(1, 1, 1),
-    );
+    const local = new THREE.Matrix4().compose(new THREE.Vector3(...j.pos), new THREE.Quaternion(...j.rot), new THREE.Vector3(1, 1, 1));
     out[i] = j.parent >= 0 ? new THREE.Matrix4().multiplyMatrices(out[j.parent], local) : local;
   });
   return out;

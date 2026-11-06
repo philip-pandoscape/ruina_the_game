@@ -47,7 +47,11 @@ test('pose corrections against the code as it is now', async ({ page }) => {
   const out: string[] = [`# Pose corrections against the code (${new Date().toLocaleString()})`, ''];
   let matched = 0;
   for (const n of notes) {
-    const r = (await page.evaluate((note) => (window as unknown as { __library: { check(n: unknown): Promise<unknown> } }).__library.check(note), n)) as { measure: Measure | null; image: string; frames: number };
+    const r = (await page.evaluate((note) => (window as unknown as { __library: { check(n: unknown): Promise<unknown> } }).__library.check(note), n)) as {
+      measure: Measure | null;
+      image: string;
+      frames: number;
+    };
     const file = join(dir, 'images', `${n.id}-now.png`);
     writeFileSync(file, Buffer.from(r.image.split(',')[1], 'base64'));
     const head = `- ${n.subjectName} · ${n.animLabel} · frame ${n.frame}: “${n.text || 'a corrected pose'}” (note ${n.id})`;

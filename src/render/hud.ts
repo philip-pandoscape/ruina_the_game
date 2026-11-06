@@ -210,7 +210,12 @@ export class Hud {
     width('.pv-mp', v.mp / v.maxMp);
     width('.pv-st', v.stamina / v.maxStamina);
     const label = el.querySelector('.pv-hp .label') as HTMLSpanElement;
-    const text = v.hp <= 0 ? 'Knocked Down…' : team === null ? `${Math.round(v.hp)} / ${v.maxHp}` : `${team === 0 ? 'Blue' : 'Red'} Team · ${Math.round(v.hp)} / ${v.maxHp}`;
+    const text =
+      v.hp <= 0
+        ? 'Knocked Down…'
+        : team === null
+          ? `${Math.round(v.hp)} / ${v.maxHp}`
+          : `${team === 0 ? 'Blue' : 'Red'} Team · ${Math.round(v.hp)} / ${v.maxHp}`;
     if (label.textContent !== text) label.textContent = text;
   }
 

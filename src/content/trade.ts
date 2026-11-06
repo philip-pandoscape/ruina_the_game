@@ -33,7 +33,15 @@ export const CARRY = data.carry;
 export const DEMAND = data.demand;
 export const FRESHNESS = data.freshness;
 export const PACKS = data.packs as unknown as PackDef[];
-export const CONTRACTS = data.contracts as { perOutpost: number; maxActive: number; refreshSeconds: number; durationSeconds: number; count: [number, number]; sealsPerPack: number; coinBonus: number };
+export const CONTRACTS = data.contracts as {
+  perOutpost: number;
+  maxActive: number;
+  refreshSeconds: number;
+  durationSeconds: number;
+  count: [number, number];
+  sealsPerPack: number;
+  coinBonus: number;
+};
 export const PLACES = data.places;
 export const ROUTES = data.routes as unknown as RouteDef[];
 

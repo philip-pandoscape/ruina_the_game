@@ -20,7 +20,15 @@ afterAll(() => {
 
 /** A key going down or up, as the browser would send it; returned so a test can see whether the game kept it from the browser. */
 function key(type: 'keydown' | 'keyup', code: string, mods: Mods = {}): Event {
-  const e = Object.assign(new Event(type, { cancelable: true }), { code, repeat: false, ctrlKey: false, metaKey: false, altKey: false, shiftKey: false, ...mods });
+  const e = Object.assign(new Event(type, { cancelable: true }), {
+    code,
+    repeat: false,
+    ctrlKey: false,
+    metaKey: false,
+    altKey: false,
+    shiftKey: false,
+    ...mods,
+  });
   win.dispatchEvent(e);
   return e;
 }
@@ -66,7 +74,12 @@ test('nothing is on Ctrl: Ctrl crouches nothing, and Ctrl or Cmd with a key is l
   expect(input.pollActions(0).crouchHeld).toBe(false);
   // Ctrl+W, Ctrl+R, Ctrl+F, Ctrl+1 and Cmd+Space do what the browser does with them, and nothing in
   // the game: no walk, no mount called, nothing to interact with, no hotbar slot, no jump.
-  const shortcuts = [key('keydown', 'KeyW', { ctrlKey: true }), key('keydown', 'KeyR', { ctrlKey: true }), key('keydown', 'KeyF', { ctrlKey: true }), key('keydown', 'Digit1', { ctrlKey: true })];
+  const shortcuts = [
+    key('keydown', 'KeyW', { ctrlKey: true }),
+    key('keydown', 'KeyR', { ctrlKey: true }),
+    key('keydown', 'KeyF', { ctrlKey: true }),
+    key('keydown', 'Digit1', { ctrlKey: true }),
+  ];
   key('keyup', 'ControlLeft');
   shortcuts.push(key('keydown', 'Space', { metaKey: true }));
   expect(shortcuts.map((e) => e.defaultPrevented)).toEqual([false, false, false, false, false]);
@@ -92,7 +105,8 @@ test('nothing is on Ctrl: Ctrl crouches nothing, and Ctrl or Cmd with a key is l
 });
 
 test('the crouch key slides on the ground on the move, never standing, in the air, swimming or riding', () => {
-  const p = (mode: string, grounded: boolean, speed: number) => ({ mode, grounded, vel: { x: speed * 0.6, y: grounded ? 0 : -3, z: speed * 0.8 } }) as Parameters<typeof crouchKeySlides>[0];
+  const p = (mode: string, grounded: boolean, speed: number) =>
+    ({ mode, grounded, vel: { x: speed * 0.6, y: grounded ? 0 : -3, z: speed * 0.8 } }) as Parameters<typeof crouchKeySlides>[0];
   expect(crouchKeySlides(p('normal', true, 7.5))).toBe(true); // running
   expect(crouchKeySlides(p('normal', true, 10.5))).toBe(true); // sprinting
   expect(crouchKeySlides(p('attack', true, 6))).toBe(true); // lunging into a swing: the slide waits for it

@@ -1,5 +1,18 @@
 import * as THREE from 'three';
-import { floorTiles, furnitureDef, MODULE, modulePose, modules, SIDES, STOREY, stairwell, turn, type BuildingPlan, type FurnitureDef, type WallKind } from '../../content/buildings';
+import {
+  floorTiles,
+  furnitureDef,
+  MODULE,
+  modulePose,
+  modules,
+  SIDES,
+  STOREY,
+  stairwell,
+  turn,
+  type BuildingPlan,
+  type FurnitureDef,
+  type WallKind,
+} from '../../content/buildings';
 import { ROOF_RISE, roofSpan } from '../../sim/zone/buildings';
 import { ROOF_PART } from './kit';
 

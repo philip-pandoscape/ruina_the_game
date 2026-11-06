@@ -48,11 +48,15 @@ export class SkillTreeView {
       const i = this.nodeAt(e.target);
       if (i !== null) this.unlearn(i);
     });
-    this.el.addEventListener('wheel', (e) => {
-      e.preventDefault();
-      const p = toUi(e.clientX, e.clientY);
-      this.zoomAt(p.x, p.y, e.deltaY < 0 ? 1.15 : 1 / 1.15);
-    }, { passive: false });
+    this.el.addEventListener(
+      'wheel',
+      (e) => {
+        e.preventDefault();
+        const p = toUi(e.clientX, e.clientY);
+        this.zoomAt(p.x, p.y, e.deltaY < 0 ? 1.15 : 1 / 1.15);
+      },
+      { passive: false },
+    );
     this.el.addEventListener('mousedown', (e) => {
       if (e.button !== 0 || !(e.target as Element).closest('svg.st-svg')) return;
       const p = toUi(e.clientX, e.clientY);
@@ -154,7 +158,8 @@ export class SkillTreeView {
   learnPlan(): void {
     if (!this.plan.length) return;
     const n = this.plan.length;
-    if (n > this.pointsLeft) return this.say(`That needs ${n} point${n === 1 ? "" : "s"}; you have ${Math.max(0, this.pointsLeft)}. More come from quests and milestones.`);
+    if (n > this.pointsLeft)
+      return this.say(`That needs ${n} point${n === 1 ? '' : 's'}; you have ${Math.max(0, this.pointsLeft)}. More come from quests and milestones.`);
     const next = learnPath(this.build, this.plan, this.ctx.budget());
     if (!next) return this.say(learnBlock(this.build, NODE_INFO[this.plan[0]], this.ctx.budget()) ?? 'That can’t be learned.');
     const names = this.plan.filter((i) => NODES[i].kind !== 'small').map((i) => NODES[i].name);
@@ -270,7 +275,7 @@ export class SkillTreeView {
 
   private zoomAt(x: number, y: number, k: number): void {
     const { width, height } = uiSize();
-    const min = Math.min(width, height - 110) / (2 * (OUTER + 130)) * 0.85;
+    const min = (Math.min(width, height - 110) / (2 * (OUTER + 130))) * 0.85;
     const s = Math.max(min, Math.min(2.6, this.view.s * k));
     // Keep the point under the cursor where it is.
     this.view.x = x - ((x - this.view.x) * s) / this.view.s;
@@ -301,7 +306,7 @@ export class SkillTreeView {
     const { width, height } = uiSize();
     const mini = this.el.querySelector('.st-mini') as HTMLElement | null;
     const box = this.el.querySelector('.st-mini rect') as SVGRectElement | null;
-    const zoomed = this.view.s > Math.min(width, height - 110) / (2 * (OUTER + 130)) * 1.15;
+    const zoomed = this.view.s > (Math.min(width, height - 110) / (2 * (OUTER + 130))) * 1.15;
     if (mini) mini.hidden = !zoomed;
     if (box) {
       const k = MINI / (2 * (OUTER + 40));
@@ -434,7 +439,10 @@ export class SkillTreeView {
     const k = MINI / (2 * (OUTER + 40));
     const dots = this.el.querySelector('.st-mini .dots');
     if (dots)
-      dots.innerHTML = NODES.map((n, i) => `<circle cx="${fmt(MINI / 2 + POS[i].x * k)}" cy="${fmt(MINI / 2 + POS[i].y * k)}" r="${n.kind === 'small' ? 1.3 : 2.2}" fill="${on(i) ? '#e0a83a' : plan.has(i) ? '#7a1f26' : '#9a7a52'}"/>`).join('');
+      dots.innerHTML = NODES.map(
+        (n, i) =>
+          `<circle cx="${fmt(MINI / 2 + POS[i].x * k)}" cy="${fmt(MINI / 2 + POS[i].y * k)}" r="${n.kind === 'small' ? 1.3 : 2.2}" fill="${on(i) ? '#e0a83a' : plan.has(i) ? '#7a1f26' : '#9a7a52'}"/>`,
+      ).join('');
   }
 
   private renderChrome(): void {
@@ -465,7 +473,9 @@ export class SkillTreeView {
     const n = NODES[i];
     if (!n) return '';
     const learned = this.learned();
-    const lines = nodeLines(n).map((l) => `<p class="${n.kind === 'skill' ? '' : 'g'}">${esc(l)}</p>`).join('');
+    const lines = nodeLines(n)
+      .map((l) => `<p class="${n.kind === 'skill' ? '' : 'g'}">${esc(l)}</p>`)
+      .join('');
     const where = n.tree >= 0 ? treeName(n.tree) : 'Where Two Disciplines Meet';
     let foot: string;
     if (hasSkill(learned, i)) {
@@ -536,4 +546,3 @@ function nextNode(from: number, dx: number, dy: number): number {
   });
   return best >= 0 ? best : from;
 }
-

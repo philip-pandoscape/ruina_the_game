@@ -36,23 +36,14 @@ export function liveTargets(actors: readonly Actor[], extra?: Target): Target[] 
   return out;
 }
 
-const byDistance = (x: number, z: number) => (a: Target, b: Target) =>
-  Math.hypot(a.x - x, a.z - z) - Math.hypot(b.x - x, b.z - z);
+const byDistance = (x: number, z: number) => (a: Target, b: Target) => Math.hypot(a.x - x, a.z - z) - Math.hypot(b.x - x, b.z - z);
 
 /**
  * A melee swing: everything inside the arc and within reach, nearest first, capped at `max`.
  * Something standing right on top of you counts even if it is behind the arc, because losing a
  * swing to a target that is already inside your guard reads as a bug.
  */
-export function coneHits(
-  targets: readonly Target[],
-  x: number,
-  z: number,
-  facing: number,
-  reach: number,
-  arcDeg: number,
-  max = 1,
-): Target[] {
+export function coneHits(targets: readonly Target[], x: number, z: number, facing: number, reach: number, arcDeg: number, max = 1): Target[] {
   const hits: Target[] = [];
   for (const t of targets) {
     const dx = t.x - x;

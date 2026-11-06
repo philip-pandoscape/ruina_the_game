@@ -318,7 +318,14 @@ export class NetCrowd implements CrowdSource {
   }
 
   /** Open worlds: one tick from the server (already turned into the battlefield's shapes). */
-  applyWorld(tick: number, you: { id: number; ack: number; player: PlayerState }, arrows: ArrowRecord[], meteors: MeteorRecord[], events: EffectEvent[], actors: NetActor[]): void {
+  applyWorld(
+    tick: number,
+    you: { id: number; ack: number; player: PlayerState },
+    arrows: ArrowRecord[],
+    meteors: MeteorRecord[],
+    events: EffectEvent[],
+    actors: NetActor[],
+  ): void {
     this.noteTick(tick, performance.now());
     this.you = you;
     this.arrows = arrows;

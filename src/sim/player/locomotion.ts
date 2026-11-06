@@ -12,7 +12,7 @@ import { integrateOpen } from './traverse';
 import { isAlive } from '../actor';
 import type { Actions } from '../types';
 
-export function input(_sim: Sim, a: Actions) : { dx: number; dz: number; mag: number } {
+export function input(_sim: Sim, a: Actions): { dx: number; dz: number; mag: number } {
   const mag = Math.min(1, len(a.moveX, a.moveZ));
   if (mag < 0.05) return { dx: 0, dz: 0, mag: 0 };
   const l = len(a.moveX, a.moveZ);
@@ -24,21 +24,19 @@ export function input(_sim: Sim, a: Actions) : { dx: number; dz: number; mag: nu
  * dodges in any direction instead of turning you; null to face the way you move. Sprinting always
  * runs free.
  */
-export function stance(sim: Sim, a: Actions) : number | null {
+export function stance(sim: Sim, a: Actions): number | null {
   if (sim.player.sprinting || len(a.faceX, a.faceZ) < 0.5) return null;
   return Math.atan2(a.faceX, a.faceZ);
 }
 
 /** Share of full speed when moving along (dx, dz) while facing `facing`: all of it straight ahead,
  * strafeSpeed sideways, backSpeed backing away, blended in between. */
-export function stanceSpeed(facing: number, dx: number, dz: number) : number {
+export function stanceSpeed(facing: number, dx: number, dz: number): number {
   const ahead = dx * Math.sin(facing) + dz * Math.cos(facing);
-  return ahead >= 0
-    ? MOVE.strafeSpeed + (1 - MOVE.strafeSpeed) * ahead
-    : MOVE.strafeSpeed + (MOVE.backSpeed - MOVE.strafeSpeed) * -ahead;
+  return ahead >= 0 ? MOVE.strafeSpeed + (1 - MOVE.strafeSpeed) * ahead : MOVE.strafeSpeed + (MOVE.backSpeed - MOVE.strafeSpeed) * -ahead;
 }
 
-export function tryJump(sim: Sim, a: Actions) : boolean {
+export function tryJump(sim: Sim, a: Actions): boolean {
   const p = sim.player;
   if (p.jumpBuffer <= 0) return false;
   if (p.grounded || p.coyote > 0) {
@@ -74,7 +72,7 @@ export function tryJump(sim: Sim, a: Actions) : boolean {
   return false;
 }
 
-export function updateNormal(sim: Sim, a: Actions) : void {
+export function updateNormal(sim: Sim, a: Actions): void {
   const p = sim.player;
   const move = readyMovement(sim, a);
   if (move) {
@@ -122,7 +120,7 @@ export function updateNormal(sim: Sim, a: Actions) : void {
   }
 }
 
-export function accelerateToward(sim: Sim, tx: number, tz: number, rate: number) : void {
+export function accelerateToward(sim: Sim, tx: number, tz: number, rate: number): void {
   const v = sim.player.vel;
   const ex = tx - v.x;
   const ez = tz - v.z;
@@ -137,7 +135,7 @@ export function accelerateToward(sim: Sim, tx: number, tz: number, rate: number)
   }
 }
 
-export function airControl(sim: Sim, dx: number, dz: number, mag: number) : void {
+export function airControl(sim: Sim, dx: number, dz: number, mag: number): void {
   const v = sim.player.vel;
   const hs = len(v.x, v.z);
   if (mag > 0 && hs > MOVE.runSpeed + 0.01) {
@@ -159,7 +157,7 @@ export function airControl(sim: Sim, dx: number, dz: number, mag: number) : void
 // ability these aren't buffered: a dodge you asked for two frames ago is a dodge you no longer
 // want.
 
-export function integrate(sim: Sim) : void {
+export function integrate(sim: Sim): void {
   // Open worlds have hills, cliffs and water; see traverse.ts. Flat ground stays exactly as below.
   if (sim.world.terrain) return integrateOpen(sim);
   const p = sim.player;
@@ -194,7 +192,7 @@ export function integrate(sim: Sim) : void {
   if (p.grounded && p.mode === 'normal') p.runPhase += len(p.vel.x, p.vel.z) * STEP;
 }
 
-export function collide(sim: Sim) : void {
+export function collide(sim: Sim): void {
   const p = sim.player;
   const push = (cx: number, cz: number, r: number) => {
     const dx = p.pos.x - cx;

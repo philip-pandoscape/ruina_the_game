@@ -208,7 +208,11 @@ test('glider: jump, jump, jump again off the Windspire and glide most of the way
 test('glider: rising air at the foot of the Windspire lifts you; C flares it and lands you crouched; a trade pack keeps it shut', async ({ page }) => {
   await open(page);
   const w = g(page);
-  await grant(page, [['glider.wayfarer', 1], ['sunroot', 6], ['barley', 4]]);
+  await grant(page, [
+    ['glider.wayfarer', 1],
+    ['sunroot', 6],
+    ['barley', 4],
+  ]);
   await w.cmd({ t: 'use', item: 'glider.wayfarer' });
   const z = await w.zone();
   const u = z.updrafts[0];
@@ -284,7 +288,10 @@ test('glider: rising air at the foot of the Windspire lifts you; C flares it and
 test('farming: a scarecrow plot, planting, watering, growing and harvesting', async ({ page }) => {
   await open(page);
   const w = g(page);
-  await grant(page, [['scarecrow', 1], ['seed.sunroot', 8]]);
+  await grant(page, [
+    ['scarecrow', 1],
+    ['seed.sunroot', 8],
+  ]);
   await w.teleport(-150, -222, 0);
   await w.cmd({ t: 'use', item: 'scarecrow' });
   await w.advance(2);
@@ -349,7 +356,12 @@ test('farming: ground circles and the shadow under you lie on top of a plot, its
   const at = (lx: number, lz: number) => ({ x: sc.x + lx * Math.cos(sc.rot) + lz * Math.sin(sc.rot), z: sc.z - lx * Math.sin(sc.rot) + lz * Math.cos(sc.rot) });
   // A Meteor aimed at the plot's near corner: its warning lies over soil, furrow ends and grass.
   const meteor = 1;
-  const mage = { skills: skillsFrom('staff', 'meteor'), weapon: 2, abilities: [meteor, ...new Array(HOTBAR_SLOTS - 1).fill(NO_ABILITY)], movement: emptyMovement() };
+  const mage = {
+    skills: skillsFrom('staff', 'meteor'),
+    weapon: 2,
+    abilities: [meteor, ...new Array(HOTBAR_SLOTS - 1).fill(NO_ABILITY)],
+    movement: emptyMovement(),
+  };
   expect(await page.evaluate((b) => window.__game.setBuild(b), mage)).toBe(true);
   const corner = at(4, -4);
   const p = await w.player();
@@ -411,7 +423,10 @@ test('farming: ground circles and the shadow under you lie on top of a plot, its
 test('pack running: craft a pack, carry it slowly, sell it, and watch demand fall and recover', async ({ page }) => {
   await open(page);
   const w = g(page);
-  await grant(page, [['sunroot', 12], ['barley', 8]]);
+  await grant(page, [
+    ['sunroot', 12],
+    ['barley', 8],
+  ]);
   const z = await w.zone();
   // On foot, unburdened, across the square.
   const run = async () => {
@@ -468,7 +483,11 @@ test('pack running: craft a pack, carry it slowly, sell it, and watch demand fal
 test('vehicles: summon a farm cart, load two packs, drive, unload', async ({ page }) => {
   await open(page);
   const w = g(page);
-  await grant(page, [['deed.farmCart', 1], ['sunroot', 12], ['barley', 8]]);
+  await grant(page, [
+    ['deed.farmCart', 1],
+    ['sunroot', 12],
+    ['barley', 8],
+  ]);
   const z = await w.zone();
   const wb = z.workbenches[0];
   await w.teleport(wb.x - 6, wb.z + 6, 0);
@@ -561,7 +580,10 @@ test('vehicles: a roadster slides when you pull the handbrake mid-turn', async (
 test('boats: a rowboat at the docks, and a sloop runs faster with the wind behind it', async ({ page }) => {
   await open(page);
   const w = g(page);
-  await grant(page, [['deed.rowboat', 1], ['deed.sloop', 1]]);
+  await grant(page, [
+    ['deed.rowboat', 1],
+    ['deed.sloop', 1],
+  ]);
   await w.teleport(-10, -334, Math.PI);
   await w.cmd({ t: 'summon', item: 'deed.rowboat' });
   await w.advance(2);
@@ -595,7 +617,11 @@ test('boats: a rowboat at the docks, and a sloop runs faster with the wind behin
 test('mounts: the donkey carries a pack, the horse will not', async ({ page }) => {
   await open(page);
   const w = g(page);
-  await grant(page, [['whistle.horse', 1], ['sunroot', 6], ['barley', 4]]);
+  await grant(page, [
+    ['whistle.horse', 1],
+    ['sunroot', 6],
+    ['barley', 4],
+  ]);
   const z = await w.zone();
   const wb = z.workbenches[0];
   await w.teleport(wb.x, wb.z + 2, Math.PI);
@@ -628,7 +654,12 @@ test('mounts: the donkey carries a pack, the horse will not', async ({ page }) =
 test('housing: claim a plot and raise a cottage from hauled material packs', async ({ page }) => {
   await open(page);
   const w = g(page);
-  await grant(page, [['blueprint.cottage', 1], ['lumber', 50], ['stone', 30], ['ironOre', 6]]);
+  await grant(page, [
+    ['blueprint.cottage', 1],
+    ['lumber', 50],
+    ['stone', 30],
+    ['ironOre', 6],
+  ]);
   const z = await w.zone();
   const plot = z.housePlots[4];
   const site = { x: plot.x, z: plot.z + 5 };
@@ -739,7 +770,8 @@ test('stone and timber: before the house, the quests lead you to the outcrops, t
   const close = () => page.evaluate(() => window.__game.closeLifePanel());
   const goal = () => page.evaluate(() => window.__game.questGoal());
   const progress = async (id: string) => (await w.life()).quests.active.find((q: { id: string }) => q.id === id);
-  const count = async (item: string) => ((await w.life()).bag as Array<{ item: string; n: number }>).filter((s) => s.item === item).reduce((n, s) => n + s.n, 0);
+  const count = async (item: string) =>
+    ((await w.life()).bag as Array<{ item: string; n: number }>).filter((s) => s.item === item).reduce((n, s) => n + s.n, 0);
   const card = page.locator('.lui-card');
 
   // Quill won't grant land before you know what a house is made of.
@@ -926,7 +958,16 @@ test('merchant: buy back what you sold, until you walk off', async ({ page }) =>
 test('panels: bag, map, vehicles, quest log, shop and workbench open without errors', async ({ page }) => {
   const errors = await open(page);
   const w = g(page);
-  await grant(page, [['deed.farmCart', 1], ['seed.sunroot', 5], ['sunroot', 6], ['barley', 4]], { coins: 5000 });
+  await grant(
+    page,
+    [
+      ['deed.farmCart', 1],
+      ['seed.sunroot', 5],
+      ['sunroot', 6],
+      ['barley', 4],
+    ],
+    { coins: 5000 },
+  );
   for (const k of ['bag', 'map', 'garage', 'quests', 'dev'] as const) {
     await page.evaluate((x) => window.__game.pressLife(x), k);
     await w.advance(1);
@@ -1000,13 +1041,14 @@ test('combat on the hills: sword, club and staff swings land on a slime and on t
   const w = g(page);
   const game = {
     actors: (kind: string) => page.evaluate((k) => window.__game.actors(k), kind),
-    place: (kind: string, i: number, x: number, z: number) =>
-      page.evaluate(([k, n, a, b]) => window.__game.placeActor(k, n, a, b), [kind, i, x, z] as const),
+    place: (kind: string, i: number, x: number, z: number) => page.evaluate(([k, n, a, b]) => window.__game.placeActor(k, n, a, b), [kind, i, x, z] as const),
     wield: (weapon: number, skill: string) =>
-      page.evaluate(
-        (b) => window.__game.setBuild(b),
-        { skills: skillsFrom(skill), weapon, abilities: new Array(HOTBAR_SLOTS).fill(NO_ABILITY), movement: emptyMovement() },
-      ),
+      page.evaluate((b) => window.__game.setBuild(b), {
+        skills: skillsFrom(skill),
+        weapon,
+        abilities: new Array(HOTBAR_SLOTS).fill(NO_ABILITY),
+        movement: emptyMovement(),
+      }),
   };
   const z = await w.zone();
   const meadow = z.places.find((p: { id: string }) => p.id === 'meadow');
@@ -1014,7 +1056,11 @@ test('combat on the hills: sword, club and staff swings land on a slime and on t
   for (let i = 0; i < slimes.length; i++) await game.place('slime', i, 60 + i * 3, 40);
 
   // A fresh slime for each weapon, a step in front of you, high on the meadow's hillside.
-  const weapons = [[0, 'sword'], [1, 'club'], [2, 'staff']] as const;
+  const weapons = [
+    [0, 'sword'],
+    [1, 'club'],
+    [2, 'staff'],
+  ] as const;
   for (const [k, [weapon, skill]] of weapons.entries()) {
     expect(await game.wield(weapon, skill)).toBe(true);
     await w.teleport(meadow.x, meadow.z - 6, 0);
@@ -1093,7 +1139,16 @@ test('the ledge path really climbs the Windspire on foot', async ({ page }) => {
 test('shipyard: lay a keel, build the Merchant Cog in four stages, launch her and sail', async ({ page }) => {
   await open(page);
   const w = g(page);
-  await grant(page, [['design.cog', 1], ['lumber', 90], ['ironOre', 18], ['flax', 30]], { labor: 600 });
+  await grant(
+    page,
+    [
+      ['design.cog', 1],
+      ['lumber', 90],
+      ['ironOre', 18],
+      ['flax', 30],
+    ],
+    { labor: 600 },
+  );
   const z = await w.zone();
   const bench = (id: string) => z.workbenches.find((b: { id: string }) => b.id === id);
   const slip = { x: 48, z: -341 };
@@ -1160,7 +1215,11 @@ test('shipyard: lay a keel, build the Merchant Cog in four stages, launch her an
 test('livestock: raise a chick on barley until it lays, and collect the eggs', async ({ page }) => {
   await open(page);
   const w = g(page);
-  await grant(page, [['scarecrow', 1], ['animal.chick', 1], ['barley', 10]]);
+  await grant(page, [
+    ['scarecrow', 1],
+    ['animal.chick', 1],
+    ['barley', 10],
+  ]);
   await w.teleport(-150, -222, 0);
   await w.cmd({ t: 'use', item: 'scarecrow' });
   await w.advance(2);
@@ -1220,8 +1279,22 @@ test('trade contracts: take one at a post, fill it, collect the bonus', async ({
   const wb = z.workbenches[0];
   const recipe = `pack.${k.pack}`;
   const ingredients: Record<string, Array<[string, number]>> = {
-    harvestCrate: [['sunroot', 6], ['barley', 4]], flaxBale: [['flax', 8]], emberPreserves: [['emberberry', 8], ['apple', 2]],
-    ciderCask: [['apple', 8]], fleeceBale: [['wool', 8]], hamper: [['egg', 4], ['milk', 3], ['sunroot', 4]],
+    harvestCrate: [
+      ['sunroot', 6],
+      ['barley', 4],
+    ],
+    flaxBale: [['flax', 8]],
+    emberPreserves: [
+      ['emberberry', 8],
+      ['apple', 2],
+    ],
+    ciderCask: [['apple', 8]],
+    fleeceBale: [['wool', 8]],
+    hamper: [
+      ['egg', 4],
+      ['milk', 3],
+      ['sunroot', 4],
+    ],
   };
   const seals0 = (await w.life()).seals;
   for (let i = 0; i < k.count; i++) {
@@ -1242,7 +1315,11 @@ test('trade contracts: take one at a post, fill it, collect the bonus', async ({
 test('storms: a rowboat caught out at sea in the rain breaks up, and its cargo floats', async ({ page }) => {
   await open(page);
   const w = g(page);
-  await grant(page, [['deed.rowboat', 1], ['sunroot', 6], ['barley', 4]]);
+  await grant(page, [
+    ['deed.rowboat', 1],
+    ['sunroot', 6],
+    ['barley', 4],
+  ]);
   const z = await w.zone();
   const wb = z.workbenches[0];
   await w.teleport(wb.x, wb.z + 2, Math.PI);
@@ -1367,7 +1444,14 @@ test('quests credit what you had already done, and a full bag refuses work inste
 test('vehicles: a sloop left with her sail up drifts to a stop; a second whistle brings the same donkey; Ilsa sells the cog', async ({ page }) => {
   await open(page);
   const w = g(page);
-  await grant(page, [['deed.sloop', 1], ['whistle.donkey', 1]], { coins: 1000, seals: 6 });
+  await grant(
+    page,
+    [
+      ['deed.sloop', 1],
+      ['whistle.donkey', 1],
+    ],
+    { coins: 1000, seals: 6 },
+  );
   await w.teleport(-10, -334, Math.PI);
   await w.cmd({ t: 'summon', item: 'deed.sloop' });
   await w.advance(2);

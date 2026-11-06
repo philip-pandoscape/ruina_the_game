@@ -98,7 +98,11 @@ function wayfarer(def: GliderDef, root: THREE.Group): GliderModel['animate'] {
 
   // Canvas: warm stripes, a couple of patches, stretched between keel and leading edge.
   const stripes = [PAL.orange, PAL.cream, PAL.red, PAL.cream, PAL.mustard, PAL.cream, PAL.orange, PAL.red];
-  const patches = new Map([['2:3', 0x6f8fb3], ['5:1', 0xe9dcc0], ['6:4', 0x8fbf6a]]);
+  const patches = new Map([
+    ['2:3', 0x6f8fb3],
+    ['5:1', 0xe9dcc0],
+    ['6:4', 0x8fbf6a],
+  ]);
   const cloth = new Cloth(8, 6, (i, j) => patches.get(`${i}:${j}`) ?? stripes[i % stripes.length]);
   const sides = [1, -1].map((sx) => {
     const g = pivot(wing, 0, 0, 0);
@@ -162,8 +166,33 @@ function swiftwing(def: GliderDef, root: THREE.Group): GliderModel['animate'] {
   frame.add(rod(nose, tailEnd, 0.038, 6), lacquer);
   frame.add(cone(0.05, 0.16, 6), PAL.gold, [0, 0.13, 1.05], [Math.PI / 2, 0, 0]);
   for (const sx of [-1, 1]) {
-    frame.add(extrude([[0, 0], [sx * 0.34, -0.62], [sx * 0.18, -0.6], [sx * 0.04, -0.2]], 0.025), teal, [0, 0.035, -0.85], [Math.PI / 2, 0, 0]);
-    frame.add(extrude([[sx * 0.3, -0.56], [sx * 0.34, -0.62], [sx * 0.2, -0.6]], 0.03), white, [0, 0.035, -0.85], [Math.PI / 2, 0, 0]);
+    frame.add(
+      extrude(
+        [
+          [0, 0],
+          [sx * 0.34, -0.62],
+          [sx * 0.18, -0.6],
+          [sx * 0.04, -0.2],
+        ],
+        0.025,
+      ),
+      teal,
+      [0, 0.035, -0.85],
+      [Math.PI / 2, 0, 0],
+    );
+    frame.add(
+      extrude(
+        [
+          [sx * 0.3, -0.56],
+          [sx * 0.34, -0.62],
+          [sx * 0.2, -0.6],
+        ],
+        0.03,
+      ),
+      white,
+      [0, 0.035, -0.85],
+      [Math.PI / 2, 0, 0],
+    );
   }
   // Leading-edge spar and lacquered ribs out to the feather tips (right half; mirrored below).
   const half1 = new Parts();
@@ -222,7 +251,6 @@ function buildGliderModel(def: GliderDef): GliderModel {
   const animate = def.id === 'swiftwing' ? swiftwing(def, root) : wayfarer(def, root);
   return { root, animate };
 }
-
 
 export function buildGlider(def: GliderDef): GliderModel {
   const model = buildGliderModel(def);

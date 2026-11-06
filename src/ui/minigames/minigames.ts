@@ -87,7 +87,12 @@ export class MinigamesUI {
       const t = this.d.link.table;
       if (!b || !t) return;
       const m = this.beacons.menu(t, Number(b.dataset.arg));
-      openMenu(e.clientX, e.clientY, m.title, m.entries.map((x) => ({ ...x, run: () => (x.run?.(), this.render(true)) })));
+      openMenu(
+        e.clientX,
+        e.clientY,
+        m.title,
+        m.entries.map((x) => ({ ...x, run: () => (x.run?.(), this.render(true)) })),
+      );
     });
     addTipSource((tip) => (tip.startsWith('mg:good:') ? BeaconsPanel.tip(Number(tip.slice(8))) : null));
     this.beacons = new BeaconsPanel((m) => {
@@ -170,8 +175,10 @@ export class MinigamesUI {
     const now = performance.now();
     const link = this.d.link;
     const left = (c: { ms: number } | null | undefined, heard: number) => (c ? c.ms - (now - heard) : 0);
-    for (const e of this.setup.querySelectorAll<HTMLElement>('[data-clock]')) this.tick(e, left(link.challenges.sent, link.challengesHeard), CHALLENGE.inviteSeconds);
-    for (const e of this.invite.querySelectorAll<HTMLElement>('[data-clock]')) this.tick(e, left(link.challenges.waiting, link.challengesHeard), CHALLENGE.inviteSeconds);
+    for (const e of this.setup.querySelectorAll<HTMLElement>('[data-clock]'))
+      this.tick(e, left(link.challenges.sent, link.challengesHeard), CHALLENGE.inviteSeconds);
+    for (const e of this.invite.querySelectorAll<HTMLElement>('[data-clock]'))
+      this.tick(e, left(link.challenges.waiting, link.challengesHeard), CHALLENGE.inviteSeconds);
     const t = link.table;
     if (t && !t.over) {
       const ms = left(t, link.tableHeard);
@@ -363,10 +370,15 @@ export class MinigamesUI {
       line = `Every hex is lit and nobody has a row.${back}`;
     } else if (o.winner === me) {
       big = 'You Won';
-      line = { rules: 'Four in a row!', conceded: `${them} conceded.`, timeouts: `${them} ran out of time too often.`, away: `${them} was away too long.` }[o.why] + potText;
+      line =
+        { rules: 'Four in a row!', conceded: `${them} conceded.`, timeouts: `${them} ran out of time too often.`, away: `${them} was away too long.` }[o.why] +
+        potText;
     } else {
       big = `${them} Won`;
-      line = { rules: `${them} lit four in a row.`, conceded: 'You conceded.', timeouts: 'You ran out of time too often.', away: 'You were away too long.' }[o.why] ?? '';
+      line =
+        { rules: `${them} lit four in a row.`, conceded: 'You conceded.', timeouts: 'You ran out of time too often.', away: 'You were away too long.' }[
+          o.why
+        ] ?? '';
     }
     return `<div class="mg-result"><div class="big">${big}</div><p>${line}</p></div>`;
   }

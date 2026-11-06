@@ -75,12 +75,8 @@ function skeleton() {
     const p = PIVOT[joint];
     return [x - p[0], y - p[1], z - p[2]];
   };
-  const put = (
-    joint: keyof typeof PIVOT,
-    size: Vec3,
-    x: number, y: number, z: number,
-    mat: number, color = 0xffffff, tiltX = 0,
-  ) => r.box(ids[joint], at(joint, x, y, z), size, { mat, color, tilt: tiltX ? [tiltX, 0, 0] : undefined });
+  const put = (joint: keyof typeof PIVOT, size: Vec3, x: number, y: number, z: number, mat: number, color = 0xffffff, tiltX = 0) =>
+    r.box(ids[joint], at(joint, x, y, z), size, { mat, color, tilt: tiltX ? [tiltX, 0, 0] : undefined });
 
   put('body', [0.4, 0.16, 0.26], 0, 0.64, 0, MAT.fixed, PANTS);
   put('body', [0.46, 0.44, 0.3], 0, 0.93, 0, MAT.team);
@@ -145,10 +141,12 @@ export function fighterSpecies(): SpeciesDef {
   // amount - and only differs in that the blend is of matrices, which shortens a limb by a few
   // per cent at half speed. Under a pixel at the range the crowd is seen from.
   const run = bakeAuthored(joints, { name: 'run', frames: FIGHTER_RUN_FRAMES, fps: 30 }, (j, f) =>
-    pose({ phase: (f / FIGHTER_RUN_FRAMES) * Math.PI * 2, amount: 1, atk: -1, down: false })(j));
+    pose({ phase: (f / FIGHTER_RUN_FRAMES) * Math.PI * 2, amount: 1, atk: -1, down: false })(j),
+  );
 
   const attack = bakeAuthored(joints, { name: 'attack', frames: FIGHTER_ATTACK_FRAMES, fps: 58, loop: false }, (j, f) =>
-    pose({ phase: 0, amount: 0, atk: f / (FIGHTER_ATTACK_FRAMES - 1), down: false })(j));
+    pose({ phase: 0, amount: 0, atk: f / (FIGHTER_ATTACK_FRAMES - 1), down: false })(j),
+  );
 
   const downPose = pose({ phase: 0, amount: 0, atk: -1, down: true });
   const down = bakeAuthored(joints, { name: 'down', frames: 1, fps: 30, loop: false }, (j) => downPose(j));

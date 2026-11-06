@@ -68,10 +68,15 @@ test('a new player makes an account, and their island is kept on the server betw
   await game(page, (g) => g.lifeCommand({ t: 'grant', coins: 4321 }));
   await expect.poll(() => game(page, (g) => g.life().coins), { timeout: 30_000 }).toBe(start + 4321);
   await game(page, (g) => g.teleport(142, -200));
-  await expect.poll(async () => {
-    const p = await game(page, (g) => g.state().player.pos);
-    return Math.hypot(p.x - 142, p.z + 200);
-  }, { timeout: 30_000 }).toBeLessThan(2);
+  await expect
+    .poll(
+      async () => {
+        const p = await game(page, (g) => g.state().player.pos);
+        return Math.hypot(p.x - 142, p.z + 200);
+      },
+      { timeout: 30_000 },
+    )
+    .toBeLessThan(2);
   await saveAndWait(page);
 
   await page.reload();
@@ -91,10 +96,13 @@ test('the server decides where you are: a browser that moves itself is put back'
     g.reset({ x: p.x + 60, z: p.z + 60 });
   });
   await expect
-    .poll(async () => {
-      const p = await game(page, (g) => g.state().player.pos);
-      return Math.hypot(p.x - before.x, p.z - before.z);
-    }, { timeout: 30_000 })
+    .poll(
+      async () => {
+        const p = await game(page, (g) => g.state().player.pos);
+        return Math.hypot(p.x - before.x, p.z - before.z);
+      },
+      { timeout: 30_000 },
+    )
     .toBeLessThan(2);
 });
 
@@ -229,7 +237,10 @@ test('the badge sits at the bottom right under the menu buttons, clear of their 
       };
     });
     const overlaps = (a: typeof r.badge, b: typeof r.badge) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
-    expect(r.others.filter((o) => overlaps(r.badge, o)), `${width}x${height}`).toEqual([]);
+    expect(
+      r.others.filter((o) => overlaps(r.badge, o)),
+      `${width}x${height}`,
+    ).toEqual([]);
     // Under the menu, lined up with its right edge, on screen.
     expect(r.badge.top).toBeGreaterThan(r.menu.bottom);
     expect(Math.abs(r.badge.right - r.menu.right)).toBeLessThan(2);
@@ -360,8 +371,7 @@ async function pair(browser: Browser): Promise<{ a: Page; b: Page; nameA: string
   throw new Error('could not get two players into one channel');
 }
 
-const seen = (page: Page, name: string) =>
-  page.evaluate((n) => window.__game.peers().find((p: { name: string }) => p.name === n) ?? null, name);
+const seen = (page: Page, name: string) => page.evaluate((n) => window.__game.peers().find((p: { name: string }) => p.name === n) ?? null, name);
 
 test('players in the same channel see each other, wherever they go', async ({ browser }) => {
   const { a, b, nameA, nameB } = await pair(browser);
@@ -372,10 +382,15 @@ test('players in the same channel see each other, wherever they go', async ({ br
   await a.bringToFront();
   await a.evaluate(() => window.__game.teleport(142, -200));
   await b.bringToFront();
-  await expect.poll(async () => {
-    const p = await seen(b, nameA);
-    return p ? Math.hypot(p.x - 142, p.z + 200) : Infinity;
-  }, { timeout: 30_000 }).toBeLessThan(3);
+  await expect
+    .poll(
+      async () => {
+        const p = await seen(b, nameA);
+        return p ? Math.hypot(p.x - 142, p.z + 200) : Infinity;
+      },
+      { timeout: 30_000 },
+    )
+    .toBeLessThan(3);
 
   // When she leaves, she's gone from Bea's island too.
   await a.context().close();
@@ -419,7 +434,11 @@ test('a friend rides along in your cart wherever you drive it, and bumps into it
   await expect.poll(() => game(a, (g) => g.life().vehicles.length), { timeout: 60_000 }).toBe(1);
   const cart = await game(a, (g) => g.life().vehicles[0]);
   /** A point beside a vehicle, given in its own frame (+x its left, +z ahead), out in the world. */
-  const beside = (v: { x: number; z: number; heading: number }, lx: number, lz: number, turn: number) => [v.x + lx * Math.cos(v.heading) + lz * Math.sin(v.heading), v.z - lx * Math.sin(v.heading) + lz * Math.cos(v.heading), v.heading + turn];
+  const beside = (v: { x: number; z: number; heading: number }, lx: number, lz: number, turn: number) => [
+    v.x + lx * Math.cos(v.heading) + lz * Math.sin(v.heading),
+    v.z - lx * Math.sin(v.heading) + lz * Math.cos(v.heading),
+    v.heading + turn,
+  ];
 
   // Bea walks up to its passenger side: the prompt offers her a ride, and F puts her in.
   await b.bringToFront();
@@ -435,17 +454,27 @@ test('a friend rides along in your cart wherever you drive it, and bumps into it
   await expect.poll(() => game(a, (g) => g.life().focus?.action), { timeout: 60_000 }).toBe('board');
   await a.evaluate(() => window.__game.pressLife('interact'));
   await expect.poll(() => game(a, (g) => g.state().player.mode), { timeout: 60_000 }).toBe('ride');
-  await a.evaluate(() => window.__game.scriptInput([[150, { stickY: 1 }], [90, { jumpHeld: true }]]));
+  await a.evaluate(() =>
+    window.__game.scriptInput([
+      [150, { stickY: 1 }],
+      [90, { jumpHeld: true }],
+    ]),
+  );
   await expect.poll(() => game(a, (g) => g.net().scriptLeft), { timeout: 60_000 }).toBe(0);
   const moved = await game(a, (g) => g.life().vehicles[0]);
   expect(Math.hypot(moved.x - cart.x, moved.z - cart.z), 'Ann drove her cart up the road').toBeGreaterThan(6);
 
   // Bea went with her, in the seat beside Ann's; F gets her out, on her feet beside the cart.
   await b.bringToFront();
-  await expect.poll(async () => {
-    const p = (await game(b, (g) => g.state().player)) as { pos: { x: number; z: number } };
-    return Math.hypot(p.pos.x - moved.x, p.pos.z - moved.z);
-  }, { timeout: 60_000 }).toBeLessThan(1.6);
+  await expect
+    .poll(
+      async () => {
+        const p = (await game(b, (g) => g.state().player)) as { pos: { x: number; z: number } };
+        return Math.hypot(p.pos.x - moved.x, p.pos.z - moved.z);
+      },
+      { timeout: 60_000 },
+    )
+    .toBeLessThan(1.6);
   expect(await seated()).toBe(`ride:${ann}:1`);
   await b.evaluate(() => window.__game.pressLife('interact'));
   await expect.poll(seated, { timeout: 60_000 }).toBe('normal:0:0');
@@ -469,7 +498,12 @@ test('far from the server, a pack comes out of the cart at once and getting in d
   // 120 ms each way, about what the deployed server is from a long way off.
   await page.goto(`/?as=${fresh('far')}&bugs=0&lag=120`);
   await waitOnline(page);
-  for (const [item, n] of [['deed.farmCart', 1], ['sunroot', 12], ['barley', 8]] as const) await page.evaluate(({ i, k }) => window.__game.lifeCommand({ t: 'grant', item: i, n: k }), { i: item as string, k: n as number });
+  for (const [item, n] of [
+    ['deed.farmCart', 1],
+    ['sunroot', 12],
+    ['barley', 8],
+  ] as const)
+    await page.evaluate(({ i, k }) => window.__game.lifeCommand({ t: 'grant', item: i, n: k }), { i: item as string, k: n as number });
   const zone = await game(page, (g) => g.zone());
   const wb = zone.workbenches[0];
   await page.evaluate(([x, z]) => window.__game.teleport(x - 6, z + 6, 0), [wb.x, wb.z]);
@@ -502,14 +536,21 @@ test('far from the server, a pack comes out of the cart at once and getting in d
     return seen;
   });
   expect(packs[1], 'on your back the next frame').toBeGreaterThan(0);
-  expect(packs.filter((p) => p === 0), `never back in the cart: ${packs.join(',')}`).toEqual([]);
+  expect(
+    packs.filter((p) => p === 0),
+    `never back in the cart: ${packs.join(',')}`,
+  ).toEqual([]);
   await expect.poll(() => game(page, (g) => g.life().vehicles[0].cargo.filter(Boolean).length), { timeout: 30_000 }).toBe(0);
 
   // Put it back in, then get in at the driver's side: you're in the seat at once, and the cart, drawn
   // under you, stays where it stands rather than sinking into the ground and rising again.
   await page.evaluate(() => window.__game.pressLife('interact'));
   await expect.poll(() => game(page, (g) => g.state().player.pack), { timeout: 30_000 }).toBe(0);
-  const side = [cart.x + Math.cos(cart.heading) * 1.9 + Math.sin(cart.heading) * 0.9, cart.z - Math.sin(cart.heading) * 1.9 + Math.cos(cart.heading) * 0.9, cart.heading];
+  const side = [
+    cart.x + Math.cos(cart.heading) * 1.9 + Math.sin(cart.heading) * 0.9,
+    cart.z - Math.sin(cart.heading) * 1.9 + Math.cos(cart.heading) * 0.9,
+    cart.heading,
+  ];
   await page.evaluate(([x, z, f]) => window.__game.teleport(x, z, f), side);
   await expect.poll(() => game(page, (g) => g.life().focus?.action), { timeout: 30_000 }).toBe('board');
   const resting = (await game(page, (g) => g.drawnVehicles()[0])) as { y: number };
@@ -539,10 +580,15 @@ test("another player's name shows near you, fades past 30 m and is gone by 45 m"
     await a.bringToFront();
     await a.evaluate(([x, z]) => window.__game.teleport(x, z), [x, z]);
     await b.bringToFront();
-    await expect.poll(async () => {
-      const p = await ann();
-      return p ? Math.hypot(p.x - x, p.z - z) : Infinity;
-    }, { timeout: 30_000 }).toBeLessThan(2);
+    await expect
+      .poll(
+        async () => {
+          const p = await ann();
+          return p ? Math.hypot(p.x - x, p.z - z) : Infinity;
+        },
+        { timeout: 30_000 },
+      )
+      .toBeLessThan(2);
     // A few frames drawn there.
     await b.waitForTimeout(300);
     return (await ann())!;
@@ -584,7 +630,11 @@ test("everyone in a channel sees the same time of day, the server's, whatever th
   /** The hour a page's sky shows, the hour its clock on the HUD says, and when that was. */
   const reading = (page: Page) =>
     page.evaluate(() => {
-      const [hh, mm] = document.querySelector('#hud-clock span')!.textContent!.match(/(\d\d):(\d\d)/)!.slice(1).map(Number);
+      const [hh, mm] = document
+        .querySelector('#hud-clock span')!
+        .textContent!.match(/(\d\d):(\d\d)/)!
+        .slice(1)
+        .map(Number);
       return { sky: window.__game.dayHour() as number, hud: hh + mm / 60, at: Date.now() };
     });
 
@@ -637,7 +687,14 @@ test("everyone in a channel has the same rain and wind, the world's, whatever th
       const l = window.__game.life();
       const w = l.weather;
       const at = Date.now() / 1000;
-      return { raining: l.clock < w.rainUntil, stops: at + (w.rainUntil - l.clock), next: at + (w.nextRain - l.clock), windDir: w.windDir, windSpeed: w.windSpeed, at };
+      return {
+        raining: l.clock < w.rainUntil,
+        stops: at + (w.rainUntil - l.clock),
+        next: at + (w.nextRain - l.clock),
+        windDir: w.windDir,
+        windSpeed: w.windSpeed,
+        at,
+      };
     });
   const seen = [];
   for (const page of [a, b]) {

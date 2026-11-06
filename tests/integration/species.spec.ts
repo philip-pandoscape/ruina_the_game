@@ -33,8 +33,7 @@ const harness = async (page: Page) => {
   return errors;
 };
 
-const load = (page: Page, id: string, capacity = 1) =>
-  page.evaluate(([i, c]) => (window as any).__species.load(i, c) as Loaded, [id, capacity] as const);
+const load = (page: Page, id: string, capacity = 1) => page.evaluate(([i, c]) => (window as any).__species.load(i, c) as Loaded, [id, capacity] as const);
 
 const jointWorld = (page: Page, clip: string, frame: number) =>
   page.evaluate(([c, f]) => (window as any).__species.jointWorld(c, f) as Vec[], [clip, frame] as const);
@@ -217,7 +216,10 @@ test.describe('quadruped', () => {
     expect(spread(fl)).toBeGreaterThan(0.1); // the legs actually move
 
     // Same-phase pair rises and falls together; opposite-phase pair does not.
-    const centred = (v: number[]) => { const m = v.reduce((a, b) => a + b, 0) / v.length; return v.map((x) => x - m); };
+    const centred = (v: number[]) => {
+      const m = v.reduce((a, b) => a + b, 0) / v.length;
+      return v.map((x) => x - m);
+    };
     const corr = (a: number[], b: number[]) => {
       const [x, y] = [centred(a), centred(b)];
       const dot = x.reduce((s, v, i) => s + v * y[i], 0);
@@ -278,14 +280,23 @@ test.describe('hero', () => {
 
   // The whole point of baking: a hero in a battle is running the same animation as the hero
   // standing in front of you. If these ever disagree, the crowd has drifted from the game.
-  for (const [clip, frame] of [['run', 7], ['run', 19], ['sprint', 11], ['idle', 30], ['attack1', 9], ['attack3', 14], ['cast', 30], ['down', 0]] as const) {
+  for (const [clip, frame] of [
+    ['run', 7],
+    ['run', 19],
+    ['sprint', 11],
+    ['idle', 30],
+    ['attack1', 9],
+    ['attack3', 14],
+    ['cast', 30],
+    ['down', 0],
+  ] as const) {
     test(`the baked ${clip} clip matches the live pose on frame ${frame}`, async ({ page }) => {
       await harness(page);
       await load(page, 'hero');
-      const live = await page.evaluate(
-        ([c, f]) => (window as any).__species.poseWorld('hero', c, f) as Promise<Array<[string, number, number, number]>>,
-        [clip, frame] as const,
-      );
+      const live = await page.evaluate(([c, f]) => (window as any).__species.poseWorld('hero', c, f) as Promise<Array<[string, number, number, number]>>, [
+        clip,
+        frame,
+      ] as const);
       const baked = await jointWorld(page, clip, frame);
       expect(baked).toHaveLength(live.length);
       live.forEach(([name, x, y, z], i) => {

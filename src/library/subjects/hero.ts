@@ -349,7 +349,8 @@ function inputDetail(k: Kept): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   const neutral = pose();
   for (const [key, v] of Object.entries(i)) {
-    if (key === 'step' || key === 'grips' || key === 'footrest' || key === 'time' || key === 'phase' || key === 'stride' || key === 'effort' || key === 'lean') continue;
+    if (key === 'step' || key === 'grips' || key === 'footrest' || key === 'time' || key === 'phase' || key === 'stride' || key === 'effort' || key === 'lean')
+      continue;
     if ((neutral as unknown as Record<string, unknown>)[key] === v) continue;
     out[key] = typeof v === 'number' ? Math.round(v * 1000) / 1000 : v;
   }
@@ -423,7 +424,15 @@ export const heroSubject: Subject = {
     },
   ],
   anims(): AnimDef[] {
-    return SCENARIOS.map((s) => ({ id: s.id, label: s.label, group: s.group, frames: s.frames, fps: 60, loop: true, note: s.weapon !== undefined ? WEAPONS[s.weapon]?.title : undefined }));
+    return SCENARIOS.map((s) => ({
+      id: s.id,
+      label: s.label,
+      group: s.group,
+      frames: s.frames,
+      fps: 60,
+      loop: true,
+      note: s.weapon !== undefined ? WEAPONS[s.weapon]?.title : undefined,
+    }));
   },
   async ready() {
     await (madeHeroNow() ? Promise.resolve() : madeHero()?.catch(() => null));
@@ -438,9 +447,9 @@ export const heroSubject: Subject = {
     const sets = (['sword', 'club'] as const).map((w) => `${w}: ${setOf(w)}`).join(', ');
     return {
       system: [
-        'Procedural: every pose is worked out in code, a pure function of a PoseInput (what the rules say the body is doing on a frame: speed, heading, which swing and which frame of it, a jump\'s rise, a hit) — `poseHumanoid` in src/render/detail/humanoid.ts.',
+        "Procedural: every pose is worked out in code, a pure function of a PoseInput (what the rules say the body is doing on a frame: speed, heading, which swing and which frame of it, a jump's rise, a hit) — `poseHumanoid` in src/render/detail/humanoid.ts.",
         'On top of that the stateful Hero (src/render/character.ts) eases between states (Inertia), holds planted feet where they were put down (holdFeet), draws and sheathes the weapon, closes made hands round what they hold (gripHands), and draws trails and the bowstring.',
-        'The library plays the films in src/render/detail/scenarios.ts (the rules\' frame counts, speeds and timings, frame by frame at 60 fps) through that same Hero, exactly as /dev/animations.html does.',
+        "The library plays the films in src/render/detail/scenarios.ts (the rules' frame counts, speeds and timings, frame by frame at 60 fps) through that same Hero, exactly as /dev/animations.html does.",
         made
           ? `This is the made body (madeHero.ts, src/render/assets/models/hero.glb, rig measured by fit.ts): its walk and run upper body come from Meshy's captured cycles (mocap.ts), and some combo swings are animation-library clips retargeted bone for bone (retarget.ts; which clip each weapon's combo plays: moves.ts — sets in use: ${sets}; 'keyed' means the code keyframes in swings.ts). A note on a swing that plays a clip may mean changing the clip choice, its cut (parts/from/to) or the retarget rather than swings.ts.`
           : 'This is the box hero (src/content/creatures/hero.ts), standing in while the made body loads (or because it could not): every move comes from the code keyframes.',
@@ -462,12 +471,18 @@ export const heroSubject: Subject = {
           : []),
         { path: 'src/render/detail/scenarios.ts', what: 'the films: what the rules report per frame (do not change these to fix a pose)' },
         { path: 'src/content/creatures/hero.ts', what: 'the box rig: joints, parts, weapons' },
-        { path: 'shared/*.json, src/tuning.ts', what: "the rules' frame counts (startup/active/recovery): changing them is a rules change in TS and Rust together" },
+        {
+          path: 'shared/*.json, src/tuning.ts',
+          what: "the rules' frame counts (startup/active/recovery): changing them is a rules change in TS and Rust together",
+        },
       ],
       conventions:
         "Model space: x to the body's left, y up, z ahead; the ground is y = 0. A bone hangs down its parent's -Y at rest. Arms: yaw about +Y, then pitch about +X (0 hangs down, -90° points forward, -180° straight up), then twist; elbows bend the forearm forward with negative X. Legs: pitch about +X (negative swings forward), spread about +Z, twist about +Y; knees bend the shin back with positive X; feet: positive pitch points the toes. Torso and hips: positive pitch leans forward, positive yaw turns left. Joints named @sword/@club/@staff/@bow/@arrow are what the hands hold (placed by gripHands and stow.ts).",
       checks: [
-        { command: 'npx playwright test tests/integration/animation.spec.ts', what: 'planted feet, floor clearance, joint limits, trails on the blade, the bowstring, grips' },
+        {
+          command: 'npx playwright test tests/integration/animation.spec.ts',
+          what: 'planted feet, floor clearance, joint limits, trails on the blade, the bowstring, grips',
+        },
         ...(made ? [{ command: 'npx playwright test tests/integration/retarget.spec.ts', what: 'library clips held to their source' }] : []),
       ],
     };
@@ -480,7 +495,10 @@ export const heroSubject: Subject = {
     if (fights) {
       const name = HERO_WEAPONS[w];
       const set = setOf(name);
-      const clipNote = madeHeroNow() && HERO_MOVES[name]?.[set] ? `; on the made body the ${name} combo plays clip set '${set}' (moves.ts)` : `; ${name} swings are keyframes in swings.ts`;
+      const clipNote =
+        madeHeroNow() && HERO_MOVES[name]?.[set]
+          ? `; on the made body the ${name} combo plays clip set '${set}' (moves.ts)`
+          : `; ${name} swings are keyframes in swings.ts`;
       bits.push(`weapon ${WEAPONS[w]?.name ?? name}${clipNote}`);
     }
     return bits.join(', ');

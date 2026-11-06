@@ -25,7 +25,14 @@ test('browser draws the battle streamed from the Rust server', { tag: '@gpu' }, 
   await page.goto(`/?server=${encodeURIComponent(SERVER)}&play=0`); // watch without joining
   await page.waitForFunction(() => window.__game?.crowd()?.fighters > 0);
   // The once-a-second message tells us about every fighter.
-  await page.waitForFunction(() => { const c = window.__game.crowd(); return c.known >= c.fighters * 0.9; }, null, { timeout: 5000 });
+  await page.waitForFunction(
+    () => {
+      const c = window.__game.crowd();
+      return c.known >= c.fighters * 0.9;
+    },
+    null,
+    { timeout: 5000 },
+  );
 
   // Stand in the middle of the melee, so the server sends lots of nearby detail.
   await page.evaluate(() => {
@@ -37,7 +44,18 @@ test('browser draws the battle streamed from the Rust server', { tag: '@gpu' }, 
   await page.screenshot({ path: `${SHOTS}/20-net-closeup.png` });
   const c = await crowd(page);
   const p = await perf(page);
-  console.log('networked raid', JSON.stringify({ fps: p.fps, gpuMs: p.gpuMs, cpuMs: p.cpuMs, downloadKBps: p.downloadKBps, messagesPerSec: p.messagesPerSec, known: c.known, server: c.server }));
+  console.log(
+    'networked raid',
+    JSON.stringify({
+      fps: p.fps,
+      gpuMs: p.gpuMs,
+      cpuMs: p.cpuMs,
+      downloadKBps: p.downloadKBps,
+      messagesPerSec: p.messagesPerSec,
+      known: c.known,
+      server: c.server,
+    }),
+  );
 
   // Wide view across the battle line.
   await page.evaluate(() => {

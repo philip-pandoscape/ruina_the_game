@@ -146,7 +146,31 @@ function differences(a: unknown, b: unknown, path: string, out: string[], tol: n
 }
 
 /** The player fields both sides keep (the TypeScript's prevPos and prevFacing are the renderer's). */
-const PLAYER_KEYS = ['pos', 'vel', 'facing', 'mode', 'grounded', 'jumpsUsed', 'hp', 'stamina', 'staminaDelay', 'mp', 'stun', 'downFrame', 'pack', 'vehicle', 'seat', 'host', 'glider', 'airspeed', 'bank', 'modeFrame', 'gustFrames', 'sprinting', 'crouching'];
+const PLAYER_KEYS = [
+  'pos',
+  'vel',
+  'facing',
+  'mode',
+  'grounded',
+  'jumpsUsed',
+  'hp',
+  'stamina',
+  'staminaDelay',
+  'mp',
+  'stun',
+  'downFrame',
+  'pack',
+  'vehicle',
+  'seat',
+  'host',
+  'glider',
+  'airspeed',
+  'bank',
+  'modeFrame',
+  'gustFrames',
+  'sprinting',
+  'crouching',
+];
 
 function compare(name: string, script: Script): void {
   const ts = runTs(script);
@@ -240,7 +264,10 @@ describe.skipIf(!existsSync(LIFECHECK))('the island on the server matches the br
         { frames: 20, tp: { x: plot.x + 2, z: plot.z - 3, facing: 0 }, cmds: [{ t: 'interact' }] },
         // Sell some of it and buy more seed.
         { frames: 20, tp: facingFrom(mara.x, mara.z, 1.6, 0), cmds: [{ t: 'interact' }] },
-        idle(20, [{ t: 'sell', npc: 'mara', item: 'sunroot', n: 2 }, { t: 'buy', npc: 'mara', item: 'seed.flax', n: 3 }]),
+        idle(20, [
+          { t: 'sell', npc: 'mara', item: 'sunroot', n: 2 },
+          { t: 'buy', npc: 'mara', item: 'seed.flax', n: 3 },
+        ]),
         // And walk off, past the stalls.
         { frames: 90, a: { moveX: 0.6, moveZ: -0.8 } },
       ],
@@ -251,7 +278,11 @@ describe.skipIf(!existsSync(LIFECHECK))('the island on the server matches the br
     const b = bench('lanternwickBench');
     const dunmore = npc('dunmore');
     const before: Segment[] = [
-      idle(5, [{ t: 'grant', item: 'sunroot', n: 12 }, { t: 'grant', item: 'barley', n: 8 }, { t: 'grant', item: 'deed.farmCart', n: 1 }]),
+      idle(5, [
+        { t: 'grant', item: 'sunroot', n: 12 },
+        { t: 'grant', item: 'barley', n: 8 },
+        { t: 'grant', item: 'deed.farmCart', n: 1 },
+      ]),
       { frames: 20, tp: facingFrom(b.x, b.z, 1.5, Math.PI / 2), cmds: [{ t: 'craft', recipe: 'pack.harvestCrate' }] },
       // Heavy: slow, and no second jump.
       { frames: 60, a: { moveX: 1 } },
@@ -311,7 +342,10 @@ describe.skipIf(!existsSync(LIFECHECK))('the island on the server matches the br
         { frames: 120, a: { moveZ: 1 } },
       ],
     };
-    expect(runTs(script).map((c) => c.player.mode), 'the boat was rowed').toContain('ride');
+    expect(
+      runTs(script).map((c) => c.player.mode),
+      'the boat was rowed',
+    ).toContain('ride');
     compare('rowboat', script);
   });
 
@@ -320,7 +354,11 @@ describe.skipIf(!existsSync(LIFECHECK))('the island on the server matches the br
     const farm = R.farmland;
     const dunmore = npc('dunmore');
     const before: Segment[] = [
-      idle(5, [{ t: 'grant', item: 'scarecrow', n: 1 }, { t: 'grant', item: 'animal.chick', n: 1 }, { t: 'grant', item: 'barley', n: 10 }]),
+      idle(5, [
+        { t: 'grant', item: 'scarecrow', n: 1 },
+        { t: 'grant', item: 'animal.chick', n: 1 },
+        { t: 'grant', item: 'barley', n: 10 },
+      ]),
       // A timber node, worked twice (the second time it's picked clean).
       { frames: 20, tp: facingFrom(node.x, node.z, 1.4, 0), cmds: [{ t: 'interact' }] },
       idle(20, [{ t: 'interact' }]),
@@ -352,7 +390,10 @@ describe.skipIf(!existsSync(LIFECHECK))('the island on the server matches the br
       labor: 1000,
       every: 30,
       segments: [
-        idle(5, [{ t: 'grant', item: 'design.cog', n: 1 }, { t: 'grant', item: 'lumber', n: 40 }]),
+        idle(5, [
+          { t: 'grant', item: 'design.cog', n: 1 },
+          { t: 'grant', item: 'lumber', n: 40 },
+        ]),
         { frames: 20, tp: facingFrom(slip.x, slip.z, 4, 0), cmds: [{ t: 'interact' }] },
         { frames: 20, tp: facingFrom(saw.x, saw.z, 1.5, 0), cmds: [{ t: 'craft', recipe: 'pack.lumberBundle' }] },
         { frames: 20, tp: facingFrom(slip.x, slip.z, 4, 0), cmds: [{ t: 'interact' }] },
@@ -366,7 +407,10 @@ describe.skipIf(!existsSync(LIFECHECK))('the island on the server matches the br
     compare('getting about', {
       every: 30,
       segments: [
-        idle(5, [{ t: 'grant', item: 'whistle.horse', n: 1 }, { t: 'grant', item: 'glider.wayfarer', n: 1 }]),
+        idle(5, [
+          { t: 'grant', item: 'whistle.horse', n: 1 },
+          { t: 'grant', item: 'glider.wayfarer', n: 1 },
+        ]),
         idle(20, [{ t: 'mount' }]),
         { frames: 90, a: { moveZ: 1, sprintHeld: true } },
         { frames: 1, a: { moveZ: 1, jumpPressed: true, jumpHeld: true } },
@@ -398,7 +442,12 @@ describe.skipIf(!existsSync(LIFECHECK))('the island on the server matches the br
     const island = islandAfter({
       every: 1000,
       segments: [
-        idle(5, [{ t: 'grant', item: 'scarecrow', n: 1 }, { t: 'grant', item: 'seed.sunroot', n: 6 }, { t: 'grant', item: 'sunroot', n: 6 }, { t: 'grant', item: 'barley', n: 4 }]),
+        idle(5, [
+          { t: 'grant', item: 'scarecrow', n: 1 },
+          { t: 'grant', item: 'seed.sunroot', n: 6 },
+          { t: 'grant', item: 'sunroot', n: 6 },
+          { t: 'grant', item: 'barley', n: 4 },
+        ]),
         { frames: 20, tp: { x: farm.x, z: farm.z - 7, facing: 0 }, cmds: [{ t: 'use', item: 'scarecrow' }] },
         idle(20, [{ t: 'interact' }]),
         { frames: 20, tp: { x: farm.x, z: farm.z - 3, facing: 0 }, cmds: [{ t: 'interact' }] },
@@ -442,14 +491,22 @@ describe.skipIf(!existsSync(LIFECHECK))('the island on the server matches the br
       { frames: 20, tp: site, cmds: [{ t: 'interact' }] },
     ];
     const before: Segment[] = [
-      idle(5, [{ t: 'grant', item: 'blueprint.cottage', n: 1 }, { t: 'grant', item: 'stone', n: 60 }, { t: 'grant', item: 'lumber', n: 60 }, { t: 'grant', item: 'ironOre', n: 20 }]),
+      idle(5, [
+        { t: 'grant', item: 'blueprint.cottage', n: 1 },
+        { t: 'grant', item: 'stone', n: 60 },
+        { t: 'grant', item: 'lumber', n: 60 },
+        { t: 'grant', item: 'ironOre', n: 20 },
+      ]),
       { frames: 20, tp: site, cmds: [{ t: 'interact' }] },
       ...haul(),
       ...haul(),
       idle(20, [{ t: 'interact' }]),
     ];
     const built = playTs({ coins: 20000, labor: 1000, every: 1000, segments: before }).life.state.houses;
-    expect(built.map((h) => h.stage), 'the foundation is down').toEqual([1]);
+    expect(
+      built.map((h) => h.stage),
+      'the foundation is down',
+    ).toEqual([1]);
     compare('housing', {
       coins: 20000,
       labor: 1000,
@@ -462,7 +519,11 @@ describe.skipIf(!existsSync(LIFECHECK))('the island on the server matches the br
     const [quill, brenna, hob] = ['quill', 'brenna', 'hob'].map(npc);
     const front = (n: { x: number; z: number; facing: number }) => facingFrom(n.x, n.z, 1.6, n.facing);
     // Four swings at each: three to five a swing, so always the ten a step wants.
-    const work = (kind: string): Segment[] => R.nodes.filter((n) => n.kind === kind).slice(0, 4).map((nd) => ({ frames: 20, tp: facingFrom(nd.x, nd.z, 2, 0), cmds: [{ t: 'interact' }] }));
+    const work = (kind: string): Segment[] =>
+      R.nodes
+        .filter((n) => n.kind === kind)
+        .slice(0, 4)
+        .map((nd) => ({ frames: 20, tp: facingFrom(nd.x, nd.z, 2, 0), cmds: [{ t: 'interact' }] }));
     // Kept by the browser: everything before the house done.
     const island = islandAfter({ every: 1000, segments: [idle(5)] });
     island.state.quests = { active: [], done: ['landfall', 'patch', 'wings', 'firstFlight', 'harvest', 'packwright', 'westward'] };
@@ -478,18 +539,35 @@ describe.skipIf(!existsSync(LIFECHECK))('the island on the server matches the br
         ...work('stoneNode'),
         { frames: 20, tp: facingFrom(bench('stonecutter').x, bench('stonecutter').z, 1.5, 0), cmds: [{ t: 'craft', recipe: 'pack.stoneBlock' }] },
         idle(20, [{ t: 'drop' }]),
-        { frames: 20, tp: front(brenna), cmds: [{ t: 'complete', quest: 'stonecutting' }, { t: 'accept', quest: 'woodcutting' }] },
+        {
+          frames: 20,
+          tp: front(brenna),
+          cmds: [
+            { t: 'complete', quest: 'stonecutting' },
+            { t: 'accept', quest: 'woodcutting' },
+          ],
+        },
         { frames: 20, tp: front(hob), cmds: [{ t: 'interact' }] },
         ...work('timberNode'),
         { frames: 20, tp: facingFrom(bench('sawhorse').x, bench('sawhorse').z, 1.5, 0), cmds: [{ t: 'craft', recipe: 'pack.lumberBundle' }] },
-        { frames: 20, tp: front(quill), cmds: [{ t: 'complete', quest: 'woodcutting' }, { t: 'accept', quest: 'home' }] },
+        {
+          frames: 20,
+          tp: front(quill),
+          cmds: [
+            { t: 'complete', quest: 'woodcutting' },
+            { t: 'accept', quest: 'home' },
+          ],
+        },
         idle(30),
       ],
     };
     type State = { seals: number; packs: Array<{ def: string; at: string }>; quests: { active: Array<{ id: string }>; done: string[] } };
     const end = runTs(script).at(-1)!.life as unknown as State;
     expect(end.quests.done, 'both lessons handed in').toEqual(expect.arrayContaining(['stonecutting', 'woodcutting']));
-    expect(end.quests.active.map((q) => q.id), 'and the house taken').toContain('home');
+    expect(
+      end.quests.active.map((q) => q.id),
+      'and the house taken',
+    ).toContain('home');
     expect(end.packs.map((p) => `${p.def}@${p.at}`).sort()).toEqual(['lumberBundle@back', 'stoneBlock@ground']);
     expect(end.seals).toBe(island.state.seals + 1);
     compare('stone and timber', script);
@@ -535,19 +613,33 @@ describe.skipIf(!existsSync(LIFECHECK))('the island on the server matches the br
         // then taken again.
         { frames: 10, tp: facingFrom(hollis.x, hollis.z, 1.6, Math.PI) },
         idle(20, [{ t: 'interact' }]),
-        idle(20, [{ t: 'complete', quest: 'landfall' }, { t: 'accept', quest: 'patch' }]),
-        idle(20, [{ t: 'abandon', quest: 'patch' }, { t: 'abandon', quest: 'wayfarer' }, { t: 'abandon', quest: 'landfall' }]),
+        idle(20, [
+          { t: 'complete', quest: 'landfall' },
+          { t: 'accept', quest: 'patch' },
+        ]),
+        idle(20, [
+          { t: 'abandon', quest: 'patch' },
+          { t: 'abandon', quest: 'wayfarer' },
+          { t: 'abandon', quest: 'landfall' },
+        ]),
         idle(20, [{ t: 'accept', quest: 'patch' }]),
         // At Mara's stall: sell, buy some back (and something never sold), sell again.
         { frames: 20, tp: facingFrom(mara.x, mara.z, 1.6, 0), cmds: [{ t: 'sell', npc: 'mara', item: 'sunroot', n: 6 }] },
-        idle(20, [{ t: 'buyback', npc: 'mara', item: 'sunroot', n: 2 }, { t: 'buyback', npc: 'mara', item: 'barley', n: 1 }]),
+        idle(20, [
+          { t: 'buyback', npc: 'mara', item: 'sunroot', n: 2 },
+          { t: 'buyback', npc: 'mara', item: 'barley', n: 1 },
+        ]),
         idle(20, [{ t: 'sell', npc: 'mara', item: 'sunroot', n: 1 }]),
         // Walk off, and she lets go of the rest; come back and there's nothing to buy back.
         { frames: 30, tp: facingFrom(mara.x, mara.z, 20, 0) },
         { frames: 20, tp: facingFrom(mara.x, mara.z, 1.6, 0), cmds: [{ t: 'buyback', npc: 'mara', item: 'sunroot', n: 5 }] },
       ],
     };
-    type State = { buyback?: Array<{ npc: string; item: string; n: number }>; bag: Array<{ item: string; n: number }>; quests: { active: Array<{ id: string; step: number }>; done: string[] } };
+    type State = {
+      buyback?: Array<{ npc: string; item: string; n: number }>;
+      bag: Array<{ item: string; n: number }>;
+      quests: { active: Array<{ id: string; step: number }>; done: string[] };
+    };
     const ts = runTs(script);
     const at = (frame: number) => ts.find((c) => c.frame === frame)!.life as unknown as State;
     const sunroot = (s: State) => s.bag.filter((b) => b.item === 'sunroot').reduce((n, b) => n + b.n, 0);
@@ -556,7 +648,10 @@ describe.skipIf(!existsSync(LIFECHECK))('the island on the server matches the br
     expect(at(180).buyback, 'let go of once you walked off').toEqual([]);
     const end = ts.at(-1)!.life as unknown as State;
     expect(sunroot(end)).toBe(10 - 6 + 2 - 1);
-    expect(end.quests.active.map((q) => q.id), 'Patch taken again; the milestone kept').toEqual(expect.arrayContaining(['patch', 'wayfarer']));
+    expect(
+      end.quests.active.map((q) => q.id),
+      'Patch taken again; the milestone kept',
+    ).toEqual(expect.arrayContaining(['patch', 'wayfarer']));
     expect(end.quests.active.find((q) => q.id === 'patch')!.step).toBe(0);
     const said = ts.flatMap((c) => c.events.filter((e) => e.t === 'toast').map((e) => e.text));
     expect(said).toContain('Quest abandoned: A Patch of Earth');
@@ -573,14 +668,20 @@ describe.skipIf(!existsSync(LIFECHECK))('the island on the server matches the br
       segments: [
         { frames: 10, tp: facingFrom(hollis.x, hollis.z, 1.6, Math.PI) },
         idle(20, [{ t: 'interact' }]),
-        idle(20, [{ t: 'complete', quest: 'landfall' }, { t: 'accept', quest: 'wings' }]),
+        idle(20, [
+          { t: 'complete', quest: 'landfall' },
+          { t: 'accept', quest: 'wings' },
+        ]),
       ],
     });
     const script: Script = {
       island,
       every: 30,
       // 35 m out from the spire, then up on top of it.
-      segments: [{ frames: 30, tp: { x: spire.x + 35, z: spire.z } }, { frames: 30, tp: { x: spire.x, z: spire.z } }],
+      segments: [
+        { frames: 30, tp: { x: spire.x + 35, z: spire.z } },
+        { frames: 30, tp: { x: spire.x, z: spire.z } },
+      ],
     };
     type Quests = { active: Array<{ id: string; step: number; counts: number[] }> };
     const [foot, top] = runTs(script).map((c) => (c.life as unknown as { quests: Quests }).quests.active);

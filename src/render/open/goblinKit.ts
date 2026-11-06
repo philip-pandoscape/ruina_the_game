@@ -20,7 +20,15 @@ export function rockSlab(w: number, h: number, d: number, seed: number, flatTop?
   }
   const f = faceted(g);
   const rng = makeRng(seed * 7 + 3);
-  return tint(f, (_c, n) => (n.y > 0.75 && rng() < 0.45 ? vary(ROCK.moss, rng, 0.1) : n.y > 0.3 ? vary(ROCK.top, rng, 0.1) : n.y < -0.5 ? vary(ROCK.dark, rng, 0.08) : vary(ROCK.side, rng, 0.1)));
+  return tint(f, (_c, n) =>
+    n.y > 0.75 && rng() < 0.45
+      ? vary(ROCK.moss, rng, 0.1)
+      : n.y > 0.3
+        ? vary(ROCK.top, rng, 0.1)
+        : n.y < -0.5
+          ? vary(ROCK.dark, rng, 0.08)
+          : vary(ROCK.side, rng, 0.1),
+  );
 }
 
 /** A boulder: a lumpy ball of rock, `r` across, flattened a little. */
@@ -37,9 +45,25 @@ export function boulder(r: number, seed: number): THREE.BufferGeometry {
 export function barrel(h = 0.9, seed = 1): THREE.BufferGeometry {
   const rng = makeRng(seed);
   const r = h * 0.3;
-  const body = tint(faceted(lathe([[r * 0.82, 0], [r, h * 0.25], [r * 1.06, h * 0.5], [r, h * 0.75], [r * 0.82, h]], 12)), vary(PAL.wood, rng, 0.1));
+  const body = tint(
+    faceted(
+      lathe(
+        [
+          [r * 0.82, 0],
+          [r, h * 0.25],
+          [r * 1.06, h * 0.5],
+          [r, h * 0.75],
+          [r * 0.82, h],
+        ],
+        12,
+      ),
+    ),
+    vary(PAL.wood, rng, 0.1),
+  );
   const lid = tint(xf(cyl(r * 0.8, r * 0.8, 0.03, 12), [0, h - 0.01, 0]), PAL.woodDark);
-  const hoops = [0.16, 0.84].map((y) => tint(xf(ring(r * (0.98 + 0.06 * Math.sin(Math.PI * y)), r * (1.04 + 0.06 * Math.sin(Math.PI * y)), 0.05, 12), [0, h * y, 0]), PAL.iron));
+  const hoops = [0.16, 0.84].map((y) =>
+    tint(xf(ring(r * (0.98 + 0.06 * Math.sin(Math.PI * y)), r * (1.04 + 0.06 * Math.sin(Math.PI * y)), 0.05, 12), [0, h * y, 0]), PAL.iron),
+  );
   return merge([body, lid, ...hoops]);
 }
 
@@ -53,7 +77,13 @@ export function plankDeck(w: number, d: number, seed: number, below = 0): THREE.
   let z = -d / 2;
   while (z < d / 2 - 0.08) {
     const pw = Math.min(0.24 + rng() * 0.1, d / 2 - z);
-    if (rng() > 0.06) parts.push(tint(xf(bev(w + (rng() - 0.5) * 0.5, 0.07, pw - 0.03, 0.015), [(rng() - 0.5) * 0.2, -0.035, z + pw / 2], [0, (rng() - 0.5) * 0.06, 0]), vary(rng() < 0.55 ? PAL.woodGreyDark : PAL.woodDark, rng, 0.14)));
+    if (rng() > 0.06)
+      parts.push(
+        tint(
+          xf(bev(w + (rng() - 0.5) * 0.5, 0.07, pw - 0.03, 0.015), [(rng() - 0.5) * 0.2, -0.035, z + pw / 2], [0, (rng() - 0.5) * 0.06, 0]),
+          vary(rng() < 0.55 ? PAL.woodGreyDark : PAL.woodDark, rng, 0.14),
+        ),
+      );
     z += pw;
   }
   for (const x of [-w * 0.33, w * 0.33]) parts.push(tint(xf(box(0.16, 0.16, d), [x, -0.15, 0]), PAL.woodDeep));
@@ -61,7 +91,8 @@ export function plankDeck(w: number, d: number, seed: number, below = 0): THREE.
     const r = Math.min(0.32, (below - 0.23) / 2);
     for (let k = 0; k < Math.max(2, Math.round(d / 1.6)); k++) {
       const bz = -d / 2 + 0.6 + (k * (d - 1.2)) / Math.max(1, Math.round(d / 1.6) - 1);
-      for (const x of [-w * 0.33, w * 0.33]) parts.push(xf(barrel(r * 3.3, seed + k * 7 + (x > 0 ? 1 : 0)), [x - r * 1.65, -below + r, bz], [0, 0, -Math.PI / 2]));
+      for (const x of [-w * 0.33, w * 0.33])
+        parts.push(xf(barrel(r * 3.3, seed + k * 7 + (x > 0 ? 1 : 0)), [x - r * 1.65, -below + r, bz], [0, 0, -Math.PI / 2]));
     }
   }
   return merge(parts);
@@ -71,7 +102,11 @@ export function plankDeck(w: number, d: number, seed: number, below = 0): THREE.
 export function net(w: number, h: number, cell = 0.45, belly = 0.3): THREE.BufferGeometry {
   const nx = Math.max(2, Math.round(w / cell));
   const ny = Math.max(2, Math.round(h / cell));
-  const at = (i: number, j: number): V3 => [-w / 2 + (i * w) / nx, (j * h) / ny - belly * 0.4 * Math.sin((Math.PI * i) / nx), belly * Math.sin((Math.PI * i) / nx) * Math.sin((Math.PI * j) / ny)];
+  const at = (i: number, j: number): V3 => [
+    -w / 2 + (i * w) / nx,
+    (j * h) / ny - belly * 0.4 * Math.sin((Math.PI * i) / nx),
+    belly * Math.sin((Math.PI * i) / nx) * Math.sin((Math.PI * j) / ny),
+  ];
   const parts: THREE.BufferGeometry[] = [];
   for (let j = 0; j <= ny; j++) for (let i = 0; i < nx; i++) parts.push(rod(at(i, j), at(i + 1, j), j === 0 || j === ny ? 0.03 : 0.016, 3));
   for (let i = 0; i <= nx; i++) for (let j = 0; j < ny; j++) parts.push(rod(at(i, j), at(i, j + 1), i === 0 || i === nx ? 0.03 : 0.016, 3));
@@ -98,7 +133,9 @@ let halo: THREE.Texture | null = null;
 
 export function haloSprite(color: number, size: number, opacity = 0.55): THREE.Sprite {
   halo ??= haloTexture();
-  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: halo, color, transparent: true, opacity, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
+  const s = new THREE.Sprite(
+    new THREE.SpriteMaterial({ map: halo, color, transparent: true, opacity, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }),
+  );
   s.scale.setScalar(size);
   s.renderOrder = 6;
   s.name = 'halo';
@@ -124,9 +161,19 @@ export function lantern(flickers: Flickers, seed = 1): THREE.Group {
   frame.push(tint(xf(ring(0.05, 0.07, 0.02, 8), [0, -0.05, 0], [Math.PI / 2, 0, 0]), PAL.iron));
   frame.push(tint(xf(cone(0.17, 0.14, 4), [0, -0.17, 0], [0, Math.PI / 4, 0]), PAL.iron));
   frame.push(tint(xf(box(0.24, 0.04, 0.24), [0, -0.52, 0]), PAL.iron));
-  for (const [x, z] of [[-0.1, -0.1], [0.1, -0.1], [-0.1, 0.1], [0.1, 0.1]]) frame.push(tint(xf(box(0.025, 0.3, 0.025), [x, -0.36, z]), PAL.iron));
+  for (const [x, z] of [
+    [-0.1, -0.1],
+    [0.1, -0.1],
+    [-0.1, 0.1],
+    [0.1, 0.1],
+  ])
+    frame.push(tint(xf(box(0.025, 0.3, 0.025), [x, -0.36, z]), PAL.iron));
   mesh(g, merge(frame), { shadow: false });
-  const flame = mesh(g, tint(xf(new THREE.OctahedronGeometry(0.08, 0), [0, -0.36, 0], [0, 0, 0], [1, 1.6, 1]), PAL.glowHot, 2.2), { mat: glowMaterial(), shadow: false, name: 'flame' });
+  const flame = mesh(g, tint(xf(new THREE.OctahedronGeometry(0.08, 0), [0, -0.36, 0], [0, 0, 0], [1, 1.6, 1]), PAL.glowHot, 2.2), {
+    mat: glowMaterial(),
+    shadow: false,
+    name: 'flame',
+  });
   const glass = mesh(g, tint(xf(box(0.19, 0.26, 0.19), [0, -0.36, 0]), PAL.glow, 1.3), { mat: glowMaterial(), shadow: false });
   glass.scale.setScalar(0.98);
   const h = haloSprite(0xffb45e, 1.3, 0.32);
@@ -196,11 +243,13 @@ export function totem(flickers: Flickers, h = 2.6, seed = 3): THREE.Group {
   }
   // A round shield on the post, painted with a spiral.
   const shield = faceted(xf(cyl(0.34, 0.34, 0.06, 12), [0, 0.95, 0.33], [Math.PI / 2, 0, 0]));
-  wood.push(tint(shield, (c) => {
-    const r = Math.hypot(c.x, c.y - 0.95);
-    const a = Math.atan2(c.y - 0.95, c.x);
-    return Math.sin(a * 2 + r * 26) > 0 ? PAL.redDark : PAL.cream;
-  }));
+  wood.push(
+    tint(shield, (c) => {
+      const r = Math.hypot(c.x, c.y - 0.95);
+      const a = Math.atan2(c.y - 0.95, c.x);
+      return Math.sin(a * 2 + r * 26) > 0 ? PAL.redDark : PAL.cream;
+    }),
+  );
   const body = mesh(g, merge(wood), { name: 'totem' });
   body.scale.setScalar(s);
   // Jars of slime jelly on a little shelf, glowing green.
@@ -224,7 +273,21 @@ export function potGong(): THREE.Group {
   parts.push(tint(rod([0.6, 0, 0], [0.55, 1.5, 0], 0.05, 5), PAL.woodDark));
   parts.push(tint(rod([-0.62, 1.48, 0], [0.62, 1.48, 0], 0.05, 5), PAL.woodDark));
   parts.push(tint(rod([0, 1.48, 0], [0, 1.2, 0], 0.01, 3), PAL.rope));
-  const pot = faceted(xf(lathe([[0.02, 0], [0.3, 0.05], [0.36, 0.25], [0.33, 0.42], [0.3, 0.44]], 12), [0, 0.74, 0]));
+  const pot = faceted(
+    xf(
+      lathe(
+        [
+          [0.02, 0],
+          [0.3, 0.05],
+          [0.36, 0.25],
+          [0.33, 0.42],
+          [0.3, 0.44],
+        ],
+        12,
+      ),
+      [0, 0.74, 0],
+    ),
+  );
   parts.push(tint(pot, PAL.iron));
   parts.push(tint(xf(ring(0.3, 0.34, 0.04, 12), [0, 1.18, 0]), PAL.ironLight));
   parts.push(tint(rod([0.42, 0.9, 0.2], [0.7, 0.55, 0.35], 0.025, 4), PAL.woodLight));
@@ -241,7 +304,12 @@ export function lookout(h: number, seed: number): THREE.Group {
   const g = new THREE.Group();
   const rng = makeRng(seed);
   const parts: THREE.BufferGeometry[] = [];
-  const legs: Array<[number, number]> = [[-1.1, -1.1], [1.1, -1.1], [-1.1, 1.1], [1.1, 1.1]];
+  const legs: Array<[number, number]> = [
+    [-1.1, -1.1],
+    [1.1, -1.1],
+    [-1.1, 1.1],
+    [1.1, 1.1],
+  ];
   for (const [x, z] of legs) parts.push(tint(rod([x * 1.12, 0, z * 1.12], [x, h, z], 0.09, 6), vary(PAL.woodDark, rng, 0.1)));
   // Cross braces.
   parts.push(tint(rod([-1.2, 0.4, -1.2], [1.12, h * 0.6, -1.15], 0.05, 4), PAL.woodDark));
@@ -276,7 +344,10 @@ export function barricade(w: number, seed: number): THREE.Group {
     parts.push(tint(rod([x - lean, 0, -0.3], [x + lean, 2.3, 0.4], 0.12, 6, 0.04), vary(PAL.woodDark, rng, 0.12)));
   }
   for (const y of [0.6, 1.4]) parts.push(tint(xf(box(w, 0.24, 0.16), [0, y, 0.1], [0, 0, (rng() - 0.5) * 0.08]), vary(PAL.woodGrey, rng, 0.1)));
-  for (let k = 0; k < 4; k++) parts.push(tint(xf(bev(0.8, 0.8, 0.8, 0.03), [-w / 2 + 0.6 + k * (w - 1.2) / 3, 0.4 + (k % 2) * 0.8, 0.7], [0, rng() * 0.6, 0]), vary(PAL.crate, rng, 0.12)));
+  for (let k = 0; k < 4; k++)
+    parts.push(
+      tint(xf(bev(0.8, 0.8, 0.8, 0.03), [-w / 2 + 0.6 + (k * (w - 1.2)) / 3, 0.4 + (k % 2) * 0.8, 0.7], [0, rng() * 0.6, 0]), vary(PAL.crate, rng, 0.12)),
+    );
   parts.push(tint(rod([w / 2 - 0.5, 0, 0.6], [w / 2 - 0.5, 2.6, 0.6], 0.04, 4), PAL.woodDark));
   parts.push(tint(xf(sph(0.18, 7, 5), [w / 2 - 0.5, 2.7, 0.6], [0, 0, 0], [1, 0.9, 1.15]), 0xe8e0c8));
   parts.push(tint(xf(box(0.06, 0.05, 0.03), [w / 2 - 0.56, 2.72, 0.79]), 0x15100c));
@@ -390,7 +461,14 @@ export function drawingsTexture(seed: number): THREE.Texture {
 
 /** Pictures on a wall: a plane `w` by `h` facing +Z, drawn just in front of the rock. */
 export function drawings(w: number, h: number, seed: number): THREE.Mesh {
-  const mat = new THREE.MeshBasicMaterial({ map: drawingsTexture(seed), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+  const mat = new THREE.MeshBasicMaterial({
+    map: drawingsTexture(seed),
+    transparent: true,
+    depthWrite: false,
+    polygonOffset: true,
+    polygonOffsetFactor: -2,
+    polygonOffsetUnits: -2,
+  });
   const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat);
   m.name = 'drawings';
   m.renderOrder = 1;

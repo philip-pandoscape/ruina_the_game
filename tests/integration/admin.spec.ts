@@ -90,7 +90,8 @@ test('an admin has the Admin menu on character select and in the world, and it o
   await page.locator('.cs-account').getByRole('button', { name: 'Admin' }).click();
   const card = page.locator('.adm-card');
   await expect(card.getByRole('heading', { name: 'Admin' })).toBeVisible();
-  for (const name of ['The Yard', 'The Battlefield', 'Animation Library', 'Design Bible']) await expect(card.getByRole('button', { name, exact: true })).toBeVisible();
+  for (const name of ['The Yard', 'The Battlefield', 'Animation Library', 'Design Bible'])
+    await expect(card.getByRole('button', { name, exact: true })).toBeVisible();
   // A page opens in a tab of its own.
   const [tab] = await Promise.all([page.context().waitForEvent('page'), card.getByRole('button', { name: 'UI Design System' }).click()]);
   await tab.waitForURL('**/design/ui.html');

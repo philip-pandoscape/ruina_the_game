@@ -259,7 +259,14 @@ export class FallsView {
         uGlowY: { value: new THREE.Vector2(f.shelf.top, f.roof.top - 1.5) },
       };
       this.uniforms.push(u);
-      const mat = new THREE.ShaderMaterial({ uniforms: u, vertexShader: curtainVertex, fragmentShader: curtainFragment, transparent: true, depthWrite: false, side: THREE.DoubleSide });
+      const mat = new THREE.ShaderMaterial({
+        uniforms: u,
+        vertexShader: curtainVertex,
+        fragmentShader: curtainFragment,
+        transparent: true,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+      });
       const mesh = new THREE.Mesh(curtainGeometry(f, back, narrow), mat);
       mesh.name = layer ? 'falls-curtain' : 'falls-curtain-back';
       mesh.renderOrder = 3 + layer;
@@ -332,7 +339,7 @@ export class FallsView {
 
   update(time: number, viewHeight: number, fov: number): void {
     for (const u of this.uniforms) u.uTime.value = time;
-    const scale = viewHeight / (2 * Math.tan(((fov * Math.PI) / 180) / 2));
+    const scale = viewHeight / (2 * Math.tan((fov * Math.PI) / 180 / 2));
     for (const u of this.mists) {
       u.uTime.value = time;
       u.uScale.value = scale;

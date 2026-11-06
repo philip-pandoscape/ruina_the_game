@@ -1,14 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import {
-  contextFor,
-  expandMoves,
-  folderPlace,
-  parseMoves,
-  reglob,
-  respecify,
-  rewriteFile,
-  rewriteRepoPaths,
-} from '../../../tools/refactor/moves-lib.mjs';
+import { contextFor, expandMoves, folderPlace, parseMoves, reglob, respecify, rewriteFile, rewriteRepoPaths } from '../../../tools/refactor/moves-lib.mjs';
 
 // The refactor's moves script (tools/refactor/moves.mjs) moves files and rewrites every reference to
 // them. These check the rewriting on a small made-up repository, whose paths look like real ones, so
@@ -102,7 +93,13 @@ describe('imports', () => {
 
 describe('whole files', () => {
   test('a script: every kind of import, a glob and a URL', () => {
-    const ctx = contextFor([{ from: 'src/sim', to: 'src/engine' }, { from: 'src/render/assets', to: 'src/assets' }], files);
+    const ctx = contextFor(
+      [
+        { from: 'src/sim', to: 'src/engine' },
+        { from: 'src/render/assets', to: 'src/assets' },
+      ],
+      files,
+    );
     const text = [
       "import { Life } from './sim/life';",
       "import type { World } from './sim/zone/world.ts';",
@@ -136,11 +133,20 @@ describe('whole files', () => {
       'readFileSync(new URL(`../../shared/${file}`, import.meta.url)); readFileSync(new URL(`../../${path}`, import.meta.url));',
     );
     const moved = contextFor([{ from: 'shared', to: 'content' }], files);
-    expect(rewriteFile('new URL(`../shared/${file}`, import.meta.url)', 'tests/progress.spec.ts', moved)).toBe('new URL(`../content/${file}`, import.meta.url)');
+    expect(rewriteFile('new URL(`../shared/${file}`, import.meta.url)', 'tests/progress.spec.ts', moved)).toBe(
+      'new URL(`../content/${file}`, import.meta.url)',
+    );
   });
 
   test('Rust includes, CSS urls and HTML root paths', () => {
-    const ctx = contextFor([{ from: 'shared', to: 'content' }, { from: 'src/ui/theme/fonts', to: 'src/assets/fonts' }, { from: 'src/main.ts', to: 'src/app/main.ts' }], files);
+    const ctx = contextFor(
+      [
+        { from: 'shared', to: 'content' },
+        { from: 'src/ui/theme/fonts', to: 'src/assets/fonts' },
+        { from: 'src/main.ts', to: 'src/app/main.ts' },
+      ],
+      files,
+    );
     expect(rewriteFile('const ITEMS: &str = include_str!("../../shared/items.json");', 'server/src/content.rs', ctx)).toBe(
       'const ITEMS: &str = include_str!("../../content/items.json");',
     );
@@ -151,7 +157,13 @@ describe('whole files', () => {
   });
 
   test('repo paths written out in docs and strings, as whole words only', () => {
-    const ctx = contextFor([{ from: 'src/sim', to: 'src/engine' }, { from: 'tests/testServer.ts', to: 'tests/support/testServer.ts' }], files);
+    const ctx = contextFor(
+      [
+        { from: 'src/sim', to: 'src/engine' },
+        { from: 'tests/testServer.ts', to: 'tests/support/testServer.ts' },
+      ],
+      files,
+    );
     const doc = 'The rules (`src/sim/life.ts`, all of `src/sim/`, src/sim) and `tests/testServer.ts`; not ../src/sim/life.ts, not src/simple.ts.';
     expect(rewriteRepoPaths(doc, ctx)).toBe(
       'The rules (`src/engine/life.ts`, all of `src/engine/`, src/engine) and `tests/support/testServer.ts`; not ../src/sim/life.ts, not src/simple.ts.',

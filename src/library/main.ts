@@ -36,9 +36,10 @@ const api = {
   pause: () => app.pause(),
   bakeAll: () => {
     const t = app.take;
-    if (t) while (!t.bake(240)) {
-      /* bake */
-    }
+    if (t)
+      while (!t.bake(240)) {
+        /* bake */
+      }
   },
   bones: () => app.take?.bones.map((b) => b.name) ?? [],
   edit: () => app.enterEdit(),

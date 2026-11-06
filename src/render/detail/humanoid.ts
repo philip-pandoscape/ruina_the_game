@@ -65,8 +65,7 @@ function dir(az: number, el: number, out: THREE.Vector3): THREE.Vector3 {
 }
 
 /** A point in the torso's frame, in model space. */
-const torsoPoint = (b: Body, x: number, y: number, z: number, out: THREE.Vector3): THREE.Vector3 =>
-  b.toModel(b.torso, out.set(x, y, z), out);
+const torsoPoint = (b: Body, x: number, y: number, z: number, out: THREE.Vector3): THREE.Vector3 => b.toModel(b.torso, out.set(x, y, z), out);
 /** A direction in the torso's frame, in model space. */
 const torsoDir = (b: Body, v: THREE.Vector3): THREE.Vector3 => v.applyQuaternion(b.quaternionOf(b.torso, _q));
 
@@ -250,7 +249,19 @@ function locomotion(b: Body, p: PoseInput, sink = 0): Gait {
   const pelvis = lerp(dirs.pelvisAhead, dirs.pelvisBehind, back) * twist * moving;
   // A made body's planted foot centres a little behind its hips, as a person's does.
   const centre = stride.made ? -0.04 - 0.06 * run : 0.015 * run;
-  const shape: GaitShape = { speed: v, crouch: c, carry: p.carry, back: 0, centre, width: 0, ankleHeight: b.ankleHeight, heel: b.heel, ball: b.ball, stride, low: stride.made ? 0.6 * Math.abs(Math.sin(p.heading)) : 0 };
+  const shape: GaitShape = {
+    speed: v,
+    crouch: c,
+    carry: p.carry,
+    back: 0,
+    centre,
+    width: 0,
+    ankleHeight: b.ankleHeight,
+    heel: b.heel,
+    ball: b.ball,
+    stride,
+    low: stride.made ? 0.6 * Math.abs(Math.sin(p.heading)) : 0,
+  };
   const width = stride.made ? lerp(lerp(0.1, 0.06, run) - 0.01 * sprint, 0.16, c) : lerp(lerp(0.115, 0.085, run) - 0.012 * sprint, 0.17, c);
   const hold = { L: 1, R: 1 };
   const onGround = { L: 1, R: 1 };
@@ -461,7 +472,13 @@ function holdArmed(b: Body, p: PoseInput, g: Gait): void {
     const at = move * smooth((ahead - 0.5) / 0.4);
     const guard = move * (1 - smooth((ahead - 0.5) / 0.4));
     const pace = 0.6 + 0.4 * g.run;
-    b.setArmOut('R', lerp(0.14 + 0.04 * move, 0.05, guard), lerp(lerp(-0.1, -0.08 - 0.32 * swing * pace, at), -0.5, guard), 0, -lerp(lerp(0.28, 0.45 + 0.3 * g.run, at), 1.25, guard));
+    b.setArmOut(
+      'R',
+      lerp(0.14 + 0.04 * move, 0.05, guard),
+      lerp(lerp(-0.1, -0.08 - 0.32 * swing * pace, at), -0.5, guard),
+      0,
+      -lerp(lerp(0.28, 0.45 + 0.3 * g.run, at), 1.25, guard),
+    );
     // Swung round the outside (the hero's right), never across the legs. On guard, a low one: the
     // hand at the waist in front, the point up and forward toward the middle.
     const az = lerp(lerp(-0.12, -(Math.PI - 0.3), at), 0.32, guard);
@@ -790,7 +807,9 @@ function attack(b: Body, p: PoseInput, out: PoseFeedback): void {
   // Feet: footwork on the ground (turning with a spin), or tucked up in the air. A jump attack that
   // comes down before it's done lands square, feet under you, and finishes there.
   if (p.grounded) {
-    const feet = jump ? footwork(def, step, startStance(p.weapon, 0, step.pose, legs), f, false, legs) : footwork(def, step, startStance(p.weapon, p.attackIndex, step.pose, legs), f, true, legs);
+    const feet = jump
+      ? footwork(def, step, startStance(p.weapon, 0, step.pose, legs), f, false, legs)
+      : footwork(def, step, startStance(p.weapon, p.attackIndex, step.pose, legs), f, true, legs);
     if (spin) {
       const c = Math.cos(spin);
       const sn = Math.sin(spin);
@@ -915,14 +934,25 @@ function bowShot(b: Body, p: PoseInput, step: AttackStep, out: PoseFeedback): vo
   // body (the head reaches 0.23 in front of the neck, the chest 0.15).
   const aim = _d.set(0, 0.04, 1).normalize();
   const front = torsoDir(b, _front.set(0, 0, 1)).multiplyScalar(0.26 * on);
-  const grip = b.positionOf(b.shoulder.L, _g).addScaledVector(aim, 0.42).add(_pole.set(-0.03, 0.03 + 0.06 * on, 0)).add(front);
+  const grip = b
+    .positionOf(b.shoulder.L, _g)
+    .addScaledVector(aim, 0.42)
+    .add(_pole.set(-0.03, 0.03 + 0.06 * on, 0))
+    .add(front);
   b.handTo('L', _a.lerpVectors(grip, restL, 1 - on), _pole.set(0.6, -0.5, -0.2));
   b.frameHand('L', _a.copy(aim).lerp(_b.set(0.1, -0.45, 1).normalize(), 1 - on), _c.set(-0.15, 1, 0));
   // Draw hand: to the string, back to the chin, and away on the release.
   const nock = b.toModel(b.arm.L.end, _a.set(...(b.rig.def.bow ?? HERO_BOW).nock), _a);
-  const anchor = _b.copy(grip).addScaledVector(aim, -0.66).add(_pole.set(0, 0.02, 0));
+  const anchor = _b
+    .copy(grip)
+    .addScaledVector(aim, -0.66)
+    .add(_pole.set(0, 0.02, 0));
   const hand = _c.lerpVectors(nock, anchor, pull);
-  if (loosed) hand.copy(anchor).addScaledVector(aim, -0.13 * after).add(_pole.set(-0.08 * after, 0.04 * after, 0));
+  if (loosed)
+    hand
+      .copy(anchor)
+      .addScaledVector(aim, -0.13 * after)
+      .add(_pole.set(-0.08 * after, 0.04 * after, 0));
   hand.lerp(restR, Math.max(1 - on * smooth(f / (S * 0.35)), relax));
   b.handTo('R', hand, _pole.set(-0.35, 0.25, -1));
   b.aimHand('R', aim);
@@ -950,7 +980,9 @@ function cast(b: Body, p: PoseInput): void {
       b.setArmOut(s, 0.62 + pulse, -2.55 - pulse, 0.2, -0.28);
       const sky = b.positionOf(b.arm[s].end, _e);
       const chest = torsoPoint(b, k(s) * 0.07, 0.3, 0.27, _b);
-      const at = torsoPoint(b, k(s) * 0.34, 0.02, 0.06, _c).lerp(chest, gather).lerp(sky, rise);
+      const at = torsoPoint(b, k(s) * 0.34, 0.02, 0.06, _c)
+        .lerp(chest, gather)
+        .lerp(sky, rise);
       b.handTo(s, at, torsoDir(b, _pole.set(k(s) * 0.7, -0.6, -0.4)));
     }
     cape(b, 0.25 + 0.5 * rise + 0.05 * Math.sin(t * 7), 0.15 + 0.3 * rise);
@@ -1182,7 +1214,10 @@ const _aim = new THREE.Vector3();
 /** Which way the weapon in a hand (the right, unless told) points, in model space. */
 function bladeDir(b: Body, out: THREE.Vector3, s: Side = 'R'): THREE.Vector3 {
   const hand = b.positionOf(b.arm[s].end, _b);
-  return b.toModel(b.arm[s].end, out.set(0, -1, 0), out).sub(hand).normalize();
+  return b
+    .toModel(b.arm[s].end, out.set(0, -1, 0), out)
+    .sub(hand)
+    .normalize();
 }
 
 /** Part way round the great circle from one direction to another (they're unit vectors). */
@@ -1267,7 +1302,9 @@ function travel(b: Body, p: PoseInput): void {
       } else {
         // No vehicle to ask: a wheel ~0.3 up and 0.41 ahead of the seat, tipped back.
         const a = Math.PI / 2 - k(s) * 1.05 - turn;
-        _a.set(Math.cos(a) * 0.17, Math.sin(a) * 0.17, 0).applyAxisAngle(_b.set(1, 0, 0), -0.85).add(_c.set(0, 0.3, 0.41));
+        _a.set(Math.cos(a) * 0.17, Math.sin(a) * 0.17, 0)
+          .applyAxisAngle(_b.set(1, 0, 0), -0.85)
+          .add(_c.set(0, 0.3, 0.41));
       }
       b.handTo(s, _a, torsoDir(b, _pole.set(k(s) * 0.8, -0.7, -0.3)));
     }

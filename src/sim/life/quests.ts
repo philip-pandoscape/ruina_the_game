@@ -175,7 +175,10 @@ export function abandon(life: Life, id: string): boolean {
   return true;
 }
 
-function matches(o: { type: string; npc?: string; crop?: string; pack?: string; outpost?: string; vehicle?: string; place?: string; kind?: string }, e: QuestEvent): boolean {
+function matches(
+  o: { type: string; npc?: string; crop?: string; pack?: string; outpost?: string; vehicle?: string; place?: string; kind?: string },
+  e: QuestEvent,
+): boolean {
   if (o.type !== e.type) return false;
   if (o.kind && o.kind !== e.kind) return false;
   if (o.place && o.place !== e.place) return false;

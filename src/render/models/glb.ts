@@ -9,7 +9,10 @@ import { toon } from '../toon';
 
 // Vite turns this into a table of file URLs; under Node (tests that import the game's modules)
 // there is no glob and the table is empty.
-const urls = (typeof window !== 'undefined' ? import.meta.glob('../assets/models/*.glb', { query: '?url', import: 'default', eager: true }) : {}) as Record<string, string>;
+const urls = (typeof window !== 'undefined' ? import.meta.glob('../assets/models/*.glb', { query: '?url', import: 'default', eager: true }) : {}) as Record<
+  string,
+  string
+>;
 
 export interface MadeModel {
   /** Model files to pick from by seed, without the extension. */
@@ -160,7 +163,10 @@ export function baked(geometry: THREE.BufferGeometry, matrix: THREE.Matrix4): TH
  * A made prop as one geometry and material, fitted into the box, for an instanced mesh. Null when
  * there is no made model for it.
  */
-export function madeProp(id: string, box: { w: number; h: number; d: number }): Promise<{ geometry: THREE.BufferGeometry; material: THREE.Material } | null> | null {
+export function madeProp(
+  id: string,
+  box: { w: number; h: number; d: number },
+): Promise<{ geometry: THREE.BufferGeometry; material: THREE.Material } | null> | null {
   const made = MADE_PROPS[id];
   const url = made && urls[`../assets/models/${made.files[0]}.glb`];
   if (!made || !url) return null;

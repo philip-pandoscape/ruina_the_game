@@ -36,8 +36,7 @@ async function open(page: Page): Promise<string[]> {
 }
 
 const reset = (page: Page, opts: ResetOpts = {}) => page.evaluate((o) => window.__game.reset(o), opts);
-const advance = (page: Page, frames: number, actions: Actions = {}) =>
-  page.evaluate(([n, a]) => window.__game.advance(n, a), [frames, actions] as const);
+const advance = (page: Page, frames: number, actions: Actions = {}) => page.evaluate(([n, a]) => window.__game.advance(n, a), [frames, actions] as const);
 const advanceLive = (page: Page, frames: number) => page.evaluate((n) => window.__game.advanceLive(n), frames);
 const state = (page: Page) => page.evaluate(() => window.__game.state());
 const events = (page: Page) => page.evaluate(() => window.__game.events());
@@ -70,8 +69,14 @@ test('loads and renders the scene without errors', async ({ page }) => {
 
 test('jumps: short hop < full jump < double jump', async ({ page }) => {
   const errors = await open(page);
-  const full = await peakHeight(page, [[1, { jumpPressed: true, jumpHeld: true }], [70, { jumpHeld: true }]]);
-  const hop = await peakHeight(page, [[1, { jumpPressed: true, jumpHeld: true }], [70, {}]]);
+  const full = await peakHeight(page, [
+    [1, { jumpPressed: true, jumpHeld: true }],
+    [70, { jumpHeld: true }],
+  ]);
+  const hop = await peakHeight(page, [
+    [1, { jumpPressed: true, jumpHeld: true }],
+    [70, {}],
+  ]);
   const double = await peakHeight(page, [
     [1, { jumpPressed: true, jumpHeld: true }],
     [16, { jumpHeld: true }],
@@ -174,11 +179,14 @@ test('Xbox controller: sticks and A/B/X work, rumble fires on hit', async ({ pag
   const errors = await open(page);
   const setAxis = (i: number, v: number) => page.evaluate(([i, v]) => ((window as any).__pad.axes[i] = v), [i, v]);
   const setButton = (i: number, on: boolean) =>
-    page.evaluate(([i, on]) => {
-      const b = (window as any).__pad.buttons[i];
-      b.pressed = on;
-      b.value = on ? 1 : 0;
-    }, [i, on] as const);
+    page.evaluate(
+      ([i, on]) => {
+        const b = (window as any).__pad.buttons[i];
+        b.pressed = on;
+        b.value = on ? 1 : 0;
+      },
+      [i, on] as const,
+    );
   const tap = async (i: number) => {
     await setButton(i, true);
     await advanceLive(page, 1);

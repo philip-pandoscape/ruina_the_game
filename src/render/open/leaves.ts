@@ -9,7 +9,10 @@ import { toon } from '../toon';
 export const foliageTime = { value: 0 };
 
 // Vite hands out the bark files' URLs; under Node (tests that import the game's modules) there are none.
-const barkUrls = (typeof window !== 'undefined' ? import.meta.glob('../assets/bark_*.jpg', { query: '?url', import: 'default', eager: true }) : {}) as Record<string, string>;
+const barkUrls = (typeof window !== 'undefined' ? import.meta.glob('../assets/bark_*.jpg', { query: '?url', import: 'default', eager: true }) : {}) as Record<
+  string,
+  string
+>;
 const barks = new Map<string, THREE.Texture>();
 
 /** Bark for trunks: wraps once and a half round, repeats every two metres up. */

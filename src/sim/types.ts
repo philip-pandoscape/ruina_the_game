@@ -184,7 +184,20 @@ export type GameEvent =
   | { type: 'short'; frame: number; what: 'stamina' | 'mp' }
   // A bow loosed an arrow (the server flies it; the browser draws it straight away). `weapon` is
   // the one that loosed it.
-  | { type: 'shoot'; frame: number; x: number; y: number; z: number; dirX: number; dirZ: number; speed: number; range: number; damage: number; pierce: number; weapon: number }
+  | {
+      type: 'shoot';
+      frame: number;
+      x: number;
+      y: number;
+      z: number;
+      dirX: number;
+      dirZ: number;
+      speed: number;
+      range: number;
+      damage: number;
+      pierce: number;
+      weapon: number;
+    }
   // A cast finished: `ability` indexes ABILITIES, (x, z) is the target and (casterX, casterZ) the caster.
   | { type: 'cast'; frame: number; ability: number; x: number; z: number; casterX: number; casterZ: number }
   // Spell effects, from the server online or the training range offline.

@@ -121,8 +121,7 @@ function makeProp(kind: Scenario['prop'], hero: Hero): Prop | null {
     hero.root.add(g.root);
     return {
       root: g.root,
-      animate: (dt, m, input) =>
-        g.animate(dt, { bank: input.bank * 0.6, pitch: Math.max(-0.35, Math.min(0.3, (input.rise * 9.2) / 12)), speed: m.speed }),
+      animate: (dt, m, input) => g.animate(dt, { bank: input.bank * 0.6, pitch: Math.max(-0.35, Math.min(0.3, (input.rise * 9.2) / 12)), speed: m.speed }),
     };
   }
   if (kind === 'horse') {
@@ -325,18 +324,48 @@ function buildUi(): void {
     el.onchange = () => on(el.value);
     bar.appendChild(el);
   };
-  select('speed', [['1', '1x'], ['0.5', '1/2x'], ['0.25', '1/4x'], ['0.1', '1/10x']], String(speed), (v) => {
-    speed = Number(v);
-    if (take) play(take.s.id);
-  });
-  select('camera', [['three', 'three-quarter'], ['side', 'side'], ['front', 'front'], ['back', 'behind']], view, (v) => {
-    view = v as View;
-    if (take) play(take.s.id);
-  });
-  select('weapon', [['0', 'sword'], ['1', 'club'], ['2', 'staff'], ['3', 'bow']], '0', (v) => {
-    weapon = Number(v);
-    if (take) play(take.s.id);
-  });
+  select(
+    'speed',
+    [
+      ['1', '1x'],
+      ['0.5', '1/2x'],
+      ['0.25', '1/4x'],
+      ['0.1', '1/10x'],
+    ],
+    String(speed),
+    (v) => {
+      speed = Number(v);
+      if (take) play(take.s.id);
+    },
+  );
+  select(
+    'camera',
+    [
+      ['three', 'three-quarter'],
+      ['side', 'side'],
+      ['front', 'front'],
+      ['back', 'behind'],
+    ],
+    view,
+    (v) => {
+      view = v as View;
+      if (take) play(take.s.id);
+    },
+  );
+  select(
+    'weapon',
+    [
+      ['0', 'sword'],
+      ['1', 'club'],
+      ['2', 'staff'],
+      ['3', 'bow'],
+    ],
+    '0',
+    (v) => {
+      weapon = Number(v);
+      if (take) play(take.s.id);
+    },
+  );
   const button = (text: string, on: () => void) => {
     const b = document.createElement('button');
     b.textContent = text;
@@ -651,7 +680,22 @@ const api = {
       const cell = (n: 'L' | 'R', i: number) => {
         v.set(0, -0.08, 0.17).applyMatrix4(rig.joint('foot' + n).matrixWorld);
         const h = holds[n];
-        return n + ' plant ' + (t.fb?.plant[i] ?? 0).toFixed(2) + ' fix ' + h.fix.x.toFixed(3) + ',' + h.fix.z.toFixed(3) + (h.stepping ? ' step ' + h.stepping.toFixed(2) : '') + ' ball ' + v.x.toFixed(3) + ',' + v.y.toFixed(3) + ',' + v.z.toFixed(3);
+        return (
+          n +
+          ' plant ' +
+          (t.fb?.plant[i] ?? 0).toFixed(2) +
+          ' fix ' +
+          h.fix.x.toFixed(3) +
+          ',' +
+          h.fix.z.toFixed(3) +
+          (h.stepping ? ' step ' + h.stepping.toFixed(2) : '') +
+          ' ball ' +
+          v.x.toFixed(3) +
+          ',' +
+          v.y.toFixed(3) +
+          ',' +
+          v.z.toFixed(3)
+        );
       };
       rows.push(f + ' run ' + t.input.run.toFixed(2) + ' stride ' + t.input.stride.toFixed(2) + ' | ' + cell('L', 0) + ' | ' + cell('R', 1));
     }
@@ -672,7 +716,10 @@ const api = {
       inv.copy(t.hero.root.matrixWorld).invert();
       const bank = Math.max(-0.9, Math.min(0.9, t.input.bank * 0.6));
       const pitch = Math.max(-0.35, Math.min(0.3, (t.input.rise * 9.2) / 12));
-      for (const [n, side] of [['handL', 1], ['handR', -1]] as const) {
+      for (const [n, side] of [
+        ['handL', 1],
+        ['handR', -1],
+      ] as const) {
         const hand = new THREE.Vector3().setFromMatrixPosition(rig.joint(n).matrixWorld).applyMatrix4(inv);
         worst = Math.max(worst, hand.distanceTo(gliderGrip(side, bank, pitch, grip)));
       }
@@ -738,7 +785,12 @@ const api = {
       const gaps: number[] = [];
       hands.forEach((o, i) => {
         o.getWorldPosition(b);
-        gaps.push(rig.joint(i === 0 ? 'handL' : 'handR').getWorldPosition(a).distanceTo(b));
+        gaps.push(
+          rig
+            .joint(i === 0 ? 'handL' : 'handR')
+            .getWorldPosition(a)
+            .distanceTo(b),
+        );
         holds.push(b.applyMatrix4(toProp).toArray());
       });
       out.push({ frame: f, holds, gaps });

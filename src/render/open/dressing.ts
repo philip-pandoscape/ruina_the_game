@@ -36,7 +36,7 @@ function standIn(w: number, h: number, d: number, wall: number, roof: number, de
     if (h - bodyH > 0.2) {
       const top = new THREE.ConeGeometry(Math.hypot(w, d) / 2, h - bodyH, 4);
       top.rotateY(Math.PI / 4);
-      top.scale(w / Math.hypot(w, d) * Math.SQRT2, 1, d / Math.hypot(w, d) * Math.SQRT2);
+      top.scale((w / Math.hypot(w, d)) * Math.SQRT2, 1, (d / Math.hypot(w, d)) * Math.SQRT2);
       top.translate(0, bodyH + (h - bodyH) / 2, 0);
       parts.push(paint(top.index ? top.toNonIndexed() : top, roof));
     }
@@ -124,7 +124,12 @@ export class ZoneDressing {
     const up = new THREE.Vector3(0, 1, 0);
     const one = new THREE.Vector3(1, 1, 1);
     const pos = new THREE.Vector3();
-    const instanced = (geo: THREE.BufferGeometry, items: Array<{ x: number; y: number; z: number; rot: number }>, shadow: boolean, material: THREE.Material = mat): THREE.InstancedMesh => {
+    const instanced = (
+      geo: THREE.BufferGeometry,
+      items: Array<{ x: number; y: number; z: number; rot: number }>,
+      shadow: boolean,
+      material: THREE.Material = mat,
+    ): THREE.InstancedMesh => {
       const mesh = new THREE.InstancedMesh(geo, material, items.length);
       items.forEach((it, i) => {
         q.setFromAxisAngle(up, it.rot);

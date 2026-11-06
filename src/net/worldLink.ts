@@ -438,8 +438,7 @@ export class WorldLink {
       // Anything heard before this was the island that's gone.
       this.latestLife = null;
       for (const done of this.resetDone.splice(0)) done();
-    }
-    else if (msg.t === 'kicked') this.setStatus('kicked');
+    } else if (msg.t === 'kicked') this.setStatus('kicked');
     else if (msg.t === 'updating') {
       // The server is stopping for an update: nothing more counts until the new one is up.
       this.updating = true;

@@ -54,7 +54,12 @@ const clips = clipNames.map((n) => {
 });
 
 // The clip baked for the made hero, as madeHero bakes a move's.
-const baked: Baked = bake(source.scene, source.animations, clipNames.map((clip) => ({ clip })), { joints: made.fitted.joints, bind: made.fitted.bind });
+const baked: Baked = bake(
+  source.scene,
+  source.animations,
+  clipNames.map((clip) => ({ clip })),
+  { joints: made.fitted.joints, bind: made.fitted.bind },
+);
 
 // The hero, as the game builds it.
 const rig = new DetailRig(made.def);
@@ -103,9 +108,23 @@ function poseSource(t: number): void {
 }
 
 const DIRECTED: Array<[Canon, Canon]> = [
-  ['hips', 'spine1'], ['spine1', 'spine2'], ['spine2', 'spine3'], ['spine3', 'neck'], ['neck', 'head'],
-  ['clavicleL', 'armL'], ['armL', 'forearmL'], ['forearmL', 'handL'], ['clavicleR', 'armR'], ['armR', 'forearmR'], ['forearmR', 'handR'],
-  ['thighL', 'shinL'], ['shinL', 'footL'], ['footL', 'toeL'], ['thighR', 'shinR'], ['shinR', 'footR'], ['footR', 'toeR'],
+  ['hips', 'spine1'],
+  ['spine1', 'spine2'],
+  ['spine2', 'spine3'],
+  ['spine3', 'neck'],
+  ['neck', 'head'],
+  ['clavicleL', 'armL'],
+  ['armL', 'forearmL'],
+  ['forearmL', 'handL'],
+  ['clavicleR', 'armR'],
+  ['armR', 'forearmR'],
+  ['forearmR', 'handR'],
+  ['thighL', 'shinL'],
+  ['shinL', 'footL'],
+  ['footL', 'toeL'],
+  ['thighR', 'shinR'],
+  ['shinR', 'footR'],
+  ['footR', 'toeR'],
 ];
 const at = (o: THREE.Object3D) => o.getWorldPosition(new THREE.Vector3());
 
@@ -125,8 +144,13 @@ function seek(t: number): { mean: number; worst: number; bone: string; feet: num
   let worst = 0;
   let bone = '';
   for (const [a, b] of DIRECTED) {
-    const ds = at(srcBone(b)).sub(at(srcBone(a))).applyQuaternion(unturn).normalize();
-    const dh = at(rig.joint(JOINT[b])).sub(at(rig.joint(JOINT[a]))).normalize();
+    const ds = at(srcBone(b))
+      .sub(at(srcBone(a)))
+      .applyQuaternion(unturn)
+      .normalize();
+    const dh = at(rig.joint(JOINT[b]))
+      .sub(at(rig.joint(JOINT[a])))
+      .normalize();
     const e = THREE.MathUtils.radToDeg(ds.angleTo(dh));
     sum += e;
     if (e > worst) {
@@ -144,7 +168,10 @@ const dir = view === 'side' ? new THREE.Vector3(-1, 0.12, 0) : view === 'front' 
 const half = Number(q.get('half') ?? 1.45);
 const cam = new THREE.OrthographicCamera(-half * (innerWidth / innerHeight), half * (innerWidth / innerHeight), half, -half, 0.1, 100);
 function draw(): void {
-  const mid = at(srcBone('hips')).add(at(rig.joint('hips'))).multiplyScalar(0.5).setY(0.95);
+  const mid = at(srcBone('hips'))
+    .add(at(rig.joint('hips')))
+    .multiplyScalar(0.5)
+    .setY(0.95);
   cam.position.copy(mid).addScaledVector(dir.clone().normalize(), 20);
   cam.lookAt(mid);
   renderer.render(scene, cam);

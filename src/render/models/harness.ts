@@ -307,7 +307,10 @@ for (const item of items) {
   const c = cost(item.stat ?? item.object);
   stats[item.label === 'worn' ? `${item.id}:worn` : item.label] = {
     ...c,
-    size: local.getSize(new THREE.Vector3()).toArray().map((v) => +v.toFixed(3)),
+    size: local
+      .getSize(new THREE.Vector3())
+      .toArray()
+      .map((v) => +v.toFixed(3)),
     min: local.min.toArray().map((v) => +v.toFixed(3)),
     max: local.max.toArray().map((v) => +v.toFixed(3)),
   };
@@ -423,7 +426,8 @@ const target = new THREE.Vector3(centre.x, only ? centre.y * 0.9 : Math.min(size
 // Pull back just far enough that every corner of the gallery (and the labels above it) is in frame.
 const view = new THREE.Vector3(0, Math.sin(elev), Math.cos(elev));
 const corners: THREE.Vector3[] = [];
-for (const x of [all.min.x, all.max.x]) for (const y of [all.min.y, all.max.y + 0.8]) for (const z of [all.min.z, all.max.z]) corners.push(new THREE.Vector3(x, y, z));
+for (const x of [all.min.x, all.max.x])
+  for (const y of [all.min.y, all.max.y + 0.8]) for (const z of [all.min.z, all.max.z]) corners.push(new THREE.Vector3(x, y, z));
 let near = 0.5;
 let far = 1500;
 for (let i = 0; i < 40; i++) {

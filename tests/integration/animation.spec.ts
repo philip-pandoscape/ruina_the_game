@@ -23,10 +23,7 @@ async function open(page: Page): Promise<string[]> {
 }
 
 const ids = (page: Page, group?: string) =>
-  page.evaluate(
-    (g) => ((window as any).__anims.list() as Array<{ id: string; group: string }>).filter((s) => !g || s.group === g).map((s) => s.id),
-    group,
-  );
+  page.evaluate((g) => ((window as any).__anims.list() as Array<{ id: string; group: string }>).filter((s) => !g || s.group === g).map((s) => s.id), group);
 
 test('every film plays through with every joint somewhere real', async ({ page }) => {
   const errors = await open(page);
@@ -47,7 +44,23 @@ test('every film plays through with every joint somewhere real', async ({ page }
 
 // The point of the gait: a foot on the ground stays where it is on the ground. A heel or the ball of
 // a foot that touches down is followed until it lifts, and must not have moved over the floor.
-const PLANTED = ['walk', 'jog', 'run', 'sprint', 'sneak', 'carry', 'strafeL', 'strafeR', 'backpedal', 'backL', 'aheadL', 'strafeWalk', 'eight', 'startStop', 'turnOnSpot'];
+const PLANTED = [
+  'walk',
+  'jog',
+  'run',
+  'sprint',
+  'sneak',
+  'carry',
+  'strafeL',
+  'strafeR',
+  'backpedal',
+  'backL',
+  'aheadL',
+  'strafeWalk',
+  'eight',
+  'startStop',
+  'turnOnSpot',
+];
 
 test('planted feet stay put: walking, running, strafing, backing off, starting, stopping and turning', async ({ page }) => {
   await open(page);
@@ -145,7 +158,10 @@ test('jumping, the sword goes straight up overhead and chops down in front, and 
   for (const [id, rows] of Object.entries(seen) as Array<[string, Row[]]>) {
     const at = (f: number) => rows.find((r) => r.attack === f)!;
     // The jump attack, from its first frame to its last.
-    expect(rows.filter((r) => r.attack >= 0).every((r) => r.airSwing), `${id} plays the jump attack throughout`).toBe(true);
+    expect(
+      rows.filter((r) => r.attack >= 0).every((r) => r.airSwing),
+      `${id} plays the jump attack throughout`,
+    ).toBe(true);
     // Raised: the arm up past the shoulder, the blade standing straight up over the head.
     const up = at(step.startup);
     const hy = up.joints.handR[1];
@@ -397,7 +413,10 @@ test('rowing, the two oars keep one stroke, so the hands do too, after any turn'
   // good, the hands working out of step from then on.
   const straight = rows.slice(-150, -90) as Array<{ holds: number[][] }>;
   let apart = 0;
-  for (const { holds: [l, r] } of straight) apart = Math.max(apart, Math.hypot(l[0] + r[0], l[1] - r[1], l[2] - r[2]));
+  for (const {
+    holds: [l, r],
+  } of straight)
+    apart = Math.max(apart, Math.hypot(l[0] + r[0], l[1] - r[1], l[2] - r[2]));
   expect(straight.length).toBe(60);
   expect(apart, `the oars are ${apart.toFixed(3)} m out of step`).toBeLessThan(0.01);
   // And they are rowing, not resting.
@@ -447,7 +466,9 @@ test('easing between states never snaps the body', async ({ page }) => {
   await open(page);
   const jumps = await page.evaluate(() => {
     const a = (window as any).__anims;
-    return Object.fromEntries(['startStop', 'carry', 'crouch', 'eight', 'strafeWalk', 'heal', 'meteor', 'bow', 'block'].map((id) => [id, a.jumps(id, ['head', 'body'])]));
+    return Object.fromEntries(
+      ['startStop', 'carry', 'crouch', 'eight', 'strafeWalk', 'heal', 'meteor', 'bow', 'block'].map((id) => [id, a.jumps(id, ['head', 'body'])]),
+    );
   });
   for (const [id, j] of Object.entries(jumps) as Array<[string, { worst: number; frame: number }]>) {
     expect(j.worst, `${id}: the body jumped ${j.worst} m on frame ${j.frame}`).toBeLessThan(0.14);
@@ -509,7 +530,9 @@ function fixedFrameRate(): void {
 }
 
 for (const fps of [30, 144]) {
-  test(`rowing in the game at ${fps} fps, the hands stay on the oars: ahead, turning, backing, spinning, starting, stopping`, { tag: '@gpu' }, async ({ page }) => {
+  test(`rowing in the game at ${fps} fps, the hands stay on the oars: ahead, turning, backing, spinning, starting, stopping`, { tag: '@gpu' }, async ({
+    page,
+  }) => {
     // The boat is placed and its oars swing before the rower is posed in its seat, tilting and
     // riding the swell with it (src/main.ts draw(), LifeView.placeRide): the hands reach for where
     // the handles are this frame, not a frame ago.
@@ -557,7 +580,8 @@ for (const fps of [30, 144]) {
         // Each hand from its handle, as drawn.
         w.__afterFrame = () => {
           const h = g.holds();
-          if (h) w.__gaps.push(Math.max(...h.hands.map((p: number[], i: number) => Math.hypot(p[0] - h.holds[i][0], p[1] - h.holds[i][1], p[2] - h.holds[i][2]))));
+          if (h)
+            w.__gaps.push(Math.max(...h.hands.map((p: number[], i: number) => Math.hypot(p[0] - h.holds[i][0], p[1] - h.holds[i][1], p[2] - h.holds[i][2]))));
         };
         g.scriptInput(legs);
         w.__clockFrom(performance.now());

@@ -28,14 +28,9 @@ export function quantize(a: Actions): { actions: Actions; raw: RawInput; stick: 
   const packed = move ? HOTBAR_SLOTS + move : slot;
   const held = a.movementHeld >= 1 && a.movementHeld <= MOVEMENT_SLOTS ? a.movementHeld : 0;
   const buttons =
-    (a.jumpPressed ? 1 : 0) |
-    (a.jumpHeld ? 2 : 0) |
-    (a.attackPressed ? 4 : 0) |
-    (a.slidePressed ? 8 : 0) |
-    (a.sprintHeld ? 16 : 0) |
-    (a.crouchHeld ? 32 : 0);
+    (a.jumpPressed ? 1 : 0) | (a.jumpHeld ? 2 : 0) | (a.attackPressed ? 4 : 0) | (a.slidePressed ? 8 : 0) | (a.sprintHeld ? 16 : 0) | (a.crouchHeld ? 32 : 0);
   // Combat stance heading in 255 steps, 0 for none (face_axis in crates/server/src/protocol.rs).
-  const facing = Math.hypot(a.faceX, a.faceZ) >= 0.5 ? (((Math.atan2(a.faceX, a.faceZ) % TAU) + TAU) % TAU) : -1;
+  const facing = Math.hypot(a.faceX, a.faceZ) >= 0.5 ? ((Math.atan2(a.faceX, a.faceZ) % TAU) + TAU) % TAU : -1;
   const face = facing < 0 ? 0 : 1 + (Math.round(facing / (TAU / 255)) % 255);
   const yaw = ((face - 1) * TAU) / 255;
   return {
@@ -258,7 +253,14 @@ export class RemotePlayers {
   }
 
   list(): Array<{ id: number; x: number; z: number; hp: number; team: number; weapon: number }> {
-    return [...this.remotes.values()].map((r) => ({ id: r.buffer[r.buffer.length - 1].rec.id, x: r.shown.pos.x, z: r.shown.pos.z, hp: r.shownHp, team: r.shown.team, weapon: r.shown.weapon }));
+    return [...this.remotes.values()].map((r) => ({
+      id: r.buffer[r.buffer.length - 1].rec.id,
+      x: r.shown.pos.x,
+      z: r.shown.pos.z,
+      hp: r.shownHp,
+      team: r.shown.team,
+      weapon: r.shown.weapon,
+    }));
   }
 
   // Every other player as drawn right now (for cast warnings and aiming).

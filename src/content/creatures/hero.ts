@@ -28,9 +28,14 @@ function sword(): PartDef[] {
 }
 
 function club(): PartDef[] {
-  const studs: PartDef[] = ([[0.09, -0.5, 0.03], [-0.07, -0.42, 0.07], [0.02, -0.58, -0.09], [-0.05, -0.33, -0.08]] as const).map(
-    (pos) => ({ joint: 'handR', shape: { kind: 'ico', r: 0.035 }, mat: 'gold', pos }),
-  );
+  const studs: PartDef[] = (
+    [
+      [0.09, -0.5, 0.03],
+      [-0.07, -0.42, 0.07],
+      [0.02, -0.58, -0.09],
+      [-0.05, -0.33, -0.08],
+    ] as const
+  ).map((pos) => ({ joint: 'handR', shape: { kind: 'ico', r: 0.035 }, mat: 'gold', pos }));
   return [
     { joint: 'handR', shape: { kind: 'cylinder', top: 0.03, bottom: 0.035, h: 0.34 }, mat: 'darkWood', pos: [0, -0.06, 0] },
     { joint: 'handR', shape: { kind: 'cylinder', top: 0.1, bottom: 0.065, h: 0.42, sides: 9 }, mat: 'wood', pos: [0, -0.42, 0] },

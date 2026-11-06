@@ -28,7 +28,15 @@ export function raise(life: Life, sc: Scarecrow, idx: number, item: string): boo
   if (!def.raises || sc.cells[idx]) return false;
   if (!life.take(item, 1)) return false;
   // Arrives fed, so it starts growing straight away.
-  sc.cells[idx] = { crop: def.raises, growth: 0, watered: false, picked: false, animal: true, fedUntil: life.state.clock + animalDef(def.raises).feedSeconds, produce: 0 };
+  sc.cells[idx] = {
+    crop: def.raises,
+    growth: 0,
+    watered: false,
+    picked: false,
+    animal: true,
+    fedUntil: life.state.clock + animalDef(def.raises).feedSeconds,
+    produce: 0,
+  };
   life.revision++;
   life.notify({ type: 'raise', crop: def.raises });
   return true;

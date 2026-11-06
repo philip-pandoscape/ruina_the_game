@@ -66,7 +66,28 @@ import type { MarkerKind } from './render/hud';
 import { BOOK, levelOf, levelsFrom, resolveSkills, sameLevels, SKILL_POINTS, type ResolvedSkills } from './skills';
 import { SkillsPanel } from './ui/skills/panel';
 import { skillBudget, trainedBy } from './sim/life/progress';
-import { ABILITIES, abilityMpFor, abilityRadius, AIM, MOVEMENT_SKILLS, CAMERA, castFramesFor, comboFor, COMBAT, DUMMY, groundRange, isGroundTargeted, meleeTargets, movementCooldownFor, movementStaminaFor, MP, NO_ABILITY, STAMINA, STEP, type Build } from './tuning';
+import {
+  ABILITIES,
+  abilityMpFor,
+  abilityRadius,
+  AIM,
+  MOVEMENT_SKILLS,
+  CAMERA,
+  castFramesFor,
+  comboFor,
+  COMBAT,
+  DUMMY,
+  groundRange,
+  isGroundTargeted,
+  meleeTargets,
+  movementCooldownFor,
+  movementStaminaFor,
+  MP,
+  NO_ABILITY,
+  STAMINA,
+  STEP,
+  type Build,
+} from './tuning';
 import { heightAboveGround } from './sim/player/traverse';
 import './ui/theme/theme.css';
 import './ui/theme/hud.css';
@@ -205,10 +226,15 @@ if (terrain) {
   spells.ground = {
     cell: terrain.cell,
     origin: terrain.min,
-    height: (x, z, near, pad) => Math.max(terrain.water, Number.isFinite(near) ? groundAt(terrain, world.index, x, z, near, 0.5) : terrain.height(x, z), drawnGround(x, z, pad)),
+    height: (x, z, near, pad) =>
+      Math.max(terrain.water, Number.isFinite(near) ? groundAt(terrain, world.index, x, z, near, 0.5) : terrain.height(x, z), drawnGround(x, z, pad)),
   };
 }
-const follow = new FollowCamera(innerWidth / innerHeight, battlefield ? 1200 : openWorld ? GRAPHICS.viewDistance : 320, battlefield ? 160 : openWorld ? 40 : 14);
+const follow = new FollowCamera(
+  innerWidth / innerHeight,
+  battlefield ? 1200 : openWorld ? GRAPHICS.viewDistance : 320,
+  battlefield ? 160 : openWorld ? 40 : 14,
+);
 // Over hills and water the camera must not dip into the ground or under the sea, and it pulls in
 // rather than looking through a wall.
 if (terrain)
@@ -301,7 +327,11 @@ const hud = new Hud();
 hud.setDevice(input.lastDevice);
 // Admins (the server says who) reach the developer zones and pages from the yard and the
 // battlefield too: a button in the corner. Nobody signed in, or no server, and there's none.
-if (!openWorld && !testMode) void currentAccount().then((a) => a?.admin && addAdminButton(), () => {});
+if (!openWorld && !testMode)
+  void currentAccount().then(
+    (a) => a?.admin && addAdminButton(),
+    () => {},
+  );
 
 // Records bug reports (\ or both sticks); set up at the end of this file, once everything exists.
 let bugs: BugReporter | null = null;
@@ -329,7 +359,9 @@ if (lifeView && openStage) lifeView.onGroundChanged = () => openStage.foliage.in
 if (lifeView && openStage) lifeView.houseSink = (houses) => openStage.village.setHouses('mine', houses);
 // Auto-run (H) and travel by road from the map: it only makes the controls, so it works online too.
 const walker = life ? new AutoWalk({ sim, world, life }) : null;
-const lifeUI = life ? new LifeUI({ life, sim, world, camera: () => follow.camera, yaw: () => follow.yaw, device: () => input.lastDevice, walk: walker ?? undefined }) : null;
+const lifeUI = life
+  ? new LifeUI({ life, sim, world, camera: () => follow.camera, yaw: () => follow.yaw, device: () => input.lastDevice, walk: walker ?? undefined })
+  : null;
 // Online: everyone else in your channel of Emberholm, the plots they hold, and whether this server
 // offers the developer panel.
 const peers = online && life && world.zone ? new WorldPeers(stage.scene, world.zone, models, sim, life, online.welcome.character.id, online.link) : null;
@@ -350,7 +382,12 @@ if (online && life) {
 const gameTables = online ? new GameTables(stage.scene) : null;
 const minigames =
   online && life && lifeUI
-    ? new MinigamesUI({ link: online.link, life, openPanel: () => lifeUI.openPanel, freeMouse: () => document.pointerLockElement && document.exitPointerLock() })
+    ? new MinigamesUI({
+        link: online.link,
+        life,
+        openPanel: () => lifeUI.openPanel,
+        freeMouse: () => document.pointerLockElement && document.exitPointerLock(),
+      })
     : null;
 // Online: parties (src/ui/party): invite someone by name or from the players near you (O), and go
 // into a dungeon's copy together.
@@ -433,7 +470,8 @@ if (online && peers && life && minigames) {
   life.othersAround = () => {
     if (minigames.seated) return [];
     const playing = new Set((online.link.latest?.tables ?? []).flatMap((t) => t.seats.map((s) => s.id)));
-    const busy = (id: number, mode: string) => (playing.has(id) ? 'At a Table' : mode === 'ride' ? 'Riding' : mode === 'glide' ? 'In the Air' : mode === 'swim' ? 'Swimming' : null);
+    const busy = (id: number, mode: string) =>
+      playing.has(id) ? 'At a Table' : mode === 'ride' ? 'Riding' : mode === 'glide' ? 'In the Air' : mode === 'swim' ? 'Swimming' : null;
     return peers
       .list()
       .filter((p) => p.online)
@@ -464,7 +502,11 @@ const NPC_LAYER = 2;
 /** A picture for the UI: 'player' (your face) or 'body' (all of you) from the studio, or an NPC's id. */
 function portraitOf(who: string): string | null {
   if (who === 'player' || who === 'body') {
-    return studio.shot(who === 'player' ? 'face' : 'body', { weapon: sim.player.weapon, team: serverUrl ? sim.player.team : 0, who: String(online?.welcome.character.id ?? '') });
+    return studio.shot(who === 'player' ? 'face' : 'body', {
+      weapon: sim.player.weapon,
+      team: serverUrl ? sim.player.team : 0,
+      who: String(online?.welcome.character.id ?? ''),
+    });
   }
   const shot = portraits.get(who);
   if (!shot || shot.age > 1500) {
@@ -553,7 +595,12 @@ function rideCamera(dt: number, now: number): void {
   }
   if (footDistance < 0) footDistance = follow.distance;
   const v = life ? ridden(life, sim) : undefined;
-  const want = p.mode === 'glide' ? RIDE_CAMERA.glideDistance : v && isBoat(rideable(v.def)) ? RIDE_CAMERA.boatDistance * Math.max(1, rideable(v.def).length / 9) : RIDE_CAMERA.rideDistance;
+  const want =
+    p.mode === 'glide'
+      ? RIDE_CAMERA.glideDistance
+      : v && isBoat(rideable(v.def))
+        ? RIDE_CAMERA.boatDistance * Math.max(1, rideable(v.def).length / 9)
+        : RIDE_CAMERA.rideDistance;
   follow.distance += (want - follow.distance) * (1 - Math.exp(-2.5 * dt));
   const moving = Math.hypot(p.vel.x, p.vel.z) > 1.5;
   if (moving && now - lastCameraTouch > RIDE_CAMERA.autoDelay * 1000) {
@@ -594,7 +641,7 @@ const skillPoints = () => (life ? skillBudget(life.state) : SKILL_POINTS);
 const panel = new SkillsPanel(build, {
   budget: skillPoints,
   budgetNote: () => (life ? 'Earned from quests and milestones' : 'Training yard: points to try builds with'),
-  xp: () => (life ? life.state.skillXp ?? {} : yardXp),
+  xp: () => (life ? (life.state.skillXp ?? {}) : yardXp),
   levels: () => sim.levels,
   portrait: () => portraitOf('player'),
   device: () => input.lastDevice,
@@ -677,7 +724,7 @@ const remotes = serverUrl ? new RemotePlayers(stage.scene) : null;
 let lastSnapshot = 0;
 let lastHp: number = COMBAT.maxHp;
 let shownTeam = -1;
-let scripted: Actions[] = []; // test hook: replaces the controller for a few frames
+const scripted: Actions[] = []; // test hook: replaces the controller for a few frames
 let autoAttack = false; // test hook: swing at the nearest enemy you can see
 let autoCooldown = 0;
 if (net) {
@@ -1086,7 +1133,18 @@ function stepOnce(actions: Actions): void {
     const attacking = p.mode === 'attack';
     const swing = attacking ? (comboFor(p.weapon, sim.stats)[p.attackIndex] ?? null) : null;
     const hits = netMonsters.swing(
-      { attacking, attackIndex: p.attackIndex, attackFrame: p.attackFrame, step: swing, x: p.pos.x, y: p.pos.y, z: p.pos.z, facing: p.facing, above: swing ? heightAboveGround(sim) : 0, max: meleeTargets(p.weapon, sim.stats) },
+      {
+        attacking,
+        attackIndex: p.attackIndex,
+        attackFrame: p.attackFrame,
+        step: swing,
+        x: p.pos.x,
+        y: p.pos.y,
+        z: p.pos.z,
+        facing: p.facing,
+        above: swing ? heightAboveGround(sim) : 0,
+        max: meleeTargets(p.weapon, sim.stats),
+      },
       presentActors,
       shownById,
       sim.frame,
@@ -1401,7 +1459,15 @@ function draw(alpha: number, cameraDt: number, animDt: number): void {
   const markNow = lockOn.mark();
   dummyTop.set(dAct?.x ?? 0, 2.05 + groundY(dAct?.x ?? 0, dAct?.z ?? 0), dAct?.z ?? 0);
   hud.setTarget(
-    markNow ? { pos: markPos.set(markNow.x, markNow.y + 2.15 + groundY(markNow.x, markNow.z), markNow.z), hp: markNow.hp, name: markNow.name, locked: lockOn.locked, cast: castOf(markNow.key) } : null,
+    markNow
+      ? {
+          pos: markPos.set(markNow.x, markNow.y + 2.15 + groundY(markNow.x, markNow.z), markNow.z),
+          hp: markNow.hp,
+          name: markNow.name,
+          locked: lockOn.locked,
+          cast: castOf(markNow.key),
+        }
+      : null,
   );
   // The dummy has its own health bar in the training yard; hide it when the target plate is
   // already showing the same thing, or they stack on top of each other.
@@ -1551,7 +1617,12 @@ function frame(now: number): void {
     if (life) rideCamera(dt, now);
     // Travelling by road on foot, the camera comes round behind you as it does on a mount, unless
     // you have been turning it yourself.
-    if (walker?.mode === 'travel' && sim.player.mode !== 'ride' && now - lastCameraTouch > RIDE_CAMERA.autoDelay * 1000 && Math.hypot(sim.player.vel.x, sim.player.vel.z) > 1.5) {
+    if (
+      walker?.mode === 'travel' &&
+      sim.player.mode !== 'ride' &&
+      now - lastCameraTouch > RIDE_CAMERA.autoDelay * 1000 &&
+      Math.hypot(sim.player.vel.x, sim.player.vel.z) > 1.5
+    ) {
       follow.yaw += angleDiff(follow.yaw, sim.player.facing) * (1 - Math.exp(-RIDE_CAMERA.autoFollow * dt));
     }
     // Online the world waits while the connection is down: inputs that can't reach the server
@@ -1607,8 +1678,7 @@ function frame(now: number): void {
         ? ` · server: ${srv.realPlayers} real + ${srv.virtualPlayers.toLocaleString()} virtual players, ${srv.tickMs.toFixed(1)} ms per 50 ms tick`
         : '';
       hud.setStats(
-        `${base} · ${s.fighters.toLocaleString()} fighters from server · download ${s.downloadKBps} KB/s${server}` +
-          (net.connected ? '' : ' · NOT CONNECTED'),
+        `${base} · ${s.fighters.toLocaleString()} fighters from server · download ${s.downloadKBps} KB/s${server}` + (net.connected ? '' : ' · NOT CONNECTED'),
       );
     } else if (crowd) {
       hud.setStats(`${base} · ${s.fighters.toLocaleString()} fighters · crowd sim ${s.crowdTickMs} ms/tick · CPU ${s.cpuMs} ms/frame${gpu}`);
@@ -2033,11 +2103,27 @@ const api = {
   zone() {
     if (!world.zone) return null;
     const r = world.zone.recipe;
-    return JSON.parse(JSON.stringify({ places: r.places, npcs: r.npcs, outposts: r.outposts, workbenches: r.workbenches, housePlots: r.housePlots, updrafts: r.updrafts, nodes: r.nodes, spawn: r.spawn, ramps: world.zone.gen.ramps.map((pts) => [pts[0], pts[pts.length - 1]]) }));
+    return JSON.parse(
+      JSON.stringify({
+        places: r.places,
+        npcs: r.npcs,
+        outposts: r.outposts,
+        workbenches: r.workbenches,
+        housePlots: r.housePlots,
+        updrafts: r.updrafts,
+        nodes: r.nodes,
+        spawn: r.spawn,
+        ramps: world.zone.gen.ramps.map((pts) => [pts[0], pts[pts.length - 1]]),
+      }),
+    );
   },
   /** Dungeons: which one you're inside a copy of, whether each is solid in your world, its exit, and what F does now. */
   dungeon() {
-    return { ...(visit?.state() ?? { inside: null, solid: {}, exit: null }), drawn: openStage?.dungeon ?? null, focus: life?.focus ? { action: life.focus.action, label: life.focus.label, ok: life.focus.ok } : null };
+    return {
+      ...(visit?.state() ?? { inside: null, solid: {}, exit: null }),
+      drawn: openStage?.dungeon ?? null,
+      focus: life?.focus ? { action: life.focus.action, label: life.focus.label, ok: life.focus.ok } : null,
+    };
   },
   /** Offline: straight into a copy of a dungeon (at its arrival point), or back out to its door (null). */
   visitDungeon(id: string | null): boolean {
@@ -2226,7 +2312,17 @@ function bugSnapshot(): Record<string, unknown> {
     walk: walker ? { mode: walker.mode, marker: walker.marker, left: r2(walker.left) } : null,
     nearby: sim.actors
       .all()
-      .map((a) => ({ id: a.id, kind: a.kind, x: r2(a.x), y: r2(a.y), z: r2(a.z), hp: a.hp, alive: isAlive(a), state: stateName(a), dist: r2(Math.hypot(a.x - p.pos.x, a.z - p.pos.z)) }))
+      .map((a) => ({
+        id: a.id,
+        kind: a.kind,
+        x: r2(a.x),
+        y: r2(a.y),
+        z: r2(a.z),
+        hp: a.hp,
+        alive: isAlive(a),
+        state: stateName(a),
+        dist: r2(Math.hypot(a.x - p.pos.x, a.z - p.pos.z)),
+      }))
       .filter((a) => a.dist < 40)
       .sort((a, b) => a.dist - b.dist)
       .slice(0, 24),
@@ -2386,7 +2482,8 @@ if (online) {
     // here at once as well as on the server, so the pack is on your back (or you're in the seat)
     // without waiting a round trip for it. Until the server has run it too, whatever it sends is
     // taken with what's still to come run again on top.
-    const quick = (c: Command): boolean => c.t === 'drop' || (c.t === 'exit' && !sim.player.host) || (c.t === 'interact' && !!life.focus?.ok && QUICK.has(life.focus.action));
+    const quick = (c: Command): boolean =>
+      c.t === 'drop' || (c.t === 'exit' && !sim.player.host) || (c.t === 'interact' && !!life.focus?.ok && QUICK.has(life.focus.action));
     life.remote = (c) => {
       const seq = prediction.seq + 1;
       online.link.command(seq, c);
@@ -2437,7 +2534,14 @@ if (online) {
       }
     }
     you = t.you;
-    net?.applyWorld(t.tick, { id: t.you.id, ack: t.you.ack, player: stateFromServer(t.you.p) }, t.arrows ?? [], t.meteors ?? [], t.events ?? [], t.actors ?? []);
+    net?.applyWorld(
+      t.tick,
+      { id: t.you.id, ack: t.you.ack, player: stateFromServer(t.you.p) },
+      t.arrows ?? [],
+      t.meteors ?? [],
+      t.events ?? [],
+      t.actors ?? [],
+    );
     if (life) for (const e of t.lifeEvents ?? []) life.fromServer(e);
   };
   link.onTick = onTick;

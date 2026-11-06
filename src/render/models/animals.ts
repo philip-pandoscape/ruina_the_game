@@ -100,7 +100,12 @@ function chicken(young: boolean): AnimalModel {
     part(body, b);
     head = pivot(body, 0, 0.18, 0.12, 'head');
     soft(h, 0.12, 0.14, 0.13, feathers, [0, 0.06, 0.02], undefined, 0.05);
-    for (const [z, hh] of [[-0.03, 0.05], [0.0, 0.065], [0.03, 0.05]] as const) h.add(box(0.026, hh, 0.035), 0xd9342b, [0, 0.13 + hh / 2 - 0.01, z]);
+    for (const [z, hh] of [
+      [-0.03, 0.05],
+      [0.0, 0.065],
+      [0.03, 0.05],
+    ] as const)
+      h.add(box(0.026, hh, 0.035), 0xd9342b, [0, 0.13 + hh / 2 - 0.01, z]);
     h.add(cone(0.024, 0.06, 4), 0xf08a1c, [0, 0.06, 0.1], [Math.PI / 2, Math.PI / 4, 0]);
     h.add(box(0.03, 0.05, 0.025), 0xd9342b, [0, 0.015, 0.075]);
     eyes(h, 0.061, 0.085, 0.04, 0.022);
@@ -161,10 +166,11 @@ function sheep(young: boolean): AnimalModel {
   const W = 0.62 * k;
   const H = 0.48 * k;
   const legs = new Parts();
-  for (const sx of [-1, 1]) for (const z of [L * 0.32, -L * 0.32]) {
-    legs.add(box(0.075 * Math.max(k, 0.8), legTop + 0.04, 0.08 * Math.max(k, 0.8)), face, [sx * W * 0.28, (legTop + 0.04) / 2, z]);
-    legs.add(box(0.085 * Math.max(k, 0.8), 0.05, 0.095 * Math.max(k, 0.8)), 0x2a2420, [sx * W * 0.28, 0.025, z + 0.01]);
-  }
+  for (const sx of [-1, 1])
+    for (const z of [L * 0.32, -L * 0.32]) {
+      legs.add(box(0.075 * Math.max(k, 0.8), legTop + 0.04, 0.08 * Math.max(k, 0.8)), face, [sx * W * 0.28, (legTop + 0.04) / 2, z]);
+      legs.add(box(0.085 * Math.max(k, 0.8), 0.05, 0.095 * Math.max(k, 0.8)), 0x2a2420, [sx * W * 0.28, 0.025, z + 0.01]);
+    }
   part(root, legs);
   const body = pivot(root, 0, legTop, 0, 'body');
   // Fleece: a soft block with lumpy puffs over it; the heavy fleece is a second layer shown when ready.
@@ -261,10 +267,11 @@ function cow(young: boolean): AnimalModel {
   const H = 0.68 * k;
   const legs = new Parts();
   const lw = 0.15 * Math.max(k, 0.75);
-  for (const sx of [-1, 1]) for (const z of [L * 0.38, -L * 0.42]) {
-    legs.add(box(lw, legTop + 0.06, lw), white, [sx * W * 0.32, (legTop + 0.06) / 2, z]);
-    legs.add(box(lw + 0.02, 0.07, lw + 0.03), 0x3a3530, [sx * W * 0.32, 0.035, z + 0.01]);
-  }
+  for (const sx of [-1, 1])
+    for (const z of [L * 0.38, -L * 0.42]) {
+      legs.add(box(lw, legTop + 0.06, lw), white, [sx * W * 0.32, (legTop + 0.06) / 2, z]);
+      legs.add(box(lw + 0.02, 0.07, lw + 0.03), 0x3a3530, [sx * W * 0.32, 0.035, z + 0.01]);
+    }
   part(root, legs);
   const body = pivot(root, 0, legTop, 0, 'body');
   const b = new Parts();

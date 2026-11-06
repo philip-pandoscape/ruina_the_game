@@ -239,8 +239,7 @@ const progress = (a: Actor, frames: number): number => Math.min(1, a.stateFrame 
 /** Off-the-ground fraction of a gait at a point in the cycle. */
 const airAt = (g: Gait, t: number): number => Math.max(0, Math.min(1, (t - g.airStart) / g.airSpan));
 
-const drawFrames = (a: Actor, range: [number, number] | undefined): number =>
-  range ? Math.floor(range[0] + draw(a) * Math.max(0, range[1] - range[0])) : 0;
+const drawFrames = (a: Actor, range: [number, number] | undefined): number => (range ? Math.floor(range[0] + draw(a) * Math.max(0, range[1] - range[0])) : 0);
 
 const kin = (a: Actor, p: Peer): boolean => p.id !== a.id && a.ladder >= 0 && p.ladder === a.ladder;
 

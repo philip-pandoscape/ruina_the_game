@@ -549,7 +549,8 @@ export function generateZone(z: ZoneRecipe): Generated {
         const zz = hf.vx(j) + hf.cell / 2;
         if (Math.abs(x - m.x) > f.foot + 14 || Math.abs(zz - m.z) > f.foot + 14) continue;
         const cell = j * t.cells + i;
-        const spring = Math.hypot(x - sx, zz - sz) < f.spring.r + 0.8 || (along(x, zz) > f.spring.at && along(x, zz) < f.lip + 0.5 && Math.abs(across(x, zz)) < RUNNEL);
+        const spring =
+          Math.hypot(x - sx, zz - sz) < f.spring.r + 0.8 || (along(x, zz) > f.spring.at && along(x, zz) < f.lip + 0.5 && Math.abs(across(x, zz)) < RUNNEL);
         const plunge = inPlunge(x, zz) < 1.1;
         if (spring || plunge) {
           clear[cell] = 1;

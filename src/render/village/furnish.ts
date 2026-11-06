@@ -31,7 +31,11 @@ const Y = new THREE.Vector3(0, 1, 0);
 
 function partMatrix(p: FurniturePart): THREE.Matrix4 {
   const s = p.scale === undefined ? [1, 1, 1] : typeof p.scale === 'number' ? [p.scale, p.scale, p.scale] : p.scale;
-  return new THREE.Matrix4().compose(new THREE.Vector3(p.x ?? 0, p.y ?? 0, p.z ?? 0), new THREE.Quaternion().setFromAxisAngle(Y, p.rot ?? 0), new THREE.Vector3(s[0], s[1], s[2]));
+  return new THREE.Matrix4().compose(
+    new THREE.Vector3(p.x ?? 0, p.y ?? 0, p.z ?? 0),
+    new THREE.Quaternion().setFromAxisAngle(Y, p.rot ?? 0),
+    new THREE.Vector3(s[0], s[1], s[2]),
+  );
 }
 
 // ---------- Made here: rugs and straw ----------
@@ -49,7 +53,7 @@ function rugTexture(): THREE.Texture {
     ['#6b2232', '#d9b46a', '#284a4a', '#efe1bf'],
   ];
   let seed = 7;
-  const rand = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  const rand = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
   palettes.forEach(([field, accent, deep, light], k) => {
     const ox = (k % 2) * (size / 2);
     const oy = Math.floor(k / 2) * (size / 2);
@@ -116,7 +120,7 @@ function strawTexture(): THREE.Texture {
   g.fillStyle = '#c9a24e';
   g.fillRect(0, 0, size, size);
   let seed = 11;
-  const rand = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  const rand = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
   for (let i = 0; i < 2600; i++) {
     const x = rand() * size;
     const y = rand() * size;
@@ -245,7 +249,10 @@ function logsGeometry(): THREE.BufferGeometry {
     [-0.4, 0.08],
     [1.6, 0],
   ] as Array<[number, number]>) {
-    const c = new THREE.CylinderGeometry(0.06, 0.07, 0.6, 7).rotateZ(Math.PI / 2).rotateY(a).translate(x, 0.07, 0);
+    const c = new THREE.CylinderGeometry(0.06, 0.07, 0.6, 7)
+      .rotateZ(Math.PI / 2)
+      .rotateY(a)
+      .translate(x, 0.07, 0);
     all.push(c.toNonIndexed());
   }
   const pos: number[] = [];
@@ -319,8 +326,7 @@ export class Furnisher {
           const name = p.model.slice(1);
           const other = furnitureIds().includes(name) ? furnitureDef(name) : null;
           this.place(other ?? def, other ?? { make: name, variant: look.variant }, matrix.clone().multiply(partMatrix(p)), building, part, items, fires);
-        }
-        else console.warn(`no model "${p.model}" for ${def.id}`);
+        } else console.warn(`no model "${p.model}" for ${def.id}`);
         continue;
       }
       items.push({ parts: geo, matrix: matrix.clone().multiply(partMatrix(p)), tag });
@@ -329,7 +335,11 @@ export class Furnisher {
       const v = look.variant ?? 0;
       items.push({ parts: this.madeParts(`rug:${def.w}:${def.d}:${v}`, () => [{ geometry: rugGeometry(def.w, def.d, v), material: 'rug' }]), matrix, tag });
     } else if (look.make === 'hay') {
-      items.push({ parts: this.madeParts(`hay:${def.w}:${def.d}:${def.h}`, () => [{ geometry: baleGeometry(def.w, def.d, def.h), material: 'hay' }]), matrix, tag });
+      items.push({
+        parts: this.madeParts(`hay:${def.w}:${def.d}:${def.h}`, () => [{ geometry: baleGeometry(def.w, def.d, def.h), material: 'hay' }]),
+        matrix,
+        tag,
+      });
     } else if (look.make === 'fire') {
       items.push({ parts: this.madeParts('logs', () => [{ geometry: logsGeometry(), material: 'logs' }]), matrix, tag });
       fires.push({ matrix, tag });

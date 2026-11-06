@@ -37,9 +37,7 @@ export class DetailRig {
     for (const [key, m] of Object.entries(def.materials)) {
       this.materials.set(
         key,
-        m.basic
-          ? new THREE.MeshBasicMaterial({ color: m.color, toneMapped: false })
-          : toon(m.color, m.emissive !== undefined ? { emissive: m.emissive } : {}),
+        m.basic ? new THREE.MeshBasicMaterial({ color: m.color, toneMapped: false }) : toon(m.color, m.emissive !== undefined ? { emissive: m.emissive } : {}),
       );
     }
     for (const j of def.joints) {

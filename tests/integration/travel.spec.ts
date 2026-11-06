@@ -298,7 +298,11 @@ test('travel by road in a farm cart, steering for the bends', async ({ page }) =
   await w.advance(2);
   const cart = (await w.life()).vehicles[0];
   // Get in from the side, level with the seat.
-  await w.teleport(cart.x + Math.cos(cart.heading) * 1.9 + Math.sin(cart.heading) * 0.9, cart.z - Math.sin(cart.heading) * 1.9 + Math.cos(cart.heading) * 0.9, cart.heading);
+  await w.teleport(
+    cart.x + Math.cos(cart.heading) * 1.9 + Math.sin(cart.heading) * 0.9,
+    cart.z - Math.sin(cart.heading) * 1.9 + Math.cos(cart.heading) * 0.9,
+    cart.heading,
+  );
   await w.advance(2);
   await w.cmd({ t: 'interact' });
   await w.advance(2);
@@ -332,7 +336,11 @@ test('travel by road in a roadster: it slows in time for the square and stops at
   await w.cmd({ t: 'summon', item: 'deed.roadster' });
   await w.advance(2);
   const car = (await w.life()).vehicles.find((v: { def: string }) => v.def === 'roadster');
-  await w.teleport(car.x + Math.cos(car.heading) * 1.9 + Math.sin(car.heading) * 0.9, car.z - Math.sin(car.heading) * 1.9 + Math.cos(car.heading) * 0.9, car.heading);
+  await w.teleport(
+    car.x + Math.cos(car.heading) * 1.9 + Math.sin(car.heading) * 0.9,
+    car.z - Math.sin(car.heading) * 1.9 + Math.cos(car.heading) * 0.9,
+    car.heading,
+  );
   await w.advance(2);
   await w.cmd({ t: 'interact' });
   await w.advance(2);

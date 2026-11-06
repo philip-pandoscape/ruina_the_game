@@ -47,7 +47,9 @@ for (const { file, clip } of clips.values()) {
       if (process.env.RECORD) await page.screenshot({ path: `${dir}/${String(i).padStart(3, '0')}.png` });
     }
     mean /= n;
-    console.log(`${file} ${clip}: ${n} frames, bones off by ${mean.toFixed(2)} deg on average, ${worst.toFixed(2)} deg at worst (${worstBone}); lowest ankle ${(lowest * 100).toFixed(1)} cm from where it stands`);
+    console.log(
+      `${file} ${clip}: ${n} frames, bones off by ${mean.toFixed(2)} deg on average, ${worst.toFixed(2)} deg at worst (${worstBone}); lowest ankle ${(lowest * 100).toFixed(1)} cm from where it stands`,
+    );
     expect(mean).toBeLessThan(0.1);
     expect(worst).toBeLessThan(1);
     expect(lowest).toBeGreaterThan(-0.025);

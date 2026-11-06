@@ -118,7 +118,12 @@ export class App {
         'div',
         { class: 'top-actions' },
         this.el.count,
-        h('button', { class: 'btn primary', title: 'Turn the open notes into a prompt for Claude (Ctrl+Enter)', onclick: () => void this.openPrompt() }, icon('spark'), 'Create Prompt'),
+        h(
+          'button',
+          { class: 'btn primary', title: 'Turn the open notes into a prompt for Claude (Ctrl+Enter)', onclick: () => void this.openPrompt() },
+          icon('spark'),
+          'Create Prompt',
+        ),
         h('button', { class: 'icon-btn', title: 'Keyboard shortcuts (?)', onclick: () => this.openHelp() }, icon('help')),
       ),
     );
@@ -221,7 +226,13 @@ export class App {
     return t;
   }
 
-  async open(sid: string, aid: string | null, given: Options = {}, frame = 0, opts: { range?: [number, number] | null; keepCamera?: boolean } = {}): Promise<void> {
+  async open(
+    sid: string,
+    aid: string | null,
+    given: Options = {},
+    frame = 0,
+    opts: { range?: [number, number] | null; keepCamera?: boolean } = {},
+  ): Promise<void> {
     const subject = subjectById(sid);
     if (!subject) return;
     if (this.editor.active) {
@@ -379,7 +390,10 @@ export class App {
     if (this.prefs.ghosts && !this.editor.active) {
       for (const n of this.notesHere()) {
         if (!n.fix || n.frame !== this.frame) continue;
-        const g = this.ghosts.next(n.status === 'done' ? GHOST.original.color : GHOST.target.color, n.status === 'done' ? GHOST.original.opacity : GHOST.target.opacity);
+        const g = this.ghosts.next(
+          n.status === 'done' ? GHOST.original.color : GHOST.target.color,
+          n.status === 'done' ? GHOST.original.opacity : GHOST.target.opacity,
+        );
         g?.apply(n.fix.after);
       }
     }
@@ -550,7 +564,15 @@ export class App {
     this.stage.ghosts.visible = was.ghosts;
     helper.visible = was.helper;
     this.dirty = true;
-    return { canvas: compose([a1, b1, a2, b2], [`Frame ${this.frame}: as it is`, 'As corrected', 'From the side: as it is', 'As corrected'], second === 'front' ? 'Front' : 'Side'), modelBefore, modelAfter };
+    return {
+      canvas: compose(
+        [a1, b1, a2, b2],
+        [`Frame ${this.frame}: as it is`, 'As corrected', 'From the side: as it is', 'As corrected'],
+        second === 'front' ? 'Front' : 'Side',
+      ),
+      modelBefore,
+      modelAfter,
+    };
   }
 
   // ---------- notes ----------
@@ -641,7 +663,11 @@ export class App {
   private goToNote(id: string): void {
     const n = store.notes.find((x) => x.id === id);
     if (!n) return;
-    if (n.subject !== this.subject?.id || n.anim !== this.anim?.id || noteKey(n.subject, n.anim, n.options) !== noteKey(n.subject, n.anim, this.keyed(n.subject, n.anim, this.options))) {
+    if (
+      n.subject !== this.subject?.id ||
+      n.anim !== this.anim?.id ||
+      noteKey(n.subject, n.anim, n.options) !== noteKey(n.subject, n.anim, this.keyed(n.subject, n.anim, this.options))
+    ) {
       void this.open(n.subject, n.anim, { ...this.options, ...n.options }, n.frame ?? n.range?.[0] ?? 0, { range: n.range ?? null });
       return;
     }
@@ -669,7 +695,13 @@ export class App {
   async promptText(scope: Scope): Promise<{ text: string; notes: Note[] }> {
     const open = store.notes.filter((n) => n.status === 'open');
     const notes = open.filter((n) =>
-      scope === 'all' ? true : scope === 'subject' ? n.subject === this.subject?.id : n.subject === this.subject?.id && n.anim === this.anim?.id && noteKey(n.subject, n.anim, n.options) === noteKey(n.subject, n.anim, this.keyed(n.subject, n.anim, this.options)),
+      scope === 'all'
+        ? true
+        : scope === 'subject'
+          ? n.subject === this.subject?.id
+          : n.subject === this.subject?.id &&
+            n.anim === this.anim?.id &&
+            noteKey(n.subject, n.anim, n.options) === noteKey(n.subject, n.anim, this.keyed(n.subject, n.anim, this.options)),
     );
     // Whatever the notes are on has to be ready to describe (a made body loaded).
     for (const sid of new Set(notes.map((n) => n.subject))) {
@@ -726,7 +758,9 @@ export class App {
       );
       current = await this.promptText(scope);
       const n = current.notes;
-      area.value = n.length ? current.text : 'No open notes here yet.\n\nLeave a note on the animation, on a stretch of frames, or correct a frame by moving its bones, then come back.';
+      area.value = n.length
+        ? current.text
+        : 'No open notes here yet.\n\nLeave a note on the animation, on a stretch of frames, or correct a frame by moving its bones, then come back.';
       const fixes = n.filter((x) => x.fix).length;
       const anims = new Set(n.map((x) => `${x.subject}/${x.anim}`)).size;
       stats.replaceChildren(
@@ -791,12 +825,12 @@ export class App {
       .join(' · ');
     c.append(
       ...[
-      h('span', { class: 'sep' }, '/'),
-      h('span', {}, this.subject.name),
-      h('span', { class: 'sep' }, '/'),
-      h('b', {}, this.anim.label),
-      optWords ? h('span', { class: 'tag' }, optWords) : null,
-      h('span', { class: 'tag' }, `${this.anim.frames} f · ${fmtTime(this.anim.frames, this.anim.fps)}`),
+        h('span', { class: 'sep' }, '/'),
+        h('span', {}, this.subject.name),
+        h('span', { class: 'sep' }, '/'),
+        h('b', {}, this.anim.label),
+        optWords ? h('span', { class: 'tag' }, optWords) : null,
+        h('span', { class: 'tag' }, `${this.anim.frames} f · ${fmtTime(this.anim.frames, this.anim.fps)}`),
       ].filter((x): x is HTMLElement => !!x),
     );
   }
@@ -805,7 +839,10 @@ export class App {
     const open = store.count((n) => n.status === 'open');
     const fixes = store.count((n) => n.status === 'open' && !!n.fix);
     this.el.count.className = `pill-count${open ? '' : ' none'}`;
-    this.el.count.replaceChildren(h('span', { class: 'dot' }), open ? `${open} open ${open === 1 ? 'note' : 'notes'}${fixes ? `, ${fixes} with poses` : ''}` : 'No open notes');
+    this.el.count.replaceChildren(
+      h('span', { class: 'dot' }),
+      open ? `${open} open ${open === 1 ? 'note' : 'notes'}${fixes ? `, ${fixes} with poses` : ''}` : 'No open notes',
+    );
   }
 
   private thumb(subject: Subject): HTMLElement {
@@ -848,9 +885,17 @@ export class App {
           body.append(
             h(
               'button',
-              { class: `subject${s.id === this.subject?.id ? ' on' : ''}`, onclick: () => void this.open(s.id, null, s.id === this.subject?.id ? this.options : {}) },
+              {
+                class: `subject${s.id === this.subject?.id ? ' on' : ''}`,
+                onclick: () => void this.open(s.id, null, s.id === this.subject?.id ? this.options : {}),
+              },
               this.thumb(s),
-              h('div', { class: 'meta' }, h('div', { class: 'name' }, s.name, open ? h('span', { class: 'badge' }, String(open)) : null), h('div', { class: 'blurb' }, s.blurb)),
+              h(
+                'div',
+                { class: 'meta' },
+                h('div', { class: 'name' }, s.name, open ? h('span', { class: 'badge' }, String(open)) : null),
+                h('div', { class: 'blurb' }, s.blurb),
+              ),
               h('span', { class: 'count', title: 'Animations' }, String(s.anims(this.defaults(s)).length)),
             ),
           );
@@ -873,7 +918,12 @@ export class App {
           h(
             'div',
             { class: `opt${idle ? ' idle' : ''}`, title: idle ? `${this.anim?.label} has its own ${o.label.toLowerCase()}` : '' },
-            h('label', {}, o.label, idle ? h('span', { class: 'muted', style: 'text-transform:none;letter-spacing:0;font-weight:400' }, ' · this one has its own') : null),
+            h(
+              'label',
+              {},
+              o.label,
+              idle ? h('span', { class: 'muted', style: 'text-transform:none;letter-spacing:0;font-weight:400' }, ' · this one has its own') : null,
+            ),
             h(
               'div',
               { class: 'seg' },
@@ -949,8 +999,10 @@ export class App {
       t('swoosh', 'spark', 'The swoosh a swing draws in the game (W)'),
     );
     const legend: HTMLElement[] = [];
-    if (this.prefs.onion) legend.push(h('span', {}, h('i', { style: 'background:#58a6ff' }), 'Before'), h('span', {}, h('i', { style: 'background:#ffa94d' }), 'After'));
-    if (this.prefs.ghosts && !this.editor.active && this.notesHere().some((n) => n.fix && n.frame === this.frame)) legend.push(h('span', {}, h('i', { style: 'background:#3ddc97' }), 'Your correction'));
+    if (this.prefs.onion)
+      legend.push(h('span', {}, h('i', { style: 'background:#58a6ff' }), 'Before'), h('span', {}, h('i', { style: 'background:#ffa94d' }), 'After'));
+    if (this.prefs.ghosts && !this.editor.active && this.notesHere().some((n) => n.fix && n.frame === this.frame))
+      legend.push(h('span', {}, h('i', { style: 'background:#3ddc97' }), 'Your correction'));
     if (this.editor.active) legend.push(h('span', {}, h('i', { style: 'background:#9aa4b2' }), 'As it was'));
     this.el.legend.replaceChildren(...legend);
     this.el.legend.style.display = legend.length ? '' : 'none';
@@ -993,12 +1045,23 @@ export class App {
     this.el.tbar.replaceChildren(
       b('first', 'First frame (Home)', () => this.seek(this.range ? this.range[0] : 0)),
       b('prev', 'Back a frame (←, Shift: 10)', () => this.step(-1)),
-      h('button', { class: 'icon-btn', title: 'Play / pause (Space)', onclick: () => this.toggle(), style: 'width:38px' }, icon(this.playing ? 'pause' : 'play')),
+      h(
+        'button',
+        { class: 'icon-btn', title: 'Play / pause (Space)', onclick: () => this.toggle(), style: 'width:38px' },
+        icon(this.playing ? 'pause' : 'play'),
+      ),
       b('next', 'On a frame (→, Shift: 10)', () => this.step(1)),
       b('last', 'Last frame (End)', () => this.seek(this.range ? this.range[1] : (take?.frames ?? 1) - 1)),
       b('loop', 'Loop (L)', () => this.togglePref('loop'), this.prefs.loop ? 'on' : ''),
       speed,
-      h('div', { class: 'framebox' }, 'Frame', input, h('span', {}, `/ ${take ? take.frames - 1 : 0}`), h('span', { class: 'muted' }, take ? `${(this.frame / take.fps).toFixed(2)} s` : '')),
+      h(
+        'div',
+        { class: 'framebox' },
+        'Frame',
+        input,
+        h('span', {}, `/ ${take ? take.frames - 1 : 0}`),
+        h('span', { class: 'muted' }, take ? `${(this.frame / take.fps).toFixed(2)} s` : ''),
+      ),
       this.range
         ? h(
             'span',
@@ -1009,8 +1072,22 @@ export class App {
         : h('span', { class: 'muted hint-range' }, 'Shift-drag to pick a stretch'),
       h('div', { class: 'grow' }),
       h('button', { class: 'btn small', title: 'Note on this frame (N)', onclick: () => this.compose('frame') }, icon('frame'), 'Note Frame'),
-      h('button', { class: 'btn small', title: 'Note on the picked stretch (N with a stretch picked)', onclick: () => this.compose('range'), disabled: !this.range }, icon('range'), 'Note Range'),
-      h('button', { class: `btn small${this.editor.active ? ' primary' : ''}`, title: 'Correct this frame by moving its bones (P)', onclick: () => (this.editor.active ? void this.saveCorrection() : this.enterEdit()) }, icon('edit'), this.editor.active ? 'Save Correction' : 'Correct Pose'),
+      h(
+        'button',
+        { class: 'btn small', title: 'Note on the picked stretch (N with a stretch picked)', onclick: () => this.compose('range'), disabled: !this.range },
+        icon('range'),
+        'Note Range',
+      ),
+      h(
+        'button',
+        {
+          class: `btn small${this.editor.active ? ' primary' : ''}`,
+          title: 'Correct this frame by moving its bones (P)',
+          onclick: () => (this.editor.active ? void this.saveCorrection() : this.enterEdit()),
+        },
+        icon('edit'),
+        this.editor.active ? 'Save Correction' : 'Correct Pose',
+      ),
     );
   }
 
@@ -1039,7 +1116,8 @@ export class App {
       info.line.toLowerCase() === phase?.label.toLowerCase() ? '' : phase ? ' · ' : '',
       info.line.toLowerCase() === phase?.label.toLowerCase() ? '' : h('span', { class: 'state' }, info.line),
     );
-    for (const label of this.el.pane.querySelectorAll<HTMLElement>('[data-frame-label]')) label.textContent = `${label.dataset.frameLabel || 'Frame'} ${this.frame}`;
+    for (const label of this.el.pane.querySelectorAll<HTMLElement>('[data-frame-label]'))
+      label.textContent = `${label.dataset.frameLabel || 'Frame'} ${this.frame}`;
     const timeEl = this.el.tbar.querySelector('.framebox .muted');
     if (timeEl) timeEl.textContent = `${(this.frame / take.fps).toFixed(2)} s`;
   }
@@ -1054,9 +1132,18 @@ export class App {
     const n = this.editor.touched.size;
     b.replaceChildren(
       h('span', { class: 'what' }, `Correcting frame ${this.frame}`),
-      h('span', { class: 'hint' }, this.editor.selected ? `${this.editor.selected.name} · R turn · G move · S scale · Ctrl+Z undo` : 'Click a joint to pick it'),
+      h(
+        'span',
+        { class: 'hint' },
+        this.editor.selected ? `${this.editor.selected.name} · R turn · G move · S scale · Ctrl+Z undo` : 'Click a joint to pick it',
+      ),
       h('button', { class: 'btn small ghost', onclick: () => this.discardEdit() }, 'Discard'),
-      h('button', { class: 'btn small primary', onclick: () => void this.saveCorrection(), disabled: !n }, icon('check'), n ? `Save Correction (${n})` : 'Save Correction'),
+      h(
+        'button',
+        { class: 'btn small primary', onclick: () => void this.saveCorrection(), disabled: !n },
+        icon('check'),
+        n ? `Save Correction (${n})` : 'Save Correction',
+      ),
     );
   }
 
@@ -1090,7 +1177,11 @@ export class App {
         label,
         extra ?? null,
       );
-    this.el.tabs.replaceChildren(tab('notes', 'Notes', notes ? h('span', { class: 'badge' }, String(notes)) : null), tab('pose', 'Pose', this.editor.active ? h('span', { class: 'badge fix' }, '●') : null), tab('about', 'About'));
+    this.el.tabs.replaceChildren(
+      tab('notes', 'Notes', notes ? h('span', { class: 'badge' }, String(notes)) : null),
+      tab('pose', 'Pose', this.editor.active ? h('span', { class: 'badge fix' }, '●') : null),
+      tab('about', 'About'),
+    );
     if (this.tab === 'notes') this.renderNotes();
     else if (this.tab === 'pose') this.renderPose();
     else this.renderAbout();
@@ -1105,8 +1196,15 @@ export class App {
     // Starting a note.
     const c = this.composer;
     if (c) {
-      const what = c.kind === 'anim' ? 'The whole animation' : c.kind === 'range' ? `Frames ${c.range![0]}–${c.range![1]}` : `Frame ${c.frame}${c.fix ? ' · corrected pose' : ''}`;
-      const ta = h('textarea', { placeholder: c.fix ? 'What should change, in your words (optional: the pose says a lot)…' : 'What looks wrong, and what it should look like…' });
+      const what =
+        c.kind === 'anim'
+          ? 'The whole animation'
+          : c.kind === 'range'
+            ? `Frames ${c.range![0]}–${c.range![1]}`
+            : `Frame ${c.frame}${c.fix ? ' · corrected pose' : ''}`;
+      const ta = h('textarea', {
+        placeholder: c.fix ? 'What should change, in your words (optional: the pose says a lot)…' : 'What looks wrong, and what it should look like…',
+      });
       ta.value = c.text;
       ta.oninput = () => (c.text = ta.value);
       ta.onkeydown = (e) => {
@@ -1157,8 +1255,18 @@ export class App {
         h(
           'div',
           { class: 'add-row' },
-          h('button', { class: 'btn', title: 'Note on this frame (N)', onclick: () => this.compose('frame') }, icon('frame'), h('span', { 'data-frame-label': '' }, `Frame ${this.frame}`)),
-          h('button', { class: 'btn', title: 'Note on the picked stretch', onclick: () => this.compose('range'), disabled: !this.range }, icon('range'), this.range ? `Frames ${this.range[0]}–${this.range[1]}` : 'A Stretch'),
+          h(
+            'button',
+            { class: 'btn', title: 'Note on this frame (N)', onclick: () => this.compose('frame') },
+            icon('frame'),
+            h('span', { 'data-frame-label': '' }, `Frame ${this.frame}`),
+          ),
+          h(
+            'button',
+            { class: 'btn', title: 'Note on the picked stretch', onclick: () => this.compose('range'), disabled: !this.range },
+            icon('range'),
+            this.range ? `Frames ${this.range[0]}–${this.range[1]}` : 'A Stretch',
+          ),
           h('button', { class: 'btn', title: 'Note on the whole animation (Shift+N)', onclick: () => this.compose('anim') }, icon('film'), 'Whole Animation'),
         ),
       );
@@ -1170,7 +1278,15 @@ export class App {
           'div',
           { class: 'callout' },
           h('p', {}, 'No notes on this animation yet.'),
-          h('p', { class: 'muted', style: 'margin:0' }, 'Pause on a frame and press ', h('kbd', {}, 'N'), ' for a note, or ', h('kbd', {}, 'P'), ' to correct the pose by moving its bones. Shift-drag the timeline to pick a stretch of frames.'),
+          h(
+            'p',
+            { class: 'muted', style: 'margin:0' },
+            'Pause on a frame and press ',
+            h('kbd', {}, 'N'),
+            ' for a note, or ',
+            h('kbd', {}, 'P'),
+            ' to correct the pose by moving its bones. Shift-drag the timeline to pick a stretch of frames.',
+          ),
         ),
       );
     for (const n of notes) pane.append(this.noteCard(n));
@@ -1229,7 +1345,9 @@ export class App {
             this.editingNote = n.id;
             this.renderNotes();
           }),
-          act(n.status === 'done' ? 'undo' : 'check', n.status === 'done' ? 'Open it again' : 'Mark done', () => store.update(n.id, { status: n.status === 'done' ? 'open' : 'done' })),
+          act(n.status === 'done' ? 'undo' : 'check', n.status === 'done' ? 'Open it again' : 'Mark done', () =>
+            store.update(n.id, { status: n.status === 'done' ? 'open' : 'done' }),
+          ),
           act('trash', this.confirmDelete === n.id ? 'Click again to delete' : 'Delete', () => {
             if (this.confirmDelete === n.id) {
               store.remove(n.id);
@@ -1313,7 +1431,10 @@ export class App {
         card.append(
           h(
             'div',
-            { class: `match ${good ? 'good' : m.progress < 0.25 ? 'bad' : ''}`, title: `Worst bone now ${m.worstDeg.toFixed(1)}° from your pose (was ${m.wasDeg.toFixed(1)}°); worst joint ${(m.worstM * 100).toFixed(1)} cm (was ${(m.wasM * 100).toFixed(1)} cm)` },
+            {
+              class: `match ${good ? 'good' : m.progress < 0.25 ? 'bad' : ''}`,
+              title: `Worst bone now ${m.worstDeg.toFixed(1)}° from your pose (was ${m.wasDeg.toFixed(1)}°); worst joint ${(m.worstM * 100).toFixed(1)} cm (was ${(m.wasM * 100).toFixed(1)} cm)`,
+            },
             h('span', {}, good ? 'The animation matches it' : `Animation ${m.worstDeg.toFixed(0)}° / ${(m.worstM * 100).toFixed(0)} cm off`),
             h('span', { class: 'meter' }, h('i', { style: `width:${Math.max(4, pct)}%` })),
             h('span', {}, `${pct}%`),
@@ -1346,7 +1467,12 @@ export class App {
             h('kbd', {}, 'G'),
             ' moves a hand or a foot and bends the limb to reach. The frame as it was stays as a grey ghost.',
           ),
-          h('button', { class: 'btn primary', onclick: () => this.enterEdit() }, icon('edit'), h('span', { 'data-frame-label': 'Correct Frame' }, `Correct Frame ${this.frame}`)),
+          h(
+            'button',
+            { class: 'btn primary', onclick: () => this.enterEdit() },
+            icon('edit'),
+            h('span', { 'data-frame-label': 'Correct Frame' }, `Correct Frame ${this.frame}`),
+          ),
         ),
       );
       pane.append(h('h3', { style: 'margin-top:16px' }, 'Bones'), this.boneList(take));
@@ -1359,8 +1485,22 @@ export class App {
         'div',
         { class: 'tools' },
         h('button', { class: `btn small${ed.tool === 'rotate' ? ' on' : ''}`, onclick: () => ed.setTool('rotate'), title: 'Turn (R)' }, icon('rotate'), 'Turn'),
-        h('button', { class: `btn small${ed.tool === 'move' ? ' on' : ''}`, onclick: () => ed.setTool('move'), title: 'Move: a hand or a foot reaches, others slide (G)' }, icon('move'), 'Move'),
-        h('button', { class: `btn small${ed.tool === 'scale' ? ' on' : ''}`, onclick: () => ed.setTool('scale'), title: 'Squash and stretch (S)' }, icon('scale'), 'Scale'),
+        h(
+          'button',
+          {
+            class: `btn small${ed.tool === 'move' ? ' on' : ''}`,
+            onclick: () => ed.setTool('move'),
+            title: 'Move: a hand or a foot reaches, others slide (G)',
+          },
+          icon('move'),
+          'Move',
+        ),
+        h(
+          'button',
+          { class: `btn small${ed.tool === 'scale' ? ' on' : ''}`, onclick: () => ed.setTool('scale'), title: 'Squash and stretch (S)' },
+          icon('scale'),
+          'Scale',
+        ),
         h('button', { class: 'icon-btn', title: 'Undo (Ctrl+Z)', onclick: () => ed.undo() }, icon('undo')),
         h('button', { class: 'icon-btn', title: 'Redo (Ctrl+Shift+Z)', onclick: () => ed.redo() }, icon('redo')),
       ),
@@ -1386,10 +1526,29 @@ export class App {
         h(
           'div',
           { class: 'bone-card' },
-          h('div', { class: 'title' }, h('span', { class: 'sw', style: `background:#${SIDE_COLOURS[b.side].toString(16).padStart(6, '0')}` }), b.name, h('span', { class: 'muted', style: 'font-weight:400;font-size:12px' }, b.parent ? `in ${b.parent}` : '')),
+          h(
+            'div',
+            { class: 'title' },
+            h('span', { class: 'sw', style: `background:#${SIDE_COLOURS[b.side].toString(16).padStart(6, '0')}` }),
+            b.name,
+            h('span', { class: 'muted', style: 'font-weight:400;font-size:12px' }, b.parent ? `in ${b.parent}` : ''),
+          ),
           h('div', { class: 'xyz' }, field('x', 0), field('y', 1), field('z', 2)),
           h('div', { class: 'readout' }, `Turn in its parent's space (XYZ). Joint at ${model.map((v) => v.toFixed(3)).join(', ')} m in the body.`),
-          h('div', { class: 'readout' }, ed.tool === 'move' ? (chain ? `Move bends ${chain[0].name} and ${chain[1].name} to reach.` : 'Move slides this joint.') : ed.tool === 'scale' ? `Scale ${b.object.scale.toArray().map((v) => v.toFixed(2)).join(' × ')}: drag a handle, or the centre for all three.` : 'Drag the gizmo’s rings to turn it.'),
+          h(
+            'div',
+            { class: 'readout' },
+            ed.tool === 'move'
+              ? chain
+                ? `Move bends ${chain[0].name} and ${chain[1].name} to reach.`
+                : 'Move slides this joint.'
+              : ed.tool === 'scale'
+                ? `Scale ${b.object.scale
+                    .toArray()
+                    .map((v) => v.toFixed(2))
+                    .join(' × ')}: drag a handle, or the centre for all three.`
+                : 'Drag the gizmo’s rings to turn it.',
+          ),
           h(
             'div',
             { class: 'row', style: 'display:flex;gap:6px;margin-top:8px' },
@@ -1398,12 +1557,18 @@ export class App {
           ),
         ),
       );
-    } else pane.append(h('div', { class: 'callout', style: 'margin-bottom:12px' }, h('p', { style: 'margin:0' }, 'Click a joint in the picture, or a bone below.')));
+    } else
+      pane.append(h('div', { class: 'callout', style: 'margin-bottom:12px' }, h('p', { style: 'margin:0' }, 'Click a joint in the picture, or a bone below.')));
     pane.append(
       h(
         'div',
         { style: 'display:flex;gap:6px;margin-bottom:14px' },
-        h('button', { class: 'btn primary', style: 'flex:1', onclick: () => void this.saveCorrection(), disabled: !ed.dirty }, icon('check'), 'Save Correction…'),
+        h(
+          'button',
+          { class: 'btn primary', style: 'flex:1', onclick: () => void this.saveCorrection(), disabled: !ed.dirty },
+          icon('check'),
+          'Save Correction…',
+        ),
         h('button', { class: 'btn', onclick: () => this.discardEdit() }, 'Discard'),
       ),
     );
@@ -1451,28 +1616,40 @@ export class App {
     const info = this.frame < take.baked ? take.info(this.frame) : null;
     pane.append(
       ...[
-      h('h3', {}, 'This Animation'),
-      h(
-        'dl',
-        { class: 'kv' },
-        h('dt', {}, 'Name'),
-        h('dd', {}, `${a.label} (${a.id})`),
-        h('dt', {}, 'Length'),
-        h('dd', {}, `${take.frames} frames at ${take.fps} fps · ${fmtTime(take.frames, take.fps)}${take.loop ? ' · loops' : ''}`),
-        h('dt', {}, 'Made by'),
-        h('dd', {}, s.animSource(a.id, this.options)),
-        h('dt', {}, 'Bones'),
-        h('dd', {}, `${take.bones.length} (${take.bones.filter((b) => !b.minor && !b.name.startsWith('@')).length} drawn)`),
-        h('dt', {}, 'Link'),
-        h('dd', {}, h('button', { class: 'link', onclick: () => void navigator.clipboard.writeText(linkTo(location.origin, s.id, a.id, this.options, this.frame)).then(() => toast('Link copied', 'good')) }, 'Copy a link to this frame')),
-      ),
-      h('h3', {}, `Frame ${this.frame}`),
-      info ? h('pre', { class: 'detail' }, `${info.line}\n\n${JSON.stringify(info.detail ?? {}, null, 1)}`) : h('p', { class: 'muted' }, 'Working it out…'),
-      h('h3', { style: 'margin-top:16px' }, `How ${s.name} Moves`),
-      h('p', { class: 'about-text' }, src.system),
-      h('ul', { class: 'files' }, ...src.files.map((f) => h('li', {}, h('code', {}, f.path), h('span', {}, f.what)))),
-      src.conventions ? h('h3', {}, 'Conventions') : null,
-      src.conventions ? h('p', { class: 'about-text' }, src.conventions) : null,
+        h('h3', {}, 'This Animation'),
+        h(
+          'dl',
+          { class: 'kv' },
+          h('dt', {}, 'Name'),
+          h('dd', {}, `${a.label} (${a.id})`),
+          h('dt', {}, 'Length'),
+          h('dd', {}, `${take.frames} frames at ${take.fps} fps · ${fmtTime(take.frames, take.fps)}${take.loop ? ' · loops' : ''}`),
+          h('dt', {}, 'Made by'),
+          h('dd', {}, s.animSource(a.id, this.options)),
+          h('dt', {}, 'Bones'),
+          h('dd', {}, `${take.bones.length} (${take.bones.filter((b) => !b.minor && !b.name.startsWith('@')).length} drawn)`),
+          h('dt', {}, 'Link'),
+          h(
+            'dd',
+            {},
+            h(
+              'button',
+              {
+                class: 'link',
+                onclick: () =>
+                  void navigator.clipboard.writeText(linkTo(location.origin, s.id, a.id, this.options, this.frame)).then(() => toast('Link copied', 'good')),
+              },
+              'Copy a link to this frame',
+            ),
+          ),
+        ),
+        h('h3', {}, `Frame ${this.frame}`),
+        info ? h('pre', { class: 'detail' }, `${info.line}\n\n${JSON.stringify(info.detail ?? {}, null, 1)}`) : h('p', { class: 'muted' }, 'Working it out…'),
+        h('h3', { style: 'margin-top:16px' }, `How ${s.name} Moves`),
+        h('p', { class: 'about-text' }, src.system),
+        h('ul', { class: 'files' }, ...src.files.map((f) => h('li', {}, h('code', {}, f.path), h('span', {}, f.what)))),
+        src.conventions ? h('h3', {}, 'Conventions') : null,
+        src.conventions ? h('p', { class: 'about-text' }, src.conventions) : null,
       ].filter((x): x is NonNullable<typeof x> => !!x),
     );
   }
@@ -1509,7 +1686,11 @@ export class App {
                       this.goToNote(n.id);
                     },
                   },
-                  h('span', { class: `chip${n.kind === 'range' ? ' range' : n.kind === 'anim' ? ' anim' : n.fix ? ' fix' : ''}` }, n.kind === 'anim' ? 'Whole' : n.kind === 'range' ? `${n.range![0]}–${n.range![1]}` : `Frame ${n.frame}`),
+                  h(
+                    'span',
+                    { class: `chip${n.kind === 'range' ? ' range' : n.kind === 'anim' ? ' anim' : n.fix ? ' fix' : ''}` },
+                    n.kind === 'anim' ? 'Whole' : n.kind === 'range' ? `${n.range![0]}–${n.range![1]}` : `Frame ${n.frame}`,
+                  ),
                   h('span', { class: 't' }, n.text || (n.fix ? 'A corrected pose' : '')),
                   n.status === 'done' ? h('span', { class: 'chip muted' }, 'Done') : null,
                 ),
@@ -1524,7 +1705,11 @@ export class App {
       sub: `${store.count((n) => n.status === 'open')} open, ${store.count((n) => n.status === 'done')} done`,
       body,
       foot: [
-        h('span', { class: 'grow' }, store.dir ? `Kept in ${store.dir}` : 'Kept in this browser only: the development server (npm run dev) keeps them as files, pictures and all.'),
+        h(
+          'span',
+          { class: 'grow' },
+          store.dir ? `Kept in ${store.dir}` : 'Kept in this browser only: the development server (npm run dev) keeps them as files, pictures and all.',
+        ),
         h(
           'button',
           {
@@ -1781,7 +1966,11 @@ export class App {
 
   private savedCamera(): { position: [number, number, number]; target: [number, number, number] } | null {
     try {
-      const s = JSON.parse(sessionStorage.getItem(CAMERA) ?? 'null') as { key: string; position: [number, number, number]; target: [number, number, number] } | null;
+      const s = JSON.parse(sessionStorage.getItem(CAMERA) ?? 'null') as {
+        key: string;
+        position: [number, number, number];
+        target: [number, number, number];
+      } | null;
       return s && s.key === `${this.subject?.id}/${this.anim?.id}` ? s : null;
     } catch {
       return null;

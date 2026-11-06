@@ -110,7 +110,16 @@ export class OpenStage {
     this.village = new Village(zone.gen.buildings);
     this.falls = new FallsView(falls);
     this.grottos = falls.map((f) => new GrottoView(f, doorOn(f, zone.recipe.dungeons ?? [])));
-    this.scene.add(this.sky.group, this.terrain.group, this.water.mesh, this.foliage.group, this.dressing.group, this.village.group, this.falls.group, ...this.grottos.map((g) => g.group));
+    this.scene.add(
+      this.sky.group,
+      this.terrain.group,
+      this.water.mesh,
+      this.foliage.group,
+      this.dressing.group,
+      this.village.group,
+      this.falls.group,
+      ...this.grottos.map((g) => g.group),
+    );
     this.post = new WorldPost(this.renderer, this.scene);
     this.post.base = hf.water;
     // Other isles on the horizon, past where anyone can go (src/render/open/horizon.ts).
@@ -146,7 +155,7 @@ export class OpenStage {
     this.sunDir.copy(night > 0.6 ? moon : sun);
     const sunCol = this.c2.setHex(light.sun).lerp(C(light.goldSun), gold);
     this.sun.color.copy(night > 0.6 ? C(light.moon) : sunCol);
-    this.sun.intensity = night > 0.6 ? 0.75 * (night - 0.6) / 0.4 + 0.2 : light.sunIntensity * Math.max(0.12, day) * (1 - gold * 0.3);
+    this.sun.intensity = night > 0.6 ? (0.75 * (night - 0.6)) / 0.4 + 0.2 : light.sunIntensity * Math.max(0.12, day) * (1 - gold * 0.3);
     this.hemi.color.setHex(light.sky).lerp(C(light.nightSky), night * 0.85);
     this.hemi.groundColor.setHex(light.ground).lerp(C(light.nightGround), night * 0.8);
     this.hemi.intensity = light.fill * (1 - night * 0.36);
@@ -209,7 +218,17 @@ export class OpenStage {
   }
 
   private outdoors(): THREE.Object3D[] {
-    return [this.sky.group, this.terrain.group, this.water.mesh, this.foliage.group, this.dressing.group, this.village.group, this.falls.group, ...this.grottos.map((g) => g.group), ...(this.isles ? [this.isles] : [])];
+    return [
+      this.sky.group,
+      this.terrain.group,
+      this.water.mesh,
+      this.foliage.group,
+      this.dressing.group,
+      this.village.group,
+      this.falls.group,
+      ...this.grottos.map((g) => g.group),
+      ...(this.isles ? [this.isles] : []),
+    ];
   }
 
   /**

@@ -6,7 +6,6 @@ import { esc } from '../../util/html';
 
 export type { IconName };
 
-
 /** The painted icon for an emoji (or an item, for those with a picture of their own), if there is one. */
 export function iconUrl(emoji: string, itemId?: string): string | null {
   const name = (itemId && ITEM_ICONS[itemId]) || EMOJI_ICONS[emoji.replace(/️/g, '')];

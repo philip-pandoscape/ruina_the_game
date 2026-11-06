@@ -135,7 +135,11 @@ export class SpeciesCrowd {
   private rows: number[];
   private meshes: THREE.Mesh[] = [];
 
-  constructor(species: SpeciesDef, readonly capacity: number, opts: SpeciesCrowdOptions = {}) {
+  constructor(
+    species: SpeciesDef,
+    readonly capacity: number,
+    opts: SpeciesCrowdOptions = {},
+  ) {
     this.species = species;
     this.rows = clipRows(species);
     this.root = new Float32Array(capacity * 4);

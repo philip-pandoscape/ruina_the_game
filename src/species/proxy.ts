@@ -27,5 +27,4 @@ export function buildProxyGeometry(species: SpeciesDef): THREE.BufferGeometry {
   return merged;
 }
 
-export const proxyTriangles = (g: THREE.BufferGeometry): number =>
-  (g.index ? g.index.count : g.attributes.position.count) / 3;
+export const proxyTriangles = (g: THREE.BufferGeometry): number => (g.index ? g.index.count : g.attributes.position.count) / 3;

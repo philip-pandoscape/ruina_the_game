@@ -10,8 +10,22 @@ export type MenuPress = 'toggle' | 'up' | 'down' | 'left' | 'right' | 'select' |
 
 // Xbox button numbers in the browser's standard gamepad layout.
 export const PAD = {
-  A: 0, B: 1, X: 2, Y: 3, LB: 4, RB: 5, LT: 6, RT: 7,
-  VIEW: 8, MENU: 9, LS: 10, RS: 11, UP: 12, DOWN: 13, LEFT: 14, RIGHT: 15,
+  A: 0,
+  B: 1,
+  X: 2,
+  Y: 3,
+  LB: 4,
+  RB: 5,
+  LT: 6,
+  RT: 7,
+  VIEW: 8,
+  MENU: 9,
+  LS: 10,
+  RS: 11,
+  UP: 12,
+  DOWN: 13,
+  LEFT: 14,
+  RIGHT: 15,
 } as const;
 
 const KEYS = {
@@ -97,7 +111,21 @@ const MENU_PAD: Array<[number, MenuPress]> = [
 ];
 
 // Open-world keys: interact, drop a pack, mount, glider, change seed, auto-walk, and the panels.
-export type LifeKey = 'interact' | 'drop' | 'mount' | 'glider' | 'seed' | 'autorun' | 'bag' | 'map' | 'garage' | 'quests' | 'character' | 'party' | 'escape' | 'dev';
+export type LifeKey =
+  | 'interact'
+  | 'drop'
+  | 'mount'
+  | 'glider'
+  | 'seed'
+  | 'autorun'
+  | 'bag'
+  | 'map'
+  | 'garage'
+  | 'quests'
+  | 'character'
+  | 'party'
+  | 'escape'
+  | 'dev';
 const LIFE_KEYS: Record<string, LifeKey> = {
   KeyF: 'interact',
   KeyX: 'drop',
@@ -169,7 +197,7 @@ export class Input {
       if (BLOCK_DEFAULT.has(e.code)) e.preventDefault();
       if (!e.repeat) this.pressed.add(e.code);
       if (!e.repeat && MENU_KEYS[e.code] && this.menuPresses.length < 16) this.menuPresses.push(MENU_KEYS[e.code]);
-      if (!e.repeat && e.code === 'Tab') (e.shiftKey ? this.combat.prevTarget++ : this.combat.nextTarget++);
+      if (!e.repeat && e.code === 'Tab') e.shiftKey ? this.combat.prevTarget++ : this.combat.nextTarget++;
       if (!e.repeat && e.code === 'Escape') this.combat.cancel++;
       if (!e.repeat && LIFE_KEYS[e.code] && this.lifePresses.length < 16) this.lifePresses.push(LIFE_KEYS[e.code]);
       this.down.add(e.code);
@@ -466,7 +494,15 @@ export class Input {
       const moving = lx !== 0 || ly !== 0 || !!held[PAD.RS];
       if (edge(PAD.LS)) this.stickTap = { at: performance.now(), spoilt: moving };
       else if (held[PAD.LS] && moving) this.stickTap.spoilt = true;
-      if (!held[PAD.LS] && this.lifePadPrev[PAD.LS] && !this.stickTap.spoilt && !padToMenu && this.worldMode && performance.now() - this.stickTap.at < STICK_TAP_MS) out.push('autorun');
+      if (
+        !held[PAD.LS] &&
+        this.lifePadPrev[PAD.LS] &&
+        !this.stickTap.spoilt &&
+        !padToMenu &&
+        this.worldMode &&
+        performance.now() - this.stickTap.at < STICK_TAP_MS
+      )
+        out.push('autorun');
       this.lifePadPrev = held;
     }
     return out;

@@ -70,7 +70,13 @@ function describeFix(n: Note, ctx: PromptContext): string[] {
   const lines: string[] = [];
   const changes = boneChanges(fix.before, fix.after);
   if (changes.length) {
-    lines.push('', "   Bones I changed (local transforms, in each bone's parent space; Euler XYZ in degrees):", '', '   | Bone | Before | After | Turned | About axis (parent space) | Moved |', '   |---|---|---|---|---|---|');
+    lines.push(
+      '',
+      "   Bones I changed (local transforms, in each bone's parent space; Euler XYZ in degrees):",
+      '',
+      '   | Bone | Before | After | Turned | About axis (parent space) | Moved |',
+      '   |---|---|---|---|---|---|',
+    );
     for (const c of changes) {
       const touched = fix.touched.includes(c.bone) ? '' : ' (by IK)';
       lines.push(
@@ -96,9 +102,15 @@ function describeFix(n: Note, ctx: PromptContext): string[] {
   }
   if (fix.image) {
     const img = ctx.image(fix.image);
-    lines.push('', img.file ? `   Picture (as it is | as I corrected it, from my view and from the side): \`${img.file}\`` : '   (No picture kept: the library ran without its dev server.)');
+    lines.push(
+      '',
+      img.file
+        ? `   Picture (as it is | as I corrected it, from my view and from the side): \`${img.file}\``
+        : '   (No picture kept: the library ran without its dev server.)',
+    );
   }
-  if (ctx.reviewFile) lines.push(`   The whole corrected pose (every joint's local transform) is in \`${ctx.reviewFile}\`, note id \`${n.id}\` → \`fix.after.joints\`.`);
+  if (ctx.reviewFile)
+    lines.push(`   The whole corrected pose (every joint's local transform) is in \`${ctx.reviewFile}\`, note id \`${n.id}\` → \`fix.after.joints\`.`);
   return lines;
 }
 
@@ -123,7 +135,7 @@ export function buildPrompt(notes: Note[], ctx: PromptContext): string {
     '',
     '## How to work',
     '',
-    '- Read each note with its frames: the timeline bands say what the rules have the body doing on them (a swing\'s wind-up, strike and recovery, the air, a landing). Frame numbers count from 0.',
+    "- Read each note with its frames: the timeline bands say what the rules have the body doing on them (a swing's wind-up, strike and recovery, the air, a landing). Frame numbers count from 0.",
     "- A corrected pose is the target for that frame. Change the code that makes the pose (not the bones of one frame) so the animation passes through it, and blend into and out of it so the frames around it stay smooth. Small differences that don't change how it reads are fine; the direction and size of the change matter.",
     "- Fix how it looks, not the rules' timing: frame counts (startup, active, recovery), speeds and the films in src/render/detail/scenarios.ts are game rules or stand for them; changing a rule means TypeScript and Rust together (AGENTS.md). If a note can only be met by changing timing, say so instead.",
     '- Keep src/sim/ untouched and the render code presentation only. Another session may be working on the animations: keep your changes to what the notes ask for.',
@@ -166,18 +178,24 @@ export function buildPrompt(notes: Note[], ctx: PromptContext): string {
         })
         .join(', ');
       out.push(`### ${n0.animLabel} (\`${n0.anim}\`)${optWords ? `, ${optWords}` : ''}`, '');
-      out.push(`- ${frames} frames at ${fps} fps (${(frames / fps).toFixed(2)} s)${take?.loop ? ', looping' : ''}${frames !== n0.frames ? ` (it was ${n0.frames} frames when I noted it)` : ''}.`);
+      out.push(
+        `- ${frames} frames at ${fps} fps (${(frames / fps).toFixed(2)} s)${take?.loop ? ', looping' : ''}${frames !== n0.frames ? ` (it was ${n0.frames} frames when I noted it)` : ''}.`,
+      );
       if (subject) out.push(`- Made by: ${subject.animSource(n0.anim, n0.options)}.`);
       if (take?.phases.length) out.push(`- Timeline: ${phaseLine(take.phases)}.`);
       out.push(`- Look at it: ${linkTo(ctx.origin, sid, n0.anim, n0.options)}`, '');
       const ordered = [...notes].sort((a, b) => order(a) - order(b));
       ordered.forEach((n, i) => {
-        const where =
-          n.kind === 'anim' ? 'The whole animation' : n.kind === 'range' ? `Frames ${n.range![0]}–${n.range![1]}` : `Frame ${n.frame}`;
+        const where = n.kind === 'anim' ? 'The whole animation' : n.kind === 'range' ? `Frames ${n.range![0]}–${n.range![1]}` : `Frame ${n.frame}`;
         const phase = take && n.kind !== 'anim' ? phaseAt(take.phases, n.kind === 'range' ? n.range![0] : n.frame!) : undefined;
         const phaseEnd = take && n.kind === 'range' ? phaseAt(take.phases, n.range![1]) : undefined;
         const phaseWords = phase ? ` (${phase.label}${phaseEnd && phaseEnd !== phase ? ` to ${phaseEnd.label}` : ''})` : '';
-        const time = n.kind === 'frame' ? `, ${(n.frame! / fps).toFixed(2)} s` : n.kind === 'range' ? `, ${(n.range![0] / fps).toFixed(2)}–${((n.range![1] + 1) / fps).toFixed(2)} s` : '';
+        const time =
+          n.kind === 'frame'
+            ? `, ${(n.frame! / fps).toFixed(2)} s`
+            : n.kind === 'range'
+              ? `, ${(n.range![0] / fps).toFixed(2)}–${((n.range![1] + 1) / fps).toFixed(2)} s`
+              : '';
         out.push(`${i + 1}. **${where}**${phaseWords}${time}${n.fix ? ' — **pose correction**' : ''}`, '', quote(n.text).replace(/^/gm, '   '));
         if (n.state) {
           out.push('', `   On that frame: ${n.state.line}.`);

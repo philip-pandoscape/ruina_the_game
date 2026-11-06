@@ -235,7 +235,17 @@ test('a bug report keeps the moments before the key, records the voice, and save
   expect(cli('list')).toContain(id);
   // Paths in it use this machine's separator.
   const digest = cli('show', id).replaceAll('\\', '/');
-  for (const part of ['## What was said', 'the cart rolled off the pier', '## Look at these pictures', 'screenshot.jpg', 'frames/0', '## The game at the press', 'open world', '## Where the player was', 'save.json'])
+  for (const part of [
+    '## What was said',
+    'the cart rolled off the pier',
+    '## Look at these pictures',
+    'screenshot.jpg',
+    'frames/0',
+    '## The game at the press',
+    'open world',
+    '## Where the player was',
+    'save.json',
+  ])
     expect(digest).toContain(part);
   expect(cli('frames', id, '--from', '-1', '--to', '1').trim().split('\n').length).toBeGreaterThan(1);
   cli('close', id, 'not-a-bug', 'automated test');

@@ -78,7 +78,11 @@ export class Stage {
   readonly sun: THREE.DirectionalLight;
   private height: (x: number, z: number) => number;
 
-  constructor(canvas: HTMLCanvasElement, world: World, private opts: StageOptions = TRAINING_STAGE) {
+  constructor(
+    canvas: HTMLCanvasElement,
+    world: World,
+    private opts: StageOptions = TRAINING_STAGE,
+  ) {
     this.height = (x, z) => groundHeight(x, z, opts.terrain);
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -118,23 +122,14 @@ export class Stage {
     this.renderer.setSize(width, height, false);
   }
 
-  private placeInstances(
-    geo: THREE.BufferGeometry,
-    items: Obstacle[],
-    color: (i: number) => THREE.Color,
-    squashY = 1,
-  ): THREE.InstancedMesh {
+  private placeInstances(geo: THREE.BufferGeometry, items: Obstacle[], color: (i: number) => THREE.Color, squashY = 1): THREE.InstancedMesh {
     const mesh = new THREE.InstancedMesh(geo, toon(0xffffff), items.length);
     const m = new THREE.Matrix4();
     const q = new THREE.Quaternion();
     const up = new THREE.Vector3(0, 1, 0);
     items.forEach((o, i) => {
       q.setFromAxisAngle(up, o.rot);
-      m.compose(
-        new THREE.Vector3(o.x, this.height(o.x, o.z), o.z),
-        q,
-        new THREE.Vector3(o.scale, o.scale * squashY, o.scale),
-      );
+      m.compose(new THREE.Vector3(o.x, this.height(o.x, o.z), o.z), q, new THREE.Vector3(o.scale, o.scale * squashY, o.scale));
       mesh.setMatrixAt(i, m);
       mesh.setColorAt(i, color(i));
     });
@@ -252,8 +247,7 @@ export class Stage {
     const rng = makeRng(world.seed + 2);
     const { yard, plantRadius } = this.opts;
     const blocked = (x: number, z: number) =>
-      (yard && Math.hypot(x - YARD.x, z - YARD.z) < YARD.r + 0.3) ||
-      world.obstacles.some((o) => Math.hypot(o.x - x, o.z - z) < o.r + 0.2);
+      (yard && Math.hypot(x - YARD.x, z - YARD.z) < YARD.r + 0.3) || world.obstacles.some((o) => Math.hypot(o.x - x, o.z - z) < o.r + 0.2);
 
     const blade = faceted(new THREE.ConeGeometry(0.07, 0.4, 3));
     blade.translate(0, 0.2, 0);
@@ -284,8 +278,18 @@ export class Stage {
       mesh.castShadow = false;
     };
 
-    scatter(this.opts.grass, plantRadius, [0x6fb64a, 0x5aa33f, 0x82c95b, 0x4f9a38].map((h) => new THREE.Color(h)), tuftGeo);
-    scatter(this.opts.flowers, plantRadius * 0.87, [0xffffff, 0xffe066, 0xff8fab, 0xb8a1ff].map((h) => new THREE.Color(h)), flowerGeo);
+    scatter(
+      this.opts.grass,
+      plantRadius,
+      [0x6fb64a, 0x5aa33f, 0x82c95b, 0x4f9a38].map((h) => new THREE.Color(h)),
+      tuftGeo,
+    );
+    scatter(
+      this.opts.flowers,
+      plantRadius * 0.87,
+      [0xffffff, 0xffe066, 0xff8fab, 0xb8a1ff].map((h) => new THREE.Color(h)),
+      flowerGeo,
+    );
   }
 
   // A giant tree on the horizon: the world tree the game is named after. It sits far past the

@@ -41,7 +41,6 @@ const SPOT = 'Marked Spot';
 const GOLD = '#ffd166';
 const INK = 'rgba(43, 26, 14, 0.85)';
 
-
 export class TravelUI {
   private readout = document.createElement('div');
   private shown = '';

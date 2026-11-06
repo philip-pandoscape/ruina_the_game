@@ -94,7 +94,13 @@ function lamp(p: Parts): void {
   const y = LAMP_GLASS_Y;
   p.add(cyl(0.13, 0.08, 0.08, 4), PAL.iron, [0, y - 0.18, 0], [0, Math.PI / 4, 0]);
   p.add(box(0.2, 0.28, 0.2), PAL.glow, [0, y, 0], undefined, undefined, { glow: 1.7 });
-  for (const [dx, dz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]] as const) p.add(box(0.03, 0.3, 0.03), PAL.iron, [dx * 0.1, y, dz * 0.1]);
+  for (const [dx, dz] of [
+    [-1, -1],
+    [1, -1],
+    [-1, 1],
+    [1, 1],
+  ] as const)
+    p.add(box(0.03, 0.3, 0.03), PAL.iron, [dx * 0.1, y, dz * 0.1]);
   p.add(cone(0.2, 0.16, 4), PAL.iron, [0, y + 0.22, 0], [0, Math.PI / 4, 0]);
   p.add(octa(0.035), PAL.brass, [0, y + 0.33, 0]);
 }
@@ -133,7 +139,10 @@ function bench(p: Parts, w: number): void {
 
 function barrel(p: Parts, r: number, h: number, rng: () => number): void {
   const bulge = (t: number) => r * (0.84 + 0.16 * Math.sin(Math.PI * t));
-  const prof: Array<[number, number]> = [[0, 0.02], [bulge(0) - 0.01, 0.0]];
+  const prof: Array<[number, number]> = [
+    [0, 0.02],
+    [bulge(0) - 0.01, 0.0],
+  ];
   for (let k = 0; k <= 6; k++) prof.push([bulge(k / 6), (h * k) / 6]);
   prof.push([bulge(1) - 0.035, h], [bulge(1) - 0.035, h - 0.03], [0, h - 0.03]);
   const staves = 12;
@@ -202,4 +211,3 @@ function bollard(p: Parts, h: number): void {
   p.add(cyl(0.13, 0.16, 0.03, 8), PAL.ironLight, [0, h - 0.008, 0]);
   p.add(ring(0.1, 0.13, 0.03, 8), PAL.ironLight, [0, h * 0.35, 0]);
 }
-

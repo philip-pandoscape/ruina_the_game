@@ -11,7 +11,11 @@ import './theme/front.css';
 //
 // The look is in src/ui/theme/front.css (and the badge's in theme.css).
 
-export function el<K extends keyof HTMLElementTagNameMap>(tag: K, props: Partial<HTMLElementTagNameMap[K]> = {}, ...children: Array<Node | string>): HTMLElementTagNameMap[K] {
+export function el<K extends keyof HTMLElementTagNameMap>(
+  tag: K,
+  props: Partial<HTMLElementTagNameMap[K]> = {},
+  ...children: Array<Node | string>
+): HTMLElementTagNameMap[K] {
   const e = Object.assign(document.createElement(tag), props);
   e.append(...children);
   return e;
@@ -74,7 +78,12 @@ export class SignInScreen {
         resolve();
       };
       splash?.say('');
-      const c = card('The Game Server Is Not Answering', el('p', { textContent: text }), el('p', { className: 'fd-hint', textContent: 'Trying again by itself every few seconds.' }), again);
+      const c = card(
+        'The Game Server Is Not Answering',
+        el('p', { textContent: text }),
+        el('p', { className: 'fd-hint', textContent: 'Trying again by itself every few seconds.' }),
+        again,
+      );
       // Still not answering: the same card, without coming in again.
       if (this.troubled) c.classList.remove('fd-in');
       this.troubled = true;
@@ -111,7 +120,12 @@ export class SignInScreen {
       {},
       el('label', {}, 'Name', name),
       el('label', {}, 'Password', password),
-      ...(making ? [el('label', {}, 'Confirm Password', again), el('div', { className: 'fd-hint', textContent: 'Names are 3 to 20 letters, digits, - or _. Passwords need 8 or more characters.' })] : []),
+      ...(making
+        ? [
+            el('label', {}, 'Confirm Password', again),
+            el('div', { className: 'fd-hint', textContent: 'Names are 3 to 20 letters, digits, - or _. Passwords need 8 or more characters.' }),
+          ]
+        : []),
       error,
       submit,
     );
@@ -202,7 +216,11 @@ export class NetOverlay {
     this.status.textContent = kind === 'updating' ? 'Waiting for the New Server…' : 'Reconnecting…';
     const reload = el('button', { className: 'lui-btn small fd-quiet', type: 'button', textContent: 'Reload Now', hidden: true });
     reload.onclick = () => location.reload();
-    this.root = el('div', { id: 'ruina-net', className: kind }, card(title, el('div', { className: 'net-spin' }), el('p', { textContent: text }), this.status, reload));
+    this.root = el(
+      'div',
+      { id: 'ruina-net', className: kind },
+      card(title, el('div', { className: 'net-spin' }), el('p', { textContent: text }), this.status, reload),
+    );
     this.root.setAttribute('role', 'alertdialog');
     uiRoot().append(this.root);
     clearInterval(this.timer);

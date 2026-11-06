@@ -7,7 +7,7 @@ import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 // wait for all of them (window.__game.assetsReady) before they look.
 
 let pending = 0;
-let failed: string[] = [];
+const failed: string[] = [];
 
 /** Counts a load until it settles. A failure is logged and remembered, never thrown at the game. */
 export function track<T>(load: Promise<T>): Promise<T | undefined> {

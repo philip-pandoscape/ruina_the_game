@@ -115,7 +115,10 @@ export class CharacterSelect {
           'span',
           {},
           el('span', { className: 'n', textContent: c.name }),
-          el('span', { className: 'd', textContent: c.channel ? `Emberholm ${c.channel} · ${c.lastPlayed ? `played ${ago(c.lastPlayed)}` : 'not played yet'}` : 'New to Emberholm' }),
+          el('span', {
+            className: 'd',
+            textContent: c.channel ? `Emberholm ${c.channel} · ${c.lastPlayed ? `played ${ago(c.lastPlayed)}` : 'not played yet'}` : 'New to Emberholm',
+          }),
         ),
       );
       row.onclick = () => this.choose(c);
@@ -151,7 +154,13 @@ export class CharacterSelect {
       const make = el('button', { className: 'lui-btn gold fd-big', type: 'button', textContent: 'Create Character' });
       make.onclick = () => this.create();
       this.stage.replaceChildren(
-        el('div', { className: 'cs-empty fd-in' }, el('h2', { textContent: 'No Characters Yet' }), el('p', { textContent: 'Make someone to live on Emberholm: they get an island of their own.' }), make),
+        el(
+          'div',
+          { className: 'cs-empty fd-in' },
+          el('h2', { textContent: 'No Characters Yet' }),
+          el('p', { textContent: 'Make someone to live on Emberholm: they get an island of their own.' }),
+          make,
+        ),
       );
       return;
     }
@@ -243,7 +252,15 @@ export class CharacterSelect {
   }
 
   /** A dialog with a name field: Create Character, or Delete Character's confirmation. */
-  private ask(o: { title: string; text: HTMLElement; label: string; action: string; danger?: boolean; ready?: (v: string) => boolean; go: (v: string) => Promise<void> }): void {
+  private ask(o: {
+    title: string;
+    text: HTMLElement;
+    label: string;
+    action: string;
+    danger?: boolean;
+    ready?: (v: string) => boolean;
+    go: (v: string) => Promise<void>;
+  }): void {
     const input = el('input', { name: 'name', maxLength: 20, spellcheck: false, autocomplete: 'off' });
     const error = el('div', { className: 'fd-error' });
     error.setAttribute('role', 'alert');
@@ -277,7 +294,9 @@ export class CharacterSelect {
     if (this.characters.length >= this.max) return;
     this.ask({
       title: 'Create Character',
-      text: el('p', { textContent: 'They start out on Emberholm with an island of their own. Their name shows over their head: 3 to 20 letters, digits, - or _.' }),
+      text: el('p', {
+        textContent: 'They start out on Emberholm with an island of their own. Their name shows over their head: 3 to 20 letters, digits, - or _.',
+      }),
       label: 'Name',
       action: 'Create',
       go: async (name) => {

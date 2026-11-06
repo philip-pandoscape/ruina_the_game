@@ -41,7 +41,11 @@ export class GrottoView {
     // The slot's walls beside the ledge, seen close up, are rock slabs rather than the ground's
     // stretched sheer step.
     for (const side of [-1, 1])
-      for (const [z, h, seed] of [[1.3, 6.4, 51], [4.3, 6.8, 53], [7.2, 6.2, 57]] as const)
+      for (const [z, h, seed] of [
+        [1.3, 6.4, 51],
+        [4.3, 6.8, 53],
+        [7.2, 6.2, 57],
+      ] as const)
         rocks.push(xf(rockSlab(1.5, h, 3.3, seed + side), [side * (f.width / 2 - 0.05), h / 2 - 0.6, z], [0, side * 0.08, side * 0.04]));
     mesh(g, merge(rocks), { name: 'grotto-rocks' });
 
@@ -53,13 +57,19 @@ export class GrottoView {
     veil.position.set(0, 0.05, wallZ + 0.05);
     g.add(veil);
     // Pictures either side of it.
-    for (const [x, seed] of [[-2.9, 5], [2.9, 9]] as const) {
+    for (const [x, seed] of [
+      [-2.9, 5],
+      [2.9, 9],
+    ] as const) {
       const d = drawings(2.2, 1.6, seed);
       d.position.set(x, 1.9, wallZ - 0.15);
       g.add(d);
     }
     // Lanterns hung from the hood either side of the portal.
-    for (const [x, seed] of [[-1.9, 1], [1.9, 2]] as const) {
+    for (const [x, seed] of [
+      [-1.9, 1],
+      [1.9, 2],
+    ] as const) {
       const l = lantern(this.flickers, seed);
       l.position.set(x, roofUp - 1.95, wallZ + 1.2);
       g.add(l);
@@ -71,7 +81,8 @@ export class GrottoView {
     // Struts under its front, where it hangs out past the ledge, down to the ledge's face.
     const struts: THREE.BufferGeometry[] = [];
     const lip = depth - 1.4;
-    for (const x of [-f.landing.half * 0.66, f.landing.half * 0.66]) struts.push(tint(rod([x, -2.2, lip], [x, 0.3, f.landing.s1 - f.shelf.s0 - 0.3], 0.09, 6), PAL.woodDark));
+    for (const x of [-f.landing.half * 0.66, f.landing.half * 0.66])
+      struts.push(tint(rod([x, -2.2, lip], [x, 0.3, f.landing.s1 - f.shelf.s0 - 0.3], 0.09, 6), PAL.woodDark));
     struts.push(tint(rod([-f.landing.half * 0.66, -1.0, lip + 0.45], [f.landing.half * 0.66, -1.0, lip + 0.45], 0.06, 5), PAL.woodDark));
     mesh(g, merge(struts), { name: 'landing-struts' });
     // Catch nets along both walls, for anyone who comes in too fast, bellying in over the ledge.

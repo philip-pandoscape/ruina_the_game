@@ -15,15 +15,35 @@ const SWORD: Build = { skills: skillsFrom('sword'), weapon: 0, abilities: new Ar
 const SLAM = actorKind('slime').slam!;
 
 interface Slime {
-  id: number; kind: string; x: number; y: number; z: number; hp: number; maxHp: number; alive: boolean;
-  state: string; deadFrame: number; mass: number; gone: boolean; transient: boolean; angry: number;
-  rallyTo: number; calling: number; fuse: number; group: number; slamCd: number; gatherCd: number;
-  targetX: number; targetZ: number;
+  id: number;
+  kind: string;
+  x: number;
+  y: number;
+  z: number;
+  hp: number;
+  maxHp: number;
+  alive: boolean;
+  state: string;
+  deadFrame: number;
+  mass: number;
+  gone: boolean;
+  transient: boolean;
+  angry: number;
+  rallyTo: number;
+  calling: number;
+  fuse: number;
+  group: number;
+  slamCd: number;
+  gatherCd: number;
+  targetX: number;
+  targetZ: number;
 }
 
 function watchErrors(page: Page): string[] {
   const errors: string[] = [];
-  page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
+  page.on('console', (m) => {
+    if (m.type() === 'error') errors.push(m.text());
+  });
   page.on('pageerror', (e) => errors.push(String(e)));
   return errors;
 }
@@ -41,13 +61,11 @@ const all = (page: Page, kind?: string) => page.evaluate((k) => window.__game.ac
 const slimes = (page: Page) => all(page, 'slime');
 const byId = async (page: Page, id: number) => (await all(page)).find((a) => a.id === id);
 const me = async (page: Page) => (await page.evaluate(() => window.__game.state())).player as { pos: { x: number; z: number }; hp: number };
-const place = (page: Page, i: number, x: number, z: number) =>
-  page.evaluate(([a, b, c]) => window.__game.placeActor('slime', a, b, c), [i, x, z] as const);
+const place = (page: Page, i: number, x: number, z: number) => page.evaluate(([a, b, c]) => window.__game.placeActor('slime', a, b, c), [i, x, z] as const);
 const advance = (page: Page, frames: number, actions: Record<string, unknown> = {}) =>
   page.evaluate(([f, a]) => window.__game.advance(f, a), [frames, actions] as const);
 const hurt = (page: Page, id: number, amount: number) => page.evaluate(([i, n]) => window.__game.hurtActor(i, n), [id, amount] as const);
-const events = (page: Page, type: string) =>
-  page.evaluate((t) => (window.__game.events() as Array<{ type: string }>).filter((e) => e.type === t), type);
+const events = (page: Page, type: string) => page.evaluate((t) => (window.__game.events() as Array<{ type: string }>).filter((e) => e.type === t), type);
 
 /** Puts slime 0 in front of you and every other one far off, out of earshot of each other. */
 async function alone(page: Page, distance: number) {
@@ -91,8 +109,7 @@ test('hit a slime and it winds up, leaps, and slams the spot where you stood', a
   const after = await me(page);
   expect(after.hp).toBe(COMBAT.maxHp - SLAM.damage);
   expect(await events(page, 'slam')).toHaveLength(1);
-  const hurts = ((await page.evaluate(() => window.__game.combat())).markers as Array<{ kind: string; amount: number }>)
-    .filter((m) => m.kind === 'hurt');
+  const hurts = ((await page.evaluate(() => window.__game.combat())).markers as Array<{ kind: string; amount: number }>).filter((m) => m.kind === 'hurt');
   expect(hurts.some((m) => m.amount === SLAM.damage)).toBe(true);
   expect(errors).toEqual([]);
 });
@@ -370,7 +387,12 @@ test('the target plate shows the gather filling', async ({ page }) => {
   const plate = await page.evaluate(() => {
     const el = document.querySelector('#target-plate') as HTMLElement;
     const cast = el.querySelector('.cast') as HTMLElement;
-    return { name: el.querySelector('.name')!.textContent, shown: cast.style.display, label: cast.querySelector('.label')!.textContent, width: (cast.querySelector('.fill') as HTMLElement).style.width };
+    return {
+      name: el.querySelector('.name')!.textContent,
+      shown: cast.style.display,
+      label: cast.querySelector('.label')!.textContent,
+      width: (cast.querySelector('.fill') as HTMLElement).style.width,
+    };
   });
   expect(plate.name).toBe('Slime');
   expect(plate.shown).toBe('block');
@@ -410,20 +432,23 @@ test('on a hillside the slam warning lies on the slope, not under it', async ({ 
   expect(winding).toBeDefined();
   await advance(page, 10);
   // Wherever you look inside the ring, it is drawn just over the ground there.
-  const gaps = await page.evaluate(([tx, tz, r]) => {
-    const g = window.__game;
-    g.render();
-    const out: number[] = [];
-    for (let i = 0; i < 24; i++) {
-      const a = i * 2.39996;
-      const d = r * 0.95 * Math.sqrt((i + 0.5) / 24);
-      const x = tx + Math.cos(a) * d;
-      const z = tz + Math.sin(a) * d;
-      const h = g.circleHeight(x, z);
-      out.push(h === null ? Infinity : h - g.ground(x, z));
-    }
-    return out;
-  }, [winding!.targetX, winding!.targetZ, SLAM.radius]);
+  const gaps = await page.evaluate(
+    ([tx, tz, r]) => {
+      const g = window.__game;
+      g.render();
+      const out: number[] = [];
+      for (let i = 0; i < 24; i++) {
+        const a = i * 2.39996;
+        const d = r * 0.95 * Math.sqrt((i + 0.5) / 24);
+        const x = tx + Math.cos(a) * d;
+        const z = tz + Math.sin(a) * d;
+        const h = g.circleHeight(x, z);
+        out.push(h === null ? Infinity : h - g.ground(x, z));
+      }
+      return out;
+    },
+    [winding!.targetX, winding!.targetZ, SLAM.radius],
+  );
   const rise = (Math.max(...gaps.filter(Number.isFinite)) - Math.min(...gaps)) as number;
   expect(gaps.every(Number.isFinite), 'the ring is drawn all the way across').toBe(true);
   // Lifted a hair off the ground everywhere (it would be a metre off at one side lying flat).

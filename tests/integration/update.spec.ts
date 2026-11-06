@@ -105,10 +105,15 @@ test("a server update while you're in a dungeon brings you back outside its door
   await page.goto(`${BASE}/?as=${fresh('dun')}&bugs=0`);
   await playing(page);
   await page.evaluate(([x, z, f]) => window.__game.teleport(x, z, f), [door.outside.x, door.outside.z, door.outside.facing]);
-  await expect.poll(async () => {
-    const p = await game(page, (g) => g.state().player.pos);
-    return Math.hypot(p.x - door.outside.x, p.z - door.outside.z);
-  }, { timeout: 30_000 }).toBeLessThan(1);
+  await expect
+    .poll(
+      async () => {
+        const p = await game(page, (g) => g.state().player.pos);
+        return Math.hypot(p.x - door.outside.x, p.z - door.outside.z);
+      },
+      { timeout: 30_000 },
+    )
+    .toBeLessThan(1);
   await game(page, (g) => g.throughPortal(true));
   await expect.poll(() => game(page, (g) => g.dungeon().inside), { timeout: 30_000 }).toBe('goblinsDread');
 
@@ -119,10 +124,15 @@ test("a server update while you're in a dungeon brings you back outside its door
   await playing(page, heard + 3);
   expect(await game(page, (g) => g.space().kind)).toBe('channel');
   expect(await game(page, (g) => g.dungeon().inside)).toBe(null);
-  await expect.poll(async () => {
-    const p = await game(page, (g) => g.state().player.pos);
-    return Math.hypot(p.x - door.outside.x, p.z - door.outside.z);
-  }, { timeout: 30_000 }).toBeLessThan(2);
+  await expect
+    .poll(
+      async () => {
+        const p = await game(page, (g) => g.state().player.pos);
+        return Math.hypot(p.x - door.outside.x, p.z - door.outside.z);
+      },
+      { timeout: 30_000 },
+    )
+    .toBeLessThan(2);
 });
 
 test('a dropped connection freezes the world, and play comes back by itself', { tag: '@alone' }, async ({ page }) => {

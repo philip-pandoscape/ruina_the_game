@@ -18,10 +18,7 @@ scene.add(new THREE.HemisphereLight(0xcfd8ff, 0x2a2f3a, 1.5));
 const key = new THREE.DirectionalLight(0xffffff, 2.2);
 key.position.set(3, 6, 4);
 scene.add(key);
-const ground = new THREE.Mesh(
-  new THREE.PlaneGeometry(400, 400).rotateX(-Math.PI / 2),
-  new THREE.MeshBasicMaterial({ color: 0x23262e }),
-);
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(400, 400).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0x23262e }));
 ground.position.y = -0.001;
 scene.add(ground);
 const camera = new THREE.PerspectiveCamera(35, 1, 0.05, 600);
@@ -81,19 +78,13 @@ function posedBounds(def: SpeciesDef, clipName: string, frame: number) {
   for (const b of def.proxy) {
     const at = (f * n + b.joint) * MATRIX_STRIDE;
     const e = clip.matrices;
-    m.set(
-      e[at + 0], e[at + 1], e[at + 2], e[at + 3],
-      e[at + 4], e[at + 5], e[at + 6], e[at + 7],
-      e[at + 8], e[at + 9], e[at + 10], e[at + 11],
-      0, 0, 0, 1,
-    );
+    m.set(e[at + 0], e[at + 1], e[at + 2], e[at + 3], e[at + 4], e[at + 5], e[at + 6], e[at + 7], e[at + 8], e[at + 9], e[at + 10], e[at + 11], 0, 0, 0, 1);
     const q = new THREE.Quaternion(...b.rot);
     for (let c = 0; c < 8; c++) {
-      v.set(
-        (c & 1 ? 0.5 : -0.5) * b.size[0],
-        (c & 2 ? 0.5 : -0.5) * b.size[1],
-        (c & 4 ? 0.5 : -0.5) * b.size[2],
-      ).applyQuaternion(q).add(new THREE.Vector3(...b.pos)).applyMatrix4(m);
+      v.set((c & 1 ? 0.5 : -0.5) * b.size[0], (c & 2 ? 0.5 : -0.5) * b.size[1], (c & 4 ? 0.5 : -0.5) * b.size[2])
+        .applyQuaternion(q)
+        .add(new THREE.Vector3(...b.pos))
+        .applyMatrix4(m);
       box.expandByPoint(v);
     }
   }
@@ -130,7 +121,10 @@ const api = {
   /** One instance, framed, on a given clip and time. */
   solo(clipName = '', seconds = 0) {
     if (!crowd || !species) throw new Error('load() first');
-    const idx = Math.max(0, species.clips.findIndex((c) => c.name === clipName));
+    const idx = Math.max(
+      0,
+      species.clips.findIndex((c) => c.name === clipName),
+    );
     crowd.setCount(1);
     crowd.place(0, 0, 0, 0, 0);
     crowd.animate(0, idx, seconds, 0);
@@ -150,7 +144,10 @@ const api = {
   /** A block of them at a distance, which is the way the crowd is actually seen. */
   grid(count: number, clipName = '', spacing = 1.8, distance = 0) {
     if (!crowd || !species) throw new Error('load() first');
-    const idx = Math.max(0, species.clips.findIndex((c) => c.name === clipName));
+    const idx = Math.max(
+      0,
+      species.clips.findIndex((c) => c.name === clipName),
+    );
     const n = Math.min(count, crowd.capacity);
     const cols = Math.ceil(Math.sqrt(n));
     for (let i = 0; i < n; i++) {
@@ -173,7 +170,10 @@ const api = {
   /** Runs the clip in real time, for a recorded sequence rather than a still. */
   play(clipName = '', fromSeconds = 0) {
     if (!crowd || !species) throw new Error('load() first');
-    playClip = Math.max(0, species.clips.findIndex((c) => c.name === clipName));
+    playClip = Math.max(
+      0,
+      species.clips.findIndex((c) => c.name === clipName),
+    );
     playStart = performance.now() - fromSeconds * 1000;
     playing = true;
   },
@@ -195,7 +195,10 @@ const api = {
     if (!crowd || !species) throw new Error('load() first');
     api.grid(count, clipName);
     const gl = renderer.getContext() as WebGL2RenderingContext;
-    const idx = Math.max(0, species.clips.findIndex((c) => c.name === clipName));
+    const idx = Math.max(
+      0,
+      species.clips.findIndex((c) => c.name === clipName),
+    );
     const n = Math.min(count, crowd.capacity);
     const step = (t: number) => {
       for (let i = 0; i < n; i++) crowd!.animate(i, idx, t + (i % 97) * 0.031, i % 2);
@@ -314,15 +317,17 @@ const api = {
     if (!species) throw new Error('load() first');
     return posedBounds(species, clipName, frame);
   },
-
 };
 
 function frame() {
   if (playing && crowd && species) {
     const t = (performance.now() - playStart) / 1000;
-    const n = Math.max(1, (crowd.group.children[0] as THREE.Mesh).geometry instanceof THREE.InstancedBufferGeometry
-      ? ((crowd.group.children[0] as THREE.Mesh).geometry as THREE.InstancedBufferGeometry).instanceCount
-      : 1);
+    const n = Math.max(
+      1,
+      (crowd.group.children[0] as THREE.Mesh).geometry instanceof THREE.InstancedBufferGeometry
+        ? ((crowd.group.children[0] as THREE.Mesh).geometry as THREE.InstancedBufferGeometry).instanceCount
+        : 1,
+    );
     for (let i = 0; i < n; i++) crowd.animate(i, playClip, t + (i % 97) * 0.031, i % 2);
     crowd.flush();
     render();

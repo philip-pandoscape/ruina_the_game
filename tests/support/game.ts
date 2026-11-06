@@ -12,18 +12,18 @@ import type { GameApi } from '../../src/main';
 type Present<T> = T extends ArrayBufferView | ArrayBufferLike | Date | RegExp
   ? T
   : T extends (...args: infer A) => infer R
-  ? (...args: A) => Present<R>
-  : T extends Promise<infer P>
-    ? Promise<Present<P>>
-    : T extends ReadonlyArray<unknown>
-      ? { -readonly [K in keyof T]: Present<T[K]> }
-      : T extends Map<infer K, infer V>
-        ? Map<K, Present<V>>
-        : T extends Set<infer E>
-          ? Set<E>
-          : T extends object
-            ? { -readonly [K in keyof T]-?: Present<T[K]> }
-            : NonNullable<T>;
+    ? (...args: A) => Present<R>
+    : T extends Promise<infer P>
+      ? Promise<Present<P>>
+      : T extends ReadonlyArray<unknown>
+        ? { -readonly [K in keyof T]: Present<T[K]> }
+        : T extends Map<infer K, infer V>
+          ? Map<K, Present<V>>
+          : T extends Set<infer E>
+            ? Set<E>
+            : T extends object
+              ? { -readonly [K in keyof T]-?: Present<T[K]> }
+              : NonNullable<T>;
 
 declare global {
   interface Window {

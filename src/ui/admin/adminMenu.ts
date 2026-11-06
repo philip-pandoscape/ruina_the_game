@@ -31,7 +31,12 @@ const row = (p: DevPage): string =>
  * buttons carry `data-act="devpage"` and the page's id, for `openDevPage`.
  */
 export function adminListHtml(): string {
-  return SECTIONS.map(([kind, heading]) => `<div class="h">${heading}</div>${DEV_PAGES.filter((p) => p.kind === kind).map(row).join('')}`).join('');
+  return SECTIONS.map(
+    ([kind, heading]) =>
+      `<div class="h">${heading}</div>${DEV_PAGES.filter((p) => p.kind === kind)
+        .map(row)
+        .join('')}`,
+  ).join('');
 }
 
 /** Opens a developer zone or page in a new tab. */
@@ -50,7 +55,12 @@ export function adminCard(close: () => void): HTMLDivElement {
   });
   const done = el('button', { className: 'lui-btn fd-quiet', type: 'button', textContent: 'Close' });
   done.onclick = close;
-  const c = card('Admin', el('p', { className: 'fd-sub', textContent: 'Developer zones and pages, for admins only. Each opens in a new tab.' }), list, el('div', { className: 'fd-actions' }, done));
+  const c = card(
+    'Admin',
+    el('p', { className: 'fd-sub', textContent: 'Developer zones and pages, for admins only. Each opens in a new tab.' }),
+    list,
+    el('div', { className: 'fd-actions' }, done),
+  );
   c.classList.add('adm-card');
   return c;
 }

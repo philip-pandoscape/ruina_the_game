@@ -1,6 +1,20 @@
 import type { Obstacle } from '../types';
 import type { BoxCollider, Deck } from './types';
-import { furnitureDef, MODULE, modules, opening, sideLength, SIDES, STOREY, stairTreads, stairwell, turn, WALL, type BuildingPlan, type Side } from '../../content/buildings';
+import {
+  furnitureDef,
+  MODULE,
+  modules,
+  opening,
+  sideLength,
+  SIDES,
+  STOREY,
+  stairTreads,
+  stairwell,
+  turn,
+  WALL,
+  type BuildingPlan,
+  type Side,
+} from '../../content/buildings';
 
 // The solid parts of a building you can walk into (src/content/buildings.ts), from its plan:
 //   - its outer walls, as boxes broken at each doorway and arch;
@@ -118,7 +132,12 @@ function floorRects(plan: BuildingPlan, storey: number): Array<{ x: number; z: n
         used[j1 + 1][m] = true;
         j1++;
       }
-      out.push({ x: -plan.w / 2 + ((a + b) / 2) * MODULE, z: -plan.d / 2 + ((j + j1 + 1) / 2) * MODULE, hw: ((b - a) / 2) * MODULE, hd: ((j1 + 1 - j) / 2) * MODULE });
+      out.push({
+        x: -plan.w / 2 + ((a + b) / 2) * MODULE,
+        z: -plan.d / 2 + ((j + j1 + 1) / 2) * MODULE,
+        hw: ((b - a) / 2) * MODULE,
+        hd: ((j1 + 1 - j) / 2) * MODULE,
+      });
     });
   return out;
 }
@@ -150,7 +169,8 @@ export function buildingColliders(plan: BuildingPlan, x: number, z: number, rot:
     const ground = solidSpans(modules(plan.storeys[0][side]));
     for (const span of ground) out.boxes.push(slab(span, top));
     // Upstairs, wall where the ground floor has a doorway: solid up there, open below.
-    for (let s = 1; s < storeys; s++) for (const span of minus(solidSpans(modules(plan.storeys[s][side])), ground)) out.decks.push(slab(span, y + s * STOREY + HEAD));
+    for (let s = 1; s < storeys; s++)
+      for (const span of minus(solidSpans(modules(plan.storeys[s][side])), ground)) out.decks.push(slab(span, y + s * STOREY + HEAD));
   }
 
   for (let s = 1; s < storeys; s++) for (const r of floorRects(plan, s)) out.decks.push(place(r.x, r.z, r.hw, r.hd, 0, y + s * STOREY));

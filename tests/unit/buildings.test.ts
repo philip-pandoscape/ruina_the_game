@@ -1,5 +1,18 @@
 import { expect, test } from 'vitest';
-import { buildingPlan, furnitureDef, furnitureIds, MODULE, modules, opening, sideLength, SIDES, STOREY, stairwell, turn, WALL } from '../../src/content/buildings';
+import {
+  buildingPlan,
+  furnitureDef,
+  furnitureIds,
+  MODULE,
+  modules,
+  opening,
+  sideLength,
+  SIDES,
+  STOREY,
+  stairwell,
+  turn,
+  WALL,
+} from '../../src/content/buildings';
 import { structureDef, structureIds } from '../../src/content/structures';
 import { generateZone } from '../../src/sim/zone/generate';
 import { inRect } from '../../src/sim/zone/colliders';
@@ -16,7 +29,7 @@ test('every building plan fits its structure: walls round the footprint, stairs 
     const plan = buildingPlan(id)!;
     expect(plan, `${id} has a plan`).toBeTruthy();
     expect([plan.w, plan.d], `${id}: the plan's footprint is the structure's`).toEqual([def.w, def.d]);
-    expect(plan.w % MODULE + (plan.d % MODULE), `${id}: on the kit's grid`).toBe(0);
+    expect((plan.w % MODULE) + (plan.d % MODULE), `${id}: on the kit's grid`).toBe(0);
     expect([4, 6, 8], `${id}: the kit has a roof that spans it`).toContain(plan.roof.ridge === 'z' ? plan.w : plan.d);
     plan.storeys.forEach((st, s) => {
       for (const side of SIDES) {
@@ -30,7 +43,12 @@ test('every building plan fits its structure: walls round the footprint, stairs 
     for (const st of plan.stairs ?? []) {
       expect(st.storey, `${id}: stairs lead to a storey`).toBeLessThan(plan.storeys.length - 1);
       const well = stairwell(st);
-      for (const [a, b] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
+      for (const [a, b] of [
+        [-1, -1],
+        [1, -1],
+        [1, 1],
+        [-1, 1],
+      ]) {
         const [x, z] = turn(a * well.hw, b * well.hd, well.rot);
         expect(Math.abs(well.x + x), `${id}: stairwell inside`).toBeLessThanOrEqual(plan.w / 2 + 1e-6);
         expect(Math.abs(well.z + z), `${id}: stairwell inside`).toBeLessThanOrEqual(plan.d / 2 + 1e-6);
@@ -61,7 +79,12 @@ test('the rules wall each building with its doorways open, floor its upper store
       modules(b.plan.storeys[0][side]).forEach((ch, i) => {
         const len = sideLength(b.plan, side) * MODULE;
         const along = -len / 2 + MODULE / 2 + i * MODULE;
-        const frame = { front: [0, b.plan.d / 2, 0], right: [b.plan.w / 2, 0, Math.PI / 2], back: [0, -b.plan.d / 2, Math.PI], left: [-b.plan.w / 2, 0, -Math.PI / 2] }[side] as [number, number, number];
+        const frame = {
+          front: [0, b.plan.d / 2, 0],
+          right: [b.plan.w / 2, 0, Math.PI / 2],
+          back: [0, -b.plan.d / 2, Math.PI],
+          left: [-b.plan.w / 2, 0, -Math.PI / 2],
+        }[side] as [number, number, number];
         const [ox, oz] = turn(along, -WALL / 2, frame[2]);
         const [wx, wz] = turn(frame[0] + ox, frame[1] + oz, b.rot);
         const solid = b.boxes.some((box) => inRect(box, b.x + wx, b.z + wz));
@@ -70,7 +93,9 @@ test('the rules wall each building with its doorways open, floor its upper store
     }
     if (storeys > 1) {
       // A deck at each upper floor, at the storey's height.
-      const tops = new Set(gen.decks.filter((d) => Math.hypot(d.x - b.x, d.z - b.z) < Math.hypot(b.plan.w, b.plan.d) / 2).map((d) => +(d.top - b.y).toFixed(3)));
+      const tops = new Set(
+        gen.decks.filter((d) => Math.hypot(d.x - b.x, d.z - b.z) < Math.hypot(b.plan.w, b.plan.d) / 2).map((d) => +(d.top - b.y).toFixed(3)),
+      );
       for (let s = 1; s < storeys; s++) expect(tops.has(s * STOREY), `${b.id}: floor ${s}`).toBe(true);
     }
   }

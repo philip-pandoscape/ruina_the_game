@@ -197,7 +197,10 @@ function villager(id: string, look: Look, extra?: Extra): VillagerModel {
       headPivot.rotation.x = -hunch * 0.6 + Math.sin(t * 0.9) * 0.025 + talk * (0.07 * Math.sin(t * 6.3) - 0.04);
       headPivot.rotation.z = Math.sin(t * 0.53) * 0.04 * (1 - talk) + talk * 0.05 * Math.sin(t * 1.1);
       const idle = inside(t % 9, 6.2, 7.4, 0.5);
-      for (const [arm, rest, side, phase] of [[left, restL, 1, 0], [right, restR, -1, 2.1]] as const) {
+      for (const [arm, rest, side, phase] of [
+        [left, restL, 1, 0],
+        [right, restR, -1, 2.1],
+      ] as const) {
         if (!free.has(side > 0 ? 'l' : 'r')) {
           arm.rotation.set(rest.x + Math.sin(t * 1.7) * 0.015, rest.y, rest.z);
           continue;
@@ -311,32 +314,39 @@ const mara = () =>
       k.torso.add(box(0.48, 0.05, 0.33), PAL.cream, [0, 0.1, 0]);
       soft(k.head, 0.57, 0.24, 0.53, PAL.red, [0, 0.43, -0.02], undefined, 0.09);
       for (const sx of [-1, 1]) k.head.add(box(0.09, 0.12, 0.05), PAL.red, [sx * 0.05, 0.28, -0.28], [0, 0, sx * 0.4]);
-      for (const [x, z] of [[-0.15, 0.1], [0.12, 0.15], [0.0, -0.12], [0.18, -0.08]] as const) k.head.add(box(0.04, 0.04, 0.012), PAL.white, [x, 0.5, z + 0.12], [-1.2, 0, 0]);
+      for (const [x, z] of [
+        [-0.15, 0.1],
+        [0.12, 0.15],
+        [0.0, -0.12],
+        [0.18, -0.08],
+      ] as const)
+        k.head.add(box(0.04, 0.04, 0.012), PAL.white, [x, 0.5, z + 0.12], [-1.2, 0, 0]);
       k.held('l', (p, hand) => {
         const b = hand.clone().add(new THREE.Vector3(0.05, -0.2, 0.06));
         p.add(cyl(0.17, 0.13, 0.15, 8), 0xb98a55, [b.x, b.y, b.z]);
         p.add(tor(0.15, 0.015, 3, 8, Math.PI), 0x9a6a3c, [b.x, b.y + 0.07, b.z], [0, Math.PI / 2, 0]);
-        const fruit: Array<[number, number, Rgb]> = [[-0.06, 0.03, PAL.red], [0.06, 0.04, 0xd9a441], [0.0, -0.06, 0x6fbf4a], [0.07, -0.05, PAL.red]];
+        const fruit: Array<[number, number, Rgb]> = [
+          [-0.06, 0.03, PAL.red],
+          [0.06, 0.04, 0xd9a441],
+          [0.0, -0.06, 0x6fbf4a],
+          [0.07, -0.05, PAL.red],
+        ];
         for (const [x, z, c] of fruit) p.add(ico(0.06, 0), c, [b.x + x, b.y + 0.09, b.z + z]);
       });
     },
   );
 
 const tamsin = () =>
-  villager(
-    'tamsin',
-    { skin: SKIN[1], shirt: 0xeedfc0, rolled: true, pants: 0x6b4a32, boots: 0x3d2a1e, hair: 0xa0522d, style: 'ponytail' },
-    (k) => {
-      // Leather apron, a pack strap over one shoulder and the crate it holds on her back.
-      k.torso.add(box(0.38, 0.62, 0.03), 0x7a4a2a, [0, 0.12, 0.16]);
-      for (const sx of [-1, 1]) k.torso.add(box(0.03, 0.2, 0.03), 0x5a341d, [sx * 0.14, 0.42, 0.16]);
-      k.torso.add(box(0.08, 0.04, 0.035), PAL.brass, [0.1, 0.0, 0.18]);
-      k.torso.add(box(0.06, 0.62, 0.035), PAL.leatherDark, [0.02, 0.28, 0.165], [0, 0, 0.62]);
-      k.torso.add(box(0.06, 0.5, 0.035), PAL.leatherDark, [0.08, 0.3, -0.165], [0, 0, -0.5]);
-      k.torso.add(box(0.3, 0.36, 0.2), PAL.crate, [-0.06, 0.36, -0.27], [0.1, 0, -0.12]);
-      k.torso.add(box(0.32, 0.05, 0.22), PAL.woodDark, [-0.07, 0.5, -0.27], [0.1, 0, -0.12]);
-    },
-  );
+  villager('tamsin', { skin: SKIN[1], shirt: 0xeedfc0, rolled: true, pants: 0x6b4a32, boots: 0x3d2a1e, hair: 0xa0522d, style: 'ponytail' }, (k) => {
+    // Leather apron, a pack strap over one shoulder and the crate it holds on her back.
+    k.torso.add(box(0.38, 0.62, 0.03), 0x7a4a2a, [0, 0.12, 0.16]);
+    for (const sx of [-1, 1]) k.torso.add(box(0.03, 0.2, 0.03), 0x5a341d, [sx * 0.14, 0.42, 0.16]);
+    k.torso.add(box(0.08, 0.04, 0.035), PAL.brass, [0.1, 0.0, 0.18]);
+    k.torso.add(box(0.06, 0.62, 0.035), PAL.leatherDark, [0.02, 0.28, 0.165], [0, 0, 0.62]);
+    k.torso.add(box(0.06, 0.5, 0.035), PAL.leatherDark, [0.08, 0.3, -0.165], [0, 0, -0.5]);
+    k.torso.add(box(0.3, 0.36, 0.2), PAL.crate, [-0.06, 0.36, -0.27], [0.1, 0, -0.12]);
+    k.torso.add(box(0.32, 0.05, 0.22), PAL.woodDark, [-0.07, 0.5, -0.27], [0.1, 0, -0.12]);
+  });
 
 const bertram = () =>
   villager(
@@ -407,8 +417,32 @@ const ilsa = () =>
       k.torso.add(box(0.12, 0.14, 0.03), PAL.white, [0, 0.43, 0.16]);
       for (const arm of [k.armL, k.armR]) arm.add(box(0.15, 0.06, 0.16), PAL.gold, [0, -0.37, 0]);
       const hat = new Parts();
-      hat.add(extrude([[0, -0.4], [0.4, 0.24], [-0.4, 0.24]], 0.07), 0x1f2430, [0, 0.52, 0], [-Math.PI / 2, 0, 0]);
-      hat.add(extrude([[0, -0.43], [0.43, 0.26], [-0.43, 0.26]], 0.03), PAL.gold, [0, 0.5, 0], [-Math.PI / 2, 0, 0]);
+      hat.add(
+        extrude(
+          [
+            [0, -0.4],
+            [0.4, 0.24],
+            [-0.4, 0.24],
+          ],
+          0.07,
+        ),
+        0x1f2430,
+        [0, 0.52, 0],
+        [-Math.PI / 2, 0, 0],
+      );
+      hat.add(
+        extrude(
+          [
+            [0, -0.43],
+            [0.43, 0.26],
+            [-0.43, 0.26],
+          ],
+          0.03,
+        ),
+        PAL.gold,
+        [0, 0.5, 0],
+        [-Math.PI / 2, 0, 0],
+      );
       hat.add(cyl(0.2, 0.24, 0.16, 8), 0x1f2430, [0, 0.62, -0.02]);
       k.head.take(hat);
       k.held('r', (p, hand) => {
@@ -463,7 +497,13 @@ const ysolde = () =>
         k.head.add(cyl(0.058, 0.058, 0.02, 8), 0x7fd3c8, [sx * 0.11, 0.4, 0.28], [Math.PI / 2, 0, 0]);
       }
       const scarf = pivot(body, 0.08, 0.5 * k.h, -0.16, 'scarf');
-      mesh(scarf, new Parts().add(box(0.12, 0.42, 0.04), PAL.red, [0, -0.2, -0.02]).add(box(0.13, 0.06, 0.05), 0xf2c84b, [0, -0.39, -0.02]).build());
+      mesh(
+        scarf,
+        new Parts()
+          .add(box(0.12, 0.42, 0.04), PAL.red, [0, -0.2, -0.02])
+          .add(box(0.13, 0.06, 0.05), 0xf2c84b, [0, -0.39, -0.02])
+          .build(),
+      );
       return (t, talk) => {
         scarf.rotation.x = 0.35 + Math.sin(t * 2.6) * 0.12 + talk * 0.1;
         scarf.rotation.z = Math.sin(t * 1.9) * 0.15;
@@ -620,7 +660,7 @@ function beam3(a: V3, b: V3): THREE.BufferGeometry {
 const generic = (id: string) => {
   let h = 0;
   for (const ch of id) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
-  const pick = <T,>(xs: T[], salt: number) => xs[(h >>> salt) % xs.length];
+  const pick = <T>(xs: T[], salt: number) => xs[(h >>> salt) % xs.length];
   return villager(id, {
     skin: pick(SKIN, 1),
     shirt: pick([0x3a6ea5, 0x8a4a2a, 0x4f8f4a, 0xb8913f, 0x7a4a7a, 0xc0503a], 3),
@@ -637,4 +677,3 @@ const BUILD: Record<string, () => VillagerModel> = { hollis, mara, tamsin, bertr
 export function buildVillager(id: string): VillagerModel {
   return (BUILD[id] ?? (() => generic(id)))();
 }
-

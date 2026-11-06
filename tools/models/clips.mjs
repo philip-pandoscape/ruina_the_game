@@ -37,4 +37,10 @@ for (const node of root.listNodes()) {
 }
 await doc.transform(prune({ keepLeaves: true }));
 await io.write(outFile, doc);
-console.log('kept', root.listAnimations().map((a) => a.getName()).join(', '));
+console.log(
+  'kept',
+  root
+    .listAnimations()
+    .map((a) => a.getName())
+    .join(', '),
+);

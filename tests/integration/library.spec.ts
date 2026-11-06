@@ -50,7 +50,15 @@ test('every character lists its animations, and each opens and plays', async ({ 
   const results = await page.evaluate(async () => {
     const L = (window as unknown as { __library: Lib }).__library;
     const out: Array<{ id: string; frames: number; baked: number; bones: number }> = [];
-    for (const [s, a] of [['hero', 'sword'], ['slime', 'leap'], ['crowd-hero', 'run'], ['crowd-fighter', 'attack'], ['sheep', 'hungry'], ['villager-mara', 'talk'], ['mount-donkey', 'run']]) {
+    for (const [s, a] of [
+      ['hero', 'sword'],
+      ['slime', 'leap'],
+      ['crowd-hero', 'run'],
+      ['crowd-fighter', 'attack'],
+      ['sheep', 'hungry'],
+      ['villager-mara', 'talk'],
+      ['mount-donkey', 'run'],
+    ]) {
       await L.open(s, a);
       L.bakeAll();
       L.seek(5);

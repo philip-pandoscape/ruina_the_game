@@ -114,15 +114,13 @@ export const vary = (c: Rgb, rng: () => number, amount = 0.08): THREE.Color => m
 export const box = (w: number, h: number, d: number) => new THREE.BoxGeometry(w, h, d);
 /** A box with chamfered edges: reads as solid and catches a highlight on every edge. */
 export const bev = (w: number, h: number, d: number, r = 0.03, seg = 1) => new RoundedBoxGeometry(w, h, d, seg, r);
-export const cyl = (rTop: number, rBottom: number, h: number, sides = 8, open = false) =>
-  new THREE.CylinderGeometry(rTop, rBottom, h, sides, 1, open);
+export const cyl = (rTop: number, rBottom: number, h: number, sides = 8, open = false) => new THREE.CylinderGeometry(rTop, rBottom, h, sides, 1, open);
 export const cone = (r: number, h: number, sides = 8) => new THREE.ConeGeometry(r, h, sides);
 export const ico = (r: number, detail = 0) => new THREE.IcosahedronGeometry(r, detail);
 export const dodec = (r: number) => new THREE.DodecahedronGeometry(r, 0);
 export const octa = (r: number) => new THREE.OctahedronGeometry(r, 0);
 export const sph = (r: number, w = 8, h = 6) => new THREE.SphereGeometry(r, w, h);
-export const tor = (r: number, tube: number, radial = 4, tubular = 12, arc = TAU) =>
-  new THREE.TorusGeometry(r, tube, radial, tubular, arc);
+export const tor = (r: number, tube: number, radial = 4, tubular = 12, arc = TAU) => new THREE.TorusGeometry(r, tube, radial, tubular, arc);
 
 /** A box given by its extents rather than its centre: handy for walls and floors. */
 export function span(x0: number, x1: number, y0: number, y1: number, z0: number, z1: number): THREE.BufferGeometry {

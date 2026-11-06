@@ -48,7 +48,18 @@ export class TrainingRange {
   step(events: GameEvent[]): void {
     for (const e of events) {
       if (e.type === 'shoot') {
-        this.arrows.push({ x: e.x, y: e.y, z: e.z, dirX: e.dirX, dirZ: e.dirZ, speed: e.speed, left: e.range, damage: e.damage, weapon: e.weapon, spent: false });
+        this.arrows.push({
+          x: e.x,
+          y: e.y,
+          z: e.z,
+          dirX: e.dirX,
+          dirZ: e.dirZ,
+          speed: e.speed,
+          left: e.range,
+          damage: e.damage,
+          weapon: e.weapon,
+          spent: false,
+        });
       } else if (e.type === 'cast') {
         // Whatever the ability is made of, run each of its effects. The dummy is the only thing
         // out here to hit, so this is the server's rules narrowed to one target.

@@ -40,7 +40,8 @@ test('every piece and prop the buildings are made of is in the kit', async ({ pa
       }
     for (const id of c.furnitureIds()) {
       const f = c.furnitureDef(id);
-      for (const m of [f.model, ...(f.parts ?? []).map((p: { model: string }) => p.model)]) if (m && !m.startsWith('@') && !kit.pieces.has(m)) out.push(`${id}: ${m}`);
+      for (const m of [f.model, ...(f.parts ?? []).map((p: { model: string }) => p.model)])
+        if (m && !m.startsWith('@') && !kit.pieces.has(m)) out.push(`${id}: ${m}`);
     }
     return [...new Set(out)];
   });
@@ -56,8 +57,14 @@ test('into the inn through its door and up its stairs: cut open above you, the d
   };
   const stats = await w.stats();
   expect(stats.drawn, 'the village is drawn').toBeGreaterThan(10);
-  expect(stats.list.some((m: { name: string }) => m.name.startsWith('doors:')), 'with doors').toBe(true);
-  expect(stats.list.some((m: { name: string }) => m.name === 'fires'), 'and fires in the hearths').toBe(true);
+  expect(
+    stats.list.some((m: { name: string }) => m.name.startsWith('doors:')),
+    'with doors',
+  ).toBe(true);
+  expect(
+    stats.list.some((m: { name: string }) => m.name === 'fires'),
+    'and fires in the hearths',
+  ).toBe(true);
   // The inn faces south: its plan's +X is the world's -X, its +Z the world's -Z.
   await page.evaluate(() => window.__game.teleport(-24, -226.5, 0));
   await w.advance(50, { moveZ: 1 });

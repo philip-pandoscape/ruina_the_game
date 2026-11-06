@@ -4,7 +4,30 @@
 // open windows to this.
 
 /** Words a title keeps in lower case, unless they start or end it. */
-export const SMALL_WORDS: ReadonlySet<string> = new Set(['a', 'an', 'the', 'and', 'but', 'or', 'nor', 'for', 'so', 'yet', 'as', 'at', 'by', 'in', 'of', 'off', 'on', 'per', 'to', 'up', 'via', 'vs']);
+export const SMALL_WORDS: ReadonlySet<string> = new Set([
+  'a',
+  'an',
+  'the',
+  'and',
+  'but',
+  'or',
+  'nor',
+  'for',
+  'so',
+  'yet',
+  'as',
+  'at',
+  'by',
+  'in',
+  'of',
+  'off',
+  'on',
+  'per',
+  'to',
+  'up',
+  'via',
+  'vs',
+]);
 
 /** "sell all produce" → "Sell All Produce". Words already capitalised (names, "UI") are kept. */
 export function titleCase(text: string): string {

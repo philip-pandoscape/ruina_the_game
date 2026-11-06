@@ -26,7 +26,7 @@ export function makeZoneWorld(recipe: ZoneRecipe = EMBERHOLM): World {
   const s = recipe.slimes;
   for (let i = 0; i < s.count; i++) {
     const a = (i / s.count) * Math.PI * 2 + 0.4;
-    const r = s.r * (0.45 + 0.55 * ((i * 7) % 5) / 4);
+    const r = s.r * (0.45 + (0.55 * ((i * 7) % 5)) / 4);
     spawns.push({ kind: 'slime', x: s.x + Math.sin(a) * r, z: s.z + Math.cos(a) * r, seed: (recipe.seed ^ 0x51e0) + i * 0x9e3779b1 });
   }
   spawns.push({ kind: 'dummy', x: recipe.dummy.x, z: recipe.dummy.z });

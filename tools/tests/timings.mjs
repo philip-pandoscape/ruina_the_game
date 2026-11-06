@@ -55,8 +55,10 @@ const slowTests = [...tests].sort((a, b) => b.ms - a.ms).slice(0, top);
 const slowFiles = [...files.values()].sort((a, b) => b.ms - a.ms).slice(0, top);
 
 if (md) {
-  console.log(`Run: ${seconds(stats.duration ?? 0)} s on the clock, ${seconds(busy)} s of test time; ` +
-    `${counts.expected} passed, ${counts.unexpected} failed, ${counts.flaky} flaky, ${counts.skipped} skipped.\n`);
+  console.log(
+    `Run: ${seconds(stats.duration ?? 0)} s on the clock, ${seconds(busy)} s of test time; ` +
+      `${counts.expected} passed, ${counts.unexpected} failed, ${counts.flaky} flaky, ${counts.skipped} skipped.\n`,
+  );
   console.log('| Test | File | s |\n|---|---|---|');
   for (const t of slowTests) console.log(`| ${t.title.replaceAll('|', '/')} | ${t.file} | ${seconds(t.ms)} |`);
   console.log('\n| File | Tests | s | Failed |\n|---|---|---|---|');
@@ -67,7 +69,8 @@ if (md) {
   console.log(`Slowest ${slowTests.length} tests:`);
   for (const t of slowTests) console.log(`${seconds(t.ms).padStart(7)} s  ${t.file}  ${t.title}${t.outcome === 'expected' ? '' : `  [${t.outcome}]`}`);
   console.log(`\nSlowest ${slowFiles.length} files:`);
-  for (const f of slowFiles) console.log(`${seconds(f.ms).padStart(7)} s  ${String(f.count).padStart(3)} tests  ${f.file}${f.failed ? `  (${f.failed} failed)` : ''}`);
+  for (const f of slowFiles)
+    console.log(`${seconds(f.ms).padStart(7)} s  ${String(f.count).padStart(3)} tests  ${f.file}${f.failed ? `  (${f.failed} failed)` : ''}`);
   const failed = tests.filter((t) => t.outcome === 'unexpected' || t.outcome === 'flaky');
   if (failed.length) {
     console.log(`\nFailed or flaky:`);

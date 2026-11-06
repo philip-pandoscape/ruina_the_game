@@ -9,7 +9,22 @@ export const SCRIPT_EXTENSIONS = ['.ts', '.tsx', '.mts', '.js', '.mjs', '.cjs', 
 
 /** The files whose text can name other files: everything else is left alone. */
 const TEXT_EXTENSIONS = new Set([
-  '.ts', '.tsx', '.mts', '.js', '.mjs', '.cjs', '.json', '.html', '.css', '.md', '.yml', '.yaml', '.toml', '.rs', '.txt', '.tsv',
+  '.ts',
+  '.tsx',
+  '.mts',
+  '.js',
+  '.mjs',
+  '.cjs',
+  '.json',
+  '.html',
+  '.css',
+  '.md',
+  '.yml',
+  '.yaml',
+  '.toml',
+  '.rs',
+  '.txt',
+  '.tsv',
 ]);
 const TEXT_NAMES = new Set(['Dockerfile', '.dockerignore', '.gitignore', '.gitattributes']);
 
@@ -159,7 +174,9 @@ const HTML_ROOT = /(\b(?:src|href)\s*=\s*)(['"])(\/[^'"\n]*)\2/g;
 /** Rewrites the relative specifiers in a script (TypeScript or JavaScript) for the moves. */
 export function rewriteScript(text, fromFile, fromNew, ctx) {
   const { map, exists, moves, files } = ctx;
-  let out = text.replace(GLOB_CALL, (call) => call.replace(GLOB_STRING, (s, quote, pattern) => `${quote}${reglob(fromFile, fromNew, pattern, moves, map, files)}${quote}`));
+  let out = text.replace(GLOB_CALL, (call) =>
+    call.replace(GLOB_STRING, (s, quote, pattern) => `${quote}${reglob(fromFile, fromNew, pattern, moves, map, files)}${quote}`),
+  );
   out = out.replace(SPECIFIER, (m, lead, quote, spec) => `${lead}${quote}${respecify(fromFile, fromNew, spec, map, exists)}${quote}`);
   out = out.replace(URL_SPECIFIER, (m, lead, quote, spec, tail) => `${lead}${quote}${respecify(fromFile, fromNew, spec, map, exists)}${quote}${tail}`);
   out = out.replace(URL_TEMPLATE, (m, lead, dirSpec, tail) => `${lead}${refolder(fromFile, fromNew, dirSpec, moves, map, files)}${tail}`);

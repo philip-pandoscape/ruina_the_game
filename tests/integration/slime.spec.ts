@@ -20,13 +20,23 @@ const swordDamage = WEAPONS[0].combo[0].damage;
 const swordReach = WEAPONS[0].combo[0].reach;
 
 interface Actor {
-  id: number; kind: string; x: number; y: number; z: number;
-  hp: number; alive: boolean; state: string; deadFrame: number; flash: number;
+  id: number;
+  kind: string;
+  x: number;
+  y: number;
+  z: number;
+  hp: number;
+  alive: boolean;
+  state: string;
+  deadFrame: number;
+  flash: number;
 }
 
 function watchErrors(page: Page): string[] {
   const errors: string[] = [];
-  page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
+  page.on('console', (m) => {
+    if (m.type() === 'error') errors.push(m.text());
+  });
   page.on('pageerror', (e) => errors.push(String(e)));
   return errors;
 }
@@ -40,8 +50,7 @@ const open = async (page: Page, b?: Build) => {
 };
 
 const slimes = (page: Page) => page.evaluate(() => window.__game.actors('slime') as Actor[]);
-const place = (page: Page, i: number, x: number, z: number) =>
-  page.evaluate(([a, b, c]) => window.__game.placeActor('slime', a, b, c), [i, x, z] as const);
+const place = (page: Page, i: number, x: number, z: number) => page.evaluate(([a, b, c]) => window.__game.placeActor('slime', a, b, c), [i, x, z] as const);
 const advance = (page: Page, frames: number, actions: Record<string, unknown> = {}) =>
   page.evaluate(([f, a]) => window.__game.advance(f, a), [frames, actions] as const);
 const markers = async (page: Page) => (await page.evaluate(() => window.__game.combat())).markers as Array<{ kind: string; amount: number }>;

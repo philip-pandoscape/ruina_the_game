@@ -65,7 +65,11 @@ export const GRAPHICS = {
   /** The ground's textures (src/render/open/ground.ts); without them, its plain colours. */
   groundTextures: !LOW,
   /** The sun's shadows: how far round you they reach (metres each way), their map's size, how soft their edges are, and whether hills cast them. */
-  shadow: HIGH ? { reach: 70, mapSize: 4096, softness: 3, hills: true } : LOW ? { reach: 30, mapSize: 1024, softness: 1, hills: false } : { reach: 50, mapSize: 2048, softness: 2, hills: true },
+  shadow: HIGH
+    ? { reach: 70, mapSize: 4096, softness: 3, hills: true }
+    : LOW
+      ? { reach: 30, mapSize: 1024, softness: 1, hills: false }
+      : { reach: 50, mapSize: 2048, softness: 2, hills: true },
   /** Within this many metres of the middle of a wood its trees take their near shape, a few hundred leaf clumps a crown; past it, fewer and bigger clumps (src/render/open/foliage.ts). */
   treeNear: LOW ? 0 : 320,
   /** The far crowns' clumps, as a share of the full count (each grows to keep the crown as full). */
@@ -137,7 +141,17 @@ export const PALETTE: Palette = {
   sea: { shallow: 0x3fbfbe, deep: 0x15487a, foam: 0xf2f7f8, duskShallow: 0xd9a77e, duskDeep: 0x5a4f86 },
   sky: { top: 0x3f7fc6, horizon: 0xd4e6ef, goldTop: 0x5c74ad, goldHorizon: 0xf3bf8c, nightTop: 0x060d1f, nightHorizon: 0x16233d },
   worldTree: { leaves: 0x93aaab },
-  light: { sun: 0xfff3e0, goldSun: 0xff9a55, moon: 0x8fa6e8, sunIntensity: 3.6, sky: 0xc4dbf2, ground: 0x6f7a4a, nightSky: 0x40528a, nightGround: 0x141c22, fill: 1.3 },
+  light: {
+    sun: 0xfff3e0,
+    goldSun: 0xff9a55,
+    moon: 0x8fa6e8,
+    sunIntensity: 3.6,
+    sky: 0xc4dbf2,
+    ground: 0x6f7a4a,
+    nightSky: 0x40528a,
+    nightGround: 0x141c22,
+    fill: 1.3,
+  },
 };
 
 /** The screen effects (src/render/open/post.ts). */
@@ -159,5 +173,11 @@ export const POST = {
   /** How bright the sun's disc is in the sky, so it blooms. */
   sunDisc: 3,
   /** The grade, after tone mapping: saturation, contrast, cool shadows and warm highlights, dark corners. */
-  grade: { saturation: 1.03, contrast: 1.07, lift: [-0.008, 0.0, 0.012] as [number, number, number], gain: [1.02, 1.0, 0.97] as [number, number, number], vignette: 0.12 },
+  grade: {
+    saturation: 1.03,
+    contrast: 1.07,
+    lift: [-0.008, 0.0, 0.012] as [number, number, number],
+    gain: [1.02, 1.0, 0.97] as [number, number, number],
+    vignette: 0.12,
+  },
 };

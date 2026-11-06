@@ -37,7 +37,10 @@ if (!FETCH[source] || !id) {
 }
 
 // A fresh, empty folder per asset: downloads are untrusted until checked.
-const safe = id.replace(/^https?:\/\//, '').replace(/[^\w.-]+/g, '_').slice(0, 80);
+const safe = id
+  .replace(/^https?:\/\//, '')
+  .replace(/[^\w.-]+/g, '_')
+  .slice(0, 80);
 const out = path.join('scratch', 'assets', source, safe);
 if (fs.existsSync(out) && fs.readdirSync(out).length) {
   console.error(`${out} already holds a fetch: look there, or remove it first`);
@@ -51,11 +54,14 @@ const fileList = credit.files.map((f) => path.relative(out, f).replace(/\\/g, '/
 const row = `| ${credit.name} | \`src/...\` (where it goes) | [${credit.source}](${credit.page}) (${id}), by ${credit.author} | ${lic ? `[${lic.name}](${lic.url})` : credit.licence} |`;
 fs.writeFileSync(
   path.join(out, 'credit.json'),
-  JSON.stringify({ ...credit, id, files: fileList, licenceUrl: lic?.url ?? null, fetched: new Date().toISOString().slice(0, 10), creditsRow: row }, null, 2) + '\n',
+  JSON.stringify({ ...credit, id, files: fileList, licenceUrl: lic?.url ?? null, fetched: new Date().toISOString().slice(0, 10), creditsRow: row }, null, 2) +
+    '\n',
 );
 
 const bytes = credit.files.reduce((sum, f) => sum + (fs.existsSync(f) && fs.statSync(f).isFile() ? fs.statSync(f).size : 0), 0);
-console.log(`${credit.name} (${credit.source}, ${lic?.name ?? credit.licence}, by ${credit.author}): ${fileList.length} file(s), ${(bytes / 1024 / 1024).toFixed(1)} MB in ${out}`);
+console.log(
+  `${credit.name} (${credit.source}, ${lic?.name ?? credit.licence}, by ${credit.author}): ${fileList.length} file(s), ${(bytes / 1024 / 1024).toFixed(1)} MB in ${out}`,
+);
 for (const f of fileList.slice(0, 12)) console.log(`  ${f}`);
 if (fileList.length > 12) console.log(`  ... and ${fileList.length - 12} more`);
 if (!lic) console.log(`\nLicence "${credit.licence}": read it on ${credit.page} before using this; only CC0 and CC BY can go in this public repository.`);

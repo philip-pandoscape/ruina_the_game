@@ -397,13 +397,22 @@ export const SCENARIOS: Scenario[] = [
     label: 'Start, run, stop',
     ...sequence([stand(50), ramp(0, RUN, MOVE.groundAccel), move(70, RUN), ramp(RUN, 0, MOVE.groundDecel), stand(50)]),
   },
-  { id: 'crouch', group: 'Moving', label: 'Crouch', ...sequence([stand(40), { frames: 200, at: (f) => ({ input: { crouch: Math.min(1, f / MOVE.crouchEnterFrames) }, speed: 0 }) }]) },
+  {
+    id: 'crouch',
+    group: 'Moving',
+    label: 'Crouch',
+    ...sequence([stand(40), { frames: 200, at: (f) => ({ input: { crouch: Math.min(1, f / MOVE.crouchEnterFrames) }, speed: 0 }) }]),
+  },
   { id: 'sneak', group: 'Moving', label: 'Crouch walk', ...sequence([move(240, MOVE.crouchSpeed, { crouch: 1 })]) },
   {
     id: 'carry',
     group: 'Moving',
     label: 'Carrying a pack',
-    ...sequence([stand(60, { carry: true, stow: 1 }), ramp(0, RUN * 0.55, MOVE.groundAccel, { carry: true, stow: 1 }), move(180, RUN * 0.55, { carry: true, stow: 1 })]),
+    ...sequence([
+      stand(60, { carry: true, stow: 1 }),
+      ramp(0, RUN * 0.55, MOVE.groundAccel, { carry: true, stow: 1 }),
+      move(180, RUN * 0.55, { carry: true, stow: 1 }),
+    ]),
   },
   { id: 'turn', group: 'Moving', label: 'Running turns', ...sequence([move(90, RUN, { lean: 0.8 }), move(90, RUN, { lean: -0.8 })]) },
   {
@@ -422,10 +431,30 @@ export const SCENARIOS: Scenario[] = [
   { id: 'backpedal', group: 'Strafing', label: 'Back off', ...sequence([move(240, RUN * MOVE.backSpeed, { heading: Math.PI })]) },
   { id: 'backL', group: 'Strafing', label: 'Back off, diagonal', ...sequence([move(240, RUN * stanceShare(135 * DEG), { heading: 135 * DEG })]) },
   { id: 'aheadL', group: 'Strafing', label: 'Ahead, diagonal', ...sequence([move(240, RUN * stanceShare(45 * DEG), { heading: 45 * DEG })]) },
-  { id: 'strafeWalk', group: 'Strafing', label: 'Side-step at walking pace', ...sequence([course([[90, 120], [-90, 120]], WALK * 0.7)]) },
+  {
+    id: 'strafeWalk',
+    group: 'Strafing',
+    label: 'Side-step at walking pace',
+    ...sequence([
+      course(
+        [
+          [90, 120],
+          [-90, 120],
+        ],
+        WALK * 0.7,
+      ),
+    ]),
+  },
   { id: 'eight', group: 'Strafing', label: 'All eight ways', ...sequence([course([...EIGHT.map((d) => [d, 55] as [number, number]), [999, 40]])]) },
   { id: 'dodge8', group: 'Strafing', label: 'Dodge, eight ways', ...sequence(EIGHT.flatMap((d) => [stand(16), action('dodgeRoll', 0, d * DEG)])) },
-  { id: 'jump8', group: 'Strafing', label: 'Jump, four ways', ...sequence([0, 90, 180, -90].flatMap((d) => [move(20, RUN * stanceShare(d * DEG), { heading: d * DEG }), jump(RUN * stanceShare(d * DEG), -1, 20, d * DEG)])) },
+  {
+    id: 'jump8',
+    group: 'Strafing',
+    label: 'Jump, four ways',
+    ...sequence(
+      [0, 90, 180, -90].flatMap((d) => [move(20, RUN * stanceShare(d * DEG), { heading: d * DEG }), jump(RUN * stanceShare(d * DEG), -1, 20, d * DEG)]),
+    ),
+  },
   { id: 'flip8', group: 'Strafing', label: 'Double jump, four ways', ...sequence([0, 90, 180, -90].flatMap((d) => [stand(20), jump(0, 16, 24, 0, d * DEG)])) },
 
   // ---- In the air ----
@@ -435,13 +464,43 @@ export const SCENARIOS: Scenario[] = [
 
   // ---- Fighting ----
   { id: 'sword', group: 'Fighting', label: 'Sword combo', weapon: 0, ...sequence([stand(30), ...combo(0), stand(40)]) },
-  { id: 'swordSlow', group: 'Fighting', label: 'Sword, each swing to the end', weapon: 0, ...sequence([stand(20), swing(0, 0, false), stand(12), swing(0, 1, false), stand(12), swing(0, 2, false), stand(30)]) },
+  {
+    id: 'swordSlow',
+    group: 'Fighting',
+    label: 'Sword, each swing to the end',
+    weapon: 0,
+    ...sequence([stand(20), swing(0, 0, false), stand(12), swing(0, 1, false), stand(12), swing(0, 2, false), stand(30)]),
+  },
   { id: 'whirlwind', group: 'Fighting', label: 'Whirlwind', weapon: 0, ...sequence([stand(30), ...combo(0, 1), stand(40)]) },
   { id: 'club', group: 'Fighting', label: 'Club combo', weapon: 1, ...sequence([stand(30, { weapon: 1 }), ...combo(1), stand(40, { weapon: 1 })]) },
-  { id: 'staff', group: 'Fighting', label: 'Staff swing', weapon: 2, ...sequence([stand(30, { weapon: 2 }), swing(2, 0, false), stand(20, { weapon: 2 }), swing(2, 0, false), stand(30, { weapon: 2 })]) },
-  { id: 'bow', group: 'Fighting', label: 'Bow shots', weapon: 3, ...sequence([stand(30, { weapon: 3 }), swing(3, 0, false), swing(3, 0, false), swing(3, 0, false), stand(40, { weapon: 3 })]) },
-  { id: 'heal', group: 'Fighting', label: 'Cast: Healing Circle', weapon: 2, ...sequence([stand(30, { weapon: 2 }), cast(ABILITIES.findIndex((a) => a.id === 'heal')), stand(40, { weapon: 2 })]) },
-  { id: 'meteor', group: 'Fighting', label: 'Cast: Meteor', weapon: 2, ...sequence([stand(30, { weapon: 2 }), cast(ABILITIES.findIndex((a) => a.id === 'meteor')), stand(40, { weapon: 2 })]) },
+  {
+    id: 'staff',
+    group: 'Fighting',
+    label: 'Staff swing',
+    weapon: 2,
+    ...sequence([stand(30, { weapon: 2 }), swing(2, 0, false), stand(20, { weapon: 2 }), swing(2, 0, false), stand(30, { weapon: 2 })]),
+  },
+  {
+    id: 'bow',
+    group: 'Fighting',
+    label: 'Bow shots',
+    weapon: 3,
+    ...sequence([stand(30, { weapon: 3 }), swing(3, 0, false), swing(3, 0, false), swing(3, 0, false), stand(40, { weapon: 3 })]),
+  },
+  {
+    id: 'heal',
+    group: 'Fighting',
+    label: 'Cast: Healing Circle',
+    weapon: 2,
+    ...sequence([stand(30, { weapon: 2 }), cast(ABILITIES.findIndex((a) => a.id === 'heal')), stand(40, { weapon: 2 })]),
+  },
+  {
+    id: 'meteor',
+    group: 'Fighting',
+    label: 'Cast: Meteor',
+    weapon: 2,
+    ...sequence([stand(30, { weapon: 2 }), cast(ABILITIES.findIndex((a) => a.id === 'meteor')), stand(40, { weapon: 2 })]),
+  },
   { id: 'block', group: 'Fighting', label: 'Block', ...sequence([stand(30), action('block'), stand(40)]) },
   { id: 'sheathe', group: 'Fighting', label: 'Put away and draw', ...sequence([stand(30), stowing(0, 1), stand(40, { stow: 1 }), stowing(1, 0), stand(30)]) },
   {
@@ -475,7 +534,12 @@ export const SCENARIOS: Scenario[] = [
 
   // ---- Travel ----
   { id: 'swim', group: 'Travel', label: 'Swim', ...sequence([travel(240, 'swim', () => ({ effort: effortAt(SWIM.speed) }), SWIM.speed)]) },
-  { id: 'swimSprint', group: 'Travel', label: 'Swim, sprinting', ...sequence([travel(240, 'swim', () => ({ effort: effortAt(SWIM.sprintSpeed) }), SWIM.sprintSpeed)]) },
+  {
+    id: 'swimSprint',
+    group: 'Travel',
+    label: 'Swim, sprinting',
+    ...sequence([travel(240, 'swim', () => ({ effort: effortAt(SWIM.sprintSpeed) }), SWIM.sprintSpeed)]),
+  },
   {
     id: 'swimStart',
     group: 'Travel',
@@ -491,20 +555,64 @@ export const SCENARIOS: Scenario[] = [
     ]),
   },
   { id: 'tread', group: 'Travel', label: 'Tread water', ...sequence([travel(240, 'swim', () => ({ effort: 0 }))]) },
-  { id: 'glide', group: 'Travel', label: 'Glide', prop: 'glider', ...sequence([travel(360, 'glide', (t) => ({ bank: Math.sin(t * 1.2) * 0.9, rise: -0.15 }), 12)]) },
-  { id: 'ride', group: 'Travel', label: 'Ride', prop: 'horse', start: 1200, ...sequence([travel(240, 'ride', (t) => ({ effort: 0.5 + 0.5 * Math.sin(t * 0.8), bank: Math.sin(t * 0.6) * 0.5 }), 6)]) },
+  {
+    id: 'glide',
+    group: 'Travel',
+    label: 'Glide',
+    prop: 'glider',
+    ...sequence([travel(360, 'glide', (t) => ({ bank: Math.sin(t * 1.2) * 0.9, rise: -0.15 }), 12)]),
+  },
+  {
+    id: 'ride',
+    group: 'Travel',
+    label: 'Ride',
+    prop: 'horse',
+    start: 1200,
+    ...sequence([travel(240, 'ride', (t) => ({ effort: 0.5 + 0.5 * Math.sin(t * 0.8), bank: Math.sin(t * 0.6) * 0.5 }), 6)]),
+  },
   { id: 'drive', group: 'Travel', label: 'Drive', prop: 'cart', ...sequence([travel(240, 'drive', (t) => ({ bank: Math.sin(t * 1.1), effort: 0.6 }), 6)]) },
-  { id: 'driveRoadster', group: 'Travel', label: 'Drive the roadster', prop: 'roadster', ...sequence([travel(240, 'drive', (t) => ({ bank: Math.sin(t * 1.1), effort: 0.6 }), 9)]) },
-  { id: 'driveHauler', group: 'Travel', label: 'Drive the hauler', prop: 'hauler', ...sequence([travel(240, 'drive', (t) => ({ bank: Math.sin(t * 1.1), effort: 0.6 }), 5)]) },
+  {
+    id: 'driveRoadster',
+    group: 'Travel',
+    label: 'Drive the roadster',
+    prop: 'roadster',
+    ...sequence([travel(240, 'drive', (t) => ({ bank: Math.sin(t * 1.1), effort: 0.6 }), 9)]),
+  },
+  {
+    id: 'driveHauler',
+    group: 'Travel',
+    label: 'Drive the hauler',
+    prop: 'hauler',
+    ...sequence([travel(240, 'drive', (t) => ({ bank: Math.sin(t * 1.1), effort: 0.6 }), 5)]),
+  },
   { id: 'row', group: 'Travel', label: 'Row', prop: 'rowboat', ...sequence([travel(240, 'row', () => ({ effort: 1 }), 3)]) },
   {
     id: 'rowTurns',
     group: 'Travel',
     label: 'Row: turn, back water, spin, stop',
     prop: 'rowboat',
-    ...sequence([rowing([[0, 0, 40], [1, 0, 150], [1, 1, 150], [1, -1, 150], [0, 0, 100], [-1, 0, 150], [0, 1, 120], [0, -1, 120], [0.4, 0, 180], [0, 0, 90]])]),
+    ...sequence([
+      rowing([
+        [0, 0, 40],
+        [1, 0, 150],
+        [1, 1, 150],
+        [1, -1, 150],
+        [0, 0, 100],
+        [-1, 0, 150],
+        [0, 1, 120],
+        [0, -1, 120],
+        [0.4, 0, 180],
+        [0, 0, 90],
+      ]),
+    ]),
   },
-  { id: 'helm', group: 'Travel', label: 'At the helm', prop: 'sloop', ...sequence([travel(240, 'helm', (t) => ({ bank: Math.sin(t * 0.9) * 0.8, effort: 0.5 }), 5)]) },
+  {
+    id: 'helm',
+    group: 'Travel',
+    label: 'At the helm',
+    prop: 'sloop',
+    ...sequence([travel(240, 'helm', (t) => ({ bank: Math.sin(t * 0.9) * 0.8, effort: 0.5 }), 5)]),
+  },
   { id: 'sit', group: 'Travel', label: 'Passenger', prop: 'cart', ...sequence([travel(240, 'sit', () => ({ effort: 0.3 }), 6)]) },
 ];
 

@@ -175,7 +175,7 @@ export class CrowdView {
         // fighter is actually moving.
         let p = (phase[i] / TAU) % 1;
         if (p < 0) p += 1;
-        a = rows.run + Math.floor(p * FIGHTER_RUN_FRAMES) % FIGHTER_RUN_FRAMES;
+        a = rows.run + (Math.floor(p * FIGHTER_RUN_FRAMES) % FIGHTER_RUN_FRAMES);
         b = rows.idle;
         mix = 1 - Math.min(1, speed / CROWD_SPEED);
       }

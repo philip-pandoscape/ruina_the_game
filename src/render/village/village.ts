@@ -128,7 +128,12 @@ function shellOf(b: Entry['b']): BoxCollider[] {
     const [ox, oz] = turn(lx, lz, b.rot);
     return { x: b.x + ox, z: b.z + oz, hw: w / 2, hd: d / 2, rot: b.rot, cos: Math.cos(b.rot), sin: Math.sin(b.rot), top: Infinity };
   };
-  return [slab(0, hd - WALL / 2, b.plan.w, WALL), slab(0, -hd + WALL / 2, b.plan.w, WALL), slab(hw - WALL / 2, 0, WALL, b.plan.d), slab(-hw + WALL / 2, 0, WALL, b.plan.d)];
+  return [
+    slab(0, hd - WALL / 2, b.plan.w, WALL),
+    slab(0, -hd + WALL / 2, b.plan.w, WALL),
+    slab(hw - WALL / 2, 0, WALL, b.plan.d),
+    slab(-hw + WALL / 2, 0, WALL, b.plan.d),
+  ];
 }
 
 export class Village {
@@ -170,7 +175,15 @@ export class Village {
   }
 
   private entry(b: Entry['b'], index: number, stage: number): Entry {
-    return { b, world: at(b.x, b.y, b.z, b.rot), parts: assemble(b.plan, Math.round(b.x * 13 + b.z * 7), stage), storeys: b.plan.storeys.length, shell: shellOf(b), index, walled: stage >= 3 };
+    return {
+      b,
+      world: at(b.x, b.y, b.z, b.rot),
+      parts: assemble(b.plan, Math.round(b.x * 13 + b.z * 7), stage),
+      storeys: b.plan.storeys.length,
+      shell: shellOf(b),
+      index,
+      walled: stage >= 3,
+    };
   }
 
   private glowsOf(e: Entry): Glow[] {
@@ -333,7 +346,12 @@ export class Village {
    * Doors swing open for whoever is near them; the lamps nearest you are lit; what is too far from
    * `eye` (the camera) to be seen is left out.
    */
-  update(dt: number, people: Array<{ x: number; z: number }>, viewer: { x: number; y: number; z: number }, eye: { x: number; y: number; z: number } = viewer): void {
+  update(
+    dt: number,
+    people: Array<{ x: number; z: number }>,
+    viewer: { x: number; y: number; z: number },
+    eye: { x: number; y: number; z: number } = viewer,
+  ): void {
     this.time += dt;
     fireTime.value = this.time;
     // A room is lit warm by day through its windows; by night its lamps carry it.

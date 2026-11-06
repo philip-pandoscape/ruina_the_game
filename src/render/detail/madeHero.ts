@@ -16,7 +16,10 @@ import { madeWeapons, type MadeWeapons } from './madeWeapons';
 const HEIGHT = 1.78;
 
 // Vite turns this into a file URL; under Node there is no glob and no made hero.
-const urls = (typeof window !== 'undefined' ? import.meta.glob('../assets/models/hero*.glb', { query: '?url', import: 'default', eager: true }) : {}) as Record<string, string>;
+const urls = (typeof window !== 'undefined' ? import.meta.glob('../assets/models/hero*.glb', { query: '?url', import: 'default', eager: true }) : {}) as Record<
+  string,
+  string
+>;
 const file = (name: string): string | null => Object.entries(urls).find(([k]) => k.endsWith(`/${name}.glb`))?.[1] ?? null;
 /** Trying another body without shipping it: ?heroModel=/path/to/model.glb (and &heroHeight=1.7). */
 const params = typeof location !== 'undefined' ? new URLSearchParams(location.search) : null;
@@ -29,7 +32,11 @@ const RUN = file('hero_run');
  * its keyframed swings. ?swordMoves=keyed|meshy|quaternius (clubMoves=, ...) plays another set.
  */
 const SETS = Object.fromEntries(WEAPON_KEYS.map((w) => [w, params?.get(`${w}Moves`) ?? HERO_MOVE_SETS[w] ?? 'keyed']));
-const MOVES = WEAPON_KEYS.flatMap((w, weapon) => (HERO_MOVES[w]?.[SETS[w]] ?? []).map((m, hit) => ({ weapon, hit, m }))).filter((x) => x.m) as Array<{ weapon: number; hit: number; m: MoveClip }>;
+const MOVES = WEAPON_KEYS.flatMap((w, weapon) => (HERO_MOVES[w]?.[SETS[w]] ?? []).map((m, hit) => ({ weapon, hit, m }))).filter((x) => x.m) as Array<{
+  weapon: number;
+  hit: number;
+  m: MoveClip;
+}>;
 
 export interface MadeHero {
   fitted: Fitted;

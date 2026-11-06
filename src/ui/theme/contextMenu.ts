@@ -17,7 +17,6 @@ export interface MenuEntry {
 
 let menu: HTMLDivElement | null = null;
 
-
 /** Opens a menu titled `title` at a point on screen (CSS px, as a mouse event gives it). */
 export function openMenu(clientX: number, clientY: number, title: string, entries: MenuEntry[]): void {
   closeMenu();

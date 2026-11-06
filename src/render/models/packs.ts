@@ -69,9 +69,7 @@ function harvestCrate(p: Parts): void {
     [-0.15, h + 0.01, zc - 0.12],
     [0.03, h + 0.0, zc - 0.17],
   ];
-  tubers.forEach((t, i) =>
-    p.add(jiggle(ico(0.085, 0), 0.012, i), vary(0xd4a04a, rng, 0.12), t, [rng() * 3, rng() * 3, 0], [1, 0.75, 1.15]),
-  );
+  tubers.forEach((t, i) => p.add(jiggle(ico(0.085, 0), 0.012, i), vary(0xd4a04a, rng, 0.12), t, [rng() * 3, rng() * 3, 0], [1, 0.75, 1.15]));
   // Barley ears poking up at the back corner.
   for (let i = 0; i < 5; i++) {
     const bx = 0.12 + (i - 2) * 0.035;
@@ -103,7 +101,12 @@ function flaxBale(p: Parts): void {
   for (let i = 0; i < 14; i++) {
     const a = (i / 14) * Math.PI * 2;
     const r = 0.12 + (i % 3) * 0.05;
-    p.add(cone(0.03, 0.13, 4), vary(0xeee3bd, rng, 0.06), [Math.cos(a) * r * 0.9, 0.74, zc + Math.sin(a) * r * 0.75], [Math.sin(a) * 0.3, 0, -Math.cos(a) * 0.3]);
+    p.add(
+      cone(0.03, 0.13, 4),
+      vary(0xeee3bd, rng, 0.06),
+      [Math.cos(a) * r * 0.9, 0.74, zc + Math.sin(a) * r * 0.75],
+      [Math.sin(a) * 0.3, 0, -Math.cos(a) * 0.3],
+    );
   }
   // Three ropes.
   for (const y of [0.18, 0.36, 0.54]) oct(0.283, 0.035, y, PAL.rope);
@@ -165,15 +168,24 @@ function ciderCask(p: Parts): void {
   p.add(box(0.56, 0.04, 0.48), PAL.wood, [0, 0.02, -0.26]);
   // The cask, lying across the back.
   const r = (t: number) => 0.2 - 0.04 * (t / 0.3) ** 2;
-  const prof: Array<[number, number]> = [[0, -0.275], [0.15, -0.275], [0.165, -0.3]];
+  const prof: Array<[number, number]> = [
+    [0, -0.275],
+    [0.15, -0.275],
+    [0.165, -0.3],
+  ];
   for (const t of [-0.2, -0.1, 0, 0.1, 0.2]) prof.push([r(t), t]);
   prof.push([0.165, 0.3], [0.15, 0.275], [0, 0.275]);
   const cy = 0.24;
-  p.add(lathe(prof, 12), (c) => {
-    const a = Math.atan2(c.y - cy, c.z - zc);
-    const stave = Math.floor(((a + Math.PI) / (Math.PI * 2)) * 12);
-    return Math.abs(c.x) > 0.27 ? 0xb98a55 : stave % 2 ? 0x9a6436 : 0x8a5830;
-  }, [0, cy, zc], [0, 0, -Math.PI / 2]);
+  p.add(
+    lathe(prof, 12),
+    (c) => {
+      const a = Math.atan2(c.y - cy, c.z - zc);
+      const stave = Math.floor(((a + Math.PI) / (Math.PI * 2)) * 12);
+      return Math.abs(c.x) > 0.27 ? 0xb98a55 : stave % 2 ? 0x9a6436 : 0x8a5830;
+    },
+    [0, cy, zc],
+    [0, 0, -Math.PI / 2],
+  );
   for (const t of [-0.22, -0.1, 0.1, 0.22]) {
     p.add(ring(r(t) - 0.004, r(t) + 0.012, 0.028, 12), PAL.iron, [t, cy, zc], [0, 0, -Math.PI / 2]);
   }

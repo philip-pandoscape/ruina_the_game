@@ -71,7 +71,11 @@ export class ActorView {
    * `capacity` is the most actors of any one species that can be on screen at once. `ground`, in
    * an open world, is the terrain height to stand them on.
    */
-  constructor(kinds: readonly string[], private capacity = 64, private ground: ((x: number, z: number) => number) | null = null) {
+  constructor(
+    kinds: readonly string[],
+    private capacity = 64,
+    private ground: ((x: number, z: number) => number) | null = null,
+  ) {
     for (const id of kinds) {
       const kind = actorKind(id);
       if (!kind.species || this.packs.has(packKey(kind))) continue;

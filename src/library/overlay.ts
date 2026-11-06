@@ -128,7 +128,16 @@ function ghostMaterial(color: number, opacity: number): THREE.Material {
   let m = ghostMaterials.get(key);
   if (!m) {
     // Pushed back a touch in depth: where a ghost lies on the body it hides, so only what differs shows.
-    m = new THREE.MeshBasicMaterial({ color, transparent: true, opacity, depthWrite: false, toneMapped: false, polygonOffset: true, polygonOffsetFactor: 2, polygonOffsetUnits: 8 });
+    m = new THREE.MeshBasicMaterial({
+      color,
+      transparent: true,
+      opacity,
+      depthWrite: false,
+      toneMapped: false,
+      polygonOffset: true,
+      polygonOffsetFactor: 2,
+      polygonOffsetUnits: 8,
+    });
     ghostMaterials.set(key, m);
   }
   return m;
@@ -220,7 +229,10 @@ export class Trails {
       const line = new THREE.Line(g, new THREE.LineBasicMaterial({ color: mark.color, transparent: true, opacity: 0.75, depthTest: false, toneMapped: false }));
       line.renderOrder = 990;
       line.frustumCulled = false;
-      const dot = new THREE.Mesh(new THREE.SphereGeometry(0.018, 10, 8), new THREE.MeshBasicMaterial({ color: mark.color, depthTest: false, toneMapped: false }));
+      const dot = new THREE.Mesh(
+        new THREE.SphereGeometry(0.018, 10, 8),
+        new THREE.MeshBasicMaterial({ color: mark.color, depthTest: false, toneMapped: false }),
+      );
       dot.renderOrder = 991;
       this.group.add(line, dot);
       this.paths.push({ mark, points: pts[i], line, dot });

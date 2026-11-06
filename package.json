@@ -17,7 +17,7 @@
     "test:integration": "playwright test",
     "test:stress": "playwright test -c playwright.stress.config.ts",
     "test:all": "npm run test:unit && npm run test:conformance && npm run test:integration && npm run test:stress",
-    "check": "npm run typecheck && npm run deadcode && npm run lint:rust && npm run test:unit",
+    "check": "npm run typecheck && npm run lint && npm run deadcode && npm run lint:rust && npm run test:unit",
     "check:beta": "npm run check && npm run test:conformance && npm run test:integration",
     "check:release": "npm run check:beta && npm run test:stress",
     "bake": "node tools/tests/bake.mjs",
@@ -30,13 +30,16 @@
     "skilltree": "node tools/skilltree/gen.mjs",
     "deadcode": "knip --no-progress",
     "lint:rust": "node tools/cargo.mjs fmt --all --check && node tools/cargo.mjs clippy --workspace --all-targets -- -D warnings",
-    "format:rust": "node tools/cargo.mjs fmt --all"
+    "format:rust": "node tools/cargo.mjs fmt --all",
+    "lint": "biome check .",
+    "format": "biome format --write . && npm run format:rust"
   },
   "type": "module",
   "dependencies": {
     "three": "^0.187.0"
   },
   "devDependencies": {
+    "@biomejs/biome": "2.6.5",
     "@gltf-transform/core": "^4.5.1",
     "@gltf-transform/extensions": "^4.5.1",
     "@gltf-transform/functions": "^4.5.1",

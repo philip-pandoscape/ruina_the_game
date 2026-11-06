@@ -114,25 +114,22 @@ test('a dodge cannot be hit during its invulnerable frames', async ({ page }) =>
 
 test('a guard lets only part of a hit through, and holds its ground', async ({ page }) => {
   await ready(page, DUELIST);
-  const seen = await page.evaluate(
-    (startup) => {
-      const g = window.__game;
-      g.reset({});
-      // Slot 2 is the block; hold it so it stays up.
-      g.advance(1, { movementSlot: 2, movementHeld: 2 });
-      for (let i = 0; i < (startup as number) + 2; i++) g.advance(1, { movementHeld: 2 });
-      const before = g.state().player;
-      g.takeHit(40, 0, 1, 6);
-      const after = g.state().player;
-      return {
-        mode: before.mode,
-        taken: before.hp - after.hp,
-        stillGuarding: after.mode,
-        knockback: Math.hypot(after.vel.x, after.vel.z),
-      };
-    },
-    guard.startup,
-  );
+  const seen = await page.evaluate((startup) => {
+    const g = window.__game;
+    g.reset({});
+    // Slot 2 is the block; hold it so it stays up.
+    g.advance(1, { movementSlot: 2, movementHeld: 2 });
+    for (let i = 0; i < (startup as number) + 2; i++) g.advance(1, { movementHeld: 2 });
+    const before = g.state().player;
+    g.takeHit(40, 0, 1, 6);
+    const after = g.state().player;
+    return {
+      mode: before.mode,
+      taken: before.hp - after.hp,
+      stillGuarding: after.mode,
+      knockback: Math.hypot(after.vel.x, after.vel.z),
+    };
+  }, guard.startup);
   expect(seen.mode).toBe('action');
   expect(seen.taken).toBeCloseTo(40 * (guard.damageTaken ?? 1), 5);
   expect(seen.stillGuarding).toBe('action'); // a guard isn't broken by one hit
@@ -230,7 +227,10 @@ test('getting back up after a knock-down fills stamina and MP', async ({ page })
     const knocked = g.state().player;
     g.advance((down as number) + 2, {});
     const up = g.state().player;
-    return { knocked: { stamina: knocked.stamina, mp: knocked.mp, down: knocked.downFrame }, up: { stamina: up.stamina, mp: up.mp, delay: up.staminaDelay, down: up.downFrame } };
+    return {
+      knocked: { stamina: knocked.stamina, mp: knocked.mp, down: knocked.downFrame },
+      up: { stamina: up.stamina, mp: up.mp, delay: up.staminaDelay, down: up.downFrame },
+    };
   }, COMBAT.downFrames);
   expect(seen.knocked.down).toBeGreaterThanOrEqual(0);
   expect(seen.knocked.stamina).toBeLessThan(STAMINA.max);
@@ -254,22 +254,19 @@ test('the tree is what grants a movement skill', async ({ page }) => {
 
 test('the slide runs for exactly its tuned frames and no longer', async ({ page }) => {
   await ready(page, ROLLER);
-  const frames = await page.evaluate(
-    (slide) => {
-      const g = window.__game;
-      g.reset({});
-      g.advance(1, { moveZ: 1, slidePressed: true });
-      let n = 0;
-      for (let i = 0; i < 90; i++) {
-        const p = g.state().player;
-        if (p.mode !== 'action' || p.actionId !== slide) break;
-        n++;
-        g.advance(1, { moveZ: 1 });
-      }
-      return n;
-    },
-    SLIDE_SKILL,
-  );
+  const frames = await page.evaluate((slide) => {
+    const g = window.__game;
+    g.reset({});
+    g.advance(1, { moveZ: 1, slidePressed: true });
+    let n = 0;
+    for (let i = 0; i < 90; i++) {
+      const p = g.state().player;
+      if (p.mode !== 'action' || p.actionId !== slide) break;
+      n++;
+      g.advance(1, { moveZ: 1 });
+    }
+    return n;
+  }, SLIDE_SKILL);
   // An action with no recovery ends on the last of its active frames, not one after it.
   expect(frames).toBe(MOVEMENT_SKILLS[SLIDE_SKILL].action.active);
 });
@@ -318,16 +315,13 @@ test('the slide is built in, not something the tree hands out', async ({ page })
   const bogus = { ...ROLLER, movement: moves(SLIDE_SKILL) };
   expect(await page.evaluate((b) => window.__game.setBuild(b), bogus)).toBe(false);
   // But everyone can still slide.
-  const slid = await page.evaluate(
-    (slide) => {
-      const g = window.__game;
-      g.reset({});
-      g.advance(1, { moveZ: 1, slidePressed: true });
-      const p = g.state().player;
-      return p.mode === 'action' && p.actionId === slide;
-    },
-    SLIDE_SKILL,
-  );
+  const slid = await page.evaluate((slide) => {
+    const g = window.__game;
+    g.reset({});
+    g.advance(1, { moveZ: 1, slidePressed: true });
+    const p = g.state().player;
+    return p.mode === 'action' && p.actionId === slide;
+  }, SLIDE_SKILL);
   expect(slid).toBe(true);
 });
 

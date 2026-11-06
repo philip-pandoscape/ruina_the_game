@@ -66,7 +66,7 @@ const BY_HAND = {
   animation: [
     "Quaternius' Universal Animation Library 1 and 2 (CC0): fetch itch quaternius/universal-animation-library and quaternius/universal-animation-library-2",
     "Meshy's animation library on our hero's own skeleton: meshy_list_animations (free to look; 3 credits a clip, say so first)",
-    'Mixamo (Adobe account, the user\'s hands; never commit raw Mixamo files: the repository is public)',
+    "Mixamo (Adobe account, the user's hands; never commit raw Mixamo files: the repository is public)",
   ],
 };
 

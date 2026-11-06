@@ -144,7 +144,8 @@ function gable(p: Parts, r: Roof, rng: () => number): void {
   }
   if (r.thatch) {
     p.add(cyl(0.3, 0.3, L + 0.2, 7), r.cap, [xc, r.ridge - 0.06, zm], [0, 0, Math.PI / 2]);
-    for (let k = 0; k < 5; k++) p.add(cyl(0.32, 0.32, 0.12, 7), mix(r.cap, PAL.woodDark, 0.3), [r.x0 - r.over + 0.3 + (k * (L - 0.6)) / 4, r.ridge - 0.06, zm], [0, 0, Math.PI / 2]);
+    for (let k = 0; k < 5; k++)
+      p.add(cyl(0.32, 0.32, 0.12, 7), mix(r.cap, PAL.woodDark, 0.3), [r.x0 - r.over + 0.3 + (k * (L - 0.6)) / 4, r.ridge - 0.06, zm], [0, 0, Math.PI / 2]);
   } else {
     p.add(box(L + 0.06, 0.2, 0.2), r.cap, [xc, r.ridge - 0.03, zm], [Math.PI / 4, 0, 0]);
   }
@@ -215,7 +216,15 @@ function windowOn(c: Ctx, at: V3, yaw: number, w: number, h: number, o: WindowLo
 }
 
 /** A plank door (or two leaves) in a frame, hinged at the edges; `open` swings it outward. */
-function doorOn(c: Ctx, at: V3, yaw: number, w: number, h: number, colour: Rgb, o: { open?: number; double?: boolean; arch?: boolean; lit?: boolean } = {}): void {
+function doorOn(
+  c: Ctx,
+  at: V3,
+  yaw: number,
+  w: number,
+  h: number,
+  colour: Rgb,
+  o: { open?: number; double?: boolean; arch?: boolean; lit?: boolean } = {},
+): void {
   const p = new Parts();
   const leaves = o.double ? 2 : 1;
   const lw = w / leaves;
@@ -235,12 +244,25 @@ function doorOn(c: Ctx, at: V3, yaw: number, w: number, h: number, colour: Rgb, 
     const open = o.open ?? 0;
     p.take(leaf, [hinge, 0, 0.02], [0, -dir * open, 0]);
   }
-  if (o.arch && o.lit) c.glow.take(new Parts().add(cyl(w / 2, w / 2, 0.04, 8, false), PAL.glow, [0, h + 0.01, -0.02], [Math.PI / 2, 0, 0], [1, 1, 1]), at, [0, yaw, 0]);
+  if (o.arch && o.lit)
+    c.glow.take(new Parts().add(cyl(w / 2, w / 2, 0.04, 8, false), PAL.glow, [0, h + 0.01, -0.02], [Math.PI / 2, 0, 0], [1, 1, 1]), at, [0, yaw, 0]);
   c.body.take(p, at, [0, yaw, 0]);
 }
 
 /** Scatters proud stones over the faces of a box, skipping any `avoid` rects on the front face. */
-function stones(p: Parts, rng: () => number, x0: number, x1: number, y0: number, y1: number, z0: number, z1: number, n: number, base: Rgb, avoid: Hole[] = []): void {
+function stones(
+  p: Parts,
+  rng: () => number,
+  x0: number,
+  x1: number,
+  y0: number,
+  y1: number,
+  z0: number,
+  z1: number,
+  n: number,
+  base: Rgb,
+  avoid: Hole[] = [],
+): void {
   const faces = [
     { len: x1 - x0, at: (u: number, v: number): V3 => [x0 + u, v, z1 + 0.025], yaw: 0, front: true },
     { len: x1 - x0, at: (u: number, v: number): V3 => [x0 + u, v, z0 - 0.025], yaw: 0, front: false },
@@ -269,7 +291,17 @@ function chimney(p: Parts, x: number, z: number, y0: number, y1: number, w = 0.7
 }
 
 /** Timber framing on the outside of a wall line a -> b: plates, posts at `posts`, braces. */
-function framing(p: Parts, c: Rgb, a: readonly [number, number], b: readonly [number, number], y0: number, y1: number, posts: number[], braces: Array<[number, number]>, rails: number[] = []): void {
+function framing(
+  p: Parts,
+  c: Rgb,
+  a: readonly [number, number],
+  b: readonly [number, number],
+  y0: number,
+  y1: number,
+  posts: number[],
+  braces: Array<[number, number]>,
+  rails: number[] = [],
+): void {
   const dx = b[0] - a[0];
   const dz = b[1] - a[1];
   const L = Math.hypot(dx, dz);
@@ -314,7 +346,13 @@ function lantern(c: Ctx, at: V3, s = 1): void {
   c.glow.add(box(0.16 * s, 0.22 * s, 0.16 * s), PAL.glow, [x, y, z]);
   c.body.add(box(0.22 * s, 0.04 * s, 0.22 * s), PAL.iron, [x, y - 0.13 * s, z]);
   c.body.add(cone(0.16 * s, 0.14 * s, 4), PAL.iron, [x, y + 0.18 * s, z], [0, Math.PI / 4, 0]);
-  for (const [dx, dz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]] as const) c.body.add(box(0.025 * s, 0.24 * s, 0.025 * s), PAL.iron, [x + dx * 0.085 * s, y, z + dz * 0.085 * s]);
+  for (const [dx, dz] of [
+    [-1, -1],
+    [1, -1],
+    [-1, 1],
+    [1, 1],
+  ] as const)
+    c.body.add(box(0.025 * s, 0.24 * s, 0.025 * s), PAL.iron, [x + dx * 0.085 * s, y, z + dz * 0.085 * s]);
 }
 
 // ---------- the cottage (the player's house), in five stages ----------
@@ -348,18 +386,40 @@ const cottage: Builder = (c) => {
 
   if (stage === 0) {
     // Site: corner stakes and string lines, a heap of stones and a stack of timber.
-    for (const [x, z] of [[-W, -D], [W, -D], [W, D], [-W, D]] as const) {
+    for (const [x, z] of [
+      [-W, -D],
+      [W, -D],
+      [W, D],
+      [-W, D],
+    ] as const) {
       p.add(box(0.07, 0.75, 0.07), PAL.woodLight, [x, 0.375, z]);
       p.add(box(0.075, 0.12, 0.075), PAL.red, [x, 0.7, z]);
     }
-    const corners: V3[] = [[-W, 0.55, -D], [W, 0.55, -D], [W, 0.55, D], [-W, 0.55, D]];
+    const corners: V3[] = [
+      [-W, 0.55, -D],
+      [W, 0.55, -D],
+      [W, 0.55, D],
+      [-W, 0.55, D],
+    ];
     for (let k = 0; k < 4; k++) p.addAll(rope(corners[k], corners[(k + 1) % 4], 0.04, 0.012, 3), PAL.white);
-    for (let k = 0; k < 9; k++) p.add(jiggle(dodec(0.22 + rng() * 0.1), 0.04, k), vary(PAL.stone, rng, 0.12), [2.2 + rng() * 1.2, 0.15 + (k > 5 ? 0.25 : 0), 1.2 + rng() * 1.2], [rng() * 3, rng() * 3, 0], [1, 0.75, 1]);
+    for (let k = 0; k < 9; k++)
+      p.add(
+        jiggle(dodec(0.22 + rng() * 0.1), 0.04, k),
+        vary(PAL.stone, rng, 0.12),
+        [2.2 + rng() * 1.2, 0.15 + (k > 5 ? 0.25 : 0), 1.2 + rng() * 1.2],
+        [rng() * 3, rng() * 3, 0],
+        [1, 0.75, 1],
+      );
   }
   if (stage <= 1) {
     for (let k = 0; k < 7; k++) {
       const layer = Math.floor(k / 3);
-      p.add(box(3.2, 0.12, 0.26), vary(PAL.woodLight, rng, 0.08), [-2.0, 0.08 + layer * 0.13, -1.6 + (k % 3) * 0.3 + layer * 0.12], [0, 0.04 * (rng() - 0.5), 0]);
+      p.add(
+        box(3.2, 0.12, 0.26),
+        vary(PAL.woodLight, rng, 0.08),
+        [-2.0, 0.08 + layer * 0.13, -1.6 + (k % 3) * 0.3 + layer * 0.12],
+        [0, 0.04 * (rng() - 0.5), 0],
+      );
     }
   }
   if (stage >= 1) {
@@ -377,12 +437,51 @@ const cottage: Builder = (c) => {
     // Timber frame: posts, plates, braces, the gables' king posts and the roof's rafters.
     const T = PAL.woodDark;
     const e = 0.07;
-    framing(p, T, [-W, D - e], [W, D - e], F, top, [0.08, W - door / 2 - 0.08, W + door / 2 + 0.08, 2 * W - 0.08, 1.6, 2 * W - 1.6], [[0.1, 1.5], [2 * W - 0.1, 2 * W - 1.5]], stage >= 3 ? [] : [F + 1.0]);
-    framing(p, T, [W, -D + e], [-W, -D + e], F, top, [0.08, 2 * W - 0.08, W, 1.9, 2 * W - 1.9], [[0.1, 1.8], [2 * W - 0.1, 2 * W - 1.8]], [F + 1.0]);
+    framing(
+      p,
+      T,
+      [-W, D - e],
+      [W, D - e],
+      F,
+      top,
+      [0.08, W - door / 2 - 0.08, W + door / 2 + 0.08, 2 * W - 0.08, 1.6, 2 * W - 1.6],
+      [
+        [0.1, 1.5],
+        [2 * W - 0.1, 2 * W - 1.5],
+      ],
+      stage >= 3 ? [] : [F + 1.0],
+    );
+    framing(
+      p,
+      T,
+      [W, -D + e],
+      [-W, -D + e],
+      F,
+      top,
+      [0.08, 2 * W - 0.08, W, 1.9, 2 * W - 1.9],
+      [
+        [0.1, 1.8],
+        [2 * W - 0.1, 2 * W - 1.8],
+      ],
+      [F + 1.0],
+    );
     for (const sx of [-1, 1]) {
       const x = sx * (W - e);
       const posts = [0.08, 2 * D - 0.08, D - 1.6 - 0.55, D - 1.6 + 0.55, D + 1.6 - 0.55, D + 1.6 + 0.55];
-      framing(p, T, [x, -D], [x, D], F, top, posts, [[D - 0.3, D - 0.9], [D + 0.3, D + 0.9]], [winY - 0.62, winY + 0.62]);
+      framing(
+        p,
+        T,
+        [x, -D],
+        [x, D],
+        F,
+        top,
+        posts,
+        [
+          [D - 0.3, D - 0.9],
+          [D + 0.3, D + 0.9],
+        ],
+        [winY - 0.62, winY + 0.62],
+      );
     }
     const ridgeY = roofUnder(roof, 0);
     for (const sx of [-1, 1]) p.add(box(0.16, ridgeY - top, 0.16), T, [sx * (W - e), (top + ridgeY) / 2, 0]);
@@ -408,8 +507,30 @@ const cottage: Builder = (c) => {
     wall(p, PAL.plaster, [inset(-W), -D], [inset(-W), D], F, top, tt, winHoles(winZ));
     for (const sx of [-1, 1]) {
       const peak = roofUnder(roof, 0);
-      p.add(prismZY([[-D, top], [D, top], [0, peak]], sx * (W - o - tt / 2), tt), PAL.plaster);
-      p.add(prismZY([[-0.4, top], [0.4, top], [0, peak - 0.1]], sx * (W - 0.035), 0.07), PAL.woodDark);
+      p.add(
+        prismZY(
+          [
+            [-D, top],
+            [D, top],
+            [0, peak],
+          ],
+          sx * (W - o - tt / 2),
+          tt,
+        ),
+        PAL.plaster,
+      );
+      p.add(
+        prismZY(
+          [
+            [-0.4, top],
+            [0.4, top],
+            [0, peak - 0.1],
+          ],
+          sx * (W - 0.035),
+          0.07,
+        ),
+        PAL.woodDark,
+      );
       p.add(box(0.14, 0.14, 2 * D), PAL.woodDark, [sx * (W - 0.07), top + 0.07, 0]);
     }
     if (stage === 3) {
@@ -480,10 +601,20 @@ const townhouse: Builder = (c) => {
   const doorX = -2.4;
   const winX = [0.6, 2.6];
   const holes: Hole[] = [[doorX - 0.55, doorX + 0.55, 0, 2.2], ...winX.map((x) => [x - 0.5, x + 0.5, 1.1, 2.2] as const)];
-  wall(p, PAL.stone, [-W + j, D - j - 0.2], [W - j, D - j - 0.2], 0, g1, 0.4, holes.map(([a, b, y0, y1]) => [a + W - j, b + W - j, y0, y1] as const));
+  wall(
+    p,
+    PAL.stone,
+    [-W + j, D - j - 0.2],
+    [W - j, D - j - 0.2],
+    0,
+    g1,
+    0.4,
+    holes.map(([a, b, y0, y1]) => [a + W - j, b + W - j, y0, y1] as const),
+  );
   p.add(span(-W + j, W - j, 0, g1, -D, D - j - 0.4), PAL.stone);
   stones(p, rng, -W + j, W - j, 0.1, g1 - 0.1, -D, D - j, 40, PAL.stoneDark, holes);
-  for (const sx of [-1, 1]) for (let k = 0; k < 5; k++) p.add(box(0.3, 0.3, 0.3), PAL.stoneLight, [sx * (W - j - 0.1), 0.3 + k * 0.62, D - j - 0.1 + (k % 2) * 0.05]);
+  for (const sx of [-1, 1])
+    for (let k = 0; k < 5; k++) p.add(box(0.3, 0.3, 0.3), PAL.stoneLight, [sx * (W - j - 0.1), 0.3 + k * 0.62, D - j - 0.1 + (k % 2) * 0.05]);
   doorOn(c, [doorX, 0, D - j], 0, 1.1, 2.1, 0x9c3b31, {});
   p.add(box(1.7, 0.08, 0.6), PAL.woodDark, [doorX, 2.45, D - j + 0.25], [0.25, 0, 0]);
   for (const x of winX) windowOn(c, [x, 1.65, D - j], 0, 1.0, 1.1, {});
@@ -491,16 +622,79 @@ const townhouse: Builder = (c) => {
   for (let k = 0; k < 10; k++) p.add(box(0.14, 0.18, j + 0.3), PAL.woodDark, [-W + 0.4 + (k * (2 * W - 0.8)) / 9, g1 - 0.1, D - j / 2 - 0.1]);
   p.add(span(-W, W, g1, g2, -D, D - 0.05), PAL.plaster);
   const T = PAL.woodDark;
-  framing(p, T, [-W, D - 0.02], [W, D - 0.02], g1, g2, [0.08, 2 * W - 0.08, 1.75, 3.25, 5.75, 7.25], [[0.1, 1.6], [2 * W - 0.1, 2 * W - 1.6], [3.4, 4.4], [5.6, 4.6]], [g1 + 1.0]);
-  for (const sx of [-1, 1]) framing(p, T, [sx * (W + 0.02), -D], [sx * (W + 0.02), D], g1, g2, [0.08, 2 * D - 0.08, D], [[0.1, 1.5], [2 * D - 0.1, 2 * D - 1.5]], [g1 + 1.0]);
+  framing(
+    p,
+    T,
+    [-W, D - 0.02],
+    [W, D - 0.02],
+    g1,
+    g2,
+    [0.08, 2 * W - 0.08, 1.75, 3.25, 5.75, 7.25],
+    [
+      [0.1, 1.6],
+      [2 * W - 0.1, 2 * W - 1.6],
+      [3.4, 4.4],
+      [5.6, 4.6],
+    ],
+    [g1 + 1.0],
+  );
+  for (const sx of [-1, 1])
+    framing(
+      p,
+      T,
+      [sx * (W + 0.02), -D],
+      [sx * (W + 0.02), D],
+      g1,
+      g2,
+      [0.08, 2 * D - 0.08, D],
+      [
+        [0.1, 1.5],
+        [2 * D - 0.1, 2 * D - 1.5],
+      ],
+      [g1 + 1.0],
+    );
   for (const x of [-2.6, 0, 2.6]) windowOn(c, [x, g1 + 1.55, D], 0, 0.95, 1.05, { flowers: true, shutter: 0x6a8f5a });
   for (const sx of [-1, 1]) windowOn(c, [sx * W, g1 + 1.55, 0], (sx * Math.PI) / 2, 0.9, 1.0, {});
-  const roof: Roof = { x0: -W, x1: W, zf: D + 0.45, zb: -D - 0.35, eave: g2 - 0.1, ridge: d.h - 0.5, thick: 0.22, over: 0.3, courses: 9, colors: [PAL.slate, PAL.slateDark, 0x6c88a8], cap: PAL.slateDark };
+  const roof: Roof = {
+    x0: -W,
+    x1: W,
+    zf: D + 0.45,
+    zb: -D - 0.35,
+    eave: g2 - 0.1,
+    ridge: d.h - 0.5,
+    thick: 0.22,
+    over: 0.3,
+    courses: 9,
+    colors: [PAL.slate, PAL.slateDark, 0x6c88a8],
+    cap: PAL.slateDark,
+  };
   gable(p, roof, rng);
   for (const sx of [-1, 1]) {
     const peak = roofUnder(roof, 0.05);
-    p.add(prismZY([[-D, g2], [D, g2], [(roof.zf + roof.zb) / 2, peak]], sx * (W - 0.15), 0.3), PAL.plaster);
-    p.add(prismZY([[-0.3, g2], [0.3, g2], [(roof.zf + roof.zb) / 2, peak - 0.05]], sx * (W - 0.0), 0.06), T);
+    p.add(
+      prismZY(
+        [
+          [-D, g2],
+          [D, g2],
+          [(roof.zf + roof.zb) / 2, peak],
+        ],
+        sx * (W - 0.15),
+        0.3,
+      ),
+      PAL.plaster,
+    );
+    p.add(
+      prismZY(
+        [
+          [-0.3, g2],
+          [0.3, g2],
+          [(roof.zf + roof.zb) / 2, peak - 0.05],
+        ],
+        sx * (W - 0.0),
+        0.06,
+      ),
+      T,
+    );
   }
   windowOn(c, [W - 0.01, g2 + 1.0, 0], Math.PI / 2, 0.7, 0.7, { arch: true });
   chimney(p, -W + 1.4, -1.4, g2, d.h - 0.15, 0.8, 0.8);
@@ -520,21 +714,85 @@ const inn: Builder = (c) => {
   for (const x of [-4.6, -2.4, 2.4, 4.6]) holes.push([bx + x - 0.6, bx + x + 0.6, 1.2, 2.5]);
   wall(p, PAL.stone, [-bx, zFront - 0.2], [bx, zFront - 0.2], 0, g1, 0.4, holes);
   p.add(span(-bx, bx, 0, g1, -D, zFront - 0.4), PAL.stone);
-  stones(p, rng, -bx, bx, 0.3, g1 - 0.1, -D, zFront, 50, PAL.stoneDark, holes.map(([a, b, y0, y1]) => [a - bx, b - bx, y0, y1] as const));
+  stones(
+    p,
+    rng,
+    -bx,
+    bx,
+    0.3,
+    g1 - 0.1,
+    -D,
+    zFront,
+    50,
+    PAL.stoneDark,
+    holes.map(([a, b, y0, y1]) => [a - bx, b - bx, y0, y1] as const),
+  );
   doorOn(c, [0, 0.3, zFront], 0, doorW, 2.25, 0x8a4a2a, { double: true, arch: true, lit: true });
   for (const x of [-4.6, -2.4, 2.4, 4.6]) windowOn(c, [x, 1.85, zFront], 0, 1.2, 1.3, {});
   p.add(span(-bx - 0.2, bx + 0.2, g1, g2, -D, zFront + 0.25), PAL.plaster);
   const T = PAL.woodDark;
   const posts = [0.1, 2 * bx + 0.3, 2.2, 4.4, 6.9, 7.9, 10.4, 12.6];
-  framing(p, T, [-bx - 0.2, zFront + 0.27], [bx + 0.2, zFront + 0.27], g1, g2, posts, [[0.2, 1.6], [2 * bx + 0.2, 2 * bx - 1.2], [4.5, 6.2], [10.3, 8.6]], [g1 + 1.1]);
-  for (const sx of [-1, 1]) framing(p, T, [sx * (bx + 0.22), -D], [sx * (bx + 0.22), zFront + 0.25], g1, g2, [0.1, 2.5, 5, 7.3], [[0.2, 1.8], [7.2, 5.6]], [g1 + 1.1]);
+  framing(
+    p,
+    T,
+    [-bx - 0.2, zFront + 0.27],
+    [bx + 0.2, zFront + 0.27],
+    g1,
+    g2,
+    posts,
+    [
+      [0.2, 1.6],
+      [2 * bx + 0.2, 2 * bx - 1.2],
+      [4.5, 6.2],
+      [10.3, 8.6],
+    ],
+    [g1 + 1.1],
+  );
+  for (const sx of [-1, 1])
+    framing(
+      p,
+      T,
+      [sx * (bx + 0.22), -D],
+      [sx * (bx + 0.22), zFront + 0.25],
+      g1,
+      g2,
+      [0.1, 2.5, 5, 7.3],
+      [
+        [0.2, 1.8],
+        [7.2, 5.6],
+      ],
+      [g1 + 1.1],
+    );
   for (const x of [-5, -2.5, 0, 2.5, 5]) windowOn(c, [x, g1 + 1.7, zFront + 0.25], 0, 1.0, 1.15, { flowers: x !== 0, shutter: 0x4d7a8f });
   for (const sx of [-1, 1]) for (const z of [-3.2, -0.6]) windowOn(c, [sx * (bx + 0.2), g1 + 1.7, z], (sx * Math.PI) / 2, 0.9, 1.0, {});
   // Red tiled roof with two dormers and two chimneys.
-  const roof: Roof = { x0: -bx - 0.2, x1: bx + 0.2, zf: zFront + 0.75, zb: -D - 0.0, eave: g2 - 0.1, ridge: d.h - 0.6, thick: 0.22, over: 0.35, courses: 10, colors: [PAL.roofRed, PAL.roofRedDark, 0xd0644c], cap: PAL.roofRedDark };
+  const roof: Roof = {
+    x0: -bx - 0.2,
+    x1: bx + 0.2,
+    zf: zFront + 0.75,
+    zb: -D - 0.0,
+    eave: g2 - 0.1,
+    ridge: d.h - 0.6,
+    thick: 0.22,
+    over: 0.35,
+    courses: 10,
+    colors: [PAL.roofRed, PAL.roofRedDark, 0xd0644c],
+    cap: PAL.roofRedDark,
+  };
   gable(p, roof, rng);
   for (const sx of [-1, 1]) {
-    p.add(prismZY([[-D + 0.05, g2], [zFront + 0.25, g2], [(roof.zf + roof.zb) / 2, roofUnder(roof, 0.05)]], sx * (bx + 0.05), 0.3), PAL.plaster);
+    p.add(
+      prismZY(
+        [
+          [-D + 0.05, g2],
+          [zFront + 0.25, g2],
+          [(roof.zf + roof.zb) / 2, roofUnder(roof, 0.05)],
+        ],
+        sx * (bx + 0.05),
+        0.3,
+      ),
+      PAL.plaster,
+    );
   }
   const slopeZ = (y: number) => roof.zf - ((y - roof.eave) / (roof.ridge - roof.eave)) * (roof.zf - (roof.zf + roof.zb) / 2);
   for (const x of [-3.2, 3.2]) {
@@ -542,10 +800,33 @@ const inn: Builder = (c) => {
     const zf = slopeZ(y0) - 0.25;
     p.add(span(x - 0.9, x + 0.9, y0 - 0.6, y0 + 1.3, slopeZ(y0 + 1.3) - 0.4, zf), PAL.plaster);
     windowOn(c, [x, y0 + 0.45, zf], 0, 0.75, 0.8, {});
-    const dr: Roof = { x0: -0.95, x1: 0.95, zf: 1.05, zb: -1.05, eave: 0, ridge: 0.85, thick: 0.14, over: 0.12, courses: 3, colors: [PAL.roofRed, PAL.roofRedDark], cap: PAL.roofRedDark };
+    const dr: Roof = {
+      x0: -0.95,
+      x1: 0.95,
+      zf: 1.05,
+      zb: -1.05,
+      eave: 0,
+      ridge: 0.85,
+      thick: 0.14,
+      over: 0.12,
+      courses: 3,
+      colors: [PAL.roofRed, PAL.roofRedDark],
+      cap: PAL.roofRedDark,
+    };
     const g = new Parts();
     gable(g, dr, rng);
-    g.add(prismZY([[-0.9, 0], [0.9, 0], [0, 0.68]], 0, 1.9), PAL.plaster);
+    g.add(
+      prismZY(
+        [
+          [-0.9, 0],
+          [0.9, 0],
+          [0, 0.68],
+        ],
+        0,
+        1.9,
+      ),
+      PAL.plaster,
+    );
     p.take(g, [x, y0 + 1.3, zf - 0.85], [0, Math.PI / 2, 0]);
   }
   chimney(p, -W + 2.2, -2.4, g2, d.h - 0.15, 0.9, 0.9);
@@ -561,7 +842,19 @@ const inn: Builder = (c) => {
     p.add(beam([x, 2.8, pz1 - 0.25], [x, 3.25, pz1 - 0.7], 0.12), PAL.woodDark);
   }
   p.add(box(2 * W - 0.3, 0.22, 0.24), PAL.woodDark, [0, 3.3, pz1 - 0.25]);
-  const pr: Roof = { x0: -W + 0.2, x1: W - 0.2, zf: pz1 + 0.15, zb: pz0 - (pz1 - pz0), eave: 3.4, ridge: 4.15, thick: 0.18, over: 0.1, courses: 5, colors: [PAL.roofRed, PAL.roofRedDark], cap: PAL.roofRedDark };
+  const pr: Roof = {
+    x0: -W + 0.2,
+    x1: W - 0.2,
+    zf: pz1 + 0.15,
+    zb: pz0 - (pz1 - pz0),
+    eave: 3.4,
+    ridge: 4.15,
+    thick: 0.18,
+    over: 0.1,
+    courses: 5,
+    colors: [PAL.roofRed, PAL.roofRedDark],
+    cap: PAL.roofRedDark,
+  };
   const porchRoof = new Parts();
   gable(porchRoof, pr, rng);
   // Keep only the front half (the back half would sit inside the building).
@@ -607,7 +900,8 @@ const stall: Builder = (c) => {
   const z0 = cz - cd / 2;
   const z1 = cz + cd / 2;
   // Counter: plank front, a top board, crates of produce.
-  for (let k = 0; k < 8; k++) p.add(box((2 * W - 0.3) / 8 - 0.015, 0.95, 0.06), k % 2 ? PAL.woodLight : PAL.wood, [-W + 0.15 + ((k + 0.5) * (2 * W - 0.3)) / 8, 0.475, z1 - 0.03]);
+  for (let k = 0; k < 8; k++)
+    p.add(box((2 * W - 0.3) / 8 - 0.015, 0.95, 0.06), k % 2 ? PAL.woodLight : PAL.wood, [-W + 0.15 + ((k + 0.5) * (2 * W - 0.3)) / 8, 0.475, z1 - 0.03]);
   p.add(span(-W + 0.1, W - 0.1, 0.0, 0.95, z0, z1 - 0.06), PAL.woodDark);
   p.add(bev(2 * W, 0.08, cd + 0.12, 0.02), PAL.woodPale, [0, 0.99, cz + 0.02]);
   const produce: Array<[number, Rgb, Rgb]> = [
@@ -617,7 +911,8 @@ const stall: Builder = (c) => {
   ];
   for (const [x, a, b] of produce) {
     p.add(box(0.7, 0.2, 0.45), PAL.crate, [x, 1.13, cz]);
-    for (let k = 0; k < 7; k++) p.add(ico(0.075, 0), k % 2 ? a : b, [x - 0.24 + (k % 4) * 0.16, 1.27 + (k > 3 ? 0.05 : 0), cz - 0.1 + (k > 3 ? 0.12 : 0) + (k % 2) * 0.05]);
+    for (let k = 0; k < 7; k++)
+      p.add(ico(0.075, 0), k % 2 ? a : b, [x - 0.24 + (k % 4) * 0.16, 1.27 + (k > 3 ? 0.05 : 0), cz - 0.1 + (k > 3 ? 0.12 : 0) + (k % 2) * 0.05]);
   }
   p.add(box(0.5, 0.32, 0.03), 0x2d3a3a, [W - 0.5, 0.55, z1 + 0.01]);
   p.add(box(0.3, 0.04, 0.035), PAL.white, [W - 0.5, 0.6, z1 + 0.02]);
@@ -654,7 +949,8 @@ const workbench: Builder = (c) => {
   const oak = 0x9a6a3a;
   const zb = -D + 0.12;
   // Thick top in three boards, sturdy legs, a shelf below.
-  for (let k = 0; k < 3; k++) p.add(box(2 * W, 0.1, (2 * D - 0.3) / 3 - 0.01), k % 2 ? oak : mix(oak, PAL.woodLight, 0.25), [0, top - 0.05, -D + 0.3 + ((k + 0.5) * (2 * D - 0.3)) / 3]);
+  for (let k = 0; k < 3; k++)
+    p.add(box(2 * W, 0.1, (2 * D - 0.3) / 3 - 0.01), k % 2 ? oak : mix(oak, PAL.woodLight, 0.25), [0, top - 0.05, -D + 0.3 + ((k + 0.5) * (2 * D - 0.3)) / 3]);
   for (const sx of [-1, 1]) {
     for (const z of [zb + 0.25, D - 0.12]) p.add(box(0.13, top - 0.1, 0.13), PAL.woodDark, [sx * (W - 0.15), (top - 0.1) / 2, z]);
     p.add(box(0.1, 0.1, 2 * D - 0.2), PAL.woodDark, [sx * (W - 0.15), 0.3, (zb + 0.25 + D - 0.12) / 2]);
@@ -668,7 +964,19 @@ const workbench: Builder = (c) => {
   p.add(box(2 * W - 0.2, 0.08, 0.08), PAL.woodDark, [0, d.h - 0.06, zb]);
   const tz = zb + 0.08;
   // Saw.
-  p.add(extrude([[0, 0], [0.5, 0.06], [0.5, 0.16], [0, 0.14]], 0.012), PAL.steel, [-1.05, 1.08, tz]);
+  p.add(
+    extrude(
+      [
+        [0, 0],
+        [0.5, 0.06],
+        [0.5, 0.16],
+        [0, 0.14],
+      ],
+      0.012,
+    ),
+    PAL.steel,
+    [-1.05, 1.08, tz],
+  );
   p.add(box(0.12, 0.16, 0.04), PAL.wood, [-1.12, 1.17, tz]);
   // Hammer, wrench, chisels, a coil of rope.
   p.add(box(0.04, 0.32, 0.04), PAL.wood, [-0.35, 1.2, tz]);
@@ -699,9 +1007,11 @@ const workbench: Builder = (c) => {
       p.add(box(0.02, 0.1, 0.5), vary(PAL.crate, rng, 0.08), [cx + s * 0.27, top + 0.07 + k * 0.13, cz]);
     }
   }
-  for (let k = 0; k < 4; k++) p.add(ico(0.08, 0), 0xd4a04a, [cx - 0.12 + (k % 2) * 0.22, top + 0.38, cz - 0.1 + Math.floor(k / 2) * 0.2], undefined, [1, 0.8, 1.1]);
+  for (let k = 0; k < 4; k++)
+    p.add(ico(0.08, 0), 0xd4a04a, [cx - 0.12 + (k % 2) * 0.22, top + 0.38, cz - 0.1 + Math.floor(k / 2) * 0.2], undefined, [1, 0.8, 1.1]);
   p.add(box(0.5, 0.03, 0.36), 0x6b3b2a, [0.45, top + 0.015, 0.05], [0, 0.2, 0]);
-  for (const s of [-1, 1]) p.add(box(0.23, 0.02, 0.33), 0xf6efdc, [0.45 + s * 0.12 * Math.cos(0.2), top + 0.035 + 0.01, 0.05 - s * 0.12 * Math.sin(0.2)], [0, 0.2, s * 0.06]);
+  for (const s of [-1, 1])
+    p.add(box(0.23, 0.02, 0.33), 0xf6efdc, [0.45 + s * 0.12 * Math.cos(0.2), top + 0.035 + 0.01, 0.05 - s * 0.12 * Math.sin(0.2)], [0, 0.2, s * 0.06]);
   p.add(cyl(0.08, 0.07, 0.12, 7), PAL.ironLight, [0.95, top + 0.06, -0.15]);
   for (let k = 0; k < 5; k++) p.add(rod([0.92 + k * 0.015, top + 0.11, -0.17], [0.9 + k * 0.02, top + 0.17, -0.12], 0.006, 3), PAL.steel);
   p.add(box(0.07, 0.06, 0.3), PAL.wood, [0.15, top + 0.03, 0.3], [0, 0.6, 0]);
@@ -760,11 +1070,34 @@ const tradingPost: Builder = (c) => {
   windowOn(c, [-3.6, 1.9, zf + r], 0, 0.8, 0.8, { shutter: PAL.green });
   for (const sx of [-1, 1]) windowOn(c, [sx * (bx + r), 1.9, -1.0], (sx * Math.PI) / 2, 0.8, 0.8, { shutter: PAL.green });
   // Shingle roof and log gables.
-  const roof: Roof = { x0: -bx - 0.3, x1: bx + 0.3, zf: zf + 0.6, zb: -D, eave: wallTop - 0.05, ridge: d.h - 0.3, thick: 0.18, over: 0.2, courses: 9, colors: [PAL.shingle, PAL.shingleDark, 0x9a7a58], cap: PAL.shingleDark };
+  const roof: Roof = {
+    x0: -bx - 0.3,
+    x1: bx + 0.3,
+    zf: zf + 0.6,
+    zb: -D,
+    eave: wallTop - 0.05,
+    ridge: d.h - 0.3,
+    thick: 0.18,
+    over: 0.2,
+    courses: 9,
+    colors: [PAL.shingle, PAL.shingleDark, 0x9a7a58],
+    cap: PAL.shingleDark,
+  };
   gable(p, roof, rng);
   for (const sx of [-1, 1]) {
     const peak = roofUnder(roof, (zf + zb) / 2 - (roof.zf + roof.zb) / 2);
-    p.add(prismZY([[zb - 0.1, wallTop], [zf + 0.1, wallTop], [(roof.zf + roof.zb) / 2, peak]], sx * bx, 0.34), 0x8a5c36);
+    p.add(
+      prismZY(
+        [
+          [zb - 0.1, wallTop],
+          [zf + 0.1, wallTop],
+          [(roof.zf + roof.zb) / 2, peak],
+        ],
+        sx * bx,
+        0.34,
+      ),
+      0x8a5c36,
+    );
   }
   // A big sign: a gold coin and brass scales on a board over the counter.
   const sg = new Parts();
@@ -794,7 +1127,12 @@ const dock: Builder = (c) => {
   const deck = d.deck ?? 1.4;
   const n = Math.round(d.d / 0.32);
   const pw = d.d / n;
-  for (let k = 0; k < n; k++) p.add(box(d.w - (k % 3 === 1 ? 0.06 : 0), 0.07, pw - 0.025), vary(k % 2 ? PAL.woodGrey : 0xb09a80, rng, 0.06), [(k % 3 === 1 ? 0.03 : 0), deck - 0.035, -L + pw * (k + 0.5)]);
+  for (let k = 0; k < n; k++)
+    p.add(box(d.w - (k % 3 === 1 ? 0.06 : 0), 0.07, pw - 0.025), vary(k % 2 ? PAL.woodGrey : 0xb09a80, rng, 0.06), [
+      k % 3 === 1 ? 0.03 : 0,
+      deck - 0.035,
+      -L + pw * (k + 0.5),
+    ]);
   for (const x of [-W + 0.35, -0.5, 0.5, W - 0.35]) p.add(box(0.16, 0.22, d.d - 0.1), PAL.woodGreyDark, [x, deck - 0.18, 0]);
   const pileZ: number[] = [];
   for (let z = -L + 0.3; z <= L - 0.25; z += 4) pileZ.push(z);
@@ -823,7 +1161,12 @@ const lighthouse: Builder = (c) => {
   p.add(cyl(R - 0.05, R - 0.1, 0.12, 10), PAL.stoneLight, [0, base + 0.06, 0]);
   for (let k = 0; k < 22; k++) {
     const a = rng() * TAU;
-    p.add(box(0.4 + rng() * 0.3, 0.22 + rng() * 0.15, 0.08), vary(PAL.stoneDark, rng, 0.1), [Math.cos(a) * (R - 0.08), 0.2 + rng() * (base - 0.4), Math.sin(a) * (R - 0.08)], [0, -a + Math.PI / 2, 0]);
+    p.add(
+      box(0.4 + rng() * 0.3, 0.22 + rng() * 0.15, 0.08),
+      vary(PAL.stoneDark, rng, 0.1),
+      [Math.cos(a) * (R - 0.08), 0.2 + rng() * (base - 0.4), Math.sin(a) * (R - 0.08)],
+      [0, -a + Math.PI / 2, 0],
+    );
   }
   for (let k = 0; k < 3; k++) p.add(box(1.6, 0.2, 0.4), PAL.stoneLight, [0, base - 0.1 - k * 0.2, R - 0.1 + k * 0.32]);
   // Tapered tower in white and red bands.
@@ -838,7 +1181,12 @@ const lighthouse: Builder = (c) => {
     p.add(cyl(rAt(b), rAt(a), b - a, 12, true), k % 2 ? PAL.red : PAL.white, [0, (a + b) / 2, 0]);
   }
   doorOn(c, [0, base, rAt(base + 1) - 0.02], 0, 0.9, 1.9, 0x2f5f4a, { arch: true });
-  for (const [y, a] of [[6.8, 0.3], [9.4, 2.4], [11.8, 4.4], [14.2, 1.2]] as const) {
+  for (const [y, a] of [
+    [6.8, 0.3],
+    [9.4, 2.4],
+    [11.8, 4.4],
+    [14.2, 1.2],
+  ] as const) {
     const rr = rAt(y) - 0.02;
     windowOn(c, [Math.sin(a) * rr, y, Math.cos(a) * rr], a, 0.4, 0.6, { lit: true });
   }
@@ -886,7 +1234,12 @@ const windmill: Builder = (c) => {
     p.add(box(0.45 + rng() * 0.3, 0.22 + rng() * 0.12, 0.08), vary(PAL.stoneDark, rng, 0.1), [Math.cos(a) * rr, y, Math.sin(a) * rr], [0, -a + Math.PI / 2, 0]);
   }
   doorOn(c, [0, 0, rAt(1) - 0.05], 0, 1.0, 2.0, 0x7a4a2a, { arch: true });
-  for (const [y, a] of [[4.2, 0], [6.4, 2.2], [6.4, -2.2], [3.6, 3.14]] as const) {
+  for (const [y, a] of [
+    [4.2, 0],
+    [6.4, 2.2],
+    [6.4, -2.2],
+    [3.6, 3.14],
+  ] as const) {
     const rr = rAt(y) - 0.05;
     windowOn(c, [Math.sin(a) * rr, y, Math.cos(a) * rr], a, 0.5, 0.7, { lit: true, shutter: 0x7a4a2a });
   }
@@ -935,7 +1288,12 @@ const well: Builder = (c) => {
   p.add(cyl(R - 0.3, R - 0.3, 0.05, 10), 0x2f6d84, [0, 0.45, 0]);
   for (let k = 0; k < 14; k++) {
     const a = rng() * TAU;
-    p.add(box(0.3, 0.16, 0.06), vary(PAL.stoneDark, rng, 0.12), [Math.cos(a) * (R + 0.01), 0.15 + rng() * 0.55, Math.sin(a) * (R + 0.01)], [0, -a + Math.PI / 2, 0]);
+    p.add(
+      box(0.3, 0.16, 0.06),
+      vary(PAL.stoneDark, rng, 0.12),
+      [Math.cos(a) * (R + 0.01), 0.15 + rng() * 0.55, Math.sin(a) * (R + 0.01)],
+      [0, -a + Math.PI / 2, 0],
+    );
   }
   const post = R - 0.12;
   for (const sx of [-1, 1]) p.add(box(0.14, 2.15 - h, 0.14), PAL.woodDark, [sx * post, h + (2.15 - h) / 2, 0]);
@@ -948,9 +1306,33 @@ const well: Builder = (c) => {
   p.add(cyl(0.16, 0.13, 0.22, 8), PAL.wood, [0, 1.06, 0]);
   p.add(ring(0.15, 0.17, 0.03, 8), PAL.iron, [0, 1.12, 0]);
   p.add(tor(0.14, 0.01, 3, 8, Math.PI), PAL.iron, [0, 1.17, 0], [0, Math.PI / 2, 0]);
-  const roof: Roof = { x0: -post, x1: post, zf: 0.82, zb: -0.82, eave: 2.08, ridge: d.h - 0.05, thick: 0.1, over: 0.22, courses: 4, colors: [PAL.shingle, PAL.shingleDark], cap: PAL.woodDark };
+  const roof: Roof = {
+    x0: -post,
+    x1: post,
+    zf: 0.82,
+    zb: -0.82,
+    eave: 2.08,
+    ridge: d.h - 0.05,
+    thick: 0.1,
+    over: 0.22,
+    courses: 4,
+    colors: [PAL.shingle, PAL.shingleDark],
+    cap: PAL.woodDark,
+  };
   gable(p, roof, rng);
-  for (const sx of [-1, 1]) p.add(prismZY([[-0.3, 2.12], [0.3, 2.12], [0, d.h - 0.2]], sx * post, 0.08), PAL.woodDark);
+  for (const sx of [-1, 1])
+    p.add(
+      prismZY(
+        [
+          [-0.3, 2.12],
+          [0.3, 2.12],
+          [0, d.h - 0.2],
+        ],
+        sx * post,
+        0.08,
+      ),
+      PAL.woodDark,
+    );
 };
 
 const stable: Builder = (c) => {
@@ -992,7 +1374,7 @@ const stable: Builder = (c) => {
     for (const s of [-1, 1]) p.add(bev(0.04, 0.45, 0.5, 0.02), x < 0 ? 0xc23b32 : 0x3f6f9a, [x + s * 0.12, 1.3, sz]);
     p.add(bev(0.42, 0.12, 0.08, 0.03), 0x6b3f22, [x, 1.66, sz - 0.24]);
   }
-  for (const x of [-2 * W / 3, 0, 2 * W / 3]) {
+  for (const x of [(-2 * W) / 3, 0, (2 * W) / 3]) {
     p.add(span(x - 1.1, x + 1.1, 0.9, 1.0, -D + 0.12, -D + 0.6), PAL.woodDark);
     p.add(jiggle(box(2.0, 0.35, 0.42), 0.05, Math.round(x * 3 + 9)), PAL.hay, [x, 1.15, -D + 0.38]);
     p.add(jiggle(ico(0.45, 1), 0.06, Math.round(x * 5 + 3)), 0xe0c36a, [x + 0.5, 0.1, -D + 1.0], undefined, [1.5, 0.35, 1.2]);
@@ -1000,9 +1382,33 @@ const stable: Builder = (c) => {
   p.add(span(-W / 3 - 1.5, -W / 3 - 0.5, 0, 0.45, solidFront - 0.6, solidFront - 0.1), PAL.woodDark);
   p.add(span(-W / 3 - 1.45, -W / 3 - 0.55, 0.3, 0.42, solidFront - 0.55, solidFront - 0.15), 0x3d8fbf);
   // Gable roof over everything, plank gables.
-  const roof: Roof = { x0: -W, x1: W, zf: D + 0.25, zb: -D - 0.2, eave, ridge: d.h - 0.3, thick: 0.18, over: 0.25, courses: 7, colors: [PAL.shingle, PAL.shingleDark, 0x9a7a58], cap: PAL.shingleDark };
+  const roof: Roof = {
+    x0: -W,
+    x1: W,
+    zf: D + 0.25,
+    zb: -D - 0.2,
+    eave,
+    ridge: d.h - 0.3,
+    thick: 0.18,
+    over: 0.25,
+    courses: 7,
+    colors: [PAL.shingle, PAL.shingleDark, 0x9a7a58],
+    cap: PAL.shingleDark,
+  };
   gable(p, roof, rng);
-  for (const sx of [-1, 1]) p.add(prismZY([[-D, eave], [D, eave], [0, roofUnder(roof, 0)]], sx * (W - 0.06), 0.1), PAL.wood);
+  for (const sx of [-1, 1])
+    p.add(
+      prismZY(
+        [
+          [-D, eave],
+          [D, eave],
+          [0, roofUnder(roof, 0)],
+        ],
+        sx * (W - 0.06),
+        0.1,
+      ),
+      PAL.wood,
+    );
   // Horseshoe sign on the front beam.
   for (const sx of [-1, 1]) p.add(box(0.03, 0.3, 0.03), PAL.iron, [sx * 0.4, eave - 0.42, D - 0.25]);
   p.add(box(1.1, 0.6, 0.06), PAL.woodPale, [0, eave - 0.85, D - 0.25]);
@@ -1020,9 +1426,13 @@ const workshop: Builder = (c) => {
   p.add(span(-bx, bx, 0, 1.0, -D, zf), PAL.stone);
   stones(p, rng, -bx, bx, 0.1, 0.9, -D, zf, 30, PAL.stoneDark, [[-1.6, 1.6, 0, 3]]);
   const doorW = 3.0;
-  for (const [x0, x1] of [[-bx, -doorW / 2], [doorW / 2, bx]] as const) {
+  for (const [x0, x1] of [
+    [-bx, -doorW / 2],
+    [doorW / 2, bx],
+  ] as const) {
     const n = Math.round((x1 - x0) / 0.35);
-    for (let k = 0; k < n; k++) p.add(box((x1 - x0) / n - 0.015, eave - 1.0, 0.1), k % 2 ? PAL.wood : PAL.woodLight, [x0 + ((k + 0.5) * (x1 - x0)) / n, 1.0 + (eave - 1.0) / 2, zf]);
+    for (let k = 0; k < n; k++)
+      p.add(box((x1 - x0) / n - 0.015, eave - 1.0, 0.1), k % 2 ? PAL.wood : PAL.woodLight, [x0 + ((k + 0.5) * (x1 - x0)) / n, 1.0 + (eave - 1.0) / 2, zf]);
   }
   p.add(span(-doorW / 2, doorW / 2, 2.9, eave, zf - 0.1, zf + 0.05), PAL.wood);
   p.add(span(-bx, bx, 1.0, eave, -D, zf - 0.05), PAL.woodDark);
@@ -1035,15 +1445,44 @@ const workshop: Builder = (c) => {
   }
   p.add(box(0.08, 2.9, 0.12), PAL.woodDark, [0, 1.45, zf + 0.1]);
   for (const sx of [-1, 1]) windowOn(c, [sx * 2.7, 2.0, zf + 0.05], 0, 0.9, 0.8, { shutter: 0x6a8f5a });
-  const roof: Roof = { x0: -bx, x1: bx, zf: zf + 0.6, zb: -D, eave: eave - 0.05, ridge: d.h - 0.25, thick: 0.18, over: 0.3, courses: 8, colors: [PAL.roofRed, PAL.roofRedDark, 0xb9644c], cap: PAL.roofRedDark };
+  const roof: Roof = {
+    x0: -bx,
+    x1: bx,
+    zf: zf + 0.6,
+    zb: -D,
+    eave: eave - 0.05,
+    ridge: d.h - 0.25,
+    thick: 0.18,
+    over: 0.3,
+    courses: 8,
+    colors: [PAL.roofRed, PAL.roofRedDark, 0xb9644c],
+    cap: PAL.roofRedDark,
+  };
   gable(p, roof, rng);
-  for (const sx of [-1, 1]) p.add(prismZY([[-D, eave], [zf, eave], [(roof.zf + roof.zb) / 2, roofUnder(roof, (zf - D) / 2 - (roof.zf + roof.zb) / 2)]], sx * (bx - 0.05), 0.1), PAL.wood);
+  for (const sx of [-1, 1])
+    p.add(
+      prismZY(
+        [
+          [-D, eave],
+          [zf, eave],
+          [(roof.zf + roof.zb) / 2, roofUnder(roof, (zf - D) / 2 - (roof.zf + roof.zb) / 2)],
+        ],
+        sx * (bx - 0.05),
+        0.1,
+      ),
+      PAL.wood,
+    );
   chimney(p, -bx + 1.0, -D + 1.0, eave, d.h + 0.2, 0.8, 0.8);
   // A wheel sign over the door.
   p.add(box(1.1, 0.7, 0.06), PAL.woodPale, [0, eave + 0.55, zf + 0.15]);
   wheelOn(p, [0, eave + 0.55, zf + 0.22], 0.28, [0, Math.PI / 2, 0]);
   // Spare wheels leaning on the walls, an anvil on a stump, a stack of lumber.
-  for (const [x, z, lean] of [[bx + 0.15, -1.6, 0.2], [bx + 0.18, 0.2, 0.25], [-bx - 0.16, -0.6, -0.22]] as const) wheelOn(p, [x, 0.62, z], 0.6, [0, 0, lean]);
+  for (const [x, z, lean] of [
+    [bx + 0.15, -1.6, 0.2],
+    [bx + 0.18, 0.2, 0.25],
+    [-bx - 0.16, -0.6, -0.22],
+  ] as const)
+    wheelOn(p, [x, 0.62, z], 0.6, [0, 0, lean]);
   const ax = -W + 1.6;
   const az = D - 0.55;
   p.add(cyl(0.32, 0.36, 0.5, 8), PAL.woodDark, [ax, 0.25, az]);
@@ -1096,18 +1535,66 @@ const boathouse: Builder = (c) => {
   for (const sx of [-1, 1]) p.add(box(0.22, openTop, 0.22), PAL.woodDark, [sx * (open + 0.1), openTop / 2, D - 0.08]);
   p.add(box(2 * open + 0.4, 0.25, 0.24), PAL.woodDark, [0, openTop + 0.1, D - 0.08]);
   // Steep roof, ridge along Z, so the gable and its big opening face +Z.
-  const roof: Roof = { x0: -D, x1: D, zf: W + 0.35, zb: -W - 0.35, eave: eave - 0.05, ridge, thick: 0.18, over: 0.3, courses: 8, colors: [PAL.shingleDark, PAL.shingle, 0x7f6248], cap: PAL.woodDark };
+  const roof: Roof = {
+    x0: -D,
+    x1: D,
+    zf: W + 0.35,
+    zb: -W - 0.35,
+    eave: eave - 0.05,
+    ridge,
+    thick: 0.18,
+    over: 0.3,
+    courses: 8,
+    colors: [PAL.shingleDark, PAL.shingle, 0x7f6248],
+    cap: PAL.woodDark,
+  };
   const rp = new Parts();
   gable(rp, roof, rng);
   p.take(rp, undefined, [0, Math.PI / 2, 0]);
   const peak = roofUnder(roof, 0);
-  for (const [z, holed] of [[D - 0.05, true], [-D + 0.05, false]] as const) {
+  for (const [z, holed] of [
+    [D - 0.05, true],
+    [-D + 0.05, false],
+  ] as const) {
     const g = new Parts();
     if (holed) {
-      g.add(extrude([[-W, eave], [W, eave], [W, eave + 0.01], [0, peak], [-W, eave + 0.01]], 0.1), PAL.woodGrey);
-      g.add(extrude([[-open - 0.2, eave], [-W, eave], [-W, eave - 0.01]], 0.1), PAL.woodGrey);
+      g.add(
+        extrude(
+          [
+            [-W, eave],
+            [W, eave],
+            [W, eave + 0.01],
+            [0, peak],
+            [-W, eave + 0.01],
+          ],
+          0.1,
+        ),
+        PAL.woodGrey,
+      );
+      g.add(
+        extrude(
+          [
+            [-open - 0.2, eave],
+            [-W, eave],
+            [-W, eave - 0.01],
+          ],
+          0.1,
+        ),
+        PAL.woodGrey,
+      );
       g.add(span(-open, open, eave, openTop, -0.05, 0.05), PAL.woodGrey);
-    } else g.add(extrude([[-W, eave], [W, eave], [0, peak]], 0.1), PAL.woodGrey);
+    } else
+      g.add(
+        extrude(
+          [
+            [-W, eave],
+            [W, eave],
+            [0, peak],
+          ],
+          0.1,
+        ),
+        PAL.woodGrey,
+      );
     p.take(g, [0, 0, z]);
   }
   // A half-built hull on blocks inside: keel, stem, ribs and a few strakes.
@@ -1125,7 +1612,13 @@ const boathouse: Builder = (c) => {
     p.add(arc(rr, rr + 0.1, 0.08, Math.PI * 1.05, Math.PI * 1.95, 7), PAL.woodLight, [0, 0.5 + rr, z], [0, 0, 0], [1, 1.05, 1]);
   }
   for (const sx of [-1, 1]) {
-    for (let k = 0; k < 2; k++) p.add(box(0.08, 0.16, (kz1 - kz0) * 0.55), PAL.wood, [sx * (0.35 + k * 0.38), 0.62 + k * 0.22, kz0 + 0.3 + (kz1 - kz0) * 0.3], [0, 0, sx * (0.6 + k * 0.25)]);
+    for (let k = 0; k < 2; k++)
+      p.add(
+        box(0.08, 0.16, (kz1 - kz0) * 0.55),
+        PAL.wood,
+        [sx * (0.35 + k * 0.38), 0.62 + k * 0.22, kz0 + 0.3 + (kz1 - kz0) * 0.3],
+        [0, 0, sx * (0.6 + k * 0.25)],
+      );
   }
   // Oars crossed on the right wall, a net with floats on the left, a lantern at the door.
   for (const s of [-1, 1]) {
@@ -1156,18 +1649,28 @@ const registrar: Builder = (c) => {
     const y0 = k * course;
     const y1 = Math.min(top, y0 + course);
     const col = k % 2 ? PAL.stoneLight : mix(PAL.stoneLight, PAL.stone, 0.45);
-    const holes: Hole[] = [[bx - 0.85, bx + 0.85, 0.4, 3.7], [bx - 2.95, bx - 2.05, 1.0, 3.7], [bx + 2.05, bx + 2.95, 1.0, 3.7]];
+    const holes: Hole[] = [
+      [bx - 0.85, bx + 0.85, 0.4, 3.7],
+      [bx - 2.95, bx - 2.05, 1.0, 3.7],
+      [bx + 2.05, bx + 2.95, 1.0, 3.7],
+    ];
     wall(p, col, [-bx, zf - 0.2], [bx, zf - 0.2], y0, y1, 0.4, holes);
-    for (const sx of [-1, 1]) wall(p, col, [sx * (bx - 0.2), -D], [sx * (bx - 0.2), zf - 0.4], y0, y1, 0.4, [[1.3, 2.2, 1.0, 3.7], [3.6, 4.5, 1.0, 3.7]]);
+    for (const sx of [-1, 1])
+      wall(p, col, [sx * (bx - 0.2), -D], [sx * (bx - 0.2), zf - 0.4], y0, y1, 0.4, [
+        [1.3, 2.2, 1.0, 3.7],
+        [3.6, 4.5, 1.0, 3.7],
+      ]);
     wall(p, col, [-bx, -D + 0.2], [bx, -D + 0.2], y0, y1, 0.4);
   }
   p.add(span(-bx, bx, top, top + 0.3, -D - 0.1, zf + 0.1), PAL.stoneLight);
   p.add(span(-bx + 0.4, bx - 0.4, 0, top, -D + 0.4, zf - 0.4), 0x6e675e);
   for (const x of [-2.5, 2.5]) windowOn(c, [x, 2.1, zf], 0, 0.9, 2.2, { frame: 0xe8e2d4, arch: true });
-  for (const sx of [-1, 1]) for (const z of [-D + 1.75, -D + 4.05]) windowOn(c, [sx * bx, 2.1, z], (sx * Math.PI) / 2, 0.9, 2.2, { frame: 0xe8e2d4, arch: true });
+  for (const sx of [-1, 1])
+    for (const z of [-D + 1.75, -D + 4.05]) windowOn(c, [sx * bx, 2.1, z], (sx * Math.PI) / 2, 0.9, 2.2, { frame: 0xe8e2d4, arch: true });
   doorOn(c, [0, 0.45, zf], 0, 1.5, 2.45, 0x3f5f8a, { double: true, arch: true, lit: true });
   // Steps, a portico of two columns and a pediment carrying a clock.
-  for (let k = 0; k < 3; k++) p.add(box(3.6 - k * 0.3, 0.15, D - zf + 0.1 - k * 0.35), k % 2 ? PAL.stoneLight : PAL.stone, [0, 0.075 + k * 0.15, (zf + D) / 2 + 0.05 - k * 0.17]);
+  for (let k = 0; k < 3; k++)
+    p.add(box(3.6 - k * 0.3, 0.15, D - zf + 0.1 - k * 0.35), k % 2 ? PAL.stoneLight : PAL.stone, [0, 0.075 + k * 0.15, (zf + D) / 2 + 0.05 - k * 0.17]);
   const colZ = D - 0.45;
   for (const sx of [-1, 1]) {
     const x = sx * 1.35;
@@ -1176,8 +1679,34 @@ const registrar: Builder = (c) => {
     p.add(box(0.6, 0.2, 0.6), PAL.stoneLight, [x, 3.95, colZ]);
   }
   p.add(span(-1.85, 1.85, 4.05, 4.4, zf - 0.1, D - 0.1), PAL.stoneLight);
-  p.add(xf(extrude([[-2.0, 0], [2.0, 0], [0, 1.1]], 0.4), [0, 4.4, D - 0.35]), PAL.stoneLight);
-  p.add(xf(extrude([[-1.7, 0.08], [1.7, 0.08], [0, 0.92]], 0.06), [0, 4.4, D - 0.13]), PAL.roofBlue);
+  p.add(
+    xf(
+      extrude(
+        [
+          [-2.0, 0],
+          [2.0, 0],
+          [0, 1.1],
+        ],
+        0.4,
+      ),
+      [0, 4.4, D - 0.35],
+    ),
+    PAL.stoneLight,
+  );
+  p.add(
+    xf(
+      extrude(
+        [
+          [-1.7, 0.08],
+          [1.7, 0.08],
+          [0, 0.92],
+        ],
+        0.06,
+      ),
+      [0, 4.4, D - 0.13],
+    ),
+    PAL.roofBlue,
+  );
   p.add(cyl(0.42, 0.42, 0.1, 14), PAL.gold, [0, 4.85, D - 0.07], [Math.PI / 2, 0, 0]);
   p.add(cyl(0.34, 0.34, 0.12, 14), PAL.cream, [0, 4.85, D - 0.06], [Math.PI / 2, 0, 0]);
   p.add(box(0.04, 0.24, 0.03), PAL.dark, [0, 4.94, D + 0.01]);
@@ -1201,7 +1730,8 @@ const launchDeck: Builder = (c) => {
   const deck = d.deck ?? 0.6;
   const n = Math.round(d.d / 0.3);
   const pw = d.d / n;
-  for (let k = 0; k < n; k++) p.add(box(d.w, 0.06, pw - 0.02), k === n - 1 ? PAL.yellow : vary(k % 2 ? PAL.woodLight : PAL.wood, rng, 0.05), [0, deck - 0.03, -D + pw * (k + 0.5)]);
+  for (let k = 0; k < n; k++)
+    p.add(box(d.w, 0.06, pw - 0.02), k === n - 1 ? PAL.yellow : vary(k % 2 ? PAL.woodLight : PAL.wood, rng, 0.05), [0, deck - 0.03, -D + pw * (k + 0.5)]);
   for (const x of [-W + 0.15, 0, W - 0.15]) p.add(box(0.16, 0.2, d.d), PAL.woodDark, [x, deck - 0.16, 0]);
   const legsZ = [-D + 0.2, -D / 3, D / 3, D - 0.2];
   for (const x of [-W + 0.15, W - 0.15]) {
@@ -1216,7 +1746,10 @@ const launchDeck: Builder = (c) => {
   };
   rail([-W + 0.06, 0, -D + 0.06], [W - 0.06, 0, -D + 0.06]);
   for (const sx of [-1, 1]) rail([sx * (W - 0.06), 0, -D + 0.06], [sx * (W - 0.06), 0, D - 0.06]);
-  const posts: Array<[number, number]> = [[-W / 2, -D], [W / 2, -D]];
+  const posts: Array<[number, number]> = [
+    [-W / 2, -D],
+    [W / 2, -D],
+  ];
   for (const sx of [-1, 1]) for (const z of [-D, -D / 2, 0, D / 2, D]) posts.push([sx * W, z]);
   for (const [x, z] of posts) {
     const px = Math.sign(x) * Math.min(Math.abs(x), W - 0.06);
@@ -1273,7 +1806,19 @@ const noticeBoard: Builder = (c) => {
     p.add(octa(0.025), PAL.red, [x, y + h / 2 - 0.05, 0.065]);
     for (let k = 0; k < 3; k++) p.add(box(w * 0.65, 0.022, 0.013), 0x9a9080, [x, y + h / 4 - k * 0.08, 0.052], [0, 0, tilt]);
   }
-  const roof: Roof = { x0: -W + 0.05, x1: W - 0.05, zf: 0.38, zb: -0.38, eave: 2.08, ridge: d.h, thick: 0.08, over: 0.12, courses: 3, colors: [PAL.shingle, PAL.shingleDark], cap: PAL.woodDark };
+  const roof: Roof = {
+    x0: -W + 0.05,
+    x1: W - 0.05,
+    zf: 0.38,
+    zb: -0.38,
+    eave: 2.08,
+    ridge: d.h,
+    thick: 0.08,
+    over: 0.12,
+    courses: 3,
+    colors: [PAL.shingle, PAL.shingleDark],
+    cap: PAL.woodDark,
+  };
   gable(p, roof, rng);
 };
 
@@ -1281,7 +1826,12 @@ const housePlot: Builder = (c) => {
   const { d, body: p } = c;
   const W = d.w / 2 - 0.1;
   const D = d.d / 2 - 0.1;
-  const corners: V3[] = [[-W, 0, -D], [W, 0, -D], [W, 0, D], [-W, 0, D]];
+  const corners: V3[] = [
+    [-W, 0, -D],
+    [W, 0, -D],
+    [W, 0, D],
+    [-W, 0, D],
+  ];
   for (const [x, , z] of corners) {
     p.add(box(0.08, 0.85, 0.08), PAL.woodLight, [x, 0.425, z]);
     p.add(cone(0.06, 0.12, 4), PAL.woodLight, [x, -0.03, z], [Math.PI, Math.PI / 4, 0]);
@@ -1296,7 +1846,20 @@ const housePlot: Builder = (c) => {
   p.add(box(0.09, d.h - 0.05, 0.09), PAL.wood, [0, (d.h - 0.05) / 2, D]);
   p.add(bev(0.75, 0.48, 0.05, 0.02), PAL.cream, [0, d.h - 0.3, D + 0.07]);
   p.add(box(0.22, 0.16, 0.012), 0x3f6f9a, [-0.12, d.h - 0.36, D + 0.1]);
-  p.add(xf(extrude([[-0.15, 0], [0.15, 0], [0, 0.12]], 0.012), [-0.12, d.h - 0.28, D + 0.1]), PAL.red);
+  p.add(
+    xf(
+      extrude(
+        [
+          [-0.15, 0],
+          [0.15, 0],
+          [0, 0.12],
+        ],
+        0.012,
+      ),
+      [-0.12, d.h - 0.28, D + 0.1],
+    ),
+    PAL.red,
+  );
   p.add(box(0.14, 0.04, 0.012), 0x4f8f4a, [0.17, d.h - 0.3, D + 0.1]);
   p.add(box(0.04, 0.14, 0.012), 0x4f8f4a, [0.17, d.h - 0.3, D + 0.1]);
 };
@@ -1314,7 +1877,13 @@ const scarecrow: Builder = (c) => {
   p.add(box(0.5, 0.06, 0.29), PAL.rope, [0, 1.06, 0]);
   // Straw at the cuffs, the collar and the hem.
   const straw = (at: V3, dir: V3, n: number) => {
-    for (let k = 0; k < n; k++) p.add(cone(0.035, 0.18, 3), vary(PAL.hay, rng, 0.1), [at[0] + (rng() - 0.5) * 0.12, at[1] + (rng() - 0.5) * 0.1, at[2] + (rng() - 0.5) * 0.12], [dir[0] + (rng() - 0.5) * 0.5, rng() * 3, dir[2] + (rng() - 0.5) * 0.5]);
+    for (let k = 0; k < n; k++)
+      p.add(
+        cone(0.035, 0.18, 3),
+        vary(PAL.hay, rng, 0.1),
+        [at[0] + (rng() - 0.5) * 0.12, at[1] + (rng() - 0.5) * 0.1, at[2] + (rng() - 0.5) * 0.12],
+        [dir[0] + (rng() - 0.5) * 0.5, rng() * 3, dir[2] + (rng() - 0.5) * 0.5],
+      );
   };
   straw([W - 0.03, 1.4, 0], [0, 0, -1.6], 5);
   straw([-W + 0.03, 1.4, 0], [0, 0, 1.6], 5);
@@ -1338,10 +1907,29 @@ const farmPlot: Builder = (c) => {
   const pitch = (d.w - 0.5) / n;
   for (let k = 0; k < n; k++) {
     const x = -W + 0.25 + pitch * (k + 0.5);
-    p.add(xf(extrude([[-pitch * 0.42, 0], [pitch * 0.42, 0], [pitch * 0.18, 0.05], [-pitch * 0.18, 0.05]], d.d - 0.5), [x, 0.03, 0]), vary(PAL.soilLight, rng, 0.05));
+    p.add(
+      xf(
+        extrude(
+          [
+            [-pitch * 0.42, 0],
+            [pitch * 0.42, 0],
+            [pitch * 0.18, 0.05],
+            [-pitch * 0.18, 0.05],
+          ],
+          d.d - 0.5,
+        ),
+        [x, 0.03, 0],
+      ),
+      vary(PAL.soilLight, rng, 0.05),
+    );
   }
   // A low rim of heaped earth.
-  for (const [x, z, w, dd] of [[0, D - 0.12, d.w, 0.25], [0, -D + 0.12, d.w, 0.25], [W - 0.12, 0, 0.25, d.d - 0.5], [-W + 0.12, 0, 0.25, d.d - 0.5]] as const) {
+  for (const [x, z, w, dd] of [
+    [0, D - 0.12, d.w, 0.25],
+    [0, -D + 0.12, d.w, 0.25],
+    [W - 0.12, 0, 0.25, d.d - 0.5],
+    [-W + 0.12, 0, 0.25, d.d - 0.5],
+  ] as const) {
     p.add(bev(w, d.h - 0.03, dd, 0.06), PAL.soilDark, [x, (d.h - 0.03) / 2 + 0.01, z]);
   }
 };
@@ -1356,16 +1944,27 @@ const oreNode: Builder = (c) => {
   rock(0.95, [-0.25, 0.68, -0.1], [1.25, 0.85, 1.05], 1);
   rock(0.65, [0.8, 0.42, 0.35], [1, 0.8, 1], 2);
   rock(0.45, [0.55, 0.3, -0.7], [1, 0.75, 1.1], 3);
-  for (const [at, r] of [[[0.25, 1.15, 0.2], 0.4], [[-0.75, 0.9, 0.55], -0.5], [[0.95, 0.75, 0.15], 0.9], [[-0.1, 1.3, -0.35], -0.2]] as const) {
+  for (const [at, r] of [
+    [[0.25, 1.15, 0.2], 0.4],
+    [[-0.75, 0.9, 0.55], -0.5],
+    [[0.95, 0.75, 0.15], 0.9],
+    [[-0.1, 1.3, -0.35], -0.2],
+  ] as const) {
     p.add(octa(0.16), 0x8fe6f2, at as V3, [0, 0.4, r], [0.5, 1.8, 0.5], { glow: 1.25 });
   }
-  for (let k = 0; k < 6; k++) p.add(jiggle(dodec(0.12 + rng() * 0.08), 0.02, k), vary(PAL.rock, rng, 0.1), [(rng() - 0.5) * 2.4, 0.06, 0.8 + rng() * 0.3], undefined, [1, 0.6, 1]);
+  for (let k = 0; k < 6; k++)
+    p.add(jiggle(dodec(0.12 + rng() * 0.08), 0.02, k), vary(PAL.rock, rng, 0.1), [(rng() - 0.5) * 2.4, 0.06, 0.8 + rng() * 0.3], undefined, [1, 0.6, 1]);
 };
 
 const stoneNode: Builder = (c) => {
   const { body: p, rng } = c;
   const pale = PAL.stoneLight;
-  p.add(jiggle(bev(1.9, 1.15, 1.5, 0.12), 0.06, 2), (_c, n) => (n.y > 0.8 ? mix(pale, PAL.white, 0.25) : vary(pale, rng, 0.05)), [-0.25, 0.575, -0.1], [0, 0.15, 0.03]);
+  p.add(
+    jiggle(bev(1.9, 1.15, 1.5, 0.12), 0.06, 2),
+    (_c, n) => (n.y > 0.8 ? mix(pale, PAL.white, 0.25) : vary(pale, rng, 0.05)),
+    [-0.25, 0.575, -0.1],
+    [0, 0.15, 0.03],
+  );
   p.add(jiggle(bev(1.1, 0.5, 0.9, 0.08), 0.04, 3), (_c, n) => (n.y > 0.8 ? mix(pale, PAL.white, 0.3) : pale), [-0.45, 1.38, -0.2], [0, -0.2, 0]);
   p.add(jiggle(bev(0.9, 0.75, 0.8, 0.1), 0.05, 4), pale, [0.85, 0.37, -0.3], [0, 0.4, 0]);
   // Chisel marks: rows of short grooves on the faces.
@@ -1388,7 +1987,13 @@ const timberNode: Builder = (c) => {
       const ex = at[0] + s * Math.cos(yaw) * (len / 2 + 0.005);
       const ez = at[2] - s * Math.sin(yaw) * (len / 2 + 0.005);
       p.add(cyl(r * 0.35, r * 0.35, 0.02, 6), 0xb98a55, [ex, at[1], ez], [0, yaw, Math.PI / 2]);
-      p.add(jiggle(ico(r * 0.55, 0), 0.03, s + 3), 0x5f9a45, [ex - s * Math.cos(yaw) * 0.25, at[1] + r * 0.85, ez + s * Math.sin(yaw) * 0.25], undefined, [1.3, 0.45, 1.1]);
+      p.add(
+        jiggle(ico(r * 0.55, 0), 0.03, s + 3),
+        0x5f9a45,
+        [ex - s * Math.cos(yaw) * 0.25, at[1] + r * 0.85, ez + s * Math.sin(yaw) * 0.25],
+        undefined,
+        [1.3, 0.45, 1.1],
+      );
     }
   };
   log(3.3, 0.3, [0, 0.3, -0.33], 0.04);
@@ -1406,7 +2011,13 @@ const herbNode: Builder = (c) => {
   for (let k = 0; k < 9; k++) {
     const a = (k / 9) * TAU + rng() * 0.4;
     const r = k === 0 ? 0 : 0.18 + rng() * 0.28;
-    p.add(jiggle(ico(0.2 + rng() * 0.08, 0), 0.03, k), [PAL.leaf, PAL.leafMid, 0x6abf4b][k % 3], [Math.cos(a) * r, 0.16 + (k === 0 ? 0.12 : rng() * 0.06), Math.sin(a) * r], [rng(), rng() * 3, 0], [1.1, 0.7, 1.1]);
+    p.add(
+      jiggle(ico(0.2 + rng() * 0.08, 0), 0.03, k),
+      [PAL.leaf, PAL.leafMid, 0x6abf4b][k % 3],
+      [Math.cos(a) * r, 0.16 + (k === 0 ? 0.12 : rng() * 0.06), Math.sin(a) * r],
+      [rng(), rng() * 3, 0],
+      [1.1, 0.7, 1.1],
+    );
   }
   for (let k = 0; k < 12; k++) {
     const a = rng() * TAU;
@@ -1447,7 +2058,23 @@ const BUILDERS: Record<string, Builder> = {
 const generic: Builder = (c) => {
   const { d, body: p, rng } = c;
   p.add(box(d.w * 0.9, d.h * 0.55, d.d * 0.9), PAL.plaster, [0, d.h * 0.275, 0]);
-  gable(p, { x0: -d.w * 0.45, x1: d.w * 0.45, zf: d.d / 2, zb: -d.d / 2, eave: d.h * 0.55, ridge: d.h, thick: 0.2, over: 0.2, courses: 5, colors: [PAL.roofRed, PAL.roofRedDark], cap: PAL.roofRedDark }, rng);
+  gable(
+    p,
+    {
+      x0: -d.w * 0.45,
+      x1: d.w * 0.45,
+      zf: d.d / 2,
+      zb: -d.d / 2,
+      eave: d.h * 0.55,
+      ridge: d.h,
+      thick: 0.2,
+      over: 0.2,
+      courses: 5,
+      colors: [PAL.roofRed, PAL.roofRedDark],
+      cap: PAL.roofRedDark,
+    },
+    rng,
+  );
 };
 
 /** The made stalls come with a red awning or a blue one: whichever is nearer the tint asked for. */
@@ -1488,4 +2115,3 @@ export function buildStructure(id: string, opts: StructureOpts = {}): StructureM
   }
   return { root, animate };
 }
-

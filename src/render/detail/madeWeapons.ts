@@ -41,7 +41,9 @@ const BOW = { gripX: -0.056, stringX: 0.062, length: 1.2 };
 const SHINE = 1.6;
 
 // Vite turns these into file URLs; under Node there are none.
-const urls = (typeof window !== 'undefined' ? import.meta.glob('../assets/models/weapon_*.glb', { query: '?url', import: 'default', eager: true }) : {}) as Record<string, string>;
+const urls = (
+  typeof window !== 'undefined' ? import.meta.glob('../assets/models/weapon_*.glb', { query: '?url', import: 'default', eager: true }) : {}
+) as Record<string, string>;
 const params = typeof location !== 'undefined' ? new URLSearchParams(location.search) : null;
 
 /** The made weapons, each fitted into its attachment's space, and the made bow's string. */
@@ -74,7 +76,7 @@ export function madeWeapons(): Promise<MadeWeapons> | null {
           out.parts.bow = parts;
           out.bow = string;
         } else {
-          const f = tried ? { ...LONG[name], tip: Number(tip) < 0 ? -1 : 1, grip: Number(grip) || LONG[name].grip } as Long : LONG[name];
+          const f = tried ? ({ ...LONG[name], tip: Number(tip) < 0 ? -1 : 1, grip: Number(grip) || LONG[name].grip } as Long) : LONG[name];
           out.parts[name] = fitLong(scene, f);
         }
       }),
@@ -145,7 +147,15 @@ function fitBow(scene: THREE.Object3D): { parts: Array<{ geometry: THREE.BufferG
   const half = BOW.length / 2 - 0.012;
   return {
     parts: bake(scene, fit),
-    string: { nock: [0, brace, 0], tips: [[0, brace, half], [0, brace, -half]], arrowNock: 0.3, maxDraw: 0.72 },
+    string: {
+      nock: [0, brace, 0],
+      tips: [
+        [0, brace, half],
+        [0, brace, -half],
+      ],
+      arrowNock: 0.3,
+      maxDraw: 0.72,
+    },
   };
 }
 

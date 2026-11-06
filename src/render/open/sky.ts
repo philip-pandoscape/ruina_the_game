@@ -95,7 +95,13 @@ export class SkyView {
     const { count, detail } = GRAPHICS.clouds;
     this.clouds = new THREE.InstancedMesh(cumulus(detail), this.cloudLight.material, count);
     for (let i = 0; i < count; i++) {
-      this.cloudBase.push({ x: range(rng, -1300, 1300), y: range(rng, 170, 290), z: range(rng, -1300, 1300), s: range(rng, 0.8, 2.1) * 1.25, r: rng() * Math.PI * 2 });
+      this.cloudBase.push({
+        x: range(rng, -1300, 1300),
+        y: range(rng, 170, 290),
+        z: range(rng, -1300, 1300),
+        s: range(rng, 0.8, 2.1) * 1.25,
+        r: rng() * Math.PI * 2,
+      });
     }
     this.clouds.frustumCulled = false;
     this.clouds.castShadow = false;
@@ -110,7 +116,10 @@ export class SkyView {
     }
     const sg = new THREE.BufferGeometry();
     sg.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
-    this.stars = new THREE.Points(sg, new THREE.PointsMaterial({ color: 0xffffff, size: 2.2, sizeAttenuation: false, transparent: true, opacity: 0, depthWrite: false, fog: false }));
+    this.stars = new THREE.Points(
+      sg,
+      new THREE.PointsMaterial({ color: 0xffffff, size: 2.2, sizeAttenuation: false, transparent: true, opacity: 0, depthWrite: false, fog: false }),
+    );
     this.stars.frustumCulled = false;
     this.stars.renderOrder = -9;
     this.group.add(this.stars);
@@ -131,13 +140,29 @@ export class SkyView {
     this.stars.visible = night > 0.15;
     const cu = this.cloudLight.uniforms;
     (cu.uSunDir.value as THREE.Vector3).copy(sunDir).normalize();
-    (cu.uLit.value as THREE.Color).setRGB(1.12, 1.1, 1.06).lerp(sun, 0.25).multiplyScalar(1 - night * 0.82);
-    (cu.uShade.value as THREE.Color).copy(top).lerp(horizon, 0.55).lerp(new THREE.Color(0x9aa6b8), 0.5).multiplyScalar(1 - night * 0.78);
+    (cu.uLit.value as THREE.Color)
+      .setRGB(1.12, 1.1, 1.06)
+      .lerp(sun, 0.25)
+      .multiplyScalar(1 - night * 0.82);
+    (cu.uShade.value as THREE.Color)
+      .copy(top)
+      .lerp(horizon, 0.55)
+      .lerp(new THREE.Color(0x9aa6b8), 0.5)
+      .multiplyScalar(1 - night * 0.78);
     const tu = this.treeLight.uniforms;
     const leaves = new THREE.Color(PALETTE.worldTree.leaves);
     (tu.uSunDir.value as THREE.Vector3).copy(sunDir).normalize();
-    (tu.uLit.value as THREE.Color).copy(leaves).lerp(horizon, 0.5).lerp(sun, 0.1).multiplyScalar(1.05 * (1 - night * 0.8));
-    (tu.uShade.value as THREE.Color).copy(leaves).multiplyScalar(0.55).lerp(horizon, 0.62).lerp(top, 0.1).multiplyScalar(1 - night * 0.8);
+    (tu.uLit.value as THREE.Color)
+      .copy(leaves)
+      .lerp(horizon, 0.5)
+      .lerp(sun, 0.1)
+      .multiplyScalar(1.05 * (1 - night * 0.8));
+    (tu.uShade.value as THREE.Color)
+      .copy(leaves)
+      .multiplyScalar(0.55)
+      .lerp(horizon, 0.62)
+      .lerp(top, 0.1)
+      .multiplyScalar(1 - night * 0.8);
   }
 
   /** Keeps the dome around the camera and drifts the clouds with the wind. */
@@ -182,7 +207,10 @@ function cumulus(detail: number): THREE.BufferGeometry {
   const v = new THREE.Vector3();
   for (let i = 0; i < p.count; i++) {
     if (p.getY(i) < -2.5) p.setY(i, -2.5 + (p.getY(i) + 2.5) * 0.2);
-    v.fromBufferAttribute(p, i).sub(centre).multiply(new THREE.Vector3(0.6, 1, 0.8)).normalize();
+    v.fromBufferAttribute(p, i)
+      .sub(centre)
+      .multiply(new THREE.Vector3(0.6, 1, 0.8))
+      .normalize();
     v.lerp(new THREE.Vector3(n.getX(i), n.getY(i), n.getZ(i)), 0.5).normalize();
     n.setXYZ(i, v.x, v.y, v.z);
   }

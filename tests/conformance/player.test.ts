@@ -38,17 +38,46 @@ const MODES = { normal: 0, attack: 1, cast: 2, action: 3 } as const;
 // One recorded frame, in the order both sides write it (see Out in crates/tools/src/bin/simcheck.rs).
 // Named rather than numbered, because getting these out of step silently weakens the whole check.
 const F = {
-  x: 0, y: 1, z: 2, vx: 3, vy: 4, vz: 5, facing: 6, hp: 7,
-  mode: 8, castFrame: 9, firedAbility: 10, castTargetX: 11, castTargetZ: 12,
-  sprinting: 13, crouching: 14, crouchFrame: 15, actionId: 16, actionFrame: 17, stamina: 18, mp: 19, staminaDelay: 20,
-  cooldowns: 21, movementCooldowns: 21 + HOTBAR_SLOTS,
+  x: 0,
+  y: 1,
+  z: 2,
+  vx: 3,
+  vy: 4,
+  vz: 5,
+  facing: 6,
+  hp: 7,
+  mode: 8,
+  castFrame: 9,
+  firedAbility: 10,
+  castTargetX: 11,
+  castTargetZ: 12,
+  sprinting: 13,
+  crouching: 14,
+  crouchFrame: 15,
+  actionId: 16,
+  actionFrame: 17,
+  stamina: 18,
+  mp: 19,
+  staminaDelay: 20,
+  cooldowns: 21,
+  movementCooldowns: 21 + HOTBAR_SLOTS,
 } as const;
 // Continuous values, compared with a tolerance.
 const NEAR = [F.x, F.y, F.z, F.vx, F.vy, F.vz, F.facing, F.hp, F.castTargetX, F.castTargetZ, F.stamina, F.mp];
 // Whole numbers and flags, which must match exactly.
-const EXACT = [F.mode, F.castFrame, F.firedAbility, F.sprinting, F.crouching, F.crouchFrame, F.actionId, F.actionFrame, F.staminaDelay,
+const EXACT = [
+  F.mode,
+  F.castFrame,
+  F.firedAbility,
+  F.sprinting,
+  F.crouching,
+  F.crouchFrame,
+  F.actionId,
+  F.actionFrame,
+  F.staminaDelay,
   ...Array.from({ length: HOTBAR_SLOTS }, (_, i) => F.cooldowns + i),
-  ...Array.from({ length: MOVEMENT_SKILL_CAP }, (_, i) => F.movementCooldowns + i)];
+  ...Array.from({ length: MOVEMENT_SKILL_CAP }, (_, i) => F.movementCooldowns + i),
+];
 
 const skills = (...ids: string[]) => skillsFrom(...ids);
 const HEAL = 0;
@@ -248,9 +277,27 @@ for (const [name, build] of Object.entries(BUILDS)) {
       if (p.firedAbility !== NO_ABILITY) casts++;
       for (const e of sim.drainEvents()) if (e.type === 'short') short[e.what]++;
       ts.push([
-        p.pos.x, p.pos.y, p.pos.z, p.vel.x, p.vel.y, p.vel.z, p.facing, p.hp, MODES[p.mode as keyof typeof MODES],
-        p.castFrame, p.firedAbility, p.castTargetX, p.castTargetZ,
-        p.sprinting ? 1 : 0, p.crouching ? 1 : 0, p.crouchFrame, p.actionId, p.actionFrame, p.stamina, p.mp, p.staminaDelay,
+        p.pos.x,
+        p.pos.y,
+        p.pos.z,
+        p.vel.x,
+        p.vel.y,
+        p.vel.z,
+        p.facing,
+        p.hp,
+        MODES[p.mode as keyof typeof MODES],
+        p.castFrame,
+        p.firedAbility,
+        p.castTargetX,
+        p.castTargetZ,
+        p.sprinting ? 1 : 0,
+        p.crouching ? 1 : 0,
+        p.crouchFrame,
+        p.actionId,
+        p.actionFrame,
+        p.stamina,
+        p.mp,
+        p.staminaDelay,
         ...p.cooldowns,
         ...Array.from({ length: MOVEMENT_SKILL_CAP }, (_, i) => p.movementCooldowns[i] ?? 0),
       ]);
@@ -327,7 +374,9 @@ for (const [name, build] of Object.entries(BUILDS)) {
       }
       if (EXACT.some((k) => f[k] !== r[k])) {
         if (stateMismatch === 0) {
-          const names = Object.entries(F).filter(([, k]) => EXACT.includes(k) && f[k] !== r[k]).map(([n]) => n);
+          const names = Object.entries(F)
+            .filter(([, k]) => EXACT.includes(k) && f[k] !== r[k])
+            .map(([n]) => n);
           console.log(`${name}: first mismatch at frame ${i} in ${names.join(', ') || 'a cooldown'}: ts=${f.join()} rust=${r.join()}`);
         }
         stateMismatch++;

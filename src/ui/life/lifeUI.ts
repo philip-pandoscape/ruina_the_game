@@ -39,7 +39,23 @@ import { esc } from '../../util/html';
 // running (the map is the one that takes over), the bag docks on the right, and the person you talk
 // to looks out of the corner of the window.
 
-export type LifePress = 'interact' | 'drop' | 'mount' | 'glider' | 'seed' | 'autorun' | 'bag' | 'map' | 'garage' | 'quests' | 'character' | 'party' | 'settings' | 'escape' | 'dev' | 'admin';
+export type LifePress =
+  | 'interact'
+  | 'drop'
+  | 'mount'
+  | 'glider'
+  | 'seed'
+  | 'autorun'
+  | 'bag'
+  | 'map'
+  | 'garage'
+  | 'quests'
+  | 'character'
+  | 'party'
+  | 'settings'
+  | 'escape'
+  | 'dev'
+  | 'admin';
 
 export interface LifeUIDeps {
   life: Life;
@@ -70,11 +86,31 @@ type ShopTab = 'buy' | 'sell' | 'buyback';
 /** Somewhere a quest leads you: the ring on the maps and the marker on the compass. */
 type Goal = { x: number; z: number; label: string };
 type Handler = (arg: string, e: MouseEvent | null) => void;
-type View = { title: string; sub?: string; portrait?: string; body: string; foot?: string; cls?: string; w: number; h?: number; handlers?: Record<string, Handler> };
+type View = {
+  title: string;
+  sub?: string;
+  portrait?: string;
+  body: string;
+  foot?: string;
+  cls?: string;
+  w: number;
+  h?: number;
+  handlers?: Record<string, Handler>;
+};
 
 const FACES: Record<string, string> = {
-  hollis: '🧓', mara: '👩‍🌾', tamsin: '🧑‍🔧', bertram: '🧔', sela: '👩‍🦰', ilsa: '🧑‍✈️', quill: '🧐',
-  ysolde: '🧝', dunmore: '🧑‍💼', pell: '🎩', hob: '🪓', brenna: '⛏️',
+  hollis: '🧓',
+  mara: '👩‍🌾',
+  tamsin: '🧑‍🔧',
+  bertram: '🧔',
+  sela: '👩‍🦰',
+  ilsa: '🧑‍✈️',
+  quill: '🧐',
+  ysolde: '🧝',
+  dunmore: '🧑‍💼',
+  pell: '🎩',
+  hob: '🪓',
+  brenna: '⛏️',
 };
 const GREETINGS: Record<string, string> = {
   hollis: 'Lanternwick prospers when its people do. Plant, pack, haul - and keep your boots dry.',
@@ -94,7 +130,16 @@ const GREETINGS: Record<string, string> = {
 const BENCH_OF: Record<string, string> = { tamsin: 'lanternwickBench', hob: 'sawhorse', brenna: 'stonecutter' };
 /** How far you can walk from whoever you're dealing with before their window closes. */
 const WALK_AWAY = 9;
-const CAT: Record<string, string> = { seed: 'Seed', produce: 'Produce', material: 'Material', consumable: 'Consumable', placeable: 'Placeable', glider: 'Glider', deed: 'Vehicle Deed', mount: 'Mount' };
+const CAT: Record<string, string> = {
+  seed: 'Seed',
+  produce: 'Produce',
+  material: 'Material',
+  consumable: 'Consumable',
+  placeable: 'Placeable',
+  glider: 'Glider',
+  deed: 'Vehicle Deed',
+  mount: 'Mount',
+};
 
 /** "☀️ 14:20" or "🌙 23:05" for an hour of the day. */
 function clock(h: number, sky: { sunrise: number; sunset: number }): string {
@@ -205,8 +250,12 @@ export class LifeUI {
     const btn = (press: LifePress, icon: string, label: string, key: string) =>
       `<div class="hud-mbtn" data-press="${press}" title="${label}${key ? ` (${key})` : ''}">${icon}${key ? `<span class="k">${key}</span>` : ''}<span class="lbl">${label}</span></div>`;
     this.menuEl.innerHTML =
-      btn('bag', uiIcon('bag', 34), 'Bag', 'I') + btn('character', uiIcon('helm', 34), 'Character', 'P') + btn('quests', uiIcon('scroll', 34), 'Quests', 'L') +
-      btn('map', uiIcon('map', 34), 'Map', 'M') + btn('garage', uiIcon('wheel', 34), 'Rides', 'V') + btn('settings', uiIcon('gear', 34), 'Settings', '');
+      btn('bag', uiIcon('bag', 34), 'Bag', 'I') +
+      btn('character', uiIcon('helm', 34), 'Character', 'P') +
+      btn('quests', uiIcon('scroll', 34), 'Quests', 'L') +
+      btn('map', uiIcon('map', 34), 'Map', 'M') +
+      btn('garage', uiIcon('wheel', 34), 'Rides', 'V') +
+      btn('settings', uiIcon('gear', 34), 'Settings', '');
     this.menuEl.addEventListener('click', (e) => {
       const b = (e.target as HTMLElement).closest('[data-press]') as HTMLElement | null;
       if (b) this.press(b.dataset.press as LifePress);
@@ -225,12 +274,34 @@ export class LifeUI {
         }
       });
     }
-    for (const e of [this.portrait, this.vitals, this.minimap, this.clockEl, this.compass, this.banner, this.toasts, this.prompt, this.quests, this.rideBox, this.menuEl, this.card, this.bagEl]) root.appendChild(e);
+    for (const e of [
+      this.portrait,
+      this.vitals,
+      this.minimap,
+      this.clockEl,
+      this.compass,
+      this.banner,
+      this.toasts,
+      this.prompt,
+      this.quests,
+      this.rideBox,
+      this.menuEl,
+      this.card,
+      this.bagEl,
+    ])
+      root.appendChild(e);
     wireTips();
     addTipSource((tip) => this.tip(tip));
     if (d.walk) {
       const player = (): [number, number] => [d.sim.player.pos.x, d.sim.player.pos.z];
-      this.travel = new TravelUI({ walk: d.walk, world: d.world, places: () => this.life.zone.recipe.places, player, device: d.device, toast: (t, k) => this.toast(t, k) });
+      this.travel = new TravelUI({
+        walk: d.walk,
+        world: d.world,
+        places: () => this.life.zone.recipe.places,
+        player,
+        device: d.device,
+        toast: (t, k) => this.toast(t, k),
+      });
       this.travel.attachMap(this.bigMap);
     }
   }
@@ -488,7 +559,8 @@ export class LifeUI {
     const act = b?.dataset.act ?? '';
     if (!b) return;
     if (w === this.bagEl && act === 'sel') this.itemMenu(Number(b.dataset.arg), e.clientX, e.clientY);
-    else if (w === this.card && (act === 'buy' || act === 'sell' || act === 'buyback')) this.shopMenu(act, b.dataset.arg ?? '', b.hasAttribute('disabled'), e.clientX, e.clientY);
+    else if (w === this.card && (act === 'buy' || act === 'sell' || act === 'buyback'))
+      this.shopMenu(act, b.dataset.arg ?? '', b.hasAttribute('disabled'), e.clientX, e.clientY);
   }
 
   /** A merchant's item: buy or sell one, or a handful. */
@@ -501,10 +573,19 @@ export class LifeUI {
     const broke = cant ? 'Not enough money' : undefined;
     const entries: MenuEntry[] =
       act === 'buy'
-        ? [{ label: 'Buy One', primary: true, disabled: broke, run: go('buy', 1) }, ...(def.stack > 1 ? [{ label: 'Buy Five', disabled: broke, run: go('buy', 5) }] : [])]
+        ? [
+            { label: 'Buy One', primary: true, disabled: broke, run: go('buy', 1) },
+            ...(def.stack > 1 ? [{ label: 'Buy Five', disabled: broke, run: go('buy', 5) }] : []),
+          ]
         : act === 'sell'
-          ? [{ label: 'Sell One', primary: true, run: go('sell', 1) }, { label: 'Sell All', run: go('sell', 9999) }]
-          : [{ label: 'Buy Back One', primary: true, disabled: broke, run: go('buyback', 1) }, { label: 'Buy Back All', disabled: broke, run: go('buyback', 9999) }];
+          ? [
+              { label: 'Sell One', primary: true, run: go('sell', 1) },
+              { label: 'Sell All', run: go('sell', 9999) },
+            ]
+          : [
+              { label: 'Buy Back One', primary: true, disabled: broke, run: go('buyback', 1) },
+              { label: 'Buy Back All', disabled: broke, run: go('buyback', 9999) },
+            ];
     openMenu(x, y, def.name, entries);
   }
 
@@ -566,7 +647,26 @@ export class LifeUI {
 
   private signature(): string {
     const s = this.life.state;
-    return [s.coins, s.seals, Math.floor(s.labor / 5), this.life.revision, s.bag.map((b) => `${b.item}${b.n}`).join(), s.quests.active.map((q) => `${q.id}${q.step}${q.counts}`).join(), s.quests.done.length, this.logSel, this.d.sim.player.pack, this.d.sim.player.weapon, this.d.sim.player.skills.join(), s.vehicles.length, s.glider, s.seed, s.contracts?.active.length, s.contracts?.offered.length, s.buyback?.map((b) => `${b.npc}${b.item}${b.n}`).join(), Math.round(this.hp)].join('|');
+    return [
+      s.coins,
+      s.seals,
+      Math.floor(s.labor / 5),
+      this.life.revision,
+      s.bag.map((b) => `${b.item}${b.n}`).join(),
+      s.quests.active.map((q) => `${q.id}${q.step}${q.counts}`).join(),
+      s.quests.done.length,
+      this.logSel,
+      this.d.sim.player.pack,
+      this.d.sim.player.weapon,
+      this.d.sim.player.skills.join(),
+      s.vehicles.length,
+      s.glider,
+      s.seed,
+      s.contracts?.active.length,
+      s.contracts?.offered.length,
+      s.buyback?.map((b) => `${b.npc}${b.item}${b.n}`).join(),
+      Math.round(this.hp),
+    ].join('|');
   }
 
   /** Portraits arrive a frame or two after a window opens and are retaken now and then: show the latest. */
@@ -681,7 +781,8 @@ export class LifeUI {
     const key = `${text}|${Math.round(wind.windSpeed * 100)}|${Math.round((rel * 180) / Math.PI / 10)}`;
     if (key === this.clockKey) return;
     this.clockKey = key;
-    this.clockEl.firstElementChild!.innerHTML = `${withIcons(text, 14)} · Wind <b style="transform:rotate(${(-rel * 180) / Math.PI}deg)">⬆</b> ${Math.round(wind.windSpeed * 100)}%`;
+    this.clockEl.firstElementChild!.innerHTML =
+      `${withIcons(text, 14)} · Wind <b style="transform:rotate(${(-rel * 180) / Math.PI}deg)">⬆</b> ${Math.round(wind.windSpeed * 100)}%`;
   }
 
   /** The island around you, north up, with what you're looking for. */
@@ -788,7 +889,12 @@ export class LifeUI {
       return width / 2 - (d / (fov / 2)) * (width / 2);
     };
     let html = '<div class="centre"></div>';
-    const cards: Array<[string, number]> = [['N', 0], ['W', Math.PI / 2], ['S', Math.PI], ['E', -Math.PI / 2]];
+    const cards: Array<[string, number]> = [
+      ['N', 0],
+      ['W', Math.PI / 2],
+      ['S', Math.PI],
+      ['E', -Math.PI / 2],
+    ];
     for (const [c, b] of cards) {
       const x = xOf(b);
       if (x !== null) html += `<div class="tick card" style="left:${x}px">${c}</div>`;
@@ -842,9 +948,11 @@ export class LifeUI {
           const nd = this.nodeFor(o.kind);
           if (nd) return nd;
         }
-        if (o.type === 'craftPack') return (o.pack ? this.benchFor(o.pack) : null) ?? { x: r.workbenches[0].x, z: r.workbenches[0].z, label: 'Specialty Workbench' };
+        if (o.type === 'craftPack')
+          return (o.pack ? this.benchFor(o.pack) : null) ?? { x: r.workbenches[0].x, z: r.workbenches[0].z, label: 'Specialty Workbench' };
         if (o.type === 'placeScarecrow') return { x: r.farmland.x, z: r.farmland.z, label: 'Barleybrook Fields' };
-        if ((o.type === 'plant' || o.type === 'harvest' || o.type === 'raise') && life.state.scarecrows[0]) return { x: life.state.scarecrows[0].x, z: life.state.scarecrows[0].z, label: 'Your Plot' };
+        if ((o.type === 'plant' || o.type === 'harvest' || o.type === 'raise') && life.state.scarecrows[0])
+          return { x: life.state.scarecrows[0].x, z: life.state.scarecrows[0].z, label: 'Your Plot' };
         if (o.type === 'contract') {
           const k = life.state.contracts?.active[0];
           const op = r.outposts.find((x) => x.id === (k?.outpost ?? 'westwatch'));
@@ -871,7 +979,8 @@ export class LifeUI {
           if (seller && !life.state.bag.some((s) => s.item.startsWith('blueprint.'))) return { x: seller.x, z: seller.z, label: seller.name };
           return { x: place('hearthside')!.x, z: place('hearthside')!.z, label: 'Hearthside Rise' };
         }
-        if (o.type === 'glide') return { x: r.places.find((pl) => pl.id === 'lanternwick')!.x, z: r.places.find((pl) => pl.id === 'lanternwick')!.z, label: 'Lanternwick' };
+        if (o.type === 'glide')
+          return { x: r.places.find((pl) => pl.id === 'lanternwick')!.x, z: r.places.find((pl) => pl.id === 'lanternwick')!.z, label: 'Lanternwick' };
       }
     }
     return null;
@@ -1013,7 +1122,9 @@ export class LifeUI {
       parts.push(`<div class="q"><div class="qt"><i></i>${esc(q.name)}</div><div class="step">${esc(step.text)}${counts}</div>${bars}</div>`);
     }
     for (const k of life.state.contracts?.active ?? []) {
-      parts.push(`<div class="q"><div class="qt"><i></i>Contract · ${esc(placeName(k.outpost))}</div><div class="step">${k.count} × ${esc(packDef(k.pack).name)} <span class="count">${k.delivered}/${k.count}</span> · ${shortTime(k.expires - life.state.clock)} Left</div><div class="q-bar"><i style="width:${(k.delivered / k.count) * 100}%"></i></div></div>`);
+      parts.push(
+        `<div class="q"><div class="qt"><i></i>Contract · ${esc(placeName(k.outpost))}</div><div class="step">${k.count} × ${esc(packDef(k.pack).name)} <span class="count">${k.delivered}/${k.count}</span> · ${shortTime(k.expires - life.state.clock)} Left</div><div class="q-bar"><i style="width:${(k.delivered / k.count) * 100}%"></i></div></div>`,
+      );
     }
     if (untracked) parts.push(`<div class="hint">${untracked} more in your quest log (L)</div>`);
     const offers = QUESTS.filter((q) => !q.auto && questsAt(life, q.giver).offer.includes(q)).length;
@@ -1043,7 +1154,9 @@ export class LifeUI {
         `<div style="color:var(--ink-2)">${withIcons(`${g.icon} ${g.name}`)}</div><div class="big">${Math.round(this.lastAlt)}<small>m Up</small></div>` +
         `<div>${Math.round(p.airspeed * 3.6)} km/h · <span class="vario ${this.vario > 0.2 ? 'up' : this.vario < -2.5 ? 'down' : ''}">${this.vario >= 0 ? '▲' : '▼'} ${Math.abs(this.vario).toFixed(1)} m/s</span></div>` +
         `${lift ? '<div style="color:var(--good);font-weight:700">⤒ Rising Air!</div>' : ''}${p.pos.y < hf.water + 6 ? '<div style="color:var(--sea)">Over Water</div>' : ''}` +
-        (g.gust ? `<div style="margin-top:4px;color:var(--ink-2)">F · Gust ${p.gustFrames > 0 ? `in ${Math.ceil(p.gustFrames / 60)}s` : '<b style="color:var(--accent)">Ready</b>'}</div>` : '');
+        (g.gust
+          ? `<div style="margin-top:4px;color:var(--ink-2)">F · Gust ${p.gustFrames > 0 ? `in ${Math.ceil(p.gustFrames / 60)}s` : '<b style="color:var(--accent)">Ready</b>'}</div>`
+          : '');
       return;
     }
     const v = ridden(life, sim);
@@ -1068,10 +1181,21 @@ export class LifeUI {
       extra += `<div class="wind">Wind <span class="arrow" style="transform:rotate(${(rel * 180) / Math.PI}deg)">⬆</span> ${Math.round(eff * 100)}% · Sail</div><div class="trim"><i style="width:${v.sail * 100}%"></i></div><div style="color:var(--ink-2);margin-top:3px">W/S Raise / Lower Sail</div>`;
     }
     const surf = sim.world.terrain!.surfaceAt(v.x, v.z);
-    const road = !isBoat(def) && !isMount(def) ? (surf === SURFACE.road || surf === SURFACE.plaza ? '<span style="color:var(--good)">on road</span>' : '<span style="color:var(--ink-2)">off road</span>') : '';
+    const road =
+      !isBoat(def) && !isMount(def)
+        ? surf === SURFACE.road || surf === SURFACE.plaza
+          ? '<span style="color:var(--good)">on road</span>'
+          : '<span style="color:var(--ink-2)">off road</span>'
+        : '';
     this.rideBox.className = 'lui show';
     const back = carried(life, sim);
-    const load = isMount(def) ? (back ? `<div style="margin-top:4px">${withIcons(`${packDef(back.def).icon} ${packDef(back.def).name}`)}</div>` : '') : def.cargo.length ? `<div class="slots">${slots.join('')}</div>` : '';
+    const load = isMount(def)
+      ? back
+        ? `<div style="margin-top:4px">${withIcons(`${packDef(back.def).icon} ${packDef(back.def).name}`)}</div>`
+        : ''
+      : def.cargo.length
+        ? `<div class="slots">${slots.join('')}</div>`
+        : '';
     this.rideBox.innerHTML = `<div style="color:var(--ink-2)">${withIcons(`${def.icon} ${def.name}`)} ${road}</div><div class="big">${Math.round(Math.abs(v.speed) * 3.6)}<small>km/h</small></div>${load}${extra}`;
   }
 
@@ -1104,7 +1228,13 @@ export class LifeUI {
       }
       const qa = questsAt(life, n.id);
       const talk = life.state.quests.active.some((qp) => questDef(qp.id).steps[qp.step]?.objectives.some((o) => o.type === 'talk' && o.npc === n.id));
-      const mark = qa.turnIn.length ? `<div class="mark">${uiIcon('quest-done', 30)}</div>` : qa.offer.length ? `<div class="mark">${uiIcon('quest-new', 30)}</div>` : talk ? `<div class="mark">${uiIcon('talk', 28)}</div>` : '';
+      const mark = qa.turnIn.length
+        ? `<div class="mark">${uiIcon('quest-done', 30)}</div>`
+        : qa.offer.length
+          ? `<div class="mark">${uiIcon('quest-new', 30)}</div>`
+          : talk
+            ? `<div class="mark">${uiIcon('talk', 28)}</div>`
+            : '';
       plate.style.display = 'block';
       plate.style.left = `${(this.v.x * 0.5 + 0.5) * w}px`;
       plate.style.top = `${(-this.v.y * 0.5 + 0.5) * h}px`;
@@ -1138,11 +1268,37 @@ export class LifeUI {
     if (mode === 'along') parts.push(item(key(pad ? 'Y' : 'F'), 'Get Out'));
     else if (pad) {
       if (mode === 'ride' || mode === 'boat') parts.push(item(key('L'), 'Drive'), item(key('A'), 'Handbrake'), item(key('Y'), 'Get Out'), ...autoItem('LS'));
-      else parts.push(item(key('L'), 'Move'), item(key('A'), mode === 'glide' ? 'Fold' : 'Jump · Glide'), item(key('Y'), 'Interact'), item(key('▼'), 'Mount'), ...autoItem('LS'), item(key('☰'), 'Bag'), item(key('▲'), 'Map'));
-    } else if (mode === 'ride') parts.push(item(key('W') + key('S'), 'Throttle'), item(key('A') + key('D'), 'Steer'), item(key('Space'), 'Handbrake'), item(key('Shift'), 'Boost'), ...autoItem('H'), item(key('F'), 'Get Out'));
-    else if (mode === 'boat') parts.push(item(key('W') + key('S'), 'Oars / Sail'), item(key('A') + key('D'), 'Rudder'), ...autoItem('H'), item(key('F'), 'Get Out'), item(key('M'), 'Map'));
-    else if (mode === 'mount') parts.push(item(key('WASD'), 'Ride'), item(key('Shift'), 'Gallop'), item(key('Space'), 'Jump'), ...autoItem('H'), item(key('R'), 'Dismount'));
-    else if (mode === 'glide') parts.push(item(key('WASD'), 'Steer'), item(key('Shift'), 'Dive'), item(key('C'), 'Flare'), item(key('F'), 'Gust'), item(key('Space'), 'Fold'));
+      else
+        parts.push(
+          item(key('L'), 'Move'),
+          item(key('A'), mode === 'glide' ? 'Fold' : 'Jump · Glide'),
+          item(key('Y'), 'Interact'),
+          item(key('▼'), 'Mount'),
+          ...autoItem('LS'),
+          item(key('☰'), 'Bag'),
+          item(key('▲'), 'Map'),
+        );
+    } else if (mode === 'ride')
+      parts.push(
+        item(key('W') + key('S'), 'Throttle'),
+        item(key('A') + key('D'), 'Steer'),
+        item(key('Space'), 'Handbrake'),
+        item(key('Shift'), 'Boost'),
+        ...autoItem('H'),
+        item(key('F'), 'Get Out'),
+      );
+    else if (mode === 'boat')
+      parts.push(
+        item(key('W') + key('S'), 'Oars / Sail'),
+        item(key('A') + key('D'), 'Rudder'),
+        ...autoItem('H'),
+        item(key('F'), 'Get Out'),
+        item(key('M'), 'Map'),
+      );
+    else if (mode === 'mount')
+      parts.push(item(key('WASD'), 'Ride'), item(key('Shift'), 'Gallop'), item(key('Space'), 'Jump'), ...autoItem('H'), item(key('R'), 'Dismount'));
+    else if (mode === 'glide')
+      parts.push(item(key('WASD'), 'Steer'), item(key('Shift'), 'Dive'), item(key('C'), 'Flare'), item(key('F'), 'Gust'), item(key('Space'), 'Fold'));
     else {
       parts.push(item(key('WASD'), 'Move'), item(key('Space'), 'Jump ×2 · ×3 Glide'), item(key('F'), 'Interact'));
       if (mode === 'carry') parts.push(item(key('X'), 'Drop Pack'));
@@ -1177,20 +1333,27 @@ export class LifeUI {
       const p = this.panel;
       const v = p && p.kind === 'shop' ? vendorFor(p.id) : null;
       const n = v && p && 'id' in p ? this.life.zone.recipe.npcs.find((x) => x.id === p.id) : null;
-      const sells = v && v.buys.includes(id) ? `<div class="row"><span class="muted">${esc(n?.name.split(' ')[0] ?? 'They')} Pays</span>${money(Math.max(1, Math.round(it.value * v.buyRate)), 12)}</div>` : it.value ? `<div class="row"><span class="muted">Worth</span>${money(it.value, 12)}</div>` : '';
+      const sells =
+        v && v.buys.includes(id)
+          ? `<div class="row"><span class="muted">${esc(n?.name.split(' ')[0] ?? 'They')} Pays</span>${money(Math.max(1, Math.round(it.value * v.buyRate)), 12)}</div>`
+          : it.value
+            ? `<div class="row"><span class="muted">Worth</span>${money(it.value, 12)}</div>`
+            : '';
       return `<h5>${esc(it.name)}</h5><div class="ty">${CAT[it.cat] ?? it.cat}${it.stack > 1 ? ` · Stacks to ${it.stack}` : ''}</div><p>${esc(it.desc)}</p>${extra}${sells ? `<hr>${sells}` : ''}`;
     }
     if (kind === 'pack') {
       try {
         const pk = packDef(id);
-        if (pk.kind === 'material') return `<h5>${esc(pk.name)}</h5><div class="ty">Building Material</div><p>Made at ${esc(placeName(pk.origin))}. Haul it to a building site: your house, or a ship on the slipway.</p>`;
+        if (pk.kind === 'material')
+          return `<h5>${esc(pk.name)}</h5><div class="ty">Building Material</div><p>Made at ${esc(placeName(pk.origin))}. Haul it to a building site: your house, or a ship on the slipway.</p>`;
         return `<h5>${esc(pk.name)}</h5><div class="ty">Trade Pack</div><p>Made at ${esc(placeName(pk.origin))}. Carry it to another town's trader to sell.</p>`;
       } catch {
         return null;
       }
     }
     if (kind === 'slot') return `<h5>${esc(id)}</h5><div class="ty">Empty</div><p>There's nothing to wear here yet.</p>`;
-    if (kind === 'weapon') return `<h5>${esc(WEAPON_NAMES[Number(id)] ?? '')}</h5><div class="ty">Main Hand</div><p>Change your weapon in the skill book (T).</p>`;
+    if (kind === 'weapon')
+      return `<h5>${esc(WEAPON_NAMES[Number(id)] ?? '')}</h5><div class="ty">Main Hand</div><p>Change your weapon in the skill book (T).</p>`;
     return null;
   }
 
@@ -1265,7 +1428,15 @@ export class LifeUI {
         return this.storageView(Number(p.id));
       case 'map': {
         const foot = this.travel?.foot();
-        return { title: this.life.zone.recipe.name, sub: esc(this.life.zone.recipe.subtitle), cls: 'center map', w: 734, body: '', foot: foot?.html, handlers: foot?.handlers };
+        return {
+          title: this.life.zone.recipe.name,
+          sub: esc(this.life.zone.recipe.subtitle),
+          cls: 'center map',
+          w: 734,
+          body: '',
+          foot: foot?.html,
+          handlers: foot?.handlers,
+        };
       }
       case 'garage':
         return this.garageView();
@@ -1288,7 +1459,10 @@ export class LifeUI {
       const it = itemDef(i.item);
       return `<div class="rw" data-tip="item:${i.item}"><div class="ib">${iconHtml(it.icon, i.item)}${i.n > 1 ? `<span class="n">${i.n}</span>` : ''}</div><span class="nm">${esc(it.name)}</span></div>`;
     });
-    if (r.skillPoints) rows.push(`<div class="rw"><div class="ib">${uiIcon('star', 32)}</div><span class="nm">${r.skillPoints} Skill Point${r.skillPoints > 1 ? 's' : ''}</span></div>`);
+    if (r.skillPoints)
+      rows.push(
+        `<div class="rw"><div class="ib">${uiIcon('star', 32)}</div><span class="nm">${r.skillPoints} Skill Point${r.skillPoints > 1 ? 's' : ''}</span></div>`,
+      );
     if (r.labor) rows.push(`<div class="rw"><div class="ib">${uiIcon('labor', 32)}</div><span class="nm">${r.labor} Labor</span></div>`);
     if (r.seals) rows.push(`<div class="rw"><div class="ib">${uiIcon('seal', 32)}</div><span class="nm">${r.seals} Seal${r.seals > 1 ? 's' : ''}</span></div>`);
     if (r.coins) rows.push(`<div class="rw"><div class="ib">${uiIcon('coins', 32)}</div><span class="nm">${money(r.coins, 12)}</span></div>`);
@@ -1302,10 +1476,12 @@ export class LifeUI {
         const many = s.objectives.length > 1;
         const o = s.objectives[0];
         const t = many ? s.objectives.length : o ? objectiveTarget(o) : 1;
-        const now = many && qp && i === qp.step ? s.objectives.filter((x, k) => (qp.counts[k] ?? 0) >= objectiveTarget(x)).length : Math.floor(qp?.counts[0] ?? 0);
+        const now =
+          many && qp && i === qp.step ? s.objectives.filter((x, k) => (qp.counts[k] ?? 0) >= objectiveTarget(x)).length : Math.floor(qp?.counts[0] ?? 0);
         const have = qp ? (i < qp.step ? t : i === qp.step ? now : 0) : 0;
         const done = !!qp && i < qp.step;
-        const count = t > 1 ? ` <b>${have}/${t}</b>${qp && i === qp.step ? `<div class="q-bar"><i style="width:${Math.min(100, (have / t) * 100)}%"></i></div>` : ''}` : '';
+        const count =
+          t > 1 ? ` <b>${have}/${t}</b>${qp && i === qp.step ? `<div class="q-bar"><i style="width:${Math.min(100, (have / t) * 100)}%"></i></div>` : ''}` : '';
         return `<li class="${done ? 'done' : ''}">${esc(s.text)}${count}</li>`;
       })
       .join('')}</ul>`;
@@ -1379,18 +1555,36 @@ export class LifeUI {
       const q = questDef(questId);
       const qp = life.state.quests.active.find((x) => x.id === questId);
       if (qa.turnIn.some((t) => t.id === questId)) {
-        return { ...base, body: `<h2 class="q-title">${esc(q.name)}</h2><p class="q-story">${dropcap(q.outro)}</p>${this.rewards(q)}`, foot: `<button class="lui-btn gold" data-act="complete" data-arg="${q.id}">Complete Quest</button><button class="lui-btn" data-act="back">Cancel</button>`, handlers };
+        return {
+          ...base,
+          body: `<h2 class="q-title">${esc(q.name)}</h2><p class="q-story">${dropcap(q.outro)}</p>${this.rewards(q)}`,
+          foot: `<button class="lui-btn gold" data-act="complete" data-arg="${q.id}">Complete Quest</button><button class="lui-btn" data-act="back">Cancel</button>`,
+          handlers,
+        };
       }
       if (qa.offer.some((t) => t.id === questId)) {
-        return { ...base, body: `<h2 class="q-title">${esc(q.name)}</h2><p class="q-story">${dropcap(q.intro)}</p><div class="h">Objectives</div>${this.objectives(q)}${this.rewards(q)}`, foot: `<button class="lui-btn gold" data-act="accept" data-arg="${q.id}">Accept</button><button class="lui-btn" data-act="back">Decline</button>`, handlers };
+        return {
+          ...base,
+          body: `<h2 class="q-title">${esc(q.name)}</h2><p class="q-story">${dropcap(q.intro)}</p><div class="h">Objectives</div>${this.objectives(q)}${this.rewards(q)}`,
+          foot: `<button class="lui-btn gold" data-act="accept" data-arg="${q.id}">Accept</button><button class="lui-btn" data-act="back">Decline</button>`,
+          handlers,
+        };
       }
-      return { ...base, body: `<h2 class="q-title">${esc(q.name)}</h2><p class="q-story">${dropcap(q.intro)}</p><div class="h">Objectives</div>${this.objectives(q, qp)}${this.rewards(q)}`, foot: `<button class="lui-btn" data-act="back">Back</button><button class="lui-btn" data-act="close">Goodbye</button>`, handlers };
+      return {
+        ...base,
+        body: `<h2 class="q-title">${esc(q.name)}</h2><p class="q-story">${dropcap(q.intro)}</p><div class="h">Objectives</div>${this.objectives(q, qp)}${this.rewards(q)}`,
+        foot: `<button class="lui-btn" data-act="back">Back</button><button class="lui-btn" data-act="close">Goodbye</button>`,
+        handlers,
+      };
     }
 
     const quests = [
       ...qa.turnIn.map((q) => `<li data-act="quest" data-arg="${q.id}">${uiIcon('quest-done', 24)}<span>${esc(q.name)}</span><small>Complete</small></li>`),
       ...qa.offer.map((q) => `<li data-act="quest" data-arg="${q.id}">${uiIcon('quest-new', 24)}<span>${esc(q.name)}</span></li>`),
-      ...active.map((qp) => `<li class="prog" data-act="quest" data-arg="${qp.id}">${uiIcon('quest-active', 24)}<span>${esc(questDef(qp.id).name)}</span><small>In Progress</small></li>`),
+      ...active.map(
+        (qp) =>
+          `<li class="prog" data-act="quest" data-arg="${qp.id}">${uiIcon('quest-active', 24)}<span>${esc(questDef(qp.id).name)}</span><small>In Progress</small></li>`,
+      ),
     ];
     const talkHtml = talk.map(([act, arg, html]) => `<li class="talk" data-act="${act}" data-arg="${arg}">${html}</li>`);
     return {
@@ -1435,10 +1629,18 @@ export class LifeUI {
           return `<div class="m-item${can ? '' : ' cant'}" data-act="buyback" data-arg="${b.item}" data-tip="item:${b.item}"${can ? '' : ' disabled'}><div class="ib">${iconHtml(it.icon, b.item)}<span class="n">${b.n}</span></div><div><div class="nm">${esc(it.name)}</div><div class="pr">${money(b.price, 12)} Each</div></div></div>`;
         })
         .join('');
-      if (!held.length) grid = `<div class="m-empty" style="grid-column:1/-1">Nothing to buy back. ${esc(n.name.split(' ')[0])} holds what you sell here until you walk off.</div>`;
+      if (!held.length)
+        grid = `<div class="m-empty" style="grid-column:1/-1">Nothing to buy back. ${esc(n.name.split(' ')[0])} holds what you sell here until you walk off.</div>`;
     }
-    const how = { buy: 'Click to buy one, shift-click for five.', sell: 'Click to sell one, shift-click to sell them all.', buyback: 'Click to buy one back, shift-click for all of it.' }[tab];
-    const buys = v.buys.map((id) => itemDef(id)?.name).filter(Boolean).join(', ');
+    const how = {
+      buy: 'Click to buy one, shift-click for five.',
+      sell: 'Click to sell one, shift-click to sell them all.',
+      buyback: 'Click to buy one back, shift-click for all of it.',
+    }[tab];
+    const buys = v.buys
+      .map((id) => itemDef(id)?.name)
+      .filter(Boolean)
+      .join(', ');
     return {
       title: v.name,
       sub: esc(n.title),
@@ -1476,7 +1678,9 @@ export class LifeUI {
         const coins = pack ? pack.fee : (r.coins ?? 0);
         const labor = pack ? pack.labor : (r.labor ?? 0);
         const have = inputs.every((i) => life.count(i.item) >= i.n) && life.state.coins >= coins && life.state.labor >= labor;
-        const need = inputs.map((i) => `<span class="${life.count(i.item) >= i.n ? 'have' : 'lack'}">${life.count(i.item)}/${i.n} ${esc(itemDef(i.item).name)}</span>`).join(' · ');
+        const need = inputs
+          .map((i) => `<span class="${life.count(i.item) >= i.n ? 'have' : 'lack'}">${life.count(i.item)}/${i.n} ${esc(itemDef(i.item).name)}</span>`)
+          .join(' · ');
         let sells = '';
         if (pack && (pack as { kind?: string }).kind !== 'material') {
           const quotes = life.zone.recipe.outposts
@@ -1521,7 +1725,12 @@ export class LifeUI {
     if (!h || !isComplete(h)) return { title: 'Storage Chest', w: 420, body: '<p>Gone.</p>' };
     const bp = blueprintDef(h.blueprint);
     const list = (stacks: Array<{ item: string; n: number }>, act: string) =>
-      stacks.map((st) => `<div class="lui-row" data-tip="item:${st.item}"><div class="ib">${iconHtml(itemDef(st.item).icon, st.item)}<span class="n">${st.n}</span></div><div class="body"><b>${esc(itemDef(st.item).name)}</b></div><button class="lui-btn small" data-act="${act}" data-arg="${st.item}">${act === 'store' ? 'Store' : 'Take'}</button></div>`).join('') || '<p class="muted">Empty</p>';
+      stacks
+        .map(
+          (st) =>
+            `<div class="lui-row" data-tip="item:${st.item}"><div class="ib">${iconHtml(itemDef(st.item).icon, st.item)}<span class="n">${st.n}</span></div><div class="body"><b>${esc(itemDef(st.item).name)}</b></div><button class="lui-btn small" data-act="${act}" data-arg="${st.item}">${act === 'store' ? 'Store' : 'Take'}</button></div>`,
+        )
+        .join('') || '<p class="muted">Empty</p>';
     return {
       title: 'Storage Chest',
       sub: `${h.storage.length}/${bp.perks.storageSlots} Kinds Stored`,
@@ -1547,7 +1756,9 @@ export class LifeUI {
         continue;
       }
       const def = itemDef(st.item);
-      cells.push(`<div class="ib sm${this.sel === i ? ' sel' : ''}" data-act="sel" data-arg="${i}" data-tip="item:${st.item}">${iconHtml(def.icon, st.item)}${st.n > 1 ? `<span class="n">${st.n}</span>` : ''}</div>`);
+      cells.push(
+        `<div class="ib sm${this.sel === i ? ' sel' : ''}" data-act="sel" data-arg="${i}" data-tip="item:${st.item}">${iconHtml(def.icon, st.item)}${st.n > 1 ? `<span class="n">${st.n}</span>` : ''}</div>`,
+      );
     }
     const pk = carried(life, this.d.sim);
     this.bagEl.style.width = '452px';
@@ -1638,8 +1849,12 @@ export class LifeUI {
         const vid = def.vehicle ?? def.mount!;
         const r = rideable(vid);
         const out = life.state.vehicles.find((v) => v.def === vid);
-        const where = out ? `${Math.round(Math.hypot(out.x - p.pos.x, out.z - p.pos.z))} m Away${out.cargo.some(Boolean) ? ` · ${out.cargo.filter(Boolean).length} Packs Aboard` : ''}` : 'Stabled';
-        const stats = isMount(r) ? `${r.runSpeed} m/s · ${r.canCarryPack ? 'Carries a Pack' : 'No Packs'}` : `${r.maxSpeed} m/s · ${r.cargo.length} Pack Slots · ${r.seats.length} Seats`;
+        const where = out
+          ? `${Math.round(Math.hypot(out.x - p.pos.x, out.z - p.pos.z))} m Away${out.cargo.some(Boolean) ? ` · ${out.cargo.filter(Boolean).length} Packs Aboard` : ''}`
+          : 'Stabled';
+        const stats = isMount(r)
+          ? `${r.runSpeed} m/s · ${r.canCarryPack ? 'Carries a Pack' : 'No Packs'}`
+          : `${r.maxSpeed} m/s · ${r.cargo.length} Pack Slots · ${r.seats.length} Seats`;
         return `<div class="lui-row" data-tip="item:${s.item}"><div class="ib">${iconHtml(r.icon)}</div><div class="body"><b>${esc(r.name)}</b><small>${stats}</small><small>${where}</small></div>${isMount(r) ? `<button class="lui-btn small gold" data-act="mount">Call (R)</button>` : `<button class="lui-btn small gold" data-act="summon" data-arg="${s.item}">${out ? 'Bring Here' : 'Summon'}</button>`}${out && !isMount(r) ? `<button class="lui-btn small" data-act="recall" data-arg="${out.id}">Send Home</button>` : ''}</div>`;
       })
       .join('');
@@ -1676,9 +1891,16 @@ export class LifeUI {
     const list =
       `<div class="ql-zone"><span>${esc(life.zone.recipe.name)}</span><span>${active.length}</span></div>` +
       active.map(row).join('') +
-      (milestones.length ? `<div class="ql-zone" style="margin-top:14px"><span>Milestones</span><span>${milestones.length}</span></div>` + milestones.map(row).join('') : '') +
+      (milestones.length
+        ? `<div class="ql-zone" style="margin-top:14px"><span>Milestones</span><span>${milestones.length}</span></div>` + milestones.map(row).join('')
+        : '') +
       `<div class="ql-zone" style="margin-top:14px"><span>Completed</span><span>${done.length}</span></div>` +
-      done.map((id) => `<div class="ql-q done"><i class="dot done"></i>${esc(questDef(id).name)}<small>✓ ${questDef(id).milestone ? 'Milestone' : 'Done'}</small></div>`).join('');
+      done
+        .map(
+          (id) =>
+            `<div class="ql-q done"><i class="dot done"></i>${esc(questDef(id).name)}<small>✓ ${questDef(id).milestone ? 'Milestone' : 'Done'}</small></div>`,
+        )
+        .join('');
     let page = '<p class="muted">No quests under way. Look for people with a gold mark over their heads.</p>';
     const qp = all.find((x) => x.id === this.logSel);
     if (qp) {
@@ -1912,8 +2134,11 @@ export class LifeUI {
   private devView(): View {
     const life = this.life;
     // The dungeons' doors too (they're no place on the map: the way in is a secret).
-    const doors = (life.zone.recipe.dungeons ?? []).map((d) => `<button class="lui-btn small" data-act="tp" data-arg="door:${d.id}">${esc(dungeonDef(d.id)?.name ?? d.id)} Door</button>`);
-    const places = life.zone.recipe.places.map((pl) => `<button class="lui-btn small" data-act="tp" data-arg="${pl.id}">${esc(pl.name)}</button>`).join('') + doors.join('');
+    const doors = (life.zone.recipe.dungeons ?? []).map(
+      (d) => `<button class="lui-btn small" data-act="tp" data-arg="door:${d.id}">${esc(dungeonDef(d.id)?.name ?? d.id)} Door</button>`,
+    );
+    const places =
+      life.zone.recipe.places.map((pl) => `<button class="lui-btn small" data-act="tp" data-arg="${pl.id}">${esc(pl.name)}</button>`).join('') + doors.join('');
     return {
       title: 'Developer Tools',
       sub: 'For trying things out quickly. ` toggles this window.',
@@ -1942,10 +2167,29 @@ export class LifeUI {
           if (what === 'coins') life.command({ t: 'grant', coins: 10000 });
           if (what === 'seals') life.command({ t: 'grant', seals: 10 });
           if (what === 'labor') life.command({ t: 'grant', labor: 500 });
-          if (what === 'seeds') ['seed.sunroot', 'seed.barley', 'seed.flax', 'seed.emberberry'].forEach((s) => g(s, 20)), g('sapling.apple', 4), g('sapling.pine', 4), g('animal.chick', 3), g('animal.lamb', 2), g('animal.calf', 2);
-          if (what === 'produce') g('sunroot', 30), g('barley', 40), g('flax', 16), g('emberberry', 16), g('apple', 16), g('egg', 8), g('milk', 6), g('wool', 16);
+          if (what === 'seeds')
+            ['seed.sunroot', 'seed.barley', 'seed.flax', 'seed.emberberry'].forEach((s) => g(s, 20)),
+              g('sapling.apple', 4),
+              g('sapling.pine', 4),
+              g('animal.chick', 3),
+              g('animal.lamb', 2),
+              g('animal.calf', 2);
+          if (what === 'produce')
+            g('sunroot', 30), g('barley', 40), g('flax', 16), g('emberberry', 16), g('apple', 16), g('egg', 8), g('milk', 6), g('wool', 16);
           if (what === 'mats') g('lumber', 120), g('stone', 40), g('ironOre', 30), g('flax', 30);
-          if (what === 'rides') ['deed.farmCart', 'deed.roadster', 'deed.hauler', 'deed.rowboat', 'deed.sloop', 'deed.cog', 'whistle.donkey', 'whistle.horse', 'glider.wayfarer', 'glider.swiftwing'].forEach((i) => life.count(i) || g(i));
+          if (what === 'rides')
+            [
+              'deed.farmCart',
+              'deed.roadster',
+              'deed.hauler',
+              'deed.rowboat',
+              'deed.sloop',
+              'deed.cog',
+              'whistle.donkey',
+              'whistle.horse',
+              'glider.wayfarer',
+              'glider.swiftwing',
+            ].forEach((i) => life.count(i) || g(i));
           if (what === 'house') g('blueprint.cottage'), g('scarecrow', 2), g('design.cog');
           if (what === 'rides' && !life.state.glider) life.command({ t: 'use', item: 'glider.wayfarer' });
         },
@@ -1993,7 +2237,9 @@ export class LifeUI {
   siteSummary(houseId: number): string {
     const h = this.life.state.houses.find((x) => x.id === houseId);
     if (!h) return '';
-    return stillNeeds(h).map((n) => `${packDef(n.pack).name} ${n.have}/${n.need}`).join(', ');
+    return stillNeeds(h)
+      .map((n) => `${packDef(n.pack).name} ${n.have}/${n.need}`)
+      .join(', ');
   }
 }
 
@@ -2065,7 +2311,11 @@ export function buildMapImage(world: World): HTMLCanvasElement {
         const gr = hf.gradient(x, z);
         const shade = Math.max(0.55, Math.min(1.3, 1 + gr.x * 0.55 - gr.z * 0.55));
         const lift = Math.min(1.2, 0.9 + h / 200);
-        col = [base[0] * shade * lift, base[1] * shade * lift, base[2] * shade * lift].map((v) => Math.max(0, Math.min(255, Math.round(v)))) as [number, number, number];
+        col = [base[0] * shade * lift, base[1] * shade * lift, base[2] * shade * lift].map((v) => Math.max(0, Math.min(255, Math.round(v)))) as [
+          number,
+          number,
+          number,
+        ];
       }
       const o = (py * N + px) * 4;
       img.data[o] = col[0];

@@ -98,7 +98,10 @@ function rig() {
   };
 
   // Legs: bandy shins, bare clawed feet.
-  for (const [joint, x] of [['legL', 0.09], ['legR', -0.09]] as const) {
+  for (const [joint, x] of [
+    ['legL', 0.09],
+    ['legR', -0.09],
+  ] as const) {
     put(joint, [0.1, 0.24, 0.11], x, 0.3, 0, SKIN);
     put(joint, [0.085, 0.2, 0.09], x, 0.11, 0.01, SKIN);
     put(joint, [0.12, 0.05, 0.19], x, 0.025, 0.05, SKIN_DARK);
@@ -121,7 +124,10 @@ function rig() {
   put('head', [0.24, 0.07, 0.025], 0.22, 0.9, 0.08, SKIN, [0, -0.35, 0.3]);
   put('head', [0.24, 0.07, 0.025], -0.22, 0.9, 0.08, SKIN, [0, 0.35, -0.3]);
   // Long arms; the right hand holds the dagger point-down, so a thrust drives it forward.
-  for (const [joint, x] of [['armL', 0.18], ['armR', -0.18]] as const) {
+  for (const [joint, x] of [
+    ['armL', 0.18],
+    ['armR', -0.18],
+  ] as const) {
     put(joint, [0.075, 0.25, 0.08], x, 0.53, 0.03, SKIN);
     put(joint, [0.065, 0.23, 0.07], x, 0.31, 0.03, SKIN);
     put(joint, [0.085, 0.08, 0.085], x, 0.17, 0.03, SKIN_DARK);
@@ -136,20 +142,22 @@ function rig() {
 export function goblinSpecies(): SpeciesDef {
   const { joints, proxy, height, ids } = rig();
 
-  const pose = (p: Pose) => (j: number): LocalPose | undefined => {
-    if (j === ids.root) {
-      // A fall tips it about its feet; the bob lifts it.
-      return { pos: [0, p.bob, 0], rot: quat(-p.fall, 0) };
-    }
-    if (j === ids.body) return { pos: [0, 0.42, 0], rot: quat(p.lean, 0) };
-    // The head keeps level as the torso leans, then looks where the pose says.
-    if (j === ids.head) return { pos: [0, 0.3, 0.07], rot: quat(-p.lean * 0.8 + p.head, 0) };
-    if (j === ids.armL) return { pos: [0.18, 0.24, 0.03], rot: quat(p.armL, p.armOut) };
-    if (j === ids.armR) return { pos: [-0.18, 0.24, 0.03], rot: quat(p.armR, -p.armOut) };
-    if (j === ids.legL) return { pos: [0.09, 0.42, 0], rot: quat(p.legL, p.legOut) };
-    if (j === ids.legR) return { pos: [-0.09, 0.42, 0], rot: quat(p.legR, -p.legOut) };
-    return undefined;
-  };
+  const pose =
+    (p: Pose) =>
+    (j: number): LocalPose | undefined => {
+      if (j === ids.root) {
+        // A fall tips it about its feet; the bob lifts it.
+        return { pos: [0, p.bob, 0], rot: quat(-p.fall, 0) };
+      }
+      if (j === ids.body) return { pos: [0, 0.42, 0], rot: quat(p.lean, 0) };
+      // The head keeps level as the torso leans, then looks where the pose says.
+      if (j === ids.head) return { pos: [0, 0.3, 0.07], rot: quat(-p.lean * 0.8 + p.head, 0) };
+      if (j === ids.armL) return { pos: [0.18, 0.24, 0.03], rot: quat(p.armL, p.armOut) };
+      if (j === ids.armR) return { pos: [-0.18, 0.24, 0.03], rot: quat(p.armR, -p.armOut) };
+      if (j === ids.legL) return { pos: [0.09, 0.42, 0], rot: quat(p.legL, p.legOut) };
+      if (j === ids.legR) return { pos: [-0.09, 0.42, 0], rot: quat(p.legR, -p.legOut) };
+      return undefined;
+    };
 
   const loop = (name: string, frames: number, at: (phase: number) => Pose) =>
     bakeAuthored(joints, { name, frames, fps: 30 }, (j, f) => pose(at((f / frames) * TAU))(j));
@@ -167,11 +175,30 @@ export function goblinSpecies(): SpeciesDef {
   // Gaits: a scuttling walk and run, a sideways shuffle while it circles, a wary step back.
   const walk = loop('walk', 32, (ph) => {
     const sw = Math.sin(ph);
-    return { ...REST, lean: 0.45, head: -0.05, legL: sw * 0.55, legR: -sw * 0.55, armL: -sw * 0.5 - 0.1, armR: sw * 0.35 - 0.35, bob: Math.abs(Math.cos(ph)) * 0.03 };
+    return {
+      ...REST,
+      lean: 0.45,
+      head: -0.05,
+      legL: sw * 0.55,
+      legR: -sw * 0.55,
+      armL: -sw * 0.5 - 0.1,
+      armR: sw * 0.35 - 0.35,
+      bob: Math.abs(Math.cos(ph)) * 0.03,
+    };
   });
   const run = loop('run', 24, (ph) => {
     const sw = Math.sin(ph);
-    return { ...REST, lean: 0.7, head: -0.2, legL: sw * 0.95, legR: -sw * 0.95, armL: -sw * 0.9 - 0.2, armR: sw * 0.7 - 0.5, armOut: 0.25, bob: Math.abs(Math.cos(ph)) * 0.06 };
+    return {
+      ...REST,
+      lean: 0.7,
+      head: -0.2,
+      legL: sw * 0.95,
+      legR: -sw * 0.95,
+      armL: -sw * 0.9 - 0.2,
+      armR: sw * 0.7 - 0.5,
+      armOut: 0.25,
+      bob: Math.abs(Math.cos(ph)) * 0.06,
+    };
   });
   const strafe = loop('strafe', 28, (ph) => {
     const sw = Math.sin(ph);

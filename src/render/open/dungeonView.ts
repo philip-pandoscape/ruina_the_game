@@ -1,6 +1,21 @@
 import * as THREE from 'three';
 import type { DungeonDef, DungeonPiece } from '../../sim/zone/dungeon';
-import { barrel, barricade, boulder, drawings, flicker, lookout, net, plankDeck, portalVeil, rockArch, rockSlab, torch, totem, type Flickers } from './goblinKit';
+import {
+  barrel,
+  barricade,
+  boulder,
+  drawings,
+  flicker,
+  lookout,
+  net,
+  plankDeck,
+  portalVeil,
+  rockArch,
+  rockSlab,
+  torch,
+  totem,
+  type Flickers,
+} from './goblinKit';
 import { bev, cone, faceted, jiggle, makeRng, merge, PAL, tint, vary, xf } from '../models/kit';
 
 // The inside of a copy of a dungeon (shared/dungeons/<id>.json), drawn round its origin only while
@@ -136,8 +151,17 @@ export class DungeonView {
         const u = (k + 0.5) / n;
         const x = x0 + (x1 - x0) * u - inward[0] * 0.9;
         const z = z0 + (z1 - z0) * u - inward[1] * 0.9;
-        for (const [y, h] of [[2.6, 6.4], [8.6, 7.4]] as const)
-          rock.push(xf(rockSlab(2.4, h, (len / n) * 1.25, seed + k * 7 + y), [x + (rng() - 0.5) * 0.5 * inward[0], y, z + (rng() - 0.5) * 0.5 * inward[1]], [0, yaw + Math.PI / 2, (rng() - 0.5) * 0.15]));
+        for (const [y, h] of [
+          [2.6, 6.4],
+          [8.6, 7.4],
+        ] as const)
+          rock.push(
+            xf(
+              rockSlab(2.4, h, (len / n) * 1.25, seed + k * 7 + y),
+              [x + (rng() - 0.5) * 0.5 * inward[0], y, z + (rng() - 0.5) * 0.5 * inward[1]],
+              [0, yaw + Math.PI / 2, (rng() - 0.5) * 0.15],
+            ),
+          );
       }
     };
     wall(b.w, b.s, b.w, b.n, [-1, 0], 1);
@@ -149,19 +173,29 @@ export class DungeonView {
     wall(b.te, b.tn, b.tw, b.tn, [0, -1], 601);
     // The ceiling: slabs, lower in the tunnel, with stalactites.
     for (let x = b.e + 2; x < b.w; x += 5.5)
-      for (let z = b.s + 2; z < b.n; z += 5.5) rock.push(xf(rockSlab(6.2, 2.2, 6.2, 900 + Math.round(x * 13 + z * 7)), [x + rng() - 0.5, top + rng() * 1.6, z + rng() - 0.5]));
+      for (let z = b.s + 2; z < b.n; z += 5.5)
+        rock.push(xf(rockSlab(6.2, 2.2, 6.2, 900 + Math.round(x * 13 + z * 7)), [x + rng() - 0.5, top + rng() * 1.6, z + rng() - 0.5]));
     for (let z = b.n; z < b.tn + 1; z += 4) rock.push(xf(rockSlab(8, 2, 4.6, 1300 + z), [(b.tw + b.te) / 2, 7.2 + rng(), z + 1]));
     for (let k = 0; k < 26; k++) {
       const x = b.e + 2 + rng() * (b.w - b.e - 4);
       const z = b.s + 2 + rng() * (b.n - b.s - 4);
       const len = 0.8 + rng() * 2.6;
-      rock.push(tint(faceted(jiggle(xf(cone(0.25 + rng() * 0.35, len, 5), [x, top - 0.6 - len / 2, z], [Math.PI, rng() * 3, 0]), 0.06, k)), vary(0x6d665e, rng, 0.1)));
+      rock.push(
+        tint(faceted(jiggle(xf(cone(0.25 + rng() * 0.35, len, 5), [x, top - 0.6 - len / 2, z], [Math.PI, rng() * 3, 0]), 0.06, k)), vary(0x6d665e, rng, 0.1)),
+      );
     }
     // Rubble along the foot of the walls.
     for (let k = 0; k < 30; k++) {
       const side = k % 4;
       const along = rng();
-      const [x, z] = side === 0 ? [b.w - 0.8, b.s + along * (b.n - b.s)] : side === 1 ? [b.e + 0.8, b.s + along * (b.n - b.s)] : side === 2 ? [b.e + along * (b.w - b.e), b.n - 0.8] : [b.te + 0.4 + along * (b.tw - b.te - 0.8), b.n + 1 + rng() * (b.tn - b.n - 2)];
+      const [x, z] =
+        side === 0
+          ? [b.w - 0.8, b.s + along * (b.n - b.s)]
+          : side === 1
+            ? [b.e + 0.8, b.s + along * (b.n - b.s)]
+            : side === 2
+              ? [b.e + along * (b.w - b.e), b.n - 0.8]
+              : [b.te + 0.4 + along * (b.tw - b.te - 0.8), b.n + 1 + rng() * (b.tn - b.n - 2)];
       if (Math.abs(x) < 3 && side === 2) continue;
       rock.push(xf(boulder(0.4 + rng() * 0.8, k + 40), [x, 0.1, z]));
     }
@@ -181,7 +215,14 @@ export class DungeonView {
     // ---- the back of the falls, and the way out through them ----
     const curtain = new THREE.Mesh(
       new THREE.PlaneGeometry(b.w - b.e - 0.6, top + 1.5),
-      new THREE.ShaderMaterial({ uniforms: this.curtain, vertexShader: curtainVertex, fragmentShader: curtainFragment, transparent: true, depthWrite: false, toneMapped: false }),
+      new THREE.ShaderMaterial({
+        uniforms: this.curtain,
+        vertexShader: curtainVertex,
+        fragmentShader: curtainFragment,
+        transparent: true,
+        depthWrite: false,
+        toneMapped: false,
+      }),
     );
     curtain.position.set((b.w + b.e) / 2, (top + 1.5) / 2, b.s + 0.25);
     curtain.name = 'dungeon-falls';
@@ -241,8 +282,12 @@ export class DungeonView {
     const loot: THREE.BufferGeometry[] = [];
     const lr = makeRng(23);
     for (let k = 0; k < 6; k++) loot.push(xf(barrel(0.95, k + 3), [b.w - 1.6 - (k % 3) * 0.75, k >= 3 ? 0.95 : 0, b.n - 1.4 - (k % 2) * 0.7]));
-    for (let k = 0; k < 5; k++) loot.push(tint(xf(bev(1, 0.9, 1, 0.03), [b.e + 1.4 + (k % 3) * 1.05, 0.45 + (k >= 3 ? 0.9 : 0), b.n - 1.5], [0, lr() * 0.5, 0]), vary(PAL.crate, lr, 0.12)));
-    for (let k = 0; k < 3; k++) loot.push(tint(xf(bev(1.4, 0.7, 0.9, 0.08), [b.e + 1.8, 0.35 + k * 0.7, 14 + k * 0.2], [0, lr() * 0.4, 0]), vary(PAL.canvasShade, lr, 0.1)));
+    for (let k = 0; k < 5; k++)
+      loot.push(
+        tint(xf(bev(1, 0.9, 1, 0.03), [b.e + 1.4 + (k % 3) * 1.05, 0.45 + (k >= 3 ? 0.9 : 0), b.n - 1.5], [0, lr() * 0.5, 0]), vary(PAL.crate, lr, 0.12)),
+      );
+    for (let k = 0; k < 3; k++)
+      loot.push(tint(xf(bev(1.4, 0.7, 0.9, 0.08), [b.e + 1.8, 0.35 + k * 0.7, 14 + k * 0.2], [0, lr() * 0.4, 0]), vary(PAL.canvasShade, lr, 0.1)));
     props.push([new THREE.Mesh(merge(loot), this.unlit), 'loot']);
     for (const [obj, name] of props) {
       obj.name = name;
@@ -254,7 +299,7 @@ export class DungeonView {
     for (const [obj] of props)
       obj.traverse((o) => {
         const m = o as THREE.Mesh;
-        if (!m.isMesh || m.material !== this.unlit && !(m.material as THREE.MeshToonMaterial).vertexColors) return;
+        if (!m.isMesh || (m.material !== this.unlit && !(m.material as THREE.MeshToonMaterial).vertexColors)) return;
         if ((m.material as THREE.MeshBasicMaterial).toneMapped === false) return;
         const local = new THREE.Matrix4().multiplyMatrices(inverse, m.matrixWorld);
         m.geometry = m.geometry.clone();

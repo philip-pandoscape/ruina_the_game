@@ -2,13 +2,28 @@
 // button press and an effect going off.
 
 import type { Sim } from '../sim';
-import { ABILITIES, HOTBAR_SLOTS, MOVE, MOVEMENT_SLOTS, NO_ABILITY, NO_MOVEMENT, SPECIAL, STEP, abilityCooldown, abilityMpFor, castFramesFor, movementAction, movementCooldownFor, movementStaminaFor } from '../../tuning';
+import {
+  ABILITIES,
+  HOTBAR_SLOTS,
+  MOVE,
+  MOVEMENT_SLOTS,
+  NO_ABILITY,
+  NO_MOVEMENT,
+  SPECIAL,
+  STEP,
+  abilityCooldown,
+  abilityMpFor,
+  castFramesFor,
+  movementAction,
+  movementCooldownFor,
+  movementStaminaFor,
+} from '../../tuning';
 import { len, turnToward } from '../math';
 import type { Actions } from '../types';
 import { accelerateToward, input, stance, tryJump } from './locomotion';
 import { spendMp, spendStamina } from './vitals';
 
-export function bufferAction(sim: Sim, id: number) : void {
+export function bufferAction(sim: Sim, id: number): void {
   const def = movementAction(id);
   if (!def?.bufferFrames) return;
   sim.player.actionBuffer = def.bufferFrames;
@@ -17,7 +32,7 @@ export function bufferAction(sim: Sim, id: number) : void {
 
 // A buffered action that can start right now, else NO_MOVEMENT.
 
-export function readyBufferedAction(sim: Sim) : number {
+export function readyBufferedAction(sim: Sim): number {
   const p = sim.player;
   const id = p.actionBufferId;
   if (p.actionBuffer <= 0 || id === NO_MOVEMENT || !p.grounded) return NO_MOVEMENT;
@@ -25,7 +40,7 @@ export function readyBufferedAction(sim: Sim) : number {
   return id;
 }
 
-export function readyMovement(sim: Sim, a: Actions) : number {
+export function readyMovement(sim: Sim, a: Actions): number {
   const p = sim.player;
   const slot = a.movementSlot;
   if (slot < 1 || slot > MOVEMENT_SLOTS || !p.grounded) return 0;
@@ -39,7 +54,7 @@ export function readyMovement(sim: Sim, a: Actions) : number {
 // makes a dodge a commitment rather than a hover.
 // `slot` is the Q / E slot it came from, or 0 for a built-in like the slide.
 
-export function startAction(sim: Sim, id: number, slot: number, a: Actions) : void {
+export function startAction(sim: Sim, id: number, slot: number, a: Actions): void {
   const p = sim.player;
   const def = movementAction(id)!;
   p.mode = 'action';
@@ -66,7 +81,7 @@ export function startAction(sim: Sim, id: number, slot: number, a: Actions) : vo
   sim.emit({ type: 'action', frame: sim.frame, id, x: p.pos.x, y: p.pos.y, z: p.pos.z });
 }
 
-export function updateAction(sim: Sim, a: Actions) : void {
+export function updateAction(sim: Sim, a: Actions): void {
   const p = sim.player;
   const def = movementAction(p.actionId);
   if (!def) {
@@ -122,7 +137,7 @@ export function updateAction(sim: Sim, a: Actions) : void {
   if (f >= activeEnd + def.recovery || (released && f >= def.startup + def.recovery)) endAction(sim);
 }
 
-export function endAction(sim: Sim) : void {
+export function endAction(sim: Sim): void {
   const p = sim.player;
   const id = p.actionId;
   // Cooldowns are per skill, so one moved between Q and E keeps its timer.
@@ -135,7 +150,7 @@ export function endAction(sim: Sim) : void {
 
 // Whether a hit right now passes through, and how much of it lands. 1 is a clean hit.
 
-export function incomingScale(sim: Sim) : number {
+export function incomingScale(sim: Sim): number {
   const p = sim.player;
   if (p.mode !== 'action') return 1;
   const def = movementAction(p.actionId);
@@ -148,7 +163,7 @@ export function incomingScale(sim: Sim) : number {
 
 // The hotbar slot that was pressed and can be cast now (1..HOTBAR_SLOTS), else 0.
 
-export function readySlot(sim: Sim) : number {
+export function readySlot(sim: Sim): number {
   const p = sim.player;
   if (!p.grounded || p.abilityBuffer <= 0) return 0;
   const slot = p.abilityBufferSlot;
@@ -158,14 +173,14 @@ export function readySlot(sim: Sim) : number {
   return slot;
 }
 
-export function setCooldown(sim: Sim, slot: number, frames: number) : void {
+export function setCooldown(sim: Sim, slot: number, frames: number): void {
   if (slot >= 1 && slot <= HOTBAR_SLOTS) sim.player.cooldowns[slot - 1] = frames;
 }
 
 // Abilities (Healing Circle, Meteor): stand still and cast. The target is your aim offset if you
 // gave one (capped at maxRange), otherwise the ability's range in metres straight ahead.
 
-export function startCast(sim: Sim, slot: number, a: Actions) : void {
+export function startCast(sim: Sim, slot: number, a: Actions): void {
   const p = sim.player;
   const ability = p.abilities[slot - 1];
   const s = ABILITIES[ability];
@@ -198,7 +213,7 @@ export function startCast(sim: Sim, slot: number, a: Actions) : void {
   p.castTargetZ = p.pos.z + az;
 }
 
-export function updateCast(sim: Sim, a: Actions) : void {
+export function updateCast(sim: Sim, a: Actions): void {
   const p = sim.player;
   const ability = p.abilities[p.castSlot - 1];
   p.castFrame++;

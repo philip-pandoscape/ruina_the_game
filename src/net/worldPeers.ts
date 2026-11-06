@@ -23,9 +23,35 @@ import type { Estate, EstateEntry, PeerEntry, WorldLink } from './worldLink';
 
 /** The player fields drawing someone needs (src/render/character.ts and the life view); the server sends these. */
 const SHOWN = [
-  'facing', 'mode', 'grounded', 'attackIndex', 'attackFrame', 'flipFrame', 'landFrame', 'landImpact', 'takeoffFrame', 'runPhase',
-  'stun', 'downFrame', 'weapon', 'comboVariants', 'actionId', 'actionFrame', 'castAbility', 'castFrame', 'bank', 'pack', 'vehicle',
-  'seat', 'host', 'glider', 'airspeed', 'sprinting', 'crouching', 'crouchFrame', 'hp',
+  'facing',
+  'mode',
+  'grounded',
+  'attackIndex',
+  'attackFrame',
+  'flipFrame',
+  'landFrame',
+  'landImpact',
+  'takeoffFrame',
+  'runPhase',
+  'stun',
+  'downFrame',
+  'weapon',
+  'comboVariants',
+  'actionId',
+  'actionFrame',
+  'castAbility',
+  'castFrame',
+  'bank',
+  'pack',
+  'vehicle',
+  'seat',
+  'host',
+  'glider',
+  'airspeed',
+  'sprinting',
+  'crouching',
+  'crouchFrame',
+  'hp',
 ] as const;
 
 /**
@@ -39,7 +65,13 @@ const DELAY = 6;
 
 interface Sample {
   fr: number;
-  p: Record<string, unknown> & { pos: { x: number; y: number; z: number }; vel: { x: number; y: number; z: number }; facing: number; vehicles?: Vehicle[]; packs?: Pack[] };
+  p: Record<string, unknown> & {
+    pos: { x: number; y: number; z: number };
+    vel: { x: number; y: number; z: number };
+    facing: number;
+    vehicles?: Vehicle[];
+    packs?: Pack[];
+  };
 }
 
 interface Peer {
@@ -109,7 +141,20 @@ export class WorldPeers {
    * For tests and the bug reporter: who is here and what of theirs is drawn, with how far they are
    * from you (metres) and how much of their name plate shows (0 hidden, 1 whole).
    */
-  list(): Array<{ id: number; name: string; online: boolean; x: number; y: number; z: number; mode: string; houses: number; scarecrows: number; vehicles: number; away: number; plate: number }> {
+  list(): Array<{
+    id: number;
+    name: string;
+    online: boolean;
+    x: number;
+    y: number;
+    z: number;
+    mode: string;
+    houses: number;
+    scarecrows: number;
+    vehicles: number;
+    away: number;
+    plate: number;
+  }> {
     return [...this.peers.values()].map((p) => ({
       id: p.id,
       name: p.name,
@@ -147,7 +192,22 @@ export class WorldPeers {
     const label = nameTag(name);
     label.position.set(0, 2.45, 0);
     hero.root.add(label);
-    p = { id, name, hero, life, view, shown: blankState(), samples: [], clock: -1, online: false, label, away: Infinity, estateKey: '', solid: new Set(), heard: 0 };
+    p = {
+      id,
+      name,
+      hero,
+      life,
+      view,
+      shown: blankState(),
+      samples: [],
+      clock: -1,
+      online: false,
+      label,
+      away: Infinity,
+      estateKey: '',
+      solid: new Set(),
+      heard: 0,
+    };
     this.peers.set(id, p);
     return p;
   }
@@ -223,7 +283,10 @@ export class WorldPeers {
   /** Everyone's vehicles as drawn, with the seats taken in them (`you` too), for the prompt to ride along. */
   vehicles(you: PlayerState): OthersVehicle[] {
     const seated = (q: PlayerState) => (q.mode === 'ride' && q.host ? `${q.host}:${q.vehicle}` : '');
-    const riders = [...this.peers.values()].filter((p) => p.online).map((p) => p.shown).concat(you);
+    const riders = [...this.peers.values()]
+      .filter((p) => p.online)
+      .map((p) => p.shown)
+      .concat(you);
     const out: OthersVehicle[] = [];
     for (const p of this.peers.values()) {
       if (!p.online) continue;

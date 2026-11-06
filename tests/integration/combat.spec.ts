@@ -120,7 +120,15 @@ async function withPad(page: Page): Promise<{
 }> {
   await page.addInitScript(() => {
     const buttons = Array.from({ length: 17 }, () => ({ pressed: false, touched: false, value: 0 }));
-    const pad = { id: 'Xbox Wireless Controller (STANDARD GAMEPAD)', index: 0, connected: true, mapping: 'standard', axes: [0, 0, 0, 0], buttons, timestamp: 0 };
+    const pad = {
+      id: 'Xbox Wireless Controller (STANDARD GAMEPAD)',
+      index: 0,
+      connected: true,
+      mapping: 'standard',
+      axes: [0, 0, 0, 0],
+      buttons,
+      timestamp: 0,
+    };
     (window as any).__pad = pad;
     Object.defineProperty(navigator, 'getGamepads', { value: () => [pad, null, null, null], configurable: true });
   });
@@ -129,11 +137,14 @@ async function withPad(page: Page): Promise<{
       await page.evaluate(([i, v]) => void ((window as any).__pad.axes[i as number] = v), [i, v]);
     },
     setButton: (i, on) =>
-      page.evaluate(([i, on]) => {
-        const b = (window as any).__pad.buttons[i as number];
-        b.pressed = on as boolean;
-        b.value = on ? 1 : 0;
-      }, [i, on] as const),
+      page.evaluate(
+        ([i, on]) => {
+          const b = (window as any).__pad.buttons[i as number];
+          b.pressed = on as boolean;
+          b.value = on ? 1 : 0;
+        },
+        [i, on] as const,
+      ),
   };
 }
 
@@ -304,10 +315,8 @@ test.describe('online', { tag: '@gpu' }, () => {
   }
 
   const net = (page: Page) => page.evaluate(() => window.__game.net());
-  const script = (page: Page, segments: Array<[number, Record<string, unknown>]>) =>
-    page.evaluate((s) => window.__game.scriptInput(s), segments);
-  const seesPlayers = (page: Page, n: number) =>
-    page.waitForFunction((n) => window.__game.net().remotes.length >= n, n, { timeout: 5000 });
+  const script = (page: Page, segments: Array<[number, Record<string, unknown>]>) => page.evaluate((s) => window.__game.scriptInput(s), segments);
+  const seesPlayers = (page: Page, n: number) => page.waitForFunction((n) => window.__game.net().remotes.length >= n, n, { timeout: 5000 });
 
   test('a hit puts a number on the attacker and the victim, and names what caused it', async ({ browser }) => {
     const blue = await joinAs(browser, 0, SWORD);
@@ -316,7 +325,11 @@ test.describe('online', { tag: '@gpu' }, () => {
 
     await Promise.all([forget(blue.page), forget(red.page)]);
     // Close the 5 m gap, then one swing, exactly as the melee tests do.
-    await script(blue.page, [[26, { moveX: 1 }], [1, { attackPressed: true }], [40, {}]]);
+    await script(blue.page, [
+      [26, { moveX: 1 }],
+      [1, { attackPressed: true }],
+      [40, {}],
+    ]);
     await blue.page.waitForTimeout(1800);
 
     const mine = (await markers(blue.page)).filter((m) => m.kind === 'hit');
@@ -340,26 +353,32 @@ test.describe('online', { tag: '@gpu' }, () => {
     const red = await joinAs(browser, 1, CLEAVER);
     await seesPlayers(red.page, 2);
     // Red cleaves both blues, then walks off, so there is damage to heal back.
-    await script(red.page, [[24, { moveX: -1 }], [1, { attackPressed: true, aimX: -3, aimZ: 0 }], [30, {}], [40, { moveX: 1 }]]);
+    await script(red.page, [
+      [24, { moveX: -1 }],
+      [1, { attackPressed: true, aimX: -3, aimZ: 0 }],
+      [30, {}],
+      [40, { moveX: 1 }],
+    ]);
     await red.page.waitForFunction(() => window.__game.net().scriptLeft === 0);
     await healer.page.waitForTimeout(600);
     const before = { healer: (await net(healer.page)).hp, ally: (await net(ally.page)).hp };
     expect(before.ally).toBeLessThan(100);
 
     await Promise.all([forget(healer.page), forget(ally.page)]);
-    await script(healer.page, [[1, { abilitySlot: 1 }], [40, {}]]);
+    await script(healer.page, [
+      [1, { abilitySlot: 1 }],
+      [40, {}],
+    ]);
     // Wait for the numbers rather than sleeping a fixed time: the cast, the server round trip and
     // the render tick it's held back to all vary, and a fixed wait made this flaky.
-    await healer.page.waitForFunction(
-      () => (window.__game.combat().markers as Array<{ kind: string }>).filter((m) => m.kind === 'heal').length >= 2,
-      null,
-      { timeout: 10_000, polling: 'raf' },
-    );
-    await ally.page.waitForFunction(
-      () => (window.__game.combat().markers as Array<{ kind: string }>).some((m) => m.kind === 'heal'),
-      null,
-      { timeout: 10_000, polling: 'raf' },
-    );
+    await healer.page.waitForFunction(() => (window.__game.combat().markers as Array<{ kind: string }>).filter((m) => m.kind === 'heal').length >= 2, null, {
+      timeout: 10_000,
+      polling: 'raf',
+    });
+    await ally.page.waitForFunction(() => (window.__game.combat().markers as Array<{ kind: string }>).some((m) => m.kind === 'heal'), null, {
+      timeout: 10_000,
+      polling: 'raf',
+    });
 
     const healerSaw = (await markers(healer.page)).filter((m) => m.kind === 'heal');
     const allySaw = (await markers(ally.page)).filter((m) => m.kind === 'heal');

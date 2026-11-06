@@ -12,8 +12,16 @@ const SWORD: Build = { skills: skillsFrom('sword'), weapon: 0, abilities: new Ar
 const SLIMES = 12;
 
 interface NetActor {
-  id: number; kind: number; x: number; y: number; z: number;
-  facing: number; state: number; progress: number; hp: number; deadFrame: number;
+  id: number;
+  kind: number;
+  x: number;
+  y: number;
+  z: number;
+  facing: number;
+  state: number;
+  progress: number;
+  hp: number;
+  deadFrame: number;
 }
 
 const server = new TestServer(7791, ['--bots', '600', '--slimes', String(SLIMES), '--hz', '20']);
@@ -26,7 +34,9 @@ test.afterAll(async () => server.stop());
 
 const join = async (page: Page) => {
   const errors: string[] = [];
-  page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
+  page.on('console', (m) => {
+    if (m.type() === 'error') errors.push(m.text());
+  });
   page.on('pageerror', (e) => errors.push(String(e)));
   await page.goto(`/?server=${encodeURIComponent(server.url)}&team=0`);
   await gameReady(page);
@@ -177,9 +187,7 @@ test('a player can kill one, and everyone sees it go down', async ({ page }) => 
     const near = () => {
       const list = (g.netActors?.() ?? []) as Array<{ id: number; x: number; z: number; hp: number; deadFrame: number }>;
       const me = g.state().player.pos;
-      return list
-        .filter((a) => a.deadFrame < 0)
-        .sort((a, b) => Math.hypot(a.x - me.x, a.z - me.z) - Math.hypot(b.x - me.x, b.z - me.z))[0];
+      return list.filter((a) => a.deadFrame < 0).sort((a, b) => Math.hypot(a.x - me.x, a.z - me.z) - Math.hypot(b.x - me.x, b.z - me.z))[0];
     };
     for (let i = 0; i < 400; i++) {
       const t = near();
@@ -211,9 +219,7 @@ test('hit one and it fights back: the server lands its slam on you', async ({ pa
     const near = () => {
       const list = (g.netActors?.() ?? []) as Array<{ id: number; x: number; z: number; deadFrame: number }>;
       const me = g.state().player.pos;
-      return list
-        .filter((a) => a.deadFrame < 0)
-        .sort((a, b) => Math.hypot(a.x - me.x, a.z - me.z) - Math.hypot(b.x - me.x, b.z - me.z))[0];
+      return list.filter((a) => a.deadFrame < 0).sort((a, b) => Math.hypot(a.x - me.x, a.z - me.z) - Math.hypot(b.x - me.x, b.z - me.z))[0];
     };
     const full = g.net().hp;
     let swung = false;

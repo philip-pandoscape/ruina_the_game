@@ -33,8 +33,7 @@ async function joinAs(browser: Browser, team: number, extra = ''): Promise<{ pag
 }
 
 const net = (page: Page) => page.evaluate(() => window.__game.net());
-const script = (page: Page, segments: Array<[number, Record<string, unknown>]>) =>
-  page.evaluate((s) => window.__game.scriptInput(s), segments);
+const script = (page: Page, segments: Array<[number, Record<string, unknown>]>) => page.evaluate((s) => window.__game.scriptInput(s), segments);
 const scriptDone = (page: Page) => page.waitForFunction(() => window.__game.net().scriptLeft === 0);
 
 test('two players: blue attacks red, the server lands the hits, both screens agree', { tag: '@gpu' }, async ({ browser }) => {
@@ -114,7 +113,10 @@ test('at 300 ms ping your own moves still respond instantly and agree with the s
   await scriptDone(blue.page);
   await blue.page.waitForTimeout(1000); // let the server catch up
   const after = await net(blue.page);
-  console.log('lag', JSON.stringify({ pendingRightAway: right.pending, corrections: after.corrections, maxCorrection: after.maxCorrection, pendingAfter: after.pending }));
+  console.log(
+    'lag',
+    JSON.stringify({ pendingRightAway: right.pending, corrections: after.corrections, maxCorrection: after.maxCorrection, pendingAfter: after.pending }),
+  );
   expect(after.maxCorrection).toBeLessThan(0.05);
   expect(blue.errors).toEqual([]);
 });

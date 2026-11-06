@@ -75,7 +75,11 @@ export const skillIndex = (id: string): number => {
 };
 
 /** The lines between nodes, as index pairs; arc means it is drawn along its orbit. */
-export const LINKS: ReadonlyArray<{ a: number; b: number; arc: boolean }> = tree.links.map(([a, b, arc]) => ({ a: skillIndex(a), b: skillIndex(b), arc: !!arc }));
+export const LINKS: ReadonlyArray<{ a: number; b: number; arc: boolean }> = tree.links.map(([a, b, arc]) => ({
+  a: skillIndex(a),
+  b: skillIndex(b),
+  arc: !!arc,
+}));
 /** Each node's neighbours, in ascending order (both languages walk them the same way). */
 export const ADJACENT: readonly number[][] = NODES.map((_, i) => {
   const out: number[] = [];

@@ -33,16 +33,27 @@ const ready = async (page: Page) => {
 async function withPad(page: Page) {
   await page.addInitScript(() => {
     const buttons = Array.from({ length: 17 }, () => ({ pressed: false, touched: false, value: 0 }));
-    const pad = { id: 'Xbox Wireless Controller (STANDARD GAMEPAD)', index: 0, connected: true, mapping: 'standard', axes: [0, 0, 0, 0], buttons, timestamp: 0 };
+    const pad = {
+      id: 'Xbox Wireless Controller (STANDARD GAMEPAD)',
+      index: 0,
+      connected: true,
+      mapping: 'standard',
+      axes: [0, 0, 0, 0],
+      buttons,
+      timestamp: 0,
+    };
     (window as any).__pad = pad;
     Object.defineProperty(navigator, 'getGamepads', { value: () => [pad, null, null, null], configurable: true });
   });
   const setButton = async (i: number, on: boolean) => {
-    await page.evaluate(([i, on]) => {
-      const b = (window as any).__pad.buttons[i as number];
-      b.pressed = on as boolean;
-      b.value = on ? 1 : 0;
-    }, [i, on] as const);
+    await page.evaluate(
+      ([i, on]) => {
+        const b = (window as any).__pad.buttons[i as number];
+        b.pressed = on as boolean;
+        b.value = on ? 1 : 0;
+      },
+      [i, on] as const,
+    );
     await page.waitForTimeout(60); // let the frame loop poll it
   };
   return {
@@ -187,7 +198,15 @@ test('a cast pays its MP as it goes off, and none starts without enough', async 
       // MP comes back on its own; with enough, it casts.
       g.advance(30, {});
       g.advance(1, { abilitySlot: 1 });
-      return { full, casting: { mode: casting.mode, mp: casting.mp }, fired, refused: { mode: refused.mode, mp: refused.mp }, shorts, still, again: g.state().player.mode };
+      return {
+        full,
+        casting: { mode: casting.mode, mp: casting.mp },
+        fired,
+        refused: { mode: refused.mode, mp: refused.mp },
+        shorts,
+        still,
+        again: g.state().player.mode,
+      };
     },
     [meteor],
   );

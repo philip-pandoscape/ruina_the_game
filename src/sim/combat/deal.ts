@@ -9,7 +9,7 @@ import { isAlive, type Actor, type Actors } from '../actor';
 import { provoke } from '../actors/step';
 import { flinch } from '../ai/brain';
 
-export function damage(sim: Sim, t: Target, amount: number, knock = 0, index = 0, weapon?: number) : void {
+export function damage(sim: Sim, t: Target, amount: number, knock = 0, index = 0, weapon?: number): void {
   const a = sim.actors.get(t.id);
   if (!a || !isAlive(a)) return;
   const dx = a.x - sim.player.pos.x;
@@ -42,7 +42,7 @@ export function hurtActor(actors: Actors, a: Actor, amount: number, nx: number, 
  * dealt it, if a weapon did: the hit trains that one (src/sim/life/progress.ts).
  */
 
-export function damageFrom(sim: Sim, t: Target, amount: number, nx: number, nz: number, knock = 0, index = 0, weapon?: number) : void {
+export function damageFrom(sim: Sim, t: Target, amount: number, nx: number, nz: number, knock = 0, index = 0, weapon?: number): void {
   const a = sim.actors.get(t.id);
   if (!a || !isAlive(a)) return;
   const died = hurtActor(sim.actors, a, amount, nx, nz, knock);
@@ -65,7 +65,7 @@ export function damageFrom(sim: Sim, t: Target, amount: number, nx: number, nz: 
 
 /** A blast: everything standing inside the circle takes it. */
 
-export function damageCircle(sim: Sim, x: number, z: number, radius: number, amount: number, knock = 0, index = 0) : void {
+export function damageCircle(sim: Sim, x: number, z: number, radius: number, amount: number, knock = 0, index = 0): void {
   for (const t of circleHits(sim.targets(), x, z, radius)) {
     const dx = t.x - x;
     const dz = t.z - z;

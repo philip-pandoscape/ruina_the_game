@@ -14,7 +14,10 @@ import { toon } from '../toon';
 // pass draws them still, so the room stays in the shade of its roof.
 
 // Under Node (tests importing the game's modules) there is no glob and the table is empty.
-const urls = (typeof window !== 'undefined' ? import.meta.glob('../assets/village/*.glb', { query: '?url', import: 'default', eager: true }) : {}) as Record<string, string>;
+const urls = (typeof window !== 'undefined' ? import.meta.glob('../assets/village/*.glb', { query: '?url', import: 'default', eager: true }) : {}) as Record<
+  string,
+  string
+>;
 
 /** Parts per building in `aPart`: storeys from 0, the roof last. */
 export const PARTS = 8;
@@ -82,14 +85,12 @@ function glassMaterial(): THREE.Material {
   const mat = toon(0x9fb3bf, { transparent: true, opacity: 0.42, depthWrite: false, side: THREE.DoubleSide });
   mat.onBeforeCompile = (shader) => {
     shader.uniforms.uWindowGlow = windowGlow;
-    shader.fragmentShader = shader.fragmentShader
-      .replace('#include <common>', '#include <common>\nuniform float uWindowGlow;')
-      .replace(
-        '#include <emissivemap_fragment>',
-        `#include <emissivemap_fragment>
+    shader.fragmentShader = shader.fragmentShader.replace('#include <common>', '#include <common>\nuniform float uWindowGlow;').replace(
+      '#include <emissivemap_fragment>',
+      `#include <emissivemap_fragment>
         totalEmissiveRadiance += vec3(1.0, 0.66, 0.32) * uWindowGlow * 2.4 * (gl_FrontFacing ? 1.0 : 0.25);
         diffuseColor.a = mix(diffuseColor.a, 0.9, uWindowGlow * (gl_FrontFacing ? 1.0 : 0.0));`,
-      );
+    );
   };
   mat.customProgramCacheKey = () => 'village-glass';
   return cuttable(mat, 'glass');
@@ -102,7 +103,12 @@ export const TINTED = ['MI_RoundTiles', 'MI_Plaster'];
 function islandMaterial(src: THREE.MeshStandardMaterial, colored: boolean): THREE.Material {
   if (src.name === 'MI_WindowGlass') return glassMaterial();
   // The props' "_Vertex" trims are tinted per vertex, and so are each house's roof and plaster.
-  const mat = toon(0xffffff, { map: src.map ?? null, normalMap: src.normalMap ?? null, side: THREE.DoubleSide, vertexColors: colored || TINTED.includes(src.name) });
+  const mat = toon(0xffffff, {
+    map: src.map ?? null,
+    normalMap: src.normalMap ?? null,
+    side: THREE.DoubleSide,
+    vertexColors: colored || TINTED.includes(src.name),
+  });
   if (src.normalMap) mat.normalScale.copy(src.normalScale);
   if (src.name === 'MI_Vine') {
     mat.alphaTest = 0.5;

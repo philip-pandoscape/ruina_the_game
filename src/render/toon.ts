@@ -30,7 +30,15 @@ export function toon(color: THREE.ColorRepresentation, extra: THREE.MeshToonMate
 }
 
 // Adds a mesh to a parent at a position, casting a shadow unless told not to.
-export function part(parent: THREE.Object3D, geometry: THREE.BufferGeometry, material: THREE.Material, x = 0, y = 0, z = 0, opts: { castShadow?: boolean } = {}): THREE.Mesh {
+export function part(
+  parent: THREE.Object3D,
+  geometry: THREE.BufferGeometry,
+  material: THREE.Material,
+  x = 0,
+  y = 0,
+  z = 0,
+  opts: { castShadow?: boolean } = {},
+): THREE.Mesh {
   const mesh = new THREE.Mesh(geometry, material);
   mesh.position.set(x, y, z);
   mesh.castShadow = opts.castShadow ?? true;

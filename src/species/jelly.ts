@@ -69,7 +69,12 @@ function tag(g: THREE.BufferGeometry, joint: number, mat: number, color: THREE.C
 }
 
 /** Places a part: scale, then turn (Euler, radians), then move. */
-function put(g: THREE.BufferGeometry, at: [number, number, number], turn: [number, number, number] = [0, 0, 0], scale: [number, number, number] = [1, 1, 1]): THREE.BufferGeometry {
+function put(
+  g: THREE.BufferGeometry,
+  at: [number, number, number],
+  turn: [number, number, number] = [0, 0, 0],
+  scale: [number, number, number] = [1, 1, 1],
+): THREE.BufferGeometry {
   g.scale(...scale);
   g.applyQuaternion(new THREE.Quaternion().setFromEuler(new THREE.Euler(...turn)));
   g.translate(...at);
@@ -95,7 +100,12 @@ function dagger(len: number): Array<[THREE.BufferGeometry, number]> {
   grip.translate(0, -len * 0.2, 0);
   const pommel = new THREE.IcosahedronGeometry(len * 0.05, 0);
   pommel.translate(0, -len * 0.33, 0);
-  return [[blade, 0x8a5a3a], [guard, 0x6b4b2e], [grip, 0x4a3020], [pommel, 0x6b4b2e]];
+  return [
+    [blade, 0x8a5a3a],
+    [guard, 0x6b4b2e],
+    [grip, 0x4a3020],
+    [pommel, 0x6b4b2e],
+  ];
 }
 
 function crown(core: number): THREE.BufferGeometry[] {
@@ -131,10 +141,26 @@ function insideGeometry(look: JellyLook, scale: number, core: number): THREE.Buf
   const parts: THREE.BufferGeometry[] = [];
   for (const what of look.inside) {
     if (what === 'leaf') parts.push(tag(put(leaf(0.13 * k), [0.15, 0.15, 0.13], [0.2, -0.35, 0.7]), core, 0, 0xb5652a));
-    if (what === 'pebble') parts.push(tag(put(new THREE.IcosahedronGeometry(1, 1), [-0.12, 0.13, 0.12], [0.3, 0.6, 0], [0.05 * k, 0.034 * k, 0.042 * k]), core, 0, 0x8d8f91));
+    if (what === 'pebble')
+      parts.push(tag(put(new THREE.IcosahedronGeometry(1, 1), [-0.12, 0.13, 0.12], [0.3, 0.6, 0], [0.05 * k, 0.034 * k, 0.042 * k]), core, 0, 0x8d8f91));
     if (what === 'coins') {
-      const spots: Array<[number, number, number]> = [[-0.15, 0.12, 0.1], [-0.04, 0.07, 0.17], [0.13, 0.15, 0.1], [0.02, 0.3, 0.08], [-0.09, 0.27, 0.12]];
-      spots.forEach((at, i) => parts.push(tag(put(new THREE.CylinderGeometry(0.026 * k, 0.026 * k, 0.006 * k, 14), at, [1.2 + i * 0.5, i * 0.9, 0.4 * i]), core, 0, i === 2 ? 0xc9ccd0 : 0xe0b448)));
+      const spots: Array<[number, number, number]> = [
+        [-0.15, 0.12, 0.1],
+        [-0.04, 0.07, 0.17],
+        [0.13, 0.15, 0.1],
+        [0.02, 0.3, 0.08],
+        [-0.09, 0.27, 0.12],
+      ];
+      spots.forEach((at, i) =>
+        parts.push(
+          tag(
+            put(new THREE.CylinderGeometry(0.026 * k, 0.026 * k, 0.006 * k, 14), at, [1.2 + i * 0.5, i * 0.9, 0.4 * i]),
+            core,
+            0,
+            i === 2 ? 0xc9ccd0 : 0xe0b448,
+          ),
+        ),
+      );
     }
     if (what === 'dagger') for (const [p, c] of dagger(0.34 * k)) parts.push(tag(put(p, [0.13, 0.15, 0.06], [0.2, 0.3, -1.1]), core, 0, c));
     if (what === 'gems') {
@@ -145,11 +171,23 @@ function insideGeometry(look: JellyLook, scale: number, core: number): THREE.Buf
         [[0.08, 0.36, 0.05], 0xf0a030],
         [[-0.11, 0.37, 0.02], 0xe070c0],
       ];
-      gems.forEach(([at, c], i) => parts.push(tag(put(new THREE.OctahedronGeometry(1, 0), at, [0.4 * i, 0.7 * i, 0.2], [0.03 * k, 0.042 * k, 0.03 * k]), core, 0, c)));
+      gems.forEach(([at, c], i) =>
+        parts.push(tag(put(new THREE.OctahedronGeometry(1, 0), at, [0.4 * i, 0.7 * i, 0.2], [0.03 * k, 0.042 * k, 0.03 * k]), core, 0, c)),
+      );
     }
   }
   if (look.crown) parts.push(...crown(core));
-  if (!parts.length) parts.push(tag(new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(9), 3)).setAttribute('normal', new THREE.Float32BufferAttribute(new Float32Array(9), 3)), core, 0, 0xffffff));
+  if (!parts.length)
+    parts.push(
+      tag(
+        new THREE.BufferGeometry()
+          .setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(9), 3))
+          .setAttribute('normal', new THREE.Float32BufferAttribute(new Float32Array(9), 3)),
+        core,
+        0,
+        0xffffff,
+      ),
+    );
   const merged = mergeGeometries(parts.map((p) => (p.index ? p.toNonIndexed() : p)));
   if (!merged) throw new Error('jelly: inside parts did not merge');
   return merged;
@@ -221,7 +259,11 @@ export class JellyCrowd {
   private uniforms: Record<string, THREE.IUniform>;
   private core: number;
 
-  constructor(species: SpeciesDef, readonly capacity: number, opts: JellyOptions) {
+  constructor(
+    species: SpeciesDef,
+    readonly capacity: number,
+    opts: JellyOptions,
+  ) {
     this.species = species;
     this.rows = clipRows(species);
     this.moods = species.clips.map((c) => MOODS[c.name] ?? 0);
@@ -313,7 +355,10 @@ export class JellyCrowd {
       shader.fragmentShader = shader.fragmentShader
         .replace('#include <common>', '#include <common>\nvarying vec3 vJTint;\nvarying float vJFlash;')
         .replace('#include <color_fragment>', '#include <color_fragment>\ndiffuseColor.rgb = vJTint;')
-        .replace('#include <opaque_fragment>', 'outgoingLight += vJTint * 0.25;\noutgoingLight = mix(outgoingLight, vec3(1.0), clamp(vJFlash, 0.0, 1.0) * 0.6);\n#include <opaque_fragment>');
+        .replace(
+          '#include <opaque_fragment>',
+          'outgoingLight += vJTint * 0.25;\noutgoingLight = mix(outgoingLight, vec3(1.0), clamp(vJFlash, 0.0, 1.0) * 0.6);\n#include <opaque_fragment>',
+        );
     };
     mat.customProgramCacheKey = () => 'jelly-inside';
     return mat;

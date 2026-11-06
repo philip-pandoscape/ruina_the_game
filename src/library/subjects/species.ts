@@ -233,7 +233,22 @@ function usesOf(clip: string): string[] {
   return [...uses];
 }
 
-const CLIP_LABELS: Record<string, string> = { idle: 'Idle', hop: 'Hop', die: 'Die', windup: 'Wind-up (before the slam)', leap: 'Leap and slam', gather: 'Gather the pack (cast)', dazed: 'Dazed', run: 'Run', attack: 'Attack', down: 'Knocked down', walk: 'Walk', sprint: 'Sprint', cast: 'Cast', air: 'In the air' };
+const CLIP_LABELS: Record<string, string> = {
+  idle: 'Idle',
+  hop: 'Hop',
+  die: 'Die',
+  windup: 'Wind-up (before the slam)',
+  leap: 'Leap and slam',
+  gather: 'Gather the pack (cast)',
+  dazed: 'Dazed',
+  run: 'Run',
+  attack: 'Attack',
+  down: 'Knocked down',
+  walk: 'Walk',
+  sprint: 'Sprint',
+  cast: 'Cast',
+  air: 'In the air',
+};
 const label = (c: string) => CLIP_LABELS[c] ?? c.replace(/(\d+)$/, ' $1').replace(/^./, (x) => x.toUpperCase());
 
 function speciesAnims(id: string): AnimDef[] {
@@ -242,7 +257,15 @@ function speciesAnims(id: string): AnimDef[] {
   const clips = [...def.clips.filter((c) => c.loop), ...def.clips.filter((c) => !c.loop)];
   return clips.map((c) => {
     const uses = id === 'slime' ? usesOf(c.name) : [];
-    return { id: c.name, label: label(c.name), group: c.loop ? 'Loops' : 'Once', frames: c.frames, fps: c.fps, loop: c.loop, note: uses.length ? `Plays for: ${uses.join(', ')}` : undefined };
+    return {
+      id: c.name,
+      label: label(c.name),
+      group: c.loop ? 'Loops' : 'Once',
+      frames: c.frames,
+      fps: c.fps,
+      loop: c.loop,
+      note: uses.length ? `Plays for: ${uses.join(', ')}` : undefined,
+    };
   });
 }
 
@@ -253,7 +276,15 @@ const slimeSubject: Subject = {
   blurb: 'Jelly slimes, every size',
   options: [
     { id: 'size', label: 'Size', value: 'slime', choices: SLIME_SIZES },
-    { id: 'look', label: 'Look', value: 'jelly', choices: [{ value: 'jelly', label: 'Jelly' }, { value: 'box', label: 'Boxes' }] },
+    {
+      id: 'look',
+      label: 'Look',
+      value: 'jelly',
+      choices: [
+        { value: 'jelly', label: 'Jelly' },
+        { value: 'box', label: 'Boxes' },
+      ],
+    },
   ],
   anims: () => speciesAnims('slime'),
   take(animId: string, opts: Options): Take {
@@ -274,13 +305,15 @@ const slimeSubject: Subject = {
       { path: 'shared/actors.json', what: "which clip plays for which of a slime's moments (move, chase, windup, leap, …), sizes" },
       { path: 'shared/behaviours.json', what: "the leap's gait (apex height, when it leaves and meets the ground): the rules; the leap clip matches it" },
     ],
-    conventions: "Joints: root (on the ground), core (the body's middle, scaled for squash), top, budL, budR. In bakeAuthored a pose returns pos (metres, in the parent's space), rot (quaternion x, y, z, w) and scale. The library's numbers are in the slime's own space at size 1 (the sizes are scaled copies).",
+    conventions:
+      "Joints: root (on the ground), core (the body's middle, scaled for squash), top, budL, budR. In bakeAuthored a pose returns pos (metres, in the parent's space), rot (quaternion x, y, z, w) and scale. The library's numbers are in the slime's own space at size 1 (the sizes are scaled copies).",
     checks: [
       { command: 'npx playwright test tests/integration/slime.spec.ts', what: 'slime behaviour and clips' },
       { command: 'npx playwright test tests/integration/species.spec.ts', what: 'species format and baking' },
     ],
   }),
-  animSource: (animId) => `clip '${animId}' in src/species/builtin/slime.ts (bakeAuthored)${usesOf(animId).length ? `, played for ${usesOf(animId).join(', ')} (shared/actors.json)` : ''}`,
+  animSource: (animId) =>
+    `clip '${animId}' in src/species/builtin/slime.ts (bakeAuthored)${usesOf(animId).length ? `, played for ${usesOf(animId).join(', ')} (shared/actors.json)` : ''}`,
 };
 
 function crowdSubject(id: string, name: string, blurb: string, file: string, made: string): Subject {
@@ -311,9 +344,27 @@ function crowdSubject(id: string, name: string, blurb: string, file: string, mad
 
 export const speciesSubjects: Subject[] = [
   slimeSubject,
-  crowdSubject('hero', 'Hero, far away', 'The crowd’s cut of the hero', 'src/species/builtin/hero.ts', "This one is the hero's own poses sampled: the clips (HERO_CLIPS in src/content/creatures/hero.ts) say what the hero is doing along each, and the close-up pose code (humanoid.ts) is run to bake them (src/species/fromRig.ts), so fixing the hero's close-up animation fixes these too."),
-  crowdSubject('fighter', 'Fighter', 'Battlefield crowd; townsfolk at a distance', 'src/species/builtin/fighter.ts', 'Its four clips are authored directly as joint turns (bakeAuthored).'),
-  crowdSubject('quadruped', 'Four-legged beast', 'A test beast: four leg chains and a tail', 'src/species/builtin/quadruped.ts', 'Its clips are authored as joint turns per frame.'),
+  crowdSubject(
+    'hero',
+    'Hero, far away',
+    'The crowd’s cut of the hero',
+    'src/species/builtin/hero.ts',
+    "This one is the hero's own poses sampled: the clips (HERO_CLIPS in src/content/creatures/hero.ts) say what the hero is doing along each, and the close-up pose code (humanoid.ts) is run to bake them (src/species/fromRig.ts), so fixing the hero's close-up animation fixes these too.",
+  ),
+  crowdSubject(
+    'fighter',
+    'Fighter',
+    'Battlefield crowd; townsfolk at a distance',
+    'src/species/builtin/fighter.ts',
+    'Its four clips are authored directly as joint turns (bakeAuthored).',
+  ),
+  crowdSubject(
+    'quadruped',
+    'Four-legged beast',
+    'A test beast: four leg chains and a tail',
+    'src/species/builtin/quadruped.ts',
+    'Its clips are authored as joint turns per frame.',
+  ),
 ];
 
 /** Correcting a jelly slime: show its boxes while the pose is being moved. */

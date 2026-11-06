@@ -154,7 +154,14 @@ export class LifeView {
    */
   houseSink: ((houses: HouseView[]) => void) | null = null;
   /** Townsfolk drawn with their own models (empty when the library has none: the crowd stand-ins are used). */
-  private villagers: Array<{ holder: THREE.Group; animate: (dt: number, s: { time: number; talking: boolean }) => void; id: string; facing: number; x: number; z: number }> = [];
+  private villagers: Array<{
+    holder: THREE.Group;
+    animate: (dt: number, s: { time: number; talking: boolean }) => void;
+    id: string;
+    facing: number;
+    x: number;
+    z: number;
+  }> = [];
   /** True when the townsfolk are drawn here, so the crowd renderer should leave them out. */
   readonly drawsTownsfolk: boolean;
   /** The NPC whose dialog is open, so they gesture while you talk. */
@@ -181,7 +188,13 @@ export class LifeView {
   /** What the farm plots were last built from (plotKey). */
   private plotKey = '';
   /** Farm animals in plot cells, with what they need to animate. */
-  private animals: Array<{ root: THREE.Object3D; sc: number; idx: number; animate?: (dt: number, s: { time: number; hungry: boolean; ready: boolean }) => void; phase: number }> = [];
+  private animals: Array<{
+    root: THREE.Object3D;
+    sc: number;
+    idx: number;
+    animate?: (dt: number, s: { time: number; hungry: boolean; ready: boolean }) => void;
+    phase: number;
+  }> = [];
   /** The farm plots as drawn: where each lies and how it's turned, half its side, and the most its soil and furrows stand over the terrain. */
   private plotGround: Array<{ x: number; z: number; rot: number; half: number; top: number }> = [];
   /** Those heights by where a plot lies, kept while it lies there (they only change when one is put down). */
@@ -210,15 +223,16 @@ export class LifeView {
     this.group.add(this.plots, this.houses, this.slips);
     const hf = life.zone.gen.terrain;
     // Resource nodes (they vanish while picked clean).
-    if (!this.others) life.zone.recipe.nodes.forEach((nd, i) => {
-      const built = tryBuild(models.buildStructure ? () => models.buildStructure!(nd.kind) : null);
-      const def = structureDef(nd.kind);
-      const root = built?.root ?? box(def.w, def.h, def.d, 0x8d8a85);
-      root.position.set(nd.x, hf.height(nd.x, nd.z), nd.z);
-      root.rotation.y = nd.rot;
-      this.group.add(root);
-      this.nodes.push({ root, i });
-    });
+    if (!this.others)
+      life.zone.recipe.nodes.forEach((nd, i) => {
+        const built = tryBuild(models.buildStructure ? () => models.buildStructure!(nd.kind) : null);
+        const def = structureDef(nd.kind);
+        const root = built?.root ?? box(def.w, def.h, def.d, 0x8d8a85);
+        root.position.set(nd.x, hf.height(nd.x, nd.z), nd.z);
+        root.rotation.y = nd.rot;
+        this.group.add(root);
+        this.nodes.push({ root, i });
+      });
     // Townsfolk with their own looks, standing at their posts.
     for (const n of this.others ? [] : life.zone.recipe.npcs) {
       const m = tryBuild(models.buildVillager ? () => models.buildVillager!(n.id) : null);
@@ -263,7 +277,7 @@ export class LifeView {
       const mat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.32, depthWrite: false });
       for (let k = 0; k < 26; k++) {
         const m = new THREE.Mesh(new THREE.PlaneGeometry(0.12, 3.2), mat);
-        m.userData = { phase: k / 26, r: u.r * (0.35 + 0.6 * ((k * 7) % 10) / 10) };
+        m.userData = { phase: k / 26, r: u.r * (0.35 + (0.6 * ((k * 7) % 10)) / 10) };
         wisp.add(m);
       }
       wisp.position.set(u.x, hf.height(u.x, u.z), u.z);
@@ -419,7 +433,11 @@ export class LifeView {
   farmGroundAt(x: number, z: number): number | null {
     const ray = new THREE.Raycaster(new THREE.Vector3(x, 1e4, z), new THREE.Vector3(0, -1, 0), 0, 2e4);
     let best: number | null = null;
-    for (const h of ray.intersectObjects(this.plots.children.filter((c) => c.userData.ground), false)) best = Math.max(best ?? -Infinity, h.point.y);
+    for (const h of ray.intersectObjects(
+      this.plots.children.filter((c) => c.userData.ground),
+      false,
+    ))
+      best = Math.max(best ?? -Infinity, h.point.y);
     return best;
   }
 
@@ -594,7 +612,11 @@ export class LifeView {
     const heading = p.prevFacing + angleDiff(p.prevFacing, p.facing) * alpha;
     _q.setFromEuler(_e.set(-v.pitch, heading, v.roll, 'YXZ'));
     _v.set(seat.x, seat.y, seat.z).applyQuaternion(_q);
-    const at = _v2.set(p.prevPos.x + (p.pos.x - p.prevPos.x) * alpha, p.prevPos.y + (p.pos.y - p.prevPos.y) * alpha, p.prevPos.z + (p.pos.z - p.prevPos.z) * alpha);
+    const at = _v2.set(
+      p.prevPos.x + (p.pos.x - p.prevPos.x) * alpha,
+      p.prevPos.y + (p.pos.y - p.prevPos.y) * alpha,
+      p.prevPos.z + (p.pos.z - p.prevPos.z) * alpha,
+    );
     if (shift) at.add(shift);
     at.sub(_v);
     this.dress(v, s, at.x, at.y, at.z, heading, this.time + dt, dt);

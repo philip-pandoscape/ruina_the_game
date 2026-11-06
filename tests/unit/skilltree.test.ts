@@ -30,7 +30,19 @@ import {
   type SkillMod,
 } from '../../src/skills';
 import { learnBlock, learnPath, NODE_INFO, validBuild } from '../../src/build';
-import { castFramesFor, comboFor, emptyHotbar, emptyMovement, meleeTargets, movementCooldownFor, movementStaminaFor, MOVEMENT_SKILLS, pierceTargets, WEAPONS, type Build } from '../../src/tuning';
+import {
+  castFramesFor,
+  comboFor,
+  emptyHotbar,
+  emptyMovement,
+  meleeTargets,
+  movementCooldownFor,
+  movementStaminaFor,
+  MOVEMENT_SKILLS,
+  pierceTargets,
+  WEAPONS,
+  type Build,
+} from '../../src/tuning';
 
 // The balance harness's check through the server's own rules is in tests/conformance/balance.test.ts.
 
@@ -96,7 +108,23 @@ test('every link joins two nodes that exist, and everything can be reached from 
 });
 
 test('the fifteen skills keep their old places, so saved builds still mean the same', () => {
-  const OLD = ['sword', 'cleave', 'whirlwind', 'club', 'heal', 'swiftMending', 'staff', 'meteor', 'quickIncantation', 'bow', 'rapidFire', 'piercing', 'dodgeRoll', 'backstep', 'block'];
+  const OLD = [
+    'sword',
+    'cleave',
+    'whirlwind',
+    'club',
+    'heal',
+    'swiftMending',
+    'staff',
+    'meteor',
+    'quickIncantation',
+    'bow',
+    'rapidFire',
+    'piercing',
+    'dodgeRoll',
+    'backstep',
+    'block',
+  ];
   expect(NODES.slice(0, 15).map((n) => n.id)).toEqual(OLD);
   expect(ROOTS.map((i) => NODES[i].id).sort()).toEqual(['bow', 'club', 'staff', 'sword']);
 });
@@ -119,8 +147,16 @@ test('each skill costs what it did before the tree grew', () => {
 
 test('unlearning takes everything that would be cut off, and nothing else', () => {
   const s = skillsFrom('sword', 'cleave', 'whirlwind', 'club', 'heal');
-  expect(dependents(s, skillIndex('cleave')).map((i) => NODES[i].id).sort()).toEqual(['cleave', 'whirlwind']);
-  expect(dependents(s, skillIndex('club')).map((i) => NODES[i].id).sort()).toEqual(['club', 'heal']);
+  expect(
+    dependents(s, skillIndex('cleave'))
+      .map((i) => NODES[i].id)
+      .sort(),
+  ).toEqual(['cleave', 'whirlwind']);
+  expect(
+    dependents(s, skillIndex('club'))
+      .map((i) => NODES[i].id)
+      .sort(),
+  ).toEqual(['club', 'heal']);
   expect(dependents(s, skillIndex('whirlwind')).map((i) => NODES[i].id)).toEqual(['whirlwind']);
 });
 
@@ -206,9 +242,27 @@ function fold(mods: Array<Pick<SkillMod, 'op' | 'value'>>, base: number): number
 
 test('the three stages apply in the documented order', () => {
   // (100 + 10) × (1 + 0.5) × 1.2 = 198, and not any other grouping.
-  expect(fold([{ op: 'flat', value: 10 }, { op: 'inc', value: 0.5 }, { op: 'more', value: 0.2 }], 100)).toBeCloseTo(198, 9);
+  expect(
+    fold(
+      [
+        { op: 'flat', value: 10 },
+        { op: 'inc', value: 0.5 },
+        { op: 'more', value: 0.2 },
+      ],
+      100,
+    ),
+  ).toBeCloseTo(198, 9);
   // Were "more" treated as another increase it would be 170; were flat applied last, 160 + ...
-  expect(fold([{ op: 'flat', value: 10 }, { op: 'inc', value: 0.5 }, { op: 'more', value: 0.2 }], 100)).not.toBeCloseTo(170, 6);
+  expect(
+    fold(
+      [
+        { op: 'flat', value: 10 },
+        { op: 'inc', value: 0.5 },
+        { op: 'more', value: 0.2 },
+      ],
+      100,
+    ),
+  ).not.toBeCloseTo(170, 6);
 });
 
 test('sums do not care what order they arrive in, which is what keeps the two sims equal', () => {
@@ -225,8 +279,24 @@ test('sums do not care what order they arrive in, which is what keeps the two si
 
 test('increases add together while multipliers compound', () => {
   // Two 50% increases are +100%; two 50% multipliers are ×2.25.
-  expect(fold([{ op: 'inc', value: 0.5 }, { op: 'inc', value: 0.5 }], 10)).toBeCloseTo(20, 9);
-  expect(fold([{ op: 'more', value: 0.5 }, { op: 'more', value: 0.5 }], 10)).toBeCloseTo(22.5, 9);
+  expect(
+    fold(
+      [
+        { op: 'inc', value: 0.5 },
+        { op: 'inc', value: 0.5 },
+      ],
+      10,
+    ),
+  ).toBeCloseTo(20, 9);
+  expect(
+    fold(
+      [
+        { op: 'more', value: 0.5 },
+        { op: 'more', value: 0.5 },
+      ],
+      10,
+    ),
+  ).toBeCloseTo(22.5, 9);
 });
 
 test('frames round the same way every time', () => {

@@ -26,7 +26,8 @@ export const vehicleById = (life: Life, id: number): Vehicle | undefined => life
  * The vehicle of yours you are riding. Riding along in someone else's (`host` set), it's theirs, not
  * one of your island's, even when one of yours has the same number.
  */
-export const ridden = (life: Life, sim: Sim): Vehicle | undefined => (sim.player.vehicle && !sim.player.host ? vehicleById(life, sim.player.vehicle) : undefined);
+export const ridden = (life: Life, sim: Sim): Vehicle | undefined =>
+  sim.player.vehicle && !sim.player.host ? vehicleById(life, sim.player.vehicle) : undefined;
 
 /**
  * A point given in the vehicle's own frame, out in the world: turned by its roll, then its pitch
@@ -707,7 +708,10 @@ function breakUp(life: Life, sim: Sim, v: Vehicle): void {
   (life.state.repairs ??= {})[def.id] = life.state.clock + STORM.repairSeconds;
   life.revision++;
   const floating = v.cargo.filter(Boolean).length;
-  life.toast(`💥 Your ${def.name.toLowerCase()} broke up in the swell!${floating ? ` ${floating} pack${floating > 1 ? 's are' : ' is'} floating where she went down.` : ''}`, 'bad');
+  life.toast(
+    `💥 Your ${def.name.toLowerCase()} broke up in the swell!${floating ? ` ${floating} pack${floating > 1 ? 's are' : ' is'} floating where she went down.` : ''}`,
+    'bad',
+  );
 }
 
 /** How much of the wind a sail can use at this angle off it (0 = wind straight behind). */

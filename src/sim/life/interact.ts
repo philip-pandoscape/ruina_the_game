@@ -26,10 +26,37 @@ import { dungeonDef, inWorld } from '../zone/dungeon';
 // what the next press will do.
 
 export type FocusAction =
-  | 'talk' | 'sell' | 'craft' | 'pickup' | 'board' | 'ride' | 'load' | 'unload' | 'exit'
-  | 'plant' | 'water' | 'harvest' | 'fell' | 'gather' | 'claim' | 'deliver' | 'build'
-  | 'rest' | 'storage' | 'tax' | 'placeScarecrow' | 'keel' | 'shipDeliver' | 'shipBuild' | 'launch' | 'feed' | 'collect' | 'info'
-  | 'challenge' | 'enterDungeon' | 'leaveDungeon';
+  | 'talk'
+  | 'sell'
+  | 'craft'
+  | 'pickup'
+  | 'board'
+  | 'ride'
+  | 'load'
+  | 'unload'
+  | 'exit'
+  | 'plant'
+  | 'water'
+  | 'harvest'
+  | 'fell'
+  | 'gather'
+  | 'claim'
+  | 'deliver'
+  | 'build'
+  | 'rest'
+  | 'storage'
+  | 'tax'
+  | 'placeScarecrow'
+  | 'keel'
+  | 'shipDeliver'
+  | 'shipBuild'
+  | 'launch'
+  | 'feed'
+  | 'collect'
+  | 'info'
+  | 'challenge'
+  | 'enterDungeon'
+  | 'leaveDungeon';
 
 export interface Focus {
   action: FocusAction;
@@ -95,7 +122,9 @@ function benchMakes(b: { id: string; place: string }): string {
 
 /** "Stone Block 0/2 · Lumber Bundle 1/1": what a stage of a house or ship needs, and with `where`, where each pack it still wants is made. */
 function needsList(needs: Array<{ pack: string; have: number; need: number }>, where = false): string {
-  return needs.map((n) => `${packDef(n.pack).name} ${n.have}/${n.need}${where && n.have < n.need ? ` (${placeName(packDef(n.pack).origin)})` : ''}`).join(' · ');
+  return needs
+    .map((n) => `${packDef(n.pack).name} ${n.have}/${n.need}${where && n.have < n.need ? ` (${placeName(packDef(n.pack).origin)})` : ''}`)
+    .join(' · ');
 }
 
 // ---------- Working out the focus ----------
@@ -116,7 +145,16 @@ export function findFocus(life: Life, sim: Sim): Focus | null {
     pl.z = p.pos.z + Math.cos(p.facing) * ahead;
     pl.rot = Math.round(p.facing / (Math.PI / 12)) * (Math.PI / 12);
     pl.problem = plotProblem(life, sim, pl.x, pl.z, pl.rot);
-    return { action: 'placeScarecrow', key: 'place', label: pl.problem ? pl.problem : 'Place Scarecrow Here', detail: 'Esc to Cancel', ok: !pl.problem, x: pl.x, y: hf.height(pl.x, pl.z), z: pl.z };
+    return {
+      action: 'placeScarecrow',
+      key: 'place',
+      label: pl.problem ? pl.problem : 'Place Scarecrow Here',
+      detail: 'Esc to Cancel',
+      ok: !pl.problem,
+      x: pl.x,
+      y: hf.height(pl.x, pl.z),
+      z: pl.z,
+    };
   }
   if (p.mode !== 'normal' && p.mode !== 'swim') return null;
 
@@ -149,8 +187,33 @@ export function findFocus(life: Life, sim: Sim): Focus | null {
       const def = packDef(back.def);
       consider(
         q
-          ? { action: 'sell', key: `npc:${n.id}`, label: `Sell ${def.name}`, detail: `${formatCoins(q.coins)}${q.seals ? ` + ${q.seals} Seal${q.seals > 1 ? 's' : ''}` : ''} · Demand ${Math.round(q.demand * 100)}% · ${q.fresh >= 1 ? 'Fresh' : 'Stale'} ${Math.round((q.fresh - 1) * 100)}%`, ok: true, npc: n.id, x: n.x, y, z: n.z }
-          : { action: 'info', key: `npc:${n.id}`, label: `${n.name} won't buy that here`, detail: back.origin === outpost.id ? 'Made here - sell it elsewhere' : (def as { kind?: string }).kind === 'material' ? 'Building materials go to a building site' : '', ok: false, npc: n.id, x: n.x, y, z: n.z },
+          ? {
+              action: 'sell',
+              key: `npc:${n.id}`,
+              label: `Sell ${def.name}`,
+              detail: `${formatCoins(q.coins)}${q.seals ? ` + ${q.seals} Seal${q.seals > 1 ? 's' : ''}` : ''} · Demand ${Math.round(q.demand * 100)}% · ${q.fresh >= 1 ? 'Fresh' : 'Stale'} ${Math.round((q.fresh - 1) * 100)}%`,
+              ok: true,
+              npc: n.id,
+              x: n.x,
+              y,
+              z: n.z,
+            }
+          : {
+              action: 'info',
+              key: `npc:${n.id}`,
+              label: `${n.name} won't buy that here`,
+              detail:
+                back.origin === outpost.id
+                  ? 'Made here - sell it elsewhere'
+                  : (def as { kind?: string }).kind === 'material'
+                    ? 'Building materials go to a building site'
+                    : '',
+              ok: false,
+              npc: n.id,
+              x: n.x,
+              y,
+              z: n.z,
+            },
         d,
         4,
       );
@@ -166,7 +229,21 @@ export function findFocus(life: Life, sim: Sim): Focus | null {
   for (const b of life.zone.recipe.workbenches) {
     const d = Math.hypot(b.x - p.pos.x, b.z - p.pos.z);
     const name = (b as { name?: string }).name ?? 'Workbench';
-    consider({ action: 'craft', key: `bench:${b.id}`, label: `Use ${name}`, detail: back ? 'Your back is full' : benchMakes(b), ok: true, bench: b.id, x: b.x, y: hf.height(b.x, b.z), z: b.z }, d, 3.4);
+    consider(
+      {
+        action: 'craft',
+        key: `bench:${b.id}`,
+        label: `Use ${name}`,
+        detail: back ? 'Your back is full' : benchMakes(b),
+        ok: true,
+        bench: b.id,
+        x: b.x,
+        y: hf.height(b.x, b.z),
+        z: b.z,
+      },
+      d,
+      3.4,
+    );
   }
 
   // Packs lying on the ground.
@@ -174,7 +251,11 @@ export function findFocus(life: Life, sim: Sim): Focus | null {
     for (const pk of life.state.packs) {
       if (pk.at !== 'ground') continue;
       const d = Math.hypot(pk.x - p.pos.x, pk.z - p.pos.z);
-      consider({ action: 'pickup', key: `pack:${pk.id}`, label: `Pick Up ${packDef(pk.def).name}`, ok: true, pack: pk.id, x: pk.x, y: pk.y, z: pk.z }, d, CARRY.pickupRange);
+      consider(
+        { action: 'pickup', key: `pack:${pk.id}`, label: `Pick Up ${packDef(pk.def).name}`, ok: true, pack: pk.id, x: pk.x, y: pk.y, z: pk.z },
+        d,
+        CARRY.pickupRange,
+      );
     }
   }
 
@@ -189,14 +270,52 @@ export function findFocus(life: Life, sim: Sim): Focus | null {
     const used = v.cargo.filter(Boolean).length;
     const at = { x: v.x, y: v.y, z: v.z };
     if (a.kind === 'cargo' && back && free >= 0 && def.cargo.length) {
-      consider({ action: 'load', key: `veh:${v.id}:load`, label: `Load ${packDef(back.def).name}`, detail: `${def.name} ${used}/${def.cargo.length}`, ok: true, vehicle: v.id, slot: free, ...at }, d, 2.2);
+      consider(
+        {
+          action: 'load',
+          key: `veh:${v.id}:load`,
+          label: `Load ${packDef(back.def).name}`,
+          detail: `${def.name} ${used}/${def.cargo.length}`,
+          ok: true,
+          vehicle: v.id,
+          slot: free,
+          ...at,
+        },
+        d,
+        2.2,
+      );
     } else if (a.kind === 'cargo' && !back && loaded >= 0) {
-      consider({ action: 'unload', key: `veh:${v.id}:unload`, label: `Take a Pack from the ${def.name}`, detail: `${used}/${def.cargo.length} Aboard`, ok: true, vehicle: v.id, slot: loaded, ...at }, d, 2.2);
+      consider(
+        {
+          action: 'unload',
+          key: `veh:${v.id}:unload`,
+          label: `Take a Pack from the ${def.name}`,
+          detail: `${used}/${def.cargo.length} Aboard`,
+          ok: true,
+          vehicle: v.id,
+          slot: loaded,
+          ...at,
+        },
+        d,
+        2.2,
+      );
     } else {
       const mount = isMount(def);
       // With a pack on your back only a pack animal will carry you; a cart takes it in its bed.
       const blocked = !!back && !!packBlocks(def);
-      consider({ action: 'board', key: `veh:${v.id}`, label: `${mount ? 'Ride' : 'Drive'} ${def.name}`, detail: blocked ? (mount ? 'Will not carry a pack' : 'Load your pack first') : def.cargo.length ? `Cargo ${used}/${def.cargo.length}` : undefined, ok: !blocked, vehicle: v.id, ...at }, d + 0.3, 2.2);
+      consider(
+        {
+          action: 'board',
+          key: `veh:${v.id}`,
+          label: `${mount ? 'Ride' : 'Drive'} ${def.name}`,
+          detail: blocked ? (mount ? 'Will not carry a pack' : 'Load your pack first') : def.cargo.length ? `Cargo ${used}/${def.cargo.length}` : undefined,
+          ok: !blocked,
+          vehicle: v.id,
+          ...at,
+        },
+        d + 0.3,
+        2.2,
+      );
     }
   }
 
@@ -209,7 +328,22 @@ export function findFocus(life: Life, sim: Sim): Focus | null {
     if (d > 2.2) continue;
     const room = o.taken.length < def.seats.length - 1;
     const detail = back ? 'Put your pack down first' : room ? def.name : 'No room left';
-    consider({ action: 'ride', key: `ride:${o.host}:${v.id}`, label: `Ride with ${o.name}`, detail, ok: !back && room, host: o.host, vehicle: v.id, x: v.x, y: v.y, z: v.z }, d + 0.3, 2.2);
+    consider(
+      {
+        action: 'ride',
+        key: `ride:${o.host}:${v.id}`,
+        label: `Ride with ${o.name}`,
+        detail,
+        ok: !back && room,
+        host: o.host,
+        vehicle: v.id,
+        x: v.x,
+        y: v.y,
+        z: v.z,
+      },
+      d + 0.3,
+      2.2,
+    );
   }
 
   // Your farm plots: whatever is in the cell in front of you.
@@ -224,25 +358,75 @@ export function findFocus(life: Life, sim: Sim): Focus | null {
     if (!plantHere) {
       const seed = life.state.seed && life.count(life.state.seed) > 0 ? life.state.seed : life.state.bag.find((s) => itemDef(s.item).cat === 'seed')?.item;
       const verb = seed && itemDef(seed).raises ? 'Raise' : 'Plant';
-      if (seed) consider({ ...base, action: 'plant', label: `${verb} ${itemDef(seed).name.replace(' Seeds', '')}`, detail: `${life.count(seed)} Left · Z: Change Seed`, ok: true }, 0.5, 9);
+      if (seed)
+        consider(
+          {
+            ...base,
+            action: 'plant',
+            label: `${verb} ${itemDef(seed).name.replace(' Seeds', '')}`,
+            detail: `${life.count(seed)} Left · Z: Change Seed`,
+            ok: true,
+          },
+          0.5,
+          9,
+        );
       else consider({ ...base, action: 'info', label: 'Empty Soil', detail: 'Buy seeds from Mara, or young animals from Sela', ok: false }, 0.5, 9);
     } else if (plantHere.animal) {
       const def = animalDef(plantHere.crop);
       const name = grownUp(plantHere) ? def.name : def.young;
       if (produceReady(plantHere)) consider({ ...base, action: 'collect', label: def.verb, detail: `${def.collectLabor} Labor`, ok: true }, 0.5, 9);
-      else if (hungry(life, plantHere)) consider({ ...base, action: 'feed', label: `Feed the ${name}`, detail: `${def.feedN} ${itemDef(def.feed).name} · Hungry`, ok: life.count(def.feed) >= def.feedN }, 0.5, 9);
+      else if (hungry(life, plantHere))
+        consider(
+          {
+            ...base,
+            action: 'feed',
+            label: `Feed the ${name}`,
+            detail: `${def.feedN} ${itemDef(def.feed).name} · Hungry`,
+            ok: life.count(def.feed) >= def.feedN,
+          },
+          0.5,
+          9,
+        );
       else {
         const left = Math.max(0, Math.ceil((plantHere.fedUntil ?? 0) - life.state.clock));
         const state = grownUp(plantHere) ? `${def.produce} ${Math.round((plantHere.produce ?? 0) * 100)}%` : `Growing ${Math.round(plantHere.growth * 100)}%`;
-        consider({ ...base, action: 'feed', label: `Feed the ${name}`, detail: `${state} · Fed for ${shortTime(left)}`, ok: life.count(def.feed) >= def.feedN }, 0.5, 9);
+        consider(
+          { ...base, action: 'feed', label: `Feed the ${name}`, detail: `${state} · Fed for ${shortTime(left)}`, ok: life.count(def.feed) >= def.feedN },
+          0.5,
+          9,
+        );
       }
     } else {
       const def = cropDef(plantHere.crop);
       const stage = stageOf(plantHere);
-      if (isRipe(plantHere) && def.produce) consider({ ...base, action: 'harvest', label: `Harvest ${def.name}`, detail: `${def.harvestLabor} Labor`, ok: true }, 0.5, 9);
-      else if (def.chop && stage >= def.stages - 2) consider({ ...base, action: 'fell', label: `Fell ${def.name}`, detail: `${def.chop.labor} Labor · Timber`, ok: true }, 0.5, 9);
-      else if (!plantHere.watered && plantHere.growth < 1) consider({ ...base, action: 'water', label: `Water ${def.name}`, detail: `${Math.round(plantHere.growth * 100)}% · Ripe in ~${shortTime(secondsToRipe(life, plantHere))}`, ok: true }, 0.5, 9);
-      else consider({ ...base, action: 'info', label: `${def.name} - ${Math.round(plantHere.growth * 100)}%`, detail: `${plantHere.watered ? 'Watered · ' : ''}Ripe in ~${shortTime(secondsToRipe(life, plantHere))}`, ok: false }, 0.5, 9);
+      if (isRipe(plantHere) && def.produce)
+        consider({ ...base, action: 'harvest', label: `Harvest ${def.name}`, detail: `${def.harvestLabor} Labor`, ok: true }, 0.5, 9);
+      else if (def.chop && stage >= def.stages - 2)
+        consider({ ...base, action: 'fell', label: `Fell ${def.name}`, detail: `${def.chop.labor} Labor · Timber`, ok: true }, 0.5, 9);
+      else if (!plantHere.watered && plantHere.growth < 1)
+        consider(
+          {
+            ...base,
+            action: 'water',
+            label: `Water ${def.name}`,
+            detail: `${Math.round(plantHere.growth * 100)}% · Ripe in ~${shortTime(secondsToRipe(life, plantHere))}`,
+            ok: true,
+          },
+          0.5,
+          9,
+        );
+      else
+        consider(
+          {
+            ...base,
+            action: 'info',
+            label: `${def.name} - ${Math.round(plantHere.growth * 100)}%`,
+            detail: `${plantHere.watered ? 'Watered · ' : ''}Ripe in ~${shortTime(secondsToRipe(life, plantHere))}`,
+            ok: false,
+          },
+          0.5,
+          9,
+        );
     }
   }
 
@@ -255,7 +439,17 @@ export function findFocus(life: Life, sim: Sim): Focus | null {
     const ready = nodeReady(life, i);
     const gives = `${y.n[0]}-${y.n[1]} ${itemDef(y.item).name}`;
     consider(
-      { action: ready ? 'gather' : 'info', key: `node:${i}`, label: ready ? y.verb : `${structureDef(nd.kind).name} - Picked Clean`, detail: ready ? `${y.labor} Labor · ${gives}` : `Back in ${shortTime(life.state.nodes[i] - life.state.clock)}`, ok: ready, node: i, x: nd.x, y: hf.height(nd.x, nd.z), z: nd.z },
+      {
+        action: ready ? 'gather' : 'info',
+        key: `node:${i}`,
+        label: ready ? y.verb : `${structureDef(nd.kind).name} - Picked Clean`,
+        detail: ready ? `${y.labor} Labor · ${gives}` : `Back in ${shortTime(life.state.nodes[i] - life.state.clock)}`,
+        ok: ready,
+        node: i,
+        x: nd.x,
+        y: hf.height(nd.x, nd.z),
+        z: nd.z,
+      },
       d,
       2,
     );
@@ -271,7 +465,13 @@ export function findFocus(life: Life, sim: Sim): Focus | null {
     const score = d * 0.3 + 1.2;
     if (!b) {
       const design = designItemsInBag(life)[0];
-      consider(design ? { ...at, action: 'keel', label: `Lay the ${designForItem(design)!.name}'s Keel`, detail: sy.name, ok: true } : { ...at, action: 'info', label: sy.name, detail: 'Needs a ship design - Captain Ilsa sells them', ok: false }, score, 12);
+      consider(
+        design
+          ? { ...at, action: 'keel', label: `Lay the ${designForItem(design)!.name}'s Keel`, detail: sy.name, ok: true }
+          : { ...at, action: 'info', label: sy.name, detail: 'Needs a ship design - Captain Ilsa sells them', ok: false },
+        score,
+        12,
+      );
       continue;
     }
     const design = shipDesign(b.design);
@@ -282,7 +482,8 @@ export function findFocus(life: Life, sim: Sim): Focus | null {
     const stage = design.stages[b.stage];
     const needs = shipNeeds(b);
     if (shipStageReady(b)) consider({ ...at, action: 'shipBuild', label: `Build the ${stage.name}`, detail: `${stage.labor} Labor`, ok: true }, score, 12);
-    else if (back && needs.some((n) => n.pack === back.def && n.have < n.need)) consider({ ...at, action: 'shipDeliver', label: `Deliver ${packDef(back.def).name}`, detail: `${stage.name}: ${needsList(needs)}`, ok: true }, score, 12);
+    else if (back && needs.some((n) => n.pack === back.def && n.have < n.need))
+      consider({ ...at, action: 'shipDeliver', label: `Deliver ${packDef(back.def).name}`, detail: `${stage.name}: ${needsList(needs)}`, ok: true }, score, 12);
     else consider({ ...at, action: 'info', label: `${design.name}: ${stage.name} Needs`, detail: needsList(needs, true), ok: false }, score, 12);
   }
 
@@ -295,15 +496,39 @@ export function findFocus(life: Life, sim: Sim): Focus | null {
     const d = Math.hypot(lx, lz) * 0.25 + 1.5;
     const owner = h ? null : (life.plotOwner?.(plot.id) ?? null);
     if (owner) {
-      consider({ action: 'info', key: `plot:${plot.id}`, label: `${owner}'s Plot`, detail: 'Already Claimed', ok: false, plot: plot.id, x: plot.x, y, z: plot.z }, d, 9);
+      consider(
+        { action: 'info', key: `plot:${plot.id}`, label: `${owner}'s Plot`, detail: 'Already Claimed', ok: false, plot: plot.id, x: plot.x, y, z: plot.z },
+        d,
+        9,
+      );
       continue;
     }
     if (!h) {
       const bp = life.state.bag.find((s) => s.item.startsWith('blueprint.'));
       consider(
         bp
-          ? { action: 'claim', key: `plot:${plot.id}`, label: `Place ${itemDef(bp.item).name}`, detail: 'Claims This Plot', ok: true, plot: plot.id, x: plot.x, y, z: plot.z }
-          : { action: 'info', key: `plot:${plot.id}`, label: 'Plot for Claim', detail: 'Needs a Cottage Blueprint - Land Registry', ok: false, plot: plot.id, x: plot.x, y, z: plot.z },
+          ? {
+              action: 'claim',
+              key: `plot:${plot.id}`,
+              label: `Place ${itemDef(bp.item).name}`,
+              detail: 'Claims This Plot',
+              ok: true,
+              plot: plot.id,
+              x: plot.x,
+              y,
+              z: plot.z,
+            }
+          : {
+              action: 'info',
+              key: `plot:${plot.id}`,
+              label: 'Plot for Claim',
+              detail: 'Needs a Cottage Blueprint - Land Registry',
+              ok: false,
+              plot: plot.id,
+              x: plot.x,
+              y,
+              z: plot.z,
+            },
         d,
         9,
       );
@@ -316,18 +541,39 @@ export function findFocus(life: Life, sim: Sim): Focus | null {
       const needs = stillNeeds(h);
       const site = { key: `site:${h.id}`, house: h.id, x: pose.x, y, z: pose.z };
       if (stageReady(h)) consider({ ...site, action: 'build', label: `Build the ${stage.name}`, detail: `${stage.labor} Labor`, ok: true }, d, 9);
-      else if (back && needs.some((n) => n.pack === back.def && n.have < n.need)) consider({ ...site, action: 'deliver', label: `Deliver ${packDef(back.def).name}`, detail: `${stage.name}: ${needsList(needs)}`, ok: true }, d, 9);
+      else if (back && needs.some((n) => n.pack === back.def && n.have < n.need))
+        consider({ ...site, action: 'deliver', label: `Deliver ${packDef(back.def).name}`, detail: `${stage.name}: ${needsList(needs)}`, ok: true }, d, 9);
       else consider({ ...site, action: 'info', label: `${stage.name} Needs`, detail: needsList(needs, true), ok: false }, d, 9);
       continue;
     }
     for (const what of ['bed', 'chest'] as const) {
       const pt = interiorPoint(life, h, what);
       const dd = Math.hypot(pt.x - p.pos.x, pt.z - p.pos.z);
-      if (what === 'bed') consider({ action: 'rest', key: `bed:${h.id}`, label: 'Rest in Bed', detail: 'Labor recovers 3× faster', ok: true, house: h.id, x: pt.x, y: y + 0.3, z: pt.z }, dd, 1.8);
+      if (what === 'bed')
+        consider(
+          { action: 'rest', key: `bed:${h.id}`, label: 'Rest in Bed', detail: 'Labor recovers 3× faster', ok: true, house: h.id, x: pt.x, y: y + 0.3, z: pt.z },
+          dd,
+          1.8,
+        );
       else consider({ action: 'storage', key: `chest:${h.id}`, label: 'Open Storage Chest', ok: true, house: h.id, x: pt.x, y: y + 0.3, z: pt.z }, dd, 1.8);
     }
     const t = taxDue(life, h);
-    if (Math.abs(lz) > 5) consider({ action: 'tax', key: `tax:${h.id}`, label: `Pay Property Tax (${formatCoins(t.owed)})`, detail: t.dueIn > 0 ? `Paid for ${shortTime(t.dueIn)}` : 'Overdue', ok: true, house: h.id, x: plot.x, y, z: plot.z }, d + 1, 9);
+    if (Math.abs(lz) > 5)
+      consider(
+        {
+          action: 'tax',
+          key: `tax:${h.id}`,
+          label: `Pay Property Tax (${formatCoins(t.owed)})`,
+          detail: t.dueIn > 0 ? `Paid for ${shortTime(t.dueIn)}` : 'Overdue',
+          ok: true,
+          house: h.id,
+          x: plot.x,
+          y,
+          z: plot.z,
+        },
+        d + 1,
+        9,
+      );
   }
 
   // A dungeon's portal: into your party's copy of it from its door on the island, or back out
@@ -337,13 +583,41 @@ export function findFocus(life: Life, sim: Sim): Focus | null {
     if (inside) {
       const at = inWorld(inside, inside.exit.x, inside.exit.z);
       const d = Math.hypot(at.x - p.pos.x, at.z - p.pos.z);
-      consider({ action: 'leaveDungeon', key: `dungeon:${inside.id}:leave`, label: `Leave ${inside.name}`, detail: back ? 'Put your pack down first' : undefined, ok: !back, dungeon: inside.id, x: at.x, y: p.pos.y, z: at.z }, d, inside.exit.r);
+      consider(
+        {
+          action: 'leaveDungeon',
+          key: `dungeon:${inside.id}:leave`,
+          label: `Leave ${inside.name}`,
+          detail: back ? 'Put your pack down first' : undefined,
+          ok: !back,
+          dungeon: inside.id,
+          x: at.x,
+          y: p.pos.y,
+          z: at.z,
+        },
+        d,
+        inside.exit.r,
+      );
     } else
       for (const door of life.zone.recipe.dungeons ?? []) {
         const def = dungeonDef(door.id);
         const d = Math.hypot(door.portal.x - p.pos.x, door.portal.z - p.pos.z);
         if (!def || Math.abs(p.pos.y - door.portal.y) > 3) continue;
-        consider({ action: 'enterDungeon', key: `dungeon:${door.id}`, label: `Enter ${def.name}`, detail: back ? 'Put your pack down first' : `Dungeon · Up to ${def.maxPlayers} Players`, ok: !back, dungeon: door.id, x: door.portal.x, y: door.portal.y, z: door.portal.z }, d, door.portal.r);
+        consider(
+          {
+            action: 'enterDungeon',
+            key: `dungeon:${door.id}`,
+            label: `Enter ${def.name}`,
+            detail: back ? 'Put your pack down first' : `Dungeon · Up to ${def.maxPlayers} Players`,
+            ok: !back,
+            dungeon: door.id,
+            x: door.portal.x,
+            y: door.portal.y,
+            z: door.portal.z,
+          },
+          d,
+          door.portal.r,
+        );
       }
   }
 
@@ -354,7 +628,11 @@ export function findFocus(life: Life, sim: Sim): Focus | null {
     for (const o of life.othersAround?.() ?? []) {
       const d = Math.hypot(o.x - p.pos.x, o.z - p.pos.z);
       const detail = o.busy ?? (back ? 'Put your pack down first' : 'Play a Mini-Game');
-      consider({ action: 'challenge', key: `challenge:${o.id}`, label: `Challenge ${o.name}`, detail, ok: !o.busy && !back, other: o.id, x: o.x, y: o.y, z: o.z }, d, CHALLENGE.range);
+      consider(
+        { action: 'challenge', key: `challenge:${o.id}`, label: `Challenge ${o.name}`, detail, ok: !o.busy && !back, other: o.id, x: o.x, y: o.y, z: o.z },
+        d,
+        CHALLENGE.range,
+      );
     }
   }
   return best;

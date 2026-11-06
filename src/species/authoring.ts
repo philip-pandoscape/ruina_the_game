@@ -60,8 +60,6 @@ export class RigBuilder {
 
 /** A joint's bind rotation nudged about an axis - the usual shape of an authored pose track. */
 export const swing = (rest: Quat, axis: Vec3, radians: number): Quat => {
-  const q = new THREE.Quaternion(...rest).multiply(
-    new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(...axis).normalize(), radians),
-  );
+  const q = new THREE.Quaternion(...rest).multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(...axis).normalize(), radians));
   return [q.x, q.y, q.z, q.w];
 };

@@ -31,7 +31,11 @@ export interface BeaconsState {
   legal?: Array<{ cards: number[]; hexes: number[] }>;
 }
 
-export type BeaconsLog = { seat: number; k: 'light'; goods: number[]; hex: number } | { seat: number; k: 'swap' } | { seat: number; k: 'harbour'; good: number } | { seat: number; k: 'deck' };
+export type BeaconsLog =
+  | { seat: number; k: 'light'; goods: number[]; hex: number }
+  | { seat: number; k: 'swap' }
+  | { seat: number; k: 'harbour'; good: number }
+  | { seat: number; k: 'deck' };
 
 /** A board hex, middle to corner (virtual px). */
 const SIZE = 27;
@@ -97,7 +101,8 @@ export class BeaconsPanel {
     if (!this.mine(v)) return s.draws > 0 ? `${them} is drawing.` : `${them} is thinking.`;
     if (s.draws > 0) return `Draw ${s.draws === 1 ? 'one more card' : `${s.draws} cards`}: take one from the <b>Harbour</b> or the top of the <b>deck</b>.`;
     const hand = s.hand ?? [];
-    if (!this.picked.length) return 'Your turn. Pick a card, then a glowing hex to light with it. <b>Two of a kind</b> light any hex, even the Old Beacon. Or swap a card.';
+    if (!this.picked.length)
+      return 'Your turn. Pick a card, then a glowing hex to light with it. <b>Two of a kind</b> light any hex, even the Old Beacon. Or swap a card.';
     const g = hand[this.picked[0]];
     if (this.picked.length === 2) return `A pair of ${esc(goodName(g))} lights any unlit hex. Pick one.`;
     if (this.targets(v).size) return `Pick a glowing ${esc(goodName(g))} hex to light it.`;
@@ -117,7 +122,9 @@ export class BeaconsPanel {
         const a = ((60 * k - 30) * Math.PI) / 180;
         return `${(cx + r * Math.cos(a)).toFixed(1)},${(cy + r * Math.sin(a)).toFixed(1)}`;
       }).join(' ');
-    const defs = BEACONS.goods.map((g, k) => `<image id="mg-g${k}" href="${iconUrl(g.icon) ?? ''}" width="22" height="22"/>`).join('') + `<image id="mg-fire" href="${iconUrl('🔥') ?? ''}" width="18" height="18"/>`;
+    const defs =
+      BEACONS.goods.map((g, k) => `<image id="mg-g${k}" href="${iconUrl(g.icon) ?? ''}" width="22" height="22"/>`).join('') +
+      `<image id="mg-fire" href="${iconUrl('🔥') ?? ''}" width="18" height="18"/>`;
     const hexes = HEXES.map((hx, i) => {
       const c = hexCentre(hx, SIZE);
       const cx = c.x + w / 2;
@@ -125,11 +132,15 @@ export class BeaconsPanel {
       const lit = s.lit?.[i] ?? 0;
       const old = i === OLD_BEACON;
       const fill = old ? '#3d2614' : tint(good(hx.good)?.color ?? '#c9a06a', 0.3);
-      const cls = ['hx', old ? 'old' : '', can.has(i) ? 'can' : '', row.has(i) ? 'row' : '', picking && !can.has(i) && !lit ? 'dim' : ''].filter(Boolean).join(' ');
+      const cls = ['hx', old ? 'old' : '', can.has(i) ? 'can' : '', row.has(i) ? 'row' : '', picking && !can.has(i) && !lit ? 'dim' : '']
+        .filter(Boolean)
+        .join(' ');
       const name = old ? 'The Old Beacon: only a pair lights it' : goodName(hx.good);
       let body = `<polygon points="${corners(cx, cy, SIZE - 1)}" fill="${fill}"/>`;
       // The Old Beacon: an unlit brazier, a ring of brass.
-      body += old ? `<circle cx="${cx}" cy="${cy}" r="10" fill="none" stroke="#e0b84a" stroke-width="3"/><circle cx="${cx}" cy="${cy}" r="3.5" fill="#e0b84a"/>` : `<use href="#mg-g${hx.good}" x="${cx - 11}" y="${cy - 11}"/>`;
+      body += old
+        ? `<circle cx="${cx}" cy="${cy}" r="10" fill="none" stroke="#e0b84a" stroke-width="3"/><circle cx="${cx}" cy="${cy}" r="3.5" fill="#e0b84a"/>`
+        : `<use href="#mg-g${hx.good}" x="${cx - 11}" y="${cy - 11}"/>`;
       if (lit) {
         const colour = SEAT_COLORS[lit - 1] ?? '#fff';
         body += `<circle class="beacon" cx="${cx}" cy="${cy}" r="${SIZE * 0.52}" fill="${colour}"/><circle class="glint" cx="${cx - 4}" cy="${cy - 5}" r="3"/><use href="#mg-fire" x="${cx - 9}" y="${cy - 10}"/>`;
@@ -148,8 +159,12 @@ export class BeaconsPanel {
       const d = good(g);
       return `<div class="mg-card ${cls}" ${attrs} style="--c:${d?.color ?? '#c9a06a'}" data-tip="mg:good:${g}">${iconHtml(d?.icon ?? '❔', undefined, 32)}<span>${esc(d?.name ?? '')}</span></div>`;
     };
-    const hand = (s.hand ?? []).map((g, i) => card(g, `data-act="card" data-arg="${i}"`, `${playing ? 'can' : ''}${this.picked.includes(i) ? ' picked' : ''}`)).join('');
-    const harbour = (s.harbour ?? []).map((g, i) => (g === null ? `<div class="mg-card empty"></div>` : card(g, `data-act="harbour" data-arg="${i}"`, drawing ? 'take' : ''))).join('');
+    const hand = (s.hand ?? [])
+      .map((g, i) => card(g, `data-act="card" data-arg="${i}"`, `${playing ? 'can' : ''}${this.picked.includes(i) ? ' picked' : ''}`))
+      .join('');
+    const harbour = (s.harbour ?? [])
+      .map((g, i) => (g === null ? `<div class="mg-card empty"></div>` : card(g, `data-act="harbour" data-arg="${i}"`, drawing ? 'take' : '')))
+      .join('');
     const deck = `<div class="mg-card back${drawing && s.deck + s.discards > 0 ? ' take' : ''}" data-act="deck" title="The deck"><b>${s.deck}</b><span>Cards</span></div>`;
     return (
       `<div class="h">Your Hand</div><div class="mg-cards hand">${hand}</div>` +
@@ -242,7 +257,12 @@ export class BeaconsPanel {
       title: goodName(g),
       entries: [
         { label: 'Light a Hex', primary: j < 0, disabled: wait ?? (single ? undefined : `No unlit ${goodName(g)} hex left`), run: () => (this.picked = [i]) },
-        { label: 'Light Any Hex With the Pair', primary: j >= 0, disabled: wait ?? (j >= 0 ? undefined : 'You need two of a kind'), run: () => (this.picked = [i, j]) },
+        {
+          label: 'Light Any Hex With the Pair',
+          primary: j >= 0,
+          disabled: wait ?? (j >= 0 ? undefined : 'You need two of a kind'),
+          run: () => (this.picked = [i, j]),
+        },
         {
           label: 'Swap This Card',
           disabled: wait,

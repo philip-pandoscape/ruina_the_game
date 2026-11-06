@@ -87,7 +87,11 @@ const sunroot: Build = (p, _g, s, rng) => {
       const r = k === 0 ? 0 : 0.18 + rng() * 0.12;
       p.add(cone(0.07, 0.03, 5), PAL.yellow, [Math.cos(a) * r, crown + lr * 0.55 - r * 0.35, Math.sin(a) * r], [Math.PI, 0, 0], undefined, { glow: 1.15 });
     }
-    for (const [x, z, a] of [[0.36, 0.38, 0.4], [-0.4, 0.3, -0.6]] as const) p.add(ico(0.12, 0), 0xd9a441, [x, 0.05, z], [0, a, 0.3], [1.35, 0.8, 1]);
+    for (const [x, z, a] of [
+      [0.36, 0.38, 0.4],
+      [-0.4, 0.3, -0.6],
+    ] as const)
+      p.add(ico(0.12, 0), 0xd9a441, [x, 0.05, z], [0, a, 0.3], [1.35, 0.8, 1]);
   }
 };
 
@@ -142,7 +146,9 @@ const flax: Build = (p, _g, s, rng) => {
     if (s >= 2 && k % 2 === 0) p.add(cone(0.015, 0.1, 3), 0x7dbb8a, [x, hh * 0.55, z], [0.6, a, 0]);
     if (s === 1) p.add(cone(0.03, 0.05, 3), 0x7dbb8a, top);
     if (s === 3) {
-      p.add(cone(0.075, 0.03, 5), k % 4 === 0 ? 0xb9d5f6 : 0x8fb6ef, [top[0], top[1] + 0.012, top[2]], [Math.PI + rng() * 0.4, rng() * TAU, 0], undefined, { glow: 1.1 });
+      p.add(cone(0.075, 0.03, 5), k % 4 === 0 ? 0xb9d5f6 : 0x8fb6ef, [top[0], top[1] + 0.012, top[2]], [Math.PI + rng() * 0.4, rng() * TAU, 0], undefined, {
+        glow: 1.1,
+      });
       if (k % 2 === 0) p.add(octa(0.014), PAL.yellow, [top[0], top[1] + 0.02, top[2]]);
     }
   }
@@ -179,7 +185,14 @@ const emberberry: Build = (p, _g, s, rng) => {
       const cz = Math.sin(a) * 0.55;
       const cy = 0.3 + (c % 2) * 0.2;
       for (let k = 0; k < 4; k++) {
-        p.add(octa(0.06), k % 2 ? 0xff6a2a : 0xff4a22, [cx + Math.cos(k * 1.7) * 0.06, cy + (k % 2) * 0.06, cz + Math.sin(k * 1.7) * 0.06], [rng(), rng(), 0], undefined, { glow: 1.45 });
+        p.add(
+          octa(0.06),
+          k % 2 ? 0xff6a2a : 0xff4a22,
+          [cx + Math.cos(k * 1.7) * 0.06, cy + (k % 2) * 0.06, cz + Math.sin(k * 1.7) * 0.06],
+          [rng(), rng(), 0],
+          undefined,
+          { glow: 1.45 },
+        );
       }
     }
   }
@@ -197,12 +210,27 @@ const apple: Build = (p, _g, s, rng) => {
     p.add(rod([0, 0, 0], [0.02, 0.9, 0], 0.025, 5, 0.015), bark);
     p.add(rod([0.14, 0, -0.04], [0.14, 0.8, -0.04], 0.018, 4), PAL.woodPale);
     p.add(octa(0.03), PAL.rope, [0.08, 0.55, -0.02], undefined, [2, 0.6, 1]);
-    for (const [x, y, z] of [[0.08, 0.78, 0.03], [-0.07, 0.7, 0.05], [0.0, 0.92, -0.06], [-0.04, 0.55, -0.05]] as const) blob(p, 0.08, [x, y, z], PAL.leaf, rng, 0.6);
+    for (const [x, y, z] of [
+      [0.08, 0.78, 0.03],
+      [-0.07, 0.7, 0.05],
+      [0.0, 0.92, -0.06],
+      [-0.04, 0.55, -0.05],
+    ] as const)
+      blob(p, 0.08, [x, y, z], PAL.leaf, rng, 0.6);
     return;
   }
   if (s === 1) {
     p.add(cyl(0.05, 0.08, 1.1, 6), bark, [0, 0.55, 0]);
-    canopy(p, [[0, 1.45, 0, 0.45], [0.3, 1.3, 0.1, 0.32], [-0.25, 1.35, -0.1, 0.32], [0.05, 1.78, -0.05, 0.3]], rng);
+    canopy(
+      p,
+      [
+        [0, 1.45, 0, 0.45],
+        [0.3, 1.3, 0.1, 0.32],
+        [-0.25, 1.35, -0.1, 0.32],
+        [0.05, 1.78, -0.05, 0.3],
+      ],
+      rng,
+    );
     return;
   }
   p.add(cyl(0.16, 0.25, 2.0, 7), bark, [0, 1.0, 0]);
@@ -224,9 +252,19 @@ const apple: Build = (p, _g, s, rng) => {
       const a = rng() * TAU;
       const e = (rng() - 0.35) * 1.2;
       const d = br * 0.95;
-      p.add(octa(0.14), k % 3 ? PAL.red : 0xe8342a, [bx + Math.cos(a) * Math.cos(e) * d, by + Math.sin(e) * d * 0.85, bz + Math.sin(a) * Math.cos(e) * d], [rng(), rng(), 0], [1, 0.9, 1]);
+      p.add(
+        octa(0.14),
+        k % 3 ? PAL.red : 0xe8342a,
+        [bx + Math.cos(a) * Math.cos(e) * d, by + Math.sin(e) * d * 0.85, bz + Math.sin(a) * Math.cos(e) * d],
+        [rng(), rng(), 0],
+        [1, 0.9, 1],
+      );
     }
-    for (const [x, z] of [[0.7, 0.6], [-0.5, 0.8]] as const) p.add(octa(0.1), PAL.red, [x, 0.07, z], undefined, [1, 0.85, 1]);
+    for (const [x, z] of [
+      [0.7, 0.6],
+      [-0.5, 0.8],
+    ] as const)
+      p.add(octa(0.1), PAL.red, [x, 0.07, z], undefined, [1, 0.85, 1]);
   }
 };
 

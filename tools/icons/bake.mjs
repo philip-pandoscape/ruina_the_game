@@ -37,7 +37,10 @@ const walk = (v) => {
   if (Array.isArray(v)) v.forEach(walk);
   else if (v && typeof v === 'object') for (const [k, x] of Object.entries(v)) k === 'icon' && typeof x === 'string' ? named.add(x) : walk(x);
 };
-const jsons = (d) => fs.readdirSync(d, { withFileTypes: true }).flatMap((f) => (f.isDirectory() ? jsons(path.join(d, f.name)) : f.name.endsWith('.json') ? [path.join(d, f.name)] : []));
+const jsons = (d) =>
+  fs
+    .readdirSync(d, { withFileTypes: true })
+    .flatMap((f) => (f.isDirectory() ? jsons(path.join(d, f.name)) : f.name.endsWith('.json') ? [path.join(d, f.name)] : []));
 for (const f of jsons(path.join(ROOT, 'shared'))) walk(JSON.parse(fs.readFileSync(f, 'utf8')));
 const unpainted = [...named].filter((e) => /\p{Extended_Pictographic}/u.test(e) && !byEmoji[bare(e)]);
 if (unpainted.length) throw new Error(`Content names emoji with no icon: ${unpainted.join(' ')} (add them to tools/icons/catalog.mjs)`);
@@ -52,7 +55,14 @@ await page.setContent('<!doctype html><body></body>');
 const icons = {};
 for (const sheet of SHEETS) {
   const url = `data:image/webp;base64,${fs.readFileSync(path.join(SHEET_DIR, `${sheet.id}.webp`)).toString('base64')}`;
-  const cut = await page.evaluate(cutSheet, { url, n: sheet.icons.length, grid: gridOf(sheet.icons.length), key: BACKGROUNDS[sheet.bg].rgb, size: SIZE, fill: FILL });
+  const cut = await page.evaluate(cutSheet, {
+    url,
+    n: sheet.icons.length,
+    grid: gridOf(sheet.icons.length),
+    key: BACKGROUNDS[sheet.bg].rgb,
+    size: SIZE,
+    fill: FILL,
+  });
   sheet.icons.forEach((ic, i) => {
     if (!cut[i]) throw new Error(`${sheet.id}: nothing painted in cell ${i + 1} (${ic.name})`);
     icons[ic.name] = cut[i];
@@ -163,7 +173,7 @@ async function cutSheet({ url, n, grid, key, size, fill }) {
     for (let p = 0; p < N; p++) {
       if (soft[p]) continue;
       const x = p % W;
-      const q = ((p - x) / W >> 1) * w + (x >> 1);
+      const q = (((p - x) / W) >> 1) * w + (x >> 1);
       r[q] += px[p * 4];
       gg[q] += px[p * 4 + 1];
       b[q] += px[p * 4 + 2];
@@ -233,7 +243,7 @@ async function cutSheet({ url, n, grid, key, size, fill }) {
     }
     const f = [0, 1, 2].map((c) => Math.max(0, Math.min(255, K[c] + (px[p * 4 + c] - K[c]) / a)));
     const x = p % W;
-    const q = ((p - x) / W >> 1) * near.w + (x >> 1);
+    const q = (((p - x) / W) >> 1) * near.w + (x >> 1);
     const hue = [near.r[q], near.g[q], near.b[q]];
     const lh = lum(...hue);
     const k = lh > 1 ? lum(...f) / lh : 0;

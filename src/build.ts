@@ -226,7 +226,6 @@ export function saveBuild(b: Build): void {
   }
 }
 
-
 // Puts a movement skill in a Q / E slot (or clears it). Like the hotbar, it moves rather than
 // duplicates.
 export function assignMovement(b: Build, slot: number, skill: number): Build {

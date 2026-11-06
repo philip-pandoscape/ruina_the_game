@@ -1,6 +1,18 @@
 import { expect, test, type Browser, type BrowserContext, type Page } from '@playwright/test';
 import { ABILITIES, comboFor, emptyMovement, HOTBAR_SLOTS, NO_ABILITY, SLIDE_SKILL, type Build, WEAPONS } from '../../src/tuning';
-import { ADJACENT, emptySkills, LEVEL_XP, resolveSkills, SKILL_POINTS, skillCount, skillIndex, skillsFrom, soundTree, START_POINTS, withSkill } from '../../src/skills';
+import {
+  ADJACENT,
+  emptySkills,
+  LEVEL_XP,
+  resolveSkills,
+  SKILL_POINTS,
+  skillCount,
+  skillIndex,
+  skillsFrom,
+  soundTree,
+  START_POINTS,
+  withSkill,
+} from '../../src/skills';
 import { serverBuilt, TestServer } from '../support/testServer';
 import type { Command } from '../../src/sim/life/life';
 import { gameReady } from '../support/game';
@@ -174,7 +186,15 @@ test('skill book: every skill with its level, equip a weapon, put an ability on 
 test('skill book and tree with a controller: View opens the book, A equips, a bumper turns to the tree, B backs out', async ({ page }) => {
   await page.addInitScript(() => {
     const buttons = Array.from({ length: 17 }, () => ({ pressed: false, touched: false, value: 0 }));
-    const pad = { id: 'Xbox Wireless Controller (STANDARD GAMEPAD)', index: 0, connected: true, mapping: 'standard', axes: [0, 0, 0, 0], buttons, timestamp: 0 };
+    const pad = {
+      id: 'Xbox Wireless Controller (STANDARD GAMEPAD)',
+      index: 0,
+      connected: true,
+      mapping: 'standard',
+      axes: [0, 0, 0, 0],
+      buttons,
+      timestamp: 0,
+    };
     (window as any).__pad = pad;
     Object.defineProperty(navigator, 'getGamepads', { value: () => [pad, null, null, null], configurable: true });
   });
@@ -184,8 +204,17 @@ test('skill book and tree with a controller: View opens the book, A equips, a bu
   await page.evaluate((b) => window.__game.setBuild(b), build(['sword', 'club'], 0));
   // A press lasts at least 60 ms and two frames, so a slow frame (the first time a panel is drawn,
   // in a software-drawn browser) can't swallow it.
-  const frames = (n: number) => page.evaluate((n) => new Promise<void>((done) => { const f = () => (--n <= 0 ? done() : requestAnimationFrame(f)); requestAnimationFrame(f); }), n);
-  const set = (i: number, on: boolean) => page.evaluate(([i, on]) => Object.assign((window as any).__pad.buttons[i as number], { pressed: on, value: on ? 1 : 0 }), [i, on] as const);
+  const frames = (n: number) =>
+    page.evaluate(
+      (n) =>
+        new Promise<void>((done) => {
+          const f = () => (--n <= 0 ? done() : requestAnimationFrame(f));
+          requestAnimationFrame(f);
+        }),
+      n,
+    );
+  const set = (i: number, on: boolean) =>
+    page.evaluate(([i, on]) => Object.assign((window as any).__pad.buttons[i as number], { pressed: on, value: on ? 1 : 0 }), [i, on] as const);
   const tap = async (button: number) => {
     await set(button, true);
     await page.waitForTimeout(60);
@@ -244,7 +273,11 @@ test('island: the tree spends points earned from quests, and the sword levels up
   // Finishing Landfall earns another.
   await page.evaluate(() => window.__game.skillPanel(false));
   const hollis = (await page.evaluate(() => window.__game.zone())).npcs.find((n: { id: string }) => n.id === 'hollis');
-  await page.evaluate(([x, z, f]) => window.__game.teleport(x, z, f), [hollis.x + Math.sin(hollis.facing) * 2.2, hollis.z + Math.cos(hollis.facing) * 2.2, hollis.facing + Math.PI] as const);
+  await page.evaluate(([x, z, f]) => window.__game.teleport(x, z, f), [
+    hollis.x + Math.sin(hollis.facing) * 2.2,
+    hollis.z + Math.cos(hollis.facing) * 2.2,
+    hollis.facing + Math.PI,
+  ] as const);
   await advance(2);
   await cmd({ t: 'interact' });
   await advance(2);
@@ -383,7 +416,10 @@ test('training yard: arrows, Meteor, Healing Circle and Whirlwind against the du
       // Whirlwind finishes the sword combo with a spin.
       standOff(builds.whirl, 1.6);
       for (let f = 0; f < 80; f++) g.advance(1, { attackPressed: f === 0 || f === 6 || f === 18 });
-      out.whirlwind = g.events().filter((e: any) => e.type === 'hit').map((e: any) => e.damage);
+      out.whirlwind = g
+        .events()
+        .filter((e: any) => e.type === 'hit')
+        .map((e: any) => e.damage);
       return out;
     },
     {
@@ -404,7 +440,14 @@ test('training yard: arrows, Meteor, Healing Circle and Whirlwind against the du
   expect(bow.hp).toBe(100 - arrowDamage);
   expect(bow.learned).toEqual({ bow: 1, sword: 0 });
   expect(result.rapidFire).toBe(comboFor(3, resolveSkills(skills('bow', 'rapidFire')))[0].startup + 1);
-  const meteor = result.meteor as { casting: { mode: string; circles: number }; falling: number; hp: number; cooldown: number; explosions: number; learned: Record<string, number> };
+  const meteor = result.meteor as {
+    casting: { mode: string; circles: number };
+    falling: number;
+    hp: number;
+    cooldown: number;
+    explosions: number;
+    learned: Record<string, number>;
+  };
   expect(meteor.casting).toEqual({ mode: 'cast', circles: 1 });
   expect(meteor.falling).toBe(1);
   expect(meteor.explosions).toBe(1);
@@ -511,7 +554,10 @@ test.describe('online', () => {
       const reds = [await joinAs(browser, 1, SWORD), await joinAs(browser, 1, SWORD)];
       await seesPlayers(blue.page, 2);
       await blue.page.evaluate(() => window.__game.setCamera({ yaw: Math.PI / 2 - 0.5, distance: 6 }));
-      await script(blue.page, [[1, { attackPressed: true, aimX: 5, aimZ: 0 }], [40, {}]]);
+      await script(blue.page, [
+        [1, { attackPressed: true, aimX: 5, aimZ: 0 }],
+        [40, {}],
+      ]);
       // Your own arrow is drawn the moment it leaves the bow.
       const drawn = await sometime(blue.page, '(window.__game.spells().arrowsDrawn ?? 0) > 0', 2000);
       await blue.page.screenshot({ path: `${SHOTS}/41-arrow-${expectedHits}.png` });
@@ -536,7 +582,11 @@ test.describe('online', () => {
       const blue = await joinAs(browser, 0, sword);
       const reds = [await joinAs(browser, 1, SWORD), await joinAs(browser, 1, SWORD)];
       await seesPlayers(blue.page, 2);
-      await script(blue.page, [[26, { moveX: 1 }], [1, { attackPressed: true }], [40, {}]]);
+      await script(blue.page, [
+        [26, { moveX: 1 }],
+        [1, { attackPressed: true }],
+        [40, {}],
+      ]);
       await blue.page.waitForTimeout(1500);
       const hps = await Promise.all(reds.map(async (r) => (await net(r.page)).hp));
       console.log('melee', name, JSON.stringify({ hps, blueX: (await net(blue.page)).x }));
@@ -553,7 +603,10 @@ test.describe('online', () => {
     for (const p of [blue.page, red.page]) await p.evaluate(() => window.__game.setCamera({ distance: 11, pitch: 0.45 }));
     await blue.page.evaluate(() => window.__game.setCamera({ yaw: Math.PI / 2 }));
     await red.page.evaluate(() => window.__game.setCamera({ yaw: -Math.PI / 2 }));
-    await script(blue.page, [[1, { abilitySlot: 1, aimX: 5, aimZ: 0 }], [150, {}]]);
+    await script(blue.page, [
+      [1, { abilitySlot: 1, aimX: 5, aimZ: 0 }],
+      [150, {}],
+    ]);
     const [blueCircle, redCircle] = await Promise.all([
       sometime(blue.page, 'window.__game.spells().circlesDrawn > 0'),
       sometime(red.page, 'window.__game.spells().circlesDrawn > 0'),
@@ -578,8 +631,15 @@ test.describe('online', () => {
     const red = await joinAs(browser, 1, SWORD);
     await seesPlayers(red.page, 1);
     // Blue starts a Meteor on red; red charges in and hits blue before the cast finishes.
-    await script(blue.page, [[1, { abilitySlot: 1, aimX: 5, aimZ: 0 }], [120, {}]]);
-    await script(red.page, [[24, { moveX: -1 }], [1, { attackPressed: true, aimX: -3, aimZ: 0 }], [30, {}]]);
+    await script(blue.page, [
+      [1, { abilitySlot: 1, aimX: 5, aimZ: 0 }],
+      [120, {}],
+    ]);
+    await script(red.page, [
+      [24, { moveX: -1 }],
+      [1, { attackPressed: true, aimX: -3, aimZ: 0 }],
+      [30, {}],
+    ]);
     const interrupted = await sometime(blue.page, "document.querySelector('#castbar .label')?.textContent === 'Interrupted!'");
     await blue.page.screenshot({ path: `${SHOTS}/44-interrupted.png` });
     await blue.page.waitForTimeout(2500); // long enough for a meteor to have landed, had it been cast
@@ -597,11 +657,21 @@ test.describe('online', () => {
     const red = await joinAs(browser, 1, CLEAVER);
     await seesPlayers(red.page, 2);
     // Red cleaves both blues twice, then walks away.
-    await script(red.page, [[24, { moveX: -1 }], [1, { attackPressed: true, aimX: -3, aimZ: 0 }], [10, {}], [1, { attackPressed: true }], [30, {}], [40, { moveX: 1 }]]);
+    await script(red.page, [
+      [24, { moveX: -1 }],
+      [1, { attackPressed: true, aimX: -3, aimZ: 0 }],
+      [10, {}],
+      [1, { attackPressed: true }],
+      [30, {}],
+      [40, { moveX: 1 }],
+    ]);
     await red.page.waitForFunction(() => window.__game.net().scriptLeft === 0);
     await healer.page.waitForTimeout(600);
     const before = { healer: (await net(healer.page)).hp, ally: (await net(ally.page)).hp };
-    await script(healer.page, [[1, { abilitySlot: 1 }], [40, {}]]);
+    await script(healer.page, [
+      [1, { abilitySlot: 1 }],
+      [40, {}],
+    ]);
     await healer.page.waitForTimeout(1200);
     const after = { healer: (await net(healer.page)).hp, ally: (await net(ally.page)).hp };
     console.log('heal', JSON.stringify({ before, after }));

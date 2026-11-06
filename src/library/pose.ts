@@ -106,7 +106,9 @@ export function modelPositions(body: Posable): Record<string, Vec3> {
   for (const pt of body.points ?? []) {
     const b = body.bones.find((x) => x.name === pt.bone);
     if (!b || !shownAll(b.object)) continue;
-    _v.set(...pt.at).applyMatrix4(b.object.matrixWorld).applyMatrix4(inv);
+    _v.set(...pt.at)
+      .applyMatrix4(b.object.matrixWorld)
+      .applyMatrix4(inv);
     out[pt.name] = [_v.x, _v.y, _v.z];
   }
   return out;

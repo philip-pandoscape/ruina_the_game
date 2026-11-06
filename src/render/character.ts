@@ -138,7 +138,10 @@ export function traceSwing(p: PoseInput, def: RigDef = HERO_RIG): Edges | null {
     for (let i = 0; i <= n; i++) {
       const f = step.startup + (step.active * i) / n;
       // A jump attack is traced in the air, as it is mostly swung.
-      poseHumanoid(tracer, pose({ weapon: p.weapon, attackIndex: p.attackIndex, attackFrame: f, step, comboLength: p.comboLength, airSwing: p.airSwing, grounded: !p.airSwing }));
+      poseHumanoid(
+        tracer,
+        pose({ weapon: p.weapon, attackIndex: p.attackIndex, attackFrame: f, step, comboLength: p.comboLength, airSwing: p.airSwing, grounded: !p.airSwing }),
+      );
       tracer.root.updateMatrixWorld(true);
       edges.push([new THREE.Vector3(...edge.inner).applyMatrix4(hand.matrixWorld), new THREE.Vector3(...edge.outer).applyMatrix4(hand.matrixWorld)]);
     }
@@ -522,10 +525,10 @@ export class Hero {
     // ground (the left, which leads every leap); setting off from standing, with the back foot's step.
     if (input.grounded && !this.wasGrounded) {
       const v = input.speed * MOVE.runSpeed;
-      if (Math.cos(input.heading) < -0.3 && v > 0.5) this.phase = -dutyFactor(v, input.crouch, 1, this.body.stride) * TAU; // backing away: toes first
+      if (Math.cos(input.heading) < -0.3 && v > 0.5)
+        this.phase = -dutyFactor(v, input.crouch, 1, this.body.stride) * TAU; // backing away: toes first
       else this.phase = Math.sin(input.heading) * input.speed < -0.15 ? Math.PI : 0;
-    }
-    else if (this.stride < 0.02 && input.run > 0.01) this.phase = 0.06 * TAU;
+    } else if (this.stride < 0.02 && input.run > 0.01) this.phase = 0.06 * TAU;
     this.wasGrounded = input.grounded;
     if (moved > 0 && moved < 3) {
       const v = input.run * MOVE.runSpeed;
@@ -774,7 +777,10 @@ export class Hero {
       // the hand as the bow does.
       const along = _v3.copy(nock).negate().normalize();
       this.nockedArrow.quaternion.setFromUnitVectors(DOWN_Y, along);
-      this.nockedArrow.position.copy(nock).sub(_v2.set(0, bow.arrowNock, 0).applyQuaternion(this.nockedArrow.quaternion)).add(held.position);
+      this.nockedArrow.position
+        .copy(nock)
+        .sub(_v2.set(0, bow.arrowNock, 0).applyQuaternion(this.nockedArrow.quaternion))
+        .add(held.position);
     }
   }
 }

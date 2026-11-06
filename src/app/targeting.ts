@@ -38,13 +38,13 @@ export function createTargeting(d: TargetingDeps) {
   // (a soft lock, like ESO or TERA) and lets go once they drift well off screen or die. Tab takes
   // that choice away from it: a locked target is kept until it dies, leaves, or you press Escape.
   // Either way the mark feeds the aim for attacks, so the bow and your swings follow it.
-  
+
   const SOFT_RANGE = 32; // metres: how far away an enemy can be and still be picked up
   const SOFT_CONE = 35 * DEG; // how far off centre it can be to be chosen
   const DROP_CONE = 75 * DEG; // ...and how far it can drift before a soft lock gives up
   const LOCK_RANGE = SOFT_RANGE * 1.5; // a Tab lock holds on further out than it would be picked up
   const softLock = d.softLock;
-  
+
   interface Mark {
     key: string;
     x: number;
@@ -53,12 +53,12 @@ export function createTargeting(d: TargetingDeps) {
     hp: number; // 0..1
     name: string;
   }
-  
+
   let targetKey: string | null = null;
   let tabLocked = false;
   const marked: Mark = { key: '', x: 0, y: 0, z: 0, hp: 1, name: '' };
   let haveMark = false;
-  
+
   // Everything you could be aiming at, cheapest checks first. `visit` is called for each; returning
   // nothing keeps the scan going. Bots are by far the biggest group, so they come last and are
   // rejected on squared distance before anything else is worked out.
@@ -103,14 +103,14 @@ export function createTargeting(d: TargetingDeps) {
       }
     }
   }
-  
+
   // How far off the middle of the view something is, in radians.
   function offCentre(x: number, z: number): number {
     let off = Math.abs(Math.atan2(x - d.sim.player.pos.x, z - d.sim.player.pos.z) - d.yaw()) % (Math.PI * 2);
     if (off > Math.PI) off = Math.PI * 2 - off;
     return off;
   }
-  
+
   // Picks the mark for this frame: keep the one you have while it's still good, otherwise (unless
   // you locked it with Tab) take whoever is nearest the middle of the view.
   function updateTarget(): void {
@@ -179,7 +179,7 @@ export function createTargeting(d: TargetingDeps) {
     marked.hp = bhp;
     marked.name = bname;
   }
-  
+
   // Tab: step to the next enemy, nearest first. Shift-Tab goes back. The order is rebuilt from the
   // current positions on each press, so it stays stable for as long as nobody moves past anyone.
   function cycleTarget(step: number): void {

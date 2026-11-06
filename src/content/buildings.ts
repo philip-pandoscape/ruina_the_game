@@ -202,7 +202,10 @@ export function mirrorPlan(plan: BuildingPlan): BuildingPlan {
     roof: {
       ...plan.roof,
       chimneys: plan.roof.chimneys?.map((c) => ({ x: -c.x, z: c.z })),
-      dormers: plan.roof.ridge === 'z' ? plan.roof.dormers?.map((d) => ({ side: (-d.side) as 1 | -1, at: d.at })) : plan.roof.dormers?.map((d) => ({ side: d.side, at: -d.at })),
+      dormers:
+        plan.roof.ridge === 'z'
+          ? plan.roof.dormers?.map((d) => ({ side: -d.side as 1 | -1, at: d.at }))
+          : plan.roof.dormers?.map((d) => ({ side: d.side, at: -d.at })),
     },
     stairs: plan.stairs?.map((s) => ({ ...s, x: -s.x, rot: -s.rot })),
     items: plan.items?.map((it) => ({ ...it, x: -it.x, rot: -(it.rot ?? 0) })),

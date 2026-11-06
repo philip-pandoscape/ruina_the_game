@@ -15,7 +15,12 @@ import { gameReady } from '../support/game';
 // Its tests share nothing, so they spread across the workers (playwright.config.ts).
 test.describe.configure({ mode: 'parallel' });
 
-const build =(tree: string, weapon: number): Build => ({ skills: skillsFrom(tree), weapon, abilities: new Array<number>(HOTBAR_SLOTS).fill(NO_ABILITY), movement: emptyMovement() });
+const build = (tree: string, weapon: number): Build => ({
+  skills: skillsFrom(tree),
+  weapon,
+  abilities: new Array<number>(HOTBAR_SLOTS).fill(NO_ABILITY),
+  movement: emptyMovement(),
+});
 const SWORD = build('sword', 0);
 const BOW = build('bow', 3);
 const GOBLIN = actorKind('goblin');
@@ -23,14 +28,35 @@ const STAB = attackDef('goblin-stab')!;
 const PACK = behaviour('goblin')!.pack!;
 
 interface Goblin {
-  id: number; x: number; z: number; hp: number; maxHp: number; alive: boolean; state: string; angry: number;
-  target: number; band: number; token: boolean; opening: boolean; afraid: boolean; slotX: number; slotZ: number; charges: number; facing: number;
+  id: number;
+  x: number;
+  z: number;
+  hp: number;
+  maxHp: number;
+  alive: boolean;
+  state: string;
+  angry: number;
+  target: number;
+  band: number;
+  token: boolean;
+  opening: boolean;
+  afraid: boolean;
+  slotX: number;
+  slotZ: number;
+  charges: number;
+  facing: number;
 }
-interface Me { pos: { x: number; z: number }; hp: number; facing: number }
+interface Me {
+  pos: { x: number; z: number };
+  hp: number;
+  facing: number;
+}
 
 function watchErrors(page: Page): string[] {
   const errors: string[] = [];
-  page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
+  page.on('console', (m) => {
+    if (m.type() === 'error') errors.push(m.text());
+  });
   page.on('pageerror', (e) => errors.push(String(e)));
   return errors;
 }
@@ -53,8 +79,7 @@ const advance = (page: Page, frames: number, actions: Record<string, unknown> = 
   page.evaluate(([f, a]) => window.__game.advance(f, a, false), [frames, actions] as const);
 const hurt = (page: Page, id: number, amount: number) => page.evaluate(([i, n]) => window.__game.hurtActor(i, n), [id, amount] as const);
 const missiles = (page: Page) => page.evaluate(() => window.__game.missiles() as Array<{ id: number }>);
-const events = (page: Page, type: string) =>
-  page.evaluate((t) => (window.__game.events() as Array<{ type: string }>).filter((e) => e.type === t), type);
+const events = (page: Page, type: string) => page.evaluate((t) => (window.__game.events() as Array<{ type: string }>).filter((e) => e.type === t), type);
 const dist = (a: { x: number; z: number }, b: { x: number; z: number }) => Math.hypot(a.x - b.x, a.z - b.z);
 
 /** Steps a few frames at a time, collecting what `look` sees each time, for `frames` frames. */
@@ -67,7 +92,7 @@ async function watch<T>(page: Page, frames: number, look: () => Promise<T>, ever
   return out;
 }
 
-test('?goblins=6 puts a war-band of six in the yard\'s far corner', async ({ page }) => {
+test("?goblins=6 puts a war-band of six in the yard's far corner", async ({ page }) => {
   const errors = watchErrors(page);
   await page.goto('/?yard&test&goblins=6');
   await gameReady(page);

@@ -26,10 +26,41 @@ const MODES: Record<Mode, number> = { normal: 0, attack: 1, cast: 2, action: 3, 
 
 // One recorded frame, in the order both sides write it (see crates/tools/src/bin/worldcheck.rs).
 const F = {
-  x: 0, y: 1, z: 2, vx: 3, vy: 4, vz: 5, facing: 6, airspeed: 7, bank: 8, landImpact: 9, runPhase: 10, hp: 11,
-  mode: 12, grounded: 13, jumpsUsed: 14, jumpCutDone: 15, coyote: 16, jumpBuffer: 17, flipFrame: 18, landFrame: 19,
-  takeoffFrame: 20, sprinting: 21, crouching: 22, crouchFrame: 23, modeFrame: 24, gustFrames: 25, actionId: 26,
-  actionFrame: 27, attackIndex: 28, attackFrame: 29, stun: 30, downFrame: 31, stamina: 32, mp: 33, staminaDelay: 34,
+  x: 0,
+  y: 1,
+  z: 2,
+  vx: 3,
+  vy: 4,
+  vz: 5,
+  facing: 6,
+  airspeed: 7,
+  bank: 8,
+  landImpact: 9,
+  runPhase: 10,
+  hp: 11,
+  mode: 12,
+  grounded: 13,
+  jumpsUsed: 14,
+  jumpCutDone: 15,
+  coyote: 16,
+  jumpBuffer: 17,
+  flipFrame: 18,
+  landFrame: 19,
+  takeoffFrame: 20,
+  sprinting: 21,
+  crouching: 22,
+  crouchFrame: 23,
+  modeFrame: 24,
+  gustFrames: 25,
+  actionId: 26,
+  actionFrame: 27,
+  attackIndex: 28,
+  attackFrame: 29,
+  stun: 30,
+  downFrame: 31,
+  stamina: 32,
+  mp: 33,
+  staminaDelay: 34,
 } as const;
 const FRAME_LEN = 35;
 // Continuous values, compared with a tolerance.
@@ -160,13 +191,22 @@ const CASES: Record<string, () => Case> = {
       script: s,
       verify: (fr) => {
         const hf = world().terrain!;
-        expect(fr.every((f) => f[F.grounded] === 1), 'on your feet the whole way').toBe(true);
+        expect(
+          fr.every((f) => f[F.grounded] === 1),
+          'on your feet the whole way',
+        ).toBe(true);
         const ys = fr.map((f) => f[F.y]);
         expect(Math.max(...ys) - Math.min(...ys), 'down and back up the hill').toBeGreaterThan(10);
         expect(Math.max(...fr.map((f) => hf.slope(f[F.x], f[F.z]))), 'on a real slope').toBeGreaterThan(0.5);
-        expect(fr.slice(250, 480).every((f) => f[F.sprinting] === 1), 'sprinting uphill').toBe(true);
+        expect(
+          fr.slice(250, 480).every((f) => f[F.sprinting] === 1),
+          'sprinting uphill',
+        ).toBe(true);
         expect(pace(fr[400], fr[401]), 'at sprint speed, measured over the ground').toBeGreaterThan(MOVE.sprintSpeed * 0.75);
-        expect(fr.slice(490, 600).every((f) => f[F.crouching] === 1), 'crouching').toBe(true);
+        expect(
+          fr.slice(490, 600).every((f) => f[F.crouching] === 1),
+          'crouching',
+        ).toBe(true);
       },
     };
   },
@@ -188,7 +228,10 @@ const CASES: Record<string, () => Case> = {
         expect(fr[149][F.vx], 'stopped by the cliff while still pushing into it').toBe(0);
         expect(Math.abs(fr[149][F.x] - fr[130][F.x]), 'and not moving').toBeLessThan(0.2);
         expect(hf.slope(fr[149][F.x] - 0.5, fr[149][F.z]), 'it is steeper than you can walk').toBeGreaterThan(GROUND.maxSlope);
-        expect(anyFrame(fr, 150, 300, (f) => f[F.vx] === 0 && f[F.vz] > 0.3), 'sliding north along it').toBeGreaterThan(0);
+        expect(
+          anyFrame(fr, 150, 300, (f) => f[F.vx] === 0 && f[F.vz] > 0.3),
+          'sliding north along it',
+        ).toBeGreaterThan(0);
         // Off your feet without jumping: slid off ground too steep to stand on, or ran off an edge.
         const offFeet = anyFrame(fr, 1, fr.length, (f, i) => fr[i - 1][F.grounded] === 1 && f[F.grounded] === 0 && f[F.takeoffFrame] > 0);
         expect(offFeet, 'slid off the steep part').toBeGreaterThan(0);
@@ -260,10 +303,16 @@ const CASES: Record<string, () => Case> = {
         expect(up, 'walked up onto it at the front').toBeGreaterThan(0);
         expect(fr[up - 1][F.grounded], 'without a jump').toBe(1);
         expect(fr[up - 1][F.y], 'from the plateau').toBeCloseTo(hf.height(fr[up - 1][F.x], fr[up - 1][F.z]), 6);
-        expect(anyFrame(fr, up, back, (f) => f[F.grounded] === 0), 'and off its back').toBeGreaterThan(up);
+        expect(
+          anyFrame(fr, up, back, (f) => f[F.grounded] === 0),
+          'and off its back',
+        ).toBeGreaterThan(up);
         expect(anyFrame(fr, back + 20, side, onIt), 'up again from behind').toBeGreaterThan(0);
         expect(anyFrame(fr, side + 30, fr.length, onIt), 'and from the side').toBeGreaterThan(0);
-        expect(fr.every((f) => f[F.jumpsUsed] === 0), 'never a jump').toBe(true);
+        expect(
+          fr.every((f) => f[F.jumpsUsed] === 0),
+          'never a jump',
+        ).toBe(true);
       },
     };
   },
@@ -323,8 +372,14 @@ const CASES: Record<string, () => Case> = {
         const hf = world().terrain!;
         const swim = change(fr, 'normal', 'swim');
         expect(swim, 'swimming').toBeGreaterThan(0);
-        expect(anyFrame(fr, 0, swim, (f) => f[F.grounded] === 1 && hf.water - f[F.y] > GROUND.wadeDepth), 'wading in first').toBeGreaterThan(0);
-        expect(anyFrame(fr, swim, fr.length, (f) => mode(f) === MODES.swim && f[F.sprinting] === 1), 'swimming hard').toBeGreaterThan(0);
+        expect(
+          anyFrame(fr, 0, swim, (f) => f[F.grounded] === 1 && hf.water - f[F.y] > GROUND.wadeDepth),
+          'wading in first',
+        ).toBeGreaterThan(0);
+        expect(
+          anyFrame(fr, swim, fr.length, (f) => mode(f) === MODES.swim && f[F.sprinting] === 1),
+          'swimming hard',
+        ).toBeGreaterThan(0);
         expect(mode(fr[openWater + 1]), 'no jumping out of open water').toBe(MODES.swim);
         const ashore = change(fr, 'swim', 'normal');
         expect(ashore, 'walked out').toBeGreaterThan(swim);
@@ -368,9 +423,18 @@ const CASES: Record<string, () => Case> = {
         expect(fr[double][F.jumpsUsed], 'double jump').toBe(2);
         expect(fr[double][F.vx] * 0.8 - fr[double][F.vz] * 0.6, 'turned to the new direction').toBeCloseTo(0, 6);
         expect(fr[hop + 5][F.jumpCutDone], 'short hop').toBe(1);
-        expect(fr.some((f) => mode(f) === MODES.action), 'slide').toBe(true);
-        expect(fr.some((f) => mode(f) === MODES.attack && f[F.attackIndex] === 2), 'the whole combo').toBe(true);
-        expect(fr.some((f) => mode(f) === MODES.attack && f[F.grounded] === 0), 'a swing in the air').toBe(true);
+        expect(
+          fr.some((f) => mode(f) === MODES.action),
+          'slide',
+        ).toBe(true);
+        expect(
+          fr.some((f) => mode(f) === MODES.attack && f[F.attackIndex] === 2),
+          'the whole combo',
+        ).toBe(true);
+        expect(
+          fr.some((f) => mode(f) === MODES.attack && f[F.grounded] === 0),
+          'a swing in the air',
+        ).toBe(true);
       },
     };
   },
@@ -443,7 +507,10 @@ const CASES: Record<string, () => Case> = {
       script: s,
       verify: (fr) => {
         const wall = -30 + structureDef('workshop').w / 2 + MOVE.playerRadius; // the workshop at (-30, -264), its east face
-        expect(fr.slice(tooLow, open).every((f) => mode(f) === MODES.normal && f[F.jumpsUsed] === 2), 'too low to open').toBe(true);
+        expect(
+          fr.slice(tooLow, open).every((f) => mode(f) === MODES.normal && f[F.jumpsUsed] === 2),
+          'too low to open',
+        ).toBe(true);
         expect(mode(fr[open]), 'then high enough').toBe(MODES.glide);
         const hit = anyFrame(fr, open, fr.length, (f) => mode(f) === MODES.glide && f[F.vx] === 0 && Math.abs(f[F.x] - wall) < 1e-6);
         expect(hit, 'flew into the wall and along it').toBeGreaterThan(0);
@@ -564,12 +631,21 @@ const CASES: Record<string, () => Case> = {
         const floor = w.terrain!.height(-24, -220);
         const inside = fr.findIndex((f) => w.index!.boxes.some((b) => f[F.y] < b.top - 0.05 && pushOutOfBox(b, f[F.x], f[F.z], MOVE.playerRadius - 1e-6)));
         expect(inside, 'never inside a wall').toBe(-1);
-        expect(anyFrame(fr, 0, climb, (f) => f[F.z] > -222), 'in through the door').toBeGreaterThan(0);
+        expect(
+          anyFrame(fr, 0, climb, (f) => f[F.z] > -222),
+          'in through the door',
+        ).toBeGreaterThan(0);
         const upstairs = anyFrame(fr, climb, along, (f) => Math.abs(f[F.y] - (floor + 3)) < 1e-6 && f[F.grounded] === 1);
         expect(upstairs, 'up the stairs to the floor above').toBeGreaterThan(0);
         // (The inn is turned 3.14159, not quite pi: what is left of its push across is a hair, not 0.)
-        expect(anyFrame(fr, upstairs, along, (f) => Math.abs(f[F.vx]) < 1e-3 && Math.abs(f[F.y] - (floor + 3)) < 1e-6), 'into a bed up there').toBeGreaterThan(0);
-        expect(fr.slice(along, down).every((f) => Math.abs(f[F.y] - (floor + 3)) < 1e-6), 'walking the upper floor, never through it').toBe(true);
+        expect(
+          anyFrame(fr, upstairs, along, (f) => Math.abs(f[F.vx]) < 1e-3 && Math.abs(f[F.y] - (floor + 3)) < 1e-6),
+          'into a bed up there',
+        ).toBeGreaterThan(0);
+        expect(
+          fr.slice(along, down).every((f) => Math.abs(f[F.y] - (floor + 3)) < 1e-6),
+          'walking the upper floor, never through it',
+        ).toBe(true);
         expect(fr[fr.length - 1][F.y], 'and back down the stairs').toBeCloseTo(floor, 6);
       },
     };
@@ -584,7 +660,10 @@ const CASES: Record<string, () => Case> = {
       script: s,
       verify: (fr) => {
         const r = world().radius;
-        expect(fr.every((f) => mode(f) === MODES.swim), 'swimming all the way').toBe(true);
+        expect(
+          fr.every((f) => mode(f) === MODES.swim),
+          'swimming all the way',
+        ).toBe(true);
         const far = Math.max(...fr.map((f) => Math.hypot(f[F.x], f[F.z])));
         expect(far, 'to the edge').toBeGreaterThan(r - 1e-6);
         expect(far, 'and no further').toBeLessThan(r + 1e-9);
@@ -612,11 +691,17 @@ const CASES: Record<string, () => Case> = {
         const inside = fr.findIndex((f) => w.index!.boxes.some((b) => f[F.y] < b.top - 0.05 && pushOutOfBox(b, f[F.x], f[F.z], MOVE.playerRadius - 1e-6)));
         expect(inside, 'never inside a wall').toBe(-1);
         expect(fr[220][F.vx], 'stopped by the first house').toBe(0);
-        expect(anyFrame(fr, 240, 330, (f) => f[F.vx] === 0 && f[F.vz] > 1), 'along its wall').toBeGreaterThan(0);
+        expect(
+          anyFrame(fr, 240, 330, (f) => f[F.vx] === 0 && f[F.vz] > 1),
+          'along its wall',
+        ).toBeGreaterThan(0);
         expect(Math.hypot(fr[389][F.x] - fr[340][F.x], fr[389][F.z] - fr[340][F.z]), 'pinned between the wall and the lamp post').toBeLessThan(1e-3);
         const well = Math.min(...fr.map((f) => Math.hypot(f[F.x], f[F.z] + 250)));
         expect(well, 'brushed the well').toBeLessThan(1 + MOVE.playerRadius + 0.01);
-        expect(anyFrame(fr, 790, 1000, (f) => speed(f) < 0.05 && f[F.sprinting] === 1), 'sprinted into the second house').toBeGreaterThan(0);
+        expect(
+          anyFrame(fr, 790, 1000, (f) => speed(f) < 0.05 && f[F.sprinting] === 1),
+          'sprinted into the second house',
+        ).toBeGreaterThan(0);
       },
     };
   },
@@ -642,8 +727,14 @@ const CASES: Record<string, () => Case> = {
     return {
       script: s,
       verify: (fr) => {
-        expect(fr.every((f) => f[F.jumpsUsed] < 2 && mode(f) !== MODES.glide), 'never a second jump, so never a glider').toBe(true);
-        expect(fr.slice(0, 60).every((f) => f[F.sprinting] === 0), 'no sprinting').toBe(true);
+        expect(
+          fr.every((f) => f[F.jumpsUsed] < 2 && mode(f) !== MODES.glide),
+          'never a second jump, so never a glider',
+        ).toBe(true);
+        expect(
+          fr.slice(0, 60).every((f) => f[F.sprinting] === 0),
+          'no sprinting',
+        ).toBe(true);
         expect(pace(fr[40], fr[41]), 'slower').toBeCloseTo(MOVE.runSpeed * CARRY.speedFactor, 6);
         expect(fr[hop][F.vy], 'a low jump').toBeCloseTo(JUMP.velocity * CARRY.jumpFactor - JUMP.gravityUp * STEP, 9);
         expect(fr[second][F.jumpsUsed], 'and no second one').toBe(1);
@@ -700,10 +791,41 @@ function runTs(s: Script): { start: number[]; frames: Frame[] } {
     if (s.gusts.includes(i)) gust(sim);
     sim.step(a);
     const f = [
-      p.pos.x, p.pos.y, p.pos.z, p.vel.x, p.vel.y, p.vel.z, p.facing, p.airspeed, p.bank, p.landImpact, p.runPhase, p.hp,
-      MODES[p.mode], p.grounded ? 1 : 0, p.jumpsUsed, p.jumpCutDone ? 1 : 0, p.coyote, p.jumpBuffer, p.flipFrame, p.landFrame,
-      p.takeoffFrame, p.sprinting ? 1 : 0, p.crouching ? 1 : 0, p.crouchFrame, p.modeFrame, p.gustFrames, p.actionId,
-      p.actionFrame, p.attackIndex, p.attackFrame, p.stun, p.downFrame, p.stamina, p.mp, p.staminaDelay,
+      p.pos.x,
+      p.pos.y,
+      p.pos.z,
+      p.vel.x,
+      p.vel.y,
+      p.vel.z,
+      p.facing,
+      p.airspeed,
+      p.bank,
+      p.landImpact,
+      p.runPhase,
+      p.hp,
+      MODES[p.mode],
+      p.grounded ? 1 : 0,
+      p.jumpsUsed,
+      p.jumpCutDone ? 1 : 0,
+      p.coyote,
+      p.jumpBuffer,
+      p.flipFrame,
+      p.landFrame,
+      p.takeoffFrame,
+      p.sprinting ? 1 : 0,
+      p.crouching ? 1 : 0,
+      p.crouchFrame,
+      p.modeFrame,
+      p.gustFrames,
+      p.actionId,
+      p.actionFrame,
+      p.attackIndex,
+      p.attackFrame,
+      p.stun,
+      p.downFrame,
+      p.stamina,
+      p.mp,
+      p.staminaDelay,
     ];
     return f;
   });
@@ -728,7 +850,10 @@ for (const [name, make] of Object.entries(CASES)) {
     expect(rust.frames.length).toBe(ts.frames.length);
     expect(rust.frames[0].length, 'the two sides record the same columns').toBe(FRAME_LEN);
     // serde_json writes NaN as null, which arithmetic would quietly read as 0.
-    expect(rust.frames.every((f) => f.every((v) => typeof v === 'number')), 'every value a number').toBe(true);
+    expect(
+      rust.frames.every((f) => f.every((v) => typeof v === 'number')),
+      'every value a number',
+    ).toBe(true);
 
     let worst = 0;
     let worstFrame = 0;
@@ -747,7 +872,9 @@ for (const [name, make] of Object.entries(CASES)) {
       }
       if (EXACT.some((k) => f[k] !== r[k])) {
         if (mismatches === 0) {
-          const names = Object.entries(F).filter(([, k]) => EXACT.includes(k) && f[k] !== r[k]).map(([n]) => n);
+          const names = Object.entries(F)
+            .filter(([, k]) => EXACT.includes(k) && f[k] !== r[k])
+            .map(([n]) => n);
           console.log(`${name}: first mismatch at frame ${i} in ${names.join(', ')}:\n  ts=${f.join()}\n  rust=${r.join()}`);
         }
         mismatches++;

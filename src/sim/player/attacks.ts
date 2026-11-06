@@ -13,7 +13,7 @@ import { heightAboveGround } from './traverse';
 import { groundAt } from '../zone/colliders';
 import { refillVitals } from './vitals';
 
-export function startAttack(sim: Sim, index: number, a: Actions) : void {
+export function startAttack(sim: Sim, index: number, a: Actions): void {
   const p = sim.player;
   p.mode = 'attack';
   p.attackIndex = index;
@@ -38,7 +38,7 @@ export function startAttack(sim: Sim, index: number, a: Actions) : void {
   sim.emit({ type: 'attack', frame: sim.frame, index });
 }
 
-export function updateAttack(sim: Sim, a: Actions) : void {
+export function updateAttack(sim: Sim, a: Actions): void {
   const p = sim.player;
   const combo = comboFor(p.weapon, sim.stats);
   const step = combo[p.attackIndex];
@@ -86,7 +86,7 @@ export function updateAttack(sim: Sim, a: Actions) : void {
   if (f >= total) p.mode = 'normal';
 }
 
-export function checkHit(sim: Sim, step: AttackStep) : void {
+export function checkHit(sim: Sim, step: AttackStep): void {
   const p = sim.player;
   // Too far up in the air to reach anything. Height is measured from the ground under you: on
   // flat ground that is just pos.y (as on the server, game.rs swing), but on hills pos.y is
@@ -109,7 +109,7 @@ export function checkHit(sim: Sim, step: AttackStep) : void {
  * has to be added to a weapon.
  */
 
-export function checkShot(sim: Sim) : void {
+export function checkShot(sim: Sim): void {
   const p = sim.player;
   const step = comboFor(p.weapon, sim.stats)[p.attackIndex];
   if (!step.projectileSpeed || p.attackFrame !== step.startup + 1) return;
@@ -133,7 +133,7 @@ export function checkShot(sim: Sim) : void {
 
 // Being hit by another fighter: lose health, get knocked back and briefly stunned.
 
-export function takeHit(sim: Sim, damage: number, dirX: number, dirZ: number, knock: number) : void {
+export function takeHit(sim: Sim, damage: number, dirX: number, dirZ: number, knock: number): void {
   const p = sim.player;
   if (p.downFrame >= 0) return;
   // A dodge's invulnerable frames drop the hit entirely; a guard lets part of it through.
@@ -176,7 +176,7 @@ export function takeHit(sim: Sim, damage: number, dirX: number, dirZ: number, kn
 
 // Back up after a knock-down: at the spawn, with full health, stamina and MP.
 
-export function respawn(sim: Sim) : void {
+export function respawn(sim: Sim): void {
   const p = sim.player;
   const at = sim.world.respawnAt;
   const s = at ?? sim.world.teamSpawns[p.team] ?? sim.world.spawn;

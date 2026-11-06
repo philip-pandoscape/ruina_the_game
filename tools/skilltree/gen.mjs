@@ -31,17 +31,35 @@ const MIDS = [-45, 45, 135, -135]; // where each discipline points, degrees cloc
 const BRIDGES = new Set([3, 6]); // the orbits that cross from one discipline into the next
 // Each skill's place: discipline, orbit, steps along the orbit from the spine.
 const PLAN = [
-  [0, 0, 0, 'sword'], [0, 1, 0, 'cleave'], [0, 2, 0, 'whirlwind'], [0, 1, 2, 'dodgeRoll'],
-  [1, 0, 0, 'club'], [1, 1, 0, 'heal'], [1, 2, 0, 'swiftMending'], [1, 1, 2, 'block'],
-  [2, 0, 0, 'staff'], [2, 1, 0, 'meteor'], [2, 2, 0, 'quickIncantation'],
-  [3, 0, 0, 'bow'], [3, 1, 0, 'rapidFire'], [3, 2, 0, 'piercing'], [3, 1, -2, 'backstep'],
+  [0, 0, 0, 'sword'],
+  [0, 1, 0, 'cleave'],
+  [0, 2, 0, 'whirlwind'],
+  [0, 1, 2, 'dodgeRoll'],
+  [1, 0, 0, 'club'],
+  [1, 1, 0, 'heal'],
+  [1, 2, 0, 'swiftMending'],
+  [1, 1, 2, 'block'],
+  [2, 0, 0, 'staff'],
+  [2, 1, 0, 'meteor'],
+  [2, 2, 0, 'quickIncantation'],
+  [3, 0, 0, 'bow'],
+  [3, 1, 0, 'rapidFire'],
+  [3, 2, 0, 'piercing'],
+  [3, 1, -2, 'backstep'],
 ];
 // Each skill touches the one it needed before the tree grew, so those builds cost what they did.
 const PARENT = {
-  cleave: 'sword', whirlwind: 'cleave', dodgeRoll: 'sword',
-  heal: 'club', swiftMending: 'heal', block: 'club',
-  meteor: 'staff', quickIncantation: 'meteor',
-  rapidFire: 'bow', piercing: 'rapidFire', backstep: 'bow',
+  cleave: 'sword',
+  whirlwind: 'cleave',
+  dodgeRoll: 'sword',
+  heal: 'club',
+  swiftMending: 'heal',
+  block: 'club',
+  meteor: 'staff',
+  quickIncantation: 'meteor',
+  rapidFire: 'bow',
+  piercing: 'rapidFire',
+  backstep: 'bow',
 };
 const ROOTS = new Set(['sword', 'club', 'staff', 'bow']); // learnable with nothing else learned
 
@@ -240,7 +258,11 @@ const nearestOn = (node, k) => {
   for (const x of nodes) if (x.k === k && (!best || angleGap(x, node) < angleGap(best, node))) best = x;
   return best;
 };
-for (const [child, parent] of Object.entries(PARENT)) link(nodes.find((x) => x.skill === child), nodes.find((x) => x.skill === parent));
+for (const [child, parent] of Object.entries(PARENT))
+  link(
+    nodes.find((x) => x.skill === child),
+    nodes.find((x) => x.skill === parent),
+  );
 // Spokes inward: always along the spine, sometimes elsewhere.
 for (const node of nodes) {
   if (node.k === 0) continue;
@@ -260,7 +282,7 @@ for (let k = 1; k < RADII.length; k++) {
     while (stack.length) {
       const x = stack.pop();
       run.push(x);
-      for (const y of x.adj) if (y.k === k && !seen.has(y)) (seen.add(y), stack.push(y));
+      for (const y of x.adj) if (y.k === k && !seen.has(y)) seen.add(y), stack.push(y);
     }
     if (!run.some((x) => [...x.adj].some((y) => y.k === k - 1))) {
       let best = null;
@@ -291,7 +313,7 @@ for (let reg = 0; reg < 4; reg++) {
 const reachable = () => {
   const seen = new Set(nodes.filter((x) => ROOTS.has(x.skill)));
   const queue = [...seen];
-  while (queue.length) for (const y of queue.shift().adj) if (!seen.has(y)) (seen.add(y), queue.push(y));
+  while (queue.length) for (const y of queue.shift().adj) if (!seen.has(y)) seen.add(y), queue.push(y);
   return seen;
 };
 for (let pass = 0; pass < 50; pass++) {
@@ -324,7 +346,12 @@ for (const x of nodes) {
     x.out = { id: '', kind: 'small', tree: -1, ...BRIDGE[counts.bridge++ % BRIDGE.length] };
   } else {
     const d = DISCIPLINES[x.region];
-    const def = x.kind === 'keystone' ? d.keystone[x.keystone] : x.kind === 'notable' ? d.notable[counts.notable[x.region]++] : d.small[counts.small[x.region]++ % d.small.length];
+    const def =
+      x.kind === 'keystone'
+        ? d.keystone[x.keystone]
+        : x.kind === 'notable'
+          ? d.notable[counts.notable[x.region]++]
+          : d.small[counts.small[x.region]++ % d.small.length];
     x.out = { id: '', kind: x.kind, tree: x.region, ...def };
   }
   // A node is named for its place: orbit and slot, which never change unless the tree is laid out again.
@@ -364,4 +391,8 @@ const lines = [
 fs.writeFileSync(OUT, lines.join('\n'));
 const kinds = {};
 for (const n of out.nodes) kinds[n.kind] = (kinds[n.kind] ?? 0) + 1;
-console.log(`${out.nodes.length} nodes (${Object.entries(kinds).map(([k, v]) => `${v} ${k}`).join(', ')}), ${out.links.length} links -> ${path.relative(ROOT, OUT)}`);
+console.log(
+  `${out.nodes.length} nodes (${Object.entries(kinds)
+    .map(([k, v]) => `${v} ${k}`)
+    .join(', ')}), ${out.links.length} links -> ${path.relative(ROOT, OUT)}`,
+);

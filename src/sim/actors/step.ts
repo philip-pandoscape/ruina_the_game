@@ -11,7 +11,19 @@ import { LEAN, MOVE, STEP } from '../../tuning';
 import { actorKind, findKind, kindMass, LADDERS, sizeFor, sizeUp } from '../../content/actors';
 import { attackDef, attackIndex } from '../../content/attacks';
 import { becomeKind, isAlive, type Actor, type Actors } from '../actor';
-import { behaviour, draw, forceState, restState, sightingAt, startBrain, stepBrain, type Behaviour, type BrainCtx, type Peer, type Sighting } from '../ai/brain';
+import {
+  behaviour,
+  draw,
+  forceState,
+  restState,
+  sightingAt,
+  startBrain,
+  stepBrain,
+  type Behaviour,
+  type BrainCtx,
+  type Peer,
+  type Sighting,
+} from '../ai/brain';
 import { foesOf, pickFoe, sightingOf, type Foe } from '../ai/senses';
 import { stepPacks } from '../ai/pack';
 import { launch, stepMissiles } from '../combat/missiles';
@@ -129,7 +141,7 @@ function notice(actors: Actors, a: Actor, b: Behaviour, f: Foe | undefined): voi
   }
 }
 
-const angerOf = (a: Actor): number => (a.brain ? behaviour(a.brain)?.anger?.frames ?? 0 : 0);
+const angerOf = (a: Actor): number => (a.brain ? (behaviour(a.brain)?.anger?.frames ?? 0) : 0);
 
 export function stepActors(w: ActorWorld): void {
   const list = w.actors.all();
@@ -223,7 +235,7 @@ export function stepActors(w: ActorWorld): void {
       const s = findKind(a.kind)?.slam;
       if (s) w.slam(a.x, a.z, s.radius, s.damage, s.knock);
     } else if (r.t === 'gatherStart') {
-      const radius = a.brain ? behaviour(a.brain)?.gather?.radius ?? 0 : 0;
+      const radius = a.brain ? (behaviour(a.brain)?.gather?.radius ?? 0) : 0;
       w.emit({ type: 'gatherStart', frame: w.frame, id: a.id, x: a.x, y: w.ground(a.x, a.z), z: a.z, radius });
     } else if (r.t === 'broke') {
       w.emit({ type: 'gatherBroken', frame: w.frame, id: a.id, x: a.x, y: w.ground(a.x, a.z) + a.hitHeight, z: a.z });
@@ -458,7 +470,7 @@ function fuseOut(w: ActorWorld, a: Actor): void {
   const c = w.actors.spawn({ kind: into, x, z, seed });
   c.transient = true;
   c.angry = angerOf(c);
-  c.gatherCd = Math.floor((c.brain ? behaviour(c.brain)?.gather?.cooldown ?? 0 : 0) / 2);
+  c.gatherCd = Math.floor((c.brain ? (behaviour(c.brain)?.gather?.cooldown ?? 0) : 0) / 2);
   startBrain(c, nearestAt(w.foes, x, z));
   w.emit({ type: 'actorGrow', frame: w.frame, id: c.id, kind: c.kind, x, y: w.ground(x, z), z });
 }

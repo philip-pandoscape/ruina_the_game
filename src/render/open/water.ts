@@ -164,8 +164,14 @@ export class WaterView {
   /** Dims the sea at night and warms it at dusk. */
   setBrightness(k: number, gold: number): void {
     const sea = PALETTE.sea;
-    (this.uniforms.uShallow.value as THREE.Color).setHex(sea.shallow).lerp(new THREE.Color(sea.duskShallow), gold * 0.25).multiplyScalar(k);
-    (this.uniforms.uDeep.value as THREE.Color).setHex(sea.deep).lerp(new THREE.Color(sea.duskDeep), gold * 0.2).multiplyScalar(k);
+    (this.uniforms.uShallow.value as THREE.Color)
+      .setHex(sea.shallow)
+      .lerp(new THREE.Color(sea.duskShallow), gold * 0.25)
+      .multiplyScalar(k);
+    (this.uniforms.uDeep.value as THREE.Color)
+      .setHex(sea.deep)
+      .lerp(new THREE.Color(sea.duskDeep), gold * 0.2)
+      .multiplyScalar(k);
     (this.uniforms.uFoam.value as THREE.Color).setHex(sea.foam).multiplyScalar(0.5 + 0.5 * k);
   }
 }

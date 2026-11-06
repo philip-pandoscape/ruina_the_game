@@ -41,7 +41,7 @@ test('the design bible draws from the game data without errors', async ({ page }
   expect(colours).toBeGreaterThan(50);
 });
 
-test('the UI design system page draws its specimens with the game\'s own styles', async ({ page }) => {
+test("the UI design system page draws its specimens with the game's own styles", async ({ page }) => {
   const errors: string[] = [];
   page.on('console', (m) => {
     if (m.type() === 'error') errors.push(m.text());

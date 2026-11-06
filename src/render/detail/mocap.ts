@@ -31,7 +31,14 @@ const _v = new THREE.Vector3();
  * are our rig's; `bind` our joints' local turns in that skeleton's rest pose (Fitted.bind);
  * `scale` takes the clip's metres to ours.
  */
-export function bakeCycle(scene: THREE.Object3D, clip: THREE.AnimationClip, joints: readonly JointDef[], bind: Map<string, THREE.Quaternion>, scale: number, frames = 64): Cycle {
+export function bakeCycle(
+  scene: THREE.Object3D,
+  clip: THREE.AnimationClip,
+  joints: readonly JointDef[],
+  bind: Map<string, THREE.Quaternion>,
+  scale: number,
+  frames = 64,
+): Cycle {
   // Which bone moves each of our joints: the first (highest) that maps to it, except the torso,
   // which follows the top of the spine (the bone the neck hangs from): our one torso joint turns
   // the chest the way the whole spine does.
@@ -75,7 +82,10 @@ export function bakeCycle(scene: THREE.Object3D, clip: THREE.AnimationClip, join
     target.clear();
     driven.forEach((name, i) => {
       // The bone's turn away from its rest, put on our joint's rest.
-      const delta = source.get(name)!.getWorldQuaternion(_q).multiply(_q2.copy(restWorld.get(name)!).invert());
+      const delta = source
+        .get(name)!
+        .getWorldQuaternion(_q)
+        .multiply(_q2.copy(restWorld.get(name)!).invert());
       const world = delta.clone().multiply(bindWorld.get(name)!);
       target.set(name, world);
       // Local to the nearest driven ancestor; joints in between (the body) stay as the pose has them.

@@ -191,6 +191,12 @@ export class GameTables {
 
   /** For tests: the tables drawn, with who sits at them and how many pegs are lit. */
   list(): Array<{ id: number; x: number; z: number; seats: string[]; pegs: number }> {
-    return [...this.shown.values()].map((s) => ({ id: s.data.id, x: s.data.x, z: s.data.z, seats: s.data.seats.map((x) => x.name), pegs: (s.data.board?.lit ?? []).filter(Boolean).length }));
+    return [...this.shown.values()].map((s) => ({
+      id: s.data.id,
+      x: s.data.x,
+      z: s.data.z,
+      seats: s.data.seats.map((x) => x.name),
+      pegs: (s.data.board?.lit ?? []).filter(Boolean).length,
+    }));
   }
 }

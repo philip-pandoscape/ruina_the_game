@@ -48,10 +48,15 @@ async function player(browser: Browser, prefix: string): Promise<{ page: Page; n
 async function toThePortal(page: Page): Promise<void> {
   await page.bringToFront();
   await page.evaluate(([x, z, f]) => window.__game.teleport(x, z, f), [DOOR.outside.x, DOOR.outside.z, DOOR.outside.facing]);
-  await expect.poll(async () => {
-    const p = await game(page, (g) => g.state().player.pos);
-    return Math.hypot(p.x - DOOR.outside.x, p.z - DOOR.outside.z);
-  }, { timeout: 20_000 }).toBeLessThan(1);
+  await expect
+    .poll(
+      async () => {
+        const p = await game(page, (g) => g.state().player.pos);
+        return Math.hypot(p.x - DOOR.outside.x, p.z - DOOR.outside.z);
+      },
+      { timeout: 20_000 },
+    )
+    .toBeLessThan(1);
 }
 
 const space = (page: Page) => game(page, (g) => g.space());
@@ -127,10 +132,15 @@ test('leaving through the way out puts you outside the door, and the copy waits 
   // To the way out (the developer teleport stands you on the dungeon's floor), and out.
   const ex = { x: DUNGEON.origin.x + DUNGEON.exit.x, z: DUNGEON.origin.z + DUNGEON.exit.z };
   await a.evaluate(([x, z]) => window.__game.teleport(x, z), [ex.x, ex.z]);
-  await expect.poll(async () => {
-    const p = await game(a, (g) => g.state().player.pos);
-    return Math.hypot(p.x - ex.x, p.z - ex.z);
-  }, { timeout: 20_000 }).toBeLessThan(1);
+  await expect
+    .poll(
+      async () => {
+        const p = await game(a, (g) => g.state().player.pos);
+        return Math.hypot(p.x - ex.x, p.z - ex.z);
+      },
+      { timeout: 20_000 },
+    )
+    .toBeLessThan(1);
   await a.evaluate(() => window.__game.throughPortal(false));
   await expect.poll(() => space(a), { timeout: 30_000 }).toMatchObject({ kind: 'channel' });
   // Outside the door at once, as the server has it.

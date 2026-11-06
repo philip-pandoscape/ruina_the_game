@@ -23,8 +23,7 @@ const FRAMES = 900; // fifteen seconds, enough for many state changes and random
 // The same path the Rust side works out for itself, so the scenario stays small.
 const playerAt = (f: number): [number, number] => [Math.sin(f / 90) * 4, Math.cos(f / 70) * 4 - 1];
 
-const rust = <T>(scenario: object): T =>
-  JSON.parse(execFileSync(AICHECK, { input: JSON.stringify(scenario), maxBuffer: 256 * 1024 * 1024 }).toString()) as T;
+const rust = <T>(scenario: object): T => JSON.parse(execFileSync(AICHECK, { input: JSON.stringify(scenario), maxBuffer: 256 * 1024 * 1024 }).toString()) as T;
 
 // One brain on its own, built by hand so the kind doesn't have to exist.
 function blank(x: number, z: number, seed: number, brain: string): Actor {
@@ -32,9 +31,21 @@ function blank(x: number, z: number, seed: number, brain: string): Actor {
   const a = scratch.spawn({ kind: 'slime', x, z, seed });
   return {
     ...a,
-    id: 1, kind: 'test', faction: 1, ladder: -1, homeKind: 'test', mass: 0,
-    radius: 0.4, hitHeight: 0.5, hitCeiling: 1.7, solid: false,
-    hp: 1, maxHp: 1, brain, moveX: 0, moveZ: 1,
+    id: 1,
+    kind: 'test',
+    faction: 1,
+    ladder: -1,
+    homeKind: 'test',
+    mass: 0,
+    radius: 0.4,
+    hitHeight: 0.5,
+    hitCeiling: 1.7,
+    solid: false,
+    hp: 1,
+    maxHp: 1,
+    brain,
+    moveX: 0,
+    moveZ: 1,
   };
 }
 
@@ -83,8 +94,19 @@ describe('TypeScript and Rust run the same behaviours', () => {
 
 // ---------- whole packs ----------
 
-interface Spawn { kind: string; x: number; z: number; seed: number; band?: number }
-interface Hit { frame: number; x: number; z: number; damage: number }
+interface Spawn {
+  kind: string;
+  x: number;
+  z: number;
+  seed: number;
+  band?: number;
+}
+interface Hit {
+  frame: number;
+  x: number;
+  z: number;
+  damage: number;
+}
 /**
  * A scripted player: walks back and forth between two points every `period` frames, facing a
  * point, swinging and dodging on a beat. Exact arithmetic only (and atan2, which both sides share
@@ -112,17 +134,87 @@ interface Pack {
   /** What the fight has to have got up to, so a pass proves something: kinds seen, states entered (and never entered), slams, blows on foes, missiles. */
   expect: { kinds: string[]; states: string[]; slams: boolean; hits?: boolean; missiles?: boolean; never?: string[] };
 }
-interface PackRun { frames: number[][][]; slams: number[][][]; hits: number[][][]; missiles: number[][][] }
+interface PackRun {
+  frames: number[][][];
+  slams: number[][][];
+  hits: number[][][];
+  missiles: number[][][];
+}
 
-const ROW = ['id', 'kind', 'x', 'y', 'z', 'facing', 'state', 'stateFrame', 'wait', 'hp', 'mass', 'deadFrame',
-  'angry', 'rallyTo', 'calling', 'fuse', 'group', 'gone', 'pulled', 'stride',
-  'target', 'band', 'token', 'opening', 'afraid', 'slotX', 'slotZ', 'rallyX', 'rallyZ', 'destX', 'destZ', 'charges', 'cd0', 'cd1', 'struck'];
+const ROW = [
+  'id',
+  'kind',
+  'x',
+  'y',
+  'z',
+  'facing',
+  'state',
+  'stateFrame',
+  'wait',
+  'hp',
+  'mass',
+  'deadFrame',
+  'angry',
+  'rallyTo',
+  'calling',
+  'fuse',
+  'group',
+  'gone',
+  'pulled',
+  'stride',
+  'target',
+  'band',
+  'token',
+  'opening',
+  'afraid',
+  'slotX',
+  'slotZ',
+  'rallyX',
+  'rallyZ',
+  'destX',
+  'destZ',
+  'charges',
+  'cd0',
+  'cd1',
+  'struck',
+];
 
 const row = (a: Actor): number[] => [
-  a.id, actorKindIndex(a.kind), a.x, a.y, a.z, a.facing, a.state, a.stateFrame, a.wait, a.hp, a.mass, a.deadFrame,
-  a.angry, a.rallyTo, a.calling, a.fuse, a.group, a.gone ? 1 : 0, a.pulled, a.stride,
-  a.target, a.band, a.token ? 1 : 0, a.opening ? 1 : 0, a.afraid ? 1 : 0, a.slotX, a.slotZ, a.rallyX, a.rallyZ, a.destX, a.destZ,
-  a.charges, a.cds[0], a.cds[1], a.struck ? 1 : 0,
+  a.id,
+  actorKindIndex(a.kind),
+  a.x,
+  a.y,
+  a.z,
+  a.facing,
+  a.state,
+  a.stateFrame,
+  a.wait,
+  a.hp,
+  a.mass,
+  a.deadFrame,
+  a.angry,
+  a.rallyTo,
+  a.calling,
+  a.fuse,
+  a.group,
+  a.gone ? 1 : 0,
+  a.pulled,
+  a.stride,
+  a.target,
+  a.band,
+  a.token ? 1 : 0,
+  a.opening ? 1 : 0,
+  a.afraid ? 1 : 0,
+  a.slotX,
+  a.slotZ,
+  a.rallyX,
+  a.rallyZ,
+  a.destX,
+  a.destZ,
+  a.charges,
+  a.cds[0],
+  a.cds[1],
+  a.struck ? 1 : 0,
 ];
 
 function foeAt(s: FoeScript, f: number): Foe {
@@ -132,8 +224,8 @@ function foeAt(s: FoeScript, f: number): Foe {
   const dir = t < 0.5 ? 2 : -2;
   const x = s.from[0] + (s.to[0] - s.from[0]) * k;
   const z = s.from[1] + (s.to[1] - s.from[1]) * k;
-  const vx = ((s.to[0] - s.from[0]) * dir) / period * 60;
-  const vz = ((s.to[1] - s.from[1]) * dir) / period * 60;
+  const vx = (((s.to[0] - s.from[0]) * dir) / period) * 60;
+  const vz = (((s.to[1] - s.from[1]) * dir) / period) * 60;
   let act = 0;
   let invuln = false;
   const swing = s.swing ?? [0, 0, 0];
@@ -150,7 +242,21 @@ function foeAt(s: FoeScript, f: number): Foe {
       invuln = true;
     }
   }
-  return { id: s.id, x, y: 0, z, vx, vz, facing: Math.atan2(s.look[0] - x, s.look[1] - z), hp: s.hp ?? 1, reach: s.reach ?? 0, ranged: s.ranged ?? false, act, invuln, air: 0 };
+  return {
+    id: s.id,
+    x,
+    y: 0,
+    z,
+    vx,
+    vz,
+    facing: Math.atan2(s.look[0] - x, s.look[1] - z),
+    hp: s.hp ?? 1,
+    reach: s.reach ?? 0,
+    ranged: s.ranged ?? false,
+    act,
+    invuln,
+    air: 0,
+  };
 }
 
 const plainFoe = (x: number, z: number): Foe => ({ id: 1, x, y: 0, z, vx: 0, vz: 0, facing: 0, hp: 1, reach: 0, ranged: false, act: 0, invuln: false, air: 0 });
@@ -222,7 +328,10 @@ function comparePacks(name: string, ts: PackRun, r: PackRun): void {
     if (ts.slams[f].length !== r.slams[f].length || ts.slams[f].some((s, j) => s.some((v, k) => Math.abs(v - r.slams[f][j][k]) > 1e-9))) {
       throw new Error(`${name} frame ${f}: slams ${a} here and ${b} on the server`);
     }
-    for (const [what, mine, theirs] of [['blows on foes', ts.hits[f], r.hits[f]], ['missiles', ts.missiles[f], r.missiles[f]]] as const) {
+    for (const [what, mine, theirs] of [
+      ['blows on foes', ts.hits[f], r.hits[f]],
+      ['missiles', ts.missiles[f], r.missiles[f]],
+    ] as const) {
       if (mine.length !== theirs.length || mine.some((s, j) => s.some((v, k) => Math.abs(v - theirs[j][k]) > 1e-9))) {
         throw new Error(`${name} frame ${f}: ${what} ${JSON.stringify(mine)} here and ${JSON.stringify(theirs)} on the server`);
       }
@@ -246,7 +355,11 @@ const PACKS: Record<string, Pack> = {
     pack: ring('slime', 6, 0, 3, 4, 0x51e0),
     frames: 2400,
     hits: hitsAt(0, 3, 30, 900, 12, 26),
-    expect: { kinds: ['slime', 'slimelet', 'great-slime'], states: ['chase', 'windup', 'leap', 'call', 'rally', 'gather', 'scatter', 'flee', 'huddle', 'regroup'], slams: true },
+    expect: {
+      kinds: ['slime', 'slimelet', 'great-slime'],
+      states: ['chase', 'windup', 'leap', 'call', 'rally', 'gather', 'scatter', 'flee', 'huddle', 'regroup'],
+      slams: true,
+    },
   },
   'mixed sizes, hit hard': {
     pack: [...ring('slime', 4, 0, 2, 5, 0x77aa), ...ring('great-slime', 1, 0, 2, 0.5, 0x1234), ...ring('slimelet', 3, 2, -1, 2, 0x99)],
@@ -302,7 +415,10 @@ const PACKS: Record<string, Pack> = {
     pack: [{ kind: 'goblin', x: 0, z: 9, seed: 0x5eed, band: 0 }],
     frames: 1800,
     foes: [{ id: 1, from: [0, -2], to: [0, 6], period: 500, look: [0, 9], reach: 2.1, swing: [100, 9, 14] }],
-    hits: [{ frame: 260, x: 0, z: 6, damage: 12 }, { frame: 330, x: 0, z: 6, damage: 6 }],
+    hits: [
+      { frame: 260, x: 0, z: 6, damage: 12 },
+      { frame: 330, x: 0, z: 6, damage: 6 },
+    ],
     expect: { kinds: ['goblin'], states: ['spot', 'close', 'stab', 'flinch', 'retreat', 'drink'], slams: false, hits: true },
   },
 };
@@ -327,9 +443,21 @@ describe('TypeScript and Rust run the same packs', () => {
       for (const k of want.kinds) expect(kinds, `${name} never had a ${k}`).toContain(actorKindIndex(k));
       for (const st of want.states) expect(states, `${name} never went into ${st}`).toContain(st);
       for (const st of want.never ?? []) expect(states, `${name} went into ${st}`).not.toContain(st);
-      if (want.slams) expect(ts.slams.some((f) => f.length > 0), `${name} never slammed`).toBe(true);
-      if (want.hits) expect(ts.hits.some((f) => f.length > 0), `${name} never landed a blow on a foe`).toBe(true);
-      if (want.missiles) expect(ts.missiles.some((f) => f.length > 0), `${name} never threw anything`).toBe(true);
+      if (want.slams)
+        expect(
+          ts.slams.some((f) => f.length > 0),
+          `${name} never slammed`,
+        ).toBe(true);
+      if (want.hits)
+        expect(
+          ts.hits.some((f) => f.length > 0),
+          `${name} never landed a blow on a foe`,
+        ).toBe(true);
+      if (want.missiles)
+        expect(
+          ts.missiles.some((f) => f.length > 0),
+          `${name} never threw anything`,
+        ).toBe(true);
     });
   }
 });

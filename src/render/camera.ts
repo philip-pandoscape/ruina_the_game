@@ -38,7 +38,11 @@ export class FollowCamera {
   private inside = 0; // eased toward indoors
   private lift = 0; // eased extra pitch that looks over the wall behind you indoors
 
-  constructor(aspect: number, far = 320, private maxDistance = 14) {
+  constructor(
+    aspect: number,
+    far = 320,
+    private maxDistance = 14,
+  ) {
     this.camera = new THREE.PerspectiveCamera(CAMERA.fov, aspect, 0.1, far);
   }
 
@@ -130,7 +134,8 @@ export class FollowCamera {
         const p = Math.min(1.45, pitch + k * 0.11);
         const f = distance * Math.cos(p);
         lift = p - pitch;
-        if (this.blocker(look.x, look.y, look.z, look.x - Math.sin(this.yaw) * f, look.y + distance * Math.sin(p), look.z - Math.cos(this.yaw) * f) > 0.97) break;
+        if (this.blocker(look.x, look.y, look.z, look.x - Math.sin(this.yaw) * f, look.y + distance * Math.sin(p), look.z - Math.cos(this.yaw) * f) > 0.97)
+          break;
       }
       lift *= this.inside;
     }

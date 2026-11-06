@@ -122,7 +122,8 @@ export function plotProblem(life: Life, sim: Sim, x: number, z: number, rot: num
       hi = Math.max(hi, h);
       if (hf.slope(px, pz) > 0.32) return 'The ground is too steep';
       const surf = hf.surfaceAt(px, pz);
-      if (surf !== SURFACE.grass && surf !== SURFACE.forest && surf !== SURFACE.soil) return surf === SURFACE.road || surf === SURFACE.plaza ? 'Not on a road' : 'The soil here is no good';
+      if (surf !== SURFACE.grass && surf !== SURFACE.forest && surf !== SURFACE.soil)
+        return surf === SURFACE.road || surf === SURFACE.plaza ? 'Not on a road' : 'The soil here is no good';
       const ci = Math.floor((px - hf.min) / hf.cell);
       const cj = Math.floor((pz - hf.min) / hf.cell);
       if (gen.clear[cj * hf.cells + ci]) return 'Too close to a road or building';

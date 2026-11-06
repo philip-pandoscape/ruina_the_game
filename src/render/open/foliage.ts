@@ -151,8 +151,14 @@ type Lod = [THREE.BufferGeometry, THREE.BufferGeometry];
 /** A tree's crown stretched its own way, [across, up], so a wood of one shape doesn't look cloned. */
 type Stretch = (o: Obstacle) => [number, number];
 
-const crownShape: Stretch = (o) => [0.86 + hash2(Math.round(o.x * 10), Math.round(o.z * 10), 167) * 0.3, 0.88 + hash2(Math.round(o.x * 10), Math.round(o.z * 10), 173) * 0.3];
-const pineShape: Stretch = (o) => [0.84 + hash2(Math.round(o.x * 10), Math.round(o.z * 10), 179) * 0.28, 0.9 + hash2(Math.round(o.x * 10), Math.round(o.z * 10), 181) * 0.28];
+const crownShape: Stretch = (o) => [
+  0.86 + hash2(Math.round(o.x * 10), Math.round(o.z * 10), 167) * 0.3,
+  0.88 + hash2(Math.round(o.x * 10), Math.round(o.z * 10), 173) * 0.3,
+];
+const pineShape: Stretch = (o) => [
+  0.84 + hash2(Math.round(o.x * 10), Math.round(o.z * 10), 179) * 0.28,
+  0.9 + hash2(Math.round(o.x * 10), Math.round(o.z * 10), 181) * 0.28,
+];
 
 interface TreeLods {
   trunk: Lod;
@@ -265,13 +271,26 @@ export class FoliageView {
       this.placeLod(lods.pineTrunk, pineBarkMat, pines, bark);
       // Four in ten broadleaf trees grow the taller, oval crown.
       const oval = (o: Obstacle) => hash2(Math.round(o.x * 10), Math.round(o.z * 10), 191) < 0.4;
-      this.placeLod(lods.round, leaves.mat, rounds.filter((o) => !oval(o)), leafy, crownShape, leaves.depth);
+      this.placeLod(
+        lods.round,
+        leaves.mat,
+        rounds.filter((o) => !oval(o)),
+        leafy,
+        crownShape,
+        leaves.depth,
+      );
       this.placeLod(lods.oval, leaves.mat, rounds.filter(oval), leafy, crownShape, leaves.depth);
       this.placeLod(lods.pine, needleTufts.mat, pines, needles, pineShape, needleTufts.depth);
       // Made boulders once they load: granite inland, sharp grey-brown rock by the shore.
       const coast = (o: Obstacle) => hf.height(o.x, o.z) < 6 || hash2(Math.round(o.x * 10), Math.round(o.z * 10), 149) < 0.3;
       this.madeRocks('boulderCoast', rocks.filter(coast), rock, mat, rng);
-      this.madeRocks('boulderGranite', rocks.filter((o) => !coast(o)), rock, mat, rng);
+      this.madeRocks(
+        'boulderGranite',
+        rocks.filter((o) => !coast(o)),
+        rock,
+        mat,
+        rng,
+      );
     }
 
     // Crags break up the cliffs: big jagged rocks set into slopes far too steep to walk (well past
@@ -318,7 +337,14 @@ export class FoliageView {
     this.group.add(this.bushes);
   }
 
-  private place(geo: THREE.BufferGeometry, mat: THREE.Material, items: Obstacle[], color: (o: Obstacle) => THREE.Color, squashY = 1, stretch?: Stretch): THREE.InstancedMesh | null {
+  private place(
+    geo: THREE.BufferGeometry,
+    mat: THREE.Material,
+    items: Obstacle[],
+    color: (o: Obstacle) => THREE.Color,
+    squashY = 1,
+    stretch?: Stretch,
+  ): THREE.InstancedMesh | null {
     if (!items.length) return null;
     const mesh = new THREE.InstancedMesh(geo, mat, items.length);
     items.forEach((o, i) => {

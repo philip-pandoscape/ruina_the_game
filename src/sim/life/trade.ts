@@ -208,7 +208,10 @@ export function sellPack(life: Life, sim: Sim, outpost: string): boolean {
   const q = quote(life, pack, outpost);
   const def = packDef(pack.def);
   if (!q) {
-    life.toast(pack.origin === outpost ? `${placeName(outpost)} makes these itself - sell it somewhere else` : `${placeName(outpost)} does not buy ${def.name}`, 'bad');
+    life.toast(
+      pack.origin === outpost ? `${placeName(outpost)} makes these itself - sell it somewhere else` : `${placeName(outpost)} does not buy ${def.name}`,
+      'bad',
+    );
     return false;
   }
   life.state.coins += q.coins;

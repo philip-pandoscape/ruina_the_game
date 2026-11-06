@@ -129,7 +129,12 @@ class ParticlePool {
   /** Where particles come to rest: the ground under them (sea level when nobody says). */
   floor: (x: number, z: number) => number = () => 0;
 
-  constructor(geo: THREE.BufferGeometry, mat: THREE.Material, max: number, private stretch: boolean) {
+  constructor(
+    geo: THREE.BufferGeometry,
+    mat: THREE.Material,
+    max: number,
+    private stretch: boolean,
+  ) {
     this.mesh = new THREE.InstancedMesh(geo, mat, max);
     this.mesh.frustumCulled = false;
     this.mesh.castShadow = false;
@@ -456,7 +461,13 @@ export class Vfx {
         // Dying into pieces: a wet splash outward, more of it for a bigger one.
         const n = 6 + e.count * 3;
         this.puff(e.x, e.y, e.z, n, 2.6 + e.count * 0.3, 0.24, SLIME_GREEN);
-        for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) this.burst(e.x, e.y, e.z, dx, dz, 5, 5.5, SLIME_GREEN);
+        for (const [dx, dz] of [
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1],
+        ])
+          this.burst(e.x, e.y, e.z, dx, dz, 5, 5.5, SLIME_GREEN);
         break;
       }
       case 'actorGrow': {
@@ -560,7 +571,6 @@ export class Vfx {
       this.dust.spawn(this.v, this.w, range(this.rng, 0.4, 0.7), range(this.rng, 0.35, 0.55), -1, 1, SMOKE);
     }
   }
-
 
   // A small dust kick every few frames while sliding.
   slideDust(x: number, z: number, dirX: number, dirZ: number): void {

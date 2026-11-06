@@ -99,7 +99,16 @@ async function standTogether(players: Player[]): Promise<{ x: number; z: number 
 /** Every label in the mini-game windows that isn't in Title Case (players' names are as they chose them). */
 async function untitled(page: Page, names: string[]): Promise<string[]> {
   const labels = await page.evaluate(() => {
-    const sel = ['.mg-win .lui-btn', '.mg-win .mw-bar', '.mg-win .h', '.mg-win .mg-stake', '.mg-win .lui-row .body b', '.mg-win .mg-seat > span', '.mg-win .mg-result .big', '.mg-win .mg-clock small'].join(',');
+    const sel = [
+      '.mg-win .lui-btn',
+      '.mg-win .mw-bar',
+      '.mg-win .h',
+      '.mg-win .mg-stake',
+      '.mg-win .lui-row .body b',
+      '.mg-win .mg-seat > span',
+      '.mg-win .mg-result .big',
+      '.mg-win .mg-clock small',
+    ].join(',');
     return [...document.querySelectorAll<HTMLElement>(sel)]
       .filter((e) => e.offsetParent !== null)
       .map((e) => {
@@ -123,7 +132,14 @@ async function move(p: Player, role: 'win' | 'lose', row: number[], last: string
   return p.page.evaluate(
     ({ role, row, last, hexes }) => {
       const g = window.__game;
-      const dirs = [[1, 0], [1, -1], [0, -1], [-1, 0], [-1, 1], [0, 1]];
+      const dirs = [
+        [1, 0],
+        [1, -1],
+        [0, -1],
+        [-1, 0],
+        [-1, 1],
+        [0, 1],
+      ];
       const index = new Map(hexes.map((h: { q: number; r: number }, i: number) => [`${h.q},${h.r}`, i]));
       const near = (i: number) => dirs.map(([dq, dr]) => index.get(`${hexes[i].q + dq},${hexes[i].r + dr}`)).filter((x) => x !== undefined) as number[];
       const t = g.minigames()?.table;
@@ -216,7 +232,9 @@ test('a challenge accepted puts both stakes in the pot, throws a table down for 
   // Everyone in the channel sees the table, Cal too, a few metres off.
   for (const p of [ann, bea, cal]) {
     await p.page.bringToFront();
-    await expect.poll(async () => (await game(p.page, (g) => g.gameTables())).map((t: { seats: string[] }) => t.seats.join(' & ')), { timeout: 60_000 }).toEqual([`${bea.name} & ${ann.name}`]);
+    await expect
+      .poll(async () => (await game(p.page, (g) => g.gameTables())).map((t: { seats: string[] }) => t.seats.join(' & ')), { timeout: 60_000 })
+      .toEqual([`${bea.name} & ${ann.name}`]);
   }
   const table = (await game(cal.page, (g) => g.gameTables()))[0];
   expect(Math.hypot(table.x - at.x, table.z - at.z)).toBeLessThan(0.5);

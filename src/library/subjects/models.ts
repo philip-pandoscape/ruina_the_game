@@ -185,7 +185,17 @@ function animalSubject(id: AnimalId): Subject {
     name: ANIMAL_NAMES[id][0],
     group: 'Creatures',
     blurb: `Farm animal (young: ${ANIMAL_NAMES[id][1].toLowerCase()})`,
-    options: [{ id: 'age', label: 'Age', value: 'adult', choices: [{ value: 'adult', label: 'Adult' }, { value: 'young', label: ANIMAL_NAMES[id][1] }] }],
+    options: [
+      {
+        id: 'age',
+        label: 'Age',
+        value: 'adult',
+        choices: [
+          { value: 'adult', label: 'Adult' },
+          { value: 'young', label: ANIMAL_NAMES[id][1] },
+        ],
+      },
+    ],
     anims: () => ANIMAL_ANIMS.map((a) => ({ id: a.id, label: a.label, group: 'Idles', frames: seconds * FPS, fps: FPS, loop: true, note: a.note })),
     take(animId: string, opts: Options): Take {
       const a = ANIMAL_ANIMS.find((x) => x.id === animId) ?? ANIMAL_ANIMS[0];
@@ -195,7 +205,11 @@ function animalSubject(id: AnimalId): Subject {
       return new ModelTake(
         () => animalModel(id, young, a.hungry, a.ready),
         seconds * FPS,
-        (f) => ({ line: `${(f / FPS).toFixed(2)} s into its idle`, detail: { time: f / FPS, hungry: a.hungry, ready: a.ready, young }, phase: [a.label, 'idle'] }),
+        (f) => ({
+          line: `${(f / FPS).toFixed(2)} s into its idle`,
+          detail: { time: f / FPS, hungry: a.hungry, ready: a.ready, young },
+          phase: [a.label, 'idle'],
+        }),
         { target: [0, h * 0.45, 0], distance: Math.max(1.6, h * 3.4), height: h },
       );
     },
@@ -208,7 +222,8 @@ function animalSubject(id: AnimalId): Subject {
       conventions: 'Faces +Z, origin on the ground under its middle. Pivots turn with rotation.x/y/z set in animate() from the time (seconds).',
       checks: [{ command: 'npx playwright test tests/integration/models.spec.ts', what: 'the models build and stay in budget' }],
     }),
-    animSource: (animId) => `animate() of the ${id} in src/render/models/animals.ts (${animId === 'hungry' ? 'hungry: true' : animId === 'ready' ? 'ready: true' : 'content'})`,
+    animSource: (animId) =>
+      `animate() of the ${id} in src/render/models/animals.ts (${animId === 'hungry' ? 'hungry: true' : animId === 'ready' ? 'ready: true' : 'content'})`,
   };
 }
 
@@ -240,7 +255,11 @@ function villagerSubject(id: string): Subject {
       return new ModelTake(
         () => villagerModel(id, talking),
         seconds * FPS,
-        (f) => ({ line: `${(f / FPS).toFixed(2)} s${talking ? ', talking' : ''}`, detail: { time: f / FPS, talking }, phase: [f < 0.5 * FPS && talking ? 'Turning to talk' : talking ? 'Talking' : 'Idle', talking ? 'other' : 'idle'] }),
+        (f) => ({
+          line: `${(f / FPS).toFixed(2)} s${talking ? ', talking' : ''}`,
+          detail: { time: f / FPS, talking },
+          phase: [f < 0.5 * FPS && talking ? 'Turning to talk' : talking ? 'Talking' : 'Idle', talking ? 'other' : 'idle'],
+        }),
         { target: [0, 1.05, 0], distance: 4.4, height: 1.8 },
       );
     },
@@ -251,7 +270,8 @@ function villagerSubject(id: string): Subject {
         { path: 'src/render/models/villagers.ts', what: `${npc?.name ?? id}'s build (const ${id}) and the shared animate() in villager()` },
         { path: 'shared/zones/emberholm.json', what: 'where they stand (npcs)' },
       ],
-      conventions: 'Faces +Z, origin at the feet. Arms hang from armL/armR pivots at the shoulders: rotation.x negative lifts the arm forward; rotation.z spreads it out (+ for the left).',
+      conventions:
+        'Faces +Z, origin at the feet. Arms hang from armL/armR pivots at the shoulders: rotation.x negative lifts the arm forward; rotation.z spreads it out (+ for the left).',
       checks: [{ command: 'npx playwright test tests/integration/models.spec.ts', what: 'the models build and stay in budget' }],
     }),
     animSource: (animId) => `animate() in villager() in src/render/models/villagers.ts (${animId === 'talk' ? 'talking: true' : 'talking: false'})`,
@@ -267,7 +287,12 @@ function mountSubject(id: string): Subject {
     { id: 'stand', label: 'Standing', speed: () => 0, note: 'Standing still' },
     { id: 'walk', label: 'Walk', speed: () => def.walkSpeed, note: `${def.walkSpeed} m/s` },
     { id: 'run', label: 'Gallop', speed: () => def.runSpeed, note: `${def.runSpeed} m/s` },
-    { id: 'speedUp', label: 'Walk to gallop and back', speed: (t) => (t < 1 ? 0 : t < 3 ? ((t - 1) / 2) * def.runSpeed : t < 4.5 ? def.runSpeed : Math.max(0, def.runSpeed * (1 - (t - 4.5) / 1.2))), note: 'Speeding up and slowing down' },
+    {
+      id: 'speedUp',
+      label: 'Walk to gallop and back',
+      speed: (t) => (t < 1 ? 0 : t < 3 ? ((t - 1) / 2) * def.runSpeed : t < 4.5 ? def.runSpeed : Math.max(0, def.runSpeed * (1 - (t - 4.5) / 1.2))),
+      note: 'Speeding up and slowing down',
+    },
     { id: 'jump', label: 'Jump', speed: () => def.walkSpeed, grounded: (t) => !(t % 2 > 1 && t % 2 < 1.6), note: 'Leaving the ground: legs tucked' },
   ];
   return {
@@ -290,13 +315,18 @@ function mountSubject(id: string): Subject {
           const t = f / FPS;
           const v = g.speed(t);
           const up = g.grounded ? !g.grounded(t) : false;
-          return { line: `${v.toFixed(1)} m/s${up ? ', in the air' : ''}`, detail: { speed: Math.round(v * 100) / 100, grounded: !up }, phase: up ? ['In the air', 'air'] : v < 0.05 ? ['Standing', 'idle'] : v <= def.walkSpeed * 1.15 ? ['Walk', 'move'] : ['Gallop', 'move'] };
+          return {
+            line: `${v.toFixed(1)} m/s${up ? ', in the air' : ''}`,
+            detail: { speed: Math.round(v * 100) / 100, grounded: !up },
+            phase: up ? ['In the air', 'air'] : v < 0.05 ? ['Standing', 'idle'] : v <= def.walkSpeed * 1.15 ? ['Walk', 'move'] : ['Gallop', 'move'],
+          };
         },
         { target: [0, 1.0, 0], distance: 6, height: 2 },
       );
     },
     source: (): Source => ({
-      system: 'Built from soft blocks on pivots: four legs hang from hip pivots with a knee pivot halfway down (hipFL, kneeFL, …), a neck and head, a tail. animate(dt, {speed, grounded}) in src/render/models/mounts.ts runs a walk that blends into a gallop as speed rises, bobs the head, swishes the tail, and tucks the legs while airborne.',
+      system:
+        'Built from soft blocks on pivots: four legs hang from hip pivots with a knee pivot halfway down (hipFL, kneeFL, …), a neck and head, a tail. animate(dt, {speed, grounded}) in src/render/models/mounts.ts runs a walk that blends into a gallop as speed rises, bobs the head, swishes the tail, and tucks the legs while airborne.',
       files: [
         { path: 'src/render/models/mounts.ts', what: 'the build and animate()' },
         { path: 'shared/vehicles.json', what: `the ${def.name.toLowerCase()}'s speeds and stride (mounts)` },
@@ -308,8 +338,4 @@ function mountSubject(id: string): Subject {
   };
 }
 
-export const modelSubjects: Subject[] = [
-  ...ANIMAL_IDS.map(animalSubject),
-  ...VILLAGER_IDS.map(villagerSubject),
-  ...MOUNTS.map((m) => mountSubject(m.id)),
-];
+export const modelSubjects: Subject[] = [...ANIMAL_IDS.map(animalSubject), ...VILLAGER_IDS.map(villagerSubject), ...MOUNTS.map((m) => mountSubject(m.id))];

@@ -140,7 +140,10 @@ function steeringWheel(
   }
   mesh(spin, spokes.build());
   // +X is the driver's left: the left hand at ten to, the right at two.
-  b.holds.hands = [hold(spin, Math.cos(Math.PI / 2 - 1.05) * r, Math.sin(Math.PI / 2 - 1.05) * r, 0), hold(spin, Math.cos(Math.PI / 2 + 1.05) * r, Math.sin(Math.PI / 2 + 1.05) * r, 0)];
+  b.holds.hands = [
+    hold(spin, Math.cos(Math.PI / 2 - 1.05) * r, Math.sin(Math.PI / 2 - 1.05) * r, 0),
+    hold(spin, Math.cos(Math.PI / 2 + 1.05) * r, Math.sin(Math.PI / 2 + 1.05) * r, 0),
+  ];
   b.anims.push((_dt, s) => (spin.rotation.z = -clamp(s.steer, -1, 1) * 1.1));
 }
 
@@ -222,7 +225,12 @@ function lantern(b: Build, at: V3, s = 1): void {
   b.body.add(box(0.15 * s, 0.025 * s, 0.15 * s), PAL.iron, [x, y + 0.185 * s, z]);
   b.body.add(cone(0.1 * s, 0.08 * s, 4), PAL.iron, [x, y + 0.235 * s, z], [0, Math.PI / 4, 0]);
   b.trim.add(tor(0.03 * s, 0.008 * s, 4, 8), PAL.iron, [x, y + 0.29 * s, z]);
-  for (const [dx, dz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]] as const) {
+  for (const [dx, dz] of [
+    [-1, -1],
+    [1, -1],
+    [-1, 1],
+    [1, 1],
+  ] as const) {
     b.trim.add(box(0.018 * s, 0.15 * s, 0.018 * s), PAL.iron, [x + dx * 0.062 * s, y + 0.1 * s, z + dz * 0.062 * s]);
   }
 }
@@ -470,7 +478,10 @@ function helm(b: Build, at: V3, r: number, pedestal: number): void {
   }
   mesh(g, p.build());
   // Steering left turns its top to the left (+X, the helmsman's left), and the hands go with the rim.
-  b.holds.hands = [1, -1].map((side) => hold(g, Math.cos(Math.PI / 2 - side * 0.9) * r * 0.93, Math.sin(Math.PI / 2 - side * 0.9) * r * 0.93, 0)) as [THREE.Object3D, THREE.Object3D];
+  b.holds.hands = [1, -1].map((side) => hold(g, Math.cos(Math.PI / 2 - side * 0.9) * r * 0.93, Math.sin(Math.PI / 2 - side * 0.9) * r * 0.93, 0)) as [
+    THREE.Object3D,
+    THREE.Object3D,
+  ];
   b.anims.push((_dt, s) => (g.rotation.z = -clamp(s.steer, -1, 1) * 1.1));
 }
 
@@ -478,7 +489,21 @@ function helm(b: Build, at: V3, r: number, pedestal: number): void {
 function rudder(b: Build, at: V3, top: number, bottom: number, chord: number, colour: Rgb): void {
   const g = pivot(b.root, at[0], at[1], at[2], 'rudder');
   const p = new Parts();
-  p.add(extrude([[0, bottom], [-chord, bottom + 0.15], [-chord, top - 0.25], [-chord * 0.35, top], [0, top]], 0.1), colour, undefined, [0, Math.PI / 2, 0]);
+  p.add(
+    extrude(
+      [
+        [0, bottom],
+        [-chord, bottom + 0.15],
+        [-chord, top - 0.25],
+        [-chord * 0.35, top],
+        [0, top],
+      ],
+      0.1,
+    ),
+    colour,
+    undefined,
+    [0, Math.PI / 2, 0],
+  );
   p.add(cyl(0.05, 0.05, top - bottom + 0.2, 6), PAL.woodDark, [0, (top + bottom) / 2, 0]);
   mesh(g, p.build());
   b.anims.push((_dt, s) => (g.rotation.y = -clamp(s.steer, -1, 1) * 0.5));
@@ -513,7 +538,10 @@ function farmCart(def: WheeledDef): VehicleModel {
   }
   body.add(box(hw * 2 + 0.02, 0.05, zBed - zBack + 0.02), PAL.woodDark, [0, bedY - 0.095, (zBed + zBack) / 2]);
   const boardH = 0.15;
-  for (const [y0, c] of [[bedY, paint], [bedY + boardH + 0.04, paintDark]] as const) {
+  for (const [y0, c] of [
+    [bedY, paint],
+    [bedY + boardH + 0.04, paintDark],
+  ] as const) {
     for (const sx of [-1, 1]) body.add(box(0.06, boardH, zBed - zBack), c, [sx * (hw + 0.03), y0 + boardH / 2, (zBed + zBack) / 2]);
     for (const z of [zBack + 0.03, zBed - 0.03]) body.add(box(hw * 2, boardH, 0.06), c, [0, y0 + boardH / 2, z]);
   }
@@ -639,7 +667,15 @@ function roadster(def: WheeledDef): VehicleModel {
     [-0.6, -(-L + 0.45)],
   ];
   body.add(extrude(tail, 0.42), red, [0, 0.5, 0], [-Math.PI / 2, 0, 0]);
-  body.add(extrude(tail.map(([x, y]) => [x * 0.92, y] as [number, number]), 0.08), redDark, [0, 0.74, 0], [-Math.PI / 2, 0, 0]);
+  body.add(
+    extrude(
+      tail.map(([x, y]) => [x * 0.92, y] as [number, number]),
+      0.08,
+    ),
+    redDark,
+    [0, 0.74, 0],
+    [-Math.PI / 2, 0, 0],
+  );
   const rackY = cargo.y - 0.02;
   const rz0 = cargo.z + 0.32;
   const rz1 = cargo.z - 0.33;
@@ -813,7 +849,7 @@ function sloopRig(b: Build, mastZ: number, deck: number, mastTop: number, bowspr
     const throat = lerp(0.25, throatH, f);
     const peak = lerp(0.3, peakH, f);
     gaff.position.y = throat;
-    gaff.rotation.x = Math.atan2(peak - throat, gaffLen * 0.95) ;
+    gaff.rotation.x = Math.atan2(peak - throat, gaffLen * 0.95);
     main.shape((u, v, out) => {
       const footZ = -u * (boomLen - 0.1);
       const headZ = -u * gaffLen * 0.95;
@@ -935,7 +971,20 @@ function sloop(def: BoatDef): VehicleModel {
   body.list.push(lofted.shell);
   sealHull(b, lofted.opening);
   // Ballast keel down to the draft, stem post and bowsprit.
-  body.add(extrude([[-2.6, 0], [1.6, 0], [1.1, -def.draft + 0.75], [-2.2, -def.draft + 0.75]], 0.18), 0x3b3f46, [0, -0.72, 0], [0, -Math.PI / 2, 0]);
+  body.add(
+    extrude(
+      [
+        [-2.6, 0],
+        [1.6, 0],
+        [1.1, -def.draft + 0.75],
+        [-2.2, -def.draft + 0.75],
+      ],
+      0.18,
+    ),
+    0x3b3f46,
+    [0, -0.72, 0],
+    [0, -Math.PI / 2, 0],
+  );
   body.add(beam([0, -0.3, z1 - 0.03], [0, spec.sheerAt(1) + 0.12, z1 + 0.05], 0.12), PAL.woodDark);
   const sprit: V3 = [0, spec.sheerAt(1) - 0.02, L - 0.02];
   body.add(rod([0, spec.sheerAt(1) - 0.08, z1 - 0.6], sprit, 0.07, 6, 0.05), PAL.woodLight);
@@ -946,7 +995,8 @@ function sloop(def: BoatDef): VehicleModel {
   const hz1 = Math.max(...czs) + 0.35;
   const hx = Math.max(...def.cargo.map((c) => Math.abs(c.x))) + 0.33;
   body.add(bev(hx * 2 + 0.1, cy - deck, hz1 - hz0 + 0.1, 0.03), PAL.woodDark, [0, (cy + deck) / 2 - 0.01, (hz0 + hz1) / 2]);
-  for (let k = 0; k < 7; k++) body.add(box((hx * 2) / 7 - 0.01, 0.03, hz1 - hz0), k % 2 ? PAL.woodPale : PAL.woodLight, [-hx + (k + 0.5) * ((hx * 2) / 7), cy - 0.015, (hz0 + hz1) / 2]);
+  for (let k = 0; k < 7; k++)
+    body.add(box((hx * 2) / 7 - 0.01, 0.03, hz1 - hz0), k % 2 ? PAL.woodPale : PAL.woodLight, [-hx + (k + 0.5) * ((hx * 2) / 7), cy - 0.015, (hz0 + hz1) / 2]);
   // Benches on the foredeck; helm seat aft.
   for (const s of def.seats) {
     if (s.pose === 'helm') continue;
@@ -974,12 +1024,21 @@ function sloop(def: BoatDef): VehicleModel {
   const stays: Array<[V3, V3]> = [[[0, top - 0.9, mast.z + 0.06], sprit]];
   for (const sx of [-1, 1]) {
     const qz = z0 + 0.35;
-    stays.push([[0, top - 0.05, mast.z - 0.08], [sx * (innerHalf(spec, qz, spec.sheerAt(0.04)) + 0.02), spec.sheerAt(0.04), qz]]);
+    stays.push([
+      [0, top - 0.05, mast.z - 0.08],
+      [sx * (innerHalf(spec, qz, spec.sheerAt(0.04)) + 0.02), spec.sheerAt(0.04), qz],
+    ]);
   }
   for (const sx of [-1, 1]) {
     const hw = innerHalf(spec, mast.z - 0.2, spec.sheerAt(0.6)) + spec.thick;
-    stays.push([[sx * 0.08, top - 1.2, mast.z], [sx * hw, spec.sheerAt(0.6), mast.z - 0.2]]);
-    stays.push([[sx * 0.08, top - 1.2, mast.z], [sx * (hw - 0.05), spec.sheerAt(0.5), mast.z - 1.2]]);
+    stays.push([
+      [sx * 0.08, top - 1.2, mast.z],
+      [sx * hw, spec.sheerAt(0.6), mast.z - 0.2],
+    ]);
+    stays.push([
+      [sx * 0.08, top - 1.2, mast.z],
+      [sx * (hw - 0.05), spec.sheerAt(0.5), mast.z - 1.2],
+    ]);
   }
   for (const [a, c] of stays) trim.add(rod(a, c, 0.014, 4), 0x3a3a3a);
   // Stern lantern, life ring, fenders, a coil of rope.
@@ -1089,7 +1148,12 @@ function hauler(def: WheeledDef): VehicleModel {
     trim.add(rod([sx * 0.78, by - 0.3, zc1], [sx * 0.62, 0.95, zc1 - 0.1], 0.02, 5), PAL.iron);
   }
   for (const w of def.wheels) {
-    body.add(arc(w.r + 0.05, w.r + 0.12, 0.32, w.steer ? 0.25 : 0.0, w.steer ? Math.PI - 0.1 : Math.PI - 0.15, 7), greenDark, [w.x, w.r, w.z], [0, Math.PI / 2, 0]);
+    body.add(
+      arc(w.r + 0.05, w.r + 0.12, 0.32, w.steer ? 0.25 : 0.0, w.steer ? Math.PI - 0.1 : Math.PI - 0.15, 7),
+      greenDark,
+      [w.x, w.r, w.z],
+      [0, Math.PI / 2, 0],
+    );
   }
   // Steam puffs from the pipe, bigger with throttle.
   const puffs: THREE.Mesh[] = [];
@@ -1228,17 +1292,37 @@ function cog(def: BoatDef): VehicleModel {
   const top = mast.height;
   body.add(rod([mast.x, deck - 0.2, mast.z], [mast.x, top, mast.z], 0.22, 8, 0.15), PAL.woodLight);
   const nestY = top - 2.0;
-  body.add(lathe([[0.2, nestY - 0.35], [0.62, nestY], [0.62, nestY + 0.55], [0.55, nestY + 0.55], [0.55, nestY + 0.05], [0.2, nestY + 0.05]], 10), (c) => (c.y > nestY + 0.3 ? PAL.red : PAL.woodDark), [mast.x, 0, mast.z]);
+  body.add(
+    lathe(
+      [
+        [0.2, nestY - 0.35],
+        [0.62, nestY],
+        [0.62, nestY + 0.55],
+        [0.55, nestY + 0.55],
+        [0.55, nestY + 0.05],
+        [0.2, nestY + 0.05],
+      ],
+      10,
+    ),
+    (c) => (c.y > nestY + 0.3 ? PAL.red : PAL.woodDark),
+    [mast.x, 0, mast.z],
+  );
   trim.add(rod([mast.x, top, mast.z], [mast.x, def.height - 0.1, mast.z], 0.04, 5), PAL.woodDark);
   flag(b, [mast.x, def.height - 0.15, mast.z], 1.6, 0.9, (_i, j) => (j ? PAL.cream : 0x2f4f8a));
   const stays: Array<[V3, V3]> = [
     [[0, top - 0.6, mast.z + 0.1], sprit],
-    [[0, top - 0.6, mast.z - 0.1], [0, castleY + 0.8, z0 + 0.3]],
+    [
+      [0, top - 0.6, mast.z - 0.1],
+      [0, castleY + 0.8, z0 + 0.3],
+    ],
   ];
   for (const sx of [-1, 1]) {
     for (const dz of [-1.0, 0, 1.0]) {
       const z = mast.z + dz - 0.3;
-      stays.push([[sx * 0.15, nestY - 0.4, mast.z], [sx * (innerHalf(spec, z, deck + 0.9) + 0.12), deck + 0.9, z]]);
+      stays.push([
+        [sx * 0.15, nestY - 0.4, mast.z],
+        [sx * (innerHalf(spec, z, deck + 0.9) + 0.12), deck + 0.9, z],
+      ]);
     }
   }
   for (const [a, c] of stays) trim.add(rod(a, c, 0.025, 4), 0x3a3a3a);
@@ -1365,4 +1449,3 @@ export function buildVehicle(def: VehicleDef): VehicleModel {
   grainify(model.root);
   return model;
 }
-

@@ -18,7 +18,9 @@ interface Loaded {
 
 const open = async (page: Page) => {
   const errors: string[] = [];
-  page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
+  page.on('console', (m) => {
+    if (m.type() === 'error') errors.push(m.text());
+  });
   page.on('pageerror', (e) => errors.push(String(e)));
   await page.goto('/dev/creatures.html');
   await page.waitForFunction(() => typeof (window as any).__creatures === 'object');
@@ -30,9 +32,29 @@ const worldOf = (page: Page, joint: string) => page.evaluate((j) => (window as a
 // Every channel src/render/character.ts turns. If a rig stops offering one, the poses would
 // throw at runtime the first time that animation played; this catches it at build time instead.
 const POSED = [
-  'squash', 'body', 'hips', 'torso', 'neck', 'head', 'eyes', 'cape', 'capeTail',
-  'legL', 'kneeL', 'footL', 'legR', 'kneeR', 'footR',
-  'shoulderL', 'armL', 'elbowL', 'handL', 'shoulderR', 'armR', 'elbowR', 'handR',
+  'squash',
+  'body',
+  'hips',
+  'torso',
+  'neck',
+  'head',
+  'eyes',
+  'cape',
+  'capeTail',
+  'legL',
+  'kneeL',
+  'footL',
+  'legR',
+  'kneeR',
+  'footR',
+  'shoulderL',
+  'armL',
+  'elbowL',
+  'handL',
+  'shoulderR',
+  'armR',
+  'elbowR',
+  'handR',
 ];
 
 test('every creature is registered and loads', async ({ page }) => {
@@ -59,7 +81,12 @@ test('the hero carries four weapons, one at a time', async ({ page }) => {
   const weapons = hero.attachments.filter((a) => a.exclusive);
   expect(weapons.map((w) => w.name).sort()).toEqual(['bow', 'club', 'staff', 'sword']);
   // Three are swung in the right hand; the bow is held in the left.
-  expect(weapons.filter((w) => w.joint === 'handR').map((w) => w.name).sort()).toEqual(['club', 'staff', 'sword']);
+  expect(
+    weapons
+      .filter((w) => w.joint === 'handR')
+      .map((w) => w.name)
+      .sort(),
+  ).toEqual(['club', 'staff', 'sword']);
   expect(weapons.find((w) => w.name === 'bow')!.joint).toBe('handL');
   // The nocked arrow is shown alongside the bow, so it must not be exclusive.
   expect(hero.attachments.find((a) => a.name === 'arrow')!.exclusive).toBe(false);

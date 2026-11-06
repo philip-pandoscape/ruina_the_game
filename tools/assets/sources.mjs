@@ -85,7 +85,11 @@ export function listFiles(dir) {
     .filter((f) => fs.statSync(f).isFile());
 }
 
-const words = (q) => String(q).toLowerCase().split(/[\s,]+/).filter(Boolean);
+const words = (q) =>
+  String(q)
+    .toLowerCase()
+    .split(/[\s,]+/)
+    .filter(Boolean);
 const matches = (hay, ws) => ws.every((w) => hay.some((h) => h.includes(w)));
 
 // ---------- Poly Haven: realistic CC0 models, textures and skies (no key) ----------
@@ -98,7 +102,12 @@ export async function searchPolyHaven(kind, query, limit) {
   const all = await json(`https://api.polyhaven.com/assets?t=${t}`);
   const ws = words(query);
   return Object.entries(all)
-    .filter(([id, a]) => matches([id, a.name, ...(a.tags ?? []), ...(a.categories ?? [])].map((s) => String(s).toLowerCase()), ws))
+    .filter(([id, a]) =>
+      matches(
+        [id, a.name, ...(a.tags ?? []), ...(a.categories ?? [])].map((s) => String(s).toLowerCase()),
+        ws,
+      ),
+    )
     .sort((a, b) => (b[1].download_count ?? 0) - (a[1].download_count ?? 0))
     .slice(0, limit)
     .map(([id, a]) => ({
@@ -175,7 +184,10 @@ export async function searchAmbientCg(kind, query, limit) {
     author: 'ambientCG',
     page: `https://ambientcg.com/view?id=${a.id}`,
     preview: (a.previews ?? []).map((p) => p.url).find((u) => /\.(jpe?g|png|webp)(\?|$)/i.test(u)) ?? '',
-    detail: (a.downloads ?? []).map((d) => d.attributes).filter((x) => /JPG/.test(x)).join(' '),
+    detail: (a.downloads ?? [])
+      .map((d) => d.attributes)
+      .filter((x) => /JPG/.test(x))
+      .join(' '),
   }));
 }
 
@@ -225,7 +237,7 @@ export async function searchSketchfab(kind, query, limit, { licence = 'cc0', ani
 
 export async function fetchSketchfab(uid, out) {
   const token = key('SKETCHFAB_TOKEN');
-  if (!token) throw new Error('Sketchfab downloads need SKETCHFAB_TOKEN (the user\'s API token, from sketchfab.com/settings/password) in .env');
+  if (!token) throw new Error("Sketchfab downloads need SKETCHFAB_TOKEN (the user's API token, from sketchfab.com/settings/password) in .env");
   const auth = { Authorization: `Token ${token}` };
   const [info, dl] = await Promise.all([json(`https://api.sketchfab.com/v3/models/${uid}`), json(`https://api.sketchfab.com/v3/models/${uid}/download`, auth)]);
   const got = [];
@@ -256,7 +268,9 @@ export async function searchFreesound(kind, query, limit) {
   }
   const filter = encodeURIComponent('license:("Creative Commons 0" OR "Attribution")');
   const fields = 'id,name,license,username,duration,previews,url,num_downloads,avg_rating';
-  const r = await json(`https://freesound.org/apiv2/search/text/?query=${encodeURIComponent(query)}&filter=${filter}&fields=${fields}&page_size=${limit}&sort=rating_desc&token=${token}`);
+  const r = await json(
+    `https://freesound.org/apiv2/search/text/?query=${encodeURIComponent(query)}&filter=${filter}&fields=${fields}&page_size=${limit}&sort=rating_desc&token=${token}`,
+  );
   return (r.results ?? []).map((s) => ({
     source: 'freesound',
     id: String(s.id),
@@ -281,7 +295,7 @@ export async function fetchFreesound(id, out) {
     await download(url, file);
     got.push(file);
   }
-  console.warn('  these are Freesound\'s high-quality previews; the original file needs its OAuth2 sign-in (the user\'s hands)');
+  console.warn("  these are Freesound's high-quality previews; the original file needs its OAuth2 sign-in (the user's hands)");
   return { name: s.name, source: 'Freesound', page: s.url, author: s.username, licence: licenceOf(s.license) ?? s.license, files: got };
 }
 
@@ -305,7 +319,11 @@ export async function fetchKenney(slug, out) {
   await download(zipUrl, zip);
   unzip(zip, out);
   fs.rmSync(zip);
-  const title = html.match(/<title>([^<]+)<\/title>/)?.[1]?.replace(/\s*(&middot;|·|\||-)\s*Kenney.*$/i, '').trim() ?? slug;
+  const title =
+    html
+      .match(/<title>([^<]+)<\/title>/)?.[1]
+      ?.replace(/\s*(&middot;|·|\||-)\s*Kenney.*$/i, '')
+      .trim() ?? slug;
   return { name: title, source: 'Kenney', page, author: 'Kenney (kenney.nl)', licence: 'CC0', files: listFiles(out) };
 }
 
@@ -383,5 +401,12 @@ export async function fetchUrl(url, out, { name, author, licence, page }) {
     unzip(file, out);
     fs.rmSync(file);
   }
-  return { name: name ?? path.basename(file), source: new URL(page ?? url).host, page: page ?? url, author: author ?? '?', licence: licence ?? '?', files: listFiles(out) };
+  return {
+    name: name ?? path.basename(file),
+    source: new URL(page ?? url).host,
+    page: page ?? url,
+    author: author ?? '?',
+    licence: licence ?? '?',
+    files: listFiles(out),
+  };
 }

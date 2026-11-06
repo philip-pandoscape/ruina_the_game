@@ -222,7 +222,9 @@ export class RoadNetwork {
   /** A short walk between two points over any ground, round what is in the way. */
   private walk(a: Point, b: Point, goalReach = 1): Point[] | null {
     const m = 10;
-    const grid = new WalkGrid(this.world, Math.min(a[0], b[0]) - m, Math.min(a[1], b[1]) - m, Math.max(a[0], b[0]) + m, Math.max(a[1], b[1]) + m, { clearance: CLEARANCE });
+    const grid = new WalkGrid(this.world, Math.min(a[0], b[0]) - m, Math.min(a[1], b[1]) - m, Math.max(a[0], b[0]) + m, Math.max(a[1], b[1]) + m, {
+      clearance: CLEARANCE,
+    });
     return grid.path(a, b, goalReach);
   }
 
@@ -268,7 +270,12 @@ export class RoadNetwork {
       j0 = Math.min(j0, j);
       i1 = Math.max(i1, i);
       j1 = Math.max(j1, j);
-      for (const [di, dj] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      for (const [di, dj] of [
+        [1, 0],
+        [-1, 0],
+        [0, 1],
+        [0, -1],
+      ]) {
         const ni = i + di;
         const nj = j + dj;
         if (ni < 0 || nj < 0 || ni >= n || nj >= n) continue;

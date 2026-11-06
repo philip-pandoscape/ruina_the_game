@@ -49,7 +49,7 @@ export function slimeSpecies(): SpeciesDef {
     // Crouch, launch, float, land flat.
     const crouch = Math.max(0, 1 - Math.abs(t - 0.12) / 0.12);
     const land = Math.max(0, 1 - Math.abs(t - 0.78) / 0.1);
-    const air = Math.max(0, Math.sin((t - 0.18) / 0.6 * Math.PI));
+    const air = Math.max(0, Math.sin(((t - 0.18) / 0.6) * Math.PI));
     const squash = crouch * 0.3 + land * 0.38 - air * 0.22;
     if (j === rig.root) return { pos: [0, air * 0.55, 0] };
     if (j === rig.core) return { scale: [...blob(squash)] as [number, number, number] };

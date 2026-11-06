@@ -182,12 +182,9 @@ export const abilityRadius = (ability: number, r: ResolvedSkills): number =>
 
 // Effect numbers, resolved through the build. Modifiers reach abilities the same way they reach
 // swings, so a passive that says "area damage" lands here without anything knowing its name.
-export const effectRadius = (ability: number, e: Effect, r: ResolvedSkills): number =>
-  applyChannel(r.ability[ability]?.[STAT_ABILITY_RADIUS], e.radius);
-export const effectDamage = (ability: number, e: Effect, r: ResolvedSkills): number =>
-  applyChannel(r.ability[ability]?.[STAT_ABILITY_DAMAGE], e.damage ?? 0);
-export const effectAmount = (ability: number, e: Effect, r: ResolvedSkills): number =>
-  applyChannel(r.ability[ability]?.[STAT_ABILITY_AMOUNT], e.amount ?? 0);
+export const effectRadius = (ability: number, e: Effect, r: ResolvedSkills): number => applyChannel(r.ability[ability]?.[STAT_ABILITY_RADIUS], e.radius);
+export const effectDamage = (ability: number, e: Effect, r: ResolvedSkills): number => applyChannel(r.ability[ability]?.[STAT_ABILITY_DAMAGE], e.damage ?? 0);
+export const effectAmount = (ability: number, e: Effect, r: ResolvedSkills): number => applyChannel(r.ability[ability]?.[STAT_ABILITY_AMOUNT], e.amount ?? 0);
 export const abilityCooldown = (ability: number, r: ResolvedSkills): number =>
   Math.max(0, applyFrames(r.ability[ability]?.[STAT_ABILITY_COOLDOWN], ABILITIES[ability]?.cooldownFrames ?? 0));
 
@@ -305,8 +302,6 @@ export function meleeTargets(weapon: number, r: ResolvedSkills): number {
 export function pierceTargets(weapon: number, r: ResolvedSkills): number {
   return Math.max(1, Math.round(applyChannel(r.weapon[weapon]?.[STAT_PIERCE], statBase(STAT_PIERCE))));
 }
-
-
 
 // A character's skills and loadout. `perks` has one bit per learned skill.
 export const HOTBAR_SLOTS = (shared.hotbar as { slots: number }).slots;

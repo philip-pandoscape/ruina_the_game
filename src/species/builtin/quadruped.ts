@@ -9,7 +9,13 @@ import { MAT, type Quat, type SpeciesDef } from '../types';
 const HIDE = 0x6b5847;
 const DARK = 0x3a2f26;
 
-interface Leg { hip: number; knee: number; foot: number; front: boolean; phase: number }
+interface Leg {
+  hip: number;
+  knee: number;
+  foot: number;
+  front: boolean;
+  phase: number;
+}
 
 function skeleton() {
   const r = new RigBuilder();

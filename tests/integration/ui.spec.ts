@@ -50,8 +50,21 @@ async function faceNpc(page: Page, id: string): Promise<void> {
 async function untitled(page: Page): Promise<string[]> {
   const labels = await page.evaluate(() => {
     const sel = [
-      '.lui-btn', '.mw-bar', '.mw .h', '.g-opts li > span', '.g-opts li > small', '.m-tab', '.ctx-i', '.ctx-h', '.hud-mbtn .lbl',
-      '#hint > span', '#lui-prompt > span:not(.key):not(.detail)', '.ch-slot > span', '.ch-stats .r > span', '.ql-zone > span:first-child', '.set-row > span',
+      '.lui-btn',
+      '.mw-bar',
+      '.mw .h',
+      '.g-opts li > span',
+      '.g-opts li > small',
+      '.m-tab',
+      '.ctx-i',
+      '.ctx-h',
+      '.hud-mbtn .lbl',
+      '#hint > span',
+      '#lui-prompt > span:not(.key):not(.detail)',
+      '.ch-slot > span',
+      '.ch-stats .r > span',
+      '.ql-zone > span:first-child',
+      '.set-row > span',
     ].join(',');
     return [...document.querySelectorAll<HTMLElement>(sel)]
       .filter((e) => e.offsetParent !== null)
@@ -69,7 +82,13 @@ async function untitled(page: Page): Promise<string[]> {
 test('labels in every window are in Title Case', async ({ page }) => {
   const errors = await open(page);
   const g = game(page);
-  for (const [item, n] of [['scarecrow', 1], ['seed.sunroot', 8], ['glider.wayfarer', 1], ['sunroot', 12]] as const) await g.cmd({ t: 'grant', item, n });
+  for (const [item, n] of [
+    ['scarecrow', 1],
+    ['seed.sunroot', 8],
+    ['glider.wayfarer', 1],
+    ['sunroot', 12],
+  ] as const)
+    await g.cmd({ t: 'grant', item, n });
   await g.advance(2);
   const bad: string[] = [];
   bad.push(...(await untitled(page)));
@@ -261,7 +280,7 @@ test('your portrait stays as it is: running, swinging, crouching and night falli
     game.advance(1, { attackPressed: true });
     game.advance(6);
   });
-  expect((await page.evaluate(() => window.__game.state().player.mode))).toBe('attack');
+  expect(await page.evaluate(() => window.__game.state().player.mode)).toBe('attack');
   await same('swinging');
   await page.evaluate(() => window.__game.advance(20, { crouchHeld: true }));
   await same('crouching');
@@ -342,7 +361,12 @@ const dropcapFit = (page: Page) =>
     const capTop = capBase - capHeight(cs) * parseFloat(cs.fontSize) * k;
     const lineCapTop = lineBase - capHeight(ss) * parseFloat(ss.fontSize) * k;
     const thirdLine = story.getBoundingClientRect().top + 2 * line;
-    return { scale: k, top: (capTop - lineCapTop) / k, baseline: (capBase - (lineBase + line)) / k, clear: (thirdLine - cap.getBoundingClientRect().bottom) / k };
+    return {
+      scale: k,
+      top: (capTop - lineCapTop) / k,
+      baseline: (capBase - (lineBase + line)) / k,
+      clear: (thirdLine - cap.getBoundingClientRect().bottom) / k,
+    };
   });
 
 test("a story's drop cap stands from the top of its first line to the second line's baseline, at any UI scale", async ({ page }) => {
@@ -353,7 +377,10 @@ test("a story's drop cap stands from the top of its first line to the second lin
   await g.press('interact');
   await g.advance(3);
   // At 720p (the UI at 70%), and at 1080p with the player's own setting at its largest (136%).
-  const sizes = [[1280, 720, 1], [1920, 1080, 1.3]] as const;
+  const sizes = [
+    [1280, 720, 1],
+    [1920, 1080, 1.3],
+  ] as const;
   for (const where of ['dialog', 'quest log']) {
     if (where === 'quest log') {
       await g.close();
@@ -378,7 +405,12 @@ test("a story's drop cap stands from the top of its first line to the second lin
 test('a window that closes itself after a click gives the mouse back to the camera, if the camera had it', async ({ page }) => {
   const errors = await open(page);
   const g = game(page);
-  for (const [item, n] of [['sunroot', 24], ['barley', 16], ['deed.farmCart', 1]] as const) await g.cmd({ t: 'grant', item, n });
+  for (const [item, n] of [
+    ['sunroot', 24],
+    ['barley', 16],
+    ['deed.farmCart', 1],
+  ] as const)
+    await g.cmd({ t: 'grant', item, n });
   await g.advance(2);
   // The game running on its own, so the keys go through it as they do in play.
   await page.evaluate(() => window.__game.setPaused(false));
@@ -451,19 +483,39 @@ test('on a controller, packing at the workbench still closes it and leaves the m
   // A simulated Xbox controller (the browser's standard layout).
   await page.addInitScript(() => {
     const buttons = Array.from({ length: 17 }, () => ({ pressed: false, touched: false, value: 0 }));
-    const pad = { id: 'Xbox Wireless Controller (STANDARD GAMEPAD)', index: 0, connected: true, mapping: 'standard', axes: [0, 0, 0, 0], buttons, timestamp: 0 };
+    const pad = {
+      id: 'Xbox Wireless Controller (STANDARD GAMEPAD)',
+      index: 0,
+      connected: true,
+      mapping: 'standard',
+      axes: [0, 0, 0, 0],
+      buttons,
+      timestamp: 0,
+    };
     (window as any).__pad = pad;
     Object.defineProperty(navigator, 'getGamepads', { value: () => [pad, null, null, null], configurable: true });
   });
   const errors = await open(page);
   const g = game(page);
-  for (const [item, n] of [['sunroot', 12], ['barley', 8]] as const) await g.cmd({ t: 'grant', item, n });
+  for (const [item, n] of [
+    ['sunroot', 12],
+    ['barley', 8],
+  ] as const)
+    await g.cmd({ t: 'grant', item, n });
   await g.advance(2);
   await page.evaluate(() => window.__game.setPaused(false));
   const PAD = { A: 0, B: 1, Y: 3, MENU: 9, DOWN: 13 };
   // A press lasts two frames as well as 60 ms, and so does the gap after it: the game reads the pad
   // once a frame, and a slow frame (other test pages drawing at the same time) mustn't swallow it.
-  const frames = (n: number) => page.evaluate((n) => new Promise<void>((done) => { const f = () => (--n <= 0 ? done() : requestAnimationFrame(f)); requestAnimationFrame(f); }), n);
+  const frames = (n: number) =>
+    page.evaluate(
+      (n) =>
+        new Promise<void>((done) => {
+          const f = () => (--n <= 0 ? done() : requestAnimationFrame(f));
+          requestAnimationFrame(f);
+        }),
+      n,
+    );
   const tap = async (i: number) => {
     await page.evaluate((b) => Object.assign((window as any).__pad.buttons[b], { pressed: true, value: 1 }), i);
     await page.waitForTimeout(60);

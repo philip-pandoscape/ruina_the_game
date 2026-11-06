@@ -225,4 +225,3 @@ test('anyone dropping off the summit over the falls lands on the hood of rock, n
   expect((await w.dungeon()).focus?.action).not.toBe('enterDungeon');
   expect(errors).toEqual([]);
 });
-

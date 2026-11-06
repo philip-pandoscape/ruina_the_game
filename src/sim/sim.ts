@@ -346,5 +346,4 @@ export class Sim {
   damageCircle(x: number, z: number, radius: number, amount: number, knock = 0, index = 0): void {
     damageCircle(this, x, z, radius, amount, knock, index);
   }
-
 }
