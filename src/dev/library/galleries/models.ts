@@ -2,9 +2,10 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import emberholm from '../../../../shared/zones/emberholm.json' with { type: 'json' };
 import { GLIDERS, MOUNTS, VEHICLES, isBoat } from '../../../content/vehicles';
+import { ANIMALS } from '../../../content/farming';
 import { part, toon } from '../../../render/toon';
 import { CROPS, PACKS, PROPS, STRUCTURES } from '../../../render/models/data';
-import { ANIMAL_IDS, buildAnimal } from '../../../render/models/animals';
+import { buildAnimal } from '../../../render/models/animals';
 import { buildVillager } from '../../../render/models/villagers';
 import { PAL, cost, vcMaterial } from '../../../render/models/kit';
 import { buildCrop, cropStages } from '../../../render/models/crops';
@@ -219,7 +220,7 @@ const LIVESTOCK = [
 ];
 
 function livestock(): Item[] {
-  return ANIMAL_IDS.flatMap((id) =>
+  return ANIMALS.map((a) => a.id).flatMap((id) =>
     LIVESTOCK.map((st, i) => {
       const m = buildAnimal(id, st.stage);
       const g = new THREE.Group();
@@ -277,7 +278,7 @@ const COUNT: Record<Cat, () => number> = {
   crops: () => CROPS.reduce((n, c) => n + cropStages(c.id).length, 0),
   structures: () => STRUCTURES.reduce((n, s) => n + Math.max(1, s.stages?.length ?? 0), 0),
   props: () => PROPS.length,
-  livestock: () => ANIMAL_IDS.length * LIVESTOCK.length,
+  livestock: () => ANIMALS.length * LIVESTOCK.length,
   villagers: () => NPCS.length,
 };
 

@@ -244,11 +244,18 @@ function swiftwing(def: GliderDef, root: THREE.Group): GliderModel['animate'] {
   };
 }
 
-/** Builds a glider; unknown ids get the canvas wayfarer at the data's span. */
+/** The gliders' bodies, by name: a glider's look names one. */
+const BODIES: Record<string, (def: GliderDef, root: THREE.Group) => GliderModel['animate']> = { wayfarer, swiftwing };
+
+/** The bodies a look can name. */
+export const gliderBodies = (): string[] => Object.keys(BODIES);
+
+/** Builds a glider: the body its look names, or the canvas wayfarer at the glider's span if it names none. */
 function buildGliderModel(def: GliderDef): GliderModel {
   const root = new THREE.Group();
   root.name = `glider:${def.id}`;
-  const animate = def.id === 'swiftwing' ? swiftwing(def, root) : wayfarer(def, root);
+  const body = def.look?.body;
+  const animate = ((body && BODIES[body]) || wayfarer)(def, root);
   return { root, animate };
 }
 

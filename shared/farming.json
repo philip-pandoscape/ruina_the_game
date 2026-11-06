@@ -270,7 +270,10 @@
       ],
       "produceSeconds": 120,
       "collectLabor": 1,
-      "verb": "Collect eggs"
+      "verb": "Collect eggs",
+      "look": {
+        "body": "chicken"
+      }
     },
     {
       "id": "sheep",
@@ -289,7 +292,10 @@
       ],
       "produceSeconds": 200,
       "collectLabor": 2,
-      "verb": "Shear wool"
+      "verb": "Shear wool",
+      "look": {
+        "body": "sheep"
+      }
     },
     {
       "id": "cow",
@@ -308,7 +314,10 @@
       ],
       "produceSeconds": 220,
       "collectLabor": 2,
-      "verb": "Milk the cow"
+      "verb": "Milk the cow",
+      "look": {
+        "body": "cow"
+      }
     }
   ]
 }

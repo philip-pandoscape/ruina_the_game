@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { ANIMALS } from './data';
 import { PAL, Parts, bev, box, cone, cyl, ico, jiggle, mesh, pivot, tor, type Rgb, type V3 } from './kit';
 import { clamp, lerp } from '../../util/math';
 
@@ -6,10 +7,8 @@ import { clamp, lerp } from '../../util/math';
 // Origin on the ground under the animal's middle, facing +Z. animate() keeps them alive - pecking,
 // grazing, chewing, tail swishing - lifts their heads when `hungry`, and shows what there is to
 // collect when `ready`: an egg in a nest, a heavy fleece, a full milk pail (adults only; the
-// young have nothing to give yet).
-
-export type AnimalId = 'chicken' | 'sheep' | 'cow';
-export const ANIMAL_IDS: AnimalId[] = ['chicken', 'sheep', 'cow'];
+// young have nothing to give yet). Each is drawn with the body its look names (BODIES), or a
+// sheep's if it names none.
 
 export interface AnimalAnim {
   /** Seconds. */
@@ -351,17 +350,14 @@ function cow(young: boolean): AnimalModel {
   };
 }
 
+/** The farm animals' bodies, by name: an animal's look names one. */
+const BODIES: Record<string, (young: boolean) => AnimalModel> = { chicken, sheep, cow };
+
+/** The bodies a look can name. */
+export const animalBodies = (): string[] => Object.keys(BODIES);
+
 /** Builds a farm animal: stage 0 is young (chick, lamb, calf), 1 is adult. */
 export function buildAnimal(id: string, stage: number): AnimalModel {
-  const young = stage < 1;
-  switch (id) {
-    case 'chicken':
-      return chicken(young);
-    case 'sheep':
-      return sheep(young);
-    case 'cow':
-      return cow(young);
-    default:
-      return sheep(young);
-  }
+  const body = ANIMALS.find((a) => a.id === id)?.look?.body;
+  return ((body && BODIES[body]) || sheep)(stage < 1);
 }

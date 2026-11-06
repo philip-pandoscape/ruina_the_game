@@ -44,10 +44,17 @@ export interface PackData {
   look?: Look;
 }
 
+export interface AnimalData {
+  id: string;
+  name: string;
+  look?: Look;
+}
+
 export const STRUCTURES = structures.structures as unknown as StructureData[];
 export const PROPS = structures.props as unknown as PropData[];
 export const CROPS = farming.crops as unknown as CropData[];
 export const PACKS = trade.packs as unknown as PackData[];
+export const ANIMALS = (farming.animals ?? []) as unknown as AnimalData[];
 
 export const structureData = (id: string): StructureData | undefined => STRUCTURES.find((s) => s.id === id);
 export const propData = (id: string): PropData | undefined => PROPS.find((s) => s.id === id);

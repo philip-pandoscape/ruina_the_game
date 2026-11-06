@@ -86,6 +86,8 @@ export interface AnimalDef {
   produceSeconds: number;
   collectLabor: number;
   verb: string;
+  /** What it is drawn as, young and grown (src/content/looks.ts): no body, a sheep's. */
+  look?: Look;
 }
 
 export const ANIMALS = (data.animals ?? []) as unknown as AnimalDef[];

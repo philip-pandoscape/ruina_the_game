@@ -44,6 +44,15 @@
     },
     "verb": {
       "type": "string"
+    },
+    "look": {
+      "type": "object",
+      "properties": {
+        "body": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
     }
   },
   "required": [

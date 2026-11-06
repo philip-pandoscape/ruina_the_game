@@ -67,5 +67,8 @@
       "r": 0.38,
       "steer": false
     }
-  ]
+  ],
+  "look": {
+    "body": "roadster"
+  }
 }

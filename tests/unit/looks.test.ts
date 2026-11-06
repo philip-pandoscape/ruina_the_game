@@ -1,9 +1,14 @@
 import { expect, test } from 'vitest';
-import { CROPS, PACKS, PROPS, STRUCTURES } from '../../src/render/models/data';
+import { GLIDERS, MOUNTS, VEHICLES } from '../../src/content/vehicles';
+import { animalBodies } from '../../src/render/models/animals';
+import { ANIMALS, CROPS, PACKS, PROPS, STRUCTURES } from '../../src/render/models/data';
 import { cropBodies } from '../../src/render/models/crops';
+import { gliderBodies } from '../../src/render/models/gliders';
+import { mountBodies } from '../../src/render/models/mounts';
 import { packBodies } from '../../src/render/models/packs';
 import { propBodies } from '../../src/render/models/props';
 import { structureBodies } from '../../src/render/models/structures';
+import { vehicleBodies } from '../../src/render/models/vehicles';
 
 // A thing's look names a body built into the game and a made model fitted over it
 // (src/content/looks.ts). contentc checks a look's fields and that its made model's files are there;
@@ -21,6 +26,10 @@ const KINDS: Kind[] = [
   { kind: 'props', things: PROPS, bodies: propBodies() },
   { kind: 'crops', things: CROPS, bodies: cropBodies() },
   { kind: 'packs', things: PACKS, bodies: packBodies() },
+  { kind: 'animals', things: ANIMALS, bodies: animalBodies() },
+  { kind: 'vehicles', things: VEHICLES, bodies: vehicleBodies() },
+  { kind: 'mounts', things: MOUNTS, bodies: mountBodies() },
+  { kind: 'gliders', things: GLIDERS, bodies: gliderBodies() },
 ];
 
 test('every look names a body its kind has', () => {

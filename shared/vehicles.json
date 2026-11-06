@@ -85,7 +85,10 @@
           "r": 0.5,
           "steer": false
         }
-      ]
+      ],
+      "look": {
+        "body": "farmCart"
+      }
     },
     {
       "id": "roadster",
@@ -156,7 +159,10 @@
           "r": 0.38,
           "steer": false
         }
-      ]
+      ],
+      "look": {
+        "body": "roadster"
+      }
     },
     {
       "id": "hauler",
@@ -262,7 +268,10 @@
           "r": 0.62,
           "steer": false
         }
-      ]
+      ],
+      "look": {
+        "body": "hauler"
+      }
     },
     {
       "id": "rowboat",
@@ -323,7 +332,10 @@
           "y": 0.58,
           "z": 0.42
         }
-      ]
+      ],
+      "look": {
+        "body": "rowboat"
+      }
     },
     {
       "id": "sloop",
@@ -409,7 +421,10 @@
           "y": 1.05,
           "z": -2.2
         }
-      ]
+      ],
+      "look": {
+        "body": "sloop"
+      }
     },
     {
       "id": "cog",
@@ -557,7 +572,10 @@
           "y": 2.25,
           "z": -4
         }
-      ]
+      ],
+      "look": {
+        "body": "cog"
+      }
     }
   ],
   "mounts": [
@@ -594,7 +612,10 @@
           "y": 1.32,
           "z": -0.52
         }
-      ]
+      ],
+      "look": {
+        "body": "donkey"
+      }
     },
     {
       "id": "horse",
@@ -623,7 +644,10 @@
           "pose": "ride"
         }
       ],
-      "cargo": []
+      "cargo": [],
+      "look": {
+        "body": "horse"
+      }
     }
   ],
   "gliders": [
@@ -648,6 +672,9 @@
         "speed": 3.5,
         "lift": 4.5,
         "cooldownSeconds": 30
+      },
+      "look": {
+        "body": "wayfarer"
       }
     },
     {
@@ -671,6 +698,9 @@
         "speed": 7,
         "lift": 6.5,
         "cooldownSeconds": 16
+      },
+      "look": {
+        "body": "swiftwing"
       }
     }
   ]

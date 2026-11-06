@@ -337,7 +337,14 @@ function donkey(def: MountDef): MountModel {
 }
 
 /** Builds a mount; unknown ids get a horse-like build scaled to the data. */
+/** The mounts' bodies, by name: a mount's look names one. */
+const BODIES: Record<string, (def: MountDef) => MountModel> = { horse, donkey };
+
+/** The bodies a look can name. */
+export const mountBodies = (): string[] => Object.keys(BODIES);
+
+/** Builds a mount: the body its look names, or a horse if it names none. */
 export function buildMount(def: MountDef): MountModel {
-  if (def.id === 'donkey') return donkey(def);
-  return horse(def);
+  const body = def.look?.body;
+  return ((body && BODIES[body]) || horse)(def);
 }

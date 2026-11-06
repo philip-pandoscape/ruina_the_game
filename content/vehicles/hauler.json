@@ -102,5 +102,8 @@
       "r": 0.62,
       "steer": false
     }
-  ]
+  ],
+  "look": {
+    "body": "hauler"
+  }
 }

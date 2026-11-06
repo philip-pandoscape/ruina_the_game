@@ -25,5 +25,8 @@
       "pose": "ride"
     }
   ],
-  "cargo": []
+  "cargo": [],
+  "look": {
+    "body": "horse"
+  }
 }
