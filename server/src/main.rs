@@ -160,6 +160,9 @@ struct Window {
     real_client_ticks: u64,
 }
 
+// The battlefield's loop, with its tuples of clients; it goes when the battlefield becomes a zone
+// (.plans/refactor, Phase 10).
+#[allow(clippy::type_complexity)]
 fn run(bots: usize, virtual_clients: usize, hz: u32, slimes: usize, registry: Registry) {
     let world = battlefield(SEED);
     let mut battle = Battle::new(bots);
@@ -266,7 +269,7 @@ fn run(bots: usize, virtual_clients: usize, hz: u32, slimes: usize, registry: Re
 
         // Once a second: every fighter coarsely, plus server stats. Built once, shared by everyone.
         let mut shared: Vec<Bytes> = Vec::new();
-        if tick % hz as u64 == 0 {
+        if tick.is_multiple_of(hz as u64) {
             shared.push(Bytes::from(protocol::far(&battle)));
             if let Some(s) = &last_stats {
                 shared.push(s.clone());
@@ -280,7 +283,7 @@ fn run(bots: usize, virtual_clients: usize, hz: u32, slimes: usize, registry: Re
         clients.par_iter().for_each_init(
             || (Scratch::default(), Vec::with_capacity(8192), Vec::new()),
             |(scratch, buf, nearby_players), (id, tx, x, z, slot)| {
-                let mid = (tick + *id as u64) % MID_EVERY == 0;
+                let mid = (tick + *id as u64).is_multiple_of(MID_EVERY);
                 build_snapshot(&battle, &grid, &records, *x, *z, mid, scratch, buf);
                 players.write_sections(buf, *slot, *x as f64, *z as f64, nearby_players);
                 let queued = Instant::now();
@@ -307,7 +310,7 @@ fn run(bots: usize, virtual_clients: usize, hz: u32, slimes: usize, registry: Re
             || (Scratch::default(), Vec::with_capacity(8192)),
             |(scratch, buf), v| {
                 let i = v % battle.n;
-                let mid = (tick + v as u64) % MID_EVERY == 0;
+                let mid = (tick + v as u64).is_multiple_of(MID_EVERY);
                 build_snapshot(&battle, &grid, &records, battle.x[i], battle.z[i], mid, scratch, buf);
                 virt_bytes.fetch_add((buf.len() + shared_len) as u64, Ordering::Relaxed);
             },

@@ -61,9 +61,14 @@ jobs:
         with:
           include: server/data/emberholm.zone
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: server
+      # Every lint clippy has, as an error: the code holds none today, and keeps it that way.
+      - name: Lints
+        run: cargo clippy --locked --manifest-path server/Cargo.toml --all-targets -- -D warnings
       # In debug, with the dependencies optimized (server/Cargo.toml): quicker to build than a
       # release test binary, which took most of this job's time while the tests run in seconds.
       - name: Unit tests

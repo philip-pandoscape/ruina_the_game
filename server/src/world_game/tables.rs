@@ -628,7 +628,7 @@ mod tests {
 
     /// The last view of their table a browser was sent.
     fn last_view(rx: &mut mpsc::Receiver<String>) -> Option<Value> {
-        heard(rx).into_iter().filter(|m| m["t"] == "table").last().map(|m| m["table"].clone())
+        heard(rx).into_iter().rfind(|m| m["t"] == "table").map(|m| m["table"].clone())
     }
 
     /// Ann challenges Bea for `stake` and Bea accepts: the table's id.

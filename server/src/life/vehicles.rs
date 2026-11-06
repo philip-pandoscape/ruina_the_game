@@ -746,13 +746,10 @@ fn move_on_land(sim: &Sim, v: &mut Vehicle, def: &RideableDef, climb: f64, max_w
         let wet = hf.water - hf.height(nx, nz);
         let ground = ground_at(hf, idx, nx, nz, v.y + 0.6, 0.6);
         let rise = ground - v.y;
-        if wet > max_wade && !v.swimming {
-            blocked = true;
-        } else if v.grounded && rise > 0.6 {
-            blocked = true;
-        } else if v.grounded && rise > 0.02 && ground <= hf.height(nx, nz) + 0.01 && hf.slope(nx, nz) > climb {
-            blocked = true;
-        }
+        // Too deep to wade without swimming, a step up too high, or a slope too steep to climb.
+        blocked = (wet > max_wade && !v.swimming)
+            || (v.grounded && rise > 0.6)
+            || (v.grounded && rise > 0.02 && ground <= hf.height(nx, nz) + 0.01 && hf.slope(nx, nz) > climb);
     }
     if blocked {
         // Lose the speed into the obstacle, keep sliding along it.
@@ -1118,11 +1115,11 @@ mod tests {
         }
 
         fn dismount(&mut self) -> bool {
-            self.with(|life, sim| dismount(life, sim))
+            self.with(dismount)
         }
 
         fn mount(&mut self) {
-            self.with(|life, sim| mount_command(life, sim));
+            self.with(mount_command);
         }
 
         fn v(&self, id: i64) -> &Vehicle {

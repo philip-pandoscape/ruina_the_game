@@ -615,11 +615,10 @@ fn walk(a: &mut Actor, s: &BehaviourState, seen: Sighting, ctx: &Ctx) {
 
 /// Puts an attack's cooldown on, drawn from its range.
 fn cool_down(a: &mut Actor, b: &Behaviour, attack: &str, range: [f64; 2]) {
-    if let Some(i) = b.attacks.iter().position(|x| x == attack) {
-        if i < a.cds.len() {
+    if let Some(i) = b.attacks.iter().position(|x| x == attack)
+        && i < a.cds.len() {
             a.cds[i] = draw_frames(a, Some(range));
         }
-    }
 }
 
 // A frame of a strike: it tracks you early in the wind-up, then commits; the blow goes on the

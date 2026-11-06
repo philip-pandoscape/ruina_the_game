@@ -297,8 +297,8 @@ impl Table {
                 _ => {}
             }
         }
-        if let Some(s) = self.rules.to_move() {
-            if now - self.turn_began >= self.turn_seconds {
+        if let Some(s) = self.rules.to_move()
+            && now - self.turn_began >= self.turn_seconds {
                 self.seats[s].timeouts += 1;
                 if self.seats[s].timeouts >= self.game.timeouts_to_forfeit {
                     self.end(Some(1 - s), Why::Timeouts, now);
@@ -308,7 +308,6 @@ impl Table {
                 changed = true;
                 self.after_move(now);
             }
-        }
         if changed {
             self.version += 1;
         }

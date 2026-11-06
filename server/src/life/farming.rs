@@ -275,11 +275,10 @@ pub fn add_scarecrow_collider(sim: &mut Sim, sc: &Scarecrow) {
             let i = ((sc.x + ox - hf.min) / hf.cell).floor();
             let j = ((sc.z + oz - hf.min) / hf.cell).floor();
             let cells = hf.cells as f64;
-            if i >= 0.0 && j >= 0.0 && i < cells && j < cells {
-                if let Some(c) = clear.get_mut(j as usize * hf.cells + i as usize) {
+            if i >= 0.0 && j >= 0.0 && i < cells && j < cells
+                && let Some(c) = clear.get_mut(j as usize * hf.cells + i as usize) {
                     *c = 1;
                 }
-            }
             b += hf.cell / 2.0;
         }
         a += hf.cell / 2.0;

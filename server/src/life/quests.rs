@@ -324,7 +324,7 @@ pub fn step_quests(life: &mut Life, sim: &mut Sim) {
                     .is_some_and(|pl| js_hypot(x - pl.x, z - pl.z) <= o.r.unwrap_or(20.0) && y >= o.min_y.unwrap_or(f64::NEG_INFINITY))
         };
         for id in active_ids(life) {
-            count_toward(life, &id, &at, 1.0);
+            count_toward(life, &id, at, 1.0);
         }
     }
 }

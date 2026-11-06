@@ -122,6 +122,7 @@ fn gather(b: &Battle, g: &InterestGrid, vx: f32, vz: f32, max_r: f32, want: usiz
 }
 
 /// Writes one SNAPSHOT message for a player standing at (vx, vz) into `out`.
+#[allow(clippy::too_many_arguments)]
 pub fn build_snapshot(
     b: &Battle,
     g: &InterestGrid,

@@ -83,11 +83,10 @@ impl Spaces {
         let character = a.character;
         self.home.insert(character, home);
         let mut into = home;
-        if let Some(&was) = self.at.get(&character) {
-            if was < 0 && self.games.contains_key(&was) && self.may_be_in(character, was) {
+        if let Some(&was) = self.at.get(&character)
+            && was < 0 && self.games.contains_key(&was) && self.may_be_in(character, was) {
                 into = was;
             }
-        }
         self.channel(home);
         // Anything of theirs left behind in another game (they left a copy a moment ago, and it isn't theirs now).
         for (id, g) in self.games.iter_mut() {
@@ -314,11 +313,10 @@ impl Spaces {
         self.tell(to, &invite_json(None));
         let changed = changed?;
         // A party just formed takes over its leader's copies of dungeons, as in World of Warcraft.
-        if accept && new_party {
-            if let Some(&pid) = changed.parties.first() {
+        if accept && new_party
+            && let Some(&pid) = changed.parties.first() {
                 self.hand_copies(Owner::Solo(from), Owner::Party(pid));
             }
-        }
         self.apply(changed);
         Ok(())
     }

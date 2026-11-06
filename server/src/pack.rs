@@ -98,13 +98,12 @@ pub fn step_packs(list: &mut [Actor], foes: &[Foe]) {
             dist(&list[a]) <= p.opening_range && (exposed || off_facing(f.facing, f.x, f.z, list[a].x, list[a].z) > p.back_arc * DEG)
         });
         let mut left = p.tokens[fighting.len().min(p.tokens.len()) - 1] + i32::from(opener.is_some()) - held;
-        if let Some(a) = opener {
-            if left > 0 {
+        if let Some(a) = opener
+            && left > 0 {
                 list[a].token = true;
                 list[a].opening = true;
                 left -= 1;
             }
-        }
         for &a in &waiting {
             if left <= 0 {
                 break;

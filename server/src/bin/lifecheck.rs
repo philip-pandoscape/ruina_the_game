@@ -138,7 +138,7 @@ fn main() {
                 events.push(serde_json::to_value(e).unwrap());
             }
             frame += 1;
-            if frame % every == 0 || frame == total {
+            if frame.is_multiple_of(every) || frame == total {
                 out.push(json!({ "frame": frame, "player": player_state_json(&p), "life": life.state, "events": std::mem::take(&mut events) }));
             }
         }

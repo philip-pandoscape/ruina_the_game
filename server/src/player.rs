@@ -374,15 +374,14 @@ impl Player {
                 self.accelerate_toward(0.0, 0.0, decel);
             }
             // Jumping out of a slide is a long jump that keeps most of its speed.
-            if let Some(carry) = jump_carry {
-                if self.jump_buffer > 0 {
+            if let Some(carry) = jump_carry
+                && self.jump_buffer > 0 {
                     self.end_action();
                     self.vel.x *= carry;
                     self.vel.z *= carry;
                     self.try_jump(a);
                     return;
                 }
-            }
             if ground_only && !self.grounded {
                 self.end_action();
                 return;
@@ -418,16 +417,14 @@ impl Player {
         }
         let Some(def) = movement_action(self.action_id) else { return 1.0 };
         let f = self.action_frame;
-        if let (Some(from), Some(to)) = (def.invuln_from, def.invuln_to) {
-            if f >= from && f <= to {
+        if let (Some(from), Some(to)) = (def.invuln_from, def.invuln_to)
+            && f >= from && f <= to {
                 return 0.0;
             }
-        }
-        if let Some(scale) = def.damage_taken {
-            if f > def.startup && f <= def.startup + def.active {
+        if let Some(scale) = def.damage_taken
+            && f > def.startup && f <= def.startup + def.active {
                 return scale;
             }
-        }
         1.0
     }
 

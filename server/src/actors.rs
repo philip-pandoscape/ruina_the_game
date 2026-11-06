@@ -304,12 +304,11 @@ impl Actors {
                     a.calling += 1;
                 }
                 let calm_beyond = brain_of(a).and_then(|b| b.anger.as_ref()).map(|g| g.calm_beyond);
-                if let Some(calm) = calm_beyond {
-                    if a.angry > 0 && len(a.x - a.home_x, a.z - a.home_z) > calm {
+                if let Some(calm) = calm_beyond
+                    && a.angry > 0 && len(a.x - a.home_x, a.z - a.home_z) > calm {
                         a.angry = 0;
                         a.rally_to = 0;
                     }
-                }
                 if a.fuse > 0 {
                     a.fuse -= 1;
                     if a.fuse == 0 {
@@ -457,7 +456,7 @@ impl Actors {
     fn throw_at(&mut self, i: usize, attack: usize, foes: &[Foe], ground: &dyn Fn(f64, f64) -> f64) {
         let Some(atk) = attack_at(attack) else { return };
         let a = &self.list[i];
-        let mut foe = foes.iter().filter(|f| f.id == a.target).last();
+        let mut foe = foes.iter().rfind(|f| f.id == a.target);
         if foe.is_none() {
             let mut best = f64::INFINITY;
             for f in foes {

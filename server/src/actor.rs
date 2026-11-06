@@ -220,11 +220,10 @@ impl Actor {
 
     /// Back on its feet where it was spawned, as what it was spawned as.
     pub fn revive(&mut self) {
-        if self.kind != self.home_kind {
-            if let Some(k) = kind(&self.home_kind) {
+        if self.kind != self.home_kind
+            && let Some(k) = kind(&self.home_kind) {
                 self.become_kind(k);
             }
-        }
         self.mass = kind_mass(&self.home_kind);
         self.hp = self.max_hp;
         self.dead_frame = -1;

@@ -460,8 +460,7 @@ async fn load_channel(app: &App, db: &PgPool, channel: i32) -> Result<(), sqlx::
 /// movement slots. None if it isn't one, or isn't allowed with `budget` skill points (in the open
 /// world, what the character has earned: crate::life::progress::skill_budget).
 pub fn parse_build(v: &Value, budget: u32) -> Option<Build> {
-    let mut b = Build::default();
-    b.weapon = u8::try_from(v.get("weapon")?.as_u64()?).ok()?;
+    let mut b = Build { weapon: u8::try_from(v.get("weapon")?.as_u64()?).ok()?, ..Build::default() };
     let mut skills = [0u32; SKILL_WORDS];
     for (k, w) in v.get("skills")?.as_array()?.iter().take(SKILL_WORDS).enumerate() {
         skills[k] = u32::try_from(w.as_u64()?).ok()?;

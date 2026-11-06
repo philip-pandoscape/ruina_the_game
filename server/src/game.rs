@@ -59,7 +59,7 @@ pub fn actions_from(raw: [u8; 8]) -> Actions {
         crouch_held: b & 32 != 0,
         ability_slot: if raw[5] <= HOTBAR_SLOTS as u8 { raw[5] } else { 0 },
         // Values past the hotbar are the movement slots, so one byte covers both.
-        movement_slot: if raw[5] > HOTBAR_SLOTS as u8 { raw[5] - HOTBAR_SLOTS as u8 } else { 0 },
+        movement_slot: raw[5].saturating_sub(HOTBAR_SLOTS as u8),
         movement_held: raw[6],
         aim_x: aim_axis(raw[3] as i8),
         aim_z: aim_axis(raw[4] as i8),
@@ -286,16 +286,16 @@ impl Players {
     /// Remembers something that happened *to this player or because of them*, for a floating
     /// number in their browser. Capped per tick so one meteor into a crowd can't flood a snapshot;
     /// the browser pools what does arrive anyway.
+    #[allow(clippy::too_many_arguments)]
     fn note(&mut self, slot: usize, kind: u8, cause: u8, x: f64, y: f64, z: f64, amount: f64) {
         if amount < 0.5 {
             return;
         }
-        if let Some(list) = self.my_events.get_mut(slot) {
-            if list.len() < MAX_OWN_EVENTS {
+        if let Some(list) = self.my_events.get_mut(slot)
+            && list.len() < MAX_OWN_EVENTS {
                 // kind is 4..6, so the top nibble is free for what caused it.
                 list.push(Event { kind: kind | (cause << 4), x, y, z, size: amount.round().clamp(1.0, 255.0) as u8 });
             }
-        }
     }
 
     /// Recent average rewind applied to player-vs-player hits, in milliseconds.
@@ -418,11 +418,10 @@ impl Players {
     /// Open worlds: a command for the island, given on input `seq`.
     pub fn queue_command(&mut self, client_id: u32, seq: u32, c: Command) {
         let Some(&s) = self.by_client.get(&client_id) else { return };
-        if let Some(slot) = &mut self.slots[s] {
-            if slot.commands.len() < 64 {
+        if let Some(slot) = &mut self.slots[s]
+            && slot.commands.len() < 64 {
                 slot.commands.push_back((seq, c));
             }
-        }
     }
 
     /// Open worlds: a player, the last input they've had run, and their island.
@@ -492,12 +491,11 @@ impl Players {
     /// Removes players whose connection has closed.
     pub fn retain(&mut self, connected: impl Fn(u32) -> bool) {
         for s in self.slots.iter_mut() {
-            if let Some(slot) = s {
-                if !connected(slot.client_id) {
+            if let Some(slot) = s
+                && !connected(slot.client_id) {
                     self.by_client.remove(&slot.client_id);
                     *s = None;
                 }
-            }
         }
     }
 
@@ -999,7 +997,7 @@ impl Players {
             .enumerate()
             .filter_map(|(s, slot)| {
                 let p = &slot.as_ref()?.player;
-                (p.down_frame < 0).then(|| BotTarget { slot: s as u32, x: p.pos.x as f32, z: p.pos.z as f32, team: p.team })
+                (p.down_frame < 0).then_some(BotTarget { slot: s as u32, x: p.pos.x as f32, z: p.pos.z as f32, team: p.team })
             })
             .collect()
     }

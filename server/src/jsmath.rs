@@ -41,6 +41,8 @@ mod tests {
     use super::*;
 
     #[test]
+    // V8's Math.exp(1) to the bit: the value itself, not an approximation of e.
+    #[allow(clippy::approx_constant)]
     fn the_same_values_v8_gives() {
         // Math.exp(1), Math.atan2(1, 2), Math.sin(1), Math.cos(1) in Node 24.
         assert_eq!(1.0f64.js_exp(), 2.718281828459045);

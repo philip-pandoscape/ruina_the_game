@@ -374,13 +374,12 @@ impl ChannelGame {
             let mut life = Life::new(zone, None, None);
             let mut player = Player::new(Spawn { x: zone.recipe.spawn.x, z: zone.recipe.spawn.z, facing: zone.recipe.spawn.facing }, 0, Build::default());
             stand_on_ground(&mut player, &self.open);
-            if let Some(island) = &a.island {
-                if let Err(e) = load_island(&mut life, &mut player, &mut self.open, a.character, island, a.saved_at.unwrap_or(a.now), a.now) {
+            if let Some(island) = &a.island
+                && let Err(e) = load_island(&mut life, &mut player, &mut self.open, a.character, island, a.saved_at.unwrap_or(a.now), a.now) {
                     eprintln!("character {}: the saved island can't be read ({e}); it is kept as it is, and this visit isn't saved", a.character);
                     life.toast("Your island couldn't be loaded. It's kept safe on the server, but nothing from this visit will be saved.", "bad");
                     keep_saved = true;
                 }
-            }
             // The build they kept, if the skill points their island has earned still cover it.
             if let Some(b) = a.build.as_ref().and_then(|v| parse_build(v, skill_budget(&life.state))) {
                 player.apply_build(b);
@@ -496,12 +495,11 @@ impl ChannelGame {
         if !x.is_finite() || !z.is_finite() || !hf.inside(x, z, 0.0) {
             return;
         }
-        if p.mode == Mode::Ride {
-            if let Some(life) = life {
+        if p.mode == Mode::Ride
+            && let Some(life) = life {
                 let mut sim = Sim { player: p, world: &mut self.open, owner: character };
                 vehicles::dismount(life, &mut sim);
             }
-        }
         let y = ground_at(hf, &self.open.index, x, z, floor.unwrap_or_else(|| hf.height(x, z)) + 1.2, 1.2);
         p.pos.x = x;
         p.pos.y = y;
@@ -752,11 +750,10 @@ impl ChannelGame {
             }
         }
         for (id, e) in &self.estates.estates {
-            if !self.members.contains_key(id) {
-                if let Ok(s) = serde_json::from_value::<LifeState>(e.estate.clone()) {
+            if !self.members.contains_key(id)
+                && let Ok(s) = serde_json::from_value::<LifeState>(e.estate.clone()) {
                     lists.push((*id, s));
                 }
-            }
         }
         for (owner, s) in lists {
             make_solid(&mut self.open, owner, &s);
@@ -878,11 +875,10 @@ impl ChannelGame {
                     saves.push(Save { character: id, session, island: outside_of(island_of(p, life, &mut self.open, id), outside), out: Some(out.clone()) });
                 }
             }
-            if save_due {
-                if let Some(m) = self.members.get_mut(&id) {
+            if save_due
+                && let Some(m) = self.members.get_mut(&id) {
                     m.last_save = now;
                 }
-            }
             let mut msg = json!({
                 "t": "tick",
                 "tick": self.tick,
@@ -916,8 +912,8 @@ impl ChannelGame {
         let Some(at) = self.arrival() else { return };
         let ids: Vec<i64> = self.members.keys().copied().collect();
         for id in ids {
-            if let Some((p, _)) = self.players.open_mut(client(id)) {
-                if def.fallen_out(p.pos.y) {
+            if let Some((p, _)) = self.players.open_mut(client(id))
+                && def.fallen_out(p.pos.y) {
                     p.pos.x = at.x;
                     p.pos.y = at.y;
                     p.pos.z = at.z;
@@ -928,7 +924,6 @@ impl ChannelGame {
                     }
                     p.grounded = true;
                 }
-            }
         }
     }
 }
@@ -1027,15 +1022,14 @@ pub fn load_island(life: &mut Life, p: &mut Player, world: &mut OpenWorld, owner
     let hf = world.terrain();
     let at = &island["player"];
     let num = |k: &str| at.get(k).and_then(Value::as_f64).filter(|v| v.is_finite());
-    if let (Some(x), Some(z), Some(y), Some(facing)) = (num("x"), num("z"), num("y"), num("facing")) {
-        if hf.inside(x, z, 10.0) {
+    if let (Some(x), Some(z), Some(y), Some(facing)) = (num("x"), num("z"), num("y"), num("facing"))
+        && hf.inside(x, z, 10.0) {
             p.pos.x = x;
             p.pos.z = z;
             p.pos.y = ground_at(hf, &world.index, x, z, y.max(hf.height(x, z)) + 0.5, 1.0);
             p.facing = facing;
             p.grounded = true;
         }
-    }
     Ok(())
 }
 

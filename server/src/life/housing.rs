@@ -175,11 +175,10 @@ pub fn add_house_colliders(life: &Life, sim: &mut Sim, h: &House) {
                 let (ox, oz) = to_world(a, b, rot);
                 let i = ((px + ox - hf.min) / hf.cell).floor();
                 let j = ((pz + oz - hf.min) / hf.cell).floor();
-                if i >= 0.0 && j >= 0.0 && i < hf.cells as f64 && j < hf.cells as f64 {
-                    if let Some(c) = clear.get_mut(j as usize * hf.cells + i as usize) {
+                if i >= 0.0 && j >= 0.0 && i < hf.cells as f64 && j < hf.cells as f64
+                    && let Some(c) = clear.get_mut(j as usize * hf.cells + i as usize) {
                         *c = 1;
                     }
-                }
                 b += hf.cell / 2.0;
             }
             a += hf.cell / 2.0;

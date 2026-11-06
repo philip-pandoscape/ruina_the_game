@@ -859,13 +859,12 @@ fn gather(life: &mut Life, f: &Focus) {
     }
     let n = life.rand_int(y.n[0], y.n[1]);
     life.give(&y.item, n, false);
-    if let Some(rare) = &y.rare {
-        if life.rand() < rare.chance {
+    if let Some(rare) = &y.rare
+        && life.rand() < rare.chance {
             life.give(&rare.item, 1, false);
             life.toast("⚡ A thunderstruck log!", "coin");
             life.emit(LifeEvent::Thunder { x: nd.x, y: f.y, z: nd.z });
         }
-    }
     let back = life.state.clock + y.respawn;
     life.state.nodes.insert(i.to_string(), back);
     life.revision += 1;

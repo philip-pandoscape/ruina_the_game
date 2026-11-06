@@ -7,6 +7,7 @@
 //!   - one card: light any unlit hex of that good with one of your beacons;
 //!   - two cards of the same good: light any unlit hex at all, the Old Beacon too;
 //!   - a swap: discard one card and draw one.
+//!
 //! Then draw back up to four: for each card played, take a Harbour card (the deck refills its
 //! place at once) or the deck's top card. An empty deck is the discards shuffled.
 //!

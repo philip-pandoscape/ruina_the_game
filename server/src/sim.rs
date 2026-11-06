@@ -34,6 +34,9 @@ impl Rng {
         (t ^ (t >> 14)) as f64 / 4_294_967_296.0
     }
 
+    // The battlefield's own generator, as the browser's crowd has it; one generator for every
+    // rule comes with the engine crate (.plans/refactor, R5.2b).
+    #[allow(clippy::should_implement_trait)]
     pub fn next(&mut self) -> f32 {
         self.next_f64() as f32
     }
@@ -276,8 +279,8 @@ impl Battle {
                 let before = self.attack_t[i];
                 self.attack_t[i] += dt / ATTACK_TIME;
                 let t = self.target[i];
-                if before < 0.45 && self.attack_t[i] >= 0.45 {
-                    if let Some((tx, tz)) = self.target_pos(t, players, &lookup) {
+                if before < 0.45 && self.attack_t[i] >= 0.45
+                    && let Some((tx, tz)) = self.target_pos(t, players, &lookup) {
                         let (ddx, ddz) = (tx - self.x[i], tz - self.z[i]);
                         let d = (ddx * ddx + ddz * ddz).sqrt();
                         if d < REACH + 0.4 {
@@ -296,7 +299,6 @@ impl Battle {
                             }
                         }
                     }
-                }
                 if self.attack_t[i] >= 1.0 {
                     self.attack_t[i] = -1.0;
                 }
@@ -313,7 +315,7 @@ impl Battle {
                 t = -1;
             }
             let turn = i as u64 + self.tick;
-            if target_fell || (t < 0 && turn % 4 == 0) || (t >= 0 && turn % 5 == 0) {
+            if target_fell || (t < 0 && turn.is_multiple_of(4)) || (t >= 0 && turn.is_multiple_of(5)) {
                 t = self.find_enemy(i, players);
             }
             self.target[i] = t;

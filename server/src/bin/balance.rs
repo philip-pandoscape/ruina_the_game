@@ -131,6 +131,8 @@ struct Outcome {
 
 /// One duel. Both fighters are driven the same way: close the gap, swing in range, and spend a
 /// hotbar slot whenever it is off cooldown. Any difference in the result is the builds.
+// `me` and `you` are the two duellists, indexes into every pair of arrays here.
+#[allow(clippy::needless_range_loop)]
 fn duel(a: &Build, b: &Build, seed: u32, max_ticks: u32, distance: f64) -> Outcome {
     let world = battlefield(SEED);
     let tick_ms = 1000.0 / tuning().sim_hz;

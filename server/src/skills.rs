@@ -243,11 +243,10 @@ fn applies(m: &SkillMod, c: &ModContext) -> bool {
     if m.weapon.is_some() && m.weapon != c.weapon {
         return false;
     }
-    if let Some(skill) = &m.skill {
-        if c.skill != Some(skill.as_str()) {
+    if let Some(skill) = &m.skill
+        && c.skill != Some(skill.as_str()) {
             return false;
         }
-    }
     m.tags.iter().all(|t| c.tags.contains(t))
 }
 

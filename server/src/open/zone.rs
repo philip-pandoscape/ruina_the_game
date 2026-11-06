@@ -367,7 +367,7 @@ pub fn parse(b: &[u8], recipe: Recipe) -> Option<Zone> {
     let cells = r.u32()? as usize;
     let (cell, water, min) = (r.f64()?, r.f64()?, r.f64()?);
     let n = cells + 1;
-    let heights = r.take(n * n * 4)?.chunks_exact(4).map(|c| f32::from_le_bytes([c[0], c[1], c[2], c[3]])).collect();
+    let heights = r.take(n * n * 4)?.as_chunks::<4>().0.iter().map(|c| f32::from_le_bytes([c[0], c[1], c[2], c[3]])).collect();
     let surface = r.take(cells * cells)?.to_vec();
     let clear = r.take(cells * cells)?.to_vec();
     let count = r.u32()? as usize;

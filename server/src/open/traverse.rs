@@ -473,7 +473,7 @@ pub fn update_glide(sim: &mut Sim, a: &Actions) {
         let diff = angle_diff(p.facing, want);
         turn = (-g.turn_rate).max(g.turn_rate.min(diff * gl.turn_ease)) * mag;
     }
-    p.facing = p.facing + turn * dt;
+    p.facing += turn * dt;
     if p.facing > PI {
         p.facing -= TAU;
     }
