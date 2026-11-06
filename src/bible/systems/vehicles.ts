@@ -12,9 +12,9 @@ import { coins, count, degrees, duration, listOf, metres, num, pct, slopeDegrees
 import { join, system, table } from '../kit';
 import { link, md, phrase, raw } from '../md';
 import { rustConst } from '../source';
-import vehiclesSource from '../../sim/life/vehicles.ts?raw';
-import interactSource from '../../sim/life/interact.ts?raw';
-import weatherSource from '../../sim/life/weather.ts?raw';
+import vehiclesSource from '../../../crates/engine/src/life/vehicles.rs?raw';
+import interactSource from '../../../crates/engine/src/life/interact.rs?raw';
+import weatherSource from '../../../crates/engine/src/life/weather.rs?raw';
 import playSource from '../../../crates/server/src/play/mod.rs?raw';
 
 /** The numbers the first groups of `pattern` find in the rules' source: throws when the source has changed shape. */
@@ -31,50 +31,41 @@ const re = (s: string): RegExp => new RegExp(s.replace(/\{N\}/g, N));
 /** Every number the vehicle rules keep in their source, read as the page is drawn. */
 const rule = () => {
   const v = vehiclesSource;
-  const [g1, g2] = nums(v, re(String.raw`const G = {N} \* {N};`), 'the pull of gravity on a vehicle in the air');
-  const [hardFrom, , perMs] = nums(
+  const [hardFrom, perMs] = nums(
     v,
-    re(String.raw`v\.vy < -{N}\) v\.hp = Math\.max\({N}, v\.hp - \(-v\.vy - \d+(?:\.\d+)?\) \* {N}\)`),
+    re(String.raw`v\.vy < -{N} \{\s*v\.hp = 1f64\.max\(v\.hp - \(-v\.vy - \d+(?:\.\d+)?\) \* {N}\);`),
     'what a hard landing costs',
   );
-  const [overRate, overFlat] = nums(v, re(String.raw`\(Math\.abs\(vf\) - cap\) \* {N} \* dt \+ {N} \* dt`), 'how fast a vehicle sheds speed over its cap');
-  const [gravity, slopeShare] = nums(v, re(String.raw`vf -= {N} \* \(g\.x \* fx \+ g\.z \* fz\) \* dt \* {N};`), 'how slopes pull a vehicle');
-  const [fullAt, topLoss] = nums(v, re(String.raw`clamp\(Math\.abs\(vf\) \/ {N}, 0, 1\) \* \(1 - {N} \*`), 'how steering grows and fades with speed');
-  const [windBase, windShare] = nums(v, re(String.raw`eff \* \({N} \+ {N} \* w\.windSpeed\)`), 'how the wind fills a sail');
+  const [overRate, overFlat] = nums(v, re(String.raw`\(vf\.abs\(\) - cap\) \* {N} \* dt \+ {N} \* dt`), 'how fast a vehicle sheds speed over its cap');
+  const [gravity, slopeShare] = nums(v, re(String.raw`vf -= {N} \* \(gx \* fx \+ gz \* fz\) \* dt \* {N};`), 'how slopes pull a vehicle');
+  const [fullAt, topLoss] = nums(v, re(String.raw`clamp\(vf\.abs\(\) \/ {N}, 0\.0, 1\.0\) \* \(1\.0 - {N} \*`), 'how steering grows and fades with speed');
+  const [windBase, windShare] = nums(v, re(String.raw`eff \* \({N} \+ {N} \* wind_speed\)`), 'how the wind fills a sail');
   const [sailA, sailB, , , sailPow] = nums(
     v,
-    re(String.raw`return {N} \+ {N} \* Math\.pow\({N} \+ {N} \* Math\.cos\(rel\), {N}\);`),
+    re(String.raw`{N} \+ {N} \* \({N} \+ {N} \* rel\.js_cos\(\)\)\.js_pow\({N}\)`),
     'how much of the wind a sail can use',
   );
-  const [floatFrom, floatMore] = nums(v, re(String.raw`Math\.cos\(a\) \* \({N} \+ life\.rand\(\) \* {N}\)`), 'where lost cargo floats');
-  const [stormBase, stormShare] = nums(
-    weatherSource,
-    re(String.raw`return k \* \({N} \+ {N} \* life\.state\.weather\.windSpeed\)`),
-    'how the wind roughens a storm',
-  );
-  const [windMid, windSwing] = nums(weatherSource, re(String.raw`w\.windSpeed = {N} \+ {N} \* Math\.sin`), 'how strong the wind blows');
-  const [ringFrom, ringTo, ringStep] = nums(
-    v,
-    /for \(let dist = (\d+(?:\.\d+)?); dist <= (\d+(?:\.\d+)?); dist \+= (\d+(?:\.\d+)?)\)/,
-    'how far a boat is looked for',
-  );
+  const [floatFrom, floatMore] = nums(v, re(String.raw`a\.js_cos\(\) \* \({N} \+ life\.rand\(\) \* {N}\)`), 'where lost cargo floats');
+  const [stormBase, stormShare] = nums(weatherSource, re(String.raw`k \* \({N} \+ {N} \* life\.state\.weather\.wind_speed\)`), 'how the wind roughens a storm');
+  const [windMid, windSwing] = nums(weatherSource, re(String.raw`w\.wind_speed = {N} \+ {N} \* \(c`), 'how strong the wind blows');
+  const [ringFrom, ringTo, ringStep] = nums(v, re(String.raw`let mut dist = {N};\s*while dist <= {N} \{[\s\S]*?dist \+= {N};`), 'how far a boat is looked for');
   return {
-    gravityInAir: g1 * g2,
+    gravityInAir: rustConst(v, 'G'),
     hardFrom,
     perMs,
-    landSpots: nums(v, /for \(const dist of \[([\d.]+), ([\d.]+), ([\d.]+), ([\d.]+)\]\)/, 'how far a land vehicle is looked for'),
-    landTries: one(v, /for \(let k = 0; k < (\d+); k\+\+\) \{\s*const a = p\.facing/, 'how many ways round a land vehicle is looked for'),
-    landWet: one(v, re(String.raw`hf\.water - hf\.height\(x, z\) > {N}\) continue`), 'how wet a land vehicle may stand'),
-    landSlope: one(v, re(String.raw`hf\.slope\(x, z\) > {N}\) continue`), 'how steep a land vehicle may stand'),
-    landRise: one(v, re(String.raw`Math\.abs\(hf\.height\(x, z\) - p\.pos\.y\) > {N}\) continue`), 'how far above or below you a land vehicle may stand'),
-    keelRoom: one(v, re(String.raw`const need = def\.draft \+ {N};`), 'the water a summoned boat needs under her'),
+    landSpots: nums(v, /for dist in \[([\d.]+), ([\d.]+), ([\d.]+), ([\d.]+)\]/, 'how far a land vehicle is looked for'),
+    landTries: one(v, /for k in 0\.\.(\d+) \{\s*let a = p\.facing/, 'how many ways round a land vehicle is looked for'),
+    landWet: one(v, re(String.raw`hf\.water - hf\.height\(x, z\) > {N} \{\s*continue;`), 'how wet a land vehicle may stand'),
+    landSlope: one(v, re(String.raw`hf\.slope\(x, z\) > {N} \{\s*continue;`), 'how steep a land vehicle may stand'),
+    landRise: one(v, re(String.raw`\(hf\.height\(x, z\) - p\.pos\.y\)\.abs\(\) > {N} \{\s*continue;`), 'how far above or below you a land vehicle may stand'),
+    keelRoom: one(v, re(String.raw`let need = def\.draft \+ {N};`), 'the water a summoned boat needs under her'),
     ringFrom,
     ringTo,
     ringStep,
-    ringTries: one(v, /for \(let k = 0; k < (\d+); k\+\+\) \{\s*const a = \(k \//, 'how many ways round a boat is looked for'),
-    sand: one(v, re(String.raw`SURFACE\.sand \? {N} : 1\)`), 'how sand slows a wheeled vehicle'),
-    boostThrottle: one(v, re(String.raw`d\.boostSpeed > 0 && v\.throttle > {N}`), 'the throttle a boost needs'),
-    boostAccel: one(v, re(String.raw`d\.accel \* \(boosting \? {N} : 1\)`), 'how a boost speeds you up'),
+    ringTries: one(v, /for k in 0\.\.(\d+) \{\s*let a = \(k as f64 \//, 'how many ways round a boat is looked for'),
+    sand: one(v, re(String.raw`surface::SAND \{ {N} \} else \{ 1\.0 \}`), 'how sand slows a wheeled vehicle'),
+    boostThrottle: one(v, re(String.raw`d\.boost_speed > 0\.0 && v\.throttle > {N}`), 'the throttle a boost needs'),
+    boostAccel: one(v, re(String.raw`d\.accel \* \(if boosting \{ {N} \} else \{ 1\.0 \}\)`), 'how a boost speeds you up'),
     reverseAccel: one(v, re(String.raw`vf \+ d\.accel \* {N} \* t \* dt`), 'how fast a vehicle speeds up backwards'),
     overRate,
     overFlat,
@@ -83,11 +74,11 @@ const rule = () => {
     handbrake: one(v, re(String.raw`d\.brake \* {N} \* dt\);`), 'how hard the handbrake brakes'),
     fullAt,
     topLoss,
-    handbrakeTurn: one(v, re(String.raw`inp\.handbrake \? {N} : 1\)`), 'how the handbrake tightens a turn'),
-    offroadGrip: one(v, re(String.raw`\(paved \? 1 : {N}\)`), 'how grip falls off the road'),
-    throttleEase: one(v, re(String.raw`v\.throttle \+= \(inp\.throttle - v\.throttle\) \* Math\.min\(1, {N} \* dt\);`), 'how quickly the throttle follows you'),
-    wade: one(v, re(String.raw`moveOnLand\(sim, v, d, d\.climb, {N}\)`), 'how deep a wheeled vehicle wades'),
-    ledge: one(v, re(String.raw`v\.grounded && rise > {N}\) blocked`), 'the highest ledge a vehicle drives up'),
+    handbrakeTurn: one(v, re(String.raw`inp\.handbrake \{ {N} \} else \{ 1\.0 \}`), 'how the handbrake tightens a turn'),
+    offroadGrip: one(v, re(String.raw`\(if paved \{ 1\.0 \} else \{ {N} \}\)`), 'how grip falls off the road'),
+    throttleEase: one(v, re(String.raw`v\.throttle \+= \(inp\.throttle - v\.throttle\) \* 1f64\.min\({N} \* dt\);`), 'how quickly the throttle follows you'),
+    wade: one(v, re(String.raw`move_on_land\(sim, v, d, d\.climb, {N}\)`), 'how deep a wheeled vehicle wades'),
+    ledge: one(v, re(String.raw`v\.grounded && rise > {N}\)`), 'the highest ledge a vehicle drives up'),
     crest: one(v, re(String.raw`drop > {N} \+ speed \* dt`), 'when a vehicle leaves the ground over a crest'),
     bounce: one(v, re(String.raw`v\.vx -= vn \* nx \* {N};`), 'how a vehicle bounces off what it hits') - 1,
     sailRate: one(v, re(String.raw`v\.sail \+ inp\.throttle \* {N} \* dt`), 'how fast a sail goes up'),
@@ -96,15 +87,11 @@ const rule = () => {
     sailA,
     sailB,
     sailPow,
-    oarEase: one(
-      v,
-      re(String.raw`v\.throttle \+= \(inp\.throttle - v\.throttle\) \* Math\.min\(1, {N} \* dt\);\s*target = `),
-      'how quickly the oars follow you',
-    ),
-    fullTurnAt: one(v, re(String.raw`Math\.abs\(vf\) \/ \({N} \* d\.maxSpeed\)`), 'the speed a boat turns fully at'),
-    bow: one(v, re(String.raw`d\.length \* {N} \* Math\.sign\(vf \|\| 1\)`), 'where a boat feels for the bottom'),
-    aground: one(v, re(String.raw`v\.vx \*= -{N};\s*v\.vz \*= -\d+(?:\.\d+)?;\s*v\.speed = 0;`), 'how a boat stops on the bottom'),
-    buffet: one(v, re(String.raw`STORM\.buffet \* storm \* dt \* {N}`), 'how hard the swell shoves'),
+    oarEase: one(v, re(String.raw`v\.throttle \+= \(inp\.throttle - v\.throttle\) \* 1f64\.min\({N} \* dt\);\s*target = `), 'how quickly the oars follow you'),
+    fullTurnAt: one(v, re(String.raw`vf\.abs\(\) \/ \({N} \* d\.max_speed\)`), 'the speed a boat turns fully at'),
+    bow: one(v, re(String.raw`d\.length \* {N} \* js_sign\(or\(vf, 1\.0\)\)`), 'where a boat feels for the bottom'),
+    aground: one(v, re(String.raw`v\.vx \*= -{N};\s*v\.vz \*= -\d+(?:\.\d+)?;\s*v\.speed = 0\.0;`), 'how a boat stops on the bottom'),
+    buffet: one(v, re(String.raw`\.buffet \* storm \* dt \* {N}`), 'how hard the swell shoves'),
     floatFrom,
     floatMore,
     stormBase,
@@ -112,15 +99,15 @@ const rule = () => {
     windMid,
     windSwing,
     swimDepth: one(v, re(String.raw`v\.swimming = depth > {N};`), 'how deep a mount swims'),
-    swimShare: one(v, re(String.raw`if \(v\.swimming\) top \*= {N};`), 'how fast a mount swims'),
-    alignMin: one(v, re(String.raw`Math\.max\({N}, Math\.cos\(angleDiff\(v\.heading`), 'how a mount speeds up while turning'),
+    swimShare: one(v, re(String.raw`if v\.swimming \{\s*top \*= {N};`), 'how fast a mount swims'),
+    alignMin: one(v, re(String.raw`{N}f64\.max\(angle_diff\(v\.heading`), 'how a mount speeds up while turning'),
     slowShare: one(v, re(String.raw`v\.speed - d\.accel \* {N} \* dt`), 'how fast a mount slows'),
-    mountClimb: one(v, re(String.raw`GROUND\.maxSlope \* {N}, 99\)`), 'how steep a mount climbs'),
-    whistle: one(v, re(String.raw`Math\.hypot\(v\.x - p\.pos\.x, v\.z - p\.pos\.z\) > {N}\)`), 'how far a mount comes from when you whistle'),
-    stepOut: one(v, re(String.raw`const side = def\.width \/ 2 \+ {N};`), 'how far from the side you step out'),
-    cargoBias: one(v, re(String.raw`carrying \? {N} : 0\)`), 'how a pack in your arms favours the cargo bed'),
-    reach: one(interactSource, re(String.raw`distanceTo\(v, p\.pos\.x, p\.pos\.z\);\s*if \(d > {N}\) continue;`), 'how near a vehicle F reaches'),
-    slipReach: one(interactSource, re(String.raw`if \(d > {N}\) continue;\s*const y = hf\.height\(sy\.x, sy\.z\);`), 'how near a slipway F reaches'),
+    mountClimb: one(v, re(String.raw`max_slope \* {N}, 99\.0\)`), 'how steep a mount climbs'),
+    whistle: one(v, re(String.raw`hypot\(v\.x - px, v\.z - pz\) > {N} \{`), 'how far a mount comes from when you whistle'),
+    stepOut: one(v, re(String.raw`let side = def\.width \/ 2\.0 \+ {N};`), 'how far from the side you step out'),
+    cargoBias: one(v, re(String.raw`if carrying \{ {N} \} else \{ 0\.0 \}`), 'how a pack in your arms favours the cargo bed'),
+    reach: one(interactSource, re(String.raw`let d = distance_to\(v, px, pz\);\s*if d > {N} \{`), 'how near a vehicle F reaches'),
+    slipReach: one(interactSource, re(String.raw`if d > {N} \{\s*continue;\s*\}\s*let y = hf\.height\(sy\.x, sy\.z\);`), 'how near a slipway F reaches'),
     climbIn: rustConst(playSource, 'CLIMB_IN'),
   };
 };
@@ -137,7 +124,7 @@ export const vehicles = system({
   summary: 'Summoning, driving, sailing and riding; cargo and passengers; storms at sea; and building a ship on a slipway.',
   icon: '⛵',
   keywords: ['cart', 'boat', 'ship', 'sail', 'wind', 'drive', 'drift', 'handbrake', 'mount', 'horse', 'donkey', 'deed', 'whistle', 'storm', 'slipway', 'cargo'],
-  rules: ['src/sim/life/vehicles.ts', 'src/sim/life/shipyard.ts', 'crates/engine/src/life/vehicles.rs', 'crates/engine/src/life/shipyard.rs'],
+  rules: ['crates/engine/src/life/vehicles.rs', 'crates/engine/src/life/shipyard.rs'],
   content: ['shared/traversal.json#storm', 'shared/vehicles.json#vehicles', 'shared/vehicles.json#mounts', 'shared/shipyard.json#designs'],
   body: () => {
     const R = rule();

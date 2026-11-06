@@ -4,10 +4,10 @@ import { ARCH_HALF, DOOR_HALF, MODULE, STAIR, STOREY, WALL } from '../../content
 import { CARRY } from '../../content/trade';
 import { GROUND } from '../../content/traversal';
 import inputSource from '../../input/input.ts?raw';
-import locomotionSource from '../../sim/player/locomotion.ts?raw';
-import traverseSource from '../../sim/player/traverse.ts?raw';
+import playerSource from '../../../crates/engine/src/player.rs?raw';
+import traverseSource from '../../../crates/engine/src/open/traverse.rs?raw';
 import buildingsSource from '../../../crates/engine/src/open/buildings.rs?raw';
-import zoneWorldSource from '../../sim/zone/world.ts?raw';
+import zoneSource from '../../../crates/engine/src/open/zone.rs?raw';
 import { EMBERHOLM } from '../../engine/zone';
 import { ATTACK, JUMP, MOVE, MOVEMENT_SKILLS, SIM_HZ, STEP } from '../../content/tuning';
 import { accel, count, duration, frames, metres, num, pct, slopeDegrees, speed, speedKmh, turnRate } from '../format';
@@ -25,18 +25,12 @@ export const movingAndClimbing = system({
   icon: '🏃',
   keywords: ['walk', 'run', 'sprint', 'jump', 'double jump', 'slide', 'crouch', 'climb', 'slope', 'stairs', 'step', 'speed', 'fall'],
   rules: [
-    'src/sim/player/locomotion.ts',
-    'src/sim/player/traverse.ts',
-    'src/sim/player/abilities.ts',
-    'src/sim/sim.ts',
-    'src/sim/zone/colliders.ts',
-    'crates/engine/src/open/buildings.rs',
-    'src/sim/zone/world.ts',
-    'src/input/input.ts',
     'crates/engine/src/player.rs',
     'crates/engine/src/open/traverse.rs',
     'crates/engine/src/open/colliders.rs',
     'crates/engine/src/open/buildings.rs',
+    'crates/engine/src/open/zone.rs',
+    'src/input/input.ts',
   ],
   content: [
     'shared/tuning.json#simHz',
@@ -48,15 +42,15 @@ export const movingAndClimbing = system({
     'shared/trade.json#carry',
   ],
   body: () => {
-    const dead = sourceNumber(locomotionSource, /if \(mag < ([\d.]+)\) return \{ dx: 0/, 'the stick’s dead zone');
-    const airTurn = sourceNumber(locomotionSource, /Math\.atan2\(dx, dz\), ([\d.]+) \* STEP\)/, 'how fast you steer a fast jump');
+    const dead = sourceNumber(playerSource, /if mag < ([\d.]+) \{\s*return \(0\.0, 0\.0, 0\.0\);/, 'the stick’s dead zone');
+    const airTurn = sourceNumber(playerSource, /dx\.js_atan2\(dz\), ([\d.]+) \* step_len\(\)\)/, 'how fast you steer a fast jump');
     const crouchSlide = tsConst(inputSource, 'CROUCH_SLIDE_SPEED');
-    const snapK = sourceNumber(traverseSource, /speed \* STEP \* GROUND\.maxSlope \* ([\d.]+)/, 'how far the ground may drop away under you');
-    const steepExtra = sourceNumber(traverseSource, /GROUND\.maxSlope \+ ([\d.]+)\)/, 'how steep ground is before you slide off it');
+    const snapK = sourceNumber(traverseSource, /speed \* dt \* gr\.max_slope \* ([\d.]+)/, 'how far the ground may drop away under you');
+    const steepExtra = sourceNumber(traverseSource, /gr\.max_slope \+ ([\d.]+) \{/, 'how steep ground is before you slide off it');
     const head = rustConst(buildingsSource, 'HEAD');
     const rail = sourceNumber(buildingsSource, /rail_top = floor \+ STOREY \+ ([\d.]+)/, 'how high a stairwell’s rail is');
     const furnitureLow = sourceNumber(buildingsSource, /js_min\(HEAD, js_max\(([\d.]+), def\.h\)\)/, 'the lowest an upstairs piece of furniture is');
-    const edgeMargin = sourceNumber(zoneWorldSource, /hf\.size \/ 2 - ([\d.]+)/, 'how far in from its edge the world ends');
+    const edgeMargin = sourceNumber(zoneSource, /terrain\.size\(\) \/ 2\.0 - ([\d.]+);/, 'how far in from its edge the world ends');
     const slide = MOVEMENT_SKILLS.find((m) => m.id === 'slide');
     const sa = slide?.action;
     const jump = rise(JUMP.velocity, JUMP.gravityUp);

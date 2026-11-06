@@ -9,7 +9,7 @@ import { change, coins, count, duration, key, metres, num, pct, speed, times } f
 import { system, table } from '../kit';
 import { type Html, link, md, phrase, raw } from '../md';
 import { sourceNumber } from '../source';
-import interactSource from '../../sim/life/interact.ts?raw';
+import interactSource from '../../../crates/engine/src/life/interact.rs?raw';
 
 const isTrade = (p: PackDef): boolean => p.kind !== 'material';
 const itemName = (id: string): string => ITEMS.find((i) => i.id === id)?.name ?? id;
@@ -23,7 +23,7 @@ const benchOf = (p: PackDef): Html => {
 /** What a trading post pays (the rules' quote): base × route × demand × freshness, rounded to the copper. */
 const pays = (p: PackDef, factor: number, demand: number, age: number): number => Math.round(p.base * factor * demand * freshness(age));
 
-/** What a vendor pays for an item: its worth times their rate, rounded, never under a copper (src/sim/life/trade.ts, sell). */
+/** What a vendor pays for an item: its worth times their rate, rounded, never under a copper (crates/engine/src/life/trade.rs, sell). */
 const vendorPays = (id: string): number => {
   const worth = ITEMS.find((i) => i.id === id)?.value ?? 0;
   return Math.max(0, ...VENDORS.filter((v) => v.buys.includes(id)).map((v) => Math.max(1, Math.round(worth * v.buyRate))));
@@ -35,7 +35,7 @@ export const trade = system({
   summary: 'Making packs at a workbench, carrying them, and selling them far away: routes, demand, freshness and seals.',
   icon: '📦',
   keywords: ['pack', 'packs', 'trade pack', 'workbench', 'trading post', 'route', 'demand', 'freshness', 'fresh', 'stale', 'sell', 'seal', 'carry', 'haul'],
-  rules: ['src/sim/life/trade.ts', 'crates/engine/src/life/trade.rs', 'src/sim/life/interact.ts'],
+  rules: ['crates/engine/src/life/trade.rs', 'crates/engine/src/life/interact.rs'],
   content: [
     'shared/trade.json#carry',
     'shared/trade.json#demand',
@@ -47,12 +47,12 @@ export const trade = system({
   body: () => {
     const benchReach = sourceNumber(
       interactSource,
-      /Math\.hypot\(bench\.x - p\.pos\.x, bench\.z - p\.pos\.z\) <= ([\d.]+)/,
+      /js_hypot\(bench\.x - sim\.player\.pos\.x, bench\.z - sim\.player\.pos\.z\) <= ([\d.]+)/,
       'how close to a workbench you must be to use it',
     );
     const talkReach = sourceNumber(
       interactSource,
-      /Math\.hypot\(n\.x - p\.pos\.x, n\.z - p\.pos\.z\);\s*if \(d > ([\d.]+)\) continue;/,
+      /for n in &zone\.recipe\.npcs \{\s*let d = js_hypot\(n\.x - px, n\.z - pz\);\s*if d > ([\d.]+) \{/,
       'how close to a trader you must be',
     );
     const tradePacks = PACKS.filter(isTrade);

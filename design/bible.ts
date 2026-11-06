@@ -18,11 +18,10 @@ import { SHIP_DESIGNS } from '../src/content/shipyard';
 import { GROUND, STORM, SWIM } from '../src/content/traversal';
 import { ABILITIES, JUMP, MOVE, MOVEMENT_SKILLS, SKILLS, WEAPONS } from '../src/content/tuning';
 import { LADDERS, actorKind } from '../src/content/actors';
-import { behaviour } from '../src/sim/ai/brain';
-import { freshness } from '../src/sim/life/trade';
-import { EMBERHOLM as Z } from '../src/sim/zone/world';
+import { behaviour } from '../src/engine/creatures';
+import { freshness } from '../src/engine/island';
+import { EMBERHOLM as Z, type ZonePlace } from '../src/engine/zone';
 import { drawIsland, growIsland, type Island, LAYER_NAMES, type Layers, toMap } from '../src/bible/map';
-import type { ZonePlace } from '../src/sim/zone/types';
 import { esc } from '../src/util/html';
 import { startEngine } from '../src/engine/load';
 
@@ -837,9 +836,9 @@ part('the file map', () => {
         '<code>shared/vehicles.json</code> · <code>trade.json</code> · <code>farming.json</code> · <code>housing.json</code> · <code>items.json</code> · <code>quests.json</code>',
         'Every life-system number and recipe.',
       ],
-      ['<code>src/sim/terrain.ts</code> · <code>src/sim/zone/</code>', 'The height grid, the island generator, colliders and decks.'],
-      ['<code>src/sim/player/traverse.ts</code>', 'Walking on terrain, swimming, gliding, updrafts.'],
-      ['<code>src/sim/life/</code>', 'Trade, farming, housing, vehicles, quests, weather and what F does.'],
+      ['<code>crates/engine/src/open/</code>', 'The height grid, the island generator, colliders and decks.'],
+      ['<code>crates/engine/src/open/traverse.rs</code>', 'Walking on terrain, swimming, gliding, updrafts.'],
+      ['<code>crates/engine/src/life/</code>', 'Trade, farming, housing, vehicles, quests, weather and what F does.'],
       [
         '<code>src/render/open/</code> · <code>src/render/models/</code>',
         'The open-world scene and the procedural models (every one in the content library, <code>/dev/library.html#/models</code>).',

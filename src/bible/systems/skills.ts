@@ -90,14 +90,7 @@ export const skills = system({
     'loadout',
     'modifier',
   ],
-  rules: [
-    'src/content/skills.ts',
-    'src/content/build.ts',
-    'src/sim/life/progress.ts',
-    'crates/engine/src/skills.rs',
-    'crates/engine/src/tuning.rs',
-    'crates/engine/src/life/progress.rs',
-  ],
+  rules: ['src/content/skills.ts', 'src/content/build.ts', 'crates/engine/src/skills.rs', 'crates/engine/src/tuning.rs', 'crates/engine/src/life/progress.rs'],
   content: ['shared/tuning.json#skills', 'shared/tuning.json#stats'],
   body: () => {
     const earned = QUESTS.filter((q) => q.rewards.skillPoints);

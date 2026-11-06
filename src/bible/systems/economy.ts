@@ -11,11 +11,11 @@ import { EMBERHOLM as Z } from '../../engine/zone';
 import { coins, count, duration, key, metres, num, pct, range, speed, times } from '../format';
 import { system, table } from '../kit';
 import { type Html, link, md, phrase, raw } from '../md';
-import { sourceNumber, tsConst } from '../source';
-import lifeSource from '../../sim/life/life.ts?raw';
-import interactSource from '../../sim/life/interact.ts?raw';
-import tradeSource from '../../sim/life/trade.ts?raw';
-import housingSource from '../../sim/life/housing.ts?raw';
+import { rustConst, sourceNumber } from '../source';
+import lifeSource from '../../../crates/engine/src/life/mod.rs?raw';
+import interactSource from '../../../crates/engine/src/life/interact.rs?raw';
+import tradeSource from '../../../crates/engine/src/life/trade.rs?raw';
+import housingSource from '../../../crates/engine/src/life/housing.rs?raw';
 
 /** The smallest amount of copper the game writes with a coin of this mark (s, g): what one of those coins is worth. */
 function worthOf(mark: string): number {
@@ -60,27 +60,24 @@ export const economy = system({
     'buyback',
     'price',
   ],
-  rules: [
-    'src/sim/life/life.ts',
-    'src/sim/life/state.ts',
-    'crates/engine/src/life/mod.rs',
-    'crates/engine/src/life/state.rs',
-    'src/sim/life/trade.ts',
-    'src/sim/life/interact.ts',
-  ],
+  rules: ['crates/engine/src/life/mod.rs', 'crates/engine/src/life/state.rs', 'crates/engine/src/life/trade.rs', 'crates/engine/src/life/interact.rs'],
   content: ['shared/trade.json#labor', 'shared/items.json#vendors'],
   body: () => {
     const silver = worthOf('s');
     const gold = worthOf('g');
-    const startCoins = sourceNumber(lifeSource, /coins: opts\.coins \?\? (\d+)/, 'the coins a new character starts with');
+    const startCoins = sourceNumber(lifeSource, /new_life_state\(coins\.unwrap_or\(([\d.]+)\)/, 'the coins a new character starts with');
     const restSpeed = sourceNumber(
       interactSource,
-      /Math\.hypot\(p\.vel\.x, p\.vel\.z\) > ([\d.]+) \|\| p\.mode !== 'normal'\) life\.resting = false/,
+      /js_hypot\(p\.vel\.x, p\.vel\.z\) > ([\d.]+) \|\| p\.mode != Mode::Normal \{\s*life\.resting = false;/,
       'how fast you may move and still rest',
     );
-    const shopReach = sourceNumber(interactSource, /function nearNpc\([^)]*range = ([\d.]+)\)/, 'how close to a vendor you must be');
-    const buybackMax = tsConst(tradeSource, 'BUYBACK_MAX');
-    const taxDays = sourceNumber(housingSource, /const week = bp\.taxPerDay \* (\d+);/, 'how many days of tax are paid at once');
+    const shopReach = sourceNumber(
+      interactSource,
+      /Command::Buy \{ npc, item, n \} => \{\s*if near_npc\(life, sim, npc, ([\d.]+)\)/,
+      'how close to a vendor you must be',
+    );
+    const buybackMax = rustConst(tradeSource, 'BUYBACK_MAX');
+    const taxDays = sourceNumber(housingSource, /let week = bp\.tax_per_day \* ([\d.]+);/, 'how many days of tax are paid at once');
     const tonic = ITEMS.find((i) => i.use?.labor);
     const tonicRecipe = tonic ? RECIPES.find((r) => r.makes.item === tonic.id) : undefined;
     const questCoins = QUESTS.reduce((t, q) => t + (q.rewards.coins ?? 0), 0);

@@ -22,18 +22,21 @@ import { system, table } from '../kit';
 import { link, md, phrase, raw } from '../md';
 import { rustConst, sourceNumber } from '../source';
 import { nearestPlace } from '../things/refs';
-import attacksSource from '../../sim/player/attacks.ts?raw';
-import hitSource from '../../sim/combat/hit.ts?raw';
+import playerSource from '../../../crates/engine/src/player.rs?raw';
+import actorsSource from '../../../crates/engine/src/actors.rs?raw';
 import serverCombat from '../../../crates/server/src/combat.rs?raw';
 import serverPlay from '../../../crates/server/src/play/mod.rs?raw';
 
-// Numbers the rules keep in their source rather than in the tuning.
-const QUEUE = () => sourceNumber(attacksSource, /attackQueued && f >= activeEnd \+ (\d+)/, 'when a queued hit starts');
-const WINDUP_LUNGE = () => sourceNumber(attacksSource, /step\.lunge \* ([\d.]+) : step\.lunge/, 'the lunge during a wind-up');
-const SWING_HEIGHT = () => sourceNumber(attacksSource, /heightAboveGround\(sim\) > ([\d.]+)\) return/, 'how high a swing still reaches from');
-const FEET_APART = () => sourceNumber(attacksSource, /Math\.abs\(t\.y - p\.pos\.y\) <= ([\d.]+)/, 'how far below or above a swing reaches');
-const ON_TOP = () => sourceNumber(hitSource, /dist > t\.radius \+ ([\d.]+)\) continue/, 'how close counts as on top of you');
-const ARROW_AHEAD = () => sourceNumber(attacksSource, /x: p\.pos\.x \+ dirX \* ([\d.]+),/, 'where an arrow starts');
+// Numbers the rules keep in their source rather than in the tuning: your combo is the engine's
+// (player.rs), the arc a swing catches creatures in is the engine's too (actors.rs), and where a
+// swing reaches from and how an arrow flies the server decides online (combat.rs).
+const QUEUE = () => sourceNumber(playerSource, /attack_queued && f >= active_end \+ (\d+)/, 'when a queued hit starts');
+const WINDUP_LUNGE = () => sourceNumber(playerSource, /step\.lunge \* ([\d.]+) \} else \{ step\.lunge \}/, 'the lunge during a wind-up');
+const SWING_HEIGHT = () => sourceNumber(serverCombat, /feet\.is_none_or\(\|\(above, _\)\| above <= ([\d.]+)\)/, 'how high a swing still reaches from');
+const FEET_APART = () =>
+  sourceNumber(serverCombat, /ground_under\(floor, terrain, a\.x, a\.z\) - y\)\.abs\(\) <= ([\d.]+)\)/, 'how far below or above a swing reaches');
+const ON_TOP = () => sourceNumber(actorsSource, /!in_cone && dist > a\.radius \+ ([\d.]+) \{/, 'how close counts as on top of you');
+const ARROW_AHEAD = () => sourceNumber(serverCombat, /x: shooter\.pos\.x \+ dx \* ([\d.]+),/, 'where an arrow starts');
 const ARROW_HEIGHT = () => rustConst(serverCombat, 'ARROW_HEIGHT');
 const ARROW_RADIUS = () => rustConst(serverCombat, 'ARROW_RADIUS');
 const ARROW_HOP = () => sourceNumber(serverCombat, /\(travel \/ ([\d.]+)\)\.ceil\(\)/, 'how far an arrow moves between checks');
@@ -59,15 +62,7 @@ export const combat = system({
   summary: 'Health, stamina and MP; weapon combos, hits and knockback; casting abilities; dodges, blocks and getting knocked down.',
   icon: '⚔️',
   keywords: ['fight', 'fighting', 'attack', 'combo', 'damage', 'health', 'hp', 'stamina', 'mp', 'mana', 'dodge', 'block', 'stun', 'knockback', 'cast', 'spell'],
-  rules: [
-    'src/sim/sim.ts',
-    'src/sim/player/attacks.ts',
-    'src/sim/player/abilities.ts',
-    'src/sim/player/vitals.ts',
-    'src/sim/combat/hit.ts',
-    'src/sim/combat/deal.ts',
-    'crates/server/src/combat.rs',
-  ],
+  rules: ['crates/engine/src/player.rs', 'crates/server/src/combat.rs'],
   content: [
     'shared/tuning.json#attack',
     'shared/tuning.json#special',

@@ -9,7 +9,7 @@ import partiesSource from '../../../crates/server/src/play/parties.rs?raw';
 import spacesSource from '../../../crates/server/src/play/spaces.rs?raw';
 import zoneSource from '../../../crates/engine/src/open/zone.rs?raw';
 import dungeonSource from '../../../crates/engine/src/open/dungeon.rs?raw';
-import interactSource from '../../sim/life/interact.ts?raw';
+import interactSource from '../../../crates/engine/src/life/interact.rs?raw';
 import partyUiSource from '../../ui/party/partyUI.ts?raw';
 
 const N = String.raw`(\d+(?:\.\d+)?)`;
@@ -38,8 +38,8 @@ const rule = () => ({
     new RegExp(String.raw`self\.exit\.r \+ \d+(?:\.\d+)? && \(y - o\.y\)\.abs\(\) < ${N}`),
     'how far above the way out you may stand',
   ),
-  /** The browser's prompt at a door: how far above or below it you may stand. */
-  promptHeight: sourceNumber(interactSource, new RegExp(String.raw`Math\.abs\(p\.pos\.y - door\.portal\.y\) > ${N}`), 'how far above a door its prompt shows'),
+  /** The prompt at a door: how far above or below it you may stand. */
+  promptHeight: sourceNumber(interactSource, new RegExp(String.raw`\(p\.pos\.y - door\.portal\.y\)\.abs\(\) > ${N}`), 'how far above a door its prompt shows'),
   /** Players this near are listed to invite. */
   near: tsConst(partyUiSource, 'NEAR'),
 });
@@ -66,7 +66,7 @@ export const parties = system({
   summary: 'Forming a party, inviting and leading; going into a dungeon together, in a copy of its own.',
   icon: '🛡️',
   keywords: ['party', 'group', 'invite', 'leader', 'dungeon', 'instance', 'copy', 'portal', 'goblin'],
-  rules: ['src/sim/zone/dungeon.ts', 'crates/engine/src/open/dungeon.rs', 'crates/server/src/play/parties.rs', 'crates/server/src/play/spaces.rs'],
+  rules: ['crates/engine/src/open/dungeon.rs', 'crates/server/src/play/parties.rs', 'crates/server/src/play/spaces.rs'],
   content: ['shared/dungeons.json#dungeons', 'shared/zones/*.json#dungeons'],
   body: () => {
     const R = rule();

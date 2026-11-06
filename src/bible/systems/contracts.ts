@@ -7,7 +7,7 @@ import { coins, count, duration, key, listOf, metres, num, pct, range } from '..
 import { system, table } from '../kit';
 import { link, md, phrase } from '../md';
 import { sourceNumber } from '../source';
-import interactSource from '../../sim/life/interact.ts?raw';
+import interactSource from '../../../crates/engine/src/life/interact.rs?raw';
 
 /** The trade packs a post buys: any with a route to it from where it is made (the rules' `wanted`). */
 const wanted = (post: string) => PACKS.filter((p) => p.kind !== 'material' && route(p.origin, post));
@@ -24,10 +24,14 @@ export const contracts = system({
   summary: 'The orders on the trading posts’ boards: so many packs of a kind, in time, for a bonus.',
   icon: '📋',
   keywords: ['contract', 'contracts', 'board', 'order', 'bonus', 'trading post', 'seals'],
-  rules: ['src/sim/life/contracts.ts', 'crates/engine/src/life/contracts.rs'],
+  rules: ['crates/engine/src/life/contracts.rs'],
   content: ['shared/trade.json#contracts'],
   body: () => {
-    const reach = sourceNumber(interactSource, /function nearNpc\([^)]*range = ([\d.]+)\)/, 'how close to a trader you must be to take a contract');
+    const reach = sourceNumber(
+      interactSource,
+      /post\.is_some_and\(\|post\| near_npc\(life, sim, &post\.npc, ([\d.]+)\)\)/,
+      'how close to a trader you must be to take a contract',
+    );
     const [lo, hi] = CONTRACTS.count;
     const quests = QUESTS.filter((q) => q.steps.some((s) => s.objectives.some((o) => o.type === 'contract')));
     return md`

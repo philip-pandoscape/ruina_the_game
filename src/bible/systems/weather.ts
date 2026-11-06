@@ -1,13 +1,13 @@
 // Weather and the Clock: written from its rules (`rules` below); every number from the content and the rules.
 
-import saveSource from '../../sim/life/island.ts?raw';
+import playSource from '../../../crates/server/src/play/mod.rs?raw';
 import { FARM } from '../../content/farming';
 import { CLOCK, LABOR } from '../../content/trade';
 import { STORM } from '../../content/traversal';
-import vehiclesSource from '../../sim/life/vehicles.ts?raw';
+import vehiclesSource from '../../../crates/engine/src/life/vehicles.rs?raw';
 import { sailEfficiency, hourAt, rainAt } from '../../engine/island';
 import { EMBERHOLM } from '../../engine/zone';
-import weatherSource from '../../sim/life/weather.ts?raw';
+import weatherSource from '../../../crates/engine/src/life/weather.rs?raw';
 import { SIM_HZ } from '../../content/tuning';
 import { degrees, duration, metres, num, pct } from '../format';
 import { system, table } from '../kit';
@@ -47,12 +47,12 @@ export const weather = system({
   summary: 'The world clock, day and night, rain and wind, and time passing while you are away.',
   icon: '🌦️',
   keywords: ['rain', 'wind', 'day', 'night', 'time', 'hour', 'sun', 'storm', 'offline', 'away', 'clock', 'shower'],
-  rules: ['src/sim/life/weather.ts', 'src/sim/life/life.ts', 'src/sim/life/island.ts', 'crates/engine/src/life/weather.rs', 'crates/server/src/play/mod.rs'],
+  rules: ['crates/engine/src/life/weather.rs', 'crates/engine/src/life/mod.rs', 'crates/server/src/play/mod.rs'],
   content: ['shared/trade.json#clock', 'shared/farming.json#rain', 'shared/zones/*.json#sky'],
   body: () => {
     const sky = EMBERHOLM.sky;
     const rain = FARM.rain;
-    // Showers come one to a slot (weather.ts): a shower and a gap, on average, starting up to the jitter into it.
+    // Showers come one to a slot (weather.rs): a shower and a gap, on average, starting up to the jitter into it.
     const slot = (rain.lastsSeconds[0] + rain.lastsSeconds[1]) / 2 + (rain.gapSeconds[0] + rain.gapSeconds[1]) / 2;
     const jitter = Math.max(0, (rain.gapSeconds[1] - rain.gapSeconds[0] - (rain.lastsSeconds[1] - rain.lastsSeconds[0])) / 2);
     // The first showers on a new island's clock, as the rules work them out.
@@ -64,18 +64,15 @@ export const weather = system({
     }
     const [dirMid, dirA, dirPa, dirB, dirPb] = numbers(
       weatherSource,
-      /windDir = ([\d.]+) \+ ([\d.]+) \* Math\.sin\(c \/ ([\d.]+)\) \+ ([\d.]+) \* Math\.sin\(c \/ ([\d.]+) \+ [\d.]+\)/,
+      /wind_dir = ([\d.]+) \+ ([\d.]+) \* \(c \/ ([\d.]+)\)\.js_sin\(\) \+ ([\d.]+) \* \(c \/ ([\d.]+) \+ [\d.]+\)\.js_sin\(\)/,
       'how the wind turns',
     );
-    const [strMid, strA, strP] = numbers(weatherSource, /windSpeed = ([\d.]+) \+ ([\d.]+) \* Math\.sin\(c \/ ([\d.]+) \+ [\d.]+\)/, 'how the wind blows');
-    const [sailBase, sailWind] = numbers(vehiclesSource, /eff \* \(([\d.]+) \+ ([\d.]+) \* w\.windSpeed\)/, 'how much the wind’s strength fills a sail');
-    const [stormBase, stormWind] = numbers(
-      weatherSource,
-      /return k \* \(([\d.]+) \+ ([\d.]+) \* life\.state\.weather\.windSpeed\)/,
-      'how the wind whips up a storm',
-    );
-    const awayAtAll = sourceNumber(saveSource, /if \(away > ([\d.]+)\) \{/, 'how long away counts as away');
-    const welcome = sourceNumber(saveSource, /if \(away > ([\d.]+)\) life\.toast/, 'how long away earns a welcome back');
+    const [strMid, strA, strP] = numbers(weatherSource, /wind_speed = ([\d.]+) \+ ([\d.]+) \* \(c \/ ([\d.]+) \+ [\d.]+\)\.js_sin\(\)/, 'how the wind blows');
+    const [sailBase, sailWind] = numbers(vehiclesSource, /eff \* \(([\d.]+) \+ ([\d.]+) \* wind_speed\)/, 'how much the wind’s strength fills a sail');
+    const [stormBase, stormWind] = numbers(weatherSource, /k \* \(([\d.]+) \+ ([\d.]+) \* life\.state\.weather\.wind_speed\)/, 'how the wind whips up a storm');
+    // The time away is caught up as the server loads your island (load_island).
+    const awayAtAll = sourceNumber(playSource, /if away > ([\d.]+) \{\s*life\.state\.clock \+= away;/, 'how long away counts as away');
+    const welcome = sourceNumber(playSource, /if away > ([\d.]+) \{\s*life\.toast\(/, 'how long away earns a welcome back');
     const daylight = ((sky.sunset - sky.sunrise) / 24) * sky.dayLengthSeconds;
     const round = (x: number) => 2 * Math.PI * x;
     return md`
