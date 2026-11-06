@@ -193,7 +193,7 @@ mod tests {
                     h = (h ^ u64::from(b)).wrapping_mul(0x0000_0100_0000_01b3);
                 }
             }
-            arrows += ch.players.effects_json(None, def.origin.x, def.origin.z).0.as_array().map_or(0, Vec::len);
+            arrows += crate::combat::effects_json(&ch.players, None, def.origin.x, def.origin.z).0.as_array().map_or(0, Vec::len);
         }
         (ch, format!("{h:016x}"), arrows)
     }
@@ -210,7 +210,7 @@ mod tests {
         assert!(ch.players.pvp_hits > 50, "{} blows", ch.players.pvp_hits);
         assert!(arrows > 20, "{arrows} arrows");
         assert!(ch.players.each_open().any(|(_, _, p, _)| p.down_frame >= 0 || p.hp < 100.0), "nobody hurt");
-        assert_eq!(hash, "1c5ed3eb80b27638");
+        assert_eq!(hash, "716c8491f2d7ee78");
     }
 
     /// The battlefield with `n` skirmishers, half a side, spread in rows of groups of eight facing

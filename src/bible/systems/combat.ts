@@ -24,7 +24,7 @@ import { rustConst, sourceNumber } from '../source';
 import { nearestPlace } from '../things/refs';
 import playerSource from '../../../crates/engine/src/player.rs?raw';
 import actorsSource from '../../../crates/engine/src/actors.rs?raw';
-import serverCombat from '../../../crates/server/src/combat.rs?raw';
+import serverCombat from '../../../crates/engine/src/combat.rs?raw';
 import serverPlay from '../../../crates/server/src/play/mod.rs?raw';
 
 // Numbers the rules keep in their source rather than in the tuning: your combo is the engine's
@@ -62,7 +62,7 @@ export const combat = system({
   summary: 'Health, stamina and MP; weapon combos, hits and knockback; casting abilities; dodges, blocks and getting knocked down.',
   icon: '⚔️',
   keywords: ['fight', 'fighting', 'attack', 'combo', 'damage', 'health', 'hp', 'stamina', 'mp', 'mana', 'dodge', 'block', 'stun', 'knockback', 'cast', 'spell'],
-  rules: ['crates/engine/src/player.rs', 'crates/server/src/combat.rs'],
+  rules: ['crates/engine/src/player.rs', 'crates/engine/src/combat.rs'],
   content: [
     'shared/tuning.json#attack',
     'shared/tuning.json#special',

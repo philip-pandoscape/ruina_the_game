@@ -168,7 +168,7 @@ pub fn step_player(p: &mut Player, a: &Actions, world: &mut OpenWorld, mut life:
 
     // A cast that finished and a movement skill that started are practice for them, counted the
     // moment they happen (the `cast` and `action` events), so the island's step
-    // below picks up any level they gained. Hits are counted where they land (the server's combat.rs).
+    // below picks up any level they gained. Hits are counted where they land (crate::combat).
     if let Some(l) = life.as_deref_mut() {
         let p = &*sim.player;
         if p.fired_ability != NO_ABILITY {

@@ -14,7 +14,7 @@ export interface SpellDrawing {
 // arrows, meteors and heals show the instant you release or finish the cast, before the server has
 // even heard about them; when the server's copy of an arrow or meteor arrives, it takes over.
 
-const ARROW_RADIUS = 0.55; // crates/server/src/combat.rs
+const ARROW_RADIUS = 0.55; // crates/engine/src/combat.rs
 const EVENT_HEAL = 1;
 const EVENT_EXPLOSION = 2;
 const EVENT_ARROW_HIT = 3;
@@ -28,7 +28,7 @@ const MARKERS: Record<number, MarkerKind> = { [EVENT_YOU_HIT]: 'hit', [EVENT_YOU
 
 // What caused a number, in an attributed event's kind above its low 4 bits: what sort of thing in the
 // cause's low 2 bits, and for a weapon or an ability its place in shared/tuning.json's list above
-// them (crates/server/src/combat.rs weapon_cause, ability_cause).
+// them (crates/engine/src/combat.rs weapon_cause, ability_cause).
 export const CAUSE_WEAPON = 1;
 export const CAUSE_ABILITY = 2;
 export const CAUSE_MONSTER = 3;

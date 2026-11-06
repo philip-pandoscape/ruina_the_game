@@ -53,7 +53,7 @@ export interface NetActor {
   targetZ: number;
 }
 
-/** Something that just happened, for effects: kind 1 heal, 2 explosion, 3 arrow hit (crates/server/src/combat.rs). */
+/** Something that just happened, for effects: kind 1 heal, 2 explosion, 3 arrow hit (crates/engine/src/combat.rs). */
 export interface EffectEvent {
   kind: number;
   x: number;

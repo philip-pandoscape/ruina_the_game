@@ -1,7 +1,7 @@
 //! Emberholm as the server plays it: one game per channel, 20 ticks a second. Each player's
 //! browser sends what they press (about 60 inputs a second) and what they ask their island to do
 //! (commands); here those run through the island's rules (crates/engine/src/open, crates/engine/src/life) and
-//! the players' combat (crates/server/src/combat.rs), the channel's slimes live and fight,
+//! the players' combat (crates/engine/src/combat.rs), the channel's slimes live and fight,
 //! and every browser hears back where it really is, what its island now holds, and what everyone
 //! else in the channel is doing. Nothing a browser says about its own state is believed: it can
 //! only press keys and ask.
@@ -17,7 +17,7 @@ use tokio::sync::mpsc;
 
 use crate::actors::{Actors, LEAN_DAMPING, LEAN_SPRING, StepOut};
 use crate::bots::Brain;
-use crate::combat::{OPEN_INPUT, Players, open_actions_from};
+use crate::combat::{OPEN_INPUT, Players, effects_json, open_actions_from};
 use crate::life::content::clock;
 use crate::life::progress::skill_budget;
 use crate::life::state::LifeState;
@@ -991,7 +991,7 @@ impl ChannelGame {
                 m.last_life = now;
             }
             let (session, out) = (m.session, m.out.clone());
-            let (arrows, meteors, events) = self.players.effects_json(Some(slot), x, z);
+            let (arrows, meteors, events) = effects_json(&self.players, Some(slot), x, z);
             let peers: Vec<&Value> = presences.iter().filter(|(o, _)| *o != id).map(|(_, v)| v).collect();
             let actors = actors_json(&self.actors, &self.open, x, z);
             let mut life_events = Vec::new();

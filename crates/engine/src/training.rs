@@ -1,7 +1,7 @@
 //! What the browser plays offline that the server decides online (Phase 8): a swing's blow landing
 //! on whatever stands in front of you (with its hit pause), damage dealt to creatures and what it
 //! shows, and the training range: arrows flying, meteors falling and heals going off against
-//! whatever stands about. The numbers are the server's (crates/server/src/combat.rs); the session
+//! whatever stands about. The numbers are the server's (crate::combat); the session
 //! (crate::session) runs these in its offline steps.
 
 use serde::Serialize;

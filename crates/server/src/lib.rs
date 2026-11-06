@@ -6,7 +6,8 @@
 //! - `accounts`: accounts, sign-in and sessions, and the characters each account holds.
 //! - `play`: Emberholm online: each channel's game, every party's copy of a dungeon, parties, the
 //!   mini-game tables, and a player's connection.
-//! - `combat`: players fighting, with lag compensation.
+//! - `combat`: combat on the wire (the rules are the engine's): what input bytes mean, and the
+//!   arrows, meteors and effects a browser is sent.
 
 #![recursion_limit = "256"]
 

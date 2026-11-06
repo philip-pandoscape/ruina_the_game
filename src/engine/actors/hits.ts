@@ -3,7 +3,7 @@ import { angleDiff, DEG } from '../math';
 
 // What a melee swing would hit, for the page's guess at a blow online, felt at once before the
 // server's word on it (src/net/netMonsters.ts). The rules decide what is hit with the same cone
-// (cone_hits in crates/engine/src/training.rs and actors.rs; online crates/server/src/combat.rs).
+// (cone_hits in crates/engine/src/training.rs and actors.rs; online crates/engine/src/combat.rs).
 
 export interface Target {
   id: ActorId;

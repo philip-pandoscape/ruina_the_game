@@ -14,7 +14,7 @@ import actorsSource from '../../../crates/engine/src/actors.rs?raw';
 import packSource from '../../../crates/engine/src/pack.rs?raw';
 import aiSource from '../../../crates/engine/src/ai.rs?raw';
 import missilesSource from '../../../crates/engine/src/missiles.rs?raw';
-import serverCombat from '../../../crates/server/src/combat.rs?raw';
+import serverCombat from '../../../crates/engine/src/combat.rs?raw';
 
 // Numbers the rules keep in their source rather than in the content: the creatures' own (the
 // engine's), and who a slam catches, which the server decides online (combat.rs).
