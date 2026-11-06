@@ -11,7 +11,7 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
 
 - **Phase:** 6 (the client in areas) and 8 (one copy of the rules), with 7, 11 and 12 done or
   nearly, and 9 and 10 mostly landed beside them. The old battle server is gone (R10.9, R10.10).
-- **Next:** `main.ts`'s split (R6.2, R6.2a), then Phase 8: the interface (R8.3, R8.3b) and the
+- **Next:** the headless game core (R6.2a), then Phase 8: the interface (R8.3, R8.3b) and the
   switches, the island's generator first (R8.6's rest); then crowds at scale (R10.8) and the UI
   gallery (R6.9).
 - **How:** one session does the work, without background agents (the user's call on 2026-11-06:
@@ -392,7 +392,7 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
 - [x] **R6.1** `src/app/options.ts`: every URL option in one list (name, what it does, developer or
   not), read once.
   Done (138706b, ec69498): `src/app/options.ts`, with a unit test keeping the list honest.
-- [~] **R6.2** `src/main.ts` into `src/app/`: start-up, a module per mode, the loop, wiring, along the
+- [x] **R6.2** `src/main.ts` into `src/app/`: start-up, a module per mode, the loop, wiring, along the
   seams in `inventory/architecture.md` section 1. Its 30 top-level variables become one game context
   the modes share; the use-before-declare closures (`prediction`, `frozen`, `ahead`), the patched
   `life.command` and the twice-chained `lifeUI.intercept` go.
@@ -405,6 +405,15 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
   `life.command`), one composed `lifeUI.intercept`, and `prediction`, `frozen` and the feed declared
   before the closures that use them. Left: drawing a frame and the loop (lines 831-1262 take 51 names
   from the rest of main.ts), which want the game context the modes share rather than more getters.
+  Done: drawing a frame and the loop (4fcf879), the step and the camera's rig (9cf24d7, and the
+  commit after). `main.ts` is 951 lines and is the start-up: it builds the game's parts, then `refs`,
+  the context the modules share (a getter for each part, declared before the first module built
+  from it), then the modules that run on them: the drawing, the step, the loop, the test API, the bug
+  reporter, online play. A module that keeps what the rest uses gives it out through what it returns
+  (`drawing.showEvent`, `loop.paused`; `move-region.mjs` does this now). Each mode's own code is a
+  module (online play, a dungeon's copy; the developer zones are content, Phase 10), and the island
+  offline is the start-up's default. *Verified:* `npm run check`; the world, hotbar, combat, online,
+  goblin, movement, yard, slime, game, online-combat, dungeon, bug report, village and sea specs (158).
 - [x] **R6.3** `src/app/testApi.ts`: `window.__game` in a module of its own, typed.
   Done (e5a6253).
 - [x] **R6.4** `src/engine/`: the one bridge to the rules; everything else imports it, not `src/sim/`.
