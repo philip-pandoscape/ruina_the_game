@@ -82,6 +82,16 @@ export class Engine {
     return this.sim.frame;
   }
 
+  /** The creatures these rules run (offline: online the server's are drawn from its updates). */
+  get actors(): Sim['actors'] {
+    return this.sim.actors;
+  }
+
+  /** What your skills make of your attacks and spells (reach, radius, damage), from your build. */
+  get stats(): Sim['stats'] {
+    return this.sim.stats;
+  }
+
   /** Ground height under a point: a copy's floor where you're in one, the island's terrain, or 0 on the yard's flat ground. */
   groundY(x: number, z: number): number {
     return this.floorAt(x, z) ?? (this.terrain ? this.terrain.height(x, z) : 0);

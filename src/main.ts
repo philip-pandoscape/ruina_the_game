@@ -13,7 +13,7 @@ import { ActorView } from './render/actors';
 import { actorKindAt, actorKindIds, actorKindIndex, findKind, kindName } from './content/actors';
 import { isAlive } from './sim/actor';
 import { behaviour, stateProgress } from './sim/ai/brain';
-import { createTargeting } from './app/targeting';
+import { Aiming } from './app/aiming';
 import { Hud } from './render/hud';
 import { Stage, TRAINING_STAGE } from './render/scene';
 import { CIRCLE, SpellView } from './render/spells';
@@ -60,15 +60,11 @@ import {
   ABILITIES,
   abilityMpFor,
   abilityRadius,
-  AIM,
   MOVEMENT_SKILLS,
-  CAMERA,
   castFramesFor,
   comboFor,
   COMBAT,
   DUMMY,
-  groundRange,
-  isGroundTargeted,
   meleeTargets,
   movementCooldownFor,
   movementStaminaFor,
@@ -598,7 +594,6 @@ if (lifeUI) {
     if (!panel.isOpen && !frozen) input.capture();
   };
 }
-const DEG = Math.PI / 180;
 
 // What the target plate's cast bar calls a monster's cast, by the behaviour state casting it.
 const CASTS: Record<string, string> = { gather: 'Gathering' };
@@ -652,8 +647,6 @@ let lastHp: number = COMBAT.maxHp;
 /** The side your hero's colours show: only a developer zone's side changes it (on the island everyone is on one). */
 let shownTeam = 0;
 const scripted: Actions[] = []; // test hook: replaces the controller for a few frames
-let autoAttack = false; // test hook: swing at the nearest enemy you can see
-let autoCooldown = 0;
 
 // A new build from the skill panel: save it, and use it (online, the server switches you over).
 function applyBuild(b: Build): void {
@@ -694,260 +687,17 @@ if (netSpells) {
   };
 }
 
-// Test hook: swing at the nearest enemy you can see within reach (players first, then bots),
-// using the positions drawn on this screen.
-function autoAim(a: Actions): Actions {
-  if (autoCooldown > 0) {
-    autoCooldown--;
-    return a;
-  }
-  const me = sim.player.pos;
-  let best: { x: number; z: number } | null = null;
-  let bestD = 2.3;
-  for (const r of peers?.present() ?? []) {
-    const d = Math.hypot(r.x - me.x, r.z - me.z);
-    if (r.team !== sim.player.team && r.hp > 0 && d < bestD) {
-      bestD = d;
-      best = r;
-    }
-  }
-  if (!best) return a;
-  autoCooldown = 30;
-  const dx = best.x - me.x;
-  const dz = best.z - me.z;
-  const l = Math.hypot(dx, dz) || 1;
-  return { ...a, moveX: dx / l, moveZ: dz / l, attackPressed: true };
-}
-
-// Enemies you could aim at, where they're drawn on this screen: the dummy, other players, bots.
-function forEachEnemy(fn: (x: number, z: number) => void): void {
-  const myTeam = sim.player.team;
-  if (!serverRules) for (const a of sim.actors.all()) if (isAlive(a) && a.faction !== 0 && a.faction !== 2) fn(a.x, a.z);
-  // The server's monsters (not townsfolk, not other players' things), where they're drawn.
-  for (const a of shownActors) {
-    const f = actorKindAt(a.kind)?.faction ?? 0;
-    if (a.deadFrame < 0 && f !== 0 && f !== 2) fn(a.x, a.z);
-  }
-  for (const p of peers?.present() ?? []) if (p.team !== myTeam && p.hp > 0) fn(p.x, p.z);
-}
-
-function enemyAt(x: number, z: number, r: number): boolean {
-  let hit = false;
-  forEachEnemy((ex, ez) => {
-    if (!hit && (ex - x) * (ex - x) + (ez - z) * (ez - z) < r * r) hit = true;
-  });
-  return hit;
-}
-
-// Combat stance: with an enemy marked, or for a moment after you swing or cast, you keep facing
-// where the camera looks, so the stick strafes and backs off, and dodges and double jumps go any of
-// eight ways. Out of a fight you turn and run the way you push; sprinting always does (the rules
-// see to that). Swimming, gliding and riding ignore it.
-const STANCE_LINGER = 90; // frames the stance holds after your last swing or cast
-let lastFight = -Infinity;
-/** In a fight: an enemy marked, or a swing or cast just made. The hero's weapon is out for it. */
-const inAFight = (): boolean => lockOn.mark() !== null || sim.frame - lastFight < STANCE_LINGER;
-function combatStance(a: Actions): Actions {
-  if (a.faceX !== 0 || a.faceZ !== 0) return a; // already given (tests)
-  const p = sim.player;
-  if (p.mode === 'attack' || p.mode === 'cast') lastFight = sim.frame;
-  if (!inAFight() || p.mode === 'ride' || p.mode === 'swim' || p.mode === 'glide') return a;
-  return { ...a, faceX: Math.sin(follow.yaw), faceZ: Math.cos(follow.yaw) };
-}
-
-// Aim assist: attacks and Meteor go toward the enemy you most likely mean, the nearest one close
-// to the direction you're pushing (or facing; the bow and Meteor use the camera's direction when you
-// stand still). With nothing to aim at, the bow and Meteor still go where the camera looks. The rules
-// only read the aim when an attack or cast starts, so it's only worked out while one is pending.
-function aimAssist(a: Actions): Actions {
-  if (a.aimX !== 0 || a.aimZ !== 0) return a; // already aimed (tests)
-  const p = sim.player;
-  const pending = a.abilitySlot || (p.abilityBuffer > 0 ? p.abilityBufferSlot : 0);
-  const aiming = pending >= 1 ? (p.abilities[pending - 1] ?? NO_ABILITY) : NO_ABILITY;
-  const casting = aiming !== NO_ABILITY && isGroundTargeted(aiming);
-  const attacking = a.attackPressed || p.attackBuffer > 0 || p.attackQueued;
-  if (!casting && !attacking) return a;
-  const bow = p.weapon === 3;
-  const ranged = casting || bow;
-  const moving = Math.hypot(a.moveX, a.moveZ) > 0.3;
-  const dir = moving ? Math.atan2(a.moveX, a.moveZ) : ranged ? follow.yaw : p.facing;
-  const swing = comboFor(p.weapon, sim.stats)[0];
-  const maxDist = casting ? (groundRange(aiming) ?? 16) : bow ? Math.min(30, swing.projectileRange ?? 30) : swing.reach + 1.6;
-  const cone = (casting ? 30 : bow ? 14 : 55) * DEG;
-  let best: { x: number; z: number } | null = null;
-  let bestScore = Infinity;
-  forEachEnemy((x, z) => {
-    const dx = x - p.pos.x;
-    const dz = z - p.pos.z;
-    const dist = Math.hypot(dx, dz);
-    if (dist > maxDist || dist < 0.05) return;
-    let off = Math.abs(Math.atan2(dx, dz) - dir) % (Math.PI * 2);
-    if (off > Math.PI) off = Math.PI * 2 - off;
-    if (off > cone) return;
-    const score = dist / maxDist + off / cone;
-    if (score < bestScore) {
-      bestScore = score;
-      best = { x, z };
-    }
-  });
-  const target = best as { x: number; z: number } | null;
-  if (target) return { ...a, aimX: target.x - p.pos.x, aimZ: target.z - p.pos.z };
-  if (!ranged || moving) return a;
-  const reach = casting ? (ABILITIES[aiming]?.range ?? 9) : 20;
-  return { ...a, aimX: Math.sin(dir) * reach, aimZ: Math.cos(dir) * reach };
-}
-
-// ---------- Targeting ----------
-// A soft lock you can override with Tab; see app/targeting.ts.
-const lockOn = createTargeting({
-  sim,
-  camera: () => follow.camera,
-  yaw: () => follow.yaw,
-  online: serverRules,
+// ---------- Aiming: the mark, the ground-aimed circle, aim assist, the combat stance (src/app/aiming.ts) ----------
+const aiming = new Aiming({
+  engine,
+  follow,
+  input,
   softLock: opt.softLock,
   names: NAMES,
   netActors: () => shownActors,
   peers: () => peers?.present() ?? [],
 });
-const updateTarget = () => lockOn.update();
-const cycleTarget = (step: number) => lockOn.cycle(step);
-
-// ---------- Ground-aimed casts: hold to place the circle, release to cast ----------
-
-// The circle is a cursor you push around, held as an offset from wherever you are. It can't be
-// a raycast through the middle of the screen: the camera always looks straight at you, so that
-// point is always your own feet however you tilt the sticks.
-const aimOffset = { x: 0, z: 0 };
-const reticle = { x: 0, z: 0, range: 0, radius: 0 };
-let aimingSlot = 0; // 0 none, 1 or 2 while that ability is held down
-
-// Opening the circle: start it on whoever is marked, so the common case of "drop it on that one"
-// needs no aiming at all. Otherwise put it out in front of the camera.
-function startAiming(maxRange: number): void {
-  const px = sim.player.pos.x;
-  const pz = sim.player.pos.z;
-  const mark = lockOn.mark();
-  if (mark) {
-    aimOffset.x = mark.x - px;
-    aimOffset.z = mark.z - pz;
-  } else {
-    aimOffset.x = Math.sin(follow.yaw) * maxRange * AIM.startRange;
-    aimOffset.z = Math.cos(follow.yaw) * maxRange * AIM.startRange;
-  }
-  clampAim(maxRange);
-}
-
-// Pushes the circle, in the directions the camera is facing, and keeps it inside the ability's
-// range rather than refusing to cast (GW2's "lock ground target at maximum range").
-function moveAim(right: number, away: number, maxRange: number): void {
-  if (right !== 0 || away !== 0) {
-    const fx = Math.sin(follow.yaw);
-    const fz = Math.cos(follow.yaw);
-    aimOffset.x += fx * away - fz * right;
-    aimOffset.z += fz * away + fx * right;
-  }
-  clampAim(maxRange);
-}
-
-function clampAim(maxRange: number): void {
-  const d = Math.hypot(aimOffset.x, aimOffset.z);
-  if (d > maxRange) {
-    aimOffset.x = (aimOffset.x / d) * maxRange;
-    aimOffset.z = (aimOffset.z / d) * maxRange;
-  }
-  reticle.x = sim.player.pos.x + aimOffset.x;
-  reticle.z = sim.player.pos.z + aimOffset.z;
-  reticle.range = maxRange;
-}
-
-// Reads the aiming controls once per rendered frame, before any sim steps use them. `cam` is
-// what the camera would have done; while the circle is up, that input moves the circle instead,
-// so the view stays put and you can see where the spell is going.
-let combat = input.pollCombat();
-// Escape while placing a circle, kept until a rules step has seen it: a fast screen draws frames
-// that run no step at all, and a press read in one of those would otherwise be lost.
-let cancelWaiting = false;
-function updateCombatAim(cam: { dYaw: number; dPitch: number }, dt: number): boolean {
-  combat = input.pollCombat();
-  for (let i = 0; i < combat.nextTarget; i++) cycleTarget(1);
-  for (let i = 0; i < combat.prevTarget; i++) cycleTarget(-1);
-  if (combat.cancel > 0 && aimingSlot === 0) {
-    // Escape with nothing being aimed drops the target instead.
-    lockOn.clear();
-  } else if (combat.cancel > 0) {
-    cancelWaiting = true;
-  }
-  updateTarget();
-
-  if (aimingSlot === 0) {
-    follow.stopAiming();
-    return false;
-  }
-  const ability = sim.player.abilities[aimingSlot - 1] ?? NO_ABILITY;
-  const r = groundRange(ability);
-  if (r === null) {
-    aimingSlot = 0;
-    follow.stopAiming();
-    return false;
-  }
-  reticle.radius = abilityRadius(ability, sim.stats);
-  if (input.lastDevice === 'gamepad') {
-    // Left stick places the circle; the character stays put while you aim.
-    moveAim(combat.stickX * AIM.stickSpeed * dt, combat.stickY * AIM.stickSpeed * dt, r);
-  } else {
-    // Mouse, with the pointer captured: the movement that would have turned the camera slides
-    // the circle instead. dYaw is negated because turning right moves the view right.
-    moveAim((-cam.dYaw / CAMERA.mouseSensitivity) * AIM.mouseSpeed, (-cam.dPitch / CAMERA.mouseSensitivity) * AIM.mouseSpeed, r);
-  }
-  follow.aimAt(reticle.x, reticle.z);
-  return true;
-}
-
-// Turns the raw buttons into the actions the rules see: holding a ground-aimed ability arms it
-// instead of casting, releasing it casts at the circle, and the marked enemy supplies the aim.
-function targeting(a: Actions): Actions {
-  // The first step after an Escape takes it, whatever happens next.
-  const cancel = cancelWaiting;
-  cancelWaiting = false;
-  // An action that already carries an aim was aimed by whoever made it (the test hooks, and
-  // autoAim): it casts straight away rather than arming the circle, matching aimAssist().
-  if (a.aimX !== 0 || a.aimZ !== 0) return a;
-  let out = a;
-  if (aimingSlot === 0 && a.abilitySlot >= 1) {
-    const ability = sim.player.abilities[a.abilitySlot - 1] ?? NO_ABILITY;
-    if (groundRange(ability) !== null) {
-      // Ground-aimed: the press arms the circle instead of casting.
-      aimingSlot = a.abilitySlot;
-      out = { ...out, abilitySlot: 0 };
-      reticle.radius = abilityRadius(ability, sim.stats);
-      startAiming(groundRange(ability) ?? 16);
-    }
-  }
-  if (aimingSlot !== 0) {
-    // Escape, or B on a pad (which would otherwise slide), backs out without casting.
-    if (cancel || out.slidePressed) {
-      aimingSlot = 0;
-      return { ...out, slidePressed: false, abilitySlot: 0 };
-    }
-    if (combat.slotHeld !== aimingSlot) {
-      const slot = aimingSlot;
-      aimingSlot = 0;
-      return { ...out, abilitySlot: slot, aimX: reticle.x - sim.player.pos.x, aimZ: reticle.z - sim.player.pos.z };
-    }
-    // On a pad the left stick is placing the circle, so it mustn't also walk you around.
-    if (input.lastDevice === 'gamepad') return { ...out, moveX: 0, moveZ: 0, abilitySlot: 0 };
-    return { ...out, abilitySlot: 0 };
-  }
-  const p = sim.player;
-  const swinging = out.attackPressed || p.attackBuffer > 0 || p.attackQueued;
-  const mark = lockOn.mark();
-  // A blade only turns to the mark when it can reach it: swinging at the slime beside you while
-  // one further off is marked hits the one beside you (aimAssist), not the air. The bow shoots at
-  // the mark wherever it is.
-  const reach = p.weapon === 3 ? Infinity : comboFor(p.weapon, sim.stats)[0].reach + 1.6;
-  if (mark && swinging && Math.hypot(mark.x - p.pos.x, mark.z - p.pos.z) <= reach) return { ...out, aimX: mark.x - p.pos.x, aimZ: mark.z - p.pos.z };
-  return out;
-}
+const lockOn = aiming.lockOn;
 
 // Picks up a new server update: correct your prediction and refresh the other players.
 function syncNet(): void {
@@ -1014,7 +764,10 @@ function stepOnce(actions: Actions): void {
   if (netSpells) {
     // Online: your own arrows, meteors and heals show straight away.
     const local = events.flatMap((e) => netSpells.local(e));
-    events = events.concat(local, netSpells.step(STEP, sim.frame, enemyAt));
+    events = events.concat(
+      local,
+      netSpells.step(STEP, sim.frame, (x, z, r) => aiming.enemyAt(x, z, r)),
+    );
   }
   if (prediction && netMonsters) {
     // Online: your swing connecting with a monster sparks and shakes the moment it strikes.
@@ -1187,10 +940,10 @@ function drawSpells(alpha: number, dt: number): void {
   }
   castCircle(sim.player, hero.root.position.x, hero.root.position.z, false, sim.stats);
   monsterWarnings();
-  if (aimingSlot !== 0) {
+  if (aiming.slot !== 0) {
     const y = sim.player.pos.y;
-    spells.circle(sim.player.pos.x, sim.player.pos.z, reticle.range, 0, CIRCLE.range, 0.35, y);
-    spells.circle(reticle.x, reticle.z, reticle.radius, 1, CIRCLE.aim, 0.95, y);
+    spells.circle(sim.player.pos.x, sim.player.pos.z, aiming.reticle.range, 0, CIRCLE.range, 0.35, y);
+    spells.circle(aiming.reticle.x, aiming.reticle.z, aiming.reticle.radius, 1, CIRCLE.aim, 0.95, y);
   }
   spells.end();
 }
@@ -1258,7 +1011,7 @@ let pinnedView: { from: THREE.Vector3; to: THREE.Vector3 } | null = null;
 
 function draw(alpha: number, cameraDt: number, animDt: number): void {
   // Weapon out in a fight, put away a little after one.
-  hero.armed = inAFight();
+  hero.armed = aiming.inAFight();
   prediction?.ease(animDt);
   // Riding: the vehicle goes where it is this frame before you're posed in its seat, so you tilt
   // with it on a hill and your hands find its wheel or oars where they are now. Driving, yours is
@@ -1452,7 +1205,7 @@ function frame(now: number): void {
     if (menuOpen && !panel.isOpen && !lifeUI?.modal && !(lifeUI?.takesPad && input.lastDevice === 'gamepad')) input.pollActions(follow.yaw);
     const cam = input.pollCamera(dt);
     syncNet();
-    const placing = !menuOpen && updateCombatAim(cam, dt);
+    const placing = !menuOpen && aiming.update(cam, dt);
     if (!menuOpen && !placing) {
       follow.rotate(cam.dYaw, cam.dPitch);
       follow.zoom(cam.dZoom);
@@ -1482,9 +1235,7 @@ function frame(now: number): void {
       const own = scripted.length ? scripted.shift()! : menuOpen ? NO_ACTIONS : pad;
       // Auto-run or travel by road moves you, until your own moving takes over.
       const a = walker ? walker.steer(own, follow.yaw) : own;
-      // targeting() supplies an aim when it has a mark or a placed circle; aimAssist() only
-      // fills in the gaps it leaves; combatStance() keeps you facing the fight.
-      stepOnce(combatStance(aimAssist(targeting(autoAttack ? autoAim(a) : a))));
+      stepOnce(aiming.aim(a));
       acc -= STEP;
       steps++;
     }
@@ -1515,16 +1266,16 @@ const refs = {
     acc = v;
   },
   get aimingSlot() {
-    return aimingSlot;
+    return aiming.slot;
   },
   get applyBuild() {
     return applyBuild;
   },
   get autoAttack() {
-    return autoAttack;
+    return aiming.autoAttack;
   },
   set autoAttack(v) {
-    autoAttack = v;
+    aiming.autoAttack = v;
   },
   get blob() {
     return blob;
@@ -1536,7 +1287,7 @@ const refs = {
     return build;
   },
   get cycleTarget() {
-    return cycleTarget;
+    return (step: number) => aiming.cycleTarget(step);
   },
   get draw() {
     return draw;
@@ -1642,7 +1393,7 @@ const refs = {
     return range;
   },
   get reticle() {
-    return reticle;
+    return aiming.reticle;
   },
   get scripted() {
     return scripted;

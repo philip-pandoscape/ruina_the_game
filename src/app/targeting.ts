@@ -3,7 +3,7 @@ import type { NetActor } from '../net/worldFeed';
 import { actorKindAt } from '../content/actors';
 import { isAlive } from '../sim/actor';
 import { COMBAT } from '../content/tuning';
-import type { Sim } from '../sim/sim';
+import type { Engine } from '../engine/engine';
 
 // Who the game has you aimed at. Pulled out of main.ts because it owns real state of its own -
 // the current mark, whether you chose it or the game did - and nothing else needs to see it.
@@ -11,7 +11,8 @@ import type { Sim } from '../sim/sim';
 const DEG = Math.PI / 180;
 
 export interface TargetingDeps {
-  sim: Sim;
+  /** The rules: you, and offline the creatures they run. */
+  rules: Pick<Engine, 'player' | 'actors'>;
   camera(): THREE.Camera;
   /** Which way the view is facing, for judging what is near the middle of the screen. */
   yaw(): number;
@@ -25,6 +26,9 @@ export interface TargetingDeps {
   /** Online: everyone else in the world (players and bots), where they're drawn, with their side. */
   peers?: () => ReadonlyArray<{ id: number; name: string; x: number; y: number; z: number; team: number; hp: number }>;
 }
+
+/** Who you're aimed at, as createTargeting makes it. */
+export type Targeting = ReturnType<typeof createTargeting>;
 
 export function createTargeting(d: TargetingDeps) {
   // ---------- Targeting: a soft lock you can override with Tab ----------
@@ -58,12 +62,12 @@ export function createTargeting(d: TargetingDeps) {
   // nothing keeps the scan going. Bots are by far the biggest group, so they come last and are
   // rejected on squared distance before anything else is worked out.
   function eachEnemy(range: number, visit: (key: string, x: number, y: number, z: number, hp: number, name: string) => void): void {
-    const myTeam = d.sim.player.team;
-    const px = d.sim.player.pos.x;
-    const pz = d.sim.player.pos.z;
+    const myTeam = d.rules.player.team;
+    const px = d.rules.player.pos.x;
+    const pz = d.rules.player.pos.z;
     const r2 = range * range;
     if (!d.online) {
-      for (const a of d.sim.actors.all()) {
+      for (const a of d.rules.actors.all()) {
         if (!isAlive(a) || a.faction === 0 || a.faction === 2) continue; // not you, not townsfolk
         const dx = a.x - px;
         const dz = a.z - pz;
@@ -93,7 +97,7 @@ export function createTargeting(d: TargetingDeps) {
 
   // How far off the middle of the view something is, in radians.
   function offCentre(x: number, z: number): number {
-    let off = Math.abs(Math.atan2(x - d.sim.player.pos.x, z - d.sim.player.pos.z) - d.yaw()) % (Math.PI * 2);
+    let off = Math.abs(Math.atan2(x - d.rules.player.pos.x, z - d.rules.player.pos.z) - d.yaw()) % (Math.PI * 2);
     if (off > Math.PI) off = Math.PI * 2 - off;
     return off;
   }
@@ -125,8 +129,8 @@ export function createTargeting(d: TargetingDeps) {
         }
       }
       if (kept || !softLock || tabLocked) return;
-      const dx = x - d.sim.player.pos.x;
-      const dz = z - d.sim.player.pos.z;
+      const dx = x - d.rules.player.pos.x;
+      const dz = z - d.rules.player.pos.z;
       const dist = Math.hypot(dx, dz);
       const off = offCentre(x, z);
       if (dist > SOFT_RANGE || off > SOFT_CONE) return;
@@ -167,7 +171,7 @@ export function createTargeting(d: TargetingDeps) {
   function cycleTarget(step: number): void {
     const list: Array<{ key: string; d: number }> = [];
     eachEnemy(SOFT_RANGE, (key, x, _y, z) => {
-      list.push({ key, d: Math.hypot(x - d.sim.player.pos.x, z - d.sim.player.pos.z) });
+      list.push({ key, d: Math.hypot(x - d.rules.player.pos.x, z - d.rules.player.pos.z) });
     });
     if (!list.length) return;
     list.sort((a, b) => a.d - b.d || (a.key < b.key ? -1 : 1));
