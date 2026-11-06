@@ -16,6 +16,9 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
   rest); then crowds at scale (R10.8) and the UI gallery (R6.9).
 - **How:** one session does the work, without background agents (the user's call on 2026-11-06:
   three at once used tokens too fast).
+- **Races under load (the Mac, four workers):** these lose a race now and then and pass alone:
+  `online.spec.ts:109`, `:258`, `:617`, `party.spec.ts:121`, `combat.spec.ts:185`, the battlefield's
+  `Cleave hits both` and `battlefield.spec.ts:375`. To look at with R1.11.
 - **Where:** from 2026-11-06 the work goes on on the Mac laptop, in the main checkout
   (`~/Documents/GitHub/games/ruina_the_game`, branch `refactor/first`; Git LFS installed with
   Homebrew). The Windows worktree `C:\GitHub\games\yggdrasil-refactor` was the first machine; its last
@@ -349,12 +352,25 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
   build of every test 119 s.
 ## Phase 6: The Client in Areas
 
-- [ ] **R6.0** Fix the boundary breaks first (`inventory/architecture.md` section 2): the network
+- [x] **R6.0** Fix the boundary breaks first (`inventory/architecture.md` section 2): the network
   code stops building bodies and island views (`netPlayer.ts` makes `Hero`s, `worldPeers.ts` makes
   `Hero` + `LifeView` per player: it hands out state, rendering makes the views); the sign-in,
   character, party and mini-game windows stop calling the network directly (28 `link.*` calls, the
   account API) and go through app services; `content/creatures/hero.ts` stops importing three.js; the
   `content/actors.ts`/`sim/actor.ts` cycle and the seven two-way folder dependencies go.
+  Done: the network keeps everyone else's state and
+  `src/render/open/peersView.ts` draws them (1acd45f, begun by an agent as 235bc19); the windows
+  declare what they show and the calls they make, and the app hands them the account API and the
+  world connection (465e613); the hero's close-up body is render's (R6.10). The two-way
+  dependencies went: content/sim (`ActorKind` is content's), app/net (the link is handed what to do
+  before a reload), app/ui (the build's rules to `src/content/build.ts`, 37ac866; the saved build the
+  app's; auto-run to `src/input/`, eb11517), render/ui (the HUD to `src/ui/hud.ts`, dae798f; the hero
+  preview handed the UI's scale), net/render (1acd45f), render/species and species/creatures (one
+  area since R6.10); 2ed6607. The boundary test forbids net and render importing each other, the UI
+  importing the network or the app, and drawing importing the UI, and lists no exceptions. *Verified:*
+  `npm run check`; the integration tier 241 of 245 (7eb599f): `online.spec.ts:109` and `:258` lost
+  races under four workers and pass alone, `ui.spec.ts:405` needs pointer lock, which macOS's
+  headless browser doesn't give, one skipped.
 - [ ] **R6.0b** Changes to the rules' state from outside become named calls on the bridge: `main.ts`
   375-391, 499-521, 1760-1955, 2387-2431; `app/dungeonVisit.ts` 38-39, 58-59; `app/save.ts` 62-87;
   `net/netPlayer.ts` 108-124 (swaps `sim.player`); `net/worldPeers.ts` 195, 202, 264 (colliders,
@@ -376,6 +392,8 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
   Begun: the test API, the bug reporter's wiring and online play's are out (e5a6253, 586f27e), with the
   scripts that move main.ts out region by region (`tools/refactor/`); main.ts is 1,900 lines (2,566).
   The modes, the loop, aiming and drawing are left.
+  Then frame stats (367a883) and aiming (017c79e) out, and the engine bridge in its place for the
+  rules (6553617): main.ts is 1,518 lines. The modes, the loop and drawing are left.
 - [x] **R6.3** `src/app/testApi.ts`: `window.__game` in a module of its own, typed.
   Done (e5a6253).
 - [ ] **R6.4** `src/engine/`: the one bridge to the rules; everything else imports it, not `src/sim/`.
@@ -423,9 +441,10 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
 - [x] **R6.12** The boundary test (unit tier): allowed imports per area; known exceptions listed with a
   reason.
   Done (ec3051e): `tests/unit/boundaries.test.ts`.
-- [~] **R6.13** An AGENTS.md (and a CLAUDE.md that imports it) in `src/render`, `src/ui`, `src/net`,
+- [x] **R6.13** An AGENTS.md (and a CLAUDE.md that imports it) in `src/render`, `src/ui`, `src/net`,
   `src/app`, `src/dev`.
-  Begun: `src/app/AGENTS.md`, `content/AGENTS.md`.
+  Done: `src/app/AGENTS.md` and `content/AGENTS.md` first, `src/net/AGENTS.md` (37afeca), then
+  `src/render`, `src/ui` and `src/dev`, each with its boundaries as the test holds them.
 - [ ] **R6.14** Look check: `tests/look.spec.ts` before and after, no change.
 - [x] **R6.15** The Content Library (decided: one page for everything): the animation library grows
   subjects for models (`models.html`: categories, anchors, budgets), buildings (`buildings.html`:
