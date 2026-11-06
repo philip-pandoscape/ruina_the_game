@@ -45,7 +45,8 @@ export const DEV_PAGES: readonly DevPage[] = [
     kind: 'page',
     title: 'Animation Library',
     url: '/dev/library.html',
-    about: 'Every animated thing frame by frame: scrub, onion-skin and pose it, and leave notes on it for Claude.',
+    about:
+      'Everything the game draws, in one place: every animated thing frame by frame (scrub, onion-skin and pose it, and leave notes on it for Claude), and every model side by side.',
     needs: 'dev-server',
   },
   {
@@ -76,7 +77,6 @@ export const DEV_PAGES: readonly DevPage[] = [
     url: '/dev/species.html',
     about: 'One species at a time: its clips, its joints and a crowd of it, with the cost measured.',
   },
-  { id: 'models', kind: 'page', title: 'Model Gallery', url: '/dev/models.html', about: 'Every model side by side, beside a figure 1.9 m tall.' },
   {
     id: 'buildings',
     kind: 'page',

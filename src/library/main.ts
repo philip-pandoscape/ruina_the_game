@@ -3,9 +3,10 @@ import { App } from './app';
 import { store, type Note } from './store';
 import { SUBJECTS } from './subjects';
 
-// /dev/library.html: the animation library. See app.ts for what it does and AGENTS.md for where it fits.
-// window.__library lets tests (tests/integration/library.spec.ts) and the review check (tests/integration/library-review.spec.ts)
-// drive it.
+// /dev/library.html: the content library, the one developer page for everything the game draws. See
+// app.ts for what it does and AGENTS.md for where it fits. window.__library lets the tests (the
+// library's own, tests/integration/library.spec.ts; and those of what it shows: models.spec.ts and
+// the rest) and the review check (tests/integration/library-review.spec.ts) drive it.
 
 const app = new App(document.getElementById('app')!);
 
@@ -30,7 +31,14 @@ const api = {
     editing: app.editor.active,
     touched: [...app.editor.touched],
     range: app.range,
+    /** A gallery entry is open (not a take), and has loaded all it loads. */
+    gallery: !!app.gallery,
+    ready: app.gallery ? app.gallery.ready() : !!app.take,
   }),
+  /** The open gallery entry's own calls (models: stats, probe, ray, seaInside...), or null. */
+  gallery: () => app.gallery?.api ?? null,
+  /** The take on screen, for what a subject measures on it (a library clip's error), or null. */
+  take: () => app.take,
   seek: (f: number) => app.seek(f),
   play: () => app.play(),
   pause: () => app.pause(),

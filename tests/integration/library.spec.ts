@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 
-// The animation library (/dev/library.html, src/library/): every character's animations open and play,
+// The content library (/dev/library.html, src/library/): every character's animations open and play,
 // a corrected pose becomes a note with a picture and the bones it moved, notes outlive a reload (kept
 // by the dev server), and the prompt carries what Claude needs. Notes made here go to
 // test-results/anim-reviews/ (?test), never to reviews/.
@@ -136,7 +136,7 @@ test('the library is laid out and answers the keyboard', async ({ page }) => {
   test.setTimeout(120_000);
   await load(page, '#/hero/run');
   // Pick a character from the list, then one of its animations.
-  await page.getByRole('button', { name: /All Characters/ }).click();
+  await page.getByRole('button', { name: 'Everything', exact: true }).click();
   await page.locator('.subject', { hasText: 'Slime' }).click();
   await expect(page.locator('.anim.on')).toContainText('Idle');
   await page.locator('.anim', { hasText: 'Hop' }).click();

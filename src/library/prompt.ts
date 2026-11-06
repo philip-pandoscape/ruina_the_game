@@ -174,7 +174,7 @@ export function buildPrompt(notes: Note[], ctx: PromptContext): string {
       const optWords = Object.entries(n0.options)
         .map(([k, v]) => {
           const o = subject?.options.find((x) => x.id === k);
-          return o ? `${o.label} ${o.choices.find((c) => c.value === v)?.label ?? v}` : `${k} ${v}`;
+          return o ? `${o.label} ${o.choices?.find((c) => c.value === v)?.label ?? v}` : `${k} ${v}`;
         })
         .join(', ');
       out.push(`### ${n0.animLabel} (\`${n0.anim}\`)${optWords ? `, ${optWords}` : ''}`, '');

@@ -1,10 +1,12 @@
 import type * as THREE from 'three';
 
-// The animation library's own vocabulary (/dev/library.html, src/library/main.ts). Everything that moves
-// in the game is a Subject: the hero, a slime, a cow, a villager. A subject lists its animations and
-// makes a Take of one: the animation played through once, every frame kept, so any frame can be
-// shown at once, scrubbed backwards, drawn as a ghost or corrected by hand. How a subject is
-// animated (poses worked out in code, baked clips, a model's own animate()) stays its own business.
+// The content library's own vocabulary (/dev/library.html, src/library/main.ts). Everything it shows
+// is a Subject. One that moves (the hero, a slime, a cow, a villager, a library clip on the hero)
+// lists its animations and makes a Take of one: the animation played through once, every frame kept,
+// so any frame can be shown at once, scrubbed backwards, drawn as a ghost or corrected by hand. How a
+// subject is animated (poses worked out in code, baked clips, a model's own animate()) stays its own
+// business. A gallery (every model side by side, the buildings, a crowd) lists its entries instead
+// and draws one in a scene of its own, as it always looked (Gallery).
 
 export type Vec3 = [number, number, number];
 
@@ -87,24 +89,35 @@ export interface Take extends Posable {
   /** Shows or hides what's drawn besides the body (a weapon's swoosh). */
   setDecor?(on: boolean): void;
   framing: Framing;
+  /** The backdrop it is drawn on (stage.ts BACKDROPS): the library's studio unless it says otherwise. */
+  backdrop?: Backdrop;
 }
+
+/** The backdrops a take can be drawn on (stage.ts). */
+export type Backdrop = 'studio' | 'outdoors' | 'bench' | 'retarget';
 
 export interface AnimDef {
   id: string;
   label: string;
   group: string;
+  /** Its length (0 until it has loaded, for a clip in a file: the take knows). */
   frames: number;
   fps: number;
   loop: boolean;
   /** A line about it for the library. */
   note?: string;
+  /** Shown in the list instead of its length (a gallery's entries: how many models, a plan's size). */
+  tag?: string;
 }
 
 export interface OptionDef {
   id: string;
   label: string;
-  choices: Array<{ value: string; label: string }>;
+  /** The values it takes, as buttons. Without, a value typed in (or given in the address), '' for none. */
+  choices?: Array<{ value: string; label: string }>;
   value: string;
+  /** What a typed value looks like, shown in its empty box. */
+  hint?: string;
 }
 
 export type Options = Record<string, string>;
@@ -120,17 +133,40 @@ export interface Source {
   checks?: Array<{ command: string; what: string }>;
 }
 
+/**
+ * A gallery entry, drawn in a scene of its own (its own renderer, lights and ground, as the page it
+ * came from drew it) in the library's viewport: every model side by side, the buildings, a crowd.
+ */
+export interface Gallery {
+  /** The picture and whatever is drawn over it (labels), put in the viewport. */
+  readonly el: HTMLElement;
+  /** Everything it loads has loaded: ready to look at and to measure. */
+  ready(): boolean;
+  /** Steps whatever moves in it and draws it (dt in seconds). */
+  frame(dt: number): void;
+  /** Numbers about what is shown, for the side panel: a heading and rows of name and value. */
+  numbers?(): Array<{ heading: string; rows: Array<[string, string]> }>;
+  /** What tests and tools call, as window.__library.gallery(). */
+  readonly api: Record<string, unknown>;
+  dispose(): void;
+}
+
 export interface Subject {
   id: string;
   name: string;
-  /** 'Heroes' | 'Mobs' | 'Creatures' | 'Townsfolk' | 'Mounts' | 'Crowd'. */
+  /** 'Heroes' | 'Mobs' | 'Creatures' | 'Townsfolk' | 'Mounts' | 'Crowd' | 'Rigs' | 'Galleries'. */
   group: string;
   blurb: string;
   options: OptionDef[];
   anims(opts: Options): AnimDef[];
-  /** Loads whatever it needs first (a made body). */
-  ready?(opts: Options): Promise<void>;
-  take(animId: string, opts: Options): Take;
+  /** An animation its list doesn't hold (any clip in a file, named in the address), or null. */
+  find?(animId: string, opts: Options): AnimDef | null;
+  /** Loads whatever it needs first (a made body, a clip's file). */
+  ready?(opts: Options, animId?: string): Promise<void>;
+  /** Makes a take of one of its animations: a subject that moves has this... */
+  take?(animId: string, opts: Options): Take;
+  /** ...and a gallery this instead: it draws one of its entries in the viewport (host). */
+  gallery?(host: HTMLElement, animId: string, opts: Options): Gallery;
   /** The options that make a difference to this animation (the rest are left out of its notes' key). */
   optionsFor?(animId: string, opts: Options): Options;
   source(opts: Options): Source;

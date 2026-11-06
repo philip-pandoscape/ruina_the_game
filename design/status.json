@@ -103,8 +103,9 @@
       "notes": "Low-poly toon models built in code to the data's exact footprints and anchors: 20 structures (the cottage in 5 build stages), 6 vehicles, 2 mounts, 2 gliders, 9 packs, 6 crops in 4 stages, 3 kinds of livestock (young and grown), 12 villagers and 8 props. Merged per model for few draw calls; tests check wheels, waterlines, seat heights and the cottage doorway.",
       "files": [
         "src/render/models/",
-        "dev/models.html",
-        "tests/integration/models.spec.ts"
+        "src/library/galleries/models.ts",
+        "tests/integration/models.spec.ts",
+        "tests/unit/models.test.ts"
       ]
     },
     {

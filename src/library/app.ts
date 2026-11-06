@@ -12,15 +12,17 @@ import { ICON, fmtTime, h, icon, modal, setToastHost, toast } from './dom';
 import { GROUP_ORDER, SUBJECTS, subjectById } from './subjects';
 import { speciesEditing } from './subjects/species';
 import { thumbnails } from './thumbs';
-import type { AnimDef, Bone, Options, Posable, Subject, Take } from './types';
+import type { AnimDef, Bone, Gallery, Options, Posable, Subject, Take } from './types';
 
-// The animation library: pick a character, then one of its animations; play it, scrub it, step it
-// a frame at a time; leave notes on the whole of it, on a stretch of frames or on one frame, and on
-// a frame put the bones where they should have been. "Create Prompt" turns the open notes into one
+// The content library: pick something, then one of its animations; play it, scrub it, step it a
+// frame at a time; leave notes on the whole of it, on a stretch of frames or on one frame, and on a
+// frame put the bones where they should have been. "Create Prompt" turns the open notes into one
 // prompt for Claude (prompt.ts); the corrected poses stay on screen as ghosts on their frames, so
-// once Claude has changed the code (the page reloads by itself) you can see how close it came.
+// once Claude has changed the code (the page reloads by itself) you can see how close it came. A
+// gallery (every model, the buildings, a crowd) is drawn in a scene of its own in the same place,
+// with its options on the left and its numbers on the right.
 
-type Tab = 'notes' | 'pose' | 'about';
+type Tab = 'notes' | 'pose' | 'about' | 'numbers';
 type Scope = 'anim' | 'subject' | 'all';
 
 interface Composer {
@@ -70,6 +72,8 @@ export class App {
   options: Options = {};
   anim: AnimDef | null = null;
   take: Take | null = null;
+  /** The gallery entry in the viewport instead of a take, if one is open. */
+  gallery: Gallery | null = null;
   frame = 0;
   playing = true;
   range: [number, number] | null = null;
@@ -107,11 +111,11 @@ export class App {
     frameInput: h('input', { type: 'text', spellcheck: 'false', title: 'Go to frame' }),
   };
 
-  constructor(host: HTMLElement) {
+  constructor(private readonly host: HTMLElement) {
     const top = h(
       'header',
       { class: 'top' },
-      h('div', { class: 'brand' }, h('span', { class: 'logo', html: ICON.play }), 'Animation Library', h('small', {}, 'Ruina')),
+      h('div', { class: 'brand' }, h('span', { class: 'logo', html: ICON.play }), 'Content Library', h('small', {}, 'Ruina')),
       this.el.crumbs,
       h('div', { class: 'spacer' }),
       h(
@@ -127,7 +131,7 @@ export class App {
         h('button', { class: 'icon-btn', title: 'Keyboard shortcuts (?)', onclick: () => this.openHelp() }, icon('help')),
       ),
     );
-    const search = h('input', { type: 'search', placeholder: 'Search characters and animations', spellcheck: 'false' });
+    const search = h('input', { type: 'search', placeholder: 'Search the library', spellcheck: 'false' });
     search.addEventListener('input', () => {
       this.search = search.value.trim().toLowerCase();
       this.renderLibrary();
@@ -206,11 +210,11 @@ export class App {
   /** A take of an animation, from the cache or made now (the subject must be ready). */
   takeOf(sid: string, aid: string, o: Options): Take | null {
     const subject = subjectById(sid);
-    if (!subject) return null;
+    if (!subject?.take) return null;
     const key = this.takeKey(sid, aid, o);
     let t = this.takes.get(key);
     if (!t) {
-      if (!subject.anims(o).some((a) => a.id === aid)) return null;
+      if (!subject.anims(o).some((a) => a.id === aid) && !subject.find?.(aid, o)) return null;
       t = subject.take(aid, o);
       this.takes.set(key, t);
       // Keep the last few: switching back is instant, memory stays bounded.
@@ -244,12 +248,12 @@ export class App {
     }
     const options = this.defaults(subject, given);
     const anims = subject.anims(options);
-    const anim = anims.find((a) => a.id === aid) ?? anims[0];
+    const anim = anims.find((a) => a.id === aid) ?? (aid ? subject.find?.(aid, options) : null) ?? anims[0];
     if (!anim) return;
     const ticket = ++this.opening;
     this.el.loading.textContent = subject.ready ? `Loading ${subject.name}…` : '';
     try {
-      await subject.ready?.(options);
+      await subject.ready?.(options, anim.id);
     } catch (e) {
       console.warn(e);
     }
@@ -260,7 +264,16 @@ export class App {
     this.options = options;
     this.anim = anim;
     this.libView = 'anims';
-    const take = this.takeOf(subject.id, anim.id, options)!;
+    if (subject.gallery) {
+      this.showGallery(subject.gallery(this.el.viewport, anim.id, options));
+      return;
+    }
+    this.closeGallery();
+    const take = this.takeOf(subject.id, anim.id, options);
+    if (!take) {
+      toast(`${subject.name} could not make ${anim.label}`, 'warn');
+      return;
+    }
     if (this.take !== take) {
       this.stage.bodies.clear();
       this.stage.bodies.add(take.root);
@@ -272,6 +285,7 @@ export class App {
       this.trails.clear();
       this.skeleton.setBody(take, take.framing.height);
     }
+    this.stage.setBackdrop(take.backdrop ?? 'studio');
     const saved = this.savedCamera();
     if (opts.keepCamera && sameSubject) {
       /* keep the camera where it is */
@@ -293,12 +307,52 @@ export class App {
     this.writeHash();
   }
 
+  /** Puts a gallery entry in the viewport in place of the take: its own picture, options and numbers. */
+  private showGallery(g: Gallery): void {
+    this.closeGallery();
+    this.stage.bodies.clear();
+    this.take = null;
+    this.ghosts.reset(null);
+    this.measureRig?.dispose();
+    this.measureRig = null;
+    this.measures.clear();
+    this.trails.clear();
+    this.skeleton.setBody(null);
+    this.gallery = g;
+    this.el.viewport.prepend(g.el);
+    this.host.classList.add('gallery-open');
+    if (this.tab !== 'numbers' || !g.numbers) this.tab = 'about';
+    this.composer = null;
+    this.editingNote = null;
+    this.range = null;
+    this.frame = 0;
+    this.renderAll();
+    this.writeHash();
+  }
+
+  private closeGallery(): void {
+    if (!this.gallery) return;
+    this.gallery.dispose();
+    this.gallery.el.remove();
+    this.gallery = null;
+    this.host.classList.remove('gallery-open');
+    if (this.tab === 'numbers') this.tab = 'notes';
+  }
+
   // ---------- playing ----------
+
+  private galleryFrames = 0;
 
   private loop(now: number): void {
     requestAnimationFrame((t) => this.loop(t));
     const dt = Math.min(0.1, (now - this.lastT) / 1000);
     this.lastT = now;
+    if (this.gallery) {
+      this.gallery.frame(dt);
+      // Its numbers can change as it goes (a cost measured, a model loaded): kept current twice a second.
+      if (this.tab === 'numbers' && ++this.galleryFrames % 30 === 0) this.renderNumbers();
+      return;
+    }
     const take = this.take;
     if (take) {
       // Bake ahead in the background, a few milliseconds a frame (never while a pose is being corrected).
@@ -706,8 +760,7 @@ export class App {
     // Whatever the notes are on has to be ready to describe (a made body loaded).
     for (const sid of new Set(notes.map((n) => n.subject))) {
       const s = subjectById(sid);
-      const o = notes.find((n) => n.subject === sid)!.options;
-      if (s?.ready) await s.ready(o).catch(() => undefined);
+      for (const n of notes.filter((x) => x.subject === sid)) if (s?.ready) await s.ready(n.options, n.anim).catch(() => undefined);
     }
     const text = buildPrompt(notes, {
       subject: subjectById,
@@ -816,13 +869,15 @@ export class App {
     const c = this.el.crumbs;
     c.replaceChildren();
     if (!this.subject || !this.anim) {
-      c.append(h('span', {}, 'Pick a character'));
+      c.append(h('span', {}, 'Pick something'));
       return;
     }
     const optWords = this.subject.options
-      .map((o) => o.choices.find((x) => x.value === this.options[o.id])?.label)
+      .map((o) => (o.choices ? o.choices.find((x) => x.value === this.options[o.id])?.label : this.options[o.id] ? `${o.label} ${this.options[o.id]}` : ''))
       .filter(Boolean)
       .join(' · ');
+    const frames = this.take?.frames ?? this.anim.frames;
+    const fps = this.take?.fps ?? this.anim.fps;
     c.append(
       ...[
         h('span', { class: 'sep' }, '/'),
@@ -830,8 +885,8 @@ export class App {
         h('span', { class: 'sep' }, '/'),
         h('b', {}, this.anim.label),
         optWords ? h('span', { class: 'tag' }, optWords) : null,
-        h('span', { class: 'tag' }, `${this.anim.frames} f · ${fmtTime(this.anim.frames, this.anim.fps)}`),
-      ].filter((x): x is HTMLElement => !!x),
+        h('span', { class: 'tag' }, this.gallery ? (this.anim.tag ?? '') : `${frames} f · ${fmtTime(frames, fps)}`),
+      ].filter((x): x is HTMLElement => !!x && !!x.textContent),
     );
   }
 
@@ -905,15 +960,35 @@ export class App {
     }
     const s = this.subject;
     body.append(
-      h('button', { class: 'back', onclick: () => ((this.libView = 'subjects'), this.renderLibrary()) }, icon('back'), 'All Characters'),
+      h('button', { class: 'back', onclick: () => ((this.libView = 'subjects'), this.renderLibrary()) }, icon('back'), 'Everything'),
       h('div', { class: 'subject-head' }, this.thumb(s), h('div', {}, h('h2', {}, s.name), h('p', {}, s.blurb))),
     );
     if (s.options.length) {
       const opts = h('div', { class: 'opts' });
       // An option this animation doesn't use (a film with a weapon of its own) is shown but greyed.
       const used = this.anim && s.optionsFor ? Object.keys(s.optionsFor(this.anim.id, this.options)) : null;
+      const set = (id: string, value: string) =>
+        void this.open(s.id, this.anim?.id ?? null, { ...this.options, [id]: value }, this.frame, { keepCamera: true });
       for (const o of s.options) {
         const idle = used !== null && !used.includes(o.id);
+        let field: HTMLElement;
+        if (o.choices)
+          field = h(
+            'div',
+            { class: 'seg' },
+            ...o.choices.map((c) => h('button', { class: this.options[o.id] === c.value ? 'on' : '', onclick: () => set(o.id, c.value) }, c.label)),
+          );
+        else {
+          // A value of its own: typed in, kept on Enter (or leaving the box).
+          const input = h('input', { type: 'text', class: 'opt-text', spellcheck: 'false', placeholder: o.hint ?? '', value: this.options[o.id] ?? '' });
+          const keep = () => input.value.trim() !== (this.options[o.id] ?? '') && set(o.id, input.value.trim());
+          input.onkeydown = (e) => {
+            e.stopPropagation();
+            if (e.key === 'Enter') keep();
+          };
+          input.onchange = keep;
+          field = input;
+        }
         opts.append(
           h(
             'div',
@@ -924,20 +999,7 @@ export class App {
               o.label,
               idle ? h('span', { class: 'muted', style: 'text-transform:none;letter-spacing:0;font-weight:400' }, ' · this one has its own') : null,
             ),
-            h(
-              'div',
-              { class: 'seg' },
-              ...o.choices.map((c) =>
-                h(
-                  'button',
-                  {
-                    class: this.options[o.id] === c.value ? 'on' : '',
-                    onclick: () => void this.open(s.id, this.anim?.id ?? null, { ...this.options, [o.id]: c.value }, this.frame, { keepCamera: true }),
-                  },
-                  c.label,
-                ),
-              ),
-            ),
+            field,
           ),
         );
       }
@@ -963,7 +1025,7 @@ export class App {
       { class: `anim${on ? ' on' : ''}`, onclick: () => void this.open(s.id, a.id, o, 0, { keepCamera: s.id === this.subject?.id }), title: a.note ?? '' },
       h('span', { class: 'label' }, a.label, showOwner ? h('span', { class: 'owner' }, ` · ${s.name}`) : null),
       notes.length ? h('span', { class: `badge${fixes ? ' fix' : ''}` }, String(notes.length)) : null,
-      h('span', { class: 'len' }, fmtTime(a.frames, a.fps)),
+      h('span', { class: 'len' }, a.tag ?? fmtTime(a.frames, a.fps)),
     );
   }
 
@@ -1177,14 +1239,31 @@ export class App {
         label,
         extra ?? null,
       );
-    this.el.tabs.replaceChildren(
-      tab('notes', 'Notes', notes ? h('span', { class: 'badge' }, String(notes)) : null),
-      tab('pose', 'Pose', this.editor.active ? h('span', { class: 'badge fix' }, '●') : null),
-      tab('about', 'About'),
-    );
+    if (this.gallery)
+      this.el.tabs.replaceChildren(
+        ...[tab('about', 'About'), this.gallery.numbers ? tab('numbers', 'Numbers') : null].filter((x): x is HTMLButtonElement => !!x),
+      );
+    else
+      this.el.tabs.replaceChildren(
+        tab('notes', 'Notes', notes ? h('span', { class: 'badge' }, String(notes)) : null),
+        tab('pose', 'Pose', this.editor.active ? h('span', { class: 'badge fix' }, '●') : null),
+        tab('about', 'About'),
+      );
     if (this.tab === 'notes') this.renderNotes();
     else if (this.tab === 'pose') this.renderPose();
+    else if (this.tab === 'numbers') this.renderNumbers();
     else this.renderAbout();
+  }
+
+  /** A gallery entry's numbers (triangles and sizes, joints and costs), as it reports them. */
+  renderNumbers(): void {
+    if (this.tab !== 'numbers') return;
+    const pane = this.el.pane;
+    const scroll = pane.scrollTop;
+    pane.replaceChildren();
+    for (const t of this.gallery?.numbers?.() ?? [])
+      pane.append(h('h3', {}, t.heading), h('dl', { class: 'kv' }, ...t.rows.flatMap(([k, v]) => [h('dt', {}, k), h('dd', {}, v)])));
+    pane.scrollTop = scroll;
   }
 
   renderNotes(): void {
@@ -1611,47 +1690,69 @@ export class App {
     const take = this.take;
     const s = this.subject;
     const a = this.anim;
-    if (!take || !s || !a) return;
+    if (!s || !a) return;
     const src = s.source(this.options);
-    const info = this.frame < take.baked ? take.info(this.frame) : null;
-    pane.append(
-      ...[
-        h('h3', {}, 'This Animation'),
+    const link = h(
+      'button',
+      {
+        class: 'link',
+        onclick: () =>
+          void navigator.clipboard
+            .writeText(linkTo(location.origin, s.id, a.id, this.liveOptions(), take ? this.frame : undefined))
+            .then(() => toast('Link copied', 'good')),
+      },
+      take ? 'Copy a link to this frame' : 'Copy a link to this',
+    );
+    const how = [
+      h('h3', { style: 'margin-top:16px' }, `How ${s.name} ${take ? 'Moves' : 'Is Made'}`),
+      h('p', { class: 'about-text' }, src.system),
+      h('ul', { class: 'files' }, ...src.files.map((f) => h('li', {}, h('code', {}, f.path), h('span', {}, f.what)))),
+      src.conventions ? h('h3', {}, 'Conventions') : null,
+      src.conventions ? h('p', { class: 'about-text' }, src.conventions) : null,
+    ].filter((x): x is NonNullable<typeof x> => !!x);
+    if (!take) {
+      pane.append(
+        h('h3', {}, 'This One'),
         h(
           'dl',
           { class: 'kv' },
           h('dt', {}, 'Name'),
           h('dd', {}, `${a.label} (${a.id})`),
-          h('dt', {}, 'Length'),
-          h('dd', {}, `${take.frames} frames at ${take.fps} fps · ${fmtTime(take.frames, take.fps)}${take.loop ? ' · loops' : ''}`),
           h('dt', {}, 'Made by'),
           h('dd', {}, s.animSource(a.id, this.options)),
-          h('dt', {}, 'Bones'),
-          h('dd', {}, `${take.bones.length} (${take.bones.filter((b) => !b.minor && !b.name.startsWith('@')).length} drawn)`),
           h('dt', {}, 'Link'),
-          h(
-            'dd',
-            {},
-            h(
-              'button',
-              {
-                class: 'link',
-                onclick: () =>
-                  void navigator.clipboard.writeText(linkTo(location.origin, s.id, a.id, this.options, this.frame)).then(() => toast('Link copied', 'good')),
-              },
-              'Copy a link to this frame',
-            ),
-          ),
+          h('dd', {}, link),
         ),
-        h('h3', {}, `Frame ${this.frame}`),
-        info ? h('pre', { class: 'detail' }, `${info.line}\n\n${JSON.stringify(info.detail ?? {}, null, 1)}`) : h('p', { class: 'muted' }, 'Working it out…'),
-        h('h3', { style: 'margin-top:16px' }, `How ${s.name} Moves`),
-        h('p', { class: 'about-text' }, src.system),
-        h('ul', { class: 'files' }, ...src.files.map((f) => h('li', {}, h('code', {}, f.path), h('span', {}, f.what)))),
-        src.conventions ? h('h3', {}, 'Conventions') : null,
-        src.conventions ? h('p', { class: 'about-text' }, src.conventions) : null,
-      ].filter((x): x is NonNullable<typeof x> => !!x),
+        ...how,
+      );
+      return;
+    }
+    const info = this.frame < take.baked ? take.info(this.frame) : null;
+    pane.append(
+      h('h3', {}, 'This Animation'),
+      h(
+        'dl',
+        { class: 'kv' },
+        h('dt', {}, 'Name'),
+        h('dd', {}, `${a.label} (${a.id})`),
+        h('dt', {}, 'Length'),
+        h('dd', {}, `${take.frames} frames at ${take.fps} fps · ${fmtTime(take.frames, take.fps)}${take.loop ? ' · loops' : ''}`),
+        h('dt', {}, 'Made by'),
+        h('dd', {}, s.animSource(a.id, this.options)),
+        h('dt', {}, 'Bones'),
+        h('dd', {}, `${take.bones.length} (${take.bones.filter((b) => !b.minor && !b.name.startsWith('@')).length} drawn)`),
+        h('dt', {}, 'Link'),
+        h('dd', {}, link),
+      ),
+      h('h3', {}, `Frame ${this.frame}`),
+      info ? h('pre', { class: 'detail' }, `${info.line}\n\n${JSON.stringify(info.detail ?? {}, null, 1)}`) : h('p', { class: 'muted' }, 'Working it out…'),
+      ...how,
     );
+  }
+
+  /** The options as the address carries them: those with no value left out. */
+  private liveOptions(): Options {
+    return Object.fromEntries(Object.entries(this.options).filter(([, v]) => v !== ''));
   }
 
   // ---------- other windows ----------
@@ -1952,7 +2053,7 @@ export class App {
 
   private writeHash(): void {
     if (!this.subject || !this.anim) return;
-    const q = new URLSearchParams(this.options);
+    const q = new URLSearchParams(this.liveOptions());
     if (this.frame) q.set('f', String(this.frame));
     if (this.range) q.set('r', `${this.range[0]}-${this.range[1]}`);
     const s = q.toString();
@@ -2001,7 +2102,7 @@ export class App {
     this.renderTransport();
   }
 
-  /** Thumbnails for the character list, made in the background. */
+  /** Thumbnails for the list, made in the background (of what moves: a gallery shows its initial). */
   async makeThumbs(): Promise<void> {
     await thumbnails(SUBJECTS, (id, url) => this.setThumb(id, url));
   }

@@ -4,10 +4,12 @@ import { readFileSync } from 'node:fs';
 // Its tests share nothing, so they spread across the workers (playwright.config.ts).
 test.describe.configure({ mode: 'parallel' });
 
-// The procedural models (src/render/models) in their gallery, dev/models.html. Every category must
-// build without a console error and inside its triangle budget, and the parts the rules lean on
-// - wheels on the ground, hulls down to their draft, seats, cargo slots, decks and the cottage's
-// walls - must be where shared/*.json says. The screenshots in screenshots/ are for a human.
+// The procedural models (src/render/models) in the content library's model gallery
+// (/dev/library.html#/models/<category>, src/library/galleries/models.ts). Every category must build
+// without a console error and inside its triangle budget, and the parts the rules lean on - wheels on
+// the ground, hulls down to their draft, seats, cargo slots, decks and the cottage's walls - must be
+// where shared/*.json says. The screenshots in screenshots/ are for a human. That crops and props
+// are ready to be instanced is a unit test (tests/unit/models.test.ts).
 
 const SHOTS = 'screenshots';
 const CATS = ['vehicles', 'mounts', 'gliders', 'packs', 'crops', 'structures', 'props', 'livestock', 'villagers'] as const;
@@ -44,29 +46,40 @@ interface Anchor {
 
 const data = (file: string) => JSON.parse(readFileSync(new URL(`../../shared/${file}`, import.meta.url), 'utf8'));
 
-async function open(page: Page, query: string, errors: string[] = []) {
-  if (!errors.length) {
+/** The console errors each page has seen. */
+const seen = new WeakMap<Page, string[]>();
+
+/** Opens a category of the gallery (on a fresh page the first time, then on the same one), its models animating. */
+async function open(page: Page, cat: Cat, options: Record<string, string> = {}): Promise<string[]> {
+  let errors = seen.get(page);
+  if (!errors) {
+    const list: string[] = (errors = []);
+    seen.set(page, list);
     page.on('console', (m) => {
-      if (m.type() === 'error') errors.push(m.text());
+      if (m.type() === 'error') list.push(m.text());
     });
-    page.on('pageerror', (e) => errors.push(String(e)));
-  }
-  await page.goto(`/dev/models.html?${query}`);
-  await page.waitForFunction(() => (window as any).__models?.ready === true, null, { timeout: 90_000 });
-  // Let the animations run (wheels, oars, legs, sails) before anything is measured or shot.
-  await page.waitForTimeout(600);
+    page.on('pageerror', (e) => list.push(String(e)));
+    const q = new URLSearchParams(options).toString();
+    await page.goto(`/dev/library.html?test#/models/${cat}${q ? `?${q}` : ''}`);
+    await page.waitForFunction(() => (window as any).__library?.ready === true, null, { timeout: 90_000 });
+  } else await page.evaluate(([c, o]) => (window as any).__library.open('models', c, o), [cat, options] as const);
+  await page.waitForFunction((c) => (window as any).__library.gallery()?.cat === c, cat);
+  // Let the animations run (wheels, oars, legs, sails) a few dozen frames before anything is measured or shot.
+  const from = await page.evaluate(() => (window as any).__library.gallery().frames as number);
+  await page.waitForFunction((f) => (window as any).__library.gallery().frames >= f + 36, from);
   return errors;
 }
 
-const stats = (page: Page) => page.evaluate(() => (window as any).__models.stats as Record<string, Stat>);
+const shoot = (page: Page, path: string) => page.locator('.gallery').screenshot({ path });
+const stats = (page: Page) => page.evaluate(() => (window as any).__library.gallery().stats as Record<string, Stat>);
 const probe = (page: Page, label: string, x: number, z: number, from = 60) =>
-  page.evaluate(([l, px, pz, f]) => (window as any).__models.probe(l, px, pz, f) as number | null, [label, x, z, from] as const);
+  page.evaluate(([l, px, pz, f]) => (window as any).__library.gallery().probe(l, px, pz, f) as number | null, [label, x, z, from] as const);
 const ray = (page: Page, label: string, from: Vec, dir: Vec) =>
-  page.evaluate(([l, o, d]) => (window as any).__models.ray(l, o, d) as number[] | null, [label, from, dir] as const);
+  page.evaluate(([l, o, d]) => (window as any).__library.gallery().ray(l, o, d) as number[] | null, [label, from, dir] as const);
 
 for (const cat of CATS) {
   test(`${cat}: builds cleanly, within budget`, async ({ page }) => {
-    const errors = await open(page, `cat=${cat}`);
+    const errors = await open(page, cat);
     const s = await stats(page);
     expect(Object.keys(s).length).toBeGreaterThan(0);
     for (const [label, st] of Object.entries(s)) {
@@ -74,24 +87,25 @@ for (const cat of CATS) {
       expect.soft(st.triangles, `${label}: triangles`).toBeLessThanOrEqual(BUDGET[cat]);
       expect.soft(st.triangles, `${label}: is empty`).toBeGreaterThan(0);
     }
-    await page.screenshot({ path: `${SHOTS}/models-${cat}.png` });
+    await shoot(page, `${SHOTS}/models-${cat}.png`);
     expect(errors).toEqual([]);
   });
 }
 
 test('every vehicle, up close', async ({ page }) => {
-  const errors = await open(page, 'cat=vehicles');
-  const ids = await page.evaluate(() => (window as any).__models.ids as string[]);
+  const errors = await open(page, 'vehicles');
+  const ids = await page.evaluate(() => (window as any).__library.gallery().ids as string[]);
   expect(ids).toEqual(data('vehicles.json').vehicles.map((v: { id: string }) => v.id));
   for (const id of ids) {
-    await open(page, `cat=vehicles&only=${id}`, errors);
-    await page.screenshot({ path: `${SHOTS}/models-vehicle-${id}.png` });
+    await open(page, 'vehicles', { only: id });
+    expect(await page.evaluate(() => (window as any).__library.gallery().ids as string[])).toEqual([id]);
+    await shoot(page, `${SHOTS}/models-vehicle-${id}.png`);
   }
   expect(errors).toEqual([]);
 });
 
 test('vehicles sit on their anchors: wheels on the ground, hulls to their draft, seats and cargo at height', async ({ page }) => {
-  await open(page, 'cat=vehicles');
+  await open(page, 'vehicles');
   const s = await stats(page);
   for (const v of data('vehicles.json').vehicles) {
     const st = s[v.name];
@@ -116,7 +130,7 @@ test('vehicles sit on their anchors: wheels on the ground, hulls to their draft,
 });
 
 test('boats keep the sea out: none of it is drawn inside a hull, calm or rocked low in the swell', async ({ page }) => {
-  await open(page, 'cat=vehicles');
+  await open(page, 'vehicles');
   // Each boat also pushed down and tipped, far past what the swell does even in a storm, so the sea
   // stands over her floor or deck (the rowboat's is under it anyway) but not over her gunwale.
   const rocked: Record<string, { bob: number; pitch: number; roll: number }> = {
@@ -126,7 +140,7 @@ test('boats keep the sea out: none of it is drawn inside a hull, calm or rocked 
   };
   for (const v of data('vehicles.json').vehicles.filter((v: { class: string }) => v.class === 'boat')) {
     for (const swell of [{}, rocked[v.id] ?? {}]) {
-      const r = await page.evaluate(([l, s]) => (window as any).__models.seaInside(l, s), [v.name, swell] as const);
+      const r = await page.evaluate(([l, s]) => (window as any).__library.gallery().seaInside(l, s), [v.name, swell] as const);
       expect(r, `${v.id}: no hull seal`).not.toBeNull();
       expect(r.of, `${v.id}: the hull's opening`).toBeGreaterThan(5000);
       // The floor, the thwarts, the deck and the cargo hatch as they are without the sea...
@@ -138,7 +152,7 @@ test('boats keep the sea out: none of it is drawn inside a hull, calm or rocked 
 });
 
 test('mounts: saddle top on the seat, the donkey pack frame on its cargo slot', async ({ page }) => {
-  await open(page, 'cat=mounts');
+  await open(page, 'mounts');
   for (const m of data('vehicles.json').mounts) {
     const label = `${m.name} · walk`;
     const seat = m.seats[0] as Anchor;
@@ -152,7 +166,7 @@ test('mounts: saddle top on the seat, the donkey pack frame on its cargo slot', 
 });
 
 test('decks, floors and walls are where the structure data puts them', async ({ page }) => {
-  await open(page, 'cat=structures');
+  await open(page, 'structures');
   const list = data('structures.json').structures as Array<{ id: string; w: number; d: number; deck?: number; floor?: number; wall?: number; door?: number }>;
   const by = (id: string) => list.find((s) => s.id === id)!;
   // Decks: a plank top at the data's height (probed at a plank's middle).
@@ -173,7 +187,7 @@ test('decks, floors and walls are where the structure data puts them', async ({ 
 });
 
 test('packs: straps on the +Z face, the load behind them', async ({ page }) => {
-  await open(page, 'cat=packs');
+  await open(page, 'packs');
   const s = await stats(page);
   for (const p of data('trade.json').packs) {
     const st = s[p.name];
@@ -183,30 +197,12 @@ test('packs: straps on the +Z face, the load behind them', async ({ page }) => {
   }
 });
 
-test('crops and props are instancing-ready: non-indexed, vertex-coloured, cached', async ({ page }) => {
-  await open(page, 'cat=crops');
-  const crops = data('farming.json').crops as Array<{ id: string; stages: number }>;
-  const props = data('structures.json').props as Array<{ id: string }>;
-  const result = await page.evaluate(
-    async ([cropList, propList]) => {
-      const cropsPath = '/src/render/models/crops.ts';
-      const propsPath = '/src/render/models/props.ts';
-      const cm = await import(/* @vite-ignore */ cropsPath);
-      const pm = await import(/* @vite-ignore */ propsPath);
-      const out: Array<{ name: string; indexed: boolean; colour: boolean; cached: boolean; tris: number }> = [];
-      const check = (name: string, g: any, again: any) =>
-        out.push({ name, indexed: !!g.index, colour: !!g.getAttribute('color'), cached: g === again, tris: g.getAttribute('position').count / 3 });
-      for (const c of cropList) for (let s = 0; s < c.stages; s++) check(`${c.id}:${s}`, cm.cropGeometry(c.id, s), cm.cropGeometry(c.id, s));
-      for (const p of propList) check(p.id, pm.propGeometry(p.id), pm.propGeometry(p.id));
-      return out;
-    },
-    [crops, props] as const,
-  );
-  expect(result.length).toBe(crops.reduce((n, c) => n + c.stages, 0) + props.length);
-  for (const r of result) {
-    expect.soft(r.indexed, `${r.name}: non-indexed`).toBe(false);
-    expect.soft(r.colour, `${r.name}: has colours`).toBe(true);
-    expect.soft(r.cached, `${r.name}: cached`).toBe(true);
-    if (r.name.includes(':')) expect.soft(r.tris, `${r.name}: triangles`).toBeLessThanOrEqual(400);
-  }
+test('the gallery shows what its options ask, and the address keeps them', async ({ page }) => {
+  await open(page, 'structures', { label: 'cottage', yaw: '0', anchors: '1' });
+  const s = await stats(page);
+  expect(Object.keys(s).length).toBeGreaterThan(1);
+  for (const label of Object.keys(s)) expect(label).toContain('cottage');
+  await expect.poll(() => page.evaluate(() => location.hash)).toBe('#/models/structures?anchors=1&label=cottage&yaw=0');
+  await open(page, 'props', { only: 'barrel' });
+  expect(await page.evaluate(() => (window as any).__library.gallery().ids)).toEqual(['barrel']);
 });

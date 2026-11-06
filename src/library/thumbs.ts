@@ -2,8 +2,8 @@ import * as THREE from 'three';
 import { QUALITY } from '../render/look';
 import type { Options, Subject } from './types';
 
-// Small portraits for the character list: each subject on its idle (or first) animation, drawn once
-// by a little renderer of its own and kept in this browser.
+// Small portraits for the library's list: each subject that moves on its idle (or first) animation,
+// drawn once by a little renderer of its own and kept in this browser. A gallery shows its initial.
 
 const CACHE = `ruina.animLibrary.thumbs.v1.${QUALITY}`;
 const SIZE = 112;
@@ -17,7 +17,7 @@ export async function thumbnails(subjects: Subject[], done: (id: string, url: st
   }
   const missing = subjects.filter((s) => {
     if (cache[s.id]) done(s.id, cache[s.id]);
-    return !cache[s.id];
+    return !cache[s.id] && s.take;
   });
   if (!missing.length) return;
 
@@ -35,10 +35,10 @@ export async function thumbnails(subjects: Subject[], done: (id: string, url: st
   for (const s of missing) {
     try {
       const opts: Options = Object.fromEntries(s.options.map((o) => [o.id, o.value]));
-      await s.ready?.(opts);
       const anims = s.anims(opts);
       const anim = anims.find((a) => a.id === 'idle') ?? anims[0];
-      if (!anim) continue;
+      if (!anim || !s.take) continue;
+      await s.ready?.(opts, anim.id);
       const take = s.take(anim.id, opts);
       const f = Math.min(take.frames - 1, 12);
       take.bake(f + 1);
