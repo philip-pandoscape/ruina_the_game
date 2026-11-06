@@ -23,29 +23,34 @@ for (const f of files) {
       if (name) names.set(line, [...(names.get(line) ?? []), name]);
     }
   }
-  // An import spanning several lines: find its statement's first and last line.
+  // An import spanning several lines: its statement's first and last line, or null when line i is
+  // in no import (a real unused local, left for a person). Walking back alone isn't enough: from an
+  // unused const it would reach the last import and take everything between for one statement.
   const statement = (i) => {
     let a = i;
     while (a > 0 && !lines[a].startsWith('import ')) a--;
-    let b = i;
-    while (!/;\s*$/.test(lines[b])) b++;
-    return [a, b];
+    if (!lines[a].startsWith('import ')) return null;
+    let b = a;
+    while (b < lines.length - 1 && !/;\s*$/.test(lines[b])) b++;
+    return b >= i ? [a, b] : null;
   };
   const drop = new Set();
   const rewrite = new Map();
   for (const i of wholeLines) {
-    const [a, b] = statement(i);
-    for (let k = a; k <= b; k++) drop.add(k);
+    const s = statement(i);
+    if (!s) continue;
+    for (let k = s[0]; k <= s[1]; k++) drop.add(k);
   }
   for (const [i, ns] of names) {
-    const [a, b] = statement(i);
+    const s = statement(i);
+    if (!s) continue;
+    const [a, b] = s;
     if (drop.has(a)) continue;
     const textStmt = rewrite.get(a) ?? lines.slice(a, b + 1).join('\n');
-    if (!textStmt.startsWith('import ')) continue; // not an import: a real unused local, left for a person
     let t = textStmt;
     for (const n of ns)
       t = t
-        .replace(new RegExp(`(\\{|,)\\s*(type\\s+)?${n}\\s*(?=,|\\})`), '$1')
+        .replace(new RegExp(`(\\{|,)\\s*(type\\s+)?(\\w+\\s+as\\s+)?${n}\\s*(?=,|\\})`), '$1')
         .replace(/\{\s*,/, '{')
         .replace(/,\s*,/, ',')
         .replace(/,\s*\}/, ' }');
