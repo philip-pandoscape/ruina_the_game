@@ -1,6 +1,7 @@
 import type { World } from '../../sim/types';
 import type { AutoWalk, Refusal, WalkEvent } from '../../app/autoWalk';
 import { routeFrom, type Point } from '../../sim/zone/roads';
+import type { Handler } from '../components/window';
 import { openMenu } from '../theme/contextMenu';
 import { uiIcon } from '../theme/icons';
 import { uiRoot } from '../theme/scale';
@@ -19,7 +20,6 @@ interface Place {
   z: number;
 }
 
-type Handler = (arg: string, e: MouseEvent | null) => void;
 type Press = 'up' | 'down' | 'left' | 'right' | 'select' | 'back' | 'reset' | 'tab' | 'toggle' | 'tree';
 
 export interface TravelDeps {
