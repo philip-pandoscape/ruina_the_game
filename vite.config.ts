@@ -11,8 +11,8 @@ const gameServer = process.env.RUINA_SERVER ?? 'http://localhost:7777';
 
 /**
  * Every page the build makes: the game, the developer pages in dev/ and the design in design/
- * (served on beta and production to admins only, crates/server/src/http.rs). A new page in either folder
- * is built without a word here.
+ * (served on beta and production to admins only, crates/server/src/http.rs), and the bible in bible/
+ * (open to everyone). A new page in any of these folders is built without a word here.
  */
 const pages = (folder: string): Array<[string, string]> =>
   readdirSync(resolve(import.meta.dirname, folder))
@@ -25,7 +25,7 @@ export default defineConfig({
   plugins: [bugReports(), animReviews()],
   build: {
     rollupOptions: {
-      input: Object.fromEntries([['main', resolve(import.meta.dirname, 'index.html')], ...pages('dev'), ...pages('design')]),
+      input: Object.fromEntries([['main', resolve(import.meta.dirname, 'index.html')], ...pages('dev'), ...pages('design'), ...pages('bible')]),
     },
   },
   server: {
