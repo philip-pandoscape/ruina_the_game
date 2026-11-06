@@ -25,8 +25,8 @@ pub async fn connect(url: &str) -> Result<PgPool, String> {
     // Builds kept by index, as they were before they named things by id (R9.1). Those left are read
     // as they are, so the game can go on without this.
     match crate::accounts::characters::keep_builds_by_id(&pool).await {
-        Ok(0) => {}
-        Ok(n) => eprintln!("kept {n} builds by id"),
+        Ok((0, 0)) => {}
+        Ok((n, left)) => eprintln!("kept {n} builds by id; {left} kept by index weren't builds, and stay as they were"),
         Err(e) => eprintln!("could not keep the builds by id: {e}"),
     }
     Ok(pool)

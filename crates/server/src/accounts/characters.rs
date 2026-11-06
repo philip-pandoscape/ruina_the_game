@@ -88,23 +88,26 @@ pub async fn of_account(db: &PgPool, account: i64) -> Result<Vec<Character>, sql
 }
 
 /// Rewrites the builds still kept by index, as they were before builds named things by id, by id
-/// (crate::skills::saved_by_id); how many it rewrote. Run as the server starts (crate::db::connect).
-/// A row is rewritten only if it still holds what was read, so a build written meanwhile (by the
-/// server an update is replacing, say) is never lost: that one is rewritten the next time a server
-/// starts, and read as it is until then (crate::skills::build_from_saved reads both). One that was
-/// never a build the server would take is left as it is, and the world still gives its character
-/// the starting build.
-pub async fn keep_builds_by_id(db: &PgPool) -> Result<u64, sqlx::Error> {
+/// (crate::skills::saved_by_id): how many it rewrote, and how many it left as they were. Run as the
+/// server starts (crate::db::connect). A row is rewritten only if it still holds what was read, so
+/// a build written meanwhile (by the server an update is replacing, say) is never lost: that one is
+/// rewritten the next time a server starts, and read as it is until then
+/// (crate::skills::build_from_saved reads both). One that was never a build the server would take
+/// is left as it is, and the world still gives its character the starting build.
+pub async fn keep_builds_by_id(db: &PgPool) -> Result<(u64, u64), sqlx::Error> {
     let rows: Vec<(i64, Jsonb<Value>)> =
         sqlx::query_as("SELECT id, build FROM characters WHERE jsonb_typeof(build->'weapon') = 'number'").fetch_all(db).await?;
-    let mut rewritten = 0;
+    let (mut rewritten, mut left) = (0, 0);
     for (id, Jsonb(old)) in rows {
-        let Some(by_id) = saved_by_id(&old) else { continue };
+        let Some(by_id) = saved_by_id(&old) else {
+            left += 1;
+            continue;
+        };
         let done =
             sqlx::query("UPDATE characters SET build = $2 WHERE id = $1 AND build = $3").bind(id).bind(Jsonb(by_id)).bind(Jsonb(old)).execute(db).await?;
         rewritten += done.rows_affected();
     }
-    Ok(rewritten)
+    Ok((rewritten, left))
 }
 
 /// Adds a character with a fresh island. None if the name is taken, whatever the case.
