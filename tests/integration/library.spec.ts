@@ -133,13 +133,19 @@ test('the library is laid out and answers the keyboard', async ({ page }) => {
   await expect(page.locator('.anim.on')).toContainText('Idle');
   await page.locator('.anim', { hasText: 'Hop' }).click();
   await expect(page.locator('.crumbs')).toContainText('Hop');
-  // Space pauses; arrows step a frame.
+  // Space plays and pauses; arrows step a frame. Opened from a link, the library starts paused, so
+  // the first Space plays: the frame must be read only after the second has paused it again, or a
+  // page drawing slowly (in software, as CI's does) moves on between the reading and the steps.
   await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+  const frame = () => page.evaluate(() => (window as unknown as { __library: Lib }).__library.state().frame);
+  const still = await frame();
   await page.keyboard.press('Space');
-  const f0 = await page.evaluate(() => (window as unknown as { __library: Lib }).__library.state().frame);
+  await expect.poll(frame).not.toBe(still);
+  await page.keyboard.press('Space');
+  const f0 = await frame();
   await page.keyboard.press('ArrowRight');
   await page.keyboard.press('ArrowRight');
-  await expect.poll(() => page.evaluate(() => (window as unknown as { __library: Lib }).__library.state().frame)).toBe((f0 + 2) % 36);
+  await expect.poll(frame).toBe((f0 + 2) % 36);
   // P starts correcting the frame; Escape throws it away.
   await page.keyboard.press('p');
   await expect(page.locator('.banner')).toContainText('Correcting frame');
