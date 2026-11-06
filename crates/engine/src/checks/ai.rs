@@ -6,6 +6,10 @@
 //! calling, gathering, bursting and reforming all run as they do in a fight. A pack can be given
 //! scripted `foes` (players walking back and forth, swinging, dodging) for war-bands to fight; the
 //! blows and missiles that reach them come back too.
+//!
+//! A pack's `order`, a seed, shuffles the creatures' list before every frame (with the engine's
+//! own random numbers): the order they're stepped in must change nothing, so every frame is given
+//! back in the order of their ids, and a shuffled scenario gives the same answer as one in order.
 
 use serde::{Deserialize, Serialize};
 
@@ -13,6 +17,7 @@ use crate::actor::Actor;
 use crate::actors::Actors;
 use crate::ai::{Foe, Sighting, start_brain, step_brain};
 use crate::jsmath::JsMath;
+use crate::rng::Rng;
 
 #[derive(Deserialize)]
 struct Spawn {
@@ -110,6 +115,9 @@ struct Scenario {
     hits: Vec<Hit>,
     #[serde(default)]
     foes: Option<Vec<FoeScript>>,
+    /// A seed to shuffle the creatures' list with before every frame; none keeps it as it is.
+    #[serde(default)]
+    order: Option<u32>,
 }
 
 #[derive(Serialize)]
@@ -193,7 +201,11 @@ fn run_pack(s: &Scenario, spawns: &[Spawn]) -> PackOut {
         }
     }
     let mut out = PackOut { frames: Vec::with_capacity(s.frames), slams: Vec::new(), hits: Vec::new(), missiles: Vec::new() };
+    let mut shuffle = s.order.map(Rng::new);
     for f in 0..s.frames {
+        if let Some(rng) = shuffle.as_mut() {
+            rng.shuffle(&mut actors.list);
+        }
         let foes: Vec<Foe> = match &s.foes {
             Some(list) => list.iter().map(|fs| foe_at(fs, f)).collect(),
             None => {
@@ -203,12 +215,13 @@ fn run_pack(s: &Scenario, spawns: &[Spawn]) -> PackOut {
         };
         let (px, pz) = (foes[0].x, foes[0].z);
         for h in s.hits.iter().filter(|h| h.frame == f) {
-            // Whoever is standing nearest the point takes it, struck from where the first foe is.
+            // Whoever is standing nearest the point takes it (of two as near, the lower id), struck
+            // from where the first foe is.
             let mut best: Option<(f64, u32, f64, f64)> = None;
             for a in actors.list.iter().filter(|a| a.is_alive() && !a.gone) {
                 let (hx, hz) = (a.x - h.x, a.z - h.z);
                 let d = (hx * hx + hz * hz).sqrt();
-                if best.is_none_or(|(bd, ..)| d < bd) {
+                if best.is_none_or(|(bd, id, ..)| d < bd || (d == bd && a.id < id)) {
                     best = Some((d, a.id, a.x, a.z));
                 }
             }
@@ -219,10 +232,14 @@ fn run_pack(s: &Scenario, spawns: &[Spawn]) -> PackOut {
             }
         }
         let done = actors.step(&foes, &|_, _| 0.0, 140.0, 7.0, 1.0 / 60.0);
-        out.frames.push(actors.list.iter().map(row).collect());
+        let mut list: Vec<&Actor> = actors.list.iter().collect();
+        list.sort_by_key(|a| a.id);
+        out.frames.push(list.into_iter().map(row).collect());
         out.slams.push(done.slams.iter().map(|s| [s.x, s.z, s.radius, s.damage]).collect());
         out.hits.push(done.hits.iter().map(|h| [h.foe as f64, h.damage, h.nx, h.nz, h.knock]).collect());
-        out.missiles.push(actors.missiles.iter().map(|m| [m.id as f64, m.x, m.y, m.z, m.vy]).collect());
+        let mut missiles: Vec<&crate::missiles::Missile> = actors.missiles.iter().collect();
+        missiles.sort_by_key(|m| m.id);
+        out.missiles.push(missiles.into_iter().map(|m| [m.id as f64, m.x, m.y, m.z, m.vy]).collect());
     }
     out
 }

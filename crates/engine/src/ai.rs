@@ -291,6 +291,17 @@ pub enum Request {
     Heal(u32),
 }
 
+impl Request {
+    /// The creature that asked.
+    pub fn actor(&self) -> u32 {
+        match *self {
+            Request::Call(id) | Request::Pull(id) | Request::Absorb(id) | Request::Slam(id) | Request::FuseOut(id) => id,
+            Request::Strike(id, _) | Request::Throw(id, _) | Request::Heal(id) => id,
+            Request::GatherStart(id) | Request::Broke(id) => id,
+        }
+    }
+}
+
 /// The rest of the world, for a brain that has others to think about. An actor on its own gets
 /// one with nobody in it.
 pub struct Ctx<'a> {

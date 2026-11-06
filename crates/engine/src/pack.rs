@@ -20,8 +20,11 @@ fn same_band(list: &[Actor], a: usize, o: usize) -> bool {
     o != a && list[a].band != 0 && list[o].band == list[a].band
 }
 
-pub fn step_packs(list: &mut [Actor], foes: &[Foe]) {
-    let members: Vec<usize> = (0..list.len()).filter(|&i| list[i].is_alive() && !list[i].gone && pack_of(&list[i]).is_some()).collect();
+/// What every band works out together this frame. `order` is where each creature is in `list`, in
+/// the order of their ids: the order the band goes through them in, so that which of two as near
+/// gets a token or a place on the ring never hangs on the order of the list.
+pub fn step_packs(list: &mut [Actor], order: &[usize], foes: &[Foe]) {
+    let members: Vec<usize> = order.iter().copied().filter(|&i| list[i].is_alive() && !list[i].gone && pack_of(&list[i]).is_some()).collect();
     if members.is_empty() {
         return;
     }

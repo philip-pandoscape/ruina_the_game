@@ -124,6 +124,27 @@ mod golden {
     }
 
     #[test]
+    fn creatures_give_the_same_answers_in_any_order() {
+        // Every pack, its list shuffled before each frame with seeds of its own: what the order the
+        // creatures are stepped in changes is nothing at all (crate::actors).
+        let mut differ = Vec::new();
+        for (name, input, kept) in cases("aicheck") {
+            let mut scenario: Value = serde_json::from_str(&input).expect("a scenario");
+            if scenario.get("pack").is_none() {
+                continue;
+            }
+            for seed in 1..=8u32 {
+                scenario["order"] = json!(seed.wrapping_mul(0x9e37_79b1));
+                let got = fnv1a64(&super::ai::run(&scenario.to_string()).expect("the scenario runs"));
+                if got != kept {
+                    differ.push(format!("{name}, shuffled with seed {seed}: {got}, kept {kept}"));
+                }
+            }
+        }
+        assert_eq!(differ, Vec::<String>::new(), "the order creatures are stepped in changed what happened");
+    }
+
+    #[test]
     fn a_player_gives_the_answers_kept() {
         assert_eq!(differ("simcheck", super::player::run), Vec::<String>::new(), "{WHY}");
     }
