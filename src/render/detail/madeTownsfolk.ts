@@ -18,6 +18,13 @@ export interface TownsfolkStance {
   hunch?: number;
   /** The arms free to gesture (both, if it doesn't say). */
   free?: Array<'l' | 'r'>;
+  /**
+   * How an arm that isn't free rests, turned from hanging (radians about x, y and z in the arm's own
+   * frame, as the built townsfolk's arms take them: -x forward, z out to the left), to hold a prop.
+   */
+  rest?: { l?: [number, number, number]; r?: [number, number, number] };
+  /** The hands holding something, closed round it. */
+  holds?: Array<'l' | 'r'>;
 }
 
 export interface MadeTownsperson {
@@ -52,8 +59,9 @@ const _pole = new THREE.Vector3();
 const HANG = 20;
 const REACH = 21;
 
-/** Hands loosely curled, as the hero's are standing. */
-const RELAXED: Record<'L' | 'R', Grip> = { L: { amount: 0.18 }, R: { amount: 0.18 } };
+/** Hands loosely curled, as the hero's are standing, or closed round what they hold. */
+const RELAXED = 0.18;
+const HOLDING = 0.85;
 
 /** Dresses the hero's rig in a made body and brings it to life as a townsperson. */
 export function wearTownsperson(body: WornBody, stance: TownsfolkStance = {}): MadeTownsperson {
@@ -76,6 +84,11 @@ export function wearTownsperson(body: WornBody, stance: TownsfolkStance = {}): M
   const input = pose({ stow: 1 });
   const free = new Set(stance.free ?? ['l', 'r']);
   const hunch = stance.hunch ?? 0;
+  const holds = new Set(stance.holds ?? []);
+  const grips: Record<'L' | 'R', Grip> = {
+    L: { amount: holds.has('l') ? HOLDING : RELAXED },
+    R: { amount: holds.has('r') ? HOLDING : RELAXED },
+  };
   let talk = 0;
   return {
     root: rig.root,
@@ -105,7 +118,8 @@ export function wearTownsperson(body: WornBody, stance: TownsfolkStance = {}): M
       ] as const) {
         const k = side === 'L' ? 1 : -1;
         if (!free.has(side === 'L' ? 'l' : 'r')) {
-          turn(rig, `arm${side}`, Math.sin(t * 1.7) * 0.015, 0, 0);
+          const r = stance.rest?.[side === 'L' ? 'l' : 'r'];
+          turn(rig, `arm${side}`, (r?.[0] ?? 0) + Math.sin(t * 1.7) * 0.015, r?.[1] ?? 0, r?.[2] ?? 0);
           continue;
         }
         const on = Math.max(idle * (side === 'L' ? 0.3 : 0.4), talk * (0.75 + 0.25 * Math.sin(t * 2.3 + phase)));
@@ -131,7 +145,7 @@ export function wearTownsperson(body: WornBody, stance: TownsfolkStance = {}): M
         );
         b.mix(hang, b.save(b.buf(REACH)), on);
       }
-      gripHands(rig, body.fitted.fist, RELAXED);
+      gripHands(rig, body.fitted.fist, grips);
     },
   };
 }
