@@ -230,9 +230,10 @@ export class RoadNetwork {
 
   /** The square (a stretch of paving) a point is on or within `reach` terrain cells of, or -1. */
   private squareNear(x: number, z: number, reach: number): number {
-    const hf = this.world.terrain!;
-    const i0 = Math.floor((x - hf.min) / hf.cell);
-    const j0 = Math.floor((z - hf.min) / hf.cell);
+    // The paving of the region the roads are (the one you start in).
+    const hf = this.world.zone!.gen.terrain;
+    const i0 = Math.floor((x - hf.minX) / hf.cell);
+    const j0 = Math.floor((z - hf.minZ) / hf.cell);
     let best = -1;
     let bestD = Infinity;
     for (let j = j0 - reach; j <= j0 + reach; j++)
@@ -253,7 +254,7 @@ export class RoadNetwork {
   private squareOfCell(c: number): number {
     const known = this.squareOf.get(c);
     if (known !== undefined) return known;
-    const hf = this.world.terrain!;
+    const hf = this.world.zone!.gen.terrain;
     const n = hf.cells;
     const id = this.squares.length;
     const stack = [c];
@@ -285,7 +286,7 @@ export class RoadNetwork {
         stack.push(m);
       }
     }
-    this.squares.push({ ends: [], box: [hf.min + i0 * hf.cell, hf.min + j0 * hf.cell, hf.min + (i1 + 1) * hf.cell, hf.min + (j1 + 1) * hf.cell] });
+    this.squares.push({ ends: [], box: [hf.minX + i0 * hf.cell, hf.minZ + j0 * hf.cell, hf.minX + (i1 + 1) * hf.cell, hf.minZ + (j1 + 1) * hf.cell] });
     return id;
   }
 

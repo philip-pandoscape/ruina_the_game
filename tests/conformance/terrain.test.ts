@@ -52,7 +52,7 @@ test('the browser grows the island the server does: ground, colliders, roads, pl
   const gen = generateZone(EMBERHOLM);
   const hf = gen.terrain;
   const rust = JSON.parse(execFileSync(CHECK, ['--zone'], { maxBuffer: 1 << 26 }).toString());
-  expect([rust.cells, rust.cell, rust.water, rust.minX, rust.minZ]).toEqual([hf.cells, hf.cell, hf.water, hf.min, hf.min]);
+  expect([rust.cells, rust.cell, rust.water, rust.minX, rust.minZ]).toEqual([hf.cells, hf.cell, hf.water, hf.minX, hf.minZ]);
   // Heights are kept as f32 on both sides: to the bit.
   let heights = 0;
   hf.heights.forEach((h, i) => {
@@ -85,7 +85,7 @@ test('the server and the browser agree on the ground', (ctx) => {
   const hf = gen.terrain;
   const rng = makeRng(20261104);
   const points: Array<[number, number]> = [];
-  for (let i = 0; i < 2000; i++) points.push([hf.min - 20 + rng() * (hf.size + 40), hf.min - 20 + rng() * (hf.size + 40)]);
+  for (let i = 0; i < 2000; i++) points.push([hf.minX - 20 + rng() * (hf.size + 40), hf.minZ - 20 + rng() * (hf.size + 40)]);
   // And densely over the waterfalls' slots, ledges and pools, a small patch the scatter above may miss.
   for (const f of gen.falls)
     for (let k = 0; k < 400; k++) {

@@ -1,65 +1,57 @@
 import * as THREE from 'three';
 import { streamFrom } from '../../assets/loader';
 import type { World } from '../../engine/rules';
-import type { DungeonDef, DungeonDoor, WaterfallInfo } from '../../engine/zone';
+import type { DungeonDef, Ground, RegionData, WorldLayout } from '../../engine/zone';
 import { GRAPHICS, PALETTE, POST } from '../look';
 import { windowGlow } from '../models/glb';
 import { glowMaterial } from '../models/kit';
-import { TerrainView } from './terrain';
-import { WaterView } from './water';
+import { groundMaterial, type TerrainView } from './terrain';
+import { type SeaDepth, seaDepthTexture, WaterView } from './water';
 import { horizonIsles } from './horizon';
 import { foliageTime } from './leaves';
 import { SkyView, seaFar, SKY_HORIZON } from './sky';
-import { FoliageView } from './foliage';
-import { ZoneDressing } from './dressing';
+import type { FoliageView } from './foliage';
+import type { ZoneDressing } from './dressing';
 import { WorldPost } from './post';
-import { FallsView } from './falls';
-import { GrottoView } from './grotto';
+import type { FallsView } from './falls';
+import type { GrottoView } from './grotto';
 import { ArenaView } from './arenaView';
 import { DungeonView } from './dungeonView';
 import { Village } from '../village/village';
 import type { ModelKit } from './models';
+import { RegionView } from './regionView';
+import { nextOrigin, sceneOrigin, setSceneOrigin } from '../origin';
 
-/** Whether a crag `r` across at (x, z) would cover a waterfall's slot or the water falling down it. */
-function overFalls(falls: WaterfallInfo[], x: number, z: number, r: number): boolean {
-  return falls.some((f) => {
-    const s = (x - f.cx) * f.ux + (z - f.cz) * f.uz;
-    const t = (x - f.cx) * f.vx + (z - f.cz) * f.vz;
-    return s > f.lip - r - 2 && s < f.foot + r && Math.abs(t) < f.width / 2 + 1.6 + r;
-  });
-}
-
-/** The dungeon door whose portal stands on a waterfall's ledge, if one does. */
-function doorOn(f: WaterfallInfo, doors: DungeonDoor[]): DungeonDoor | undefined {
-  return doors.find((d) => {
-    const s = (d.portal.x - f.cx) * f.ux + (d.portal.z - f.cz) * f.uz;
-    const t = (d.portal.x - f.cx) * f.vx + (d.portal.z - f.cz) * f.vz;
-    return s >= f.shelf.s0 - 1 && s <= f.shelf.s1 && Math.abs(t) < f.width / 2;
-  });
-}
-
-// Everything around the player in an open world: lights, sky, sea, ground, trees and buildings.
-// Same surface as the training Stage (renderer, scene, follow, resize) so main.ts drives either.
-// The frame goes through WorldPost's screen effects; how much of everything is drawn is the
-// quality's (src/render/look.ts).
+// Everything around the player in an open world: lights, sky, sea, and each region held round you,
+// drawn where the world places it (regionView.ts: its ground, trees, buildings and falls), added as
+// the page's worker grows them and let go behind you (src/app/regions.ts). Same surface as the
+// training Stage (renderer, scene, follow, resize) so main.ts drives either. The frame goes through
+// WorldPost's screen effects; how much of everything is drawn is the quality's (src/render/look.ts).
+// The scene's origin moves with you (rebase, src/render/origin.ts): the camera is the scene's, and
+// what the graphics card is handed stays near its origin however far you travel.
 
 const SUN_DIR = new THREE.Vector3(14, 24, 9).normalize();
+/** Milliseconds a frame spent building regions as they arrive. */
+const BUILD_MS = 3;
 
 export class OpenStage {
   readonly renderer: THREE.WebGLRenderer;
   readonly scene = new THREE.Scene();
   readonly sun: THREE.DirectionalLight;
-  readonly terrain: TerrainView;
   readonly water: WaterView;
   readonly sky: SkyView;
-  readonly foliage: FoliageView;
-  readonly dressing: ZoneDressing;
-  /** The island's waterfalls, and the goblins' ledges behind them. */
-  readonly falls: FallsView;
-  readonly grottos: GrottoView[];
-  /** The buildings you can walk into (src/render/village). */
+  /** The region you start in, drawn (Emberholm): its views are the stage's own below. */
+  readonly home: RegionView;
+  /** Every region drawn, by its place in the world's map. */
+  readonly regions = new Map<number, RegionView>();
+  /** The buildings you can walk into of the region you start in (src/render/village): its doors, lamps and the rooms the camera stays in. */
   readonly village: Village;
   readonly hemi: THREE.HemisphereLight;
+  /** Every region's ground is drawn with one material, its textures loaded once. */
+  private readonly groundMat: THREE.MeshToonMaterial;
+  private readonly depths = new Map<number, SeaDepth>();
+  /** Every region's ground there is near you, for the views that read it. */
+  private readonly ground: Ground;
   /** The screen effects. */
   readonly post: WorldPost;
   private time = 0;
@@ -67,10 +59,19 @@ export class OpenStage {
   private c1 = new THREE.Color();
   private c2 = new THREE.Color();
 
-  constructor(canvas: HTMLCanvasElement, world: World, models: ModelKit) {
-    const hf = world.terrain!;
-    const zone = world.zone!;
+  constructor(
+    canvas: HTMLCanvasElement,
+    world: World,
+    private models: ModelKit,
+    /** The region you start in, and where the world's regions stand. */
+    home: RegionData,
+    layout: WorldLayout,
+    /** Its sea's depths, baked already (else baked here). */
+    homeDepths?: Uint8Array,
+  ) {
+    const hf = home.gen.terrain;
     const light = PALETTE.light;
+    this.ground = world.terrain!;
     // The scene is drawn into a buffer of its own (multisampled, above low quality), so the canvas
     // needs no antialiasing.
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
@@ -103,28 +104,106 @@ export class OpenStage {
     this.scene.add(this.sun, this.sun.target);
 
     this.sky = new SkyView(SUN_DIR);
-    this.terrain = new TerrainView(hf);
-    this.water = new WaterView(hf);
-    const falls = zone.gen.falls ?? [];
-    this.foliage = new FoliageView(hf, world.obstacles, zone.gen.clear, world.seed, (x, z, r) => overFalls(falls, x, z, r));
-    this.dressing = new ZoneDressing(world, models);
-    this.village = new Village(zone.gen.buildings);
-    this.falls = new FallsView(falls);
-    this.grottos = falls.map((f) => new GrottoView(f, doorOn(f, zone.recipe.doors ?? [])));
-    this.scene.add(
-      this.sky.group,
-      this.terrain.group,
-      this.water.mesh,
-      this.foliage.group,
-      this.dressing.group,
-      this.village.group,
-      this.falls.group,
-      ...this.grottos.map((g) => g.group),
-    );
+    this.water = new WaterView(hf.water);
+    this.groundMat = groundMaterial();
+    // The region you start in: its village is the stage's, whose doors, lamps and rooms the camera
+    // and everyone's cottages use.
+    this.village = new Village(home.gen.buildings);
+    this.home = new RegionView(home, this.ground, models, this.groundMat, this.village);
+    this.regions.set(home.place, this.home);
+    this.depths.set(home.place, seaDepthTexture(hf, homeDepths));
+    this.scene.add(this.sky.group, this.water.mesh, this.village.group, this.home.group);
     this.post = new WorldPost(this.renderer, this.scene);
     this.post.base = hf.water;
-    // Other isles on the horizon, past where anyone can go (src/render/open/horizon.ts).
-    if (GRAPHICS.isles) this.scene.add((this.isles = horizonIsles(hf.min + hf.size / 2, hf.min + hf.size / 2, hf.water)));
+    // Other isles on the horizon, past where anyone can go (src/render/open/horizon.ts): none where
+    // another region of the world stands.
+    const others = layout.regions.filter((_, i) => i !== home.place);
+    const clear = (x: number, z: number, r: number) =>
+      others.every((o) => {
+        const c = o.chunks;
+        const [x0, z0, x1, z1] = [c.x * layout.chunk, c.z * layout.chunk, (c.x + c.w) * layout.chunk, (c.z + c.d) * layout.chunk];
+        return Math.hypot(Math.max(x0 - x, x - x1, 0), Math.max(z0 - z, z - z1, 0)) > r + 400;
+      });
+    if (GRAPHICS.isles) this.scene.add((this.isles = horizonIsles(hf.minX + hf.size / 2, hf.minZ + hf.size / 2, hf.water, clear)));
+    this.seaDepthsNear(hf.minX + hf.size / 2, hf.minZ + hf.size / 2);
+  }
+
+  // ---------- The regions round you ----------
+
+  /** The region you start in's views (its ground, trees, dressing, falls), as the stage had them before there were others. */
+  get terrain(): TerrainView {
+    return this.home.terrain;
+  }
+
+  get foliage(): FoliageView {
+    return this.home.foliage!;
+  }
+
+  get dressing(): ZoneDressing {
+    return this.home.dressing!;
+  }
+
+  get falls(): FallsView {
+    return this.home.falls!;
+  }
+
+  get grottos(): GrottoView[] {
+    return this.home.grottos;
+  }
+
+  /** Draws a region the page's worker grew, where the world places it (with its sea's depths, if baked there). */
+  addRegion(region: RegionData, depths?: Uint8Array): RegionView {
+    const had = this.regions.get(region.place);
+    if (had) return had;
+    // Built a little each frame (`update`), so its arrival is no long frame.
+    const view = new RegionView(region, this.ground, this.models, this.groundMat, undefined, true);
+    this.regions.set(region.place, view);
+    this.depths.set(region.place, seaDepthTexture(region.gen.terrain, depths));
+    view.group.visible = !this.inside;
+    this.scene.add(view.group);
+    return view;
+  }
+
+  /** Lets a region's drawing go (behind you), and what it held on the graphics card. */
+  removeRegion(place: number): void {
+    const view = this.regions.get(place);
+    if (!view || view === this.home) return;
+    this.scene.remove(view.group);
+    view.dispose();
+    this.regions.delete(place);
+    this.depths.get(place)?.texture.dispose();
+    this.depths.delete(place);
+  }
+
+  /** The sea reads the depths of the regions nearest (x, z). */
+  private seaDepthsNear(x: number, z: number): void {
+    const near = [...this.regions.entries()].sort((a, b) => a[1].distance(x, z) - b[1].distance(x, z)).map(([p]) => this.depths.get(p)!);
+    this.water.setDepths(near);
+  }
+
+  // ---------- The scene's origin, moving with you ----------
+
+  /** The origin held where the tests put it (pinOrigin), instead of moving with the camera. */
+  private pinned: [number, number] | null = null;
+
+  /** Holds the scene's origin at a point, or (null) lets it move with the camera again: the tests compare drawings made from different origins, and with none. */
+  pinOrigin(at: [number, number] | null): void {
+    this.pinned = at;
+  }
+
+  /**
+   * Moves the scene's origin once the camera is far from it (src/render/origin.ts): the scene stands
+   * shifted by it, the camera with it, so what the graphics card is handed stays near its origin.
+   * Returns whether it moved.
+   */
+  rebase(cameraX: number, cameraZ: number): boolean {
+    const [ox, oz] = sceneOrigin();
+    const [nx, nz] = this.pinned ?? nextOrigin(ox, oz, cameraX, cameraZ);
+    if (nx === ox && nz === oz) return false;
+    setSceneOrigin(nx, nz);
+    this.scene.position.set(-nx, 0, -nz);
+    this.scene.updateMatrixWorld(true);
+    return true;
   }
 
   /** Keeps the sun's shadow box centred on the player, wherever they are and however high. */
@@ -223,17 +302,7 @@ export class OpenStage {
   }
 
   private outdoors(): THREE.Object3D[] {
-    return [
-      this.sky.group,
-      this.terrain.group,
-      this.water.mesh,
-      this.foliage.group,
-      this.dressing.group,
-      this.village.group,
-      this.falls.group,
-      ...this.grottos.map((g) => g.group),
-      ...(this.isles ? [this.isles] : []),
-    ];
+    return [this.sky.group, this.water.mesh, this.village.group, ...[...this.regions.values()].map((r) => r.group), ...(this.isles ? [this.isles] : [])];
   }
 
   /**
@@ -263,19 +332,32 @@ export class OpenStage {
 
   /** Per frame: the sea moves, clouds drift, grass follows you, models stream in nearest the camera first. */
   update(dt: number, camera: THREE.Camera, playerX: number, playerZ: number): void {
+    // The camera is the scene's: where it is in the world is its own position.
+    const cx = camera.position.x;
+    const cz = camera.position.z;
+    if (this.rebase(cx, cz) || this.seaFrom.distanceTo(this.v.set(cx, 0, cz)) > 128) {
+      this.seaFrom.set(cx, 0, cz);
+      this.seaDepthsNear(cx, cz);
+    }
     // Whatever can be seen from here may load (src/assets/loader.ts), the nearest first.
-    streamFrom(camera.position.x, camera.position.z, GRAPHICS.viewDistance);
+    streamFrom(cx, cz, GRAPHICS.viewDistance);
     this.time += dt;
+    this.water.follow(cx, cz);
     this.water.update(this.time);
     foliageTime.value = this.time;
-    this.sky.update(this.time, camera.position.x, camera.position.z);
-    this.foliage.update(playerX, playerZ);
-    this.dressing.update(this.time);
+    this.sky.update(this.time, cx, cz);
     const fov = (camera as THREE.PerspectiveCamera).fov ?? 50;
-    this.falls.update(this.time, this.renderer.getDrawingBufferSize(this.bufferSize).y, fov);
-    for (const g of this.grottos) g.update(this.time);
+    const height = this.renderer.getDrawingBufferSize(this.bufferSize).y;
+    // A region still arriving is built a little more, the nearest first, within BUILD_MS a frame.
+    const until = performance.now() + BUILD_MS;
+    for (const r of [...this.regions.values()].filter((v) => !v.built).sort((a, b) => a.distance(cx, cz) - b.distance(cx, cz)))
+      if (!r.buildUntil(until) || performance.now() > until) break;
+    for (const r of this.regions.values()) r.update(this.time, playerX, playerZ, height, fov);
     this.inside?.update(this.time);
   }
+
+  private seaFrom = new THREE.Vector3(Infinity, 0, Infinity);
+  private v = new THREE.Vector3();
 
   private bufferSize = new THREE.Vector2();
 }

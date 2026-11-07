@@ -1,0 +1,115 @@
+{
+  "comment": "A fixture region (tests/fixtures/world/far.json): a small flat isle 102 km west of the origin, for drawing far from it. In the shape of shared/regions/<id>.json, written where it stands.",
+  "id": "farholt",
+  "name": "Farholt",
+  "subtitle": "Far out to the west",
+  "seed": 59,
+  "climate": "temperate",
+  "terrain": {
+    "cells": 256,
+    "cell": 2,
+    "water": 0,
+    "origin": [
+      102656,
+      0
+    ],
+    "island": {
+      "x": 102656,
+      "z": 0,
+      "radius": 150,
+      "lobes": [
+        [
+          3,
+          8,
+          0.2
+        ]
+      ],
+      "warp": 6,
+      "warpScale": 80
+    },
+    "bays": [],
+    "headlands": [],
+    "islets": [],
+    "cliffs": [],
+    "mountains": [],
+    "ramps": [],
+    "pits": [],
+    "flatten": [],
+    "roads": [],
+    "falls": [],
+    "shore": {
+      "beach": 30,
+      "beachHeight": 2.2,
+      "inlandRise": 0.02,
+      "seabedSlope": 0.085,
+      "seabedCurve": 0.00035,
+      "maxDepth": 30
+    },
+    "hills": {
+      "scale": 120,
+      "height": 3,
+      "detailScale": 40,
+      "detail": 0.8,
+      "inlandFrom": 20,
+      "inlandTo": 80
+    },
+    "sandBelow": 2.2,
+    "rockSlope": 1.05
+  },
+  "spawn": {
+    "x": 102656,
+    "z": 0,
+    "facing": 1.5708
+  },
+  "places": [
+    {
+      "id": "farholt",
+      "name": "Farholt",
+      "kind": "beach",
+      "icon": "🏖️",
+      "x": 102656,
+      "z": 0
+    }
+  ],
+  "structures": [],
+  "props": [
+    {
+      "id": "lamp",
+      "ring": {
+        "x": 102656,
+        "z": 0,
+        "r": 6,
+        "count": 4,
+        "phase": 0.39
+      }
+    }
+  ],
+  "npcs": [],
+  "workbenches": [],
+  "outposts": [],
+  "housePlots": [],
+  "farmland": {
+    "x": 102656,
+    "z": 0,
+    "w": 0,
+    "d": 0
+  },
+  "nodes": [],
+  "updrafts": [],
+  "doors": [],
+  "forests": [],
+  "scatter": {
+    "trees": 0.002,
+    "rocks": 0.0005,
+    "clearOfRoad": 5,
+    "clearOfStructure": 4
+  },
+  "spawns": [],
+  "sky": {
+    "dayLengthSeconds": 1800,
+    "startHour": 8.5,
+    "sunrise": 5.5,
+    "sunset": 20
+  },
+  "shipyards": []
+}

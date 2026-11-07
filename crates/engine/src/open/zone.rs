@@ -49,6 +49,13 @@ impl Heightfield {
         Heightfield { cells, n, cell, water, min_x: cx - half, min_z: cz - half, heights: vec![0.0; n * n], surface: vec![surface::GRASS; cells * cells] }
     }
 
+    /// A grid another engine grew (the browser's worker grows regions and hands them over): `heights`
+    /// row by row, a surface per cell; None if they aren't a grid `cells` across's.
+    pub fn from_parts(cells: usize, cell: f64, water: f64, min_x: f64, min_z: f64, heights: Vec<f32>, surface: Vec<u8>) -> Option<Self> {
+        let n = cells + 1;
+        (heights.len() == n * n && surface.len() == cells * cells).then_some(Heightfield { cells, n, cell, water, min_x, min_z, heights, surface })
+    }
+
     /// World X of vertex column `i`.
     pub fn vx(&self, i: usize) -> f64 {
         self.min_x + i as f64 * self.cell
@@ -154,7 +161,7 @@ impl Heightfield {
 }
 
 /// Something round and solid the world was built with (src/engine/shapes.ts Obstacle).
-#[derive(Clone, Copy, Debug, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum ObstacleKind {
     Tree,
@@ -165,7 +172,7 @@ pub enum ObstacleKind {
     Post,
 }
 
-#[derive(Clone, Copy, Debug, Serialize)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub struct Obstacle {
     pub kind: ObstacleKind,
     pub x: f64,
@@ -179,7 +186,7 @@ pub struct Obstacle {
 
 /// A solid oriented rectangle (a building, a wall, a counter), infinitely tall below `top`; or,
 /// as a deck, a walkable platform whose ground is at `top` (src/engine/world/types.ts BoxCollider).
-#[derive(Clone, Copy, Debug, Serialize)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub struct BoxCollider {
     pub x: f64,
     pub z: f64,

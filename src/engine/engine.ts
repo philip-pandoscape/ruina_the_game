@@ -5,11 +5,14 @@ import type { Placement } from './life/interact';
 import type { Saved } from './life/save';
 import type { Command, OtherPlayer, OthersVehicle } from './life/life';
 import type { House, LifeState, Scarecrow, Vehicle, Weather } from './life/state';
-import type { Actions, GameEvent, Mover, PlayerState, World } from './shapes';
+import type { Actions, GameEvent, Mover, Obstacle, PlayerState, World } from './shapes';
 import { ColliderIndex, groundAt } from './world/colliders';
 import { arrivalOf, dungeonDef, floorAt } from './world/dungeons';
-import { Heightfield } from './world/terrain';
-import { makeZoneWorld } from './world/region';
+import { type Ground, Heightfield } from './world/terrain';
+import { EMBERHOLM, growRegionHere, type RegionData, worldOf } from './world/region';
+import { type WorldLayout, worldLayout } from './world/layout';
+import { WorldGround } from './world/worldGround';
+import type { BoxCollider, Deck } from './world/types';
 import { IslandView } from './islandView';
 import { EngineSession, type SessionView } from './session';
 import { RangeView, SimView } from './views';
@@ -37,23 +40,44 @@ export interface EngineOptions {
   build: Build;
 }
 
-/** The island to draw, the page's own copy of it: the ground and what's grown on it are shared, what's solid and the cleared cells are this Engine's (read back from its session). */
-function islandWorld(): World {
-  const w = makeZoneWorld();
-  const zone = w.zone!;
-  const gen = zone.gen;
-  return {
+/**
+ * The world to draw, the page's own copy of it: the region it starts in (Emberholm, where lives belong)
+ * grown here, the rest of the world held as the page's worker grows it (adoptRegion). The ground and
+ * what's grown on a region are shared; what's solid and the cleared cells are this Engine's (read back
+ * from its session).
+ */
+function openWorld(): { world: World; home: RegionData; ground: WorldGround; layout: WorldLayout } {
+  const layout = worldLayout();
+  const place = layout.regions.findIndex((r) => r.id === EMBERHOLM.id);
+  if (place < 0) throw new Error('the world has no Emberholm');
+  const home = growRegionHere(place);
+  const ground = new WorldGround(layout);
+  ground.hold(place, home.gen.terrain, home.edges);
+  const gen = home.gen;
+  const w = worldOf(home.recipe, gen);
+  const world: World = {
     ...w,
     spawns: [...w.spawns],
+    terrain: ground,
     index: new ColliderIndex([...gen.obstacles], [...gen.boxes], [...gen.decks]),
-    zone: { recipe: zone.recipe, gen: { ...gen, clear: gen.clear.slice() } },
+    zone: { recipe: home.recipe, gen: { ...gen, clear: gen.clear.slice() } },
   };
+  return { world, home, ground, layout };
 }
 
 export class Engine {
   readonly world: World;
+  /** In the open world: where its regions stand, and its ground across the regions held and the sea between (the world's terrain while you're out in it). */
+  readonly layout: WorldLayout | null = null;
+  readonly ground: WorldGround | null = null;
+  /** The regions this Engine's world holds, by place: the one it starts in, and those adopted from the page's worker. */
+  readonly regions = new Map<number, RegionData>();
+  /** The region it starts in (Emberholm, where lives belong), grown here. */
+  readonly home: RegionData | null = null;
+  /** What's solid on a region the rules grew on the spot (asked about before the page handed it over), by place. */
+  private grownHere = new Map<number, { obstacles: Obstacle[]; boxes: BoxCollider[]; decks: Deck[] }>();
   /** In a copy of an instance, the world's ground, set aside until you come back out to it. */
-  private outsideTerrain: Heightfield | undefined;
+  private outsideTerrain: Ground | undefined;
   /** Online: the server decides; these rules only predict your own moves. */
   readonly online: boolean;
   /** You, the step count, your skills' numbers and the creatures, as the engine last showed them. */
@@ -100,7 +124,14 @@ export class Engine {
     this.online = o.online;
     this.session = new EngineSession({ openWorld: o.openWorld, online: o.online, band: o.band, build: o.build });
     // The yard as the session lays it out (its props, the dummy, where you start, who stands about).
-    this.world = o.openWorld ? islandWorld() : this.session.call<World>('world');
+    if (o.openWorld) {
+      const open = openWorld();
+      this.world = open.world;
+      this.layout = open.layout;
+      this.ground = open.ground;
+      this.home = open.home;
+      this.regions.set(open.home.place, open.home);
+    } else this.world = this.session.call<World>('world');
     const first = this.session.view(false);
     this.solid = first.solid;
     this.sim = new SimView(this.world, first.player);
@@ -140,14 +171,81 @@ export class Engine {
     }
   }
 
-  /** The island's colliders and cleared cells as the session has them, into the world the camera and the drawing use. */
+  /**
+   * What's solid and the cleared cells as the session has them, into the world the camera and the
+   * drawing use: the colliders of the regions it holds, in the world's order (each as grown, which
+   * the page has), then what's been built since.
+   */
   private readColliders(): void {
     const index = this.world.index;
     const gen = this.world.zone?.gen;
     if (!index || !gen) return;
     const c = this.session.colliders();
-    if (c) index.take(c.obstacles, c.boxes, c.decks);
+    if (c) {
+      const obstacles: Obstacle[] = [];
+      const boxes: BoxCollider[] = [];
+      const decks: Deck[] = [];
+      for (const place of c.regions) {
+        const r = this.regions.get(place)?.gen ?? this.solidsGrownHere(place);
+        obstacles.push(...r.obstacles);
+        boxes.push(...r.boxes);
+        decks.push(...r.decks);
+      }
+      index.take([...obstacles, ...c.obstacles], [...boxes, ...c.boxes], [...decks, ...c.decks]);
+    }
     this.session.clear(gen.clear);
+  }
+
+  /** What's solid on a region the rules grew on the spot (the page hadn't handed it over yet). */
+  private solidsGrownHere(place: number): { obstacles: Obstacle[]; boxes: BoxCollider[]; decks: Deck[] } {
+    let s = this.grownHere.get(place);
+    if (!s) {
+      s = this.session.call<{ obstacles: Obstacle[]; boxes: BoxCollider[]; decks: Deck[] } | null>('regionSolids', { place }) ?? {
+        obstacles: [],
+        boxes: [],
+        decks: [],
+      };
+      this.grownHere.set(place, s);
+    }
+    return s;
+  }
+
+  // ---------- The world's regions, grown by need (src/app/regions.ts) ----------
+
+  /**
+   * Holds a region the page's worker grew (src/engine/world/grower.ts): its ground the rules' and the
+   * page's, what's on it solid. False if the rules hold it already (they grew it on the spot) or it
+   * isn't that region as the world places it.
+   */
+  adoptRegion(r: RegionData): boolean {
+    if (!this.ground || this.regions.has(r.place)) return false;
+    const g = r.gen;
+    const taken = this.session.adoptRegion(r.place, g.terrain.heights, g.terrain.surface, g.clear, r.edges, {
+      obstacles: g.obstacles,
+      boxes: g.boxes,
+      decks: g.decks,
+    });
+    if (!taken) return false;
+    this.regions.set(r.place, r);
+    this.grownHere.delete(r.place);
+    this.ground.hold(r.place, g.terrain, r.edges);
+    this.reread();
+    return true;
+  }
+
+  /** Lets a region go: the rules and the page no longer hold it (what's behind you). */
+  releaseRegion(place: number): void {
+    if (!this.ground) return;
+    this.session.call('releaseRegion', { place });
+    this.regions.delete(place);
+    this.grownHere.delete(place);
+    this.ground.release(place);
+    this.reread();
+  }
+
+  /** The regions the rules hold (places in the world's map), and how many they've grown on the spot because they were asked about ground the page hadn't handed over. */
+  regionsHeld(): { held: number[]; unheld: number } {
+    return this.session.call<{ held: number[]; unheld: number }>('regionsHeld');
   }
 
   /** After a call: what it changed, read back. */
@@ -279,7 +377,7 @@ export class Engine {
   }
 
   /** The ground of the space you're in (null on the yard's flat ground): the world's, or in a copy of an instance the nothing under its floors. */
-  get terrain(): Heightfield | null {
+  get terrain(): Ground | null {
     return this.world.terrain ?? null;
   }
 

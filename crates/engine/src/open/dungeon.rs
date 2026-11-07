@@ -5,7 +5,6 @@
 //! (its map has no regions and no sea: OpenWorld::instance), and its floors and walls are the only
 //! things solid in it.
 
-use std::collections::BTreeSet;
 use std::sync::OnceLock;
 
 use serde::Deserialize;
@@ -189,7 +188,11 @@ impl OpenWorld {
         let index = ColliderIndex::new(Vec::new(), boxes, decks);
         let a = def.arrival();
         let y = ground_at(map, &index, a.x, a.z, a.y + 1.2, 1.2);
-        OpenWorld { map, zone: home, index, clear: home.clear.clone(), added: BTreeSet::new(), movers: Vec::new(), respawn: Some(Spot { y, ..a }) }
+        // No regions in it: its floors and walls are all that's solid there, kept as if built in it.
+        let mut w = OpenWorld::playing(map, home, &[], 0.0);
+        w.index = index;
+        w.respawn = Some(Spot { y, ..a });
+        w
     }
 }
 
