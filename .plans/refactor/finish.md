@@ -117,8 +117,9 @@ rig's server after rebuilding it (copy again first).
 **Lean, core first (the user, 2026-11-06, about 22:20):** write the core of everything first. Along
 the way, test at the unit level only (cargo test, the TypeScript unit tier, typecheck); no
 Playwright specs, no full suites, no whole integration tier, no look test. The guides (docs/*.md,
-the AGENTS.md files, the bible's pages) wait too. Reports stay short. At the end, one pass does the
-integration tier, the stress tier, the look check and the docs for everything together. A
+the AGENTS.md files, the bible's pages) wait too. Reports stay short. At the very end, a single agent does
+the integration tier, the stress tier, the look check, the docs and whatever they find, for
+everything together (the user, 2026-11-06: code laid out and unit tested as fast as possible first). A
 workstream is done when `npm run check` passes with `refactor/first` merged in; so is each merge
 into `refactor/first`. Where this page asks for more below, the lean rule wins until the end.
 
