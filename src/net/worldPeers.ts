@@ -15,7 +15,7 @@ import type { Estate, EstateEntry, WorldLink } from './worldLink';
 // them as they are at the moment drawn; src/render/open/peersView.ts draws them. What it hears comes
 // through src/net/feedTick.ts, the same whichever way the server sends it.
 
-/** The player fields drawing someone needs (src/render/character.ts and the life view); the server sends these. */
+/** The player fields drawing someone needs (src/render/character.ts and the land view); the server sends these. */
 const SHOWN = [
   'facing',
   'mode',

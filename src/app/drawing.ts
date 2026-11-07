@@ -305,7 +305,7 @@ export function makeDrawing(g: GameRefs) {
     if (prediction && !hero.seat) hero.root.position.add(prediction.offset);
     // The dummy's body where the dummy is: offline the rules' own; online the server's, nearest you.
     if (!net) {
-      // Townsfolk with their own models are drawn by the life view instead of the crowd.
+      // Townsfolk with their own models are drawn by the land view instead of the crowd.
       actorView.update(landView?.drawsTownsfolk ? g.sim.actors.all().filter((a) => a.faction !== 2) : g.sim.actors.all());
       const d = dummyActor();
       dummy.root.visible = !!d;

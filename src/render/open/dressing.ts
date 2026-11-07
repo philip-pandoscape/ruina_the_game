@@ -7,7 +7,7 @@ import { madeProp } from '../models/glb';
 import { toon } from '../toon';
 import type { ModelKit } from './models';
 
-// The buildings, props and crops a zone was laid out with (the resource nodes are the life view's,
+// The buildings, props and crops a zone was laid out with (the resource nodes are the land view's,
 // which hides them while they are picked clean), drawn with the procedural models and the made
 // ones that take their place as they load.
 
@@ -23,7 +23,7 @@ export class ZoneDressing {
     const crops = new Map<string, Array<{ x: number; y: number; z: number; rot: number }>>();
 
     for (const p of zone.gen.placements) {
-      if (p.kind === 'node') continue; // drawn by the life view, which hides them while depleted
+      if (p.kind === 'node') continue; // drawn by the land view, which hides them while depleted
       if (p.kind === 'prop') {
         let list = props.get(p.id);
         if (!list) props.set(p.id, (list = []));

@@ -179,7 +179,7 @@ test('an admin in the yard finds its dummy and slimes standing on its floor, and
   const post = at(zone.spawns.find((sp: { kind: string }) => sp.kind === 'dummy'));
   expect(Math.hypot(dummy.x - post.x, dummy.z - post.z)).toBeLessThan(0.1);
   expect(Math.abs(dummy.y)).toBeLessThan(0.5);
-  // Drawn there too, on the floor and not on the world far below.
+  // Drawn there too, on the floor and not on the ground far below.
   await expect.poll(() => page.evaluate(() => window.__game.drawnDummy()?.y ?? null), { timeout: 10_000 }).toBeCloseTo(0, 0);
   expect(await page.evaluate(([x, z]) => window.__game.ground(x, z), [post.x, post.z] as const)).toBeCloseTo(0, 1);
 

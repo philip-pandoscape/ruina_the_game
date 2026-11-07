@@ -2,7 +2,7 @@ import { type LifeView, lifeSave, type SavedLife } from '../engine/life';
 import type { SimView } from '../engine/rules';
 
 // Your life between visits, in this browser: only for automated tests and bug-report replays
-// (?test&load), never for players, whose lives are kept on the game server (kept in Postgres).
+// (?test&load), never for players, whose lives the game server keeps (in Postgres).
 // What a life is and how it's taken up again are the rules' (src/engine/life/save.ts).
 
 /** Where tests and bug-report replays keep a life (bug reports carry a copy, to load the same life). */

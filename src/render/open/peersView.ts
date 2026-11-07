@@ -13,7 +13,7 @@ import type { ModelKit } from './models';
 
 // Everyone else in your channel of Emberholm, drawn: a body for each player as they move, with their
 // name over their head, and their land (houses, farms, ships, vehicles, packs and glider) by a
-// life view of its own. What they are doing comes from whoever keeps them (online, the world
+// land view of its own. What they are doing comes from whoever keeps them (online, the world
 // server's updates: src/net/worldPeers.ts), brought to the moment drawn before each frame.
 //
 // Up close each is a hero (src/render/character.ts: the made body, its feet planted, its hands on
