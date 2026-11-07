@@ -42,3 +42,38 @@ Decisions so far (the full list goes in the final report):
 
 **Next:** benchmarks against today's JSON, the golden fixtures and the TypeScript decoder, the feed's
 adapter, far peers as crowd bodies.
+
+## 2026-11-06 21:00: Measured Against Today's JSON; the Browser's Decoder
+
+**Landed:**
+- 0476309: a tick's cells cross between processes (`Record`, `CellRecords`, `Frame` are Serialize
+  and Deserialize, fields trimmed of trailing zeros; `Frame::from_cells`/`add_cells`/`into_cells`
+  for world-api's tick out; packing behind the default `engine` feature, so a gate needs nothing of
+  the engine's), as the orchestrator asked; and the benchmark.
+- 2ecbef3: `src/net/wire` (bytes, schema, decode, heard: the browser's side, the Rust's twin), golden
+  fixtures from four scenes (`tests/fixtures/wire/`, written by `crates/wire/tests/golden.rs`), and
+  `tests/unit/wire.test.ts` hearing every scene to the same states, acknowledgements and drops (7
+  tests, green first time). The Viewer now says what's gone in handle order: the same game writes
+  the same bytes (found by the fixtures, which came out different run to run).
+
+**Bytes and time per update** (`cargo test --release -p ruina-wire --test bench -- --ignored
+--nocapture`; the engine's players moved by a script, creatures, a player in the middle, its
+acknowledgements back 200 ms later; JSON is today's `presence_json` and `actors_json` field for field,
+each client's own state left out as it's the same either way):
+
+| Players | Creatures | Spread (m) | JSON B/update | Wire B/update | Smaller | First update | Pack µs/tick | Write µs/connection | JSON µs/connection | In sight |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 33 | 8 | 80 | 22,875 | 424 | 54× | 2,051 | 16 | 53 | 1,348 | 40 |
+| 65 | 8 | 80 | 43,958 | 780 | 56× | 3,883 | 25 | 76 | 2,308 | 72 |
+| 257 | 32 | 120 | 174,729 | 2,042 | 86× | 6,540 | 51 | 126 | 5,763 | 288 |
+| 1,025 | 128 | 300 | 681,710 | 2,614 | 261× | 6,530 | 210 | 270 | 24,907 | 1,143 |
+| 4,097 | 512 | 600 | 2,717,371 | 3,181 | 854× | 6,545 | 870 | 440 | 107,457 | 1,465 |
+
+The JSON replica lands on the battlefield's measured 22.3 KB with 32 bots, so the comparison is fair.
+Past about 250 players the update is the budget's (3.2 KB a tick); the first update is two ticks'
+worth, the most a connection may save up. Writing one connection's update costs 53 to 440 µs: at a
+thousand connections in one crowd that's a few cores' work for the gate (JSON would be 25 s a tick),
+so the second half spreads connections over threads; ideas to make it cheaper are in the final report.
+
+**Next:** the feed's adapter (one place where decoded records become what the feed draws), the feed
+taking entities refreshed at different rates, far peers as crowd bodies.
