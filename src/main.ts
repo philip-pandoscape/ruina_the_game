@@ -75,22 +75,22 @@ migrateStorage(localStorage);
 // builds UI.
 initUiScale(document.getElementById('ui') as HTMLElement);
 
-// The address's options (?test, ?yard, ?as=name and the rest) are listed in src/app/options.ts.
+// The address's options (?test, ?offline, ?as=name and the rest) are listed in src/app/options.ts.
 // Console output and errors are kept from here on, for bug reports.
 installLogCapture();
 const opt = readOptions();
 // The engine's WebAssembly (the rules the server runs, src/engine/load.ts), fetched while the rest starts.
 const engineLoading = startEngine();
-const { test: testMode, openWorld, lag: lagMs } = opt;
+const { test: testMode, lag: lagMs } = opt;
 
 // The island's models load from the start (online, while you sign in and choose a character).
-const modelsLoading = openWorld ? loadModels().then((m) => (splash?.step('models'), m)) : null;
+const modelsLoading = loadModels().then((m) => (splash?.step('models'), m));
 
 // Emberholm is played on the game server: sign in and choose a character, and it hands over their
-// island and build, and keeps them from then on. Automated tests, the training yard and ?offline
-// stay offline. Online, all of it happens on the title screen (src/ui/splash.ts), which shows the
-// island being built and then fades into the game.
-const online = openWorld && !testMode && !opt.offline ? await goOnline(opt) : null;
+// island and build, and keeps them from then on. Automated tests (?test) and ?offline stay offline.
+// Online, all of it happens on the title screen (src/ui/splash.ts), which shows the island being
+// built and then fades into the game.
+const online = !testMode && !opt.offline ? await goOnline(opt) : null;
 if (splash) {
   splash.say('Raising the Island…');
   splash.toward('world', 3);
@@ -108,7 +108,7 @@ let build: Build = online ? (parseBuild(online.welcome.build, Infinity) ?? defau
 // on the game server, and its developer zones) the server decides hits, so the rules here run
 // without the training dummy and hit pause, and only predict your own moves.
 await engineLoading;
-const engine = new Engine({ openWorld, online: !!online, band: opt.band, build });
+const engine = new Engine({ openWorld: true, online: !!online, build });
 const { world, sim, range } = engine;
 /** The world's ground at the start (null on the yard's flat ground): whether this is an open world. What's under a point is read from `engine.terrain` when it's needed, as in a copy of an instance it's that space's. */
 const terrain = engine.terrain;
@@ -133,7 +133,7 @@ if (splash) {
   splash.say(splash.has('models') ? 'Planting the Forests…' : 'Loading Models…');
 }
 // Loaded in the open world, where they draw the island; elsewhere there are none.
-const models = modelsLoading ? await modelsLoading : null;
+const models = await modelsLoading;
 if (splash) {
   splash.say('Planting the Forests…');
   splash.toward('stage', 4);
@@ -183,7 +183,7 @@ if (terrain) {
     },
   };
 }
-const follow = new FollowCamera(innerWidth / innerHeight, openWorld ? GRAPHICS.viewDistance : 320, openWorld ? 40 : 14);
+const follow = new FollowCamera(innerWidth / innerHeight, GRAPHICS.viewDistance, 40);
 rigCamera(follow, engine, openStage);
 follow.reset(world.spawn.facing);
 const input = new Input(canvas);
@@ -393,7 +393,7 @@ if (peers && lifeUI) lifeUI.others = () => peers.list();
 // Online the game server runs your island and keeps it (crates/server/src/play/mod.rs): your commands go
 // to it, and what it says your island holds replaces this copy as it arrives. ?fresh starts it
 // over. Automated tests run the island here instead, starting fresh every time unless they ask for
-// the one kept in this browser (?world&test&load, which is how bug reports are replayed).
+// the one kept in this browser (?test&load, which is how bug reports are replayed).
 if (life && online) {
   // Starting over: the old island must be gone before this page shows one.
   if (opt.fresh) await online.link.reset();
@@ -404,13 +404,6 @@ if (life && online) {
 if (life && testMode && opt.load) {
   const saved = savedIsland();
   if (saved) engine.loadIsland(saved);
-}
-// The island's skill points hold your build to what you've earned, as the server does on joining:
-// a build they can't cover falls back to Sword Training. Online the welcome already says what the
-// server chose, except when ?fresh has just started the island, and its points, over.
-if (life && (!online || opt.fresh) && !validBuild(build, skillBudget(life.state))) {
-  build = defaultBuild();
-  engine.setBuild(build);
 }
 
 /** Moves you somewhere (the dev panel and tests), off whatever you were riding. */
@@ -472,18 +465,26 @@ const yardPractice = new YardPractice();
 const yardXp = yardPractice.xp;
 const yardTrain = (e: GameEvent): void => yardPractice.train(e);
 if (!life) engine.setLevels(levelsFrom(yardXp));
+/** Whether you're in a developer zone, which is for trying weapons and skills. */
+const inDeveloperZone = (): boolean => !!(visit?.inside && dungeonDef(visit.inside)?.developer);
 /**
- * Points you may have in the tree: earned on the island, a training budget elsewhere, and the whole
- * tree in a developer zone, which is for trying weapons and skills (the server allows the same).
+ * Points you may have in the tree: earned on the island, and the whole tree in a developer zone (the
+ * server allows the same).
  */
 const skillPoints = (): number => {
-  const zone = visit?.inside ? dungeonDef(visit.inside) : undefined;
-  if (zone?.developer) return NODES.length;
+  if (inDeveloperZone()) return NODES.length;
   return life ? skillBudget(life.state) : SKILL_POINTS;
 };
+// Your points hold your build to what you may spend where you are, as the server does on joining:
+// a build they can't cover falls back to Sword Training. Online the welcome already says what the
+// server chose, except when ?fresh has just started the island, and its points, over.
+if ((!online || opt.fresh) && !validBuild(build, skillPoints())) {
+  build = defaultBuild();
+  engine.setBuild(build);
+}
 const panel = new SkillsPanel(build, {
   budget: skillPoints,
-  budgetNote: () => (life ? 'Earned from quests and milestones' : 'Training yard: points to try builds with'),
+  budgetNote: () => (inDeveloperZone() ? 'A developer zone: the whole tree to try builds with' : 'Earned from quests and milestones'),
   xp: () => (life ? (life.state.skillXp ?? {}) : yardXp),
   levels: () => sim.levels,
   portrait: () => portraitOf('player'),
@@ -797,9 +798,6 @@ const refs = {
   },
   get canvas() {
     return canvas;
-  },
-  get openWorld() {
-    return openWorld;
   },
   get opt() {
     return opt;

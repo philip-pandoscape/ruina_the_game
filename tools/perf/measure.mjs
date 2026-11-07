@@ -4,7 +4,7 @@
 // d49c3b8, against refactor/first). It wraps the page's requestAnimationFrame before any of the
 // page's scripts run, so it asks nothing of the game but `window.__game.ready` and `setPaused`.
 //
-//   node tools/perf/measure.mjs --url http://localhost:4173 --path '/?world&test&quality=medium' \
+//   node tools/perf/measure.mjs --url http://localhost:4173 --path '/?test&quality=medium' \
 //     --runs 3 --seconds 10 --label now --out scratch/perf-now.json
 //
 // - Start-up: from navigation to the first frame drawn once the game says it's ready.
@@ -27,7 +27,7 @@ const opt = (name, fallback) => {
   return i >= 0 ? args[i + 1] : fallback;
 };
 const url = opt('url', 'http://localhost:4173');
-const path = opt('path', '/?world&test');
+const path = opt('path', '/?test');
 const runs = Number(opt('runs', '3'));
 const seconds = Number(opt('seconds', '10'));
 const label = opt('label', path);

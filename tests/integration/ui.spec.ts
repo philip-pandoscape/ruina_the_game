@@ -21,7 +21,7 @@ async function open(page: Page): Promise<string[]> {
   page.on('console', (m) => {
     if (m.type() === 'error') errors.push(m.text());
   });
-  await page.goto('/?world&test');
+  await page.goto('/?test');
   await gameReady(page, 60_000);
   await page.evaluate(() => window.__game.reset());
   return errors;

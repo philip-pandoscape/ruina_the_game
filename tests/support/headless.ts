@@ -24,10 +24,10 @@ import type { GameRefs } from '../../src/main';
 // drawing, the windows, the controller and the server, stand-ins that do nothing. The step
 // (src/app/step.ts) and the test API (src/app/testApi.ts) run on it as they run on the page, so a
 // rules test written for a page (page.evaluate over window.__game) runs here unchanged: `test` gives
-// it a `page` whose goto() starts the game headless from the same address (`/?yard`, `/?test`,
-// `/?world&test`) and whose evaluate() runs the function here. What only a page has (the windows,
-// the scene, the picture, the server) throws when reached, naming it: a test that needs it stays in
-// tests/integration.
+// it a `page` whose goto() starts the game headless from the same address (`/?test`, the world;
+// `/?test=yard`, a copy of an instance) and whose evaluate() runs the function here. What only a
+// page has (the windows, the scene, the picture, the server) throws when reached, naming it: a test
+// that needs it stays in tests/integration.
 
 /** Stands in for drawing and effects: whatever is asked of it, it does nothing. */
 const nothing: unknown = new Proxy(() => undefined, {
@@ -76,22 +76,30 @@ function start(url: string) {
   const opt = readOptions(new URL(url, 'http://headless').search);
   migrateStorage(localStorage);
   let build: Build = loadBuild();
-  const engine = new Engine({ openWorld: opt.openWorld, online: false, band: opt.band, build });
+  const engine = new Engine({ openWorld: true, online: false, build });
   const { world, terrain, sim, range, life } = engine;
-  // As main.ts: the island kept in this browser when asked for, and a build held to its points.
+  // As main.ts: the island kept in this browser when asked for.
   if (life && opt.test && opt.load) {
     const saved = savedIsland();
     if (saved) engine.loadIsland(saved);
-  }
-  if (life && !validBuild(build, skillBudget(life.state))) {
-    build = defaultBuild();
-    engine.setBuild(build);
   }
   // As main.ts: into a copy of a dungeon and out again, with nothing to draw; started in a copy of
   // an instance the address names (?test=yard), as if through its door.
   const visit = life ? new DungeonVisit({ engine, stage: null, place: (x, y, z, facing) => engine.place(x, z, facing, y) }) : null;
   if (opt.space) visit?.enterDungeonHere(opt.space, true);
-  const follow = new FollowCamera(16 / 9, 320, opt.openWorld ? 40 : 14);
+  // What main.ts does with these offline.
+  // A developer zone is for trying weapons and skills: the whole tree.
+  const skillPoints = (): number => {
+    const inside = engine.inside ? dungeonDef(engine.inside) : undefined;
+    if (inside?.developer) return NODES.length;
+    return life ? skillBudget(life.state) : SKILL_POINTS;
+  };
+  // As main.ts: a build held to the points you may spend where you are.
+  if (!validBuild(build, skillPoints())) {
+    build = defaultBuild();
+    engine.setBuild(build);
+  }
+  const follow = new FollowCamera(16 / 9, 320, 40);
   follow.reset(world.spawn.facing);
   const walker = life ? new AutoWalk({ sim, world, life }) : null;
   const yard = new YardPractice();
@@ -99,13 +107,6 @@ function start(url: string) {
   const followSim = (dt: number): void => {
     const p = sim.player.pos;
     follow.update(at.set(p.x, p.y, p.z), dt);
-  };
-  // What main.ts does with these offline.
-  // A developer zone is for trying weapons and skills: the whole tree.
-  const skillPoints = (): number => {
-    const inside = engine.inside ? dungeonDef(engine.inside) : undefined;
-    if (inside?.developer) return NODES.length;
-    return life ? skillBudget(life.state) : SKILL_POINTS;
   };
   const applyBuild = (b: Build): void => {
     build = b;

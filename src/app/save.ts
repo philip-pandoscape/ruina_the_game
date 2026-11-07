@@ -2,7 +2,7 @@ import { type IslandView, islandData, type Saved } from '../engine/island';
 import type { SimView } from '../engine/rules';
 
 // Your island between visits, in this browser: only for automated tests and bug-report replays
-// (?world&test&load), never for players, whose islands live on the game server (kept in Postgres).
+// (?test&load), never for players, whose islands live on the game server (kept in Postgres).
 // What an island is and how it's taken up again are the rules' (src/engine/life/save.ts).
 
 /** Where tests and bug-report replays keep an island (bug reports carry a copy, to load the same island). */
