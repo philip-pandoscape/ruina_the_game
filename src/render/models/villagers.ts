@@ -2,6 +2,8 @@ import * as THREE from 'three';
 import { PAL, Parts, bev, box, cone, cyl, extrude, glowMaterial, ico, mesh, mix, octa, pivot, rod, sph, tor, type Rgb, type V3 } from './kit';
 import { clamp } from '../../util/math';
 import type { Hair, VillagerLook } from '../../content/looks';
+import { madeBody, madeBodyNow, type WornBody } from '../detail/madeBody';
+import { wearTownsperson, type MadeTownsperson } from '../detail/madeTownsfolk';
 
 // The townsfolk of Emberholm, built like the hero (src/render/creatures/heroBody.ts): chunky
 // rounded blocks, a big head, ~1.7-1.9 m tall, facing +Z with the origin at the feet. Each is
@@ -9,7 +11,8 @@ import type { Hair, VillagerLook } from '../../content/looks';
 // around and gesture (more when `talking`) for about ten draw calls. Each is built and dressed
 // by their look (src/content/looks.ts VillagerLook: colours, build and hair, and an outfit by name,
 // hats and a prop in hand that say their job at a glance); one with no look gets a plain villager
-// dressed from their id.
+// dressed from their id. One whose look names a made body (`model`) wears it once it has loaded,
+// on the hero's rig (src/render/detail/madeTownsfolk.ts), the box one standing in until then.
 
 export interface VillagerAnim {
   /** Seconds. */
@@ -546,6 +549,88 @@ function bodyLook(l: VillagerLook): Look {
  * Builds a townsperson (`id` names the model) dressed by their look and its outfit; with no look,
  * a plain villager dressed from their id.
  */
-export function buildVillager(id: string, look?: VillagerLook): VillagerModel {
-  return look ? villager(id, bodyLook(look), look.outfit ? OUTFITS[look.outfit] : undefined) : plain(id);
+/**
+ * A townsperson as their look says, facing +Z with the origin at their feet; `at`, where they stand
+ * in the world, brings a made body's file in as you come near them.
+ */
+export function buildVillager(id: string, look?: VillagerLook, at?: { x: number; z: number }): VillagerModel {
+  const built = look ? villager(id, bodyLook(look), look.outfit ? OUTFITS[look.outfit] : undefined) : plain(id);
+  const made = madeOf(id, look);
+  return made ? inMadeBody(id, built, made, look, at) : built;
+}
+
+// ---------- made bodies ----------
+
+/** How tall a made body stands where its look doesn't say: the hero's height. */
+const MADE_HEIGHT = 1.78;
+
+/**
+ * Trying a townsperson's made body without shipping it: ?npcModel=mara:/scratch/mara.glb (several
+ * with commas), standing as tall as their look says, the hero if it doesn't, or &npcHeight=1.68.
+ */
+const params = typeof location !== 'undefined' ? new URLSearchParams(location.search) : null;
+const TRIED = new Map(
+  (params?.get('npcModel') ?? '')
+    .split(',')
+    .filter((s) => s.includes(':'))
+    .map((s) => [s.slice(0, s.indexOf(':')), s.slice(s.indexOf(':') + 1)] as const),
+);
+const TRIED_HEIGHT = Number(params?.get('npcHeight')) || 0;
+
+interface Made {
+  /** A file in src/render/assets/models by name, or an address. */
+  source: string;
+  height: number;
+  yaw: number;
+}
+
+/** The made body a townsperson wears, if any: one tried by address, or the first file their look names. */
+function madeOf(id: string, look?: VillagerLook): Made | null {
+  const tried = TRIED.get(id);
+  const file = tried ?? look?.model?.files[0];
+  if (!file) return null;
+  return { source: file, height: (tried && TRIED_HEIGHT) || look?.model?.h || MADE_HEIGHT, yaw: look?.model?.yaw ?? 0 };
+}
+
+/** A townsperson's moment in their idle, the same each time they're built, so no two move as one. */
+const offsetOf = (id: string): number => {
+  let h = 0;
+  for (const c of id) h = (h * 31 + c.charCodeAt(0)) % 9973;
+  return (h % 230) / 10;
+};
+
+/**
+ * The built townsperson until their made body has come (and for good if it can't), then the made
+ * one in its place, under the same root: what holds them (the land, the content library) is none
+ * the wiser.
+ */
+function inMadeBody(id: string, built: VillagerModel, made: Made, look: VillagerLook | undefined, at?: { x: number; z: number }): VillagerModel {
+  const off = offsetOf(id);
+  const stance = { hunch: look?.hunch, free: look?.free };
+  let worn: MadeTownsperson | null = null;
+  const dress = (body: WornBody | null | undefined) => {
+    if (!body || worn) return;
+    worn = wearTownsperson(body, stance);
+    for (const c of built.root.children) c.visible = false;
+    built.root.add(worn.root);
+    built.root.userData.face = worn.face;
+    // Stood up out of the pose it was made in, though it may never come near enough to move.
+    worn.animate(0, { time: off, talking: false });
+  };
+  const now = madeBodyNow(made.source, made.height, made.yaw);
+  if (now !== undefined) dress(now);
+  else void madeBody(made.source, made.height, made.yaw, at ? { need: 'near', at: () => at } : undefined)?.then(dress);
+  return {
+    root: built.root,
+    animate(dt, s) {
+      if (worn) worn.animate(dt, { time: s.time + off, talking: s.talking });
+      else built.animate(dt, s);
+    },
+  };
+}
+
+/** Waits for a townsperson's made body, if their look names one (the content library, before it films them). */
+export async function villagerReady(id: string, look?: VillagerLook): Promise<void> {
+  const made = madeOf(id, look);
+  if (made) await madeBody(made.source, made.height, made.yaw);
 }
