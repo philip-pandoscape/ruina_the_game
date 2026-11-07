@@ -64,3 +64,25 @@ assist) become engine rules an instance switches on in its file.
   among the races under load) waits for frames instead of 500/700/1600 ms; it passes twice over.
 - **Next:** the practice rules (hit pause, aim assist) as flags in the instances' files; then the
   docs, the merge of `refactor/first`, and the whole integration tier.
+
+## 2026-11-06 23:20: The practice rules in the instances' files
+
+- **Landed:** 49a5046. An instance's file switches its practice rules on: `"practice": { "hitPause":
+  true, "aimAssist": true }` (both off without it). The yard and the goblin camp switch both on; the
+  world, Goblin's Dread and the battlefield play none. The engine reads them with the instance
+  (`Practice` in `crates/engine/src/open/dungeon.rs`); the browser's session plays them offline in a
+  copy whose file has them (`Session::practice`), where its old training layer played them
+  everywhere offline. contentc holds a file's `practice` to the rules there are.
+- **Decided (and why):** online nothing changes. The server never stops a shared world for one
+  player's blow, and turning a swing on the server would need the browser to predict it from where
+  the server's creatures stood when it ran your input, which it can't know: so online the practice
+  rules are what the page already does in every space (the swing's pause drawn on your hero, the
+  page's own aim at what you see). The world plays none: it never had them where it is really played
+  (online), and offline it now plays as online does, with the pause drawn by the page where the rules
+  don't stop the game. The training dummy and what a blow shows need no switch: the dummy is a
+  creature a file's `spawns` bring (the yard's does), and a blow shows the same in every space.
+- **Ran:** the unit tier (264: a new content test), the engine's 182 (a new test plays the yard's
+  rules and the world's none), order 5, WebAssembly 4, server 81, clippy; the combat, skills, slime,
+  game, world and hotbar specs (39, all passing).
+- **Next:** merge `refactor/first`, `npm run check`, rebuild the rig's server (the content's hash
+  moved), and the whole integration tier.
