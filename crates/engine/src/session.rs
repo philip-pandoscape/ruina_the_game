@@ -1,7 +1,7 @@
 //! The game as the browser plays it: the rules for one player, in the world or a copy of an
 //! instance, as src/engine/engine.ts runs them. You, the creatures and their blows, arrows, meteors
 //! and heals offline (the server decides them online: crate::training stands in for it), the
-//! island's life, the copies of instances you're in; stepped once per fixed frame with what you pressed, and changed from outside only by the named
+//! your life, the copies of instances you're in; stepped once per fixed frame with what you pressed, and changed from outside only by the named
 //! calls below, each the other half of one of the Engine's. What happened comes out as events
 //! (crate::event) in the order they happen, and everything the page draws is read off in the shapes
 //! src/engine/ reads (`view_text` after each step or call). crates/engine-wasm hands it to the
@@ -51,7 +51,7 @@ pub struct Session {
     pub actors: Actors,
     /// The space you play in: the world, or the copy of an instance you're in (OpenWorld::instance).
     pub world: Box<OpenWorld>,
-    /// The island's life systems.
+    /// Your life's systems.
     pub life: Option<Life>,
     /// Online the server decides: these rules only predict your own moves.
     pub online: bool,
@@ -61,7 +61,7 @@ pub struct Session {
     /// happened in (`frames`, filled in as they're added).
     pub events: Vec<Event>,
     frames: Vec<u32>,
-    /// How many of `events` the island has learned from (skills trained, kills counted).
+    /// How many of `events` your life has learned from (skills trained, kills counted).
     observed: usize,
     /// Who stands about when the world is built (or reset).
     pub spawns: Vec<SpawnPoint>,
@@ -99,7 +99,7 @@ impl Session {
         let player = Player::new(Spawn { x: s.x, z: s.z, facing: s.facing }, 0, Build::default());
         let levels = player.levels.clone();
         let mut life = Life::new(zone, None, None);
-        // Online the server runs the island; this copy only keeps what moves with you moving.
+        // Online the server runs your life; this copy only keeps what moves with you moving.
         life.remote = online;
         let mut s = Session {
             frame: 0,
@@ -380,7 +380,7 @@ impl Session {
         });
     }
 
-    /// Offline, the island learns from what just happened: a hit trains the weapon that dealt it, a
+    /// Offline, your life learns from what just happened: a hit trains the weapon that dealt it, a
     /// cast its ability, a movement skill itself, and a kill counts for the quests.
     fn observe(&mut self) {
         let Some(life) = self.life.as_mut().filter(|_| !self.online) else {
@@ -453,13 +453,13 @@ impl Session {
         self.player.apply_build(b);
     }
 
-    /// Your skill levels (from your island: what your skills have learned from use).
+    /// Your skill levels (from your life: what your skills have learned from use).
     pub fn set_levels(&mut self, levels: &[u32]) {
         self.levels = levels.to_vec();
         self.player.set_levels(levels);
     }
 
-    /// A command for the island, run on the next step.
+    /// A command for your life, run on the next step.
     pub fn command(&mut self, c: Command) {
         if let Some(life) = self.life.as_mut() {
             life.command(c);
@@ -635,7 +635,7 @@ impl Session {
         take_state(&mut self.player, v);
     }
 
-    /// Online, after the server's word on you (and the island put back as of it): the inputs it
+    /// Online, after the server's word on you (and your life put back as of it): the inputs it
     /// hasn't used yet run again on top, numbered as they were the first time (the frame count is
     /// the clock everything is drawn by) and setting nothing off (that was shown already). With
     /// none to run you're drawn from where you were, so the last step isn't drawn twice.
@@ -676,7 +676,7 @@ impl Session {
     }
 
     /// Online, a command run here at once as well as on the server (a pack picked up, a seat
-    /// taken), on a copy of the island the server sent, so that one stays as it came.
+    /// taken), on a copy of the life the server sent, so that one stays as it came.
     pub fn run_ahead(&mut self, c: &Command) {
         let (Some(life), world) = (self.life.as_mut(), &mut self.world) else { return };
         if self.is_sent {
@@ -690,9 +690,9 @@ impl Session {
         }
     }
 
-    /// Online, before your inputs run again on the server's word on you: the parts of the island
+    /// Online, before your inputs run again on the server's word on you: the parts of your life
     /// that move with you as of that word (its clock, your labor, the weather, your vehicles, resting
-    /// and placing), and the commands the server hasn't run yet (`ahead`) run again on the island it sent.
+    /// and placing), and the commands the server hasn't run yet (`ahead`) run again on the life it sent.
     #[allow(clippy::too_many_arguments)]
     pub fn replay_life(
         &mut self,
@@ -806,7 +806,7 @@ impl Session {
         }
     }
 
-    /// Starts you over at `at` with `build`, standing on whatever is solid there, with the island's
+    /// Starts you over at `at` with `build`, standing on whatever is solid there, with the life's
     /// parts and the creatures about you afresh (tests).
     pub fn reset(&mut self, at: Spawn, build: Build) {
         self.frame = 0;
@@ -971,7 +971,7 @@ impl Session {
         json!({ "regions": w.held(), "obstacles": obstacles, "boxes": boxes, "decks": decks })
     }
 
-    /// The island's cells kept clear of trees and scarecrows (the zone's, and ground cleared for houses).
+    /// The region's cells kept clear of trees and scarecrows (the zone's, and ground cleared for houses).
     pub fn clear(&self) -> &[u8] {
         &self.world.clear
     }
@@ -1002,8 +1002,8 @@ impl Session {
     }
 
     /// Everything the page reads after a step or a call, in one, as JSON text: the step count and the
-    /// hit pause, you, the creatures and your arrows and meteors (offline), the island, what the
-    /// island said (taken), whether a fall put you somewhere (and facing which way), a number that
+    /// hit pause, you, the creatures and your arrows and meteors (offline), your life, what it
+    /// said (taken), whether a fall put you somewhere (and facing which way), a number that
     /// changes when what's solid does (`solid_key`), and with `events` what happened (taken). Written
     /// straight from the session's own values: building it as JSON values first was most of an
     /// offline step's time (the refactor's R8.14).

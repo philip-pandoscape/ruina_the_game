@@ -1,5 +1,5 @@
-//! The noise an island grows from: integer hashing rather than a random stream, so the same seed
-//! grows the same island in any language, and smooth value noise summed over octaves, in plain
+//! The noise a region grows from: integer hashing rather than a random stream, so the same seed
+//! grows the same region in any language, and smooth value noise summed over octaves, in plain
 //! arithmetic. (src/engine/world/terrain.ts has the same hash and noise for the drawing's own
 //! scatter.)
 

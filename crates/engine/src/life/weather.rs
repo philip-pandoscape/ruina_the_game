@@ -1,9 +1,9 @@
 //! Rain showers that water every crop on the isle, and a wind that wanders round the compass and
 //! fills (or empties) your sails (the page reads them through src/engine/life/weather.ts). Both run on
 //! the weather's clock: online
-//! the world's (the server's own, which the channel hands every island each tick), so everyone on
+//! the world's (the server's own, which the channel hands every life each tick), so everyone on
 //! Emberholm is rained on and sails on the same wind at the same moment; offline and in the rules'
-//! checks the island's. Nothing in them is left to the island's dice, so the same clock always has
+//! checks the life's. Nothing in them is left to the life's dice, so the same clock always has
 //! the same weather, here and in the browser.
 
 use super::Life;
@@ -15,7 +15,7 @@ pub fn raining(life: &Life) -> bool {
 }
 
 /// The clock the weather runs on, in seconds: the world's when the channel has set it
-/// (Life::world_clock), else the island's.
+/// (Life::world_clock), else the life's.
 pub fn weather_clock(life: &Life) -> f64 {
     life.world_clock.unwrap_or(life.state.clock)
 }
@@ -73,7 +73,7 @@ pub fn step_weather(life: &mut Life, _dt: f64) {
     let t = weather_clock(life);
     let r = rain_at(t);
     let was = c < life.weather.rain_until;
-    // Kept in the island's own clock, which everything that asks about the rain counts in.
+    // Kept in the life's own clock, which everything that asks about the rain counts in.
     let w = &mut life.weather;
     w.rain_until = if r.raining { c + (r.end - t) } else { w.rain_until.min(c) };
     w.next_rain = c + (r.next - t);
@@ -163,7 +163,7 @@ mod tests {
         // Arriving in the middle of a shower isn't news.
         let said = |l: &mut Life| l.drain_events().into_iter().any(|e| matches!(e, LifeEvent::Toast { ref text, .. } if text.starts_with("🌧️")));
         assert!(!said(&mut a));
-        // Offline the island's own clock is the weather's: its first shower comes firstAfter in.
+        // Offline the life's own clock is the weather's: its first shower comes firstAfter in.
         let mut c = Life::new(emberholm(), None, None);
         c.drain_events();
         c.state.clock = 239.99;

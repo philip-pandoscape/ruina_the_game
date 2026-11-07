@@ -15,7 +15,7 @@ fn wanted(outpost: &str) -> Vec<&'static str> {
 }
 
 pub fn step_contracts(life: &mut Life) {
-    // Held apart while the board changes (posting draws on the island's randomness and ids), then
+    // Held apart while the board changes (posting draws on the life's randomness and ids), then
     // put back; nothing in between reads it.
     let mut c = life.state.contracts.take().unwrap_or_default();
     refresh(life, &mut c);

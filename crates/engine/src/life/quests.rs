@@ -175,7 +175,7 @@ pub fn complete(life: &mut Life, id: &str) -> bool {
     let s = &mut life.state;
     s.quests.active.retain(|p| p.id != id);
     s.quests.done.push(id.to_string());
-    // News for the quest log and the townsfolk's marks: the island goes out with it.
+    // News for the quest log and the townsfolk's marks: the life goes out with it.
     life.revision += 1;
     let s = &mut life.state;
     if let Some(coins) = truthy(r.coins) {
@@ -292,7 +292,7 @@ fn advance(life: &mut Life, id: &str) {
     let p = &mut life.state.quests.active[i];
     p.step += 1;
     let step = p.step;
-    // A new step, or ready to hand in, is news: the island goes to its owner on the next tick
+    // A new step, or ready to hand in, is news: the life goes to its owner on the next tick
     // rather than with the next refresh. The counts measured on the way there are not.
     life.revision += 1;
     let p = &mut life.state.quests.active[i];
@@ -618,9 +618,9 @@ mod tests {
 
     #[test]
     fn a_step_finished_by_measuring_is_news_but_the_measuring_is_not() {
-        // The island goes to its owner's browser on the tick its revision moves (the server's play/mod.rs),
+        // The life goes to its owner's browser on the tick its revision moves (the server's play/mod.rs),
         // otherwise every couple of seconds. Time in the air counts every step: only the step that
-        // finishes it should send the island, so the quest log and Hollis's mark change at once.
+        // finishes it should send the life, so the quest log and Hollis's mark change at once.
         let (mut life, mut world, mut p) = new_life(0.0);
         let mut sim = Sim { player: &mut p, world: &mut world, owner: 1 };
         life.state.quests.done.extend(["landfall", "wings"].map(String::from));

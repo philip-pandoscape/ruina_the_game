@@ -105,9 +105,7 @@ async fn a_transfer_sent_twice_is_applied_once() {
     assert_eq!(transfer(&db, &t, &saves(999.0, 0.0)).await.unwrap(), Applied::Already);
     let coins = |id: i64| {
         let db = db.clone();
-        async move {
-            sqlx::query_scalar::<_, f64>("SELECT (life->'state'->>'coins')::float8 FROM characters WHERE id = $1").bind(id).fetch_one(&db).await.unwrap()
-        }
+        async move { sqlx::query_scalar::<_, f64>("SELECT (life->'state'->>'coins')::float8 FROM characters WHERE id = $1").bind(id).fetch_one(&db).await.unwrap() }
     };
     assert_eq!((coins(ann).await, coins(bea).await), (250.0, 150.0));
     let rows: Vec<(String, f64)> = sqlx::query_as("SELECT party, coins FROM ledger ORDER BY character").fetch_all(&db).await.unwrap();

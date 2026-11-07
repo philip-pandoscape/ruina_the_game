@@ -156,7 +156,7 @@ pub(crate) fn play_keeping(s: &Scenario, rule: Option<Rule>, posts: Posts, crowd
         let at = split.owner_of(k).expect("the driver");
         let sim = split.sim_mut(at);
         let (p, life) = sim.players.open_mut(client(k)).expect("the driver");
-        let life = life.expect("an island");
+        let life = life.expect("a life");
         life.give(&drive.deed, 1, true);
         let world = &sim.world;
         let id = vehicles::summon(life, &mut Stepping { player: p, world, owner: character(k) }, &drive.deed).expect("a vehicle on the road");
@@ -296,7 +296,7 @@ pub fn canon(split: &mut Split, done: &[(SimId, StepOut)]) -> Value {
     })
 }
 
-/// Every island at the end, by slot.
+/// Every life at the end, by slot.
 pub fn lives(split: &mut Split) -> Vec<Value> {
     let mut out: Vec<(usize, Value)> = Vec::new();
     for s in &split.sims {
@@ -324,7 +324,7 @@ mod tests {
     #[test]
     fn played_as_one_simulation_the_crowd_is_the_crowd_s_check_tick_for_tick() {
         // The harness, with one simulation owning everything, steps a tick as the crowd's check
-        // (and the server's play_tick) does: the same answer, hash for hash, the islands too.
+        // (and the server's play_tick) does: the same answer, hash for hash, the lives too.
         let input = case("crowdcheck");
         let s: Scenario = serde_json::from_str(&input).expect("a scenario");
         let mut played = play(&s, None, Posts::Passed, true);
@@ -390,7 +390,7 @@ mod tests {
         assert_eq!((split.split.owner_of(driver), split.split.owner_of(passenger)), (Some(east), Some(east)));
         let sim = split.split.sim_mut(east);
         let (d, _, life) = sim.players.open_view(client(driver)).expect("the driver");
-        let v = &life.expect("an island").land.vehicles[0];
+        let v = &life.expect("a life").land.vehicles[0];
         assert!(v.x > 28.0, "the cart is {} m past the line", v.x);
         assert_eq!(d.vehicle, v.id);
         let p = sim.players.open_view(client(passenger)).expect("the passenger").0;

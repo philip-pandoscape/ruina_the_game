@@ -156,10 +156,10 @@ pub struct LifeState {
     /// What you sold to merchants and can still buy back from them, oldest first (crate::life::trade).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub buyback: Option<Vec<Buyback>>,
-    /// Gathering spots resting: the spot's id -> the island's clock when it is back.
+    /// Gathering spots resting: the spot's id -> the life's clock when it is back.
     pub nodes: BTreeMap<String, f64>,
     pub quests: Quests,
-    /// Experience of each skill in the skill book, by its id (crate::life::progress). An island
+    /// Experience of each skill in the skill book, by its id (crate::life::progress). A life
     /// saved before skills levelled has none: everything at level 1.
     pub skill_xp: BTreeMap<String, f64>,
     #[serde(default)]

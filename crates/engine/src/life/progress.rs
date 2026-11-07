@@ -3,7 +3,7 @@
 //! what you've done.
 //!
 //! Experience. Each hit a weapon lands, each cast of an ability and each use of a movement skill
-//! adds one to that skill (state.skill_xp, kept with your island), and a level comes at each step
+//! adds one to that skill (state.skill_xp, kept with your life), and a level comes at each step
 //! of the curve in tuning.json skills.levels. A level-up is a quest event too, for the milestones
 //! that count them. Online only the server counts: the browser shows what it says.
 //!
@@ -34,7 +34,7 @@ pub enum Observed<'a> {
 }
 
 impl<'a> Observed<'a> {
-    /// What the island learns from something that happened, if anything: a hit trains the weapon
+    /// What the life learns from something that happened, if anything: a hit trains the weapon
     /// that dealt it, a cast its ability, a movement skill itself, and a creature finished off
     /// counts for the quests (one that dissolves on its own doesn't).
     pub fn of(e: &'a Event) -> Option<Self> {
@@ -103,7 +103,7 @@ pub fn observe(life: &mut Life, e: Observed) -> bool {
     levelled
 }
 
-/// Keeps the player's levels (which change what their skills do) in step with the island's
+/// Keeps the player's levels (which change what their skills do) in step with the life's
 /// experience. Cheap when nothing changed, which is nearly always.
 pub fn sync_levels(life: &Life, p: &mut Player) {
     let xp = &life.state.skill_xp;
@@ -249,7 +249,7 @@ mod tests {
         assert_eq!(toasts(&mut life), ["Sword reached level 2"]);
         assert_eq!(life.revision, rev + 1);
         assert_eq!(counts(&life, "practisedHand"), [1.0]);
-        // The player catches up with the island.
+        // The player catches up with the life.
         sync_levels(&life, &mut p);
         assert_eq!(p.levels[sword], 2);
         // A jump of several levels counts them all, and finishes the milestone.

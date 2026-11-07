@@ -1,7 +1,7 @@
 //! What a region or an instance brings to life where it's played (its file's `spawns`): one of a
 //! kind on a spot, a group of them spread round it, or a war-band in a ring round it fighting
 //! together as a pack. The server spawns a channel's and a copy's creatures from them, and the
-//! browser's session an island's played offline: the same creatures in the same places, with the
+//! browser's session a region's played offline: the same creatures in the same places, with the
 //! same seeds.
 
 use serde::{Deserialize, Serialize};
@@ -97,7 +97,7 @@ pub fn spawn_points(spawns: &[ZoneSpawn], base: u32) -> Vec<SpawnPoint> {
 }
 
 /// What a region brings to life (its recipe's `spawns`), its seeds from the region's own: a
-/// channel's on the server, and the island's when the browser plays it offline.
+/// channel's on the server, and the region's when the browser plays it offline.
 pub fn region_spawns(r: &Recipe) -> Vec<SpawnPoint> {
     spawn_points(&r.spawns, r.seed ^ 0x51e0)
 }

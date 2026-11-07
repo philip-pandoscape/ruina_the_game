@@ -5,7 +5,7 @@
 //!
 //! Text goes both ways through linear memory: the browser writes its input (a recipe, an id) into
 //! room `alloc` gives and hands over where and how long; an answer in text (JSON) is left at
-//! `out_ptr()`, its length returned. Big arrays (the island's heights) are read where they lie.
+//! `out_ptr()`, its length returned. Big arrays (a region's heights) are read where they lie.
 //!
 //! What comes through here: the browser's game (`session`), the world's regions (where they stand,
 //! `world_layout`; a region grown whole by the page's worker, `region_grow`, and handed to the

@@ -305,7 +305,7 @@ pub fn gather(s: &SkillSet, ctx: &ModContext, levels: &[u32]) -> Vec<Channel> {
 // Every weapon, ability and movement skill gains experience as you use it (a weapon for each hit
 // it lands, an ability for each cast, a movement skill each time you use it) and a level at each
 // step of the curve. What a level adds is data too: tuning.json skills.levels. The experience is
-// kept with your island (crate::life::progress).
+// kept with your life (crate::life::progress).
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum BookKind {
@@ -389,7 +389,7 @@ pub fn level_of(xp: f64) -> u32 {
     level
 }
 
-/// Levels from experience kept by skill book id (the island's skill_xp).
+/// Levels from experience kept by skill book id (the life's skill_xp).
 pub fn levels_from(xp: &BTreeMap<String, f64>) -> Levels {
     book().iter().map(|b| level_of(xp.get(b.id.as_str()).copied().unwrap_or(0.0))).collect()
 }

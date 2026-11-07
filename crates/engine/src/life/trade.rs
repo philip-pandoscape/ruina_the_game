@@ -424,7 +424,7 @@ pub fn step_buyback(life: &mut Life, sim: &Sim) {
     }
 }
 
-/// A fresh island to try the rules on, shared by the life modules' tests.
+/// A fresh life to try the rules on, shared by the life modules' tests.
 #[cfg(test)]
 pub(crate) mod testing {
     use crate::life::{Life, LifeEvent};
@@ -432,7 +432,7 @@ pub(crate) mod testing {
     use crate::open::zone::emberholm;
     use crate::player::{Build, Player};
 
-    /// A new island (with this much money), its world, and a player standing at the spawn.
+    /// A new life (with this much money), its world, and a player standing at the spawn.
     pub fn new_life(coins: f64) -> (Life, OpenWorld, Player) {
         let zone = emberholm();
         let life = Life::new(zone, Some(coins), None);

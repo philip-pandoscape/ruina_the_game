@@ -60,7 +60,7 @@ const ARROW_RADIUS: f64 = 0.55; // how close an arrow has to pass to hit someone
 const MARKER_HEIGHT: f64 = 1.1; // floating numbers sit about head height above whoever they're about
 const MAX_OWN_EVENTS: usize = 24; // attributed events per player per tick; the rest are dropped
 const SLAM_LIFT: f64 = 1.0; // a monster's slam only catches someone on the ground, not mid-jump
-/// How close to someone's vehicle you have to be to climb in (the hull, as the island's prompts
+/// How close to someone's vehicle you have to be to climb in (the hull, as the life's prompts
 /// measure it, with a little slack for where you were drawn).
 pub const CLIMB_IN: f64 = 2.6;
 
@@ -99,7 +99,7 @@ struct Slot {
     last_seq: u32,
     build_seq: u32,
     queue: VecDeque<(u32, f64, Actions)>, // (seq, view tick, input)
-    // ---- Open worlds: the character's island, and what they asked it to do ----
+    // ---- Open worlds: the character's life, and what they asked it to do ----
     /// The character (whose houses and farms these are).
     owner: i64,
     life: Option<Box<Life>>,
@@ -387,7 +387,7 @@ pub struct Landing {
     blows: Vec<Blow>,
     heals: Vec<HealHit>,
     told: Vec<Told>,
-    /// Slots whose island something was built on this phase.
+    /// Slots whose land something was built on this phase.
     built: Vec<usize>,
     /// What lands on or is told to what another simulation holds, for its owner.
     pub away: Across,
@@ -448,7 +448,7 @@ struct Outbox {
     rewinds: Vec<f64>,
     saved: u64,
     circles: u64,
-    /// The island changed shape (something was built), to be made solid once everyone has stepped.
+    /// Land changed shape (something was built), to be made solid once everyone has stepped.
     built: bool,
 }
 
@@ -474,7 +474,7 @@ impl Job {
 
 /// The hits a player landed with `weapon` (None: a blast, which trains nothing; its cast already
 /// did), in the order they landed, each with the kind of creature it finished off if it did. Only
-/// a player with an island learns from them (`Observed`, crate::life::progress): practice for the
+/// a player with a life learns from them (`Observed`, crate::life::progress): practice for the
 /// weapon, and a defeat for the quests, hit then death for each in turn. A level gained changes the
 /// player's numbers from the next step on.
 fn credit(life: &mut Life, p: &mut Player, weapon: Option<u8>, landed: &[Option<&str>]) {
@@ -536,7 +536,7 @@ impl Before<'_> {
             if seq <= slot.last_seq {
                 continue; // repeated or out of date
             }
-            // The island's commands given on or before this input run with it.
+            // The life's commands given on or before this input run with it.
             if let Some(life) = slot.life.as_deref_mut() {
                 while slot.commands.front().is_some_and(|(cs, _)| *cs <= seq) {
                     let (_, c) = slot.commands.pop_front().unwrap();
@@ -866,7 +866,7 @@ impl Players {
         Some(free)
     }
 
-    /// A player without an island (the balance harness's duellists), as `player` (already placed, on
+    /// A player without a life (the balance harness's duellists), as `player` (already placed, on
     /// their side). Returns false if they're already here or there's no room.
     pub fn join_at(&mut self, client_id: EntityId, player: Player) -> bool {
         if self.by_client.contains_key(&client_id) {
@@ -875,7 +875,7 @@ impl Players {
         self.seat(Slot::new(client_id, player, 0, None)).is_some()
     }
 
-    /// Open worlds: a character arrives, as `player` (already placed), carrying their island.
+    /// Open worlds: a character arrives, as `player` (already placed), carrying their life.
     /// Returns false if they're already here or there's no room.
     pub fn join_open(&mut self, client_id: EntityId, owner: i64, player: Player, life: Box<Life>) -> bool {
         if self.by_client.contains_key(&client_id) {
@@ -884,7 +884,7 @@ impl Players {
         self.seat(Slot::new(client_id, player, owner, Some(life))).is_some()
     }
 
-    /// Open worlds: takes a player out (they left), with their island.
+    /// Open worlds: takes a player out (they left), with their life.
     pub fn leave(&mut self, client_id: EntityId) -> Option<(Player, Option<Box<Life>>)> {
         let s = self.by_client.remove(&client_id)?;
         let slot = self.slots[s].take()?;
@@ -896,7 +896,7 @@ impl Players {
 
     /// Open worlds: a character arrives in a slot of the caller's choosing (theirs in every
     /// simulation of a world split between several, which all order by slot), as `player`,
-    /// carrying their island. False if they're here already or the slot is taken.
+    /// carrying their life. False if they're here already or the slot is taken.
     pub fn join_open_at(&mut self, slot: usize, client_id: EntityId, owner: i64, player: Player, life: Box<Life>) -> bool {
         if self.by_client.contains_key(&client_id) || self.slots.get(slot).is_none_or(Option::is_some) {
             return false;
@@ -997,7 +997,7 @@ impl Players {
     }
 
     /// One of this simulation's players handed to another across a border: their slot taken out
-    /// whole (what they'd given and not yet run, their island, where they stood). None if `slot`
+    /// whole (what they'd given and not yet run, their life, where they stood). None if `slot`
     /// holds none of its own.
     pub fn depart(&mut self, slot: usize) -> Option<Departing> {
         if !self.is_own(slot) {
@@ -1063,7 +1063,7 @@ impl Players {
         }
     }
 
-    /// Open worlds: a command for the island, given on input `seq`.
+    /// Open worlds: a command for the life, given on input `seq`.
     pub fn queue_command(&mut self, client_id: EntityId, seq: u32, c: Command) {
         let Some(&s) = self.by_client.get(&client_id) else { return };
         if let Some(slot) = &mut self.slots[s]
@@ -1073,27 +1073,27 @@ impl Players {
         }
     }
 
-    /// Open worlds: a player, the last input they've had run, and their island.
+    /// Open worlds: a player, the last input they've had run, and their life.
     pub fn open_view(&self, client_id: EntityId) -> Option<(&Player, u32, Option<&Life>)> {
         let &s = self.by_client.get(&client_id)?;
         let slot = self.slots[s].as_ref()?;
         Some((&slot.player, slot.last_seq, slot.life.as_deref()))
     }
 
-    /// Open worlds: a player and their island, to change (a new build, an island started over).
+    /// Open worlds: a player and their life, to change (a new build, a life started over).
     pub fn open_mut(&mut self, client_id: EntityId) -> Option<(&mut Player, Option<&mut Life>)> {
         let &s = self.by_client.get(&client_id)?;
         let slot = self.slots[s].as_mut()?;
         Some((&mut slot.player, slot.life.as_deref_mut()))
     }
 
-    /// Open worlds: everyone here, as (client id, character, player, island); not the ghosts of
+    /// Open worlds: everyone here, as (client id, character, player, life); not the ghosts of
     /// those across a border.
     pub fn each_open(&self) -> impl Iterator<Item = (EntityId, i64, &Player, Option<&Life>)> {
         self.slots.iter().flatten().filter(|s| s.own()).map(|s| (s.client_id, s.owner, &s.player, s.life.as_deref()))
     }
 
-    /// Open worlds: everyone's island, to change between steps (who holds which plot).
+    /// Open worlds: everyone's life, to change between steps (who holds which plot).
     pub fn each_life_mut(&mut self) -> impl Iterator<Item = (i64, &mut Life)> {
         self.slots.iter_mut().flatten().filter_map(|s| {
             let owner = s.owner;
@@ -1127,7 +1127,7 @@ impl Players {
         }
     }
 
-    /// Credits the player in `slot`, if it's still `client` and has an island, with what one of
+    /// Credits the player in `slot`, if it's still `client` and has a life, with what one of
     /// their blows, arrows or meteors did (see credit()).
     fn credit_owner(&mut self, slot: usize, client: EntityId, weapon: Option<u8>, landed: &[Option<&str>]) {
         let Some(Some(s)) = self.slots.get_mut(slot) else { return };
@@ -1152,7 +1152,7 @@ impl Players {
     }
 
     /// Runs each player's waiting inputs in order, in `world` (a channel's, or a copy of an
-    /// instance): each moves over its ground with their island stepping along, weapon swings land,
+    /// instance): each moves over its ground with their life stepping along, weapon swings land,
     /// arrows fly off, and finished casts heal or call down meteors. `tick` is the tick being worked
     /// out now.
     pub fn step_in(&mut self, actors: &mut Actors, tick: u64, world: &mut OpenWorld) {
@@ -1164,7 +1164,7 @@ impl Players {
     /// job reads the others, the creatures and the world only as they were when the tick began, and
     /// what it does to them is applied once every one has run, in an order of its own (the module's
     /// doc): so however `drive` runs them, the tick comes out the same. What anyone built is made
-    /// solid after that, island by island in the order of the slots.
+    /// solid after that, life by life in the order of the slots.
     pub fn step_by(&mut self, actors: &mut Actors, tick: u64, world: &mut OpenWorld, drive: impl FnOnce(&mut [Job], &(dyn Fn(&mut Job) + Sync))) {
         let mut landing = self.work_out(actors, tick, world, drive);
         self.land(&mut landing, actors, Across::default());
@@ -1589,7 +1589,7 @@ impl Players {
         }
     }
 
-    /// The vehicles of the player in a slot: their island's, or a ghost's as its owner sent them.
+    /// The vehicles of the player in a slot: their life's, or a ghost's as its owner sent them.
     fn vehicles(s: &Slot) -> &[Vehicle] {
         match (&s.away, s.life.as_deref()) {
             (Some(vs), _) => vs,

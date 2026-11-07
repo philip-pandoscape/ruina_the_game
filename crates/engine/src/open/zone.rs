@@ -380,7 +380,7 @@ pub struct Zone {
     pub obstacles: Vec<Obstacle>,
     pub boxes: Vec<BoxCollider>,
     pub decks: Vec<Deck>,
-    /// How far from the middle anything can go (src/engine/world/region.ts: half the island, less 8 m).
+    /// How far from the middle anything can go (src/engine/world/region.ts: half the region, less 8 m).
     pub radius: f64,
 }
 

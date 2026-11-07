@@ -1,6 +1,6 @@
 //! The rules' one random stream: mulberry32, exactly as src/util/rng.ts (and the browser's brain.ts
 //! draw and life.ts rand), so a seed gives the same numbers on both sides. Each user keeps its own
-//! state where it belongs (an actor's seed, the island's saved `rng`, a battle's, a table's), and
+//! state where it belongs (an actor's seed, a life's saved `rng`, a battle's, a table's), and
 //! steps it here.
 
 /// Steps `state` and returns the next number in [0, 1), at full precision.

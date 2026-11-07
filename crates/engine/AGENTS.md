@@ -40,7 +40,7 @@ the engine, and how to add to the browser's interface: `docs/engine.md`.
   lands on (a creature by its id, a player by their slot), then of whom it came from. So a phase
   comes out the same stepped in any order, or all at once: `Players::step_by` hands each player's
   step to the caller as a `Job` (the server runs them on its threads; the engine has none), and
-  `Actors::step` takes its creatures in any order. What a step builds changes only the island (its
+  `Actors::step` takes its creatures in any order. What a step builds changes only a life (its
   `revision`), and is made solid once the step is over (`Life::make_solid`), so the world is the
   same for everyone stepping in it. Anything new that reaches across players or creatures goes the
   same way; the crowd's and the creatures' golden scenarios are run shuffled to hold it. Land works
@@ -74,9 +74,9 @@ the engine, and how to add to the browser's interface: `docs/engine.md`.
 - `npm run test:conformance`: builds the engine and its WebAssembly, then holds the WebAssembly to the
   native engine bit for bit (`tests/conformance/engine.test.ts`) and the browser's ground sampling to
   the engine's (`terrain.test.ts`), and runs the balance harness (`balance.test.ts`).
-- The island grows from its recipe here alone (`open/generate.rs`, `open/buildings.rs`): the
+- A region grows from its recipe here alone (`open/generate.rs`, `open/buildings.rs`): the
   browser grows it through `crates/engine-wasm` (`zone_grow`, and a region whole in its worker:
-  `region_grow`), and `tests/conformance/terrain.test.ts` holds the WebAssembly's island to the native
+  `region_grow`), and `tests/conformance/terrain.test.ts` holds the WebAssembly's region to the native
   one, all of it; `tests/conformance/world.test.ts` the page's ground across the fixture world to the
   world map's.
 - Growing and dropping (`open/map.rs`) and the fixture world crossed holding what's near the player,

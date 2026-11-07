@@ -678,7 +678,7 @@ pub fn find_focus(life: &mut Life, sim: &Sim) -> Option<Focus> {
         }
     }
 
-    // A dungeon's portal: into your party's copy of it from its door on the island, or back out
+    // A dungeon's portal: into your party's copy of it from its door in the world, or back out
     // from inside (the browser takes you through; online the server does).
     if p.mode == Mode::Normal {
         let busy = back.map(|_| "Put your pack down first".to_string());
@@ -892,7 +892,7 @@ pub fn run_command(life: &mut Life, sim: &mut Sim, c: &Command) {
             grow_for(life, seconds);
             life.regen_labor(seconds, false, false);
         }
-        // The channel moves you itself (crates/server/src/sim/mod.rs); it never reaches an island.
+        // The channel moves you itself (crates/server/src/sim/mod.rs); it never reaches a life.
         Command::Teleport { .. } | Command::Ride { .. } | Command::Bots { .. } => {}
     }
 }
@@ -1182,12 +1182,12 @@ pub fn keep_resting(life: &mut Life, sim: &mut Sim) {
 }
 
 // The expected prompts, toasts and numbers here are what the TypeScript copy of the rules gave for
-// the same steps on the same island, while there was one.
+// the same steps on the same life, while there was one.
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::life::content::{ItemDef, items};
-    use crate::life::farming::tests::{got, quiet_life, lucky, stand};
+    use crate::life::farming::tests::{got, lucky, quiet_life, stand};
     use crate::life::state::{QuestProgress, Stack};
 
     /// What the prompt says: (action, label, detail, ok).
@@ -1356,7 +1356,7 @@ mod tests {
         let mut on: Vec<&str> = placeables.iter().map(|i| i.place_on.as_deref().unwrap_or("")).collect();
         on.sort_unstable();
         assert_eq!(on, ["ground", "plot", "slipway"]);
-        // Where the island's farmland is, from its recipe.
+        // Where the region's farmland is, from its recipe.
         let recipe: serde_json::Value = serde_json::from_str(include_str!("../../../../shared/regions/emberholm.json")).expect("the recipe");
         let fields = (recipe["farmland"]["x"].as_f64().expect("farmland x"), recipe["farmland"]["z"].as_f64().expect("farmland z"));
         for it in placeables {

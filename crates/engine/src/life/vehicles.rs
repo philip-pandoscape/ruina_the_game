@@ -71,7 +71,7 @@ pub fn vehicle_index(life: &Life, id: i64) -> Option<usize> {
 }
 
 /// Index of the vehicle of yours the player is riding, if any (TS ridden). Riding along in someone
-/// else's (`host` set), it's theirs, not one of this island's, even when one has the same number.
+/// else's (`host` set), it's theirs, not one of this life's, even when one has the same number.
 pub fn ridden(life: &Life, sim: &Sim) -> Option<usize> {
     if sim.player.vehicle != 0 && sim.player.host == 0 { vehicle_index(life, sim.player.vehicle) } else { None }
 }
@@ -827,7 +827,7 @@ fn move_on_land(sim: &Sim, v: &mut Vehicle, def: &RideableDef, climb: f64, max_w
     settle_tilt(hf, v, def, dt);
 }
 
-/// Steps a boat. It comes off the list for the step, so the rules can toast and roll the island's
+/// Steps a boat. It comes off the list for the step, so the rules can toast and roll the life's
 /// dice while they move it, and goes back before a storm can break it up (breakUp finds it there).
 fn boat(life: &mut Life, sim: &mut Sim, i: usize, d: &RideableDef, inp: &DriveInput) {
     let mut v = std::mem::take(&mut life.land.vehicles[i]);
@@ -1120,7 +1120,7 @@ mod tests {
             f(&mut self.life, &mut sim)
         }
 
-        /// Frames as the page runs them: the ride with your controls, then the island's step.
+        /// Frames as the page runs them: the ride with your controls, then the life's step.
         fn frames(&mut self, n: usize, a: Actions) {
             for _ in 0..n {
                 self.with(|life, sim| {

@@ -370,18 +370,18 @@ pub fn now(life: &Life) -> f64 {
 
 /// Whether a save kept its land inside its life's state, as before land was kept apart (its times on
 /// the life's clock: `Land::rebase`).
-pub fn kept_inside(island: &Value) -> bool {
-    island.get("land").is_none_or(Value::is_null)
+pub fn kept_inside(saved: &Value) -> bool {
+    saved.get("land").is_none_or(Value::is_null)
 }
 
 /// A saved life and its land, read from a save in either shape: as the server and the browser keep
 /// them now (`{state, land, player}`), or as they kept them before land had rows of its own, the
 /// land inside the life's state (version 3 and before). What the state kept that is the world's now
 /// (each post's demand, the weather) is left out.
-pub fn read_saved(island: &Value) -> Result<(LifeState, Land), String> {
-    let mut state = island.get("state").cloned().ok_or("no state")?;
+pub fn read_saved(saved: &Value) -> Result<(LifeState, Land), String> {
+    let mut state = saved.get("state").cloned().ok_or("no state")?;
     let obj = state.as_object_mut().ok_or("the state isn't an object")?;
-    let mut land = match island.get("land") {
+    let mut land = match saved.get("land") {
         Some(l) if !l.is_null() => serde_json::from_value::<Land>(l.clone()).map_err(|e| format!("its land: {e}"))?,
         _ => {
             let mut old = serde_json::Map::new();

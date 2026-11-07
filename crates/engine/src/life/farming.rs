@@ -429,7 +429,7 @@ pub fn find_rare(life: &mut Life, rare: &Rare, x: f64, y: f64, z: f64) {
 }
 
 // The expected numbers here (yields, growth, positions, messages) are what the TypeScript copy of the
-// rules gave for the same steps on the same island, while there was one.
+// rules gave for the same steps on the same life, while there was one.
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
@@ -439,7 +439,7 @@ pub(crate) mod tests {
     use crate::player::{Build, Player};
     use crate::world::Spawn;
 
-    /// A fresh island with no quest under way (so only the rules being tested speak up), the world
+    /// A fresh life with no quest under way (so only the rules being tested speak up), the world
     /// it is on, and a player at the spawn.
     pub(crate) fn quiet_life() -> (Life, OpenWorld, Player) {
         let zone = emberholm();
@@ -457,7 +457,7 @@ pub(crate) mod tests {
         (p.pos.x, p.pos.y, p.pos.z, p.facing) = (x, y, z, facing);
     }
 
-    /// Sets the island's random numbers so that the draw after the next `skip` comes up under
+    /// Sets the life's random numbers so that the draw after the next `skip` comes up under
     /// `chance`: whatever is that rare is found.
     pub(crate) fn lucky(life: &mut Life, skip: usize, chance: f64) {
         life.state.rng = (0u32..)
@@ -616,7 +616,7 @@ pub(crate) mod tests {
         assert_eq!((barley.growth, barley.watered), (1.0, false));
         life.drain_events();
         assert!(harvest(&mut life, sc, 0, 5.0));
-        // The island's own random stream: the browser draws the same six.
+        // The life's own random stream: the browser draws the same six.
         assert_eq!(life.state.bag, stacks(&[("seed.barley", 2), ("barley", 6)]));
         assert_eq!(life.drain_events(), vec![got(6, "barley"), LifeEvent::Harvest { x: -211.0, y: 5.0, z: -243.0 }]);
         assert!(plant_at(&life, sc, 0).is_none());

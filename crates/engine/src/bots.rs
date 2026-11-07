@@ -1,5 +1,5 @@
 //! Bots: players whose inputs come from a brain instead of a keyboard. Whoever runs the world steps
-//! a bot exactly as it steps a player (a bot has a `Player`, and in the open world no island of its
+//! a bot exactly as it steps a player (a bot has a `Player`, and in the open world no life of its
 //! own): each step the bot's brain looks at what it can see and decides what it presses, as
 //! `Actions`, the same thing a browser's key presses become. So every rule a player is held to holds
 //! a bot too, and a bot can stand in for a player anywhere: a battlefield's armies, a developer's

@@ -4,7 +4,7 @@
 //!
 //! - `world()`: three regions. Emberholm round the origin, as it is in the game; Saltmere across a
 //!   chunk of open sea to its west (x 1024 to 2048 m); Thornmarch beside Saltmere across a land
-//!   border at x = 2048 m, one island grown half by each from its own recipe.
+//!   border at x = 2048 m, one landmass grown half by each from its own recipe.
 //! - `far()`: Emberholm, and Farholt, a small flat isle 102 km to its west, for drawing far from the
 //!   origin.
 //!

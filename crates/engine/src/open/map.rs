@@ -862,7 +862,7 @@ mod tests {
         small_region("islet", 7, 1280.0, 1280.0, 110.0, 6.0)
     }
 
-    /// A region two chunks a side round (`mid`, 0), its island round (`land`, 0).
+    /// A region two chunks a side round (`mid`, 0), its landmass round (`land`, 0).
     fn small_region(id: &str, seed: u32, mid: f64, land: f64, radius: f64, hills: f64) -> Recipe {
         serde_json::from_value(serde_json::json!({
             "id": id, "name": id, "seed": seed, "climate": "temperate",
@@ -896,7 +896,7 @@ mod tests {
         }
     }
 
-    /// Two regions across a land border at x = 1536 m: one island grown half by each, each half from
+    /// Two regions across a land border at x = 1536 m: one landmass grown half by each, each half from
     /// its own recipe (its own seed and hills), so they differ where they meet until the border blends
     /// them.
     fn mainland() -> &'static WorldMap {
@@ -1003,7 +1003,7 @@ mod tests {
         // Between the two, open sea.
         assert!(w.region_at(900.0, 0.0).is_none());
         assert_eq!(w.depth(900.0, 0.0), 30.0);
-        // Emberholm is the same island in this world as in the main one.
+        // Emberholm is the same region in this world as in the main one.
         let e = w.zone(w.region("emberholm").expect("Emberholm"));
         assert_eq!(e.terrain.heights(), super::super::zone::emberholm().terrain.heights());
         // The edge of the world is round every region's chunks together, the sea between them included.
