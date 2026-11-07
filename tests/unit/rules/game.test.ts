@@ -1,6 +1,6 @@
 import { expect } from 'vitest';
 import { test, type Page } from '../../support/headless';
-import { SLIDE_SKILL, WEAPONS } from '../../../src/content/tuning';
+import { SLIDE_SKILL, WEAPONS, weaponIndex } from '../../../src/content/tuning';
 import { gameReady } from '../../support/headless';
 
 // Sliding is an action state now, not a mode of its own.
@@ -121,7 +121,7 @@ test('three-hit combo lands every hit on the dummy', async ({ page }) => {
   });
   console.log('combo hits', result.hits.map((h: any) => `#${h.index + 1}: ${h.damage}`).join(', '), '→ dummy hp', result.hp);
   expect(result.hits.map((h: any) => h.index)).toEqual([0, 1, 2]);
-  expect(result.hp).toBe(100 - WEAPONS[0].combo.reduce((sum, s) => sum + s.damage, 0));
+  expect(result.hp).toBe(100 - WEAPONS[weaponIndex('sword')].combo.reduce((sum, s) => sum + s.damage, 0));
 
   // Pictures: first slash mid-swing, and the overhead finisher.
   await reset(page, { x: 0, z: 1.6, facing: 0, camYaw: 0.5 });

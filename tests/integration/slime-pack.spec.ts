@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { COMBAT, emptyMovement, HOTBAR_SLOTS, NO_ABILITY, SLIME, type Build } from '../../src/content/tuning';
+import { COMBAT, emptyMovement, HOTBAR_SLOTS, NO_ABILITY, SLIME, weaponIndex, type Build } from '../../src/content/tuning';
 import { skillsFrom } from '../../src/content/skills';
 import { actorKind } from '../../src/content/actors';
 import { gameReady } from '../support/game';
@@ -11,7 +11,12 @@ test.describe.configure({ mode: 'parallel' });
 // until you hit one, then the pack comes for you - winding up, leaping, and slamming the spot you
 // were standing on. Played in the training yard, where every frame is stepped by the test.
 
-const SWORD: Build = { skills: skillsFrom('sword'), weapon: 0, abilities: new Array<number>(HOTBAR_SLOTS).fill(NO_ABILITY), movement: emptyMovement() };
+const SWORD: Build = {
+  skills: skillsFrom('sword'),
+  weapon: weaponIndex('sword'),
+  abilities: new Array<number>(HOTBAR_SLOTS).fill(NO_ABILITY),
+  movement: emptyMovement(),
+};
 const SLAM = actorKind('slime').slam!;
 
 interface Slime {

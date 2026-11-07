@@ -31,12 +31,14 @@ look. It reads the rules' state and whatever it's handed, and never changes the 
 - **Weapons by id**: a pose has the weapon's place in the list (`PoseInput.weapon`), and the hero's
   stances, swings, trails, attachments and stow places know it by its id (`weaponId`,
   `src/content/tuning.ts`), never by that place, so the list's order can change
-  (`tests/unit/weaponOrder.test.ts`).
+  (`tests/unit/weaponOrder.test.ts`). A cast and a movement skill are their places too
+  (`castAbility`, `actionId`), drawn as their data says (a cast's pose, a move's action); what the
+  crowd's clips show is named by id (`CROWD_WEAPON`, `CROWD_CAST` in `creatures/heroBody.ts`).
 
 ## Tests
 
 The look at each quality: `tests/stress/look.spec.ts` (a real GPU). The hero's films measured without
-drawing: `tests/unit/animation.test.ts`; with the weapons in another order:
-`tests/unit/weaponOrder.test.ts`. The content library's specs show every model, body and building:
+drawing: `tests/unit/animation.test.ts`; with the weapons, abilities and movement skills in another
+order: `tests/unit/weaponOrder.test.ts`. The content library's specs show every model, body and building:
 `library.spec.ts`, `models.spec.ts`, `buildings.spec.ts`, `creatures.spec.ts`, `species.spec.ts`,
 `retarget.spec.ts`.

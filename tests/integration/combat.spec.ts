@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { ABILITIES, emptyMovement, HOTBAR_SLOTS, NO_ABILITY, type Build, WEAPONS } from '../../src/content/tuning';
+import { ABILITIES, abilityIndex, emptyMovement, HOTBAR_SLOTS, NO_ABILITY, type Build, WEAPONS, weaponIndex } from '../../src/content/tuning';
 import { skillsFrom } from '../../src/content/skills';
 import { gameReady } from '../support/game';
 
@@ -8,17 +8,17 @@ import { gameReady } from '../support/game';
 
 const SHOTS = 'screenshots';
 const skills = (...ids: string[]) => skillsFrom(...ids);
-const METEOR = 1;
-// Abilities land in hotbar slots 1 and 2; the rest of the bar stays empty.
-const build = (ids: string[], weapon: number, ability1 = NO_ABILITY, ability2 = NO_ABILITY): Build => {
+const METEOR = abilityIndex('meteor');
+// The weapon in hand by id; abilities land in hotbar slots 1 and 2, the rest of the bar stays empty.
+const build = (ids: string[], weapon: string, ability1 = NO_ABILITY, ability2 = NO_ABILITY): Build => {
   const abilities = new Array<number>(HOTBAR_SLOTS).fill(NO_ABILITY);
   abilities[0] = ability1;
   abilities[1] = ability2;
-  return { skills: skills(...ids), weapon, abilities, movement: emptyMovement() };
+  return { skills: skills(...ids), weapon: weaponIndex(weapon), abilities, movement: emptyMovement() };
 };
 
-const MAGE = build(['staff', 'meteor'], 2, METEOR);
-const swordDamage = WEAPONS[0].combo[0].damage;
+const MAGE = build(['staff', 'meteor'], 'staff', METEOR);
+const swordDamage = WEAPONS[weaponIndex('sword')].combo[0].damage;
 const meteorRange = ABILITIES[METEOR].maxRange!;
 
 interface Marker {

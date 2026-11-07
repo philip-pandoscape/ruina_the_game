@@ -10,9 +10,9 @@
 //
 // It checks what a person editing content gets wrong: a thing missing from its folder's _order.json
 // or listed there with no file, a file named other than its thing's id, the same id twice, a
-// reference to something that doesn't exist (REFS below), a file in content/ no bundle takes, a
-// made model a look names whose file isn't there, a cave without its dressing or one naming walls it
-// hasn't got. And it writes shared/hash.json, a hash of all of
+// reference to something that doesn't exist (REFS below, and what the skill tree names), a file in
+// content/ no bundle takes, a made model a look names whose file isn't there, a cave without its
+// dressing or one naming walls it hasn't got. And it writes shared/hash.json, a hash of all of
 // shared/, which the world's connection compares (hashOf).
 //
 //   node tools/content/contentc.mjs           builds shared/
@@ -126,7 +126,7 @@ export function build(root = CONTENT) {
   // The schemas, and the templates a new thing is copied from (content/_templates/), are no bundle's.
   for (const f of walk(root)) if (!used.has(f) && !/^_(schemas|templates)\//.test(f) && !f.endsWith('.md')) errors.push(`content/${f}: no bundle takes it`);
   errors.push(...references(bundles), ...madeModels(bundles), ...dressings(bundles));
-  errors.push(...world(bundles), ...spawns(bundles));
+  errors.push(...world(bundles), ...spawns(bundles), ...skillTree(bundles));
   if (errors.length) throw new ContentError(errors.join('\n'));
   bundles.set(HASH, hashOf(bundles));
   return bundles;
@@ -218,6 +218,44 @@ function spawns(b) {
   };
   for (const [path, region] of b) if (path.startsWith('regions/') && !path.slice('regions/'.length).includes('/')) check(region?.spawns, `content/${path}`);
   for (const d of b.get('instances.json')?.instances ?? []) check(d.spawns, `content/instances/${d.id}.json`);
+  return out;
+}
+
+// ---------- The skill tree ----------
+
+/**
+ * What's wrong with what the skill tree names (shared/skilltree.json, laid out by
+ * tools/skilltree/gen.mjs and edited there by hand, not built from here): a node grants a weapon, an
+ * ability or a movement skill, and a modifier changes a weapon, or an ability or a movement skill,
+ * each by its id, which must be the tuning's (the engine and the page find its place in its list from
+ * it, so the lists can be in any order).
+ */
+function skillTree(b) {
+  const file = join(SHARED, 'skilltree.json');
+  const t = b.get('tuning.json');
+  if (!t || !existsSync(file)) return [];
+  const has = {
+    weapon: new Set((t.weapons ?? []).map((w) => w.name)),
+    ability: new Set((t.abilities ?? []).map((a) => a.id)),
+    movement: new Set((t.movementSkills ?? []).map((m) => m.id)),
+  };
+  const out = [];
+  for (const n of readJson(file).nodes ?? []) {
+    const where = `shared/skilltree.json: ${n.id}`;
+    for (const [key, kind] of [
+      ['weapon', 'weapon'],
+      ['ability', 'ability'],
+      ['movement', 'movement skill'],
+    ]) {
+      const id = n.grants?.[key];
+      if (id !== undefined && !has[key].has(id)) out.push(`${where}.grants.${key}: there's no ${kind} ${JSON.stringify(id)}`);
+    }
+    for (const [i, m] of (n.mods ?? []).entries()) {
+      if (m.weapon !== undefined && !has.weapon.has(m.weapon)) out.push(`${where}.mods[${i}].weapon: there's no weapon ${JSON.stringify(m.weapon)}`);
+      if (m.skill !== undefined && !has.ability.has(m.skill) && !has.movement.has(m.skill))
+        out.push(`${where}.mods[${i}].skill: there's no ability or movement skill ${JSON.stringify(m.skill)}`);
+    }
+  }
   return out;
 }
 
@@ -313,6 +351,10 @@ function ids(b) {
     quest: list('quests.json', 'quests'),
     structure: list('structures.json', 'structures'),
     instance: list('instances.json', 'instances'),
+    // A weapon's id is its name.
+    weapon: list('tuning.json', 'weapons', 'name'),
+    ability: list('tuning.json', 'abilities'),
+    movementSkill: list('tuning.json', 'movementSkills'),
   };
 }
 
@@ -347,6 +389,9 @@ const REFS = [
   { bundles: /^trade\.json$/, key: 'from', kind: 'market' },
   { bundles: /^trade\.json$/, key: 'to', kind: 'market' },
   { bundles: /^(actors|creatures)\.json$/, key: 'brain', kind: 'behaviour' },
+  // What a skill's level adds: the weapon it changes, or the ability or movement skill.
+  { bundles: /^tuning\.json$/, key: 'weapon', kind: 'weapon' },
+  { bundles: /^tuning\.json$/, key: 'skill', kind: ['ability', 'movementSkill'] },
 ];
 
 function references(bundles) {

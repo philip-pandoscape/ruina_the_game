@@ -6,12 +6,14 @@ import {
   emptyMovement,
   HOTBAR_SLOTS,
   MOVEMENT_SKILLS,
+  movementIndex,
   MP,
   NO_ABILITY,
   NO_MOVEMENT,
   SLIDE_SKILL,
   STAMINA,
   STEP,
+  weaponIndex,
   type Build,
 } from '../../../src/content/tuning';
 import { gameReady } from '../../support/headless';
@@ -20,9 +22,9 @@ import { gameReady } from '../../support/headless';
 // direction and cannot be hit for part of it, and costs stamina rather than having a cooldown; a
 // guard stays up while you hold it and lets only part of a hit through.
 
-const DODGE = 0;
-const BACKSTEP = 1;
-const BLOCK = 2;
+const DODGE = movementIndex('dodgeRoll');
+const BACKSTEP = movementIndex('backstep');
+const BLOCK = movementIndex('block');
 const roll = MOVEMENT_SKILLS[DODGE].action;
 const guard = MOVEMENT_SKILLS[BLOCK].action;
 
@@ -35,12 +37,12 @@ const moves = (...m: number[]) => {
 // Everything bound at once: dodge on Q, block on E.
 const DUELIST: Build = {
   skills: skillsFrom('sword', 'dodgeRoll', 'club', 'block'),
-  weapon: 0,
+  weapon: weaponIndex('sword'),
   abilities: bar(),
   movement: moves(DODGE, BLOCK),
 };
-const ROLLER: Build = { skills: skillsFrom('sword', 'dodgeRoll'), weapon: 0, abilities: bar(), movement: moves(DODGE) };
-const STEPPER: Build = { skills: skillsFrom('bow', 'rapidFire', 'backstep'), weapon: 3, abilities: bar(), movement: moves(BACKSTEP) };
+const ROLLER: Build = { skills: skillsFrom('sword', 'dodgeRoll'), weapon: weaponIndex('sword'), abilities: bar(), movement: moves(DODGE) };
+const STEPPER: Build = { skills: skillsFrom('bow', 'rapidFire', 'backstep'), weapon: weaponIndex('bow'), abilities: bar(), movement: moves(BACKSTEP) };
 
 const state = (page: Page) => page.evaluate(() => window.__game.state().player);
 const ready = async (page: Page, b: Build) => {
@@ -51,7 +53,7 @@ const ready = async (page: Page, b: Build) => {
 
 test('a dodge moves you, costs stamina rather than a cooldown, and ends on its own', async ({ page }) => {
   await ready(page, ROLLER);
-  const seen = await page.evaluate(() => {
+  const seen = await page.evaluate((dodge) => {
     const g = window.__game;
     g.reset({});
     const from = { ...g.state().player.pos };
@@ -67,12 +69,12 @@ test('a dodge moves you, costs stamina rather than a cooldown, and ends on its o
       actionId: started.actionId,
       travelled: Math.hypot(after.pos.x - from.x, after.pos.z - from.z),
       endedMode: after.mode,
-      cooldown: after.movementCooldowns[0],
+      cooldown: after.movementCooldowns[dodge],
       full,
       left: started.stamina,
       delay: started.staminaDelay,
     };
-  });
+  }, DODGE);
   expect(seen.mode).toBe('action');
   expect(seen.actionId).toBe(DODGE);
   expect(seen.travelled).toBeGreaterThan(2); // it actually carried us
@@ -253,7 +255,7 @@ test('the tree is what grants a movement skill', async ({ page }) => {
   await page.goto('/?offline=yard');
   await gameReady(page);
   // Binding one you never learned is refused, the same way an unlearned ability is.
-  const bogus: Build = { skills: skillsFrom('sword'), weapon: 0, abilities: bar(), movement: moves(DODGE) };
+  const bogus: Build = { skills: skillsFrom('sword'), weapon: weaponIndex('sword'), abilities: bar(), movement: moves(DODGE) };
   expect(await page.evaluate((b) => window.__game.setBuild(b), bogus)).toBe(false);
   expect(await page.evaluate((b) => window.__game.setBuild(b), ROLLER)).toBe(true);
   expect((await state(page)).movement[0]).toBe(DODGE);

@@ -2,7 +2,7 @@ import { expect } from 'vitest';
 import { test, type Page } from '../../support/headless';
 import { structureDef } from '../../../src/content/structures';
 import { skillsFrom } from '../../../src/content/skills';
-import { COMBAT, emptyMovement, HOTBAR_SLOTS, NO_ABILITY } from '../../../src/content/tuning';
+import { COMBAT, emptyMovement, HOTBAR_SLOTS, NO_ABILITY, weaponIndex } from '../../../src/content/tuning';
 import type { Command } from '../../../src/engine/island';
 import { gameReady } from '../../support/headless';
 
@@ -310,7 +310,7 @@ test('combat on the hills: an arrow finds a slime standing well above sea level'
   await open(page);
   const w = g(page);
   // Learn the bow and take it up.
-  const archer = { skills: skillsFrom('bow'), weapon: 3, abilities: new Array(HOTBAR_SLOTS).fill(NO_ABILITY), movement: emptyMovement() };
+  const archer = { skills: skillsFrom('bow'), weapon: weaponIndex('bow'), abilities: new Array(HOTBAR_SLOTS).fill(NO_ABILITY), movement: emptyMovement() };
   const ok = await page.evaluate((b) => window.__game.setBuild(b), archer);
   expect(ok).toBe(true);
   const z = await w.zone();

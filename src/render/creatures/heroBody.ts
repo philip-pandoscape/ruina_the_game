@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { comboShape, weaponIndex } from '../../content/tuning';
+import { abilityIndex, comboShape, weaponIndex } from '../../content/tuning';
 import { MAT } from './species';
 import type { ClipDriver } from '../../content/pose';
 import type { BowString, PartDef, RigDef } from '../../content/rig';
@@ -199,6 +199,8 @@ export const HERO_TRAIL_EDGES: Record<string, { inner: readonly [number, number,
 
 /** The weapon the hero carries at crowd range (builtin/hero.ts), by id: its clips hold it and swing it. */
 export const CROWD_WEAPON = 'sword';
+/** The ability whose cast the crowd's cast clip plays, by id: Healing Circle's, both hands lifted to the sky. */
+const CROWD_CAST = 'heal';
 
 /** Team colours: blue tunic with a red cape, or red tunic with a dark one. */
 export const HERO_TEAM_COLOURS = [
@@ -219,6 +221,7 @@ export const HERO_SLOTS: Record<string, number> = {
 // the baker runs the real pose code to find out what that looks like.
 const HELD = weaponIndex(CROWD_WEAPON);
 const COMBO = comboShape(HELD, 0);
+const CAST = abilityIndex(CROWD_CAST);
 
 const CLIPS: ClipDriver[] = [
   // One breath (the idle breathes at 2.2 rad/s), so the loop meets itself.
@@ -232,7 +235,7 @@ const CLIPS: ClipDriver[] = [
     loop: false,
     at: (_t: number, frame: number) => ({ attackIndex: i, attackFrame: frame, step, comboLength: COMBO.length }),
   })),
-  { name: 'cast', frames: 48, at: (t) => ({ castAbility: 0, castFrame: t * 48, castFrames: 48, time: t * 1.6 }) },
+  { name: 'cast', frames: 48, at: (t) => ({ castAbility: CAST, castFrame: t * 48, castFrames: 48, time: t * 1.6 }) },
   { name: 'air', frames: 2, loop: false, at: () => ({ grounded: false, rise: 0.4 }) },
   { name: 'down', frames: 1, loop: false, at: () => ({ down: true, downFrame: 60 }) },
 ];

@@ -5,7 +5,7 @@ import { type Command, newLifeState, sailEfficiency } from '../../src/engine/isl
 import { EMBERHOLM } from '../../src/engine/zone';
 import { skillsFrom } from '../../src/content/skills';
 import { LABOR } from '../../src/content/trade';
-import { emptyMovement, HOTBAR_SLOTS, NO_ABILITY, SLIDE_SKILL } from '../../src/content/tuning';
+import { abilityIndex, emptyMovement, HOTBAR_SLOTS, NO_ABILITY, SLIDE_SKILL, weaponIndex } from '../../src/content/tuning';
 import { gameReady } from '../support/game';
 
 // Its tests share nothing, so they spread across the workers (playwright.config.ts).
@@ -220,11 +220,10 @@ test('farming: ground circles and the shadow under you lie on top of a plot, its
   expect(sc.rot).toBeCloseTo(Math.PI / 6);
   const at = (lx: number, lz: number) => ({ x: sc.x + lx * Math.cos(sc.rot) + lz * Math.sin(sc.rot), z: sc.z - lx * Math.sin(sc.rot) + lz * Math.cos(sc.rot) });
   // A Meteor aimed at the plot's near corner: its warning lies over soil, furrow ends and grass.
-  const meteor = 1;
   const mage = {
     skills: skillsFrom('staff', 'meteor'),
-    weapon: 2,
-    abilities: [meteor, ...new Array(HOTBAR_SLOTS - 1).fill(NO_ABILITY)],
+    weapon: weaponIndex('staff'),
+    abilities: [abilityIndex('meteor'), ...new Array(HOTBAR_SLOTS - 1).fill(NO_ABILITY)],
     movement: emptyMovement(),
   };
   expect(await page.evaluate((b) => window.__game.setBuild(b), mage)).toBe(true);

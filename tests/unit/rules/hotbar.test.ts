@@ -1,6 +1,6 @@
 import { expect } from 'vitest';
 import { test, type Page } from '../../support/headless';
-import { ABILITIES, emptyMovement, HOTBAR_SLOTS, MOVE, NO_ABILITY, type Build } from '../../../src/content/tuning';
+import { ABILITIES, abilityIndex, emptyMovement, HOTBAR_SLOTS, MOVE, NO_ABILITY, weaponIndex, type Build } from '../../../src/content/tuning';
 
 import { skillsFrom } from '../../../src/content/skills';
 import { gameReady } from '../../support/headless';
@@ -8,15 +8,20 @@ import { gameReady } from '../../support/headless';
 // The eight-slot hotbar, and the sprint and crouch that share the movement keys with it.
 
 const skills = (...ids: string[]) => skillsFrom(...ids);
-const HEAL = 0;
-const METEOR = 1;
+const HEAL = abilityIndex('heal');
+const METEOR = abilityIndex('meteor');
 const bar = (...a: number[]): number[] => {
   const out = new Array<number>(HOTBAR_SLOTS).fill(NO_ABILITY);
   a.forEach((v, i) => (out[i] = v));
   return out;
 };
 // Both abilities learned, so slots can actually be filled and swapped.
-const CASTER: Build = { skills: skills('staff', 'meteor', 'club', 'heal'), weapon: 2, abilities: bar(METEOR, HEAL), movement: emptyMovement() };
+const CASTER: Build = {
+  skills: skills('staff', 'meteor', 'club', 'heal'),
+  weapon: weaponIndex('staff'),
+  abilities: bar(METEOR, HEAL),
+  movement: emptyMovement(),
+};
 
 const state = (page: Page) => page.evaluate(() => window.__game.state().player);
 const panel = (page: Page) => page.evaluate(() => window.__game.panel());

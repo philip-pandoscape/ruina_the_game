@@ -130,6 +130,12 @@ mod tests {
     use crate::life::quests::{complete, quest_active, quest_done, quests_at};
     use crate::life::trade::testing::{island, toasts};
     use crate::skills::{book_index, levels_from};
+    use crate::tuning::{ability_index, weapon_index};
+
+    /// A weapon's place in the content now.
+    fn weapon(id: &str) -> u8 {
+        weapon_index(id).unwrap_or_else(|| panic!("no weapon {id}"))
+    }
 
     fn finish_landfall(life: &mut Life) {
         life.notify(QuestEvent { npc: Some("hollis".into()), ..QuestEvent::new("talk") });
@@ -238,7 +244,7 @@ mod tests {
         assert_eq!(levels_from(&life.state.skill_xp)[sword], 1);
         assert!(toasts(&mut life).is_empty());
         assert_eq!(life.revision, rev, "experience alone isn't news");
-        assert!(observe(&mut life, Observed::Hit { weapon: 0 }));
+        assert!(observe(&mut life, Observed::Hit { weapon: weapon("sword") }));
         assert_eq!(levels_from(&life.state.skill_xp)[sword], 2);
         assert_eq!(toasts(&mut life), ["Sword reached level 2"]);
         assert_eq!(life.revision, rev + 1);
@@ -259,13 +265,27 @@ mod tests {
 
     #[test]
     fn what_trains_what() {
-        assert_eq!(trained_by(&Observed::Hit { weapon: 0 }), book_index("sword"));
-        assert_eq!(trained_by(&Observed::Hit { weapon: 3 }), book_index("bow"));
-        assert_eq!(trained_by(&Observed::Cast { ability: 1 }), book_index("meteor"));
+        assert_eq!(trained_by(&Observed::Hit { weapon: weapon("sword") }), book_index("sword"));
+        assert_eq!(trained_by(&Observed::Hit { weapon: weapon("bow") }), book_index("bow"));
+        assert_eq!(trained_by(&Observed::Cast { ability: ability_index("meteor").unwrap() }), book_index("meteor"));
         assert_eq!(trained_by(&Observed::Action { id: crate::tuning::slide_skill() }), book_index("slide"));
         assert_eq!(trained_by(&Observed::Defeat { kind: "slime" }), None);
         assert_eq!(trained_by(&Observed::Hit { weapon: 200 }), None);
-        let names: Vec<String> = (0..book().len()).map(book_name).collect();
-        assert_eq!(names, ["Sword", "Club", "Staff", "Bow", "Healing Circle", "Meteor", "Dodge Roll", "Backstep", "Block", "Slide"]);
+        let names = [
+            ("sword", "Sword"),
+            ("club", "Club"),
+            ("staff", "Staff"),
+            ("bow", "Bow"),
+            ("heal", "Healing Circle"),
+            ("meteor", "Meteor"),
+            ("dodgeRoll", "Dodge Roll"),
+            ("backstep", "Backstep"),
+            ("block", "Block"),
+            ("slide", "Slide"),
+        ];
+        assert_eq!(book().len(), names.len());
+        for (id, name) in names {
+            assert_eq!(book_name(book_index(id).unwrap()), name, "{id}");
+        }
     }
 }

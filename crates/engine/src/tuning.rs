@@ -152,7 +152,7 @@ static TUNING: OnceLock<Tuning> = OnceLock::new();
 
 pub fn tuning() -> &'static Tuning {
     TUNING.get_or_init(|| {
-        let t: Tuning =
+        let mut t: Tuning =
             serde_json::from_str(crate::bundles::bundle("tuning.json", include_str!("../../../shared/tuning.json"))).expect("shared/tuning.json is valid");
         assert_eq!(t.hotbar.slots, HOTBAR_SLOTS, "hotbar.slots in shared/tuning.json must match HOTBAR_SLOTS");
         assert_eq!(t.skills.max_nodes, MAX_NODES, "skills.maxNodes in shared/tuning.json must match SKILL_WORDS");
@@ -161,20 +161,63 @@ pub fn tuning() -> &'static Tuning {
             t.movement_skills.len() <= MOVEMENT_SKILL_CAP,
             "more movement skills than MOVEMENT_SKILL_CAP: raise it here and in src/content/tuning.ts together"
         );
+        // What a level adds names the weapon it changes by id; the rules use its place in the list.
+        let weapons = &t.weapons;
+        for (skill, mods) in &mut t.skills.levels.per {
+            for m in mods {
+                m.place_weapon(weapons, &format!("shared/tuning.json: skills.levels.per.{skill}"));
+            }
+        }
         t
     })
 }
 
 static SKILL_TREE: OnceLock<SkillTreeFile> = OnceLock::new();
 
-/// The skill tree (shared/skilltree.json, the same file the browser lays its panel out from).
+/// The skill tree (shared/skilltree.json, the same file the browser lays its panel out from), with
+/// the places of the weapons, abilities and movement skills it names by id.
 pub fn skill_tree() -> &'static SkillTreeFile {
     SKILL_TREE.get_or_init(|| {
-        let t: SkillTreeFile = serde_json::from_str(crate::bundles::bundle("skilltree.json", include_str!("../../../shared/skilltree.json")))
+        let mut tree: SkillTreeFile = serde_json::from_str(crate::bundles::bundle("skilltree.json", include_str!("../../../shared/skilltree.json")))
             .expect("shared/skilltree.json is valid");
-        assert!(t.nodes.len() <= MAX_NODES, "the skill tree has outgrown SKILL_WORDS: raise it here and in src/content/skills.ts together");
-        t
+        assert!(tree.nodes.len() <= MAX_NODES, "the skill tree has outgrown SKILL_WORDS: raise it here and in src/content/skills.ts together");
+        let t = tuning();
+        for n in &mut tree.nodes {
+            let at = format!("shared/skilltree.json: {}", n.id);
+            if let Some(g) = &mut n.grants {
+                g.weapon = g.weapon_id.as_deref().map(|id| place(&t.weapons, |w| &w.name, id, &format!("{at} grants the weapon")));
+                g.ability = g.ability_id.as_deref().map(|id| place(&t.abilities, |a| &a.id, id, &format!("{at} grants the ability")));
+                g.movement = g.movement_id.as_deref().map(|id| place(&t.movement_skills, |m| &m.id, id, &format!("{at} grants the movement skill")));
+            }
+            for m in &mut n.mods {
+                m.place_weapon(&t.weapons, &at);
+            }
+        }
+        tree
     })
+}
+
+/// Where the thing with this id is in its list (the order its content/<kind>/_order.json gives),
+/// which is how the rules and the wire know it. Content names things by id: one it names that isn't
+/// there is a mistake in it, said with `what` (contentc checks the content's own before this).
+fn place<T>(list: &[T], id_of: impl Fn(&T) -> &str, id: &str, what: &str) -> u8 {
+    let i = list.iter().position(|x| id_of(x) == id).unwrap_or_else(|| panic!("{what} \"{id}\", which shared/tuning.json hasn't got"));
+    u8::try_from(i).unwrap_or_else(|_| panic!("{what} \"{id}\", past the 256th in its list"))
+}
+
+/// A weapon's place in the list, from its id (its name); None if there's no such weapon.
+pub fn weapon_index(id: &str) -> Option<u8> {
+    tuning().weapons.iter().position(|w| w.name == id).and_then(|i| u8::try_from(i).ok())
+}
+
+/// An ability's place in the list, from its id; None if there's no such ability.
+pub fn ability_index(id: &str) -> Option<u8> {
+    tuning().abilities.iter().position(|a| a.id == id).and_then(|i| u8::try_from(i).ok())
+}
+
+/// A movement skill's place in the list, from its id; None if there's no such movement skill.
+pub fn movement_index(id: &str) -> Option<u8> {
+    tuning().movement_skills.iter().position(|m| m.id == id).and_then(|i| u8::try_from(i).ok())
 }
 
 #[derive(Deserialize, Clone)]
@@ -257,11 +300,13 @@ pub struct SkillLevels {
     /// is the highest level.
     pub xp: Vec<f64>,
     /// What every level past the first adds, by skill book id: flat and inc only, so the order
-    /// they are summed in never matters.
+    /// they are summed in never matters. A weapon it changes is named by id, its place found when
+    /// the tuning is read.
     pub per: BTreeMap<String, Vec<SkillMod>>,
 }
 
-/// shared/skilltree.json. The order of `nodes` is what a saved build's bits mean.
+/// shared/skilltree.json. The order of `nodes` is what a learned set's bits mean on the wire (a kept
+/// build names its nodes by id).
 #[derive(Deserialize)]
 pub struct SkillTreeFile {
     pub nodes: Vec<SkillNode>,
@@ -291,15 +336,28 @@ pub struct SkillNode {
     pub mods: Vec<SkillMod>,
 }
 
+/// What a node grants: a weapon to wield, an ability for the hotbar, a movement skill for a Q / E
+/// slot, or a variant of a weapon's combo. The file names each by id (a weapon's is its name); the
+/// rules and the wire know them by their places in their lists, found when the tree is read
+/// (skill_tree), so the lists can be in any order.
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SkillGrants {
-    #[serde(default)]
+    #[serde(default, rename = "weapon")]
+    pub weapon_id: Option<String>,
+    /// The weapon's place in shared/tuning.json's weapons.
+    #[serde(skip)]
     pub weapon: Option<u8>,
-    #[serde(default)]
+    #[serde(default, rename = "ability")]
+    pub ability_id: Option<String>,
+    /// The ability's place in its list.
+    #[serde(skip)]
     pub ability: Option<u8>,
     /// A movement skill, for a Q / E slot.
-    #[serde(default)]
+    #[serde(default, rename = "movement")]
+    pub movement_id: Option<String>,
+    /// The movement skill's place in its list.
+    #[serde(skip)]
     pub movement: Option<u8>,
     #[serde(default)]
     pub combo: Option<String>,
@@ -314,10 +372,23 @@ pub struct SkillMod {
     pub value: f64,
     #[serde(default)]
     pub tags: Vec<String>,
-    #[serde(default)]
+    /// The weapon it changes, by id (its name).
+    #[serde(default, rename = "weapon")]
+    pub weapon_id: Option<String>,
+    /// That weapon's place in shared/tuning.json's weapons, found when its file is read.
+    #[serde(skip)]
     pub weapon: Option<u8>,
+    /// The ability or movement skill it changes, by id.
     #[serde(default)]
     pub skill: Option<String>,
+}
+
+impl SkillMod {
+    /// Finds the place among `weapons` of the weapon it names; `at` says where the modifier is, for
+    /// one naming a weapon there isn't.
+    fn place_weapon(&mut self, weapons: &[Weapon], at: &str) {
+        self.weapon = self.weapon_id.as_deref().map(|id| place(weapons, |w| &w.name, id, &format!("{at} changes the weapon")));
+    }
 }
 
 /// A movement skill: an action state with a timeline and a few things that can happen in it.

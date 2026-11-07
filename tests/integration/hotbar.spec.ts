@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { emptyMovement, HOTBAR_SLOTS, NO_ABILITY, SLIDE_SKILL, type Build } from '../../src/content/tuning';
+import { abilityIndex, emptyMovement, HOTBAR_SLOTS, movementIndex, NO_ABILITY, SLIDE_SKILL, weaponIndex, type Build } from '../../src/content/tuning';
 
 // Sliding is an action state now, not a mode of its own.
 const sliding = (p: { mode: string; actionId: number }) => p.mode === 'action' && p.actionId === SLIDE_SKILL;
@@ -12,15 +12,20 @@ test.describe.configure({ mode: 'parallel' });
 // The eight-slot hotbar, and the sprint and crouch that share the movement keys with it.
 
 const skills = (...ids: string[]) => skillsFrom(...ids);
-const HEAL = 0;
-const METEOR = 1;
+const HEAL = abilityIndex('heal');
+const METEOR = abilityIndex('meteor');
 const bar = (...a: number[]): number[] => {
   const out = new Array<number>(HOTBAR_SLOTS).fill(NO_ABILITY);
   a.forEach((v, i) => (out[i] = v));
   return out;
 };
 // Both abilities learned, so slots can actually be filled and swapped.
-const CASTER: Build = { skills: skills('staff', 'meteor', 'club', 'heal'), weapon: 2, abilities: bar(METEOR, HEAL), movement: emptyMovement() };
+const CASTER: Build = {
+  skills: skills('staff', 'meteor', 'club', 'heal'),
+  weapon: weaponIndex('staff'),
+  abilities: bar(METEOR, HEAL),
+  movement: emptyMovement(),
+};
 
 const state = (page: Page) => page.evaluate(() => window.__game.state().player);
 const panel = (page: Page) => page.evaluate(() => window.__game.panel());
@@ -76,7 +81,12 @@ const PAD = { A: 0, B: 1, X: 2, Y: 3, LB: 4, RB: 5, LT: 6, RT: 7, VIEW: 8, LS: 1
 
 test('health, MP and stamina sit over the hotbar, with the dodge and the guard on Q and E', async ({ page }) => {
   await ready(page);
-  const duelist: Build = { skills: skills('sword', 'dodgeRoll', 'club', 'block', 'staff', 'meteor'), weapon: 0, abilities: bar(METEOR), movement: [0, 2] };
+  const duelist: Build = {
+    skills: skills('sword', 'dodgeRoll', 'club', 'block', 'staff', 'meteor'),
+    weapon: weaponIndex('sword'),
+    abilities: bar(METEOR),
+    movement: [movementIndex('dodgeRoll'), movementIndex('block')],
+  };
   expect(await page.evaluate((b) => window.__game.setBuild(b), duelist)).toBe(true);
   await page.evaluate(() => window.__game.advance(2));
   await expect(page.locator('#player-hp')).toBeVisible();

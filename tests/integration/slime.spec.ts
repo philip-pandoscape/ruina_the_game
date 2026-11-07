@@ -1,19 +1,20 @@
 import { expect, test, type Page } from '@playwright/test';
-import { emptyMovement, HOTBAR_SLOTS, NO_ABILITY, SLIME, WEAPONS, type Build } from '../../src/content/tuning';
+import { emptyMovement, HOTBAR_SLOTS, NO_ABILITY, SLIME, WEAPONS, weaponIndex, type Build } from '../../src/content/tuning';
 import { skillsFrom } from '../../src/content/skills';
 import { gameReady } from '../support/game';
 
 // Slimes in the training yard: the first creature built out of species data to make it into the
 // game itself. They hop, they take hits from everything the player has, they die and come back.
 
-const build = (ids: string[], weapon: number, ability = NO_ABILITY): Build => {
+/** The skills, the weapon in hand and the ability in the first slot, each by id. */
+const build = (ids: string[], weapon: string, ability = NO_ABILITY): Build => {
   const abilities = new Array<number>(HOTBAR_SLOTS).fill(NO_ABILITY);
   abilities[0] = ability;
-  return { skills: skillsFrom(...ids), weapon, abilities, movement: emptyMovement() };
+  return { skills: skillsFrom(...ids), weapon: weaponIndex(weapon), abilities, movement: emptyMovement() };
 };
-const SWORD = build(['sword'], 0);
-const swordDamage = WEAPONS[0].combo[0].damage;
-const swordReach = WEAPONS[0].combo[0].reach;
+const SWORD = build(['sword'], 'sword');
+const swordDamage = WEAPONS[weaponIndex('sword')].combo[0].damage;
+const swordReach = WEAPONS[weaponIndex('sword')].combo[0].reach;
 
 interface Actor {
   id: number;

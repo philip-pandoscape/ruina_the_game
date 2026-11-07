@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { ADJACENT, emptySkills, skillCount, skillIndex, SKILL_POINTS, skillsFrom, soundTree, withSkill } from '../../src/content/skills';
-import { ABILITIES, emptyMovement, HOTBAR_SLOTS, NO_ABILITY, type Build, WEAPONS } from '../../src/content/tuning';
+import { ABILITIES, abilityIndex, emptyMovement, HOTBAR_SLOTS, NO_ABILITY, type Build, WEAPONS, weaponIndex } from '../../src/content/tuning';
 import { battlefield, net, script, scriptDone, seesPlayers, sometime, useBuild } from '../support/battlefield';
 
 // Players fighting players on the battlefield (content/instances/battlefield.json), the developer
@@ -14,14 +14,14 @@ import { battlefield, net, script, scriptDone, seesPlayers, sometime, useBuild }
 const { fighter } = battlefield(7900);
 const SHOTS = 'screenshots';
 
-const HEAL = 0;
-const METEOR = 1;
-// Abilities land in hotbar slots 1 and 2; the rest of the bar stays empty.
-const build = (ids: string[], weapon: number, ability1 = NO_ABILITY, ability2 = NO_ABILITY): Build => {
+const HEAL = abilityIndex('heal');
+const METEOR = abilityIndex('meteor');
+// The weapon in hand by id; abilities land in hotbar slots 1 and 2, the rest of the bar stays empty.
+const build = (ids: string[], weapon: string, ability1 = NO_ABILITY, ability2 = NO_ABILITY): Build => {
   const abilities = new Array<number>(HOTBAR_SLOTS).fill(NO_ABILITY);
   abilities[0] = ability1;
   abilities[1] = ability2;
-  return { skills: skillsFrom(...ids), weapon, abilities, movement: emptyMovement() };
+  return { skills: skillsFrom(...ids), weapon: weaponIndex(weapon), abilities, movement: emptyMovement() };
 };
 /** A sound set of `n` skills, grown outward from Sword Training along the tree's links. */
 const grown = (n: number) => {
@@ -30,15 +30,15 @@ const grown = (n: number) => {
   return order.reduce((s, i) => withSkill(s, i, true), emptySkills());
 };
 
-const SWORD = build(['sword'], 0);
-const CLEAVER = build(['sword', 'cleave'], 0);
-const ARCHER = build(['bow'], 3);
-const PIERCER = build(['bow', 'rapidFire', 'piercing'], 3);
-const MAGE = build(['staff', 'meteor'], 2, METEOR);
-const HEALER = build(['club', 'heal'], 1, HEAL);
+const SWORD = build(['sword'], 'sword');
+const CLEAVER = build(['sword', 'cleave'], 'sword');
+const ARCHER = build(['bow'], 'bow');
+const PIERCER = build(['bow', 'rapidFire', 'piercing'], 'bow');
+const MAGE = build(['staff', 'meteor'], 'staff', METEOR);
+const HEALER = build(['club', 'heal'], 'club', HEAL);
 
-const arrowDamage = WEAPONS[3].combo[0].damage;
-const swordDamage = WEAPONS[0].combo[0].damage;
+const arrowDamage = WEAPONS[weaponIndex('bow')].combo[0].damage;
+const swordDamage = WEAPONS[weaponIndex('sword')].combo[0].damage;
 const meteorDamage = ABILITIES[METEOR].effects[0].damage!;
 const healAmount = ABILITIES[HEAL].effects[0].amount!;
 
@@ -259,10 +259,10 @@ test('the server takes any sound build here, and turns down unsound ones', async
   expect([soundTree(big), skillCount(big)]).toEqual([true, SKILL_POINTS + 2]);
   const blue = await fighter(browser, 0, PIERCER);
   const invalid: Array<[string, Build]> = [
-    ['skipping a skill', build(['sword', 'whirlwind'], 0)],
-    ['a weapon you never trained', build(['sword'], 3)],
-    ['an ability you never learned', build(['sword'], 0, METEOR)],
-    ['the same ability twice', build(['staff', 'meteor'], 2, METEOR, METEOR)],
+    ['skipping a skill', build(['sword', 'whirlwind'], 'sword')],
+    ['a weapon you never trained', build(['sword'], 'bow')],
+    ['an ability you never learned', build(['sword'], 'sword', METEOR)],
+    ['the same ability twice', build(['staff', 'meteor'], 'staff', METEOR, METEOR)],
   ];
   for (const [why, b] of invalid) {
     await blue.page.evaluate((b) => window.__game.sendRawBuild(b), b);
@@ -272,7 +272,7 @@ test('the server takes any sound build here, and turns down unsound ones', async
     const n = await net(blue.page);
     expect({ why, skills: String(n.skills), weapon: n.weapon }).toEqual({ why, skills: String(PIERCER.skills), weapon: PIERCER.weapon });
   }
-  await useBuild(blue.page, { ...build(['sword'], 0), skills: big });
+  await useBuild(blue.page, { ...build(['sword'], 'sword'), skills: big });
   await useBuild(blue.page, MAGE);
   expect(blue.errors).toEqual([]);
 });
@@ -281,9 +281,9 @@ test('other players see your weapon', async ({ browser }) => {
   const blue = await fighter(browser, 0, MAGE);
   const red = await fighter(browser, 1, SWORD);
   await seesPlayers(red.page, 1);
-  await red.page.waitForFunction(() => window.__game.net().remotes[0]?.weapon === 2);
+  await red.page.waitForFunction((w) => window.__game.net().remotes[0]?.weapon === w, MAGE.weapon);
   await useBuild(blue.page, ARCHER);
-  await red.page.waitForFunction(() => window.__game.net().remotes[0]?.weapon === 3);
+  await red.page.waitForFunction((w) => window.__game.net().remotes[0]?.weapon === w, ARCHER.weapon);
   expect([...blue.errors, ...red.errors]).toEqual([]);
 });
 

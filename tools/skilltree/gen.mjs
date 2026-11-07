@@ -8,7 +8,10 @@
 // id (crates/engine/src/skills.rs saved_build), and the nodes other than the skills are named for
 // their places: laying the tree out again renames them, so do it only before anyone has spent points
 // on them. The order of `nodes` is the wire's (a learned set's bits), which both sides read from the
-// file; it is in the content's hash (shared/hash.json), written again here.
+// file; it is in the content's hash (shared/hash.json), written again here. A weapon, an ability or
+// a movement skill is named by its id (a weapon's is its name), never its place in its list, so
+// content/weapons/_order.json and the others can change: the engine and the page find the places
+// when they read the tree.
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -94,11 +97,11 @@ const recover = (value, skill) => ({ stat: 'movement.cooldown', op: 'more', valu
 // The dodges have no cooldown: they cost stamina, and these make them cost less.
 const lighter = (value, skill) => ({ stat: 'movement.stamina', op: 'more', value: -value, skill });
 const targets = (value, weapon) => ({ stat: 'melee.maxTargets', op: 'flat', value, weapon });
-const pierce = (value) => ({ stat: 'projectile.pierce', op: 'flat', value, weapon: 3 });
-const SWORD = { weapon: 0 };
-const CLUB = { weapon: 1 };
-const STAFF = { weapon: 2 };
-const BOW = { weapon: 3 };
+const pierce = (value) => ({ stat: 'projectile.pierce', op: 'flat', value, weapon: 'bow' });
+const SWORD = { weapon: 'sword' };
+const CLUB = { weapon: 'club' };
+const STAFF = { weapon: 'staff' };
+const BOW = { weapon: 'bow' };
 const MELEE = { tags: ['melee'] };
 const RANGED = { tags: ['ranged'] };
 const FIRE = { tags: ['fire'] };
@@ -118,7 +121,7 @@ const DISCIPLINES = [
     notable: [
       { name: 'Keen Edge', icon: '⚔️', mods: [dmg(0.12, SWORD)] },
       { name: 'Riposte', icon: '🤺', mods: [speed(0.08, SWORD), dmg(0.04, SWORD)] },
-      { name: 'Wide Arc', icon: '🌪️', mods: [targets(1, 0), dmg(0.04, SWORD)] },
+      { name: 'Wide Arc', icon: '🌪️', mods: [targets(1, 'sword'), dmg(0.04, SWORD)] },
       { name: 'Iron Wrists', icon: '💪', mods: [speed(0.06, MELEE)] },
       { name: "Duelist's Step", icon: '👣', mods: [lighter(0.2, 'dodgeRoll')] },
       { name: 'Blade Dancer', icon: '🍃', mods: [dmg(0.08, SWORD), lighter(0.1, 'dodgeRoll')] },
@@ -127,7 +130,7 @@ const DISCIPLINES = [
     ],
     keystone: [
       { name: 'Bladestorm', icon: '🌟', mods: [dmg(0.35, SWORD), slower(0.2, SWORD)] },
-      { name: 'Whirling Steel', icon: '🎖️', mods: [targets(2, 0), dmg(-0.15, SWORD)] },
+      { name: 'Whirling Steel', icon: '🎖️', mods: [targets(2, 'sword'), dmg(-0.15, SWORD)] },
     ],
   },
   {
@@ -370,7 +373,7 @@ const ordered = [
 const round = (v) => Math.round(v * 100) / 100;
 const out = {
   comment:
-    "The skill tree, laid out by tools/skilltree/gen.mjs (npm run skilltree) and editable by hand. A kept build names its nodes by id, so an id is a node's for good; their order here is a learned set's bits on the wire. A node can be learned when it is a root or touches a node you have learned; links are the lines between them (arc: drawn along the orbit). o is the orbit (radii), a the angle in degrees clockwise from up. mods use the stats in tuning.json.",
+    "The skill tree, laid out by tools/skilltree/gen.mjs (npm run skilltree) and editable by hand. A kept build names its nodes by id, so an id is a node's for good; their order here is a learned set's bits on the wire. A node can be learned when it is a root or touches a node you have learned; links are the lines between them (arc: drawn along the orbit). o is the orbit (radii), a the angle in degrees clockwise from up. grants and mods name a weapon, an ability or a movement skill by its id (a weapon's is its name), never its place in its list, so those lists can be in any order; mods use the stats in tuning.json.",
   radii: RADII,
   nodes: ordered.map((x) => ({ ...x.out, ...(ROOTS.has(x.skill) ? { root: true } : {}), o: x.k, a: round(x.deg) })),
   links: [...edges.values()].map((e) => (e.arc ? [ids.get(e.a), ids.get(e.b), 1] : [ids.get(e.a), ids.get(e.b)])),

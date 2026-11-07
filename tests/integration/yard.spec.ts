@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { skillsFrom } from '../../src/content/skills';
-import { emptyMovement, HOTBAR_SLOTS, NO_ABILITY, type Build } from '../../src/content/tuning';
+import { emptyMovement, HOTBAR_SLOTS, NO_ABILITY, weaponIndex, type Build } from '../../src/content/tuning';
 import { onlineReady } from '../support/game';
 
 // The yard's monsters on the game server (content/instances/yard.json, a developer zone): the rules
@@ -14,7 +14,12 @@ import { onlineReady } from '../support/game';
 
 const SERVER = process.env.RUINA_SERVER ?? 'http://localhost:7777';
 const YARD = JSON.parse(readFileSync('content/instances/yard.json', 'utf8')) as { spawns: Array<{ kind: string }> };
-const SWORD: Build = { skills: skillsFrom('sword'), weapon: 0, abilities: new Array<number>(HOTBAR_SLOTS).fill(NO_ABILITY), movement: emptyMovement() };
+const SWORD: Build = {
+  skills: skillsFrom('sword'),
+  weapon: weaponIndex('sword'),
+  abilities: new Array<number>(HOTBAR_SLOTS).fill(NO_ABILITY),
+  movement: emptyMovement(),
+};
 
 let serverUp = false;
 test.beforeAll(async () => {

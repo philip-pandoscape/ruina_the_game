@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { skillsFrom } from '../../src/content/skills';
-import { emptyMovement, HOTBAR_SLOTS, NO_ABILITY } from '../../src/content/tuning';
+import { emptyMovement, HOTBAR_SLOTS, NO_ABILITY, weaponIndex } from '../../src/content/tuning';
 import type { Command } from '../../src/engine/island';
 import type { LifePress } from '../../src/ui/life/lifeUI';
 import { gameReady } from '../support/game';
@@ -281,13 +281,18 @@ test('your portrait stays as it is: running, swinging, crouching and night falli
   expect(look.corner[2]).toBeGreaterThan(look.corner[0]);
   expect(look.sky).toBeLessThan(0.1);
   // A new weapon is a new picture; back to the sword, the one from before.
-  const club = { skills: skillsFrom('sword', 'club'), weapon: 1, abilities: new Array(HOTBAR_SLOTS).fill(NO_ABILITY), movement: emptyMovement() };
+  const club = {
+    skills: skillsFrom('sword', 'club'),
+    weapon: weaponIndex('club'),
+    abilities: new Array(HOTBAR_SLOTS).fill(NO_ABILITY),
+    movement: emptyMovement(),
+  };
   expect(await page.evaluate((b) => window.__game.setBuild(b), club)).toBe(true);
   await g.advance(1);
   const clubBody = await portrait('body');
   expect(clubBody.url === body.url).toBe(false);
   expect(clubBody.taken).toBeGreaterThan(body.taken);
-  expect(await page.evaluate((b) => window.__game.setBuild(b), { ...club, weapon: 0 })).toBe(true);
+  expect(await page.evaluate((b) => window.__game.setBuild(b), { ...club, weapon: weaponIndex('sword') })).toBe(true);
   await g.advance(1);
   expect((await portrait('body')).url === body.url).toBe(true);
   expect(errors).toEqual([]);

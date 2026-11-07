@@ -194,8 +194,9 @@ mod tests {
         ch.zone_bots_in();
         let ids: Vec<i64> = ch.bots.iter().map(|b| b.id).collect();
         for (k, id) in ids.into_iter().enumerate() {
-            let weapon = (k % 4) as u8;
-            let skills = crate::skills::skills_from(&[["sword", "club", "staff", "bow"][k % 4]]);
+            let name = ["sword", "club", "staff", "bow"][k % 4];
+            let weapon = crate::tuning::weapon_index(name).expect("its weapon");
+            let skills = crate::skills::skills_from(&[name]);
             if let Some((p, _)) = ch.players.open_mut(client(id)) {
                 p.apply_build(Build { skills, weapon, ..Build::default() });
             }
@@ -295,8 +296,9 @@ mod tests {
         ch.zone_bots_in();
         let ids: Vec<i64> = ch.bots.iter().map(|b| b.id).collect();
         for (k, id) in ids.into_iter().enumerate() {
-            let weapon = (k % 4) as u8;
-            let skills = crate::skills::skills_from(&[["sword", "club", "staff", "bow"][k % 4]]);
+            let name = ["sword", "club", "staff", "bow"][k % 4];
+            let weapon = crate::tuning::weapon_index(name).expect("its weapon");
+            let skills = crate::skills::skills_from(&[name]);
             if let Some((p, _)) = ch.players.open_mut(client(id)) {
                 p.apply_build(Build { skills, weapon, ..Build::default() });
             }

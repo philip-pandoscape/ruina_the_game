@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest';
 import { QUESTS } from '../../src/content/quests';
 import { bookIndex, START_POINTS } from '../../src/content/skills';
-import { SLIDE_SKILL } from '../../src/content/tuning';
+import { abilityIndex, SLIDE_SKILL, weaponIndex } from '../../src/content/tuning';
 import { newLifeState, skillBudget, trainedBy } from '../../src/engine/island';
 
 // What the page works out for itself about getting better on the island: the skill points you have,
@@ -20,11 +20,11 @@ test('every quest and milestone gives skill points, and you have what the ones y
 
 test('what trains what: a hit the weapon that landed it, a cast the ability, a use the movement skill', () => {
   const hit = (weapon?: number) => ({ type: 'hit', frame: 0, index: 0, damage: 12, x: 0, y: 0, z: 0, dirX: 0, dirZ: 1, weapon }) as const;
-  expect(trainedBy(hit(0))).toBe(bookIndex('sword'));
-  expect(trainedBy(hit(1))).toBe(bookIndex('club'));
-  expect(trainedBy(hit(3)), 'an arrow: the bow that loosed it').toBe(bookIndex('bow'));
+  expect(trainedBy(hit(weaponIndex('sword')))).toBe(bookIndex('sword'));
+  expect(trainedBy(hit(weaponIndex('club')))).toBe(bookIndex('club'));
+  expect(trainedBy(hit(weaponIndex('bow'))), 'an arrow: the bow that loosed it').toBe(bookIndex('bow'));
   expect(trainedBy(hit()), 'a blast: its cast already counted').toBe(-1);
-  expect(trainedBy({ type: 'cast', frame: 0, ability: 1, x: 0, z: 0, casterX: 0, casterZ: 0 })).toBe(bookIndex('meteor'));
+  expect(trainedBy({ type: 'cast', frame: 0, ability: abilityIndex('meteor'), x: 0, z: 0, casterX: 0, casterZ: 0 })).toBe(bookIndex('meteor'));
   expect(trainedBy({ type: 'action', frame: 0, id: SLIDE_SKILL, x: 0, y: 0, z: 0 })).toBe(bookIndex('slide'));
   expect(trainedBy({ type: 'jump', frame: 0, x: 0, y: 0, z: 0 })).toBe(-1);
 });

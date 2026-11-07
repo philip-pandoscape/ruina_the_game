@@ -7,7 +7,7 @@
 //! a question worth asking, and keep the browser tests for whether something feels right.
 //!
 //! Reads a scenario as JSON on stdin and writes JSON on stdout:
-//!   {"builds":[{"name":"sword","skills":["sword"],"weapon":0,"abilities":["heal"]}],
+//!   {"builds":[{"name":"sword","skills":["sword"],"weapon":"sword","abilities":["heal"]}],
 //!    "duels":16,"seed":1,"maxSeconds":30,"startDistance":8}
 
 use std::collections::HashMap;
@@ -16,7 +16,7 @@ use std::io::Read;
 use ruina_engine::actors::Actors;
 use ruina_engine::player::{Build, Mode};
 use ruina_engine::skills::{EMPTY_SKILLS, node_index, set_skill};
-use ruina_engine::tuning::{HOTBAR_SLOTS, MOVEMENT_SLOTS, NO_ABILITY, NO_MOVEMENT, tuning};
+use ruina_engine::tuning::{HOTBAR_SLOTS, MOVEMENT_SLOTS, NO_ABILITY, NO_MOVEMENT, ability_index, movement_index, tuning, weapon_index};
 use ruina_engine::world::{SEED, battlefield};
 use ruina_server::combat::{Players, actions_from};
 use serde::{Deserialize, Serialize};
@@ -29,7 +29,7 @@ struct BuildIn {
     name: String,
     #[serde(default)]
     skills: Vec<String>,
-    weapon: u8,
+    weapon: String, // the weapon's id (its name)
     #[serde(default)]
     abilities: Vec<String>, // ability ids, in hotbar order
     #[serde(default)]
@@ -98,13 +98,14 @@ fn to_build(b: &BuildIn) -> Build {
     }
     let mut abilities = [NO_ABILITY; HOTBAR_SLOTS];
     for (slot, id) in b.abilities.iter().take(HOTBAR_SLOTS).enumerate() {
-        abilities[slot] = tuning().abilities.iter().position(|a| &a.id == id).unwrap_or_else(|| panic!("unknown ability: {id}")) as u8;
+        abilities[slot] = ability_index(id).unwrap_or_else(|| panic!("unknown ability: {id}"));
     }
     let mut movement = [NO_MOVEMENT; MOVEMENT_SLOTS];
     for (slot, id) in b.movement.iter().take(MOVEMENT_SLOTS).enumerate() {
-        movement[slot] = tuning().movement_skills.iter().position(|m| &m.id == id).unwrap_or_else(|| panic!("unknown movement skill: {id}")) as u8;
+        movement[slot] = movement_index(id).unwrap_or_else(|| panic!("unknown movement skill: {id}"));
     }
-    Build { skills, weapon: b.weapon, abilities, movement }
+    let weapon = weapon_index(&b.weapon).unwrap_or_else(|| panic!("unknown weapon: {}", b.weapon));
+    Build { skills, weapon, abilities, movement }
 }
 
 struct Outcome {
