@@ -82,7 +82,7 @@ test("the page's side starts the worker, asks for regions and hears each as it's
 });
 
 test('the regions round you: the nearest grown ahead of you one at a time, adopted by the rules, let go behind you', async () => {
-  const engine = new Engine({ openWorld: true, online: false, build: defaultBuild() });
+  const engine = new Engine({ online: false, build: defaultBuild() });
   const port = inProcess();
   const grower = new RegionGrower(port, bundles);
   await grower.ready;

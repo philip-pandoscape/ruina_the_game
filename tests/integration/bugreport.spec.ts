@@ -117,7 +117,7 @@ async function open(page: Page): Promise<string[]> {
     if (m.type() === 'error') errors.push(m.text());
   });
   await page.addInitScript(standIns, VOICE);
-  await page.goto('/?world&test&bugs&buglang=en-GB');
+  await page.goto('/?test&bugs&buglang=en-GB');
   await gameReady(page, 60_000);
   await page.evaluate(() => window.__game.reset());
   return errors;

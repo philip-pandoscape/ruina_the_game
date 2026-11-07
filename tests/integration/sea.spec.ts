@@ -7,7 +7,7 @@ import { gameReady } from '../support/game';
 // thick and thin while the camera turned.
 
 test('the foam round a lagoon holds still as the camera turns @gpu', async ({ page }) => {
-  await page.goto('/?world&test');
+  await page.goto('/?test');
   await gameReady(page, 60_000);
   // On the Windspire's shoulder, looking down over the island to the lagoon on the west coast, the
   // camera turns a fifth of a degree a frame, as a slow pan with the mouse does.

@@ -379,13 +379,17 @@
       }
     },
     {
-      "comment": "The training yard, a developer zone (docs/admin.md): only admins go in, from the Admin menu, each party into a copy of its own (crates/server/src/directory/mod.rs enter_zone). An open arena in a space of its own (content/instances/goblinsDread.json says how: everything round its own origin, played only in a copy). You come in facing the training dummy, and five slimes hop about it (spawns); bots wander in it as moving targets on the other side (crates/engine/src/bots.rs), there while anyone is. Offline it is what ?test=yard opens (docs/testing.md), so the rules tests stand where they expect: change where you come in, the dummy or the slimes and they move with it. `door` is where its way out lets you out in the world. Heights (top) are above its origin.",
+      "comment": "The training yard, a developer zone (docs/admin.md): only admins go in, from the Admin menu, each party into a copy of its own (crates/server/src/directory/mod.rs enter_zone). An open arena in a space of its own (content/instances/goblinsDread.json says how: everything round its own origin, played only in a copy). You come in facing the training dummy, and five slimes hop about it (spawns); bots wander in it as moving targets on the other side (crates/engine/src/bots.rs), there while anyone is. Offline it is what ?test=yard opens (docs/testing.md), so the rules tests stand where they expect: change where you come in, the dummy or the slimes and they move with it. Its practice rules (practice) are on: a blow that lands stops everything a moment, and a swing turns toward what stands nearest (docs/world.md). `door` is where its way out lets you out in the world. Heights (top) are above its origin.",
       "id": "yard",
       "name": "The Yard",
       "about": "A yard of your own: the training dummy, slimes, and wandering bots on the other side to try your weapons and skills on.",
       "maxPlayers": 5,
       "developer": true,
       "style": "arena",
+      "practice": {
+        "hitPause": true,
+        "aimAssist": true
+      },
       "arrive": {
         "x": 0,
         "z": -1,
@@ -635,6 +639,10 @@
       "maxPlayers": 5,
       "developer": true,
       "style": "arena",
+      "practice": {
+        "hitPause": true,
+        "aimAssist": true
+      },
       "arrive": {
         "x": 0,
         "z": -18,

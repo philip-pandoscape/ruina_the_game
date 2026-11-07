@@ -33,11 +33,11 @@ declare global {
 }
 
 /**
- * Opens the game at `url` (`/?world&test` the island offline and paused, `/?test` the yard paused,
- * `/?yard` the yard running) and waits until it's ready. Returns the console errors and page errors
- * seen from then on, for a test to expect none of.
+ * Opens the game at `url` (`/?test` the world offline and paused, `/?test=<instance>` a copy of an
+ * instance paused, `/?offline=<instance>` one running) and waits until it's ready. Returns the
+ * console errors and page errors seen from then on, for a test to expect none of.
  */
-export async function openGame(page: Page, url = '/?world&test', timeout = 60_000): Promise<string[]> {
+export async function openGame(page: Page, url = '/?test', timeout = 60_000): Promise<string[]> {
   const errors: string[] = [];
   page.on('console', (m) => {
     if (m.type() === 'error') errors.push(m.text());

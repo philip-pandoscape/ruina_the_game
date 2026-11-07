@@ -1,19 +1,24 @@
-//! The player's check: a scripted list of inputs run through the player rules on the old
-//! battlefield's flat ground, every frame given back, with what the skill tree resolved to for the
-//! build.
+//! The player's check: a scripted list of inputs run through the player rules in the battlefield, an
+//! arena of the world's instances (its floor, rails and rocks; knocked down, you get up where it's
+//! entered), every frame given back, with what the skill tree resolved to for the build.
 
 use serde::{Deserialize, Serialize};
 
+use crate::open::dungeon::dungeon;
+use crate::open::zone::emberholm;
+use crate::open::{OpenWorld, step_player};
 use crate::player::{Actions, Build, Player};
 use crate::skills::{EMPTY_SKILLS, SKILL_WORDS, resolve_skills};
 use crate::tuning::{
     HOTBAR_SLOTS, MOVEMENT_SKILL_CAP, MOVEMENT_SLOTS, NO_ABILITY, NO_MOVEMENT, ability_mp_for, cast_frames_for, combo_for, effect_amount, effect_damage,
     effect_radius, melee_targets, movement_cooldown_for, movement_stamina_for, pierce_targets, tuning,
 };
-use crate::world::{SEED, Spawn, battlefield};
+use crate::world::Spawn;
 
 #[derive(Deserialize)]
 struct Script {
+    /// The instance it's played in (an arena of the world's instances: content/instances/<id>.json).
+    instance: String,
     spawn: SpawnIn,
     team: u8,
     build: BuildIn,
@@ -98,7 +103,6 @@ const FRAME_LEN: usize = 21 + HOTBAR_SLOTS + MOVEMENT_SKILL_CAP;
 #[derive(Serialize)]
 struct Out {
     frames: Vec<Vec<f64>>,
-    obstacles: Vec<[f64; 3]>,
     stats: Stats,
 }
 
@@ -122,7 +126,8 @@ struct Stats {
 /// Runs a script (JSON) and gives back every frame (JSON).
 pub fn run(input: &str) -> serde_json::Result<String> {
     let script: Script = serde_json::from_str(input)?;
-    let world = battlefield(SEED);
+    let def = dungeon(&script.instance).unwrap_or_else(|| panic!("no instance {}", script.instance));
+    let world = OpenWorld::instance(def, emberholm());
     let spawn = Spawn { x: script.spawn.x, z: script.spawn.z, facing: script.spawn.facing };
     let b = &script.build;
     let mut abilities = [NO_ABILITY; HOTBAR_SLOTS];
@@ -169,7 +174,7 @@ pub fn run(input: &str) -> serde_json::Result<String> {
             face_z: s.face_z,
             ..Default::default()
         };
-        p.step(&a, &world);
+        step_player(&mut p, &a, &world, None, 0);
         let mut frame = Vec::with_capacity(FRAME_LEN);
         frame.extend_from_slice(&[
             p.pos.x,
@@ -199,7 +204,6 @@ pub fn run(input: &str) -> serde_json::Result<String> {
         debug_assert_eq!(frame.len(), FRAME_LEN);
         frames.push(frame);
     }
-    let obstacles = world.obstacles.iter().map(|o| [o.x, o.z, o.r]).collect();
     let r = resolve_skills(&build.skills, &script.levels);
     let weapons = tuning().weapons.len();
     let stats = Stats {
@@ -218,5 +222,5 @@ pub fn run(input: &str) -> serde_json::Result<String> {
             .map(|(a, def)| def.effects.iter().map(|e| [effect_radius(a as u8, e, &r), effect_damage(a as u8, e, &r), effect_amount(a as u8, e, &r)]).collect())
             .collect(),
     };
-    serde_json::to_string(&Out { frames, obstacles, stats })
+    serde_json::to_string(&Out { frames, stats })
 }

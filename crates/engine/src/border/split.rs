@@ -31,7 +31,6 @@ use crate::open::OpenWorld;
 use crate::open::map::WorldMap;
 use crate::open::zone::{Heightfield, Zone};
 use crate::player::{Actions, Player};
-use crate::world::World;
 
 use super::messages::Input;
 
@@ -150,16 +149,13 @@ impl Split {
     /// A world of `map`'s regions, one simulation for each owner in `owners`, each playing a copy of
     /// `zone` with every region solid; `ground` the height the fights are measured from.
     pub fn new(map: &'static WorldMap, zone: &'static Zone, ground: Option<&'static Heightfield>, owners: Owners, tick_ms: f64) -> Split {
-        let r = &zone.recipe;
-        let spawn = crate::world::Spawn { x: r.spawn.x, z: r.spawn.z, facing: r.spawn.facing };
         let sims = owners
             .sims()
             .into_iter()
             .map(|id| {
                 let mut players = Players::new(tick_ms);
                 players.ground = ground;
-                let flat = World { radius: zone.radius, obstacles: Vec::new(), team_spawns: [spawn, spawn] };
-                Sim::new(id, map, OpenWorld::on(map, zone), flat, players, Actors::new())
+                Sim::new(id, map, OpenWorld::on(map, zone), players, Actors::new())
             })
             .collect();
         Split {
@@ -399,7 +395,7 @@ impl Split {
         // Everyone's inputs.
         let mut landings: Vec<Landing> = Vec::new();
         for s in &mut self.sims {
-            let mut l = s.players.work_out(&s.actors, &s.flat, tick, Some(&s.world), in_order);
+            let mut l = s.players.work_out(&s.actors, tick, &s.world, in_order);
             s.players.send_away(&mut l, &s.actors);
             landings.push(l);
         }
