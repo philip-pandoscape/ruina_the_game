@@ -1,0 +1,13 @@
+# The policy gives the same answer wherever it's asked: no clocks (whoever asks hands in the time),
+# and no maps that iterate in an order of their own (std's hash maps order by random keys), so a
+# crowd played twice from the same seed plays the same.
+disallowed-methods = [
+  { path = "std::time::Instant::now", reason = "the policy takes the time as an input" },
+  { path = "std::time::SystemTime::now", reason = "the policy takes the time as an input" },
+]
+disallowed-types = [
+  { path = "std::collections::HashMap", reason = "iterates in its own order: BTreeMap" },
+  { path = "std::collections::HashSet", reason = "iterates in its own order: BTreeSet" },
+  { path = "std::time::Instant", reason = "the policy takes the time as an input" },
+  { path = "std::time::SystemTime", reason = "the policy takes the time as an input" },
+]

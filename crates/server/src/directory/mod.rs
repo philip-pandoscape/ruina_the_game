@@ -2,11 +2,15 @@
 //! - which simulation plays each space: a region's channel, or an instance's copy, each granted to
 //!   its simulation under a lease with an epoch (`leases.rs`), renewed while it runs;
 //! - where each character is, granted to a connection and a simulation under an epoch of their own
-//!   that every write about them carries (`grants.rs`: bumped by each claim and each move), their
-//!   home channel, and where they were last;
+//!   that every write about them carries (`grants.rs`: bumped by each claim and each move), the
+//!   region they play in, and where they were last;
+//! - each region's channels, by the channels' policy (`crates/channels`, a `Region` for each): where
+//!   someone coming in is placed, when another channel opens and a quiet one merges, who may change
+//!   channel; reviewed once a second, what it answers carried out (a channel's simulation started,
+//!   players moved between channels standing where they stood, an emptied channel's stopped);
 //! - the copies of instances, and whose each is.
 //!
-//! It starts a simulation the first time its space is needed (a character's home channel, a party's
+//! It starts a simulation the first time its space is needed (a channel the policy opens, a party's
 //! copy of a dungeon), and closes a copy COPY_KEPT after the last player left it.
 //!
 //! A dungeon is played as World of Warcraft plays one: through its portal a party goes into its own
@@ -23,10 +27,11 @@ use std::time::Duration;
 
 use tokio::sync::mpsc;
 
+use ruina_channels::{Action, Follow, PartyTies, Placement, Region, Standing, Target, Ties, Tuning, Why};
 use ruina_world_api::directory::{Destination, Grant, Lease, ToDirectory};
 use ruina_world_api::gate::{Claimed, SpaceView, ToConn};
 use ruina_world_api::post::{Answer, Reply};
-use ruina_world_api::sim::ToSim;
+use ruina_world_api::sim::{After, ToSim};
 use ruina_world_api::social::{CopyNote, Place, ToSocial};
 use ruina_world_api::{Address, CharacterId, Conn, Millis, Owner, PartyId, SimId, SpaceId, Transport};
 
@@ -34,12 +39,18 @@ use crate::open::dungeon::dungeon;
 use crate::open::map::world_map;
 use crate::store::{Db, now_ms};
 
-/// Characters' grants, home channels and copies' numbers, on their rows.
+/// The channels' crowd of bots played against the directory (tests).
+#[cfg(test)]
+mod crowd;
+/// Characters' grants and copies' numbers, on their rows.
 pub mod grants;
 /// Spaces' leases.
 pub mod leases;
 
 use leases::{Leases, RENEW_EVERY};
+
+/// How often the channels' policy is asked what's due (merges, followers, channels opened ahead).
+const REVIEW_EVERY: Duration = Duration::from_secs(1);
 
 /// How long a copy of a dungeon is kept once the last player has left it.
 pub const COPY_KEPT: Duration = Duration::from_secs(30 * 60);
@@ -93,17 +104,25 @@ pub struct Directory<L: Leases> {
     db: Db,
     leases: L,
     spawner: Arc<dyn Spawner>,
-    /// Where characters live: the world's first region.
+    /// Where a newcomer plays: the world's first region.
     region: String,
     spaces: BTreeMap<SpaceId, Running>,
     copies: BTreeMap<(Owner, String), SpaceId>,
     who: HashMap<CharacterId, Who>,
     /// Where each character is, or was last (a copy they may come back to).
     last: HashMap<CharacterId, SpaceId>,
-    /// Each character's home channel, and its number.
-    homes: HashMap<CharacterId, (SpaceId, u32)>,
-    /// Who is in which party (the social tier's, as it tells it).
+    /// The region each character plays in (where they come out of a copy).
+    homes: HashMap<CharacterId, String>,
+    /// Each region's channels and who plays in which (the channels' policy).
+    regions: BTreeMap<String, Region>,
+    /// The channels' numbers (the content's; the tests' own).
+    pub tuning: Tuning,
+    /// What each channel's simulation last said its players who aren't free are doing.
+    standings: HashMap<SimId, HashMap<CharacterId, Standing>>,
+    /// Who is in which party, who is in each and who leads it (the social tier's, as it tells it).
     parties: HashMap<CharacterId, PartyId>,
+    members: HashMap<PartyId, Vec<CharacterId>>,
+    leaders: HashMap<PartyId, CharacterId>,
     /// Characters granted to a space they're on their way into: it isn't closed under them.
     pending: HashMap<CharacterId, SpaceId>,
     saving: HashMap<u64, Saving>,
@@ -112,6 +131,8 @@ pub struct Directory<L: Leases> {
     pub copy_kept: Duration,
     /// How long a copy's simulation lets whoever doesn't belong stay.
     pub expel_after: Duration,
+    /// Tests: the time the channels go by (a crowd's own clock), in place of the world's.
+    pub clock: Option<Millis>,
 }
 
 impl<L: Leases> Directory<L> {
@@ -128,12 +149,18 @@ impl<L: Leases> Directory<L> {
             who: HashMap::new(),
             last: HashMap::new(),
             homes: HashMap::new(),
+            regions: BTreeMap::new(),
+            tuning: ruina_channels::tuning().clone(),
+            standings: HashMap::new(),
             parties: HashMap::new(),
+            members: HashMap::new(),
+            leaders: HashMap::new(),
             pending: HashMap::new(),
             saving: HashMap::new(),
             next_ask: 0,
             copy_kept: COPY_KEPT,
             expel_after: EXPEL_AFTER,
+            clock: None,
         }
     }
 
@@ -142,6 +169,7 @@ impl<L: Leases> Directory<L> {
         tokio::spawn(async move {
             let mut sweep = tokio::time::interval(Duration::from_millis(250));
             let mut renewed = tokio::time::Instant::now();
+            let mut reviewed = tokio::time::Instant::now();
             loop {
                 tokio::select! {
                     msg = inbox.recv() => match msg {
@@ -150,6 +178,10 @@ impl<L: Leases> Directory<L> {
                     },
                     _ = sweep.tick() => {
                         self.sweep(now_ms()).await;
+                        if reviewed.elapsed() >= REVIEW_EVERY {
+                            reviewed = tokio::time::Instant::now();
+                            self.review(now_ms()).await;
+                        }
                         if renewed.elapsed() >= RENEW_EVERY {
                             renewed = tokio::time::Instant::now();
                             self.renew().await;
@@ -166,6 +198,11 @@ impl<L: Leases> Directory<L> {
             ToDirectory::Release { conn } => {
                 if self.who.get(&conn.character).is_some_and(|w| w.conn == conn) {
                     self.who.remove(&conn.character);
+                    // Their channel is kept for them a while (the policy's rejoinWithin).
+                    let now = self.now();
+                    for r in self.regions.values_mut() {
+                        r.leave(conn.character, now);
+                    }
                     self.post.social(ToSocial::Offline { character: conn.character, session: conn.session });
                 }
             }
@@ -173,6 +210,13 @@ impl<L: Leases> Directory<L> {
             ToDirectory::Placed { character, space, sim } => {
                 if self.spaces.get(&space).is_some_and(|r| r.lease.sim == sim) {
                     self.pending.remove(&character);
+                    // Into a copy: out of their channel (it's kept for them a while).
+                    if space.is_copy() {
+                        let now = self.now();
+                        for r in self.regions.values_mut() {
+                            r.leave(character, now);
+                        }
+                    }
                     self.last.insert(character, space.clone());
                     if self.who.contains_key(&character) {
                         let place = self.place(&space);
@@ -187,22 +231,32 @@ impl<L: Leases> Directory<L> {
                     self.tell_copy(&space);
                 }
             }
-            ToDirectory::Parties { changed, hand } => self.parties(changed, hand),
+            ToDirectory::Parties { changed, hand, leaders } => self.parties(changed, hand, leaders).await,
             ToDirectory::IsPlaying { character, reply } => {
                 self.post.answer(reply, Answer::Playing(self.who.contains_key(&character)));
             }
-            ToDirectory::Forget { character, channel } => {
+            ToDirectory::Forget { character } => {
                 self.who.remove(&character);
                 self.last.remove(&character);
                 self.homes.remove(&character);
                 self.parties.remove(&character);
                 self.pending.remove(&character);
-                if let Some(n) = channel
-                    && let Some(r) = self.spaces.get(&SpaceId::channel(&self.region, n))
-                {
+                for r in self.regions.values_mut() {
+                    r.forget(character);
+                }
+                // What they built stands in every channel: it comes down in each.
+                for r in self.spaces.values().filter(|r| !r.lease.space.is_copy()) {
                     self.post.sim(r.lease.sim, ToSim::ResidentGone { character });
                 }
                 self.post.social(ToSocial::Forget { character });
+            }
+            ToDirectory::Channels { conn, standing } => {
+                let view = self.channels_view(conn.character, &standing);
+                self.post.conn(conn, ToConn::Channels(Box::new(view)));
+            }
+            ToDirectory::Change { conn, from, to, standing, dev } => self.change(conn, from, to, standing, dev).await,
+            ToDirectory::Standings { sim, standings } => {
+                self.standings.insert(sim, standings.into_iter().collect());
             }
             ToDirectory::SaveAll { reply } => {
                 self.next_ask += 1;
@@ -233,9 +287,10 @@ impl<L: Leases> Directory<L> {
         }
     }
 
-    /// A connection takes a character up: a newer grant (whoever had them is put out), their home
-    /// channel, and where they come in: back into the copy they were in, if it's still there and
-    /// still theirs, else their home channel.
+    /// A connection takes a character up: a newer grant (whoever had them is put out), and where
+    /// they come in: back into the copy they were in, if it's still there and still theirs, else a
+    /// channel of their region as the channels' policy places them (each placement counted before
+    /// the next is made, so arrivals together fill channels as they should).
     async fn claim(&mut self, conn: Conn, name: String) {
         let character = conn.character;
         let g = match grants::claim(&self.db, character, conn.session).await {
@@ -251,27 +306,37 @@ impl<L: Leases> Directory<L> {
         {
             self.post.conn(old.conn, ToConn::Kicked);
         }
-        // Their home is a channel of the region their saved position is in (the world's first, for a newcomer).
+        // They play in the region their saved position is in (the world's first, for a newcomer).
         let region = g.space.as_ref().and_then(|s| s.region()).filter(|r| world_map().region(r).is_some()).unwrap_or(&self.region).to_string();
-        let home = SpaceId::channel(&region, g.channel);
-        let into = match self.last.get(&character) {
-            Some(s) if s.is_copy() && self.spaces.contains_key(s) && self.may_be_in(character, s) => s.clone(),
-            _ => home.clone(),
+        let in_copy = match self.last.get(&character) {
+            Some(s) if s.is_copy() && self.spaces.contains_key(s) && self.may_be_in(character, s) => Some(s.clone()),
+            _ => None,
         };
+        // Into a channel, placed there; into a copy, the channel they'd be placed in is where they'd
+        // come out (and whose estates they see meanwhile).
+        let channel = match &in_copy {
+            Some(_) => self.home_channel(&region, character),
+            None => self.arrive(&region, character).await,
+        };
+        let home = SpaceId::channel(&region, channel);
+        let into = in_copy.unwrap_or_else(|| home.clone());
         let (home_sim, sim) = match (self.ensure(&home, None).await, self.ensure(&into, None).await) {
             (Ok(h), Ok(s)) => (h, s),
             (Err(e), _) | (_, Err(e)) => {
                 eprintln!("could not start a simulation for character {character}: {e}");
+                if let Some(r) = self.regions.get_mut(&region) {
+                    r.forget(character);
+                }
                 self.post.conn(conn, ToConn::Turned { text: "The server couldn't find you a place just now. Try again in a moment.".into() });
                 return;
             }
         };
         self.who.insert(character, Who { conn });
-        self.homes.insert(character, (home.clone(), g.channel));
+        self.homes.insert(character, region);
         self.last.insert(character, into.clone());
         self.pending.insert(character, into.clone());
         let party = self.parties.get(&character).copied();
-        let claimed = Claimed { epoch: g.epoch, home, home_sim, space: into.clone(), sim, channel: g.channel, party };
+        let claimed = Claimed { epoch: g.epoch, home, home_sim, space: into.clone(), sim, channel, party };
         self.post.conn(conn, ToConn::Claimed(Box::new(claimed)));
         let place = self.place(&into);
         self.post.social(ToSocial::Online { conn, name, place });
@@ -283,7 +348,11 @@ impl<L: Leases> Directory<L> {
         let space = match &to {
             Destination::Copy { instance, zone } => self.copy_for(character, instance, *zone).await,
             Destination::Home => match self.homes.get(&character).cloned() {
-                Some((home, _)) => self.ensure(&home, None).await.map(|_| home),
+                Some(region) => {
+                    let n = self.arrive(&region, character).await;
+                    let home = SpaceId::channel(&region, n);
+                    self.ensure(&home, None).await.map(|_| home)
+                }
                 None => Err("You aren't playing.".to_string()),
             },
         };
@@ -372,12 +441,36 @@ impl<L: Leases> Directory<L> {
 
     /// Parties changed: who is in which, and copies handed from one owner to another (where the new
     /// owner hasn't one of that instance already). Each simulation hears its part in one message.
-    fn parties(&mut self, changed: Vec<(CharacterId, Option<PartyId>)>, hand: Vec<(Owner, Owner)>) {
+    async fn parties(&mut self, changed: Vec<(CharacterId, Option<PartyId>)>, hand: Vec<(Owner, Owner)>, leaders: Vec<(PartyId, CharacterId)>) {
+        // Who joined a party (one they weren't in, and don't lead), and who left theirs.
+        let joined: Vec<CharacterId> = changed
+            .iter()
+            .filter(|(c, p)| p.is_some_and(|p| self.parties.get(c) != Some(&p) && leaders.iter().all(|(lp, l)| *lp != p || l != c)))
+            .map(|(c, _)| *c)
+            .collect();
+        let left: Vec<CharacterId> = changed.iter().filter(|(_, p)| p.is_none()).map(|(c, _)| *c).collect();
         for &(c, p) in &changed {
             match p {
                 Some(p) => self.parties.insert(c, p),
                 None => self.parties.remove(&c),
             };
+        }
+        for (p, l) in leaders {
+            self.leaders.insert(p, l);
+        }
+        self.members.clear();
+        for (c, p) in &self.parties {
+            self.members.entry(*p).or_default().push(*c);
+        }
+        self.leaders.retain(|p, _| self.members.contains_key(p));
+        for c in left {
+            for r in self.regions.values_mut() {
+                r.left_party(c);
+            }
+        }
+        // An invitation into a party in another channel takes them there, now or once they may go.
+        for c in joined {
+            self.follow(c).await;
         }
         let mut owners: BTreeMap<SimId, Owner> = BTreeMap::new();
         for (from, to) in hand {
@@ -460,5 +553,224 @@ impl<L: Leases> Directory<L> {
     /// The simulation playing a space, if one is (tests).
     pub fn sim_of(&self, space: &SpaceId) -> Option<SimId> {
         self.spaces.get(space).map(|r| r.lease.sim)
+    }
+
+    // ---------- Channels (crates/channels) ----------
+
+    /// The time now, as the channels go by it: the world's clock (or a test's).
+    fn now(&self) -> Millis {
+        self.clock.unwrap_or_else(now_ms)
+    }
+
+    /// A region's channels, as the policy keeps them (tests).
+    pub fn region(&self, id: &str) -> Option<&Region> {
+        self.regions.get(id)
+    }
+
+    /// Where the policy would place `who` coming in now, and why (tests).
+    pub fn placing(&self, who: CharacterId) -> ruina_channels::Placed {
+        let region = self.region_of(who);
+        match self.regions.get(&region) {
+            Some(r) => r.place(who, &self.ties(), self.now(), &self.tuning),
+            None => ruina_channels::Placed { n: 1, why: Placement::New },
+        }
+    }
+
+    /// Who belongs with whom, as placing asks it (parties, from the social tier).
+    fn ties(&self) -> PartyMap<'_> {
+        PartyMap { parties: &self.parties, members: &self.members, leaders: &self.leaders }
+    }
+
+    /// What `who` is doing, as their channel's simulation last said (free, if it said nothing of them).
+    fn standing_of(standings: &HashMap<SimId, HashMap<CharacterId, Standing>>, sim: Option<SimId>, who: CharacterId) -> Standing {
+        sim.and_then(|s| standings.get(&s)).and_then(|m| m.get(&who)).copied().unwrap_or_default()
+    }
+
+    /// The simulation playing channel `n` of `region`, if one is.
+    fn channel_sim(&self, region: &str, n: u32) -> Option<SimId> {
+        self.spaces.get(&SpaceId::channel(region, n)).map(|r| r.lease.sim)
+    }
+
+    /// The region a character plays in.
+    fn region_of(&self, character: CharacterId) -> String {
+        self.homes.get(&character).cloned().unwrap_or_else(|| self.region.clone())
+    }
+
+    /// `character` comes into `region`: placed by the policy (a channel opened for them if it must
+    /// be), and the channel they're in.
+    async fn arrive(&mut self, region: &str, character: CharacterId) -> u32 {
+        let now = self.now();
+        let ties = PartyMap { parties: &self.parties, members: &self.members, leaders: &self.leaders };
+        let r = self.regions.entry(region.to_string()).or_insert_with(|| Region::new(region));
+        let (placed, actions) = r.arrive(character, &ties, now, &self.tuning);
+        for a in actions {
+            self.carry_out(region, a).await;
+        }
+        placed.n
+    }
+
+    /// The channel `character` would be placed in in `region`, open (opened now if it must be), and
+    /// nobody seated: where someone in a copy would come out.
+    fn home_channel(&mut self, region: &str, character: CharacterId) -> u32 {
+        let now = self.now();
+        let ties = PartyMap { parties: &self.parties, members: &self.members, leaders: &self.leaders };
+        let r = self.regions.entry(region.to_string()).or_insert_with(|| Region::new(region));
+        let placed = r.place(character, &ties, now, &self.tuning);
+        if placed.why == Placement::New {
+            r.open_channel(placed.n, now);
+        }
+        placed.n
+    }
+
+    /// Once a second: every region's merges, followers and channels opened ahead, carried out.
+    pub async fn review(&mut self, now: Millis) {
+        let ids: Vec<String> = self.regions.keys().cloned().collect();
+        for id in ids {
+            let actions = {
+                let ties = PartyMap { parties: &self.parties, members: &self.members, leaders: &self.leaders };
+                let (standings, spaces) = (&self.standings, &self.spaces);
+                let Some(r) = self.regions.get_mut(&id) else { continue };
+                let at = |who: CharacterId| r.channel_of(who).and_then(|n| spaces.get(&SpaceId::channel(&id, n))).map(|s| s.lease.sim);
+                let seats: HashMap<CharacterId, Option<SimId>> = r.channels().flat_map(|c| c.players.iter().map(|p| (*p, at(*p)))).collect();
+                r.review(now, &ties, |who| Self::standing_of(standings, seats.get(&who).copied().flatten(), who), &self.tuning)
+            };
+            for a in actions {
+                self.carry_out(&id, a).await;
+            }
+        }
+    }
+
+    /// What the policy answered, done: a channel's simulation started; its players told it's
+    /// merging; someone moved; an emptied channel's simulation stopped.
+    async fn carry_out(&mut self, region: &str, action: Action) {
+        match action {
+            Action::Open { n } => {
+                if let Err(e) = self.ensure(&SpaceId::channel(region, n), None).await {
+                    eprintln!("could not open channel {n} of {region}: {e}");
+                }
+            }
+            Action::Merging { from, into, at } => {
+                let players: Vec<CharacterId> =
+                    self.regions.get(region).and_then(|r| r.channel(from)).map(|c| c.players.iter().copied().collect()).unwrap_or_default();
+                let secs = ((at - self.now()).max(0) + 999) / 1000;
+                for who in players {
+                    let Some(conn) = self.who.get(&who).map(|w| w.conn) else { continue };
+                    self.post.conn(conn, ToConn::Notice { text: format!("This channel is closing: you'll be moved to Channel {into} in {secs} seconds.") });
+                    let view = self.channels_view(who, &Standing::default());
+                    self.post.conn(conn, ToConn::Channels(Box::new(view)));
+                }
+            }
+            Action::Move { who, from, to, why } => self.hand(region, who, from, to, why).await,
+            Action::Close { n, .. } => {
+                let space = SpaceId::channel(region, n);
+                if let Some(r) = self.spaces.remove(&space) {
+                    self.standings.remove(&r.lease.sim);
+                    self.post.sim(r.lease.sim, ToSim::Stop);
+                    if let Err(e) = self.leases.release(&space, r.lease.sim).await {
+                        eprintln!("could not give up {space}'s lease: {e}");
+                    }
+                }
+            }
+        }
+    }
+
+    /// Moves `who` from channel `from` to channel `to` of `region` (the policy has them there
+    /// already): granted there under a newer epoch, and handed over by the simulation they're in,
+    /// standing where they stand.
+    async fn hand(&mut self, region: &str, who: CharacterId, from: u32, to: u32, why: Why) {
+        let space = SpaceId::channel(region, to);
+        let (Some(from_sim), Ok(to_sim)) = (self.channel_sim(region, from), self.ensure(&space, None).await) else {
+            eprintln!("could not move character {who} from channel {from} to {to} of {region}");
+            return;
+        };
+        let epoch = match grants::bump(&self.db, who).await {
+            Ok(e) => e,
+            Err(e) => {
+                eprintln!("could not grant character {who} to {space}: {e}");
+                return;
+            }
+        };
+        self.pending.insert(who, space.clone());
+        self.post.sim(from_sim, ToSim::Hand { character: who, to: Grant { space, sim: to_sim, epoch }, after: vec![After::Channel { from, why }] });
+    }
+
+    /// Someone who joined a party: to its channel now if the rules allow, else as soon as they do
+    /// (they're told why they wait).
+    async fn follow(&mut self, who: CharacterId) {
+        let region = self.region_of(who);
+        let now = self.now();
+        let follow = {
+            let ties = PartyMap { parties: &self.parties, members: &self.members, leaders: &self.leaders };
+            let sim =
+                self.regions.get(&region).and_then(|r| r.channel_of(who)).and_then(|n| self.spaces.get(&SpaceId::channel(&region, n))).map(|r| r.lease.sim);
+            let standing = Self::standing_of(&self.standings, sim, who);
+            let Some(r) = self.regions.get_mut(&region) else { return };
+            r.joined_party(who, &standing, &ties, now, &self.tuning)
+        };
+        match follow {
+            Follow::Now(a) => self.carry_out(&region, a).await,
+            Follow::Later(r) => {
+                if let Some(conn) = self.who.get(&who).map(|w| w.conn) {
+                    self.post.conn(conn, ToConn::Notice { text: format!("You'll join your party's channel as soon as you can. {}", r.sentence()) });
+                }
+            }
+            Follow::Stay => {}
+        }
+    }
+
+    /// Someone's region's channels, as they see them.
+    fn channels_view(&self, who: CharacterId, standing: &Standing) -> ruina_channels::ChannelsView {
+        let region = self.region_of(who);
+        let ties = self.ties();
+        match self.regions.get(&region) {
+            Some(r) => r.view(who, standing, &ties, self.now(), &self.tuning),
+            None => Region::new(&region).view(who, standing, &ties, self.now(), &self.tuning),
+        }
+    }
+
+    /// Someone asks to change channel (`from`: the simulation they play in): moved, or told why not.
+    /// An admin may open a channel by going to it.
+    async fn change(&mut self, conn: Conn, from: SimId, to: Target, standing: Standing, dev: bool) {
+        let who = conn.character;
+        let region = self.region_of(who);
+        let now = self.now();
+        if dev
+            && let Target::Channel(n) = to
+            && let Some(r) = self.regions.get_mut(&region)
+            && r.open_channel(n, now)
+        {
+            self.carry_out(&region, Action::Open { n }).await;
+        }
+        let done = {
+            let ties = PartyMap { parties: &self.parties, members: &self.members, leaders: &self.leaders };
+            match self.regions.get_mut(&region) {
+                Some(r) if self.spaces.get(&SpaceId::channel(&region, r.channel_of(who).unwrap_or(0))).is_some_and(|s| s.lease.sim == from) => {
+                    r.change(who, to, &standing, &ties, now, &self.tuning)
+                }
+                _ => Err(ruina_channels::Refusal::NotHere),
+            }
+        };
+        match done {
+            Ok(a) => self.carry_out(&region, a).await,
+            Err(r) => {
+                self.post.conn(conn, ToConn::Error { text: r.sentence() });
+            }
+        }
+    }
+}
+
+/// Parties as the channels' policy asks of them (the social tier's, as the directory keeps them).
+struct PartyMap<'a> {
+    parties: &'a HashMap<CharacterId, PartyId>,
+    members: &'a HashMap<PartyId, Vec<CharacterId>>,
+    leaders: &'a HashMap<PartyId, CharacterId>,
+}
+
+impl Ties for PartyMap<'_> {
+    fn party(&self, who: CharacterId) -> Option<PartyTies> {
+        let p = self.parties.get(&who)?;
+        let members = self.members.get(p).cloned().unwrap_or_else(|| vec![who]);
+        let leader = self.leaders.get(p).copied().or_else(|| members.first().copied())?;
+        Some(PartyTies { leader, members })
     }
 }

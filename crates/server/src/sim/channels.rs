@@ -8,9 +8,6 @@ use std::collections::{BTreeMap, HashMap};
 
 use serde_json::{Value, json};
 
-/// Characters who call one channel home.
-pub const CHANNEL_CAP: i64 = 24;
-
 /// What of an island everyone else sees while its owner is away. Vehicles and packs move, so they
 /// travel with the owner's presence instead (and only while they're online).
 pub fn estate_of(state: &Value) -> Value {

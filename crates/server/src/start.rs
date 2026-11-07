@@ -46,12 +46,27 @@ pub fn start_with(db: Db, copy_kept: Duration, expel_after: Duration) -> Tiers {
 /// The services: the store, the social tier and the directory, which starts simulations through
 /// `sims` (on threads here, or wherever a world of several processes places them).
 pub fn services(post: &Arc<Post>, db: Db, sims: Arc<dyn Spawner>, copy_kept: Duration, expel_after: Duration) {
+    services_with(post, db, sims, copy_kept, expel_after, ruina_channels::tuning().clone());
+}
+
+/// The same, the channels going by `channels` (the tests' small numbers).
+pub fn services_with(post: &Arc<Post>, db: Db, sims: Arc<dyn Spawner>, copy_kept: Duration, expel_after: Duration, channels: ruina_channels::Tuning) {
     store::spawn(db.clone(), post.clone(), post.open_store());
     Social::new(post.clone()).spawn(post.open_social());
     let mut directory = Directory::new(post.clone(), db, MemoryLeases::default(), sims);
     directory.copy_kept = copy_kept;
     directory.expel_after = expel_after;
+    directory.tuning = channels;
     directory.spawn(post.open_directory());
+}
+
+/// Every tier in this process on `db`, the channels going by `channels` (the tests').
+pub fn start_channels(db: Db, channels: ruina_channels::Tuning) -> Tiers {
+    let post = Post::new();
+    let sims: Arc<dyn Spawner> = Arc::new(Threads { post: post.clone() });
+    services_with(&post, db, sims, COPY_KEPT, EXPEL_AFTER, channels);
+    let gate = gate(&post, GateId(1));
+    Tiers { post, gate }
 }
 
 /// A gate, taking its mail here.

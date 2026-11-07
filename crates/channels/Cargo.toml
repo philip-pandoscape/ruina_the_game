@@ -1,0 +1,13 @@
+[package]
+name = "ruina-channels"
+description = "Ruina's channels: when a region opens another channel and when a quiet one merges, where a player is placed, whether they may change channel, and how a merge moves them"
+version.workspace = true
+edition.workspace = true
+publish = false
+
+# A policy and nothing else: no clocks (whoever asks hands in the time), no threads, no sockets or
+# databases, so the server's directory, a test and a process of its own can all ask it the same
+# question and get the same answer.
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
