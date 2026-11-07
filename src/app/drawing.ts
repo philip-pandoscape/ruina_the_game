@@ -63,6 +63,7 @@ export function makeDrawing(g: GameRefs) {
     online,
     openStage,
     party,
+    channels,
     peers,
     peersView,
     perfs,
@@ -202,8 +203,7 @@ export function makeDrawing(g: GameRefs) {
     if (net && netSpells) {
       const renderTick = net.renderTick(performance.now());
       const ahead = prediction && net.you ? (prediction.seq - net.you.ack) / (60 / net.ticksPerSecond) : 0;
-      const myId = net.you?.id ?? null;
-      netSpells.draw(spells, renderTick, net.lastTick + ahead, myId, g.sim.player.team);
+      netSpells.draw(spells, renderTick, net.lastTick + ahead, g.sim.player.team);
       for (const e of netSpells.due(renderTick, g.sim.frame)) showEvent(e);
       for (const r of peers?.shownPlayers() ?? []) castCircle(r, r.pos.x, r.pos.z, r.team !== g.sim.player.team, null);
     }
@@ -340,6 +340,7 @@ export function makeDrawing(g: GameRefs) {
       lifeUI?.update(animDt);
       minigames?.update();
       party?.update();
+      channels?.update();
       // Wakes behind boats, dust behind fast wheels.
       for (const v of life.state.vehicles) {
         const speed = Math.abs(v.speed);

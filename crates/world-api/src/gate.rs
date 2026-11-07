@@ -78,6 +78,10 @@ pub enum ToConn {
     Party { party: Option<PartyView> },
     /// An invitation waiting for their answer (None: there's none now).
     PartyInvite { invite: Option<InviteView> },
+    /// Their region's channels as they see them (crates/channels).
+    Channels(Box<ruina_channels::ChannelsView>),
+    /// They were moved to another channel: from where, to where, and why.
+    ChannelMoved { from: u32, to: u32, why: ruina_channels::Why },
 }
 
 /// The directory's grant of a character to a connection.

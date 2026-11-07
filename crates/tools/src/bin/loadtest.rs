@@ -979,8 +979,10 @@ impl Client {
             rec: Mutex::new(Record::default()),
         });
         let (out, texts) = mpsc::unbounded_channel();
-        let reader = tokio::spawn(read(source, state.clone(), run));
-        let writer = tokio::spawn(write(sink, state.clone(), frames, texts, fight));
+        // The wire for crowds' acknowledgements, from the reader to the writer.
+        let (acks, acked) = mpsc::unbounded_channel();
+        let reader = tokio::spawn(read(source, state.clone(), run, acks));
+        let writer = tokio::spawn(write(sink, state.clone(), frames, texts, acked, fight));
         Ok(Client { state, out, post: Mutex::new(None), tasks: vec![reader, writer] })
     }
 
@@ -1006,13 +1008,23 @@ impl Drop for Client {
     }
 }
 
-async fn read(mut source: Source, state: Arc<ClientState>, run: Arc<Run>) {
+async fn read(mut source: Source, state: Arc<ClientState>, run: Arc<Run>, acks: mpsc::UnboundedSender<Vec<u8>>) {
     while let Some(Ok(msg)) = source.next().await {
         let at = nanos();
         let recording = run.recording.load(Ordering::Relaxed);
         match msg {
             Message::Text(t) => state.heard(t.as_str(), at, recording),
-            Message::Binary(b) if recording => state.rec.lock().unwrap().bytes += b.len() as u64,
+            Message::Binary(b) => {
+                if recording {
+                    state.rec.lock().unwrap().bytes += b.len() as u64;
+                }
+                // An update on the wire for crowds, acknowledged as a browser does: over one
+                // connection every update arrives, in order, so this one and all before it.
+                if b.first() == Some(&ruina_wire::viewer::UPDATE) && b.len() >= 5 {
+                    let seq = u32::from_le_bytes([b[1], b[2], b[3], b[4]]);
+                    let _ = acks.send(ruina_wire::Ack { seq, bits: u32::MAX }.write());
+                }
+            }
             Message::Close(_) => break,
             _ => {}
         }
@@ -1020,7 +1032,14 @@ async fn read(mut source: Source, state: Arc<ClientState>, run: Arc<Run>) {
     state.rec.lock().unwrap().notes.push("the connection closed".into());
 }
 
-async fn write(mut sink: Sink, state: Arc<ClientState>, mut frames: watch::Receiver<u64>, mut texts: mpsc::UnboundedReceiver<String>, fight: bool) {
+async fn write(
+    mut sink: Sink,
+    state: Arc<ClientState>,
+    mut frames: watch::Receiver<u64>,
+    mut texts: mpsc::UnboundedReceiver<String>,
+    mut acked: mpsc::UnboundedReceiver<Vec<u8>>,
+    fight: bool,
+) {
     let mut last = *frames.borrow();
     loop {
         tokio::select! {
@@ -1038,6 +1057,11 @@ async fn write(mut sink: Sink, state: Arc<ClientState>, mut frames: watch::Recei
                     if sink.send(Message::Binary(Bytes::from(msg))).await.is_err() {
                         return;
                     }
+                }
+            }
+            Some(ack) = acked.recv() => {
+                if sink.send(Message::Binary(Bytes::from(ack))).await.is_err() {
+                    return;
                 }
             }
             text = texts.recv() => match text {

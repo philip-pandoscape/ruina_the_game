@@ -1,20 +1,22 @@
-//! What a tick produced, as data for the gates: everyone's presence, the creatures, arrows, meteors,
-//! effects and tables sorted into 32 m cells, and each player's private state (their own player,
-//! their life when it changed, what happened to them). Built once a tick, whoever is watching; each
-//! gate builds its clients' updates from it (crate::gate::encode). Lives due a save go to the
-//! game's `writes`.
+//! What a tick produced, as data for the gates: everyone and everything others may see, packed once
+//! each into the 32 m cell it stands in (the wire for crowds' records, crates/wire: players, bots,
+//! creatures, vehicles, packs on the ground, arrows, meteors and the effects others see), the
+//! mini-games' tables, and each player's private state (their own player, their life when it
+//! changed, what happened to them). Built once a tick, whoever is watching; each gate writes its
+//! clients' updates from it (crate::gate::encode). Lives due a save go to the game's `writes`.
 
-use std::collections::BTreeMap;
+use std::collections::HashMap;
+use std::sync::Arc;
 use std::time::Instant;
 
-use ruina_world_api::FRAMES_PER_TICK;
-use ruina_world_api::records::{
-    ArrowRecord, Cell, CellKey, CreatureRecord, EffectRecord, LifeView, MeteorRecord, Presence, PresenceRecord, Private, Stats, TableRecord, TickOut, You,
-    cell_of,
-};
+use ruina_wire::pack;
+use ruina_wire::schema::Kind;
+use ruina_world_api::EntityId;
+use ruina_world_api::records::{Frame, LifeView, Private, Stats, TableRecord, TickOut, You};
 use ruina_world_api::store::Then;
 
 use super::{Game, LIFE_EVERY, SAVE_EVERY, STATS_EVERY, client, island_of, outside_of};
+use crate::gate::encode::wire_id;
 
 impl Game {
     /// What this tick produced (`now`).
@@ -23,45 +25,8 @@ impl Game {
         for id in &ids {
             self.refresh_estate(*id);
         }
-        let mut cells: BTreeMap<CellKey, Cell> = BTreeMap::new();
-
-        // Everyone as everyone else sees them.
-        let fr = self.tick * FRAMES_PER_TICK;
-        for (entity, owner, p, life) in self.players.each_open() {
-            let (name, bot) = match self.members.get(&owner) {
-                Some(m) => (m.name.clone(), false),
-                None => match self.bot_name_of(entity) {
-                    Some(n) => (n.to_string(), true),
-                    None => continue,
-                },
-            };
-            cell(&mut cells, p.pos.x, p.pos.z).players.push(PresenceRecord { id: entity, name, bot, p: Presence::of(p, life, fr) });
-        }
-        // Across a border, those the games beside this one play, as they're seen here: whoever plays
-        // near the border sees them as the others' players do, and nothing changes as anyone crosses.
-        if let Some(side) = &self.border {
-            for (entity, _, p, vehicles) in self.players.each_ghost() {
-                let Some((name, bot)) = side.names.get(&entity) else { continue };
-                let mut seen = Presence::of(p, None, fr);
-                seen.vehicles = Some(vehicles.to_vec());
-                cell(&mut cells, p.pos.x, p.pos.z).players.push(PresenceRecord { id: entity, name: name.clone(), bot: *bot, p: seen });
-            }
-        }
-        for a in self.actors.list.iter().chain(&self.actors.ghosts).filter(|a| !a.gone) {
-            cell(&mut cells, a.x, a.z).creatures.push(CreatureRecord::of(a));
-        }
-        for a in self.players.arrows() {
-            cell(&mut cells, a.x, a.z).arrows.push(ArrowRecord::of(a));
-        }
-        for m in self.players.meteors() {
-            cell(&mut cells, m.x, m.z).meteors.push(MeteorRecord::of(m));
-        }
-        for e in self.players.shown() {
-            cell(&mut cells, e.x, e.z).effects.push(EffectRecord::of(e));
-        }
-        for t in &self.tables.tables {
-            cell(&mut cells, t.at.x, t.at.z).tables.push(TableRecord { x: t.at.x, z: t.at.z, shown: t.shown() });
-        }
+        let frame = self.frame();
+        let tables = self.tables.tables.iter().map(|t| TableRecord { x: t.at.x, z: t.at.z, shown: t.shown() }).collect();
 
         // Once a second, for admins: how this game is running and how its fights go.
         let stats = self.tick.is_multiple_of(STATS_EVERY).then(|| {
@@ -105,7 +70,7 @@ impl Game {
                 m.last_save = now;
             }
             let (epoch, home, conn) = (m.epoch, m.home.clone(), m.conn);
-            let told = self.players.told(slot).iter().map(EffectRecord::of).collect();
+            let told = self.players.told(slot).iter().map(pack::effect).collect();
             let mut life_events = Vec::new();
             if let Some((p, Some(life))) = self.players.open_mut(c) {
                 life_events = life.drain_events();
@@ -120,12 +85,69 @@ impl Game {
         for s in saves {
             self.writes.push((vec![s], Then::Nothing));
         }
-        TickOut { sim: self.sim, lease: self.lease, space: Some(self.at.clone()), tick: self.tick, cells: cells.into_values().collect(), private, stats }
+        TickOut { sim: self.sim, lease: self.lease, space: Some(self.at.clone()), tick: self.tick, frame, tables, private, stats }
     }
-}
 
-/// The cell (x, z) is in, made if nothing was in it yet.
-fn cell(cells: &mut BTreeMap<CellKey, Cell>, x: f64, z: f64) -> &mut Cell {
-    let at = cell_of(x, z);
-    cells.entry(at).or_insert_with(|| Cell { at, ..Cell::default() })
+    /// Everything others may see this tick, each packed once into its cell (crates/wire's records):
+    /// players and bots with what of their lives others see (the vehicles they have out, the packs
+    /// they left on the ground), the creatures, arrows and meteors, and the effects shown.
+    pub(super) fn frame(&self) -> Frame {
+        let mut frame = Frame::new(self.tick);
+        // Names once a tick: a bot's from the bots' list by its id, not by looking through it.
+        let bot_names: HashMap<EntityId, &str> = self.bots.iter().map(|b| (b.entity, b.name.as_str())).collect();
+        let mut by_slot: HashMap<usize, u64> = HashMap::new();
+        for (entity, owner, p, life) in self.players.each_open() {
+            let (name, bot) = match self.members.get(&owner) {
+                Some(m) => (m.name.as_str(), false),
+                None => match bot_names.get(&entity) {
+                    Some(n) => (*n, true),
+                    None => continue,
+                },
+            };
+            if let Some(slot) = self.players.slot_index(entity) {
+                by_slot.insert(slot, entity.raw());
+            }
+            let id = wire_id(entity);
+            let carried = (p.pack != 0).then(|| life.and_then(|l| l.state.packs.iter().find(|pk| pk.id == p.pack))).flatten().map(|pk| pk.def.as_str());
+            let host = if p.host != 0 { EntityId::character(p.host).raw() } else { 0 };
+            frame.push(pack::player(entity.raw(), id, Arc::from(name), bot, p, carried, host));
+            let Some(life) = life else { continue };
+            for v in &life.state.vehicles {
+                frame.push(pack::vehicle(pack::owned_key(Kind::Vehicle, id, v.id), entity.raw(), id, v, &life.state.packs));
+            }
+            for pk in life.state.packs.iter().filter(|pk| pk.at == "ground") {
+                frame.push(pack::item(pack::owned_key(Kind::Item, id, pk.id), entity.raw(), id, pk));
+            }
+        }
+        // Across a border, those the games beside this one play, as they're seen here, by the same
+        // ids: whoever plays near the border sees them as the others' players do, and nothing
+        // changes for anyone as they cross (crates/engine/src/border).
+        if let Some(side) = &self.border {
+            for (entity, _, p, vehicles) in self.players.each_ghost() {
+                let Some((name, bot)) = side.names.get(&entity) else { continue };
+                let id = wire_id(entity);
+                let host = if p.host != 0 { EntityId::character(p.host).raw() } else { 0 };
+                frame.push(pack::player(entity.raw(), id, Arc::from(name.as_str()), *bot, p, None, host));
+                for v in vehicles {
+                    frame.push(pack::vehicle(pack::owned_key(Kind::Vehicle, id, v.id), entity.raw(), id, v, &[]));
+                }
+            }
+        }
+        for a in self.actors.list.iter().chain(&self.actors.ghosts) {
+            if let Some(r) = pack::creature(EntityId::creature(a.id).raw(), a) {
+                frame.push(r);
+            }
+        }
+        for a in self.players.arrows() {
+            let shooter = by_slot.get(&usize::from(a.owner)).copied().unwrap_or(0);
+            frame.push(pack::arrow(pack::key(Kind::Arrow, i64::from(a.id)), a, shooter));
+        }
+        for m in self.players.meteors() {
+            frame.push(pack::meteor(pack::key(Kind::Meteor, i64::from(m.id)), m));
+        }
+        for e in self.players.shown() {
+            frame.event(pack::effect(e));
+        }
+        frame
+    }
 }

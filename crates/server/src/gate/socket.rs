@@ -25,6 +25,8 @@
 //!                      | space {space}: you've gone into a dungeon's copy, or back out (crates/server/src/sim/host.rs)
 //!                      | party {party|null}: your party as it is now | partyInvite {invite|null}
 //!                      | notice {text}: something to read
+//!                      | channels {channels}: your region's channels as you see them (asked for, and
+//!                        when yours begins to close) | channelMoved {from, to, why}: moved between channels
 //!                      | reset | kicked | error {text}
 //!                      | updating: the server is stopping for an update; once the lives are
 //!                        written, the connection closes with 1012 (service restart)
@@ -37,6 +39,7 @@
 //!                      | dungeon {id, enter}: through a dungeon's portal, or back out of it
 //!                      | partyInvite {to?, name?} | partyAnswer {from, accept} | partyLeave
 //!                      | partyKick {id} | partyLead {id}   (parties, crates/server/src/social/parties.rs)
+//!                      | channels | channel {to} | channel {party: true}   (channels, crates/channels)
 
 use std::collections::VecDeque;
 use std::sync::Arc;
@@ -87,7 +90,7 @@ const SEND_INPUTS: u8 = 7;
 /// What this server speaks. A page that speaks something else is out of date: it reloads
 /// (src/net/worldLink.ts WORLD_PROTOCOL). So does a page built from other content (content_hash, in
 /// the welcome): what goes on the wire as a place in a bundle's list would mean something else to it.
-pub const WORLD_PROTOCOL: u32 = 11;
+pub const WORLD_PROTOCOL: u32 = 13;
 
 /// Which character a browser wants to play (/ws/world?character=<id>).
 #[derive(Deserialize)]
@@ -196,6 +199,15 @@ enum FromBrowser {
     },
     PartyLead {
         id: i64,
+    },
+    /// Channels (crates/channels): your region's channels, please; to another one, or your
+    /// party's.
+    Channels,
+    Channel {
+        #[serde(default)]
+        to: Option<u32>,
+        #[serde(default)]
+        party: bool,
     },
 }
 
@@ -386,6 +398,8 @@ async fn play(socket: WebSocket, gate: &Arc<Gate>, account: &Account, conn: Conn
     let now = now_ms();
     let way = way_in(&mut seat, &mut events, &name, admin).await?;
     let post = gate.post.clone();
+    // What it's sent each tick: the wire for crowds' update from its own viewer, and its JSON tick.
+    let mut enc = encode::Encoder::new(conn.character, admin);
     send(
         &mut tx,
         json!({
@@ -412,7 +426,7 @@ async fn play(socket: WebSocket, gate: &Arc<Gate>, account: &Account, conn: Conn
     }
     // What came meanwhile (their party, an invitation), after the welcome.
     for e in way.held {
-        if let Some(done) = deliver(&mut tx, &mut seat, e, admin).await? {
+        if let Some(done) = deliver(&mut tx, &mut seat, &mut enc, e, encode::Owed::default()).await? {
             return Ok(done);
         }
     }
@@ -426,7 +440,11 @@ async fn play(socket: WebSocket, gate: &Arc<Gate>, account: &Account, conn: Conn
                 last_heard = Instant::now();
                 match msg {
                     Some(Ok(Message::Binary(b))) => {
-                        if let Some((sim, inputs)) = read_inputs(&b).and_then(|i| seat.inputs(i)) {
+                        // An acknowledgement of the wire's updates (8), or inputs (7): to where its
+                        // player is played, or held while it's on its way across a border.
+                        if b.first() == Some(&ruina_wire::ack::ACK) {
+                            enc.ack(&b);
+                        } else if let Some((sim, inputs)) = read_inputs(&b).and_then(|i| seat.inputs(i)) {
                             post.sim(sim, ToSim::Inputs { conn, inputs });
                         }
                     }
@@ -451,8 +469,30 @@ async fn play(socket: WebSocket, gate: &Arc<Gate>, account: &Account, conn: Conn
                 }
             }
             Some(e) = events.recv() => {
-                if let Some(done) = deliver(&mut tx, &mut seat, e, admin).await? {
-                    return Ok(done);
+                // Whatever else is waiting too. Of ticks one after another only the newest is written
+                // (a connection behind catches up at once: the wire's next update covers what it
+                // missed), with what the others said to its player.
+                let mut batch = vec![e];
+                while let Ok(more) = events.try_recv() {
+                    batch.push(more);
+                }
+                let mut owed = encode::Owed::default();
+                let mut batch = batch.into_iter().peekable();
+                while let Some(e) = batch.next() {
+                    if let Event::Tick(out) = &e
+                        && matches!(batch.peek(), Some(Event::Tick(_)))
+                    {
+                        if Some(out.sim) == seat.sim
+                            && let Some(me) = out.private_of(seat.conn.character)
+                        {
+                            owed.keep(me);
+                        }
+                        continue;
+                    }
+                    let owed_now = if matches!(e, Event::Tick(_)) { std::mem::take(&mut owed) } else { encode::Owed::default() };
+                    if let Some(done) = deliver(&mut tx, &mut seat, &mut enc, e, owed_now).await? {
+                        return Ok(done);
+                    }
                 }
             }
             Ok(()) = stage.changed() => {
@@ -503,29 +543,44 @@ fn asked(m: FromBrowser, conn: Conn, admin: bool, post: &dyn ruina_world_api::Tr
         FromBrowser::PartyLeave => return social(ToSocial::Leave { conn }),
         FromBrowser::PartyKick { id } => return social(ToSocial::Kick { conn, who: id }),
         FromBrowser::PartyLead { id } => return social(ToSocial::Lead { conn, who: id }),
+        FromBrowser::Channels => Ask::Channels,
+        FromBrowser::Channel { party: true, .. } => Ask::Channel { to: ruina_channels::Target::Party },
+        FromBrowser::Channel { to: Some(n), .. } => Ask::Channel { to: ruina_channels::Target::Channel(n) },
+        FromBrowser::Channel { .. } => return Some(Err("Which channel?".into())),
     }))
 }
 
-/// Passes one thing on to the browser: a tick built into its update, or a message. Some(()) once
-/// the connection is over (another window took the character over).
-async fn deliver(tx: &mut Tx, seat: &mut Seat, e: Event, admin: bool) -> Result<Option<()>, String> {
+/// Passes one thing on to the browser: a tick built into its JSON tick and its update on the wire
+/// (with what it was owed from ticks it missed), or a message. Some(()) once the connection is over
+/// (another window took the character over).
+async fn deliver(tx: &mut Tx, seat: &mut Seat, enc: &mut encode::Encoder, e: Event, owed: encode::Owed) -> Result<Option<()>, String> {
     match e {
         Event::Tick(out) => {
             // A tick from where they were a moment ago, without them in it, is no use to them.
             if Some(out.sim) == seat.sim
                 && let Some(me) = out.private_of(seat.conn.character)
             {
-                tx.send(Message::Text(encode::tick(&out, me, admin).into())).await.map_err(|e| e.to_string())?;
+                let (update, text) = enc.tick(&out, me, owed);
+                tx.send(Message::Text(text.into())).await.map_err(|e| e.to_string())?;
+                tx.send(Message::Binary(update.into())).await.map_err(|e| e.to_string())?;
             }
         }
         Event::Msg(ToConn::Kicked) => return replaced(tx).await.map(Some),
         Event::Msg(m) => {
+            // Somewhere else (a move between spaces) resets what the wire sent; across a border, in
+            // the same space, nothing does: the taker's frame has everyone with the same ids.
+            let moved = matches!(m, ToConn::Moved { .. });
             // Where its inputs go now; those held on the way across a border, to whoever took it.
             if let Some((sim, inputs)) = seat.heard(&m) {
                 seat.gate.post.sim(sim, ToSim::Inputs { conn: seat.conn, inputs });
             }
             if let Some(text) = encode::message(&m) {
                 tx.send(Message::Text(text.into())).await.map_err(|e| e.to_string())?;
+            }
+            // Somewhere else now: the browser forgets what it heard on the wire when it reads that,
+            // and the viewer what it sent, so both start over from the next update.
+            if moved {
+                enc.reset();
             }
         }
     }

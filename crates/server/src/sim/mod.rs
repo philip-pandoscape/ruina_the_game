@@ -210,6 +210,9 @@ pub struct Game {
     pub stepping: stepping::Stepping,
     /// Playing part of a region beside others: its side of the borders between them (border.rs).
     border: Option<border::Side>,
+    /// When each player last struck a blow or took one (ms since 1970): in a fight, the channels'
+    /// policy won't move them (crates/channels).
+    fought: HashMap<CharacterId, ruina_world_api::Millis>,
 }
 
 /// Ticks between the stats an admin is sent (once a second).
@@ -287,6 +290,7 @@ impl Game {
             timed: Vec::new(),
             stepping: stepping::Stepping::chosen(),
             border: None,
+            fought: HashMap::new(),
         }
     }
 
@@ -856,6 +860,7 @@ impl Game {
             self.tick = at - 1;
         }
         self.play_tick_trading(elapsed, world, trade);
+        self.note_fights(crate::store::now_ms());
         let ruled = Instant::now();
         let out = self.publish(now);
         let took = now.elapsed().as_secs_f64() * 1000.0;
@@ -909,6 +914,34 @@ impl Game {
         // their swinger saw.
         self.players.record_history(self.tick, &self.actors);
         self.catch_fallers();
+    }
+
+    /// Whoever struck a blow or took one this tick, at `now` (ms since 1970).
+    fn note_fights(&mut self, now: ruina_world_api::Millis) {
+        use crate::combat::{EVENT_YOU_HIT, EVENT_YOU_HURT};
+        for id in self.members.keys() {
+            let Some(slot) = self.players.slot_index(client(*id)) else { continue };
+            if self.players.told(slot).iter().any(|e| matches!(e.kind & 0xF, EVENT_YOU_HIT | EVENT_YOU_HURT)) {
+                self.fought.insert(*id, now);
+            }
+        }
+        let members = &self.members;
+        self.fought.retain(|id, _| members.contains_key(id));
+    }
+
+    /// What a player is doing, as far as changing channel goes (crates/channels): a pack on their
+    /// back, their last blow, knocked down, riding, in the air, at a table.
+    pub fn standing(&self, character: CharacterId) -> ruina_channels::Standing {
+        let c = client(character);
+        let Some((p, _, _)) = self.players.open_view(c) else { return ruina_channels::Standing::default() };
+        ruina_channels::Standing {
+            pack: p.pack != 0,
+            fought: self.fought.get(&character).copied(),
+            down: p.down_frame >= 0,
+            riding: p.mode == Mode::Ride || self.players.passenger(c).is_some(),
+            airborne: p.mode == Mode::Glide || (!p.grounded && p.mode != Mode::Swim && p.mode != Mode::Ride),
+            seated: self.tables.seated(character),
+        }
     }
 
     /// In a copy of an instance, anyone who falls out of it is back where it's entered.
@@ -1500,6 +1533,58 @@ pub(crate) mod tests {
         assert_eq!((bo.mode, bo.host, bo.vehicle, bo.seat), (Mode::Normal, 0, 0, 0));
         let off = vehicles::distance_to(&v, bo.pos.x, bo.pos.z);
         assert!(off > 0.0 && off < 1.5, "{off} m from the hull");
+    }
+
+    #[test]
+    fn a_tick_packs_everyone_once_and_a_browser_hears_them_on_the_wire() {
+        // Ada with her cart and a crate left on the ground, Bo beside her, three bots round them.
+        let (mut ch, cart) = ada_and_bo();
+        let (x, z) = {
+            let (p, life) = ch.players.open_mut(client(7)).unwrap();
+            let life = life.unwrap();
+            life.state.packs.push(crate::life::state::Pack {
+                id: 99,
+                def: "ciderCask".into(),
+                at: "ground".into(),
+                x: p.pos.x + 2.0,
+                y: p.pos.y,
+                z: p.pos.z,
+                ..Default::default()
+            });
+            (p.pos.x, p.pos.z)
+        };
+        {
+            let p = ch.players.open_mut(client(8)).unwrap().0;
+            p.pos.x = x + 4.0;
+            p.pos.z = z;
+            stand_on_ground(p, &ch.open);
+        }
+        assert_eq!(ch.spawn_bots(3, crate::bots::Brain::Wanderer, x, z, 0), 3);
+        let out = ch.publish(Instant::now());
+        // Packed once each, by their ids: the two players, the bots, her cart and her crate.
+        let records: Vec<&ruina_wire::Record> = out.frame.records().collect();
+        let keys: std::collections::HashSet<u64> = records.iter().map(|r| r.key).collect();
+        assert_eq!(keys.len(), records.len(), "nothing twice");
+        assert!(keys.contains(&client(7).raw()) && keys.contains(&client(8).raw()));
+        let bots = records.iter().filter(|r| matches!(r.intro, ruina_wire::Intro::Player { bot: true, .. })).count();
+        assert_eq!(bots, 3);
+        let theirs = |kind| records.iter().filter(|r| r.kind() == kind && r.owner == client(7).raw()).count();
+        assert_eq!((theirs(ruina_wire::Kind::Vehicle), theirs(ruina_wire::Kind::Item)), (1, 1));
+        // Read on the wire where Bo stands (the wire's own viewer; the gate's part is its own
+        // tests'), his browser hears Ada by name, her cart and her crate as hers, the bots as bots;
+        // never Bo himself.
+        let bo = out.private_of(8).expect("Bo's own").you.p.pos;
+        let mut viewer = ruina_wire::viewer::Viewer::new(client(8).raw());
+        let update = viewer.update(&out.frame, ruina_wire::viewer::View { x: bo.x, z: bo.z }, &[]);
+        let mut heard = ruina_wire::heard::Heard::new();
+        heard.hear(&update).unwrap().expect("applied");
+        let intros: Vec<&ruina_wire::Intro> = heard.ents.values().map(|e| &e.intro).collect();
+        assert!(intros.iter().any(|i| matches!(i, ruina_wire::Intro::Player { id: 7, name, bot: false } if &**name == "Ada")));
+        assert!(!intros.iter().any(|i| matches!(i, ruina_wire::Intro::Player { id: 8, .. })));
+        assert!(intros.iter().any(|i| matches!(i, ruina_wire::Intro::Vehicle { owner: 7, id, .. } if *id == cart)));
+        assert!(intros.iter().any(|i| matches!(i, ruina_wire::Intro::Item { owner: 7, id: 99, .. })));
+        assert_eq!(intros.iter().filter(|i| matches!(i, ruina_wire::Intro::Player { bot: true, id, .. } if *id < 0)).count(), 3);
+        assert_eq!(heard.errors, 0);
     }
 
     #[test]

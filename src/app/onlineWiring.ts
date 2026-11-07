@@ -144,22 +144,18 @@ export function wireOnline(g: GameRefs): void {
         }
       }
       you = t.you;
-      net?.applyWorld(
-        t.tick,
-        { id: t.you.id, ack: t.you.ack, player: stateFromServer(t.you.p) },
-        t.arrows ?? [],
-        t.meteors ?? [],
-        t.events ?? [],
-        t.actors ?? [],
-      );
+      net?.applyYou(t.tick, { id: t.you.id, ack: t.you.ack, player: stateFromServer(t.you.p) });
       if (life) for (const e of t.lifeEvents ?? []) life.fromServer(e);
     };
     link.onTick = onTick;
+    // The world around you, as the feed takes it whichever way the server sends it (src/net/feedTick.ts).
+    link.onWorld = (f) => net?.applyWorld(f);
     // Back in a dungeon's copy you were in (the connection came back while it was still there).
     onlineSpace(link.space);
     // Whatever came while the page was still loading: the newest island, then the newest tick.
     if (link.latestLife && link.latest && !link.latest.life) onTick({ ...link.latest, life: link.latestLife });
     else if (link.latest) onTick(link.latest);
+    if (link.latestWorld) net?.applyWorld(link.latestWorld);
     online.lifeLoaded = () => lifeLoaded;
     stopIf(link.status);
     // A developer zone chosen on the character select screen: on into it once the island is here

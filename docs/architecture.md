@@ -12,6 +12,7 @@ is, how they talk, and which guide says more. The root `AGENTS.md` lists the fol
 | The browser's rules | `crates/engine-wasm` | The engine compiled to WebAssembly, with the browser's game (`session.rs`) | [engine.md](engine.md) |
 | The client | `src/` | Three.js and TypeScript, built by Vite: the way in, the game's wiring, drawing, the interface, input, the connection, the developer pages and the bible | Each area's `AGENTS.md` |
 | The server | `crates/server` | `ruina-server` on one port (axum): the accounts API, the game's files, the admins' pages and the world's WebSocket. Inside, its tiers: the gate, a simulation for each channel and copy, the store, the social tier and the directory, joined only by the messages of `crates/world-api` | `crates/server/AGENTS.md`, [world.md](world.md), [admin.md](admin.md) |
+| Channels | `crates/channels` | The policy that fills a region's channels, opens another past a soft cap, merges a quiet one and lets players change; pure, played by the server's directory (R10.22) | [world.md](world.md) (Channels), `crates/channels/AGENTS.md` |
 | Content | `content/` built into `shared/` | Every kind of thing as files, checked and built into the bundles both sides read | [content.md](content.md) |
 | Assets | `src/render/assets/`, `src/ui/theme/` | Models, textures, sounds and icons, listed in a manifest and loaded by need | [assets.md](assets.md) |
 | What lasts | Postgres, `crates/server/migrations/` | Accounts, sessions, and characters: each one's life (estate included), build, home channel, and the epoch every write about them carries | `crates/server/src/store/` |
@@ -67,6 +68,15 @@ How each side reaches it: [engine.md](engine.md).
    - arrows, meteors, and what happened near them.
 
    Their life (bag, coins, quests, estate) is sent when it changes.
+
+   *Changing with the wire for crowds (R10.8; its protocol is in, the server moves onto it with its
+   tiers):* everyone else, the creatures, arrows, meteors and what happened come as a binary update
+   of their own (`crates/wire`, `src/net/wire/`): only what's near (32 m cells; within 40 m every
+   tick, to 120 m every fourth, to 250 m about once a second), each thing by a handle of the
+   connection's own, as changes against what the page acknowledged, within 64 KB/s. The page
+   acknowledges each update. Your own player, your life, the tables near you and notices stay in the
+   JSON tick: private, rare, or needed exactly. Either way the page's feed takes the same shapes
+   (`src/net/feedTick.ts`), so nothing that draws the world knows which way it came.
 7. **Prediction.** The page runs your moves through the same rules at once, without waiting
    (`src/net/netPlayer.ts`). When the server's word on you arrives, it starts from there and runs
    again the inputs the server hadn't seen yet. Everyone else and the creatures are drawn a little in
@@ -132,7 +142,7 @@ After the refactor, the world splits between several servers:
 - the tiers in processes of their own, their messages crossing between them;
 - regions owned by simulations, their borders crossed seamlessly;
 - land shared by every channel and contested;
-- channels opening and merging with the crowd.
+- channels opening and merging with the crowd (the policy is built: `crates/channels`).
 
 The research and the decisions are in `.plans/world/research.md`, and the steps are in
 `.plans/refactor/tracker.md` (R10.8, R10.17 to R10.24).

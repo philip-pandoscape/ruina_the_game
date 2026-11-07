@@ -570,7 +570,16 @@ export function makeTestApi(g: GameRefs) {
     },
     /** Online: everyone else in your channel, as drawn, with how much of each one's name plate shows (0 hidden, 1 whole). */
     peers() {
-      return (g.peers?.list() ?? []).map((p) => ({ ...p, plate: g.peersView?.plate(p.id) ?? 0 }));
+      return (g.peers?.list() ?? []).map((p) => ({
+        ...p,
+        plate: g.peersView?.plate(p.id) ?? 0,
+        // Drawn up close as a hero, far off as a crowd body, or both while one fades into the other.
+        look: g.peersView?.look(p.id) ?? { body: 'none' as const, crowd: 0 },
+      }));
+    },
+    /** Online: how many other players were drawn as crowd bodies last frame. */
+    crowdBodies(): number {
+      return g.peersView?.crowdBodies ?? 0;
     },
     /** Online play: who you are and the connection (null offline). */
     online() {
@@ -635,6 +644,14 @@ export function makeTestApi(g: GameRefs) {
     },
     partyLeave(): boolean {
       return g.online?.link.partyLeave() ?? false;
+    },
+    /** Your region's channels as the server last sent them, the last move between channels, and what the Channels window and notice show (null offline). */
+    channels() {
+      return g.channels ? JSON.parse(JSON.stringify(g.channels.state())) : null;
+    },
+    /** Asks to go to channel `to`, or to your party's (as the Channels window does). */
+    changeChannel(to: number | 'party'): boolean {
+      return g.online?.link.changeChannel(to) ?? false;
     },
     /** Where you play now: your channel, or a dungeon's copy (crates/server/src/directory/mod.rs). */
     space() {

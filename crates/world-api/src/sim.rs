@@ -44,8 +44,11 @@ pub enum ToSim {
     /// Or why they can't go.
     Unrouted { character: CharacterId, text: String },
     /// A character handed over from another simulation, with their life (a portal, a way out, a
-    /// developer zone; later a border).
+    /// developer zone, another channel; later a border).
     Transfer(Box<Moving>),
+    /// The directory moves a character to another channel (their choice, their party, a merge),
+    /// granted there: hand them over standing where they stand (`Transfer`), and what then.
+    Hand { character: CharacterId, to: Grant, after: Vec<After> },
     /// A character this simulation handed over, sent back by one that couldn't take them (it's
     /// full), with why.
     Returned { moving: Box<Moving>, text: String },
@@ -135,6 +138,12 @@ pub enum Ask {
         id: String,
         team: Option<u8>,
     },
+    /// Their region's channels, as they see them (the directory answers).
+    Channels,
+    /// To another channel, or their party's (the directory decides).
+    Channel {
+        to: ruina_channels::Target,
+    },
 }
 
 /// A character coming in from a connection.
@@ -198,6 +207,8 @@ pub enum After {
     Side(Option<u8>),
     /// Something for them to read.
     Notice(String),
+    /// They came from channel `from` (why): their browser hears it once it knows where it is.
+    Channel { from: u32, why: ruina_channels::Why },
 }
 
 /// A character handed from one simulation to another: who they are, their player and life, where

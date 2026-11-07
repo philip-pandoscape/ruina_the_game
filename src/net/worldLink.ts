@@ -3,6 +3,9 @@ import type { Build } from '../content/tuning';
 import { MINIGAMES } from '../content/minigames';
 import contentHash from '../../shared/hash.json' with { type: 'json' };
 import { currentAccount, ServerDown } from './account';
+import { type FeedTick, feedFromJson, type PeerSample } from './feedTick';
+import { WireFeed } from './wire/feed';
+import { UPDATE } from './wire/schema';
 import type { ArrowRecord, EffectEvent, MeteorRecord, NetActor } from './worldFeed';
 
 // Your connection to the game server (crates/server/src/gate/socket.rs), which plays Emberholm: your
@@ -20,11 +23,18 @@ import type { ArrowRecord, EffectEvent, MeteorRecord, NetActor } from './worldFe
 // reloads and comes straight back into the world with the same character (src/app/resume.ts).
 //
 //   server → browser  (text) welcome {protocol, content, character, account, build, now, channel, dev, estates, claims, space}
-//                     tick {tick, you, peers, actors, arrows, meteors, events, lifeEvents?, life?, tables?}
+//                     tick {tick, you, lifeEvents?, life?, tables?, stats?}
+//                     (binary) update: the wire for crowds (crates/wire; src/net/wire), the world near you
+//                     in place of a tick's peers, actors, arrows, meteors and events, acknowledged
+//                     each (binary: 8, the newest update, which of the 32 before it arrived)
 //                     estate {id, name, estate} | claims {claims} | left {id} | saved {at}
 //                     | challenges {sent, waiting} | table {table}   (mini-games, src/ui/minigames)
 //                     | space {space}: into a dungeon's copy, or back out (crates/server/src/directory/mod.rs)
 //                     | party {party} | partyInvite {invite} | notice {text}   (parties, src/ui/party)
+//                     | channels {channels}: your region's channels as you see them (crates/channels), asked
+//                       for, and sent when your channel begins to close
+//                     | channelMoved {from, to, why}: the server moved you to another channel (a space
+//                       comes with it)   (channels, src/ui/channels)
 //                     | reset | kicked | error {text} | updating
 //   browser → server  (binary) inputs: 7, count, then per input a u32 sequence number, the u32
 //                     tick (× 16) everyone else is drawn at, and 10 bytes
@@ -33,6 +43,8 @@ import type { ArrowRecord, EffectEvent, MeteorRecord, NetActor } from './worldFe
 //                     | move {table, m} | concede {table}   (a game is its place in shared/minigames.json)
 //                     | dungeon {id, enter} | partyInvite {to?, name?} | partyAnswer {from, accept}
 //                     | partyLeave | partyKick {id} | partyLead {id}
+//                     | channels: your region's channels, please | channel {to} | channel {party: true}:
+//                       to another channel, or your party's
 
 export interface Welcome {
   character: { id: number; name: string };
@@ -70,6 +82,30 @@ export interface PartyInviteView {
   from: number;
   name: string;
   ms: number;
+}
+
+/** Your region's channels as you see them (crates/channels/src/region.rs ChannelsView; src/ui/channels). */
+export interface ChannelsView {
+  region: string;
+  /** Your channel (0: you aren't in one of the region's). */
+  here: number;
+  list: Array<{ n: number; load: 'quiet' | 'lively' | 'busy' | 'full'; closing: boolean; party: number; friends: number }>;
+  /** Your channel is merging into another: which, and how long (ms) until you're moved, as it was sent. */
+  closing: { into: number; ms: number } | null;
+  /** How long (ms, as it was sent) until you may change channel again. */
+  wait: number | null;
+  /** What stops you changing channel as you stand, if anything: a sentence. */
+  blocked: string | null;
+  /** Your party's channel, if it isn't yours, and whether you're waiting to join it. */
+  party: number | null;
+  following: boolean;
+}
+
+/** The server moved you to another channel: from where, to where, and why. */
+export interface ChannelMoved {
+  from: number;
+  to: number;
+  why: 'choice' | 'party' | 'merge';
 }
 
 /** Someone's houses, farms and ships on the slipway, as the server shares them. */
@@ -112,11 +148,13 @@ export interface YouState {
 export interface WorldTick {
   tick: number;
   you: YouState;
-  peers: PeerEntry[];
-  actors: NetActor[];
-  arrows: ArrowRecord[];
-  meteors: MeteorRecord[];
-  events: EffectEvent[];
+  /** Everyone else, the creatures, arrows, meteors and effects: a server before the wire for crowds sent them here; one on it sends them as updates of their own (binary), and leaves these out. */
+  peers?: PeerEntry[];
+  actors?: NetActor[];
+  /** As the server writes them; the feed marks which are yours and the tick they're as of (src/net/feedTick.ts). */
+  arrows?: Array<Omit<ArrowRecord, 'mine' | 'tick'>>;
+  meteors?: Array<Omit<MeteorRecord, 'tick'>>;
+  events?: EffectEvent[];
   /** Toasts, panels to open and the like, from your island since the last tick. */
   lifeEvents?: LifeEvent[];
   /** Your whole island, when it changed (and every couple of seconds anyway). */
@@ -136,8 +174,10 @@ export interface WorldStats {
   tickMs: number;
   /** Every tick since the last stats: its rules and its updates, ms each (the load harness reads them). */
   ticks?: Array<[number, number]>;
-  /** The size of the update this came with, bytes. */
+  /** What this tick sent this browser, bytes: the JSON tick this came with and the update on the wire. */
   bytes: number;
+  /** Of which the update on the wire (the wire for crowds), bytes. */
+  wire?: number;
   /** Blows between players (bots included) since the game began; those only lag compensation landed; how far back it looked (ms, recent). */
   pvpHits: number;
   savedByRewind: number;
@@ -211,7 +251,7 @@ const RETRY_MS = { updating: [500, 1000, 1500, 2000], reconnecting: [500, 1000, 
 /** A WebSocket closed as a service restart: the server is being updated. */
 const SERVICE_RESTART = 1012;
 /** What this page speaks; the server says what it speaks in its welcome (crates/server/src/gate/socket.rs). */
-const WORLD_PROTOCOL = 11;
+const WORLD_PROTOCOL = 13;
 /**
  * The content this page was built from (shared/hash.json, tools/content/contentc.mjs); the server
  * says its own in its welcome. Built from other content, the two would read what goes on the wire
@@ -233,7 +273,10 @@ export class WorldLink {
   /** Something the server wants the player to know (a save it couldn't write, say). */
   onError: ((text: string) => void) | null = null;
   onTick: ((t: WorldTick) => void) | null = null;
-  onPeers: ((list: PeerEntry[]) => void) | null = null;
+  /** The world around you as of each tick (src/net/feedTick.ts), after its onTick. */
+  onWorld: ((f: FeedTick) => void) | null = null;
+  /** Players with a fresh state, and those in sight that weren't refreshed (null: everyone in sight is in the list). */
+  onPeers: ((list: PeerSample[], kept: readonly number[] | null) => void) | null = null;
   onEstate: ((e: EstateEntry) => void) | null = null;
   onClaims: ((claims: Record<string, string>) => void) | null = null;
   onLeft: ((id: number) => void) | null = null;
@@ -259,9 +302,16 @@ export class WorldLink {
   onInvite: ((i: PartyInviteView | null) => void) | null = null;
   /** Something the server wants the player to read (not a problem: a party joined, say). */
   onNotice: ((text: string) => void) | null = null;
+  /** Your region's channels as last heard (null until asked), and when they came; the last move between channels, and when. */
+  channels: ChannelsView | null = null;
+  channelsHeard = 0;
+  onChannels: ((c: ChannelsView | null) => void) | null = null;
+  moved: ChannelMoved | null = null;
+  movedHeard = 0;
+  onMoved: ((m: ChannelMoved) => void) | null = null;
   private resetDone: Array<() => void> = [];
   /** The channel as last heard, kept here so nothing is missed before the game is ready to draw it. */
-  readonly peers = new Map<number, PeerEntry>();
+  readonly peers = new Map<number, PeerSample>();
   readonly estates = new Map<number, EstateEntry>();
   claims: Record<string, string> = {};
   /** The server's clock when it last wrote your island to the database. */
@@ -270,6 +320,8 @@ export class WorldLink {
   ticks = 0;
   /** The newest tick, and the newest whole island, for whatever arrives before the game is listening. */
   latest: WorldTick | null = null;
+  /** The newest of the world around you, as the feed takes it. */
+  latestWorld: FeedTick | null = null;
   latestLife: WorldTick['life'] | null = null;
   /** The newest stats the server sent (admins only, once a second). */
   stats: WorldStats | null = null;
@@ -282,6 +334,8 @@ export class WorldLink {
   lag = 0;
   /** The server's clock in its last welcome (ms since 1970), and when that came (performance.now()). */
   private clock = { server: 0, heard: 0 };
+  /** The world near you as heard on the wire for crowds, for this connection (a new one starts afresh). */
+  private wire = new WireFeed();
 
   private constructor(
     private ws: WebSocket,
@@ -296,12 +350,18 @@ export class WorldLink {
   }
 
   private welcomed(w: Welcome, heard: number): void {
+    this.wire = new WireFeed();
     this.peers.clear();
     this.estates.clear();
     for (const e of w.estates ?? []) this.estates.set(e.id, e);
     this.claims = w.claims ?? {};
     this.clock = { server: w.now, heard };
     this.space = w.space ?? { kind: 'channel', channel: w.channel };
+    // The channels as they were on the connection before are asked for again.
+    if (this.channels) {
+      this.channels = null;
+      this.onChannels?.(null);
+    }
     // A game or a challenge that's still on comes again from the server, after its welcome.
     const hadTable = this.table !== null;
     const hadChallenges = !!(this.challenges.sent || this.challenges.waiting);
@@ -443,6 +503,18 @@ export class WorldLink {
     return this.send({ t: 'partyLead', id });
   }
 
+  // ---------- Channels (crates/channels; the server's directory places you, moves you and merges channels) ----------
+
+  /** Asks for your region's channels as they are now (the answer comes as `channels`). */
+  askChannels(): boolean {
+    return this.send({ t: 'channels' });
+  }
+
+  /** Asks to go to channel `n`, or to your party's: the server's rules say whether you may. */
+  changeChannel(to: number | 'party'): boolean {
+    return this.send(to === 'party' ? { t: 'channel', party: true } : { t: 'channel', to });
+  }
+
   /** Starts the island over on the server. Resolves once it's done (or after 3 s). */
   reset(): Promise<void> {
     return new Promise((resolve) => {
@@ -472,6 +544,7 @@ export class WorldLink {
   }
 
   private receive(data: unknown): void {
+    if (data instanceof ArrayBuffer) return this.hearWire(new Uint8Array(data));
     if (typeof data !== 'string') return;
     let msg: { t?: string; text?: string; id?: number; name?: string; estate?: Estate; claims?: Record<string, string>; at?: number } & Partial<WorldTick>;
     try {
@@ -485,9 +558,10 @@ export class WorldLink {
       this.latest = t;
       if (t.life) this.latestLife = t.life;
       if (t.stats) this.stats = t.stats;
-      for (const e of t.peers ?? []) this.peers.set(e.id, e);
-      this.onPeers?.(t.peers ?? []);
       this.onTick?.(t);
+      // A tick that carries the world (everyone, every tick); on the wire for crowds it comes in
+      // updates of its own (hearWire).
+      if (t.peers !== undefined) this.heardWorld(feedFromJson(t));
     } else if (msg.t === 'saved') this.lastSaved = msg.at ?? Date.now();
     else if (msg.t === 'reset') {
       // Anything heard before this was the island that's gone.
@@ -521,9 +595,17 @@ export class WorldLink {
     } else if (msg.t === 'space') {
       const s = (msg as { space?: SpaceView }).space;
       if (!s) return;
-      // Everyone you could see is somewhere else now; whoever is here comes in the next ticks.
+      // Everyone you could see is somewhere else now; whoever is here comes in the next ticks. On the
+      // wire the server forgets what it sent you here, and starts again after this. The channels
+      // heard were the old place's: they're asked for again.
       this.peers.clear();
       this.latest = null;
+      this.latestWorld = null;
+      this.wire.reset();
+      if (this.channels) {
+        this.channels = null;
+        this.onChannels?.(null);
+      }
       this.space = s;
       this.onSpace?.(s);
     } else if (msg.t === 'party') {
@@ -534,7 +616,34 @@ export class WorldLink {
       this.invite = (msg as { invite?: PartyInviteView | null }).invite ?? null;
       this.inviteHeard = performance.now();
       this.onInvite?.(this.invite);
+    } else if (msg.t === 'channels') {
+      this.channels = (msg as { channels?: ChannelsView | null }).channels ?? null;
+      this.channelsHeard = performance.now();
+      this.onChannels?.(this.channels);
+    } else if (msg.t === 'channelMoved') {
+      const m = msg as Partial<ChannelMoved>;
+      if (typeof m.from !== 'number' || typeof m.to !== 'number' || !m.why) return;
+      this.moved = { from: m.from, to: m.to, why: m.why };
+      this.movedHeard = performance.now();
+      this.onMoved?.(this.moved);
     } else if (msg.t === 'notice') this.onNotice?.(msg.text ?? '');
+  }
+
+  /** The world as of a tick, however it came: kept for whoever comes late, and handed on. */
+  private heardWorld(world: FeedTick): void {
+    this.latestWorld = world;
+    for (const e of world.peers) this.peers.set(e.id, e);
+    this.onPeers?.(world.peers, world.kept);
+    this.onWorld?.(world);
+  }
+
+  /** An update on the wire for crowds: heard, acknowledged, and handed on as the world. */
+  private hearWire(bytes: Uint8Array): void {
+    if (bytes[0] !== UPDATE) return;
+    const world = this.wire.hear(bytes, this.character);
+    // What's been applied, whether or not this one was (a stale or broken one is dropped unacknowledged).
+    this.out(this.wire.ack());
+    if (world) this.heardWorld(world);
   }
 
   /** The connection closed (`code`: the WebSocket's close code). Keeps trying until it's back. */

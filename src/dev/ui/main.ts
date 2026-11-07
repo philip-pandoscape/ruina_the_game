@@ -10,13 +10,14 @@ import { skillBudget } from '../../engine/island';
 import { startEngine } from '../../engine/load';
 import { NO_ACTIONS } from '../../engine/rules';
 import { LifeUI } from '../../ui/life/lifeUI';
+import { ChannelsUI } from '../../ui/channels/channelsUI';
 import { MinigamesUI } from '../../ui/minigames/minigames';
 import { PartyUI } from '../../ui/party/partyUI';
 import { SkillsPanel } from '../../ui/skills/panel';
 import { initUiScale } from '../../ui/theme/scale';
 import { esc } from '../../util/html';
 import { UI_ENTRIES, uiEntry } from './entries';
-import { MadeUpParty, MadeUpTables } from './fakes';
+import { MadeUpChannels, MadeUpParty, MadeUpTables } from './fakes';
 import { type Gallery, MADE_UP, OTHERS } from './states';
 
 // The UI gallery (/dev/ui.html#/<window>/<state>; the content library frames it as
@@ -47,7 +48,8 @@ declare global {
 
 const tables = new MadeUpTables();
 const partyLink = new MadeUpParty();
-const api: UiApi = { ready: false, entry: null, error: null, asked: () => [...tables.asked, ...partyLink.asked] };
+const channelLink = new MadeUpChannels();
+const api: UiApi = { ready: false, entry: null, error: null, asked: () => [...tables.asked, ...partyLink.asked, ...channelLink.asked] };
 window.__ui = api;
 addEventListener('hashchange', () => location.reload());
 
@@ -114,6 +116,13 @@ async function show(key: string): Promise<void> {
     freeMouse: free,
     nearby: () => OTHERS.map((o, i) => ({ ...o, dist: 4 + i * 6 })),
   });
+  const channels = new ChannelsUI({
+    link: channelLink,
+    regionName: (id) => (life.zone.recipe.id === id ? life.zone.recipe.name : id),
+    freeMouse: free,
+    onOpen: () => party.close(),
+  });
+  party.onOpen = () => channels.close();
   const step = (n = 1): void => {
     for (let i = 0; i < n; i++) {
       engine.step(NO_ACTIONS);
@@ -131,8 +140,10 @@ async function show(key: string): Promise<void> {
     ui.update(dt);
     tables.hold();
     partyLink.hold();
+    channelLink.hold();
     minigames.update();
     party.update();
+    channels.update();
     skills.tick();
   };
   /**
@@ -143,7 +154,7 @@ async function show(key: string): Promise<void> {
     for (let i = 0; i < 50; i++) frame(0.1);
     for (const a of document.getAnimations()) if (a instanceof CSSTransition) a.finish();
   };
-  const g: Gallery = { engine, life, ui, skills, minigames, tables, party, partyLink, me, step };
+  const g: Gallery = { engine, life, ui, skills, minigames, tables, party, partyLink, channels, channelLink, me, step };
   // You arrive, the island settles, then the state is made up and drawn, and settles in its turn.
   step(2);
   settle();

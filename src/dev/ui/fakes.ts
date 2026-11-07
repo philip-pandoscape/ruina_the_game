@@ -1,8 +1,9 @@
+import type { ChannelLink, ChannelMoved, ChannelsView } from '../../ui/channels/channelsUI';
 import type { Challenges, TableLink, TableView } from '../../ui/minigames/tables';
 import type { PartyInviteView, PartyLink, PartyView } from '../../ui/party/partyUI';
 
-// The world connection as the mini-game and party windows see it (they declare what they read of it
-// and ask of it: TableLink, PartyLink), made up for the UI gallery: they show what it holds, and
+// The world connection as the mini-game, party and channel windows see it (they declare what they
+// read of it and ask of it: TableLink, PartyLink, ChannelLink), made up for the UI gallery: they show what it holds, and
 // what they ask of it is kept for a test to look at, going nowhere. Its clocks stand still (`hold`,
 // every frame), so a countdown shows the time made up for as long as it is looked at.
 
@@ -113,6 +114,44 @@ export class MadeUpParty implements PartyLink {
 
   partyLead(id: number): boolean {
     this.asked.push({ lead: id });
+    return true;
+  }
+}
+
+/** Your region's channels and the last move between them, for the Channels window and its notice. */
+export class MadeUpChannels implements ChannelLink {
+  channels: ChannelsView | null = null;
+  channelsHeard = performance.now();
+  onChannels: ((c: ChannelsView | null) => void) | null = null;
+  moved: ChannelMoved | null = null;
+  movedHeard = performance.now();
+  onMoved: ((m: ChannelMoved) => void) | null = null;
+  /** What the window asked to change to, in order (its asking for the channels again is left out). */
+  readonly asked: Array<Record<string, unknown>> = [];
+
+  setChannels(c: ChannelsView | null): void {
+    this.channels = c;
+    this.channelsHeard = performance.now();
+    this.onChannels?.(c);
+  }
+
+  setMoved(m: ChannelMoved): void {
+    this.moved = m;
+    this.movedHeard = performance.now();
+    this.onMoved?.(m);
+  }
+
+  /** The clocks stand still: what the window and the notice were told, they were told just now. */
+  hold(): void {
+    this.channelsHeard = this.movedHeard = performance.now();
+  }
+
+  askChannels(): boolean {
+    return true;
+  }
+
+  changeChannel(to: number | 'party'): boolean {
+    this.asked.push({ channel: to });
     return true;
   }
 }

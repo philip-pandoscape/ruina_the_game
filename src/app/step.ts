@@ -49,7 +49,7 @@ export function makeStep(g: GameRefs) {
         hero.setTeam(shownTeam);
       }
     }
-    netSpells?.receive(net.you?.id ?? null);
+    netSpells?.receive();
   }
 
   // One fixed sim step, plus the effects its events trigger.

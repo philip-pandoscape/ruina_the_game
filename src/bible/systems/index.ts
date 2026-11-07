@@ -17,6 +17,7 @@ import { quests } from './quests';
 import { weather } from './weather';
 import { world } from './world';
 import { parties } from './parties';
+import { channels } from './channels';
 import { minigames } from './minigames';
 import { economy } from './economy';
 
@@ -36,6 +37,7 @@ export const SYSTEMS: readonly SystemDef[] = [
   weather,
   world,
   parties,
+  channels,
   minigames,
   economy,
 ];
