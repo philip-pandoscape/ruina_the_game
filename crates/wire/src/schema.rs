@@ -8,6 +8,8 @@
 //! means none). The fields that change most often come first, so the mask of what changed is a byte
 //! or two.
 
+use serde::{Deserialize, Serialize};
+
 /// The most fields any kind may have (a player has 34): a mask of what changed fits in 40 bits, which
 /// the browser reads as an ordinary number.
 pub const MAX_FIELDS: usize = 40;
@@ -16,7 +18,7 @@ pub const MAX_FIELDS: usize = 40;
 pub type Fields = [i32; MAX_FIELDS];
 
 /// What a record is of. Its number is its byte on the wire.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[repr(u8)]
 pub enum Kind {
     /// Someone playing, or a bot: what everyone else needs to draw them.
@@ -63,7 +65,7 @@ impl Kind {
 
 /// How often something is refreshed, by how far it is from whoever is looking (interest.rs). Its
 /// number is its two bits on the wire.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[repr(u8)]
 pub enum Tier {
     /// Close by: every field, every tick.

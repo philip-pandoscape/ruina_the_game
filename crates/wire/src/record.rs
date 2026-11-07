@@ -2,9 +2,15 @@
 //! in, and what happened there (effects others see). The gate reads the cells around each
 //! connection's player and writes that connection's update from them (crate::viewer), so nothing
 //! is packed twice however many are looking.
+//!
+//! A tick's cells are Serialize and Deserialize: they go from a sim to the gates (crates/world-api's
+//! tick out), in one process as they are and between processes in whatever form the transport
+//! writes. A record's fields are written only as far as its last that isn't zero.
 
 use std::collections::HashMap;
 use std::sync::Arc;
+
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::schema::{EVENT, Fields, Kind, MAX_FIELDS};
 
@@ -12,7 +18,7 @@ use crate::schema::{EVENT, Fields, Kind, MAX_FIELDS};
 pub const CELL: f64 = 32.0;
 
 /// A 32 m cell: floor(x / 32), floor(z / 32).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Cell {
     pub x: i32,
     pub z: i32,
@@ -32,7 +38,7 @@ impl Cell {
 
 /// What a browser is told once, the first time it's sent something, beside its handle: which of the
 /// game's things it is, and what never changes about it.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum Intro {
     /// A player or a bot, by their character's id (a bot's is negative), and their name.
     Player {
@@ -79,16 +85,17 @@ impl Intro {
 }
 
 /// One entity as its sim packed it this tick.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Record {
-    /// Who it is in the whole world (the server's EntityId), never sent: each connection knows it by
-    /// a handle of its own.
+    /// Who it is in the whole world (the server's EntityId, its whole word), never sent: each
+    /// connection knows it by a handle of its own.
     pub key: u64,
     /// Whose it is (a player's own key; a vehicle's or a pack's owner's; an arrow's shooter's), or 0.
     /// A connection isn't sent its own player, vehicles or packs: those come with its own state.
     pub owner: u64,
     pub intro: Intro,
     /// The kind's fields (crate::schema), the rest zero.
+    #[serde(with = "trimmed")]
     pub fields: Fields,
     /// The entity the kind's reference field names (crate::schema::reference), by key, or 0 for none:
     /// each connection is sent it as its own handle for that entity.
@@ -106,9 +113,29 @@ impl Record {
     }
 }
 
+/// A record's fields as far as the last that isn't zero, and back.
+mod trimmed {
+    use super::*;
+
+    pub fn serialize<S: Serializer>(f: &Fields, s: S) -> Result<S::Ok, S::Error> {
+        let n = f.iter().rposition(|v| *v != 0).map_or(0, |i| i + 1);
+        f[..n].serialize(s)
+    }
+
+    pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<Fields, D::Error> {
+        let list = Vec::<i32>::deserialize(d)?;
+        if list.len() > MAX_FIELDS {
+            return Err(serde::de::Error::custom("more fields than any kind has"));
+        }
+        let mut f = [0; MAX_FIELDS];
+        f[..list.len()].copy_from_slice(&list);
+        Ok(f)
+    }
+}
+
 /// Something that happened, for effects (crate::schema::EVENT): where, what (the engine's effect
 /// kind, with what caused it above its low four bits), and its size.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Event {
     pub fields: [i32; 5],
 }
@@ -131,41 +158,86 @@ impl Event {
     }
 }
 
-/// One cell's share of a tick.
-#[derive(Clone, Debug, Default)]
+/// One cell's share of a tick: what a sim hands the gates for it.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct CellRecords {
+    pub cell: Cell,
     pub records: Vec<Record>,
     pub events: Vec<Event>,
 }
 
-/// Everything a sim publishes for one tick, by cell.
+/// Everything a gate knows of one tick, by cell: what one sim published, or several put together
+/// (the cells either side of a border). Serialized as its tick and its cells.
 #[derive(Clone, Debug, Default)]
 pub struct Frame {
     /// The world's tick (crates/server's clock), whose low 32 bits each update carries.
     pub tick: u64,
-    cells: HashMap<Cell, CellRecords>,
+    cells: Vec<CellRecords>,
+    index: HashMap<Cell, usize>,
     count: usize,
 }
 
 impl Frame {
     pub fn new(tick: u64) -> Self {
-        Frame { tick, cells: HashMap::new(), count: 0 }
+        Frame { tick, cells: Vec::new(), index: HashMap::new(), count: 0 }
+    }
+
+    /// A tick's cells as a sim published them (crates/world-api's tick out).
+    pub fn from_cells(tick: u64, cells: Vec<CellRecords>) -> Self {
+        let mut f = Frame::new(tick);
+        f.add_cells(cells);
+        f
+    }
+
+    /// Another sim's cells for the same tick, put with these (a cell both hold is joined).
+    pub fn add_cells(&mut self, cells: Vec<CellRecords>) {
+        for c in cells {
+            self.count += c.records.len();
+            match self.index.get(&c.cell) {
+                Some(&i) => {
+                    let mine = &mut self.cells[i];
+                    mine.records.extend(c.records);
+                    mine.events.extend(c.events);
+                }
+                None => {
+                    self.index.insert(c.cell, self.cells.len());
+                    self.cells.push(c);
+                }
+            }
+        }
+    }
+
+    /// The cells, to hand on.
+    pub fn into_cells(self) -> Vec<CellRecords> {
+        self.cells
+    }
+
+    pub fn cells(&self) -> &[CellRecords] {
+        &self.cells
+    }
+
+    fn cell_mut(&mut self, c: Cell) -> &mut CellRecords {
+        let i = *self.index.entry(c).or_insert_with(|| {
+            self.cells.push(CellRecords { cell: c, ..CellRecords::default() });
+            self.cells.len() - 1
+        });
+        &mut self.cells[i]
     }
 
     /// Adds a record to the cell it stands in.
     pub fn push(&mut self, r: Record) {
         self.count += 1;
-        self.cells.entry(Cell::of(&r.fields)).or_default().records.push(r);
+        self.cell_mut(Cell::of(&r.fields)).records.push(r);
     }
 
     /// Adds something that happened, in the cell it happened in.
     pub fn event(&mut self, e: Event) {
         let (x, z) = e.at();
-        self.cells.entry(Cell::at(x, z)).or_default().events.push(e);
+        self.cell_mut(Cell::at(x, z)).events.push(e);
     }
 
     pub fn cell(&self, c: Cell) -> Option<&CellRecords> {
-        self.cells.get(&c)
+        self.index.get(&c).map(|&i| &self.cells[i])
     }
 
     /// How many records it holds.
@@ -179,7 +251,31 @@ impl Frame {
 
     /// Every record, cell by cell.
     pub fn records(&self) -> impl Iterator<Item = &Record> {
-        self.cells.values().flat_map(|c| c.records.iter())
+        self.cells.iter().flat_map(|c| c.records.iter())
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+struct FrameOnTheWay {
+    tick: u64,
+    cells: Vec<CellRecords>,
+}
+
+impl Serialize for Frame {
+    fn serialize<S: Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        #[derive(Serialize)]
+        struct Borrowed<'a> {
+            tick: u64,
+            cells: &'a [CellRecords],
+        }
+        Borrowed { tick: self.tick, cells: &self.cells }.serialize(s)
+    }
+}
+
+impl<'de> Deserialize<'de> for Frame {
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Frame, D::Error> {
+        let f = FrameOnTheWay::deserialize(d)?;
+        Ok(Frame::from_cells(f.tick, f.cells))
     }
 }
 
@@ -187,18 +283,50 @@ impl Frame {
 mod tests {
     use super::*;
 
+    fn creature(id: i64, x: i32, z: i32) -> Record {
+        let mut fields = [0; MAX_FIELDS];
+        fields[0] = x;
+        fields[1] = z;
+        Record { key: 1 + id as u64, owner: 0, intro: Intro::Creature { id }, fields, refers: 0 }
+    }
+
     #[test]
     fn records_go_in_the_cell_they_stand_in() {
         assert_eq!(Cell::at(0.0, 31.9), Cell { x: 0, z: 0 });
         assert_eq!(Cell::at(-0.1, 32.0), Cell { x: -1, z: 1 });
-        let mut fields = [0; MAX_FIELDS];
-        fields[0] = -6400;
-        fields[1] = 3300;
         let mut frame = Frame::new(9);
-        frame.push(Record { key: 1, owner: 0, intro: Intro::Creature { id: 4 }, fields, refers: 0 });
+        frame.push(creature(4, -6400, 3300));
         frame.event(Event::new(100, 0, 100, 2, 30));
         assert_eq!(frame.cell(Cell { x: -2, z: 1 }).map(|c| c.records.len()), Some(1));
         assert_eq!(frame.cell(Cell { x: 0, z: 0 }).map(|c| c.events.len()), Some(1));
         assert_eq!(frame.len(), 1);
+    }
+
+    #[test]
+    fn a_tick_s_cells_cross_as_they_are_and_join_another_sim_s() {
+        let mut frame = Frame::new(77);
+        frame.push(creature(1, 100, 100));
+        frame.push(Record {
+            key: 9,
+            owner: 9,
+            intro: Intro::Player { id: -1_000_003, name: "Skirmisher 3".into(), bot: true },
+            fields: [-5; MAX_FIELDS],
+            refers: 4,
+        });
+        frame.event(Event::new(-300, 20, 50, 1, 40));
+        let text = serde_json::to_string(&frame).expect("serialized");
+        // Trailing zeros aren't written: the creature's fields are just x and z.
+        assert!(text.contains("\"fields\":[100,100]"), "{text}");
+        let back: Frame = serde_json::from_str(&text).expect("read back");
+        assert_eq!(back.tick, 77);
+        assert_eq!(back.cells(), frame.cells());
+        assert_eq!(back.cell(Cell { x: 0, z: 0 }).map(|c| c.records.len()), Some(1));
+        // Another sim's cells for the same tick join these, a cell both hold put together.
+        let mut more = Frame::new(77);
+        more.push(creature(2, 150, 150));
+        let mut joined = Frame::from_cells(77, back.into_cells());
+        joined.add_cells(more.into_cells());
+        assert_eq!(joined.len(), 3);
+        assert_eq!(joined.cell(Cell { x: 0, z: 0 }).map(|c| c.records.len()), Some(2));
     }
 }

@@ -9,7 +9,8 @@
 //!
 //! - **schema**: what each kind of record holds, field by field.
 //! - **record**: a record, an introduction, an effect, and a sim's Frame of them by cell.
-//! - **pack**: the engine's players, creatures, vehicles, packs, arrows, meteors and effects as records.
+//! - **pack**: the engine's players, creatures, vehicles, packs, arrows, meteors and effects as records
+//!   (the default `engine` feature: the sims need it, a gate doesn't).
 //! - **interest**: tiers by distance, their rates and caps.
 //! - **viewer**: a connection's handles, baselines, updates in flight, priorities and budget, and
 //!   the update it's sent each tick.
@@ -21,12 +22,13 @@ pub mod bytes;
 pub mod decode;
 pub mod heard;
 pub mod interest;
+#[cfg(feature = "engine")]
 pub mod pack;
 pub mod record;
 pub mod schema;
 pub mod viewer;
 
 pub use ack::Ack;
-pub use record::{Cell, Event, Frame, Intro, Record};
+pub use record::{Cell, CellRecords, Event, Frame, Intro, Record};
 pub use schema::{Fields, Kind, Tier};
 pub use viewer::{View, Viewer};
