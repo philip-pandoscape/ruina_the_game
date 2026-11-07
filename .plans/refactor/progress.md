@@ -740,3 +740,10 @@ builds were kept anew by id ("kept 2 builds by id"), and every character came in
 ticks, with nothing lost: the same coins, bag and quests, the cottage on its plot with what it
 stores, the vehicles and the claim. The land migration is tried the same way once land is merged.
 The copy stays on this machine only, in `scratch/` (never committed), and goes once the merge is done.
+
+With land merged (8f3d419), beta's copy was restored afresh and taken up again: every migration
+applied in order (0001-0004, 0010-0014, 0020, 0030-0031), the builds were kept by id, and the land of
+9 saves moved into rows ("8 pieces, 1 plots claimed; 0 houses moved to a free plot, 0 taken down").
+All 11 characters came in, welcome, ticks and binary updates, with no error and the same coins, bag
+and quests; the one with a cottage has it lent back to their life as they come in, with what it
+stores, their farm and its sheep, a pack on the ground and four vehicles, and their plot's claim.
