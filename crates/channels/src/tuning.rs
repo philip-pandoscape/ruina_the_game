@@ -39,6 +39,15 @@ pub struct Tuning {
     pub calm_after: f64,
     /// Someone back within this long (seconds) of leaving goes back to the channel they left.
     pub rejoin_within: f64,
+    /// How long (seconds) a directory, started anew, hears from the simulations playing on before
+    /// it merges or closes any channel: until then it may not know who plays where. Not in the
+    /// content file: ten seconds, or none in tests.
+    #[serde(default = "settle_default")]
+    pub settle: f64,
+}
+
+fn settle_default() -> f64 {
+    10.0
 }
 
 const fn ms(seconds: f64) -> Millis {
@@ -48,6 +57,10 @@ const fn ms(seconds: f64) -> Millis {
 impl Tuning {
     pub fn quiet_for_ms(&self) -> Millis {
         ms(self.quiet_for)
+    }
+
+    pub fn settle_ms(&self) -> Millis {
+        ms(self.settle)
     }
 
     pub fn merge_notice_ms(&self) -> Millis {
@@ -124,6 +137,7 @@ impl Tuning {
             change_every: 60.0,
             calm_after: 10.0,
             rejoin_within: 60.0,
+            settle: 0.0,
         }
     }
 }

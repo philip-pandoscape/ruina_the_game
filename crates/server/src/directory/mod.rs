@@ -150,6 +150,10 @@ pub struct Directory<L: Leases> {
     pub cuts: BTreeMap<String, Vec<i32>>,
     /// The parts a space is played in, each part's lease (the space's own is the first's).
     parts: BTreeMap<SpaceId, Vec<Lease>>,
+    /// When the channels were first reviewed: until the tuning's settle has passed since, and every channel's
+    /// simulation has said who it holds, no channel merges or closes (a directory started again
+    /// among simulations playing on hasn't heard yet who plays where).
+    first_review: Option<Millis>,
 }
 
 impl<L: Leases> Directory<L> {
@@ -180,6 +184,7 @@ impl<L: Leases> Directory<L> {
             clock: None,
             cuts: BTreeMap::new(),
             parts: BTreeMap::new(),
+            first_review: None,
         }
     }
 
@@ -727,6 +732,13 @@ impl<L: Leases> Directory<L> {
 
     /// Once a second: every region's merges, followers and channels opened ahead, carried out.
     pub async fn review(&mut self, now: Millis) {
+        let since = *self.first_review.get_or_insert(now);
+        let heard = self.spaces.iter().filter(|(s, _)| matches!(s, SpaceId::Channel { .. })).all(|(_, r)| self.standings.contains_key(&r.lease.sim));
+        // Not settled yet: no review at all (the policy would count what it decides as done), so
+        // nothing merges or closes on what may be half the picture; arrivals are still placed.
+        if now - since < self.tuning.settle_ms() || !heard {
+            return;
+        }
         let ids: Vec<String> = self.regions.keys().cloned().collect();
         for id in ids {
             let actions = {
