@@ -7,7 +7,7 @@ import { STEP } from '../content/tuning';
 import type { GameRefs } from '../main';
 
 export function startLoop(g: GameRefs) {
-  const { aiming, drawing, follow, hud, input, life, lifeUI, online, panel, party, perfs, rideCamera, scripted, stepOnce, syncNet, walker } = g;
+  const { aiming, channels, drawing, follow, hud, input, life, lifeUI, online, panel, party, perfs, rideCamera, scripted, stepOnce, syncNet, walker } = g;
   let paused = g.testMode;
   let acc = 0;
   let last = performance.now();
@@ -38,7 +38,7 @@ export function startLoop(g: GameRefs) {
       // A window open on a controller has the pad: its stick and buttons drive the window, so you
       // stand still. With a keyboard and mouse you can walk with a window open (walking away from
       // whoever you're talking to closes it). The skill panel and the map take every device.
-      const padToMenu = panel.isOpen || ((!!lifeUI?.takesPad || !!party?.takesPad) && input.lastDevice === 'gamepad');
+      const padToMenu = panel.isOpen || ((!!lifeUI?.takesPad || !!party?.takesPad || !!channels?.takesPad) && input.lastDevice === 'gamepad');
       // Open-world keys first, so a panel they open takes this frame's input. The skill book and
       // tree sit over everything while they're open, so the world's keys wait.
       if (lifeUI) {
@@ -60,6 +60,7 @@ export function startLoop(g: GameRefs) {
         // A party invitation or the Party window takes the D-pad and A / B first (src/ui/party), then
         // an open life panel (dialog, shop, bag...).
         if (party?.menu(m)) continue;
+        if (channels?.menu(m)) continue;
         if (lifeUI?.menu(m)) continue;
         if (m === 'toggle') panel.open('book');
         else if (m === 'tree') panel.open('tree');

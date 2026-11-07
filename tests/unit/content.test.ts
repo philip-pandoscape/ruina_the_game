@@ -202,13 +202,14 @@ test("the channels' numbers are all there, of the right kind and in order (crate
       c.openAhead = c.softCap - c.mergeFill;
     }),
   ).toContain('or a merge would open another channel at once');
-  expect(
-    broken('channels.json', (c) => {
-      c.changeEvery = 'five minutes';
-      c.softCap = 999.5;
-      c.crowd = 3;
-    }),
-  ).toMatch(/changeEvery is "five minutes", where it's a number of seconds from 0[\s\S]*softCap is 999\.5, where it's a number of players from 0, whole[\s\S]*"crowd" isn't one of its numbers|"crowd" isn't one of its numbers/);
+  const kinds = broken('channels.json', (c) => {
+    c.changeEvery = 'five minutes';
+    c.softCap = 999.5;
+    c.crowd = 3;
+  });
+  expect(kinds).toContain('changeEvery is "five minutes", where it\'s a number of seconds from 0');
+  expect(kinds).toContain("softCap is 999.5, where it's a number of players from 0, whole");
+  expect(kinds).toContain('"crowd" isn\'t one of its numbers');
 });
 
 test('what a region or an instance brings to life names a creature and a spot, and only a group that is no band is spread', () => {

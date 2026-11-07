@@ -234,7 +234,9 @@ function channels(b) {
   if (c.mergeFill >= c.softCap) out.push(`${where}: mergeFill (${c.mergeFill}) must be below softCap (${c.softCap})`);
   if (c.softCap > c.hardCap) out.push(`${where}: softCap (${c.softCap}) is more than hardCap (${c.hardCap})`);
   if (c.openAhead >= Math.max(0, c.softCap - c.mergeFill))
-    out.push(`${where}: openAhead (${c.openAhead}) must be less than softCap - mergeFill (${Math.max(0, c.softCap - c.mergeFill)}), or a merge would open another channel at once`);
+    out.push(
+      `${where}: openAhead (${c.openAhead}) must be less than softCap - mergeFill (${Math.max(0, c.softCap - c.mergeFill)}), or a merge would open another channel at once`,
+    );
   return out;
 }
 

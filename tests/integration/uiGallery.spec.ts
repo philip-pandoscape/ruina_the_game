@@ -39,6 +39,8 @@ const DRAWN: Record<string, string> = {
   'party/frame': '#hud-party',
   'party/window': '#party-win',
   'party/invited': '#party-invite',
+  channels: '#channels-win',
+  'channels/moved': '#hud-channel',
 };
 
 const keyOf = (e: { window: string; state: string }) => `${e.window}/${e.state}`;

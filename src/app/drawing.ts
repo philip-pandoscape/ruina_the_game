@@ -62,6 +62,7 @@ export function makeDrawing(g: GameRefs) {
     online,
     openStage,
     party,
+    channels,
     peers,
     peersView,
     perfs,
@@ -339,6 +340,7 @@ export function makeDrawing(g: GameRefs) {
       lifeUI?.update(animDt);
       minigames?.update();
       party?.update();
+      channels?.update();
       // Wakes behind boats, dust behind fast wheels.
       for (const v of life.state.vehicles) {
         const speed = Math.abs(v.speed);

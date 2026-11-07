@@ -83,9 +83,27 @@ impl Standing {
     pub fn movable(&self, now: Millis, t: &Tuning) -> bool {
         !self.fighting(now, t) && !self.airborne && !self.seated
     }
+
+    /// What stops them changing channel as they stand, if anything: a pack on their back, a fight, a
+    /// vehicle, the air or a table.
+    pub fn hindrance(&self, now: Millis, t: &Tuning) -> Option<Refusal> {
+        if self.pack {
+            Some(Refusal::Pack)
+        } else if self.fighting(now, t) {
+            Some(Refusal::Combat)
+        } else if self.riding {
+            Some(Refusal::Riding)
+        } else if self.airborne {
+            Some(Refusal::Airborne)
+        } else if self.seated {
+            Some(Refusal::AtTable)
+        } else {
+            None
+        }
+    }
 }
 
-/// Where someone asks to go.
+// Where someone asks to go.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Target {
     /// A channel of their choosing.
@@ -287,7 +305,8 @@ pub struct ChannelsView {
     pub closing: Option<Closing>,
     /// How long (ms) until they may change channel again, if they changed lately.
     pub wait: Option<Millis>,
-    /// Why they can't change channel now, if they can't (a sentence to show).
+    /// What stops them changing channel as they stand, if anything (a sentence to show); a change
+    /// too lately is `wait`.
     pub blocked: Option<String>,
     /// Their party's channel, if it isn't theirs.
     pub party: Option<ChannelNo>,
@@ -509,22 +528,10 @@ impl Region {
         (left > 0).then_some(left)
     }
 
-    /// Why `who` can't change channel at all right now, whatever to: a pack on their back, a fight,
-    /// a vehicle, the air, a table, or a change too lately.
+    /// Why `who` can't change channel at all right now, whatever to: what stops them as they stand
+    /// ([`Standing::hindrance`]), or a change too lately.
     pub fn blocked(&self, who: CharacterId, standing: &Standing, now: Millis, t: &Tuning) -> Option<Refusal> {
-        if standing.pack {
-            Some(Refusal::Pack)
-        } else if standing.fighting(now, t) {
-            Some(Refusal::Combat)
-        } else if standing.riding {
-            Some(Refusal::Riding)
-        } else if standing.airborne {
-            Some(Refusal::Airborne)
-        } else if standing.seated {
-            Some(Refusal::AtTable)
-        } else {
-            self.wait(who, now, t).map(|ms| Refusal::Wait { ms })
-        }
+        standing.hindrance(now, t).or_else(|| self.wait(who, now, t).map(|ms| Refusal::Wait { ms }))
     }
 
     /// Whether `who` may go to `to` now, and the channel that is. A channel of their choosing must
@@ -742,7 +749,7 @@ impl Region {
             list,
             closing: self.merge.filter(|m| m.from == here && here != 0).map(|m| Closing { into: m.into, ms: (m.moves_at - now).max(0) }),
             wait: self.wait(who, now, t),
-            blocked: self.blocked(who, standing, now, t).map(|r| r.sentence()),
+            blocked: standing.hindrance(now, t).map(|r| r.sentence()),
             party: self.party_channel(who, ties).and_then(|n| self.open_for(n)).filter(|n| *n != here),
             following: self.following(who),
         }

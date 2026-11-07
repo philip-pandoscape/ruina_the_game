@@ -58,6 +58,7 @@ export type LifePress =
   | 'quests'
   | 'character'
   | 'party'
+  | 'channels'
   | 'settings'
   | 'escape'
   | 'dev'

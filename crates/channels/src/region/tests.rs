@@ -441,3 +441,14 @@ fn a_character_deleted_is_forgotten() {
     assert_eq!(r.wait(1, T0, &t()), None);
     assert_eq!(r.place(1, &NoTies, T0, &t()).why, Placement::Fill);
 }
+
+#[test]
+fn a_player_who_changed_lately_sees_the_wait_apart_from_what_else_stops_them() {
+    let mut r = two_channels();
+    r.change(1, Target::Channel(2), &Standing::default(), &NoTies, T0, &t()).unwrap();
+    let v = r.view(1, &Standing::default(), &NoTies, T0 + secs(15.0), &t());
+    assert_eq!((v.wait, v.blocked), (Some(secs(45.0)), None));
+    let v = r.view(1, &Standing { pack: true, ..Standing::default() }, &NoTies, T0 + secs(15.0), &t());
+    assert_eq!((v.wait, v.blocked.as_deref()), (Some(secs(45.0)), Some("You can't change channel while carrying a pack.")));
+    assert_eq!(r.blocked(1, &Standing::default(), T0 + secs(15.0), &t()), Some(Refusal::Wait { ms: secs(45.0) }));
+}
