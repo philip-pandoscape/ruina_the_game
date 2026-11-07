@@ -5,7 +5,7 @@ import { openGame } from '../support/game';
 // plays one test at a time, so these numbers mean something.
 
 test('performance snapshot while running live', async ({ page }) => {
-  const errors = await openGame(page, '/?test');
+  const errors = await openGame(page, '/?test=yard');
   await page.evaluate(() => window.__game.reset({}));
   await page.evaluate(() => window.__game.setPaused(false));
   // Three seconds of running across the yard, as a player would, with the game's own clock.

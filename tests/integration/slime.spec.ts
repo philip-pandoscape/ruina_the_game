@@ -39,7 +39,7 @@ function watchErrors(page: Page): string[] {
 
 const open = async (page: Page, b?: Build) => {
   const errors = watchErrors(page);
-  await page.goto('/?yard&test'); // paused: only the test steps the game
+  await page.goto('/?test=yard'); // paused: only the test steps the game
   await gameReady(page);
   if (b) await page.evaluate((v) => window.__game.setBuild(v), b);
   return errors;

@@ -44,7 +44,7 @@ const forget = (page: Page) => page.evaluate(() => window.__game.clearMarkers())
 
 test('the game marks the dummy by itself, and hitting it puts numbers over it', async ({ page }) => {
   const errors = watchErrors(page);
-  await page.goto('/?yard');
+  await page.goto('/?offline=yard');
   await gameReady(page);
 
   // Nobody pressed anything: the dummy is straight ahead, so it gets picked up on its own.
@@ -69,7 +69,7 @@ test('the game marks the dummy by itself, and hitting it puts numbers over it', 
 });
 
 test('Escape drops the mark, and it comes back on its own', async ({ page }) => {
-  await page.goto('/?yard');
+  await page.goto('/?offline=yard');
   await gameReady(page);
   expect((await combat(page)).target).not.toBeNull();
 
@@ -82,7 +82,7 @@ test('Escape drops the mark, and it comes back on its own', async ({ page }) => 
 
 test('the weapon comes out for a fight and goes away after it', async ({ page }) => {
   const errors = watchErrors(page);
-  await page.goto('/?yard');
+  await page.goto('/?offline=yard');
   await gameReady(page);
   const weapon = () => page.evaluate(() => window.__game.heroWeapon());
   // The dummy is marked as you arrive: an enemy in front of you, weapon in hand.
@@ -149,7 +149,7 @@ const dist = (a: { x: number; z: number }, b: { x: number; z: number }) => Math.
 
 test('the ground-aim circle starts out in front of you, not at your feet', async ({ page }) => {
   const errors = watchErrors(page);
-  await page.goto('/?yard');
+  await page.goto('/?offline=yard');
   await gameReady(page);
   expect(await page.evaluate((b) => window.__game.setBuild(b), MAGE)).toBe(true);
   // Face away from the dummy so nothing is marked and the circle has to fall back to "in front".
@@ -168,7 +168,7 @@ test('the ground-aim circle starts out in front of you, not at your feet', async
 });
 
 test('the circle opens on whoever is marked, so the common case needs no aiming', async ({ page }) => {
-  await page.goto('/?yard');
+  await page.goto('/?offline=yard');
   await gameReady(page);
   await page.evaluate((b) => window.__game.setBuild(b), MAGE);
   // The dummy is straight ahead and gets marked on its own.
@@ -185,7 +185,7 @@ test('the circle opens on whoever is marked, so the common case needs no aiming'
 test('the left stick pushes the circle around, and it stops at the skill range', async ({ page }) => {
   const errors = watchErrors(page);
   const pad = await withPad(page);
-  await page.goto('/?yard');
+  await page.goto('/?offline=yard');
   await gameReady(page);
   // What loads after the page (the hero's made body) is in before anything is timed.
   await page.waitForFunction(() => window.__game.assetsReady === true);
@@ -243,7 +243,7 @@ test('the left stick pushes the circle around, and it stops at the skill range',
 });
 
 test('the view lifts while you are placing a circle, and settles back after', async ({ page }) => {
-  await page.goto('/?yard');
+  await page.goto('/?offline=yard');
   await gameReady(page);
   await page.evaluate((b) => window.__game.setBuild(b), MAGE);
   const height = () => page.evaluate(() => window.__game.cameraHeight());
@@ -263,7 +263,7 @@ test('the view lifts while you are placing a circle, and settles back after', as
 });
 
 test('Escape backs out of placing a circle without casting', async ({ page }) => {
-  await page.goto('/?yard');
+  await page.goto('/?offline=yard');
   await gameReady(page);
   await page.evaluate((b) => window.__game.setBuild(b), MAGE);
 

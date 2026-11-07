@@ -5,6 +5,7 @@ import { skillsFrom } from '../../../src/content/skills';
 import { actorKind } from '../../../src/content/actors';
 import { attackDef } from '../../../src/content/attacks';
 import { behaviour } from '../../../src/engine/creatures';
+import { dungeonDef } from '../../../src/engine/zone';
 import { gameReady } from '../../support/headless';
 
 // The basic goblin (content/creatures/goblin/, design/goblins.md), played in the training yard
@@ -62,7 +63,7 @@ function watchErrors(page: Page): string[] {
 /** The yard, paused, with you at (0, -14) facing north and nothing else of note nearby. */
 async function open(page: Page, b: Build = SWORD): Promise<string[]> {
   const errors = watchErrors(page);
-  await page.goto('/?yard&test');
+  await page.goto('/?test=yard');
   await gameReady(page);
   await page.evaluate((v) => window.__game.setBuild(v), b);
   await page.evaluate(() => window.__game.reset({ x: 0, z: -14, facing: 0 }));
@@ -90,16 +91,17 @@ async function watch<T>(page: Page, frames: number, look: () => Promise<T>, ever
   return out;
 }
 
-test("?goblins=6 puts a war-band of six in the yard's far corner", async ({ page }) => {
+test("the goblin camp's war-band stands round its fire, as its file has it", async ({ page }) => {
   const errors = watchErrors(page);
-  await page.goto('/?yard&test&goblins=6');
+  await page.goto('/?test=goblinCamp');
   await gameReady(page);
+  const [fire] = (dungeonDef('goblinCamp')?.spawns ?? []).filter((s) => s.kind === 'goblin');
   const band = await goblins(page);
-  expect(band).toHaveLength(6);
-  // One band, round (9, 10), all of them alive and not yet angry.
+  expect(band).toHaveLength(fire.count ?? 1);
+  // One band, round the fire, all of them alive and not yet angry.
   expect(new Set(band.map((g) => g.band)).size).toBe(1);
   for (const g of band) {
-    expect(dist(g, { x: 9, z: 10 })).toBeLessThan(2);
+    expect(dist(g, fire)).toBeLessThan(2);
     expect(g.alive && g.angry === 0).toBe(true);
   }
   expect(errors).toEqual([]);

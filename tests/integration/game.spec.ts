@@ -29,7 +29,7 @@ async function open(page: Page): Promise<string[]> {
     if (m.type() === 'error') errors.push(m.text());
   });
   page.on('pageerror', (e) => errors.push(String(e)));
-  await page.goto('/?test');
+  await page.goto('/?test=yard');
   await gameReady(page);
   return errors;
 }

@@ -44,7 +44,7 @@ const STEPPER: Build = { skills: skillsFrom('bow', 'rapidFire', 'backstep'), wea
 
 const state = (page: Page) => page.evaluate(() => window.__game.state().player);
 const ready = async (page: Page, b: Build) => {
-  await page.goto('/?yard');
+  await page.goto('/?offline=yard');
   await gameReady(page);
   expect(await page.evaluate((x) => window.__game.setBuild(x), b)).toBe(true);
 };
@@ -250,7 +250,7 @@ test('getting back up after a knock-down fills stamina and MP', async ({ page })
 });
 
 test('the tree is what grants a movement skill', async ({ page }) => {
-  await page.goto('/?yard');
+  await page.goto('/?offline=yard');
   await gameReady(page);
   // Binding one you never learned is refused, the same way an unlearned ability is.
   const bogus: Build = { skills: skillsFrom('sword'), weapon: 0, abilities: bar(), movement: moves(DODGE) };

@@ -51,7 +51,7 @@ function watchErrors(page: Page): string[] {
 const open = async (page: Page, live = false) => {
   const errors = watchErrors(page);
   // Paused, so only the test steps the game; `live` lets it run, for what only the frame loop does.
-  await page.goto(live ? '/?yard' : '/?yard&test');
+  await page.goto(live ? '/?offline=yard' : '/?test=yard');
   await gameReady(page);
   await page.evaluate((v) => window.__game.setBuild(v), SWORD);
   return errors;

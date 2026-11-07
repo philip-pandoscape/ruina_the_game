@@ -249,7 +249,7 @@ test('the badge sits at the bottom right under the menu buttons, clear of their 
 });
 
 test('the open world needs a signed-in player', async ({ page }) => {
-  await page.goto('/?yard&bugs=0');
+  await page.goto('/?offline&bugs=0');
   expect(await worldLetsIn(page)).toBe('refused');
 });
 

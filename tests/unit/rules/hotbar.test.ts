@@ -21,7 +21,7 @@ const CASTER: Build = { skills: skills('staff', 'meteor', 'club', 'heal'), weapo
 const state = (page: Page) => page.evaluate(() => window.__game.state().player);
 const panel = (page: Page) => page.evaluate(() => window.__game.panel());
 const ready = async (page: Page) => {
-  await page.goto('/?yard');
+  await page.goto('/?offline=yard');
   await gameReady(page);
 };
 
