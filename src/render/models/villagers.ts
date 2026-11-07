@@ -612,6 +612,8 @@ const TRIED = new Map(
     .map((s) => [s.slice(0, s.indexOf(':')), s.slice(s.indexOf(':') + 1)] as const),
 );
 const TRIED_HEIGHT = Number(params?.get('npcHeight')) || 0;
+/** ?npcModel=none: everyone in their built body, to compare with the look before the made ones. */
+const BUILT_ONLY = params?.get('npcModel') === 'none';
 
 interface Made {
   /** A file in src/render/assets/models by name, or an address. */
@@ -624,7 +626,7 @@ interface Made {
 function madeOf(id: string, look?: VillagerLook): Made | null {
   const tried = TRIED.get(id);
   const file = tried ?? look?.model?.files[0];
-  if (!file) return null;
+  if (!file || BUILT_ONLY) return null;
   return { source: file, height: (tried && TRIED_HEIGHT) || look?.model?.h || MADE_HEIGHT, yaw: look?.model?.yaw ?? 0 };
 }
 

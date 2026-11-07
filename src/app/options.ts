@@ -45,6 +45,12 @@ export const OPTION_DOCS: readonly OptionDoc[] = [
     readBy: 'src/render/models/villagers.ts',
   },
   { name: 'npcHeight=1.68', what: 'How tall a body tried with npcModel stands, metres.', developer: true, readBy: 'src/render/models/villagers.ts' },
+  {
+    name: 'npcModel=none',
+    what: 'Keeps every townsperson in their built body, made ones or not: the look before them, to compare.',
+    developer: true,
+    readBy: 'src/render/models/villagers.ts',
+  },
   { name: 'bugs=0', what: 'No bug reporter (\\ records a bug report; with test it is off unless bugs is given).', developer: true },
   { name: 'bugspeech=0', what: 'Bug reports without live transcription.', developer: true },
   { name: 'buglang=en-GB', what: "The bug reporter's transcription language (else the browser's).", developer: true },
