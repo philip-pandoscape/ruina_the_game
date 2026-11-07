@@ -9,6 +9,11 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
 
 ## Now
 
+- **2026-11-06, evening, back on Windows:** the user asked for the refactor to be finished
+  **including the multi-server version**, with as many sub-agents as the work needs. How the rest is
+  split, the workstreams, their branches, worktrees and ports: [finish.md](finish.md). The
+  orchestrating session works in `C:\GitHub\games\yggdrasil-refactor` again (picked up at 5d25daa,
+  `npm run check` green), merges each workstream when it's done and keeps this tracker.
 - **Phase:** 10 (one world: its foundations, decided 2026-11-06, D16-D19), with 9's rest beside it;
   7, 8, 11 and 12 done.
 - **Next:**
@@ -838,7 +843,7 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
 - [x] **R9.4** NPCs in `content/npcs/`; `FACES`, `GREETINGS`, `BENCH_OF` out of the UI.
   Done (f6055e7): a file each in `content/npcs/`, with their place, look, portrait, greeting and
   bench; `FACES`, `GREETINGS`, `BENCH_OF` and `windows/townsfolk.ts` gone.
-- [~] **R9.5** Weapons and abilities from data (icons, moves, models, stowing); causes on the wire by
+- [x] **R9.5** Weapons and abilities from data (icons, moves, models, stowing); causes on the wire by
   kind and id.
   Causes on the wire (29f0696): a type (weapon, ability or monster) and the thing's place in
   `tuning.json`, where they were codes in code; a ranged weapon known by its data. Left: code that
@@ -856,6 +861,12 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
   `tools/skilltree/gen.mjs`, read by the engine's `skills.rs`), the engine's default build holds weapon
   0 (`player.rs`), tests hard-code weapon numbers, and the crowd's cast clip names an ability by place
   (`castAbility: 0`, `heroBody.ts`).
+  Done (14f53c3, e95be37, 0e53605, 2f278c8; merged in 5d25daa, a background agent): the skill tree and
+  the levels name weapons, abilities and movement skills by id, the engine's default build and a new
+  hero hold the weapon Sword Training grants, the crowd's cast names its ability, and the tests and
+  the balance harness name them by id. `tests/unit/weaponOrder.test.ts` turns all three lists round
+  by one and finds everything as before. *Verified:* `npm run check` on Windows (263 TypeScript, 181
+  engine, 81 server tests).
 - [x] **R9.6** Quest markers from quest data; no place ids in the UI.
   Done (2ca47bf): an objective's `marker` in its quest's file; `src/ui/life/hud/goal.ts` names no
   place; the same goal in 1,200 states before and after (`tests/unit/questGoal.test.ts`).
@@ -1432,3 +1443,4 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
 | 2026-11-06 | R6.13 | `src/render`, `src/ui` and `src/dev` guides | 6ae1345 |
 | 2026-11-06 | R6.0b | The server's word on you, solid things and the test API's writes as calls; the island online | 89ace09, 9a319e4 |
 | 2026-11-06 | R6.4 | The bridge is the one way to the rules | 56ad5ee |
+| 2026-11-06 | R9.5 | The skill tree by id ticked (merged in 5d25daa); the finishing plan with the multi-server version, `finish.md` | (this commit) |
