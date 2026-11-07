@@ -1,6 +1,6 @@
 {
   "comment": "Implementation tracker for the design bible (design/index.html). Edit this file and the page follows: it reads the tracker live (npm run dev, then /design/). Status is one of: done, building, planned, idea. Keep `files` to the main places a feature lives so a future session can jump straight there.",
-  "updated": "2026-11-06",
+  "updated": "2026-11-07",
   "systems": [
     {
       "id": "world",
@@ -1295,7 +1295,7 @@
       "system": "tech",
       "status": "building",
       "title": "The first refactor: one copy of the rules, areas, content as data",
-      "notes": "Planned and reviewed on 2026-11-05 (.plans/refactor/README.md): fourteen phases on branch refactor/first, merged into beta once at the end. Test tiers (unit tests without a browser, integration before beta, stress before a release); dead code out and the toon look retired for quality settings of the new look; an admin menu (admins named in ADMIN_USERS) reaching every developer page and zone; a /find-assets skill; a Rust workspace (crates/engine, crates/server, crates/tools; the server renamed ruina-server); the client in areas with one bridge to the rules and one Content Library page; content in folders, compiled and checked by contentc; the rules in one Rust engine, run natively by the server and as WebAssembly by the browser; content as data (ids in saves and on the wire, spawns, NPCs, weapons, looks); zones as data, the yard and the battlefield as developer zones, and bots as part of the engine; assets listed with the zones that use them and loaded nearest first, binaries in Git LFS (the client will be packaged as a desktop app later, so a browser's download isn't held small: decided 2026-11-06); the design bible as a knowledge base anyone can read; AGENTS.md rewritten. Done so far: the survey (.plans/refactor/inventory) and the baseline (395 tests pass in 10.8 minutes); binaries in Git LFS; servers that listen on this machine only; the test tiers (npm run check after a change: typecheck, dead code, Rust format and lints, unit tests; a Rust rules file edited and tested in 7 s; the TypeScript-against-Rust checks in 39 s without a browser); dead code out (knip and clippy guard it); the toon look retired for high, medium and low quality settings; the Admin menu (docs/admin.md: admins named in ADMIN_USERS reach Developer Tools, the developer zones and the developer pages, now built into dev/ and served to admins only; the developer commands no longer open to every player on beta); the /find-assets skill; the Rust code in one format, one copy of each rules helper, and a bug fixed in rebuilding everyone's solids after an island is started over.",
+      "notes": "Planned and reviewed on 2026-11-05 (.plans/refactor/README.md): fourteen phases on branch refactor/first, merged into beta once at the end. Test tiers (unit tests without a browser, integration before beta, stress before a release); dead code out and the toon look retired for quality settings of the new look; an admin menu (admins named in ADMIN_USERS) reaching every developer page and zone; a /find-assets skill; a Rust workspace (crates/engine, crates/server, crates/tools; the server renamed ruina-server); the client in areas with one bridge to the rules and one Content Library page; content in folders, compiled and checked by contentc; the rules in one Rust engine, run natively by the server and as WebAssembly by the browser; content as data (ids in saves and on the wire, spawns, NPCs, weapons, looks); zones as data, the yard and the battlefield as developer zones, and bots as part of the engine; assets listed with the zones that use them and loaded nearest first, binaries in Git LFS (the client will be packaged as a desktop app later, so a browser's download isn't held small: decided 2026-11-06); the design bible as a knowledge base anyone can read; AGENTS.md rewritten. Done so far: the survey (.plans/refactor/inventory) and the baseline (395 tests pass in 10.8 minutes); binaries in Git LFS; servers that listen on this machine only; the test tiers (npm run check after a change: typecheck, dead code, Rust format and lints, unit tests; a Rust rules file edited and tested in 7 s; the TypeScript-against-Rust checks in 39 s without a browser); dead code out (knip and clippy guard it); the toon look retired for high, medium and low quality settings; the Admin menu (docs/admin.md: admins named in ADMIN_USERS reach Developer Tools, the developer zones and the developer pages, now built into dev/ and served to admins only; the developer commands no longer open to every player on beta); the /find-assets skill; the Rust code in one format, one copy of each rules helper, and a bug fixed in rebuilding everyone's solids after an island is started over. Finished on 2026-11-06 and 7 (the user's word: with the multi-server version, by as many sub-agents as needed, .plans/refactor/finish.md): nine workstreams in parallel (the server's tiers, the browser in a world of many regions, the offline game as the world or a copy, the wire for crowds, land and the ledger, borders, channels, the world on several servers, proof at scale), then the words (\"island\" out of the code and the saves' column), then an end pass here (every tier, the failovers across processes, inputs piled up behind a stall, the channels' settle, docs).",
       "files": [
         ".plans/refactor/README.md",
         ".plans/refactor/tracker.md",
@@ -1305,9 +1305,107 @@
         "src/dev/pages.ts",
         "src/ui/admin/adminMenu.ts"
       ]
+    },
+    {
+      "system": "tech",
+      "status": "done",
+      "title": "The server in tiers",
+      "notes": "ruina-server runs as a gate (connections, sign-in, each client's update), simulations (a thread for each region's channel and each instance's copy, found by its space), a store (Postgres, every write fenced by the character's epoch and the writing simulation's lease), a social tier (parties) and a directory (who plays where, which simulation plays what, leases), joined only by the messages of crates/world-api through one post. Global 64-bit ids. A sim's tick with 64 bots went from 1.71 ms to 0.27 ms, 1,024 bots from 45.3 to 5.3 ms (2.1 stepped all at once), and a slow simulation holds up nobody else.",
+      "files": [
+        "crates/world-api/src/lib.rs",
+        "crates/server/src/post.rs",
+        "crates/server/src/start.rs",
+        "crates/server/src/sim/host.rs",
+        "crates/server/src/directory/mod.rs"
+      ]
+    },
+    {
+      "system": "tech",
+      "status": "done",
+      "title": "The world on several servers",
+      "notes": "ruina-server runs every tier in one process (as Railway does) or a role per process: services (the store, social and the directory with its leases in Postgres), gates and sims, finding each other through the directory's tables and talking over TCP links (crates/link: once and in order across a cut, at least once across a restart, named MessagePack). New simulations go to the sim process with the fewest leases; a simulation that loses its lease stops at once and its players rejoin under the next epoch on another process; a lost channel is played again at once on a process that is there. npm run cluster starts services, two sims and a gate; npm run test:cluster kills and cuts off processes.",
+      "files": [
+        "crates/link/src/lib.rs",
+        "crates/server/src/cluster/leases.rs",
+        "crates/server/src/cluster/pg.rs",
+        "crates/server/tests/cluster.rs",
+        "tools/cluster/run.mjs"
+      ]
+    },
+    {
+      "system": "world",
+      "status": "done",
+      "title": "Borders between simulations",
+      "notes": "A region can be played in parts, each by a simulation owning its chunks: neighbours trade ghosts of what stands near the border (with the history lag compensation rewinds), hand a player over 28 m past it in two phases with an epoch (a vehicle with its passengers as one), send blows and heals across as events, and keep creatures leashed to their region. Traded in lockstep at the tick's barriers, Emberholm split two and four ways plays as one simulation to the bit (a golden test). Nothing is split in play yet: start_split turns it on.",
+      "files": [
+        "crates/engine/src/border/mod.rs",
+        "crates/engine/src/border/split.rs",
+        "crates/server/src/sim/border.rs",
+        "crates/engine/tests/golden/bordercheck.json"
+      ]
+    },
+    {
+      "system": "world",
+      "status": "done",
+      "title": "Channels that open and merge with the crowd",
+      "notes": "The directory places everyone by the channels policy (crates/channels): back where you were, your party's, then friends, guild and language once the social tier keeps them, then wherever there is room; a channel opens past the soft cap (1,000), a quiet one warns its players and moves them into another, and closes. Changing channel is refused with a pack, in a fight, riding, in the air, at a table or within the cooldown; a party invitation moves you to your leader's channel. The Channels window shows each channel's load.",
+      "files": [
+        "crates/channels/src/lib.rs",
+        "content/channels.json",
+        "src/ui/channels/channelsUI.ts",
+        "crates/server/src/directory/crowd.rs"
+      ]
+    },
+    {
+      "system": "housing",
+      "status": "done",
+      "title": "Land, plots and the ledger",
+      "notes": "What is built and planted (houses, farms, ships on slips, packs on the ground, parked vehicles) is land of its own, rows keyed by space and chunk, the same in every channel; a life keeps only its owner's own things and is saved a second after it changes. Each plot is claimed once in the world, first come; taxes fall due on the world's clock, and a house neglected 14 days is taken down (never while its owner plays). Trades, purchases, payouts and pots are idempotent ledger transfers; trading posts share one world market. Old saves moved into land rows as the server starts (tried on a copy of beta's database).",
+      "files": [
+        "crates/engine/src/life/land.rs",
+        "crates/server/src/store/land/mod.rs",
+        "crates/server/src/store/land/ledger.rs",
+        "crates/server/migrations/0010_land.sql"
+      ]
+    },
+    {
+      "system": "tech",
+      "status": "done",
+      "title": "The wire for crowds",
+      "notes": "Each simulation packs what others may see once a tick into the 32 m cell it stands in; the gate writes each client's update from the cells round it, nearest and most overdue first, as binary deltas against what the browser acknowledged, within 64 KB/s, entities by u16 handles. A tick with 64 bots is 1,443 B where the JSON was 43.5 KB; a slow connection gets only the newest tick; far players are drawn as crowd bodies.",
+      "files": [
+        "crates/wire/src/lib.rs",
+        "crates/server/src/gate/encode.rs",
+        "src/net/wire/decode.ts",
+        "crates/server/src/sim/publish.rs"
+      ]
+    },
+    {
+      "system": "world",
+      "status": "done",
+      "title": "A world of many regions in the browser",
+      "notes": "Regions grow by need and are dropped when nothing needs them, the same to the bit however they were grown; the page grows them in a Web Worker ahead of you and drops them behind, draws each where the world places it, and moves the scene's origin with you (a region 102 km out drawn as precisely as Emberholm). Assets load by region; the map has a World Map view; farms grow in their region's climate. A fixture world of three regions is crossed in the tests on foot, swimming, gliding and by cart.",
+      "files": [
+        "crates/engine/src/open/map.rs",
+        "crates/engine/src/open/fixture.rs",
+        "src/app/grower.worker.ts",
+        "src/engine/world/region.ts"
+      ]
+    },
+    {
+      "system": "tech",
+      "status": "done",
+      "title": "Proof at scale",
+      "notes": "A load harness (npm run loadtest: bots and virtual clients over the real WebSocket, each tick's rules and publishing timed apart, bytes, latency, CPU and memory) and the browser among 0-256 bots; the baseline before the tiers is kept (about 100-120 real players a server, the JSON updates the limit, not the rules).",
+      "files": [
+        "crates/tools/src/bin/loadtest.rs",
+        "tests/stress/battlefield.spec.ts",
+        ".plans/refactor/reports/scale-baseline.json"
+      ]
     }
   ],
   "next": [
+    "Several servers, next (.plans/refactor/end-pass.md): a split region's parts on separate processes with leases of their own and a late pace between them, a stopped part's chunks taken over, bots and effects across borders, a region's open channels kept in Postgres; whether beta runs as several Railway services (the user's call).",
     "Village, next: the townsfolk at work indoors (Quill behind his desk, an innkeeper at the bar) once quests and travel can lead you through doors; interior walls between rooms; jettied upper storeys, balconies and dormers from the kit; slate roofs; the lighthouse and windmill rebuilt from the kit; sitting on benches and lying in beds.",
     "Goblins, next (design/goblins.md): online at Thornwood (a band at the southern edge, the server placing it, missiles on the wire, a WORLD_PROTOCOL bump); then the grunt made with Meshy beside the best free goblin (bagatir, CC BY 4.0) for the user to pick; then the rest of the war-band (archer, shaman, hobgoblin, lookout, trapper, wolf rider, Chief Gristlecrown), the Split-Eye camp and its quests, with captives to rescue.",
     "Animation, next: other players drawn on our 60-a-second frame clock step in sixtieths above 60 fps; reins on the horse; keep the cape off a staff or bow on the back; a footrest for the hauler's driver; give the townsfolk (src/render/models/villagers.ts) the hero's gait.",
@@ -1683,6 +1781,18 @@
         "docs/architecture.md: the map of the pieces, a game online and offline, the client's areas and content's ids.",
         "Weapons, abilities and movement skills by id everywhere (R9.5): the skill tree, the levels, the tests and the balance harness, so their lists' orders can change freely.",
         "The multi-server part of Phase 10 is GitHub issue #4 (D20), a separate update to beta after the merge; the foundations still open (R10.21, R10.20, R10.17's ids, R10.14, R10.16, R10.11's rest) and the close-out come first, from .plans/refactor/progress.md's last entry."
+      ]
+    },
+    {
+      "date": "2026-11-07",
+      "title": "The refactor finished, with the world on several servers",
+      "summary": "Nine workstreams in parallel, each on a branch and worktree of its own, merged one by one into refactor/first with the checks green after each: the server in tiers, regions grown by need with the browser in a world of many regions, the offline game as the world or a copy of an instance, binary updates for crowds, land with plots and a ledger, borders between simulations, channels that open and merge, the world on several processes, and a load harness; then \"island\" renamed everywhere; then an end pass here.",
+      "points": [
+        "The server is a gate, simulations, a store, a social tier and a directory, joined by crates/world-api's messages, in one process or many (npm run cluster); a sim's tick with 1,024 bots went from 45.3 ms to 5.3 ms.",
+        "Updates are binary deltas within a byte budget: 1,443 B a tick with 64 bots where the JSON was 43.5 KB.",
+        "Land is rows of its own, the same in every channel; plots are claimed once in the world; trades and pots are ledger transfers. Beta's saves were tried on a copy of its database: every character came in whole.",
+        "A region split between simulations plays as one to the bit; channels open past 1,000 players and merge when quiet.",
+        "Found and fixed in the end pass: a stopped or cut-off sim process had its lost space placed straight back on it; inputs piled up behind a stall held a player back for minutes; channels could merge on half the picture after the directory started again."
       ]
     }
   ]
