@@ -124,6 +124,11 @@ test("a region's files are what its looks name, each one the catalogue's", () =>
   const ember = regionFiles(growRegionHere(EMBERHOLM).recipe);
   expect(ember).toEqual(expect.arrayContaining(['village/kit', 'village/props', 'models/windmill']));
   for (const id of ember) expect(ruleFor(id)?.zones, id).toContain('emberholm');
+  // A townsperson's made body, the file they wear (the first their look names), comes with them.
+  const recipe = growRegionHere(EMBERHOLM).recipe;
+  const npcs = recipe.npcs.map((n, i) => (i ? n : { ...n, look: { ...n.look!, model: { files: ['npc_worn', 'npc_spare'], h: 1.7 } } }));
+  expect(regionFiles({ ...recipe, npcs })).toContain('models/npc_worn');
+  expect(regionFiles({ ...recipe, npcs })).not.toContain('models/npc_spare');
   // Saltmere's lamps; Thornmarch has nothing made, only the trees and ground every region shares.
   expect(regionFiles(growRegionHere(SALTMERE).recipe)).toEqual(expect.arrayContaining(['models/lamp']));
   expect(regionFiles(growRegionHere(THORNMARCH).recipe)).toEqual([]);

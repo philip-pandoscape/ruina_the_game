@@ -412,12 +412,17 @@ function portraitOf(who: string): string | null {
     // with everything drawn your own head would fill the picture.
     const body = landView?.villager(who);
     if (body) {
-      body.traverse((c) => c.layers.enable(NPC_LAYER));
+      // Their face: a built townsperson's is about here; one in a made body says how high theirs is.
+      let face = 1.34;
+      body.traverse((c) => {
+        c.layers.enable(NPC_LAYER);
+        if (typeof c.userData.face === 'number') face = c.userData.face;
+      });
       stage.scene.traverse((c) => (c as THREE.Light).isLight && c.layers.enable(NPC_LAYER));
       const up = (v: THREE.Vector3, y: number) => v.clone().setY(v.y + y);
       const f = body.rotation.y; // they turn to face you while you talk
       const fwd = new THREE.Vector3(Math.sin(f), 0, Math.cos(f));
-      portraits.request(who, up(body.position, 1.42).addScaledVector(fwd, 1.9), up(body.position, 1.34), 128, 128, NPC_LAYER);
+      portraits.request(who, up(body.position, face + 0.08).addScaledVector(fwd, 1.9), up(body.position, face), 128, 128, NPC_LAYER);
     }
   }
   return shot?.url ?? null;

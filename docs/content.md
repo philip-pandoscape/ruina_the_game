@@ -219,7 +219,11 @@ A townsperson's look is the townsfolk's body built and dressed: their colours as
 `tails`, a `belt` or `null` for none, `hair`), their build (`w`, `d`, `h`, `arm`, `leg`: 1 is the
 hero's; `hunch`), hair `style`, `beard` and `blush`, how their arms `rest` and which are `free` to
 gesture, and an `outfit` by name, what they wear over it and hold (the `OUTFITS` of
-`src/render/models/villagers.ts`: the elder's staff, the grocer's basket).
+`src/render/models/villagers.ts`: the elder's staff, the grocer's basket). A made, rigged body
+(`model`: its `files`, the first the one worn, standing `h` metres tall, turned `yaw` first if its
+front isn't +Z) takes the built one's place once it has loaded, worn on the hero's rig
+(`src/render/detail/madeTownsfolk.ts`); its colours and build then only dress the stand-in.
+`?npcModel=<id>:<address>` tries one without shipping it.
 
 A creature's `species`, `palette`, `scale`, `clips` and `cycles` say most of what it looks like;
 its look adds `body: jelly`, the slimes' jelly over its species' skeleton, with what floats

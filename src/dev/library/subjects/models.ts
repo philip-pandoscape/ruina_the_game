@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { buildAnimal, restartIdles as restartAnimals, type AnimalModel } from '../../../render/models/animals';
-import { buildVillager, restartIdles as restartVillagers, type VillagerModel } from '../../../render/models/villagers';
+import { buildVillager, restartIdles as restartVillagers, villagerReady, type VillagerModel } from '../../../render/models/villagers';
 import { buildMount, type MountModel } from '../../../render/models/mounts';
 import { MOUNTS } from '../../../content/vehicles';
 import { ANIMALS } from '../../../content/farming';
@@ -255,6 +255,8 @@ function villagerSubject(id: string): Subject {
       { id: 'idle', label: 'Idle', group: 'Standing', frames: seconds * FPS, fps: FPS, loop: true, note: 'Breathing, looking about, now and then a gesture' },
       { id: 'talk', label: 'Talking', group: 'Standing', frames: seconds * FPS, fps: FPS, loop: true, note: 'While you talk to them' },
     ],
+    // One in a made body is filmed in it, not the built one standing in while it loads.
+    ready: () => villagerReady(id, npc?.look),
     take(animId: string): Take {
       const talking = animId === 'talk';
       return new ModelTake(
@@ -269,9 +271,11 @@ function villagerSubject(id: string): Subject {
       );
     },
     source: (): Source => ({
-      system:
-        'Built like the box hero from rounded blocks: five merged meshes on pivots (legs, body, head, armL, armR) and animate(dt, {time, talking}) in src/render/models/villagers.ts breathes, looks about and gestures, more when talking (easing in over a moment). Each one may add its own touches (a prop that moves).',
+      system: npc?.look?.model
+        ? `A made body (src/render/assets/models/${npc.look.model.files[0]}.glb) worn on the hero's rig, measured to it (src/render/detail/madeBody.ts, fit.ts): it stands as the hero stands at rest (poseHumanoid), and wearTownsperson's animate() in src/render/detail/madeTownsfolk.ts layers the townsfolk's own life on its joints - a sway, looking about, now and then a gesture, and talking with forearms raised (easing in over a moment). The built body (src/render/models/villagers.ts) stands in until it has loaded.`
+        : 'Built like the box hero from rounded blocks: five merged meshes on pivots (legs, body, head, armL, armR) and animate(dt, {time, talking}) in src/render/models/villagers.ts breathes, looks about and gestures, more when talking (easing in over a moment). Each one may add its own touches (a prop that moves).',
       files: [
+        ...(npc?.look?.model ? [{ path: 'src/render/detail/madeTownsfolk.ts', what: 'the made body posed and brought to life (wearTownsperson)' }] : []),
         { path: 'src/render/models/villagers.ts', what: `${npc?.name ?? id}'s build (const ${id}) and the shared animate() in villager()` },
         { path: 'shared/regions/emberholm.json', what: 'where they stand (npcs)' },
       ],

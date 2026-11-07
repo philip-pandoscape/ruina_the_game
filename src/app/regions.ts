@@ -20,8 +20,8 @@ export const GROW = 600;
 export const DROP = 900;
 
 /**
- * The files a region's drawing wants (by id: its made buildings', props' and village kit's), which
- * the asset catalogue names among the files regions use (src/assets/catalog.ts).
+ * The files a region's drawing wants (by id: its made buildings', props', townsfolk's and village
+ * kit's), which the asset catalogue names among the files regions use (src/assets/catalog.ts).
  */
 export function regionFiles(recipe: ZoneRecipe): string[] {
   const ids = new Set<string>();
@@ -37,6 +37,8 @@ export function regionFiles(recipe: ZoneRecipe): string[] {
     }
   }
   for (const p of recipe.props ?? []) made(propDef(p.id).look?.model?.files);
+  // Its townsfolk's made bodies (the first file each look names: the one they wear).
+  for (const n of recipe.npcs ?? []) made(n.look?.model?.files.slice(0, 1));
   return [...ids].sort();
 }
 

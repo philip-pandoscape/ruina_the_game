@@ -99,6 +99,9 @@ function standsOver(hf: Heightfield, geo: THREE.BufferGeometry, steps = 6): numb
   return top + 0.01;
 }
 
+/** How near you (metres) the townsfolk move: further off, nobody would see them breathe. */
+const TOWNSFOLK_MOVE_WITHIN = 60;
+
 export class LandView {
   readonly group = new THREE.Group();
   private vehicles = new Map<number, Shown>();
@@ -192,7 +195,7 @@ export class LandView {
       }
     // The townsfolk as their looks say (content/npcs/<id>.json `look`), standing at their posts.
     for (const n of this.others ? [] : life.zone.recipe.npcs) {
-      const m = models.buildVillager(n.id, n.look);
+      const m = models.buildVillager(n.id, n.look, n);
       const holder = new THREE.Group();
       holder.add(m.root);
       holder.position.set(n.x, hf.height(n.x, n.z), n.z);
@@ -658,10 +661,12 @@ export class LandView {
     }
     if (life.state.clock % 1 < dt) for (const n of this.nodes) if (n) n.root.visible = nodeReady(life, n.id);
 
-    // Townsfolk turn to face you when you come close, and gesture while you talk.
+    // Townsfolk turn to face you when you come close, and gesture while you talk; too far off to
+    // see them move, they stand as they are.
     const hp = this.hero.root.position;
     for (const v of this.villagers) {
       const d = Math.hypot(hp.x - v.x, hp.z - v.z);
+      if (d > TOWNSFOLK_MOVE_WITHIN) continue;
       const want = d < 6 ? Math.atan2(hp.x - v.x, hp.z - v.z) : v.facing;
       let diff = (want - v.holder.rotation.y) % (Math.PI * 2);
       if (diff > Math.PI) diff -= Math.PI * 2;

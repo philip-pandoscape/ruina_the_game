@@ -1,18 +1,17 @@
 import * as THREE from 'three';
 import { asset } from '../../assets/manifest';
-import { gltf, loadModel, model, track } from '../assets';
-import { toon } from '../toon';
+import { gltf, track } from '../assets';
 import type { RigDef } from '../../content/rig';
-import { HERO_RIG } from '../creatures/heroBody';
-import { fit, hull, type Fitted } from './fit';
+import type { Fitted } from './fit';
+import { madeBody } from './madeBody';
 import { bakeCycle, setMotion, type Move } from './mocap';
 import { bake, type Baked } from './retarget';
 import { HERO_MOVES, HERO_MOVE_SETS, type MoveClip } from './moves';
 import { madeWeapons, type MadeWeapons } from './madeWeapons';
 
 // The hero's body: a made, rigged model (src/render/assets/models/hero.glb, from Meshy) worn on the
-// hero rig, the rig measured to it (fit.ts). Fitted once; every hero wears the same one. Until it
-// has loaded, and for good if it can't, the box hero stands in.
+// hero rig, the rig measured to it (madeBody.ts, fit.ts). Fitted once; every hero wears the same
+// one. Until it has loaded, and for good if it can't, the box hero stands in.
 
 const HEIGHT = 1.78;
 
@@ -59,16 +58,13 @@ export function madeHero(): Promise<MadeHero | null> | null {
   const clips = !TRIED && WALK && RUN ? [track(gltf(WALK, FRONT)), track(gltf(RUN, FRONT))] : [];
   const files = TRIED ? [] : [...new Set(MOVES.map((x) => x.m.file))];
   const libraries = Promise.all(files.map((f) => (file(f) ? track(gltf(file(f)!, FRONT)) : undefined)));
-  const body = TRIED ? loadModel(TRIED) : model(BODY!, FRONT);
-  loading ??= Promise.all([track(body), madeWeapons(), libraries, ...clips]).then(([scene, made, loaded, walk, run]) => {
-    if (!scene) return null;
+  const height = Number(params?.get('heroHeight')) || HEIGHT;
+  const body = madeBody(TRIED ?? 'hero', height, 0, FRONT);
+  loading ??= Promise.all([body, madeWeapons(), libraries, ...clips]).then(([worn, made, loaded, walk, run]) => {
+    if (!worn) return null;
     const weapons = (made as MadeWeapons | null) ?? null;
-    const height = Number(params?.get('heroHeight')) || HEIGHT;
-    const fitted = fit(scene as THREE.Group, height, HERO_RIG);
-    // Shaded as the rest of the world is: the painted texture in its soft light.
-    const src = (Array.isArray(fitted.material) ? fitted.material[0] : fitted.material) as THREE.MeshStandardMaterial;
-    fitted.material = toon(0xffffff, { map: src.map ?? null });
-    const def: RigDef = { ...HERO_RIG, joints: fitted.joints, parts: hull(fitted.joints, fitted.feet.ankle), feet: fitted.feet, bow: weapons?.bow };
+    const { fitted } = worn;
+    const def: RigDef = { ...worn.def, bow: weapons?.bow };
     const w = walk as { scene: THREE.Group; animations: THREE.AnimationClip[] } | undefined;
     const r = run as { scene: THREE.Group; animations: THREE.AnimationClip[] } | undefined;
     // ?heroGait=box keeps the box hero's gait on the made body, to compare.
