@@ -336,3 +336,18 @@ forgets every process there before each playing test):
     keeping.
   - Parties (social's memory) have the same shape and are already noted by the tiers: a restart
     ends them.
+
+## 2026-11-06 23:30: wire merged in; where the second half ends for now
+
+- **512310e**, the merge of 19b2630 (wire): one conflict, the workspace's members (wire's crate
+  and the link). `TickOut` carries the wire's packed `frame` now, which the link carries as it is
+  (the gate's `Encoder` per connection builds each update from it). The link's measurements pack
+  their tick's players with `ruina_wire::pack`. Their numbers for a tick (first half: 28 KB,
+  measured on the structured records) are due again at the end, on the frame (`cargo test
+  --release -p ruina-link --test numbers -- --ignored --nocapture --test-threads=1`). The
+  Dockerfile's dependency layer lists `crates/wire` too.
+- **`npm run check`** on it: typecheck, biome, knip and the Rust lints pass; 291 TypeScript tests
+  (48 files) and 417 Rust tests pass (23 ignored: measurements, the 8 lease tests, the 6 cluster
+  tests).
+- Integration, cluster and failure runs, handoffs across processes and the docs wait as the
+  entries above say.
