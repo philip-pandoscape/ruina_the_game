@@ -99,3 +99,15 @@ pub fn spawn_heartbeat(db: PgPool, id: String, incarnation: i64) -> tokio::task:
         }
     })
 }
+
+/// A gate's id (world-api's GateId) on its process's row, so other processes can address it.
+pub async fn set_gate(db: &PgPool, id: &str, gate: i32) -> sqlx::Result<()> {
+    sqlx::query("UPDATE nodes SET gate = $2 WHERE id = $1").bind(id).bind(gate).execute(db).await?;
+    Ok(())
+}
+
+/// A new gate's id, unique across the processes on this database.
+pub async fn new_gate(db: &PgPool) -> sqlx::Result<i32> {
+    let n: i64 = sqlx::query_scalar("SELECT nextval('gate_ids')").fetch_one(db).await?;
+    Ok(n as i32)
+}

@@ -14,7 +14,7 @@ use std::time::Duration;
 
 use ruina_world_api::GateId;
 
-use crate::directory::leases::MemoryLeases;
+use crate::directory::leases::{Leases, MemoryLeases};
 use crate::directory::{COPY_KEPT, Directory, EXPEL_AFTER, Spawner};
 use crate::gate::Gate;
 use crate::post::Post;
@@ -46,9 +46,15 @@ pub fn start_with(db: Db, copy_kept: Duration, expel_after: Duration) -> Tiers {
 /// The services: the store, the social tier and the directory, which starts simulations through
 /// `sims` (on threads here, or wherever a world of several processes places them).
 pub fn services(post: &Arc<Post>, db: Db, sims: Arc<dyn Spawner>, copy_kept: Duration, expel_after: Duration) {
+    services_with(post, db, sims, MemoryLeases::default(), copy_kept, expel_after);
+}
+
+/// The same, the leases kept in `leases` (Postgres, where several processes share the world:
+/// crates/server/src/cluster).
+pub fn services_with<L: Leases>(post: &Arc<Post>, db: Db, sims: Arc<dyn Spawner>, leases: L, copy_kept: Duration, expel_after: Duration) {
     store::spawn(db.clone(), post.clone(), post.open_store());
     Social::new(post.clone()).spawn(post.open_social());
-    let mut directory = Directory::new(post.clone(), db, MemoryLeases::default(), sims);
+    let mut directory = Directory::new(post.clone(), db, leases, sims);
     directory.copy_kept = copy_kept;
     directory.expel_after = expel_after;
     directory.spawn(post.open_directory());

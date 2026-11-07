@@ -71,6 +71,10 @@ pub enum ToConn {
     Party { party: Option<PartyView> },
     /// An invitation waiting for their answer (None: there's none now).
     PartyInvite { invite: Option<InviteView> },
+    /// The simulation they played in is gone (its process stopped, or lost its lease): the
+    /// connection closes as a service restart, and the browser comes back in to where they were
+    /// last saved, wherever the directory now plays it.
+    Rejoin { text: String },
 }
 
 /// The directory's grant of a character to a connection.

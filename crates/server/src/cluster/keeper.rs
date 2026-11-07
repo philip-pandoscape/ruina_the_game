@@ -208,3 +208,49 @@ async fn keep(db: PgPool, lease: Lease, timing: Timing, shared: Arc<Shared>, tel
 async fn stopped(stop: &mut watch::Receiver<bool>) {
     let _ = stop.wait_for(|s| *s).await;
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::cluster::leases::Leased;
+
+    /// A database nobody answers at (a closed port on this machine): every renewal fails at once.
+    fn unreachable() -> PgPool {
+        sqlx::postgres::PgPoolOptions::new().acquire_timeout(Duration::from_millis(100)).connect_lazy("postgres://ruina:ruina@127.0.0.1:1/ruina").unwrap()
+    }
+
+    #[test]
+    fn a_lease_is_renewed_every_fifth_and_its_sim_stops_a_fifth_before_it_runs_out() {
+        let t = Timing::of(Duration::from_secs(10));
+        assert_eq!((t.renew_every, t.margin), (Duration::from_secs(2), Duration::from_secs(2)));
+        assert!(t.attempt < t.renew_every);
+        assert_eq!(Timing::default().ttl, Duration::from_secs(10));
+    }
+
+    #[tokio::test]
+    async fn a_keeper_that_cant_reach_the_directory_stops_its_sim_before_the_lease_runs_out() {
+        let timing = Timing::of(Duration::from_millis(1000));
+        let asked = Instant::now();
+        let lease = Lease { leased: Leased::space("copy:yard:1"), sim: 1, epoch: 4 };
+        let keeper = Keeper::start(unreachable(), lease, timing, asked);
+        assert!(keeper.holding());
+        assert!(matches!(*keeper.notes().borrow(), Kept::Holding { epoch: 4, .. }));
+        let why = tokio::time::timeout(Duration::from_secs(10), keeper.lost()).await.expect("it gives up");
+        let at = asked.elapsed();
+        assert_eq!(why, Lost::Unreachable);
+        assert!(!keeper.holding());
+        assert!(matches!(*keeper.notes().borrow(), Kept::Lost { epoch: 4, why: Lost::Unreachable }));
+        // At its deadline: the lease's length less the margin after it was asked for, never as late
+        // as the lease could run out.
+        assert!(at >= timing.ttl - timing.margin && at < timing.ttl, "stopped {at:?} after asking");
+    }
+
+    #[tokio::test]
+    async fn a_held_up_keeper_still_says_stop_at_its_deadline() {
+        // Asked for long ago (the grant was slow to reach this process): the deadline is already past.
+        let timing = Timing::of(Duration::from_millis(1000));
+        let asked = Instant::now() - Duration::from_millis(900);
+        let keeper = Keeper::start(unreachable(), Lease { leased: Leased::space("copy:yard:2"), sim: 2, epoch: 1 }, timing, asked);
+        assert!(!keeper.holding(), "read against the clock, whatever the keeper's task has done");
+    }
+}

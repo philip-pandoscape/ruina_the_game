@@ -144,6 +144,8 @@ impl<M: Carries> LinkPost<M> {
 
 struct SendBack(Message);
 
+/// The message comes back whole when it can't be queued: as big as it was.
+#[allow(clippy::result_large_err)]
 fn push<M: Carries>(link: &Link<M>, to: Address, msg: Message) -> Result<(), SendBack> {
     let wrapped = M::wrap(Envelope { to, msg });
     match link.push(&wrapped) {
@@ -159,6 +161,7 @@ impl<M: Carries> Transport for LinkPost<M> {
     /// Never waits: queued on the link to the process that takes `to` (`Link::push`), or parked
     /// until the book says where that is. Handed back if the message doesn't fit its address, or the
     /// link is full (the process there is far behind, or gone).
+    #[allow(clippy::result_large_err)]
     fn send(&self, to: Address, msg: Message) -> Result<(), Message> {
         if !msg.fits(to) {
             return Err(msg);

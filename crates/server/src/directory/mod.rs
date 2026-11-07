@@ -335,6 +335,10 @@ impl<L: Leases> Directory<L> {
             None => Vec::new(),
         };
         let lease = self.leases.grant(space, sim, chunks).await?;
+        // Played already: among several processes the directory may have started again while the
+        // simulation that has the space plays on. It's taken as it is, and nothing is started.
+        let adopted = lease.sim != sim;
+        let sim = lease.sim;
         let copy = match space {
             SpaceId::Copy { instance, .. } => {
                 let def = dungeon(instance).ok_or("There's no such place.")?;
@@ -345,8 +349,35 @@ impl<L: Leases> Directory<L> {
         };
         let setup = SimSetup { lease: lease.clone(), owner: copy.as_ref().map(|c| c.owner), expel_after: self.expel_after };
         self.spaces.insert(space.clone(), Running { lease, copy });
-        self.spawner.start(setup);
+        if !adopted {
+            self.spawner.start(setup);
+        }
         Ok(sim)
+    }
+
+    /// A space's simulation lost its lease (among several processes: its process stopped, or was cut
+    /// off from the directory's table). The space is let go here, so the next to need it starts it
+    /// anew, under the next epoch, on a process that's there; whoever played in it comes back in
+    /// (`Rejoin`), to their life as it was last written.
+    fn let_go(&mut self, space: &SpaceId, sim: SimId) {
+        if !self.spaces.get(space).is_some_and(|r| r.lease.sim == sim) {
+            return;
+        }
+        let r = self.spaces.remove(space).expect("there");
+        self.copies.retain(|_, s| s != space);
+        let inside: Vec<CharacterId> = self.last.iter().filter(|(_, s)| *s == space).map(|(c, _)| *c).collect();
+        for c in inside {
+            self.last.remove(&c);
+            self.pending.remove(&c);
+            if let Some(w) = self.who.get(&c) {
+                self.post.conn(w.conn, ToConn::Rejoin { text: "The place you were in moved to another server.".into() });
+            }
+        }
+        if let Some(c) = r.copy
+            && let Owner::Party(_) = c.owner
+        {
+            self.post.social(ToSocial::CopyClosed { owner: c.owner, space: space.clone() });
+        }
     }
 
     /// Whether someone belongs in a copy: it's their party's, theirs on their own, or everyone's.
@@ -451,6 +482,7 @@ impl<L: Leases> Directory<L> {
                 for lost in r.lost {
                     eprintln!("lost the lease on {} (epoch {}) to another holder", lost.space, lost.epoch.0);
                     self.post.sim(lost.sim, ToSim::Lease(ruina_world_api::sim::LeaseNote::Lost { epoch: lost.epoch }));
+                    self.let_go(&lost.space, lost.sim);
                 }
             }
             Err(e) => eprintln!("could not renew the leases: {e}"),

@@ -21,9 +21,8 @@
 //! --node <id> (NODE_ID; unique among the processes, else the role and a random number),
 //! --link <address:port> (LINK_LISTEN: where its links listen; 127.0.0.1 and any free port, or
 //! [::]:9000 with --listen all), --advertise <host:port> (LINK_ADVERTISE: where the others dial it;
-//! on Railway RAILWAY_PRIVATE_DOMAIN and the link's port), --spaces <a,b> (SPACES: what a sim stands
-//! for, as channel:emberholm:1), --lease-ms <ms> (LEASE_MS: a lease's length, 10000; renewed every
-//! fifth of it, a sim stopping a fifth before it runs out).
+//! on Railway RAILWAY_PRIVATE_DOMAIN and the link's port), --lease-ms <ms> (LEASE_MS: a lease's
+//! length, 10000; renewed every fifth of it, a simulation stopping a fifth before it runs out).
 
 use std::collections::HashMap;
 use std::hash::{BuildHasher, Hasher};
@@ -52,16 +51,11 @@ struct Args {
     node: Option<String>,
     link: Option<String>,
     advertise: Option<String>,
-    spaces: Vec<String>,
     lease_ms: Option<u64>,
 }
 
 fn env(name: &str) -> Option<String> {
     std::env::var(name).ok().filter(|v| !v.is_empty())
-}
-
-fn list(v: &str) -> Vec<String> {
-    v.split(',').map(str::trim).filter(|s| !s.is_empty()).map(String::from).collect()
 }
 
 fn parse_args() -> Args {
@@ -78,7 +72,6 @@ fn parse_args() -> Args {
         node: env("NODE_ID"),
         link: env("LINK_LISTEN"),
         advertise: env("LINK_ADVERTISE"),
-        spaces: env("SPACES").map(|s| list(&s)).unwrap_or_default(),
         lease_ms: env("LEASE_MS").map(|v| v.parse().expect("LEASE_MS needs a number")),
     };
     let argv: Vec<String> = std::env::args().collect();
@@ -91,7 +84,6 @@ fn parse_args() -> Args {
             "--node" => a.node = Some(v.clone()),
             "--link" => a.link = Some(v.clone()),
             "--advertise" => a.advertise = Some(v.clone()),
-            "--spaces" => a.spaces = list(v),
             "--lease-ms" => a.lease_ms = Some(v.parse().expect("--lease-ms needs a number")),
             "--listen" => {
                 a.everywhere = match v.as_str() {
@@ -135,7 +127,25 @@ fn run_role(args: Args) {
         });
         let lease = args.lease_ms.map_or_else(Timing::default, |ms| Timing::of(Duration::from_millis(ms)));
         println!("role: {} ({node}), the directory at the database", args.role);
-        roles::run(Options { role: args.role, node, link, advertise, spaces: args.spaces, lease, port: args.port, everywhere: args.everywhere }, db).await
+        let on_railway = std::env::var_os("RAILWAY_PROJECT_ID").is_some();
+        let dev_login = env("DEV_LOGIN").is_some_and(|v| v == "1") && !on_railway;
+        let secure_cookies = on_railway || env("COOKIE_SECURE").is_some_and(|v| v == "1");
+        let admin_users = http::admin_users(&std::env::var("ADMIN_USERS").unwrap_or_default());
+        stepping::set_parallel(args.parallel);
+        let options = Options {
+            role: args.role,
+            node,
+            link,
+            advertise,
+            lease,
+            port: args.port,
+            everywhere: args.everywhere,
+            dev_login,
+            admin_users,
+            secure_cookies,
+            static_dir: args.static_dir,
+        };
+        roles::run(options, db).await
     });
     if let Err(e) = result {
         eprintln!("server error: {e}");

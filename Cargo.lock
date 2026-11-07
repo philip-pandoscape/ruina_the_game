@@ -1318,6 +1318,7 @@ dependencies = [
  "socket2",
  "sqlx",
  "tokio",
+ "tokio-tungstenite",
  "tower",
  "tower-http",
 ]

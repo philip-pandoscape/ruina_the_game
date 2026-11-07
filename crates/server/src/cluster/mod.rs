@@ -1,31 +1,36 @@
-//! The world on several processes (`docs/architecture.md`, Where It's Going; `docs/deploys.md`,
-//! Several Processes). `ruina-server` plays every tier in one process by default (`--role all`, as
-//! Railway's beta does), or one role per process:
+//! The world on several processes (`docs/architecture.md`, Several Processes). `ruina-server` plays
+//! every tier in one process by default (`--role all`, as Railway's beta does), or one role per
+//! process, each with the tiers its role names:
 //!
-//! - **gate**: players' connections; finds the sims through the directory and keeps a link to each.
-//! - **sim**: plays spaces (a region's channel, an instance's copy), each under a lease with an
-//!   epoch; one that can't renew a lease stops playing that space before it runs out.
-//! - **services**: the directory's housekeeping (forgetting processes gone), and in time the store
-//!   and social tiers.
+//! - **services**: the store, social and the directory. The directory's leases are Postgres's
+//!   (`pg.rs`), it places each simulation on the sim process with the least to play (the instance
+//!   pool: region channels and instance copies alike), and every life written is fenced by its
+//!   writer's lease as well as by the character's epoch.
+//! - **gate**: players' connections, the account API and the game's files.
+//! - **sim**: the simulations the directory starts here, each renewing its own lease (`keeper.rs`)
+//!   and stopping when it's lost.
 //!
 //! Processes find each other through the directory's tables in Postgres (`nodes`: every process,
-//! its role and where its links take messages; `space_leases`: which sim plays what, under which
-//! epoch) and talk over links (`crates/link`).
-//!
-//! Today (the first half of the multi-server version) the roles are scaffolding: a sim plays a
-//! space as a stand-in (`roles.rs`: the world's ticks counted, a snapshot written under its fence
-//! every second, carried on by whoever takes the space over), and the processes say `Msg`s to each
-//! other, not yet the tiers' (world-api's) messages, which cross the links once the tiers do.
+//! its role, where its links take messages and a gate's id; `space_leases`: which simulation plays
+//! each space, in which process, under which epoch) and send each other the tiers' messages over
+//! links (`crates/link`; `process.rs`: the post's way to the rest of the world, and what arrives).
 //!
 //! - `leases.rs`: grants, renewals, owners, the fence every write passes, snapshots.
-//! - `keeper.rs`: a sim's lease keeper, stopping the sim before its lease runs out.
+//! - `keeper.rs`: a simulation's lease keeper, stopping it before its lease runs out.
 //! - `nodes.rs`: the processes, their heartbeats and their sweep.
-//! - `roles.rs`: what each role runs, and its status page (`/api/cluster`).
+//! - `pg.rs`: the directory's leases in Postgres, placement, starting simulations in other processes.
+//! - `process.rs`: one process among several: its links, the book of who takes which address, what
+//!   arrives, the simulations it hosts.
+//! - `roles.rs`: each role started, and its status page (`/api/cluster`).
+//! - `wire.rs`: what the links carry.
 
 pub mod keeper;
 pub mod leases;
 pub mod nodes;
+pub mod pg;
+pub mod process;
 pub mod roles;
+pub mod wire;
 
 use std::fmt;
 use std::str::FromStr;
@@ -75,36 +80,6 @@ impl FromStr for Role {
     }
 }
 
-/// What the processes say to each other on their links while the tiers still pass their messages
-/// in one process: who they are and what they play, and numbered messages the harness counts
-/// (`crates/server/tests/cluster.rs`). The tiers' messages (world-api's, `ruina_link::post`) cross
-/// the same links once the gate and the sims run apart.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub enum Msg {
-    /// What do you play? (a request, answered with `Here`)
-    Status,
-    Here(Status),
-    /// A numbered message on a stream, counted by its receiver.
-    Count {
-        stream: u64,
-        n: u64,
-    },
-    /// How many of a stream have you had, and were they in order? (a request, answered with
-    /// `Counted`)
-    Tally {
-        stream: u64,
-    },
-    Counted {
-        stream: u64,
-        received: u64,
-        in_order: bool,
-        last: u64,
-    },
-}
-
-/// The protocol the processes speak on their links today.
-pub const PROTOCOL: &str = "cluster/1";
-
 /// A process as it says it is.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -112,28 +87,37 @@ pub struct Status {
     pub node: String,
     pub role: Role,
     pub incarnation: u64,
-    /// What it plays (a sim), or has played since it started.
-    pub spaces: Vec<Playing>,
+    /// The simulations it plays (a sim's process), or has played since it started.
+    pub sims: Vec<Playing>,
     /// Messages its links delivered, and those that came again and were dropped.
     pub delivered: u64,
     pub duplicates: u64,
 }
 
-/// A space a sim plays, or played.
+/// A simulation a process plays, or played.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Playing {
     pub space: String,
-    pub part: i32,
-    pub sim: i64,
-    pub epoch: i64,
-    /// The world's tick it has played to.
-    pub tick: i64,
+    pub sim: u64,
+    pub epoch: u64,
     /// Whether it plays it now.
     pub holding: bool,
-    /// The snapshot it carried on from, if any: the epoch and tick it was written at.
-    pub resumed: Option<(i64, i64)>,
-    /// When it stopped (wall clock, ms), and why.
-    pub stopped_at: Option<i64>,
+    /// Why it stopped.
     pub why: Option<String>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_role_is_named_as_it_is_asked_for() {
+        for role in [Role::All, Role::Gate, Role::Sim, Role::Services] {
+            assert_eq!(role.name().parse::<Role>(), Ok(role));
+            assert_eq!(role.to_string(), role.name());
+        }
+        assert_eq!(Role::default(), Role::All, "one process plays everything unless asked");
+        assert!("world".parse::<Role>().is_err());
+    }
 }

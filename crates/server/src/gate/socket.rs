@@ -479,6 +479,13 @@ async fn deliver(tx: &mut Tx, seat: &mut Seat, e: Event, admin: bool) -> Result<
             }
         }
         Event::Msg(ToConn::Kicked) => return replaced(tx).await.map(Some),
+        // Their simulation is gone (another process plays the space now): ridden out as a deploy
+        // is, the browser coming back in to where they were last saved.
+        Event::Msg(ToConn::Rejoin { .. }) => {
+            let mut told = false;
+            stopping(tx, Stage::Updating, &mut told).await?;
+            return stopping(tx, Stage::Closing, &mut told).await;
+        }
         Event::Msg(m) => {
             if let ToConn::Moved { sim, .. } = &m {
                 seat.sim = Some(*sim);
