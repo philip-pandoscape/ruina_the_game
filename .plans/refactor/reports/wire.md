@@ -105,3 +105,30 @@ skipping the middle and far tiers' work on ticks none of them is due, and spread
 the gate's threads (each Viewer is independent; the Frame is shared read-only).
 
 **Next:** the feed's adapter, then far peers as crowd bodies.
+
+## 2026-11-06 21:55: The Feed's Adapter, and Far Peers as Crowd Bodies
+
+**Landed:**
+- b72af2a, the feed through one adapter: `src/net/feedTick.ts` is all the feed takes from a tick (players
+  and creatures with a fresh state, those in sight that weren't refreshed, arrows and meteors each as
+  of its own tick, effects); `feedFromJson` makes one from today's JSON tick, `WireFeed`
+  (`src/net/wire/feed.ts`) from the wire's updates. WorldPeers and the actor timeline now take
+  entities refreshed at their own rates (a timeline per creature; someone further off drawn further
+  behind; as still as they were until just before a quiet spell ends); an arrow says if it's yours and
+  the tick it flies on from. Unit tests play the golden scenes into the feed (a fifth scene added: a
+  cart whose owner is away).
+- e82b13d, far peers as crowd bodies: past 42 m someone is drawn by the crowd renderer (one instanced
+  draw), within 38 m a hero again, a 0.35 s dithered crossfade between (the crowd's own fade, the
+  hero's alpha hash); riders and those at a table stay heroes; far heroes aren't posed.
+  `tests/integration/crowd-bodies.spec.ts` (an admin's wanderers seen from 70 m, then from among them)
+  passes; pictures in `scratch/look-*.png` looked right (on the ground, their sides' colours,
+  mid-stride; mid-fade both show).
+
+**Ran:** the unit tier (276 tests) green; integration against my rig (PW_WORKERS=3): online,
+online-combat, yard, battlefield, party and crowd-bodies, all passing but `yard.spec.ts:67`, which
+fails on `refactor/first` too: it counts the yard's spawn entries (2) where c4904b1 gave one of them
+`count: 5` (the server spawns 6). `online-combat.spec.ts:29` failed once beside other suites and
+passes alone (its smoothness check is timing-bound).
+
+**Next:** the link ready for binary updates (dormant until the server sends them), the docs, then
+merge `refactor/first` and the first half's final checks.
