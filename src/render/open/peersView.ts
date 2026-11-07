@@ -44,6 +44,8 @@ interface Body {
   hero: Hero;
   view: LifeView;
   label: THREE.Sprite;
+  /** The name on it (someone first heard of through their things, out of sight, has none yet). */
+  labelName: string;
   /** The side their colours show (0 until a developer zone puts them on another). */
   team: number;
   /** 0 drawn as a hero up close, 1 as a crowd body; between, fading from one to the other. */
@@ -139,9 +141,21 @@ export class PeersView {
     const label = nameTag(p.name);
     label.position.set(0, 2.45, 0);
     hero.root.add(label);
-    b = { hero, view, label, team: 0, crowd: 0, inCrowd: false, far: false, faded: false, clipTime: 0 };
+    b = { hero, view, label, labelName: p.name, team: 0, crowd: 0, inCrowd: false, far: false, faded: false, clipTime: 0 };
     this.bodies.set(p.id, b);
     return b;
+  }
+
+  /** A name plate made again for a name heard since. */
+  private rename(b: Body, name: string): void {
+    const label = nameTag(name);
+    label.position.copy(b.label.position);
+    b.hero.root.remove(b.label);
+    (b.label.material as THREE.SpriteMaterial).map?.dispose();
+    b.label.material.dispose();
+    b.hero.root.add(label);
+    b.label = label;
+    b.labelName = name;
   }
 
   /** How someone is drawn right now (tests): as a hero, a crowd body, both (fading) or not at all, and how far toward the crowd body. */
@@ -180,6 +194,7 @@ export class PeersView {
       b.inCrowd = p.drawn && b.crowd > 0;
       if (b.inCrowd) this.crowdBody(n++, p, b, dt);
       b.view.update(p.shown, dt, cameraPos);
+      if (p.name !== b.labelName) this.rename(b, p.name);
       plateFor(b.label, p.away);
     }
     this.crowded = n;
