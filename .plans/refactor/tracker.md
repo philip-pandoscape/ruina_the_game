@@ -1393,9 +1393,15 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
   Done: the memory notes on this machine (paths, ports, commands, the refactor merged).
 - [x] **R13.7** Close-out: the plan's goals checked one by one with numbers against the baseline.
   Done: the goals checked one by one in progress.md's last entry.
-- [ ] **R13.8** The merge: `beta` merged into the branch; every tier green (unit, integration, stress);
+- [x] **R13.8** The merge: `beta` merged into the branch; every tier green (unit, integration, stress);
   merged into `beta` and pushed; `ADMIN_USERS=philip` on Railway beta; CI and the deploy watched; the
   feature marked done in the design bible; the last progress entry.
+  Done (2026-11-07): `beta`'s one new commit merged into the branch (24c6a30), every tier green on
+  the final code, then merged into `beta` as one commit (0ad62c3) and pushed; CI passed (server, client,
+  game tests) and deployed; beta's server took up its database as the copy had (builds kept by id, 9
+  saves' land moved into rows) and its title screen loads with no error. **(you)** `ADMIN_USERS=philip`
+  on Railway's beta: the permission check refused to let the orchestrator set it (it grants admin
+  rights), so until it is set nobody is an admin there.
 
 ## Every Phase Ends With
 
@@ -1510,3 +1516,5 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
 | 2026-11-06 | R6.0b | The server's word on you, solid things and the test API's writes as calls; the island online | 89ace09, 9a319e4 |
 | 2026-11-06 | R6.4 | The bridge is the one way to the rules | 56ad5ee |
 | 2026-11-06 | R9.5 | The skill tree by id ticked (merged in 5d25daa); the finishing plan with the multi-server version, `finish.md` | (this commit) |
+
+| 2026-11-07 | R13.8 | The refactor merged into beta (0ad62c3) and deployed; the tracker closed | (this commit) |

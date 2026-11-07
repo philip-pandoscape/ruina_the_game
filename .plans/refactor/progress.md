@@ -22,7 +22,7 @@ is in [tracker.md](tracker.md), the plan in [README.md](README.md).
 | 10 One World: Regions, Channels, Instances and Bots | done, with the multi-server version (D21): the server in tiers in one process or several, regions grown by need and the browser in a world of many regions, borders between simulations (in one process; across processes the late pace and the parts' own leases are left), channels, land and the ledger, the wire for crowds, proof at scale; the known gaps in end-pass.md |
 | 11 Assets | done; the browser's download work dropped (D15) |
 | 12 The Design Bible as a Knowledge Base | done |
-| 13 AGENTS.md, the Docs and the Merge | done but the merge into beta, which follows the last checks |
+| 13 AGENTS.md, the Docs and the Merge | done: merged into beta (0ad62c3) and deployed on 2026-11-07 |
 
 ## 2026-11-05: The Survey and the Review
 
@@ -791,3 +791,8 @@ the late pace between them, a stopped part's chunks taken over), bots and effect
 each region's open channels kept in Postgres, combat heights and village rooms in regions other
 than Emberholm, the browser's session naming Emberholm. Nothing of these is in play on beta, which
 runs one process with one region. Whether beta runs as several Railway services is the user's call.
+
+**On beta** (2026-11-07): merged as one commit (0ad62c3), CI green, deployed; beta's server took up
+its database as the copy had ("kept 2 builds by id", "moved 9 saves' land into rows"), and its title
+screen loads with no error. Left for the user: `ADMIN_USERS=philip` on Railway's beta (until then
+nobody is an admin there, and the developer commands answer no one).
