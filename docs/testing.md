@@ -124,8 +124,10 @@ clients. For each point of a plan it starts the server afresh, signs its clients
 sign-in (`load0000`, `load0001`...) and has each send an input 60 times a second over the real
 WebSocket and read every update. In the battlefield the first client fills it with bots, a group at
 a time over both halves; in channels each client plays in its home channel. It measures:
-- every tick, the rules and the updates apart (the admins' stats carry them), and the world thread's
-  time over all its games;
+- every tick of every simulation, its rules and its publishing apart (the admins' stats carry them:
+  world-api's `Stats`, `ticks`), and their time together over all the games; the gate encodes each
+  client's update outside the tick, so its cost shows in the server's CPU and the time from an input
+  to its update;
 - the bytes each client receives a second, each update's size and the peers in it;
 - the time from an input to the update that acknowledges it, and the gaps between updates;
 - the server's CPU and memory, the machine's load before and during, and the harness's own CPU.

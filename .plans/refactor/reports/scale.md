@@ -18,14 +18,24 @@ the state of things.
 | Commit | What |
 |---|---|
 | 419697c | Measurement hooks in the world server, cheap when unused: `--max-bots` / `MAX_BOTS` (the most bots a game holds; 64, the developer panel's limit, unless a load test asks for more), and the admins' stats carry every tick since the last as its rules and its updates timed apart (`ticks: [[ms, ms], ...]`) |
-| 5d9b4f1, a637561, f486cb4 | The load harness, `crates/tools/src/bin/loadtest.rs`, `npm run loadtest` |
+| 5d9b4f1, a637561, f486cb4, 7e63559 | The load harness, `crates/tools/src/bin/loadtest.rs`, `npm run loadtest` (7e63559: it finds its arena in the content, R9.12's rule) |
 | ed647bb | The browser among a crowd: `tests/stress/battlefield.spec.ts` reworked |
 | bcb494f | `docs/testing.md`, Measuring at Scale; the tick bench at any size (`RUINA_TICK_BENCH`) |
-| with this report | The baseline: `scale-baseline.json` beside this file, explained below |
+| 4eed827 | The baseline: `scale-baseline.json` beside this file, explained below |
+| ae14999 | `refactor/first` merged with the server on its tiers; the hooks moved with it (below) |
 
-The edits in `crates/server` are small and local (`main.rs`, `play/bots.rs`, `play/mod.rs`'s
-`step` and `send_tick`), and the battle's golden hash is unchanged. Tiers has moved `play/` to
-`sim/`: the hooks move with it (see For Other Workstreams).
+The edits in `crates/server` are small and local, and the battle's golden hash is unchanged. On
+the tiers (ae14999) they are: `sim/bots.rs` (`set_bot_limit`, offered as `sim::set_bot_limit`),
+`sim/mod.rs`'s `step` (the rules and the publishing timed apart), `sim/publish.rs` (the stats carry
+them), `crates/world-api`'s `Stats` (`ticks`, skipped when empty; `Clone` now, not `Copy`) and the
+gate's `encode.rs` (clones the stats for each admin), and `main.rs` (`--max-bots`).
+
+**After the tiers the stats mean something else.** The baseline's tick was the rules plus building
+every client's JSON; on the tiers a simulation's tick is the rules plus publishing its records, and
+the gate encodes each client's update outside it. 64 skirmishers with one client on the tiers: a
+0.37 ms tick (rules 0.35, publishing 0.02) where the baseline had 2.48, the same 43.4 KB an update
+and 868 KB/s, inputs answered in 32 ms. Compare the tiers' ticks with the baseline's rules column,
+and the whole server with its CPU, bytes and the time from an input to its update.
 
 ### The Harness
 
@@ -216,9 +226,9 @@ whatever their size, so at 2,048 bots the server held 426 MB, at 4,000 wanderers
   (2) A connection's outbox is bounded by count (256), not bytes: a slow client held 426 MB at
   2,048 bots. (3) A player runs 61 inputs a second for 60 sent, so a backlog drains at one input a
   second. (4) `bot_name` is a linear search for each bot each tick (quadratic in `send_tick`).
-  (5) Please keep the two hooks through the move: `set_bot_limit` with `--max-bots`/`MAX_BOTS`, and
-  the stats' `ticks` (each tick's rules and updates apart; after the split, the sim's tick and the
-  gate's encoding apart), which the harness reads.
+  (5) The two hooks moved with the merge (ae14999): keep `set_bot_limit` with `--max-bots` /
+  `MAX_BOTS`, and `Stats.ticks`, which the harness reads; the gate's encoding time is the next to
+  time apart.
 - **wire.** The harness reads today's JSON; it will read the binary updates through `crates/wire`'s
   decoder. It needs the acknowledged input (to time input to update) and the admins' stats, in
   whatever form.
@@ -336,3 +346,19 @@ bench at 64 to 4,000 bots, the numbers into this report and `scale-baseline.json
   100-120 real players in the whole server (its one world thread).
 
 Next: merge `refactor/first`, `npm run check`, and the first half's final word.
+
+## 2026-11-06 22:30: Merged with the tiers; the first half done
+
+- **7e63559** the harness finds its arena in the content (`tests/unit/contentIds.test.ts` had caught
+  the battlefield's id in it): the one developer zone everyone shares with bots on both sides, its
+  player limit, size and name read from its file; the layout and the keys unchanged.
+- **ae14999** merged `refactor/first` at 9cbe98f, the server on its tiers. Conflicts in `main.rs`,
+  `sim/mod.rs` (the tiers' `publish` in place of `send_tick`) and the stress spec's header; the
+  hooks ported (above, What Landed). The harness runs against the tiered server unchanged: same
+  bytes, a much shorter sim tick (the gate encodes the JSON now).
+- `npm run check` passes on ae14999 with the docs pass on top: typecheck, Biome, knip, rustfmt,
+  clippy, 263 TypeScript tests and the Rust workspace's. The stress spec passed earlier (ed647bb);
+  no long runs since, at the orchestrator's word.
+- The first half is done. Left for the second half (The Second Half, above): the harness on the
+  wire's binary updates and the gate's encoding timed, thousands of bots and clients at scale on
+  the tiers, crossing, crowding channels open, several processes, and the failure tests under load.
