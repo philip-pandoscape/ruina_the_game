@@ -287,7 +287,7 @@ pub unsafe extern "C" fn session_adopt_region(
     }
     let read = |p: *const u8, n: usize| unsafe { std::slice::from_raw_parts(p, n) }.to_vec();
     // The floats as the page wrote them, byte by byte (the room `alloc` gives is bytes, not floats).
-    let floats = |p: *const u8, n: usize| read(p, n * 4).chunks_exact(4).map(|b| f32::from_le_bytes([b[0], b[1], b[2], b[3]])).collect::<Vec<f32>>();
+    let floats = |p: *const u8, n: usize| read(p, n * 4).as_chunks::<4>().0.iter().map(|b| f32::from_le_bytes(*b)).collect::<Vec<f32>>();
     let Some(r) = world_map().regions().get(place as usize) else { return 0 };
     let Ok(solids) = serde_json::from_str::<Solids>(unsafe { text(jp, jn) }) else { return 0 };
     let t = &r.recipe().terrain;
