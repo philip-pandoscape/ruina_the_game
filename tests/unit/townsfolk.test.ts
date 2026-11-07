@@ -76,7 +76,13 @@ function aPosedBody(): THREE.Group {
   }
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-  geo.setAttribute('normal', new THREE.Float32BufferAttribute(pos.map(() => 0).map((_, i) => (i % 3 === 1 ? 1 : 0)), 3));
+  geo.setAttribute(
+    'normal',
+    new THREE.Float32BufferAttribute(
+      pos.map(() => 0).map((_, i) => (i % 3 === 1 ? 1 : 0)),
+      3,
+    ),
+  );
   geo.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(idx, 4));
   geo.setAttribute('skinWeight', new THREE.Float32BufferAttribute(wts, 4));
   const mesh = new THREE.SkinnedMesh(geo, new THREE.MeshStandardMaterial());

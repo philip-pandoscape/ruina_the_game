@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { pose } from '../../content/pose';
 import { clamp } from '../../util/math';
+import { Body } from './body';
 import { gripHands, wear, type Grip } from './fit';
 import { poseHumanoid } from './humanoid';
 import type { WornBody } from './madeBody';
@@ -43,6 +44,14 @@ function turn(rig: DetailRig, joint: string, x: number, y: number, z: number): v
   if (rig.has(joint)) rig.joint(joint).quaternion.multiply(_q.setFromEuler(_e.set(x, y, z)));
 }
 
+const _tq = new THREE.Quaternion();
+const _hand = new THREE.Vector3();
+const _at = new THREE.Vector3();
+const _pole = new THREE.Vector3();
+/** The body's pose buffers these use (the hero's poses use the low ones). */
+const HANG = 20;
+const REACH = 21;
+
 /** Hands loosely curled, as the hero's are standing. */
 const RELAXED: Record<'L' | 'R', Grip> = { L: { amount: 0.18 }, R: { amount: 0.18 } };
 
@@ -60,6 +69,9 @@ export function wearTownsperson(body: WornBody, stance: TownsfolkStance = {}): M
     mesh.frustumCulled = true;
   }
   const top = body.fitted.geometry.boundingBox?.max.y ?? 1.78;
+  // How big they are beside the hero, for where their hands go.
+  const size = top / 1.78;
+  const b = Body.of(rig);
   // At rest, with whatever the hero carries put away (it never shows: the rig's weapons stay hidden).
   const input = pose({ stow: 1 });
   const free = new Set(stance.free ?? ['l', 'r']);
@@ -83,21 +95,41 @@ export function wearTownsperson(body: WornBody, stance: TownsfolkStance = {}): M
       const tilt = Math.sin(t * 0.53) * 0.04 * (1 - talk) + talk * 0.05 * Math.sin(t * 1.1);
       turn(rig, 'neck', nod * 0.4, look * 0.4, tilt * 0.4);
       turn(rig, 'head', nod * 0.6, look * 0.6, tilt * 0.6);
-      // Now and then a hand comes up as if to make a point; talking, both do, forearms raised.
+      // Now and then a hand comes up as if to make a point; talking, both do, forearms raised: each
+      // hand reaches for a point before the belly (the torso's own frame, so a stoop takes it with
+      // it), elbows down and out, and the arm goes there from hanging as far as the gesture is on.
       const idle = inside(t % 9, 6.2, 7.4, 0.5);
       for (const [side, phase] of [
         ['L', 0],
         ['R', 2.1],
       ] as const) {
-        const out = side === 'L' ? 1 : -1;
+        const k = side === 'L' ? 1 : -1;
         if (!free.has(side === 'L' ? 'l' : 'r')) {
           turn(rig, `arm${side}`, Math.sin(t * 1.7) * 0.015, 0, 0);
           continue;
         }
-        const lift = idle * (side === 'L' ? 0.3 : 0.4) + talk * (0.5 + 0.35 * Math.sin(t * 2.3 + phase));
-        const spread = 0.08 * idle + talk * (0.18 + 0.14 * Math.sin(t * 1.7 + phase));
-        turn(rig, `arm${side}`, -lift * 0.45, 0, out * spread * 0.6);
-        turn(rig, `elbow${side}`, -lift * 1.5, 0, 0);
+        const on = Math.max(idle * (side === 'L' ? 0.3 : 0.4), talk * (0.75 + 0.25 * Math.sin(t * 2.3 + phase)));
+        if (on < 0.01) continue;
+        const hang = b.save(b.buf(HANG));
+        b.quaternionOf(b.torso, _tq);
+        b.toModel(
+          b.torso,
+          _hand.set(
+            k * (0.17 + 0.04 * Math.sin(t * 1.7 + phase)),
+            (0.1 + 0.07 * Math.sin(t * 2.3 + phase)) * size,
+            (0.3 + 0.04 * Math.sin(t * 1.1 + phase)) * size,
+          ),
+          _at,
+        );
+        b.handTo(
+          side,
+          _at,
+          _pole
+            .set(k * 0.55, -0.6, -0.5)
+            .normalize()
+            .applyQuaternion(_tq),
+        );
+        b.mix(hang, b.save(b.buf(REACH)), on);
       }
       gripHands(rig, body.fitted.fist, RELAXED);
     },
