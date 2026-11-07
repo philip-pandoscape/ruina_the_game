@@ -1,11 +1,11 @@
 import * as THREE from 'three';
 import { type PlayerState, angleDiff } from '../engine/rules';
-import { ABILITIES, COMBAT, comboShape, JUMP, MOVE, MOVEMENT_SKILLS, NO_ABILITY, STEP } from '../content/tuning';
+import { ABILITIES, COMBAT, comboShape, JUMP, MOVE, MOVEMENT_SKILLS, NO_ABILITY, STEP, weaponId } from '../content/tuning';
 import { DetailRig } from './detail/rig';
 import { Body, SIDES, type Side } from './detail/body';
 import { Inertia } from './detail/blend';
 import { directional, dutyFactor, strideLength } from './detail/gait';
-import { HERO_BOW, HERO_RIG, HERO_TEAM_COLOURS, HERO_TRAIL_EDGES, HERO_WEAPONS } from './creatures/heroBody';
+import { HERO_BOW, HERO_RIG, HERO_TEAM_COLOURS, HERO_TRAIL_EDGES } from './creatures/heroBody';
 import { SlashArc } from './vfx';
 import { poseHumanoid, settle, strokeRate } from './detail/humanoid';
 import { swingFor } from './detail/swings';
@@ -128,7 +128,7 @@ export function traceSwing(p: PoseInput, def: RigDef = HERO_RIG): Edges | null {
   const key = swingKey(p);
   if (traced.has(key)) return traced.get(key)!;
   const step = p.step!;
-  const edge = HERO_TRAIL_EDGES[HERO_WEAPONS[p.weapon] ?? ''];
+  const edge = HERO_TRAIL_EDGES[weaponId(p.weapon)];
   let edges: Edges | null = null;
   if (edge) {
     const hand = tracer.joint('handR');
@@ -353,10 +353,10 @@ export class Hero {
     this.rig.recolour('cape', c.cape);
   }
 
-  // 0 sword, 1 club, 2 staff, 3 bow.
+  /** The weapon in hand, by its place in WEAPONS: the attachment named for its id is the one shown. */
   setWeapon(weapon: number): void {
     this.weaponShown = weapon;
-    this.rig.showAttachment(this.weaponAt === 'hidden' ? null : (HERO_WEAPONS[weapon] ?? null));
+    this.rig.showAttachment(this.weaponAt === 'hidden' ? null : weaponId(weapon) || null);
   }
 
   /** Where the vehicle's holds are this frame, in the body's model space, for the seated poses. */
@@ -390,8 +390,10 @@ export class Hero {
   /** Puts the weapons in the hand, where they are put away on the body (stow.ts), or out of sight. */
   private place(at: WeaponAt): void {
     this.weaponAt = at;
-    this.rig.showAttachment(at === 'hidden' ? null : (HERO_WEAPONS[this.weaponShown] ?? null));
-    for (const name of HERO_WEAPONS) {
+    this.rig.showAttachment(at === 'hidden' ? null : weaponId(this.weaponShown) || null);
+    // The weapons are the attachments shown one at a time (the nocked arrow comes and goes with the bow).
+    for (const [name, a] of Object.entries(this.rig.def.attachments ?? {})) {
+      if (!a.exclusive) continue;
       const g = this.rig.attachment(name);
       const s = at === 'away' ? stowedFor(this.rig.def)[name] : undefined;
       if (s) {
@@ -399,7 +401,7 @@ export class Hero {
         g.position.set(...s.at);
         stowedTurn(s, g.quaternion);
       } else {
-        this.rig.joint(HERO_RIG.attachments?.[name]?.joint ?? 'handR').add(g);
+        this.rig.joint(a.joint).add(g);
         g.position.set(0, 0, 0);
         g.quaternion.identity();
       }
@@ -612,13 +614,12 @@ export class Hero {
    * pinching the string drawing a bow, and otherwise loosely curled.
    */
   private grips(input: PoseInput): Record<Side, Grip> {
-    const inHand = this.weaponAt === 'hand';
-    const w = this.weaponShown;
+    const held = this.weaponAt === 'hand' ? weaponId(this.weaponShown) : '';
     const travelling = !!input.travel;
     // Loosely curled standing, a loose fist on the run.
     const relaxed = travelling ? 1 : 0.18 + 0.32 * Math.min(1, Math.max(0, input.run));
-    const blade = inHand && w >= 0 && w <= 2 ? this.rig.attachment(HERO_WEAPONS[w]) : null;
-    const bow = inHand && w === 3;
+    const bow = held === 'bow';
+    const blade = !bow && this.rig.def.attachments?.[held]?.joint === 'handR' ? this.rig.attachment(held) : null;
     return {
       R: blade ? { amount: 1, axis: GRIP_DOWN, held: [blade] } : { amount: bow ? 0.6 : relaxed },
       L: bow ? { amount: 1, axis: GRIP_ALONG, held: [this.rig.attachment('bow'), this.nockedArrow] } : { amount: relaxed },
@@ -744,7 +745,7 @@ export class Hero {
       arc?.set(fb.trail.head, fb.trail.tail, fb.trail.alpha);
     }
     this.nockedArrow.visible = fb.arrow;
-    if (input.weapon === 3) this.bowstring(fb);
+    if (weaponId(input.weapon) === 'bow') this.bowstring(fb);
   }
 
   /** The string follows the drawing hand back, and the nocked arrow lies along it to the grip. */

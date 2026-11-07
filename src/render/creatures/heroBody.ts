@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { comboShape } from '../../content/tuning';
+import { comboShape, weaponIndex } from '../../content/tuning';
 import { MAT } from './species';
 import type { ClipDriver } from '../../content/pose';
 import type { BowString, PartDef, RigDef } from '../../content/rig';
@@ -186,15 +186,19 @@ export const HERO_RIG: RigDef = {
   },
 };
 
-/** Where along each weapon its trail is drawn, in the hand's space: from near the grip to the tip. */
+/**
+ * Where along each weapon its trail is drawn, in the hand's space: from near the grip to the tip.
+ * Weapons, like the attachments that draw them, go by the weapon's id (weaponId in
+ * src/content/tuning.ts gives a weapon's from its place in the list).
+ */
 export const HERO_TRAIL_EDGES: Record<string, { inner: readonly [number, number, number]; outer: readonly [number, number, number] }> = {
   sword: { inner: [0, -0.32, 0], outer: [0, -1.12, 0] },
   club: { inner: [0, -0.26, 0], outer: [0, -0.68, 0] },
   staff: { inner: [0, -0.7, 0], outer: [0, -1.28, 0] },
 };
 
-/** Weapon index (as the rules number them) to the attachment that draws it. */
-export const HERO_WEAPONS = ['sword', 'club', 'staff', 'bow'] as const;
+/** The weapon the hero carries at crowd range (builtin/hero.ts), by id: its clips hold it and swing it. */
+export const CROWD_WEAPON = 'sword';
 
 /** Team colours: blue tunic with a red cape, or red tunic with a dark one. */
 export const HERO_TEAM_COLOURS = [
@@ -213,21 +217,24 @@ export const HERO_SLOTS: Record<string, number> = {
 // The crowd's animations, as points along the same poses the close-up renderer uses. These are
 // drivers, not a second set of animations: each one says what the hero is doing at a moment, and
 // the baker runs the real pose code to find out what that looks like.
-const SWORD_COMBO = comboShape(0, 0);
+const HELD = weaponIndex(CROWD_WEAPON);
+const COMBO = comboShape(HELD, 0);
 
-export const HERO_CLIPS: ClipDriver[] = [
+const CLIPS: ClipDriver[] = [
   // One breath (the idle breathes at 2.2 rad/s), so the loop meets itself.
   { name: 'idle', frames: 86, at: (t) => ({ time: t * ((Math.PI * 2) / 2.2) }) },
   { name: 'walk', frames: 40, at: (t) => ({ run: 0.43, speed: 0.43, phase: t * TAU }) },
   { name: 'run', frames: 26, at: (t) => ({ run: 1, speed: 1, phase: t * TAU }) },
   { name: 'sprint', frames: 24, at: (t) => ({ run: 1.4, speed: 1.4, phase: t * TAU }) },
-  ...SWORD_COMBO.map((step, i) => ({
+  ...COMBO.map((step, i) => ({
     name: `attack${i + 1}`,
     frames: Math.max(2, step.startup + step.active + step.recovery),
     loop: false,
-    at: (_t: number, frame: number) => ({ attackIndex: i, attackFrame: frame, step, comboLength: SWORD_COMBO.length }),
+    at: (_t: number, frame: number) => ({ attackIndex: i, attackFrame: frame, step, comboLength: COMBO.length }),
   })),
   { name: 'cast', frames: 48, at: (t) => ({ castAbility: 0, castFrame: t * 48, castFrames: 48, time: t * 1.6 }) },
   { name: 'air', frames: 2, loop: false, at: () => ({ grounded: false, rise: 0.4 }) },
   { name: 'down', frames: 1, loop: false, at: () => ({ down: true, downFrame: 60 }) },
 ];
+
+export const HERO_CLIPS: ClipDriver[] = CLIPS.map((c) => ({ ...c, at: (t: number, frame: number) => ({ weapon: HELD, ...c.at(t, frame) }) }));

@@ -101,7 +101,7 @@ export interface PlayerState {
   downFrame: number; // counts up while knocked down, -1 when standing
   team: number; // 0 or 1
   // Build (skills and loadout), set by the server.
-  weapon: number; // 0 sword, 1 club, 2 staff, 3 bow
+  weapon: number; // its place in WEAPONS (src/content/tuning.ts), the order content/weapons/_order.json gives
   skills: SkillSet; // which skills are learned (src/content/skills.ts)
   // Which combo variants this build unlocked. Derived from `skills` for your own fighter, and the
   // only part of someone else's tree that reaches you, since it changes how they are drawn.

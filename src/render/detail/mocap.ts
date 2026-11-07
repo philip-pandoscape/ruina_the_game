@@ -113,7 +113,7 @@ export function bakeCycle(
 export interface Motion {
   walk: Cycle;
   run: Cycle;
-  /** Combo hits played from animation libraries' clips, by weapon and hit ("0:1"): moves.ts. */
+  /** Combo hits played from animation libraries' clips, by weapon id and hit ("sword:1"): moves.ts. */
   moves?: Map<string, Move>;
 }
 

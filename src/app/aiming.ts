@@ -1,5 +1,5 @@
 import { actorKindAt } from '../content/actors';
-import { ABILITIES, abilityRadius, AIM, CAMERA, comboFor, groundRange, isGroundTargeted, NO_ABILITY } from '../content/tuning';
+import { ABILITIES, abilityRadius, AIM, CAMERA, comboFor, groundRange, isGroundTargeted, NO_ABILITY, shoots } from '../content/tuning';
 import type { Engine } from '../engine/engine';
 import type { CombatInput, Input } from '../input/input';
 import type { NetActor } from '../net/worldFeed';
@@ -201,9 +201,10 @@ export class Aiming {
   }
 
   // Aim assist: attacks and Meteor go toward the enemy you most likely mean, the nearest one close
-  // to the direction you're pushing (or facing; the bow and Meteor use the camera's direction when you
-  // stand still). With nothing to aim at, the bow and Meteor still go where the camera looks. The
-  // rules only read the aim when an attack or cast starts, so it's only worked out while one is pending.
+  // to the direction you're pushing (or facing; a weapon that shoots, like the bow, and Meteor use the
+  // camera's direction when you stand still). With nothing to aim at, they still go where the camera
+  // looks. The rules only read the aim when an attack or cast starts, so it's only worked out while one
+  // is pending.
   private aimAssist(a: Actions): Actions {
     if (a.aimX !== 0 || a.aimZ !== 0) return a; // already aimed (tests)
     const { engine, follow } = this.parts;
@@ -213,13 +214,13 @@ export class Aiming {
     const casting = aiming !== NO_ABILITY && isGroundTargeted(aiming);
     const attacking = a.attackPressed || p.attackBuffer > 0 || p.attackQueued;
     if (!casting && !attacking) return a;
-    const bow = p.weapon === 3;
-    const ranged = casting || bow;
+    const shooting = shoots(p.weapon);
+    const ranged = casting || shooting;
     const moving = Math.hypot(a.moveX, a.moveZ) > 0.3;
     const dir = moving ? Math.atan2(a.moveX, a.moveZ) : ranged ? follow.yaw : p.facing;
     const swing = comboFor(p.weapon, engine.stats)[0];
-    const maxDist = casting ? (groundRange(aiming) ?? 16) : bow ? Math.min(30, swing.projectileRange ?? 30) : swing.reach + 1.6;
-    const cone = (casting ? 30 : bow ? 14 : 55) * DEG;
+    const maxDist = casting ? (groundRange(aiming) ?? 16) : shooting ? Math.min(30, swing.projectileRange ?? 30) : swing.reach + 1.6;
+    const cone = (casting ? 30 : shooting ? 14 : 55) * DEG;
     let best: { x: number; z: number } | null = null;
     let bestScore = Infinity;
     this.forEachEnemy((x, z) => {
@@ -283,9 +284,9 @@ export class Aiming {
     const swinging = out.attackPressed || p.attackBuffer > 0 || p.attackQueued;
     const mark = this.lockOn.mark();
     // A blade only turns to the mark when it can reach it: swinging at the slime beside you while
-    // one further off is marked hits the one beside you (aimAssist), not the air. The bow shoots at
-    // the mark wherever it is.
-    const reach = p.weapon === 3 ? Infinity : comboFor(p.weapon, engine.stats)[0].reach + 1.6;
+    // one further off is marked hits the one beside you (aimAssist), not the air. A weapon that
+    // shoots, the bow, shoots at the mark wherever it is.
+    const reach = shoots(p.weapon) ? Infinity : comboFor(p.weapon, engine.stats)[0].reach + 1.6;
     if (mark && swinging && Math.hypot(mark.x - p.pos.x, mark.z - p.pos.z) <= reach) return { ...out, aimX: mark.x - p.pos.x, aimZ: mark.z - p.pos.z };
     return out;
   }

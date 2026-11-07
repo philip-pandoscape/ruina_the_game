@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { Hero } from './character';
 import { pose } from '../content/pose';
+import { DEFAULT_BUILD } from '../content/tuning';
 
 // The character select screen's hero: the game's own Hero, standing idle with their weapon, slowly
 // turning on a glowing circle in the dusk, lit warm from behind by the setting sun. Its own small
@@ -71,7 +72,7 @@ export class HeroPreview {
   private yaw = FRONT;
   /** Turning back round to face you (a new character stepped up), or null. */
   private settle: number | null = null;
-  private weapon = 0;
+  private weapon = DEFAULT_BUILD.weapon;
   private time = 0;
   private last = performance.now();
   private raf = 0;
@@ -139,7 +140,7 @@ export class HeroPreview {
     this.raf = requestAnimationFrame(this.frame);
   }
 
-  /** Someone steps up: shows the weapon they carry (0 sword, 1 club, 2 staff, 3 bow), facing you. */
+  /** Someone steps up: shows the weapon they carry (by its place in WEAPONS), facing you. */
   show(weapon: number, flourish = true): void {
     this.weapon = weapon;
     this.settle = FRONT;

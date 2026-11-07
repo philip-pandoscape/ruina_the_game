@@ -49,8 +49,17 @@ const ALLOWED: Allowance[] = [
     ids: bodies(),
   },
   {
-    why: "weapons, abilities and movement skills are code until they are data (R9.5): the close-up bodies' moves and films (src/render/detail/, the animation session's), the default build, the slide every build has, and what a skill's tooltip says",
-    files: ['src/render/detail/', 'src/render/character.ts', 'src/content/tuning.ts', 'crates/engine/src/tuning.rs', 'src/input/input.ts', 'src/ui/skills/'],
+    why: "weapons, abilities and movement skills are code until they are data (R9.5): the close-up bodies' moves and films (src/render/detail/, the animation session's), the hero's weapons (the attachments named for them, the crowd's sword), the default build (the browser's and the engine's), the slide every build has, and what a skill's tooltip says",
+    files: [
+      'src/render/detail/',
+      'src/render/character.ts',
+      'src/render/creatures/heroBody.ts',
+      'src/content/tuning.ts',
+      'crates/engine/src/tuning.rs',
+      'crates/engine/src/player.rs',
+      'src/input/input.ts',
+      'src/ui/skills/',
+    ],
   },
   {
     why: "the step src/main.ts runs, until it's data: the slide's dust (R9.5)",

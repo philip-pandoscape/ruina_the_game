@@ -195,6 +195,26 @@ export const ATTACK: {
 } = shared.attack;
 
 export const WEAPONS = shared.weapons as unknown as Weapon[];
+
+// A weapon goes by its place in WEAPONS (the order content/weapons/_order.json gives) in the rules'
+// state, on the wire and in the skill tree. Everything else knows it by its id or by its data, so
+// that order can change.
+
+/** A weapon's id (its name: sword, club, staff, bow), from its place in WEAPONS; '' for none. */
+export const weaponId = (weapon: number): string => WEAPONS[weapon]?.name ?? '';
+
+/** A weapon's place in WEAPONS, from its id; -1 for none. */
+export const weaponIndex = (id: string): number => WEAPONS.findIndex((w) => w.name === id);
+
+/**
+ * Whether a weapon shoots: a swing of it (a variant's too) looses a missile, as the rules tell a
+ * foe who fights from afar (crates/engine/src/player.rs, foe).
+ */
+export function shoots(weapon: number): boolean {
+  const w = WEAPONS[weapon];
+  return !!w && [...w.combo, ...(w.variants ?? []).map((v) => v.step)].some((s) => (s.projectileSpeed ?? 0) > 0);
+}
+
 export const ABILITIES = shared.abilities as unknown as Ability[];
 export const SKILLS = { points: SKILL_POINTS, trees: TREES, nodes: NODES };
 export const NO_ABILITY = 255;
@@ -308,9 +328,12 @@ export interface Build {
 
 export const emptyHotbar = (): number[] => new Array<number>(HOTBAR_SLOTS).fill(NO_ABILITY);
 
+const START_SKILL = skillIndex('sword');
+
 export const DEFAULT_BUILD: Build = {
-  skills: withSkill(emptySkills(), skillIndex('sword'), true),
-  weapon: 0,
+  skills: withSkill(emptySkills(), START_SKILL, true),
+  // In hand, the weapon that skill grants.
+  weapon: NODES[START_SKILL].grants?.weapon ?? weaponIndex('sword'),
   movement: emptyMovement(),
   abilities: emptyHotbar(),
 };

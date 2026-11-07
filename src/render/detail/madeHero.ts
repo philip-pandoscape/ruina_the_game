@@ -7,7 +7,7 @@ import { HERO_RIG } from '../creatures/heroBody';
 import { fit, hull, type Fitted } from './fit';
 import { bakeCycle, setMotion, type Move } from './mocap';
 import { bake, type Baked } from './retarget';
-import { HERO_MOVES, HERO_MOVE_SETS, WEAPON_KEYS, type MoveClip } from './moves';
+import { HERO_MOVES, HERO_MOVE_SETS, type MoveClip } from './moves';
 import { madeWeapons, type MadeWeapons } from './madeWeapons';
 
 // The hero's body: a made, rigged model (src/render/assets/models/hero.glb, from Meshy) worn on the
@@ -28,12 +28,13 @@ const BODY = file('hero');
 const WALK = file('hero_walk');
 const RUN = file('hero_run');
 /**
- * Its moves (moves.ts): per weapon a set of clips from animation libraries, retargeted onto it, or
- * its keyframed swings. ?swordMoves=keyed|meshy|quaternius (clubMoves=, ...) plays another set.
+ * Its moves (moves.ts): per weapon (by id) a set of clips from animation libraries, retargeted onto
+ * it, or its keyframed swings. ?swordMoves=keyed|meshy|quaternius (clubMoves=, ...) plays another set.
  */
-const SETS = Object.fromEntries(WEAPON_KEYS.map((w) => [w, params?.get(`${w}Moves`) ?? HERO_MOVE_SETS[w] ?? 'keyed']));
-const MOVES = WEAPON_KEYS.flatMap((w, weapon) => (HERO_MOVES[w]?.[SETS[w]] ?? []).map((m, hit) => ({ weapon, hit, m }))).filter((x) => x.m) as Array<{
-  weapon: number;
+const MOVES = Object.entries(HERO_MOVES)
+  .flatMap(([weapon, sets]) => (sets[params?.get(`${weapon}Moves`) ?? HERO_MOVE_SETS[weapon] ?? 'keyed'] ?? []).map((m, hit) => ({ weapon, hit, m })))
+  .filter((x) => x.m) as Array<{
+  weapon: string;
   hit: number;
   m: MoveClip;
 }>;
@@ -84,7 +85,7 @@ export function madeHero(): Promise<MadeHero | null> | null {
   return loading;
 }
 
-/** The moves' clips, baked for the made body, by weapon and combo hit ("0:1"); a clip a move shares baked once. */
+/** The moves' clips, baked for the made body, by weapon id and combo hit ("sword:1"); a clip a move shares baked once. */
 function bakeMoves(files: string[], loaded: Array<{ scene: THREE.Group; animations: THREE.AnimationClip[] } | undefined>, fitted: Fitted): Map<string, Move> {
   const moves = new Map<string, Move>();
   const baked = new Map<string, Baked>();

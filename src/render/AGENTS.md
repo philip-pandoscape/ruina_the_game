@@ -28,10 +28,15 @@ look. It reads the rules' state and whatever it's handed, and never changes the 
   (a builder in `models/`, found by that name) and the made model fitted over it, so the rules,
   colliders and server never see them (root `AGENTS.md`, Art and assets). A thing that names no
   look gets its kind's plain body.
+- **Weapons by id**: a pose has the weapon's place in the list (`PoseInput.weapon`), and the hero's
+  stances, swings, trails, attachments and stow places know it by its id (`weaponId`,
+  `src/content/tuning.ts`), never by that place, so the list's order can change
+  (`tests/unit/weaponOrder.test.ts`).
 
 ## Tests
 
 The look at each quality: `tests/stress/look.spec.ts` (a real GPU). The hero's films measured without
-drawing: `tests/unit/animation.test.ts`. The content library's specs show every model, body and
-building: `library.spec.ts`, `models.spec.ts`, `buildings.spec.ts`, `creatures.spec.ts`,
-`species.spec.ts`, `retarget.spec.ts`.
+drawing: `tests/unit/animation.test.ts`; with the weapons in another order:
+`tests/unit/weaponOrder.test.ts`. The content library's specs show every model, body and building:
+`library.spec.ts`, `models.spec.ts`, `buildings.spec.ts`, `creatures.spec.ts`, `species.spec.ts`,
+`retarget.spec.ts`.

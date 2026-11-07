@@ -1,4 +1,4 @@
-import { HERO_CLIPS, HERO_RIG, HERO_SLOTS } from '../heroBody';
+import { CROWD_WEAPON, HERO_CLIPS, HERO_RIG, HERO_SLOTS } from '../heroBody';
 import { poseHumanoid } from '../../detail/humanoid';
 import { speciesFromRig } from '../fromRig';
 import type { SpeciesDef } from '../species';
@@ -14,7 +14,7 @@ export function heroSpecies(): SpeciesDef {
     rig: HERO_RIG,
     pose: poseHumanoid,
     clips: HERO_CLIPS,
-    weapon: 'sword',
+    weapon: CROWD_WEAPON,
     slots: HERO_SLOTS,
   });
   return cached;
