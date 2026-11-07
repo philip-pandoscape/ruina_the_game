@@ -126,7 +126,7 @@ export function build(root = CONTENT) {
   // The schemas, and the templates a new thing is copied from (content/_templates/), are no bundle's.
   for (const f of walk(root)) if (!used.has(f) && !/^_(schemas|templates)\//.test(f) && !f.endsWith('.md')) errors.push(`content/${f}: no bundle takes it`);
   errors.push(...references(bundles), ...madeModels(bundles), ...dressings(bundles));
-  errors.push(...world(bundles), ...spawns(bundles), ...skillTree(bundles));
+  errors.push(...world(bundles), ...channels(bundles), ...spawns(bundles), ...skillTree(bundles));
   if (errors.length) throw new ContentError(errors.join('\n'));
   bundles.set(HASH, hashOf(bundles));
   return bundles;
@@ -191,6 +191,50 @@ function world(b) {
     if (t.cell !== cell || !Number.isInteger(w.chunk / t.cell))
       out.push(`${where}: its cell is ${t.cell} m, where every region's is ${cell} m, a whole number of them to a ${w.chunk} m chunk`);
   }
+  return out;
+}
+
+// ---------- Channels ----------
+
+/** The numbers content/channels.json holds, each with what it counts. */
+const CHANNEL_NUMBERS = {
+  softCap: 'players',
+  hardCap: 'players',
+  openAhead: 'players',
+  quiet: 'players',
+  quietFor: 'seconds',
+  mergeFill: 'players',
+  mergeNotice: 'seconds',
+  mergeWait: 'seconds',
+  changeEvery: 'seconds',
+  calmAfter: 'seconds',
+  rejoinWithin: 'seconds',
+};
+
+/**
+ * What's wrong with the channels' numbers (content/channels.json, read by crates/channels/src/tuning.rs,
+ * whose check says the same): each there and nothing else, players a whole number and seconds from 0;
+ * some quiet, below a comfortable merge, below the soft cap, at most the hard cap; and a merge never
+ * leaving less room than would open another channel at once.
+ */
+function channels(b) {
+  const c = b.get('channels.json');
+  if (!c) return [];
+  const where = 'content/channels.json';
+  const out = [];
+  for (const k of Object.keys(c)) if (k !== 'comment' && !(k in CHANNEL_NUMBERS)) out.push(`${where}: "${k}" isn't one of its numbers`);
+  for (const [k, what] of Object.entries(CHANNEL_NUMBERS)) {
+    const v = c[k];
+    if (what === 'players' ? !(Number.isInteger(v) && v >= 0) : !(typeof v === 'number' && Number.isFinite(v) && v >= 0))
+      out.push(`${where}: ${k} is ${JSON.stringify(v)}, where it's a number of ${what} from 0${what === 'players' ? ', whole' : ''}`);
+  }
+  if (out.length) return out;
+  if (c.quiet < 1) out.push(`${where}: quiet must be at least 1`);
+  if (c.quiet > c.mergeFill) out.push(`${where}: quiet (${c.quiet}) is more than mergeFill (${c.mergeFill}): a quiet channel could never merge`);
+  if (c.mergeFill >= c.softCap) out.push(`${where}: mergeFill (${c.mergeFill}) must be below softCap (${c.softCap})`);
+  if (c.softCap > c.hardCap) out.push(`${where}: softCap (${c.softCap}) is more than hardCap (${c.hardCap})`);
+  if (c.openAhead >= Math.max(0, c.softCap - c.mergeFill))
+    out.push(`${where}: openAhead (${c.openAhead}) must be less than softCap - mergeFill (${Math.max(0, c.softCap - c.mergeFill)}), or a merge would open another channel at once`);
   return out;
 }
 

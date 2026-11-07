@@ -181,6 +181,36 @@ test('a region the world puts where its grid is not, or on another region, fails
   ).toContain("blend is 200, where it's from 0 to half a chunk");
 });
 
+test("the channels' numbers are all there, of the right kind and in order (crates/channels/src/tuning.rs)", () => {
+  expect(
+    broken('channels.json', (c) => {
+      c.softCap = 1500;
+    }),
+  ).toContain('content/channels.json: softCap (1500) is more than hardCap (1200)');
+  expect(
+    broken('channels.json', (c) => {
+      c.mergeFill = c.softCap;
+    }),
+  ).toContain('mergeFill (1000) must be below softCap (1000)');
+  expect(
+    broken('channels.json', (c) => {
+      c.quiet = c.mergeFill + 1;
+    }),
+  ).toContain('a quiet channel could never merge');
+  expect(
+    broken('channels.json', (c) => {
+      c.openAhead = c.softCap - c.mergeFill;
+    }),
+  ).toContain('or a merge would open another channel at once');
+  expect(
+    broken('channels.json', (c) => {
+      c.changeEvery = 'five minutes';
+      c.softCap = 999.5;
+      c.crowd = 3;
+    }),
+  ).toMatch(/changeEvery is "five minutes", where it's a number of seconds from 0[\s\S]*softCap is 999\.5, where it's a number of players from 0, whole[\s\S]*"crowd" isn't one of its numbers|"crowd" isn't one of its numbers/);
+});
+
 test('what a region or an instance brings to life names a creature and a spot, and only a group that is no band is spread', () => {
   expect(
     broken('regions/emberholm.json', (r) => {

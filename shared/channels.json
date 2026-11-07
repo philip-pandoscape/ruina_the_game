@@ -1,0 +1,14 @@
+{
+  "comment": "Built from content/channels.json by tools/content/contentc.mjs (npm run content): edit there, not here. Channels: each region is played as channels, copies of it for crowds, each a simulation of its own with the same land in every one (docs/world.md, Channels; the policy is crates/channels). Counts are players in play in a channel; times are seconds. Arrivals fill a channel up to softCap: someone back within rejoinWithin of leaving goes back to the channel they left, else to their party's, else to the one with the most of their friends, guild or language, else the fullest below softCap; past it, another channel opens (and one opens ahead once the room left below softCap in them all together is less than openAhead). Nobody is placed past hardCap, with their party or not. A channel with fewer than quiet players for quietFor merges into the fullest other that can take them and stay at most mergeFill: its players are told mergeNotice ahead, then moved across, with their packs and vehicles, as each is out of a fight, on the ground and off a table; whoever is left after mergeWait more is moved anyway. A player changes channel, by choice or to join their party, at most once every changeEvery, never carrying a pack, and not within calmAfter of a blow struck or taken.",
+  "softCap": 1000,
+  "hardCap": 1200,
+  "openAhead": 50,
+  "quiet": 250,
+  "quietFor": 300,
+  "mergeFill": 750,
+  "mergeNotice": 60,
+  "mergeWait": 60,
+  "changeEvery": 300,
+  "calmAfter": 10,
+  "rejoinWithin": 300
+}
