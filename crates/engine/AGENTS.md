@@ -58,11 +58,16 @@ the engine, and how to add to the browser's interface: `docs/engine.md`.
 - `cargo test --release --workspace`: the engine's own tests and the server's. Among them the golden
   tests (`checks/mod.rs`): every creature, player and open-world scenario held to a hash of its answer
   (`crates/engine/tests/golden/`), so a rule can't change unnoticed. A change made on purpose keeps
-  the new answers with `RUINA_GOLDEN=1 cargo test --release -p ruina-engine golden`.
+  the new answers with `RUINA_GOLDEN=1 cargo test --release -p ruina-engine golden`. The player and
+  crowd scenarios hold builds as the wire carries them, a weapon, an ability and a movement skill by
+  its place in its list, and their answers name places too: a change in one of those lists' order
+  changes their answers (and a new weapon, ability or movement skill the player scenarios', which
+  give each one's numbers), kept the same way.
 - `crates/engine/tests/order.rs`, a test program of its own: the engine given the tuning with its weapons,
   abilities and movement skills in the opposite order (`bundles::give`, before anything reads it).
   What the skill tree grants and changes, a new character's build and kept builds mean what they
-  did, as all name them by id.
+  did, as all name them by id. `tests/unit/weaponOrder.test.ts` plays the WebAssembly so, beside the
+  page.
 - `npm run test:conformance`: builds the engine and its WebAssembly, then holds the WebAssembly to the
   native engine bit for bit (`tests/conformance/engine.test.ts`) and the browser's ground sampling to
   the engine's (`terrain.test.ts`), and runs the balance harness (`balance.test.ts`).

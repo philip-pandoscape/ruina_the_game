@@ -284,11 +284,17 @@ A new one of these needs code today, each named for the refactor's task that mak
 
 - **Weapons, abilities and movement skills** (R9.5): their moves, models, icons and where they are
   put away are code, which knows each weapon by its id (`weaponId` in `src/content/tuning.ts`) or
-  by its data (a weapon that shoots). The skill tree names them by id (what its nodes grant and what
-  their modifiers change, in `shared/skilltree.json`; what a level adds, in `content/tuning.json`),
-  and the engine and the page find their places in the lists as they read it; contentc fails on an
-  id that's no weapon, ability or movement skill. The browser holds and draws each weapon by its id
-  (`tests/unit/weaponOrder.test.ts`).
+  by its data (a weapon that shoots). Their orders (`content/weapons/_order.json`,
+  `content/abilities/_order.json`, `content/movement-skills/_order.json`) can change freely: what
+  goes on the wire as a place takes it from the bundle, and whatever else names one names it by id:
+  the skill tree (what its nodes grant and what their modifiers change, in `shared/skilltree.json`)
+  and what a level adds (`content/tuning.json`), whose places the engine and the page find as they
+  read them (contentc fails on an id that's no weapon, ability or movement skill), kept builds, the
+  browser's drawing, the tests and the balance harness. An order is the order they're listed in (the
+  skill book, the bible), and changes nothing else a player sees or does
+  (`tests/unit/weaponOrder.test.ts`, `crates/engine/tests/order.rs`). The engine's golden player and
+  crowd scenarios hold builds as the wire carries them, by place, and their answers name places
+  too: after a change of order keep their new answers (`RUINA_GOLDEN=1`, `crates/engine/AGENTS.md`).
 - **Stats** in the skill tree are numbers the rules read by name; nodes are written by
   `tools/skilltree/gen.mjs`.
 
@@ -303,7 +309,9 @@ A new one of these needs code today, each named for the refactor's task that mak
   the bundles they build in place of its own (`useContent`, `src/engine/wasm.ts`).
 - `tests/unit/contentIds.test.ts`: no content id in code, but for the reasons it lists
   (`node tools/content/ids.mjs` lists them).
-- `tests/unit/weaponOrder.test.ts`: the weapons built in another order, and the browser holding,
-  swinging, drawing, aiming and describing each one as before.
+- `tests/unit/weaponOrder.test.ts`: the weapons, abilities and movement skills built in another
+  order, and the page and the engine's WebAssembly doing with each one what they did before:
+  holding, swinging, casting, using, drawing, aiming and describing it, by its id
+  (`crates/engine/tests/order.rs`: the engine as the server runs it).
 - `tests/unit/looks.test.ts`: every look names a body, outfit and inside the game has.
 - `tests/unit/bible.test.ts`: every thing has its entry in the bible, and an explanation.

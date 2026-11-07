@@ -53,7 +53,10 @@ that a cave's dressing names its own walls and pieces (`docs/zones.md`, Dressing
   `src/net/worldLink.ts`). So an order can change, as long as the server is built again with it
   (`npm run up`). What names a weapon, an ability or a movement skill in content does so by id: the
   skill tree's grants and modifiers (`shared/skilltree.json`) and what a level adds
-  (`content/tuning.json`), whose places the engine and the page find as they read them.
+  (`content/tuning.json`), whose places the engine and the page find as they read them. So their
+  orders can change freely: nothing changes but the order they're listed in
+  (`tests/unit/weaponOrder.test.ts`), though the engine's golden player and crowd scenarios, which
+  hold builds by place as the wire does, need their answers kept anew (`crates/engine/AGENTS.md`).
 - **What's kept names things by id**: a character's build (the server's `characters.build`) and the
   browser's own (`crates/engine/src/skills.rs` and `src/content/build.ts`: weapon, skill nodes,
   hotbar and movement slots), and the island, so a kept thing means the same in any order. Builds kept
