@@ -1520,11 +1520,12 @@ pub(crate) mod tests {
         assert_eq!(bots, 3);
         let theirs = |kind| records.iter().filter(|r| r.kind() == kind && r.owner == client(7).raw()).count();
         assert_eq!((theirs(ruina_wire::Kind::Vehicle), theirs(ruina_wire::Kind::Item)), (1, 1));
-        // Bo's browser hears Ada by name, her cart and her crate as hers, the bots as bots, the
-        // creatures near; never Bo himself.
-        let bo = out.private_of(8).expect("Bo's own");
-        let mut enc = crate::gate::encode::Encoder::new(8, false);
-        let (update, _) = enc.tick(&out, bo, crate::gate::encode::Owed::default());
+        // Read on the wire where Bo stands (the wire's own viewer; the gate's part is its own
+        // tests'), his browser hears Ada by name, her cart and her crate as hers, the bots as bots;
+        // never Bo himself.
+        let bo = out.private_of(8).expect("Bo's own").you.p.pos;
+        let mut viewer = ruina_wire::viewer::Viewer::new(client(8).raw());
+        let update = viewer.update(&out.frame, ruina_wire::viewer::View { x: bo.x, z: bo.z }, &[]);
         let mut heard = ruina_wire::heard::Heard::new();
         heard.hear(&update).unwrap().expect("applied");
         let intros: Vec<&ruina_wire::Intro> = heard.ents.values().map(|e| &e.intro).collect();

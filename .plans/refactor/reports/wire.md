@@ -2,10 +2,59 @@
 
 Workstream **wire** (`refactor/wire`, worktree `C:\GitHub\games\ruina-wt-wire`, slot 4), started
 2026-11-06 from `refactor/first` at 763d6af. The plan: [finish.md](../finish.md). The first half (the
-protocol, its codec both ends, the feed's adapter, far peers as crowd bodies) goes ahead of the
-server's tiers; the second half (the gate and the sims on it, measured) waits for them.
+protocol, its codec both ends, the feed's adapter, far peers as crowd bodies) went ahead of the
+server's tiers; the second half put the sims and the gate on it. Both are done, unit tested; the
+integration and end-to-end tests are listed for the end agent.
 
-## The First Half, in Short (done; the second half is next, on the tiers)
+## The Second Half, in Short (done; lean, unit tests only)
+
+**Landed** on `refactor/wire` (latest `refactor/first`, d90086d, merged in at f138d2b):
+
+| Commit | What |
+|---|---|
+| c1f07b7 | Each sim packs a `Frame` once a tick (`crates/server/src/sim/publish.rs`: players and bots by `EntityId` with their names, the vehicles they have out and packs on the ground, creatures, arrows by their shooter, meteors, the effects shown). `TickOut.frame` replaces PresenceRecord, CreatureRecord, ArrowRecord, MeteorRecord and EffectRecord; `TickOut.tables` the tables; `Private.told` a player's own hits and hurts as wire events. The gate keeps an `Encoder` per connection (`gate/encode.rs`: the `Viewer`, and the JSON tick slimmed to your own player, your life, the tables near you, the admins' numbers), sends the JSON tick then the binary update, takes acknowledgements (8) into the viewer and starts it over after a move. `WORLD_PROTOCOL` 12 both sides; the browser reads updates through `WireFeed`. Scale's findings: a connection is sent no ticks while four things wait for it and writes only the newest waiting, with what the skipped ones said to its player (`Owed`); a bot's name is looked up once a tick |
+| f102498, f138d2b | `refactor/first` merged (offline, borders' engine half, scale's harness): the admins' stats keep `ticks` beside `bytes` (JSON and wire) and `wire`; the load harness's clients acknowledge updates as browsers do, so it measures deltas |
+| (next) | The sim's packing test reads its frame with the wire's own viewer, not the gate's (no multi-tier tests now); this entry |
+
+**Numbers** (`tick_time_in_the_battlefield`, ignored, run once before the hold on measuring;
+battlefield bots, stepped one after another / all at once): 64 bots, the sim's tick 0.364 / 0.570 ms
+(its records 0.033 / 0.045), a connection's update 0.029 / 0.036 ms and 1,443 B a tick, JSON and wire
+(the JSON tick alone was 43.5-44.4 KB); 256 bots, 1.115 / 1.082 ms (0.081 / 0.121), 0.063 / 0.081 ms,
+1,893 B; 1,024 bots, 4.532 / 2.243 ms (0.276 / 0.319), 0.184 / 0.192 ms, 3,982 B.
+
+**Checks.** `npm run check` passes after the merge: 286 TypeScript tests, 349 Rust.
+
+**For others to know:**
+- Keys are the engine's `EntityId` words for players, bots and creatures; vehicles, packs on the
+  ground, arrows and meteors use the wire's stand-ins (`pack::key`, `pack::owned_key`: top byte
+  `0x10 | kind`, above the engine's kinds) until they have ids of their own.
+- A connection reads only its own sim's frame (`gate/mod.rs`). Borders: what a player should see
+  across a sim border must be in their sim's frame (ghosts under the same `EntityId`s). Every
+  `ToConn::Moved` starts the viewer over, and the browser's feed with it (everyone introduced
+  again): a handoff between sims of one space would better keep both (`socket.rs`: reset only when
+  the space changes).
+- The admins' `stats.bytes` is what a tick sent, JSON and wire; `stats.wire` the wire's part.
+
+**Integration and end-to-end tests for the end agent** (none written or run now, as asked):
+1. The online specs on the wire (`online`, `online-combat`, `party`, `dungeon-way-in`, `minigames`,
+   `battlefield`, `crowd-bodies`, `update`): others, creatures, arrows, meteors, effects, vehicles,
+   packs and tables as before; into a copy and back (everyone reappears); a restart reconnects on 12.
+2. Two windows, one walking off and back (near, mid, far, gone past 250 m, back): tiers, removals and
+   handles reused in a real browser; crowd bodies past 42 m.
+3. Rust, a sim's ticks through the gate's loop to a connection whose socket stalls: at most four
+   waiting, the newest written with the skipped ticks' life events and hits; acknowledgements from
+   binary messages; a reset on a move.
+4. Across processes (multiserver's transport): a `TickOut` with its `Frame` (cells as MessagePack
+   bytes) arrives and reads the same.
+5. Borders: an entity crossing a sim border stays one entity to a viewer (same handle, not introduced
+   again), and is seen from both sides near it.
+6. Stress: `npm run loadtest` with N bots against the before numbers: bytes per connection a second,
+   the gate's CPU, a slow client's memory staying flat.
+
+**Left:** those tests, and the guides (`crates/wire/AGENTS.md` is current; `docs/` on `TickOut.frame`
+and the gate's `Encoder`).
+
+## The First Half, in Short (done)
 
 **Landed** on `refactor/wire` (latest `refactor/first`, with the tiers, merged in at 79549c6):
 
