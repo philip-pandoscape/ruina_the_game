@@ -52,6 +52,11 @@ pub const MAX_PLAYERS: usize = 4096;
 // A little more than one tick's worth of 60 Hz inputs: catches up after a hiccup, but a client
 // can't speed itself up by sending extra inputs.
 const MAX_INPUTS_PER_TICK: usize = 12;
+/// The most inputs a player may have banked to run (a quarter second's at the browser's 60 a
+/// second): a tick that ran late is caught up after it, but no client gains more than real time.
+const BANK_INPUTS: f64 = 15.0;
+/// The most inputs left waiting to run (a quarter second's): older ones are dropped.
+const KEEP_INPUTS: usize = 15;
 const BODY_RADIUS: f64 = 0.45;
 const HISTORY: usize = 40; // ticks of position history kept of everything that can be hit (2 s at 20 Hz)
 const MAX_REWIND_TICKS: f64 = 16.0; // never rewind more than 0.8 s, however laggy the attacker
@@ -526,7 +531,17 @@ impl Before<'_> {
         let mut used = 0;
         // In an open world each player runs at most the game's own speed, with a little slack.
         let limit = if self.inputs_per_tick > 0.0 {
-            slot.budget = (slot.budget + self.inputs_per_tick).min(self.inputs_per_tick * 4.0);
+            // Inputs that piled up behind a stall (the browser's or the network's), past four ticks'
+            // worth at this pace or a quarter second's, are dropped, the newest kept: run one a
+            // second faster than they come, a backlog would otherwise hold the player's every move
+            // back for as long as it lasted. Their life's commands still run, with the next input kept.
+            let keep = KEEP_INPUTS.max((self.inputs_per_tick * 4.0) as usize);
+            while slot.queue.len() > keep {
+                slot.queue.pop_front();
+            }
+            // A tick that ran late (the server's hiccup) banks the time it covers, up to BANK_INPUTS,
+            // so the inputs it held up are caught up over the next ticks rather than cut off.
+            slot.budget = (slot.budget + self.inputs_per_tick).min((self.inputs_per_tick * 4.0).max(BANK_INPUTS));
             (slot.budget.floor() as usize).min(MAX_INPUTS_PER_TICK)
         } else {
             MAX_INPUTS_PER_TICK

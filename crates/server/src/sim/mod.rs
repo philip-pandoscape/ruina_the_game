@@ -1924,9 +1924,10 @@ pub(crate) mod tests {
         let mut play = |ch: &mut Game, first: [u8; OPEN_INPUT], frames: u32| {
             let inputs: Vec<(u32, [u8; OPEN_INPUT])> = (0..frames).map(|k| (seq + 1 + k, if k == 0 { first } else { [0; OPEN_INPUT] })).collect();
             seq += frames;
-            ch.inputs(7, inputs.into_iter());
             ch.players.inputs_per_tick = 12.0;
-            for tick in 0..frames.div_ceil(12) {
+            // Twelve a tick, as they'd come (a burst of more than four ticks' worth waiting is cut).
+            for (tick, some) in inputs.chunks(12).enumerate() {
+                ch.inputs(7, some.iter().copied());
                 ch.players.step_in(&mut ch.actors, tick as u64 + 1, &mut ch.open);
             }
         };
@@ -2018,6 +2019,59 @@ pub(crate) mod tests {
 
     fn cart(ch: &Game, id: i64) -> crate::life::land::Vehicle {
         ch.players.vehicle_of(7, id).expect("Ada's cart is out")
+    }
+
+    /// The last input of Ada's the server has run.
+    fn ran(ch: &Game) -> u32 {
+        ch.players.open_view(client(7)).expect("Ada").1
+    }
+
+    /// One tick of `elapsed` seconds at the server's pacing, nothing new sent.
+    fn tick_of(ch: &mut Game, elapsed: f64) {
+        ch.players.inputs_per_tick = elapsed * 61.0;
+        ch.players.step_in(&mut ch.actors, 1, &mut ch.open);
+    }
+
+    #[test]
+    fn inputs_piled_up_behind_a_stall_hold_the_player_back_a_quarter_second_at_most() {
+        let (mut ch, _) = ada_and_bo();
+        // Two seconds of inputs arrive at once (the browser's tab was held up, or the network).
+        ch.inputs(7, (1..=120).map(|s| (s, [0; OPEN_INPUT])));
+        tick_of(&mut ch, 0.05);
+        tick_of(&mut ch, 0.05);
+        // The oldest were dropped, so what's left is a few ticks' worth, not two seconds' (run at a
+        // hair over real time, those would have waited two minutes).
+        assert!(ran(&ch) >= 110, "ran up to {} of 120", ran(&ch));
+        for _ in 0..5 {
+            tick_of(&mut ch, 0.05);
+        }
+        assert_eq!(ran(&ch), 120, "caught up");
+    }
+
+    #[test]
+    fn a_tick_that_ran_late_is_caught_up_after_it_not_cut_off() {
+        let (mut ch, _) = ada_and_bo();
+        let mut seq = 0;
+        // Steady: three inputs a tick, each run as it comes.
+        for _ in 0..10 {
+            ch.inputs(7, (seq + 1..=seq + 3).map(|s| (s, [0; OPEN_INPUT])));
+            seq += 3;
+            tick_of(&mut ch, 0.05);
+        }
+        assert_eq!(ran(&ch), seq);
+        // The server stalls for half a second: its next tick covers 0.5 s and the browser's inputs
+        // for it have come in.
+        ch.inputs(7, (seq + 1..=seq + 30).map(|s| (s, [0; OPEN_INPUT])));
+        seq += 30;
+        tick_of(&mut ch, 0.5);
+        // The time it banked carries over into the next short ticks, which catch up the rest (it was
+        // cut to a short tick's own four ticks' worth, and the rest waited, one input a second).
+        for _ in 0..2 {
+            ch.inputs(7, (seq + 1..=seq + 3).map(|s| (s, [0; OPEN_INPUT])));
+            seq += 3;
+            tick_of(&mut ch, 0.05);
+        }
+        assert_eq!(ran(&ch), seq, "all caught up two ticks after the late one");
     }
 
     #[test]
