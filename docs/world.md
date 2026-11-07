@@ -109,6 +109,15 @@ game of its own, with its players, creatures and bots, stepped 20 times a second
   they're away.
 - **Plots.** A house plot goes to whoever built on it first in that channel.
 
+Every game numbers its ticks by the world's clock (`crates/server/src/play/clock.rs`): frames at 60
+a second from the world's epoch (2026-01-01 UTC), and a server tick every third frame, 20 a second.
+- **The same moment everywhere.** A tick is the same moment in every channel and copy, so a browser's
+  timelines run on across moves between them, and across a server's restart. A tick that runs late
+  takes the number of its moment.
+- **The engine reads no clock.** The tick is handed to it, as the time of day is.
+- **Lag compensation.** A browser sends the tick it drew everyone else at, in sixteenths of a tick.
+  The wire carries only its low 32 bits, and the server reads it back in full against its own tick.
+
 Where this is going:
 
 - **R10.21:** land shared by every channel of a region, each plot claimed once in the world and

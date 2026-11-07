@@ -38,6 +38,8 @@ use crate::world::{Spawn, World};
 mod bots;
 /// The channels' residents: everyone's estates and who holds which plot.
 pub mod channels;
+/// The world's clock: ticks numbered from the world's epoch.
+pub mod clock;
 /// Parties: who plays with whom.
 pub mod parties;
 /// A player's connection: sign-in, the welcome, inputs and commands in, ticks out.
@@ -591,17 +593,24 @@ impl ChannelGame {
         !self.members.is_empty()
     }
 
-    /// Inputs from a browser: (sequence number, the tick × 16 it drew everyone else at, the
-    /// OPEN_INPUT bytes it packed). At a table you stay in your seat: what you press counts as nothing.
+    /// Inputs from a browser: (sequence number, the low 32 bits of the tick × 16 it drew everyone
+    /// else at, the OPEN_INPUT bytes it packed).
     pub fn inputs_seen(&mut self, character: i64, list: impl Iterator<Item = (u32, u32, [u8; OPEN_INPUT])>) {
-        let seated = self.tables.seated(character);
-        let actions = |raw| if seated { Actions::default() } else { open_actions_from(raw) };
-        self.players.queue_actions(client(character), list.map(|(seq, view, raw)| (seq, f64::from(view) / 16.0, actions(raw))));
+        let now = self.tick;
+        self.queue_inputs(character, list.map(|(seq, view, raw)| (seq, clock::seen_at(now, view), raw)));
     }
 
     /// Inputs that see everyone where they are now (the tests').
     pub fn inputs(&mut self, character: i64, list: impl Iterator<Item = (u32, [u8; OPEN_INPUT])>) {
-        self.inputs_seen(character, list.map(|(seq, raw)| (seq, u32::MAX, raw)));
+        self.queue_inputs(character, list.map(|(seq, raw)| (seq, f64::INFINITY, raw)));
+    }
+
+    /// Inputs with the (fractional) tick each saw everyone else at. At a table you stay in your
+    /// seat: what you press counts as nothing.
+    fn queue_inputs(&mut self, character: i64, list: impl Iterator<Item = (u32, f64, [u8; OPEN_INPUT])>) {
+        let seated = self.tables.seated(character);
+        let actions = |raw| if seated { Actions::default() } else { open_actions_from(raw) };
+        self.players.queue_actions(client(character), list.map(|(seq, view, raw)| (seq, view, actions(raw))));
     }
 
     /// A command for someone's island, given on input `seq`. The developer panel's only count where
@@ -771,8 +780,14 @@ impl ChannelGame {
         let now = Instant::now();
         let elapsed = (now - self.last_tick).as_secs_f64().min(1.0);
         self.last_tick = now;
+        let wall = std::time::SystemTime::now();
         // Everyone's weather runs on the world's clock, so it's the same weather for all of them.
-        let world = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0.0, |d| d.as_secs_f64());
+        let world = wall.duration_since(std::time::UNIX_EPOCH).map_or(0.0, |d| d.as_secs_f64());
+        // Ticks are the world's (clock.rs): a tick that runs late takes the number of its moment.
+        let at = clock::world_tick(wall);
+        if at > self.tick + 1 {
+            self.tick = at - 1;
+        }
         self.play_tick(elapsed, world);
         self.send_tick(now, saves);
         let took = now.elapsed().as_secs_f64() * 1000.0;
@@ -1368,8 +1383,13 @@ mod tests {
         let hp = |ch: &ChannelGame| ch.players.open_view(client(8)).unwrap().0.hp;
         let full = hp(&ch);
         let mut seq = 0u32;
-        let mut swing = |ch: &mut ChannelGame, view: u32, from: u64| {
-            ch.inputs_seen(7, (1..=48).map(|k| (seq + k, view, if k == 1 { ATTACK } else { [0; OPEN_INPUT] })));
+        // `view`: the tick × 16 Ada drew everyone else at, or None for the present.
+        let mut swing = |ch: &mut ChannelGame, view: Option<u32>, from: u64| {
+            let list = (1..=48).map(|k| (seq + k, if k == 1 { ATTACK } else { [0; OPEN_INPUT] }));
+            match view {
+                Some(v) => ch.inputs_seen(7, list.map(|(s, raw)| (s, v, raw))),
+                None => ch.inputs(7, list),
+            }
             seq += 48;
             ch.players.inputs_per_tick = 12.0;
             for tick in from..from + 4 {
@@ -1377,10 +1397,10 @@ mod tests {
             }
         };
         // Seeing the present, the swing finds nobody in reach.
-        swing(&mut ch, u32::MAX, 12);
+        swing(&mut ch, None, 12);
         assert_eq!(hp(&ch), full);
         // Seeing tick 10, it lands where Ada saw Bo.
-        swing(&mut ch, 10 * 16, 16);
+        swing(&mut ch, Some(10 * 16), 16);
         assert!(hp(&ch) < full, "the rewound swing lands: {} of {full}", hp(&ch));
     }
 
@@ -1410,8 +1430,13 @@ mod tests {
         let hp = |ch: &ChannelGame| ch.actors.get(id).unwrap().hp;
         let full = hp(&ch);
         let mut seq = 0u32;
-        let mut swing = |ch: &mut ChannelGame, view: u32, from: u64| {
-            ch.inputs_seen(7, (1..=48).map(|k| (seq + k, view, if k == 1 { ATTACK } else { [0; OPEN_INPUT] })));
+        // `view`: the tick × 16 Ada drew everyone else at, or None for the present.
+        let mut swing = |ch: &mut ChannelGame, view: Option<u32>, from: u64| {
+            let list = (1..=48).map(|k| (seq + k, if k == 1 { ATTACK } else { [0; OPEN_INPUT] }));
+            match view {
+                Some(v) => ch.inputs_seen(7, list.map(|(s, raw)| (s, v, raw))),
+                None => ch.inputs(7, list),
+            }
             seq += 48;
             ch.players.inputs_per_tick = 12.0;
             for tick in from..from + 4 {
@@ -1419,10 +1444,10 @@ mod tests {
             }
         };
         // Seeing the present, the swing finds nothing in reach.
-        swing(&mut ch, u32::MAX, 12);
+        swing(&mut ch, None, 12);
         assert_eq!(hp(&ch), full);
         // Seeing tick 10, it lands where Ada saw the slime, as a swing at a player does.
-        swing(&mut ch, 10 * 16, 16);
+        swing(&mut ch, Some(10 * 16), 16);
         assert!(hp(&ch) < full, "the rewound swing lands: {} of {full}", hp(&ch));
     }
 
