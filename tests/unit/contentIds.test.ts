@@ -80,6 +80,10 @@ const ALLOWED: Allowance[] = [
     why: "the server's tests of its tiers together, a file of tests alone (crates/server/src/lib.rs brings it in only for the tests): its players go through Goblin's Dread's portal and into the developer zones by name",
     files: ['crates/server/src/tests.rs'],
   },
+  {
+    why: "the borders crossed, a file of tests alone (crates/engine/src/border/mod.rs brings it in only for the tests): its players drive a farm cart, row a rowboat and glide on a wayfarer by name, and its fixture regions' recipes have a training dummy",
+    files: ['crates/engine/src/border/crossings.rs'],
+  },
 ];
 
 const allows = (a: Allowance, h: Hit) =>

@@ -10,6 +10,8 @@
 
 /// Creatures: one brain on its own, or packs and war-bands fighting.
 pub mod ai;
+/// A crowd played as one simulation and as a world split between several, the same to the bit.
+pub mod border;
 /// A channel's tick: players and bots fighting, creatures among them, a passenger riding along.
 pub mod crowd;
 /// A player in the battlefield instance, an arena: movement, combos, casts, skills.
@@ -168,6 +170,28 @@ mod golden {
             }
         }
         assert_eq!(differ, Vec::<String>::new(), "the order the crowd is stepped in changed what happened");
+    }
+
+    #[test]
+    fn a_crowd_at_a_border_gives_the_answers_kept() {
+        assert_eq!(differ("bordercheck", super::border::run), Vec::<String>::new(), "{WHY}");
+    }
+
+    #[test]
+    fn a_world_split_between_simulations_plays_as_one() {
+        // Every border case, played split each way it lists (crate::border): the same answer to
+        // the bit as one simulation's, kept above. Half of them with every post between the
+        // simulations written out and read back, as between processes.
+        let mut differ = Vec::new();
+        for (name, input, kept) in cases("bordercheck") {
+            for (k, rule) in super::border::splits(&input).expect("its splits").into_iter().enumerate() {
+                let got = fnv1a64(&super::border::run_split(&input, rule, k % 2 == 1).expect("the scenario runs"));
+                if got != kept {
+                    differ.push(format!("{name}, split {rule:?}: {got}, kept {kept}"));
+                }
+            }
+        }
+        assert_eq!(differ, Vec::<String>::new(), "a world split between simulations played otherwise than one");
     }
 
     #[test]
