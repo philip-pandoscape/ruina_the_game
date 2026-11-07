@@ -138,7 +138,7 @@ impl Encoder {
 pub fn message(msg: &ToConn) -> Option<String> {
     use serde_json::json;
     let v = match msg {
-        ToConn::Claimed(_) | ToConn::Life { .. } | ToConn::Arrived { .. } | ToConn::Estates(_) | ToConn::Turned { .. } => return None,
+        ToConn::Claimed(_) | ToConn::Life { .. } | ToConn::Arrived { .. } | ToConn::Estates(_) | ToConn::Turned { .. } | ToConn::Rejoin { .. } => return None,
         ToConn::Moved { space, .. } => json!({ "t": "space", "space": space }),
         ToConn::Kicked => json!({ "t": "kicked" }),
         ToConn::Saved { at } => json!({ "t": "saved", "at": at }),

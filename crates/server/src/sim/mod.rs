@@ -861,7 +861,7 @@ impl Game {
         Some(self.life_write(character, epoch, &home, island, None))
     }
 
-    /// Everything solid that residents have built, made again from scratch (after a reset, or a
+    /// Everything solid that anyone's land holds, made again from scratch (after a reset, or a
     /// house taken down).
     fn rebuild_world(&mut self) {
         self.open = match self.copy_of() {

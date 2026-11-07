@@ -86,8 +86,9 @@ pub async fn reserve_ids(db: &PgPool) -> Result<Ids, sqlx::Error> {
 }
 
 /// A life to save: whose, under which grant, the life as kept (`{state, player}`, the ledger's
-/// entries it holds still in its state), the land lent to it if it's written with it, and the space
-/// its position is in (None: where it was).
+/// entries it holds still in its state), the land lent to it if it's written with it, the space its
+/// position is in (None: where it was), and the writing simulation's lease where leases are kept in
+/// Postgres (several processes: crate::cluster::leases), which must still be current too.
 #[derive(Clone, Debug)]
 pub struct LifeSave {
     pub character: i64,
@@ -95,6 +96,7 @@ pub struct LifeSave {
     pub life: Value,
     pub land: Option<Land>,
     pub space: Option<String>,
+    pub lease: Option<crate::cluster::leases::Fence>,
 }
 
 /// A life as a simulation hands it over (`{state, land, player}`) taken apart: the life as it's kept
@@ -154,6 +156,14 @@ pub async fn save(db: &PgPool, saves: &[LifeSave]) -> Result<Vec<bool>, sqlx::Er
 pub async fn save_in(tx: &mut Transaction<'_, Postgres>, saves: &[LifeSave]) -> Result<Vec<bool>, sqlx::Error> {
     let mut written = Vec::with_capacity(saves.len());
     for s in saves {
+        // Among several processes, the writing simulation's lease too: one that lost its space can't
+        // write, even a life nobody has been granted anew.
+        if let Some(lease) = &s.lease
+            && crate::cluster::leases::check(&mut **tx, lease).await?.is_err()
+        {
+            written.push(false);
+            continue;
+        }
         if !current(tx, s.fence).await? {
             written.push(false);
             continue;

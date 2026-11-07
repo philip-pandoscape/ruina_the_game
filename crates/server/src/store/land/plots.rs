@@ -86,9 +86,15 @@ pub async fn houses(db: &PgPool) -> Result<Vec<(i64, House)>, sqlx::Error> {
 /// Takes these houses down, their tax unpaid too long at `at` (the world's clock): each one that still
 /// is, as the rows have it (an owner who paid meanwhile has written a later `tax_paid_until`, and
 /// keeps theirs; one taken down already is gone). Their rows go, and with them their plots' claims.
-/// The plots let go, with whose they were.
-pub async fn take_down(db: &PgPool, ids: &[i64], at: f64) -> Result<Vec<(String, i64)>, sqlx::Error> {
+/// The plots let go, with whose they were. Under the region keeper's lease where leases are kept in
+/// Postgres (`lease`): a keeper that lost its space takes nothing down.
+pub async fn take_down(db: &PgPool, ids: &[i64], at: f64, lease: Option<&crate::cluster::leases::Fence>) -> Result<Vec<(String, i64)>, sqlx::Error> {
     let mut tx = db.begin().await?;
+    if let Some(lease) = lease
+        && crate::cluster::leases::check(&mut tx, lease).await?.is_err()
+    {
+        return Ok(Vec::new());
+    }
     let rows: Vec<(i64, Json<Value>)> = sqlx::query_as("SELECT id, data FROM land WHERE world = $1 AND kind = $2 AND id = ANY($3) FOR UPDATE")
         .bind(WORLD)
         .bind(Kind::House.name())

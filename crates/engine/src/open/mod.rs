@@ -28,8 +28,8 @@ use zone::{Heightfield, Zone};
 
 /// The world as a channel plays it: its view of the map of regions (`map`: the regions it holds grown,
 /// and the ground they answer), the region the channel is a copy of (`zone`, whose life it plays),
-/// and everything solid: the colliders of the regions it holds, plus what residents have built since
-/// (house floors and walls, scarecrow posts), shared by everyone in it.
+/// and everything solid: the colliders of the regions it holds, plus what's been built on anyone's land
+/// since (house floors and walls, scarecrow posts), shared by everyone in it.
 pub struct OpenWorld {
     pub map: WorldMap,
     pub zone: &'static Zone,

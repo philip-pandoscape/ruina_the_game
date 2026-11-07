@@ -5,7 +5,7 @@
 //! browser ─WebSocket─▶ gate ──inputs, what a player asks──▶ sim (a region's channel, an instance's copy)
 //!                       ▲  ◀── a tick's records by cell, private state ──┘
 //!   directory: who plays where, which sim plays which space, leases and epochs
-//!   store: what lasts (lives, builds, residents), every write fenced by an epoch
+//!   store: what lasts (lives, builds, land, the ledger, the market), every write fenced by an epoch
 //!   social: parties (later friends and guilds)
 //! ```
 //!

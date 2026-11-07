@@ -96,8 +96,8 @@ async fn a_transfer_sent_twice_is_applied_once() {
     let t = pot("pot:channel:emberholm:1:table:7", ann, bea, 50.0, "beacons");
     let saves = |a: f64, b: f64| {
         vec![
-            LifeSave { character: ann, fence: playing(ann), life: life(a), land: None, space: None },
-            LifeSave { character: bea, fence: playing(bea), life: life(b), land: None, space: None },
+            LifeSave { character: ann, fence: playing(ann), life: life(a), land: None, space: None, lease: None },
+            LifeSave { character: bea, fence: playing(bea), life: life(b), land: None, space: None, lease: None },
         ]
     };
     assert_eq!(transfer(&db, &t, &saves(250.0, 150.0)).await.unwrap(), Applied::Now(vec![true, true]));
@@ -118,7 +118,7 @@ async fn a_transfer_sent_twice_is_applied_once() {
         { "n": 1, "kind": "purchase", "party": "vendor:mara", "coins": -12.0, "seals": 0.0, "items": [{ "item": "seed.sunroot", "n": 3 }] },
         { "n": 2, "kind": "payout", "party": "post:westwatch", "coins": 329.0, "seals": 1.0, "items": [], "detail": "harvestCrate" }
     ]);
-    let s = [LifeSave { character: ann, fence: playing(ann), life: with, land: None, space: None }];
+    let s = [LifeSave { character: ann, fence: playing(ann), life: with, land: None, space: None, lease: None }];
     assert_eq!(save(&db, &s).await.unwrap(), [true]);
     assert_eq!(save(&db, &s).await.unwrap(), [true]);
     let kinds: Vec<(String, String, f64)> = ledger::of(&db, ann).await.unwrap().into_iter().map(|(k, kind, _, c, _)| (k, kind, c)).collect();
@@ -147,7 +147,7 @@ async fn land_is_kept_by_the_chunk_it_stands_in() {
     land.scarecrows.push(Scarecrow { id: n(4), x: -208.0, z: -240.0, cells: vec![None; 16], ..Scarecrow::default() });
     let life = json!({ "state": { "version": 4 }, "player": {} });
     assert_eq!(
-        save(&db, &[LifeSave { character: ada, fence: playing(ada), life: life.clone(), land: Some(land.clone()), space: None }]).await.unwrap(),
+        save(&db, &[LifeSave { character: ada, fence: playing(ada), life: life.clone(), land: Some(land.clone()), space: None, lease: None }]).await.unwrap(),
         [true]
     );
     // A region's keeper reads its chunks: the cart and what's in its bed east of the middle.
@@ -163,14 +163,14 @@ async fn land_is_kept_by_the_chunk_it_stands_in() {
     land.packs.retain(|p| p.at != "ground");
     land.vehicles[0].x = -300.0;
     assert_eq!(
-        save(&db, &[LifeSave { character: ada, fence: playing(ada), life: life.clone(), land: Some(land.clone()), space: None }]).await.unwrap(),
+        save(&db, &[LifeSave { character: ada, fence: playing(ada), life: life.clone(), land: Some(land.clone()), space: None, lease: None }]).await.unwrap(),
         [true]
     );
     let rows: Vec<(i64, Option<i32>, Option<i32>)> = sqlx::query_as("SELECT id, cx, cz FROM land ORDER BY id").fetch_all(&db).await.unwrap();
     assert_eq!(rows, [(n(0), Some(-2), Some(-1)), (n(1), Some(-2), Some(-1)), (n(3), None, None), (n(4), Some(-1), Some(-1))]);
     // A window that has been replaced writes nothing.
     land.packs.clear();
-    let stale = LifeSave { character: ada, fence: replaced(ada), life, land: Some(land), space: None };
+    let stale = LifeSave { character: ada, fence: replaced(ada), life, land: Some(land), space: None, lease: None };
     assert_eq!(save(&db, &[stale]).await.unwrap(), [false]);
     assert_eq!(load_holding(&db, ada).await.unwrap().packs.len(), 2);
 }
@@ -192,7 +192,7 @@ async fn a_neglected_house_comes_down_and_its_plot_is_free_for_the_next_claim() 
     }
     let gone: Vec<i64> = by_owner.values_mut().flat_map(|land| demolish_neglected(land, now)).map(|h| h.id).collect();
     assert_eq!(gone, [old.id]);
-    assert_eq!(take_down(&db, &gone, now).await.unwrap(), [("rise-1".to_string(), ada)]);
+    assert_eq!(take_down(&db, &gone, now, None).await.unwrap(), [("rise-1".to_string(), ada)]);
     assert_eq!(holder(&db, "rise-1").await.unwrap(), None);
     assert_eq!(holder(&db, "rise-2").await.unwrap(), Some(bo));
     // Free for anyone: Bo's alt claims it.

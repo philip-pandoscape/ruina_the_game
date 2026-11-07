@@ -28,7 +28,7 @@ use tokio::sync::mpsc;
 use ruina_world_api::gate::ToConn;
 use ruina_world_api::post::Answer;
 use ruina_world_api::sim::ToSim;
-use ruina_world_api::store::{ClaimResult, LifeWrite, RegionLand, Then, ToStore, Transfer};
+use ruina_world_api::store::{ClaimResult, LifeWrite, RegionLand, Then, ToStore, Transfer, Writer};
 use ruina_world_api::{CharacterId, Epoch, Millis, Transport};
 
 use crate::life::land::{House, Ids, Land, kept_inside};
@@ -59,6 +59,16 @@ pub struct Saved {
     pub life: Option<Value>,
     pub build: Option<Value>,
     pub saved_at: Option<Millis>,
+}
+
+/// Whether a life's write is fenced by its writer's lease as well as by the character's epoch: so
+/// once the leases are Postgres's (several processes share the world: crates/server/src/cluster),
+/// not while one process keeps them in memory.
+static FENCED_BY_LEASES: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// From now on every life written is fenced by its writer's lease too (`space_leases`).
+pub fn fence_by_leases() {
+    FENCED_BY_LEASES.store(true, std::sync::atomic::Ordering::Relaxed);
 }
 
 /// The time now, in ms since 1970.
@@ -171,9 +181,9 @@ impl Db {
 
     /// Takes down those of these houses whose tax is unpaid too long at `at` (the world's clock), as
     /// the store has them. The plots let go, with whose they were.
-    pub async fn take_down(&self, houses: &[i64], at: f64) -> Result<Vec<(String, CharacterId)>, String> {
+    pub async fn take_down(&self, houses: &[i64], at: f64, writer: &Writer) -> Result<Vec<(String, CharacterId)>, String> {
         match self {
-            Db::Pg(db) => land::plots::take_down(db, houses, at).await.map_err(|e| e.to_string()),
+            Db::Pg(db) => land::plots::take_down(db, houses, at, lease_of(writer).as_ref()).await.map_err(|e| e.to_string()),
             Db::Memory(t) => Ok(Db::tables(t).take_down(houses, at)),
         }
     }
@@ -255,7 +265,22 @@ impl Db {
 /// the land apart from the life.
 fn save_of(w: &LifeWrite) -> LifeSave {
     let (life, land) = land::split(&w.life);
-    LifeSave { character: w.character, fence: Fence::Epoch { character: w.character, epoch: w.epoch.0 as i64 }, life, land, space: Some(w.space.to_string()) }
+    let lease = w.writer.as_ref().and_then(lease_of);
+    LifeSave {
+        character: w.character,
+        fence: Fence::Epoch { character: w.character, epoch: w.epoch.0 as i64 },
+        life,
+        land,
+        space: Some(w.space.to_string()),
+        lease,
+    }
+}
+
+/// A writer's lease, to fence what it writes by, where leases are kept in Postgres (several processes).
+fn lease_of(writer: &Writer) -> Option<crate::cluster::leases::Fence> {
+    FENCED_BY_LEASES
+        .load(std::sync::atomic::Ordering::Relaxed)
+        .then(|| crate::cluster::leases::Fence { leased: crate::cluster::leases::Leased::space(writer.space.to_string()), epoch: writer.epoch.0 as i64 })
 }
 
 /// A life as the store keeps it, with the land lent to it beside it (`{state, land, player}`), as the
@@ -331,7 +356,7 @@ async fn handle(db: &Db, post: &dyn Transport, msg: ToStore) {
             });
             post.sim(reply, ToSim::Claim { character, plot, result });
         }
-        ToStore::TakeDown { houses, at, writer } => match db.take_down(&houses, at).await {
+        ToStore::TakeDown { houses, at, writer } => match db.take_down(&houses, at, &writer).await {
             Ok(freed) => {
                 for (plot, holder) in freed {
                     eprintln!("{}: {plot} is free, character {holder}'s house on it taken down (its tax unpaid too long)", writer.space);
