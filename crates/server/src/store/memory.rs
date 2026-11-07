@@ -18,7 +18,6 @@ pub struct CharacterRow {
     /// The character's grant: bumped by every claim and every move between simulations.
     pub epoch: u64,
     pub live_session: Option<i64>,
-    pub home_channel: Option<u32>,
     /// Where their saved position is.
     pub space: Option<String>,
 }

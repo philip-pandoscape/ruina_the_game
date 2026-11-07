@@ -309,14 +309,14 @@ async fn saves_from_before_land_had_rows_come_back_with_everything() {
         .await
         .unwrap();
     for r in &rows {
-        sqlx::query("INSERT INTO characters (id, account_id, name, island, build, saved_at, home_channel) VALUES ($1, $2, $3, $4, $5, $6::timestamptz, $7)")
+        // (Each was played in its home channel then: `home_channel`, gone since the channels' policy.)
+        sqlx::query("INSERT INTO characters (id, account_id, name, island, build, saved_at) VALUES ($1, $2, $3, $4, $5, $6::timestamptz)")
             .bind(r["id"].as_i64().unwrap())
             .bind(account)
             .bind(r["name"].as_str().unwrap())
             .bind(Json(&r["island"]))
             .bind(r.get("build").filter(|b| !b.is_null()).map(Json))
             .bind(r["saved_at"].as_str().unwrap())
-            .bind(r["home_channel"].as_i64().unwrap() as i32)
             .execute(&db)
             .await
             .unwrap();

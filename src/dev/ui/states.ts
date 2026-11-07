@@ -6,11 +6,12 @@ import type { Engine } from '../../engine/engine';
 import { DAY, housePose, type IslandView, islandData, type Land, type LifeState, newLand } from '../../engine/island';
 import { minigameDeal } from '../../engine/minigames';
 import type { LifeUI } from '../../ui/life/lifeUI';
+import type { ChannelsUI, ChannelsView } from '../../ui/channels/channelsUI';
 import type { MinigamesUI } from '../../ui/minigames/minigames';
 import type { TableView } from '../../ui/minigames/tables';
 import type { PartyUI } from '../../ui/party/partyUI';
 import type { SkillsPanel } from '../../ui/skills/panel';
-import type { MadeUpParty, MadeUpTables } from './fakes';
+import type { MadeUpChannels, MadeUpParty, MadeUpTables } from './fakes';
 
 // How each entry of the UI gallery (entries.ts) is made up on a real offline island: what is given,
 // where you stand, what is said by the made-up world connection, and which window opens. Everything
@@ -27,6 +28,8 @@ export interface Gallery {
   tables: MadeUpTables;
   party: PartyUI;
   partyLink: MadeUpParty;
+  channels: ChannelsUI;
+  channelLink: MadeUpChannels;
   /** You, as the online windows know you. */
   me: { id: number; name: string };
   /** Runs the island on `n` steps (a command given runs on the next one). */
@@ -196,6 +199,25 @@ function inParty(g: Gallery, leads: number): void {
   g.partyLink.peers.set(OTHERS[0].id, { p: { hp: 62 } });
 }
 
+/** Your region's channels as the server might send them: you in channel 1, busy, with two friends; your party in channel 2; channel 3 full. */
+function regionChannels(g: Gallery, change: Partial<ChannelsView> = {}): ChannelsView {
+  return {
+    region: g.life.zone.recipe.id,
+    here: 1,
+    list: [
+      { n: 1, load: 'busy', closing: false, party: 0, friends: 2 },
+      { n: 2, load: 'quiet', closing: false, party: 2, friends: 0 },
+      { n: 3, load: 'full', closing: false, party: 0, friends: 0 },
+    ],
+    closing: null,
+    wait: null,
+    blocked: null,
+    party: 2,
+    following: false,
+    ...change,
+  };
+}
+
 /** How each entry is made up, by `<window>/<state>` (entries.ts). */
 export const MADE_UP: Record<string, MakeUp> = {
   'bag/start': (g) => g.ui.openBag(),
@@ -305,4 +327,18 @@ export const MADE_UP: Record<string, MakeUp> = {
     const them = OTHERS[0];
     g.partyLink.setInvite({ from: them.id, name: them.name, ms: 20_000 });
   },
+  'channels/window': (g) => {
+    g.channelLink.setChannels(regionChannels(g));
+    g.channels.open();
+  },
+  'channels/blocked': (g) => {
+    g.channelLink.setChannels(regionChannels(g, { blocked: "You can't change channel while carrying a pack.", wait: 200_000 }));
+    g.channels.open();
+  },
+  'channels/closing': (g) => {
+    const list = regionChannels(g).list.map((c) => (c.n === 2 ? { ...c, closing: true } : c));
+    g.channelLink.setChannels(regionChannels(g, { here: 2, list, closing: { into: 1, ms: 45_000 }, party: null }));
+    g.channels.open();
+  },
+  'channels/moved': (g) => g.channelLink.setMoved({ from: 2, to: 1, why: 'merge' }),
 };

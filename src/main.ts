@@ -44,6 +44,7 @@ import { splash } from './ui/splash';
 import { WorldPeers } from './net/worldPeers';
 import { PeersView } from './render/open/peersView';
 import { MinigamesUI } from './ui/minigames/minigames';
+import { ChannelsUI } from './ui/channels/channelsUI';
 import { PartyUI } from './ui/party/partyUI';
 import { uiIcon } from './ui/theme/icons';
 import { GameTables } from './render/open/gameTables';
@@ -296,6 +297,19 @@ const party =
       })
     : null;
 if (party && lifeUI) lifeUI.addMenuButton('party', uiIcon('party', 34), 'Party', 'O');
+// Online: channels (src/ui/channels): your region's channels, a way to another or to your party's,
+// and a notice while yours closes. It docks where the Party window does: one closes the other.
+const channels =
+  online && lifeUI
+    ? new ChannelsUI({
+        link: online.link,
+        regionName: (id) => (world.zone?.recipe.id === id ? world.zone.recipe.name : id),
+        freeMouse: () => document.pointerLockElement && document.exitPointerLock(),
+        onOpen: () => party?.close(),
+      })
+    : null;
+if (party && channels) party.onOpen = () => channels.close();
+if (channels && lifeUI) lifeUI.addMenuButton('channels', uiIcon('portal', 34), 'Channels', '');
 // The Admin menu, for admins only (the server says who): Developer Tools, the developer zones and pages.
 if (online?.welcome.dev && lifeUI) lifeUI.addMenuButton('admin', uiIcon('mallet', 34), 'Admin', '');
 // ---------- Goblin's Dread: into a copy of a dungeon and out again (src/app/dungeonVisit.ts) ----------
@@ -345,8 +359,9 @@ function portalPress(k: LifePress): boolean {
   if (f.ok && f.dungeon) onPortal(f.action === 'enterDungeon', f.dungeon);
   return true;
 }
-// A key the island's windows would take goes first to a dungeon's portal, then a mini-game, then the party window.
-if (lifeUI) lifeUI.intercept = (k) => portalPress(k) || !!minigames?.intercept(k) || !!party?.intercept(k);
+// A key the island's windows would take goes first to a dungeon's portal, then a mini-game, then the
+// party window, then the channels'.
+if (lifeUI) lifeUI.intercept = (k) => portalPress(k) || !!minigames?.intercept(k) || !!party?.intercept(k) || !!channels?.intercept(k);
 // ---------- end Goblin's Dread ----------
 if (peersView && gameTables) peersView.stoolFor = (id) => gameTables.seatOf(id);
 if (online && peers && life && minigames) {
@@ -716,6 +731,9 @@ const refs = {
   },
   get party() {
     return party;
+  },
+  get channels() {
+    return channels;
   },
   get paused() {
     return loop.paused;

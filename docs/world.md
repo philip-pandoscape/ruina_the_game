@@ -25,7 +25,7 @@ add a region or an instance. The plans for the rest are in `.plans/world/` and t
 | World | The one open world. |
 | Region | A part of the world grown from one recipe, standing on whole chunks: Emberholm. |
 | Instance | A closed place in a space of its own: a dungeon or a developer zone (`content/instances/`). |
-| Channel | A copy of a region, for crowds. Today a channel plays the whole world, which is Emberholm. |
+| Channel | A copy of a region, for crowds: another opens past a soft cap, and a quiet one merges (Channels, below). Today a channel plays the whole world, which is Emberholm. |
 | Copy | A copy of an instance, for a party. |
 | Space | Where a position is: the world, or one copy of an instance. |
 | Chunk | 256 m on a side: where regions stand, and the unit a simulation will own. |
@@ -176,6 +176,87 @@ Residents, estates and each channel's plots go when the server moves onto the st
 half, on the server's tiers): land then stands in every channel of its region, each plot claimed
 once in the world (Land, below).
 
+The policy that replaces them is built (`crates/channels`, R10.22), and goes into the server's
+directory once the server is in tiers (R10.20) and land is the world's (R10.21).
+
+### The Policy
+
+`crates/channels` is the policy alone: pure, with no clock (whoever asks hands in the time) and no
+maps that iterate in an order of their own. It speaks the server tiers' words: a channel is a
+region's number `n`, times are `Millis`, players character ids. Whoever keeps who plays where holds
+a `Region` for each region, tells it what happens, and carries out the `Action`s it answers with
+(open a channel, move someone, close a channel).
+
+- **Placing** (`Region::arrive`). Someone coming into the world goes to the first of:
+  - the channel they left, if they left it less than `rejoinWithin` ago (a dropped connection, or
+    signing out and back in, doesn't move anyone; a channel merged meanwhile, where it went);
+  - their party's channel: its leader's, else where most of it plays;
+  - the channel with the most of their friends, then of their guild, then the biggest share
+    speaking their language, then the fullest, of those below the soft cap;
+  - a new channel.
+
+  Coming back and joining a party may pass the soft cap, never the hard cap. Friends, guilds and
+  languages are hooks (`Ties`): the social tier keeps only parties today, and they answer nothing
+  until it learns them.
+- **Opening** (`Region::review`, once a second). Another channel opens when the room left below the
+  soft cap in all of them together falls under `openAhead`, so a crowd still coming finds it there.
+- **Merging.** A channel with fewer than `quiet` players for `quietFor` merges into the fullest
+  other that can take them and stay at most `mergeFill`: the newest quiet channel first, one merge
+  at a time, everyone into one channel. Its players are told (`Merging`), nobody new goes in, and
+  from `mergeNotice` on each is moved (`Move`) to the same spot in the other channel, with their pack
+  and whatever they ride, once out of combat, on the ground and off a game's table; whoever is left
+  after `mergeWait` more is moved anyway. Then it closes (`Close`). An empty one closes at once.
+- **Changing channel** (`Region::change`, `Region::joined_party`). A player's choice, or accepting an
+  invitation into a party in another channel. Never with a pack, in combat (a blow struck or taken
+  within `calmAfter`, or down), riding, in the air or at a table, nor within `changeEvery` of the last
+  change. A choice goes only to a channel below the soft cap and not closing; joining a party, up to
+  the hard cap. An invitation the rules refuse for now goes through as soon as they allow.
+- **What a player sees** (`Region::view`): each channel's load (quiet, lively, busy, full), whether
+  it's closing, their party and friends in it, their merge's countdown, their cooldown, and what
+  stops them changing.
+
+The hysteresis: a merge never leaves a channel past `mergeFill`, and a channel opens ahead only once
+the room left is under `openAhead`; contentc holds `openAhead` below `softCap - mergeFill`, so a merge
+never opens a channel again at once.
+
+### Its Numbers
+
+`content/channels.json` (built to `shared/channels.json`; contentc and `Tuning::check` hold them in
+order). Counts are players in a channel, times seconds.
+
+| Field | What | Now |
+|---|---|---|
+| `softCap` | Placed by affinity up to this; past it another channel opens | 1,000 |
+| `hardCap` | Nobody is placed past this, with their party or coming back | 1,200 |
+| `openAhead` | Another opens when the room left below the soft cap is less than this | 50 |
+| `quiet`, `quietFor` | Fewer than this many for this long, and a channel merges | 250, 300 |
+| `mergeFill` | A merge leaves the channel it merges into at most this full | 750 |
+| `mergeNotice`, `mergeWait` | Warning before a merge moves anyone; then how long it waits for fights and tables | 60, 60 |
+| `changeEvery` | Between changes of channel | 300 |
+| `calmAfter` | Out of combat after the last blow | 10 |
+| `rejoinWithin` | Back where you were if you return within this | 300 |
+
+### The Browser
+
+The Channels window (`src/ui/channels/`, its button beside the Party's) lists your region's
+channels and asks to change; a notice at the top of the screen counts down while your channel
+closes and says where a move took you. On the wire (`src/net/worldLink.ts`):
+`channels {channels}` (a `ChannelsView`) and `channelMoved {from, to, why}` in; `channels` and
+`channel {to}` or `channel {party: true}` out. The server's side of these comes with the directory.
+
+### Bots in a Crowd
+
+`crates/channels/src/crowd.rs` plays a seeded crowd of bots against an `Arena`: they come and go on
+a curve, in parties formed before they come or by invitation, with friends, guilds and languages,
+picking up packs, fighting, sitting at tables, dropping their connections and changing channel. The
+policy in memory is one arena (`Here`); the server's directory with bots for players will be
+another. After every second it checks that no channel is past the hard cap, nobody past the soft cap
+but by their party or coming back, every merge done by its deadline, every refusal with its reason,
+and it counts the rest (`Tally`): `cargo test --release -p ruina-channels crowds_measured --
+--ignored --nocapture` prints them.
+
+### The World's Clock
+
 Every game numbers its ticks by the world's clock (`crates/server/src/sim/clock.rs`): frames at 60
 a second from the world's epoch (2026-01-01 UTC), and a server tick every third frame, 20 a second.
 - **The same moment everywhere.** A tick is the same moment in every channel and copy, so a browser's
@@ -191,8 +272,8 @@ Where this is going:
   region, each plot claimed once in the world, the ledger and the world's market. The engine, the
   browser and the store's tables and queries are in; the server keeps each channel's residents and
   plots until it moves onto them, with its tiers.
-- **R10.22:** channels that open past a region's soft cap and merge when quiet, placing players by
-  party, friends and guild.
+- **R10.22's second half:** the directory opening and closing channels' simulations by the policy,
+  placing and moving players through the tiers' messages, residents gone.
 - **R10.19, R10.20:** regions split between simulations, their borders crossed as if they weren't
   there.
 
@@ -478,3 +559,10 @@ worker as you come near it.
   claimed once with two claims racing, a transfer sent twice applied once, land by chunk, the keeper
   taking a neglected house down, every server's sales counting, and today's saves moved into rows
   with every character back with everything.
+- `crates/channels`: placing (back, party, friends, guild, language, the fullest, a new channel),
+  the soft and hard caps, the rules for changing channel and following a party, merges (who waits,
+  the deadline, an empty channel, one at a time, newest first), opening ahead, and what a player
+  sees; and crowds of bots (`crowd.rs`), from 150 in small channels to 6,000 by the game's numbers,
+  checked every second. `tests/unit/content.test.ts`: the channels' numbers held in order.
+- `tests/unit/channels.test.ts` and `tests/integration/uiGallery.spec.ts` (`#/ui/channels/...`): the
+  Channels window's words and reasons, and the window and notice drawn in Title Case.

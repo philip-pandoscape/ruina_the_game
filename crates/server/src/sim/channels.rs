@@ -10,9 +10,6 @@ use serde_json::{Value, json};
 
 use crate::life::land::Land;
 
-/// Characters who call one channel home.
-pub const CHANNEL_CAP: i64 = 24;
-
 /// What of someone's land everyone else sees while its owner is away. Vehicles and packs move, so
 /// they travel with the owner's presence instead (and only while they're online).
 pub fn estate_of(land: &Land) -> Value {
