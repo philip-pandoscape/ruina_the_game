@@ -41,7 +41,8 @@ const fresh = (prefix: string) => `${prefix}${Date.now().toString(36)}${Math.flo
 /** Runs `fn` in the page with the game's test API (window.__game). `fn` can't use anything from here. */
 const game = <T>(page: Page, fn: (g: any) => T) => page.evaluate(`(${fn.toString()})(window.__game)`) as Promise<T>;
 
-/** Waits until the server has written your life to the database again (it does every 5 s). */
+/** Waits until the server has written your life to the database again: it writes a life a second
+ * after it changes, and at least once a minute (crates/server/src/sim/mod.rs, SAVE_AFTER), so change it first. */
 async function saveAndWait(page: Page): Promise<void> {
   const before = await game(page, (g) => g.online().lastSaved);
   await expect.poll(() => game(page, (g) => g.online().lastSaved), { timeout: 20_000 }).toBeGreaterThan(before);
@@ -184,7 +185,8 @@ test('a second window takes the character over, and the first stops', { tag: '@a
 
   await expect(page.getByRole('heading', { name: 'Playing in Another Window' })).toBeVisible();
   expect(await game(page, (g) => g.online().status)).toBe('kicked');
-  // The window that took over saves; the one it replaced can't any more.
+  // The window that took over saves (once its life changes); the one it replaced can't any more.
+  await game(second, (g) => g.lifeCommand({ t: 'grant', coins: 1 }));
   await saveAndWait(second);
 });
 
