@@ -77,8 +77,8 @@ pub fn launch(id: u32, a: &Actor, atk: &AttackDef, attack: usize, foe: &Foe, gro
 
 /// What happened to a missile this frame, for the world to act on.
 pub enum Flight {
-    /// It struck a foe, travelling along (nx, nz).
-    Hit { foe: u32, damage: f64, knock: f64, nx: f64, nz: f64 },
+    /// It struck a foe, travelling along (nx, nz): the missile, by its id, and who threw it.
+    Hit { foe: u32, damage: f64, knock: f64, nx: f64, nz: f64, missile: u32, owner: u32 },
     /// It came down on the ground here.
     Landed { x: f64, y: f64, z: f64 },
 }
@@ -98,7 +98,7 @@ pub fn step_missiles(missiles: &mut Vec<Missile>, foes: &[Foe], ground: &dyn Fn(
         if let Some(f) = struck {
             let s = len(m.vx, m.vz);
             let (nx, nz) = if s > 1e-6 { (m.vx / s, m.vz / s) } else { (0.0, 1.0) };
-            out.push(Flight::Hit { foe: f.id, damage: m.damage, knock: m.knock, nx, nz });
+            out.push(Flight::Hit { foe: f.id, damage: m.damage, knock: m.knock, nx, nz, missile: m.id, owner: m.owner });
             continue;
         }
         if m.y <= ground(m.x, m.z) {

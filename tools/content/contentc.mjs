@@ -125,7 +125,7 @@ export function build(root = CONTENT) {
   }
   // The schemas, and the templates a new thing is copied from (content/_templates/), are no bundle's.
   for (const f of walk(root)) if (!used.has(f) && !/^_(schemas|templates)\//.test(f) && !f.endsWith('.md')) errors.push(`content/${f}: no bundle takes it`);
-  errors.push(...references(bundles), ...madeModels(bundles), ...dressings(bundles));
+  errors.push(...references(bundles), ...madeModels(bundles), ...dressings(bundles), ...practices(bundles));
   errors.push(...world(bundles), ...channels(bundles), ...spawns(bundles), ...skillTree(bundles));
   if (errors.length) throw new ContentError(errors.join('\n'));
   bundles.set(HASH, hashOf(bundles));
@@ -535,6 +535,25 @@ function dressings(bundles) {
     else {
       if (dress.torches?.length && !light.torch) errors.push(`${where}: its dressing has torches, but no light for them (light.torch)`);
       if (dress.falls !== undefined && !light.falls) errors.push(`${where}: its dressing has falls, but no light for them (light.falls)`);
+    }
+  }
+  return errors;
+}
+
+// ---------- An instance's practice rules ----------
+
+/** The practice rules an instance's file may switch on (crates/engine/src/open/dungeon.rs Practice, docs/world.md). */
+const PRACTICE = ['hitPause', 'aimAssist'];
+
+/** What's wrong with the instances' practice rules: a rule there isn't, or one not switched on or off. */
+function practices(bundles) {
+  const errors = [];
+  for (const d of bundles.get('instances.json')?.instances ?? []) {
+    if (d.practice === undefined) continue;
+    const where = `content/instances/${d.id}.json`;
+    for (const [k, v] of Object.entries(d.practice)) {
+      if (!PRACTICE.includes(k)) errors.push(`${where}: practice.${k} isn't a practice rule (${PRACTICE.join(', ')})`);
+      else if (typeof v !== 'boolean') errors.push(`${where}: practice.${k} is switched on or off (true or false), not ${JSON.stringify(v)}`);
     }
   }
   return errors;

@@ -122,7 +122,7 @@ async function open(page: Page, quality: string, extra = ''): Promise<string[]> 
     if (m.type() === 'error') errors.push(m.text());
   });
   page.on('pageerror', (e) => errors.push(String(e)));
-  await page.goto(`/?world&test&quality=${quality}${extra}`);
+  await page.goto(`/?test&quality=${quality}${extra}`);
   await gameReady(page, 60_000);
   await page.evaluate(() => window.__game.reset());
   await page.waitForFunction(() => window.__game.assetsReady === true, null, { timeout: 60_000 });

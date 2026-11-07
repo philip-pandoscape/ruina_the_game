@@ -244,7 +244,7 @@ export function makeTestApi(g: GameRefs) {
         budget: g.skillPoints(),
         left: pointsLeft(g.build.skills, g.skillPoints()),
         levels: Object.fromEntries(BOOK.map((b, i) => [b.id, g.sim.levels[i] ?? 1])),
-        xp: { ...(g.life ? (g.life.state.skillXp ?? {}) : g.yardXp) },
+        xp: { ...(g.life.state.skillXp ?? {}) },
       };
     },
     // What a drag between two hotbar slots ends up doing.

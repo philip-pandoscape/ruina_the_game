@@ -164,6 +164,8 @@ export interface WorldStats {
   bots: number;
   /** How long a tick takes to run, ms (smoothed). */
   tickMs: number;
+  /** Every tick since the last stats: its rules and its updates, ms each (the load harness reads them). */
+  ticks?: Array<[number, number]>;
   /** The size of the update this came with, bytes. */
   bytes: number;
   /** Blows between players (bots included) since the game began; those only lag compensation landed; how far back it looked (ms, recent). */

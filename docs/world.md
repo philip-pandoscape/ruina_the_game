@@ -292,6 +292,17 @@ out).
   through a dungeon's portal, or from the start with `?test=<instance>` (paused, for tests) or
   `?offline=<instance>`. The copy brings its creatures, numbered on from the world's, which wait
   outside until you come back out. Its bots are the server's alone.
+- **Practice rules** are a copy's when its file switches them on (`practice`): a blow that lands
+  stops everything for its swing's hit pause (`hitPause`), and a swing turns toward whatever stands
+  nearest within reach and roughly in front (`aimAssist`). The yard and the goblin camp switch both
+  on; the world, Goblin's Dread and the battlefield play none. They are rules of one player's game,
+  so the browser's session plays them offline (`Practice` in `open/dungeon.rs`). The server never
+  stops a shared world for one player's blow or turns anyone's swing for them, so online they are
+  what the page does in every space: a landed swing's pause drawn on your hero, and the page's own
+  aim at what you see (`src/app/aiming.ts`). Offline where the rules don't stop the game, the page
+  draws the pause as it does online. The training dummy and what a blow shows (its number, its
+  sparks, the dummy's health bar) need no switch: the dummy is a creature a file's `spawns` bring,
+  and a blow shows the same in every space.
 
 ### An Instance's File
 
@@ -313,6 +324,7 @@ holds the fields.
 | `door` | A developer zone's way out into the world (`outside`, in the world); a dungeon's is in its region's `doors.json` |
 | `spawns` | Creatures a copy brings, as a region's recipe has them: a `kind` (`shared/actors.json`, or a creature's kinds) at `x`, `z`; `count` of them spread round the spot out to `r` metres (in a ring without `r`); with `band: true`, a war-band of `count` in a ring round the spot, fighting as a pack (`crates/engine/src/open/spawns.rs`) |
 | `bots` | Bots in it while anyone is: `count` of a `brain` on a `team`, round `x`, `z` |
+| `practice` | The practice rules a copy plays (offline): `hitPause` and `aimAssist`, each `true` or `false` (both off without it; Instances, above) |
 
 ### Dressing a Cave
 
@@ -439,7 +451,9 @@ worker as you come near it.
   `crates/server/src/sim/mod.rs`: the yard's creatures on its floor, the goblin camp's war-band.
 - `crates/engine/src/session.rs` and `tests/unit/rules/instances.test.ts`: offline, a copy of the yard
   with its own creatures on its floor (the world's back as they were when you come out), where it's
-  entered, and blows landing on its dummy.
+  entered, and blows landing on its dummy; the yard's practice rules (a landed blow's pause, a swing
+  turned onto the dummy) and none in the world. `tests/unit/content.test.ts`: a practice rule there
+  isn't fails.
 - `tests/integration/admin.spec.ts`: an admin goes into the battlefield (its bots, the arena, out at
   its door) and into the yard from character select (its dummy and slimes on the floor, blows
   landing); a player is kept out.

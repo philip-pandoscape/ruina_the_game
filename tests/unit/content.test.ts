@@ -117,6 +117,19 @@ test("a cave without its dressing, or a dressing naming walls or pieces the inst
   ).toContain("content/instances/yard.json: an arena isn't dressed");
 });
 
+test("an instance's practice rule there isn't, or one not switched on or off, fails", () => {
+  expect(
+    broken('instances/yard.json', (j) => {
+      j.practice.hitStop = true;
+    }),
+  ).toContain("content/instances/yard.json: practice.hitStop isn't a practice rule (hitPause, aimAssist)");
+  expect(
+    broken('instances/yard.json', (j) => {
+      j.practice.aimAssist = 'yes';
+    }),
+  ).toContain('content/instances/yard.json: practice.aimAssist is switched on or off (true or false), not "yes"');
+});
+
 test('a weapon, an ability or a movement skill named by an id there is no such thing of fails, in the levels and in the skill tree', () => {
   // The levels name the weapon a level changes by id, and the ability or movement skill.
   expect(

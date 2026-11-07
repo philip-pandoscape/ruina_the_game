@@ -248,8 +248,8 @@ export interface World {
   obstacles: Obstacle[];
   spawn: Spawn;
   teamSpawns: [Spawn, Spawn]; // where each team respawns after being knocked down
-  // Open worlds only. The training yard and the battlefield are flat at y = 0 and leave these
-  // out, which keeps their rules exactly as the server runs them (tests/conformance/player.test.ts).
+  // The ground and what stands on it: every world the page plays has them (the flat training yard
+  // that left them out is gone); still optional while the client's world takes shape (R10.23).
   /** Ground heights, surfaces and sea level. */
   terrain?: Ground;
   /** Obstacles, building colliders and walkable decks, bucketed for fast queries. */

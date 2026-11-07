@@ -6,6 +6,10 @@
   "maxPlayers": 5,
   "developer": true,
   "style": "arena",
+  "practice": {
+    "hitPause": true,
+    "aimAssist": true
+  },
   "arrive": {
     "x": 0,
     "z": -18,

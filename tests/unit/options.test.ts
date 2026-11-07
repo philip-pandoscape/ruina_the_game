@@ -23,8 +23,8 @@ test('the options read elsewhere are read there', () => {
 
 test('every listed option changes what the page reads', () => {
   const plain = JSON.stringify(readOptions(''));
-  // Some only mean something beside another (goblins in the yard, the island kept with world&test).
-  const beside: Record<string, string> = { goblins: 'yard&', load: 'test&world&', world: 'test&' };
+  // Some only mean something beside another (the island kept with test).
+  const beside: Record<string, string> = { load: 'test&' };
   for (const o of OPTION_DOCS) {
     const name = nameOf(o.name);
     const value = o.name.includes('=') ? o.name.split('=')[1].split('|')[0] : '';
@@ -34,4 +34,13 @@ test('every listed option changes what the page reads', () => {
     if (o.readBy) continue;
     expect(after, name).not.toEqual(base ? before : plain);
   }
+});
+
+test('test alone is the world, test=<instance> a copy of it; the old yard options are gone', () => {
+  expect(readOptions('?test')).toMatchObject({ test: true, offline: false, space: null });
+  expect(readOptions('?test=yard')).toMatchObject({ test: true, space: 'yard' });
+  expect(readOptions('?offline')).toMatchObject({ test: false, offline: true, space: null });
+  expect(readOptions('?offline=goblinCamp')).toMatchObject({ offline: true, space: 'goblinCamp' });
+  // The flat training yard's own addresses mean nothing now: the yard is an instance (?test=yard).
+  for (const old of ['?yard', '?world', '?goblins=6']) expect(readOptions(old), old).toEqual(readOptions(''));
 });

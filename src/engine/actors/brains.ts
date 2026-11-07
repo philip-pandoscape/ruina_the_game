@@ -4,9 +4,9 @@ import { CREATURES } from '../../content/creatures';
 
 // The creatures' behaviours as the page reads them. Monsters and NPCs do not get their own code:
 // they get an entry in shared/behaviours.json (or their own in shared/creatures.json), which the
-// engine walks (crates/engine/src/ai.rs), the same offline in the training yard and on the server
-// online. The page reads a behaviour for the names of its states and how far through one a
-// creature is (stateName, stateProgress), and the shapes of the entries.
+// engine walks (crates/engine/src/ai.rs), the same offline in the browser and on the server online.
+// The page reads a behaviour for the names of its states and how far through one a creature is
+// (stateName, stateProgress), and the shapes of the entries.
 //
 // A brain only ever changes its own actor. Anything that reaches another (calling the pack,
 // pulling them in, a slam landing on you, a stab, a thrown stone) it asks for, and the engine does

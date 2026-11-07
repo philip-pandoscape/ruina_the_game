@@ -67,6 +67,7 @@ const PLUMBING_NAMES: Array<[RegExp, string]> = [
   [/^crates\/.*\/bots\.rs$/, 'bots for the developer zones, which no player meets yet'],
   [/^crates\/engine\/src\/checks\//, 'scenarios run through the rules, whose answers the golden tests hold'],
   [/^crates\/.*\/tests\.rs$/, 'the tests of the rules beside them'],
+  [/^crates\/engine\/src\/border\//, 'one world played by several simulations, its borders crossed as if they weren’t there: nothing a player meets'],
 ];
 
 /** Rules files that hold no rule a player meets, with why. */
@@ -92,11 +93,9 @@ const PLUMBING: Record<string, string> = {
   'crates/server/src/sim/channels.rs': 'who is in which channel',
   'crates/channels/src/lib.rs': 'the channels crate’s table of contents',
   'crates/channels/src/crowd.rs': 'a crowd of bots the tests play the channels with',
-  // The developer zones, which only admins enter: no player reads about them.
-  'crates/engine/src/world.rs': 'the battlefield’s ground, a developer zone',
-  'crates/engine/src/yard.rs': 'the training yard’s ground and who stands about it, a developer zone',
-  'crates/engine/src/training.rs': 'the training yard’s stand-in for the server, a developer zone',
+  'crates/engine/src/world.rs': 'a spot to stand on: where one is, the world’s data says',
   // The browser's copy of the rules, which the pages above explain where they're made.
+  'crates/engine/src/training.rs': 'the browser’s stand-in for the server’s fights, offline',
   'crates/engine/src/session.rs': 'the browser’s game: the rules above, stepped for one player',
   'crates/engine/src/event.rs': 'what happened in a step, for the browser’s effects and sounds',
 };

@@ -42,7 +42,7 @@ Reproduce before fixing whenever you can; a fix you never saw fail is a guess.
 - `save.json` loads the island exactly as it was at the press:
   ```ts
   await page.addInitScript((s) => localStorage.setItem('ruina.emberholm.v1', s), readFileSync('bugs/<id>/save.json', 'utf8'));
-  await page.goto('/?world&test&load');
+  await page.goto('/?test&load');
   ```
   It stands you where you were (off any vehicle). `state.json` has the exact position, velocity and what you were riding.
 - `timeline.json` has every input as `[steps, actions]` runs, ready for `__game.advance`. The sim is deterministic, but the history starts mid-action, so the inputs show what was pressed rather than replaying the bug exactly.

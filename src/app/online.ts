@@ -21,7 +21,7 @@ import { playingAs, resumeAfterReload, takeResume } from './resume';
 // Emberholm is played on the game server. The front door, on the title screen (src/ui/splash.ts):
 // sign in (or make an account), choose a character on the character select screen (each has an
 // island of its own), then connect, and the server hands over that character's island and build.
-// Automated tests (?test) and the training yard stay offline and never come here.
+// Automated tests (?test) and ?offline stay offline and never come here.
 //
 // Straight into the world, without the select screen:
 //   ?as=name   signs in as that name on a development server (DEV_LOGIN=1), making the account if

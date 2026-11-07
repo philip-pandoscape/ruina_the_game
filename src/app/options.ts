@@ -17,19 +17,16 @@ interface OptionDoc {
 export const OPTION_DOCS: readonly OptionDoc[] = [
   {
     name: 'test',
-    what: 'Starts paused and offline, so automated tests step the game frame by frame: the yard, unless world is given too, or test=<instance> in a copy of that instance (test=yard, test=goblinCamp).',
+    what: 'Starts paused and offline, so automated tests step the game frame by frame: in the world, or test=<instance> in a copy of that instance, as if through its door (test=yard, test=goblinCamp).',
     developer: true,
   },
-  { name: 'offline', what: 'Plays offline in real time: the open world, or offline=<instance> in a copy of that instance.', developer: true },
-  { name: 'world', what: 'With test: the open world, offline and paused, instead of the yard.', developer: true },
-  { name: 'load', what: 'With world and test: the island kept in this browser (bug-report replays).', developer: true },
-  { name: 'yard', what: 'The training yard, offline.', developer: true },
+  { name: 'offline', what: 'Plays offline in real time: the world, or offline=<instance> in a copy of that instance.', developer: true },
+  { name: 'load', what: 'With test: the island kept in this browser (bug-report replays).', developer: true },
   {
     name: 'fixture=world',
     what: "Offline, a fixture world of the tests' in place of the shipped one (tests/fixtures/world/<name>.json: world, three regions; far, a region 102 km out), on a development server.",
     developer: true,
   },
-  { name: 'goblins=6', what: "With yard: a war-band of that many goblins in the yard's far corner (up to 24).", developer: true },
   { name: 'lag=150', what: "Delays this page's connection by that many milliseconds each way, to feel a far server.", developer: true },
   { name: 'softlock=0', what: 'No automatic pick of a target to face (Tab still picks one).', developer: true },
   { name: 'as=name', what: 'On a development server: signs straight in as that name and plays its last character.', developer: true },
@@ -47,18 +44,12 @@ export const OPTION_DOCS: readonly OptionDoc[] = [
 ];
 
 export interface Options {
-  /** Paused for automated tests, stepped frame by frame. */
+  /** Paused for automated tests, stepped frame by frame (offline). */
   test: boolean;
-  /** The training yard (also what test opens, unless world or an instance is given). */
-  yard: boolean;
   /** Offline in real time (`?offline`). */
   offline: boolean;
   /** Offline, the instance to start in a copy of (`?test=<id>`, `?offline=<id>`); null in the world. */
   space: string | null;
-  /** Emberholm, the open world. */
-  openWorld: boolean;
-  /** A war-band in the yard (`?goblins=`: that many goblins). */
-  band?: { kind: string; count: number };
   /** Milliseconds added each way to this page's connection. */
   lag: number;
   softLock: boolean;
@@ -78,21 +69,13 @@ export interface Options {
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
 /** The options in `search` (the page's own address by default). */
-/** `?goblins=`'s war-band: that many of the goblins' kind, or none. */
-const bandOf = (count: number): Options['band'] => (count > 0 ? { kind: 'goblin', count } : undefined);
-
 export function readOptions(search: string = typeof location === 'undefined' ? '' : location.search): Options {
   const q = new URLSearchParams(search);
   const test = q.has('test');
-  const space = q.get('test') || q.get('offline') || null;
-  const yard = q.has('yard') || (test && !q.has('world') && !space);
   return {
     test,
-    yard,
     offline: q.has('offline'),
-    space,
-    openWorld: !yard,
-    band: bandOf(yard ? clamp(Math.floor(Number(q.get('goblins')) || 0), 0, 24) : 0),
+    space: q.get('test') || q.get('offline') || null,
     lag: clamp(Number(q.get('lag')) || 0, 0, 2000),
     softLock: q.get('softlock') !== '0',
     as: q.get('as'),

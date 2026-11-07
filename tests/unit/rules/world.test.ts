@@ -30,7 +30,7 @@ async function open(page: Page, extra = ''): Promise<string[]> {
     if (m.type() === 'error') errors.push(m.text());
   });
   page.on('pageerror', (e) => errors.push(String(e)));
-  await page.goto(`/?world&test${extra}`);
+  await page.goto(`/?test${extra}`);
   await gameReady(page, 60_000);
   await page.evaluate(() => window.__game.reset());
   return errors;
@@ -65,7 +65,7 @@ async function faceNpc(page: Page, id: string): Promise<void> {
 
 test('you stand on the island, not inside it: arriving, and getting up after a knock-down', async ({ page }) => {
   // No reset here: this is the island as a fresh page starts it.
-  await page.goto('/?world&test');
+  await page.goto('/?test');
   await gameReady(page, 60_000);
   const aboveGround = () =>
     page.evaluate(() => {
@@ -295,7 +295,7 @@ test('saving: your island comes back after a reload, with time having passed', a
   await w.advance(2);
   const before = await w.life();
   await page.evaluate(() => window.__game.saveNow());
-  await page.goto('/?world&test&load');
+  await page.goto('/?test&load');
   await gameReady(page, 60_000);
   const after = await g(page).life();
   expect(after.coins).toBe(before.coins);

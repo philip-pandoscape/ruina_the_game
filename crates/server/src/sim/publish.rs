@@ -55,12 +55,15 @@ impl Game {
 
         // Once a second, for admins: how this game is running and how its fights go.
         let stats = self.tick.is_multiple_of(STATS_EVERY).then(|| {
+            // Every tick since the last stats, the rules and the publishing apart: [ms, ms] each.
+            let ticks = std::mem::take(&mut self.timed);
             let pl = &self.players;
             Stats {
                 tick: self.tick,
                 players: self.members.len(),
                 bots: self.bots.len(),
                 tick_ms: self.step_ms,
+                ticks,
                 pvp_hits: pl.pvp_hits,
                 saved_by_rewind: pl.saved_by_rewind,
                 rewind_ms: pl.rewind_ms(),

@@ -18,7 +18,7 @@ export function wireBugReports(g: GameRefs): void {
     const mark = g.lockOn.mark();
     const eye = g.follow.camera.position;
     return {
-      mode: g.openWorld ? 'open world (Emberholm)' : 'training yard',
+      mode: g.engine.inside ? `a copy of ${g.engine.inside}` : 'open world',
       frame: g.sim.frame,
       paused: g.paused,
       device: g.input.lastDevice,

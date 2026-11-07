@@ -208,10 +208,10 @@ pub fn tick(out: &TickOut, me: &Private, admin: bool) -> String {
         stats: None,
     };
     let text = serde_json::to_string(&update).unwrap_or_default();
-    match (admin, out.stats) {
+    match (admin, &out.stats) {
         // With the size of this very update, before the stats were added to it.
         (true, Some(stats)) => {
-            update.stats = Some(StatsOut { stats, bytes: text.len() });
+            update.stats = Some(StatsOut { stats: stats.clone(), bytes: text.len() });
             serde_json::to_string(&update).unwrap_or_default()
         }
         _ => text,

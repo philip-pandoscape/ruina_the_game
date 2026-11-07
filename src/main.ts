@@ -13,12 +13,11 @@ import { TrainingDummy } from './render/dummy';
 import { ActorView } from './render/actors';
 import { actorKindAt, actorKindIds, actorKindIndex, kindName } from './content/actors';
 import { isAlive, behaviour, stateProgress } from './engine/creatures';
-import { type Actions, type GameEvent, angleDiff, resolveSkills } from './engine/rules';
+import { type Actions, angleDiff, resolveSkills } from './engine/rules';
 import { dungeonDef, groundAt } from './engine/zone';
 import { ridden, hourAt, hourOfDay, skillBudget, type Command } from './engine/island';
 import { Aiming } from './app/aiming';
 import { Hud } from './ui/hud';
-import { Stage, TRAINING_STAGE } from './render/scene';
 import { SpellView } from './render/spells';
 import { Vfx } from './render/vfx';
 import { MissileView } from './render/missiles';
@@ -35,7 +34,6 @@ import { startEngine, useContent } from './engine/load';
 import { fixtureWorld } from './app/fixture';
 import { type GrowerPort, RegionGrower } from './app/grower';
 import { Regions } from './app/regions';
-import { YardPractice } from './app/yardPractice';
 import { rigCamera } from './app/cameraRig';
 import { makeStep } from './app/step';
 import { startLoop } from './app/loop';
@@ -58,7 +56,7 @@ import { RIDE_CAMERA } from './content/traversal';
 import { rideable, isBoat } from './content/vehicles';
 import { ABILITY_ICONS, WEAPON_ICONS } from './ui/icons';
 import type { MarkerKind } from './ui/hud';
-import { levelsFrom, NODES, SKILL_POINTS } from './content/skills';
+import { NODES } from './content/skills';
 import { SkillsPanel } from './ui/skills/panel';
 import { type Build } from './content/tuning';
 import './ui/theme/theme.css';
@@ -79,22 +77,22 @@ migrateStorage(localStorage);
 // builds UI.
 initUiScale(document.getElementById('ui') as HTMLElement);
 
-// The address's options (?test, ?yard, ?as=name and the rest) are listed in src/app/options.ts.
+// The address's options (?test, ?offline, ?as=name and the rest) are listed in src/app/options.ts.
 // Console output and errors are kept from here on, for bug reports.
 installLogCapture();
 const opt = readOptions();
 // The engine's WebAssembly (the rules the server runs, src/engine/load.ts), fetched while the rest starts.
 const engineLoading = startEngine();
-const { test: testMode, openWorld, lag: lagMs } = opt;
+const { test: testMode, lag: lagMs } = opt;
 
 // The island's models load from the start (online, while you sign in and choose a character).
-const modelsLoading = openWorld ? loadModels().then((m) => (splash?.step('models'), m)) : null;
+const modelsLoading = loadModels().then((m) => (splash?.step('models'), m));
 
 // Emberholm is played on the game server: sign in and choose a character, and it hands over their
-// island and build, and keeps them from then on. Automated tests, the training yard and ?offline
-// stay offline. Online, all of it happens on the title screen (src/ui/splash.ts), which shows the
-// island being built and then fades into the game.
-const online = openWorld && !testMode && !opt.offline ? await goOnline(opt) : null;
+// island and build, and keeps them from then on. Automated tests (?test) and ?offline stay offline.
+// Online, all of it happens on the title screen (src/ui/splash.ts), which shows the island being
+// built and then fades into the game.
+const online = !testMode && !opt.offline ? await goOnline(opt) : null;
 if (splash) {
   splash.say('Raising the Island…');
   splash.toward('world', 3);
@@ -107,16 +105,16 @@ const canvas = document.getElementById('game') as HTMLCanvasElement;
 // the points your island has earned (which this page doesn't know until the island arrives), so
 // it's only checked for shape here.
 let build: Build = online ? (parseBuild(online.welcome.build, Infinity) ?? defaultBuild()) : loadBuild();
-// The rules, reached only through the engine (src/engine/): the island or the yard (with a war-band
-// of goblins, if asked for), you in it, and offline the yard's arrows and meteors. Online (Emberholm
-// on the game server, and its developer zones) the server decides hits, so the rules here run
-// without the training dummy and hit pause, and only predict your own moves.
+// The rules, reached only through the engine (src/engine/): the world (or a copy of an instance, gone
+// into below), you in it, and offline the creatures and your arrows and meteors. Online (Emberholm on
+// the game server, and its instances) the server decides hits, so the rules here run without the
+// creatures and only predict your own moves.
 await engineLoading;
 // Offline, a fixture world of the tests' in place of the shipped one (?fixture=world), given to the
 // page's engine (and to its region grower below) before either reads anything.
 const fixture = opt.fixture && !online ? await fixtureWorld(opt.fixture) : null;
 if (fixture) useContent(fixture);
-const engine = new Engine({ openWorld, online: !!online, band: opt.band, build });
+const engine = new Engine({ online: !!online, build });
 // The world's regions grow in a worker as you travel (src/app/grower.ts, regions.ts): an engine of
 // its own, given the same content.
 // A world of one region (Emberholm alone, as shipped) has nothing to grow: no worker.
@@ -125,7 +123,7 @@ const grower =
     ? new RegionGrower(new Worker(new URL('./app/grower.worker.ts', import.meta.url), { type: 'module' }) as unknown as GrowerPort, fixture)
     : null;
 const { world, sim, range } = engine;
-/** The world's ground at the start (null on the yard's flat ground): whether this is an open world. What's under a point is read from `engine.terrain` when it's needed, as in a copy of an instance it's that space's. */
+/** The world's ground at the start. What's under a point is read from `engine.terrain` when it's needed, as in a copy of an instance it's that space's. */
 const terrain = engine.terrain;
 
 // Online, what the server says of the world (you, monsters, arrows, meteors, effects), timed to be
@@ -141,28 +139,27 @@ const prediction = net ? new Prediction(engine, net) : null;
  */
 let frozen = false;
 const serverRules = engine.online;
-/** Ground height under a point: a copy's floor where you're in one, the island's terrain, or 0 on the flat training grounds. */
+/** Ground height under a point: a copy's floor where you're in one, else the ground of the space you're in. */
 const groundY = (x: number, z: number): number => engine.groundY(x, z);
 if (splash) {
   splash.step('world');
   splash.say(splash.has('models') ? 'Planting the Forests…' : 'Loading Models…');
 }
-// Loaded in the open world, where they draw the island; elsewhere there are none.
-const models = modelsLoading ? await modelsLoading : null;
+const models = await modelsLoading;
 if (splash) {
   splash.say('Planting the Forests…');
   splash.toward('stage', 4);
   await splash.paint();
 }
-const openStage = models && engine.home && engine.layout ? new OpenStage(canvas, world, models, engine.home, engine.layout) : null;
+if (!engine.home || !engine.layout) throw new Error('the engine started with no world in it');
+const openStage = new OpenStage(canvas, world, models, engine.home, engine.layout);
 if (splash) {
   splash.step('stage');
   splash.say('Waking the Townsfolk…');
   splash.toward('ready', 5);
   await splash.paint();
 }
-const stage: { renderer: THREE.WebGLRenderer; scene: THREE.Scene; follow(x: number, z: number, y?: number): void; resize(w: number, h: number): void } =
-  openStage ?? new Stage(canvas, world, TRAINING_STAGE);
+const stage = openStage;
 const hero = new Hero();
 stage.scene.add(hero.root);
 // The training dummy's body, drawn where a dummy is: the rules' own offline, the server's online.
@@ -200,7 +197,7 @@ if (terrain) {
     },
   };
 }
-const follow = new FollowCamera(innerWidth / innerHeight, openWorld ? GRAPHICS.viewDistance : 320, openWorld ? 40 : 14);
+const follow = new FollowCamera(innerWidth / innerHeight, GRAPHICS.viewDistance, 40);
 // The camera is the scene's, so it moves with the scene's origin (src/render/origin.ts) as all else does.
 stage.scene.add(follow.camera);
 rigCamera(follow, engine, openStage);
@@ -387,7 +384,7 @@ if (online && lifeUI) lifeUI.playerName = online.welcome.character.name;
  * in Emberholm sees the same sky at the same moment (each island's own clock ran on by itself while
  * its player was away); offline it is the island's.
  */
-const skyHour = (): number => (!life ? 12 : online ? hourAt(life.zone.recipe.sky, online.link.serverNow() / 1000) : hourOfDay(life));
+const skyHour = (): number => (online ? hourAt(life.zone.recipe.sky, online.link.serverNow() / 1000) : hourOfDay(life));
 if (online && lifeUI) lifeUI.skyHour = skyHour;
 // The rain and the wind run on the world's clock too (the server decides the rain; the wind you sail
 // on is worked out here between its updates from the same clock).
@@ -430,7 +427,7 @@ if (peers && lifeUI) lifeUI.others = () => peers.list();
 // Online the game server runs your island and keeps it (crates/server/src/sim/mod.rs): your commands go
 // to it, and what it says your island holds replaces this copy as it arrives. ?fresh starts it
 // over. Automated tests run the island here instead, starting fresh every time unless they ask for
-// the one kept in this browser (?world&test&load, which is how bug reports are replayed).
+// the one kept in this browser (?test&load, which is how bug reports are replayed).
 if (life && online) {
   // Starting over: the old island must be gone before this page shows one.
   if (opt.fresh) await online.link.reset();
@@ -441,13 +438,6 @@ if (life && online) {
 if (life && testMode && opt.load) {
   const saved = savedIsland();
   if (saved) engine.loadIsland(saved);
-}
-// The island's skill points hold your build to what you've earned, as the server does on joining:
-// a build they can't cover falls back to Sword Training. Online the welcome already says what the
-// server chose, except when ?fresh has just started the island, and its points, over.
-if (life && (!online || opt.fresh) && !validBuild(build, skillBudget(life.state))) {
-  build = defaultBuild();
-  engine.setBuild(build);
 }
 
 /** Moves you somewhere (the dev panel and tests), off whatever you were riding. */
@@ -504,24 +494,27 @@ function rideCamera(dt: number, now: number): void {
   }
 }
 input.onDeviceChange = (d) => hud.setDevice(d);
-// The training yard keeps the experience of its skills in this browser (src/app/yardPractice.ts).
-const yardPractice = new YardPractice();
-const yardXp = yardPractice.xp;
-const yardTrain = (e: GameEvent): void => yardPractice.train(e);
-if (!life) engine.setLevels(levelsFrom(yardXp));
+/** Whether you're in a developer zone, which is for trying weapons and skills. */
+const inDeveloperZone = (): boolean => !!(visit?.inside && dungeonDef(visit.inside)?.developer);
 /**
- * Points you may have in the tree: earned on the island, a training budget elsewhere, and the whole
- * tree in a developer zone, which is for trying weapons and skills (the server allows the same).
+ * Points you may have in the tree: earned on the island, and the whole tree in a developer zone (the
+ * server allows the same).
  */
 const skillPoints = (): number => {
-  const zone = visit?.inside ? dungeonDef(visit.inside) : undefined;
-  if (zone?.developer) return NODES.length;
-  return life ? skillBudget(life.state) : SKILL_POINTS;
+  if (inDeveloperZone()) return NODES.length;
+  return skillBudget(life.state);
 };
+// Your points hold your build to what you may spend where you are, as the server does on joining:
+// a build they can't cover falls back to Sword Training. Online the welcome already says what the
+// server chose, except when ?fresh has just started the island, and its points, over.
+if ((!online || opt.fresh) && !validBuild(build, skillPoints())) {
+  build = defaultBuild();
+  engine.setBuild(build);
+}
 const panel = new SkillsPanel(build, {
   budget: skillPoints,
-  budgetNote: () => (life ? 'Earned from quests and milestones' : 'Training yard: points to try builds with'),
-  xp: () => (life ? (life.state.skillXp ?? {}) : yardXp),
+  budgetNote: () => (inDeveloperZone() ? 'A developer zone: the whole tree to try builds with' : 'Earned from quests and milestones'),
+  xp: () => life.state.skillXp ?? {},
   levels: () => sim.levels,
   portrait: () => portraitOf('player'),
   device: () => input.lastDevice,
@@ -826,9 +819,6 @@ const refs = {
   get world() {
     return world;
   },
-  get yardXp() {
-    return yardXp;
-  },
   get api() {
     return api;
   },
@@ -837,9 +827,6 @@ const refs = {
   },
   get canvas() {
     return canvas;
-  },
-  get openWorld() {
-    return openWorld;
   },
   get opt() {
     return opt;
@@ -918,9 +905,6 @@ const refs = {
   },
   get syncNet() {
     return step.syncNet;
-  },
-  get yardTrain() {
-    return yardTrain;
   },
   get regions() {
     return regions;

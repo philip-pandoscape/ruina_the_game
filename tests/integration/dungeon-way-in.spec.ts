@@ -8,7 +8,7 @@ import { gameReady } from '../support/game';
 // The way into Goblin's Dread (content/instances/goblinsDread.json). A spring beside the Windspire's
 // launch deck spills down a slot cut in its face (crates/engine/src/open/generate.rs, falls), and behind the
 // falling water a ledge under a hood of rock holds the goblins' landing stage and the portal: you get
-// there by gliding into the falls. Offline (?world&test) the browser takes you through the portal
+// there by gliding into the falls. Offline (?test) the browser takes you through the portal
 // itself (src/app/dungeonVisit.ts); online the server takes you, with your party, into your copy.
 // Inside, the dungeon is a space of its own: placed round its own origin, over nothing.
 
@@ -33,7 +33,7 @@ async function open(page: Page): Promise<string[]> {
     if (m.type() === 'error') errors.push(m.text());
   });
   page.on('pageerror', (e) => errors.push(String(e)));
-  await page.goto('/?world&test');
+  await page.goto('/?test');
   await gameReady(page, 60_000);
   await page.evaluate(() => window.__game.reset());
   return errors;
