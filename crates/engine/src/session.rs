@@ -99,8 +99,13 @@ impl Session {
         let player = Player::new(Spawn { x: s.x, z: s.z, facing: s.facing }, 0, Build::default());
         let levels = player.levels.clone();
         let mut life = Life::new(zone, None, None);
-        // Online the server runs your life; this copy only keeps what moves with you moving.
+        // Online the server runs your life; this copy only keeps what moves with you moving. Made
+        // new, it greets you with its first quest: the server's life says what yours does, so this
+        // copy's greeting goes (a returning player was told "New quest: Landfall" as they came in).
         life.remote = online;
+        if online {
+            life.drain_events();
+        }
         let mut s = Session {
             frame: 0,
             hitstop: 0,
@@ -1293,6 +1298,15 @@ pub fn player_state_json(p: &Player) -> Value {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn online_the_copy_of_your_life_greets_you_with_nothing_of_its_own() {
+        let quests = |s: &mut Session| format!("{:?}", s.life.as_mut().unwrap().drain_events()).contains("New quest");
+        // Offline the life is yours, made new: it greets you with its first quest.
+        assert!(quests(&mut Session::new(false, Build::default())));
+        // Online the server's life says what yours does.
+        assert!(!quests(&mut Session::new(true, Build::default())));
+    }
 
     fn crowd(s: &Session) -> Vec<(u32, String)> {
         s.actors.list.iter().map(|a| (a.id, a.kind.clone())).collect()
