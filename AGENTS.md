@@ -117,6 +117,9 @@ beats before running it.
   textures, and the icons (`tools/icons/`, nine to a sheet, `npm run icons` cuts them out).
 - **Meshy** (the `meshy` MCP server) for models nothing free matches; the pipeline from a concept to
   a fitted, compressed model, and the gotchas: [docs/assets.md](docs/assets.md).
+- **Tripo** (the `tripo` MCP server: Tripo Studio in a Chrome window the user signs in to) for models
+  too, from four views of a character at once, and its catalog of existing models at a few credits
+  an export: the `find-assets` skill says how.
 - **Animations** onto a character, checked against their source: the `retarget-animation` skill.
 - **Buildings** are plans on Quaternius' village kit, not models (`content/buildings/`).
 

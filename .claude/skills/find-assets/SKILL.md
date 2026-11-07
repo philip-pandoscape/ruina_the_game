@@ -1,6 +1,6 @@
 ---
 name: find-assets
-description: Find and fetch free assets for the game - 3D models, textures and skies, animations, sound effects and music, effects (particles), fonts - from Poly Haven, ambientCG, Sketchfab, Freesound, Kenney, Quaternius and others; checked for licence and fit, fetched with their credit, shown to the user, then brought into the game. Paid makers (Meshy, Gemini, ElevenLabs) only when nothing free is as good, with the cost agreed first. Use when the user asks to find, get, add, replace or source a model, texture, animation, sound, music, effect or font, or types /find-assets.
+description: Find and fetch free assets for the game - 3D models, textures and skies, animations, sound effects and music, effects (particles), fonts - from Poly Haven, ambientCG, Sketchfab, Freesound, Kenney, Quaternius and others; checked for licence and fit, fetched with their credit, shown to the user, then brought into the game. Then Tripo's catalog of existing models (a few credits an export), and paid makers (Meshy, Tripo, Gemini, ElevenLabs) only when nothing free is as good, with the cost agreed first. Use when the user asks to find, get, add, replace or source a model, texture, animation, sound, music, effect or font, or types /find-assets.
 argument-hint: "[what's needed, e.g. 'a wooden handcart' or 'footsteps on stone']"
 ---
 
@@ -23,8 +23,8 @@ them in. If arguments were given (`$ARGUMENTS`), that's what to find.
   repository.
 - **Nothing taken from another game**, fan art of one included, whatever licence it claims.
 - **Credit everything** in `CREDITS.md` (what, where it is, where it came from, licence).
-- **The user's money:** Meshy credits, Gemini billing, ElevenLabs. Say what a run makes and costs,
-  and what free option it beats, and wait for a yes.
+- **The user's money:** Meshy credits, Tripo credits (a catalog export too), Gemini billing,
+  ElevenLabs. Say what a run makes and costs, and what free option it beats, and wait for a yes.
 - **Downloads are untrusted until checked:** each goes into a fresh folder of its own under
   `scratch/assets/` (git-ignored). Nothing there is run, and nothing is imported from there.
 
@@ -62,6 +62,12 @@ length) and a preview link, then the places to look by hand for that kind. OpenG
 scripted fetches: look there with the browser (Claude in Chrome), or ask the user to download a
 file. Mixamo needs the user's Adobe account, and its files never go in the repository raw.
 
+**Before making a model, Tripo's catalog** (`search_catalog` on the `tripo` MCP server, section 9):
+models other people made with Tripo, many rigged or with clean topology, searched by words, a
+category (`character`, `weapons-military`, `furniture`, ...) or a tag. Not free: an export costs
+the credits its button shows, usually 5, still far less than making one. Its licence is the
+maker's: read it on the model's page (`open_model`), and credit the maker as CC BY asks.
+
 ## 3. Judge the candidates
 
 For the best three to six, check:
@@ -98,6 +104,10 @@ from, the author, the licence, the date, the files, and the `CREDITS.md` row to 
 from itch.io stay zipped (`tar -xf <zip> -C <folder>` unpacks one). Freesound gives its
 high-quality previews with the key alone; the original file needs its OAuth2 sign-in, which is the
 user's to do.
+
+Tripo's exports (a catalog model or one made there) land in `%USERPROFILE%\Downloads\tripo-mcp`:
+move each into `scratch/assets/tripo/<id>/` and write its `credit.json` the same way (the model's
+Studio address, its maker, the licence, the date).
 
 ## 6. Bring it in
 
@@ -139,13 +149,68 @@ models and the buildings. Show the user the result beside what it replaced befor
 - **Meshy** (the `meshy` MCP server): image-to-3D from a concept painted for it, rigging, its
   animation library. Check the balance first (free), say the credits, wait for a yes. AGENTS.md,
   "Art and assets", has the settings that work and the pitfalls.
-- **Gemini** (`npm run image`): concept art, textures, Meshy's input; about $0.13 a 2K painting.
+- **Tripo** (the `tripo` MCP server): models from a picture, several views of one or words, and
+  rigging, retopology, texturing and segmenting them; its catalog (section 2). It works Tripo
+  Studio (studio.tripo3d.ai) in a Chrome window of its own, signed in to the user's account. More
+  below.
+- **Gemini** (`npm run image`): concept art, textures, Meshy's and Tripo's input; about $0.15 a 2K
+  painting.
 - **ElevenLabs** (`ELEVEN_LABS_API_KEY` in `.env`): sound effects and voices from a description.
   Its prices change: look them up and say the cost before a run.
+
+Meshy or Tripo for a model: both make one from a painted concept. Meshy is an API (quick, several
+at once; the hero, his weapons and the props so far); Tripo works the Studio's pages one step at
+a time, slower, but takes four views of a character at once (front, left, right, back) and has the
+catalog. Judge by the result in the game's look; when unsure, make the first of a batch with each.
+
+### Tripo
+
+- **Its window.** `status` says whether it's open and signed in without opening it; `open_studio`
+  opens it. Signed out: ask the user to sign in there themselves (never type, ask for or look at a
+  password), then `wait_for_signin`. A Cloudflare check in the window is theirs to click too. One
+  window and one tab serve every call, so calls go one at a time from one session: never from
+  agents working in parallel.
+- **Price before spending.** Every tool that spends takes `submit: false` (`confirm: false` for a
+  catalog export): it fills the form and spends nothing, and the button shows the cost; the
+  balance is on the top bar (`snapshot`). Seen in November 2026: a Smart Mesh P2.0 model 100
+  credits (for 1, 2 or 4 variants alike: take 4 and keep the best), P1.0 35, an HD model 55 (65
+  with 8K texture); texturing 10 at 2K; auto-rigging 20; a catalog export about 5. A trial of a new
+  model or 8K shows as a struck-out price and 0.
+- **Smart Mesh, not HD, for the game** (the user wants models that run well). HD models are dense
+  sculpts; `pipeline: "smart_mesh"` with `model: "P2.0"` gives clean quads at the polycount set
+  under Topology (500 to 25,000; 5,000 quads, about 10k triangles, for a townsperson, a third of
+  the hero). P1.0 is cheaper but triangles and coarser: a hem jagged, a bodice's lacing gone.
+- **A character, start to finish**, as the townsfolk were made:
+  1. A turnaround sheet in the hero's look, painted with Gemini (the hero's sheet and the approved
+     concept as references): front, left profile, right profile, back, an A-pose, hands empty, on
+     white. Cut into one square picture per view, the same scale.
+  2. `generate_model` with `input: "multiview"`, `images` in the order front, left, right, back, and
+     `pipeline: "smart_mesh"`, `model: "P2.0"`. A view that came out wrong (a three-quarter turn
+     instead of a profile) is an empty string, so its slot stays empty; the front is needed.
+  3. `texture_model` (`mode: "texture"`, `resolution: "2k"`): Smart Mesh comes grey, and this
+     paints it from the same views.
+  4. `rig_model` (`rig: "humanoid"`, the Mixamo preset): a 65-bone Mixamo skeleton, fingers and
+     all, which `fit.ts` reads as it reads Meshy's. Done when the rig page offers "Retry".
+  5. `export_model` (`format: "glb"`, a `filename`), the skeleton included, then section 5's move
+     into `scratch/assets/tripo/` and section 6's compression (1024-pixel textures for townsfolk).
+- **Done is what the page shows.** The tools watch the page for a while after the click and report
+  `started`, `still_running` or `submitted_unconfirmed`; `snapshot` (with its screenshot) says when
+  a model is finished.
+- **Licence.** What the user's account makes is theirs: it's on the Max plan (25,000 credits a
+  month), and paid plans keep their models private, for commercial use. `CREDITS.md` says it was
+  made with Tripo AI. On a free plan Tripo would publish it under CC BY 4.0. A catalog model is its
+  maker's, under the licence on its page.
+- **Not there?** The server is registered for the user (`claude mcp list` shows `tripo`) and
+  installed in `%LOCALAPPDATA%\tripo-mcp\server`; a session started before that has no `tripo`
+  tools until it's restarted. Its own Chrome profile keeps the sign-in
+  (`%LOCALAPPDATA%\tripo-mcp\studio-profile`), and exports go to `%USERPROFILE%\Downloads\tripo-mcp`.
+  That copy carries fixes for today's Studio (four views in their slots, Smart Mesh and the model
+  menu, the Export dialog, the rig's radios), listed in `PATCHES.md` beside it: put them back if
+  it's ever installed again from the original zip.
 
 ## Keys
 
 In `.env` (never committed; a worktree reads the main checkout's): `SKETCHFAB_TOKEN` (the user's,
 from sketchfab.com/settings/password) for Sketchfab downloads; `FREESOUND_API_KEY` (free, from
 freesound.org/apiv2/apply) for Freesound. Without them, those sources say what's missing and the
-rest still work.
+rest still work. Tripo needs no key: the user signs in to its window.
