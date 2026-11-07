@@ -6,7 +6,8 @@ edition.workspace = true
 publish = false
 
 [dependencies]
-ruina-engine.workspace = true
+# With the tests' fixture worlds, for terraincheck --world (tests/conformance/world.test.ts).
+ruina-engine = { workspace = true, features = ["fixture-world"] }
 ruina-engine-wasm.workspace = true
 ruina-server.workspace = true
 serde.workspace = true

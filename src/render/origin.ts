@@ -21,7 +21,8 @@ export const ORIGIN_STEP = 2048;
 /** Where the scene's origin stands with the camera at (x, z), from where it stands now: still, while the camera is within reach of it; else on the lattice point nearest the camera. */
 export function nextOrigin(ox: number, oz: number, x: number, z: number): [number, number] {
   if (Math.abs(x - ox) <= ORIGIN_REACH && Math.abs(z - oz) <= ORIGIN_REACH) return [ox, oz];
-  return [Math.round(x / ORIGIN_STEP) * ORIGIN_STEP, Math.round(z / ORIGIN_STEP) * ORIGIN_STEP];
+  // (+ 0: never a negative zero.)
+  return [Math.round(x / ORIGIN_STEP) * ORIGIN_STEP + 0, Math.round(z / ORIGIN_STEP) * ORIGIN_STEP + 0];
 }
 
 /** The fraction of a number, in [0, 1) for negatives too (GLSL's fract). */
