@@ -90,7 +90,7 @@ const SEND_INPUTS: u8 = 7;
 /// What this server speaks. A page that speaks something else is out of date: it reloads
 /// (src/net/worldLink.ts WORLD_PROTOCOL). So does a page built from other content (content_hash, in
 /// the welcome): what goes on the wire as a place in a bundle's list would mean something else to it.
-pub const WORLD_PROTOCOL: u32 = 12;
+pub const WORLD_PROTOCOL: u32 = 13;
 
 /// Which character a browser wants to play (/ws/world?character=<id>).
 #[derive(Deserialize)]
@@ -358,6 +358,8 @@ async fn play(socket: WebSocket, gate: &Arc<Gate>, account: &Account, conn: Conn
     let now = now_ms();
     let way = way_in(&mut seat, &mut events, &name, admin).await?;
     let post = gate.post.clone();
+    // What it's sent each tick: the wire for crowds' update from its own viewer, and its JSON tick.
+    let mut enc = encode::Encoder::new(conn.character, admin);
     send(
         &mut tx,
         json!({
@@ -384,7 +386,7 @@ async fn play(socket: WebSocket, gate: &Arc<Gate>, account: &Account, conn: Conn
     }
     // What came meanwhile (their party, an invitation), after the welcome.
     for e in way.held {
-        if let Some(done) = deliver(&mut tx, &mut seat, e, admin).await? {
+        if let Some(done) = deliver(&mut tx, &mut seat, &mut enc, e, encode::Owed::default()).await? {
             return Ok(done);
         }
     }
@@ -398,7 +400,10 @@ async fn play(socket: WebSocket, gate: &Arc<Gate>, account: &Account, conn: Conn
                 last_heard = Instant::now();
                 match msg {
                     Some(Ok(Message::Binary(b))) => {
-                        if let (Some(inputs), Some(sim)) = (read_inputs(&b), seat.sim) {
+                        // An acknowledgement of the wire's updates (8), or inputs (7).
+                        if b.first() == Some(&ruina_wire::ack::ACK) {
+                            enc.ack(&b);
+                        } else if let (Some(inputs), Some(sim)) = (read_inputs(&b), seat.sim) {
                             post.sim(sim, ToSim::Inputs { conn, inputs });
                         }
                     }
@@ -423,8 +428,30 @@ async fn play(socket: WebSocket, gate: &Arc<Gate>, account: &Account, conn: Conn
                 }
             }
             Some(e) = events.recv() => {
-                if let Some(done) = deliver(&mut tx, &mut seat, e, admin).await? {
-                    return Ok(done);
+                // Whatever else is waiting too. Of ticks one after another only the newest is written
+                // (a connection behind catches up at once: the wire's next update covers what it
+                // missed), with what the others said to its player.
+                let mut batch = vec![e];
+                while let Ok(more) = events.try_recv() {
+                    batch.push(more);
+                }
+                let mut owed = encode::Owed::default();
+                let mut batch = batch.into_iter().peekable();
+                while let Some(e) = batch.next() {
+                    if let Event::Tick(out) = &e
+                        && matches!(batch.peek(), Some(Event::Tick(_)))
+                    {
+                        if Some(out.sim) == seat.sim
+                            && let Some(me) = out.private_of(seat.conn.character)
+                        {
+                            owed.keep(me);
+                        }
+                        continue;
+                    }
+                    let owed_now = if matches!(e, Event::Tick(_)) { std::mem::take(&mut owed) } else { encode::Owed::default() };
+                    if let Some(done) = deliver(&mut tx, &mut seat, &mut enc, e, owed_now).await? {
+                        return Ok(done);
+                    }
                 }
             }
             Ok(()) = stage.changed() => {
@@ -482,16 +509,19 @@ fn asked(m: FromBrowser, conn: Conn, admin: bool, post: &dyn ruina_world_api::Tr
     }))
 }
 
-/// Passes one thing on to the browser: a tick built into its update, or a message. Some(()) once
-/// the connection is over (another window took the character over).
-async fn deliver(tx: &mut Tx, seat: &mut Seat, e: Event, admin: bool) -> Result<Option<()>, String> {
+/// Passes one thing on to the browser: a tick built into its JSON tick and its update on the wire
+/// (with what it was owed from ticks it missed), or a message. Some(()) once the connection is over
+/// (another window took the character over).
+async fn deliver(tx: &mut Tx, seat: &mut Seat, enc: &mut encode::Encoder, e: Event, owed: encode::Owed) -> Result<Option<()>, String> {
     match e {
         Event::Tick(out) => {
             // A tick from where they were a moment ago, without them in it, is no use to them.
             if Some(out.sim) == seat.sim
                 && let Some(me) = out.private_of(seat.conn.character)
             {
-                tx.send(Message::Text(encode::tick(&out, me, admin).into())).await.map_err(|e| e.to_string())?;
+                let (update, text) = enc.tick(&out, me, owed);
+                tx.send(Message::Text(text.into())).await.map_err(|e| e.to_string())?;
+                tx.send(Message::Binary(update.into())).await.map_err(|e| e.to_string())?;
             }
         }
         Event::Msg(ToConn::Kicked) => return replaced(tx).await.map(Some),
@@ -503,11 +533,17 @@ async fn deliver(tx: &mut Tx, seat: &mut Seat, e: Event, admin: bool) -> Result<
             return stopping(tx, Stage::Closing, &mut told).await;
         }
         Event::Msg(m) => {
+            let moved = matches!(m, ToConn::Moved { .. });
             if let ToConn::Moved { sim, .. } = &m {
                 seat.sim = Some(*sim);
             }
             if let Some(text) = encode::message(&m) {
                 tx.send(Message::Text(text.into())).await.map_err(|e| e.to_string())?;
+            }
+            // Somewhere else now: the browser forgets what it heard on the wire when it reads that,
+            // and the viewer what it sent, so both start over from the next update.
+            if moved {
+                enc.reset();
             }
         }
     }

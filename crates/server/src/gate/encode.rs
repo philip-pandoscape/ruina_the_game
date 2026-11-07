@@ -1,29 +1,26 @@
-//! What a browser hears, encoded: today the JSON it has always read (src/net/worldLink.ts). A
-//! client's update is built here from a simulation's tick (its records by cell, and this client's
-//! private state: `tick`), and every other message from the tiers' words to it (`message`). The
-//! binary protocol (crates/wire) takes this module's place: these two functions are all the gate
-//! asks of an encoding. What a browser's input bytes mean is world-api's (`input`).
+//! What a browser hears, encoded. Each tick a connection is sent two messages built from the
+//! simulation's tick (`Encoder::tick`): the wire for crowds' binary update (crates/wire: everyone and
+//! everything near it, by its own handles, as changes against what it acknowledged, within its byte
+//! budget; one `Viewer` per connection), and a JSON tick with what's its alone or rare (its own
+//! player, to check the browser's prediction against; its life when it changed and what its life
+//! said; the mini-game tables near it; for an admin once a second, how the simulation is running).
+//! Every other message goes from the tiers' words to JSON (`message`). What a browser's input bytes
+//! mean is world-api's (`input`).
 
 use serde::Serialize;
 use serde_json::Value;
 
+use ruina_wire::viewer::View;
+use ruina_wire::{Ack, Event, Viewer};
 use ruina_world_api::gate::ToConn;
-use ruina_world_api::records::{Cell, CreatureRecord, EffectRecord, Presence, Private, Stats, TickOut, You, cells_round};
-use ruina_world_api::{EntityId, EntityKind};
+use ruina_world_api::records::{LifeView, Private, Stats, TickOut, You};
+use ruina_world_api::{CharacterId, EntityId, EntityKind};
 
 use crate::sim::tables::SHOW_TABLES;
 
-/// Monsters and other creatures further than this aren't sent, and at most so many.
-const ACTOR_RADIUS: f64 = 70.0;
-const ACTOR_CAP: usize = 48;
-/// Arrows, meteors and effects within this distance of a player are sent to them, at most so many.
-const EFFECT_RADIUS: f64 = 90.0;
-const ARROW_CAP: usize = 64;
-const METEOR_CAP: usize = 16;
-const EFFECT_CAP: usize = 48;
-
 /// How a browser names someone: a character by their id, a bot by its number below every
-/// character's, a creature by its number. (The wire's handles per connection take its place.)
+/// character's, a creature by its number. Introductions on the wire carry it; records name things
+/// by the connection's own handles.
 pub fn wire_id(id: EntityId) -> i64 {
     match id.kind() {
         Some(EntityKind::Character) => id.number() as i64,
@@ -32,189 +29,108 @@ pub fn wire_id(id: EntityId) -> i64 {
     }
 }
 
-/// Rounded to the centimetre: what the browser needs of a position or a speed, in fewer bytes.
-fn r2(v: f64) -> f64 {
-    (v * 100.0).round() / 100.0
-}
-
-fn is_false(b: &bool) -> bool {
-    !*b
-}
-
-#[derive(Serialize)]
-struct Peer<'a> {
-    id: i64,
-    name: &'a str,
-    #[serde(skip_serializing_if = "is_false")]
-    bot: bool,
-    p: &'a Presence,
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct Actor {
-    id: i64,
-    kind: u8,
-    x: f64,
-    y: f64,
-    z: f64,
-    facing: f64,
-    state: usize,
-    progress: f64,
-    hp: f64,
-    dead_frame: i32,
-    target_x: f64,
-    target_z: f64,
-}
-
-impl Actor {
-    fn of(a: &CreatureRecord) -> Actor {
-        Actor {
-            id: wire_id(a.id),
-            kind: a.kind,
-            x: a.x,
-            y: a.y,
-            z: a.z,
-            facing: a.facing,
-            state: a.state,
-            progress: a.progress,
-            hp: a.hp,
-            dead_frame: a.dead_frame,
-            target_x: a.target_x,
-            target_z: a.target_z,
-        }
-    }
-}
-
-#[derive(Serialize)]
-struct Arrow {
-    id: u16,
-    owner: u16,
-    x: f64,
-    y: f64,
-    z: f64,
-    vx: f64,
-    vz: f64,
-    team: u8,
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct Meteor {
-    id: u16,
-    x: f64,
-    z: f64,
-    ticks_left: u32,
-    fall_ticks: u32,
-    team: u8,
-    radius: f64,
-}
-
-#[derive(Serialize)]
-struct Event {
-    kind: u16,
-    x: f64,
-    y: f64,
-    z: f64,
-    size: u8,
-}
-
-fn event(e: &EffectRecord) -> Event {
-    Event { kind: e.kind, x: r2(e.x), y: r2(e.y), z: r2(e.z), size: e.size }
-}
-
 #[derive(Serialize)]
 struct StatsOut {
     #[serde(flatten)]
     stats: Stats,
+    /// What this tick's messages to this connection came to: the binary update and the JSON tick.
     bytes: usize,
+    wire: usize,
 }
 
-/// A client's update (src/net/worldLink.ts WorldTick).
+/// A client's JSON tick (src/net/worldLink.ts WorldTick): what's theirs alone, and the tables near.
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct Update<'a> {
     t: &'static str,
     tick: u64,
     you: &'a You,
-    peers: Vec<Peer<'a>>,
-    actors: Vec<Actor>,
-    arrows: Vec<Arrow>,
-    meteors: Vec<Meteor>,
-    events: Vec<Event>,
     #[serde(skip_serializing_if = "<[_]>::is_empty")]
     life_events: &'a [ruina_engine::life::LifeEvent],
     #[serde(skip_serializing_if = "Option::is_none")]
-    life: Option<&'a ruina_world_api::records::LifeView>,
+    life: Option<&'a LifeView>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     tables: Vec<&'a Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     stats: Option<StatsOut>,
 }
 
-/// The cells of `out` within `radius` of (x, z).
-fn cells_near(out: &TickOut, x: f64, z: f64, radius: f64) -> impl Iterator<Item = &Cell> {
-    cells_round(x, z, radius).filter_map(move |at| out.cell(at))
+/// What a connection was owed from ticks it never got to see (it couldn't keep up: crate::gate
+/// skipped them for it), to go with the next: what its life said, and what happened to it.
+#[derive(Default)]
+pub struct Owed {
+    pub life_events: Vec<ruina_engine::life::LifeEvent>,
+    pub told: Vec<Event>,
+    pub life: Option<LifeView>,
 }
 
-/// One client's update from a tick: their own state; everyone else in the space; the creatures,
-/// arrows, meteors, effects and tables near them; what happened to them; and once a second, for an
-/// admin, how the simulation is running (with this update's size).
-pub fn tick(out: &TickOut, me: &Private, admin: bool) -> String {
-    let (x, z) = (me.you.p.pos.x, me.you.p.pos.z);
-    let near = |px: f64, pz: f64, r: f64| (px - x) * (px - x) + (pz - z) * (pz - z) <= r * r;
-    let mine = EntityId::character(me.character);
-    // Everyone else in the space (the wire's interest tiers will send the far ones less).
-    let peers =
-        out.cells.iter().flat_map(|c| &c.players).filter(|p| p.id != mine).map(|p| Peer { id: wire_id(p.id), name: &p.name, bot: p.bot, p: &p.p }).collect();
-    // The creatures within reach of being seen, nearest first.
-    let mut creatures: Vec<(f64, &CreatureRecord)> = cells_near(out, x, z, ACTOR_RADIUS)
-        .flat_map(|c| &c.creatures)
-        .map(|a| ((a.x - x) * (a.x - x) + (a.z - z) * (a.z - z), a))
-        .filter(|(d2, _)| *d2 <= ACTOR_RADIUS * ACTOR_RADIUS)
-        .collect();
-    creatures.sort_by(|a, b| a.0.total_cmp(&b.0));
-    creatures.truncate(ACTOR_CAP);
-    let around: Vec<&Cell> = cells_near(out, x, z, EFFECT_RADIUS).collect();
-    let arrows = around
-        .iter()
-        .flat_map(|c| &c.arrows)
-        .filter(|a| near(a.x, a.z, EFFECT_RADIUS))
-        .take(ARROW_CAP)
-        .map(|a| Arrow { id: a.id, owner: a.owner, x: r2(a.x), y: r2(a.y), z: r2(a.z), vx: r2(a.vx), vz: r2(a.vz), team: a.team })
-        .collect();
-    let meteors = around
-        .iter()
-        .flat_map(|c| &c.meteors)
-        .filter(|m| near(m.x, m.z, EFFECT_RADIUS))
-        .take(METEOR_CAP)
-        .map(|m| Meteor { id: m.id, x: r2(m.x), z: r2(m.z), ticks_left: m.ticks_left, fall_ticks: m.fall_ticks, team: m.team, radius: r2(m.radius) })
-        .collect();
-    let mut events: Vec<Event> = around.iter().flat_map(|c| &c.effects).filter(|e| near(e.x, e.z, EFFECT_RADIUS)).take(EFFECT_CAP).map(event).collect();
-    events.extend(me.told.iter().map(event));
-    let tables = cells_near(out, x, z, SHOW_TABLES).flat_map(|c| &c.tables).filter(|t| near(t.x, t.z, SHOW_TABLES)).map(|t| &t.shown).collect();
-    let mut update = Update {
-        t: "tick",
-        tick: out.tick,
-        you: &me.you,
-        peers,
-        actors: creatures.into_iter().map(|(_, a)| Actor::of(a)).collect(),
-        arrows,
-        meteors,
-        events,
-        life_events: &me.life_events,
-        life: me.life.as_ref(),
-        tables,
-        stats: None,
-    };
-    let text = serde_json::to_string(&update).unwrap_or_default();
-    match (admin, &out.stats) {
-        // With the size of this very update, before the stats were added to it.
-        (true, Some(stats)) => {
-            update.stats = Some(StatsOut { stats: stats.clone(), bytes: text.len() });
-            serde_json::to_string(&update).unwrap_or_default()
+impl Owed {
+    /// Keeps what a skipped tick said to this player.
+    pub fn keep(&mut self, me: &Private) {
+        self.life_events.extend(me.life_events.iter().cloned());
+        self.told.extend(me.told.iter().copied());
+        if let Some(l) = &me.life {
+            self.life = Some(l.clone());
         }
-        _ => text,
+    }
+}
+
+/// One connection's encoding: its viewer on the wire for crowds, and whether it's an admin's.
+pub struct Encoder {
+    viewer: Viewer,
+    admin: bool,
+}
+
+impl Encoder {
+    /// For the connection playing `character`.
+    pub fn new(character: CharacterId, admin: bool) -> Encoder {
+        Encoder { viewer: Viewer::new(EntityId::character(character).raw()), admin }
+    }
+
+    /// One tick for this connection, given its private part (`me`) and what it was owed from ticks it
+    /// missed: the binary update, then the JSON tick.
+    pub fn tick(&mut self, out: &TickOut, me: &Private, owed: Owed) -> (Vec<u8>, String) {
+        let (x, z) = (me.you.p.pos.x, me.you.p.pos.z);
+        let told: Vec<Event> = if owed.told.is_empty() { me.told.clone() } else { owed.told.iter().chain(&me.told).copied().collect() };
+        let bytes = self.viewer.update(&out.frame, View { x, z }, &told);
+        let near = |px: f64, pz: f64, r: f64| (px - x) * (px - x) + (pz - z) * (pz - z) <= r * r;
+        let tables = out.tables.iter().filter(|t| near(t.x, t.z, SHOW_TABLES)).map(|t| &t.shown).collect();
+        let life_events: Vec<ruina_engine::life::LifeEvent> = owed.life_events.into_iter().chain(me.life_events.iter().cloned()).collect();
+        let life = me.life.as_ref().or(owed.life.as_ref());
+        let mut update = Update { t: "tick", tick: out.tick, you: &me.you, life_events: &life_events, life, tables, stats: None };
+        let text = serde_json::to_string(&update).unwrap_or_default();
+        let text = match (self.admin, &out.stats) {
+            // With the size of what this tick sent, before the stats were added to it.
+            (true, Some(stats)) => {
+                update.stats = Some(StatsOut { stats: stats.clone(), bytes: text.len() + bytes.len(), wire: bytes.len() });
+                serde_json::to_string(&update).unwrap_or_default()
+            }
+            _ => text,
+        };
+        (bytes, text)
+    }
+
+    /// A binary message from the browser, if it's an acknowledgement (8): its viewer measures
+    /// against what it applied from now on. False if it isn't one.
+    pub fn ack(&mut self, bytes: &[u8]) -> bool {
+        match Ack::read(bytes) {
+            Ok(a) => {
+                self.viewer.ack(&a);
+                true
+            }
+            Err(_) => false,
+        }
+    }
+
+    /// The connection's player went to another space (after the JSON `space` message, as the browser
+    /// forgets what it heard when it reads that): everything starts over.
+    pub fn reset(&mut self) {
+        self.viewer.reset();
+    }
+
+    /// The viewer's counts, for tests and measures.
+    pub fn stats(&self) -> ruina_wire::viewer::Stats {
+        self.viewer.stats
     }
 }
 
@@ -245,8 +161,12 @@ pub fn message(msg: &ToConn) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ruina_wire::heard::Heard;
+    use ruina_wire::pack;
+    use ruina_wire::record::Intro;
+    use ruina_wire::schema::Kind;
     use ruina_world_api::gate::SpaceView;
-    use ruina_world_api::records::{ArrowRecord, PlayerState, PresenceRecord, TableRecord, cell_of};
+    use ruina_world_api::records::{Frame, PlayerState, TableRecord};
     use ruina_world_api::{SimId, SpaceId};
 
     fn private(character: i64, x: f64, z: f64) -> Private {
@@ -256,56 +176,104 @@ mod tests {
         Private { character, you: You::of(3, 9, &p, &life), life: None, life_events: Vec::new(), told: Vec::new() }
     }
 
-    fn presence(id: EntityId, name: &str, bot: bool, x: f64, z: f64) -> PresenceRecord {
+    fn player(entity: EntityId, name: &str, bot: bool, x: f64, z: f64) -> ruina_wire::Record {
         let p = crate::player::Player::new(crate::world::Spawn { x, z, facing: 0.0 }, 0, crate::player::Build::default());
-        PresenceRecord { id, name: name.into(), bot, p: Presence::of(&p, None, 30) }
+        pack::player(entity.raw(), wire_id(entity), name.into(), bot, &p, None, 0)
     }
 
-    fn put(out: &mut TickOut, x: f64, z: f64, f: impl FnOnce(&mut Cell)) {
-        let at = cell_of(x, z);
-        let k = match out.cells.binary_search_by_key(&at, |c| c.at) {
-            Ok(k) => k,
-            Err(k) => {
-                out.cells.insert(k, Cell { at, ..Cell::default() });
-                k
-            }
+    /// A tick with Ada (7) at the middle, Bo 150 m off, Cy out of sight, a bot beside her, an arrow
+    /// near and one far, a slime and a table.
+    fn a_tick() -> (TickOut, Private) {
+        let me = private(7, 0.0, 0.0);
+        let mut frame = Frame::new(77);
+        frame.push(player(EntityId::character(7), "Ada", false, 0.0, 0.0));
+        frame.push(player(EntityId::character(8), "Bo", false, 150.0, 0.0));
+        frame.push(player(EntityId::character(9), "Cy", false, 500.0, 500.0));
+        frame.push(player(EntityId::bot(1, 4), "Skirmisher 4", true, 3.0, 0.0));
+        let mut f = [0; ruina_wire::schema::MAX_FIELDS];
+        for (id, x) in [(1, 1000), (2, 20_000)] {
+            f[0] = x;
+            frame.push(ruina_wire::Record {
+                key: pack::key(Kind::Arrow, id),
+                owner: 0,
+                intro: Intro::Arrow { id },
+                fields: f,
+                refers: EntityId::character(7).raw(),
+            });
+        }
+        let mut slime = [0; ruina_wire::schema::MAX_FIELDS];
+        slime[0] = 500;
+        slime[8] = -1;
+        frame.push(ruina_wire::Record { key: EntityId::creature(12).raw(), owner: 0, intro: Intro::Creature { id: 12 }, fields: slime, refers: 0 });
+        let out = TickOut {
+            sim: SimId(1),
+            space: Some(SpaceId::channel("emberholm", 1)),
+            tick: 77,
+            frame,
+            tables: vec![
+                TableRecord { x: 20.0, z: 20.0, shown: serde_json::json!({ "board": 1 }) },
+                TableRecord { x: 400.0, z: 0.0, shown: serde_json::json!({ "board": 2 }) },
+            ],
+            private: vec![me.clone()],
+            ..TickOut::default()
         };
-        f(&mut out.cells[k]);
+        (out, me)
     }
 
     #[test]
-    fn an_update_has_everyone_and_what_is_near_in_the_shape_the_browser_reads() {
-        let mut out = TickOut { sim: SimId(1), space: Some(SpaceId::channel("emberholm", 1)), tick: 77, ..TickOut::default() };
-        let me = private(7, 0.0, 0.0);
-        out.private.push(me.clone());
-        put(&mut out, 0.0, 0.0, |c| c.players.push(presence(EntityId::character(7), "Ada", false, 0.0, 0.0)));
-        // Someone far off is still a peer; a bot is marked as one.
-        put(&mut out, 500.0, 500.0, |c| c.players.push(presence(EntityId::character(8), "Bo", false, 500.0, 500.0)));
-        put(&mut out, 3.0, 0.0, |c| c.players.push(presence(EntityId::bot(1, 4), "Skirmisher 4", true, 3.0, 0.0)));
-        // An arrow near, and one too far to be sent.
-        for (x, id) in [(10.0, 1), (200.0, 2)] {
-            put(&mut out, x, 0.0, |c| c.arrows.push(ArrowRecord { id, owner: 0, x: x + 0.123, y: 1.3, z: 0.0, vx: 30.0, vz: 0.0, team: 0 }));
-        }
-        put(&mut out, 20.0, 20.0, |c| c.tables.push(TableRecord { x: 20.0, z: 20.0, shown: serde_json::json!({ "board": 1 }) }));
-        let v: Value = serde_json::from_str(&tick(&out, &me, false)).unwrap();
+    fn a_tick_is_the_world_near_you_on_the_wire_and_your_own_in_json() {
+        let (out, me) = a_tick();
+        let mut enc = Encoder::new(7, false);
+        let (bytes, text) = enc.tick(&out, &me, Owed::default());
+        // The JSON: your own state, the table near you, and nobody else.
+        let v: Value = serde_json::from_str(&text).unwrap();
         assert_eq!((v["t"].as_str(), v["tick"].as_u64()), (Some("tick"), Some(77)));
         assert_eq!((v["you"]["id"].as_u64(), v["you"]["ack"].as_u64()), (Some(3), Some(9)));
-        assert_eq!(v["you"]["p"]["mode"], "normal");
-        let peers = v["peers"].as_array().unwrap();
-        assert_eq!(peers.len(), 2, "everyone but you");
-        let bot = peers.iter().find(|p| p["bot"] == true).expect("the bot");
-        assert_eq!(bot["id"], crate::sim::FIRST_BOT - 4);
-        assert!(peers.iter().any(|p| p["id"] == 8 && p.get("bot").is_none()));
-        assert_eq!(v["arrows"].as_array().unwrap().len(), 1);
-        assert_eq!(v["arrows"][0]["x"], 10.12, "to the centimetre");
+        assert_eq!(v["tables"].as_array().map(Vec::len), Some(1));
         assert_eq!(v["tables"][0]["board"], 1);
-        assert!(v.get("stats").is_none() && v.get("life").is_none() && v.get("lifeEvents").is_none());
-        // An admin, once a second, has the stats with the size of the update.
+        for gone in ["peers", "actors", "arrows", "meteors", "events", "stats", "life", "lifeEvents"] {
+            assert!(v.get(gone).is_none(), "{gone}");
+        }
+        // The update: the bot, Bo far off, the slime, and the arrow near (yours: handle 1); never Ada
+        // herself, nor Cy, out of sight.
+        let mut heard = Heard::new();
+        heard.hear(&bytes).unwrap().expect("applied");
+        let mut seen: Vec<(Kind, i64)> = heard
+            .ents
+            .values()
+            .map(|e| match &e.intro {
+                Intro::Player { id, .. } | Intro::Creature { id } | Intro::Arrow { id } => (e.kind(), *id),
+                other => panic!("{other:?}"),
+            })
+            .collect();
+        seen.sort();
+        assert_eq!(seen, [(Kind::Player, crate::sim::FIRST_BOT - 4), (Kind::Player, 8), (Kind::Creature, 12), (Kind::Arrow, 1)]);
+        let arrow = heard.ents.values().find(|e| e.kind() == Kind::Arrow).unwrap();
+        assert_eq!(arrow.now().fields[6], 1, "your own arrow names you");
+        // Your acknowledgement comes back and the next update is measured against it.
+        assert!(enc.ack(&heard.ack().write()));
+        assert!(!enc.ack(&[7, 1, 2]));
+        let (again, _) = enc.tick(&out, &me, Owed::default());
+        assert!(again.len() < bytes.len() / 2, "{} bytes after {}", again.len(), bytes.len());
+    }
+
+    #[test]
+    fn what_a_slow_connection_missed_comes_with_the_next_and_an_admin_sees_what_a_tick_cost() {
+        let (mut out, me) = a_tick();
         out.stats = Some(Stats { tick: 77, players: 1, ..Stats::default() });
-        let plain = tick(&out, &me, false).len();
-        let v: Value = serde_json::from_str(&tick(&out, &me, true)).unwrap();
-        assert_eq!(v["stats"]["bytes"].as_u64(), Some(plain as u64));
-        assert_eq!(v["stats"]["players"], 1);
+        let mut owed = Owed::default();
+        let mut missed = me.clone();
+        missed.life_events = vec![ruina_engine::life::LifeEvent::Toast { text: "Sold".into(), kind: "info".into() }];
+        missed.told = vec![Event::new(10, 20, 30, 4, 15)];
+        owed.keep(&missed);
+        let mut enc = Encoder::new(7, true);
+        let (bytes, text) = enc.tick(&out, &me, owed);
+        let v: Value = serde_json::from_str(&text).unwrap();
+        assert_eq!(v["lifeEvents"][0]["text"], "Sold");
+        assert_eq!(v["stats"]["wire"].as_u64(), Some(bytes.len() as u64));
+        let mut heard = Heard::new();
+        let done = heard.hear(&bytes).unwrap().unwrap();
+        assert_eq!(done.events, [[10, 30, 20, 4, 15]], "the hit you were told of");
     }
 
     #[test]

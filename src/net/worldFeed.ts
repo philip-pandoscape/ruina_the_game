@@ -1,10 +1,12 @@
 import { ActorTimeline } from './actorTimeline';
 import type { PlayerState } from '../engine/rules';
+import type { FeedTick } from './feedTick';
 
 // What the game server says of the world around you, timed to be drawn. The world link
-// (src/net/worldLink.ts) brings each tick and src/app/onlineWiring.ts turns it into these shapes:
-// your own state as the server has it (the prediction corrects to it, src/net/netPlayer.ts), the
-// monsters near you (drawn between updates, actorTimeline.ts), arrows and meteors in flight, and
+// (src/net/worldLink.ts) brings each tick, and the feed takes it in two parts: your own state as the
+// server has it (applyYou: the prediction corrects to it, src/net/netPlayer.ts), and the world around
+// you as one FeedTick (applyWorld, src/net/feedTick.ts: the same whichever way the server sends it):
+// the monsters near you (drawn between updates, actorTimeline.ts), arrows and meteors in flight, and
 // effects to show. Your inputs go out through it, each with the server tick everyone else is drawn
 // at, so the server checks your swings against what you saw.
 
@@ -14,12 +16,16 @@ export type RawInput = [number, number, number, number, number, number, number, 
 export interface ArrowRecord {
   id: number;
   owner: number; // player id of the shooter
+  /** Yours: drawn from your own guess until this, the server's, takes over. */
+  mine: boolean;
   x: number;
   y: number;
   z: number;
   vx: number;
   vz: number;
   team: number;
+  /** The server tick this is as of: it flies on from here. */
+  tick: number;
 }
 
 export interface MeteorRecord {
@@ -30,6 +36,8 @@ export interface MeteorRecord {
   fallTicks: number;
   team: number;
   radius: number; // the effect's own radius, so any delayedArea draws at its real size
+  /** The server tick `ticksLeft` is as of. */
+  tick: number;
 }
 
 /** One actor as the server sees it. The browser knows the rest from shared/actors.json. */
@@ -51,6 +59,8 @@ export interface NetActor {
   /** Where a slam it is winding up will land. */
   targetX: number;
   targetZ: number;
+  /** Ticks between its refreshes (1 when left out: every tick). */
+  every?: number;
 }
 
 /** Something that just happened, for effects: kind 1 heal, 2 explosion, 3 arrow hit (crates/engine/src/combat.rs). */
@@ -102,22 +112,21 @@ export class WorldFeed {
     this.actorTimeline.reset();
   }
 
-  /** One tick from the server, already turned into these shapes. */
-  applyWorld(
-    tick: number,
-    you: { id: number; ack: number; player: PlayerState },
-    arrows: ArrowRecord[],
-    meteors: MeteorRecord[],
-    events: EffectEvent[],
-    actors: NetActor[],
-  ): void {
-    this.noteTick(tick, performance.now());
+  /** Your own state as the server has it, as of `tick`. */
+  applyYou(_tick: number, you: { id: number; ack: number; player: PlayerState }): void {
     this.you = you;
-    this.arrows = arrows;
-    this.meteors = meteors;
-    this.events.push(...events);
-    this.actors = actors;
-    this.actorTimeline.push(tick, actors, performance.now());
+    this.snapshots++;
+  }
+
+  /** The world around you as of one tick, whichever way it came (src/net/feedTick.ts). */
+  applyWorld(feed: FeedTick): void {
+    const now = performance.now();
+    this.noteTick(feed.tick, now);
+    this.arrows = feed.arrows;
+    this.meteors = feed.meteors;
+    this.events.push(...feed.events);
+    this.actorTimeline.push(feed.tick, feed.actors, feed.actorsKept, now);
+    this.actors = [...this.actorTimeline.newest()];
     this.arrowsTick = this.lastTick;
     this.snapshots++;
   }

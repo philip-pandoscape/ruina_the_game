@@ -19,12 +19,13 @@ use ruina_engine::open::zone::emberholm;
 use ruina_engine::player::{Build, Player};
 use ruina_engine::world::Spawn;
 use ruina_link::{Config, Encoding, Node};
+use ruina_wire::pack;
 use ruina_world_api::directory::Destination;
 use ruina_world_api::gate::ToGate;
 use ruina_world_api::ids::{Conn, EntityId, Epoch, GateId, SimId, SpaceId};
 use ruina_world_api::input::Input;
 use ruina_world_api::post::{Address, Envelope, Message};
-use ruina_world_api::records::{Cell, LifeView, Presence, PresenceRecord, Private, TickOut, You};
+use ruina_world_api::records::{Frame, LifeView, Private, TickOut, You};
 use ruina_world_api::sim::{Carried, Entry, Member, Moving, ToSim};
 use ruina_world_api::store::{LifeWrite, Then, ToStore, Writer};
 use serde::{Deserialize, Serialize};
@@ -37,19 +38,14 @@ fn player(k: usize) -> Player {
     p
 }
 
-/// A tick of a busy channel for one gate: 40 players in 6 cells, 8 of them this gate's, one of
-/// whom is sent their whole life this tick.
+/// A tick of a busy channel for one gate: 40 players packed in their cells (the wire's records),
+/// 8 of them this gate's, one of whom is sent their whole life this tick.
 fn tick() -> Envelope {
     let life = Life::new(emberholm(), None, None);
-    let mut cells: Vec<Cell> = (0..6).map(|c| Cell { at: (c, -2), ..Cell::default() }).collect();
+    let mut frame = Frame::new(9_000_000);
     for k in 0..40 {
-        let p = player(k);
-        cells[k % 6].players.push(PresenceRecord {
-            id: EntityId::character(1000 + k as i64),
-            name: format!("Player{k}"),
-            bot: k % 5 == 0,
-            p: Presence::of(&p, None, 123_456 + k as u64),
-        });
+        let id = 1000 + k as i64;
+        frame.push(pack::player(EntityId::character(id).raw(), id, Arc::from(format!("Player{k}")), k % 5 == 0, &player(k), None, 0));
     }
     let private = (0..8)
         .map(|k| Private {
@@ -60,7 +56,16 @@ fn tick() -> Envelope {
             told: vec![],
         })
         .collect();
-    let out = TickOut { sim: SimId(3), lease: Epoch(2), space: Some(SpaceId::channel("emberholm", 1)), tick: 9_000_000, cells, private, stats: None };
+    let out = TickOut {
+        sim: SimId(3),
+        lease: Epoch(2),
+        space: Some(SpaceId::channel("emberholm", 1)),
+        tick: 9_000_000,
+        frame,
+        tables: Vec::new(),
+        private,
+        stats: None,
+    };
     Envelope { to: Address::Gate(GateId(1)), msg: Message::Gate(ToGate::Tick(Arc::new(out))) }
 }
 

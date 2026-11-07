@@ -1,0 +1,699 @@
+{
+  "ack": 8,
+  "event": [
+    "x",
+    "z",
+    "y",
+    "kind",
+    "size"
+  ],
+  "kinds": {
+    "arrow": {
+      "byte": 5,
+      "fields": [
+        {
+          "name": "x",
+          "run": {
+            "still": true
+          },
+          "tier": "far"
+        },
+        {
+          "name": "z",
+          "run": {
+            "still": true
+          },
+          "tier": "far"
+        },
+        {
+          "name": "y",
+          "run": {
+            "still": true
+          },
+          "tier": "far"
+        },
+        {
+          "name": "vx",
+          "run": {
+            "still": true
+          },
+          "tier": "far"
+        },
+        {
+          "name": "vz",
+          "run": {
+            "still": true
+          },
+          "tier": "far"
+        },
+        {
+          "name": "team",
+          "run": {
+            "still": true
+          },
+          "tier": "far"
+        },
+        {
+          "name": "owner",
+          "run": {
+            "still": true
+          },
+          "tier": "far"
+        }
+      ],
+      "reference": 6
+    },
+    "creature": {
+      "byte": 2,
+      "fields": [
+        {
+          "name": "x",
+          "run": {
+            "still": true
+          },
+          "tier": "far"
+        },
+        {
+          "name": "z",
+          "run": {
+            "still": true
+          },
+          "tier": "far"
+        },
+        {
+          "name": "y",
+          "run": {
+            "still": true
+          },
+          "tier": "far"
+        },
+        {
+          "name": "facing",
+          "run": {
+            "still": true
+          },
+          "tier": "far"
+        },
+        {
+          "name": "state",
+          "run": {
+            "still": true
+          },
+          "tier": "mid"
+        },
+        {
+          "name": "stateFrame",
+          "run": {
+            "cap": 2147483647,
+            "up": 3
+          },
+          "tier": "mid"
+        },
+        {
+          "name": "wait",
+          "run": {
+            "still": true
+          },
+          "tier": "mid"
+        },
+        {
+          "name": "hp",
+          "run": {
+            "still": true
+          },
+          "tier": "far"
+        },
+        {
+          "name": "deadFrame",
+          "run": {
+            "cap": 2147483647,
+            "up": 3
+          },
+          "tier": "far"
+        },
+        {
+          "name": "targetX",
+          "run": {
+            "still": true
+          },
+          "tier": "near"
+        },
+        {
+          "name": "targetZ",
+          "run": {
+            "still": true
+          },
+          "tier": "near"
+        },
+        {
+          "name": "kind",
+          "run": {
+            "still": true
+          },
+          "tier": "far"
+        }
+      ],
+      "reference": null
+    },
+    "item": {
+      "byte": 4,
+      "fields": [
+        {
+          "name": "x",
+          "run": {
+            "still": true
+          },
+          "tier": "far"
+        },
+        {
+          "name": "z",
+          "run": {
+            "still": true
+          },
+          "tier": "far"
+        },
+        {
+          "name": "y",
+          "run": {
+            "still": true
+          },
+          "tier": "far"
+        },
+        {
+          "name": "rot",
+          "run": {
+            "still": true
+          },
+          "tier": "far"
+        }
+      ],
+      "reference": null
+    },
+    "meteor": {
+      "byte": 6,
+      "fields": [
+        {
+          "name": "x",
+          "run": {
+            "still": true
+          },
+          "tier": "far"
+        },
+        {
+          "name": "z",
+          "run": {
+            "still": true
+          },
+          "tier": "far"
+        },
+        {
+          "name": "ticksLeft",
+          "run": {
+            "down": 1
+          },
+          "tier": "far"
+        },
+        {
+          "name": "fallTicks",
+          "run": {
+            "still": true
+          },
+          "tier": "far"
+        },
+        {
+          "name": "team",
+          "run": {
+            "still": true
+          },
+          "tier": "far"
+        },
+        {
+          "name": "radius",
+          "run": {
+            "still": true
+          },
+          "tier": "far"
+        }
+      ],
+      "reference": null
+    },
+    "player": {
+      "byte": 1,
+      "fields": [
+        {
+          "name": "x",
+          "run": {
+            "still": true
+          },
+          "tier": "far"
+        },
+        {
+          "name": "z",
+          "run": {
+            "still": true
+          },
+          "tier": "far"
+        },
+        {
+          "name": "y",
+          "run": {
+            "still": true
+          },
+          "tier": "far"
+        },
+        {
+          "name": "facing",
+          "run": {
+            "still": true
+          },
+          "tier": "far"
+        },
+        {
+          "name": "run",
+          "run": {
+            "still": true
+          },
+          "tier": "near"
+        },
+        {
+          "name": "vx",
+          "run": {
+            "still": true
+          },
+          "tier": "mid"
+        },
+        {
+          "name": "vz",
+          "run": {
+            "still": true
+          },
+          "tier": "mid"
+        },
+        {
+          "name": "vy",
+          "run": {
+            "still": true
+          },
+          "tier": "mid"
+        },
+        {
+          "name": "mode",
+          "run": {
+            "still": true
+          },
+          "tier": "mid"
+        },
+        {
+          "name": "flags",
+          "run": {
+            "still": true
+          },
+          "tier": "mid"
+        },
+        {
+          "name": "attackIndex",
+          "run": {
+            "still": true
+          },
+          "tier": "mid"
+        },
+        {
+          "name": "attackFrame",
+          "run": {
+            "cap": 2147483647,
+            "up": 3
+          },
+          "tier": "mid"
+        },
+        {
+          "name": "castAbility",
+          "run": {
+            "still": true
+          },
+          "tier": "mid"
+        },
+        {
+          "name": "castFrame",
+          "run": {
+            "cap": 2147483647,
+            "up": 3
+          },
+          "tier": "mid"
+        },
+        {
+          "name": "actionId",
+          "run": {
+            "still": true
+          },
+          "tier": "near"
+        },
+        {
+          "name": "actionFrame",
+          "run": {
+            "cap": 2147483647,
+            "up": 3
+          },
+          "tier": "near"
+        },
+        {
+          "name": "flipFrame",
+          "run": {
+            "cap": 2147483647,
+            "up": 3
+          },
+          "tier": "near"
+        },
+        {
+          "name": "landFrame",
+          "run": {
+            "cap": 999,
+            "up": 3
+          },
+          "tier": "near"
+        },
+        {
+          "name": "landImpact",
+          "run": {
+            "still": true
+          },
+          "tier": "near"
+        },
+        {
+          "name": "takeoffFrame",
+          "run": {
+            "cap": 999,
+            "up": 3
+          },
+          "tier": "near"
+        },
+        {
+          "name": "stun",
+          "run": {
+            "down": 3
+          },
+          "tier": "near"
+        },
+        {
+          "name": "downFrame",
+          "run": {
+            "cap": 2147483647,
+            "up": 3
+          },
+          "tier": "far"
+        },
+        {
+          "name": "hp",
+          "run": {
+            "still": true
+          },
+          "tier": "far"
+        },
+        {
+          "name": "team",
+          "run": {
+            "still": true
+          },
+          "tier": "far"
+        },
+        {
+          "name": "weapon",
+          "run": {
+            "still": true
+          },
+          "tier": "mid"
+        },
+        {
+          "name": "comboVariants",
+          "run": {
+            "still": true
+          },
+          "tier": "near"
+        },
+        {
+          "name": "bank",
+          "run": {
+            "still": true
+          },
+          "tier": "near"
+        },
+        {
+          "name": "crouchFrame",
+          "run": {
+            "still": true
+          },
+          "tier": "near"
+        },
+        {
+          "name": "airspeed",
+          "run": {
+            "still": true
+          },
+          "tier": "near"
+        },
+        {
+          "name": "glider",
+          "run": {
+            "still": true
+          },
+          "tier": "mid"
+        },
+        {
+          "name": "pack",
+          "run": {
+            "still": true
+          },
+          "tier": "mid"
+        },
+        {
+          "name": "vehicle",
+          "run": {
+            "still": true
+          },
+          "tier": "mid"
+        },
+        {
+          "name": "seat",
+          "run": {
+            "still": true
+          },
+          "tier": "mid"
+        },
+        {
+          "name": "host",
+          "run": {
+            "still": true
+          },
+          "tier": "mid"
+        }
+      ],
+      "reference": 33
+    },
+    "vehicle": {
+      "byte": 3,
+      "fields": [
+        {
+          "name": "x",
+          "run": {
+            "still": true
+          },
+          "tier": "far"
+        },
+        {
+          "name": "z",
+          "run": {
+            "still": true
+          },
+          "tier": "far"
+        },
+        {
+          "name": "y",
+          "run": {
+            "still": true
+          },
+          "tier": "far"
+        },
+        {
+          "name": "heading",
+          "run": {
+            "still": true
+          },
+          "tier": "far"
+        },
+        {
+          "name": "pitch",
+          "run": {
+            "still": true
+          },
+          "tier": "mid"
+        },
+        {
+          "name": "roll",
+          "run": {
+            "still": true
+          },
+          "tier": "mid"
+        },
+        {
+          "name": "speed",
+          "run": {
+            "still": true
+          },
+          "tier": "mid"
+        },
+        {
+          "name": "steer",
+          "run": {
+            "still": true
+          },
+          "tier": "near"
+        },
+        {
+          "name": "throttle",
+          "run": {
+            "still": true
+          },
+          "tier": "near"
+        },
+        {
+          "name": "sail",
+          "run": {
+            "still": true
+          },
+          "tier": "mid"
+        },
+        {
+          "name": "flags",
+          "run": {
+            "still": true
+          },
+          "tier": "mid"
+        },
+        {
+          "name": "cargo0",
+          "run": {
+            "still": true
+          },
+          "tier": "mid"
+        },
+        {
+          "name": "cargo1",
+          "run": {
+            "still": true
+          },
+          "tier": "mid"
+        },
+        {
+          "name": "cargo2",
+          "run": {
+            "still": true
+          },
+          "tier": "mid"
+        },
+        {
+          "name": "cargo3",
+          "run": {
+            "still": true
+          },
+          "tier": "mid"
+        },
+        {
+          "name": "cargo4",
+          "run": {
+            "still": true
+          },
+          "tier": "mid"
+        },
+        {
+          "name": "cargo5",
+          "run": {
+            "still": true
+          },
+          "tier": "mid"
+        },
+        {
+          "name": "cargo6",
+          "run": {
+            "still": true
+          },
+          "tier": "mid"
+        },
+        {
+          "name": "cargo7",
+          "run": {
+            "still": true
+          },
+          "tier": "mid"
+        },
+        {
+          "name": "cargo8",
+          "run": {
+            "still": true
+          },
+          "tier": "mid"
+        },
+        {
+          "name": "cargo9",
+          "run": {
+            "still": true
+          },
+          "tier": "mid"
+        },
+        {
+          "name": "cargo10",
+          "run": {
+            "still": true
+          },
+          "tier": "mid"
+        },
+        {
+          "name": "cargo11",
+          "run": {
+            "still": true
+          },
+          "tier": "mid"
+        },
+        {
+          "name": "cargo12",
+          "run": {
+            "still": true
+          },
+          "tier": "mid"
+        },
+        {
+          "name": "cargo13",
+          "run": {
+            "still": true
+          },
+          "tier": "mid"
+        },
+        {
+          "name": "cargo14",
+          "run": {
+            "still": true
+          },
+          "tier": "mid"
+        },
+        {
+          "name": "cargo15",
+          "run": {
+            "still": true
+          },
+          "tier": "mid"
+        }
+      ],
+      "reference": null
+    }
+  },
+  "maxFields": 40,
+  "modes": [
+    "normal",
+    "attack",
+    "cast",
+    "action",
+    "swim",
+    "glide",
+    "ride"
+  ],
+  "update": 1,
+  "window": 63
+}

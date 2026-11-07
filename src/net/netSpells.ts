@@ -40,7 +40,7 @@ export function causeOf(cause: number): { sort: number; index: number } {
 
 interface Tracked<T> {
   rec: T;
-  first: number; // server tick it was first and last seen
+  first: number; // the server's updates it was first and last listed in (each record says the tick it's as of)
   last: number;
 }
 
@@ -141,7 +141,7 @@ export class NetSpells {
 
   // A new update from the server: keep track of arrows and meteors, let the server's copies of your
   // own arrows take over from the ones you're already drawing, and queue up effects.
-  receive(myId: number | null): void {
+  receive(): void {
     const tick = this.net.lastTick;
     this.latest = tick;
     for (const a of this.net.arrows) {
@@ -152,7 +152,7 @@ export class NetSpells {
         continue;
       }
       this.arrows.set(a.id, { rec: a, first: tick, last: tick });
-      if (a.owner === myId) this.claimLocalArrow(a);
+      if (a.mine) this.claimLocalArrow(a);
     }
     for (const m of this.net.meteors) {
       const t = this.meteors.get(m.id);
@@ -221,11 +221,11 @@ export class NetSpells {
 
   // Draws every arrow and meteor. Other players' at renderTick, your own at presentTick (both in
   // server ticks, fractional).
-  draw(view: SpellDrawing, renderTick: number, presentTick: number, myId: number | null, myTeam: number): void {
+  draw(view: SpellDrawing, renderTick: number, presentTick: number, myTeam: number): void {
     const tickSec = 1 / this.net.ticksPerSecond;
     for (const [id, t] of this.arrows) {
       const a = t.rec;
-      const mine = a.owner === myId;
+      const mine = a.mine;
       const at = mine ? presentTick : renderTick;
       const inLatest = t.last === this.latest;
       // Gone from the server's list: it hit something or ran out of range.
@@ -234,7 +234,8 @@ export class NetSpells {
         continue;
       }
       if (at < t.first - 1) continue; // not loosed yet, as far as this screen is concerned
-      const dt = (at - t.last) * tickSec;
+      // Flown on from the tick it's as of.
+      const dt = (at - a.tick) * tickSec;
       const speed = Math.hypot(a.vx, a.vz) || 1;
       view.arrow(a.x + a.vx * dt, a.y, a.z + a.vz * dt, a.vx / speed, a.vz / speed);
     }
@@ -249,7 +250,7 @@ export class NetSpells {
       // Your own meteor is already drawn from your cast.
       if (this.localMeteors.some((l) => Math.abs(l.x - m.x) < 0.1 && Math.abs(l.z - m.z) < 0.1)) continue;
       if (renderTick < t.first - 1) continue;
-      const fall = (m.fallTicks - m.ticksLeft + (renderTick - t.last)) / m.fallTicks;
+      const fall = (m.fallTicks - m.ticksLeft + (renderTick - m.tick)) / m.fallTicks;
       if (fall < 1) view.meteor(m.x, m.z, fall, m.radius, m.team !== myTeam);
     }
     for (const m of this.localMeteors) view.meteor(m.x, m.z, m.frame / m.fallFrames, m.radius, false);
