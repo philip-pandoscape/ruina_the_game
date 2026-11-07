@@ -158,6 +158,8 @@ export interface MovementSkill {
 }
 
 export const MOVEMENT_SKILLS = shared.movementSkills as unknown as MovementSkill[];
+/** A movement skill's place in MOVEMENT_SKILLS (the order content/movement-skills/_order.json gives), from its id; -1 for none. */
+export const movementIndex = (id: string): number => MOVEMENT_SKILLS.findIndex((m) => m.id === id);
 export const MOVEMENT_SLOTS = shared.movementSlots as number;
 // Room for this many movement skills, so the wire size doesn't move every time one is added.
 // Raise it here and in crates/engine/src/tuning.rs together.
@@ -165,7 +167,7 @@ export const MOVEMENT_SKILL_CAP = 16;
 if (MOVEMENT_SKILLS.length > MOVEMENT_SKILL_CAP) throw new Error('more movement skills than MOVEMENT_SKILL_CAP');
 export const NO_MOVEMENT = 255;
 // The slide everyone has. Looked up by id so reordering the data can't silently rebind it.
-export const SLIDE_SKILL = MOVEMENT_SKILLS.findIndex((m) => m.id === 'slide');
+export const SLIDE_SKILL = movementIndex('slide');
 if (SLIDE_SKILL < 0) throw new Error('shared/tuning.json needs a movement skill with id "slide"');
 export const emptyMovement = (): number[] => new Array<number>(MOVEMENT_SLOTS).fill(NO_MOVEMENT);
 
@@ -197,8 +199,8 @@ export const ATTACK: {
 export const WEAPONS = shared.weapons as unknown as Weapon[];
 
 // A weapon goes by its place in WEAPONS (the order content/weapons/_order.json gives) in the rules'
-// state, on the wire and in the skill tree. Everything else knows it by its id or by its data, so
-// that order can change.
+// state and on the wire. Everything else knows it by its id or by its data (the skill tree names it
+// by id, src/content/skills.ts), so that order can change; abilities and movement skills likewise.
 
 /** A weapon's id (its name: sword, club, staff, bow), from its place in WEAPONS; '' for none. */
 export const weaponId = (weapon: number): string => WEAPONS[weapon]?.name ?? '';
@@ -216,6 +218,8 @@ export function shoots(weapon: number): boolean {
 }
 
 export const ABILITIES = shared.abilities as unknown as Ability[];
+/** An ability's place in ABILITIES (the order content/abilities/_order.json gives), from its id; -1 for none. */
+export const abilityIndex = (id: string): number => ABILITIES.findIndex((a) => a.id === id);
 export const SKILLS = { points: SKILL_POINTS, trees: TREES, nodes: NODES };
 export const NO_ABILITY = 255;
 

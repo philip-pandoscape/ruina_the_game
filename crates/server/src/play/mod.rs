@@ -1324,7 +1324,7 @@ mod tests {
     #[test]
     fn a_build_kept_by_id_or_by_index_comes_back_on_the_wire_by_index() {
         let mut dodger = Build { skills: crate::skills::skills_from(&["sword", "dodgeRoll"]), ..Build::default() };
-        dodger.movement[1] = crate::tuning::tuning().movement_skills.iter().position(|m| m.id == "dodgeRoll").unwrap() as u8;
+        dodger.movement[1] = crate::tuning::movement_index("dodgeRoll").unwrap();
         // As it's kept now, and as the server kept it before (c3d19c3's row for the same build).
         let by_index: Value = serde_json::from_str(
             r#"{"skills": [4097, 0, 0, 0, 0, 0, 0, 0], "weapon": 0, "movement": [255, 0], "abilities": [255, 255, 255, 255, 255, 255, 255, 255]}"#,
@@ -1482,16 +1482,19 @@ mod tests {
         let slide = crate::skills::book_index("slide").unwrap();
         assert_eq!(p.levels[slide], 2);
         // A cast that goes off trains the ability.
-        let mut healer = Build { skills: crate::skills::skills_from(&["club", "heal"]), weapon: 1, ..Build::default() };
-        healer.abilities[0] = 0;
+        let club = crate::tuning::weapon_index("club").unwrap();
+        let mut healer = Build { skills: crate::skills::skills_from(&["club", "heal"]), weapon: club, ..Build::default() };
+        healer.abilities[0] = crate::tuning::ability_index("heal").unwrap();
         assert!(ch.set_build(7, &build_json(&healer)).is_some());
         play(&mut ch, [0, 0, 0, 0, 0, 1, 0, 0, 0, 0], 150);
         assert_eq!(xp(&ch, "heal"), 1.0);
         assert_eq!(xp(&ch, "club"), 0.0);
     }
 
+    /// The sword's first swing.
     fn tuning_damage() -> f64 {
-        crate::tuning::tuning().weapons[0].combo[0].damage
+        let sword = crate::tuning::weapon_index("sword").unwrap();
+        crate::tuning::tuning().weapons[usize::from(sword)].combo[0].damage
     }
 
     #[test]

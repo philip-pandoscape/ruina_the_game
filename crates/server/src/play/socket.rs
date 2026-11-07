@@ -834,7 +834,7 @@ mod tests {
         assert!(parse_build(&json!("nonsense"), 30).is_none());
         // Only as many skills as the points allow.
         assert!(parse_build(&ok, 0).is_none());
-        let three = json!({ "skills": crate::skills::skills_from(&["sword", "cleave", "whirlwind"]), "weapon": 0 });
+        let three = json!({ "skills": crate::skills::skills_from(&["sword", "cleave", "whirlwind"]), "weapon": crate::tuning::weapon_index("sword") });
         assert!(parse_build(&three, 2).is_none());
         assert!(parse_build(&three, 3).is_some());
     }

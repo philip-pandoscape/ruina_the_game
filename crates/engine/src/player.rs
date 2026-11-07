@@ -1285,13 +1285,31 @@ impl Player {
 mod tests {
     use super::*;
     use crate::skills::{book_index, skills_from};
+    use crate::tuning::{ability_index, movement_index};
     use crate::world::{SEED, battlefield};
+
+    /// Where an id is in the content now.
+    fn weapon(id: &str) -> u8 {
+        weapon_index(id).unwrap_or_else(|| panic!("no weapon {id}"))
+    }
+    fn ability_at(id: &str) -> u8 {
+        ability_index(id).unwrap_or_else(|| panic!("no ability {id}"))
+    }
+    fn move_at(id: &str) -> u8 {
+        movement_index(id).unwrap_or_else(|| panic!("no movement skill {id}"))
+    }
 
     #[test]
     fn a_dodge_costs_stamina_by_its_level_instead_of_cooling_down() {
         let world = battlefield(SEED);
-        let build = Build { skills: skills_from(&["sword", "dodgeRoll"]), weapon: 0, abilities: [NO_ABILITY; HOTBAR_SLOTS], movement: [0, NO_MOVEMENT] };
-        let (max, cost) = (tuning().stamina.max, tuning().movement_skills[0].stamina_cost);
+        let roll = move_at("dodgeRoll");
+        let build = Build {
+            skills: skills_from(&["sword", "dodgeRoll"]),
+            weapon: weapon("sword"),
+            abilities: [NO_ABILITY; HOTBAR_SLOTS],
+            movement: [roll, NO_MOVEMENT],
+        };
+        let (max, cost) = (tuning().stamina.max, tuning().movement_skills[usize::from(roll)].stamina_cost);
         let dodge = Actions { movement_slot: 1, move_z: 1.0, ..Default::default() };
         let after_a_dodge = |level: u32| {
             let mut p = Player::new(world.team_spawns[0], 0, build);
@@ -1308,7 +1326,7 @@ mod tests {
                 assert_eq!(p.started_action, NO_MOVEMENT);
                 frames += 1;
             }
-            assert_eq!(p.movement_cooldowns[0], 0, "no cooldown");
+            assert_eq!(p.movement_cooldowns[usize::from(roll)], 0, "no cooldown");
             left
         };
         assert!(cost > 0.0);
@@ -1330,16 +1348,17 @@ mod tests {
         p.respawn(world.team_spawns[0]);
         assert_eq!((p.stamina, p.stamina_delay, p.mp), (max, 0, tuning().mp.max));
         // The guard is no dodge: it keeps its short cooldown and costs nothing.
-        assert_eq!(tuning().movement_skills[2].stamina_cost, 0.0);
-        assert!(tuning().movement_skills[2].cooldown_frames > 0);
+        let guard = &tuning().movement_skills[usize::from(move_at("block"))];
+        assert_eq!(guard.stamina_cost, 0.0);
+        assert!(guard.cooldown_frames > 0);
     }
 
     #[test]
     fn a_cast_pays_its_mp_when_it_goes_off_and_waits_for_enough() {
         let world = battlefield(SEED);
-        let mut build = Build { skills: skills_from(&["club", "heal"]), weapon: 1, ..Build::default() };
-        build.abilities[0] = 0;
-        let cost = tuning().abilities[0].mp_cost;
+        let mut build = Build { skills: skills_from(&["club", "heal"]), weapon: weapon("club"), ..Build::default() };
+        build.abilities[0] = ability_at("heal");
+        let cost = tuning().abilities[usize::from(ability_at("heal"))].mp_cost;
         let max = tuning().mp.max;
         let regen = tuning().mp.regen_per_second * step_len();
         let cast = Actions { ability_slot: 1, ..Default::default() };
@@ -1375,6 +1394,7 @@ mod tests {
         levels[book_index("sword").unwrap()] = 3;
         p.set_levels(&levels);
         p.apply_build(build);
-        assert_eq!(p.resolved.combo[0][0].damage, tuning().weapons[0].combo[0].damage * (1.0 + 0.03 * 2.0));
+        let sword = usize::from(weapon("sword"));
+        assert_eq!(p.resolved.combo[sword][0].damage, tuning().weapons[sword].combo[0].damage * (1.0 + 0.03 * 2.0));
     }
 }

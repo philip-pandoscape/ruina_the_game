@@ -30,20 +30,31 @@ import {
 import { learnBlock, learnPath, NODE_INFO, validBuild } from '../../src/content/build';
 import { resolveSkills } from '../../src/engine/rules';
 import {
+  abilityIndex,
   castFramesFor,
   comboFor,
   emptyHotbar,
   emptyMovement,
   meleeTargets,
   movementCooldownFor,
+  movementIndex,
   movementStaminaFor,
   MOVEMENT_SKILLS,
   pierceTargets,
   WEAPONS,
+  weaponIndex,
   type Build,
 } from '../../src/content/tuning';
 
 // The balance harness's check through the server's own rules is in tests/conformance/balance.test.ts.
+
+// Weapons, abilities and movement skills by their ids: their places in the lists are the content's to
+// change (tests/unit/weaponOrder.test.ts).
+const SWORD = weaponIndex('sword');
+const CLUB = weaponIndex('club');
+const BOW = weaponIndex('bow');
+const HEAL = abilityIndex('heal');
+const METEOR = abilityIndex('meteor');
 
 // The skill architecture itself: the set, the graph, and the modifier fold. These are the
 // properties a growing tree leans on, so they are checked directly rather than through a fight.
@@ -149,7 +160,7 @@ test('a set that does not hang together back to a root is not sound', () => {
 });
 
 test('builds are checked against the points allowed where you are', () => {
-  const b: Build = { skills: skillsFrom('sword', 'cleave', 'whirlwind'), weapon: 0, abilities: emptyHotbar(), movement: emptyMovement() };
+  const b: Build = { skills: skillsFrom('sword', 'cleave', 'whirlwind'), weapon: SWORD, abilities: emptyHotbar(), movement: emptyMovement() };
   expect(validBuild(b)).toBe(true); // the training yard's budget
   expect(validBuild(b, 3)).toBe(true);
   expect(validBuild(b, 2)).toBe(false);
@@ -179,13 +190,13 @@ test('a level adds to its own skill only', () => {
   const plain = resolveSkills(s);
   const trained = resolveSkills(s, lv);
   const per = LEVEL_MODS.sword[0].value;
-  expect(comboFor(0, trained)[0].damage).toBeCloseTo(comboFor(0, plain)[0].damage * (1 + 2 * per), 6);
-  expect(comboFor(1, trained)[0].damage).toBe(comboFor(1, plain)[0].damage); // the club is untouched
+  expect(comboFor(SWORD, trained)[0].damage).toBeCloseTo(comboFor(SWORD, plain)[0].damage * (1 + 2 * per), 6);
+  expect(comboFor(CLUB, trained)[0].damage).toBe(comboFor(CLUB, plain)[0].damage); // the club is untouched
   expect(trained.ability).toEqual(plain.ability);
 });
 
 test('a dodge costs less stamina through the tree and with its level, and has no cooldown', () => {
-  const dodge = MOVEMENT_SKILLS.findIndex((m) => m.id === 'dodgeRoll');
+  const dodge = movementIndex('dodgeRoll');
   const base = MOVEMENT_SKILLS[dodge].staminaCost ?? 0;
   expect(base).toBeGreaterThan(0);
   const plain = resolveSkills(skillsFrom('sword', 'dodgeRoll'));
@@ -201,7 +212,7 @@ test('a dodge costs less stamina through the tree and with its level, and has no
   for (const i of path) s = withSkill(s, i, true);
   expect(movementStaminaFor(dodge, resolveSkills(s))).toBeLessThan(base);
   // The guard keeps its cooldown, and the tree still shortens that.
-  const block = MOVEMENT_SKILLS.findIndex((m) => m.id === 'block');
+  const block = movementIndex('block');
   expect(movementCooldownFor(block, resolveSkills(skillsFrom('club', 'block')))).toBe(MOVEMENT_SKILLS[block].cooldownFrames);
   expect(movementStaminaFor(block, resolveSkills(skillsFrom('club', 'block')))).toBe(0);
 });
@@ -289,19 +300,19 @@ test('frames round the same way every time', () => {
 });
 
 test('a modifier only counts where it is scoped to', () => {
-  const s = skillsFrom('bow', 'rapidFire'); // scoped to weapon 3
+  const s = skillsFrom('bow', 'rapidFire'); // scoped to the bow
   const startup = statIndex('attack.startup');
   const r = resolveSkills(s);
-  expect(r.weapon[3][startup].more).toBeLessThan(1);
-  expect(r.weapon[0][startup].more).toBe(1);
+  expect(r.weapon[BOW][startup].more).toBeLessThan(1);
+  expect(r.weapon[SWORD][startup].more).toBe(1);
 });
 
 test('a tag-scoped modifier only reaches skills carrying that tag', () => {
   const s = skillsFrom('club', 'heal', 'swiftMending'); // scoped to the heal tag
   const r = resolveSkills(s);
   const cast = statIndex('cast.frames');
-  expect(r.ability[0][cast].more).toBeLessThan(1); // Healing Circle
-  expect(r.ability[1][cast].more).toBe(1); // Meteor, untouched
+  expect(r.ability[HEAL][cast].more).toBeLessThan(1); // Healing Circle
+  expect(r.ability[METEOR][cast].more).toBe(1); // Meteor, untouched
 });
 
 // ---------- What the old named perks became ----------
@@ -309,28 +320,28 @@ test('a tag-scoped modifier only reaches skills carrying that tag', () => {
 test('the skills that used to be special cases still do what they say', () => {
   const plain = resolveSkills(skillsFrom('sword'));
   const cleaver = resolveSkills(skillsFrom('sword', 'cleave'));
-  expect(meleeTargets(0, plain)).toBe(1);
-  expect(meleeTargets(0, cleaver)).toBe(6);
-  expect(meleeTargets(1, cleaver)).toBe(1); // scoped to the sword
+  expect(meleeTargets(SWORD, plain)).toBe(1);
+  expect(meleeTargets(SWORD, cleaver)).toBe(6);
+  expect(meleeTargets(CLUB, cleaver)).toBe(1); // scoped to the sword
 
   const archer = resolveSkills(skillsFrom('bow'));
   const piercer = resolveSkills(skillsFrom('bow', 'rapidFire', 'piercing'));
-  expect(pierceTargets(3, archer)).toBe(1);
-  expect(pierceTargets(3, piercer)).toBe(3);
+  expect(pierceTargets(BOW, archer)).toBe(1);
+  expect(pierceTargets(BOW, piercer)).toBe(3);
   // "a third faster": 9 frames of draw become 6.
-  expect(comboFor(3, archer)[0].startup).toBe(9);
-  expect(comboFor(3, piercer)[0].startup).toBe(6);
+  expect(comboFor(BOW, archer)[0].startup).toBe(9);
+  expect(comboFor(BOW, piercer)[0].startup).toBe(6);
 
   // "40% faster" and "30% faster" land on the old hand-written numbers exactly.
-  expect(castFramesFor(0, resolveSkills(skillsFrom('club', 'heal')))).toBe(24);
-  expect(castFramesFor(0, resolveSkills(skillsFrom('club', 'heal', 'swiftMending')))).toBe(14);
-  expect(castFramesFor(1, resolveSkills(skillsFrom('staff', 'meteor')))).toBe(72);
-  expect(castFramesFor(1, resolveSkills(skillsFrom('staff', 'meteor', 'quickIncantation')))).toBe(50);
+  expect(castFramesFor(HEAL, resolveSkills(skillsFrom('club', 'heal')))).toBe(24);
+  expect(castFramesFor(HEAL, resolveSkills(skillsFrom('club', 'heal', 'swiftMending')))).toBe(14);
+  expect(castFramesFor(METEOR, resolveSkills(skillsFrom('staff', 'meteor')))).toBe(72);
+  expect(castFramesFor(METEOR, resolveSkills(skillsFrom('staff', 'meteor', 'quickIncantation')))).toBe(50);
 });
 
 test('Whirlwind swaps the third sword hit rather than scaling a number', () => {
-  const base = comboFor(0, resolveSkills(skillsFrom('sword', 'cleave')));
-  const spin = comboFor(0, resolveSkills(skillsFrom('sword', 'cleave', 'whirlwind')));
+  const base = comboFor(SWORD, resolveSkills(skillsFrom('sword', 'cleave')));
+  const spin = comboFor(SWORD, resolveSkills(skillsFrom('sword', 'cleave', 'whirlwind')));
   expect(spin).toHaveLength(base.length);
   expect(spin.slice(0, 2)).toEqual(base.slice(0, 2)); // the first two are untouched
   expect(spin[2].arcDeg).toBe(360);
@@ -340,15 +351,15 @@ test('Whirlwind swaps the third sword hit rather than scaling a number', () => {
 
 test('grants are collected from the tree, not hardcoded anywhere', () => {
   const r = resolveSkills(skillsFrom('sword', 'club', 'heal', 'staff', 'meteor'));
-  expect([...r.weapons].sort()).toEqual([0, 1, 2]);
-  expect([...r.abilities].sort()).toEqual([0, 1]);
+  expect([...r.weapons].sort()).toEqual(['sword', 'club', 'staff'].map(weaponIndex).sort());
+  expect([...r.abilities].sort()).toEqual([HEAL, METEOR].sort());
   expect(r.combos.size).toBe(0);
   expect(resolveSkills(skillsFrom('sword', 'cleave', 'whirlwind')).combos.has('whirlwind')).toBe(true);
 });
 
 test('resolving an empty build gives the untouched numbers', () => {
   const none = resolveSkills(emptySkills());
-  expect(comboFor(0, none).map((s) => s.damage)).toEqual(WEAPONS[0].combo.map((s) => s.damage));
-  expect(meleeTargets(0, none)).toBe(1);
-  expect(castFramesFor(1, none)).toBe(72);
+  expect(comboFor(SWORD, none).map((s) => s.damage)).toEqual(WEAPONS[SWORD].combo.map((s) => s.damage));
+  expect(meleeTargets(SWORD, none)).toBe(1);
+  expect(castFramesFor(METEOR, none)).toBe(72);
 });

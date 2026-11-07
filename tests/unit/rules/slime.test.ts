@@ -1,6 +1,6 @@
 import { expect } from 'vitest';
 import { test, type Page } from '../../support/headless';
-import { emptyMovement, HOTBAR_SLOTS, NO_ABILITY, SLIME, WEAPONS, type Build } from '../../../src/content/tuning';
+import { abilityIndex, emptyMovement, HOTBAR_SLOTS, NO_ABILITY, SLIME, WEAPONS, weaponIndex, type Build } from '../../../src/content/tuning';
 import { skillsFrom } from '../../../src/content/skills';
 import { gameReady } from '../../support/headless';
 
@@ -8,16 +8,17 @@ import { gameReady } from '../../support/headless';
 // game itself. They hop, they take hits from everything the player has, they die and come back.
 
 const SHOTS = 'screenshots';
-const METEOR = 1;
-const build = (ids: string[], weapon: number, ability = NO_ABILITY): Build => {
+const METEOR = abilityIndex('meteor');
+/** The skills, the weapon in hand and the ability in the first slot, each by id. */
+const build = (ids: string[], weapon: string, ability = NO_ABILITY): Build => {
   const abilities = new Array<number>(HOTBAR_SLOTS).fill(NO_ABILITY);
   abilities[0] = ability;
-  return { skills: skillsFrom(...ids), weapon, abilities, movement: emptyMovement() };
+  return { skills: skillsFrom(...ids), weapon: weaponIndex(weapon), abilities, movement: emptyMovement() };
 };
-const SWORD = build(['sword'], 0);
-const ARCHER = build(['bow'], 3);
-const MAGE = build(['staff', 'meteor'], 2, METEOR);
-const swordReach = WEAPONS[0].combo[0].reach;
+const SWORD = build(['sword'], 'sword');
+const ARCHER = build(['bow'], 'bow');
+const MAGE = build(['staff', 'meteor'], 'staff', METEOR);
+const swordReach = WEAPONS[weaponIndex('sword')].combo[0].reach;
 
 interface Actor {
   id: number;

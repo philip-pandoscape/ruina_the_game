@@ -1,4 +1,16 @@
-import { ABILITIES, ATTACK, COMBAT, JUMP, MOVE, MOVEMENT_SKILLS, comboShape, weaponIndex, type AttackStep } from '../../content/tuning';
+import {
+  ABILITIES,
+  ATTACK,
+  abilityIndex,
+  COMBAT,
+  JUMP,
+  MOVE,
+  MOVEMENT_SKILLS,
+  comboShape,
+  movementIndex,
+  weaponIndex,
+  type AttackStep,
+} from '../../content/tuning';
 import type { PoseInput } from '../../content/pose';
 import { SWIM } from '../../content/traversal';
 import { lungeSpeed } from './humanoid';
@@ -327,7 +339,7 @@ function combo(weapon: number, variants = 0): Segment[] {
 
 /** A movement skill (roll, backstep, guard, slide) by id, moving at its own speed. */
 function action(id: string, runIn = 0, heading = 0): Segment {
-  const index = MOVEMENT_SKILLS.findIndex((m) => m.id === id);
+  const index = movementIndex(id);
   const def = MOVEMENT_SKILLS[index].action;
   const total = def.startup + def.active + def.recovery;
   const dir = def.direction === 'backward' ? Math.PI : heading;
@@ -499,14 +511,14 @@ export const SCENARIOS: Scenario[] = [
     group: 'Fighting',
     label: 'Cast: Healing Circle',
     weapon: STAFF,
-    ...sequence([stand(30, { weapon: STAFF }), cast(ABILITIES.findIndex((a) => a.id === 'heal')), stand(40, { weapon: STAFF })]),
+    ...sequence([stand(30, { weapon: STAFF }), cast(abilityIndex('heal')), stand(40, { weapon: STAFF })]),
   },
   {
     id: 'meteor',
     group: 'Fighting',
     label: 'Cast: Meteor',
     weapon: STAFF,
-    ...sequence([stand(30, { weapon: STAFF }), cast(ABILITIES.findIndex((a) => a.id === 'meteor')), stand(40, { weapon: STAFF })]),
+    ...sequence([stand(30, { weapon: STAFF }), cast(abilityIndex('meteor')), stand(40, { weapon: STAFF })]),
   },
   { id: 'block', group: 'Fighting', label: 'Block', ...sequence([stand(30), action('block'), stand(40)]) },
   { id: 'sheathe', group: 'Fighting', label: 'Put away and draw', ...sequence([stand(30), stowing(0, 1), stand(40, { stow: 1 }), stowing(1, 0), stand(30)]) },

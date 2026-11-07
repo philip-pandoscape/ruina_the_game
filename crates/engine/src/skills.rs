@@ -645,10 +645,22 @@ pub fn saved_by_id(old: &Value) -> Option<Value> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::tuning::{HOTBAR_SLOTS, movement_cooldown_for, movement_stamina_for};
+    use crate::tuning::{HOTBAR_SLOTS, ability_index, movement_cooldown_for, movement_index, movement_stamina_for, weapon_index};
 
     fn at(id: &str) -> usize {
         node_index(id).unwrap_or_else(|| panic!("no node {id}"))
+    }
+
+    /// Where an id is in the content now: the rules know weapons, abilities and movement skills by
+    /// their places, which the content's order gives.
+    fn weapon(id: &str) -> u8 {
+        weapon_index(id).unwrap_or_else(|| panic!("no weapon {id}"))
+    }
+    fn ability_at(id: &str) -> u8 {
+        ability_index(id).unwrap_or_else(|| panic!("no ability {id}"))
+    }
+    fn move_at(id: &str) -> u8 {
+        movement_index(id).unwrap_or_else(|| panic!("no movement skill {id}"))
     }
 
     fn ids(list: &[usize]) -> Vec<String> {
@@ -761,45 +773,55 @@ mod tests {
 
     #[test]
     fn a_build_must_fit_its_budget() {
+        let (sword, club) = (weapon("sword"), weapon("club"));
         let one = skills_from(&["sword"]);
-        assert!(valid_build(&one, 0, &bar(), 1));
-        assert!(!valid_build(&one, 0, &bar(), 0));
+        assert!(valid_build(&one, sword, &bar(), 1));
+        assert!(!valid_build(&one, sword, &bar(), 0));
         let three = skills_from(&["sword", "cleave", "whirlwind"]);
-        assert!(!valid_build(&three, 0, &bar(), 2));
-        assert!(valid_build(&three, 0, &bar(), 3));
+        assert!(!valid_build(&three, sword, &bar(), 2));
+        assert!(valid_build(&three, sword, &bar(), 3));
         // The battlefield's budget: everything up to it, and not one more.
         let points = tuning().skills.points;
-        assert!(valid_build(&grown(points as usize), 0, &bar(), points));
-        assert!(!valid_build(&grown(points as usize + 1), 0, &bar(), points));
+        assert!(valid_build(&grown(points as usize), sword, &bar(), points));
+        assert!(!valid_build(&grown(points as usize + 1), sword, &bar(), points));
         // Still a weapon it has, abilities it knows, each once, and a sound tree.
-        assert!(!valid_build(&one, 1, &bar(), points), "no club");
+        assert!(!valid_build(&one, club, &bar(), points), "no club");
         let mut hotbar = bar();
-        hotbar[0] = 0;
-        assert!(!valid_build(&one, 0, &hotbar, points), "Healing Circle not learned");
+        hotbar[0] = ability_at("heal");
+        assert!(!valid_build(&one, sword, &hotbar, points), "Healing Circle not learned");
         let healer = skills_from(&["club", "heal"]);
-        assert!(valid_build(&healer, 1, &hotbar, 2));
-        hotbar[3] = 0;
-        assert!(!valid_build(&healer, 1, &hotbar, points), "in two slots");
-        assert!(!valid_build(&skills_from(&["sword", "whirlwind"]), 0, &bar(), points));
+        assert!(valid_build(&healer, club, &hotbar, 2));
+        hotbar[3] = ability_at("heal");
+        assert!(!valid_build(&healer, club, &hotbar, points), "in two slots");
+        assert!(!valid_build(&skills_from(&["sword", "whirlwind"]), sword, &bar(), points));
     }
 
     #[test]
     fn movement_slots_hold_only_what_was_learned() {
         let dodger = skills_from(&["sword", "dodgeRoll"]);
+        let dodge = move_at("dodgeRoll");
         assert!(valid_movement(&dodger, &[NO_MOVEMENT, NO_MOVEMENT]));
-        assert!(valid_movement(&dodger, &[NO_MOVEMENT, 0]));
-        assert!(!valid_movement(&skills_from(&["sword"]), &[0, NO_MOVEMENT]), "Dodge Roll not learned");
-        assert!(!valid_movement(&dodger, &[0, 0]), "in both slots");
+        assert!(valid_movement(&dodger, &[NO_MOVEMENT, dodge]));
+        assert!(!valid_movement(&skills_from(&["sword"]), &[dodge, NO_MOVEMENT]), "Dodge Roll not learned");
+        assert!(!valid_movement(&dodger, &[dodge, dodge]), "in both slots");
         assert!(!valid_movement(&dodger, &[crate::tuning::slide_skill(), NO_MOVEMENT]), "the slide is everyone's, never a slot's");
     }
 
     #[test]
     fn the_skill_book_and_its_levels() {
+        // The weapons in their list's order (each under the node that grants it, named for it),
+        // then the abilities, then the movement skills.
+        let t = tuning();
         let names: Vec<&str> = book().iter().map(|s| s.id.as_str()).collect();
-        assert_eq!(names, ["sword", "club", "staff", "bow", "heal", "meteor", "dodgeRoll", "backstep", "block", "slide"]);
-        assert_eq!(book_of(BookKind::Weapon, 3), Some(3));
-        assert_eq!(book_of(BookKind::Ability, 1), book_index("meteor"));
-        assert_eq!(book_of(BookKind::Movement, 3), book_index("slide"));
+        let weapons = t.weapons.iter().map(|w| w.name.as_str());
+        let listed: Vec<&str> = weapons.chain(t.abilities.iter().map(|a| a.id.as_str())).chain(t.movement_skills.iter().map(|m| m.id.as_str())).collect();
+        assert_eq!(names, listed);
+        let mut sorted = names.clone();
+        sorted.sort_unstable();
+        assert_eq!(sorted, ["backstep", "block", "bow", "club", "dodgeRoll", "heal", "meteor", "slide", "staff", "sword"]);
+        assert_eq!(book_of(BookKind::Weapon, weapon("bow")), book_index("bow"));
+        assert_eq!(book_of(BookKind::Ability, ability_at("meteor")), book_index("meteor"));
+        assert_eq!(book_of(BookKind::Movement, move_at("slide")), book_index("slide"));
         assert_eq!(book_of(BookKind::Weapon, 9), None);
         // The curve: 20 for level 2, then 60, 120, ... up to 10.
         assert_eq!(max_level(), 10);
@@ -811,7 +833,10 @@ mod tests {
         xp.insert("bow".to_string(), 120.0);
         xp.insert("slide".to_string(), 25.0);
         xp.insert("nothing".to_string(), 999.0);
-        assert_eq!(levels_from(&xp), [1, 1, 1, 4, 1, 1, 1, 1, 1, 2]);
+        let levels = levels_from(&xp);
+        let level = |id: &str| levels[book_index(id).unwrap()];
+        assert_eq!((level("bow"), level("slide"), level("sword"), level("heal")), (4, 2, 1, 1));
+        assert_eq!(levels.iter().filter(|&&l| l > 1).count(), 2);
         assert!(same_levels(&base_levels(), &[]));
         assert!(!same_levels(&levels_from(&xp), &base_levels()));
     }
@@ -820,46 +845,37 @@ mod tests {
     fn levels_add_to_what_a_skill_does() {
         let damage = stat_index("attack.damage");
         let amount = stat_index("ability.amount");
+        let (sword, club, heal) = (usize::from(weapon("sword")), usize::from(weapon("club")), usize::from(ability_at("heal")));
+        let dodge = move_at("dodgeRoll");
         let s = skills_from(&["sword", "club", "heal", "dodgeRoll"]);
         let mut levels = base_levels();
         // Level 1 adds nothing.
         let plain = resolve_skills(&s, &[]);
-        assert_eq!(resolve_skills(&s, &levels).weapon[0][damage].inc, plain.weapon[0][damage].inc);
+        assert_eq!(resolve_skills(&s, &levels).weapon[sword][damage].inc, plain.weapon[sword][damage].inc);
         levels[book_index("sword").unwrap()] = 5;
         levels[book_index("heal").unwrap()] = 3;
         levels[book_index("dodgeRoll").unwrap()] = 10;
         let r = resolve_skills(&s, &levels);
         // Sword level 5: four levels of +3% damage, on the sword alone.
-        assert_eq!(r.weapon[0][damage].inc, 0.03 * 4.0);
-        assert_eq!(r.weapon[1][damage].inc, 0.0);
-        let base = tuning().weapons[0].combo[0].damage;
-        assert_eq!(r.combo[0][0].damage, base * (1.0 + 0.03 * 4.0));
-        assert_eq!(r.ability[0][amount].inc, 0.05 * 2.0);
+        assert_eq!(r.weapon[sword][damage].inc, 0.03 * 4.0);
+        assert_eq!(r.weapon[club][damage].inc, 0.0);
+        let base = tuning().weapons[sword].combo[0].damage;
+        assert_eq!(r.combo[sword][0].damage, base * (1.0 + 0.03 * 4.0));
+        assert_eq!(r.ability[heal][amount].inc, 0.05 * 2.0);
         // Dodge Roll level 10: its stamina, 27% less. It has no cooldown to shorten.
-        let cost = tuning().movement_skills[0].stamina_cost;
-        assert_eq!(movement_stamina_for(0, &r), cost * (1.0 - 0.03 * 9.0));
-        assert_eq!(movement_stamina_for(0, &plain), cost);
-        assert_eq!((movement_cooldown_for(0, &r), movement_cooldown_for(0, &plain)), (0, 0));
+        let cost = tuning().movement_skills[usize::from(dodge)].stamina_cost;
+        assert_eq!(movement_stamina_for(dodge, &r), cost * (1.0 - 0.03 * 9.0));
+        assert_eq!(movement_stamina_for(dodge, &plain), cost);
+        assert_eq!((movement_cooldown_for(dodge, &r), movement_cooldown_for(dodge, &plain)), (0, 0));
         // The tree's own modifiers come first, then the levels' sums.
         let footwork = skills_from(&["sword", "cleave", "sw-1-10", "dodgeRoll"]);
         let r = resolve_skills(&footwork, &levels);
-        assert_eq!(movement_stamina_for(0, &r), cost * (1.0 + -0.03 * 9.0) * (1.0 - 0.05));
+        assert_eq!(movement_stamina_for(dodge, &r), cost * (1.0 + -0.03 * 9.0) * (1.0 - 0.05));
         // And learned movement skills are listed like weapons and abilities.
-        assert_eq!(r.movement, [0]);
+        assert_eq!(r.movement, [dodge]);
     }
 
     // ---------- Builds as they're kept ----------
-
-    /// Where an id is in the content now.
-    fn weapon(id: &str) -> u8 {
-        tuning().weapons.iter().position(|w| w.name == id).unwrap() as u8
-    }
-    fn ability_at(id: &str) -> u8 {
-        tuning().abilities.iter().position(|a| a.id == id).unwrap() as u8
-    }
-    fn move_at(id: &str) -> u8 {
-        tuning().movement_skills.iter().position(|m| m.id == id).unwrap() as u8
-    }
 
     /// Club Training and Healing Circle, with the circle in the third slot and Block on E.
     fn healer() -> Build {

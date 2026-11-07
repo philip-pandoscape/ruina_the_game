@@ -17,12 +17,12 @@ test('a skill upgrade beats the build it upgrades, measured through the server r
     maxSeconds: 25,
     startDistance: 8,
     builds: [
-      { name: 'mage', skills: ['staff', 'meteor'], weapon: 2, abilities: ['meteor'] },
-      { name: 'quick', skills: ['staff', 'meteor', 'quickIncantation'], weapon: 2, abilities: ['meteor'] },
-      { name: 'healer', skills: ['club', 'heal'], weapon: 1, abilities: ['heal'] },
-      { name: 'mender', skills: ['club', 'heal', 'swiftMending'], weapon: 1, abilities: ['heal'] },
-      { name: 'archer', skills: ['bow'], weapon: 3, abilities: [] },
-      { name: 'rapid', skills: ['bow', 'rapidFire'], weapon: 3, abilities: [] },
+      { name: 'mage', skills: ['staff', 'meteor'], weapon: 'staff', abilities: ['meteor'] },
+      { name: 'quick', skills: ['staff', 'meteor', 'quickIncantation'], weapon: 'staff', abilities: ['meteor'] },
+      { name: 'healer', skills: ['club', 'heal'], weapon: 'club', abilities: ['heal'] },
+      { name: 'mender', skills: ['club', 'heal', 'swiftMending'], weapon: 'club', abilities: ['heal'] },
+      { name: 'archer', skills: ['bow'], weapon: 'bow', abilities: [] },
+      { name: 'rapid', skills: ['bow', 'rapidFire'], weapon: 'bow', abilities: [] },
     ],
   };
   const out = JSON.parse(execFileSync(BALANCE, { input: JSON.stringify(scenario), maxBuffer: 16 * 1024 * 1024 }).toString()) as {
