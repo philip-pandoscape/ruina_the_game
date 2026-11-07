@@ -33,8 +33,20 @@ pub struct LifeWrite {
     pub epoch: Epoch,
     pub life: Value,
     pub space: SpaceId,
+    /// The simulation writing it and its lease (on its own space, a copy's for a life saved in one):
+    /// once several processes share the world, the store checks that lease too, so a simulation
+    /// that lost its space can't write even for a character nobody granted elsewhere.
+    pub writer: Option<Writer>,
     /// Tell this connection once it's written (`ToConn::Saved`).
     pub tell: Option<Conn>,
+}
+
+/// Who writes: a simulation, the space it plays and the epoch of its lease there.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Writer {
+    pub sim: SimId,
+    pub space: SpaceId,
+    pub epoch: Epoch,
 }
 
 /// What follows a write.

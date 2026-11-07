@@ -72,16 +72,28 @@ pub enum Answer {
 /// How a tier's messages reach the others. Sending never waits: a message is queued at its address,
 /// which takes it in its own time (a simulation at its next tick).
 pub trait Transport: Send + Sync {
-    /// Sends `msg` to `to`. False if nothing is there to take it (a simulation that stopped, a gate
-    /// gone, a message that doesn't fit its address).
-    fn send(&self, to: Address, msg: Message) -> bool;
+    /// Sends `msg` to `to`, or hands it back if nothing is there to take it (a simulation that
+    /// stopped, a gate gone, a message that doesn't fit its address): what it carried can be put
+    /// back where it came from (a player on their way to another simulation).
+    #[allow(clippy::result_large_err)]
+    fn send(&self, to: Address, msg: Message) -> Result<(), Message>;
 
     fn sim(&self, id: SimId, msg: ToSim) -> bool {
-        self.send(Address::Sim(id), Message::Sim(msg))
+        self.send(Address::Sim(id), Message::Sim(msg)).is_ok()
+    }
+
+    /// A player handed to another simulation; back if it isn't there (to be put back).
+    #[allow(clippy::result_large_err)]
+    fn transfer(&self, id: SimId, moving: Box<crate::sim::Moving>) -> Result<(), Box<crate::sim::Moving>> {
+        match self.send(Address::Sim(id), Message::Sim(ToSim::Transfer(moving))) {
+            Ok(()) => Ok(()),
+            Err(Message::Sim(ToSim::Transfer(m))) => Err(m),
+            Err(_) => unreachable!("a transport hands back what it was given"),
+        }
     }
 
     fn gate(&self, id: GateId, msg: ToGate) -> bool {
-        self.send(Address::Gate(id), Message::Gate(msg))
+        self.send(Address::Gate(id), Message::Gate(msg)).is_ok()
     }
 
     /// A message for one connection, through its gate.
@@ -90,15 +102,15 @@ pub trait Transport: Send + Sync {
     }
 
     fn store(&self, msg: ToStore) -> bool {
-        self.send(Address::Store, Message::Store(msg))
+        self.send(Address::Store, Message::Store(msg)).is_ok()
     }
 
     fn social(&self, msg: ToSocial) -> bool {
-        self.send(Address::Social, Message::Social(msg))
+        self.send(Address::Social, Message::Social(msg)).is_ok()
     }
 
     fn directory(&self, msg: ToDirectory) -> bool {
-        self.send(Address::Directory, Message::Directory(msg))
+        self.send(Address::Directory, Message::Directory(msg)).is_ok()
     }
 
     /// An answer, to whoever asked.
