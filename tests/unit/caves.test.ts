@@ -5,7 +5,7 @@ import { DUNGEONS, type DungeonDef } from '../../src/engine/zone';
 import { cavePiles, caveProps, DungeonView } from '../../src/render/open/dungeonView';
 
 // An instance drawn as a cave (src/render/open/dungeonView.ts) is drawn from its dressing, in its
-// file (content/instances/<id>.json, docs/zones.md): the rock along the walls it names, the back of
+// file (content/instances/<id>.json, docs/world.md): the rock along the walls it names, the back of
 // the falls if it has them, the way out, its torches, props, nets, loot and pictures. contentc holds
 // a dressing to the instance's own pieces (tests/unit/content.test.ts); these hold it to what the
 // cave can draw. Goblin's Dread in the game: tests/integration/dungeon-way-in.spec.ts.

@@ -1,5 +1,5 @@
 //! The world's instances: its dungeons and the developer zones (content/instances/<id>.json, built
-//! into shared/instances.json; docs/zones.md; the page reads the files through
+//! into shared/instances.json; docs/world.md; the page reads the files through
 //! src/engine/world/dungeons.ts). Each party plays its own copy of one (crate::spaces), a space of
 //! its own: everything in it stands round its own origin, in a frame no region shares, over nothing
 //! (its map has no regions and no sea: OpenWorld::instance), and its floors and walls are the only

@@ -29,7 +29,7 @@ server says. Nothing it says about its own state is believed; it predicts only i
   the server checks a swing against where its swinger saw the others, players and monsters alike
   (the `Track` of where each stood, in `crates/engine/src/combat.rs`). Draw others at that tick (the
   monsters are, `actorTimeline.ts`) and the two agree.
-- **Sides** are a developer zone's: on the island everyone is on one (`docs/zones.md`).
+- **Sides** are a developer zone's: on the island everyone is on one (`docs/world.md`).
 
 ## Tests
 

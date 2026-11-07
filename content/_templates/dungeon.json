@@ -1,5 +1,5 @@
 {
-  "comment": "What this dungeon is, for whoever edits it next (docs/zones.md). A cave: a hall of rock round its origin, walled by the boxes its dressing names, lit by its torches; its door is in the region it's entered from (doors.json).",
+  "comment": "What this dungeon is, for whoever edits it next (docs/world.md). A cave: a hall of rock round its origin, walled by the boxes its dressing names, lit by its torches; its door is in the region it's entered from (doors.json).",
   "id": "newDungeon",
   "name": "New Dungeon",
   "maxPlayers": 5,

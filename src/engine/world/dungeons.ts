@@ -5,7 +5,7 @@ import { rect } from './frames';
 import type { DungeonDoor, ZoneRecipe, ZoneSpawn } from './types';
 
 // The world's instances: its dungeons and the developer zones (content/instances/<id>.json, built
-// into shared/instances.json; docs/zones.md). Each party plays its own copy of one, a space of its
+// into shared/instances.json; docs/world.md). Each party plays its own copy of one, a space of its
 // own (crates/server/src/play/spaces.rs; offline the Engine plays it in place of the world while
 // you're inside, src/engine/engine.ts): everything in it stands round its own origin, over nothing,
 // and its floors and walls are all that's solid there (crates/engine/src/open/dungeon.rs). These

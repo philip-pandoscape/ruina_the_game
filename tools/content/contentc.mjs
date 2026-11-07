@@ -410,7 +410,7 @@ function madeModel(m, where) {
 // ---------- A cave's dressing ----------
 
 /**
- * What's wrong with the instances' dressings (src/content/looks.ts CaveDressing, docs/zones.md): a
+ * What's wrong with the instances' dressings (src/content/looks.ts CaveDressing, docs/world.md): a
  * cave without one or an arena with one (an arena isn't dressed), walls or a piece to stand on that
  * aren't the instance's own, no light for its torches or the falls.
  */
@@ -424,7 +424,7 @@ function dressings(bundles) {
       continue;
     }
     if (typeOf(dress) !== 'object') {
-      errors.push(`${where}: a cave has its dressing, what it looks like inside (docs/zones.md, Dressing a Cave)`);
+      errors.push(`${where}: a cave has its dressing, what it looks like inside (docs/world.md, Dressing a Cave)`);
       continue;
     }
     const boxes = new Set((d.boxes ?? []).map((b) => b.id));

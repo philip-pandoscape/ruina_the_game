@@ -188,7 +188,7 @@ A new type of objective is a new mechanic: code.
   `content/creatures/_order.json`. Its kinds wear a species there is a body for, or bring a body of
   their own (`src/render/creatures/<name>/`: code).
 - **Where they are**: the `spawns` of a region's recipe (Emberholm's slimes and training dummy) or of an
-  instance's file: a kind on a spot, a group spread round it, or a war-band (`docs/zones.md`).
+  instance's file: a kind on a spot, a group spread round it, or a war-band (`docs/world.md`).
 
 A new act or condition for brains is a new engine part: code, never a creature's own.
 
@@ -242,7 +242,7 @@ has, and every one the game has to something that wears it.
   kept clear of trees, rocks and scarecrows unless it has `keepClear: false` (the fields, farmed).
 - **A dungeon or a developer zone**: `content/instances/<id>.json` (template `dungeon.json` for a
   dungeon, a cave with its `dressing`; `instance.json` for a developer zone, an arena), as
-  `docs/zones.md` says; a dungeon's door, an entry named for it in the `doors.json` of the region
+  `docs/world.md` says; a dungeon's door, an entry named for it in the `doors.json` of the region
   it's entered from.
 - **A region**: its recipe, `content/regions/<id>.json`, a folder of what it places beside it
   (`content/regions/<id>/`, the lists above), and its chunks in `content/world.json`, whose comment

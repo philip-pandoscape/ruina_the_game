@@ -57,8 +57,7 @@ assets, and deploys. It's written for coding agents and people alike. The guides
 |---|---|
 | `docs/engine.md` | The rules, one copy in Rust, and how the server and the browser reach them |
 | `docs/content.md` | Adding content as files alone: items, quests, creatures, buildings, regions |
-| `docs/world.md` | The world: regions on chunks, its ground, spaces and channels |
-| `docs/zones.md` | Dungeons and developer zones, their copies, and bots |
+| `docs/world.md` | The world: regions on chunks, its ground, spaces and channels; dungeons and developer zones, their copies, and bots |
 | `docs/testing.md` | The test tiers, and where a new test goes |
 | `docs/assets.md` | Models, textures and sounds, from a find to the screen |
 | `docs/admin.md` | The Admin menu, and the developer pages and commands |
