@@ -5,12 +5,13 @@ between them. The instances stand beside it: dungeons and developer zones, each 
 that a party plays in a copy of its own. Emberholm, the starter isle, is the first region and today
 the only one shipped (the tests play a fixture world of three, Testing below). Each region and instance is files; nothing in code lists them. This page covers how the
 world is laid out, how the rules read its ground, how it and its instances are played, and how to
-add a region or an instance. The plans for the rest are in `.plans/world/` and the refactor's Phase
-10 (`.plans/refactor/tracker.md`, R10.17 to R10.24):
+add a region or an instance. It is built to be played by many servers:
 
-- regions split between simulations, their borders crossed seamlessly;
-- land that every channel shares;
-- channels that open and merge with the crowd.
+- a region can be played by several simulations, its borders crossed seamlessly (Borders, below);
+- land is the same in every channel, plots claimed once in the world (Land);
+- channels open and merge with the crowd (Channels).
+
+What's left of it is in `.plans/refactor/end-pass.md` (Known Gaps).
 
 | What | Where | Played in |
 |---|---|---|
@@ -158,26 +159,45 @@ instance.
 - **Saves:** a character is saved with its space (`characters.space`). One made in a copy keeps
   the spot outside its door, in its home channel's space, so a restart puts you there.
 
+## Borders
+
+A region can be played in parts, each by a simulation of its own owning its 256 m chunks
+(`crates/engine/src/border/`, the server's `sim/border.rs`). The directory cuts a region along chunk
+columns (`directory/parts.rs`); nothing is cut in play yet (`start::start_split` turns it on, for
+the tests).
+
+- **Ghosts.** Each part keeps read-only copies of what stands within 120 m of its border in its
+  neighbours' chunks, with the position history lag compensation rewinds, and shows them in its own
+  frame under their own ids, so a player sees across a border as anywhere.
+- **Handoff.** 28 m past the border a player is handed over whole (their player, life, queued
+  inputs, a vehicle with its passengers as one) in two phases under the next epoch; whatever the old
+  owner says under an older one is refused. The gate holds the connection's inputs through the
+  handoff and sends them on from the first the new owner hasn't run, so the player notices nothing.
+- **Across the border.** Blows, heals and what a player is told are events, checked against the
+  ghost's history and applied by its owner. Creatures stay leashed to their region.
+- **Exact.** The tick goes in phases, and parts trade at each phase's barrier, ten a tick: in one
+  process they do so in lockstep, and Emberholm split two and four ways plays as one simulation to
+  the bit (`crates/engine/tests/golden/bordercheck.json`). Across processes a late pace (ghosts and
+  blows a tick late) is built but not wired.
+
+The fixture world's borders are crossed on foot, by cart with a passenger, by glider and by boat in
+the engine's tests (`border/crossings.rs`).
+
 ## Channels
 
 The world is played in channels. A channel is a simulation of its own (`crates/server/src/sim/`),
 with its players, creatures and bots, stepped 20 times a second on a thread of its own and taking
-its messages at each tick's boundary. The directory (`crates/server/src/directory/`) starts it the
-first time it's needed (someone whose home it is comes in), under a lease with an epoch, and knows
-who plays in it; its residents' estates are read by the store as it starts (`channels.rs`).
+its messages at each tick's boundary. The directory (`crates/server/src/directory/`) places everyone
+by the channels' policy (below), starts a channel's simulation when it's needed, under a lease with
+an epoch, and once a second reviews each region: opening a channel ahead of the crowd, warning a
+quiet one's players and moving them across, closing it.
 
-- **Residents.** Each channel is home to at most 24 characters (`CHANNEL_CAP`).
-- **Estates.** A resident's land (their houses, farms and ships on the slipway) stands in their
-  channel while they're away, read from their save (the land beside the life).
-- **Plots.** A house plot goes to whoever built on it first in that channel.
-- **The market.** Each game keeps the trading posts' demand its lives read and its sales lower.
-
-Residents, estates and each channel's plots go when the server moves onto the store (R10.21's second
-half, on the server's tiers): land then stands in every channel of its region, each plot claimed
-once in the world (Land, below).
-
-The policy that replaces them is built (`crates/channels`, R10.22), and goes into the server's
-directory once the server is in tiers (R10.20) and land is the world's (R10.21).
+- **Land is the same in every channel** of a region (Land, below): each channel reads it as it
+  starts, and sees what's built in another after its next start.
+- **The market** is the world's: sales lower it, and each simulation reads it again every 10 s.
+- **Started anew** among simulations playing on (several processes), the directory reviews no
+  channel until the tuning's `settle` has passed (10 s) and every channel's simulation has said
+  whom it holds, so nothing merges or closes on half the picture; arrivals are placed meanwhile.
 
 ### The Policy
 

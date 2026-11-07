@@ -45,7 +45,8 @@ How each side reaches it: [engine.md](engine.md).
    a sequence number, the tick it drew everyone else at, and the keys packed. Commands (buy, plant,
    build, enter a dungeon) go as JSON. Nothing a browser says about its own state is believed.
 4. **The tiers.** The server is in tiers that only send each other messages
-   (`crates/world-api`), all in one process today (`crates/server/AGENTS.md`):
+   (`crates/world-api`), in one process or several (Several Processes, below;
+   `crates/server/AGENTS.md`):
    - the gate holds the connections (`gate/`);
    - a simulation plays each region's channel and each instance's copy, on a thread of its own
      (`sim/`);
@@ -60,31 +61,31 @@ How each side reaches it: [engine.md](engine.md).
    The tick goes in phases, so the order things are stepped in changes nothing
    (`crates/engine/AGENTS.md`). Ticks are numbered from the world's epoch (`sim/clock.rs`). A slow
    simulation slows only its own players.
-6. **What a page hears.** Each tick the simulation sorts what everyone may see into 32 m cells and
-   keeps each player's own state apart (`sim/publish.rs`), once, whoever is watching; the gate
-   builds each player's update from them (`gate/encode.rs`):
-   - their own player, to check the page's guess against;
-   - everyone else in their space, and the creatures near them;
-   - arrows, meteors, and what happened near them.
+6. **What a page hears.** Each tick the simulation packs what everyone may see once, into the 32 m
+   cell it stands in (`sim/publish.rs`, `crates/wire`'s Frame), and keeps each player's own state
+   apart; the gate keeps an encoder for each connection that writes its update from the cells round
+   its player (`gate/encode.rs`):
+   - everyone else, the creatures, arrows, meteors and what happened, as a binary update: only
+     what's near (within 40 m every tick, to 120 m every fourth, to 250 m about once a second), each
+     thing by a handle of the connection's own, as changes against what the page acknowledged,
+     within 64 KB/s, nearest and most overdue first (`crates/wire/AGENTS.md`; the page's decoder
+     `src/net/wire/`);
+   - their own player, their life when it changes, the tables near them and notices, in a slim JSON
+     tick beside it: private, rare, or needed exactly.
 
-   Their life (bag, coins, quests, estate) is sent when it changes.
-
-   *Changing with the wire for crowds (R10.8; its protocol is in, the server moves onto it with its
-   tiers):* everyone else, the creatures, arrows, meteors and what happened come as a binary update
-   of their own (`crates/wire`, `src/net/wire/`): only what's near (32 m cells; within 40 m every
-   tick, to 120 m every fourth, to 250 m about once a second), each thing by a handle of the
-   connection's own, as changes against what the page acknowledged, within 64 KB/s. The page
-   acknowledges each update. Your own player, your life, the tables near you and notices stay in the
-   JSON tick: private, rare, or needed exactly. Either way the page's feed takes the same shapes
-   (`src/net/feedTick.ts`), so nothing that draws the world knows which way it came.
+   The page acknowledges each update; a connection that falls behind is sent only the newest. The
+   page's feed takes the same shapes either way (`src/net/feedTick.ts`); far players are drawn as
+   crowd bodies. With 64 bots about, a tick is about 1.4 KB where the JSON alone was 43.5 KB.
 7. **Prediction.** The page runs your moves through the same rules at once, without waiting
    (`src/net/netPlayer.ts`). When the server's word on you arrives, it starts from there and runs
    again the inputs the server hadn't seen yet. Everyone else and the creatures are drawn a little in
    the past, between two ticks (`worldPeers.ts`, `actorTimeline.ts`).
-8. **Saves.** The store writes lives as the simulations ask, a few seconds apart and when you leave.
-   Every write is fenced: it carries the epoch the directory granted the character under, bumped by
-   every new grant (another window, another simulation), and an older one is refused
-   (`characters.epoch`). A deploy tells every page, saves everyone, and closes; pages reload into
+8. **Saves.** The store writes a life a second after it changes, at least once a minute, and when
+   you leave; land goes as rows of its own, and coins between players as ledger transfers
+   ([world.md](world.md), Land). Every write is fenced: it carries the epoch the directory granted the
+   character under, bumped by every new grant (another window, another simulation), and the epoch
+   of the writing simulation's lease where leases are kept in Postgres; an older one is refused
+   (`characters.epoch`, `space_leases`). A deploy tells every page, saves everyone, and closes; pages reload into
    the new build ([deploys.md](deploys.md)).
 9. **Spaces.** Going through a portal, or into a developer zone from the Admin menu, the simulation
    asks the directory where, and hands you whole to the simulation playing it, mid-connection, your
@@ -126,41 +127,40 @@ checks each against its schema and every cross-reference, and builds the bundles
   same bundle. The hash in the welcome makes sure they have the same one.
 - **A new thing of a kind the game knows** is files alone ([content.md](content.md)).
 
-## Where It's Going
+## The World at Scale
 
-The world is one seamless world of regions, with instances beside it ([world.md](world.md)). Its
-foundations are laid in one process:
-- the world map of regions on chunks, its ground answered across them;
+The world is one seamless world of regions, with instances beside it ([world.md](world.md)), built
+to be played by many servers:
+- the world map of regions on 256 m chunks, grown where they're needed and dropped behind;
 - spaces, so an instance is played round its own origin;
-- a tick that splits, so players can be stepped all at once;
-- the world's clock;
-- land, kept by where it stands and lent to its owner's life while they play; house plots claimed
-  once in the world and contested; the ledger and the world's market (the engine's and the
-  store's; the server moves onto them with its tiers).
+- a tick that splits, so players can be stepped all at once, and a region split between
+  simulations plays as one (borders);
+- the world's clock, the same tick everywhere;
+- land kept by where it stands, the same in every channel, plots claimed once in the world, the
+  ledger and the world's market;
+- channels that open past a region's soft cap and merge when quiet;
+- the wire for crowds, each client sent only what's near it, within a byte budget;
+- the tiers in one process or several, their messages crossing links between them.
 
-- the server in tiers, joined by messages, a simulation on a thread of its own for each channel
-  and copy.
-
-After the refactor, the world splits between several servers:
-- the tiers in processes of their own, their messages crossing between them;
-- regions owned by simulations, their borders crossed seamlessly;
-- land shared by every channel and contested;
-- channels opening and merging with the crowd (the policy is built: `crates/channels`).
-
-The research and the decisions are in `.plans/world/research.md`, and the steps are in
-`.plans/refactor/tracker.md` (R10.8, R10.17 to R10.24).
+What's left of it is in `.plans/refactor/end-pass.md` (Known Gaps): a split region's parts on
+separate processes, with leases of their own and a late pace between them; a stopped part's chunks
+taken over; bots and effects across a border; a region's open channels kept in Postgres. The
+research and its decisions: `.plans/world/research.md`.
 
 ### Several Processes
 
 `ruina-server` plays every tier in one process by default, as Railway's beta does. Started with
 `--role gate|sim|services`, it plays one role in a process of its own (`crates/server/src/cluster/`):
 
-| Role | Plays | Today (scaffolding until the tiers run apart) |
-|---|---|---|
-| `all` | Everything, in one process (the default) | The server as it always ran |
-| `gate` | Players' connections: sign-in, each player's inputs to the sim that plays them, each client's update | Finds the sims in the directory, keeps a link to each and asks how it is |
-| `sim` | Spaces: a region's channel or an instance's copy, each under a lease | Stands for its spaces, and plays each as a stand-in while it holds its lease |
-| `services` | The directory, the store, social | Forgets processes long gone |
+| Role | Plays |
+|---|---|
+| `all` | Everything, in one process (the default, as Railway runs it) |
+| `gate` | Players' connections: sign-in and the HTTP API, each player's inputs to the sim that plays them, each client's update (gate ids from the `gate_ids` sequence) |
+| `sim` | Whatever spaces the directory starts there: a region's channel or an instance's copy, each under a lease it renews itself |
+| `services` | The directory (with its leases in Postgres), the store, social; forgets processes long gone |
+
+`npm run cluster` starts services, two sims and a gate on `DATABASE_URL` (the gate on 7790);
+`npm run test:cluster` plays the game across real processes, kills one and cuts another off.
 
 - **Finding each other.** Every process writes itself into the directory's `nodes` table (its role,
   where its links take messages) and beats there every 2 s.
@@ -174,9 +174,16 @@ The research and the decisions are in `.plans/world/research.md`, and the steps 
   - Every write about a space carries its epoch and passes the fence (`leases::check`: the lease's
     row FOR SHARE, inside the write's transaction). So a sim that lost its space can't write over
     whoever has it now. A character's own epoch (the store's) fences their life the same way.
-- **Taking over.** A sim that dies leaves its leases to run out. One standing by takes the space
-  under the next epoch, and carries on from its last snapshot (`space_snapshots`).
+- **One post.** Each process delivers to its own tiers' mailboxes in memory and sends everything
+  else over a link to the process the directory's tables name (`post.rs`, `Post::set_remote`).
+- **Placing.** A new simulation goes to the sim process with the fewest live leases, passing over
+  one that holds a lease it hasn't renewed since it was last heard from (it has stopped or been cut
+  off, though it counts as heard from for a while yet).
+- **Taking over.** A sim that dies or is cut off stops (or is stopped by its keeper) and its leases
+  run out. The directory lets the space go, tells its players to come back (`Rejoin`, closed with
+  1012 as a deploy does), and plays a region's channel that had players in it again at once on
+  another process, under the next epoch, from the lives as last written; a copy is made again by
+  the first to need it. A restarted directory reviews no channel until it has heard from every
+  channel's simulation ([world.md](world.md), Channels).
 
-The tiers' messages cross the links once the gate and the sims run apart (the multi-server work's
-second half, `.plans/refactor/reports/multiserver.md`). Running several processes:
-[deploys.md](deploys.md).
+Running several processes: [deploys.md](deploys.md).
