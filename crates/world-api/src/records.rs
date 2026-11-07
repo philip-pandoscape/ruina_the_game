@@ -8,9 +8,9 @@
 //!
 //! The entity records here (presence, creatures, arrows, meteors, effects) are the JSON path's:
 //! the wire workstream's packed records (crates/wire: a frame of records per cell, assembled per
-//! client by a viewer) take the place of  when the gate sends its binary protocol,
-//! and these go. [] (a player's own state, their life, what was said to them) and
-//! [] stay.
+//! client by a viewer) take the place of `TickOut::cells` when the gate sends its binary protocol,
+//! and these go. [`Private`] (a player's own state, their life, what was said to them) and
+//! [`TableRecord`] stay.
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
