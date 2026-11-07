@@ -93,6 +93,7 @@ const PLUMBING: Record<string, string> = {
   'crates/server/src/sim/channels.rs': 'who is in which channel',
   'crates/channels/src/lib.rs': 'the channels crate’s table of contents',
   'crates/channels/src/crowd.rs': 'a crowd of bots the tests play the channels with',
+  'crates/server/src/directory/crowd.rs': 'the same crowd played against the directory, for the tests',
   'crates/engine/src/world.rs': 'a spot to stand on: where one is, the world’s data says',
   // The browser's copy of the rules, which the pages above explain where they're made.
   'crates/engine/src/training.rs': 'the browser’s stand-in for the server’s fights, offline',
