@@ -1036,8 +1036,16 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
   and `--virtual-clients` flags and `loadtest` are gone. Left: `world.rs`'s battlefield layout (used
   only by tests now; its `World` is the spawn point the player rules respawn at) and the offline
   `?yard`/`?test` yard, which R10.11 replaces.
-- [ ] **R10.11** Offline: the browser's engine runs any region or instance locally, for tests and
+- [~] **R10.11** Offline: the browser's engine runs any region or instance locally, for tests and
   development (one option for tests in place of `?yard`/`?test`/`?world&test`).
+  Begun (6949d72): `?test=<instance>` (paused, for tests) and `?offline=<instance>` (or `?offline`,
+  the world; running) start you in a copy of any instance offline, as if through its door. A copy
+  played offline brings the creatures its file spawns, numbered on from the world's, which wait
+  outside; they stand on its floor, and the offline rules read heights from it (`Footing`). Starting
+  over in a copy puts you where it's entered. Left, after the skill tree by id (R9.5's rest, which
+  edits the same tests): `?test` alone the world, the tests moved off `?yard`, `?test`,
+  `?yard&test` and `?world&test` (`?yard&test&goblins=6` becomes `?test=goblinCamp`), and the flat
+  yard gone (`yard.rs`'s layout, `Ground::Flat`, the yard's practice, its drawing).
 - [~] **R10.12** Tests: unit (zone loading, bot brains); integration (an admin enters the yard and the
   battlefield from the menu, a player is refused, the battlefield starts and stops with an admin
   inside); stress (thousands of bots in the battlefield: frame time, tick time, bandwidth).
