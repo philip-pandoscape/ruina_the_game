@@ -19,10 +19,10 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Mutex;
 
-use ruina_server::gate::socket;
 use ruina_server::http::{self, AppState};
 use ruina_server::sim::stepping;
-use ruina_server::store::db;
+use ruina_server::start;
+use ruina_server::store::{Db, db};
 
 struct Args {
     port: u16,
@@ -101,7 +101,12 @@ fn main() {
                 None
             }
         };
-        let state = AppState { db, world: socket::Hub::default(), dev_login, admin_users, secure_cookies, failed_logins: Mutex::new(HashMap::new()) };
+        // The tiers: the store, social, the directory (and the simulations it starts) and the gate.
+        let tiers = start::start(match &db {
+            Some(pool) => Db::Pg(pool.clone()),
+            None => Db::memory().0,
+        });
+        let state = AppState { db, gate: tiers.gate, dev_login, admin_users, secure_cookies, failed_logins: Mutex::new(HashMap::new()) };
         http::serve(args.port, args.everywhere, state, args.static_dir).await
     });
     if let Err(e) = result {

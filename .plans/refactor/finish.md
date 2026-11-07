@@ -114,6 +114,14 @@ one machine, run Playwright with `PW_WORKERS=3` and only the specs your work tou
 7777 and its database; never touch it, nor any container or process you didn't start. Restart your
 rig's server after rebuilding it (copy again first).
 
+**Lean, core first (the user, 2026-11-06, about 22:20):** write the core of everything first. Along
+the way, test at the unit level only (cargo test, the TypeScript unit tier, typecheck); no
+Playwright specs, no full suites, no whole integration tier, no look test. The guides (docs/*.md,
+the AGENTS.md files, the bible's pages) wait too. Reports stay short. At the end, one pass does the
+integration tier, the stress tier, the look check and the docs for everything together. A
+workstream is done when `npm run check` passes with `refactor/first` merged in; so is each merge
+into `refactor/first`. Where this page asks for more below, the lean rule wins until the end.
+
 ## Rules for Every Workstream
 
 - **Work in your own worktree and branch.** Commit often, each commit one thing, its message in the
@@ -125,6 +133,11 @@ rig's server after rebuilding it (copy again first).
   against your slot's rig; the whole integration tier if your work touches the game broadly. List
   any failure with whether it fails on `refactor/first` too (the known races are listed in the
   tracker's Now section).
+- **As you go** (the user, 2026-11-06): commit each meaningful step to your branch, at least every
+  30-45 minutes of work; keep `.plans/refactor/reports/<id>.md` as a running report, a dated entry at
+  each milestone (what landed with commits, what you ran and how it went, what's next, what blocks or
+  what others must know), committed with the work; and send the orchestrator a 1-3 line summary
+  after each (SendMessage to "main"). The orchestrator rolls them up into `progress.md`.
 - **Your report** goes in `.plans/refactor/reports/<id>.md`, committed: what landed (with commits),
   the numbers, the decisions you made and why, what's left, and anything another workstream must know.
   Don't edit `tracker.md`, `progress.md` or `design/status.json`.

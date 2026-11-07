@@ -27,7 +27,7 @@ pub enum ToGate {
 
 /// What a connection is sent: answers on its way in, where its inputs go now, and everything its
 /// browser is told.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum ToConn {
     // ---- On the way in ----
     /// The directory took the character up for this connection: their grant, their home channel,

@@ -36,12 +36,13 @@ use tower_http::compression::Compression;
 use tower_http::services::ServeDir;
 
 use crate::accounts::{self, characters};
-use crate::gate::socket;
+use crate::gate::{Gate, socket};
 
 pub struct AppState {
     /// None when no DATABASE_URL was given: then accounts and the open world are off.
     pub db: Option<PgPool>,
-    pub world: socket::Hub,
+    /// The gate players' connections come in through (crate::start starts it with the other tiers).
+    pub gate: Arc<Gate>,
     /// Sign in by name alone (?as=name in the browser), and everyone an admin. Never on Railway.
     pub dev_login: bool,
     /// The admins, by name (lower case): they reach the developer pages (/dev/, /design/) and the
@@ -135,7 +136,6 @@ pub async fn serve(port: u16, everywhere: bool, state: AppState, static_dir: Opt
         println!("serving the game from {}", dir.display());
         router = router.merge(game_files(app.clone(), dir));
     }
-    socket::spawn_world(app.clone());
     let saver = app.clone();
     let asker = app.clone();
     let router = router.with_state(app);
@@ -158,10 +158,10 @@ pub async fn serve(port: u16, everywhere: bool, state: AppState, static_dir: Opt
         .with_graceful_shutdown(async move {
             tokio::select! {
                 _ = stopped() => {}
-                _ = asker.world.stop_asked() => {}
+                _ = asker.gate.stop_asked() => {}
             }
             println!("stopping: telling everyone, saving everyone's island");
-            socket::stop_world(&saver).await;
+            saver.gate.stop_world().await;
         })
         .await
 }
@@ -256,7 +256,7 @@ async fn stopped() {
 }
 
 async fn health(State(app): State<App>) -> Json<serde_json::Value> {
-    Json(json!({ "ok": true, "database": app.db.is_some(), "playing": app.world.count() }))
+    Json(json!({ "ok": true, "database": app.db.is_some(), "playing": app.gate.count() }))
 }
 
 /// Development only (DEV_LOGIN=1): stops the server the way a deploy does, so tests can watch
@@ -271,7 +271,7 @@ async fn dev_stop(State(app): State<App>, headers: HeaderMap) -> Result<Json<ser
         Some(_) => return Err(ApiError(StatusCode::FORBIDDEN, "Only an admin can stop the server.")),
         None => return Err(ApiError(StatusCode::UNAUTHORIZED, "Sign in first.")),
     }
-    app.world.ask_to_stop();
+    app.gate.ask_to_stop();
     Ok(Json(json!({ "ok": true })))
 }
 
@@ -347,22 +347,17 @@ mod tests {
     }
 
     fn state(dev_login: bool, admins: &str) -> AppState {
-        AppState {
-            db: None,
-            world: socket::Hub::default(),
-            dev_login,
-            admin_users: admin_users(admins),
-            secure_cookies: false,
-            failed_logins: Mutex::new(HashMap::new()),
-        }
+        let post = crate::post::Post::new();
+        let gate = Gate::start(ruina_world_api::GateId(1), post.clone(), post.open_gate(ruina_world_api::GateId(1)));
+        AppState { db: None, gate, dev_login, admin_users: admin_users(admins), secure_cookies: false, failed_logins: Mutex::new(HashMap::new()) }
     }
 
     fn account(name: &str) -> accounts::Account {
         accounts::Account { id: 1, username: name.into(), admin: false }
     }
 
-    #[test]
-    fn admins_are_the_names_admin_users_gives_whatever_their_case() {
+    #[tokio::test]
+    async fn admins_are_the_names_admin_users_gives_whatever_their_case() {
         let app = state(false, " Philip, ana ,,");
         assert_eq!(app.admin_users.len(), 2);
         assert!(app.is_admin(&account("philip")));
@@ -374,14 +369,14 @@ mod tests {
         assert!(!app.told(account("bo")).admin);
     }
 
-    #[test]
-    fn nobody_is_an_admin_without_admin_users_but_everyone_is_with_developer_sign_in() {
+    #[tokio::test]
+    async fn nobody_is_an_admin_without_admin_users_but_everyone_is_with_developer_sign_in() {
         assert!(!state(false, "").is_admin(&account("philip")));
         assert!(state(true, "").is_admin(&account("anyone")));
     }
 
-    #[test]
-    fn admin_users_on_a_development_server_leaves_everyone_else_a_player() {
+    #[tokio::test]
+    async fn admin_users_on_a_development_server_leaves_everyone_else_a_player() {
         // How a developer (or a test) sees the game as a player does.
         let app = state(true, "boss");
         assert!(app.is_admin(&account("Boss")));

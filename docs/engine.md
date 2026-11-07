@@ -25,7 +25,7 @@ page is how the two sides reach it, and how to add to what crosses between the p
 ## The Server
 
 The server links the engine as a crate and steps it in each game it hosts (a channel of the world,
-or a copy of an instance: `crates/server/src/play/`). Each tick, 20 a second, a game steps every
+or a copy of an instance, each a simulation of its own: `crates/server/src/sim/`). Each tick, 20 a second, a game steps every
 player through the inputs their browser has sent since the last, 60 a second
 (`ruina_engine::open::step_player`, the island's systems riding along), and the creatures and the
 bots, then lands the fights and sends each player what changed.

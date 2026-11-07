@@ -10,9 +10,12 @@
 
 use std::collections::HashSet;
 
-use serde_json::{Value, json};
+use serde_json::Value;
 
-use super::{ChannelGame, Save, client, island_of};
+use ruina_world_api::gate::ToConn;
+use ruina_world_api::store::{LifeWrite, Then};
+
+use super::{Game, client, island_of};
 use crate::life::Life;
 use crate::life::content::format_coins;
 use crate::minigames::{Challenge, Seat, Spot, Table, Why, content};
@@ -20,7 +23,7 @@ use crate::open::colliders::ground_at;
 use crate::player::Mode;
 
 /// Tables further than this from a player aren't sent to them.
-const SHOW_TABLES: f64 = 90.0;
+pub(crate) const SHOW_TABLES: f64 = 90.0;
 /// Slack on the challenge range for where each of you was drawn on the other's screen.
 const RANGE_SLACK: f64 = 1.0;
 /// How far apart you may have wandered by the time a challenge is accepted.
@@ -70,7 +73,7 @@ fn fresh_seed(id: u64) -> u32 {
     ((x >> 32) as u32 ^ x as u32) | 1
 }
 
-impl ChannelGame {
+impl Game {
     /// The clock games run on, in seconds.
     pub(crate) fn game_clock(&self) -> f64 {
         self.started.elapsed().as_secs_f64() + self.skew
@@ -137,20 +140,21 @@ impl ChannelGame {
         Some(&mut l.life)
     }
 
-    /// The island of `id` as it would be saved now, with whose connection may write it.
-    fn save_of(&mut self, id: i64) -> Option<Save> {
+    /// The life of `id` as it would be saved now, under the grant it was played under.
+    fn save_of(&mut self, id: i64) -> Option<LifeWrite> {
         if let Some(m) = self.members.get(&id) {
             if m.keep_saved {
                 return None;
             }
-            let (session, out) = (m.session, m.out.clone());
+            let (epoch, home, conn) = (m.epoch, m.home.clone(), m.conn);
             let (p, life) = self.players.open_mut(client(id))?;
             let island = island_of(p, life?, &mut self.open, id);
-            return Some(Save { character: id, session, island, out: Some(out) });
+            return Some(self.life_write(id, epoch, &home, island, Some(conn)));
         }
         let l = self.lingering.get_mut(&id)?;
         let island = island_of(&l.player, &mut l.life, &mut self.open, id);
-        Some(Save { character: id, session: l.session, island, out: None })
+        let (epoch, home) = (l.epoch, l.home.clone());
+        Some(self.life_write(id, epoch, &home, island, None))
     }
 
     /// Something for `id` to read: at once if they're here, when they're back if they're away.
@@ -165,16 +169,10 @@ impl ChannelGame {
         }
     }
 
-    /// Sends `id` a message of its own, if they're connected.
-    fn tell(&self, id: i64, msg: &Value) {
-        if let Some(m) = self.members.get(&id) {
-            let _ = m.out.try_send(msg.to_string());
-        }
-    }
-
     /// Tells `id` what's going on with their challenges.
-    pub(super) fn tell_challenges(&self, id: i64) {
-        self.tell(id, &self.tables.challenges_json(id, self.game_clock()));
+    pub(super) fn tell_challenges(&mut self, id: i64) {
+        let v = self.tables.challenges_json(id, self.game_clock());
+        self.say(id, ToConn::Challenges { sent: v["sent"].clone(), waiting: v["waiting"].clone() });
     }
 
     /// `from` challenges `to` to the game at `game` in the bundle (as it comes on the wire) for
@@ -260,7 +258,7 @@ impl ChannelGame {
             let c = &self.tables.challenges[i];
             (c.game, c.stake, c.seed, c.turn, c.from_name.clone(), c.to_name.clone())
         };
-        let close = |ch: &mut ChannelGame| {
+        let close = |ch: &mut Game| {
             ch.tables.challenges.retain(|c| !(c.from == from && c.to == to));
             ch.tell_challenges(from);
             ch.tell_challenges(to);
@@ -426,7 +424,7 @@ impl ChannelGame {
         let t = self.tables.tables.remove(k);
         for s in &t.seats {
             self.tables.sent.remove(&s.id);
-            self.tell(s.id, &json!({ "t": "table", "table": null }));
+            self.say(s.id, ToConn::Table { table: None });
         }
     }
 
@@ -514,17 +512,10 @@ impl ChannelGame {
                 m.life_due = 3;
             }
         }
-        // Queued at once, while the channel is locked, ahead of anything newer of theirs.
-        let batch: Vec<Save> = ids.iter().filter_map(|&id| self.save_of(id)).collect();
+        // Written together, in one transaction, ahead of anything newer of theirs.
+        let batch: Vec<LifeWrite> = ids.iter().filter_map(|&id| self.save_of(id)).collect();
         if !batch.is_empty() {
-            match &self.saver {
-                Some(tx) => {
-                    if let Err(e) = tx.send(batch) {
-                        self.joint.push(e.0);
-                    }
-                }
-                None => self.joint.push(batch),
-            }
+            self.writes.push((batch, Then::Nothing));
         }
     }
 
@@ -563,7 +554,7 @@ impl ChannelGame {
         for t in gone {
             for s in &t.seats {
                 self.tables.sent.remove(&s.id);
-                self.tell(s.id, &json!({ "t": "table", "table": null }));
+                self.say(s.id, ToConn::Table { table: None });
             }
         }
         // Each seated player's view of their game, when it changed.
@@ -571,40 +562,32 @@ impl ChannelGame {
         for t in &self.tables.tables {
             for (k, s) in t.seats.iter().enumerate() {
                 if self.members.contains_key(&s.id) && self.tables.sent.get(&s.id) != Some(&(t.id, t.version)) {
-                    out.push((s.id, t.id, t.version, json!({ "t": "table", "table": t.view(k, now) })));
+                    out.push((s.id, t.id, t.version, ToConn::Table { table: Some(t.view(k, now)) }));
                 }
             }
         }
         for (id, table, version, msg) in out {
-            self.tell(id, &msg);
+            self.say(id, msg);
             self.tables.sent.insert(id, (table, version));
         }
         self.tables.declined.retain(|_, until| *until > now);
-    }
-
-    /// The tables near (x, z), as everyone in the world sees them.
-    pub(super) fn tables_near(shown: &[(f64, f64, Value)], x: f64, z: f64) -> Vec<Value> {
-        shown.iter().filter(|(tx, tz, _)| (tx - x).hypot(tz - z) <= SHOW_TABLES).map(|(_, _, v)| v.clone()).collect()
-    }
-
-    /// Every table's public face this tick, with where it is.
-    pub(super) fn tables_shown(&self) -> Vec<(f64, f64, Value)> {
-        self.tables.tables.iter().map(|t| (t.at.x, t.at.z, t.shown())).collect()
     }
 }
 
 #[cfg(test)]
 mod tests {
     use serde_json::{Value, json};
-    use tokio::sync::mpsc;
 
-    use super::super::{Arrival, ChannelGame, client, island_of, load_island, stand_on_ground};
-    use crate::gate::encode::OPEN_INPUT;
+    use super::super::tests::{arrival, conn, heard};
+    use super::super::{Game, client, island_of, load_island, stand_on_ground};
     use crate::life::{Command, Life};
     use crate::minigames::games::beacons::setup;
     use crate::minigames::{Asking, GameDef, Why, content, game_called};
     use crate::player::{Build, Mode, Player};
     use crate::world::Spawn;
+    use ruina_world_api::Epoch;
+    use ruina_world_api::input::OPEN_INPUT;
+    use ruina_world_api::store::LifeWrite;
 
     /// The game these tests play (a challenge names it by its place in the bundle).
     /// What a player's board view is offered with `picked` picked, from their view of the table
@@ -620,13 +603,11 @@ mod tests {
     }
 
     /// Ann (7) and Bea (8) standing two metres apart on the green by the spawn, with 200 copper
-    /// each, and what each of their browsers hears.
-    fn ann_and_bea() -> (ChannelGame, mpsc::Receiver<String>, mpsc::Receiver<String>) {
-        let mut ch = ChannelGame::new(1);
-        let (out_a, rx_a) = mpsc::channel(256);
-        let (out_b, rx_b) = mpsc::channel(256);
-        ch.join(Arrival { character: 7, session: 1, name: "Ann".into(), out: out_a, dev: true, island: None, saved_at: None, now: 0, build: None });
-        ch.join(Arrival { character: 8, session: 2, name: "Bea".into(), out: out_b, dev: true, island: None, saved_at: None, now: 0, build: None });
+    /// each (what each of their browsers hears is in the game's outbox: heard).
+    fn ann_and_bea() -> Game {
+        let mut ch = Game::test();
+        ch.join(arrival(7, 1, "Ann", true, None));
+        ch.join(arrival(8, 2, "Bea", true, None));
         let zone = ch.open.zone;
         let (x, z) = (zone.recipe.spawn.x, zone.recipe.spawn.z);
         for (id, dx) in [(7, -1.0), (8, 1.0)] {
@@ -637,18 +618,18 @@ mod tests {
             p.pos.z = z;
             stand_on_ground(p, &ch.open);
         }
-        (ch, rx_a, rx_b)
+        ch
     }
 
-    fn coins(ch: &ChannelGame, id: i64) -> f64 {
+    fn coins(ch: &Game, id: i64) -> f64 {
         ch.players.open_view(client(id)).unwrap().2.unwrap().state.coins
     }
 
-    fn staked(ch: &ChannelGame, id: i64) -> Option<f64> {
+    fn staked(ch: &Game, id: i64) -> Option<f64> {
         ch.players.open_view(client(id)).unwrap().2.unwrap().state.staked
     }
 
-    fn toasts(ch: &mut ChannelGame, id: i64) -> Vec<String> {
+    fn toasts(ch: &mut Game, id: i64) -> Vec<String> {
         ch.players
             .open_mut(client(id))
             .unwrap()
@@ -660,22 +641,18 @@ mod tests {
             .collect()
     }
 
-    /// Everything a browser has been sent since last asked, parsed.
-    fn heard(rx: &mut mpsc::Receiver<String>) -> Vec<Value> {
-        let mut out = Vec::new();
-        while let Ok(m) = rx.try_recv() {
-            out.push(serde_json::from_str(&m).unwrap());
-        }
-        out
+    /// The last view of their table a browser was sent.
+    fn last_view(ch: &mut Game, id: i64) -> Option<Value> {
+        heard(ch, id).into_iter().rfind(|m| m["t"] == "table").map(|m| m["table"].clone())
     }
 
-    /// The last view of their table a browser was sent.
-    fn last_view(rx: &mut mpsc::Receiver<String>) -> Option<Value> {
-        heard(rx).into_iter().rfind(|m| m["t"] == "table").map(|m| m["table"].clone())
+    /// The lives to be written together (a pot paid out), each list in one transaction.
+    fn take_joint(ch: &mut Game) -> Vec<Vec<LifeWrite>> {
+        std::mem::take(&mut ch.writes).into_iter().map(|(batch, _)| batch).collect()
     }
 
     /// Ann challenges Bea for `stake` and Bea accepts: the table's id.
-    fn sit_down(ch: &mut ChannelGame, stake: f64) -> u64 {
+    fn sit_down(ch: &mut Game, stake: f64) -> u64 {
         ch.challenge(7, 8, beacons().index, stake, Some(5)).unwrap();
         ch.answer(8, 7, true).unwrap();
         ch.tables.tables.last().unwrap().id
@@ -683,13 +660,13 @@ mod tests {
 
     #[test]
     fn a_challenge_accepted_puts_both_stakes_in_the_pot_and_a_table_between_them() {
-        let (mut ch, mut rx_a, mut rx_b) = ann_and_bea();
+        let mut ch = ann_and_bea();
         ch.challenge(7, 8, beacons().index, 50.0, None).unwrap();
         // Bea is asked, Ann waits.
-        let to_bea = heard(&mut rx_b).into_iter().find(|m| m["t"] == "challenges").unwrap();
+        let to_bea = heard(&mut ch, 8).into_iter().find(|m| m["t"] == "challenges").unwrap();
         assert_eq!(to_bea["waiting"]["fromName"], "Ann");
         assert_eq!(to_bea["waiting"]["stake"], 50.0);
-        assert_eq!(heard(&mut rx_a).into_iter().find(|m| m["t"] == "challenges").unwrap()["sent"]["toName"], "Bea");
+        assert_eq!(heard(&mut ch, 7).into_iter().find(|m| m["t"] == "challenges").unwrap()["sent"]["toName"], "Bea");
         // Nobody else gets asked meanwhile, by either of them.
         assert!(ch.challenge(7, 8, beacons().index, 10.0, None).is_err());
         assert!(ch.challenge(8, 7, beacons().index, 10.0, None).is_err());
@@ -709,15 +686,15 @@ mod tests {
         }
         // Everyone sees the table; each player sees their own hand.
         ch.step_tables();
-        let view = last_view(&mut rx_b).unwrap();
+        let view = last_view(&mut ch, 8).unwrap();
         assert_eq!(view["you"], 0);
         assert_eq!(view["state"]["hand"].as_array().unwrap().len(), 4);
         assert_eq!(offered(&view, Value::Null)["play"], true, "Bea moves first");
-        let ann = last_view(&mut rx_a).unwrap();
+        let ann = last_view(&mut ch, 7).unwrap();
         assert_eq!(offered(&ann, Value::Null)["play"], false);
         assert_ne!(ann["state"]["hand"], view["state"]["hand"], "each sees only their own hand (seed 5 deals them differently)");
-        let at = ch.tables.tables[0].at;
-        let shown = ChannelGame::tables_near(&ch.tables_shown(), at.x, at.z);
+        let out = ch.publish(std::time::Instant::now());
+        let shown: Vec<&Value> = out.cells.iter().flat_map(|c| &c.tables).map(|t| &t.shown).collect();
         assert_eq!(shown.len(), 1);
         assert!(shown[0]["board"]["lit"].is_array());
         assert!(shown[0].get("state").is_none(), "nobody's hand on show");
@@ -725,7 +702,7 @@ mod tests {
 
     #[test]
     fn a_declined_or_unanswered_challenge_leaves_both_purses_alone() {
-        let (mut ch, _, _) = ann_and_bea();
+        let mut ch = ann_and_bea();
         ch.challenge(7, 8, beacons().index, 100.0, None).unwrap();
         ch.answer(8, 7, false).unwrap();
         assert_eq!(toasts(&mut ch, 7), ["Bea declined your challenge."]);
@@ -745,7 +722,7 @@ mod tests {
 
     #[test]
     fn a_challenge_needs_both_on_foot_close_together_and_able_to_pay() {
-        let (mut ch, _, _) = ann_and_bea();
+        let mut ch = ann_and_bea();
         assert!(ch.challenge(7, 8, beacons().index, 30.0, None).is_err(), "not a stake on offer");
         assert!(ch.challenge(7, 8, beacons().index, 250.0, None).is_err(), "more than Ann has");
         assert!(ch.challenge(7, 8, content().games.len(), 0.0, None).is_err());
@@ -771,7 +748,7 @@ mod tests {
 
     #[test]
     fn at_the_table_nothing_you_press_moves_you_and_island_commands_wait() {
-        let (mut ch, _, _) = ann_and_bea();
+        let mut ch = ann_and_bea();
         sit_down(&mut ch, 0.0);
         let before = ch.players.open_view(client(7)).unwrap().0.pos;
         // Ann holds forward for a second and asks for her mount.
@@ -789,7 +766,7 @@ mod tests {
 
     /// Plays Bea's and Ann's turns from the browser's side until Ann (seat 1) wins: Ann works on
     /// a row, Bea plays well away from it. Returns the moves made.
-    fn play_until_ann_wins(ch: &mut ChannelGame, table: u64) -> usize {
+    fn play_until_ann_wins(ch: &mut Game, table: u64) -> usize {
         let b = &setup(beacons()).board;
         // Ann's row: the four hexes from (-3, 0) to (0, 0) along the middle row... the Old Beacon
         // takes a pair, so a row on the left half of the middle row.
@@ -844,7 +821,7 @@ mod tests {
 
     #[test]
     fn the_winner_takes_the_pot_and_both_islands_are_written_together() {
-        let (mut ch, mut rx_a, _) = ann_and_bea();
+        let mut ch = ann_and_bea();
         let table = sit_down(&mut ch, 50.0);
         assert!(ch.table_move(7, table, &json!({ "k": "swap", "card": 0 })).is_err(), "Bea moves first");
         play_until_ann_wins(&mut ch, table);
@@ -855,28 +832,28 @@ mod tests {
         assert!(toasts(&mut ch, 7).contains(&"You win at Beacons! The pot of 1s 0c is yours.".to_string()));
         assert!(toasts(&mut ch, 8).contains(&"Ann wins at Beacons and takes the pot of 1s 0c.".to_string()));
         // One batch, both islands, as they are now.
-        let batch = ch.take_joint();
+        let batch = take_joint(&mut ch);
         assert_eq!(batch.len(), 1);
         let ids: Vec<i64> = batch[0].iter().map(|s| s.character).collect();
         assert_eq!(ids, [8, 7]);
-        assert_eq!(batch[0][1].island["state"]["coins"], 250.0);
-        assert!(batch[0][1].island["state"].get("staked").is_none());
+        assert_eq!(batch[0][1].life["state"]["coins"], 250.0);
+        assert!(batch[0][1].life["state"].get("staked").is_none());
         // The result goes to both; the table stays a moment, then goes and they're free.
         ch.step_tables();
-        let v = last_view(&mut rx_a).unwrap();
+        let v = last_view(&mut ch, 7).unwrap();
         assert_eq!(v["over"]["winner"], 1);
         assert!(ch.seated(7));
         ch.skew += content().table.clear_seconds + 0.1;
         ch.step_tables();
         assert!(!ch.seated(7) && !ch.seated(8));
-        assert!(heard(&mut rx_a).iter().any(|m| m["t"] == "table" && m["table"].is_null()));
+        assert!(heard(&mut ch, 7).iter().any(|m| m["t"] == "table" && m["table"].is_null()));
         // Money is only ever moved.
         assert_eq!(coins(&ch, 7) + coins(&ch, 8), 400.0);
     }
 
     #[test]
     fn conceding_hands_the_pot_over_at_once() {
-        let (mut ch, _, _) = ann_and_bea();
+        let mut ch = ann_and_bea();
         let table = sit_down(&mut ch, 100.0);
         assert!(ch.concede(9, table).is_err());
         ch.concede(8, table).unwrap();
@@ -886,12 +863,12 @@ mod tests {
         ch.concede(8, table).unwrap();
         ch.concede(7, table).unwrap();
         assert_eq!((coins(&ch, 7), coins(&ch, 8)), (300.0, 100.0));
-        assert_eq!(ch.take_joint().len(), 1, "paid out once");
+        assert_eq!(take_joint(&mut ch).len(), 1, "paid out once");
     }
 
     #[test]
     fn three_turns_run_out_in_a_row_and_that_player_forfeits() {
-        let (mut ch, _, _) = ann_and_bea();
+        let mut ch = ann_and_bea();
         let table = sit_down(&mut ch, 10.0);
         let turn = beacons().turn_seconds;
         // Bea (first) lets her clock run out three times; Ann plays each time it's her turn.
@@ -913,11 +890,11 @@ mod tests {
 
     #[test]
     fn a_player_who_leaves_and_does_not_come_back_forfeits_and_their_saved_island_is_paid() {
-        let (mut ch, _, _) = ann_and_bea();
+        let mut ch = ann_and_bea();
         sit_down(&mut ch, 50.0);
         // Bea's connection ends: her island is kept as she left it, stake and all.
-        let left = ch.leave(8, 2).unwrap();
-        assert_eq!(left["state"]["staked"], 50.0);
+        let left = ch.leave(conn(8, 2)).unwrap();
+        assert_eq!(left.life["state"]["staked"], 50.0);
         assert!(ch.seated(8), "her seat is kept for her");
         let away = content().table.away_seconds;
         ch.skew += 1.0;
@@ -929,30 +906,30 @@ mod tests {
         assert_eq!(coins(&ch, 7), 250.0);
         // Her island, as it is in the channel now, is written with Ann's: no stake left in it to
         // come back when she next loads it.
-        let batch = ch.take_joint().pop().unwrap();
+        let batch = take_joint(&mut ch).pop().unwrap();
         let bea = batch.iter().find(|s| s.character == 8).unwrap();
-        assert_eq!(bea.session, 2);
-        assert_eq!(bea.island["state"]["coins"], 150.0);
-        assert!(bea.island["state"].get("staked").is_none());
+        assert_eq!((bea.epoch, bea.tell), (Epoch(1), None), "under the grant she played under; nobody to tell");
+        assert_eq!(bea.life["state"]["coins"], 150.0);
+        assert!(bea.life["state"].get("staked").is_none());
         // And if the server stops before that's written, it's saved then.
-        assert!(ch.islands_now().iter().any(|s| s.character == 8 && s.island["state"]["coins"] == 150.0));
+        assert!(ch.lives_now().iter().any(|s| s.character == 8 && s.life["state"]["coins"] == 150.0));
     }
 
     #[test]
     fn back_in_time_you_play_on() {
-        let (mut ch, _, mut rx_b) = ann_and_bea();
+        let mut ch = ann_and_bea();
         let table = sit_down(&mut ch, 50.0);
         ch.step_tables();
-        heard(&mut rx_b);
-        ch.leave(8, 2);
+        heard(&mut ch, 8);
+        ch.leave(conn(8, 2));
         ch.skew += 10.0;
         ch.step_tables();
         assert!(ch.tables.tables[0].seats[1 - 1].away.is_some());
-        let (out, mut rx_b) = mpsc::channel(256);
-        ch.join(Arrival { character: 8, session: 3, name: "Bea".into(), out, dev: true, island: None, saved_at: None, now: 0, build: None });
+        heard(&mut ch, 8);
+        ch.join(arrival(8, 3, "Bea", true, None));
         ch.step_tables();
         assert_eq!(ch.tables.tables[0].seats[0].away, None);
-        let v = last_view(&mut rx_b).expect("her game comes back to her");
+        let v = last_view(&mut ch, 8).expect("her game comes back to her");
         assert_eq!(v["id"], table);
         assert_eq!(staked(&ch, 8), Some(50.0), "the stake is still on the table");
         ch.table_move(8, table, &json!({ "k": "swap", "card": 1 })).unwrap();
@@ -960,14 +937,14 @@ mod tests {
 
     #[test]
     fn a_game_called_off_returns_each_stake() {
-        let (mut ch, _, _) = ann_and_bea();
+        let mut ch = ann_and_bea();
         sit_down(&mut ch, 250.0 - 150.0);
         assert_eq!((coins(&ch, 7), coins(&ch, 8)), (100.0, 100.0));
         // The server is stopping: what it saves has the stakes back in the purses.
-        let saved = ch.islands_now();
+        let saved = ch.lives_now();
         for s in &saved {
-            assert_eq!(s.island["state"]["coins"], 200.0, "character {}", s.character);
-            assert!(s.island["state"].get("staked").is_none());
+            assert_eq!(s.life["state"]["coins"], 200.0, "character {}", s.character);
+            assert!(s.life["state"].get("staked").is_none());
         }
         assert_eq!((coins(&ch, 7), coins(&ch, 8)), (200.0, 200.0));
         assert_eq!(ch.tables.tables[0].over.map(|o| (o.winner, o.why)), Some((None, Why::Aborted)));
@@ -977,14 +954,14 @@ mod tests {
     fn an_island_saved_mid_game_comes_back_with_its_stake_returned() {
         // The server fell over mid-game: what was last written has the stake out of the purse
         // and on the table. Loaded again, with no game holding it, it's back in the purse.
-        let (mut ch, _, _) = ann_and_bea();
+        let mut ch = ann_and_bea();
         sit_down(&mut ch, 50.0);
         let mid = {
             let (p, life) = ch.players.open_mut(client(7)).unwrap();
             island_of(p, life.unwrap(), &mut ch.open, 7)
         };
         assert_eq!((mid["state"]["coins"].as_f64(), mid["state"]["staked"].as_f64()), (Some(150.0), Some(50.0)));
-        let fresh = ChannelGame::new(2);
+        let fresh = Game::test();
         let mut world = fresh.open;
         let zone = world.zone;
         let mut life = Life::new(zone, None, None);
@@ -995,7 +972,7 @@ mod tests {
 
     #[test]
     fn starting_your_island_over_mid_game_calls_the_game_off_for_the_other_player() {
-        let (mut ch, _, _) = ann_and_bea();
+        let mut ch = ann_and_bea();
         sit_down(&mut ch, 50.0);
         ch.reset(7).unwrap();
         assert_eq!(coins(&ch, 8), 200.0, "Bea's stake comes back");
@@ -1005,7 +982,7 @@ mod tests {
 
     #[test]
     fn a_table_needs_dry_level_ground() {
-        let (mut ch, _, _) = ann_and_bea();
+        let mut ch = ann_and_bea();
         // Out at sea, both treading water... they'd be swimming; stood on the sea floor by a test,
         // there's no room for a table.
         let hf = ch.open.terrain();
@@ -1034,7 +1011,7 @@ mod tests {
 
     #[test]
     fn a_development_server_gives_a_test_the_turn_it_asks_for_and_nobody_else() {
-        let (mut ch, _rx_a, _rx_b) = ann_and_bea();
+        let mut ch = ann_and_bea();
         let turn = beacons().turn_seconds;
         ch.challenge_timed(7, 8, beacons().index, 0.0, None, Some(600.0)).unwrap();
         ch.answer(8, 7, true).unwrap();
@@ -1042,7 +1019,7 @@ mod tests {
         assert_eq!(t.turn_seconds, 600.0);
         assert_eq!(t.time_left(t.turn_began + turn + 1.0), 600.0 - turn - 1.0, "well past the game's own clock, still on");
         // Off a development server it's the game's clock, whatever the challenge asks.
-        let (mut ch, _rx_a, _rx_b) = ann_and_bea();
+        let mut ch = ann_and_bea();
         ch.members.get_mut(&7).unwrap().dev = false;
         ch.challenge_timed(7, 8, beacons().index, 0.0, None, Some(600.0)).unwrap();
         ch.answer(8, 7, true).unwrap();
