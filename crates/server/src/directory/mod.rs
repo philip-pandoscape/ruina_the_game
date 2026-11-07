@@ -46,6 +46,8 @@ mod crowd;
 pub mod grants;
 /// Spaces' leases.
 pub mod leases;
+/// A region played in parts by several simulations (R10.19).
+pub mod parts;
 
 use leases::{Leases, RENEW_EVERY};
 
@@ -64,6 +66,16 @@ pub struct SimSetup {
     pub lease: Lease,
     pub owner: Option<Owner>,
     pub expel_after: Duration,
+    /// Playing part of its region beside other simulations (its lease's chunks): who owns which
+    /// chunk, and the slots its own players take (crates/server/src/sim/border.rs).
+    pub part: Option<Part>,
+}
+
+/// A simulation's part of a region played by several.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct Part {
+    pub owners: ruina_engine::border::Owners,
+    pub seats: std::ops::Range<usize>,
 }
 
 /// Starts simulations: each on a thread of its own in this process (`crate::sim::Threads`); later,
@@ -133,6 +145,11 @@ pub struct Directory<L: Leases> {
     pub expel_after: Duration,
     /// Tests: the time the channels go by (a crowd's own clock), in place of the world's.
     pub clock: Option<Millis>,
+    /// Regions played in parts, by several simulations each, and where each is cut (chunks' x:
+    /// parts.rs); every other region is played whole.
+    pub cuts: BTreeMap<String, Vec<i32>>,
+    /// The parts a space is played in, each part's lease (the space's own is the first's).
+    parts: BTreeMap<SpaceId, Vec<Lease>>,
 }
 
 impl<L: Leases> Directory<L> {
@@ -161,6 +178,8 @@ impl<L: Leases> Directory<L> {
             copy_kept: COPY_KEPT,
             expel_after: EXPEL_AFTER,
             clock: None,
+            cuts: BTreeMap::new(),
+            parts: BTreeMap::new(),
         }
     }
 
@@ -261,7 +280,11 @@ impl<L: Leases> Directory<L> {
             ToDirectory::SaveAll { reply } => {
                 self.next_ask += 1;
                 let id = self.next_ask;
-                let sims: Vec<SimId> = self.spaces.values().map(|r| r.lease.sim).collect();
+                let mut sims: Vec<SimId> = self.spaces.values().map(|r| r.lease.sim).collect();
+                // A region's parts too: every part's players are written.
+                sims.extend(self.parts.values().flatten().map(|l| l.sim));
+                sims.sort();
+                sims.dedup();
                 let mut waiting = 0;
                 for sim in sims {
                     if self.post.sim(sim, ToSim::SaveAll { reply: Reply { to: Address::Directory, id } }) {
@@ -403,6 +426,12 @@ impl<L: Leases> Directory<L> {
             Some(r) => (r.chunks.x..r.chunks.x + r.chunks.w).flat_map(|x| (r.chunks.z..r.chunks.z + r.chunks.d).map(move |z| (x, z))).collect(),
             None => Vec::new(),
         };
+        // A region played in parts: a simulation for each, the space's lease the first's.
+        let cuts = space.region().and_then(|r| self.cuts.get(r)).cloned().unwrap_or_default();
+        let split = parts::parts(&chunks, &cuts);
+        if split.len() > 1 {
+            return self.ensure_parts(space, sim, split, &cuts).await;
+        }
         let lease = self.leases.grant(space, sim, chunks).await?;
         // Played already: among several processes the directory may have started again while the
         // simulation that has the space plays on. It's taken as it is, and nothing is started.
@@ -416,12 +445,42 @@ impl<L: Leases> Directory<L> {
             }
             SpaceId::Channel { .. } => None,
         };
-        let setup = SimSetup { lease: lease.clone(), owner: copy.as_ref().map(|c| c.owner), expel_after: self.expel_after };
+        let setup = SimSetup { lease: lease.clone(), owner: copy.as_ref().map(|c| c.owner), expel_after: self.expel_after, part: None };
         self.spaces.insert(space.clone(), Running { lease, copy });
         if !adopted {
             self.spawner.start(setup);
         }
         Ok(sim)
+    }
+
+    /// A channel of a region played in parts: a simulation for each part (the first `first`), each
+    /// owning its chunks and told who owns the rest and which slots it seats its own players in. The
+    /// space's lease is the first part's, and so is where its players come in: whoever stands in
+    /// another's is handed over there as the first tick ends (crates/engine/src/border).
+    async fn ensure_parts(&mut self, space: &SpaceId, first: SimId, split: Vec<Vec<(i32, i32)>>, cuts: &[i32]) -> Result<SimId, String> {
+        let split: Vec<Vec<(i32, i32)>> = split.into_iter().take(parts::MOST_PARTS).collect();
+        let mut sims = vec![first];
+        for _ in 1..split.len() {
+            sims.push(self.leases.next_sim().await?);
+        }
+        let lease = self.leases.grant(space, first, split[0].clone()).await?;
+        if lease.sim != first {
+            // Played already, by another process's parts: taken as it is, nothing started.
+            let sim = lease.sim;
+            self.spaces.insert(space.clone(), Running { lease, copy: None });
+            return Ok(sim);
+        }
+        let owners = parts::owners(world_map(), cuts, &sims);
+        let mut leases = Vec::new();
+        for (k, chunks) in split.into_iter().enumerate() {
+            let l = Lease { sim: sims[k], chunks, ..lease.clone() };
+            let part = Part { owners: owners.clone(), seats: parts::seats(k) };
+            self.spawner.start(SimSetup { lease: l.clone(), owner: None, expel_after: self.expel_after, part: Some(part) });
+            leases.push(l);
+        }
+        self.spaces.insert(space.clone(), Running { lease, copy: None });
+        self.parts.insert(space.clone(), leases);
+        Ok(first)
     }
 
     /// A space's simulation lost its lease (among several processes: its process stopped, or was cut
@@ -433,6 +492,7 @@ impl<L: Leases> Directory<L> {
             return;
         }
         let r = self.spaces.remove(space).expect("there");
+        self.parts.remove(space);
         self.copies.retain(|_, s| s != space);
         let inside: Vec<CharacterId> = self.last.iter().filter(|(_, s)| *s == space).map(|(c, _)| *c).collect();
         for c in inside {

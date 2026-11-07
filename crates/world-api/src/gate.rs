@@ -47,6 +47,13 @@ pub enum ToConn {
     /// They play in another simulation now: their inputs go there from here on. Their browser hears
     /// where it is (`space`), and everything it saw is somewhere else.
     Moved { sim: SimId, space: SpaceView },
+    /// They're being handed to the simulation playing the next part of their region, across a border
+    /// (crates/engine/src/border): their gate holds their inputs until they're taken. Their browser
+    /// hears nothing.
+    Crossing,
+    /// Taken across a border by `sim`: their inputs go there from input `from` on, those held first.
+    /// Their browser hears nothing: nothing it sees has moved.
+    Crossed { sim: SimId, from: u32 },
     /// Another window took the character over: say so and hang up.
     Kicked,
     /// Their life was written (at that time).

@@ -19,12 +19,12 @@
 
 use std::collections::BTreeMap;
 
-use super::messages::{Blowing, HitSent, Inputs, Post, Says, SlamSent, Struck, Taken};
-use super::sim::Sim;
+use super::messages::{Inputs, Post, Says, Struck, Taken};
+use super::sim::{Border, Sim};
 use super::{Owners, SimId};
-use crate::actors::{Actors, FoeHit, LEAN_DAMPING, LEAN_SPRING, Slam, StepOut};
+use crate::actors::{Actors, LEAN_DAMPING, LEAN_SPRING, StepOut};
 use crate::bots::Bot;
-use crate::combat::{Across, Landing, Players, Target, in_order};
+use crate::combat::{Landing, Players, in_order};
 use crate::ids::EntityId;
 use crate::life::Life;
 use crate::open::OpenWorld;
@@ -155,7 +155,7 @@ impl Split {
             .map(|id| {
                 let mut players = Players::new(tick_ms);
                 players.ground = ground;
-                Sim::new(id, map, OpenWorld::on(map, zone), players, Actors::new())
+                Sim::new(id, owners.clone(), map, OpenWorld::on(map, zone), players, Actors::new())
             })
             .collect();
         Split {
@@ -264,24 +264,14 @@ impl Split {
     /// Ghosts traded between every pair of simulations: players if `players`, creatures if
     /// `creatures`.
     fn trade_ghosts(&mut self, players: bool, creatures: bool) {
-        let ids: Vec<SimId> = self.sims.iter().map(|s| s.id).collect();
+        let tick = self.tick;
         let mut posts = Vec::new();
         for s in &mut self.sims {
-            let me = s.id;
-            for &to in ids.iter().filter(|&&t| t != me) {
-                let g = s.ghosts_for(to, &self.owners, players, creatures);
-                if !g.is_empty() {
-                    posts.push(Post { from: s.id, to, tick: self.tick, says: Says::Ghosts(g) });
-                }
-            }
+            posts.extend(s.border.ghosts_out(&s.players, &s.actors, tick, players, creatures));
         }
         for (to, posts) in self.trade(posts) {
             let s = self.sim_mut(to);
-            for p in posts {
-                if let Says::Ghosts(g) = p.says {
-                    s.take_ghosts(p.from, g);
-                }
-            }
+            s.border.ghosts_in(&mut s.players, &mut s.actors, posts);
         }
     }
 
@@ -433,60 +423,20 @@ impl Split {
     fn land(&mut self, landings: &mut [Landing]) {
         let tick = self.tick;
         let mut posts = Vec::new();
-        for (i, l) in landings.iter_mut().enumerate() {
-            let away = std::mem::take(&mut l.away);
-            let s = &self.sims[i];
-            let mut by: BTreeMap<SimId, Across> = BTreeMap::new();
-            for b in away.blows {
-                let owner = match b.target {
-                    Target::Creature(id) => s.creature_of.get(&id).copied(),
-                    Target::Player(v) => s.owner_of(v).or_else(|| self.registry.get(&v).copied()),
-                };
-                if let Some(o) = owner {
-                    by.entry(o).or_default().blows.push(b);
-                }
-            }
-            for h in away.heals {
-                if let Some(o) = s.owner_of(h.target).or_else(|| self.registry.get(&h.target).copied()) {
-                    by.entry(o).or_default().heals.push(h);
-                }
-            }
-            for (to, a) in by {
-                posts.push(Post { from: s.id, to, tick, says: Says::Across(a) });
-            }
+        for (s, l) in self.sims.iter().zip(landings.iter_mut()) {
+            posts.extend(s.border.across_out(&s.players, l, tick));
         }
-        let mut incoming: BTreeMap<SimId, Across> = BTreeMap::new();
-        for (to, posts) in self.trade(posts) {
-            for p in posts {
-                if let Says::Across(a) = p.says {
-                    incoming.entry(to).or_default().extend(a);
-                }
-            }
-        }
+        let mut incoming = self.trade(posts);
         let mut posts = Vec::new();
-        for (i, l) in landings.iter_mut().enumerate() {
-            let s = &mut self.sims[i];
-            let from = incoming.remove(&s.id).unwrap_or_default();
+        for (s, l) in self.sims.iter_mut().zip(landings.iter_mut()) {
+            let from = Border::dealt(incoming.remove(&s.id).unwrap_or_default());
             s.players.land(l, &mut s.actors, from);
-            let away = std::mem::take(&mut l.away);
-            debug_assert!(away.blows.is_empty() && away.heals.is_empty(), "a blow or heal for another simulation came here");
-            let mut by: BTreeMap<SimId, Vec<crate::combat::Told>> = BTreeMap::new();
-            for t in away.told {
-                if let Some(o) = s.owner_of(t.slot).or_else(|| self.registry.get(&t.slot).copied()) {
-                    by.entry(o).or_default().push(t);
-                }
-            }
-            for (to, told) in by {
-                posts.push(Post { from: s.id, to, tick, says: Says::Across(Across { told, ..Across::default() }) });
-            }
+            debug_assert!(l.away.blows.is_empty() && l.away.heals.is_empty(), "a blow or heal for another simulation came here");
+            posts.extend(s.border.told_out(&s.players, l, tick));
         }
-        for (to, posts) in self.trade(posts) {
-            let i = self.index(to);
-            for p in posts {
-                if let Says::Across(a) = p.says {
-                    landings[i].tell(a.told);
-                }
-            }
+        let mut incoming = self.trade(posts);
+        for (s, l) in self.sims.iter().zip(landings.iter_mut()) {
+            Border::told_in(&s.players, l, incoming.remove(&s.id).unwrap_or_default());
         }
     }
 
@@ -496,62 +446,27 @@ impl Split {
     fn creatures(&mut self) -> Vec<(SimId, StepOut)> {
         let tick = self.tick;
         let mut done: Vec<(SimId, StepOut)> = Vec::new();
-        let mut slams: BTreeMap<SimId, Vec<(Blowing, Slam)>> = BTreeMap::new();
-        let mut hits: BTreeMap<SimId, Vec<(Blowing, FoeHit)>> = BTreeMap::new();
+        let mut here: Vec<Struck> = Vec::new();
         let mut posts = Vec::new();
         for s in &mut self.sims {
             let foes = s.players.foes();
             let ground = s.players.ground;
             let ground_at = move |x: f64, z: f64| ground.map_or(0.0, |g| g.height(x, z));
-            let mut all = StepOut::default();
-            let mut out_struck: BTreeMap<SimId, Struck> = BTreeMap::new();
+            let (mut all, mut mine, mut out) = (StepOut::default(), Struck::default(), BTreeMap::new());
             for frame in 0..FRAMES {
                 let o = s.actors.step(&foes, &ground_at, LEAN_SPRING, LEAN_DAMPING, 1.0 / 60.0);
-                let mut n: BTreeMap<u32, u32> = BTreeMap::new();
-                for sl in &o.slams {
-                    let k = n.entry(sl.by).or_insert(0);
-                    let key = Blowing::slam(frame, sl, *k);
-                    *k += 1;
-                    slams.entry(s.id).or_default().push((key, *sl));
-                    for to in self.owners.near(s.id, sl.x, sl.z, super::BAND) {
-                        out_struck.entry(to).or_default().slams.push((key, SlamSent::of(sl)));
-                    }
-                }
-                let mut n: BTreeMap<(bool, u32), u32> = BTreeMap::new();
-                for h in &o.hits {
-                    let probe = Blowing::hit(frame, h, 0);
-                    let k = n.entry((probe.missile, probe.by)).or_insert(0);
-                    let key = Blowing::hit(frame, h, *k);
-                    *k += 1;
-                    let slot = (h.foe as usize).wrapping_sub(1);
-                    match s.owner_of(slot) {
-                        Some(o) if o == s.id => hits.entry(s.id).or_default().push((key, *h)),
-                        Some(o) => out_struck.entry(o).or_default().hits.push((key, HitSent::of(h))),
-                        None => {}
-                    }
-                }
+                s.border.struck_out(&s.players, frame, &o, &mut mine, &mut out);
                 all.extend(o);
             }
-            for (to, st) in out_struck {
-                posts.push(Post { from: s.id, to, tick, says: Says::Struck(st) });
-            }
+            posts.extend(out.into_iter().map(|(to, st)| Post { from: s.id, to, tick, says: Says::Struck(st) }));
+            here.push(mine);
             done.push((s.id, all));
         }
-        for (to, posts) in self.trade(posts) {
-            for p in posts {
-                if let Says::Struck(st) = p.says {
-                    slams.entry(to).or_default().extend(st.slams.into_iter().map(|(k, sl)| (k, sl.slam())));
-                    hits.entry(to).or_default().extend(st.hits.into_iter().map(|(k, h)| (k, h.hit())));
-                }
-            }
-        }
-        for s in &mut self.sims {
-            let mut sl = slams.remove(&s.id).unwrap_or_default();
-            sl.sort_by_key(|(k, _)| *k);
-            let mut hs = hits.remove(&s.id).unwrap_or_default();
-            hs.sort_by_key(|(k, _)| *k);
-            s.players.apply_slams(&sl.into_iter().map(|(_, x)| x).collect::<Vec<_>>());
-            s.players.apply_foe_hits(&hs.into_iter().map(|(_, x)| x).collect::<Vec<_>>());
+        let mut incoming = self.trade(posts);
+        for (s, mine) in self.sims.iter_mut().zip(here) {
+            let (slams, hits) = Border::struck_in(mine, incoming.remove(&s.id).unwrap_or_default());
+            s.players.apply_slams(&slams);
+            s.players.apply_foe_hits(&hits);
         }
         done
     }
@@ -560,7 +475,7 @@ impl Split {
     pub fn end_tick(&mut self) {
         let tick = self.tick;
         for s in &mut self.sims {
-            let posts = s.hand_over(&self.owners, tick);
+            let posts = s.hand_over(tick);
             for p in &posts {
                 // The gate holds whoever is on their way.
                 if let Says::Handoff(h) = &p.says {

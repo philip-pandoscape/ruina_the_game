@@ -4,11 +4,9 @@ The borders workstream of the finishing push ([finish.md](../finish.md)): one wo
 simulations, each owning a set of chunks, its borders crossed as if they weren't there. Branch
 `refactor/borders`, worktree `C:\GitHub\games\ruina-wt-borders`, slot 6.
 
-**First half: done.** **Second half: waiting** (tiers has landed on `refactor/first` and is merged
-here; the orchestrator's word starts it). `npm run check` passes after the merge (263 TypeScript
-tests; the engine's 200, the order test's 5, the WebAssembly's 4, the server's 90, world-api's 6).
-The guides (`docs/world.md` Borders, `crates/engine/AGENTS.md`) wait for the end's one pass, at the
-user's word.
+**First half: done.** **Second half: the code and its unit tests done (2026-11-06), below**; its
+integration and end-to-end tests are the end agent's, at the user's word (listed below). The guides
+(`docs/world.md` Borders, `crates/engine/AGENTS.md`) wait for the end's one pass.
 
 ## What Landed
 
@@ -114,9 +112,57 @@ tenfold; a handoff is rare and can stay whole.
   houses near a border need land's rows on both sides.
 - **multiserver:** the posts are serde and proved written out and read back; the barrier choice above.
 
-## Second Half (when told)
+## Second Half (2026-11-06): the Code and Its Unit Tests
 
-The messages into `crates/world-api` (a `ToSim::Border` post); region simulations on the tiers' sim
-layer owning their chunks and trading through the post; the gate's `Heard::Moving`/`Taken` in the
-gate tier, buffering and re-routing by sequence number; the directory keeping `Owners`; an
-integration spec crossing between two simulations of one process, and the server's tests.
+At the user's word: code and unit tests of the pieces only; no integration or end-to-end tests, no
+guides. `npm run check` passes (291 TypeScript tests; Rust: the engine's 214, the server's, world-api's
+and the rest all pass, clippy clean).
+
+| Commit | What |
+|---|---|
+| aab5a00 | `border::sim::Border`: a simulation's side of its borders on its own (owners, epochs, ghosts, handoffs, resends), the harness and the split on it; the crossings on bigworld's fixture world (`open::fixture`, `LAND_BORDER`/`SEA_BORDER`) |
+| 303fd31 | The server plays a region in parts: `sim/border.rs` (`Game::play_part`, a tick's ten barriers, handoffs in and out), `sim/link.rs` (the trade over the post), `ToSim::Border(Parcel)`, `ToConn::Crossing`/`Crossed`, the gate holding and re-routing, ghosts in the sim's own frame |
+| 1cca2f4, dc6175c | `refactor/first` merged (channels, wire; then multiserver) |
+| 2b76602 | The directory cuts a region into parts (`directory/parts.rs`, `Directory::cuts`, `ensure_parts`), `start::start_split`; the unit tests |
+| 5a90ed0 | The bible's plumbing names the new files |
+
+- **Who owns what:** the directory cuts a region along chunk columns (`Directory::cuts`, empty unless
+  `start::start_split` sets it: production cuts nothing), starts a sim per part (each lease its own
+  chunks; the space's lease is the first's) with the owners' table and a quarter of the slots for its
+  own players (`parts::seats`, so a player keeps their slot everywhere). Players come in to the first
+  part and are handed over by where they stand.
+- **The trade shape: lockstep, at each of the ten barriers (`Barrier`), exact.** `Link::trade` sends
+  each neighbour one parcel per barrier and waits for each of theirs (250 ms patience, then goes on);
+  mail for later is kept. `Pace::Late` (take what has come, go on: ghosts and blows a tick late) is
+  built and unit-tested on the same messages but **not wired** (the host always runs lockstep) and
+  not proven: its divergence is unmeasured.
+- **The gate:** `Crossing` holds the connection's inputs, `Crossed { sim, from }` sends the held ones
+  from `from` (the taker's next) and all after to the taker. The browser hears neither; only `Moved`
+  (a new space) resets the wire's viewer and feed. Ghosts (players with their vehicles, creatures) go
+  in the sim's own frame under their own `EntityId`s (`publish.rs`).
+- **Cluster protocol 3** (multiserver's `PROTOCOL`): world-api carries the new messages, and `Spawn`
+  carries a part.
+
+**Not done, or known short:** parts across processes (the parts' other sims get no lease or placement
+of their own; one process only, today); server bots aren't carried across (a bot past a border
+arrives without its brain and stands); a neighbour that stops costs each barrier 250 ms and nothing
+takes its chunks over; channels' `Hand` into a split channel goes to its first part; neighbours'
+arrows, meteors and effects aren't drawn across the border; the leases table knows the first part.
+
+**Tests for the end agent** (each through the tiers, `start::start_split` cutting Emberholm at x = 0
+unless said):
+1. Walking across: no `Moved`, tick numbers continuous, every input acknowledged once, the position
+   continuous; afterwards `SaveAll` writes them once, from the east.
+2. Exactness at the server: the same inputs through one whole `Game` and through two parts (an
+   in-memory trade) agree tick for tick, players, creatures and told numbers (the engine's golden
+   split, one level up).
+3. A cart with a passenger crossing: both handed in one tick, the passenger still seated.
+4. A fight across: west hits east and east hits west, players and creatures, both sides told the
+   same numbers; deaths and loot on the owner's side.
+5. Seeing across: a west player's frame shows the east's players, vehicles and creatures under the
+   same ids, and keeps them as they cross (Playwright, two windows: no flicker, no feed reset).
+6. Channels and dungeons: `Hand` into a split channel, mail forwarded for 30 s after a crossing, a
+   dungeon's portal used from the east part and back.
+7. Stopping the server with players in both parts writes every life (`tests/update.spec.ts`).
+8. A part that stops: its neighbours play on after the patience; what their players see of its ghosts.
+9. `Pace::Late` wired as an option, and its drift from lockstep measured.
