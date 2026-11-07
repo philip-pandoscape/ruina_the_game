@@ -46,6 +46,21 @@ browser ─WebSocket─▶ gate ×N ──inputs, commands──▶ sim ×M (a r
   space and chunk, the same in every channel; each plot is claimed once in the world, first come,
   and contested; trades, purchases, payouts and pots are idempotent ledger transfers.
 
+## The End (the user, 2026-11-06, late evening)
+
+Once wire, land, borders, channels and multiserver are back and merged:
+1. **One sub-agent does the words** (R10.14): "island" out of the code, the wire, the docs and the
+   saves' column. Merged here.
+2. **End-to-end testing here, in the orchestrating session:** the whole integration tier and the
+   integration and end-to-end tests each workstream's report lists; the stress tier and scale's
+   measurements again, against its baseline (no second half for scale as an agent); the look check
+   against beta's screenshots (`scratch/look-before-beta/`); the game as several processes. Fix what
+   they find; the docs (Phase 13: AGENTS.md, `docs/`, the design bible's tracker) alongside.
+3. **To `beta`:** the saves' migrations tried first on a copy of beta's database (read through the
+   Railway CLI, nothing written there), `ADMIN_USERS=philip` set on Railway's beta, then
+   `refactor/first` merged into `beta` and pushed (the user's word), CI and the deploy watched.
+   Beta runs every role in one process, as today; several Railway services are the user's call.
+
 ## Workstreams
 
 | Id | Scope (tracker) | Branch, worktree (`C:\GitHub\games\…`) | Slot | Wave | Needs |
