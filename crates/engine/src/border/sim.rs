@@ -47,6 +47,9 @@ pub struct Sim {
     /// What everyone it owns or sees looked like as each of the last ticks began, in the order of
     /// their slots, for its bots: (slot, character, team, as seen).
     pub looked: VecDeque<Vec<(usize, i64, u8, FoeSeen)>>,
+    /// Inputs sent on to it for players it hasn't taken yet (their handoff on its way), kept for
+    /// when it does.
+    waiting: BTreeMap<EntityId, Vec<Input>>,
 }
 
 impl Sim {
@@ -66,6 +69,7 @@ impl Sim {
             shown: BTreeMap::new(),
             queued: BTreeMap::new(),
             looked: VecDeque::new(),
+            waiting: BTreeMap::new(),
         }
     }
 
@@ -201,13 +205,21 @@ impl Sim {
 
     // ---------- Inputs ----------
 
-    /// Inputs for `client`: queued in order if it's this simulation's, each once; or, if it was
-    /// handed over, sent on to whoever has it now.
+    /// Inputs for `client`: queued in order if it's this simulation's, each once; sent on to whoever
+    /// has them now if they were handed over; kept for them if they're on their way here.
     pub fn take_inputs(&mut self, client: EntityId, mut inputs: Vec<Input>, tick: u64) -> Option<Post> {
         if self.players.slot_index(client).is_none() {
-            let slot = *self.clients.get(&client)?;
-            let to = self.ghost_of.get(&slot).copied()?;
-            return Some(Post { from: self.id, to, tick, says: Says::Inputs(Inputs { client, inputs }) });
+            let elsewhere = self.clients.get(&client).and_then(|slot| self.ghost_of.get(slot)).copied();
+            match elsewhere {
+                Some(to) if to != self.id => return Some(Post { from: self.id, to, tick, says: Says::Inputs(Inputs { client, inputs }) }),
+                _ => {
+                    let w = self.waiting.entry(client).or_default();
+                    if w.len() < 240 {
+                        w.extend(inputs);
+                    }
+                    return None;
+                }
+            }
         }
         inputs.sort_by_key(|i| i.seq);
         let last = self.queued.entry(client).or_insert(0);
@@ -231,6 +243,8 @@ impl Sim {
     /// the owner of where it stands: a player on their own, or a driver with their passengers. A
     /// passenger whose driver is another's goes to theirs. Each leaves a ghost here, as they left.
     pub fn hand_over(&mut self, owners: &Owners, tick: u64) -> Vec<Post> {
+        // Any not yet taken go again (the taker takes each once, by its epoch).
+        let mut posts: Vec<Post> = self.leaving.values().map(|l| Post { from: self.id, to: l.to, tick, says: Says::Handoff(l.handoff.clone()) }).collect();
         let own = self.own();
         let mut units: Vec<(SimId, Vec<usize>)> = Vec::new();
         for &(slot, client) in &own {
@@ -260,7 +274,6 @@ impl Sim {
             }
             units.push((to, unit));
         }
-        let mut posts = Vec::new();
         for (to, unit) in units {
             let mut handoff = Handoff { players: Vec::new() };
             for slot in &unit {
@@ -311,6 +324,10 @@ impl Sim {
             self.queued.insert(client, next - 1);
             if let Some(b) = bot {
                 self.bots.insert(slot, b);
+            }
+            // Whatever reached here for them on the way.
+            if let Some(w) = self.waiting.remove(&client) {
+                self.take_inputs(client, w, 0);
             }
             taken.players.push((slot, client, epoch, next));
         }

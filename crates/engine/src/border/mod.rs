@@ -31,6 +31,8 @@
 //! missiles, arrows). A region split between simulations stays exact while each family stands on one
 //! side, as regions keep them (their homes away from borders, and leashed).
 
+#[cfg(test)]
+mod crossings;
 pub mod messages;
 pub mod sim;
 pub mod split;

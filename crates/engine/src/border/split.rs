@@ -64,8 +64,8 @@ pub struct Split {
     pub owners: Owners,
     /// In the order of their ids.
     pub sims: Vec<Sim>,
-    /// The gate's: where each player's inputs go, and from which input on.
-    pub routes: BTreeMap<EntityId, (SimId, u32)>,
+    /// The gate's part: where each player's inputs go.
+    pub gate: Gate,
     /// The directory's: which simulation owns each slot's player.
     pub registry: BTreeMap<usize, SimId>,
     /// Posts for the start of the next tick (handoffs), and any held back by a test.
@@ -77,11 +77,73 @@ pub struct Split {
     pub counts: Counts,
     /// The tick being stepped.
     pub tick: u64,
-    /// Tests: the gate learns where a player went this many ticks after they were taken.
-    pub gate_lag: u64,
-    learned: Vec<(u64, EntityId, SimId, u32)>,
     /// Whether ghosts have been traded yet (the first tick's begin with them).
     started: bool,
+}
+
+/// The gate's part of a split world: where each player's inputs go, and from which input on; while
+/// a player is handed over, their inputs held until they're taken, then sent to the taker in order.
+/// In the server it's the gate tier's (crates/server's gate), hearing of handoffs from the
+/// simulations.
+#[derive(Default)]
+pub struct Gate {
+    /// Each player's simulation, and the first input it runs of theirs.
+    pub routes: BTreeMap<EntityId, (SimId, u32)>,
+    /// Players being handed over, and the inputs held for them.
+    pub held: BTreeMap<EntityId, Vec<Input>>,
+    /// Tests: the gate hears of handoffs this many ticks late (meanwhile what it sends goes to the
+    /// old owner, which sends it on).
+    pub lag: u64,
+    /// What it's yet to hear, and when: in half ticks (a tick's start, then its end).
+    heard: Vec<(u64, Heard)>,
+}
+
+/// What the gate hears of a handoff.
+enum Heard {
+    /// The player is on their way: hold their inputs.
+    Moving(EntityId),
+    /// The player was taken by a simulation, which runs their inputs from this one on.
+    Taken(EntityId, SimId, u32),
+}
+
+impl Gate {
+    /// Where a player's inputs go now, or None while they're held.
+    pub fn route(&self, client: EntityId) -> Option<SimId> {
+        if self.held.contains_key(&client) {
+            return None;
+        }
+        self.routes.get(&client).map(|r| r.0)
+    }
+
+    /// Something said at the start (or the `end`) of tick `tick`, heard `lag` ticks later.
+    fn hear(&mut self, tick: u64, end: bool, what: Heard) {
+        self.heard.push((2 * (tick + self.lag) + u64::from(end), what));
+    }
+
+    /// What it has heard by the start (or the `end`) of tick `tick`, in the order it was said: the
+    /// inputs released to whoever took a player, as (client, simulation, inputs).
+    fn listen(&mut self, tick: u64, end: bool) -> Vec<(EntityId, SimId, Vec<Input>)> {
+        let now = 2 * tick + u64::from(end);
+        let (due, wait): (Vec<_>, Vec<_>) = std::mem::take(&mut self.heard).into_iter().partition(|(at, _)| *at <= now);
+        self.heard = wait;
+        let mut out = Vec::new();
+        for (_, h) in due {
+            match h {
+                Heard::Moving(client) => {
+                    self.held.entry(client).or_default();
+                }
+                Heard::Taken(client, sim, from) => {
+                    self.routes.insert(client, (sim, from));
+                    if let Some(inputs) = self.held.remove(&client)
+                        && !inputs.is_empty()
+                    {
+                        out.push((client, sim, inputs));
+                    }
+                }
+            }
+        }
+        out
+    }
 }
 
 impl Split {
@@ -103,15 +165,13 @@ impl Split {
         Split {
             owners,
             sims,
-            routes: BTreeMap::new(),
+            gate: Gate::default(),
             registry: BTreeMap::new(),
             mail: Vec::new(),
             wire: false,
             count: false,
             counts: Counts::default(),
             tick: 0,
-            gate_lag: 0,
-            learned: Vec::new(),
             started: false,
         }
     }
@@ -144,7 +204,7 @@ impl Split {
         assert!(s.players.join_open_at(slot, client, owner, player, life), "slot {slot} is free");
         s.joined(slot, client);
         self.registry.insert(slot, id);
-        self.routes.insert(client, (id, 1));
+        self.gate.routes.insert(client, (id, 1));
         id
     }
 
@@ -278,12 +338,10 @@ impl Split {
                 }
             }
         }
-        // The gate hears late, if a test says so.
+        // What the gate held for whoever was taken goes to them, in order.
         let tick = self.tick;
-        let (due, wait): (Vec<_>, Vec<_>) = std::mem::take(&mut self.learned).into_iter().partition(|(at, ..)| *at <= tick);
-        self.learned = wait;
-        for (_, client, sim, from) in due {
-            self.routes.insert(client, (sim, from));
+        for (client, sim, inputs) in self.gate.listen(tick, false) {
+            self.deliver_inputs(sim, client, inputs);
         }
         handed
     }
@@ -292,11 +350,7 @@ impl Split {
     fn took(&mut self, by: SimId, t: &Taken) {
         for &(slot, client, _, from) in &t.players {
             self.registry.insert(slot, by);
-            if self.gate_lag == 0 {
-                self.routes.insert(client, (by, from));
-            } else {
-                self.learned.push((self.tick + self.gate_lag, client, by, from));
-            }
+            self.gate.hear(self.tick, false, Heard::Taken(client, by, from));
         }
     }
 
@@ -310,7 +364,18 @@ impl Split {
     /// A player's inputs through the gate: to whoever its routes say owns them, and on from there
     /// if they've since been handed over.
     pub fn queue(&mut self, client: EntityId, inputs: Vec<Input>) {
-        let Some(&(to, _)) = self.routes.get(&client) else { return };
+        match self.gate.route(client) {
+            Some(to) => self.deliver_inputs(to, client, inputs),
+            None => {
+                if let Some(held) = self.gate.held.get_mut(&client) {
+                    held.extend(inputs);
+                }
+            }
+        }
+    }
+
+    /// Inputs handed to simulation `to`, and sent on from there to wherever their player is now.
+    fn deliver_inputs(&mut self, to: SimId, client: EntityId, inputs: Vec<Input>) {
         let tick = self.tick;
         let mut post = self.sim_mut(to).take_inputs(client, inputs, tick);
         // A stray: sent on (at most once per simulation it passes).
@@ -500,7 +565,19 @@ impl Split {
         let tick = self.tick;
         for s in &mut self.sims {
             let posts = s.hand_over(&self.owners, tick);
+            for p in &posts {
+                // The gate holds whoever is on their way.
+                if let Says::Handoff(h) = &p.says {
+                    for m in &h.players {
+                        self.gate.hear(tick, true, Heard::Moving(m.client));
+                    }
+                }
+            }
             self.mail.extend(posts);
+        }
+        // At the end of a tick the gate hears of whoever just set off (with no lag, at once).
+        for (client, sim, inputs) in self.gate.listen(tick, true) {
+            self.deliver_inputs(sim, client, inputs);
         }
     }
 }
