@@ -699,3 +699,32 @@ the developer zone; then the engine bridge (R6.4) and Phase 8's switches.
   suite at a time. Rebuild the server after a content change, since the content's hash is in its
   welcome. `ui.spec.ts:377` (pointer lock) fails on macOS anyway, and the battlefield's Healing
   Circle test can fail under load and pass alone.
+
+## 2026-11-06, Evening: Finishing, With the Multi-Server World (D21)
+
+- **The user's word, on Windows again:** finish the refactor including the multi-server support
+  (GitHub issue #4, which D20 had put after the merge), with as many sub-agents as it needs, and as
+  fast as it can go. Recorded as D21. How the work is split: [finish.md](finish.md).
+- **Picked up** at the Mac's last commits (5d25daa, 83d60a1, merged in f3dfc8a). On this machine
+  `npm run check` passes (263 TypeScript, 181 engine, 81 server tests), the conformance tier too,
+  and the integration tier ran 202 passed with one failure, the yard spec's count, which both
+  machines fixed the same way.
+- **Nine workstreams** run side by side, each on a branch and worktree of its own with its own ports
+  and database. Each commits as it goes and keeps a running report in
+  `.plans/refactor/reports/<id>.md` (on its branch until merged); this page rolls them up.
+
+### Workstreams
+
+| Workstream | Tracker | State | Latest |
+|---|---|---|---|
+| tiers | R10.20, R10.2, R10.17's ids | running | global ids in the engine (`ids.rs`) committed |
+| bigworld | R10.23, R10.16's rest | running | |
+| offline | R10.11, R10.4, R10.10's rest | running | |
+| wire | R10.8 | running (first half) | |
+| land | R10.21 | running (first half) | |
+| borders | R10.19 | running (first half) | |
+| channels | R10.22 | running (first half) | |
+| multiserver | issue #4, requirement 6 | running (first half) | |
+| scale | R10.24 | running (first half) | |
+| words | R10.14 | last, once the rest are in | |
+
