@@ -16,6 +16,8 @@ export interface MapRegion {
   id: string;
   name: string;
   subtitle: string;
+  /** Its climate (shared/farming.json's climates): what grows best there. */
+  climate: string;
   frame: MapFrame;
   /** Its places, once its recipe is known (the region you start in's from the start, the rest's as they arrive). */
   places: ZonePlace[];
@@ -34,12 +36,23 @@ export class WorldPictures {
     const zone = world.zone!;
     const hf = zone.gen.terrain;
     const homeFrame: MapFrame = { minX: hf.minX, minZ: hf.minZ, size: hf.size };
-    const own = { name: zone.recipe.name, subtitle: zone.recipe.subtitle ?? '', places: zone.recipe.places, picture: null };
-    this.regions = (layout?.regions ?? [{ id: zone.recipe.id, name: zone.recipe.name, cells: hf.cells, cell: hf.cell, minX: hf.minX, minZ: hf.minZ }]).map(
-      (r, place) =>
-        r.id === zone.recipe.id
-          ? { place, id: r.id, frame: homeFrame, ...own }
-          : { place, id: r.id, name: r.name, subtitle: '', frame: { minX: r.minX, minZ: r.minZ, size: r.cells * r.cell }, places: [], picture: null },
+    const own = { name: zone.recipe.name, subtitle: zone.recipe.subtitle ?? '', climate: zone.recipe.climate, places: zone.recipe.places, picture: null };
+    const regions = layout?.regions ?? [
+      { id: zone.recipe.id, name: zone.recipe.name, climate: zone.recipe.climate, cells: hf.cells, cell: hf.cell, minX: hf.minX, minZ: hf.minZ },
+    ];
+    this.regions = regions.map((r, place) =>
+      r.id === zone.recipe.id
+        ? { place, id: r.id, frame: homeFrame, ...own }
+        : {
+            place,
+            id: r.id,
+            name: r.name,
+            subtitle: '',
+            climate: r.climate,
+            frame: { minX: r.minX, minZ: r.minZ, size: r.cells * r.cell },
+            places: [],
+            picture: null,
+          },
     );
     this.home = this.regions.find((r) => r.id === zone.recipe.id)!;
   }
@@ -47,6 +60,11 @@ export class WorldPictures {
   /** Every region of the world. */
   all(): readonly MapRegion[] {
     return this.regions;
+  }
+
+  /** Every place of every region known so far, with the name of the region it's in. */
+  places(): Array<{ place: ZonePlace; region: string }> {
+    return this.regions.flatMap((r) => r.places.map((place) => ({ place, region: r.name })));
   }
 
   /** The region a point is in, or the nearest (the one you start in, out of the world). */

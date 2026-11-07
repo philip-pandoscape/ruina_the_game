@@ -159,9 +159,10 @@ export class LifeUI {
     const picture = this.pictures;
     this.portrait = new PortraitHud(this.ui);
     this.minimap = new Minimap(this.ui, picture);
-    this.clock = new ClockHud(this.ui);
+    const pictures = this.pictures;
+    this.clock = new ClockHud(this.ui, () => pictures.at(d.sim.player.pos.x, d.sim.player.pos.z).climate);
     this.compass = new Compass(this.ui);
-    this.banner = new Banner(this.ui);
+    this.banner = new Banner(this.ui, () => pictures.places());
     this.prompt = new Prompt(this.ui);
     this.quests = new QuestTracker(this.ui, untracked);
     this.rideBox = new RideBox(this.ui);
