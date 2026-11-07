@@ -247,3 +247,11 @@ tiers, and new ones), world-api's 6. The Postgres fence test passes with
   fails (it counts the yard's spawn entries, 2, where c4904b1 made them 6 creatures; the same on
   refactor/first, to confirm).
 - **Next**: the tick-time measurement after, the docs, `npm run check`, merging refactor/first.
+
+## 2026-11-06 22:30: merged, checked, handed back
+
+- refactor/first merged again (only the plan pages changed); `npm run check` passed on 2014767 (263
+  TypeScript tests; Rust: engine 183, order 5, WebAssembly 4, server 90, world-api 6).
+- The whole integration tier was started against the rig and stopped at the user's word (unit tier only
+  from now): 52 passed and none failed before it stopped. Earlier, every online spec passed on the tiers.
+- The rig's server is stopped; its Postgres container (`ruina-wt-tiers-db`, 5481) is left running.
