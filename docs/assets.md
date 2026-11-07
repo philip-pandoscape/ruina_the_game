@@ -21,7 +21,8 @@ is about start-up time and graphics memory.
 
 1. **Find it.** The `find-assets` skill: what's needed and its budget, a search of the free sources,
    the candidates judged and shown to the user, the chosen one fetched with `credit.json` beside it.
-   Paid makers (Meshy, Gemini) last, with the cost agreed first (AGENTS.md, "Art and assets").
+   Then Tripo's catalog of existing models, and paid makers (Meshy, Tripo, Gemini) last, with the
+   cost agreed first (AGENTS.md, "Art and assets").
 2. **Bring it in**, in the formats the game loads:
    - **Models**: glTF binary, compressed with glTF Transform (meshopt geometry, WebP textures at
      1024 pixels for buildings, 512 for props), into `src/render/assets/models/<id>.glb`:
