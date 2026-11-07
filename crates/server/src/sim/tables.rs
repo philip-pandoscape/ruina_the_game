@@ -47,7 +47,7 @@ enum Busy {
 /// Why not, to you (`name` None) or about someone else.
 fn say(b: Busy, name: Option<&str>) -> String {
     match (b, name) {
-        (Busy::Unsaved, None) => "Your character can't be saved just now, so you can't play for stakes.".into(),
+        (Busy::Unsaved, None) => "Your life can't be saved just now, so you can't play for stakes.".into(),
         (Busy::Unsaved, Some(n)) => format!("{n} can't play just now."),
         (Busy::Riding, None) => "Get down first - games are played on foot.".into(),
         (Busy::Riding, Some(n)) => format!("{n} is riding."),

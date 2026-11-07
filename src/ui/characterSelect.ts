@@ -42,7 +42,7 @@ export interface CharactersApi {
 }
 
 // The character select screen, on the title screen: your characters down the right (each with its
-// own island), the chosen one big in the middle, turning slowly on a glowing circle, and Enter
+// own life), the chosen one big in the middle, turning slowly on a glowing circle, and Enter
 // World. Create Character and Delete Character (typing the name to be sure) open dialogs over it;
 // Sign Out goes back to signing in. The last character chosen is remembered in this browser.
 //
@@ -206,7 +206,7 @@ export class CharacterSelect {
           'div',
           { className: 'cs-empty fd-in' },
           el('h2', { textContent: 'No Characters Yet' }),
-          el('p', { textContent: 'Make someone to live on Emberholm: they get an island of their own.' }),
+          el('p', { textContent: 'Make someone to live on Emberholm: they get a life of their own.' }),
           make,
         ),
       );
@@ -343,7 +343,7 @@ export class CharacterSelect {
     this.ask({
       title: 'Create Character',
       text: el('p', {
-        textContent: 'They start out on Emberholm with an island of their own. Their name shows over their head: 3 to 20 letters, digits, - or _.',
+        textContent: 'They start out on Emberholm with a life of their own. Their name shows over their head: 3 to 20 letters, digits, - or _.',
       }),
       label: 'Name',
       action: 'Create',
@@ -357,7 +357,7 @@ export class CharacterSelect {
   private remove(): void {
     const c = this.selected;
     if (!c) return;
-    const text = el('p', {}, 'This deletes ', el('b', { textContent: c.name }), ' and everything on their island, for good. Type their name to be sure.');
+    const text = el('p', {}, 'This deletes ', el('b', { textContent: c.name }), ' and everything they own, for good. Type their name to be sure.');
     this.ask({
       title: 'Delete Character',
       text,

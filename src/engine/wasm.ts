@@ -6,7 +6,7 @@
 //
 // Text goes both ways through the module's memory: input (a recipe, an id) is written into room
 // `alloc` gives; an answer in text (JSON) is left at `out_ptr()`, its length returned. Big arrays
-// (the island's heights) are copied out from where they lie.
+// (a region's heights) are copied out from where they lie.
 
 interface Exports {
   memory: WebAssembly.Memory;

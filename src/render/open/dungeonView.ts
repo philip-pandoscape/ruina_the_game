@@ -123,7 +123,7 @@ export const cavePiles = (): string[] => Object.keys(PILES);
 export class DungeonView {
   readonly group = new THREE.Group();
   readonly def: DungeonDef;
-  /** Lit by its own light, the island put away (an arena, arenaView.ts, keeps the sky). */
+  /** Lit by its own light, the world put away (an arena, arenaView.ts, keeps the sky). */
   readonly dark = true;
   private flickers: Flickers = { list: [] };
   private veil = { uTime: { value: 0 } as THREE.IUniform };

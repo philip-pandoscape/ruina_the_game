@@ -4,7 +4,7 @@ import { SURFACE } from '../../engine/zone';
 import { picture, track } from '../assets';
 import { followOrigin, fract, repeatShift } from '../origin';
 
-// The ground: real textures (CC0, CREDITS.md) laid over the island's surfaces. Each
+// The ground: real textures (CC0, CREDITS.md) laid over the world's surfaces. Each
 // texture brings only its detail, its own average colour divided out, so the palette in
 // src/render/look.ts still decides the colours and textures from different sources sit together.
 // Steep slopes turn to rock whatever their surface, projected from three sides so cliffs don't

@@ -136,7 +136,7 @@ export interface PlayerState {
   seat: number;
   /**
    * Riding along in someone else's vehicle: whose (their character), 0 in your own or on foot. Their
-   * vehicle numbers are their island's, so `vehicle` is one of theirs then.
+   * vehicle numbers are their land's, so `vehicle` is one of theirs then.
    */
   host: number;
   /** The glider you have equipped ('' for none), and its airspeed while open. */
@@ -257,7 +257,7 @@ export interface World {
   /** The recipe and everything generated from it. */
   zone?: ZoneData;
   /**
-   * Where someone knocked down gets up again instead of the island's spawn: in a copy of a dungeon,
+   * Where someone knocked down gets up again instead of the region's spawn: in a copy of a dungeon,
    * where it's entered (crates/engine/src/open/dungeon.rs OpenWorld::instance does the same).
    */
   respawnAt?: { x: number; y: number; z: number; facing: number };

@@ -5,7 +5,7 @@ import type { LifeRead } from './life';
 // Rain showers that water every crop on the isle, and a wind that wanders round the compass and
 // fills (or empties) your sails. Both run on the weather's clock: online the world's, the server's
 // own, so everyone on Emberholm is rained on and sails on the same wind at the same moment; offline
-// (and in the rules' tests) the island's. Nothing in them is left to the island's dice, so the same
+// (and in the rules' tests) the life's. Nothing in them is left to the life's dice, so the same
 // clock always has the same weather, here and on the server (crates/engine/src/life/weather.rs).
 
 export const raining = (life: LifeRead): boolean => life.state.clock < life.weather.rainUntil;
@@ -40,16 +40,16 @@ export function rainAt(t: number): { raining: boolean; start: number; end: numbe
   return { raining: t < s.end, start: s.start, end: s.end, next: shower(k + 1).start };
 }
 
-/** Hour of the day, 0..24, `seconds` into a clock: the island's own, or online the server's. */
+/** Hour of the day, 0..24, `seconds` into a clock: the life's own, or online the server's. */
 export function hourAt(sky: { dayLengthSeconds: number; startHour: number }, seconds: number): number {
   const days = seconds / sky.dayLengthSeconds + sky.startHour / 24;
   return (days - Math.floor(days)) * 24;
 }
 
 /**
- * Hour of the day, 0..24, from the island's clock. Online the sky follows the server's clock
- * instead (src/main.ts), which everyone shares: each island's clock runs on by itself while you're
- * away, so no two islands agree on the hour.
+ * Hour of the day, 0..24, from the life's clock. Online the sky follows the server's clock
+ * instead (src/main.ts), which everyone shares: each life's clock runs on by itself while you're
+ * away, so no two lives agree on the hour.
  */
 export function hourOfDay(life: LifeRead): number {
   return hourAt(life.zone.recipe.sky, life.state.clock);

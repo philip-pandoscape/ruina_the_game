@@ -1,5 +1,5 @@
 // The UI gallery's entries: every window of the game's interface, in the states worth seeing. Each
-// is drawn by /dev/ui.html#/<window>/<state> (src/dev/ui/main.ts) on a real offline island, its
+// is drawn by /dev/ui.html#/<window>/<state> (src/dev/ui/main.ts) in a real offline game, its
 // state made up from the content (src/dev/ui/states.ts), and the content library frames it as
 // #/ui/<window>/<state> (src/dev/library/galleries/ui.ts). Plain data, so the library lists them
 // without bringing in the interface itself: a new window or state is an entry here and how it is
@@ -19,10 +19,10 @@ export interface UiEntry {
 }
 
 export const UI_ENTRIES: readonly UiEntry[] = [
-  { window: 'bag', state: 'start', title: 'Bag', label: 'As You Start', about: 'Your bag on a new island.' },
+  { window: 'bag', state: 'start', title: 'Bag', label: 'As You Start', about: 'Your bag in a new life.' },
   { window: 'bag', state: 'full', title: 'Bag', label: 'One of Everything', about: 'A stack of the first item of each kind, and money to spare.' },
-  { window: 'character', state: 'start', title: 'Character', label: 'As You Start', about: 'You, your gear and your numbers on a new island.' },
-  { window: 'quests', state: 'start', title: 'Quest Log', label: 'As You Start', about: 'The quest a new island starts you on, under way.' },
+  { window: 'character', state: 'start', title: 'Character', label: 'As You Start', about: 'You, your gear and your numbers in a new life.' },
+  { window: 'quests', state: 'start', title: 'Quest Log', label: 'As You Start', about: 'The quest a new life starts you on, under way.' },
   { window: 'quests', state: 'between', title: 'Quest Log', label: 'Between Quests', about: 'The opening quest handed in, and nothing taken since.' },
   {
     window: 'quests',
@@ -31,11 +31,11 @@ export const UI_ENTRIES: readonly UiEntry[] = [
     label: 'A Quest Under Way',
     about: 'The first quest offered once the opening one is done, taken.',
   },
-  { window: 'map', state: 'island', title: 'Map', label: 'The Island', about: 'The whole island, with its places and roads.' },
+  { window: 'map', state: 'region', title: 'Map', label: 'The Region', about: 'The whole region, with its places and roads.' },
   { window: 'rides', state: 'none', title: 'Rides', label: 'Nothing to Ride', about: 'Before you own a ride.' },
   { window: 'rides', state: 'every-ride', title: 'Rides', label: 'Every Ride', about: 'The deed to every vehicle, and every mount, in the bag.' },
   { window: 'settings', state: 'default', title: 'Settings', label: 'As They Start', about: 'Every setting at its default.' },
-  { window: 'developer', state: 'tools', title: 'Developer Tools', label: 'Tools', about: 'Gifts, time and the island, for admins.' },
+  { window: 'developer', state: 'tools', title: 'Developer Tools', label: 'Tools', about: 'Gifts, time, teleports and starting over, for admins.' },
   { window: 'admin', state: 'menu', title: 'Admin', label: 'Menu', about: 'The developer zones and pages, for admins.' },
   {
     window: 'talk',

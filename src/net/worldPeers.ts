@@ -95,7 +95,7 @@ export interface Peer {
   readonly drawn: boolean;
   /** Their state at the moment drawn, between the server's updates. */
   readonly shown: PlayerState;
-  /** What of their island everyone sees: houses, farms and ships, and the vehicles, packs and glider they have out. */
+  /** What of theirs everyone sees: houses, farms and ships, and the vehicles, packs and glider they have out. */
   readonly life: LifeView;
   /** How far they are from you (m), as of the last frame. */
   readonly away: number;
@@ -206,7 +206,7 @@ export class WorldPeers {
   private peer(id: number, name: string): Kept {
     let p = this.peers.get(id);
     if (p) return p;
-    // What of their island everyone sees (their houses, farms, ships, vehicles and packs), to draw.
+    // What of theirs everyone sees (their houses, farms, ships, vehicles and packs), to draw.
     const life = new LifeView(this.zone, newLifeState({ coins: 0, labor: 0, seed: this.zone.recipe.seed }), () => {});
     life.weather = this.mine.weather;
     p = {

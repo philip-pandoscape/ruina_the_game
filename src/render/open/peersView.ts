@@ -12,7 +12,7 @@ import { LandView, sitIn, type Seated } from './land';
 import type { ModelKit } from './models';
 
 // Everyone else in your channel of Emberholm, drawn: a body for each player as they move, with their
-// name over their head, and their island (houses, farms, ships, vehicles, packs and glider) by a
+// name over their head, and their land (houses, farms, ships, vehicles, packs and glider) by a
 // life view of its own. What they are doing comes from whoever keeps them (online, the world
 // server's updates: src/net/worldPeers.ts), brought to the moment drawn before each frame.
 //
@@ -29,7 +29,7 @@ export interface ShownPeer {
   readonly drawn: boolean;
   /** Their state at the moment drawn. */
   readonly shown: PlayerState;
-  /** What of their island everyone sees. */
+  /** What of theirs everyone sees. */
   readonly life: LifeView;
   /** How far they are from you (m). */
   readonly away: number;
@@ -99,7 +99,7 @@ export class PeersView {
   mineView: LandView | null = null;
   /** Where someone sits at a mini-game's table, if they're at one (src/render/open/gameTables.ts). */
   stoolFor: ((id: number) => Seated | null) | null = null;
-  /** Where everyone's houses are drawn (the island's Village), by owner. */
+  /** Where everyone's houses are drawn (the world's Village), by owner. */
   houseSink: ((owner: string, houses: HouseView[]) => void) | null = null;
 
   /** `me`: your own id, for anyone riding along with you. */

@@ -78,7 +78,7 @@ function objectiveGoal(life: LifeRead, sim: SimRead, o: Objective): Goal | null 
     }
   }
   if (o.type === 'layKeel' || o.type === 'shipStage' || o.type === 'launch') {
-    // The slipway the quest names, else the island's own.
+    // The slipway the quest names, else the region's own.
     const sy = r.shipyards?.find((x) => x.id === o.marker?.shipyard) ?? r.shipyards?.[0];
     if (sy) {
       const slip = { x: sy.x, z: sy.z, label: o.marker?.label ?? sy.name };
@@ -100,7 +100,7 @@ function objectiveGoal(life: LifeRead, sim: SimRead, o: Objective): Goal | null 
     if (seller && !s.bag.some((x) => claimsPlot(x.item))) return { x: seller.x, z: seller.z, label: seller.name };
   }
   // Where the quest says: a place, a trading post, a workbench or a slipway. A pack with no bench
-  // to make it is made at the island's first.
+  // to make it is made at the region's first.
   return marked(life, o.marker) ?? (o.type === 'craftPack' && r.workbenches[0] ? benchGoal(r.workbenches[0]) : null);
 }
 

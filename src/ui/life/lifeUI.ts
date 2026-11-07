@@ -67,7 +67,7 @@ export type LifePress =
 
 export interface LifeUIDeps {
   life: LifeView;
-  /** Gives the island a command (the app notes it for bug reports and passes it to the rules). */
+  /** Gives your life a command (the app notes it for bug reports and passes it to the rules). */
   command: (c: Command) => void;
   sim: SimView;
   world: World;
@@ -242,7 +242,7 @@ export class LifeUI {
     return this.d.life;
   }
 
-  /** Gives the island a command: the app passes it on to the rules (online, to the server too). */
+  /** Gives your life a command: the app passes it on to the rules (online, to the server too). */
   command(c: Command): void {
     this.d.command(c);
   }
@@ -277,7 +277,7 @@ export class LifeUI {
         this.travel?.interrupt(p.mode === 'glide');
         if (p.mode === 'ride') this.command({ t: 'exit' });
         else if (p.mode === 'glide') this.command({ t: 'gust' });
-        // Someone else's vehicle isn't on your island: say whose, and the channel seats you.
+        // Someone else's vehicle isn't on your land: say whose, and the channel seats you.
         else if (f?.action === 'ride' && f.host && f.vehicle) this.command({ t: 'ride', host: f.host, vehicle: f.vehicle });
         else this.command({ t: 'interact' });
         return;
@@ -596,7 +596,7 @@ export class LifeUI {
   devTools = true;
   /**
    * Set by the app online: the hour of the day the sky shows, from the server's clock, the same for
-   * everyone. Offline the island's own clock tells the hour.
+   * everyone. Offline the life's own clock tells the hour.
    */
   skyHour: (() => number) | null = null;
   /** Online: everyone else in your channel, for the map. */

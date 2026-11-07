@@ -1,4 +1,4 @@
-// The island's life systems: trade, farming, housing, the shipyard, vehicles, quests, weather, progress, saves.
+// The life systems: trade, farming, housing, the shipyard, vehicles, quests, weather, progress, saves.
 //
 // What outside the rules uses of them: the bridge's front door for them, naming exactly what is used
 // (tests/unit/boundaries.test.ts). The rules are the engine's; what's read here is the shapes of what

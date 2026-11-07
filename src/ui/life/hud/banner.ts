@@ -36,7 +36,7 @@ export class Banner {
         here = pl.id;
       }
     }
-    // Inside a dungeon, its name: nowhere on the island is here.
+    // Inside a dungeon, its name: nowhere in the world is here.
     const dungeon = life.dungeon ? dungeonDef(life.dungeon) : undefined;
     if (dungeon) here = `dungeon:${dungeon.id}`;
     if (here && here !== this.place) {

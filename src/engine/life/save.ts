@@ -20,12 +20,12 @@ export interface LifeSave {
   player: { x: number; y: number; z: number; facing: number };
 }
 
-/** An island and when it was saved (ms, on whichever clock `now` is measured on when it loads). */
+/** A life and when it was saved (ms, on whichever clock `now` is measured on when it loads). */
 export interface SavedLife extends LifeSave {
   savedAt: number;
 }
 
-/** The island as it would be saved right now: in a copy of an instance, standing outside its door (a save is of the world). */
+/** The life as it would be saved right now: in a copy of an instance, standing outside its door (a save is of the world). */
 export function lifeSave(life: LifeRead & { readonly dungeon?: string | null }, sim: SimRead): LifeSave {
   const p = sim.player;
   const door = life.dungeon ? (dungeonDoor(life.zone.recipe, life.dungeon) ?? dungeonDef(life.dungeon)?.door) : undefined;

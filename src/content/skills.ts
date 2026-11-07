@@ -363,7 +363,7 @@ export function levelOf(xp: number): number {
   return level;
 }
 
-/** Levels from experience kept by skill id (the island's skillXp). */
+/** Levels from experience kept by skill id (the life's skillXp). */
 export const levelsFrom = (xp: Readonly<Record<string, number>> | undefined): Levels => BOOK.map((b) => levelOf(xp?.[b.id] ?? 0));
 
 export const sameLevels = (a: Levels | undefined, b: Levels | undefined): boolean => {

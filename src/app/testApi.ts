@@ -309,7 +309,7 @@ export function makeTestApi(g: GameRefs) {
       return { chosen: { ...g.build }, using: { skills: [...p.skills], weapon: p.weapon, abilities: [...p.abilities], movement: [...p.movement] } };
     },
     setBuild(b: Build): boolean {
-      // Only what your points allow: on the island, what its quests and milestones have earned.
+      // Only what your points allow: in the world, what your life's quests and milestones have earned.
       if (!validBuild(b, g.skillPoints())) return false;
       g.panel.setBuild(b);
       g.applyBuild(b);
@@ -490,7 +490,7 @@ export function makeTestApi(g: GameRefs) {
       g.followSim(STEP);
       if (drawn) g.draw(1, 0, 0);
     },
-    /** Where things are on this island. */
+    /** Where things are in this region. */
     zone() {
       if (!g.world.zone) return null;
       const r = g.world.zone.recipe;
@@ -530,7 +530,7 @@ export function makeTestApi(g: GameRefs) {
       const r = g.world.zone?.gen.ramps[i] ?? [];
       return r.filter((_, k) => k % 3 === 0 || k === r.length - 1).map(([x, z]) => [x, z]);
     },
-    /** The ground things are drawn on at (x, z): the island's, or the floor of the dungeon or zone you're in. */
+    /** The ground things are drawn on at (x, z): the region's, or the floor of the dungeon or zone you're in. */
     ground(x: number, z: number): number {
       return g.groundY(x, z);
     },
@@ -575,7 +575,7 @@ export function makeTestApi(g: GameRefs) {
       });
       return out;
     },
-    /** Writes the island to this browser now (tests and bug-report replays). Online the server keeps it. */
+    /** Writes your life to this browser now (tests and bug-report replays). Online the server keeps it. */
     saveNow(): void {
       if (!g.online && g.life) saveLife(g.life, g.sim);
     },

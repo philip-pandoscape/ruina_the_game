@@ -7,10 +7,10 @@ import { bev, box, cone, cyl, faceted, glowMaterial, jiggle, lathe, makeRng, mer
 // for a gong, crude pictures daubed on the rock, and the portal's swirling veil. Procedural, in the
 // kit's way (src/render/models/kit.ts): shapes placed, coloured per face and merged into one mesh.
 
-/** The rock the goblins' caves are cut in: the island's own greys, mossy on top. */
+/** The rock the goblins' caves are cut in: the world's own greys, mossy on top. */
 const ROCK = { top: 0x8f877d, side: 0x746c63, moss: 0x5d7240, dark: 0x5a534c };
 
-/** A rough slab of rock: a box jiggled out of true, faces in the island's rock colours, moss on top. `flatTop` keeps the top no higher than that (something walked on). */
+/** A rough slab of rock: a box jiggled out of true, faces in the world's rock colours, moss on top. `flatTop` keeps the top no higher than that (something walked on). */
 export function rockSlab(w: number, h: number, d: number, seed: number, flatTop?: number): THREE.BufferGeometry {
   const g = new THREE.BoxGeometry(w, h, d, Math.max(2, Math.round(w / 1.3)), 2, Math.max(2, Math.round(d / 1.3)));
   jiggle(g, Math.min(w, h, d) * 0.25, seed);

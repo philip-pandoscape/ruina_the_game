@@ -81,7 +81,7 @@ export const RULES: readonly AssetRule[] = [
     match: 'ground/*',
     kind: 'texture',
     zones: ['emberholm'],
-    why: "The island's ground textures, colour and normal per surface (src/render/open/ground.ts)",
+    why: "The world's ground textures, colour and normal per surface (src/render/open/ground.ts)",
   },
   { match: 'bark_*', kind: 'texture', zones: ['emberholm'], why: "The trees' bark (src/render/open/leaves.ts)" },
   {

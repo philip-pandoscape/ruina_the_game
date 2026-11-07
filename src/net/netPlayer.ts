@@ -66,7 +66,7 @@ export class Prediction {
   private pending: Array<{ seq: number; actions: Actions }> = [];
   private synced = false;
   /**
-   * Open worlds: puts back the parts of the island that move with you (your vehicles, the clock),
+   * Open worlds: puts back the parts of your life that move with you (your vehicles, the clock),
    * as of the same server update, before your unconfirmed inputs are run again on top of it.
    */
   beforeReplay: (() => void) | null = null;

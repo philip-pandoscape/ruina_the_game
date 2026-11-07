@@ -563,7 +563,7 @@ impl Game {
                 && let Err(e) = load_life(&mut life, &mut player, &mut self.open, character, saved, a.saved_at.unwrap_or(a.now), a.now)
             {
                 eprintln!("character {character}: the saved life can't be read ({e}); it is kept as it is, and this visit isn't saved");
-                life.toast("Your character couldn't be loaded. It's kept safe on the server, but nothing from this visit will be saved.", "bad");
+                life.toast("Your life couldn't be loaded. It's kept safe on the server, but nothing from this visit will be saved.", "bad");
                 keep_saved = true;
             }
             // What they place is named from the world's ids (a block the store gave them).

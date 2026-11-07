@@ -5,7 +5,7 @@ import { QUESTS } from '../../content/quests';
 // Getting better: the skills you use level up, and the tree grows with what you've done.
 //
 // Experience. Each hit a weapon lands, each cast of an ability and each use of a movement skill adds
-// one to that skill (state.skillXp, kept with your island), and a level comes at each step of the
+// one to that skill (state.skillXp, kept with your life), and a level comes at each step of the
 // curve in tuning.json skills.levels. A level-up is a quest event too, for the milestones that count
 // them. The engine counts them (crates/engine/src/life/progress.rs).
 //

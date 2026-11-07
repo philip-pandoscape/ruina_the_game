@@ -42,7 +42,7 @@ export interface LifeState {
   coins: number;
   /**
    * Coins on a table for a mini-game being played online (crates/server/src/sim/tables.rs): out of
-   * the purse until the game pays out. An island loaded with some still here gets them back.
+   * the purse until the game pays out. A life loaded with some still here gets them back.
    */
   staked?: number;
   seals: number;
@@ -58,7 +58,7 @@ export interface LifeState {
   contracts?: ContractState;
   /** What you sold to merchants and can still buy back from them, oldest first (src/engine/life/trade.ts). */
   buyback?: Buyback[];
-  /** Gathering spots resting: the spot's id -> the island's clock when it is back. */
+  /** Gathering spots resting: the spot's id -> the life's clock when it is back. */
   nodes: Record<string, number>;
   quests: { active: QuestProgress[]; done: string[] };
   /** Experience of each skill in the skill book, by its id (src/engine/life/progress.ts). */

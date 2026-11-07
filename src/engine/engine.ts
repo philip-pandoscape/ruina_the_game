@@ -22,9 +22,9 @@ import { RangeView, SimView } from './views';
 // rules (crates/engine), compiled to WebAssembly (crates/engine-wasm) and played here as a session
 // (src/engine/session.ts), the same rules the server runs (Phase 8). Whatever changes the rules'
 // state from outside is a call here, named for what it does: putting you somewhere, your build, a
-// copy's floors and walls, an island loaded, the server's word on you. After every step and call
+// copy's floors and walls, a life loaded, the server's word on you. After every step and call
 // what the page reads is read back from the session: you and the creatures (`sim`, src/engine/
-// views.ts), the island (`life`, src/engine/lifeView.ts), and for drawing and the camera the
+// views.ts), your life (`life`, src/engine/lifeView.ts), and for drawing and the camera the
 // world's colliders whenever what's solid changes. Those are for reading.
 
 export interface EngineOptions {
@@ -81,7 +81,7 @@ export class Engine {
   readonly sim: SimView;
   /** Offline: your arrows and meteors in flight. */
   readonly range: RangeView | null;
-  /** The island (trade, farming, housing, vehicles, quests) as the engine last showed it. */
+  /** Your life (trade, farming, housing, vehicles, quests) as the engine last showed it. */
   readonly life: LifeView;
   /**
    * Called when a step puts you somewhere by itself (offline, fallen out of the bottom of a copy:
@@ -94,11 +94,11 @@ export class Engine {
   // rules see the same answers all through it.
 
   /**
-   * Online: your commands go to the server, which runs your island (crates/server/src/play), rather
+   * Online: your commands go to the server, which runs your life (crates/server/src/sim), rather
    * than running here. Null drops them (online, until the connection is wired up).
    */
   remote: ((c: Command) => void) | null = null;
-  /** Online: the world's clock (the server's, in seconds since 1970), which the rain and the wind run on so that everyone has the same weather; null runs them on the island's own clock. */
+  /** Online: the world's clock (the server's, in seconds since 1970), which the rain and the wind run on so that everyone has the same weather; null runs them on the life's own clock. */
   worldClock: (() => number) | null = null;
   /** Online: everyone else's vehicles, with whose they are and which seats are taken, for the prompt to offer to ride along. */
   othersVehicles: (() => OthersVehicle[]) | null = null;
@@ -112,7 +112,7 @@ export class Engine {
   private dungeon: string | null = null;
   /** What's solid as last read back (`SessionView.solid`). */
   private solid: number;
-  /** The island's revision as the engine last had it, to tell the page's when it moves. */
+  /** The life's revision as the engine last had it, to tell the page's when it moves. */
   private revision = -1;
   /** What the page last said about everyone else (as JSON), so it's handed over again only when it changes. */
   private toldOthers = '';
@@ -313,7 +313,7 @@ export class Engine {
     this.session.call('others', { vehicles, around, plots });
   }
 
-  /** A command for the island, run on the next step (online, it goes to the server instead: `remote`). */
+  /** A command for your life, run on the next step (online, it goes to the server instead: `remote`). */
   command(c: Command): void {
     if (this.online) {
       this.remote?.(c);
@@ -322,7 +322,7 @@ export class Engine {
     this.session.call('command', { command: c });
   }
 
-  /** Your skill levels, set outright (tests): the island raises them as your skills learn from use. */
+  /** Your skill levels, set outright (tests): your life raises them as your skills learn from use. */
   setLevels(levels: Levels): void {
     this.sim.levels = levels;
     this.session.call('setLevels', { levels });
@@ -349,7 +349,7 @@ export class Engine {
   /**
    * Into a copy of a dungeon or developer zone: its floors and walls solid around you, and knocked
    * down in it you get up where it's entered (as the server has it: crates/engine/src/open/dungeon.rs);
-   * the island's prompts and weather know you're inside. False if there's no such dungeon here.
+   * the life's prompts and weather know you're inside. False if there's no such dungeon here.
    */
   enterDungeon(id: string): boolean {
     if (!this.session.call<boolean>('enterDungeon', { id })) return false;
@@ -403,7 +403,7 @@ export class Engine {
   }
 
   /**
-   * Restores a saved island (an automated test's, or a bug report's): its state, the time you were
+   * Restores a saved life (an automated test's, or a bug report's): its state, the time you were
    * away, where you stood. `now` is the clock `savedAt` was measured on. Returns false, changing
    * nothing, for a save from a newer game than this one.
    */
@@ -417,7 +417,7 @@ export class Engine {
 
   /**
    * Online: the server's word on you. You start again from `server`, `restore` puts back the parts
-   * of the island that move with you as of the same update, then `inputs` (those it hasn't used yet)
+   * of your life that move with you as of the same update, then `inputs` (those it hasn't used yet)
    * run again on top: numbered as they were the first time (the frame count is the clock everything
    * is drawn by) and setting nothing off (that was shown already). With none to run you're drawn
    * from where you were, so the last step isn't drawn twice. `first`: the first word since joining,
@@ -437,14 +437,14 @@ export class Engine {
    * Online: your life as a tick has it: its state, your land, the world's market, and whether you're
    * placing something or resting.
    */
-  takeLife(island: { state: LifeState; land: Land; market: Market; placing: Placement | null; resting: boolean }): void {
-    this.session.takeLife(island);
+  takeLife(life: { state: LifeState; land: Land; market: Market; placing: Placement | null; resting: boolean }): void {
+    this.session.takeLife(life);
     this.reread();
   }
 
   /**
    * Online: a command run here at once as well as on the server (a pack picked up, a seat taken), on
-   * a copy of the island the server sent, so that one stays as it came.
+   * a copy of the life the server sent, so that one stays as it came.
    */
   runAhead(c: Command): void {
     this.session.call('runAhead', { command: c });
@@ -452,9 +452,9 @@ export class Engine {
   }
 
   /**
-   * Online, before your inputs run again on the server's word on you: the parts of the island that
+   * Online, before your inputs run again on the server's word on you: the parts of your life that
    * move with you as of that word (its clock, your labor, the weather, your vehicles, resting and
-   * placing), and the commands the server hasn't run yet (`ahead`) run again on the island it sent.
+   * placing), and the commands the server hasn't run yet (`ahead`) run again on the life it sent.
    */
   replayLife(
     you: { clock: number; labor: number; weather: Weather; vehicles: Vehicle[]; resting: boolean; placing: Placement | null },
@@ -484,7 +484,7 @@ export class Engine {
 
   // ---------- For tests (the test API, src/app/testApi.ts) ----------
 
-  /** Starts you over at `at` with `build`, standing on whatever is solid there, with the island's parts and the creatures about you afresh. */
+  /** Starts you over at `at` with `build`, standing on whatever is solid there, with your life's parts and the creatures about you afresh. */
   reset(at: { x: number; z: number; facing: number }, build: Build): void {
     this.session.call('reset', { at, build });
     // A fresh start shows nothing that happened before it.

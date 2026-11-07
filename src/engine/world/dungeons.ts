@@ -35,13 +35,13 @@ export interface DungeonDef {
   fall: number;
   boxes: DungeonPiece[];
   decks: DungeonPiece[];
-  /** A developer zone: admins go in from the Admin menu, as there's no portal to it on the island. */
+  /** A developer zone: admins go in from the Admin menu, as there's no portal to it in the world. */
   developer?: boolean;
   /** What a developer zone is for, as the Admin menu says it. */
   about?: string;
   /** One copy for everyone allowed in (the battlefield), instead of one a party. */
   shared?: boolean;
-  /** Where a developer zone lets you out on the island (a dungeon's door is in the zone's recipe). */
+  /** Where a developer zone lets you out in the world (a dungeon's door is in the zone's recipe). */
   door?: DungeonDoor;
   /** Bots in it while anyone is (the server's; crates/engine/src/bots.rs). */
   bots?: Array<{ brain: string; count: number; team: number; x: number; z: number }>;

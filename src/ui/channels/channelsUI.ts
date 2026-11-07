@@ -210,7 +210,7 @@ export class ChannelsUI {
     this.render(true);
   }
 
-  /** A key, before the island's windows see it: the Channels button opens and shuts the window; Escape closes it. */
+  /** A key, before the life's windows see it: the Channels button opens and shuts the window; Escape closes it. */
   intercept(k: LifePress): boolean {
     if (k === 'channels') {
       this.toggle();

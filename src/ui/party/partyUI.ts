@@ -59,7 +59,7 @@ export interface PartyDeps {
   link: PartyLink;
   /** Your own character. */
   me: number;
-  /** Which of the island's windows is open, if any (one docked on the left covers the frame). */
+  /** Which of the life's windows is open, if any (one docked on the left covers the frame). */
   openPanel: () => string | null;
   /** The pointer is the camera's: let go of it, to use a window. */
   freeMouse: () => void;
@@ -160,7 +160,7 @@ export class PartyUI {
     return true;
   }
 
-  /** A key, before the island's windows see it: O opens and shuts the Party window; Escape declines an invitation, then closes the window. */
+  /** A key, before the life's windows see it: O opens and shuts the Party window; Escape declines an invitation, then closes the window. */
   intercept(k: LifePress): boolean {
     if (k === 'party') {
       this.toggle();

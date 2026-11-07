@@ -22,9 +22,9 @@ import { type Gallery, MADE_UP, OTHERS } from './states';
 
 // The UI gallery (/dev/ui.html#/<window>/<state>; the content library frames it as
 // #/ui/<window>/<state>): a window of the game's interface in a made-up state (entries.ts), on a
-// real offline island: the zone's world and rules, the island's life and the windows over it,
+// real offline game: the zone's world and rules, your life and the windows over it,
 // stepped as the game steps them, with a made-up world connection for the windows that play with
-// others (fakes.ts). Each entry is made up on a fresh island (states.ts), so another address loads
+// others (fakes.ts). Each entry is made up in a fresh life (states.ts), so another address loads
 // the page again. A page of its own, as the game's theme sets its colours on the whole document and
 // tooltips and menus need one to themselves. With no entry named it lists them. window.__ui is its
 // test API (tests/integration/uiGallery.spec.ts).
@@ -67,7 +67,7 @@ function list(): void {
   const page = document.createElement('div');
   page.className = 'gal-list';
   page.innerHTML =
-    '<h1>The UI Gallery</h1><p>Every window of the interface in a made-up state, on an offline island. The content library shows them too.</p>' +
+    '<h1>The UI Gallery</h1><p>Every window of the interface in a made-up state, in an offline game. The content library shows them too.</p>' +
     titles
       .map(
         (t) =>
@@ -79,14 +79,14 @@ function list(): void {
   document.body.append(page);
 }
 
-/** Makes up the entry `key` names on a fresh island, and keeps the island running under it. */
+/** Makes up the entry `key` names in a fresh life, and keeps the game running under it. */
 async function show(key: string): Promise<void> {
   initUiScale(document.getElementById('ui') as HTMLElement);
   await startEngine();
   const build = defaultBuild();
   const engine = new Engine({ online: false, build });
   const life = engine.life;
-  if (!life) throw new Error('the island has no life');
+  if (!life) throw new Error('the game has no life');
   const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 2000);
   const ui = new LifeUI({
     life,
@@ -155,7 +155,7 @@ async function show(key: string): Promise<void> {
     for (const a of document.getAnimations()) if (a instanceof CSSTransition) a.finish();
   };
   const g: Gallery = { engine, life, ui, skills, minigames, tables, party, partyLink, channels, channelLink, me, step };
-  // You arrive, the island settles, then the state is made up and drawn, and settles in its turn.
+  // You arrive, the world settles, then the state is made up and drawn, and settles in its turn.
   step(2);
   settle();
   try {

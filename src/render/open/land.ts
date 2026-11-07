@@ -108,11 +108,11 @@ export class LandView {
   private slips = new THREE.Group();
   private shipKey = '';
   /**
-   * Where houses built from the village kit are drawn (src/render/village: the island's Village,
+   * Where houses built from the village kit are drawn (src/render/village: the world's Village,
    * which also cuts them open when you are inside); without one they are drawn here.
    */
   houseSink: ((houses: HouseView[]) => void) | null = null;
-  /** The townsfolk, drawn here with their own models (none for someone else's island). */
+  /** The townsfolk, drawn here with their own models (none for someone else's land). */
   private villagers: Array<{
     holder: THREE.Group;
     animate: (dt: number, s: { time: number; talking: boolean }) => void;
@@ -165,7 +165,7 @@ export class LandView {
   /** Called when the ground changes under the grass (a plot placed, a house begun). */
   onGroundChanged: (() => void) | null = null;
 
-  /** Draws someone else's things (their farms, house, vehicles, packs and glider) rather than yours and the island's: no nodes, townsfolk, weather or placement ghost. */
+  /** Draws someone else's things (their farms, house, vehicles, packs and glider) rather than yours and the world's: no nodes, townsfolk, weather or placement ghost. */
   readonly others: boolean;
   /** The vehicle placeRide put under its driver this frame, which update() leaves where it is. */
   private placed = -1;
@@ -624,7 +624,7 @@ export class LandView {
     if (s.mount) s.mount(dt, { speed: Math.abs(v.speed), grounded: v.grounded });
   }
 
-  /** Draws the island's things as they are this frame; `p` is the one whose island it is (the pack on their back, the vehicle they drive). */
+  /** Draws a life's things as they are this frame; `p` is the one whose life it is (the pack on their back, the vehicle they drive). */
   update(p: PlayerState, dt: number, cameraPos: THREE.Vector3): void {
     this.time += dt;
     const life = this.life;
@@ -637,7 +637,7 @@ export class LandView {
         this.plotCount = plots;
         this.onGroundChanged?.();
       }
-      // Only when what grows in them changed: a pack picked up or a cart loaded changes the island
+      // Only when what grows in them changed: a pack picked up or a cart loaded changes the land
       // too, and building every plot again for that is a stutter you feel.
       const pk = plotKey(life.land.scarecrows);
       if (pk !== this.plotKey) {

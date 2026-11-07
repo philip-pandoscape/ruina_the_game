@@ -4,7 +4,7 @@ import { App } from './app';
 import { store } from './store';
 import { startEngine } from '../../engine/load';
 
-// The buildings' colliders and the island come from the engine: loaded before anything is shown.
+// The buildings' colliders and the world come from the engine: loaded before anything is shown.
 await startEngine();
 
 // /dev/library.html: the content library, the one developer page for everything the game draws. See

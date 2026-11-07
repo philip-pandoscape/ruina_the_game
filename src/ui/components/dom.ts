@@ -1,6 +1,6 @@
 import { esc } from '../../util/html';
 
-// The small helpers the components and the island's windows build their pages with.
+// The small helpers the components and the life's windows build their pages with.
 
 /** A new element with its class and inner HTML. */
 export const el = <K extends keyof HTMLElementTagNameMap>(tag: K, cls = '', html = ''): HTMLElementTagNameMap[K] => {

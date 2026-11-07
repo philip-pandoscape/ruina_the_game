@@ -3,7 +3,7 @@ import { h } from '../dom';
 import type { AnimDef, Gallery, Subject } from '../types';
 
 // Every window of the game's interface in a made-up state (src/dev/ui/entries.ts, made up on an
-// offline island by src/dev/ui/states.ts), each drawn by /dev/ui.html in a frame of its own: the
+// offline game by src/dev/ui/states.ts), each drawn by /dev/ui.html in a frame of its own: the
 // game's theme sets its colours on the whole document, and its tooltips and menus need a document to
 // themselves, so the windows can't be drawn in the library's. The entries are plain data, so the
 // library lists them without bringing in the interface. Library routes:
@@ -60,18 +60,18 @@ export const uiSubject: Subject = {
   id: 'ui',
   name: 'Interface',
   group: 'Galleries',
-  blurb: 'Every window of the interface, in made-up states on an offline island',
+  blurb: 'Every window of the interface, in made-up states in an offline game',
   options: [],
   anims: (): AnimDef[] =>
     UI_ENTRIES.map((e) => ({ id: `${e.window}/${e.state}`, label: e.label, group: e.title, frames: 0, fps: 60, loop: true, note: e.about })),
   gallery: (_host, entry) => new UiGallery(entry),
   source: () => ({
     system:
-      "Every window of the interface (src/ui/) drawn in a page of its own (/dev/ui.html, src/dev/ui/main.ts) over a real offline island: the zone's world and rules, the island's life and its windows, stepped as the game steps them, with a made-up world connection for the windows that play with others. Each entry's state is made up from the content on a fresh island (src/dev/ui/states.ts), picking things by what they are, never by their ids.",
+      "Every window of the interface (src/ui/) drawn in a page of its own (/dev/ui.html, src/dev/ui/main.ts) over a real offline game: the zone's world and rules, your life and its windows, stepped as the game steps them, with a made-up world connection for the windows that play with others. Each entry's state is made up from the content in a fresh life (src/dev/ui/states.ts), picking things by what they are, never by their ids.",
     files: [
       { path: 'src/dev/ui/entries.ts', what: 'the entries: every window and the states worth seeing' },
-      { path: 'src/dev/ui/states.ts', what: 'how each state is made up on the island' },
-      { path: 'src/dev/ui/main.ts', what: 'the page: the island, the windows, stepping them' },
+      { path: 'src/dev/ui/states.ts', what: 'how each state is made up in the game' },
+      { path: 'src/dev/ui/main.ts', what: 'the page: the world, the windows, stepping them' },
       { path: 'src/dev/ui/fakes.ts', what: 'the made-up world connection for the mini-game and party windows' },
     ],
     checks: [

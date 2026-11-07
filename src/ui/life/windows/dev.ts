@@ -4,8 +4,8 @@ import { buttonHtml } from '../../components/button';
 import type { View } from '../../components/window';
 import type { LifeContext } from '../context';
 
-// Developer Tools (`, or from the Admin window): gifts, island time, teleports (to the dungeons'
-// doors too), starting the island over and bug reports, for trying things out quickly. Online the
+// Developer Tools (`, or from the Admin window): gifts, time, teleports (to the dungeons'
+// doors too), starting your life over and bug reports, for trying things out quickly. Online the
 // server answers its commands for admins only.
 
 /** A small button in the panel. */
@@ -31,11 +31,11 @@ export function devView(ui: LifeContext): View {
       ${small('Building Materials', 'grant', 'mats')}
       ${small('Every Vehicle, Mount & Glider', 'grant', 'rides')}
       ${small('Cottage Blueprint, Cog Design, Scarecrows', 'grant', 'house')}
-      <div class="h">Island Time</div>
+      <div class="h">Time</div>
       ${small('+1 Minute', 'warp', 60)}
       ${small('+10 Minutes', 'warp', 600)}
       ${small('+1 Hour', 'warp', 3600)}
-      <div class="note">Skips ahead on your island: crops grow, and labor and prices recover. ${app.skyHour ? "The sky and the weather keep the world's time, the same for everyone." : 'The sky and the weather move on with it.'}</div>
+      <div class="note">Skips ahead: crops grow, and labor and prices recover. ${app.skyHour ? "The sky and the weather keep the world's time, the same for everyone." : 'The sky and the weather move on with it.'}</div>
       <div class="h">Teleport</div>${places}
       <div class="h">Save</div>${small('Start Emberholm Over', 'reset')}
       ${app.onBugReport ? `<div class="h">Bug Report</div>${small('Record a Bug Report', 'bug')}<div class="note">Or press <b>${esc(app.bugKey())}</b> any time (click both sticks on a controller). It keeps the last 30 seconds of play, then records your voice and the screen until you press it again.</div>` : ''}</div>`,

@@ -2,7 +2,7 @@ import type { ZoneData } from '../world/region';
 import type { Land, Market, Vehicle } from './land';
 import type { LifeState, Weather } from './state';
 
-// The island's life (trade, farming, housing, vehicles, quests) as the page talks to it: the
+// A life (trade, farming, housing, vehicles, quests) as the page talks to it: the
 // commands it sends, what the engine says back, and what the read helpers read. The engine runs the
 // commands queued since its last step inside the next one (crates/engine/src/life/mod.rs), so the
 // same commands on the same frames always give the same world; online they go to the server as

@@ -20,7 +20,7 @@ export function barkTexture(kind: 'broadleaf' | 'pine'): THREE.Texture {
   tex.repeat.set(1.5, kind === 'pine' ? 5 : 3);
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = 4;
-  // Trees stand all over the island; under Node (tests importing the game's modules) there are no files.
+  // Trees stand all over the world; under Node (tests importing the game's modules) there are no files.
   if (asset(`bark_${kind}`))
     track(
       picture(`bark_${kind}`, { need: 'zone' }).then((image) => {

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 
-// The island's shared material: three's toon material with a light ramp that makes it smooth,
+// The world's shared material: three's toon material with a light ramp that makes it smooth,
 // ordinary diffuse light (src/render/look.ts).
 
 let gradient: THREE.DataTexture | null = null;

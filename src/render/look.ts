@@ -2,7 +2,7 @@ import { SURFACE } from '../engine/zone';
 
 // How the world looks: Emberholm after its reference picture. Smooth light without outlines, haze
 // that thins with height and warms toward the sun, ambient occlusion, bloom, a colour grade,
-// textured ground, made models and full-size trees. Every colour the island is painted with lives
+// textured ground, made models and full-size trees. Every colour the world is painted with lives
 // here (PALETTE), and the screen effects' settings (POST; the effects are src/render/open/post.ts).
 //
 // How much of it is drawn is the quality, picked from the graphics chip (?quality=low|medium|high
@@ -118,7 +118,7 @@ interface Palette {
   };
 }
 
-// After the island's reference picture: lush greens with darker woods, pale warm sand, grey-brown
+// After Emberholm's reference picture: lush greens with darker woods, pale warm sand, grey-brown
 // rock, light dusty paths, turquoise shallows over a deep blue sea, a clear sky. Rich, but with real
 // darks; the made models bring the red roofs and blue banners.
 export const PALETTE: Palette = {

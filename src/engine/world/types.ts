@@ -111,7 +111,7 @@ export interface ZonePlace {
   z: number;
 }
 
-/** One of the island's people (content/npcs/<id>.json): who they are, where they stand, how they look and what they say. */
+/** One of a region's people (content/npcs/<id>.json): who they are, where they stand, how they look and what they say. */
 export interface ZoneNpc {
   id: string;
   name: string;

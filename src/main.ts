@@ -85,16 +85,16 @@ const opt = readOptions();
 const engineLoading = startEngine();
 const { test: testMode, lag: lagMs } = opt;
 
-// The island's models load from the start (online, while you sign in and choose a character).
+// The world's models load from the start (online, while you sign in and choose a character).
 const modelsLoading = loadModels().then((m) => (splash?.step('models'), m));
 
 // Emberholm is played on the game server: sign in and choose a character, and it hands over their
-// island and build, and keeps them from then on. Automated tests (?test) and ?offline stay offline.
-// Online, all of it happens on the title screen (src/ui/splash.ts), which shows the island being
+// life and build, and keeps them from then on. Automated tests (?test) and ?offline stay offline.
+// Online, all of it happens on the title screen (src/ui/splash.ts), which shows the world being
 // built and then fades into the game.
 const online = !testMode && !opt.offline ? await goOnline(opt) : null;
 if (splash) {
-  splash.say('Raising the Island…');
+  splash.say('Raising the World…');
   splash.toward('world', 3);
   await splash.paint();
 }
@@ -102,7 +102,7 @@ if (splash) {
 const canvas = document.getElementById('game') as HTMLCanvasElement;
 // Your skills and loadout, kept between visits: with your character on the game server in the open
 // world, in this browser elsewhere. The welcome's is the build the server applied, already held to
-// the points your island has earned (which this page doesn't know until the island arrives), so
+// the points your life has earned (which this page doesn't know until your life arrives), so
 // it's only checked for shape here.
 let build: Build = online ? (parseBuild(online.welcome.build, Infinity) ?? defaultBuild()) : loadBuild();
 // The rules, reached only through the engine (src/engine/): the world (or a copy of an instance, gone
@@ -183,7 +183,7 @@ const drawnGround = (x: number, z: number, pad: number): number => {
   const ground = engine.terrain;
   return ground ? ground.height(x, z) + Math.max(landView?.raisedAt(x, z, pad) ?? 0, peersView?.raisedAt(x, z, pad) ?? 0) : 0;
 };
-// Warning circles lie on the island's hills and farms (and on a deck or roof under whoever they're
+// Warning circles lie on the world's hills and farms (and on a deck or roof under whoever they're
 // about), floating on the sea rather than sinking under it.
 if (terrain) {
   // Every region's grid is on one lattice (a whole number of cells to a chunk), the first region's.
@@ -213,7 +213,7 @@ let bugs: BugReporter | null = null;
 
 // ---------- The open world's life systems: trade, farming, housing, vehicles, quests ----------
 const life = engine.life;
-/** Gives the island a command, noted in a bug report's event log: the windows' commands come through here. */
+/** Gives your life a command, noted in a bug report's event log: the windows' commands come through here. */
 function lifeCommand(c: Command): void {
   const { t, ...rest } = c;
   bugs?.note('command', { type: t, ...rest });
@@ -249,7 +249,7 @@ const regions = grower ? new Regions({ engine, stage: openStage, pictures: lifeU
 // Online: everyone else in your channel of Emberholm, the plots they hold, and whether this server
 // offers the developer panel.
 const peers = online && life && world.zone ? new WorldPeers(world.zone, engine, life, online.welcome.character.id, online.link) : null;
-// ...and drawn: a body and a name each, and what of their island everyone sees (src/render/open/peersView.ts).
+// ...and drawn: a body and a name each, and what of theirs everyone sees (src/render/open/peersView.ts).
 const peersView = online && peers && models ? new PeersView(stage.scene, models, peers, online.welcome.character.id) : null;
 if (peers && openStage) peers.onGroundChanged = () => openStage.foliage.invalidate();
 if (peersView && openStage) peersView.onGroundChanged = () => openStage.foliage.invalidate();
@@ -359,7 +359,7 @@ function portalPress(k: LifePress): boolean {
   if (f.ok && f.dungeon) onPortal(f.action === 'enterDungeon', f.dungeon);
   return true;
 }
-// A key the island's windows would take goes first to a dungeon's portal, then a mini-game, then the
+// A key the life's windows would take goes first to a dungeon's portal, then a mini-game, then the
 // party window, then the channels'.
 if (lifeUI) lifeUI.intercept = (k) => portalPress(k) || !!minigames?.intercept(k) || !!party?.intercept(k) || !!channels?.intercept(k);
 // ---------- end Goblin's Dread ----------
@@ -381,8 +381,8 @@ if (online && lifeUI) lifeUI.devTools = online.welcome.dev;
 if (online && lifeUI) lifeUI.playerName = online.welcome.character.name;
 /**
  * The hour of the day the sky shows. Online it is the world's, from the server's clock, so everyone
- * in Emberholm sees the same sky at the same moment (each island's own clock ran on by itself while
- * its player was away); offline it is the island's.
+ * in Emberholm sees the same sky at the same moment (each life's own clock ran on by itself while
+ * its player was away); offline it is the life's.
  */
 const skyHour = (): number => (online ? hourAt(life.zone.recipe.sky, online.link.serverNow() / 1000) : hourOfDay(life));
 if (online && lifeUI) lifeUI.skyHour = skyHour;
@@ -424,12 +424,12 @@ function portraitOf(who: string): string | null {
 }
 if (lifeUI) lifeUI.portraitOf = portraitOf;
 if (peers && lifeUI) lifeUI.others = () => peers.list();
-// Online the game server runs your island and keeps it (crates/server/src/sim/mod.rs): your commands go
-// to it, and what it says your island holds replaces this copy as it arrives. ?fresh starts it
-// over. Automated tests run the island here instead, starting fresh every time unless they ask for
+// Online the game server runs your life and keeps it (crates/server/src/sim/mod.rs): your commands go
+// to it, and what it says your life holds replaces this copy as it arrives. ?fresh starts it
+// over. Automated tests run your life here instead, starting fresh every time unless they ask for
 // the one kept in this browser (?test&load, which is how bug reports are replayed).
 if (life && online) {
-  // Starting over: the old island must be gone before this page shows one.
+  // Starting over: the old life must be gone before this page shows one.
   if (opt.fresh) await online.link.reset();
   engine.remote = (c) => online.link.command((prediction?.seq ?? 0) + 1, c);
   // ?lag=ms plays a local server as one far away would feel.
@@ -497,7 +497,7 @@ input.onDeviceChange = (d) => hud.setDevice(d);
 /** Whether you're in a developer zone, which is for trying weapons and skills. */
 const inDeveloperZone = (): boolean => !!(visit?.inside && dungeonDef(visit.inside)?.developer);
 /**
- * Points you may have in the tree: earned on the island, and the whole tree in a developer zone (the
+ * Points you may have in the tree: earned in the world, and the whole tree in a developer zone (the
  * server allows the same).
  */
 const skillPoints = (): number => {
@@ -506,7 +506,7 @@ const skillPoints = (): number => {
 };
 // Your points hold your build to what you may spend where you are, as the server does on joining:
 // a build they can't cover falls back to Sword Training. Online the welcome already says what the
-// server chose, except when ?fresh has just started the island, and its points, over.
+// server chose, except when ?fresh has just started your life, and its points, over.
 if ((!online || opt.fresh) && !validBuild(build, skillPoints())) {
   build = defaultBuild();
   engine.setBuild(build);

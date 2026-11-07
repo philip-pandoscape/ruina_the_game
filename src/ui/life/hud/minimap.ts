@@ -31,7 +31,7 @@ export class Minimap {
 
   /** Every frame (`frame` counts them): drawn every other one. */
   update(frame: number): void {
-    // Inside a dungeon the island's map has nothing to show of where you are.
+    // Inside a dungeon the region's map has nothing to show of where you are.
     this.el.style.display = this.ui.life.dungeon ? 'none' : '';
     if (frame % 2 === 0 && !this.ui.life.dungeon) this.draw();
   }

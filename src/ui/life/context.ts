@@ -5,7 +5,7 @@ import type { SimView, World } from '../../engine/rules';
 import type { Goal } from './hud/goal';
 import type { TravelUI } from './travelUI';
 
-// What the island's HUD widgets (hud/) and windows (windows/) see of the UI that holds them,
+// What the life's HUD widgets (hud/) and windows (windows/) see of the UI that holds them,
 // LifeUI (lifeUI.ts): the life state and the rules to read, what the app set on it, and its
 // windows, to open another, draw the open one again or close them.
 
@@ -35,7 +35,7 @@ export interface AppHooks {
 
 export interface LifeContext {
   readonly life: LifeView;
-  /** Gives the island a command, through the app (never `life.command` directly). */
+  /** Gives your life a command, through the app (never `life.command` directly). */
   command(c: Command): void;
   readonly sim: SimView;
   readonly world: World;

@@ -72,7 +72,7 @@ export class AutoWalk {
 
   constructor(private d: { sim: SimView; world: World; life: LifeView | null }) {}
 
-  /** The island's roads, joined up the first time they are wanted. */
+  /** The region's roads, joined up the first time they are wanted. */
   get roads(): RoadNetwork {
     return (this.net ??= new RoadNetwork(this.d.world));
   }

@@ -1,4 +1,4 @@
-// The island's ground and what stands on it: terrain, zones and their recipes, buildings, colliders, roads, dungeons.
+// The world's ground and what stands on it: terrain, zones and their recipes, buildings, colliders, roads, dungeons.
 //
 // What outside the rules uses of them: the bridge's front door for them, naming exactly what is used
 // (tests/unit/boundaries.test.ts). The rules are the engine's; what's read here is the shapes of what

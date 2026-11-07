@@ -94,7 +94,7 @@ function generated(g: GrownZone<Grown>): Generated {
  * Grows a zone from its recipe (shared/regions/*.json): coastline, cliffs, hills, mountains with a
  * path carved up their face, flattened town squares, graded roads, then the trees and rocks, the
  * buildings' colliders and the decks you can walk on. The engine grows it (crates/engine/src/open/
- * generate.rs, through its WebAssembly), the same island the server plays: same recipe, same island.
+ * generate.rs, through its WebAssembly), the same region the server plays: same recipe, same region.
  */
 export function generateZone(recipe: ZoneRecipe): Generated {
   return generated(growZone<Grown>(recipe));
@@ -129,7 +129,7 @@ export interface ZoneData {
   gen: Generated;
 }
 
-/** Built once per page: generating the island takes a few hundred milliseconds. */
+/** Built once per page: generating the region takes a few hundred milliseconds. */
 const cache = new Map<string, { world: World; zone: ZoneData }>();
 
 /** A zone alone as a World (the bible's maps and the content library): its grid, colliders and townsfolk. */
