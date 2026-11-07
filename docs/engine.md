@@ -36,8 +36,8 @@ browser asked for them. Nothing a browser says about its own state is believed.
 
 The page reaches the rules only through `src/engine/` (its `AGENTS.md`; `tests/unit/boundaries.test.ts`
 holds it). There, the `Engine` (`engine.ts`) plays the page's game in one engine **session**
-(`crates/engine/src/session.rs`): you, the creatures, the yard, the island's life, and a copy of a
-dungeon while you're in one. The WebAssembly is loaded once a page (`load.ts`, `wasm.ts`) and asked
+(`crates/engine/src/session.rs`): you, the creatures, the island's life, and a copy of an instance
+while you're in one. The WebAssembly is loaded once a page (`load.ts`, `wasm.ts`) and asked
 synchronously; text crosses through its memory (`alloc` for room to write into, `out_ptr` for what it
 answered) as JSON, and big arrays are copied out of it.
 
@@ -45,9 +45,9 @@ answered) as JSON, and big arrays are copied out of it.
 
 | Export | What |
 |---|---|
-| `session_new(options)` | A session: the open world or the yard, online or not, your build. Returns its handle. |
+| `session_new(options)` | A session: the world, online or not, your build (a copy of an instance is gone into with `enterDungeon`). Returns its handle. |
 | `session_step(h, ...)` | One fixed step, 60 a second, with what was pressed: the stick and aim as numbers, the buttons as bits (`src/engine/shapes.ts` `Actions`). Returns how many events are waiting. |
-| `session_view(h, events)` | What the page reads after a step or a call, as one JSON text (`SessionView` in `src/engine/session.ts`): the frame, you, your levels, the creatures and missiles, the yard's arrows and meteors, the island (its state, prompt, placing, resting, revision), what happened, and a key that changes with what's solid. |
+| `session_view(h, events)` | What the page reads after a step or a call, as one JSON text (`SessionView` in `src/engine/session.ts`): the frame, you, your levels, the creatures and missiles, your arrows and meteors, the island (its state, prompt, placing, resting, revision), what happened, and a key that changes with what's solid. |
 | `session_solid_key`, `session_colliders`, `session_clear_*` | What's solid and which cells are kept clear, read again only when the key changes. |
 | `session_world_clock(h, t)` | Online, the world's clock the rain and wind run on, for the next step. |
 | `session_call(h, {call, ...})` | Every other write from outside the rules, by name (below). |
@@ -66,7 +66,7 @@ method in `engine.ts`.
 
 | Calls | For |
 |---|---|
-| `place`, `reset`, `setBuild`, `setLevels`, `setVitals`, `calm` | Putting you somewhere; your build, levels and vitals; the yard's creatures held still. |
+| `place`, `reset`, `setBuild`, `setLevels`, `setVitals`, `calm` | Putting you somewhere; your build, levels and vitals; the creatures held still. |
 | `command`, `lifeEvents` | A command to the island's systems (`life::Command`), and what they said. |
 | `enterDungeon`, `leaveDungeon`, `inside`, `floorAt`, `floorHere`, `solidity`, `spaceGround` | Into a copy of an instance, a space of its own played in place of the world, and out; its floors; what's solid; the ground of the space you're in. |
 | `groundY`, `standingAt`, `world` | The ground and what you'd stand on at a point; the world's colliders and grid. |

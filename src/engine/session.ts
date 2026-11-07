@@ -1,7 +1,7 @@
 // The engine's game (crates/engine/src/session.rs) through its WebAssembly (crates/engine-wasm,
-// src/session.rs): the rules for one player in the island or the yard, stepped once per fixed frame
-// and read back after each step or call in the shapes the page reads (`view`, one JSON text written
-// straight from the session's values).
+// src/session.rs): the rules for one player in the world or a copy of an instance, stepped once per
+// fixed frame and read back after each step or call in the shapes the page reads (`view`, one JSON
+// text written straight from the session's values).
 
 import type { Levels } from '../content/skills';
 import type { Build } from '../content/tuning';
@@ -15,9 +15,7 @@ import type { BoxCollider, Deck } from './world/types';
 import { answer, wasm, withText } from './wasm';
 
 export interface SessionOptions {
-  openWorld: boolean;
   online: boolean;
-  band?: { kind: string; count: number };
   build: Build;
 }
 
@@ -80,7 +78,7 @@ export class EngineSession {
     return answer(wasm().session_actors(this.h));
   }
 
-  /** The island (null in the yard). */
+  /** The island. */
   life(): SessionLife | null {
     return answer<SessionLife | null>(wasm().session_life(this.h));
   }
@@ -101,7 +99,7 @@ export class EngineSession {
     return answer<SessionView>(wasm().session_view(this.h, events ? 1 : 0));
   }
 
-  /** Everything solid on the island as it stands (null on the yard's flat ground). */
+  /** Everything solid in the space you're in as it stands. */
   colliders(): { obstacles: Obstacle[]; boxes: BoxCollider[]; decks: Deck[] } | null {
     return answer(wasm().session_colliders(this.h));
   }

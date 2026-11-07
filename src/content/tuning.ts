@@ -350,10 +350,10 @@ export const DUMMY = {
   resetFrames: 60,
 };
 
-// Slimes in the training yard and on the meadow. They leave you alone until you hit one; then
-// the pack fights back. What they do is data (shared/actors.json, shared/behaviours.json) that
-// the engine runs (crates/engine/src/actors.rs). These are the numbers the yard and its tests are
-// laid out with.
+// Slimes in the yard and on the meadow. They leave you alone until you hit one; then the pack
+// fights back. What they do is data (shared/actors.json, shared/behaviours.json) that the engine runs
+// (crates/engine/src/actors.rs). These are the numbers the yard's tests are laid out with (the yard
+// instance brings five, content/instances/yard.json).
 export const SLIME = {
   count: 5,
   hp: 40,

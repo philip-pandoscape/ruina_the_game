@@ -32,8 +32,9 @@ import BY_INDEX from '../../shared/buildsByIndex.json' with { type: 'json' };
 
 // Picking a build: learning outward through the tree, and filling the hotbar from what you've
 // learned. crates/engine/src/skills.rs checks the same rules, so a build that passes here is accepted
-// there. How many points you may spend depends on where you are: the training yard and the
-// battlefield allow SKILL_POINTS; the open world allows what you've earned (src/engine/life/quests.ts).
+// there. How many points you may spend depends on where you are: the world allows what you've
+// earned (src/engine/life/progress.ts), a developer zone the whole tree; the balance harness's
+// duels, SKILL_POINTS.
 
 export interface NodeInfo {
   index: number;
@@ -203,10 +204,9 @@ export function parseBuild(raw: unknown, budget = SKILL_POINTS): Build | null {
 
 // ---------- Builds as they're kept ----------
 //
-// A kept build (this browser's, for the training yard and the battlefield; a character's on the
-// server, crates/engine/src/skills.rs saved_build) names what it holds by id: its weapon, the nodes
-// it has learned and what is in each hotbar and movement slot, so it means the same whatever order
-// the content comes in. The run-time build and the wire use places in that order. A build kept
+// A kept build (this browser's, offline; a character's on the server, crates/engine/src/skills.rs
+// saved_build) names what it holds by id: its weapon, the nodes it has learned and what is in each
+// hotbar and movement slot, so it means the same whatever order the content comes in. The run-time build and the wire use places in that order. A build kept
 // before builds named things by id is read in the order it was kept in, frozen in
 // shared/buildsByIndex.json.
 

@@ -1,7 +1,7 @@
 import { Vector3 } from 'three';
 import { test as base } from 'vitest';
 import { defaultBuild, validBuild } from '../../src/content/build';
-import { NODES, SKILL_POINTS } from '../../src/content/skills';
+import { NODES } from '../../src/content/skills';
 import type { Build } from '../../src/content/tuning';
 import { readOptions } from '../../src/app/options';
 import { savedIsland } from '../../src/app/save';
@@ -9,7 +9,6 @@ import { loadBuild } from '../../src/app/savedBuild';
 import { migrateStorage } from '../../src/app/storage';
 import { makeStep } from '../../src/app/step';
 import { makeTestApi } from '../../src/app/testApi';
-import { YardPractice } from '../../src/app/yardPractice';
 import { Engine } from '../../src/engine/engine';
 import { skillBudget, type Command } from '../../src/engine/island';
 import { dungeonDef } from '../../src/engine/zone';
@@ -20,8 +19,8 @@ import type { NetActor } from '../../src/net/worldFeed';
 import type { GameRefs } from '../../src/main';
 
 // The game without a page (.plans/refactor R6.2a): the rules through the engine (src/engine/), the
-// island's life, auto-walk, the yard's practice and the camera's maths for real; in place of the
-// drawing, the windows, the controller and the server, stand-ins that do nothing. The step
+// island's life, auto-walk and the camera's maths for real; in place of the drawing, the windows,
+// the controller and the server, stand-ins that do nothing. The step
 // (src/app/step.ts) and the test API (src/app/testApi.ts) run on it as they run on the page, so a
 // rules test written for a page (page.evaluate over window.__game) runs here unchanged: `test` gives
 // it a `page` whose goto() starts the game headless from the same address (`/?test`, the world;
@@ -76,23 +75,23 @@ function start(url: string) {
   const opt = readOptions(new URL(url, 'http://headless').search);
   migrateStorage(localStorage);
   let build: Build = loadBuild();
-  const engine = new Engine({ openWorld: true, online: false, build });
+  const engine = new Engine({ online: false, build });
   const { world, terrain, sim, range, life } = engine;
   // As main.ts: the island kept in this browser when asked for.
-  if (life && opt.test && opt.load) {
+  if (opt.test && opt.load) {
     const saved = savedIsland();
     if (saved) engine.loadIsland(saved);
   }
   // As main.ts: into a copy of a dungeon and out again, with nothing to draw; started in a copy of
   // an instance the address names (?test=yard), as if through its door.
-  const visit = life ? new DungeonVisit({ engine, stage: null, place: (x, y, z, facing) => engine.place(x, z, facing, y) }) : null;
-  if (opt.space) visit?.enterDungeonHere(opt.space, true);
+  const visit = new DungeonVisit({ engine, stage: null, place: (x, y, z, facing) => engine.place(x, z, facing, y) });
+  if (opt.space) visit.enterDungeonHere(opt.space, true);
   // What main.ts does with these offline.
   // A developer zone is for trying weapons and skills: the whole tree.
   const skillPoints = (): number => {
     const inside = engine.inside ? dungeonDef(engine.inside) : undefined;
     if (inside?.developer) return NODES.length;
-    return life ? skillBudget(life.state) : SKILL_POINTS;
+    return skillBudget(life.state);
   };
   // As main.ts: a build held to the points you may spend where you are.
   if (!validBuild(build, skillPoints())) {
@@ -101,8 +100,7 @@ function start(url: string) {
   }
   const follow = new FollowCamera(16 / 9, 320, 40);
   follow.reset(world.spawn.facing);
-  const walker = life ? new AutoWalk({ sim, world, life }) : null;
-  const yard = new YardPractice();
+  const walker = new AutoWalk({ sim, world, life });
   const at = new Vector3();
   const followSim = (dt: number): void => {
     const p = sim.player.pos;
@@ -139,8 +137,6 @@ function start(url: string) {
     skillPoints,
     islandCommand,
     teleport,
-    yardXp: yard.xp,
-    yardTrain: (e: Parameters<YardPractice['train']>[0]) => yard.train(e),
     groundY: (x: number, z: number) => engine.groundY(x, z),
     dummyActor: () => sim.actorOfKind('dummy'),
     drawing,

@@ -78,8 +78,7 @@ const PLUMBING: Record<string, string> = {
   'crates/server/src/play/channels.rs': 'who is in which channel',
   // The developer zones, which only admins enter: no player reads about them.
   'crates/engine/src/world.rs': 'the battlefield’s ground, a developer zone',
-  'crates/engine/src/yard.rs': 'the training yard’s ground and who stands about it, a developer zone',
-  'crates/engine/src/training.rs': 'the training yard’s stand-in for the server, a developer zone',
+  'crates/engine/src/training.rs': 'the browser’s stand-in for the server’s fights, offline',
   // The browser's copy of the rules, which the pages above explain where they're made.
   'crates/engine/src/session.rs': 'the browser’s game: the rules above, stepped for one player',
   'crates/engine/src/event.rs': 'what happened in a step, for the browser’s effects and sounds',

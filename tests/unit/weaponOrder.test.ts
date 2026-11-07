@@ -152,9 +152,10 @@ function play(c: Client, s: Scenario, weapon: number): string {
 }
 
 /**
- * The engine in the training yard, frame by frame, every place it shows read as its id: for each node
- * that grants something, the way to it learned and what it grants used (a weapon or a combo swung at
- * the dummy, an ability cast at it, a movement skill used running from it), and the slide everyone has.
+ * The engine in the yard (a copy of the instance), frame by frame, every place it shows read as its
+ * id: for each node that grants something, the way to it learned and what it grants used (a weapon or
+ * a combo swung at the dummy, an ability cast at it, a movement skill used running from it), and the
+ * slide everyone has.
  */
 function yard(c: Client): Record<string, string> {
   const { tuning: t, skills: k } = c;
@@ -166,7 +167,8 @@ function yard(c: Client): Record<string, string> {
       abilities: Array.from({ length: t.HOTBAR_SLOTS }, (_, i) => (i === 0 ? (slots.ability ?? t.NO_ABILITY) : t.NO_ABILITY)),
       movement: Array.from({ length: t.MOVEMENT_SLOTS }, (_, i) => (i === 0 ? (slots.movement ?? t.NO_MOVEMENT) : t.NO_MOVEMENT)),
     };
-    const e = new c.engine.Engine({ openWorld: false, online: false, build });
+    const e = new c.engine.Engine({ online: false, build });
+    e.enterDungeon('yard');
     e.reset({ x: 0, z: 1.4, facing: 0 }, build);
     e.calm(true);
     e.setLevels(levels);

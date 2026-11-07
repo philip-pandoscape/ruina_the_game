@@ -976,7 +976,7 @@ fn stand_on_ground(p: &mut Player, world: &OpenWorld) {
 
 /// Brings to life what a region's or an instance's spawns list (open/spawns.rs), each war-band
 /// fighting together.
-fn spawn_all(actors: &mut Actors, points: Vec<ruina_engine::yard::SpawnPoint>) {
+fn spawn_all(actors: &mut Actors, points: Vec<ruina_engine::open::spawns::SpawnPoint>) {
     for p in points {
         let seed = p.seed.unwrap_or(1);
         if p.band > 0 {

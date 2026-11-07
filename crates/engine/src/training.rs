@@ -1,7 +1,7 @@
 //! What the browser plays offline that the server decides online (Phase 8): a swing's blow landing
 //! on whatever stands in front of you (with its hit pause), damage dealt to creatures and what it
-//! shows, and the training range: arrows flying, meteors falling and heals going off against
-//! whatever stands about. The numbers are the server's (crate::combat); the session
+//! shows, and your arrows flying, meteors falling and heals going off against whatever stands
+//! about. The numbers are the server's (crate::combat); the session
 //! (crate::session) runs these in its offline steps.
 
 use serde::Serialize;
@@ -35,29 +35,22 @@ pub struct Target {
     pub hit_ceiling: f64,
 }
 
-/// The ground creatures stand on, for their heights in world terms: a copy's floor where it has
-/// one, else the world's terrain. On the yard's flat ground there is neither, and heights are as
-/// they are kept.
-#[derive(Clone, Copy, Default)]
+/// The ground creatures stand on, for their heights in world terms (a creature keeps its height
+/// over the ground): a copy's floor where it has one, else the ground of the space.
+#[derive(Clone, Copy)]
 pub struct Footing {
     pub floor: Option<&'static DungeonDef>,
-    pub terrain: Option<&'static WorldMap>,
+    pub terrain: &'static WorldMap,
 }
 
 impl Footing {
-    /// Whether heights stand on a ground (everywhere but the yard's flat ground).
-    pub fn raised(&self) -> bool {
-        self.floor.is_some() || self.terrain.is_some()
-    }
-
     /// The ground's height under (x, z): the copy's floor where it has one there, or the terrain.
     pub fn height(&self, x: f64, z: f64) -> f64 {
-        self.floor.and_then(|d| d.floor_at(x, z)).unwrap_or_else(|| self.terrain.map_or(0.0, |hf| hf.height(x, z)))
+        self.floor.and_then(|d| d.floor_at(x, z)).unwrap_or_else(|| self.terrain.height(x, z))
     }
 }
 
-/// Everything standing that an attack could land on: on an island or in a copy their heights are
-/// raised onto the ground under them.
+/// Everything standing that an attack could land on, its heights raised onto the ground under it.
 pub fn targets(actors: &Actors, footing: Footing) -> Vec<Target> {
     let mut out = Vec::new();
     for a in &actors.list {
@@ -65,8 +58,7 @@ pub fn targets(actors: &Actors, footing: Footing) -> Vec<Target> {
             continue;
         }
         let g = footing.height(a.x, a.z);
-        let raise = |v: f64| if footing.raised() { v + g } else { v };
-        out.push(Target { id: a.id, x: a.x, y: raise(a.y), z: a.z, radius: a.radius, hit_height: raise(a.hit_height), hit_ceiling: raise(a.hit_ceiling) });
+        out.push(Target { id: a.id, x: a.x, y: a.y + g, z: a.z, radius: a.radius, hit_height: a.hit_height + g, hit_ceiling: a.hit_ceiling + g });
     }
     out
 }
@@ -194,9 +186,7 @@ pub fn check_hit(actors: &mut Actors, footing: Footing, events: &mut Vec<Event>,
     }
     let mut list = targets(actors, footing);
     // On hills a swing only reaches feet within 2 m of your own.
-    if footing.raised() {
-        list.retain(|t| (t.y - player.pos.y).abs() <= 2.0);
-    }
+    list.retain(|t| (t.y - player.pos.y).abs() <= 2.0);
     let hits = cone_hits(&list, player.pos.x, player.pos.z, player.facing, step.reach, step.arc_deg, melee_targets(player.weapon, &player.resolved));
     if hits.is_empty() {
         return None;
@@ -210,7 +200,7 @@ pub fn check_hit(actors: &mut Actors, footing: Footing, events: &mut Vec<Event>,
     Some(step.hitstop)
 }
 
-/// An arrow in flight on the training range (src/engine/training.ts ArrowFlight).
+/// An arrow of yours in flight (src/engine/training.ts ArrowFlight).
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Arrow {
@@ -241,7 +231,7 @@ pub struct Meteor {
     pub damage: f64,
 }
 
-/// The training range (src/engine/training.ts TrainingRange): the server's arrows, meteors and heals,
+/// Your arrows, meteors and heals in flight (src/engine/training.ts): the server's, offline,
 /// played in the browser against whatever stands about.
 #[derive(Default)]
 pub struct Range {

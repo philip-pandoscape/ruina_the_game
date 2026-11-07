@@ -2,8 +2,8 @@
 
 The game's rules in Rust, one copy: what the server runs to decide everything, and (through
 `crates/engine-wasm`) what the browser runs to predict your moves and to play offline. The browser's
-game is `session.rs`: you, the creatures, the yard, the life systems and copies of dungeons, stepped
-for one page, with every change from outside as a named call. How the server and the browser reach
+game is `session.rs`: you, the creatures, the life systems and copies of instances, stepped for one
+page, with every change from outside as a named call. How the server and the browser reach
 the engine, and how to add to the browser's interface: `docs/engine.md`.
 
 | Module | What |
@@ -18,7 +18,7 @@ the engine, and how to add to the browser's interface: `docs/engine.md`.
 | `world.rs` | A flat arena with obstacles (the old battlefield's layout), where the golden player scenarios and the balance harness step players. |
 | `rng.rs`, `jsmath.rs` | The browser's random numbers (mulberry32) and maths (fdlibm through `libm`), to the bit. |
 | `checks/` | Scenarios run through the rules (creatures, a player, a player on Emberholm, a channel's crowd), whose answers the golden tests hold by a hash of each (`crates/engine/tests/golden/`), kept from when the TypeScript copy agreed with them; the creatures' and the crowd's also stepped in shuffled orders. |
-| `session.rs`, `training.rs`, `yard.rs`, `event.rs` | The browser's game for one page (`session.rs`), the training yard's stand-in for the server (`training.rs`: a swing's blow with its hit pause and auto-aim, the yard's arrows, meteors and heals) and its layout (`yard.rs`), and what a step shows (`event.rs`). |
+| `session.rs`, `training.rs`, `event.rs` | The browser's game for one page in the world or a copy of an instance (`session.rs`), its stand-in offline for the server's fights (`training.rs`: a swing's blow with its hit pause and auto-aim, your arrows, meteors and heals), and what a step shows (`event.rs`). |
 
 ## Rules
 

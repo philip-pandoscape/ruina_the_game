@@ -1,5 +1,5 @@
 // What the page reads of the rules (.plans/refactor R8.7-R8.9), as the engine's session last showed
-// it: you, the step count and the hit pause, your skills' numbers, the creatures and the yard's
+// it: you, the step count and the hit pause, your skills' numbers, the creatures and, offline, your
 // arrows and meteors in flight. The Engine (src/engine/engine.ts) fills these in after every step and
 // every call; nothing else writes them, and the rules never read them back. Read them afresh: what a
 // step hands over is new each time, so a part kept from an earlier step is that step's.
@@ -24,7 +24,7 @@ export class ActorsView {
   }
 }
 
-/** Offline, the yard's arrows and meteors in flight, for drawing. */
+/** Offline, your arrows and meteors in flight, for drawing. */
 export class RangeView {
   arrows: ArrowFlight[] = [];
   meteors: MeteorFall[] = [];

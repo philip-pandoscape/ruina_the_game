@@ -3,8 +3,7 @@ import type { BoxCollider, Deck } from './types';
 import type { Heightfield } from './terrain';
 
 // Everything solid in an open world, bucketed on a coarse grid so a query only looks at what is
-// nearby. A zone has thousands of trees; the training yard's straight loop over its few dozen
-// obstacles would not scale.
+// nearby. A zone has thousands of trees, which a straight loop over every one would not scale to.
 
 const BUCKET = 16;
 

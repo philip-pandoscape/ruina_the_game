@@ -82,7 +82,7 @@ async function show(key: string): Promise<void> {
   initUiScale(document.getElementById('ui') as HTMLElement);
   await startEngine();
   const build = defaultBuild();
-  const engine = new Engine({ openWorld: true, online: false, build });
+  const engine = new Engine({ online: false, build });
   const life = engine.life;
   if (!life) throw new Error('the island has no life');
   const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 2000);

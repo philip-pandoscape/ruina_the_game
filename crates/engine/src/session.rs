@@ -1,11 +1,11 @@
-//! The game as the browser plays it: the rules for one player, in the island or the training yard,
-//! as src/engine/engine.ts runs them. You, the creatures and the training range offline (the server
-//! decides them online), the island's life, the copies of dungeons you're in; stepped once per fixed
-//! frame with what you pressed, and changed from outside only by the named calls below, each the
-//! other half of one of the Engine's. What happened comes out as events (crate::event) in the order
-//! they happen, and everything the page draws is read off in the shapes src/engine/ reads
-//! (`view_text` after each step or call). crates/engine-wasm hands it to the browser, and the
-//! headless rules tests (tests/unit/rules) play it as the page does.
+//! The game as the browser plays it: the rules for one player, in the world or a copy of an
+//! instance, as src/engine/engine.ts runs them. You, the creatures and their blows, arrows, meteors
+//! and heals offline (the server decides them online: crate::training stands in for it), the
+//! island's life, the copies of instances you're in; stepped once per fixed frame with what you pressed, and changed from outside only by the named
+//! calls below, each the other half of one of the Engine's. What happened comes out as events
+//! (crate::event) in the order they happen, and everything the page draws is read off in the shapes
+//! src/engine/ reads (`view_text` after each step or call). crates/engine-wasm hands it to the
+//! browser, and the headless rules tests (tests/unit/rules) play it as the page does.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -25,26 +25,19 @@ use crate::life::{
 };
 use crate::missiles::Missile;
 use crate::open::colliders::ground_at;
-use crate::open::dungeon::{Spot, dungeon};
+use crate::open::dungeon::dungeon;
 use crate::open::map::WorldMap;
-use crate::open::spawns::{band_around, instance_spawns};
+use crate::open::spawns::{SpawnPoint, band_around, instance_spawns, island_spawns};
 use crate::open::zone::emberholm;
 use crate::open::{Mover, OpenWorld, Sim, traverse};
 use crate::player::{Actions, Body, Build, Mode, Player, V3, step_len};
 use crate::skills::{Levels, resolve_skills};
 use crate::training::{Arrow, Blows, Footing, Meteor, Range, check_hit, targets};
 use crate::tuning::tuning;
-use crate::world::{Spawn, World};
-use crate::yard::{SpawnPoint, YARD_SEED, Yard, island_spawns, yard};
+use crate::world::Spawn;
 
 /// A slam only catches someone standing on the ground, not someone jumping over it.
 const SLAM_LIFT: f64 = 1.0;
-
-/// The ground you play on: the yard's flat ground with its props, or an island.
-pub enum Ground {
-    Flat { yard: Yard, world: World },
-    Open(Box<OpenWorld>),
-}
 
 pub struct Session {
     /// Fixed steps taken so far.
@@ -54,12 +47,13 @@ pub struct Session {
     pub player: Player,
     /// Offline, the creatures (online the server's are drawn from its updates).
     pub actors: Actors,
-    pub ground: Ground,
-    /// The island's life systems, on an island.
+    /// The space you play in: the world, or the copy of an instance you're in (OpenWorld::instance).
+    pub world: Box<OpenWorld>,
+    /// The island's life systems.
     pub life: Option<Life>,
     /// Online the server decides: these rules only predict your own moves.
     pub online: bool,
-    /// Offline, the yard's arrows, meteors and heals.
+    /// Offline, your arrows, meteors and heals, as the server flies and lands them online.
     pub range: Range,
     /// What happened since they were last taken (`take_events`), in order, and the step each
     /// happened in (`frames`, filled in as they're added).
@@ -74,7 +68,6 @@ pub struct Session {
     /// Offline, fallen out of the bottom of a copy this step: put back where it's entered, facing this way.
     pub placed: Option<f64>,
     dungeon: Option<String>,
-    respawn_at: Option<Spot>,
     /// In a copy of an instance, the world you came into it from (its ground, its colliders, what's
     /// been built in it), to come back out to.
     outside: Option<Box<OpenWorld>>,
@@ -95,42 +88,33 @@ pub struct Session {
 }
 
 impl Session {
-    /// The island (or the yard), you at its spawn with `build`, and offline whoever stands about it
-    /// (with `band`, a war-band of that many of a kind, in the yard's far corner): the Engine's
-    /// constructor.
-    pub fn new(open_world: bool, online: bool, band: Option<(&str, usize)>, build: Build) -> Session {
-        let (ground, mut spawns, spawn) = if open_world {
-            let zone = emberholm();
-            let s = zone.recipe.spawn;
-            (Ground::Open(Box::new(OpenWorld::new(zone))), island_spawns(&zone.recipe), Spawn { x: s.x, z: s.z, facing: s.facing })
-        } else {
-            let y = yard(YARD_SEED);
-            let (spawns, spawn) = (y.spawns.clone(), y.spawn);
-            let world = y.world();
-            (Ground::Flat { yard: y, world }, spawns, spawn)
-        };
-        if let Some((kind, count)) = band.filter(|(_, n)| *n > 0) {
-            spawns.extend(band_around(kind, count, 9.0, 10.0, 1, 0x9b1d));
-        }
-        let player = Player::new(spawn, 0, Build::default());
+    /// The world, you at its spawn with `build` (the region's, from its recipe), and offline whoever
+    /// stands about it: the Engine's constructor. A copy of an instance is gone into from here
+    /// (`enter_dungeon`), as through its door.
+    pub fn new(online: bool, build: Build) -> Session {
+        let zone = emberholm();
+        let s = zone.recipe.spawn;
+        let player = Player::new(Spawn { x: s.x, z: s.z, facing: s.facing }, 0, Build::default());
         let levels = player.levels.clone();
+        let mut life = Life::new(zone, None, None);
+        // Online the server runs the island; this copy only keeps what moves with you moving.
+        life.remote = online;
         let mut s = Session {
             frame: 0,
             hitstop: 0,
             player,
             actors: Actors::new(),
-            ground,
-            life: None,
+            world: Box::new(OpenWorld::new(zone)),
+            life: Some(life),
             online,
             range: Range::default(),
             events: Vec::new(),
             frames: Vec::new(),
             observed: 0,
-            spawns,
+            spawns: island_spawns(&zone.recipe),
             levels,
             placed: None,
             dungeon: None,
-            respawn_at: None,
             outside: None,
             outside_creatures: None,
             visited: BTreeSet::new(),
@@ -141,33 +125,26 @@ impl Session {
         };
         s.populate();
         s.player.apply_build(build);
-        // Offline on the island, start standing on the ground at the spawn rather than inside the
-        // hill (online the server puts you there, the same way).
-        if !online && let Some(hf) = s.terrain() {
+        // Offline, start standing on the ground at the spawn rather than inside the hill (online the
+        // server puts you there, the same way).
+        if !online {
             let (x, z) = (s.player.pos.x, s.player.pos.z);
-            s.settle(x, z, hf.height(x, z));
-        }
-        if open_world {
-            let mut life = Life::new(emberholm(), None, None);
-            // Online the server runs the island; this copy only keeps what moves with you moving.
-            life.remote = online;
-            s.life = Some(life);
+            let near = s.terrain().height(x, z);
+            s.settle(x, z, near);
         }
         s
     }
 
-    /// The ground creatures stand on: the floor of the copy you're in, the world's terrain, or
-    /// neither on the yard's flat ground.
+    /// The ground creatures stand on: the floor of the copy you're in, where it has one there, else
+    /// the ground of the space.
     fn footing(&self) -> Footing {
         Footing { floor: self.dungeon.as_deref().and_then(dungeon), terrain: self.terrain() }
     }
 
-    /// The world's ground (none on the yard's flat ground).
-    pub fn terrain(&self) -> Option<&'static WorldMap> {
-        match &self.ground {
-            Ground::Open(w) => Some(w.map),
-            Ground::Flat { .. } => None,
-        }
+    /// The ground of the space you're in: the world's, or in a copy of an instance the nothing under
+    /// its floors.
+    pub fn terrain(&self) -> &'static WorldMap {
+        self.world.map
     }
 
     fn training(&self) -> bool {
@@ -201,7 +178,7 @@ impl Session {
 
     // ---------- A step ----------
 
-    /// One fixed step (Engine.step): the rules, then the yard's arrows, meteors and heals against
+    /// One fixed step (Engine.step): the rules, then offline your arrows, meteors and heals against
     /// whatever stands about. What happened is added to `events`.
     pub fn step(&mut self, a: &Actions) {
         self.placed = None;
@@ -228,7 +205,7 @@ impl Session {
             if training {
                 let footing = self.footing();
                 for a in self.actors.list.iter().filter(|a| a.solid && a.is_alive()) {
-                    let y = if footing.raised() { footing.height(a.x, a.z) + a.y } else { a.y };
+                    let y = footing.height(a.x, a.z) + a.y;
                     self.player.bodies.push(Body { x: a.x, z: a.z, r: a.radius, y });
                 }
             }
@@ -241,7 +218,8 @@ impl Session {
                 self.step_actors();
             }
             self.observe();
-            if let (Some(life), Ground::Open(world)) = (self.life.as_mut(), &mut self.ground) {
+            if let Some(life) = self.life.as_mut() {
+                let world = &mut self.world;
                 let revision = life.revision;
                 let mut sim = Sim { player: &mut self.player, world, owner: 0 };
                 life.step(&mut sim, a);
@@ -286,18 +264,19 @@ impl Session {
             p.update_stun();
             return;
         }
-        match (p.mode, &mut self.ground) {
-            (Mode::Action, _) => p.update_action(a),
-            (Mode::Cast, _) => p.update_cast(a),
-            (Mode::Attack, _) => p.update_attack(a),
-            (Mode::Swim, Ground::Open(world)) => traverse::update_swim(&mut Sim { player: p, world, owner: 0 }, a),
-            (Mode::Glide, Ground::Open(world)) => traverse::update_glide(&mut Sim { player: p, world, owner: 0 }, a),
-            (Mode::Ride, Ground::Open(world)) => {
+        let world = &self.world;
+        match p.mode {
+            Mode::Action => p.update_action(a),
+            Mode::Cast => p.update_cast(a),
+            Mode::Attack => p.update_attack(a),
+            Mode::Swim => traverse::update_swim(&mut Sim { player: p, world, owner: 0 }, a),
+            Mode::Glide => traverse::update_glide(&mut Sim { player: p, world, owner: 0 }, a),
+            Mode::Ride => {
                 if let Some(life) = self.life.as_mut() {
                     life.ride(&mut Sim { player: p, world, owner: 0 }, a);
                 }
             }
-            (Mode::Normal, Ground::Open(world)) => {
+            Mode::Normal => {
                 // In the air with both jumps spent, jump again to open your glider.
                 let mut sim = Sim { player: p, world, owner: 0 };
                 let q = &*sim.player;
@@ -307,43 +286,36 @@ impl Session {
                     sim.player.update_normal(a);
                 }
             }
-            (_, Ground::Flat { .. }) => p.update_normal(a),
         }
     }
 
-    /// Back on your feet: where a copy is entered, or your
-    /// team's spawn, standing on the ground there.
+    /// Back on your feet, standing on the ground there: where the copy you're in is entered (its
+    /// file's arrival), or out in the world at its region's spawn (its recipe's), as the server
+    /// puts you (crate::open::step_player).
     fn respawn(&mut self) {
-        let team = match &self.ground {
-            Ground::Flat { world, .. } => world.team_spawns[self.player.team as usize & 1],
-            Ground::Open(w) => {
+        let w = &self.world;
+        let s = match w.respawn {
+            Some(at) => Spawn { x: at.x, z: at.z, facing: at.facing },
+            None => {
                 let s = w.zone.recipe.spawn;
                 Spawn { x: s.x, z: s.z, facing: s.facing }
             }
         };
-        let s = self.respawn_at.map_or(team, |at| Spawn { x: at.x, z: at.z, facing: at.facing });
+        let hf = w.terrain();
+        let near = w.respawn.map_or_else(|| hf.height(s.x, s.z), |at| at.y);
+        let y = ground_at(hf, &w.index, s.x, s.z, near + 1.2, 1.2);
         self.player.respawn(s);
-        if let Ground::Open(w) = &self.ground {
-            let hf = w.terrain();
-            let near = self.respawn_at.map_or_else(|| hf.height(s.x, s.z), |at| at.y);
-            self.player.pos.y = ground_at(hf, &w.index, s.x, s.z, near + 1.2, 1.2);
-        }
+        self.player.pos.y = y;
         self.player.respawned();
     }
 
     fn integrate(&mut self) {
-        match &mut self.ground {
-            Ground::Flat { world, .. } => self.player.integrate(world),
-            Ground::Open(world) => traverse::integrate_open(&mut Sim { player: &mut self.player, world, owner: 0 }),
-        }
+        traverse::integrate_open(&mut Sim { player: &mut self.player, world: &self.world, owner: 0 });
     }
 
     /// How high your feet are over whatever is under you (water counts as a floor).
     fn height_above_ground(&mut self) -> f64 {
-        match &mut self.ground {
-            Ground::Flat { .. } => self.player.pos.y,
-            Ground::Open(world) => traverse::height_above_ground(&Sim { player: &mut self.player, world, owner: 0 }),
-        }
+        traverse::height_above_ground(&Sim { player: &mut self.player, world: &self.world, owner: 0 })
     }
 
     fn take_player_events(&mut self) {
@@ -434,7 +406,7 @@ impl Session {
 
     /// Stands you at rest on whatever is solid at (x, z) under `near`.
     fn settle(&mut self, x: f64, z: f64, near: f64) {
-        let Ground::Open(w) = &self.ground else { return };
+        let w = &self.world;
         let y = ground_at(w.terrain(), &w.index, x, z, near + 1.2, 1.2);
         let p = &mut self.player;
         p.pos.x = x;
@@ -448,11 +420,11 @@ impl Session {
     /// ground, or the floor of the copy you're in), off whatever you were riding, gliding or
     /// swimming in: teleports, and a dungeon's arrival and door.
     pub fn place(&mut self, x: f64, z: f64, facing: f64, from_y: Option<f64>) {
-        let Some(hf) = self.terrain() else { return };
+        let hf = self.terrain();
         if self.player.mode == Mode::Ride
-            && let (Some(life), Ground::Open(world)) = (self.life.as_mut(), &mut self.ground)
+            && let Some(life) = self.life.as_mut()
         {
-            vehicles::dismount(life, &mut Sim { player: &mut self.player, world, owner: 0 });
+            vehicles::dismount(life, &mut Sim { player: &mut self.player, world: &self.world, owner: 0 });
         }
         let near = from_y.or(self.floor_here()).unwrap_or_else(|| hf.height(x, z));
         self.settle(x, z, near);
@@ -470,7 +442,7 @@ impl Session {
         self.player.apply_build(b);
     }
 
-    /// Your skill levels (in the yard, from what you've earned there; on the island, from your quests).
+    /// Your skill levels (from your island: what your skills have learned from use).
     pub fn set_levels(&mut self, levels: &[u32]) {
         self.levels = levels.to_vec();
         self.player.set_levels(levels);
@@ -488,20 +460,15 @@ impl Session {
     /// knocked down in it you get up where it's entered. False if there's no such dungeon here.
     pub fn enter_dungeon(&mut self, id: &str) -> bool {
         let Some(def) = dungeon(id) else { return false };
-        if !matches!(self.ground, Ground::Open(_)) {
-            return false;
-        }
         if self.dungeon.as_deref() == Some(id) {
             return true;
         }
         self.leave_dungeon();
-        let Ground::Open(w) = &mut self.ground else { return false };
-        let inside = Box::new(OpenWorld::instance(def, w.zone));
-        self.outside = Some(std::mem::replace(w, inside));
+        let inside = Box::new(OpenWorld::instance(def, self.world.zone));
+        self.outside = Some(std::mem::replace(&mut self.world, inside));
         self.crossings += 1;
         self.visited.insert(id.to_string());
         self.dungeon = Some(id.to_string());
-        self.respawn_at = Some(def.arrival());
         if let Some(life) = self.life.as_mut() {
             life.dungeon = Some(id.to_string());
         }
@@ -522,11 +489,10 @@ impl Session {
         if self.dungeon.take().is_none() {
             return;
         }
-        if let (Some(outside), Ground::Open(w)) = (self.outside.take(), &mut self.ground) {
-            *w = outside;
+        if let Some(outside) = self.outside.take() {
+            self.world = outside;
         }
         self.crossings += 1;
-        self.respawn_at = None;
         if let Some(life) = self.life.as_mut() {
             life.dungeon = None;
         }
@@ -559,30 +525,27 @@ impl Session {
     /// The ground of the space you're in as the page draws it: in a copy of an instance, how far down
     /// the nothing under its floors is and the water (none: under that), null out in the world.
     pub fn space_ground(&self) -> Value {
-        match (&self.ground, &self.dungeon) {
-            (Ground::Open(w), Some(_)) => json!({ "floor": w.map.sea_floor, "water": w.map.water }),
-            _ => Value::Null,
+        match &self.dungeon {
+            Some(_) => json!({ "floor": self.world.map.sea_floor, "water": self.world.map.water }),
+            None => Value::Null,
         }
     }
 
-    /// Ground height under a point: a copy's floor where you're in one, the island's terrain, or 0.
+    /// Ground height under a point: a copy's floor where you're in one, else the space's ground.
     pub fn ground_y(&self, x: f64, z: f64) -> f64 {
-        self.floor_at(x, z).unwrap_or_else(|| self.terrain().map_or(0.0, |hf| hf.height(x, z)))
+        self.floor_at(x, z).unwrap_or_else(|| self.terrain().height(x, z))
     }
 
-    /// What someone at height `near` would stand on at (x, z): the ground, a deck, a roof (0 on flat ground).
+    /// What someone at height `near` would stand on at (x, z): the ground, a deck, a roof.
     pub fn standing_at(&self, x: f64, z: f64, near: f64, pad: f64) -> f64 {
-        match &self.ground {
-            Ground::Open(w) => ground_at(w.terrain(), &w.index, x, z, near, pad),
-            Ground::Flat { .. } => 0.0,
-        }
+        ground_at(self.world.terrain(), &self.world.index, x, z, near, pad)
     }
 
     /// Restores a saved island (a test's, or a bug report's): its state, the time you were away
     /// (`now` on the clock `savedAt` was measured on, in ms), where you stood. False, changing
     /// nothing, for a save from a newer game than this one.
     pub fn load_island(&mut self, data: &Value, now: f64) -> bool {
-        let (Some(life), Ground::Open(world)) = (self.life.as_mut(), &mut self.ground) else { return false };
+        let (Some(life), world) = (self.life.as_mut(), &mut self.world) else { return false };
         let Some(state) = data.get("state") else { return false };
         if state.get("version").and_then(Value::as_i64).unwrap_or(0) > LIFE_VERSION {
             return false;
@@ -681,7 +644,7 @@ impl Session {
     /// Online, a command run here at once as well as on the server (a pack picked up, a seat
     /// taken), on a copy of the island the server sent, so that one stays as it came.
     pub fn run_ahead(&mut self, c: &Command) {
-        let (Some(life), Ground::Open(world)) = (self.life.as_mut(), &mut self.ground) else { return };
+        let (Some(life), world) = (self.life.as_mut(), &mut self.world) else { return };
         if self.is_sent {
             self.sent = Some(life.state.clone());
             self.is_sent = false;
@@ -707,7 +670,7 @@ impl Session {
         placing: Option<Placement>,
         ahead: &[Command],
     ) {
-        let (Some(life), Ground::Open(world)) = (self.life.as_mut(), &mut self.ground) else { return };
+        let (Some(life), world) = (self.life.as_mut(), &mut self.world) else { return };
         if !ahead.is_empty() {
             if self.is_sent {
                 self.sent = Some(life.state.clone());
@@ -737,29 +700,19 @@ impl Session {
     /// houses come with ids of their own, so they're never taken for yours).
     pub fn add_solid_house(&mut self, h: &House) {
         // In the world, even from inside a copy of an instance (it's the world you'll come back to).
-        let world: &mut OpenWorld = match (self.outside.as_deref_mut(), &mut self.ground) {
-            (Some(w), _) => w,
-            (None, Ground::Open(w)) => w,
-            _ => return,
-        };
+        let world: &mut OpenWorld = self.outside.as_deref_mut().unwrap_or(&mut self.world);
         housing::add_house_colliders(world, 0, h);
     }
 
     /// A scarecrow's post solid, and the ground round it tilled, as on the server (in the world).
     pub fn add_solid_scarecrow(&mut self, sc: &Scarecrow) {
-        let world: &mut OpenWorld = match (self.outside.as_deref_mut(), &mut self.ground) {
-            (Some(w), _) => w,
-            (None, Ground::Open(w)) => w,
-            _ => return,
-        };
+        let world: &mut OpenWorld = self.outside.as_deref_mut().unwrap_or(&mut self.world);
         farming::add_scarecrow_collider(world, 0, sc);
     }
 
     /// Other players' vehicles where they're drawn, solid to you as yours are.
     pub fn set_movers(&mut self, movers: Vec<Mover>) {
-        if let Ground::Open(world) = &mut self.ground {
-            world.movers = movers;
-        }
+        self.world.movers = movers;
     }
 
     /// Online, what the prompt can offer with others: their vehicles to ride along in, themselves
@@ -777,8 +730,8 @@ impl Session {
         }
     }
 
-    /// Starts you over at `at` with `build`, standing on whatever is solid there, the island's and
-    /// the yard's parts with you (tests).
+    /// Starts you over at `at` with `build`, standing on whatever is solid there, with the island's
+    /// parts and the creatures about you afresh (tests).
     pub fn reset(&mut self, at: Spawn, build: Build) {
         self.frame = 0;
         self.hitstop = 0;
@@ -788,13 +741,11 @@ impl Session {
         self.player = Player::new(at, 0, build);
         self.player.set_levels(&self.levels.clone());
         self.populate();
-        if let Ground::Open(w) = &self.ground {
-            let (x, z) = (self.player.pos.x, self.player.pos.z);
-            // From just above the ground there: the floor of the copy you're in, or the terrain.
-            let from = self.ground_y(x, z) + 1.2;
-            self.player.pos.y = ground_at(w.terrain(), &w.index, x, z, from, 1.2);
-            self.player.prev_pos = self.player.pos;
-        }
+        let (x, z) = (self.player.pos.x, self.player.pos.z);
+        // From just above the ground there: the floor of the copy you're in, or the terrain.
+        let from = self.ground_y(x, z) + 1.2;
+        self.player.pos.y = ground_at(self.world.terrain(), &self.world.index, x, z, from, 1.2);
+        self.player.prev_pos = self.player.pos;
         if let Some(life) = self.life.as_mut() {
             life.after_reset(&mut self.player);
         }
@@ -915,7 +866,7 @@ impl Session {
     /// dungeon's floors and walls put in or taken out), so the page knows to read the colliders
     /// again (`colliders_json`, `clear`) for its camera and drawing.
     pub fn solid_key(&self) -> u32 {
-        let Ground::Open(w) = &self.ground else { return 0 };
+        let w = &self.world;
         let mut h: u32 = 0x811c_9dc5;
         let mut mix = |n: usize| {
             for b in (n as u64).to_le_bytes() {
@@ -930,22 +881,19 @@ impl Session {
         h
     }
 
-    /// Everything solid on the island as it stands, in src/engine/world/types.ts's shapes (`{obstacles,
-    /// boxes, decks}`; null on the yard's flat ground).
+    /// Everything solid in the space you're in as it stands, in src/engine/world/types.ts's shapes
+    /// (`{obstacles, boxes, decks}`).
     pub fn colliders_json(&self) -> Value {
-        let Ground::Open(w) = &self.ground else { return Value::Null };
+        let w = &self.world;
         json!({ "obstacles": w.index.obstacles, "boxes": w.index.boxes, "decks": w.index.decks })
     }
 
     /// The island's cells kept clear of trees and scarecrows (the zone's, and ground cleared for houses).
     pub fn clear(&self) -> &[u8] {
-        match &self.ground {
-            Ground::Open(w) => &w.clear,
-            Ground::Flat { .. } => &[],
-        }
+        &self.world.clear
     }
 
-    /// The creatures and what they've thrown, as src/engine/actors/actor.ts has them, and offline the yard's
+    /// The creatures and what they've thrown, as src/engine/actors/actor.ts has them, and offline your
     /// arrows and meteors in flight (src/engine/training.ts).
     pub fn actors_json(&self) -> Value {
         json!({ "list": self.actors.list, "missiles": self.actors.missiles, "arrows": self.range.arrows, "meteors": self.range.meteors })
@@ -960,7 +908,7 @@ impl Session {
     }
 
     /// Everything the page reads after a step or a call, in one, as JSON text: the step count and the
-    /// hit pause, you, the creatures and the yard's arrows and meteors (offline), the island, what the
+    /// hit pause, you, the creatures and your arrows and meteors (offline), the island, what the
     /// island said (taken), whether a fall put you somewhere (and facing which way), a number that
     /// changes when what's solid does (`solid_key`), and with `events` what happened (taken). Written
     /// straight from the session's own values: building it as JSON values first was most of an
@@ -1029,21 +977,6 @@ impl Session {
         }
     }
 
-    /// The flat world as it's drawn (the yard's props, the dummy, where you start and who stands about).
-    pub fn world_json(&self) -> Value {
-        let spawn = |s: Spawn| json!({ "x": s.x, "z": s.z, "facing": s.facing });
-        match &self.ground {
-            Ground::Flat { yard, world } => json!({
-                "seed": yard.seed,
-                "radius": world.radius,
-                "obstacles": yard.props,
-                "spawn": spawn(yard.spawn),
-                "teamSpawns": [spawn(world.team_spawns[0]), spawn(world.team_spawns[1])],
-                "spawns": self.spawns,
-            }),
-            Ground::Open(_) => json!({ "spawns": self.spawns }),
-        }
-    }
 }
 
 fn mode_of(s: &str) -> Option<Mode> {
@@ -1252,7 +1185,7 @@ mod tests {
 
     #[test]
     fn offline_a_copy_brings_its_creatures_and_the_world_keeps_its_own() {
-        let mut s = Session::new(true, false, None, Build::default());
+        let mut s = Session::new(false, Build::default());
         let world = crowd(&s);
         assert!(!world.is_empty(), "Emberholm's slimes and dummy");
         assert!(s.enter_dungeon("yard"));

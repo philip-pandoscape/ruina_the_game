@@ -32,4 +32,3 @@ pub mod skills;
 pub mod training;
 pub mod tuning;
 pub mod world;
-pub mod yard;
