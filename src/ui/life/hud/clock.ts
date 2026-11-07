@@ -19,7 +19,7 @@ export class ClockHud {
   update(): void {
     const life = this.ui.life;
     const climate = CLIMATES[life.zone.recipe.climate];
-    const wind = life.state.weather;
+    const wind = life.weather;
     const rel = angleDiff(this.ui.yaw(), wind.windDir);
     const weather = raining(life) ? '🌧️' : (climate?.icon ?? '');
     const text = `${clock(this.ui.app.skyHour?.() ?? hourOfDay(life), life.zone.recipe.sky)} ${weather}`;

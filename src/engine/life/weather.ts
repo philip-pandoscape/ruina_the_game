@@ -8,7 +8,7 @@ import type { IslandRead } from './life';
 // (and in the rules' tests) the island's. Nothing in them is left to the island's dice, so the same
 // clock always has the same weather, here and on the server (crates/engine/src/life/weather.rs).
 
-export const raining = (life: IslandRead): boolean => life.state.clock < life.state.weather.rainUntil;
+export const raining = (life: IslandRead): boolean => life.state.clock < life.weather.rainUntil;
 
 const RAIN = FARM.rain;
 /**
@@ -59,5 +59,5 @@ export function hourOfDay(life: IslandRead): number {
 export function stormAt(life: IslandRead, depth: number): number {
   if (!raining(life)) return 0;
   const k = Math.min(1, Math.max(0, (depth - STORM.fromDepth) / (STORM.fullDepth - STORM.fromDepth)));
-  return k * (0.6 + 0.4 * life.state.weather.windSpeed);
+  return k * (0.6 + 0.4 * life.weather.windSpeed);
 }

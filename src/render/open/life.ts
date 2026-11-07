@@ -262,7 +262,7 @@ export class LifeView {
     const byGeo = new Map<string, THREE.Matrix4[]>();
     const tops = new Map<string, number>();
     this.plotGround = [];
-    for (const sc of this.life.state.scarecrows) {
+    for (const sc of this.life.land.scarecrows) {
       // Soil, draped over the ground.
       const soil = new THREE.PlaneGeometry(half * 2, half * 2, 8, 8).rotateX(-Math.PI / 2);
       const p = soil.attributes.position;
@@ -390,7 +390,7 @@ export class LifeView {
     for (const c of [...this.houses.children]) this.houses.remove(c);
     const kit: HouseView[] = [];
     for (const plot of this.life.zone.recipe.housePlots) {
-      const h = this.life.state.houses.find((x) => x.plot === plot.id);
+      const h = this.life.land.houses.find((x) => x.plot === plot.id);
       const bp = h ? blueprintDef(h.blueprint) : null;
       const pose = h ? housePose(this.life, h) : null;
       // From the foundation up a house is the village kit's, built as far as its stages go.
@@ -459,7 +459,7 @@ export class LifeView {
         o.castShadow = true;
         o.receiveShadow = true;
       });
-      const b = this.life.state.ships.find((x) => x.slip === sy.id);
+      const b = this.life.land.ships.find((x) => x.slip === sy.id);
       if (b) {
         const design = shipDesign(b.design);
         const def = rideable(design.vehicle);
@@ -544,7 +544,7 @@ export class LifeView {
   placeRide(p: PlayerState, alpha: number, shift: THREE.Vector3 | null, dt: number): Seated | null {
     this.placed = -1;
     if (p.mode !== 'ride' || !p.vehicle || p.host) return null;
-    const v = this.life.state.vehicles.find((x) => x.id === p.vehicle);
+    const v = this.life.land.vehicles.find((x) => x.id === p.vehicle);
     if (!v) return null;
     const s = this.shownVehicle(v);
     const seat = s.def.seats[0];
@@ -607,7 +607,7 @@ export class LifeView {
     s.root.position.set(x, y, z);
     s.root.rotation.set(-pitch, heading, roll);
     if (s.animate) {
-      const rel = angleDiff(this.life.state.weather.windDir, v.heading);
+      const rel = angleDiff(this.life.weather.windDir, v.heading);
       s.animate(dt, {
         speed: v.speed,
         steer: v.steer,
@@ -628,24 +628,24 @@ export class LifeView {
 
     if (life.revision !== this.builtRevision) {
       this.builtRevision = life.revision;
-      const plots = life.state.scarecrows.length + life.state.houses.length * 100;
+      const plots = life.land.scarecrows.length + life.land.houses.length * 100;
       if (plots !== this.plotCount) {
         this.plotCount = plots;
         this.onGroundChanged?.();
       }
       // Only when what grows in them changed: a pack picked up or a cart loaded changes the island
       // too, and building every plot again for that is a stutter you feel.
-      const pk = plotKey(life.state.scarecrows);
+      const pk = plotKey(life.land.scarecrows);
       if (pk !== this.plotKey) {
         this.plotKey = pk;
         this.rebuildPlots();
       }
-      const sk = (life.state.ships ?? []).map((b) => `${b.slip}:${b.stage}`).join(',') + '|';
+      const sk = (life.land.ships ?? []).map((b) => `${b.slip}:${b.stage}`).join(',') + '|';
       if (sk !== this.shipKey) {
         this.shipKey = sk;
         this.rebuildSlips();
       }
-      const key = life.state.houses.map((h) => `${h.plot}:${h.stage}`).join(',');
+      const key = life.land.houses.map((h) => `${h.plot}:${h.stage}`).join(',');
       if (key !== this.houseKey || this.houses.children.length === 0) {
         this.houseKey = key;
         this.rebuildHouses();
@@ -668,7 +668,7 @@ export class LifeView {
 
     // Farm animals potter about their cell.
     for (const a of this.animals) {
-      const sc = life.state.scarecrows.find((s) => s.id === a.sc);
+      const sc = life.land.scarecrows.find((s) => s.id === a.sc);
       const pl = sc?.cells[a.idx];
       if (!pl) continue;
       const hungry = (pl.fedUntil ?? 0) <= life.state.clock;
@@ -680,7 +680,7 @@ export class LifeView {
     // Vehicles where the rules have them; the one being driven was put under its driver already
     // (placeRide), before they were posed.
     const live = new Set<number>();
-    for (const v of life.state.vehicles) {
+    for (const v of life.land.vehicles) {
       live.add(v.id);
       if (v.id === this.placed) continue;
       this.dress(v, this.shownVehicle(v), v.x, v.y, v.z, v.heading, this.time, dt);
@@ -694,7 +694,7 @@ export class LifeView {
 
     // Packs: on your back, in a vehicle's slot, or on the ground.
     const seen = new Set<number>();
-    for (const pk of life.state.packs) {
+    for (const pk of life.land.packs) {
       seen.add(pk.id);
       let m = this.packMeshes.get(pk.id);
       if (!m) {
@@ -711,7 +711,7 @@ export class LifeView {
       } else if (pk.at === 'back') {
         // Riding with a pack: it goes in the seat behind you (a donkey's pannier, a cart bench).
         if (m.parent !== this.group) this.group.add(m);
-        const v = life.state.vehicles.find((x) => x.id === p.vehicle);
+        const v = life.land.vehicles.find((x) => x.id === p.vehicle);
         const s = v ? this.vehicles.get(v.id) : undefined;
         if (v && s) {
           const a = s.def.cargo[0] ?? { x: 0, y: s.def.height * 0.6, z: -s.def.length * 0.3 };
@@ -775,7 +775,7 @@ export class LifeView {
 
     // Rain, fading in and out.
     // No rain under a roof of rock (inside a dungeon: src/app/dungeonVisit.ts sets indoors).
-    const raining = life.state.clock < life.state.weather.rainUntil && !this.indoors;
+    const raining = life.state.clock < life.weather.rainUntil && !this.indoors;
     this.rainOn += ((raining ? 1 : 0) - this.rainOn) * Math.min(1, dt * 0.8);
     const rm = this.rain.material as THREE.PointsMaterial;
     rm.opacity = this.rainOn * 0.7;

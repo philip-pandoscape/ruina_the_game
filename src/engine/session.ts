@@ -7,8 +7,9 @@ import type { Levels } from '../content/skills';
 import type { Build } from '../content/tuning';
 import type { Actor, Missile } from './actors/actor';
 import type { Focus, Placement } from './life/interact';
+import type { Land, Market } from './life/land';
 import type { LifeEvent } from './life/life';
-import type { LifeState } from './life/state';
+import type { LifeState, Weather } from './life/state';
 import type { ArrowFlight, MeteorFall } from './training';
 import type { Actions, GameEvent, Obstacle, PlayerState } from './shapes';
 import type { BoxCollider, Deck } from './world/types';
@@ -21,9 +22,17 @@ export interface SessionOptions {
   build: Build;
 }
 
-/** The island as the session shows it. */
+/** The life as the session shows it. */
 export interface SessionLife {
   state: LifeState;
+  /** Your land: houses, farms, ships, packs, vehicles. */
+  land: Land;
+  /** The trading posts' demand, the world's. */
+  market: Market;
+  /** The weather where you are. */
+  weather: Weather;
+  /** The land's clock (seconds: the world's online, the life's offline). */
+  now: number;
   focus: Focus | null;
   placing: Placement | null;
   resting: boolean;
@@ -90,8 +99,8 @@ export class EngineSession {
     wasm().session_world_clock(this.h, t ?? Number.NaN);
   }
 
-  /** Online, your island as a tick has it (its state as it came, whether you're placing something or resting). */
-  takeIsland(island: { state: LifeState; placing: unknown; resting: boolean }): void {
+  /** Online, your life as a tick has it (its state and your land as they came, the world's market, whether you're placing something or resting). */
+  takeIsland(island: { state: LifeState; land: Land; market: Market; placing: unknown; resting: boolean }): void {
     const e = wasm();
     if (!withText(JSON.stringify(island), (p, n) => e.session_take_island(this.h, p, n))) throw new Error('engine session: the island could not be read');
   }

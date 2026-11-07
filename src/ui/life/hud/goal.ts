@@ -67,8 +67,8 @@ function objectiveGoal(life: IslandRead, sim: SimRead, o: Objective): Goal | nul
     const b = o.pack ? benchFor(life, o.pack) : null;
     if (b) return b;
   }
-  if ((o.type === 'plant' || o.type === 'harvest' || o.type === 'raise') && s.scarecrows[0])
-    return { x: s.scarecrows[0].x, z: s.scarecrows[0].z, label: 'Your Plot' };
+  if ((o.type === 'plant' || o.type === 'harvest' || o.type === 'raise') && life.land.scarecrows[0])
+    return { x: life.land.scarecrows[0].x, z: life.land.scarecrows[0].z, label: 'Your Plot' };
   if (o.type === 'contract') {
     // The trading post of the contract you took; with none taken, where the quest says.
     const k = s.contracts?.active[0];
@@ -86,9 +86,9 @@ function objectiveGoal(life: IslandRead, sim: SimRead, o: Objective): Goal | nul
       return o.type === 'shipStage' && b && !shipFinished(b) ? fetchFor(life, sim, shipNeeds(b), shipStageReady(b), slip) : slip;
     }
   }
-  if (o.type === 'load' && s.vehicles[0]) return { x: s.vehicles[0].x, z: s.vehicles[0].z, label: 'Your Vehicle' };
+  if (o.type === 'load' && life.land.vehicles[0]) return { x: life.land.vehicles[0].x, z: life.land.vehicles[0].z, label: 'Your Vehicle' };
   if (o.type === 'placeHouse' || o.type === 'buildStage') {
-    const h = s.houses[0];
+    const h = life.land.houses[0];
     if (h) {
       const pose = housePose(life, h);
       const site = { x: pose.x, z: pose.z, label: 'Your House' };
@@ -163,7 +163,7 @@ function benchFor(life: IslandRead, pack: string): Goal | null {
 function fetchFor(life: IslandRead, sim: SimRead, needs: Array<{ pack: string; have: number; need: number }>, ready: boolean, site: Goal): Goal {
   const want = needs.filter((n) => n.have < n.need).map((n) => n.pack);
   if (ready || !want.length) return site;
-  const mine = life.state.packs.filter((pk) => want.includes(pk.def));
+  const mine = life.land.packs.filter((pk) => want.includes(pk.def));
   if (mine.some((pk) => pk.at !== 'ground')) return site;
   const p = sim.player.pos;
   const lying = mine.sort((a, b) => Math.hypot(a.x - p.x, a.z - p.z) - Math.hypot(b.x - p.x, b.z - p.z))[0];

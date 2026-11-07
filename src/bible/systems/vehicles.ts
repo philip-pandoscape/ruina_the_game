@@ -46,7 +46,7 @@ const rule = () => {
     'how much of the wind a sail can use',
   );
   const [floatFrom, floatMore] = nums(v, re(String.raw`a\.js_cos\(\) \* \({N} \+ life\.rand\(\) \* {N}\)`), 'where lost cargo floats');
-  const [stormBase, stormShare] = nums(weatherSource, re(String.raw`k \* \({N} \+ {N} \* life\.state\.weather\.wind_speed\)`), 'how the wind roughens a storm');
+  const [stormBase, stormShare] = nums(weatherSource, re(String.raw`k \* \({N} \+ {N} \* life\.weather\.wind_speed\)`), 'how the wind roughens a storm');
   const [windMid, windSwing] = nums(weatherSource, re(String.raw`w\.wind_speed = {N} \+ {N} \* \(c`), 'how strong the wind blows');
   const [ringFrom, ringTo, ringStep] = nums(v, re(String.raw`let mut dist = {N};\s*while dist <= {N} \{[\s\S]*?dist \+= {N};`), 'how far a boat is looked for');
   return {

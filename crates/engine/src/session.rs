@@ -985,6 +985,7 @@ impl Session {
                 "land": l.land,
                 "market": l.market,
                 "weather": l.weather,
+                "now": land::now(l),
                 "focus": l.focus,
                 "placing": l.placing,
                 "resting": l.resting,
@@ -1014,6 +1015,9 @@ impl Session {
             land: &'a Land,
             market: &'a Market,
             weather: &'a Weather,
+            /// The land's clock as of this view (crate::life::land::now), which the market's
+            /// demand and the land's times are read against.
+            now: f64,
             focus: &'a Option<Focus>,
             placing: &'a Option<Placement>,
             resting: bool,
@@ -1045,6 +1049,7 @@ impl Session {
                 land: &l.land,
                 market: &l.market,
                 weather: &l.weather,
+                now: land::now(l),
                 focus: &l.focus,
                 placing: &l.placing,
                 resting: l.resting,

@@ -383,10 +383,13 @@ export function makeTestApi(g: GameRefs) {
     villageStats() {
       return g.openStage?.village.stats() ?? null;
     },
-    /** The life systems' state, as plain data. */
+    /** The life systems' state, as plain data: the life's own, your land's lists beside it (houses, scarecrows, ships, packs, vehicles), the world's market and weather. */
     life() {
       if (!g.life) return null;
-      return JSON.parse(JSON.stringify({ ...g.life.state, focus: g.life.focus, placing: g.life.placing, resting: g.life.resting }));
+      const l = g.life;
+      return JSON.parse(
+        JSON.stringify({ ...l.state, ...l.land, market: l.market, weather: l.weather, now: l.now, focus: l.focus, placing: l.placing, resting: l.resting }),
+      );
     },
     /** Where the quest you're on leads you (the ring on the maps, the marker on the compass). */
     questGoal() {

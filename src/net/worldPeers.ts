@@ -17,10 +17,10 @@ import type { Estate, EstateEntry, PeerEntry, WorldLink } from './worldLink';
 
 // Everyone else in your channel of Emberholm, as the server plays them (crates/server/src/play/mod.rs):
 // each player as they move (about 20 times a second, kept a few frames behind so there is always a
-// next one to blend toward), with their glider, pack, vehicles and mounts; and everything every
-// resident has built, their houses and farms, which stay standing while they're away. Houses and
-// farm posts are solid, as yours are, and so are their vehicles where you see them. This keeps them
-// as they are at the moment drawn; src/render/open/peersView.ts draws them.
+// next one to blend toward), with their glider, pack, vehicles and mounts; and everyone's land,
+// their houses, farms and ships, which stay standing while they're away. Houses and farm posts are
+// solid, as yours are, and so are their vehicles where you see them. This keeps them as they are at
+// the moment drawn; src/render/open/peersView.ts draws them.
 
 /** The player fields drawing someone needs (src/render/character.ts and the life view); the server sends these. */
 const SHOWN = [
@@ -172,9 +172,9 @@ export class WorldPeers {
       y: p.shown.pos.y,
       z: p.shown.pos.z,
       mode: p.shown.mode,
-      houses: p.life.state.houses.length,
-      scarecrows: p.life.state.scarecrows.length,
-      vehicles: p.life.state.vehicles.length,
+      houses: p.life.land.houses.length,
+      scarecrows: p.life.land.scarecrows.length,
+      vehicles: p.life.land.vehicles.length,
       away: +p.away.toFixed(1),
       team: p.shown.team,
       hp: p.shown.hp,
@@ -197,7 +197,7 @@ export class WorldPeers {
     if (p) return p;
     // What of their island everyone sees (their houses, farms, ships, vehicles and packs), to draw.
     const life = new IslandView(this.zone, newLifeState({ coins: 0, labor: 0, seed: this.zone.recipe.seed }), () => {});
-    life.state.weather = this.mine.state.weather;
+    life.weather = this.mine.weather;
     p = {
       id,
       name,
@@ -248,7 +248,7 @@ export class WorldPeers {
     const key = JSON.stringify(est);
     if (key === p.estateKey) return;
     p.estateKey = key;
-    const s = p.life.state;
+    const s = p.life.land;
     s.houses = (est.houses ?? []) as House[];
     s.scarecrows = (est.scarecrows ?? []) as Scarecrow[];
     s.ships = (est.ships ?? []) as ShipBuild[];
@@ -283,8 +283,8 @@ export class WorldPeers {
     p.online = false;
     p.drawn = false;
     p.samples = [];
-    p.life.state.vehicles = [];
-    p.life.state.packs = [];
+    p.life.land.vehicles = [];
+    p.life.land.packs = [];
   }
 
   /** Everyone's vehicles as drawn, with the seats taken in them (`you` too), for the prompt to ride along. */
@@ -297,7 +297,7 @@ export class WorldPeers {
     const out: OthersVehicle[] = [];
     for (const p of this.peers.values()) {
       if (!p.online) continue;
-      for (const v of p.life.state.vehicles) {
+      for (const v of p.life.land.vehicles) {
         const here = `${p.id}:${v.id}`;
         out.push({ host: p.id, name: p.name, vehicle: v, taken: riders.filter((q) => seated(q) === here).map((q) => q.seat) });
       }
@@ -315,11 +315,11 @@ export class WorldPeers {
     const movers: Mover[] = [];
     for (const p of this.peers.values()) {
       if (p.online && now - p.heard > SILENT_MS) this.left(p.id);
-      const s = p.life.state;
-      s.clock = this.mine.state.clock;
-      s.weather = this.mine.state.weather;
+      p.life.state.clock = this.mine.state.clock;
+      p.life.weather = this.mine.weather;
+      p.life.now = this.mine.now;
       if (p.online && p.samples.length) this.pose(p, dt);
-      for (const v of s.vehicles) movers.push(...vehicleBodies(v));
+      for (const v of p.life.land.vehicles) movers.push(...vehicleBodies(v));
       p.away = Math.hypot(p.shown.pos.x - me.x, p.shown.pos.y - me.y, p.shown.pos.z - me.z);
     }
     this.engine.setOthersVehicles(movers);
@@ -364,7 +364,7 @@ export class WorldPeers {
 
     // Their vehicles glide between updates the same way; packs ride on whatever carries them.
     const before = new Map((a.p.vehicles ?? []).map((v) => [v.id, v]));
-    p.life.state.vehicles = (b.p.vehicles ?? []).map((v) => {
+    p.life.land.vehicles = (b.p.vehicles ?? []).map((v) => {
       const o = before.get(v.id);
       if (!o || jump) return v;
       return {
@@ -377,7 +377,7 @@ export class WorldPeers {
         roll: o.roll + (v.roll - o.roll) * t,
       };
     });
-    p.life.state.packs = b.p.packs ?? [];
+    p.life.land.packs = b.p.packs ?? [];
     p.life.state.glider = sh.glider;
     p.drawn = true;
   }

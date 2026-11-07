@@ -20,7 +20,7 @@ export function ridesView(ui: IslandUI): View {
       const def = itemDef(s.item);
       const vid = def.vehicle ?? def.mount!;
       const r = rideable(vid);
-      const out = life.state.vehicles.find((v) => v.def === vid);
+      const out = life.land.vehicles.find((v) => v.def === vid);
       const where = out
         ? `${Math.round(Math.hypot(out.x - p.pos.x, out.z - p.pos.z))} m Away${out.cargo.some(Boolean) ? ` · ${out.cargo.filter(Boolean).length} Packs Aboard` : ''}`
         : 'Stabled';

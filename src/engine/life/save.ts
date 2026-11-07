@@ -1,17 +1,22 @@
-import { type LifeState } from './state';
+import type { Land } from './land';
+import type { LifeState } from './state';
 import { exitSpot, ridden } from './vehicles';
 import { dungeonDef, dungeonDoor } from '../world/dungeons';
 import type { IslandRead } from './life';
 import type { SimRead } from '../shapes';
 
-// Your island as the rules keep it between visits: money, bag, farms, house, vehicles, quests, and
-// where you were standing. The server keeps players' islands, and takes one up again with the time
-// you were away (load_island, crates/server/src/play/mod.rs); this browser keeps one only for automated
-// tests and bug-report replays (src/app/save.ts), which the engine takes up the same way.
+// Your life as the rules keep it between visits (money, bag, quests), your land beside it (farms,
+// house, vehicles, packs), and where you were standing. The server keeps players' lives and land,
+// and takes them up again with the time you were away (load_island, crates/server/src/play/mod.rs);
+// this browser keeps one only for automated tests and bug-report replays (src/app/save.ts), which the
+// engine takes up the same way. A save from before land was kept apart (its land inside its state,
+// version 3 and before) is read apart by the engine (crates/engine/src/life/land.rs read_saved).
 
-/** The island as the server keeps it. */
+/** The life and its land as the server keeps them. */
 export interface Island {
   state: LifeState;
+  /** Your land (left out of a save from before it was kept apart: then it's inside the state). */
+  land?: Land;
   player: { x: number; y: number; z: number; facing: number };
 }
 
@@ -24,9 +29,9 @@ export interface Saved extends Island {
 export function islandData(life: IslandRead & { readonly dungeon?: string | null }, sim: SimRead): Island {
   const p = sim.player;
   const door = life.dungeon ? (dungeonDoor(life.zone.recipe, life.dungeon) ?? dungeonDef(life.dungeon)?.door) : undefined;
-  if (door) return { state: life.state, player: { x: door.outside.x, y: door.portal.y, z: door.outside.z, facing: door.outside.facing } };
+  if (door) return { state: life.state, land: life.land, player: { x: door.outside.x, y: door.portal.y, z: door.outside.z, facing: door.outside.facing } };
   // Riding is not saved: you will be standing beside it next time.
   const v = p.mode === 'ride' ? ridden(life, sim) : undefined;
   const at = v ? exitSpot(sim, v) : p.pos;
-  return { state: life.state, player: { x: at.x, y: at.y, z: at.z, facing: p.facing } };
+  return { state: life.state, land: life.land, player: { x: at.x, y: at.y, z: at.z, facing: p.facing } };
 }

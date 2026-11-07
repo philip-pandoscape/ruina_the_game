@@ -164,7 +164,7 @@ test('a new vehicle is summoned from its deed, boarded and driven', () => {
   stand(e, fields.x, fields.z, 0);
   retake(e, (s) => s.bag.push({ item: 'deed.ponyTrap', n: 1 }));
   run(e, { t: 'use', item: 'deed.ponyTrap' });
-  const trap = () => e.life!.state.vehicles.find((x) => x.def === 'ponyTrap') as Vehicle;
+  const trap = () => e.life!.land.vehicles.find((x) => x.def === 'ponyTrap') as Vehicle;
   const v = trap();
   expect(v, toasts(e).join('; ')).toBeTruthy();
   expect(rideable('ponyTrap').cargo).toHaveLength(2);

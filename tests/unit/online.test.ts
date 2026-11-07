@@ -75,8 +75,8 @@ test("online: the server's word on you, your island as it sends it and commands 
     ack: number;
     clock: number;
     labor: number;
-    weather: (typeof life.state)['weather'];
-    vehicles: (typeof life.state)['vehicles'];
+    weather: (typeof life)['weather'];
+    vehicles: (typeof life.land)['vehicles'];
     resting: boolean;
     placing: null;
   };
@@ -89,13 +89,13 @@ test("online: the server's word on you, your island as it sends it and commands 
       running.map((r) => r.c),
     );
   };
-  const history = new Map<number, { player: PlayerState; state: typeof life.state }>();
-  const word = () => ({ player: stateFromServer(server.player() as unknown as Record<string, unknown>), state: server.life()!.state });
+  const history = new Map<number, { player: PlayerState; life: NonNullable<ReturnType<EngineSession['life']>> }>();
+  const word = () => ({ player: stateFromServer(server.player() as unknown as Record<string, unknown>), life: server.life()! });
   const tick = (ack: number) => {
     const h = history.get(ack)!;
-    client.takeIsland({ state: copy(h.state), placing: null, resting: false });
-    const s = copy(h.state);
-    you = { ack, clock: s.clock, labor: s.labor, weather: s.weather, vehicles: s.vehicles, resting: false, placing: null };
+    client.takeIsland({ state: copy(h.life.state), land: copy(h.life.land), market: copy(h.life.market), placing: null, resting: false });
+    const l = copy(h.life);
+    you = { ack, clock: l.state.clock, labor: l.state.labor, weather: l.weather, vehicles: l.land.vehicles, resting: false, placing: null };
     prediction.reconcile(ack, copy(h.player));
   };
   history.set(0, word());

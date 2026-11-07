@@ -1,5 +1,6 @@
 import type { ZoneData } from '../world/region';
-import { type LifeState, type Vehicle } from './state';
+import type { Land, Market, Vehicle } from './land';
+import type { LifeState, Weather } from './state';
 
 // The island's life (trade, farming, housing, vehicles, quests) as the page talks to it: the
 // commands it sends, what the engine says back, and what the read helpers read. The engine runs the
@@ -51,12 +52,18 @@ export type LifeEvent =
   | { t: 'thunder'; x: number; y: number; z: number };
 
 /**
- * What the helpers the page calls read of an island: its zone, its state and what's in the bag (the
- * engine's snapshot, src/engine/islandView.ts).
+ * What the helpers the page calls read of a life: its zone, its state and what's in the bag, its
+ * land, the world's market and weather where you are, and the land's clock (the engine's snapshot,
+ * src/engine/islandView.ts).
  */
 export interface IslandRead {
   readonly zone: ZoneData;
   readonly state: LifeState;
+  readonly land: Land;
+  readonly market: Market;
+  readonly weather: Weather;
+  /** The land's clock (seconds): the world's online, the life's own offline. */
+  readonly now: number;
   count(item: string): number;
 }
 

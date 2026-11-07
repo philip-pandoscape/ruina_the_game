@@ -1,4 +1,4 @@
-import type { ShipBuild } from './state';
+import type { ShipBuild } from './land';
 import { shipDesign } from '../../content/shipyard';
 import type { IslandRead } from './life';
 
@@ -7,7 +7,7 @@ import type { IslandRead } from './life';
 // launches her: the slip clears and you hold the deed. The engine builds them
 // (crates/engine/src/life/shipyard.rs); these read a slip for the page.
 
-export const shipOn = (life: IslandRead, slip: string): ShipBuild | undefined => life.state.ships.find((s) => s.slip === slip);
+export const shipOn = (life: IslandRead, slip: string): ShipBuild | undefined => life.land.ships.find((s) => s.slip === slip);
 
 export function shipNeeds(b: ShipBuild): Array<{ pack: string; need: number; have: number }> {
   const stage = shipDesign(b.design).stages[b.stage];
