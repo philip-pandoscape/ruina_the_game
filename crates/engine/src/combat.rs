@@ -35,7 +35,6 @@ use crate::open::{OpenWorld, Sim};
 use crate::player::{Actions, Build, Mode, Player, angle_diff};
 use crate::skills::allowed;
 use crate::tuning::{AttackStep, NO_ABILITY, ability, effect_amount, effect_damage, effect_radius, melee_targets, pierce_targets, tuning};
-use crate::world::World;
 
 pub const MAX_PLAYERS: usize = 4096;
 // A little more than one tick's worth of 60 Hz inputs: catches up after a hiccup, but a client
@@ -121,8 +120,8 @@ fn note(told: &mut Vec<Effect>, kind: u16, cause: u16, x: f64, y: f64, z: f64, a
     told.push(Effect { kind: kind | (cause << 4), x, y, z, size: amount.round().clamp(1.0, 255.0) as u8 });
 }
 
-/// The ground under a point: a copy's floor where it has one, the terrain, or 0 (a flat World, as
-/// the balance harness's duels have).
+/// The ground under a point: a copy's floor where it has one, the terrain, or 0 where there's
+/// neither.
 fn ground_under(floor: Option<&'static DungeonDef>, terrain: Option<&'static Heightfield>, x: f64, z: f64) -> f64 {
     floor.and_then(|d| d.floor_at(x, z)).unwrap_or_else(|| terrain.map_or(0.0, |g| g.height(x, z)))
 }
@@ -326,8 +325,7 @@ struct Before<'a> {
     tracks: &'a [Track],
     creature_tracks: &'a BTreeMap<u32, Track>,
     actors: &'a Actors,
-    world: &'a World,
-    open: Option<&'a OpenWorld>,
+    open: &'a OpenWorld,
     floor: Option<&'static DungeonDef>,
     ground: Option<&'static Heightfield>,
     tick: u64,
@@ -358,19 +356,14 @@ impl Before<'_> {
             if seq <= slot.last_seq {
                 continue; // repeated or out of date
             }
-            match self.open {
-                Some(ow) => {
-                    // The island's commands given on or before this input run with it.
-                    if let Some(life) = slot.life.as_deref_mut() {
-                        while slot.commands.front().is_some_and(|(cs, _)| *cs <= seq) {
-                            let (_, c) = slot.commands.pop_front().unwrap();
-                            life.command(c);
-                        }
-                    }
-                    crate::open::step_player(&mut slot.player, &a, ow, slot.life.as_deref_mut(), slot.owner);
+            // The island's commands given on or before this input run with it.
+            if let Some(life) = slot.life.as_deref_mut() {
+                while slot.commands.front().is_some_and(|(cs, _)| *cs <= seq) {
+                    let (_, c) = slot.commands.pop_front().unwrap();
+                    life.command(c);
                 }
-                None => slot.player.step(&a, self.world),
             }
+            crate::open::step_player(&mut slot.player, &a, self.open, slot.life.as_deref_mut(), slot.owner);
             slot.last_seq = seq;
             if self.inputs_per_tick > 0.0 {
                 slot.budget -= 1.0;
@@ -416,21 +409,17 @@ impl Before<'_> {
         let max = melee_targets(p.weapon, &p.resolved);
         let players = self.swing_players(s, slot.client_id, p, view, latest, step, max, out);
         // On hills nothing is in reach from more than 2 m up, and only feet within 2 m of yours.
-        let feet = self.open.map(|ow| {
-            let hf = ow.terrain();
-            let under = hf.water.max(crate::open::colliders::ground_at(hf, &ow.index, p.pos.x, p.pos.z, p.pos.y, 0.0));
-            (p.pos.y - under, p.pos.y)
-        });
-        let creatures =
-            if feet.is_none_or(|(above, _)| above <= 2.0) { self.swing_creatures(s, slot.client_id, p, view, step, max, feet.map(|f| f.1), out) } else { 0 };
+        let hf = self.open.terrain();
+        let under = hf.water.max(crate::open::colliders::ground_at(hf, &self.open.index, p.pos.x, p.pos.z, p.pos.y, 0.0));
+        let creatures = if p.pos.y - under <= 2.0 { self.swing_creatures(s, slot.client_id, p, view, step, max, Some(p.pos.y), out) } else { 0 };
         players + creatures
     }
 
     /// The players a swing reaches, each checked where the attacker saw them (tick `view`).
     #[allow(clippy::too_many_arguments)]
     fn swing_players(&self, s: usize, client: u32, a: &Player, view: f64, latest: f64, step: &AttackStep, max: usize, out: &mut Outbox) -> usize {
-        // High in the air, a swing reaches nobody: two metres above the ground under you (a flat
-        // World's floor is 0; the open world's is its terrain).
+        // High in the air, a swing reaches nobody: two metres above the ground under you (a copy's
+        // floor, or the world's terrain).
         let floor = self.ground_at(a.pos.x, a.pos.z);
         if a.pos.y - floor > 2.0 {
             return 0;
@@ -585,12 +574,12 @@ pub fn in_order(jobs: &mut [Job], step: &(dyn Fn(&mut Job) + Sync)) {
 }
 
 pub struct Players {
-    /// Open worlds: the ground, so heights can be measured from it (a flat World is at 0).
+    /// In a channel of the world: its ground, so heights can be measured from it.
     pub ground: Option<&'static Heightfield>,
     /// A copy of a dungeon or a developer zone: its floor, which is the ground where it has one.
     pub floor: Option<&'static DungeonDef>,
-    /// Open worlds: refill each player's input budget by this many inputs per tick. 0 (the
-    /// balance harness's duels) runs whatever arrives, up to MAX_INPUTS_PER_TICK.
+    /// Refill each player's input budget by this many inputs per tick. 0 (the balance harness's
+    /// duels) runs whatever arrives, up to MAX_INPUTS_PER_TICK.
     pub inputs_per_tick: f64,
     slots: Vec<Option<Slot>>,
     by_client: BTreeMap<u32, usize>,
@@ -599,7 +588,6 @@ pub struct Players {
     /// And every creature, by its id.
     creature_tracks: BTreeMap<u32, Track>,
     tick_ms: f64,
-    next_team: u8,
     pub pvp_hits: u64,
     pub saved_by_rewind: u64, // hits that only landed because of lag compensation
     pub heals: u64,
@@ -623,7 +611,6 @@ impl Players {
             tracks: vec![Track::default(); MAX_PLAYERS],
             creature_tracks: BTreeMap::new(),
             tick_ms,
-            next_team: 1,
             pvp_hits: 0,
             saved_by_rewind: 0,
             heals: 0,
@@ -686,21 +673,13 @@ impl Players {
         Some(free)
     }
 
-    /// team_request: 1 = team 0, 2 = team 1, anything else = alternate.
-    pub fn join(&mut self, client_id: u32, team_request: u8, world: &World) {
-        if self.by_client.contains_key(&client_id) || self.slots.iter().all(Option::is_some) {
-            return;
+    /// A player without an island (the balance harness's duellists), as `player` (already placed, on
+    /// their side). Returns false if they're already here or there's no room.
+    pub fn join_at(&mut self, client_id: u32, player: Player) -> bool {
+        if self.by_client.contains_key(&client_id) {
+            return false;
         }
-        let team = match team_request {
-            1 => 0,
-            2 => 1,
-            _ => {
-                self.next_team ^= 1;
-                self.next_team
-            }
-        };
-        let player = Player::new(world.team_spawns[team as usize], team, Build::default());
-        self.seat(Slot::new(client_id, player, 0, None));
+        self.seat(Slot::new(client_id, player, 0, None)).is_some()
     }
 
     /// Open worlds: a character arrives, as `player` (already placed), carrying their island.
@@ -830,15 +809,12 @@ impl Players {
             .collect()
     }
 
-    /// Runs each player's waiting inputs in order: weapon swings land, arrows fly off, and finished
-    /// casts heal or call down meteors. `tick` is the tick being worked out now.
-    pub fn step(&mut self, actors: &mut Actors, world: &World, tick: u64) {
-        self.step_in(actors, world, tick, None);
-    }
-
-    /// The same, in an open world: each player moves over its ground and their island steps along.
-    pub fn step_in(&mut self, actors: &mut Actors, world: &World, tick: u64, open: Option<&mut OpenWorld>) {
-        self.step_by(actors, world, tick, open, in_order);
+    /// Runs each player's waiting inputs in order, in `world` (a channel's, or a copy of an
+    /// instance): each moves over its ground with their island stepping along, weapon swings land,
+    /// arrows fly off, and finished casts heal or call down meteors. `tick` is the tick being worked
+    /// out now.
+    pub fn step_in(&mut self, actors: &mut Actors, tick: u64, world: &mut OpenWorld) {
+        self.step_by(actors, tick, world, in_order);
     }
 
     /// The same, with every player's step a [`Job`] that `drive` runs: one after another in any
@@ -847,14 +823,7 @@ impl Players {
     /// what it does to them is applied once every one has run, in an order of its own (the module's
     /// doc): so however `drive` runs them, the tick comes out the same. What anyone built is made
     /// solid after that, island by island in the order of the slots.
-    pub fn step_by(
-        &mut self,
-        actors: &mut Actors,
-        world: &World,
-        tick: u64,
-        open: Option<&mut OpenWorld>,
-        drive: impl FnOnce(&mut [Job], &(dyn Fn(&mut Job) + Sync)),
-    ) {
+    pub fn step_by(&mut self, actors: &mut Actors, tick: u64, world: &mut OpenWorld, drive: impl FnOnce(&mut [Job], &(dyn Fn(&mut Job) + Sync))) {
         self.events.clear();
         let seen = self.seen();
         let mut jobs: Vec<Job> = Vec::with_capacity(seen.len());
@@ -870,8 +839,7 @@ impl Players {
                 tracks: &self.tracks,
                 creature_tracks: &self.creature_tracks,
                 actors,
-                world,
-                open: open.as_deref(),
+                open: world,
                 floor: self.floor,
                 ground: self.ground,
                 tick,
@@ -928,13 +896,11 @@ impl Players {
             }
         }
         // What anyone built this tick, solid now that everyone has stepped past it.
-        if let Some(world) = open {
-            for i in built {
-                if let Some(Some(slot)) = self.slots.get(i)
-                    && let Some(life) = slot.life.as_deref()
-                {
-                    life.make_solid(world, slot.owner);
-                }
+        for i in built {
+            if let Some(Some(slot)) = self.slots.get(i)
+                && let Some(life) = slot.life.as_deref()
+            {
+                life.make_solid(world, slot.owner);
             }
         }
     }

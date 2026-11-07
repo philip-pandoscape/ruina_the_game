@@ -33,7 +33,7 @@ use crate::rng::Rng;
 use crate::session::player_state_json;
 use crate::skills::skills_from;
 use crate::tuning::{NO_ABILITY, tuning};
-use crate::world::{Spawn, World};
+use crate::world::Spawn;
 
 /// Ticks a second, as the server runs them, and steps (inputs) a tick.
 const TICK_HZ: u32 = 20;
@@ -168,9 +168,6 @@ pub fn run(input: &str) -> serde_json::Result<String> {
 /// Plays a scenario out: the players and creatures as it left them, and each tick's hash.
 fn play(s: &Scenario) -> (Players, Actors, Vec<String>) {
     let zone = emberholm();
-    let r = &zone.recipe;
-    let spawn = Spawn { x: r.spawn.x, z: r.spawn.z, facing: r.spawn.facing };
-    let flat = World { radius: zone.radius, obstacles: Vec::new(), team_spawns: [spawn, spawn] };
     let mut world = OpenWorld::new(zone);
     let mut players = Players::new(1000.0 / f64::from(TICK_HZ));
     players.ground = Some(&zone.terrain);
@@ -272,11 +269,11 @@ fn play(s: &Scenario) -> (Players, Actors, Vec<String>) {
         }
         match shuffle.as_mut() {
             // The players stepped in a shuffled order, and left in it.
-            Some(rng) => players.step_by(&mut actors, &flat, tick, Some(&mut world), |jobs, step| {
+            Some(rng) => players.step_by(&mut actors, tick, &mut world, |jobs, step| {
                 rng.shuffle(jobs);
                 jobs.iter_mut().for_each(step);
             }),
-            None => players.step_in(&mut actors, &flat, tick, Some(&mut world)),
+            None => players.step_in(&mut actors, tick, &mut world),
         }
         players.seat_passengers(&world);
         players.step_effects(&mut actors);

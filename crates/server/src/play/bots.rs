@@ -152,7 +152,7 @@ mod tests {
         for tick in 0..60 {
             ch.drive_bots();
             ch.players.inputs_per_tick = 3.0;
-            ch.players.step_in(&mut ch.actors, &ch.world, tick, Some(&mut ch.open));
+            ch.players.step_in(&mut ch.actors, tick, &mut ch.open);
         }
         // They wandered off from where they stood.
         let moved = ch
@@ -178,7 +178,7 @@ mod tests {
         for tick in 0..200 {
             ch.drive_bots();
             ch.players.inputs_per_tick = 3.0;
-            ch.players.step_in(&mut ch.actors, &ch.world, tick, Some(&mut ch.open));
+            ch.players.step_in(&mut ch.actors, tick, &mut ch.open);
         }
         let now = hp(&ch);
         assert!(now.iter().zip(&full).any(|(n, f)| n < f), "blows landed: {full:?} -> {now:?}");

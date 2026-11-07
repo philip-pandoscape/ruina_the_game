@@ -294,13 +294,7 @@ impl Session {
     /// puts you (crate::open::step_player).
     fn respawn(&mut self) {
         let w = &self.world;
-        let s = match w.respawn {
-            Some(at) => Spawn { x: at.x, z: at.z, facing: at.facing },
-            None => {
-                let s = w.zone.recipe.spawn;
-                Spawn { x: s.x, z: s.z, facing: s.facing }
-            }
-        };
+        let s = w.spawn_point();
         let hf = w.terrain();
         let near = w.respawn.map_or_else(|| hf.height(s.x, s.z), |at| at.y);
         let y = ground_at(hf, &w.index, s.x, s.z, near + 1.2, 1.2);
@@ -976,7 +970,6 @@ impl Session {
             Vec::new()
         }
     }
-
 }
 
 fn mode_of(s: &str) -> Option<Mode> {

@@ -12,7 +12,7 @@
 pub mod ai;
 /// A channel's tick: players and bots fighting, creatures among them, a passenger riding along.
 pub mod crowd;
-/// A player on the old battlefield's flat ground: movement, combos, casts, skills.
+/// A player in the battlefield instance, an arena: movement, combos, casts, skills.
 pub mod player;
 /// A player on Emberholm: hills, cliffs, decks, water, gliders, packs.
 pub mod world;

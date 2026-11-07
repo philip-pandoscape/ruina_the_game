@@ -32,7 +32,7 @@ use crate::play::channels::{Channel, estate_of};
 use crate::play::socket::parse_build;
 use crate::player::{Actions, Build, Mode, Player};
 use crate::skills::{allowed, build_from_saved};
-use crate::world::{Spawn, World};
+use crate::world::Spawn;
 
 /// Bots: players without a socket, their inputs decided by their brains.
 mod bots;
@@ -164,7 +164,6 @@ pub struct ChannelGame {
     /// Everyone's estates and who holds which plot, online or not.
     pub estates: Channel,
     pub members: HashMap<i64, Member>,
-    world: World,
     pub open: OpenWorld,
     players: Players,
     actors: Actors,
@@ -202,8 +201,6 @@ impl ChannelGame {
     pub fn new(id: i32) -> Self {
         let zone: &'static Zone = emberholm();
         let r = &zone.recipe;
-        let spawn = Spawn { x: r.spawn.x, z: r.spawn.z, facing: r.spawn.facing };
-        let world = World { radius: zone.radius, obstacles: Vec::new(), team_spawns: [spawn, spawn] };
         let mut players = Players::new(1000.0 / TICK_HZ as f64);
         players.ground = Some(&zone.terrain);
         // What the island brings to life (its recipe's spawns), as the browser's island offline has it.
@@ -215,7 +212,6 @@ impl ChannelGame {
             lingering: HashMap::new(),
             estates: Channel::default(),
             members: HashMap::new(),
-            world,
             open: OpenWorld::new(zone),
             players,
             actors,
@@ -811,7 +807,7 @@ impl ChannelGame {
         self.players.gather_movers(&mut self.open);
         self.drive_bots();
         let stepping = &mut self.stepping;
-        self.players.step_by(&mut self.actors, &self.world, self.tick, Some(&mut self.open), |jobs, step| stepping.run(jobs, step));
+        self.players.step_by(&mut self.actors, self.tick, &mut self.open, |jobs, step| stepping.run(jobs, step));
         self.players.seat_passengers(&self.open);
         // Games' clocks, payouts, and players kept in their seats.
         self.step_tables();
@@ -1393,7 +1389,7 @@ mod tests {
             seq += 48;
             ch.players.inputs_per_tick = 12.0;
             for tick in from..from + 4 {
-                ch.players.step_in(&mut ch.actors, &ch.world, tick, Some(&mut ch.open));
+                ch.players.step_in(&mut ch.actors, tick, &mut ch.open);
             }
         };
         // Seeing the present, the swing finds nobody in reach.
@@ -1440,7 +1436,7 @@ mod tests {
             seq += 48;
             ch.players.inputs_per_tick = 12.0;
             for tick in from..from + 4 {
-                ch.players.step_in(&mut ch.actors, &ch.world, tick, Some(&mut ch.open));
+                ch.players.step_in(&mut ch.actors, tick, &mut ch.open);
             }
         };
         // Seeing the present, the swing finds nothing in reach.
@@ -1477,7 +1473,7 @@ mod tests {
             ch.inputs(7, inputs.into_iter());
             ch.players.inputs_per_tick = 12.0;
             for tick in 0..frames.div_ceil(12) {
-                ch.players.step_in(&mut ch.actors, &ch.world, tick as u64 + 1, Some(&mut ch.open));
+                ch.players.step_in(&mut ch.actors, tick as u64 + 1, &mut ch.open);
             }
         };
         let xp = |ch: &ChannelGame, id: &str| ch.players.open_view(client(7)).unwrap().2.unwrap().state.skill_xp.get(id).copied().unwrap_or(0.0);
@@ -1560,7 +1556,7 @@ mod tests {
             ch.inputs(8, (first..=*seq).map(|s| (s, [0; OPEN_INPUT])));
             ch.players.inputs_per_tick = 3.0;
             ch.players.gather_movers(&mut ch.open);
-            ch.players.step_in(&mut ch.actors, &ch.world, 1, Some(&mut ch.open));
+            ch.players.step_in(&mut ch.actors, 1, &mut ch.open);
             ch.players.seat_passengers(&ch.open);
         }
     }

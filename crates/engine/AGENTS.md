@@ -15,9 +15,9 @@ the engine, and how to add to the browser's interface: `docs/engine.md`.
 | `bots.rs` | Bots: brains that fill a player's inputs (`docs/world.md`). |
 | `life/` | The island's life systems: state, trade, farming, livestock, housing, the shipyard, vehicles, contracts, quests, progress, weather; commands in (`life::Command`), events out. |
 | `minigames/` | The table games: what every game shares (`mod.rs`: the content, challenges, tables, turn clocks and forfeits), and each game's rules, a module in `games/` named after it (Beacons first) that the crate's build script (`build.rs`) finds by name. A game is its place in `shared/minigames.json` on the wire; adding one: `docs/content.md`, Mini-Games. |
-| `world.rs` | A flat arena with obstacles (the old battlefield's layout), where the golden player scenarios and the balance harness step players. |
+| `world.rs` | A spot to stand on and the way to face there (`Spawn`). Where a player starts and gets back up is data, a region's spawn or an instance's arrival, which the world they're stepped in answers (`OpenWorld::spawn_point`); the golden player scenarios and the balance harness's duels play in the battlefield instance. |
 | `rng.rs`, `jsmath.rs` | The browser's random numbers (mulberry32) and maths (fdlibm through `libm`), to the bit. |
-| `checks/` | Scenarios run through the rules (creatures, a player, a player on Emberholm, a channel's crowd), whose answers the golden tests hold by a hash of each (`crates/engine/tests/golden/`), kept from when the TypeScript copy agreed with them; the creatures' and the crowd's also stepped in shuffled orders. |
+| `checks/` | Scenarios run through the rules (creatures, a player in the battlefield instance, a player on Emberholm, a channel's crowd), whose answers the golden tests hold by a hash of each (`crates/engine/tests/golden/`), kept from when the TypeScript copy agreed with them; the creatures' and the crowd's also stepped in shuffled orders. |
 | `session.rs`, `training.rs`, `event.rs` | The browser's game for one page in the world or a copy of an instance (`session.rs`), its stand-in offline for the server's fights (`training.rs`: a swing's blow with its hit pause and auto-aim, your arrows, meteors and heals), and what a step shows (`event.rs`). |
 
 ## Rules
