@@ -11,6 +11,7 @@ use std::sync::Arc;
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
+use crate::bytes::{Bad, Reader, put_varint, unzigzag32, zigzag, zigzag32};
 use crate::fast::FxMap;
 use crate::schema::{EVENT, Fields, Kind, MAX_FIELDS};
 
@@ -72,6 +73,49 @@ pub enum Intro {
 }
 
 impl Intro {
+    /// What the kind says of itself, as an introduction carries it after its handle and kind byte
+    /// (crate::decode has the whole of an update's layout).
+    pub fn write(&self, out: &mut Vec<u8>) {
+        match self {
+            Intro::Player { id, name, bot } => {
+                put_varint(out, zigzag(*id));
+                out.push(u8::from(*bot));
+                let name = name.as_bytes();
+                let name = &name[..name.len().min(255)];
+                put_varint(out, name.len() as u64);
+                out.extend_from_slice(name);
+            }
+            Intro::Creature { id } | Intro::Arrow { id } | Intro::Meteor { id } => put_varint(out, zigzag(*id)),
+            Intro::Vehicle { owner, id, def } | Intro::Item { owner, id, def } => {
+                put_varint(out, zigzag(*owner));
+                put_varint(out, zigzag(*id));
+                put_varint(out, u64::from(*def));
+            }
+        }
+    }
+
+    /// Reads what [`Intro::write`] wrote for a `kind`.
+    pub fn read(r: &mut Reader<'_>, kind: Kind) -> Result<Intro, Bad> {
+        Ok(match kind {
+            Kind::Player => {
+                let id = r.zigzag()?;
+                let bot = r.u8()? & 1 != 0;
+                let len = r.varint()? as usize;
+                let name = std::str::from_utf8(r.bytes(len)?).map_err(|_| Bad::Shape("a name that isn't UTF-8"))?;
+                Intro::Player { id, name: Arc::from(name), bot }
+            }
+            Kind::Creature => Intro::Creature { id: r.zigzag()? },
+            Kind::Arrow => Intro::Arrow { id: r.zigzag()? },
+            Kind::Meteor => Intro::Meteor { id: r.zigzag()? },
+            Kind::Vehicle | Kind::Item => {
+                let owner = r.zigzag()?;
+                let id = r.zigzag()?;
+                let def = u32::try_from(r.varint()?).map_err(|_| Bad::Shape("a place past the lists"))?;
+                if kind == Kind::Vehicle { Intro::Vehicle { owner, id, def } } else { Intro::Item { owner, id, def } }
+            }
+        })
+    }
+
     pub fn kind(&self) -> Kind {
         match self {
             Intro::Player { .. } => Kind::Player,
@@ -158,12 +202,125 @@ impl Event {
     }
 }
 
-/// One cell's share of a tick: what a sim hands the gates for it.
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+/// One cell's share of a tick: what a sim hands the gates for it. It crosses between processes as
+/// one run of bytes ([`CellRecords::pack`]: serialized as bytes, so MessagePack, say, writes it as a
+/// single blob), the records as compact as an update writes them whole.
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct CellRecords {
     pub cell: Cell,
     pub records: Vec<Record>,
     pub events: Vec<Event>,
+}
+
+/// Fields as a whole record writes them: the mask of those that aren't zero, then each as a zigzag
+/// varint.
+fn put_fields(out: &mut Vec<u8>, f: &[i32]) {
+    let mask = f.iter().enumerate().fold(0u64, |m, (i, v)| if *v != 0 { m | 1 << i } else { m });
+    put_varint(out, mask);
+    for v in f.iter().filter(|v| **v != 0) {
+        put_varint(out, u64::from(zigzag32(*v)));
+    }
+}
+
+fn read_fields(r: &mut Reader<'_>, f: &mut [i32]) -> Result<(), Bad> {
+    let mask = r.varint()?;
+    if f.len() < 64 && mask >> f.len() != 0 {
+        return Err(Bad::Shape("a mask past the fields"));
+    }
+    for (i, v) in f.iter_mut().enumerate() {
+        if mask & (1 << i) != 0 {
+            *v = unzigzag32(r.varint32()?);
+        }
+    }
+    Ok(())
+}
+
+impl CellRecords {
+    /// The cell as bytes: where it is (zigzag varints), its records (each its key, owner and what it
+    /// names as varints, its kind's byte and introduction, its fields whole) and its effects (fields
+    /// whole), each list after its count.
+    pub fn pack(&self) -> Vec<u8> {
+        let mut out = Vec::with_capacity(8 + self.records.len() * 32 + self.events.len() * 12);
+        put_varint(&mut out, zigzag(i64::from(self.cell.x)));
+        put_varint(&mut out, zigzag(i64::from(self.cell.z)));
+        put_varint(&mut out, self.records.len() as u64);
+        for r in &self.records {
+            put_varint(&mut out, r.key);
+            put_varint(&mut out, r.owner);
+            put_varint(&mut out, r.refers);
+            out.push(r.kind() as u8);
+            r.intro.write(&mut out);
+            put_fields(&mut out, &r.fields[..r.kind().fields().len()]);
+        }
+        put_varint(&mut out, self.events.len() as u64);
+        for e in &self.events {
+            put_fields(&mut out, &e.fields);
+        }
+        out
+    }
+
+    /// Reads what [`CellRecords::pack`] wrote.
+    pub fn unpack(bytes: &[u8]) -> Result<CellRecords, Bad> {
+        let mut r = Reader::new(bytes);
+        let coord = |r: &mut Reader<'_>| i32::try_from(r.zigzag()?).map_err(|_| Bad::Shape("a cell past the world"));
+        let cell = Cell { x: coord(&mut r)?, z: coord(&mut r)? };
+        let n = r.varint()?;
+        let mut records = Vec::with_capacity(n.min(1 << 16) as usize);
+        for _ in 0..n {
+            let key = r.varint()?;
+            let owner = r.varint()?;
+            let refers = r.varint()?;
+            let kind = Kind::from_byte(r.u8()?).ok_or(Bad::Shape("an unknown kind"))?;
+            let intro = Intro::read(&mut r, kind)?;
+            let mut fields = [0; MAX_FIELDS];
+            read_fields(&mut r, &mut fields[..kind.fields().len()])?;
+            records.push(Record { key, owner, intro, fields, refers });
+        }
+        let n = r.varint()?;
+        let mut events = Vec::with_capacity(n.min(1 << 16) as usize);
+        for _ in 0..n {
+            let mut fields = [0; 5];
+            read_fields(&mut r, &mut fields)?;
+            events.push(Event { fields });
+        }
+        if !r.done() {
+            return Err(Bad::Shape("a cell with more after it"));
+        }
+        Ok(CellRecords { cell, records, events })
+    }
+}
+
+impl Serialize for CellRecords {
+    fn serialize<S: Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        s.serialize_bytes(&self.pack())
+    }
+}
+
+impl<'de> Deserialize<'de> for CellRecords {
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<CellRecords, D::Error> {
+        struct Blob;
+        impl<'de> serde::de::Visitor<'de> for Blob {
+            type Value = CellRecords;
+
+            fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+                f.write_str("a cell's records, packed")
+            }
+
+            fn visit_bytes<E: serde::de::Error>(self, v: &[u8]) -> Result<CellRecords, E> {
+                CellRecords::unpack(v).map_err(|e| E::custom(format!("{e:?}")))
+            }
+
+            // A format with no bytes of its own (JSON) writes them as a list of numbers.
+            fn visit_seq<A: serde::de::SeqAccess<'de>>(self, mut seq: A) -> Result<CellRecords, A::Error> {
+                let mut v = Vec::with_capacity(seq.size_hint().unwrap_or(0));
+                while let Some(b) = seq.next_element::<u8>()? {
+                    v.push(b);
+                }
+                self.visit_bytes(&v)
+            }
+        }
+        d.deserialize_bytes(Blob)
+    }
 }
 
 /// Everything a gate knows of one tick, by cell: what one sim published, or several put together
@@ -311,17 +468,18 @@ mod tests {
     fn a_tick_s_cells_cross_as_they_are_and_join_another_sim_s() {
         let mut frame = Frame::new(77);
         frame.push(creature(1, 100, 100));
-        frame.push(Record {
-            key: 9,
-            owner: 9,
-            intro: Intro::Player { id: -1_000_003, name: "Skirmisher 3".into(), bot: true },
-            fields: [-5; MAX_FIELDS],
-            refers: 4,
-        });
+        // A player's fields, the rest zero.
+        let mut fields = [0; MAX_FIELDS];
+        fields[..crate::schema::PLAYER.len()].fill(-5);
+        frame.push(Record { key: 9, owner: 9, intro: Intro::Player { id: -1_000_003, name: "Skirmisher 3".into(), bot: true }, fields, refers: 4 });
         frame.event(Event::new(-300, 20, 50, 1, 40));
         let text = serde_json::to_string(&frame).expect("serialized");
-        // Trailing zeros aren't written: the creature's fields are just x and z.
-        assert!(text.contains("\"fields\":[100,100]"), "{text}");
+        // Each cell is one run of bytes (a list of numbers in JSON, a blob where there are blobs): a
+        // creature at (1 m, 1 m) in 14 of them (where the cell is, how many records, the key, owner
+        // and what it names, its kind and id, a mask, two fields of two bytes, no effects).
+        let creature_cell = &frame.cells()[0];
+        assert_eq!(creature_cell.pack().len(), 14);
+        assert_eq!(CellRecords::unpack(&creature_cell.pack()).as_ref(), Ok(creature_cell));
         let back: Frame = serde_json::from_str(&text).expect("read back");
         assert_eq!(back.tick, 77);
         assert_eq!(back.cells(), frame.cells());

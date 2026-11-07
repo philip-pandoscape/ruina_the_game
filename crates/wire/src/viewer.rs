@@ -24,7 +24,7 @@
 use std::collections::VecDeque;
 
 use crate::ack::Ack;
-use crate::bytes::{put_u16, put_u32, put_varint, zigzag, zigzag32};
+use crate::bytes::{put_u16, put_u32, put_varint, zigzag32};
 use crate::fast::FxMap;
 use crate::interest::{EVENTS_CAP, EVENTS_WITHIN, KEEP, KEEP_MARGIN, TOLD_CAP, Tiers, every, rate, reach};
 use crate::record::{CELL, Cell, Event, Frame, Intro, Record};
@@ -635,22 +635,7 @@ fn events_near(frame: &Frame, view: View, told: &[Event]) -> (Vec<u8>, usize) {
 fn write_intro(h: u16, intro: &Intro, out: &mut Vec<u8>) {
     put_u16(out, h);
     out.push(intro.kind() as u8);
-    match intro {
-        Intro::Player { id, name, bot } => {
-            put_varint(out, zigzag(*id));
-            out.push(u8::from(*bot));
-            let name = name.as_bytes();
-            let name = &name[..name.len().min(255)];
-            put_varint(out, name.len() as u64);
-            out.extend_from_slice(name);
-        }
-        Intro::Creature { id } | Intro::Arrow { id } | Intro::Meteor { id } => put_varint(out, zigzag(*id)),
-        Intro::Vehicle { owner, id, def } | Intro::Item { owner, id, def } => {
-            put_varint(out, zigzag(*owner));
-            put_varint(out, zigzag(*id));
-            put_varint(out, u64::from(*def));
-        }
-    }
+    intro.write(out);
 }
 
 /// How many ticks apart a tier's refreshes come (for whoever draws what's heard).

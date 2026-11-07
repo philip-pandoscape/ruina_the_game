@@ -8,8 +8,6 @@
 //!                             varint mask, a zigzag varint per field in the mask
 //!           [events varint]   then each: varint mask, a zigzag varint per field in it
 
-use std::sync::Arc;
-
 use crate::bytes::{Bad, Reader, unzigzag32};
 use crate::record::Intro;
 use crate::schema::{EVENT, Kind, MAX_FIELDS, Tier};
@@ -56,7 +54,7 @@ pub fn read(bytes: &[u8], kind_of: impl Fn(u16) -> Option<Kind>) -> Result<Updat
     for _ in 0..n {
         let h = r.u16()?;
         let kind = Kind::from_byte(r.u8()?).ok_or(Bad::Shape("an unknown kind"))?;
-        intros.push((h, read_intro(&mut r, kind)?));
+        intros.push((h, Intro::read(&mut r, kind)?));
     }
     let n = count(&mut r)?;
     let mut records = Vec::with_capacity(n);
@@ -104,25 +102,4 @@ fn read_fields(r: &mut Reader<'_>, n: usize) -> Result<(u64, [i32; MAX_FIELDS]),
         }
     }
     Ok((mask, deltas))
-}
-
-fn read_intro(r: &mut Reader<'_>, kind: Kind) -> Result<Intro, Bad> {
-    Ok(match kind {
-        Kind::Player => {
-            let id = r.zigzag()?;
-            let bot = r.u8()? & 1 != 0;
-            let len = r.varint()? as usize;
-            let name = std::str::from_utf8(r.bytes(len)?).map_err(|_| Bad::Shape("a name that isn't UTF-8"))?;
-            Intro::Player { id, name: Arc::from(name), bot }
-        }
-        Kind::Creature => Intro::Creature { id: r.zigzag()? },
-        Kind::Arrow => Intro::Arrow { id: r.zigzag()? },
-        Kind::Meteor => Intro::Meteor { id: r.zigzag()? },
-        Kind::Vehicle | Kind::Item => {
-            let owner = r.zigzag()?;
-            let id = r.zigzag()?;
-            let def = u32::try_from(r.varint()?).map_err(|_| Bad::Shape("a place past the lists"))?;
-            if kind == Kind::Vehicle { Intro::Vehicle { owner, id, def } } else { Intro::Item { owner, id, def } }
-        }
-    })
 }

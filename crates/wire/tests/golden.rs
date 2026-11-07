@@ -312,7 +312,13 @@ fn cart_without_owner() -> Value {
         cart[3] = 8_000;
         cart[6] = 100;
         cart[10] = 1;
-        frame.push(Record { key: owned_key(Kind::Vehicle, 9, 2), owner: key(Kind::Player, 9), intro: Intro::Vehicle { owner: 9, id: 2, def: 1 }, fields: cart, refers: 0 });
+        frame.push(Record {
+            key: owned_key(Kind::Vehicle, 9, 2),
+            owner: key(Kind::Player, 9),
+            intro: Intro::Vehicle { owner: 9, id: 2, def: 1 },
+            fields: cart,
+            refers: 0,
+        });
         let bytes = scene.write(&frame, View { x: 0.0, z: 0.0 }, &[]);
         scene.arrive(&bytes);
         scene.ack();
