@@ -327,6 +327,39 @@ export class Hero {
   /** The made body worn, once it has loaded; null while the box body is drawn. */
   private made: MadeHero | null = null;
 
+  /** How much of the body shows (Hero.setFade); NaN until a fade has been asked for. */
+  private faded = Number.NaN;
+
+  /**
+   * How much of the body shows, 0..1: someone far off fades out of a hero into a crowd body and
+   * back (src/render/open/peersView.ts). Dithered (each material's alpha hash), so nothing needs
+   * sorting. Materials this body shares with others (the made body's, the made weapons') are copied
+   * for it the first time.
+   */
+  setFade(f: number): void {
+    if (f === this.faded) return;
+    this.faded = f;
+    const copies = new Map<THREE.Material, THREE.Material>();
+    const own = (m: THREE.Material): THREE.Material => {
+      if (m.userData.fades || m.transparent) return m;
+      let c = copies.get(m);
+      if (!c) {
+        c = m.userData.ownRig ? m : m.clone();
+        c.userData.fades = true;
+        c.alphaHash = true;
+        c.needsUpdate = true;
+        copies.set(m, c);
+      }
+      return c;
+    };
+    this.root.traverse((o) => {
+      const mesh = o as THREE.Mesh;
+      if (!mesh.isMesh) return;
+      mesh.material = Array.isArray(mesh.material) ? mesh.material.map(own) : own(mesh.material);
+      for (const m of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) if (m.userData.fades) m.opacity = f;
+    });
+  }
+
   /** Swaps the box body for the made one: a rig measured to it, wearing it, posed as before. */
   private adopt(made: MadeHero): void {
     this.made = made;
@@ -345,6 +378,10 @@ export class Hero {
     wear(rig, made.fitted);
     this.placeWeapon(this.weaponAt);
     this.setWeapon(this.weaponShown);
+    // A fade asked for before goes on the new body too.
+    const f = this.faded;
+    this.faded = Number.NaN;
+    if (!Number.isNaN(f)) this.setFade(f);
   }
 
   // Team colours: blue tunic with a red cape, or red tunic with a dark cape.

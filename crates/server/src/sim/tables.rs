@@ -694,7 +694,7 @@ mod tests {
         assert_eq!(offered(&ann, Value::Null)["play"], false);
         assert_ne!(ann["state"]["hand"], view["state"]["hand"], "each sees only their own hand (seed 5 deals them differently)");
         let out = ch.publish(std::time::Instant::now());
-        let shown: Vec<&Value> = out.cells.iter().flat_map(|c| &c.tables).map(|t| &t.shown).collect();
+        let shown: Vec<&Value> = out.tables.iter().map(|t| &t.shown).collect();
         assert_eq!(shown.len(), 1);
         assert!(shown[0]["board"]["lit"].is_array());
         assert!(shown[0].get("state").is_none(), "nobody's hand on show");

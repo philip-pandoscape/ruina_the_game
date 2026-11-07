@@ -162,6 +162,9 @@ impl Gate {
     }
 }
 
+/// How many things may wait for a connection before it's sent no more ticks until it catches up.
+const BEHIND: usize = 4;
+
 /// The gate's task: its connections, the ticks to them, the answers to its questions.
 async fn run(mut inbox: mpsc::UnboundedReceiver<ToGate>, mut controls: mpsc::UnboundedReceiver<Control>) {
     let mut held: HashMap<(CharacterId, SessionId), Held> = HashMap::new();
@@ -195,7 +198,10 @@ async fn run(mut inbox: mpsc::UnboundedReceiver<ToGate>, mut controls: mpsc::Unb
                 }
                 Some(ToGate::Tick(out)) => {
                     for ((character, _), h) in &held {
-                        if h.sim == Some(out.sim) && out.private_of(*character).is_some() {
+                        // A connection that can't keep up skips ticks rather than queueing them (each
+                        // holds a whole tick): its next update on the wire covers what it missed.
+                        let queued = h.tx.max_capacity() - h.tx.capacity();
+                        if h.sim == Some(out.sim) && out.private_of(*character).is_some() && queued < BEHIND {
                             let _ = h.tx.try_send(Event::Tick(out.clone()));
                         }
                     }

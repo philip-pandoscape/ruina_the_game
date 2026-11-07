@@ -26,6 +26,11 @@ export interface SpeciesCrowdOptions {
   palette?: CrowdPalette;
   /** Draws every instance this many times its authored size: one body for a creature's sizes. */
   scale?: number;
+  /**
+   * Adds a per-instance fade (1 whole, 0 gone), dithered so nothing needs sorting: a body coming in
+   * or going out while another takes its place (src/render/open/peersView.ts, a player far off).
+   */
+  fade?: boolean;
 }
 
 // aRoot = (x, y, z, yaw); aPose = (row, nextRow, mix, team 0/1). Shared with the jelly slimes
@@ -95,6 +100,20 @@ const COLOR = /* glsl */ `
 #endif
 `;
 
+/**
+ * A fading instance keeps the share of its pixels its fade says, picked by a fixed pattern on the
+ * screen (interleaved gradient noise), so a body fading out over another fading in never shows a
+ * gap or a seam to sort.
+ */
+const FADE = /* glsl */ `
+if (vFade < 0.999 && fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715)))) >= vFade) discard;
+#include <clipping_planes_fragment>
+`;
+const FADE_PARS = /* glsl */ `
+#include <common>
+varying float vFade;
+`;
+
 /** Writes an instance's (row, nextRow, mix, team) for a clip that starts on row `base`, at a time in seconds. */
 export function writeFrame(pose: Float32Array, i: number, c: Clip, base: number, seconds: number, team = 0): void {
   const t = seconds * c.fps;
@@ -128,6 +147,9 @@ export class SpeciesCrowd {
   /** 0..1 hit flash per instance, when the crowd was built with `tint`. */
   readonly flash: Float32Array | null;
   private flashAttr: THREE.InstancedBufferAttribute | null = null;
+  /** 0..1 how much of each instance shows, when the crowd was built with `fade`. */
+  readonly fade: Float32Array | null;
+  private fadeAttr: THREE.InstancedBufferAttribute | null = null;
   /** The live (x, y, z, yaw) attribute, so a caller can hang its own instanced mesh off it. */
   readonly rootAttribute: THREE.InstancedBufferAttribute;
   private rootAttr: THREE.InstancedBufferAttribute;
@@ -150,6 +172,8 @@ export class SpeciesCrowd {
 
     this.flash = opts.tint ? new Float32Array(capacity) : null;
     if (this.flash) this.flashAttr = new THREE.InstancedBufferAttribute(this.flash, 1).setUsage(THREE.DynamicDrawUsage);
+    this.fade = opts.fade ? new Float32Array(capacity).fill(1) : null;
+    if (this.fade) this.fadeAttr = new THREE.InstancedBufferAttribute(this.fade, 1).setUsage(THREE.DynamicDrawUsage);
 
     const base = buildProxyGeometry(species);
     this.trianglesPerInstance = proxyTriangles(base);
@@ -157,6 +181,7 @@ export class SpeciesCrowd {
     geo.setAttribute('aRoot', this.rootAttr);
     geo.setAttribute('aPose', this.poseAttr);
     if (this.flashAttr) geo.setAttribute('aFlash', this.flashAttr);
+    if (this.fadeAttr) geo.setAttribute('aFade', this.fadeAttr);
 
     const { texture, width, height } = buildPoseTexture(species);
     const p = opts.palette ?? {};
@@ -175,6 +200,7 @@ export class SpeciesCrowd {
     const defines = (smooth ? '#define CROWD_SMOOTH\n' : '') + (opts.tint ? '#define CROWD_TINT\n' : '');
 
     const mat = toon(0xffffff, { vertexColors: true });
+    const fading = !!opts.fade;
     mat.onBeforeCompile = (shader) => {
       Object.assign(shader.uniforms, uniforms);
       shader.vertexShader = shader.vertexShader
@@ -182,7 +208,8 @@ export class SpeciesCrowd {
           '#include <common>',
           `#include <common>
           ${defines}${SPECIES_GLSL}
-          uniform vec3 uTeamA; uniform vec3 uTeamB; uniform vec3 uHairA; uniform vec3 uHairB; uniform vec3 uSkinA; uniform vec3 uSkinB;`,
+          uniform vec3 uTeamA; uniform vec3 uTeamB; uniform vec3 uHairA; uniform vec3 uHairB; uniform vec3 uSkinA; uniform vec3 uSkinB;
+          ${fading ? 'attribute float aFade; varying float vFade;' : ''}`,
         )
         .replace('#include <color_vertex>', COLOR)
         .replace(
@@ -191,9 +218,10 @@ export class SpeciesCrowd {
           mat4 cPose = speciesPose();
           objectNormal = speciesNormal(objectNormal, cPose);`,
         )
-        .replace('#include <begin_vertex>', 'vec3 transformed = speciesTransform(position, cPose);');
+        .replace('#include <begin_vertex>', `vec3 transformed = speciesTransform(position, cPose);${fading ? ' vFade = aFade;' : ''}`);
+      if (fading) shader.fragmentShader = shader.fragmentShader.replace('#include <common>', FADE_PARS).replace('#include <clipping_planes_fragment>', FADE);
     };
-    mat.customProgramCacheKey = () => `species-${species.id}-${smooth ? 's' : 'h'}${opts.tint ? 't' : ''}`;
+    mat.customProgramCacheKey = () => `species-${species.id}-${smooth ? 's' : 'h'}${opts.tint ? 't' : ''}${fading ? 'f' : ''}`;
     const bodies = new THREE.Mesh(geo, mat);
     bodies.frustumCulled = false;
     this.group.add(bodies);
@@ -224,6 +252,7 @@ export class SpeciesCrowd {
     this.rootAttr.needsUpdate = true;
     this.poseAttr.needsUpdate = true;
     if (this.flashAttr) this.flashAttr.needsUpdate = true;
+    if (this.fadeAttr) this.fadeAttr.needsUpdate = true;
   }
 
   dispose(): void {

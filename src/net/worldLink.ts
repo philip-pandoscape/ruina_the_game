@@ -3,6 +3,9 @@ import type { Build } from '../content/tuning';
 import { MINIGAMES } from '../content/minigames';
 import contentHash from '../../shared/hash.json' with { type: 'json' };
 import { currentAccount, ServerDown } from './account';
+import { type FeedTick, feedFromJson, type PeerSample } from './feedTick';
+import { WireFeed } from './wire/feed';
+import { UPDATE } from './wire/schema';
 import type { ArrowRecord, EffectEvent, MeteorRecord, NetActor } from './worldFeed';
 
 // Your connection to the game server (crates/server/src/gate/socket.rs), which plays Emberholm: your
@@ -20,7 +23,10 @@ import type { ArrowRecord, EffectEvent, MeteorRecord, NetActor } from './worldFe
 // reloads and comes straight back into the world with the same character (src/app/resume.ts).
 //
 //   server → browser  (text) welcome {protocol, content, character, account, build, now, channel, dev, estates, claims, space}
-//                     tick {tick, you, peers, actors, arrows, meteors, events, lifeEvents?, life?, tables?}
+//                     tick {tick, you, lifeEvents?, life?, tables?, stats?}
+//                     (binary) update: the wire for crowds (crates/wire; src/net/wire), the world near you
+//                     in place of a tick's peers, actors, arrows, meteors and events, acknowledged
+//                     each (binary: 8, the newest update, which of the 32 before it arrived)
 //                     estate {id, name, estate} | claims {claims} | left {id} | saved {at}
 //                     | challenges {sent, waiting} | table {table}   (mini-games, src/ui/minigames)
 //                     | space {space}: into a dungeon's copy, or back out (crates/server/src/directory/mod.rs)
@@ -142,11 +148,13 @@ export interface YouState {
 export interface WorldTick {
   tick: number;
   you: YouState;
-  peers: PeerEntry[];
-  actors: NetActor[];
-  arrows: ArrowRecord[];
-  meteors: MeteorRecord[];
-  events: EffectEvent[];
+  /** Everyone else, the creatures, arrows, meteors and effects: a server before the wire for crowds sent them here; one on it sends them as updates of their own (binary), and leaves these out. */
+  peers?: PeerEntry[];
+  actors?: NetActor[];
+  /** As the server writes them; the feed marks which are yours and the tick they're as of (src/net/feedTick.ts). */
+  arrows?: Array<Omit<ArrowRecord, 'mine' | 'tick'>>;
+  meteors?: Array<Omit<MeteorRecord, 'tick'>>;
+  events?: EffectEvent[];
   /** Toasts, panels to open and the like, from your island since the last tick. */
   lifeEvents?: LifeEvent[];
   /** Your whole island, when it changed (and every couple of seconds anyway). */
@@ -166,8 +174,10 @@ export interface WorldStats {
   tickMs: number;
   /** Every tick since the last stats: its rules and its updates, ms each (the load harness reads them). */
   ticks?: Array<[number, number]>;
-  /** The size of the update this came with, bytes. */
+  /** What this tick sent this browser, bytes: the JSON tick this came with and the update on the wire. */
   bytes: number;
+  /** Of which the update on the wire (the wire for crowds), bytes. */
+  wire?: number;
   /** Blows between players (bots included) since the game began; those only lag compensation landed; how far back it looked (ms, recent). */
   pvpHits: number;
   savedByRewind: number;
@@ -241,7 +251,7 @@ const RETRY_MS = { updating: [500, 1000, 1500, 2000], reconnecting: [500, 1000, 
 /** A WebSocket closed as a service restart: the server is being updated. */
 const SERVICE_RESTART = 1012;
 /** What this page speaks; the server says what it speaks in its welcome (crates/server/src/gate/socket.rs). */
-const WORLD_PROTOCOL = 12;
+const WORLD_PROTOCOL = 13;
 /**
  * The content this page was built from (shared/hash.json, tools/content/contentc.mjs); the server
  * says its own in its welcome. Built from other content, the two would read what goes on the wire
@@ -263,7 +273,10 @@ export class WorldLink {
   /** Something the server wants the player to know (a save it couldn't write, say). */
   onError: ((text: string) => void) | null = null;
   onTick: ((t: WorldTick) => void) | null = null;
-  onPeers: ((list: PeerEntry[]) => void) | null = null;
+  /** The world around you as of each tick (src/net/feedTick.ts), after its onTick. */
+  onWorld: ((f: FeedTick) => void) | null = null;
+  /** Players with a fresh state, and those in sight that weren't refreshed (null: everyone in sight is in the list). */
+  onPeers: ((list: PeerSample[], kept: readonly number[] | null) => void) | null = null;
   onEstate: ((e: EstateEntry) => void) | null = null;
   onClaims: ((claims: Record<string, string>) => void) | null = null;
   onLeft: ((id: number) => void) | null = null;
@@ -298,7 +311,7 @@ export class WorldLink {
   onMoved: ((m: ChannelMoved) => void) | null = null;
   private resetDone: Array<() => void> = [];
   /** The channel as last heard, kept here so nothing is missed before the game is ready to draw it. */
-  readonly peers = new Map<number, PeerEntry>();
+  readonly peers = new Map<number, PeerSample>();
   readonly estates = new Map<number, EstateEntry>();
   claims: Record<string, string> = {};
   /** The server's clock when it last wrote your island to the database. */
@@ -307,6 +320,8 @@ export class WorldLink {
   ticks = 0;
   /** The newest tick, and the newest whole island, for whatever arrives before the game is listening. */
   latest: WorldTick | null = null;
+  /** The newest of the world around you, as the feed takes it. */
+  latestWorld: FeedTick | null = null;
   latestLife: WorldTick['life'] | null = null;
   /** The newest stats the server sent (admins only, once a second). */
   stats: WorldStats | null = null;
@@ -319,6 +334,8 @@ export class WorldLink {
   lag = 0;
   /** The server's clock in its last welcome (ms since 1970), and when that came (performance.now()). */
   private clock = { server: 0, heard: 0 };
+  /** The world near you as heard on the wire for crowds, for this connection (a new one starts afresh). */
+  private wire = new WireFeed();
 
   private constructor(
     private ws: WebSocket,
@@ -333,6 +350,7 @@ export class WorldLink {
   }
 
   private welcomed(w: Welcome, heard: number): void {
+    this.wire = new WireFeed();
     this.peers.clear();
     this.estates.clear();
     for (const e of w.estates ?? []) this.estates.set(e.id, e);
@@ -526,6 +544,7 @@ export class WorldLink {
   }
 
   private receive(data: unknown): void {
+    if (data instanceof ArrayBuffer) return this.hearWire(new Uint8Array(data));
     if (typeof data !== 'string') return;
     let msg: { t?: string; text?: string; id?: number; name?: string; estate?: Estate; claims?: Record<string, string>; at?: number } & Partial<WorldTick>;
     try {
@@ -539,9 +558,10 @@ export class WorldLink {
       this.latest = t;
       if (t.life) this.latestLife = t.life;
       if (t.stats) this.stats = t.stats;
-      for (const e of t.peers ?? []) this.peers.set(e.id, e);
-      this.onPeers?.(t.peers ?? []);
       this.onTick?.(t);
+      // A tick that carries the world (everyone, every tick); on the wire for crowds it comes in
+      // updates of its own (hearWire).
+      if (t.peers !== undefined) this.heardWorld(feedFromJson(t));
     } else if (msg.t === 'saved') this.lastSaved = msg.at ?? Date.now();
     else if (msg.t === 'reset') {
       // Anything heard before this was the island that's gone.
@@ -575,10 +595,13 @@ export class WorldLink {
     } else if (msg.t === 'space') {
       const s = (msg as { space?: SpaceView }).space;
       if (!s) return;
-      // Everyone you could see is somewhere else now; whoever is here comes in the next ticks. The
-      // channels heard were the old place's: they're asked for again.
+      // Everyone you could see is somewhere else now; whoever is here comes in the next ticks. On the
+      // wire the server forgets what it sent you here, and starts again after this. The channels
+      // heard were the old place's: they're asked for again.
       this.peers.clear();
       this.latest = null;
+      this.latestWorld = null;
+      this.wire.reset();
       if (this.channels) {
         this.channels = null;
         this.onChannels?.(null);
@@ -604,6 +627,23 @@ export class WorldLink {
       this.movedHeard = performance.now();
       this.onMoved?.(this.moved);
     } else if (msg.t === 'notice') this.onNotice?.(msg.text ?? '');
+  }
+
+  /** The world as of a tick, however it came: kept for whoever comes late, and handed on. */
+  private heardWorld(world: FeedTick): void {
+    this.latestWorld = world;
+    for (const e of world.peers) this.peers.set(e.id, e);
+    this.onPeers?.(world.peers, world.kept);
+    this.onWorld?.(world);
+  }
+
+  /** An update on the wire for crowds: heard, acknowledged, and handed on as the world. */
+  private hearWire(bytes: Uint8Array): void {
+    if (bytes[0] !== UPDATE) return;
+    const world = this.wire.hear(bytes, this.character);
+    // What's been applied, whether or not this one was (a stale or broken one is dropped unacknowledged).
+    this.out(this.wire.ack());
+    if (world) this.heardWorld(world);
   }
 
   /** The connection closed (`code`: the WebSocket's close code). Keeps trying until it's back. */

@@ -68,6 +68,15 @@ How each side reaches it: [engine.md](engine.md).
    - arrows, meteors, and what happened near them.
 
    Their life (bag, coins, quests, estate) is sent when it changes.
+
+   *Changing with the wire for crowds (R10.8; its protocol is in, the server moves onto it with its
+   tiers):* everyone else, the creatures, arrows, meteors and what happened come as a binary update
+   of their own (`crates/wire`, `src/net/wire/`): only what's near (32 m cells; within 40 m every
+   tick, to 120 m every fourth, to 250 m about once a second), each thing by a handle of the
+   connection's own, as changes against what the page acknowledged, within 64 KB/s. The page
+   acknowledges each update. Your own player, your life, the tables near you and notices stay in the
+   JSON tick: private, rare, or needed exactly. Either way the page's feed takes the same shapes
+   (`src/net/feedTick.ts`), so nothing that draws the world knows which way it came.
 7. **Prediction.** The page runs your moves through the same rules at once, without waiting
    (`src/net/netPlayer.ts`). When the server's word on you arrives, it starts from there and runs
    again the inputs the server hadn't seen yet. Everyone else and the creatures are drawn a little in

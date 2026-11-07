@@ -686,6 +686,18 @@ fn vehicles_file() -> &'static VehiclesFile {
     F.get_or_init(|| load("vehicles.json", crate::bundles::bundle("vehicles.json", include_str!("../../../../shared/vehicles.json"))))
 }
 
+/// A vehicle's or mount's place in the vehicles then the mounts (src/content/vehicles.ts lists them
+/// the same way), as the wire carries it (crates/wire).
+pub fn rideable_index(id: &str) -> Option<usize> {
+    let f = vehicles_file();
+    f.vehicles.iter().chain(f.mounts.iter()).position(|d| d.id == id)
+}
+
+/// A glider's place in the gliders' list, as the wire carries it.
+pub fn glider_index(id: &str) -> Option<usize> {
+    vehicles_file().gliders.iter().position(|g| g.id == id)
+}
+
 /// The vehicle or mount, or a placeholder (a small cart) for one that doesn't exist.
 pub fn rideable(id: &str) -> &'static RideableDef {
     static UNKNOWN: OnceLock<RideableDef> = OnceLock::new();

@@ -1,49 +1,26 @@
-//! What a simulation's tick produced, as data: what everyone else may see, sorted into 32 m cells,
-//! and what is private to each player. The simulation builds it once a tick and sends it to the
-//! gates that have players there ([`crate::gate::ToGate::Tick`]); a gate builds each client's update
-//! from the cells around it and that client's private state, and encodes it (today as the JSON the
-//! browser has always read: `crates/server/src/gate/encode.rs`).
+//! What a simulation's tick produced, as data: what everyone else may see, as the wire for crowds'
+//! records packed once each in the 32 m cell they stand in (crates/wire: a [`Frame`]), the
+//! mini-games' tables, and what is private to each player. The simulation builds it once a tick and
+//! sends it to the gates that have players there ([`crate::gate::ToGate::Tick`]); a gate writes each
+//! client's update from it: the binary update from the frame and the cells around the client
+//! (crates/wire's Viewer, one per connection), and the JSON tick from the client's private state and
+//! the tables near it (crates/server/src/gate/encode.rs).
 //!
 //! The field names are the browser's (camelCase), so the JSON encoding of a record is the record.
-//!
-//! The entity records here (presence, creatures, arrows, meteors, effects) are the JSON path's:
-//! the wire workstream's packed records (crates/wire: a frame of records per cell, assembled per
-//! client by a viewer) take the place of `TickOut::cells` when the gate sends its binary protocol,
-//! and these go. [`Private`] (a player's own state, their life, what was said to them) and
-//! [`TableRecord`] stay.
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use ruina_engine::actor::Actor;
-use ruina_engine::combat::{Arrow, Effect, Meteor};
-use ruina_engine::life::land::{Land, Pack, Vehicle};
+use ruina_engine::life::land::{Land, Vehicle};
 use ruina_engine::life::market::Market;
 use ruina_engine::life::state::{LifeState, Weather};
 use ruina_engine::life::{Life, LifeEvent, Placement};
 use ruina_engine::player::{Mode, Player, V3};
 use ruina_engine::skills::SkillSet;
 use ruina_engine::tuning::{HOTBAR_SLOTS, MOVEMENT_SLOTS};
+pub use ruina_wire::{Event, Frame};
 
-use crate::ids::{CharacterId, EntityId, Epoch, SimId, SpaceId, Tick};
-
-/// The side of a cell, in metres: what a client is sent is picked cell by cell.
-pub const CELL: f64 = 32.0;
-
-/// A cell: (x, z) in whole cells from the space's origin.
-pub type CellKey = (i32, i32);
-
-/// The cell a point is in.
-pub fn cell_of(x: f64, z: f64) -> CellKey {
-    ((x / CELL).floor() as i32, (z / CELL).floor() as i32)
-}
-
-/// The cells a circle of `radius` round (x, z) touches, in order.
-pub fn cells_round(x: f64, z: f64, radius: f64) -> impl Iterator<Item = CellKey> {
-    let (x0, z0) = cell_of(x - radius, z - radius);
-    let (x1, z1) = cell_of(x + radius, z + radius);
-    (x0..=x1).flat_map(move |cx| (z0..=z1).map(move |cz| (cx, cz)))
-}
+use crate::ids::{CharacterId, Epoch, SimId, SpaceId, Tick};
 
 /// One tick of a simulation, for the gates.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -54,8 +31,11 @@ pub struct TickOut {
     pub lease: Epoch,
     pub space: Option<SpaceId>,
     pub tick: Tick,
-    /// What others see, by cell, in the order of their keys.
-    pub cells: Vec<Cell>,
+    /// What others see: every player, bot, creature, vehicle, pack on the ground, arrow and meteor
+    /// packed once in its cell, and the effects others see (each cell one blob between processes).
+    pub frame: Frame,
+    /// Mini-games' tables thrown down in the space.
+    pub tables: Vec<TableRecord>,
     /// What each player alone is sent, in the order of their characters.
     pub private: Vec<Private>,
     /// Once a second: how the simulation is running, for admins.
@@ -66,216 +46,6 @@ impl TickOut {
     /// A player's private part.
     pub fn private_of(&self, character: CharacterId) -> Option<&Private> {
         self.private.binary_search_by_key(&character, |p| p.character).ok().map(|i| &self.private[i])
-    }
-
-    /// A cell, if anything is in it.
-    pub fn cell(&self, at: CellKey) -> Option<&Cell> {
-        self.cells.binary_search_by_key(&at, |c| c.at).ok().map(|i| &self.cells[i])
-    }
-}
-
-/// Everything others may see in one 32 m cell.
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
-pub struct Cell {
-    pub at: CellKey,
-    pub players: Vec<PresenceRecord>,
-    pub creatures: Vec<CreatureRecord>,
-    pub arrows: Vec<ArrowRecord>,
-    pub meteors: Vec<MeteorRecord>,
-    pub effects: Vec<EffectRecord>,
-    /// Mini-games' tables thrown down here.
-    pub tables: Vec<TableRecord>,
-}
-
-/// A player (or a bot) as everyone else sees them.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct PresenceRecord {
-    pub id: EntityId,
-    pub name: String,
-    pub bot: bool,
-    pub p: Presence,
-}
-
-/// What everyone else needs to draw a player (src/net/worldPeers.ts SHOWN reads these), with their
-/// vehicles and packs. `fr` counts 60ths of a second, for blending between updates.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Presence {
-    pub fr: u64,
-    pub pos: V3,
-    pub vel: V3,
-    pub facing: f64,
-    pub mode: Mode,
-    pub grounded: bool,
-    pub attack_index: usize,
-    pub attack_frame: i32,
-    pub flip_frame: i32,
-    pub land_frame: i32,
-    pub land_impact: f64,
-    pub takeoff_frame: i32,
-    pub run_phase: f64,
-    pub stun: i32,
-    pub down_frame: i32,
-    pub team: u8,
-    pub weapon: u8,
-    pub combo_variants: u8,
-    pub action_id: u8,
-    pub action_frame: i32,
-    pub cast_ability: u8,
-    pub cast_frame: i32,
-    pub bank: f64,
-    pub pack: i64,
-    pub vehicle: i64,
-    pub seat: u8,
-    pub host: i64,
-    pub glider: String,
-    pub airspeed: f64,
-    pub sprinting: bool,
-    pub crouching: bool,
-    pub crouch_frame: i32,
-    pub hp: f64,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub vehicles: Option<Vec<Vehicle>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub packs: Option<Vec<Pack>>,
-}
-
-impl Presence {
-    /// A player as others see them at frame `fr`, with what of their life moves with them.
-    pub fn of(p: &Player, life: Option<&Life>, fr: u64) -> Presence {
-        Presence {
-            fr,
-            pos: p.pos,
-            vel: p.vel,
-            facing: p.facing,
-            mode: p.mode,
-            grounded: p.grounded,
-            attack_index: p.attack_index,
-            attack_frame: p.attack_frame,
-            flip_frame: p.flip_frame,
-            land_frame: p.land_frame,
-            land_impact: p.land_impact,
-            takeoff_frame: p.takeoff_frame,
-            run_phase: p.run_phase,
-            stun: p.stun,
-            down_frame: p.down_frame,
-            team: p.team,
-            weapon: p.weapon,
-            combo_variants: p.resolved.combo_variant_bits,
-            action_id: p.action_id,
-            action_frame: p.action_frame,
-            cast_ability: p.cast_ability,
-            cast_frame: p.cast_frame,
-            bank: p.bank,
-            pack: p.pack,
-            vehicle: p.vehicle,
-            seat: p.seat,
-            host: p.host,
-            glider: p.glider.clone(),
-            airspeed: p.airspeed,
-            sprinting: p.sprinting,
-            crouching: p.crouching,
-            crouch_frame: p.crouch_frame,
-            hp: p.hp,
-            vehicles: life.map(|l| l.land.vehicles.clone()),
-            packs: life.map(|l| l.land.packs.clone()),
-        }
-    }
-}
-
-/// A creature as everyone sees it (src/net/worldFeed.ts NetActor). Heights are above its own patch
-/// of ground; the browser adds the ground.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CreatureRecord {
-    pub id: EntityId,
-    /// Its kind, by its place in the creatures' bundle.
-    pub kind: u8,
-    pub x: f64,
-    pub y: f64,
-    pub z: f64,
-    pub facing: f64,
-    pub state: usize,
-    /// How far through what it's doing (0 to 1).
-    pub progress: f64,
-    /// Its health, as a share of its most.
-    pub hp: f64,
-    pub dead_frame: i32,
-    pub target_x: f64,
-    pub target_z: f64,
-}
-
-impl CreatureRecord {
-    pub fn of(a: &Actor) -> CreatureRecord {
-        CreatureRecord {
-            id: EntityId::creature(a.id),
-            kind: a.kind_index,
-            x: a.x,
-            y: a.y,
-            z: a.z,
-            facing: a.facing,
-            state: a.state,
-            progress: if a.wait > 0 { (a.state_frame as f64 / a.wait as f64).clamp(0.0, 1.0) } else { 0.0 },
-            hp: if a.max_hp > 0.0 { a.hp / a.max_hp } else { 0.0 },
-            dead_frame: a.dead_frame,
-            target_x: a.target_x,
-            target_z: a.target_z,
-        }
-    }
-}
-
-/// An arrow in flight (src/net/worldFeed.ts ArrowRecord): `owner` is its shooter's slot.
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
-pub struct ArrowRecord {
-    pub id: u16,
-    pub owner: u16,
-    pub x: f64,
-    pub y: f64,
-    pub z: f64,
-    pub vx: f64,
-    pub vz: f64,
-    pub team: u8,
-}
-
-impl ArrowRecord {
-    pub fn of(a: &Arrow) -> ArrowRecord {
-        ArrowRecord { id: a.id, owner: a.owner, x: a.x, y: a.y, z: a.z, vx: a.dx * a.speed, vz: a.dz * a.speed, team: a.team }
-    }
-}
-
-/// A meteor on its way down (src/net/worldFeed.ts MeteorRecord).
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct MeteorRecord {
-    pub id: u16,
-    pub x: f64,
-    pub z: f64,
-    pub ticks_left: u32,
-    pub fall_ticks: u32,
-    pub team: u8,
-    pub radius: f64,
-}
-
-impl MeteorRecord {
-    pub fn of(m: &Meteor) -> MeteorRecord {
-        MeteorRecord { id: m.id, x: m.x, z: m.z, ticks_left: m.ticks_left, fall_ticks: m.fall_ticks, team: m.team, radius: m.radius }
-    }
-}
-
-/// Something that happened, for effects in browsers (src/net/worldFeed.ts EffectEvent): its kind
-/// (crates/engine/src/combat.rs), where, and its size.
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
-pub struct EffectRecord {
-    pub kind: u16,
-    pub x: f64,
-    pub y: f64,
-    pub z: f64,
-    pub size: u8,
-}
-
-impl EffectRecord {
-    pub fn of(e: &Effect) -> EffectRecord {
-        EffectRecord { kind: e.kind, x: e.x, y: e.y, z: e.z, size: e.size }
     }
 }
 
@@ -298,8 +68,8 @@ pub struct Private {
     pub life: Option<LifeView>,
     /// What their life said this tick (toasts, sales, quests...).
     pub life_events: Vec<LifeEvent>,
-    /// Effects about them alone (damage and healing they dealt or took).
-    pub told: Vec<EffectRecord>,
+    /// Effects about them alone (damage and healing they dealt or took), as the wire carries them.
+    pub told: Vec<Event>,
 }
 
 /// Your own state (src/net/worldLink.ts WorldTick.you): your slot, the last input run, your player,
