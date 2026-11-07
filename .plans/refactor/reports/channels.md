@@ -217,3 +217,36 @@ Then, in the second half itself:
    from the window (refused with a pack, then allowed; the cooldown), and an invitation taking a
    player into their party's channel. It needs a second channel without a thousand players: an
    admin command that opens one, or the server started with small numbers (the rig only).
+
+## 2026-11-06 22:52: The second half: the directory plays the policy
+
+Merged `refactor/first` at 33ead3b (tiers and bigworld in; 732ced5: conflicts in AGENTS.md,
+Cargo.toml, docs, the test API and the bible's test, all both sides kept). Then:
+
+- **e45dc9f, the wiring.** The directory holds a `ruina_channels::Region` per region in place of
+  `home_channel` and `CHANNEL_CAP`. A claim and a way out of a copy place the character by the
+  policy, each placement counted before the next (the scale workstream's race is gone: arrivals
+  together fill channels in turn); a channel it opens is a simulation started for
+  `channel:<region>:<n>`. A review once a second carries out opens, a merge's notice (a notice and the
+  player's `channels`), moves (granted under a newer epoch, `ToSim::Hand`: the simulation hands the
+  player over standing where they stand, a `Transfer`) and closes (the simulation stopped, its lease
+  given up). Channel simulations send `ToDirectory::Standings` once a second (pack, last blow, down,
+  riding, airborne, seated; the engine's `EVENT_YOU_HIT`/`EVENT_YOU_HURT` made public to read blows).
+  The browser's `channels` and `channel {to | party}` go through the player's simulation (which adds
+  their standing) to the directory: `ToConn::Channels` back, or the move, or the refusal's sentence;
+  an admin opens a channel by going to it (for the integration spec). Social's `Parties` now carries
+  who leads each party: a joiner follows the leader's channel now or when the rules allow (told why).
+  The moved browser hears `space`, then `channelMoved {from, to, why}` (`After::Channel`). Grants give
+  no channel; migration **0020** drops `characters.home_channel`; the character list shows the channel
+  of the saved position; every channel shows every estate (residents = everyone with a life) until
+  land's rows replace residents. **WORLD_PROTOCOL 12** (take the next free number when merging wire).
+- **00764f3, the tests** (server 95, was 90): the crowd against the directory itself
+  (`directory/crowd.rs`: an `Arena` over the real `Directory`, stand-in simulations, the crowd's clock
+  as `Directory::clock`): 150 bots fill small channels, parties together, invitations followed,
+  changes, merges, one channel left running, nothing broken; ten arrivals at once fill 3, 3, 3, 1.
+  On the tiers with real simulations (`start_channels`, small numbers): a change of channel (standing
+  where they stood, `channelMoved` heard), a full channel refused, an invitation taking a player to
+  the party's channel; a quiet channel's player told and moved across; eight joining at once fill
+  channels three by three.
+
+Next: the browser's protocol (12), `channels.spec.ts`, the docs, merge `refactor/first`, `npm run check`.
