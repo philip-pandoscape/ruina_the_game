@@ -1,7 +1,7 @@
 # src/net
 
 Talking to the game server. Online the browser plays on the world server
-(`crates/server/src/play/`): it sends what you press and the commands you give, and draws what the
+(`crates/server/src/gate/`, the simulations in `crates/server/src/sim/`): it sends what you press and the commands you give, and draws what the
 server says. Nothing it says about its own state is believed; it predicts only its own player.
 
 | File | What |
@@ -21,7 +21,7 @@ server says. Nothing it says about its own state is believed; it predicts only i
   UI, the library, the developer pages or the bible (`tests/unit/boundaries.test.ts`). It keeps what
   the server says; the app hands it to what draws it (drawing doesn't import net either).
 - **The protocol is both sides'.** A change to what the server sends or takes is made in
-  `crates/server/src/play/` and here together, with `WORLD_PROTOCOL` raised on both.
+  the server (`crates/server/src/gate/encode.rs`, `crates/world-api`) and here together, with `WORLD_PROTOCOL` raised on both.
 - **Places in the content's lists** (a creature's kind, a weapon, an ability, a movement skill, a
   skill node, a mini-game, what caused a number) go on the wire as numbers, read on both sides from
   the same bundles, never from a list in code; the welcome's content hash keeps the two the same.

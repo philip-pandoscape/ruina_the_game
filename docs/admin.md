@@ -45,7 +45,7 @@ The developer zones are places beside the island that only admins go into, each 
   its bots there only while an admin is.
 - **The Goblin Camp**: a war-band of goblins round their fire, to fight or to watch working together.
 
-The server decides who goes in (`enter_zone`, `crates/server/src/directory/mod.rs`): a player who
+The server decides who goes in (`enter_zone`, `crates/server/src/sim/host.rs`): a player who
 asks stays where they are.
 
 ## The Pages
