@@ -32,3 +32,65 @@ Decided so far, and why:
   its messages (`channels`, `channel`) whose server side is the second half.
 
 Next: the policy and its tests, then the tuning, the harness, the browser, the docs and the bible.
+
+## 2026-11-06 21:16: The policy, its tuning and the crowd harness
+
+Landed in 11fef4e:
+
+- **`crates/channels`**, the policy, pure and deterministic (its own `clippy.toml` forbids clocks
+  and hash maps). A `Region` keeps its channels and who plays in each, and answers:
+  - **placing** (`place`, `arrive`): back to the channel you left if within `rejoinWithin`; else
+    your party's (its leader's channel, else where most of it is); else the channel with the most of
+    your friends, then guild, then the biggest share speaking your language, then the fullest
+    below the soft cap; else a new channel. Back and party may go past the soft cap, nothing past
+    the hard cap;
+  - **changing** (`may_change`, `change`, `joined_party`, `blocked`): refused with a pack, in combat
+    (a blow within `calmAfter`, or down), riding, in the air, at a table, or within `changeEvery` of
+    the last change; a choice only below the soft cap, joining your party up to the hard cap; an
+    invitation refused by the rules waits and goes when they allow (`review`);
+  - **opening and merging** (`review`, once a second): a channel quiet for `quietFor` merges into
+    the fullest other that can take its players and stay at most `mergeFill`, newest first, one
+    at a time: `Merging` (tell them), `Move` each when free (out of a fight, on the ground, off a
+    table) from `mergeNotice` on, everyone at `mergeWait`'s end, then `Close`; an empty one closes
+    at once; another opens ahead when the room below the soft cap falls under `openAhead`;
+  - **what a player sees** (`view`): each channel's load (Quiet, Lively, Busy, Full), closing or not,
+    party and friends in it, your merge's countdown, your cooldown, why you can't change.
+- **`content/channels.json`** → `shared/channels.json`, checked by contentc (`channels()`) and by
+  `Tuning::check`, with a unit test of each mistake (`tests/unit/content.test.ts`).
+- **The crowd harness** (`crowd.rs`): a seeded crowd of bots (parties formed before and by
+  invitation, friends, guilds, languages, packs, fights, tables, dropped connections, changes of
+  channel) played against an `Arena` (`Here`: the policy in memory; the server's directory with
+  bots in the second half), checked every second and counted in a `Tally`.
+
+Numbers (the crowd, `cargo test --release -p ruina-channels crowds_measured -- --ignored --nocapture`):
+
+| Crowd | Bots | Peak online | Peak channels | Fullest | Merges | Longest party split | Broken | Time (release) |
+|---|---|---|---|---|---|---|---|---|
+| small (`Tuning::small`: soft 20, hard 24) | 150 | 108 | 6 | 24 | 3 (+2 empty closed) | 235 s | 0 | 0.01 s |
+| large (the game's numbers: soft 1,000, hard 1,200) | 6,000 | 5,177 | 6 | 1,019 | 5 | 306 s | 0 | 1.2 s |
+
+A party is split only while a member waits on the rules (a pack, a fight, the cooldown) or came back
+to the channel they'd left a moment ago; the longest stretches are pack carriers. 29 tests, 5.4 s
+in debug (the large crowd most of it). Clippy and rustfmt clean.
+
+Decisions, and why:
+
+- **Soft cap 1,000, hard cap 1,200** (research 4.3 and 5b.7: about 1,000 a region; the 200 between
+  is room for parties and players coming back, so neither is ever split by a full channel).
+- **Quiet below 250 (a quarter) for 5 minutes, merging only to 750 (three quarters)**: the gap
+  between where a merge stops (750) and where a channel opens ahead (1,000 less 50) is the
+  hysteresis that keeps a merge from opening a channel again; contentc and `Tuning::check` hold
+  `openAhead < softCap - mergeFill`. Five minutes rides out a lull; the fullest-first placement
+  drains the emptier channels by itself, so few players are left to move.
+- **One merge at a time, newest first, everyone into one channel**: predictable, parties stay
+  together, numbers stay low.
+- **A minute's notice, then a minute's grace for fights and tables**: nobody is pulled out of a fight
+  or a game unless it outlasts both.
+- **Change every 5 minutes, out of combat 10 s after the last blow; a party invitation obeys the
+  same rules** (else a pack carrier hops by being invited); **someone back within 5 minutes goes
+  back where they were**, so signing out and in doesn't hop either.
+- **Language as a share, friends and guild as counts, in that order** (the plan's order; a share so
+  a big channel doesn't win on size alone).
+
+Next: the browser's side (the Channels window, the notice when a merge moves you), then the docs and
+the bible's page.
