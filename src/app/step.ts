@@ -3,6 +3,7 @@
 // online. The loop calls it each step; tests step it a frame at a time.
 import { NO_ACTIONS, type Actions, type GameEvent, heightAboveGround } from '../engine/rules';
 import { MOVEMENT_SKILLS, comboFor, COMBAT, meleeTargets, STEP } from '../content/tuning';
+import { dungeonDef } from '../engine/zone';
 import type { GameRefs } from '../main';
 
 export function makeStep(g: GameRefs) {
@@ -66,6 +67,14 @@ export function makeStep(g: GameRefs) {
     } else {
       // Offline the rules decide, your arrows, meteors and heals among them.
       events = engine.step(actions);
+      // Where the space you're in doesn't stop the game for a landed blow (the world never does; a
+      // copy whose practice rules have it does), the swing pauses on it in the drawing, as online.
+      if (!(engine.inside && dungeonDef(engine.inside)?.practice?.hitPause)) {
+        const p = g.sim.player;
+        const landed = events.find((e) => e.type === 'hit' && e.weapon === p.weapon && p.mode === 'attack');
+        const swing = landed?.type === 'hit' ? comboFor(p.weapon, g.sim.stats)[landed.index] : undefined;
+        if (landed?.type === 'hit' && swing) hero.hitPause(swing.hitstop, landed.index);
+      }
     }
     if (netSpells) {
       // Online: your own arrows, meteors and heals show straight away.

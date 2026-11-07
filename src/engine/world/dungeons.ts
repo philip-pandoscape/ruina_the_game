@@ -51,6 +51,11 @@ export interface DungeonDef {
   dressing?: CaveDressing;
   /** What a copy of it brings to life (the server's). */
   spawns?: ZoneSpawn[];
+  /**
+   * The practice rules a copy of it plays offline (crates/engine/src/open/dungeon.rs Practice): a
+   * landed blow stops everything a moment (hitPause), a swing turns toward what's nearest (aimAssist).
+   */
+  practice?: { hitPause?: boolean; aimAssist?: boolean };
 }
 
 /** Every dungeon and developer zone, by id, in the order content/instances/_order.json lists them. */

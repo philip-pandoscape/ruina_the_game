@@ -25,7 +25,7 @@ use crate::life::{
 };
 use crate::missiles::Missile;
 use crate::open::colliders::ground_at;
-use crate::open::dungeon::dungeon;
+use crate::open::dungeon::{Practice, dungeon};
 use crate::open::map::WorldMap;
 use crate::open::spawns::{SpawnPoint, band_around, instance_spawns, island_spawns};
 use crate::open::zone::emberholm;
@@ -147,8 +147,16 @@ impl Session {
         self.world.map
     }
 
+    /// Offline the session stands in for the server: the creatures, their blows, yours landing, and
+    /// your arrows, meteors and heals (crate::training).
     fn training(&self) -> bool {
         !self.online
+    }
+
+    /// The practice rules of the space you're in: a copy's, as its instance's file switches them on
+    /// (the hit pause, aim assist); none in the world.
+    pub fn practice(&self) -> Practice {
+        self.dungeon.as_deref().and_then(dungeon).map(|d| d.practice).unwrap_or_default()
     }
 
     /// What a creature's brain sees of you: nobody while you're knocked down.
@@ -184,19 +192,24 @@ impl Session {
         self.placed = None;
         self.frame += 1;
         let training = self.training();
+        // The copy's practice rules, offline (online the server plays none: crate::open::dungeon::Practice).
+        let practice = if training { self.practice() } else { Practice::default() };
         self.player.remember_presses(a);
-        // Hit pause (offline): everything freezes briefly when a hit lands. Presses are kept.
-        if training && self.hitstop > 0 {
+        // Hit pause, where the practice has it: everything freezes briefly when a hit lands. Presses
+        // are kept.
+        if practice.hit_pause && self.hitstop > 0 {
             self.hitstop -= 1;
         } else {
             self.player.count_down(a);
-            self.player.aim_assist = training.then(|| targets(&self.actors, self.footing()).iter().map(|t| (t.x, t.z)).collect());
+            self.player.aim_assist = practice.aim_assist.then(|| targets(&self.actors, self.footing()).iter().map(|t| (t.x, t.z)).collect());
             self.act(a);
             self.take_player_events();
             if training && let Some(step) = self.player.swing_due.take() {
                 let above = self.height_above_ground();
                 let footing = self.footing();
-                if let Some(pause) = check_hit(&mut self.actors, footing, &mut self.events, &mut self.player, &step, above) {
+                if let Some(pause) = check_hit(&mut self.actors, footing, &mut self.events, &mut self.player, &step, above)
+                    && practice.hit_pause
+                {
                     self.hitstop = pause;
                 }
             }
@@ -1205,5 +1218,46 @@ mod tests {
         // Back out, the world's creatures are as they were.
         s.leave_dungeon();
         assert_eq!(crowd(&s), world);
+    }
+
+    /// Stands you `ahead` metres from the dummy, facing `off` radians away from it, and swings once:
+    /// which way you faced as the swing began, whether it landed, and the longest the game stopped for it.
+    fn swing_at_dummy(s: &mut Session, ahead: f64, off: f64) -> (f64, bool, i32) {
+        s.calm(true);
+        let d = s.actors.list.iter().find(|a| a.kind == "dummy").expect("a dummy");
+        let (dx, dz) = (d.x, d.z);
+        s.place(dx, dz - ahead, off, None);
+        s.take_events();
+        s.step(&Actions { attack_pressed: true, ..Default::default() });
+        let facing = s.player.facing;
+        let mut paused = 0;
+        for _ in 0..40 {
+            s.step(&Actions::default());
+            paused = paused.max(s.hitstop);
+        }
+        let landed = s.take_events().iter().any(|(_, e)| matches!(e, Event::Hit { .. }));
+        (facing, landed, paused)
+    }
+
+    #[test]
+    fn a_copy_plays_the_practice_rules_its_file_switches_on_and_the_world_none() {
+        // The yard's file switches its practice rules on: a blow that lands stops everything a
+        // moment, and a swing begun a little to one side turns onto the dummy.
+        let mut yard = Session::new(false, Build::default());
+        assert!(yard.enter_dungeon("yard"));
+        assert_eq!(yard.practice(), Practice { hit_pause: true, aim_assist: true });
+        let (facing, landed, paused) = swing_at_dummy(&mut yard, 1.3, 0.4);
+        assert!(landed, "the swing lands on the yard's dummy");
+        assert!(paused > 0, "and the game stops a moment for it");
+        assert!(facing.abs() < 1e-6, "turned onto the dummy, straight ahead: {facing}");
+
+        // The world plays none: the same swing at Emberholm's dummy lands without a pause, and goes
+        // the way you faced.
+        let mut world = Session::new(false, Build::default());
+        assert_eq!(world.practice(), Practice::default());
+        let (facing, landed, paused) = swing_at_dummy(&mut world, 1.3, 0.4);
+        assert!(landed, "the swing lands on the meadow's dummy");
+        assert_eq!(paused, 0, "nothing stops");
+        assert_eq!(facing, 0.4, "nothing turns it");
     }
 }

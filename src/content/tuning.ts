@@ -24,11 +24,11 @@ import {
 //           (grace period after leaving the ground), bufferFrames (how early a jump press still
 //           counts), doubleJumpSteer (redirect toward the stick at this × run speed), flipFrames
 // slide     speed → endSpeed (m/s) over `frames`, steer (rad/s), jumpCarry (speed a slide jump keeps)
-// attack    bufferFrames (how early an attack press counts), auto-aim for the training dummy,
+// attack    bufferFrames (how early an attack press counts), auto-aim (an instance's practice rules),
 //           airGravityScale (hang time while swinging in the air)
 // special   bufferFrames for ability presses; cooldown after cancelling or being interrupted
 // weapons   sword, club, staff, bow. Each has a combo; per hit: startup / active / recovery frames,
-//           damage, lunge (m/s), reach (m), arcDeg (hit cone), hitstop (training only), knock (dummy
+//           damage, lunge (m/s), reach (m), arcDeg (hit cone), hitstop (an instance's practice rules), knock (dummy
 //           wobble), playerKnock (m/s), shake (0..1), cancelAfter (recovery frames before jump or
 //           slide can cancel), and for arrows projectileSpeed (m/s) and projectileRange (m).
 //           The sword's `whirlwind` hit replaces its third hit with the Whirlwind skill; the bow's

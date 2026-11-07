@@ -157,8 +157,8 @@ pub struct Player {
     /// Where you were and faced at the start of this step, for drawing between steps.
     pub prev_pos: V3,
     pub prev_facing: f64,
-    /// Offline, where everything worth swinging at stands, for a swing's gentle auto-aim (the
-    /// session's training: crate::training); None online, where nothing aims for you.
+    /// Offline in a copy whose practice rules have aim assist (crate::open::dungeon::Practice),
+    /// where everything worth swinging at stands, for a swing's gentle auto-aim; None elsewhere.
     pub aim_assist: Option<Vec<(f64, f64)>>,
     /// The swing whose blow could land this step (an active frame of a melee swing that hasn't
     /// landed yet), for the offline session to check what it hits; the server checks for itself.
@@ -858,7 +858,7 @@ impl Player {
         if len(a.aim_x, a.aim_z) > 0.01 {
             self.facing = a.aim_x.js_atan2(a.aim_z);
         }
-        // Gentle auto-aim toward whatever is nearest and roughly in front (offline only).
+        // Gentle auto-aim toward whatever is nearest and roughly in front, where practice has it.
         if let Some(targets) = &self.aim_assist {
             let t = &tuning().attack;
             let (mut best, mut best_dist) = (None, t.auto_aim_range);
