@@ -66,6 +66,12 @@ export const RULES: readonly AssetRule[] = [
     why: "The hero's made weapons (src/render/detail/madeWeapons.ts), fitted with the body",
   },
   {
+    match: 'models/npc_*',
+    kind: 'model',
+    zones: ['emberholm'],
+    why: "The townsfolk's made bodies (src/render/detail/madeTownsfolk.ts), worn on the hero's rig as you come near their posts",
+  },
+  {
     match: 'models/*',
     kind: 'model',
     zones: ['emberholm'],

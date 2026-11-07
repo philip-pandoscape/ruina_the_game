@@ -1086,7 +1086,13 @@
         },
         "free": [
           "r"
-        ]
+        ],
+        "model": {
+          "files": [
+            "npc_mara"
+          ],
+          "h": 1.65
+        }
       },
       "portrait": "👩‍🌾",
       "greeting": "Seeds for sowing, coin for your crops. Sunroot's quick, emberberry's dear - and slow on this isle."
