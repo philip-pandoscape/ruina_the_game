@@ -699,3 +699,32 @@ the developer zone; then the engine bridge (R6.4) and Phase 8's switches.
   suite at a time. Rebuild the server after a content change, since the content's hash is in its
   welcome. `ui.spec.ts:377` (pointer lock) fails on macOS anyway, and the battlefield's Healing
   Circle test can fail under load and pass alone.
+
+## 2026-11-06, Evening: Finishing, With the Multi-Server World (D21)
+
+- **The user's word, on Windows again:** finish the refactor including the multi-server support
+  (GitHub issue #4, which D20 had put after the merge), with as many sub-agents as it needs, and as
+  fast as it can go. Recorded as D21. How the work is split: [finish.md](finish.md).
+- **Picked up** at the Mac's last commits (5d25daa, 83d60a1, merged in f3dfc8a). On this machine
+  `npm run check` passes (263 TypeScript, 181 engine, 81 server tests), the conformance tier too,
+  and the integration tier ran 202 passed with one failure, the yard spec's count, which both
+  machines fixed the same way.
+- **Nine workstreams** run side by side, each on a branch and worktree of its own with its own ports
+  and database. Each commits as it goes and keeps a running report in
+  `.plans/refactor/reports/<id>.md` (on its branch until merged); this page rolls them up.
+
+### Workstreams
+
+| Workstream | Tracker | State | Latest |
+|---|---|---|---|
+| tiers | R10.20, R10.2, R10.17's ids | running, nearly done | The server runs on its tiers (e7c28bd): the gate, the sims, the store, the social tier and the directory, joined only by world-api's messages through one post (crates/server/src/post.rs), a thread per sim, writes fenced on characters.epoch (migration 0004). 16 tier tests, among them a slow sim holding up nobody (a7d1a83); multiserver's shapes in (99f90c5: the lease's epoch in a tick, the post's remote addresses, starting tiers by role). The online specs pass on its rig (online, party, dungeon way in, mini-games, travel, battlefield, admin, update). Next: the tick time after, docs, npm run check, merge refactor/first |
+| bigworld | R10.23, R10.16's rest | running | The page plays a world of many regions (db6ca72): regions grow in a Web Worker and are taken up by the page's engine, drawn where the map puts them and dropped behind you; the scene's origin moves with you, so a fixture region 102 km out is drawn precisely; the map windows show the world. The fixture world (tests/fixtures/world, the engine's fixture feature) crossed in Rust on foot, swimming, gliding and by cart with a passenger (3332545); farming reads its region's climate (d0ed37b). Next: unit and integration tests, the look test after, the docs |
+| offline | R10.11, R10.4, R10.10's rest | running, nearly done | Every test off the old options, ?test alone the world (820cbfe); the flat training yard gone (9861ec9); world.rs's battlefield layout gone, respawn from data (065687b); the hit pause and aim assist are practice rules an instance's file switches on (49a5046: the yard and the goblin camp on; the world, Goblin's Dread and the battlefield off), played offline; online as before. Next: merge refactor/first, npm run check, the whole integration tier |
+| wire | R10.8 | running (first half) | crates/wire (7a243c9) and its records serializable (0476309); the TypeScript decoder held to golden bytes (2ecbef3); updates 54 times smaller than today's JSON and 2-3 times cheaper to write (3cf8a43). The feed takes the world through one adapter, JSON today and the wire next, each thing at its own rate (b72af2a); far peers drawn as crowd bodies past 42 m with a 0.35 s crossfade (e82b13d, crowd-bodies.spec green); the online, battlefield, party, yard and crowd specs pass. Next: the link ready for binary updates, docs, merge refactor/first |
+| land | R10.21 | first half done, waiting on tiers | First half done (461542c, refactor/first merged in cleanly): land in the engine apart from a life, the browser reading land, migrations 0010-0013 and the store's land, plots, ledger and market. npm run check passes; the world, online, mini-games, village, sea and update specs 46 passed; the store's tests 7 of 7 against Postgres. The server's side (the store and sims wired, the migration at start, saves when changed) waits on tiers |
+| borders | R10.19 | running (first half) | Built on tiers' world-api (merged 86d6055); the engine's combat and creatures hold ghosts and take a phase in parts (work out, send away, land, settle), so simulations can trade blows, heals and what's told mid-tick (80e02a0), every golden answer unchanged. Next: the border module, the lockstep harness, the split golden test |
+| channels | R10.22 | first half done, waiting on tiers and land | First half done (cbbd187, refactor/first merged in): the policy crate and its crowd harness, the Channels window and notices, docs/world.md's Channels, the bible's Channels page; npm run check green (268 TypeScript; Rust 31, 181, 5, 4, 81); the party, online and dungeon specs 25 passed. The second half waits on tiers (the directory, standing from the sims) and land (residents out, what a merge re-keys) |
+| multiserver | issue #4, requirement 6 | first half done, waiting on tiers and borders | First half done (048c584): TCP links (crates/link), the leases in Postgres with the fence and a sim's keeper, the roles, a harness of several processes with failure tests (npm run test:cluster). After merging refactor/first: lints, typecheck, knip, 300 Rust tests and the cluster tests green; one unit test (paths.test) fails on five paths the tiers' first cut named, which are fine at the tiers' tip |
+| scale | R10.24 | running (first half) | The load harness, two server hooks (a bot limit; rules and updates timed apart in the stats) and the browser's crowd spec (419697c..f6faa76). First looks at today's server: it holds about 120 real players (writing JSON updates costs ~0.4 ms a client a tick), and once a tick passes 50 ms it stops serving clients at all (the one global lock starves the connections). The full baseline is running (~50 min) |
+| words | R10.14 | last, once the rest are in | |
+
