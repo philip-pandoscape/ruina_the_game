@@ -1,215 +1,152 @@
 # AGENTS.md
 
-**Ruina**: an original browser MMORPG prototype. Three.js + TypeScript client (Vite), a Rust game
-server (axum) on a Rust engine shared with the client's rules (`crates/`), Postgres. Only the
-repository keeps the working name *yggdrasil*; the server is `ruina-server`. How the pieces fit
-together (the rules, the client, the server, content, a game online and offline): `docs/architecture.md`.
-The main world is meant to be one seamless open world of regions defined by data, with ArcheAge-style
-life systems and land that is scarce and contested. **Emberholm**, a starter isle, is its first
-region, and today its only one. Dungeons and developer zones are instances. How the world is laid
-out, read and played: `docs/world.md`. The refactor's Phase 10 lays the foundations:
-`.plans/refactor/README.md` (One World) and `.plans/world/research.md`.
+**Ruina** is an original browser MMORPG prototype with ArcheAge-style life systems (trade packs,
+farming, housing, vehicles) and action combat. The client is Three.js and TypeScript (Vite); the
+rules are one Rust engine that the server runs natively and the browser runs as WebAssembly; the
+server is Rust (axum, tokio) on Postgres. Only the repository keeps the working name *yggdrasil*;
+everything players see, and the server binary (`ruina-server`), says Ruina.
 
-## Layout
+The main world is one seamless open world of **regions** defined by data, meeting across sea or
+land, with **instances** (dungeons, developer zones) beside it, each played in copies of its own.
+**Emberholm**, a starter isle, is the first region. The server runs as tiers that only send each
+other messages (a gate for connections, simulations, a store, a social tier, a directory), in one
+process or spread over several. How it all fits together: [docs/architecture.md](docs/architecture.md).
+The words (world, region, instance, channel, copy, space, chunk, cell, land, life):
+[docs/world.md](docs/world.md).
 
-| Path | What |
-|---|---|
-| `src/engine/` | The bridge to the rules, the only way to them from the rest of the client: `engine.ts` plays the page's game on the Rust engine compiled to WebAssembly (stepping, and every write from outside as a named call) and reads back what the page shows after each (`engine.sim`, `engine.life`: views), and `rules.ts`, `zone.ts`, `life.ts` and `creatures.ts` name what the rest reads of the rules: the shapes of their state (`shapes.ts`), the world's ground, regions, instances and roads (`world/`), the read helpers of a life (`life/`) and of creatures (`actors/`) (`src/engine/AGENTS.md`) |
-| `src/render/`, `src/ui/` | Presentation. Reads the rules' state, never changes it |
-| `src/render/look.ts` | The look, its palette, and how much of it each quality draws (`GRAPHICS`): `high` on a graphics card, `medium` on integrated graphics, `low` where WebGL is drawn in software (CI) or there is no WebGL2; `?quality=low|medium|high` chooses. Screen effects in `src/render/open/post.ts`; textured ground `open/ground.ts`; made models (Meshy, compressed, in `src/render/assets/models/`) swapped in for the procedural bodies where a thing's look names one (`content/`, `src/content/looks.ts`) and fitted into its footprint, `models/glb.ts`, so the rules never see them; `tests/stress/look.spec.ts` shoots each quality |
-| `src/render/village/`, `content/buildings/` | Buildings you can walk into, built from Quaternius' village kit: plans (`src/content/buildings.ts`) on its 2 m grid, 3 m a storey, walls written as strings of modules (door, window, arch...), stairs, roof, furniture. The rules wall, floor and stair-step each one from its plan (the engine's `crates/engine/src/open/buildings.rs`: doorways open, upper floors and treads as decks, furniture solid), as the region grows. `assemble.ts` lays out the kit's pieces; `village.ts` draws the town in a few merged meshes, cuts the house you are in open above your storey (its roof still shading the room), keeps the camera in its walls, swings doors open as anyone comes up to them and lights the lamps and hearths nearest you; `furnish.ts` the furniture (props, rugs, straw, fire). Players' cottages are its too, stage by stage. The content library shows each plan (`/dev/library.html#/buildings/<plan>`, `?cut=0` from inside, `?colliders=1` the rules over it) |
-| `src/render/detail/` | Close-up bodies. `humanoid.ts` poses every humanoid as a pure function of `PoseInput` (the crowd bakes its clips from it), with `body.ts` (two-bone IK), `gait.ts` (planted feet at any speed and heading), `swings.ts` (weapon keyframes), `stow.ts` (where weapons are put away); `src/render/character.ts` adds the stateful parts (transitions, foot holds, trails, bowstring, drawing and putting away the weapon). The content library plays them all with the game's timing (`/dev/library.html#/hero/<film>`; its contact sheet lays a motion out in one picture), and `tests/unit/animation.test.ts` measures them (`src/dev/library/bench/hero.ts`). The hero wears a made body (`madeHero.ts`, `assets/models/hero.glb`; the box hero stands in until it has loaded): `fit.ts` measures the hero rig off the model's skeleton, moves its skin onto our joints, adds a palm and finger joints to each hand and closes them round what they hold (`gripHands`), so the same poses move it; it carries made weapons (`madeWeapons.ts`) where the box hero's were. Its moves can also be clips from animation libraries, retargeted onto it bone for bone (`retarget.ts`; which move plays which clip: `moves.ts`, `?swordMoves=keyed|meshy|quaternius` to compare); the content library shows a clip on the hero beside its source (`/dev/library.html#/retarget/<file>:<clip>`) and `tests/integration/retarget.spec.ts` holds every one to it |
-| `src/dev/library/` | The content library, `/dev/library.html`, the one developer page for everything the game draws: every animated thing (hero, slimes, crowd bodies, farm animals, townsfolk, mounts, library clips on the hero beside their source, close-up rigs) through an adapter in `subjects/` that keeps each frame of an animation, so it can be scrubbed, onion-skinned, posed and laid out as a contact sheet; and the galleries in `galleries/` (every model, the buildings cut open over the rules' walls, the crowd bench), each drawn in a scene of its own as its page drew it; and every window of the interface in made-up states (`#/ui/<window>/<state>`), drawn in a real offline game by a page of their own that the library frames (`dev/ui.html`, `src/dev/ui/`: the entries, plain data, in `entries.ts`, how each is made up from the content in `states.ts`). Its address names what is open (`#/<subject>/<animation>?<options>&f=<frame>`); `window.__library` drives it. `bench/` measures the hero's films, species and rigs without drawing, for the unit tier. Notes on an animation, a stretch of frames or a frame (a pose corrected by moving its bones: `editor.ts`) become one prompt for Claude (`prompt.ts`). The dev server keeps them in `reviews/animations/` (`tools/animReviews.ts`); corrected poses stay as green ghosts on their frames to compare a fix against, and `tests/integration/library-review.spec.ts` (`REVIEW=<review.json>`) measures them. A review to act on: the `animation-review` skill |
-| `src/ui/` | The Parchment & Timber look. `theme/`: the CSS, the UI laid out on a 1029 px virtual screen and scaled to the window (`scale.ts`), fonts, tooltips, right-click menus (`contextMenu.ts`), the writing rule (`text.ts`), painted icons (`icons.ts`; `tools/icons/catalog.mjs` lists what each one shows and the emoji or item it stands for, `node tools/icons/paint.mjs` paints them nine to a sheet with Gemini, `npm run icons` cuts them out). `life/lifeUI.ts`: the life's HUD and its windows docked at the sides. `skills/`: the skill book (T) and the skill tree (N). Skill points are counted from finished quests (`src/engine/life/progress.ts`), never stored. `minigames/`: challenging another player (F on them), the invitation, and the game window at your table (Beacons' board), all showing what the server sends. `party/`: the party frame under your portrait, the invitation and the Party window (O). `channels/`: the Channels window (your region's channels, changing channel) and the notice while yours closes |
-| `src/app/regions.ts`, `src/app/grower.ts`, `src/render/origin.ts` | The client in a big world (`docs/world.md`): the regions round you grown ahead of you in a Web Worker (`grower.worker.ts`), adopted by the rules, drawn where the world places them (`src/render/open/regionView.ts`) and let go behind you; the scene's origin moving with you so drawing stays precise far out; `?fixture=world` plays the tests' fixture world (`tests/fixtures/world/`) |
-| `src/main.ts` | Wires it all up; URL options at the top (`?lag=ms` plays a local server as a far one feels); `window.__game` is the test API. Riding, the vehicle is placed before its rider is posed in its seat (`LandView.placeRide`). Online, picking packs up and putting them down, loading, unloading and getting in run ahead in the browser until the server has run them too |
-| `src/input/autoWalk.ts`, `src/engine/world/roads.ts` | Auto-run (H) and travel by road from the map: the road network and its routes, followed by making the same controls the keyboard would (`src/ui/life/travelUI.ts` draws them) |
-| `src/app/online.ts`, `src/net/` | The way in (the title screen drawn by `index.html`, `src/ui/splash.ts`, sign-in `src/ui/signIn.ts`, `src/ui/characterSelect.ts`), the world connection (`worldLink.ts`: inputs and commands out, the server's ticks in, and the wire for crowds' updates; riding out a server update, `src/app/resume.ts`), what the feed takes from each tick whichever way it came (`feedTick.ts`; the wire for crowds' side, `wire/`), predicting your own player (`netPlayer.ts`), everyone else in your channel (`worldPeers.ts`: their vehicles solid to you, and drawn before anyone riding along sits in them; at a mini-game's table on its stool, `src/render/open/gameTables.ts`), monsters drawn on a timeline between the server's ticks (`actorTimeline.ts`) with hits felt at once (`netMonsters.ts`), the battlefield client |
-| `crates/` | The Rust workspace (`Cargo.toml` at the root, one `target/`). `crates/engine` is the rules, the server's and the browser's (through the WebAssembly, `crates/engine-wasm`; the browser's game is `session.rs`): `player.rs`, `skills.rs`, `tuning.rs`, players fighting together (`combat.rs`: swings, arrows, meteors, heals, creatures' blows, lag compensation, passengers; a tick in phases whose players, creatures and missiles may be stepped in any order or all at once, `crates/engine/AGENTS.md`), creatures (`actor.rs`, `actors.rs`, `ai.rs`, `pack.rs`, `missiles.rs`, `content.rs`), `open/` the world's ground, colliders and traversal (each region grown from its recipe by need and dropped when nothing needs it, `open/map.rs`, `open/generate.rs`, by the server and, through the WebAssembly, by the browser's worker; the Windspire's waterfall and the ledge behind it are cut by the generator's `falls`; the tests' fixture worlds, `open/fixture.rs`), a dungeon's floors and walls solid only in a copy of it (`open/dungeon.rs`, `src/engine/world/dungeons.ts`), `life/` trade, farming, housing, vehicles and quests, `minigames/` each table game's rules (Beacons first), `rng.rs` and `jsmath.rs` (the browser's random numbers and maths, to the bit); serde, serde_json and libm only, no clocks, threads or I/O. `crates/tools` holds the programs the conformance tier runs (`engineprobe`, `terraincheck`) and the balance harness. `crates/channels` is the channels' policy (where a player is placed, when a region opens another channel and merges a quiet one, whether a player may change), pure, played by the directory, with a crowd of bots that plays it (`crates/channels/AGENTS.md`). `crates/wire` is the wire for crowds: records packed once per 32 m cell and tick, each connection's handles, deltas against what it acknowledged, tiers by distance and a byte budget (its `AGENTS.md` has the protocol byte by byte) |
-| `crates/server/`, `crates/world-api/` | The game server, `ruina-server`, in tiers that only send each other messages (`crates/world-api`: ids, every tier's messages, a tick's records, the `Transport` they cross), all in one process today (`crates/server/AGENTS.md`). `gate/` holds players' connections (`socket.rs`: the way in, inputs and asks to the simulation a connection plays in now; `encode.rs`: the JSON a browser reads, built for each connection from a tick's records); `sim/` is a simulation for each region's channel and each instance's copy, each on a thread of its own (`host.rs`), playing its space's game (`mod.rs`: players from their inputs, their lives, creatures, combat via the engine's `combat.rs`, bots in `bots.rs`, mini-game tables in `tables.rs`, a channel's residents in `channels.rs`; players stepped one after another or, with `--parallel on`, all at once: `stepping.rs`; ticks numbered by the world's clock: `clock.rs`) and publishing each tick's records by 32 m cell (`publish.rs`); players move between simulations mid-connection, handed over whole, wherever the directory says. `directory/` says who plays where and which simulation plays what (claims with each character's epoch, routes into copies and home, copies kept 30 minutes after their last player leaves, leases); `store/` keeps what lasts in Postgres (`db.rs`, `crates/server/migrations/`, applied on start), every write fenced by its character's epoch; `social/` keeps parties; `post.rs` carries their messages in one process; `start.rs` starts them. `accounts/` accounts, sessions and characters; `http.rs` the API, the game's files and the admins' pages |
-| `content/` | Content and tuning: a folder per kind, a file per thing (`content/AGENTS.md`), checked against each kind's schema and every cross-reference, and built by `npm run content` (`tools/content/contentc.mjs`; the dev server rebuilds on a change) into the bundles both sides read, `shared/*.json`: **edit `content/`, never `shared/`**. New content is data, not code: how to add each kind as files alone is `docs/content.md` (a template of each in `content/_templates/`), and the unit tier fails on a content id in code (`tests/unit/contentIds.test.ts`). `content/instances/`: a file for each dungeon and developer zone (the yard, the battlefield, the goblin camp: admins only), each a space of its own, its floors and walls round its own origin, where you come in and its way out, the creatures and bots a copy brings, and a cave's dressing, what it looks like inside (`docs/world.md`; a dungeon's portal is in the region it's entered from, `content/regions/<id>/doors.json`; Goblin's Dread's plan so far is in `.plans/dungeons/`). `content/regions/`: a region's recipe and a folder of what it places, each region on its chunks in `content/world.json` |
-| `content/creatures/`, `src/render/creatures/` | Creatures with folders of their own, the goblins first (`design/goblins.md`). A creature is data and a body: `content/creatures/<name>.json` names its parts in `content/creatures/<name>/`, its kinds, attacks and brains (the format of `shared/behaviours.json`, plus its pack's tactics), built with the others into `shared/creatures.json`; and `src/render/creatures/<name>/` is its body for the crowd renderer, unless its kinds wear a species there is already. Both run on shared engine parts (`crates/engine`): senses (every player as a foe), the pack (`pack.rs`: attack tokens, openings, ring places, courage), the brains' walk, strike, throw and heal acts (`ai.rs`) and missiles (`missiles.rs`). A new creature is its files and its id in `content/creatures/_order.json` (a kind travels on the wire as its index, which both sides take from the bundle), with no list in code; a behaviour the engine can't express becomes a new engine part, never creature code. `?offline=goblinCamp` plays the goblin camp, a war-band round its fire |
-| `tests/` | The test tiers (`tests/AGENTS.md`, `docs/testing.md`): `unit/` (Vitest, no browser), `conformance/` (Vitest: the WebAssembly and the browser's ground sampling against the native engine), `integration/` (Playwright: the game in a browser with its servers), `stress/` (Playwright, a real GPU), `support/` (shared helpers, the typed `window.__game`) |
-| `design/` | Design bible (`/design/` on the dev server) and the UI design system (`/design/ui.html`); `design/status.json` is the tracker and session log |
-| `bible/`, `src/bible/` | The Ruina Bible, `/bible/` in the built game, open to everyone: how the game works, exactly. A page per system (`systems/`, written from the rules files it names in `rules`, drawing on the content keys in `content`), an entry per thing (`things/`: a kind per content collection, each entry drawn from the content as it is shown), notes on things whose content doesn't describe them (`notes/<kind>.md`, a `## <id>` each), search and links between pages (`site.ts`), and for admins the Development tab (`/design/`). Prose is Markdown in md`` templates (`md.ts`) whose numbers come only from imports, formatted by `format.ts`; numbers the rules don't export are read from their source (`source.ts`). `tests/unit/bible.test.ts` holds it complete, `tests/integration/bible.spec.ts` the page |
+## Where Things Are
+
+| Area | What | Its guide |
+|---|---|---|
+| `crates/engine` | The rules, one copy: movement, traversal, combat, skills, creatures, the world map and its regions' generator, borders between simulations, the life systems and land, mini-games. Deterministic: no clocks, threads or I/O | `crates/engine/AGENTS.md`, [docs/engine.md](docs/engine.md) |
+| `crates/engine-wasm` | The engine for the browser: the page's game (`session.rs`) through plain exports | [docs/engine.md](docs/engine.md) |
+| `crates/server` | `ruina-server`: the gate (`gate/`), the simulations (`sim/`), the store (`store/`, Postgres and `migrations/`), the social tier (`social/`), the directory (`directory/`), the processes and their leases (`cluster/`), accounts, the HTTP API (`http.rs`); `start.rs` starts the tiers a role asks for | `crates/server/AGENTS.md` |
+| `crates/world-api` | The messages between the server's tiers, the ids and the tick's records (no I/O) | `crates/world-api/AGENTS.md` |
+| `crates/wire` | What a browser hears of the world: records by 32 m cell, handles, deltas, a byte budget | `crates/wire/AGENTS.md` |
+| `crates/link` | TCP links between server processes (once, in order, at least once across restarts) | `crates/link/AGENTS.md` |
+| `crates/channels` | The channels' policy: when a region opens, merges or closes a channel, and who goes where | `crates/channels/AGENTS.md` |
+| `crates/tools` | The balance harness, the load test (`loadtest`), the conformance programs | [docs/testing.md](docs/testing.md) |
+| `src/app` | Start-up, the URL options (`options.ts`), the loop, a frame's drawing and step, online play's wiring, the test API (`window.__game`) | `src/app/AGENTS.md` |
+| `src/engine` | The bridge to the rules: the only way to them from the rest of the client, and the views read back after each step | `src/engine/AGENTS.md` |
+| `src/net` | The world connection, prediction, the wire's decoder and everyone else as the server sends them | `src/net/AGENTS.md` |
+| `src/render` | Drawing (the look, the world's regions, bodies and animation, buildings, creatures): reads the rules, never changes them | `src/render/AGENTS.md` |
+| `src/ui` | The Parchment & Timber interface: windows on shared components, the HUD, the writing rule | `src/ui/AGENTS.md` |
+| `src/input`, `src/content`, `src/assets` | Keys, mouse, controller and auto-run; typed readers of the content bundles and looks; the asset catalogue and loader | (in [docs/architecture.md](docs/architecture.md)) |
+| `src/dev`, `dev/` | The developer pages: the Content Library, the UI gallery; the Admin menu's list (`src/dev/pages.ts`) | `src/dev/AGENTS.md`, [docs/admin.md](docs/admin.md) |
+| `src/bible`, `bible/` | The Ruina Bible, `/bible/`: how the game works, exactly, from its own rules and content | (the bible's own test, `tests/unit/bible.test.ts`) |
+| `content/` | Every piece of game data, a folder per kind and a file per thing, built by `npm run content` into the bundles both sides read (`shared/`): edit `content/`, never `shared/` | `content/AGENTS.md`, [docs/content.md](docs/content.md) |
+| `tests/` | The tiers: `unit/` (Vitest, no browser), `conformance/`, `integration/` (Playwright, with servers), `stress/` (a real GPU), `support/` | `tests/AGENTS.md`, [docs/testing.md](docs/testing.md) |
+| `tools/` | Content's compiler, assets' search and fetch, icons, images, models, the moves script, the cluster runner | |
+| `design/` | The design bible's Development tab and its tracker (`design/status.json`), the UI design system (`design/ui.html`) | |
+| `.plans/` | Plans in flight: the first refactor (`.plans/refactor/`), the world's research, dungeons | |
+
+## Adding Things
+
+- **Content of a kind the game knows** (a creature, townsperson, item, quest, vehicle, building,
+  region, instance, mini-game): files alone, from a template in `content/_templates/`.
+  [docs/content.md](docs/content.md) has a recipe for each kind; the unit tier fails on a content id
+  in code (`tests/unit/contentIds.test.ts`) and on a misspelt field or broken reference.
+- **A rule**: in the engine only, with its Rust tests and, if a scenario's answer moves on purpose,
+  the golden answers kept anew (`RUINA_GOLDEN=1 cargo test --release -p ruina-engine golden`).
+  What the browser needs of it crosses the bridge (`src/engine/`, [docs/engine.md](docs/engine.md)).
+- **A region or an instance**: its files in `content/regions/` or `content/instances/`, its chunks in
+  `content/world.json` ([docs/world.md](docs/world.md)).
+- **A message between the server's tiers**: in `crates/world-api`, handled where it lands; it
+  crosses processes as it is ([docs/architecture.md](docs/architecture.md)).
+- **A window**: on `src/ui/components/`, with its states in the UI gallery (`src/dev/ui/`).
+- **A developer page or zone**: an entry in `src/dev/pages.ts`, or an instance with
+  `developer: true` ([docs/admin.md](docs/admin.md)).
+- **An asset**: free first, through the `find-assets` skill, listed in `src/assets/catalog.ts`
+  ([docs/assets.md](docs/assets.md)).
+- **A system or a kind of content players should understand**: its page in the bible
+  (`src/bible/systems/`, `src/bible/things/`); `tests/unit/bible.test.ts` says what's missing.
 
 ## Commands
 
 ```sh
-npm run up              # Postgres + game server in Docker (rebuilds the server); npm run down stops
-npm run engine          # the engine's WebAssembly (crates/engine-wasm), which dev, build and the tests load
-npm run dev             # http://localhost:5173  (?as=name signs in on dev and plays its last character; offline ?offline, ?offline=<instance>, ?test)
-npm run typecheck
-npm run check           # typecheck, format and lint (Biome, rustfmt, clippy), dead code (knip), the unit tier (Vitest tests/unit, cargo test): run after every change
-npm run format          # formats the TypeScript (biome.json) and the Rust (rustfmt.toml): run before committing
-npm run check:beta      # + the integration tier (tests/conformance, then Playwright tests/integration): before every push to beta
-npm run check:release   # + the stress tier (tests/stress, a real GPU): before a release
-npx playwright test tests/integration/ui.spec.ts   # some of the integration tier: files, -g "title"; --last-failed after a fix
-PW_PORT=5211 TEST_PORT_OFFSET=10 npx playwright test   # beside another checkout's suite (its own Vite and its specs' own game-server ports)
-npm run image -- --out scratch/x.png --ref look.png "prompt"   # a picture from Gemini (Art and assets below)
+npm run dev               # http://localhost:5173 (?as=name signs in on a dev server; ?offline plays without one; ?test for tests)
+npm run check             # typecheck, Biome, knip, rustfmt and clippy, the unit tier (Vitest and cargo test): after every change
+npm run check:beta        # + conformance and the integration tier (Playwright, needs a world server): before a push to beta
+npm run check:release     # + the stress tier (a real GPU): before a release
+npm run test:cluster      # the leases and the game across several processes (needs RUINA_DATABASE_URL)
+npm run cluster           # services, two sims and a gate on DATABASE_URL, the gate on port 7790
+npm run loadtest -- --plan quick   # bots and virtual clients against a server, measured (docs/testing.md)
+npm run up                # Postgres and the server in Docker; npm run down stops them
+npm run content           # content/ into the bundles (the dev server does it on a change)
+npm run engine            # the engine's WebAssembly (dev, build and the tests build it first)
+npm run format            # Biome and rustfmt, before committing
 ```
 
-The tiers, where a new test goes, the shared helpers and a private test rig: `docs/testing.md`. The
-online specs need a world server with a database (`npm run up`, or the private rig there);
-`tests/integration/update.spec.ts` needs `RUINA_DATABASE_URL`.
+The online specs need a world server with a database: [docs/testing.md](docs/testing.md) says how
+to run a private one (a Postgres container and a copy of the release binary, on ports of your own).
 
 ## Rules
 
-- The rules are one copy, the engine's (`crates/engine`): the server runs them natively, and the
-  browser runs the same code through the WebAssembly (`src/engine/`) to predict its own moves and to
-  play offline (`docs/engine.md`: how each side reaches them, and adding to what crosses). A rule
-  changes in one place; the engine's golden tests (`crates/engine/tests/golden/`) hold the answers
-  of its scenarios, and a change made on purpose keeps the new ones (`RUINA_GOLDEN=1 cargo test
-  --release -p ruina-engine golden`). Online the server decides; the browser only predicts its own
-  moves and shows what the server says.
-- Each region grows from its recipe in the engine alone (`crates/engine/src/open/generate.rs`,
-  `buildings.rs`), by need: the server the chunks it plays and a band round them, the browser what's
-  near you, in a worker, through the engine's WebAssembly (`src/engine/wasm.ts`, which `npm run engine`
-  builds and `npm run dev` builds first). Changing a region's content (`content/regions/`, the building
-  plans) needs nothing more.
-- Keep the engine deterministic (`crates/engine/AGENTS.md`): its own seeded random numbers, `libm`
-  maths, no clocks, threads or I/O.
-- When a feature lands, update `design/status.json` (feature status, next steps, session log).
-- The bible (`src/bible/`) moves with the game: a new system is a page in `src/bible/systems/`
-  naming its rules files and content keys; a new piece of content of a kind the bible knows needs
-  its explanation (its own `desc`, or a note under `## <id>` in `src/bible/notes/<kind>.md`); a new
-  kind of content is a kind in `src/bible/things/`. Numbers go in through `src/bible/format.ts`,
-  never typed into prose. `tests/unit/bible.test.ts` fails on whatever is missing and says where.
-- UI follows the design system (`design/ui.html`): labels (buttons, tabs, headings, prompts, tags) in
-  Title Case and sentences in sentence case (`src/ui/theme/text.ts`, checked by `tests/integration/ui.spec.ts`);
-  items answer a click (pick), a double-click (their main action) and a right-click (a menu).
-- Tests go in the lowest tier that can show the thing works (`docs/testing.md`): `tests/unit` for
-  logic (no browser), `tests/integration` for the game in a page, `tests/stress` for speed and crowds.
-  Integration tests open the game with `tests/support/game.ts` and drive it through the typed
-  `window.__game`, a frame at a time; they never wait a fixed time for the game to notice something.
-- Tag a test `@gpu` if it needs a real GPU to keep up (several game windows, frame rates, screen
-  capture): CI renders in software and skips them. Tag it `@alone` if it races the clock in a way
-  other pages drawing would upset (stopping a server under players, two windows of one character):
-  those run one at a time, after the rest. A spec file that starts a game server of its own gives it
-  a port no other file uses (`tests/support/ownServer.ts`); one whose tests share nothing says so
-  (`test.describe.configure({ mode: 'parallel' })`).
-- Servers started on a development machine listen on localhost only (`--listen all` for other
+- **One copy of the rules**, the engine's: the server runs them, the browser predicts its own moves
+  and plays offline with the same code, and the server decides. Keep the engine deterministic
+  (`crates/engine/AGENTS.md`): its own seeded random numbers, `libm` maths, no `HashMap`, no clocks.
+- **Content is data**: a new thing of a known kind needs no code; saves and the network name things
+  by id or by their place in a bundle both sides read, never a hand-kept list.
+- **The areas' boundaries** are a unit test (`tests/unit/boundaries.test.ts`): drawing and the UI
+  never change the rules or call the network; the UI asks the app; only `src/engine/` reaches the rules.
+- **Tests go in the lowest tier** that shows the thing works ([docs/testing.md](docs/testing.md)).
+  Integration tests open the game with `tests/support/game.ts` and drive the typed `window.__game`
+  a frame at a time; they never wait a fixed time. Tag `@gpu` what needs a real GPU (CI draws in
+  software) and `@alone` what races the clock under load.
+- **The UI's writing rule** (`design/ui.html`, `src/ui/theme/text.ts`): labels in Title Case,
+  sentences in sentence case; items answer a click, a double-click and a right-click.
+- **The docs move with the code**: a path named in AGENTS.md, `docs/`, the skills or
+  `design/status.json` must exist (`tests/unit/paths.test.ts`); a feature that lands updates
+  `design/status.json`; the bible's completeness test fails on a system or thing without its page.
+- **Servers started on a development machine listen on localhost only** (`--listen all` for other
   machines): nothing should ever need someone at the machine to click a Windows prompt.
-- Never commit `.env` (Railway keys, `GEMINI_API_KEY`). Commit messages carry no AI attribution.
+- **Never commit `.env`** (Railway keys, `GEMINI_API_KEY`). Commit messages carry no AI attribution.
 
-## Art and assets
+## Art and Assets
 
-Finding and fetching free assets (models, textures, skies, animations, sounds, music, effects,
-fonts), checking their licences, crediting and bringing them in: the `find-assets` skill
-(`.claude/skills/find-assets/SKILL.md`, with `tools/assets/search.mjs` and `tools/assets/fetch.mjs`).
-The repository is public: only CC0 and CC BY files go in it.
+Free first: the `find-assets` skill (`.claude/skills/find-assets/SKILL.md`, with
+`tools/assets/search.mjs` and `tools/assets/fetch.mjs`) finds and fetches models, textures, skies,
+animations, sounds, music, effects and fonts, checks their licences (the repository is public: CC0
+and CC BY only, never anything taken from another game) and credits them in `CREDITS.md`. Judge a
+find in the game's look beside what we would make; make one only when nothing free is as good.
+Concepts come first for whatever is made, shown to the user beside today's look.
 
-From a find to the player's screen: `docs/assets.md`. Every file in the asset folders has a rule in
-`src/assets/catalog.ts` (its kind and the zones that use it; `tests/unit/assets.test.ts` fails on a
-file without one), and the build lists it in the asset manifest (`/asset-manifest.json`, by
-`tools/assets/manifest.ts`). The game loads it by id through the loader (`src/assets/loader.ts`:
-`model`, `gltf` and `picture` in `src/render/assets.ts`), most needed first and the nearest of what
-stands about the world before the rest, drawing a stand-in until it arrives. The title screen,
-sign-in and character select come first (`src/app/boot.ts` fetches the rest of the game once a
-character is chosen). The client will be packaged as a desktop app, so a browser's download isn't
-held to a budget.
+Paid makers are the user's money: say what a batch makes, what it costs and what free option it
+beats before running it.
+- **Gemini** (`npm run image`, `GEMINI_API_KEY` in `.env`) for pictures: concepts, Meshy's input,
+  textures, and the icons (`tools/icons/`, nine to a sheet, `npm run icons` cuts them out).
+- **Meshy** (the `meshy` MCP server) for models nothing free matches; the pipeline from a concept to
+  a fitted, compressed model, and the gotchas: [docs/assets.md](docs/assets.md).
+- **Animations** onto a character, checked against their source: the `retarget-animation` skill.
+- **Buildings** are plans on Quaternius' village kit, not models (`content/buildings/`).
 
-Free first: before making a model, texture or animation, look for a free one (below) and judge it in
-the game's look beside what we would make. Make one only when nothing free is as good; never trade
-quality for the saving. Concepts come first for whatever is made: paint them and show the user (side
-by side, with today's look) before making models. Meshy credits and Gemini billing are the user's
-money, so say what a batch makes, what it costs and what free option it beats before running it.
-Whatever comes from outside goes in `CREDITS.md` (what, where, from, licence).
+Binaries live in Git LFS. Every asset file has a rule in `src/assets/catalog.ts` and is loaded by
+id, nearest first. `tests/stress/look.spec.ts` shoots the same places at each quality: run it before
+and after a change to the look, and show the user both.
 
-- **The village kit.** Buildings are plans, not models: walls, floors, roofs, stairs, doors and
-  windows from Quaternius' Medieval Village MegaKit, furniture from his Fantasy Props MegaKit (both
-  CC0; the free Standard zips from quaternius.itch.io). `node tools/models/village.mjs <MegaKit
-  glTF folder> <Props glTF folder>` packs the pieces it lists into `src/render/assets/village/kit.glb`
-  and `props.glb` (WebP at 1024, meshopt, the heaviest simplified). A new building is a plan in
-  `content/buildings/` and a structure with `collider: 'building'`; a new piece of furniture a file in
-  `content/furniture/`.
+## Branches, Deploys and Running Several Servers
 
-- **Free assets.** CC0 (or a licence that asks for no more than a credit), never anything taken
-  from another game, fan art of one included.
-  - Models: [Poly Haven](https://polyhaven.com/models) first. Realistic, CC0 and scriptable:
-    `https://api.polyhaven.com/assets?t=models` lists every model with its tags, `/info/<id>` gives
-    its size in millimetres and its triangles, `/files/<id>` its glTF at 1k to 8k with the textures.
-    Props, tools, rocks, trees and a few weapons (an estoc, a saber, a mace, a war hammer, a dagger,
-    axes, a kite shield). [Sketchfab](https://sketchfab.com) has far more: its search API
-    (`https://api.sketchfab.com/v3/search?type=models&downloadable=true&license=cc0`, or `by`)
-    needs no key, but downloads need the user's API token, and many CC0 models there are museum
-    scans too heavy to use as they are. [Quaternius](https://quaternius.com) and
-    [Kenney](https://kenney.nl) are CC0 but low-poly and stylized: stand-ins, not the look.
-  - Textures from [Poly Haven](https://polyhaven.com/textures) and
-    [ambientCG](https://ambientcg.com): the 1K JPGs, only the maps the shader reads, in
-    `src/render/assets/` (ground in `ground/`); greyscale where the palette gives the colour
-    (`detail.jpg` packs three grains, a channel each).
-  - Animations: a Meshy rig comes with a free walk and run (`mocap.ts` bakes them onto our rig).
-    Quaternius' Universal Animation Library ([1](https://quaternius.com/packs/universalanimationlibrary.html),
-    [2](https://quaternius.com/packs/universalanimationlibrary2.html)) is CC0, its free sets on
-    itch.io: sword combos, a heavy combo, a block, a roll, hits, a death, spells, farming (animated
-    by hand, not captured). Meshy's library (`meshy_animate`, 3 credits a clip) is made on our
-    hero's own skeleton. Bringing a clip onto a character (find it, cut it with
-    `tools/models/clips.mjs`, retarget it, wire it to a move, check it against its source): the
-    `retarget-animation` skill (`.claude/skills/retarget-animation/SKILL.md`).
-- **Gemini API** for pictures (concept art, Meshy's input, textures): `tools/images/gemini.mjs`,
-  run as `npm run image` (`--list` for the models). It runs the same Nano Banana models as Meshy's
-  image tools, for less: Nano Banana Pro (the default) for concepts, `--model
-  gemini-3.1-flash-image` (Nano Banana 2) for cheap drafts. The key is `GEMINI_API_KEY` in `.env`;
-  in a worktree it is read from the main checkout's `.env`. It needs billing on the key's Google
-  project: on the free tier every image model's quota is 0 (a 429). Give Emberholm's reference
-  picture as a `--ref` to keep the style. Work in `scratch/` (git-ignored).
-- **Icons** are painted with Gemini too, nine to a 2K sheet on a flat key colour, the first sheet
-  the style for the rest: `tools/icons/catalog.mjs` says what each one shows and which emoji or item it
-  stands for, `node tools/icons/paint.mjs` paints the sheets it has no picture of yet, `npm run icons`
-  cuts them out into `src/ui/theme/icons/` (and fails while content names an emoji no icon stands
-  for). Look at a new sheet before baking it: the painter now and then ignores the background
-  colour, draws the cells, or paints the wrong thing (a glider as a bird); paint it again.
-- **Meshy** (the `meshy` MCP server) for the 3D models nothing free matches: image-to-3D from a
-  concept painted "isolated on white, three-quarter front-left view" (that face becomes +Z),
-  `meshy-t2.5` smart topology, textured (15 credits; `meshy-7.1` for a showpiece). Check the
-  balance first (free). t2.5 can drop thin parts and parts on top (the hay cart lost its hay);
-  `meshy-6` and a remesh fix that.
-  - Compress into the game: `npx @gltf-transform/cli optimize in.glb
-    src/render/assets/models/<id>.glb --compress meshopt --texture-compress webp --texture-size
-    1024 --simplify false --join false --instance false --flatten true` (1024 for buildings, 512
-    for props, nodes and packs).
-  - A `model` in the look of the structure, prop or pack it is for (its content file: the
-    files, and how it is fitted, `docs/content.md`, Looks) swaps it in for the body, fitted into
-    its footprint (`src/render/models/glb.ts`), so the rules, colliders and server never see it;
-    it loads as the camera comes near.
-  - KTX2 textures (far less GPU memory than WebP) wait on KTX-Software's `toktx`: the step and what
-    it would save are in `docs/assets.md`.
-  - Meshopt keeps positions as normalized int16: bake them to Float32 before any `applyMatrix4`,
-    or everything past ±1 m is cut off (`baked` in `glb.ts`).
-  - A character: paint a front, side and back sheet (Gemini), then multi-image-to-3D with
-    `pose_mode: "t-pose"` and a remesh to ~30k triangles (`meshy-7.1`, 30 credits), then
-    `meshy_rig` (5). Meshy's rig has no finger bones; `fit.ts` adds them. Compress with
-    `--flatten false` so the skeleton keeps its tree.
-  - Meshy's textures are colour only, so its metal looks painted. For the hero's weapons
-    (`madeWeapons.ts`), `tools/models/weaponprep.mjs` paints a metal-roughness map from the colours
-    (and a glow map, and cuts off the bowstring the game draws itself) before compressing.
-- `tests/stress/look.spec.ts` shoots the same places at the same hours at each quality
-  (`screenshots/look-*`): run it before and after, and show the user both.
-
-## Branches and deploys
-
-In full, with what CI runs and the service's settings: `docs/deploys.md`.
-
-- `beta` (default): push directly. CI (`.github/workflows/ci-cd.yml`) typechecks and builds the
-  client and runs the Rust tests; if they pass, it deploys to https://ruinathegame-beta.up.railway.app.
-  It skips the Playwright suite for a beta push (CI has no GPU, so it takes half an hour and more):
-  run the full suite locally before pushing (`npx playwright test`; online specs need a server).
-- `production`: pull requests only (from `beta`), CI must pass; merging deploys to
+In full: [docs/deploys.md](docs/deploys.md).
+- **`beta`** (the default): push directly once `npm run check:beta` passes here; CI runs the unit
+  tier and the build, then deploys to https://ruinathegame-beta.up.railway.app.
+- **`production`**: pull requests from `beta` only, CI must pass; merging deploys to
   https://ruinathegame-production.up.railway.app.
-- Railway project `intuitive-enthusiasm`: environments `beta` and `production`, each with its own
-  Postgres. The game service gets `DATABASE_URL` (a reference to that environment's database) and `PORT=8080`;
-  and `ADMIN_USERS` (the accounts, by name, that reach the developer pages and commands: `philip`).
-- An account holds up to six characters (`/api/characters`, `crates/server/src/accounts/characters.rs`); the world
-  plays the one `/ws/world?character=<id>` names, or the last played. `/api/me` is `{id, username, admin}`.
-- Deploys: the stopping server tells every player `{t:"updating"}`, saves every life, then closes
-  with 1012 (`railway.json` gives it 20 s); pages freeze, reconnect, and reload straight back into the
-  world when a new build or `WORLD_PROTOCOL` is out. `POST /api/dev/stop` does the same where
-  `DEV_LOGIN=1`, for a signed-in admin (`tests/integration/update.spec.ts`).
-- Online the server plays Emberholm: browsers send key presses (binary, 60 a second) and commands,
-  the server runs every rule and keeps the lives in Postgres, and answers 20 times a second.
-  Nothing a browser says about its own state is believed. The developer commands (`grant`, `warp`,
-  `teleport`, starting a life over: the developer panel) and the developer pages (`/dev/`,
-  `/design/`) answer admins only: the accounts `ADMIN_USERS` names, or everyone where `DEV_LOGIN=1`
-  and `ADMIN_USERS` names nobody (development; never on Railway). They reach them through the
-  Admin menu (`src/ui/admin/`, the pages listed in `src/dev/pages.ts`; `docs/admin.md`).
+- Railway project `intuitive-enthusiasm`, environments `beta` and `production`, each with its own
+  Postgres; the service's settings (`DATABASE_URL`, `PORT`, `ADMIN_USERS`...) are in the guide.
+- A deploy tells every player it's updating, saves every life, and closes with 1012; pages reload
+  into the new build. Migrations run as the server starts.
+- **Roles:** `ruina-server` runs every tier in one process by default (`--role all`, as Railway
+  does), or one role per process (`--role services|gate|sim`), finding each other through the
+  directory's tables and talking over `crates/link`. Running it as several Railway services is the
+  user's call ([docs/deploys.md](docs/deploys.md), Several Processes).
+- **Admins** are named by `ADMIN_USERS`; the developer commands and pages answer them only.
+
+## Working Beside Other Sessions
+
+- Work in a worktree of your own for anything long, with ports of your own: `PW_PORT` and
+  `TEST_PORT_OFFSET` move the suite's Vite and its specs' own servers; give your world server and
+  Postgres container ports nobody else uses, and remove only the containers you made.
+- Moving files: list each move in `.plans/refactor/moves.tsv` and run `tools/refactor/moves.mjs`,
+  which rewrites every reference (imports, docs, skills, the tracker); a commit that moves changes
+  nothing else.
+- Merge the main branch into yours before handing work back, and run `npm run check` after.
