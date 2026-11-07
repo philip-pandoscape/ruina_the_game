@@ -11,10 +11,10 @@ is, how they talk, and which guide says more. The root `AGENTS.md` lists the fol
 | The rules | `crates/engine` | Every rule of the game, deterministic: movement, combat, creatures, the world's ground, the life systems, mini-games | [engine.md](engine.md), `crates/engine/AGENTS.md` |
 | The browser's rules | `crates/engine-wasm` | The engine compiled to WebAssembly, with the browser's game (`session.rs`) | [engine.md](engine.md) |
 | The client | `src/` | Three.js and TypeScript, built by Vite: the way in, the game's wiring, drawing, the interface, input, the connection, the developer pages and the bible | Each area's `AGENTS.md` |
-| The server | `crates/server` | `ruina-server` on one port (axum): the accounts API, the game's files, the admins' pages and the world's WebSocket, and the games it plays | [world.md](world.md), [admin.md](admin.md) |
+| The server | `crates/server` | `ruina-server` on one port (axum): the accounts API, the game's files, the admins' pages and the world's WebSocket. Inside, its tiers: the gate, a simulation for each channel and copy, the store, the social tier and the directory, joined only by the messages of `crates/world-api` | `crates/server/AGENTS.md`, [world.md](world.md), [admin.md](admin.md) |
 | Content | `content/` built into `shared/` | Every kind of thing as files, checked and built into the bundles both sides read | [content.md](content.md) |
 | Assets | `src/render/assets/`, `src/ui/theme/` | Models, textures, sounds and icons, listed in a manifest and loaded by need | [assets.md](assets.md) |
-| What lasts | Postgres, `crates/server/migrations/` | Accounts, sessions, and characters: each one's life (estate included), build and home channel | `crates/server/src/db.rs` |
+| What lasts | Postgres, `crates/server/migrations/` | Accounts, sessions, and characters: each one's life (estate included), build, home channel, and the epoch every write about them carries | `crates/server/src/store/` |
 | Tools | `crates/tools`, `tools/` | The conformance programs and the balance harness; contentc, the asset and icon tools, bug reports | `tools/` |
 | Tests | `tests/` | The unit, integration and stress tiers | [testing.md](testing.md) |
 | The bible | `bible/`, `src/bible/` | How the game works, exactly, from its own rules and content | `src/bible/` |
@@ -43,19 +43,28 @@ How each side reaches it: [engine.md](engine.md).
 3. **Inputs and commands.** The page sends what you press 60 times a second, as small binary frames:
    a sequence number, the tick it drew everyone else at, and the keys packed. Commands (buy, plant,
    build, enter a dungeon) go as JSON. Nothing a browser says about its own state is believed.
-4. **The tick.** One thread, `world`, steps every game 20 times a second, three of the rules' frames
-   each (`crates/server/src/play/socket.rs`, `spawn_world`). A game is a channel of the world or a
-   copy of an instance (`play/spaces.rs`). Each tick it:
+4. **The tiers.** The server is in tiers that only send each other messages
+   (`crates/world-api`), all in one process today (`crates/server/AGENTS.md`):
+   - the gate holds the connections (`gate/`);
+   - a simulation plays each region's channel and each instance's copy, on a thread of its own
+     (`sim/`);
+   - the store keeps what lasts (`store/`), the social tier the parties (`social/`);
+   - the directory says who plays where and which simulation plays what (`directory/`).
+5. **The tick.** Each simulation steps its game 20 times a second, three of the rules' frames each,
+   taking its messages at the tick's boundary (`sim/host.rs`). Each tick it:
    - runs each player's inputs as real time allows;
    - steps their lives, the creatures, arrows and meteors, the tables and the bots;
    - checks hits where the attacker saw their target (lag compensation).
 
    The tick goes in phases, so the order things are stepped in changes nothing
-   (`crates/engine/AGENTS.md`). Ticks are numbered from the world's epoch (`play/clock.rs`).
-5. **What a page hears.** Each tick, each player is sent:
+   (`crates/engine/AGENTS.md`). Ticks are numbered from the world's epoch (`sim/clock.rs`). A slow
+   simulation slows only its own players.
+6. **What a page hears.** Each tick the simulation sorts what everyone may see into 32 m cells and
+   keeps each player's own state apart (`sim/publish.rs`), once, whoever is watching; the gate
+   builds each player's update from them (`gate/encode.rs`):
    - their own player, to check the page's guess against;
-   - everyone else in their channel, and the creatures;
-   - arrows, meteors, and what happened.
+   - everyone else in their space, and the creatures near them;
+   - arrows, meteors, and what happened near them.
 
    Their life (bag, coins, quests, estate) is sent when it changes.
 
@@ -67,15 +76,18 @@ How each side reaches it: [engine.md](engine.md).
    acknowledges each update. Your own player, your life, the tables near you and notices stay in the
    JSON tick: private, rare, or needed exactly. Either way the page's feed takes the same shapes
    (`src/net/feedTick.ts`), so nothing that draws the world knows which way it came.
-6. **Prediction.** The page runs your moves through the same rules at once, without waiting
+7. **Prediction.** The page runs your moves through the same rules at once, without waiting
    (`src/net/netPlayer.ts`). When the server's word on you arrives, it starts from there and runs
    again the inputs the server hadn't seen yet. Everyone else and the creatures are drawn a little in
    the past, between two ticks (`worldPeers.ts`, `actorTimeline.ts`).
-7. **Saves.** Lives are saved to Postgres in batches by a task beside the world thread. A save is
-   fenced: only the session that holds the character may write (`characters.live_session`). A deploy
-   tells every page, saves everyone, and closes; pages reload into the new build ([deploys.md](deploys.md)).
-8. **Spaces.** Going through a portal, or into a developer zone from the Admin menu, moves you to
-   another game mid-connection, your life and all ([world.md](world.md)).
+8. **Saves.** The store writes lives as the simulations ask, a few seconds apart and when you leave.
+   Every write is fenced: it carries the epoch the directory granted the character under, bumped by
+   every new grant (another window, another simulation), and an older one is refused
+   (`characters.epoch`). A deploy tells every page, saves everyone, and closes; pages reload into
+   the new build ([deploys.md](deploys.md)).
+9. **Spaces.** Going through a portal, or into a developer zone from the Admin menu, the simulation
+   asks the directory where, and hands you whole to the simulation playing it, mid-connection, your
+   life and all ([world.md](world.md)).
 
 ## A Game Offline
 
@@ -122,8 +134,11 @@ foundations are laid in one process:
 - a tick that splits, so players can be stepped all at once;
 - the world's clock.
 
+- the server in tiers, joined by messages, a simulation on a thread of its own for each channel
+  and copy.
+
 After the refactor, the world splits between several servers:
-- the server in tiers;
+- the tiers in processes of their own, their messages crossing between them;
 - regions owned by simulations, their borders crossed seamlessly;
 - land shared by every channel and contested;
 - channels opening and merging with the crowd.

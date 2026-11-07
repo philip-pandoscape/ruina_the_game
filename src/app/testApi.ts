@@ -402,7 +402,7 @@ export function makeTestApi(g: GameRefs) {
     },
     /**
      * Online, an admin's bots: `n` more of `brain` (skirmisher, wanderer) round you on side `team`,
-     * or with `n` 0 every bot here sent away (the server's; crates/server/src/play/bots.rs).
+     * or with `n` 0 every bot here sent away (the server's; crates/server/src/sim/bots.rs).
      */
     sendBots(n: number, brain?: string, team?: number): boolean {
       return g.online?.link.command((g.prediction?.seq ?? 0) + 1, { t: 'bots', n, brain, team }) ?? false;
@@ -583,7 +583,7 @@ export function makeTestApi(g: GameRefs) {
     partyLeave(): boolean {
       return g.online?.link.partyLeave() ?? false;
     },
-    /** Where you play now: your channel, or a dungeon's copy (crates/server/src/play/spaces.rs). */
+    /** Where you play now: your channel, or a dungeon's copy (crates/server/src/directory/mod.rs). */
     space() {
       return g.online ? { ...g.online.link.space } : null;
     },

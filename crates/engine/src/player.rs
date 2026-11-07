@@ -3,6 +3,8 @@
 //! the WebAssembly to predict your own moves. Open worlds reuse these pieces from
 //! crate::open::step_player.
 
+use serde::{Deserialize, Serialize};
+
 use crate::ai::{ACT_CAST, ACT_DODGE, ACT_FREE, ACT_GUARD, ACT_RECOVER, ACT_STUNNED, ACT_SWING, Foe};
 use crate::event::Event;
 use crate::jsmath::JsMath;
@@ -45,7 +47,9 @@ pub struct Actions {
     pub face_z: f64,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+/// What a player is doing, by name on the wire ("normal", "attack"...).
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum Mode {
     Normal = 0,
     Attack = 1,
@@ -58,7 +62,7 @@ pub enum Mode {
     Ride = 6,
 }
 
-#[derive(Clone, Copy, Default, Debug)]
+#[derive(Clone, Copy, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct V3 {
     pub x: f64,
     pub y: f64,

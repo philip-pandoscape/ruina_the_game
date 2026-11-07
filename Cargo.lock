@@ -1244,6 +1244,7 @@ dependencies = [
  "futures-util",
  "rayon",
  "ruina-engine",
+ "ruina-world-api",
  "serde",
  "serde_json",
  "sha2 0.10.9",
@@ -1260,13 +1261,22 @@ version = "0.1.0"
 dependencies = [
  "ruina-engine",
  "ruina-engine-wasm",
- "ruina-server",
+ "ruina-world-api",
  "serde",
  "serde_json",
 ]
 
 [[package]]
 name = "ruina-wire"
+version = "0.1.0"
+dependencies = [
+ "ruina-engine",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "ruina-world-api"
 version = "0.1.0"
 dependencies = [
  "ruina-engine",

@@ -16,7 +16,7 @@ import type { PeerSample } from './feedTick';
 import { blankState } from './netPlayer';
 import type { Estate, EstateEntry, WorldLink } from './worldLink';
 
-// Everyone else in your channel of Emberholm, as the server plays them (crates/server/src/play/mod.rs):
+// Everyone else in your channel of Emberholm, as the server plays them (crates/server/src/sim/mod.rs):
 // each player as they move (near you about 20 times a second; on the wire for crowds, further off
 // every fourth or twentieth tick: their `every`), kept far enough behind their newest that there is
 // always a next one to blend toward, with their glider, pack, vehicles and mounts; and everything

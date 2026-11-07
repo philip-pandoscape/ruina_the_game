@@ -76,7 +76,7 @@ export function wireOnline(g: GameRefs): void {
     };
     link.onError = (text) => life?.fromServer({ t: 'toast', text, kind: 'bad' });
     link.onNotice = (text) => life?.fromServer({ t: 'toast', text, kind: 'info' });
-    // Into a dungeon's copy, or back out of it (crates/server/src/play/spaces.rs): another game, with its own ticks
+    // Into a dungeon's copy, or back out of it (crates/server/src/directory/mod.rs): another game, with its own ticks
     // and its own people. As after a reconnection, start again from what the server says next.
     link.onSpace = (s) => {
       prediction?.resync();
