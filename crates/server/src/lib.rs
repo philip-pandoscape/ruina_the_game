@@ -1,21 +1,34 @@
 //! Ruina's game server. The rules are the engine's (crates/engine); the server keeps everyone's
-//! accounts and islands, plays the world online and talks to the browsers:
+//! accounts and lives, plays the world online and talks to the browsers. It is built in tiers that
+//! only send each other messages (crates/world-api), all in one process today:
 //!
-//! - `db`: Postgres, its pool and migrations.
-//! - `http`: the one port: the account API, the game's files, the admins' pages, the WebSocket.
+//! - `gate`: players' connections: sign-in, the welcome, inputs and commands in, updates out.
+//! - `sim`: the simulations, one for each region's channel and each instance's copy, each on a
+//!   thread of its own: the rules stepped, mini-games, bots, players handed between them.
+//! - `store`: what lasts, in Postgres (lives, builds, residents), every write fenced by its epoch.
+//! - `social`: parties.
+//! - `directory`: who plays where, which simulation plays which space, leases and epochs.
+//! - `post`: how their messages reach each other in one process; `start`: starting them all.
 //! - `accounts`: accounts, sign-in and sessions, and the characters each account holds.
-//! - `play`: Emberholm online: each channel's game, every party's copy of a dungeon, parties, the
-//!   mini-game tables, and a player's connection.
-//! - `combat`: combat on the wire (the rules are the engine's): what input bytes mean, and the
-//!   arrows, meteors and effects a browser is sent.
+//! - `http`: the one port: the account API, the game's files, the admins' pages, the WebSocket.
 
 #![recursion_limit = "256"]
 
 // The rules, reached from here as they always were (crate::player, crate::life...).
-pub use ruina_engine::{actor, actors, ai, bots, content, creatures, jsmath, life, minigames, missiles, open, pack, player, rng, skills, tuning, world};
+pub use ruina_engine::{
+    actor, actors, ai, bots, combat, content, creatures, ids, jsmath, life, minigames, missiles, open, pack, player, rng, skills, tuning, world,
+};
 
 pub mod accounts;
-pub mod combat;
-pub mod db;
+pub mod directory;
+pub mod gate;
 pub mod http;
-pub mod play;
+pub mod post;
+pub mod sim;
+pub mod social;
+pub mod start;
+pub mod store;
+
+/// The tiers together, as players use them.
+#[cfg(test)]
+mod tests;

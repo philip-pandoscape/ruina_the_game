@@ -23,7 +23,7 @@ time, the middle one before every push to `beta`, the slow one before a release.
   creatures' and the crowd's scenarios (`checks/ai.rs`, `checks/crowd.rs`: players and bots
   fighting, creatures among them, a passenger riding along) are run again shuffled with sixteen
   seeds and held to the same answers. The server's fighting has a golden battle of its own
-  (`a_battle_plays_out_as_it_always_has` in `crates/server/src/play/bots.rs`), and a melee there
+  (`a_battle_plays_out_as_it_always_has` in `crates/server/src/sim/bots.rs`), and a melee there
   is stepped in shuffled orders and all at once on threads, the same game each way. How long a tick
   takes with 64, 256 and 1024 bots, one after another and all at once:
   `cargo test --release -p ruina-server tick_time -- --ignored --nocapture`. `tests/conformance/`

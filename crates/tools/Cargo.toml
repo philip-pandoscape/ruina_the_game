@@ -8,7 +8,8 @@ publish = false
 [dependencies]
 ruina-engine.workspace = true
 ruina-engine-wasm.workspace = true
-ruina-server.workspace = true
+# What a browser's input bytes mean (the balance harness drives fighters with them).
+ruina-world-api.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 # The load harness (src/bin/loadtest.rs): virtual clients on real WebSocket connections to a

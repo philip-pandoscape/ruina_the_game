@@ -6,7 +6,7 @@ import { battlefield, stand } from '../support/battlefield';
 // the battlefield's south end, looking over it, while N bots fight across it (to the server each
 // bot is a whole player, to the browser today a whole hero). For each N it measures this browser's
 // frames as requestAnimationFrame sees them (the median, the 95th and 99th percentiles, the
-// longest), the server's tick (the rules and the updates apart, from the admin's stats) and the
+// longest), the server's tick (the rules and the sim's publishing apart, from the admin's stats) and the
 // update's size. These are the numbers the wire for crowds (R10.8: each client sent what's near it,
 // compact and binary, far bodies drawn by the crowd renderer) is measured against; the server's
 // side at scale, without a browser, is the load harness's (crates/tools/src/bin/loadtest.rs,

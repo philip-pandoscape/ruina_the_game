@@ -21,9 +21,10 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Mutex;
 
-use ruina_server::db;
 use ruina_server::http::{self, AppState};
-use ruina_server::play::{self, socket, stepping};
+use ruina_server::sim::{self, stepping};
+use ruina_server::start;
+use ruina_server::store::{Db, db};
 
 struct Args {
     port: u16,
@@ -79,11 +80,11 @@ fn main() {
     let dev_login = std::env::var("DEV_LOGIN").is_ok_and(|v| v == "1") && !on_railway;
     let secure_cookies = on_railway || std::env::var("COOKIE_SECURE").is_ok_and(|v| v == "1");
     let admin_users = http::admin_users(&std::env::var("ADMIN_USERS").unwrap_or_default());
-    // Faster from a few hundred players a channel; slower below (crates/server/src/play/stepping.rs).
+    // Faster from a few hundred players a channel; slower below (crates/server/src/sim/stepping.rs).
     stepping::set_parallel(args.parallel);
     println!("players: {}", if args.parallel { "stepped all at once (--parallel on)" } else { "stepped one after another" });
     if let Some(n) = args.max_bots {
-        play::set_bot_limit(n);
+        sim::set_bot_limit(n);
         println!("bots: up to {n} a game (--max-bots)");
     }
     if dev_login && admin_users.is_empty() {
@@ -110,7 +111,12 @@ fn main() {
                 None
             }
         };
-        let state = AppState { db, world: socket::Hub::default(), dev_login, admin_users, secure_cookies, failed_logins: Mutex::new(HashMap::new()) };
+        // The tiers: the store, social, the directory (and the simulations it starts) and the gate.
+        let tiers = start::start(match &db {
+            Some(pool) => Db::Pg(pool.clone()),
+            None => Db::memory().0,
+        });
+        let state = AppState { db, gate: tiers.gate, dev_login, admin_users, secure_cookies, failed_logins: Mutex::new(HashMap::new()) };
         http::serve(args.port, args.everywhere, state, args.static_dir).await
     });
     if let Err(e) = result {

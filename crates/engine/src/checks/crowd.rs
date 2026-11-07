@@ -21,6 +21,7 @@ use crate::actor::Actor;
 use crate::actors::{Actors, LEAN_DAMPING, LEAN_SPRING, StepOut};
 use crate::bots::{Bot, Brain, FoeSeen};
 use crate::combat::{Effect, Players};
+use crate::ids::EntityId;
 use crate::jsmath::JsMath;
 use crate::life::content::rideable;
 use crate::life::{Life, vehicles};
@@ -175,8 +176,8 @@ fn play(s: &Scenario) -> (Players, Actors, Vec<String>) {
     let mut players = Players::new(1000.0 / f64::from(TICK_HZ));
     players.ground = Some(&zone.terrain);
     let hf = world.terrain();
-    // A fighter's character is its place in the list plus one, and so is its client.
-    let client = |k: usize| k as u32 + 1;
+    // A fighter's character is its place in the list plus one, and so is its id.
+    let client = |k: usize| EntityId::character(k as i64 + 1);
     let owner = |k: usize| k as i64 + 1;
 
     let mut bots: Vec<(usize, Bot)> = Vec::new();
@@ -325,13 +326,13 @@ mod tests {
         assert!(players.each_open().any(|(_, _, p, _)| p.down_frame >= 0), "nobody went down");
         // The cart went up the road with its passenger in his seat.
         let (k, f) = s.fighters.iter().enumerate().find(|(_, f)| f.drives.is_some()).expect("a driver");
-        let (driver, _, life) = players.open_view(k as u32 + 1).expect("the driver");
+        let (driver, _, life) = players.open_view(EntityId::character(k as i64 + 1)).expect("the driver");
         let v = &life.expect("an island").state.vehicles[0];
         let went = crate::jsmath::len(v.x - f.x, v.z - f.z);
         assert!(went > 10.0, "the cart went {went} m");
         assert_eq!(driver.vehicle, v.id);
         let (j, _) = s.fighters.iter().enumerate().find(|(_, f)| f.rides == Some(k)).expect("a passenger");
-        let passenger = players.open_view(j as u32 + 1).expect("the passenger").0;
+        let passenger = players.open_view(EntityId::character(j as i64 + 1)).expect("the passenger").0;
         assert_eq!((passenger.host, passenger.vehicle, passenger.seat), (k as i64 + 1, v.id, 1));
         let (x, y, z) = vehicles::anchor_world(v, &rideable(&v.def).seats[1]);
         assert_eq!((passenger.pos.x, passenger.pos.y, passenger.pos.z), (x, y, z));

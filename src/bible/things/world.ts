@@ -14,8 +14,8 @@ import { drawIsland, growIsland, type Layers } from '../map';
 import { type Html, link, md, phrase, raw } from '../md';
 import { rustConst } from '../source';
 import { nearestPlace, npcLink, placeLink, ZONE } from './refs';
-import spaces from '../../../crates/server/src/play/spaces.rs?raw';
-import parties from '../../../crates/server/src/play/parties.rs?raw';
+import spaces from '../../../crates/server/src/directory/mod.rs?raw';
+import parties from '../../../crates/server/src/social/parties.rs?raw';
 
 /** How long the server keeps a dungeon's copy after its last player leaves, and the rest of its numbers. */
 const COPY_KEPT = (): number => rustConst(spaces, 'COPY_KEPT');

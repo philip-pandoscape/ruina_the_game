@@ -81,6 +81,10 @@ const ALLOWED: Allowance[] = [
     files: ['src/dev/library/', 'src/ui/life/windows/dev.ts', 'src/app/options.ts', 'src/app/testApi.ts', 'src/render/scene.ts'],
   },
   { why: 'the bible explains the game with particular things as its examples, and its completeness test holds it to the content', files: ['src/bible/'] },
+  {
+    why: "the server's tests of its tiers together, a file of tests alone (crates/server/src/lib.rs brings it in only for the tests): its players go through Goblin's Dread's portal and into the developer zones by name",
+    files: ['crates/server/src/tests.rs'],
+  },
 ];
 
 const allows = (a: Allowance, h: Hit) =>
