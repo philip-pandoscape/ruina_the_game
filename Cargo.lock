@@ -1265,6 +1265,8 @@ dependencies = [
  "ruina-world-api",
  "serde",
  "serde_json",
+ "tokio",
+ "tokio-tungstenite",
 ]
 
 [[package]]
@@ -1274,8 +1276,6 @@ dependencies = [
  "ruina-engine",
  "serde",
  "serde_json",
- "tokio",
- "tokio-tungstenite",
 ]
 
 [[package]]
