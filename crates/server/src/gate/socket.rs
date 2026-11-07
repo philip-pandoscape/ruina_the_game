@@ -646,6 +646,29 @@ async fn send(tx: &mut Tx, v: Value) -> Result<(), String> {
 mod tests {
     use super::*;
 
+    #[tokio::test]
+    async fn across_a_border_inputs_are_held_then_sent_to_whoever_took_them_from_their_next() {
+        let post = crate::post::Post::new();
+        let gate = Gate::start(ruina_world_api::GateId(1), post.clone(), post.open_gate(ruina_world_api::GateId(1)));
+        let (tx, _rx) = mpsc::channel(8);
+        let conn = Conn { gate: ruina_world_api::GateId(1), character: 7, session: 1 };
+        let mut seat = Seat::new(gate, conn, tx);
+        seat.sim = Some(SimId(1));
+        let input = |seq| Input { seq, view: 0, raw: [0; OPEN_INPUT] };
+        let seqs = |list: &[Input]| list.iter().map(|i| i.seq).collect::<Vec<_>>();
+        assert_eq!(seat.inputs(vec![input(1)]).map(|(s, i)| (s, seqs(&i))), Some((SimId(1), vec![1])));
+        // On their way across a border: held.
+        assert!(seat.heard(&ToConn::Crossing).is_none());
+        assert!(seat.inputs(vec![input(2), input(3)]).is_none());
+        // Taken by simulation 2, which runs from input 3 (input 2 came in their handoff): the rest
+        // goes there, and so does all that follows.
+        let (sim, held) = seat.heard(&ToConn::Crossed { sim: SimId(2), from: 3 }).expect("what was held");
+        assert_eq!((sim, seqs(&held)), (SimId(2), vec![3]));
+        assert_eq!(seat.inputs(vec![input(4)]).map(|(s, i)| (s, seqs(&i))), Some((SimId(2), vec![4])));
+        // Nothing for the browser in either.
+        assert!(encode::message(&ToConn::Crossing).is_none() && encode::message(&ToConn::Crossed { sim: SimId(2), from: 3 }).is_none());
+    }
+
     #[test]
     fn inputs_arrive_in_batches() {
         let mut b = vec![SEND_INPUTS, 2];

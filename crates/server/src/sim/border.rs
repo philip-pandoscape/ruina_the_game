@@ -87,8 +87,8 @@ impl Game {
                 match self.members.get(&gp.owner) {
                     Some(m) => out.push((gp.client, m.name.clone(), false)),
                     None => {
-                        if let Some(n) = self.bot_name_of(gp.client) {
-                            out.push((gp.client, n.to_string(), true));
+                        if let Some(b) = self.bots.iter().find(|b| b.entity == gp.client) {
+                            out.push((gp.client, b.name.clone(), true));
                         }
                     }
                 }
@@ -269,5 +269,64 @@ impl Game {
         }
         side.handing.extend(posts);
         gone
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::directory::parts;
+    use crate::sim::tests::arrival;
+    use ruina_engine::border::SimId as BorderSim;
+
+    /// Emberholm's first channel in two parts, west and east of x = 0, as the directory starts them.
+    fn halves() -> (Game, Game) {
+        let map = world_map();
+        let r = map.region("emberholm").expect("Emberholm");
+        let chunks: Vec<(i32, i32)> = (r.chunks.x..r.chunks.x + r.chunks.w).flat_map(|x| (r.chunks.z..r.chunks.z + r.chunks.d).map(move |z| (x, z))).collect();
+        let split = parts::parts(&chunks, &[0]);
+        let owners = parts::owners(map, &[0], &[SimId(1), SimId(2)]);
+        let mut games = (Game::channel(SimId(1), "emberholm", 1), Game::channel(SimId(2), "emberholm", 1));
+        games.0.play_part(Border::new(BorderSim(1), owners.clone()), parts::seats(0), &split[0]);
+        games.1.play_part(Border::new(BorderSim(2), owners), parts::seats(1), &split[1]);
+        games.0.estates.loaded = true;
+        games.1.estates.loaded = true;
+        (games.0, games.1)
+    }
+
+    #[test]
+    fn a_player_past_the_border_is_handed_over_whole_and_their_gate_re_routes_them() {
+        let (mut west, mut east) = halves();
+        assert!(west.is_part() && east.is_part());
+        west.join(arrival(7, 1, "Ada", false, None));
+        let slot = west.players.slot_index(super::super::client(7)).expect("seated");
+        assert!(parts::seats(0).contains(&slot), "in the west's own seats");
+        // Inside the border, nothing; 30 m past it, handed over as the tick ends.
+        west.place(7, 20.0, 10.0, -100.0);
+        assert!(west.border_end().is_empty());
+        west.place(7, 30.0, 10.0, -100.0);
+        assert_eq!(west.border_end(), vec![(7, SimId(2))]);
+        assert!(!west.members.contains_key(&7) && west.players.is_ghost(slot), "a ghost of them stays");
+        assert!(west.said.iter().any(|(c, m)| c.character == 7 && matches!(m, ToConn::Crossing)), "their gate holds their inputs");
+        // The east takes them as its next tick begins, the handoff and who they are handed to it.
+        let side = west.border.as_mut().expect("a part");
+        let handoff = std::mem::take(&mut side.handing);
+        let members: Vec<(CharacterId, MemberInfo)> = side.leaving.iter().map(|(c, m)| (*c, m.clone())).collect();
+        let mut sent = vec![Parcels { posts: handoff, members, ..Parcels::default() }];
+        let mut answer = |at: Barrier, _: u64, out: Parcels| {
+            if at == Barrier::Arrived {
+                // Taken: said back to the west.
+                assert!(out.posts.iter().any(|p| matches!(p.says, Says::Taken(_))));
+            }
+            if at == Barrier::Start { sent.pop().unwrap_or_default() } else { Parcels::default() }
+        };
+        east.tick += 1;
+        east.border_begin(&mut answer);
+        assert!(east.members.contains_key(&7) && east.players.is_own(slot), "theirs now, in the same slot");
+        let crossed =
+            east.said.iter().find_map(|(c, m)| if let ToConn::Crossed { sim, from } = m { (c.character == 7).then_some((*sim, *from)) } else { None });
+        assert_eq!(crossed.map(|c| c.0), Some(SimId(2)), "their gate sends their inputs to the east now");
+        let p = east.players.player(slot).expect("there");
+        assert_eq!((p.pos.x, p.pos.z), (30.0, -100.0), "where they were, nothing moved");
     }
 }

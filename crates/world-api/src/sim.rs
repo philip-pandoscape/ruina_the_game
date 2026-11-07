@@ -309,6 +309,35 @@ mod tests {
     use ruina_engine::open::zone::emberholm;
 
     #[test]
+    fn a_border_parcel_crosses_as_text_and_back() {
+        use ruina_engine::border::SimId as BorderSim;
+        use ruina_engine::border::messages::{Ghosts, Says};
+        let member = Member {
+            conn: Conn { gate: crate::GateId(1), character: 7, session: 3 },
+            name: "Ada".into(),
+            dev: false,
+            epoch: Epoch(2),
+            party: None,
+            home: SpaceId::channel("emberholm", 1),
+            keep_saved: false,
+        };
+        let post = Post { from: BorderSim(1), to: BorderSim(2), tick: 9, says: Says::Ghosts(Ghosts::default()) };
+        let p = ToSim::Border(Box::new(Parcel {
+            from: SimId(1),
+            tick: 9,
+            at: Barrier::Seated,
+            posts: vec![post],
+            members: vec![(7, member)],
+            names: vec![(EntityId::character(7), "Ada".into(), false)],
+        }));
+        let text = serde_json::to_string(&p).unwrap();
+        let back: ToSim = serde_json::from_str(&text).unwrap();
+        let ToSim::Border(b) = back else { panic!("a parcel") };
+        assert_eq!((b.from, b.tick, b.at, b.posts.len(), b.members[0].1.name.as_str(), b.names.len()), (SimId(1), 9, Barrier::Seated, 1, "Ada", 1));
+        assert_eq!(serde_json::to_string(&ToSim::Border(b)).unwrap(), text);
+    }
+
+    #[test]
     fn a_player_and_their_life_travel_whole_between_processes() {
         let zone = emberholm();
         let s = zone.recipe.spawn;
