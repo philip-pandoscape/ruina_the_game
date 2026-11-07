@@ -26,7 +26,7 @@ use ruina_world_api::{CharacterId, Conn, EntityId, Epoch, Owner, PartyId, SimId,
 
 pub use ruina_world_api::TICK_HZ;
 
-use crate::actors::{Actors, LEAN_DAMPING, LEAN_SPRING, StepOut};
+use crate::actors::Actors;
 use crate::bots::Brain;
 use crate::combat::Players;
 use crate::directory::EXPEL_AFTER;
@@ -49,6 +49,8 @@ use crate::sim::lands::Lands;
 use crate::skills::{allowed, build_from_saved};
 use crate::world::Spawn;
 
+/// A game playing part of a region beside others: its borders and what it trades across them.
+pub mod border;
 /// Bots: players without a socket, their inputs decided by their brains.
 mod bots;
 pub use bots::set_bot_limit;
@@ -61,6 +63,8 @@ pub mod host;
 /// The region's land as a simulation shows it: everyone's, lent to its owner or kept for them, and
 /// who holds which plot.
 pub mod lands;
+/// Part of a region's link to the simulations playing the rest of it: a parcel each, each point of a tick.
+pub mod link;
 /// What a tick produced, as records for the gates.
 mod publish;
 /// How a channel's players are stepped each tick: one after another, or all at once.
@@ -234,6 +238,8 @@ pub struct Game {
     pub market: Market,
     /// When the world's market was last asked for.
     market_asked: Instant,
+    /// Playing part of a region beside others: its side of the borders between them (border.rs).
+    border: Option<border::Side>,
     /// When each player last struck a blow or took one (ms since 1970): in a fight, the channels'
     /// policy won't move them (crates/channels).
     fought: HashMap<CharacterId, ruina_world_api::Millis>,
@@ -315,6 +321,7 @@ impl Game {
             stepping: stepping::Stepping::chosen(),
             market: Market::default(),
             market_asked: Instant::now(),
+            border: None,
             fought: HashMap::new(),
         }
     }
@@ -1041,6 +1048,11 @@ impl Game {
     /// One tick: everyone's inputs run, arrows fly, monsters move and slam, and what it produced is
     /// published for the gates. Lives due a save go to `writes`.
     pub fn step(&mut self) -> ruina_world_api::records::TickOut {
+        self.step_trading(&mut border::alone)
+    }
+
+    /// The same, trading with the games playing the rest of its region (border.rs).
+    pub fn step_trading(&mut self, trade: &mut border::Trade) -> ruina_world_api::records::TickOut {
         let now = Instant::now();
         let elapsed = (now - self.last_tick).as_secs_f64().min(1.0);
         self.last_tick = now;
@@ -1052,7 +1064,7 @@ impl Game {
         if at > self.tick + 1 {
             self.tick = at - 1;
         }
-        self.play_tick(elapsed, world);
+        self.play_tick_trading(elapsed, world, trade);
         self.note_fights(crate::store::now_ms());
         // The world's market, with every channel's sales, read again now and then.
         if self.copy_of().is_none() && now - self.market_asked >= MARKET_EVERY {
@@ -1074,7 +1086,16 @@ impl Game {
     /// (seconds since 1970): everyone's inputs run, their lives step, arrows fly, monsters move
     /// and slam. No clock is read here, so the same game given the same ticks plays the same.
     pub fn play_tick(&mut self, elapsed: f64, world: f64) {
+        self.play_tick_trading(elapsed, world, &mut border::alone);
+    }
+
+    /// The same, trading with the games playing the rest of its region at each point of the tick
+    /// where one phase reads what the one before changed (border.rs): handoffs and ghosts as it
+    /// begins, blows and heals across after the inputs and after the arrows and meteors, the
+    /// creatures' slams and blows, ghosts between. A game alone trades nothing.
+    pub fn play_tick_trading(&mut self, elapsed: f64, world: f64, trade: &mut border::Trade) {
         self.tick += 1;
+        self.border_begin(trade);
         // Each player may run as many inputs as real time allows (a hair more, so a browser whose
         // clock runs a little fast never builds up a queue), and no more.
         self.players.inputs_per_tick = elapsed * 61.0;
@@ -1086,8 +1107,7 @@ impl Game {
         // them (crates/engine/src/combat.rs); then whoever rides along sits where their seat went.
         self.players.gather_movers(&mut self.open);
         self.drive_bots();
-        let stepping = &mut self.stepping;
-        self.players.step_by(&mut self.actors, self.tick, &mut self.open, |jobs, step| stepping.run(jobs, step));
+        self.inputs_phase(trade);
         self.players.seat_passengers(&self.open);
         // What the steps did to the land and the market here: sales lower everyone's demand.
         self.keep_land();
@@ -1098,18 +1118,15 @@ impl Game {
         }
         // Games' clocks, payouts, and players kept in their seats.
         self.step_tables();
-        self.players.step_effects(&mut self.actors);
-        let foes = self.players.foes();
+        self.ghosts_phase(border::Barrier::Seated, true, true, trade);
+        self.effects_phase(trade);
+        self.ghosts_phase(border::Barrier::Hit, true, false, trade);
         let ground = self.players.ground;
         // In a copy of an instance, its creatures stand on its floor.
         let floor = self.copy_of().map(|c| c.def);
         let ground_at = move |x: f64, z: f64| floor.and_then(|d| d.floor_at(x, z)).unwrap_or_else(|| ground.map_or(0.0, |g| g.height(x, z)));
-        let mut done = StepOut::default();
-        for _ in 0..(60 / TICK_HZ) {
-            done.extend(self.actors.step(&foes, &ground_at, LEAN_SPRING, LEAN_DAMPING, 1.0 / 60.0));
-        }
-        self.players.apply_slams(&done.slams);
-        self.players.apply_foe_hits(&done.hits);
+        self.creatures_phase(&ground_at, trade);
+        self.ghosts_phase(border::Barrier::Stood, true, true, trade);
         // Where everyone and everything stood as this tick ends: swings are checked against what
         // their swinger saw.
         self.players.record_history(self.tick, &self.actors);

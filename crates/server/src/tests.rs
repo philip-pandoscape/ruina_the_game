@@ -123,8 +123,11 @@ impl Player {
             Some(e) => e,
             None => tokio::time::timeout(deadline.saturating_duration_since(Instant::now()), self.rx.recv()).await.ok().flatten()?,
         };
-        if let Event::Msg(ToConn::Moved { sim, .. }) = &e {
-            self.seat.sim = Some(*sim);
+        // Where its inputs go now, as the gate's connection has it (a move, a crossing).
+        if let Event::Msg(m) = &e
+            && let Some((sim, inputs)) = self.seat.heard(m)
+        {
+            self.post.sim(sim, ToSim::Inputs { conn: self.conn(), inputs });
         }
         Some(e)
     }

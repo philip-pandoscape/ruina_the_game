@@ -238,7 +238,7 @@ impl Process {
         let asked = Instant::now().checked_sub(since).unwrap_or_else(Instant::now);
         let keeper = Keeper::start(self.db.clone(), lease, self.lease, asked);
         self.hosted.lock().unwrap().insert(id, Playing { space: space.clone(), sim: id.0, epoch: s.lease.epoch.0, holding: true, why: None });
-        let setup = SimSetup { lease: s.lease, owner: s.owner, expel_after: Duration::from_millis(s.expel_after_ms) };
+        let setup = SimSetup { lease: s.lease, owner: s.owner, expel_after: Duration::from_millis(s.expel_after_ms), part: s.part };
         let inbox = self.post.open_sim(id);
         let (done, ended) = oneshot::channel::<()>();
         let post = self.post.clone();

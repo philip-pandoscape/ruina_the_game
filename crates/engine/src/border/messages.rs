@@ -55,6 +55,34 @@ impl Post {
     }
 }
 
+/// The points of a tick where the simulations of a world trade, in order: wherever one phase reads
+/// what the one before it changed (crate::combat). Each simulation sends each neighbour one parcel
+/// at each, and goes on once it has every neighbour's (lockstep), or with what it has so far (a
+/// tick late).
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug, Serialize, Deserialize)]
+pub enum Barrier {
+    /// As a tick begins: the handoffs made as the last one ended, and the tick each is on.
+    Start,
+    /// Who was taken, and the ghosts of whoever changed hands.
+    Arrived,
+    /// The inputs' blows and heals on what others own.
+    Inputs,
+    /// What's told of the inputs' blows and heals, to whoever dealt or took them.
+    InputsTold,
+    /// Ghosts, players and creatures, once everyone has moved and the passengers sit.
+    Seated,
+    /// The arrows' and meteors' blows on what others own.
+    Effects,
+    /// What's told of them.
+    EffectsTold,
+    /// Ghosts of the players, as the arrows and meteors left them, for the creatures to see.
+    Hit,
+    /// The creatures' slams and blows on others' players.
+    Struck,
+    /// Ghosts, players and creatures, as the tick ends, for the history.
+    Stood,
+}
+
 // ---------- Ghosts ----------
 
 /// Read-only copies of what a simulation owns within [`super::BAND`] of a neighbour's chunks: each
@@ -100,6 +128,16 @@ pub struct GhostCreature {
     pub hit_ceiling: f64,
     pub hp: f64,
     pub dead_frame: i32,
+    /// What the neighbour's players are shown of it (a creature's record): its kind, facing, what
+    /// it's doing and how far through, its health's share, where it aims.
+    pub kind_index: u8,
+    pub facing: f64,
+    pub state: usize,
+    pub state_frame: i32,
+    pub wait: i32,
+    pub max_hp: f64,
+    pub target_x: f64,
+    pub target_z: f64,
     pub history: Option<History>,
 }
 
@@ -115,6 +153,14 @@ impl GhostCreature {
             hit_ceiling: a.hit_ceiling,
             hp: a.hp,
             dead_frame: a.dead_frame,
+            kind_index: a.kind_index,
+            facing: a.facing,
+            state: a.state,
+            state_frame: a.state_frame,
+            wait: a.wait,
+            max_hp: a.max_hp,
+            target_x: a.target_x,
+            target_z: a.target_z,
             history,
         }
     }
@@ -128,6 +174,14 @@ impl GhostCreature {
         a.hit_ceiling = self.hit_ceiling;
         a.hp = self.hp;
         a.dead_frame = self.dead_frame;
+        a.kind_index = self.kind_index;
+        a.facing = self.facing;
+        a.state = self.state;
+        a.state_frame = self.state_frame;
+        a.wait = self.wait;
+        a.max_hp = self.max_hp;
+        a.target_x = self.target_x;
+        a.target_z = self.target_z;
         a
     }
 }

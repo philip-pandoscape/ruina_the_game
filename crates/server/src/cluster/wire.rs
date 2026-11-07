@@ -12,7 +12,7 @@ use crate::cluster::Status;
 
 /// The protocol the processes speak on their links: raised when what they carry changes in a way
 /// an older process can't read (world-api's messages among it).
-pub const PROTOCOL: &str = "ruina-cluster/2";
+pub const PROTOCOL: &str = "ruina-cluster/3";
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum Wire {
@@ -62,6 +62,9 @@ pub struct Spawn {
     pub owner: Option<Owner>,
     pub expel_after_ms: u64,
     pub granted_ms: Millis,
+    /// A part of a region played by several simulations (crates/server/src/directory/parts.rs).
+    #[serde(default)]
+    pub part: Option<crate::directory::Part>,
 }
 
 #[cfg(test)]
@@ -82,7 +85,7 @@ mod tests {
             matches!(&back, Wire::Post(Envelope { to: Address::Gate(GateId(2)), msg: Message::Gate(ToGate::Conn { conn: c, msg: ToConn::Rejoin { text } }) }) if *c == conn && text == "Moved.")
         );
         let lease = Lease { space: SpaceId::copy("yard", 4), sim: SimId(11), epoch: Epoch(3), until: 99, chunks: vec![(0, -1)] };
-        let spawn = Wire::Spawn(Spawn { lease: lease.clone(), owner: Some(Owner::Solo(7)), expel_after_ms: 60_000, granted_ms: 12_345 });
+        let spawn = Wire::Spawn(Spawn { lease: lease.clone(), owner: Some(Owner::Solo(7)), expel_after_ms: 60_000, granted_ms: 12_345, part: None });
         match Encoding::MessagePack.round_trip(&spawn).unwrap() {
             Wire::Spawn(s) => assert_eq!((s.lease, s.owner, s.expel_after_ms, s.granted_ms), (lease, Some(Owner::Solo(7)), 60_000, 12_345)),
             other => panic!("{other:?}"),

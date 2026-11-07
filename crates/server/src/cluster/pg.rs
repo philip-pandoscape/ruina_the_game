@@ -159,7 +159,7 @@ impl Spawner for RemoteSims {
             eprintln!("directory: simulation {} for {} was placed nowhere", sim.0, setup.lease.space);
             return;
         };
-        let spawn = Spawn { lease: setup.lease, owner: setup.owner, expel_after_ms: setup.expel_after.as_millis() as u64, granted_ms };
+        let spawn = Spawn { lease: setup.lease, owner: setup.owner, expel_after_ms: setup.expel_after.as_millis() as u64, granted_ms, part: setup.part };
         if let Err(e) = self.node.link(&node, &address).push(&Wire::Spawn(spawn)) {
             eprintln!("directory: couldn't start simulation {} on {node}: {e}", sim.0);
         }
@@ -209,7 +209,8 @@ mod tests {
         let (services, _) = Node::<Wire>::start("services-1", "127.0.0.1:0", Config::speaking(crate::cluster::wire::PROTOCOL)).await.unwrap();
         place.placed.lock().unwrap().insert(SimId(8), ("sim-1".into(), sim_process.local_addr().to_string(), 1_000));
         let spawner = RemoteSims::new(services, place);
-        let setup = SimSetup { lease: lease("copy:yard:12", 8, 3), owner: Some(ruina_world_api::Owner::Solo(7)), expel_after: Duration::from_secs(60) };
+        let setup =
+            SimSetup { lease: lease("copy:yard:12", 8, 3), owner: Some(ruina_world_api::Owner::Solo(7)), expel_after: Duration::from_secs(60), part: None };
         spawner.start(setup.clone());
         let e = tokio::time::timeout(Duration::from_secs(10), inbox.recv()).await.unwrap().unwrap();
         match e.msg {
@@ -219,7 +220,7 @@ mod tests {
             other => panic!("{other:?}"),
         }
         // A simulation placed nowhere isn't started anywhere.
-        spawner.start(SimSetup { lease: lease("copy:yard:13", 9, 1), owner: None, expel_after: Duration::from_secs(60) });
+        spawner.start(SimSetup { lease: lease("copy:yard:13", 9, 1), owner: None, expel_after: Duration::from_secs(60), part: None });
         assert!(tokio::time::timeout(Duration::from_millis(300), inbox.recv()).await.is_err());
     }
 }

@@ -1,12 +1,11 @@
 //! The borders of a world of regions crossed on foot, by cart with a passenger, by boat and by
 //! glider, the world split between two simulations at the border between its regions: each crossing
 //! the same to the bit as in one simulation (no jump), every input run once (none lost), and
-//! everyone and everything held by one simulation at a time (nothing twice). The worlds are
-//! map.rs's fixtures: a mainland of two regions across a land border, and an islet across the sea
-//! from Emberholm.
+//! everyone and everything held by one simulation at a time (nothing twice). The world is
+//! bigworld's fixture (crate::open::fixture): Saltmere and Thornmarch across a land border, and
+//! Saltmere across the open sea from Emberholm.
 
 use std::collections::BTreeMap;
-use std::sync::OnceLock;
 
 use serde_json::Value;
 
@@ -20,61 +19,14 @@ use crate::life::content::rideable;
 use crate::life::{Life, vehicles};
 use crate::open::Sim as Stepping;
 use crate::open::colliders::ground_at;
-use crate::open::map::{WorldMap, region_recipe};
-use crate::open::zone::Recipe;
+use crate::open::fixture::{self, LAND_BORDER, SEA_BORDER};
+use crate::open::map::WorldMap;
 use crate::player::{Actions, Mode, Player};
 use crate::world::Spawn;
 
-/// A region two chunks a side round (`mid`, 0), its island round (`land`, 0) (as map.rs's tests
-/// make them).
-fn small_region(id: &str, seed: u32, mid: f64, land: f64, radius: f64, hills: f64) -> Recipe {
-    serde_json::from_value(serde_json::json!({
-        "id": id, "name": id, "seed": seed, "climate": "temperate",
-        "terrain": {
-            "cells": 256, "cell": 2.0, "water": 0.0, "origin": [mid, 0.0],
-            "island": { "x": land, "z": 0.0, "radius": radius, "lobes": [[3, 12.0, 0.4]], "warp": 10.0, "warpScale": 90.0 },
-            "shore": { "beach": 20.0, "beachHeight": 2.0, "inlandRise": 0.02, "seabedSlope": 0.085, "seabedCurve": 0.00035, "maxDepth": 30.0 },
-            "hills": { "scale": 120.0, "height": hills, "detailScale": 40.0, "detail": 1.0, "inlandFrom": 20.0, "inlandTo": 80.0 },
-            "sandBelow": 1.6, "rockSlope": 1.2
-        },
-        "scatter": { "trees": 0.002, "rocks": 0.0005, "clearOfRoad": 5.0, "clearOfStructure": 4.0 },
-        "spawn": { "x": land, "z": 0.0, "facing": 0.0 },
-        "places": [], "npcs": [], "workbenches": [], "outposts": [], "housePlots": [], "nodes": [], "updrafts": [],
-        "sky": { "dayLengthSeconds": 1800.0, "startHour": 8.5, "sunrise": 5.5, "sunset": 20.0 },
-        "slimes": { "x": land, "z": 0.0, "count": 0, "r": 10.0 },
-        "dummy": { "x": land + 10.0, "z": 0.0 }
-    }))
-    .expect("a small region's recipe")
-}
-
-/// Two regions across a land border at x = 1536 m, one island grown half by each.
-fn mainland() -> &'static WorldMap {
-    static W: OnceLock<WorldMap> = OnceLock::new();
-    W.get_or_init(|| {
-        let file = r#"{ "chunk": 256, "blend": 64, "sea": { "level": 0, "depth": 30 }, "regions": [
-            { "id": "emberholm", "chunks": { "x": -3, "z": -3, "w": 6, "d": 6 } },
-            { "id": "fells", "chunks": { "x": 4, "z": -1, "w": 2, "d": 2 } },
-            { "id": "downs", "chunks": { "x": 6, "z": -1, "w": 2, "d": 2 } } ] }"#;
-        WorldMap::from_json(file, |id| match id {
-            "fells" => Some(small_region("fells", 11, 1280.0, 1536.0, 190.0, 9.0)),
-            "downs" => Some(small_region("downs", 23, 1792.0, 1536.0, 190.0, 3.0)),
-            _ => region_recipe(id),
-        })
-        .expect("a world")
-    })
-}
-
-/// Emberholm and, across the sea to its east, an islet (x 1024 to 1536 m).
-fn archipelago() -> &'static WorldMap {
-    static W: OnceLock<WorldMap> = OnceLock::new();
-    W.get_or_init(|| {
-        let file = r#"{ "chunk": 256, "blend": 64, "sea": { "level": 0, "depth": 30 }, "regions": [
-            { "id": "emberholm", "chunks": { "x": -3, "z": -3, "w": 6, "d": 6 } },
-            { "id": "islet", "chunks": { "x": 4, "z": -1, "w": 2, "d": 2 } } ] }"#;
-        WorldMap::from_json(file, |id| if id == "islet" { Some(small_region("islet", 7, 1280.0, 1280.0, 110.0, 6.0)) } else { region_recipe(id) })
-            .expect("a world")
-    })
-}
+/// The chunks the land border and the sea border stand on (x = 2048 m, 1024 m).
+const LAND: i32 = (LAND_BORDER / 256.0) as i32;
+const SEA: i32 = (SEA_BORDER / 256.0) as i32;
 
 const STEPS: u32 = 3;
 const WEST: SimId = SimId(1);
@@ -222,30 +174,30 @@ fn the_same(one: &Crossed, split: &Crossed) {
 
 #[test]
 fn on_foot_across_a_land_border() {
-    let map = mainland();
+    let map = fixture::world();
     let run = |split_at| {
-        let mut s = world(map, "fells", split_at);
-        stand(&mut s, map, "fells", 0, 1490.0, 0.0, std::f64::consts::FRAC_PI_2, None);
+        let mut s = world(map, "saltmere", split_at);
+        stand(&mut s, map, "saltmere", 0, LAND_BORDER - 70.0, 0.0, std::f64::consts::FRAC_PI_2, None);
         cross(s, &[0], 400, |_, _| Actions { move_x: 1.0, ..Actions::default() })
     };
-    let (one, split) = (run(None), run(Some(6)));
+    let (one, split) = (run(None), run(Some(LAND)));
     the_same(&one, &split);
     // Handed over once, 28 m into the downs, and never back.
     let owners: Vec<SimId> = split.path.iter().map(|t| t[0].2).collect();
     let at = owners.iter().position(|&o| o == EAST).expect("handed over");
     assert!(owners[at..].iter().all(|&o| o == EAST));
     let x = split.path[at - 1][0].0;
-    assert!((1536.0 + 28.0..1536.0 + 31.0).contains(&x), "handed over at x = {x}");
+    assert!((LAND_BORDER + 28.0..LAND_BORDER + 31.0).contains(&x), "handed over at x = {x}");
 }
 
 /// Someone walking east across the mainland's border, split (or not), with what the gate and the
 /// mail do to it.
 fn walk_east(split_at: Option<i32>, lag: u64, strict: bool, mail: impl FnMut(u64, &mut Vec<Post>)) -> Crossed {
-    let map = mainland();
-    let mut s = world(map, "fells", split_at);
+    let map = fixture::world();
+    let mut s = world(map, "saltmere", split_at);
     s.gate.lag = lag;
     s.count = true;
-    stand(&mut s, map, "fells", 0, 1490.0, 0.0, std::f64::consts::FRAC_PI_2, None);
+    stand(&mut s, map, "saltmere", 0, LAND_BORDER - 70.0, 0.0, std::f64::consts::FRAC_PI_2, None);
     cross_with(s, &[0], 400, |_, _| Actions { move_x: 1.0, ..Actions::default() }, strict, mail)
 }
 
@@ -253,7 +205,7 @@ fn walk_east(split_at: Option<i32>, lag: u64, strict: bool, mail: impl FnMut(u64
 fn a_gate_that_hears_late_sends_inputs_to_the_old_owner_which_sends_them_on() {
     let one = walk_east(None, 0, true, |_, _| {});
     for lag in [1, 3] {
-        let split = walk_east(Some(6), lag, true, |_, _| {});
+        let split = walk_east(Some(LAND), lag, true, |_, _| {});
         the_same(&one, &split);
         assert_eq!(split.split.counts.strays, lag, "a tick's inputs sent on for each tick the gate was late");
     }
@@ -266,7 +218,7 @@ fn a_handoff_said_twice_is_taken_once() {
         let again: Vec<Post> = mail.iter().filter(|p| matches!(p.says, Says::Handoff(_))).cloned().collect();
         mail.extend(again);
     };
-    let split = walk_east(Some(6), 0, true, twice);
+    let split = walk_east(Some(LAND), 0, true, twice);
     the_same(&one, &split);
     assert_eq!(split.split.counts.handoffs, 2, "sent twice");
 }
@@ -280,7 +232,7 @@ fn a_handoff_lost_on_the_way_is_sent_again_and_nothing_is_lost_or_run_twice() {
             lost = true;
         }
     };
-    let split = walk_east(Some(6), 0, false, lose_once);
+    let split = walk_east(Some(LAND), 0, false, lose_once);
     // On their way for a tick (held by nobody), then taken when it came again, and on east.
     let gap = split.path.iter().position(|t| t.is_empty()).expect("a tick on the way");
     assert_eq!(split.path[gap - 1][0].2, WEST);
@@ -297,10 +249,10 @@ fn a_handoff_lost_on_the_way_is_sent_again_and_nothing_is_lost_or_run_twice() {
 
 #[test]
 fn what_is_said_under_an_older_epoch_is_refused() {
-    let crossed = walk_east(Some(6), 0, true, |_, _| {});
+    let crossed = walk_east(Some(LAND), 0, true, |_, _| {});
     let mut s = crossed.split;
     let (west, east) = (s.sim(WEST), s.sim(EAST));
-    assert_eq!((west.epochs[&0], east.epochs[&0]), (super::Epoch(1), super::Epoch(1)), "handed over once");
+    assert_eq!((west.border.epochs[&0], east.border.epochs[&0]), (super::Epoch(1), super::Epoch(1)), "handed over once");
     let ghost = west.players.player(0).expect("the walker's ghost, west").clone();
     // A ghost of them said under the epoch before the handoff: refused.
     let mut stale = ghost.clone();
@@ -311,36 +263,36 @@ fn what_is_said_under_an_older_epoch_is_refused() {
     // And handed over under it again: refused, nobody seated twice.
     let d = s.sim_mut(EAST).players.depart(0).expect("the walker");
     let mut back = super::messages::Moving::of(d, super::Epoch(0), None);
-    back.player.pos.x = 1700.0;
+    back.player.pos.x = LAND_BORDER + 100.0;
     let t = s.sim_mut(WEST).take_handoff(super::messages::Handoff { players: vec![back] });
     assert!(t.players.is_empty() && !s.sim(WEST).players.is_own(0));
 }
 
 #[test]
 fn by_cart_with_a_passenger_across_a_land_border() {
-    let map = mainland();
+    let map = fixture::world();
     let run = |split_at| {
-        let mut s = world(map, "fells", split_at);
-        stand(&mut s, map, "fells", 0, 1470.0, CART_Z, std::f64::consts::FRAC_PI_2, None);
+        let mut s = world(map, "saltmere", split_at);
+        stand(&mut s, map, "saltmere", 0, LAND_BORDER - 90.0, CART_Z, std::f64::consts::FRAC_PI_2, None);
         let id = drive_off(&mut s, 0, "deed.farmCart");
         let with = s.owner_of(0);
-        stand(&mut s, map, "fells", 1, 1468.0, CART_Z + 3.0, 0.0, with);
+        stand(&mut s, map, "saltmere", 1, LAND_BORDER - 92.0, CART_Z + 3.0, 0.0, with);
         ride_along(&mut s, 1, 0, id);
         let c = cross(s, &[0, 1], 420, |_, k| if k == 0 { Actions { stick_y: 1.0, ..Actions::default() } } else { Actions::default() });
         (c, id)
     };
-    let ((one, _), (split, id)) = (run(None), run(Some(6)));
+    let ((one, _), (split, id)) = (run(None), run(Some(LAND)));
     the_same(&one, &split);
     // The driver and the passenger went over together, in the same tick, and the cart with them.
     let owners: Vec<(SimId, SimId)> = split.path.iter().map(|t| (t[0].2, t[1].2)).collect();
     assert!(owners.iter().all(|(a, b)| a == b), "apart: {owners:?}");
     let at = owners.iter().position(|o| o.0 == EAST).expect("handed over");
     let x = split.path[at - 1][0].0;
-    assert!((1536.0 + 28.0..1536.0 + 31.0).contains(&x), "handed over at x = {x}");
+    assert!((LAND_BORDER + 28.0..LAND_BORDER + 31.0).contains(&x), "handed over at x = {x}");
     let east = split.split.sim(EAST);
     let (driver, _, life) = east.players.open_view(client(0)).expect("the driver");
     let v = life.expect("a life").land.vehicles.iter().find(|v| v.id == id).expect("the cart, with its driver's life");
-    assert!(v.x > 1564.0 && driver.vehicle == id, "the cart at {}", v.x);
+    assert!(v.x > LAND_BORDER + 28.0 && driver.vehicle == id, "the cart at {}", v.x);
     let p = east.players.open_view(client(1)).expect("the passenger").0;
     assert_eq!((p.mode, p.host, p.vehicle), (Mode::Ride, 1, id));
 }
@@ -350,10 +302,10 @@ const CART_Z: f64 = 0.0;
 
 #[test]
 fn by_glider_across_a_land_border() {
-    let map = mainland();
+    let map = fixture::world();
     let run = |split_at| {
-        let mut s = world(map, "fells", split_at);
-        stand(&mut s, map, "fells", 0, 1500.0, 0.0, std::f64::consts::FRAC_PI_2, None);
+        let mut s = world(map, "saltmere", split_at);
+        stand(&mut s, map, "saltmere", 0, LAND_BORDER - 60.0, 0.0, std::f64::consts::FRAC_PI_2, None);
         // High over the fells, both jumps spent, the wayfarer on their back: jump to open it.
         let at = s.owner_of(0).expect("the glider");
         let (p, life) = s.sim_mut(at).players.open_mut(client(0)).expect("the glider");
@@ -365,49 +317,49 @@ fn by_glider_across_a_land_border() {
         let east = Actions { move_x: 1.0, ..Actions::default() };
         cross(s, &[0], 200, move |tick, _| if tick == 2 { Actions { jump_pressed: true, jump_held: true, ..east } } else { east })
     };
-    let (one, split) = (run(None), run(Some(6)));
+    let (one, split) = (run(None), run(Some(LAND)));
     the_same(&one, &split);
     let owners: Vec<SimId> = split.path.iter().map(|t| t[0].2).collect();
     let at = owners.iter().position(|&o| o == EAST).expect("handed over");
     let x = split.path[at - 1][0].0;
-    assert!((1536.0 + 28.0..1536.0 + 34.0).contains(&x), "handed over at x = {x}");
+    assert!((LAND_BORDER + 28.0..LAND_BORDER + 34.0).contains(&x), "handed over at x = {x}");
     // In the air as it crossed: the glider open on both sides of the handoff.
     assert_eq!((split.path[at - 1][0].3, split.path[at][0].3), (Mode::Glide, Mode::Glide));
     assert!(split.path[at][0].0 > x, "on the way east");
     let p = split.split.sim(owners[owners.len() - 1]).players.player(0).expect("the glider").clone();
-    assert!(p.pos.x > 1600.0, "glided on to {}", p.pos.x);
+    assert!(p.pos.x > LAND_BORDER + 40.0, "glided on to {}", p.pos.x);
 }
 
 #[test]
 fn by_boat_across_the_sea() {
-    let map = archipelago();
+    let map = fixture::world();
     // The islet's west shore, where the water gets deep enough for a boat.
-    let mut shore = 1280.0;
+    let mut shore = SEA_BORDER + 400.0;
     while map.height(shore, 0.0) > map.water + 0.3 {
         shore -= 0.5;
     }
     let run = |split_at| {
-        let mut s = world(map, "islet", split_at);
-        stand(&mut s, map, "islet", 0, shore + 3.0, 0.0, -std::f64::consts::FRAC_PI_2, None);
+        let mut s = world(map, "saltmere", split_at);
+        stand(&mut s, map, "saltmere", 0, shore + 3.0, 0.0, -std::f64::consts::FRAC_PI_2, None);
         let id = drive_off(&mut s, 0, "deed.rowboat");
         let with = s.owner_of(0);
-        stand(&mut s, map, "islet", 1, shore + 4.0, 2.0, 0.0, with);
+        stand(&mut s, map, "saltmere", 1, shore + 4.0, 2.0, 0.0, with);
         ride_along(&mut s, 1, 0, id);
         let row = Actions { stick_y: 1.0, ..Actions::default() };
         let c = cross(s, &[0, 1], 1400, move |_, k| if k == 0 { row } else { Actions::default() });
         (c, id)
     };
-    let ((one, _), (split, id)) = (run(None), run(Some(4)));
+    let ((one, _), (split, id)) = (run(None), run(Some(SEA)));
     the_same(&one, &split);
     let owners: Vec<(SimId, SimId)> = split.path.iter().map(|t| (t[0].2, t[1].2)).collect();
     assert!(owners.iter().all(|(a, b)| a == b), "apart: {owners:?}");
     let at = owners.iter().position(|o| o.0 == WEST).expect("handed over");
     let x = split.path[at - 1][0].0;
-    assert!((1024.0 - 31.0..=1024.0 - 28.0).contains(&x), "handed over at x = {x}");
+    assert!((SEA_BORDER - 31.0..=SEA_BORDER - 28.0).contains(&x), "handed over at x = {x}");
     let west = split.split.sim(WEST);
     let (rower, _, life) = west.players.open_view(client(0)).expect("the rower");
     let v = life.expect("a life").land.vehicles.iter().find(|v| v.id == id).expect("the boat, with its owner's life");
-    assert!(v.x < 996.0 && rower.vehicle == id, "the boat at {}", v.x);
+    assert!(v.x < SEA_BORDER - 28.0 && rower.vehicle == id, "the boat at {}", v.x);
     let p = west.players.open_view(client(1)).expect("the passenger").0;
     assert_eq!((p.mode, p.host, p.vehicle), (Mode::Ride, 1, id));
 }

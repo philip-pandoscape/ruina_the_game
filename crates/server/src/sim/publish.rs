@@ -131,7 +131,21 @@ impl Game {
                 frame.push(pack::item(pack::owned_key(Kind::Item, id, pk.id), entity.raw(), id, pk));
             }
         }
-        for a in &self.actors.list {
+        // Across a border, those the games beside this one play, as they're seen here, by the same
+        // ids: whoever plays near the border sees them as the others' players do, and nothing
+        // changes for anyone as they cross (crates/engine/src/border).
+        if let Some(side) = &self.border {
+            for (entity, _, p, vehicles) in self.players.each_ghost() {
+                let Some((name, bot)) = side.names.get(&entity) else { continue };
+                let id = wire_id(entity);
+                let host = if p.host != 0 { EntityId::character(p.host).raw() } else { 0 };
+                frame.push(pack::player(entity.raw(), id, Arc::from(name.as_str()), *bot, p, None, host));
+                for v in vehicles {
+                    frame.push(pack::vehicle(pack::owned_key(Kind::Vehicle, id, v.id), entity.raw(), id, v, &[]));
+                }
+            }
+        }
+        for a in self.actors.list.iter().chain(&self.actors.ghosts) {
             if let Some(r) = pack::creature(EntityId::creature(a.id).raw(), a) {
                 frame.push(r);
             }

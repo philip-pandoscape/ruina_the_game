@@ -83,6 +83,21 @@ pub fn start_channels(db: Db, channels: ruina_channels::Tuning) -> Tiers {
     Tiers { post, gate }
 }
 
+/// Every tier in this process on `db`, the regions in `cuts` each played in parts by several
+/// simulations, cut along those lines of chunks (each a chunk's x: crates/server/src/directory/parts.rs),
+/// their borders crossed as if they weren't there (crates/server/src/sim/border.rs).
+pub fn start_split(db: Db, cuts: std::collections::BTreeMap<String, Vec<i32>>) -> Tiers {
+    let post = Post::new();
+    let sims: Arc<dyn Spawner> = Arc::new(Threads { post: post.clone() });
+    store::spawn(db.clone(), post.clone(), post.open_store());
+    Social::new(post.clone()).spawn(post.open_social());
+    let mut directory = Directory::new(post.clone(), db, MemoryLeases::default(), sims);
+    directory.cuts = cuts;
+    directory.spawn(post.open_directory());
+    let gate = gate(&post, GateId(1));
+    Tiers { post, gate }
+}
+
 /// A gate, taking its mail here.
 pub fn gate(post: &Arc<Post>, id: GateId) -> Arc<Gate> {
     Gate::start(id, post.clone(), post.open_gate(id))
