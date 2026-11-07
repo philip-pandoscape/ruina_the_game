@@ -2,7 +2,8 @@
 
 **Ruina**: an original browser MMORPG prototype. Three.js + TypeScript client (Vite), a Rust game
 server (axum) on a Rust engine shared with the client's rules (`crates/`), Postgres. Only the
-repository keeps the working name *yggdrasil*; the server is `ruina-server`.
+repository keeps the working name *yggdrasil*; the server is `ruina-server`. How the pieces fit
+together (the rules, the client, the server, content, a game online and offline): `docs/architecture.md`.
 The main world is meant to be one seamless open world of regions defined by data, with ArcheAge-style
 life systems and land that is scarce and contested. **Emberholm**, a starter isle, is its first
 region, and today its only one. Dungeons and developer zones are instances. How the world is laid

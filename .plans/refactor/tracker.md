@@ -1304,7 +1304,9 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
   deploys, other sessions), linking to `docs/` and the area AGENTS.md files.
 - [~] **R13.2** `docs/`: architecture, engine, content, zones, testing, assets, deploys, admin.
   Written so far: engine (0285ad3), content (5e23680), testing, assets, admin, zones, world
-  (R10.25, begun) and deploys (5562fed). Left: `docs/architecture.md`, after the server's tiers (R10.20).
+  (R10.25, begun) and deploys (5562fed). `docs/architecture.md` written for the server as it stands
+  (the pieces, a game online and offline, the client's areas, content and its ids, where it's
+  going); the server's tiers (R10.20) change its online part when they come.
 - [ ] **R13.3** The design bible's tracker: every moved path updated (moves script), the refactor's
   features done, a session entry per phase.
 - [x] **R13.4** The path check (unit tier): every path named in AGENTS.md, `docs/`, the skills and

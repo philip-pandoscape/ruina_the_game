@@ -55,6 +55,7 @@ assets, and deploys. It's written for coding agents and people alike. The guides
 
 | Guide | What |
 |---|---|
+| `docs/architecture.md` | The map: the pieces, a game online and offline, the client's areas, content and its ids |
 | `docs/engine.md` | The rules, one copy in Rust, and how the server and the browser reach them |
 | `docs/content.md` | Adding content as files alone: items, quests, creatures, buildings, regions |
 | `docs/world.md` | The world: regions on chunks, its ground, spaces and channels; dungeons and developer zones, their copies, and bots |
