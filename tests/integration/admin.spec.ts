@@ -174,7 +174,7 @@ test('an admin in the yard finds its dummy and slimes standing on its floor, and
   const spawned = (kind: string) => page.evaluate((k) => window.__game.shownActors().filter((a) => a.kindId === k), kind);
   await expect
     .poll(async () => (await spawned('slime')).length, { timeout: 30_000 })
-    .toBe(zone.spawns.filter((sp: { kind: string }) => sp.kind === 'slime').length);
+    .toBe(zone.spawns.filter((sp: { kind: string }) => sp.kind === 'slime').reduce((n: number, sp: { count?: number }) => n + (sp.count ?? 1), 0));
   const [dummy] = await spawned('dummy');
   const post = at(zone.spawns.find((sp: { kind: string }) => sp.kind === 'dummy'));
   expect(Math.hypot(dummy.x - post.x, dummy.z - post.z)).toBeLessThan(0.1);

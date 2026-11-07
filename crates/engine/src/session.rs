@@ -1258,7 +1258,7 @@ mod tests {
         assert!(s.enter_dungeon("yard"));
         let inside = crowd(&s);
         let kinds: Vec<&str> = inside.iter().map(|(_, k)| k.as_str()).collect();
-        assert_eq!(kinds, ["dummy", "slime", "slime", "slime"], "the yard's spawns");
+        assert_eq!(kinds, ["dummy", "slime", "slime", "slime", "slime", "slime"], "the yard's spawns");
         let last = world.iter().map(|(id, _)| *id).max().unwrap_or(0);
         assert!(inside.iter().all(|(id, _)| *id > last), "numbered on from the world's");
 

@@ -701,7 +701,7 @@ mod tests {
         let copy = sp.at[&1];
         let kinds: Vec<String> = sp.games[&copy].actors.list.iter().map(|a| a.kind.clone()).collect();
         assert_eq!(kinds.iter().filter(|k| *k == "dummy").count(), 1);
-        assert_eq!(kinds.iter().filter(|k| *k == "slime").count(), 3);
+        assert_eq!(kinds.iter().filter(|k| *k == "slime").count(), 5);
         let mut saves = Vec::new();
         for _ in 0..40 {
             sp.games.get_mut(&copy).unwrap().step(&mut saves);

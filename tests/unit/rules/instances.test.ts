@@ -14,21 +14,21 @@ test('offline in a copy of the yard: in where its file says, its dummy and slime
     return { inside: g.dungeon().inside, at: g.state().player.pos, actors: g.actors().map((a) => ({ kind: a.kind, x: a.x, z: a.z })) };
   });
   expect(start.inside).toBe('yard');
-  // Its arrival: (0, -18), on a floor whose top is its origin's height.
+  // Its arrival: (0, -1), facing the dummy, on a floor whose top is its origin's height.
   expect(start.at.x).toBeCloseTo(0, 6);
-  expect(start.at.z).toBeCloseTo(-18, 6);
+  expect(start.at.z).toBeCloseTo(-1, 6);
   expect(start.at.y).toBeCloseTo(0, 2);
   // Its spawns, and nothing of Emberholm's.
-  expect(start.actors.map((a) => a.kind)).toEqual(['dummy', 'slime', 'slime', 'slime']);
-  expect(start.actors[0]).toMatchObject({ x: 0, z: 2 });
+  expect(start.actors.map((a) => a.kind)).toEqual(['dummy', 'slime', 'slime', 'slime', 'slime', 'slime']);
+  expect(start.actors[0]).toMatchObject({ x: 0, z: 3.2 });
 
   // Started over in it, you're where it's entered again, not out at the world's spawn.
   await page.evaluate(() => window.__game.reset());
   const again = await page.evaluate(() => window.__game.state().player.pos);
-  expect([again.x, again.z]).toEqual([0, -18]);
+  expect([again.x, again.z]).toEqual([0, -1]);
 
   // Three swings in front of the dummy land three blows, at the dummy's height over the floor.
-  await page.evaluate(() => window.__game.reset({ x: 0, z: 0.4, facing: 0 }));
+  await page.evaluate(() => window.__game.reset({ x: 0, z: 1.6, facing: 0 }));
   const fight = await page.evaluate(() => {
     const g = window.__game;
     const before = g.state().dummy.hp;
