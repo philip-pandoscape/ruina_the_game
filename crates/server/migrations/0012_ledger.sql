@@ -3,7 +3,7 @@
 -- is one character's side of it: what they gained (negative for what they gave) and who it was with.
 -- Its key says which transfer and whose side it is, so one sent twice (a save written again, a
 -- message delivered twice) is applied once: written in the same transaction as the lives it
--- changes, or not at all (crates/server/src/land/ledger.rs).
+-- changes, or not at all (crates/server/src/store/land/ledger.rs).
 CREATE TABLE ledger (
     id        BIGSERIAL PRIMARY KEY,
     key       TEXT NOT NULL UNIQUE,

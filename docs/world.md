@@ -287,7 +287,7 @@ and vehicles. It is the world's, not a life's:
 - **Kept by where it stands.** Each piece is a row of its own (`Land::rows`; the `land` table,
   migration 0010): its id, its kind, the 256 m chunk it stands in (a pack on its owner's back has
   none: it goes where they go), its owner, the epoch it was written under, and the piece. A
-  region's keeper reads its chunks (`crates/server/src/land/` `load_land`); a character's whole
+  region's keeper reads its chunks (`crates/server/src/store/land/` `load_land`); a character's whole
   holding comes with them (`load_holding`).
 - **Lent to its owner's life.** Only its owner changes a piece, so while they play their land is
   lent to their life (`Life::land`) and changed by its rules, and saved with it in one transaction

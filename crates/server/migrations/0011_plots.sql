@@ -1,6 +1,6 @@
 -- House plots: one claim each in the whole world, first come. The primary key is the registry: of
 -- two claims on a plot, from any channel or server, the first written is the one kept, and the
--- other finds it taken (crates/server/src/land/plots.rs). A claim is the house on the plot: when
+-- other finds it taken (crates/server/src/store/land/plots.rs). A claim is the house on the plot: when
 -- that house comes down (its tax unpaid too long, or its owner gone), the plot is free again.
 CREATE TABLE plots (
     world      TEXT NOT NULL,

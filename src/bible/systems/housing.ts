@@ -85,7 +85,7 @@ export const housing = system({
   summary: 'Claiming a plot with a blueprint, building a house stage by stage, storage, rest, tax, and losing a neglected house.',
   icon: '🏡',
   keywords: ['house', 'home', 'cottage', 'plot', 'blueprint', 'tax', 'bed', 'chest', 'storage', 'build', 'land', 'claim', 'neglect', 'demolish'],
-  rules: ['crates/engine/src/life/housing.rs', 'crates/engine/src/life/land.rs'],
+  rules: ['crates/engine/src/life/housing.rs', 'crates/engine/src/life/land.rs', 'crates/server/src/sim/lands.rs'],
   content: ['shared/housing.json#blueprints', 'shared/housing.json#plotMarker', 'shared/housing.json#neglect', 'shared/regions/*.json#housePlots'],
   body: () => {
     const bp = BLUEPRINTS[0];

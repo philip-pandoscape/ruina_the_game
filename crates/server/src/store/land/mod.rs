@@ -17,12 +17,14 @@
 //! - `ledger`: transfers, each applied once, with the lives they change.
 //! - `market`: each trading post's demand, the world's.
 //! - `migrate`: saves from before land had rows of its own, moved into them as the server starts.
+//! - `pieces`: who may change a piece of land: the life it's lent to, or whoever takes it first.
 //!
 //! Tested against a real Postgres: crates/server/tests/land.rs.
 
 pub mod ledger;
 pub mod market;
 pub mod migrate;
+pub mod pieces;
 pub mod plots;
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -159,7 +161,7 @@ pub async fn save_in(tx: &mut Transaction<'_, Postgres>, saves: &[LifeSave]) -> 
         // Among several processes, the writing simulation's lease too: one that lost its space can't
         // write, even a life nobody has been granted anew.
         if let Some(lease) = &s.lease
-            && crate::cluster::leases::check(&mut **tx, lease).await?.is_err()
+            && crate::cluster::leases::check(tx, lease).await?.is_err()
         {
             written.push(false);
             continue;

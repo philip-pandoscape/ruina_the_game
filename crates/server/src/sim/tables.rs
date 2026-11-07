@@ -875,6 +875,21 @@ mod tests {
     }
 
     #[test]
+    fn a_pot_won_goes_through_the_ledger_with_both_islands() {
+        let mut ch = ann_and_bea();
+        let table = sit_down(&mut ch, 50.0);
+        play_until_ann_wins(&mut ch, table);
+        // One transfer, from Bea to Ann, written with both islands as they are now, once by its key.
+        let sent: Vec<ToStore> = std::mem::take(&mut ch.store).into_iter().filter(|m| matches!(m, ToStore::Transfer { .. })).collect();
+        let [ToStore::Transfer { transfer, writes }] = &sent[..] else { panic!("one transfer: {sent:?}") };
+        assert_eq!(transfer.kind, "pot");
+        assert!(transfer.key.starts_with("pot:channel:emberholm:1:1:"), "{}", transfer.key);
+        assert_eq!(transfer.sides, [(7, "character:8".to_string(), 50.0), (8, "character:7".to_string(), -50.0)]);
+        assert_eq!(writes.iter().map(|w| w.character).collect::<Vec<_>>(), [8, 7]);
+        assert_eq!(writes[1].life["state"]["coins"], 250.0);
+    }
+
+    #[test]
     fn conceding_hands_the_pot_over_at_once() {
         let mut ch = ann_and_bea();
         let table = sit_down(&mut ch, 100.0);

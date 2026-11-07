@@ -259,7 +259,7 @@ impl Sim {
                         if self.routing.contains_key(&c) {
                             self.held.insert(c, w);
                         } else {
-                            self.post.store(ToStore::WriteLives { writes: vec![w], then: Then::Nothing });
+                            self.last_write(w);
                         }
                     }
                 } else if let Some((sim, _)) = self.gone.get(&c) {
@@ -301,7 +301,7 @@ impl Sim {
             ToSim::Unrouted { character, text } => {
                 self.routing.remove(&character);
                 if let Some(w) = self.held.remove(&character) {
-                    self.post.store(ToStore::WriteLives { writes: vec![w], then: Then::Nothing });
+                    self.last_write(w);
                 }
                 self.game.say(character, ToConn::Error { text });
             }
@@ -342,6 +342,13 @@ impl Sim {
                     self.post.sim(*sim, ToSim::Ids { character, next, end });
                 }
             }
+            ToSim::Taken { by, owner, piece, result } => {
+                if self.game.has_life(by) {
+                    self.game.piece_taken(by, owner, result);
+                } else if let Some((sim, _)) = self.gone.get(&by) {
+                    self.post.sim(*sim, ToSim::Taken { by, owner, piece, result });
+                }
+            }
             ToSim::Recorded { character, upto } => {
                 if self.game.has_life(character) {
                     self.game.recorded(character, upto);
@@ -376,6 +383,14 @@ impl Sim {
             }
         }
         true
+    }
+
+    /// The last write of someone's life here (they left the world), and then their land back to the
+    /// store, which keeps it for them until they play again.
+    fn last_write(&self, w: LifeWrite) {
+        let (character, epoch) = (w.character, w.epoch);
+        self.post.store(ToStore::WriteLives { writes: vec![w], then: Then::Nothing });
+        self.post.store(ToStore::ReturnLand { character, epoch });
     }
 
     /// Someone comes in from their connection: in, their welcome's parts back to them.
@@ -549,7 +564,7 @@ impl Sim {
             // They left on the way: their life is written under the new grant, and they stay where
             // they were (the directory hears so).
             w.epoch = to.epoch;
-            self.post.store(ToStore::WriteLives { writes: vec![w], then: Then::Nothing });
+            self.last_write(w);
             self.placed(character);
             return;
         }

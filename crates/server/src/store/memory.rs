@@ -9,6 +9,7 @@ use serde_json::Value;
 use ruina_world_api::Millis;
 use ruina_world_api::store::{ClaimResult, LifeWrite, RegionLand, Transfer};
 
+use super::land::pieces::{Taken, takeable};
 use super::land::{BLOCK, last_entry, split, waiting, without_ledger};
 use crate::life::housing::neglected;
 use crate::life::land::{House, Ids, Kind, Land};
@@ -27,6 +28,8 @@ pub struct CharacterRow {
     pub live_session: Option<i64>,
     /// Where their saved position is.
     pub space: Option<String>,
+    /// The grant their land is lent to their life under (None: the store keeps it).
+    pub land_lent: Option<u64>,
 }
 
 /// A space's lease.
@@ -166,14 +169,18 @@ impl Tables {
         }
     }
 
-    /// Houses taken down, each only if its tax is still unpaid too long at `at` (`plots::take_down`):
-    /// the plots let go, with whose they were.
+    /// Houses taken down, each only if its tax is still unpaid too long at `at` and its owner's land
+    /// isn't lent to their life (`plots::take_down`): the plots let go, with whose they were.
     pub fn take_down(&mut self, ids: &[i64], at: f64) -> Vec<(String, i64)> {
         let gone: Vec<i64> = ids
             .iter()
             .copied()
             .filter(|id| {
-                self.land.get(id).is_some_and(|r| r.kind == Kind::House && serde_json::from_value::<House>(r.data.clone()).is_ok_and(|h| neglected(&h, at)))
+                self.land.get(id).is_some_and(|r| {
+                    r.kind == Kind::House
+                        && self.characters.get(&r.owner).is_none_or(|c| c.land_lent.is_none())
+                        && serde_json::from_value::<House>(r.data.clone()).is_ok_and(|h| neglected(&h, at))
+                })
             })
             .collect();
         let freed: Vec<(String, i64)> =
@@ -206,6 +213,48 @@ impl Tables {
             self.ledger.insert(format!("{}:{character}", t.key), row);
         }
         Some(writes.iter().map(|w| self.write_life(w, now)).collect())
+    }
+
+    /// Lends a character's land to the life read for them now (`pieces::lend`).
+    pub fn lend(&mut self, character: i64) {
+        if let Some(c) = self.characters.get_mut(&character) {
+            c.land_lent = Some(c.epoch);
+        }
+    }
+
+    /// Their land back, under the grant it was played under (`pieces::give_back`).
+    pub fn give_back(&mut self, character: i64, epoch: u64) {
+        if let Some(c) = self.characters.get_mut(&character)
+            && c.land_lent.is_some_and(|lent| lent <= epoch)
+        {
+            c.land_lent = None;
+        }
+    }
+
+    /// A piece of `owner`'s land taken by `by`: the first to ask, while `owner`'s land isn't lent
+    /// (`pieces::take`).
+    pub fn take_piece(&mut self, piece: i64, owner: i64, by: i64, epoch: u64) -> Taken {
+        if self.characters.get(&by).is_none_or(|c| c.epoch != epoch) {
+            return Taken::Stale;
+        }
+        if self.characters.get(&owner).is_some_and(|c| c.land_lent.is_some()) {
+            return Taken::Lent;
+        }
+        let Some(row) = self.land.get(&piece).filter(|r| r.owner == owner && takeable(r.kind, &r.data)) else { return Taken::Gone };
+        let mut ids = vec![piece];
+        if row.kind == Kind::Vehicle {
+            let in_bed = |r: &LandRow| r.owner == owner && r.kind == Kind::Pack && r.data["at"] == "cargo" && r.data["vehicle"].as_i64() == Some(piece);
+            ids.extend(self.land.iter().filter(|(_, r)| in_bed(r)).map(|(id, _)| *id));
+        }
+        let mut taken = Vec::new();
+        for id in ids {
+            if let Some(r) = self.land.get_mut(&id) {
+                r.owner = by;
+                r.epoch = epoch as i64;
+                taken.push((r.kind, r.data.clone()));
+            }
+        }
+        Taken::Yours(taken)
     }
 
     /// The ledger's entries a life holds that are written now that it is: the last one's number.

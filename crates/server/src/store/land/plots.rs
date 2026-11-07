@@ -86,8 +86,9 @@ pub async fn houses(db: &PgPool) -> Result<Vec<(i64, House)>, sqlx::Error> {
 /// Takes these houses down, their tax unpaid too long at `at` (the world's clock): each one that still
 /// is, as the rows have it (an owner who paid meanwhile has written a later `tax_paid_until`, and
 /// keeps theirs; one taken down already is gone). Their rows go, and with them their plots' claims.
-/// The plots let go, with whose they were. Under the region keeper's lease where leases are kept in
-/// Postgres (`lease`): a keeper that lost its space takes nothing down.
+/// The plots let go, with whose they were. Only an absent owner's: one whose land is lent to their
+/// life takes their own down, by the same rule (land::pieces). Under the region keeper's lease where
+/// leases are kept in Postgres (`lease`): a keeper that lost its space takes nothing down.
 pub async fn take_down(db: &PgPool, ids: &[i64], at: f64, lease: Option<&crate::cluster::leases::Fence>) -> Result<Vec<(String, i64)>, sqlx::Error> {
     let mut tx = db.begin().await?;
     if let Some(lease) = lease
@@ -95,12 +96,9 @@ pub async fn take_down(db: &PgPool, ids: &[i64], at: f64, lease: Option<&crate::
     {
         return Ok(Vec::new());
     }
-    let rows: Vec<(i64, Json<Value>)> = sqlx::query_as("SELECT id, data FROM land WHERE world = $1 AND kind = $2 AND id = ANY($3) FOR UPDATE")
-        .bind(WORLD)
-        .bind(Kind::House.name())
-        .bind(ids)
-        .fetch_all(&mut *tx)
-        .await?;
+    const OVERDUE: &str = "SELECT l.id, l.data FROM land l JOIN characters c ON c.id = l.owner \
+                           WHERE l.world = $1 AND l.kind = $2 AND l.id = ANY($3) AND c.land_lent IS NULL FOR UPDATE";
+    let rows: Vec<(i64, Json<Value>)> = sqlx::query_as(OVERDUE).bind(WORLD).bind(Kind::House.name()).bind(ids).fetch_all(&mut *tx).await?;
     let gone: Vec<i64> =
         rows.into_iter().filter(|(_, Json(d))| serde_json::from_value::<House>(d.clone()).is_ok_and(|h| neglected(&h, at))).map(|(id, _)| id).collect();
     let freed: Vec<(String, i64)> =

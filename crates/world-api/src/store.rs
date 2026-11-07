@@ -39,6 +39,14 @@ pub enum ToStore {
     LoadMarket { reply: SimId },
     /// A block of ids for what a character places (answered with `ToSim::Ids`).
     ReserveIds { character: CharacterId, reply: SimId },
+    /// A character's land given back by the simulation it was lent to, after their life's last write
+    /// there (they left the world), under the grant they played under: it's the store's to keep
+    /// again (a newer lend, a newer window's, stays).
+    ReturnLand { character: CharacterId, epoch: Epoch },
+    /// Someone (`by`, under their grant) acting on a piece of `owner`'s land (a pack on the ground, a
+    /// vehicle left out) while `owner` isn't playing: the store gives it to the first who asks, and
+    /// only while `owner`'s land isn't lent to their life (answered with `ToSim::Taken`).
+    TakePiece { piece: i64, owner: CharacterId, by: CharacterId, epoch: Epoch, reply: SimId },
     /// A transfer between characters (a mini-game's pot) and the lives it changes, in one
     /// transaction, once: sent again with its key, nothing is written again.
     Transfer { transfer: Transfer, writes: Vec<LifeWrite> },
@@ -99,6 +107,20 @@ pub enum ClaimResult {
     /// Someone else claimed it first.
     Theirs { holder: CharacterId, name: String },
     /// Their grant moved on before it was written: nothing was.
+    Stale,
+}
+
+/// What became of taking a piece of someone's land.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub enum TakeResult {
+    /// It's theirs now: the rows taken (a vehicle comes with what's in its bed), as (kind, piece).
+    Yours(Vec<(String, Value)>),
+    /// Its owner is playing: their land is lent to their life, which alone changes it.
+    Lent,
+    /// It isn't theirs any more (someone took it first, or they moved it), or it's nothing that can
+    /// be taken (only a pack on the ground or a vehicle can).
+    Gone,
+    /// The taker's grant moved on before it was written: nothing was.
     Stale,
 }
 

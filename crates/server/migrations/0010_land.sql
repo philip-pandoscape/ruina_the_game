@@ -3,7 +3,7 @@
 -- piece, keyed by where it stands: the same in every channel of its region. Only its owner changes a
 -- piece, while they play (it's lent to their life and written with it, fenced by their grant); while
 -- they're away the region's keeper of land may take a neglected house down (fenced by its lease).
--- The store's queries are crates/server/src/land/.
+-- The store's queries are crates/server/src/store/land/.
 
 -- Ids for pieces, handed out a block at a time (hi/lo): block b holds the ids b * 1024 up to
 -- (b + 1) * 1024, so a holding given a block names what it places with no trip to the database, and

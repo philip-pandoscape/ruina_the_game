@@ -191,6 +191,10 @@ fn main() {
         let db = match std::env::var("DATABASE_URL") {
             Ok(url) if !url.is_empty() => {
                 let pool = db::connect(&url).await.map_err(std::io::Error::other)?;
+                // Every tier is in this process and nobody plays yet: no land is lent to a life.
+                if let Err(e) = ruina_server::store::land::pieces::all_back(&pool).await {
+                    eprintln!("could not take everyone's land back: {e}");
+                }
                 db::spawn_housekeeping(pool.clone());
                 println!("database: connected{}", if dev_login { " | developer sign-in on (?as=name)" } else { "" });
                 Some(pool)

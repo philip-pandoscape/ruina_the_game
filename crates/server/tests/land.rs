@@ -1,4 +1,4 @@
-//! The store's land against a real Postgres (crates/server/src/land/): given `RUINA_TEST_DATABASE_URL`
+//! The store's land against a real Postgres (crates/server/src/store/land/): given `RUINA_TEST_DATABASE_URL`
 //! (one it may make databases in, such as a test rig's: docs/testing.md), each test makes a database
 //! of its own, named after it, and runs the server's migrations on it. Without one, they say so and
 //! pass.

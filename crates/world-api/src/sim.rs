@@ -22,7 +22,7 @@ use ruina_engine::world::Spawn;
 use crate::directory::{Destination, Grant};
 use crate::ids::{CharacterId, Conn, Epoch, Millis, Owner, PartyId, SimId, SpaceId};
 use crate::input::Input;
-use crate::store::{ClaimResult, RegionLand};
+use crate::store::{ClaimResult, RegionLand, TakeResult};
 
 /// What a simulation is sent.
 #[derive(Debug, Serialize, Deserialize)]
@@ -66,6 +66,8 @@ pub enum ToSim {
     Ids { character: CharacterId, next: i64, end: i64 },
     /// The world's market as it stands.
     Market(Value),
+    /// What became of `by` taking piece `piece` of `owner`'s land, as the store decided it.
+    Taken { by: CharacterId, owner: CharacterId, piece: i64, result: TakeResult },
     /// The ledger has a character's entries up to `upto`: their life forgets them.
     Recorded { character: CharacterId, upto: u64 },
     /// A character gone for good (deleted): their land comes down, their plots free.

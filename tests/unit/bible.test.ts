@@ -90,7 +90,7 @@ const PLUMBING: Record<string, string> = {
   'crates/server/src/directory/leases.rs': 'which simulation plays which space, under which epoch',
   'crates/server/src/sim/stepping.rs': 'how a channel runs its players’ steps, one after another or all at once: the same game either way',
   'crates/server/src/sim/clock.rs': 'the world’s clock: ticks numbered from its epoch, the same moment in every channel and copy',
-  'crates/server/src/sim/channels.rs': 'who is in which channel',
+  'crates/server/src/sim/channels.rs': 'what of someone’s land everyone else draws',
   'crates/channels/src/lib.rs': 'the channels crate’s table of contents',
   'crates/channels/src/crowd.rs': 'a crowd of bots the tests play the channels with',
   'crates/server/src/directory/crowd.rs': 'the same crowd played against the directory, for the tests',

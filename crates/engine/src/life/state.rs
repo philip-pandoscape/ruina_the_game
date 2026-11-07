@@ -91,7 +91,7 @@ pub struct ContractState {
 
 /// Value that moved between this life and the world (a purchase, a sale, a payout, a fee, a tax, a
 /// quest's reward), from this life's side: what it gained (negative for what it gave). Kept with the
-/// life until the store has written it in the ledger with a save (crates/server/src/land/ledger.rs),
+/// life until the store has written it in the ledger with a save (crates/server/src/store/land/ledger.rs),
 /// numbered by the life's own count (`n`), so one written twice is recorded once.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
 #[serde(default)]
