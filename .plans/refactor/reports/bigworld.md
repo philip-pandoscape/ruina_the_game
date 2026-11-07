@@ -68,3 +68,53 @@ Entries are added as each step lands; the last one is the final report.
 - **Next:** unit tests (the worker's protocol, the origin's arithmetic, the page's world ground against
   the engine's), the integration specs (crossing the fixture world with frame times, precision far
   out), the look test after, docs.
+
+## 2026-11-06 23:20: done (the final report)
+
+**Landed** (on `refactor/bigworld`, `refactor/first` merged in at bf9197f, no conflicts):
+527020b the engine grows and drops regions by need (`open/map.rs` views sharing what's grown, `Edges`,
+`OpenWorld::playing`/`play`/`hold`/`adopt`/`release`/`alone`, the server's channels play their
+chunks); 3332545 the fixture world and its Rust crossings; d0ed37b a farm's climate is its region's;
+282863c, 0b96334 the WebAssembly's region calls; db6ca72, f8f3d81 the client in a big world (the
+worker, the regions round you, drawing where placed, the page's ground, the floating origin, the
+maps); f34d8de `tests/integration/bigworld.spec.ts`; a72d590 unit and conformance tests; d26b8ee
+assets by region; d87f4b9 the guides; 5b4dd9a, 9f73c8a no worker for a one-region world, the HUD knows
+your region.
+
+**Numbers:** a region grows in the worker in 155-285 ms (Saltmere 512 x 512 cells; the first of a land
+pair also grows its neighbour's edges once), plus about 100 ms for its sea depths and map; the page
+takes it in in 5 ms (rules) and builds its drawing within 3 ms a frame. Every frame at the crossings
+(foot, swimming, cart, glider) 17-18 ms, the screen's own; nothing grown on the page's thread. At
+102 km the camera stays within 300 m of the scene's origin; the same picture from another origin
+(0.8% of pixels), 32% different with the origin left at the world's. Edges kept for the world: 16-24
+KB a region; a region held 1.6-3.5 MB of grids (page and WebAssembly each), 18-40 MB of ground on the
+graphics card, freed when dropped. The look test before (`scratch/look-before/`) and after
+(`scratch/look-after/`, `look-after2/`): every shot within 0.4% of pixels, the same as two runs after
+each other.
+
+**Ran:** `npm run check`'s steps on the final code: typecheck, biome, knip, rustfmt and clippy, the
+TypeScript unit tier (272), `cargo test --workspace` (engine 194, order 5, WebAssembly 4, server 81).
+The conformance tier (4 files, 5 tests, the fixture world's ground to the bit). `bigworld.spec.ts`
+7/7. The whole integration tier against slot 2's rig: every side-by-side spec passed but
+`yard.spec.ts:67` (its count, fixed on `refactor/first`, now merged); the one-at-a-time part was
+stopped after 5 (one, rowing at 144 fps, lost its page to a reload my merge caused mid-run) when the
+plan went lean: the end pass runs it. (A first run reused a Vite of mine without `RUINA_SERVER`, whose
+proxy to 7777 was refused: nothing reached the user's server.)
+
+**Left for the end:** the one-at-a-time integration specs; combat's heights (`Players.ground`) are
+still Emberholm's grid (borders must hand the channel's view in); other regions' villages are drawn
+but the camera's rooms and players' cottages are the first region's; travel by road is the first
+region's roads; the first region of a land pair grows its neighbour's edges with a whole generate
+(a terrain-only pass would halve it); instanced foliage keeps world positions in 32-bit floats
+(millimetres at 100 km).
+
+**For borders and the multi-server version:** the fixture is `ruina_engine::open::fixture::{world(),
+far(), recipe(), bundles()}` with `LAND_BORDER` (x = 2048) and `SEA_BORDER` (x = 1024); another
+crate's tests take the engine with `features = ["fixture-world"]`. A simulation plays through
+`OpenWorld::playing(map, zone, chunks, SIM_BAND)` and `play(chunks, band)` (`WorldMap::around`);
+`hold`, `adopt`, `release`, `view()`; assert `unheld() == 0` (ground asked outside what it holds is
+grown on the spot and counted). Views are `Send + Sync`; growing locks the world, reads lock nothing;
+`world_map()` keeps whatever it's asked about, so use views. Small edits in others' files:
+`crates/server/src/play/mod.rs` (`played()`, `teleport`'s borrow), `session.rs` (the world held alone,
+the region calls, the footing), `training.rs` (`Footing<'a>`), `life/` (`sim.terrain()`, a farm's
+climate, four vehicle tests), `src/app/options.ts` (`?fixture=`).
