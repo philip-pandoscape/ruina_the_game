@@ -25,7 +25,7 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
      - R10.23 the client;
      - R10.24 proof at scale;
      - R10.25 the guide.
-  2. Phase 9's rest (R9.5: the skill tree by id), R6.11b and R6.14 beside them.
+  2. Phase 9's rest (R9.5: the skill tree by id) and R6.14 beside them.
   3. Phase 13 and the merge.
 
   The multi-server version follows the merge (`.plans/world/`).
@@ -509,7 +509,7 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
   readers of tuning.json and skilltree.json, which outlast `src/sim/`), `build.ts` to `src/app/`,
   `src/sim/world.ts` to `src/sim/yard.ts`. The other names that don't say what they are come with
   the splits that touch them.
-- [~] **R6.11b** Workarounds out: the 15 `tryBuild(...) ?? standIn` fallbacks for a models folder that
+- [x] **R6.11b** Workarounds out: the 15 `tryBuild(...) ?? standIn` fallbacks for a models folder that
   can't be missing (or real lazy loading, R11.2); `worldPeers.ts:258`'s fake `Sim`; the library's and
   `animations.ts:650`'s reaching into the hero's private fields; `main.ts:505` (the TypeScript command
   list lacks Rust's `teleport`: generated from Rust in Phase 8).
@@ -522,6 +522,8 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
   `src/dev/library/subjects/hero.ts`: the weapon shown and where it is, putting it there, the trails,
   the pose's feedback; `holds` in `bench/hero.ts`; `animations.ts` became the library's), after R9.5's
   client part, which changes how the hero knows its weapon.
+  Done (c25e5f4): the hero has a small public surface for them (`weaponHeld`, `placeWeapon`, `feedback`,
+  `hideTrails`, `footHolds`), and the library's casts went.
 - [x] **R6.12** The boundary test (unit tier): allowed imports per area; known exceptions listed with a
   reason.
   Done (ec3051e): `tests/unit/boundaries.test.ts`.
@@ -1388,6 +1390,7 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
 | 2026-11-06 | R9.10, R9.8, R9.5 | Phase 9's client leftovers merged: the waterfall's parts where it has them, Goblin's Dread's dressing as data, weapons by id (a background agent) | 43dde47, 4aaca54, 3677cb4, 4fe4342 |
 | 2026-11-06 | R10.18 | The tick that splits merged (a background agent); the battle hash 73470aebbc6e11b5, the old one again with the platform's maths | 393345d..7eec2f0, 1d5a214 |
 | 2026-11-06 | R9.10 | The waterfall's landing stage and totem optional in the engine | 25724b8 |
+| 2026-11-06 | R6.11b | The library reaches the hero through its public surface | c25e5f4 |
 | 2026-11-06 | R9.9, R6.11b | Looks from data; the model library as a chunk, the `tryBuild` fallbacks gone (a background agent) | 3cffed1..40161aa, 2d5de57 |
 | 2026-11-06 | R9.14 | `docs/content.md` | 5e23680 |
 | 2026-11-06 | R10.10, R11.1, R11.2, R11.7, R11.8 | Snapshot to move machines: the battle server's Rust gone; the asset manifest, loader and first-download budget, `docs/assets.md` | a975617 |
