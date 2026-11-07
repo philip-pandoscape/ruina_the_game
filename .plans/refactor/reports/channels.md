@@ -94,3 +94,30 @@ Decisions, and why:
 
 Next: the browser's side (the Channels window, the notice when a merge moves you), then the docs and
 the bible's page.
+
+## 2026-11-06 21:28: The browser's side
+
+Landed in 9207f28:
+
+- **The Channels window** (`src/ui/channels/channelsUI.ts`, a menu button beside Party's; it docks
+  where the Party window does, and each closes the other): your region's channels with their load
+  (Quiet, Lively, Busy, Full, Closing), You're Here, Your Party, friends; Change on each and Join
+  Your Party, each shut with its reason when the rules say no (what stops you as you stand, the
+  cooldown counted down, a full or closing channel), and the rules from the content otherwise.
+- **The notice** (`#hud-channel`, top centre under the compass): counts down while your channel
+  closes, and says where a move took you for eight seconds (a merge, your party, your choice).
+- **The wire, the browser's half** (`src/net/worldLink.ts`): `channels {channels}` and
+  `channelMoved {from, to, why}` in; `channels` (asked as the window opens and every 2 s while open)
+  and `channel {to}` / `channel {party: true}` out. The server's half is the second half's.
+- **Tests**: `tests/unit/channels.test.ts` (its words, the reasons, the countdowns); four UI gallery
+  states (`/dev/ui.html#/channels/window|blocked|closing|moved`), drawn and held to Title Case by
+  `tests/integration/uiGallery.spec.ts` (4 passed); typecheck, Biome and knip clean.
+- The policy's view keeps what stops you as you stand (`Standing::hindrance`) apart from the wait,
+  so the window counts the wait down itself.
+
+Decided: no keyboard key yet (U and Y are the free letters, neither means anything here; the menu
+button and the controller's menu presses reach it). The window shows load words, not counts, as
+MMOs do: a number invites hopping to the emptiest.
+
+Next: `docs/world.md`, the bible's Channels page, `src/ui/AGENTS.md`, then merge `refactor/first`
+and `npm run check`.
