@@ -53,7 +53,7 @@ export function makeDrawing(g: GameRefs) {
     input,
     life,
     lifeUI,
-    lifeView,
+    landView,
     lockOn,
     minigames,
     missileView,
@@ -299,14 +299,14 @@ export function makeDrawing(g: GameRefs) {
     const stool = online ? (gameTables?.seatOf(online.welcome.character.id) ?? null) : null;
     sitIn(
       hero,
-      stool ?? lifeView?.placeRide(g.sim.player, alpha, prediction?.offset ?? null, animDt) ?? (along ? (peersView?.seatFor(g.sim.player) ?? null) : null),
+      stool ?? landView?.placeRide(g.sim.player, alpha, prediction?.offset ?? null, animDt) ?? (along ? (peersView?.seatFor(g.sim.player) ?? null) : null),
     );
     hero.update(stool ? seatedState(g.sim.player) : g.sim.player, alpha, g.sim.frame);
     if (prediction && !hero.seat) hero.root.position.add(prediction.offset);
     // The dummy's body where the dummy is: offline the rules' own; online the server's, nearest you.
     if (!net) {
       // Townsfolk with their own models are drawn by the life view instead of the crowd.
-      actorView.update(lifeView?.drawsTownsfolk ? g.sim.actors.all().filter((a) => a.faction !== 2) : g.sim.actors.all());
+      actorView.update(landView?.drawsTownsfolk ? g.sim.actors.all().filter((a) => a.faction !== 2) : g.sim.actors.all());
       const d = dummyActor();
       dummy.root.visible = !!d;
       if (d) {
@@ -332,11 +332,11 @@ export function makeDrawing(g: GameRefs) {
       }
     }
     if (!net) missileView.update(g.sim.actors.missiles);
-    if (lifeView && lifeUI) lifeView.talkingTo = lifeUI.talkingTo;
+    if (landView && lifeUI) landView.talkingTo = lifeUI.talkingTo;
     drawSpells(alpha, animDt);
     if (!along) framePeers(animDt);
-    if (life && lifeView) {
-      lifeView.update(g.sim.player, animDt, follow.camera.position);
+    if (life && landView) {
+      landView.update(g.sim.player, animDt, follow.camera.position);
       lifeUI?.update(animDt);
       minigames?.update();
       party?.update();

@@ -150,7 +150,7 @@ impl Gate {
         self.stage.send_replace(Stage::Updating);
         tokio::time::sleep(Duration::from_millis(200)).await;
         match self.ask(Duration::from_secs(10), |reply| ToDirectory::SaveAll { reply }).await {
-            Some(Answer::Written { lives }) => println!("saved {lives} islands"),
+            Some(Answer::Written { lives }) => println!("saved {lives} lives"),
             _ => eprintln!("the lives weren't all written in time"),
         }
         self.stage.send_replace(Stage::Closing);

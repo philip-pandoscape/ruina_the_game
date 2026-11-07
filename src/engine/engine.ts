@@ -2,7 +2,7 @@ import { type Levels, sameLevels } from '../content/skills';
 import type { Build } from '../content/tuning';
 import type { Actor } from './actors/actor';
 import type { Placement } from './life/interact';
-import type { Saved } from './life/save';
+import type { SavedLife } from './life/save';
 import type { Command, OtherPlayer, OthersVehicle } from './life/life';
 import type { LifeState, Weather } from './life/state';
 import type { House, Land, Market, Scarecrow, Vehicle } from './life/land';
@@ -14,7 +14,7 @@ import { EMBERHOLM, growRegionHere, type RegionData, worldOf } from './world/reg
 import { type WorldLayout, worldLayout } from './world/layout';
 import { WorldGround } from './world/worldGround';
 import type { BoxCollider, Deck } from './world/types';
-import { IslandView } from './lifeView';
+import { LifeView } from './lifeView';
 import { EngineSession, type SessionView } from './session';
 import { RangeView, SimView } from './views';
 
@@ -82,7 +82,7 @@ export class Engine {
   /** Offline: your arrows and meteors in flight. */
   readonly range: RangeView | null;
   /** The island (trade, farming, housing, vehicles, quests) as the engine last showed it. */
-  readonly life: IslandView;
+  readonly life: LifeView;
   /**
    * Called when a step puts you somewhere by itself (offline, fallen out of the bottom of a copy:
    * back where it's entered), with the way you face, so the camera and auto-run can follow.
@@ -132,7 +132,7 @@ export class Engine {
     this.solid = first.solid;
     this.sim = new SimView(this.world, first.player);
     this.range = o.online ? null : new RangeView();
-    this.life = new IslandView(zone, first.life.state, (c) => this.command(c));
+    this.life = new LifeView(zone, first.life.state, (c) => this.command(c));
     this.take(first);
   }
 
@@ -407,8 +407,8 @@ export class Engine {
    * away, where you stood. `now` is the clock `savedAt` was measured on. Returns false, changing
    * nothing, for a save from a newer game than this one.
    */
-  loadIsland(data: Saved, now = Date.now()): boolean {
-    const loaded = this.session.call<boolean>('loadIsland', { data, now });
+  loadLife(data: SavedLife, now = Date.now()): boolean {
+    const loaded = this.session.call<boolean>('loadLife', { data, now });
     this.reread();
     return loaded;
   }
@@ -437,8 +437,8 @@ export class Engine {
    * Online: your life as a tick has it: its state, your land, the world's market, and whether you're
    * placing something or resting.
    */
-  takeIsland(island: { state: LifeState; land: Land; market: Market; placing: Placement | null; resting: boolean }): void {
-    this.session.takeIsland(island);
+  takeLife(island: { state: LifeState; land: Land; market: Market; placing: Placement | null; resting: boolean }): void {
+    this.session.takeLife(island);
     this.reread();
   }
 
@@ -456,12 +456,12 @@ export class Engine {
    * move with you as of that word (its clock, your labor, the weather, your vehicles, resting and
    * placing), and the commands the server hasn't run yet (`ahead`) run again on the island it sent.
    */
-  replayIsland(
+  replayLife(
     you: { clock: number; labor: number; weather: Weather; vehicles: Vehicle[]; resting: boolean; placing: Placement | null },
     ahead: readonly Command[],
   ): void {
     const { clock, labor, weather, vehicles, resting, placing } = you;
-    this.session.call('replayIsland', { you: { clock, labor, weather, vehicles, resting, placing }, ahead });
+    this.session.call('replayLife', { you: { clock, labor, weather, vehicles, resting, placing }, ahead });
   }
 
   /** A house solid here as it is on the server: yours, or someone else's where you see it (with an id of its own). */

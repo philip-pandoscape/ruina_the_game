@@ -13,7 +13,7 @@ import type { ZoneData } from './world/region';
 /** How many things the island has said that are kept for the page to show (the oldest go first). */
 const KEPT = 200;
 
-export class IslandView {
+export class LifeView {
   /** The island's state as last read: replaced whole each time, so read it afresh rather than keep parts of it. */
   state: LifeState;
   /** Your land as last read (houses, farms, ships, packs, vehicles): replaced whole each time too. */

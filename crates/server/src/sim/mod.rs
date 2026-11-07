@@ -268,7 +268,7 @@ impl Game {
         let r = map.region(region).unwrap_or_else(|| panic!("no region {region:?} in this world"));
         let zone = map.zone(r);
         let mut actors = Actors::new();
-        // What the region brings to life (its recipe's spawns), as the browser's island offline has it.
+        // What the region brings to life (its recipe's spawns), as the browser has it offline.
         spawn_all(&mut actors, region_spawns(&zone.recipe));
         Game::playing(sim, SpaceId::channel(region, n), zone, played(zone), actors)
     }
@@ -559,11 +559,11 @@ impl Game {
             let mut life = Life::new(zone, None, None);
             let mut player = Player::new(Spawn { x: zone.recipe.spawn.x, z: zone.recipe.spawn.z, facing: zone.recipe.spawn.facing }, 0, Build::default());
             stand_on_ground(&mut player, &self.open);
-            if let Some(island) = &a.life
-                && let Err(e) = load_island(&mut life, &mut player, &mut self.open, character, island, a.saved_at.unwrap_or(a.now), a.now)
+            if let Some(saved) = &a.life
+                && let Err(e) = load_life(&mut life, &mut player, &mut self.open, character, saved, a.saved_at.unwrap_or(a.now), a.now)
             {
                 eprintln!("character {character}: the saved life can't be read ({e}); it is kept as it is, and this visit isn't saved");
-                life.toast("Your island couldn't be loaded. It's kept safe on the server, but nothing from this visit will be saved.", "bad");
+                life.toast("Your character couldn't be loaded. It's kept safe on the server, but nothing from this visit will be saved.", "bad");
                 keep_saved = true;
             }
             // What they place is named from the world's ids (a block the store gave them).
@@ -639,7 +639,7 @@ impl Game {
         let (player, life) = self.players.leave(client(character))?;
         let mut life = life?;
         let outside = self.outside();
-        let island = outside_of(island_of(&player, &mut life, &mut self.open, character), outside);
+        let save = outside_of(life_save(&player, &mut life, &mut self.open, character), outside);
         // Their land stands here while they're away, as they left it.
         if self.copy_of().is_none() {
             self.lands.keep(character, &m.name, life.land.clone());
@@ -649,7 +649,7 @@ impl Game {
         if m.keep_saved {
             return None;
         }
-        let write = self.life_write(character, m.epoch, &m.home, island, None);
+        let write = self.life_write(character, m.epoch, &m.home, save, None);
         self.lingering.insert(character, Lingering { at: Instant::now(), epoch: m.epoch, home: m.home, player, life, dirty: false });
         Some(write)
     }
@@ -716,17 +716,17 @@ impl Game {
                 continue;
             }
             if let Some((p, Some(life))) = self.players.open_mut(client(id)) {
-                let island = outside_of(island_of(p, life, &mut self.open, id), outside);
-                out.push(self.life_write(id, epoch, &home, island, None));
+                let save = outside_of(life_save(p, life, &mut self.open, id), outside);
+                out.push(self.life_write(id, epoch, &home, save, None));
             }
         }
         // Someone away whose game was paid out since they left.
         let dirty: Vec<i64> = self.lingering.iter().filter(|(_, l)| l.dirty).map(|(id, _)| *id).collect();
         for id in dirty {
             let l = self.lingering.get_mut(&id).expect("there");
-            let island = island_of(&l.player, &mut l.life, &mut self.open, id);
+            let save = life_save(&l.player, &mut l.life, &mut self.open, id);
             let (epoch, home) = (l.epoch, l.home.clone());
-            out.push(self.life_write(id, epoch, &home, island, None));
+            out.push(self.life_write(id, epoch, &home, save, None));
         }
         out
     }
@@ -849,7 +849,7 @@ impl Game {
         *p = Player::new(Spawn { x: zone.recipe.spawn.x, z: zone.recipe.spawn.z, facing: zone.recipe.spawn.facing }, 0, build);
         stand_on_ground(p, &self.open);
         life.after_reset(p);
-        let island = island_of_ref(p, life);
+        let save = life_save_ref(p, life);
         let mut freed = false;
         for plot in plots {
             freed |= self.lands.freed(&plot, character);
@@ -865,7 +865,7 @@ impl Game {
         let (epoch, home) = (m.epoch, m.home.clone());
         self.players.restart_inputs(client(character));
         self.refresh_estate(character);
-        Some(self.life_write(character, epoch, &home, island, None))
+        Some(self.life_write(character, epoch, &home, save, None))
     }
 
     /// Everything solid that anyone's land holds, made again from scratch (after a reset, or a
@@ -1324,12 +1324,12 @@ impl Game {
     }
 }
 
-/// An island as saved, standing at `outside` instead if it's given (a copy's door).
-fn outside_of(mut island: Value, outside: Option<Spot>) -> Value {
+/// A life as saved, standing at `outside` instead if it's given (a copy's door).
+fn outside_of(mut save: Value, outside: Option<Spot>) -> Value {
     if let Some(o) = outside {
-        island["player"] = json!({ "x": o.x, "y": o.y, "z": o.z, "facing": o.facing });
+        save["player"] = json!({ "x": o.x, "y": o.y, "z": o.z, "facing": o.facing });
     }
-    island
+    save
 }
 
 /// Stands a player on whatever is under them (terrain, a deck, a roof).
@@ -1396,9 +1396,9 @@ fn short_time(s: f64) -> String {
 /// Takes a saved life up into a fresh Life and player (src/app/save.ts applySave): its state, the
 /// time that passed while its owner was away, and where they stood. (The store reads it:
 /// crate::store::Db::load_life.)
-pub fn load_island(life: &mut Life, p: &mut Player, world: &mut OpenWorld, owner: i64, island: &Value, saved_at: i64, now: i64) -> Result<(), String> {
-    let (state, mut land) = land::read_saved(island)?;
-    if land::kept_inside(island) {
+pub fn load_life(life: &mut Life, p: &mut Player, world: &mut OpenWorld, owner: i64, saved: &Value, saved_at: i64, now: i64) -> Result<(), String> {
+    let (state, mut land) = land::read_saved(saved)?;
+    if land::kept_inside(saved) {
         land.rebase(saved_at as f64 / 1000.0 - state.clock);
     }
     life.load(state, land);
@@ -1427,7 +1427,7 @@ pub fn load_island(life: &mut Life, p: &mut Player, world: &mut OpenWorld, owner
     }
     // Where they were.
     let hf = world.terrain();
-    let at = &island["player"];
+    let at = &saved["player"];
     let num = |k: &str| at.get(k).and_then(Value::as_f64).filter(|v| v.is_finite());
     if let (Some(x), Some(z), Some(y), Some(facing)) = (num("x"), num("z"), num("y"), num("facing"))
         && hf.inside(x, z, 10.0)
@@ -1441,10 +1441,10 @@ pub fn load_island(life: &mut Life, p: &mut Player, world: &mut OpenWorld, owner
     Ok(())
 }
 
-/// A life put away as it would be saved right now (src/app/save.ts islandData): riding isn't saved,
+/// A life put away as it would be saved right now (src/app/save.ts lifeSave): riding isn't saved,
 /// so you're standing beside your vehicle next time. (The store writes it:
 /// crate::store::Db::write_lives.)
-pub fn island_of(p: &Player, life: &mut Life, world: &mut OpenWorld, owner: i64) -> Value {
+pub fn life_save(p: &Player, life: &mut Life, world: &mut OpenWorld, owner: i64) -> Value {
     let mut at = (p.pos.x, p.pos.y, p.pos.z);
     if p.mode == Mode::Ride {
         let mut q = p.clone();
@@ -1458,7 +1458,7 @@ pub fn island_of(p: &Player, life: &mut Life, world: &mut OpenWorld, owner: i64)
     json!({ "state": life.state, "land": life.land, "player": { "x": at.0, "y": at.1, "z": at.2, "facing": p.facing } })
 }
 
-fn island_of_ref(p: &Player, life: &Life) -> Value {
+fn life_save_ref(p: &Player, life: &Life) -> Value {
     json!({ "state": life.state, "land": life.land, "player": { "x": p.pos.x, "y": p.pos.y, "z": p.pos.z, "facing": p.facing } })
 }
 
@@ -1755,7 +1755,7 @@ pub(crate) mod tests {
         };
         let first = solids(&[3, 1, 4, 2, 5, 9, 6, 8, 7]);
         assert_eq!(first, solids(&[7, 8, 6, 9, 5, 2, 4, 1, 3]));
-        // And each of them is in it: the island's own obstacles and nine scarecrows' posts.
+        // And each of them is in it: the region's own obstacles and nine scarecrows' posts.
         assert_eq!(first.len(), Game::test().open.index.obstacles.len() + 9);
     }
 
@@ -1783,7 +1783,7 @@ pub(crate) mod tests {
         let fresh = ch.reset(7).expect("a fresh life");
         assert_eq!((fresh.character, fresh.epoch), (7, Epoch(1)));
         assert_eq!(ch.players.open_view(client(7)).unwrap().0.skills, Build::default().skills);
-        // The island's own islanders keep theirs.
+        // Those playing the starting build keep it.
         let (_, build) = channel_with(Some(crate::skills::saved_build(&Build::default())));
         assert_eq!(build, build_json(&Build::default()));
     }

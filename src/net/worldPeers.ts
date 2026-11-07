@@ -1,5 +1,5 @@
 import {
-  IslandView,
+  LifeView,
   newLifeState,
   type OthersVehicle,
   type House,
@@ -96,7 +96,7 @@ export interface Peer {
   /** Their state at the moment drawn, between the server's updates. */
   readonly shown: PlayerState;
   /** What of their island everyone sees: houses, farms and ships, and the vehicles, packs and glider they have out. */
-  readonly life: IslandView;
+  readonly life: LifeView;
   /** How far they are from you (m), as of the last frame. */
   readonly away: number;
 }
@@ -108,7 +108,7 @@ interface Kept {
   online: boolean;
   drawn: boolean;
   shown: PlayerState;
-  life: IslandView;
+  life: LifeView;
   away: number;
   samples: Sample[];
   clock: number;
@@ -137,7 +137,7 @@ export class WorldPeers {
   constructor(
     private zone: ZoneData,
     private engine: Engine,
-    private mine: IslandView,
+    private mine: LifeView,
     private me: number,
     link: WorldLink,
   ) {
@@ -207,7 +207,7 @@ export class WorldPeers {
     let p = this.peers.get(id);
     if (p) return p;
     // What of their island everyone sees (their houses, farms, ships, vehicles and packs), to draw.
-    const life = new IslandView(this.zone, newLifeState({ coins: 0, labor: 0, seed: this.zone.recipe.seed }), () => {});
+    const life = new LifeView(this.zone, newLifeState({ coins: 0, labor: 0, seed: this.zone.recipe.seed }), () => {});
     life.weather = this.mine.weather;
     p = {
       id,

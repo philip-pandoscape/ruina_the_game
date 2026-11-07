@@ -868,7 +868,7 @@ mod tests {
             "id": id, "name": id, "seed": seed, "climate": "temperate",
             "terrain": {
                 "cells": 256, "cell": 2.0, "water": 0.0, "origin": [mid, 0.0],
-                "island": { "x": land, "z": 0.0, "radius": radius, "lobes": [[3, 12.0, 0.4]], "warp": 10.0, "warpScale": 90.0 },
+                "landmass": { "x": land, "z": 0.0, "radius": radius, "lobes": [[3, 12.0, 0.4]], "warp": 10.0, "warpScale": 90.0 },
                 "shore": { "beach": 20.0, "beachHeight": 2.0, "inlandRise": 0.02, "seabedSlope": 0.085, "seabedCurve": 0.00035, "maxDepth": 30.0 },
                 "hills": { "scale": 120.0, "height": hills, "detailScale": 40.0, "detail": 1.0, "inlandFrom": 20.0, "inlandTo": 80.0 },
                 "sandBelow": 1.6, "rockSlope": 1.2

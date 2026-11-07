@@ -2,7 +2,7 @@ import { dungeonDef } from '../../../engine/zone';
 import { esc } from '../../../util/html';
 import { buttonHtml } from '../../components/button';
 import type { View } from '../../components/window';
-import type { IslandUI } from '../context';
+import type { LifeContext } from '../context';
 
 // Developer Tools (`, or from the Admin window): gifts, island time, teleports (to the dungeons'
 // doors too), starting the island over and bug reports, for trying things out quickly. Online the
@@ -11,7 +11,7 @@ import type { IslandUI } from '../context';
 /** A small button in the panel. */
 const small = (label: string, act: string, arg?: string | number): string => buttonHtml(label, act, { arg, small: true });
 
-export function devView(ui: IslandUI): View {
+export function devView(ui: LifeContext): View {
   const life = ui.life;
   const app = ui.app;
   // The dungeons' doors too (they're no place on the map: the way in is a secret).

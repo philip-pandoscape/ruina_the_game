@@ -12,7 +12,7 @@ export interface ZoneRecipe {
     cells: number;
     cell: number;
     water: number;
-    island: { x: number; z: number; radius: number; lobes: Array<[number, number, number]>; warp: number; warpScale: number };
+    landmass: { x: number; z: number; radius: number; lobes: Array<[number, number, number]>; warp: number; warpScale: number };
     bays: Array<{ x: number; z: number; r: number }>;
     headlands: Array<{ x: number; z: number; r: number; push: number }>;
     islets: Array<{ x: number; z: number; r: number; h: number }>;

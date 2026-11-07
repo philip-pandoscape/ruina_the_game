@@ -36,7 +36,7 @@ browser ─WebSocket─▶ gate ──Inputs, Ask──▶ sim (a thread for eac
   message carrying them whole (`ToSim::Transfer`); the directory says where (`ToDirectory::Route`)
   and grants them there under a newer epoch. Never reach into a game from outside its thread.
 - **Every write about a character carries its epoch** (`LifeWrite::epoch`), and the store refuses a
-  stale one. A life is put away (`sim::island_of`) and taken up (`sim::load_island`) in the
+  stale one. A life is put away (`sim::life_save`) and taken up (`sim::load_life`) in the
   simulation, read and written in the store (`Db::load_life`, `Db::write_lives`).
 - **Nothing a browser says about its own state is believed**: it presses keys and asks.
 - **What a tier needs of another comes as a message**: parties (social), who plays where and which

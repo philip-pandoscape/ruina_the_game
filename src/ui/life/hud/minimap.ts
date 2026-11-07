@@ -1,6 +1,6 @@
 import { questsAt } from '../../../engine/life';
 import { el } from '../../components/dom';
-import type { IslandUI } from '../context';
+import type { LifeContext } from '../context';
 import { type WorldPictures, questMark } from '../map';
 
 // The minimap, top right: the world around you, north up (each region's picture where the world
@@ -13,7 +13,7 @@ export class Minimap {
   private zoom = 1;
 
   constructor(
-    private ui: IslandUI,
+    private ui: LifeContext,
     private pictures: WorldPictures,
   ) {
     this.el.id = 'hud-minimap';

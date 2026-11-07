@@ -9,7 +9,7 @@ import {
   stageReady,
   stillNeeds,
   nodeReady,
-  type IslandRead,
+  type LifeRead,
   shipFinished,
   shipNeeds,
   shipOn,
@@ -26,7 +26,7 @@ import type { SimRead } from '../../../engine/rules';
 export type Goal = { x: number; z: number; label: string };
 
 /** Where the first unfinished quest wants you to go. */
-export function questGoal(life: IslandRead, sim: SimRead): Goal | null {
+export function questGoal(life: LifeRead, sim: SimRead): Goal | null {
   const r = life.zone.recipe;
   for (const qp of life.state.quests.active) {
     const q = questDef(qp.id);
@@ -48,7 +48,7 @@ export function questGoal(life: IslandRead, sim: SimRead): Goal | null {
 }
 
 /** Where an unfinished objective leads, or null if nowhere in particular. */
-function objectiveGoal(life: IslandRead, sim: SimRead, o: Objective): Goal | null {
+function objectiveGoal(life: LifeRead, sim: SimRead, o: Objective): Goal | null {
   const r = life.zone.recipe;
   const s = life.state;
   const n = o.npc ? r.npcs.find((x) => x.id === o.npc) : undefined;
@@ -105,7 +105,7 @@ function objectiveGoal(life: IslandRead, sim: SimRead, o: Objective): Goal | nul
 }
 
 /** The spot a quest's marker names, called by its own name there unless the marker gives another. */
-function marked(life: IslandRead, m: QuestMarker | undefined): Goal | null {
+function marked(life: LifeRead, m: QuestMarker | undefined): Goal | null {
   if (!m) return null;
   const r = life.zone.recipe;
   const at = (spot: { x: number; z: number } | undefined, name: string): Goal | null => (spot ? { x: spot.x, z: spot.z, label: m.label ?? name } : null);
@@ -132,7 +132,7 @@ function marked(life: IslandRead, m: QuestMarker | undefined): Goal | null {
 const benchGoal = (b: { x: number; z: number; name?: string }): Goal => ({ x: b.x, z: b.z, label: b.name ?? 'Workbench' });
 
 /** The nearest resource node that gives `kind` (timber, stone...), one ready to work before one picked clean. */
-function nodeFor(life: IslandRead, sim: SimRead, kind?: string): Goal | null {
+function nodeFor(life: LifeRead, sim: SimRead, kind?: string): Goal | null {
   const p = sim.player.pos;
   let best: Goal | null = null;
   let bestScore = Infinity;
@@ -149,7 +149,7 @@ function nodeFor(life: IslandRead, sim: SimRead, kind?: string): Goal | null {
 }
 
 /** The workbench that makes a pack. */
-function benchFor(life: IslandRead, pack: string): Goal | null {
+function benchFor(life: LifeRead, pack: string): Goal | null {
   const rc = RECIPES.find((x) => x.makes.pack === pack);
   const b = rc ? life.zone.recipe.workbenches.find((w) => w.id === rc.bench) : undefined;
   return b ? benchGoal(b) : null;
@@ -160,7 +160,7 @@ function benchFor(life: IslandRead, pack: string): Goal | null {
  * have a pack it wants on your back or aboard a vehicle; a pack it wants that you left lying
  * somewhere; otherwise the bench that makes the first pack it still wants.
  */
-function fetchFor(life: IslandRead, sim: SimRead, needs: Array<{ pack: string; have: number; need: number }>, ready: boolean, site: Goal): Goal {
+function fetchFor(life: LifeRead, sim: SimRead, needs: Array<{ pack: string; have: number; need: number }>, ready: boolean, site: Goal): Goal {
   const want = needs.filter((n) => n.have < n.need).map((n) => n.pack);
   if (ready || !want.length) return site;
   const mine = life.land.packs.filter((pk) => want.includes(pk.def));

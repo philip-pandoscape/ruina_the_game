@@ -6,7 +6,7 @@ import { tabsHtml } from '../../components/tabs';
 import type { View } from '../../components/window';
 import { type MenuEntry, openMenu } from '../../theme/contextMenu';
 import { iconHtml, money, uiIcon } from '../../theme/icons';
-import type { IslandUI, ShopTab } from '../context';
+import type { LifeContext, ShopTab } from '../context';
 
 // A merchant's window, with your bag open beside it: what they sell, what of yours they buy, and
 // what you sold them that they still hold for you (the buyback, until you walk off). A click buys
@@ -22,7 +22,7 @@ const TABS = [
 const ware = (act: string, item: string, slot: string, name: string, price: string, cant = false): string =>
   `<div class="m-item${cant ? ' cant' : ''}" data-act="${act}" data-arg="${item}" data-tip="item:${item}"${cant ? ' disabled' : ''}>${slot}<div><div class="nm">${esc(name)}</div><div class="pr">${price}</div></div></div>`;
 
-export function shopView(ui: IslandUI, npcId: string, tab: ShopTab): View {
+export function shopView(ui: LifeContext, npcId: string, tab: ShopTab): View {
   const life = ui.life;
   const v = vendorFor(npcId)!;
   const n = life.zone.recipe.npcs.find((x) => x.id === npcId)!;
@@ -102,7 +102,7 @@ export function shopView(ui: IslandUI, npcId: string, tab: ShopTab): View {
 }
 
 /** A merchant's item, right-clicked: buy or sell one, or a handful. */
-function shopMenu(ui: IslandUI, npc: string, act: 'buy' | 'sell' | 'buyback', item: string, cant: boolean, x: number, y: number): void {
+function shopMenu(ui: LifeContext, npc: string, act: 'buy' | 'sell' | 'buyback', item: string, cant: boolean, x: number, y: number): void {
   const def = itemDef(item);
   const go = (t: 'buy' | 'sell' | 'buyback', n: number) => () => ui.command({ t, npc, item, n });
   const broke = cant ? 'Not enough money' : undefined;

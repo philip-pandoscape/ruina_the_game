@@ -1,4 +1,4 @@
-import { type IslandView, islandData, type Saved } from '../engine/life';
+import { type LifeView, lifeSave, type SavedLife } from '../engine/life';
 import type { SimView } from '../engine/rules';
 
 // Your island between visits, in this browser: only for automated tests and bug-report replays
@@ -9,11 +9,11 @@ import type { SimView } from '../engine/rules';
 export const SAVE_KEY = 'ruina.emberholm.v1';
 const KEY = SAVE_KEY;
 
-export function saveData(life: IslandView, sim: SimView): Saved {
-  return { savedAt: Date.now(), ...islandData(life, sim) };
+export function saveData(life: LifeView, sim: SimView): SavedLife {
+  return { savedAt: Date.now(), ...lifeSave(life, sim) };
 }
 
-export function saveLife(life: IslandView, sim: SimView): void {
+export function saveLife(life: LifeView, sim: SimView): void {
   try {
     localStorage.setItem(KEY, JSON.stringify(saveData(life, sim)));
   } catch {
@@ -29,11 +29,11 @@ export function clearLife(): void {
   }
 }
 
-/** The island kept in this browser, or null if there is none (load it with Engine.loadIsland). */
-export function savedIsland(): Saved | null {
+/** The island kept in this browser, or null if there is none (load it with Engine.loadLife). */
+export function savedLife(): SavedLife | null {
   try {
     const raw = localStorage.getItem(KEY);
-    return raw ? (JSON.parse(raw) as Saved) : null;
+    return raw ? (JSON.parse(raw) as SavedLife) : null;
   } catch {
     return null;
   }

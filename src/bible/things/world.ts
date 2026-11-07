@@ -10,7 +10,7 @@ import type { ActorKind } from '../../content/actors';
 import { DUNGEONS, type DungeonDef, type ZoneNpc, type ZonePlace, type ZoneRecipe } from '../../engine/zone';
 import { count, duration, frames, metres, num, speed, times } from '../format';
 import { figure, join, kind, note, table } from '../kit';
-import { drawIsland, growIsland, type Layers } from '../map';
+import { drawRegion, growRegion, type Layers } from '../map';
 import { type Html, link, md, phrase, raw } from '../md';
 import { rustConst } from '../source';
 import { nearestPlace, npcLink, placeLink, ZONE } from './refs';
@@ -39,7 +39,7 @@ function drawMap(root: HTMLElement, all: boolean, mark?: string): void {
   requestAnimationFrame(() =>
     setTimeout(() => {
       if (!canvas.isConnected) return;
-      drawIsland(canvas, growIsland(), all ? ZONE_LAYERS : PLACE_LAYERS, all, mark);
+      drawRegion(canvas, growRegion(), all ? ZONE_LAYERS : PLACE_LAYERS, all, mark);
       canvas.dataset.drawn = 'true';
     }),
   );

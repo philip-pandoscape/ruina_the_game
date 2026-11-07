@@ -10,12 +10,12 @@ import type { View } from '../../components/window';
 import { WEAPON_ICONS, WEAPON_NAMES } from '../../icons';
 import { comboDamage } from '../../skills/describe';
 import { iconHtml, money } from '../../theme/icons';
-import type { IslandUI } from '../context';
+import type { LifeContext } from '../context';
 
 // The character window (P): you, what you wear and carry in each slot (most still to come), and
 // your numbers. Its MP and stamina tick along with the bars beside your portrait.
 
-export function characterView(ui: IslandUI): View {
+export function characterView(ui: LifeContext): View {
   const life = ui.life;
   const p = ui.sim.player;
   const v = ui.vitals();

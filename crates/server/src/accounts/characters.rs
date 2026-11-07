@@ -1,11 +1,11 @@
-//! Characters: an account holds up to MAX_PER_ACCOUNT, each with its own island (kept on its row in
+//! Characters: an account holds up to MAX_PER_ACCOUNT, each with its own life (kept on its row in
 //! Postgres) and a name no other character on the server has, whatever the case, since names show
 //! over heads. The browser's character select screen (src/ui/characterSelect.ts) lists them, makes
 //! new ones and deletes them; the world plays whichever it picks (crates/server/src/gate/socket.rs).
 //!
 //!   GET    /api/characters       yours, oldest first: {characters: [Character], max}
-//!   POST   /api/characters       {name}: a new one with a fresh island -> {character}
-//!   DELETE /api/characters/{id}  {name}: gone for good, island and all (its name typed to confirm)
+//!   POST   /api/characters       {name}: a new one with a fresh life -> {character}
+//!   DELETE /api/characters/{id}  {name}: gone for good, life, land and all (its name typed to confirm)
 
 use axum::Json;
 use axum::extract::{Path, State};
@@ -67,7 +67,7 @@ impl Character {
 }
 
 /// Skill points for the quests in `done` (as crate::life::progress::skill_budget counts them, without
-/// reading the whole island).
+/// reading the whole life).
 fn skill_points(done: &[String]) -> u32 {
     let earned: u32 = quests().iter().filter_map(|q| q.rewards.skill_points.filter(|&n| n != 0 && done.contains(&q.id))).sum();
     tuning().skills.start_points + earned
@@ -78,8 +78,8 @@ pub async fn of_account(db: &PgPool, account: i64) -> Result<Vec<Character>, sql
     let rows: Vec<Row> = sqlx::query_as(
         "SELECT id, name, CASE WHEN space LIKE 'channel:%' THEN split_part(space, ':', 3)::int END, \
            (extract(epoch FROM last_played_at) * 1000)::bigint, \
-           (extract(epoch FROM created_at) * 1000)::bigint, island->'state'->'quests'->'done', \
-           island->'state'->'coins', build \
+           (extract(epoch FROM created_at) * 1000)::bigint, life->'state'->'quests'->'done', \
+           life->'state'->'coins', build \
          FROM characters WHERE account_id = $1 ORDER BY id",
     )
     .bind(account)
@@ -111,7 +111,7 @@ pub async fn keep_builds_by_id(db: &PgPool) -> Result<(u64, u64), sqlx::Error> {
     Ok((rewritten, left))
 }
 
-/// Adds a character with a fresh island. None if the name is taken, whatever the case.
+/// Adds a character with a fresh life. None if the name is taken, whatever the case.
 pub async fn insert(tx: &mut Transaction<'_, Postgres>, account: i64, name: &str) -> Result<Option<i64>, sqlx::Error> {
     sqlx::query_scalar("INSERT INTO characters (account_id, name) VALUES ($1, $2) ON CONFLICT ((lower(name))) DO NOTHING RETURNING id")
         .bind(account)
@@ -240,7 +240,7 @@ mod tests {
     }
 
     #[test]
-    fn a_strange_island_reads_as_a_fresh_one() {
+    fn a_strange_life_reads_as_a_fresh_one() {
         let c = Character::from_row(row(Some(json!("nonsense")), Some(json!("lots")), Some(json!({ "weapon": 900, "skills": [1] }))));
         assert_eq!((c.quests_done, c.coins, c.weapon), (0, 0, starting_weapon()));
     }

@@ -19,7 +19,7 @@ import type { FocusAction } from '../engine/life';
 const QUICK = new Set<FocusAction>(['pickup', 'load', 'unload', 'board']);
 
 export function wireOnline(g: GameRefs): void {
-  const { life, lifeUI, lifeView, net, online, onlineSpace, peers, prediction, sim } = g;
+  const { life, lifeUI, landView, net, online, onlineSpace, peers, prediction, sim } = g;
   if (online) {
     const { link } = online;
     const exitToSelect = () => leaveFor(plainUrl());
@@ -114,7 +114,7 @@ export function wireOnline(g: GameRefs): void {
         if (!you) return;
         // What the server has run too is in what it sent.
         while (ahead.length && ahead[0].seq <= you.ack) ahead.shift();
-        g.engine.replayIsland(
+        g.engine.replayLife(
           you,
           ahead.map((a) => a.c),
         );
@@ -123,7 +123,7 @@ export function wireOnline(g: GameRefs): void {
     const onTick = (t: WorldTick) => {
       if (life && t.life) {
         lifeLoaded = true;
-        g.engine.takeIsland(t.life);
+        g.engine.takeLife(t.life);
         if (t.life.rev !== lastRev) {
           lastRev = t.life.rev;
           life.revision++;
@@ -139,7 +139,7 @@ export function wireOnline(g: GameRefs): void {
           const ground = life.land.scarecrows.map((sc) => sc.id).join(',') + '|' + life.land.houses.map((h) => `${h.plot}:${h.stage}`).join(',');
           if (ground !== groundKey) {
             groundKey = ground;
-            lifeView?.onGroundChanged?.();
+            landView?.onGroundChanged?.();
           }
         }
       }

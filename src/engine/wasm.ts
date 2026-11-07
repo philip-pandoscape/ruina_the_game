@@ -51,7 +51,7 @@ interface Exports {
   session_life(h: number): number;
   session_call(h: number, p: number, n: number): number;
   session_world_clock(h: number, t: number): void;
-  session_take_island(h: number, p: number, n: number): number;
+  session_take_life(h: number, p: number, n: number): number;
   session_view(h: number, events: number): number;
   session_solid_key(h: number): number;
   session_colliders(h: number): number;

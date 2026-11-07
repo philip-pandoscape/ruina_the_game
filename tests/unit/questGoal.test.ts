@@ -1,7 +1,7 @@
 import { beforeAll, expect, test } from 'vitest';
 import { type QuestMarker, QUESTS, questDef } from '../../src/content/quests';
 import { LABOR } from '../../src/content/trade';
-import { initialWeather, type IslandRead, type LifeState, newLand, newLifeState } from '../../src/engine/life';
+import { initialWeather, type LifeRead, type LifeState, newLand, newLifeState } from '../../src/engine/life';
 import type { SimRead } from '../../src/engine/rules';
 import { makeZoneWorld, type ZoneData } from '../../src/engine/zone';
 import { questGoal } from '../../src/ui/life/hud/goal';
@@ -23,7 +23,7 @@ function goalAt(quest: string, step: number, setup: (s: LifeState) => void = () 
   setup(state);
   const objectives = questDef(quest).steps[step]?.objectives ?? [];
   state.quests.active = [{ id: quest, step, counts: objectives.map(() => 0) }];
-  const life: IslandRead = {
+  const life: LifeRead = {
     zone,
     state,
     land: newLand(),

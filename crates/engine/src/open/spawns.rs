@@ -104,7 +104,7 @@ pub fn region_spawns(r: &Recipe) -> Vec<SpawnPoint> {
 
 /// Who stands about a region played without the server: what its recipe brings to life (as the
 /// server spawns it in a channel), and the townsfolk at their posts.
-pub fn island_spawns(r: &Recipe) -> Vec<SpawnPoint> {
+pub fn offline_spawns(r: &Recipe) -> Vec<SpawnPoint> {
     let mut spawns = region_spawns(r);
     for n in &r.npcs {
         spawns.push(SpawnPoint { kind: n.kind.clone(), x: n.x, z: n.z, facing: Some(n.facing), ..Default::default() });

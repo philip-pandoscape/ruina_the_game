@@ -5,7 +5,7 @@ import { gridHtml, slotHtml } from '../../components/slot';
 import { DockedWindow, frameHtml } from '../../components/window';
 import { type MenuEntry, openMenu } from '../../theme/contextMenu';
 import { iconHtml, money, uiIcon, withIcons } from '../../theme/icons';
-import type { IslandUI } from '../context';
+import type { LifeContext } from '../context';
 
 // The bag, docked on the right: a grid of what you carry, the pack on your back, your money and
 // labor. An item answers a click (picked out), a double-click (its main thing) and a right-click
@@ -19,7 +19,7 @@ export class BagWindow {
 
   /** `close` is what its close button does. */
   constructor(
-    private ui: IslandUI,
+    private ui: LifeContext,
     close: () => void,
   ) {
     this.win = new DockedWindow('lui-bag', 'right', close);

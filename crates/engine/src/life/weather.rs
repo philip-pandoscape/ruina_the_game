@@ -144,7 +144,7 @@ mod tests {
     }
 
     #[test]
-    fn islands_with_their_own_clocks_share_the_worlds_weather() {
+    fn lives_with_their_own_clocks_share_the_worlds_weather() {
         let mut a = Life::new(emberholm(), None, None);
         let mut b = Life::new(emberholm(), None, None);
         // Their clocks ran on differently while their players were away.

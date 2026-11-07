@@ -54,7 +54,7 @@ answered) as JSON, and big arrays are copied out of it.
 | `session_free(h)` | Done with it. |
 
 The page reads the view back after every step and every call, under the names it always read
-(`engine.sim`, `engine.life`: `src/engine/views.ts`, `islandView.ts`). The view is written straight
+(`engine.sim`, `engine.life`: `src/engine/views.ts`, `lifeView.ts`). The view is written straight
 from the session's values: about 18 KB, 0.04 ms to write and 0.04 ms to parse (R8.14), so typed
 arrays over the engine's memory weren't worth their cost.
 
@@ -71,8 +71,8 @@ method in `engine.ts`.
 | `enterDungeon`, `leaveDungeon`, `inside`, `floorAt`, `floorHere`, `solidity`, `spaceGround` | Into a copy of an instance, a space of its own played in place of the world, and out; its floors; what's solid; the ground of the space you're in. |
 | `groundY`, `standingAt`, `world` | The ground and what you'd stand on at a point; the world's colliders and grid. |
 | `regionsHeld`, `releaseRegion`, `regionSolids` | The regions the world holds and how many the rules grew on the spot; letting one go (`Engine.releaseRegion`); what's solid on one held (for one the rules grew themselves). |
-| `loadIsland` | An island loaded from a save. |
-| `takePlayer`, `replay`, `runAhead`, `replayIsland` | Online: the server's word on you taken, your unanswered inputs run again on top; a command run here at once, ahead of the server; your island as the server has it, with what's still ahead run again. |
+| `loadLife` | An island loaded from a save. |
+| `takePlayer`, `replay`, `runAhead`, `replayLife` | Online: the server's word on you taken, your unanswered inputs run again on top; a command run here at once, ahead of the server; your island as the server has it, with what's still ahead run again. |
 | `addSolidHouse`, `addSolidScarecrow`, `movers`, `others` | Online: what the server makes solid, others' vehicles, the players around you and their plots. |
 | `placeActor`, `setActor`, `spawnActor`, `spawnBand`, `hurtActor`, `takeHit`, `frame`, `placed` | The test API's moments set up directly (`window.__game`). |
 

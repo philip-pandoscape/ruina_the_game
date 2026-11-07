@@ -128,7 +128,7 @@ mod tests {
     use super::*;
     use crate::life::LifeEvent;
     use crate::life::quests::{complete, quest_active, quest_done, quests_at};
-    use crate::life::trade::testing::{island, toasts};
+    use crate::life::trade::testing::{new_life, toasts};
     use crate::skills::{book_index, levels_from};
     use crate::tuning::{ability_index, weapon_index};
 
@@ -166,7 +166,7 @@ mod tests {
         for q in quests() {
             assert!(q.rewards.skill_points.unwrap_or(0) > 0, "{}", q.id);
         }
-        let (mut life, _, _) = island(0.0);
+        let (mut life, _, _) = new_life(0.0);
         let start = tuning().skills.start_points;
         assert_eq!((points_earned(&life.state), skill_budget(&life.state)), (0, start));
         toasts(&mut life);
@@ -183,8 +183,8 @@ mod tests {
     }
 
     #[test]
-    fn an_island_saved_before_skills_levelled_reads_and_has_its_points() {
-        let (life, _, _) = island(0.0);
+    fn a_life_saved_before_skills_levelled_reads_and_has_its_points() {
+        let (life, _, _) = new_life(0.0);
         let mut old = serde_json::to_value(&life.state).unwrap();
         old.as_object_mut().unwrap().remove("skillXp");
         old["quests"] = serde_json::json!({ "active": [], "done": ["landfall", "patch", "wings"] });
@@ -202,7 +202,7 @@ mod tests {
 
     #[test]
     fn milestones_start_and_finish_by_themselves() {
-        let (mut life, _, _) = island(0.0);
+        let (mut life, _, _) = new_life(0.0);
         assert!(quest_active(&life, "slimeHunter").is_none());
         finish_landfall(&mut life);
         for id in ["wayfarer", "slimeHunter", "practisedHand"] {
@@ -235,7 +235,7 @@ mod tests {
 
     #[test]
     fn skills_level_up_as_you_use_them_and_count_toward_practised_hand() {
-        let (mut life, _, mut p) = island(0.0);
+        let (mut life, _, mut p) = new_life(0.0);
         finish_landfall(&mut life);
         toasts(&mut life);
         let sword = book_index("sword").unwrap();

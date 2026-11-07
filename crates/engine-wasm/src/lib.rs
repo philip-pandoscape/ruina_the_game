@@ -30,7 +30,7 @@ use ruina_engine::open::map::{region_recipe_text, world_map};
 use ruina_engine::open::zone::{Recipe, emberholm};
 
 /// Emberholm with its colliders, made the first time anything asks.
-fn island() -> &'static OpenWorld {
+fn emberholm_world() -> &'static OpenWorld {
     static W: OnceLock<OpenWorld> = OnceLock::new();
     W.get_or_init(|| OpenWorld::new(emberholm()))
 }
@@ -260,21 +260,21 @@ pub unsafe extern "C" fn building_colliders(p: *const u8, n: usize, mirror: u32,
 /// The terrain's height at (x, z).
 #[unsafe(no_mangle)]
 pub extern "C" fn ground_height(x: f64, z: f64) -> f64 {
-    island().terrain().height(x, z)
+    emberholm_world().terrain().height(x, z)
 }
 
 /// Where someone at (x, y, z) stands: the terrain or the highest deck, roof or floor they can step
 /// onto from `y`, at most `step_up` above it (crates/engine/src/open/colliders.rs ground_at).
 #[unsafe(no_mangle)]
 pub extern "C" fn ground_at_point(x: f64, z: f64, y: f64, step_up: f64) -> f64 {
-    let w = island();
+    let w = emberholm_world();
     ground_at(w.terrain(), &w.index, x, z, y, step_up)
 }
 
 /// The ground's surface at (x, z): grass, sand, rock and the rest (crates/engine/src/open/zone.rs).
 #[unsafe(no_mangle)]
 pub extern "C" fn surface_at(x: f64, z: f64) -> u32 {
-    u32::from(island().terrain().surface_at(x, z))
+    u32::from(emberholm_world().terrain().surface_at(x, z))
 }
 
 /// A fingerprint of `n` ground queries at points drawn from `seed`: the terrain's height, where
@@ -290,7 +290,7 @@ pub extern "C" fn probe(n: u32, seed: u32) -> u64 {
         }
     };
     // Over the first region and a little past it: the ground where players may go.
-    let r = island().zone.radius;
+    let r = emberholm_world().zone.radius;
     for _ in 0..n {
         let x = (rng.next_f64() * 2.0 - 1.0) * r;
         let z = (rng.next_f64() * 2.0 - 1.0) * r;
@@ -307,7 +307,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn the_island_answers() {
+    fn emberholms_ground_answers() {
         // The spawn is on land, not under the sea.
         let s = &emberholm().recipe.spawn;
         assert!(ground_height(s.x, s.z) > 0.0);

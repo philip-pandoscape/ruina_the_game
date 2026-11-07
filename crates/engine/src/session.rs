@@ -29,7 +29,7 @@ use crate::missiles::Missile;
 use crate::open::colliders::ground_at;
 use crate::open::dungeon::{Practice, dungeon};
 use crate::open::map::{Grown, WorldMap};
-use crate::open::spawns::{SpawnPoint, band_around, instance_spawns, island_spawns};
+use crate::open::spawns::{SpawnPoint, band_around, instance_spawns, offline_spawns};
 use crate::open::zone::emberholm;
 use crate::open::{Mover, OpenWorld, Sim, traverse};
 use crate::player::{Actions, Body, Build, Mode, Player, V3, step_len};
@@ -115,7 +115,7 @@ impl Session {
             events: Vec::new(),
             frames: Vec::new(),
             observed: 0,
-            spawns: island_spawns(&zone.recipe),
+            spawns: offline_spawns(&zone.recipe),
             levels,
             placed: None,
             dungeon: None,
@@ -577,7 +577,7 @@ impl Session {
     /// the one before land was kept apart: what was saved, the time you were away (`now` on the
     /// clock `savedAt` was measured on, in ms), where you stood. False, changing nothing, for a save
     /// from a newer game than this one.
-    pub fn load_island(&mut self, data: &Value, now: f64) -> bool {
+    pub fn load_life(&mut self, data: &Value, now: f64) -> bool {
         let (Some(life), world) = (self.life.as_mut(), &mut self.world) else { return false };
         if data.get("state").and_then(|s| s.get("version")).and_then(Value::as_i64).unwrap_or(0) > LIFE_VERSION {
             return false;
@@ -664,7 +664,7 @@ impl Session {
 
     /// Online, your life as a tick has it: its state, your land, the world's market, and whether
     /// you're placing something or resting.
-    pub fn take_island(&mut self, state: LifeState, land: Land, market: Market, placing: Option<Placement>, resting: bool) {
+    pub fn take_life(&mut self, state: LifeState, land: Land, market: Market, placing: Option<Placement>, resting: bool) {
         let Some(life) = self.life.as_mut() else { return };
         life.state = state;
         life.land = land;
@@ -694,7 +694,7 @@ impl Session {
     /// that move with you as of that word (its clock, your labor, the weather, your vehicles, resting
     /// and placing), and the commands the server hasn't run yet (`ahead`) run again on the island it sent.
     #[allow(clippy::too_many_arguments)]
-    pub fn replay_island(
+    pub fn replay_life(
         &mut self,
         clock: f64,
         labor: f64,

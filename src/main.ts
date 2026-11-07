@@ -24,9 +24,9 @@ import { MissileView } from './render/missiles';
 import { OpenStage } from './render/open/stage';
 import { loadModels } from './render/open/models';
 import { Engine } from './engine/engine';
-import { LifeView } from './render/open/land';
+import { LandView } from './render/open/land';
 import { LifeUI, type LifePress } from './ui/life/lifeUI';
-import { clearLife, savedIsland } from './app/save';
+import { clearLife, savedLife } from './app/save';
 import { goOnline } from './app/online';
 import { readOptions } from './app/options';
 import { makeTestApi } from './app/testApi';
@@ -181,7 +181,7 @@ const spells = new SpellView(stage.scene, vfx);
  */
 const drawnGround = (x: number, z: number, pad: number): number => {
   const ground = engine.terrain;
-  return ground ? ground.height(x, z) + Math.max(lifeView?.raisedAt(x, z, pad) ?? 0, peersView?.raisedAt(x, z, pad) ?? 0) : 0;
+  return ground ? ground.height(x, z) + Math.max(landView?.raisedAt(x, z, pad) ?? 0, peersView?.raisedAt(x, z, pad) ?? 0) : 0;
 };
 // Warning circles lie on the island's hills and farms (and on a deck or roof under whoever they're
 // about), floating on the sea rather than sinking under it.
@@ -214,7 +214,7 @@ let bugs: BugReporter | null = null;
 // ---------- The open world's life systems: trade, farming, housing, vehicles, quests ----------
 const life = engine.life;
 /** Gives the island a command, noted in a bug report's event log: the windows' commands come through here. */
-function islandCommand(c: Command): void {
+function lifeCommand(c: Command): void {
   const { t, ...rest } = c;
   bugs?.note('command', { type: t, ...rest });
   engine.command(c);
@@ -224,16 +224,16 @@ if (terrain) {
   vfx.ground = groundY;
   vfx.raised = (x, z, r) => drawnGround(x, z, r) - (engine.terrain ?? terrain).height(x, z);
 }
-const lifeView = life && models ? new LifeView(stage.scene, life, models, hero) : null;
-if (lifeView && openStage) lifeView.onGroundChanged = () => openStage.foliage.invalidate();
+const landView = life && models ? new LandView(stage.scene, life, models, hero) : null;
+if (landView && openStage) landView.onGroundChanged = () => openStage.foliage.invalidate();
 // Your houses are drawn by the village, from its kit, as far as each is built.
-if (lifeView && openStage) lifeView.houseSink = (houses) => openStage.village.setHouses('mine', houses);
+if (landView && openStage) landView.houseSink = (houses) => openStage.village.setHouses('mine', houses);
 // Auto-run (H) and travel by road from the map: it only makes the controls, so it works online too.
 const walker = life ? new AutoWalk({ sim, world, life }) : null;
 const lifeUI = life
   ? new LifeUI({
       life,
-      command: islandCommand,
+      command: lifeCommand,
       sim,
       world,
       camera: () => follow.camera,
@@ -254,7 +254,7 @@ const peersView = online && peers && models ? new PeersView(stage.scene, models,
 if (peers && openStage) peers.onGroundChanged = () => openStage.foliage.invalidate();
 if (peersView && openStage) peersView.onGroundChanged = () => openStage.foliage.invalidate();
 if (peersView && openStage) peersView.houseSink = (owner, houses) => openStage.village.setHouses(owner, houses);
-if (peersView) peersView.mineView = lifeView;
+if (peersView) peersView.mineView = landView;
 if (peers && life) engine.othersVehicles = () => peers.vehicles(sim.player);
 if (online && life) {
   const me = online.welcome.character.name;
@@ -326,7 +326,7 @@ const visit = life
         follow.reset(facing);
       },
       indoors: (inside) => {
-        if (lifeView) lifeView.indoors = inside;
+        if (landView) landView.indoors = inside;
       },
     })
   : null;
@@ -410,7 +410,7 @@ function portraitOf(who: string): string | null {
   if (!shot || shot.age > 1500) {
     // Just them, framed from in front of their face. You stand right beside whoever you talk to, so
     // with everything drawn your own head would fill the picture.
-    const body = lifeView?.villager(who);
+    const body = landView?.villager(who);
     if (body) {
       body.traverse((c) => c.layers.enable(NPC_LAYER));
       stage.scene.traverse((c) => (c as THREE.Light).isLight && c.layers.enable(NPC_LAYER));
@@ -436,8 +436,8 @@ if (life && online) {
   online.link.lag = lagMs;
 }
 if (life && testMode && opt.load) {
-  const saved = savedIsland();
-  if (saved) engine.loadIsland(saved);
+  const saved = savedLife();
+  if (saved) engine.loadLife(saved);
 }
 
 /** Moves you somewhere (the dev panel and tests), off whatever you were riding. */
@@ -702,8 +702,8 @@ const refs = {
   get lifeUI() {
     return lifeUI;
   },
-  get lifeView() {
-    return lifeView;
+  get landView() {
+    return landView;
   },
   get lockOn() {
     return lockOn;
@@ -777,8 +777,8 @@ const refs = {
   get engine() {
     return engine;
   },
-  get islandCommand() {
-    return islandCommand;
+  get lifeCommand() {
+    return lifeCommand;
   },
   get sim() {
     return sim;

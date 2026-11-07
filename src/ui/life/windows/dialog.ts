@@ -8,7 +8,7 @@ import { listHtml, rowHtml } from '../../components/list';
 import { slotHtml } from '../../components/slot';
 import type { Handler, View } from '../../components/window';
 import { iconHtml, money, uiIcon } from '../../theme/icons';
-import type { IslandUI } from '../context';
+import type { LifeContext } from '../context';
 import { dropcap, objectivesHtml, rewardsHtml } from './quest';
 
 // Talking to someone: what they say, the quests they have for you (on offer, under way, to hand
@@ -21,7 +21,7 @@ import { dropcap, objectivesHtml, rewardsHtml } from './quest';
 const option = (act: string, arg: string, icon: string, label: string, note = '', cls = ''): string =>
   `<li${cls ? ` class="${cls}"` : ''} data-act="${act}" data-arg="${arg}">${icon}<span>${label}</span>${note ? `<small>${note}</small>` : ''}</li>`;
 
-export function dialogView(ui: IslandUI, npcId: string, questId?: string, trade?: boolean): View {
+export function dialogView(ui: LifeContext, npcId: string, questId?: string, trade?: boolean): View {
   const life = ui.life;
   const n = life.zone.recipe.npcs.find((x) => x.id === npcId)!;
   const qa = questsAt(life, npcId);

@@ -60,7 +60,7 @@ import { type Command, type LifeState, questsAt, type Vehicle } from '../../src/
 import { type Actions, NO_ACTIONS } from '../../src/engine/rules';
 import { useContent } from '../../src/engine/wasm';
 import { toWorld, type ZoneNpc } from '../../src/engine/zone';
-import type { IslandUI } from '../../src/ui/life/context';
+import type { LifeContext } from '../../src/ui/life/context';
 import { questGoal } from '../../src/ui/life/hud/goal';
 import { dialogView } from '../../src/ui/life/windows/dialog';
 
@@ -94,7 +94,7 @@ const retake = (e: Engine, change: (s: LifeState) => void) => {
   const state = structuredClone(e.life!.state);
   change(state);
   const p = e.player;
-  expect(e.loadIsland({ savedAt: 0, state, player: { x: p.pos.x, y: p.pos.y, z: p.pos.z, facing: p.facing } }, 0)).toBe(true);
+  expect(e.loadLife({ savedAt: 0, state, player: { x: p.pos.x, y: p.pos.y, z: p.pos.z, facing: p.facing } }, 0)).toBe(true);
   e.life!.drainEvents();
 };
 const wren = (e: Engine) => e.world.zone!.recipe.npcs.find((n) => n.id === 'wren')!;
@@ -127,7 +127,7 @@ test('a new townsperson stands on the island, says what their file says and sell
     world: e.world,
     face: (id: string) => `<face ${e.world.zone!.recipe.npcs.find((x) => x.id === id)?.portrait}>`,
     open: () => {},
-  } as unknown as IslandUI;
+  } as unknown as LifeContext;
   const view = dialogView(ui, 'wren');
   expect(view.title).toBe(n.name);
   expect(view.portrait).toBe('<face 🕯️>');

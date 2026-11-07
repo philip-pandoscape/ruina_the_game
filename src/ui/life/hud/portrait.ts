@@ -2,7 +2,7 @@ import { LABOR } from '../../../content/trade';
 import { barHtml, setBar } from '../../components/bars';
 import { el } from '../../components/dom';
 import { money, uiIcon } from '../../theme/icons';
-import type { IslandUI } from '../context';
+import type { LifeContext } from '../context';
 
 // Top left: your portrait with your name on its ribbon, and beside it your health, MP, stamina and
 // labor, with the purse under them.
@@ -15,7 +15,7 @@ export class PortraitHud {
   /** What each bar last showed, so only changes touch the page. */
   private shown = new Map<string, string>();
 
-  constructor(private ui: IslandUI) {
+  constructor(private ui: LifeContext) {
     this.portrait.id = 'hud-portrait';
     this.vitals.id = 'hud-vitals';
   }

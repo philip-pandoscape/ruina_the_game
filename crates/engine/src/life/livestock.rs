@@ -124,7 +124,7 @@ mod tests {
     use super::*;
     use crate::life::farming::add_scarecrow;
     use crate::life::farming::grow_for;
-    use crate::life::farming::tests::{got, island};
+    use crate::life::farming::tests::{got, quiet_life};
     use crate::life::state::Stack;
     use crate::open::Sim;
 
@@ -151,7 +151,7 @@ mod tests {
 
     #[test]
     fn a_chick_raised_fed_and_collected_from() {
-        let (mut life, mut world, mut p) = island();
+        let (mut life, mut world, mut p) = quiet_life();
         let mut sim = Sim { player: &mut p, world: &mut world, owner: 1 };
         let sc = add_scarecrow(&mut life, &mut sim, -208.0, -240.0, 0.0);
         life.give("animal.chick", 1, true);

@@ -58,7 +58,7 @@ export function madeFile(made: MadeModel, seed = 1, tint?: number): string {
 const materials = new Map<string, THREE.Material>();
 
 /** The made model's own material, lit the way everything else on the island is. */
-function islandMaterial(m: THREE.Material): THREE.Material {
+function gameMaterial(m: THREE.Material): THREE.Material {
   let out = materials.get(m.uuid);
   if (!out) {
     const src = m as THREE.MeshStandardMaterial;
@@ -86,7 +86,7 @@ export function fitted(scene: THREE.Object3D, made: MadeModel, w: number, h: num
   holder.traverse((o) => {
     const mesh = o as THREE.Mesh;
     if (!mesh.isMesh) return;
-    mesh.material = Array.isArray(mesh.material) ? mesh.material.map((m) => islandMaterial(m)) : islandMaterial(mesh.material);
+    mesh.material = Array.isArray(mesh.material) ? mesh.material.map((m) => gameMaterial(m)) : gameMaterial(mesh.material);
     mesh.castShadow = true;
     mesh.receiveShadow = true;
   });

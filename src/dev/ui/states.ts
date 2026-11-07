@@ -3,7 +3,7 @@ import { CATEGORIES, type ItemCat, ITEMS, RECIPES, VENDORS } from '../../content
 import { CHALLENGE, MINIGAMES } from '../../content/minigames';
 import { QUESTS } from '../../content/quests';
 import type { Engine } from '../../engine/engine';
-import { DAY, housePose, type IslandView, islandData, type Land, type LifeState, newLand } from '../../engine/life';
+import { DAY, housePose, type LifeView, lifeSave, type Land, type LifeState, newLand } from '../../engine/life';
 import { minigameDeal } from '../../engine/minigames';
 import type { LifeUI } from '../../ui/life/lifeUI';
 import type { ChannelsUI, ChannelsView } from '../../ui/channels/channelsUI';
@@ -21,7 +21,7 @@ import type { MadeUpChannels, MadeUpParty, MadeUpTables } from './fakes';
 /** The gallery page as a recipe uses it (src/dev/ui/main.ts). */
 export interface Gallery {
   engine: Engine;
-  life: IslandView;
+  life: LifeView;
   ui: LifeUI;
   skills: SkillsPanel;
   minigames: MinigamesUI;
@@ -70,11 +70,11 @@ function faceNpc(g: Gallery, id: string): void {
 
 /** The island as a save would hold it, changed by `change`, loaded again where you stand. */
 function reload(g: Gallery, change: (state: LifeState, land: Land) => void): void {
-  const island = islandData(g.life, g.engine.sim);
+  const island = lifeSave(g.life, g.engine.sim);
   const state = structuredClone(island.state);
   const land = structuredClone(island.land ?? newLand());
   change(state, land);
-  g.engine.loadIsland({ state, land, player: island.player, savedAt: Date.now() });
+  g.engine.loadLife({ state, land, player: island.player, savedAt: Date.now() });
   g.step();
 }
 

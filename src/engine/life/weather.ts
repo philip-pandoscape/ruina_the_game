@@ -1,6 +1,6 @@
 import { FARM } from '../../content/farming';
 import { STORM } from '../../content/traversal';
-import type { IslandRead } from './life';
+import type { LifeRead } from './life';
 
 // Rain showers that water every crop on the isle, and a wind that wanders round the compass and
 // fills (or empties) your sails. Both run on the weather's clock: online the world's, the server's
@@ -8,7 +8,7 @@ import type { IslandRead } from './life';
 // (and in the rules' tests) the island's. Nothing in them is left to the island's dice, so the same
 // clock always has the same weather, here and on the server (crates/engine/src/life/weather.rs).
 
-export const raining = (life: IslandRead): boolean => life.state.clock < life.weather.rainUntil;
+export const raining = (life: LifeRead): boolean => life.state.clock < life.weather.rainUntil;
 
 const RAIN = FARM.rain;
 /**
@@ -51,12 +51,12 @@ export function hourAt(sky: { dayLengthSeconds: number; startHour: number }, sec
  * instead (src/main.ts), which everyone shares: each island's clock runs on by itself while you're
  * away, so no two islands agree on the hour.
  */
-export function hourOfDay(life: IslandRead): number {
+export function hourOfDay(life: LifeRead): number {
   return hourAt(life.zone.recipe.sky, life.state.clock);
 }
 
 /** How rough the sea is over water this deep right now, 0 (calm) to 1 (a full storm). */
-export function stormAt(life: IslandRead, depth: number): number {
+export function stormAt(life: LifeRead, depth: number): number {
   if (!raining(life)) return 0;
   const k = Math.min(1, Math.max(0, (depth - STORM.fromDepth) / (STORM.fullDepth - STORM.fromDepth)));
   return k * (0.6 + 0.4 * life.weather.windSpeed);

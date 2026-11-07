@@ -56,7 +56,7 @@ export type LifeEvent =
  * land, the world's market and weather where you are, and the land's clock (the engine's snapshot,
  * src/engine/lifeView.ts).
  */
-export interface IslandRead {
+export interface LifeRead {
   readonly zone: ZoneData;
   readonly state: LifeState;
   readonly land: Land;

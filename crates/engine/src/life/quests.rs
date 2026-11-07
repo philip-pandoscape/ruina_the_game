@@ -341,7 +341,7 @@ pub fn step_quests(life: &mut Life, sim: &mut Sim) {
 mod tests {
     use super::*;
     use crate::life::land::{Scarecrow, ShipBuild};
-    use crate::life::trade::testing::{island, toasts};
+    use crate::life::trade::testing::{new_life, toasts};
 
     fn talk(life: &mut Life, npc: &str) {
         life.notify(QuestEvent { npc: Some(npc.to_string()), ..QuestEvent::new("talk") });
@@ -365,7 +365,7 @@ mod tests {
 
     #[test]
     fn the_first_quest_starts_by_itself_and_talking_to_hollis_finishes_it() {
-        let (mut life, _, _) = island(0.0);
+        let (mut life, _, _) = new_life(0.0);
         let events = life.drain_events();
         assert_eq!(
             events,
@@ -408,7 +408,7 @@ mod tests {
 
     #[test]
     fn quests_wait_for_what_comes_before_and_for_room_in_the_bag() {
-        let (mut life, _, _) = island(0.0);
+        let (mut life, _, _) = new_life(0.0);
         assert!(!accept(&mut life, "patch"), "landfall first");
         assert!(!accept(&mut life, "no-such-quest"));
         assert!(!complete(&mut life, "no-such-quest"));
@@ -436,8 +436,8 @@ mod tests {
     }
 
     #[test]
-    fn a_quest_counts_what_the_island_already_shows_done() {
-        let (mut life, _, _) = island(0.0);
+    fn a_quest_counts_what_the_life_already_shows_done() {
+        let (mut life, _, _) = new_life(0.0);
         talk(&mut life, "hollis");
         assert!(complete(&mut life, "landfall"));
         // A scarecrow already up with eight things growing: both steps of the patch quest are done.
@@ -472,7 +472,7 @@ mod tests {
         life.notify(QuestEvent::new("buildStage"));
         assert!(is_ready(&life, "home"));
         // Half a ship on the slip is counted too.
-        let (mut life, _, _) = island(0.0);
+        let (mut life, _, _) = new_life(0.0);
         life.state.quests.done.extend(["landfall".to_string(), "westward".to_string(), "saltSail".to_string()]);
         life.state.quests.active.clear();
         life.land.ships.push(ShipBuild { id: 3, slip: "lanternwick-slip".into(), design: "cog".into(), stage: 3, ..Default::default() });
@@ -483,7 +483,7 @@ mod tests {
 
     #[test]
     fn objectives_match_only_what_they_name() {
-        let (mut life, _, _) = island(0.0);
+        let (mut life, _, _) = new_life(0.0);
         life.state.quests.active.clear();
         life.state.quests.done.extend(["landfall", "patch", "harvest", "packwright"].map(String::from));
         assert!(accept(&mut life, "westward"));
@@ -519,7 +519,7 @@ mod tests {
 
     #[test]
     fn stone_then_timber_come_before_the_house_and_count_what_you_gather() {
-        let (mut life, _, _) = island(0.0);
+        let (mut life, _, _) = new_life(0.0);
         life.state.quests.active.clear();
         life.state.quests.done.extend(["landfall", "patch", "wings", "firstFlight", "harvest", "packwright", "westward"].map(String::from));
         // Quill teaches what a house is made of before granting land.
@@ -560,7 +560,7 @@ mod tests {
 
     #[test]
     fn reaching_a_place_and_time_in_the_air_are_measured_each_step() {
-        let (mut life, mut world, mut p) = island(0.0);
+        let (mut life, mut world, mut p) = new_life(0.0);
         let mut sim = Sim { player: &mut p, world: &mut world, owner: 1 };
         talk(&mut life, "hollis");
         assert!(complete(&mut life, "landfall"));
@@ -621,7 +621,7 @@ mod tests {
         // The island goes to its owner's browser on the tick its revision moves (the server's play/mod.rs),
         // otherwise every couple of seconds. Time in the air counts every step: only the step that
         // finishes it should send the island, so the quest log and Hollis's mark change at once.
-        let (mut life, mut world, mut p) = island(0.0);
+        let (mut life, mut world, mut p) = new_life(0.0);
         let mut sim = Sim { player: &mut p, world: &mut world, owner: 1 };
         life.state.quests.done.extend(["landfall", "wings"].map(String::from));
         life.state.quests.active.clear();
@@ -648,7 +648,7 @@ mod tests {
 
     #[test]
     fn a_milestone_an_event_finishes_still_leaves_that_event_to_the_rest() {
-        let (mut life, _, _) = island(0.0);
+        let (mut life, _, _) = new_life(0.0);
         life.state.quests.done.extend(["landfall", "patch", "harvest", "packwright", "westward"].map(String::from));
         // Pack Mule one delivery short, then Wheels on its deliveries to Westwatch.
         life.state.quests.active =
@@ -660,7 +660,7 @@ mod tests {
         assert_eq!(toasts(&mut life), ["✔ Milestone: Pack Mule - 1 skill point"]);
         // A place reached the same way: Wayfarer, needing only the spire, finishes as it's
         // measured, and Wings, after it in the list, still measures the top for itself.
-        let (mut life, mut world, mut p) = island(0.0);
+        let (mut life, mut world, mut p) = new_life(0.0);
         let mut sim = Sim { player: &mut p, world: &mut world, owner: 1 };
         talk(&mut life, "hollis");
         assert!(complete(&mut life, "landfall"));
@@ -697,7 +697,7 @@ mod tests {
 
     #[test]
     fn a_milestone_finished_while_catching_up_leaves_the_rest_to_catch_up() {
-        let (mut life, _, _) = island(0.0);
+        let (mut life, _, _) = new_life(0.0);
         life.state.quests.done.extend(["landfall", "patch", "livestock", "firstFlight", "westward"].map(String::from));
         // Rancher waiting on three animals that are already in the pens, and the house quest on a
         // plot already claimed and half built.
@@ -720,7 +720,7 @@ mod tests {
 
     #[test]
     fn a_quest_given_up_goes_with_its_progress_and_its_giver_offers_it_again() {
-        let (mut life, _, _) = island(0.0);
+        let (mut life, _, _) = new_life(0.0);
         // Not one that starts by itself, a milestone, or one you haven't taken.
         assert!(!abandon(&mut life, "landfall"), "Landfall starts by itself");
         talk(&mut life, "hollis");

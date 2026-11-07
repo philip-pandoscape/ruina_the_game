@@ -10,7 +10,7 @@ import { isPine } from '../render/open/foliage';
 import { type WeaponAt } from '../render/character';
 import { isAlive, type Actor, stateName } from '../engine/creatures';
 import { NO_ACTIONS, type Actions } from '../engine/rules';
-import { demandAt, IslandView } from '../engine/life';
+import { demandAt, LifeView } from '../engine/life';
 import { arrivalOf, dungeonDef } from '../engine/zone';
 import { LifeUI } from '../ui/life/lifeUI';
 import { clearLife, saveLife } from './save';
@@ -412,7 +412,7 @@ export function makeTestApi(g: GameRefs) {
     },
     /** Testing: the height of your farm's soil or furrows drawn over (x, z), or null where there is none. */
     farmGround(x: number, z: number): number | null {
-      return g.lifeView?.farmGroundAt(x, z) ?? null;
+      return g.landView?.farmGroundAt(x, z) ?? null;
     },
     /** Testing: where the shadow under you is drawn. */
     shadowHeight(): number {
@@ -434,7 +434,7 @@ export function makeTestApi(g: GameRefs) {
     // ---- Open world ----
     /** Where your vehicles are drawn this frame. */
     drawnVehicles() {
-      return g.lifeView?.drawnVehicles() ?? [];
+      return g.landView?.drawnVehicles() ?? [];
     },
     /** The building you are in (src/render/village), and which storey: null outdoors. */
     indoors() {
@@ -474,8 +474,8 @@ export function makeTestApi(g: GameRefs) {
       return g.life ? g.skyHour() : null;
     },
     /** Queues a life command (it runs on the next sim step). */
-    lifeCommand(c: Parameters<IslandView['command']>[0]): void {
-      g.islandCommand(c);
+    lifeCommand(c: Parameters<LifeView['command']>[0]): void {
+      g.lifeCommand(c);
     },
     /**
      * Online, an admin's bots: `n` more of `brain` (skirmisher, wanderer) round you on side `team`,

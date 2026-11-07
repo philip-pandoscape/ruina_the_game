@@ -98,9 +98,9 @@ export class EngineSession {
   }
 
   /** Online, your life as a tick has it (its state and your land as they came, the world's market, whether you're placing something or resting). */
-  takeIsland(island: { state: LifeState; land: Land; market: Market; placing: unknown; resting: boolean }): void {
+  takeLife(island: { state: LifeState; land: Land; market: Market; placing: unknown; resting: boolean }): void {
     const e = wasm();
-    if (!withText(JSON.stringify(island), (p, n) => e.session_take_island(this.h, p, n))) throw new Error('engine session: the island could not be read');
+    if (!withText(JSON.stringify(island), (p, n) => e.session_take_life(this.h, p, n))) throw new Error('engine session: the island could not be read');
   }
 
   /** Everything the page reads, after a step (`events`: with what happened in it, taken) or a call. */

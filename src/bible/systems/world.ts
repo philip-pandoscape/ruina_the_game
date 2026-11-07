@@ -195,7 +195,7 @@ How steep you can climb, how deep you can wade and the rest of getting about on 
 
 The generator works through the recipe in order, each step shaping what the last one left.
 
-1. **The coast.** Every point gets a distance inland from the coast. The coast starts as a circle reaching ${metres(t.island.radius)} from the island's middle, pushed in and out round the compass by waves of its own, wandering by up to ${metres(t.island.warp)} more, pushed out at headlands, bitten into at bays, with islets raised offshore.
+1. **The coast.** Every point gets a distance inland from the coast. The coast starts as a circle reaching ${metres(t.landmass.radius)} from the island's middle, pushed in and out round the compass by waves of its own, wandering by up to ${metres(t.landmass.warp)} more, pushed out at headlands, bitten into at bays, with islets raised offshore.
 2. **The shore.** On land the ground rises over a beach ${metres(t.shore.beach)} wide to ${metres(t.shore.beachHeight)}, then ${metres(t.shore.inlandRise)} more for every metre inland. Out at sea the seabed falls away, to at most ${metres(t.shore.maxDepth)} down. Where the recipe puts a sea cliff, the coast rears up to the cliff's height within ${metres(cliffRise)} instead of shelving.
 3. **The hills.** Rolling hills up to ${metres(t.hills.height)} high, about ${metres(t.hills.scale)} from one to the next, rise in from ${metres(t.hills.inlandFrom)} inland and are at full height ${metres(t.hills.inlandTo)} inland, with a smaller ripple over them.
 4. **The mountains.** ${

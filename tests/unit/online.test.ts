@@ -84,7 +84,7 @@ test("online: the server's word on you, your island as it sends it and commands 
   prediction.beforeReplay = () => {
     if (!you) return;
     while (running.length && running[0].seq <= you.ack) running.shift();
-    client.replayIsland(
+    client.replayLife(
       you,
       running.map((r) => r.c),
     );
@@ -93,7 +93,7 @@ test("online: the server's word on you, your island as it sends it and commands 
   const word = () => ({ player: stateFromServer(server.player() as unknown as Record<string, unknown>), life: server.life()! });
   const tick = (ack: number) => {
     const h = history.get(ack)!;
-    client.takeIsland({ state: copy(h.life.state), land: copy(h.life.land), market: copy(h.life.market), placing: null, resting: false });
+    client.takeLife({ state: copy(h.life.state), land: copy(h.life.land), market: copy(h.life.market), placing: null, resting: false });
     const l = copy(h.life);
     you = { ack, clock: l.state.clock, labor: l.state.labor, weather: l.weather, vehicles: l.land.vehicles, resting: false, placing: null };
     prediction.reconcile(ack, copy(h.player));

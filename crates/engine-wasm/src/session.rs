@@ -145,7 +145,7 @@ pub extern "C" fn session_world_clock(h: u32, t: f64) {
 /// # Safety
 /// `p..p + n` lies in room `alloc` gave.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn session_take_island(h: u32, p: *const u8, n: usize) -> u32 {
+pub unsafe extern "C" fn session_take_life(h: u32, p: *const u8, n: usize) -> u32 {
     #[derive(Deserialize)]
     struct Sent {
         state: LifeState,
@@ -159,7 +159,7 @@ pub unsafe extern "C" fn session_take_island(h: u32, p: *const u8, n: usize) -> 
         resting: bool,
     }
     let Ok(sent) = serde_json::from_str::<Sent>(unsafe { text(p, n) }) else { return 0 };
-    with(h, |s| s.take_island(sent.state, sent.land, sent.market, sent.placing, sent.resting)).is_some() as u32
+    with(h, |s| s.take_life(sent.state, sent.land, sent.market, sent.placing, sent.resting)).is_some() as u32
 }
 
 /// Everything the page reads after a step (`events` 1: with what happened, taken) or a call (0),
@@ -358,7 +358,7 @@ fn call(s: &mut Session, v: &Value) -> Value {
         "regionSolids" => return s.region_solids(n("place") as usize),
         "groundY" => return json!(s.ground_y(n("x"), n("z"))),
         "standingAt" => return json!(s.standing_at(n("x"), n("z"), n("near"), n("pad"))),
-        "loadIsland" => return json!(v.get("data").is_some_and(|d| s.load_island(d, n("now")))),
+        "loadLife" => return json!(v.get("data").is_some_and(|d| s.load_life(d, n("now")))),
         "reset" => {
             let at = &v["at"];
             let f = |k: &str| at.get(k).and_then(Value::as_f64).unwrap_or(0.0);
@@ -390,11 +390,11 @@ fn call(s: &mut Session, v: &Value) -> Value {
             Some(c) => s.run_ahead(&c),
             None => return json!({ "error": "runAhead: no command" }),
         },
-        "replayIsland" => {
+        "replayLife" => {
             let you = &v["you"];
             let f = |k: &str| you.get(k).and_then(Value::as_f64).unwrap_or(0.0);
             let ahead: Vec<Command> = field(v, "ahead").unwrap_or_default();
-            s.replay_island(
+            s.replay_life(
                 f("clock"),
                 f("labor"),
                 field(you, "weather").unwrap_or_default(),

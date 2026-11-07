@@ -1187,7 +1187,7 @@ pub fn keep_resting(life: &mut Life, sim: &mut Sim) {
 mod tests {
     use super::*;
     use crate::life::content::{ItemDef, items};
-    use crate::life::farming::tests::{got, island, lucky, stand};
+    use crate::life::farming::tests::{got, quiet_life, lucky, stand};
     use crate::life::state::{QuestProgress, Stack};
 
     /// What the prompt says: (action, label, detail, ok).
@@ -1232,7 +1232,7 @@ mod tests {
 
     #[test]
     fn the_prompt_is_whatever_is_in_the_cell_in_front_of_you() {
-        let (mut life, mut world, mut p) = island();
+        let (mut life, mut world, mut p) = quiet_life();
         let mut sim = Sim { player: &mut p, world: &mut world, owner: 1 };
         let sc = add_scarecrow(&mut life, &mut sim, -208.0, -240.0, 0.0);
         let aim = |life: &Life, sim: &mut Sim, idx: usize| {
@@ -1279,7 +1279,7 @@ mod tests {
 
     #[test]
     fn pressing_f_at_a_node_gathers_from_it_and_it_rests_a_while() {
-        let (mut life, mut world, mut p) = island();
+        let (mut life, mut world, mut p) = quiet_life();
         let (nd, next) = (life.zone.recipe.nodes[0].clone(), life.zone.recipe.nodes[1].id.clone());
         let mut sim = Sim { player: &mut p, world: &mut world, owner: 1 };
         stand(&mut sim, nd.x, nd.z - 2.4, 0.0);
@@ -1310,7 +1310,7 @@ mod tests {
 
     #[test]
     fn a_scarecrow_is_walked_out_and_put_down_in_front_of_you() {
-        let (mut life, mut world, mut p) = island();
+        let (mut life, mut world, mut p) = quiet_life();
         let mut sim = Sim { player: &mut p, world: &mut world, owner: 1 };
         life.give("scarecrow", 2, true);
         stand(&mut sim, -208.0, -247.0, 0.1);
@@ -1360,7 +1360,7 @@ mod tests {
         let recipe: serde_json::Value = serde_json::from_str(include_str!("../../../../shared/regions/emberholm.json")).expect("the recipe");
         let fields = (recipe["farmland"]["x"].as_f64().expect("farmland x"), recipe["farmland"]["z"].as_f64().expect("farmland z"));
         for it in placeables {
-            let (mut life, mut world, mut p) = island();
+            let (mut life, mut world, mut p) = quiet_life();
             let mut sim = Sim { player: &mut p, world: &mut world, owner: 1 };
             life.give(&it.id, 1, true);
             life.drain_events();
@@ -1380,7 +1380,7 @@ mod tests {
 
     #[test]
     fn a_house_plot_is_claimed_with_whatever_item_claims_one_for_the_blueprint_it_names() {
-        let (mut life, mut world, mut p) = island();
+        let (mut life, mut world, mut p) = quiet_life();
         let mut sim = Sim { player: &mut p, world: &mut world, owner: 1 };
         let deed = items().iter().find(|i| i.place_on.as_deref() == Some("plot")).expect("an item that claims a plot");
         let zone = life.zone;
@@ -1399,7 +1399,7 @@ mod tests {
     fn a_gathering_spot_gives_the_rare_find_its_data_names_with_its_toast() {
         let (kind, spot) = gathering().iter().find(|(_, g)| g.rare.is_some()).expect("a gathering spot with something rare");
         let rare = spot.rare.as_ref().unwrap();
-        let (mut life, mut world, mut p) = island();
+        let (mut life, mut world, mut p) = quiet_life();
         let mut sim = Sim { player: &mut p, world: &mut world, owner: 1 };
         let zone = life.zone;
         let nd = zone.recipe.nodes.iter().find(|n| &n.kind == kind).expect("a spot of that kind");
@@ -1414,7 +1414,7 @@ mod tests {
     #[test]
     fn a_tonic_or_the_developer_panel_tops_labor_up_to_the_most_labor_there_is() {
         let tonic = items().iter().find(|i| i.use_.as_ref().and_then(|u| u.labor).is_some_and(|l| l > 0.0)).expect("a labor tonic");
-        let (mut life, mut world, mut p) = island();
+        let (mut life, mut world, mut p) = quiet_life();
         let mut sim = Sim { player: &mut p, world: &mut world, owner: 1 };
         let max = labor_settings().max;
         life.state.labor = max - 1.0;
@@ -1427,7 +1427,7 @@ mod tests {
 
     #[test]
     fn commands_from_the_bag_and_the_developer_panel() {
-        let (mut life, mut world, mut p) = island();
+        let (mut life, mut world, mut p) = quiet_life();
         let mut sim = Sim { player: &mut p, world: &mut world, owner: 1 };
         stand(&mut sim, -150.0, -214.0, 1.0);
         for (item, n) in [
@@ -1487,7 +1487,7 @@ mod tests {
 
     #[test]
     fn resting_ends_as_soon_as_you_move() {
-        let (mut life, mut world, mut p) = island();
+        let (mut life, mut world, mut p) = quiet_life();
         let mut sim = Sim { player: &mut p, world: &mut world, owner: 1 };
         run_command(&mut life, &mut sim, &Command::Rest);
         keep_resting(&mut life, &mut sim);
@@ -1506,7 +1506,7 @@ mod tests {
 
     #[test]
     fn presses_and_commands_about_things_that_are_not_there_change_nothing() {
-        let (mut life, mut world, mut p) = island();
+        let (mut life, mut world, mut p) = quiet_life();
         let mut sim = Sim { player: &mut p, world: &mut world, owner: 1 };
         stand(&mut sim, -150.0, -214.0, 1.0);
         life.give("sunroot", 3, true);

@@ -173,9 +173,9 @@ pub(crate) fn tick_json(players: &Players, actors: &Actors, done: &StepOut) -> V
 pub fn run(input: &str) -> serde_json::Result<String> {
     let s: Scenario = serde_json::from_str(input)?;
     let (players, _, ticks) = play(&s);
-    let islands: Vec<Value> =
+    let lives: Vec<Value> =
         players.each_open().map(|(_, o, _, life)| json!({ "id": o, "state": life.map(|l| &l.state), "land": life.map(|l| &l.land) })).collect();
-    serde_json::to_string(&json!({ "ticks": ticks, "islands": islands }))
+    serde_json::to_string(&json!({ "ticks": ticks, "lives": lives }))
 }
 
 /// Plays a scenario out: the players and creatures as it left them, and each tick's hash.

@@ -4,7 +4,7 @@ import type { Stack } from './state';
 // on the slipways, packs, vehicles), the shape of the engine's (crates/engine/src/life/land.rs). It
 // is the world's, kept by where each piece stands and the same in every channel; while you play,
 // your own is lent to your life and changed by its rules. Its times are on the land's clock (the
-// world's online, your life's offline: IslandRead.now).
+// world's online, your life's offline: LifeRead.now).
 
 /** A trade or material pack. It is never in the bag: it is on a back, on the ground, or in cargo. */
 export interface Pack {

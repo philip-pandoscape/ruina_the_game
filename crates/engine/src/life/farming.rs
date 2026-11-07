@@ -441,7 +441,7 @@ pub(crate) mod tests {
 
     /// A fresh island with no quest under way (so only the rules being tested speak up), the world
     /// it is on, and a player at the spawn.
-    pub(crate) fn island() -> (Life, OpenWorld, Player) {
+    pub(crate) fn quiet_life() -> (Life, OpenWorld, Player) {
         let zone = emberholm();
         let mut life = Life::new(zone, None, None);
         life.state.quests = Default::default();
@@ -499,7 +499,7 @@ pub(crate) mod tests {
 
     #[test]
     fn growth_is_faster_watered_in_the_rain_and_in_its_own_climate() {
-        let (mut life, _, _) = island();
+        let (mut life, _, _) = quiet_life();
         assert_eq!(growth_rate(&life, &crop("barley", 0.0)), 1.0 / 200.0);
         assert_eq!(growth_rate(&life, &Plant { watered: true, ..crop("barley", 0.0) }), 1.25 / 200.0);
         // Emberberries are a warm-climate plant: slower on temperate Emberholm.
@@ -530,7 +530,7 @@ pub(crate) mod tests {
 
     #[test]
     fn a_plot_needs_open_level_ground_of_its_own() {
-        let (mut life, mut world, mut p) = island();
+        let (mut life, mut world, mut p) = quiet_life();
         let sim = Sim { player: &mut p, world: &mut world, owner: 1 };
         let at = |life: &Life, x: f64, z: f64| plot_problem(life, &sim, x, z, 0.0);
         assert_eq!(at(&life, -600.0, -420.0), None);
@@ -551,7 +551,7 @@ pub(crate) mod tests {
 
     #[test]
     fn a_scarecrow_post_is_solid_and_its_ground_tilled_once_per_owner() {
-        let (mut life, mut world, mut p) = island();
+        let (mut life, mut world, mut p) = quiet_life();
         let before = world.index.obstacles.len();
         assert_eq!(plot_problem(&life, &Sim { player: &mut p, world: &world, owner: 1 }, -208.0, -240.0, 0.0), None);
         let id = add_scarecrow(&mut life, &mut Sim { player: &mut p, world: &world, owner: 1 }, -208.0, -240.0, 0.0);
@@ -578,7 +578,7 @@ pub(crate) mod tests {
 
     #[test]
     fn the_cells_of_a_plot() {
-        let (mut life, _, _) = island();
+        let (mut life, _, _) = quiet_life();
         life.land.scarecrows.push(Scarecrow { id: 1, x: -208.0, z: -240.0, rot: 0.0, cells: vec![None; 16] });
         let sc = &life.land.scarecrows[0];
         assert_eq!(cell_centre(sc, 0), (-211.0, -243.0));
@@ -594,7 +594,7 @@ pub(crate) mod tests {
 
     #[test]
     fn barley_from_seed_to_harvest() {
-        let (mut life, mut world, mut p) = island();
+        let (mut life, mut world, mut p) = quiet_life();
         let mut sim = Sim { player: &mut p, world: &mut world, owner: 1 };
         let sc = add_scarecrow(&mut life, &mut sim, -208.0, -240.0, 0.0);
         life.give("seed.barley", 3, true);
@@ -625,7 +625,7 @@ pub(crate) mod tests {
 
     #[test]
     fn apple_trees_fruit_again_and_grown_trees_fell_for_timber() {
-        let (mut life, mut world, mut p) = island();
+        let (mut life, mut world, mut p) = quiet_life();
         let mut sim = Sim { player: &mut p, world: &mut world, owner: 1 };
         let sc = add_scarecrow(&mut life, &mut sim, -208.0, -240.0, 0.0);
         life.give("sapling.apple", 1, true);
@@ -655,7 +655,7 @@ pub(crate) mod tests {
             crate::life::content::crops().iter().find(|c| c.chop.as_ref().is_some_and(|ch| ch.rare.is_some())).expect("a tree with something rare in it");
         let chop = tree.chop.as_ref().unwrap();
         let rare = chop.rare.as_ref().unwrap();
-        let (mut life, _, _) = island();
+        let (mut life, _, _) = quiet_life();
         let cells = vec![Some(Plant { picked: true, ..crop(&tree.id, 1.0) })];
         life.land.scarecrows.push(Scarecrow { id: 7, x: -150.0, z: -210.0, rot: 0.0, cells });
         life.state.labor = crate::life::content::labor().max;
@@ -672,7 +672,7 @@ pub(crate) mod tests {
 
     #[test]
     fn a_tree_you_fell_counts_its_timber_toward_a_quest() {
-        let (mut life, mut world, mut p) = island();
+        let (mut life, mut world, mut p) = quiet_life();
         let mut sim = Sim { player: &mut p, world: &mut world, owner: 1 };
         let sc = add_scarecrow(&mut life, &mut sim, -208.0, -240.0, 0.0);
         life.give("sapling.apple", 1, true);
@@ -689,7 +689,7 @@ pub(crate) mod tests {
 
     #[test]
     fn cells_and_plots_that_are_not_there_are_left_alone() {
-        let (mut life, mut world, mut p) = island();
+        let (mut life, mut world, mut p) = quiet_life();
         let mut sim = Sim { player: &mut p, world: &mut world, owner: 1 };
         let sc = add_scarecrow(&mut life, &mut sim, -208.0, -240.0, 0.0);
         life.give("seed.sunroot", 2, true);

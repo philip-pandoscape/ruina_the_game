@@ -2,7 +2,7 @@ import { toScene } from '../origin';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import {
-  type IslandView,
+  type LifeView,
   type Scarecrow,
   type Vehicle,
   cellCentre,
@@ -99,7 +99,7 @@ function standsOver(hf: Heightfield, geo: THREE.BufferGeometry, steps = 6): numb
   return top + 0.01;
 }
 
-export class LifeView {
+export class LandView {
   readonly group = new THREE.Group();
   private vehicles = new Map<number, Shown>();
   private packMeshes = new Map<number, THREE.Object3D>();
@@ -172,7 +172,7 @@ export class LifeView {
 
   constructor(
     scene: THREE.Scene,
-    private life: IslandView,
+    private life: LifeView,
     private models: ModelKit,
     private hero: Hero,
     opts: { others?: boolean } = {},

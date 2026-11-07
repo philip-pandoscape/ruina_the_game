@@ -1,6 +1,6 @@
 import type { Pack } from './land';
 import { DEMAND, FRESHNESS, packDef, route } from '../../content/trade';
-import type { IslandRead } from './life';
+import type { LifeRead } from './life';
 import type { SimRead } from '../shapes';
 
 // Pack running, as the page reads it. A pack is made at a workbench from local goods and labor,
@@ -13,7 +13,7 @@ import type { SimRead } from '../shapes';
 // ---------- Prices ----------
 
 /** What `outpost` pays for `pack` against its base price right now: the world's demand there, recovering by the land's clock since it last moved (crates/engine/src/life/market.rs). */
-export function demandAt(life: IslandRead, outpost: string, pack: string): number {
+export function demandAt(life: LifeRead, outpost: string, pack: string): number {
   const d = life.market[`${outpost}:${pack}`];
   return d ? Math.min(DEMAND.max, d.value + (DEMAND.recoverPerMinute * Math.max(0, life.now - d.at)) / 60) : DEMAND.start;
 }
@@ -37,7 +37,7 @@ export interface Quote {
 }
 
 /** What a trading post would pay for a pack right now, or null if it will not buy it. */
-export function quote(life: IslandRead, pack: Pack, outpost: string): Quote | null {
+export function quote(life: LifeRead, pack: Pack, outpost: string): Quote | null {
   const def = packDef(pack.def);
   if ((def as { kind?: string }).kind === 'material') return null;
   const r = route(pack.origin, outpost);
@@ -49,8 +49,8 @@ export function quote(life: IslandRead, pack: Pack, outpost: string): Quote | nu
 
 // ---------- Where packs are ----------
 
-export const packById = (life: IslandRead, id: number): Pack | undefined => life.land.packs.find((p) => p.id === id);
-export const carried = (life: IslandRead, sim: SimRead): Pack | undefined => (sim.player.pack ? packById(life, sim.player.pack) : undefined);
+export const packById = (life: LifeRead, id: number): Pack | undefined => life.land.packs.find((p) => p.id === id);
+export const carried = (life: LifeRead, sim: SimRead): Pack | undefined => (sim.player.pack ? packById(life, sim.player.pack) : undefined);
 
 // ---------- Buyback ----------
 // A merchant holds what you sold them, at what they paid, until you walk off: sell the wrong stack

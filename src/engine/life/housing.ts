@@ -1,7 +1,7 @@
 import type { House } from './land';
 import { blueprintDef } from '../../content/housing';
 import { toWorld } from '../world/frames';
-import type { IslandRead } from './life';
+import type { LifeRead } from './life';
 
 // Houses on the plots at Hearthside Rise. A blueprint claims an empty plot; then the house goes
 // up a stage at a time as you haul each stage's material packs to the site - on your back or by
@@ -14,12 +14,12 @@ export const DAY = 86400;
 /** Where the house stands inside its plot: toward the back, leaving a front yard. */
 export const HOUSE_SETBACK = -2.5;
 
-export function plotDef(life: IslandRead, plot: string) {
+export function plotDef(life: LifeRead, plot: string) {
   return life.zone.recipe.housePlots.find((p) => p.id === plot);
 }
 
 /** The house's own position and facing in the world. */
-export function housePose(life: IslandRead, h: House): { x: number; z: number; rot: number } {
+export function housePose(life: LifeRead, h: House): { x: number; z: number; rot: number } {
   const p = plotDef(life, h.plot)!;
   const [ox, oz] = toWorld(0, HOUSE_SETBACK, p.rot);
   return { x: p.x + ox, z: p.z + oz, rot: p.rot };

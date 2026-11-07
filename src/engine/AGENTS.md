@@ -11,10 +11,10 @@ interface to the engine, export by export and call by call: `docs/engine.md`.
 
 | File | What |
 |---|---|
-| `engine.ts` | `Engine`: the rules for the page (the world or a copy of an instance, you in it, the island's life), stepping them, and every change made to them from outside as a named call: putting you somewhere, your build and levels, the world's regions (`adoptRegion`, `releaseRegion`, `regionsHeld`: what the page's worker grew, held by the rules and the page's ground, `ground`), a dungeon's floors and walls, an island loaded, the server's word on you (`correct`), your island as the server has it (`takeIsland`, `runAhead`, `replayIsland`), what's solid on the server (`addSolidHouse`, `addSolidScarecrow`, `setOthersVehicles`), and the test API's hooks. What's solid is composed from the regions held (as the page has them) and what's been built since. |
+| `engine.ts` | `Engine`: the rules for the page (the world or a copy of an instance, you in it, the island's life), stepping them, and every change made to them from outside as a named call: putting you somewhere, your build and levels, the world's regions (`adoptRegion`, `releaseRegion`, `regionsHeld`: what the page's worker grew, held by the rules and the page's ground, `ground`), a dungeon's floors and walls, an island loaded, the server's word on you (`correct`), your island as the server has it (`takeLife`, `runAhead`, `replayLife`), what's solid on the server (`addSolidHouse`, `addSolidScarecrow`, `setOthersVehicles`), and the test API's hooks. What's solid is composed from the regions held (as the page has them) and what's been built since. |
 | `session.ts` | The engine's session for one Engine: a step, a named call, and the view read back after each (`session_view`: you, your levels, the creatures, your arrows and meteors, the island, what it said, a key that changes with what's solid); the colliders and the cleared cells when that key does. |
 | `views.ts` | What a step read back, under the names the page read before: `SimView` (`engine.sim`: you, the frame, your skills' numbers and levels, the creatures, the world, the hit pause, the log), `ActorsView`, `RangeView` (your arrows and meteors, offline). |
-| `islandView.ts` | `IslandView` (`engine.life`): the island as the page reads it (its state; your land, the world's market and the weather where you are; the land's clock; prompt, placing, resting, revision, the dungeon you're in, what it said, item counts); its commands go to the Engine. |
+| `lifeView.ts` | `LifeView` (`engine.life`): the island as the page reads it (its state; your land, the world's market and the weather where you are; the land's clock; prompt, placing, resting, revision, the dungeon you're in, what it said, item counts); its commands go to the Engine. |
 | `wasm.ts` | The engine's WebAssembly: loaded once per page, then asked synchronously (text through its memory, big arrays copied out). `growZone` grows a zone from its recipe; `growWhole` a region of the world whole, as the page's worker grows it (`src/app/grower.ts`); `buildingSolids` gives a building plan's colliders; `useContent` gives it content in place of what's built in (a fixture world). |
 | `load.ts` | The engine's file for a page (`startEngine()`): every page that reaches the island awaits it first (the game, the bible, the content library). The tests load it from the file (`tests/support/engineSetup.ts`). |
 | `rules.ts` | Front door: the rules' common shapes and helpers: the world, you, what you press and what happens. |
@@ -42,9 +42,9 @@ interface to the engine, export by export and call by call: `docs/engine.md`.
   is replaced by what the next step reads back.
 - **The facades name only what is used.** `rules.ts`, `zone.ts`, `island.ts` and `creatures.ts` list
   exactly what outside code takes from the rules. A new use adds its name there.
-- `engine.sim` and `engine.life` are views (`SimView`, `IslandView`), for the modules that read the
+- `engine.sim` and `engine.life` are views (`SimView`, `LifeView`), for the modules that read the
   rules whole (the island's UI and drawing, the test API). The island's helpers they call take the
-  read shapes (`IslandRead`, `SimRead`), so they work on the views.
+  read shapes (`LifeRead`, `SimRead`), so they work on the views.
 
 ## Tests
 

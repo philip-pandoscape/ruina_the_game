@@ -21,7 +21,7 @@ import { LADDERS, actorKind } from '../src/content/actors';
 import { behaviour } from '../src/engine/creatures';
 import { freshness } from '../src/engine/life';
 import { EMBERHOLM as Z, type ZonePlace } from '../src/engine/zone';
-import { drawIsland, growIsland, type Island, LAYER_NAMES, type Layers, toMap } from '../src/bible/map';
+import { drawRegion, growRegion, type RegionMap, LAYER_NAMES, type Layers, toMap } from '../src/bible/map';
 import { esc } from '../src/util/html';
 import { startEngine } from '../src/engine/load';
 
@@ -158,7 +158,7 @@ const bar = (c: Record<Status, number>, n: number): string =>
   '<div class="bar">' + STATUS.map((st) => `<i class="${st}" style="width:${(c[st] / Math.max(1, n)) * 100}%"></i>`).join('') + '</div>';
 
 /** The hero's line of facts. The island's own numbers join it once the island has grown. */
-function facts(isle: Island | null): void {
+function facts(isle: RegionMap | null): void {
   $('#facts').innerHTML = [
     `<span>Starter zone <b>${esc(Z.name)}</b></span>`,
     `<span><b>${Z.npcs.length}</b> townsfolk</span>`,
@@ -232,14 +232,14 @@ const BLURB: Record<string, string> = {
   strand: 'A sandy beach on a sheltered bay; good for learning to swim and row.',
 };
 
-let island: Island | null = null;
+let island: RegionMap | null = null;
 
 function drawMaps(): void {
   if (!island) return;
   const hero = document.querySelector<HTMLCanvasElement>('#heroMap');
   const world = document.querySelector<HTMLCanvasElement>('#worldMap');
-  if (hero) drawIsland(hero, island, HERO_LAYERS, false);
-  if (world) drawIsland(world, island, layers, true);
+  if (hero) drawRegion(hero, island, HERO_LAYERS, false);
+  if (world) drawRegion(world, island, layers, true);
 }
 
 part('the map controls', () => {
@@ -1037,7 +1037,7 @@ requestAnimationFrame(() =>
   setTimeout(async () => {
     await startEngine().catch((e) => console.error('design bible: could not load the engine:', e));
     part('the map', () => {
-      const isle = growIsland();
+      const isle = growRegion();
       island = isle;
       drawMaps();
       facts(isle);

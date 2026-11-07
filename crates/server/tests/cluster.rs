@@ -212,7 +212,7 @@ async fn played_by(db: &PgPool, space: &str) -> Option<(String, i64)> {
 
 /// A character's coins as last written.
 async fn saved_coins(db: &PgPool, character: i64) -> Option<f64> {
-    sqlx::query_scalar::<_, Option<f64>>("SELECT (island->'state'->>'coins')::float8 FROM characters WHERE id = $1")
+    sqlx::query_scalar::<_, Option<f64>>("SELECT (life->'state'->>'coins')::float8 FROM characters WHERE id = $1")
         .bind(character)
         .fetch_one(db)
         .await

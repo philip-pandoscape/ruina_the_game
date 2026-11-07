@@ -2,14 +2,14 @@ import type * as THREE from 'three';
 import type { AutoWalk } from '../../input/autoWalk';
 import { packDef } from '../../content/trade';
 import type { Vitals } from '../hud';
-import { housePose, stillNeeds, type Command, type IslandView, type LifeEvent } from '../../engine/life';
+import { housePose, stillNeeds, type Command, type LifeView, type LifeEvent } from '../../engine/life';
 import type { SimView, World } from '../../engine/rules';
 import type { WorldLayout } from '../../engine/zone';
 import { DockedWindow, type View } from '../components/window';
 import { closeMenu, menuPress } from '../theme/contextMenu';
 import { uiRoot } from '../theme/scale';
 import { addTipSource, wireTips } from '../theme/tooltip';
-import type { IslandUI, Panel } from './context';
+import type { LifeContext, Panel } from './context';
 import { Banner, Prompt } from './hud/banner';
 import { ClockHud } from './hud/clock';
 import { Compass } from './hud/compass';
@@ -22,7 +22,7 @@ import { QuestTracker, Untracked } from './hud/quests';
 import { RideBox } from './hud/ride';
 import { Toasts } from './hud/toasts';
 import { WorldPictures } from './map';
-import { islandTip } from './tips';
+import { lifeTip } from './tips';
 import { TravelUI } from './travelUI';
 import { adminView } from './windows/admin';
 import { BagWindow } from './windows/bag';
@@ -44,7 +44,7 @@ import { storageView } from './windows/storage';
 //
 // LifeUI holds it together: the HUD's widgets (hud/), a module for each window (windows/) drawn in
 // the frames of src/ui/components/, which window is open, the keys and the controller, and the
-// hooks the app sets. The widgets and windows see it through an IslandUI (context.ts).
+// hooks the app sets. The widgets and windows see it through an LifeContext (context.ts).
 
 export type LifePress =
   | 'interact'
@@ -66,7 +66,7 @@ export type LifePress =
   | 'admin';
 
 export interface LifeUIDeps {
-  life: IslandView;
+  life: LifeView;
   /** Gives the island a command (the app notes it for bug reports and passes it to the rules). */
   command: (c: Command) => void;
   sim: SimView;
@@ -94,7 +94,7 @@ const faceHtml = (url: string | null, emoji = '🙂'): string => (url ? `<img sr
 
 export class LifeUI {
   /** What the widgets and windows see of this. */
-  private ui: IslandUI;
+  private ui: LifeContext;
   /** The world's regions as the maps draw them: each region's picture is handed over as the page's worker grows it (src/app/regions.ts). */
   readonly pictures: WorldPictures;
   // HUD
@@ -190,7 +190,7 @@ export class LifeUI {
     ])
       root.appendChild(e);
     wireTips();
-    addTipSource((tip) => islandTip(this.ui, tip));
+    addTipSource((tip) => lifeTip(this.ui, tip));
     if (d.walk) {
       const player = (): [number, number] => [d.sim.player.pos.x, d.sim.player.pos.z];
       this.travel = new TravelUI({
@@ -238,7 +238,7 @@ export class LifeUI {
     return this.panel?.kind ?? (this.bagOpen ? 'bag' : null);
   }
 
-  get life(): IslandView {
+  get life(): LifeView {
     return this.d.life;
   }
 

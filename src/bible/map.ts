@@ -25,7 +25,7 @@ const SURF: Record<number, [number, number, number]> = {
   [SURFACE.forest]: [92, 154, 76],
 };
 
-export interface Island {
+export interface RegionMap {
   relief: HTMLCanvasElement;
   roads: Array<{ id: string; points: Array<[number, number]> }>;
   ramps: Array<Array<[number, number]>>;
@@ -35,10 +35,10 @@ export interface Island {
   cell: number;
 }
 
-let grown: Island | null = null;
+let grown: RegionMap | null = null;
 
 /** Grows the island with the game's own generator and shades its relief (once a page: it takes a few hundred milliseconds). */
-export function growIsland(): Island {
+export function growRegion(): RegionMap {
   if (grown) return grown;
   const gen = generateZone(Z);
   const hf = gen.terrain;
@@ -106,7 +106,7 @@ export const LAYER_NAMES: Record<keyof Layers, [string, string]> = {
 
 const NODE_COLOR: Record<string, string> = { timberNode: '#8d5a3b', stoneNode: '#d6d0c3', oreNode: '#b5651d', herbNode: '#3e9a45' };
 
-function routeLines(isle: Island): Array<{ pts: Array<[number, number]>; dash: number[] }> {
+function routeLines(isle: RegionMap): Array<{ pts: Array<[number, number]>; dash: number[] }> {
   const out: Array<{ pts: Array<[number, number]>; dash: number[] }> = [];
   const wb = Z.workbenches[0];
   const west = isle.roads.find((r) => r.id === 'west');
@@ -128,7 +128,7 @@ function routeLines(isle: Island): Array<{ pts: Array<[number, number]>; dash: n
 }
 
 /** Draws the island on a canvas as wide as it is laid out, with the layers asked for; `mark` rings one place. */
-export function drawIsland(canvas: HTMLCanvasElement, isle: Island, L: Layers, labels: boolean, mark?: string): void {
+export function drawRegion(canvas: HTMLCanvasElement, isle: RegionMap, L: Layers, labels: boolean, mark?: string): void {
   const W = canvas.clientWidth;
   if (!W) return;
   const dpr = Math.min(2, window.devicePixelRatio || 1);

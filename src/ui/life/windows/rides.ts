@@ -6,12 +6,12 @@ import { listHtml, rowHtml } from '../../components/list';
 import { slotHtml } from '../../components/slot';
 import type { View } from '../../components/window';
 import { iconHtml, uiIcon } from '../../theme/icons';
-import type { IslandUI } from '../context';
+import type { LifeContext } from '../context';
 
 // Rides (V): the vehicles and mounts you own, where each is, and summoning, bringing, calling or
 // sending them home.
 
-export function ridesView(ui: IslandUI): View {
+export function ridesView(ui: LifeContext): View {
   const life = ui.life;
   const owned = life.state.bag.filter((s) => itemDef(s.item).cat === 'deed' || itemDef(s.item).cat === 'mount');
   const p = ui.sim.player;

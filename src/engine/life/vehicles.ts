@@ -5,18 +5,18 @@ import { groundAt, pushOutOfBox } from '../world/colliders';
 import { toWorld } from '../world/frames';
 import { MOVE } from '../../content/tuning';
 import { SWIM } from '../../content/traversal';
-import type { IslandRead } from './life';
+import type { LifeRead } from './life';
 import type { SimRead } from '../shapes';
 
 // Vehicles as the page reads them: which one you ride, where you'd step out, what of one is solid to
 // others, how a sail takes the wind. The engine drives them (crates/engine/src/life/vehicles.rs).
 
-export const vehicleById = (life: IslandRead, id: number): Vehicle | undefined => life.land.vehicles.find((v) => v.id === id);
+export const vehicleById = (life: LifeRead, id: number): Vehicle | undefined => life.land.vehicles.find((v) => v.id === id);
 /**
  * The vehicle of yours you are riding. Riding along in someone else's (`host` set), it's theirs, not
  * one of your island's, even when one of yours has the same number.
  */
-export const ridden = (life: IslandRead, sim: SimRead): Vehicle | undefined =>
+export const ridden = (life: LifeRead, sim: SimRead): Vehicle | undefined =>
   sim.player.vehicle && !sim.player.host ? vehicleById(life, sim.player.vehicle) : undefined;
 
 function clearAt(sim: SimRead, x: number, z: number, r: number): boolean {

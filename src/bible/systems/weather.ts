@@ -70,7 +70,7 @@ export const weather = system({
     const [strMid, strA, strP] = numbers(weatherSource, /wind_speed = ([\d.]+) \+ ([\d.]+) \* \(c \/ ([\d.]+) \+ [\d.]+\)\.js_sin\(\)/, 'how the wind blows');
     const [sailBase, sailWind] = numbers(vehiclesSource, /eff \* \(([\d.]+) \+ ([\d.]+) \* wind_speed\)/, 'how much the wind’s strength fills a sail');
     const [stormBase, stormWind] = numbers(weatherSource, /k \* \(([\d.]+) \+ ([\d.]+) \* life\.weather\.wind_speed\)/, 'how the wind whips up a storm');
-    // The time away is caught up as the server loads your island (load_island).
+    // The time away is caught up as the server loads your island (load_life).
     const awayAtAll = sourceNumber(playSource, /if away > ([\d.]+) \{\s*life\.state\.clock \+= away;/, 'how long away counts as away');
     const welcome = sourceNumber(playSource, /if away > ([\d.]+) \{\s*life\.toast\(/, 'how long away earns a welcome back');
     const daylight = ((sky.sunset - sky.sunrise) / 24) * sky.dayLengthSeconds;

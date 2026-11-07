@@ -41,19 +41,19 @@ pub struct Moved {
 
 /// Reads a save in either older shape. None if it's moved already (version 4 or later, no `land`
 /// beside it: its land is in rows). `saved_at` is when it was saved (ms since 1970).
-pub fn read(island: &Value, saved_at: Option<i64>) -> Result<Option<Moved>, String> {
-    let version = island.get("state").and_then(|s| s.get("version")).and_then(Value::as_i64).unwrap_or(0);
-    if version >= LIFE_VERSION && land::kept_inside(island) {
+pub fn read(saved: &Value, saved_at: Option<i64>) -> Result<Option<Moved>, String> {
+    let version = saved.get("state").and_then(|s| s.get("version")).and_then(Value::as_i64).unwrap_or(0);
+    if version >= LIFE_VERSION && land::kept_inside(saved) {
         return Ok(None);
     }
-    let (mut state, mut land) = land::read_saved(island)?;
-    if land::kept_inside(island)
+    let (mut state, mut land) = land::read_saved(saved)?;
+    if land::kept_inside(saved)
         && let Some(at) = saved_at
     {
         land.rebase(at as f64 / 1000.0 - state.clock);
     }
     state.version = LIFE_VERSION;
-    let life = json!({ "state": state, "player": island.get("player").cloned().unwrap_or(Value::Null) });
+    let life = json!({ "state": state, "player": saved.get("player").cloned().unwrap_or(Value::Null) });
     Ok(Some(Moved { life, land }))
 }
 
@@ -148,8 +148,8 @@ pub struct Report {
 /// transaction of its own.
 pub async fn run(db: &PgPool) -> Result<Report, sqlx::Error> {
     let rows: Vec<(i64, Json<Value>, Option<i64>)> = sqlx::query_as(
-        "SELECT id, island, (extract(epoch FROM saved_at) * 1000)::bigint FROM characters \
-         WHERE island IS NOT NULL AND (island ? 'land' OR COALESCE((island->'state'->>'version')::int, 0) < $1) ORDER BY id",
+        "SELECT id, life, (extract(epoch FROM saved_at) * 1000)::bigint FROM characters \
+         WHERE life IS NOT NULL AND (life ? 'land' OR COALESCE((life->'state'->>'version')::int, 0) < $1) ORDER BY id",
     )
     .bind(LIFE_VERSION as i32)
     .fetch_all(db)
@@ -215,7 +215,7 @@ pub async fn run(db: &PgPool) -> Result<Report, sqlx::Error> {
         }
         let mut ids = blocks.iter().flat_map(|b| b * BLOCK..(b + 1) * BLOCK);
         rekey(&mut moved.land, || ids.next().unwrap_or(0));
-        let done = sqlx::query("UPDATE characters SET island = $2 WHERE id = $1 AND island = $3")
+        let done = sqlx::query("UPDATE characters SET life = $2 WHERE id = $1 AND life = $3")
             .bind(character)
             .bind(Json(&moved.life))
             .bind(Json(&old))

@@ -15,7 +15,7 @@ use ruina_world_api::EntityId;
 use ruina_world_api::records::{Frame, LifeView, Private, Stats, TableRecord, TickOut, You};
 use ruina_world_api::store::{Then, ToStore};
 
-use super::{Game, LIFE_EVERY, LOW_IDS, SAVE_AFTER, SAVE_ANYWAY, STATS_EVERY, client, island_of, marks, outside_of};
+use super::{Game, LIFE_EVERY, LOW_IDS, SAVE_AFTER, SAVE_ANYWAY, STATS_EVERY, client, life_save, marks, outside_of};
 use crate::gate::encode::wire_id;
 
 impl Game {
@@ -87,8 +87,8 @@ impl Game {
             if let Some((p, Some(life))) = self.players.open_mut(c) {
                 life_events = life.drain_events();
                 if save_due {
-                    let island = outside_of(island_of(p, life, &mut self.open, id), outside);
-                    saves.push(self.life_write(id, epoch, &home, island, Some(conn)));
+                    let save = outside_of(life_save(p, life, &mut self.open, id), outside);
+                    saves.push(self.life_write(id, epoch, &home, save, Some(conn)));
                 }
             }
             private.push(Private { character: id, you, life: life_view, life_events, told });

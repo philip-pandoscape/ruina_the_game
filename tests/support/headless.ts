@@ -4,7 +4,7 @@ import { defaultBuild, validBuild } from '../../src/content/build';
 import { NODES } from '../../src/content/skills';
 import type { Build } from '../../src/content/tuning';
 import { readOptions } from '../../src/app/options';
-import { savedIsland } from '../../src/app/save';
+import { savedLife } from '../../src/app/save';
 import { loadBuild } from '../../src/app/savedBuild';
 import { migrateStorage } from '../../src/app/storage';
 import { makeStep } from '../../src/app/step';
@@ -79,8 +79,8 @@ function start(url: string) {
   const { world, terrain, sim, range, life } = engine;
   // As main.ts: the island kept in this browser when asked for.
   if (opt.test && opt.load) {
-    const saved = savedIsland();
-    if (saved) engine.loadIsland(saved);
+    const saved = savedLife();
+    if (saved) engine.loadLife(saved);
   }
   // As main.ts: into a copy of a dungeon and out again, with nothing to draw; started in a copy of
   // an instance the address names (?test=yard), as if through its door.
@@ -110,7 +110,7 @@ function start(url: string) {
     build = b;
     engine.setBuild(b);
   };
-  const islandCommand = (c: Command): void => engine.command(c);
+  const lifeCommand = (c: Command): void => engine.command(c);
   const teleport = (x: number, z: number, facing = engine.player.facing): void => {
     if (!terrain) return;
     walker?.stop();
@@ -135,7 +135,7 @@ function start(url: string) {
     },
     applyBuild,
     skillPoints,
-    islandCommand,
+    lifeCommand,
     teleport,
     groundY: (x: number, z: number) => engine.groundY(x, z),
     dummyActor: () => sim.actorOfKind('dummy'),

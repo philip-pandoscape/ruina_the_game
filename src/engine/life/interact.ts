@@ -1,5 +1,5 @@
 import { DAY } from './housing';
-import type { IslandRead } from './life';
+import type { LifeRead } from './life';
 
 // What pressing F would do, as the page shows it: the engine works out the focus every step from
 // what is near you and in front of you (crates/engine/src/life/interact.rs), so the prompt on screen
@@ -76,7 +76,7 @@ export interface Placement {
 }
 
 /** Whether the gathering spot `id` has come back since it was last picked clean. */
-export function nodeReady(life: IslandRead, id: string): boolean {
+export function nodeReady(life: LifeRead, id: string): boolean {
   return (life.state.nodes[id] ?? 0) <= life.state.clock;
 }
 

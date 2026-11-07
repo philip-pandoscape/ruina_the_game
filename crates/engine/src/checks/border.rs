@@ -95,8 +95,8 @@ pub fn splits(input: &str) -> serde_json::Result<Vec<Rule>> {
 
 fn answer(s: &Scenario, rule: Option<Rule>, posts: Posts) -> String {
     let mut played = play(s, rule, posts, false);
-    let islands = islands(&mut played.split);
-    json!({ "ticks": played.ticks, "islands": islands }).to_string()
+    let lives = lives(&mut played.split);
+    json!({ "ticks": played.ticks, "lives": lives }).to_string()
 }
 
 /// A scenario played out.
@@ -297,7 +297,7 @@ pub fn canon(split: &mut Split, done: &[(SimId, StepOut)]) -> Value {
 }
 
 /// Every island at the end, by slot.
-pub fn islands(split: &mut Split) -> Vec<Value> {
+pub fn lives(split: &mut Split) -> Vec<Value> {
     let mut out: Vec<(usize, Value)> = Vec::new();
     for s in &split.sims {
         for (slot, client) in s.own() {
@@ -328,8 +328,8 @@ mod tests {
         let input = case("crowdcheck");
         let s: Scenario = serde_json::from_str(&input).expect("a scenario");
         let mut played = play(&s, None, Posts::Passed, true);
-        let islands: Vec<Value> = islands(&mut played.split);
-        let mine = json!({ "ticks": played.crowd, "islands": islands }).to_string();
+        let lives: Vec<Value> = lives(&mut played.split);
+        let mine = json!({ "ticks": played.crowd, "lives": lives }).to_string();
         assert_eq!(mine, super::super::crowd::run(&input).expect("the crowd runs"));
     }
 

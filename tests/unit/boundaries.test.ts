@@ -33,7 +33,7 @@ const FORBIDDEN: Record<string, string[]> = {
  * them (the shapes, the world's ground and roads, a life's and the creatures' read helpers, the
  * session, the WebAssembly) is reached through them, so each names exactly what is used.
  */
-const FRONT = ['engine', 'load', 'minigames', 'rules', 'zone', 'island', 'creatures'];
+const FRONT = ['engine', 'load', 'minigames', 'rules', 'zone', 'life', 'creatures'];
 
 /** Imports across a line today, each with what will remove it (.plans/refactor/tracker.md). */
 const KNOWN: Record<string, string> = {};
