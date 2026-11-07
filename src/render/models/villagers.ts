@@ -645,7 +645,11 @@ const offsetOf = (id: string): number => {
 function inMadeBody(id: string, built: VillagerModel, made: Made, look: VillagerLook | undefined, at?: { x: number; z: number }): VillagerModel {
   const off = offsetOf(id);
   const carried = CARRIED.get(built) ?? [];
-  const stance = { hunch: look?.hunch, free: look?.free, rest: look?.rest, holds: carried.map((c) => c.side) };
+  const holds = carried.map((c) => c.side);
+  // An arm rests as the look says only to hold what it holds: one whose prop a made body wears
+  // instead (the captain's spyglass, the woodcutter's axe) hangs.
+  const rest = { l: holds.includes('l') ? look?.rest?.l : undefined, r: holds.includes('r') ? look?.rest?.r : undefined };
+  const stance = { hunch: look?.hunch, free: look?.free, rest, holds };
   let worn: MadeTownsperson | null = null;
   const dress = (body: WornBody | null | undefined) => {
     if (!body || worn) return;

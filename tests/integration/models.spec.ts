@@ -25,7 +25,9 @@ const BUDGET: Record<Cat, number> = {
   packs: 4000,
   props: 2000,
   livestock: 3000,
-  villagers: 3000,
+  // A townsperson's made body (about 10k triangles, the find-assets skill's budget) and what they
+  // hold, or the built one standing in until it has loaded.
+  villagers: 12000,
 };
 
 interface Stat {
