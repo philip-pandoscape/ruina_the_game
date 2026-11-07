@@ -1042,7 +1042,9 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
   the world; running) start you in a copy of any instance offline, as if through its door. A copy
   played offline brings the creatures its file spawns, numbered on from the world's, which wait
   outside; they stand on its floor, and the offline rules read heights from it (`Footing`). Starting
-  over in a copy puts you where it's entered. Left, after the skill tree by id (R9.5's rest, which
+  over in a copy puts you where it's entered. The yard instance has the training yard's layout
+  (c4904b1): in at (0, -1) facing the dummy at (0, 3.2), five slimes round (0, 4). Left, after the
+  skill tree by id (R9.5's rest, which
   edits the same tests): `?test` alone the world, the tests moved off `?yard`, `?test`,
   `?yard&test` and `?world&test` (`?yard&test&goblins=6` becomes `?test=goblinCamp`), and the flat
   yard gone (`yard.rs`'s layout, `Ground::Flat`, the yard's practice, its drawing).
@@ -1125,7 +1127,7 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
   them near. Left: growing and dropping regions by need (each grows the first time anything asks, and
   stays), farming's climate (the home island's until land moves, R10.21), the browser drawing a
   region placed away from the origin (R10.23).
-- [ ] **R10.17** Ids and the clock.
+- [~] **R10.17** Ids and the clock.
   - **Ids:** global 64-bit entity ids (a kind and an id) in the engine and the server.
     - Characters keep their database id.
     - Placed things get theirs from a database sequence.
@@ -1133,6 +1135,13 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
     - On the wire, each connection has u16 handles, so `character as u32` goes.
   - **The clock:** ticks are numbered from a world epoch at 60 Hz, and given to the engine as an
     input, as the world clock already is.
+  The clock (3055b49, 474ff6a): every game numbers its ticks from the world's epoch (2026-01-01 UTC),
+  frames at 60 a second and a server tick every third (`crates/server/src/play/clock.rs`), so a tick
+  is the same moment in every channel and copy; a late tick takes the number of its moment. The view
+  an input carries comes in sixteenths, of which the wire keeps the low 32 bits, read back in full
+  against the game's tick. Left, the ids: they change what the wire says of everyone (handles per
+  connection) and how placed things are numbered (a database sequence), so they go with the wire for
+  crowds (R10.8) and land in tables of its own (R10.21).
 - [x] **R10.18** The tick that splits.
   - **The rule:** within a step, an entity reads others only as they stood at its start, and affects
     them only through events applied at the next step.
