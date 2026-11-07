@@ -40,18 +40,20 @@ WORKDIR /app
 COPY Cargo.toml Cargo.lock ./
 COPY crates/engine/Cargo.toml crates/engine/
 COPY crates/engine-wasm/Cargo.toml crates/engine-wasm/
+COPY crates/link/Cargo.toml crates/link/
 COPY crates/server/Cargo.toml crates/server/
 COPY crates/tools/Cargo.toml crates/tools/
-RUN mkdir -p crates/engine/src crates/engine-wasm/src crates/server/src crates/tools/src/bin \
- && touch crates/engine/src/lib.rs crates/engine-wasm/src/lib.rs crates/server/src/lib.rs \
+COPY crates/world-api/Cargo.toml crates/world-api/
+RUN mkdir -p crates/engine/src crates/engine-wasm/src crates/link/src crates/server/src crates/tools/src/bin crates/world-api/src \
+ && touch crates/engine/src/lib.rs crates/engine-wasm/src/lib.rs crates/link/src/lib.rs crates/server/src/lib.rs crates/world-api/src/lib.rs \
  && echo 'fn main() {}' > crates/server/src/main.rs \
  && echo 'fn main() {}' > crates/tools/src/bin/stand_in.rs \
  && cargo build --release --locked --bin ruina-server \
- && rm -rf crates/engine/src crates/engine-wasm/src crates/server/src crates/tools/src
+ && rm -rf crates/engine/src crates/engine-wasm/src crates/link/src crates/server/src crates/tools/src crates/world-api/src
 COPY shared shared
 COPY crates crates
 # COPY keeps the files' old timestamps; make sure cargo sees the real code as newer than the stand-ins.
-RUN touch crates/engine/src/lib.rs crates/server/src/main.rs crates/server/src/lib.rs \
+RUN touch crates/engine/src/lib.rs crates/link/src/lib.rs crates/server/src/main.rs crates/server/src/lib.rs crates/world-api/src/lib.rs \
  && cargo build --release --locked --bin ruina-server
 
 FROM debian:trixie-slim AS server
