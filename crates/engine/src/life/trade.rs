@@ -10,7 +10,7 @@
 use super::content::{self, RecipeDef, format_coins, item_def, pack_def, place_name, recipe, route, vendor_for};
 use super::contracts::contract_delivered;
 use super::land::{self, Change, Pack};
-use super::state::Buyback;
+use super::state::{Buyback, Stack};
 use super::vehicles::vehicle_index;
 use super::{Life, LifeEvent, QuestEvent};
 use crate::jsmath::JsMath;
@@ -132,6 +132,9 @@ pub fn craft_pack(life: &mut Life, sim: &mut Sim, r: &RecipeDef, place: &str) ->
     for inp in &def.inputs {
         life.take(&inp.item, inp.n);
     }
+    if def.fee != 0.0 {
+        life.record("fee", format!("bench:{}", r.bench), -def.fee, 0.0, Vec::new(), Some(def.id.clone()));
+    }
     let pack = make_pack(life, &def.id, place);
     sim.player.pack = pack;
     life.toast(format!("{} {} packed - it's on your back", def.icon, def.name), "good");
@@ -154,11 +157,15 @@ pub fn craft_item(life: &mut Life, r: &RecipeDef) -> bool {
         life.toast("Your bag is full", "bad");
         return false;
     }
-    if !life.afford(r.coins.unwrap_or(0.0), 0.0, r.labor.unwrap_or(0.0), &format!("make {}", item_def(item).name)) {
+    let coins = r.coins.unwrap_or(0.0);
+    if !life.afford(coins, 0.0, r.labor.unwrap_or(0.0), &format!("make {}", item_def(item).name)) {
         return false;
     }
     life.take_all(r.inputs.as_ref());
     life.give(item, n, false);
+    if coins != 0.0 {
+        life.record("craft", format!("bench:{}", r.bench), -coins, 0.0, Vec::new(), Some(r.id.clone()));
+    }
     life.notify(QuestEvent { item: Some(item.to_string()), ..QuestEvent::new("craft") });
     true
 }
@@ -292,6 +299,7 @@ pub fn sell_pack(life: &mut Life, sim: &mut Sim, outpost: &str) -> bool {
     life.change(Change::Sold { outpost: outpost.to_string(), pack: pack.def.clone(), at });
     sim.player.pack = 0;
     remove_pack(life, pack.id);
+    life.record("payout", format!("post:{outpost}"), q.coins, q.seals, Vec::new(), Some(pack.def.clone()));
     life.emit(LifeEvent::Sold { pack: def.id.clone(), coins: q.coins, seals: q.seals, demand: q.demand, fresh: q.fresh, outpost: outpost.to_string() });
     life.toast(format!("Sold {}: {}{}", def.name, format_coins(q.coins), plus_seals(q.seals)), "coin");
     life.notify(QuestEvent { outpost: Some(outpost.to_string()), pack: Some(def.id.clone()), ..QuestEvent::new("deliver") });
@@ -321,10 +329,12 @@ pub fn buy(life: &mut Life, npc: &str, item: &str, n: i64) -> bool {
         return false;
     }
     let def = item_def(item);
-    if !life.afford(offer.price * n as f64, offer.seals.unwrap_or(0.0) * n as f64, 0.0, &format!("buy {}", def.name)) {
+    let (coins, seals) = (offer.price * n as f64, offer.seals.unwrap_or(0.0) * n as f64);
+    if !life.afford(coins, seals, 0.0, &format!("buy {}", def.name)) {
         return false;
     }
     life.give(item, n, false);
+    life.record("purchase", format!("vendor:{npc}"), -coins, -seals, vec![Stack { item: item.to_string(), n }], None);
     life.notify(QuestEvent { item: Some(item.to_string()), ..QuestEvent::new("buy") });
     true
 }
@@ -342,6 +352,7 @@ pub fn sell(life: &mut Life, npc: &str, item: &str, n: i64) -> bool {
     let price = js_max(1.0, js_round(item_def(item).value * v.buy_rate));
     life.take(item, amount);
     life.state.coins += price * amount as f64;
+    life.record("sale", format!("vendor:{npc}"), price * amount as f64, 0.0, vec![Stack { item: item.to_string(), n: -amount }], None);
     remember(life, npc, item, amount, price);
     life.toast(format!("Sold {} {} for {}", amount, item_def(item).name, format_coins(price * amount as f64)), "coin");
     life.notify(QuestEvent { item: Some(item.to_string()), ..QuestEvent::new("sell") });
@@ -384,6 +395,7 @@ pub fn buy_back(life: &mut Life, npc: &str, item: &str, n: i64) -> bool {
     if !life.afford(price * amount as f64, 0.0, 0.0, &format!("buy back {}", item_def(item).name)) {
         return false;
     }
+    life.record("buyback", format!("vendor:{npc}"), -price * amount as f64, 0.0, vec![Stack { item: item.to_string(), n: amount }], None);
     if let Some(list) = life.state.buyback.as_mut() {
         list[k].n -= amount;
         if list[k].n <= 0 {
@@ -636,6 +648,30 @@ mod tests {
         let sold: Vec<Change> = life.take_changes();
         assert_eq!(sold.len(), 2);
         assert_eq!(sold[1], Change::Sold { outpost: "gullrock".into(), pack: "harvestCrate".into(), at: 2700.0 });
+    }
+
+    #[test]
+    fn what_moves_with_the_world_is_kept_for_the_ledger_until_the_store_has_it() {
+        let (mut life, mut world, mut p) = island(1000.0);
+        let mut sim = Sim { player: &mut p, world: &mut world, owner: 1 };
+        assert!(buy(&mut life, "mara", "seed.sunroot", 3));
+        life.give("sunroot", 4, true);
+        assert!(sell(&mut life, "mara", "sunroot", 4));
+        sim.player.pack = make_pack(&mut life, "harvestCrate", "lanternwick");
+        assert!(sell_pack(&mut life, &mut sim, "westwatch"));
+        let e = &life.state.ledger;
+        let seen: Vec<(u64, &str, &str, f64, f64)> = e.iter().map(|e| (e.n, e.kind.as_str(), e.party.as_str(), e.coins, e.seals)).collect();
+        assert_eq!(seen, [(1, "purchase", "vendor:mara", -12.0, 0.0), (2, "sale", "vendor:mara", 4.0, 0.0), (3, "payout", "post:westwatch", 329.0, 1.0)]);
+        assert_eq!((e[0].items[0].item.as_str(), e[0].items[0].n, e[1].items[0].n), ("seed.sunroot", 3, -4));
+        assert_eq!(e[2].detail.as_deref(), Some("harvestCrate"));
+        // The store wrote the first two with a save: the third waits for the next.
+        life.recorded(2);
+        assert_eq!(life.state.ledger.iter().map(|e| e.n).collect::<Vec<_>>(), [3]);
+        assert_eq!(life.state.entries, 3);
+        // The browser's copy of a life the server runs records nothing: the server's does.
+        life.remote = true;
+        life.record("purchase", "vendor:mara".into(), -1.0, 0.0, Vec::new(), None);
+        assert_eq!(life.state.entries, 3);
     }
 
     #[test]

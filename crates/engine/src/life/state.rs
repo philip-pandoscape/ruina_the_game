@@ -89,6 +89,27 @@ pub struct ContractState {
     pub next_refresh: f64,
 }
 
+/// Value that moved between this life and the world (a purchase, a sale, a payout, a fee, a tax, a
+/// quest's reward), from this life's side: what it gained (negative for what it gave). Kept with the
+/// life until the store has written it in the ledger with a save (crates/server/src/land/ledger.rs),
+/// numbered by the life's own count (`n`), so one written twice is recorded once.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
+#[serde(default)]
+pub struct Entry {
+    pub n: u64,
+    /// purchase, sale, buyback, payout, bonus, fee, craft, tax, reward or grant.
+    pub kind: String,
+    /// Who it was with: "vendor:<npc>", "post:<outpost>", "bench:<id>", "registry", "quest:<id>", "world".
+    pub party: String,
+    pub coins: f64,
+    pub seals: f64,
+    /// Items gained (a negative count for those given).
+    pub items: Vec<Stack>,
+    /// What it was for, where the rest doesn't say (the pack sold, the house taxed, the recipe made).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub detail: Option<String>,
+}
+
 /// Something you sold, which that merchant sells you back at what they paid until you walk off.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
 #[serde(default)]
@@ -143,6 +164,12 @@ pub struct LifeState {
     pub skill_xp: BTreeMap<String, f64>,
     #[serde(default)]
     pub stats: Stats,
+    /// What the ledger hasn't had yet: value moved with the world since the store last wrote it.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub ledger: Vec<Entry>,
+    /// How many entries this life has made: the next one is numbered one more.
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub entries: u64,
     /// Where you wake after a rest; null for the zone's spawn.
     pub home: Option<Home>,
     pub next_id: i64,
@@ -152,6 +179,10 @@ pub struct LifeState {
 /// 4: the life alone, its land kept beside it (crate::life::land); 3 and before held the land too,
 /// read apart by crate::life::land::read_saved.
 pub const LIFE_VERSION: i64 = 4;
+
+fn is_zero(n: &u64) -> bool {
+    *n == 0
+}
 
 pub fn new_life_state(coins: f64, labor: f64, seed: u32) -> LifeState {
     LifeState {
@@ -171,6 +202,8 @@ pub fn new_life_state(coins: f64, labor: f64, seed: u32) -> LifeState {
         quests: Quests::default(),
         skill_xp: BTreeMap::new(),
         stats: Stats::default(),
+        ledger: Vec::new(),
+        entries: 0,
         home: None,
         next_id: 1,
         rng: if seed == 0 { 1 } else { seed },

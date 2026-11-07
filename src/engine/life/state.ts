@@ -64,6 +64,10 @@ export interface LifeState {
   /** Experience of each skill in the skill book, by its id (src/engine/life/progress.ts). */
   skillXp: Record<string, number>;
   stats: { delivered: number; earned: number; harvested: number; glideSeconds: number; built: number };
+  /** Value moved with the world (purchases, sales, payouts, fees, taxes, rewards) the ledger hasn't had yet: the server's store writes it with a save (crates/server/src/land/ledger.rs). */
+  ledger?: Array<{ n: number; kind: string; party: string; coins: number; seals: number; items: Stack[]; detail?: string }>;
+  /** How many entries this life has made for the ledger. */
+  entries?: number;
   /** Where you wake after a rest; null for the zone's spawn. */
   home: { x: number; z: number } | null;
   nextId: number;

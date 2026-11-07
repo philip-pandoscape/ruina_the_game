@@ -4,6 +4,8 @@
 //! - `db`: Postgres, its pool and migrations.
 //! - `http`: the one port: the account API, the game's files, the admins' pages, the WebSocket.
 //! - `accounts`: accounts, sign-in and sessions, and the characters each account holds.
+//! - `land`: the store's side of land, the house plots, the ledger and the world's market (the
+//!   rules are the engine's), and moving saves from before land had rows of its own.
 //! - `play`: Emberholm online: each channel's game, every party's copy of a dungeon, parties, the
 //!   mini-game tables, and a player's connection.
 //! - `combat`: combat on the wire (the rules are the engine's): what input bytes mean, and the
@@ -18,4 +20,5 @@ pub mod accounts;
 pub mod combat;
 pub mod db;
 pub mod http;
+pub mod land;
 pub mod play;

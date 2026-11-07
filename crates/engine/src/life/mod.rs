@@ -400,6 +400,24 @@ impl Life {
         std::mem::take(&mut self.changes)
     }
 
+    /// Value that moved between this life and the world, from its side (what it gained; negative
+    /// for what it gave), for the ledger (`state.ledger`): written by the store with the life's next
+    /// save, numbered so a save written twice records it once. A remote life records nothing: the
+    /// server's does.
+    pub fn record(&mut self, kind: &str, party: String, coins: f64, seals: f64, items: Vec<state::Stack>, detail: Option<String>) {
+        if self.remote {
+            return;
+        }
+        self.state.entries += 1;
+        let n = self.state.entries;
+        self.state.ledger.push(state::Entry { n, kind: kind.to_string(), party, coins, seals, items, detail });
+    }
+
+    /// The store has written the ledger's entries up to `n`: the life keeps them no longer.
+    pub fn recorded(&mut self, n: u64) {
+        self.state.ledger.retain(|e| e.n > n);
+    }
+
     /// Something the keeper of the world's land and market must hear (`take_changes`). A remote
     /// life (the browser's copy of one the server runs) tells nobody: the server's does.
     pub fn change(&mut self, c: Change) {

@@ -321,6 +321,8 @@ pub fn pay_tax(life: &mut Life, house: i64) -> bool {
     let clock = land::now(life);
     let h = &mut life.land.houses[hi];
     h.tax_paid_until = js_max(h.tax_paid_until, clock) + 7.0 * DAY;
+    let id = h.id;
+    life.record("tax", "registry".into(), -week, 0.0, Vec::new(), Some(format!("house:{id}")));
     life.toast(format!("Paid a week's property tax: {}", format_coins(week)), "coin");
     true
 }

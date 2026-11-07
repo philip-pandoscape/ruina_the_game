@@ -584,9 +584,11 @@ impl Session {
     /// Offline the session keeps the world's land and market itself: what a step did that their
     /// keeper must hear is done already (a sale lowered the demand here, a claim holds at once),
     /// but a house taken down for its unpaid tax leaves walls standing until what's solid is made
-    /// again.
+    /// again. There's no ledger to write to: what the life kept for it goes.
     fn keep_land(&mut self) {
         let Some(life) = self.life.as_mut() else { return };
+        let n = life.state.entries;
+        life.recorded(n);
         let changes = life.take_changes();
         if !changes.iter().any(|c| matches!(c, Change::Freed { .. })) {
             return;

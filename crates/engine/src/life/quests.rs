@@ -190,6 +190,11 @@ pub fn complete(life: &mut Life, id: &str) -> bool {
     for it in r.items.iter().flatten() {
         life.give(&it.item, it.n, false);
     }
+    let items: Vec<super::state::Stack> = r.items.iter().flatten().map(|it| super::state::Stack { item: it.item.clone(), n: it.n }).collect();
+    let (coins, seals) = (truthy(r.coins).unwrap_or(0.0), truthy(r.seals).unwrap_or(0.0));
+    if coins != 0.0 || seals != 0.0 || !items.is_empty() {
+        life.record("reward", format!("quest:{id}"), coins, seals, items, None);
+    }
     if let Some(g) = given(&r.equip_glider) {
         life.state.glider = g.to_string();
     }

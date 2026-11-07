@@ -868,14 +868,18 @@ pub fn run_command(life: &mut Life, sim: &mut Sim, c: &Command) {
         }
         Command::Rest => life.resting = true,
         Command::Grant { item, n, coins, seals, labor } => {
+            let mut items = Vec::new();
             if let Some(item) = item.as_deref().filter(|i| !i.is_empty()) {
-                life.give(item, n.unwrap_or(1), false);
+                let n = n.unwrap_or(1);
+                let left = life.give(item, n, false);
+                items.push(Stack { item: item.to_string(), n: n - left });
             }
-            if let Some(coins) = coins.filter(|&c| truthy(c)) {
-                life.state.coins += coins;
-            }
-            if let Some(seals) = seals.filter(|&s| truthy(s)) {
-                life.state.seals += seals;
+            let coins = coins.filter(|&c| truthy(c)).unwrap_or(0.0);
+            let seals = seals.filter(|&s| truthy(s)).unwrap_or(0.0);
+            life.state.coins += coins;
+            life.state.seals += seals;
+            if coins != 0.0 || seals != 0.0 || !items.is_empty() {
+                life.record("grant", "world".into(), coins, seals, items, None);
             }
             if let Some(labor) = labor.filter(|&l| truthy(l)) {
                 life.state.labor = js_min(labor_settings().max, life.state.labor + labor);

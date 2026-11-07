@@ -88,6 +88,7 @@ pub fn contract_delivered(life: &mut Life, outpost: &str, pack: &str) {
     life.state.coins += coins;
     life.state.seals += seals;
     c.active.retain(|x| x.id != id);
+    life.record("bonus", format!("post:{outpost}"), coins, seals, Vec::new(), Some(pack.to_string()));
     life.toast(format!("✔ Contract filled! Bonus {} + {} seal{}", format_coins(coins), seals, if seals > 1.0 { "s" } else { "" }), "coin");
     life.notify(QuestEvent { outpost: Some(outpost.to_string()), ..QuestEvent::new("contract") });
 }
