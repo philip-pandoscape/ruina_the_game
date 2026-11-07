@@ -73,7 +73,9 @@ holds the fields.
 A bot is a player without a socket whose inputs a brain fills each tick (`crates/engine/src/bots.rs`:
 a skirmisher finds a foe, fights and falls back when hurt; a wanderer walks about). The server steps
 them like players (`crates/server/src/play/bots.rs`), and browsers see them as other players marked
-`bot`. A zone's bots come in with its first player and go with the last, so an empty battlefield costs
+`bot`. Each brain sees everyone as the tick begins and decides for its bot alone, so the order they
+think in changes nothing, and a server started with `--parallel on` has them think all at once, as
+it steps the players (`play/stepping.rs`). A zone's bots come in with its first player and go with the last, so an empty battlefield costs
 nothing; an admin can add more anywhere with the `bots` command (`n`, `brain`, `team`; `n: 0` sends
 them away). A new kind of bot is a brain in `bots.rs` and its name in `Brain::named`.
 
