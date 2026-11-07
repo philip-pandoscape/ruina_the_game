@@ -230,3 +230,22 @@ welcome and updates; then the integration tier whole.
   - *The migration's plot rule*: the first-made character keeps a plot several channels built on;
     others move whole to the first free plot, or (none free) are taken down into their owner's bag.
 
+
+## 2026-11-07 00:40: the server's land on its tiers (second half), laid down
+
+Merged refactor/first three times on the way (bcc5b2f, b68e2ec: channels, 19b2630: wire). Then
+`94be9d0`: the store owns land's tables (`store/land/`, fenced by `characters.epoch`), a life is read
+with the land lent to it and a block of ids and written apart from it (rows, ledger entries,
+`ToSim::Recorded`), the memory tables keep the same rules; a region's simulation reads its land as
+it starts (`sim/lands.rs`, replacing residents and per-channel estates and plots), claims go to the
+registry, sales to the world's market (read again every 10 s), ids are topped up, every channel takes
+neglected houses down on the world's clock and the keeper (channel 1) writes it; lives are written a
+second after they change (at least every minute); pots go through the ledger; old saves move into
+rows as the server starts.
+
+**Decision: packs on the ground and parked vehicles are shared, not per channel.** They are their
+owner's land like a house: rows keyed by world, space and chunk (no channel), lent to the owner's
+life in whichever channel they play and kept for them while they're away. Only the owner moves them,
+and they play in one channel at a time, so there's nothing to reconcile, and nothing to move when a
+channel closes. They're drawn with their owner (in the channel they play in); drawing them standing
+while the owner is away, or in other channels, is the browser's estate drawing to extend later.
