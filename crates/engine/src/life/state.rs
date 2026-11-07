@@ -137,7 +137,7 @@ pub struct LifeState {
     /// catches up the time they were away (up to trade.json's clock.maxOfflineSeconds).
     pub clock: f64,
     pub coins: f64,
-    /// Coins on a table for a game being played (crates/server/src/play/tables.rs): out of the
+    /// Coins on a table for a game being played (crates/server/src/sim/tables.rs): out of the
     /// purse until the game pays out. A life loaded with some still here gets them back.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub staked: Option<f64>,

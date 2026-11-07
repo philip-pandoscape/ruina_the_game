@@ -7,11 +7,13 @@
 //! room `alloc` gives and hands over where and how long; an answer in text (JSON) is left at
 //! `out_ptr()`, its length returned. Big arrays (the island's heights) are read where they lie.
 //!
-//! What comes through here: the browser's game (`session`), growing a zone from its recipe (the
-//! browser's island is the engine's), the colliders of a building plan, Emberholm's ground, the
-//! mini-games' boards (`minigames`), what a build's skills make of its attacks and spells
-//! (`skills`), and content given in place of the compiled bundles (`content_use`, before anything is
-//! read: the tests that add content as data).
+//! What comes through here: the browser's game (`session`), the world's regions (where they stand,
+//! `world_layout`; a region grown whole by the page's worker, `region_grow`, and handed to the
+//! page's game, `session_adopt_region`), growing a zone from its recipe, the colliders of a building
+//! plan, Emberholm's ground, the mini-games' boards (`minigames`), what a build's skills make of its
+//! attacks and spells (`skills`), and content given in place of the compiled bundles
+//! (`content_use`, before anything is read: the tests that add content as data, and the fixture
+//! worlds).
 
 mod minigames;
 mod session;
@@ -24,7 +26,7 @@ use ruina_engine::open::OpenWorld;
 use ruina_engine::open::buildings::{building_colliders as solids_of, placed_plan};
 use ruina_engine::open::colliders::ground_at;
 use ruina_engine::open::generate::Generated;
-use ruina_engine::open::map::world_map;
+use ruina_engine::open::map::{region_recipe_text, world_map};
 use ruina_engine::open::zone::{Recipe, emberholm};
 
 /// Emberholm with its colliders, made the first time anything asks.
@@ -34,8 +36,10 @@ fn island() -> &'static OpenWorld {
 }
 
 thread_local! {
-    /// The zone grown last (`zone_grow`), for the `zone_*` calls to read.
+    /// The zone grown last (`zone_grow`, `region_grow`), for the `zone_*` calls to read.
     static GROWN: RefCell<Option<Generated>> = const { RefCell::new(None) };
+    /// The edges of the region grown last as its recipe grew them (`region_grow`; none for `zone_grow`).
+    static GROWN_EDGES: RefCell<Vec<f32>> = const { RefCell::new(Vec::new()) };
     /// The last answer in text, at `out_ptr()`.
     static OUT: RefCell<Vec<u8>> = const { RefCell::new(Vec::new()) };
 }
@@ -107,7 +111,71 @@ pub unsafe extern "C" fn zone_grow(p: *const u8, n: usize) -> u32 {
     // As the world places it: a region's ground blended along its borders, as the rules have it.
     let g = world_map().generate(&recipe);
     GROWN.with(|z| *z.borrow_mut() = Some(g));
+    GROWN_EDGES.with(|e| e.borrow_mut().clear());
     1
+}
+
+/// Where the world's regions stand (src/engine/world/layout.ts), as JSON at `out_ptr()`: the chunk's
+/// size, the blend, sea level and the open sea's floor, the edge of the world (`bounds`: min x, min
+/// z, max x, max z), and each region by its place: its `id`, `name`, `climate`, `chunks` and grid
+/// (`cells` of `cell` metres, from `minX`, `minZ`). Returns its length.
+#[unsafe(no_mangle)]
+pub extern "C" fn world_layout() -> usize {
+    let w = world_map();
+    let regions: Vec<serde_json::Value> = w
+        .regions()
+        .iter()
+        .map(|r| {
+            let (rec, c) = (r.recipe(), r.chunks);
+            let t = &rec.terrain;
+            let half = t.cells as f64 * t.cell / 2.0;
+            serde_json::json!({
+                "id": r.id, "name": rec.name, "climate": rec.climate,
+                "chunks": { "x": c.x, "z": c.z, "w": c.w, "d": c.d },
+                "cells": t.cells, "cell": t.cell, "minX": t.origin[0] - half, "minZ": t.origin[1] - half,
+            })
+        })
+        .collect();
+    give(
+        serde_json::json!({ "chunk": w.chunk, "blend": w.blend, "water": w.water, "seaFloor": w.sea_floor, "bounds": w.bounds(), "regions": regions })
+            .to_string(),
+    )
+}
+
+/// Grows the region at `place` in the world's map whole, as the page's worker grows it to hand over
+/// (WorldMap::grow_whole): its borders blended where the world places it, for the `zone_*` calls to
+/// read, its edges as its recipe grew them too (`zone_edges_*`). 1, or 0 if there's no region there.
+#[unsafe(no_mangle)]
+pub extern "C" fn region_grow(place: u32) -> u32 {
+    let w = world_map();
+    if place as usize >= w.regions().len() {
+        return 0;
+    }
+    let (g, edges) = w.grow_whole(place as usize);
+    GROWN.with(|z| *z.borrow_mut() = Some(g));
+    GROWN_EDGES.with(|e| *e.borrow_mut() = edges.heights().to_vec());
+    1
+}
+
+/// The edges of the region grown last as its recipe grew them, before its borders were blended
+/// (f32, the outer two rows and columns: ruina_engine::open::map::Edges), for the page's game to
+/// read the ground across a border from (`session_adopt_region`).
+#[unsafe(no_mangle)]
+pub extern "C" fn zone_edges_ptr() -> *const f32 {
+    GROWN_EDGES.with(|e| e.borrow().as_ptr())
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn zone_edges_len() -> usize {
+    GROWN_EDGES.with(|e| e.borrow().len())
+}
+
+/// The recipe of the region at `place` as the engine reads it (shared/regions/<id>.json, or the one
+/// given), as JSON at `out_ptr()`. Returns its length, 0 if there's no region there.
+#[unsafe(no_mangle)]
+pub extern "C" fn region_recipe(place: u32) -> usize {
+    let Some(r) = world_map().regions().get(place as usize) else { return 0 };
+    region_recipe_text(&r.id).map_or(0, |t| give(t.to_string()))
 }
 
 fn grown<T>(f: impl FnOnce(&Generated) -> T) -> T {

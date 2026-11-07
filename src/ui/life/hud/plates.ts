@@ -1,3 +1,4 @@
+import { toScene } from '../../../render/origin';
 import * as THREE from 'three';
 import { questDef } from '../../../content/quests';
 import { isBoat, isMount, rideable } from '../../../content/vehicles';
@@ -33,7 +34,7 @@ export class Plates {
         this.plates.set(n.id, plate);
       }
       const dist = Math.hypot(n.x - p.pos.x, n.z - p.pos.z);
-      this.v.set(n.x, hf.height(n.x, n.z) + 2.25, n.z).project(cam);
+      toScene(this.v.set(n.x, hf.height(n.x, n.z) + 2.25, n.z)).project(cam);
       if (dist > 45 || this.v.z > 1 || this.v.z < -1 || modal) {
         plate.style.display = 'none';
         continue;

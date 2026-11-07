@@ -12,7 +12,7 @@ use serde::Deserialize;
 
 /// The content's hash: every file under shared/ but shared/hash.json, which holds it
 /// (tools/content/contentc.mjs writes it as it builds the bundles). The world's connection compares
-/// the server's with the page's, as it does WORLD_PROTOCOL (crates/server/src/play/socket.rs,
+/// the server's with the page's, as it does WORLD_PROTOCOL (crates/server/src/gate/socket.rs,
 /// src/net/worldLink.ts): built from other content, the two would read what goes on the wire as a
 /// place in a bundle's list as different things.
 pub fn content_hash() -> &'static str {

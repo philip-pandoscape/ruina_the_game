@@ -324,7 +324,7 @@ pub fn step_quests(life: &mut Life, sim: &mut Sim) {
         // Each quest measures its own places, with its own reach and height: the foot of the
         // Windspire is the spire for one quest and not yet its top for another.
         // Places in the space you're in: none of the world's are in a dungeon.
-        let here = sim.world.map;
+        let here = sim.terrain();
         let at = |o: &Objective| {
             o.type_ == "reach"
                 && given(&o.place)

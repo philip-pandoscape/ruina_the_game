@@ -12,13 +12,17 @@ export class ClockHud {
   readonly el = el('div', '', '<span></span>');
   private key = '';
 
-  constructor(private ui: IslandUI) {
+  constructor(
+    private ui: IslandUI,
+    /** The climate where you are (the region you start in's without it). */
+    private climateHere: () => string = () => ui.life.zone.recipe.climate,
+  ) {
     this.el.id = 'hud-clock';
   }
 
   update(): void {
     const life = this.ui.life;
-    const climate = CLIMATES[life.zone.recipe.climate];
+    const climate = CLIMATES[this.climateHere()];
     const wind = life.weather;
     const rel = angleDiff(this.ui.yaw(), wind.windDir);
     const weather = raining(life) ? '🌧️' : (climate?.icon ?? '');

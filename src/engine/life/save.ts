@@ -7,7 +7,7 @@ import type { SimRead } from '../shapes';
 
 // Your life as the rules keep it between visits (money, bag, quests), your land beside it (farms,
 // house, vehicles, packs), and where you were standing. The server keeps players' lives and land,
-// and takes them up again with the time you were away (load_island, crates/server/src/play/mod.rs);
+// and takes them up again with the time you were away (load_island, crates/server/src/sim/mod.rs);
 // this browser keeps one only for automated tests and bug-report replays (src/app/save.ts), which the
 // engine takes up the same way. A save from before land was kept apart (its land inside its state,
 // version 3 and before) is read apart by the engine (crates/engine/src/life/land.rs read_saved).

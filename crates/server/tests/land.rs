@@ -29,7 +29,7 @@ async fn fresh(name: &str) -> Option<PgPool> {
     sqlx::query(sqlx::AssertSqlSafe(format!("CREATE DATABASE {db}"))).execute(&admin).await.expect("create");
     admin.close().await;
     let (base, _) = url.rsplit_once('/').expect("a database url");
-    Some(ruina_server::db::connect(&format!("{base}/{db}")).await.expect("migrated"))
+    Some(ruina_server::store::db::connect(&format!("{base}/{db}")).await.expect("migrated"))
 }
 
 /// A character of its own account, playing as session `id` (their life an empty one).

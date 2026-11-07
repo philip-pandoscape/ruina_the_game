@@ -117,6 +117,12 @@ export class Loader {
     return n;
   }
 
+  /** Whether a file is waiting for the camera to come near the places it's wanted. */
+  waitingForCamera(id: string): boolean {
+    const r = this.requests.get(id);
+    return !!r && r.state === 'waiting' && this.parked(r);
+  }
+
   /** Bytes asked for and bytes arrived so far (of the files of these needs, or all). */
   loaded(...needs: Need[]): Bytes {
     const bytes = { wanted: 0, done: 0 };

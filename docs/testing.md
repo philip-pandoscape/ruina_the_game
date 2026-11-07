@@ -23,7 +23,7 @@ time, the middle one before every push to `beta`, the slow one before a release.
   creatures' and the crowd's scenarios (`checks/ai.rs`, `checks/crowd.rs`: players and bots
   fighting, creatures among them, a passenger riding along) are run again shuffled with sixteen
   seeds and held to the same answers. The server's fighting has a golden battle of its own
-  (`a_battle_plays_out_as_it_always_has` in `crates/server/src/play/bots.rs`), and a melee there
+  (`a_battle_plays_out_as_it_always_has` in `crates/server/src/sim/bots.rs`), and a melee there
   is stepped in shuffled orders and all at once on threads, the same game each way. How long a tick
   takes with 64, 256 and 1024 bots, one after another and all at once:
   `cargo test --release -p ruina-server tick_time -- --ignored --nocapture`. `tests/conformance/`
@@ -54,7 +54,9 @@ it even starts.
   or reshaped call fails `npm run typecheck`. Step the game a frame at a time with `__game.advance`;
   never wait a fixed time for the game to notice something.
 - `/?world&test` opens the island offline and paused, `/?test` the training yard paused, `/?yard` the
-  yard running. `/?test=<instance>` opens a copy of that instance offline and paused, as if you'd come
+  yard running. `&fixture=world` plays the tests' fixture world of three regions in its place, and
+  `&fixture=far` one with a region 102 km out (`tests/fixtures/world/`, `docs/world.md` Testing);
+  `__game.regionsReady(x, z)` waits for the regions near a place as if you'd come from afar. `/?test=<instance>` opens a copy of that instance offline and paused, as if you'd come
   through its door (`?test=yard`, `?test=goblinCamp`: its pieces, and the creatures it brings on its
   floor), and `/?offline` or `/?offline=<instance>` plays the world or a copy offline, running.
 - A spec whose tests share nothing says so: `test.describe.configure({ mode: 'parallel' })`.

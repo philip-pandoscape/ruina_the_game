@@ -21,6 +21,11 @@ interface Exports {
   zone_clear_ptr(): number;
   zone_clear_len(): number;
   zone_json(): number;
+  zone_edges_ptr(): number;
+  zone_edges_len(): number;
+  world_layout(): number;
+  region_grow(place: number): number;
+  region_recipe(place: number): number;
   building_colliders(p: number, n: number, mirror: number, x: number, z: number, rot: number, y: number): number;
   content_use(p: number, n: number): number;
   session_new(p: number, n: number): number;
@@ -52,6 +57,20 @@ interface Exports {
   session_colliders(h: number): number;
   session_clear_ptr(h: number): number;
   session_clear_len(h: number): number;
+  session_adopt_region(
+    h: number,
+    place: number,
+    hp: number,
+    hn: number,
+    sp: number,
+    sn: number,
+    cp: number,
+    cn: number,
+    ep: number,
+    en: number,
+    jp: number,
+    jn: number,
+  ): number;
 }
 
 let engine: Exports | null = null;
@@ -131,6 +150,47 @@ export function growZone<Rest>(recipe: object): GrownZone<Rest> {
     clear: copy(Uint8Array, e.zone_clear_ptr(), e.zone_clear_len()),
     rest: answer<Rest>(e.zone_json()),
   };
+}
+
+/** A region of the world grown whole (crates/engine/src/open/map.rs grow_whole), as a worker hands it over. */
+export interface GrownWhole<Rest> extends GrownZone<Rest> {
+  /** Its edges as its recipe grew them, before its borders were blended (the outer two rows and columns). */
+  edges: Float32Array;
+  /** Its recipe as the engine reads it (JSON text). */
+  recipe: string;
+}
+
+/** Grows the region at `place` in the world's map whole, its borders blended where the world places it. */
+export function growWhole<Rest>(place: number): GrownWhole<Rest> {
+  const e = wasm();
+  if (!e.region_grow(place)) throw new Error(`the world has no region at ${place}`);
+  const copy = <A extends Float32Array | Uint8Array>(make: new (b: ArrayBuffer, o: number, n: number) => A, p: number, n: number): A =>
+    new make(e.memory.buffer, p, n).slice() as A;
+  const grown = {
+    heights: copy(Float32Array, e.zone_heights_ptr(), e.zone_heights_len()),
+    surface: copy(Uint8Array, e.zone_surface_ptr(), e.zone_surface_len()),
+    clear: copy(Uint8Array, e.zone_clear_ptr(), e.zone_clear_len()),
+    edges: copy(Float32Array, e.zone_edges_ptr(), e.zone_edges_len()),
+    rest: answer<Rest>(e.zone_json()),
+  };
+  const n = e.region_recipe(place);
+  return { ...grown, recipe: decoder.decode(new Uint8Array(e.memory.buffer, e.out_ptr(), n)) };
+}
+
+/** Writes arrays into the engine's memory for one call, and gives the room back after. */
+export function withArrays<T>(arrays: Array<Float32Array | Uint8Array>, f: (at: Array<[number, number]>) => T): T {
+  const e = wasm();
+  const rooms = arrays.map((a) => {
+    const bytes = new Uint8Array(a.buffer, a.byteOffset, a.byteLength);
+    const p = e.alloc(bytes.length);
+    new Uint8Array(e.memory.buffer, p, bytes.length).set(bytes);
+    return { p, n: bytes.length, count: a.length };
+  });
+  try {
+    return f(rooms.map((r) => [r.p, r.count]));
+  } finally {
+    for (const r of rooms) e.dealloc(r.p, r.n);
+  }
 }
 
 /** Everything solid about a building plan placed at (x, z), turned `rot`, on ground at `y`: as the engine has it. */

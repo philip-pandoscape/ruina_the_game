@@ -236,7 +236,7 @@ export class FoliageView {
     const chunks = new Map<number, Obstacle[]>();
     for (const o of obstacles) {
       if (o.kind !== 'tree' && o.kind !== 'rock') continue;
-      const k = Math.floor((o.x - hf.min) / CHUNK) * 64 + Math.floor((o.z - hf.min) / CHUNK);
+      const k = Math.floor((o.x - hf.minX) / CHUNK) * 64 + Math.floor((o.z - hf.minZ) / CHUNK);
       let list = chunks.get(k);
       if (!list) chunks.set(k, (list = []));
       list.push(o);
@@ -371,8 +371,8 @@ export class FoliageView {
     const items: Obstacle[] = [];
     const STEP = 7;
     const steep = (x: number, z: number, k: number) => hf.inside(x, z, 4) && hf.slope(x, z) > k;
-    for (let z = hf.min + STEP; z < hf.min + hf.size - STEP; z += STEP)
-      for (let x = hf.min + STEP; x < hf.min + hf.size - STEP; x += STEP) {
+    for (let z = hf.minZ + STEP; z < hf.maxZ - STEP; z += STEP)
+      for (let x = hf.minX + STEP; x < hf.maxX - STEP; x += STEP) {
         const jx = x + (hash2(x, z, seed + 401) - 0.5) * STEP;
         const jz = z + (hash2(x, z, seed + 409) - 0.5) * STEP;
         if (!steep(jx, jz, 1.45) || hf.height(jx, jz) < hf.water + 1) continue;
@@ -468,8 +468,8 @@ export class FoliageView {
         const dx = px - x;
         const dz = pz - z;
         if (dx * dx + dz * dz > r * r || !hf.inside(px, pz, 3)) continue;
-        const ci = Math.floor((px - hf.min) / hf.cell);
-        const cj = Math.floor((pz - hf.min) / hf.cell);
+        const ci = Math.floor((px - hf.minX) / hf.cell);
+        const cj = Math.floor((pz - hf.minZ) / hf.cell);
         const s = hf.surface[cj * hf.cells + ci];
         const chance = s === SURFACE.forest ? 0.4 : s === SURFACE.grass ? 0.09 : 0;
         if (hash2(i, j, 719) > chance || this.clear[cj * hf.cells + ci]) continue;
@@ -500,6 +500,8 @@ export class FoliageView {
   /** Re-seeds the grass around (x, z) once you have moved far enough from where it was laid. */
   update(x: number, z: number): void {
     this.updateLod(x, z);
+    // Off its region and out of the grass's reach of it, there's none of its grass to lay.
+    if (!this.hf.inside(x, z, -GRASS_RADIUS)) return;
     if (Math.hypot(x - this.grassAt.x, z - this.grassAt.z) < 10) return;
     this.grassAt = { x, z };
     const hf = this.hf;
@@ -522,8 +524,8 @@ export class FoliageView {
         const dz = pz - z;
         if (dx * dx + dz * dz > r * r) continue;
         if (!hf.inside(px, pz, 2)) continue;
-        const ci = Math.floor((px - hf.min) / hf.cell);
-        const cj = Math.floor((pz - hf.min) / hf.cell);
+        const ci = Math.floor((px - hf.minX) / hf.cell);
+        const cj = Math.floor((pz - hf.minZ) / hf.cell);
         const s = hf.surface[cj * hf.cells + ci];
         if (s !== SURFACE.grass && s !== SURFACE.forest) continue;
         if (this.clear[cj * hf.cells + ci]) continue; // roadsides, floors, plots

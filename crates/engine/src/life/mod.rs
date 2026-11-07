@@ -156,7 +156,7 @@ impl Command {
 }
 
 /// Something that happened, for the browser to show (src/engine/life/life.ts LifeEvent).
-#[derive(Serialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(tag = "t", rename_all = "camelCase")]
 pub enum LifeEvent {
     /// kind: good, bad, info, coin or quest.

@@ -10,3 +10,8 @@ edition.workspace = true
 libm.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+
+[features]
+# The tests' worlds (tests/fixtures/world/, ruina_engine::open::fixture), for other crates' tests:
+# the server's borders and simulations take the engine with this in their dev-dependencies.
+fixture-world = []

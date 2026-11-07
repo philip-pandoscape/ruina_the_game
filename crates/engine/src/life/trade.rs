@@ -413,7 +413,7 @@ pub fn step_buyback(life: &mut Life, sim: &Sim) {
         return;
     }
     let (x, z) = (sim.player.pos.x, sim.player.pos.z);
-    let here = sim.world.map;
+    let here = sim.terrain();
     let kept: Vec<Buyback> = list
         .iter()
         .filter(|b| here.recipes().flat_map(|r| &r.npcs).find(|n| n.id == b.npc).is_some_and(|n| js_hypot(n.x - x, n.z - z) <= BUYBACK_RANGE))

@@ -203,7 +203,7 @@ pub fn find_focus(life: &mut Life, sim: &Sim) -> Option<Focus> {
 
     let life: &Life = life;
     // What can be near you: the regions of the space you're in (none in a dungeon).
-    let here: &'static WorldMap = sim.world.map;
+    let here: &WorldMap = sim.terrain();
     let (px, pz) = (p.pos.x, p.pos.z);
     let fx = p.facing.js_sin();
     let fz = p.facing.js_cos();
@@ -892,7 +892,7 @@ pub fn run_command(life: &mut Life, sim: &mut Sim, c: &Command) {
             grow_for(life, seconds);
             life.regen_labor(seconds, false, false);
         }
-        // The channel moves you itself (crates/server/src/play/mod.rs); it never reaches an island.
+        // The channel moves you itself (crates/server/src/sim/mod.rs); it never reaches an island.
         Command::Teleport { .. } | Command::Ride { .. } | Command::Bots { .. } => {}
     }
 }

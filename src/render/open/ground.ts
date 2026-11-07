@@ -2,13 +2,16 @@ import * as THREE from 'three';
 import { asset } from '../../assets/manifest';
 import { SURFACE } from '../../engine/zone';
 import { picture, track } from '../assets';
+import { followOrigin, fract, repeatShift } from '../origin';
 
 // The ground: real textures (CC0, CREDITS.md) laid over the island's surfaces. Each
 // texture brings only its detail, its own average colour divided out, so the palette in
 // src/render/look.ts still decides the colours and textures from different sources sit together.
 // Steep slopes turn to rock whatever their surface, projected from three sides so cliffs don't
 // smear. Until the textures arrive, and at low quality without them, the ground is drawn in its
-// plain colours.
+// plain colours. The textures are laid in the world: drawn from positions relative to the scene's
+// origin, shifted by what the origin is worth in repeats (src/render/origin.ts), so they stay put as
+// it moves and keep their precision far from the world's origin.
 
 const LAYERS = ['grass', 'road', 'sand', 'rock', 'soil', 'plaza', 'forest'] as const;
 /** Texture repeats per metre, per surface. */
@@ -93,6 +96,9 @@ const fragmentHead = /* glsl */ `
   uniform float uGroundScale[${LAYERS.length}];
   uniform float uGroundOn;
   uniform vec3 uRockTint;
+  // Where the scene's origin stands in each surface's repeats: the second, turned grass sample's too.
+  uniform vec2 uGroundShift[${LAYERS.length}];
+  uniform vec2 uGrassShift[${LAYERS.length}];
   varying vec4 vSplatA;
   varying vec4 vSplatB;
   varying vec3 vGroundPos;
@@ -128,9 +134,10 @@ const fragmentColor = /* glsl */ `
       vec3 b;
       if (i == 3) {
         // Rock: from above and from both sides, so cliffs keep their grain.
-        vec2 uvY = vGroundPos.xz * s;
-        vec2 uvZ = vGroundPos.xy * s;
-        vec2 uvX = vGroundPos.zy * s;
+        vec2 sh = uGroundShift[3];
+        vec2 uvY = vGroundPos.xz * s + sh;
+        vec2 uvZ = vGroundPos.xy * s + vec2(sh.x, 0.0);
+        vec2 uvX = vGroundPos.zy * s + vec2(sh.y, 0.0);
         c = textureGrad(tGround, vec3(uvY, 3.0), pdx.xz * s, pdy.xz * s).rgb * tri.y
           + textureGrad(tGround, vec3(uvZ, 3.0), pdx.xy * s, pdy.xy * s).rgb * tri.z
           + textureGrad(tGround, vec3(uvX, 3.0), pdx.zy * s, pdy.zy * s).rgb * tri.x;
@@ -139,12 +146,12 @@ const fragmentColor = /* glsl */ `
         vec2 nX = textureGrad(tGroundN, vec3(uvX, 3.0), pdx.zy * s, pdy.zy * s).xy * 2.0 - 1.0;
         b = vec3(nY.x, 0.0, -nY.y) * tri.y + vec3(nZ.x, nZ.y, 0.0) * tri.z + vec3(0.0, nX.y, nX.x) * tri.x;
       } else {
-        vec2 uv = base * s;
+        vec2 uv = base * s + uGroundShift[i];
         c = textureGrad(tGround, vec3(uv, float(i)), bdx * s, bdy * s).rgb;
         vec2 n = textureGrad(tGroundN, vec3(uv, float(i)), bdx * s, bdy * s).xy * 2.0 - 1.0;
         if (i == 0 || i == 6) {
           // Grass again at a third of the size, turned, so its repeats don't show across a meadow.
-          vec2 uv2 = mat2(0.8, -0.6, 0.6, 0.8) * uv * 0.31 + 0.37;
+          vec2 uv2 = mat2(0.8, -0.6, 0.6, 0.8) * (base * s) * 0.31 + uGrassShift[i];
           c = mix(c, textureGrad(tGround, vec3(uv2, float(i)), bdx * s * 0.31, bdy * s * 0.31).rgb, 0.5);
         }
         b = vec3(n.x, 0.0, -n.y);
@@ -179,7 +186,19 @@ export function texturedGround(material: THREE.MeshToonMaterial, rockTint: numbe
     uGroundScale: { value: LAYERS.map((l) => SCALE[l]) },
     uGroundOn: { value: 0 },
     uRockTint: { value: new THREE.Color(rockTint) },
+    uGroundShift: { value: LAYERS.map(() => new THREE.Vector2()) },
+    uGrassShift: { value: LAYERS.map(() => new THREE.Vector2(0.37, 0.37)) },
   };
+  // The patterns stay where they are in the world as the scene's origin moves.
+  followOrigin((ox, oz) => {
+    LAYERS.forEach((l, i) => {
+      const s = SCALE[l];
+      uniforms.uGroundShift.value[i].set(repeatShift(ox, s), repeatShift(oz, s));
+      // The turned sample's: the origin in repeats, turned and shrunk as the shader turns them, plus its offset.
+      const [u, v] = [ox * s, oz * s];
+      uniforms.uGrassShift.value[i].set(fract((0.8 * u + 0.6 * v) * 0.31 + 0.37), fract((-0.6 * u + 0.8 * v) * 0.31 + 0.37));
+    });
+  });
   material.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, uniforms);
     shader.vertexShader = shader.vertexShader
