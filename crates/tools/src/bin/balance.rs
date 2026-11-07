@@ -19,7 +19,7 @@ use ruina_engine::player::{Build, Mode};
 use ruina_engine::skills::{EMPTY_SKILLS, node_index, set_skill};
 use ruina_engine::tuning::{HOTBAR_SLOTS, MOVEMENT_SLOTS, NO_ABILITY, NO_MOVEMENT, ability_index, movement_index, tuning, weapon_index};
 use ruina_engine::world::{SEED, battlefield};
-use ruina_server::combat::{Players, actions_from};
+use ruina_server::gate::encode::{Players, actions_from};
 use serde::{Deserialize, Serialize};
 // mulberry32, the generator the world uses, so a run is repeatable from its seed.
 use ruina_engine::rng::Rng;

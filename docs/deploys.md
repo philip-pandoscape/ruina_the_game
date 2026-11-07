@@ -69,7 +69,7 @@ its own Postgres.
 2. Pages freeze, then reconnect.
 3. A page reloads straight back into the world when:
    - a new build is out;
-   - the server speaks another `WORLD_PROTOCOL` (`crates/server/src/play/socket.rs`,
+   - the server speaks another `WORLD_PROTOCOL` (`crates/server/src/gate/socket.rs`,
      `src/net/worldLink.ts`);
    - the server's content differs from the page's (the content's hash, in the welcome).
 

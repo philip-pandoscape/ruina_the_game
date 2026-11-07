@@ -5,8 +5,8 @@ import { count, duration, metres } from '../format';
 import { join, system, table } from '../kit';
 import { link, md, raw } from '../md';
 import { rustConst, sourceNumber, tsConst } from '../source';
-import partiesSource from '../../../crates/server/src/play/parties.rs?raw';
-import spacesSource from '../../../crates/server/src/play/spaces.rs?raw';
+import partiesSource from '../../../crates/server/src/social/parties.rs?raw';
+import spacesSource from '../../../crates/server/src/directory/mod.rs?raw';
 import zoneSource from '../../../crates/engine/src/open/zone.rs?raw';
 import dungeonSource from '../../../crates/engine/src/open/dungeon.rs?raw';
 import interactSource from '../../../crates/engine/src/life/interact.rs?raw';
@@ -66,7 +66,7 @@ export const parties = system({
   summary: 'Forming a party, inviting and leading; going into a dungeon together, in a copy of its own.',
   icon: '🛡️',
   keywords: ['party', 'group', 'invite', 'leader', 'dungeon', 'instance', 'copy', 'portal', 'goblin'],
-  rules: ['crates/engine/src/open/dungeon.rs', 'crates/server/src/play/parties.rs', 'crates/server/src/play/spaces.rs'],
+  rules: ['crates/engine/src/open/dungeon.rs', 'crates/server/src/social/parties.rs', 'crates/server/src/directory/mod.rs'],
   content: ['shared/instances.json#instances', 'shared/regions/*.json#doors'],
   body: () => {
     const R = rule();

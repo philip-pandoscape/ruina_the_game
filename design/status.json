@@ -265,7 +265,7 @@
       "title": "Riding along with friends",
       "notes": "Beside another player's cart, car or boat, F climbs into its free passenger seat (\"Ride with <name>\"), and you go wherever its owner drives; F gets you out beside it, and if it's sent home, wrecked or its owner leaves you're set down where it was. The channel seats passengers after everyone has moved (the player's host field says whose vehicle it is). Everyone else's vehicles are solid to you, ridden or not.",
       "files": [
-        "crates/server/src/play/mod.rs",
+        "crates/server/src/sim/mod.rs",
         "src/net/worldPeers.ts",
         "src/render/open/life.ts",
         "src/engine/life/vehicles.ts"
@@ -586,8 +586,8 @@
       "title": "Saving on the game server",
       "notes": "Your island is kept in Postgres with your character, written by the server from its own copy every 5 seconds and when you leave (a quick reload picks up exactly where you were). Time away still ripens crops, measured on the server. Only one window plays a character at a time; a newer one takes over. ?fresh starts over on the server. A saved island the server can't read is kept as it is and never written over. localStorage holds an island only for tests and bug-report replays (?world&test&load).",
       "files": [
-        "crates/server/src/play/mod.rs",
-        "crates/server/src/play/socket.rs",
+        "crates/server/src/sim/mod.rs",
+        "crates/server/src/gate/socket.rs",
         "src/net/worldLink.ts"
       ]
     },
@@ -666,10 +666,10 @@
       "system": "tech",
       "status": "done",
       "title": "A world server",
-      "notes": "The server plays Emberholm. Browsers send only key presses (60 a second, binary) and commands (talk, plant, buy, craft, summon, drive...); each channel's game on the server (crates/server/src/play/mod.rs, 20 ticks a second) runs them through the island's rules ported to Rust (crates/engine/src/open: ground, colliders, traversal; crates/engine/src/life: trade, farming, livestock, housing, shipyard, vehicles, quests, contracts, weather), the battlefield's combat, and the channel's own slimes, then tells each browser where it is, what its island holds, and what everyone else is doing. The browser predicts its own moves and vehicles with the same engine compiled to WebAssembly and corrects itself. Islands are one JSON document per character in Postgres, written only by the server. Phases: (1) accounts and islands on the server, (2) movement on the server, (3) life on the server, (4) one shared Emberholm in channels, (5) live on Railway: all done.",
+      "notes": "The server plays Emberholm. Browsers send only key presses (60 a second, binary) and commands (talk, plant, buy, craft, summon, drive...); each channel's game on the server (crates/server/src/sim/mod.rs, 20 ticks a second) runs them through the island's rules ported to Rust (crates/engine/src/open: ground, colliders, traversal; crates/engine/src/life: trade, farming, livestock, housing, shipyard, vehicles, quests, contracts, weather), the battlefield's combat, and the channel's own slimes, then tells each browser where it is, what its island holds, and what everyone else is doing. The browser predicts its own moves and vehicles with the same engine compiled to WebAssembly and corrects itself. Islands are one JSON document per character in Postgres, written only by the server. Phases: (1) accounts and islands on the server, (2) movement on the server, (3) life on the server, (4) one shared Emberholm in channels, (5) live on Railway: all done.",
       "files": [
-        "crates/server/src/play/mod.rs",
-        "crates/server/src/play/socket.rs",
+        "crates/server/src/sim/mod.rs",
+        "crates/server/src/gate/socket.rs",
         "crates/engine/src/open/",
         "crates/engine/src/life/",
         "src/net/worldLink.ts",
@@ -682,8 +682,8 @@
       "title": "One shared Emberholm, in channels",
       "notes": "Channels are copies of the island, each home to up to 24 characters, who keep the one they were first given. Everyone in a channel sees everyone else (position, animation, glider, pack, vehicles and mounts, relayed about 20 times a second and drawn 100 ms behind with names over their heads) and everything each resident has built (houses, farms, ships on the slipway), which stays when they log off and is solid. A house plot belongs to whoever built on it first; the server keeps the claims. The developer panel is on in development and beta, off in production.",
       "files": [
-        "crates/server/src/play/channels.rs",
-        "crates/server/src/play/socket.rs",
+        "crates/server/src/sim/channels.rs",
+        "crates/server/src/gate/socket.rs",
         "src/net/worldPeers.ts",
         "src/net/worldLink.ts",
         "src/render/open/life.ts",
@@ -798,7 +798,7 @@
       "files": [
         "src/main.ts",
         "crates/engine/src/player.rs",
-        "crates/server/src/combat.rs",
+        "crates/server/src/gate/encode.rs",
         "tests/unit/rules/movement.test.ts",
         "crates/engine/src/checks/player.rs"
       ]
@@ -902,7 +902,7 @@
       "title": "Riding out a server update",
       "notes": "A stopping server (a deploy) tells every player it is updating, saves every island, then closes with 1012. The page freezes the world under a \"Ruina Is Being Updated\" card, reconnects by itself, and reloads straight back into the world with the same character when a new build or protocol is out. A dropped connection freezes the same way. railway.json gives the old server 20 s to do it.",
       "files": [
-        "crates/server/src/play/socket.rs",
+        "crates/server/src/gate/socket.rs",
         "crates/server/src/http.rs",
         "src/net/worldLink.ts",
         "src/app/resume.ts",
@@ -1151,7 +1151,7 @@
       "title": "Mini-games at a table, for a stake",
       "notes": "Walk up to another player on foot and F offers \"Challenge <name>\": pick the game and the stake (No Stake, or what you can afford), they have 30 s to accept. Accepted, both stakes go into the pot and a round table with two stools is thrown down between you for the whole channel to see (pegs on its board for the lit beacons); you sit at it until the game is over, Escape or Concede gives it up. The winner takes the pot, a draw or a game the server calls off returns each stake, 30 s away forfeits. The server runs it all (world_game/tables.rs, minigames/): a stake sits in the island's `staked` until the game ends, a pot only ever moves between the two islands at the table and both are written in one transaction, an island loaded while no game holds its stake gets it back (a crash or a deploy mid-game loses nothing), and every island write goes through one ordered queue. WORLD_PROTOCOL 6.",
       "files": [
-        "crates/server/src/play/tables.rs",
+        "crates/server/src/sim/tables.rs",
         "crates/engine/src/minigames/mod.rs",
         "src/ui/minigames/minigames.ts",
         "src/render/open/gameTables.ts",
@@ -1271,8 +1271,8 @@
       "title": "Parties",
       "notes": "Up to five players, as groups in World of Warcraft: anyone not in a party invites someone who isn't either and leads the party made when they accept; in a party only the leader invites, removes someone or hands on the lead; anyone leaves; a party of one is no party; offline members stay in it. Invite by name (any channel or dungeon) or from the players near you in the Party window (O, or the menu's Party button); an invitation asks in a window of its own for a minute. The party frame under your portrait shows the others' health while they're near and where they are when they're not, and the party's copy of a dungeon. Kept in the server's memory (a restart ends parties).",
       "files": [
-        "crates/server/src/play/parties.rs",
-        "crates/server/src/play/spaces.rs",
+        "crates/server/src/social/parties.rs",
+        "crates/server/src/directory/mod.rs",
         "src/ui/party/partyUI.ts",
         "src/net/worldLink.ts",
         "tests/integration/party.spec.ts"
@@ -1284,9 +1284,9 @@
       "title": "Dungeon copies (instances)",
       "notes": "Through a dungeon's portal your party goes into its own copy (someone on their own, into theirs), a game like a channel (ChannelGame with a Copy space) ticked by the same world thread. A copy is kept 30 minutes after the last player leaves it, and whoever comes back within that finds it as they left it; whoever is in a copy but no longer in its party is warned and put out after a minute; a party that forms takes over its leader's copy, and one that breaks up leaves it to whoever was left. A copy holds the dungeon's maxPlayers. Moving between games takes the player out whole, with their connection and island, and their browser hears `space` (WORLD_PROTOCOL 7). Islands in a copy are saved as standing outside its door, so a restart puts you back on the ledge; reconnecting within the half hour puts you back inside.",
       "files": [
-        "crates/server/src/play/spaces.rs",
-        "crates/server/src/play/mod.rs",
-        "crates/server/src/play/socket.rs",
+        "crates/server/src/directory/mod.rs",
+        "crates/server/src/sim/mod.rs",
+        "crates/server/src/gate/socket.rs",
         "src/net/worldLink.ts",
         "src/main.ts"
       ]
@@ -1442,7 +1442,7 @@
       "title": "Playing together",
       "summary": "Emberholm is shared: friends in the same channel see each other and what each has built, the server owns plot claims and knows the island's ground, and the game is live on Railway in beta and production.",
       "points": [
-        "crates/server/src/play/channels.rs: channels with a cap, each character's home channel stored; presences relayed 20 times a second; estates (houses, farms, ships) shared and kept while their owner is away; plot claims, first come.",
+        "crates/server/src/sim/channels.rs: channels with a cap, each character's home channel stored; presences relayed 20 times a second; estates (houses, farms, ships) shared and kept while their owner is away; plot claims, first come.",
         "src/net/worldPeers.ts draws everyone else with the same hero and the life view in a new others mode (their farms, house, vehicles, packs and glider, but not the island's townsfolk, nodes or weather a second time). Their houses and farm posts are solid. A plot someone else holds says so and can't be claimed.",
         "server/src/terrain.rs reads the island's height grid baked from the TypeScript generator (tests/conformance/terrain.test.ts keeps it current and compares the two), and the server puts back anyone reported under the ground or off the map.",
         "The developer panel is the server's call: DEV_TOOLS=1 (and development servers) offer it; production doesn't.",
@@ -1455,7 +1455,7 @@
       "summary": "Emberholm is played on the server: every rule, from walking up a hill to selling a pack, runs there, and the browser only sends what you press and predicts.",
       "points": [
         "crates/engine/src/open and crates/engine/src/life: the island's movement and life rules ported from TypeScript, with conformance tests running scripted sessions through both.",
-        "crates/server/src/play/mod.rs: a game per channel, 20 ticks a second: players from their inputs (no faster than real time), commands on the input they were given with, the slimes and the dummy, combat on hills, islands saved from the server's own copy.",
+        "crates/server/src/sim/mod.rs: a game per channel, 20 ticks a second: players from their inputs (no faster than real time), commands on the input they were given with, the slimes and the dummy, combat on hills, islands saved from the server's own copy.",
         "The browser predicts its own player, vehicles and the clock with the TypeScript (src/net/netPlayer.ts, Life in remote mode) and corrects to each tick; the island it shows is the server's. Commands go to the server and their results come back a round trip later.",
         "The developer panel (give, skip time, teleport) goes through the server too, which only accepts it where it allows the panel."
       ]
@@ -1624,7 +1624,7 @@
         "The Windspire's waterfall: a spring by the launch deck, a slot cut in the face, a ledge behind the curtain only a glider reaches, the portal on it.",
         "Goblin's Dread's inner grotto, solid and drawn only in a copy of it, high above the sea.",
         "Parties: invite by name or nearby (O), the party frame, leader, kick, lead, leave.",
-        "Dungeon copies: one per party (or player), kept 30 minutes after everyone leaves; moving between games mid-connection (crates/server/src/play/spaces.rs).",
+        "Dungeon copies: one per party (or player), kept 30 minutes after everyone leaves; moving between games mid-connection (crates/server/src/directory/mod.rs).",
         "Tests: tests/integration/party.spec.ts (online), tests/integration/dungeon-way-in.spec.ts, Rust unit tests for parties and spaces."
       ]
     },
@@ -1679,7 +1679,7 @@
         "Guides: docs/world.md (the world, regions on chunks, its ground, spaces and channels, and the instances beside it: their copies, an instance's file, dressing a cave, bots, adding a region or an instance; docs/zones.md folded into it), docs/deploys.md (branches, CI, Railway, a deploy as players see it), and the README as a quick start.",
         "The content library reaches the hero only through what it says it shows (R6.11b): the weapon held, putting it somewhere, the pose's feedback, hiding the trails, the feet's holds; no casts to its private parts.",
         "Offline copies (R10.11): ?test=<instance> and ?offline=<instance> start you in a copy of any instance, its creatures on its floor; the yard instance in the training yard's layout, so the rules tests and most yard specs moved onto it unchanged.",
-        "The world's clock (R10.17): every game numbers its ticks from the world's epoch (crates/server/src/play/clock.rs), the same moment in every channel and copy.",
+        "The world's clock (R10.17): every game numbers its ticks from the world's epoch (crates/server/src/sim/clock.rs), the same moment in every channel and copy.",
         "docs/architecture.md: the map of the pieces, a game online and offline, the client's areas and content's ids."
       ]
     }

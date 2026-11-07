@@ -8,7 +8,7 @@ import { serverBuilt } from '../support/testServer';
 // screen that says so, and once the new server is up carries on where it was; a page that's out of
 // date by then reloads straight back into the world. A connection that just drops freezes the same
 // way, and a page built from other content than the server's reloads as one out of date does.
-// (crates/server/src/play/socket.rs stop_world, src/net/worldLink.ts, src/main.ts.)
+// (crates/server/src/gate/socket.rs stop_world, src/net/worldLink.ts, src/main.ts.)
 //
 // So that it can stop and start the server, this file runs its own game server, and its own Vite
 // forwarding to it, on ports of its own (tests/support/ownServer.ts). It needs a database:

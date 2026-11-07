@@ -214,7 +214,7 @@ mod tests {
                     h = (h ^ u64::from(b)).wrapping_mul(0x0000_0100_0000_01b3);
                 }
             }
-            arrows += crate::combat::effects_json(&ch.players, None, 0.0, 0.0).0.as_array().map_or(0, Vec::len);
+            arrows += crate::gate::encode::effects_json(&ch.players, None, 0.0, 0.0).0.as_array().map_or(0, Vec::len);
         }
         (ch, format!("{h:016x}"), arrows)
     }
@@ -333,7 +333,7 @@ mod tests {
             }
             ch.play_tick(1.0 / f64::from(TICK_HZ), 0.0);
             for (c, _, p, _) in ch.players.each_open() {
-                let told = ch.players.slot_index(c).map(|s| crate::combat::effects_json(&ch.players, Some(s), p.pos.x, p.pos.z).2);
+                let told = ch.players.slot_index(c).map(|s| crate::gate::encode::effects_json(&ch.players, Some(s), p.pos.x, p.pos.z).2);
                 fold(json!([super::super::player_state_json(p), told]).to_string());
             }
             let mut creatures: Vec<&crate::actor::Actor> = ch.actors.list.iter().collect();
@@ -341,7 +341,7 @@ mod tests {
             for a in creatures {
                 fold(json!([a.id, a.x, a.y, a.z, a.facing, a.hp, a.state, a.dead_frame, a.lean_x, a.lean_z]).to_string());
             }
-            let (arrows, meteors, events) = crate::combat::effects_json(&ch.players, None, ox, oz);
+            let (arrows, meteors, events) = crate::gate::encode::effects_json(&ch.players, None, ox, oz);
             fold(json!([arrows, meteors, events, ch.players.pvp_hits]).to_string());
         }
         assert!(ch.players.pvp_hits > 20, "a fight: {} blows", ch.players.pvp_hits);

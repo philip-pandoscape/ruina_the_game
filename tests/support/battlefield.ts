@@ -63,7 +63,7 @@ export function battlefield(base: number) {
   test.afterEach(async () => {
     const done = contexts.splice(0);
     // Out through the way out first: someone whose window closes is kept in the battlefield for a
-    // minute (LINGER, crates/server/src/play/mod.rs) and it takes 20 (maxPlayers), so fresh fighters
+    // minute (LINGER, crates/server/src/sim/mod.rs) and it takes 20 (maxPlayers), so fresh fighters
     // left to linger fill it a few tests on.
     await Promise.all(done.flatMap((c) => c.pages()).map(leave));
     for (const c of done) await c.close();
