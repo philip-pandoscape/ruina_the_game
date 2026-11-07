@@ -15,14 +15,14 @@ is in [tracker.md](tracker.md), the plan in [README.md](README.md).
 | 3 Admin Menu | done |
 | 4 The /find-assets Skill | done |
 | 5 The Rust Workspace | done |
-| 6 The Client in Areas | nearly done: the library's reach into the hero (after R9.5's client part) and the look check (R6.14) left |
+| 6 The Client in Areas | done (the look check passed on 2026-11-07: every scene as beta draws it, at the same GPU cost) |
 | 7 Content in Folders | done |
 | 8 One Copy of the Rules | done |
-| 9 Content as Data, Finished | nearly done: the skill tree's numbers by id (R9.5's rest) left |
-| 10 One World: Regions, Channels, Instances and Bots | about half: the world map, borders with no seam, the rules taking the world, instances in spaces of their own, the content as regions and instances, spawns as data and the tick that splits are in; growing and dropping regions, ids and the clock, borders between simulations, the server's tiers, land, channels, the wire, the big-world client and proof at scale are left |
+| 9 Content as Data, Finished | done |
+| 10 One World: Regions, Channels, Instances and Bots | done, with the multi-server version (D21): the server in tiers in one process or several, regions grown by need and the browser in a world of many regions, borders between simulations (in one process; across processes the late pace and the parts' own leases are left), channels, land and the ledger, the wire for crowds, proof at scale; the known gaps in end-pass.md |
 | 11 Assets | done; the browser's download work dropped (D15) |
 | 12 The Design Bible as a Knowledge Base | done |
-| 13 AGENTS.md, the Docs and the Merge | to do |
+| 13 AGENTS.md, the Docs and the Merge | done but the merge into beta, which follows the last checks |
 
 ## 2026-11-05: The Survey and the Review
 
@@ -747,3 +747,47 @@ applied in order (0001-0004, 0010-0014, 0020, 0030-0031), the builds were kept b
 All 11 characters came in, welcome, ticks and binary updates, with no error and the same coins, bag
 and quests; the one with a cottage has it lent back to their life as they come in, with what it
 stores, their farm and its sheep, a pack on the ground and four vehicles, and their plot's claim.
+
+## 2026-11-07: Finished, With the World on Several Servers (R13.7)
+
+**Every workstream merged** into `refactor/first`, each with `npm run check` green after it: the
+server in tiers (9cbe98f), the client in a big world (1415807), the proof at scale's harness
+(a797e74), borders (d66df5c, d77c52c), the offline game as the world or a copy (1f7a2a5), channels
+(ba5f4d0), the wire for crowds (a6aec8d), the world on several processes (db7823e), land and the
+ledger (5aa30cb), and the words (354332e). Then an end pass here (end-pass.md): failover across
+processes (a lost space went straight back to the process that lost it, e1137d4), inputs piled up
+behind a stall holding a player back for minutes (aae8865), channels merging on half the picture
+after a restart (e13eb25), a returning player told "New quest: Landfall" and the Docker image not
+building the server (d7f0e59), the takeover spec's save wait, AGENTS.md and the guides.
+
+**The checks before beta, all green on the final code:** `npm run check` (291 TypeScript tests in
+48 files, 459 Rust tests, typecheck, Biome, knip, rustfmt and clippy); the conformance tier (5); the
+whole integration tier in one clean run (215 passed, 1 skipped, 12.4 min); the stress tier (7); the
+cluster tests across real processes (8 leases, 6 across processes: a sim killed with a player in it
+and one cut off from the directory both come back on another, links cut and messages doubled lose
+and repeat nothing); the look check (every scene within run-to-run noise of beta's, the same GPU
+cost); the Docker image Railway builds, built here, played in a browser and run against a copy of
+beta's database: every migration applied, every character in whole.
+
+**The goals, one by one:**
+
+| Goal | Where it started (2026-11-05) | Where it ends |
+|---|---|---|
+| 1 One copy of the rules | ~10,000 lines of TypeScript rules beside their Rust twins, agreeing to a millionth | One Rust engine, natively and as WebAssembly, the same to the bit; the TypeScript rules and their comparisons gone |
+| 2 Areas worked on alone | 2,451-line `main.ts`, a flat crate of 30 modules | Areas with guides and boundaries a test holds; the server in tiers; 8 crates |
+| 3 Content as data | Lists in code, saves by position | `content/` checked by contentc; saves and the wire by id or bundle place; a new thing of a known kind is files |
+| 4 Fast checks | Every test through a browser, 10.8 min; a Rust edit 51-106 s | The unit tier in minutes without a browser; an engine edit tested in ~5 s; integration before beta, stress before a release |
+| 5 No dead code | None of it checked | knip and clippy in every check |
+| 6 An admin menu | Developer tools for every player on beta | Admins only (ADMIN_USERS), the Admin menu reaching every page and zone |
+| 7 A game past 64 MB | 15 MB, all at once | Git LFS, an asset manifest by zone, loaded nearest first |
+| 8 /find-assets | | The skill and its search and fetch tools |
+| 9 AGENTS.md | One dense table | The map (bd8dfaa), a guide per area, the paths test |
+| 10 The bible | The design tracker | `/bible/`, a page per system and thing, kept complete by a test |
+| 11 Developer zones and bots | A battle server of its own | The yard, the battlefield and the goblin camp as instances; bots in the engine |
+| The world at scale (D16-D21) | One thread, one lock, JSON to everyone: ~100-120 real players a server, 1,024 bots past the 50 ms tick | Tiers in one process or several, borders, channels, land, the wire: with one client watching, 1,024 bots tick in 5.6 ms, 2,048 in 12.6, 4,000 in 30.3, each client sent 58-63 KB/s; a tick with 64 bots 1.4 KB where the JSON was 43.5 KB |
+
+**Left** (end-pass.md, Known Gaps): a split region's parts on separate processes (their own leases,
+the late pace between them, a stopped part's chunks taken over), bots and effects across a border,
+each region's open channels kept in Postgres, combat heights and village rooms in regions other
+than Emberholm, the browser's session naming Emberholm. Nothing of these is in play on beta, which
+runs one process with one region. Whether beta runs as several Railway services is the user's call.
