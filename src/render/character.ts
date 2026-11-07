@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { type PlayerState, angleDiff } from '../engine/rules';
-import { ABILITIES, COMBAT, comboShape, JUMP, MOVE, MOVEMENT_SKILLS, NO_ABILITY, STEP, weaponId } from '../content/tuning';
+import { ABILITIES, COMBAT, comboShape, DEFAULT_BUILD, JUMP, MOVE, MOVEMENT_SKILLS, NO_ABILITY, STEP, weaponId } from '../content/tuning';
 import { DetailRig } from './detail/rig';
 import { Body, SIDES, type Side } from './detail/body';
 import { Inertia } from './detail/blend';
@@ -316,7 +316,8 @@ export class Hero {
     this.nockedArrow = this.rig.attachment('arrow');
     this.strings = this.rig.built.filter((b) => b.mat === 'string').map((b) => b.mesh);
     this.inertia = new Inertia(this.body);
-    this.setWeapon(0);
+    // What a new character holds, until it's posed with what it has.
+    this.setWeapon(DEFAULT_BUILD.weapon);
     // The new look's made body, as soon as it has loaded (at once, if it already has).
     const made = madeHeroNow();
     if (made) this.adopt(made);

@@ -3,7 +3,8 @@
 //! those lists the other way round, as contentc builds it from orders reversed: the skill tree and the
 //! levels name what they grant and change by id, and a kept build names what it holds by id, so each
 //! is found wherever the list now has it. Each file in tests/ is a test program of its own, so this
-//! one's bundles are its alone. tests/unit/weaponOrder.test.ts does the same for the page.
+//! one's bundles are its alone. tests/unit/weaponOrder.test.ts does the same for the page, and for
+//! the engine as the page plays it (its WebAssembly), every list in another order at once.
 
 use std::collections::BTreeMap;
 use std::sync::Once;
