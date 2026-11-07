@@ -104,7 +104,7 @@ and freed when none does (`map.rs`).
 - **On the server.** `OpenWorld::playing(map, zone, chunks, SIM_BAND)` holds what a simulation plays
   and the regions nearer than a chunk (256 m) to it, and what's solid follows what it holds, keeping
   what's been built since; `play(chunks, band)` moves it. A channel plays every chunk of the world
-  today (`played` in `crates/server/src/play/mod.rs`); borders (R10.19) give each simulation its own.
+  today (`played` in `crates/server/src/sim/mod.rs`); borders (R10.19) give each simulation its own.
 - **In the browser** (The Client in a Big World, below), the page's rules hold the region you start
   in (`OpenWorld::alone`) and adopt the rest as the page's worker grows them.
 - **Asked about ground it doesn't hold**, a view grows the region there and then and holds it from
