@@ -98,11 +98,6 @@ impl Game {
         }
     }
 
-    /// A bot's name, if `entity` is one of the bots here.
-    pub(super) fn bot_name_of(&self, entity: EntityId) -> Option<&str> {
-        self.bots.iter().find(|b| b.entity == entity).map(|b| b.name.as_str())
-    }
-
     /// Each bot looks at who it can fight (anyone on another side, players and bots alike) and
     /// queues this tick's inputs: one a step, as a browser sends them. Each sees everyone as the
     /// tick begins and decides for itself alone, so they all think at once when the channel steps
@@ -145,9 +140,14 @@ mod tests {
     use super::*;
     use crate::open::zone::emberholm;
     use crate::rng::Rng;
-    use ruina_world_api::records::{ArrowRecord, EffectRecord, MeteorRecord, PlayerState};
+    use ruina_world_api::records::PlayerState;
     use ruina_world_api::{Owner, SimId};
-    use serde_json::json;
+    use serde_json::{Value, json};
+
+    /// An effect as the browser sees it, for the hash.
+    fn effect(e: &crate::combat::Effect) -> Value {
+        json!({ "kind": e.kind, "x": e.x, "y": e.y, "z": e.z, "size": e.size })
+    }
 
     /// The battlefield's copy, as the directory would start it.
     fn battlefield() -> Game {
@@ -280,6 +280,9 @@ mod tests {
                 }
                 let ticks = 100;
                 let (mut rules, mut published, mut encoded, mut bytes) = (0.0, 0.0, 0.0, 0);
+                // The admin's connection: its encoder, and a browser acknowledging what it hears.
+                let mut enc = crate::gate::encode::Encoder::new(1, true);
+                let mut heard = ruina_wire::heard::Heard::new();
                 for _ in 0..ticks {
                     let t = std::time::Instant::now();
                     ch.play_tick(1.0 / f64::from(TICK_HZ), 0.0);
@@ -289,7 +292,10 @@ mod tests {
                     let e = std::time::Instant::now();
                     // The gate's part, on its own threads: the admin's update built from them.
                     let me = out.private_of(1).expect("the admin's own");
-                    bytes = crate::gate::encode::tick(&out, me, true).len();
+                    let (update, text) = enc.tick(&out, me, crate::gate::encode::Owed::default());
+                    bytes = update.len() + text.len();
+                    heard.hear(&update).expect("it reads");
+                    enc.ack(&heard.ack().write());
                     rules += (m - t).as_secs_f64() * 1000.0;
                     published += (e - m).as_secs_f64() * 1000.0;
                     encoded += e.elapsed().as_secs_f64() * 1000.0;
@@ -350,7 +356,7 @@ mod tests {
             }
             ch.play_tick(1.0 / f64::from(TICK_HZ), 0.0);
             for (c, _, p, _) in ch.players.each_open() {
-                let told: Option<Vec<EffectRecord>> = ch.players.slot_index(c).map(|s| ch.players.told(s).iter().map(EffectRecord::of).collect());
+                let told: Option<Vec<Value>> = ch.players.slot_index(c).map(|s| ch.players.told(s).iter().map(effect).collect());
                 fold(json!([PlayerState::of(p), told]).to_string());
             }
             let mut creatures: Vec<&crate::actor::Actor> = ch.actors.list.iter().collect();
@@ -358,9 +364,19 @@ mod tests {
             for a in creatures {
                 fold(json!([a.id, a.x, a.y, a.z, a.facing, a.hp, a.state, a.dead_frame, a.lean_x, a.lean_z]).to_string());
             }
-            let arrows: Vec<ArrowRecord> = ch.players.arrows().iter().map(ArrowRecord::of).collect();
-            let meteors: Vec<MeteorRecord> = ch.players.meteors().iter().map(MeteorRecord::of).collect();
-            let events: Vec<EffectRecord> = ch.players.shown().iter().map(EffectRecord::of).collect();
+            let arrows: Vec<Value> = ch
+                .players
+                .arrows()
+                .iter()
+                .map(|a| json!({ "id": a.id, "owner": a.owner, "x": a.x, "y": a.y, "z": a.z, "vx": a.dx * a.speed, "vz": a.dz * a.speed, "team": a.team }))
+                .collect();
+            let meteors: Vec<Value> = ch
+                .players
+                .meteors()
+                .iter()
+                .map(|m| json!({ "id": m.id, "x": m.x, "z": m.z, "ticksLeft": m.ticks_left, "fallTicks": m.fall_ticks, "team": m.team, "radius": m.radius }))
+                .collect();
+            let events: Vec<Value> = ch.players.shown().iter().map(effect).collect();
             fold(json!([arrows, meteors, events, ch.players.pvp_hits]).to_string());
         }
         assert!(ch.players.pvp_hits > 20, "a fight: {} blows", ch.players.pvp_hits);

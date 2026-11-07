@@ -14,11 +14,12 @@ use ruina_engine::player::{Mode, Player};
 use crate::record::{Event, Intro, Record};
 use crate::schema::{CARGO_SLOTS, Fields, Kind, MAX_FIELDS};
 
-/// A stand-in for the world's 64-bit entity ids (crates/world-api's EntityId, coming with the
-/// server's tiers): the kind in the top byte, the id below it. Vehicles and packs, which their owner's
-/// life numbers, mix the owner in.
+/// Keys for what has no `EntityId` of its own yet (an arrow, a meteor; a vehicle and a pack, until
+/// land gives placed things ids): a kind in the top byte above the engine's entity kinds (1 to 4:
+/// characters, bots, creatures, placed things), so no key here is ever one of theirs, and the id
+/// below it. Players and creatures go by their `EntityId`'s whole word.
 pub fn key(kind: Kind, id: i64) -> u64 {
-    (u64::from(kind as u8) << 56) | (id as u64 & ((1 << 56) - 1))
+    (u64::from(0x10 | kind as u8) << 56) | (id as u64 & ((1 << 56) - 1))
 }
 
 /// The same for something its owner's life numbers (a vehicle, a pack).
@@ -29,7 +30,7 @@ pub fn owned_key(kind: Kind, owner: i64, id: i64) -> u64 {
         h ^= u64::from(b);
         h = h.wrapping_mul(0x0100_0000_01b3);
     }
-    (u64::from(kind as u8) << 56) | (h & ((1 << 56) - 1))
+    (u64::from(0x10 | kind as u8) << 56) | (h & ((1 << 56) - 1))
 }
 
 /// Metres to centimetres.

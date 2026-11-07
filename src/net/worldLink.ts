@@ -23,7 +23,7 @@ import type { ArrowRecord, EffectEvent, MeteorRecord, NetActor } from './worldFe
 // reloads and comes straight back into the world with the same character (src/app/resume.ts).
 //
 //   server → browser  (text) welcome {protocol, content, character, account, build, now, channel, dev, estates, claims, space}
-//                     tick {tick, you, peers, actors, arrows, meteors, events, lifeEvents?, life?, tables?}
+//                     tick {tick, you, lifeEvents?, life?, tables?, stats?}
 //                     (binary) update: the wire for crowds (crates/wire; src/net/wire), the world near you
 //                     in place of a tick's peers, actors, arrows, meteors and events, acknowledged
 //                     each (binary: 8, the newest update, which of the 32 before it arrived)
@@ -118,12 +118,13 @@ export interface YouState {
 export interface WorldTick {
   tick: number;
   you: YouState;
-  peers: PeerEntry[];
-  actors: NetActor[];
+  /** Everyone else, the creatures, arrows, meteors and effects: a server before the wire for crowds sent them here; one on it sends them as updates of their own (binary), and leaves these out. */
+  peers?: PeerEntry[];
+  actors?: NetActor[];
   /** As the server writes them; the feed marks which are yours and the tick they're as of (src/net/feedTick.ts). */
-  arrows: Array<Omit<ArrowRecord, 'mine' | 'tick'>>;
-  meteors: Array<Omit<MeteorRecord, 'tick'>>;
-  events: EffectEvent[];
+  arrows?: Array<Omit<ArrowRecord, 'mine' | 'tick'>>;
+  meteors?: Array<Omit<MeteorRecord, 'tick'>>;
+  events?: EffectEvent[];
   /** Toasts, panels to open and the like, from your island since the last tick. */
   lifeEvents?: LifeEvent[];
   /** Your whole island, when it changed (and every couple of seconds anyway). */
@@ -141,8 +142,10 @@ export interface WorldStats {
   bots: number;
   /** How long a tick takes to run, ms (smoothed). */
   tickMs: number;
-  /** The size of the update this came with, bytes. */
+  /** What this tick sent this browser, bytes: the JSON tick this came with and the update on the wire. */
   bytes: number;
+  /** Of which the update on the wire (the wire for crowds), bytes. */
+  wire?: number;
   /** Blows between players (bots included) since the game began; those only lag compensation landed; how far back it looked (ms, recent). */
   pvpHits: number;
   savedByRewind: number;
@@ -216,7 +219,7 @@ const RETRY_MS = { updating: [500, 1000, 1500, 2000], reconnecting: [500, 1000, 
 /** A WebSocket closed as a service restart: the server is being updated. */
 const SERVICE_RESTART = 1012;
 /** What this page speaks; the server says what it speaks in its welcome (crates/server/src/gate/socket.rs). */
-const WORLD_PROTOCOL = 11;
+const WORLD_PROTOCOL = 12;
 /**
  * The content this page was built from (shared/hash.json, tools/content/contentc.mjs); the server
  * says its own in its welcome. Built from other content, the two would read what goes on the wire
