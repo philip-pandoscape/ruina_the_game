@@ -16,6 +16,8 @@ import { DEPTH_RANGE, seaDepths } from './seaDepths';
 export const SEA_REGIONS = 4;
 /** The sea's tiles: the plane moves with the camera in whole tiles, so its vertices stay put. */
 const TILE = 50;
+/** How far apart the places the plane stands are: a whole number of tiles, and Emberholm's sea where it always was. */
+const STEP = 1000;
 const SPAN = 9000;
 
 const vertex = /* glsl */ `
@@ -212,10 +214,10 @@ export class WaterView {
     this.rebase(ox, oz);
   }
 
-  /** The plane under the camera, moved in whole tiles so its vertices stay put. */
+  /** The plane under the camera, moved in whole kilometres (whole tiles) so its vertices stay put. */
   follow(x: number, z: number): void {
-    this.mesh.position.x = Math.round(x / TILE) * TILE;
-    this.mesh.position.z = Math.round(z / TILE) * TILE;
+    this.mesh.position.x = Math.round(x / STEP) * STEP;
+    this.mesh.position.z = Math.round(z / STEP) * STEP;
   }
 
   private rebase(ox: number, oz: number): void {
