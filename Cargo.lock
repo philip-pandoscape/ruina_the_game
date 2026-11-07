@@ -1310,6 +1310,7 @@ dependencies = [
  "futures-util",
  "rayon",
  "ruina-engine",
+ "ruina-link",
  "serde",
  "serde_json",
  "sha2 0.10.9",

@@ -8,6 +8,8 @@
 //!   mini-game tables, and a player's connection.
 //! - `combat`: combat on the wire (the rules are the engine's): what input bytes mean, and the
 //!   arrows, meteors and effects a browser is sent.
+//! - `cluster`: the world on several processes: their roles, the directory's tables (the processes,
+//!   the leases with their epochs, the fence every write passes), a sim's lease keeper.
 
 #![recursion_limit = "256"]
 
@@ -15,6 +17,7 @@
 pub use ruina_engine::{actor, actors, ai, bots, content, creatures, ids, jsmath, life, minigames, missiles, open, pack, player, rng, skills, tuning, world};
 
 pub mod accounts;
+pub mod cluster;
 pub mod directory;
 pub mod gate;
 pub mod http;
