@@ -12,6 +12,7 @@ is, how they talk, and which guide says more. The root `AGENTS.md` lists the fol
 | The browser's rules | `crates/engine-wasm` | The engine compiled to WebAssembly, with the browser's game (`session.rs`) | [engine.md](engine.md) |
 | The client | `src/` | Three.js and TypeScript, built by Vite: the way in, the game's wiring, drawing, the interface, input, the connection, the developer pages and the bible | Each area's `AGENTS.md` |
 | The server | `crates/server` | `ruina-server` on one port (axum): the accounts API, the game's files, the admins' pages and the world's WebSocket, and the games it plays | [world.md](world.md), [admin.md](admin.md) |
+| Channels | `crates/channels` | The policy that fills a region's channels, opens another past a soft cap, merges a quiet one and lets players change; pure, for the server's directory (R10.22) | [world.md](world.md) (Channels), `crates/channels/AGENTS.md` |
 | Content | `content/` built into `shared/` | Every kind of thing as files, checked and built into the bundles both sides read | [content.md](content.md) |
 | Assets | `src/render/assets/`, `src/ui/theme/` | Models, textures, sounds and icons, listed in a manifest and loaded by need | [assets.md](assets.md) |
 | What lasts | Postgres, `crates/server/migrations/` | Accounts, sessions, and characters: each one's life (estate included), build and home channel | `crates/server/src/db.rs` |
@@ -117,7 +118,7 @@ After the refactor, the world splits between several servers:
 - the server in tiers;
 - regions owned by simulations, their borders crossed seamlessly;
 - land shared by every channel and contested;
-- channels opening and merging with the crowd.
+- channels opening and merging with the crowd (the policy is built: `crates/channels`).
 
 The research and the decisions are in `.plans/world/research.md`, and the steps are in
 `.plans/refactor/tracker.md` (R10.8, R10.17 to R10.24).

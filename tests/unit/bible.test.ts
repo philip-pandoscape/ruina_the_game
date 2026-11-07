@@ -54,12 +54,19 @@ const REQUIRED_SYSTEMS = [
 ];
 
 /** Where the rules live: every file here is a system's, and its page says so in `rules`. */
-const RULES = ['src/content/skills.ts', 'src/content/build.ts', ...files('crates/engine/src', '.rs'), ...files('crates/server/src/play', '.rs')];
+const RULES = [
+  'src/content/skills.ts',
+  'src/content/build.ts',
+  ...files('crates/engine/src', '.rs'),
+  ...files('crates/server/src/play', '.rs'),
+  ...files('crates/channels/src', '.rs'),
+];
 
-/** Rules files no player meets, by name: the bots that fill the developer zones (.plans/refactor, Phase 10), and the checks the tests run the rules through. */
+/** Rules files no player meets, by name: the bots that fill the developer zones (.plans/refactor, Phase 10), the checks the tests run the rules through, and tests kept in files of their own beside what they test. */
 const PLUMBING_NAMES: Array<[RegExp, string]> = [
   [/^crates\/.*\/bots\.rs$/, 'bots for the developer zones, which no player meets yet'],
   [/^crates\/engine\/src\/checks\//, 'scenarios run through the rules, whose answers the golden tests hold'],
+  [/^crates\/.*\/tests\.rs$/, 'the tests of the rules beside them'],
 ];
 
 /** Rules files that hold no rule a player meets, with why. */
@@ -76,6 +83,8 @@ const PLUMBING: Record<string, string> = {
   'crates/server/src/play/stepping.rs': 'how a channel runs its players’ steps, one after another or all at once: the same game either way',
   'crates/server/src/play/clock.rs': 'the world’s clock: ticks numbered from its epoch, the same moment in every channel and copy',
   'crates/server/src/play/channels.rs': 'who is in which channel',
+  'crates/channels/src/lib.rs': 'the channels crate’s table of contents',
+  'crates/channels/src/crowd.rs': 'a crowd of bots the tests play the channels with',
   // The developer zones, which only admins enter: no player reads about them.
   'crates/engine/src/world.rs': 'the battlefield’s ground, a developer zone',
   'crates/engine/src/yard.rs': 'the training yard’s ground and who stands about it, a developer zone',
