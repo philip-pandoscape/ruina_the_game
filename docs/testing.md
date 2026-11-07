@@ -7,7 +7,7 @@ time, the middle one before every push to `beta`, the slow one before a release.
 |---|---|---|---|---|
 | **Unit** | `tests/unit/` (Vitest, in Node) and the Rust tests (`cargo test`) | nothing: no browser, no server, no drawing | `npm run test:unit` (TypeScript and Rust), `npm run check` (typecheck too) | after every change |
 | **Integration** | `tests/conformance/` (Vitest: the WebAssembly and the browser's ground sampling against the native engine; the balance harness) and `tests/integration/` (Playwright: the game in a browser) | the release Rust programs (built by the script), a world server with Postgres for the online specs | `npm run test:conformance`, `npm run test:integration`; `npm run check:beta` runs everything up to here | before every push to `beta` |
-| **Stress** | `tests/stress/` (Playwright, `playwright.stress.config.ts`, one test at a time) | a real GPU | `npm run test:stress`; `npm run check:release` runs every tier | before a release to `production` |
+| **Stress** | `tests/stress/` (Playwright, `playwright.stress.config.ts`, one test at a time) and the load harness (`crates/tools/src/bin/loadtest.rs`: the server under bots and virtual clients) | a real GPU; a database for the specs and the harness that start servers of their own | `npm run test:stress`, `npm run loadtest` ([Measuring at Scale](#measuring-at-scale)); `npm run check:release` runs every tier | before a release to `production`, and to measure a change to how the server plays or talks |
 
 ## Where a new test goes
 
@@ -111,6 +111,62 @@ PW_PORT=5261 TEST_PORT_OFFSET=60 RUINA_SERVER=http://localhost:7871 RUINA_DATABA
 Run the server from a copy of the binary (in `scratch/`) if you'll rebuild while it runs. Servers
 started on a development machine listen on localhost only, so Windows never asks to let them through
 its firewall; `--listen all` opens one to other machines.
+
+## Measuring at Scale
+
+How much the world server carries, and what a browser among a crowd draws, are part of the stress
+tier. Every change to how the server plays or talks (the wire, the tiers, borders, channels, the
+servers) is measured against the baseline in `.plans/refactor/reports/scale-baseline.json`
+(explained in `.plans/refactor/reports/scale.md`).
+
+**The load harness** (`crates/tools/src/bin/loadtest.rs`) puts the server under bots and virtual
+clients. For each point of a plan it starts the server afresh, signs its clients in by developer
+sign-in (`load0000`, `load0001`...) and has each send an input 60 times a second over the real
+WebSocket and read every update. In the battlefield the first client fills it with bots, a group at
+a time over both halves; in channels each client plays in its home channel. It measures:
+- every tick, the rules and the updates apart (the admins' stats carry them), and the world thread's
+  time over all its games;
+- the bytes each client receives a second, each update's size and the peers in it;
+- the time from an input to the update that acknowledges it, and the gaps between updates;
+- the server's CPU and memory, the machine's load before and during, and the harness's own CPU.
+
+```sh
+# a database of your own, as for the online specs; the harness starts its servers on 8900 and up
+DATABASE_URL=postgres://ruina:ruina@127.0.0.1:5461/ruina npm run loadtest -- --plan quick
+npm run loadtest -- --plan baseline --out scratch/scale/now.json --compare .plans/refactor/reports/scale-baseline.json
+npm run loadtest -- --bots 256,1024 --clients 1 --parallel off,on --reps 3
+npm run loadtest -- --space channels --clients 24,96 --ramp
+npm run loadtest -- --help
+```
+
+| Plan | What |
+|---|---|
+| `quick` | 64 skirmishers and one client: a look in a minute |
+| `bots` | skirmishers in the battlefield from 0 to 4,000 with one client watching, one after another and with `--parallel on`, until a tick passes 50 ms |
+| `wanderers` | the same with wanderers (no fighting) at 256, 1,024 and 4,000 |
+| `clients` | 5, 10 and 20 clients sharing the battlefield with 64 and with 256 skirmishers |
+| `channels` | 24 to 480 clients in their home channels (24 live in one), no bots, until the world thread runs out of time |
+| `baseline` | all four |
+
+Each point runs three times (`--reps`) on a fresh server, 5 s of warm-up and 15 s measured. A sweep
+stops after the first point past the budget: a median tick over 50 ms, or fewer than 19 updates a
+second. Results go to `--out` (JSON: every repetition and each point's medians) with a Markdown
+summary beside it, and the servers' logs in a folder beside that; `--compare` puts another run's
+numbers beside these. On a shared machine the numbers are noisy: the harness and its servers run at
+above-normal priority (Windows), and every point records how busy the machine was before and during.
+`--url http://localhost:7879 --pid <pid>` measures a server already running instead (one started by
+hand, or the several processes of the multi-server world).
+
+**The browser among a crowd** is `tests/stress/battlefield.spec.ts` (`@gpu`): an admin at the
+battlefield's south end looks over 0 to 256 bots fighting (`CROWD=0,32,64,128,256` picks the sizes),
+and for each size it measures the frames (median, 95th and 99th percentile, from
+`requestAnimationFrame`), the server's tick and the update's size, into
+`scratch/scale/browser-crowd.json`. Run it on its own (`npm run test:stress -- tests/stress/battlefield.spec.ts`),
+with `RUINA_DATABASE_URL` set: it starts a server of its own.
+
+**The rules alone**, without sockets: `cargo test --release -p ruina-server tick_time -- --ignored --nocapture`
+times a tick in the battlefield with 64, 256 and 1,024 bots (`RUINA_TICK_BENCH=64,4000` for other
+sizes), one after another and all at once.
 
 ## In CI
 
