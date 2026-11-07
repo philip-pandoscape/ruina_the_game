@@ -84,6 +84,23 @@ async fn messages_arrive_once_and_in_order() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_thread_outside_tokio_makes_links_and_sends() {
+    let (a, _) = node("a", quick()).await;
+    let (b, mut inbox) = node("b", quick()).await;
+    let addr = b.local_addr().to_string();
+    // A simulation's thread: no runtime of its own, and it never waits.
+    std::thread::spawn(move || {
+        let link = a.link("b", &addr);
+        for k in 1..=100 {
+            link.push(&Msg::N(k)).unwrap();
+        }
+    })
+    .join()
+    .unwrap();
+    assert_eq!(take(&mut inbox, 100).await, one_to(100));
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn answers_come_back_to_whoever_asked() {
     let (a, a_inbox) = node("a", quick()).await;
     let (b, b_inbox) = node("b", quick()).await;

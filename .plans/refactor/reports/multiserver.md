@@ -74,3 +74,73 @@ top is filled in when it's done.
   inbox goes to its own post through `post::deliver(inbox, &local)`. Keep world-api's messages
   serde-only and self-describing-friendly as they are; `Encoding::MessagePack.round_trip(&msg)`
   holds one to crossing whole (a test over every message would catch a change that can't cross).
+
+## 2026-11-06 21:35: the leases, the roles and the harness of several processes
+
+- **eb88eca** The directory's leases in Postgres and the roles' scaffolding.
+  - **Migration 0030** (`the_directory.sql`): `nodes` (every process: id, role, link address,
+    incarnation, seen); the `sim_ids` sequence (world-api's `SimId`); `space_leases` (key
+    `(space, part)`: world-api's `SpaceId` key, part 0 a whole space, others a region split along
+    `chunks`; `sim`, `node`, `address`, `epoch`, `expires_at`); `space_snapshots` (a space's moving
+    state, fenced, for whoever takes it over).
+  - **`crates/server/src/cluster/leases.rs`**: `acquire` (one `INSERT ... ON CONFLICT DO UPDATE ...
+    WHERE nobody holds it or it ran out`, the epoch bumped: in READ COMMITTED the conflicting row is
+    locked and its WHERE checked as it is now, so two can't both win), `renew` (only its own,
+    unexpired lease), `release` (keeps the epoch, holder NULL), `owner`/`owners`, `check` (the
+    fence), `write_snapshot`/`read_snapshot`, `new_sim`.
+  - **`keeper.rs`**: renews every fifth of the lease, stops a fifth before it runs out (10 s, 2 s,
+    2 s by default), its deadline measured from when the last good renewal was *sent* (the
+    database ran it later, so the lease lasts at least that long by any clock); `holding()` reads
+    the deadline against the clock itself, so a sim checking it every tick stops in time even if
+    the keeper's task is starved. What it says maps onto world-api's `LeaseNote`.
+  - **`nodes.rs`**: register, heartbeat (2 s; false once another start of the same id has the
+    row), alive, leave, sweep.
+  - **`main.rs`**: `--role all|gate|sim|services` (`ROLE`; `all` by default, the server as it
+    always ran, untouched), `--node`, `--link`, `--advertise` (`RAILWAY_PRIVATE_DOMAIN` on
+    Railway), `--spaces`, `--lease-ms`. **`roles.rs`**: every role starts its links, registers,
+    beats, answers `Status`, counts numbered messages, serves `/api/health` and `/api/cluster`;
+    a sim stands for its spaces and plays each as a stand-in while it holds the lease (the world's
+    ticks, a fenced snapshot every second, carried on from the last); a gate keeps a link to every
+    sim in the directory and asks each how it is every second; the services sweep. Stopped, a sim
+    lets its leases go and every role leaves the directory.
+- **fa9f5ea** The harness (`crates/server/tests/cluster.rs`): `ruina-server` started several times
+  in its roles, the test a process on the links, `ruina_link::proxy::Proxy` between processes to
+  cut and double what passes (and in front of a sim's database to cut it off from the directory).
+- **Decisions:**
+  - **Lease timings**: 10 s, renewed every 2 s, a sim stopping 2 s before it runs out (research 5b),
+    proportional for tests (`--lease-ms 2000`: 0.4 s, 0.4 s). Each renewal gets 1.5 s; failures
+    retry every 0.5 s until the deadline.
+  - **The sim renews its own lease, directly in Postgres** (the directory's table is the arbiter),
+    rather than the directory process renewing for it: a sim cut off from the database stops,
+    which is the partition that matters, and a directory process failing stops no sim. The
+    directory tier decides placement (who should stand for what) and its in-memory leases (tiers')
+    become these in the second half.
+  - **The holder is its simulation** (`SimId`, never reused), so a process's restart is a new
+    holder whatever its node id.
+  - **The fence is the epoch, checked in the write's transaction with the lease's row FOR SHARE**
+    (FOR KEY SHARE wouldn't block a grant, which changes no key). A write under the space's current
+    epoch passes even if the lease has run out but no one has taken it yet (Kleppmann's fencing
+    tokens: the store checks the token, the lease service decides time); once a newer grant is made
+    or the lease is let go, it's refused. The grant waits for writes in flight, so the next holder
+    reads after them (tested).
+  - **Life writes check both** the character's epoch (tiers' `characters.epoch`) and the writing
+    sim's space-lease epoch (agreed with the orchestrator): a sim that lost its space can't write
+    a life even if that character wasn't granted anew.
+  - **The roles' traffic today is `cluster::Msg`** (status, counted messages) on protocol
+    `cluster/1`; world-api's messages cross as `world-api/1` once the tiers run apart.
+- **Tests** (all against slot 10's Postgres, three runs each, all green):
+  - `crates/server/tests/leases.rs` (8): one of sixteen granted at once, five times over; epochs
+    bumped and only the holder renewing; a lease run out taken over (not before its TTL); stale
+    writes refused (and the check alone, and a let-go lease); a grant waiting for a write under the
+    old epoch to commit; a keeper cut off from the database through a proxy stopping 1.5-1.6 s after
+    the cut and 0.41-0.47 s before the takeover (margin 0.4 s), its late write refused; a keeper
+    letting go; the processes' heartbeats and sweep.
+  - `crates/server/tests/cluster.rs` (5 tests, 2-4 processes each, 6-14 s together): a gate, two
+    sims and the services finding each other; a sim killed outright, its space taken over under the
+    next epoch 1.7-2.1 s later (2 s leases) and carried on from its snapshot; a link between
+    processes cut three times mid-stream (6,000 messages once and in order, 1,800-4,000 written
+    again); every third message doubled by the proxy (each taken once); a sim cut off from the
+    directory stopping 1.3-1.6 s after the cut, before the other was granted its space (0.5-0.7 s
+    later), and standing by once back.
+- **Next:** the docs (`docs/architecture.md` Several Processes, `docs/deploys.md` Several Processes,
+  `docs/testing.md`), merge `refactor/first`, `npm run check`, then the first half's summary.

@@ -141,6 +141,9 @@ pub(crate) struct Shared<M> {
     next_request: AtomicU64,
     pub events: broadcast::Sender<Event>,
     pub stop: watch::Sender<bool>,
+    /// The runtime the node started on: links made from any thread (a simulation's, outside tokio)
+    /// run their connections there.
+    pub runtime: tokio::runtime::Handle,
     pub counters: Counters,
 }
 
@@ -228,6 +231,7 @@ impl<M: Message> Node<M> {
             next_request: AtomicU64::new(incarnation),
             events: broadcast::channel(1024).0,
             stop: watch::channel(false).0,
+            runtime: tokio::runtime::Handle::current(),
             counters: Counters::default(),
         });
         tokio::spawn(accept(shared.clone(), listener));
@@ -263,7 +267,7 @@ impl<M: Message> Node<M> {
         }
         let out = Arc::new(Out::new(peer, addr, self.shared.incarnation));
         links.insert(peer.to_string(), out.clone());
-        tokio::spawn(crate::out::run(self.shared.clone(), out.clone()));
+        self.shared.runtime.spawn(crate::out::run(self.shared.clone(), out.clone()));
         Link::new(self.shared.clone(), out)
     }
 

@@ -54,7 +54,12 @@ const REQUIRED_SYSTEMS = [
 ];
 
 /** Where the rules live: every file here is a system's, and its page says so in `rules`. */
-const RULES = ['src/content/skills.ts', 'src/content/build.ts', ...files('crates/engine/src', '.rs'), ...['sim', 'directory', 'social', 'gate'].flatMap((tier) => files(`crates/server/src/${tier}`, '.rs'))];
+const RULES = [
+  'src/content/skills.ts',
+  'src/content/build.ts',
+  ...files('crates/engine/src', '.rs'),
+  ...['sim', 'directory', 'social', 'gate'].flatMap((tier) => files(`crates/server/src/${tier}`, '.rs')),
+];
 
 /** Rules files no player meets, by name: the bots that fill the developer zones (.plans/refactor, Phase 10), and the checks the tests run the rules through. */
 const PLUMBING_NAMES: Array<[RegExp, string]> = [

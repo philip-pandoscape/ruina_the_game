@@ -71,6 +71,7 @@ npm run check                          # typecheck + unit tier (TypeScript and R
 npx vitest run --project unit          # the TypeScript unit tests alone (seconds)
 npx vitest run tests/unit/roads.test.ts   # one file
 npm run test:conformance               # builds the engine natively and as WebAssembly, then holds one to the other
+npm run test:cluster                   # with RUINA_DATABASE_URL: the leases, and ruina-server as several processes, killed and cut off
 npx playwright test                    # the integration tier (needs servers for the online specs)
 npx playwright test tests/integration/ui.spec.ts -g "title"   # some of it
 npx playwright test --last-failed      # what failed last time
@@ -98,7 +99,7 @@ Several checkouts and sessions run suites on one machine, so a run can be moved 
 | `TEST_PORT_OFFSET` | 0 | added to the ports of the game servers some specs start of their own (`tests/support/ownServer.ts`: admin, update, battlefield) |
 | `PW_WORKERS` | 6 | pages side by side |
 | `RUINA_SERVER` | http://localhost:7777 | the world server the online specs and the dev server use |
-| `RUINA_DATABASE_URL` | none | the database update.spec starts its own server on |
+| `RUINA_DATABASE_URL` | none | the database update.spec starts its own server on, and `npm run test:cluster`'s processes and lease tests use (the processes take ports 9100-9199) |
 
 A private rig for the online specs, clear of `npm run up`'s ports:
 

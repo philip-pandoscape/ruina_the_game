@@ -39,10 +39,11 @@ messages over tokio channels and this crate isn't used.
 ## Tests
 
 `cargo test -p ruina-link`: frames, the codecs (values, tags, skipped fields, infinities), and over
-real sockets on this machine (`tests/link.rs`): thousands of messages once and in order; requests
-both ways; ten cuts mid-stream with nothing lost or repeated; every message written twice and taken
-once; lost acknowledgements sent again and dropped; a full window holding the sender back; a
-restarted receiver sent what it never acknowledged; a restarted sender numbering afresh; refusals;
-world-api's messages through `LinkPost`. The numbers (codecs on world-api's messages, throughput,
-latency): `cargo test --release -p ruina-link --test numbers -- --ignored --nocapture
---test-threads=1`.
+real sockets on this machine (`crates/link/tests/link.rs`): thousands of messages once and in
+order; a thread outside tokio making links and sending; requests both ways; ten cuts mid-stream
+with nothing lost or repeated; every message written twice and taken once; lost acknowledgements
+sent again and dropped; a full window holding the sender back; a restarted receiver sent what it
+never acknowledged; a restarted sender numbering afresh; refusals; world-api's messages through
+`LinkPost`. The numbers (codecs on world-api's messages, throughput, latency): `cargo test
+--release -p ruina-link --test numbers -- --ignored --nocapture --test-threads=1`. Between
+processes: `crates/server/tests/cluster.rs`.

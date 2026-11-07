@@ -121,3 +121,34 @@ After the refactor, the world splits between several servers:
 
 The research and the decisions are in `.plans/world/research.md`, and the steps are in
 `.plans/refactor/tracker.md` (R10.8, R10.17 to R10.24).
+
+### Several Processes
+
+`ruina-server` plays every tier in one process by default, as Railway's beta does. Started with
+`--role gate|sim|services`, it plays one role in a process of its own (`crates/server/src/cluster/`):
+
+| Role | Plays | Today (scaffolding until the tiers run apart) |
+|---|---|---|
+| `all` | Everything, in one process (the default) | The server as it always ran |
+| `gate` | Players' connections: sign-in, each player's inputs to the sim that plays them, each client's update | Finds the sims in the directory, keeps a link to each and asks how it is |
+| `sim` | Spaces: a region's channel or an instance's copy, each under a lease | Stands for its spaces, and plays each as a stand-in while it holds its lease |
+| `services` | The directory, the store, social | Forgets processes long gone |
+
+- **Finding each other.** Every process writes itself into the directory's `nodes` table (its role,
+  where its links take messages) and beats there every 2 s.
+- **Links.** Processes talk over TCP (`crates/link`) with the messages the tiers pass in one
+  process (world-api's, as MessagePack with field names). A message arrives once and in order
+  across lost connections, and a restarted peer is sent what it never acknowledged.
+- **Leases and epochs.** `space_leases` says which sim plays each space (or part of a region),
+  under which epoch, until when.
+  - A grant bumps the epoch. The holder renews a lease of 10 s every 2 s.
+  - A sim that can't renew stops 2 s before its lease runs out (`keeper.rs`).
+  - Every write about a space carries its epoch and passes the fence (`leases::check`: the lease's
+    row FOR SHARE, inside the write's transaction). So a sim that lost its space can't write over
+    whoever has it now. A character's own epoch (the store's) fences their life the same way.
+- **Taking over.** A sim that dies leaves its leases to run out. One standing by takes the space
+  under the next epoch, and carries on from its last snapshot (`space_snapshots`).
+
+The tiers' messages cross the links once the gate and the sims run apart (the multi-server work's
+second half, `.plans/refactor/reports/multiserver.md`). Running several processes:
+[deploys.md](deploys.md).
