@@ -121,3 +121,99 @@ MMOs do: a number invites hopping to the emptiest.
 
 Next: `docs/world.md`, the bible's Channels page, `src/ui/AGENTS.md`, then merge `refactor/first`
 and `npm run check`.
+
+## 2026-11-06 21:52: Docs, the bible, two fixes, and the first half done
+
+Landed:
+
+- **7b5d278, the guides and the bible.** `docs/world.md`'s Channels: the channels as they are
+  (residents, until the second half) and as the policy has them (placing, opening, merging,
+  changing, what a player sees, the hysteresis), its numbers field by field, the browser's window
+  and messages, the crowd, what's next; the words table and the testing list. `docs/architecture.md`
+  lists the crate, `AGENTS.md` and `src/ui/AGENTS.md` the crate and the window, and
+  `crates/channels/AGENTS.md` is the crate's guide. The bible's Channels page
+  (`src/bible/systems/channels.ts`, after Parties and Dungeons): where you're placed, how channels
+  open and merge, changing channel, and a table of the numbers, every one from
+  `shared/channels.json`; `tests/unit/bible.test.ts` reads `crates/channels/src` as rules (its table
+  of contents and the crowd as plumbing, and tests kept in files beside the rules).
+- **605a4fb, two fixes found reviewing.** A channel a merge had just filled could merge on in the
+  same second, its quiet timer not yet cleared: `merge_due` now wants it quiet still (the new test
+  fails without it). And a `space` message clears the channels heard (they were the old place's),
+  so the notice says where a move took you rather than counting down a merge already done.
+- **1b0b677**: merged `refactor/first` (the plan's files only, no conflicts).
+
+Ran:
+
+- `npm run check` after the merge: passed in 9 min 41 s: typecheck, Biome, knip, rustfmt, clippy,
+  268 TypeScript unit tests in 44 files, and the Rust tests (channels 31 and 1 measurement ignored,
+  engine 181, order 5, WebAssembly 4, server 81). The two fixes came after its first steps:
+  typecheck, Biome, knip and the channels' unit tests again on them, clean.
+- The slot's rig (Postgres `ruina-wt-channels-db` on 5487, the release server on 7878):
+  `party.spec.ts`, `online.spec.ts` and `dungeon-way-in.spec.ts`, 25 passed (the world connection
+  and the menu bar changed under them); `bible.spec.ts`'s pages and links, 2 passed;
+  `uiGallery.spec.ts`'s channel states, 4 passed. No failures to compare with `refactor/first`.
+
+## The First Half: What Landed
+
+| Commit | What |
+|---|---|
+| 11fef4e | `crates/channels`: the policy, `content/channels.json`, the crowd harness |
+| 9207f28 | The browser's side: the Channels window, the notice, the messages, the UI gallery's states |
+| 7b5d278 | The guides and the bible's Channels page |
+| 605a4fb | A merge's stale quiet; a move's notice over a stale countdown |
+
+Not touched: `crates/server` (the first half needed nothing of it), the engine, the migrations.
+Touched beside others' work, in small edits: `src/ui/party/partyUI.ts` (an `onOpen` hook, so the
+Party and Channels windows close each other), `src/main.ts`, `src/app/` (wiring), `src/net/worldLink.ts`
+(the messages), `tools/content/contentc.mjs` (the `channels()` check), `tests/unit/bible.test.ts`
+(the crate's files as rules), the root `Cargo.toml` (the crate in the workspace).
+
+## The Second Half: What It Needs (Waiting on Tiers and Land)
+
+From **tiers** (R10.20; world-api at 86d6055 already has `SpaceId::Channel { region, n }`,
+`Destination::Home`, `ToDirectory::Claim`, `Placed`, `PartyOf`):
+
+1. **The directory holds a `ruina_channels::Region` per region** and asks it where a character
+   goes: on `Claim` and on `Destination::Home` (out of a copy), `Region::arrive`; on `Release` and
+   into a copy, `Region::leave`; on deletion, `Region::forget`. This replaces `home_channel` and
+   `load_channel` (the gate's socket) and `CHANNEL_CAP`.
+2. **A review once a second** (`Region::review`) on the directory's clock, carrying out its actions:
+   `Open` starts a simulation for `channel:<region>:<n>`; `Merging` tells everyone in the channel (a
+   `notice`, and a `channels` with its `closing`); `Move` takes the player out of one simulation with
+   their life and into the other at the same spot (as `Spaces::move_to` does today: the gate
+   re-routes their inputs, the browser hears `space` and `channelMoved`); `Close` stops the
+   simulation once it has written its players' lives.
+3. **Standing from the simulations**: each player's pack, last blow struck or taken, down, riding,
+   airborne and seated, reported to the directory as it changes or once a second. The last blow
+   needs the engine's combat to say who fought this tick: today `EVENT_YOU_HIT` and
+   `EVENT_YOU_HURT` in `crates/engine/src/combat.rs` are private (made public, or a
+   `Players::fought(slot)`), read from each player's `told` effects.
+4. **The browser's messages, the server's half**: `channels` (answered with `Region::view`, and sent
+   to a merging channel's players when it begins), `channel {to}` and `channel {party: true}`
+   (`Region::change`, a refusal answered with `error {text: Refusal::sentence()}`), and `channelMoved
+   {from, to, why}` with every move. WORLD_PROTOCOL goes to 12.
+5. **The social tier's parties as `Ties`** (friends, guilds and languages answering nothing until it
+   keeps them), and on an invitation accepted, `Region::joined_party` (refused for now: the player is
+   told they'll go when they can); on leaving or a break-up, `Region::left_party`.
+
+From **land** (R10.21):
+
+6. **No residents.** Channels stop carrying estates and claims (`channels.rs`, the welcome's
+   `estates` and `claims`); land's rows are the same in every channel. Migration 0020 (this
+   workstream's range) drops `characters.home_channel` once nothing reads it.
+7. **What a merge moves.** Players go with their lives, and whatever a life carries with them. If
+   land keeps packs on the ground and parked vehicles by space and chunk alike in every channel,
+   `Close` re-keys nothing; if it keys them by channel too (the research's "what moves belongs to one
+   layer", so two channels can't both take one pack), `Close { n, into }` is where they're re-keyed
+   into `into`. Land's call; the hook is there.
+
+Then, in the second half itself:
+
+8. **The crowd on the server**: an `Arena` over the directory in one process, bots arriving as
+   players through it (their standing driven by the crowd), with `Tuning::small()` handed to the
+   directory: a crowd fills a region, channels open, parties stay together, quiet channels merge, as
+   Rust tests in `crates/server`.
+9. **An integration spec** (`tests/integration/channels.spec.ts`) on the slot's rig: changing channel
+   from the window (refused with a pack, then allowed; the cooldown), and an invitation taking a
+   player into their party's channel. It needs a second channel without a thousand players: an
+   admin command that opens one, or the server started with small numbers (the rig only).
