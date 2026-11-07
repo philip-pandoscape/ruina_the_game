@@ -4,6 +4,7 @@
 //! (Command::Bots); the battlefield's developer zone will bring its own.
 
 use std::collections::BTreeMap;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use rayon::prelude::*;
 use serde_json::json;
@@ -30,12 +31,20 @@ pub struct BotSlot {
 const FIRST_BOT: i64 = -1_000_000;
 /// The most bots one channel holds, so a slip of the panel can't fill it.
 pub const MAX_BOTS: usize = 64;
+/// The limit in force: MAX_BOTS, unless the server was started with another for a load test
+/// (`--max-bots`, crates/tools/src/bin/loadtest.rs).
+static BOT_LIMIT: AtomicUsize = AtomicUsize::new(MAX_BOTS);
+
+/// The most bots each game holds from now on (`--max-bots`: load tests go past the panel's limit).
+pub fn set_bot_limit(n: usize) {
+    BOT_LIMIT.store(n, Ordering::Relaxed);
+}
 
 impl ChannelGame {
     /// Up to `n` bots with `brain` in a ring round (x, z), on `team`. How many joined: the channel
     /// may be full, or at its bots' limit.
     pub fn spawn_bots(&mut self, n: u32, brain: Brain, x: f64, z: f64, team: u8) -> u32 {
-        self.spawn_bots_up_to(n, brain, x, z, team, MAX_BOTS)
+        self.spawn_bots_up_to(n, brain, x, z, team, BOT_LIMIT.load(Ordering::Relaxed))
     }
 
     /// The same, up to `cap` bots in all (the tick-time bench goes past the panel's limit).
