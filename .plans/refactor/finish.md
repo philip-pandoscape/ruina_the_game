@@ -116,7 +116,10 @@ rig's server after rebuilding it (copy again first).
 
 **Lean, core first (the user, 2026-11-06, about 22:20):** write the core of everything first. Along
 the way, test at the unit level only (cargo test, the TypeScript unit tier, typecheck); no
-Playwright specs, no full suites, no whole integration tier, no look test. The guides (docs/*.md,
+Playwright specs, no full suites, no whole integration tier, no look test, and no integration or
+end-to-end tests of any kind: no new Rust tests that drive several server tiers together, run several
+sims or processes, or need a database (the user, 2026-11-06: hold them all for after everything is
+merged). Each report lists the integration and end-to-end tests the end agent should write. The guides (docs/*.md,
 the AGENTS.md files, the bible's pages) wait too. Reports stay short. At the very end, a single agent does
 the integration tier, the stress tier, the look check, the docs and whatever they find, for
 everything together (the user, 2026-11-06: code laid out and unit tested as fast as possible first). A
