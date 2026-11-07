@@ -10,6 +10,8 @@
 
 /// Creatures: one brain on its own, or packs and war-bands fighting.
 pub mod ai;
+/// A crowd played as one simulation and as a world split between several, the same to the bit.
+pub mod border;
 /// A channel's tick: players and bots fighting, creatures among them, a passenger riding along.
 pub mod crowd;
 /// A player on the old battlefield's flat ground: movement, combos, casts, skills.

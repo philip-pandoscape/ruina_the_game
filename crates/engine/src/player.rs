@@ -20,7 +20,7 @@ use crate::world::{Spawn, World};
 const PI: f64 = std::f64::consts::PI;
 const TAU: f64 = std::f64::consts::TAU;
 
-#[derive(Clone, Copy, Default, Debug)]
+#[derive(Clone, Copy, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Actions {
     pub move_x: f64,
     pub move_z: f64,
@@ -69,7 +69,10 @@ pub struct V3 {
     pub z: f64,
 }
 
-#[derive(Clone, Debug)]
+/// Read and written whole where a player is handed between simulations (crate::border), but for
+/// what a step keeps for itself (its events, the yard's swing and bodies) and the skills' numbers,
+/// which are worked out again from the skills and levels once one is read ([`Player::resolve`]).
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Player {
     pub pos: V3,
     pub vel: V3,
@@ -111,6 +114,7 @@ pub struct Player {
     /// (crate::life::progress::sync_levels); on the battlefield they stay at 1.
     pub levels: Levels,
     /// Resolved once when the build or a level changes, never in a frame.
+    #[serde(skip)]
     pub resolved: ResolvedSkills,
     pub abilities: [u8; HOTBAR_SLOTS],  // one per hotbar slot (NO_ABILITY = empty)
     pub cooldowns: [i32; HOTBAR_SLOTS], // frames until each slot can be used again
@@ -157,6 +161,7 @@ pub struct Player {
     pub gust_frames: i32,
     /// What happened this step, in the order it happened (crate::event): taken by the browser's
     /// session after each step, cleared at the next.
+    #[serde(skip)]
     pub events: Vec<Event>,
     /// Where you were and faced at the start of this step, for drawing between steps.
     pub prev_pos: V3,
@@ -166,8 +171,10 @@ pub struct Player {
     pub aim_assist: Option<Vec<(f64, f64)>>,
     /// The swing whose blow could land this step (an active frame of a melee swing that hasn't
     /// landed yet), for the training yard to check what it hits; the server checks for itself.
+    #[serde(skip)]
     pub swing_due: Option<AttackStep>,
     /// Offline, the creatures you can't walk through (crate::training).
+    #[serde(skip)]
     pub bodies: Vec<Body>,
 }
 
@@ -1058,6 +1065,12 @@ impl Player {
             return;
         }
         self.levels = levels.to_vec();
+        self.resolved = resolve_skills(&self.skills, &self.levels);
+    }
+
+    /// The skills' numbers worked out again from the skills and levels: what a player read from
+    /// its written form (serde) needs before it steps, as they aren't written.
+    pub fn resolve(&mut self) {
         self.resolved = resolve_skills(&self.skills, &self.levels);
     }
 

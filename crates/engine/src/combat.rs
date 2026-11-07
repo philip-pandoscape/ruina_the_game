@@ -394,6 +394,14 @@ pub struct Landing {
     pub away: Across,
 }
 
+impl Landing {
+    /// What blows that landed in another simulation mean for players here, to be told with the
+    /// rest ([`Players::settle`]).
+    pub fn tell(&mut self, told: Vec<Told>) {
+        self.told.extend(told);
+    }
+}
+
 /// A player handed from one simulation to another across a border ([`Players::depart`],
 /// [`Players::arrive`]): everything their slot holds, so the step they take next is the one they
 /// would have taken where they were.
@@ -960,6 +968,16 @@ impl Players {
     /// Whether `slot` holds one of this simulation's own players.
     pub fn is_own(&self, slot: usize) -> bool {
         matches!(self.slots.get(slot), Some(Some(s)) if s.own())
+    }
+
+    /// The character in `slot`, one of this simulation's or a ghost.
+    pub fn owner_of_slot(&self, slot: usize) -> Option<i64> {
+        self.slots.get(slot)?.as_ref().map(|s| s.owner)
+    }
+
+    /// The slot a character is in, one of this simulation's or a ghost.
+    pub fn slot_of_owner(&self, owner: i64) -> Option<usize> {
+        self.slots.iter().position(|s| s.as_ref().is_some_and(|s| s.owner == owner))
     }
 
     /// Every ghost here, by slot.

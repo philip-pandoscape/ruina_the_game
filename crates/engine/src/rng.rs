@@ -13,6 +13,7 @@ pub fn mulberry32(state: &mut u32) -> f64 {
 }
 
 /// A stream with its state to itself.
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Rng(pub u32);
 
 impl Rng {
