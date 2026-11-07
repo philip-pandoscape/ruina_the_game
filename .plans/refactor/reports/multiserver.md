@@ -311,3 +311,28 @@ forgets every process there before each playing test):
 | To write: a sim killed mid-handoff | after borders' second half | The two-phase handoff across processes: one owner after a kill at each phase, nothing duplicated |
 | To run: the online Playwright specs against `npm run cluster` | `RUINA_SERVER=http://localhost:7790` | online, party, dungeon-way-in (copies across processes), minigames (pots written together), update (a gate stopped: `SaveAll` across processes) |
 | To write: a services process restarted, a gate killed | the harness | Spaces still played are adopted, not started twice; players reconnect through another gate |
+
+## 2026-11-06 23:15: channels merged in; the channels' state across a restart
+
+- **1e5607c** this report; **the merge of b68e2ec** (channels). It conflicted on the manifests,
+  world-api's `ToConn` (`Channels`, `ChannelMoved` and `Rejoin` side by side) and `start.rs`:
+  channels' `services_with` (its tuning) stays, and the leases' variant is `services_leased`,
+  which takes both and which the services role starts. The Dockerfile's dependency layer now
+  lists `crates/channels` too (refactor/first's lists neither it nor world-api).
+- **`npm run check`** on the merge, before it (d5a7184): 273 TypeScript tests, 355 Rust tests
+  (20 ignored: measurements, the 8 lease tests, the 6 cluster tests). After it: below.
+- **Channels' state in the directory's memory** (the orchestrator's question). A services process
+  that restarts places everyone afresh, and it's acceptable for the first multi-server version
+  with two guards. Without them it isn't: a restarted directory knows nobody is online (its
+  `who`, `last` and the channels' populations start empty) while the sims play on (it adopts
+  their spaces, `ensure`), so it could take a full channel for a quiet one and merge or close it.
+  - **Wait to hear from everyone.** A directory that has just started closes and merges no
+    channel until every live simulation has told it who it holds. Sims already send their
+    `Standings` once a second; add their members to it (or a `Members` message), sent at once
+    when a sim's link reports the services' process `Restarted` (crates/link's event).
+  - **Keep the open channels in Postgres.** Each region's open channels and their state (open,
+    closing), in a small table (migration 0032), so a restart neither renumbers them nor forgets
+    one that is closing. Populations and standings come back from the sims; nothing else needs
+    keeping.
+  - Parties (social's memory) have the same shape and are already noted by the tiers: a restart
+    ends them.
