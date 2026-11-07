@@ -71,7 +71,7 @@ pub fn vehicle_index(life: &Life, id: i64) -> Option<usize> {
 }
 
 /// Index of the vehicle of yours the player is riding, if any (TS ridden). Riding along in someone
-/// else's (`host` set), it's theirs, not one of this island's, even when one has the same number.
+/// else's (`host` set), it's theirs, not one of this life's, even when one has the same number.
 pub fn ridden(life: &Life, sim: &Sim) -> Option<usize> {
     if sim.player.vehicle != 0 && sim.player.host == 0 { vehicle_index(life, sim.player.vehicle) } else { None }
 }
@@ -827,7 +827,7 @@ fn move_on_land(sim: &Sim, v: &mut Vehicle, def: &RideableDef, climb: f64, max_w
     settle_tilt(hf, v, def, dt);
 }
 
-/// Steps a boat. It comes off the list for the step, so the rules can toast and roll the island's
+/// Steps a boat. It comes off the list for the step, so the rules can toast and roll the life's
 /// dice while they move it, and goes back before a storm can break it up (breakUp finds it there).
 fn boat(life: &mut Life, sim: &mut Sim, i: usize, d: &RideableDef, inp: &DriveInput) {
     let mut v = std::mem::take(&mut life.land.vehicles[i]);
@@ -1090,19 +1090,19 @@ mod tests {
     const ROAD: (f64, f64, f64) = (150.0, -210.0, PI / 2.0 + 0.25);
 
     /// One player on Emberholm, stepped the way the browser steps it.
-    struct Island {
+    struct OnePlayer {
         life: Life,
         world: OpenWorld,
         p: Player,
     }
 
-    impl Island {
-        fn new() -> Island {
+    impl OnePlayer {
+        fn new() -> OnePlayer {
             let zone = emberholm();
             let s = zone.recipe.spawn;
             let mut life = Life::new(zone, None, None);
             life.drain_events();
-            Island { life, world: OpenWorld::new(zone), p: Player::new(Spawn { x: s.x, z: s.z, facing: s.facing }, 0, Build::default()) }
+            OnePlayer { life, world: OpenWorld::new(zone), p: Player::new(Spawn { x: s.x, z: s.z, facing: s.facing }, 0, Build::default()) }
         }
 
         /// On your feet on the ground at (x, z).
@@ -1120,7 +1120,7 @@ mod tests {
             f(&mut self.life, &mut sim)
         }
 
-        /// Frames as the page runs them: the ride with your controls, then the island's step.
+        /// Frames as the page runs them: the ride with your controls, then the life's step.
         fn frames(&mut self, n: usize, a: Actions) {
             for _ in 0..n {
                 self.with(|life, sim| {
@@ -1237,7 +1237,7 @@ mod tests {
 
     #[test]
     fn a_cart_is_summoned_in_front_of_you_on_dry_level_ground() {
-        let mut w = Island::new();
+        let mut w = OnePlayer::new();
         let wb = &w.world.zone.recipe.workbenches[0];
         w.stand((wb.x - 6.0, wb.z + 6.0, 0.0));
         let id = w.summon("deed.farmCart").expect("a farm cart");
@@ -1258,7 +1258,7 @@ mod tests {
 
     #[test]
     fn summoning_needs_the_deed_your_feet_on_the_ground_and_room() {
-        let mut w = Island::new();
+        let mut w = OnePlayer::new();
         w.stand((0.0, -200.0, 0.0));
         assert_eq!(w.with(|life, sim| summon(life, sim, "deed.farmCart")), None, "no deed in the bag");
         assert!(w.toasts().is_empty());
@@ -1277,7 +1277,7 @@ mod tests {
 
     #[test]
     fn a_boat_is_summoned_only_where_the_water_is_deep_enough() {
-        let mut w = Island::new();
+        let mut w = OnePlayer::new();
         w.stand((0.0, -200.0, 0.0));
         assert_eq!(w.summon("deed.rowboat"), None);
         assert_eq!(w.toasts(), ["No water deep enough nearby - go down to the shore"]);
@@ -1298,7 +1298,7 @@ mod tests {
 
     #[test]
     fn a_loaded_or_occupied_vehicle_stays_where_it_is() {
-        let mut w = Island::new();
+        let mut w = OnePlayer::new();
         let wb = &w.world.zone.recipe.workbenches[0];
         w.stand((wb.x - 6.0, wb.z + 6.0, 0.0));
         let id = w.summon("deed.farmCart").unwrap();
@@ -1322,7 +1322,7 @@ mod tests {
 
     #[test]
     fn a_boat_in_for_repairs_cannot_be_called() {
-        let mut w = Island::new();
+        let mut w = OnePlayer::new();
         w.life.state.clock = 100.0;
         w.life.state.repairs = Some(BTreeMap::from([("rowboat".to_string(), 129.2)]));
         w.stand(DOCKS);
@@ -1334,7 +1334,7 @@ mod tests {
 
     #[test]
     fn boarding_seats_you_and_getting_out_steps_you_off_beside_it() {
-        let mut w = Island::new();
+        let mut w = OnePlayer::new();
         let wb = &w.world.zone.recipe.workbenches[0];
         w.stand((wb.x - 6.0, wb.z + 6.0, 0.0));
         let id = w.summon("deed.farmCart").unwrap();
@@ -1364,7 +1364,7 @@ mod tests {
 
     #[test]
     fn a_cart_picks_up_speed_tops_out_turns_and_reverses() {
-        let mut w = Island::new();
+        let mut w = OnePlayer::new();
         w.stand(ROAD);
         let id = w.summon("deed.farmCart").expect("a cart on the road");
         w.board(id);
@@ -1390,7 +1390,7 @@ mod tests {
     #[test]
     fn the_handbrake_slides_a_roadster_through_a_turn() {
         let lateral = |handbrake: bool| {
-            let mut w = Island::new();
+            let mut w = OnePlayer::new();
             w.stand(ROAD);
             let id = w.summon("deed.roadster").expect("a roadster on the road");
             w.board(id);
@@ -1406,7 +1406,7 @@ mod tests {
     #[test]
     fn a_sloop_runs_faster_with_the_wind_behind_her() {
         let sail = |wind: f64| {
-            let mut w = Island::new();
+            let mut w = OnePlayer::new();
             w.stand(DOCKS);
             let id = w.summon("deed.sloop").unwrap();
             w.board(id);
@@ -1423,7 +1423,7 @@ mod tests {
 
     #[test]
     fn a_rowboat_runs_aground_in_the_shallows() {
-        let mut w = Island::new();
+        let mut w = OnePlayer::new();
         w.stand(DOCKS);
         let id = w.summon("deed.rowboat").unwrap();
         // Two metres of water off an open beach, bow to the sand.
@@ -1461,7 +1461,7 @@ mod tests {
 
     #[test]
     fn an_empty_boat_drifts_to_a_stop() {
-        let mut w = Island::new();
+        let mut w = OnePlayer::new();
         w.stand(DOCKS);
         let id = w.summon("deed.sloop").unwrap();
         w.board(id);
@@ -1477,7 +1477,7 @@ mod tests {
 
     #[test]
     fn a_storm_breaks_up_a_boat_under_you_and_its_cargo_floats() {
-        let mut w = Island::new();
+        let mut w = OnePlayer::new();
         w.stand(DOCKS);
         let id = w.summon("deed.rowboat").unwrap();
         let pack = w.load(id, 0);
@@ -1522,7 +1522,7 @@ mod tests {
 
     #[test]
     fn a_boat_lost_mid_step_leaves_the_others_their_step() {
-        let mut w = Island::new();
+        let mut w = OnePlayer::new();
         w.stand(DOCKS);
         let lost = w.summon("deed.rowboat").unwrap();
         let other = w.summon("deed.sloop").unwrap();
@@ -1544,7 +1544,7 @@ mod tests {
 
     #[test]
     fn a_horse_wont_carry_a_trade_pack_but_a_donkey_will() {
-        let mut w = Island::new();
+        let mut w = OnePlayer::new();
         w.stand((0.0, -200.0, 0.0));
         w.mount();
         assert_eq!(w.toasts(), ["You have no mount yet - Sela at the stables sells them"]);
@@ -1573,7 +1573,7 @@ mod tests {
 
     #[test]
     fn the_whistle_brings_the_same_mount_back() {
-        let mut w = Island::new();
+        let mut w = OnePlayer::new();
         w.life.give("whistle.donkey", 1, true);
         w.stand((0.0, -200.0, 0.0));
         w.mount();
@@ -1598,7 +1598,7 @@ mod tests {
     fn a_mount_gallops_but_a_pack_keeps_it_to_a_trot() {
         // (average over two seconds, fastest) with the sprint key held.
         let pace = |pack: i64, whistle: &str| {
-            let mut w = Island::new();
+            let mut w = OnePlayer::new();
             w.life.give(whistle, 1, true);
             w.stand((0.0, -200.0, 0.0));
             w.p.pack = pack;
@@ -1622,7 +1622,7 @@ mod tests {
 
     #[test]
     fn a_donkey_swims_out_and_climbs_back_onto_the_beach() {
-        let mut w = Island::new();
+        let mut w = OnePlayer::new();
         let (x, z) = w.waterline(60.0, -300.0);
         w.life.give("whistle.donkey", 1, true);
         w.stand((x, z + 8.0, PI));
@@ -1646,7 +1646,7 @@ mod tests {
 
     #[test]
     fn a_cart_stops_at_the_waters_edge() {
-        let mut w = Island::new();
+        let mut w = OnePlayer::new();
         let (x, z) = w.waterline(-60.0, -300.0);
         w.stand((x, z + 16.0, PI));
         let id = w.summon("deed.farmCart").expect("a cart on the beach");
@@ -1663,7 +1663,7 @@ mod tests {
 
     #[test]
     fn you_bump_into_a_parked_cart_but_not_one_far_below_you() {
-        let mut w = Island::new();
+        let mut w = OnePlayer::new();
         let wb = &w.world.zone.recipe.workbenches[0];
         w.stand((wb.x - 6.0, wb.z + 6.0, 0.0));
         let id = w.summon("deed.farmCart").unwrap();
@@ -1723,7 +1723,7 @@ mod tests {
 
     #[test]
     fn a_pack_on_your_back_keeps_you_out_of_the_drivers_seat() {
-        let mut w = Island::new();
+        let mut w = OnePlayer::new();
         let wb = &w.world.zone.recipe.workbenches[0];
         w.stand((wb.x - 6.0, wb.z + 6.0, 0.0));
         let id = w.summon("deed.farmCart").unwrap();
@@ -1745,7 +1745,7 @@ mod tests {
 
     #[test]
     fn riding_along_in_someone_elses_vehicle_is_theirs_to_drive() {
-        let mut w = Island::new();
+        let mut w = OnePlayer::new();
         let wb = &w.world.zone.recipe.workbenches[0];
         w.stand((wb.x - 6.0, wb.z + 6.0, 0.0));
         // Your own cart has the same number as the one you ride along in.
@@ -1768,7 +1768,7 @@ mod tests {
 
     #[test]
     fn everyone_elses_vehicles_are_solid_too_but_not_your_own_twice() {
-        let mut w = Island::new();
+        let mut w = OnePlayer::new();
         w.stand((0.0, -200.0, 0.0));
         let y = w.p.pos.y;
         let theirs = Vehicle { def: "farmCart".into(), x: 0.5, y, z: -200.0, ..Default::default() };
@@ -1794,7 +1794,7 @@ mod tests {
 
     #[test]
     fn nothing_a_browser_sends_can_break_it() {
-        let mut w = Island::new();
+        let mut w = OnePlayer::new();
         w.stand((0.0, -200.0, 0.0));
         w.life.give("nope", 1, true);
         assert_eq!(w.with(|life, sim| summon(life, sim, "nope")), None);

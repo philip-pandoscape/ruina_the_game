@@ -14,7 +14,7 @@
 //! A life is read here with the land lent to it and a block of ids for what it places
 //! (`Db::load_life`, `Db::holding`, `Db::reserve_ids`), and written here (`Db::write_lives`: the life
 //! on the character's row, its land as rows, what it kept for the ledger as the ledger's); the
-//! simulation takes it up (`sim::load_island`) and puts it away (`sim::island_of`). A region's
+//! simulation takes it up (`sim::load_life`) and puts it away (`sim::life_save`). A region's
 //! simulation reads its land (`Db::region_land`) as it starts.
 
 use std::sync::{Arc, Mutex};
@@ -91,7 +91,7 @@ impl Db {
     pub async fn load_life(&self, character: CharacterId) -> Result<Saved, String> {
         match self {
             Db::Pg(db) => {
-                let row: Option<LifeRow> = sqlx::query_as("SELECT island, build, (extract(epoch FROM saved_at) * 1000)::bigint FROM characters WHERE id = $1")
+                let row: Option<LifeRow> = sqlx::query_as("SELECT life, build, (extract(epoch FROM saved_at) * 1000)::bigint FROM characters WHERE id = $1")
                     .bind(character)
                     .fetch_optional(db)
                     .await

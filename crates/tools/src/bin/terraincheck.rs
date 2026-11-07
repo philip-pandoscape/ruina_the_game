@@ -1,4 +1,4 @@
-//! Prints the engine's island for tests/conformance/terrain.test.ts to check against the browser's:
+//! Prints the engine's region for tests/conformance/terrain.test.ts to check against the browser's:
 //!   terraincheck            stdin [[x, z], ...] -> stdout [[height, slope, surface], ...]
 //!   terraincheck --zone     stdout: Emberholm as the engine grows it from its recipe where the world
 //!                           places it, all of it

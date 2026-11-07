@@ -1,11 +1,11 @@
 import { objectiveTarget, QUESTS, questDef } from '../../../content/quests';
 import { packDef, placeName } from '../../../content/trade';
-import { shortTime, questsAt } from '../../../engine/island';
+import { shortTime, questsAt } from '../../../engine/life';
 import { esc } from '../../../util/html';
 import { progressHtml } from '../../components/bars';
 import { el } from '../../components/dom';
 import { uiIcon } from '../../theme/icons';
-import type { IslandUI } from '../context';
+import type { LifeContext } from '../context';
 
 // The quest tracker on the right: each quest under way you haven't taken off it, with its step and
 // how far along, then your contracts, then how many more are in the log and how many are on offer.
@@ -49,7 +49,7 @@ export class QuestTracker {
   private shown = '';
 
   constructor(
-    private ui: IslandUI,
+    private ui: LifeContext,
     private untracked: Untracked,
   ) {
     this.el.id = 'lui-quests';

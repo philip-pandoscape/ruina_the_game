@@ -253,7 +253,7 @@ test('healing an ally shows a heal number to both of them', { tag: '@gpu' }, asy
 });
 
 test('the server takes any sound build here, and turns down unsound ones', async ({ browser }) => {
-  // More skills than a newcomer's island has earned: on the island that's refused (the server's
+  // More skills than a newcomer's life has earned: in the world that's refused (the server's
   // tests), but the battlefield is for trying builds, and takes any sound one.
   const big = grown(SKILL_POINTS + 2);
   expect([soundTree(big), skillCount(big)]).toEqual([true, SKILL_POINTS + 2]);

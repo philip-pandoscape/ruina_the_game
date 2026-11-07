@@ -4,13 +4,13 @@ import { defaultBuild, validBuild } from '../../src/content/build';
 import { NODES } from '../../src/content/skills';
 import type { Build } from '../../src/content/tuning';
 import { readOptions } from '../../src/app/options';
-import { savedIsland } from '../../src/app/save';
+import { savedLife } from '../../src/app/save';
 import { loadBuild } from '../../src/app/savedBuild';
 import { migrateStorage } from '../../src/app/storage';
 import { makeStep } from '../../src/app/step';
 import { makeTestApi } from '../../src/app/testApi';
 import { Engine } from '../../src/engine/engine';
-import { skillBudget, type Command } from '../../src/engine/island';
+import { skillBudget, type Command } from '../../src/engine/life';
 import { dungeonDef } from '../../src/engine/zone';
 import { DungeonVisit } from '../../src/app/dungeonVisit';
 import { FollowCamera } from '../../src/render/camera';
@@ -19,7 +19,7 @@ import type { NetActor } from '../../src/net/worldFeed';
 import type { GameRefs } from '../../src/main';
 
 // The game without a page (.plans/refactor R6.2a): the rules through the engine (src/engine/), the
-// island's life, auto-walk and the camera's maths for real; in place of the drawing, the windows,
+// your life, auto-walk and the camera's maths for real; in place of the drawing, the windows,
 // the controller and the server, stand-ins that do nothing. The step
 // (src/app/step.ts) and the test API (src/app/testApi.ts) run on it as they run on the page, so a
 // rules test written for a page (page.evaluate over window.__game) runs here unchanged: `test` gives
@@ -77,10 +77,10 @@ function start(url: string) {
   let build: Build = loadBuild();
   const engine = new Engine({ online: false, build });
   const { world, terrain, sim, range, life } = engine;
-  // As main.ts: the island kept in this browser when asked for.
+  // As main.ts: the life kept in this browser when asked for.
   if (opt.test && opt.load) {
-    const saved = savedIsland();
-    if (saved) engine.loadIsland(saved);
+    const saved = savedLife();
+    if (saved) engine.loadLife(saved);
   }
   // As main.ts: into a copy of a dungeon and out again, with nothing to draw; started in a copy of
   // an instance the address names (?test=yard), as if through its door.
@@ -110,7 +110,7 @@ function start(url: string) {
     build = b;
     engine.setBuild(b);
   };
-  const islandCommand = (c: Command): void => engine.command(c);
+  const lifeCommand = (c: Command): void => engine.command(c);
   const teleport = (x: number, z: number, facing = engine.player.facing): void => {
     if (!terrain) return;
     walker?.stop();
@@ -135,7 +135,7 @@ function start(url: string) {
     },
     applyBuild,
     skillPoints,
-    islandCommand,
+    lifeCommand,
     teleport,
     groundY: (x: number, z: number) => engine.groundY(x, z),
     dummyActor: () => sim.actorOfKind('dummy'),
@@ -148,7 +148,7 @@ function start(url: string) {
     shownById: new Map<number, NetActor>(),
     testMode: opt.test,
     serverRules: false,
-    // Offline and headless: no server, no windows over the island, nobody else.
+    // Offline and headless: no server, no windows over the world, nobody else.
     online: null,
     net: null,
     prediction: null,

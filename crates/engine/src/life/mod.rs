@@ -41,7 +41,7 @@ pub fn step_seconds() -> f64 {
     1.0 / crate::tuning::tuning().sim_hz
 }
 
-/// What a browser can ask the island to do (src/engine/life/life.ts Command). `grant` and `warp` are
+/// What a browser can ask a life to do (src/engine/life/life.ts Command). `grant` and `warp` are
 /// the developer panel's, and only run where the server allows the panel.
 #[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
 #[serde(tag = "t", rename_all = "camelCase")]
@@ -123,7 +123,7 @@ pub enum Command {
         seconds: f64,
     },
     /// The developer panel's teleport. Offline the page moves you there itself; online only the
-    /// server can, so the channel handles it before the island.
+    /// server can, so the channel handles it before the life.
     Teleport {
         x: f64,
         z: f64,
@@ -131,14 +131,14 @@ pub enum Command {
         facing: Option<f64>,
     },
     /// Ride along in another player's vehicle (`host` is their character). Their vehicle isn't on
-    /// your island, so the channel seats you before it gets there.
+    /// your land, so the channel seats you before it gets there.
     Ride {
         host: i64,
         vehicle: i64,
     },
     /// The developer panel's bots: `n` more round you with `brain` (crate::bots; a skirmisher by
     /// default) on `team` (yours by default), or with `n` 0 every bot here gone. Channel-wide, like
-    /// teleporting: the channel handles it before the island.
+    /// teleporting: the channel handles it before the life.
     Bots {
         n: u32,
         #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -333,14 +333,14 @@ pub struct Life {
     pub plot_owners: BTreeMap<String, String>,
     /// Online: the world's clock (the server's, in seconds since 1970), set by the channel each
     /// tick, which the rain and the wind run on so that everyone has the same weather
-    /// (weather.rs). None runs them on the island's own clock (the rules' checks, tests).
+    /// (weather.rs). None runs them on the life's own clock (the rules' checks, tests).
     pub world_clock: Option<f64>,
     /// The dungeon or developer zone you're in a copy of (the browser's session; the server plays
     /// each copy as a channel of its own).
     pub dungeon: Option<String>,
-    /// The browser's copy of an island the server runs (crate::session online): commands go to the
+    /// The browser's copy of a life the server runs (crate::session online): commands go to the
     /// server rather than running here (the page sends them), nothing is said here (only the
-    /// server's island speaks), and a step only moves on what moves with you between its updates.
+    /// server's copy speaks), and a step only moves on what moves with you between its updates.
     pub remote: bool,
     /// Online, everyone else's vehicles where they're drawn, for the prompt to offer to ride along.
     pub others_vehicles: Vec<OthersVehicle>,
@@ -356,7 +356,7 @@ pub struct Life {
 }
 
 impl Life {
-    /// A new island, with the start-of-game money and labor (tests can be generous).
+    /// A new life, with the start-of-game money and labor (tests can be generous).
     pub fn new(zone: &'static Zone, coins: Option<f64>, start_labor: Option<f64>) -> Life {
         let state = new_life_state(coins.unwrap_or(200.0), start_labor.unwrap_or(labor().start), zone.recipe.seed);
         let mut life = Life {
@@ -450,7 +450,7 @@ impl Life {
             land.own_ids();
         }
         self.land = land;
-        // Gathering spots were kept by their place in the island's list before they had ids: those,
+        // Gathering spots were kept by their place in the life's list before they had ids: those,
         // and any spot the world no longer has, are simply back.
         let world = crate::open::map::world_map();
         state.nodes.retain(|id, _| world.recipes().any(|r| r.nodes.iter().any(|n| n.id == *id)));
@@ -460,7 +460,7 @@ impl Life {
     }
 
     pub fn command(&mut self, c: Command) {
-        // A remote island's commands are the server's to run (the page sends them there).
+        // A remote life's commands are the server's to run (the page sends them there).
         if self.remote {
             return;
         }
@@ -474,7 +474,7 @@ impl Life {
     }
 
     pub fn emit(&mut self, e: LifeEvent) {
-        // Online only the server's island speaks: what this copy predicts would say everything twice.
+        // Online only the server's copy speaks: what this copy predicts would say everything twice.
         if self.remote {
             return;
         }
@@ -494,7 +494,7 @@ impl Life {
         quests::notify_quests(self, &e);
     }
 
-    // ---------- What the player's step asks of the island ----------
+    // ---------- What the player's step asks of the life ----------
 
     /// Steps the vehicle you are riding, with your controls.
     pub fn ride(&mut self, sim: &mut Sim, a: &Actions) {
@@ -508,7 +508,7 @@ impl Life {
         progress::observe(self, e)
     }
 
-    /// Everything else on the island, once per step, after you have moved.
+    /// Everything else in the life, once per step, after you have moved.
     pub fn step(&mut self, sim: &mut Sim, a: &Actions) {
         let dt = step_seconds();
         progress::sync_levels(self, sim.player);
@@ -553,9 +553,9 @@ impl Life {
         self.state.labor = l.max.min(self.state.labor + per_min * seconds / 60.0);
     }
 
-    // ---------- Randomness: the island's own stream, saved with it ----------
+    // ---------- Randomness: the life's own stream, saved with it ----------
 
-    /// mulberry32 on the island's own seed.
+    /// mulberry32 on the life's own seed.
     pub fn rand(&mut self) -> f64 {
         crate::rng::mulberry32(&mut self.state.rng)
     }

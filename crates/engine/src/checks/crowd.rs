@@ -5,7 +5,7 @@
 //! slimes are among them; and a farm cart goes up the road, its owner driving and a friend riding
 //! along. Each tick comes back as a hash of everything in it (every player as the browser reads
 //! them, what each was told, every creature, missile, arrow and meteor, every slam and blow), and
-//! the islands at the end in full.
+//! the lives at the end in full.
 //!
 //! `order`, a seed, steps everything in an order of its own (with the engine's own random numbers):
 //! the bots' brains, the players and the creatures, each shuffled afresh every tick (the creatures
@@ -173,9 +173,9 @@ pub(crate) fn tick_json(players: &Players, actors: &Actors, done: &StepOut) -> V
 pub fn run(input: &str) -> serde_json::Result<String> {
     let s: Scenario = serde_json::from_str(input)?;
     let (players, _, ticks) = play(&s);
-    let islands: Vec<Value> =
+    let lives: Vec<Value> =
         players.each_open().map(|(_, o, _, life)| json!({ "id": o, "state": life.map(|l| &l.state), "land": life.map(|l| &l.land) })).collect();
-    serde_json::to_string(&json!({ "ticks": ticks, "islands": islands }))
+    serde_json::to_string(&json!({ "ticks": ticks, "lives": lives }))
 }
 
 /// Plays a scenario out: the players and creatures as it left them, and each tick's hash.
@@ -204,7 +204,7 @@ fn play(s: &Scenario) -> (Players, Actors, Vec<String>) {
     for (k, f) in s.fighters.iter().enumerate() {
         let Some(drive) = &f.drives else { continue };
         let (p, life) = players.open_mut(client(k)).expect("the driver");
-        let life = life.expect("an island");
+        let life = life.expect("a life");
         life.give(&drive.deed, 1, true);
         let id = vehicles::summon(life, &mut Sim { player: p, world: &world, owner: owner(k) }, &drive.deed).expect("a vehicle on the road");
         let v = life.land.vehicles.iter().find(|v| v.id == id).expect("the vehicle").clone();
@@ -332,7 +332,7 @@ mod tests {
         // The cart went up the road with its passenger in his seat.
         let (k, f) = s.fighters.iter().enumerate().find(|(_, f)| f.drives.is_some()).expect("a driver");
         let (driver, _, life) = players.open_view(EntityId::character(k as i64 + 1)).expect("the driver");
-        let v = &life.expect("an island").land.vehicles[0];
+        let v = &life.expect("a life").land.vehicles[0];
         let went = crate::jsmath::len(v.x - f.x, v.z - f.z);
         assert!(went > 10.0, "the cart went {went} m");
         assert_eq!(driver.vehicle, v.id);

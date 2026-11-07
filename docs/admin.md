@@ -24,8 +24,8 @@ The server tells the browser in `/api/me` and at sign-in (`admin: true`) and in 
   (from character select, with the character chosen there), then every developer page, each opening
   in a new tab; in the world it opens Developer Tools too. `src/ui/admin/adminMenu.ts`; the zones are
   their own files, the pages `src/dev/pages.ts`.
-- **Developer Tools** (the backquote key, or the Admin menu): gifts, island time, teleports, the
-  dungeons' doors, starting the island over, recording a bug report. Online these are commands the
+- **Developer Tools** (the backquote key, or the Admin menu): gifts, time, teleports, the
+  dungeons' doors, starting your life over, recording a bug report. Online these are commands the
   server runs only for an admin (`grant`, `warp`, `teleport`, `reset`), and so are seeded and timed
   mini-game challenges.
 - **The developer pages**, `/dev/` and `/design/`: the server answers anyone else "not found", as
@@ -36,7 +36,7 @@ The server tells the browser in `/api/me` and at sign-in (`admin: true`) and in 
 
 ## The Zones
 
-The developer zones are places beside the island that only admins go into, each a file in
+The developer zones are places beside the world that only admins go into, each a file in
 `content/instances/` marked `developer` ([world.md](world.md) says how to add one):
 
 - **The Yard**: the training dummy, slimes, and bots wandering about as moving targets; a copy for
@@ -62,7 +62,7 @@ close-up rigs, and the galleries of models, buildings, crowds and the interface.
 (`#/<subject>/<animation or entry>?<options>&f=<frame>`), so a link goes straight to it. A new kind
 of thing to look at is a subject or a gallery there, not a page of its own. The interface is the one
 gallery the library frames rather than draws (`#/ui/<window>/<state>`): its windows are drawn by
-`/dev/ui.html` (`src/dev/ui/`), on a real offline island, because the game's theme sets its colours on
+`/dev/ui.html` (`src/dev/ui/`), in a real offline game, because the game's theme sets its colours on
 the whole document and tooltips and menus need a document to themselves. The Admin menu doesn't list
 that page; the library is the way to it.
 

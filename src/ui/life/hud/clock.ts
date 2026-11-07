@@ -1,9 +1,9 @@
 import { CLIMATES } from '../../../content/farming';
-import { hourOfDay, raining } from '../../../engine/island';
+import { hourOfDay, raining } from '../../../engine/life';
 import { angleDiff } from '../../../engine/rules';
 import { el } from '../../components/dom';
 import { withIcons } from '../../theme/icons';
-import type { IslandUI } from '../context';
+import type { LifeContext } from '../context';
 
 // Under the minimap: the hour (the sun, a sunrise or the moon beside it), the weather, and the
 // wind, how strong and which way it blows against the way you look.
@@ -13,7 +13,7 @@ export class ClockHud {
   private key = '';
 
   constructor(
-    private ui: IslandUI,
+    private ui: LifeContext,
     /** The climate where you are (the region you start in's without it). */
     private climateHere: () => string = () => ui.life.zone.recipe.climate,
   ) {

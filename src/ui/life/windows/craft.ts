@@ -1,19 +1,19 @@
 import { itemDef, recipe as recipeDef, recipesAt } from '../../../content/items';
 import { packDef, placeName, route } from '../../../content/trade';
-import { demandAt, freshness } from '../../../engine/island';
+import { demandAt, freshness } from '../../../engine/life';
 import { esc } from '../../../util/html';
 import { buttonHtml } from '../../components/button';
 import { listHtml, rowHtml } from '../../components/list';
 import { slotHtml } from '../../components/slot';
 import type { View } from '../../components/window';
 import { iconHtml, money, uiIcon } from '../../theme/icons';
-import type { IslandUI } from '../context';
+import type { LifeContext } from '../context';
 
 // A workbench, or someone's workshop: what can be made there, what each takes (what you have of it
 // in green, what you lack in red), where a trade pack sells and for how much. Packing one closes
 // the window, as you have somewhere to carry it.
 
-export function craftView(ui: IslandUI, benchOrNpc: string): View {
+export function craftView(ui: LifeContext, benchOrNpc: string): View {
   const life = ui.life;
   const bench = life.zone.recipe.workbenches.find((b) => b.id === benchOrNpc);
   const npc = life.zone.recipe.npcs.find((x) => x.id === benchOrNpc);

@@ -105,9 +105,7 @@ async fn a_transfer_sent_twice_is_applied_once() {
     assert_eq!(transfer(&db, &t, &saves(999.0, 0.0)).await.unwrap(), Applied::Already);
     let coins = |id: i64| {
         let db = db.clone();
-        async move {
-            sqlx::query_scalar::<_, f64>("SELECT (island->'state'->>'coins')::float8 FROM characters WHERE id = $1").bind(id).fetch_one(&db).await.unwrap()
-        }
+        async move { sqlx::query_scalar::<_, f64>("SELECT (life->'state'->>'coins')::float8 FROM characters WHERE id = $1").bind(id).fetch_one(&db).await.unwrap() }
     };
     assert_eq!((coins(ann).await, coins(bea).await), (250.0, 150.0));
     let rows: Vec<(String, f64)> = sqlx::query_as("SELECT party, coins FROM ledger ORDER BY character").fetch_all(&db).await.unwrap();
@@ -267,15 +265,15 @@ fn without_ids(land: &Land) -> Value {
 #[test]
 fn todays_saves_are_read_as_a_life_and_its_land_on_the_worlds_clock() {
     for row in fixtures() {
-        let island = &row["island"];
-        let moved = read(island, saved_at_ms(&row)).unwrap().expect("not moved yet");
+        let saved = &row["life"];
+        let moved = read(saved, saved_at_ms(&row)).unwrap().expect("not moved yet");
         let state = &moved.life["state"];
         for k in ["houses", "scarecrows", "ships", "packs", "vehicles", "demand", "weather"] {
             assert!(state.get(k).is_none(), "{}: {k} left in the life", row["name"]);
         }
         assert_eq!(state["version"], 4);
         // The life is everything else it was, as it was.
-        let old: LifeState = serde_json::from_value(island["state"].clone()).unwrap();
+        let old: LifeState = serde_json::from_value(saved["state"].clone()).unwrap();
         let now: LifeState = serde_json::from_value(state.clone()).unwrap();
         assert_eq!(
             (now.coins, now.staked, now.bag.clone(), now.quests.clone(), now.next_id),
@@ -283,7 +281,7 @@ fn todays_saves_are_read_as_a_life_and_its_land_on_the_worlds_clock() {
         );
         // Every piece is in its land, and its times have moved onto the world's clock by the same
         // amount: what was left of the tax is left of it still.
-        let count = |k: &str| island["state"][k].as_array().map_or(0, Vec::len);
+        let count = |k: &str| saved["state"][k].as_array().map_or(0, Vec::len);
         let l = &moved.land;
         assert_eq!(
             (l.houses.len(), l.scarecrows.len(), l.ships.len(), l.packs.len(), l.vehicles.len()),
@@ -292,7 +290,7 @@ fn todays_saves_are_read_as_a_life_and_its_land_on_the_worlds_clock() {
             row["name"]
         );
         let by = saved_at_ms(&row).unwrap() as f64 / 1000.0 - old.clock;
-        for (h, was) in l.houses.iter().zip(island["state"]["houses"].as_array().unwrap()) {
+        for (h, was) in l.houses.iter().zip(saved["state"]["houses"].as_array().unwrap()) {
             let left_then = was["taxPaidUntil"].as_f64().unwrap() - old.clock;
             assert!((h.tax_paid_until - (saved_at_ms(&row).unwrap() as f64 / 1000.0) - left_then).abs() < 1e-6);
             assert!((h.tax_paid_until - was["taxPaidUntil"].as_f64().unwrap() - by).abs() < 1e-6);
@@ -301,13 +299,13 @@ fn todays_saves_are_read_as_a_life_and_its_land_on_the_worlds_clock() {
     // The settler's land, whole: a finished cottage with its chest, a farm with a fed chicken, a cog
     // half built, a pack on the ground, a cart with a crate in its bed, a crate on their back.
     let settler = fixtures().into_iter().find(|r| r["name"] == "Settler").unwrap();
-    let l = read(&settler["island"], saved_at_ms(&settler)).unwrap().unwrap().land;
+    let l = read(&settler["life"], saved_at_ms(&settler)).unwrap().unwrap().land;
     assert_eq!((l.houses[0].stage, l.houses[0].storage.len()), (4, 3));
     assert!(l.scarecrows[0].cells.iter().flatten().any(|p| p.is_animal() && p.fed_until.unwrap_or(0.0) > 1.7e9));
     let cart = &l.vehicles[0];
     assert_eq!(l.packs.iter().find(|p| p.at == "cargo").map(|p| (p.vehicle, cart.cargo[0] == p.id)), Some((cart.id, true)));
     // Moved already: nothing more to do.
-    let moved = read(&settler["island"], saved_at_ms(&settler)).unwrap().unwrap();
+    let moved = read(&settler["life"], saved_at_ms(&settler)).unwrap().unwrap();
     assert_eq!(read(&moved.life, None).unwrap(), None);
 }
 
@@ -321,11 +319,11 @@ async fn saves_from_before_land_had_rows_come_back_with_everything() {
         .unwrap();
     for r in &rows {
         // (Each was played in its home channel then: `home_channel`, gone since the channels' policy.)
-        sqlx::query("INSERT INTO characters (id, account_id, name, island, build, saved_at) VALUES ($1, $2, $3, $4, $5, $6::timestamptz)")
+        sqlx::query("INSERT INTO characters (id, account_id, name, life, build, saved_at) VALUES ($1, $2, $3, $4, $5, $6::timestamptz)")
             .bind(r["id"].as_i64().unwrap())
             .bind(account)
             .bind(r["name"].as_str().unwrap())
-            .bind(Json(&r["island"]))
+            .bind(Json(&r["life"]))
             .bind(r.get("build").filter(|b| !b.is_null()).map(Json))
             .bind(r["saved_at"].as_str().unwrap())
             .execute(&db)
@@ -345,9 +343,9 @@ async fn saves_from_before_land_had_rows_come_back_with_everything() {
     // their own ids, which are now the world's), wherever its house now stands.
     for r in &rows {
         let id = r["id"].as_i64().unwrap();
-        let expected = read(&r["island"], saved_at_ms(r)).unwrap().unwrap();
-        let island: Value = sqlx::query_scalar::<_, Json<Value>>("SELECT island FROM characters WHERE id = $1").bind(id).fetch_one(&db).await.unwrap().0;
-        assert_eq!(island, expected.life, "{id}'s life");
+        let expected = read(&r["life"], saved_at_ms(r)).unwrap().unwrap();
+        let life: Value = sqlx::query_scalar::<_, Json<Value>>("SELECT life FROM characters WHERE id = $1").bind(id).fetch_one(&db).await.unwrap().0;
+        assert_eq!(life, expected.life, "{id}'s life");
         let mut want = expected.land.clone();
         for (c, from, to) in &report.moved {
             if *c == id {

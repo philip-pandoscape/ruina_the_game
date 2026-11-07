@@ -1,9 +1,9 @@
 import { rideable } from '../../../content/vehicles';
-import { housePose, questsAt } from '../../../engine/island';
+import { housePose, questsAt } from '../../../engine/life';
 import { esc } from '../../../util/html';
 import type { View } from '../../components/window';
 import { iconImage } from '../../theme/icons';
-import type { IslandUI } from '../context';
+import type { LifeContext } from '../context';
 import { type MapFrame, type MapRegion, toMapPx, type WorldPictures, mapIcon, questMark } from '../map';
 
 // The map (M), the one window that takes over the screen: the region you're in from above with its
@@ -23,7 +23,7 @@ export class MapWindow {
   private wide = false;
 
   constructor(
-    private ui: IslandUI,
+    private ui: LifeContext,
     private pictures: WorldPictures,
   ) {
     this.canvas.width = this.canvas.height = 768;

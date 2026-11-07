@@ -5,7 +5,7 @@
 //! (the refactor's Phase 8).
 //!
 //! The golden scenarios are in tests/golden/ (one file per check): each case's scenario, and a hash of
-//! what the rules give back. After a change made on purpose (a rule changed, the island grown
+//! what the rules give back. After a change made on purpose (a rule changed, a region grown
 //! differently), `RUINA_GOLDEN=1 cargo test --release -p ruina-engine golden` keeps the new answers.
 
 /// Creatures: one brain on its own, or packs and war-bands fighting.

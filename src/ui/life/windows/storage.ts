@@ -1,17 +1,17 @@
 import { blueprintDef } from '../../../content/housing';
 import { itemDef } from '../../../content/items';
-import { isComplete } from '../../../engine/island';
+import { isComplete } from '../../../engine/life';
 import { esc } from '../../../util/html';
 import { buttonHtml } from '../../components/button';
 import { listHtml, rowHtml } from '../../components/list';
 import { slotHtml } from '../../components/slot';
 import type { View } from '../../components/window';
 import { iconHtml } from '../../theme/icons';
-import type { IslandUI } from '../context';
+import type { LifeContext } from '../context';
 
 // The storage chest in your house: your bag beside what's in the chest, to store or take.
 
-export function storageView(ui: IslandUI, houseId: number): View {
+export function storageView(ui: LifeContext, houseId: number): View {
   const life = ui.life;
   const h = life.land.houses.find((x) => x.id === houseId);
   if (!h || !isComplete(h)) return { title: 'Storage Chest', w: 420, body: '<p>Gone.</p>' };

@@ -2,12 +2,12 @@ import type { World } from '../shapes';
 import { SURFACE } from './terrain';
 import { MinHeap, WalkGrid, pathLength, type Point } from './localPath';
 
-// The island's roads as a network you can be led along: the centre-lines the generator keeps
+// A region's roads as a network you can be led along: the centre-lines the generator keeps
 // (Generated.roads), joined where one road starts on another and across a town square where several
 // start in the same one (the roads only come near each other there, so junctions are found by
 // distance, not by shared points). A route runs from where you stand - on a road, or on a square
 // one starts from - along the roads to the road point nearest where you are going, then on foot over
-// the last stretch when that is short. Plain data and arithmetic, no page: the same island, start
+// the last stretch when that is short. Plain data and arithmetic, no page: the same region, start
 // and end always give the same way.
 
 export type { Point } from './localPath';
@@ -309,7 +309,7 @@ export class RoadNetwork {
     return best;
   }
 
-  /** The nearest point on any road's centre-line, or null on an island without roads. */
+  /** The nearest point on any road's centre-line, or null in a region without roads. */
   nearest(x: number, z: number): RoadPoint | null {
     let best: RoadPoint | null = null;
     for (let ri = 0; ri < this.roads.length; ri++) {

@@ -27,7 +27,7 @@ export interface StructureDef {
   pad?: boolean;
   /** Stands at sea level rather than on the ground (a pier on its piles). */
   seaLevel?: boolean;
-  /** How far round it the island keeps trees and rocks off (the zone's scatter.clearOfStructure if not given). */
+  /** How far round it a region keeps trees and rocks off (the zone's scatter.clearOfStructure if not given). */
   clearMargin?: number;
   /** What the ground under it is made of (src/engine/world/terrain.ts SURFACE: tilled soil under a farm plot). */
   surface?: string;

@@ -2,11 +2,11 @@ import { toScene } from '../../../render/origin';
 import * as THREE from 'three';
 import { questDef } from '../../../content/quests';
 import { isBoat, isMount, rideable } from '../../../content/vehicles';
-import { questsAt, ridden } from '../../../engine/island';
+import { questsAt, ridden } from '../../../engine/life';
 import { esc } from '../../../util/html';
 import { el } from '../../components/dom';
 import { uiIcon } from '../../theme/icons';
-import type { IslandUI } from '../context';
+import type { LifeContext } from '../context';
 
 // Over the townsfolk's heads, their name, title and what they have for you (a quest on offer, one
 // to hand in, something to talk about); and along the bottom of the screen, the controls for what
@@ -16,7 +16,7 @@ export class Plates {
   private plates = new Map<string, HTMLDivElement>();
   private v = new THREE.Vector3();
 
-  constructor(private ui: IslandUI) {}
+  constructor(private ui: LifeContext) {}
 
   update(): void {
     const cam = this.ui.camera();
@@ -61,7 +61,7 @@ export class Plates {
 export class Hints {
   private key = '';
 
-  constructor(private ui: IslandUI) {}
+  constructor(private ui: LifeContext) {}
 
   update(): void {
     const p = this.ui.sim.player;

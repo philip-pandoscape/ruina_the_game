@@ -862,13 +862,13 @@ mod tests {
         small_region("islet", 7, 1280.0, 1280.0, 110.0, 6.0)
     }
 
-    /// A region two chunks a side round (`mid`, 0), its island round (`land`, 0).
+    /// A region two chunks a side round (`mid`, 0), its landmass round (`land`, 0).
     fn small_region(id: &str, seed: u32, mid: f64, land: f64, radius: f64, hills: f64) -> Recipe {
         serde_json::from_value(serde_json::json!({
             "id": id, "name": id, "seed": seed, "climate": "temperate",
             "terrain": {
                 "cells": 256, "cell": 2.0, "water": 0.0, "origin": [mid, 0.0],
-                "island": { "x": land, "z": 0.0, "radius": radius, "lobes": [[3, 12.0, 0.4]], "warp": 10.0, "warpScale": 90.0 },
+                "landmass": { "x": land, "z": 0.0, "radius": radius, "lobes": [[3, 12.0, 0.4]], "warp": 10.0, "warpScale": 90.0 },
                 "shore": { "beach": 20.0, "beachHeight": 2.0, "inlandRise": 0.02, "seabedSlope": 0.085, "seabedCurve": 0.00035, "maxDepth": 30.0 },
                 "hills": { "scale": 120.0, "height": hills, "detailScale": 40.0, "detail": 1.0, "inlandFrom": 20.0, "inlandTo": 80.0 },
                 "sandBelow": 1.6, "rockSlope": 1.2
@@ -896,7 +896,7 @@ mod tests {
         }
     }
 
-    /// Two regions across a land border at x = 1536 m: one island grown half by each, each half from
+    /// Two regions across a land border at x = 1536 m: one landmass grown half by each, each half from
     /// its own recipe (its own seed and hills), so they differ where they meet until the border blends
     /// them.
     fn mainland() -> &'static WorldMap {
@@ -1003,7 +1003,7 @@ mod tests {
         // Between the two, open sea.
         assert!(w.region_at(900.0, 0.0).is_none());
         assert_eq!(w.depth(900.0, 0.0), 30.0);
-        // Emberholm is the same island in this world as in the main one.
+        // Emberholm is the same region in this world as in the main one.
         let e = w.zone(w.region("emberholm").expect("Emberholm"));
         assert_eq!(e.terrain.heights(), super::super::zone::emberholm().terrain.heights());
         // The edge of the world is round every region's chunks together, the sea between them included.

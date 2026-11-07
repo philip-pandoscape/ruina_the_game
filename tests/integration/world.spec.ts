@@ -1,7 +1,7 @@
 import '../support/engineSetup';
 import { expect, test, type Page } from '@playwright/test';
 import { SAVE_KEY } from '../../src/app/save';
-import { type Command, newLifeState, sailEfficiency } from '../../src/engine/island';
+import { type Command, newLifeState, sailEfficiency } from '../../src/engine/life';
 import { EMBERHOLM } from '../../src/engine/zone';
 import { skillsFrom } from '../../src/content/skills';
 import { LABOR } from '../../src/content/trade';
@@ -68,7 +68,7 @@ async function faceNpc(page: Page, id: string): Promise<void> {
   await w.advance(2);
 }
 
-test('the open world loads: island, sea, townsfolk and HUD, without errors', async ({ page }) => {
+test('the open world loads: ground, sea, townsfolk and HUD, without errors', async ({ page }) => {
   const errors = await open(page);
   const w = g(page);
   await page.evaluate(() => window.__game.setCamera({ yaw: 0.25, pitch: 0.28, distance: 9 }));
@@ -516,7 +516,7 @@ test('quests: the starter chain advances from what you do', async ({ page }) => 
 });
 
 test('stone and timber: before the house, the quests lead you to the outcrops, the deadfall and the benches', async ({ page }) => {
-  // An island that has done everything before the house, kept in this browser for ?load.
+  // A life that has done everything before the house, kept in this browser for ?load.
   const quill = EMBERHOLM.npcs.find((n) => n.id === 'quill')!;
   const state = newLifeState({ coins: 200, labor: LABOR.start, seed: EMBERHOLM.seed });
   state.quests = { active: [], done: ['landfall', 'patch', 'wings', 'firstFlight', 'harvest', 'packwright', 'westward'] };

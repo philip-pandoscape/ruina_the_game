@@ -20,7 +20,7 @@ import { playingAs, resumeAfterReload, takeResume } from './resume';
 
 // Emberholm is played on the game server. The front door, on the title screen (src/ui/splash.ts):
 // sign in (or make an account), choose a character on the character select screen (each has an
-// island of its own), then connect, and the server hands over that character's island and build.
+// life of its own), then connect, and the server hands over that character's life and build.
 // Automated tests (?test) and ?offline stay offline and never come here.
 //
 // Straight into the world, without the select screen:
@@ -33,7 +33,7 @@ export interface Online {
   account: Account;
   link: WorldLink;
   welcome: Welcome;
-  /** Whether the server's island has arrived yet (set up by the game once it's listening). */
+  /** Whether the server's word on your life has arrived yet (set up by the game once it's listening). */
   lifeLoaded?: () => boolean;
   /** A developer zone an admin chose on the character select screen, to go on into once in the world. */
   zone?: string;

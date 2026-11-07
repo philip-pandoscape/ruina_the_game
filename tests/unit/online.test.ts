@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest';
 import { defaultBuild } from '../../src/content/build';
 import { Engine } from '../../src/engine/engine';
-import type { Command } from '../../src/engine/island';
+import type { Command } from '../../src/engine/life';
 import { type Actions, NO_ACTIONS, type PlayerState } from '../../src/engine/rules';
 import { EngineSession } from '../../src/engine/session';
 import { Prediction, quantize, stateFromServer } from '../../src/net/netPlayer';
@@ -9,12 +9,12 @@ import type { WorldFeed } from '../../src/net/worldFeed';
 
 // The Engine online (src/engine/engine.ts, src/net/netPlayer.ts, src/app/onlineWiring.ts): the
 // engine's session predicting you a round trip ahead of a server, taking its word on you and your
-// island as it comes, running quick commands ahead of it, and offering what the page says is about
+// life as it comes, running quick commands ahead of it, and offering what the page says is about
 // you (someone's vehicle to ride along in, someone to challenge, a plot someone holds).
 
-test("online: the server's word on you, your island as it sends it and commands run ahead come out as the server has them", () => {
+test("online: the server's word on you, your life as it sends it and commands run ahead come out as the server has them", () => {
   const build = defaultBuild();
-  // An offline island stands in for the server, the engine's own (the page's island is built once
+  // An offline game stands in for the server, the engine's own (the page's region is built once
   // and every Engine on it shares its colliders): it runs the same inputs, a round trip behind.
   const server = new EngineSession({ online: false, build });
   const client = new Engine({ online: true, build });
@@ -84,7 +84,7 @@ test("online: the server's word on you, your island as it sends it and commands 
   prediction.beforeReplay = () => {
     if (!you) return;
     while (running.length && running[0].seq <= you.ack) running.shift();
-    client.replayIsland(
+    client.replayLife(
       you,
       running.map((r) => r.c),
     );
@@ -93,7 +93,7 @@ test("online: the server's word on you, your island as it sends it and commands 
   const word = () => ({ player: stateFromServer(server.player() as unknown as Record<string, unknown>), life: server.life()! });
   const tick = (ack: number) => {
     const h = history.get(ack)!;
-    client.takeIsland({ state: copy(h.life.state), land: copy(h.life.land), market: copy(h.life.market), placing: null, resting: false });
+    client.takeLife({ state: copy(h.life.state), land: copy(h.life.land), market: copy(h.life.market), placing: null, resting: false });
     const l = copy(h.life);
     you = { ack, clock: l.state.clock, labor: l.state.labor, weather: l.weather, vehicles: l.land.vehicles, resting: false, placing: null };
     prediction.reconcile(ack, copy(h.player));

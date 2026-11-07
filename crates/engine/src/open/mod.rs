@@ -46,7 +46,7 @@ pub struct OpenWorld {
     /// Everyone's vehicles as they stood when this tick began, which everyone but their owner bumps
     /// into (src/engine/shapes.ts World.movers).
     pub movers: Vec<Mover>,
-    /// Where someone knocked down gets up again, if not at the island's spawn (a dungeon's copy).
+    /// Where someone knocked down gets up again, if not at the region's spawn (a dungeon's copy).
     pub respawn: Option<dungeon::Spot>,
 }
 
@@ -243,8 +243,8 @@ impl<'a> Sim<'a> {
 }
 
 /// One step of the rules for one player in an open world, as the server runs it (no training dummy,
-/// no hit pause, no auto-aim), with the island's systems (`life`) riding along when the player has
-/// an island. `owner` is the character, for whatever they build. The world is only read: a channel
+/// no hit pause, no auto-aim), with the life systems (`life`) riding along when the player has
+/// a life. `owner` is the character, for whatever they build. The world is only read: a channel
 /// steps each of its players against one world, in any order or all at once (crate::combat), and
 /// what they build is made solid once they all have (`Life::make_solid`).
 pub fn step_player(p: &mut Player, a: &Actions, world: &OpenWorld, mut life: Option<&mut Life>, owner: i64) {
@@ -278,7 +278,7 @@ pub fn step_player(p: &mut Player, a: &Actions, world: &OpenWorld, mut life: Opt
             Mode::Glide => traverse::update_glide(&mut sim, a),
             Mode::Ride => match life.as_deref_mut() {
                 Some(l) => l.ride(&mut sim, a),
-                // Nothing to ride without the island's vehicles: back on foot, as
+                // Nothing to ride without a life's vehicles: back on foot, as
                 // src/engine/life/vehicles.ts rideVehicle does when the vehicle is gone.
                 None => {
                     sim.player.mode = Mode::Normal;
@@ -298,7 +298,7 @@ pub fn step_player(p: &mut Player, a: &Actions, world: &OpenWorld, mut life: Opt
     }
 
     // A cast that finished and a movement skill that started are practice for them, counted the
-    // moment they happen (the `cast` and `action` events), so the island's step
+    // moment they happen (the `cast` and `action` events), so the life's step
     // below picks up any level they gained. Hits are counted where they land (crate::combat).
     if let Some(l) = life.as_deref_mut() {
         let p = &*sim.player;

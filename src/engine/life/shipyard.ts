@@ -1,13 +1,13 @@
 import type { ShipBuild } from './land';
 import { shipDesign } from '../../content/shipyard';
-import type { IslandRead } from './life';
+import type { LifeRead } from './life';
 
 // Slipways, where big ships are built the way houses are: a design claims the slip, then each
 // stage is finished by hauling its material packs there and putting in the labor. The last stage
 // launches her: the slip clears and you hold the deed. The engine builds them
 // (crates/engine/src/life/shipyard.rs); these read a slip for the page.
 
-export const shipOn = (life: IslandRead, slip: string): ShipBuild | undefined => life.land.ships.find((s) => s.slip === slip);
+export const shipOn = (life: LifeRead, slip: string): ShipBuild | undefined => life.land.ships.find((s) => s.slip === slip);
 
 export function shipNeeds(b: ShipBuild): Array<{ pack: string; need: number; have: number }> {
   const stage = shipDesign(b.design).stages[b.stage];

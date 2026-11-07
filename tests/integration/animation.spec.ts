@@ -35,7 +35,7 @@ for (const fps of [30, 144]) {
     page,
   }) => {
     // The boat is placed and its oars swing before the rower is posed in its seat, tilting and
-    // riding the swell with it (src/main.ts draw(), LifeView.placeRide): the hands reach for where
+    // riding the swell with it (src/main.ts draw(), LandView.placeRide): the hands reach for where
     // the handles are this frame, not a frame ago.
     await page.setViewportSize({ width: 480, height: 270 });
     await page.addInitScript(fixedFrameRate);

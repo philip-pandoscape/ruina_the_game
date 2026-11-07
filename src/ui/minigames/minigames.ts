@@ -1,7 +1,7 @@
 import './minigames.css';
 import { CHALLENGE, MINIGAMES, type MiniGameDef, SEAT_COLORS, minigame, stakesFor } from '../../content/minigames';
 import type { BoardView, ChallengeView, TableLink, TableView } from './tables';
-import type { IslandView } from '../../engine/island';
+import type { LifeView } from '../../engine/life';
 import { docksLeft, type LifePress } from '../life/lifeUI';
 import { closeMenu, openMenu } from '../theme/contextMenu';
 import { iconHtml, money } from '../theme/icons';
@@ -24,8 +24,8 @@ import { esc } from '../../util/html';
 
 export interface MinigamesDeps {
   link: TableLink;
-  life: IslandView;
-  /** Which of the island's windows is open, if any (Escape closes that first). */
+  life: LifeView;
+  /** Which of the life's windows is open, if any (Escape closes that first). */
   openPanel: () => string | null;
   /** The pointer is the camera's: let go of it, to use a window. */
   freeMouse: () => void;
@@ -45,7 +45,7 @@ function clock(ms: number): string {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
 
-/** A window's frame: bar, close cross, body and foot, as the island's windows are drawn. */
+/** A window's frame: bar, close cross, body and foot, as the life's windows are drawn. */
 function frame(title: string, sub: string, body: string, foot: string, portrait = ''): string {
   return (
     (portrait ? `<div class="mw-portrait icon">${portrait}</div>` : '') +
@@ -133,7 +133,7 @@ export class MinigamesUI {
   }
 
   /**
-   * A key, before the island's windows and the world see it: F on another player opens the
+   * A key, before the life's windows and the world see it: F on another player opens the
    * challenge window; at a table the world's keys wait and Escape asks whether to concede.
    */
   intercept(k: LifePress): boolean {

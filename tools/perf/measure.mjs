@@ -8,7 +8,7 @@
 //     --runs 3 --seconds 10 --label now --out scratch/perf-now.json
 //
 // - Start-up: from navigation to the first frame drawn once the game says it's ready.
-// - Frames: for `seconds` of running forward across the island, each frame's length and the time
+// - Frames: for `seconds` of running forward across the world, each frame's length and the time
 //   the page's own work took in it (its animation-frame callbacks: the rules and the drawing's
 //   commands, not the graphics card's drawing).
 // - Memory: after a garbage collection, the JavaScript heap and the memory behind array buffers

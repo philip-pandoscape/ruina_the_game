@@ -7,7 +7,7 @@ import { inRect } from './colliders';
 // that start in it, or off the end of a road to the spot picked on the map. A* round whatever stands
 // in the way (a well, stalls, benches, lamps, the townsfolk at their posts), kept off deep water and
 // slopes too steep to climb, then pulled tight so it runs straight wherever it can. Plain arithmetic
-// over the island's own colliders: the same island always gives the same way.
+// over the region's own colliders: the same region always gives the same way.
 
 export type Point = [number, number];
 
@@ -75,7 +75,7 @@ export class MinHeap {
   }
 }
 
-/** A patch of the island cut into half-metre cells you can or can't stand in. */
+/** A patch of the region cut into half-metre cells you can or can't stand in. */
 export class WalkGrid {
   readonly cell = 0.5;
   readonly nx: number;

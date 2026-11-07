@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import type { WaterfallInfo } from '../../engine/zone';
 
-// The island's waterfalls (the engine's generator cuts their slots, crates/engine/src/open/generate.rs): the spring pool spills down a
+// The world's waterfalls (the engine's generator cuts their slots, crates/engine/src/open/generate.rs): the spring pool spills down a
 // runnel to the lip, the water falls free in a curtain that fans out as it drops, and lands in the
 // plunge pool in a churn of foam and a cloud of mist. Two layers of water, streaked white and
 // scrolling down faster the further they fall, so it reads as thick, moving water from any side.

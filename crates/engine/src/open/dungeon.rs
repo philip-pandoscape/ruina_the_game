@@ -51,13 +51,13 @@ pub struct DungeonDef {
     pub boxes: Vec<Piece>,
     pub decks: Vec<Piece>,
     /// A developer zone: only admins go in, from the Admin menu, as there's no portal to it on the
-    /// island (docs/admin.md).
+    /// world (docs/admin.md).
     #[serde(default)]
     pub developer: bool,
     /// One copy for everyone allowed in, instead of one for each party.
     #[serde(default)]
     pub shared: bool,
-    /// Where a developer zone lets you out on the island (a dungeon's door is in the island's recipe).
+    /// Where a developer zone lets you out in the world (a dungeon's door is in its region's recipe).
     #[serde(default)]
     pub door: Option<DungeonDoor>,
     /// Bots in it while anyone is (crate::bots): how many, with which brain, on which side, round
@@ -258,9 +258,9 @@ mod tests {
         let doors: Vec<&DungeonDoor> = world_map().recipes().flat_map(|r| &r.doors).collect();
         for d in dungeons() {
             if d.developer {
-                // A developer zone: in from the Admin menu, out at its own door, none on the island.
+                // A developer zone: in from the Admin menu, out at its own door, none in the world.
                 assert!(d.door.is_some(), "{} lets you out somewhere", d.id);
-                assert!(!doors.iter().any(|x| x.id == d.id), "{} has no portal on the island", d.id);
+                assert!(!doors.iter().any(|x| x.id == d.id), "{} has no portal in the world", d.id);
             } else {
                 let door = doors.iter().find(|x| x.id == d.id).unwrap_or_else(|| panic!("a door for {}", d.id));
                 assert!(door.portal.r > 0.0);

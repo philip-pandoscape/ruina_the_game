@@ -1,4 +1,4 @@
-import type { Command, Land, LifeEvent, LifeState, Market, Placement, Vehicle, Weather } from '../engine/island';
+import type { Command, Land, LifeEvent, LifeState, Market, Placement, Vehicle, Weather } from '../engine/life';
 import type { Build } from '../content/tuning';
 import { MINIGAMES } from '../content/minigames';
 import contentHash from '../../shared/hash.json' with { type: 'json' };
@@ -9,14 +9,14 @@ import { UPDATE } from './wire/schema';
 import type { ArrowRecord, EffectEvent, MeteorRecord, NetActor } from './worldFeed';
 
 // Your connection to the game server (crates/server/src/gate/socket.rs), which plays Emberholm: your
-// browser sends what you press (about 60 inputs a second) and what you ask your island to do
-// (commands), and the server runs them through the island's rules, keeps the island in Postgres,
-// and answers 20 times a second with where you really are, what your island holds, and what
+// browser sends what you press (about 60 inputs a second) and what you ask your life to do
+// (commands), and the server runs them through the world's rules, keeps your life in Postgres,
+// and answers 20 times a second with where you really are, what your life holds, and what
 // everyone else in your channel is doing. Your own player is predicted with the same rules in the
 // meantime (src/net/netPlayer.ts) and corrected to what arrives here. Only one window plays a
 // character at a time. /ws/world?character=<id> plays that one of your characters.
 //
-// When the server is updated, it says so (updating), writes your island and hangs up as a service
+// When the server is updated, it says so (updating), writes your life and hangs up as a service
 // restart (1012); a connection can also just drop. Either way the game freezes while this keeps
 // trying, and carries on once the server is back. If the page is out of date by then (the server
 // speaks another protocol or was built from other content, or a new build of the game is out), it
@@ -130,7 +130,7 @@ export interface PeerEntry {
   p: Record<string, unknown>;
 }
 
-/** Your own player as the server has it after input `ack`, with the parts of your island that move with you. */
+/** Your own player as the server has it after input `ack`, with the parts of your life that move with you. */
 export interface YouState {
   /** Your slot, which arrows and effects you caused are marked with. */
   id: number;
@@ -155,9 +155,9 @@ export interface WorldTick {
   arrows?: Array<Omit<ArrowRecord, 'mine' | 'tick'>>;
   meteors?: Array<Omit<MeteorRecord, 'tick'>>;
   events?: EffectEvent[];
-  /** Toasts, panels to open and the like, from your island since the last tick. */
+  /** Toasts, panels to open and the like, from your life since the last tick. */
   lifeEvents?: LifeEvent[];
-  /** Your whole island, when it changed (and every couple of seconds anyway). */
+  /** Your whole life, when it changed (and every couple of seconds anyway). */
   life?: { rev: number; state: LifeState; land: Land; market: Market; placing: Placement | null; resting: boolean };
   /** Mini-game tables near you, as everyone sees them (none: no table near). */
   tables?: TableShown[];
@@ -314,11 +314,11 @@ export class WorldLink {
   readonly peers = new Map<number, PeerSample>();
   readonly estates = new Map<number, EstateEntry>();
   claims: Record<string, string> = {};
-  /** The server's clock when it last wrote your island to the database. */
+  /** The server's clock when it last wrote your life to the database. */
   lastSaved = 0;
   /** Ticks heard since connecting (tests wait on this). */
   ticks = 0;
-  /** The newest tick, and the newest whole island, for whatever arrives before the game is listening. */
+  /** The newest tick, and the newest whole life, for whatever arrives before the game is listening. */
   latest: WorldTick | null = null;
   /** The newest of the world around you, as the feed takes it. */
   latestWorld: FeedTick | null = null;
@@ -415,7 +415,7 @@ export class WorldLink {
     setTimeout(() => this.open && this.ws.send(data), this.lag);
   }
 
-  /** Asks your island to do something, on the input with sequence number `seq`. */
+  /** Asks your life to do something, on the input with sequence number `seq`. */
   command(seq: number, c: Command): boolean {
     return this.send({ t: 'cmd', s: seq, c });
   }
@@ -515,7 +515,7 @@ export class WorldLink {
     return this.send(to === 'party' ? { t: 'channel', party: true } : { t: 'channel', to });
   }
 
-  /** Starts the island over on the server. Resolves once it's done (or after 3 s). */
+  /** Starts your life over on the server. Resolves once it's done (or after 3 s). */
   reset(): Promise<void> {
     return new Promise((resolve) => {
       this.resetDone.push(resolve);
@@ -564,7 +564,7 @@ export class WorldLink {
       if (t.peers !== undefined) this.heardWorld(feedFromJson(t));
     } else if (msg.t === 'saved') this.lastSaved = msg.at ?? Date.now();
     else if (msg.t === 'reset') {
-      // Anything heard before this was the island that's gone.
+      // Anything heard before this was the life that's gone.
       this.latestLife = null;
       for (const done of this.resetDone.splice(0)) done();
     } else if (msg.t === 'kicked') this.setStatus('kicked');

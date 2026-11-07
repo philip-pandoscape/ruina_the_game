@@ -2,15 +2,15 @@ import { buttonHtml } from '../../components/button';
 import type { View } from '../../components/window';
 import { uiIcon } from '../../theme/icons';
 import { setUserScale, UI_SCALE_MAX, UI_SCALE_MIN, userScale } from '../../theme/scale';
-import type { IslandUI } from '../context';
+import type { LifeContext } from '../context';
 
 // Settings: the size of the UI, online a way back to the character select screen, and the credits.
 
-export function settingsView(ui: IslandUI): View {
+export function settingsView(ui: LifeContext): View {
   const v = Math.round(userScale() * 100);
-  // Online: back to the character select screen (the server keeps the island).
+  // Online: back to the character select screen (the server keeps your life).
   const exit = ui.app.onExitToSelect
-    ? `<div class="h">Character</div><p class="note">Play someone else: your island is saved on the server as you go.</p>${buttonHtml('Exit to Character Select', 'exitToSelect')}`
+    ? `<div class="h">Character</div><p class="note">Play someone else: your life is saved on the server as you go.</p>${buttonHtml('Exit to Character Select', 'exitToSelect')}`
     : '';
   return {
     title: 'Settings',

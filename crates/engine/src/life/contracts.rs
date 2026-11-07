@@ -15,7 +15,7 @@ fn wanted(outpost: &str) -> Vec<&'static str> {
 }
 
 pub fn step_contracts(life: &mut Life) {
-    // Held apart while the board changes (posting draws on the island's randomness and ids), then
+    // Held apart while the board changes (posting draws on the life's randomness and ids), then
     // put back; nothing in between reads it.
     let mut c = life.state.contracts.take().unwrap_or_default();
     refresh(life, &mut c);
@@ -96,7 +96,7 @@ pub fn contract_delivered(life: &mut Life, outpost: &str, pack: &str) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::life::trade::testing::{island, toasts};
+    use crate::life::trade::testing::{new_life, toasts};
     use crate::life::trade::{make_pack, quote, sell_pack};
     use crate::open::Sim;
 
@@ -106,7 +106,7 @@ mod tests {
 
     #[test]
     fn each_trading_post_posts_contracts_for_packs_it_buys() {
-        let (mut life, _, _) = island(0.0);
+        let (mut life, _, _) = new_life(0.0);
         assert!(life.state.contracts.is_none());
         step_contracts(&mut life);
         let c = board(&life);
@@ -141,7 +141,7 @@ mod tests {
 
     #[test]
     fn a_contract_is_taken_filled_and_pays_its_bonus() {
-        let (mut life, mut world, mut p) = island(0.0);
+        let (mut life, mut world, mut p) = new_life(0.0);
         let mut sim = Sim { player: &mut p, world: &mut world, owner: 1 };
         step_contracts(&mut life);
         toasts(&mut life);
@@ -178,7 +178,7 @@ mod tests {
 
     #[test]
     fn only_two_at_a_time_and_they_lapse() {
-        let (mut life, _, _) = island(0.0);
+        let (mut life, _, _) = new_life(0.0);
         step_contracts(&mut life);
         let ids: Vec<i64> = board(&life).offered.iter().map(|k| k.id).collect();
         assert!(accept_contract(&mut life, ids[0]));
@@ -204,7 +204,7 @@ mod tests {
 
     #[test]
     fn no_board_no_counting() {
-        let (mut life, _, _) = island(0.0);
+        let (mut life, _, _) = new_life(0.0);
         contract_delivered(&mut life, "westwatch", "harvestCrate");
         assert!(life.state.contracts.is_none());
         assert!(!accept_contract(&mut life, 1));

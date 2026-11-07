@@ -1,10 +1,10 @@
 import { QUESTS, questDef } from '../../../content/quests';
-import { isReady } from '../../../engine/island';
+import { isReady } from '../../../engine/life';
 import { esc } from '../../../util/html';
 import { buttonHtml } from '../../components/button';
 import type { View } from '../../components/window';
 import { uiIcon } from '../../theme/icons';
-import type { IslandUI } from '../context';
+import type { LifeContext } from '../context';
 import type { Untracked } from '../hud/quests';
 import { dropcap, objectivesHtml, rewardsHtml } from './quest';
 
@@ -19,7 +19,7 @@ export class QuestLog {
   private abandonAsk = '';
 
   constructor(
-    private ui: IslandUI,
+    private ui: LifeContext,
     private untracked: Untracked,
   ) {}
 

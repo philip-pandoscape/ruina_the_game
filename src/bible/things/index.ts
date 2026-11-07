@@ -1,5 +1,5 @@
 // Every kind of thing the bible has an entry for, in the order the contents list them: the world's
-// kinds (the island, its places, people, creatures...) and then the things in it.
+// kinds (the world, its places, people, creatures...) and then the things in it.
 
 import type { KindDef } from '../kit';
 import { abilities, movement, skills, weapons } from './combat';

@@ -5,7 +5,7 @@
 // stops for good if another window takes this character or the sign-in ends. It reaches the game
 // through `g`, the references src/main.ts hands it.
 import { stateFromServer } from '../net/netPlayer';
-import type { Command } from '../engine/island';
+import type { Command } from '../engine/life';
 import { leaveFor, plainUrl } from '../app/resume';
 import { signOut } from '../net/account';
 import { NetOverlay, OnlineBadge, showStopped } from '../ui/signIn';
@@ -13,13 +13,13 @@ import { splash } from '../ui/splash';
 import { loader } from '../assets/loader';
 import type { SpaceView, WorldTick, YouState } from '../net/worldLink';
 import type { GameRefs } from '../main';
-import type { FocusAction } from '../engine/island';
+import type { FocusAction } from '../engine/life';
 
 /** What F does that runs ahead online (see engine.remote): packs in and out of hands and vehicles, getting in. */
 const QUICK = new Set<FocusAction>(['pickup', 'load', 'unload', 'board']);
 
 export function wireOnline(g: GameRefs): void {
-  const { life, lifeUI, lifeView, net, online, onlineSpace, peers, prediction, sim } = g;
+  const { life, lifeUI, landView, net, online, onlineSpace, peers, prediction, sim } = g;
   if (online) {
     const { link } = online;
     const exitToSelect = () => leaveFor(plainUrl());
@@ -87,14 +87,14 @@ export function wireOnline(g: GameRefs): void {
       onlineSpace(s);
     };
 
-    // Your island as the server has it, and the parts that move with you as of each update.
+    // Your life as the server has it, and the parts that move with you as of each update.
     let you: YouState | null = null;
     /** Commands run here ahead of the server (see engine.remote below), with the input each went with. */
     const ahead: Array<{ seq: number; c: Command }> = [];
     let lastRev = -1;
     let lifeLoaded = false;
     const solidScarecrows = new Set<number>();
-    /** What's built on your island (farms and houses, where), last time the grass was laid round it. */
+    /** What's built on your land (farms and houses, where), last time the grass was laid round it. */
     let groundKey = '';
     if (prediction && life) {
       // Picking a pack up or putting it down, loading one or taking one out, getting in or out: run
@@ -114,7 +114,7 @@ export function wireOnline(g: GameRefs): void {
         if (!you) return;
         // What the server has run too is in what it sent.
         while (ahead.length && ahead[0].seq <= you.ack) ahead.shift();
-        g.engine.replayIsland(
+        g.engine.replayLife(
           you,
           ahead.map((a) => a.c),
         );
@@ -123,7 +123,7 @@ export function wireOnline(g: GameRefs): void {
     const onTick = (t: WorldTick) => {
       if (life && t.life) {
         lifeLoaded = true;
-        g.engine.takeIsland(t.life);
+        g.engine.takeLife(t.life);
         if (t.life.rev !== lastRev) {
           lastRev = t.life.rev;
           life.revision++;
@@ -135,11 +135,11 @@ export function wireOnline(g: GameRefs): void {
             g.engine.addSolidScarecrow(sc);
           }
           // The grass is laid again only round something new built: a pack picked up changes the
-          // island too, and laying it all again then is a stutter.
+          // land too, and laying it all again then is a stutter.
           const ground = life.land.scarecrows.map((sc) => sc.id).join(',') + '|' + life.land.houses.map((h) => `${h.plot}:${h.stage}`).join(',');
           if (ground !== groundKey) {
             groundKey = ground;
-            lifeView?.onGroundChanged?.();
+            landView?.onGroundChanged?.();
           }
         }
       }
@@ -152,13 +152,13 @@ export function wireOnline(g: GameRefs): void {
     link.onWorld = (f) => net?.applyWorld(f);
     // Back in a dungeon's copy you were in (the connection came back while it was still there).
     onlineSpace(link.space);
-    // Whatever came while the page was still loading: the newest island, then the newest tick.
+    // Whatever came while the page was still loading: the newest life, then the newest tick.
     if (link.latestLife && link.latest && !link.latest.life) onTick({ ...link.latest, life: link.latestLife });
     else if (link.latest) onTick(link.latest);
     if (link.latestWorld) net?.applyWorld(link.latestWorld);
     online.lifeLoaded = () => lifeLoaded;
     stopIf(link.status);
-    // A developer zone chosen on the character select screen: on into it once the island is here
+    // A developer zone chosen on the character select screen: on into it once your life is here
     // (the server checks it's an admin's).
     const zone = online.zone;
     if (zone) {
@@ -167,7 +167,7 @@ export function wireOnline(g: GameRefs): void {
     }
 
     // Into the game: the title screen fades once the first frames are drawn (the first one compiles
-    // the shaders) and your island has arrived, so it opens on your island as it is; and once what
+    // the shaders) and your life has arrived, so it opens on your life as it is; and once what
     // it can't be drawn without has too (the ground, the town's kit, your body: src/assets/loader.ts),
     // saying how much meanwhile, for half a minute at most.
     if (splash) {

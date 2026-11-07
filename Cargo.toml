@@ -1,7 +1,7 @@
 # Ruina's Rust, one workspace (one target/, here at the root):
 #   crates/channels  the channels' policy: when a region opens another channel and when a quiet one
 #                   merges, where a player is placed, whether they may change. serde only, no clocks.
-#   crates/engine   the rules: movement, traversal, combat, skills, creatures, the island's life
+#   crates/engine   the rules: movement, traversal, combat, skills, creatures, a character's life
 #                   systems and the mini-games, as the browser's TypeScript runs them (and, in time,
 #                   the browser's own copy of them). serde, serde_json and libm only: no clocks, no
 #                   threads, no I/O.
@@ -11,7 +11,7 @@
 #                   directory), their ids, ticks and epochs: serde types, no I/O.
 #   crates/link     links between the server's processes when the world runs on several: serde
 #                   messages over TCP, each arriving once and in order across lost connections.
-#   crates/server   the game server, ruina-server: accounts, characters and islands in Postgres, the
+#   crates/server   the game server, ruina-server: accounts, characters and their lives in Postgres, the
 #                   world's channels and dungeon copies, its WebSocket.
 #   crates/tools    programs run by hand or by the tests: the TypeScript-against-Rust checks, the
 #                   balance harness.
@@ -37,7 +37,7 @@ futures-util = "0.3.34"
 # The browser's exp and atan2 (fdlibm, as V8's are), so the rules both sides run agree to the bit.
 libm = "0.2"
 serde = { version = "1.0.229", features = ["derive"] }
-# float_roundtrip: numbers read exactly as JavaScript wrote them (islands, content), not a last bit off.
+# float_roundtrip: numbers read exactly as JavaScript wrote them (lives, content), not a last bit off.
 serde_json = { version = "1.0.154", features = ["float_roundtrip"] }
 tokio = { version = "1.54.1", features = ["rt-multi-thread", "macros", "net", "sync", "time", "signal"] }
 

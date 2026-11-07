@@ -10,7 +10,7 @@ import { onlineReady } from '../support/game';
 // checks the whole path: spawned, streamed, hittable, fighting back. Each player has a yard of their
 // own, so it plays on the shared development server (npm run up; everyone is an admin there) and
 // skips without one. Drawn between updates and flashing as a blow lands: online-combat.spec.ts,
-// on the island's slimes.
+// on the region's slimes.
 
 const SERVER = process.env.RUINA_SERVER ?? 'http://localhost:7777';
 const YARD = JSON.parse(readFileSync('content/instances/yard.json', 'utf8')) as { spawns: Array<{ kind: string; count?: number }> };

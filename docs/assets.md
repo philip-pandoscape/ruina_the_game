@@ -38,7 +38,7 @@ is about start-up time and graphics memory.
 4. **Describe it** in `src/assets/catalog.ts`: a rule whose pattern matches its id (its path under
    the asset folder, without the extension: `models/well`, `ground/grass`, `icons/coin`) says its
    kind and which zones use it. A new made prop usually matches a rule already (`models/*`: the
-   island's). `tests/unit/assets.test.ts` fails on a file no rule names, on a rule that names no file,
+   world's). `tests/unit/assets.test.ts` fails on a file no rule names, on a rule that names no file,
    and on a zone the game doesn't have.
 5. **Load it** by id, with what it's needed for, and draw something in its place until it arrives:
    `model(id, wanted)`, `gltf(id, wanted)` (animations too) or `picture(id, wanted)` from
@@ -118,9 +118,9 @@ still on its way, bar what waits for the camera to come near); before the game i
 The page's entry is `src/app/boot.ts`: the title screen (drawn by `index.html` before any code
 arrives), sign-in, and character select with its hero (three.js and the hero's code, the hero's body,
 weapons and moves), the interface's style sheets and typefaces. The rest of the game's code
-(`src/main.ts` and everything it imports: the island, its rules, the HUD, the windows) is fetched
+(`src/main.ts` and everything it imports: the world, its rules, the HUD, the windows) is fetched
 once a character is chosen, while the world link opens; straight in (`?as=name`, a reload into the
-world) at once; the offline pages the tests use (`?test`, `?test=<instance>`) at once. The island's files
+world) at once; the offline pages the tests use (`?test`, `?test=<instance>`) at once. The world's files
 follow as it is built.
 
 Measured over the wire with brotli from the game server, a browser with nothing cached (2026-11-06):
@@ -130,7 +130,7 @@ Measured over the wire with brotli from the game server, a browser with nothing 
 | The title screen and sign-in | 898 KB: code 588, typefaces 309 | 613 KB: code 304, typefaces 309 |
 | The first download: character select with its hero | 2,434 KB: code 588, the hero's files 1,524, typefaces 309, icons 12 | 2,150 KB: code 304, the hero's files 1,524, typefaces 309, icons 12 |
 | In the world and playing | 5,132 KB | 3,894 KB: the ground's textures and the rest still streaming in |
-| Everything the island loads | 9,326 KB | 9,337 KB (one more script) |
+| Everything the world loads | 9,326 KB | 9,337 KB (one more script) |
 
 No budget holds it any more (D15): with a desktop app coming, the files will be on disk. The
 measurements above are kept for the record.

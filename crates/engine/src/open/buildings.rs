@@ -1,6 +1,6 @@
 //! Buildings you can walk into: their plans (shared/buildings.json, built from content/buildings/
 //! and content/furniture/, as src/content/buildings.ts reads them) and what's solid about one where
-//! the island places it:
+//! a region places it:
 //!   - its outer walls, as boxes broken at each doorway and arch;
 //!   - a wall upstairs over a ground-floor doorway, as a deck you meet upstairs but walk under below;
 //!   - each upper floor as decks, less the stairwells;

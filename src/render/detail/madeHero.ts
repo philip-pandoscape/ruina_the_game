@@ -65,7 +65,7 @@ export function madeHero(): Promise<MadeHero | null> | null {
     const weapons = (made as MadeWeapons | null) ?? null;
     const height = Number(params?.get('heroHeight')) || HEIGHT;
     const fitted = fit(scene as THREE.Group, height, HERO_RIG);
-    // Shaded as the rest of the island is: the painted texture in its soft light.
+    // Shaded as the rest of the world is: the painted texture in its soft light.
     const src = (Array.isArray(fitted.material) ? fitted.material[0] : fitted.material) as THREE.MeshStandardMaterial;
     fitted.material = toon(0xffffff, { map: src.map ?? null });
     const def: RigDef = { ...HERO_RIG, joints: fitted.joints, parts: hull(fitted.joints, fitted.feet.ankle), feet: fitted.feet, bow: weapons?.bow };

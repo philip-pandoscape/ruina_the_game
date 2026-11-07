@@ -3,7 +3,7 @@ import type { ZonePlace } from '../../../engine/zone';
 import { esc } from '../../../util/html';
 import { el } from '../../components/dom';
 import { withIcons } from '../../theme/icons';
-import type { IslandUI } from '../context';
+import type { LifeContext } from '../context';
 
 // The banner that names a place as you come to it, and the prompt that says what F (Y on a
 // controller) does here.
@@ -14,7 +14,7 @@ export class Banner {
   private time = 0;
 
   constructor(
-    private ui: IslandUI,
+    private ui: LifeContext,
     /** Every region's places, as the maps know them (the region you start in's alone without them). */
     private places: () => Array<{ place: ZonePlace; region: string }> = () =>
       ui.life.zone.recipe.places.map((place) => ({ place, region: ui.life.zone.recipe.name })),
@@ -36,7 +36,7 @@ export class Banner {
         here = pl.id;
       }
     }
-    // Inside a dungeon, its name: nowhere on the island is here.
+    // Inside a dungeon, its name: nowhere in the world is here.
     const dungeon = life.dungeon ? dungeonDef(life.dungeon) : undefined;
     if (dungeon) here = `dungeon:${dungeon.id}`;
     if (here && here !== this.place) {
@@ -55,7 +55,7 @@ export class Banner {
 export class Prompt {
   readonly el = el('div', 'lui');
 
-  constructor(private ui: IslandUI) {
+  constructor(private ui: LifeContext) {
     this.el.id = 'lui-prompt';
   }
 

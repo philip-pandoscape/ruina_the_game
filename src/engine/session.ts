@@ -42,11 +42,11 @@ export interface SessionView {
   frame: number;
   hitstop: number;
   player: PlayerState;
-  /** Your skill levels, which the island raises as you earn them. */
+  /** Your skill levels, which your life raises as you earn them. */
   levels: Levels;
   actors: { list: Actor[]; missiles: Missile[]; arrows: ArrowFlight[]; meteors: MeteorFall[] };
   life: SessionLife | null;
-  /** What the island said (toasts, windows to open), taken. */
+  /** What your life said (toasts, windows to open), taken. */
   said: LifeEvent[];
   /** Offline, fallen out of the bottom of a copy this step: put back where it's entered, facing this way. */
   placed: number | null;
@@ -87,20 +87,20 @@ export class EngineSession {
     return answer(wasm().session_actors(this.h));
   }
 
-  /** The island. */
+  /** Your life. */
   life(): SessionLife | null {
     return answer<SessionLife | null>(wasm().session_life(this.h));
   }
 
-  /** Online, the world's clock (seconds since 1970) the rain and the wind run on, for the next step; null for the island's own. */
+  /** Online, the world's clock (seconds since 1970) the rain and the wind run on, for the next step; null for the life's own. */
   worldClock(t: number | null): void {
     wasm().session_world_clock(this.h, t ?? Number.NaN);
   }
 
   /** Online, your life as a tick has it (its state and your land as they came, the world's market, whether you're placing something or resting). */
-  takeIsland(island: { state: LifeState; land: Land; market: Market; placing: unknown; resting: boolean }): void {
+  takeLife(life: { state: LifeState; land: Land; market: Market; placing: unknown; resting: boolean }): void {
     const e = wasm();
-    if (!withText(JSON.stringify(island), (p, n) => e.session_take_island(this.h, p, n))) throw new Error('engine session: the island could not be read');
+    if (!withText(JSON.stringify(life), (p, n) => e.session_take_life(this.h, p, n))) throw new Error('engine session: the life could not be read');
   }
 
   /** Everything the page reads, after a step (`events`: with what happened in it, taken) or a call. */
@@ -129,7 +129,7 @@ export class EngineSession {
     );
   }
 
-  /** The island's cells kept clear of trees and scarecrows, copied into `into` (as long as the island's). */
+  /** The region's cells kept clear of trees and scarecrows, copied into `into` (as long as the region's). */
   clear(into: Uint8Array): void {
     const e = wasm();
     const n = e.session_clear_len(this.h);

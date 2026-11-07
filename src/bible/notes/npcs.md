@@ -1,10 +1,10 @@
 # People
 
-Who each of the island's people is. What they sell, make and ask of you is on their entry.
+Who each of Emberholm's people is. What they sell, make and ask of you is on their entry.
 
 ## hollis
 
-Reeve Hollis, the village elder, keeps Lanternwick by the well in its square. He welcomes every newcomer off the morning boat and starts them on the island's work: a patch of earth, a scarecrow, and seeds to put in it. Most of the first quests are his.
+Reeve Hollis, the village elder, keeps Lanternwick by the well in its square. He welcomes every newcomer off the morning boat and starts them on Emberholm's work: a patch of earth, a scarecrow, and seeds to put in it. Most of the first quests are his.
 
 ## mara
 
@@ -32,11 +32,11 @@ Registrar Quill keeps the Land Registry, where land is granted by blueprint and 
 
 ## ysolde
 
-Ysolde Windward, the wingwright, teaches the way into the air: jump, jump again, then once more to open your wings. She sells the swifter of the island's gliders.
+Ysolde Windward, the wingwright, teaches the way into the air: jump, jump again, then once more to open your wings. She sells the swifter of Emberholm's gliders.
 
 ## dunmore
 
-Dunmore Vell keeps the trading post at [[places/westwatch]], on the western headland. He buys the packs the east of the island makes; the more he buys of a kind, the less he pays for the next, until time restores his appetite. His board has contracts too.
+Dunmore Vell keeps the trading post at [[places/westwatch]], on the western headland. He buys the packs the east of Emberholm makes; the more he buys of a kind, the less he pays for the next, until time restores his appetite. His board has contracts too.
 
 ## pell
 

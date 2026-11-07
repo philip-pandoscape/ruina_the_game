@@ -10,7 +10,7 @@ import { isPine } from '../render/open/foliage';
 import { type WeaponAt } from '../render/character';
 import { isAlive, type Actor, stateName } from '../engine/creatures';
 import { NO_ACTIONS, type Actions } from '../engine/rules';
-import { demandAt, IslandView } from '../engine/island';
+import { demandAt, LifeView } from '../engine/life';
 import { arrivalOf, dungeonDef } from '../engine/zone';
 import { LifeUI } from '../ui/life/lifeUI';
 import { clearLife, saveLife } from './save';
@@ -309,7 +309,7 @@ export function makeTestApi(g: GameRefs) {
       return { chosen: { ...g.build }, using: { skills: [...p.skills], weapon: p.weapon, abilities: [...p.abilities], movement: [...p.movement] } };
     },
     setBuild(b: Build): boolean {
-      // Only what your points allow: on the island, what its quests and milestones have earned.
+      // Only what your points allow: in the world, what your life's quests and milestones have earned.
       if (!validBuild(b, g.skillPoints())) return false;
       g.panel.setBuild(b);
       g.applyBuild(b);
@@ -412,7 +412,7 @@ export function makeTestApi(g: GameRefs) {
     },
     /** Testing: the height of your farm's soil or furrows drawn over (x, z), or null where there is none. */
     farmGround(x: number, z: number): number | null {
-      return g.lifeView?.farmGroundAt(x, z) ?? null;
+      return g.landView?.farmGroundAt(x, z) ?? null;
     },
     /** Testing: where the shadow under you is drawn. */
     shadowHeight(): number {
@@ -434,7 +434,7 @@ export function makeTestApi(g: GameRefs) {
     // ---- Open world ----
     /** Where your vehicles are drawn this frame. */
     drawnVehicles() {
-      return g.lifeView?.drawnVehicles() ?? [];
+      return g.landView?.drawnVehicles() ?? [];
     },
     /** The building you are in (src/render/village), and which storey: null outdoors. */
     indoors() {
@@ -474,8 +474,8 @@ export function makeTestApi(g: GameRefs) {
       return g.life ? g.skyHour() : null;
     },
     /** Queues a life command (it runs on the next sim step). */
-    lifeCommand(c: Parameters<IslandView['command']>[0]): void {
-      g.islandCommand(c);
+    lifeCommand(c: Parameters<LifeView['command']>[0]): void {
+      g.lifeCommand(c);
     },
     /**
      * Online, an admin's bots: `n` more of `brain` (skirmisher, wanderer) round you on side `team`,
@@ -490,7 +490,7 @@ export function makeTestApi(g: GameRefs) {
       g.followSim(STEP);
       if (drawn) g.draw(1, 0, 0);
     },
-    /** Where things are on this island. */
+    /** Where things are in this region. */
     zone() {
       if (!g.world.zone) return null;
       const r = g.world.zone.recipe;
@@ -530,7 +530,7 @@ export function makeTestApi(g: GameRefs) {
       const r = g.world.zone?.gen.ramps[i] ?? [];
       return r.filter((_, k) => k % 3 === 0 || k === r.length - 1).map(([x, z]) => [x, z]);
     },
-    /** The ground things are drawn on at (x, z): the island's, or the floor of the dungeon or zone you're in. */
+    /** The ground things are drawn on at (x, z): the region's, or the floor of the dungeon or zone you're in. */
     ground(x: number, z: number): number {
       return g.groundY(x, z);
     },
@@ -575,7 +575,7 @@ export function makeTestApi(g: GameRefs) {
       });
       return out;
     },
-    /** Writes the island to this browser now (tests and bug-report replays). Online the server keeps it. */
+    /** Writes your life to this browser now (tests and bug-report replays). Online the server keeps it. */
     saveNow(): void {
       if (!g.online && g.life) saveLife(g.life, g.sim);
     },

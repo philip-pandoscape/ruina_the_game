@@ -6,7 +6,7 @@ import { model, trackPlaced } from '../assets';
 import { toon } from '../toon';
 
 // The made models (src/render/assets/models: generated with Meshy from concept art
-// painted after the island's reference picture, then compressed). A thing's look names its made
+// painted after Emberholm's reference picture, then compressed). A thing's look names its made
 // model and how it is fitted (content: src/content/looks.ts MadeModel): its body is drawn at once,
 // and the made model replaces it when it has loaded, fitted into the same box (the rules'
 // footprint), front to +Z, foot on the ground. They stream in nearest the camera first
@@ -26,7 +26,7 @@ const whereIs = (o: THREE.Object3D) => (): { x: number; z: number } => {
 /** How much windows glow: 0 by day, up to 1 at night (OpenStage.setTime; the village's glass reads it). */
 export const windowGlow = { value: 0 };
 
-/** The island's loose rocks (src/render/open/foliage.ts), made: each the box of a rock at scale 1. */
+/** The world's loose rocks (src/render/open/foliage.ts), made: each the box of a rock at scale 1. */
 export const ROCKS = {
   granite: { files: ['boulder_granite'], w: 1.7, h: 1.15, d: 1.7, sink: 0.3 },
   coast: { files: ['boulder_coast'], w: 1.6, h: 1.3, d: 1.6, sink: 0.3 },
@@ -57,8 +57,8 @@ export function madeFile(made: MadeModel, seed = 1, tint?: number): string {
 
 const materials = new Map<string, THREE.Material>();
 
-/** The made model's own material, lit the way everything else on the island is. */
-function islandMaterial(m: THREE.Material): THREE.Material {
+/** The made model's own material, lit the way everything else in the world is. */
+function gameMaterial(m: THREE.Material): THREE.Material {
   let out = materials.get(m.uuid);
   if (!out) {
     const src = m as THREE.MeshStandardMaterial;
@@ -86,7 +86,7 @@ export function fitted(scene: THREE.Object3D, made: MadeModel, w: number, h: num
   holder.traverse((o) => {
     const mesh = o as THREE.Mesh;
     if (!mesh.isMesh) return;
-    mesh.material = Array.isArray(mesh.material) ? mesh.material.map((m) => islandMaterial(m)) : islandMaterial(mesh.material);
+    mesh.material = Array.isArray(mesh.material) ? mesh.material.map((m) => gameMaterial(m)) : gameMaterial(mesh.material);
     mesh.castShadow = true;
     mesh.receiveShadow = true;
   });

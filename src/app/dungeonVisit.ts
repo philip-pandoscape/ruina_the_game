@@ -4,7 +4,7 @@ import { arrivalOf, dungeonDef, dungeonDoor } from '../engine/zone';
 
 // Going into a copy of a dungeon and out again, as this browser sees it: a space of its own played
 // in place of the world and the world back after (the engine's: Engine.enterDungeon), its cave or
-// arena drawn and the island put away, no rain under the rock. Offline (?test) this is the
+// arena drawn and the world put away, no rain under the rock. Offline (?test) this is the
 // whole visit and it moves you too; online the server takes you (and your party) through and moves
 // you, and this only follows (main.ts: onPortal and the server's word).
 
@@ -20,7 +20,7 @@ export interface VisitParts {
 export class DungeonVisit {
   constructor(private d: VisitParts) {}
 
-  /** The dungeon you're inside a copy of (null out on the island). */
+  /** The dungeon you're inside a copy of (null out in the world). */
   get inside(): string | null {
     return this.d.engine.inside;
   }
@@ -53,12 +53,12 @@ export class DungeonVisit {
     return true;
   }
 
-  /** The floor at (x, z) of the dungeon you're in, where it has one (null out on the island, or off its floor). */
+  /** The floor at (x, z) of the dungeon you're in, where it has one (null out in the world, or off its floor). */
   floorAt(x: number, z: number): number | null {
     return this.d.engine.floorAt(x, z);
   }
 
-  /** The floor's height inside the dungeon you're in (null out on the island). */
+  /** The floor's height inside the dungeon you're in (null out in the world). */
   floorHere(): number | null {
     return this.d.engine.floorHere();
   }

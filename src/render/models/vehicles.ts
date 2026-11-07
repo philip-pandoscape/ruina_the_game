@@ -1346,7 +1346,7 @@ function cog(def: BoatDef): VehicleModel {
   const halfYard = def.width * 0.85;
   mesh(yard, new Parts().add(rod([-halfYard, 0, 0], [halfYard, 0, 0], 0.13, 8, 0.13), PAL.woodLight).build());
   const stripes = 8;
-  // She flies the island's colours, as the reference picture's ship does: a cream sail with a
+  // She flies Emberholm's colours, as the reference picture's ship does: a cream sail with a
   // broad blue band.
   const sail = new Cloth(stripes, 6, (i) => (i === 3 || i === 4 ? 0x2f4f8a : PAL.cream));
   const sm = mesh(yard, sail.geometry, { mat: clothMaterial(), name: 'sail', receive: false });

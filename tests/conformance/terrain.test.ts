@@ -4,7 +4,7 @@ import { expect, test } from 'vitest';
 import { makeRng } from '../../src/util/rng';
 import { EMBERHOLM, generateZone } from '../../src/engine/zone';
 
-// The server and the browser play the same island: the engine grows it from its recipe
+// The server and the browser play the same region: the engine grows it from its recipe
 // (crates/engine/src/open/generate.rs), natively on the server and in the browser through its
 // WebAssembly (generateZone, src/engine/wasm.ts). Here the browser's is held to the server's, all
 // of what grows and handed over, and the ground as the TypeScript rules sample it (src/engine/world/terrain.ts)
@@ -47,7 +47,7 @@ function differences(a: unknown, b: unknown, path: string, out: string[]): void 
   if (a !== b) out.push(`${path}: ${JSON.stringify(a)} != ${JSON.stringify(b)}`);
 }
 
-test('the browser grows the island the server does: ground, colliders, roads, placements, waterfalls, buildings', (ctx) => {
+test('the browser grows the region the server does: ground, colliders, roads, placements, waterfalls, buildings', (ctx) => {
   ctx.skip(!existsSync(CHECK), 'build the server first: cargo build --release');
   const gen = generateZone(EMBERHOLM);
   const hf = gen.terrain;

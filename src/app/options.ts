@@ -21,7 +21,7 @@ export const OPTION_DOCS: readonly OptionDoc[] = [
     developer: true,
   },
   { name: 'offline', what: 'Plays offline in real time: the world, or offline=<instance> in a copy of that instance.', developer: true },
-  { name: 'load', what: 'With test: the island kept in this browser (bug-report replays).', developer: true },
+  { name: 'load', what: 'With test: the life kept in this browser (bug-report replays).', developer: true },
   {
     name: 'fixture=world',
     what: "Offline, a fixture world of the tests' in place of the shipped one (tests/fixtures/world/<name>.json: world, three regions; far, a region 102 km out), on a development server.",
@@ -30,7 +30,7 @@ export const OPTION_DOCS: readonly OptionDoc[] = [
   { name: 'lag=150', what: "Delays this page's connection by that many milliseconds each way, to feel a far server.", developer: true },
   { name: 'softlock=0', what: 'No automatic pick of a target to face (Tab still picks one).', developer: true },
   { name: 'as=name', what: 'On a development server: signs straight in as that name and plays its last character.', developer: true },
-  { name: 'fresh', what: 'Starts your island over.', developer: true },
+  { name: 'fresh', what: 'Starts your life over.', developer: true },
   {
     name: 'quality=low|medium|high',
     what: 'How much of the look to draw, instead of what the graphics chip picks.',
@@ -56,7 +56,7 @@ export interface Options {
   /** A development server's sign-in by name. */
   as: string | null;
   fresh: boolean;
-  /** The island kept in this browser (offline, tests). */
+  /** The life kept in this browser (offline, tests). */
   load: boolean;
   /** A fixture world of the tests' to play in place of the shipped one (`?fixture=`), offline. */
   fixture: string | null;

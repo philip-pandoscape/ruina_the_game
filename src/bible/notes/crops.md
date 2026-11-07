@@ -8,7 +8,7 @@ The quickest thing you can grow: golden tubers that ripen while you walk to the 
 
 ## barley
 
-Bearded grain, the island's staple. It goes into the [[packs/harvestCrate]] beside sunroot, and it is what every farm animal eats: [[animals/chicken|chickens]], [[animals/sheep|sheep]] and [[animals/cow|cows]] all want a feed of barley.
+Bearded grain, Emberholm's staple. It goes into the [[packs/harvestCrate]] beside sunroot, and it is what every farm animal eats: [[animals/chicken|chickens]], [[animals/sheep|sheep]] and [[animals/cow|cows]] all want a feed of barley.
 
 ## flax
 
@@ -16,7 +16,7 @@ Slender stems topped with pale-blue flowers, grown for their fibre. Flax is bale
 
 ## emberberry
 
-A low bush of glowing orange-red berries from warmer lands. It grows slowly on Emberholm, out of its climate, but its berries make [[packs/emberPreserves]], the dearest pack the island makes.
+A low bush of glowing orange-red berries from warmer lands. It grows slowly on Emberholm, out of its climate, but its berries make [[packs/emberPreserves]], the dearest pack Emberholm makes.
 
 ## apple
 

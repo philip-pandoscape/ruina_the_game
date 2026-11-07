@@ -3,7 +3,7 @@ import { test, type Page } from '../../support/headless';
 import { structureDef } from '../../../src/content/structures';
 import { skillsFrom } from '../../../src/content/skills';
 import { COMBAT, emptyMovement, HOTBAR_SLOTS, NO_ABILITY, weaponIndex } from '../../../src/content/tuning';
-import type { Command } from '../../../src/engine/island';
+import type { Command } from '../../../src/engine/life';
 import { gameReady } from '../../support/headless';
 
 // The open world (Emberholm): terrain, swimming, gliding, farming, pack running, vehicles, mounts,
@@ -63,8 +63,8 @@ async function faceNpc(page: Page, id: string): Promise<void> {
   await w.advance(2);
 }
 
-test('you stand on the island, not inside it: arriving, and getting up after a knock-down', async ({ page }) => {
-  // No reset here: this is the island as a fresh page starts it.
+test('you stand on the ground, not inside it: arriving, and getting up after a knock-down', async ({ page }) => {
+  // No reset here: this is the world as a fresh page starts it.
   await page.goto('/?test');
   await gameReady(page, 60_000);
   const aboveGround = () =>
@@ -287,7 +287,7 @@ test('housing: claim a plot and raise a cottage from hauled material packs', asy
   expect((await w.player()).pos.x).toBeGreaterThan(plot.x + structureDef('cottage').w / 2);
 });
 
-test('saving: your island comes back after a reload, with time having passed', async ({ page }) => {
+test('saving: your life comes back after a reload, with time having passed', async ({ page }) => {
   await open(page);
   const w = g(page);
   await grant(page, [['seed.sunroot', 3]], { coins: 777 });

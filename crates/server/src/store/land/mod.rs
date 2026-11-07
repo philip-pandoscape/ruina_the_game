@@ -170,10 +170,10 @@ pub async fn save_in(tx: &mut Transaction<'_, Postgres>, saves: &[LifeSave]) -> 
             written.push(false);
             continue;
         }
-        let (island, entries) = without_ledger(&s.life);
-        let done = sqlx::query("UPDATE characters SET island = $2, saved_at = now(), space = COALESCE($3, space) WHERE id = $1")
+        let (life, entries) = without_ledger(&s.life);
+        let done = sqlx::query("UPDATE characters SET life = $2, saved_at = now(), space = COALESCE($3, space) WHERE id = $1")
             .bind(s.character)
-            .bind(Json(&island))
+            .bind(Json(&life))
             .bind(&s.space)
             .execute(&mut **tx)
             .await?;

@@ -1,14 +1,4 @@
-import {
-  IslandView,
-  newLifeState,
-  type OthersVehicle,
-  type House,
-  type Pack,
-  type Scarecrow,
-  type ShipBuild,
-  type Vehicle,
-  vehicleBodies,
-} from '../engine/island';
+import { LifeView, newLifeState, type OthersVehicle, type House, type Pack, type Scarecrow, type ShipBuild, type Vehicle, vehicleBodies } from '../engine/life';
 import { angleDiff, type Mover, type PlayerState } from '../engine/rules';
 import type { ZoneData } from '../engine/zone';
 import type { Engine } from '../engine/engine';
@@ -25,7 +15,7 @@ import type { Estate, EstateEntry, WorldLink } from './worldLink';
 // them as they are at the moment drawn; src/render/open/peersView.ts draws them. What it hears comes
 // through src/net/feedTick.ts, the same whichever way the server sends it.
 
-/** The player fields drawing someone needs (src/render/character.ts and the life view); the server sends these. */
+/** The player fields drawing someone needs (src/render/character.ts and the land view); the server sends these. */
 const SHOWN = [
   'facing',
   'mode',
@@ -95,8 +85,8 @@ export interface Peer {
   readonly drawn: boolean;
   /** Their state at the moment drawn, between the server's updates. */
   readonly shown: PlayerState;
-  /** What of their island everyone sees: houses, farms and ships, and the vehicles, packs and glider they have out. */
-  readonly life: IslandView;
+  /** What of theirs everyone sees: houses, farms and ships, and the vehicles, packs and glider they have out. */
+  readonly life: LifeView;
   /** How far they are from you (m), as of the last frame. */
   readonly away: number;
 }
@@ -108,7 +98,7 @@ interface Kept {
   online: boolean;
   drawn: boolean;
   shown: PlayerState;
-  life: IslandView;
+  life: LifeView;
   away: number;
   samples: Sample[];
   clock: number;
@@ -137,7 +127,7 @@ export class WorldPeers {
   constructor(
     private zone: ZoneData,
     private engine: Engine,
-    private mine: IslandView,
+    private mine: LifeView,
     private me: number,
     link: WorldLink,
   ) {
@@ -206,8 +196,8 @@ export class WorldPeers {
   private peer(id: number, name: string): Kept {
     let p = this.peers.get(id);
     if (p) return p;
-    // What of their island everyone sees (their houses, farms, ships, vehicles and packs), to draw.
-    const life = new IslandView(this.zone, newLifeState({ coins: 0, labor: 0, seed: this.zone.recipe.seed }), () => {});
+    // What of theirs everyone sees (their houses, farms, ships, vehicles and packs), to draw.
+    const life = new LifeView(this.zone, newLifeState({ coins: 0, labor: 0, seed: this.zone.recipe.seed }), () => {});
     life.weather = this.mine.weather;
     p = {
       id,

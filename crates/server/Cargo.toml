@@ -1,6 +1,6 @@
 [package]
 name = "ruina-server"
-description = "Ruina's game server: accounts, characters and islands in Postgres, the world's channels and dungeon copies, its WebSocket"
+description = "Ruina's game server: accounts, characters and their lives in Postgres, the world's channels and dungeon copies, its WebSocket"
 version.workspace = true
 edition.workspace = true
 publish = false
@@ -29,7 +29,7 @@ serde.workspace = true
 serde_json.workspace = true
 # Postgres. Queries are checked at run time rather than build time, so building needs no database.
 sqlx = { version = "0.9.0", default-features = false, features = ["runtime-tokio", "tls-rustls-ring-webpki", "postgres", "migrate", "macros", "json"] }
-# signal: a stop (a deploy) saves everyone's island before the server goes.
+# signal: a stop (a deploy) saves everyone's life before the server goes.
 tokio.workspace = true
 # One socket for IPv6 and IPv4 on every system (Windows keeps an IPv6 socket to IPv6 unless asked).
 socket2 = "0.6.5"

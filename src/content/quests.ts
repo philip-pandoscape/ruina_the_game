@@ -21,7 +21,7 @@ export interface Objective {
 }
 
 /**
- * Somewhere on the island a quest's marker can point: one of its places, trading posts, workbenches
+ * Somewhere in a region a quest's marker can point: one of its places, trading posts, workbenches
  * or slipways, by id, called by its own name there unless `label` says otherwise. The rules never
  * read it.
  */

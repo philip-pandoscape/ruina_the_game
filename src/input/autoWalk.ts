@@ -1,5 +1,5 @@
 import { type Actions, type World, type SimView, angleDiff } from '../engine/rules';
-import { type IslandView, ridden } from '../engine/island';
+import { type LifeView, ridden } from '../engine/life';
 import { RoadNetwork, routeNearest, routePoint, routeTight, type Route } from '../engine/zone';
 import { isBoat, isMount, isWheeled, rideable, type WheeledDef } from '../content/vehicles';
 
@@ -70,9 +70,9 @@ export class AutoWalk {
   private vehicle = 0;
   private anchor = { x: 0, z: 0, steps: 0 };
 
-  constructor(private d: { sim: SimView; world: World; life: IslandView | null }) {}
+  constructor(private d: { sim: SimView; world: World; life: LifeView | null }) {}
 
-  /** The island's roads, joined up the first time they are wanted. */
+  /** The region's roads, joined up the first time they are wanted. */
   get roads(): RoadNetwork {
     return (this.net ??= new RoadNetwork(this.d.world));
   }

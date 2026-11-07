@@ -110,7 +110,7 @@ pub struct Player {
     pub weapon: u8,       // its place in shared/tuning.json's weapons
     pub skills: SkillSet, // which skills are learned (skills.rs)
     /// The level of each skill in the skill book (skills.rs book()), which adds to what it does.
-    /// A player's island keeps the experience behind them and sets these
+    /// A player's life keeps the experience behind them and sets these
     /// (crate::life::progress::sync_levels); a player without one keeps them at 1.
     pub levels: Levels,
     /// Resolved once when the build or a level changes, never in a frame.
@@ -148,7 +148,7 @@ pub struct Player {
     pub vehicle: i64,
     pub seat: u8,
     /// Riding along in someone else's vehicle: whose (their character), 0 in your own or on foot.
-    /// Their vehicle numbers are their island's, so `vehicle` is one of theirs then.
+    /// Their vehicle numbers are their land's, so `vehicle` is one of theirs then.
     pub host: i64,
     /// The glider you have equipped ("" for none), and its airspeed while open.
     pub glider: String,

@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import type { Command } from '../../src/engine/island';
+import type { Command } from '../../src/engine/life';
 import { EMBERHOLM, SURFACE } from '../../src/engine/zone';
 import { isTitleCase } from '../../src/ui/theme/text';
 import type { LifePress } from '../../src/ui/life/lifeUI';

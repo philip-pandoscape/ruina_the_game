@@ -11,9 +11,9 @@ import { migrateStorage } from './storage';
 
 // The page's way in (index.html loads this). The first download is the title screen, sign-in and
 // character select, and no more (docs/assets.md, held to a budget by
-// tests/integration/download.spec.ts): the rest of the game (src/main.ts: the island, its rules, the
+// tests/integration/download.spec.ts): the rest of the game (src/main.ts: the world, its rules, the
 // HUD and everything else) is fetched once a character is chosen, while the world link opens, and
-// the island's files stream in after it (src/assets/loader.ts). Straight in (?as=name, a reload into
+// the world's files stream in after it (src/assets/loader.ts). Straight in (?as=name, a reload into
 // the world) a character is chosen at once; the offline modes the tests use (?test, ?test=<instance>,
 // ?offline) have no way in, and fetch the game at once.
 

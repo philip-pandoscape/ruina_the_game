@@ -18,7 +18,7 @@ import { cut, indoorAmbient, loadKit, PARTS, type Kit } from './kit';
 //   - the doors (which swing open as anyone comes up to them) and the fires in the hearths,
 //     instanced;
 //   - the lamps and hearths, lit by a few shared lights that follow you from house to house;
-//   - players' houses (src/render/open/life.ts hands them over as they are built), each a few
+//   - players' houses (src/render/open/land.ts hands them over as they are built), each a few
 //     meshes of its own, rebuilt when a stage is finished.
 // Indoors, the house you stand in is drawn cut open above your storey, and the camera stays
 // inside its walls (main.ts asks `indoors`).

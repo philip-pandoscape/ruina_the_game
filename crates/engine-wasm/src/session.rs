@@ -1,6 +1,6 @@
 //! The browser's game (ruina_engine::session) through the plain interface: a page (or a test) makes
 //! a session, steps it once per fixed frame with what was pressed, and reads back you, the
-//! creatures, the island and what happened, as JSON in the shapes src/engine/ reads. Everything else the
+//! creatures, your life and what happened, as JSON in the shapes src/engine/ reads. Everything else the
 //! Engine does from outside the rules is one named call (`session_call`), so the interface stays
 //! small while what crosses it each frame stays cheap.
 
@@ -132,7 +132,7 @@ pub extern "C" fn session_step(
 }
 
 /// Online, the world's clock (the server's, in seconds since 1970) the rain and the wind run on,
-/// for the next step; NaN for none (offline, the island's own clock).
+/// for the next step; NaN for none (offline, the life's own clock).
 #[unsafe(no_mangle)]
 pub extern "C" fn session_world_clock(h: u32, t: f64) {
     with(h, |s| s.set_world_clock(if t.is_nan() { None } else { Some(t) }));
@@ -145,7 +145,7 @@ pub extern "C" fn session_world_clock(h: u32, t: f64) {
 /// # Safety
 /// `p..p + n` lies in room `alloc` gave.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn session_take_island(h: u32, p: *const u8, n: usize) -> u32 {
+pub unsafe extern "C" fn session_take_life(h: u32, p: *const u8, n: usize) -> u32 {
     #[derive(Deserialize)]
     struct Sent {
         state: LifeState,
@@ -159,7 +159,7 @@ pub unsafe extern "C" fn session_take_island(h: u32, p: *const u8, n: usize) -> 
         resting: bool,
     }
     let Ok(sent) = serde_json::from_str::<Sent>(unsafe { text(p, n) }) else { return 0 };
-    with(h, |s| s.take_island(sent.state, sent.land, sent.market, sent.placing, sent.resting)).is_some() as u32
+    with(h, |s| s.take_life(sent.state, sent.land, sent.market, sent.placing, sent.resting)).is_some() as u32
 }
 
 /// Everything the page reads after a step (`events` 1: with what happened, taken) or a call (0),
@@ -169,19 +169,19 @@ pub extern "C" fn session_view(h: u32, events: u32) -> usize {
     give(with(h, |s| s.view_text(events != 0)).unwrap_or_default())
 }
 
-/// A number that changes whenever what's solid on the island changes (Session::solid_key).
+/// A number that changes whenever what's solid in the world changes (Session::solid_key).
 #[unsafe(no_mangle)]
 pub extern "C" fn session_solid_key(h: u32) -> u32 {
     with(h, |s| s.solid_key()).unwrap_or(0)
 }
 
-/// Everything solid on the island as it stands (JSON `{obstacles, boxes, decks}`).
+/// Everything solid in the world as it stands (JSON `{obstacles, boxes, decks}`).
 #[unsafe(no_mangle)]
 pub extern "C" fn session_colliders(h: u32) -> usize {
     give(with(h, |s| s.colliders_json().to_string()).unwrap_or_default())
 }
 
-/// The island's cells kept clear of trees and scarecrows, where they lie (`session_clear_len` of them).
+/// The region's cells kept clear of trees and scarecrows, where they lie (`session_clear_len` of them).
 #[unsafe(no_mangle)]
 pub extern "C" fn session_clear_ptr(h: u32) -> *const u8 {
     with(h, |s| s.clear().as_ptr()).unwrap_or(std::ptr::null())
@@ -358,7 +358,7 @@ fn call(s: &mut Session, v: &Value) -> Value {
         "regionSolids" => return s.region_solids(n("place") as usize),
         "groundY" => return json!(s.ground_y(n("x"), n("z"))),
         "standingAt" => return json!(s.standing_at(n("x"), n("z"), n("near"), n("pad"))),
-        "loadIsland" => return json!(v.get("data").is_some_and(|d| s.load_island(d, n("now")))),
+        "loadLife" => return json!(v.get("data").is_some_and(|d| s.load_life(d, n("now")))),
         "reset" => {
             let at = &v["at"];
             let f = |k: &str| at.get(k).and_then(Value::as_f64).unwrap_or(0.0);
@@ -390,11 +390,11 @@ fn call(s: &mut Session, v: &Value) -> Value {
             Some(c) => s.run_ahead(&c),
             None => return json!({ "error": "runAhead: no command" }),
         },
-        "replayIsland" => {
+        "replayLife" => {
             let you = &v["you"];
             let f = |k: &str| you.get(k).and_then(Value::as_f64).unwrap_or(0.0);
             let ahead: Vec<Command> = field(v, "ahead").unwrap_or_default();
-            s.replay_island(
+            s.replay_life(
                 f("clock"),
                 f("labor"),
                 field(you, "weather").unwrap_or_default(),

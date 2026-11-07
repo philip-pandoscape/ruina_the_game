@@ -22,7 +22,7 @@ export type Col = Rgb | ColorFn;
 
 // ---------- palette ----------
 
-/** One palette for the island, so separately built models still look like they belong together. */
+/** One palette for the world, so separately built models still look like they belong together. */
 export const PAL = {
   grass: 0x86c55a,
   grassDark: 0x5fa843,

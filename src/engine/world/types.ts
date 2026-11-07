@@ -12,7 +12,7 @@ export interface ZoneRecipe {
     cells: number;
     cell: number;
     water: number;
-    island: { x: number; z: number; radius: number; lobes: Array<[number, number, number]>; warp: number; warpScale: number };
+    landmass: { x: number; z: number; radius: number; lobes: Array<[number, number, number]>; warp: number; warpScale: number };
     bays: Array<{ x: number; z: number; r: number }>;
     headlands: Array<{ x: number; z: number; r: number; push: number }>;
     islets: Array<{ x: number; z: number; r: number; h: number }>;
@@ -111,7 +111,7 @@ export interface ZonePlace {
   z: number;
 }
 
-/** One of the island's people (content/npcs/<id>.json): who they are, where they stand, how they look and what they say. */
+/** One of a region's people (content/npcs/<id>.json): who they are, where they stand, how they look and what they say. */
 export interface ZoneNpc {
   id: string;
   name: string;

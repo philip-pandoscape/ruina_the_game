@@ -20,7 +20,7 @@ const BUILDINGS: Building[] = [
   ...structureIds()
     .filter((id) => !(id in GATHERING))
     .map((id) => ({ id, name: structureDef(id).name, prop: false, def: structureDef(id) })),
-  // Street furniture: every prop the island is dressed with.
+  // Street furniture: every prop the world is dressed with.
   ...[...new Set(ZONE.props.map((p) => p.id))].map((id) => ({ id, name: id.charAt(0).toUpperCase() + id.slice(1), prop: true, def: propDef(id) })),
 ];
 
@@ -32,7 +32,7 @@ const COLLIDER: Record<string, string> = {
   none: 'Nothing: you walk over or through it',
 };
 
-/** Where a structure or prop stands on the island: the places it is nearest to, and how many. */
+/** Where a structure or prop stands in the world: the places it is nearest to, and how many. */
 function standsAt(id: string): Html | null {
   const here = ZONE.structures.filter((s) => s.id === id);
   const props = ZONE.props.filter((p) => p.id === id);
@@ -48,7 +48,7 @@ export const buildings = kind<Building>({
   title: 'Buildings',
   noun: 'Building',
   icon: '🏠',
-  summary: 'Every building and piece of street furniture on the island: its size, what blocks you, and the rooms you can walk into.',
+  summary: 'Every building and piece of street furniture in the world: its size, what blocks you, and the rooms you can walk into.',
   sources: [
     'shared/structures.json#structures',
     'shared/structures.json#props',
@@ -74,7 +74,7 @@ export const buildings = kind<Building>({
       ['Walkable top', s.deck ? phrase`${metres(s.deck)} up` : null],
       ['Storeys', plan ? plan.storeys.length : null],
       ['Built in stages', s.stages?.length ? raw(s.stages.join(', ')) : null],
-      ['On the island', standsAt(b.id)],
+      ['In the world', standsAt(b.id)],
     ];
   },
   body: (b) => {

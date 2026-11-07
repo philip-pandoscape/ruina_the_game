@@ -85,7 +85,7 @@ test('the contents, the links on a page and the pager take you where they say', 
   await expect(page.locator('#page h1')).toHaveText('Nothing Here');
 });
 
-test('the island page draws the island as the game grows it, and a place page marks the place', async ({ page }) => {
+test('the world page draws the region as the game grows it, and a place page marks the place', async ({ page }) => {
   const errors = await open(page);
   const colours = async () =>
     page.evaluate(() => {

@@ -4,7 +4,7 @@ import './theme/front.css';
 // The title screen. index.html draws its first frame before any of the game's code arrives: a dusk
 // sky over Emberholm's spire, the name, embers, and a loading bar. This takes it over: the bar
 // follows the real steps of loading, signing in and picking a character happen on it (cards on
-// `layer`, scaled like the rest of the UI), and once the island is built and drawn, and the files it
+// `layer`, scaled like the rest of the UI), and once the world is built and drawn, and the files it
 // can't be drawn without have arrived, it fades into the game. Going in, the bar's last part fills as
 // those files arrive, and under it is how much of them has (src/assets/loader.ts).
 // The offline modes (?test, ?offline) never show it (index.html decides): `splash` is null there.
@@ -22,7 +22,7 @@ const STEPS = {
   models: 0.25,
   /** Going in: connected to the world. */
   joined: 0.07,
-  /** The island's ground and colliders are built. */
+  /** The world's ground and colliders are built. */
   world: 0.1,
   /** Its scenery is built. */
   stage: 0.1,
@@ -92,7 +92,7 @@ export class Splash {
   }
 
   /**
-   * Working on `s` (a slow step, like building the island): the bar creeps most of the way through
+   * Working on `s` (a slow step, like building the world): the bar creeps most of the way through
    * its share over `seconds`, so it never looks stuck, and step() finishes it.
    */
   toward(s: LoadStep, seconds = 6): void {

@@ -2,7 +2,7 @@ import { angleDiff } from '../../../engine/rules';
 import { esc } from '../../../util/html';
 import { el } from '../../components/dom';
 import { iconHtml } from '../../theme/icons';
-import type { IslandUI } from '../context';
+import type { LifeContext } from '../context';
 
 // The compass along the top of the screen: the four points, the places within sight, and where
 // your quest leads, pinned to an edge while it's behind you.
@@ -10,7 +10,7 @@ import type { IslandUI } from '../context';
 export class Compass {
   readonly el = el('div', 'lui');
 
-  constructor(private ui: IslandUI) {
+  constructor(private ui: LifeContext) {
     this.el.id = 'lui-compass';
   }
 

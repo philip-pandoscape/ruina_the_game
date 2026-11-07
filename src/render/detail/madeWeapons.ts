@@ -160,7 +160,7 @@ function fitBow(scene: THREE.Object3D): { parts: Array<{ geometry: THREE.BufferG
 const materials = new Map<THREE.Material, THREE.Material>();
 
 /**
- * The model's own material, its metal catching the island's light: the sun's glint, and where
+ * The model's own material, its metal catching the world's light: the sun's glint, and where
  * steel or gold faces up or down, the sky's colour or the ground's brightness - the hemisphere
  * light's, so it dims at night with everything else. The ground's brightness, not its colour: steel
  * giving back Emberholm's grass all along its side read as a green blade.

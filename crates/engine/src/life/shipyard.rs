@@ -141,13 +141,13 @@ mod tests {
     use super::*;
     use crate::life::content::ship_designs;
     use crate::life::trade::make_pack;
-    use crate::life::trade::testing::{island, toasts};
+    use crate::life::trade::testing::{new_life, toasts};
 
     const SLIP: &str = "lanternwick-slip";
 
     #[test]
     fn a_ship_is_built_on_the_slip_and_launched() {
-        let (mut life, mut world, mut p) = island(0.0);
+        let (mut life, mut world, mut p) = new_life(0.0);
         let mut sim = Sim { player: &mut p, world: &mut world, owner: 1 };
         // Only a design lays a keel, and only one you have.
         life.give("lumber", 5, true);
@@ -208,7 +208,7 @@ mod tests {
 
     #[test]
     fn the_labor_and_the_room_for_the_deed_come_first() {
-        let (mut life, _, _) = island(0.0);
+        let (mut life, _, _) = new_life(0.0);
         life.land.ships.push(ShipBuild {
             id: 40,
             slip: SLIP.into(),

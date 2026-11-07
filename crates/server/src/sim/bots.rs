@@ -72,7 +72,7 @@ impl Game {
             player.team = team;
             player.pos.y = ground_at(hf, &self.open.index, bx, bz, floor.unwrap_or_else(|| hf.height(bx, bz)) + 1.2, 1.2);
             player.grounded = true;
-            // An island of its own, empty: the rules step every open-world player with one.
+            // A life of its own, empty: the rules step every open-world player with one.
             let life = Box::new(Life::new(self.zone, None, None));
             let entity = EntityId::bot(self.sim.0, self.bot_count);
             if !self.players.join_open(entity, id, player, life) {

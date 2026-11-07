@@ -61,7 +61,7 @@ export const swimmingAndGliding = system({
     const spire = EMBERHOLM.terrain.mountains.find((m) => m.id === 'windspire') ?? EMBERHOLM.terrain.mountains[0];
     const from = spire?.top ?? 0;
     return md`
-Water and air are the two ways off the island's paths. Deep water floats you and you swim; from any height a glider turns a fall into a flight, and rising air at the foot of the Windspire carries you back up.
+Water and air are the two ways off Emberholm's paths. Deep water floats you and you swim; from any height a glider turns a fall into a flight, and rising air at the foot of the Windspire carries you back up.
 
 ## Wading
 

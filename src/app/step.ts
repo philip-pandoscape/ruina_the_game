@@ -1,5 +1,5 @@
 // One step of the rules (1/60 s) with what you pressed, and what it shows: the effects of what
-// happened and what the island said, the server's word on you taken in (syncNet) before the step
+// happened and what your life said, the server's word on you taken in (syncNet) before the step
 // online. The loop calls it each step; tests step it a frame at a time.
 import { NO_ACTIONS, type Actions, type GameEvent, heightAboveGround } from '../engine/rules';
 import { MOVEMENT_SKILLS, comboFor, COMBAT, meleeTargets, STEP } from '../content/tuning';
@@ -29,7 +29,7 @@ export function makeStep(g: GameRefs) {
   } = g;
   let lastSnapshot = 0;
   let lastHp: number = COMBAT.maxHp;
-  /** The side your hero's colours show: only a developer zone's side changes it (on the island everyone is on one). */
+  /** The side your hero's colours show: only a developer zone's side changes it (in the world everyone is on one). */
   let shownTeam = 0;
 
   function syncNet(): void {

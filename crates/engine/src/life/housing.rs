@@ -361,7 +361,7 @@ pub fn step_housing(life: &mut Life) {
 mod tests {
     use super::*;
     use crate::life::trade::make_pack;
-    use crate::life::trade::testing::{island, toasts};
+    use crate::life::trade::testing::{new_life, toasts};
 
     /// A material pack onto your back and into the house's site.
     fn haul(life: &mut Life, sim: &mut Sim, house: i64, pack: &str) -> bool {
@@ -378,7 +378,7 @@ mod tests {
 
     #[test]
     fn a_house_goes_up_stage_by_stage_and_is_made_solid_once() {
-        let (mut life, mut world, mut p) = island(1000.0);
+        let (mut life, mut world, mut p) = new_life(1000.0);
         let (decks, boxes) = (world.index.decks.len(), world.index.boxes.len());
         life.plot_owners.insert("rise-2".into(), "Brann".into());
         life.give("blueprint.cottage", 1, true);
@@ -476,8 +476,8 @@ mod tests {
 
     #[test]
     fn another_settlers_house_with_the_same_id_is_solid_too() {
-        let (mut mine, mut world, mut p) = island(0.0);
-        let (mut theirs, _, mut q) = island(0.0);
+        let (mut mine, mut world, mut p) = new_life(0.0);
+        let (mut theirs, _, mut q) = new_life(0.0);
         let (decks, boxes) = (world.index.decks.len(), world.index.boxes.len());
         mine.give("blueprint.cottage", 1, true);
         theirs.give("blueprint.cottage", 1, true);
@@ -494,7 +494,7 @@ mod tests {
 
     #[test]
     fn the_bed_and_chest_stand_where_the_structure_puts_them_and_tax_is_paid_by_the_week() {
-        let (mut life, mut world, mut p) = island(400.0);
+        let (mut life, mut world, mut p) = new_life(400.0);
         let mut sim = Sim { player: &mut p, world: &mut world, owner: 1 };
         life.give("blueprint.cottage", 1, true);
         assert!(place_house(&mut life, &mut sim, "rise-5", "blueprint.cottage"));
@@ -523,7 +523,7 @@ mod tests {
 
     #[test]
     fn online_a_claim_waits_for_the_registry_and_one_that_lost_the_race_comes_down_again() {
-        let (mut life, world, mut p) = island(0.0);
+        let (mut life, world, mut p) = new_life(0.0);
         life.claims_wait = true;
         life.give("blueprint.cottage", 1, true);
         assert!(place_house(&mut life, sim!(p, world, 7), "rise-2", "blueprint.cottage"));
@@ -553,7 +553,7 @@ mod tests {
 
     #[test]
     fn a_claim_the_registry_couldnt_take_gives_the_blueprint_back_to_try_again() {
-        let (mut life, world, mut p) = island(0.0);
+        let (mut life, world, mut p) = new_life(0.0);
         life.claims_wait = true;
         life.give("blueprint.cottage", 1, true);
         assert!(place_house(&mut life, sim!(p, world, 7), "rise-2", "blueprint.cottage"));
@@ -573,7 +573,7 @@ mod tests {
 
     #[test]
     fn tax_runs_on_the_worlds_clock_and_a_neglected_house_comes_down() {
-        let (mut life, world, mut p) = island(1000.0);
+        let (mut life, world, mut p) = new_life(1000.0);
         // Online the land's clock is the world's: a long way from the life's own.
         let t0 = 1.76e9;
         life.world_clock = Some(t0);

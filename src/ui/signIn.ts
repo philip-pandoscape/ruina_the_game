@@ -213,7 +213,7 @@ export class OnlineBadge {
     this.status = status;
     this.root.className = status === 'online' ? '' : status === 'reconnecting' || status === 'updating' ? 'reconnecting' : 'stopped';
     this.label.textContent = status === 'reconnecting' ? `${this.name} · Reconnecting` : status === 'updating' ? `${this.name} · Updating` : this.name;
-    this.root.title = status === 'online' ? 'Connected to the game server; your island is saved there' : '';
+    this.root.title = status === 'online' ? 'Connected to the game server; your life is saved there' : '';
   }
 }
 
@@ -238,7 +238,7 @@ export class NetOverlay {
     const [title, text] =
       kind === 'updating'
         ? ['Ruina Is Being Updated', "Hold tight: you'll be right back where you were."]
-        : ['Connection Lost', 'Your island is safe on the server. The game picks up where you were as soon as it is back.'];
+        : ['Connection Lost', 'Your life is safe on the server. The game picks up where you were as soon as it is back.'];
     this.status.textContent = kind === 'updating' ? 'Waiting for the New Server…' : 'Reconnecting…';
     const reload = el('button', { className: 'lui-btn small fd-quiet', type: 'button', textContent: 'Reload Now', hidden: true });
     reload.onclick = () => location.reload();
@@ -273,7 +273,7 @@ export function showStopped(why: 'kicked' | 'signed-out'): void {
   go.onclick = () => location.reload();
   const [title, text] =
     why === 'kicked'
-      ? ['Playing in Another Window', 'This character is now playing somewhere else. A character plays in one window at a time; your island was saved there.']
+      ? ['Playing in Another Window', 'This character is now playing somewhere else. A character plays in one window at a time; your life was saved there.']
       : ['Signed Out', 'Your sign-in has ended. Sign in again to carry on.'];
   const root = el('div', { id: 'ruina-net', className: 'stopped' }, card(title, el('p', { textContent: text }), go));
   uiRoot().append(root);

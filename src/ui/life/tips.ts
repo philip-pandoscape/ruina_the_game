@@ -1,19 +1,19 @@
 import { cropDef, CLIMATES } from '../../content/farming';
 import { CATEGORIES, itemDef, vendorFor } from '../../content/items';
 import { packDef, placeName } from '../../content/trade';
-import { shortTime } from '../../engine/island';
+import { shortTime } from '../../engine/life';
 import { esc } from '../../util/html';
 import { WEAPON_NAMES } from '../icons';
 import { money } from '../theme/icons';
-import type { IslandUI } from './context';
+import type { LifeContext } from './context';
 
-// The island's tooltips (src/ui/theme/tooltip.ts): what an item, a trade pack, an empty slot or
+// The life's tooltips (src/ui/theme/tooltip.ts): what an item, a trade pack, an empty slot or
 // your weapon is, for anything in the HUD or a window whose data-tip is item:, pack:, slot: or
 // weapon: followed by its id. What an item's category is called is content (shared/items.json
 // `categories`).
 
-/** The tooltip for a data-tip, or null when it isn't one of the island's. */
-export function islandTip(ui: IslandUI, tip: string): string | null {
+/** The tooltip for a data-tip, or null when it isn't one of the life's. */
+export function lifeTip(ui: LifeContext, tip: string): string | null {
   const i = tip.indexOf(':');
   const kind = tip.slice(0, i);
   const id = tip.slice(i + 1);

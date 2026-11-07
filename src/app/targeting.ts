@@ -85,7 +85,7 @@ export function createTargeting(d: TargetingDeps) {
         visit(`actor:${a.id}`, a.x, a.y, a.z, a.hp, d.names[kind.id] ?? kind.id);
       }
     }
-    // Players and bots on the other side (a developer zone's: on the island everyone is on one).
+    // Players and bots on the other side (a developer zone's: in the world everyone is on one).
     for (const p of d.peers?.() ?? []) {
       if (p.team === myTeam || p.hp <= 0) continue;
       const dx = p.x - px;

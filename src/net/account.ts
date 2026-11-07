@@ -93,12 +93,12 @@ export async function signOut(): Promise<void> {
 /** Your characters, oldest first, and how many an account may hold. */
 export const listCharacters = () => request('GET', '/api/characters') as Promise<{ characters: CharacterInfo[]; max: number }>;
 
-/** A new character with a fresh island. Refused if the name is taken or the account is full. */
+/** A new character with a fresh life. Refused if the name is taken or the account is full. */
 export async function createCharacter(name: string): Promise<CharacterInfo> {
   return ((await request('POST', '/api/characters', { name })) as { character: CharacterInfo }).character;
 }
 
-/** Deletes one of your characters and their island for good; `name` is their name, typed to confirm. */
+/** Deletes one of your characters and their life and land for good; `name` is their name, typed to confirm. */
 export async function deleteCharacter(id: number, name: string): Promise<void> {
   await request('DELETE', `/api/characters/${id}`, { name });
 }

@@ -64,7 +64,7 @@ its own Postgres.
 
 ## A Deploy, as Players See It
 
-1. The stopping server tells every player `{t:"updating"}`, saves every island, then closes with
+1. The stopping server tells every player `{t:"updating"}`, saves every life, then closes with
    code 1012, within the 20 s Railway gives it.
 2. Pages freeze, then reconnect.
 3. A page reloads straight back into the world when:

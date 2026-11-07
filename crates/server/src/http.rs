@@ -46,7 +46,7 @@ pub struct AppState {
     /// Sign in by name alone (?as=name in the browser), and everyone an admin. Never on Railway.
     pub dev_login: bool,
     /// The admins, by name (lower case): they reach the developer pages (/dev/, /design/) and the
-    /// developer commands (grants, warping time, teleports, starting an island over). ADMIN_USERS.
+    /// developer commands (grants, warping time, teleports, starting a life over). ADMIN_USERS.
     pub admin_users: HashSet<String>,
     /// Mark the cookie Secure (served over https).
     pub secure_cookies: bool,
@@ -152,7 +152,7 @@ pub async fn serve(port: u16, everywhere: bool, state: AppState, static_dir: Opt
         let _ = tcp.set_nodelay(true);
     });
     // Stopped (Railway stops the old server when a new one is up): everyone hears the game is being
-    // updated, their islands are written, so nothing since the last save is lost, and their
+    // updated, their lives are written, so nothing since the last save is lost, and their
     // connections close as a service restart; their browsers come back on the new server.
     axum::serve(listener, router)
         .with_graceful_shutdown(async move {
@@ -160,7 +160,7 @@ pub async fn serve(port: u16, everywhere: bool, state: AppState, static_dir: Opt
                 _ = stopped() => {}
                 _ = asker.gate.stop_asked() => {}
             }
-            println!("stopping: telling everyone, saving everyone's island");
+            println!("stopping: telling everyone, saving everyone's life");
             saver.gate.stop_world().await;
         })
         .await

@@ -31,7 +31,7 @@ export const placeLink = (id: string): Html => link(`places/${id}`, ZONE.places.
 export const itemsList = (list: ReadonlyArray<{ item: string; n: number }>): Html =>
   listOf(list.map((i) => raw(`${itemLink(i.item, i.n === 1 ? undefined : i.n).html}`)));
 
-/** The place nearest a point on the island. */
+/** The place nearest a point in the world. */
 export function nearestPlace(x: number, z: number): ZonePlace {
   let best = ZONE.places[0];
   let d = Infinity;

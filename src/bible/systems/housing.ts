@@ -3,7 +3,7 @@
 import { BLUEPRINTS, NEGLECT, PLOT_MARKER, type BlueprintDef } from '../../content/housing';
 import { claimsPlot, ITEMS, RECIPES, VENDORS } from '../../content/items';
 import { LABOR, packDef } from '../../content/trade';
-import { DAY, HOUSE_SETBACK } from '../../engine/island';
+import { DAY, HOUSE_SETBACK } from '../../engine/life';
 import { EMBERHOLM } from '../../engine/zone';
 import { coins, count, duration, metres, speed } from '../format';
 import { join, system, table } from '../kit';

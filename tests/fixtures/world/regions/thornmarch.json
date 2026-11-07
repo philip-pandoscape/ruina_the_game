@@ -1,5 +1,5 @@
 {
-  "comment": "A fixture region (tests/fixtures/world/world.json): the east half of the island it shares with Saltmere across a land border at x = 2048 m, hillier and colder, grown from its own recipe. In the shape of shared/regions/<id>.json, written where it stands.",
+  "comment": "A fixture region (tests/fixtures/world/world.json): the east half of the landmass it shares with Saltmere across a land border at x = 2048 m, hillier and colder, grown from its own recipe. In the shape of shared/regions/<id>.json, written where it stands.",
   "id": "thornmarch",
   "name": "Thornmarch",
   "subtitle": "The cold side of the island",
@@ -13,7 +13,7 @@
       2560,
       0
     ],
-    "island": {
+    "landmass": {
       "x": 2400,
       "z": 0,
       "radius": 420,

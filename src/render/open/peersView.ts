@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { MOVE } from '../../content/tuning';
-import type { IslandView } from '../../engine/island';
+import type { LifeView } from '../../engine/life';
 import type { PlayerState } from '../../engine/rules';
 import { Hero } from '../character';
 import { SpeciesCrowd } from '../creatures/crowd';
@@ -8,12 +8,12 @@ import { HERO_TEAM_COLOURS } from '../creatures/heroBody';
 import { getSpecies } from '../creatures/registry';
 import type { SpeciesDef } from '../creatures/species';
 import type { HouseView } from '../village/village';
-import { LifeView, sitIn, type Seated } from './life';
+import { LandView, sitIn, type Seated } from './land';
 import type { ModelKit } from './models';
 
 // Everyone else in your channel of Emberholm, drawn: a body for each player as they move, with their
-// name over their head, and their island (houses, farms, ships, vehicles, packs and glider) by a
-// life view of its own. What they are doing comes from whoever keeps them (online, the world
+// name over their head, and their land (houses, farms, ships, vehicles, packs and glider) by a
+// land view of its own. What they are doing comes from whoever keeps them (online, the world
 // server's updates: src/net/worldPeers.ts), brought to the moment drawn before each frame.
 //
 // Up close each is a hero (src/render/character.ts: the made body, its feet planted, its hands on
@@ -29,8 +29,8 @@ export interface ShownPeer {
   readonly drawn: boolean;
   /** Their state at the moment drawn. */
   readonly shown: PlayerState;
-  /** What of their island everyone sees. */
-  readonly life: IslandView;
+  /** What of theirs everyone sees. */
+  readonly life: LifeView;
   /** How far they are from you (m). */
   readonly away: number;
 }
@@ -42,7 +42,7 @@ export interface PeerSource {
 
 interface Body {
   hero: Hero;
-  view: LifeView;
+  view: LandView;
   label: THREE.Sprite;
   /** The name on it (someone first heard of through their things, out of sight, has none yet). */
   labelName: string;
@@ -96,10 +96,10 @@ export class PeersView {
   /** Called when the ground under someone's new farm or house needs its grass cleared. */
   onGroundChanged: (() => void) | null = null;
   /** What draws your own vehicles, for anyone riding along in one of them. */
-  mineView: LifeView | null = null;
+  mineView: LandView | null = null;
   /** Where someone sits at a mini-game's table, if they're at one (src/render/open/gameTables.ts). */
   stoolFor: ((id: number) => Seated | null) | null = null;
-  /** Where everyone's houses are drawn (the island's Village), by owner. */
+  /** Where everyone's houses are drawn (the world's Village), by owner. */
   houseSink: ((owner: string, houses: HouseView[]) => void) | null = null;
 
   /** `me`: your own id, for anyone riding along with you. */
@@ -116,7 +116,7 @@ export class PeersView {
     return b?.label.visible && b.hero.root.visible ? +(b.label.material as THREE.SpriteMaterial).opacity.toFixed(3) : 0;
   }
 
-  /** How far the farm ground drawn for anyone here stands over the terrain within `pad` metres of (x, z) (LifeView.raisedAt). */
+  /** How far the farm ground drawn for anyone here stands over the terrain within `pad` metres of (x, z) (LandView.raisedAt). */
   raisedAt(x: number, z: number, pad: number): number {
     let top = 0;
     for (const b of this.bodies.values()) top = Math.max(top, b.view.raisedAt(x, z, pad));
@@ -135,7 +135,7 @@ export class PeersView {
     const hero = new Hero();
     hero.root.visible = false;
     this.scene.add(hero.root);
-    const view = new LifeView(this.scene, p.life, this.models, hero, { others: true });
+    const view = new LandView(this.scene, p.life, this.models, hero, { others: true });
     view.onGroundChanged = () => this.onGroundChanged?.();
     view.houseSink = (houses) => this.houseSink?.(`peer:${p.id}`, houses);
     const label = nameTag(p.name);

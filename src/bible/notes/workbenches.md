@@ -4,7 +4,7 @@ What each workbench is for. What it makes, from what, is on its entry.
 
 ## lanternwickBench
 
-The specialty workbench in Lanternwick's square, kept by [[npcs/tamsin]]. Every trade pack the island makes is packed here from local produce, and so is sailcloth. A pack made here sells for nothing here: it has to travel.
+The specialty workbench in Lanternwick's square, kept by [[npcs/tamsin]]. Every trade pack Emberholm makes is packed here from local produce, and so is sailcloth. A pack made here sells for nothing here: it has to travel.
 
 ## sawhorse
 

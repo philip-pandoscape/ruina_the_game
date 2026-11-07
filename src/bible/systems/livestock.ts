@@ -42,7 +42,7 @@ export const livestock = system({
     const first = ANIMALS[0];
     const packsOfProduce = PACKS.filter((p) => p.inputs.some((i) => ANIMALS.some((a) => a.produce === i.item)));
     return md`
-Farm animals are raised in the cells of a scarecrow plot, like crops ([[systems/farming]]). A young one grows up only while it is fed, and a grown one gives its produce again and again, also only while it is fed. A hungry animal simply waits for you: nothing on the island dies of neglect.
+Farm animals are raised in the cells of a scarecrow plot, like crops ([[systems/farming]]). A young one grows up only while it is fed, and a grown one gives its produce again and again, also only while it is fed. A hungry animal simply waits for you: nothing in the world dies of neglect.
 
 ## Getting a Young One
 

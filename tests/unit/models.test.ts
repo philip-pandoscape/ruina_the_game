@@ -3,7 +3,7 @@ import { expect, test } from 'vitest';
 import { cropGeometry } from '../../src/render/models/crops';
 import { propGeometry } from '../../src/render/models/props';
 
-// The procedural models that the island draws by the thousand (src/render/models): crops and props
+// The procedural models that the world draws by the thousand (src/render/models): crops and props
 // are instanced, so each one's geometry must be non-indexed and vertex-coloured, built once and kept,
 // and a crop light enough to draw a field of. The models drawn, measured and held to their anchors:
 // tests/integration/models.spec.ts, in the content library's model gallery.

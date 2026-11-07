@@ -1,4 +1,4 @@
-import type { LifeEvent } from '../../engine/island';
+import type { LifeEvent } from '../../engine/life';
 import type { Actions, GameEvent } from '../../engine/rules';
 import { FrameGrabber, hudText, screenshot, type Screenshot } from './capture';
 import { errors, logs, recordError } from './logs';
@@ -21,7 +21,7 @@ export interface BugDeps {
   canvas: HTMLCanvasElement;
   /** Everything worth knowing about the game right now: player, world, camera, panels, perf. */
   snapshot(): Record<string, unknown>;
-  /** The island save in the same shape the browser keeps it (localStorage), or null. */
+  /** The life's save in the same shape the browser keeps it (localStorage), or null. */
   save(): unknown;
   /** A few numbers about the player for the timeline (ten times a second). */
   sample(): Record<string, unknown>;
@@ -198,7 +198,7 @@ export class BugReporter {
   private pressWall = 0;
   private endAt = 0;
   private atPress: Record<string, unknown> | null = null;
-  /** The island save at the press, already serialized: the live state keeps changing. */
+  /** The life's save at the press, already serialized: the live state keeps changing. */
   private saveAtPress: string | null = null;
   private hudAtPress = '';
   private shotAtPress: Promise<Screenshot | null> | null = null;

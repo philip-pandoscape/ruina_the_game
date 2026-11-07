@@ -13,7 +13,7 @@ import { parseSync } from 'oxc-parser';
 
 /**
  * The ids checked, by id, with the kinds of thing each names: what a person adds as content. Not
- * checked: the island's terrain features (the generator's own recipe), furniture (the village kit's
+ * checked: a region's terrain features (the generator's own recipe), furniture (the village kit's
  * pieces, named for what they are: bed, chest, table), skill-tree nodes (written by
  * tools/skilltree/gen.mjs; a weapon's or a skill's node is its own id, checked as one), stats and
  * item categories (names of what the rules do: a new one is new code), climates and gathering kinds

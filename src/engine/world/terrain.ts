@@ -175,7 +175,7 @@ export class Heightfield implements Ground {
 }
 
 // ---------- Noise ----------
-// Integer hashing rather than Math.random, so the same seed always grows the same island, in any
+// Integer hashing rather than Math.random, so the same seed always grows the same region, in any
 // language.
 
 export function hash2(ix: number, iz: number, seed: number): number {

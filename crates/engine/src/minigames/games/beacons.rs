@@ -1,5 +1,5 @@
 //! Beacons, the first mini-game: two players light beacons on a board of 37 hexes (a hexagon of
-//! radius 3) by playing goods cards. Each hex shows one of six island goods, six hexes of each,
+//! radius 3) by playing goods cards. Each hex shows one of six goods, six hexes of each,
 //! never two alike side by side; the middle one is the Old Beacon. The deck is 48 cards, eight of
 //! each good. Each player holds four, and three lie face up as the Harbour.
 //!

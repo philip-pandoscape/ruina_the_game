@@ -1,11 +1,11 @@
 import { packDef } from '../../../content/trade';
 import { glider as gliderDef, isBoat, isMount, rideable } from '../../../content/vehicles';
-import { carried, ridden, sailEfficiency, stormAt } from '../../../engine/island';
+import { carried, ridden, sailEfficiency, stormAt } from '../../../engine/life';
 import { angleDiff, heightAboveGround } from '../../../engine/rules';
 import { SURFACE } from '../../../engine/zone';
 import { iconHtml, withIcons } from '../../theme/icons';
 import { el } from '../../components/dom';
-import type { IslandUI } from '../context';
+import type { LifeContext } from '../context';
 
 // The ride readout at the bottom right, while you glide or ride: the glider's height, speed, climb
 // and rising air; a vehicle's speed, the road, its cargo slots, a boat's hull, the sea and the
@@ -17,7 +17,7 @@ export class RideBox {
   private vario = 0;
   private lastAlt = 0;
 
-  constructor(private ui: IslandUI) {
+  constructor(private ui: LifeContext) {
     this.el.id = 'lui-ride';
   }
 

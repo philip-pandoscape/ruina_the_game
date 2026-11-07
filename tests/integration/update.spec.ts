@@ -50,7 +50,7 @@ const fresh = (prefix: string) => `${prefix}${Date.now().toString(36)}${Math.flo
 
 const game = <T>(page: Page, fn: (g: any) => T) => page.evaluate(`(${fn.toString()})(window.__game)`) as Promise<T>;
 
-/** In the world, connected, with the island in. `after`: more ticks than this heard (a reconnect). */
+/** In the world, connected, with your life in. `after`: more ticks than this heard (a reconnect). */
 async function playing(page: Page, after = 3): Promise<void> {
   await page.waitForFunction(
     (n) => {
@@ -89,7 +89,7 @@ test('a server update freezes the world and says so, and play carries on where i
   expect(await standsStill(page)).toBe(true);
   expect(await game(page, (g) => g.online().frozen)).toBe(true);
 
-  // The new server: back by itself, on the same page, with the island as it was.
+  // The new server: back by itself, on the same page, with your life as it was.
   const heard = await game(page, (g) => g.online().ticks);
   await server.start();
   await playing(page, heard + 3);
@@ -101,7 +101,7 @@ test('a server update freezes the world and says so, and play carries on where i
 });
 
 test("a server update while you're in a dungeon brings you back outside its door, the cave put away", { tag: '@alone' }, async ({ page }) => {
-  // A restarted server has no copies of dungeons: it saved your island as standing outside the door.
+  // A restarted server has no copies of dungeons: it saved your life as standing outside the door.
   const door = JSON.parse(readFileSync('shared/regions/emberholm.json', 'utf8')).doors.find((d: { id: string }) => d.id === 'goblinsDread');
   await page.goto(`${BASE}/?as=${fresh('dun')}&bugs=0`);
   await playing(page);

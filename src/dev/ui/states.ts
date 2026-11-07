@@ -3,7 +3,7 @@ import { CATEGORIES, type ItemCat, ITEMS, RECIPES, VENDORS } from '../../content
 import { CHALLENGE, MINIGAMES } from '../../content/minigames';
 import { QUESTS } from '../../content/quests';
 import type { Engine } from '../../engine/engine';
-import { DAY, housePose, type IslandView, islandData, type Land, type LifeState, newLand } from '../../engine/island';
+import { DAY, housePose, type LifeView, lifeSave, type Land, type LifeState, newLand } from '../../engine/life';
 import { minigameDeal } from '../../engine/minigames';
 import type { LifeUI } from '../../ui/life/lifeUI';
 import type { ChannelsUI, ChannelsView } from '../../ui/channels/channelsUI';
@@ -13,7 +13,7 @@ import type { PartyUI } from '../../ui/party/partyUI';
 import type { SkillsPanel } from '../../ui/skills/panel';
 import type { MadeUpChannels, MadeUpParty, MadeUpTables } from './fakes';
 
-// How each entry of the UI gallery (entries.ts) is made up on a real offline island: what is given,
+// How each entry of the UI gallery (entries.ts) is made up in a real offline game: what is given,
 // where you stand, what is said by the made-up world connection, and which window opens. Everything
 // is picked from the content by what it is (the first merchant, the first quest a newcomer is
 // offered, the first game), never by its id, so the gallery follows the content as it changes.
@@ -21,7 +21,7 @@ import type { MadeUpChannels, MadeUpParty, MadeUpTables } from './fakes';
 /** The gallery page as a recipe uses it (src/dev/ui/main.ts). */
 export interface Gallery {
   engine: Engine;
-  life: IslandView;
+  life: LifeView;
   ui: LifeUI;
   skills: SkillsPanel;
   minigames: MinigamesUI;
@@ -32,7 +32,7 @@ export interface Gallery {
   channelLink: MadeUpChannels;
   /** You, as the online windows know you. */
   me: { id: number; name: string };
-  /** Runs the island on `n` steps (a command given runs on the next one). */
+  /** Runs the game on `n` steps (a command given runs on the next one). */
   step(n?: number): void;
 }
 
@@ -68,20 +68,20 @@ function faceNpc(g: Gallery, id: string): void {
   g.step();
 }
 
-/** The island as a save would hold it, changed by `change`, loaded again where you stand. */
+/** Your life as a save would hold it, changed by `change`, loaded again where you stand. */
 function reload(g: Gallery, change: (state: LifeState, land: Land) => void): void {
-  const island = islandData(g.life, g.engine.sim);
-  const state = structuredClone(island.state);
-  const land = structuredClone(island.land ?? newLand());
+  const save = lifeSave(g.life, g.engine.sim);
+  const state = structuredClone(save.state);
+  const land = structuredClone(save.land ?? newLand());
   change(state, land);
-  g.engine.loadIsland({ state, land, player: island.player, savedAt: Date.now() });
+  g.engine.loadLife({ state, land, player: save.player, savedAt: Date.now() });
   g.step();
 }
 
-/** The quests a new island starts you on (milestones start by themselves too, but are kept as they go). */
+/** The quests a new life starts you on (milestones start by themselves too, but are kept as they go). */
 const opening = (): Set<string> => new Set(QUESTS.filter((q) => q.auto && !q.milestone).map((q) => q.id));
 
-/** The quests a new island starts you on, done and handed in, as a save would hold them. */
+/** The quests a new life starts you on, done and handed in, as a save would hold them. */
 function openingDone(g: Gallery): void {
   const done = opening();
   reload(g, (s) => {
@@ -133,7 +133,7 @@ function shop(g: Gallery, tab: 'buy' | 'sell' | 'buyback'): void {
   g.ui.open({ kind: 'shop', id: v.npc, tab });
 }
 
-/** A finished house of the first blueprint on the first plot, a few things in its chest: an island as a save would hold it. */
+/** A finished house of the first blueprint on the first plot, a few things in its chest: a life as a save would hold it. */
 function finishedHouse(g: Gallery): number {
   const bp = BLUEPRINTS[0] ?? fail('house blueprint');
   const plot = g.life.zone.recipe.housePlots[0] ?? fail('house plot');
@@ -244,7 +244,7 @@ export const MADE_UP: Record<string, MakeUp> = {
     g.step();
     g.ui.open({ kind: 'log' });
   },
-  'map/island': (g) => g.ui.open({ kind: 'map' }),
+  'map/region': (g) => g.ui.open({ kind: 'map' }),
   'rides/none': (g) => g.ui.open({ kind: 'garage' }),
   'rides/every-ride': (g) => {
     for (const item of ITEMS.filter((i) => i.cat === 'deed' || i.cat === 'mount')) give(g, item.id);

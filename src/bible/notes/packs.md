@@ -12,7 +12,7 @@ Pale flax fibre wrapped in sacking and roped tight. A steady seller made from a 
 
 ## emberPreserves
 
-Jars of glowing emberberry jam packed in straw. Emberberries grow slowly on the island, which is why these fetch the most of any pack Lanternwick makes.
+Jars of glowing emberberry jam packed in straw. Emberberries grow slowly on Emberholm, which is why these fetch the most of any pack Lanternwick makes.
 
 ## ciderCask
 

@@ -119,7 +119,7 @@ Stand within ${metres(CHALLENGE.range)} of another player and press F, when F ha
         listOf(stakes.map((s) => (s ? coins(s) : 'none'))).html,
       )}: only those you can pay show, and the other player has to be able to match yours.
 
-The server refuses a challenge at once if either of you is riding, in the air, swimming, in the middle of an attack, a cast or a dodge, knocked down, carrying a pack, already at a table, or has an island it can't save just now. It refuses it too if you have a challenge out already, or one waits for your answer; if they are answering another; if they said no to you within the last ${duration(
+The server refuses a challenge at once if either of you is riding, in the air, swimming, in the middle of an attack, a cast or a dodge, knocked down, carrying a pack, already at a table, or has a life the server can't save just now. It refuses it too if you have a challenge out already, or one waits for your answer; if they are answering another; if they said no to you within the last ${duration(
         CHALLENGE.declineCooldown,
       )}; if they are more than ${metres(CHALLENGE.range + R.rangeSlack)} away; or if you can't pay the stake.
 
@@ -158,7 +158,7 @@ Each game gives a turn its own time. When yours runs out, the server plays the r
       md`
 ## The Pot
 
-The winner takes the pot. A draw gives each stake back, and so does a game called off: when the server stops, every game going on is called off. A stake is held with your island from the moment the game starts, so money is never lost or doubled: an island the server stopped under gets its stake back, and when a game is paid out both players' islands are saved together. The table stays ${duration(
+The winner takes the pot. A draw gives each stake back, and so does a game called off: when the server stops, every game going on is called off. A stake is held with your life from the moment the game starts, so money is never lost or doubled: a life the server stopped under gets its stake back, and when a game is paid out both players' lives are saved together. The table stays ${duration(
         TABLE.clearSeconds,
       )} with the result on it, then goes, and you are free.
 

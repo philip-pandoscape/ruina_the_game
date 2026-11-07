@@ -9,7 +9,7 @@ import { gameReady } from '../support/game';
 test('the foam round a lagoon holds still as the camera turns @gpu', async ({ page }) => {
   await page.goto('/?test');
   await gameReady(page, 60_000);
-  // On the Windspire's shoulder, looking down over the island to the lagoon on the west coast, the
+  // On the Windspire's shoulder, looking down over Emberholm to the lagoon on the west coast, the
   // camera turns a fifth of a degree a frame, as a slow pan with the mouse does.
   const counts = await page.evaluate(() => {
     const g = window.__game;

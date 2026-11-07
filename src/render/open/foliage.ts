@@ -11,7 +11,7 @@ import { bushClumps, clumpDepthMaterial, clumpMaterial, clumpTexture, crownClump
 import { barkTexture, solidMaterial } from './leaves';
 import { toon } from '../toon';
 
-// Trees and rocks across a whole island, and grass around wherever you are. Trees are instanced
+// Trees and rocks across a whole region, and grass around wherever you are. Trees are instanced
 // per 128 m chunk rather than all in one mesh, so the camera culls the chunks it cannot see. How
 // far round you the grass and the undergrowth reach, and how near trees take their full shape,
 // is the quality's (src/render/look.ts).
@@ -201,7 +201,7 @@ export function isPine(x: number, z: number, height: number): boolean {
 
 /** Within this far of a tree chunk's middle, its trees are drawn in full detail. */
 const TREE_NEAR = GRAPHICS.treeNear;
-/** Blossom trees, pink, near the town square, as in the island's reference picture. */
+/** Blossom trees, pink, near the town square, as in Emberholm's reference picture. */
 const BLOSSOM = [0xf2b5c8, 0xeaa0bb, 0xf6c7d6, 0xe7a6c0];
 const TOWN = { x: 0, z: -264, r: 190 };
 

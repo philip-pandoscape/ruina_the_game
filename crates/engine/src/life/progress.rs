@@ -3,7 +3,7 @@
 //! what you've done.
 //!
 //! Experience. Each hit a weapon lands, each cast of an ability and each use of a movement skill
-//! adds one to that skill (state.skill_xp, kept with your island), and a level comes at each step
+//! adds one to that skill (state.skill_xp, kept with your life), and a level comes at each step
 //! of the curve in tuning.json skills.levels. A level-up is a quest event too, for the milestones
 //! that count them. Online only the server counts: the browser shows what it says.
 //!
@@ -34,7 +34,7 @@ pub enum Observed<'a> {
 }
 
 impl<'a> Observed<'a> {
-    /// What the island learns from something that happened, if anything: a hit trains the weapon
+    /// What the life learns from something that happened, if anything: a hit trains the weapon
     /// that dealt it, a cast its ability, a movement skill itself, and a creature finished off
     /// counts for the quests (one that dissolves on its own doesn't).
     pub fn of(e: &'a Event) -> Option<Self> {
@@ -103,7 +103,7 @@ pub fn observe(life: &mut Life, e: Observed) -> bool {
     levelled
 }
 
-/// Keeps the player's levels (which change what their skills do) in step with the island's
+/// Keeps the player's levels (which change what their skills do) in step with the life's
 /// experience. Cheap when nothing changed, which is nearly always.
 pub fn sync_levels(life: &Life, p: &mut Player) {
     let xp = &life.state.skill_xp;
@@ -128,7 +128,7 @@ mod tests {
     use super::*;
     use crate::life::LifeEvent;
     use crate::life::quests::{complete, quest_active, quest_done, quests_at};
-    use crate::life::trade::testing::{island, toasts};
+    use crate::life::trade::testing::{new_life, toasts};
     use crate::skills::{book_index, levels_from};
     use crate::tuning::{ability_index, weapon_index};
 
@@ -166,7 +166,7 @@ mod tests {
         for q in quests() {
             assert!(q.rewards.skill_points.unwrap_or(0) > 0, "{}", q.id);
         }
-        let (mut life, _, _) = island(0.0);
+        let (mut life, _, _) = new_life(0.0);
         let start = tuning().skills.start_points;
         assert_eq!((points_earned(&life.state), skill_budget(&life.state)), (0, start));
         toasts(&mut life);
@@ -183,8 +183,8 @@ mod tests {
     }
 
     #[test]
-    fn an_island_saved_before_skills_levelled_reads_and_has_its_points() {
-        let (life, _, _) = island(0.0);
+    fn a_life_saved_before_skills_levelled_reads_and_has_its_points() {
+        let (life, _, _) = new_life(0.0);
         let mut old = serde_json::to_value(&life.state).unwrap();
         old.as_object_mut().unwrap().remove("skillXp");
         old["quests"] = serde_json::json!({ "active": [], "done": ["landfall", "patch", "wings"] });
@@ -202,7 +202,7 @@ mod tests {
 
     #[test]
     fn milestones_start_and_finish_by_themselves() {
-        let (mut life, _, _) = island(0.0);
+        let (mut life, _, _) = new_life(0.0);
         assert!(quest_active(&life, "slimeHunter").is_none());
         finish_landfall(&mut life);
         for id in ["wayfarer", "slimeHunter", "practisedHand"] {
@@ -235,7 +235,7 @@ mod tests {
 
     #[test]
     fn skills_level_up_as_you_use_them_and_count_toward_practised_hand() {
-        let (mut life, _, mut p) = island(0.0);
+        let (mut life, _, mut p) = new_life(0.0);
         finish_landfall(&mut life);
         toasts(&mut life);
         let sword = book_index("sword").unwrap();
@@ -249,7 +249,7 @@ mod tests {
         assert_eq!(toasts(&mut life), ["Sword reached level 2"]);
         assert_eq!(life.revision, rev + 1);
         assert_eq!(counts(&life, "practisedHand"), [1.0]);
-        // The player catches up with the island.
+        // The player catches up with the life.
         sync_levels(&life, &mut p);
         assert_eq!(p.levels[sword], 2);
         // A jump of several levels counts them all, and finishes the milestone.

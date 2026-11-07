@@ -1,7 +1,7 @@
 //! Grows a region from its recipe (shared/regions/*.json, built from content/regions/): coastline, cliffs,
 //! hills, mountains with a path carved up their face, flattened town squares, graded roads, then the
 //! trees and rocks, the buildings' colliders and the decks you can walk on, and last the waterfalls.
-//! Same recipe, same seed, same island, every time: the server grows it natively and the browser
+//! Same recipe, same seed, same region, every time: the server grows it natively and the browser
 //! through the WebAssembly (zone_grow), and tests/conformance/terrain.test.ts holds the two to the
 //! bit. The maths is the browser's (jsmath.rs), and heights are kept as single floats, as the
 //! browser's Float32Array keeps them.
@@ -35,7 +35,7 @@ pub struct Terrain {
     /// region's recipe is written in world coordinates, so nothing in it moves when it's placed.
     #[serde(default)]
     pub origin: [f64; 2],
-    pub island: Island,
+    pub landmass: Landmass,
     #[serde(default)]
     pub bays: Vec<Circle>,
     #[serde(default)]
@@ -65,7 +65,7 @@ pub struct Terrain {
 
 #[derive(Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
-pub struct Island {
+pub struct Landmass {
     pub x: f64,
     pub z: f64,
     pub radius: f64,
@@ -545,7 +545,7 @@ pub fn generate(z: &Recipe) -> Generated {
     let seed = z.seed as i32;
 
     // ---------- Coast: how far inland each point is, in metres (negative out at sea) ----------
-    let isl = &t.island;
+    let isl = &t.landmass;
     let landness = |x: f64, zz: f64| -> f64 {
         let dx = x - isl.x;
         let dz = zz - isl.z;

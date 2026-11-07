@@ -69,7 +69,7 @@ For the best three to six, check:
 - **The licence**, on the asset's own page, not only in the search result. CC BY needs the author's
   name as they give it.
 - **The look.** Does it sit in Emberholm's painted realism? Quaternius and Kenney are clean and
-  low-poly: good stand-ins and kits, not the island's look unless they're re-textured.
+  low-poly: good stand-ins and kits, not the world's look unless they're re-textured.
 - **The size.** Triangles and texture sizes within the budget; Sketchfab's CC0 shelf is full of
   museum scans of a few hundred thousand faces.
 - **A skeleton** for animations: humanoid bones the retarget tables name (`src/render/detail/retarget.ts`).
@@ -131,7 +131,7 @@ in the repository. CC BY needs the author's name as they ask for it.
 
 Look at it where it's used, at the distances it's seen, by day and night: screenshots through the
 game's test API (`window.__game`), `npx playwright test -c playwright.stress.config.ts look.spec.ts`
-for the island's set views, the content library (`/dev/library.html`) for anything that moves, the
+for the world's set views, the content library (`/dev/library.html`) for anything that moves, the
 models and the buildings. Show the user the result beside what it replaced before calling it done.
 
 ## 9. Paid makers, last

@@ -174,9 +174,9 @@ That is, the ${glider.name} flies ${num(glider.cruiseSpeed / glider.sink, 1)} me
 
 Where a page says *rounded*, the rules round to the nearest whole number, halves up. Where something is *drawn* from a range, every value in it is equally likely.
 
-## Your Bag and Your Island
+## Your Bag and Your Life
 
-Your bag holds ${count(BAG_SLOTS, 'stack')}. Online, the world's server runs every rule: your island, its plots, packs and vehicles are kept for you, and nothing your browser says about itself is believed. There are ${RECIPES.length} recipes, ${ANIMALS.length} kinds of livestock and ${WEAPONS.length} weapons; every one has its page.
+Your bag holds ${count(BAG_SLOTS, 'stack')}. Online, the world's server runs every rule: your life, your plots, packs and vehicles are kept for you, and nothing your browser says about itself is believed. There are ${RECIPES.length} recipes, ${ANIMALS.length} kinds of livestock and ${WEAPONS.length} weapons; every one has its page.
 `,
 });
 

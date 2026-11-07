@@ -872,7 +872,7 @@ pub struct StructureDef {
     pub floor: Option<f64>,
     pub deck: Option<f64>,
     pub interior: Option<BTreeMap<String, Spot>>,
-    /// How the island sits it (open/generate.rs): `pad` false sets it on the ground as it lies;
+    /// How a region sits it (open/generate.rs): `pad` false sets it on the ground as it lies;
     /// `sea_level` stands it at sea level; `clear_margin` is how far round it trees and rocks are
     /// kept off; `surface` is what the ground under it is made of.
     pub pad: Option<bool>,
@@ -881,7 +881,7 @@ pub struct StructureDef {
     pub surface: Option<String>,
 }
 
-/// A prop the island is dressed with (a lamp, a barrel, a fence): its footprint and how it blocks
+/// A prop a region is dressed with (a lamp, a barrel, a fence): its footprint and how it blocks
 /// you ("box", "post" of radius `r`, or "none").
 #[derive(Deserialize, Clone, Debug, Default)]
 #[serde(default)]

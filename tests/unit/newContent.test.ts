@@ -56,19 +56,19 @@ import { QUESTS, questDef } from '../../src/content/quests';
 import { rideable } from '../../src/content/vehicles';
 import { isAlive } from '../../src/engine/creatures';
 import { Engine } from '../../src/engine/engine';
-import { type Command, type LifeState, questsAt, type Vehicle } from '../../src/engine/island';
+import { type Command, type LifeState, questsAt, type Vehicle } from '../../src/engine/life';
 import { type Actions, NO_ACTIONS } from '../../src/engine/rules';
 import { useContent } from '../../src/engine/wasm';
 import { toWorld, type ZoneNpc } from '../../src/engine/zone';
-import type { IslandUI } from '../../src/ui/life/context';
+import type { LifeContext } from '../../src/ui/life/context';
 import { questGoal } from '../../src/ui/life/hud/goal';
 import { dialogView } from '../../src/ui/life/windows/dialog';
 
 // The engine reads the same bundles as the page's content: given before it reads anything.
 useContent(fixture.bundles);
 
-/** A fresh island with you at its spawn, played offline. */
-function island(): Engine {
+/** A fresh life with you at its spawn, played offline. */
+function freshLife(): Engine {
   const e = new Engine({ online: false, build: defaultBuild() });
   e.life!.drainEvents();
   return e;
@@ -89,12 +89,12 @@ const stand = (e: Engine, x: number, z: number, facing: number) => {
 };
 /** In front of someone, facing them. */
 const before = (e: Engine, n: ZoneNpc) => stand(e, n.x + Math.sin(n.facing) * 1.6, n.z + Math.cos(n.facing) * 1.6, n.facing + Math.PI);
-/** The island taken up again with `change` made to it, as a save brings it back (no time away). */
+/** The life taken up again with `change` made to it, as a save brings it back (no time away). */
 const retake = (e: Engine, change: (s: LifeState) => void) => {
   const state = structuredClone(e.life!.state);
   change(state);
   const p = e.player;
-  expect(e.loadIsland({ savedAt: 0, state, player: { x: p.pos.x, y: p.pos.y, z: p.pos.z, facing: p.facing } }, 0)).toBe(true);
+  expect(e.loadLife({ savedAt: 0, state, player: { x: p.pos.x, y: p.pos.y, z: p.pos.z, facing: p.facing } }, 0)).toBe(true);
   e.life!.drainEvents();
 };
 const wren = (e: Engine) => e.world.zone!.recipe.npcs.find((n) => n.id === 'wren')!;
@@ -112,8 +112,8 @@ test('the new things are content like any other: each in its kind, every referen
   expect(has('creatures.json', 'creatures', 'mossling')).toBe(true);
 });
 
-test('a new townsperson stands on the island, says what their file says and sells their wares', () => {
-  const e = island();
+test('a new townsperson stands in the world, says what their file says and sells their wares', () => {
+  const e = freshLife();
   const n = wren(e);
   before(e, n);
   expect(e.life!.focus).toMatchObject({ action: 'talk', npc: 'wren', label: `Talk to ${n.name}`, detail: 'New Quest' });
@@ -127,7 +127,7 @@ test('a new townsperson stands on the island, says what their file says and sell
     world: e.world,
     face: (id: string) => `<face ${e.world.zone!.recipe.npcs.find((x) => x.id === id)?.portrait}>`,
     open: () => {},
-  } as unknown as IslandUI;
+  } as unknown as LifeContext;
   const view = dialogView(ui, 'wren');
   expect(view.title).toBe(n.name);
   expect(view.portrait).toBe('<face 🕯️>');
@@ -143,7 +143,7 @@ test('a new townsperson stands on the island, says what their file says and sell
 });
 
 test('a new item is what its file says, and using it does what its category does', () => {
-  const e = island();
+  const e = freshLife();
   const oil = itemDef('lampOil');
   expect([oil.cat, oil.use?.labor]).toEqual(['consumable', 40]);
   retake(e, (s) => {
@@ -158,7 +158,7 @@ test('a new item is what its file says, and using it does what its category does
 });
 
 test('a new vehicle is summoned from its deed, boarded and driven', () => {
-  const e = island();
+  const e = freshLife();
   // Out on the open farmland, where there's room.
   const fields = e.world.zone!.recipe.farmland;
   stand(e, fields.x, fields.z, 0);
@@ -179,7 +179,7 @@ test('a new vehicle is summoned from its deed, boarded and driven', () => {
 });
 
 test('a new quest is offered by its giver, leads where it marks, counts what it asks and pays what it promises', () => {
-  const e = island();
+  const e = freshLife();
   const q = questDef('lamplight');
   expect(questsAt(e.life!, 'wren').offer.map((x) => x.id)).toContain('lamplight');
   // Only this one under way (with the milestones, which lead nowhere), so the marker is its: what

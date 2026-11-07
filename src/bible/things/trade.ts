@@ -4,7 +4,7 @@ import { BLUEPRINTS } from '../../content/housing';
 import { RECIPES } from '../../content/items';
 import { SHIP_DESIGNS } from '../../content/shipyard';
 import { DEMAND, FRESHNESS, type PackDef, PACKS, PLACES, placeName, ROUTES } from '../../content/trade';
-import { freshness } from '../../engine/island';
+import { freshness } from '../../engine/life';
 import { coins, pct, times } from '../format';
 import { join, kind, note, table } from '../kit';
 import { link, md } from '../md';

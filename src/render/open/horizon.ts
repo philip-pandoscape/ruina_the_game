@@ -6,10 +6,10 @@ import { toon } from '../toon';
 
 // The horizon: other isles far out at sea, well past the edge of the world anyone can reach,
 // wooded below and bare rock up high, softened by the haze (src/render/open/post.ts) into the blue
-// of distance, as in the island's reference picture. Drawing only, and not at low quality.
+// of distance, as in Emberholm's reference picture. Drawing only, and not at low quality.
 
 interface Isle {
-  /** Bearing from the island's middle (radians) and distance (m). */
+  /** Bearing from Emberholm's middle (radians) and distance (m). */
   bearing: number;
   distance: number;
   /** Radius at the waterline and the highest peak (m). */

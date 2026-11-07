@@ -169,7 +169,7 @@ export const vendors = kind<VendorDef>({
   title: 'Vendors',
   noun: 'Vendor',
   icon: '🪙',
-  summary: 'Who sells what on the island, for how much, and what they will buy from you.',
+  summary: 'Who sells what in the world, for how much, and what they will buy from you.',
   sources: ['shared/items.json#vendors'],
   systems: ['economy'],
   all: () => VENDORS,

@@ -222,7 +222,7 @@ pub const CREATURE: &[Field] = &[
 /// The most cargo slots a vehicle's record carries.
 pub const CARGO_SLOTS: usize = 16;
 
-/// A vehicle (the life's Vehicle, as src/render/open/life.ts draws someone else's).
+/// A vehicle (the life's Vehicle, as src/render/open/land.ts draws someone else's).
 pub const VEHICLE: &[Field] = &[
     f("x", FAR, STILL),
     f("z", FAR, STILL),

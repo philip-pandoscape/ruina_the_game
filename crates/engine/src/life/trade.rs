@@ -424,7 +424,7 @@ pub fn step_buyback(life: &mut Life, sim: &Sim) {
     }
 }
 
-/// A fresh island to try the rules on, shared by the life modules' tests.
+/// A fresh life to try the rules on, shared by the life modules' tests.
 #[cfg(test)]
 pub(crate) mod testing {
     use crate::life::{Life, LifeEvent};
@@ -432,8 +432,8 @@ pub(crate) mod testing {
     use crate::open::zone::emberholm;
     use crate::player::{Build, Player};
 
-    /// A new island (with this much money), its world, and a player standing at the spawn.
-    pub fn island(coins: f64) -> (Life, OpenWorld, Player) {
+    /// A new life (with this much money), its world, and a player standing at the spawn.
+    pub fn new_life(coins: f64) -> (Life, OpenWorld, Player) {
         let zone = emberholm();
         let life = Life::new(zone, Some(coins), None);
         let world = OpenWorld::new(zone);
@@ -451,7 +451,7 @@ pub(crate) mod testing {
 
 #[cfg(test)]
 mod tests {
-    use super::testing::{island, toasts};
+    use super::testing::{new_life, toasts};
     use super::*;
     use crate::life::content::{Makes, labor, packs, recipes};
     use crate::life::land::Vehicle;
@@ -474,7 +474,7 @@ mod tests {
 
     #[test]
     fn a_merchant_sells_back_what_you_sold_them_until_you_walk_off() {
-        let (mut life, mut world, mut p) = island(10.0);
+        let (mut life, mut world, mut p) = new_life(10.0);
         life.give("sunroot", 10, true);
         let price = js_max(1.0, js_round(item_def("sunroot").value * vendor_for("mara").unwrap().buy_rate));
         let held = |life: &Life| life.state.buyback.clone().unwrap_or_default();
@@ -526,7 +526,7 @@ mod tests {
             makes: Makes { pack: Some(pack.id.clone()), ..Default::default() },
             ..Default::default()
         };
-        let (mut life, mut world, mut p) = island(1e6);
+        let (mut life, mut world, mut p) = new_life(1e6);
         let mut sim = Sim { player: &mut p, world: &mut world, owner: 1 };
         for inp in &pack.inputs {
             life.give(&inp.item, inp.n, true);
@@ -539,7 +539,7 @@ mod tests {
 
     #[test]
     fn crafting_a_pack_takes_the_goods_the_fee_and_the_labor() {
-        let (mut life, mut world, mut p) = island(1000.0);
+        let (mut life, mut world, mut p) = new_life(1000.0);
         let mut sim = Sim { player: &mut p, world: &mut world, owner: 1 };
         // Without the goods nothing is spent.
         assert!(!run_recipe(&mut life, &mut sim, "pack.harvestCrate"));
@@ -568,7 +568,7 @@ mod tests {
 
     #[test]
     fn crafting_an_item_makes_it_for_the_bag() {
-        let (mut life, mut world, mut p) = island(100.0);
+        let (mut life, mut world, mut p) = new_life(100.0);
         let mut sim = Sim { player: &mut p, world: &mut world, owner: 1 };
         life.give("herbs", 7, true);
         toasts(&mut life);
@@ -594,7 +594,7 @@ mod tests {
 
     #[test]
     fn selling_pays_by_route_demand_and_freshness_and_lowers_demand() {
-        let (mut life, mut world, mut p) = island(0.0);
+        let (mut life, mut world, mut p) = new_life(0.0);
         let mut sim = Sim { player: &mut p, world: &mut world, owner: 1 };
         toasts(&mut life);
         // Fresh, at the starting demand, on the 1x route: 260 x 1.1 x 1.15.
@@ -652,7 +652,7 @@ mod tests {
 
     #[test]
     fn what_moves_with_the_world_is_kept_for_the_ledger_until_the_store_has_it() {
-        let (mut life, mut world, mut p) = island(1000.0);
+        let (mut life, mut world, mut p) = new_life(1000.0);
         let mut sim = Sim { player: &mut p, world: &mut world, owner: 1 };
         assert!(buy(&mut life, "mara", "seed.sunroot", 3));
         life.give("sunroot", 4, true);
@@ -676,7 +676,7 @@ mod tests {
 
     #[test]
     fn vendors_sell_for_coin_and_seals_and_buy_back_at_their_rate() {
-        let (mut life, _, _) = island(1000.0);
+        let (mut life, _, _) = new_life(1000.0);
         toasts(&mut life);
         assert!(buy(&mut life, "mara", "seed.sunroot", 3));
         assert_eq!((life.count("seed.sunroot"), life.state.coins), (3, 988.0));
@@ -723,7 +723,7 @@ mod tests {
 
     #[test]
     fn packs_go_down_on_the_ground_into_cargo_and_back() {
-        let (mut life, mut world, mut p) = island(0.0);
+        let (mut life, mut world, mut p) = new_life(0.0);
         p.facing = std::f64::consts::FRAC_PI_2;
         let mut sim = Sim { player: &mut p, world: &mut world, owner: 1 };
         life.land.vehicles.push(Vehicle { id: 500, def: "farmCart".into(), cargo: vec![0, 0], ..Default::default() });

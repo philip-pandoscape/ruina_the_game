@@ -94,8 +94,8 @@ function glassMaterial(): THREE.Material {
 /** The kit's materials each house tints its own way (TINTS), through its vertices. */
 export const TINTED = ['MI_RoundTiles', 'MI_Plaster'];
 
-/** The game's material for one of the kit's: its colour and relief maps under the island's light. */
-function islandMaterial(src: THREE.MeshStandardMaterial, colored: boolean): THREE.Material {
+/** The game's material for one of the kit's: its colour and relief maps under the world's light. */
+function gameMaterial(src: THREE.MeshStandardMaterial, colored: boolean): THREE.Material {
   if (src.name === 'MI_WindowGlass') return glassMaterial();
   // The props' "_Vertex" trims are tinted per vertex, and so are each house's roof and plaster.
   const mat = toon(0xffffff, {
@@ -134,7 +134,7 @@ function baked(geometry: THREE.BufferGeometry, matrix: THREE.Matrix4): THREE.Buf
 let kit: Promise<Kit> | null = null;
 
 /**
- * Loads the kit and the props once, as one library: wanted before what stands about the island, as
+ * Loads the kit and the props once, as one library: wanted before what stands about the world, as
  * the town and the cottages are built of it (under Node, where there are no files, it is missing).
  */
 export function loadKit(): Promise<Kit> {
@@ -153,7 +153,7 @@ export function loadKit(): Promise<Kit> {
         const mesh = o as THREE.Mesh;
         if (!mesh.isMesh) return;
         const src = mesh.material as THREE.MeshStandardMaterial;
-        if (!materials.has(src.name)) materials.set(src.name, islandMaterial(src, !!mesh.geometry.getAttribute('color')));
+        if (!materials.has(src.name)) materials.set(src.name, gameMaterial(src, !!mesh.geometry.getAttribute('color')));
         // Every piece sits at the origin in the file, so all its node transform holds is meshopt's
         // dequantization (a scale and an offset), which the geometry keeps.
         const geometry = baked(mesh.geometry, mesh.matrixWorld);

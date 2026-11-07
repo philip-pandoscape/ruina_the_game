@@ -1,8 +1,8 @@
-// The island drawn as a map: grown by the game's own terrain generator and shaded by height and
+// A region drawn as a map: grown by the game's own terrain generator and shaded by height and
 // surface, with its roads, plots, trade routes, rising air and places over it. The bible's zone and
 // place pages draw it, and so does the design page's world map (design/bible.ts).
 //
-// The island and its waters are 1280 m square around the origin. North (+Z) is up and east (-X) is
+// Emberholm and its waters are 1280 m square around the origin. North (+Z) is up and east (-X) is
 // to the right, so a world point lands ((HALF - x) / SPAN, (HALF - z) / SPAN) of the way across.
 
 import { generateZone, EMBERHOLM as Z, SURFACE } from '../engine/zone';
@@ -25,7 +25,7 @@ const SURF: Record<number, [number, number, number]> = {
   [SURFACE.forest]: [92, 154, 76],
 };
 
-export interface Island {
+export interface RegionMap {
   relief: HTMLCanvasElement;
   roads: Array<{ id: string; points: Array<[number, number]> }>;
   ramps: Array<Array<[number, number]>>;
@@ -35,10 +35,10 @@ export interface Island {
   cell: number;
 }
 
-let grown: Island | null = null;
+let grown: RegionMap | null = null;
 
-/** Grows the island with the game's own generator and shades its relief (once a page: it takes a few hundred milliseconds). */
-export function growIsland(): Island {
+/** Grows the region with the game's own generator and shades its relief (once a page: it takes a few hundred milliseconds). */
+export function growRegion(): RegionMap {
   if (grown) return grown;
   const gen = generateZone(Z);
   const hf = gen.terrain;
@@ -106,10 +106,10 @@ export const LAYER_NAMES: Record<keyof Layers, [string, string]> = {
 
 const NODE_COLOR: Record<string, string> = { timberNode: '#8d5a3b', stoneNode: '#d6d0c3', oreNode: '#b5651d', herbNode: '#3e9a45' };
 
-function routeLines(isle: Island): Array<{ pts: Array<[number, number]>; dash: number[] }> {
+function routeLines(region: RegionMap): Array<{ pts: Array<[number, number]>; dash: number[] }> {
   const out: Array<{ pts: Array<[number, number]>; dash: number[] }> = [];
   const wb = Z.workbenches[0];
-  const west = isle.roads.find((r) => r.id === 'west');
+  const west = region.roads.find((r) => r.id === 'west');
   if (west) out.push({ pts: [[wb.x, wb.z], ...west.points], dash: [] });
   const docks = Z.places.find((p) => p.id === 'docks');
   const gull = Z.outposts.find((o) => o.id === 'gullrock');
@@ -127,8 +127,8 @@ function routeLines(isle: Island): Array<{ pts: Array<[number, number]>; dash: n
   return out;
 }
 
-/** Draws the island on a canvas as wide as it is laid out, with the layers asked for; `mark` rings one place. */
-export function drawIsland(canvas: HTMLCanvasElement, isle: Island, L: Layers, labels: boolean, mark?: string): void {
+/** Draws the region on a canvas as wide as it is laid out, with the layers asked for; `mark` rings one place. */
+export function drawRegion(canvas: HTMLCanvasElement, region: RegionMap, L: Layers, labels: boolean, mark?: string): void {
   const W = canvas.clientWidth;
   if (!W) return;
   const dpr = Math.min(2, window.devicePixelRatio || 1);
@@ -138,7 +138,7 @@ export function drawIsland(canvas: HTMLCanvasElement, isle: Island, L: Layers, l
   if (!g) return;
   g.setTransform(dpr, 0, 0, dpr, 0, 0);
   const P = (x: number, z: number) => toMap(x, z, W);
-  g.drawImage(isle.relief, 0, 0, W, W);
+  g.drawImage(region.relief, 0, 0, W, W);
   const line = (pts: Array<[number, number]>, color: string, width: number, dash: number[] = []) => {
     g.beginPath();
     pts.forEach(([x, z], i) => {
@@ -155,7 +155,7 @@ export function drawIsland(canvas: HTMLCanvasElement, isle: Island, L: Layers, l
     g.setLineDash([]);
   };
   if (L.roads)
-    for (const r of isle.roads) {
+    for (const r of region.roads) {
       line(r.points, 'rgba(70,45,20,0.35)', 3.6);
       line(r.points, '#f6e7c4', 1.8);
     }
@@ -186,7 +186,7 @@ export function drawIsland(canvas: HTMLCanvasElement, isle: Island, L: Layers, l
       g.fill();
     }
   if (L.air) {
-    for (const r of isle.ramps) line(r, 'rgba(255,255,255,0.95)', 1.6, [3, 3]);
+    for (const r of region.ramps) line(r, 'rgba(255,255,255,0.95)', 1.6, [3, 3]);
     for (const u of Z.updrafts) {
       const [px, py] = P(u.x, u.z);
       g.strokeStyle = 'rgba(255,255,255,0.95)';
@@ -199,7 +199,7 @@ export function drawIsland(canvas: HTMLCanvasElement, isle: Island, L: Layers, l
     }
   }
   if (L.routes)
-    for (const r of routeLines(isle)) {
+    for (const r of routeLines(region)) {
       line(r.pts, 'rgba(60,35,0,0.35)', 4.5, r.dash);
       line(r.pts, '#e0a72e', 2.6, r.dash);
     }

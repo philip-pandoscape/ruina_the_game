@@ -1,11 +1,11 @@
 //! The channel's side of mini-games (crate::minigames): challenges between the players here, the
 //! tables thrown down for the ones accepted, the money on them, and what each player hears.
 //!
-//! Money never vanishes or doubles. A stake leaves its player's purse for their island's `staked`
-//! (state.rs) as the game starts, so each island on its own always adds up: if the server stops
-//! or falls over mid-game, the island comes back with the stake returned to the purse
-//! (load_island). When a game ends the pot is made of what the two islands hold staked, never
-//! more, and the two islands are written to the database together, in one transaction, so one
+//! Money never vanishes or doubles. A stake leaves its player's purse for their life's `staked`
+//! (state.rs) as the game starts, so each life on its own always adds up: if the server stops
+//! or falls over mid-game, the life comes back with the stake returned to the purse
+//! (load_life). When a game ends the pot is made of what the two lives hold staked, never
+//! more, and the two lives are written to the database together, in one transaction, so one
 //! can't be kept without the other. A game called off returns each stake to its own player.
 
 use std::collections::HashSet;
@@ -15,7 +15,7 @@ use serde_json::{Value, json};
 use ruina_world_api::gate::ToConn;
 use ruina_world_api::store::{LifeWrite, Then, ToStore, Transfer};
 
-use super::{Game, client, island_of};
+use super::{Game, client, life_save};
 use crate::life::Life;
 use crate::life::content::format_coins;
 use crate::minigames::{Challenge, Seat, Spot, Table, Why, content};
@@ -47,7 +47,7 @@ enum Busy {
 /// Why not, to you (`name` None) or about someone else.
 fn say(b: Busy, name: Option<&str>) -> String {
     match (b, name) {
-        (Busy::Unsaved, None) => "Your island can't be saved just now, so you can't play for stakes.".into(),
+        (Busy::Unsaved, None) => "Your life can't be saved just now, so you can't play for stakes.".into(),
         (Busy::Unsaved, Some(n)) => format!("{n} can't play just now."),
         (Busy::Riding, None) => "Get down first - games are played on foot.".into(),
         (Busy::Riding, Some(n)) => format!("{n} is riding."),
@@ -129,7 +129,7 @@ impl Game {
         self.players.open_view(client(id)).and_then(|(_, _, l)| l).map_or(0.0, |l| l.state.coins)
     }
 
-    /// The island of `id`, here or just gone (an island a game changes while its player is away is
+    /// The life of `id`, here or just gone (a life a game changes while its player is away is
     /// marked to be written when the server stops).
     fn life_of(&mut self, id: i64) -> Option<&mut Life> {
         if self.members.contains_key(&id) {
@@ -148,13 +148,13 @@ impl Game {
             }
             let (epoch, home, conn) = (m.epoch, m.home.clone(), m.conn);
             let (p, life) = self.players.open_mut(client(id))?;
-            let island = island_of(p, life?, &mut self.open, id);
-            return Some(self.life_write(id, epoch, &home, island, Some(conn)));
+            let save = life_save(p, life?, &mut self.open, id);
+            return Some(self.life_write(id, epoch, &home, save, Some(conn)));
         }
         let l = self.lingering.get_mut(&id)?;
-        let island = island_of(&l.player, &mut l.life, &mut self.open, id);
+        let save = life_save(&l.player, &mut l.life, &mut self.open, id);
         let (epoch, home) = (l.epoch, l.home.clone());
-        Some(self.life_write(id, epoch, &home, island, None))
+        Some(self.life_write(id, epoch, &home, save, None))
     }
 
     /// Something for `id` to read: at once if they're here, when they're back if they're away.
@@ -412,7 +412,7 @@ impl Game {
         }
     }
 
-    /// Calls off the game `id` is playing, if any, and takes the table away at once (their island
+    /// Calls off the game `id` is playing, if any, and takes the table away at once (their life
     /// is being started over, and they with it).
     pub(super) fn abort_table_of(&mut self, id: i64) {
         let now = self.game_clock();
@@ -455,8 +455,8 @@ impl Game {
     }
 
     /// Pays out the game at table `k`, just ended: the winner takes the pot; a draw, or a game
-    /// called off, returns each stake to its player. The pot is what the two islands hold staked.
-    /// Both islands are then written to the database together.
+    /// called off, returns each stake to its player. The pot is what the two lives hold staked.
+    /// Both lives are then written to the database together.
     fn settle(&mut self, k: usize) {
         let t = &self.tables.tables[k];
         let Some(over) = t.over else { return };
@@ -471,7 +471,7 @@ impl Game {
             }
         }
         let pot = held[0] + held[1];
-        // A winner's island that isn't here (it can't happen, but if it did) would take the pot
+        // A winner's life that isn't here (it can't happen, but if it did) would take the pot
         // with it: then everyone just gets their own stake back.
         let winner = over.winner.filter(|&w| self.life_of(ids[w]).is_some());
         match winner {
@@ -595,7 +595,7 @@ mod tests {
     use serde_json::{Value, json};
 
     use super::super::tests::{arrival, conn, heard};
-    use super::super::{Game, client, island_of, load_island, stand_on_ground};
+    use super::super::{Game, client, life_save, load_life, stand_on_ground};
     use crate::life::{Command, Life};
     use crate::minigames::games::beacons::setup;
     use crate::minigames::{Asking, GameDef, Why, content, game_called};
@@ -770,7 +770,7 @@ mod tests {
     }
 
     #[test]
-    fn at_the_table_nothing_you_press_moves_you_and_island_commands_wait() {
+    fn at_the_table_nothing_you_press_moves_you_and_life_commands_wait() {
         let mut ch = ann_and_bea();
         sit_down(&mut ch, 0.0);
         let before = ch.players.open_view(client(7)).unwrap().0.pos;
@@ -843,7 +843,7 @@ mod tests {
     }
 
     #[test]
-    fn the_winner_takes_the_pot_and_both_islands_are_written_together() {
+    fn the_winner_takes_the_pot_and_both_lives_are_written_together() {
         let mut ch = ann_and_bea();
         let table = sit_down(&mut ch, 50.0);
         assert!(ch.table_move(7, table, &json!({ "k": "swap", "card": 0 })).is_err(), "Bea moves first");
@@ -854,7 +854,7 @@ mod tests {
         assert_eq!((staked(&ch, 7), staked(&ch, 8)), (None, None));
         assert!(toasts(&mut ch, 7).contains(&"You win at Beacons! The pot of 1s 0c is yours.".to_string()));
         assert!(toasts(&mut ch, 8).contains(&"Ann wins at Beacons and takes the pot of 1s 0c.".to_string()));
-        // One batch, both islands, as they are now.
+        // One batch, both lives, as they are now.
         let batch = take_joint(&mut ch);
         assert_eq!(batch.len(), 1);
         let ids: Vec<i64> = batch[0].iter().map(|s| s.character).collect();
@@ -875,11 +875,11 @@ mod tests {
     }
 
     #[test]
-    fn a_pot_won_goes_through_the_ledger_with_both_islands() {
+    fn a_pot_won_goes_through_the_ledger_with_both_lives() {
         let mut ch = ann_and_bea();
         let table = sit_down(&mut ch, 50.0);
         play_until_ann_wins(&mut ch, table);
-        // One transfer, from Bea to Ann, written with both islands as they are now, once by its key.
+        // One transfer, from Bea to Ann, written with both lives as they are now, once by its key.
         let sent: Vec<ToStore> = std::mem::take(&mut ch.store).into_iter().filter(|m| matches!(m, ToStore::Transfer { .. })).collect();
         let [ToStore::Transfer { transfer, writes }] = &sent[..] else { panic!("one transfer: {sent:?}") };
         assert_eq!(transfer.kind, "pot");
@@ -927,10 +927,10 @@ mod tests {
     }
 
     #[test]
-    fn a_player_who_leaves_and_does_not_come_back_forfeits_and_their_saved_island_is_paid() {
+    fn a_player_who_leaves_and_does_not_come_back_forfeits_and_their_saved_life_is_paid() {
         let mut ch = ann_and_bea();
         sit_down(&mut ch, 50.0);
-        // Bea's connection ends: her island is kept as she left it, stake and all.
+        // Bea's connection ends: her life is kept as she left it, stake and all.
         let left = ch.leave(conn(8, 2)).unwrap();
         assert_eq!(left.life["state"]["staked"], 50.0);
         assert!(ch.seated(8), "her seat is kept for her");
@@ -942,7 +942,7 @@ mod tests {
         let t = &ch.tables.tables[0];
         assert_eq!(t.over.map(|o| (o.winner, o.why)), Some((Some(1), Why::Away)));
         assert_eq!(coins(&ch, 7), 250.0);
-        // Her island, as it is in the channel now, is written with Ann's: no stake left in it to
+        // Her life, as it is in the channel now, is written with Ann's: no stake left in it to
         // come back when she next loads it.
         let batch = take_joint(&mut ch).pop().unwrap();
         let bea = batch.iter().find(|s| s.character == 8).unwrap();
@@ -989,14 +989,14 @@ mod tests {
     }
 
     #[test]
-    fn an_island_saved_mid_game_comes_back_with_its_stake_returned() {
+    fn a_life_saved_mid_game_comes_back_with_its_stake_returned() {
         // The server fell over mid-game: what was last written has the stake out of the purse
         // and on the table. Loaded again, with no game holding it, it's back in the purse.
         let mut ch = ann_and_bea();
         sit_down(&mut ch, 50.0);
         let mid = {
             let (p, life) = ch.players.open_mut(client(7)).unwrap();
-            island_of(p, life.unwrap(), &mut ch.open, 7)
+            life_save(p, life.unwrap(), &mut ch.open, 7)
         };
         assert_eq!((mid["state"]["coins"].as_f64(), mid["state"]["staked"].as_f64()), (Some(150.0), Some(50.0)));
         let fresh = Game::test();
@@ -1004,17 +1004,17 @@ mod tests {
         let zone = world.zone;
         let mut life = Life::new(zone, None, None);
         let mut p = Player::new(Spawn { x: zone.recipe.spawn.x, z: zone.recipe.spawn.z, facing: 0.0 }, 0, Build::default());
-        load_island(&mut life, &mut p, &mut world, 7, &mid, 0, 0).unwrap();
+        load_life(&mut life, &mut p, &mut world, 7, &mid, 0, 0).unwrap();
         assert_eq!((life.state.coins, life.state.staked), (200.0, None));
     }
 
     #[test]
-    fn starting_your_island_over_mid_game_calls_the_game_off_for_the_other_player() {
+    fn starting_your_life_over_mid_game_calls_the_game_off_for_the_other_player() {
         let mut ch = ann_and_bea();
         sit_down(&mut ch, 50.0);
         ch.reset(7).unwrap();
         assert_eq!(coins(&ch, 8), 200.0, "Bea's stake comes back");
-        assert!(ch.tables.tables.is_empty(), "the table goes with Ann's old island");
+        assert!(ch.tables.tables.is_empty(), "the table goes with Ann's old life");
         assert!(!ch.seated(7) && !ch.seated(8));
     }
 
