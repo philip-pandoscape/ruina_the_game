@@ -229,7 +229,9 @@ impl Viewer {
         self.choose(&mut cands, seq);
 
         // Gone: whatever was in sight and no longer is.
-        let gone: Vec<u16> = self.by_key.values().copied().filter(|&h| self.slots[usize::from(h)].seen != seq).collect();
+        let mut gone: Vec<u16> = self.by_key.values().copied().filter(|&h| self.slots[usize::from(h)].seen != seq).collect();
+        // In handle order, not the map's: the same game writes the same bytes.
+        gone.sort_unstable();
         for h in gone {
             let s = &mut self.slots[usize::from(h)];
             self.by_key.remove(&s.key);
