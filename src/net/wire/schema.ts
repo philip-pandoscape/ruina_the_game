@@ -34,8 +34,7 @@ export const ACK = 8;
 /** The most updates back a baseline may be. */
 export const WINDOW = 63;
 export const MAX_FIELDS = 40;
-/** Handle 0 is nobody; handle 1 is you. */
-export const NOBODY = 0;
+/** Handle 1 is you (0 is nobody). */
 export const YOU = 1;
 
 /** Rules frames in a server tick: a frame counter runs on three a tick. */

@@ -300,6 +300,26 @@ fn tiers() -> Value {
 }
 
 /// Writes a fixture (`pretty`: a field a line, for the schema a person reads; else a scene a line).
+/// A cart standing near you whose owner is far off, out of sight: the cart comes on its own.
+fn cart_without_owner() -> Value {
+    let mut scene = Scene::new(0);
+    for t in 0..4u64 {
+        let mut frame = Frame::new(529_100_000 + t);
+        frame.push(player(9, "Wren", 40_000, 0));
+        let mut cart = [0; MAX_FIELDS];
+        cart[0] = 600 + t as i32 * 50;
+        cart[1] = 300;
+        cart[3] = 8_000;
+        cart[6] = 100;
+        cart[10] = 1;
+        frame.push(Record { key: owned_key(Kind::Vehicle, 9, 2), owner: key(Kind::Player, 9), intro: Intro::Vehicle { owner: 9, id: 2, def: 1 }, fields: cart, refers: 0 });
+        let bytes = scene.write(&frame, View { x: 0.0, z: 0.0 }, &[]);
+        scene.arrive(&bytes);
+        scene.ack();
+    }
+    json!({ "name": "a cart whose owner is away", "steps": scene.steps })
+}
+
 fn check_or_keep(name: &str, value: &Value, pretty: bool) {
     let path = format!("{DIR}/{name}");
     let text = if pretty {
@@ -326,5 +346,5 @@ fn check_or_keep(name: &str, value: &Value, pretty: bool) {
 #[test]
 fn the_fixtures_are_what_the_wire_writes() {
     check_or_keep("schema.json", &schema(), true);
-    check_or_keep("updates.json", &json!({ "scenes": [everything(), bad_road(), out_and_back(), tiers()] }), false);
+    check_or_keep("updates.json", &json!({ "scenes": [everything(), bad_road(), out_and_back(), tiers(), cart_without_owner()] }), false);
 }

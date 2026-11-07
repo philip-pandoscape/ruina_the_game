@@ -3,6 +3,7 @@ import type { Build } from '../content/tuning';
 import { MINIGAMES } from '../content/minigames';
 import contentHash from '../../shared/hash.json' with { type: 'json' };
 import { currentAccount, ServerDown } from './account';
+import { type FeedTick, feedFromJson, type PeerSample } from './feedTick';
 import type { ArrowRecord, EffectEvent, MeteorRecord, NetActor } from './worldFeed';
 
 // Your connection to the game server (crates/server/src/play/socket.rs), which plays Emberholm: your
@@ -114,8 +115,9 @@ export interface WorldTick {
   you: YouState;
   peers: PeerEntry[];
   actors: NetActor[];
-  arrows: ArrowRecord[];
-  meteors: MeteorRecord[];
+  /** As the server writes them; the feed marks which are yours and the tick they're as of (src/net/feedTick.ts). */
+  arrows: Array<Omit<ArrowRecord, 'mine' | 'tick'>>;
+  meteors: Array<Omit<MeteorRecord, 'tick'>>;
   events: EffectEvent[];
   /** Toasts, panels to open and the like, from your island since the last tick. */
   lifeEvents?: LifeEvent[];
@@ -231,7 +233,10 @@ export class WorldLink {
   /** Something the server wants the player to know (a save it couldn't write, say). */
   onError: ((text: string) => void) | null = null;
   onTick: ((t: WorldTick) => void) | null = null;
-  onPeers: ((list: PeerEntry[]) => void) | null = null;
+  /** The world around you as of each tick (src/net/feedTick.ts), after its onTick. */
+  onWorld: ((f: FeedTick) => void) | null = null;
+  /** Players with a fresh state, and those in sight that weren't refreshed (null: everyone in sight is in the list). */
+  onPeers: ((list: PeerSample[], kept: readonly number[] | null) => void) | null = null;
   onEstate: ((e: EstateEntry) => void) | null = null;
   onClaims: ((claims: Record<string, string>) => void) | null = null;
   onLeft: ((id: number) => void) | null = null;
@@ -259,7 +264,7 @@ export class WorldLink {
   onNotice: ((text: string) => void) | null = null;
   private resetDone: Array<() => void> = [];
   /** The channel as last heard, kept here so nothing is missed before the game is ready to draw it. */
-  readonly peers = new Map<number, PeerEntry>();
+  readonly peers = new Map<number, PeerSample>();
   readonly estates = new Map<number, EstateEntry>();
   claims: Record<string, string> = {};
   /** The server's clock when it last wrote your island to the database. */
@@ -268,6 +273,8 @@ export class WorldLink {
   ticks = 0;
   /** The newest tick, and the newest whole island, for whatever arrives before the game is listening. */
   latest: WorldTick | null = null;
+  /** The newest of the world around you, as the feed takes it. */
+  latestWorld: FeedTick | null = null;
   latestLife: WorldTick['life'] | null = null;
   /** The newest stats the server sent (admins only, once a second). */
   stats: WorldStats | null = null;
@@ -483,9 +490,12 @@ export class WorldLink {
       this.latest = t;
       if (t.life) this.latestLife = t.life;
       if (t.stats) this.stats = t.stats;
-      for (const e of t.peers ?? []) this.peers.set(e.id, e);
-      this.onPeers?.(t.peers ?? []);
+      const world = feedFromJson(t);
+      this.latestWorld = world;
+      for (const e of world.peers) this.peers.set(e.id, e);
+      this.onPeers?.(world.peers, world.kept);
       this.onTick?.(t);
+      this.onWorld?.(world);
     } else if (msg.t === 'saved') this.lastSaved = msg.at ?? Date.now();
     else if (msg.t === 'reset') {
       // Anything heard before this was the island that's gone.
@@ -522,6 +532,7 @@ export class WorldLink {
       // Everyone you could see is somewhere else now; whoever is here comes in the next ticks.
       this.peers.clear();
       this.latest = null;
+      this.latestWorld = null;
       this.space = s;
       this.onSpace?.(s);
     } else if (msg.t === 'party') {

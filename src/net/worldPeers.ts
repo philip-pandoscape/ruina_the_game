@@ -12,15 +12,18 @@ import {
 import { angleDiff, type Mover, type PlayerState } from '../engine/rules';
 import type { ZoneData } from '../engine/zone';
 import type { Engine } from '../engine/engine';
+import type { PeerSample } from './feedTick';
 import { blankState } from './netPlayer';
-import type { Estate, EstateEntry, PeerEntry, WorldLink } from './worldLink';
+import type { Estate, EstateEntry, WorldLink } from './worldLink';
 
 // Everyone else in your channel of Emberholm, as the server plays them (crates/server/src/play/mod.rs):
-// each player as they move (about 20 times a second, kept a few frames behind so there is always a
-// next one to blend toward), with their glider, pack, vehicles and mounts; and everything every
-// resident has built, their houses and farms, which stay standing while they're away. Houses and
-// farm posts are solid, as yours are, and so are their vehicles where you see them. This keeps them
-// as they are at the moment drawn; src/render/open/peersView.ts draws them.
+// each player as they move (near you about 20 times a second; on the wire for crowds, further off
+// every fourth or twentieth tick: their `every`), kept far enough behind their newest that there is
+// always a next one to blend toward, with their glider, pack, vehicles and mounts; and everything
+// every resident has built, their houses and farms, which stay standing while they're away. Houses
+// and farm posts are solid, as yours are, and so are their vehicles where you see them. This keeps
+// them as they are at the moment drawn; src/render/open/peersView.ts draws them. What it hears comes
+// through src/net/feedTick.ts, the same whichever way the server sends it.
 
 /** The player fields drawing someone needs (src/render/character.ts and the life view); the server sends these. */
 const SHOWN = [
@@ -62,8 +65,12 @@ const SHOWN = [
  */
 const COUNTERS = ['attackFrame', 'actionFrame', 'castFrame', 'flipFrame', 'landFrame', 'takeoffFrame', 'downFrame'] as const;
 
-/** Frames behind the newest presence that others are drawn at (100 ms). */
+/** Frames behind the newest presence that others are drawn at (100 ms), when they come every tick. */
 const DELAY = 6;
+/** Frames in a server tick. */
+const FRAMES_PER_TICK = 3;
+/** Further than this (frames) from where they should be drawn, they're put there at once. */
+const SNAP_FRAMES = 90;
 
 interface Sample {
   fr: number;
@@ -111,6 +118,10 @@ interface Kept {
   heard: number;
   /** Their health as last drawn, to show a blow as it lands on screen. */
   hp: number;
+  /** Ticks between their refreshes (PeerSample.every). */
+  every: number;
+  /** Not in sight, though something of theirs is: nobody to draw. */
+  hidden: boolean;
 }
 
 /** Everyone reports 20 times a second, even standing still; this long without a word, they've gone. */
@@ -131,8 +142,8 @@ export class WorldPeers {
     link: WorldLink,
   ) {
     for (const e of link.estates.values()) this.estate(e);
-    this.receive([...link.peers.values()]);
-    link.onPeers = (list) => this.receive(list);
+    this.receive([...link.peers.values()], null);
+    link.onPeers = (list, kept) => this.receive(list, kept);
     link.onEstate = (e) => this.estate(e);
     link.onLeft = (id) => this.left(id);
   }
@@ -213,29 +224,52 @@ export class WorldPeers {
       solid: new Set(),
       heard: 0,
       hp: Infinity,
+      every: 1,
+      hidden: false,
     };
     this.peers.set(id, p);
     return p;
   }
 
-  private receive(list: PeerEntry[]): void {
+  /**
+   * Players with a fresh state this tick, and (on the wire for crowds) those still in sight that
+   * weren't refreshed; null for `kept`: everyone in sight is in `list`.
+   */
+  private receive(list: PeerSample[], kept: readonly number[] | null): void {
+    const now = performance.now();
     for (const e of list) {
       if (e.id === this.me) continue;
       const s = e.p as Sample['p'];
       if (!s?.pos) continue;
       const p = this.peer(e.id, e.name);
+      if (e.name) p.name = e.name;
       p.bot = !!e.bot;
       const fr = Number(s.fr) || 0;
       // A newer page (they reloaded) starts its frames again from zero.
       if (p.samples.length && fr <= p.samples[p.samples.length - 1].fr - 600) p.samples = [];
       if (p.samples.length && fr <= p.samples[p.samples.length - 1].fr) continue;
-      p.heard = performance.now();
+      const every = Math.max(1, e.every);
+      const before = p.samples[p.samples.length - 1];
+      // Quiet for longer than they come: they stood as they were until just before this one.
+      if (before && fr - before.fr > FRAMES_PER_TICK * (every + 1)) p.samples.push({ fr: fr - FRAMES_PER_TICK * every, p: before.p });
+      p.heard = now;
+      p.every = every;
+      p.hidden = !!e.hidden;
       p.samples.push({ fr, p: s });
       if (p.samples.length > 30) p.samples.shift();
       if (!p.online) {
         p.online = true;
         p.clock = -1;
       }
+    }
+    if (!kept) return;
+    // On the wire: those in sight but not refreshed are still here; anyone else has gone from sight.
+    const inSight = new Set<number>(kept);
+    for (const e of list) inSight.add(e.id);
+    for (const p of this.peers.values()) {
+      if (!p.online) continue;
+      if (inSight.has(p.id)) p.heard = now;
+      else this.left(p.id);
     }
   }
 
@@ -328,8 +362,9 @@ export class WorldPeers {
   private pose(p: Kept, dt: number): void {
     const samples = p.samples;
     const newest = samples[samples.length - 1].fr;
-    const target = newest - DELAY;
-    if (p.clock < 0 || Math.abs(p.clock - target) > 45) p.clock = target;
+    // Those refreshed less often are drawn further behind, so there's still a next one to blend toward.
+    const target = newest - DELAY - FRAMES_PER_TICK * (p.every - 1);
+    if (p.clock < 0 || Math.abs(p.clock - target) > SNAP_FRAMES) p.clock = target;
     p.clock += dt * 60;
     // Stay about DELAY frames behind, easing back toward it if updates bunch up or stall.
     p.clock += (target - p.clock) * Math.min(1, dt * 2);
@@ -379,7 +414,8 @@ export class WorldPeers {
     });
     p.life.state.packs = b.p.packs ?? [];
     p.life.state.glider = sh.glider;
-    p.drawn = true;
+    // Only their things in sight: nobody to draw.
+    p.drawn = !p.hidden;
   }
 }
 

@@ -61,7 +61,7 @@ describe('the wire, against the server', () => {
         checked++;
       });
       expect(heard.errors).toBe(0);
-      expect(checked).toBeGreaterThan(4);
+      expect(checked).toBeGreaterThanOrEqual(4);
     });
   }
 

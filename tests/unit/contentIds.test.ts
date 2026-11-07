@@ -42,6 +42,11 @@ const ALLOWED: Allowance[] = [
     ids: ['harvest', 'heal', 'home', 'block', 'stone', 'herbs', 'wheels', 'pine'],
   },
   { why: 'a word the bug reporter leaves out of what you said', files: ['src/app/bugs/reporter.ts'], ids: ['well'] },
+  {
+    why: "the wire's kinds of record (crates/wire, src/net/wire): a meteor in flight is a kind of thing on the wire, whatever ability called it down",
+    files: ['crates/wire/src/', 'src/net/wire/'],
+    ids: ['meteor'],
+  },
   { why: 'written by npm run icons from tools/icons/catalog.mjs: the items that have pictures of their own, by id', files: ['src/ui/theme/icons.gen.ts'] },
   {
     why: "the bodies the game is drawn with, each named for what it draws: a thing's look names its body (src/content/looks.ts), a creature's species its skeleton, and the code finds the body by that name",
