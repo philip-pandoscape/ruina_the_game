@@ -6,6 +6,8 @@
 pub mod buildings;
 pub mod colliders;
 pub mod dungeon;
+#[cfg(any(test, feature = "fixture-world"))]
+pub mod fixture;
 pub mod generate;
 pub mod map;
 pub mod noise;
