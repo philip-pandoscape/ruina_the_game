@@ -27,7 +27,13 @@
     },
     "free": [
       "r"
-    ]
+    ],
+    "model": {
+      "files": [
+        "npc_dunmore"
+      ],
+      "h": 1.78
+    }
   },
   "portrait": "🧑‍💼",
   "greeting": "Westwatch buys what the east grows. Prices fall as I fill my storeroom - they recover with time."

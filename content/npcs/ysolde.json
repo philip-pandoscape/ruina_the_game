@@ -16,7 +16,13 @@
     "tallBoots": true,
     "belt": "#3a2618",
     "hair": "#e8c46a",
-    "style": "short"
+    "style": "short",
+    "model": {
+      "files": [
+        "npc_ysolde"
+      ],
+      "h": 1.7
+    }
   },
   "portrait": "🧝",
   "greeting": "Jump, jump again, then once more to open your wings. The warm air at the cliff's foot will lift you."

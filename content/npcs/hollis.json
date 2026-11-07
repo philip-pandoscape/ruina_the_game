@@ -29,7 +29,13 @@
     },
     "free": [
       "l"
-    ]
+    ],
+    "model": {
+      "files": [
+        "npc_hollis"
+      ],
+      "h": 1.72
+    }
   },
   "portrait": "🧓",
   "greeting": "Lanternwick prospers when its people do. Plant, pack, haul - and keep your boots dry."

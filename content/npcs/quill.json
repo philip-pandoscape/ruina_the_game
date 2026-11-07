@@ -29,7 +29,13 @@
     },
     "free": [
       "r"
-    ]
+    ],
+    "model": {
+      "files": [
+        "npc_quill"
+      ],
+      "h": 1.88
+    }
   },
   "portrait": "🧐",
   "greeting": "Land is granted by blueprint, and kept by paying your tax. Hearthside Rise has plots for claim."

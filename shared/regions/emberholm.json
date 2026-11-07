@@ -1051,7 +1051,13 @@
         },
         "free": [
           "l"
-        ]
+        ],
+        "model": {
+          "files": [
+            "npc_hollis"
+          ],
+          "h": 1.72
+        }
       },
       "portrait": "🧓",
       "greeting": "Lanternwick prospers when its people do. Plant, pack, haul - and keep your boots dry."
@@ -1114,7 +1120,13 @@
         "pants": "#6b4a32",
         "boots": "#3d2a1e",
         "hair": "#a0522d",
-        "style": "ponytail"
+        "style": "ponytail",
+        "model": {
+          "files": [
+            "npc_tamsin"
+          ],
+          "h": 1.68
+        }
       },
       "portrait": "🧑‍🔧",
       "greeting": "The bench is yours whenever you've the goods. Remember: a pack sold where it's made is worth nothing.",
@@ -1141,7 +1153,13 @@
         "boots": "#3a2a20",
         "hair": "#6b4226",
         "style": "short",
-        "beard": "bushy"
+        "beard": "bushy",
+        "model": {
+          "files": [
+            "npc_bertram"
+          ],
+          "h": 1.86
+        }
       },
       "portrait": "🧔",
       "greeting": "A cart for the patient, a roadster for the bold, a hauler for the ambitious. Bring timber and iron."
@@ -1164,7 +1182,13 @@
         "boots": "#3a2618",
         "tallBoots": true,
         "hair": "#c0502a",
-        "style": "braid"
+        "style": "braid",
+        "model": {
+          "files": [
+            "npc_sela"
+          ],
+          "h": 1.72
+        }
       },
       "portrait": "👩‍🦰",
       "greeting": "A donkey will carry your pack and complain the whole way. A horse will outrun the wind and carry nothing."
@@ -1198,7 +1222,13 @@
         },
         "free": [
           "l"
-        ]
+        ],
+        "model": {
+          "files": [
+            "npc_ilsa"
+          ],
+          "h": 1.82
+        }
       },
       "portrait": "🧑‍✈️",
       "greeting": "Rowboats for the bay, a sloop for the open sea. Sail with the wind at your back and you'll fly."
@@ -1234,7 +1264,13 @@
         },
         "free": [
           "r"
-        ]
+        ],
+        "model": {
+          "files": [
+            "npc_quill"
+          ],
+          "h": 1.88
+        }
       },
       "portrait": "🧐",
       "greeting": "Land is granted by blueprint, and kept by paying your tax. Hearthside Rise has plots for claim."
@@ -1257,7 +1293,13 @@
         "tallBoots": true,
         "belt": "#3a2618",
         "hair": "#e8c46a",
-        "style": "short"
+        "style": "short",
+        "model": {
+          "files": [
+            "npc_ysolde"
+          ],
+          "h": 1.7
+        }
       },
       "portrait": "🧝",
       "greeting": "Jump, jump again, then once more to open your wings. The warm air at the cliff's foot will lift you."
@@ -1291,7 +1333,13 @@
         },
         "free": [
           "r"
-        ]
+        ],
+        "model": {
+          "files": [
+            "npc_dunmore"
+          ],
+          "h": 1.78
+        }
       },
       "portrait": "🧑‍💼",
       "greeting": "Westwatch buys what the east grows. Prices fall as I fill my storeroom - they recover with time."
@@ -1326,7 +1374,13 @@
         },
         "free": [
           "l"
-        ]
+        ],
+        "model": {
+          "files": [
+            "npc_pell"
+          ],
+          "h": 2.02
+        }
       },
       "portrait": "🎩",
       "greeting": "Gullrock's a long row from anywhere. That's why I pay in seals as well as silver."
@@ -1361,7 +1415,13 @@
         },
         "free": [
           "l"
-        ]
+        ],
+        "model": {
+          "files": [
+            "npc_hob"
+          ],
+          "h": 1.9
+        }
       },
       "portrait": "🪓",
       "greeting": "Fell the deadfall for timber, bundle ten at my sawhorse, and haul it wherever you build.",
@@ -1397,7 +1457,13 @@
         },
         "free": [
           "l"
-        ]
+        ],
+        "model": {
+          "files": [
+            "npc_brenna"
+          ],
+          "h": 1.84
+        }
       },
       "portrait": "⛏️",
       "greeting": "Stone and iron, raw or ready. Ten stone makes a block at the cutting table. Mind your back.",

@@ -28,7 +28,13 @@
     },
     "free": [
       "l"
-    ]
+    ],
+    "model": {
+      "files": [
+        "npc_hob"
+      ],
+      "h": 1.9
+    }
   },
   "portrait": "🪓",
   "greeting": "Fell the deadfall for timber, bundle ten at my sawhorse, and haul it wherever you build.",
