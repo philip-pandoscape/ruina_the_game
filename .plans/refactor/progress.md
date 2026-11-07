@@ -18,8 +18,8 @@ is in [tracker.md](tracker.md), the plan in [README.md](README.md).
 | 6 The Client in Areas | nearly done: the library's reach into the hero (after R9.5's client part) and the look check (R6.14) left |
 | 7 Content in Folders | done |
 | 8 One Copy of the Rules | done |
-| 9 Content as Data, Finished | most done: builds by id, the bundle's hash on the wire, looks from data and the library's subjects landed; the client's weapons by place (R9.5), Goblin's Dread's dressing (R9.8) and the waterfall's optional parts (R9.10) with a background agent; the slimes and dummy as spawns (R9.3) after R10.18 |
-| 10 One World: Regions, Channels, Instances and Bots | the world's foundations under way: the world map, borders with no seam, the rules taking the world, instances in spaces of their own, the content as regions and instances; the tick that splits (R10.18) with a background agent; growing and dropping regions and the rest after it |
+| 9 Content as Data, Finished | nearly done: the skill tree's numbers by id (R9.5's rest) left |
+| 10 One World: Regions, Channels, Instances and Bots | about half: the world map, borders with no seam, the rules taking the world, instances in spaces of their own, the content as regions and instances, spawns as data and the tick that splits are in; growing and dropping regions, ids and the clock, borders between simulations, the server's tiers, land, channels, the wire, the big-world client and proof at scale are left |
 | 11 Assets | done; the browser's download work dropped (D15) |
 | 12 The Design Bible as a Knowledge Base | done |
 | 13 AGENTS.md, the Docs and the Merge | to do |
@@ -594,4 +594,28 @@ the developer zone; then the engine bridge (R6.4) and Phase 8's switches.
   page's command list, the island's drawing takes the player whose island it draws (the others' had
   been handed a made-up sim), and the library reads Emberholm's people typed. The library's reach
   into the hero's private parts waits for R9.5's client part.
+
+## 2026-11-06: The Tick That Splits, Spawns as Data, and Phase 9's Client Leftovers (R10.18, R9.3, R9.10, R9.8, R9.5)
+
+- **The tick that splits (R10.18, a background agent).** The order a channel steps its players,
+  bots, creatures, arrows and meteors in changes nothing: a tick goes in phases, each thing reads the
+  others as the phase began, and what it does to anyone lands once all have gone. So the server can
+  step its players all at once (`--parallel on`). The rules' time a tick on an Apple M4, before, one
+  after another, all at once: 64 bots 0.17, 0.11, 0.13 to 0.16 ms; 256 bots 0.60, 0.41 to 0.46, 0.26
+  to 0.32 ms; 1024 bots 3.3, 2.0 to 2.3, 0.8 to 1.0 ms. All at once is slower at today's channel
+  sizes, so it's off by default. Sending the updates is now the bigger cost (8 ms a tick at 1024 bots):
+  R10.8's.
+- **Merging it** took the server's battle hash to a third value, both sides having moved it for their
+  own reasons (everyone round the battlefield's own origin; the browser's sine, cosine and atan2). With
+  the platform's maths swapped back in, the merged code gives this branch's old hash exactly, so
+  nothing else changed.
+- **Spawns as data (R9.3).** Emberholm's slimes and training dummy are its recipe's `spawns`, as an
+  instance's are, and one engine module places them for every game. The server had its own copy of
+  the slimes' layout, on the platform's maths; it's gone. The dummy's body now stands where the dummy
+  creature is, offline as online.
+- **Phase 9's client leftovers (a background agent).** A waterfall's landing stage and totem only
+  where it has them (the engine too, now); Goblin's Dread's dressing as data, so another cave is a
+  file; the browser knows weapons by id, and a test reorders them to prove it. What still knows
+  weapons by place is the skill tree's numbers (R9.5's rest), which the engine reads.
+- **Guides.** `docs/world.md`, `docs/deploys.md`, and the README as a quick start.
 

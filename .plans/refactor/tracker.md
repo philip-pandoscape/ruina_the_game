@@ -17,7 +17,6 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
      - R10.16 the world map (the map, borders and the rules taking the world are in; growing and
        dropping regions by need is left);
      - R10.17 ids and the clock;
-     - R10.18 the tick that splits;
      - R10.19 borders;
      - R10.20 the server's tiers;
      - R10.21 land and the ledger;
@@ -26,7 +25,7 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
      - R10.23 the client;
      - R10.24 proof at scale;
      - R10.25 the guide.
-  2. Phase 9's rest (R9.3, R9.5, R9.8, R9.10), R6.11b and R6.14 beside them.
+  2. Phase 9's rest (R9.5: the skill tree by id), R6.11b and R6.14 beside them.
   3. Phase 13 and the merge.
 
   The multi-server version follows the merge (`.plans/world/`).
@@ -35,11 +34,10 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
   2026-11-06: three at once used tokens too fast; one was allowed, then a second). They did the
   mini-games (R9.11, R8.11) and the UI gallery (R6.9); then the bible's reading of the engine's Rust
   (R8.13's part); then saved builds by id with the bundle's hash on the wire (R9.1, R9.2); then looks
-  from data (R9.9); now the tick that splits (R10.18) and Phase 9's client leftovers (R9.10, R9.8 and
-  R9.5's client part). Work not yet merged stays on the agent's branch, in its worktree on this Mac:
-  R10.18 on `worktree-agent-a0995fdb432d330d1` (`.claude/worktrees/agent-a0995fdb432d330d1`), Phase 9's
-  client leftovers on `worktree-agent-a6d8f024939313def` (`.claude/worktrees/agent-a6d8f024939313def`).
-  Each is merged into `refactor/first` once reviewed and its tests pass.
+  from data (R9.9); then the tick that splits (R10.18) and Phase 9's client leftovers (R9.10, R9.8 and
+  R9.5's client part), both merged (1d5a214, 4fe4342). Work not yet merged stays on the agent's
+  branch, in its worktree on this Mac, and is merged into `refactor/first` once reviewed and its
+  tests pass.
 - **Races under load (the Mac, four workers):** these lose a race now and then and pass alone:
   `online.spec.ts:50`, `:109`, `:258`, `:617`, `combat.spec.ts:185`; and
   `game.spec.ts:43` and `dungeon-way-in.spec.ts:50` when Vite reloads the page at the start of a run
@@ -334,12 +332,15 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
   `lib.rs`'s flat list of 30 modules becomes a few public areas.
   Done (04da4b6): `accounts/`, `play/`, `battle/`, with `combat.rs`, `protocol.rs`, `db.rs`, `http.rs`;
   `main.rs` 123 lines (was 394).
-- [~] **R5.3b** Cut the battlefield loose from the open world: `world_game.rs:31,206` makes an empty
+- [x] **R5.3b** Cut the battlefield loose from the open world: `world_game.rs:31,206` makes an empty
   `Battle` per channel; `game.rs:19-29` uses `protocol`, `sim` and `world`; `world::{World, Spawn}` are
   used by `player.rs`, `open/mod.rs`, `world_game.rs:33`. Shared types to the engine; the
   battlefield's own code fenced into `battle/` with no new work, until R10.10 deletes it.
   The battlefield's loop and networking are fenced in `battle/` (04da4b6); `combat.rs` still
   writes its protocol and steps an empty `Battle` per channel, which Phase 10 removes with it.
+  Done with R10.10's server half (a975617): the battlefield's own code went, `Battle` and its
+  protocol with it; the shared `World` and `Spawn` stay in the engine (`world.rs`), the player rules'
+  spawn point.
 - [x] **R5.4** `crates/tools`: balance, loadtest (taking `tokio-tungstenite`, today compiled into every
   server build for a tool run by hand); the check programs until R8.13. `rayon` stays with the
   battlefield's loop only (until R10.8 brings parallel stepping to every zone).
@@ -818,10 +819,15 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
   from a bundle's order: creature kinds, weapons, abilities, movement skills, skill nodes, combo
   variants, mini-games. So after editing content the world server must be rebuilt before playing
   online.
-- [~] **R9.3** Spawns in zone and dungeon data; the built-in `slimes`/`dummy` keys go; `?goblins=`
+- [x] **R9.3** Spawns in zone and dungeon data; the built-in `slimes`/`dummy` keys go; `?goblins=`
   becomes a developer option on top of data.
   Dungeons and zones have `spawns` (b318daf, 777949b: one of a kind, or a war-band of `count`); the
   island's `slimes`/`dummy` keys are left.
+  Done (3fa0c90): a region's recipe lists its spawns as an instance's file does (Emberholm's slimes,
+  a group spread round their meadow, and its dummy); one engine module places any list
+  (`crates/engine/src/open/spawns.rs`) for the server's channels and copies and the browser's island;
+  contentc holds each to a creature's kind; `?goblins=` is a developer option on top of data (a band of
+  any kind through the Engine).
 - [x] **R9.4** NPCs in `content/npcs/`; `FACES`, `GREETINGS`, `BENCH_OF` out of the UI.
   Done (f6055e7): a file each in `content/npcs/`, with their place, look, portrait, greeting and
   bench; `FACES`, `GREETINGS`, `BENCH_OF` and `windows/townsfolk.ts` gone.
@@ -835,6 +841,14 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
   can't be reordered yet; the balance harness's `tools/balance/scenario.json` names weapons by
   place. (Re-running `tools/skilltree/gen.mjs` renames its generated nodes, whose ids come from
   their places: only before anyone spends points on them.)
+  The client's part (3677cb4, merged in 4fe4342; a background agent): the browser knows weapons by
+  id or by their data (`weaponId`, `weaponIndex`, `shoots`), `HERO_WEAPONS` gone, and
+  `tests/unit/weaponOrder.test.ts` reorders `_order.json` and finds every weapon held, swung, traced,
+  stowed, gripped, aimed and described as before. Left: the skill tree names weapons, abilities and
+  movement skills by place (93 numbers in `shared/skilltree.json`, the levels in `content/tuning.json`,
+  `tools/skilltree/gen.mjs`, read by the engine's `skills.rs`), the engine's default build holds weapon
+  0 (`player.rs`), tests hard-code weapon numbers, and the crowd's cast clip names an ability by place
+  (`castAbility: 0`, `heroBody.ts`).
 - [x] **R9.6** Quest markers from quest data; no place ids in the UI.
   Done (2ca47bf): an objective's `marker` in its quest's file; `src/ui/life/hud/goal.ts` names no
   place; the same goal in 1,200 states before and after (`tests/unit/questGoal.test.ts`).
@@ -843,9 +857,13 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
   Done (5d0712d): `placeOn` and `hint` on placeables, rare finds with their own toast and effect,
   a pack's maker, labor topped up to `labor.max`, category names in `shared/items.json`; both sides
   (`tests/unit/items.test.ts`).
-- [~] **R9.8** Dungeons from their folder (no lists in code); each dungeon's dressing in data.
+- [x] **R9.8** Dungeons from their folder (no lists in code); each dungeon's dressing in data.
   From their folder (777949b): `content/dungeons/` built into one bundle both sides read; the goblin
   camp was added as a file alone. Goblin's Dread's dressing (`dungeonView.ts`) is still code.
+  Done (4aaca54, merged in 4fe4342; a background agent): Goblin's Dread's dressing is data in its
+  file (`dressing`: the rock along its walls, ceilings, torches, props on its pieces, nets, loot,
+  pictures and light), and `dungeonView.ts` draws any cave from its own; a dungeon template; contentc
+  holds a dressing to its instance. It looks the same (its parts fingerprint the same).
 - [x] **R9.9** Looks from data (made model with fit and clips, or a built-in body with settings);
   builders by id become fallbacks; the prose `look` fields become real ones.
   Done (a background agent, merged in 2d5de57): a thing's `look` (src/content/looks.ts) names the body
@@ -860,7 +878,7 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
   model's fingerprint (294) was the same before and after. Left by design: a look has no `clips` until
   a made model of these kinds has some; the loose rocks' made models stay in code (no content names
   them); a new body is code.
-- [~] **R9.10** Zones: the generator's special cases by id become data flags; more than one zone can
+- [x] **R9.10** Zones: the generator's special cases by id become data flags; more than one zone can
   load.
   Done but the waterfall (c37c9ef, a background agent): a structure says whether its ground is
   levelled (`pad`), whether it stands at sea level (`seaLevel`), how far round it trees and rocks are
@@ -868,6 +886,8 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
   is kept clear (`keepClear`). Both generators read them, the bake came out byte for byte the same,
   and the generator's allowance left `tests/unit/contentIds.test.ts`. Left: the waterfall's landing
   and totem made optional (`src/render/open/grotto.ts` reads them unconditionally).
+  Done: the drawing (43dde47, merged in 4fe4342) and the engine (25724b8) take a waterfall's landing
+  stage and totem only where it has them.
 - [x] **R9.11** Mini-games: a game is a rules module plus a board view; the table framework reads the
   list from content.
   Done (0e918b8, a background agent): a mini-game is its file (`content/minigames/<id>.json`, its own
@@ -974,12 +994,13 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
   an admin's `Command::Bots`. Fighting across sides now works on any ground.
 - [x] **R10.6** Zones spawn bots from data: how many, which sides, which brain, where.
   Done (acaf9b5): a zone's file lists its bots by side and brain.
-- [~] **R10.7** The battlefield as a zone (`content/zones/battlefield/`): today's `makeBattlefield`
+- [x] **R10.7** The battlefield as a zone (`content/zones/battlefield/`): today's `makeBattlefield`
   layout, two sides, armies of bots. It runs only while an admin is inside: the first admin in starts
   it and spawns its bots; when the last admin leaves, it stops and its bots go (decided).
   The server's half (acaf9b5): one copy for every admin, sixteen skirmishers a side, in with the first
   admin and gone with the last. The browser's arena (157e823). The old battle server's removal is
   R10.10.
+  Done: the old battle server went with R10.10's server half (a975617).
 - [ ] **R10.8** The wire for crowds.
   - **Interest:** each client is sent only what's near it, on 32 m cells, in near, mid and far tiers.
     The design comes from the old battle server's `interest.rs` (`git show 04da4b6`).
@@ -1097,7 +1118,7 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
     - On the wire, each connection has u16 handles, so `character as u32` goes.
   - **The clock:** ticks are numbered from a world epoch at 60 Hz, and given to the engine as an
     input, as the world clock already is.
-- [ ] **R10.18** The tick that splits.
+- [x] **R10.18** The tick that splits.
   - **The rule:** within a step, an entity reads others only as they stood at its start, and affects
     them only through events applied at the next step.
   - **Already so:** vehicles, and player hits and heals.
@@ -1107,6 +1128,19 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
     by cell (`rayon`) with the same result.
   - **History:** everything that can be hit keeps the position history that lag compensation
     rewinds.
+  Done (393345d, 9183205, 7e025c1, d0751bc, 7eec2f0, merged in 1d5a214; a background agent): players
+  fighting together are the engine's rules (`crates/engine/src/combat.rs`); a tick goes in phases
+  (vehicles made solid, bots' brains, everyone's inputs, passengers seated, tables, arrows and
+  meteors, the creatures, their slams and blows, where everything stood), each thing reading the
+  others as the phase began, what it does to anyone landing once all have gone (by whom it lands on,
+  then whom from); creatures keep a history for lag compensation; riding along is the engine's; what
+  a step builds is made solid once it's over (`Life::make_solid`). Events land at the end of the same
+  phase rather than the next step: as order-free, with no tick of delay. A crowd scenario
+  (`checks/crowd.rs`) is held by a golden answer and shuffled sixteen ways; the server plays a melee
+  in shuffled orders and all at once, the same game. `--parallel on` steps players on rayon's
+  threads: 1024 bots 3.3 ms a tick before, 2.0 one after another, 0.8 to 1.0 all at once (Apple M4);
+  off by default, slower at today's sizes. Sending updates (8 ms at 1024 bots) is the next cost.
+  Left for R10.16: `open::step_player`, a thin wrapper kept for `open/map.rs`'s tests.
 - [ ] **R10.19** Borders, in one process.
   - **Ownership:** a simulation owns its chunks.
   - **Ghosts:** neighbours exchange read-only copies of what's within about 120 m of the border, every
@@ -1350,6 +1384,10 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
 | 2026-11-06 | R10.25 | `docs/world.md` begun: the world as it stands, and adding a region | 7ea3035 |
 | 2026-11-06 | R13.2 | `docs/deploys.md` | 5562fed |
 | 2026-11-06 | R13.5 | The README as a quick start | 3b49683 |
+| 2026-11-06 | R9.3 | What a region brings to life is data: `open/spawns.rs` for every game | 3fa0c90 |
+| 2026-11-06 | R9.10, R9.8, R9.5 | Phase 9's client leftovers merged: the waterfall's parts where it has them, Goblin's Dread's dressing as data, weapons by id (a background agent) | 43dde47, 4aaca54, 3677cb4, 4fe4342 |
+| 2026-11-06 | R10.18 | The tick that splits merged (a background agent); the battle hash 73470aebbc6e11b5, the old one again with the platform's maths | 393345d..7eec2f0, 1d5a214 |
+| 2026-11-06 | R9.10 | The waterfall's landing stage and totem optional in the engine | 25724b8 |
 | 2026-11-06 | R9.9, R6.11b | Looks from data; the model library as a chunk, the `tryBuild` fallbacks gone (a background agent) | 3cffed1..40161aa, 2d5de57 |
 | 2026-11-06 | R9.14 | `docs/content.md` | 5e23680 |
 | 2026-11-06 | R10.10, R11.1, R11.2, R11.7, R11.8 | Snapshot to move machines: the battle server's Rust gone; the asset manifest, loader and first-download budget, `docs/assets.md` | a975617 |
