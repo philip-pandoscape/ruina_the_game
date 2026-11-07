@@ -502,7 +502,7 @@ pub fn update_glide(sim: &mut Sim, a: &Actions) {
     };
 
     // Rising air in the space you're in (none in a dungeon).
-    let here = sim.world.map;
+    let here = sim.terrain();
     let p = &mut *sim.player;
     // Heading: turn toward where the stick points, no faster than the wing allows.
     let mag = len(a.move_x, a.move_z).min(1.0);

@@ -1,5 +1,5 @@
 import type { SkillSet } from '../content/skills';
-import type { Heightfield } from './world/terrain';
+import type { Ground } from './world/terrain';
 import type { ColliderIndex } from './world/colliders';
 import type { ZoneData } from './world/region';
 
@@ -251,7 +251,7 @@ export interface World {
   // The ground and what stands on it: every world the page plays has them (the flat training yard
   // that left them out is gone); still optional while the client's world takes shape (R10.23).
   /** Ground heights, surfaces and sea level. */
-  terrain?: Heightfield;
+  terrain?: Ground;
   /** Obstacles, building colliders and walkable decks, bucketed for fast queries. */
   index?: ColliderIndex;
   /** The recipe and everything generated from it. */

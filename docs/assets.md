@@ -57,7 +57,7 @@ Built with the client: `npx vite build` writes `dist/asset-manifest.json` beside
 | `assets[].file` | The built file, named after what's in it (`assets/hero-Lp91RHMo.glb`) |
 | `assets[].size` | Its bytes |
 | `assets[].kind` | `model`, `animation`, `texture`, `icon`, `font` (and `sound`, `music` once there are any) |
-| `assets[].zones` | Where it's used: `front` (the title screen, sign-in and character select: the first download), `*` (every zone a player can be in: their own body and gear), `emberholm` (the island, and the arenas drawn over it), a dungeon or zone by its id (`content/instances/`), `dev` (only the developer pages, or a developer's address option) |
+| `assets[].zones` | Where it's used: `front` (the title screen, sign-in and character select: the first download), `*` (every zone a player can be in: their own body and gear), a region by its id (`emberholm`, and the arenas drawn over it), a dungeon or zone by its id (`content/instances/`), `dev` (only the developer pages, or a developer's address option) |
 | `code.first` | The scripts and style sheets the game's page starts with (`src/app/boot.ts` and what it imports) |
 | `code.later` | Those it fetches on the way into the world (`src/main.ts` and the rest) |
 
@@ -91,6 +91,20 @@ Six files load at once, the most needed next, so on a slow line what's under and
 arrives first. `OpenStage.update` tells it where the camera is every frame (`streamFrom`). One
 request per file, whoever asks; a second asker with a more urgent need, or a nearer place, moves it
 up.
+
+### By Region
+
+The world is many regions, grown as you travel (`docs/world.md`, The Client in a Big World), and a
+region's files are fetched as you approach it:
+
+- **What a region wants** is what its looks name: its made buildings' and props' models, and the
+  village kit if it has buildings you can walk into (`regionFiles` in `src/app/regions.ts`). The
+  ground's textures, the bark and the grain are every region's, loaded with the first.
+- **When:** as the region arrives from the page's worker (600 m before you reach it), each of its files
+  is asked of the loader as `near`, wanted from the point of the region nearest you. So the region you
+  approach comes first, its files load nearest first, and a region still beyond the view waits.
+- **Waiting for the camera** doesn't hold the tests' `assetsReady`: a file placed in a region far behind
+  you waits until you come back (`trackPlaced` in `src/render/assets.ts`).
 
 **Low detail first:** whatever asks draws a stand-in until the file arrives and swaps it in after:
 the procedural models for the made ones, the ground's plain colours for its textures, the box hero

@@ -1,3 +1,4 @@
+import { toScene } from '../render/origin';
 import * as THREE from 'three';
 import type { Device } from '../input/input';
 import { iconHtml } from './theme/icons';
@@ -383,7 +384,7 @@ export class Hud {
   // Places screen elements over their 3D positions. The health bar only shows when the dummy is close.
   layout(camera: THREE.Camera, width: number, height: number, dummyTop: THREE.Vector3, hpFraction: number, showDummy = true): void {
     const toScreen = (p: THREE.Vector3): { x: number; y: number; visible: boolean } => {
-      this.v.copy(p).project(camera);
+      toScene(this.v.copy(p)).project(camera);
       return { x: ((this.v.x + 1) / 2) * width, y: ((1 - this.v.y) / 2) * height, visible: this.v.z < 1 };
     };
     const near = showDummy && camera.position.distanceTo(dummyTop) < 30;

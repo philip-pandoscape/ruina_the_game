@@ -22,6 +22,11 @@ export const OPTION_DOCS: readonly OptionDoc[] = [
   },
   { name: 'offline', what: 'Plays offline in real time: the world, or offline=<instance> in a copy of that instance.', developer: true },
   { name: 'load', what: 'With test: the island kept in this browser (bug-report replays).', developer: true },
+  {
+    name: 'fixture=world',
+    what: "Offline, a fixture world of the tests' in place of the shipped one (tests/fixtures/world/<name>.json: world, three regions; far, a region 102 km out), on a development server.",
+    developer: true,
+  },
   { name: 'lag=150', what: "Delays this page's connection by that many milliseconds each way, to feel a far server.", developer: true },
   { name: 'softlock=0', what: 'No automatic pick of a target to face (Tab still picks one).', developer: true },
   { name: 'as=name', what: 'On a development server: signs straight in as that name and plays its last character.', developer: true },
@@ -53,6 +58,8 @@ export interface Options {
   fresh: boolean;
   /** The island kept in this browser (offline, tests). */
   load: boolean;
+  /** A fixture world of the tests' to play in place of the shipped one (`?fixture=`), offline. */
+  fixture: string | null;
   /** Whether the bug reporter is on. */
   bugs: boolean;
   bugSpeech: boolean;
@@ -74,6 +81,7 @@ export function readOptions(search: string = typeof location === 'undefined' ? '
     as: q.get('as'),
     fresh: q.has('fresh'),
     load: q.has('load'),
+    fixture: q.get('fixture'),
     bugs: test ? q.has('bugs') : q.get('bugs') !== '0',
     bugSpeech: q.get('bugspeech') !== '0',
     bugLang: q.get('buglang'),

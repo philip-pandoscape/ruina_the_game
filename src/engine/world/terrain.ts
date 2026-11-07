@@ -3,6 +3,8 @@
 // The engine grows it (crates/engine/src/open/generate.rs) and the page reads the *same* grid, split
 // into triangles the same way (each quad along its a-d diagonal), so a foot planted by the rules sits
 // exactly on the drawn ground (tests/conformance/terrain.test.ts holds the sampling to the engine's).
+// A region's grid stands where the world places it (its corner at `minX`, `minZ`); the world's
+// ground, every region's and the sea between, is `WorldGround` (worldGround.ts).
 
 /** What a patch of ground is made of. Vehicles grip and roll differently on each. */
 export const SURFACE = {
@@ -15,7 +17,30 @@ export const SURFACE = {
   forest: 6,
 } as const;
 
-export class Heightfield {
+/**
+ * The ground as the page reads it, anywhere: a grid's (`Heightfield`), or the world's across its
+ * regions and the sea between them (`WorldGround`), or the nothing under an instance's floors.
+ */
+export interface Ground {
+  /** Sea level; anything lower is under water. */
+  readonly water: number;
+  /** Ground height at a world point. */
+  height(x: number, z: number): number;
+  /** dh/dx and dh/dz of the ground under a point. */
+  gradient(x: number, z: number): { x: number; z: number };
+  /** Steepness at a point: rise over run along the steepest direction. */
+  slope(x: number, z: number): number;
+  /** Unit surface normal under a point. */
+  normal(x: number, z: number): { x: number; y: number; z: number };
+  /** What the ground under a point is made of (SURFACE). */
+  surfaceAt(x: number, z: number): number;
+  /** How deep the water is over a point (0 on dry land). */
+  depth(x: number, z: number): number;
+  /** Whether a point is within the edge, `margin` in from it. */
+  inside(x: number, z: number, margin?: number): boolean;
+}
+
+export class Heightfield implements Ground {
   /** Cells per side. */
   readonly cells: number;
   /** Metres per cell. */
@@ -24,18 +49,21 @@ export class Heightfield {
   readonly water: number;
   /** Vertices per side. */
   readonly n: number;
-  /** World X/Z of vertex (0, 0). */
-  readonly min: number;
+  /** World X and Z of vertex (0, 0). */
+  readonly minX: number;
+  readonly minZ: number;
   readonly heights: Float32Array;
   /** One per cell ((n-1) x (n-1)). */
   readonly surface: Uint8Array;
 
-  constructor(cells: number, cell: number, water: number) {
+  /** A grid `cells` across of `cell` metres, its corner at (minX, minZ): by default centred on the world's origin, as Emberholm's is. */
+  constructor(cells: number, cell: number, water: number, minX = -(cells * cell) / 2, minZ = minX) {
     this.cells = cells;
     this.cell = cell;
     this.water = water;
     this.n = cells + 1;
-    this.min = -(cells * cell) / 2;
+    this.minX = minX;
+    this.minZ = minZ;
     this.heights = new Float32Array(this.n * this.n);
     this.surface = new Uint8Array(cells * cells);
   }
@@ -44,13 +72,22 @@ export class Heightfield {
     return this.cells * this.cell;
   }
 
-  get max(): number {
-    return this.min + this.size;
+  get maxX(): number {
+    return this.minX + this.size;
   }
 
-  /** World position of vertex (i, j). */
+  get maxZ(): number {
+    return this.minZ + this.size;
+  }
+
+  /** World X of vertex column i. */
   vx(i: number): number {
-    return this.min + i * this.cell;
+    return this.minX + i * this.cell;
+  }
+
+  /** World Z of vertex row j. */
+  vz(j: number): number {
+    return this.minZ + j * this.cell;
   }
 
   at(i: number, j: number): number {
@@ -60,8 +97,8 @@ export class Heightfield {
   /** Ground height at a world point, on the same triangles the renderer draws. */
   height(x: number, z: number): number {
     const c = this.cell;
-    let gx = (x - this.min) / c;
-    let gz = (z - this.min) / c;
+    let gx = (x - this.minX) / c;
+    let gz = (z - this.minZ) / c;
     const last = this.cells - 1e-6;
     gx = gx < 0 ? 0 : gx > last ? last : gx;
     gz = gz < 0 ? 0 : gz > last ? last : gz;
@@ -88,8 +125,8 @@ export class Heightfield {
   /** dh/dx and dh/dz of the triangle under a point. */
   gradient(x: number, z: number): { x: number; z: number } {
     const c = this.cell;
-    let gx = (x - this.min) / c;
-    let gz = (z - this.min) / c;
+    let gx = (x - this.minX) / c;
+    let gz = (z - this.minZ) / c;
     const last = this.cells - 1e-6;
     gx = gx < 0 ? 0 : gx > last ? last : gx;
     gz = gz < 0 ? 0 : gz > last ? last : gz;
@@ -114,12 +151,17 @@ export class Heightfield {
     return { x: -g.x / l, y: 1 / l, z: -g.z / l };
   }
 
+  /** The cell under a point, by its index into `surface`, or -1 off the grid. */
+  cellAt(x: number, z: number): number {
+    const i = Math.floor((x - this.minX) / this.cell);
+    const j = Math.floor((z - this.minZ) / this.cell);
+    return i < 0 || j < 0 || i >= this.cells || j >= this.cells ? -1 : j * this.cells + i;
+  }
+
   /** Surface type of the cell under a point (water counts as whatever the seabed is). */
   surfaceAt(x: number, z: number): number {
-    const i = Math.floor((x - this.min) / this.cell);
-    const j = Math.floor((z - this.min) / this.cell);
-    if (i < 0 || j < 0 || i >= this.cells || j >= this.cells) return SURFACE.sand;
-    return this.surface[j * this.cells + i];
+    const c = this.cellAt(x, z);
+    return c < 0 ? SURFACE.sand : this.surface[c];
   }
 
   /** How deep the water is over a point (0 on dry land). */
@@ -128,7 +170,7 @@ export class Heightfield {
   }
 
   inside(x: number, z: number, margin = 0): boolean {
-    return x >= this.min + margin && x <= this.max - margin && z >= this.min + margin && z <= this.max - margin;
+    return x >= this.minX + margin && x <= this.maxX - margin && z >= this.minZ + margin && z <= this.maxZ - margin;
   }
 }
 

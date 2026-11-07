@@ -41,7 +41,7 @@ use crate::open::dungeon::{DungeonDef, door_into};
 use crate::open::map::world_map;
 use crate::open::spawns::{instance_spawns, region_spawns};
 use crate::open::zone::{DungeonDoor, Zone};
-use crate::open::{OpenWorld, Sim};
+use crate::open::{OpenWorld, SIM_BAND, Sim};
 use crate::player::{Actions, Build, Mode, Player};
 use crate::sim::channels::{Channel, estate_of};
 use crate::skills::{allowed, build_from_saved};
@@ -210,6 +210,14 @@ pub(crate) fn client(character: CharacterId) -> EntityId {
     EntityId::character(character)
 }
 
+/// The world a channel plays: the chunks it plays and a band round them grown (the engine's
+/// `OpenWorld::playing`). One channel plays every chunk of the world today; a simulation playing part
+/// of it names its own (R10.19).
+fn played(zone: &'static Zone) -> OpenWorld {
+    let map = world_map();
+    OpenWorld::playing(map, zone, &map.chunks(), SIM_BAND)
+}
+
 impl Game {
     /// Channel `n` of `region` (found by its id in the world's map).
     pub fn channel(sim: SimId, region: &str, n: u32) -> Game {
@@ -219,7 +227,7 @@ impl Game {
         let mut actors = Actors::new();
         // What the region brings to life (its recipe's spawns), as the browser's island offline has it.
         spawn_all(&mut actors, region_spawns(&zone.recipe));
-        Game::playing(sim, SpaceId::channel(region, n), zone, OpenWorld::new(zone), actors)
+        Game::playing(sim, SpaceId::channel(region, n), zone, played(zone), actors)
     }
 
     /// Copy `n` of an instance, for `owner`: a space of its own (OpenWorld::instance), its floors and
@@ -589,7 +597,7 @@ impl Game {
         if p.mode == Mode::Ride
             && let Some(life) = life
         {
-            let mut sim = Sim { player: p, world: &mut self.open, owner: character };
+            let mut sim = Sim { player: p, world: &self.open, owner: character };
             vehicles::dismount(life, &mut sim);
         }
         let y = ground_at(hf, &self.open.index, x, z, floor.unwrap_or_else(|| hf.height(x, z)) + 1.2, 1.2);
@@ -758,7 +766,7 @@ impl Game {
     fn rebuild_world(&mut self) {
         self.open = match self.copy_of() {
             Some(c) => OpenWorld::instance(c.def, self.zone),
-            None => OpenWorld::new(self.zone),
+            None => played(self.zone),
         };
         let mut lists: Vec<(i64, LifeState)> = Vec::new();
         for (_, owner, _, life) in self.players.each_open() {

@@ -17,7 +17,13 @@ pub fn give(bundles: BTreeMap<String, String>) -> bool {
 
 /// The bundle at `path` under shared/: the one given, or else the one compiled in.
 pub fn bundle(path: &str, compiled: &'static str) -> &'static str {
-    GIVEN.get_or_init(BTreeMap::new).get(path).map_or(compiled, String::as_str)
+    given(path).unwrap_or(compiled)
+}
+
+/// The bundle given at `path` under shared/, if one was: in place of a compiled one, or beside them
+/// (the regions of a world given whole, as the tests' fixture world is).
+pub fn given(path: &str) -> Option<&'static str> {
+    GIVEN.get_or_init(BTreeMap::new).get(path).map(String::as_str)
 }
 
 #[cfg(test)]

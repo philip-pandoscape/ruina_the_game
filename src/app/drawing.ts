@@ -1,6 +1,7 @@
 // Drawing a frame: the world as the rules have it at the moment shown (between two steps, by alpha),
 // with the effects of what happened, spells' circles, monsters' warnings, the ability bar, the
 // camera and everyone else. main.ts builds it once; the loop draws each frame with it.
+import { lookAtWorld } from '../render/origin';
 import * as THREE from 'three';
 import { pointsLeft } from '../content/build';
 import { INTERP_TICKS, type NetActor } from '../net/worldFeed';
@@ -363,10 +364,12 @@ export function makeDrawing(g: GameRefs) {
     if (cameraDt > 0) follow.update(pos, cameraDt);
     if (pinnedView) {
       follow.camera.position.copy(pinnedView.from);
-      follow.camera.lookAt(pinnedView.to);
+      lookAtWorld(follow.camera, pinnedView.to);
       follow.camera.updateMatrixWorld();
     }
     stage.follow(pos.x, pos.z, pos.y);
+    // The regions round you: grown ahead of you, let go behind you (src/app/regions.ts).
+    g.regions?.update(pos.x, pos.z);
     openStage?.update(animDt, follow.camera, pos.x, pos.z);
     if (openStage && life) {
       const sky = life.zone.recipe.sky;

@@ -56,7 +56,10 @@ it even starts.
 - `/?test` opens the world offline and paused. `/?test=<instance>` opens a copy of that instance
   offline and paused, as if you'd come through its door (`?test=yard`, the training yard;
   `?test=goblinCamp`, the goblin camp's war-band: its pieces, and the creatures it brings on its
-  floor). `/?offline` or `/?offline=<instance>` plays the world or a copy offline, running. The
+  floor). `/?offline` or `/?offline=<instance>` plays the world or a copy offline, running.
+  `&fixture=world` plays the tests' fixture world of three regions in place of the shipped one, and
+  `&fixture=far` one with a region 102 km out (`tests/fixtures/world/`, `docs/world.md` Testing);
+  `__game.regionsReady(x, z)` waits for the regions near a place as if you'd come from afar. The
   options are listed in `src/app/options.ts`.
 - A spec whose tests share nothing says so: `test.describe.configure({ mode: 'parallel' })`.
 - Tags: `@gpu` for tests that need a real GPU to keep up (CI skips them); `@alone` for tests that race

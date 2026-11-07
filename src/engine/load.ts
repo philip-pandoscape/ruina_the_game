@@ -5,3 +5,6 @@ import url from '../../target/wasm32-unknown-unknown/release/ruina_engine_wasm.w
 import { loadEngine } from './wasm';
 
 export const startEngine = (): Promise<void> => loadEngine(url);
+
+/** Content for the engine to read in place of what's built into it, before it reads anything (a fixture world of the tests'). */
+export { useContent } from './wasm';
