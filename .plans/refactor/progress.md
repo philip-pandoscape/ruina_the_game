@@ -723,7 +723,7 @@ the developer zone; then the engine bridge (R6.4) and Phase 8's switches.
 | wire | R10.8 | running (first half) | |
 | land | R10.21 | running (first half) | |
 | borders | R10.19 | running (first half) | |
-| channels | R10.22 | running (first half) | |
+| channels | R10.22 | running (first half) | Started (5540056): the policy as a pure crate, crates/channels, in the tiers' words (a region's channel n, character ids), its tuning in content/channels.json, the browser's side tested through the UI gallery; building the policy and its tests |
 | multiserver | issue #4, requirement 6 | running (first half) | |
 | scale | R10.24 | running (first half) | Plan in its report (0c48b4c): a Rust loadtest (bots and virtual clients over the real WebSocket, the server's CPU and memory), two small server hooks (a bot limit, rules and sending timed apart), the battlefield stress spec for 0-256 peers, then the baseline sweeps; its rig is up |
 | words | R10.14 | last, once the rest are in | |
