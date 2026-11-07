@@ -12,6 +12,7 @@ is, how they talk, and which guide says more. The root `AGENTS.md` lists the fol
 | The browser's rules | `crates/engine-wasm` | The engine compiled to WebAssembly, with the browser's game (`session.rs`) | [engine.md](engine.md) |
 | The client | `src/` | Three.js and TypeScript, built by Vite: the way in, the game's wiring, drawing, the interface, input, the connection, the developer pages and the bible | Each area's `AGENTS.md` |
 | The server | `crates/server` | `ruina-server` on one port (axum): the accounts API, the game's files, the admins' pages and the world's WebSocket. Inside, its tiers: the gate, a simulation for each channel and copy, the store, the social tier and the directory, joined only by the messages of `crates/world-api` | `crates/server/AGENTS.md`, [world.md](world.md), [admin.md](admin.md) |
+| Channels | `crates/channels` | The policy that fills a region's channels, opens another past a soft cap, merges a quiet one and lets players change; pure, played by the server's directory (R10.22) | [world.md](world.md) (Channels), `crates/channels/AGENTS.md` |
 | Content | `content/` built into `shared/` | Every kind of thing as files, checked and built into the bundles both sides read | [content.md](content.md) |
 | Assets | `src/render/assets/`, `src/ui/theme/` | Models, textures, sounds and icons, listed in a manifest and loaded by need | [assets.md](assets.md) |
 | What lasts | Postgres, `crates/server/migrations/` | Accounts, sessions, and characters: each one's life (estate included), build, home channel, and the epoch every write about them carries | `crates/server/src/store/` |
@@ -132,7 +133,7 @@ After the refactor, the world splits between several servers:
 - the tiers in processes of their own, their messages crossing between them;
 - regions owned by simulations, their borders crossed seamlessly;
 - land shared by every channel and contested;
-- channels opening and merging with the crowd.
+- channels opening and merging with the crowd (the policy is built: `crates/channels`).
 
 The research and the decisions are in `.plans/world/research.md`, and the steps are in
 `.plans/refactor/tracker.md` (R10.8, R10.17 to R10.24).

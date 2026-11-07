@@ -10,6 +10,8 @@ publish = false
 # each other in one process.
 [dependencies]
 ruina-engine.workspace = true
+# The channels' policy: what a player is doing, where they ask to go, and what they see of a region's channels travel in messages.
+ruina-channels.workspace = true
 # rc: a tick's records travel to the gates as one Arc, shared by every connection there.
 serde = { workspace = true, features = ["rc"] }
 serde_json.workspace = true

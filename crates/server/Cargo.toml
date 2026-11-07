@@ -9,6 +9,8 @@ publish = false
 ruina-engine.workspace = true
 # The messages between the tiers, their ids, ticks and epochs.
 ruina-world-api.workspace = true
+# The channels' policy, which the directory plays (crates/channels).
+ruina-channels.workspace = true
 # Links to the other processes when the world runs on several (crates/server/src/cluster).
 ruina-link.workspace = true
 # Accounts: password hashes and session tokens.

@@ -25,6 +25,10 @@ import type { ArrowRecord, EffectEvent, MeteorRecord, NetActor } from './worldFe
 //                     | challenges {sent, waiting} | table {table}   (mini-games, src/ui/minigames)
 //                     | space {space}: into a dungeon's copy, or back out (crates/server/src/directory/mod.rs)
 //                     | party {party} | partyInvite {invite} | notice {text}   (parties, src/ui/party)
+//                     | channels {channels}: your region's channels as you see them (crates/channels), asked
+//                       for, and sent when your channel begins to close
+//                     | channelMoved {from, to, why}: the server moved you to another channel (a space
+//                       comes with it)   (channels, src/ui/channels)
 //                     | reset | kicked | error {text} | updating
 //   browser → server  (binary) inputs: 7, count, then per input a u32 sequence number, the u32
 //                     tick (× 16) everyone else is drawn at, and 10 bytes
@@ -33,6 +37,8 @@ import type { ArrowRecord, EffectEvent, MeteorRecord, NetActor } from './worldFe
 //                     | move {table, m} | concede {table}   (a game is its place in shared/minigames.json)
 //                     | dungeon {id, enter} | partyInvite {to?, name?} | partyAnswer {from, accept}
 //                     | partyLeave | partyKick {id} | partyLead {id}
+//                     | channels: your region's channels, please | channel {to} | channel {party: true}:
+//                       to another channel, or your party's
 
 export interface Welcome {
   character: { id: number; name: string };
@@ -70,6 +76,30 @@ export interface PartyInviteView {
   from: number;
   name: string;
   ms: number;
+}
+
+/** Your region's channels as you see them (crates/channels/src/region.rs ChannelsView; src/ui/channels). */
+export interface ChannelsView {
+  region: string;
+  /** Your channel (0: you aren't in one of the region's). */
+  here: number;
+  list: Array<{ n: number; load: 'quiet' | 'lively' | 'busy' | 'full'; closing: boolean; party: number; friends: number }>;
+  /** Your channel is merging into another: which, and how long (ms) until you're moved, as it was sent. */
+  closing: { into: number; ms: number } | null;
+  /** How long (ms, as it was sent) until you may change channel again. */
+  wait: number | null;
+  /** What stops you changing channel as you stand, if anything: a sentence. */
+  blocked: string | null;
+  /** Your party's channel, if it isn't yours, and whether you're waiting to join it. */
+  party: number | null;
+  following: boolean;
+}
+
+/** The server moved you to another channel: from where, to where, and why. */
+export interface ChannelMoved {
+  from: number;
+  to: number;
+  why: 'choice' | 'party' | 'merge';
 }
 
 /** Someone's houses, farms and ships on the slipway, as the server shares them. */
@@ -211,7 +241,7 @@ const RETRY_MS = { updating: [500, 1000, 1500, 2000], reconnecting: [500, 1000, 
 /** A WebSocket closed as a service restart: the server is being updated. */
 const SERVICE_RESTART = 1012;
 /** What this page speaks; the server says what it speaks in its welcome (crates/server/src/gate/socket.rs). */
-const WORLD_PROTOCOL = 11;
+const WORLD_PROTOCOL = 12;
 /**
  * The content this page was built from (shared/hash.json, tools/content/contentc.mjs); the server
  * says its own in its welcome. Built from other content, the two would read what goes on the wire
@@ -259,6 +289,13 @@ export class WorldLink {
   onInvite: ((i: PartyInviteView | null) => void) | null = null;
   /** Something the server wants the player to read (not a problem: a party joined, say). */
   onNotice: ((text: string) => void) | null = null;
+  /** Your region's channels as last heard (null until asked), and when they came; the last move between channels, and when. */
+  channels: ChannelsView | null = null;
+  channelsHeard = 0;
+  onChannels: ((c: ChannelsView | null) => void) | null = null;
+  moved: ChannelMoved | null = null;
+  movedHeard = 0;
+  onMoved: ((m: ChannelMoved) => void) | null = null;
   private resetDone: Array<() => void> = [];
   /** The channel as last heard, kept here so nothing is missed before the game is ready to draw it. */
   readonly peers = new Map<number, PeerEntry>();
@@ -302,6 +339,11 @@ export class WorldLink {
     this.claims = w.claims ?? {};
     this.clock = { server: w.now, heard };
     this.space = w.space ?? { kind: 'channel', channel: w.channel };
+    // The channels as they were on the connection before are asked for again.
+    if (this.channels) {
+      this.channels = null;
+      this.onChannels?.(null);
+    }
     // A game or a challenge that's still on comes again from the server, after its welcome.
     const hadTable = this.table !== null;
     const hadChallenges = !!(this.challenges.sent || this.challenges.waiting);
@@ -443,6 +485,18 @@ export class WorldLink {
     return this.send({ t: 'partyLead', id });
   }
 
+  // ---------- Channels (crates/channels; the server's directory places you, moves you and merges channels) ----------
+
+  /** Asks for your region's channels as they are now (the answer comes as `channels`). */
+  askChannels(): boolean {
+    return this.send({ t: 'channels' });
+  }
+
+  /** Asks to go to channel `n`, or to your party's: the server's rules say whether you may. */
+  changeChannel(to: number | 'party'): boolean {
+    return this.send(to === 'party' ? { t: 'channel', party: true } : { t: 'channel', to });
+  }
+
   /** Starts the island over on the server. Resolves once it's done (or after 3 s). */
   reset(): Promise<void> {
     return new Promise((resolve) => {
@@ -521,9 +575,14 @@ export class WorldLink {
     } else if (msg.t === 'space') {
       const s = (msg as { space?: SpaceView }).space;
       if (!s) return;
-      // Everyone you could see is somewhere else now; whoever is here comes in the next ticks.
+      // Everyone you could see is somewhere else now; whoever is here comes in the next ticks. The
+      // channels heard were the old place's: they're asked for again.
       this.peers.clear();
       this.latest = null;
+      if (this.channels) {
+        this.channels = null;
+        this.onChannels?.(null);
+      }
       this.space = s;
       this.onSpace?.(s);
     } else if (msg.t === 'party') {
@@ -534,6 +593,16 @@ export class WorldLink {
       this.invite = (msg as { invite?: PartyInviteView | null }).invite ?? null;
       this.inviteHeard = performance.now();
       this.onInvite?.(this.invite);
+    } else if (msg.t === 'channels') {
+      this.channels = (msg as { channels?: ChannelsView | null }).channels ?? null;
+      this.channelsHeard = performance.now();
+      this.onChannels?.(this.channels);
+    } else if (msg.t === 'channelMoved') {
+      const m = msg as Partial<ChannelMoved>;
+      if (typeof m.from !== 'number' || typeof m.to !== 'number' || !m.why) return;
+      this.moved = { from: m.from, to: m.to, why: m.why };
+      this.movedHeard = performance.now();
+      this.onMoved?.(this.moved);
     } else if (msg.t === 'notice') this.onNotice?.(msg.text ?? '');
   }
 

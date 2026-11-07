@@ -96,6 +96,8 @@ export class PartyUI {
   private sig = { frame: '', invite: '', win: '' };
   /** What's typed in the window's name field, kept while it redraws. */
   private name = '';
+  /** The window opened: another docked where it docks closes (the Channels window). */
+  onOpen: (() => void) | null = null;
 
   constructor(private d: PartyDeps) {
     for (const w of [this.frame, this.invite, this.win]) {
@@ -186,6 +188,7 @@ export class PartyUI {
   open(): void {
     this.win.hidden = false;
     this.focus = -1;
+    this.onOpen?.();
     this.d.freeMouse();
     this.render(true);
   }

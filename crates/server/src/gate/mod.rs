@@ -118,9 +118,9 @@ impl Gate {
     }
 
     /// A character is gone for good (deleted): the directory forgets them, their party lets them
-    /// go, and what they built in their home channel comes down.
-    pub fn forget(&self, character: CharacterId, channel: Option<u32>) {
-        self.post.directory(ToDirectory::Forget { character, channel });
+    /// go, and what they built comes down in every channel.
+    pub fn forget(&self, character: CharacterId) {
+        self.post.directory(ToDirectory::Forget { character });
     }
 
     pub fn stage(&self) -> Stage {

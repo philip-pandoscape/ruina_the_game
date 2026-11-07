@@ -198,14 +198,16 @@ impl Social {
             hand.push((Owner::Party(PartyId(pid)), Owner::Solo(last)));
         }
         let mut members: Vec<(CharacterId, Option<PartyId>)> = Vec::new();
+        let mut leaders: Vec<(PartyId, CharacterId)> = Vec::new();
         for pid in &c.parties {
             if let Some(p) = self.parties.get(*pid) {
                 members.extend(p.members.iter().map(|m| (m.id, Some(PartyId(*pid)))));
+                leaders.push((PartyId(*pid), p.leader));
             }
         }
         members.extend(c.out.iter().map(|who| (*who, None)));
         if !members.is_empty() || !hand.is_empty() {
-            self.post.directory(ToDirectory::Parties { changed: members, hand });
+            self.post.directory(ToDirectory::Parties { changed: members, hand, leaders });
         }
         for (who, text) in &c.say {
             self.notice(*who, text);

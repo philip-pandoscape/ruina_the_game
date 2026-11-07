@@ -66,7 +66,7 @@ pub async fn run(o: Options, db: PgPool) -> std::io::Result<()> {
             let place = Placement::new(db.clone());
             let leases = PgLeases::new(db.clone(), place.clone(), o.lease.ttl);
             let sims = Arc::new(RemoteSims::new(p.node().clone(), place));
-            start::services_with(&p.post, Db::Pg(db.clone()), sims, leases, COPY_KEPT, EXPEL_AFTER);
+            start::services_leased(&p.post, Db::Pg(db.clone()), sims, leases, COPY_KEPT, EXPEL_AFTER, ruina_channels::tuning().clone());
             tokio::spawn(sweep(db.clone(), o.node.clone()));
             status_page(&p, o.port, o.everywhere).await?;
             p.stop().await;
