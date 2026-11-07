@@ -1,6 +1,6 @@
 [package]
 name = "ruina-tools"
-description = "Programs run by hand or by the tests: the WebAssembly's and the ground's checks against the native engine, the balance harness"
+description = "Programs run by hand or by the tests: the WebAssembly's and the ground's checks against the native engine, the balance harness, the load harness"
 version.workspace = true
 edition.workspace = true
 publish = false
@@ -11,3 +11,8 @@ ruina-engine-wasm.workspace = true
 ruina-server.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+# The load harness (src/bin/loadtest.rs): virtual clients on real WebSocket connections to a
+# running world server. The same tokio-tungstenite the server's axum is built on.
+futures-util.workspace = true
+tokio.workspace = true
+tokio-tungstenite = "0.29.0"
