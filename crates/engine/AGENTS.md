@@ -9,7 +9,7 @@ the engine, and how to add to the browser's interface: `docs/engine.md`.
 | Module | What |
 |---|---|
 | `player.rs`, `skills.rs`, `tuning.rs` | A player's step: movement, combos, abilities, vitals; the skill tree (`shared/skilltree.json`, naming weapons, abilities and movement skills by id, their places found as it's read: `skill_tree`) and builds, kept by id (`saved_build`, `build_from_saved`; those kept by index before read through `shared/buildsByIndex.json`); the numbers from `shared/tuning.json`. |
-| `open/` | The world: its map of regions on chunks (`map.rs`, from `shared/world.json`), each region's ground and surfaces (`zone.rs`, grown from its recipe, `shared/regions/<id>.json`, by `generate.rs` the first time anything asks), colliders (`colliders.rs`), traversal (`traverse.rs`: climbing, gliding, swimming), and the instances, dungeons and developer zones, each a space of its own (`dungeon.rs`, from `shared/instances.json`). |
+| `open/` | The world: its map of regions on chunks (`map.rs`, from `shared/world.json`: views of it hold the regions grown by need and drop them when nothing needs them, every view of a world sharing what's grown; a region the same to the bit however it's grown), each region's ground and surfaces (`zone.rs`, grown from its recipe, `shared/regions/<id>.json`, by `generate.rs`), colliders (`colliders.rs`), traversal (`traverse.rs`: climbing, gliding, swimming), the instances, dungeons and developer zones, each a space of its own (`dungeon.rs`, from `shared/instances.json`), and the tests' fixture worlds (`fixture.rs`, `tests/fixtures/world/`: for the engine's tests, and other crates' with the `fixture-world` feature). An `OpenWorld` plays through a view of its own (`playing`, `play`, `hold`, `adopt`, `alone`). |
 | `actor.rs`, `actors.rs`, `ai.rs`, `pack.rs`, `missiles.rs`, `content.rs`, `creatures.rs` | Creatures: their kinds (`shared/actors.json`, `shared/creatures.json`), brains (`shared/behaviours.json` and each creature's), packs, missiles, hits. `content.rs` also has the content's hash (`shared/hash.json`), which the server sends in its welcome. |
 | `combat.rs` | Players together, as the server plays them: joining and leaving, their inputs, and everything that hurts or heals (swings, arrows, meteors, heals, creatures' slams and blows), with lag compensation against players and creatures alike; passengers riding along in someone else's vehicle. A tick in phases, each in any order (below). |
 | `bots.rs` | Bots: brains that fill a player's inputs (`docs/world.md`). |
@@ -72,5 +72,9 @@ the engine, and how to add to the browser's interface: `docs/engine.md`.
   native engine bit for bit (`tests/conformance/engine.test.ts`) and the browser's ground sampling to
   the engine's (`terrain.test.ts`), and runs the balance harness (`balance.test.ts`).
 - The island grows from its recipe here alone (`open/generate.rs`, `open/buildings.rs`): the
-  browser grows it through `crates/engine-wasm` (`zone_grow`), and `tests/conformance/terrain.test.ts`
-  holds the WebAssembly's island to the native one, all of it.
+  browser grows it through `crates/engine-wasm` (`zone_grow`, and a region whole in its worker:
+  `region_grow`), and `tests/conformance/terrain.test.ts` holds the WebAssembly's island to the native
+  one, all of it; `tests/conformance/world.test.ts` the page's ground across the fixture world to the
+  world map's.
+- Growing and dropping (`open/map.rs`) and the fixture world crossed holding what's near the player,
+  as the browser does (`open/fixture.rs`).

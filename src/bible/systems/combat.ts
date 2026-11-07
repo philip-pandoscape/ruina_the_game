@@ -25,7 +25,7 @@ import { nearestPlace } from '../things/refs';
 import playerSource from '../../../crates/engine/src/player.rs?raw';
 import actorsSource from '../../../crates/engine/src/actors.rs?raw';
 import serverCombat from '../../../crates/engine/src/combat.rs?raw';
-import serverPlay from '../../../crates/server/src/play/mod.rs?raw';
+import serverPlay from '../../../crates/world-api/src/lib.rs?raw';
 
 // Numbers the rules keep in their source rather than in the tuning: your combo is the engine's
 // (player.rs), the arc a swing catches creatures in is the engine's too (actors.rs), and where a

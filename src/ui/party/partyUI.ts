@@ -47,8 +47,8 @@ export interface PartyLink {
   partyLead(id: number): boolean;
 }
 
-// Parties, online (crates/server/src/play/parties.rs): a few players who play together, as groups do in World
-// of Warcraft, and go into a dungeon's copy together (crates/server/src/play/spaces.rs). The party frame under
+// Parties, online (crates/server/src/social/parties.rs): a few players who play together, as groups do in World
+// of Warcraft, and go into a dungeon's copy together (crates/server/src/directory/mod.rs). The party frame under
 // your portrait shows everyone else in it (health while they're near you, where they are when
 // they're not); the Party window (O) invites someone, by name or from the players near you, and is
 // where the leader hands on the lead or removes someone, and anyone leaves. An invitation asks in a

@@ -1,5 +1,5 @@
 import type { SkillSet } from '../content/skills';
-import type { Heightfield } from './world/terrain';
+import type { Ground } from './world/terrain';
 import type { ColliderIndex } from './world/colliders';
 import type { ZoneData } from './world/region';
 
@@ -251,7 +251,7 @@ export interface World {
   // Open worlds only. The training yard and the battlefield are flat at y = 0 and leave these
   // out, which keeps their rules exactly as the server runs them (tests/conformance/player.test.ts).
   /** Ground heights, surfaces and sea level. */
-  terrain?: Heightfield;
+  terrain?: Ground;
   /** Obstacles, building colliders and walkable decks, bucketed for fast queries. */
   index?: ColliderIndex;
   /** The recipe and everything generated from it. */
@@ -263,7 +263,7 @@ export interface World {
   respawnAt?: { x: number; y: number; z: number; facing: number };
   /**
    * Online: everyone else's vehicles in your channel, as circles where they are this step, which you
-   * bump into like your own. The server keeps the channel's (crates/server/src/play/mod.rs); the browser
+   * bump into like your own. The server keeps the channel's (crates/server/src/sim/mod.rs); the browser
    * fills in the others as it draws them (src/net/worldPeers.ts).
    */
   movers?: Mover[];

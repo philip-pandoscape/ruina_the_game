@@ -6,7 +6,7 @@ import { coins, count, duration, listOf, metres } from '../format';
 import { described, join, system, table } from '../kit';
 import { type Html, link, md, phrase, raw } from '../md';
 import { rustConst, sourceNumber } from '../source';
-import tablesSource from '../../../crates/server/src/play/tables.rs?raw';
+import tablesSource from '../../../crates/server/src/sim/tables.rs?raw';
 import beaconsSource from '../../../crates/engine/src/minigames/games/beacons.rs?raw';
 
 /** The numbers the tables' and Beacons' rules keep in their source, read as the page is drawn. */
@@ -102,7 +102,7 @@ export const minigames = system({
   summary: 'Challenging another player, the stakes and the pot, the table, and the rules of each game.',
   icon: '🎲',
   keywords: ['game', 'challenge', 'stake', 'pot', 'table', 'beacons', 'wager', 'board', 'cards', 'concede'],
-  rules: ['crates/engine/src/minigames/', 'crates/server/src/play/tables.rs'],
+  rules: ['crates/engine/src/minigames/', 'crates/server/src/sim/tables.rs'],
   content: ['shared/minigames.json#challenge', 'shared/minigames.json#table', 'shared/minigames.json#colors', 'shared/minigames.json#games'],
   body: () => {
     const R = rule();

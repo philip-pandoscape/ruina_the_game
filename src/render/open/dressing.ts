@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import type { World } from '../../engine/rules';
+import type { Ground, ZoneData } from '../../engine/zone';
 import { structureDef, propDef } from '../../content/structures';
 import { track } from '../assets';
 import { grainMaterial } from '../models/detail';
@@ -15,9 +15,7 @@ export class ZoneDressing {
   readonly group = new THREE.Group();
   private animated: Array<(t: number) => void> = [];
 
-  constructor(world: World, models: ModelKit) {
-    const zone = world.zone;
-    if (!zone) return;
+  constructor(zone: ZoneData, ground: Ground, models: ModelKit) {
     // Built things take the grain of what they're made of; crops keep plain colours.
     const plainMat = toon(0xffffff, { vertexColors: true });
     const mat = grainMaterial(plainMat);
@@ -53,7 +51,7 @@ export class ZoneDressing {
             const z = p.z - lx * s + lz * c;
             let list = crops.get(crop);
             if (!list) crops.set(crop, (list = []));
-            list.push({ x, y: world.terrain!.height(x, z), z, rot: (row * 7 + col * 3) * 0.7 });
+            list.push({ x, y: ground.height(x, z), z, rot: (row * 7 + col * 3) * 0.7 });
           }
         });
       }

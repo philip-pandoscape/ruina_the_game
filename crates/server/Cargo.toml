@@ -7,6 +7,8 @@ publish = false
 
 [dependencies]
 ruina-engine.workspace = true
+# The messages between the tiers, their ids, ticks and epochs.
+ruina-world-api.workspace = true
 # Accounts: password hashes and session tokens.
 argon2 = { version = "0.5.3", features = ["std"] }
 sha2 = "0.10.9"
