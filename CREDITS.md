@@ -25,6 +25,12 @@ The townsfolk's bodies (`npc_*` in `src/render/assets/models/`) are the project'
 there) from turnaround sheets painted for Ruina with Google's Gemini image model, then compressed with glTF
 Transform.
 
+What the townsfolk hold (`prop_*` in `src/render/assets/models/`) comes from
+[Tripo's community catalog](https://studio.tripo3d.ai/3d-model-gallery/), made with Tripo AI by its users and
+exported on a paid plan, then rebuilt there as light Smart Meshes (retopology), stood upright and compressed:
+the elder's staff by estevancreativo, the grocer's basket of vegetables by LeaheyMacha23, the factor's cane by
+texelstudio and the ledger by lolex2303.
+
 The icons in `src/ui/theme/icons/` (items, skills, places and the HUD's own) are the project's own: painted
 for Ruina with Google's Gemini image model (Nano Banana Pro, on a paid plan) by `tools/icons/paint.mjs`, and
 cut out of their sheets by `tools/icons/bake.mjs`.

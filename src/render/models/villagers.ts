@@ -4,6 +4,10 @@ import { clamp } from '../../util/math';
 import type { Hair, VillagerLook } from '../../content/looks';
 import { madeBody, madeBodyNow, type WornBody } from '../detail/madeBody';
 import { wearTownsperson, type MadeTownsperson } from '../detail/madeTownsfolk';
+import { asset } from '../../assets/manifest';
+import { model, track } from '../assets';
+import { toon } from '../toon';
+import { baked } from './glb';
 
 // The townsfolk of Emberholm, built like the hero (src/render/creatures/heroBody.ts): chunky
 // rounded blocks, a big head, ~1.7-1.9 m tall, facing +Z with the origin at the feet. Each is
@@ -80,14 +84,26 @@ interface Kit {
    * A prop in hand: built in the shoulder's upright frame round the resting hand, then hung on the
    * arm. A made body holds it too, built round its own hand, unless `on` is 'built' (a made body
    * that wears its own: the captain's spyglass, the woodcutter's axe); 'made' is a made body's only.
+   * `made` is a made model a made body holds in its place, once it has loaded.
    */
-  held(side: 'l' | 'r', build: HeldProp['build'], on?: 'both' | 'built' | 'made'): void;
+  held(side: 'l' | 'r', build: HeldProp['build'], on?: 'both' | 'built' | 'made', made?: MadeProp): void;
 }
 
 /** A prop in a townsperson's hand: built round the hand where it rests, upright, the ground `ground` below. */
 interface HeldProp {
   side: 'l' | 'r';
   build: (p: Parts, hand: THREE.Vector3, ground: number) => void;
+  made?: MadeProp;
+}
+
+/**
+ * A made model a made body holds in place of the built prop: a file in src/render/assets/models,
+ * upright as the file stands, set where the built prop stands (from the hand where it rests and the
+ * ground below): the middle of its foot, its height, and how far it leans forward.
+ */
+interface MadeProp {
+  file: string;
+  place: (hand: THREE.Vector3, ground: number) => { foot: V3; height: number; tilt?: number };
 }
 
 /** What each built townsperson holds that a made body of theirs holds too. */
@@ -130,8 +146,8 @@ function villager(id: string, look: Look, extra?: Extra): VillagerModel {
     d,
     h,
     shoulderY,
-    held(side, build, on = 'both') {
-      if (on !== 'built') carried.push({ side, build });
+    held(side, build, on = 'both', made) {
+      if (on !== 'built') carried.push({ side, build, made });
       if (on === 'made') return;
       // The arm hangs from a body that may stoop, so undo both turns to build the prop upright.
       const rest = side === 'l' ? restL : restR;
@@ -281,11 +297,16 @@ function beard(p: Parts, c: Rgb, kind: 'bushy' | 'long' | 'stubble' | 'moustache
 const elder: Extra = (k) => {
   k.torso.add(box(0.5, 0.08, 0.34), PAL.gold, [0, 0.49, 0]);
   k.torso.add(box(0.06, 0.4, 0.02), PAL.gold, [0, 0.28, 0.157]);
-  k.held('r', (p, hand, ground) => {
-    p.add(rod([hand.x, ground, hand.z], [hand.x + 0.02, hand.y + 0.75, hand.z], 0.035, 6, 0.03), PAL.woodDark);
-    p.add(ico(0.07, 0), PAL.woodDark, [hand.x + 0.02, hand.y + 0.8, hand.z], undefined, [1, 1.2, 1]);
-    p.add(octa(0.045), PAL.leaf, [hand.x + 0.07, hand.y + 0.85, hand.z], undefined, [0.6, 1.2, 0.3]);
-  });
+  k.held(
+    'r',
+    (p, hand, ground) => {
+      p.add(rod([hand.x, ground, hand.z], [hand.x + 0.02, hand.y + 0.75, hand.z], 0.035, 6, 0.03), PAL.woodDark);
+      p.add(ico(0.07, 0), PAL.woodDark, [hand.x + 0.02, hand.y + 0.8, hand.z], undefined, [1, 1.2, 1]);
+      p.add(octa(0.045), PAL.leaf, [hand.x + 0.07, hand.y + 0.85, hand.z], undefined, [0.6, 1.2, 0.3]);
+    },
+    'both',
+    { file: 'prop_staff', place: (hand, ground) => ({ foot: [hand.x + 0.02, ground, hand.z], height: hand.y - ground + 0.72 }) },
+  );
 };
 
 /** A white apron, a red headscarf and a basket of produce on the arm: the grocer's. */
@@ -303,18 +324,24 @@ const grocer: Extra = (k) => {
     [0.18, -0.08],
   ] as const)
     k.head.add(box(0.04, 0.04, 0.012), PAL.white, [x, 0.5, z + 0.12], [-1.2, 0, 0]);
-  k.held('l', (p, hand) => {
-    const b = hand.clone().add(new THREE.Vector3(0.05, -0.2, 0.06));
-    p.add(cyl(0.17, 0.13, 0.15, 8), 0xb98a55, [b.x, b.y, b.z]);
-    p.add(tor(0.15, 0.015, 3, 8, Math.PI), 0x9a6a3c, [b.x, b.y + 0.07, b.z], [0, Math.PI / 2, 0]);
-    const fruit: Array<[number, number, Rgb]> = [
-      [-0.06, 0.03, PAL.red],
-      [0.06, 0.04, 0xd9a441],
-      [0.0, -0.06, 0x6fbf4a],
-      [0.07, -0.05, PAL.red],
-    ];
-    for (const [x, z, c] of fruit) p.add(ico(0.06, 0), c, [b.x + x, b.y + 0.09, b.z + z]);
-  });
+  k.held(
+    'l',
+    (p, hand) => {
+      const b = hand.clone().add(new THREE.Vector3(0.05, -0.2, 0.06));
+      p.add(cyl(0.17, 0.13, 0.15, 8), 0xb98a55, [b.x, b.y, b.z]);
+      p.add(tor(0.15, 0.015, 3, 8, Math.PI), 0x9a6a3c, [b.x, b.y + 0.07, b.z], [0, Math.PI / 2, 0]);
+      const fruit: Array<[number, number, Rgb]> = [
+        [-0.06, 0.03, PAL.red],
+        [0.06, 0.04, 0xd9a441],
+        [0.0, -0.06, 0x6fbf4a],
+        [0.07, -0.05, PAL.red],
+      ];
+      for (const [x, z, c] of fruit) p.add(ico(0.06, 0), c, [b.x + x, b.y + 0.09, b.z + z]);
+    },
+    'both',
+    // Made, held by the top of its handle.
+    { file: 'prop_basket', place: (hand) => ({ foot: [hand.x + 0.05, hand.y - 0.32, hand.z + 0.06], height: 0.36 }) },
+  );
 };
 
 /** A leather apron, a pack strap over one shoulder and the crate it holds on the back: the packwright's. */
@@ -405,8 +432,12 @@ const clerk: Extra = (k) => {
       p.add(box(0.065, 0.28, 0.02), PAL.cream, [hand.x + 0.02, hand.y + 0.05, hand.z + 0.14], [0.3, 0, 0]);
     },
     'made',
+    LEDGER,
   );
 };
+
+/** A made ledger in a made hand, upright at the side and leant as the built one is (the clerk's and the trader's). */
+const LEDGER: MadeProp = { file: 'prop_book', place: (hand) => ({ foot: [hand.x + 0.02, hand.y - 0.1, hand.z + 0.03], height: 0.3, tilt: 0.3 }) };
 
 /** A flight jacket with a fleece collar, goggles pushed up and a red scarf streaming out: the wingwright's. */
 const wingwright: Extra = (k, _root, body) => {
@@ -442,10 +473,15 @@ const trader: Extra = (k) => {
   k.torso.add(box(0.12, 0.03, 0.06), PAL.gold, [0.2, 0.06, 0.17]);
   soft(k.head, 0.54, 0.1, 0.52, 0x6b5a48, [0, 0.47, -0.02], undefined, 0.04);
   k.head.add(box(0.42, 0.03, 0.16), 0x5a4a3a, [0, 0.45, 0.27], [-0.15, 0, 0]);
-  k.held('l', (p, hand) => {
-    p.add(box(0.06, 0.3, 0.22), 0x2f5a3a, [hand.x + 0.02, hand.y + 0.05, hand.z + 0.03], [0.3, 0, 0]);
-    p.add(box(0.065, 0.28, 0.02), PAL.cream, [hand.x + 0.02, hand.y + 0.05, hand.z + 0.14], [0.3, 0, 0]);
-  });
+  k.held(
+    'l',
+    (p, hand) => {
+      p.add(box(0.06, 0.3, 0.22), 0x2f5a3a, [hand.x + 0.02, hand.y + 0.05, hand.z + 0.03], [0.3, 0, 0]);
+      p.add(box(0.065, 0.28, 0.02), PAL.cream, [hand.x + 0.02, hand.y + 0.05, hand.z + 0.14], [0.3, 0, 0]);
+    },
+    'both',
+    LEDGER,
+  );
 };
 
 /** A gold brocade waistcoat and watch chain, a cravat, a monocle, a top hat and a cane: an exchange's factor's. */
@@ -458,10 +494,15 @@ const factor: Extra = (k) => {
   k.head.add(cyl(0.32, 0.32, 0.03, 10), 0x16141a, [0, 0.5, 0]);
   k.head.add(cyl(0.2, 0.21, 0.4, 10), 0x16141a, [0, 0.71, 0]);
   k.head.add(cyl(0.212, 0.212, 0.07, 10), 0x6a3a8a, [0, 0.56, 0]);
-  k.held('r', (p, hand, ground) => {
-    p.add(rod([hand.x, ground, hand.z + 0.06], [hand.x, hand.y + 0.04, hand.z], 0.02, 5), 0x16141a);
-    p.add(sph(0.045, 6, 4), PAL.gold, [hand.x, hand.y + 0.07, hand.z]);
-  });
+  k.held(
+    'r',
+    (p, hand, ground) => {
+      p.add(rod([hand.x, ground, hand.z + 0.06], [hand.x, hand.y + 0.04, hand.z], 0.02, 5), 0x16141a);
+      p.add(sph(0.045, 6, 4), PAL.gold, [hand.x, hand.y + 0.07, hand.z]);
+    },
+    'both',
+    { file: 'prop_cane', place: (hand, ground) => ({ foot: [hand.x, ground, hand.z + 0.03], height: hand.y - ground + 0.1 }) },
+  );
 };
 
 /** Plaid, a green knit cap and an axe over the shoulder: the woodcutter's. */
@@ -674,7 +715,6 @@ function inMadeBody(id: string, built: VillagerModel, made: Made, look: Villager
 }
 
 const _toRoot = new THREE.Matrix4();
-const _inHand = new THREE.Matrix4();
 const _wrist = new THREE.Vector3();
 const _knuckles = new THREE.Vector3();
 
@@ -687,19 +727,70 @@ function holdIn(worn: MadeTownsperson, carried: readonly HeldProp[]): void {
   if (!carried.length) return;
   worn.root.updateMatrixWorld(true);
   _toRoot.copy(worn.root.matrixWorld).invert();
-  for (const { side, build } of carried) {
+  for (const { side, build, made } of carried) {
     const s = side === 'l' ? 'L' : 'R';
     const hand = worn.rig.joint(`hand${s}`);
     hand.getWorldPosition(_wrist).applyMatrix4(_toRoot);
     if (worn.rig.has(`fingers${s}`)) worn.rig.joint(`fingers${s}`).getWorldPosition(_knuckles).applyMatrix4(_toRoot);
     else _knuckles.copy(_wrist);
+    const grip = _wrist.clone().lerp(_knuckles, 0.6);
     const p = new Parts();
-    build(p, _wrist.clone().lerp(_knuckles, 0.6), 0);
+    build(p, grip, 0);
     const geo = p.build();
     // From the townsperson's frame into the hand's, as the hand is now.
-    geo.applyMatrix4(_inHand.multiplyMatrices(_toRoot, hand.matrixWorld).invert());
-    mesh(hand, geo, { name: `held${s}` });
+    const inHand = new THREE.Matrix4().multiplyMatrices(_toRoot, hand.matrixWorld).invert();
+    geo.applyMatrix4(inHand);
+    const built = mesh(hand, geo, { name: `held${s}` });
+    if (made) madeInHand(made, grip, inHand, hand, built);
   }
+}
+
+const propMaterials = new Map<string, THREE.Material>();
+/** A made prop's own painting, lit as the rest of the world is. */
+function propMaterial(m: THREE.Material): THREE.Material {
+  let out = propMaterials.get(m.uuid);
+  if (!out) propMaterials.set(m.uuid, (out = toon(0xffffff, { map: (m as THREE.MeshStandardMaterial).map ?? null })));
+  return out;
+}
+
+/**
+ * Puts a made prop in a made hand in place of the built one once its file has loaded (the built one
+ * stays if it never does): sized to its height, its foot where the built prop's stands, leant as
+ * that one leans, then into the hand's frame as the hand was when the built one was hung on it.
+ */
+function madeInHand(made: MadeProp, grip: THREE.Vector3, inHand: THREE.Matrix4, hand: THREE.Object3D, built: THREE.Mesh): void {
+  const id = `models/${made.file}`;
+  if (!asset(id)) return;
+  const { foot, height, tilt = 0 } = made.place(grip, 0);
+  void track(
+    model(id, { need: 'near' }).then((scene) => {
+      scene.updateMatrixWorld(true);
+      const box = new THREE.Box3().setFromObject(scene);
+      const s = height / Math.max(1e-6, box.max.y - box.min.y);
+      const into = inHand
+        .clone()
+        .multiply(new THREE.Matrix4().makeTranslation(foot[0], foot[1], foot[2]))
+        .multiply(new THREE.Matrix4().makeRotationX(tilt))
+        .multiply(new THREE.Matrix4().makeScale(s, s, s))
+        .multiply(new THREE.Matrix4().makeTranslation(-(box.min.x + box.max.x) / 2, -box.min.y, -(box.min.z + box.max.z) / 2));
+      const prop = new THREE.Group();
+      prop.name = built.name;
+      scene.traverse((o) => {
+        const m = o as THREE.Mesh;
+        if (!m.isMesh) return;
+        const piece = new THREE.Mesh(
+          baked(m.geometry, into.clone().multiply(m.matrixWorld)),
+          propMaterial(Array.isArray(m.material) ? m.material[0] : m.material),
+        );
+        piece.castShadow = true;
+        piece.receiveShadow = true;
+        prop.add(piece);
+      });
+      hand.remove(built);
+      built.geometry.dispose();
+      hand.add(prop);
+    }),
+  );
 }
 
 /** Waits for a townsperson's made body, if their look names one (the content library, before it films them). */
