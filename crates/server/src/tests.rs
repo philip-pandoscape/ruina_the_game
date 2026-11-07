@@ -24,7 +24,7 @@ use crate::gate::Event;
 use crate::gate::socket::{Seat, way_in};
 use crate::life::Command;
 use crate::open::dungeon::{door_into, dungeon};
-use crate::start::{Tiers, start_with};
+use crate::start::{Tiers, start_channels, start_with};
 use crate::store::Db;
 use crate::store::memory::Tables;
 
@@ -46,6 +46,12 @@ impl World {
     fn with(copy_kept: Duration, expel_after: Duration) -> World {
         let (db, tables) = Db::memory();
         World { tiers: start_with(db, copy_kept, expel_after), tables }
+    }
+
+    /// A world whose channels go by `channels`: small numbers, so a few players fill one.
+    fn channels(channels: ruina_channels::Tuning) -> World {
+        let (db, tables) = Db::memory();
+        World { tiers: start_channels(db, channels), tables }
     }
 
     fn post(&self) -> Arc<dyn Transport> {
@@ -526,4 +532,79 @@ async fn a_simulation_plays_its_game_twenty_times_a_second_while_anyone_is_in_it
     }
     let took = t.elapsed();
     assert!(took > Duration::from_millis(700) && took < Duration::from_millis(2500), "20 ticks in {took:?}");
+}
+
+/// Where a move between channels took someone, and why, as their browser hears it.
+async fn channel_moved(p: &mut Player) -> (u32, u32, ruina_channels::Why) {
+    p.heard("a move between channels", |m| if let ToConn::ChannelMoved { from, to, why } = m { Some((*from, *to, *why)) } else { None }).await
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_player_changes_channel_and_an_invitation_takes_them_to_their_partys() {
+    use ruina_channels::{Target, Tuning, Why};
+    // Two to a channel (three with a party), changed as often as you like.
+    let t = Tuning { soft_cap: 2, hard_cap: 3, open_ahead: 0, quiet: 1, merge_fill: 1, quiet_for: 600.0, change_every: 0.0, ..Tuning::small() };
+    let w = World::channels(t);
+    let a = w.join(1, "Ada").await;
+    let mut b = w.join(2, "Bo").await;
+    let mut c = w.join(3, "Cy").await;
+    let channel = |p: &Player| p.space["channel"].as_u64();
+    assert_eq!((channel(&a), channel(&b), channel(&c)), (Some(1), Some(1), Some(2)), "two fill channel 1, the third opens channel 2");
+    // Channel 1 is full to Cy.
+    c.ask(Ask::Channel { to: Target::Channel(1) });
+    assert_eq!(c.error().await, "That channel is full.");
+    // Bo goes to channel 2, standing where he stood, and hears where and why.
+    let before = b.me().await.you.p.pos;
+    b.ask(Ask::Channel { to: Target::Channel(2) });
+    assert_eq!(channel_moved(&mut b).await, (1, 2, Why::Choice));
+    let after = b.me().await.you.p.pos;
+    assert!((after.x - before.x).abs() < 0.5 && (after.z - before.z).abs() < 0.5, "{before:?} -> {after:?}");
+    // Ada, in channel 1, invites him into her party: once he says yes, he joins her there.
+    a.social(ToSocial::Invite { conn: a.conn(), to: Some(2), name: None });
+    let from = b.heard("an invitation", |m| if let ToConn::PartyInvite { invite: Some(i) } = m { Some(i.from) } else { None }).await;
+    b.social(ToSocial::Answer { conn: b.conn(), from, accept: true });
+    assert_eq!(channel_moved(&mut b).await, (2, 1, Why::Party));
+    // His region's channels, as he sees them now.
+    b.ask(Ask::Channels);
+    let view = b.heard("the channels", |m| if let ToConn::Channels(v) = m { Some(v.clone()) } else { None }).await;
+    assert_eq!(view.here, 1);
+    assert_eq!(view.list.iter().map(|c| c.n).collect::<Vec<_>>(), [1, 2]);
+    assert_eq!(view.list[0].party, 1, "Ada is with him");
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_quiet_channel_merges_and_its_player_is_moved_across() {
+    use ruina_channels::{Tuning, Why};
+    // Three to a channel; one with fewer than two is quiet at once, and merges into another that
+    // stays at two or fewer.
+    let t = Tuning { soft_cap: 3, hard_cap: 4, open_ahead: 0, quiet: 2, merge_fill: 2, quiet_for: 0.0, merge_notice: 0.0, merge_wait: 1.0, ..Tuning::small() };
+    let w = World::channels(t);
+    let a = w.join(1, "Ada").await;
+    let b = w.join(2, "Bo").await;
+    let c = w.join(3, "Cy").await;
+    let mut d = w.join(4, "Dee").await;
+    assert_eq!(d.space["channel"].as_u64(), Some(2));
+    // Bo and Cy go: channel 1 can take Dee now. He's told, then moved across.
+    drop(b);
+    drop(c);
+    d.heard("the channel closing", |m| if let ToConn::Notice { text } = m { text.contains("This channel is closing").then_some(()) } else { None }).await;
+    assert_eq!(channel_moved(&mut d).await, (2, 1, Why::Merge));
+    assert_eq!(d.tick().await.space.as_ref().map(|s| s.to_string()).as_deref(), Some("channel:emberholm:1"));
+    drop(a);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn players_coming_in_together_fill_channels_in_turn() {
+    use ruina_channels::Tuning;
+    let t = Tuning { soft_cap: 3, hard_cap: 4, open_ahead: 0, quiet: 2, merge_fill: 2, quiet_for: 600.0, ..Tuning::small() };
+    let w = World::channels(t);
+    // Eight at once, as a busy moment's connections come.
+    let names: Vec<String> = (1..=8).map(|id| format!("P{id}")).collect();
+    let joins: Vec<_> = names.iter().zip(1..).map(|(name, id)| w.join(id, name)).collect();
+    let players = futures_util::future::join_all(joins).await;
+    let mut per: std::collections::BTreeMap<u64, usize> = std::collections::BTreeMap::new();
+    for p in &players {
+        *per.entry(p.space["channel"].as_u64().expect("a channel")).or_default() += 1;
+    }
+    assert_eq!(per.into_iter().collect::<Vec<_>>(), [(1, 3), (2, 3), (3, 2)], "each channel filled to three before the next");
 }

@@ -74,8 +74,8 @@ const EVENT_ARROW_HIT: u16 = 3;
 // without the server naming who did it: their size is the damage or healing, their position the one
 // it happened to, and the bits of the kind above the low 4 say what caused it (a cause), for the
 // icon beside the number.
-const EVENT_YOU_HIT: u16 = 4;
-const EVENT_YOU_HURT: u16 = 5;
+pub const EVENT_YOU_HIT: u16 = 4;
+pub const EVENT_YOU_HURT: u16 = 5;
 const EVENT_YOU_HEAL: u16 = 6;
 
 // What caused an attributed event: what sort of thing it was in a cause's low 2 bits, and for a

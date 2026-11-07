@@ -59,12 +59,14 @@ const RULES = [
   'src/content/build.ts',
   ...files('crates/engine/src', '.rs'),
   ...['sim', 'directory', 'social', 'gate'].flatMap((tier) => files(`crates/server/src/${tier}`, '.rs')),
+  ...files('crates/channels/src', '.rs'),
 ];
 
-/** Rules files no player meets, by name: the bots that fill the developer zones (.plans/refactor, Phase 10), and the checks the tests run the rules through. */
+/** Rules files no player meets, by name: the bots that fill the developer zones (.plans/refactor, Phase 10), the checks the tests run the rules through, and tests kept in files of their own beside what they test. */
 const PLUMBING_NAMES: Array<[RegExp, string]> = [
   [/^crates\/.*\/bots\.rs$/, 'bots for the developer zones, which no player meets yet'],
   [/^crates\/engine\/src\/checks\//, 'scenarios run through the rules, whose answers the golden tests hold'],
+  [/^crates\/.*\/tests\.rs$/, 'the tests of the rules beside them'],
   [/^crates\/engine\/src\/border\//, 'one world played by several simulations, its borders crossed as if they weren’t there: nothing a player meets'],
 ];
 
@@ -89,6 +91,9 @@ const PLUMBING: Record<string, string> = {
   'crates/server/src/sim/stepping.rs': 'how a channel runs its players’ steps, one after another or all at once: the same game either way',
   'crates/server/src/sim/clock.rs': 'the world’s clock: ticks numbered from its epoch, the same moment in every channel and copy',
   'crates/server/src/sim/channels.rs': 'who is in which channel',
+  'crates/channels/src/lib.rs': 'the channels crate’s table of contents',
+  'crates/channels/src/crowd.rs': 'a crowd of bots the tests play the channels with',
+  'crates/server/src/directory/crowd.rs': 'the same crowd played against the directory, for the tests',
   'crates/engine/src/world.rs': 'a spot to stand on: where one is, the world’s data says',
   // The browser's copy of the rules, which the pages above explain where they're made.
   'crates/engine/src/training.rs': 'the browser’s stand-in for the server’s fights, offline',

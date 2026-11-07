@@ -152,6 +152,8 @@ pub fn message(msg: &ToConn) -> Option<String> {
         ToConn::Table { table } => json!({ "t": "table", "table": table }),
         ToConn::Party { party } => json!({ "t": "party", "party": party }),
         ToConn::PartyInvite { invite } => json!({ "t": "partyInvite", "invite": invite }),
+        ToConn::Channels(view) => json!({ "t": "channels", "channels": view }),
+        ToConn::ChannelMoved { from, to, why } => json!({ "t": "channelMoved", "from": from, "to": to, "why": why }),
     };
     Some(v.to_string())
 }
@@ -284,6 +286,18 @@ mod tests {
             serde_json::json!({ "t": "space", "space": { "kind": "channel", "channel": 2 } })
         );
         assert!(message(&ToConn::Turned { text: "no".into() }).is_none());
+        // Channels, as src/net/worldLink.ts reads them.
+        assert_eq!(
+            m(ToConn::ChannelMoved { from: 3, to: 1, why: ruina_channels::Why::Merge }),
+            serde_json::json!({ "t": "channelMoved", "from": 3, "to": 1, "why": "merge" })
+        );
+        let view = ruina_channels::Region::new("emberholm").view(1, &ruina_channels::Standing::default(), &ruina_channels::NoTies, 0, ruina_channels::tuning());
+        let channels = m(ToConn::Channels(Box::new(view)));
+        assert_eq!(channels["t"], "channels");
+        assert_eq!(channels["channels"]["region"], "emberholm");
+        for key in ["here", "list", "closing", "wait", "blocked", "party", "following"] {
+            assert!(channels["channels"].get(key).is_some(), "{key}");
+        }
         let _ = PlayerState::of;
     }
 }

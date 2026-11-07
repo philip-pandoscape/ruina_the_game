@@ -85,23 +85,22 @@ impl Db {
         }
     }
 
-    /// Everyone who calls a channel home and has a life, with what they've built (in their state).
-    pub async fn residents(&self, channel: u32) -> Result<Vec<Resident>, String> {
+    /// The residents a channel shows: everyone with a life, with what they've built (in their
+    /// state). The land is the same in every channel, so each shows every estate (until land's own
+    /// rows replace residents, R10.21); `_channel` says which is asking.
+    pub async fn residents(&self, _channel: u32) -> Result<Vec<Resident>, String> {
         match self {
             Db::Pg(db) => {
-                let rows: Vec<(i64, String, Option<Json<Value>>)> =
-                    sqlx::query_as("SELECT id, name, island->'state' FROM characters WHERE home_channel = $1 AND island IS NOT NULL")
-                        .bind(channel as i32)
-                        .fetch_all(db)
-                        .await
-                        .map_err(|e| e.to_string())?;
+                let rows: Vec<(i64, String, Option<Json<Value>>)> = sqlx::query_as("SELECT id, name, island->'state' FROM characters WHERE island IS NOT NULL")
+                    .fetch_all(db)
+                    .await
+                    .map_err(|e| e.to_string())?;
                 Ok(rows.into_iter().filter_map(|(character, name, state)| state.map(|Json(state)| Resident { character, name, state })).collect())
             }
             Db::Memory(t) => {
                 let t = Db::tables(t);
                 Ok(t.characters
                     .iter()
-                    .filter(|(_, c)| c.home_channel == Some(channel))
                     .filter_map(|(id, c)| Some(Resident { character: *id, name: c.name.clone(), state: c.life.as_ref()?.get("state")?.clone() }))
                     .collect())
             }

@@ -12,6 +12,7 @@ use std::sync::mpsc as std_mpsc;
 use std::time::{Duration, Instant};
 
 use ruina_world_api::directory::Destination;
+use ruina_world_api::directory::{Grant, ToDirectory};
 use ruina_world_api::gate::{ToConn, ToGate};
 use ruina_world_api::records::TickOut;
 use ruina_world_api::sim::{After, Arrival, Ask, Entry, LeaseNote, Moving, Spot, ToSim};
@@ -54,6 +55,8 @@ pub struct Sim {
     gone: HashMap<CharacterId, (SimId, Instant)>,
     /// A copy's occupancy as last told to the directory.
     told: Option<(usize, bool)>,
+    /// Ticks since a channel last told the directory what its players are doing.
+    standings_in: u32,
     period: Duration,
     /// Tests: this much longer each tick takes (a crowd too big for it).
     #[cfg(test)]
@@ -93,6 +96,7 @@ impl Sim {
             held: HashMap::new(),
             gone: HashMap::new(),
             told: None,
+            standings_in: 0,
             period: Duration::from_secs_f64(1.0 / f64::from(TICK_HZ)),
             #[cfg(test)]
             slow: Duration::ZERO,
@@ -172,10 +176,34 @@ impl Sim {
         std::thread::sleep(self.slow);
         let out = self.game.step();
         self.publish(out);
+        self.tell_standings();
         for who in self.game.sweep_copy(Instant::now()) {
             self.out_of_copy(who, Vec::new());
         }
         self.gone.retain(|_, (_, at)| at.elapsed() < FORWARD_FOR);
+    }
+
+    /// A channel, once a second: the directory hears what its players who aren't free to go
+    /// anywhere are doing (crates/channels: a merge waits for them, a party's channel too).
+    fn tell_standings(&mut self) {
+        if self.game.copy_of().is_some() {
+            return;
+        }
+        self.standings_in += 1;
+        if self.standings_in < TICK_HZ {
+            return;
+        }
+        self.standings_in = 0;
+        let now = now_ms();
+        let calm = ruina_channels::tuning();
+        let standings: Vec<_> = self
+            .game
+            .members
+            .keys()
+            .map(|c| (*c, self.game.standing(*c)))
+            .filter(|(_, s)| s.hindrance(now, calm).is_some() || s.fought.is_some_and(|f| now - f < calm.calm_after_ms()))
+            .collect();
+        self.post.directory(ToDirectory::Standings { sim: self.id, standings });
     }
 
     /// A tick's records, to every gate a player here is connected through.
@@ -274,6 +302,7 @@ impl Sim {
                 self.game.say(character, ToConn::Error { text });
             }
             ToSim::Transfer(m) => self.adopt(*m),
+            ToSim::Hand { character, to, after } => self.hand(character, to, after),
             ToSim::Returned { moving, text } => {
                 let m = *moving;
                 let p = m.carried.player.pos;
@@ -367,8 +396,47 @@ impl Sim {
             Ask::Dungeon { id, enter: true } => self.enter_dungeon(c, &id)?,
             Ask::Dungeon { enter: false, .. } => self.leave_dungeon(c)?,
             Ask::Zone { id, team } => self.enter_zone(c, &id, team)?,
+            // Channels are the directory's: it hears what they're doing with what they ask.
+            Ask::Channels => {
+                self.post.directory(ToDirectory::Channels { conn, standing: self.game.standing(c) });
+            }
+            Ask::Channel { to } => {
+                let dev = self.game.members.get(&c).is_some_and(|m| m.dev);
+                self.post.directory(ToDirectory::Change { conn, from: self.id, to, standing: self.game.standing(c), dev });
+            }
         }
         Ok(())
+    }
+
+    /// The directory moves someone to another channel, granted there: handed over standing where
+    /// they stand, with whatever they carry and ride (or, if they're on their way somewhere already,
+    /// left here, the directory told so).
+    fn hand(&mut self, character: CharacterId, to: Grant, after: Vec<After>) {
+        if self.routing.contains_key(&character) {
+            self.placed(character);
+            return;
+        }
+        let Some((member, carried)) = self.game.take(character) else {
+            self.placed(character);
+            return;
+        };
+        let p = &carried.player;
+        let at = Spot { x: p.pos.x, y: p.pos.y, z: p.pos.z, facing: p.facing };
+        let mut info = member.info();
+        info.epoch = to.epoch;
+        let moving = Box::new(Moving { character, member: info, carried, entry: Entry::At(at), after, from: self.id });
+        match self.post.transfer(to.sim, moving) {
+            Ok(()) => {
+                self.gone.insert(character, (to.sim, Instant::now()));
+            }
+            Err(m) => {
+                eprintln!("simulation {} for {} wasn't there to take character {character}", to.sim.0, to.space);
+                let conn = m.member.conn;
+                self.game.put(m.member, m.carried, at);
+                self.post.conn(conn, ToConn::Error { text: "That channel is gone.".into() });
+                self.placed(character);
+            }
+        }
     }
 
     /// Starts someone's life over here, and writes it (their browser hears `reset` once it's written).
@@ -446,7 +514,7 @@ impl Sim {
     }
 
     /// The directory's answer: hand them over, under the grant it made there.
-    fn routed(&mut self, character: CharacterId, to: ruina_world_api::directory::Grant) {
+    fn routed(&mut self, character: CharacterId, to: Grant) {
         let Some(r) = self.routing.remove(&character) else { return };
         if let Some(mut w) = self.held.remove(&character) {
             // They left on the way: their life is written under the new grant, and they stay where
@@ -518,6 +586,11 @@ impl Sim {
                 After::Side(team) => self.game.take_side(character, team),
                 After::Notice(text) => {
                     self.post.conn(conn, ToConn::Notice { text });
+                }
+                After::Channel { from, why } => {
+                    if let SpaceId::Channel { n, .. } = &self.game.at {
+                        self.post.conn(conn, ToConn::ChannelMoved { from, to: *n, why });
+                    }
                 }
             }
         }

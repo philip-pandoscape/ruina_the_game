@@ -1218,6 +1218,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruina-channels"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "ruina-engine"
 version = "0.1.0"
 dependencies = [
@@ -1243,6 +1251,7 @@ dependencies = [
  "axum",
  "futures-util",
  "rayon",
+ "ruina-channels",
  "ruina-engine",
  "ruina-wire",
  "ruina-world-api",
@@ -1284,6 +1293,7 @@ dependencies = [
 name = "ruina-world-api"
 version = "0.1.0"
 dependencies = [
+ "ruina-channels",
  "ruina-engine",
  "ruina-wire",
  "serde",

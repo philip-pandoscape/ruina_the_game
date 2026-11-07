@@ -87,6 +87,28 @@ export const UI_ENTRIES: readonly UiEntry[] = [
   { window: 'party', state: 'frame', title: 'Party', label: 'The Party Frame', about: 'In a party of three: the others under your portrait.' },
   { window: 'party', state: 'window', title: 'Party', label: 'The Party Window', about: 'The Party window (O), you leading a party of three.' },
   { window: 'party', state: 'invited', title: 'Party', label: 'Invited', about: "Another player's invitation to their party." },
+  {
+    window: 'channels',
+    state: 'window',
+    title: 'Channels',
+    label: 'The Channels Window',
+    about: 'Your region in three channels: yours busy, with two friends in it; your party in a quiet one; the third full.',
+  },
+  {
+    window: 'channels',
+    state: 'blocked',
+    title: 'Channels',
+    label: 'Carrying a Pack',
+    about: "A pack on your back and a change made lately: why you can't go anywhere yet.",
+  },
+  {
+    window: 'channels',
+    state: 'closing',
+    title: 'Channels',
+    label: 'Your Channel Closing',
+    about: 'Your quiet channel merging into another: the notice counting down, and the window.',
+  },
+  { window: 'channels', state: 'moved', title: 'Channels', label: 'Moved by a Merge', about: 'The notice once a merge has moved you into another channel.' },
 ];
 
 /** The entry `<window>/<state>` names, if there is one. */

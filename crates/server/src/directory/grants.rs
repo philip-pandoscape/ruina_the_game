@@ -1,60 +1,42 @@
 //! A character's grant, kept on their row: the epoch every write about them carries
 //! (`characters.epoch`, bumped by each claim and each move to another simulation, so whatever had
-//! them before can't write any more), the session holding them (`live_session`), their home channel
-//! (`home_channel`, given the first time: the first with room) and where their saved position is
-//! (`space`). And the copies' numbers.
+//! them before can't write any more), the session holding them (`live_session`) and where their
+//! saved position is (`space`). And the copies' numbers. Which channel someone plays in is the
+//! directory's, by the channels' policy (crates/channels), not kept on their row.
 
 use ruina_world_api::{CharacterId, Epoch, SessionId, SpaceId};
 use sqlx::Row;
 
-use crate::sim::channels::CHANNEL_CAP;
 use crate::store::Db;
 
-/// What a claim found: the new epoch, the home channel, where the saved position is.
+/// What a claim found: the new epoch, and where the saved position is.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Claim {
     pub epoch: Epoch,
-    pub channel: u32,
     pub space: Option<SpaceId>,
 }
 
-/// Grants a character to `session`: their epoch bumped, their home channel given if they have none
-/// yet (the first channel with room), and when they last played.
+/// Grants a character to `session`: their epoch bumped, and when they last played.
 pub async fn claim(db: &Db, character: CharacterId, session: SessionId) -> Result<Claim, String> {
     match db {
         Db::Pg(pool) => {
-            let row = sqlx::query(
-                "UPDATE characters SET epoch = epoch + 1, live_session = $2, last_played_at = now(), \
-                   home_channel = COALESCE(home_channel, \
-                     (SELECT c FROM generate_series(1, 100000) AS c \
-                      WHERE (SELECT count(*) FROM characters WHERE home_channel = c) < $3 ORDER BY c LIMIT 1)) \
-                 WHERE id = $1 RETURNING epoch, home_channel, space",
-            )
-            .bind(character)
-            .bind(session)
-            .bind(CHANNEL_CAP)
-            .fetch_optional(pool)
-            .await
-            .map_err(|e| e.to_string())?
-            .ok_or("no such character")?;
+            let row = sqlx::query("UPDATE characters SET epoch = epoch + 1, live_session = $2, last_played_at = now() WHERE id = $1 RETURNING epoch, space")
+                .bind(character)
+                .bind(session)
+                .fetch_optional(pool)
+                .await
+                .map_err(|e| e.to_string())?
+                .ok_or("no such character")?;
             let epoch: i64 = row.get(0);
-            let channel: i32 = row.get(1);
-            let space: Option<String> = row.get(2);
-            Ok(Claim { epoch: Epoch(epoch as u64), channel: channel as u32, space: space.and_then(|s| s.parse().ok()) })
+            let space: Option<String> = row.get(1);
+            Ok(Claim { epoch: Epoch(epoch as u64), space: space.and_then(|s| s.parse().ok()) })
         }
         Db::Memory(t) => {
             let mut t = Db::tables(t);
-            if !t.characters.contains_key(&character) {
-                return Err("no such character".into());
-            }
-            let has = t.characters[&character].home_channel;
-            let channel =
-                has.unwrap_or_else(|| (1..).find(|&c| t.characters.values().filter(|r| r.home_channel == Some(c)).count() < CHANNEL_CAP as usize).unwrap_or(1));
-            let c = t.characters.get_mut(&character).expect("there");
+            let c = t.characters.get_mut(&character).ok_or("no such character")?;
             c.epoch += 1;
             c.live_session = Some(session);
-            c.home_channel = Some(channel);
-            Ok(Claim { epoch: Epoch(c.epoch), channel, space: c.space.as_deref().and_then(|s| s.parse().ok()) })
+            Ok(Claim { epoch: Epoch(c.epoch), space: c.space.as_deref().and_then(|s| s.parse().ok()) })
         }
     }
 }
@@ -100,25 +82,15 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn each_claim_and_each_move_is_a_newer_grant_and_a_home_is_given_once() {
+    async fn each_claim_and_each_move_is_a_newer_grant() {
         let (db, t) = Db::memory();
-        {
-            let mut t = Db::tables(&t);
-            for id in 1..=(CHANNEL_CAP + 1) {
-                t.add_character(id, &format!("P{id}"));
-            }
-        }
+        Db::tables(&t).add_character(1, "P1");
         let first = claim(&db, 1, 100).await.unwrap();
-        assert_eq!((first.epoch, first.channel), (Epoch(1), 1));
+        assert_eq!(first.epoch, Epoch(1));
         assert_eq!(bump(&db, 1).await.unwrap(), Epoch(2));
         let again = claim(&db, 1, 101).await.unwrap();
-        assert_eq!((again.epoch, again.channel), (Epoch(3), 1), "the same home, a newer grant");
+        assert_eq!(again.epoch, Epoch(3), "a newer grant");
         assert_eq!(Db::tables(&t).characters[&1].live_session, Some(101));
-        // The channel fills up; the next character's home is the next one.
-        for id in 2..=CHANNEL_CAP {
-            assert_eq!(claim(&db, id, id).await.unwrap().channel, 1);
-        }
-        assert_eq!(claim(&db, CHANNEL_CAP + 1, 0).await.unwrap().channel, 2);
         assert!(claim(&db, 999, 0).await.is_err());
         assert_eq!((next_copy(&db).await, next_copy(&db).await), (Ok(1), Ok(2)));
     }
@@ -153,7 +125,7 @@ mod tests {
             character,
             epoch,
             life: serde_json::json!({ "state": { "coins": coins }, "player": {} }),
-            space: SpaceId::channel("emberholm", first.channel),
+            space: SpaceId::channel("emberholm", 1),
             writer: None,
             tell: None,
         };
@@ -165,7 +137,7 @@ mod tests {
         let saved = db.load_life(character).await.unwrap().life.unwrap();
         assert_eq!(saved["state"]["coins"], 6.0);
         let space: Option<String> = sqlx::query_scalar("SELECT space FROM characters WHERE id = $1").bind(character).fetch_one(&pool).await.unwrap();
-        assert_eq!(space.as_deref(), Some(format!("channel:emberholm:{}", first.channel).as_str()));
+        assert_eq!(space.as_deref(), Some("channel:emberholm:1"));
         sqlx::query("DELETE FROM accounts WHERE id = $1").bind(account).execute(&pool).await.unwrap();
     }
 }
