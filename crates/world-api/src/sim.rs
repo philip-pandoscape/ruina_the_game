@@ -1,6 +1,6 @@
 //! A simulation's messages in. A simulation plays one space (a region's channel, or an instance's
 //! copy) on a thread of its own, and owns everything in it: the players there and their lives, the
-//! creatures, the bots, the mini-games' tables, the channel's residents. It takes its messages at
+//! creatures, the bots, the mini-games' tables, the region's land it shows. It takes its messages at
 //! tick boundaries, and everything it says goes out as messages too: to the gates (a tick's records,
 //! what a browser is told), the store (lives to write), the directory (where someone goes next, who
 //! is in a copy).
@@ -22,7 +22,7 @@ use ruina_engine::world::Spawn;
 use crate::directory::{Destination, Grant};
 use crate::ids::{CharacterId, Conn, Epoch, Millis, Owner, PartyId, SimId, SpaceId};
 use crate::input::Input;
-use crate::store::Resident;
+use crate::store::{ClaimResult, RegionLand};
 
 /// What a simulation is sent.
 #[derive(Debug, Serialize, Deserialize)]
@@ -57,10 +57,19 @@ pub enum ToSim {
     /// leader's copies, or broke up and left them to whoever was left). One message, so the two
     /// are never seen half done.
     Parties { changed: Vec<(CharacterId, Option<PartyId>)>, owner: Option<Owner> },
-    /// A channel's residents and what they've built, as the store read them when it started.
-    Residents(Vec<Resident>),
-    /// A resident gone for good (their character was deleted): what they built comes down.
-    ResidentGone { character: CharacterId },
+    /// The region's land, as the store read it when the simulation started: everyone's, the plots'
+    /// claims and the world's market.
+    Land(RegionLand),
+    /// A plot's claim, as the registry decided it.
+    Claim { character: CharacterId, plot: String, result: ClaimResult },
+    /// A block of ids for what a character places.
+    Ids { character: CharacterId, next: i64, end: i64 },
+    /// The world's market as it stands.
+    Market(Value),
+    /// The ledger has a character's entries up to `upto`: their life forgets them.
+    Recorded { character: CharacterId, upto: u64 },
+    /// A character gone for good (deleted): their land comes down, their plots free.
+    CharacterGone { character: CharacterId },
     /// A connection arriving in a copy asks for its home channel's estates and plot claims.
     Estates { conn: Conn },
     /// The server is stopping: call the games off, and write everyone's life; answer `reply` once
@@ -136,8 +145,11 @@ pub struct Arrival {
     pub party: Option<PartyId>,
     /// Their home channel: where they come out of a copy.
     pub home: SpaceId,
-    /// Their life as saved (`{state, player}`), None for a newcomer.
+    /// Their life as saved, with their land beside it (`{state, land, player}`), None for a newcomer.
     pub life: Option<Value>,
+    /// The ids they give what they place, from `next` up to `end` (a block of the world's), if the
+    /// store gave them some.
+    pub ids: Option<(i64, i64)>,
     /// Their build as kept (by id), if they have one.
     pub build: Option<Value>,
     /// When it was saved, and the time now: the time they were away.

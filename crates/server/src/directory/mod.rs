@@ -244,9 +244,9 @@ impl<L: Leases> Directory<L> {
                 for r in self.regions.values_mut() {
                     r.forget(character);
                 }
-                // What they built stands in every channel: it comes down in each.
+                // Their land stands in every channel: it comes down in each, and their plots are free.
                 for r in self.spaces.values().filter(|r| !r.lease.space.is_copy()) {
-                    self.post.sim(r.lease.sim, ToSim::ResidentGone { character });
+                    self.post.sim(r.lease.sim, ToSim::CharacterGone { character });
                 }
                 self.post.social(ToSocial::Forget { character });
             }

@@ -1,20 +1,22 @@
 //! The store's side of land (R10.21): what's built and planted in the world, the house plots, the
 //! ledger and the world's market, as Postgres keeps them (migrations 0010-0013). The rules are the
 //! engine's (crates/engine/src/life/land.rs, housing.rs, market.rs); here is only how they're kept.
+//! The store's messages reach them through `Db` (crate::store), which keeps the same rows in memory
+//! for the tests (crate::store::memory).
 //!
-//! Each function is one write or read the store makes, in its own transaction, so each becomes one
-//! of the store's messages as the server goes into tiers (crates/world-api's ToStore): a life saved
-//! with the land lent to it (`save`), a plot claimed (`plots::claim`), houses taken down
+//! Each function is one write or read the store makes, in its own transaction: a life saved with
+//! the land lent to it (`save`), a plot claimed (`plots::claim`), houses taken down
 //! (`plots::take_down`), a transfer (`ledger::transfer`), a sale (`market::sold`), a block of ids
-//! (`reserve_ids`), and what a region's keeper reads (`load_land`, `load_holding`). Every write is
-//! fenced: it's made under a grant (`Fence`) and refused if that grant is no longer current. A
-//! character's writes must reach the store in the order they were made (one queue), as a save made
-//! before a claim would otherwise take the claimed house down again.
+//! (`reserve_ids`), and what a region's simulation reads (`load_land`, `load_holding`). Every write
+//! about a character is fenced by their grant (`Fence`: `characters.epoch`) and refused if a newer
+//! one was made since. A character's writes reach the store in the order they were made (the
+//! simulation's one queue), as a save made before a claim would otherwise take the claimed house
+//! down again.
 //!
 //! - `plots`: one claim per plot in the world, first come.
 //! - `ledger`: transfers, each applied once, with the lives they change.
 //! - `market`: each trading post's demand, the world's.
-//! - `migrate`: saves from before land had rows of its own, moved into them.
+//! - `migrate`: saves from before land had rows of its own, moved into them as the server starts.
 //!
 //! Tested against a real Postgres: crates/server/tests/land.rs.
 
@@ -23,7 +25,7 @@ pub mod market;
 pub mod migrate;
 pub mod plots;
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use serde_json::Value;
 use sqlx::types::Json;
@@ -40,21 +42,24 @@ pub const SPACE: &str = "world";
 pub const BLOCK: i64 = 1024;
 
 /// Whose grant a write is made under: the store makes it only while that grant is current, so a
-/// window that was replaced, or a server that lost its lease, can never write over newer work.
+/// window that was replaced, or a simulation that no longer plays the character, can never write
+/// over newer work.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Fence {
-    /// The connection playing the character (`characters.live_session`): their life, and the land
-    /// lent to it. (The server's tiers bring a character's epoch in its place.)
-    Session { character: i64, session: i64 },
-    /// Nobody's grant: the save migration as the server starts, before anyone plays, and tests. (The
-    /// region keeper's lease takes its place for what it writes: demolitions.)
+    /// The character's grant (`characters.epoch`, bumped by the directory for every new window and
+    /// every move to another simulation): their life, the land lent to it, a plot they claim.
+    Epoch { character: i64, epoch: i64 },
+    /// Nobody's grant: the save migration as the server starts, before anyone plays, and tests.
     Open,
 }
 
 impl Fence {
-    /// The epoch kept with what it writes (0 until the grants carry one).
+    /// The epoch kept with what it writes.
     pub fn epoch(self) -> i64 {
-        0
+        match self {
+            Fence::Epoch { epoch, .. } => epoch,
+            Fence::Open => 0,
+        }
     }
 }
 
@@ -62,10 +67,10 @@ impl Fence {
 pub async fn current(tx: &mut Transaction<'_, Postgres>, fence: Fence) -> Result<bool, sqlx::Error> {
     match fence {
         Fence::Open => Ok(true),
-        Fence::Session { character, session } => {
-            let row: Option<i64> = sqlx::query_scalar("SELECT id FROM characters WHERE id = $1 AND live_session = $2 FOR UPDATE")
+        Fence::Epoch { character, epoch } => {
+            let row: Option<i64> = sqlx::query_scalar("SELECT id FROM characters WHERE id = $1 AND epoch = $2 FOR UPDATE")
                 .bind(character)
-                .bind(session)
+                .bind(epoch)
                 .fetch_optional(&mut **tx)
                 .await?;
             Ok(row.is_some())
@@ -80,14 +85,59 @@ pub async fn reserve_ids(db: &PgPool) -> Result<Ids, sqlx::Error> {
     Ok(Ids { next: block * BLOCK, end: (block + 1) * BLOCK })
 }
 
-/// A life to save: whose, under which grant, the life as kept (`{state, player}`), and the land
-/// lent to it, if it's written with it.
+/// A life to save: whose, under which grant, the life as kept (`{state, player}`, the ledger's
+/// entries it holds still in its state), the land lent to it if it's written with it, and the space
+/// its position is in (None: where it was).
 #[derive(Clone, Debug)]
 pub struct LifeSave {
     pub character: i64,
     pub fence: Fence,
     pub life: Value,
     pub land: Option<Land>,
+    pub space: Option<String>,
+}
+
+/// A life as a simulation hands it over (`{state, land, player}`) taken apart: the life as it's kept
+/// on the character's row, and the land lent to it (None if it has none beside it: a test's, or one
+/// whose land can't be read, which leaves the rows as they are).
+pub fn split(life: &Value) -> (Value, Option<Land>) {
+    let mut kept = life.clone();
+    let mut land = None;
+    if let Some(o) = kept.as_object_mut() {
+        if let Some(l) = o.remove("land").filter(|l| !l.is_null()) {
+            match serde_json::from_value::<Land>(l) {
+                Ok(l) => land = Some(l),
+                Err(e) => eprintln!("a life's land can't be read ({e}): its rows are left as they are"),
+            }
+        }
+        o.remove("ids");
+    }
+    (kept, land)
+}
+
+/// The life as it's kept on the character's row, without the ledger's entries (they're rows of
+/// their own, written with it), and those entries.
+pub fn without_ledger(life: &Value) -> (Value, Vec<Entry>) {
+    let mut kept = life.clone();
+    let entries = kept
+        .get_mut("state")
+        .and_then(Value::as_object_mut)
+        .and_then(|st| st.remove("ledger"))
+        .and_then(|l| serde_json::from_value(l).ok())
+        .unwrap_or_default();
+    (kept, entries)
+}
+
+/// The highest number among the ledger's entries a life holds: once it's written, the life may
+/// forget them (`Life::recorded`).
+pub fn last_entry(life: &Value) -> Option<u64> {
+    life.get("state")?.get("ledger")?.as_array()?.iter().filter_map(|e| e.get("n")?.as_u64()).max()
+}
+
+/// The ids of a holding's houses still waiting for the registry: their rows are the claim's to
+/// write (`plots::claim`), so a save neither writes nor removes them.
+pub fn waiting(land: &Land) -> BTreeSet<i64> {
+    land.houses.iter().filter(|h| h.pending).map(|h| h.id).collect()
 }
 
 /// Saves lives, each with the land lent to it and what it kept for the ledger, in one transaction:
@@ -108,15 +158,18 @@ pub async fn save_in(tx: &mut Transaction<'_, Postgres>, saves: &[LifeSave]) -> 
             written.push(false);
             continue;
         }
-        let done =
-            sqlx::query("UPDATE characters SET island = $2, saved_at = now() WHERE id = $1").bind(s.character).bind(Json(&s.life)).execute(&mut **tx).await?;
+        let (island, entries) = without_ledger(&s.life);
+        let done = sqlx::query("UPDATE characters SET island = $2, saved_at = now(), space = COALESCE($3, space) WHERE id = $1")
+            .bind(s.character)
+            .bind(Json(&island))
+            .bind(&s.space)
+            .execute(&mut **tx)
+            .await?;
         if done.rows_affected() == 1 {
             if let Some(land) = &s.land {
                 write_holding(tx, s.character, s.fence.epoch(), land).await?;
             }
             // What the life kept for the ledger goes in with it, each entry once.
-            let entries: Vec<Entry> =
-                s.life.get("state").and_then(|st| st.get("ledger")).and_then(|l| serde_json::from_value(l.clone()).ok()).unwrap_or_default();
             ledger::record(tx, s.character, &entries).await?;
         }
         written.push(done.rows_affected() == 1);
@@ -126,10 +179,11 @@ pub async fn save_in(tx: &mut Transaction<'_, Postgres>, saves: &[LifeSave]) -> 
 
 /// Writes one character's land as it now is: each piece's row (where it stands now, and what it
 /// is), and none of theirs that the land no longer has (sold, used up, recalled, taken down; a
-/// house's plot goes with it).
+/// house's plot goes with it). A house still waiting for the registry is the claim's to write.
 pub async fn write_holding(tx: &mut Transaction<'_, Postgres>, owner: i64, epoch: i64, land: &Land) -> Result<(), sqlx::Error> {
+    let waiting = waiting(land);
     let rows = land.rows();
-    for r in &rows {
+    for r in rows.iter().filter(|r| !(r.kind == Kind::House && waiting.contains(&r.id))) {
         write_row(tx, owner, epoch, r).await?;
     }
     let keep: Vec<i64> = rows.iter().map(|r| r.id).collect();
@@ -200,6 +254,12 @@ pub async fn load_land(db: &PgPool, chunks: Option<&[(i32, i32)]>) -> Result<BTr
         }
     }
     Ok(by_owner.into_iter().map(|(owner, rows)| (owner, Land::from_rows(rows).0)).collect())
+}
+
+/// Characters' names, by id.
+pub async fn names(db: &PgPool, ids: &[i64]) -> Result<BTreeMap<i64, String>, sqlx::Error> {
+    let rows: Vec<(i64, String)> = sqlx::query_as("SELECT id, name FROM characters WHERE id = ANY($1)").bind(ids).fetch_all(db).await?;
+    Ok(rows.into_iter().collect())
 }
 
 /// Everything of one character's in the world: the land lent to their life when they play.

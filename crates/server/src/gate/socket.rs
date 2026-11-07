@@ -283,8 +283,8 @@ pub async fn way_in(seat: &mut Seat, rx: &mut mpsc::Receiver<Event>, name: &str,
     })
     .await?;
     post.store(ToStore::LoadLife { character: conn.character, reply: conn });
-    let (life, build, saved_at) = wait_for(rx, &mut held, |m| match m {
-        ToConn::Life { life, build, saved_at } => Ok((life, build, saved_at)),
+    let (life, build, saved_at, ids) = wait_for(rx, &mut held, |m| match m {
+        ToConn::Life { life, build, saved_at, ids } => Ok((life, build, saved_at, ids)),
         other => Err(Box::new(other)),
     })
     .await?;
@@ -296,6 +296,7 @@ pub async fn way_in(seat: &mut Seat, rx: &mut mpsc::Receiver<Event>, name: &str,
         party: claimed.party,
         home: claimed.home.clone(),
         life,
+        ids,
         build,
         saved_at,
         now: now_ms(),

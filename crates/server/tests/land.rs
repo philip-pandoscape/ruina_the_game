@@ -5,13 +5,13 @@
 
 use std::collections::BTreeMap;
 
-use ruina_server::land::ledger::{self, Applied, pot, transfer};
-use ruina_server::land::migrate::{self, read, rekey};
-use ruina_server::land::plots::{Claim, claim, claims, holder, houses, take_down};
-use ruina_server::land::{BLOCK, Fence, LifeSave, load_holding, load_land, market, reserve_ids, save};
 use ruina_server::life::housing::{DAY, demolish_neglected, demolished_at};
 use ruina_server::life::land::{House, Land, Pack, Scarecrow, Vehicle};
 use ruina_server::life::state::LifeState;
+use ruina_server::store::land::ledger::{self, Applied, pot, transfer};
+use ruina_server::store::land::migrate::{self, read, rekey};
+use ruina_server::store::land::plots::{Claim, claim, claims, holder, houses, take_down};
+use ruina_server::store::land::{BLOCK, Fence, LifeSave, load_holding, load_land, market, reserve_ids, save};
 use serde_json::{Value, json};
 use sqlx::PgPool;
 use sqlx::types::Json;
@@ -41,12 +41,17 @@ async fn character(db: &PgPool, name: &str) -> i64 {
         .unwrap();
     let id: i64 =
         sqlx::query_scalar("INSERT INTO characters (account_id, name) VALUES ($1, $2) RETURNING id").bind(account).bind(name).fetch_one(db).await.unwrap();
-    sqlx::query("UPDATE characters SET live_session = $1 WHERE id = $1").bind(id).execute(db).await.unwrap();
     id
 }
 
+/// Their grant as they play (a new character's first: 0).
 fn playing(character: i64) -> Fence {
-    Fence::Session { character, session: character }
+    Fence::Epoch { character, epoch: 0 }
+}
+
+/// A grant they no longer hold: a window replaced, a simulation they've left.
+fn replaced(character: i64) -> Fence {
+    Fence::Epoch { character, epoch: -1 }
 }
 
 fn cottage(id: i64, plot: &str, tax_paid_until: f64) -> House {
@@ -80,7 +85,7 @@ async fn a_plot_is_claimed_once_even_when_two_channels_race_for_it() {
     let mine = claims(&db).await.unwrap()["rise-1"].0;
     let again = cottage(sqlx::query_scalar("SELECT house FROM plots WHERE plot = 'rise-1'").fetch_one(&db).await.unwrap(), "rise-1", 5.0);
     assert_eq!(claim(&db, "rise-1", mine, playing(mine), &again).await.unwrap(), Claim::Yours);
-    assert_eq!(claim(&db, "rise-1", mine, Fence::Session { character: mine, session: -1 }, &again).await.unwrap(), Claim::Stale);
+    assert_eq!(claim(&db, "rise-1", mine, replaced(mine), &again).await.unwrap(), Claim::Stale);
 }
 
 #[tokio::test]
@@ -91,8 +96,8 @@ async fn a_transfer_sent_twice_is_applied_once() {
     let t = pot("pot:channel:emberholm:1:table:7", ann, bea, 50.0, "beacons");
     let saves = |a: f64, b: f64| {
         vec![
-            LifeSave { character: ann, fence: playing(ann), life: life(a), land: None },
-            LifeSave { character: bea, fence: playing(bea), life: life(b), land: None },
+            LifeSave { character: ann, fence: playing(ann), life: life(a), land: None, space: None },
+            LifeSave { character: bea, fence: playing(bea), life: life(b), land: None, space: None },
         ]
     };
     assert_eq!(transfer(&db, &t, &saves(250.0, 150.0)).await.unwrap(), Applied::Now(vec![true, true]));
@@ -113,7 +118,7 @@ async fn a_transfer_sent_twice_is_applied_once() {
         { "n": 1, "kind": "purchase", "party": "vendor:mara", "coins": -12.0, "seals": 0.0, "items": [{ "item": "seed.sunroot", "n": 3 }] },
         { "n": 2, "kind": "payout", "party": "post:westwatch", "coins": 329.0, "seals": 1.0, "items": [], "detail": "harvestCrate" }
     ]);
-    let s = [LifeSave { character: ann, fence: playing(ann), life: with, land: None }];
+    let s = [LifeSave { character: ann, fence: playing(ann), life: with, land: None, space: None }];
     assert_eq!(save(&db, &s).await.unwrap(), [true]);
     assert_eq!(save(&db, &s).await.unwrap(), [true]);
     let kinds: Vec<(String, String, f64)> = ledger::of(&db, ann).await.unwrap().into_iter().map(|(k, kind, _, c, _)| (k, kind, c)).collect();
@@ -141,7 +146,10 @@ async fn land_is_kept_by_the_chunk_it_stands_in() {
     land.packs.push(Pack { id: n(3), def: "flaxBale".into(), at: "back".into(), ..Pack::default() });
     land.scarecrows.push(Scarecrow { id: n(4), x: -208.0, z: -240.0, cells: vec![None; 16], ..Scarecrow::default() });
     let life = json!({ "state": { "version": 4 }, "player": {} });
-    assert_eq!(save(&db, &[LifeSave { character: ada, fence: playing(ada), life: life.clone(), land: Some(land.clone()) }]).await.unwrap(), [true]);
+    assert_eq!(
+        save(&db, &[LifeSave { character: ada, fence: playing(ada), life: life.clone(), land: Some(land.clone()), space: None }]).await.unwrap(),
+        [true]
+    );
     // A region's keeper reads its chunks: the cart and what's in its bed east of the middle.
     let east = load_land(&db, Some(&[(1, -1)])).await.unwrap();
     assert_eq!(east[&ada].vehicles.len(), 1);
@@ -154,12 +162,15 @@ async fn land_is_kept_by_the_chunk_it_stands_in() {
     // Sold, used up, recalled: gone from the world when the life is next saved.
     land.packs.retain(|p| p.at != "ground");
     land.vehicles[0].x = -300.0;
-    assert_eq!(save(&db, &[LifeSave { character: ada, fence: playing(ada), life: life.clone(), land: Some(land.clone()) }]).await.unwrap(), [true]);
+    assert_eq!(
+        save(&db, &[LifeSave { character: ada, fence: playing(ada), life: life.clone(), land: Some(land.clone()), space: None }]).await.unwrap(),
+        [true]
+    );
     let rows: Vec<(i64, Option<i32>, Option<i32>)> = sqlx::query_as("SELECT id, cx, cz FROM land ORDER BY id").fetch_all(&db).await.unwrap();
     assert_eq!(rows, [(n(0), Some(-2), Some(-1)), (n(1), Some(-2), Some(-1)), (n(3), None, None), (n(4), Some(-1), Some(-1))]);
     // A window that has been replaced writes nothing.
     land.packs.clear();
-    let stale = LifeSave { character: ada, fence: Fence::Session { character: ada, session: -1 }, life, land: Some(land) };
+    let stale = LifeSave { character: ada, fence: replaced(ada), life, land: Some(land), space: None };
     assert_eq!(save(&db, &[stale]).await.unwrap(), [false]);
     assert_eq!(load_holding(&db, ada).await.unwrap().packs.len(), 2);
 }
@@ -181,7 +192,7 @@ async fn a_neglected_house_comes_down_and_its_plot_is_free_for_the_next_claim() 
     }
     let gone: Vec<i64> = by_owner.values_mut().flat_map(|land| demolish_neglected(land, now)).map(|h| h.id).collect();
     assert_eq!(gone, [old.id]);
-    assert_eq!(take_down(&db, &gone, Fence::Open).await.unwrap(), [("rise-1".to_string(), ada)]);
+    assert_eq!(take_down(&db, &gone, now).await.unwrap(), [("rise-1".to_string(), ada)]);
     assert_eq!(holder(&db, "rise-1").await.unwrap(), None);
     assert_eq!(holder(&db, "rise-2").await.unwrap(), Some(bo));
     // Free for anyone: Bo's alt claims it.

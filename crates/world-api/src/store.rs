@@ -1,8 +1,9 @@
-//! The store's messages in. The store keeps what lasts (in Postgres): characters' lives and builds,
-//! and what a channel's residents have built (until land has tables of its own). Every write about a
-//! character carries the epoch the directory granted them under, and is refused if a newer grant has
-//! been made since (another window took them over; another simulation plays them now). Writes that
-//! belong together (a pot paid out to one of two players) go in one transaction.
+//! The store's messages in. The store keeps what lasts (in Postgres): characters' lives and builds;
+//! land, a row a piece by where it stands; the house plots' claims; the ledger; the world's market.
+//! Every write about a character carries the epoch the directory granted them under, and is refused
+//! if a newer grant has been made since (another window took them over; another simulation plays
+//! them now). Writes that belong together (a pot paid out to one of two players, a life and the land
+//! lent to it) go in one transaction.
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -14,19 +15,39 @@ use crate::post::Reply;
 #[derive(Debug, Serialize, Deserialize)]
 pub enum ToStore {
     /// A character's life, build and when it was saved, for the connection taking them up
-    /// (answered with `ToConn::Life`).
+    /// (answered with `ToConn::Life`): the life with their land beside it (`{state, land, player}`:
+    /// the land is lent to it while they play), and a block of ids for what they place.
     LoadLife { character: CharacterId, reply: Conn },
-    /// The residents of a channel and what they've built (answered with `ToSim::Residents`).
-    LoadResidents { channel: u32, reply: SimId },
+    /// A region's land: everyone's, by owner, the plots' claims and the world's market (answered with
+    /// `ToSim::Land`).
+    LoadLand { region: String, reply: SimId },
     /// Lives to write: one alone, or several in one transaction (each kept or none), each fenced by
-    /// its epoch. Then what to say, and to whom.
+    /// its epoch, each with the land lent to it (beside its state, as rows) and what it kept for the
+    /// ledger; the writer hears what the ledger has now (`ToSim::Recorded`). Then what to say, and to
+    /// whom.
     WriteLives { writes: Vec<LifeWrite>, then: Then },
+    /// A house plot claimed with the house just put on it (its row and the claim together, first come
+    /// in the whole world): answered with `ToSim::Claim`.
+    ClaimPlot { character: CharacterId, epoch: Epoch, plot: String, house: Value, reply: SimId },
+    /// Houses taken down by a region's keeper, their tax unpaid too long at `at` (the world's clock),
+    /// and their plots let go. Each is taken down only if it still is, as the store has it (an owner
+    /// who paid meanwhile keeps theirs). `writer`: the keeper and its lease.
+    TakeDown { houses: Vec<i64>, at: f64, writer: Writer },
+    /// A pack sold at a trading post, lowering the world's demand there (`at` on the world's clock).
+    Sold { outpost: String, pack: String, at: f64 },
+    /// The world's market as it stands (answered with `ToSim::Market`).
+    LoadMarket { reply: SimId },
+    /// A block of ids for what a character places (answered with `ToSim::Ids`).
+    ReserveIds { character: CharacterId, reply: SimId },
+    /// A transfer between characters (a mini-game's pot) and the lives it changes, in one
+    /// transaction, once: sent again with its key, nothing is written again.
+    Transfer { transfer: Transfer, writes: Vec<LifeWrite> },
     /// A character's build, kept by id (fenced).
     WriteBuild { character: CharacterId, epoch: Epoch, build: Value },
 }
 
-/// A life to write: whose, under which grant, the life as saved (`{state, player}`), and the space
-/// its position is in.
+/// A life to write: whose, under which grant, the life as saved (`{state, land, player}`: the store
+/// keeps the land in rows beside it), and the space its position is in.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct LifeWrite {
     pub character: CharacterId,
@@ -59,12 +80,38 @@ pub enum Then {
     Answer(Reply),
 }
 
-/// A channel's resident: who, their name, and their life's state (what they've built is in it).
+/// A region's land as the store keeps it: everyone's who has any there, by owner (with their name),
+/// who holds each house plot, and the world's market.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct RegionLand {
+    /// (owner, their name, their land as the engine keeps it).
+    pub holdings: Vec<(CharacterId, String, Value)>,
+    /// (plot, its holder, their name).
+    pub claims: Vec<(String, CharacterId, String)>,
+    pub market: Value,
+}
+
+/// What became of a plot's claim.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ClaimResult {
+    /// The plot is theirs.
+    Yours,
+    /// Someone else claimed it first.
+    Theirs { holder: CharacterId, name: String },
+    /// Their grant moved on before it was written: nothing was.
+    Stale,
+}
+
+/// A transfer between characters: which one it is (`key`, the same however often it's sent), what
+/// kind, each one's side (what they gained, negative for what they gave, and from whom), and what
+/// it was for.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct Resident {
-    pub character: CharacterId,
-    pub name: String,
-    pub state: Value,
+pub struct Transfer {
+    pub key: String,
+    pub kind: String,
+    /// (character, the other party, coins gained).
+    pub sides: Vec<(CharacterId, String, f64)>,
+    pub detail: Value,
 }
 
 /// Why a write was refused.

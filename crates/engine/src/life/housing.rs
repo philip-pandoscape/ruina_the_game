@@ -140,15 +140,30 @@ pub fn confirm_claim(life: &mut Life, plot: &str) {
 /// in the bag. True if there was one to take down.
 pub fn lose_claim(life: &mut Life, plot: &str, holder: &str) -> bool {
     let Some(i) = house_on(life, plot) else { return false };
+    take_back(life, i);
+    life.plot_owners.insert(plot.to_string(), holder.to_string());
+    life.toast(format!("That plot is {holder}'s: they claimed it first. Your blueprint is back in your bag."), "bad");
+    true
+}
+
+/// The registry couldn't take the claim on `plot` just now (nothing was written): the house waiting
+/// on it comes down again, and the item that claimed it is back in the bag, to try again. True if
+/// there was one waiting.
+pub fn claim_failed(life: &mut Life, plot: &str) -> bool {
+    let Some(i) = house_on(life, plot).filter(|i| life.land.houses[*i].pending) else { return false };
+    take_back(life, i);
+    life.toast("The Land Registry couldn't take your claim just now. Your blueprint is back in your bag - try again in a moment.", "bad");
+    true
+}
+
+/// House `i` taken down, and the item that claimed its plot back in the bag.
+fn take_back(life: &mut Life, i: usize) {
     let h = life.land.houses.remove(i);
     let deed = items().iter().find(|it| it.places.as_deref() == Some(h.blueprint.as_str()) && it.place_on.as_deref() == Some("plot"));
     if let Some(deed) = deed {
         life.give(&deed.id, 1, true);
     }
-    life.plot_owners.insert(plot.to_string(), holder.to_string());
     life.revision += 1;
-    life.toast(format!("That plot is {holder}'s: they claimed it first. Your blueprint is back in your bag."), "bad");
-    true
 }
 
 /// Waiting for the registry to confirm the plot's claim: nothing is built until it has.
@@ -534,6 +549,26 @@ mod tests {
         let id = life.land.houses[0].id;
         assert!(haul(&mut life, sim!(p, world, 7), id, "stoneBlock"));
         assert!(!lose_claim(&mut life, "rise-9", "Nobody"), "nothing on that plot");
+    }
+
+    #[test]
+    fn a_claim_the_registry_couldnt_take_gives_the_blueprint_back_to_try_again() {
+        let (mut life, world, mut p) = island(0.0);
+        life.claims_wait = true;
+        life.give("blueprint.cottage", 1, true);
+        assert!(place_house(&mut life, sim!(p, world, 7), "rise-2", "blueprint.cottage"));
+        toasts(&mut life);
+        assert!(claim_failed(&mut life, "rise-2"));
+        assert!(life.land.houses.is_empty());
+        assert_eq!(life.count("blueprint.cottage"), 1);
+        // Nobody holds it: it's free to try again.
+        assert!(!life.plot_owners.contains_key("rise-2"));
+        assert_eq!(toasts(&mut life), ["The Land Registry couldn't take your claim just now. Your blueprint is back in your bag - try again in a moment."]);
+        // A house the registry has confirmed never comes down this way.
+        assert!(place_house(&mut life, sim!(p, world, 7), "rise-2", "blueprint.cottage"));
+        confirm_claim(&mut life, "rise-2");
+        assert!(!claim_failed(&mut life, "rise-2"));
+        assert_eq!(life.land.houses.len(), 1);
     }
 
     #[test]

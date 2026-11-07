@@ -313,7 +313,7 @@ mod tests {
                     rules += (m - t).as_secs_f64() * 1000.0;
                     published += (e - m).as_secs_f64() * 1000.0;
                     encoded += e.elapsed().as_secs_f64() * 1000.0;
-                    ch.writes.clear();
+                    ch.store.clear();
                 }
                 let per = |v: f64| v / f64::from(ticks);
                 let (rules, published, encoded) = (per(rules), per(published), per(encoded));

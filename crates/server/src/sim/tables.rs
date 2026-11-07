@@ -10,10 +10,10 @@
 
 use std::collections::HashSet;
 
-use serde_json::Value;
+use serde_json::{Value, json};
 
 use ruina_world_api::gate::ToConn;
-use ruina_world_api::store::{LifeWrite, Then};
+use ruina_world_api::store::{LifeWrite, Then, ToStore, Transfer};
 
 use super::{Game, client, island_of};
 use crate::life::Life;
@@ -460,6 +460,7 @@ impl Game {
     fn settle(&mut self, k: usize) {
         let t = &self.tables.tables[k];
         let Some(over) = t.over else { return };
+        let table = t.id;
         let ids = [t.seats[0].id, t.seats[1].id];
         let names = [t.seats[0].name.clone(), t.seats[1].name.clone()];
         let game = t.game.name.clone();
@@ -512,10 +513,25 @@ impl Game {
                 m.life_due = 3;
             }
         }
-        // Written together, in one transaction, ahead of anything newer of theirs.
+        // Written together, in one transaction, ahead of anything newer of theirs: a pot won with the
+        // ledger's transfer from the loser to the winner (once, by its key, however often it's sent).
         let batch: Vec<LifeWrite> = ids.iter().filter_map(|&id| self.save_of(id)).collect();
-        if !batch.is_empty() {
-            self.writes.push((batch, Then::Nothing));
+        if batch.is_empty() {
+            return;
+        }
+        match winner.filter(|_| pot > 0.0) {
+            Some(w) => {
+                let (to, from) = (ids[w], ids[1 - w]);
+                let key = format!("pot:{}:{}:{}:{}", self.at, self.sim.0, table, crate::store::now_ms());
+                let transfer = Transfer {
+                    key,
+                    kind: "pot".into(),
+                    sides: vec![(to, format!("character:{from}"), held[1 - w]), (from, format!("character:{to}"), -held[1 - w])],
+                    detail: json!({ "game": game, "stake": held[1 - w] }),
+                };
+                self.store.push(ToStore::Transfer { transfer, writes: batch });
+            }
+            None => self.store.push(ToStore::WriteLives { writes: batch, then: Then::Nothing }),
         }
     }
 
@@ -587,7 +603,7 @@ mod tests {
     use crate::world::Spawn;
     use ruina_world_api::Epoch;
     use ruina_world_api::input::OPEN_INPUT;
-    use ruina_world_api::store::LifeWrite;
+    use ruina_world_api::store::{LifeWrite, ToStore};
 
     /// The game these tests play (a challenge names it by its place in the bundle).
     /// What a player's board view is offered with `picked` picked, from their view of the table
@@ -646,9 +662,16 @@ mod tests {
         heard(ch, id).into_iter().rfind(|m| m["t"] == "table").map(|m| m["table"].clone())
     }
 
-    /// The lives to be written together (a pot paid out), each list in one transaction.
+    /// The lives to be written together (a pot paid out, with its transfer), each list in one
+    /// transaction.
     fn take_joint(ch: &mut Game) -> Vec<Vec<LifeWrite>> {
-        std::mem::take(&mut ch.writes).into_iter().map(|(batch, _)| batch).collect()
+        std::mem::take(&mut ch.store)
+            .into_iter()
+            .filter_map(|m| match m {
+                ToStore::WriteLives { writes, .. } | ToStore::Transfer { writes, .. } => Some(writes),
+                _ => None,
+            })
+            .collect()
     }
 
     /// Ann challenges Bea for `stake` and Bea accepts: the table's id.

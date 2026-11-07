@@ -1,5 +1,5 @@
-//! Postgres: the connection pool, the schema (crates/server/migrations/, applied on start) and
-//! housekeeping.
+//! Postgres: the connection pool, the schema (crates/server/migrations/, applied on start, then the
+//! saves from before land had rows moved into them: crate::store::land::migrate) and housekeeping.
 
 use std::time::Duration;
 
@@ -28,6 +28,21 @@ pub async fn connect(url: &str) -> Result<PgPool, String> {
         Ok((0, 0)) => {}
         Ok((n, left)) => eprintln!("kept {n} builds by id; {left} kept by index weren't builds, and stay as they were"),
         Err(e) => eprintln!("could not keep the builds by id: {e}"),
+    }
+    // Saves from before land had rows of its own, moved into them (R10.21), before anyone plays.
+    // Those left (changed meanwhile, or unreadable) are moved the next time, and played as they are.
+    match super::land::migrate::run(&pool).await {
+        Ok(r) if r.characters == 0 && r.left == 0 => {}
+        Ok(r) => eprintln!(
+            "moved {} saves' land into rows ({} pieces, {} plots claimed; {} houses moved to a free plot, {} taken down); {} left as they were",
+            r.characters,
+            r.pieces,
+            r.plots,
+            r.moved.len(),
+            r.taken_down.len(),
+            r.left
+        ),
+        Err(e) => eprintln!("could not move saves' land into rows: {e}"),
     }
     Ok(pool)
 }

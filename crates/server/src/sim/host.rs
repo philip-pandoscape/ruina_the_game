@@ -44,8 +44,8 @@ pub struct Sim {
     pub game: Game,
     inbox: std_mpsc::Receiver<ToSim>,
     post: Arc<dyn Transport>,
-    /// A channel's residents aren't read yet: arrivals wait for them.
-    residents: bool,
+    /// Whether the region's land is read (a channel's arrivals wait for it; a copy keeps none).
+    land: bool,
     waiting: Vec<Arrival>,
     routing: HashMap<CharacterId, Route>,
     /// Lives of characters who left while on their way: written once the directory has answered,
@@ -78,9 +78,9 @@ impl Sim {
         if let Some(c) = game.copy_mut() {
             c.expel_after = setup.expel_after;
         }
-        let residents = match &lease.space {
-            SpaceId::Channel { n, .. } => {
-                post.store(ToStore::LoadResidents { channel: *n, reply: lease.sim });
+        let land = match &lease.space {
+            SpaceId::Channel { region, .. } => {
+                post.store(ToStore::LoadLand { region: region.clone(), reply: lease.sim });
                 false
             }
             SpaceId::Copy { .. } => true,
@@ -90,7 +90,7 @@ impl Sim {
             game,
             inbox,
             post,
-            residents,
+            land,
             waiting: Vec::new(),
             routing: HashMap::new(),
             held: HashMap::new(),
@@ -225,8 +225,8 @@ impl Sim {
         for (conn, msg) in self.game.said.drain(..) {
             self.post.conn(conn, msg);
         }
-        for (writes, then) in self.game.writes.drain(..) {
-            self.post.store(ToStore::WriteLives { writes, then });
+        for msg in self.game.store.drain(..) {
+            self.post.store(msg);
         }
         if let Some(c) = self.game.copy_of() {
             let now = (self.game.members.len(), c.empty_since.is_some());
@@ -242,7 +242,7 @@ impl Sim {
     pub fn handle(&mut self, msg: ToSim) -> bool {
         match msg {
             ToSim::Arrive(a) => {
-                if self.residents {
+                if self.land {
                     self.arrive(*a);
                 } else {
                     self.waiting.push(*a);
@@ -314,17 +314,37 @@ impl Sim {
                 self.placed(m.character);
             }
             ToSim::Parties { changed, owner } => self.game.parties(&changed, owner),
-            ToSim::Residents(list) => {
-                for r in list {
-                    self.game.add_resident(r.character, &r.name, &r.state);
-                }
-                self.game.estates.loaded = true;
-                self.residents = true;
+            ToSim::Land(region) => {
+                self.game.land_read(region);
+                self.land = true;
                 for a in std::mem::take(&mut self.waiting) {
                     self.arrive(a);
                 }
             }
-            ToSim::ResidentGone { character } => self.game.remove_resident(character),
+            ToSim::CharacterGone { character } => self.game.character_gone(character),
+            ToSim::Market(m) => self.game.set_market(serde_json::from_value(m).unwrap_or_default()),
+            // The store's word on a life: here, or sent on after it.
+            ToSim::Claim { character, plot, result } => {
+                if self.game.has_life(character) {
+                    self.game.claim_result(character, &plot, result);
+                } else if let Some((sim, _)) = self.gone.get(&character) {
+                    self.post.sim(*sim, ToSim::Claim { character, plot, result });
+                }
+            }
+            ToSim::Ids { character, next, end } => {
+                if self.game.has_life(character) {
+                    self.game.ids_given(character, next, end);
+                } else if let Some((sim, _)) = self.gone.get(&character) {
+                    self.post.sim(*sim, ToSim::Ids { character, next, end });
+                }
+            }
+            ToSim::Recorded { character, upto } => {
+                if self.game.has_life(character) {
+                    self.game.recorded(character, upto);
+                } else if let Some((sim, _)) = self.gone.get(&character) {
+                    self.post.sim(*sim, ToSim::Recorded { character, upto });
+                }
+            }
             ToSim::Estates { conn } => {
                 self.post.conn(conn, ToConn::Estates(self.game.estates_for(conn.character)));
             }
@@ -642,9 +662,9 @@ mod tests {
             std::thread::spawn(move || s.run())
         };
         let threads = [start(1, Duration::ZERO), start(2, Duration::from_millis(300))];
-        // Nobody lives in either yet (there's no store here to ask); someone plays in each.
+        // Nobody has land in either yet (there's no store here to ask); someone plays in each.
         for (sim, who) in [(1, 7), (2, 8)] {
-            post.sim(SimId(sim), ToSim::Residents(Vec::new()));
+            post.sim(SimId(sim), ToSim::Land(Default::default()));
             post.sim(SimId(sim), ToSim::Arrive(Box::new(arrival(who, 1, "P", false, None))));
         }
         // When each tick came, once both are playing.
