@@ -56,8 +56,7 @@ const EDITING = new Set([
 
 /**
  * Keys a browser acts on with nothing held, outside a text field: scrolling, moving the focus, going
- * back (older browsers), Firefox's quick find (/ and '), the context menu key, and Alt on its own,
- * which opens the menu bar in Firefox and moves the keyboard to Chrome's menu.
+ * back (older browsers), Firefox's quick find (/ and '), the context menu key.
  */
 const PLAIN = new Set([
   'Space',
@@ -74,10 +73,9 @@ const PLAIN = new Set([
   'Slash',
   'Quote',
   'ContextMenu',
-  'AltLeft',
-  'AltRight',
 ]);
 
+/** Alt on its own, typing or not: it opens the menu bar in Firefox and moves the keyboard to Chrome's menu. */
 const ALT = new Set(['AltLeft', 'AltRight']);
 /** Alt with these goes back, forward and home, typing or not. */
 const ALT_NAVIGATES = new Set(['ArrowLeft', 'ArrowRight', 'Home']);
