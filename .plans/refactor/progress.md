@@ -656,3 +656,46 @@ the developer zone; then the engine bridge (R6.4) and Phase 8's switches.
   and content's ids.
 - **A slip:** the clock's commit was pushed with the Rust tests and the online specs run, but not
   the TypeScript unit tier; the bible's test wanted the new file named. Fixed in the next commit.
+
+## 2026-11-06: The Skill Tree by Id, the Multi-Server Issue, and Where the Work Stands (R9.5, D20)
+
+- **The skill tree by id (R9.5's rest, a background agent; merged in 5d25daa).** The tree, the
+  levels, the tests and the balance harness name weapons, abilities and movement skills by id. So
+  `content/weapons/_order.json` and the abilities' and movement skills' orders can change freely,
+  but for the order things are listed in, and the golden player and crowd scenarios, which hold
+  builds by place as the wire does and are kept anew after a change of order. A new character's
+  build now holds the weapon Sword Training grants, where the engine's held the first in the list.
+  No golden answer moved, and the balance harness writes the same byte for byte. What's left of
+  R9.5: a new weapon still needs code for its moves, films and attachments.
+- **The multi-server part is GitHub issue #4 (D20).** It covers R10.2, R10.8, R10.19, R10.22, R10.23
+  and R10.24, with R10.17's wire handles and R10.12's stress test. It ships as its own update to
+  `beta` after this refactor's merge.
+- **Where it stands.** `refactor/first` is pushed with everything in it, and `beta` is untouched and
+  not ahead of it. The checks on the merged branch:
+  - `npm run check` passes: 263 TypeScript tests, and the engine's 181, the order test's 5, the
+    WebAssembly's 4 and the server's 81.
+  - The conformance tier passes.
+  - The whole integration tier: 201 passed, 2 failed. One is the pointer-lock test, which always
+    fails on macOS. The other, `yard.spec.ts:67`, counted the yard's spawn entries rather than the
+    creatures they bring once the yard took the old yard's layout (c4904b1, after which only
+    `admin.spec.ts` had been rerun). It's fixed, and the yard spec passes (4).
+- **Next, in order:**
+  1. **R10.11's rest.** Four specs still open the flat yard:
+     - `hotbar.spec.ts:77` looks for health over the hotbar, which shows only where you have no
+       life, so it shows nowhere once the flat yard goes;
+     - `skills.spec.ts:51`, `:122` and `:302` count on the yard's 30 practice points and the build
+       it kept, where a developer zone gives you the whole tree and a life.
+
+     Then `?test` alone becomes the world (drop `?world`, `?yard` and `?goblins`,
+     `src/app/options.ts`), and the flat yard goes: `yard.rs`'s layout, `Ground::Flat`, the yard's
+     practice (`src/app/yardPractice.ts`), its drawing in `src/render/scene.ts`, and `SKILL_POINTS`.
+  2. **Phase 10's open foundations:** R10.21 (land and the ledger), R10.20 (the server's tiers),
+     R10.17's ids, R10.14 (the words) and R10.16 (regions grown and dropped by need). They're bigger
+     than first priced. Narrow versions come to about 12 to 15 hours; as the tracker writes them,
+     about 25, with taxes and demolition, a coin ledger, shared weather and a thread per simulation.
+  3. **The close-out:** R13.1, R13.3, R13.6 and R13.7, then the merge into `beta` (R13.8, with
+     R6.14's look check), which waits for the go-ahead.
+- **Running the tests elsewhere.** Use the private rig (`docs/testing.md`), and run one Playwright
+  suite at a time. Rebuild the server after a content change, since the content's hash is in its
+  welcome. `ui.spec.ts:377` (pointer lock) fails on macOS anyway, and the battlefield's Healing
+  Circle test can fail under load and pass alone.

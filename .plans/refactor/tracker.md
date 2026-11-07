@@ -9,61 +9,50 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
 
 ## Now
 
-- **2026-11-06, evening, back on Windows:** the user asked for the refactor to be finished
-  **including the multi-server version**, with as many sub-agents as the work needs. How the rest is
-  split, the workstreams, their branches, worktrees and ports: [finish.md](finish.md). The
-  orchestrating session works in `C:\GitHub\games\yggdrasil-refactor` again (picked up at 5d25daa,
-  `npm run check` green), merges each workstream when it's done and keeps this tracker.
-- **Phase:** 10 (one world: its foundations, decided 2026-11-06, D16-D19), with 9's rest beside it;
-  7, 8, 11 and 12 done.
-- **Next:**
-  1. Phase 10's foundations, in order:
-     - R10.14 the words (as each area is touched);
-     - R10.16 the world map (the map, borders and the rules taking the world are in; growing and
-       dropping regions by need is left);
-     - R10.17 ids and the clock;
-     - R10.19 borders;
-     - R10.20 the server's tiers;
-     - R10.21 land and the ledger;
-     - R10.8 the wire;
-     - R10.2 and R10.22 hosting and channels;
-     - R10.23 the client;
-     - R10.24 proof at scale;
-     - R10.25 the guide.
-  2. Phase 9's rest (R9.5: the skill tree by id) and R6.14 beside them.
-  3. Phase 13 and the merge.
-
-  The multi-server version follows the merge (`.plans/world/`).
-- **How:** one session does the work, with at most two sub-agents beside it, on Opus 5.5 at max
-  effort, each in a worktree of its own with its own ports and database (the user's call on
-  2026-11-06: three at once used tokens too fast; one was allowed, then a second). They did the
-  mini-games (R9.11, R8.11) and the UI gallery (R6.9); then the bible's reading of the engine's Rust
-  (R8.13's part); then saved builds by id with the bundle's hash on the wire (R9.1, R9.2); then looks
-  from data (R9.9); then the tick that splits (R10.18) and Phase 9's client leftovers (R9.10, R9.8 and
-  R9.5's client part), both merged (1d5a214, 4fe4342). Work not yet merged stays on the agent's
-  branch, in its worktree on this Mac, and is merged into `refactor/first` once reviewed and its
-  tests pass.
+- **2026-11-06, evening, back on Windows (D21):** the user asked for the refactor to be finished
+  **including the multi-server support**, with as many sub-agents as the work needs. That takes back
+  D20: GitHub issue #4's items (R10.2, R10.8, R10.19, R10.22, R10.23, R10.24, R10.17's wire handles,
+  R10.12's stress test) are done here, on `refactor/first`, beside the foundations, and go to `beta`
+  with the rest. How the rest is split, the workstreams, their branches, worktrees and ports:
+  [finish.md](finish.md). The orchestrating session works in `C:\GitHub\games\yggdrasil-refactor`
+  (picked up at 5d25daa and the Mac's last commit 83d60a1; `npm run check`, conformance and the
+  integration tier green on Windows), merges each workstream when it's done and keeps this tracker.
+- **Phase:** 10 (one world, D16-D19 and D21), then 13 and the merge; 0-9, 11 and 12 done but
+  R6.14 (the look check, at the end).
+- **Next (finish.md):**
+  1. Wave 1, running: tiers (R10.20, R10.2, R10.17's ids), bigworld (R10.23, R10.16's rest),
+     offline (R10.11, R10.4, R10.10's rest), wire (R10.8's protocol), land (R10.21).
+  2. Wave 2, once tiers is in: borders (R10.19), channels (R10.22), and the second halves of wire and
+     land on the tiers.
+  3. Wave 3: the multi-server version (research 5b: roles, a TCP transport, leases in Postgres, the
+     gate across processes, an instance pool, failure tests), proof at scale (R10.24), then the
+     words (R10.14) last.
+  4. Phase 13 (R13.1-R13.7), R6.14's look check, every tier green, and the merge into `beta` (R13.8).
+- **How:** workstreams in worktrees of their own, a slot of ports and a database each, merged here
+  once reviewed and green; the tracker, the progress report and `design/status.json` are kept here
+  only (finish.md, Rules). Before the user's word on 2026-11-06 evening, one session worked with at
+  most two sub-agents (three at once had used tokens too fast).
 - **Races under load (the Mac, four workers):** these lose a race now and then and pass alone:
   `online.spec.ts:50`, `:109`, `:258`, `:617`, `combat.spec.ts:185`; and
   `game.spec.ts:43` and `dungeon-way-in.spec.ts:50` when Vite reloads the page at the start of a run
   as it optimizes its dependencies. To look at with R1.11. `party.spec.ts:121`'s was a real one: a tick
-  from the copy you'd left, heard just before the move, put you back in it (fixed, the feed forgets it). The battlefield's `Cleave hits both` and
-  `battlefield.spec.ts:375` weren't races: the battlefield takes 20 and keeps a player who has left
-  for a minute, so the spec's fresh fighters filled it a few tests in. They leave through its way out
-  now, and the spec passes whole.
-- **Where:** from 2026-11-06 the work goes on on the Mac laptop, in the main checkout
-  (`~/Documents/GitHub/games/ruina_the_game`, branch `refactor/first`; Git LFS installed with
-  Homebrew). The Windows worktree `C:\GitHub\games\yggdrasil-refactor` was the first machine; its last
-  state is a975617.
-- **Test rig for this branch (the Mac):** Postgres container `ruina-refactor-db` on 127.0.0.1:5461
-  (`docker run -d --rm --name ruina-refactor-db -e POSTGRES_USER=ruina -e POSTGRES_PASSWORD=ruina
-  -e POSTGRES_DB=ruina -p 127.0.0.1:5461:5432 postgres:18`); a world server on 7871 run as a
-  background task from a copy of the release binary, so a rebuild doesn't pull it out from under the
-  tests (`cp target/release/ruina-server scratch/rig/ && DATABASE_URL=postgres://ruina:ruina@127.0.0.1:5461/ruina
-  DEV_LOGIN=1 ./scratch/rig/ruina-server --port 7871`); the suite with `PW_PORT=5261
-  TEST_PORT_OFFSET=60 RUINA_SERVER=http://localhost:7871
-  RUINA_DATABASE_URL=postgres://ruina:ruina@127.0.0.1:5461/ruina` and `--output=scratch/pw-*`.
-  Servers listen on localhost only.
+  from the copy you'd left, heard just before the move, put you back in it (fixed, the feed forgets
+  it). The battlefield's `Cleave hits both` and `battlefield.spec.ts:375` weren't races: the
+  battlefield takes 20 and keeps a player who has left for a minute, so the spec's fresh fighters
+  filled it a few tests in. They leave through its way out now, and the spec passes whole. On
+  Windows (2026-11-06, the whole tier with five workstreams building beside it): 202 passed, and the
+  yard spec's count (fixed).
+- **Where:** Windows again from 2026-11-06 evening (`C:\GitHub\games\yggdrasil-refactor`); the Mac
+  (`~/Documents/GitHub/games/ruina_the_game`) did the work between a975617 and 83d60a1.
+- **Test rig for this branch (Windows, slot 0 in finish.md):** Postgres container
+  `ruina-refactor-db` on 127.0.0.1:5461 (`docker run -d --rm --name ruina-refactor-db -e
+  POSTGRES_USER=ruina -e POSTGRES_PASSWORD=ruina -e POSTGRES_DB=ruina -p 127.0.0.1:5461:5432
+  postgres:18`); a world server on 7871 run as a background task from a copy of the release binary,
+  so a rebuild doesn't meet a running file (`cp target/release/ruina-server.exe scratch/rig/ &&
+  DATABASE_URL=postgres://ruina:ruina@127.0.0.1:5461/ruina DEV_LOGIN=1
+  ./scratch/rig/ruina-server.exe --port 7871`); the suite with `PW_PORT=5261 TEST_PORT_OFFSET=60
+  RUINA_SERVER=http://localhost:7871 RUINA_DATABASE_URL=postgres://ruina:ruina@127.0.0.1:5461/ruina`
+  and `--output=scratch/pw-*`. Servers listen on localhost only.
 - **Decided 2026-11-06 (D15):** the client will be packaged as a desktop app later, so the work
   that only keeps a browser's download small is out: R11.4 and R11.5 dropped, the first-download
   budget test (R11.7) removed, R8.14 measures no download size.
@@ -861,12 +850,18 @@ Key: `[ ]` to do · `[~]` in progress · `[x]` done and verified · `[-]` droppe
   `tools/skilltree/gen.mjs`, read by the engine's `skills.rs`), the engine's default build holds weapon
   0 (`player.rs`), tests hard-code weapon numbers, and the crowd's cast clip names an ability by place
   (`castAbility: 0`, `heroBody.ts`).
-  Done (14f53c3, e95be37, 0e53605, 2f278c8; merged in 5d25daa, a background agent): the skill tree and
-  the levels name weapons, abilities and movement skills by id, the engine's default build and a new
-  hero hold the weapon Sword Training grants, the crowd's cast names its ability, and the tests and
-  the balance harness name them by id. `tests/unit/weaponOrder.test.ts` turns all three lists round
-  by one and finds everything as before. *Verified:* `npm run check` on Windows (263 TypeScript, 181
-  engine, 81 server tests).
+  The orders (14f53c3, e95be37, 0e53605, 2f278c8, merged in 5d25daa; a background agent): the skill
+  tree and the levels name weapons, abilities and movement skills by id, read into places by the
+  engine and the page as they load; the tests and the balance harness name them by id; the default
+  build and a new hero hold the weapon Sword Training grants; the crowd's cast names its ability.
+  `crates/engine/tests/order.rs` and `tests/unit/weaponOrder.test.ts` turn all three lists round
+  and find everything the same. So `_order.json` can change freely, but for the order things are
+  listed in, and the golden player and crowd scenarios, which hold builds by place as the wire does
+  and are kept anew after a change of order. Left: a new weapon still needs code (its moves, films
+  and attachments are keyed by its id: the R9.5 allowance in `tests/unit/contentIds.test.ts`).
+  *Verified* again on Windows (2026-11-06, evening): `npm run check` (263 TypeScript, 181 engine, 81
+  server tests), the conformance tier, and the integration tier (202 passed; the yard spec, fixed in
+  both places, passes).
 - [x] **R9.6** Quest markers from quest data; no place ids in the UI.
   Done (2ca47bf): an objective's `marker` in its quest's file; `src/ui/life/hud/goal.ts` names no
   place; the same goal in 1,200 states before and after (`tests/unit/questGoal.test.ts`).
@@ -988,9 +983,11 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
   Emberholm. contentc and the content-ids tool read every region's ids, not Emberholm's alone. The
   engine builds in every region in `shared/regions/` and every instance; the browser knows only
   Emberholm until R10.23. The bible's Zones are Regions (`#/regions/emberholm`).
-- [ ] **R10.2** The server hosts the world and its instances: a simulation for each region channel
+- [-] **R10.2** The server hosts the world and its instances: a simulation for each region channel
   and each instance copy, found by id (no `emberholm()` outside tests). Players travel between them,
   and every character is saved with its space.
+  Moved to GitHub issue #4 (D20, 2026-11-06): the multi-server update to `beta`, after this
+  refactor's merge.
 - [x] **R10.3** Developer zones: a `developer` flag; only admins may enter (the server checks); the
   admin menu lists them from the zone list.
   Done: the server's half (acaf9b5); the Admin window's zone buttons (8d1722f); the Admin menu lists
@@ -1019,7 +1016,7 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
   admin and gone with the last. The browser's arena (157e823). The old battle server's removal is
   R10.10.
   Done: the old battle server went with R10.10's server half (a975617).
-- [ ] **R10.8** The wire for crowds.
+- [-] **R10.8** The wire for crowds.
   - **Interest:** each client is sent only what's near it, on 32 m cells, in near, mid and far tiers.
     The design comes from the old battle server's `interest.rs` (`git show 04da4b6`).
   - **Encoding:** compact binary records with deltas against what the client acknowledged, priority
@@ -1032,6 +1029,8 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
   Measured before (2026-11-06, `scratch/stress-battlefield-before.json`): 32 bots, a tick 1.09 ms,
   an update 22.3 KB, 53 fps, the 95th-percentile frame 33.3 ms; 64 bots, 2.43 ms, 42.9 KB, 58 fps,
   16.8 ms. Far peers drawn by the crowd renderer (R10.9's last part) go with it.
+  Moved to GitHub issue #4 (D20, 2026-11-06): the multi-server update to `beta`, after this
+  refactor's merge.
 - [x] **R10.9** One world client for every zone: the battle client path (`?server=`, `netCrowd.ts`'s
   battle parts, RemotePlayers) goes; far bodies drawn by the crowd renderer.
   Done (da8fb15): `src/net/worldFeed.ts` in place of the battle client (NetCrowd); RemotePlayers,
@@ -1065,7 +1064,7 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
   Rust: zones load, stand where players may go and apart, have ways out; bots' brains; copies,
   admins, bots coming and going, spawns, zone to zone. Integration (`admin.spec.ts`): the battlefield
   from the world, the yard from character select, the goblin camp from the Admin window, a player kept
-  out. The stress test is left (R10.24).
+  out. The stress test is left (R10.24, GitHub issue #4).
 - [x] **R10.13** `docs/zones.md`: adding a zone, a developer zone, bots.
   Done (777949b).
 - [ ] **R10.14** The words.
@@ -1152,7 +1151,8 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
   an input carries comes in sixteenths, of which the wire keeps the low 32 bits, read back in full
   against the game's tick. Left, the ids: they change what the wire says of everyone (handles per
   connection) and how placed things are numbered (a database sequence), so they go with the wire for
-  crowds (R10.8) and land in tables of its own (R10.21).
+  crowds (R10.8, now GitHub issue #4: the handles) and land in tables of its own (R10.21: global ids,
+  placed things numbered from a database sequence).
 - [x] **R10.18** The tick that splits.
   - **The rule:** within a step, an entity reads others only as they stood at its start, and affects
     them only through events applied at the next step.
@@ -1177,7 +1177,7 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
   off by default, slower at today's sizes. Sending updates (8 ms at 1024 bots) is the next cost.
   The thin wrapper `open::step_player` kept for `open/map.rs`'s tests went in 9d729a0: one step
   for a player in an open world, reading the world.
-- [ ] **R10.19** Borders, in one process.
+- [-] **R10.19** Borders, in one process.
   - **Ownership:** a simulation owns its chunks.
   - **Ghosts:** neighbours exchange read-only copies of what's within about 120 m of the border, every
     tick.
@@ -1191,6 +1191,8 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
   Proved two ways: Emberholm split into two simulations matches one simulation bit for bit (a golden
   test), and the fixture world's borders are crossed on foot, by cart with a passenger, by boat and by
   glider.
+  Moved to GitHub issue #4 (D20, 2026-11-06): the multi-server update to `beta`, after this
+  refactor's merge.
 - [ ] **R10.20** The server's tiers, in one process.
   - **`crates/world-api`** holds the messages and ids, with no I/O:
     - inputs with sequence numbers, and commands;
@@ -1220,7 +1222,7 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
   - **Shared state:** what the world shares (the time of day, each region's weather, trading posts'
     demand) is kept in one place.
   - **Saves:** a character's own life is saved when it changes, and existing saves are migrated.
-- [ ] **R10.22** Channels on their own.
+- [-] **R10.22** Channels on their own.
   - **Opening and merging:** a region runs as channels. Another opens when the region passes its soft
     cap, and a quiet one merges.
   - **Placement:** players are placed by affinity: party first, then friends, guild and language as
@@ -1231,7 +1233,9 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
 
   Played with bots in one process: a crowd fills a region, a channel opens, parties stay together, and
   a quiet channel merges.
-- [ ] **R10.23** The client in a big world.
+  Moved to GitHub issue #4 (D20, 2026-11-06): the multi-server update to `beta`, after this
+  refactor's merge.
+- [-] **R10.23** The client in a big world.
   - **Regions:** grown in a Web Worker ahead of you, and dropped behind you.
   - **Precision:** the scene's origin moves with you, keeping the world-space shaders (`ground.ts`,
     `water.ts`) precise.
@@ -1239,11 +1243,15 @@ once these stand. The island's generator for any zone (R10.1) waits for its port
   - **The map:** shows the world's regions.
 
   Crossing a border loads nothing.
-- [ ] **R10.24** Proof at scale.
+  Moved to GitHub issue #4 (D20, 2026-11-06): the multi-server update to `beta`, after this
+  refactor's merge.
+- [-] **R10.24** Proof at scale.
   - **Stress tier:** thousands of bots fight, cross borders and crowd regions on the world server,
     measured against R10.8's baseline (tick time, bandwidth, frame time).
   - **Failure tests, in one process:** a simulation stopped mid-handoff, a message delivered twice, a
     lease lost. Nothing is duplicated or lost.
+  Moved to GitHub issue #4 (D20, 2026-11-06): the multi-server update to `beta`, after this
+  refactor's merge.
 - [~] **R10.25** `docs/world.md`, in place of `docs/zones.md`: the world, regions, instances, channels,
   borders and land, and how to add a region or an instance.
   Begun (7ea3035): the words, where the regions stand, the ground through the world map, spaces,

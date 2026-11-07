@@ -14,6 +14,8 @@ import { onlineReady } from '../support/game';
 
 const SERVER = process.env.RUINA_SERVER ?? 'http://localhost:7777';
 const YARD = JSON.parse(readFileSync('content/instances/yard.json', 'utf8')) as { spawns: Array<{ kind: string; count?: number }> };
+/** How many creatures the yard's file brings: each entry brings its count (one without). */
+const YARD_CREATURES = YARD.spawns.reduce((n, s) => n + (s.count ?? 1), 0);
 const SWORD: Build = {
   skills: skillsFrom('sword'),
   weapon: weaponIndex('sword'),
@@ -68,9 +70,8 @@ test('the server streams its monsters to a player who comes in', async ({ page }
   const errors = await intoTheYard(page);
   await seeSlimes(page);
   const list = await page.evaluate(() => window.__game.shownActors() as Shown[]);
-  // What the yard's file brings (a group of `count` as that many), each a kind the browser can name,
-  // standing up, at full health.
-  expect(list.length).toBe(YARD.spawns.reduce((n, s) => n + (s.count ?? 1), 0));
+  // What the yard's file brings, each a kind the browser can name, standing up, at full health.
+  expect(list.length).toBe(YARD_CREATURES);
   for (const a of list) {
     expect(a.kindId).not.toBe('');
     expect(a.deadFrame).toBe(-1);

@@ -1680,7 +1680,9 @@
         "The content library reaches the hero only through what it says it shows (R6.11b): the weapon held, putting it somewhere, the pose's feedback, hiding the trails, the feet's holds; no casts to its private parts.",
         "Offline copies (R10.11): ?test=<instance> and ?offline=<instance> start you in a copy of any instance, its creatures on its floor; the yard instance in the training yard's layout, so the rules tests and most yard specs moved onto it unchanged.",
         "The world's clock (R10.17): every game numbers its ticks from the world's epoch (crates/server/src/play/clock.rs), the same moment in every channel and copy.",
-        "docs/architecture.md: the map of the pieces, a game online and offline, the client's areas and content's ids."
+        "docs/architecture.md: the map of the pieces, a game online and offline, the client's areas and content's ids.",
+        "Weapons, abilities and movement skills by id everywhere (R9.5): the skill tree, the levels, the tests and the balance harness, so their lists' orders can change freely.",
+        "The multi-server part of Phase 10 is GitHub issue #4 (D20), a separate update to beta after the merge; the foundations still open (R10.21, R10.20, R10.17's ids, R10.14, R10.16, R10.11's rest) and the close-out come first, from .plans/refactor/progress.md's last entry."
       ]
     }
   ]
