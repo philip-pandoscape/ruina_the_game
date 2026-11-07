@@ -183,6 +183,14 @@ export class OpenStage {
 
   // ---------- The scene's origin, moving with you ----------
 
+  /** The origin held where the tests put it (pinOrigin), instead of moving with the camera. */
+  private pinned: [number, number] | null = null;
+
+  /** Holds the scene's origin at a point, or (null) lets it move with the camera again: the tests compare drawings made from different origins, and with none. */
+  pinOrigin(at: [number, number] | null): void {
+    this.pinned = at;
+  }
+
   /**
    * Moves the scene's origin once the camera is far from it (src/render/origin.ts): the scene stands
    * shifted by it, the camera with it, so what the graphics card is handed stays near its origin.
@@ -190,7 +198,7 @@ export class OpenStage {
    */
   rebase(cameraX: number, cameraZ: number): boolean {
     const [ox, oz] = sceneOrigin();
-    const [nx, nz] = nextOrigin(ox, oz, cameraX, cameraZ);
+    const [nx, nz] = this.pinned ?? nextOrigin(ox, oz, cameraX, cameraZ);
     if (nx === ox && nz === oz) return false;
     setSceneOrigin(nx, nz);
     this.scene.position.set(-nx, 0, -nz);

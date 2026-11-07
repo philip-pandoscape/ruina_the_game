@@ -55,16 +55,28 @@ export function makeTestApi(g: GameRefs) {
      * map) and their ids, the one on its way from the worker, every arrival and leaving so far, and how
      * many the rules grew on the spot because they were asked about ground the page hadn't handed over.
      */
-    regionsNow(): { held: number[]; ids: string[]; pending: number | null; log: unknown[]; unheld: number; drawn: number[] } {
+    regionsNow(): {
+      held: number[];
+      ids: string[];
+      pending: number | null;
+      log: Array<{ t: string; place: number; id: string; frame: number; growMs?: number; allMs?: number; takeMs?: number }>;
+      rules: number[];
+      unheld: number;
+      drawn: number[];
+      building: number[];
+    } {
       const r = g.regions;
       const rules = g.engine.layout ? g.engine.regionsHeld() : { held: [], unheld: 0 };
+      const stage = g.openStage;
       return {
         held: r?.held ?? [],
         ids: (r?.held ?? []).map((p) => g.engine.layout?.regions[p]?.id ?? ''),
         pending: r?.pending ?? null,
         log: JSON.parse(JSON.stringify(r?.log ?? [])),
+        rules: rules.held,
         unheld: rules.unheld,
-        drawn: g.openStage ? [...g.openStage.regions.keys()] : [],
+        drawn: stage ? [...stage.regions.keys()] : [],
+        building: stage ? [...stage.regions.entries()].filter(([, v]) => !v.built).map(([p]) => p) : [],
       };
     },
     /** Where you are and what you're doing, cheaply (sampled every frame by the tests that time frames). */
@@ -89,6 +101,11 @@ export function makeTestApi(g: GameRefs) {
         if (Math.hypot(v.x, v.z) < 4000) farthest = Math.max(farthest, Math.hypot(v.x, v.z));
       });
       return { origin: [o[0], o[1]], camera: cam, shadow, farthest, meshes };
+    },
+    /** Holds the scene's origin at a point ([0, 0]: the world's own, as if there were no floating origin), or lets it move with the camera again (null); drawn at the next frame. */
+    pinOrigin(at: [number, number] | null): void {
+      g.openStage?.pinOrigin(at);
+      g.draw(1, 0, 0);
     },
     /** Resolves once every region near (x, z) is held, grown in the worker as if you'd come from afar (a teleport's arrival). */
     regionsReady(x: number, z: number): Promise<void> {
