@@ -50,3 +50,13 @@ integration and end-to-end tests each workstream listed are in its report
 language placement wait for the social tier to keep them.
 
 **Land** (`reports/land.md`): what its final report says is left.
+
+## Found by the First Whole Run (2026-11-07, on cddb69b, everything merged but the words)
+
+The integration tier: 209 passed, 2 failed, 4 didn't run (behind the failures), 1 skipped.
+- `online.spec.ts:174` (a second window takes the character over): `saveAndWait` waits for a save,
+  but lives are now saved a second after they change and at least once a minute (land), and the
+  second window had changed nothing. Make it change something first; `saveAndWait`'s comment still
+  says every 5 s. Check the other online specs' waits for the same assumption.
+- `update.spec.ts:73`: its own Vite didn't answer within 180 s while another workstream built on the
+  machine; the spec alone passes whole (5 of 5).
