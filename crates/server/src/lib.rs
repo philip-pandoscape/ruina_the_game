@@ -11,6 +11,8 @@
 //! - `post`: how their messages reach each other in one process; `start`: starting them all.
 //! - `accounts`: accounts, sign-in and sessions, and the characters each account holds.
 //! - `http`: the one port: the account API, the game's files, the admins' pages, the WebSocket.
+//! - `cluster`: the world on several processes: their roles, the directory's tables in Postgres (the
+//!   processes, the leases with their epochs, the fence every write passes), a sim's lease keeper.
 
 #![recursion_limit = "256"]
 
@@ -20,6 +22,7 @@ pub use ruina_engine::{
 };
 
 pub mod accounts;
+pub mod cluster;
 pub mod directory;
 pub mod gate;
 pub mod http;

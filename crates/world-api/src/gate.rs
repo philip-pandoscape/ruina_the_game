@@ -82,6 +82,10 @@ pub enum ToConn {
     Channels(Box<ruina_channels::ChannelsView>),
     /// They were moved to another channel: from where, to where, and why.
     ChannelMoved { from: u32, to: u32, why: ruina_channels::Why },
+    /// The simulation they played in is gone (its process stopped, or lost its lease): the
+    /// connection closes as a service restart, and the browser comes back in to where they were
+    /// last saved, wherever the directory now plays it.
+    Rejoin { text: String },
 }
 
 /// The directory's grant of a character to a connection.

@@ -169,6 +169,9 @@ const BEHIND: usize = 4;
 async fn run(mut inbox: mpsc::UnboundedReceiver<ToGate>, mut controls: mpsc::UnboundedReceiver<Control>) {
     let mut held: HashMap<(CharacterId, SessionId), Held> = HashMap::new();
     let mut asks: HashMap<u64, oneshot::Sender<Answer>> = HashMap::new();
+    // The newest lease seen for each space: a tick under an older one is from a simulation that has
+    // lost its space (among several processes), and goes to nobody.
+    let mut leases: HashMap<ruina_world_api::SpaceId, ruina_world_api::Epoch> = HashMap::new();
     loop {
         tokio::select! {
             // A connection opens before it asks anything, so what it's told back finds it.
@@ -198,6 +201,13 @@ async fn run(mut inbox: mpsc::UnboundedReceiver<ToGate>, mut controls: mpsc::Unb
                     let _ = h.tx.try_send(Event::Msg(msg));
                 }
                 Some(ToGate::Tick(out)) => {
+                    if let Some(space) = &out.space {
+                        let newest = leases.entry(space.clone()).or_default();
+                        if out.lease < *newest {
+                            continue;
+                        }
+                        *newest = out.lease;
+                    }
                     for ((character, _), h) in &held {
                         // A connection that can't keep up skips ticks rather than queueing them (each
                         // holds a whole tick): its next update on the wire covers what it missed.

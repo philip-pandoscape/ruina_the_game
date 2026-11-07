@@ -566,6 +566,13 @@ async fn deliver(tx: &mut Tx, seat: &mut Seat, enc: &mut encode::Encoder, e: Eve
             }
         }
         Event::Msg(ToConn::Kicked) => return replaced(tx).await.map(Some),
+        // Their simulation is gone (another process plays the space now): ridden out as a deploy
+        // is, the browser coming back in to where they were last saved.
+        Event::Msg(ToConn::Rejoin { .. }) => {
+            let mut told = false;
+            stopping(tx, Stage::Updating, &mut told).await?;
+            return stopping(tx, Stage::Closing, &mut told).await;
+        }
         Event::Msg(m) => {
             // Somewhere else (a move between spaces) resets what the wire sent; across a border, in
             // the same space, nothing does: the taker's frame has everyone with the same ids.

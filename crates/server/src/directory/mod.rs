@@ -72,7 +72,7 @@ pub struct SimSetup {
 }
 
 /// A simulation's part of a region played by several.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Part {
     pub owners: ruina_engine::border::Owners,
     pub seats: std::ops::Range<usize>,
@@ -433,6 +433,10 @@ impl<L: Leases> Directory<L> {
             return self.ensure_parts(space, sim, split, &cuts).await;
         }
         let lease = self.leases.grant(space, sim, chunks).await?;
+        // Played already: among several processes the directory may have started again while the
+        // simulation that has the space plays on. It's taken as it is, and nothing is started.
+        let adopted = lease.sim != sim;
+        let sim = lease.sim;
         let copy = match space {
             SpaceId::Copy { instance, .. } => {
                 let def = dungeon(instance).ok_or("There's no such place.")?;
@@ -443,7 +447,9 @@ impl<L: Leases> Directory<L> {
         };
         let setup = SimSetup { lease: lease.clone(), owner: copy.as_ref().map(|c| c.owner), expel_after: self.expel_after, part: None };
         self.spaces.insert(space.clone(), Running { lease, copy });
-        self.spawner.start(setup);
+        if !adopted {
+            self.spawner.start(setup);
+        }
         Ok(sim)
     }
 
@@ -458,6 +464,12 @@ impl<L: Leases> Directory<L> {
             sims.push(self.leases.next_sim().await?);
         }
         let lease = self.leases.grant(space, first, split[0].clone()).await?;
+        if lease.sim != first {
+            // Played already, by another process's parts: taken as it is, nothing started.
+            let sim = lease.sim;
+            self.spaces.insert(space.clone(), Running { lease, copy: None });
+            return Ok(sim);
+        }
         let owners = parts::owners(world_map(), cuts, &sims);
         let mut leases = Vec::new();
         for (k, chunks) in split.into_iter().enumerate() {
@@ -469,6 +481,32 @@ impl<L: Leases> Directory<L> {
         self.spaces.insert(space.clone(), Running { lease, copy: None });
         self.parts.insert(space.clone(), leases);
         Ok(first)
+    }
+
+    /// A space's simulation lost its lease (among several processes: its process stopped, or was cut
+    /// off from the directory's table). The space is let go here, so the next to need it starts it
+    /// anew, under the next epoch, on a process that's there; whoever played in it comes back in
+    /// (`Rejoin`), to their life as it was last written.
+    fn let_go(&mut self, space: &SpaceId, sim: SimId) {
+        if !self.spaces.get(space).is_some_and(|r| r.lease.sim == sim) {
+            return;
+        }
+        let r = self.spaces.remove(space).expect("there");
+        self.parts.remove(space);
+        self.copies.retain(|_, s| s != space);
+        let inside: Vec<CharacterId> = self.last.iter().filter(|(_, s)| *s == space).map(|(c, _)| *c).collect();
+        for c in inside {
+            self.last.remove(&c);
+            self.pending.remove(&c);
+            if let Some(w) = self.who.get(&c) {
+                self.post.conn(w.conn, ToConn::Rejoin { text: "The place you were in moved to another server.".into() });
+            }
+        }
+        if let Some(c) = r.copy
+            && let Owner::Party(_) = c.owner
+        {
+            self.post.social(ToSocial::CopyClosed { owner: c.owner, space: space.clone() });
+        }
     }
 
     /// Whether someone belongs in a copy: it's their party's, theirs on their own, or everyone's.
@@ -597,6 +635,7 @@ impl<L: Leases> Directory<L> {
                 for lost in r.lost {
                     eprintln!("lost the lease on {} (epoch {}) to another holder", lost.space, lost.epoch.0);
                     self.post.sim(lost.sim, ToSim::Lease(ruina_world_api::sim::LeaseNote::Lost { epoch: lost.epoch }));
+                    self.let_go(&lost.space, lost.sim);
                 }
             }
             Err(e) => eprintln!("could not renew the leases: {e}"),

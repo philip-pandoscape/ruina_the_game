@@ -78,6 +78,46 @@ Raise `WORLD_PROTOCOL` when the wire changes in a way an older page can't read.
 To try it locally: `POST /api/dev/stop` does the same, for a signed-in admin, where `DEV_LOGIN=1`.
 `tests/integration/update.spec.ts` plays it, and needs `RUINA_DATABASE_URL`.
 
+## Several Processes
+
+`ruina-server` plays every tier in one process (`--role all`, the default, as on Railway today). It
+can also run as several processes, a role each ([architecture.md](architecture.md), Several
+Processes), all on one Postgres, where they find each other.
+
+| Variable | Flag | What |
+|---|---|---|
+| `ROLE` | `--role` | `all` (the default), `gate`, `sim` or `services` |
+| `NODE_ID` | `--node` | The process's id in the directory, unique on its database (by default the role and a random number) |
+| `LINK_LISTEN` | `--link` | Where its links listen: this machine and any free port, or `[::]:9000` with `LISTEN=all` |
+| `LINK_ADVERTISE` | `--advertise` | Where the others dial it: by default where it listens, or on Railway `RAILWAY_PRIVATE_DOMAIN` and the link's port |
+| `SPACES` | `--spaces` | The spaces a sim stands for: `channel:emberholm:1,copy:goblinsDread:3` |
+| `LEASE_MS` | `--lease-ms` | A lease's length (10000), renewed every fifth of it; a sim stops a fifth before it runs out |
+
+Every role needs `DATABASE_URL`, and serves `/api/health` and `/api/cluster` (the directory as it
+sees it) on its `PORT`. On this machine, each in a terminal of its own, on your rig's database:
+
+```sh
+DATABASE_URL=postgres://... ./ruina-server --role services --port 9150
+DATABASE_URL=postgres://... ./ruina-server --role sim --spaces channel:emberholm:1 --port 9151
+DATABASE_URL=postgres://... ./ruina-server --role sim --spaces channel:emberholm:1 --port 9152   # standing by
+DATABASE_URL=postgres://... ./ruina-server --role gate --port 9153
+curl http://localhost:9153/api/cluster
+```
+
+`npm run test:cluster` starts processes like these, then kills them, cuts the links between them and
+doubles what passes ([testing.md](testing.md)).
+
+**On Railway** (a sketch, not set up: the beta stays one service until the gate and the sims run
+apart, the multi-server work's second half):
+
+- A service per role, from the same image, each with its `ROLE`, all on the environment's Postgres.
+- `LISTEN=all`, so links listen on `[::]:9000`. The others dial a service through Railway's private
+  network at `<service>.railway.internal:9000`, which a process advertises by default
+  (`RAILWAY_PRIVATE_DOMAIN`).
+- Only the gate has a public domain. Every role keeps the health check, `/api/health`.
+- More sims are more services (`sim-1`, `sim-2`): a replica shares its service's private name, so
+  replicas of one sim service would need to advertise their own addresses.
+
 ## Never
 
 - Commit `.env` (Railway keys, `GEMINI_API_KEY`).

@@ -237,7 +237,7 @@ fn listen_everywhere(port: u16) -> std::io::Result<TcpListener> {
 }
 
 /// Resolves when the server is asked to stop (Ctrl-C, or SIGTERM from Docker and Railway).
-async fn stopped() {
+pub(crate) async fn stopped() {
     let ctrl_c = async {
         let _ = tokio::signal::ctrl_c().await;
     };
