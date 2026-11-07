@@ -15,6 +15,76 @@ a harness for several processes. The second half (once tiers and borders land on
 This file is a running log while the work goes on (dated entries at the end); the summary at the
 top is filled in when it's done.
 
+## Summary: the first half (2026-11-06, done)
+
+What landed (the log below has each commit's detail):
+
+| What | Where | Commits |
+|---|---|---|
+| TCP links between processes: once and in order across lost connections, at least once across a restart, back-pressure, requests, faults and a fault proxy; world-api's `Transport` over them (`LinkPost`) | `crates/link` | 9855f9f, fa9f5ea (proxy's cuts counted), c33c546 (links from any thread) |
+| The directory in Postgres: `nodes`, `sim_ids`, `space_leases` (epochs), `space_snapshots`; grant, renew, release, owner, the fence; a sim's lease keeper; the processes' heartbeats | migration 0030, `crates/server/src/cluster/{leases,keeper,nodes}.rs` | eb88eca |
+| Roles: `--role all\|gate\|sim\|services` (all by default, unchanged), each role's scaffolding and `/api/cluster` | `crates/server/src/main.rs`, `cluster/roles.rs` | eb88eca |
+| A harness of several processes: kill a process, cut a link, double what passes, cut a sim off from the directory | `crates/server/tests/cluster.rs`, `npm run test:cluster` | fa9f5ea |
+| The guides | `docs/architecture.md`, `docs/deploys.md`, `docs/testing.md` (Several Processes), `crates/link/AGENTS.md` | c33c546 |
+
+The numbers: MessagePack with field names against JSON on world-api's own messages, 17-42% smaller
+and read 20-55% faster; 1.38 million small messages a second on one link; ticks' records (28 KB)
+at 235 MB/s; a request answered in 70 µs (p50), 196 µs (p99). A killed sim's space taken over in
+1.7-2.1 s under the next epoch (2 s leases); a sim cut off from the directory stops 0.4-0.7 s before
+another is granted its space.
+
+Checks, after merging `refactor/first` (12b3946, 09cc4aa): typecheck, biome, knip and the Rust
+lints pass; the Rust tests 300 passed (17 ignored: measurements and the 13 database tests); `npm run
+test:cluster` (the 13, against slot 10's Postgres) green, three runs each before; the TypeScript unit
+tier 262 of 263. The one failure is `tests/unit/paths.test.ts`, on five paths that came with the
+tiers' 86d6055 (merged here to build against world-api): `docs/engine.md` and `src/net/AGENTS.md`
+name `crates/server/src/play/` (moved away in b5df031, there again at the tiers' tip), and
+`crates/world-api/AGENTS.md` names `crates/server/src/post.rs` and the tiers' report (both written
+after 86d6055). It passes on `refactor/first` and at the tiers' tip, so it goes once tiers lands
+and is merged here. Also formatted `tests/unit/bible.test.ts` as biome has it (the same merge had
+left it long), and the Dockerfile's dependency layer lists `crates/link` and `crates/world-api`
+(checked: that layer's workspace resolves with the committed lock).
+
+## The Second Half: Waiting on Tiers and Borders
+
+What it does: the tiers' messages over the links between processes; gates routing players to sims
+in other processes, re-routing a player's inputs across a handoff by sequence number and buffering
+during it; sims exchanging ghosts and handoffs across processes; the directory's leases deciding
+which process plays what; an instance pool (sims without spaces standing for the copies the
+directory places by load); the failure tests end to end (a sim killed mid-handoff, a message
+delivered twice, a lease lost); the online specs against a gate and two sims; a local way to run it
+(an npm script or a compose file); `docs/deploys.md` as a service per role.
+
+What it needs:
+
+- **From tiers** (as at `refactor/tiers` f7e134c):
+  - **The post.** `crates/server/src/post.rs` (world-api's `Transport` in one process) and
+    `LinkPost` behind one post: addresses in this process over channels, the rest over links. The
+    book is filled from the directory: a sim by `space_leases.sim` (its node and address), a gate,
+    the store, social and the directory by `nodes`. A `GateId` must be unique across processes (a
+    `gate_ids` sequence in 0031, or drawn from the gate's row).
+  - **The leases.** Tiers' `directory::leases::Leases` trait (e7c28bd) gets a Postgres
+    implementation over `cluster::leases`. Its `grant` must be able to fail (another process
+    holds the space; the in-memory one never does). Its `renew` becomes one statement for all a
+    process holds. Its `until` is measured from when the renewal was *sent*, as the keeper's
+    deadline is, with the sim checking it each tick (`Keeper::holding`) as well as heeding
+    `LeaseNote::Lost`.
+  - **Fenced life writes.** `LifeWrite` carries the writing sim's lease fence (space and epoch)
+    beside the character's epoch, and the store calls `cluster::leases::check(&mut tx, &fence)` in
+    the transaction that checks `characters.epoch` (agreed with the orchestrator).
+  - **Fenced ticks.** `TickOut` carries its lease's epoch, so a gate keeps the highest epoch it has
+    seen per space and drops a tick from a deposed sim.
+  - **Starting by role.** The tiers' `start.rs` is where the roles plug in: a process starts the
+    tiers its role names, and a `LinkPost` for the others.
+- **From borders:** ghosts, handoffs and events across borders as `ToSim` messages (they cross the
+  links as they are). The handoff's commit is a fenced write (the new owner's claim in the store,
+  under its lease and the character's next epoch), so a sim killed between its phases leaves one
+  owner. The harness kills the sending or the receiving process mid-handoff (`Proc::kill`,
+  proxies between them).
+- **From the wire:** the packed records travel inside `TickOut` as bytes. Mark them
+  `#[serde(with = "serde_bytes")]` (or a bytes type): serde writes a plain `Vec<u8>` as a list of
+  numbers, which MessagePack keeps at one or two bytes each, where bytes marked so go as one blob.
+
 ## Log
 
 ## 2026-11-06 21:10: the link (`crates/link`)
@@ -144,3 +214,14 @@ top is filled in when it's done.
     later), and standing by once back.
 - **Next:** the docs (`docs/architecture.md` Several Processes, `docs/deploys.md` Several Processes,
   `docs/testing.md`), merge `refactor/first`, `npm run check`, then the first half's summary.
+
+## 2026-11-06 21:50: the first half done
+
+- **c33c546** the guides (`docs/architecture.md` and `docs/deploys.md`, Several Processes;
+  `docs/testing.md`, `npm run test:cluster`), a node making its links' connections on the runtime
+  it started on (so a simulation's thread, outside tokio, can make a link and send: tested), the
+  link crate's AGENTS.md naming its tests from the root, `tests/unit/bible.test.ts` formatted.
+- **09cc4aa** merged `refactor/first` (12b3946: progress and finish.md only).
+- **Checks** (summary above): all green but `tests/unit/paths.test.ts`, on five paths from the
+  tiers' 86d6055, which pass at the tiers' tip. `npm run test:cluster` green.
+- **Next:** the second half, once tiers and borders are on `refactor/first` (above).
