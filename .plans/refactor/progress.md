@@ -656,3 +656,75 @@ the developer zone; then the engine bridge (R6.4) and Phase 8's switches.
   and content's ids.
 - **A slip:** the clock's commit was pushed with the Rust tests and the online specs run, but not
   the TypeScript unit tier; the bible's test wanted the new file named. Fixed in the next commit.
+
+## 2026-11-06: The Skill Tree by Id, the Multi-Server Issue, and Where the Work Stands (R9.5, D20)
+
+- **The skill tree by id (R9.5's rest, a background agent; merged in 5d25daa).** The tree, the
+  levels, the tests and the balance harness name weapons, abilities and movement skills by id. So
+  `content/weapons/_order.json` and the abilities' and movement skills' orders can change freely,
+  but for the order things are listed in, and the golden player and crowd scenarios, which hold
+  builds by place as the wire does and are kept anew after a change of order. A new character's
+  build now holds the weapon Sword Training grants, where the engine's held the first in the list.
+  No golden answer moved, and the balance harness writes the same byte for byte. What's left of
+  R9.5: a new weapon still needs code for its moves, films and attachments.
+- **The multi-server part is GitHub issue #4 (D20).** It covers R10.2, R10.8, R10.19, R10.22, R10.23
+  and R10.24, with R10.17's wire handles and R10.12's stress test. It ships as its own update to
+  `beta` after this refactor's merge.
+- **Where it stands.** `refactor/first` is pushed with everything in it, and `beta` is untouched and
+  not ahead of it. The checks on the merged branch:
+  - `npm run check` passes: 263 TypeScript tests, and the engine's 181, the order test's 5, the
+    WebAssembly's 4 and the server's 81.
+  - The conformance tier passes.
+  - The whole integration tier: 201 passed, 2 failed. One is the pointer-lock test, which always
+    fails on macOS. The other, `yard.spec.ts:67`, counted the yard's spawn entries rather than the
+    creatures they bring once the yard took the old yard's layout (c4904b1, after which only
+    `admin.spec.ts` had been rerun). It's fixed, and the yard spec passes (4).
+- **Next, in order:**
+  1. **R10.11's rest.** Four specs still open the flat yard:
+     - `hotbar.spec.ts:77` looks for health over the hotbar, which shows only where you have no
+       life, so it shows nowhere once the flat yard goes;
+     - `skills.spec.ts:51`, `:122` and `:302` count on the yard's 30 practice points and the build
+       it kept, where a developer zone gives you the whole tree and a life.
+
+     Then `?test` alone becomes the world (drop `?world`, `?yard` and `?goblins`,
+     `src/app/options.ts`), and the flat yard goes: `yard.rs`'s layout, `Ground::Flat`, the yard's
+     practice (`src/app/yardPractice.ts`), its drawing in `src/render/scene.ts`, and `SKILL_POINTS`.
+  2. **Phase 10's open foundations:** R10.21 (land and the ledger), R10.20 (the server's tiers),
+     R10.17's ids, R10.14 (the words) and R10.16 (regions grown and dropped by need). They're bigger
+     than first priced. Narrow versions come to about 12 to 15 hours; as the tracker writes them,
+     about 25, with taxes and demolition, a coin ledger, shared weather and a thread per simulation.
+  3. **The close-out:** R13.1, R13.3, R13.6 and R13.7, then the merge into `beta` (R13.8, with
+     R6.14's look check), which waits for the go-ahead.
+- **Running the tests elsewhere.** Use the private rig (`docs/testing.md`), and run one Playwright
+  suite at a time. Rebuild the server after a content change, since the content's hash is in its
+  welcome. `ui.spec.ts:377` (pointer lock) fails on macOS anyway, and the battlefield's Healing
+  Circle test can fail under load and pass alone.
+
+## 2026-11-06, Evening: Finishing, With the Multi-Server World (D21)
+
+- **The user's word, on Windows again:** finish the refactor including the multi-server support
+  (GitHub issue #4, which D20 had put after the merge), with as many sub-agents as it needs, and as
+  fast as it can go. Recorded as D21. How the work is split: [finish.md](finish.md).
+- **Picked up** at the Mac's last commits (5d25daa, 83d60a1, merged in f3dfc8a). On this machine
+  `npm run check` passes (263 TypeScript, 181 engine, 81 server tests), the conformance tier too,
+  and the integration tier ran 202 passed with one failure, the yard spec's count, which both
+  machines fixed the same way.
+- **Nine workstreams** run side by side, each on a branch and worktree of its own with its own ports
+  and database. Each commits as it goes and keeps a running report in
+  `.plans/refactor/reports/<id>.md` (on its branch until merged); this page rolls them up.
+
+### Workstreams
+
+| Workstream | Tracker | State | Latest |
+|---|---|---|---|
+| tiers | R10.20, R10.2, R10.17's ids | running | Global ids in the engine (fb87743); the server's files moved into gate, sim, store, social and directory (b5df031); crates/world-api's first cut (86d6055: ids, the messages between the tiers, a tick's records by 32 m cell and each player's private part, the Transport trait). Next: the in-process post, then store, directory, social, the sims' threads and the gate on it |
+| bigworld | R10.23, R10.16's rest | running | Regions grow by need and drop in the engine (527020b): views share what's grown, sims play their chunks, the ground the same to the bit alone, with neighbours and after dropping; goldens unchanged. Next: the three-region fixture, the WebAssembly's region calls, the worker |
+| offline | R10.11, R10.4, R10.10's rest | running | Every test off ?yard and ?world&test (820cbfe): ?test alone is the world; the hotbar and skills specs on the yard instance with a life and the whole tree; unit tier 264 green, 11 specs green. Next: the flat yard's code, world.rs's battlefield layout, the yard's rules as instance flags |
+| wire | R10.8 | running (first half) | Records serializable for world-api's tick (0476309), the TypeScript decoder held to golden bytes (2ecbef3); against today's JSON 33 players 22.9 KB an update to 424 B, 1,025 players 682 KB to 2.6 KB (the budget). Writing an update cut 2-3 times with the same bytes (3cf8a43: 1,025 in reach 270 to ~120 us), so one gate core at 20 Hz carries ~1,650-2,150 clients in a wilderness (6.8 KB/s each), ~300 in a busy town (45.7 KB/s), ~260-400 at a world boss (61.8 KB/s). Next: the feed's adapter, far peers as crowd bodies |
+| land | R10.21 | running (first half) | Land in the engine, apart from a life (257e538): the world's market, taxes on the world's clock, a neglected house demolished after 14 days; a save is its life, its land and its player, older ones read apart. Engine 187 and server 81 tests pass; the crowd scenario's golden answer kept anew on purpose (it now names each life and its land apart; the old shape gave the old answer before the move). Next: the browser, then the SQL and the store's functions |
+| borders | R10.19 | running (first half) | Built on tiers' world-api (merged 86d6055); the engine's combat and creatures hold ghosts and take a phase in parts (work out, send away, land, settle), so simulations can trade blows, heals and what's told mid-tick (80e02a0), every golden answer unchanged. Next: the border module, the lockstep harness, the split golden test |
+| channels | R10.22 | running (first half) | The policy (11fef4e): crates/channels, pure, placing by where you were, party, friends, guild, language, then fill; the rules for changing channel; merges; a channel opened ahead of need. Its tuning in content/channels.json (soft cap 1,000, hard 1,200), checked by contentc. A crowd harness: 6,000 bots by the game's numbers peak at 5,177 in 6 channels and merge back into 1 with nothing broken. Next: the browser's side |
+| multiserver | issue #4, requirement 6 | running (first half) | crates/link (9855f9f): TCP links between processes, once and in order across a cut link, at least once across a restart, back-pressure, requests and replies, fault injection and a fault proxy; it carries world-api's Transport. Named MessagePack chosen over JSON on numbers (17-42% smaller, reads 20-55% faster); 1.38 million messages a second, a request's median 70 us. Owns the leases (space_leases, nodes, sim_ids in 0030; a life's write checks the character's and the sim's epochs). Next: the leases in Postgres, their keeper, the roles, the harness |
+| scale | R10.24 | running (first half) | The load harness, two server hooks (a bot limit; rules and updates timed apart in the stats) and the browser's crowd spec (419697c..f6faa76). First looks at today's server: it holds about 120 real players (writing JSON updates costs ~0.4 ms a client a tick), and once a tick passes 50 ms it stops serving clients at all (the one global lock starves the connections). The full baseline is running (~50 min) |
+| words | R10.14 | last, once the rest are in | |
+
