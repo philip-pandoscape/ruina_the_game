@@ -27,7 +27,8 @@ use crate::open::colliders::ground_at;
 use crate::open::dungeon::{DungeonDef, Spot};
 use crate::open::spawns::{instance_spawns, region_spawns};
 use crate::open::zone::{DungeonDoor, Zone, emberholm};
-use crate::open::{OpenWorld, Sim};
+use crate::open::map::world_map;
+use crate::open::{OpenWorld, SIM_BAND, Sim};
 use crate::play::channels::{Channel, estate_of};
 use crate::play::socket::parse_build;
 use crate::player::{Actions, Build, Mode, Player};
@@ -198,6 +199,14 @@ fn client(character: i64) -> u32 {
     character as u32
 }
 
+/// The world a channel plays: the chunks it plays and a band round them grown (the engine's
+/// `OpenWorld::playing`). One channel plays every chunk of the world today; a simulation playing part
+/// of it names its own (R10.19, R10.20).
+fn played(zone: &'static Zone) -> OpenWorld {
+    let map = world_map();
+    OpenWorld::playing(map, zone, &map.chunks(), SIM_BAND)
+}
+
 impl ChannelGame {
     pub fn new(id: i32) -> Self {
         let zone: &'static Zone = emberholm();
@@ -216,7 +225,7 @@ impl ChannelGame {
             estates: Channel::default(),
             members: HashMap::new(),
             world,
-            open: OpenWorld::new(zone),
+            open: played(zone),
             players,
             actors,
             tick: 0,
@@ -546,7 +555,7 @@ impl ChannelGame {
         if p.mode == Mode::Ride
             && let Some(life) = life
         {
-            let mut sim = Sim { player: p, world: &mut self.open, owner: character };
+            let mut sim = Sim { player: p, world: &self.open, owner: character };
             vehicles::dismount(life, &mut sim);
         }
         let y = ground_at(hf, &self.open.index, x, z, floor.unwrap_or_else(|| hf.height(x, z)) + 1.2, 1.2);
@@ -712,7 +721,7 @@ impl ChannelGame {
 
     /// Everything solid that residents have built, made again from scratch (after a reset).
     fn rebuild_world(&mut self) {
-        self.open = OpenWorld::new(self.open.zone);
+        self.open = played(self.open.zone);
         let mut lists: Vec<(i64, LifeState)> = Vec::new();
         for (_, owner, _, life) in self.players.each_open() {
             if let Some(l) = life {

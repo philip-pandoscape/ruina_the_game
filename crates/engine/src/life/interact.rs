@@ -202,7 +202,7 @@ pub fn find_focus(life: &mut Life, sim: &Sim) -> Option<Focus> {
 
     let life: &Life = life;
     // What can be near you: the regions of the space you're in (none in a dungeon).
-    let here: &'static WorldMap = sim.world.map;
+    let here: &WorldMap = sim.terrain();
     let (px, pz) = (p.pos.x, p.pos.z);
     let fx = p.facing.js_sin();
     let fz = p.facing.js_cos();

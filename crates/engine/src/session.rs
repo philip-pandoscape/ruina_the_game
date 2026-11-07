@@ -156,18 +156,9 @@ impl Session {
         s
     }
 
-    /// The ground creatures stand on: the floor of the copy you're in, the world's terrain, or
-    /// neither on the yard's flat ground.
-    fn footing(&self) -> Footing {
-        Footing { floor: self.dungeon.as_deref().and_then(dungeon), terrain: self.terrain() }
-    }
-
     /// The world's ground (none on the yard's flat ground).
-    pub fn terrain(&self) -> Option<&'static WorldMap> {
-        match &self.ground {
-            Ground::Open(w) => Some(w.map),
-            Ground::Flat { .. } => None,
-        }
+    pub fn terrain(&self) -> Option<&WorldMap> {
+        terrain_of(&self.ground)
     }
 
     fn training(&self) -> bool {
@@ -213,12 +204,12 @@ impl Session {
             self.hitstop -= 1;
         } else {
             self.player.count_down(a);
-            self.player.aim_assist = training.then(|| targets(&self.actors, self.footing()).iter().map(|t| (t.x, t.z)).collect());
+            self.player.aim_assist = training.then(|| targets(&self.actors, footing(&self.ground, &self.dungeon)).iter().map(|t| (t.x, t.z)).collect());
             self.act(a);
             self.take_player_events();
             if training && let Some(step) = self.player.swing_due.take() {
                 let above = self.height_above_ground();
-                let footing = self.footing();
+                let footing = footing(&self.ground, &self.dungeon);
                 if let Some(pause) = check_hit(&mut self.actors, footing, &mut self.events, &mut self.player, &step, above) {
                     self.hitstop = pause;
                 }
@@ -226,7 +217,7 @@ impl Session {
             self.player.update_crouch_frame();
             self.player.bodies.clear();
             if training {
-                let footing = self.footing();
+                let footing = footing(&self.ground, &self.dungeon);
                 for a in self.actors.list.iter().filter(|a| a.solid && a.is_alive()) {
                     let y = if footing.raised() { footing.height(a.x, a.z) + a.y } else { a.y };
                     self.player.bodies.push(Body { x: a.x, z: a.z, r: a.radius, y });
@@ -259,7 +250,7 @@ impl Session {
         self.catch_fall();
         if training {
             let seen = self.events.len();
-            let footing = self.footing();
+            let footing = footing(&self.ground, &self.dungeon);
             let mut blows = Blows { actors: &mut self.actors, player: &self.player, footing, events: &mut self.events };
             self.range.step(&mut blows, seen);
             self.observe();
@@ -355,8 +346,6 @@ impl Session {
     fn step_actors(&mut self) {
         // In a copy of a dungeon or a developer zone, its creatures stand on its floor, as the
         // server's do.
-        let footing = self.footing();
-        let ground = move |x: f64, z: f64| footing.height(x, z);
         let foes: Vec<Foe> = if self.player.down_frame >= 0 {
             Vec::new()
         } else {
@@ -364,6 +353,8 @@ impl Session {
             f.air = self.height_above_ground();
             vec![f]
         };
+        let footing = footing(&self.ground, &self.dungeon);
+        let ground = move |x: f64, z: f64| footing.height(x, z);
         let player = &mut self.player;
         let pr = tuning().movement.player_radius;
         let hurt = |player: &mut Player, ev: &mut Vec<Event>, damage: f64, nx: f64, nz: f64, knock: f64| {
@@ -448,13 +439,15 @@ impl Session {
     /// ground, or the floor of the copy you're in), off whatever you were riding, gliding or
     /// swimming in: teleports, and a dungeon's arrival and door.
     pub fn place(&mut self, x: f64, z: f64, facing: f64, from_y: Option<f64>) {
-        let Some(hf) = self.terrain() else { return };
+        if self.terrain().is_none() {
+            return;
+        }
         if self.player.mode == Mode::Ride
             && let (Some(life), Ground::Open(world)) = (self.life.as_mut(), &mut self.ground)
         {
             vehicles::dismount(life, &mut Sim { player: &mut self.player, world, owner: 0 });
         }
-        let near = from_y.or(self.floor_here()).unwrap_or_else(|| hf.height(x, z));
+        let near = from_y.or(self.floor_here()).unwrap_or_else(|| self.terrain().map_or(0.0, |hf| hf.height(x, z)));
         self.settle(x, z, near);
         let p = &mut self.player;
         p.vel = Default::default();
@@ -889,7 +882,7 @@ impl Session {
     /// A blow from you to an actor, as if your weapon had landed it.
     pub fn hurt_actor(&mut self, id: u32, amount: f64) {
         let weapon = self.player.weapon;
-        let footing = self.footing();
+        let footing = footing(&self.ground, &self.dungeon);
         Blows { actors: &mut self.actors, player: &self.player, footing, events: &mut self.events }.damage(id, amount, 0.0, 0, Some(weapon));
         self.observe();
         self.stamp();
@@ -1044,6 +1037,20 @@ impl Session {
             Ground::Open(_) => json!({ "spawns": self.spawns }),
         }
     }
+}
+
+/// The world's ground (none on the yard's flat ground).
+fn terrain_of(ground: &Ground) -> Option<&WorldMap> {
+    match ground {
+        Ground::Open(w) => Some(&w.map),
+        Ground::Flat { .. } => None,
+    }
+}
+
+/// The ground creatures stand on: the floor of the copy you're in, the world's terrain, or neither
+/// on the yard's flat ground.
+fn footing<'a>(ground: &'a Ground, inside: &Option<String>) -> Footing<'a> {
+    Footing { floor: inside.as_deref().and_then(dungeon), terrain: terrain_of(ground) }
 }
 
 fn mode_of(s: &str) -> Option<Mode> {
