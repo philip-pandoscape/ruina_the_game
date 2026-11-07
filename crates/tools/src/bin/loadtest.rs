@@ -173,20 +173,23 @@ fn plan(name: &str) -> Option<Vec<Sweep>> {
         "quick" => vec![Sweep { title: "a quick look".into(), points: vec![battlefield(64, "skirmisher", 1, false)], ramp: false }],
         "bots" => bots("skirmisher", &[0, 32, 64, 128, 256, 512, 1024, 2048, 4000]),
         "wanderers" => bots("wanderer", &[256, 1024, 4000]),
-        "clients" => vec![Sweep {
-            title: "clients sharing the battlefield with its bots, one after another".into(),
-            points: [64, 256].into_iter().flat_map(|n| [5, 10, 20].map(|m| battlefield(n, "skirmisher", m, false))).collect(),
-            ramp: false,
-        }],
+        "clients" => [64, 256]
+            .into_iter()
+            .map(|n| Sweep {
+                title: format!("clients sharing the battlefield with {n} skirmishers, one after another"),
+                points: [5, 10, 20].map(|m| battlefield(n, "skirmisher", m, false)).into(),
+                ramp: true,
+            })
+            .collect(),
         "channels" => vec![Sweep {
-            title: "a world of channels: clients in their home channels, no bots, one after another".into(),
-            points: [24, 96, 240, 480, 960]
+            title: "a world of channels: clients in their home channels (24 live in one), no bots, one after another".into(),
+            points: [24, 48, 72, 96, 144, 192, 240, 480]
                 .into_iter()
                 .map(|m| Point { space: Space::Channels, bots: 0, brain: "none".into(), clients: m, parallel: false })
                 .collect(),
             ramp: true,
         }],
-        "baseline" => ["bots", "wanderers", "clients", "channels"].into_iter().flat_map(|p| plan(p).unwrap_or_default()).collect(),
+        "baseline" => ["channels", "bots", "wanderers", "clients"].into_iter().flat_map(|p| plan(p).unwrap_or_default()).collect(),
         _ => return None,
     };
     Some(sweeps)
@@ -366,6 +369,9 @@ fn stamp() -> String {
 fn main() {
     let cfg = parse_args();
     START.get_or_init(Instant::now);
+    // The harness and the servers it starts ahead of whatever else the machine is doing, so a
+    // neighbour's build disturbs the numbers less (Windows; elsewhere as they are).
+    os::above_normal_self();
     let rt = tokio::runtime::Builder::new_multi_thread().worker_threads(cfg.threads.max(2)).enable_all().build().expect("start tokio");
     rt.block_on(run(cfg));
 }
@@ -511,6 +517,7 @@ impl Server {
             .stderr(err)
             .spawn()
             .map_err(|e| format!("could not start {}: {e}", exe.display()))?;
+        os::above_normal(&child);
         let mut server = Server { child };
         let deadline = Instant::now() + Duration::from_secs(60);
         loop {
@@ -549,10 +556,16 @@ async fn play(cfg: &Config, p: &Point, port: u16, process: Option<&Proc>) -> Res
     let metronome = Metronome::start(frames_tx);
     let fight = p.space == Space::Battlefield;
 
-    // Everyone signed in and connected, a few at a time.
-    let names: Vec<(usize, String)> = (0..p.clients as usize).map(|k| (k, format!("{}{k:04}", cfg.prefix))).collect();
+    // Everyone signed in and connected: into the battlefield a few at a time; into channels one at
+    // a time, as a character's home channel is the first with room when it first comes in, which
+    // characters arriving together race for. Channels' clients have names of their own, so they
+    // fill channels of their own.
+    let (names, at_once): (Vec<(usize, String)>, usize) = match p.space {
+        Space::Battlefield => ((0..p.clients as usize).map(|k| (k, format!("{}{k:04}", cfg.prefix))).collect(), 24),
+        Space::Channels => ((0..p.clients as usize).map(|k| (k, format!("{}c{k:04}", cfg.prefix))).collect(), 1),
+    };
     let connected: Vec<Result<Client, String>> =
-        stream::iter(names).map(|(k, name)| Client::connect(port, k, name, frames.clone(), run.clone(), fight)).buffer_unordered(24).collect().await;
+        stream::iter(names).map(|(k, name)| Client::connect(port, k, name, frames.clone(), run.clone(), fight)).buffer_unordered(at_once).collect().await;
     let mut clients = Vec::new();
     let mut failed = Vec::new();
     for c in connected {
@@ -729,6 +742,9 @@ struct ClientState {
     last_tick: AtomicU64,
     /// Whether this client reads its game's stats (one in each game does).
     watching: AtomicBool,
+    /// Whether the server has welcomed it: a browser sends no inputs before, and inputs sent early
+    /// wait in the server's queue, which drains at one input a second (61 run for 60 sent).
+    welcomed: AtomicBool,
     rec: Mutex<Record>,
 }
 
@@ -827,6 +843,7 @@ impl ClientState {
             }
             // Where it is: its home channel, or (coming back) the copy it was in; then wherever it goes.
             "welcome" | "space" => {
+                self.welcomed.store(true, Ordering::Relaxed);
                 let s = m.space.unwrap_or(Value::Null);
                 r.game = Some(match s["kind"].as_str() {
                     Some("dungeon") => format!("{} {}", s["dungeon"].as_str().unwrap_or("?"), s["copy"]),
@@ -931,6 +948,7 @@ impl Client {
             sent: (0..RING).map(|_| AtomicU64::new(0)).collect(),
             last_tick: AtomicU64::new(0),
             watching: AtomicBool::new(k == 0),
+            welcomed: AtomicBool::new(false),
             rec: Mutex::new(Record::default()),
         });
         let (out, texts) = mpsc::unbounded_channel();
@@ -984,9 +1002,9 @@ async fn write(mut sink: Sink, state: Arc<ClientState>, mut frames: watch::Recei
                     break;
                 }
                 let frame = *frames.borrow_and_update();
-                // One input a frame; a few to catch up if this task woke late, as a browser's
-                // fixed steps do.
-                let due = frame.saturating_sub(last).min(4);
+                // One input a frame from the welcome on; a few to catch up if this task woke late,
+                // as a browser's fixed steps do.
+                let due = if state.welcomed.load(Ordering::Relaxed) { frame.saturating_sub(last).min(4) } else { 0 };
                 last = frame;
                 for f in 0..due {
                     let msg = state.input(frame + 1 + f - due, fight);
@@ -1429,6 +1447,7 @@ mod os {
         fn GetSystemTimes(idle: *mut FileTime, kernel: *mut FileTime, user: *mut FileTime) -> i32;
         fn GetCurrentProcess() -> *mut c_void;
         fn OpenProcess(access: u32, inherit: i32, pid: u32) -> *mut c_void;
+        fn SetPriorityClass(process: *mut c_void, class: u32) -> i32;
         fn CloseHandle(handle: *mut c_void) -> i32;
     }
 
@@ -1482,6 +1501,18 @@ mod os {
         (ok != 0).then_some((m.working_set as u64, m.peak_working_set as u64))
     }
 
+    /// ABOVE_NORMAL_PRIORITY_CLASS: ahead of ordinary work, behind the system's own.
+    const ABOVE_NORMAL: u32 = 0x8000;
+
+    pub fn above_normal(child: &std::process::Child) {
+        use std::os::windows::io::AsRawHandle;
+        unsafe { SetPriorityClass(child.as_raw_handle(), ABOVE_NORMAL) };
+    }
+
+    pub fn above_normal_self() {
+        unsafe { SetPriorityClass(GetCurrentProcess(), ABOVE_NORMAL) };
+    }
+
     pub fn system_times() -> Option<(f64, f64)> {
         let (mut idle, mut kernel, mut user) = (FileTime::default(), FileTime::default(), FileTime::default());
         let ok = unsafe { GetSystemTimes(&mut idle, &mut kernel, &mut user) };
@@ -1514,6 +1545,11 @@ mod os {
     pub fn own_cpu_seconds() -> Option<f64> {
         cpu_seconds(std::process::id())
     }
+
+    /// Raising a process's priority takes privileges here: left as it is.
+    pub fn above_normal(_child: &std::process::Child) {}
+
+    pub fn above_normal_self() {}
 
     pub fn memory(pid: u32) -> Option<(u64, u64)> {
         if let Ok(status) = std::fs::read_to_string(format!("/proc/{pid}/status")) {
@@ -1570,6 +1606,7 @@ mod tests {
             sent: (0..RING).map(|_| AtomicU64::new(0)).collect(),
             last_tick: AtomicU64::new(0),
             watching: AtomicBool::new(true),
+            welcomed: AtomicBool::new(false),
             rec: Mutex::new(Record::default()),
         };
         state.heard(r#"{"t":"welcome","channel":3,"space":{"kind":"channel","channel":3}}"#, 1, false);
