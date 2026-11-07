@@ -2,7 +2,8 @@
 
 Started 2026-11-06 (evening, on the Windows machine), on the user's word: finish the refactor,
 **including the multi-server version** (which the plan had put after the merge, D19), with as many
-sub-agents as the work needs. This page is how the work is split and how the pieces meet. The plan is
+sub-agents as the work needs (D21 in the plan, taking back D20: GitHub issue #4, the multi-server part,
+is done here with the rest). This page is how the work is split and how the pieces meet. The plan is
 [README.md](README.md), the tasks are [tracker.md](tracker.md), the design behind the world is
 [`.plans/world/research.md`](../world/research.md) (sections 3, 5a, 5b and 5d above all).
 
@@ -143,4 +144,5 @@ rig's server after rebuilding it (copy again first).
 
 | When | What |
 |---|---|
+| 2026-11-06 | Merged the Mac's last commit (83d60a1, D20 and issue #4); D21 recorded. Integration tier on Windows: 202 passed, the yard spec's count fixed (both machines made the same fix) |
 | 2026-11-06 | Picked up on Windows at 5d25daa; `npm run check` green (263 TypeScript, 181 engine, 81 server tests). Wave 1 started: tiers, bigworld, offline, wire, land |
