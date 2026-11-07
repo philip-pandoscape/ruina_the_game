@@ -1,0 +1,116 @@
+{
+  "comment": "A fixture region (tests/fixtures/world/world.json): the east half of the landmass it shares with Saltmere across a land border at x = 2048 m, hillier and colder, grown from its own recipe. In the shape of shared/regions/<id>.json, written where it stands.",
+  "id": "thornmarch",
+  "name": "Thornmarch",
+  "subtitle": "The cold side of the island",
+  "seed": 47,
+  "climate": "frost",
+  "terrain": {
+    "cells": 512,
+    "cell": 2,
+    "water": 0,
+    "origin": [
+      2560,
+      0
+    ],
+    "landmass": {
+      "x": 2400,
+      "z": 0,
+      "radius": 420,
+      "lobes": [
+        [
+          3,
+          18,
+          2.1
+        ],
+        [
+          4,
+          10,
+          0.7
+        ]
+      ],
+      "warp": 16,
+      "warpScale": 110
+    },
+    "bays": [],
+    "headlands": [],
+    "islets": [],
+    "cliffs": [],
+    "mountains": [],
+    "ramps": [],
+    "pits": [],
+    "flatten": [],
+    "roads": [],
+    "falls": [],
+    "shore": {
+      "beach": 30,
+      "beachHeight": 2.2,
+      "inlandRise": 0.02,
+      "seabedSlope": 0.085,
+      "seabedCurve": 0.00035,
+      "maxDepth": 30
+    },
+    "hills": {
+      "scale": 170,
+      "height": 16,
+      "detailScale": 44,
+      "detail": 1.8,
+      "inlandFrom": 25,
+      "inlandTo": 140
+    },
+    "sandBelow": 2.2,
+    "rockSlope": 1.05
+  },
+  "spawn": {
+    "x": 2400,
+    "z": 0,
+    "facing": 1.5708
+  },
+  "places": [
+    {
+      "id": "thornmarchWood",
+      "name": "Thornmarch Wood",
+      "kind": "forest",
+      "icon": "🌲",
+      "x": 2550,
+      "z": 80
+    }
+  ],
+  "structures": [],
+  "props": [],
+  "npcs": [],
+  "workbenches": [],
+  "outposts": [],
+  "housePlots": [],
+  "farmland": {
+    "x": 2400,
+    "z": 0,
+    "w": 0,
+    "d": 0
+  },
+  "nodes": [],
+  "updrafts": [],
+  "doors": [],
+  "forests": [
+    {
+      "x": 2550,
+      "z": 80,
+      "r": 130,
+      "density": 0.014
+    }
+  ],
+  "scatter": {
+    "trees": 0.0016,
+    "rocks": 0.0005,
+    "clearOfRoad": 5,
+    "clearOfStructure": 4
+  },
+  "spawns": [],
+  "sky": {
+    "dayLengthSeconds": 1800,
+    "startHour": 8.5,
+    "sunrise": 5.5,
+    "sunset": 20
+  },
+  "shipyards": []
+}

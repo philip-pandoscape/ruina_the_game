@@ -14,6 +14,23 @@ export interface Objective {
   outpost?: string;
   vehicle?: string;
   seconds?: number;
+  /** defeat: what kind of creature. */
+  kind?: string;
+  /** Where the quest marker points while this is unfinished, when nothing the objective names says where (src/ui/life/hud/goal.ts). */
+  marker?: QuestMarker;
+}
+
+/**
+ * Somewhere in a region a quest's marker can point: one of its places, trading posts, workbenches
+ * or slipways, by id, called by its own name there unless `label` says otherwise. The rules never
+ * read it.
+ */
+export interface QuestMarker {
+  place?: string;
+  outpost?: string;
+  workbench?: string;
+  shipyard?: string;
+  label?: string;
 }
 
 export interface QuestStep {
@@ -27,6 +44,8 @@ export interface QuestRewards {
   labor?: number;
   items?: Array<{ item: string; n: number }>;
   equipGlider?: string;
+  /** Points to spend in the skill tree. */
+  skillPoints?: number;
 }
 
 export interface QuestDef {
@@ -36,6 +55,11 @@ export interface QuestDef {
   after: string[];
   /** Starts by itself as soon as it is available, without talking to anyone. */
   auto?: boolean;
+  /**
+   * A milestone: starts by itself and is done the moment its steps are, with nobody to hand it to.
+   * Kept with the quests so it can count anything a quest can.
+   */
+  milestone?: boolean;
   intro: string;
   steps: QuestStep[];
   turnIn?: string;

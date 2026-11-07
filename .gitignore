@@ -3,7 +3,7 @@ dist/
 test-results/
 playwright-report/
 screenshots/
-server/target/
+/target/
 scratch/
 /bugs/
 # Local secrets (Railway keys and the like): never committed.
@@ -12,3 +12,4 @@ scratch/
 
 # Helpers working copies
 .claude/worktrees/
+/reviews/

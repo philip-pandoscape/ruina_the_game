@@ -27,5 +27,3 @@ export function shipDesign(id: string): ShipDesignDef {
   if (!d) throw new Error(`unknown ship design "${id}"`);
   return d;
 }
-
-export const designForItem = (item: string): ShipDesignDef | undefined => SHIP_DESIGNS.find((d) => d.design === item);

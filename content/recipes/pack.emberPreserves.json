@@ -1,0 +1,7 @@
+{
+  "id": "pack.emberPreserves",
+  "bench": "lanternwickBench",
+  "makes": {
+    "pack": "emberPreserves"
+  }
+}

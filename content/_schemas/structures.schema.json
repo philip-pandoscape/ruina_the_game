@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "structures",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "w": {
+      "type": "number"
+    },
+    "d": {
+      "type": "number"
+    },
+    "h": {
+      "type": "number"
+    },
+    "collider": {
+      "type": "string"
+    },
+    "look": {
+      "type": "object",
+      "properties": {
+        "body": {
+          "type": "string"
+        },
+        "model": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
+    },
+    "wall": {
+      "type": "number"
+    },
+    "door": {
+      "type": "number"
+    },
+    "floor": {
+      "type": "number"
+    },
+    "stages": {
+      "type": "array"
+    },
+    "interior": {
+      "type": "object"
+    },
+    "deck": {
+      "type": "number"
+    },
+    "seaLevel": {
+      "type": "boolean"
+    },
+    "pad": {
+      "type": "boolean"
+    },
+    "clearMargin": {
+      "type": "number"
+    },
+    "surface": {
+      "type": "string"
+    },
+    "r": {
+      "type": "number"
+    },
+    "colliderD": {
+      "type": "number"
+    },
+    "colliderZ": {
+      "type": "number"
+    }
+  },
+  "required": [
+    "id",
+    "name",
+    "w",
+    "d",
+    "h",
+    "collider"
+  ],
+  "additionalProperties": false
+}

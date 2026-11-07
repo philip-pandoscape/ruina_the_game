@@ -1,0 +1,9 @@
+{
+  "id": "lumber",
+  "name": "Lumber",
+  "icon": "🪵",
+  "cat": "material",
+  "stack": 200,
+  "value": 6,
+  "desc": "Rough-sawn timber, chopped from the deadfall around Hob's camp in Thornwood (F) or felled from trees you grow; Hob's Woodpile sells it too. Ten make a Lumber Bundle at Hob's Sawhorse."
+}

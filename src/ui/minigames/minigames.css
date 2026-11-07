@@ -1,0 +1,44 @@
+/* Mini-games (src/ui/minigames): the challenge window, the invitation, and the game at your table
+   (each game's board has its own styles, beside its board view in boards/). Built from the window
+   parts in windows.css; sizes are the UI's virtual pixels. */
+
+.mg-win .mw-body { padding-top: 12px; }
+.mw.mg-invite { left: 50%; top: 58px; transform: translateX(-50%); width: 430px; }
+.mg-say { margin: 0 0 8px; font-size: 15px; line-height: 1.45; color: var(--ink-strong); }
+.mg-say .mny { vertical-align: -2px; }
+.mg-time { height: 7px; margin: 6px 0 2px; border-radius: 4px; overflow: hidden; background: rgba(110, 70, 30, 0.16); box-shadow: 0 0 0 1px rgba(90, 55, 25, 0.5); }
+.mg-time i { display: block; height: 100%; background: linear-gradient(90deg, #e6c45a, #c08a2a); }
+
+/* Choosing the game and the stake. */
+.mg-games { display: flex; flex-direction: column; gap: 6px; margin-bottom: 4px; }
+.mg-games .lui-row { cursor: pointer; }
+.mg-games .lui-row.sel { border-color: var(--inset-hover); background: rgba(255, 250, 236, 0.85); box-shadow: inset 0 0 0 1px rgba(122, 31, 38, 0.4); }
+.mg-stakes { display: flex; flex-wrap: wrap; gap: 6px; }
+.mg-stake { display: inline-flex; align-items: center; gap: 4px; min-height: 30px; padding: 3px 10px; border-radius: 6px; cursor: pointer; font: 700 13px var(--font); color: var(--ink-strong);
+  background: var(--inset); border: 1px solid var(--inset-line); }
+.mg-stake:hover { border-color: var(--inset-hover); }
+.mg-stake.sel { background: var(--slot-sel); border-color: var(--title); box-shadow: inset 0 0 0 1px var(--title); }
+
+/* The game. */
+.mw.mg-game { width: 510px; }
+.mw.mg-game .mw-body { padding: 10px 16px 8px; }
+.mg-seats { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 4px; }
+.mg-seat { display: flex; align-items: center; gap: 7px; padding: 4px 10px 4px 6px; border-radius: 6px; font-size: 14px; font-weight: 700; color: var(--ink-strong);
+  background: var(--inset); border: 1px solid var(--inset-line); }
+.mg-seat.on { border-color: var(--inset-hover); background: rgba(255, 250, 236, 0.85); box-shadow: 0 0 0 2px rgba(255, 190, 70, 0.55); }
+.mg-seat .dot { width: 14px; height: 14px; border-radius: 50%; box-shadow: 0 0 0 2px #2b1a0e, inset 0 -3px 0 rgba(0, 0, 0, 0.25); }
+.mg-seat .tag { font-size: 11px; font-weight: 700; color: var(--bad); }
+.mg-clock { min-width: 64px; text-align: center; font: 700 22px/1 var(--font-title); color: var(--ink-strong); }
+.mg-clock.low { color: var(--bad); }
+.mg-clock small { display: block; margin-top: 2px; font: 600 11px var(--font); color: var(--ink-2); }
+.mg-hint { min-height: 38px; margin: 4px 0 2px; font-size: 13.5px; line-height: 1.4; color: var(--ink); text-align: center; }
+.mg-hint b { color: var(--title); }
+.mg-log { margin-top: 6px; min-height: 18px; font-size: 12.5px; color: var(--ink-2); text-align: center; }
+.mg-result { margin: 6px 0 4px; text-align: center; }
+.mg-result .big { font: 700 26px/1.1 var(--font-title); color: var(--title); text-shadow: var(--title-shadow); }
+.mg-result p { margin: 4px 0 0; font-size: 14px; }
+.mg-confirm { flex: 1; font-size: 13.5px; font-weight: 700; color: var(--bad); }
+
+/* At a table the controls for walking about don't apply, nor does F: the game window says what to do. */
+body.mg-seated #hint { visibility: hidden; }
+body.mg-seated #lui-prompt { display: none !important; }

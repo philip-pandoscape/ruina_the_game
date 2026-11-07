@@ -1,0 +1,16 @@
+{
+  "w": 0.75,
+  "d": 0.45,
+  "h": 0.45,
+  "collider": "none",
+  "parts": [
+    {
+      "model": "FarmCrate_Apple"
+    },
+    {
+      "model": "FarmCrate_Carrot",
+      "y": 0.22,
+      "rot": 0.2
+    }
+  ]
+}

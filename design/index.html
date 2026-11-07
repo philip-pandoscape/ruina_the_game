@@ -84,6 +84,8 @@ code, .mono { font-family: var(--mono); font-size: 0.86em; }
 .rail nav .pips i { width: 6px; height: 6px; border-radius: 2px; background: var(--rule); }
 .rail nav .group { margin-top: 10px; font: 600 0.66rem/1 var(--mono); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); padding: 6px 8px; }
 .rail .foot { margin-top: auto; font-size: var(--s-1); color: var(--muted); }
+.rail .bible-link { font-size: 0.86rem; font-weight: 600; text-decoration: none; padding: 7px 9px; border-radius: 8px; background: var(--gold-soft); color: var(--gold); line-height: 1.35; }
+.bible-note { margin-top: 14px; max-width: 36em; padding: 10px 14px; border-left: 3px solid var(--gold); background: var(--gold-soft); border-radius: 0 8px 8px 0; font-size: 0.95rem; }
 
 .topbar { display: none; }
 
@@ -253,6 +255,7 @@ kbd { font: 600 0.74rem/1 var(--mono); padding: 3px 6px; border-radius: 5px; bor
 <div class="shell">
   <aside class="rail">
     <div class="brand"><b>Ruina</b><span>Design bible</span></div>
+    <a class="bible-link" href="/bible/">The Ruina Bible: how the game works, for everyone →</a>
     <nav id="railnav" aria-label="Sections"></nav>
     <div class="foot" id="railfoot"></div>
   </aside>
@@ -260,9 +263,10 @@ kbd { font: 600 0.74rem/1 var(--mono); padding: 3px 6px; border-radius: 5px; bor
   <main>
     <header class="hero" id="overview">
       <div>
-        <div class="eyebrow">Root design document · how the game works</div>
+        <div class="eyebrow">Development · what is built, what is next, and why</div>
         <h1>Ruina<small>A sandbox world you carry on your back</small></h1>
         <p class="lede">Grow it, pack it, and haul it across land, sea and sky to wherever it is worth the most. Build a home with materials you carried there yourself. Fight with a deep classless build and movement that plays like a platform fighter.</p>
+        <p class="bible-note">How every system and every thing works, exactly, for players as much as for us, is <a href="/bible/">the Ruina Bible</a>, drawn from the game's content and rules. This page is the development view, for admins: the tracker, the design notes behind each system, the open questions and the session log.</p>
         <div class="facts" id="facts"></div>
         <div class="status-sum" id="statusSum"></div>
       </div>
@@ -288,9 +292,9 @@ kbd { font: 600 0.74rem/1 var(--mono); padding: 3px 6px; border-radius: 5px; bor
         <div class="mapbox"><canvas id="worldMap" aria-label="Interactive map of Emberholm"></canvas><div class="tip" id="tip" hidden></div></div>
         <div class="layers" id="layers"></div>
       </div>
-      <p class="caption">Drawn by the game's own terrain generator from <code>shared/zones/emberholm.json</code>. North is up. Hover a place for what is there; in the game, north is +Z and east is −X.</p>
+      <p class="caption">Drawn by the game's own terrain generator from <code>shared/regions/emberholm.json</code>. North is up. Hover a place for what is there; in the game, north is +Z and east is −X.</p>
       <div class="table-wrap"><table id="placesTable"></table></div>
-      <div class="key"><span class="label">How the island is made</span>
+      <div class="key"><span class="label">How the region is made</span>
         <ul>
           <li>A zone is a recipe: coastline lobes, bays, sea cliffs, hills, mountains, ledge paths, flattened town ground and roads. The generator turns it into a 2 m height grid and a surface type per cell (grass, road, sand, rock, soil, plaza, forest).</li>
           <li>The rules and the renderer read the same grid, split into the same triangles, so feet always land on the drawn ground.</li>
@@ -298,6 +302,24 @@ kbd { font: 600 0.74rem/1 var(--mono); padding: 3px 6px; border-radius: 5px; bor
         </ul>
       </div>
       <div class="next" data-next="world"></div>
+    </section>
+
+    <section id="look">
+      <div class="head"><div class="eyebrow">Art direction</div><h2>The look: Emberholm after its reference picture</h2><div class="meta" data-status="look"></div></div>
+      <p class="lead">Stylized but grounded: a painted fantasy isle rather than a toy. Red-tiled stone and timber houses round a cobbled square, blue banners, blossom by the market, forests of full-size trees, a craggy mountain, turquoise shallows over a deep blue sea, isles on a hazy horizon. Saturation is kept for roofs, banners, blossom and people; the land is lush but has real darks.</p>
+      <div class="key"><span class="label">Palette (src/render/look.ts)</span>
+        <p><span style="display:inline-flex;align-items:center;gap:6px;margin:0 14px 8px 0"><i style="display:inline-block;width:22px;height:22px;border-radius:5px;background:#789a4a;border:1px solid rgba(0,0,0,.15)"></i>Meadow <code>#789a4a</code></span><span style="display:inline-flex;align-items:center;gap:6px;margin:0 14px 8px 0"><i style="display:inline-block;width:22px;height:22px;border-radius:5px;background:#4d7236;border:1px solid rgba(0,0,0,.15)"></i>Woods <code>#4d7236</code></span><span style="display:inline-flex;align-items:center;gap:6px;margin:0 14px 8px 0"><i style="display:inline-block;width:22px;height:22px;border-radius:5px;background:#3f6a2e;border:1px solid rgba(0,0,0,.15)"></i>Pine <code>#3f6a2e</code></span><span style="display:inline-flex;align-items:center;gap:6px;margin:0 14px 8px 0"><i style="display:inline-block;width:22px;height:22px;border-radius:5px;background:#c0a074;border:1px solid rgba(0,0,0,.15)"></i>Path <code>#c0a074</code></span><span style="display:inline-flex;align-items:center;gap:6px;margin:0 14px 8px 0"><i style="display:inline-block;width:22px;height:22px;border-radius:5px;background:#e3d3a6;border:1px solid rgba(0,0,0,.15)"></i>Sand <code>#e3d3a6</code></span><span style="display:inline-flex;align-items:center;gap:6px;margin:0 14px 8px 0"><i style="display:inline-block;width:22px;height:22px;border-radius:5px;background:#8f877d;border:1px solid rgba(0,0,0,.15)"></i>Rock <code>#8f877d</code></span><span style="display:inline-flex;align-items:center;gap:6px;margin:0 14px 8px 0"><i style="display:inline-block;width:22px;height:22px;border-radius:5px;background:#c4bba8;border:1px solid rgba(0,0,0,.15)"></i>Cobbles <code>#c4bba8</code></span><span style="display:inline-flex;align-items:center;gap:6px;margin:0 14px 8px 0"><i style="display:inline-block;width:22px;height:22px;border-radius:5px;background:#3fbfbe;border:1px solid rgba(0,0,0,.15)"></i>Shallows <code>#3fbfbe</code></span><span style="display:inline-flex;align-items:center;gap:6px;margin:0 14px 8px 0"><i style="display:inline-block;width:22px;height:22px;border-radius:5px;background:#15487a;border:1px solid rgba(0,0,0,.15)"></i>Deep sea <code>#15487a</code></span><span style="display:inline-flex;align-items:center;gap:6px;margin:0 14px 8px 0"><i style="display:inline-block;width:22px;height:22px;border-radius:5px;background:#3f7fc6;border:1px solid rgba(0,0,0,.15)"></i>Sky <code>#3f7fc6</code></span><span style="display:inline-flex;align-items:center;gap:6px;margin:0 14px 8px 0"><i style="display:inline-block;width:22px;height:22px;border-radius:5px;background:#d4e6ef;border:1px solid rgba(0,0,0,.15)"></i>Horizon <code>#d4e6ef</code></span><span style="display:inline-flex;align-items:center;gap:6px;margin:0 14px 8px 0"><i style="display:inline-block;width:22px;height:22px;border-radius:5px;background:#b5553b;border:1px solid rgba(0,0,0,.15)"></i>Roof tile <code>#b5553b</code></span><span style="display:inline-flex;align-items:center;gap:6px;margin:0 14px 8px 0"><i style="display:inline-block;width:22px;height:22px;border-radius:5px;background:#2f4f8a;border:1px solid rgba(0,0,0,.15)"></i>Banner blue <code>#2f4f8a</code></span><span style="display:inline-flex;align-items:center;gap:6px;margin:0 14px 8px 0"><i style="display:inline-block;width:22px;height:22px;border-radius:5px;background:#f2b5c8;border:1px solid rgba(0,0,0,.15)"></i>Blossom <code>#f2b5c8</code></span></p>
+      </div>
+      <div class="key"><span class="label">How it is made</span>
+        <ul>
+          <li>Light first: soft diffuse light without outlines, ambient occlusion, haze that thins with height and warms toward the sun, bloom, tone mapping and a grade (<code>src/render/open/post.ts</code>).</li>
+          <li>The ground is real texture (CC0) laid over the world's surfaces, its detail only: the palette decides the colours (<code>src/render/open/ground.ts</code>).</li>
+          <li>Buildings and props are made models (Meshy, from concept art painted after the reference), each fitted into its structure's own footprint from <code>shared/structures.json</code>: the art changes, the rules don't (<code>src/render/models/glb.ts</code>).</li>
+          <li>Scenery goes only where nobody walks or sails: crags on slopes too steep to climb, isles past the edge of the world.</li>
+          <li>One look, three qualities (<code>src/render/look.ts</code>): high on a graphics card; medium on integrated graphics (no ambient occlusion, nearer shadows); low where WebGL is drawn in software (only the haze and the grade of the screen effects, plain ground colours, the frame drawn smaller, lighter trees, nearer grass, a shorter view). <code>?quality=low|medium|high</code> chooses.</li>
+        </ul>
+      </div>
+      <div class="next" data-next="look"></div>
     </section>
 
     <section id="getting-around">
@@ -408,7 +430,7 @@ kbd { font: 600 0.74rem/1 var(--mono); padding: 3px 6px; border-radius: 5px; bor
 
     <section id="quests">
       <div class="head"><div class="eyebrow">Onboarding</div><h2>The starter questline</h2><div class="meta" data-status="quests"></div></div>
-      <p class="lead">Thirteen quests that each teach one way of living on the island, unlocked by finishing what comes before. Objectives count what you actually do (planting, gliding, delivering, building), so the tutorial is the game.</p>
+      <p class="lead">Fifteen quests that each teach one way of living in the world, unlocked by finishing what comes before. Objectives count what you actually do (planting, gliding, gathering, delivering, building), so the tutorial is the game.</p>
       <div class="flow" id="questFlow"></div>
       <div class="next" data-next="quests"></div>
     </section>
@@ -426,14 +448,20 @@ kbd { font: 600 0.74rem/1 var(--mono); padding: 3px 6px; border-radius: 5px; bor
       <div class="next" data-next="combat"></div>
     </section>
 
+    <section id="interface">
+      <div class="head"><div class="eyebrow">Interface</div><h2>The UI design system</h2><div class="meta" data-status="ui"></div></div>
+      <p class="lead">How the interface looks, reads and behaves has its own page, drawn with the game's own stylesheets: <a href="/design/ui.html">the UI design system</a>. The look (Parchment &amp; Timber), the writing rules (labels in Title Case, sentences in sentence case), where everything sits on screen, every component, and how items answer a click, a double-click and a right-click.</p>
+      <div class="next" data-next="ui"></div>
+    </section>
+
     <section id="architecture">
       <div class="head"><div class="eyebrow">Engineering</div><h2>How it is built</h2><div class="meta" data-status="tech"></div></div>
       <p class="lead">Content is data, rules are deterministic, and the renderer only ever reads. That is what lets the same rules run in the browser and on the server: the server decides, and the browser predicts with its own copy.</p>
       <div class="arch">
         <div class="box"><b>Content</b><small>Every number and placement: vehicles, crops, packs, quests, zones, structures.</small><code>shared/*.json</code></div>
-        <div class="box"><b>Rules</b><small>Fixed 60 Hz steps. Movement and combat in the Sim; trade, farms, houses and vehicles in Life, changed only by queued commands.</small><code>src/sim/ · src/sim/life/</code></div>
-        <div class="box"><b>Presentation</b><small>Three.js scene, procedural toon models, DOM HUD and panels. Reads the rules' state; never changes it.</small><code>src/render/ · src/ui/</code></div>
-        <div class="box"><b>World server</b><small>Plays Emberholm: each channel's players from their key presses, their islands from their commands, the slimes and every hit, with the rules ported to Rust and checked against the browser's. Islands kept in Postgres, accounts, plot claims; nothing trusts the browser.</small><code>server/</code></div>
+        <div class="box"><b>Rules</b><small>Fixed 60 Hz steps, one copy in Rust: the server runs it, and the browser runs it compiled to WebAssembly. Movement and combat in the player's step; trade, farms, houses and vehicles in Life, changed only by queued commands.</small><code>crates/engine/src/ · crates/engine/src/life/</code></div>
+        <div class="box"><b>Presentation</b><small>Three.js scene, procedural and made models, DOM HUD and panels. Reads the rules' state; never changes it.</small><code>src/render/ · src/ui/</code></div>
+        <div class="box"><b>World server</b><small>Plays Emberholm: each channel's players from their key presses, their lives from their commands, the slimes and every hit, on the same rules the browser runs. Lives kept in Postgres, accounts, plot claims; nothing trusts the browser.</small><code>crates/server/</code></div>
       </div>
       <div class="table-wrap"><table id="fileTable"></table></div>
       <div class="next" data-next="tech"></div>
@@ -472,6 +500,7 @@ kbd { font: 600 0.74rem/1 var(--mono); padding: 3px 6px; border-radius: 5px; bor
           <li>Feature status, next steps, open questions and this log live in <code>design/status.json</code>.</li>
           <li>The tables, charts, calculators and map are drawn by <code>design/bible.ts</code> from the game's own modules: the content in <code>shared/*.json</code>, the rules' formulas and the terrain generator. Nothing is copied, so there is nothing to rebuild; the page reloads when any of them changes.</li>
           <li>The prose is edited directly in <code>design/index.html</code>. Open the page from the dev server: <code>npm run dev</code>, then <code>/design/</code>.</li>
+          <li>How the game works, for players, is the bible (<code>/bible/</code>, <code>src/bible/</code>): a page per system and an entry per thing, its numbers from the content and the rules, kept complete by <code>tests/unit/bible.test.ts</code>.</li>
         </ul>
       </div>
     </section>

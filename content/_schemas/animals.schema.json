@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "animals",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "icon": {
+      "type": "string"
+    },
+    "young": {
+      "type": "string"
+    },
+    "item": {
+      "type": "string"
+    },
+    "growSeconds": {
+      "type": "number"
+    },
+    "feed": {
+      "type": "string"
+    },
+    "feedN": {
+      "type": "number"
+    },
+    "feedSeconds": {
+      "type": "number"
+    },
+    "produce": {
+      "type": "string"
+    },
+    "yield": {
+      "type": "array"
+    },
+    "produceSeconds": {
+      "type": "number"
+    },
+    "collectLabor": {
+      "type": "number"
+    },
+    "verb": {
+      "type": "string"
+    },
+    "look": {
+      "type": "object",
+      "properties": {
+        "body": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "id",
+    "name",
+    "icon",
+    "young",
+    "item",
+    "growSeconds",
+    "feed",
+    "feedN",
+    "feedSeconds",
+    "produce",
+    "yield",
+    "produceSeconds",
+    "collectLabor",
+    "verb"
+  ],
+  "additionalProperties": false
+}

@@ -1,0 +1,18 @@
+{
+  "npc": "wren",
+  "name": "Wren's Oil Cart",
+  "sells": [
+    {
+      "item": "lampOil",
+      "price": 10
+    },
+    {
+      "item": "deed.ponyTrap",
+      "price": 120
+    }
+  ],
+  "buys": [
+    "lampOil"
+  ],
+  "buyRate": 0.5
+}

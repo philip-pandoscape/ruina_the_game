@@ -1,0 +1,9 @@
+{
+  "id": "newItem",
+  "name": "New Item",
+  "icon": "🌿",
+  "cat": "produce",
+  "stack": 50,
+  "value": 5,
+  "desc": "What it is and what it is for, in a sentence or two."
+}

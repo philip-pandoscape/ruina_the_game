@@ -1,0 +1,17 @@
+{
+  "id": "noticeBoard",
+  "name": "Notice Board",
+  "w": 1.8,
+  "d": 0.4,
+  "h": 2.4,
+  "collider": "box",
+  "look": {
+    "body": "noticeBoard",
+    "model": {
+      "files": [
+        "noticeBoard"
+      ],
+      "sink": 0.05
+    }
+  }
+}

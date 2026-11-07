@@ -1,0 +1,7 @@
+{
+  "id": "pack.ciderCask",
+  "bench": "lanternwickBench",
+  "makes": {
+    "pack": "ciderCask"
+  }
+}

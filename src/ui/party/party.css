@@ -1,0 +1,35 @@
+/* Parties (src/ui/party): the frame under your portrait, the invitation, and the Party window. Built
+   from the window parts in windows.css; sizes are the UI's virtual pixels. */
+
+#hud-party { position: fixed; left: 16px; top: 168px; z-index: 6; width: 214px; display: flex; flex-direction: column; gap: 5px; pointer-events: auto; }
+#hud-party[hidden] { display: none; }
+#hud-party .pf-head { display: inline-flex; align-self: flex-start; align-items: center; gap: 6px; height: 26px; padding: 0 12px 0 8px; cursor: pointer;
+  font: 700 13px var(--font-title); letter-spacing: 0.05em; color: #ffeccc; text-shadow: 0 1px 0 #2b0d10; border: 2px solid transparent; border-radius: 999px;
+  background: var(--plaque) padding-box, var(--wood) border-box; box-shadow: 0 0 0 1.5px #2b1a0e, 0 3px 6px rgba(0, 0, 0, 0.3); }
+#hud-party .pf-head small { font: 700 12px var(--font); color: #e8cf9f; }
+#hud-party .pf-row { display: flex; align-items: center; gap: 6px; height: 28px; padding: 0 8px; cursor: default; font: 700 13px var(--font); color: var(--ink-strong);
+  border: 2px solid transparent; border-radius: 7px; background: var(--card) padding-box, var(--wood) border-box; box-shadow: 0 0 0 1.5px #2b1a0e, 0 3px 6px rgba(0, 0, 0, 0.25); }
+#hud-party .pf-row b { flex: none; max-width: 92px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#hud-party .pf-row .bar { flex: 1; height: 10px; overflow: hidden; border-radius: 3px; background: linear-gradient(180deg, #2e1c10, #4e3220); box-shadow: 0 0 0 1px #2b1a0e; }
+#hud-party .pf-row .bar i { display: block; height: 100%; background: var(--gloss), var(--health, #c83b2e); transition: width 150ms; }
+#hud-party .pf-row .tag { flex: 1; text-align: right; font: 600 11px var(--font); color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#hud-party .pf-row.off { opacity: 0.6; }
+#hud-party .pf-dungeon { align-self: flex-start; padding: 2px 10px; font: 600 11.5px var(--font); color: var(--ink); border-radius: 999px; background: var(--card); box-shadow: 0 0 0 1.5px #2b1a0e; }
+.party-frame .crown, .party-win .crown { flex: none; display: inline-flex; font-style: normal; }
+
+.party-win .mw-body { padding-top: 10px; }
+.mw.party-win.left { width: 360px; }
+.mw.party-invite { left: 50%; top: 58px; transform: translateX(-50%); width: 400px; }
+.pi-say { margin: 0 0 6px; font-size: 15px; line-height: 1.45; color: var(--ink-strong); }
+.pi-time { height: 7px; margin: 6px 0 2px; border-radius: 4px; overflow: hidden; background: rgba(110, 70, 30, 0.16); box-shadow: 0 0 0 1px rgba(90, 55, 25, 0.5); }
+.pi-time i { display: block; height: 100%; background: linear-gradient(90deg, #e6c45a, #c08a2a); }
+.party-win .lui-row { margin-bottom: 5px; }
+.party-win .lui-row b { flex: 1; font-size: 14px; color: var(--ink-strong); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.party-win .lui-row b small { font-weight: 600; color: var(--ink-2); }
+.party-win .lui-row .tag { font: 600 12px var(--font); color: var(--ink-2); white-space: nowrap; }
+.party-win .pw-dungeon { margin: 2px 0 6px; }
+.pw-name { display: flex; gap: 8px; margin-bottom: 6px; }
+.pw-name input { flex: 1; min-width: 0; height: 32px; padding: 0 10px; font: 600 14px var(--font); color: var(--ink-strong);
+  background: var(--inset); border: 1px solid var(--inset-line); border-radius: 6px; outline: none; }
+.pw-name input:focus { border-color: var(--inset-hover); box-shadow: inset 0 0 0 1px var(--title); }
+.pw-name input:disabled { opacity: 0.55; }

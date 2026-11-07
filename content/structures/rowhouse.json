@@ -1,0 +1,8 @@
+{
+  "id": "rowhouse",
+  "name": "Rowhouse",
+  "w": 6,
+  "d": 8,
+  "h": 11,
+  "collider": "building"
+}

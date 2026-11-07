@@ -1,0 +1,5 @@
+{
+  "id": "projectile.pierce",
+  "base": 1,
+  "desc": "How many enemies an arrow passes through"
+}

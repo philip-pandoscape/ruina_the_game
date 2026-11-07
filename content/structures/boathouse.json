@@ -1,0 +1,11 @@
+{
+  "id": "boathouse",
+  "name": "Shipwright's Shed",
+  "w": 8,
+  "d": 10,
+  "h": 9.2,
+  "collider": "building",
+  "look": {
+    "body": "boathouse"
+  }
+}

@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Ruina Bible</title>
+<!-- The Ruina Bible: how everything in the game works, for anyone to read. Every page is drawn from
+     the game's own content and rules by src/bible/ (pages in src/bible/site.ts). Open it from the
+     dev server, npm run dev, then /bible/; the built game serves it at /bible/ to everyone. -->
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="How everything in Ruina works, exactly: every system, place and thing, with the game's own numbers.">
+<link rel="icon" href="data:,">
+</head>
+<body>
+<header class="top">
+  <button type="button" id="menu" class="menu" aria-label="Contents">☰</button>
+  <a class="brand" href="#/"><b>Ruina</b><span>Bible</span></a>
+  <div class="find" role="search">
+    <input id="q" type="search" placeholder="Search the bible" aria-label="Search the bible" autocomplete="off" spellcheck="false">
+    <kbd class="key">/</kbd>
+    <div id="hits" class="hits" hidden></div>
+  </div>
+  <a class="lui-btn play" href="/">Play</a>
+</header>
+<div class="shell">
+  <nav id="rail" class="rail" aria-label="Contents"></nav>
+  <main>
+    <div id="crumbs" class="crumbs"></div>
+    <article id="page" class="sheet"></article>
+    <nav id="pager" class="pager" aria-label="Before and after"></nav>
+    <footer class="foot">Every number in this book is the game's own, taken from its content and rules as the page is shown.</footer>
+  </main>
+</div>
+<script type="module" src="/src/bible/main.ts"></script>
+</body>
+</html>

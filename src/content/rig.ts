@@ -39,10 +39,11 @@ export interface PartDef {
   shape: ShapeDef;
   mat: string;
   pos?: Vec3;
-  outline?: number | false;
   castShadow?: boolean;
   /** Escape hatch for the handful of shapes that need a rotate or a squash first. */
   tweak?: (g: THREE.BufferGeometry) => void;
+  /** Built but not drawn: a made body's bulk, for the pose code to keep out of the floor. */
+  hidden?: boolean;
 }
 
 export interface RigDef {
@@ -55,4 +56,22 @@ export interface RigDef {
    * Anything else (a nocked arrow, a lantern) is left for the renderer to toggle itself.
    */
   attachments?: Record<string, { joint: string; exclusive?: boolean; parts: PartDef[] }>;
+  /** The ankle above the sole, and the heel and the ball of the foot ahead of it (metres); the box hero's if left out. */
+  feet?: { ankle: number; heel: number; ball: number };
+  /** 'made': a human-sized made body, which strides and moves as people do (gait.ts, mocap.ts). */
+  gait?: 'made';
+  /** Its bow's string, if its bow isn't the box hero's (HERO_BOW). */
+  bow?: BowString;
+}
+
+/** A bow's string in the bow hand's space, the grip at the hand. */
+export interface BowString {
+  /** Where the string's middle rests, behind the grip. */
+  nock: Vec3;
+  /** Where it is tied at the bow's two tips. */
+  tips: readonly [Vec3, Vec3];
+  /** How far back from the grip the arrow's own nock end sits. */
+  arrowNock: number;
+  /** The longest the string stretches from the grip. */
+  maxDraw: number;
 }

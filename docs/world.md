@@ -1,0 +1,588 @@
+# The World
+
+Ruina's main world is one seamless open world of regions, set on a grid of chunks with the sea
+between them. The instances stand beside it: dungeons and developer zones, each a space of its own
+that a party plays in a copy of its own. Emberholm, the starter isle, is the first region and today
+the only one shipped (the tests play a fixture world of three, Testing below). Each region and instance is files; nothing in code lists them. This page covers how the
+world is laid out, how the rules read its ground, how it and its instances are played, and how to
+add a region or an instance. It is built to be played by many servers:
+
+- a region can be played by several simulations, its borders crossed seamlessly (Borders, below);
+- land is the same in every channel, plots claimed once in the world (Land);
+- channels open and merge with the crowd (Channels).
+
+What's left of it is in `.plans/refactor/end-pass.md` (Known Gaps).
+
+| What | Where | Played in |
+|---|---|---|
+| A region | `content/regions/<id>.json` (its recipe) and `content/regions/<id>/` (its places, buildings, gathering spots, doors and the rest; its people are `content/npcs/`) | Channels: everyone in the world, a channel each so none gets crowded, each a simulation of its own (`crates/server/src/sim/`) |
+| A dungeon | `content/instances/<id>.json`, its door in the region it's entered from (`content/regions/<region>/doors.json`) | A copy for each party, entered through its portal in the world |
+| A developer zone | `content/instances/<id>.json` with `developer: true` | A copy for each party (or one for everyone: `shared`), entered from the Admin menu ([admin.md](admin.md)) |
+
+## The Words
+
+| Word | What |
+|---|---|
+| World | The one open world. |
+| Region | A part of the world grown from one recipe, standing on whole chunks: Emberholm. |
+| Instance | A closed place in a space of its own: a dungeon or a developer zone (`content/instances/`). |
+| Channel | A copy of a region, for crowds: another opens past a soft cap, and a quiet one merges (Channels, below). Today a channel plays the whole world, which is Emberholm. |
+| Copy | A copy of an instance, for a party. |
+| Space | Where a position is: the world, or one copy of an instance. |
+| Chunk | 256 m on a side: where regions stand, and the unit a simulation will own. |
+| Cell | 32 m: the unit of what a player is sent (R10.8, to come). |
+| Land | What's built and planted in the world, and what's left standing in it: houses, farms, ships on the slipways, packs, vehicles. The world's, the same in every channel of a region (Land, below). |
+| Life | A character's own state: bag, coins, seals, quests, skills, labour, contracts. |
+
+"Island" was the old word for a character's life and for Emberholm. It has left the code, the wire and
+the saves' column (`characters.island` is `characters.life`, migration 0040: R10.14).
+
+## Where the Regions Stand
+
+`content/world.json` places each region on its chunks:
+
+| Field | What |
+|---|---|
+| `chunk` | Metres a chunk is on a side (256). |
+| `blend` | Metres either side of a border over which the ground is shared with what's across it (64; at most half a chunk). |
+| `sea` | Sea level (`level`), the same everywhere, and how deep the open sea is (`depth`) wherever no region stands. |
+| `regions` | Each region's `id` and its `chunks`: the first chunk (`x`, `z`) and how many along x (`w`) and z (`d`). |
+
+Emberholm is 6 × 6 chunks round the world's origin, 768 m to either side. The edge of the world is
+the edge of every region's chunks together.
+
+The world has one frame of coordinates, its origin in the middle of Emberholm. A region's recipe, and
+everything in its folder, is written in the world's coordinates. Its grid covers exactly its chunks,
+with its terrain's origin at their middle. So a region is placed by where it stands and never moved
+there. Each instance has a frame of its own (Spaces, below).
+
+## The Ground
+
+The engine's world map (`crates/engine/src/open/map.rs`: `WorldMap`, `world_map()`) answers the
+rules' questions about the ground anywhere:
+
+- how high it is (`height`) and how steep (`gradient`, `slope`);
+- what it's made of (`surface_at`);
+- how deep the water is over it (`depth`);
+- which region a point is in (`region_at`, `zone_at`);
+- where the edge of the world is (`inside`, `keep_inside`).
+
+The rules ask through the map, so they work the same in any region and across borders.
+
+- **Growing.** A region grows from its recipe: its terrain, surfaces, trees, rocks and buildings'
+  colliders (`open/generate.rs`, `open/buildings.rs`), natively on the server and through the
+  WebAssembly in the browser, the same ground to the bit (`tests/conformance/terrain.test.ts`).
+  Regions grow by need and are dropped when nothing needs them (Growing and Dropping, below).
+- **Borders without a seam.** Near a chunk's edge, the ground is shared with what's across it.
+  - The weights step smoothly over `blend` metres either side of the edge, and always sum to one.
+  - Every region's cell is the same size, a whole number to a chunk, so both sides of a border read
+    the same heights.
+  - A region bakes the blend into its grid as it grows, so what's drawn is what's walked on.
+  - The open sea slopes up to meet a region the same way.
+- **What's solid** in the world is every region's colliders together.
+
+### Growing and Dropping
+
+A `WorldMap` is a view of its world: it holds the regions grown for whoever plays through it, and
+every view of one world shares what's grown, so a region is grown once however many views hold it,
+and freed when none does (`map.rs`).
+
+| Call | What |
+|---|---|
+| `view()` | Another view of the same world, holding nothing yet. |
+| `hold(places)` | Holds exactly these regions (places in the map): those it lacks grown or shared, the rest let go. |
+| `adopt(place, Grown)` | Holds a region grown elsewhere (the browser's worker), refused if it isn't that region as the world places it. |
+| `release(place)` | Lets one go. |
+| `near(x, z, reach)` | The regions with a chunk within `reach` of a point, nearest first: what the browser holds round the player. |
+| `around(chunks, band)` | The regions on a simulation's chunks and those nearer than `band` to them. |
+| `held()`, `unheld()`, `grows(place)` | What it holds; how many regions it grew on the spot because ground was asked of it that it didn't hold (the browser's rules expect none); how many times a region has been grown in the world. |
+
+- **The same to the bit.** What's across a border reads only a region's edges as its recipe grew them,
+  two vertices deep (`Edges`, a few kilobytes), and those are kept for the world once grown. So a
+  region grown alone, beside its neighbours, or again after being dropped is the same to the bit
+  (`map.rs`'s tests compare heights, surfaces, cleared cells and colliders). A region whose land
+  neighbour has never been grown has that neighbour's edges grown for it first (once for the world).
+- **On the server.** `OpenWorld::playing(map, zone, chunks, SIM_BAND)` holds what a simulation plays
+  and the regions nearer than a chunk (256 m) to it, and what's solid follows what it holds, keeping
+  what's been built since; `play(chunks, band)` moves it. A channel plays every chunk of the world
+  today (`played` in `crates/server/src/sim/mod.rs`); borders (R10.19) give each simulation its own.
+- **In the browser** (The Client in a Big World, below), the page's rules hold the region you start
+  in (`OpenWorld::alone`) and adopt the rest as the page's worker grows them.
+- **Asked about ground it doesn't hold**, a view grows the region there and then and holds it from
+  then on, as every view did before regions were dropped, and counts it (`unheld`). The global
+  `world_map()` is such a view: what anything asks of it stays grown.
+
+### The Client in a Big World
+
+The browser plays a world of many regions with nothing loading as you cross from one into the next
+(R10.23). The page's start grows the region you start in on its own thread, as before; everything
+else grows in a Web Worker.
+
+- **Grown ahead of you** (`src/app/regions.ts`): the regions with a chunk within 600 m of you are asked
+  of the page's worker, nearest first, one at a time. The worker (`src/app/grower.ts`,
+  `grower.worker.ts`) has an engine of its own, the same WebAssembly given the same content: it grows
+  the region whole (`region_grow`, `WorldMap::grow_whole`: 90 to 200 ms for a region), bakes its sea's
+  depths and paints its map, and hands it all over with its arrays moved.
+- **Adopted** by the page's rules (`Engine.adoptRegion`, the WebAssembly's `session_adopt_region`): its
+  ground theirs and what stands on it solid, about 5 ms.
+- **Drawn** where the world places it (`src/render/open/regionView.ts`: its ground, trees, dressing,
+  buildings and falls), built a little each frame within 3 ms, and its files fetched as you approach
+  it (`docs/assets.md`, By Region).
+- **Dropped** 900 m behind you, from the rules and the drawing alike. The region where lives belong
+  (Emberholm) is kept.
+- **The page's ground** across regions is `WorldGround` (`src/engine/world/worldGround.ts`): each
+  region's grid where it stands, and the open sea sloping to meet a region from its edges, the same
+  sums as the engine's (`tests/conformance/world.test.ts`). A region it doesn't hold reads as open sea.
+- **The scene's origin moves with you** (`src/render/origin.ts`): the rules keep the world's own f64
+  coordinates; the scene stands shifted by the origin, the camera in it, once the camera is 3 km from
+  it, on a 2 km lattice. Near the world's origin (Emberholm) it never moves. The patterns laid in the
+  world (the ground's textures, the sea's ripples and foam, the grain of built things) are drawn from
+  positions relative to it plus what it's worth to each pattern, worked out in 64 bits, so they stay
+  put as it moves and keep their precision 100 km out. Raycasts and projecting to the screen go
+  through `toScene` and `fromScene`; a camera turns to a point in the world with `lookAtWorld`.
+- **The maps** show the world's regions: the minimap draws each region's picture where it stands, and
+  the map window shows the region you're in or, with World Map, the whole world.
+
+## Spaces
+
+Every position the server, the browser or a save keeps is in a space: the world, or one copy of an
+instance.
+
+- **An instance is a space of its own.** Its floors and walls stand round its own origin, over
+  nothing (`OpenWorld::instance`; its map is `WorldMap::void`, with no region, no sea and a long fall
+  below). Nothing of the world is near you inside it, and nothing of it is in the world.
+- **Each simulation plays one space**, on a thread of its own, found by the space's id
+  (`channel:<region>:<n>`, `copy:<instance>:<n>`: `SpaceId` in `crates/world-api`). Going through
+  a portal moves you to another simulation mid-connection: yours asks the directory where
+  (`crates/server/src/directory/`), which grants you there under a newer epoch, and hands you over
+  whole, your connection, player and life in one message (`ToSim::Transfer`).
+- **Saves:** a character is saved with its space (`characters.space`). One made in a copy keeps
+  the spot outside its door, in its home channel's space, so a restart puts you there.
+
+## Borders
+
+A region can be played in parts, each by a simulation of its own owning its 256 m chunks
+(`crates/engine/src/border/`, the server's `sim/border.rs`). The directory cuts a region along chunk
+columns (`directory/parts.rs`); nothing is cut in play yet (`start::start_split` turns it on, for
+the tests).
+
+- **Ghosts.** Each part keeps read-only copies of what stands within 120 m of its border in its
+  neighbours' chunks, with the position history lag compensation rewinds, and shows them in its own
+  frame under their own ids, so a player sees across a border as anywhere.
+- **Handoff.** 28 m past the border a player is handed over whole (their player, life, queued
+  inputs, a vehicle with its passengers as one) in two phases under the next epoch; whatever the old
+  owner says under an older one is refused. The gate holds the connection's inputs through the
+  handoff and sends them on from the first the new owner hasn't run, so the player notices nothing.
+- **Across the border.** Blows, heals and what a player is told are events, checked against the
+  ghost's history and applied by its owner. Creatures stay leashed to their region.
+- **Exact.** The tick goes in phases, and parts trade at each phase's barrier, ten a tick: in one
+  process they do so in lockstep, and Emberholm split two and four ways plays as one simulation to
+  the bit (`crates/engine/tests/golden/bordercheck.json`). Across processes a late pace (ghosts and
+  blows a tick late) is built but not wired.
+
+The fixture world's borders are crossed on foot, by cart with a passenger, by glider and by boat in
+the engine's tests (`border/crossings.rs`).
+
+## Channels
+
+The world is played in channels. A channel is a simulation of its own (`crates/server/src/sim/`),
+with its players, creatures and bots, stepped 20 times a second on a thread of its own and taking
+its messages at each tick's boundary. The directory (`crates/server/src/directory/`) places everyone
+by the channels' policy (below), starts a channel's simulation when it's needed, under a lease with
+an epoch, and once a second reviews each region: opening a channel ahead of the crowd, warning a
+quiet one's players and moving them across, closing it.
+
+- **Land is the same in every channel** of a region (Land, below): each channel reads it as it
+  starts, and sees what's built in another after its next start.
+- **The market** is the world's: sales lower it, and each simulation reads it again every 10 s.
+- **Started anew** among simulations playing on (several processes), the directory reviews no
+  channel until the tuning's `settle` has passed (10 s) and every channel's simulation has said
+  whom it holds, so nothing merges or closes on half the picture; arrivals are placed meanwhile.
+
+### The Policy
+
+`crates/channels` is the policy alone: pure, with no clock (whoever asks hands in the time) and no
+maps that iterate in an order of their own. It speaks the server tiers' words: a channel is a
+region's number `n`, times are `Millis`, players character ids. Whoever keeps who plays where holds
+a `Region` for each region, tells it what happens, and carries out the `Action`s it answers with
+(open a channel, move someone, close a channel).
+
+- **Placing** (`Region::arrive`). Someone coming into the world goes to the first of:
+  - the channel they left, if they left it less than `rejoinWithin` ago (a dropped connection, or
+    signing out and back in, doesn't move anyone; a channel merged meanwhile, where it went);
+  - their party's channel: its leader's, else where most of it plays;
+  - the channel with the most of their friends, then of their guild, then the biggest share
+    speaking their language, then the fullest, of those below the soft cap;
+  - a new channel.
+
+  Coming back and joining a party may pass the soft cap, never the hard cap. Friends, guilds and
+  languages are hooks (`Ties`): the social tier keeps only parties today, and they answer nothing
+  until it learns them.
+- **Opening** (`Region::review`, once a second). Another channel opens when the room left below the
+  soft cap in all of them together falls under `openAhead`, so a crowd still coming finds it there.
+- **Merging.** A channel with fewer than `quiet` players for `quietFor` merges into the fullest
+  other that can take them and stay at most `mergeFill`: the newest quiet channel first, one merge
+  at a time, everyone into one channel. Its players are told (`Merging`), nobody new goes in, and
+  from `mergeNotice` on each is moved (`Move`) to the same spot in the other channel, with their pack
+  and whatever they ride, once out of combat, on the ground and off a game's table; whoever is left
+  after `mergeWait` more is moved anyway. Then it closes (`Close`). An empty one closes at once.
+- **Changing channel** (`Region::change`, `Region::joined_party`). A player's choice, or accepting an
+  invitation into a party in another channel. Never with a pack, in combat (a blow struck or taken
+  within `calmAfter`, or down), riding, in the air or at a table, nor within `changeEvery` of the last
+  change. A choice goes only to a channel below the soft cap and not closing; joining a party, up to
+  the hard cap. An invitation the rules refuse for now goes through as soon as they allow.
+- **What a player sees** (`Region::view`): each channel's load (quiet, lively, busy, full), whether
+  it's closing, their party and friends in it, their merge's countdown, their cooldown, and what
+  stops them changing.
+
+The hysteresis: a merge never leaves a channel past `mergeFill`, and a channel opens ahead only once
+the room left is under `openAhead`; contentc holds `openAhead` below `softCap - mergeFill`, so a merge
+never opens a channel again at once.
+
+### Its Numbers
+
+`content/channels.json` (built to `shared/channels.json`; contentc and `Tuning::check` hold them in
+order). Counts are players in a channel, times seconds.
+
+| Field | What | Now |
+|---|---|---|
+| `softCap` | Placed by affinity up to this; past it another channel opens | 1,000 |
+| `hardCap` | Nobody is placed past this, with their party or coming back | 1,200 |
+| `openAhead` | Another opens when the room left below the soft cap is less than this | 50 |
+| `quiet`, `quietFor` | Fewer than this many for this long, and a channel merges | 250, 300 |
+| `mergeFill` | A merge leaves the channel it merges into at most this full | 750 |
+| `mergeNotice`, `mergeWait` | Warning before a merge moves anyone; then how long it waits for fights and tables | 60, 60 |
+| `changeEvery` | Between changes of channel | 300 |
+| `calmAfter` | Out of combat after the last blow | 10 |
+| `rejoinWithin` | Back where you were if you return within this | 300 |
+
+### The Browser
+
+The Channels window (`src/ui/channels/`, its button beside the Party's) lists your region's
+channels and asks to change; a notice at the top of the screen counts down while your channel
+closes and says where a move took you. On the wire (`src/net/worldLink.ts`):
+`channels {channels}` (a `ChannelsView`) and `channelMoved {from, to, why}` in; `channels` and
+`channel {to}` or `channel {party: true}` out. The server's side of these comes with the directory.
+
+### Bots in a Crowd
+
+`crates/channels/src/crowd.rs` plays a seeded crowd of bots against an `Arena`: they come and go on
+a curve, in parties formed before they come or by invitation, with friends, guilds and languages,
+picking up packs, fighting, sitting at tables, dropping their connections and changing channel. The
+policy in memory is one arena (`Here`); the server's directory with bots for players will be
+another. After every second it checks that no channel is past the hard cap, nobody past the soft cap
+but by their party or coming back, every merge done by its deadline, every refusal with its reason,
+and it counts the rest (`Tally`): `cargo test --release -p ruina-channels crowds_measured --
+--ignored --nocapture` prints them.
+
+### The World's Clock
+
+Every game numbers its ticks by the world's clock (`crates/server/src/sim/clock.rs`): frames at 60
+a second from the world's epoch (2026-01-01 UTC), and a server tick every third frame, 20 a second.
+- **The same moment everywhere.** A tick is the same moment in every channel and copy, so a browser's
+  timelines run on across moves between them, and across a server's restart. A tick that runs late
+  takes the number of its moment.
+- **The engine reads no clock.** The tick is handed to it, as the time of day is.
+- **Lag compensation.** A browser sends the tick it drew everyone else at, in sixteenths of a tick.
+  The wire carries only its low 32 bits, and the server reads it back in full against its own tick.
+
+Where this is going:
+
+- **R10.21** (half done, Land below): land kept by where it stands and shown in every channel of a
+  region, each plot claimed once in the world, the ledger and the world's market. The engine, the
+  browser and the store's tables and queries are in; the server keeps each channel's residents and
+  plots until it moves onto them, with its tiers.
+- **R10.22's second half:** the directory opening and closing channels' simulations by the policy,
+  placing and moving players through the tiers' messages, residents gone.
+- **R10.19, R10.20:** regions split between simulations, their borders crossed as if they weren't
+  there.
+
+## Land
+
+What's built and planted in the world, and what's left standing in it, is **land**
+(`crates/engine/src/life/land.rs`, `Land`): houses on their plots, farms (a scarecrow and its
+cells), ships on the slipways, packs (on the ground, in a vehicle's bed, or on their owner's back)
+and vehicles. It is the world's, not a life's:
+
+- **Kept by where it stands.** Each piece is a row of its own (`Land::rows`; the `land` table,
+  migration 0010): its id, its kind, the 256 m chunk it stands in (a pack on its owner's back has
+  none: it goes where they go), its owner, the epoch it was written under, and the piece. A
+  region's keeper reads its chunks (`crates/server/src/store/land/` `load_land`); a character's whole
+  holding comes with them (`load_holding`).
+- **Lent to its owner's life.** Only its owner changes a piece, so while they play their land is
+  lent to their life (`Life::land`) and changed by its rules, and saved with it in one transaction
+  (`land::save`, fenced by their grant). Everyone else reads it as it stood when the phase began,
+  so players still step in any order or all at once (`crates/engine/AGENTS.md`).
+- **Ids** come from the world's `land_blocks` sequence a block of 1024 at a time (hi/lo): a holding
+  is given a run (`Land::ids`) and names what it places from it with no trip to the database, and no
+  two pieces in the world share an id (the engine's `EntityKind::Placed` numbers). Offline a
+  holding counts its own. A run used up says "Not just now".
+- **The land's clock.** Land's times (a house's tax, an animal's feed, a pack's age) are on the
+  land's clock (`land::now`): the world's online, so they run while you're away; offline, where the
+  browser's session is the whole world, the life's own.
+- **What its keeper hears.** A step's `Change`s (`Life::take_changes`): a plot claimed, a plot let
+  go, a pack sold. The keeper (the server's game; offline the session) applies them once the
+  phase is over.
+
+### Plots
+
+A house plot is claimed once in the whole world, first come: the `plots` table's primary key is the
+registry (migration 0011, `land::plots`). A claim writes the house's row and the plot's claim in one
+transaction or neither, so of two claims on a plot from two channels or servers at once, one is kept
+and the other finds whose it is. Online a claimed house waits (`pending`) until the registry has
+confirmed it (`housing::confirm_claim`), and one that lost the race comes down with its blueprint
+back in the bag (`housing::lose_claim`). A claim is the house on the plot: when it comes down, the
+plot is free.
+
+Land is contested: a house whose tax goes unpaid `neglect.demolishAfterDays` days past what was paid
+(`content/housing.json`, 14) comes down, chest and all, and its plot is free for anyone
+(`housing::demolish_neglected`: run by the owner's life while they play, and by the region's keeper
+of land, `land::plots::houses` and `take_down`, while they're away). The bible's housing page has
+the rule as players meet it.
+
+### The Ledger
+
+Value moving between a character and the world (a purchase, a sale, a payout at a trading post, a
+contract's bonus, a workbench's fee, a tax, a quest's reward) or between two characters (a
+mini-game's pot) is a transfer in the `ledger` (migration 0012, `land::ledger`), each written once:
+a row is one character's side of it, keyed by which transfer and whose side, so one sent twice (a
+retry, a message delivered again) is applied once.
+
+- A life keeps what it moved with the world (`state.ledger`, numbered by its own count: `Life::record`)
+  until the store writes it with the life's next save, in the same transaction (`land::save`), and
+  then forgets it (`Life::recorded`). A save written twice records it once.
+- A pot is `ledger::transfer`: its two sides and both lives as they are once it's paid, in one
+  transaction under its own key, or nothing.
+
+### What the World Shares
+
+Kept in one place, not per channel or per life:
+
+- **The time of day** is worked out from the world's clock (`hourAt`, the region's `sky`).
+- **The weather** is worked out from the world's clock each step (`Life::weather`), the same for
+  everyone at the same moment; a life no longer keeps it.
+- **Each trading post's demand** is the world's market (`crates/engine/src/life/market.rs`,
+  `Market`; the `market` table, migration 0013): each demand as it stood at a moment on the world's
+  clock, worked out from there as it recovers, so nothing steps it. A life reads it as the step
+  began; a sale lowers it there at once and goes to the keeper (`Change::Sold`), and in the store it
+  is one statement (`land::market::sold`), so every server's sales count.
+
+### Saves
+
+A character's save is their life alone (`{state, player}`, `LIFE_VERSION` 4), their land in rows
+beside it. Saves from before (the land inside the life, version 3 and before; or beside it, `{state,
+land, player}`, as the server keeps them until it moves onto the store) are read apart by the engine
+(`land::read_saved`) and moved into rows by `land::migrate::run` as the server starts: the land's
+times onto the world's clock from the moment it was saved, ids from the world's blocks, each house's
+plot claimed. Where two channels both built on one plot, the first-made character keeps it and
+anyone else's house is moved, whole, to the first plot nobody holds (or, with none free, taken down
+into its owner's bag). A save is moved only if it still holds what was read, so one written
+meanwhile is moved the next time. Tested on saves written by 763d6af's server
+(`crates/server/tests/fixtures/`, `crates/server/tests/land.rs`).
+
+## Instances
+
+A dungeon or a developer zone is an instance. A copy of it plays its space alone
+(`crates/engine/src/open/dungeon.rs`): on the server, and in the browser while you're in one
+(`src/engine/world/dungeons.ts`, `src/app/dungeonVisit.ts`: the world set aside until you come back
+out).
+
+- **Going in** moves you between simulations on the server mid-connection, your life and all:
+  the directory finds or makes the copy that's yours (your party's, or yours alone) and starts its
+  simulation, and yours hands you over (`ToSim::Transfer`). The browser hears where it is (`onSpace`) and draws the place: a cave
+  (`src/render/open/dungeonView.ts`, Emberholm put away) or an open arena (`arenaView.ts`, under the
+  sky).
+- **A copy is kept** 30 minutes after the last player leaves, as World of Warcraft keeps an instance.
+  Whoever is in it but no longer in its party is put out after a minute.
+- **Falling** below `fall`, or being knocked down, gets you up where you came in.
+- **Creatures** a copy brings (`spawns`) stand on its floor. Their heights, and every height in a
+  fight, are measured from the copy's floor where it has one (`DungeonDef::floor_at`, the highest
+  piece no more than 0.6 m tall under a point; `floorAt` in the browser).
+- **Offline** the browser plays a copy itself (`crates/engine/src/session.rs`, `enter_dungeon`):
+  through a dungeon's portal, or from the start with `?test=<instance>` (paused, for tests) or
+  `?offline=<instance>`. The copy brings its creatures, numbered on from the world's, which wait
+  outside until you come back out. Its bots are the server's alone.
+- **Practice rules** are a copy's when its file switches them on (`practice`): a blow that lands
+  stops everything for its swing's hit pause (`hitPause`), and a swing turns toward whatever stands
+  nearest within reach and roughly in front (`aimAssist`). The yard and the goblin camp switch both
+  on; the world, Goblin's Dread and the battlefield play none. They are rules of one player's game,
+  so the browser's session plays them offline (`Practice` in `open/dungeon.rs`). The server never
+  stops a shared world for one player's blow or turns anyone's swing for them, so online they are
+  what the page does in every space: a landed swing's pause drawn on your hero, and the page's own
+  aim at what you see (`src/app/aiming.ts`). Offline where the rules don't stop the game, the page
+  draws the pause as it does online. The training dummy and what a blow shows (its number, its
+  sparks, the dummy's health bar) need no switch: the dummy is a creature a file's `spawns` bring,
+  and a blow shows the same in every space.
+
+### An Instance's File
+
+Everything is round its own origin, with heights (`top`) above it: an instance's space is its own, so
+where one stands says nothing about where another does. `content/_schemas/instances.schema.json`
+holds the fields.
+
+| Field | What |
+|---|---|
+| `id`, `name` | Its id (the file's name) and what it's called |
+| `about` | A developer zone's line in the Admin menu |
+| `maxPlayers` | How many a copy holds |
+| `arrive`, `exit`, `fall` | Where you come in and which way you face; the way out (F within `r` of it); how far below the floor you can fall |
+| `boxes`, `decks` | Its pieces: `x`, `z`, half-sizes `hw`, `hd`, a turn `rot` and a `top`. A box is solid to its top; a deck is a floor you can walk under |
+| `style` | `"cave"` (the default, drawn from its `dressing`) or `"arena"` (open sky) |
+| `dressing` | What a cave looks like inside (Dressing a Cave, below) |
+| `developer` | Admins only, in from the Admin menu |
+| `shared` | One copy for everyone allowed in, instead of one a party (the battlefield) |
+| `door` | A developer zone's way out into the world (`outside`, in the world); a dungeon's is in its region's `doors.json` |
+| `spawns` | Creatures a copy brings, as a region's recipe has them: a `kind` (`shared/actors.json`, or a creature's kinds) at `x`, `z`; `count` of them spread round the spot out to `r` metres (in a ring without `r`); with `band: true`, a war-band of `count` in a ring round the spot, fighting as a pack (`crates/engine/src/open/spawns.rs`) |
+| `bots` | Bots in it while anyone is: `count` of a `brain` on a `team`, round `x`, `z` |
+| `practice` | The practice rules a copy plays (offline): `hitPause` and `aimAssist`, each `true` or `false` (both off without it; Instances, above) |
+
+### Dressing a Cave
+
+An instance drawn as a cave (`style` left out, or `"cave"`) is drawn from its `dressing`, round its
+origin like the rest of its file (`src/render/open/dungeonView.ts`; the shape is `CaveDressing` in
+`src/content/looks.ts`). It is drawing only: the rules never read it, and none of it is solid; its
+boxes and decks are. Goblin's Dread's is the one to read.
+
+| Field | What |
+|---|---|
+| `hall` | The boxes that are the hall's walls (`west`, `east`, `south`, `north`, by id): their faces toward the hall bound it, and its rock is drawn along them. How high its `ceiling` is |
+| `tunnel` | A tunnel north out of the hall: the boxes that are its walls (`west`, `east`) and the one that ends it (`end`), and its `ceiling`. The hall's north wall is drawn either side of its mouth |
+| `falls` | The back of a waterfall across the hall's south end in place of rock, with the way out through it, and how many `lights` the daylight through it makes. Without falls the way out stands at `exit`, in a rock arch |
+| `stalactites`, `rubble` | How many stalactites hang from the hall's ceiling, and how many rocks lie at the foot of the walls |
+| `torches` | Torches on the walls: where each stands (`at`: x, y, z) and its `turn` (radians) |
+| `props` | What stands on its pieces: a `body` (`stage`, a landing stage filling a deck; `lookout` and `totem`, as tall as their box; `barricade`, across its box), `on` the box or deck by id, a `seed`, and a `turn` from the piece's own |
+| `nets` | Catch nets: `at`, `turn` and `size` (width, height) |
+| `loot` | Piles of stolen goods, `barrels`, `boxes` or `bales` (`pile`): `count` of them from a corner `at` (x, z) |
+| `drawings` | Pictures daubed on the walls: `at`, `turn`, `size` and `seed` |
+| `light` | The light its colours are baked from: a `fill` everywhere (red, green and blue, 0 to 1), and a lamp (`colour`, `power`, `reach`) for the way out (`exit`), for each torch (`torch`) and for the falls (`falls`) |
+
+A new cave is data alone. A new kind of prop or pile is code (`PROPS` and `PILES` in
+`dungeonView.ts`), as is a cave of another shape than a hall with a tunnel off it. contentc holds a
+dressing to its instance: a cave has one and an arena hasn't, the walls it names are its own boxes,
+its props stand on its own pieces, and its torches and falls have their light.
+
+## Bots
+
+A bot is a player without a socket whose inputs a brain fills each tick (`crates/engine/src/bots.rs`:
+a skirmisher finds a foe, fights and falls back when hurt; a wanderer walks about). The server steps
+them like players (`crates/server/src/sim/bots.rs`), and browsers see them as other players marked
+`bot`. Each brain sees everyone as the tick begins and decides for its bot alone, so the order they
+think in changes nothing, and a server started with `--parallel on` has them think all at once, as
+it steps the players (`crates/server/src/sim/stepping.rs`).
+
+An instance's bots come in with its first player and go with the last, so an empty battlefield costs
+nothing. An admin can add more anywhere with the `bots` command (`n`, `brain`, `team`; `n: 0` sends
+them away). A new kind of bot is a brain in `bots.rs` and its name in `Brain::named`.
+
+## Adding a Region
+
+1. **Its recipe and folder.** The recipe is `content/regions/<id>.json`, and its folder beside it,
+   `content/regions/<id>/`, holds what it places, in the world's coordinates:
+   - places, workbenches, house plots and gathering spots;
+   - structures, props and outposts;
+   - the doors into its dungeons.
+
+   The templates are in `content/_templates/region/`. Its people are `content/npcs/`. The creatures
+   it brings to life are its recipe's `spawns`, as an instance's are (An Instance's File, above): the
+   server spawns them in each channel, and the browser's game does offline
+   (`crates/engine/src/open/spawns.rs`).
+2. **Its chunks** go in `content/world.json`, a square of them that no other region has. Its recipe's
+   grid covers exactly them (`cells` × `cell`), with the same cell as every other region, and its
+   terrain's origin at their middle. For a land border, its land and its neighbour's must both reach
+   the shared edge (Emberholm's coast stays well inside its chunks, so it has sea borders only).
+3. **Its words** go in `src/bible/notes/regions.md`, under `## <id>`.
+4. **The checks.** `npm run content` checks its grid, its sea level and that every id in it is one
+   thing in the whole world. `npm run check` checks the borders (`map.rs`'s tests) and the bible.
+
+The server's rules and the browser see the new region from then on: the browser grows it in its
+worker as you come near it.
+
+## Adding an Instance
+
+**A developer zone** is its file alone:
+
+1. Copy `content/instances/yard.json` to `content/instances/<id>.json`. Give it an `id`, `name` and
+   `about`, and lay out its pieces, spawns and bots round its origin.
+2. Put its id in `content/instances/_order.json`, then run `npm run content`.
+3. `cargo test --release --workspace` checks it has a floor where you come in, its pieces within its
+   edge, and a way out. The Admin menu lists it from then on.
+
+**A dungeon** is its file, dressed, and a door in the world:
+
+1. Copy `content/_templates/dungeon.json`, a cave, to `content/instances/<id>.json`. Give it an `id`
+   and `name`, lay out its pieces round its origin and dress it (Dressing a Cave, above). Put its id
+   in `_order.json`, as above.
+2. Put its door in the region it's entered from, `content/regions/<region>/doors.json`, named for the
+   dungeon (`id`): the portal (`portal`, with a radius `r`) and where you come out (`outside`), in the
+   world's coordinates. contentc holds a door to a dungeon of its name.
+
+## Testing
+
+- **The fixture world** (`tests/fixtures/world/`, in the shapes of `shared/world.json` and a region's
+  recipe): `world.json` is Emberholm; Saltmere across a chunk of open sea to its west (x 1024 to
+  2048 m); and Thornmarch beside Saltmere across a land border at x = 2048 m, one landmass grown half by
+  each (Thornmarch frost to Saltmere's temperate). `far.json` is Emberholm and Farholt, a flat isle
+  102 km out. Rust tests load them from `ruina_engine::open::fixture` (`world()`, `far()`, `recipe()`,
+  and `bundles()` to give a whole engine in place of `shared/`), built in for the engine's tests and,
+  with the engine's `fixture-world` feature, for other crates'. The page plays them offline with
+  `?fixture=world` or `?fixture=far` (a development server serves the files); a unit test gives them to
+  its engine with `useContent`.
+- `crates/engine/src/open/map.rs` checks Emberholm and two small fixture worlds (an archipelago, and a
+  mainland split between regions):
+  - Emberholm stands round the origin, with open sea past it to the edge of the world.
+  - Borders meet with no seam, across land and with the open sea.
+  - You can walk from one region into the next, and swim from one to the next.
+  - A region's ground is its own, except within the blend of its edge.
+  - No two regions share a chunk.
+  - A world is solid with all its regions' colliders.
+  - A region is the same to the bit grown alone, with its neighbours, or again after being dropped;
+    views share what's grown and free it when none holds it; a region grown elsewhere is adopted as
+    grown.
+- `crates/engine/src/open/fixture.rs`: the fixture world crossed holding only what's within 600 m of
+  the player, as the browser does, nothing grown on the spot: walked across the land border (the same
+  steps as in the world grown whole), swum from Emberholm to Saltmere, glided across the land border,
+  a cart driven across it with a friend riding along; a region let go behind and grown again ahead.
+- `tests/conformance/terrain.test.ts`: the WebAssembly's region against the native one, all of it.
+  `tests/conformance/world.test.ts`: the page's ground across the fixture world against the engine's
+  world map, to the bit.
+- `tests/unit/grower.test.ts`: the worker's protocol, and the regions held round you (grown ahead
+  nearest first, adopted, let go behind); `tests/unit/origin.test.ts`: the floating origin's
+  arithmetic.
+- `tests/integration/bigworld.spec.ts`: the fixture world crossed in a page in real time with every
+  frame timed (on foot, swimming, by cart and by glider: nothing loading at the border, no frame at it
+  longer than 50 ms), what's behind let go and grown again, the World Map, and Farholt drawn as
+  precisely 102 km out as anywhere.
+- `tests/integration/world.spec.ts`: the open world in a page, and played on that ground (swimming,
+  gliding, farming, vehicles, boats).
+- `crates/engine/src/open/dungeon.rs`: every instance loads, has a floor where you come in and its
+  pieces within its edge, and every dungeon has a door in the world and a way out.
+- `crates/server/src/tests.rs`: the server's tiers together, as players use them: copies made, kept
+  and let go; parties into them; whoever doesn't belong put out; admins in, players kept out.
+  `crates/server/src/sim/mod.rs`: the yard's creatures on its floor, the goblin camp's war-band.
+- `crates/engine/src/session.rs` and `tests/unit/rules/instances.test.ts`: offline, a copy of the yard
+  with its own creatures on its floor (the world's back as they were when you come out), where it's
+  entered, and blows landing on its dummy; the yard's practice rules (a landed blow's pause, a swing
+  turned onto the dummy) and none in the world. `tests/unit/content.test.ts`: a practice rule there
+  isn't fails.
+- `tests/integration/admin.spec.ts`: an admin goes into the battlefield (its bots, the arena, out at
+  its door) and into the yard from character select (its dummy and slimes on the floor, blows
+  landing); a player is kept out.
+- `tests/unit/caves.test.ts`: a cave drawn from its dressing (Goblin's Dread's and the template's),
+  and every prop and pile a dressing names one the cave can draw. `tests/unit/content.test.ts`: a
+  dressing held to its instance.
+- `tests/integration/dungeon-way-in.spec.ts`, `tests/integration/party.spec.ts`: Goblin's Dread's way
+  in, and parties into one copy.
+- Land: `crates/engine/src/life/land.rs` (a save of either shape read apart, pieces kept by chunk,
+  ids from a run), `housing.rs` (claims waiting for the registry and lost, tax on the world's clock,
+  a neglected house taken down), `market.rs` (the world's demand); `crates/server/tests/land.rs`
+  against a database of each test's own (`RUINA_TEST_DATABASE_URL`, `docs/testing.md`): a plot
+  claimed once with two claims racing, a transfer sent twice applied once, land by chunk, the keeper
+  taking a neglected house down, every server's sales counting, and today's saves moved into rows
+  with every character back with everything.
+- `crates/channels`: placing (back, party, friends, guild, language, the fullest, a new channel),
+  the soft and hard caps, the rules for changing channel and following a party, merges (who waits,
+  the deadline, an empty channel, one at a time, newest first), opening ahead, and what a player
+  sees; and crowds of bots (`crowd.rs`), from 150 in small channels to 6,000 by the game's numbers,
+  checked every second. `tests/unit/content.test.ts`: the channels' numbers held in order.
+- `tests/unit/channels.test.ts` and `tests/integration/uiGallery.spec.ts` (`#/ui/channels/...`): the
+  Channels window's words and reasons, and the window and notice drawn in Title Case.

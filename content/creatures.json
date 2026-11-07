@@ -1,0 +1,6 @@
+{
+  "comment": "The creatures with folders of their own (design/goblins.md), in content/creatures/: a file each naming its parts, its kinds, attacks and brains, in a folder of its name. Read by src/content/creatures.ts and crates/engine/src/creatures.rs. Everything here is data for the shared engine parts: kinds as in shared/actors.json, attacks (a strike is a cone in front of it, a throw a lobbed missile; frames at 60 a second, cooldown a [min, max] range drawn on use), and brains as in shared/behaviours.json with the pack's tactics. Rules fields matter to both sides; name, species, clips, cycles and look are only how the browser draws it (a species the browser has a body for: src/creatures/, src/species/). A kind travels on the wire as its index, after those in shared/actors.json, so a new creature goes on the end of content/creatures/_order.json.",
+  "creatures": {
+    "$things": "creatures"
+  }
+}

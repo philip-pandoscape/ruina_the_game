@@ -1,49 +1,41 @@
 import * as THREE from 'three';
-import { makeRng, range } from '../rng';
-import type { GameEvent } from '../sim/types';
-import { MOVEMENT_SKILLS } from '../tuning';
+import { makeRng, range } from '../util/rng';
+import type { GameEvent } from '../engine/rules';
+import { MOVEMENT_SKILLS } from '../content/tuning';
+import { findKind } from '../content/actors';
 import { toon } from './toon';
-
-const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 
 // ---------- Slash trail ----------
 
-export interface SlashDef {
-  a0: number;
-  a1: number;
-  p0: number;
-  p1: number;
+export interface SlashColours {
   color: number;
   core: number;
 }
 
-// Direction of an arm with yaw a and pitch p (see SLASHES in character.ts).
-function armDir(a: number, p: number, out: THREE.Vector3): THREE.Vector3 {
-  return out.set(-Math.sin(p) * Math.sin(a), -Math.cos(p), -Math.sin(p) * Math.cos(a));
-}
-
-// A glowing ribbon along the sword's swing path. Head and tail (0..1 along the swing) animate it.
+/**
+ * A glowing ribbon along a weapon's swing path. `edges` are where the blade was through the
+ * swing, near the grip and at the tip, one pair per moment, evenly spaced in time; head and tail
+ * (0..1 through those moments) animate it.
+ */
 export class SlashArc {
   readonly mesh: THREE.Mesh;
   private uniforms: Record<string, THREE.IUniform>;
 
-  constructor(def: SlashDef, rIn: number, rOut: number, segments = 32) {
+  constructor(def: SlashColours, edges: Array<readonly [THREE.Vector3, THREE.Vector3]>) {
     const positions: number[] = [];
     const ts: number[] = [];
     const rs: number[] = [];
     const indices: number[] = [];
-    const v = new THREE.Vector3();
-    for (let i = 0; i <= segments; i++) {
-      const t = i / segments;
-      armDir(lerp(def.a0, def.a1, t), lerp(def.p0, def.p1, t), v);
-      positions.push(v.x * rIn, v.y * rIn, v.z * rIn, v.x * rOut, v.y * rOut, v.z * rOut);
-      ts.push(t, t);
+    const segments = Math.max(1, edges.length - 1);
+    edges.forEach(([inner, outer], i) => {
+      positions.push(inner.x, inner.y, inner.z, outer.x, outer.y, outer.z);
+      ts.push(i / segments, i / segments);
       rs.push(0, 1);
       if (i < segments) {
         const k = i * 2;
         indices.push(k, k + 1, k + 2, k + 1, k + 3, k + 2);
       }
-    }
+    });
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
     geo.setAttribute('aT', new THREE.Float32BufferAttribute(ts, 1));
@@ -135,7 +127,15 @@ class ParticlePool {
   private dir = new THREE.Vector3();
   private static UP = new THREE.Vector3(0, 1, 0);
 
-  constructor(geo: THREE.BufferGeometry, mat: THREE.Material, max: number, private stretch: boolean) {
+  /** Where particles come to rest: the ground under them (sea level when nobody says). */
+  floor: (x: number, z: number) => number = () => 0;
+
+  constructor(
+    geo: THREE.BufferGeometry,
+    mat: THREE.Material,
+    max: number,
+    private stretch: boolean,
+  ) {
     this.mesh = new THREE.InstancedMesh(geo, mat, max);
     this.mesh.frustumCulled = false;
     this.mesh.castShadow = false;
@@ -178,8 +178,9 @@ class ParticlePool {
       p.vel.y -= p.gravity * dt;
       p.vel.multiplyScalar(Math.max(0, 1 - p.drag * dt));
       p.pos.addScaledVector(p.vel, dt);
-      if (p.pos.y < 0.02) {
-        p.pos.y = 0.02;
+      const floor = this.floor(p.pos.x, p.pos.z) + 0.02;
+      if (p.pos.y < floor) {
+        p.pos.y = floor;
         p.vel.y = Math.abs(p.vel.y) * 0.3;
       }
     }
@@ -223,6 +224,7 @@ class ParticlePool {
 // ---------- Rings ----------
 
 class RingPool {
+  static UP = new THREE.Vector3(0, 1, 0);
   private rings: Array<{ mesh: THREE.Mesh; mat: THREE.MeshBasicMaterial; age: number; life: number; size: number }> = [];
   private next = 0;
 
@@ -239,10 +241,12 @@ class RingPool {
     }
   }
 
-  spawn(pos: THREE.Vector3, size: number, life: number, color: number): void {
+  spawn(pos: THREE.Vector3, size: number, life: number, color: number, up?: THREE.Vector3): void {
     const r = this.rings[this.next];
     this.next = (this.next + 1) % this.rings.length;
     r.mesh.position.copy(pos);
+    if (up) r.mesh.quaternion.setFromUnitVectors(RingPool.UP, up);
+    else r.mesh.quaternion.identity();
     r.mat.color.set(color);
     r.age = 0;
     r.life = life;
@@ -345,15 +349,36 @@ export class Vfx {
   private w = new THREE.Vector3();
   /** Ground height in an open world, so effects that hug the ground sit on hills too. */
   ground: ((x: number, z: number) => number) | null = null;
+  /**
+   * How far ground drawn over the terrain (a farm's soil and furrows) stands above it within `r`
+   * metres of (x, z): rings lying on the ground lie on top of it.
+   */
+  raised: ((x: number, z: number, r: number) => number) | null = null;
 
   private gy(x: number, z: number): number {
     return this.ground ? this.ground(x, z) : 0;
+  }
+
+  private n = new THREE.Vector3();
+
+  /** A ring lying on the ground at (x, z), `lift` over it, tipped to the slope there. */
+  private groundRing(x: number, z: number, lift: number, size: number, life: number, color: number): void {
+    const g = this.gy(x, z) + (this.raised?.(x, z, size) ?? 0);
+    let up: THREE.Vector3 | undefined;
+    if (this.ground) {
+      const e = 0.5;
+      const sx = (this.ground(x + e, z) - this.ground(x - e, z)) / (2 * e);
+      const sz = (this.ground(x, z + e) - this.ground(x, z - e)) / (2 * e);
+      up = this.n.set(-sx, 1, -sz).normalize();
+    }
+    this.rings.spawn(this.v.set(x, g + lift, z), size, life, color, up);
   }
 
   constructor(scene: THREE.Scene) {
     this.dust = new ParticlePool(new THREE.IcosahedronGeometry(0.5, 0), toon(0xffffff), 260, false);
     this.sparks = new ParticlePool(new THREE.OctahedronGeometry(0.5, 0), new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false }), 420, true);
     scene.add(this.dust.mesh, this.sparks.mesh);
+    this.dust.floor = this.sparks.floor = (x, z) => this.gy(x, z);
     this.rings = new RingPool(scene, 14);
     this.flashes = new FlashPool(scene, 6);
   }
@@ -417,12 +442,12 @@ export class Vfx {
         const color = big ? new THREE.Color(0xffd166) : new THREE.Color(0xfff6c8);
         this.burst(e.x, e.y, e.z, e.dirX, e.dirZ, big ? 22 : 12, big ? 9 : 6.5, color);
         this.puff(e.x, e.y - 0.3, e.z, big ? 6 : 3, 1.4, 0.16, STRAW);
-        this.rings.spawn(this.v.set(e.x, this.gy(e.x, e.z) + 0.03, e.z), big ? 1.8 : 1.0, big ? 0.35 : 0.22, big ? 0xffd166 : 0xffffff);
+        this.groundRing(e.x, e.z, 0.03, big ? 1.8 : 1.0, big ? 0.35 : 0.22, big ? 0xffd166 : 0xffffff);
         break;
       }
       case 'actorDie': {
-        // Straw for a dummy; anything else bursts in its own colour once content says so.
-        if (e.kind !== 'dummy') {
+        // Straw for a kind whose look says so (the training dummy); anything else a puff of dust.
+        if (findKind(e.kind)?.look?.dies !== 'straw') {
           this.puff(e.x, Math.max(0.2, e.y), e.z, 10, 2.2, 0.26);
           break;
         }
@@ -437,34 +462,38 @@ export class Vfx {
         // Dying into pieces: a wet splash outward, more of it for a bigger one.
         const n = 6 + e.count * 3;
         this.puff(e.x, e.y, e.z, n, 2.6 + e.count * 0.3, 0.24, SLIME_GREEN);
-        for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) this.burst(e.x, e.y, e.z, dx, dz, 5, 5.5, SLIME_GREEN);
+        for (const [dx, dz] of [
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1],
+        ])
+          this.burst(e.x, e.y, e.z, dx, dz, 5, 5.5, SLIME_GREEN);
         break;
       }
       case 'actorGrow': {
         // Grown a size (or a group come back together): a bright ring and a gulp of slime.
         const g = this.gy(e.x, e.z);
-        this.rings.spawn(this.v.set(e.x, g + 0.05, e.z), 3.2, 0.55, 0xb8ff9a);
-        this.rings.spawn(this.v.set(e.x, g + 0.08, e.z), 1.8, 0.35, 0xffffff);
+        this.groundRing(e.x, e.z, 0.05, 3.2, 0.55, 0xb8ff9a);
+        this.groundRing(e.x, e.z, 0.08, 1.8, 0.35, 0xffffff);
         this.puff(e.x, g + 0.5, e.z, 18, 3.2, 0.3, SLIME_GREEN);
         break;
       }
       case 'actorCall': {
         // Calling the pack: a green ripple spreading out from it.
-        const g = this.gy(e.x, e.z);
-        this.rings.spawn(this.v.set(e.x, g + 0.05, e.z), 5, 0.7, 0x9dff5c);
-        this.rings.spawn(this.v.set(e.x, g + 0.06, e.z), 2.5, 0.45, 0xd8ffc0);
+        this.groundRing(e.x, e.z, 0.05, 5, 0.7, 0x9dff5c);
+        this.groundRing(e.x, e.z, 0.06, 2.5, 0.45, 0xd8ffc0);
         break;
       }
       case 'gatherStart': {
-        const g = this.gy(e.x, e.z);
-        this.rings.spawn(this.v.set(e.x, g + 0.05, e.z), e.radius, 0.6, 0x9dff5c);
+        this.groundRing(e.x, e.z, 0.05, e.radius, 0.6, 0x9dff5c);
         break;
       }
       case 'gatherBroken':
         // Broken: a pop of white, and it slumps.
         this.burst(e.x, e.y, e.z, 1, 0, 10, 6, new THREE.Color(0xffffff));
         this.burst(e.x, e.y, e.z, -1, 0, 10, 6, new THREE.Color(0xffffff));
-        this.rings.spawn(this.v.set(e.x, this.gy(e.x, e.z) + 0.05, e.z), 2, 0.3, 0xffffff);
+        this.groundRing(e.x, e.z, 0.05, 2, 0.3, 0xffffff);
         break;
       case 'actorAbsorbed':
         this.puff(e.x, e.y, e.z, 6, 1.6, 0.2, SLIME_GREEN);
@@ -472,7 +501,7 @@ export class Vfx {
       case 'slam': {
         // A monster landing hard: a dust ring the size of what it hit, and a splash of slime.
         const g = this.gy(e.x, e.z);
-        this.rings.spawn(this.v.set(e.x, g + 0.04, e.z), e.radius * 1.1, 0.4, 0xff6b5b);
+        this.groundRing(e.x, e.z, 0.04, e.radius * 1.1, 0.4, 0xff6b5b);
         this.puff(e.x, g + 0.1, e.z, 8 + Math.round(e.radius * 6), 2 + e.radius * 1.5, 0.22 + e.radius * 0.08);
         this.burst(e.x, g + 0.3, e.z, 1, 0, 8, 4 + e.radius * 2, SLIME_GREEN);
         this.burst(e.x, g + 0.3, e.z, -1, 0, 8, 4 + e.radius * 2, SLIME_GREEN);
@@ -501,8 +530,8 @@ export class Vfx {
   // Healing Circle: a green ring sweeps out and sparkles drift up across the whole area.
   private healBloom(x: number, z: number, radius: number): void {
     const g = this.gy(x, z);
-    this.rings.spawn(this.v.set(x, g + 0.05, z), radius, 0.7, 0x4dff9a);
-    this.rings.spawn(this.v.set(x, g + 0.06, z), radius * 0.55, 0.45, 0xd8ffe6);
+    this.groundRing(x, z, 0.05, radius, 0.7, 0x4dff9a);
+    this.groundRing(x, z, 0.06, radius * 0.55, 0.45, 0xd8ffe6);
     for (let i = 0; i < 40; i++) {
       const a = this.rng() * Math.PI * 2;
       const r = Math.sqrt(this.rng()) * radius;
@@ -516,8 +545,8 @@ export class Vfx {
   private explosion(x: number, z: number, radius: number): void {
     const g = this.gy(x, z);
     this.flashes.spawn(this.v.set(x, g + 0.8, z), radius * 0.9, 0.35, 0xffb347);
-    this.rings.spawn(this.v.set(x, g + 0.05, z), radius * 1.15, 0.5, 0xff7a1a);
-    this.rings.spawn(this.v.set(x, g + 0.06, z), radius * 0.7, 0.28, 0xfff1c1);
+    this.groundRing(x, z, 0.05, radius * 1.15, 0.5, 0xff7a1a);
+    this.groundRing(x, z, 0.06, radius * 0.7, 0.28, 0xfff1c1);
     for (let i = 0; i < 46; i++) {
       const a = this.rng() * Math.PI * 2;
       const s = range(this.rng, 5, 13);
@@ -543,7 +572,6 @@ export class Vfx {
       this.dust.spawn(this.v, this.w, range(this.rng, 0.4, 0.7), range(this.rng, 0.35, 0.55), -1, 1, SMOKE);
     }
   }
-
 
   // A small dust kick every few frames while sliding.
   slideDust(x: number, z: number, dirX: number, dirZ: number): void {

@@ -1,0 +1,94 @@
+{
+  "id": "workshop",
+  "w": 10,
+  "d": 6,
+  "storeys": [
+    {
+      "walls": "stone",
+      "floor": "Floor_UnevenBrick",
+      "front": "W A A . W",
+      "right": ". W .",
+      "back": ". W . W .",
+      "left": ". W ."
+    }
+  ],
+  "roof": {
+    "ridge": "x",
+    "chimneys": [
+      {
+        "x": 4.4,
+        "z": -0.8
+      }
+    ]
+  },
+  "items": [
+    {
+      "id": "wagon",
+      "x": -1,
+      "z": -0.4,
+      "rot": 1.5708
+    },
+    {
+      "id": "workbench",
+      "x": 2.8,
+      "z": -2.1
+    },
+    {
+      "id": "pegRack",
+      "x": 2.8,
+      "z": -2.68,
+      "y": 1.7
+    },
+    {
+      "id": "tools",
+      "x": 1,
+      "z": -2.6,
+      "y": 0.4
+    },
+    {
+      "id": "anvil",
+      "x": 3.9,
+      "z": 0.4
+    },
+    {
+      "id": "whetstone",
+      "x": 3.6,
+      "z": 1.9,
+      "rot": -0.4
+    },
+    {
+      "id": "crates",
+      "x": -4,
+      "z": -2
+    },
+    {
+      "id": "barrel",
+      "x": -4.1,
+      "z": -0.6
+    },
+    {
+      "id": "barrel",
+      "x": -3.3,
+      "z": -0.3
+    },
+    {
+      "id": "lantern",
+      "x": -4.66,
+      "z": 1.2,
+      "rot": 1.5708,
+      "y": 1.5
+    },
+    {
+      "id": "lantern",
+      "x": 4.66,
+      "z": -1.2,
+      "rot": -1.5708,
+      "y": 1.5
+    },
+    {
+      "id": "rope",
+      "x": -3.6,
+      "z": 2.2
+    }
+  ]
+}

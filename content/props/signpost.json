@@ -1,0 +1,17 @@
+{
+  "id": "signpost",
+  "w": 0.6,
+  "d": 0.6,
+  "h": 2.7,
+  "collider": "post",
+  "r": 0.15,
+  "look": {
+    "body": "signpost",
+    "model": {
+      "files": [
+        "signpost"
+      ],
+      "sink": 0.1
+    }
+  }
+}

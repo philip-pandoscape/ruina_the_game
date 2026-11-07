@@ -1,0 +1,14 @@
+{
+  "id": "farmPlot",
+  "name": "Tilled Plot",
+  "w": 8,
+  "d": 8,
+  "h": 0.15,
+  "collider": "none",
+  "pad": false,
+  "clearMargin": 1,
+  "surface": "soil",
+  "look": {
+    "body": "farmPlot"
+  }
+}

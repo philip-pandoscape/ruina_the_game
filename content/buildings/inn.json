@@ -1,0 +1,292 @@
+{
+  "id": "inn",
+  "w": 14,
+  "d": 8,
+  "storeys": [
+    {
+      "walls": "stone",
+      "floor": "Floor_Brick",
+      "front": "W . R O R . W",
+      "right": ". W W .",
+      "back": ". W . D . W .",
+      "left": ". . W ."
+    },
+    {
+      "walls": "plaster",
+      "floor": "Floor_WoodDark",
+      "front": "W . W W W . W",
+      "right": ". w w .",
+      "back": "W . W . W . W",
+      "left": ". w . ."
+    }
+  ],
+  "roof": {
+    "ridge": "x",
+    "chimneys": [
+      {
+        "x": -6.4,
+        "z": -1
+      },
+      {
+        "x": 3,
+        "z": 1.2
+      }
+    ]
+  },
+  "stairs": [
+    {
+      "storey": 0,
+      "x": 5,
+      "z": -3,
+      "rot": 1.5707963267948966
+    }
+  ],
+  "items": [
+    {
+      "id": "hearth",
+      "x": -6.25,
+      "z": -1,
+      "rot": 1.5708
+    },
+    {
+      "id": "rug",
+      "x": -5.4,
+      "z": -1,
+      "rot": 1.5708
+    },
+    {
+      "id": "chair",
+      "x": -5.3,
+      "z": 1.25,
+      "rot": -2
+    },
+    {
+      "id": "chair",
+      "x": -5.3,
+      "z": -3,
+      "rot": -1
+    },
+    {
+      "id": "candleStand",
+      "x": -6.1,
+      "z": 3.1
+    },
+    {
+      "id": "tavernTable",
+      "x": -2.8,
+      "z": 2.1
+    },
+    {
+      "id": "tavernTable",
+      "x": -2.8,
+      "z": -1.3
+    },
+    {
+      "id": "tavernTable",
+      "x": 2.2,
+      "z": 1.9
+    },
+    {
+      "id": "cabinet",
+      "x": 4.6,
+      "z": 0.95,
+      "rot": -1.5708
+    },
+    {
+      "id": "cabinet",
+      "x": 4.6,
+      "z": 2.35,
+      "rot": -1.5708
+    },
+    {
+      "id": "mug",
+      "x": 4.55,
+      "z": 0.7,
+      "y": 1
+    },
+    {
+      "id": "mug",
+      "x": 4.6,
+      "z": 1.6,
+      "rot": 1.2,
+      "y": 1
+    },
+    {
+      "id": "candles",
+      "x": 4.6,
+      "z": 2.3,
+      "rot": -1.5708,
+      "y": 1
+    },
+    {
+      "id": "barrelRack",
+      "x": 6.25,
+      "z": 1.5,
+      "rot": -1.5708
+    },
+    {
+      "id": "barrel",
+      "x": 6.25,
+      "z": 3.25
+    },
+    {
+      "id": "barrel",
+      "x": 5.5,
+      "z": 3.3
+    },
+    {
+      "id": "shelfBottles",
+      "x": 6.66,
+      "z": -0.6,
+      "rot": -1.5708,
+      "y": 1.5
+    },
+    {
+      "id": "crates",
+      "x": -6.1,
+      "z": -3.1
+    },
+    {
+      "id": "chandelier",
+      "x": -2.8,
+      "z": 2.1,
+      "y": 2.98
+    },
+    {
+      "id": "chandelier",
+      "x": 2.2,
+      "z": 1.9,
+      "rot": 0.5,
+      "y": 2.98
+    },
+    {
+      "id": "banner",
+      "x": -6.68,
+      "z": 2.7,
+      "rot": 1.5708,
+      "y": 2.6
+    },
+    {
+      "id": "shield",
+      "x": -3,
+      "z": -3.68,
+      "y": 1.9
+    },
+    {
+      "id": "shield",
+      "x": 0.6,
+      "z": -3.68,
+      "y": 1.9
+    },
+    {
+      "id": "bed",
+      "x": -5.6,
+      "z": 2.45,
+      "rot": 3.1416,
+      "storey": 1
+    },
+    {
+      "id": "chest",
+      "x": -5.6,
+      "z": 0.75,
+      "rot": 3.1416,
+      "storey": 1
+    },
+    {
+      "id": "bedGreen",
+      "x": -2.6,
+      "z": 2.45,
+      "rot": 3.1416,
+      "storey": 1
+    },
+    {
+      "id": "chest",
+      "x": -2.6,
+      "z": 0.75,
+      "rot": 3.1416,
+      "storey": 1
+    },
+    {
+      "id": "bed",
+      "x": 0.6,
+      "z": 2.45,
+      "rot": 3.1416,
+      "storey": 1
+    },
+    {
+      "id": "nightstand",
+      "x": 2,
+      "z": 3.48,
+      "rot": 3.1416,
+      "storey": 1
+    },
+    {
+      "id": "bedGreen",
+      "x": 3.6,
+      "z": 2.45,
+      "rot": 3.1416,
+      "storey": 1
+    },
+    {
+      "id": "chest",
+      "x": 3.6,
+      "z": 0.75,
+      "rot": 3.1416,
+      "storey": 1
+    },
+    {
+      "id": "bed",
+      "x": -5.6,
+      "z": -2.55,
+      "storey": 1
+    },
+    {
+      "id": "nightstand",
+      "x": -4.2,
+      "z": -3.48,
+      "storey": 1
+    },
+    {
+      "id": "bedGreen",
+      "x": -2.6,
+      "z": -2.55,
+      "storey": 1
+    },
+    {
+      "id": "rugRunner",
+      "x": -1,
+      "z": -0.5,
+      "storey": 1
+    },
+    {
+      "id": "cabinet",
+      "x": 6.5,
+      "z": 1.6,
+      "rot": -1.5708,
+      "storey": 1
+    },
+    {
+      "id": "candles",
+      "x": 6.5,
+      "z": 1.6,
+      "rot": -1.5708,
+      "y": 1,
+      "storey": 1
+    },
+    {
+      "id": "lantern",
+      "x": 0,
+      "z": -3.66,
+      "y": 1.5,
+      "storey": 1
+    },
+    {
+      "id": "lantern",
+      "x": -6.66,
+      "z": 0,
+      "rot": 1.5708,
+      "y": 1.5,
+      "storey": 1
+    }
+  ]
+}

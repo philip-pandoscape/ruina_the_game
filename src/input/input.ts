@@ -1,16 +1,31 @@
-import type { Actions } from '../sim/types';
-import { CAMERA, GAMEPAD } from '../tuning';
+import type { Actions, PlayerState } from '../engine/rules';
+import { CAMERA, GAMEPAD } from '../content/tuning';
 import { MouseFilter } from './mouseFilter';
 
 export type Device = 'keyboard' | 'gamepad';
 
 // Menu presses: opening the skill panel, moving its cursor, choosing, closing, starting over.
-export type MenuPress = 'toggle' | 'up' | 'down' | 'left' | 'right' | 'select' | 'back' | 'reset';
+// toggle opens and shuts the skill book; tree opens the skill tree (N); tab switches between the two.
+export type MenuPress = 'toggle' | 'up' | 'down' | 'left' | 'right' | 'select' | 'back' | 'reset' | 'tab' | 'tree';
 
 // Xbox button numbers in the browser's standard gamepad layout.
 export const PAD = {
-  A: 0, B: 1, X: 2, Y: 3, LB: 4, RB: 5, LT: 6, RT: 7,
-  VIEW: 8, MENU: 9, LS: 10, RS: 11, UP: 12, DOWN: 13, LEFT: 14, RIGHT: 15,
+  A: 0,
+  B: 1,
+  X: 2,
+  Y: 3,
+  LB: 4,
+  RB: 5,
+  LT: 6,
+  RT: 7,
+  VIEW: 8,
+  MENU: 9,
+  LS: 10,
+  RS: 11,
+  UP: 12,
+  DOWN: 13,
+  LEFT: 14,
+  RIGHT: 15,
 } as const;
 
 const KEYS = {
@@ -20,11 +35,26 @@ const KEYS = {
   right: ['KeyD'],
   jump: ['Space'],
   attack: ['KeyJ', 'Mouse0'],
-  // Shift sprints now, so sliding moved to C. K stays as it was.
-  slide: ['KeyC', 'KeyK'],
+  // K always slides. C is the crouch, held (and the glider's flare), and a press of it on the run
+  // slides too: see crouchKeySlides. Nothing is on Ctrl: a key pressed with it is that key, and the
+  // browser's shortcuts are kept from it (browserKeys.ts).
+  slide: ['KeyK'],
   sprint: ['ShiftLeft', 'ShiftRight'],
-  crouch: ['ControlLeft', 'ControlRight'],
+  crouch: ['KeyC'],
 };
+
+/** Running faster than this (metres a second), a press of the crouch key slides. */
+const CROUCH_SLIDE_SPEED = 2;
+
+/**
+ * Whether a press of the crouch key (C) slides as well, for a player as they are now: on their feet
+ * on the ground and on the move. Standing still it only crouches, and in the air (gliding, falling)
+ * it only crouches or flares, rather than leaving a slide waiting for the landing.
+ */
+export function crouchKeySlides(p: Pick<PlayerState, 'grounded' | 'mode' | 'vel'>): boolean {
+  if (!p.grounded || p.mode === 'ride' || p.mode === 'swim' || p.mode === 'glide') return false;
+  return Math.hypot(p.vel.x, p.vel.z) > CROUCH_SLIDE_SPEED;
+}
 
 // Movement skills: Q and E, or the bumpers.
 const MOVEMENT_KEYS = ['KeyQ', 'KeyE'];
@@ -57,6 +87,7 @@ export interface CombatInput {
 
 const MENU_KEYS: Record<string, MenuPress> = {
   KeyT: 'toggle',
+  KeyN: 'tree',
   Escape: 'back',
   ArrowUp: 'up',
   ArrowDown: 'down',
@@ -75,24 +106,47 @@ const MENU_PAD: Array<[number, MenuPress]> = [
   [PAD.A, 'select'],
   [PAD.B, 'back'],
   [PAD.Y, 'reset'],
+  [PAD.LB, 'tab'],
+  [PAD.RB, 'tab'],
 ];
 
-// Open-world keys: interact, drop a pack, mount, glider, change seed, and the panels.
-export type LifeKey = 'interact' | 'drop' | 'mount' | 'glider' | 'seed' | 'bag' | 'map' | 'garage' | 'quests' | 'escape' | 'dev';
+// Open-world keys: interact, drop a pack, mount, glider, change seed, auto-walk, and the panels.
+export type LifeKey =
+  | 'interact'
+  | 'drop'
+  | 'mount'
+  | 'glider'
+  | 'seed'
+  | 'autorun'
+  | 'bag'
+  | 'map'
+  | 'garage'
+  | 'quests'
+  | 'character'
+  | 'party'
+  | 'escape'
+  | 'dev';
 const LIFE_KEYS: Record<string, LifeKey> = {
   KeyF: 'interact',
   KeyX: 'drop',
   KeyR: 'mount',
   KeyG: 'glider',
   KeyZ: 'seed',
+  // Auto-walk: Num Lock as in other MMOs, and H for keyboards without one (R, the usual other, mounts).
+  KeyH: 'autorun',
+  NumLock: 'autorun',
   KeyI: 'bag',
   KeyB: 'bag',
   KeyM: 'map',
   KeyV: 'garage',
   KeyL: 'quests',
+  KeyP: 'character',
+  KeyO: 'party',
   Escape: 'escape',
   Backquote: 'dev',
 };
+/** A click of the left stick shorter than this, with the stick at rest, is auto-walk rather than sprint. */
+const STICK_TAP_MS = 300;
 
 interface Rumbler {
   playEffect?: (type: string, params: Record<string, number>) => Promise<unknown>;
@@ -124,15 +178,26 @@ export class Input {
   private combat = { nextTarget: 0, prevTarget: 0, cancel: 0 };
   private lifePresses: LifeKey[] = [];
   private lifePadPrev: boolean[] = [];
+  /** When the left stick was clicked down (-1 while up), and whether the stick moved or the right one was clicked since. */
+  private stickTap = { at: -1, spoilt: false };
   /** In an open world the D-pad calls your mount and opens the map instead of zooming. */
   worldMode = false;
+  /**
+   * Whether a press of the crouch key slides right now as well (the game sets it: crouchKeySlides
+   * for the player). Unset, it never does.
+   */
+  crouchSlides: (() => boolean) | null = null;
 
-  constructor(canvas: HTMLCanvasElement) {
+  constructor(private readonly canvas: HTMLCanvasElement) {
     window.addEventListener('keydown', (e) => {
+      // Ctrl means nothing in the game: Ctrl+D strafes as D does, and the browser never hears it
+      // (browserKeys.ts). Cmd on a Mac stays out of it: a key let go while Cmd is down never reports
+      // coming up, and would walk on by itself.
+      if (e.metaKey) return;
       if (BLOCK_DEFAULT.has(e.code)) e.preventDefault();
       if (!e.repeat) this.pressed.add(e.code);
       if (!e.repeat && MENU_KEYS[e.code] && this.menuPresses.length < 16) this.menuPresses.push(MENU_KEYS[e.code]);
-      if (!e.repeat && e.code === 'Tab') (e.shiftKey ? this.combat.prevTarget++ : this.combat.nextTarget++);
+      if (!e.repeat && e.code === 'Tab') e.shiftKey ? this.combat.prevTarget++ : this.combat.nextTarget++;
       if (!e.repeat && e.code === 'Escape') this.combat.cancel++;
       if (!e.repeat && LIFE_KEYS[e.code] && this.lifePresses.length < 16) this.lifePresses.push(LIFE_KEYS[e.code]);
       this.down.add(e.code);
@@ -167,6 +232,15 @@ export class Input {
     document.addEventListener('pointerlockchange', () => this.mouse.reset());
     canvas.addEventListener('wheel', (e) => (this.wheel += e.deltaY), { passive: true });
     canvas.addEventListener('contextmenu', (e) => e.preventDefault()); // right-click is an ability
+  }
+
+  /**
+   * Captures the mouse for the camera, as clicking the game does: for a window that closes itself
+   * after a click in it, to give back the mouse it took. The browser allows it while that click is
+   * recent (a few seconds), or when the page itself let go of the mouse last.
+   */
+  capture(): void {
+    if (document.pointerLockElement !== this.canvas) this.lockPointer(this.canvas);
   }
 
   // Asks for raw mouse movement, which skips the cursor re-centring the bogus readings come from
@@ -282,7 +356,7 @@ export class Input {
     let jumpPressed = this.anyPressed(KEYS.jump);
     let jumpHeld = this.anyDown(KEYS.jump);
     let attackPressed = this.anyPressed(KEYS.attack);
-    let slidePressed = this.anyPressed(KEYS.slide);
+    let slidePressed = this.anyPressed(KEYS.slide) || (this.anyPressed(KEYS.crouch) && !!this.crouchSlides?.());
     let abilitySlot = 0;
     for (let k = 0; k < HOTBAR_KEYS.length; k++) {
       if (this.pressed.has(HOTBAR_KEYS[k])) {
@@ -352,6 +426,8 @@ export class Input {
       crouchHeld,
       aimX: 0, // aim assist (main.ts) fills these in when you attack or cast
       aimZ: 0,
+      faceX: 0, // and these in combat, to strafe rather than turn
+      faceZ: 0,
       stickX: sx,
       stickY: sy,
     };
@@ -393,8 +469,12 @@ export class Input {
     return out;
   }
 
-  /** Open-world presses since the last call: keys, plus Y / Menu / D-pad on a controller. */
-  pollLife(): LifeKey[] {
+  /**
+   * Open-world presses since the last call: keys, plus Y / Menu / D-pad on a controller, and a quick
+   * click of the left stick at rest for auto-walk (held while moving, it sprints). While a window has
+   * the controller, its Y and D-pad are the window's; Menu still opens and shuts the bag.
+   */
+  pollLife(padToMenu = false): LifeKey[] {
     const out = this.lifePresses;
     this.lifePresses = [];
     const pad = this.pad();
@@ -402,10 +482,27 @@ export class Input {
       const held = pad.buttons.map((b) => b.pressed || b.value > 0.5);
       const edge = (i: number) => !!held[i] && !this.lifePadPrev[i];
       const trigger = !!held[PAD.LT] || !!held[PAD.RT];
-      if (edge(PAD.Y) && !trigger) out.push('interact');
       if (edge(PAD.MENU)) out.push('bag');
-      if (this.worldMode && edge(PAD.DOWN)) out.push('mount');
-      if (this.worldMode && edge(PAD.UP)) out.push('map');
+      if (!padToMenu) {
+        if (edge(PAD.Y) && !trigger) out.push('interact');
+        if (this.worldMode && edge(PAD.DOWN)) out.push('mount');
+        if (this.worldMode && edge(PAD.UP)) out.push('map');
+      }
+      // A quick click of the left stick at rest is auto-walk. Pushed while it's held, it's sprinting;
+      // with the right stick clicked too, it's the bug report.
+      const [lx, ly] = deadzone(pad.axes[0] ?? 0, pad.axes[1] ?? 0);
+      const moving = lx !== 0 || ly !== 0 || !!held[PAD.RS];
+      if (edge(PAD.LS)) this.stickTap = { at: performance.now(), spoilt: moving };
+      else if (held[PAD.LS] && moving) this.stickTap.spoilt = true;
+      if (
+        !held[PAD.LS] &&
+        this.lifePadPrev[PAD.LS] &&
+        !this.stickTap.spoilt &&
+        !padToMenu &&
+        this.worldMode &&
+        performance.now() - this.stickTap.at < STICK_TAP_MS
+      )
+        out.push('autorun');
       this.lifePadPrev = held;
     }
     return out;

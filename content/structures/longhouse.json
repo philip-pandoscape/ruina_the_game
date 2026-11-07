@@ -1,0 +1,8 @@
+{
+  "id": "longhouse",
+  "name": "Longhouse",
+  "w": 10,
+  "d": 6,
+  "h": 8,
+  "collider": "building"
+}

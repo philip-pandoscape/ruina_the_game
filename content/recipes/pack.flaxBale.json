@@ -1,0 +1,7 @@
+{
+  "id": "pack.flaxBale",
+  "bench": "lanternwickBench",
+  "makes": {
+    "pack": "flaxBale"
+  }
+}

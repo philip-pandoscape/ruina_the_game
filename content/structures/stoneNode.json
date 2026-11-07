@@ -1,0 +1,18 @@
+{
+  "id": "stoneNode",
+  "name": "Stone Outcrop",
+  "w": 2.8,
+  "d": 2.4,
+  "h": 1.6,
+  "collider": "post",
+  "r": 1.2,
+  "look": {
+    "body": "stoneNode",
+    "model": {
+      "files": [
+        "stoneNode"
+      ],
+      "sink": 0.2
+    }
+  }
+}

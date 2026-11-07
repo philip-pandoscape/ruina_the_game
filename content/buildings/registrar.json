@@ -1,0 +1,116 @@
+{
+  "id": "registrar",
+  "w": 10,
+  "d": 8,
+  "storeys": [
+    {
+      "walls": "stone",
+      "floor": "Floor_RedBrick",
+      "front": "W R O R W",
+      "right": ". W W .",
+      "back": ". W . W .",
+      "left": ". W W ."
+    }
+  ],
+  "roof": {
+    "ridge": "x",
+    "chimneys": [
+      {
+        "x": 4.4,
+        "z": -1
+      }
+    ]
+  },
+  "items": [
+    {
+      "id": "desk",
+      "x": 0,
+      "z": -1.4
+    },
+    {
+      "id": "rugRunner",
+      "x": 0,
+      "z": 1.6,
+      "rot": 1.5708
+    },
+    {
+      "id": "bookcase",
+      "x": -3.4,
+      "z": -3.48
+    },
+    {
+      "id": "bookcase",
+      "x": -1.6,
+      "z": -3.48
+    },
+    {
+      "id": "bookcase",
+      "x": 1.6,
+      "z": -3.48
+    },
+    {
+      "id": "cabinet",
+      "x": 3.4,
+      "z": -3.5
+    },
+    {
+      "id": "scroll",
+      "x": 3.2,
+      "z": -3.5,
+      "y": 1
+    },
+    {
+      "id": "chest",
+      "x": 4.2,
+      "z": -1.6,
+      "rot": -1.5708
+    },
+    {
+      "id": "lectern",
+      "x": -3.6,
+      "z": 1.6,
+      "rot": 0.6
+    },
+    {
+      "id": "candleStand",
+      "x": -1.6,
+      "z": -2.4
+    },
+    {
+      "id": "candleStand",
+      "x": 1.6,
+      "z": -2.4
+    },
+    {
+      "id": "banner",
+      "x": -4.68,
+      "z": -1,
+      "rot": 1.5708,
+      "y": 2.6
+    },
+    {
+      "id": "banner",
+      "x": 4.68,
+      "z": 1,
+      "rot": -1.5708,
+      "y": 2.6
+    },
+    {
+      "id": "chair",
+      "x": -2.6,
+      "z": 2.6,
+      "rot": 0.4
+    },
+    {
+      "id": "chair",
+      "x": 2.6,
+      "z": 2.6,
+      "rot": -0.4
+    },
+    {
+      "id": "vase",
+      "x": 4.2,
+      "z": 3.2
+    }
+  ]
+}

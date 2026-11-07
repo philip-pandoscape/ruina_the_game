@@ -1,0 +1,10 @@
+{
+  "id": "glider.swiftwing",
+  "name": "Swiftwing Glider",
+  "icon": "🦅",
+  "cat": "glider",
+  "stack": 1,
+  "value": 0,
+  "glider": "swiftwing",
+  "desc": "Faster and twitchier than the Wayfarer."
+}

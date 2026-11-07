@@ -1,0 +1,12 @@
+{
+  "id": "scarecrow",
+  "name": "Scarecrow",
+  "icon": "🧑‍🌾",
+  "cat": "placeable",
+  "stack": 5,
+  "value": 40,
+  "places": "scarecrow",
+  "placeOn": "ground",
+  "hint": "Walk to open, level ground and press F to place. Esc cancels.",
+  "desc": "Claims an 8×8 m farm plot wherever the ground is open and level. Up to three."
+}

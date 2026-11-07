@@ -1,8 +1,9 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
-import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
-import { makeRng } from '../../rng';
-import { outlineMaterial, toon } from '../toon';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { makeRng } from '../../util/rng';
+import { toon } from '../toon';
+import { TAU } from '../../util/math';
 
 // The toolkit every procedural model in this folder is built with. Models are assembled from
 // simple shapes that are placed, given a flat colour per face and merged, so a whole building is
@@ -11,7 +12,6 @@ import { outlineMaterial, toon } from '../toon';
 //
 // Conventions: metres; +Y is up; a model faces +Z and its right-hand side is -X.
 
-export const TAU = Math.PI * 2;
 export { makeRng };
 
 export type V3 = readonly [number, number, number];
@@ -22,9 +22,8 @@ export type Col = Rgb | ColorFn;
 
 // ---------- palette ----------
 
-/** One palette for the island, so separately built models still look like they belong together. */
+/** One palette for the world, so separately built models still look like they belong together. */
 export const PAL = {
-  // shared with src/render/scene.ts
   grass: 0x86c55a,
   grassDark: 0x5fa843,
   trunk: 0x8d5a3b,
@@ -108,26 +107,19 @@ export const mul = (c: Rgb, f: number): THREE.Color => color(c).multiplyScalar(f
 export const mix = (a: Rgb, b: Rgb, t: number): THREE.Color => color(a).lerp(color(b), t);
 /** A colour nudged lighter or darker by a seeded random amount, for natural variation. */
 export const vary = (c: Rgb, rng: () => number, amount = 0.08): THREE.Color => mul(c, 1 + (rng() * 2 - 1) * amount);
-/** Bands along an axis: alternates the colours every `size` metres. */
-export const bands =
-  (axis: 'x' | 'y' | 'z', size: number, ...cols: Rgb[]): ColorFn =>
-  (c) =>
-    cols[((Math.floor(c[axis] / size) % cols.length) + cols.length) % cols.length];
 
 // ---------- geometry primitives ----------
 
 export const box = (w: number, h: number, d: number) => new THREE.BoxGeometry(w, h, d);
 /** A box with chamfered edges: reads as solid and catches a highlight on every edge. */
 export const bev = (w: number, h: number, d: number, r = 0.03, seg = 1) => new RoundedBoxGeometry(w, h, d, seg, r);
-export const cyl = (rTop: number, rBottom: number, h: number, sides = 8, open = false) =>
-  new THREE.CylinderGeometry(rTop, rBottom, h, sides, 1, open);
+export const cyl = (rTop: number, rBottom: number, h: number, sides = 8, open = false) => new THREE.CylinderGeometry(rTop, rBottom, h, sides, 1, open);
 export const cone = (r: number, h: number, sides = 8) => new THREE.ConeGeometry(r, h, sides);
 export const ico = (r: number, detail = 0) => new THREE.IcosahedronGeometry(r, detail);
 export const dodec = (r: number) => new THREE.DodecahedronGeometry(r, 0);
 export const octa = (r: number) => new THREE.OctahedronGeometry(r, 0);
 export const sph = (r: number, w = 8, h = 6) => new THREE.SphereGeometry(r, w, h);
-export const tor = (r: number, tube: number, radial = 4, tubular = 12, arc = TAU) =>
-  new THREE.TorusGeometry(r, tube, radial, tubular, arc);
+export const tor = (r: number, tube: number, radial = 4, tubular = 12, arc = TAU) => new THREE.TorusGeometry(r, tube, radial, tubular, arc);
 
 /** A box given by its extents rather than its centre: handy for walls and floors. */
 export function span(x0: number, x1: number, y0: number, y1: number, z0: number, z1: number): THREE.BufferGeometry {
@@ -413,7 +405,7 @@ let vcMat: THREE.MeshToonMaterial | null = null;
 let vcClothMat: THREE.MeshToonMaterial | null = null;
 let glowMat: THREE.MeshBasicMaterial | null = null;
 
-/** The one material for vertex-coloured models: the shared toon look, colour from the vertices. */
+/** The one material for vertex-coloured models: the shared light, colour from the vertices. */
 export function vcMaterial(): THREE.MeshToonMaterial {
   return (vcMat ??= toon(0xffffff, { vertexColors: true }));
 }
@@ -428,49 +420,20 @@ export function glowMaterial(): THREE.MeshBasicMaterial {
   return (glowMat ??= new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false }));
 }
 
-const hulls = new WeakMap<THREE.BufferGeometry, THREE.BufferGeometry>();
-
-/**
- * The inverted-hull outline needs normals that agree at shared corners, or a faceted shape's
- * outline splits open at every edge. This welds the corners and smooths the normals, for the
- * hull only - the visible mesh keeps its crisp facets.
- */
-export function hullOf(geo: THREE.BufferGeometry): THREE.BufferGeometry {
-  let h = hulls.get(geo);
-  if (!h) {
-    const g = new THREE.BufferGeometry();
-    g.setAttribute('position', geo.getAttribute('position').clone());
-    if (geo.index) g.setIndex(geo.index.clone());
-    h = mergeVertices(g, 1e-3);
-    h.computeVertexNormals();
-    hulls.set(geo, h);
-  }
-  return h;
-}
-
 export interface MeshOpts {
-  /** Outline thickness in metres, or false for none (the default). */
-  outline?: number | false;
   shadow?: boolean;
   receive?: boolean;
   mat?: THREE.Material;
   name?: string;
 }
 
-/** Adds a mesh (vertex-coloured toon unless told otherwise), with an optional dark outline. */
+/** Adds a mesh: vertex-coloured in the shared material unless told otherwise. */
 export function mesh(parent: THREE.Object3D, geo: THREE.BufferGeometry, opts: MeshOpts = {}): THREE.Mesh {
   const m = new THREE.Mesh(geo, opts.mat ?? vcMaterial());
   m.castShadow = opts.shadow ?? true;
   m.receiveShadow = opts.receive ?? true;
   if (opts.name) m.name = opts.name;
   parent.add(m);
-  if (opts.outline) {
-    const hull = new THREE.Mesh(hullOf(geo), outlineMaterial(opts.outline));
-    hull.castShadow = false;
-    hull.receiveShadow = false;
-    hull.name = 'outline';
-    m.add(hull);
-  }
   return m;
 }
 
@@ -483,13 +446,13 @@ export function pivot(parent: THREE.Object3D, x = 0, y = 0, z = 0, name?: string
   return g;
 }
 
-/** Triangles and draw calls an object costs (outlines included), for budgets and the harness. */
+/** Triangles and draw calls an object costs as drawn (nothing hidden, or under something hidden), for budgets and the harness. */
 export function cost(obj: THREE.Object3D): { triangles: number; draws: number } {
   let tris = 0;
   let draws = 0;
-  obj.traverse((o) => {
+  obj.traverseVisible((o) => {
     const m = o as THREE.Mesh;
-    if (!m.isMesh || !m.visible) return;
+    if (!m.isMesh) return;
     tris += triangles(m.geometry);
     draws++;
   });
@@ -563,3 +526,5 @@ export class Cloth {
     this.geometry.computeBoundingSphere();
   }
 }
+
+export { TAU };

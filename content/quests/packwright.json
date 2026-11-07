@@ -1,0 +1,26 @@
+{
+  "id": "packwright",
+  "name": "The Packwright's Trade",
+  "giver": "tamsin",
+  "after": [
+    "harvest"
+  ],
+  "intro": "Produce is worth a few coppers here and a great deal somewhere it doesn't grow. Bring six sunroot and four barley to my bench and I'll show you how to pack a Harvest Crate. Mind - you'll carry it on your back, and it's heavy.",
+  "steps": [
+    {
+      "text": "Craft a Lanternwick Harvest Crate at the Specialty Workbench",
+      "objectives": [
+        {
+          "type": "craftPack",
+          "pack": "harvestCrate",
+          "n": 1
+        }
+      ]
+    }
+  ],
+  "outro": "There. Feel that weight? No sprinting, no second jump, no gliding with it. Now take it somewhere that wants it.",
+  "rewards": {
+    "skillPoints": 1,
+    "coins": 20
+  }
+}

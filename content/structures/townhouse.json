@@ -1,0 +1,11 @@
+{
+  "id": "townhouse",
+  "name": "Townhouse",
+  "w": 8,
+  "d": 6,
+  "h": 11.2,
+  "collider": "building",
+  "look": {
+    "body": "townhouse"
+  }
+}

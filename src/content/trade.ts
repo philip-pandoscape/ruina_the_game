@@ -1,4 +1,5 @@
 import data from '../../shared/trade.json' with { type: 'json' };
+import type { Look } from './looks';
 
 // Pack running, labor and money, as content (shared/trade.json).
 
@@ -14,7 +15,10 @@ export interface PackDef {
   /** Copper charged by the workbench to make one. */
   fee: number;
   inputs: Array<{ item: string; n: number }>;
-  look: string;
+  /** What it is drawn as (src/content/looks.ts): no body, a plain sack. */
+  look?: Look;
+  /** 'trade' packs sell at another town's trader; 'material' ones are hauled to a building site. */
+  kind?: string;
 }
 
 export interface RouteDef {
@@ -31,7 +35,15 @@ export const CARRY = data.carry;
 export const DEMAND = data.demand;
 export const FRESHNESS = data.freshness;
 export const PACKS = data.packs as unknown as PackDef[];
-export const CONTRACTS = data.contracts as { perOutpost: number; maxActive: number; refreshSeconds: number; durationSeconds: number; count: [number, number]; sealsPerPack: number; coinBonus: number };
+export const CONTRACTS = data.contracts as {
+  perOutpost: number;
+  maxActive: number;
+  refreshSeconds: number;
+  durationSeconds: number;
+  count: [number, number];
+  sealsPerPack: number;
+  coinBonus: number;
+};
 export const PLACES = data.places;
 export const ROUTES = data.routes as unknown as RouteDef[];
 

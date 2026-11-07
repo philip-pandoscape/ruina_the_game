@@ -1,0 +1,24 @@
+{
+  "id": "sailcloth",
+  "name": "Sailcloth Bundle",
+  "icon": "🧵",
+  "kind": "material",
+  "origin": "lanternwick",
+  "base": 0,
+  "labor": 15,
+  "fee": 0,
+  "inputs": [
+    {
+      "item": "flax",
+      "n": 10
+    }
+  ],
+  "look": {
+    "model": {
+      "files": [
+        "pack_sailcloth"
+      ],
+      "yaw": 3.141592653589793
+    }
+  }
+}

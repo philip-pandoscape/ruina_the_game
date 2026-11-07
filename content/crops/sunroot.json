@@ -1,0 +1,21 @@
+{
+  "id": "sunroot",
+  "name": "Sunroot",
+  "kind": "crop",
+  "climate": "temperate",
+  "icon": "🥔",
+  "growSeconds": 150,
+  "stages": 4,
+  "seed": "seed.sunroot",
+  "produce": "sunroot",
+  "yield": [
+    3,
+    5
+  ],
+  "seedChance": 0.35,
+  "harvestLabor": 2,
+  "plantLabor": 0,
+  "look": {
+    "body": "sunroot"
+  }
+}

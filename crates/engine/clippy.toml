@@ -1,0 +1,38 @@
+# The rules give the same results wherever they run: on the server, in the browser through
+# WebAssembly and in the tests. So no maths whose last bits differ from one platform or library to
+# another (the browser's are fdlibm's, which jsmath.rs reproduces), no clocks (whoever runs the
+# rules hands in the time), and no maps that iterate in an order of their own (std's hash maps
+# order by random keys, and differently natively and in WebAssembly).
+disallowed-methods = [
+  { path = "f64::sin", reason = "JsMath::js_sin (the browser's Math.sin)" },
+  { path = "f64::cos", reason = "JsMath::js_cos (the browser's Math.cos)" },
+  { path = "f64::sin_cos", reason = "JsMath::js_sin and js_cos" },
+  { path = "f64::tan", reason = "not the browser's: add a libm-backed js_tan to jsmath.rs" },
+  { path = "f64::asin", reason = "not the browser's: add a libm-backed js_ to jsmath.rs" },
+  { path = "f64::acos", reason = "not the browser's: add a libm-backed js_ to jsmath.rs" },
+  { path = "f64::atan", reason = "not the browser's: add a libm-backed js_ to jsmath.rs" },
+  { path = "f64::atan2", reason = "JsMath::js_atan2 (the browser's Math.atan2)" },
+  { path = "f64::exp", reason = "JsMath::js_exp (the browser's Math.exp)" },
+  { path = "f64::exp2", reason = "not the browser's: add a libm-backed js_ to jsmath.rs" },
+  { path = "f64::exp_m1", reason = "not the browser's: add a libm-backed js_ to jsmath.rs" },
+  { path = "f64::ln", reason = "not the browser's: add a libm-backed js_ to jsmath.rs" },
+  { path = "f64::ln_1p", reason = "not the browser's: add a libm-backed js_ to jsmath.rs" },
+  { path = "f64::log", reason = "not the browser's: add a libm-backed js_ to jsmath.rs" },
+  { path = "f64::log2", reason = "not the browser's: add a libm-backed js_ to jsmath.rs" },
+  { path = "f64::log10", reason = "not the browser's: add a libm-backed js_ to jsmath.rs" },
+  { path = "f64::powf", reason = "not the browser's: add a libm-backed js_pow to jsmath.rs" },
+  { path = "f64::hypot", reason = "jsmath::js_hypot (V8's Math.hypot), or jsmath::len where the TypeScript squares and roots" },
+  { path = "f64::sinh", reason = "not the browser's: add a libm-backed js_ to jsmath.rs" },
+  { path = "f64::cosh", reason = "not the browser's: add a libm-backed js_ to jsmath.rs" },
+  { path = "f64::tanh", reason = "not the browser's: add a libm-backed js_ to jsmath.rs" },
+  { path = "f64::cbrt", reason = "not the browser's: add a libm-backed js_ to jsmath.rs" },
+  { path = "f64::mul_add", reason = "fused: the browser rounds the multiply and the add apart" },
+  { path = "std::time::Instant::now", reason = "the rules take the time as an input" },
+  { path = "std::time::SystemTime::now", reason = "the rules take the time as an input" },
+]
+disallowed-types = [
+  { path = "std::collections::HashMap", reason = "iterates in its own order: BTreeMap" },
+  { path = "std::collections::HashSet", reason = "iterates in its own order: BTreeSet" },
+  { path = "std::time::Instant", reason = "the rules take the time as an input" },
+  { path = "std::time::SystemTime", reason = "the rules take the time as an input" },
+]

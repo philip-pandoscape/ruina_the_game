@@ -1,0 +1,22 @@
+{
+  "id": "cow",
+  "name": "Cow",
+  "icon": "🐄",
+  "young": "Calf",
+  "item": "animal.calf",
+  "growSeconds": 330,
+  "feed": "barley",
+  "feedN": 4,
+  "feedSeconds": 360,
+  "produce": "milk",
+  "yield": [
+    2,
+    3
+  ],
+  "produceSeconds": 220,
+  "collectLabor": 2,
+  "verb": "Milk the cow",
+  "look": {
+    "body": "cow"
+  }
+}

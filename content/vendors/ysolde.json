@@ -1,0 +1,13 @@
+{
+  "npc": "ysolde",
+  "name": "Windward Wings",
+  "sells": [
+    {
+      "item": "glider.swiftwing",
+      "price": 900,
+      "seals": 5
+    }
+  ],
+  "buys": [],
+  "buyRate": 0
+}

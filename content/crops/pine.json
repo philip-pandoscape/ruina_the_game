@@ -1,0 +1,37 @@
+{
+  "id": "pine",
+  "name": "Highland Pine",
+  "kind": "tree",
+  "climate": "frost",
+  "icon": "🌲",
+  "growSeconds": 480,
+  "stages": 4,
+  "regrowSeconds": 0,
+  "seed": "sapling.pine",
+  "produce": null,
+  "yield": [
+    0,
+    0
+  ],
+  "seedChance": 0,
+  "harvestLabor": 0,
+  "plantLabor": 0,
+  "chop": {
+    "item": "lumber",
+    "yield": [
+      7,
+      10
+    ],
+    "labor": 8,
+    "kind": "timber",
+    "rare": {
+      "item": "thunderLog",
+      "chance": 0.06,
+      "toast": "⚡ A thunderstruck log! Lightning split this tree long ago.",
+      "effect": "thunder"
+    }
+  },
+  "look": {
+    "body": "pine"
+  }
+}

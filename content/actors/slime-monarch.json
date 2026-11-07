@@ -1,0 +1,49 @@
+{
+  "id": "slime-monarch",
+  "name": "Slime Monarch",
+  "faction": 1,
+  "solid": false,
+  "brain": "slime",
+  "respawnFrames": -1,
+  "species": "slime",
+  "clips": {
+    "idle": "idle",
+    "move": "hop",
+    "chase": "hop",
+    "windup": "windup",
+    "leap": "leap",
+    "call": "hop",
+    "rally": "hop",
+    "gather": "gather",
+    "dazed": "dazed",
+    "dead": "die"
+  },
+  "maxHp": 300,
+  "radius": 1,
+  "hitHeight": 1.2,
+  "hitCeiling": 3,
+  "mass": 24,
+  "scale": 2.4,
+  "palette": {
+    "teamA": 9068233,
+    "teamB": 7162024
+  },
+  "slam": {
+    "range": 5,
+    "leap": 5,
+    "radius": 3,
+    "damage": 28,
+    "knock": 8
+  },
+  "burst": {
+    "into": "slimelet",
+    "count": 7
+  },
+  "look": {
+    "body": "jelly",
+    "inside": [
+      "gems"
+    ],
+    "crown": true
+  }
+}

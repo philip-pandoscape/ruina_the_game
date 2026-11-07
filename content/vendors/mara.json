@@ -1,0 +1,42 @@
+{
+  "npc": "mara",
+  "name": "Mara's Stall",
+  "sells": [
+    {
+      "item": "seed.sunroot",
+      "price": 4
+    },
+    {
+      "item": "seed.barley",
+      "price": 4
+    },
+    {
+      "item": "seed.flax",
+      "price": 6
+    },
+    {
+      "item": "seed.emberberry",
+      "price": 10
+    },
+    {
+      "item": "sapling.apple",
+      "price": 35
+    },
+    {
+      "item": "sapling.pine",
+      "price": 25
+    }
+  ],
+  "buys": [
+    "sunroot",
+    "barley",
+    "flax",
+    "emberberry",
+    "apple",
+    "herbs",
+    "egg",
+    "wool",
+    "milk"
+  ],
+  "buyRate": 0.6
+}

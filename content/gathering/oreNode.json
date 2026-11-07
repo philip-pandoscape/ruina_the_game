@@ -1,0 +1,11 @@
+{
+  "item": "ironOre",
+  "n": [
+    2,
+    3
+  ],
+  "labor": 10,
+  "verb": "Mine Iron Ore",
+  "respawn": 90,
+  "kind": "ore"
+}

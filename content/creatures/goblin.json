@@ -1,0 +1,12 @@
+{
+  "id": "goblin",
+  "kinds": {
+    "$file": "creatures/goblin/kinds.json"
+  },
+  "attacks": {
+    "$file": "creatures/goblin/attacks.json"
+  },
+  "behaviours": {
+    "$file": "creatures/goblin/brain.json"
+  }
+}

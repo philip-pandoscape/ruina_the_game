@@ -28,6 +28,8 @@ import {
   type V3,
 } from './kit';
 import { toon } from '../toon';
+import { grainify } from './detail';
+import { clamp, lerp } from '../../util/math';
 
 // Vehicles: wheeled carts and cars, and boats. Built around the anchors in shared/vehicles.json
 // (seats, cargo slots, wheels, oars, masts), so the rules and the art agree on where things are.
@@ -52,35 +54,54 @@ export interface VehicleAnim {
 export interface VehicleModel {
   root: THREE.Group;
   animate(dt: number, s: VehicleAnim): void;
+  /** What the driver's (seat 0's) hands hold and feet rest on, moving with the model. */
+  holds: Holds;
+}
+
+/**
+ * Points on a model the person in its first seat reaches for, as they move with it (a turning
+ * wheel's rim, an oar's handle mid-stroke): the left hand's and the right hand's, and where the
+ * feet go if they reach. The hero's pose reads them each frame (src/render/character.ts).
+ */
+export interface Holds {
+  hands?: [THREE.Object3D, THREE.Object3D];
+  /** One place for both feet (they rest either side of it), or one each, left then right (stirrups). */
+  feet?: THREE.Object3D | [THREE.Object3D, THREE.Object3D];
+}
+
+/** A named empty at a point: something for a hand or a foot to find. */
+function hold(parent: THREE.Object3D, x: number, y: number, z: number): THREE.Object3D {
+  const o = new THREE.Object3D();
+  o.position.set(x, y, z);
+  parent.add(o);
+  return o;
 }
 
 type Animator = (dt: number, s: VehicleAnim) => void;
 
-const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
-const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 const smooth = (t: number) => {
   const k = clamp(t, 0, 1);
   return k * k * (3 - 2 * k);
 };
 
-/** What a vehicle is assembled into: outlined body, thin un-outlined trim, lit glass. */
+/** What a vehicle is assembled into: its body, thin trim, lit glass. */
 interface Build {
   root: THREE.Group;
   body: Parts;
   trim: Parts;
   glow: Parts;
   anims: Animator[];
-  outline: number;
+  holds: Holds;
 }
 
-function start(def: VehicleDef, outline: number): Build {
+function start(def: VehicleDef): Build {
   const root = new THREE.Group();
   root.name = `vehicle:${def.id}`;
-  return { root, body: new Parts(), trim: new Parts(), glow: new Parts(), anims: [], outline };
+  return { root, body: new Parts(), trim: new Parts(), glow: new Parts(), anims: [], holds: {} };
 }
 
 function finish(b: Build): VehicleModel {
-  if (!b.body.empty) mesh(b.root, b.body.build(), { outline: b.outline, name: 'body' });
+  if (!b.body.empty) mesh(b.root, b.body.build(), { name: 'body' });
   if (!b.trim.empty) mesh(b.root, b.trim.build(), { name: 'trim' });
   if (!b.glow.empty) mesh(b.root, b.glow.build(), { mat: glowMaterial(), shadow: false, name: 'glow' });
   return {
@@ -88,7 +109,42 @@ function finish(b: Build): VehicleModel {
     animate(dt, s) {
       for (const a of b.anims) a(dt, s);
     },
+    holds: b.holds,
   };
+}
+
+/**
+ * A steering wheel at `at` on its column, which runs ahead and down to `foot` (the dashboard, the
+ * floor): square on the column, so the rim's top leans away from the driver and its face looks up
+ * at them, as a wheel's does. It turns with the steering (steering left turns its top to the
+ * left), with the driver's grips at ten to two on the rim.
+ */
+function steeringWheel(
+  b: Build,
+  at: V3,
+  foot: V3,
+  r: number,
+  look: { rim: Rgb; spoke: Rgb; spokes: number; from?: number; tube: number; segs: [number, number]; column: Rgb; shaft: number },
+): void {
+  b.trim.add(rod(foot, at, look.shaft, 6), look.column);
+  const mount = pivot(b.root, at[0], at[1], at[2], 'steeringWheel');
+  // Tipped back by the column's rake: the wheel's axis runs down the column.
+  mount.rotation.x = Math.atan2(at[1] - foot[1], foot[2] - at[2]);
+  const spin = pivot(mount, 0, 0, 0);
+  // The rim and the spokes: the same triangles as the fixed wheel, which keeps the hauler inside its budget.
+  mesh(spin, new Parts().add(tor(r, look.tube, ...look.segs), look.rim).build());
+  const spokes = new Parts();
+  for (let k = 0; k < look.spokes; k++) {
+    const a = (k / look.spokes) * TAU + (look.from ?? 0);
+    spokes.add(beam([0, 0, 0], [Math.cos(a) * r, Math.sin(a) * r, 0], look.tube * 0.8), look.spoke);
+  }
+  mesh(spin, spokes.build());
+  // +X is the driver's left: the left hand at ten to, the right at two.
+  b.holds.hands = [
+    hold(spin, Math.cos(Math.PI / 2 - 1.05) * r, Math.sin(Math.PI / 2 - 1.05) * r, 0),
+    hold(spin, Math.cos(Math.PI / 2 + 1.05) * r, Math.sin(Math.PI / 2 + 1.05) * r, 0),
+  ];
+  b.anims.push((_dt, s) => (spin.rotation.z = -clamp(s.steer, -1, 1) * 1.1));
 }
 
 // ---------- shared parts ----------
@@ -148,7 +204,7 @@ function wheels(b: Build, list: Wheel[], look: WheelLook): void {
     const yaw = pivot(b.root, w.x, w.r, w.z, 'wheel');
     const roll = pivot(yaw, 0, 0, 0, 'spin');
     const g = wheelGeometry(w.r, look, w.x >= 0 ? 1 : -1);
-    mesh(roll, g.solid, { outline: b.outline });
+    mesh(roll, g.solid);
     if (g.thin) mesh(roll, g.thin);
     spin.push(roll);
     if (w.steer) steer.push(yaw);
@@ -169,7 +225,12 @@ function lantern(b: Build, at: V3, s = 1): void {
   b.body.add(box(0.15 * s, 0.025 * s, 0.15 * s), PAL.iron, [x, y + 0.185 * s, z]);
   b.body.add(cone(0.1 * s, 0.08 * s, 4), PAL.iron, [x, y + 0.235 * s, z], [0, Math.PI / 4, 0]);
   b.trim.add(tor(0.03 * s, 0.008 * s, 4, 8), PAL.iron, [x, y + 0.29 * s, z]);
-  for (const [dx, dz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]] as const) {
+  for (const [dx, dz] of [
+    [-1, -1],
+    [1, -1],
+    [-1, 1],
+    [1, 1],
+  ] as const) {
     b.trim.add(box(0.018 * s, 0.15 * s, 0.018 * s), PAL.iron, [x + dx * 0.062 * s, y + 0.1 * s, z + dz * 0.062 * s]);
   }
 }
@@ -261,9 +322,10 @@ class Tris {
 
 /**
  * A lofted open hull: planked outside, an inner skin down to the floor or deck, a gunwale cap,
- * the deck itself, and a flat transom if the stern is square.
+ * the deck itself, and a flat transom if the stern is square. Also the hull's opening, the surface
+ * spanning the inner edge of the gunwale all the way round, for sealHull.
  */
-function hull(s: HullSpec): THREE.BufferGeometry {
+function hull(s: HullSpec): { shell: THREE.BufferGeometry; opening: THREE.BufferGeometry } {
   const T = new Tris();
   const e = 2 / s.fullness;
   const N = s.stations;
@@ -355,7 +417,31 @@ function hull(s: HullSpec): THREE.BufferGeometry {
       T.quad(mirror(o[s.rows], side), V(0, o[s.rows].y, o[s.rows].z), V(0, ii[K].y, ii[K].z), mirror(ii[K], side), s.rim, V(0, 1, 0));
     }
   }
-  return T.geometry();
+  // The opening: straight across from one side's inner gunwale edge to the other's, station by
+  // station, on the very points the gunwale cap ends at, so there is no crack along the edge.
+  const O = new Tris();
+  for (let i = 0; i < N; i++) O.quad(inner[i][K], inner[i + 1][K], mirror(inner[i + 1][K], -1), mirror(inner[i][K], -1), s.rim, V(0, 1, 0));
+  return { shell: T.geometry(), opening: O.geometry() };
+}
+
+let sealMat: THREE.MeshBasicMaterial | null = null;
+
+/**
+ * Seals a hull against the sea. The floor of an open boat sits below the waterline, and the sea is
+ * one flat surface drawn over everything solid (src/render/open/water.ts), so it would show inside
+ * the hull. A lid over the hull's opening, drawn only into the depth buffer, comes after everything
+ * solid (the floor, the thwarts, the cargo, whoever sits inside are all drawn by then and stay as
+ * they are) and before anything see-through: the sea inside the hull is behind it and isn't drawn,
+ * however the swell rocks the boat (her gunwale stays above the waterline). Nothing that rays look
+ * for is there, so they pass through.
+ */
+function sealHull(b: Build, opening: THREE.BufferGeometry): void {
+  const lid = new THREE.Mesh(opening, (sealMat ??= new THREE.MeshBasicMaterial({ colorWrite: false })));
+  lid.name = 'seal';
+  // Opaque things draw in renderOrder order, and all of them before the transparent ones.
+  lid.renderOrder = 1;
+  lid.raycast = () => {};
+  b.root.add(lid);
 }
 
 /** Half-width of a hull spec's inside at a given z and height, for placing seats and hatches. */
@@ -390,24 +476,43 @@ function helm(b: Build, at: V3, r: number, pedestal: number): void {
     const a = (k / 8) * TAU;
     p.add(beam([0, 0, 0], [Math.cos(a) * r * 1.22, Math.sin(a) * r * 1.22, 0], 0.03), PAL.wood);
   }
-  mesh(g, p.build(), { outline: b.outline * 0.7 });
-  b.anims.push((_dt, s) => (g.rotation.z = clamp(s.steer, -1, 1) * 2.4));
+  mesh(g, p.build());
+  // Steering left turns its top to the left (+X, the helmsman's left), and the hands go with the rim.
+  b.holds.hands = [1, -1].map((side) => hold(g, Math.cos(Math.PI / 2 - side * 0.9) * r * 0.93, Math.sin(Math.PI / 2 - side * 0.9) * r * 0.93, 0)) as [
+    THREE.Object3D,
+    THREE.Object3D,
+  ];
+  b.anims.push((_dt, s) => (g.rotation.z = -clamp(s.steer, -1, 1) * 1.1));
 }
 
 /** A rudder blade hung on the stern post, deflecting against the turn. */
 function rudder(b: Build, at: V3, top: number, bottom: number, chord: number, colour: Rgb): void {
   const g = pivot(b.root, at[0], at[1], at[2], 'rudder');
   const p = new Parts();
-  p.add(extrude([[0, bottom], [-chord, bottom + 0.15], [-chord, top - 0.25], [-chord * 0.35, top], [0, top]], 0.1), colour, undefined, [0, Math.PI / 2, 0]);
+  p.add(
+    extrude(
+      [
+        [0, bottom],
+        [-chord, bottom + 0.15],
+        [-chord, top - 0.25],
+        [-chord * 0.35, top],
+        [0, top],
+      ],
+      0.1,
+    ),
+    colour,
+    undefined,
+    [0, Math.PI / 2, 0],
+  );
   p.add(cyl(0.05, 0.05, top - bottom + 0.2, 6), PAL.woodDark, [0, (top + bottom) / 2, 0]);
-  mesh(g, p.build(), { outline: b.outline });
+  mesh(g, p.build());
   b.anims.push((_dt, s) => (g.rotation.y = -clamp(s.steer, -1, 1) * 0.5));
 }
 
 // ---------- the farm cart ----------
 
 function farmCart(def: WheeledDef): VehicleModel {
-  const b = start(def, 0.022);
+  const b = start(def);
   const { body, trim } = b;
   const paint = 0x4f9a55;
   const paintDark = 0x3f8046;
@@ -433,7 +538,10 @@ function farmCart(def: WheeledDef): VehicleModel {
   }
   body.add(box(hw * 2 + 0.02, 0.05, zBed - zBack + 0.02), PAL.woodDark, [0, bedY - 0.095, (zBed + zBack) / 2]);
   const boardH = 0.15;
-  for (const [y0, c] of [[bedY, paint], [bedY + boardH + 0.04, paintDark]] as const) {
+  for (const [y0, c] of [
+    [bedY, paint],
+    [bedY + boardH + 0.04, paintDark],
+  ] as const) {
     for (const sx of [-1, 1]) body.add(box(0.06, boardH, zBed - zBack), c, [sx * (hw + 0.03), y0 + boardH / 2, (zBed + zBack) / 2]);
     for (const z of [zBack + 0.03, zBed - 0.03]) body.add(box(hw * 2, boardH, 0.06), c, [0, y0 + boardH / 2, z]);
   }
@@ -460,13 +568,19 @@ function farmCart(def: WheeledDef): VehicleModel {
   trim.add(box(1.31, 0.03, 0.065), cream, [0, seat.y - 0.13, zFront - 0.002], [0.12, 0, 0]);
   // Steering wheel for the driver.
   const drv = def.seats.find((s) => s.pose === 'drive') ?? seat;
-  const top: V3 = [drv.x, seat.y + 0.25, sz + 0.38];
-  trim.add(rod([drv.x, seat.y - 0.4, zFront - 0.05], top, 0.025, 6), PAL.iron);
-  body.add(tor(0.16, 0.022, 5, 12), PAL.woodDark, top, [-0.95, 0, 0]);
-  for (let k = 0; k < 3; k++) {
-    const a = (k / 3) * TAU;
-    trim.add(beam([0, 0, 0], [Math.cos(a) * 0.16, Math.sin(a) * 0.16, 0], 0.018), PAL.woodDark, top, [-0.95, 0, 0]);
-  }
+  // The column comes up out of the top of the front board.
+  const top: V3 = [drv.x, seat.y + 0.24, sz + 0.27];
+  steeringWheel(b, top, [drv.x, seat.y - 0.12, zFront - 0.04], 0.2, {
+    rim: PAL.woodDark,
+    spoke: PAL.woodDark,
+    spokes: 3,
+    tube: 0.022,
+    segs: [5, 12],
+    column: PAL.iron,
+    shaft: 0.025,
+  });
+  // The driver's feet on the footboard.
+  b.holds.feet = hold(b.root, drv.x, seat.y - 0.42, sz + 0.5);
   // Lantern on a crooked post at the front corner.
   const lx = hw - 0.05;
   body.add(box(0.06, 0.7, 0.06), PAL.woodDark, [lx, seat.y + 0.12, zFront - 0.08]);
@@ -497,7 +611,7 @@ function farmCart(def: WheeledDef): VehicleModel {
 // ---------- the roadster ----------
 
 function roadster(def: WheeledDef): VehicleModel {
-  const b = start(def, 0.02);
+  const b = start(def);
   const { body, trim, glow } = b;
   const red = 0xd8473c;
   const redDark = 0xb33a31;
@@ -553,7 +667,15 @@ function roadster(def: WheeledDef): VehicleModel {
     [-0.6, -(-L + 0.45)],
   ];
   body.add(extrude(tail, 0.42), red, [0, 0.5, 0], [-Math.PI / 2, 0, 0]);
-  body.add(extrude(tail.map(([x, y]) => [x * 0.92, y] as [number, number]), 0.08), redDark, [0, 0.74, 0], [-Math.PI / 2, 0, 0]);
+  body.add(
+    extrude(
+      tail.map(([x, y]) => [x * 0.92, y] as [number, number]),
+      0.08,
+    ),
+    redDark,
+    [0, 0.74, 0],
+    [-Math.PI / 2, 0, 0],
+  );
   const rackY = cargo.y - 0.02;
   const rz0 = cargo.z + 0.32;
   const rz1 = cargo.z - 0.33;
@@ -586,13 +708,19 @@ function roadster(def: WheeledDef): VehicleModel {
   b.root.add(glass);
   // Steering wheel.
   const drv = def.seats.find((s) => s.pose === 'drive') ?? seat;
-  const sw: V3 = [drv.x, seat.y + 0.33, zSeat + 0.42];
-  body.add(tor(0.17, 0.02, 5, 14), PAL.black, sw, [-0.9, 0, 0]);
-  for (let k = 0; k < 3; k++) {
-    const a = (k / 3) * TAU + Math.PI / 2;
-    trim.add(beam([0, 0, 0], [Math.cos(a) * 0.17, Math.sin(a) * 0.17, 0], 0.016), chrome, sw, [-0.9, 0, 0]);
-  }
-  trim.add(rod(sw, [drv.x, 0.75, zSeat + 0.72], 0.02, 6), PAL.black);
+  const sw: V3 = [drv.x, seat.y + 0.3, zSeat + 0.34];
+  steeringWheel(b, sw, [drv.x, 0.75, zSeat + 0.72], 0.17, {
+    rim: PAL.black,
+    spoke: chrome,
+    spokes: 3,
+    from: Math.PI / 2,
+    tube: 0.02,
+    segs: [5, 14],
+    column: PAL.black,
+    shaft: 0.02,
+  });
+  // The driver's feet on the floor pan.
+  b.holds.feet = hold(b.root, drv.x, 0.3, zSeat + 0.5);
   // Side exhausts: three pipes out of the bonnet into one along the running board.
   for (let k = 0; k < 3; k++) {
     const z = zb0 + 0.3 + k * 0.18;
@@ -623,10 +751,16 @@ function roadster(def: WheeledDef): VehicleModel {
 
 // ---------- boats ----------
 
-/** Two oars at the oarlocks, swept in a rowing cycle whose rate follows |throttle|. */
+/**
+ * Two oars at the oarlocks, pulled by one rower: one stroke for both, whose pace follows the harder
+ * pulled oar. Turning, the oar on the inside of the turn takes a shorter stroke; turning on the
+ * spot, one oar rows ahead while the other backs water (its blade bites on the way back instead of
+ * on the way out). The handles always swing together, so the rower's hands do too.
+ */
 function oars(b: Build, def: BoatDef): void {
   const locks = def.oars ?? [];
-  const sides: Array<{ sweep: THREE.Group; dip: THREE.Group; feather: THREE.Group; side: number; phase: number; drive: number }> = [];
+  const sides: Array<{ sweep: THREE.Group; dip: THREE.Group; feather: THREE.Group; side: number; drive: number }> = [];
+  const handles: Array<THREE.Object3D | undefined> = [undefined, undefined];
   const oarGeo = (() => {
     const p = new Parts();
     p.add(rod([-0.68, 0, 0], [1.3, 0, 0], 0.03, 6), PAL.woodLight);
@@ -645,23 +779,33 @@ function oars(b: Build, def: BoatDef): void {
     const sweep = pivot(base, 0, 0, 0);
     const dip = pivot(sweep, 0, 0, 0);
     const feather = pivot(dip, 0, 0, 0);
-    mesh(feather, oarGeo, { outline: b.outline * 0.8 });
-    sides.push({ sweep, dip, feather, side, phase: 0, drive: 0 });
+    mesh(feather, oarGeo);
+    sides.push({ sweep, dip, feather, side, drive: 0 });
+    // The rower's hand on the outer end of the grip (0.62-0.78 inboard of the lock), wherever the
+    // stroke has it, so the two hands don't meet in the middle.
+    handles[side > 0 ? 0 : 1] = hold(feather, -0.64, 0, 0);
   }
+  if (handles[0] && handles[1]) b.holds.hands = [handles[0], handles[1]];
   const REST_DIP = -0.27;
+  /** How far through the stroke both oars are, 0..1: out over the first 0.55, back over the rest. */
+  let phase = 0;
   b.anims.push((dt, s) => {
+    let lead = 0;
     for (const o of sides) {
-      // Turning left pulls harder on the right (-X) oar.
+      // Turning left pulls harder on the right (-X) oar: on the spot, the left one backs water.
       const want = clamp(s.throttle - o.side * clamp(s.steer, -1, 1) * 0.6, -1, 1);
       o.drive += (want - o.drive) * Math.min(1, dt * 4);
+      lead = Math.max(lead, Math.abs(o.drive));
+    }
+    if (smooth(lead * 1.5) > 0.01) phase = (phase + dt * (0.35 + 0.6 * lead)) % 1;
+    // A short stroke: from the rower's belly out to arm's reach and back (the locks are ahead of
+    // the seat), -1 .. 1.
+    const swing = phase < 0.55 ? -Math.cos((Math.PI * phase) / 0.55) : Math.cos((Math.PI * (phase - 0.55)) / 0.45);
+    for (const o of sides) {
       const k = smooth(Math.abs(o.drive) * 1.5);
-      const rate = 0.35 + 0.6 * Math.abs(o.drive);
-      o.phase = (o.phase + dt * rate * Math.sign(o.drive || 1) * (k > 0.01 ? 1 : 0) + 1) % 1;
-      const ph = o.phase;
-      const A = 0.55 * k;
-      const sweep = ph < 0.55 ? -A * Math.cos((Math.PI * ph) / 0.55) : A * Math.cos((Math.PI * (ph - 0.55)) / 0.45);
-      const inWater = 0.5 + 0.5 * Math.cos(TAU * (ph - 0.275));
-      o.sweep.rotation.y = sweep;
+      // The blade is in the water pushing the handle out to row ahead, pulling it back to back water.
+      const inWater = 0.5 + 0.5 * Math.cos(TAU * (phase - (o.drive >= 0 ? 0.275 : 0.775)));
+      o.sweep.rotation.y = 0.3 * k * swing;
       o.dip.rotation.z = lerp(REST_DIP, lerp(-0.2, -0.4, inWater), k);
       o.feather.rotation.x = lerp(0.6, (1 - smooth((inWater - 0.25) / 0.4)) * 1.45, k);
     }
@@ -676,10 +820,10 @@ function sloopRig(b: Build, mastZ: number, deck: number, mastTop: number, bowspr
   const spars = new Parts();
   spars.add(rod([0, 0, -0.1], [0, 0, -boomLen], 0.07, 8, 0.055), PAL.woodLight);
   spars.add(cyl(0.11, 0.11, 0.18, 8), PAL.woodDark, [0, 0, 0]);
-  mesh(g, spars.build(), { outline: b.outline });
+  mesh(g, spars.build());
   const gaff = pivot(g, 0, 0, 0, 'gaff');
   const gaffLen = boomLen * 0.72;
-  mesh(gaff, new Parts().add(rod([0, 0, -0.08], [0, 0, -gaffLen], 0.055, 6, 0.045), PAL.woodLight).build(), { outline: b.outline });
+  mesh(gaff, new Parts().add(rod([0, 0, -0.08], [0, 0, -gaffLen], 0.055, 6, 0.045), PAL.woodLight).build());
   const main = new Cloth(7, 8, (_i, j) => (j === 0 ? 0xc0392b : j % 2 ? PAL.canvas : 0xece0c2));
   const mm = mesh(g, main.geometry, { mat: clothMaterial(), name: 'mainsail', receive: false });
   mm.castShadow = true;
@@ -705,7 +849,7 @@ function sloopRig(b: Build, mastZ: number, deck: number, mastTop: number, bowspr
     const throat = lerp(0.25, throatH, f);
     const peak = lerp(0.3, peakH, f);
     gaff.position.y = throat;
-    gaff.rotation.x = Math.atan2(peak - throat, gaffLen * 0.95) ;
+    gaff.rotation.x = Math.atan2(peak - throat, gaffLen * 0.95);
     main.shape((u, v, out) => {
       const footZ = -u * (boomLen - 0.1);
       const headZ = -u * gaffLen * 0.95;
@@ -737,7 +881,7 @@ function sloopRig(b: Build, mastZ: number, deck: number, mastTop: number, bowspr
 }
 
 function rowboat(def: BoatDef): VehicleModel {
-  const b = start(def, 0.02);
+  const b = start(def);
   const { body, trim } = b;
   const L = def.length / 2;
   const rows = 8;
@@ -760,7 +904,9 @@ function rowboat(def: BoatDef): VehicleModel {
     deck: (m) => (m % 2 ? PAL.wood : PAL.woodLight),
     transom: 0x4e98c8,
   };
-  body.list.push(hull(spec));
+  const lofted = hull(spec);
+  body.list.push(lofted.shell);
+  sealHull(b, lofted.opening);
   // Keel strip and stem post.
   body.add(box(0.08, 0.07, def.length * 0.8), PAL.woodDark, [0, -def.draft + 0.035, -0.1]);
   body.add(beam([0, -0.12, L - 0.1], [0, spec.sheerAt(1) + 0.06, L + 0.01], 0.05, 0.06), PAL.woodDark);
@@ -789,11 +935,14 @@ function rowboat(def: BoatDef): VehicleModel {
   // Bow eye.
   trim.add(tor(0.04, 0.012, 4, 8), PAL.brass, [0, spec.sheerAt(1) - 0.12, L + 0.03], [0, Math.PI / 2, 0]);
   oars(b, def);
+  // The rower's feet braced on the floorboards ahead of the thwart.
+  const rower = def.seats[0];
+  b.holds.feet = hold(b.root, rower.x, -0.12, rower.z + 0.45);
   return finish(b);
 }
 
 function sloop(def: BoatDef): VehicleModel {
-  const b = start(def, 0.03);
+  const b = start(def);
   const { body, trim } = b;
   const L = def.length / 2;
   const rows = 8;
@@ -818,9 +967,24 @@ function sloop(def: BoatDef): VehicleModel {
     deck: (m) => (m % 2 ? PAL.woodPale : PAL.woodLight),
     transom: 0x2a7268,
   };
-  body.list.push(hull(spec));
+  const lofted = hull(spec);
+  body.list.push(lofted.shell);
+  sealHull(b, lofted.opening);
   // Ballast keel down to the draft, stem post and bowsprit.
-  body.add(extrude([[-2.6, 0], [1.6, 0], [1.1, -def.draft + 0.75], [-2.2, -def.draft + 0.75]], 0.18), 0x3b3f46, [0, -0.72, 0], [0, -Math.PI / 2, 0]);
+  body.add(
+    extrude(
+      [
+        [-2.6, 0],
+        [1.6, 0],
+        [1.1, -def.draft + 0.75],
+        [-2.2, -def.draft + 0.75],
+      ],
+      0.18,
+    ),
+    0x3b3f46,
+    [0, -0.72, 0],
+    [0, -Math.PI / 2, 0],
+  );
   body.add(beam([0, -0.3, z1 - 0.03], [0, spec.sheerAt(1) + 0.12, z1 + 0.05], 0.12), PAL.woodDark);
   const sprit: V3 = [0, spec.sheerAt(1) - 0.02, L - 0.02];
   body.add(rod([0, spec.sheerAt(1) - 0.08, z1 - 0.6], sprit, 0.07, 6, 0.05), PAL.woodLight);
@@ -831,7 +995,8 @@ function sloop(def: BoatDef): VehicleModel {
   const hz1 = Math.max(...czs) + 0.35;
   const hx = Math.max(...def.cargo.map((c) => Math.abs(c.x))) + 0.33;
   body.add(bev(hx * 2 + 0.1, cy - deck, hz1 - hz0 + 0.1, 0.03), PAL.woodDark, [0, (cy + deck) / 2 - 0.01, (hz0 + hz1) / 2]);
-  for (let k = 0; k < 7; k++) body.add(box((hx * 2) / 7 - 0.01, 0.03, hz1 - hz0), k % 2 ? PAL.woodPale : PAL.woodLight, [-hx + (k + 0.5) * ((hx * 2) / 7), cy - 0.015, (hz0 + hz1) / 2]);
+  for (let k = 0; k < 7; k++)
+    body.add(box((hx * 2) / 7 - 0.01, 0.03, hz1 - hz0), k % 2 ? PAL.woodPale : PAL.woodLight, [-hx + (k + 0.5) * ((hx * 2) / 7), cy - 0.015, (hz0 + hz1) / 2]);
   // Benches on the foredeck; helm seat aft.
   for (const s of def.seats) {
     if (s.pose === 'helm') continue;
@@ -845,6 +1010,8 @@ function sloop(def: BoatDef): VehicleModel {
     body.add(bev(0.7, hs.y - deck, 0.45, 0.03), PAL.wood, [hs.x, (hs.y + deck) / 2, hs.z]);
     body.add(bev(0.6, 0.05, 0.4, 0.02), 0x2f7f73, [hs.x, hs.y - 0.025, hs.z]);
     helm(b, [hs.x, hs.y + 0.42, hs.z + 0.55], 0.32, hs.y + 0.42 - deck);
+    // The helmsman's feet on the deck in front of the seat.
+    b.holds.feet = hold(b.root, hs.x, deck, hs.z + 0.36);
   }
   // Mast and its rigging, topped with a pennant staff.
   const mast = def.mast!;
@@ -857,12 +1024,21 @@ function sloop(def: BoatDef): VehicleModel {
   const stays: Array<[V3, V3]> = [[[0, top - 0.9, mast.z + 0.06], sprit]];
   for (const sx of [-1, 1]) {
     const qz = z0 + 0.35;
-    stays.push([[0, top - 0.05, mast.z - 0.08], [sx * (innerHalf(spec, qz, spec.sheerAt(0.04)) + 0.02), spec.sheerAt(0.04), qz]]);
+    stays.push([
+      [0, top - 0.05, mast.z - 0.08],
+      [sx * (innerHalf(spec, qz, spec.sheerAt(0.04)) + 0.02), spec.sheerAt(0.04), qz],
+    ]);
   }
   for (const sx of [-1, 1]) {
     const hw = innerHalf(spec, mast.z - 0.2, spec.sheerAt(0.6)) + spec.thick;
-    stays.push([[sx * 0.08, top - 1.2, mast.z], [sx * hw, spec.sheerAt(0.6), mast.z - 0.2]]);
-    stays.push([[sx * 0.08, top - 1.2, mast.z], [sx * (hw - 0.05), spec.sheerAt(0.5), mast.z - 1.2]]);
+    stays.push([
+      [sx * 0.08, top - 1.2, mast.z],
+      [sx * hw, spec.sheerAt(0.6), mast.z - 0.2],
+    ]);
+    stays.push([
+      [sx * 0.08, top - 1.2, mast.z],
+      [sx * (hw - 0.05), spec.sheerAt(0.5), mast.z - 1.2],
+    ]);
   }
   for (const [a, c] of stays) trim.add(rod(a, c, 0.014, 4), 0x3a3a3a);
   // Stern lantern, life ring, fenders, a coil of rope.
@@ -882,7 +1058,7 @@ function sloop(def: BoatDef): VehicleModel {
 // ---------- the hauler (a steam truck) ----------
 
 function hauler(def: WheeledDef): VehicleModel {
-  const b = start(def, 0.026);
+  const b = start(def);
   const { body, trim, glow } = b;
   const green = 0x2f6e52;
   const greenDark = 0x24563f;
@@ -953,13 +1129,17 @@ function hauler(def: WheeledDef): VehicleModel {
   body.add(cyl(0.09, 0.09, 0.04, 10), PAL.cream, [-0.28, by + br - 0.02, bz0 + 0.02], [Math.PI / 2 + 0.6, 0, 0]);
   // Steering wheel for the driver.
   const drv = def.seats.find((s) => s.pose === 'drive') ?? seat;
-  const sw: V3 = [drv.x, seat.y + 0.32, seat.z + 0.42];
-  body.add(tor(0.2, 0.025, 4, 10), PAL.black, sw, [-0.7, 0, 0]);
-  for (let k = 0; k < 4; k++) {
-    const a = (k / 4) * TAU;
-    trim.add(beam([0, 0, 0], [Math.cos(a) * 0.2, Math.sin(a) * 0.2, 0], 0.02), PAL.brass, sw, [-0.7, 0, 0]);
-  }
-  trim.add(rod(sw, [drv.x, 0.98, seat.z + 0.75], 0.03, 6), PAL.iron);
+  const sw: V3 = [drv.x, seat.y + 0.32, seat.z + 0.26];
+  // The column runs down into the top of the boiler.
+  steeringWheel(b, sw, [drv.x, seat.y - 0.02, seat.z + 0.7], 0.2, {
+    rim: PAL.black,
+    spoke: PAL.brass,
+    spokes: 4,
+    tube: 0.025,
+    segs: [4, 10],
+    column: PAL.iron,
+    shaft: 0.03,
+  });
   // Bumper, brass headlamps, mudguards.
   body.add(box(2.1, 0.16, 0.14), PAL.black, [0, 0.82, L - 0.07]);
   for (const sx of [-1, 1]) {
@@ -968,7 +1148,12 @@ function hauler(def: WheeledDef): VehicleModel {
     trim.add(rod([sx * 0.78, by - 0.3, zc1], [sx * 0.62, 0.95, zc1 - 0.1], 0.02, 5), PAL.iron);
   }
   for (const w of def.wheels) {
-    body.add(arc(w.r + 0.05, w.r + 0.12, 0.32, w.steer ? 0.25 : 0.0, w.steer ? Math.PI - 0.1 : Math.PI - 0.15, 7), greenDark, [w.x, w.r, w.z], [0, Math.PI / 2, 0]);
+    body.add(
+      arc(w.r + 0.05, w.r + 0.12, 0.32, w.steer ? 0.25 : 0.0, w.steer ? Math.PI - 0.1 : Math.PI - 0.15, 7),
+      greenDark,
+      [w.x, w.r, w.z],
+      [0, Math.PI / 2, 0],
+    );
   }
   // Steam puffs from the pipe, bigger with throttle.
   const puffs: THREE.Mesh[] = [];
@@ -1009,7 +1194,7 @@ function hauler(def: WheeledDef): VehicleModel {
 // ---------- the merchant cog ----------
 
 function cog(def: BoatDef): VehicleModel {
-  const b = start(def, 0.04);
+  const b = start(def);
   const { body, trim } = b;
   const L = def.length / 2;
   const rows = 8;
@@ -1036,7 +1221,9 @@ function cog(def: BoatDef): VehicleModel {
     deck: (m) => (m % 2 ? PAL.woodPale : PAL.woodLight),
     transom: 0x7b4f2f,
   };
-  body.list.push(hull(spec));
+  const lofted = hull(spec);
+  body.list.push(lofted.shell);
+  sealHull(b, lofted.opening);
   body.add(box(0.24, 0.2, def.length * 0.82), 0x3e2a1c, [0, -def.draft + 0.1, 0]);
   body.add(beam([0, -0.8, z1 - 0.2], [0, spec.sheerAt(1) + 0.35, z1 + 0.15], 0.22), PAL.woodDark);
   const sprit: V3 = [0, spec.sheerAt(1) + 0.3, L];
@@ -1097,6 +1284,7 @@ function cog(def: BoatDef): VehicleModel {
   if (helmSeat) {
     body.add(bev(0.55, helmSeat.y - castleY, 0.45, 0.03), PAL.wood, [helmSeat.x, (helmSeat.y + castleY) / 2, helmSeat.z]);
     helm(b, [helmSeat.x, helmSeat.y + 0.45, helmSeat.z + 0.6], 0.45, helmSeat.y + 0.45 - castleY);
+    b.holds.feet = hold(b.root, helmSeat.x, castleY, helmSeat.z + 0.38);
   }
   lantern(b, [0, castleY + 0.82, z0 + 0.1], 1.6);
   // Mast, crow's nest, flagstaff; rigging to the sides, the bowsprit and the stern.
@@ -1104,17 +1292,37 @@ function cog(def: BoatDef): VehicleModel {
   const top = mast.height;
   body.add(rod([mast.x, deck - 0.2, mast.z], [mast.x, top, mast.z], 0.22, 8, 0.15), PAL.woodLight);
   const nestY = top - 2.0;
-  body.add(lathe([[0.2, nestY - 0.35], [0.62, nestY], [0.62, nestY + 0.55], [0.55, nestY + 0.55], [0.55, nestY + 0.05], [0.2, nestY + 0.05]], 10), (c) => (c.y > nestY + 0.3 ? PAL.red : PAL.woodDark), [mast.x, 0, mast.z]);
+  body.add(
+    lathe(
+      [
+        [0.2, nestY - 0.35],
+        [0.62, nestY],
+        [0.62, nestY + 0.55],
+        [0.55, nestY + 0.55],
+        [0.55, nestY + 0.05],
+        [0.2, nestY + 0.05],
+      ],
+      10,
+    ),
+    (c) => (c.y > nestY + 0.3 ? PAL.red : PAL.woodDark),
+    [mast.x, 0, mast.z],
+  );
   trim.add(rod([mast.x, top, mast.z], [mast.x, def.height - 0.1, mast.z], 0.04, 5), PAL.woodDark);
-  flag(b, [mast.x, def.height - 0.15, mast.z], 1.6, 0.9, (_i, j) => (j ? PAL.yellow : PAL.red));
+  flag(b, [mast.x, def.height - 0.15, mast.z], 1.6, 0.9, (_i, j) => (j ? PAL.cream : 0x2f4f8a));
   const stays: Array<[V3, V3]> = [
     [[0, top - 0.6, mast.z + 0.1], sprit],
-    [[0, top - 0.6, mast.z - 0.1], [0, castleY + 0.8, z0 + 0.3]],
+    [
+      [0, top - 0.6, mast.z - 0.1],
+      [0, castleY + 0.8, z0 + 0.3],
+    ],
   ];
   for (const sx of [-1, 1]) {
     for (const dz of [-1.0, 0, 1.0]) {
       const z = mast.z + dz - 0.3;
-      stays.push([[sx * 0.15, nestY - 0.4, mast.z], [sx * (innerHalf(spec, z, deck + 0.9) + 0.12), deck + 0.9, z]]);
+      stays.push([
+        [sx * 0.15, nestY - 0.4, mast.z],
+        [sx * (innerHalf(spec, z, deck + 0.9) + 0.12), deck + 0.9, z],
+      ]);
     }
   }
   for (const [a, c] of stays) trim.add(rod(a, c, 0.025, 4), 0x3a3a3a);
@@ -1134,11 +1342,13 @@ function cog(def: BoatDef): VehicleModel {
   rudder(b, [0, 0, z0 - 0.1], castleY + 0.1, -def.draft + 0.3, 0.75, 0x6b4a2e);
   // Yard and square sail, braced round with `boom`, bellying forward as it fills.
   const yardY = nestY - 0.6;
-  const yard = pivot(b.root, mast.x, yardY, mast.z + 0.3, 'yard');
+  const yard = pivot(b.root, mast.x, yardY, mast.z + 0.3, 'sailYard');
   const halfYard = def.width * 0.85;
-  mesh(yard, new Parts().add(rod([-halfYard, 0, 0], [halfYard, 0, 0], 0.13, 8, 0.13), PAL.woodLight).build(), { outline: b.outline });
+  mesh(yard, new Parts().add(rod([-halfYard, 0, 0], [halfYard, 0, 0], 0.13, 8, 0.13), PAL.woodLight).build());
   const stripes = 8;
-  const sail = new Cloth(stripes, 6, (i) => (i % 2 ? PAL.cream : 0xc8382e));
+  // She flies Emberholm's colours, as the reference picture's ship does: a cream sail with a
+  // broad blue band.
+  const sail = new Cloth(stripes, 6, (i) => (i === 3 || i === 4 ? 0x2f4f8a : PAL.cream));
   const sm = mesh(yard, sail.geometry, { mat: clothMaterial(), name: 'sail', receive: false });
   sm.castShadow = true;
   const drop = yardY - (deck + 2.6);
@@ -1167,7 +1377,7 @@ function cog(def: BoatDef): VehicleModel {
 // ---------- fallbacks (any vehicle without its own build) ----------
 
 function genericWheeled(def: WheeledDef): VehicleModel {
-  const b = start(def, 0.025);
+  const b = start(def);
   const r = Math.max(...def.wheels.map((w) => w.r));
   const hw = Math.min(...def.wheels.map((w) => Math.abs(w.x))) - 0.12;
   b.body.add(bev(hw * 2, 0.4, def.length * 0.92, 0.06), 0x6a8caf, [0, r + 0.25, 0]);
@@ -1178,7 +1388,7 @@ function genericWheeled(def: WheeledDef): VehicleModel {
 }
 
 function genericBoat(def: BoatDef): VehicleModel {
-  const b = start(def, 0.03);
+  const b = start(def);
   const L = def.length / 2;
   const rows = 6;
   const deck = Math.min(...def.cargo.map((c) => c.y), ...def.seats.map((s) => s.y)) - 0.35;
@@ -1200,12 +1410,14 @@ function genericBoat(def: BoatDef): VehicleModel {
     deck: (m) => (m % 2 ? PAL.woodPale : PAL.woodLight),
     transom: PAL.wood,
   };
-  b.body.list.push(hull(spec));
+  const lofted = hull(spec);
+  b.body.list.push(lofted.shell);
+  sealHull(b, lofted.opening);
   for (const s of def.seats) b.body.add(bev(0.5, Math.max(0.05, s.y - deck), 0.45, 0.03), PAL.wood, [s.x, (s.y + deck) / 2, s.z]);
   if (def.mast) {
     b.body.add(rod([def.mast.x, deck, def.mast.z], [def.mast.x, def.mast.height, def.mast.z], 0.15, 8, 0.1), PAL.woodLight);
     const sail = new Cloth(4, 4, (i) => (i % 2 ? PAL.canvas : PAL.red));
-    const yard = pivot(b.root, def.mast.x, def.mast.height * 0.8, def.mast.z + 0.2, 'yard');
+    const yard = pivot(b.root, def.mast.x, def.mast.height * 0.8, def.mast.z + 0.2, 'sailYard');
     mesh(yard, sail.geometry, { mat: clothMaterial() });
     const hw = def.width * 0.7;
     const hs = def.mast.height * 0.45;
@@ -1220,7 +1432,8 @@ function genericBoat(def: BoatDef): VehicleModel {
 
 // ---------- entry point ----------
 
-const BUILDERS: Record<string, (def: never) => VehicleModel> = {
+/** The vehicles' bodies, by name: a vehicle's look names one. */
+const BODIES: Record<string, (def: never) => VehicleModel> = {
   farmCart,
   roadster,
   hauler,
@@ -1229,10 +1442,15 @@ const BUILDERS: Record<string, (def: never) => VehicleModel> = {
   cog,
 };
 
-/** Builds the model for a vehicle definition; unknown ids get a generic body from the data. */
-export function buildVehicle(def: VehicleDef): VehicleModel {
-  const custom = BUILDERS[def.id] as ((d: VehicleDef) => VehicleModel) | undefined;
-  if (custom) return custom(def);
-  return def.class === 'boat' ? genericBoat(def) : genericWheeled(def);
-}
+/** The bodies a look can name. */
+export const vehicleBodies = (): string[] => Object.keys(BODIES);
 
+/** Builds the model for a vehicle: the body its look names, or one made from its numbers if it names none. */
+export function buildVehicle(def: VehicleDef): VehicleModel {
+  const body = def.look?.body;
+  const custom = (body ? BODIES[body] : undefined) as ((d: VehicleDef) => VehicleModel) | undefined;
+  const model = custom ? custom(def) : def.class === 'boat' ? genericBoat(def) : genericWheeled(def);
+  // Planks, iron and canvas take their grain (src/render/models/detail.ts).
+  grainify(model.root);
+  return model;
+}

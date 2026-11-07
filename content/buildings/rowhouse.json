@@ -1,0 +1,173 @@
+{
+  "id": "rowhouse",
+  "w": 6,
+  "d": 8,
+  "storeys": [
+    {
+      "walls": "plaster",
+      "floor": "Floor_WoodLight",
+      "front": "W D W",
+      "right": ". W . .",
+      "back": ". W .",
+      "left": ". . W ."
+    },
+    {
+      "walls": "plaster",
+      "floor": "Floor_WoodDark",
+      "front": "w W w",
+      "right": ". W . W",
+      "back": "W . W",
+      "left": ". w . ."
+    }
+  ],
+  "roof": {
+    "ridge": "z",
+    "chimneys": [
+      {
+        "x": 1.2,
+        "z": -3.4
+      }
+    ]
+  },
+  "stairs": [
+    {
+      "storey": 0,
+      "x": -2,
+      "z": 2,
+      "rot": 0
+    }
+  ],
+  "items": [
+    {
+      "id": "cabinet",
+      "x": 2.5,
+      "z": 1,
+      "rot": -1.5708
+    },
+    {
+      "id": "shelfBottles",
+      "x": 2.67,
+      "z": 1,
+      "rot": -1.5708,
+      "y": 1.5
+    },
+    {
+      "id": "potions",
+      "x": 2.5,
+      "z": 1,
+      "rot": -1.5708,
+      "y": 1
+    },
+    {
+      "id": "hearth",
+      "x": 1,
+      "z": -3.25
+    },
+    {
+      "id": "cauldron",
+      "x": 1,
+      "z": -2.2
+    },
+    {
+      "id": "table",
+      "x": 0.9,
+      "z": 0,
+      "rot": 1.5708
+    },
+    {
+      "id": "stool",
+      "x": 0.2,
+      "z": -0.6
+    },
+    {
+      "id": "stool",
+      "x": 1.6,
+      "z": 0.5
+    },
+    {
+      "id": "candles",
+      "x": 0.9,
+      "z": 0.3,
+      "rot": 1.5708,
+      "y": 0.81
+    },
+    {
+      "id": "crates",
+      "x": 2.35,
+      "z": -2.6
+    },
+    {
+      "id": "vase",
+      "x": -2.4,
+      "z": -3.2
+    },
+    {
+      "id": "rugBrown",
+      "x": 0.3,
+      "z": 2.3
+    },
+    {
+      "id": "bedGreen",
+      "x": 1.6,
+      "z": -2.65,
+      "rot": 1.5708,
+      "storey": 1
+    },
+    {
+      "id": "chest",
+      "x": 1.8,
+      "z": -0.6,
+      "rot": -1.5708,
+      "storey": 1
+    },
+    {
+      "id": "nightstand",
+      "x": 2.65,
+      "z": -1,
+      "rot": -1.5708,
+      "storey": 1
+    },
+    {
+      "id": "table",
+      "x": -0.2,
+      "z": 2.6,
+      "storey": 1
+    },
+    {
+      "id": "chair",
+      "x": -0.2,
+      "z": 1.85,
+      "rot": 3.1416,
+      "storey": 1
+    },
+    {
+      "id": "candles",
+      "x": 0.3,
+      "z": 2.6,
+      "y": 0.81,
+      "storey": 1
+    },
+    {
+      "id": "bookcase",
+      "x": 2.48,
+      "z": 2,
+      "rot": -1.5708,
+      "storey": 1
+    },
+    {
+      "id": "rug",
+      "x": 0.5,
+      "z": -0.9,
+      "rot": 1.5708,
+      "storey": 1
+    },
+    {
+      "id": "lantern",
+      "x": -2.67,
+      "z": -3,
+      "rot": 1.5708,
+      "y": 1.45,
+      "storey": 1
+    }
+  ]
+}

@@ -1,0 +1,37 @@
+[
+  {
+    "id": "goblin-stab",
+    "kind": "strike",
+    "windup": 16,
+    "track": 8,
+    "active": 5,
+    "reach": 1.3,
+    "arc": 100,
+    "lift": 1,
+    "lunge": 0.9,
+    "damage": 6,
+    "knock": 3,
+    "cooldown": [
+      50,
+      80
+    ]
+  },
+  {
+    "id": "goblin-stone",
+    "kind": "throw",
+    "windup": 24,
+    "track": 20,
+    "speed": 13,
+    "gravity": 16,
+    "lead": 0.5,
+    "range": 13,
+    "radius": 0.15,
+    "damage": 3,
+    "knock": 1.5,
+    "cooldown": [
+      170,
+      260
+    ],
+    "look": "stone"
+  }
+]

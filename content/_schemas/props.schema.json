@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "props",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "w": {
+      "type": "number"
+    },
+    "d": {
+      "type": "number"
+    },
+    "h": {
+      "type": "number"
+    },
+    "collider": {
+      "type": "string"
+    },
+    "r": {
+      "type": "number"
+    },
+    "look": {
+      "type": "object",
+      "properties": {
+        "body": {
+          "type": "string"
+        },
+        "model": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "id",
+    "w",
+    "d",
+    "h",
+    "collider"
+  ],
+  "additionalProperties": false
+}

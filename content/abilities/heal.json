@@ -1,0 +1,24 @@
+{
+  "id": "heal",
+  "name": "Healing Circle",
+  "icon": "💚",
+  "desc": "Heal yourself and allies around you.",
+  "tags": [
+    "restoration",
+    "heal",
+    "area",
+    "spell"
+  ],
+  "target": "self",
+  "castFrames": 24,
+  "cooldownFrames": 240,
+  "mpCost": 30,
+  "castPose": "bothHands",
+  "effects": [
+    {
+      "kind": "healArea",
+      "radius": 6,
+      "amount": 25
+    }
+  ]
+}

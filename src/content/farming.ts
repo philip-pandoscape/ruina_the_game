@@ -1,4 +1,5 @@
 import data from '../../shared/farming.json' with { type: 'json' };
+import type { Look } from './looks';
 
 // Crops, trees, climates and weather (shared/farming.json).
 
@@ -18,8 +19,20 @@ export interface CropDef {
   seedChance: number;
   harvestLabor: number;
   plantLabor: number;
-  chop?: { item: string; yield: [number, number]; labor: number };
-  look: string;
+  /** A tree felled: what it gives, for what labor, what that counts as for a quest (a gathering kind), and what rare thing may be in it. */
+  chop?: { item: string; yield: [number, number]; labor: number; kind: string; rare?: RareFind };
+  /** What it is drawn as at each stage (src/content/looks.ts): no body, a plain leafy clump. */
+  look?: Look;
+}
+
+/** Something rare found now and then: in a felled tree, at a gathering spot. */
+export interface RareFind {
+  item: string;
+  chance: number;
+  /** What tells you. */
+  toast: string;
+  /** What it looks like where it was found: thunder, a lightning strike. */
+  effect?: 'thunder';
 }
 
 export const FARM = {
@@ -41,7 +54,7 @@ export interface GatherDef {
   verb: string;
   respawn: number;
   kind: string;
-  rare?: { item: string; chance: number };
+  rare?: RareFind;
 }
 export const GATHERING = data.gathering as unknown as Record<string, GatherDef>;
 export const CROPS = data.crops as unknown as CropDef[];
@@ -73,12 +86,8 @@ export interface AnimalDef {
   produceSeconds: number;
   collectLabor: number;
   verb: string;
+  /** What it is drawn as, young and grown (src/content/looks.ts): no body, a sheep's. */
+  look?: Look;
 }
 
 export const ANIMALS = (data.animals ?? []) as unknown as AnimalDef[];
-
-export function animalDef(id: string): AnimalDef {
-  const a = ANIMALS.find((x) => x.id === id);
-  if (!a) throw new Error(`unknown animal "${id}"`);
-  return a;
-}

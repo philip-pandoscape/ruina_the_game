@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "instances",
+  "type": "object",
+  "properties": {
+    "comment": {
+      "type": "string"
+    },
+    "id": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "about": {
+      "type": "string"
+    },
+    "maxPlayers": {
+      "type": "number"
+    },
+    "developer": {
+      "type": "boolean"
+    },
+    "shared": {
+      "type": "boolean"
+    },
+    "style": {
+      "type": "string"
+    },
+    "arrive": {
+      "type": "object"
+    },
+    "exit": {
+      "type": "object"
+    },
+    "fall": {
+      "type": "number"
+    },
+    "door": {
+      "type": "object"
+    },
+    "boxes": {
+      "type": "array"
+    },
+    "decks": {
+      "type": "array"
+    },
+    "bots": {
+      "type": "array"
+    },
+    "practice": {
+      "type": "object"
+    },
+    "spawns": {
+      "type": "array"
+    },
+    "dressing": {
+      "type": "object",
+      "properties": {
+        "hall": {
+          "type": "object"
+        },
+        "tunnel": {
+          "type": "object"
+        },
+        "falls": {
+          "type": "object"
+        },
+        "stalactites": {
+          "type": "number"
+        },
+        "rubble": {
+          "type": "number"
+        },
+        "torches": {
+          "type": "array"
+        },
+        "props": {
+          "type": "array"
+        },
+        "nets": {
+          "type": "array"
+        },
+        "loot": {
+          "type": "array"
+        },
+        "drawings": {
+          "type": "array"
+        },
+        "light": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "comment",
+    "id",
+    "name",
+    "maxPlayers",
+    "arrive",
+    "exit",
+    "fall",
+    "boxes",
+    "decks"
+  ],
+  "additionalProperties": false
+}

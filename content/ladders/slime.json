@@ -1,0 +1,13 @@
+{
+  "comment": "Sizes of one creature, smallest first. Gathering grows a creature to the biggest size its mass reaches; a burst group that survives its fuse comes back one size up from what was killed (the top size stays the top). cap: the most of them alive at once; fuse: frames a burst group has to be killed in; alone: frames a lone survivor lasts before it dissolves.",
+  "id": "slime",
+  "kinds": [
+    "slimelet",
+    "slime",
+    "great-slime",
+    "slime-monarch"
+  ],
+  "cap": 40,
+  "fuse": 360,
+  "alone": 1200
+}

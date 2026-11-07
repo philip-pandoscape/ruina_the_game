@@ -1,0 +1,74 @@
+{
+  "id": "roadster",
+  "name": "Roadster",
+  "class": "wheeled",
+  "icon": "🏎️",
+  "desc": "A low, loud two-seater with one pack rack. Fastest thing on the roads; slides beautifully with the handbrake.",
+  "length": 3.9,
+  "width": 1.8,
+  "height": 1.25,
+  "radius": 1.2,
+  "hp": 800,
+  "maxSpeed": 23,
+  "reverseSpeed": 6,
+  "offroad": 0.6,
+  "accel": 10,
+  "brake": 18,
+  "drag": 0.18,
+  "rolling": 0.5,
+  "turnRate": 2.1,
+  "grip": 7,
+  "driftGrip": 1.2,
+  "climb": 0.7,
+  "boostSpeed": 29,
+  "seats": [
+    {
+      "x": 0.38,
+      "y": 0.55,
+      "z": -0.15,
+      "pose": "drive"
+    },
+    {
+      "x": -0.38,
+      "y": 0.55,
+      "z": -0.15,
+      "pose": "sit"
+    }
+  ],
+  "cargo": [
+    {
+      "x": 0,
+      "y": 0.86,
+      "z": -1.55
+    }
+  ],
+  "wheels": [
+    {
+      "x": 0.8,
+      "z": 1.25,
+      "r": 0.36,
+      "steer": true
+    },
+    {
+      "x": -0.8,
+      "z": 1.25,
+      "r": 0.36,
+      "steer": true
+    },
+    {
+      "x": 0.8,
+      "z": -1.25,
+      "r": 0.38,
+      "steer": false
+    },
+    {
+      "x": -0.8,
+      "z": -1.25,
+      "r": 0.38,
+      "steer": false
+    }
+  ],
+  "look": {
+    "body": "roadster"
+  }
+}

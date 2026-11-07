@@ -1,0 +1,32 @@
+{
+  "id": "prowler",
+  "sight": 14,
+  "keepAway": 1.4,
+  "leash": 10,
+  "states": [
+    {
+      "name": "idle",
+      "act": "wait",
+      "frames": [
+        30,
+        90
+      ],
+      "next": "stalk"
+    },
+    {
+      "name": "stalk",
+      "act": "advance",
+      "frames": [
+        90,
+        90
+      ],
+      "gait": {
+        "distance": 3.2,
+        "height": 0,
+        "airStart": 0,
+        "airSpan": 1
+      },
+      "next": "idle"
+    }
+  ]
+}

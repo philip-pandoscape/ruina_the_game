@@ -1,0 +1,19 @@
+{
+  "w": 0.4,
+  "d": 0.15,
+  "h": 0.26,
+  "collider": "none",
+  "parts": [
+    {
+      "model": "Potion_1",
+      "x": -0.12
+    },
+    {
+      "model": "Potion_2"
+    },
+    {
+      "model": "Potion_4",
+      "x": 0.13
+    }
+  ]
+}

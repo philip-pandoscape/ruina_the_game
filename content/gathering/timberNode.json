@@ -1,0 +1,17 @@
+{
+  "item": "lumber",
+  "n": [
+    3,
+    5
+  ],
+  "labor": 8,
+  "verb": "Chop Timber",
+  "respawn": 60,
+  "kind": "timber",
+  "rare": {
+    "item": "thunderLog",
+    "chance": 0.04,
+    "toast": "⚡ A thunderstruck log!",
+    "effect": "thunder"
+  }
+}

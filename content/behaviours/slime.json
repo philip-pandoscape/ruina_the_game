@@ -1,0 +1,257 @@
+{
+  "id": "slime",
+  "sight": 9,
+  "keepAway": 2,
+  "leash": 7,
+  "anger": {
+    "frames": 900,
+    "radius": 14,
+    "calmBeyond": 25
+  },
+  "slamCooldown": [
+    130,
+    170
+  ],
+  "states": [
+    {
+      "name": "idle",
+      "act": "wait",
+      "frames": [
+        20,
+        70
+      ],
+      "next": "move",
+      "interrupt": [
+        {
+          "if": "called",
+          "to": "rally"
+        },
+        {
+          "if": "canCall",
+          "to": "call"
+        },
+        {
+          "if": "angry",
+          "to": "chase"
+        }
+      ]
+    },
+    {
+      "name": "move",
+      "act": "advance",
+      "frames": [
+        42,
+        42
+      ],
+      "gait": {
+        "distance": 1.15,
+        "height": 0.5,
+        "airStart": 0.18,
+        "airSpan": 0.6
+      },
+      "next": [
+        {
+          "if": "called",
+          "to": "rally"
+        },
+        {
+          "if": "canCall",
+          "to": "call"
+        },
+        {
+          "if": "angry",
+          "to": "chase"
+        },
+        {
+          "to": "idle"
+        }
+      ]
+    },
+    {
+      "name": "chase",
+      "act": "advance",
+      "toward": "player",
+      "stop": 0.9,
+      "frames": [
+        30,
+        30
+      ],
+      "gait": {
+        "distance": 1.4,
+        "height": 0.45,
+        "airStart": 0.15,
+        "airSpan": 0.65
+      },
+      "next": [
+        {
+          "if": "called",
+          "to": "rally"
+        },
+        {
+          "if": "canCall",
+          "to": "call"
+        },
+        {
+          "if": "slam",
+          "to": "windup"
+        },
+        {
+          "if": "angry",
+          "to": "chase"
+        },
+        {
+          "to": "idle"
+        }
+      ]
+    },
+    {
+      "name": "windup",
+      "act": "windup",
+      "frames": [
+        36,
+        36
+      ],
+      "next": "leap"
+    },
+    {
+      "name": "leap",
+      "act": "leap",
+      "frames": [
+        30,
+        30
+      ],
+      "gait": {
+        "distance": 0,
+        "height": 0.9,
+        "airStart": 0.05,
+        "airSpan": 0.9
+      },
+      "next": [
+        {
+          "if": "called",
+          "to": "rally"
+        },
+        {
+          "if": "angry",
+          "to": "chase"
+        },
+        {
+          "to": "idle"
+        }
+      ]
+    },
+    {
+      "name": "call",
+      "act": "advance",
+      "toward": "ally",
+      "calls": true,
+      "frames": [
+        36,
+        36
+      ],
+      "gait": {
+        "distance": 1,
+        "height": 0.35,
+        "airStart": 0.2,
+        "airSpan": 0.55
+      },
+      "next": [
+        {
+          "if": "allies",
+          "to": "gather"
+        },
+        {
+          "if": "callOver",
+          "to": "chase"
+        },
+        {
+          "to": "call"
+        }
+      ]
+    },
+    {
+      "name": "rally",
+      "act": "advance",
+      "toward": "caller",
+      "frames": [
+        28,
+        28
+      ],
+      "gait": {
+        "distance": 1.7,
+        "height": 0.45,
+        "airStart": 0.15,
+        "airSpan": 0.65
+      },
+      "next": [
+        {
+          "if": "slam",
+          "to": "windup"
+        },
+        {
+          "if": "called",
+          "to": "rally"
+        },
+        {
+          "if": "angry",
+          "to": "chase"
+        },
+        {
+          "to": "idle"
+        }
+      ]
+    },
+    {
+      "name": "gather",
+      "act": "channel",
+      "frames": [
+        150,
+        150
+      ],
+      "interrupt": [
+        {
+          "if": "broken",
+          "to": "dazed"
+        }
+      ],
+      "next": [
+        {
+          "if": "angry",
+          "to": "chase"
+        },
+        {
+          "to": "idle"
+        }
+      ]
+    },
+    {
+      "name": "dazed",
+      "act": "wait",
+      "frames": [
+        90,
+        90
+      ],
+      "next": [
+        {
+          "if": "angry",
+          "to": "chase"
+        },
+        {
+          "to": "idle"
+        }
+      ]
+    }
+  ],
+  "call": {
+    "radius": 14,
+    "need": 2,
+    "struckWithin": 70,
+    "giveUp": 300
+  },
+  "gather": {
+    "radius": 8,
+    "pull": 2.5,
+    "breakAt": 0.25,
+    "cooldown": 900
+  }
+}

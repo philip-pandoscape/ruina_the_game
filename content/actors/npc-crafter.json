@@ -1,0 +1,19 @@
+{
+  "id": "npc-crafter",
+  "faction": 2,
+  "maxHp": 100,
+  "radius": 0.4,
+  "hitHeight": 1.9,
+  "hitCeiling": 2.2,
+  "solid": true,
+  "brain": null,
+  "respawnFrames": -1,
+  "species": "fighter",
+  "clips": {
+    "idle": "idle"
+  },
+  "palette": {
+    "teamA": 11887901,
+    "teamB": 9063446
+  }
+}

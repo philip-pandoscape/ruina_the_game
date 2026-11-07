@@ -1,0 +1,9 @@
+{
+  "id": "emberberry",
+  "name": "Emberberry",
+  "icon": "🍒",
+  "cat": "produce",
+  "stack": 200,
+  "value": 4,
+  "desc": "Faintly warm to the touch."
+}

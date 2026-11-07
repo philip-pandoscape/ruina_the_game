@@ -1,0 +1,31 @@
+{
+  "id": "hamper",
+  "name": "Farmhouse Hamper",
+  "icon": "🧺",
+  "origin": "lanternwick",
+  "base": 340,
+  "labor": 20,
+  "fee": 20,
+  "inputs": [
+    {
+      "item": "egg",
+      "n": 4
+    },
+    {
+      "item": "milk",
+      "n": 3
+    },
+    {
+      "item": "sunroot",
+      "n": 4
+    }
+  ],
+  "kind": "trade",
+  "look": {
+    "model": {
+      "files": [
+        "pack_hamper"
+      ]
+    }
+  }
+}

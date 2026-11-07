@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import { CAMERA } from '../tuning';
+import { CAMERA } from '../content/tuning';
+import { lookAtWorld } from './origin';
 
 // Over-the-shoulder camera that orbits the player and shakes on big hits.
 export class FollowCamera {
@@ -23,9 +24,26 @@ export class FollowCamera {
    * the way, 0..1 (buildings in an open world); null when nothing ever blocks it.
    */
   blocker: ((fx: number, fy: number, fz: number, cx: number, cy: number, cz: number) => number) | null = null;
+  /**
+   * A hood of rock over the player (the goblins' ledge behind the falls): how high the eye may go
+   * under it, and whether a point is still under it. Null in the open. There the ground's height is
+   * no floor to lift the eye to - the ground behind is the cliff above the hood - so the eye stays
+   * under the hood instead, pulled in short of any rock between it and the player.
+   */
+  ceiling: ((x: number, y: number, z: number) => { eye: number; under: (x: number, z: number) => boolean } | null) | null = null;
+  /** The bare ground's height (no padding), for the pull-in under a hood. */
+  terrainAt: ((x: number, z: number) => number) | null = null;
   private reach = 1; // eased: snaps in when blocked, drifts back out when clear
+  /** Whether you are indoors this frame (the view then looks down into the room). */
+  indoors = false;
+  private inside = 0; // eased toward indoors
+  private lift = 0; // eased extra pitch that looks over the wall behind you indoors
 
-  constructor(aspect: number, far = 320, private maxDistance = 14) {
+  constructor(
+    aspect: number,
+    far = 320,
+    private maxDistance = 14,
+  ) {
     this.camera = new THREE.PerspectiveCamera(CAMERA.fov, aspect, 0.1, far);
   }
 
@@ -69,6 +87,8 @@ export class FollowCamera {
     this.aim = 0;
     this.aimWanted = 0;
     this.hasLead = false;
+    this.inside = this.indoors ? 1 : 0;
+    this.lift = 0;
   }
 
   // Follows the target smoothly. Vertical follow is looser so jumps don't jerk the view.
@@ -93,9 +113,12 @@ export class FollowCamera {
       this.aim = 0;
       this.hasLead = false;
     }
+    this.inside += ((this.indoors ? 1 : 0) - this.inside) * (1 - Math.exp(-CAMERA.indoorEase * dt));
     // The player's own pitch and zoom are left alone; only what's used this frame is blended.
-    const pitch = this.pitch + (CAMERA.aimPitch - this.pitch) * this.aim;
-    const distance = this.distance * (1 + (CAMERA.aimZoom - 1) * this.aim);
+    let pitch = this.pitch + (CAMERA.aimPitch - this.pitch) * this.aim;
+    let distance = this.distance * (1 + (CAMERA.aimZoom - 1) * this.aim);
+    pitch += (Math.max(pitch, CAMERA.indoorPitch) - pitch) * this.inside;
+    distance += (Math.min(distance, CAMERA.indoorDistance) - distance) * this.inside;
     // Leaning must not write back into the smoothed follow position, or it would drift toward
     // the circle and stay there.
     const look = this.look.copy(this.focus);
@@ -105,18 +128,47 @@ export class FollowCamera {
       look.z += (this.lead.z - look.z) * k;
     }
 
+    // Indoors, with a wall behind you, look down from higher over it rather than pull in behind your head.
+    let lift = 0;
+    if (this.inside > 0.01 && this.blocker) {
+      for (let k = 0; k <= 6; k++) {
+        const p = Math.min(1.45, pitch + k * 0.11);
+        const f = distance * Math.cos(p);
+        lift = p - pitch;
+        if (this.blocker(look.x, look.y, look.z, look.x - Math.sin(this.yaw) * f, look.y + distance * Math.sin(p), look.z - Math.cos(this.yaw) * f) > 0.97)
+          break;
+      }
+      lift *= this.inside;
+    }
+    this.lift += (lift - this.lift) * (1 - Math.exp(-6 * dt));
+    pitch += this.lift;
+
     const flat = distance * Math.cos(pitch);
     const cam = this.camera;
     const cx = look.x - Math.sin(this.yaw) * flat;
     const cz = look.z - Math.cos(this.yaw) * flat;
     const floor = this.groundAt ? this.groundAt(cx, cz) : 0.4;
-    cam.position.set(cx, Math.max(floor, look.y + distance * Math.sin(pitch)), cz);
+    const hood = this.ceiling?.(look.x, look.y, look.z) ?? null;
+    if (hood && this.terrainAt) {
+      const cy = Math.min(look.y + distance * Math.sin(pitch), hood.eye);
+      let t = 1;
+      for (let k = 1; k <= 32; k++) {
+        const u = k / 32;
+        const x = look.x + (cx - look.x) * u;
+        const z = look.z + (cz - look.z) * u;
+        if (!hood.under(x, z) || this.terrainAt(x, z) + 0.35 > look.y + (cy - look.y) * u) {
+          t = Math.max(0.08, (k - 1.5) / 32);
+          break;
+        }
+      }
+      cam.position.set(look.x + (cx - look.x) * t, look.y + (cy - look.y) * t, look.z + (cz - look.z) * t);
+    } else cam.position.set(cx, Math.max(floor, look.y + distance * Math.sin(pitch)), cz);
     if (this.blocker) {
       const free = this.blocker(look.x, look.y, look.z, cam.position.x, cam.position.y, cam.position.z);
       this.reach = free < this.reach ? free : this.reach + (free - this.reach) * (1 - Math.exp(-4 * dt));
       if (this.reach < 0.999) cam.position.lerpVectors(look, cam.position, this.reach);
     }
-    cam.lookAt(look);
+    lookAtWorld(cam, look);
 
     this.shakeTime += dt;
     this.trauma = Math.max(0, this.trauma - 2.2 * dt);

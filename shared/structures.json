@@ -1,63 +1,530 @@
 {
-  "comment": "Buildings and props the world is dressed with. w (along X) and d (along Z) are the footprint in metres, h the overall height. Each faces +Z (its front, door or counter side). collider: 'box' blocks the whole footprint, 'walls' blocks only the outer walls (with a door gap at the front, so you can walk in), 'none' is walkable decoration, 'post' a small round blocker of radius r. deck: a walkable platform top at this height (docks, launch decks), which the rules treat as ground. Read by src/content/structures.ts and the zone builder; the models in src/render/models/structures.ts are built to these exact sizes.",
+  "comment": "Built from content/structures.json by tools/content/contentc.mjs (npm run content): edit there, not here. Buildings and props the world is dressed with. w (along X) and d (along Z) are the footprint in metres, h the overall height. Each faces +Z (its front, door or counter side). collider: 'box' blocks the whole footprint, 'walls' blocks only the outer walls (with a door gap at the front, so you can walk in), 'none' is walkable decoration, 'post' a small round blocker of radius r. deck: a walkable platform top at this height (docks, launch decks), which the rules treat as ground. A region levels the ground under each to a pad unless it has a deck or pad is false (a farm plot, a scarecrow); seaLevel stands it at sea level rather than on the ground (a pier on its piles); clearMargin is how far round it trees and rocks are kept off (the zone's scatter.clearOfStructure if not given); surface is what the ground under it is made of (soil under a farm plot). Read by src/content/structures.ts and the zone builder; the models in src/render/models/structures.ts are built to these exact sizes.",
   "structures": [
-    { "id": "cottage", "name": "Cottage", "w": 8, "d": 7, "h": 6.6, "collider": "walls", "wall": 0.3, "door": 1.6, "floor": 0.25,
-      "look": "Player house. Stone foundation 0.25 high, timber-framed cream plaster walls 3.0 high, steep two-sided thatch roof ridged along X peaking at 6.2, brick chimney on the left (+X) gable, a green plank door centred on the front (+Z) wall, two shuttered windows on each side wall, flower boxes.",
-      "stages": ["site", "foundation", "frame", "walls", "complete"],
-      "interior": { "bed": { "x": 2.5, "z": -2.0 }, "chest": { "x": -2.9, "z": -2.6 }, "bench": { "x": -2.6, "z": 1.6 } } },
-    { "id": "townhouse", "name": "Townhouse", "w": 9, "d": 7, "h": 9.5, "collider": "box",
-      "look": "Two-storey NPC home: stone ground floor, timber-framed upper floor jettied out 0.4, steep slate-blue shingle roof, chimney, door and windows with warm-lit panes." },
-    { "id": "inn", "name": "The Lantern & Gull", "w": 14, "d": 10, "h": 10.5, "collider": "box",
-      "look": "Big two-storey inn: timber and plaster, red tiled roof with two dormers, wide porch with posts across the front, a hanging sign (lantern and gull) on a bracket, barrels by the door." },
-    { "id": "stall", "name": "Market Stall", "w": 3.2, "d": 2.4, "h": 3.0, "collider": "box", "colliderD": 0.8, "colliderZ": 0.6,
-      "look": "Open market stall: wooden counter across the front, four posts, striped canvas awning (colour variant by opts.tint), produce crates on the counter." },
-    { "id": "workbench", "name": "Specialty Workbench", "w": 2.8, "d": 1.3, "h": 1.6, "collider": "box",
-      "look": "Heavy oak workbench with a vice, hanging tools on a back rail, a half-packed crate, rope coil, a ledger. Reads clearly as 'pack crafting station'." },
-    { "id": "tradingPost", "name": "Trading Post", "w": 10, "d": 8, "h": 7.5, "collider": "box",
-      "look": "Outpost trade house: log walls, shingle roof, an open service counter in the front (+Z) wall with a striped awning, a big hanging sign with a gold coin and scales, stacked crates and barrels, a hitching rail." },
-    { "id": "dock", "name": "Pier", "w": 4, "d": 16, "h": 1.6, "collider": "none", "deck": 1.4,
-      "look": "Wooden pier: plank deck 4 wide x 16 long whose top is 1.4 above the model origin (sea level), thick round piles every 4 m going down to -3, bollards on the edges, a rope coil. Origin at the centre of the deck footprint." },
-    { "id": "lighthouse", "name": "Lighthouse", "w": 6, "d": 6, "h": 21, "collider": "post", "r": 2.8,
-      "look": "Tapered round tower, white with red bands, stone base, gallery railing near the top, glowing lamp room (emissive warm yellow), conical red roof." },
-    { "id": "windmill", "name": "Windmill", "w": 6, "d": 6, "h": 13, "collider": "post", "r": 2.6,
-      "look": "Stone tower windmill tapering upward, wooden cap, four lattice sails (radius 6) on a hub facing +Z at height 9. Expose the sail hub as an object the caller can spin about Z." },
-    { "id": "well", "name": "Well", "w": 2.2, "d": 2.2, "h": 2.6, "collider": "post", "r": 1.0,
-      "look": "Round stone well with a little shingled roof on two posts, crank and bucket." },
-    { "id": "stable", "name": "Stable", "w": 10, "d": 6, "h": 5.5, "collider": "box", "colliderD": 2.4, "colliderZ": -1.8,
-      "look": "Open-fronted timber barn: back wall and side walls, open front with three stalls, hay in the stalls, saddles on the rail, a horseshoe sign." },
-    { "id": "workshop", "name": "Wainwright's Workshop", "w": 9, "d": 7, "h": 6.5, "collider": "box",
-      "look": "Workshop with a big double cart door at the front, spare wheels leaning on the wall, an anvil and lumber stack outside." },
-    { "id": "boathouse", "name": "Shipwright's Shed", "w": 8, "d": 10, "h": 6.5, "collider": "box",
-      "look": "Weathered boathouse: plank walls, steep roof, big front opening facing +Z showing a half-built hull ribcage, oars and nets on the walls." },
-    { "id": "registrar", "name": "Land Registry", "w": 8, "d": 7, "h": 8.0, "collider": "box",
-      "look": "Small civic building: stone walls, blue roof, a clock or crest over the door, columns flanking the entrance, a notice board by the door." },
-    { "id": "launchDeck", "name": "Glider Launch", "w": 6, "d": 8, "h": 4.0, "collider": "none", "deck": 0.6,
-      "look": "Wooden deck 6 x 8 whose top is 0.6 above the origin, sturdy legs, rails on the back and sides but OPEN at the front (+Z) edge where you jump off, a windsock pole, a small sign with a wing glyph." },
-    { "id": "noticeBoard", "name": "Notice Board", "w": 1.8, "d": 0.4, "h": 2.4, "collider": "box",
-      "look": "Two posts and a small roof over a board with pinned papers." },
-    { "id": "housePlot", "name": "House Plot", "w": 16, "d": 16, "h": 1.2, "collider": "none",
-      "look": "Unclaimed land marker: four corner stakes with string between them and a small 'Plot for claim' sign at the front. Very light; the ground shows through." },
-    { "id": "scarecrow", "name": "Scarecrow", "w": 1.2, "d": 0.6, "h": 2.3, "collider": "post", "r": 0.25,
-      "look": "Farm-plot scarecrow: cross pole, sack head with a straw hat, patched shirt, straw tufts." },
-    { "id": "farmPlot", "name": "Tilled Plot", "w": 8, "d": 8, "h": 0.15, "collider": "none",
-      "look": "8 x 8 patch of dark tilled soil with furrows running along Z, a low rim; sits 0.02-0.08 above the origin so it reads over grass." },
-    { "id": "oreNode", "name": "Ore Outcrop", "w": 2.8, "d": 2.4, "h": 1.8, "collider": "post", "r": 1.2,
-      "look": "Grey boulder cluster with rusty-orange iron veins and a few bright crystals." },
-    { "id": "stoneNode", "name": "Stone Outcrop", "w": 2.8, "d": 2.4, "h": 1.6, "collider": "post", "r": 1.2,
-      "look": "Pale grey quarry rock with chisel marks and a few loose blocks." },
-    { "id": "timberNode", "name": "Deadfall Timber", "w": 3.6, "d": 1.6, "h": 1.0, "collider": "post", "r": 0.9,
-      "look": "Pile of three fallen logs with bark, mossy ends, an axe stuck in one." },
-    { "id": "herbNode", "name": "Wild Herbs", "w": 1.2, "d": 1.2, "h": 0.7, "collider": "none",
-      "look": "Low leafy herb clump with tiny white and purple flowers." }
+    {
+      "id": "cottage",
+      "name": "Cottage",
+      "w": 6,
+      "d": 8,
+      "h": 7.9,
+      "collider": "walls",
+      "wall": 0.3,
+      "door": 1.3,
+      "floor": 0.05,
+      "stages": [
+        "site",
+        "foundation",
+        "frame",
+        "walls",
+        "complete"
+      ],
+      "interior": {
+        "bed": {
+          "x": 1.6,
+          "z": -2.4
+        },
+        "chest": {
+          "x": -1.6,
+          "z": -3.3
+        },
+        "bench": {
+          "x": 0.75,
+          "z": 1.6
+        }
+      },
+      "look": {
+        "body": "cottage"
+      }
+    },
+    {
+      "id": "townhouse",
+      "name": "Townhouse",
+      "w": 8,
+      "d": 6,
+      "h": 11.2,
+      "collider": "building",
+      "look": {
+        "body": "townhouse"
+      }
+    },
+    {
+      "id": "rowhouse",
+      "name": "Rowhouse",
+      "w": 6,
+      "d": 8,
+      "h": 11,
+      "collider": "building"
+    },
+    {
+      "id": "longhouse",
+      "name": "Longhouse",
+      "w": 10,
+      "d": 6,
+      "h": 8,
+      "collider": "building"
+    },
+    {
+      "id": "inn",
+      "name": "The Lantern & Gull",
+      "w": 14,
+      "d": 8,
+      "h": 12.2,
+      "collider": "building",
+      "look": {
+        "body": "inn"
+      }
+    },
+    {
+      "id": "stall",
+      "name": "Market Stall",
+      "w": 3.2,
+      "d": 2.4,
+      "h": 3,
+      "collider": "box",
+      "colliderD": 0.8,
+      "colliderZ": 0.6,
+      "look": {
+        "body": "stall",
+        "model": {
+          "files": [
+            "stall_red",
+            "stall_blue"
+          ],
+          "tints": [
+            15158332,
+            3447003
+          ],
+          "sink": 0.05
+        }
+      }
+    },
+    {
+      "id": "workbench",
+      "name": "Specialty Workbench",
+      "w": 2.8,
+      "d": 1.3,
+      "h": 1.6,
+      "collider": "box",
+      "look": {
+        "body": "workbench",
+        "model": {
+          "files": [
+            "workbench"
+          ],
+          "sink": 0.03
+        }
+      }
+    },
+    {
+      "id": "tradingPost",
+      "name": "Trading Post",
+      "w": 10,
+      "d": 8,
+      "h": 9.2,
+      "collider": "building",
+      "look": {
+        "body": "tradingPost"
+      }
+    },
+    {
+      "id": "dock",
+      "name": "Pier",
+      "w": 4,
+      "d": 16,
+      "h": 1.6,
+      "collider": "none",
+      "deck": 1.4,
+      "seaLevel": true,
+      "look": {
+        "body": "dock"
+      }
+    },
+    {
+      "id": "lighthouse",
+      "name": "Lighthouse",
+      "w": 6,
+      "d": 6,
+      "h": 21,
+      "collider": "post",
+      "r": 2.8,
+      "look": {
+        "body": "lighthouse",
+        "model": {
+          "files": [
+            "lighthouse"
+          ],
+          "w": 5.6,
+          "d": 5.6,
+          "sink": 0.3,
+          "keep": [
+            "glow"
+          ]
+        }
+      }
+    },
+    {
+      "id": "windmill",
+      "name": "Windmill",
+      "w": 6,
+      "d": 6,
+      "h": 13,
+      "collider": "post",
+      "r": 2.6,
+      "look": {
+        "body": "windmill",
+        "model": {
+          "files": [
+            "windmill"
+          ],
+          "w": 5.4,
+          "d": 5.4,
+          "h": 10.6,
+          "sink": 0.2,
+          "keep": [
+            "sails"
+          ]
+        }
+      }
+    },
+    {
+      "id": "well",
+      "name": "Well",
+      "w": 2.2,
+      "d": 2.2,
+      "h": 2.6,
+      "collider": "post",
+      "r": 1,
+      "look": {
+        "body": "well",
+        "model": {
+          "files": [
+            "well"
+          ],
+          "sink": 0.1
+        }
+      }
+    },
+    {
+      "id": "stable",
+      "name": "Stable",
+      "w": 10,
+      "d": 6,
+      "h": 8,
+      "collider": "building",
+      "look": {
+        "body": "stable"
+      }
+    },
+    {
+      "id": "workshop",
+      "name": "Wainwright's Workshop",
+      "w": 10,
+      "d": 6,
+      "h": 8,
+      "collider": "building",
+      "look": {
+        "body": "workshop"
+      }
+    },
+    {
+      "id": "boathouse",
+      "name": "Shipwright's Shed",
+      "w": 8,
+      "d": 10,
+      "h": 9.2,
+      "collider": "building",
+      "look": {
+        "body": "boathouse"
+      }
+    },
+    {
+      "id": "registrar",
+      "name": "Land Registry",
+      "w": 10,
+      "d": 8,
+      "h": 9.2,
+      "collider": "building",
+      "look": {
+        "body": "registrar"
+      }
+    },
+    {
+      "id": "launchDeck",
+      "name": "Glider Launch",
+      "w": 6,
+      "d": 8,
+      "h": 4,
+      "collider": "none",
+      "deck": 0.6,
+      "look": {
+        "body": "launchDeck"
+      }
+    },
+    {
+      "id": "noticeBoard",
+      "name": "Notice Board",
+      "w": 1.8,
+      "d": 0.4,
+      "h": 2.4,
+      "collider": "box",
+      "look": {
+        "body": "noticeBoard",
+        "model": {
+          "files": [
+            "noticeBoard"
+          ],
+          "sink": 0.05
+        }
+      }
+    },
+    {
+      "id": "housePlot",
+      "name": "House Plot",
+      "w": 16,
+      "d": 16,
+      "h": 1.2,
+      "collider": "none",
+      "look": {
+        "body": "housePlot"
+      }
+    },
+    {
+      "id": "scarecrow",
+      "name": "Scarecrow",
+      "w": 1.2,
+      "d": 0.6,
+      "h": 2.3,
+      "collider": "post",
+      "r": 0.25,
+      "pad": false,
+      "look": {
+        "body": "scarecrow",
+        "model": {
+          "files": [
+            "scarecrow"
+          ],
+          "sink": 0.1
+        }
+      }
+    },
+    {
+      "id": "farmPlot",
+      "name": "Tilled Plot",
+      "w": 8,
+      "d": 8,
+      "h": 0.15,
+      "collider": "none",
+      "pad": false,
+      "clearMargin": 1,
+      "surface": "soil",
+      "look": {
+        "body": "farmPlot"
+      }
+    },
+    {
+      "id": "oreNode",
+      "name": "Ore Outcrop",
+      "w": 2.8,
+      "d": 2.4,
+      "h": 1.8,
+      "collider": "post",
+      "r": 1.2,
+      "look": {
+        "body": "oreNode",
+        "model": {
+          "files": [
+            "oreNode"
+          ],
+          "sink": 0.2
+        }
+      }
+    },
+    {
+      "id": "stoneNode",
+      "name": "Stone Outcrop",
+      "w": 2.8,
+      "d": 2.4,
+      "h": 1.6,
+      "collider": "post",
+      "r": 1.2,
+      "look": {
+        "body": "stoneNode",
+        "model": {
+          "files": [
+            "stoneNode"
+          ],
+          "sink": 0.2
+        }
+      }
+    },
+    {
+      "id": "timberNode",
+      "name": "Deadfall Timber",
+      "w": 3.6,
+      "d": 1.6,
+      "h": 1,
+      "collider": "post",
+      "r": 0.9,
+      "look": {
+        "body": "timberNode",
+        "model": {
+          "files": [
+            "timberNode"
+          ],
+          "sink": 0.1
+        }
+      }
+    },
+    {
+      "id": "herbNode",
+      "name": "Wild Herbs",
+      "w": 1.2,
+      "d": 1.2,
+      "h": 0.7,
+      "collider": "none",
+      "look": {
+        "body": "herbNode",
+        "model": {
+          "files": [
+            "herbNode"
+          ],
+          "sink": 0.05
+        }
+      }
+    }
   ],
   "props": [
-    { "id": "fence", "w": 2.0, "d": 0.15, "h": 1.0, "collider": "box", "look": "Split-rail fence segment 2 m long along X, posts at both ends." },
-    { "id": "lamp", "w": 0.4, "d": 0.4, "h": 3.2, "collider": "post", "r": 0.15, "look": "Iron lamp post with a glass lantern (emissive warm)." },
-    { "id": "signpost", "w": 0.6, "d": 0.6, "h": 2.7, "collider": "post", "r": 0.15, "look": "Wooden post with three arrow boards at different angles." },
-    { "id": "bench", "w": 1.8, "d": 0.6, "h": 0.9, "collider": "box", "look": "Wooden park bench." },
-    { "id": "barrel", "w": 0.7, "d": 0.7, "h": 0.95, "collider": "post", "r": 0.35, "look": "Banded wooden barrel." },
-    { "id": "crates", "w": 1.6, "d": 1.2, "h": 1.4, "collider": "box", "look": "Stack of three crates." },
-    { "id": "haycart", "w": 1.6, "d": 2.8, "h": 1.8, "collider": "box", "look": "Small two-wheeled decor cart piled with hay." },
-    { "id": "bollard", "w": 0.35, "d": 0.35, "h": 0.6, "collider": "none", "look": "Mooring bollard." }
+    {
+      "id": "fence",
+      "w": 2,
+      "d": 0.15,
+      "h": 1,
+      "collider": "box",
+      "look": {
+        "body": "fence",
+        "model": {
+          "files": [
+            "fence"
+          ],
+          "sink": 0.08
+        }
+      }
+    },
+    {
+      "id": "lamp",
+      "w": 0.4,
+      "d": 0.4,
+      "h": 3.2,
+      "collider": "post",
+      "r": 0.15,
+      "look": {
+        "body": "lamp",
+        "model": {
+          "files": [
+            "lamp"
+          ],
+          "sink": 0.05
+        }
+      }
+    },
+    {
+      "id": "signpost",
+      "w": 0.6,
+      "d": 0.6,
+      "h": 2.7,
+      "collider": "post",
+      "r": 0.15,
+      "look": {
+        "body": "signpost",
+        "model": {
+          "files": [
+            "signpost"
+          ],
+          "sink": 0.1
+        }
+      }
+    },
+    {
+      "id": "bench",
+      "w": 1.8,
+      "d": 0.6,
+      "h": 0.9,
+      "collider": "box",
+      "look": {
+        "body": "bench",
+        "model": {
+          "files": [
+            "bench"
+          ],
+          "sink": 0.02
+        }
+      }
+    },
+    {
+      "id": "barrel",
+      "w": 0.7,
+      "d": 0.7,
+      "h": 0.95,
+      "collider": "post",
+      "r": 0.35,
+      "look": {
+        "body": "barrel",
+        "model": {
+          "files": [
+            "barrel"
+          ],
+          "sink": 0.02
+        }
+      }
+    },
+    {
+      "id": "crates",
+      "w": 1.6,
+      "d": 1.2,
+      "h": 1.4,
+      "collider": "box",
+      "look": {
+        "body": "crates",
+        "model": {
+          "files": [
+            "crates"
+          ],
+          "sink": 0.02
+        }
+      }
+    },
+    {
+      "id": "haycart",
+      "w": 1.6,
+      "d": 2.8,
+      "h": 1.8,
+      "collider": "box",
+      "look": {
+        "body": "haycart",
+        "model": {
+          "files": [
+            "haycart"
+          ],
+          "yaw": 1.5707963267948966,
+          "sink": 0.02
+        }
+      }
+    },
+    {
+      "id": "bollard",
+      "w": 0.35,
+      "d": 0.35,
+      "h": 0.6,
+      "collider": "none",
+      "look": {
+        "body": "bollard",
+        "model": {
+          "files": [
+            "bollard"
+          ],
+          "sink": 0.02
+        }
+      }
+    }
   ]
 }

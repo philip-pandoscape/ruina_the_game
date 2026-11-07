@@ -1,0 +1,19 @@
+{
+  "id": "scarecrow",
+  "name": "Scarecrow",
+  "w": 1.2,
+  "d": 0.6,
+  "h": 2.3,
+  "collider": "post",
+  "r": 0.25,
+  "pad": false,
+  "look": {
+    "body": "scarecrow",
+    "model": {
+      "files": [
+        "scarecrow"
+      ],
+      "sink": 0.1
+    }
+  }
+}

@@ -1,0 +1,74 @@
+{
+  "id": "newBuilding",
+  "w": 10,
+  "d": 6,
+  "storeys": [
+    {
+      "walls": "plaster",
+      "floor": "Floor_WoodLight",
+      "front": "A A A A A",
+      "right": "G . G",
+      "back": ". G . G .",
+      "left": "G . G"
+    }
+  ],
+  "roof": {
+    "ridge": "x"
+  },
+  "items": [
+    {
+      "id": "hayStack",
+      "x": -4,
+      "z": -2
+    },
+    {
+      "id": "hay",
+      "x": -2.6,
+      "z": -2.35
+    },
+    {
+      "id": "hayStack",
+      "x": 3.9,
+      "z": -2,
+      "rot": 3.1416
+    },
+    {
+      "id": "hay",
+      "x": 2.5,
+      "z": -2.4,
+      "rot": 0.2
+    },
+    {
+      "id": "hay",
+      "x": 0.4,
+      "z": -2.35
+    },
+    {
+      "id": "bucket",
+      "x": -1.1,
+      "z": -2.4
+    },
+    {
+      "id": "bucket",
+      "x": 1.5,
+      "z": -2.3
+    },
+    {
+      "id": "barrel",
+      "x": 4.2,
+      "z": 0.4
+    },
+    {
+      "id": "sacks",
+      "x": -4.2,
+      "z": 0.6,
+      "rot": 1.5708
+    },
+    {
+      "id": "lantern",
+      "x": 0,
+      "z": -2.68,
+      "y": 1.6
+    }
+  ]
+}

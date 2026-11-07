@@ -1,0 +1,11 @@
+{
+  "id": "housePlot",
+  "name": "House Plot",
+  "w": 16,
+  "d": 16,
+  "h": 1.2,
+  "collider": "none",
+  "look": {
+    "body": "housePlot"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "id": "seed.barley",
+  "name": "Barley Seeds",
+  "icon": "🌱",
+  "cat": "seed",
+  "stack": 99,
+  "plants": "barley",
+  "value": 4,
+  "desc": "Golden grain for crates and cider."
+}

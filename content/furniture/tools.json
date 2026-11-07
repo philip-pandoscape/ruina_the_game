@@ -1,0 +1,20 @@
+{
+  "w": 1,
+  "d": 0.3,
+  "h": 1.2,
+  "collider": "none",
+  "parts": [
+    {
+      "model": "Pickaxe_Bronze",
+      "x": -0.25,
+      "y": 0.7,
+      "rot": 0.1
+    },
+    {
+      "model": "Axe_Bronze",
+      "x": 0.3,
+      "y": 0.9,
+      "rot": 1.45
+    }
+  ]
+}

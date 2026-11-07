@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "abilities",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "icon": {
+      "type": "string"
+    },
+    "desc": {
+      "type": "string"
+    },
+    "tags": {
+      "type": "array"
+    },
+    "target": {
+      "type": "string"
+    },
+    "castFrames": {
+      "type": "number"
+    },
+    "cooldownFrames": {
+      "type": "number"
+    },
+    "mpCost": {
+      "type": "number"
+    },
+    "castPose": {
+      "type": "string"
+    },
+    "effects": {
+      "type": "array"
+    },
+    "range": {
+      "type": "number"
+    },
+    "maxRange": {
+      "type": "number"
+    }
+  },
+  "required": [
+    "id",
+    "name",
+    "icon",
+    "desc",
+    "tags",
+    "target",
+    "castFrames",
+    "cooldownFrames",
+    "mpCost",
+    "castPose",
+    "effects"
+  ],
+  "additionalProperties": false
+}

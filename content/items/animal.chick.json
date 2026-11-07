@@ -1,0 +1,10 @@
+{
+  "id": "animal.chick",
+  "name": "Chick",
+  "icon": "🐣",
+  "cat": "seed",
+  "stack": 10,
+  "raises": "chicken",
+  "value": 30,
+  "desc": "Raise it in a plot cell. Feed it barley; it grows into a hen that lays eggs."
+}

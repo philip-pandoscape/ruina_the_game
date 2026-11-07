@@ -1,12 +1,30 @@
-// Accounts on the game server (server/src/accounts.rs). Plain same-origin requests: in development
-// Vite forwards /api to the server (vite.config.ts), and in production the server serves the game
-// itself. The session cookie is http-only, so this file never sees it; the browser sends it.
+// Accounts and characters on the game server (crates/server/src/accounts/mod.rs, crates/server/src/accounts/characters.rs).
+// Plain same-origin requests: in development Vite forwards /api to the server (vite.config.ts), and
+// in production the server serves the game itself. The session cookie is http-only, so this file
+// never sees it; the browser sends it.
 
 export interface Account {
   id: number;
   username: string;
-  characterId: number;
-  character: string;
+  /** Reaches the developer pages and commands (the server's ADMIN_USERS; everyone in development). */
+  admin: boolean;
+}
+
+/** One of an account's characters, as the character select screen shows it. */
+export interface CharacterInfo {
+  id: number;
+  name: string;
+  /** The copy of Emberholm they live in; null until they first go in. */
+  channel: number | null;
+  /** When they last went into the world (ms since the epoch), or null. */
+  lastPlayed: number | null;
+  created: number;
+  /** What their skill tree may hold: the starting points and those their quests gave. */
+  skillPoints: number;
+  questsDone: number;
+  coins: number;
+  /** The weapon of their build, by id. */
+  weapon: string;
 }
 
 /** The server couldn't be reached or broke: worth trying again, unlike a refusal. */
@@ -24,7 +42,7 @@ export class Refused extends Error {
 
 const UNREACHABLE = "Can't reach the game server.";
 
-async function request(method: 'GET' | 'POST', path: string, body?: unknown): Promise<unknown> {
+async function request(method: 'GET' | 'POST' | 'DELETE', path: string, body?: unknown): Promise<unknown> {
   let res: Response;
   try {
     res = await fetch(path, {
@@ -62,6 +80,7 @@ export async function currentAccount(): Promise<Account | null> {
 
 export const signIn = (username: string, password: string) => request('POST', '/api/login', { username, password }) as Promise<Account>;
 
+/** Makes the account and its first character, named after it. */
 export const register = (username: string, password: string) => request('POST', '/api/register', { username, password }) as Promise<Account>;
 
 /** Development servers only (DEV_LOGIN=1): sign in by name alone, making the account if it's new. */
@@ -69,4 +88,17 @@ export const devSignIn = (username: string) => request('POST', '/api/dev-login',
 
 export async function signOut(): Promise<void> {
   await request('POST', '/api/logout', {}).catch(() => undefined);
+}
+
+/** Your characters, oldest first, and how many an account may hold. */
+export const listCharacters = () => request('GET', '/api/characters') as Promise<{ characters: CharacterInfo[]; max: number }>;
+
+/** A new character with a fresh life. Refused if the name is taken or the account is full. */
+export async function createCharacter(name: string): Promise<CharacterInfo> {
+  return ((await request('POST', '/api/characters', { name })) as { character: CharacterInfo }).character;
+}
+
+/** Deletes one of your characters and their life and land for good; `name` is their name, typed to confirm. */
+export async function deleteCharacter(id: number, name: string): Promise<void> {
+  await request('DELETE', `/api/characters/${id}`, { name });
 }

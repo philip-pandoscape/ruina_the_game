@@ -1,0 +1,4 @@
+{
+  "id": "movement.cooldown",
+  "desc": "Frames before a movement skill can be used again"
+}

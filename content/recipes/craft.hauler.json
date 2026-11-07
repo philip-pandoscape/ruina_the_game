@@ -1,0 +1,20 @@
+{
+  "id": "craft.hauler",
+  "bench": "bertram",
+  "inputs": [
+    {
+      "item": "lumber",
+      "n": 30
+    },
+    {
+      "item": "ironOre",
+      "n": 20
+    }
+  ],
+  "coins": 2500,
+  "labor": 60,
+  "makes": {
+    "item": "deed.hauler",
+    "n": 1
+  }
+}

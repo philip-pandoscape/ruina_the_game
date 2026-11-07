@@ -1,0 +1,20 @@
+{
+  "id": "newPerson",
+  "name": "New Person",
+  "title": "What They Do",
+  "place": "lanternwick",
+  "x": 0,
+  "z": -258,
+  "facing": 3.14159,
+  "kind": "npc-merchant",
+  "look": {
+    "skin": "#e0ac69",
+    "shirt": "#3a6ea5",
+    "pants": "#2f3e46",
+    "boots": "#3a2a20",
+    "hair": "#5b3a29",
+    "style": "short"
+  },
+  "portrait": "🙂",
+  "greeting": "What they say when you talk to them."
+}

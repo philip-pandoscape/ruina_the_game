@@ -1,31 +1,72 @@
 import { defineConfig } from '@playwright/test';
 
+// The page the tests play is served by Vite on this port. PW_PORT moves it, so two checkouts can
+// run their suites at once without one testing the other's code (TEST_PORT_OFFSET moves the
+// game servers some specs start of their own, tests/support/ownServer.ts).
+const port = Number(process.env.PW_PORT) || 5199;
+
+// Here the spec files play side by side, PW_WORKERS of them at once (each file that needs a battle
+// server starts its own, on a port of its own; the online specs make fresh accounts), and the
+// biggest files spread their own tests out too (test.describe.configure). Tests that need the
+// machine to themselves, @gpu (frame rates, several game windows, screen capture) and @alone (a
+// server stopped and started, a race against the clock), run one at a time.
+//
+// The whole suite (`npm test`, or `npx playwright test` with no tests picked) plays them after the
+// rest, as the other project's teardown: so they run whether or not something before them failed
+// (a dependency would be skipped). A run of some of it (files named, -g, --last-failed) plays them
+// beside the rest instead, as Playwright runs a teardown project's every test whatever was picked.
+// Decided once where the run starts, and handed down to its workers.
+const workers = Number(process.env.PW_WORKERS) || 6;
+const ALONE = /@gpu|@alone/;
+const PICKS = /^(-g|--grep|--grep-invert|--last-failed|--only-changed|--project|--test-list|--test-list-invert|--ui)(=|$)/;
+if (process.env.RUINA_WHOLE_SUITE === undefined) {
+  const args = process.argv.slice(process.argv.indexOf('test') + 1);
+  process.env.RUINA_WHOLE_SUITE = process.argv.includes('test') && args.every((a) => a.startsWith('-') && !PICKS.test(a)) ? '1' : '0';
+}
+const wholeSuite = process.env.RUINA_WHOLE_SUITE === '1';
+
 // On Windows the tests run in the Edge browser that ships with Windows (no extra download).
 // Elsewhere they use Playwright's own Chromium: run `npx playwright install chromium` once.
+//
+// This is the integration tier: the game in a browser, with its servers (tests/integration), run
+// before a push to beta. The unit tier needs no browser (Vitest, vitest.config.ts); the stress tier
+// has a config of its own (playwright.stress.config.ts), run before a release.
 export default defineConfig({
-  testDir: 'tests',
+  testDir: 'tests/integration',
   // CI runners are slower than a desk machine and draw WebGL in software. There the suite is split
   // across runners test by test (.github/workflows/ci-cd.yml), a test gets twice as long, and one
   // that lost a race against the clock gets two more tries; a real failure fails all three.
   // Tests tagged @gpu (several game windows at once, frame rates, screen capture) need a real
   // GPU to keep up, so CI skips them; they run everywhere else.
   timeout: process.env.CI ? 240_000 : 120_000,
-  workers: 1,
+  workers: process.env.CI ? 1 : workers,
   fullyParallel: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   grepInvert: process.env.CI ? /@gpu/ : undefined,
-  reporter: process.env.CI ? [['list'], ['github']] : [['list']],
+  // Every run also keeps each test's time in test-results/timings.json; `node tools/tests/timings.mjs`
+  // prints the slowest tests and files from it.
+  reporter: process.env.CI
+    ? [['list'], ['github'], ['json', { outputFile: 'test-results/timings.json' }]]
+    : [['list'], ['json', { outputFile: 'test-results/timings.json' }]],
   use: {
-    baseURL: 'http://localhost:5199',
+    baseURL: `http://localhost:${port}`,
     channel: process.platform === 'win32' ? 'msedge' : undefined,
     headless: true,
     viewport: { width: 1280, height: 720 },
     launchOptions: { args: ['--enable-gpu', '--ignore-gpu-blocklist', '--enable-unsafe-swiftshader'] },
   },
+  projects: process.env.CI
+    ? undefined
+    : [
+        { name: 'side by side', grepInvert: ALONE, teardown: wholeSuite ? 'one at a time' : undefined },
+        { name: 'one at a time', grep: ALONE, workers: 1 },
+      ],
   webServer: {
-    command: 'npx vite --port 5199 --strictPort',
-    url: 'http://localhost:5199',
+    // The engine's WebAssembly first (src/engine/load.ts): a moment when it's up to date.
+    command: `npm run engine && npx vite --port ${port} --strictPort`,
+    url: `http://localhost:${port}`,
     reuseExistingServer: true,
-    timeout: 60_000,
+    // Its first page can take most of a minute when other checkouts' suites are busy on the machine.
+    timeout: 180_000,
   },
 });

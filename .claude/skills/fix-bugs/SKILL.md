@@ -1,6 +1,6 @@
 ---
 name: fix-bugs
-description: Work through the bug reports recorded in the game (pressing \ while playing) and fix them. Each report in bugs/<id>/ has a voice transcript, frames from before and after the key press, a screenshot with the HUD, console errors, game events, the player's path and the island save. Use when the user types /fix-bugs or asks you to look at their bug reports.
+description: Work through the bug reports recorded in the game (pressing \ while playing) and fix them. Each report in bugs/<id>/ has a voice transcript, frames from before and after the key press, a screenshot with the HUD, console errors, game events, the player's path and the life's save. Use when the user types /fix-bugs or asks you to look at their bug reports.
 argument-hint: "[report id, or part of one]"
 ---
 
@@ -38,22 +38,22 @@ The digest has what was said (t = seconds from the key press, negative = before 
 
 Reproduce before fixing whenever you can; a fix you never saw fail is a guess.
 
-- Playwright drives the real game through `window.__game` (the "Hooks for automated tests" section of `src/main.ts`): `advance(frames, actions)`, `teleport(x, z, facing)`, `lifeCommand(cmd)`, `state()`, `life()`, `setCamera(...)`, `sceneObjects(prefix)`, and more. `tests/world.spec.ts` shows the helpers the existing specs use.
-- `save.json` loads the island exactly as it was at the press:
+- Playwright drives the real game through `window.__game` (the "Hooks for automated tests" section of `src/main.ts`): `advance(frames, actions)`, `teleport(x, z, facing)`, `lifeCommand(cmd)`, `state()`, `life()`, `setCamera(...)`, `sceneObjects(prefix)`, and more. `tests/integration/world.spec.ts` shows the helpers the existing specs use.
+- `save.json` loads the life exactly as it was at the press:
   ```ts
   await page.addInitScript((s) => localStorage.setItem('ruina.emberholm.v1', s), readFileSync('bugs/<id>/save.json', 'utf8'));
-  await page.goto('/?world&test&load');
+  await page.goto('/?test&load');
   ```
   It stands you where you were (off any vehicle). `state.json` has the exact position, velocity and what you were riding.
 - `timeline.json` has every input as `[steps, actions]` runs, ready for `__game.advance`. The sim is deterministic, but the history starts mid-action, so the inputs show what was pressed rather than replaying the bug exactly.
-- Explore in a temporary spec under `tests/` (Playwright only runs files there), and delete it when you're done. Then write a regression test in the spec file that owns the system (`tests/world.spec.ts` for the open world, and so on). The kept test must not read `bugs/`, which isn't in git: rebuild the situation with commands, grants and teleports.
+- Explore in a temporary spec under `tests/` (Playwright only runs files there), and delete it when you're done. Then write a regression test in the spec file that owns the system (`tests/integration/world.spec.ts` for the open world, and so on). The kept test must not read `bugs/`, which isn't in git: rebuild the situation with commands, grants and teleports.
 
 ## 4. Fix it
 
 Fix the cause, not the symptom, and keep to the project's rules:
 
-- The flat training/battlefield rules must stay byte-identical to the Rust server; `tests/conformance.spec.ts` guards this. After changing `server/src`, rebuild first with `~/.cargo/bin/cargo build --release --manifest-path server/Cargo.toml` (cargo isn't on PATH).
-- Open-world state changes only inside `Life.step`, through `life.command(...)`.
+- The rules are the engine's alone (`crates/engine`): the server runs them and the browser runs the same code compiled to WebAssembly. A rule changed on purpose changes the engine's golden answers: keep the new ones with `RUINA_GOLDEN=1 cargo test --release -p ruina-engine golden`. After changing the Rust (`crates/`), rebuild the WebAssembly (`npm run engine`) and the server first with `~/.cargo/bin/cargo build --release` (cargo isn't on PATH).
+- Open-world state changes only inside the engine's `Life::step` (`crates/engine/src/life/`), through commands; the browser sends them as the Engine's named calls (`src/engine/engine.ts`).
 - Content is data in `shared/*.json`. When the data is what's wrong, fix the data.
 - Run `npm run typecheck`, the specs covering what you touched, and the new test. Run the whole suite (`npm test`) when the change is broad.
 

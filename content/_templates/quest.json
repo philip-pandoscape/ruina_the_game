@@ -1,0 +1,42 @@
+{
+  "id": "newQuest",
+  "name": "New Quest",
+  "giver": "newPerson",
+  "after": [
+    "landfall"
+  ],
+  "intro": "What the giver says when they offer it: why, and what to do.",
+  "steps": [
+    {
+      "text": "Go down to the docks",
+      "objectives": [
+        {
+          "type": "reach",
+          "place": "docks",
+          "r": 25
+        }
+      ]
+    },
+    {
+      "text": "Talk to New Person",
+      "objectives": [
+        {
+          "type": "talk",
+          "npc": "newPerson"
+        }
+      ]
+    }
+  ],
+  "turnIn": "newPerson",
+  "outro": "What they say when you hand it in.",
+  "rewards": {
+    "skillPoints": 1,
+    "coins": 50,
+    "items": [
+      {
+        "item": "newItem",
+        "n": 1
+      }
+    ]
+  }
+}

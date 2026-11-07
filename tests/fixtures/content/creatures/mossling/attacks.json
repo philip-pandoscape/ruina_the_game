@@ -1,0 +1,19 @@
+[
+  {
+    "id": "mossling-nip",
+    "kind": "strike",
+    "windup": 12,
+    "track": 6,
+    "active": 4,
+    "reach": 1.2,
+    "arc": 100,
+    "lift": 0.8,
+    "lunge": 0.6,
+    "damage": 4,
+    "knock": 2,
+    "cooldown": [
+      40,
+      60
+    ]
+  }
+]

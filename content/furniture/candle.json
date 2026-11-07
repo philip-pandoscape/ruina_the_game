@@ -1,0 +1,14 @@
+{
+  "w": 0.26,
+  "d": 0.18,
+  "h": 0.16,
+  "collider": "none",
+  "model": "CandleStick",
+  "light": {
+    "y": 0.25,
+    "intensity": 0.9,
+    "distance": 3.5,
+    "color": 16759414,
+    "flicker": true
+  }
+}

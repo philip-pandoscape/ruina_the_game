@@ -1,0 +1,287 @@
+[
+  {
+    "id": "inn",
+    "x": -24,
+    "z": -220,
+    "rot": 3.14159
+  },
+  {
+    "id": "townhouse",
+    "x": 22,
+    "z": -219,
+    "rot": 3.14159
+  },
+  {
+    "id": "registrar",
+    "x": 33,
+    "z": -236,
+    "rot": -1.5708
+  },
+  {
+    "id": "townhouse",
+    "x": 10,
+    "z": -205,
+    "rot": -1.5708,
+    "seed": 4
+  },
+  {
+    "id": "rowhouse",
+    "x": 10,
+    "z": -193,
+    "rot": -1.5708,
+    "seed": 5
+  },
+  {
+    "id": "townhouse",
+    "x": -10,
+    "z": -206,
+    "rot": 1.5708,
+    "seed": 6,
+    "mirror": true
+  },
+  {
+    "id": "rowhouse",
+    "x": -10,
+    "z": -194,
+    "rot": 1.5708,
+    "seed": 7,
+    "mirror": true
+  },
+  {
+    "id": "townhouse",
+    "x": 48,
+    "z": -238,
+    "rot": 3.14159,
+    "seed": 8,
+    "mirror": true
+  },
+  {
+    "id": "longhouse",
+    "x": 47,
+    "z": -259,
+    "rot": 0,
+    "seed": 9
+  },
+  {
+    "id": "rowhouse",
+    "x": -58,
+    "z": -244,
+    "rot": 3.14159,
+    "seed": 10
+  },
+  {
+    "id": "rowhouse",
+    "x": 12,
+    "z": -284,
+    "rot": -1.5708,
+    "seed": 11,
+    "mirror": true
+  },
+  {
+    "id": "townhouse",
+    "x": -12,
+    "z": -286,
+    "rot": 1.5708,
+    "seed": 12
+  },
+  {
+    "id": "longhouse",
+    "x": -12,
+    "z": -301,
+    "rot": 1.5708,
+    "seed": 13,
+    "mirror": true
+  },
+  {
+    "id": "townhouse",
+    "x": 33,
+    "z": -268,
+    "rot": -1.5708,
+    "seed": 2
+  },
+  {
+    "id": "workshop",
+    "x": -30,
+    "z": -264,
+    "rot": 0
+  },
+  {
+    "id": "stable",
+    "x": -52,
+    "z": -268,
+    "rot": 0
+  },
+  {
+    "id": "townhouse",
+    "x": -40,
+    "z": -234,
+    "rot": 1.5708,
+    "seed": 3
+  },
+  {
+    "id": "workbench",
+    "x": 12,
+    "z": -263,
+    "rot": 0
+  },
+  {
+    "id": "well",
+    "x": 0,
+    "z": -250,
+    "rot": 0
+  },
+  {
+    "id": "noticeBoard",
+    "x": -7,
+    "z": -262,
+    "rot": 0
+  },
+  {
+    "id": "stall",
+    "x": -11,
+    "z": -236,
+    "rot": 3.14159,
+    "tint": 15158332
+  },
+  {
+    "id": "stall",
+    "x": -17,
+    "z": -239,
+    "rot": 2.6,
+    "tint": 3447003
+  },
+  {
+    "id": "stall",
+    "x": 11,
+    "z": -236,
+    "rot": 3.14159,
+    "tint": 15844367
+  },
+  {
+    "id": "stall",
+    "x": 17,
+    "z": -239,
+    "rot": -2.6,
+    "tint": 10181046
+  },
+  {
+    "id": "boathouse",
+    "x": 34,
+    "z": -318,
+    "rot": 3.14159
+  },
+  {
+    "id": "dock",
+    "x": -10,
+    "z": -342,
+    "rot": 0
+  },
+  {
+    "id": "dock",
+    "x": 16,
+    "z": -342,
+    "rot": 0
+  },
+  {
+    "id": "lighthouse",
+    "x": 84,
+    "z": -362,
+    "rot": 0
+  },
+  {
+    "id": "windmill",
+    "x": -118,
+    "z": -168,
+    "rot": 0.4
+  },
+  {
+    "id": "launchDeck",
+    "x": 40,
+    "z": 232,
+    "rot": 3.14159
+  },
+  {
+    "id": "tradingPost",
+    "x": 424,
+    "z": -16,
+    "rot": -1.5708
+  },
+  {
+    "id": "tradingPost",
+    "x": -556,
+    "z": -426,
+    "rot": 0.785
+  },
+  {
+    "id": "dock",
+    "x": -500,
+    "z": -368,
+    "rot": 0.785
+  },
+  {
+    "id": "farmPlot",
+    "x": -124,
+    "z": -236,
+    "rot": 0,
+    "decor": [
+      "barley",
+      "barley",
+      "barley",
+      "barley"
+    ]
+  },
+  {
+    "id": "farmPlot",
+    "x": -186,
+    "z": -232,
+    "rot": 0,
+    "decor": [
+      "sunroot",
+      "flax",
+      "sunroot",
+      "flax"
+    ]
+  },
+  {
+    "id": "farmPlot",
+    "x": -176,
+    "z": -200,
+    "rot": 0,
+    "decor": [
+      "barley",
+      "sunroot",
+      "barley",
+      "sunroot"
+    ]
+  },
+  {
+    "id": "scarecrow",
+    "x": -128.6,
+    "z": -240.6,
+    "rot": 0.3
+  },
+  {
+    "id": "scarecrow",
+    "x": -190.6,
+    "z": -236.6,
+    "rot": -0.4
+  },
+  {
+    "id": "scarecrow",
+    "x": -180.6,
+    "z": -204.6,
+    "rot": 0.1
+  },
+  {
+    "id": "workbench",
+    "x": -236,
+    "z": 50,
+    "rot": 0.6
+  },
+  {
+    "id": "workbench",
+    "x": 192,
+    "z": 156,
+    "rot": -0.4
+  }
+]

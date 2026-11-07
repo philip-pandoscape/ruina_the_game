@@ -1,0 +1,23 @@
+{
+  "id": "lighthouse",
+  "name": "Lighthouse",
+  "w": 6,
+  "d": 6,
+  "h": 21,
+  "collider": "post",
+  "r": 2.8,
+  "look": {
+    "body": "lighthouse",
+    "model": {
+      "files": [
+        "lighthouse"
+      ],
+      "w": 5.6,
+      "d": 5.6,
+      "sink": 0.3,
+      "keep": [
+        "glow"
+      ]
+    }
+  }
+}

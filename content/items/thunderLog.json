@@ -1,0 +1,9 @@
+{
+  "id": "thunderLog",
+  "name": "Thunderstruck Log",
+  "icon": "⚡",
+  "cat": "material",
+  "stack": 50,
+  "value": 400,
+  "desc": "Timber split by lightning, still humming. Rare, and worth a small fortune to the right buyer."
+}

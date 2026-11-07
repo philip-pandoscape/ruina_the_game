@@ -1,0 +1,22 @@
+{
+  "id": "newAnimal",
+  "name": "New Animal",
+  "icon": "🐔",
+  "young": "New Young",
+  "item": "animal.newAnimal",
+  "growSeconds": 150,
+  "feed": "barley",
+  "feedN": 2,
+  "feedSeconds": 300,
+  "produce": "egg",
+  "yield": [
+    2,
+    3
+  ],
+  "produceSeconds": 120,
+  "collectLabor": 1,
+  "verb": "Collect eggs",
+  "look": {
+    "body": "chicken"
+  }
+}

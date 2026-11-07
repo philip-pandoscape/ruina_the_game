@@ -1,11 +1,26 @@
 import * as THREE from 'three';
-import { SpeciesCrowd } from '../species/crowd';
-import { getSpecies } from '../species/registry';
-import { actorKind } from '../content/actors';
+import { SpeciesCrowd } from './creatures/crowd';
+import { JellyCrowd } from './creatures/jelly';
+import { getSpecies } from './creatures/registry';
+import { actorKind, type ActorKind } from '../content/actors';
 import { actorKindAt, LADDERS } from '../content/actors';
-import { isAlive, type Actor } from '../sim/actor';
-import { behaviour, stateName, stateProgress } from '../sim/ai/brain';
-import type { NetActor } from '../net/netCrowd';
+import { isAlive, type Actor, behaviour, stateName, stateProgress } from '../engine/creatures';
+
+/** A monster as the server has it, as much as drawing it needs (src/net/worldFeed.ts's NetActor). */
+export interface ShownActor {
+  id: number;
+  /** Index into the kinds in shared/actors.json. */
+  kind: number;
+  x: number;
+  y: number;
+  z: number;
+  facing: number;
+  /** Which behaviour state it is in, and how far through it. */
+  state: number;
+  progress: number;
+  /** -1 while alive, otherwise frames since it went down. */
+  deadFrame: number;
+}
 
 // Draws every actor that has a species, whatever kind it is. One instanced crowd per species,
 // so a yard with five slimes and a yard with five hundred cost the same number of draw calls,
@@ -13,13 +28,14 @@ import type { NetActor } from '../net/netCrowd';
 
 const HIDDEN_Y = -1000; // where an actor waits out its respawn
 
-// One crowd per body, colouring and size: villagers in different clothes share the body, not the
-// paint, and a creature's sizes share the body but not the scale.
-const packKey = (k: { species: string | null; palette?: { teamA: number; teamB: number }; scale?: number }): string =>
-  `${k.species}:${k.palette ? `${k.palette.teamA}:${k.palette.teamB}` : ''}:${k.scale ?? 1}`;
+// One crowd per body, colouring, size and look: villagers in different clothes share the body, not
+// the paint, and a creature's sizes share the body but not the scale or what floats inside them.
+const packKey = (k: ActorKind): string =>
+  `${k.species}:${k.palette ? `${k.palette.teamA}:${k.palette.teamB}` : ''}:${k.scale ?? 1}:${k.look ? JSON.stringify(k.look) : ''}`;
 
 /** The neutral shape both the local rules and the server's snapshots are turned into. */
 interface Shown {
+  id: number;
   kindId: string;
   x: number;
   y: number;
@@ -47,31 +63,44 @@ function fuseGlow(a: Actor): number {
 }
 
 interface Pack {
-  crowd: SpeciesCrowd;
+  crowd: SpeciesCrowd | JellyCrowd;
   clipIndex: Map<string, number>;
   clipSeconds: Map<string, number>;
   used: number;
 }
 
+/** How far a walker has gone, for a clip that plays by distance (a kind's cycles). */
+interface Stride {
+  x: number;
+  z: number;
+  metres: number;
+}
+
 export class ActorView {
   readonly group = new THREE.Group();
   private packs = new Map<string, Pack>();
+  private strides = new Map<number, Stride>();
 
   /**
    * `capacity` is the most actors of any one species that can be on screen at once. `ground`, in
    * an open world, is the terrain height to stand them on.
    */
-  constructor(kinds: readonly string[], private capacity = 64, private ground: ((x: number, z: number) => number) | null = null) {
+  constructor(
+    kinds: readonly string[],
+    private capacity = 64,
+    private ground: ((x: number, z: number) => number) | null = null,
+  ) {
     for (const id of kinds) {
       const kind = actorKind(id);
       if (!kind.species || this.packs.has(packKey(kind))) continue;
       const species = getSpecies(kind.species);
-      const crowd = new SpeciesCrowd(species, capacity, {
-        tint: true,
-        outlineThickness: 0.015,
-        palette: kind.palette,
-        scale: kind.scale,
-      });
+      // A kind whose look is jelly (the slimes: src/render/creatures/jelly.ts) is drawn as that, on
+      // its species' skeleton and clips.
+      const look = kind.look;
+      const crowd =
+        look?.body === 'jelly'
+          ? new JellyCrowd(species, capacity, { inside: look.inside, crown: look.crown, palette: kind.palette, scale: kind.scale })
+          : new SpeciesCrowd(species, capacity, { tint: true, palette: kind.palette, scale: kind.scale });
       crowd.setCount(capacity);
       this.group.add(crowd.group);
       const clipIndex = new Map<string, number>();
@@ -87,14 +116,15 @@ export class ActorView {
   /**
    * Draws what the server says is out there. The wire carries the behaviour state and how far
    * through it the actor is, which is all the clip choice needs - the rest the browser already
-   * knows from shared/actors.json.
+   * knows from shared/actors.json. `flash` says how white each one is (0..1) as a blow lands.
    */
-  fromNetwork(actors: readonly NetActor[]): void {
+  fromNetwork(actors: readonly ShownActor[], flash: (id: number) => number = () => 0): void {
     this.draw(
       actors.map((a) => {
         const kind = actorKindAt(a.kind);
         const b = kind?.brain ? behaviour(kind.brain) : undefined;
         return {
+          id: a.id,
           kindId: kind?.id ?? '',
           x: a.x,
           y: a.y,
@@ -106,7 +136,7 @@ export class ActorView {
           deadFrame: Math.max(0, a.deadFrame),
           flash: 999,
           gone: false,
-          glow: 0,
+          glow: flash(a.id),
         };
       }),
     );
@@ -115,6 +145,7 @@ export class ActorView {
   update(actors: readonly Actor[]): void {
     this.draw(
       actors.map((a) => ({
+        id: a.id,
         kindId: a.kind,
         x: a.x,
         y: a.y,
@@ -156,15 +187,34 @@ export class ActorView {
       // The clips carry their own vertical motion, and the rules mirror it in a.y, so placing
       // the actor on the ground here keeps the two from drifting apart.
       pack.crowd.place(slot, a.x, this.ground ? this.ground(a.x, a.z) : 0, a.z, a.facing);
-      pack.crowd.animate(slot, clip, dead ? a.deadFrame / 60 : a.progress * seconds);
+      // A walker's gait plays by the ground it covers, so its feet keep up whatever its pace;
+      // everything else plays through its state.
+      const cycle = !dead && want ? kind.cycles?.[want] : undefined;
+      const time = cycle ? (this.walked(a) / cycle) * seconds : a.progress * seconds;
+      pack.crowd.animate(slot, clip, dead ? a.deadFrame / 60 : time);
       if (pack.crowd.flash) pack.crowd.flash[slot] = Math.max(0, 1 - a.flash / 7, a.glow);
     }
 
     for (const p of this.packs.values()) {
-      // Park every instance we did not use this frame.
+      // Park every instance we did not use this frame, and draw only those we did.
       for (let i = p.used; i < this.capacity; i++) p.crowd.place(i, 0, HIDDEN_Y, 0, 0);
+      p.crowd.setCount(p.used);
       p.crowd.flush();
     }
+  }
+
+  /** Metres an actor has walked since it was first drawn (a jump, like a respawn, doesn't count). */
+  private walked(a: Shown): number {
+    const s = this.strides.get(a.id);
+    if (!s) {
+      this.strides.set(a.id, { x: a.x, z: a.z, metres: 0 });
+      return 0;
+    }
+    const d = Math.hypot(a.x - s.x, a.z - s.z);
+    if (d < 3) s.metres += d;
+    s.x = a.x;
+    s.z = a.z;
+    return s.metres;
   }
 
   dispose(): void {

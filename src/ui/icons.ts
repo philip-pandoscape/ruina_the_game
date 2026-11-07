@@ -1,22 +1,6 @@
-// Icons for weapons, abilities and skills, and a colour per skill tree.
+// Icons and names for weapons and abilities, from their data (shared/tuning.json).
+import { ABILITIES, WEAPONS } from '../content/tuning';
 
-export const WEAPON_ICONS = ['🗡️', '🔨', '🪄', '🏹'];
-export const WEAPON_NAMES = ['Sword', 'Club', 'Staff', 'Bow'];
-export const ABILITY_ICONS = ['💚', '☄️'];
-
-export const SKILL_ICONS: Record<string, string> = {
-  sword: '🗡️',
-  cleave: '🌙',
-  whirlwind: '🌀',
-  club: '🔨',
-  heal: '💚',
-  swiftMending: '✨',
-  staff: '🪄',
-  meteor: '☄️',
-  quickIncantation: '⚡',
-  bow: '🏹',
-  rapidFire: '💨',
-  piercing: '🎯',
-};
-
-export const TREE_COLORS = ['#ff9f43', '#2ed573', '#ff6b6b', '#54a0ff'];
+export const WEAPON_ICONS = WEAPONS.map((w) => w.icon);
+export const WEAPON_NAMES = WEAPONS.map((w) => w.title);
+export const ABILITY_ICONS = ABILITIES.map((a) => a.icon);

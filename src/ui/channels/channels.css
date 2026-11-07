@@ -1,0 +1,22 @@
+/* Channels (src/ui/channels): the Channels window and the notice at the top of the screen while your
+   channel closes, or once a move has taken you to another. Built from the window parts in
+   windows.css; sizes are the UI's virtual pixels. */
+
+.mw.channels-win.left { width: 380px; }
+.channels-win .mw-body { padding-top: 10px; }
+.channels-win .ch-row { gap: 6px; margin-bottom: 5px; }
+.channels-win .ch-row b { flex: 1; font-size: 14px; color: var(--ink-strong); white-space: nowrap; }
+.channels-win .ch-row .tag { font: 600 12px var(--font); color: var(--ink-2); white-space: nowrap; }
+.channels-win .ch-row .tag.here { color: var(--title); }
+.channels-win .ch-row.here { box-shadow: inset 0 0 0 1.5px var(--title); }
+.channels-win .ch-row .lui-btn { margin-left: 4px; }
+.channels-win .ch-closing { margin: 0 0 8px; color: var(--title); font-weight: 700; }
+.channels-win .ch-why { margin: 8px 0 0; }
+.channels-win .ch-why + .ch-why { margin-top: 2px; }
+.channels-win .mw-foot .lui-btn { white-space: nowrap; }
+
+#hud-channel { position: fixed; left: 50%; top: 84px; z-index: 6; transform: translateX(-50%); display: flex; align-items: center; gap: 8px; max-width: 560px;
+  padding: 5px 16px 5px 9px; pointer-events: none; border: 2px solid transparent; border-radius: 999px;
+  background: var(--card) padding-box, var(--wood) border-box; box-shadow: 0 0 0 1.5px #2b1a0e, 0 3px 6px rgba(0, 0, 0, 0.3); }
+#hud-channel[hidden] { display: none; }
+#hud-channel p { margin: 0; font: 700 13.5px var(--font); color: var(--ink-strong); }

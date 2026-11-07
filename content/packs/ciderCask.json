@@ -1,0 +1,25 @@
+{
+  "id": "ciderCask",
+  "name": "Redcap Cider Cask",
+  "icon": "🛢️",
+  "origin": "lanternwick",
+  "base": 360,
+  "labor": 25,
+  "fee": 25,
+  "inputs": [
+    {
+      "item": "apple",
+      "n": 8
+    }
+  ],
+  "look": {
+    "body": "ciderCask",
+    "model": {
+      "files": [
+        "pack_ciderCask"
+      ],
+      "yaw": -1.5707963267948966
+    }
+  },
+  "kind": "trade"
+}

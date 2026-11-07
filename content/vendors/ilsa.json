@@ -1,0 +1,13 @@
+{
+  "npc": "ilsa",
+  "name": "Marrow's Shipyard",
+  "sells": [
+    {
+      "item": "design.cog",
+      "price": 1000,
+      "seals": 6
+    }
+  ],
+  "buys": [],
+  "buyRate": 0
+}

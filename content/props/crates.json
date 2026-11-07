@@ -1,0 +1,16 @@
+{
+  "id": "crates",
+  "w": 1.6,
+  "d": 1.2,
+  "h": 1.4,
+  "collider": "box",
+  "look": {
+    "body": "crates",
+    "model": {
+      "files": [
+        "crates"
+      ],
+      "sink": 0.02
+    }
+  }
+}

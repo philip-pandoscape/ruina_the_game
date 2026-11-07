@@ -1,0 +1,12 @@
+{
+  "id": "lampOil",
+  "name": "Lamp Oil",
+  "icon": "🧪",
+  "cat": "consumable",
+  "stack": 20,
+  "value": 8,
+  "use": {
+    "labor": 40
+  },
+  "desc": "Rendered from fish and herbs. A flask keeps a lamp lit all night, or a lamplighter on her feet: restores 40 labor."
+}

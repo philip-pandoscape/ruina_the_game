@@ -1,0 +1,26 @@
+[
+  {
+    "id": "mossling",
+    "name": "Mossling",
+    "faction": 1,
+    "maxHp": 18,
+    "radius": 0.3,
+    "hitHeight": 0.8,
+    "hitCeiling": 1.3,
+    "solid": false,
+    "brain": "mossling",
+    "respawnFrames": 1800,
+    "poise": 6,
+    "species": "goblin",
+    "clips": {
+      "idle": "idle",
+      "close": "run",
+      "nip": "stab",
+      "flinch": "flinch",
+      "dead": "die"
+    },
+    "cycles": {
+      "run": 2
+    }
+  }
+]

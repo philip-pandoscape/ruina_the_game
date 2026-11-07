@@ -1,0 +1,350 @@
+# Workstream: land
+
+R10.21 (land, plots and the ledger; the world's shared state; saves when a life changes), with
+R10.17's part for placed things (ids from a database sequence). Branch `refactor/land`, worktree
+`C:\GitHub\games\ruina-wt-land`, slot 5 (Postgres `ruina-wt-land-db` on 5485, world server 7876,
+`PW_PORT=5266`, `TEST_PORT_OFFSET=150`).
+
+This file is a running log while the work goes on (dated entries at the end); the summary at the
+top is filled in when it's done.
+
+## Where It Stands (done, 2026-11-07)
+
+**Done, on `refactor/land`** (head in the log's last entry; refactor/first merged up to 2f40bf0):
+the first half below, and the server's side on its tiers. The store owns land's tables
+(`crates/server/src/store/land/`, moved from `crates/server/src/land/`) behind the store's messages,
+every write fenced by the character's epoch (and the writing simulation's lease where leases are in
+Postgres); a life is read with the land lent to it and a block of ids, and written apart from it (the
+life on its row, the land as rows, its entries as the ledger's). A region's simulation reads its
+land as it starts and keeps it for those away (`crates/server/src/sim/lands.rs`; residents and each
+channel's estates and plots are gone); claims go through the registry; sales lower the world's
+market (read again every 10 s); every channel takes a neglected house down on the world's clock and
+the keeper (channel 1) writes it; lives are written a second after they change and at least once a
+minute; pots go through the ledger; saves from before land had rows move into them as the server
+starts. One authority over each piece of land at a time (below). Unit-tested; no new multi-tier or
+database tests (the end agent's list is in the last entry).
+
+**Decision: packs on the ground and parked vehicles are shared by every channel**, the owner's land
+rows like a house, lent to their life wherever they play; nothing moves when a channel closes.
+
+**Left** (for the end pass): the integration and end-to-end tests in the last entry; a channel shows
+an absent owner's land as of its start or their last leave from it (changes made in another channel
+reach it at its next start; demolitions agree, as every channel runs the rule); packs on the ground
+and parked vehicles are drawn only with their owner; no game action takes someone's piece yet
+(`Game::take_piece` is the way one would); a claim in flight when the server stops loses its
+blueprint; among several processes, a simulation process that dies leaves its players' land lent
+(nothing of theirs can be taken) until they play again; the wire could key vehicles and packs by
+their land ids (world-unique online) instead of its stand-in keys.
+
+## Where It Stands (the first half, 2026-11-06)
+
+**Done, on `refactor/land`:** the engine's land apart from a life (lent to its owner's life while
+they play, kept as rows by chunk, ids from a run, on the land's clock), contested plots (claims
+confirmed or lost through the registry, taxes on the world's clock, a neglected house taken down
+after 14 days), the world's market, the weather out of the life, the ledger's entries; the browser
+reading all of it; the content's `neglect`; migrations 0010-0013 and the store's queries
+(`crates/server/src/land/`: fenced saves with land, plot claims, transfers, market sales, the keeper's
+reads and demolitions, ids by block, the save migration), tested against a real Postgres (the plot
+race, a transfer twice, land by chunk, demolition, two servers' sales, today's saves migrated with
+everything back); the docs and the bible. The server plays as before in small edits (land beside the
+life in its save, read apart from older saves with times moved onto the world's clock; a market per
+game).
+
+**Waiting on tiers (the server's side, the second half):** the server onto the store and sims:
+lives saved alone when they change, land in rows lent and returned, claims through the registry,
+the keeper (demolitions, absent owners' farms), one market for the world, pots through the ledger,
+residents and each channel's plots gone, the migration run at start, the region's land in the
+welcome and updates; then the integration tier whole.
+
+**For other workstreams:**
+- *tiers*: each function in `crates/server/src/land/` is one transaction, to become one `ToStore`
+  message (listed under the design's last point). Land writes are fenced by whose grant is current
+  (`land::Fence`): the character's epoch for a holding written with its owner's life, the region
+  lease's for the keeper's demolitions; not by comparing epochs across kinds of grant. A
+  character's writes must reach the store in the order they were made (a save made before a claim
+  would take the claimed house down). `LifeWrite.life` becomes `{state, player}` with the land
+  beside it in rows; `Resident.state` goes (the region's land replaces residents). Land ids are
+  `EntityKind::Placed` numbers.
+- *channels*: land is one per region, the same in every channel; what moves (a vehicle being
+  driven, a pack being carried) is its owner's channel's until it stops (parked, set down), then the
+  region's. Changing channel needs nothing of land: the holding goes with the life.
+- *multiserver*: the store's tables need nothing per process; `land_blocks` hands out ids to every
+  process; `plots`' primary key and `ledger`'s key are what keep two servers honest.
+- *words*: new names use life and land; `characters.island` still holds the life (`{state,
+  player}`), for the words workstream to rename.
+
+## The Design (as it stands)
+
+- **A life and its land.** A character's `Life` keeps what is theirs alone (`LifeState`: coins,
+  seals, labor, the bag, quests, skills, contracts, buyback, the glider, home, the gathering spots'
+  rest). What they've built and planted is **land** (`crates/engine/src/life/land.rs`, `Land`):
+  houses, farms (a scarecrow and its cells), ships on the slipways, packs (on the ground, in a bed,
+  or on their back) and vehicles. Land is the world's: the region keeps it whether its owner plays
+  or not. Only its owner changes a piece, so while they play their land is **lent to their life**
+  (`Life::land`) and changed by the same rules as before; the rest of the world reads it as it
+  stood when the phase began. This keeps the tick that splits (R10.18): a player's step changes
+  only their own life and land, so players still step in any order or all at once.
+- **Kept by where it stands.** Each piece is a row of its own (`Land::rows`): its id, its kind
+  (house, farm, ship, pack, vehicle), the 256 m chunk it stands in (a pack on its owner's back has
+  none: it goes where they go), and the piece. `Land::from_rows` reads them back.
+- **Ids.** A holding gives what's placed ids from a run (`Ids {next, end}`): offline its own, counted
+  from one past the highest it has; online (the second half) a block of 1024 the store reserves from
+  the database's `land_blocks` sequence (hi/lo: block b is b * 1024 up to (b + 1) * 1024), so no two
+  pieces in the world share one and placing one needs no trip to the database. A run used up
+  refuses ("Not just now - try again in a moment") rather than make an id up. Contracts, private,
+  keep the life's own counter.
+- **The land's clock.** Land's times (a house's tax paid until, an animal fed until, a pack made at)
+  are on the land's clock, `land::now(life)`: online the world's (set every tick), offline the life's
+  own (the browser's session is the whole world then). So taxes fall due while you're away.
+- **What the keeper hears.** A step's `Change`s (`Life::take_changes`): a plot claimed, a plot let go
+  (a house taken down), a pack sold. The keeper of the world's land and market (the server's game;
+  offline the session) applies them after the phase.
+- **Plots, contested.** One claim per plot in the world, first come, held by the registry (the
+  database online). Online a claimed house waits, `pending`, until the registry confirms it
+  (`housing::confirm_claim`); if someone else's claim got there first it comes down and the
+  blueprint is back in the bag (`housing::lose_claim`). Taxes as before (50c a day for the cottage,
+  paid a week at a time, the first 7 days free); a house whose tax goes unpaid **14 days** past what
+  was paid comes down, chest and all, and its plot is free for anyone (`housing.json`'s
+  `neglect.demolishAfterDays`; `housing::demolish_neglected`, run by the owner's life while they
+  play and by the region's keeper while they're away). 14 days is ArcheAge's "about two weeks"
+  (`design/research/land.md` 4.4): long enough that nobody loses a house to a holiday, short
+  enough that a plot abandoned for a month goes back to the world.
+- **The world's market.** Each trading post's demand for each pack is the world's
+  (`crates/engine/src/life/market.rs`, `Market`): kept as it stood at a moment on the land's clock,
+  and worked out from there (it recovers by the clock, so nothing steps it). A life reads it as the
+  step began and lowers it at once for itself; the keeper applies every sale (`Change::Sold`) and
+  hands the market back to everyone.
+- **The weather** is no longer kept with a life: it's worked out from the world's clock every step
+  (`Life::weather`), the same for everyone at the same moment. (Each region's own weather, with its
+  own dice, is left: there is one region, and the browser's `rainAt` would need it too.)
+- **The ledger.** A row is one character's side of a transfer (what they gained, negative for what
+  they gave, and who with: `vendor:mara`, `post:westwatch`, `registry`, `character:42`), keyed by
+  which transfer and whose side, so one sent twice is written once. A life keeps what it moves with
+  the world (purchases, sales, buybacks, payouts, contract bonuses, workbench fees, crafting coin,
+  taxes, quests' rewards, grants) in `state.ledger`, numbered by its own count, until the store
+  writes them with its next save in the same transaction (`life:<character>:<n>`), then forgets
+  them (`Life::recorded`). A pot is a transfer of its own: both sides and both lives, one
+  transaction, one key.
+- **Saves**: a save is the life alone (`{state, player}`), its land in rows beside it, written in one
+  transaction with the land lent to it and its ledger entries, fenced by the grant it's made under
+  (`land::Fence`: today `characters.live_session`; tiers' character epochs and region leases next).
+  Saves from before are moved by `land::migrate::run` at start (below).
+- **Store functions as messages.** Each function in `crates/server/src/land/` is one transaction, so
+  each becomes one `ToStore` message when the server is in tiers: `save` (WriteLives with land),
+  `plots::claim`, `plots::take_down`, `ledger::transfer`, `market::sold`, `reserve_ids`, `load_land`
+  (a region's chunks), `load_holding` (a character's land), `migrate::run` (at start).
+
+## Log
+
+## 2026-11-06 21:45: the engine's land, the market, taxes and demolition
+
+- **Engine** (`crates/engine/src/life/`): `land.rs` (Land, the pieces moved out of `state.rs`, rows by
+  chunk, ids, `read_saved` for saves of either shape, `rebase` for land times kept on a life's
+  clock, `Change`, `now`), `market.rs` (Market), `Life` with `land`, `market`, `weather`,
+  `claims_wait` and `take_changes`; every rule that read `life.state.{houses,scarecrows,ships,packs,
+  vehicles}` reads `life.land` (a mechanical move); land's times on `land::now`; housing's claims
+  waiting for the registry, `confirm_claim`, `lose_claim`, `neglected`, `demolished_at`,
+  `demolish_neglected`, `step_housing` taking a neglected house down; the plot's tax prompt says
+  when an overdue house comes down; a pending site says it's waiting for the Land Registry.
+  `LIFE_VERSION` 4 (3 and before kept the land inside the life: read apart by `read_saved`).
+- **Content**: `content/housing.json` `neglect.demolishAfterDays: 14`.
+- **Golden answers**: before the move, the crowd scenario written in the old shape (the land put
+  back into the state) gave the kept hash: the rules didn't change. Then two changes on purpose,
+  kept with `RUINA_GOLDEN=1`: the crowd's answer names each life and its land apart, and a vehicle's
+  id comes from the land's run, so the contracts (the life's own counter) are numbered from 1 rather
+  than after the cart. The creatures', player and Emberholm scenarios are unchanged.
+- **Server** (small, local edits in `play/`): a save is `{state, land, player}` (the land beside the
+  life); an older one is read apart and its land's times moved onto the world's clock
+  (`land.rebase(saved_at - clock)`); residents' estates read from the land; a game keeps a market
+  (its lives read it, its sales lower it) and rebuilds what's solid when a house comes down.
+- **Ran**: `cargo test --release --workspace` (engine 187, server 81), clippy, fmt. The browser is
+  next (it still reads land from the state, so the page is broken at this commit).
+- **Fixtures**: `scratch/fixtures-763d6af.json` (five lives made by today's rules: everything built,
+  a plot two channels both hold, a sloop, a stake, a long-neglected house) and
+  `scratch/fixtures-rig-763d6af.json` (six real rows the base server wrote during `online.spec` and
+  `minigames.spec`, 23 passed against it), for the save migration's tests.
+- **For tiers**: the store's land writes will be fenced by whose grant is current (the character's
+  epoch for a holding written with its owner's life; the region's lease for the keeper's
+  demolitions and claims), not by comparing epochs across kinds of grant. Land ids are the numbers
+  of `EntityKind::Placed`.
+
+## 2026-11-06 22:40: the browser, the store's tables and queries, the save migration
+
+- **5ab4285** The browser reads land where it now is: `src/engine/life/land.ts` (Land, the pieces,
+  Market), the island view's `land`, `market`, `weather` and `now` (the land's clock, which the
+  engine's view now carries), the tick's life with land and market, every reader moved
+  (drawing, HUD, windows, peers' estates, online wiring), saves `{state, land, player}`. The bible:
+  housing (plots claimed once in the world, the Land Registry's confirmation online, tax on the
+  world's clock, a neglected house coming down after `neglect.demolishAfterDays`), trade (demand is
+  everyone's; packs age by the world's clock), weather (which clock counts what).
+- **b8bbdba** The test API's `life()` gives each post's demand as it stands now. Against the land
+  server on this slot's rig (PW_WORKERS=3): world.spec, online.spec and minigames.spec, 38 passed.
+- **6150196** Migrations 0010-0013 (land, plots, ledger, market) and `crates/server/src/land/`
+  (`mod.rs`: Fence, save, write_holding, load_land, load_holding, reserve_ids; `plots.rs`; `ledger.rs`;
+  `market.rs`; `migrate.rs`), the engine's ledger entries. Tests (`crates/server/tests/land.rs`,
+  beside the crate so the content-id scan of `src/` leaves their ids alone) against a database of
+  each test's own (`RUINA_TEST_DATABASE_URL`; without it they note it and pass), all 7 passing on
+  the rig:
+  - a plot claimed once with both claims racing, on every plot (the loser's house never reaches the
+    world; a stale grant writes nothing);
+  - a pot's transfer sent twice applied once (the second, with other lives, changes nothing); a
+    life's ledger entries written once however often the save is;
+  - land read back by chunk (a region's keeper), a holding whole (its owner), pieces gone when the
+    life no longer has them, a replaced window writing nothing;
+  - a neglected house taken down by the keeper with the engine's rule, its plot claimed again;
+  - two servers' sales at once both lowering demand, as the engine works it out to the bit;
+  - today's saves (6 rows written by 763d6af's server during online.spec and minigames.spec on this
+    rig, 5 made by its rules: everything built, one plot built on in three channels, a sloop, a stake,
+    a long-neglected house) moved into rows: every character back with everything (the life as it
+    was, the land as it was but its ids, times on the world's clock with as much left as before),
+    rise-1 kept by the first-made (12), the others' houses moved whole to rise-2 and rise-4 (rise-3
+    stays 105's), a second start finding nothing to move.
+- **The migration's plot rule**: plots are worked out for everyone first (the registry's claims
+  stand, then the first-made character with a house on each), then each other house on one goes to
+  the first plot nobody holds, in the order its owner was made; with none free it's taken down into
+  its owner's bag (what doesn't fit is named in the log and the report). Two channels both building
+  on one plot needed 25 characters on a server (24 to a channel), so beta likely has none.
+- **Engine**: `farming::grow_land` (the farms of someone away, for the region's keeper).
+- **Docs**: `docs/world.md` (Land, Plots, the Ledger, What the World Shares, Saves; the channels as
+  they are until the server moves onto the store), `docs/architecture.md` (what lasts, saves),
+  `docs/content.md` and `content/AGENTS.md` (`neglect`; a plot's id is its claim), `docs/testing.md`
+  (`RUINA_TEST_DATABASE_URL`), `crates/engine/AGENTS.md`, `src/engine/AGENTS.md`.
+- **Merged** `refactor/first` (3c9c040): no conflicts.
+- **What's left, waiting on tiers** (the server's side): lives saved alone when they change (a
+  command run, land or ledger changed: within a second; otherwise at most a minute) with their land
+  in rows and their ledger entries, through the store; `migrate::run` at start; land loaded by a
+  region's keeper and lent to lives as they arrive (ids from `reserve_ids`); claims through
+  `plots::claim` with `claims_wait` on (confirm or lose); the keeper taking down neglected houses
+  of owners away and growing their farms; the market through `market::sold` and shared by every
+  channel; pots through `ledger::transfer`; residents and each channel's plots gone; the welcome
+  and updates carrying the region's land.
+
+## 2026-11-06 23:20: the first half, tested; the server's side waits on tiers
+
+- **4f93b5d** The docs (world.md's Land, Plots, the Ledger, What the World Shares, Saves; the
+  architecture's saves; content's `neglect`; testing's `RUINA_TEST_DATABASE_URL`; the engine's and
+  the bridge's AGENTS.md) and the store's tests beside the crate (`crates/server/tests/land.rs`).
+- **Ran** on this slot's rig (the server built from this branch, migrations 0010-0013 applied to
+  its database), `PW_WORKERS=3`: world.spec, online.spec, minigames.spec, village.spec, sea.spec and
+  update.spec, **46 passed** (farming, livestock, pack running, carts, boats, mounts, the
+  shipyard's and the house's quests offline; houses, carts and plots online; pots; a server update
+  bringing everyone back with their land). Before any change, today's server passed online.spec and
+  minigames.spec (23) on the same rig. The store's tests: 7 passed against the rig's Postgres.
+  `npm run check` passes: typecheck, biome, knip, rustfmt, clippy, the TypeScript unit tier (263),
+  the engine's 188 and its order test's 5, the WebAssembly's 4, the server's 81 and the store's 7
+  (which, given no database there, say so and pass).
+- **Golden answers**: the creatures', player's and Emberholm's unchanged; the crowd's re-kept on
+  purpose (first entry: its answer names each life and its land apart, and its contracts are
+  numbered on their own; the old-shaped answer matched the kept hash before the move).
+- **Decisions** (and why):
+  - *Land is lent to its owner's life* rather than changed in place by a region-wide store: only
+    the owner changes their pieces today, so a player's step still changes only their own, the
+    tick still splits, and a life and its land are saved in one transaction (no duplication
+    between them). Anyone else's interaction with your land (a public farm, a guild's house) would
+    be a `Change` for the keeper, as a sale is.
+  - *Land's times on the world's clock*: taxes must fall due while you're away, and everyone looking
+    at a house must agree whether it's overdue. Old saves' times are moved onto it from the moment
+    they were saved, keeping what was left of each.
+  - *14 days, then demolished, chest and all*: ArcheAge's two weeks; the plot prompt counts the days
+    down; nothing comes back (no mail yet: a refund would need deliveries to an absent life, which
+    the ledger could carry later). The design tracker's "freed plots by lottery" is left for later:
+    the plan says first come.
+  - *The ledger records a character's side of every transfer* (life↔world and character↔character)
+    so its keys make each idempotent; a life's own entries ride its save.
+  - *Market demand recovers by the clock* (kept as value and moment) so no keeper steps it and a
+    sale is one SQL statement from any server, worked out exactly as the engine does.
+  - *Ids by block (hi/lo, 1024)*: a holding places things without a database round trip; a used-up
+    run refuses for a moment rather than inventing an id.
+  - *The migration's plot rule*: the first-made character keeps a plot several channels built on;
+    others move whole to the first free plot, or (none free) are taken down into their owner's bag.
+
+
+## 2026-11-07 00:40: the server's land on its tiers (second half), laid down
+
+Merged refactor/first three times on the way (bcc5b2f, b68e2ec: channels, 19b2630: wire). Then
+`94be9d0`: the store owns land's tables (`store/land/`, fenced by `characters.epoch`), a life is read
+with the land lent to it and a block of ids and written apart from it (rows, ledger entries,
+`ToSim::Recorded`), the memory tables keep the same rules; a region's simulation reads its land as
+it starts (`sim/lands.rs`, replacing residents and per-channel estates and plots), claims go to the
+registry, sales to the world's market (read again every 10 s), ids are topped up, every channel takes
+neglected houses down on the world's clock and the keeper (channel 1) writes it; lives are written a
+second after they change (at least every minute); pots go through the ledger; old saves move into
+rows as the server starts.
+
+**Decision: packs on the ground and parked vehicles are shared, not per channel.** They are their
+owner's land like a house: rows keyed by world, space and chunk (no channel), lent to the owner's
+life in whichever channel they play and kept for them while they're away. Only the owner moves them,
+and they play in one channel at a time, so there's nothing to reconcile, and nothing to move when a
+channel closes. They're drawn with their owner (in the channel they play in); drawing them standing
+while the owner is away, or in other channels, is the browser's estate drawing to extend later.
+
+## 2026-11-07 02:30: one authority over each piece of land, unit tests, ready for the end pass
+
+Merged refactor/first twice more (fa5a417: the multi-server version, its lease fence now on land's
+writes and the keeper's take-downs too; 60e3a36: borders on the tiers, a player handed to another
+part taking their land with their life and leaving it standing behind). Then:
+
+**One authority over a piece of land at a time** (`b2f7cc2`; migration 0014 `characters.land_lent`,
+`store/land/pieces.rs`, the memory tables the same):
+- *While its owner plays*, their land is lent to their life: the store lends it as it reads the life
+  for the connection taking them up, and only that life changes it, in the one simulation playing
+  them (its writes fenced by their epoch). Anyone else acts on it there, through that simulation
+  (riding along already needs the owner there to drive). The store refuses anyone taking a piece of
+  a lent holding (`TakeResult::Lent`), and the keeper's take-downs skip its houses (the owner's own
+  life takes a neglected house down, by the same rule on the same clock).
+- *While they're away*, the store keeps it: the simulation gives it back after the life's last write
+  (`ToStore::ReturnLand`, under the grant it played under; a newer window's lend stays). Whoever acts
+  on a piece of it (a pack on the ground, or a vehicle with what's in its bed), from any channel or
+  process, asks the store (`ToStore::TakePiece`, `Game::take_piece`): the first has it (its rows
+  re-owned in one transaction, `ToSim::Taken`, into the taker's life where it stood), every later ask
+  is refused (`Gone`), and the owner comes back to what's still theirs (rows are only ever written by
+  their owner, so their stale copy can't write a taken piece back).
+- A lone server gives everyone's land back as it starts (nobody plays yet).
+
+**Unit tests added:** the store on its memory tables (a life written apart from its land and ledger
+and read back with them; older saves keep their own; a plot raced by two channels; the keeper taking
+down only what is still untaxed and never a playing owner's; a pot written once, its writer told; two
+sales lowering the world's demand; one authority over a piece: lent, first come, gone, stale, a newer
+lend kept); `sim/lands.rs` (read, lent and kept, plots, neglect); the simulation (land lent to
+whoever plays and kept when they go; claims answered Yours, Theirs and Stale; a sale here and in the
+world; saves a second after a change and once a minute; ids topped up; a neglected house down in
+every channel with only the keeper writing it; a deleted character's land; a piece taken through the
+store); a pot through the ledger; the engine's `claim_failed`. The store's Postgres tests
+(`crates/server/tests/land.rs`) are as they were, on epochs and without home channels. `npm run
+check` passes (below).
+
+**For the end agent: integration and end-to-end tests to write or run**, and what each proves:
+1. *Plot race across channels* (two channel simulations, one store, Postgres): two players in
+   channels 1 and 2 put a house on one plot at once; one keeps it, the other's comes down with the
+   blueprint back, and both channels show the winner's. The registry is first come in the world.
+2. *Land through a restart* (`tests/update.spec.ts`): plant a farm, drop a pack, park a cart, build a
+   house; restart; all of it where it was, with the same ids; the `land` table holds the pieces by
+   chunk and `characters.island` no land. Lives and land are written apart and read back together.
+3. *The beta copy's saves taken up* (the end pass's step 1): a server started on a copy of beta's
+   database moves every save into rows (`store::db::connect` logs what it moved); every character
+   logs in with everything, plots unique, a plot built on in several channels kept by the
+   first-made. Nothing is lost moving to rows.
+4. *The keeper's demolition*: an absent owner's house with an old `tax_paid_until`; channel 1 takes it
+   down in the store and every channel shows it gone; someone else claims the plot; an owner who paid
+   meanwhile, or is playing, keeps theirs.
+5. *One authority over a piece*: while Ada plays in channel 2, taking her dropped bale from channel 1
+   is refused; once she has left, two simulations (or two processes) ask at once: one has it, the
+   other is refused, and Ada logs back in without it. Needs a dev command or game action calling
+   `Game::take_piece`.
+6. *One market*: a sale in channel 1 lowers the demand a player sees in channel 2 within 10 s, and in
+   the same channel at once.
+7. *Saves when changed*: a purchase is saved within about a second (`saved`), an idle player at least
+   once a minute. Online specs that relied on the old 5-second cadence may need their waits changed.
+8. *A pot through the ledger* (`tests/minigames.spec.ts`): a game won for a stake leaves the pot's two
+   rows and each life's own entries once in `ledger`; a server stopping mid-game returns the stakes.
+9. *Ids across processes* (`npm run test:cluster`): players on two simulation processes place many
+   things; no two `land` rows share an id, and runs are topped up past a block.
+10. *A deleted character*: their land comes down in every channel, and their plots are free.
+11. *Leases among processes*: a simulation that lost its lease writes no life or land, and a keeper
+    that lost its lease takes nothing down.
+12. *Borders* (a split region): a cart crossing a border keeps its cargo and stays solid on the far
+    side; the part it left still shows the owner's houses; its row's chunk follows it.
+13. The online specs as they stand (`tests/online.spec.ts`, `tests/party.spec.ts`,
+    `tests/dungeon-way-in.spec.ts`, `tests/minigames.spec.ts`, `tests/update.spec.ts`): the welcome
+    and updates carry the region's land in the shapes the browser already reads (`estates`,
+    `estate`, `claims`).

@@ -1,0 +1,38 @@
+{
+  "id": "landfall",
+  "name": "Landfall",
+  "giver": "hollis",
+  "after": [],
+  "auto": true,
+  "intro": "Welcome to Emberholm, traveller. You came on the morning boat with nothing but your boots, I see. Lanternwick looks after its own - come and speak with me by the well.",
+  "steps": [
+    {
+      "text": "Speak with Reeve Hollis by the well in Lanternwick",
+      "objectives": [
+        {
+          "type": "talk",
+          "npc": "hollis"
+        }
+      ]
+    }
+  ],
+  "outro": "Good. Every Emberholmer starts with a patch of earth. Here's a scarecrow to mark yours, and seeds to put in it.",
+  "rewards": {
+    "skillPoints": 1,
+    "coins": 50,
+    "items": [
+      {
+        "item": "scarecrow",
+        "n": 1
+      },
+      {
+        "item": "seed.sunroot",
+        "n": 8
+      },
+      {
+        "item": "seed.barley",
+        "n": 6
+      }
+    ]
+  }
+}

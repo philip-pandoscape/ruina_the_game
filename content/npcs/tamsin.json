@@ -1,0 +1,29 @@
+{
+  "id": "tamsin",
+  "name": "Tamsin Hale",
+  "title": "Packwright",
+  "place": "lanternwick",
+  "x": 12,
+  "z": -265.6,
+  "facing": 0,
+  "kind": "npc-crafter",
+  "look": {
+    "outfit": "packer",
+    "skin": "#e0ac69",
+    "shirt": "#eedfc0",
+    "rolled": true,
+    "pants": "#6b4a32",
+    "boots": "#3d2a1e",
+    "hair": "#a0522d",
+    "style": "ponytail",
+    "model": {
+      "files": [
+        "npc_tamsin"
+      ],
+      "h": 1.68
+    }
+  },
+  "portrait": "🧑‍🔧",
+  "greeting": "The bench is yours whenever you've the goods. Remember: a pack sold where it's made is worth nothing.",
+  "bench": "lanternwickBench"
+}

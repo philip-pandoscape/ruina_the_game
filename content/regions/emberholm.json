@@ -1,0 +1,567 @@
+{
+  "comment": "Emberholm, the starter isle. Everything here is placement and terrain recipe; the engine (crates/engine/src/open/generate.rs) turns it into a heightfield, colliders and decks, and src/render/open/stage.ts dresses it. Map convention: north is +Z and east is -X (so a structure with rot 0 faces north, PI faces south, +PI/2 faces west, -PI/2 faces east). Heights in metres above sea level. A terrain flatten levels its ground and keeps it clear of trees, rocks and scarecrows, unless keepClear is false (the fields, open to farming).",
+  "id": "emberholm",
+  "name": "Emberholm",
+  "subtitle": "The isle beneath the world tree",
+  "seed": 7331,
+  "climate": "temperate",
+  "terrain": {
+    "cells": 768,
+    "cell": 2,
+    "water": 0,
+    "landmass": {
+      "x": 0,
+      "z": 0,
+      "radius": 450,
+      "lobes": [
+        [
+          2,
+          48,
+          0.5
+        ],
+        [
+          3,
+          36,
+          1.7
+        ],
+        [
+          5,
+          22,
+          0.3
+        ],
+        [
+          7,
+          10,
+          2.2
+        ]
+      ],
+      "warp": 38,
+      "warpScale": 190
+    },
+    "bays": [
+      {
+        "x": 0,
+        "z": -428,
+        "r": 92
+      },
+      {
+        "x": -330,
+        "z": -330,
+        "r": 70
+      }
+    ],
+    "headlands": [
+      {
+        "x": 430,
+        "z": -10,
+        "r": 120,
+        "push": 75
+      },
+      {
+        "x": -560,
+        "z": -430,
+        "r": 0,
+        "push": 0
+      }
+    ],
+    "islets": [
+      {
+        "x": -560,
+        "z": -430,
+        "r": 78,
+        "h": 5.5
+      }
+    ],
+    "cliffs": [
+      {
+        "x": 445,
+        "z": -10,
+        "r": 150,
+        "h": 24
+      },
+      {
+        "x": 40,
+        "z": 455,
+        "r": 210,
+        "h": 30
+      }
+    ],
+    "shore": {
+      "beach": 34,
+      "beachHeight": 2.4,
+      "inlandRise": 0.02,
+      "seabedSlope": 0.085,
+      "seabedCurve": 0.00035,
+      "maxDepth": 30
+    },
+    "hills": {
+      "scale": 240,
+      "height": 15,
+      "detailScale": 52,
+      "detail": 1.6,
+      "inlandFrom": 25,
+      "inlandTo": 140
+    },
+    "mountains": [
+      {
+        "id": "windspire",
+        "x": 40,
+        "z": 250,
+        "top": 128,
+        "plateau": 25,
+        "cliff": 72,
+        "skirt": 165,
+        "cliffDrop": 0.74,
+        "rugged": 0.11,
+        "crag": 3.5
+      }
+    ],
+    "ramps": [
+      {
+        "mountain": "windspire",
+        "startAngle": -1.42,
+        "turns": 0.9,
+        "direction": -1,
+        "from": 22,
+        "to": 128,
+        "width": 9
+      }
+    ],
+    "pits": [
+      {
+        "x": 218,
+        "z": 172,
+        "r": 34,
+        "depth": 8,
+        "floor": 0.55
+      }
+    ],
+    "flatten": [
+      {
+        "id": "plaza",
+        "x": 0,
+        "z": -250,
+        "r": 58,
+        "fall": 34,
+        "h": 6,
+        "surface": "plaza",
+        "surfaceR": 31
+      },
+      {
+        "id": "quay",
+        "x": 6,
+        "z": -327,
+        "w": 92,
+        "d": 14,
+        "fall": 14,
+        "h": 1.45,
+        "surface": "plaza",
+        "seaFall": 3
+      },
+      {
+        "id": "fields",
+        "x": -152,
+        "z": -214,
+        "w": 128,
+        "d": 92,
+        "fall": 30,
+        "h": 5,
+        "keepClear": false
+      },
+      {
+        "id": "hearthside",
+        "x": 142,
+        "z": -200,
+        "w": 104,
+        "d": 74,
+        "fall": 28,
+        "h": 11
+      },
+      {
+        "id": "westwatch",
+        "x": 418,
+        "z": -18,
+        "r": 30,
+        "fall": 22,
+        "h": 24,
+        "surface": "plaza",
+        "surfaceR": 13
+      },
+      {
+        "id": "gullrock",
+        "x": -552,
+        "z": -422,
+        "r": 26,
+        "fall": 18,
+        "h": 4.2,
+        "surface": "plaza",
+        "surfaceR": 11
+      },
+      {
+        "id": "meadow",
+        "x": -30,
+        "z": -40,
+        "r": 38,
+        "fall": 30,
+        "h": "auto"
+      },
+      {
+        "id": "woodcamp",
+        "x": -244,
+        "z": 44,
+        "r": 16,
+        "fall": 14,
+        "h": "auto",
+        "surface": "road",
+        "surfaceR": 9
+      },
+      {
+        "id": "quarryyard",
+        "x": 186,
+        "z": 150,
+        "r": 14,
+        "fall": 14,
+        "h": "auto",
+        "surface": "road",
+        "surfaceR": 9
+      }
+    ],
+    "roads": [
+      {
+        "id": "docks",
+        "width": 6,
+        "points": [
+          [
+            0,
+            -266
+          ],
+          [
+            0,
+            -292
+          ],
+          [
+            2,
+            -318
+          ]
+        ]
+      },
+      {
+        "id": "north",
+        "width": 6,
+        "points": [
+          [
+            0,
+            -232
+          ],
+          [
+            0,
+            -180
+          ],
+          [
+            -12,
+            -120
+          ],
+          [
+            -22,
+            -64
+          ],
+          [
+            -14,
+            0
+          ],
+          [
+            6,
+            60
+          ],
+          [
+            24,
+            104
+          ],
+          [
+            36,
+            140
+          ],
+          [
+            46,
+            168
+          ]
+        ]
+      },
+      {
+        "id": "west",
+        "width": 6,
+        "points": [
+          [
+            22,
+            -250
+          ],
+          [
+            60,
+            -246
+          ],
+          [
+            100,
+            -228
+          ],
+          [
+            150,
+            -214
+          ],
+          [
+            205,
+            -190
+          ],
+          [
+            262,
+            -150
+          ],
+          [
+            320,
+            -96
+          ],
+          [
+            372,
+            -46
+          ],
+          [
+            404,
+            -22
+          ]
+        ]
+      },
+      {
+        "id": "hearthlane",
+        "width": 5,
+        "points": [
+          [
+            100,
+            -228
+          ],
+          [
+            104,
+            -200
+          ],
+          [
+            190,
+            -200
+          ]
+        ]
+      },
+      {
+        "id": "east",
+        "width": 6,
+        "points": [
+          [
+            -22,
+            -250
+          ],
+          [
+            -60,
+            -256
+          ],
+          [
+            -110,
+            -262
+          ],
+          [
+            -170,
+            -268
+          ],
+          [
+            -222,
+            -254
+          ],
+          [
+            -262,
+            -206
+          ],
+          [
+            -278,
+            -140
+          ],
+          [
+            -274,
+            -70
+          ],
+          [
+            -258,
+            -4
+          ],
+          [
+            -246,
+            34
+          ]
+        ]
+      },
+      {
+        "id": "fieldlane",
+        "width": 4.5,
+        "points": [
+          [
+            -110,
+            -262
+          ],
+          [
+            -112,
+            -214
+          ],
+          [
+            -150,
+            -186
+          ],
+          [
+            -196,
+            -186
+          ]
+        ]
+      },
+      {
+        "id": "quarry",
+        "width": 5,
+        "points": [
+          [
+            6,
+            60
+          ],
+          [
+            60,
+            98
+          ],
+          [
+            120,
+            126
+          ],
+          [
+            168,
+            146
+          ],
+          [
+            184,
+            150
+          ]
+        ]
+      }
+    ],
+    "falls": [
+      {
+        "id": "windspireFalls",
+        "mountain": "windspire",
+        "bearing": -1.2217,
+        "lip": 26,
+        "foot": 74,
+        "width": 10,
+        "blend": 1.6,
+        "floor": [
+          33.5,
+          33
+        ],
+        "shelf": {
+          "top": 85,
+          "depth": 8
+        },
+        "roof": {
+          "above": 7,
+          "depth": 8.6
+        },
+        "landing": {
+          "from": 3.6,
+          "to": 8.6,
+          "half": 3,
+          "above": 0.5
+        },
+        "totem": {
+          "at": 3.2,
+          "across": 3.3,
+          "above": 2.6
+        },
+        "spring": {
+          "at": 21.2,
+          "r": 2.7,
+          "depth": 0.38
+        },
+        "plunge": {
+          "at": 43.5,
+          "along": 7,
+          "across": 4.4,
+          "depth": 0.42
+        },
+        "speed": 4
+      }
+    ],
+    "sandBelow": 2.3,
+    "rockSlope": 1.05
+  },
+  "spawn": {
+    "x": 0,
+    "z": -264,
+    "facing": 0
+  },
+  "places": {
+    "$file": "regions/emberholm/places.json"
+  },
+  "structures": {
+    "$file": "regions/emberholm/structures.json"
+  },
+  "props": {
+    "$file": "regions/emberholm/props.json"
+  },
+  "npcs": {
+    "$things": "npcs"
+  },
+  "workbenches": {
+    "$file": "regions/emberholm/workbenches.json"
+  },
+  "outposts": {
+    "$file": "regions/emberholm/outposts.json"
+  },
+  "housePlots": {
+    "$file": "regions/emberholm/housePlots.json"
+  },
+  "farmland": {
+    "x": -152,
+    "z": -214,
+    "w": 120,
+    "d": 84
+  },
+  "nodes": {
+    "$file": "regions/emberholm/nodes.json"
+  },
+  "updrafts": {
+    "$file": "regions/emberholm/updrafts.json"
+  },
+  "doors": {
+    "$file": "regions/emberholm/doors.json"
+  },
+  "forests": {
+    "$file": "regions/emberholm/forests.json"
+  },
+  "scatter": {
+    "trees": 0.0016,
+    "rocks": 0.0005,
+    "clearOfRoad": 5,
+    "clearOfStructure": 4
+  },
+  "spawns": [
+    {
+      "kind": "slime",
+      "x": -30,
+      "z": -40,
+      "count": 6,
+      "r": 16
+    },
+    {
+      "kind": "dummy",
+      "x": -18,
+      "z": -52
+    }
+  ],
+  "sky": {
+    "dayLengthSeconds": 1800,
+    "startHour": 8.5,
+    "sunrise": 5.5,
+    "sunset": 20
+  },
+  "shipyards": {
+    "$file": "regions/emberholm/shipyards.json"
+  }
+}

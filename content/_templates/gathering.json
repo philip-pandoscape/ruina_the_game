@@ -1,0 +1,11 @@
+{
+  "item": "newItem",
+  "n": [
+    2,
+    3
+  ],
+  "labor": 10,
+  "verb": "Gather New Item",
+  "respawn": 90,
+  "kind": "ore"
+}

@@ -1,0 +1,17 @@
+{
+  "w": 1.1,
+  "d": 1.2,
+  "h": 2.1,
+  "collider": "box",
+  "parts": [
+    {
+      "model": "Crate_Wooden"
+    },
+    {
+      "model": "Crate_Metal",
+      "y": 1.19,
+      "rot": 0.4,
+      "scale": 0.9
+    }
+  ]
+}

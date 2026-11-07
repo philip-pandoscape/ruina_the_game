@@ -1,0 +1,33 @@
+{
+  "id": "slimelet",
+  "name": "Slimelet",
+  "faction": 1,
+  "solid": false,
+  "brain": "slimelet",
+  "respawnFrames": -1,
+  "species": "slime",
+  "clips": {
+    "idle": "idle",
+    "move": "hop",
+    "scatter": "hop",
+    "flee": "hop",
+    "regroup": "hop",
+    "dead": "die",
+    "rally": "hop",
+    "huddle": "hop"
+  },
+  "maxHp": 10,
+  "radius": 0.24,
+  "hitHeight": 0.3,
+  "hitCeiling": 1.7,
+  "mass": 1,
+  "scale": 0.45,
+  "palette": {
+    "teamA": 9425274,
+    "teamB": 7978854
+  },
+  "look": {
+    "body": "jelly",
+    "inside": []
+  }
+}

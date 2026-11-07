@@ -1,0 +1,15 @@
+{
+  "w": 0.22,
+  "d": 0.39,
+  "h": 0.65,
+  "collider": "none",
+  "model": "Torch_Metal",
+  "light": {
+    "y": 0.45,
+    "z": 0.3,
+    "intensity": 2.2,
+    "distance": 7,
+    "color": 16749130,
+    "flicker": true
+  }
+}

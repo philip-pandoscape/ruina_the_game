@@ -1,0 +1,300 @@
+[
+  {
+    "id": "goblin",
+    "comment": "Notices you at sight range and wakes its band. With a token it closes and stabs, then backs off; without one it circles on a ring just outside your weapon's reach (a bow has none, so it comes right up) and throws stones at a sword or club. Afraid (hurt, few friends, many foes) it runs to the biggest group of its band, or home, and drinks its potion out of reach.",
+    "sight": 16,
+    "keepAway": 0,
+    "leash": 30,
+    "notices": true,
+    "anger": {
+      "frames": 600,
+      "radius": 14,
+      "calmBeyond": 40
+    },
+    "attacks": [
+      "goblin-stab",
+      "goblin-stone"
+    ],
+    "flinch": "flinch",
+    "heal": {
+      "amount": 0.6,
+      "charges": 1,
+      "below": 0.5
+    },
+    "pack": {
+      "tokens": [
+        1,
+        1,
+        2,
+        2,
+        3
+      ],
+      "ring": 1.4,
+      "spread": 55,
+      "openingRange": 4.5,
+      "backArc": 110,
+      "friendRadius": 6,
+      "friendWorth": 0.15,
+      "foeWorth": 0.3,
+      "braveAt": 0.3,
+      "calmAt": 0.5,
+      "switchAt": 2.5
+    },
+    "states": [
+      {
+        "name": "idle",
+        "act": "wait",
+        "frames": [
+          50,
+          140
+        ],
+        "next": "wander",
+        "interrupt": [
+          {
+            "if": "angry",
+            "to": "spot"
+          }
+        ]
+      },
+      {
+        "name": "wander",
+        "act": "walk",
+        "toward": "wander",
+        "speed": 1.2,
+        "frames": [
+          60,
+          150
+        ],
+        "next": "idle",
+        "interrupt": [
+          {
+            "if": "angry",
+            "to": "spot"
+          }
+        ]
+      },
+      {
+        "name": "spot",
+        "act": "wait",
+        "face": "foe",
+        "frames": [
+          20,
+          32
+        ],
+        "next": "engage"
+      },
+      {
+        "name": "engage",
+        "act": "wait",
+        "face": "foe",
+        "frames": [
+          1,
+          1
+        ],
+        "next": [
+          {
+            "if": "!angry",
+            "to": "return"
+          },
+          {
+            "if": [
+              "afraid",
+              "canHeal",
+              "far:6"
+            ],
+            "to": "drink"
+          },
+          {
+            "if": "afraid",
+            "to": "retreat"
+          },
+          {
+            "if": [
+              "token",
+              "near:1.7",
+              "!foeSwinging"
+            ],
+            "to": "stab"
+          },
+          {
+            "if": [
+              "token",
+              "!foeSwinging"
+            ],
+            "to": "close"
+          },
+          {
+            "if": [
+              "foeMelee",
+              "ready:goblin-stone",
+              "far:3"
+            ],
+            "to": "throw"
+          },
+          {
+            "to": "circle"
+          }
+        ]
+      },
+      {
+        "name": "circle",
+        "act": "walk",
+        "toward": "slot",
+        "face": "foe",
+        "speed": 3.2,
+        "frames": [
+          16,
+          28
+        ],
+        "next": "engage",
+        "interrupt": [
+          {
+            "if": "afraid",
+            "to": "engage"
+          },
+          {
+            "if": [
+              "token",
+              "!foeSwinging"
+            ],
+            "to": "engage"
+          }
+        ]
+      },
+      {
+        "name": "close",
+        "act": "walk",
+        "toward": "foe",
+        "stop": 1.2,
+        "speed": 5.6,
+        "token": true,
+        "frames": [
+          70,
+          70
+        ],
+        "next": "engage",
+        "interrupt": [
+          {
+            "if": "near:1.6",
+            "to": "stab"
+          },
+          {
+            "if": "afraid",
+            "to": "engage"
+          }
+        ]
+      },
+      {
+        "name": "stab",
+        "act": "strike",
+        "attack": "goblin-stab",
+        "token": true,
+        "frames": [
+          36,
+          36
+        ],
+        "next": "backoff"
+      },
+      {
+        "name": "backoff",
+        "act": "walk",
+        "toward": "away",
+        "face": "foe",
+        "speed": 3.6,
+        "frames": [
+          18,
+          26
+        ],
+        "next": "engage"
+      },
+      {
+        "name": "throw",
+        "act": "throw",
+        "attack": "goblin-stone",
+        "frames": [
+          40,
+          40
+        ],
+        "next": "engage",
+        "interrupt": [
+          {
+            "if": "near:1.8",
+            "to": "backoff"
+          }
+        ]
+      },
+      {
+        "name": "retreat",
+        "act": "walk",
+        "toward": "rally",
+        "stop": 1.5,
+        "speed": 5.2,
+        "frames": [
+          24,
+          36
+        ],
+        "next": [
+          {
+            "if": [
+              "canHeal",
+              "far:6"
+            ],
+            "to": "drink"
+          },
+          {
+            "if": "afraid",
+            "to": "retreat"
+          },
+          {
+            "to": "engage"
+          }
+        ]
+      },
+      {
+        "name": "drink",
+        "act": "heal",
+        "face": "foe",
+        "frames": [
+          80,
+          80
+        ],
+        "next": "engage"
+      },
+      {
+        "name": "flinch",
+        "act": "wait",
+        "frames": [
+          16,
+          16
+        ],
+        "next": [
+          {
+            "if": "afraid",
+            "to": "retreat"
+          },
+          {
+            "to": "backoff"
+          }
+        ]
+      },
+      {
+        "name": "return",
+        "act": "walk",
+        "toward": "home",
+        "stop": 0.8,
+        "speed": 2.4,
+        "frames": [
+          60,
+          120
+        ],
+        "next": "idle",
+        "interrupt": [
+          {
+            "if": "angry",
+            "to": "spot"
+          }
+        ]
+      }
+    ]
+  }
+]

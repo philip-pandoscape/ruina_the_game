@@ -1,0 +1,12 @@
+{
+  "id": "mossling",
+  "kinds": {
+    "$file": "creatures/mossling/kinds.json"
+  },
+  "attacks": {
+    "$file": "creatures/mossling/attacks.json"
+  },
+  "behaviours": {
+    "$file": "creatures/mossling/brain.json"
+  }
+}

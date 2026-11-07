@@ -1,0 +1,21 @@
+{
+  "id": "backstep",
+  "name": "Backstep",
+  "icon": "↩️",
+  "desc": "Hop backwards out of reach. Brief invulnerability on the way out.",
+  "tags": [
+    "movement",
+    "defensive"
+  ],
+  "staminaCost": 20,
+  "action": {
+    "startup": 1,
+    "active": 9,
+    "recovery": 11,
+    "speed": 15,
+    "direction": "backward",
+    "invulnFrom": 1,
+    "invulnTo": 7,
+    "pose": "backstep"
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "w": 2.9,
+  "d": 2.3,
+  "h": 0.81,
+  "collider": "box",
+  "parts": [
+    {
+      "model": "Table_Large"
+    },
+    {
+      "model": "Bench",
+      "z": 0.9
+    },
+    {
+      "model": "Bench",
+      "z": -0.9
+    },
+    {
+      "model": "Table_Plate",
+      "x": -0.8,
+      "z": 0.28,
+      "y": 0.81
+    },
+    {
+      "model": "Table_Plate",
+      "x": 0.7,
+      "z": -0.28,
+      "y": 0.81
+    },
+    {
+      "model": "Table_Spoon",
+      "x": -0.55,
+      "z": 0.3,
+      "y": 0.81
+    },
+    {
+      "model": "Mug",
+      "x": -0.4,
+      "z": 0.32,
+      "y": 0.81
+    },
+    {
+      "model": "Mug",
+      "x": 1.05,
+      "z": -0.3,
+      "y": 0.81,
+      "rot": 2.2
+    },
+    {
+      "model": "CandleStick_Triple",
+      "x": 0.1,
+      "y": 0.81
+    }
+  ],
+  "light": {
+    "x": 0.1,
+    "y": 1.35,
+    "intensity": 1.6,
+    "distance": 5,
+    "color": 16759414,
+    "flicker": true
+  }
+}

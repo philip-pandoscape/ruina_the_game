@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "gliders",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "icon": {
+      "type": "string"
+    },
+    "desc": {
+      "type": "string"
+    },
+    "span": {
+      "type": "number"
+    },
+    "cruiseSpeed": {
+      "type": "number"
+    },
+    "diveSpeed": {
+      "type": "number"
+    },
+    "flareSpeed": {
+      "type": "number"
+    },
+    "sink": {
+      "type": "number"
+    },
+    "diveSink": {
+      "type": "number"
+    },
+    "flareSink": {
+      "type": "number"
+    },
+    "stallSpeed": {
+      "type": "number"
+    },
+    "turnRate": {
+      "type": "number"
+    },
+    "speedEase": {
+      "type": "number"
+    },
+    "zoomLift": {
+      "type": "number"
+    },
+    "minHeight": {
+      "type": "number"
+    },
+    "gust": {
+      "type": "object"
+    },
+    "look": {
+      "type": "object",
+      "properties": {
+        "body": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "id",
+    "name",
+    "icon",
+    "desc",
+    "span",
+    "cruiseSpeed",
+    "diveSpeed",
+    "flareSpeed",
+    "sink",
+    "diveSink",
+    "flareSink",
+    "stallSpeed",
+    "turnRate",
+    "speedEase",
+    "zoomLift",
+    "minHeight",
+    "gust"
+  ],
+  "additionalProperties": false
+}

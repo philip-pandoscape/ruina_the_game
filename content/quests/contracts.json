@@ -1,0 +1,29 @@
+{
+  "id": "contracts",
+  "name": "Under Contract",
+  "giver": "dunmore",
+  "after": [
+    "westward"
+  ],
+  "intro": "Selling whatever you happen to carry is fine. Selling what I need is better. I post contracts on my board - so many packs of a kind, by a deadline, with a bonus in seals. Take one and fill it.",
+  "steps": [
+    {
+      "text": "Take a trade contract at a trading post and fill it",
+      "objectives": [
+        {
+          "type": "contract",
+          "n": 1,
+          "marker": {
+            "outpost": "westwatch"
+          }
+        }
+      ]
+    }
+  ],
+  "outro": "That's how the big traders do it: they know what's wanted before they pack it. Check the boards here and at Gullrock.",
+  "rewards": {
+    "skillPoints": 2,
+    "coins": 100,
+    "seals": 2
+  }
+}

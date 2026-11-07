@@ -1,0 +1,26 @@
+{
+  "id": "swiftwing",
+  "name": "Swiftwing Glider",
+  "icon": "🦅",
+  "desc": "Lacquered ribs and oiled silk. Faster and twitchier, and it banks like a swallow.",
+  "span": 4.6,
+  "cruiseSpeed": 17.5,
+  "diveSpeed": 27,
+  "flareSpeed": 10,
+  "sink": 2.6,
+  "diveSink": 8.5,
+  "flareSink": 1.4,
+  "stallSpeed": 8,
+  "turnRate": 2.2,
+  "speedEase": 1.8,
+  "zoomLift": 0.6,
+  "minHeight": 2.5,
+  "gust": {
+    "speed": 7,
+    "lift": 6.5,
+    "cooldownSeconds": 16
+  },
+  "look": {
+    "body": "swiftwing"
+  }
+}

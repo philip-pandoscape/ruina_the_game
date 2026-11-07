@@ -11,10 +11,12 @@
     "turnSpeed": 20,
     "playerRadius": 0.35,
     "sprintSpeed": 10.5,
-    "sprintAccel": 40.0,
+    "sprintAccel": 40,
     "crouchSpeed": 1.6,
     "crouchHeight": 0.55,
-    "crouchEnterFrames": 6
+    "crouchEnterFrames": 6,
+    "strafeSpeed": 0.85,
+    "backSpeed": 0.65
   },
   "jump": {
     "velocity": 9.2,
@@ -27,9 +29,6 @@
     "bufferFrames": 6,
     "doubleJumpSteer": 1,
     "flipFrames": 23
-  },
-  "slide": {
-    "frames": 26
   },
   "attack": {
     "bufferFrames": 8,
@@ -45,6 +44,8 @@
   "weapons": [
     {
       "name": "sword",
+      "title": "Sword",
+      "icon": "🗡️",
       "tags": [
         "melee",
         "attack",
@@ -118,6 +119,8 @@
     },
     {
       "name": "club",
+      "title": "Club",
+      "icon": "🔨",
       "tags": [
         "melee",
         "attack",
@@ -156,6 +159,8 @@
     },
     {
       "name": "staff",
+      "title": "Staff",
+      "icon": "🪄",
       "tags": [
         "melee",
         "attack",
@@ -180,6 +185,8 @@
     },
     {
       "name": "bow",
+      "title": "Bow",
+      "icon": "🏹",
       "tags": [
         "ranged",
         "attack",
@@ -209,7 +216,7 @@
     {
       "id": "heal",
       "name": "Healing Circle",
-      "icon": "\ud83d\udc9a",
+      "icon": "💚",
       "desc": "Heal yourself and allies around you.",
       "tags": [
         "restoration",
@@ -220,6 +227,7 @@
       "target": "self",
       "castFrames": 24,
       "cooldownFrames": 240,
+      "mpCost": 30,
       "castPose": "bothHands",
       "effects": [
         {
@@ -232,7 +240,7 @@
     {
       "id": "meteor",
       "name": "Meteor",
-      "icon": "\u2604\ufe0f",
+      "icon": "☄️",
       "desc": "Call a fireball down on a spot. Getting hit while casting interrupts it.",
       "tags": [
         "pyromancy",
@@ -246,6 +254,7 @@
       "maxRange": 16,
       "castFrames": 72,
       "cooldownFrames": 150,
+      "mpCost": 25,
       "castPose": "raiseStaff",
       "effects": [
         {
@@ -259,255 +268,141 @@
     }
   ],
   "skills": {
-    "points": 8,
+    "comment": "The tree itself is shared/skilltree.json. points: what the training yard and the battlefield (developer tools) may spend. In the open world you have startPoints plus the skillPoints of every quest and milestone you have finished. levels: the skills in your skill book level up as you use them; xp is the total experience each level needs, and per is what every level past the first adds, by the skill's id, naming a weapon it changes by its id too (flat and inc only, so the order they are summed in never matters).",
+    "points": 30,
+    "startPoints": 2,
     "maxNodes": 256,
     "trees": [
       {
-        "name": "Swordsmanship"
+        "name": "Swordsmanship",
+        "color": "#e0782a"
       },
       {
-        "name": "Restoration"
+        "name": "Restoration",
+        "color": "#3fa34d"
       },
       {
-        "name": "Pyromancy"
+        "name": "Pyromancy",
+        "color": "#d2433a"
       },
       {
-        "name": "Archery"
+        "name": "Archery",
+        "color": "#3f7fd0"
       }
     ],
-    "nodes": [
-      {
-        "id": "sword",
-        "name": "Sword Training",
-        "desc": "Wield a sword: a fast three-hit combo.",
-        "icon": "\ud83d\udde1\ufe0f",
-        "tree": 0,
-        "requires": [],
-        "tags": [
-          "melee"
-        ],
-        "grants": {
-          "weapon": 0
-        }
-      },
-      {
-        "id": "cleave",
-        "name": "Cleave",
-        "desc": "Your sword swings hit up to 6 enemies at once.",
-        "icon": "\ud83c\udf19",
-        "tree": 0,
-        "requires": [
-          "sword"
-        ],
-        "mods": [
+    "levels": {
+      "xp": [
+        0,
+        20,
+        60,
+        120,
+        200,
+        300,
+        420,
+        560,
+        720,
+        900
+      ],
+      "per": {
+        "sword": [
           {
-            "stat": "melee.maxTargets",
-            "op": "flat",
-            "value": 5,
-            "weapon": 0
+            "stat": "attack.damage",
+            "op": "inc",
+            "value": 0.03,
+            "weapon": "sword"
+          }
+        ],
+        "club": [
+          {
+            "stat": "attack.damage",
+            "op": "inc",
+            "value": 0.03,
+            "weapon": "club"
+          }
+        ],
+        "staff": [
+          {
+            "stat": "attack.damage",
+            "op": "inc",
+            "value": 0.03,
+            "weapon": "staff"
+          }
+        ],
+        "bow": [
+          {
+            "stat": "attack.damage",
+            "op": "inc",
+            "value": 0.03,
+            "weapon": "bow"
+          }
+        ],
+        "heal": [
+          {
+            "stat": "ability.amount",
+            "op": "inc",
+            "value": 0.05,
+            "skill": "heal"
+          }
+        ],
+        "meteor": [
+          {
+            "stat": "ability.damage",
+            "op": "inc",
+            "value": 0.05,
+            "skill": "meteor"
+          }
+        ],
+        "dodgeRoll": [
+          {
+            "stat": "movement.stamina",
+            "op": "inc",
+            "value": -0.03,
+            "skill": "dodgeRoll"
+          }
+        ],
+        "backstep": [
+          {
+            "stat": "movement.stamina",
+            "op": "inc",
+            "value": -0.03,
+            "skill": "backstep"
+          }
+        ],
+        "block": [
+          {
+            "stat": "movement.cooldown",
+            "op": "inc",
+            "value": -0.03,
+            "skill": "block"
+          }
+        ],
+        "slide": [
+          {
+            "stat": "movement.cooldown",
+            "op": "inc",
+            "value": -0.03,
+            "skill": "slide"
           }
         ]
-      },
-      {
-        "id": "whirlwind",
-        "name": "Whirlwind",
-        "desc": "Your third sword hit becomes a spin that hits everyone around you.",
-        "icon": "\ud83c\udf00",
-        "tree": 0,
-        "requires": [
-          "cleave"
-        ],
-        "grants": {
-          "combo": "whirlwind"
-        }
-      },
-      {
-        "id": "club",
-        "name": "Club Training",
-        "desc": "Wield a club: a heavy two-hit combo.",
-        "icon": "\ud83d\udd28",
-        "tree": 1,
-        "requires": [],
-        "tags": [
-          "melee"
-        ],
-        "grants": {
-          "weapon": 1
-        }
-      },
-      {
-        "id": "heal",
-        "name": "Healing Circle",
-        "desc": "Ability: heal yourself and allies within 6 m for 25.",
-        "icon": "\ud83d\udc9a",
-        "tree": 1,
-        "requires": [
-          "club"
-        ],
-        "grants": {
-          "ability": 0
-        }
-      },
-      {
-        "id": "swiftMending",
-        "name": "Swift Mending",
-        "desc": "Healing Circle casts 40% faster.",
-        "icon": "\u2728",
-        "tree": 1,
-        "requires": [
-          "heal"
-        ],
-        "mods": [
-          {
-            "stat": "cast.frames",
-            "op": "more",
-            "value": -0.4,
-            "tags": [
-              "heal"
-            ]
-          }
-        ]
-      },
-      {
-        "id": "staff",
-        "name": "Staff Training",
-        "desc": "Wield a staff: a quick jab.",
-        "icon": "\ud83e\ude84",
-        "tree": 2,
-        "requires": [],
-        "tags": [
-          "melee"
-        ],
-        "grants": {
-          "weapon": 2
-        }
-      },
-      {
-        "id": "meteor",
-        "name": "Meteor",
-        "desc": "Ability: call a fireball down from the sky. Getting hit while casting interrupts it.",
-        "icon": "\u2604\ufe0f",
-        "tree": 2,
-        "requires": [
-          "staff"
-        ],
-        "grants": {
-          "ability": 1
-        }
-      },
-      {
-        "id": "quickIncantation",
-        "name": "Quick Incantation",
-        "desc": "Meteor casts 30% faster.",
-        "icon": "\u26a1",
-        "tree": 2,
-        "requires": [
-          "meteor"
-        ],
-        "mods": [
-          {
-            "stat": "cast.frames",
-            "op": "more",
-            "value": -0.3,
-            "tags": [
-              "fire"
-            ]
-          }
-        ]
-      },
-      {
-        "id": "bow",
-        "name": "Bow Training",
-        "desc": "Wield a bow: shoot arrows.",
-        "icon": "\ud83c\udff9",
-        "tree": 3,
-        "requires": [],
-        "grants": {
-          "weapon": 3
-        }
-      },
-      {
-        "id": "rapidFire",
-        "name": "Rapid Fire",
-        "desc": "Draw your bow a third faster.",
-        "icon": "\ud83d\udca8",
-        "tree": 3,
-        "requires": [
-          "bow"
-        ],
-        "mods": [
-          {
-            "stat": "attack.startup",
-            "op": "more",
-            "value": -0.3333333333333333,
-            "weapon": 3
-          }
-        ]
-      },
-      {
-        "id": "piercing",
-        "name": "Piercing Arrows",
-        "desc": "Your arrows go through up to 3 enemies.",
-        "icon": "\ud83c\udfaf",
-        "tree": 3,
-        "requires": [
-          "rapidFire"
-        ],
-        "mods": [
-          {
-            "stat": "projectile.pierce",
-            "op": "flat",
-            "value": 2,
-            "weapon": 3
-          }
-        ]
-      },
-      {
-        "id": "dodgeRoll",
-        "name": "Dodge Roll",
-        "desc": "Movement: roll the way you are moving, briefly untouchable.",
-        "icon": "\ud83e\udd3c",
-        "tree": 0,
-        "requires": [
-          "sword"
-        ],
-        "grants": {
-          "movement": 0
-        }
-      },
-      {
-        "id": "backstep",
-        "name": "Backstep",
-        "desc": "Movement: hop backwards out of reach.",
-        "icon": "\u21a9\ufe0f",
-        "tree": 3,
-        "requires": [
-          "bow"
-        ],
-        "grants": {
-          "movement": 1
-        }
-      },
-      {
-        "id": "block",
-        "name": "Block",
-        "desc": "Movement: hold a guard; hits land for a quarter.",
-        "icon": "\ud83d\udee1\ufe0f",
-        "tree": 1,
-        "requires": [
-          "club"
-        ],
-        "grants": {
-          "movement": 2
-        }
       }
-    ]
+    }
   },
   "combat": {
     "maxHp": 100,
     "stunFrames": 14,
     "knockUp": 3,
     "downFrames": 180
+  },
+  "stamina": {
+    "comment": "Dodging spends it: each movement skill's staminaCost, paid as it starts, and none starts without enough. It refills at regenPerSecond once regenDelayFrames have passed since it was last spent. Getting back up after a knock-down fills it.",
+    "max": 100,
+    "regenPerSecond": 25,
+    "regenDelayFrames": 30
+  },
+  "mp": {
+    "comment": "Casting spends it: each ability's mpCost, paid when the cast goes off (a cancelled or interrupted cast costs nothing), and none starts without enough. It refills at regenPerSecond. Getting back up after a knock-down fills it.",
+    "max": 100,
+    "regenPerSecond": 5
   },
   "hotbar": {
     "slots": 8
@@ -550,24 +445,36 @@
     {
       "id": "ability.cooldown",
       "desc": "Cooldown frames of an ability"
+    },
+    {
+      "id": "movement.cooldown",
+      "desc": "Frames before a movement skill can be used again"
+    },
+    {
+      "id": "movement.stamina",
+      "desc": "Stamina a movement skill costs"
+    },
+    {
+      "id": "ability.mp",
+      "desc": "MP an ability costs"
     }
   ],
   "movementSkills": [
     {
       "id": "dodgeRoll",
       "name": "Dodge Roll",
-      "icon": "\ud83e\udd3c",
+      "icon": "🤼",
       "desc": "Roll the way you are moving. Most of it cannot be hit.",
       "tags": [
         "movement",
         "defensive"
       ],
-      "cooldownFrames": 72,
+      "staminaCost": 30,
       "action": {
         "startup": 2,
         "active": 13,
         "recovery": 9,
-        "speed": 13.0,
+        "speed": 13,
         "direction": "input",
         "invulnFrom": 2,
         "invulnTo": 13,
@@ -577,18 +484,18 @@
     {
       "id": "backstep",
       "name": "Backstep",
-      "icon": "\u21a9\ufe0f",
+      "icon": "↩️",
       "desc": "Hop backwards out of reach. Brief invulnerability on the way out.",
       "tags": [
         "movement",
         "defensive"
       ],
-      "cooldownFrames": 48,
+      "staminaCost": 20,
       "action": {
         "startup": 1,
         "active": 9,
         "recovery": 11,
-        "speed": 15.0,
+        "speed": 15,
         "direction": "backward",
         "invulnFrom": 1,
         "invulnTo": 7,
@@ -598,7 +505,7 @@
     {
       "id": "block",
       "name": "Block",
-      "icon": "\ud83d\udee1\ufe0f",
+      "icon": "🛡️",
       "desc": "Raise a guard while you hold it. Hits land for a quarter.",
       "tags": [
         "movement",
@@ -610,7 +517,7 @@
         "startup": 3,
         "active": 40,
         "recovery": 7,
-        "speed": 0.0,
+        "speed": 0,
         "direction": "facing",
         "hold": true,
         "damageTaken": 0.25,
@@ -620,7 +527,7 @@
     {
       "id": "slide",
       "name": "Slide",
-      "icon": "\ud83c\udfc2",
+      "icon": "🏂",
       "desc": "Drop into a slide you can steer, and jump out of it to go further.",
       "tags": [
         "movement"

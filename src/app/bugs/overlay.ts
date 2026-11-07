@@ -1,3 +1,4 @@
+import { esc } from '../../util/html';
 // The little card in the top-left corner while a bug report is being made. It is left out of the
 // report's own pictures (the frames are the 3D view only; screenshots skip it).
 
@@ -33,8 +34,6 @@ const CSS = /* css */ `
 #bug-overlay code { font-family: ui-monospace, Menlo, monospace; font-size: 11.5px; background: rgba(255,255,255,0.12); padding: 1px 4px; border-radius: 4px; }
 @keyframes bug-pulse { 50% { opacity: 0.35; } }
 `;
-
-const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 
 function clock(ms: number): string {
   const s = Math.max(0, Math.floor(ms / 1000));
@@ -83,16 +82,16 @@ export class BugOverlay {
   }
 
   private keyHints(k: Keys, saveLabel: string): string {
-    const save = k.pad ? `<span>Click both sticks to ${saveLabel}</span>` : `<span><span class="key">${esc(k.report)}</span>${saveLabel}</span>`;
-    return `<div class="keys">${save}<span><span class="key">⌫</span>discard</span></div>`;
+    const save = k.pad ? `<span>Click Both Sticks to ${saveLabel}</span>` : `<span><span class="key">${esc(k.report)}</span>${saveLabel}</span>`;
+    return `<div class="keys">${save}<span><span class="key">⌫</span>Discard</span></div>`;
   }
 
   starting(k: Keys): void {
     this.show(
       'starting',
-      `<div class="top"><span class="dot"></span>Bug report: starting…</div>` +
+      `<div class="top"><span class="dot"></span>Bug Report: Starting…</div>` +
         `<div class="body">Allow the microphone if the browser asks (Esc frees the mouse). The last 30 seconds of play are already in.</div>` +
-        this.keyHints(k, 'save now'),
+        this.keyHints(k, 'Save Now'),
     );
   }
 
@@ -104,10 +103,10 @@ export class BugOverlay {
     else if (o.said || o.interim) body = `<div class="said">${esc(o.said)}${o.interim ? ` <span class="interim">${esc(o.interim)}</span>` : ''}</div>`;
     else body = `<span class="quiet">Listening… say what went wrong, and show it if you can.</span>`;
     const html =
-      `<div class="top"><span class="dot"></span>Recording bug report<span class="time">${clock(o.ms)}</span></div>` +
+      `<div class="top"><span class="dot"></span>Recording Bug Report<span class="time">${clock(o.ms)}</span></div>` +
       `<div class="body">${body}</div>` +
       (o.warning ? `<div class="body" style="color:#ffd166">⚠ ${esc(o.warning)}</div>` : '') +
-      this.keyHints(o.keys, 'save');
+      this.keyHints(o.keys, 'Save');
     // Only touch the DOM when something changed (this runs several times a second).
     if (html !== this.lastHtml || this.root.hidden) this.show(o.confirmDiscard || o.warning ? 'warn' : '', html);
   }
@@ -118,7 +117,7 @@ export class BugOverlay {
       '',
       `<div class="top"><span class="dot"></span>What went wrong?</div>` +
         `<div class="body quiet">${esc(why)}</div><textarea placeholder="Describe the bug…"></textarea>` +
-        `<div class="keys"><span><span class="key">Enter</span>save</span><span><span class="key">Esc</span>save without a note</span></div>`,
+        `<div class="keys"><span><span class="key">Enter</span>Save</span><span><span class="key">Esc</span>Save Without a Note</span></div>`,
     );
     const ta = this.root.querySelector('textarea')!;
     this.note = ta;
@@ -147,7 +146,7 @@ export class BugOverlay {
 
   saving(done: number, total: number): void {
     const pct = total ? Math.round((done / total) * 100) : 0;
-    const html = `<div class="top"><span class="dot"></span>Saving bug report…<span class="time">${pct}%</span></div><div class="bar"><div class="fill" style="width:${pct}%"></div></div>`;
+    const html = `<div class="top"><span class="dot"></span>Saving Bug Report…<span class="time">${pct}%</span></div><div class="bar"><div class="fill" style="width:${pct}%"></div></div>`;
     if (this.root.className !== 'saving') this.show('saving', html);
     else this.root.querySelector<HTMLElement>('.fill')?.style.setProperty('width', `${pct}%`);
     const t = this.root.querySelector('.time');
@@ -157,21 +156,21 @@ export class BugOverlay {
   saved(path: string): void {
     this.show(
       'saved',
-      `<div class="top"><span class="dot"></span>Bug report saved</div>` +
+      `<div class="top"><span class="dot"></span>Bug Report Saved</div>` +
         `<div class="body"><code>${esc(path)}</code><br>Type <code>/fix-bugs</code> in Claude Code to have it looked at.</div>`,
     );
     this.hideTimer = window.setTimeout(() => this.hide(), 7000);
   }
 
   discarded(): void {
-    this.show('', `<div class="top"><span class="dot" style="background:#9aa5b1;box-shadow:none;animation:none"></span>Bug report discarded</div>`);
+    this.show('', `<div class="top"><span class="dot" style="background:#9aa5b1;box-shadow:none;animation:none"></span>Bug Report Discarded</div>`);
     this.hideTimer = window.setTimeout(() => this.hide(), 2500);
   }
 
   failed(why: string, retrying: boolean): void {
     this.show(
       'failed',
-      `<div class="top"><span class="dot"></span>Bug report not saved yet</div>` +
+      `<div class="top"><span class="dot"></span>Bug Report Not Saved Yet</div>` +
         `<div class="body">${esc(why)}${retrying ? '<br>Retrying every few seconds; keep this tab open. Is <code>npm run dev</code> running?' : ''}</div>`,
     );
   }

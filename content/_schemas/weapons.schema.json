@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "weapons",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "title": {
+      "type": "string"
+    },
+    "icon": {
+      "type": "string"
+    },
+    "tags": {
+      "type": "array"
+    },
+    "combo": {
+      "type": "array"
+    },
+    "variants": {
+      "type": "array"
+    }
+  },
+  "required": [
+    "name",
+    "title",
+    "icon",
+    "tags",
+    "combo"
+  ],
+  "additionalProperties": false
+}

@@ -1,0 +1,429 @@
+import * as THREE from 'three';
+import { Hero, type WeaponAt } from '../../../render/character';
+import { pose, type PoseFeedback, type PoseInput } from '../../../content/pose';
+import { HERO_RIG } from '../../../render/creatures/heroBody';
+import { SCENARIOS, scenario, type Moment, type Scenario } from '../../../render/detail/scenarios';
+import { madeHero, madeHeroNow } from '../../../render/detail/madeHero';
+import { HERO_MOVES, HERO_MOVE_SETS } from '../../../render/detail/moves';
+import { ABILITIES, DEFAULT_BUILD, MOVEMENT_SKILLS, MOVE, WEAPONS, weaponId } from '../../../content/tuning';
+import { NodeTrack, readBones, readJoint, sideOf, writeBones, writeJoint } from '../pose';
+import type { AnimDef, Bone, FrameInfo, Options, Phase, Posable, Snapshot, Source, Subject, Take } from '../types';
+import { Film } from './film';
+
+// The hero in the library: each of the films in src/render/detail/scenarios.ts (what the rules
+// report frame by frame) played through the game's own Hero (src/render/character.ts) with the
+// game's timing (film.ts, as the measurements play them: bench/hero.ts), every frame kept. The hero
+// wears its made body (madeHero.ts). Drawn in the library's studio, or outdoors on grass as the
+// hero's animation page showed them (the Outdoors toggle). A whole motion in one picture: the
+// library's contact sheet.
+
+// ---------- the hero's bones ----------
+
+const LOCKED = new Set(['squash', 'eyes']);
+
+/** The far ends of what the hands hold, in the weapon's own space: a blade's tip, the club's head, the orb, the bow's top. */
+const POINTS: Array<{ name: string; bone: string; at: [number, number, number] }> = [
+  { name: '@sword tip', bone: '@sword', at: [0, -1.1, 0] },
+  { name: '@club head', bone: '@club', at: [0, -0.6, 0] },
+  { name: '@staff orb', bone: '@staff', at: [0, -1.2, 0] },
+  { name: '@bow top', bone: '@bow', at: [0, 0.275, 0.476] },
+];
+const MINOR = /^(palm|fingers|fingertips|eyes|squash)/;
+
+function heroBones(hero: Hero): Bone[] {
+  const rig = hero.detail;
+  const bones: Bone[] = rig.def.joints.map((j) => ({
+    name: j.name,
+    object: rig.joint(j.name),
+    parent: j.parent ?? null,
+    side: sideOf(j.name),
+    locked: LOCKED.has(j.name),
+    minor: MINOR.test(j.name),
+  }));
+  // What it carries: shown where its hand (or the body, put away) has it, turned and moved by the grip.
+  for (const [name, a] of Object.entries(HERO_RIG.attachments ?? {})) {
+    bones.push({ name: `@${name}`, object: rig.attachment(name), parent: a.joint, side: 'C', minor: true });
+  }
+  return bones;
+}
+
+/** The body itself, posed from snapshots only: a ghost for onion skins and corrections. */
+class HeroGhost implements Posable {
+  readonly hero = new Hero();
+  readonly root: THREE.Object3D;
+  readonly space: THREE.Object3D;
+  readonly bones: Bone[];
+  readonly points = POINTS;
+
+  constructor() {
+    this.root = this.hero.root;
+    this.space = this.hero.root;
+    this.bones = heroBones(this.hero);
+  }
+
+  apply(s: Snapshot): void {
+    const x = s.extra ?? {};
+    const weapon = typeof x.weapon === 'number' ? x.weapon : DEFAULT_BUILD.weapon;
+    if (this.hero.weaponHeld !== weapon) this.hero.setWeapon(weapon);
+    const at = (x.at as WeaponAt | undefined) ?? 'hand';
+    if (this.hero.weaponState !== at) this.hero.placeWeapon(at);
+    writeBones(this.bones, s.joints);
+    const root = s.joints['@root'];
+    if (root) writeJoint(this.hero.root, root);
+    const shown = (x.shown as Record<string, boolean> | undefined) ?? {};
+    for (const b of this.bones) if (b.name.startsWith('@') && b.name in shown) b.object.visible = shown[b.name];
+  }
+
+  capture(): Snapshot {
+    return { joints: { ...readBones(this.bones), '@root': readJoint(this.hero.root) }, extra: { weapon: this.hero.weaponHeld, at: this.hero.weaponState } };
+  }
+
+  dispose(): void {
+    this.root.removeFromParent();
+  }
+}
+
+// ---------- one film, every frame kept ----------
+
+interface Kept {
+  m: Moment;
+  input: PoseInput;
+  fb: PoseFeedback;
+  at: WeaponAt;
+  travelled: [number, number];
+  buf: Float32Array;
+}
+
+class HeroTake implements Take {
+  readonly root = new THREE.Group();
+  readonly film: Film;
+  readonly hero: Hero;
+  readonly space: THREE.Object3D;
+  readonly bones: Bone[];
+  readonly points = POINTS;
+  readonly frames: number;
+  readonly fps = 60;
+  readonly loop = true;
+  readonly phases: Phase[];
+  readonly framing;
+  private track: NodeTrack;
+  private kept: Kept[] = [];
+  private index = new Map<string, number>();
+  private shownFrame = -1;
+  private decor = true;
+
+  constructor(
+    readonly s: Scenario,
+    readonly weapon: number,
+  ) {
+    this.root.name = `take:${s.id}`;
+    this.film = new Film(s, weapon);
+    this.hero = this.film.hero;
+    this.root.add(this.hero.root);
+    this.space = this.hero.root;
+    this.bones = heroBones(this.hero);
+    this.frames = s.frames;
+    this.track = new NodeTrack(this.root);
+    this.track.nodes.forEach((n, i) => this.index.set(n.uuid, i));
+    this.phases = heroPhases(s, weapon);
+    const far = s.prop === 'sloop' ? 9 : s.prop ? 6.5 : 4.6;
+    this.framing = { target: [0, s.prop === 'glider' ? 1.5 : 0.95, 0] as [number, number, number], distance: far, height: 1.8 };
+  }
+
+  get baked(): number {
+    return this.kept.length;
+  }
+
+  private stepOne(): void {
+    // The hero really moves over the ground while it's worked out, so a planted foot stays put on it.
+    const film = this.film;
+    film.step();
+    const fb = film.fb!;
+    this.kept.push({
+      m: film.last!,
+      input: film.input,
+      fb: { arrow: fb.arrow, draw: fb.draw, plant: [fb.plant[0], fb.plant[1]], trail: fb.trail ? { ...fb.trail } : null },
+      at: this.hero.weaponState,
+      travelled: [film.travelled[0], film.travelled[1]],
+      buf: this.track.capture(),
+    });
+  }
+
+  bake(budget: number): boolean {
+    if (this.kept.length >= this.frames) return true;
+    // Worked out where the world is still: the take's own offset (keeping the body in view) put aside.
+    const saved = this.root.position.clone();
+    this.root.position.set(0, 0, 0);
+    this.root.updateMatrixWorld(true);
+    for (let i = 0; i < budget && this.kept.length < this.frames; i++) this.stepOne();
+    this.root.position.copy(saved);
+    this.shownFrame = -1;
+    return this.kept.length >= this.frames;
+  }
+
+  private ensure(frame: number): Kept {
+    if (frame >= this.kept.length) this.bake(frame - this.kept.length + 1);
+    return this.kept[frame];
+  }
+
+  show(frame: number): void {
+    const f = Math.max(0, Math.min(this.frames - 1, Math.round(frame)));
+    const k = this.ensure(f);
+    if (this.hero.weaponState !== k.at) this.hero.placeWeapon(k.at);
+    this.track.apply(k.buf);
+    this.hero.feedback(k.input, k.fb);
+    if (!this.decor) this.hero.hideTrails();
+    // Kept in view: the take is moved back by however far the hero has travelled (the floor goes the other way).
+    this.root.position.set(-k.travelled[0], 0, -k.travelled[1]);
+    this.shownFrame = f;
+  }
+
+  snapshot(frame: number): Snapshot {
+    const f = Math.max(0, Math.min(this.frames - 1, Math.round(frame)));
+    const k = this.ensure(f);
+    const joints: Record<string, number[]> = {};
+    const S = NodeTrack.STRIDE;
+    const shown: Record<string, boolean> = {};
+    for (const b of this.bones) {
+      const i = this.index.get(b.object.uuid);
+      if (i === undefined) continue;
+      joints[b.name] = Array.from(k.buf.subarray(i * S, i * S + 10));
+      if (b.name.startsWith('@')) shown[b.name] = k.buf[i * S + 10] > 0.5;
+    }
+    const r = this.index.get(this.hero.root.uuid)!;
+    const root = Array.from(k.buf.subarray(r * S, r * S + 10));
+    root[0] = 0;
+    root[2] = 0;
+    joints['@root'] = root;
+    return { joints, extra: { weapon: k.input.weapon, at: k.at, shown } };
+  }
+
+  capture(): Snapshot {
+    const base = this.snapshot(Math.max(0, this.shownFrame));
+    const live = readBones(this.bones);
+    return { joints: { ...base.joints, ...live }, extra: base.extra };
+  }
+
+  apply(s: Snapshot): void {
+    writeBones(
+      this.bones.filter((b) => !b.locked),
+      s.joints,
+    );
+  }
+
+  info(frame: number): FrameInfo {
+    const k = this.ensure(Math.max(0, Math.min(this.frames - 1, Math.round(frame))));
+    const i = k.input;
+    const parts = [
+      i.attackIndex >= 0 && i.step ? swingWords(i) : '',
+      i.actionId >= 0 ? `${MOVEMENT_SKILLS[i.actionId]?.name ?? 'action'} f${Math.round(i.actionFrame)}` : '',
+      i.castAbility >= 0 ? `cast ${ABILITIES[i.castAbility]?.name ?? ''} f${Math.round(i.castFrame)}/${i.castFrames}` : '',
+      !i.grounded ? `in the air, rising ${i.rise.toFixed(2)}${i.flipFrame >= 0 ? ', flipping' : ''}` : '',
+      i.landFrame < 20 ? `landing f${i.landFrame}` : '',
+      i.stunned ? `hit f${i.stunFrame}` : '',
+      i.down ? `knocked down f${i.downFrame}` : '',
+      i.run > 0 ? `${(i.run * MOVE.runSpeed).toFixed(1)} m/s` : '',
+      i.travel ? i.travel : '',
+      i.stow > 0 && i.stow < 1 ? `stow ${i.stow.toFixed(2)}` : i.stow >= 1 && !i.travel ? 'weapon away' : '',
+      i.carry ? 'pack on' : '',
+    ].filter(Boolean);
+    return { line: parts.join(' · ') || 'standing', detail: inputDetail(k) };
+  }
+
+  ground(frame: number): { x: number; z: number; y: number; water: number | null; floor: boolean } {
+    const k = this.ensure(Math.max(0, Math.min(this.frames - 1, Math.round(frame))));
+    const swim = this.s.id.startsWith('swim') || this.s.id === 'tread';
+    const boat = this.film.prop?.water !== undefined;
+    return { x: k.travelled[0], z: k.travelled[1], y: swim ? -1.5 : 0, water: swim ? 1.2 : boat ? (this.film.prop?.water ?? 0) : null, floor: !boat };
+  }
+
+  ghost(): Posable {
+    return new HeroGhost();
+  }
+
+  setDecor(on: boolean): void {
+    this.decor = on;
+    if (!on) this.hero.hideTrails();
+  }
+
+  dispose(): void {
+    this.root.removeFromParent();
+  }
+}
+
+/** A swing in words: which, and how far through its wind-up, strike or recovery. */
+function swingWords(i: PoseInput): string {
+  const s = i.step!;
+  const f = i.attackFrame;
+  const n = i.attackIndex + 1;
+  const what = `${i.airSwing ? 'jump attack' : `swing ${n}/${i.comboLength}`}${s.pose ? ` (${s.pose})` : ''}`;
+  if (f < s.startup) return `${what} wind-up ${Math.floor(f) + 1}/${s.startup}`;
+  if (f < s.startup + s.active) return `${what} strike ${Math.floor(f - s.startup) + 1}/${s.active}`;
+  return `${what} recovery ${Math.floor(f - s.startup - s.active) + 1}/${s.recovery}`;
+}
+
+/** What the rules said on a frame, without the neutral fields: for the prompt. */
+function inputDetail(k: Kept): Record<string, unknown> {
+  const i = k.input;
+  const out: Record<string, unknown> = {};
+  const neutral = pose();
+  for (const [key, v] of Object.entries(i)) {
+    if (key === 'step' || key === 'grips' || key === 'footrest' || key === 'time' || key === 'phase' || key === 'stride' || key === 'effort' || key === 'lean')
+      continue;
+    if ((neutral as unknown as Record<string, unknown>)[key] === v) continue;
+    out[key] = typeof v === 'number' ? Math.round(v * 1000) / 1000 : v;
+  }
+  if (i.step) out.step = { startup: i.step.startup, active: i.step.active, recovery: i.step.recovery, pose: i.step.pose ?? null };
+  out.groundSpeed = Math.round(k.m.speed * 100) / 100;
+  if (k.m.lift) out.lift = Math.round(k.m.lift * 1000) / 1000;
+  if (k.m.facing) out.facingDeg = Math.round((k.m.facing * 180) / Math.PI);
+  out.weaponAt = k.at;
+  return out;
+}
+
+/** The timeline's bands: what the film is doing when, from the rules' own frame counts. */
+function heroPhases(s: Scenario, weapon: number): Phase[] {
+  const out: Phase[] = [];
+  let cur: Phase | null = null;
+  for (let f = 0; f < s.frames; f++) {
+    const m = s.at(f);
+    const i = pose({ ...m.input, weapon: s.weapon ?? weapon });
+    const [label, kind] = classify(i, m);
+    if (cur && cur.label === label && cur.to === f - 1) cur.to = f;
+    else out.push((cur = { from: f, to: f, label, kind }));
+  }
+  return out;
+}
+
+function classify(i: PoseInput, m: Moment): [string, string] {
+  if (i.attackIndex >= 0 && i.step) {
+    const s = i.step;
+    const what = i.airSwing || !i.grounded ? 'Jump attack' : `Swing ${i.attackIndex + 1}`;
+    if (i.attackFrame < s.startup) return [`${what} · wind-up`, 'windup'];
+    if (i.attackFrame < s.startup + s.active) return [`${what} · strike`, 'strike'];
+    return [`${what} · recovery`, 'recover'];
+  }
+  if (i.actionId >= 0) {
+    const def = MOVEMENT_SKILLS[i.actionId];
+    const a = def?.action;
+    const name = def?.name ?? 'Action';
+    if (a && i.actionFrame < a.startup) return [`${name} · start`, 'windup'];
+    if (a && i.actionFrame < a.startup + a.active) return [`${name}`, 'strike'];
+    return [`${name} · recovery`, 'recover'];
+  }
+  if (i.castAbility >= 0) return [`Cast ${ABILITIES[i.castAbility]?.name ?? ''}`, 'cast'];
+  if (i.down) return ['Knocked down', 'hurt'];
+  if (i.stunned) return [i.grounded ? 'Hit' : 'Hit, in the air', 'hurt'];
+  if (i.travel) return [i.travel[0].toUpperCase() + i.travel.slice(1), 'travel'];
+  if (!i.grounded) return [i.flipFrame >= 0 ? 'Flip' : 'In the air', 'air'];
+  if (i.landFrame < 12) return ['Landing', 'land'];
+  if (i.stow > 0 && i.stow < 1) return ['Weapon away/out', 'other'];
+  const v = Math.abs(m.speed);
+  if (v < 0.05) return ['Standing', 'idle'];
+  const name = v < 2.2 ? 'Walk' : v < 4.5 ? 'Jog' : v <= MOVE.runSpeed + 0.2 ? 'Run' : 'Sprint';
+  return [name, 'move'];
+}
+
+// ---------- the subject ----------
+
+const params = new URLSearchParams(location.search);
+const setOf = (w: string): string => params.get(`${w}Moves`) ?? HERO_MOVE_SETS[w] ?? 'keyed';
+/** The weapon picked (its place in WEAPONS) until another is: the one a hero starts with. */
+const FIRST_WEAPON = String(DEFAULT_BUILD.weapon);
+
+export const heroSubject: Subject = {
+  id: 'hero',
+  name: 'Hero',
+  group: 'Heroes',
+  blurb: 'The player, in the made body',
+  options: [
+    {
+      id: 'weapon',
+      label: 'Weapon',
+      value: FIRST_WEAPON,
+      choices: WEAPONS.map((w, i) => ({ value: String(i), label: w.title })),
+    },
+  ],
+  anims(): AnimDef[] {
+    return SCENARIOS.map((s) => ({
+      id: s.id,
+      label: s.label,
+      group: s.group,
+      frames: s.frames,
+      fps: 60,
+      loop: true,
+      note: s.weapon !== undefined ? WEAPONS[s.weapon]?.title : undefined,
+    }));
+  },
+  async ready() {
+    await (madeHeroNow() ? Promise.resolve() : madeHero()?.catch(() => null));
+  },
+  take(animId: string, opts: Options): Take {
+    return new HeroTake(scenario(animId), Number(opts.weapon ?? FIRST_WEAPON));
+  },
+  // A film with a weapon of its own (the sword combo) plays it whatever the picker says.
+  optionsFor: (animId: string, opts: Options): Options =>
+    SCENARIOS.find((s) => s.id === animId)?.weapon !== undefined ? {} : { weapon: opts.weapon ?? FIRST_WEAPON },
+  source(): Source {
+    const made = !!madeHeroNow();
+    const sets = (['sword', 'club'] as const).map((w) => `${w}: ${setOf(w)}`).join(', ');
+    return {
+      system: [
+        "Procedural: every pose is worked out in code, a pure function of a PoseInput (what the rules say the body is doing on a frame: speed, heading, which swing and which frame of it, a jump's rise, a hit) — `poseHumanoid` in src/render/detail/humanoid.ts.",
+        'On top of that the stateful Hero (src/render/character.ts) eases between states (Inertia), holds planted feet where they were put down (holdFeet), draws and sheathes the weapon, closes made hands round what they hold (gripHands), and draws trails and the bowstring.',
+        "The library plays the films in src/render/detail/scenarios.ts (the rules' frame counts, speeds and timings, frame by frame at 60 fps) through that same Hero (src/dev/library/subjects/film.ts), as the measurements play them (src/dev/library/bench/hero.ts).",
+        made
+          ? `This is the made body (madeHero.ts, src/render/assets/models/hero.glb, rig measured by fit.ts): its walk and run upper body come from Meshy's captured cycles (mocap.ts), and some combo swings are animation-library clips retargeted bone for bone (retarget.ts; which clip each weapon's combo plays: moves.ts — sets in use: ${sets}; 'keyed' means the code keyframes in swings.ts). A note on a swing that plays a clip may mean changing the clip choice, its cut (parts/from/to) or the retarget rather than swings.ts.`
+          : 'This is the box hero (src/render/creatures/heroBody.ts), standing in while the made body loads (or because it could not): every move comes from the code keyframes.',
+      ].join(' '),
+      files: [
+        { path: 'src/render/detail/humanoid.ts', what: 'poseHumanoid: every pose (gait, swings, actions, casts, hits, travel) from a PoseInput' },
+        { path: 'src/render/detail/swings.ts', what: 'weapon swing keyframes per weapon and combo step, AIR_SWINGS (jump attacks)' },
+        { path: 'src/render/detail/gait.ts', what: 'stride length, duty factor, planted feet at any speed and heading (BOX_STRIDE, MADE_STRIDE)' },
+        { path: 'src/render/detail/body.ts', what: 'limb handles, two-bone IK, axis conventions' },
+        { path: 'src/render/character.ts', what: 'Hero: transitions (Inertia), foot holds, weapon draw/sheathe, grips, trails, bowstring' },
+        { path: 'src/render/detail/stow.ts', what: 'where weapons are put away on the body' },
+        ...(made
+          ? [
+              { path: 'src/render/detail/mocap.ts', what: "the made body's captured walk/run cycles" },
+              { path: 'src/render/detail/moves.ts', what: 'which library clip each weapon combo plays (or keyed)' },
+              { path: 'src/render/detail/retarget.ts', what: 'how a library clip is baked onto the made body' },
+              { path: 'src/render/detail/fit.ts', what: 'made body rig, palms and fingers, gripHands' },
+            ]
+          : []),
+        { path: 'src/render/detail/scenarios.ts', what: 'the films: what the rules report per frame (do not change these to fix a pose)' },
+        { path: 'src/render/creatures/heroBody.ts', what: 'the box rig: joints, parts, weapons' },
+        {
+          path: 'shared/*.json, src/content/tuning.ts',
+          what: "the rules' frame counts (startup/active/recovery): changing them is a rules change in TS and Rust together",
+        },
+      ],
+      conventions:
+        "Model space: x to the body's left, y up, z ahead; the ground is y = 0. A bone hangs down its parent's -Y at rest. Arms: yaw about +Y, then pitch about +X (0 hangs down, -90° points forward, -180° straight up), then twist; elbows bend the forearm forward with negative X. Legs: pitch about +X (negative swings forward), spread about +Z, twist about +Y; knees bend the shin back with positive X; feet: positive pitch points the toes. Torso and hips: positive pitch leans forward, positive yaw turns left. Joints named @sword/@club/@staff/@bow/@arrow are what the hands hold (placed by gripHands and stow.ts).",
+      checks: [
+        {
+          command: 'npx vitest run tests/unit/animation.test.ts',
+          what: 'planted feet, floor clearance, joint limits, trails on the blade, the bowstring, grips (the films measured on the box hero)',
+        },
+        { command: 'npx playwright test tests/integration/animation.spec.ts', what: 'the hands on the oars in the game itself, at 30 and 144 fps' },
+        ...(made ? [{ command: 'npx playwright test tests/integration/retarget.spec.ts', what: 'library clips held to their source' }] : []),
+      ],
+    };
+  },
+  animSource(animId: string, opts: Options): string {
+    const s = scenario(animId);
+    const w = s.weapon ?? Number(opts.weapon ?? FIRST_WEAPON);
+    const bits = [`film '${animId}' in src/render/detail/scenarios.ts (${s.frames} frames)`];
+    const fights = s.group === 'Fighting';
+    if (fights) {
+      const name = weaponId(w);
+      const set = setOf(name);
+      const clipNote =
+        madeHeroNow() && HERO_MOVES[name]?.[set]
+          ? `; on the made body the ${name} combo plays clip set '${set}' (moves.ts)`
+          : `; ${name} swings are keyframes in swings.ts`;
+      bits.push(`weapon ${name}${clipNote}`);
+    }
+    return bits.join(', ');
+  },
+};

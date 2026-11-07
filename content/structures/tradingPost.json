@@ -1,0 +1,11 @@
+{
+  "id": "tradingPost",
+  "name": "Trading Post",
+  "w": 10,
+  "d": 8,
+  "h": 9.2,
+  "collider": "building",
+  "look": {
+    "body": "tradingPost"
+  }
+}

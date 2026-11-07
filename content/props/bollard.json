@@ -1,0 +1,16 @@
+{
+  "id": "bollard",
+  "w": 0.35,
+  "d": 0.35,
+  "h": 0.6,
+  "collider": "none",
+  "look": {
+    "body": "bollard",
+    "model": {
+      "files": [
+        "bollard"
+      ],
+      "sink": 0.02
+    }
+  }
+}

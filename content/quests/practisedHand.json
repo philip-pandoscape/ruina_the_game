@@ -1,0 +1,26 @@
+{
+  "id": "practisedHand",
+  "name": "Practised Hand",
+  "giver": "",
+  "after": [
+    "landfall"
+  ],
+  "auto": true,
+  "milestone": true,
+  "intro": "Every skill you use gets better with use. Use them.",
+  "steps": [
+    {
+      "text": "Gain 5 skill levels",
+      "objectives": [
+        {
+          "type": "skillLevel",
+          "n": 5
+        }
+      ]
+    }
+  ],
+  "outro": "Practice made you better.",
+  "rewards": {
+    "skillPoints": 1
+  }
+}

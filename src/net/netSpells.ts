@@ -1,15 +1,20 @@
-import type { SpellView } from '../render/spells';
-import type { GameEvent } from '../sim/types';
-import { ABILITIES, effectRadius } from '../tuning';
-import type { ResolvedSkills } from '../skills';
-import type { ArrowRecord, EffectEvent, MeteorRecord, NetCrowd } from './netCrowd';
+import type { GameEvent } from '../engine/rules';
+import { ABILITIES, effectRadius } from '../content/tuning';
+import type { ResolvedSkills } from '../content/skills';
+import type { ArrowRecord, EffectEvent, MeteorRecord, WorldFeed } from './worldFeed';
+
+/** What draws arrows and meteors where they are (src/render/spells.ts's SpellView). */
+export interface SpellDrawing {
+  arrow(x: number, y: number, z: number, dirX: number, dirZ: number): void;
+  meteor(x: number, z: number, fall: number, radius: number, hostile: boolean): void;
+}
 
 // Arrows, meteors and spell effects online, timed to match the rest of the screen: other players'
 // at the moment other players are drawn (a little in the past), your own in the present. Your own
 // arrows, meteors and heals show the instant you release or finish the cast, before the server has
 // even heard about them; when the server's copy of an arrow or meteor arrives, it takes over.
 
-const ARROW_RADIUS = 0.55; // server/src/game.rs
+const ARROW_RADIUS = 0.55; // crates/engine/src/combat.rs
 const EVENT_HEAL = 1;
 const EVENT_EXPLOSION = 2;
 const EVENT_ARROW_HIT = 3;
@@ -21,9 +26,21 @@ const EVENT_YOU_HEAL = 6;
 export type MarkerKind = 'hit' | 'hurt' | 'heal';
 const MARKERS: Record<number, MarkerKind> = { [EVENT_YOU_HIT]: 'hit', [EVENT_YOU_HURT]: 'hurt', [EVENT_YOU_HEAL]: 'heal' };
 
+// What caused a number, in an attributed event's kind above its low 4 bits: what sort of thing in the
+// cause's low 2 bits, and for a weapon or an ability its place in shared/tuning.json's list above
+// them (crates/engine/src/combat.rs weapon_cause, ability_cause).
+export const CAUSE_WEAPON = 1;
+export const CAUSE_ABILITY = 2;
+export const CAUSE_MONSTER = 3;
+
+/** A cause's sort (CAUSE_*) and, for a weapon or an ability, its place in its list. */
+export function causeOf(cause: number): { sort: number; index: number } {
+  return { sort: cause & 3, index: cause >> 2 };
+}
+
 interface Tracked<T> {
   rec: T;
-  first: number; // server tick it was first and last seen
+  first: number; // the server's updates it was first and last listed in (each record says the tick it's as of)
   last: number;
 }
 
@@ -68,7 +85,7 @@ export class NetSpells {
   private latest = 0;
 
   constructor(
-    private net: NetCrowd,
+    private net: WorldFeed,
     stats: ResolvedSkills,
   ) {
     this.stats = stats;
@@ -124,7 +141,7 @@ export class NetSpells {
 
   // A new update from the server: keep track of arrows and meteors, let the server's copies of your
   // own arrows take over from the ones you're already drawing, and queue up effects.
-  receive(myId: number | null): void {
+  receive(): void {
     const tick = this.net.lastTick;
     this.latest = tick;
     for (const a of this.net.arrows) {
@@ -135,7 +152,7 @@ export class NetSpells {
         continue;
       }
       this.arrows.set(a.id, { rec: a, first: tick, last: tick });
-      if (a.owner === myId) this.claimLocalArrow(a);
+      if (a.mine) this.claimLocalArrow(a);
     }
     for (const m of this.net.meteors) {
       const t = this.meteors.get(m.id);
@@ -146,7 +163,12 @@ export class NetSpells {
         this.meteors.set(m.id, { rec: m, first: tick, last: tick });
       }
     }
-    for (const e of this.net.events.splice(0)) this.queued.push({ tick, e });
+    for (const e of this.net.events.splice(0)) {
+      // Your own hits show the moment the server's word arrives: the swing that made them is
+      // already on screen, since your own player is drawn in the present.
+      if ((e.kind & 15) === EVENT_YOU_HIT) this.onMarker?.('hit', e.x, e.y, e.z, e.size, e.kind >> 4);
+      else this.queued.push({ tick, e });
+    }
   }
 
   // The local arrow that matches a server arrow: same direction, on the same line.
@@ -175,7 +197,7 @@ export class NetSpells {
     const out: GameEvent[] = [];
     while (this.queued.length && this.queued[0].tick - 0.5 <= renderTick) {
       const { e } = this.queued.shift()!;
-      // The top 4 bits say what caused it; world effects leave them zero.
+      // The bits above the low 4 say what caused it (causeOf); world effects leave them zero.
       const kind = e.kind & 15;
       const cause = e.kind >> 4;
       // Damage and healing meant for you: a floating number, not a world effect, and never deduped
@@ -199,11 +221,11 @@ export class NetSpells {
 
   // Draws every arrow and meteor. Other players' at renderTick, your own at presentTick (both in
   // server ticks, fractional).
-  draw(view: SpellView, renderTick: number, presentTick: number, myId: number | null, myTeam: number): void {
+  draw(view: SpellDrawing, renderTick: number, presentTick: number, myTeam: number): void {
     const tickSec = 1 / this.net.ticksPerSecond;
     for (const [id, t] of this.arrows) {
       const a = t.rec;
-      const mine = a.owner === myId;
+      const mine = a.mine;
       const at = mine ? presentTick : renderTick;
       const inLatest = t.last === this.latest;
       // Gone from the server's list: it hit something or ran out of range.
@@ -212,7 +234,8 @@ export class NetSpells {
         continue;
       }
       if (at < t.first - 1) continue; // not loosed yet, as far as this screen is concerned
-      const dt = (at - t.last) * tickSec;
+      // Flown on from the tick it's as of.
+      const dt = (at - a.tick) * tickSec;
       const speed = Math.hypot(a.vx, a.vz) || 1;
       view.arrow(a.x + a.vx * dt, a.y, a.z + a.vz * dt, a.vx / speed, a.vz / speed);
     }
@@ -227,7 +250,7 @@ export class NetSpells {
       // Your own meteor is already drawn from your cast.
       if (this.localMeteors.some((l) => Math.abs(l.x - m.x) < 0.1 && Math.abs(l.z - m.z) < 0.1)) continue;
       if (renderTick < t.first - 1) continue;
-      const fall = (m.fallTicks - m.ticksLeft + (renderTick - t.last)) / m.fallTicks;
+      const fall = (m.fallTicks - m.ticksLeft + (renderTick - m.tick)) / m.fallTicks;
       if (fall < 1) view.meteor(m.x, m.z, fall, m.radius, m.team !== myTeam);
     }
     for (const m of this.localMeteors) view.meteor(m.x, m.z, m.frame / m.fallFrames, m.radius, false);

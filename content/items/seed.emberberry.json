@@ -1,0 +1,10 @@
+{
+  "id": "seed.emberberry",
+  "name": "Emberberry Seeds",
+  "icon": "🌱",
+  "cat": "seed",
+  "stack": 99,
+  "plants": "emberberry",
+  "value": 10,
+  "desc": "A warm-climate bush. Slow on Emberholm, but its preserves sell dear."
+}

@@ -1,0 +1,11 @@
+{
+  "item": "herbs",
+  "n": [
+    2,
+    4
+  ],
+  "labor": 4,
+  "verb": "Pick Herbs",
+  "respawn": 75,
+  "kind": "herbs"
+}

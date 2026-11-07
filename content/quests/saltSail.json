@@ -1,0 +1,47 @@
+{
+  "id": "saltSail",
+  "name": "Salt and Sail",
+  "giver": "ilsa",
+  "after": [
+    "westward"
+  ],
+  "intro": "Gullrock's an islet off the south-east coast - Factor Pell there pays half again what Westwatch does, and in Charter Seals besides. No road goes there. Take this rowboat deed; summon it at the water's edge. Two packs fit in her stern.",
+  "steps": [
+    {
+      "text": "Summon your rowboat at the shore",
+      "objectives": [
+        {
+          "type": "summon",
+          "vehicle": "rowboat",
+          "marker": {
+            "place": "docks",
+            "label": "The Docks"
+          }
+        }
+      ]
+    },
+    {
+      "text": "Deliver a trade pack to Factor Pell on Gullrock",
+      "objectives": [
+        {
+          "type": "deliver",
+          "outpost": "gullrock",
+          "n": 1
+        }
+      ]
+    }
+  ],
+  "startItems": [
+    {
+      "item": "deed.rowboat",
+      "n": 1
+    }
+  ],
+  "turnIn": "pell",
+  "outro": "Rowed it yourself? Respect. Come back with a proper sloop and the sea will make you rich.",
+  "rewards": {
+    "skillPoints": 2,
+    "coins": 120,
+    "seals": 2
+  }
+}

@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import type { MountDef } from '../../content/vehicles';
 import { PAL, Parts, bev, box, cone, cyl, mesh, octa, pivot, rod, tor, type Rgb, type V3 } from './kit';
+import type { Holds } from './vehicles';
+import { TAU, clamp, lerp } from '../../util/math';
 
 // Mounts: a horse and a donkey built from soft blocks like the hero. Four legs hang from hip
 // pivots with a knee pivot halfway down; animate() runs a walk that blends into a gallop as
@@ -17,12 +19,9 @@ export interface MountAnim {
 export interface MountModel {
   root: THREE.Group;
   animate(dt: number, s: MountAnim): void;
+  /** Where the rider's feet go: the stirrup irons, left then right, riding along with the body. */
+  holds: Holds;
 }
-
-const TAU = Math.PI * 2;
-const OUTLINE = 0.018;
-const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
-const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 const smooth = (a: number, b: number, v: number) => {
   const t = clamp((v - a) / (b - a), 0, 1);
   return t * t * (3 - 2 * t);
@@ -73,7 +72,7 @@ function soft(p: Parts, w: number, h: number, d: number, c: Rgb, at: V3, r?: V3,
   p.add(bev(w, h, d, Math.min(round, w / 2, h / 2, d / 2), 1), c, at, r, undefined, { smooth: true });
 }
 
-function body(def: MountDef, b: Build, extra: (body: Parts, root: THREE.Group, torso: THREE.Group) => void): MountModel {
+function body(def: MountDef, b: Build, extra: (body: Parts, root: THREE.Group, torso: THREE.Group) => Holds | void): MountModel {
   const root = new THREE.Group();
   root.name = `mount:${def.id}`;
   const torso = pivot(root, 0, 0, 0, 'body');
@@ -84,8 +83,8 @@ function body(def: MountDef, b: Build, extra: (body: Parts, root: THREE.Group, t
   soft(p, b.bw * 0.96, b.bh * 0.92, b.bl * 0.55, b.coat, [0, cy + 0.01, b.bl * 0.95], undefined, 0.14);
   soft(p, b.bw * 1.04, b.bh * 0.98, b.bl * 0.62, b.coat, [0, cy + 0.02, -b.bl * 0.95], undefined, 0.14);
   soft(p, b.bw * 0.8, b.bh * 0.2, b.bl * 1.6, b.pale, [0, cy - b.bh * 0.42, 0], undefined, 0.05);
-  extra(p, root, torso);
-  mesh(torso, p.build(), { outline: OUTLINE, name: 'torso' });
+  const holds = extra(p, root, torso) ?? {};
+  mesh(torso, p.build(), { name: 'torso' });
 
   // Neck and head (the head counter-rotates so it can be built level, then tips its nose down).
   const neck = pivot(torso, ...b.neck.base, 'neck');
@@ -93,7 +92,7 @@ function body(def: MountDef, b: Build, extra: (body: Parts, root: THREE.Group, t
   const np = new Parts();
   soft(np, b.neck.w, b.neck.len + 0.12, b.neck.w * 1.15, b.coat, [0, b.neck.len / 2, 0], undefined, 0.1);
   soft(np, 0.07, b.neck.len + 0.06, 0.12, b.mane, [0, b.neck.len / 2 + 0.03, -b.neck.w * 0.52], undefined, 0.03);
-  mesh(neck, np.build(), { outline: OUTLINE });
+  mesh(neck, np.build());
   const head = pivot(neck, 0, b.neck.len, 0, 'head');
   const headRest = -b.neck.angle + b.head.tilt;
   head.rotation.x = headRest;
@@ -113,14 +112,14 @@ function body(def: MountDef, b: Build, extra: (body: Parts, root: THREE.Group, t
     hp.add(box(0.015, h * 0.9, 0.04), PAL.leatherDark, [sx * (w / 2 + 0.006), 0, len * 0.08]);
     hp.add(tor(0.035, 0.01, 4, 8), PAL.brass, [sx * (w * 0.44 + 0.02), -h * 0.22, len * 0.66], [0, Math.PI / 2, 0]);
   }
-  mesh(head, hp.build(), { outline: OUTLINE });
+  mesh(head, hp.build());
   const ears = [-1, 1].map((sx) => {
     const e = pivot(head, sx * w * 0.3, h * 0.42, 0.0, 'ear');
     const ep = new Parts();
     soft(ep, b.ear.w, b.ear.len, b.ear.w * 0.5, b.coat, [0, b.ear.len / 2, 0], undefined, 0.02);
     ep.add(box(b.ear.w * 0.55, b.ear.len * 0.7, 0.012), b.pale, [0, b.ear.len * 0.45, b.ear.w * 0.26]);
     ep.add(cone(b.ear.w * 0.52, b.ear.len * 0.22, 4), b.dark, [0, b.ear.len + b.ear.len * 0.08, 0], [0, Math.PI / 4, 0]);
-    mesh(e, ep.build(), { outline: OUTLINE * 0.7 });
+    mesh(e, ep.build());
     e.rotation.set(-b.ear.back, 0, sx * -b.ear.out);
     return { e, sx };
   });
@@ -129,12 +128,12 @@ function body(def: MountDef, b: Build, extra: (body: Parts, root: THREE.Group, t
   const tail = pivot(torso, ...b.tail.at, 'tail');
   const tp = new Parts();
   soft(tp, 0.1, b.tail.len * 0.45, 0.1, b.mane, [0, -b.tail.len * 0.2, 0], undefined, 0.04);
-  mesh(tail, tp.build(), { outline: OUTLINE });
+  mesh(tail, tp.build());
   const tail2 = pivot(tail, 0, -b.tail.len * 0.4, 0);
   const tp2 = new Parts();
   soft(tp2, 0.15, b.tail.len * 0.65, 0.11, b.mane, [0, -b.tail.len * 0.3, -0.01], undefined, 0.05);
   tp2.add(cone(0.09, 0.14, 5), b.mane, [0, -b.tail.len * 0.66, 0], [Math.PI, 0, 0]);
-  mesh(tail2, tp2.build(), { outline: OUTLINE });
+  mesh(tail2, tp2.build());
 
   // Legs: hip and knee pivots, hooves on the ground at rest.
   const legs: Leg[] = [];
@@ -150,12 +149,12 @@ function body(def: MountDef, b: Build, extra: (body: Parts, root: THREE.Group, t
     const up = new Parts();
     const thick = front ? 1 : 1.25;
     soft(up, b.legW * thick, b.upper + 0.12, b.legW * 1.15 * thick, b.coat, [0, -b.upper / 2 + 0.04, 0], undefined, 0.06);
-    mesh(hip, up.build(), { outline: OUTLINE });
+    mesh(hip, up.build());
     const knee = pivot(hip, 0, -b.upper, 0, `knee${name}`);
     const lo = new Parts();
     soft(lo, b.legW * 0.72, lower + 0.04, b.legW * 0.78, b.socks[i] ? b.pale : b.coat, [0, -lower / 2, 0], undefined, 0.04);
     lo.add(bev(b.legW * 0.92, 0.075, b.legW * 1.05, 0.02), b.hoof, [0, -lower - 0.035, 0.012]);
-    mesh(knee, lo.build(), { outline: OUTLINE });
+    mesh(knee, lo.build());
     const [walk, gallop] = PHASES[name];
     legs.push({ hip, knee, front, walk, gallop });
   });
@@ -167,6 +166,7 @@ function body(def: MountDef, b: Build, extra: (body: Parts, root: THREE.Group, t
   const neckRest = b.neck.angle;
   return {
     root,
+    holds,
     animate(dt, s) {
       time += dt;
       const v = Math.abs(s.speed);
@@ -210,20 +210,27 @@ function body(def: MountDef, b: Build, extra: (body: Parts, root: THREE.Group, t
   };
 }
 
-/** Saddle: blanket, seat (its top on the seat anchor), cantle, pommel, flaps, stirrups, girth. */
-function saddle(p: Parts, def: MountDef, back: number, bw: number, blanket: Rgb, trim: Rgb, leather: Rgb): void {
+/**
+ * Saddle: blanket, seat (its top on the seat anchor), cantle, pommel, flaps, stirrups, girth. The
+ * stirrups hang short and close in to the barrel, so the hero's legs (short ones) bend at the knee
+ * to reach them: the thighs out over the top of the barrel, the knees past its sides, the shins back
+ * in against them. Their irons are returned as holds for the feet.
+ */
+function saddle(p: Parts, torso: THREE.Group, def: MountDef, back: number, bw: number, blanket: Rgb, trim: Rgb, leather: Rgb): Holds {
   const seat = def.seats[0];
   const z = seat.z;
   const len = bw * 1.25;
+  // Where the stirrup leathers end and the irons hang, just off the barrel's sides.
+  const sy = back - 0.22;
+  const ix = bw / 2 + 0.06;
   p.add(box(bw + 0.06, 0.03, len), blanket, [0, back + 0.015, z]);
   for (const sx of [-1, 1]) {
     p.add(box(0.025, 0.3, len), blanket, [sx * (bw / 2 + 0.035), back - 0.14, z]);
     p.add(box(0.03, 0.035, len + 0.01), trim, [sx * (bw / 2 + 0.04), back - 0.29, z]);
     p.add(bev(0.03, 0.26, len * 0.6, 0.012), leather, [sx * (bw / 2 + 0.055), back - 0.1, z + 0.02]);
     // Stirrup leather and iron.
-    const sy = back - Math.max(0.42, (seat.y - 0.75) * 0.8);
-    p.add(box(0.012, back - sy, 0.04), PAL.leatherDark, [sx * (bw / 2 + 0.08), (back + sy) / 2, z + 0.06]);
-    p.add(tor(0.05, 0.012, 4, 8), PAL.iron, [sx * (bw / 2 + 0.08), sy - 0.03, z + 0.06], [0, Math.PI / 2, 0]);
+    p.add(box(0.012, back - sy, 0.04), PAL.leatherDark, [sx * ix, (back + sy) / 2, z + 0.06]);
+    p.add(tor(0.05, 0.012, 4, 8), PAL.iron, [sx * ix, sy - 0.03, z + 0.06], [0, Math.PI / 2, 0]);
   }
   p.add(bev(bw * 0.78, seat.y - back - 0.03, len * 0.7, 0.03), leather, [0, (seat.y + back + 0.03) / 2, z]);
   p.add(bev(bw * 0.72, 0.13, 0.07, 0.025), leather, [0, seat.y + 0.035, z - len * 0.4]);
@@ -231,6 +238,14 @@ function saddle(p: Parts, def: MountDef, back: number, bw: number, blanket: Rgb,
   p.add(octa(0.03), PAL.brass, [0, seat.y + 0.09, z + len * 0.37]);
   // Girth strap under the belly.
   p.add(box(bw + 0.03, 0.05, 0.08), PAL.leatherDark, [0, back - 0.3, z + 0.05]);
+  // The feet rest on the irons' bottom bars, left then right (+X is the rider's left).
+  const iron = (sx: number) => {
+    const o = new THREE.Object3D();
+    o.position.set(sx * ix, sy - 0.08, z + 0.06);
+    torso.add(o);
+    return o;
+  };
+  return { feet: [iron(1), iron(-1)] as [THREE.Object3D, THREE.Object3D] };
 }
 
 function horse(def: MountDef): MountModel {
@@ -260,7 +275,7 @@ function horse(def: MountDef): MountModel {
     socks: [true, false, false, true],
     stride: [2.4, 6.5],
   };
-  return body(def, b, (p) => saddle(p, def, back, b.bw, 0xc23b32, PAL.gold, 0x6b3f22));
+  return body(def, b, (p, _root, torso) => saddle(p, torso, def, back, b.bw, 0xc23b32, PAL.gold, 0x6b3f22));
 }
 
 function donkey(def: MountDef): MountModel {
@@ -290,8 +305,8 @@ function donkey(def: MountDef): MountModel {
     socks: [false, false, false, false],
     stride: [1.6, 4.2],
   };
-  return body(def, b, (p) => {
-    saddle(p, def, back, b.bw, 0x3f8f8a, PAL.cream, PAL.leather);
+  return body(def, b, (p, _root, torso) => {
+    const holds = saddle(p, torso, def, back, b.bw, 0x3f8f8a, PAL.cream, PAL.leather);
     // Dark shoulder cross, a donkey's mark.
     p.add(box(0.05, 0.02, b.bl * 1.6), b.dark, [0, back + 0.003, -0.05]);
     for (const sx of [-1, 1]) p.add(box(0.02, 0.22, 0.05), b.dark, [sx * (b.bw / 2 + 0.002), back - 0.11, b.bl * 0.62]);
@@ -317,11 +332,19 @@ function donkey(def: MountDef): MountModel {
     }
     // A brass bell under the chin strap.
     p.add(cyl(0.025, 0.04, 0.05, 6), PAL.brass, [0, back - 0.2, b.bl * 1.25]);
+    return holds;
   });
 }
 
 /** Builds a mount; unknown ids get a horse-like build scaled to the data. */
+/** The mounts' bodies, by name: a mount's look names one. */
+const BODIES: Record<string, (def: MountDef) => MountModel> = { horse, donkey };
+
+/** The bodies a look can name. */
+export const mountBodies = (): string[] => Object.keys(BODIES);
+
+/** Builds a mount: the body its look names, or a horse if it names none. */
 export function buildMount(def: MountDef): MountModel {
-  if (def.id === 'donkey') return donkey(def);
-  return horse(def);
+  const body = def.look?.body;
+  return ((body && BODIES[body]) || horse)(def);
 }

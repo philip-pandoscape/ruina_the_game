@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "mounts",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "class": {
+      "type": "string"
+    },
+    "icon": {
+      "type": "string"
+    },
+    "desc": {
+      "type": "string"
+    },
+    "length": {
+      "type": "number"
+    },
+    "width": {
+      "type": "number"
+    },
+    "height": {
+      "type": "number"
+    },
+    "radius": {
+      "type": "number"
+    },
+    "hp": {
+      "type": "number"
+    },
+    "walkSpeed": {
+      "type": "number"
+    },
+    "runSpeed": {
+      "type": "number"
+    },
+    "gallopSpeed": {
+      "type": "number"
+    },
+    "packSpeed": {
+      "type": "number"
+    },
+    "accel": {
+      "type": "number"
+    },
+    "turnRate": {
+      "type": "number"
+    },
+    "jump": {
+      "type": "number"
+    },
+    "canCarryPack": {
+      "type": "boolean"
+    },
+    "seats": {
+      "type": "array"
+    },
+    "cargo": {
+      "type": "array"
+    },
+    "look": {
+      "type": "object",
+      "properties": {
+        "body": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "id",
+    "name",
+    "class",
+    "icon",
+    "desc",
+    "length",
+    "width",
+    "height",
+    "radius",
+    "hp",
+    "walkSpeed",
+    "runSpeed",
+    "gallopSpeed",
+    "packSpeed",
+    "accel",
+    "turnRate",
+    "jump",
+    "canCarryPack",
+    "seats",
+    "cargo"
+  ],
+  "additionalProperties": false
+}

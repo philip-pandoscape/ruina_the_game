@@ -122,7 +122,9 @@ function list() {
     console.log(`No bug reports in ${where}/. Record one in the game: press \\ (or click both sticks), talk, press it again.`);
     return;
   }
-  console.log(`${open.length} open bug report${open.length === 1 ? '' : 's'} in ${where}/${all.length > open.length ? ` (and ${all.length - open.length} closed, in ${where}/closed/)` : ''}:\n`);
+  console.log(
+    `${open.length} open bug report${open.length === 1 ? '' : 's'} in ${where}/${all.length > open.length ? ` (and ${all.length - open.length} closed, in ${where}/closed/)` : ''}:\n`,
+  );
   for (const x of all) {
     if (x.broken) {
       console.log(`  ${x.id}   ⚠ ${x.broken}`);
@@ -131,7 +133,13 @@ function list() {
     const r = x.r;
     const when = new Date(r.recordedAt).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
     const errs = r.errors?.filter((e) => e.t >= (r.covers?.from ?? -Infinity)).length ?? 0;
-    const bits = [when, `${Math.round(r.covers?.to ?? 0)} s`, errs ? `${errs} error${errs === 1 ? '' : 's'}` : '', r.voice?.file ? '' : 'no voice', x.closed ? `closed: ${r.resolution?.status ?? r.status}` : ''].filter(Boolean);
+    const bits = [
+      when,
+      `${Math.round(r.covers?.to ?? 0)} s`,
+      errs ? `${errs} error${errs === 1 ? '' : 's'}` : '',
+      r.voice?.file ? '' : 'no voice',
+      x.closed ? `closed: ${r.resolution?.status ?? r.status}` : '',
+    ].filter(Boolean);
     console.log(`  ${x.id}   ${bits.join(' · ')}`);
     const words = said(r);
     console.log(`      ${words ? `“${clip(words, 150)}”` : '(nothing said or typed)'}`);
@@ -167,24 +175,42 @@ function describeState(s) {
   const p = s.player ?? {};
   const v3 = (v) => (v ? `(${num(v.x)}, ${num(v.y)}, ${num(v.z)})` : '?');
   out.push(`mode: ${s.mode}${s.paused ? ' (paused)' : ''} · sim frame ${s.frame} · ${s.device}`);
-  out.push(`player: ${p.mode}${p.grounded ? ', on the ground' : ', in the air'} at ${v3(p.pos)}, moving ${v3(p.vel)} m/s, facing ${num(((p.facing ?? 0) * 180) / Math.PI, 0)}°, hp ${p.hp}${p.sprinting ? ', sprinting' : ''}${p.crouching ? ', crouching' : ''}`);
-  if (s.riding) out.push(`riding: ${s.riding.def} #${s.riding.id} at (${num(s.riding.x)}, ${num(s.riding.y)}, ${num(s.riding.z)}), speed ${num(s.riding.speed)} m/s, heading ${num(((s.riding.heading ?? 0) * 180) / Math.PI, 0)}°`);
-  const panels = [s.panels?.life && `${s.panels.life} panel`, s.panels?.skillTree && 'skill tree', s.panels?.aimingSlot && `aiming slot ${s.panels.aimingSlot}`].filter(Boolean);
+  out.push(
+    `player: ${p.mode}${p.grounded ? ', on the ground' : ', in the air'} at ${v3(p.pos)}, moving ${v3(p.vel)} m/s, facing ${num(((p.facing ?? 0) * 180) / Math.PI, 0)}°, hp ${p.hp}${p.sprinting ? ', sprinting' : ''}${p.crouching ? ', crouching' : ''}`,
+  );
+  if (s.riding)
+    out.push(
+      `riding: ${s.riding.def} #${s.riding.id} at (${num(s.riding.x)}, ${num(s.riding.y)}, ${num(s.riding.z)}), speed ${num(s.riding.speed)} m/s, heading ${num(((s.riding.heading ?? 0) * 180) / Math.PI, 0)}°`,
+    );
+  const panels = [
+    s.panels?.life && `${s.panels.life} panel`,
+    s.panels?.skillTree && 'skill tree',
+    s.panels?.aimingSlot && `aiming slot ${s.panels.aimingSlot}`,
+  ].filter(Boolean);
   if (panels.length) out.push(`open: ${panels.join(', ')}`);
   if (s.target) out.push(`target: ${s.target.name} (${s.target.hp} hp)${s.target.locked ? ', locked' : ''}`);
   const L = s.life;
   if (L) {
-    if (L.focus) out.push(`interaction prompt: ${L.focus.action} “${L.focus.label}”${L.focus.detail ? ` (${L.focus.detail})` : ''}${L.focus.ok ? '' : ' (not possible right now)'}`);
+    if (L.focus)
+      out.push(
+        `interaction prompt: ${L.focus.action} “${L.focus.label}”${L.focus.detail ? ` (${L.focus.detail})` : ''}${L.focus.ok ? '' : ' (not possible right now)'}`,
+      );
     if (L.placing) out.push(`placing: ${JSON.stringify(L.placing).slice(0, 160)}`);
-    out.push(`island: ${L.coins} coins, ${L.seals} seals, ${Math.floor(L.labor)} labor, clock ${Math.round(L.clock)} s, ${L.bag?.length ?? 0} bag stacks, ${L.packs?.length ?? 0} packs, ${L.vehicles?.length ?? 0} vehicles, ${L.houses?.length ?? 0} houses, ${L.scarecrows?.length ?? 0} farms`);
+    out.push(
+      `life: ${L.coins} coins, ${L.seals} seals, ${Math.floor(L.labor)} labor, clock ${Math.round(L.clock)} s, ${L.bag?.length ?? 0} bag stacks, ${L.packs?.length ?? 0} packs, ${L.vehicles?.length ?? 0} vehicles, ${L.houses?.length ?? 0} houses, ${L.scarecrows?.length ?? 0} farms`,
+    );
     const q = L.quests?.active ?? [];
     if (q.length) out.push(`quests: ${q.map((x) => `${x.id}${x.step !== undefined ? ` (step ${x.step})` : ''}`).join(', ')}`);
     if (L.weather) out.push(`weather: ${JSON.stringify(L.weather).slice(0, 160)}`);
   }
   const near = (s.nearby ?? []).slice(0, 8);
-  if (near.length) out.push(`nearby: ${near.map((a) => `${a.kind}#${a.id} ${num(a.dist, 1)} m${a.alive ? '' : ' (dead)'}${a.state ? ` ${a.state}` : ''}`).join(', ')}`);
+  if (near.length)
+    out.push(`nearby: ${near.map((a) => `${a.kind}#${a.id} ${num(a.dist, 1)} m${a.alive ? '' : ' (dead)'}${a.state ? ` ${a.state}` : ''}`).join(', ')}`);
   const perf = s.perf;
-  if (perf) out.push(`perf: ${perf.fps} fps (p95 ${perf.p95Ms} ms), ${perf.drawCalls} draw calls, ${perf.triangles?.toLocaleString?.() ?? perf.triangles} triangles, GPU ${perf.gpuMs ?? '?'} ms · ${perf.gpu}`);
+  if (perf)
+    out.push(
+      `perf: ${perf.fps} fps (p95 ${perf.p95Ms} ms), ${perf.drawCalls} draw calls, ${perf.triangles?.toLocaleString?.() ?? perf.triangles} triangles, GPU ${perf.gpuMs ?? '?'} ms · ${perf.gpu}`,
+    );
   return out;
 }
 
@@ -238,11 +264,17 @@ function show(q) {
   out.push(`Folder: ${rel(dir)}/`);
   if (r.git?.commit) {
     const head = git(['rev-parse', 'HEAD']);
-    const dirty = r.git.changed?.length ? `, with ${r.git.changed.length} uncommitted change${r.git.changed.length === 1 ? '' : 's'} (${clip(r.git.changed.join(', '), 160)})` : '';
+    const dirty = r.git.changed?.length
+      ? `, with ${r.git.changed.length} uncommitted change${r.git.changed.length === 1 ? '' : 's'} (${clip(r.git.changed.join(', '), 160)})`
+      : '';
     out.push(`Code: commit ${r.git.commit.slice(0, 9)} on ${r.git.branch}${dirty}.`);
     if (head && head !== r.git.commit) {
-      const since = git(['diff', '--stat', '--stat-width=100', r.git.commit, '--', 'src', 'shared', 'server/src', 'index.html']).split('\n').filter(Boolean);
-      if (since.length) out.push(`  The code has changed since (vs your working tree): ${since.pop()?.trim()}. It may already be fixed; check these:`, ...since.slice(0, 12).map((l) => `   ${l.trim()}`));
+      const since = git(['diff', '--stat', '--stat-width=100', r.git.commit, '--', 'src', 'shared', 'crates', 'index.html']).split('\n').filter(Boolean);
+      if (since.length)
+        out.push(
+          `  The code has changed since (vs your working tree): ${since.pop()?.trim()}. It may already be fixed; check these:`,
+          ...since.slice(0, 12).map((l) => `   ${l.trim()}`),
+        );
     }
   }
   if (r.resolution) out.push(`Resolution: ${r.resolution.status} (${r.resolution.closedAt}): ${r.resolution.note}`);
@@ -251,19 +283,24 @@ function show(q) {
   const d = r.description ?? {};
   const segs = d.whisper?.segments?.length ? d.whisper.segments : (d.transcript ?? []);
   if (d.whisper?.segments?.length) out.push(`(whisper.cpp transcript, ${d.whisper.model}; the live one is in report.json)`);
-  for (const s of segs) out.push(`  [${sec(s.t0)}] ${s.text}${s.partial ? ' (cut off)' : ''}${s.confidence && s.confidence < 0.6 ? ` (unsure: ${s.confidence})` : ''}`);
+  for (const s of segs)
+    out.push(`  [${sec(s.t0)}] ${s.text}${s.partial ? ' (cut off)' : ''}${s.confidence && s.confidence < 0.6 ? ` (unsure: ${s.confidence})` : ''}`);
   if (d.note) out.push(`  Typed note: ${d.note}`);
   if (!segs.length && !d.note) out.push('  (nothing was transcribed)');
   const v = r.voice ?? {};
   if (v.file) {
-    out.push(`  Voice: ${v.file}, ${v.seconds} s from ${sec(v.startsAt)}${v.silent ? ', ⚠ almost silent (muted or wrong microphone?)' : ''}. Live transcription: ${d.engine ?? 'off'} (${d.lang}, ${d.speechStatus}).`);
+    out.push(
+      `  Voice: ${v.file}, ${v.seconds} s from ${sec(v.startsAt)}${v.silent ? ', ⚠ almost silent (muted or wrong microphone?)' : ''}. Live transcription: ${d.engine ?? 'off'} (${d.lang}, ${d.speechStatus}).`,
+    );
     if (!d.whisper && (!segs.length || segs.some((s) => (s.confidence ?? 1) < 0.6))) out.push('  A clearer transcript: node tools/bugs.mjs transcribe ' + x.id);
   } else out.push(`  No voice: ${v.why ?? 'none recorded'}.`);
 
   h('Look at these pictures (Read them)');
-  if (r.screenshots?.press) out.push(`  ${rel(join(dir, r.screenshots.press.file))}   the whole screen at the press${r.screenshots.press.hud ? ', HUD included' : ' (3D view only)'}`);
+  if (r.screenshots?.press)
+    out.push(`  ${rel(join(dir, r.screenshots.press.file))}   the whole screen at the press${r.screenshots.press.hud ? ', HUD included' : ' (3D view only)'}`);
   for (const f of pickFrames(r)) out.push(`  ${rel(join(dir, f.file))}   ${sec(f.t)}  ${f.why}`);
-  if (r.screenshots?.end) out.push(`  ${rel(join(dir, r.screenshots.end.file))}   the whole screen when the report was finished${r.screenshots.end.hud ? ', HUD included' : ''}`);
+  if (r.screenshots?.end)
+    out.push(`  ${rel(join(dir, r.screenshots.end.file))}   the whole screen when the report was finished${r.screenshots.end.hud ? ', HUD included' : ''}`);
   out.push(`  (${r.frames?.length ?? 0} frames in all, ${r.framesNote ?? ''} More: node tools/bugs.mjs frames ${x.id} --from -5 --to 2)`);
   if (r.video?.file) out.push(`  Video with voice for people: ${rel(join(dir, r.video.file))} (${size(r.video.bytes ?? 0)}, from ${sec(r.video.startsAt)})`);
 
@@ -272,8 +309,7 @@ function show(q) {
   if (!errs.length) out.push('  none');
   for (const e of errs) {
     out.push(`  ${sec(e.t)} ${e.kind}: ${e.message}${e.source ? `  (${tidyStack(e.source)})` : ''}`);
-    if (e.stack)
-      for (const line of tidyStack(e.stack).split('\n').slice(1, 8)) out.push(`        ${line.trim()}`);
+    if (e.stack) for (const line of tidyStack(e.stack).split('\n').slice(1, 8)) out.push(`        ${line.trim()}`);
   }
   if (errs.some((e) => e.stack)) out.push('  (Line numbers are in the code Vite served and can be a few lines off the source.)');
 
@@ -306,7 +342,12 @@ function show(q) {
   }
   if (r.hud?.atPress) {
     h('Text on screen at the press');
-    out.push(...r.hud.atPress.split('\n').slice(0, 40).map((l) => `  ${clip(l, 200)}`));
+    out.push(
+      ...r.hud.atPress
+        .split('\n')
+        .slice(0, 40)
+        .map((l) => `  ${clip(l, 200)}`),
+    );
   }
 
   const samples = timeline.samples ?? [];
@@ -316,21 +357,28 @@ function show(q) {
 
   const events = (r.events ?? []).filter((e) => !(e.src === 'menu' && /^(up|down|left|right)$/.test(e.type)));
   const recent = events.filter((e) => e.t >= -12);
-  h(`Events (${recent.length} from 12 s before the press on${events.length > recent.length ? `; ${events.length - recent.length} earlier in report.json` : ''})`);
+  h(
+    `Events (${recent.length} from 12 s before the press on${events.length > recent.length ? `; ${events.length - recent.length} earlier in report.json` : ''})`,
+  );
   for (const e of recent.slice(0, 160)) out.push(eventLine(e));
   if (recent.length > 160) out.push(`  (${recent.length - 160} more in report.json)`);
 
   h('Reproducing it');
   if (existsSync(join(dir, 'save.json'))) {
     out.push(
-      `  save.json is the island exactly as it was at the press. In a Playwright spec:`,
+      `  save.json is the life exactly as it was at the press. In a Playwright spec:`,
       `    await page.addInitScript((s) => localStorage.setItem('ruina.emberholm.v1', s), readFileSync('${rel(join(dir, 'save.json'))}', 'utf8'));`,
-      `    await page.goto('/?world&test&load');   // then __game.teleport(x, z), __game.advance(frames, actions), __game.lifeCommand(...)`,
+      `    await page.goto('/?test&load');   // then __game.teleport(x, z), __game.advance(frames, actions), __game.lifeCommand(...)`,
     );
   } else out.push('  (no save: this was not the open world)');
   const inp = timeline.inputs;
-  if (inp?.runs?.length) out.push(`  timeline.json has every input from sim frame ${inp.fromFrame} (${sec(inp.fromT)}) as [steps, actions] runs: for (const [n, a] of runs) await __game.advance(n, a).`);
-  out.push(`  The history starts ${Math.abs(r.covers?.from ?? 0).toFixed(1)} s before the press, in the middle of whatever was happening, so replayed inputs show what was pressed rather than replaying the bug exactly.`);
+  if (inp?.runs?.length)
+    out.push(
+      `  timeline.json has every input from sim frame ${inp.fromFrame} (${sec(inp.fromT)}) as [steps, actions] runs: for (const [n, a] of runs) await __game.advance(n, a).`,
+    );
+  out.push(
+    `  The history starts ${Math.abs(r.covers?.from ?? 0).toFixed(1)} s before the press, in the middle of whatever was happening, so replayed inputs show what was pressed rather than replaying the bug exactly.`,
+  );
 
   h('Files');
   const files = [];
@@ -386,7 +434,15 @@ function whisperModel() {
     '/opt/homebrew/share/whisper.cpp/models',
     '/usr/local/share/whisper-cpp',
   ];
-  const prefer = ['ggml-small.en.bin', 'ggml-base.en.bin', 'ggml-medium.en.bin', 'ggml-small.bin', 'ggml-base.bin', 'ggml-large-v3-turbo.bin', 'ggml-tiny.en.bin'];
+  const prefer = [
+    'ggml-small.en.bin',
+    'ggml-base.en.bin',
+    'ggml-medium.en.bin',
+    'ggml-small.bin',
+    'ggml-base.bin',
+    'ggml-large-v3-turbo.bin',
+    'ggml-tiny.en.bin',
+  ];
   for (const p of prefer) for (const d of dirs) if (existsSync(join(d, p))) return join(d, p);
   for (const d of dirs) {
     if (!existsSync(d)) continue;
@@ -398,7 +454,7 @@ function whisperModel() {
 
 /** Names from the game, so whisper spells them right. */
 function vocabulary() {
-  const zone = readJson(join(ROOT, 'shared', 'zones', 'emberholm.json'), {});
+  const zone = readJson(join(ROOT, 'shared', 'regions', 'emberholm.json'), {});
   const names = [...(zone.places ?? []).map((p) => p.name), ...(zone.npcs ?? []).map((n) => n.name)].filter(Boolean);
   return ['Emberholm', ...new Set(names), 'glider', 'roadster', 'sloop', 'cog', 'scarecrow', 'labor', 'trade pack', 'hotbar', 'dummy', 'slime'].join(', ');
 }
@@ -432,7 +488,10 @@ function transcribe(q) {
   x.r.description = { ...x.r.description, whisper: { model: model.split('/').pop(), segments, text: segments.map((s) => s.text).join(' ') } };
   writeFileSync(join(x.dir, 'report.json'), JSON.stringify(x.r, null, 1));
   const lines = segments.map((s) => `[${sec(s.t0)}] ${s.text}`);
-  writeFileSync(join(x.dir, 'transcript.txt'), `${readFileSync(join(x.dir, 'transcript.txt'), 'utf8').trimEnd()}\n\nwhisper.cpp (${model.split('/').pop()}):\n${lines.join('\n')}\n`);
+  writeFileSync(
+    join(x.dir, 'transcript.txt'),
+    `${readFileSync(join(x.dir, 'transcript.txt'), 'utf8').trimEnd()}\n\nwhisper.cpp (${model.split('/').pop()}):\n${lines.join('\n')}\n`,
+  );
   console.log(lines.length ? lines.join('\n') : '(whisper heard nothing)');
 }
 
@@ -444,7 +503,13 @@ function close(q, status, note) {
   if (!note || note === true) die(`Say what was done: node tools/bugs.mjs close ${x.id} ${status} "what was wrong and what changed"`);
   const r = x.r ?? { broken: x.broken };
   r.status = status;
-  r.resolution = { status, note, closedAt: new Date().toISOString(), commit: git(['rev-parse', 'HEAD']) || null, uncommitted: git(['status', '--porcelain']) !== '' };
+  r.resolution = {
+    status,
+    note,
+    closedAt: new Date().toISOString(),
+    commit: git(['rev-parse', 'HEAD']) || null,
+    uncommitted: git(['status', '--porcelain']) !== '',
+  };
   writeFileSync(join(x.dir, 'report.json'), JSON.stringify(r, null, 1));
   mkdirSync(CLOSED, { recursive: true });
   const to = join(CLOSED, x.id);
