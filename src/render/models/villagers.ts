@@ -378,10 +378,14 @@ const captain: Extra = (k) => {
   );
   hat.add(cyl(0.2, 0.24, 0.16, 8), 0x1f2430, [0, 0.62, -0.02]);
   k.head.take(hat);
-  k.held('r', (p, hand) => {
-    p.add(rod([hand.x, hand.y - 0.03, hand.z - 0.12], [hand.x, hand.y + 0.06, hand.z + 0.36], 0.035, 8, 0.05), PAL.brass);
-    p.add(cyl(0.056, 0.056, 0.05, 8), 0x8a5a34, [hand.x, hand.y + 0.03, hand.z + 0.18], [Math.PI / 2 - 0.18, 0, 0]);
-  }, 'built');
+  k.held(
+    'r',
+    (p, hand) => {
+      p.add(rod([hand.x, hand.y - 0.03, hand.z - 0.12], [hand.x, hand.y + 0.06, hand.z + 0.36], 0.035, 8, 0.05), PAL.brass);
+      p.add(cyl(0.056, 0.056, 0.05, 8), 0x8a5a34, [hand.x, hand.y + 0.03, hand.z + 0.18], [Math.PI / 2 - 0.18, 0, 0]);
+    },
+    'built',
+  );
 };
 
 /** A white collar, buttons, spectacles, a quill behind the ear and a ledger under the arm: the land clerk's. */
@@ -469,13 +473,17 @@ const woodcutter: Extra = (k) => {
   soft(k.head, 0.55, 0.22, 0.51, 0x4f7a3a, [0, 0.44, -0.01], undefined, 0.08);
   k.head.add(box(0.57, 0.07, 0.53), 0x3f6a2e, [0, 0.36, -0.01]);
   k.head.add(ico(0.07, 0), 0x3f6a2e, [0, 0.58, -0.02]);
-  k.held('r', (p, hand) => {
-    // The haft runs from the hand up over the shoulder; the head rides just above and behind it.
-    const top = new THREE.Vector3(hand.x - 0.1, 0.36, -0.12);
-    p.add(rod([hand.x, hand.y - 0.06, hand.z + 0.05], [top.x, top.y, top.z], 0.032, 6), PAL.woodLight);
-    p.add(box(0.06, 0.1, 0.3), PAL.iron, [top.x, top.y - 0.02, top.z - 0.08], [0.35, 0, 0]);
-    p.add(box(0.05, 0.22, 0.06), PAL.steel, [top.x, top.y - 0.05, top.z - 0.24], [0.35, 0, 0]);
-  }, 'built');
+  k.held(
+    'r',
+    (p, hand) => {
+      // The haft runs from the hand up over the shoulder; the head rides just above and behind it.
+      const top = new THREE.Vector3(hand.x - 0.1, 0.36, -0.12);
+      p.add(rod([hand.x, hand.y - 0.06, hand.z + 0.05], [top.x, top.y, top.z], 0.032, 6), PAL.woodLight);
+      p.add(box(0.06, 0.1, 0.3), PAL.iron, [top.x, top.y - 0.02, top.z - 0.08], [0.35, 0, 0]);
+      p.add(box(0.05, 0.22, 0.06), PAL.steel, [top.x, top.y - 0.05, top.z - 0.24], [0.35, 0, 0]);
+    },
+    'built',
+  );
 };
 
 /** A leather vest, a brass miner's helmet with a little lamp and a pickaxe planted: the quarrymaster's. */
@@ -486,12 +494,16 @@ const quarrymaster: Extra = (k) => {
   k.head.add(cyl(0.34, 0.34, 0.03, 10), 0x9a7a35, [0, 0.45, -0.01]);
   k.head.add(box(0.1, 0.1, 0.06), PAL.iron, [0, 0.53, 0.3]);
   k.glow.add(box(0.07, 0.07, 0.02), PAL.glow, [0, 0.53, 0.335]);
-  k.held('r', (p, hand, ground) => {
-    const foot = new THREE.Vector3(hand.x - 0.05, ground + 0.05, hand.z + 0.32);
-    p.add(rod([hand.x, hand.y + 0.06, hand.z], [foot.x, foot.y + 0.14, foot.z], 0.03, 6), PAL.woodLight);
-    p.add(beam3([foot.x, foot.y + 0.1, foot.z - 0.26], [foot.x, foot.y + 0.1, foot.z + 0.26]), PAL.ironLight);
-    p.add(cone(0.035, 0.12, 4), PAL.ironLight, [foot.x, foot.y + 0.05, foot.z + 0.3], [Math.PI / 2 + 0.6, 0, 0]);
-  }, 'built');
+  k.held(
+    'r',
+    (p, hand, ground) => {
+      const foot = new THREE.Vector3(hand.x - 0.05, ground + 0.05, hand.z + 0.32);
+      p.add(rod([hand.x, hand.y + 0.06, hand.z], [foot.x, foot.y + 0.14, foot.z], 0.03, 6), PAL.woodLight);
+      p.add(beam3([foot.x, foot.y + 0.1, foot.z - 0.26], [foot.x, foot.y + 0.1, foot.z + 0.26]), PAL.ironLight);
+      p.add(cone(0.035, 0.12, 4), PAL.ironLight, [foot.x, foot.y + 0.05, foot.z + 0.3], [Math.PI / 2 + 0.6, 0, 0]);
+    },
+    'built',
+  );
 };
 
 /** A short slanted strip (the waistcoat's watch chain). */
