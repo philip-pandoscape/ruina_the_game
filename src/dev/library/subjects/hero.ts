@@ -17,16 +17,6 @@ import { Film } from './film';
 // hero's animation page showed them (the Outdoors toggle). A whole motion in one picture: the
 // library's contact sheet.
 
-/** Hero's private parts the library needs to show a kept frame again. */
-interface HeroInside {
-  trails: Map<string, { mesh: THREE.Object3D }>;
-  place(at: WeaponAt): void;
-  feedback(input: PoseInput, fb: PoseFeedback): void;
-  weaponAt: WeaponAt;
-  weaponShown: number;
-}
-const inside = (h: Hero): HeroInside => h as unknown as HeroInside;
-
 // ---------- the hero's bones ----------
 
 const LOCKED = new Set(['squash', 'eyes']);
@@ -73,11 +63,10 @@ class HeroGhost implements Posable {
 
   apply(s: Snapshot): void {
     const x = s.extra ?? {};
-    const h = inside(this.hero);
     const weapon = typeof x.weapon === 'number' ? x.weapon : DEFAULT_BUILD.weapon;
-    if (h.weaponShown !== weapon) this.hero.setWeapon(weapon);
+    if (this.hero.weaponHeld !== weapon) this.hero.setWeapon(weapon);
     const at = (x.at as WeaponAt | undefined) ?? 'hand';
-    if (h.weaponAt !== at) h.place(at);
+    if (this.hero.weaponState !== at) this.hero.placeWeapon(at);
     writeBones(this.bones, s.joints);
     const root = s.joints['@root'];
     if (root) writeJoint(this.hero.root, root);
@@ -86,8 +75,7 @@ class HeroGhost implements Posable {
   }
 
   capture(): Snapshot {
-    const h = inside(this.hero);
-    return { joints: { ...readBones(this.bones), '@root': readJoint(this.hero.root) }, extra: { weapon: h.weaponShown, at: h.weaponAt } };
+    return { joints: { ...readBones(this.bones), '@root': readJoint(this.hero.root) }, extra: { weapon: this.hero.weaponHeld, at: this.hero.weaponState } };
   }
 
   dispose(): void {
@@ -155,7 +143,7 @@ class HeroTake implements Take {
       m: film.last!,
       input: film.input,
       fb: { arrow: fb.arrow, draw: fb.draw, plant: [fb.plant[0], fb.plant[1]], trail: fb.trail ? { ...fb.trail } : null },
-      at: inside(this.hero).weaponAt,
+      at: this.hero.weaponState,
       travelled: [film.travelled[0], film.travelled[1]],
       buf: this.track.capture(),
     });
@@ -181,11 +169,10 @@ class HeroTake implements Take {
   show(frame: number): void {
     const f = Math.max(0, Math.min(this.frames - 1, Math.round(frame)));
     const k = this.ensure(f);
-    const h = inside(this.hero);
-    if (h.weaponAt !== k.at) h.place(k.at);
+    if (this.hero.weaponState !== k.at) this.hero.placeWeapon(k.at);
     this.track.apply(k.buf);
-    h.feedback(k.input, k.fb);
-    if (!this.decor) for (const arc of h.trails?.values() ?? []) arc.mesh.visible = false;
+    this.hero.feedback(k.input, k.fb);
+    if (!this.decor) this.hero.hideTrails();
     // Kept in view: the take is moved back by however far the hero has travelled (the floor goes the other way).
     this.root.position.set(-k.travelled[0], 0, -k.travelled[1]);
     this.shownFrame = f;
@@ -256,7 +243,7 @@ class HeroTake implements Take {
 
   setDecor(on: boolean): void {
     this.decor = on;
-    if (!on) for (const arc of inside(this.hero).trails?.values() ?? []) arc.mesh.visible = false;
+    if (!on) this.hero.hideTrails();
   }
 
   dispose(): void {

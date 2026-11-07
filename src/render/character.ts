@@ -342,7 +342,7 @@ export class Hero {
     for (const arc of this.trails.values()) arc.mesh.removeFromParent();
     this.trails.clear();
     wear(rig, made.fitted);
-    this.place(this.weaponAt);
+    this.placeWeapon(this.weaponAt);
     this.setWeapon(this.weaponShown);
   }
 
@@ -388,7 +388,7 @@ export class Hero {
   }
 
   /** Puts the weapons in the hand, where they are put away on the body (stow.ts), or out of sight. */
-  private place(at: WeaponAt): void {
+  placeWeapon(at: WeaponAt): void {
     this.weaponAt = at;
     this.rig.showAttachment(at === 'hidden' ? null : weaponId(this.weaponShown) || null);
     // The weapons are the attachments shown one at a time (the nocked arrow comes and goes with the bow).
@@ -411,6 +411,21 @@ export class Hero {
   /** Where the weapon is drawn right now: in a hand, put away, or out of sight. */
   get weaponState(): WeaponAt {
     return this.weaponAt;
+  }
+
+  /** The weapon shown, by its place in WEAPONS (-1 before the first is). */
+  get weaponHeld(): number {
+    return this.weaponShown;
+  }
+
+  /** Where each foot is held while it's planted, for the benches that measure the feet. */
+  get footHolds(): Readonly<Record<Side, Readonly<FootHold>>> {
+    return this.holds;
+  }
+
+  /** Hides the swings' trails (a still picture of a frame, drawn without its effects). */
+  hideTrails(): void {
+    for (const arc of this.trails.values()) arc.hide();
   }
 
   /** The body itself, for benches and tests that measure it. */
@@ -584,7 +599,7 @@ export class Hero {
     // (drawOrSheathe). On foot, in the hand until the hand putting it away lets go of it, halfway
     // through (and back in it halfway through drawing), then at the hip or across the back.
     const at: WeaponAt = input.travel || (input.carry && input.stow >= 1) ? 'hidden' : !input.carry && input.stow >= 0.5 ? 'away' : 'hand';
-    if (at !== this.weaponAt) this.place(at);
+    if (at !== this.weaponAt) this.placeWeapon(at);
     if (input.travel && this.seatHolds) this.reachForHolds(input, this.seatHolds);
     const fb = poseHumanoid(this.rig, input);
 
@@ -727,8 +742,8 @@ export class Hero {
     });
   }
 
-  // Feedback the poses cannot do themselves, because it is not a joint.
-  private feedback(input: PoseInput, fb: PoseFeedback): void {
+  /** Feedback the poses cannot do themselves, because it is not a joint: a frame's own, or a kept one the content library shows again. */
+  feedback(input: PoseInput, fb: PoseFeedback): void {
     for (const arc of this.trails.values()) arc.hide();
     if (fb.trail && input.step) {
       const key = swingKey(input);

@@ -232,7 +232,7 @@ export function feet(id: string, from: number, to: number): string {
     t.step();
     if (f < from) continue;
     t.hero.root.updateMatrixWorld(true);
-    const holds = (t.hero as unknown as { holds: Record<string, { fix: THREE.Vector3; stepping: number }> }).holds;
+    const holds = t.hero.footHolds;
     const cell = (n: 'L' | 'R', i: number) => {
       v.set(0, -0.08, 0.17).applyMatrix4(rig.joint(`foot${n}`).matrixWorld);
       const h = holds[n];
